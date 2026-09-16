@@ -225,6 +225,24 @@ extension NiriLayoutEngine {
         state: inout ViewportState
     ) -> NiriNode? {
         assertSanctionedMutation()
+        if context.orientation == .vertical {
+            if let target = moveSelectionCrossContainer(
+                direction: .down,
+                currentSelection: currentSelection,
+                context: context,
+                state: &state,
+                orientation: context.orientation
+            ) {
+                return target
+            }
+
+            return focusColumnLast(
+                currentSelection: currentSelection,
+                context: context,
+                state: &state
+            )
+        }
+
         if let target = moveSelectionVertical(
             direction: .down,
             currentSelection: currentSelection,
@@ -251,6 +269,24 @@ extension NiriLayoutEngine {
         state: inout ViewportState
     ) -> NiriNode? {
         assertSanctionedMutation()
+        if context.orientation == .vertical {
+            if let target = moveSelectionCrossContainer(
+                direction: .up,
+                currentSelection: currentSelection,
+                context: context,
+                state: &state,
+                orientation: context.orientation
+            ) {
+                return target
+            }
+
+            return focusColumnFirst(
+                currentSelection: currentSelection,
+                context: context,
+                state: &state
+            )
+        }
+
         if let target = moveSelectionVertical(
             direction: .up,
             currentSelection: currentSelection,

@@ -82,6 +82,28 @@ final class NiriDirectionalOrientationTests: XCTestCase {
         try assertOrder(fixture.firstToken, fixture.secondToken, in: rendered, by: \.midX)
     }
 
+    func testVerticalWindowDownOrTopWrapsAcrossStrips() throws {
+        let fixture = try makeFixture(
+            frame: CGRect(x: 0, y: 0, width: 900, height: 1_600),
+            topology: .containers
+        )
+
+        XCTAssertEqual(fixture.orientation, .vertical)
+        execute(.focusNavigation(.windowDownOrTop), on: fixture.controller)
+        assertSelection(fixture.secondNode, in: fixture)
+    }
+
+    func testVerticalWindowUpOrBottomCrossesToAdjacentStrip() throws {
+        let fixture = try makeFixture(
+            frame: CGRect(x: 0, y: 0, width: 900, height: 1_600),
+            topology: .containers
+        )
+
+        XCTAssertEqual(fixture.orientation, .vertical)
+        execute(.focusNavigation(.windowUpOrBottom), on: fixture.controller)
+        assertSelection(fixture.secondNode, in: fixture)
+    }
+
     func testVerticalRootFocusUsesUpForIncreasingRenderedY() throws {
         let fixture = try makeFixture(
             frame: CGRect(x: 0, y: 0, width: 900, height: 1_600),
