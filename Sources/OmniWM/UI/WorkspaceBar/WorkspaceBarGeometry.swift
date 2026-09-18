@@ -84,9 +84,13 @@ struct WorkspaceBarGeometry: Equatable {
                 width: barHeight, height: length
             )
         }
-        let width = max(fittingLength, Self.minimumIslandWidth)
+        var width = max(fittingLength, Self.minimumIslandWidth)
         let centerX = effectivePosition == .bottom ? monitor.visibleFrame.midX : monitor.frame.midX
         var x = centerX - width / 2
+        if let anchor = rightOfNotchAnchor(monitor: monitor, resolved: resolved) {
+            x = anchor
+            width = min(width, availableWidth(monitor: monitor, resolved: resolved))
+        }
         var y = originY(for: monitor)
 
         x += CGFloat(resolved.xOffset)
@@ -106,6 +110,20 @@ struct WorkspaceBarGeometry: Equatable {
             width: max(0, maxX - frame.minX),
             height: menuBarHeight
         )
+    }
+
+    func availableWidth(monitor: Monitor, resolved: ResolvedBarSettings) -> CGFloat {
+        guard let anchor = rightOfNotchAnchor(monitor: monitor, resolved: resolved) else {
+            return monitor.frame.width
+        }
+        return max(0, monitor.frame.maxX - anchor - CGFloat(resolved.xOffset))
+    }
+
+    private func rightOfNotchAnchor(monitor: Monitor, resolved: ResolvedBarSettings) -> CGFloat? {
+        guard resolved.notchMode == .rightOfNotch, monitor.hasNotch,
+              let notch = monitor.notchRange
+        else { return nil }
+        return notch.upperBound + Self.notchGap
     }
 
     func splitFrame(
@@ -185,7 +203,8 @@ struct WorkspaceBarGeometry: Equatable {
         resolved: ResolvedBarSettings
     ) -> WorkspaceBarPosition {
         if monitor.hasNotch,
-           resolved.notchMode == .moveBelowMenuBar,
+           resolved.notchMode == .moveBelowMenuBar
+           || (resolved.notchMode == .rightOfNotch && monitor.notchRange == nil),
            resolved.position == .overlappingMenuBar
         {
             return .belowMenuBar

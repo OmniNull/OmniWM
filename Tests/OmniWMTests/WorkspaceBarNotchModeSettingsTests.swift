@@ -6,6 +6,23 @@ import Foundation
 import XCTest
 
 final class WorkspaceBarNotchModeSettingsTests: XCTestCase {
+    @MainActor
+    func testRightOfNotchRoundTripsAndAppliesSettings() throws {
+        var export = SettingsExport.defaults()
+        export.workspaceBar.notchMode = .rightOfNotch
+        export.monitorBarSettings = [
+            MonitorBarSettings(monitorName: "Built-in", notchMode: .rightOfNotch)
+        ]
+        let decoded = try SettingsTOMLCodec.decode(SettingsTOMLCodec.encode(export))
+        XCTAssertEqual(decoded.workspaceBar.notchMode, .rightOfNotch)
+        XCTAssertEqual(decoded.monitorBarSettings.first?.notchMode, .rightOfNotch)
+
+        let settings = makeSettingsStore()
+        settings.applyExport(decoded)
+        XCTAssertEqual(settings.workspaceBar.notchMode, .rightOfNotch)
+        XCTAssertEqual(settings.workspaceBar.export().notchMode, .rightOfNotch)
+    }
+
     func testNotchModeRoundTrips() throws {
         XCTAssertEqual(SettingsExport.defaults().workspaceBar.notchMode, .moveBelowMenuBar)
 
