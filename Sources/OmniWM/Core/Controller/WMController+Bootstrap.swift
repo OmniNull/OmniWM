@@ -117,6 +117,9 @@ extension WMController {
         self.hiddenBarController.statusItems.fallbackPlacementsProvider = { [weak self] in
             self?.hiddenBarFallbackIconPlacements() ?? []
         }
+        self.workspaceBarManager.onPrimaryBarFramesChanged = { [weak self] in
+            self?.hiddenBarController.statusItems.syncFallbackIcon()
+        }
     }
 
     func setHotkeyRecordingActive(_ active: Bool) {
