@@ -346,6 +346,10 @@ final class WorkspaceBarManager {
         }
     }
 
+    func primaryBarFrame(on monitorId: Monitor.ID) -> CGRect? {
+        barsByMonitor[monitorId]?.primary.panel.frame
+    }
+
     func isWorkspaceBarWindow(_ window: NSWindow) -> Bool {
         barsByMonitor.values.contains {
             $0.primary.panel === window || $0.secondary?.panel === window
@@ -494,10 +498,6 @@ extension WorkspaceBarManager {
         guard let view = barsByMonitor[monitorId]?.statsAnchorView, let window = view.window else { return nil }
         let frame = window.convertToScreen(view.convert(view.bounds, to: nil))
         return WorkspaceBarGeometry.statsButtonAnchor(buttonFrame: frame)
-    }
-
-    func primaryDisplayedFrame(on monitorId: Monitor.ID) -> CGRect? {
-        barsByMonitor[monitorId]?.primary.panel.frame
     }
 
     func popupAttachment(on monitorId: Monitor.ID, forStats: Bool = false) -> PopupAttachment? {

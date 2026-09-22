@@ -22,7 +22,7 @@ final class HiddenBarPanelController {
     var isExemptWindow: ((NSWindow) -> Bool)?
 
     private let model = HiddenBarPanelModel()
-    private(set) var panel: NonactivatingPanel?
+    private var panel: NonactivatingPanel?
     private let dismissalMonitor = PanelDismissalMonitor()
     private var lastPlacement: HiddenBarPanelPlacement?
     private weak var previousKeyWindow: NSWindow?

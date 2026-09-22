@@ -39,6 +39,21 @@ final class StatusMenuPanelTests: XCTestCase {
         XCTAssertEqual(frame.maxX, screen.maxX - 8)
     }
 
+    func testBottomMenuScrollsAboveBarOnShortDisplay() throws {
+        let fixture = makeFixture()
+        defer { fixture.cleanup() }
+        var visibleFrame = try XCTUnwrap(NSScreen.main).visibleFrame
+        visibleFrame.size.height = 200
+        let anchor = CGPoint(x: visibleFrame.midX, y: visibleFrame.minY + 32)
+        fixture.host.show(attachment: PopupAttachment(anchor: anchor, edge: .above), visibleFrame: visibleFrame)
+
+        let panel = try XCTUnwrap(fixture.host.panel)
+        let scrollView = try XCTUnwrap(panel.contentView as? NSScrollView)
+        XCTAssertEqual(panel.frame.minY, anchor.y + 4)
+        XCTAssertTrue(visibleFrame.contains(panel.frame))
+        XCTAssertGreaterThan(try XCTUnwrap(scrollView.documentView).frame.height, scrollView.contentSize.height)
+    }
+
     func testSubmenuOpensRightWhenSpaceIsAvailable() {
         let screen = CGRect(x: 0, y: 0, width: 1920, height: 1080)
         let root = CGRect(x: 100, y: 300, width: 280, height: 600)

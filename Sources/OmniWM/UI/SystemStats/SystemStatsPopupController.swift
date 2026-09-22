@@ -22,7 +22,7 @@ final class SystemStatsPopupController {
     var isToggleSourceWindow: (@MainActor (NSWindow) -> Bool)?
 
     private(set) var isVisible = false
-    private(set) var panel: SystemStatsPopupPanel?
+    private var panel: SystemStatsPopupPanel?
     private let model = SystemStatsModel()
     private var refreshTask: Task<Void, Never>?
     private var eventMonitors: [Any] = []

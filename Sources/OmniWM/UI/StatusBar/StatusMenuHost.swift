@@ -62,7 +62,7 @@ final class StatusMenuHost {
         focusPolicyEngine = controller.focusPolicyEngine
     }
 
-    func toggle(from anchor: NSView, attachment: PopupAttachment? = nil) {
+    func toggle(from anchor: NSView, edge: PopupAttachment.Edge = .below) {
         if isVisible {
             dismiss()
             return
@@ -70,7 +70,7 @@ final class StatusMenuHost {
         guard let window = anchor.window, let screen = window.screen else { return }
         let anchorFrame = window.convertToScreen(anchor.convert(anchor.bounds, to: nil))
         show(
-            attachment: attachment ?? PopupAttachment(sourceFrame: anchorFrame, edge: .below),
+            attachment: PopupAttachment(sourceFrame: anchorFrame, edge: edge),
             visibleFrame: screen.visibleFrame
         )
     }

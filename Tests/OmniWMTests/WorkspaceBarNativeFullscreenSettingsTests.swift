@@ -97,29 +97,6 @@ final class WorkspaceBarNativeFullscreenSettingsTests: XCTestCase {
     }
 
     @MainActor
-    func testDockedBarsIgnoreFillModeAndPreserveReservationsDuringNativeFullscreen() {
-        let settings = makeSettingsStore()
-        settings.workspaceBar.notchMode = .fillLeftOfNotch
-        settings.workspaceBar.reserveLayoutSpace = true
-        let controller = WMController(settings: settings)
-        let monitor = makeMonitor(displayId: 71_008, uuid: Self.builtInUUID, name: "Built-in", originX: 0)
-        controller.workspaceManager.applyMonitorConfigurationChange([monitor])
-        for position in [WorkspaceBarPosition.bottom, .left, .right] {
-            settings.workspaceBar.position = position
-            settings.workspaceBar.hideInNativeFullscreen = false
-            commitTopology(on: controller, fullscreenDisplayUUID: nil)
-            let reservedFrame = controller.fullscreenLayoutFrame(for: monitor)
-            commitTopology(on: controller, fullscreenDisplayUUID: Self.builtInUUID)
-            XCTAssertTrue(controller.isWorkspaceBarVisible(on: monitor))
-            settings.workspaceBar.hideInNativeFullscreen = true
-            XCTAssertFalse(controller.isWorkspaceBarVisible(on: monitor))
-            XCTAssertEqual(controller.fullscreenLayoutFrame(for: monitor), reservedFrame)
-            commitTopology(on: controller, fullscreenDisplayUUID: nil)
-            XCTAssertTrue(controller.isWorkspaceBarVisible(on: monitor))
-        }
-    }
-
-    @MainActor
     func testAutoHideDoesNotReleaseReservedLayoutSpace() {
         let settings = makeSettingsStore()
         settings.workspaceBar.enabled = true

@@ -88,7 +88,7 @@ final class WorkspaceBarInstanceTests: XCTestCase {
         island.applyFrame(initial, using: apply)
         island.applyFrame(retargeted, using: apply)
         XCTAssertEqual(appliedFrames, [initial, retargeted])
-        XCTAssertEqual(island.lastRequestedFrame, retargeted)
+        XCTAssertEqual(island.lastAppliedFrame, retargeted)
     }
 
     func testFrameApplicationAllowsSynchronousIslandRead() {

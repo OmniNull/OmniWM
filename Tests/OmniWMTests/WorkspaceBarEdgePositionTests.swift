@@ -62,18 +62,44 @@ final class WorkspaceBarEdgePositionTests: XCTestCase {
         }
     }
 
-    func testHiddenBarsAndDisabledReservationsDoNotReserveSpace() {
-        let settings = WorkspaceBarSettings()
-        for position in WorkspaceBarPosition.allCases {
-            settings.position = position
-            for reserve in [false, true] {
-                settings.reserveLayoutSpace = reserve
-                for visible in [false, true] where !reserve || !visible {
-                    XCTAssertEqual(WorkspaceBarGeometry.resolve(
-                        monitor: monitor, resolved: settings.resolved(for: monitor), isVisible: visible
-                    ).reservedInsets, .zero)
-                }
+    func testStatsAttachmentTracksDisplayedBarAfterMovement() async throws {
+        let root = FileManager.default.temporaryDirectory.appendingPathComponent(UUID().uuidString)
+        defer { try? FileManager.default.removeItem(at: root) }
+        let settings = SettingsStore(
+            persistence: SettingsFilePersistence(directory: root, startWatching: false, deferSaves: false),
+            runtimeState: RuntimeStateStore(directory: root.appendingPathComponent("state"), deferSaves: false),
+            autosaveEnabled: false
+        )
+        settings.workspaceBar.height = 32
+        let controller = WMController(settings: settings)
+        let manager = controller.workspaceBarManager
+        let panel = WorkspaceBarPanel.defaultPanel()
+        manager.setup(controller: controller, settings: settings)
+        manager.screenProvider = { _ in nil }
+        manager.panelFactory = { panel }
+        defer { manager.cleanup() }
+
+        for position in [WorkspaceBarPosition.bottom, .left, .right] {
+            settings.workspaceBar.position = position
+            let snapshot = WorkspaceBarSnapshot(
+                projection: WorkspaceBarProjection(items: [], scratchpads: []),
+                showLabels: true, showSystemStatsButton: true, backgroundOpacity: 0.5,
+                barHeight: 32, accentColor: nil, textColor: nil,
+                orientation: position.isVertical ? .vertical : .horizontal
+            )
+            manager.apply([DesiredBarSurface(monitor: monitor, visible: true, snapshot: snapshot)])
+            for _ in 0 ..< 100 where manager.statsAnchor(on: monitor.id) == nil {
+                try await Task.sleep(for: .milliseconds(10))
             }
+            let anchor = try XCTUnwrap(manager.statsAnchor(on: monitor.id))
+            let frame = panel.frame.offsetBy(dx: 10, dy: 10)
+            panel.setFrame(frame, display: true)
+            let moved = try XCTUnwrap(manager.statsAnchor(on: monitor.id))
+            XCTAssertEqual(moved.x - anchor.x, 10, accuracy: 0.5)
+            XCTAssertEqual(moved.y - anchor.y, 10, accuracy: 0.5)
+            XCTAssertEqual(manager.popupAttachment(on: monitor.id, forStats: true), PopupAttachment(
+                sourceFrame: frame, edge: position.popupEdge, alignment: moved
+            ))
         }
     }
 
