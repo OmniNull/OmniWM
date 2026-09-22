@@ -277,7 +277,11 @@ final class StatusMenuHost {
         if hosted.view.frame.size != contentSize {
             hosted.view.setFrameSize(contentSize)
         }
-        let panelSize = StatusMenuGeometry.panelSize(contentSize: contentSize, visibleFrame: placement.visibleFrame)
+        var panelSize = StatusMenuGeometry.panelSize(contentSize: contentSize, visibleFrame: placement.visibleFrame)
+        if page == .root, placement.attachment.edge == .above {
+            let availableHeight = placement.visibleFrame.maxY - placement.attachment.anchor.y - 4
+            panelSize.height = min(panelSize.height, max(1, availableHeight))
+        }
         let frame: CGRect
         if page == .root {
             frame = placement.attachment.frame(size: panelSize, visibleFrame: placement.visibleFrame)

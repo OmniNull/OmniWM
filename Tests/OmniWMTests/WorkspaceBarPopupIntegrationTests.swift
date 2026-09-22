@@ -51,7 +51,8 @@ final class WorkspaceBarPopupIntegrationTests: XCTestCase {
             model: StatusMenuModel(settings: fixture.settings, controller: fixture.controller),
             controller: fixture.controller
         )
-        defer { host.dismiss()
+        defer {
+            host.dismiss()
             iconPanel.close()
         }
         for position in [WorkspaceBarPosition.bottom, .left, .right] {
@@ -65,8 +66,11 @@ final class WorkspaceBarPopupIntegrationTests: XCTestCase {
             XCTAssertEqual(attachment.edge, position.popupEdge)
             host.toggle(from: icon, attachment: attachment)
             let frame = try XCTUnwrap(host.panel?.frame)
-            XCTAssertFalse(frame.intersects(iconPanel.frame))
-            XCTAssertFalse(frame.intersects(fixture.barPanel.frame))
+            XCTAssertFalse(frame.intersects(iconPanel.frame), "\(position): menu \(frame), icon \(iconPanel.frame)")
+            XCTAssertFalse(
+                frame.intersects(fixture.barPanel.frame),
+                "\(position): menu \(frame), bar \(fixture.barPanel.frame)"
+            )
             host.dismiss()
         }
         let item = NSStatusBar.system.statusItem(withLength: NSStatusItem.variableLength)
@@ -75,6 +79,29 @@ final class WorkspaceBarPopupIntegrationTests: XCTestCase {
         XCTAssertEqual(fixture.controller.statusMenuAttachment(from: button)?.edge, .below)
         fixture.settings.workspaceBar.enabled = false
         XCTAssertEqual(fixture.controller.statusMenuAttachment(from: icon)?.edge, .below)
+    }
+
+    func testBottomStatusMenuScrollsAboveBarOnShortDisplay() throws {
+        let fixture = try Fixture()
+        defer { fixture.cleanup() }
+        fixture.settings.workspaceBar.position = .bottom
+        fixture.applyBar()
+        let host = StatusMenuHost(
+            model: StatusMenuModel(settings: fixture.settings, controller: fixture.controller),
+            controller: fixture.controller
+        )
+        defer { host.dismiss() }
+        var visibleFrame = fixture.monitor.visibleFrame
+        visibleFrame.size.height = 200
+        host.show(
+            attachment: PopupAttachment(sourceFrame: fixture.barPanel.frame, edge: .above),
+            visibleFrame: visibleFrame
+        )
+        let panel = try XCTUnwrap(host.panel)
+        let scrollView = try XCTUnwrap(panel.contentView as? NSScrollView)
+        XCTAssertGreaterThanOrEqual(panel.frame.minY, fixture.barPanel.frame.maxY + 4)
+        XCTAssertTrue(visibleFrame.contains(panel.frame))
+        XCTAssertGreaterThan(try XCTUnwrap(scrollView.documentView).frame.height, scrollView.contentSize.height)
     }
 
     func testStatsControllerUsesActualBarEdgeForAllDockedPositions() async throws {

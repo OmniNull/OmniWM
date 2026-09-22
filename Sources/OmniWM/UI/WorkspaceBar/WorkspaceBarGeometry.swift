@@ -85,7 +85,8 @@ struct WorkspaceBarGeometry: Equatable {
             )
         }
         let width = max(fittingLength, Self.minimumIslandWidth)
-        var x = monitor.frame.midX - width / 2
+        let centerX = effectivePosition == .bottom ? monitor.visibleFrame.midX : monitor.frame.midX
+        var x = centerX - width / 2
         var y = originY(for: monitor)
 
         x += CGFloat(resolved.xOffset)

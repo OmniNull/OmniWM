@@ -10,7 +10,7 @@ final class WorkspaceBarEdgePositionTests: XCTestCase {
     private let monitor = Monitor(
         id: .init(displayId: 7), displayId: 7,
         frame: CGRect(x: -1440, y: -900, width: 1440, height: 900),
-        visibleFrame: CGRect(x: -1380, y: -840, width: 1320, height: 808),
+        visibleFrame: CGRect(x: -1380, y: -840, width: 1380, height: 808),
         hasNotch: true, name: "External"
     )
 
@@ -35,9 +35,9 @@ final class WorkspaceBarEdgePositionTests: XCTestCase {
         settings.yOffset = -7
         settings.reserveLayoutSpace = true
         let cases: [(WorkspaceBarPosition, CGRect, Struts)] = [
-            (.bottom, CGRect(x: -815, y: -847, width: 200, height: 32), Struts(bottom: 32)),
+            (.bottom, CGRect(x: -785, y: -847, width: 200, height: 32), Struts(bottom: 32)),
             (.left, CGRect(x: -1375, y: -543, width: 32, height: 200), Struts(left: 32)),
-            (.right, CGRect(x: -87, y: -543, width: 32, height: 200), Struts(right: 32))
+            (.right, CGRect(x: -27, y: -543, width: 32, height: 200), Struts(right: 32))
         ]
         for (position, expectedFrame, insets) in cases {
             settings.position = position
