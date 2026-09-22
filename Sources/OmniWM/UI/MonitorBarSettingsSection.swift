@@ -74,7 +74,7 @@ struct MonitorBarSettingsSection: View {
                 onReset: { updateSetting { $0.reserveLayoutSpace = nil } }
             )
             .help(
-                "Reserve tiled layout space using the configured workspace bar height."
+                "Reserve tiled layout space at the selected edge using the configured bar thickness."
             )
 
             OverridablePicker(
@@ -87,7 +87,7 @@ struct MonitorBarSettingsSection: View {
                 onReset: { updateSetting { $0.notchMode = nil } }
             )
             .help(
-                "Move below the notch, split around it, or fill the area to its left, covering application menus. Without a notch, Fill Left covers the left half of the menu bar."
+                "Move below the notch, split around it, or fill the area to its left, covering application menus. Without a notch, Fill Left covers the left half of the menu bar. Notch modes are ignored at Bottom, Left, and Right."
             )
 
             OverridableSlider(
@@ -151,7 +151,7 @@ struct MonitorBarSettingsSection: View {
 
         Section("Appearance") {
             OverridableSlider(
-                label: String(localized: "Bar Height"),
+                label: String(localized: "Bar Thickness"),
                 value: ms.height,
                 globalValue: settings.workspaceBar.height,
                 range: 20 ... 40,

@@ -11,7 +11,7 @@ final class WorkspaceBarIslandPanel {
     let interaction: WorkspaceBarIslandInteraction
     var slice: WorkspaceBarIslandSlice
     var showsSystemStatsButton: Bool
-    var lastAppliedFrame: NSRect?
+    var lastRequestedFrame: NSRect?
 
     init(
         panel: WorkspaceBarPanel,
@@ -30,7 +30,7 @@ final class WorkspaceBarIslandPanel {
         self.interaction = interaction
         slice = rootView.slice
         showsSystemStatsButton = rootView.showsSystemStatsButton
-        lastAppliedFrame = nil
+        lastRequestedFrame = nil
         applySettings(resolved: resolved)
     }
 
@@ -48,8 +48,8 @@ final class WorkspaceBarIslandPanel {
         _ frame: NSRect,
         using frameApplier: (WorkspaceBarPanel, NSRect) -> Void
     ) {
-        guard lastAppliedFrame != frame else { return }
+        guard lastRequestedFrame != frame else { return }
         frameApplier(panel, frame)
-        lastAppliedFrame = frame
+        lastRequestedFrame = frame
     }
 }

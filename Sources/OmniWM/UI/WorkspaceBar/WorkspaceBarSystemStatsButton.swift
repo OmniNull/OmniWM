@@ -12,7 +12,7 @@ struct SystemStatsButtonView: View {
     let accentColor: Color?
     let textColor: Color?
     let onToggle: () -> Void
-    let onAnchorChange: (CGPoint?) -> Void
+    let onAnchorChange: (NSView?) -> Void
 
     @State private var isHovered = false
 
@@ -60,43 +60,30 @@ struct SystemStatsButtonView: View {
 }
 
 private struct WorkspaceBarAnchorReporter: NSViewRepresentable {
-    let onChange: (CGPoint?) -> Void
+    let onChange: (NSView?) -> Void
 
-    func makeNSView(context: Context) -> NSView {
-        NSView(frame: .zero)
+    func makeNSView(context: Context) -> AnchorView {
+        AnchorView(frame: .zero)
     }
 
-    func updateNSView(_ nsView: NSView, context: Context) {
-        DispatchQueue.main.async {
-            context.coordinator.report(nsView)
-        }
-    }
-
-    func makeCoordinator() -> Coordinator {
-        Coordinator(onChange: onChange)
+    func updateNSView(_ nsView: AnchorView, context: Context) {
+        nsView.onChange = onChange
+        nsView.report()
     }
 
     @MainActor
-    final class Coordinator {
-        private let onChange: (CGPoint?) -> Void
-        private var lastAnchor: CGPoint?
+    final class AnchorView: NSView {
+        var onChange: (NSView?) -> Void = { _ in }
 
-        init(onChange: @escaping (CGPoint?) -> Void) {
-            self.onChange = onChange
+        override func viewDidMoveToWindow() {
+            super.viewDidMoveToWindow()
+            report()
         }
 
-        func report(_ view: NSView) {
-            let anchor: CGPoint?
-            if let window = view.window {
-                let localFrame = view.convert(view.bounds, to: nil)
-                let screenFrame = window.convertToScreen(localFrame)
-                anchor = WorkspaceBarGeometry.statsButtonAnchor(buttonFrame: screenFrame)
-            } else {
-                anchor = nil
-            }
-            if anchor != lastAnchor {
-                lastAnchor = anchor
-                onChange(anchor)
+        func report() {
+            DispatchQueue.main.async { [weak self] in
+                guard let self, self.window != nil else { return }
+                self.onChange(self)
             }
         }
     }

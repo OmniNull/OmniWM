@@ -519,6 +519,35 @@ final class WorkspaceBarViewLayoutTests: XCTestCase {
         )
     }
 
+    func testVerticalMeasurementStacksWindowsScratchpadsAndStatsWithinThickness() {
+        let windows = (0 ..< 4).map {
+            makeWindowItem(appName: "App \($0)", windowCount: 1, hiddenWindowCount: 0, tokenOffset: $0)
+        }
+        let item = WorkspaceBarItem(
+            id: UUID(), name: "Long workspace label", rawName: "1", isFocused: true,
+            tiledWindows: Array(windows.prefix(2)), floatingWindows: Array(windows.suffix(2))
+        )
+        let snapshot = WorkspaceBarSnapshot(
+            projection: WorkspaceBarProjection(items: [item], scratchpads: []),
+            showLabels: true, showSystemStatsButton: true, backgroundOpacity: 0.6,
+            barHeight: 32, accentColor: nil, textColor: nil, orientation: .vertical
+        )
+        let plain = NSHostingView(rootView: WorkspaceBarMeasurementView(snapshot: snapshot))
+        plain.layoutSubtreeIfNeeded()
+        XCTAssertEqual(plain.fittingSize.width, 32, accuracy: 0.5)
+        XCTAssertGreaterThan(plain.fittingSize.height, 100)
+        let withScratchpad = snapshot.replacingScratchpads([
+            WorkspaceBarScratchpadItem(index: 1, label: "Long scratchpad label", windows: windows, isVisible: true)
+        ])
+        XCTAssertEqual(withScratchpad.orientation, .vertical)
+        let full = NSHostingView(rootView: WorkspaceBarMeasurementView(
+            snapshot: withScratchpad, showsSystemStatsButton: true
+        ))
+        full.layoutSubtreeIfNeeded()
+        XCTAssertEqual(full.fittingSize.width, 32, accuracy: 0.5)
+        XCTAssertGreaterThan(full.fittingSize.height, plain.fittingSize.height + 32)
+    }
+
     private func makeWindowItem(
         appName: String,
         windowCount: Int,

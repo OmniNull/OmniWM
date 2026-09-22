@@ -18,6 +18,7 @@ struct ScratchpadPillView: View {
 
     @State private var isHovered = false
     @Environment(\.workspaceBarInteraction) private var interaction
+    @Environment(\.workspaceBarOrientation) private var orientation
 
     private var resolvedAccentColor: Color {
         accentColor ?? .accentColor
@@ -43,7 +44,7 @@ struct ScratchpadPillView: View {
         Button {
             onActivateScratchpad(item.index)
         } label: {
-            HStack(spacing: item.presentation == .compact ? 3 : 5) {
+            orientation.stack(spacing: item.presentation == .compact ? 3 : 5) {
                 if item.presentation == .expanded {
                     Image(systemName: "tray.fill")
                         .font(.system(size: max(10, iconSize * 0.64), weight: .semibold))
@@ -100,8 +101,8 @@ struct ScratchpadPillView: View {
                     }
                 }
             }
-            .padding(.horizontal, item.presentation == .compact ? 5 : 8)
-            .frame(height: itemHeight)
+            .padding(orientation.isVertical ? .vertical : .horizontal, item.presentation == .compact ? 5 : 8)
+            .frame(width: orientation.isVertical ? itemHeight : nil, height: orientation.isVertical ? nil : itemHeight)
             .contentShape(Capsule(style: .continuous))
         }
         .buttonStyle(.plain)

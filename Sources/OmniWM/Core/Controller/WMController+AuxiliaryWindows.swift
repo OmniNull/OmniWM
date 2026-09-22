@@ -23,17 +23,17 @@ extension WMController {
         hiddenBarController.togglePanel(placement: hiddenBarPanelPlacement())
     }
 
-    private func hiddenBarPanelPlacement() -> HiddenBarPanelPlacement? {
+    func hiddenBarPanelPlacement() -> HiddenBarPanelPlacement? {
         let monitors = workspaceManager.monitors
         guard let monitor = currentMouseLocation().monitorApproximation(in: monitors)
             ?? monitors.first(where: \.isMain) ?? monitors.first
         else { return nil }
         let resolved = settings.workspaceBar.resolved(for: monitor)
+        let attachment = isWorkspaceBarVisible(on: monitor, resolved: resolved)
+            ? workspaceBarManager.popupAttachment(on: monitor.id) : nil
         return HiddenBarPanelPlacement(
-            anchor: HiddenBarPanelController.panelAnchor(
-                monitor: monitor,
-                resolved: resolved,
-                barVisible: isWorkspaceBarVisible(on: monitor, resolved: resolved)
+            attachment: attachment ?? PopupAttachment(
+                anchor: CGPoint(x: monitor.frame.midX, y: monitor.visibleFrame.maxY)
             ),
             visibleFrame: monitor.visibleFrame
         )
@@ -47,7 +47,8 @@ extension WMController {
                 frame: HiddenBarFallbackIconController.iconFrame(
                     monitor: monitor,
                     barVisible: isWorkspaceBarVisible(on: monitor, resolved: resolved),
-                    barFrame: workspaceBarManager.primaryBarFrame(on: monitor.id)
+                    barFrame: workspaceBarManager.primaryDisplayedFrame(on: monitor.id),
+                    position: resolved.position
                 )
             )
         }
@@ -112,15 +113,31 @@ extension WMController {
 
     func toggleSystemStatsFromBar(on monitorId: Monitor.ID) {
         guard let monitor = workspaceManager.monitors.first(where: { $0.id == monitorId }),
-              let anchor = workspaceBarManager.statsAnchor(on: monitorId)
+              workspaceBarManager.statsAnchor(on: monitorId) != nil,
+              let attachment = workspaceBarManager.popupAttachment(on: monitorId, forStats: true)
         else {
             return
         }
         systemStatsPopupController.toggle(
-            anchor: anchor,
+            attachment: attachment,
             monitorId: monitorId,
             screenVisibleFrame: monitor.visibleFrame
         )
+    }
+
+    func statusMenuAttachment(from anchor: NSView) -> PopupAttachment? {
+        guard let window = anchor.window else { return nil }
+        let frame = window.convertToScreen(anchor.convert(anchor.bounds, to: nil))
+        var edge = PopupAttachment.Edge.below
+        if anchor is HiddenBarFallbackIconButton,
+           let monitor = workspaceManager.monitors.first(where: { $0.displayId == window.screen?.displayId })
+        {
+            let resolved = settings.workspaceBar.resolved(for: monitor)
+            if isWorkspaceBarVisible(on: monitor, resolved: resolved) {
+                edge = workspaceBarManager.popupAttachment(on: monitor.id)?.edge ?? .below
+            }
+        }
+        return PopupAttachment(sourceFrame: frame, edge: edge)
     }
 
     func dismissSystemStatsPopup(anchoredTo monitorId: Monitor.ID) {

@@ -27,13 +27,13 @@ struct WorkspaceBarGeometry: Equatable {
     static let minimumSplitSideSpace: CGFloat = 60
     static let minimumIslandWidth: CGFloat = 40
     static func statsButtonAnchor(buttonFrame: CGRect) -> CGPoint {
-        CGPoint(x: buttonFrame.midX, y: buttonFrame.minY)
+        CGPoint(x: buttonFrame.midX, y: buttonFrame.midY)
     }
 
     let effectivePosition: WorkspaceBarPosition
     let menuBarHeight: CGFloat
     let barHeight: CGFloat
-    let reservedTopInset: CGFloat
+    let reservedInsets: Struts
 
     static func resolve(
         monitor: Monitor,
@@ -48,18 +48,26 @@ struct WorkspaceBarGeometry: Equatable {
             resolved: resolved
         )
         let barHeight = isFill ? resolvedMenuBarHeight : max(0, CGFloat(resolved.height))
-        let reservedTopInset = isFill ? 0 : (isVisible && resolved.reserveLayoutSpace ? barHeight : 0)
+        let reservedInset = isFill ? 0 : (isVisible && resolved.reserveLayoutSpace ? barHeight : 0)
 
+        var insets = Struts.zero
+        switch effectivePosition {
+        case .overlappingMenuBar,
+             .belowMenuBar: insets.top = reservedInset
+        case .bottom: insets.bottom = reservedInset
+        case .left: insets.left = reservedInset
+        case .right: insets.right = reservedInset
+        }
         return WorkspaceBarGeometry(
             effectivePosition: effectivePosition,
             menuBarHeight: resolvedMenuBarHeight,
             barHeight: barHeight,
-            reservedTopInset: reservedTopInset
+            reservedInsets: insets
         )
     }
 
     func frame(
-        fittingWidth: CGFloat,
+        fittingLength: CGFloat,
         monitor: Monitor,
         resolved: ResolvedBarSettings
     ) -> CGRect {
@@ -67,7 +75,16 @@ struct WorkspaceBarGeometry: Equatable {
             return fillLeftOfNotchFrame(for: monitor)
         }
 
-        let width = max(fittingWidth, Self.minimumIslandWidth)
+        if effectivePosition.isVertical {
+            let length = min(max(fittingLength, Self.minimumIslandWidth), monitor.visibleFrame.height)
+            return CGRect(
+                x: (effectivePosition == .left ? monitor.visibleFrame.minX : monitor.visibleFrame.maxX - barHeight)
+                    + CGFloat(resolved.xOffset),
+                y: monitor.visibleFrame.midY - length / 2 + CGFloat(resolved.yOffset),
+                width: barHeight, height: length
+            )
+        }
+        let width = max(fittingLength, Self.minimumIslandWidth)
         var x = monitor.frame.midX - width / 2
         var y = originY(for: monitor)
 
@@ -153,7 +170,13 @@ struct WorkspaceBarGeometry: Equatable {
     }
 
     func originY(for monitor: Monitor) -> CGFloat {
-        effectivePosition == .belowMenuBar ? monitor.visibleFrame.maxY - barHeight : monitor.visibleFrame.maxY
+        switch effectivePosition {
+        case .overlappingMenuBar: monitor.visibleFrame.maxY
+        case .belowMenuBar: monitor.visibleFrame.maxY - barHeight
+        case .bottom,
+             .left,
+             .right: monitor.visibleFrame.minY
+        }
     }
 
     static func effectivePosition(

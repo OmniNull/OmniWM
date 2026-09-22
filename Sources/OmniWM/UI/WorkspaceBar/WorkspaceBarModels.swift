@@ -133,6 +133,7 @@ struct WorkspaceBarSnapshot: Equatable {
     let showItemBackgrounds: Bool
     let showAccentHighlights: Bool
     let barHeight: CGFloat
+    let orientation: WorkspaceBarOrientation
     let accentColor: SettingsColor?
     let textColor: SettingsColor?
 
@@ -148,7 +149,8 @@ struct WorkspaceBarSnapshot: Equatable {
         showAccentHighlights: Bool = true,
         barHeight: CGFloat,
         accentColor: SettingsColor?,
-        textColor: SettingsColor?
+        textColor: SettingsColor?,
+        orientation: WorkspaceBarOrientation = .horizontal
     ) {
         self.projection = projection
         self.showLabels = showLabels
@@ -160,6 +162,7 @@ struct WorkspaceBarSnapshot: Equatable {
         self.showItemBackgrounds = showItemBackgrounds
         self.showAccentHighlights = showAccentHighlights
         self.barHeight = barHeight
+        self.orientation = orientation
         self.accentColor = accentColor
         self.textColor = textColor
     }
@@ -201,7 +204,8 @@ struct WorkspaceBarSnapshot: Equatable {
             showAccentHighlights: showAccentHighlights,
             barHeight: barHeight,
             accentColor: accentColor,
-            textColor: textColor
+            textColor: textColor,
+            orientation: orientation
         )
     }
 }
