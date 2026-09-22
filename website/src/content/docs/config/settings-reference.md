@@ -223,19 +223,19 @@ The per-monitor workspace bar. Per-monitor exceptions live in [`monitorBarOverri
 | `showLabels` | boolean | `true` | Shows workspace names next to their numbers. |
 | `showFloatingWindows` | boolean | `false` | Includes floating windows' icons in workspace pills. |
 | `windowLevel` | string | `"popup"` | Bar window level: `normal`, `floating`, `status`, `popup`, `screensaver`. |
-| `position` | string | `"overlappingMenuBar"` | `overlappingMenuBar` or `belowMenuBar`. |
-| `notchMode` | string | `"moveBelowMenuBar"` | Notch handling: `off`, `moveBelowMenuBar`, `splitActiveLeft`, `splitActiveRight`, or `fillLeftOfNotch`. The last fills the menu-bar area left of the notch and covers app menus; without a notch it uses the left half of the menu bar. In this mode `position`, `xOffset`, `yOffset`, `height`, and `reserveLayoutSpace` are ignored: the bar uses the menu-bar height and reserves no layout space. |
+| `position` | string | `"overlappingMenuBar"` | `overlappingMenuBar`, `belowMenuBar`, `bottom`, `left`, or `right`. **Unreleased:** bottom and side placements follow the usable display edge, avoiding a visible Dock. |
+| `notchMode` | string | `"moveBelowMenuBar"` | Notch handling: `off`, `moveBelowMenuBar`, `splitActiveLeft`, `splitActiveRight`, or `fillLeftOfNotch`. The last fills the menu-bar area left of the notch and covers app menus; without a notch it uses the left half of the menu bar. At top positions, this mode overrides `position`, `xOffset`, `yOffset`, `height`, and `reserveLayoutSpace`: the bar uses the menu-bar height and reserves no layout space. Bottom/left/right ignore notch modes without changing the saved preference. |
 | `notchActiveZoneWidth` | float | `180.0` | Width in points of the active zone around the notch. |
 | `systemStatsButton` | boolean | `false` | Adds a system stats button to the bar. |
 | `deduplicateAppIcons` | boolean | `false` | Collapses repeated icons of the same app within a pill. |
 | `hideEmptyWorkspaces` | boolean | `false` | Hides pills for workspaces with no windows. |
 | `excludedBundleIDs` | string array | `[]` | Bundle IDs whose windows never contribute icons to the bar. |
 | `iconOverrides` | table | `{}` | Bundle ID → custom icon source (see below). |
-| `reserveLayoutSpace` | boolean | `false` | Reserves tiled layout space using the configured bar height. |
+| `reserveLayoutSpace` | boolean | `false` | Reserves the configured bar thickness at its selected edge for tiled and layout-fullscreen windows. Offsets do not change the reservation. |
 | `revealModifier` | string | `"off"` | Reveal the bar by holding a modifier. Any value other than `off` makes the bar overlay-only: it reserves no layout space at all while the modifier is configured, not just while it is held. Values: `off`, `option`, `control`, `command`, `shift`, `controlOption`, `optionCommand`, `optionShift`, `controlCommand`, `controlShift`, `commandShift`, `controlOptionCommand`, `controlOptionShift`, `optionCommandShift`, `controlCommandShift`, `controlOptionCommandShift`. |
 | `revealHoldMilliseconds` | float | `200.0` | How long the modifier must be held before the bar reveals. |
-| `hideInNativeFullscreen` | boolean | `false` | Hides the bar while a native-fullscreen space is active. `fillLeftOfNotch` always hides there, regardless of this setting. |
-| `height` | float | `24.0` | Bar height in points. |
+| `hideInNativeFullscreen` | boolean | `false` | Hides the bar while a native-fullscreen space is active. Effective `fillLeftOfNotch` at a top position always hides there, regardless of this setting. |
+| `height` | float | `24.0` | Bar thickness in points: height for horizontal bars, width for left/right bars. Side bars scroll when content exceeds the usable display height. |
 | `backgroundOpacity` | float | `0.1` | Bar background opacity (`0.0`–`1.0`). |
 | `inactiveIconOpacity` *(optional)* | float | unset | Opacity of unfocused app icons; finite values clamp to `0.0`–`1.0`. Omit to use the built-in appearance; Reset to System Default clears the override. |
 | `transparentBackground` *(optional)* | boolean | `false` | Hides the bar material, tint, and border while keeping its contents interactive. Takes precedence over `solidBlackBackground`. |
