@@ -636,7 +636,7 @@ OmniWM checks for updates by default.
 
 ## Documentation
 
-The canonical documentation hub lives at [omniwm.app](https://omniwm.app). This README and the guides follow current `main`; features newer than the latest release are marked **Unreleased**.
+The canonical documentation hub lives at [omniwm.app](https://omniwm.app). This README and the guides follow current `main` and may include changes not yet in the latest release.
 
 - [Documentation Home](https://omniwm.app/guides/quick-start/)
 - [Layout Modes](https://omniwm.app/guides/layouts/)
@@ -942,7 +942,7 @@ Workspace-bar appearance controls are optional and also support per-monitor over
 - **Inactive Icon Opacity** adjusts non-focused app icons. Leaving it unset preserves the standard opacity for each kind of item; hidden-app icons retain their hidden-state appearance. Values are limited to 0–1, and nonfinite values are treated as unset.
 - Disable **Show Item Backgrounds** to remove the backgrounds behind workspace groups, floating windows, scratchpads, and the stats button.
 - Disable **Show Accent Highlights** to remove focused-item accent outlines and glows without changing focus behavior.
-- **Bottom / Left / Right placement** (unreleased) docks at the usable display edge. Side bars stack upright content and scroll when needed; **Bar Thickness** controls their width. See [Workspace Bar](website/src/content/docs/features/workspace-bar.md) for details.
+- **Bottom / Left / Right placement** docks at the usable display edge. Side bars stack upright content and scroll when needed; **Bar Thickness** controls their width. See [Workspace Bar](website/src/content/docs/features/workspace-bar.md) for details.
 - **Fill Left of Notch** covers the menu-bar band from the display's left edge to the notch, or to the display midpoint when no notch is present. This deliberately covers application menus; choose another notch mode to access them again. At top positions, this mode uses the menu-bar height, overrides position/offset/height controls, and does not reserve extra tiled layout space. It always hides on displays showing native fullscreen content. Bottom/Left/Right ignore notch modes and follow **Hide in Native Fullscreen**.
 
 Existing appearance stays unchanged until you opt in. For example, edit these keys inside the existing `[workspaceBar]` table (do not replace the complete configuration with this fragment):

@@ -34,10 +34,6 @@ Configure position, height, and appearance in Settings:
 
 ### Bottom and side placement
 
-:::note[Unreleased]
-Bottom, Left, and Right require a source build containing these changes.
-:::
-
 ```toml
 [workspaceBar]
 position = "bottom" # also "left" or "right"
