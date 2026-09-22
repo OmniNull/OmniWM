@@ -34,6 +34,8 @@ Configure position, height, and appearance in Settings:
 
 ### Bottom and side placement
 
+**Unreleased** — available when building from `main`.
+
 ```toml
 [workspaceBar]
 position = "bottom" # also "left" or "right"
@@ -43,7 +45,7 @@ Placement follows the usable display edge, avoiding a visible Dock. X/Y offsets 
 
 Side bars stack upright labels and icons and scroll vertically when needed. **Bar Thickness** (`height` in TOML) controls their width. Stats, hidden-icon panels, and the fallback OmniWM menu open inward from the displayed bar or icon.
 
-Notch modes, including **Fill Left of Notch**, are ignored at bottom/left/right without changing your saved preference. Per-display overrides accept the same positions. Existing visibility toggles, modifier-hold reveal, and **Hide in Native Fullscreen** still apply; modifier-hold bars remain overlay-only.
+Notch modes, including **Fill Left of Notch**, are ignored at bottom/left/right without changing your saved preference. Existing visibility settings still apply; modifier-hold bars remain overlay-only.
 
 ### Additional appearance controls
 
