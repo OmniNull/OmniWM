@@ -4,7 +4,7 @@
 import CoreGraphics
 
 struct PopupAttachment: Equatable {
-    enum Edge: CaseIterable {
+    enum Edge: Equatable {
         case above, below, left, right
     }
 

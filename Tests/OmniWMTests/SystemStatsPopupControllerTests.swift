@@ -11,11 +11,7 @@ final class SystemStatsPopupControllerTests: XCTestCase {
     private let screen = CGRect(x: 0, y: 0, width: 1512, height: 950)
 
     func testPopupFrameHangsBelowAnchorCentered() {
-        let frame = SystemStatsPopupController.popupFrame(
-            anchor: CGPoint(x: 756, y: 900),
-            size: size,
-            screenVisibleFrame: screen
-        )
+        let frame = PopupAttachment(anchor: CGPoint(x: 756, y: 900)).frame(size: size, visibleFrame: screen)
 
         XCTAssertEqual(frame.midX, 756)
         XCTAssertEqual(frame.maxY, 896)
@@ -23,27 +19,15 @@ final class SystemStatsPopupControllerTests: XCTestCase {
     }
 
     func testPopupFrameClampsAtLeftAndRightEdges() {
-        let left = SystemStatsPopupController.popupFrame(
-            anchor: CGPoint(x: 10, y: 900),
-            size: size,
-            screenVisibleFrame: screen
-        )
+        let left = PopupAttachment(anchor: CGPoint(x: 10, y: 900)).frame(size: size, visibleFrame: screen)
         XCTAssertEqual(left.minX, 8)
 
-        let right = SystemStatsPopupController.popupFrame(
-            anchor: CGPoint(x: 1508, y: 900),
-            size: size,
-            screenVisibleFrame: screen
-        )
+        let right = PopupAttachment(anchor: CGPoint(x: 1508, y: 900)).frame(size: size, visibleFrame: screen)
         XCTAssertEqual(right.maxX, screen.maxX - 8)
     }
 
     func testPopupFrameClampsAtBottomEdge() {
-        let frame = SystemStatsPopupController.popupFrame(
-            anchor: CGPoint(x: 756, y: 100),
-            size: size,
-            screenVisibleFrame: screen
-        )
+        let frame = PopupAttachment(anchor: CGPoint(x: 756, y: 100)).frame(size: size, visibleFrame: screen)
 
         XCTAssertEqual(frame.minY, 8)
     }

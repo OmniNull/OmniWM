@@ -75,10 +75,6 @@ final class StatusMenuHost {
         )
     }
 
-    func show(anchor: CGPoint, visibleFrame: CGRect) {
-        show(attachment: PopupAttachment(anchor: anchor), visibleFrame: visibleFrame)
-    }
-
     func show(attachment: PopupAttachment, visibleFrame: CGRect) {
         guard !isVisible else { return }
         placement = (attachment, visibleFrame)

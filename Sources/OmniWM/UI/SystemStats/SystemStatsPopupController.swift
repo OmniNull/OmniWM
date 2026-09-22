@@ -53,10 +53,6 @@ final class SystemStatsPopupController {
         }
     }
 
-    nonisolated static func popupFrame(anchor: CGPoint, size: CGSize, screenVisibleFrame: CGRect) -> CGRect {
-        NonactivatingPanel.frame(anchor: anchor, size: size, screenVisibleFrame: screenVisibleFrame)
-    }
-
     static func targetMonitor(
         pointer: Monitor?,
         main: Monitor?,

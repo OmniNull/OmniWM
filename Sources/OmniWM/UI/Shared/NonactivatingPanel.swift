@@ -12,10 +12,6 @@ final class NonactivatingPanel: NSPanel {
     override var canBecomeMain: Bool {
         false
     }
-
-    nonisolated static func frame(anchor: CGPoint, size: CGSize, screenVisibleFrame: CGRect) -> CGRect {
-        PopupAttachment(anchor: anchor).frame(size: size, visibleFrame: screenVisibleFrame)
-    }
 }
 
 @MainActor

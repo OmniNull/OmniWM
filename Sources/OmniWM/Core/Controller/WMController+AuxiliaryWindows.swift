@@ -113,7 +113,6 @@ extension WMController {
 
     func toggleSystemStatsFromBar(on monitorId: Monitor.ID) {
         guard let monitor = workspaceManager.monitors.first(where: { $0.id == monitorId }),
-              workspaceBarManager.statsAnchor(on: monitorId) != nil,
               let attachment = workspaceBarManager.popupAttachment(on: monitorId, forStats: true)
         else {
             return

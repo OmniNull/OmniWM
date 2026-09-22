@@ -31,11 +31,8 @@ final class StatusMenuPanelTests: XCTestCase {
             contentSize: CGSize(width: 280, height: 1200),
             visibleFrame: screen
         )
-        let frame = NonactivatingPanel.frame(
-            anchor: CGPoint(x: screen.maxX, y: screen.maxY),
-            size: size,
-            screenVisibleFrame: screen
-        )
+        let frame = PopupAttachment(anchor: CGPoint(x: screen.maxX, y: screen.maxY))
+            .frame(size: size, visibleFrame: screen)
 
         XCTAssertEqual(size, CGSize(width: 280, height: 684))
         XCTAssertTrue(screen.contains(frame))
@@ -345,7 +342,7 @@ private final class StatusMenuPanelFixture {
 
     func show(visibleFrame: CGRect? = nil) {
         let frame = visibleFrame ?? NSScreen.main?.visibleFrame ?? CGRect(x: 0, y: 0, width: 1920, height: 1080)
-        host.show(anchor: CGPoint(x: frame.maxX - 160, y: frame.maxY), visibleFrame: frame)
+        host.show(attachment: PopupAttachment(anchor: CGPoint(x: frame.maxX - 160, y: frame.maxY)), visibleFrame: frame)
     }
 
     func seedSubmenuRows() {

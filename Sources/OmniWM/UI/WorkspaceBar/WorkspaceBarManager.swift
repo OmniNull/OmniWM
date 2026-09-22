@@ -346,6 +346,12 @@ final class WorkspaceBarManager {
         }
     }
 
+    func isWorkspaceBarWindow(_ window: NSWindow) -> Bool {
+        barsByMonitor.values.contains {
+            $0.primary.panel === window || $0.secondary?.panel === window
+        }
+    }
+
     private func updateIslandView(
         _ island: WorkspaceBarIslandPanel,
         model: WorkspaceBarModel,
@@ -495,20 +501,13 @@ extension WorkspaceBarManager {
     }
 
     func popupAttachment(on monitorId: Monitor.ID, forStats: Bool = false) -> PopupAttachment? {
-        guard let instance = barsByMonitor[monitorId], let settings else { return nil }
-        let island = forStats && instance.secondary?.showsSystemStatsButton == true
-            ? instance.secondary : instance.primary
-        guard let island else { return nil }
+        guard let instance = barsByMonitor[monitorId], let settings,
+              let window = forStats ? instance.statsAnchorView?.window : instance.primary.panel
+        else { return nil }
         let edge = settings.workspaceBar.resolved(for: instance.monitor).position.popupEdge
         return PopupAttachment(
-            sourceFrame: island.panel.frame, edge: edge,
+            sourceFrame: window.frame, edge: edge,
             alignment: forStats ? statsAnchor(on: monitorId) : nil
         )
-    }
-
-    func isWorkspaceBarWindow(_ window: NSWindow) -> Bool {
-        barsByMonitor.values.contains {
-            $0.primary.panel === window || $0.secondary?.panel === window
-        }
     }
 }
