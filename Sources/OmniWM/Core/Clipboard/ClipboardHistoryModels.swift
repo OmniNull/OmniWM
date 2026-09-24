@@ -9,6 +9,7 @@ enum ClipboardContentKind: String, Codable, Hashable, Sendable {
     case html
     case image
     case fileURL
+    case other
 }
 
 struct ClipboardHistoryConfiguration: Equatable, Sendable {
@@ -19,6 +20,23 @@ struct ClipboardHistoryConfiguration: Equatable, Sendable {
     var maxItemBytes: Int
     var maxTotalBytes: Int
     var storageDirectory: URL
+    var ignoredTypes: [String]
+
+    init(
+        isEnabled: Bool,
+        maxItems: Int,
+        maxItemBytes: Int,
+        maxTotalBytes: Int,
+        storageDirectory: URL,
+        ignoredTypes: [String] = []
+    ) {
+        self.isEnabled = isEnabled
+        self.maxItems = maxItems
+        self.maxItemBytes = maxItemBytes
+        self.maxTotalBytes = maxTotalBytes
+        self.storageDirectory = storageDirectory
+        self.ignoredTypes = ignoredTypes
+    }
 
     var storageURL: URL {
         storageDirectory.appendingPathComponent(Self.fileName, isDirectory: false)
@@ -34,6 +52,40 @@ struct ClipboardPaletteItem: Identifiable, Equatable, Hashable, Sendable {
     let lastCopiedAt: Date
     let numberOfCopies: Int
     let byteCount: Int
+    let isPinned: Bool
+    let searchText: String
+    let canPastePlainText: Bool
+
+    init(
+        id: UUID,
+        title: String,
+        subtitle: String,
+        kind: ClipboardContentKind,
+        sourceBundleIdentifier: String?,
+        lastCopiedAt: Date,
+        numberOfCopies: Int,
+        byteCount: Int,
+        isPinned: Bool = false,
+        searchText: String = "",
+        canPastePlainText: Bool = false
+    ) {
+        self.id = id
+        self.title = title
+        self.subtitle = subtitle
+        self.kind = kind
+        self.sourceBundleIdentifier = sourceBundleIdentifier
+        self.lastCopiedAt = lastCopiedAt
+        self.numberOfCopies = numberOfCopies
+        self.byteCount = byteCount
+        self.isPinned = isPinned
+        self.searchText = searchText
+        self.canPastePlainText = canPastePlainText
+    }
+}
+
+enum ClipboardPalettePreview: Equatable, Sendable {
+    case text(String)
+    case image(Data)
 }
 
 struct ClipboardHistoryContent: Codable, Equatable, Sendable {
@@ -54,6 +106,13 @@ struct ClipboardHistoryItem: Codable, Identifiable, Equatable, Sendable {
     var digest: String
     var byteCount: Int
     var kind: ClipboardContentKind
+    var pinnedAt: Date?
+    var derivedText: String?
+    var recognizedText: String?
+
+    var isPinned: Bool {
+        pinnedAt != nil
+    }
 
     var paletteItem: ClipboardPaletteItem {
         ClipboardPaletteItem(
@@ -69,7 +128,10 @@ struct ClipboardHistoryItem: Codable, Identifiable, Equatable, Sendable {
             sourceBundleIdentifier: sourceBundleIdentifier,
             lastCopiedAt: lastCopiedAt,
             numberOfCopies: numberOfCopies,
-            byteCount: byteCount
+            byteCount: byteCount,
+            isPinned: isPinned,
+            searchText: [derivedText, recognizedText].compactMap { $0 }.filter { !$0.isEmpty }.joined(separator: " "),
+            canPastePlainText: contents.contains { $0.kind == .text } || derivedText != nil
         )
     }
 
@@ -98,10 +160,36 @@ struct ClipboardPasteboardCapture: Sendable {
     let contents: [ClipboardHistoryContent]
     let sourceBundleIdentifier: String?
     let capturedAt: Date
+    let derivedText: String?
+
+    init(
+        contents: [ClipboardHistoryContent],
+        sourceBundleIdentifier: String?,
+        capturedAt: Date,
+        derivedText: String? = nil
+    ) {
+        self.contents = contents
+        self.sourceBundleIdentifier = sourceBundleIdentifier
+        self.capturedAt = capturedAt
+        self.derivedText = derivedText
+    }
 }
 
 struct ClipboardPasteboardCaptureConfiguration: Sendable {
     let maxItemBytes: Int
     let sourceBundleIdentifier: String?
     let capturedAt: Date
+    let ignoredTypes: Set<String>
+
+    init(
+        maxItemBytes: Int,
+        sourceBundleIdentifier: String?,
+        capturedAt: Date,
+        ignoredTypes: Set<String> = []
+    ) {
+        self.maxItemBytes = maxItemBytes
+        self.sourceBundleIdentifier = sourceBundleIdentifier
+        self.capturedAt = capturedAt
+        self.ignoredTypes = ignoredTypes
+    }
 }

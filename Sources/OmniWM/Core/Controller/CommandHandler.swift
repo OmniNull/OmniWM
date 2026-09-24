@@ -41,18 +41,22 @@ final class CommandHandler {
             return .ignoredOverview
         }
 
-        let layoutType = currentLayoutType()
-
-        switch (command.layoutCompatibility, layoutType) {
-        case (.niri, .dwindle),
-             (.dwindle, .niri),
-             (.dwindle, .defaultLayout):
+        guard Self.isLayoutCompatible(command.layoutCompatibility, with: currentLayoutType()) else {
             return .ignoredLayoutMismatch
-        default:
-            break
         }
 
         return performAllowedCommand(command, controller: controller)
+    }
+
+    static func isLayoutCompatible(_ compatibility: LayoutCompatibility, with layoutType: LayoutType) -> Bool {
+        switch (compatibility, layoutType) {
+        case (.niri, .dwindle),
+             (.dwindle, .niri),
+             (.dwindle, .defaultLayout):
+            false
+        default:
+            true
+        }
     }
 
     private func performAllowedCommand(_ command: HotkeyCommand, controller: WMController) -> ExternalCommandResult {

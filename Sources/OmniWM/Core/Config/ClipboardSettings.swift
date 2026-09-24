@@ -24,12 +24,17 @@ final class ClipboardSettings {
         didSet { onChange?() }
     }
 
+    var ignoredTypes = ClipboardSettings.defaults.ignoredTypes {
+        didSet { onChange?() }
+    }
+
     func export() -> SettingsExport.Clipboard {
         SettingsExport.Clipboard(
             historyEnabled: historyEnabled,
             maxItems: maxItems,
             maxItemBytes: maxItemBytes,
-            maxTotalBytes: maxTotalBytes
+            maxTotalBytes: maxTotalBytes,
+            ignoredTypes: ignoredTypes
         )
     }
 
@@ -38,5 +43,6 @@ final class ClipboardSettings {
         maxItems = values.maxItems
         maxItemBytes = values.maxItemBytes
         maxTotalBytes = values.maxTotalBytes
+        ignoredTypes = values.ignoredTypes
     }
 }

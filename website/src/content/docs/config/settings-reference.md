@@ -313,9 +313,10 @@ Clipboard history limits. History content itself is stored in the state director
 | Key | Type | Default | Description |
 | --- | --- | --- | --- |
 | `historyEnabled` | boolean | `false` | Enables clipboard history capture. |
-| `maxItems` | integer | `200` | Maximum number of history entries. |
+| `maxItems` | integer | `200` | Maximum number of unpinned history entries. |
 | `maxItemBytes` | integer | `8388608` | Maximum size of a single entry (8 MiB). |
-| `maxTotalBytes` | integer | `67108864` | Maximum total history size (64 MiB). |
+| `maxTotalBytes` | integer | `67108864` | Maximum total history size, including pins (64 MiB). |
+| `ignoredTypes` | string array | `[]` | Exact pasteboard type identifiers that exclude a copy from history. |
 
 ## quakeTerminal
 

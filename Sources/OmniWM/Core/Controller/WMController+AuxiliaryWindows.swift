@@ -140,16 +140,24 @@ extension WMController {
         syncClipboardHistoryService()
     }
 
-    func copyClipboardItem(id: UUID) async -> Bool {
-        await clipboardHistoryService.copyItemToPasteboard(id: id)
+    func copyClipboardItem(id: UUID, plainText: Bool = false) async -> Bool {
+        await clipboardHistoryService.copyItemToPasteboard(id: id, plainText: plainText)
+    }
+
+    func clipboardItemPreview(id: UUID) async -> ClipboardPalettePreview? {
+        await clipboardHistoryService.preview(id: id)
+    }
+
+    func setClipboardItemPinned(_ pinned: Bool, id: UUID) async -> [ClipboardPaletteItem] {
+        await clipboardHistoryService.setPinned(pinned, id: id)
     }
 
     func deleteClipboardItem(id: UUID) async -> [ClipboardPaletteItem] {
         await clipboardHistoryService.deleteItem(id: id)
     }
 
-    func clearClipboardHistory() async -> [ClipboardPaletteItem] {
-        await clipboardHistoryService.clearHistory()
+    func clearClipboardHistory() async throws -> [ClipboardPaletteItem] {
+        try await clipboardHistoryService.clearHistory()
     }
 
     func syncClipboardHistoryService() {

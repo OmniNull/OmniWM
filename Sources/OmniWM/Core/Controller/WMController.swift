@@ -464,7 +464,8 @@ extension WMController {
             maxItems: settings.clipboard.maxItems,
             maxItemBytes: settings.clipboard.maxItemBytes,
             maxTotalBytes: settings.clipboard.maxTotalBytes,
-            storageDirectory: clipboardHistoryDirectory
+            storageDirectory: clipboardHistoryDirectory,
+            ignoredTypes: settings.clipboard.ignoredTypes
         )
     }
 

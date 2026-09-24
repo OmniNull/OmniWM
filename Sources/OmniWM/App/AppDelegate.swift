@@ -373,13 +373,38 @@ public final class AppDelegate: NSObject, NSApplicationDelegate {
         NSApplication.shared.activate(ignoringOtherApps: true)
         _ = alert.runModal()
     }
+
+    private func confirmQuitWithoutSavingClipboardHistory(_ error: Error) -> Bool {
+        let alert = NSAlert()
+        alert.alertStyle = .warning
+        alert.messageText = "Clipboard History Could Not Be Saved"
+        alert.informativeText = "\(error.localizedDescription)\n\nQuit anyway? Unsaved clipboard history will be lost."
+        alert.addButton(withTitle: "Keep OmniWM Open")
+        alert.addButton(withTitle: "Quit Without Saving")
+        NSApplication.shared.activate(ignoringOtherApps: true)
+        return alert.runModal() == .alertSecondButtonReturn
+    }
 }
 
 extension AppDelegate {
     public func applicationShouldTerminate(_ application: NSApplication) -> NSApplication.TerminateReply {
         guard let controller = AppDelegate.sharedBootstrap?.controller else { return .terminateNow }
         return deferTermination(
-            stop: { controller.serviceLifecycleManager.stopRestoringWindows(forQuit: true, completion: $0) },
+            stop: { completion in
+                Task { @MainActor in
+                    do {
+                        try await controller.clipboardHistoryService.flushForQuit()
+                    } catch {
+                        if !self.confirmQuitWithoutSavingClipboardHistory(error) {
+                            controller.clipboardHistoryService.resumeAfterCanceledQuit()
+                            self.terminationPending = false
+                            application.reply(toApplicationShouldTerminate: false)
+                            return
+                        }
+                    }
+                    controller.serviceLifecycleManager.stopRestoringWindows(forQuit: true, completion: completion)
+                }
+            },
             reply: {
                 controller.workspaceManager.flushPersistedWindowRestoreCatalogNow()
                 application.reply(toApplicationShouldTerminate: true)

@@ -3,6 +3,9 @@
 
 @preconcurrency import AppKit
 import Foundation
+import ImageIO
+import UniformTypeIdentifiers
+import Vision
 
 @MainActor
 protocol ClipboardHistoryTimer: AnyObject {
@@ -48,6 +51,14 @@ struct ClipboardHistoryServiceEnvironment {
         ClipboardHistoryPasteboard.write($0)
     }
 
+    var writePlainTextPasteboard: @MainActor (String, ClipboardHistoryItem) -> Bool = {
+        ClipboardHistoryPasteboard.writePlainText($0, from: $1)
+    }
+
+    var recognizeImageText: @Sendable (Data) -> String? = {
+        ClipboardHistoryImageText.recognize($0)
+    }
+
     var makeTimer: @MainActor (TimeInterval, @escaping @MainActor () -> Void) -> ClipboardHistoryTimer = {
         ClipboardHistoryRunLoopTimer(interval: $0, action: $1)
     }
@@ -61,12 +72,11 @@ final class ClipboardPasteboardReader: @unchecked Sendable {
         self.provider = provider
     }
 
-    func capture(
-        configuration: ClipboardPasteboardCaptureConfiguration,
-        completion: @escaping @Sendable (ClipboardPasteboardCapture?) -> Void
-    ) {
-        queue.async { [provider] in
-            completion(provider(configuration))
+    func capture(configuration: ClipboardPasteboardCaptureConfiguration) async -> ClipboardPasteboardCapture? {
+        await withCheckedContinuation { continuation in
+            queue.async { [provider] in
+                continuation.resume(returning: provider(configuration))
+            }
         }
     }
 }
@@ -78,7 +88,7 @@ final class ClipboardHistoryService: @unchecked Sendable {
     }
 
     private(set) var paletteItems: [ClipboardPaletteItem] = []
-    var onPaletteItemsChanged: (([ClipboardPaletteItem]) -> Void)?
+    var onPaletteItemsChanged: (@MainActor @Sendable ([ClipboardPaletteItem]) -> Void)?
 
     private var configuration: ClipboardHistoryConfiguration
     private var environment: ClipboardHistoryServiceEnvironment
@@ -86,7 +96,12 @@ final class ClipboardHistoryService: @unchecked Sendable {
     private var reader: ClipboardPasteboardReader
     private var timer: ClipboardHistoryTimer?
     private var lastChangeCount: Int
+    private var configurationGeneration = 0
     private var captureGeneration = 0
+    private var captureEpoch = 0
+    private var monitoringSuspensions = 0
+    private var captureTasks: [Int: Task<Void, Never>] = [:]
+    private var imageRecognitionTasks: [UUID: Task<Void, Never>] = [:]
     private var performanceTimerFires: UInt64?
 
     init(
@@ -101,12 +116,16 @@ final class ClipboardHistoryService: @unchecked Sendable {
     }
 
     func updateConfiguration(_ configuration: ClipboardHistoryConfiguration) {
+        configurationGeneration &+= 1
+        captureGeneration &+= 1
+        let generation = configurationGeneration
         self.configuration = configuration
         reader = ClipboardPasteboardReader(provider: environment.capturePasteboard)
         Task { @MainActor [weak self] in
             guard let self else { return }
             let snapshots = await store.updateConfiguration(configuration)
-            applyPaletteItems(configuration.isEnabled ? snapshots : [])
+            guard generation == configurationGeneration else { return }
+            applyPaletteItems(self.configuration.isEnabled ? snapshots : [])
         }
         if configuration.isEnabled {
             start()
@@ -117,11 +136,9 @@ final class ClipboardHistoryService: @unchecked Sendable {
     }
 
     func start() {
-        guard configuration.isEnabled, timer == nil else { return }
+        guard configuration.isEnabled, timer == nil, monitoringSuspensions == 0 else { return }
         lastChangeCount = environment.pasteboardChangeCount()
-        timer = environment.makeTimer(0.5) { [weak self] in
-            self?.pollPasteboard()
-        }
+        resumeMonitoring()
         let generation = captureGeneration
         Task { @MainActor [weak self] in
             guard let self else { return }
@@ -132,8 +149,7 @@ final class ClipboardHistoryService: @unchecked Sendable {
     }
 
     func stop() {
-        timer?.invalidate()
-        timer = nil
+        pauseMonitoring()
         captureGeneration &+= 1
     }
 
@@ -151,13 +167,27 @@ final class ClipboardHistoryService: @unchecked Sendable {
         return snapshot
     }
 
-    func copyItemToPasteboard(id: UUID) async -> Bool {
+    func copyItemToPasteboard(id: UUID, plainText: Bool = false) async -> Bool {
+        let text: String?
+        if plainText {
+            guard let item = await store.item(id: id) else { return false }
+            guard let plainText = await Task.detached(priority: .utility, operation: {
+                ClipboardHistoryPasteboard.fullPlainText(from: item)
+            }).value else { return false }
+            text = plainText
+        } else {
+            text = nil
+        }
         guard configuration.isEnabled,
               let item = await store.itemForUse(id: id)
         else {
             return false
         }
-        let didWrite = environment.writePasteboard(item)
+        let didWrite = if let text {
+            environment.writePlainTextPasteboard(text, item)
+        } else {
+            environment.writePasteboard(item)
+        }
         let snapshots = await store.paletteItems()
         applyPaletteItems(snapshots)
         return didWrite
@@ -169,15 +199,93 @@ final class ClipboardHistoryService: @unchecked Sendable {
         return snapshots
     }
 
-    func clearHistory() async -> [ClipboardPaletteItem] {
-        let snapshots = await store.clear()
+    func setPinned(_ pinned: Bool, id: UUID) async -> [ClipboardPaletteItem] {
+        let snapshots = await store.pin(id: id, isPinned: pinned)
         applyPaletteItems(snapshots)
         return snapshots
     }
 
+    func preview(id: UUID) async -> ClipboardPalettePreview? {
+        guard let item = await store.item(id: id) else { return nil }
+        return await Task.detached(priority: .utility) {
+            if let content = item.contents.first(where: { $0.kind == .image }),
+               let data = ClipboardHistoryImageText.thumbnail(content.data)
+            {
+                return ClipboardPalettePreview.image(data)
+            }
+            if let text = ClipboardHistoryPasteboard.plainText(from: item) {
+                return .text(ClipboardHistoryPasteboard.previewText(text))
+            }
+            let paths = item.contents
+                .filter { $0.kind == .fileURL }
+                .compactMap { URL(dataRepresentation: $0.data, relativeTo: nil)?.path }
+            return .text(ClipboardHistoryPasteboard.previewText(
+                paths.isEmpty ? item.title : paths.joined(separator: "\n")
+            ))
+        }.value
+    }
+
+    func clearHistory() async throws -> [ClipboardPaletteItem] {
+        let changeCountAtClear = environment.pasteboardChangeCount()
+        suspendMonitoring()
+        defer { releaseMonitoring() }
+        for task in Array(captureTasks.values) {
+            await task.value
+        }
+        let clearEpoch = captureEpoch &+ 1
+        let snapshots = try await store.clear(epoch: clearEpoch)
+        captureGeneration &+= 1
+        captureEpoch = clearEpoch
+        lastChangeCount = max(lastChangeCount, changeCountAtClear)
+        applyPaletteItems(snapshots)
+        return snapshots
+    }
+
+    func flushForQuit() async throws {
+        suspendMonitoring()
+        for task in Array(captureTasks.values) {
+            await task.value
+        }
+        stop()
+        captureEpoch &+= 1
+        await store.fenceCaptures(epoch: captureEpoch)
+        for task in Array(imageRecognitionTasks.values) {
+            await task.value
+        }
+        try await store.flush()
+    }
+
+    func resumeAfterCanceledQuit() {
+        releaseMonitoring()
+    }
+
+    private func suspendMonitoring() {
+        monitoringSuspensions += 1
+        pauseMonitoring()
+    }
+
+    private func releaseMonitoring() {
+        monitoringSuspensions -= 1
+        guard monitoringSuspensions == 0 else { return }
+        resumeMonitoring()
+        pollPasteboard()
+    }
+
+    private func pauseMonitoring() {
+        timer?.invalidate()
+        timer = nil
+    }
+
+    private func resumeMonitoring() {
+        guard configuration.isEnabled, timer == nil, monitoringSuspensions == 0 else { return }
+        timer = environment.makeTimer(0.5) { [weak self] in
+            self?.pollPasteboard()
+        }
+    }
+
     private func pollPasteboard() {
         performanceTimerFires? &+= 1
-        guard configuration.isEnabled else { return }
+        guard configuration.isEnabled, timer != nil, monitoringSuspensions == 0 else { return }
         let changeCount = environment.pasteboardChangeCount()
         guard changeCount != lastChangeCount else { return }
         lastChangeCount = changeCount
@@ -186,21 +294,60 @@ final class ClipboardHistoryService: @unchecked Sendable {
         let captureConfiguration = ClipboardPasteboardCaptureConfiguration(
             maxItemBytes: configuration.maxItemBytes,
             sourceBundleIdentifier: environment.frontmostBundleIdentifier(),
-            capturedAt: environment.date()
+            capturedAt: environment.date(),
+            ignoredTypes: Set(configuration.ignoredTypes)
         )
-        reader.capture(configuration: captureConfiguration) { [weak self] capture in
-            Task { @MainActor [weak self] in
-                guard let self,
-                      generation == self.captureGeneration,
-                      self.configuration.isEnabled,
-                      let capture
-                else {
-                    return
-                }
-                let snapshots = await self.store.handleCapture(capture)
-                self.applyPaletteItems(snapshots)
+        let epoch = captureEpoch
+        let reader = reader
+        captureTasks[generation] = Task { @MainActor [weak self] in
+            let capture = await reader.capture(configuration: captureConfiguration)
+            guard let self else { return }
+            defer { self.captureTasks.removeValue(forKey: generation) }
+            guard generation == self.captureGeneration,
+                  self.configuration.isEnabled,
+                  let capture
+            else {
+                return
             }
+            let snapshots = await self.store.handleCapture(capture, epoch: epoch)
+            guard generation == self.captureGeneration,
+                  epoch == self.captureEpoch,
+                  self.configuration.isEnabled
+            else {
+                return
+            }
+            self.applyPaletteItems(snapshots)
+            await self.recognizeImageTextIfNeeded(capture, generation: generation, epoch: epoch)
         }
+    }
+
+    private func recognizeImageTextIfNeeded(
+        _ capture: ClipboardPasteboardCapture,
+        generation: Int,
+        epoch: Int
+    ) async {
+        guard let content = capture.contents.first(where: { $0.kind == .image }),
+              let item = await store.item(matching: capture),
+              generation == captureGeneration,
+              epoch == captureEpoch,
+              item.recognizedText == nil,
+              imageRecognitionTasks[item.id] == nil
+        else {
+            return
+        }
+        let id = item.id
+        let digest = item.digest
+        let provider = environment.recognizeImageText
+        imageRecognitionTasks[id] = Task.detached(priority: .utility) { [weak self] in
+            let text = provider(content.data) ?? ""
+            await self?.completeImageText(id: id, digest: digest, text: text)
+        }
+    }
+
+    private func completeImageText(id: UUID, digest: String, text: String) async {
+        let snapshots = await store.setRecognizedText(id: id, digest: digest, text: text)
+        applyPaletteItems(snapshots)
+        imageRecognitionTasks.removeValue(forKey: id)
     }
 
     private func applyPaletteItems(_ items: [ClipboardPaletteItem]) {
@@ -209,149 +356,40 @@ final class ClipboardHistoryService: @unchecked Sendable {
     }
 }
 
-enum ClipboardHistoryPasteboard {
-    static let markerType = NSPasteboard.PasteboardType("org.omniwm.clipboard-history")
-    static let sourceType = NSPasteboard.PasteboardType("org.omniwm.clipboard-source")
+enum ClipboardHistoryImageText {
+    static func recognize(_ data: Data) -> String? {
+        guard let data = thumbnail(data) else { return nil }
+        let request = VNRecognizeTextRequest()
+        request.recognitionLevel = .fast
+        let handler = VNImageRequestHandler(data: data)
+        guard (try? handler.perform([request])) != nil else { return nil }
+        let text = request.results?
+            .compactMap { $0.topCandidates(1).first?.string }
+            .joined(separator: "\n")
+        return text?.isEmpty == false ? text : nil
+    }
 
-    private static let supportedTypes: [(NSPasteboard.PasteboardType, ClipboardContentKind)] = [
-        (.string, .text),
-        (.rtf, .richText),
-        (.html, .html),
-        (.png, .image),
-        (.tiff, .image),
-        (.fileURL, .fileURL)
-    ]
-
-    private static let rejectedTypeValues: Set<String> = [
-        markerType.rawValue,
-        "org.nspasteboard.AutoGeneratedType",
-        "org.nspasteboard.ConcealedType",
-        "org.nspasteboard.TransientType",
-        "com.agilebits.onepassword",
-        "com.typeit4me.clipping",
-        "de.petermaurer.TransientPasteboardType",
-        "net.antelle.keeweb"
-    ]
-
-    private static let ignoredTypeValues: Set<String> = [
-        sourceType.rawValue,
-        "com.apple.linkpresentation.metadata",
-        "com.apple.WebKit.custom-pasteboard-data",
-        "org.chromium.web-custom-data",
-        "org.chromium.source-url",
-        "org.chromium.internal.source-rfh-token",
-        "com.apple.notes.richtext",
-        "com.microsoft.ObjectLink",
-        "com.microsoft.Link-Source"
-    ]
-
-    static func capture(configuration: ClipboardPasteboardCaptureConfiguration) -> ClipboardPasteboardCapture? {
-        guard let pasteboardItems = NSPasteboard.general.pasteboardItems,
-              !pasteboardItems.isEmpty
-        else {
+    static func thumbnail(_ data: Data) -> Data? {
+        guard let source = CGImageSourceCreateWithData(data as CFData, nil) else { return nil }
+        let options: [CFString: Any] = [
+            kCGImageSourceCreateThumbnailFromImageAlways: true,
+            kCGImageSourceCreateThumbnailWithTransform: true,
+            kCGImageSourceThumbnailMaxPixelSize: 900
+        ]
+        guard let image = CGImageSourceCreateThumbnailAtIndex(source, 0, options as CFDictionary) else {
             return nil
         }
-
-        return capture(pasteboardItems: pasteboardItems, configuration: configuration)
-    }
-
-    static func capture(
-        pasteboardItems: [NSPasteboardItem],
-        configuration: ClipboardPasteboardCaptureConfiguration
-    ) -> ClipboardPasteboardCapture? {
-        guard !pasteboardItems.isEmpty else { return nil }
-
-        var contents: [ClipboardHistoryContent] = []
-        var textContents: [ClipboardHistoryContent] = []
-        var totalBytes = 0
-        var textBytes = 0
-
-        for (itemIndex, pasteboardItem) in pasteboardItems.enumerated() {
-            let typeValues = Set(pasteboardItem.types.map(\.rawValue))
-            guard typeValues.isDisjoint(with: rejectedTypeValues) else {
-                return nil
-            }
-
-            for (type, kind) in supportedTypes where pasteboardItem.types.contains(type) {
-                guard !ignoredTypeValues.contains(type.rawValue),
-                      !type.rawValue.hasPrefix("dyn."),
-                      !type.rawValue.hasPrefix("com.microsoft.ole.source."),
-                      let data = pasteboardItem.data(forType: type),
-                      !data.isEmpty
-                else {
-                    continue
-                }
-
-                let content = ClipboardHistoryContent(
-                    itemIndex: itemIndex,
-                    type: type.rawValue,
-                    kind: kind,
-                    data: data
-                )
-                totalBytes += data.count
-                contents.append(content)
-                if kind == .text || kind == .richText || kind == .html {
-                    textBytes += data.count
-                    textContents.append(content)
-                }
-            }
+        let output = NSMutableData()
+        guard let destination = CGImageDestinationCreateWithData(
+            output,
+            UTType.png.identifier as CFString,
+            1,
+            nil
+        ) else {
+            return nil
         }
-
-        if totalBytes > configuration.maxItemBytes {
-            guard !textContents.isEmpty, textBytes <= configuration.maxItemBytes else {
-                return nil
-            }
-            contents = textContents
-        }
-
-        guard !contents.isEmpty else { return nil }
-        return ClipboardPasteboardCapture(
-            contents: contents,
-            sourceBundleIdentifier: configuration.sourceBundleIdentifier,
-            capturedAt: configuration.capturedAt
-        )
-    }
-
-    @MainActor
-    static func write(_ item: ClipboardHistoryItem) -> Bool {
-        let pasteboard = NSPasteboard.general
-        pasteboard.clearContents()
-
-        if item.contents.allSatisfy({ $0.kind == .fileURL }),
-           let urls = fileURLs(from: item.contents),
-           !urls.isEmpty
-        {
-            let didWrite = pasteboard.writeObjects(urls as [NSURL])
-            pasteboard.setString("1", forType: markerType)
-            if let source = item.sourceBundleIdentifier {
-                pasteboard.setString(source, forType: sourceType)
-            }
-            return didWrite
-        }
-
-        let grouped = Dictionary(grouping: item.contents, by: \.itemIndex)
-        let pasteboardItems = grouped.keys.sorted().compactMap { itemIndex -> NSPasteboardItem? in
-            guard let contents = grouped[itemIndex], !contents.isEmpty else { return nil }
-            let pasteboardItem = NSPasteboardItem()
-            for content in contents {
-                pasteboardItem.setData(content.data, forType: NSPasteboard.PasteboardType(content.type))
-            }
-            if itemIndex == grouped.keys.min() {
-                pasteboardItem.setString("1", forType: markerType)
-                if let source = item.sourceBundleIdentifier {
-                    pasteboardItem.setString(source, forType: sourceType)
-                }
-            }
-            return pasteboardItem
-        }
-        guard !pasteboardItems.isEmpty else { return false }
-        return pasteboard.writeObjects(pasteboardItems)
-    }
-
-    private static func fileURLs(from contents: [ClipboardHistoryContent]) -> [URL]? {
-        let urls = contents.compactMap { content in
-            URL(dataRepresentation: content.data, relativeTo: nil)
-        }
-        return urls.count == contents.count ? urls : nil
+        CGImageDestinationAddImage(destination, image, nil)
+        guard CGImageDestinationFinalize(destination) else { return nil }
+        return output as Data
     }
 }

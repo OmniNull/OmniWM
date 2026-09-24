@@ -31,6 +31,8 @@ enum CommandPalettePresentation {
             InlineHint(title: mode.displayName, shortcut: "⌘2")
         case .clipboard:
             InlineHint(title: mode.displayName, shortcut: "⌘3")
+        case .commands:
+            InlineHint(title: mode.displayName, shortcut: "⌘4")
         }
     }
 
@@ -49,6 +51,8 @@ enum CommandPalettePresentation {
                 return isMenuModeAvailable ? .menu : nil
             case "3":
                 return .clipboard
+            case "4":
+                return .commands
             default:
                 return nil
             }

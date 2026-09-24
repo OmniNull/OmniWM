@@ -18,7 +18,8 @@ final class ClipboardSettingsExportTests: XCTestCase {
             "historyEnabled": .boolean(false),
             "maxItems": .integer(200),
             "maxItemBytes": .integer(8_388_608),
-            "maxTotalBytes": .integer(67_108_864)
+            "maxTotalBytes": .integer(67_108_864),
+            "ignoredTypes": .array([])
         ]))
         XCTAssertEqual(try SettingsTOMLCodec.decode(data), defaults)
     }
@@ -29,14 +30,25 @@ final class ClipboardSettingsExportTests: XCTestCase {
             historyEnabled: true,
             maxItems: -1,
             maxItemBytes: 0,
-            maxTotalBytes: 17
+            maxTotalBytes: 17,
+            ignoredTypes: ["org.example.private", "org.example.other"]
         )
 
         let encoded = try SettingsTOMLCodec.encode(export)
         XCTAssertEqual(try SettingsTOMLCodec.decode(encoded), export)
     }
 
-    func testEachClipboardKeyRemainsRequired() throws {
+    func testMissingIgnoredTypesDecodesAsEmpty() throws {
+        let data = try SettingsTOMLCodec.encode(.defaults())
+        let source = String(decoding: data, as: UTF8.self)
+        let previousSettings = source.components(separatedBy: "\n").filter {
+            !$0.hasPrefix("ignoredTypes = ")
+        }.joined(separator: "\n")
+        let decoded = try SettingsTOMLCodec.decode(Data(previousSettings.utf8))
+        XCTAssertEqual(decoded.clipboard.ignoredTypes, [])
+    }
+
+    func testExistingClipboardKeysRemainRequired() throws {
         let data = try SettingsTOMLCodec.encode(.defaults())
         let source = String(decoding: data, as: UTF8.self)
         for key in ["historyEnabled", "maxItems", "maxItemBytes", "maxTotalBytes"] {
@@ -73,7 +85,8 @@ final class ClipboardSettingsExportTests: XCTestCase {
             historyEnabled: true,
             maxItems: 37,
             maxItemBytes: 1_024,
-            maxTotalBytes: 8_192
+            maxTotalBytes: 8_192,
+            ignoredTypes: ["org.example.private"]
         )
         let changeObserved = Mutex(false)
         withObservationTracking {
@@ -89,6 +102,7 @@ final class ClipboardSettingsExportTests: XCTestCase {
         XCTAssertEqual(settings.clipboard.maxItems, 37)
         XCTAssertEqual(settings.clipboard.maxItemBytes, 1_024)
         XCTAssertEqual(settings.clipboard.maxTotalBytes, 8_192)
+        XCTAssertEqual(settings.clipboard.ignoredTypes, ["org.example.private"])
         let actual = settings.toExport()
         XCTAssertEqual(actual, desired)
         desired.clipboard.maxItems += 1

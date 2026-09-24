@@ -9,6 +9,7 @@ enum FocusPolicyLeaseOwner: String, Equatable {
     case foreignTransientUI = "foreign_transient_ui"
     case nativeMenu = "native_menu"
     case statusPanel = "status_panel"
+    case commandPalette = "command_palette"
     case windowCloseFocusRecovery = "window_close_focus_recovery"
     case nativeAppSwitch = "native_app_switch"
 }
@@ -44,6 +45,7 @@ final class FocusPolicyEngine {
         .foreignTransientUI,
         .nativeMenu,
         .statusPanel,
+        .commandPalette,
         .windowCloseFocusRecovery,
         .nativeAppSwitch
     ]

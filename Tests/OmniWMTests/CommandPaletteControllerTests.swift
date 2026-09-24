@@ -14,7 +14,8 @@ final class CommandPaletteControllerTests: XCTestCase {
         let transitions: [(CommandPaletteMode, CommandPaletteMode)] = [
             (.windows, .menu),
             (.menu, .clipboard),
-            (.clipboard, .windows)
+            (.clipboard, .commands),
+            (.commands, .windows)
         ]
 
         for (currentMode, expectedMode) in transitions {
@@ -27,9 +28,10 @@ final class CommandPaletteControllerTests: XCTestCase {
 
     func testShiftTabCyclesBackwardAndWrapsAcrossAvailableModes() {
         let transitions: [(CommandPaletteMode, CommandPaletteMode)] = [
-            (.windows, .clipboard),
+            (.windows, .commands),
             (.menu, .windows),
-            (.clipboard, .menu)
+            (.clipboard, .menu),
+            (.commands, .clipboard)
         ]
 
         for (currentMode, expectedMode) in transitions {
@@ -40,17 +42,25 @@ final class CommandPaletteControllerTests: XCTestCase {
         }
     }
 
-    func testCycleSkipsUnavailableMenuAndStillIncludesClipboard() {
+    func testCycleSkipsUnavailableMenuAndIncludesCommands() {
         XCTAssertEqual(
             modeNavigationTarget(currentMode: .windows, isMenuModeAvailable: false),
             .clipboard
         )
         XCTAssertEqual(
             modeNavigationTarget(currentMode: .clipboard, isMenuModeAvailable: false),
+            .commands
+        )
+        XCTAssertEqual(
+            modeNavigationTarget(currentMode: .commands, isMenuModeAvailable: false),
             .windows
         )
         XCTAssertEqual(
             modeNavigationTarget(currentMode: .windows, isMenuModeAvailable: false, modifiers: .shift),
+            .commands
+        )
+        XCTAssertEqual(
+            modeNavigationTarget(currentMode: .commands, isMenuModeAvailable: false, modifiers: .shift),
             .clipboard
         )
         XCTAssertEqual(
@@ -89,6 +99,10 @@ final class CommandPaletteControllerTests: XCTestCase {
             directModeTarget(keyCode: UInt16(kVK_ANSI_3), characters: "3"),
             .clipboard
         )
+        XCTAssertEqual(
+            directModeTarget(keyCode: UInt16(kVK_ANSI_4), characters: "4"),
+            .commands
+        )
         XCTAssertNil(
             directModeTarget(
                 keyCode: UInt16(kVK_ANSI_2),
@@ -110,6 +124,10 @@ final class CommandPaletteControllerTests: XCTestCase {
         XCTAssertEqual(
             CommandPalettePresentation.modeHint(for: .clipboard),
             .init(title: "Clipboard", shortcut: "⌘3")
+        )
+        XCTAssertEqual(
+            CommandPalettePresentation.modeHint(for: .commands),
+            .init(title: "Commands", shortcut: "⌘4")
         )
     }
 
@@ -176,6 +194,24 @@ final class CommandPaletteControllerTests: XCTestCase {
         let hiddenHeight = commandPaletteWindowRowHeight(isAppHidden: true)
 
         XCTAssertEqual(hiddenHeight, visibleHeight, accuracy: 0.5)
+    }
+
+    func testClipboardSearchFindsFullContentAndKeepsPinnedResultsFirst() {
+        let unpinned = ClipboardPaletteItem(
+            id: UUID(), title: "Short", subtitle: "", kind: .text, sourceBundleIdentifier: nil,
+            lastCopiedAt: .distantPast, numberOfCopies: 1, byteCount: 20,
+            searchText: "matching full text"
+        )
+        let pinned = ClipboardPaletteItem(
+            id: UUID(), title: "Longer title", subtitle: "", kind: .text, sourceBundleIdentifier: nil,
+            lastCopiedAt: .distantPast, numberOfCopies: 1, byteCount: 20,
+            isPinned: true, searchText: "matching full text"
+        )
+
+        XCTAssertEqual(
+            CommandPaletteSearch.filterClipboardItems([unpinned, pinned], query: "matching").map(\.id),
+            [pinned.id, unpinned.id]
+        )
     }
 
     private func modeNavigationTarget(

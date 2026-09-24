@@ -15,13 +15,71 @@ private final class CommandPaletteActionBox: @unchecked Sendable {
     }
 }
 
+private enum CommandPalettePasteKeyCode {
+    static func current() -> UInt16? {
+        guard let source = TISCopyCurrentKeyboardLayoutInputSource()?.takeRetainedValue(),
+              let property = TISGetInputSourceProperty(source, kTISPropertyUnicodeKeyLayoutData)
+        else {
+            return nil
+        }
+        return withExtendedLifetime(source) {
+            let data = Unmanaged<CFData>.fromOpaque(property).takeUnretainedValue()
+            guard let bytes = CFDataGetBytePtr(data) else { return nil }
+            return bytes.withMemoryRebound(to: UCKeyboardLayout.self, capacity: 1) { layout in
+                for keyCode in UInt16(0) ..< 128 {
+                    var deadKeyState: UInt32 = 0
+                    var length = 0
+                    var characters = [UniChar](repeating: 0, count: 4)
+                    let status = characters.withUnsafeMutableBufferPointer { buffer in
+                        guard let baseAddress = buffer.baseAddress else { return OSStatus(paramErr) }
+                        return UCKeyTranslate(
+                            layout,
+                            keyCode,
+                            UInt16(kUCKeyActionDown),
+                            UInt32(cmdKey >> 8),
+                            UInt32(LMGetKbdType()),
+                            OptionBits(kUCKeyTranslateNoDeadKeysBit),
+                            &deadKeyState,
+                            buffer.count,
+                            &length,
+                            baseAddress
+                        )
+                    }
+                    if status == noErr,
+                       String(decoding: characters.prefix(Int(length)), as: UTF16.self).lowercased() == "v"
+                    {
+                        return keyCode
+                    }
+                }
+                return nil
+            }
+        }
+    }
+}
+
 @MainActor
 struct CommandPaletteEnvironment {
     var frontmostApplication: () -> NSRunningApplication? = { NSWorkspace.shared.frontmostApplication }
     var runningApplication: (pid_t) -> NSRunningApplication? = { NSRunningApplication(processIdentifier: $0) }
     var ownBundleIdentifier: () -> String? = { Bundle.main.bundleIdentifier }
+    var ownProcessIdentifier: () -> pid_t = { NSRunningApplication.current.processIdentifier }
     var fetchMenuItems: (pid_t) -> [MenuItemModel] = { MenuAnywhereFetcher().fetchMenuItemsSync(for: $0) }
-    var activateOmniWM: () -> Void = { NSApp.activate(ignoringOtherApps: true) }
+    var applicationActivationNotifications: NotificationCenter = NSWorkspace.shared.notificationCenter
+    var performCommand: (WMController, HotkeyCommand) -> ExternalCommandResult = { controller, command in
+        controller.commandHandler.performCommand(command)
+    }
+
+    var presentCommandFailure: (String) -> Void = { message in
+        let alert = NSAlert()
+        alert.alertStyle = .warning
+        alert.messageText = "Command Palette"
+        alert.informativeText = message
+        alert.addButton(withTitle: "OK")
+        NSApp.activate(ignoringOtherApps: true)
+        alert.runModal()
+    }
+
+    var restoreCommandFocus: ((CommandPaletteFocusTarget) -> Bool)?
     var navigateToWindow: (WMController, WindowHandle) -> Void = { controller, handle in
         controller.navigateToCommandPaletteWindow(handle)
     }
@@ -65,39 +123,59 @@ struct CommandPaletteEnvironment {
         await controller.copyClipboardItem(id: id)
     }
 
+    var copyClipboardItemPlainText: (WMController, UUID) async -> Bool = { controller, id in
+        await controller.copyClipboardItem(id: id, plainText: true)
+    }
+
+    var clipboardItemPreview: (WMController, UUID) async -> ClipboardPalettePreview? = { controller, id in
+        await controller.clipboardItemPreview(id: id)
+    }
+
+    var setClipboardItemPinned: (WMController, UUID, Bool) async -> [ClipboardPaletteItem] = {
+        controller,
+        id,
+        pinned in
+        await controller.setClipboardItemPinned(pinned, id: id)
+    }
+
+    var observeClipboardItems: (WMController, (@MainActor @Sendable ([ClipboardPaletteItem]) -> Void)?) -> Void = {
+        controller,
+        observer in
+        controller.clipboardHistoryService.onPaletteItemsChanged = observer
+    }
+
     var deleteClipboardItem: (WMController, UUID) async -> [ClipboardPaletteItem] = { controller, id in
         await controller.deleteClipboardItem(id: id)
     }
 
-    var clearClipboardHistory: (WMController) async -> [ClipboardPaletteItem] = { controller in
-        await controller.clearClipboardHistory()
+    var clearClipboardHistory: (WMController) async throws -> [ClipboardPaletteItem] = { controller in
+        try await controller.clearClipboardHistory()
     }
 
     var confirmClearClipboardHistory: () -> Bool = {
         let alert = NSAlert()
         alert.alertStyle = .warning
         alert.messageText = "Clear Clipboard History?"
-        alert.informativeText = "This removes OmniWM's saved clipboard history. The current system clipboard is unchanged."
+        alert.informativeText = "This removes unpinned clipboard history. Pinned items and the current system clipboard are unchanged."
         alert.addButton(withTitle: "Clear")
         alert.addButton(withTitle: "Cancel")
+        NSApp.activate(ignoringOtherApps: true)
         return alert.runModal() == .alertFirstButtonReturn
     }
 
-    var scheduleClipboardPaste: (@escaping () -> Void) -> Void = { action in
-        let box = CommandPaletteActionBox(action)
-        DispatchQueue.main.asyncAfter(deadline: .now() + 0.1) {
-            box.action()
-        }
-    }
-
-    var postPasteShortcut: () -> Void = {
+    var postPasteShortcut: () -> Bool = {
+        guard let keyCode = CommandPalettePasteKeyCode.current() else { return false }
         let source = CGEventSource(stateID: .combinedSessionState)
-        let keyDown = CGEvent(keyboardEventSource: source, virtualKey: UInt16(kVK_ANSI_V), keyDown: true)
-        let keyUp = CGEvent(keyboardEventSource: source, virtualKey: UInt16(kVK_ANSI_V), keyDown: false)
-        keyDown?.flags = .maskCommand
-        keyUp?.flags = .maskCommand
-        keyDown?.post(tap: .cgSessionEventTap)
-        keyUp?.post(tap: .cgSessionEventTap)
+        guard let keyDown = CGEvent(keyboardEventSource: source, virtualKey: keyCode, keyDown: true),
+              let keyUp = CGEvent(keyboardEventSource: source, virtualKey: keyCode, keyDown: false)
+        else {
+            return false
+        }
+        keyDown.flags = .maskCommand
+        keyUp.flags = .maskCommand
+        keyDown.post(tap: .cgSessionEventTap)
+        keyUp.post(tap: .cgSessionEventTap)
+        return true
     }
 
     var isSecureInputActive: () -> Bool = {
@@ -106,6 +184,30 @@ struct CommandPaletteEnvironment {
 
     var isAccessibilityTrusted: () -> Bool = {
         AXIsProcessTrusted()
+    }
+
+    var isOwnWindowKey: () -> Bool = {
+        NSApp.keyWindow != nil
+    }
+
+    var focusedInputProcessIdentifier: () -> pid_t? = {
+        let system = AXUIElementCreateSystemWide()
+        var value: AnyObject?
+        guard AXUIElementCopyAttributeValue(
+            system,
+            kAXFocusedUIElementAttribute as CFString,
+            &value
+        ) == .success,
+            let value,
+            CFGetTypeID(value) == AXUIElementGetTypeID()
+        else {
+            return nil
+        }
+        var pid: pid_t = 0
+        guard AXUIElementGetPid(unsafeDowncast(value, to: AXUIElement.self), &pid) == .success else {
+            return nil
+        }
+        return pid
     }
 
     var isLockScreenActive: (WMController) -> Bool = { controller in

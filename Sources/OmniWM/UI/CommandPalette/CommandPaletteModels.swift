@@ -17,6 +17,17 @@ struct CommandPaletteWindowItem: Identifiable {
     let isAppHidden: Bool
 }
 
+struct CommandPaletteCommandItem: Identifiable {
+    let spec: ActionSpec
+    let shortcut: String
+    let shortcutSearchTerms: [String]
+    let isLayoutCompatible: Bool
+
+    var id: String {
+        spec.id
+    }
+}
+
 struct CommandPaletteAppSnapshot: Equatable {
     let processIdentifier: pid_t
     let bundleIdentifier: String?
@@ -51,12 +62,14 @@ struct CommandPaletteSummonAnchor: Equatable {
 struct CommandPaletteFocusTarget {
     let app: CommandPaletteAppSnapshot
     let focusedWindow: AXUIElement?
+    let focusedWindowID: CGWindowID?
 }
 
 enum CommandPaletteSelectionID: Hashable {
     case window(WindowToken)
     case menu(UUID)
     case clipboard(UUID)
+    case command(String)
 }
 
 enum CommandPaletteSelectionTrigger {
@@ -66,5 +79,5 @@ enum CommandPaletteSelectionTrigger {
 
 struct CommandPaletteClipboardPasteTarget {
     let focusTarget: CommandPaletteFocusTarget
-    let expectedWindowId: CGWindowID?
+    let expectedWindowId: CGWindowID
 }
