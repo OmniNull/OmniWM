@@ -185,6 +185,8 @@ eval "$(omniwmctl completion bash)"
 omniwmctl completion fish | source
 ```
 
+Fish completions do not suggest filesystem paths, including after all command arguments are supplied.
+
 ### Nushell
 
 Nushell completions require Nu 0.108 or newer. Run these commands in Nushell to generate the completion module:

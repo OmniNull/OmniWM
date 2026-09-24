@@ -71,10 +71,12 @@ final class MonitorRankingTests: XCTestCase {
 
     func testResolveDoesNotFallBackToNameWhenEntryUUIDIsStale() {
         let stale = OutputId(displayUUID: "99999999-9999-9999-9999-999999999999", name: "DELL U3423WE")
+        // Rank every display explicitly so the host's main display cannot affect this identity check.
+        let ranking = [stale, OutputId(from: lg), OutputId(from: builtIn), OutputId(from: dell)]
 
         XCTAssertNil(MonitorRanking.resolve(stale, in: [builtIn, dell, lg]))
         XCTAssertEqual(
-            MonitorRanking.roleOrder(ranking: [stale, OutputId(from: lg)], sortedMonitors: [builtIn, dell, lg])
+            MonitorRanking.roleOrder(ranking: ranking, sortedMonitors: [builtIn, dell, lg])
                 .map(\.displayId),
             [3, 1, 2]
         )
