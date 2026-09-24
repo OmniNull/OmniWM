@@ -2,13 +2,19 @@
 // Copyright (C) 2026 BarutSRB — https://github.com/OmniNull/OmniWM
 
 import Carbon
+import Foundation
 import OmniWMIPC
 
 extension IPCFullscreenCommand {
-    func actionDisplayName() -> String {
+    func actionDisplayName() -> LocalizedStringResource {
         switch self {
-        case .managed: "Toggle Fullscreen"
-        case .native: "Toggle Native Fullscreen"
+        case .managed: LocalizedStringResource(
+                "command.fullscreen.toggle", defaultValue: "Toggle Fullscreen", table: "Commands", bundle: .omniWM
+            )
+        case .native: LocalizedStringResource(
+                "command.fullscreen.toggleNative", defaultValue: "Toggle Native Fullscreen", table: "Commands",
+                bundle: .omniWM
+            )
         }
     }
 

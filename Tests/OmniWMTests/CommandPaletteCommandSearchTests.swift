@@ -28,6 +28,9 @@ final class CommandPaletteCommandSearchTests: XCTestCase {
 
         XCTAssertEqual(items.first { $0.id == "rescueOffscreenWindows" }?.shortcut, "Unassigned")
         XCTAssertEqual(items.first { $0.id == "consumeOrExpelWindowLeft" }?.shortcut, "No shortcut")
+        XCTAssertFalse(try XCTUnwrap(items.first { $0.id == "rescueOffscreenWindows" }).hasShortcut)
+        XCTAssertFalse(try XCTUnwrap(items.first { $0.id == "consumeOrExpelWindowLeft" }).hasShortcut)
+        XCTAssertTrue(configured.hasShortcut)
         XCTAssertTrue(configured.isLayoutCompatible)
         XCTAssertFalse(try XCTUnwrap(items.first { $0.id == "moveColumn.up" }).isLayoutCompatible)
     }
@@ -70,9 +73,17 @@ final class CommandPaletteCommandSearchTests: XCTestCase {
         )
     }
 
+    func testSearchMatchesLocalizedTitleAndCanonicalEnglishTitle() {
+        let translated = item(id: "translated", title: "Focus Left", localizedTitle: "Фокус налево")
+
+        XCTAssertEqual(CommandPaletteSearch.filterCommandItems([translated], query: "фокус").map(\.id), ["translated"])
+        XCTAssertEqual(CommandPaletteSearch.filterCommandItems([translated], query: "focus").map(\.id), ["translated"])
+    }
+
     private func item(
         id: String,
         title: String,
+        localizedTitle: String? = nil,
         keywords: [String] = [],
         shortcutSearchTerms: [String] = []
     ) -> CommandPaletteCommandItem {
@@ -81,6 +92,7 @@ final class CommandPaletteCommandSearchTests: XCTestCase {
                 id: id,
                 command: .openCommandPalette,
                 title: title,
+                localizedTitle: localizedTitle ?? title,
                 keywords: keywords,
                 category: .workspace,
                 visibility: .normal,
@@ -89,6 +101,7 @@ final class CommandPaletteCommandSearchTests: XCTestCase {
                 ipcCommandName: nil
             ),
             shortcut: "Unassigned",
+            hasShortcut: false,
             shortcutSearchTerms: shortcutSearchTerms,
             isLayoutCompatible: true
         )

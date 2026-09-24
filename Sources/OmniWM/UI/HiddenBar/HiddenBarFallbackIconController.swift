@@ -53,6 +53,10 @@ final class HiddenBarFallbackIconButton: NSButton {
 
 @MainActor
 final class HiddenBarFallbackIconController {
+    private static let accessibilityHelp = String(
+        localized: "Press to open the OmniWM menu. Right-click or Option-click to show hidden icons when Hidden Bar is enabled."
+    )
+
     nonisolated static let gap: CGFloat = 8
     nonisolated static let fallbackSide: CGFloat = 24
 
@@ -131,10 +135,8 @@ final class HiddenBarFallbackIconController {
         button.toolTip = "OmniWM"
         button.setAccessibilityElement(true)
         button.setAccessibilityLabel("OmniWM")
-        button.setAccessibilityValue("Window manager controls")
-        button.setAccessibilityHelp(
-            "Press to open the OmniWM menu. Right-click or Option-click to show hidden icons when Hidden Bar is enabled."
-        )
+        button.setAccessibilityValue(String(localized: "Window manager controls"))
+        button.setAccessibilityHelp(Self.accessibilityHelp)
         view.addSubview(button)
         NSLayoutConstraint.activate([
             button.leadingAnchor.constraint(equalTo: view.leadingAnchor),

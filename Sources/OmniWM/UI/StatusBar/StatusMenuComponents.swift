@@ -160,7 +160,10 @@ struct MenuActionRow: View {
             controlHover(hovered)
         }
         .animation(motionPolicy.animationsEnabled ? .easeOut(duration: 0.12) : nil, value: isHovered)
-        .accessibilityValue(isExpanded == true ? "Expanded" : "Collapsed", isEnabled: isExpanded != nil)
+        .accessibilityValue(
+            isExpanded == true ? String(localized: "Expanded") : String(localized: "Collapsed"),
+            isEnabled: isExpanded != nil
+        )
     }
 
     private func activate() {
@@ -256,7 +259,7 @@ struct MenuToggleTile: View {
         .animation(motionPolicy.animationsEnabled ? .easeOut(duration: 0.12) : nil, value: isOn)
         .accessibilityLabel(control.accessibilityName)
         .accessibilityHint(control.explanation)
-        .accessibilityValue(isOn ? "on" : "off")
+        .accessibilityValue(isOn ? String(localized: "on") : String(localized: "off"))
         .accessibilityAddTraits(.isToggle)
     }
 
@@ -396,7 +399,7 @@ struct MenuToggleRow: View {
         }
         .animation(motionPolicy.animationsEnabled ? .easeOut(duration: 0.12) : nil, value: isHovered)
         .accessibilityLabel(label)
-        .accessibilityValue(isOn ? "on" : "off")
+        .accessibilityValue(isOn ? String(localized: "on") : String(localized: "off"))
         .accessibilityAddTraits(.isToggle)
     }
 

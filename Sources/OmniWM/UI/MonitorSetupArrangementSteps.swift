@@ -26,9 +26,10 @@ struct MonitorSetupMacOSArrangementStep: View {
     var body: some View {
         VStack(alignment: .leading, spacing: 20) {
             MonitorSetupExplanation(
-                title: "First, make a technical staircase",
-                text: "This macOS arrangement is intentionally different from your desk. "
-                    + "It keeps OmniWM’s hidden windows from appearing on another display."
+                title: String(localized: "First, make a technical staircase"),
+                text: String(
+                    localized: "This macOS arrangement is intentionally different from your desk. It keeps OmniWM’s hidden windows from appearing on another display."
+                )
             )
 
             MonitorSetupStaircaseIllustration(
@@ -38,18 +39,18 @@ struct MonitorSetupMacOSArrangementStep: View {
 
             MonitorSetupInstructionRow(
                 number: 1,
-                title: "Put your physically largest or widest display at the bottom",
-                detail: "OmniWM cannot measure physical screen size, so choose the display yourself."
+                title: String(localized: "Put your physically largest or widest display at the bottom"),
+                detail: String(localized: "OmniWM cannot measure physical screen size, so choose the display yourself.")
             )
             MonitorSetupInstructionRow(
                 number: 2,
-                title: "Place the next display on its top-right corner",
-                detail: "Its bottom-left corner should touch the lower display’s top-right corner."
+                title: String(localized: "Place the next display on its top-right corner"),
+                detail: String(localized: "Its bottom-left corner should touch the lower display’s top-right corner.")
             )
             MonitorSetupInstructionRow(
                 number: 3,
-                title: "Continue upward and to the right",
-                detail: "For equal-size displays, any order is fine."
+                title: String(localized: "Continue upward and to the right"),
+                detail: String(localized: "For equal-size displays, any order is fine.")
             )
 
             MonitorSetupCard {
@@ -130,7 +131,7 @@ struct MonitorSetupPhysicalArrangementStep: View {
         draftMonitors.map { monitor in
             let number = displayNumbers[monitor.id] ?? 0
             let name = draftDisplayLabels[monitor.id]?.accessibilityName ?? monitor.name
-            return RoutingAccessibleEditor.Row(id: monitor.id, name: "Display \(number), \(name)")
+            return RoutingAccessibleEditor.Row(id: monitor.id, name: String(localized: "Display \(number), \(name)"))
         }
     }
 
@@ -141,16 +142,17 @@ struct MonitorSetupPhysicalArrangementStep: View {
     var body: some View {
         VStack(alignment: .leading, spacing: 20) {
             MonitorSetupExplanation(
-                title: "Now show OmniWM where the displays really are",
-                text: "macOS keeps the technical staircase. In OmniWM, arrange the numbered tiles "
-                    + "to match which display is left, right, above, or below on your desk."
+                title: String(localized: "Now show OmniWM where the displays really are"),
+                text: String(
+                    localized: "macOS keeps the technical staircase. In OmniWM, arrange the numbered tiles to match which display is left, right, above, or below on your desk."
+                )
             )
 
             HStack(spacing: 12) {
                 MonitorSetupMapLabel(
                     icon: "macwindow",
                     title: "macOS",
-                    detail: "Technical staircase"
+                    detail: String(localized: "Technical staircase")
                 )
                 Image(systemName: "arrow.right")
                     .foregroundStyle(.secondary)
@@ -158,7 +160,7 @@ struct MonitorSetupPhysicalArrangementStep: View {
                 MonitorSetupMapLabel(
                     icon: "display.2",
                     title: "OmniWM",
-                    detail: "Your real desk"
+                    detail: String(localized: "Your real desk")
                 )
             }
             .frame(maxWidth: .infinity)
@@ -204,8 +206,7 @@ struct MonitorSetupPhysicalArrangementStep: View {
             }
 
             Text(
-                "A display can be farther away in the grid, but every display must be reachable "
-                    + "through a shared row or column. A diagonal tile by itself is disconnected."
+                "A display can be farther away in the grid, but every display must be reachable through a shared row or column. A diagonal tile by itself is disconnected."
             )
             .font(.caption)
             .foregroundStyle(.secondary)
@@ -359,7 +360,7 @@ private struct MonitorSetupExampleDisplay: View {
                 )
             RoundedRectangle(cornerRadius: 7)
                 .strokeBorder(.white.opacity(0.35))
-            Text(index == 0 ? "Largest" : "\(index + 1)")
+            Text(index == 0 ? String(localized: "Largest") : "\(index + 1)")
                 .font(.caption.bold())
                 .foregroundStyle(.white)
                 .minimumScaleFactor(0.6)
@@ -376,10 +377,10 @@ private struct MonitorSetupExampleDisplay: View {
 enum MonitorSetupMacOSAssessment {
     static func warning(for monitors: [Monitor]) -> String? {
         guard monitors.count > 1 else {
-            return "Connect at least two displays to continue."
+            return String(localized: "Connect at least two displays to continue.")
         }
         guard monitors.allSatisfy({ $0.frame.width > 1 && $0.frame.height > 1 }) else {
-            return "macOS is still updating the display layout. Wait a moment and try again."
+            return String(localized: "macOS is still updating the display layout. Wait a moment and try again.")
         }
 
         for firstIndex in monitors.indices {
@@ -388,13 +389,17 @@ enum MonitorSetupMacOSAssessment {
                 let second = monitors[secondIndex].frame
                 let overlap = first.intersection(second)
                 if overlap.width > 1 && overlap.height > 1 {
-                    return "Two displays overlap or may be mirrored. Turn off mirroring before continuing."
+                    return String(
+                        localized: "Two displays overlap or may be mirrored. Turn off mirroring before continuing."
+                    )
                 }
 
                 let xOverlap = min(first.maxX, second.maxX) - max(first.minX, second.minX)
                 let yOverlap = min(first.maxY, second.maxY) - max(first.minY, second.minY)
                 if xOverlap > 1 || yOverlap > 1 {
-                    return "Some displays still share an edge. The recommended staircase touches only at the corners."
+                    return String(
+                        localized: "Some displays still share an edge. The recommended staircase touches only at the corners."
+                    )
                 }
             }
         }

@@ -99,7 +99,7 @@ private struct GlobalBarSettingsSection: View {
 
                 Picker("Reveal on Modifier Hold", selection: Bindable(settings.workspaceBar).revealModifier) {
                     ForEach(WorkspaceBarRevealModifier.allCases, id: \.self) { modifier in
-                        Text(modifier.displayName).tag(modifier)
+                        Text(modifier.localizedDisplayName).tag(modifier)
                     }
                 }
                 .onChange(of: settings.workspaceBar.revealModifier) { _, _ in
@@ -109,11 +109,11 @@ private struct GlobalBarSettingsSection: View {
 
                 if settings.workspaceBar.revealModifier != .off {
                     SettingsSliderRow(
-                        label: "Reveal Hold Delay",
+                        label: String(localized: "Reveal Hold Delay"),
                         value: Bindable(settings.workspaceBar).revealHoldMilliseconds,
                         range: 0 ... 1000,
                         step: 50,
-                        valueText: "\(Int(settings.workspaceBar.revealHoldMilliseconds)) ms"
+                        valueText: String(localized: "\(Int(settings.workspaceBar.revealHoldMilliseconds)) ms")
                     )
                     .onChange(of: settings.workspaceBar.revealHoldMilliseconds) { _, _ in
                         controller.updateWorkspaceBarSettings()
@@ -143,17 +143,16 @@ private struct GlobalBarSettingsSection: View {
                     controller.updateWorkspaceBarSettings()
                 }
                 .help(
-                    "Move below the notch, split around it, or fill the area to its left, covering application menus. "
-                        + "Without a notch, Fill Left covers the left half of the menu bar."
+                    "Move below the notch, split around it, or fill the area to its left, covering application menus. Without a notch, Fill Left covers the left half of the menu bar."
                 )
 
                 if settings.workspaceBar.notchMode.isSplit {
                     SettingsSliderRow(
-                        label: "Active Zone Width",
+                        label: String(localized: "Active Zone Width"),
                         value: Bindable(settings.workspaceBar).notchActiveZoneWidth,
                         range: 100 ... 400,
                         step: 10,
-                        valueText: "\(Int(settings.workspaceBar.notchActiveZoneWidth)) px"
+                        valueText: String(localized: "\(Int(settings.workspaceBar.notchActiveZoneWidth)) px")
                     )
                     .onChange(of: settings.workspaceBar.notchActiveZoneWidth) { _, _ in
                         controller.updateWorkspaceBarSettings()
@@ -186,10 +185,10 @@ private struct GlobalBarSettingsSection: View {
 
             Section("Position Offset") {
                 SettingsNumberStepperRow(
-                    label: "X Offset",
+                    label: String(localized: "X Offset"),
                     value: Bindable(settings.workspaceBar).xOffset,
                     step: 10,
-                    valueText: "\(Int(settings.workspaceBar.xOffset)) px"
+                    valueText: String(localized: "\(Int(settings.workspaceBar.xOffset)) px")
                 )
                 .help("Horizontal offset (negative = left, positive = right)")
                 .onChange(of: settings.workspaceBar.xOffset) { _, _ in
@@ -197,10 +196,10 @@ private struct GlobalBarSettingsSection: View {
                 }
 
                 SettingsNumberStepperRow(
-                    label: "Y Offset",
+                    label: String(localized: "Y Offset"),
                     value: Bindable(settings.workspaceBar).yOffset,
                     step: 10,
-                    valueText: "\(Int(settings.workspaceBar.yOffset)) px"
+                    valueText: String(localized: "\(Int(settings.workspaceBar.yOffset)) px")
                 )
                 .help("Vertical offset (negative = down, positive = up)")
                 .onChange(of: settings.workspaceBar.yOffset) { _, _ in
@@ -210,18 +209,18 @@ private struct GlobalBarSettingsSection: View {
 
             Section("Appearance") {
                 SettingsSliderRow(
-                    label: "Bar Height",
+                    label: String(localized: "Bar Height"),
                     value: Bindable(settings.workspaceBar).height,
                     range: 20 ... 40,
                     step: 2,
-                    valueText: "\(Int(settings.workspaceBar.height)) px"
+                    valueText: String(localized: "\(Int(settings.workspaceBar.height)) px")
                 )
                 .onChange(of: settings.workspaceBar.height) { _, _ in
                     controller.updateWorkspaceBarSettings()
                 }
 
                 SettingsSliderRow(
-                    label: "Background Opacity",
+                    label: String(localized: "Background Opacity"),
                     value: Bindable(settings.workspaceBar).backgroundOpacity,
                     range: 0 ... 0.5,
                     step: 0.05,
@@ -232,7 +231,7 @@ private struct GlobalBarSettingsSection: View {
                 }
 
                 SettingsSliderRow(
-                    label: "Inactive Icon Opacity",
+                    label: String(localized: "Inactive Icon Opacity"),
                     value: Binding(
                         get: { settings.workspaceBar.inactiveIconOpacity ?? 0.5 },
                         set: { settings.workspaceBar.inactiveIconOpacity = $0 }
@@ -241,7 +240,7 @@ private struct GlobalBarSettingsSection: View {
                     step: 0.05,
                     valueText: "\(Int((settings.workspaceBar.inactiveIconOpacity ?? 0.5) * 100))%",
                     resetAction: { settings.workspaceBar.inactiveIconOpacity = nil },
-                    resetHelp: "Reset to System Default"
+                    resetHelp: String(localized: "Reset to System Default")
                 )
                 .onChange(of: settings.workspaceBar.inactiveIconOpacity) { _, _ in
                     controller.updateWorkspaceBarSettings()

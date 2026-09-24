@@ -128,11 +128,11 @@ extension WMController {
         Task { @MainActor in
             let alert = NSAlert()
             alert.alertStyle = .warning
-            alert.messageText = "Enable “Displays have separate Spaces”"
-            alert.informativeText = "OmniWM requires the macOS setting “Displays have separate Spaces.” "
-                + "Turn it on in System Settings > Desktop & Dock > Mission Control, then log out and back in. "
-                + "Window management stays paused until it is enabled."
-            alert.addButton(withTitle: "OK")
+            alert.messageText = String(localized: "Enable “Displays have separate Spaces”")
+            alert.informativeText = String(localized:
+                "OmniWM requires the macOS setting “Displays have separate Spaces.” Turn it on in System Settings > Desktop & Dock > Mission Control, then log out and back in. Window management stays paused until it is enabled."
+            )
+            alert.addButton(withTitle: String(localized: "OK"))
             _ = alert.runModal()
         }
     }

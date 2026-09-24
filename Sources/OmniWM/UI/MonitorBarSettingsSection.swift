@@ -26,7 +26,7 @@ struct MonitorBarSettingsSection: View {
 
         Section("Workspace Bar") {
             OverridableToggle(
-                label: "Enable Workspace Bar",
+                label: String(localized: "Enable Workspace Bar"),
                 value: ms.enabled,
                 globalValue: settings.workspaceBar.enabled,
                 onChange: { newValue in updateSetting { $0.enabled = newValue } },
@@ -34,7 +34,7 @@ struct MonitorBarSettingsSection: View {
             )
 
             OverridableToggle(
-                label: "Show Workspace Labels",
+                label: String(localized: "Show Workspace Labels"),
                 value: ms.showLabels,
                 globalValue: settings.workspaceBar.showLabels,
                 onChange: { newValue in updateSetting { $0.showLabels = newValue } },
@@ -42,7 +42,7 @@ struct MonitorBarSettingsSection: View {
             )
 
             OverridableToggle(
-                label: "Show Floating Windows",
+                label: String(localized: "Show Floating Windows"),
                 value: ms.showFloatingWindows,
                 globalValue: settings.workspaceBar.showFloatingWindows,
                 onChange: { newValue in updateSetting { $0.showFloatingWindows = newValue } },
@@ -50,7 +50,7 @@ struct MonitorBarSettingsSection: View {
             )
 
             OverridableToggle(
-                label: "Deduplicate App Icons",
+                label: String(localized: "Deduplicate App Icons"),
                 value: ms.deduplicateAppIcons,
                 globalValue: settings.workspaceBar.deduplicateAppIcons,
                 onChange: { newValue in updateSetting { $0.deduplicateAppIcons = newValue } },
@@ -59,7 +59,7 @@ struct MonitorBarSettingsSection: View {
             .help("Group workspace windows by app with badge counts; scratchpad pills always group by app")
 
             OverridableToggle(
-                label: "Hide Empty Workspaces",
+                label: String(localized: "Hide Empty Workspaces"),
                 value: ms.hideEmptyWorkspaces,
                 globalValue: settings.workspaceBar.hideEmptyWorkspaces,
                 onChange: { newValue in updateSetting { $0.hideEmptyWorkspaces = newValue } },
@@ -67,7 +67,7 @@ struct MonitorBarSettingsSection: View {
             )
 
             OverridableToggle(
-                label: "Reserve Space for Workspace Bar",
+                label: String(localized: "Reserve Space for Workspace Bar"),
                 value: ms.reserveLayoutSpace,
                 globalValue: settings.workspaceBar.reserveLayoutSpace,
                 onChange: { newValue in updateSetting { $0.reserveLayoutSpace = newValue } },
@@ -78,7 +78,7 @@ struct MonitorBarSettingsSection: View {
             )
 
             OverridablePicker(
-                label: "Notch Mode",
+                label: String(localized: "Notch Mode"),
                 value: ms.notchMode,
                 globalValue: settings.workspaceBar.notchMode,
                 options: WorkspaceBarNotchMode.allCases,
@@ -86,16 +86,17 @@ struct MonitorBarSettingsSection: View {
                 onChange: { newValue in updateSetting { $0.notchMode = newValue } },
                 onReset: { updateSetting { $0.notchMode = nil } }
             )
-            .help("Move below the notch, split around it, or fill the area to its left, covering application menus. "
-                + "Without a notch, Fill Left covers the left half of the menu bar.")
+            .help(
+                "Move below the notch, split around it, or fill the area to its left, covering application menus. Without a notch, Fill Left covers the left half of the menu bar."
+            )
 
             OverridableSlider(
-                label: "Active Zone Width",
+                label: String(localized: "Active Zone Width"),
                 value: ms.notchActiveZoneWidth,
                 globalValue: settings.workspaceBar.notchActiveZoneWidth,
                 range: 100 ... 400,
                 step: 10,
-                formatter: { "\(Int($0)) px" },
+                formatter: { String(localized: "\(Int($0)) px") },
                 onChange: { newValue in updateSetting { $0.notchActiveZoneWidth = newValue } },
                 onReset: { updateSetting { $0.notchActiveZoneWidth = nil } }
             )
@@ -104,7 +105,7 @@ struct MonitorBarSettingsSection: View {
 
         Section("Position & Level") {
             OverridablePicker(
-                label: "Position",
+                label: String(localized: "Position"),
                 value: ms.position,
                 globalValue: settings.workspaceBar.position,
                 options: WorkspaceBarPosition.allCases,
@@ -114,7 +115,7 @@ struct MonitorBarSettingsSection: View {
             )
 
             OverridablePicker(
-                label: "Window Level",
+                label: String(localized: "Window Level"),
                 value: ms.windowLevel,
                 globalValue: settings.workspaceBar.windowLevel,
                 options: WorkspaceBarWindowLevel.allCases,
@@ -126,22 +127,22 @@ struct MonitorBarSettingsSection: View {
 
         Section("Position Offset") {
             OverridableStepper(
-                label: "X Offset",
+                label: String(localized: "X Offset"),
                 value: ms.xOffset,
                 globalValue: settings.workspaceBar.xOffset,
                 step: 10,
-                formatter: { "\(Int($0)) px" },
+                formatter: { String(localized: "\(Int($0)) px") },
                 onChange: { newValue in updateSetting { $0.xOffset = newValue } },
                 onReset: { updateSetting { $0.xOffset = nil } }
             )
             .help("Horizontal offset (negative = left, positive = right)")
 
             OverridableStepper(
-                label: "Y Offset",
+                label: String(localized: "Y Offset"),
                 value: ms.yOffset,
                 globalValue: settings.workspaceBar.yOffset,
                 step: 10,
-                formatter: { "\(Int($0)) px" },
+                formatter: { String(localized: "\(Int($0)) px") },
                 onChange: { newValue in updateSetting { $0.yOffset = newValue } },
                 onReset: { updateSetting { $0.yOffset = nil } }
             )
@@ -150,18 +151,18 @@ struct MonitorBarSettingsSection: View {
 
         Section("Appearance") {
             OverridableSlider(
-                label: "Bar Height",
+                label: String(localized: "Bar Height"),
                 value: ms.height,
                 globalValue: settings.workspaceBar.height,
                 range: 20 ... 40,
                 step: 2,
-                formatter: { "\(Int($0)) px" },
+                formatter: { String(localized: "\(Int($0)) px") },
                 onChange: { newValue in updateSetting { $0.height = newValue } },
                 onReset: { updateSetting { $0.height = nil } }
             )
 
             OverridableSlider(
-                label: "Background Opacity",
+                label: String(localized: "Background Opacity"),
                 value: ms.backgroundOpacity,
                 globalValue: settings.workspaceBar.backgroundOpacity,
                 range: 0 ... 0.5,
@@ -172,7 +173,7 @@ struct MonitorBarSettingsSection: View {
             )
 
             OverridableSlider(
-                label: "Inactive Icon Opacity",
+                label: String(localized: "Inactive Icon Opacity"),
                 value: ms.inactiveIconOpacity,
                 globalValue: settings.workspaceBar.inactiveIconOpacity ?? 0.5,
                 range: 0 ... 1,
@@ -184,7 +185,7 @@ struct MonitorBarSettingsSection: View {
             .help("Opacity of app icons that are not focused")
 
             OverridableToggle(
-                label: "Transparent Background",
+                label: String(localized: "Transparent Background"),
                 value: ms.transparentBackground,
                 globalValue: settings.workspaceBar.transparentBackground,
                 onChange: { newValue in updateSetting { $0.transparentBackground = newValue } },
@@ -193,7 +194,7 @@ struct MonitorBarSettingsSection: View {
             .help("Hide the workspace bar material, tint, and border while keeping its contents interactive.")
 
             OverridableToggle(
-                label: "Solid Black Background",
+                label: String(localized: "Solid Black Background"),
                 value: ms.solidBlackBackground,
                 globalValue: settings.workspaceBar.solidBlackBackground,
                 onChange: { newValue in updateSetting { $0.solidBlackBackground = newValue } },
@@ -202,7 +203,7 @@ struct MonitorBarSettingsSection: View {
             .help("Fill the workspace bar with fully opaque black, overriding the tint, material, and border.")
 
             OverridableToggle(
-                label: "Show Item Backgrounds",
+                label: String(localized: "Show Item Backgrounds"),
                 value: ms.showItemBackgrounds,
                 globalValue: settings.workspaceBar.showItemBackgrounds,
                 onChange: { newValue in updateSetting { $0.showItemBackgrounds = newValue } },
@@ -211,7 +212,7 @@ struct MonitorBarSettingsSection: View {
             .help("Show material backgrounds behind workspace groups, floating windows, scratchpad, and stats.")
 
             OverridableToggle(
-                label: "Show Accent Highlights",
+                label: String(localized: "Show Accent Highlights"),
                 value: ms.showAccentHighlights,
                 globalValue: settings.workspaceBar.showAccentHighlights,
                 onChange: { newValue in updateSetting { $0.showAccentHighlights = newValue } },

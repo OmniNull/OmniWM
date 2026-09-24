@@ -31,23 +31,26 @@ struct DiagnosticsHealthSection: View {
                         Button("Open Settings") {
                             openSystemSettings(urlString)
                         }
-                        .accessibilityLabel("Open System Settings for \(issue.title)")
+                        .accessibilityLabel("Open System Settings for \(issue.localizedTitle)")
                     }
                     if issue.revealsConfigFolder {
                         Button("Reveal Config Folder") {
                             revealConfigFolder()
                         }
-                        .accessibilityLabel("Reveal config folder for \(issue.title)")
+                        .accessibilityLabel("Reveal config folder for \(issue.localizedTitle)")
                     }
                 }
                 .controlSize(.small)
             } label: {
-                Label(issue.title, systemImage: isCritical ? "xmark.octagon.fill" : "exclamationmark.triangle.fill")
-                    .foregroundStyle(isCritical ? .red : .orange)
+                Label(
+                    issue.localizedTitle,
+                    systemImage: isCritical ? "xmark.octagon.fill" : "exclamationmark.triangle.fill"
+                )
+                .foregroundStyle(isCritical ? .red : .orange)
             }
-            Text(issue.message)
+            Text(issue.localizedMessage)
                 .font(.callout)
-            SettingsCaption(issue.remediation)
+            SettingsCaption(issue.localizedRemediation)
         }
     }
 

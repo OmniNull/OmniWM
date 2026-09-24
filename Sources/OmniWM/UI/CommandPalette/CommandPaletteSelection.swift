@@ -38,12 +38,12 @@ extension CommandPaletteController {
     var clipboardStatusText: String {
         if let clipboardErrorText { return clipboardErrorText }
         guard isClipboardHistoryEnabled else {
-            return "Clipboard history is disabled."
+            return String(localized: "Clipboard history is disabled.")
         }
         if clipboardItems.isEmpty {
-            return "Clipboard history is empty."
+            return String(localized: "Clipboard history is empty.")
         }
-        return "Enter copies. Shift-Enter pastes."
+        return String(localized: "Enter copies. Shift-Enter pastes.")
     }
 
     func resolvedInitialMode(_ preferredMode: CommandPaletteMode) -> CommandPaletteMode {

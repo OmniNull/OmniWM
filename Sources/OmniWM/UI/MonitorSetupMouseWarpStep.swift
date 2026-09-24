@@ -11,9 +11,10 @@ struct MonitorSetupMouseWarpStep: View {
     var body: some View {
         VStack(alignment: .leading, spacing: 20) {
             MonitorSetupExplanation(
-                title: "Let the pointer follow your real desk",
-                text: "The macOS staircase leaves only corner contact between displays. Mouse Warp uses "
-                    + "your OmniWM arrangement to move the pointer across the matching display edge."
+                title: String(localized: "Let the pointer follow your real desk"),
+                text: String(
+                    localized: "The macOS staircase leaves only corner contact between displays. Mouse Warp uses your OmniWM arrangement to move the pointer across the matching display edge."
+                )
             )
 
             MonitorSetupMouseWarpIllustration(
@@ -24,13 +25,12 @@ struct MonitorSetupMouseWarpStep: View {
                 Toggle(isOn: $mouseWarpEnabled) {
                     HStack(spacing: 8) {
                         Text("Mouse Warp")
-                        MonitorSetupBadge(text: "Recommended")
+                        MonitorSetupBadge(text: String(localized: "Recommended"))
                     }
                 }
 
                 Text(
-                    "When the pointer reaches a display edge, OmniWM moves it to the matching edge "
-                        + "of the neighboring display."
+                    "When the pointer reaches a display edge, OmniWM moves it to the matching edge of the neighboring display."
                 )
                 .font(.callout)
                 .foregroundStyle(.secondary)
@@ -59,7 +59,7 @@ struct MonitorSetupMouseWarpStep: View {
                         .foregroundStyle(.secondary)
                 }
                 LabeledContent("Mouse Warp") {
-                    Text(mouseWarpEnabled ? "On" : "Off")
+                    Text(mouseWarpEnabled ? String(localized: "On") : String(localized: "Off"))
                         .foregroundStyle(.secondary)
                 }
                 Text("Cursor containment and other advanced options remain available in Monitors settings.")
@@ -78,8 +78,8 @@ private struct MonitorSetupMouseWarpIllustration: View {
     var body: some View {
         MonitorSetupCard {
             ZStack(alignment: .topLeading) {
-                monitor(x: 20, label: "Display 1")
-                monitor(x: 365, label: "Display 2")
+                monitor(x: 20, label: String(localized: "Display 1"))
+                monitor(x: 365, label: String(localized: "Display 2"))
 
                 Path { path in
                     path.move(to: CGPoint(x: 305, y: 90))

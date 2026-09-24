@@ -54,39 +54,39 @@ private struct GlobalDwindleSettingsSection: View {
                 .onChange(of: settings.dwindle.smartSplit) { _, newValue in
                     controller.updateDwindleConfig(smartSplit: newValue)
                 }
-            SettingsCaption("Automatically choose split direction based on cursor position")
+            SettingsCaption(localized: "Automatically choose split direction based on cursor position")
 
             Toggle("Move to Root: Stable", isOn: Bindable(settings.dwindle).moveToRootStable)
-            SettingsCaption("Keep window on same screen side when moving to root")
+            SettingsCaption(localized: "Keep window on same screen side when moving to root")
 
             SettingsSliderRow(
-                label: "Default Split Ratio",
+                label: String(localized: "Default Split Ratio"),
                 value: Bindable(settings.dwindle).defaultSplitRatio,
                 range: 0.1 ... 1.9,
                 step: 0.1,
-                valueText: String(format: "%.1f", settings.dwindle.defaultSplitRatio),
+                valueText: settings.dwindle.defaultSplitRatio.formatted(.number.precision(.fractionLength(1))),
                 valueWidth: 40
             )
             .onChange(of: settings.dwindle.defaultSplitRatio) { _, newValue in
                 controller.updateDwindleConfig(defaultSplitRatio: CGFloat(newValue))
             }
-            SettingsCaption("1.0 = equal split, <1.0 = first smaller, >1.0 = first larger")
+            SettingsCaption(localized: "1.0 = equal split, <1.0 = first smaller, >1.0 = first larger")
 
             SettingsSliderRow(
-                label: "Split Width Multiplier",
+                label: String(localized: "Split Width Multiplier"),
                 value: Bindable(settings.dwindle).splitWidthMultiplier,
                 range: 0.5 ... 2.0,
                 step: 0.1,
-                valueText: String(format: "%.1f", settings.dwindle.splitWidthMultiplier),
+                valueText: settings.dwindle.splitWidthMultiplier.formatted(.number.precision(.fractionLength(1))),
                 valueWidth: 40
             )
             .onChange(of: settings.dwindle.splitWidthMultiplier) { _, newValue in
                 controller.updateDwindleConfig(splitWidthMultiplier: CGFloat(newValue))
             }
-            SettingsCaption("Affects when to prefer vertical vs horizontal splits")
+            SettingsCaption(localized: "Affects when to prefer vertical vs horizontal splits")
 
             SingleWindowFitControls(
-                label: "Single Window",
+                label: String(localized: "Single Window"),
                 fit: settings.dwindle.singleWindowFit,
                 modes: SingleWindowFit.dwindleModes,
                 onChange: { newValue in
@@ -95,14 +95,14 @@ private struct GlobalDwindleSettingsSection: View {
                 }
             )
             SettingsCaption(
-                "How a lone window is sized: Full Screen fills the work area; Custom uses a fixed width × height"
+                localized: "How a lone window is sized: Full Screen fills the work area; Custom uses a fixed width × height"
             )
 
             Toggle("Use Global Gap Settings", isOn: Bindable(settings.dwindle).useGlobalGaps)
                 .onChange(of: settings.dwindle.useGlobalGaps) { _, _ in
                     controller.updateDwindleConfig()
                 }
-            SettingsCaption("When enabled, uses the gap values from General settings")
+            SettingsCaption(localized: "When enabled, uses the gap values from General settings")
         }
     }
 }
@@ -131,40 +131,40 @@ private struct MonitorDwindleSettingsSection: View {
 
         Section("Dwindle Layout") {
             OverridableToggle(
-                label: "Smart Split",
+                label: String(localized: "Smart Split"),
                 value: ms.smartSplit,
                 globalValue: settings.dwindle.smartSplit,
                 onChange: { newValue in updateSetting { $0.smartSplit = newValue } },
                 onReset: { updateSetting { $0.smartSplit = nil } }
             )
-            SettingsCaption("Automatically choose split direction based on cursor position")
+            SettingsCaption(localized: "Automatically choose split direction based on cursor position")
 
             OverridableSlider(
-                label: "Default Split Ratio",
+                label: String(localized: "Default Split Ratio"),
                 value: ms.defaultSplitRatio,
                 globalValue: settings.dwindle.defaultSplitRatio,
                 range: 0.1 ... 1.9,
                 step: 0.1,
-                formatter: { String(format: "%.1f", $0) },
+                formatter: { $0.formatted(.number.precision(.fractionLength(1))) },
                 onChange: { newValue in updateSetting { $0.defaultSplitRatio = newValue } },
                 onReset: { updateSetting { $0.defaultSplitRatio = nil } }
             )
-            SettingsCaption("1.0 = equal split, <1.0 = first smaller, >1.0 = first larger")
+            SettingsCaption(localized: "1.0 = equal split, <1.0 = first smaller, >1.0 = first larger")
 
             OverridableSlider(
-                label: "Split Width Multiplier",
+                label: String(localized: "Split Width Multiplier"),
                 value: ms.splitWidthMultiplier,
                 globalValue: settings.dwindle.splitWidthMultiplier,
                 range: 0.5 ... 2.0,
                 step: 0.1,
-                formatter: { String(format: "%.1f", $0) },
+                formatter: { $0.formatted(.number.precision(.fractionLength(1))) },
                 onChange: { newValue in updateSetting { $0.splitWidthMultiplier = newValue } },
                 onReset: { updateSetting { $0.splitWidthMultiplier = nil } }
             )
-            SettingsCaption("Affects when to prefer vertical vs horizontal splits")
+            SettingsCaption(localized: "Affects when to prefer vertical vs horizontal splits")
 
             SingleWindowFitControls(
-                label: "Single Window",
+                label: String(localized: "Single Window"),
                 fit: ms.singleWindowFit ?? settings.dwindle.singleWindowFit,
                 modes: SingleWindowFit.dwindleModes,
                 isOverridden: ms.singleWindowFit != nil,
@@ -173,24 +173,24 @@ private struct MonitorDwindleSettingsSection: View {
             )
 
             OverridableToggle(
-                label: "Use Global Gap Settings",
+                label: String(localized: "Use Global Gap Settings"),
                 value: ms.useGlobalGaps,
                 globalValue: settings.dwindle.useGlobalGaps,
                 onChange: { newValue in updateSetting { $0.useGlobalGaps = newValue } },
                 onReset: { updateSetting { $0.useGlobalGaps = nil } }
             )
-            SettingsCaption("When enabled, uses the gap values from General settings")
+            SettingsCaption(localized: "When enabled, uses the gap values from General settings")
         }
 
         if !usesGlobalGaps {
             Section("Dwindle Gaps") {
                 OverridableSlider(
-                    label: "Inner Gap",
+                    label: String(localized: "Inner Gap"),
                     value: ms.innerGap,
                     globalValue: settings.gaps.size,
                     range: 0 ... 32,
                     step: 1,
-                    formatter: { "\(Int($0)) px" },
+                    formatter: { String(localized: "\(Int($0)) px") },
                     onChange: { newValue in updateSetting { $0.innerGap = newValue } },
                     onReset: { updateSetting { $0.innerGap = nil } }
                 )

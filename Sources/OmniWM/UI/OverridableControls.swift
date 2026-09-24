@@ -30,14 +30,18 @@ struct SettingsPage<Content: View>: View {
 }
 
 struct SettingsCaption: View {
-    let text: String
+    let content: Text
 
     init(_ text: String) {
-        self.text = text
+        content = Text(verbatim: text)
+    }
+
+    init(localized text: LocalizedStringKey) {
+        content = Text(text)
     }
 
     var body: some View {
-        Text(text)
+        content
             .font(.caption)
             .foregroundStyle(.secondary)
     }
@@ -64,7 +68,7 @@ struct SettingsSliderRow: View {
     let valueText: String
     var valueWidth: CGFloat = 56
     var resetAction: (() -> Void)?
-    var resetHelp = "Reset to Default"
+    var resetHelp = String(localized: "Reset to Default")
 
     var body: some View {
         LabeledContent(label) {
@@ -144,7 +148,8 @@ struct MonitorScopeSection: View {
             {
                 LabeledContent("Overrides") {
                     HStack {
-                        Text(hasOverrides(monitor) ? "Custom" : "Using global defaults")
+                        Text(hasOverrides(monitor) ? String(localized: "Custom") :
+                            String(localized: "Using global defaults"))
                             .foregroundStyle(.secondary)
                         Button("Reset to Global") {
                             reset(monitor)
@@ -210,13 +215,13 @@ struct OverridableToggle: View {
     @ViewBuilder
     private var overrideStatus: some View {
         if isOverridden {
-            ResetIconButton(title: "Reset \(label) to global default", action: onReset)
+            ResetIconButton(title: String(localized: "Reset \(label) to global default"), action: onReset)
         } else {
             Text("Global")
                 .font(.caption)
                 .foregroundStyle(.secondary)
                 .frame(minWidth: 45)
-                .accessibilityLabel("\(label) uses global default")
+                .accessibilityLabel(String(localized: "\(label) uses global default"))
         }
     }
 }
@@ -260,13 +265,13 @@ struct OverridablePicker<T: Hashable & Identifiable>: View {
     @ViewBuilder
     private var overrideStatus: some View {
         if isOverridden {
-            ResetIconButton(title: "Reset \(label) to global default", action: onReset)
+            ResetIconButton(title: String(localized: "Reset \(label) to global default"), action: onReset)
         } else {
             Text("Global")
                 .font(.caption)
                 .foregroundStyle(.secondary)
                 .frame(minWidth: 45)
-                .accessibilityLabel("\(label) uses global default")
+                .accessibilityLabel(String(localized: "\(label) uses global default"))
         }
     }
 }
@@ -312,13 +317,13 @@ struct OverridableSlider: View {
     @ViewBuilder
     private var overrideStatus: some View {
         if isOverridden {
-            ResetIconButton(title: "Reset \(label) to global default", action: onReset)
+            ResetIconButton(title: String(localized: "Reset \(label) to global default"), action: onReset)
         } else {
             Text("Global")
                 .font(.caption)
                 .foregroundStyle(.secondary)
                 .frame(minWidth: 45)
-                .accessibilityLabel("\(label) uses global default")
+                .accessibilityLabel(String(localized: "\(label) uses global default"))
         }
     }
 }
@@ -374,13 +379,13 @@ struct OverridableStepper: View {
     @ViewBuilder
     private var overrideStatus: some View {
         if isOverridden {
-            ResetIconButton(title: "Reset \(label) to global default", action: onReset)
+            ResetIconButton(title: String(localized: "Reset \(label) to global default"), action: onReset)
         } else {
             Text("Global")
                 .font(.caption)
                 .foregroundStyle(.secondary)
                 .frame(minWidth: 45)
-                .accessibilityLabel("\(label) uses global default")
+                .accessibilityLabel(String(localized: "\(label) uses global default"))
         }
     }
 }

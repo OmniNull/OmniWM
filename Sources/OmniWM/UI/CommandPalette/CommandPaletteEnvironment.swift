@@ -72,9 +72,9 @@ struct CommandPaletteEnvironment {
     var presentCommandFailure: (String) -> Void = { message in
         let alert = NSAlert()
         alert.alertStyle = .warning
-        alert.messageText = "Command Palette"
+        alert.messageText = String(localized: "Command Palette")
         alert.informativeText = message
-        alert.addButton(withTitle: "OK")
+        alert.addButton(withTitle: String(localized: "OK"))
         NSApp.activate(ignoringOtherApps: true)
         alert.runModal()
     }
@@ -155,10 +155,14 @@ struct CommandPaletteEnvironment {
     var confirmClearClipboardHistory: () -> Bool = {
         let alert = NSAlert()
         alert.alertStyle = .warning
-        alert.messageText = "Clear Clipboard History?"
-        alert.informativeText = "This removes unpinned clipboard history. Pinned items and the current system clipboard are unchanged."
-        alert.addButton(withTitle: "Clear")
-        alert.addButton(withTitle: "Cancel")
+        alert.messageText = String(localized: "Clear Clipboard History?")
+        alert
+            .informativeText =
+            String(
+                localized: "This removes unpinned clipboard history. Pinned items and the current system clipboard are unchanged."
+            )
+        alert.addButton(withTitle: String(localized: "Clear"))
+        alert.addButton(withTitle: String(localized: "Cancel"))
         NSApp.activate(ignoringOtherApps: true)
         return alert.runModal() == .alertFirstButtonReturn
     }

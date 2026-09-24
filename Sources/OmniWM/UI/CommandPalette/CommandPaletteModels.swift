@@ -20,6 +20,7 @@ struct CommandPaletteWindowItem: Identifiable {
 struct CommandPaletteCommandItem: Identifiable {
     let spec: ActionSpec
     let shortcut: String
+    let hasShortcut: Bool
     let shortcutSearchTerms: [String]
     let isLayoutCompatible: Bool
 

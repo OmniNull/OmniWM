@@ -31,10 +31,9 @@ struct AppWindowCornerSettings: View {
         statusContent
 
         SettingsCaption(
-            "Changes standard Mac app windows system-wide, including windows OmniWM doesn’t manage. "
-                + "Apps that draw their own window chrome may ignore it."
+            localized: "Changes standard Mac app windows system-wide, including windows OmniWM doesn’t manage. Apps that draw their own window chrome may ignore it."
         )
-        SettingsCaption("Changes take effect after each affected app is fully quit and reopened.")
+        SettingsCaption(localized: "Changes take effect after each affected app is fully quit and reopened.")
             .onReceive(NotificationCenter.default.publisher(for: NSApplication.didBecomeActiveNotification)) { _ in
                 preferences.refresh()
             }
@@ -118,11 +117,11 @@ struct AppWindowCornerSettings: View {
     private var externalConfigurationReason: String {
         switch preferences.state {
         case .mixed:
-            "The two macOS corner preferences do not match."
+            String(localized: "The two macOS corner preferences do not match.")
         case .malformed:
-            "A macOS corner preference has an invalid value."
+            String(localized: "A macOS corner preference has an invalid value.")
         case .outOfRange:
-            "The existing macOS corner value is outside OmniWM’s supported range."
+            String(localized: "The existing macOS corner value is outside OmniWM’s supported range.")
         case .systemDefault,
              .custom:
             ""
@@ -207,8 +206,9 @@ struct AppWindowCornerSettings: View {
 
 enum AppWindowCornerRadiusFormatting {
     static func string(for radius: Double) -> String {
-        guard radius != 0 else { return "Square" }
-        return radius.formatted(.number.precision(.significantDigits(1 ... 6))) + " pt"
+        guard radius != 0 else { return String(localized: "Square") }
+        let formattedRadius = radius.formatted(.number.precision(.significantDigits(1 ... 6)))
+        return String(localized: "\(formattedRadius) pt")
     }
 }
 

@@ -19,7 +19,7 @@ struct SingleWindowFitControls: View {
                     set: { onChange(SingleWindowFit(mode: $0, width: fit.width, height: fit.height)) }
                 )) {
                     ForEach(modes) { mode in
-                        Text(mode.displayName).tag(mode)
+                        Text(mode.localizedDisplayName).tag(mode)
                     }
                 }
                 .pickerStyle(.segmented)
@@ -62,13 +62,13 @@ struct SingleWindowFitControls: View {
     @ViewBuilder
     private func overrideStatus(onReset: @escaping () -> Void) -> some View {
         if isOverridden {
-            ResetIconButton(title: "Reset \(label) to global default", action: onReset)
+            ResetIconButton(title: String(localized: "Reset \(label) to global default"), action: onReset)
         } else {
             Text("Global")
                 .font(.caption)
                 .foregroundStyle(.secondary)
                 .frame(minWidth: 45)
-                .accessibilityLabel("\(label) uses global default")
+                .accessibilityLabel(String(localized: "\(label) uses global default"))
         }
     }
 }

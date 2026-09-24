@@ -17,11 +17,13 @@ struct BorderSettingsTab: View {
 
                 if settings.borders.enabled {
                     SettingsSliderRow(
-                        label: "Border Width",
+                        label: String(localized: "Border Width"),
                         value: Bindable(settings.borders).width,
                         range: 1 ... 12,
                         step: 0.5,
-                        valueText: String(format: "%.1f px", settings.borders.width),
+                        valueText: String(
+                            localized: "\(settings.borders.width.formatted(.number.precision(.fractionLength(1)))) px"
+                        ),
                         valueWidth: 56
                     )
                     .onChange(of: settings.borders.width) { _, _ in
@@ -30,10 +32,10 @@ struct BorderSettingsTab: View {
 
                     ColorPicker("Border Color", selection: colorBinding, supportsOpacity: true)
                     BorderColorOverrideRow(
-                        title: "Dark Mode Border Color",
+                        title: String(localized: "Dark Mode Border Color"),
                         color: darkColorBinding,
                         initialColor: settings.borders.color,
-                        inheritance: "Inherits Border Color"
+                        inheritance: String(localized: "Inherits Border Color")
                     )
 
                     Toggle("Gradient Border", isOn: gradientEnabledBinding)
@@ -46,45 +48,48 @@ struct BorderSettingsTab: View {
                         ColorPicker("Gradient Start", selection: gradientStartBinding, supportsOpacity: true)
                         ColorPicker("Gradient End", selection: gradientEndBinding, supportsOpacity: true)
                         BorderColorOverrideRow(
-                            title: "Dark Mode Gradient Start",
+                            title: String(localized: "Dark Mode Gradient Start"),
                             color: gradientDarkColorBinding(\.start),
                             initialColor: settings.borders.gradient?.start ?? BorderGradient.default.start,
-                            inheritance: "Inherits Gradient Start"
+                            inheritance: String(localized: "Inherits Gradient Start")
                         )
                         BorderColorOverrideRow(
-                            title: "Dark Mode Gradient End",
+                            title: String(localized: "Dark Mode Gradient End"),
                             color: gradientDarkColorBinding(\.end),
                             initialColor: settings.borders.gradient?.end ?? BorderGradient.default.end,
-                            inheritance: "Inherits Gradient End"
+                            inheritance: String(localized: "Inherits Gradient End")
                         )
                     }
 
                     Toggle("Glow", isOn: glowEnabledBinding)
                     if settings.borders.glow?.enabled == true {
                         SettingsSliderRow(
-                            label: "Glow Radius",
+                            label: String(localized: "Glow Radius"),
                             value: glowRadiusBinding,
                             range: 0 ... 32,
                             step: 1,
-                            valueText: String(format: "%.0f pt", settings.borders.glow?.radius ?? 0),
+                            valueText: String(
+                                localized: "\((settings.borders.glow?.radius ?? 0).formatted(.number.precision(.fractionLength(0)))) pt"
+                            ),
                             valueWidth: 56
                         )
                         SettingsSliderRow(
-                            label: "Glow Opacity",
+                            label: String(localized: "Glow Opacity"),
                             value: glowOpacityBinding,
                             range: 0 ... 1,
                             step: 0.05,
-                            valueText: String(format: "%.0f%%", (settings.borders.glow?.opacity ?? 0) * 100),
+                            valueText: (settings.borders.glow?.opacity ?? 0)
+                                .formatted(.percent.precision(.fractionLength(0))),
                             valueWidth: 56
                         )
                         BorderColorOverrideRow(
-                            title: "Glow Color",
+                            title: String(localized: "Glow Color"),
                             color: glowColorBinding(\.color),
                             initialColor: settings.borders.color,
                             inheritance: glowInheritance(isDark: false)
                         )
                         BorderColorOverrideRow(
-                            title: "Dark Mode Glow Color",
+                            title: String(localized: "Dark Mode Glow Color"),
                             color: glowColorBinding(\.darkColor),
                             initialColor: settings.borders.glow?.color
                                 ?? settings.borders.darkColor ?? settings.borders.color,
@@ -258,12 +263,13 @@ struct BorderSettingsTab: View {
 
     private func glowInheritance(isDark: Bool) -> String {
         if isDark, settings.borders.glow?.color != nil {
-            return "Inherits Glow Color"
+            return String(localized: "Inherits Glow Color")
         }
         if settings.borders.gradient?.enabled == true {
-            return isDark ? "Inherits Dark Border Gradient" : "Inherits Border Gradient"
+            return isDark ? String(localized: "Inherits Dark Border Gradient") :
+                String(localized: "Inherits Border Gradient")
         }
-        return isDark ? "Inherits Dark Border Color" : "Inherits Border Color"
+        return isDark ? String(localized: "Inherits Dark Border Color") : String(localized: "Inherits Border Color")
     }
 }
 
@@ -271,9 +277,9 @@ extension BorderGradientDirection {
     fileprivate var label: String {
         switch self {
         case .topLeftToBottomRight:
-            return "Top Left \u{2192} Bottom Right"
+            return String(localized: "Top Left \u{2192} Bottom Right")
         case .topRightToBottomLeft:
-            return "Top Right \u{2192} Bottom Left"
+            return String(localized: "Top Right \u{2192} Bottom Left")
         }
     }
 }

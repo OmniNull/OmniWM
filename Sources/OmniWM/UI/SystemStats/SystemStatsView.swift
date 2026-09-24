@@ -62,25 +62,29 @@ struct SystemStatsView: View {
         return Grid(horizontalSpacing: 10, verticalSpacing: 10) {
             GridRow {
                 SystemStatsMetricTile(
-                    title: "CPU",
+                    title: String(localized: "CPU"),
                     systemImage: "cpu",
                     value: Self.percentText(snapshot.cpuUsage),
-                    detail: snapshot.cpuUsage == nil ? "Waiting for delta" : "Total processor",
+                    detail: snapshot
+                        .cpuUsage == nil ? String(localized: "Waiting for delta") :
+                        String(localized: "Total processor"),
                     fraction: snapshot.cpuUsage,
                     tint: .cyan
                 )
                 SystemStatsMetricTile(
-                    title: "GPU",
+                    title: String(localized: "GPU"),
                     systemImage: "gpu",
                     value: Self.percentText(snapshot.gpuUtilization),
-                    detail: snapshot.gpuUtilization == nil ? "Unavailable" : "Device utilization",
+                    detail: snapshot
+                        .gpuUtilization == nil ? String(localized: "Unavailable") :
+                        String(localized: "Device utilization"),
                     fraction: snapshot.gpuUtilization,
                     tint: .purple
                 )
             }
             GridRow {
                 SystemStatsMetricTile(
-                    title: "Memory",
+                    title: String(localized: "Memory"),
                     systemImage: "memorychip",
                     value: Self.percentText(memoryFraction),
                     detail: Self.memoryText(snapshot),
@@ -88,7 +92,7 @@ struct SystemStatsView: View {
                     tint: .green
                 )
                 SystemStatsMetricTile(
-                    title: "Disk",
+                    title: String(localized: "Disk"),
                     systemImage: "internaldrive",
                     value: Self.percentText(diskFraction),
                     detail: Self.diskText(snapshot),
@@ -100,7 +104,7 @@ struct SystemStatsView: View {
     }
 
     private func footer(_ host: SystemStatsHostInfo) -> some View {
-        let displayText = host.resolutions.isEmpty ? "Display data unavailable" : host.resolutions
+        let displayText = host.resolutions.isEmpty ? String(localized: "Display data unavailable") : host.resolutions
             .joined(separator: "  ")
         return VStack(alignment: .leading, spacing: 2) {
             Text(host.modelIdentifier)
@@ -121,7 +125,7 @@ struct SystemStatsView: View {
 
     nonisolated static func percentText(_ fraction: Double?) -> String {
         guard let fraction else { return "—" }
-        return "\(Int((fraction * 100).rounded()))%"
+        return fraction.formatted(.percent.precision(.fractionLength(0)))
     }
 
     nonisolated static func uptimeText(_ uptime: TimeInterval) -> String {
@@ -130,21 +134,21 @@ struct SystemStatsView: View {
         let hours = (total % 86400) / 3600
         let minutes = (total % 3600) / 60
         if days > 0 {
-            return "\(days)d \(hours)h \(minutes)m"
+            return String(localized: "\(days)d \(hours)h \(minutes)m")
         }
         if hours > 0 {
-            return "\(hours)h \(minutes)m"
+            return String(localized: "\(hours)h \(minutes)m")
         }
-        return "\(minutes)m"
+        return String(localized: "\(minutes)m")
     }
 
     private static func memoryText(_ snapshot: SystemStatsSnapshot) -> String {
         let used = ByteCountFormatter.string(fromByteCount: Int64(snapshot.ramUsedBytes), countStyle: .memory)
         let total = ByteCountFormatter.string(fromByteCount: Int64(snapshot.ramTotalBytes), countStyle: .memory)
         if let pressure = snapshot.memoryPressure {
-            return "\(used) / \(total) · \(pressure.displayName)"
+            return String(localized: "\(used) / \(total) · \(pressure.displayName)")
         }
-        return "\(used) / \(total)"
+        return String(localized: "\(used) / \(total)")
     }
 
     private static func diskText(_ snapshot: SystemStatsSnapshot) -> String {
@@ -153,7 +157,7 @@ struct SystemStatsView: View {
             fromByteCount: max(snapshot.diskTotalBytes - snapshot.diskUsedBytes, 0),
             countStyle: .file
         )
-        return "\(used) used · \(free) free"
+        return String(localized: "\(used) used · \(free) free")
     }
 }
 

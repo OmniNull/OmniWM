@@ -19,7 +19,7 @@ final class SponsorsWindowController {
 
     func show() {
         presenter.present(
-            title: "Omni Sponsors",
+            title: String(localized: "Omni Sponsors"),
             styleMask: [.titled, .resizable, .fullSizeContentView],
             contentSize: NSSize(width: 1280, height: 1040),
             minSize: NSSize(width: 760, height: 640),

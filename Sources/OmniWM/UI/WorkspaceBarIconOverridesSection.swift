@@ -88,12 +88,11 @@ struct WorkspaceBarIconOverridesSection: View {
     var body: some View {
         Section("App Icon Overrides — All Monitors") {
             SettingsCaption(
-                "Choose an icon packaged inside an app, or select an image file. Runtime-generated "
-                    + "Dock icons may not be available. Other OmniWM surfaces keep the standard icon."
+                localized: "Choose an icon packaged inside an app, or select an image file. Runtime-generated Dock icons may not be available. Other OmniWM surfaces keep the standard icon."
             )
 
             if candidates.isEmpty {
-                SettingsCaption("No managed apps with bundle IDs are currently available.")
+                SettingsCaption(localized: "No managed apps with bundle IDs are currently available.")
             } else {
                 ForEach(candidates) { candidate in
                     WorkspaceBarIconOverrideRow(
@@ -264,7 +263,7 @@ private struct WorkspaceBarIconOverrideRow: View {
             Spacer()
 
             HStack(spacing: 6) {
-                Button(hasOverride ? "Replace…" : "Choose…", action: choose)
+                Button(hasOverride ? String(localized: "Replace…") : String(localized: "Choose…"), action: choose)
                 if hasOverride {
                     Button("Remove", action: remove)
                 }

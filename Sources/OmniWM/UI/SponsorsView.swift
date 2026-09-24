@@ -61,33 +61,16 @@ private let sponsors: [Sponsor] = [
     Sponsor(name: "Jose Paez", githubUsername: "regionativo", imageName: "regionativo", imageExtension: "jpg"),
     Sponsor(name: "Petar Shomov", githubUsername: "pshomov", imageName: "pshomov", imageExtension: "jpg"),
     Sponsor(
-        name: "Private Sponsor",
+        name: String(localized: "Private Sponsor"),
         githubUsername: nil,
         imageName: nil,
         imageExtension: nil,
-        creditMessage: "Contact Barut for public credit"
+        creditMessage: String(localized: "Contact Barut for public credit")
     )
 ]
 
 private func rankLabel(for index: Int) -> String {
-    let rank = index + 1
-    let mod100 = rank % 100
-    let suffix: String
-    if mod100 >= 11 && mod100 <= 13 {
-        suffix = "th"
-    } else {
-        switch rank % 10 {
-        case 1:
-            suffix = "st"
-        case 2:
-            suffix = "nd"
-        case 3:
-            suffix = "rd"
-        default:
-            suffix = "th"
-        }
-    }
-    return "\(rank)\(suffix)"
+    NumberFormatter.localizedString(from: NSNumber(value: index + 1), number: .ordinal)
 }
 
 private func openURL(_ string: String) {

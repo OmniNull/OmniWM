@@ -194,7 +194,7 @@ struct RuleWindowBehaviorSection: View {
         Section("Window Behavior") {
             Picker("Layout", selection: $draft.layoutAction) {
                 ForEach(WindowRuleLayoutAction.allCases) { action in
-                    Text(action.displayName).tag(action)
+                    Text(action.localizedDisplayName).tag(action)
                 }
             }
             .pickerStyle(.segmented)
@@ -217,7 +217,7 @@ struct RuleWindowBehaviorSection: View {
                 .disabled(workspaceNames.isEmpty)
 
                 if workspaceNames.isEmpty {
-                    SettingsCaption("No workspaces configured. Add workspaces in Settings.")
+                    SettingsCaption(localized: "No workspaces configured. Add workspaces in Settings.")
                 } else if isWorkspaceMissing {
                     Text("Workspace \"\(draft.assignToWorkspace)\" no longer exists. Pick another.")
                         .font(.caption)
@@ -254,8 +254,7 @@ struct RuleWindowBehaviorSection: View {
             }
 
             SettingsCaption(
-                "Only affects resizable windows in Niri when they create or claim a container. "
-                    + "Primary span is width in horizontal orientation and height in vertical orientation."
+                localized: "Only affects resizable windows in Niri when they create or claim a container. Primary span is width in horizontal orientation and height in vertical orientation."
             )
         }
     }
@@ -270,15 +269,16 @@ struct RuleWindowBehaviorSection: View {
     }
 
     private var initialContainerPrimarySpanAccessibilityValue: String {
-        let value = AppRulePrimarySpanPercent.displayText(for: draft.initialContainerPrimarySpan) + " percent"
+        let percent = AppRulePrimarySpanPercent.displayText(for: draft.initialContainerPrimarySpan)
+        let value = String(localized: "\(percent) percent")
         guard draft.initialContainerPrimarySpanError != nil else { return value }
-        return value + ", invalid"
+        return String(localized: "\(value), invalid")
     }
 
     private var initialContainerPrimarySpanAccessibilityHint: String {
-        let range = "Enter a value from 5 through 100 percent."
+        let range = String(localized: "Enter a value from 5 through 100 percent.")
         guard let error = draft.initialContainerPrimarySpanError else { return range }
-        return error + ". " + range
+        return String(localized: "\(error). \(range)")
     }
 
     private var isWorkspaceMissing: Bool {
@@ -327,7 +327,7 @@ struct RuleMinimumSizeSection: View {
                     .foregroundStyle(.red)
             }
 
-            SettingsCaption("Prevents the layout engine from sizing the window smaller than these values.")
+            SettingsCaption(localized: "Prevents the layout engine from sizing the window smaller than these values.")
         }
     }
 }
@@ -338,7 +338,7 @@ struct AdvancedMatchersEditor: View {
 
     var body: some View {
         VStack(alignment: .leading, spacing: 12) {
-            SettingsCaption("Narrow a rule to specific windows within an app.")
+            SettingsCaption(localized: "Narrow a rule to specific windows within an app.")
 
             Picker("Title Match", selection: $draft.titleMatcherMode) {
                 ForEach(TitleMatcherMode.allCases) { mode in
@@ -425,7 +425,7 @@ struct FocusedWindowInspectorView: View {
                         .padding(.top, 4)
                     }
                 } else {
-                    SettingsCaption("No focused window is available for inspection.")
+                    SettingsCaption(localized: "No focused window is available for inspection.")
                 }
             }
             .frame(maxWidth: .infinity, alignment: .leading)

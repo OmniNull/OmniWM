@@ -115,7 +115,7 @@ struct WorkspaceBarWindowProjector {
             return nil
         }
         let appInfo = entries.lazy.compactMap { appInfoCache.info(for: $0.pid) }.first
-        let appName = appInfo?.name ?? "Unknown"
+        let appName = appInfo?.name ?? String(localized: "Unknown")
         let windowInfos = entries.compactMap { entry -> WorkspaceBarWindowInfo? in
             guard let handle = workspaceManager.handle(for: entry.token) else { return nil }
             return WorkspaceBarWindowInfo(
@@ -153,7 +153,7 @@ struct WorkspaceBarWindowProjector {
         entries.compactMap { entry -> WorkspaceBarWindowItem? in
             guard let handle = workspaceManager.handle(for: entry.token) else { return nil }
             let appInfo = appInfoCache.info(for: entry.pid)
-            let appName = appInfo?.name ?? "Unknown"
+            let appName = appInfo?.name ?? String(localized: "Unknown")
             let title = windowTitle(for: entry) ?? appName
 
             return WorkspaceBarWindowItem(

@@ -17,26 +17,32 @@ struct IssueWalkthroughCard: View {
         Step(
             id: 1,
             icon: "record.circle",
-            title: "Record a trace",
-            detail: "Click \"Record a Trace\" below, then reproduce the bug so OmniWM captures what happened."
+            title: String(localized: "Record a trace"),
+            detail: String(
+                localized: "Click \"Record a Trace\" below, then reproduce the bug so OmniWM captures what happened."
+            )
         ),
         Step(
             id: 2,
             icon: "arrow.uturn.backward",
-            title: "Come back here",
-            detail: "Stop & Save the recording, then return — anything you typed stays saved as a draft."
+            title: String(localized: "Come back here"),
+            detail: String(
+                localized: "Stop & Save the recording, then return — anything you typed stays saved as a draft."
+            )
         ),
         Step(
             id: 3,
             icon: "text.alignleft",
-            title: "Describe it",
-            detail: "Fill in what happened. Expected behavior and steps are optional but help a lot."
+            title: String(localized: "Describe it"),
+            detail: String(localized: "Fill in what happened. Expected behavior and steps are optional but help a lot.")
         ),
         Step(
             id: 4,
             icon: "paperplane",
-            title: "Submit",
-            detail: "OmniWM creates one fresh diagnostic log with any evidence you selected, then opens GitHub."
+            title: String(localized: "Submit"),
+            detail: String(
+                localized: "OmniWM creates one fresh diagnostic log with any evidence you selected, then opens GitHub."
+            )
         )
     ]
 

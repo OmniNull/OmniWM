@@ -15,9 +15,9 @@ enum TitleMatcherMode: String, CaseIterable, Identifiable {
 
     var displayName: String {
         switch self {
-        case .none: "None"
-        case .substring: "Contains"
-        case .regex: "Regex"
+        case .none: String(localized: "None")
+        case .substring: String(localized: "Contains")
+        case .regex: String(localized: "Regex")
         }
     }
 }
@@ -36,18 +36,7 @@ enum AppRulePrimarySpanPercent {
         if percent.isNaN { return "NaN" }
         if percent.isInfinite { return percent.sign == .minus ? "−∞" : "∞" }
 
-        var text = String(
-            format: "%.2f",
-            locale: Locale(identifier: "en_US_POSIX"),
-            percent
-        )
-        while text.last == "0" {
-            text.removeLast()
-        }
-        if text.last == "." {
-            text.removeLast()
-        }
-        return text
+        return percent.formatted(.number.precision(.fractionLength(0 ... 2)))
     }
 }
 
@@ -192,21 +181,21 @@ struct AppRuleDraft: Identifiable, Equatable {
 
     var identifierHint: String? {
         guard hasAnyRule, !makeRule().hasIdentifyingMatcher else { return nil }
-        return "Add a bundle ID, app name, or title — AX role/subrole alone match too broadly."
+        return String(localized: "Add a bundle ID, app name, or title — AX role/subrole alone match too broadly.")
     }
 
     var minSizeError: String? {
         if minWidthEnabled, !(minWidth.isFinite && minWidth > 0) {
-            return "Minimum width must be a positive number."
+            return String(localized: "Minimum width must be a positive number.")
         }
         if minHeightEnabled, !(minHeight.isFinite && minHeight > 0) {
-            return "Minimum height must be a positive number."
+            return String(localized: "Minimum height must be a positive number.")
         }
         return nil
     }
 
     var initialContainerPrimarySpanError: String? {
-        IPCRuleValidator.initialContainerPrimarySpanError(
+        AppRuleDraftValidation.initialContainerPrimarySpanError(
             for: initialContainerPrimarySpanEnabled ? initialContainerPrimarySpan : nil
         )
     }
@@ -214,8 +203,9 @@ struct AppRuleDraft: Identifiable, Equatable {
     var effectHint: String? {
         let rule = makeRule()
         guard rule.hasIdentifyingMatcher, !rule.hasEffect else { return nil }
-        return "This rule matches windows but has no effect — set a layout, workspace, initial container primary span, "
-            + "or minimum size."
+        return String(
+            localized: "This rule matches windows but has no effect — set a layout, workspace, initial container primary span, or minimum size."
+        )
     }
 
     var isValid: Bool {
@@ -266,8 +256,15 @@ struct AppRuleDraft: Identifiable, Equatable {
 enum AppRuleDraftValidation {
     static func bundleIdError(for bundleId: String) -> String? {
         let trimmed = bundleId.trimmingCharacters(in: .whitespacesAndNewlines)
-        guard !trimmed.isEmpty else { return nil }
-        return IPCRuleValidator.bundleIdError(for: trimmed)
+        guard !trimmed.isEmpty, IPCRuleValidator.bundleIdError(for: trimmed) != nil else { return nil }
+        return String(localized: "Invalid bundle ID format")
+    }
+
+    static func initialContainerPrimarySpanError(for value: Double?) -> String? {
+        guard IPCRuleValidator.initialContainerPrimarySpanError(for: value) != nil else { return nil }
+        return String(
+            localized: "Initial container primary span must be a finite proportion from 0.05 through 1.0 (5% through 100%)"
+        )
     }
 
     static func titleRegexError(for pattern: String?) -> String? {

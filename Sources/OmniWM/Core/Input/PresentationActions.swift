@@ -2,16 +2,31 @@
 // Copyright (C) 2026 BarutSRB — https://github.com/OmniNull/OmniWM
 
 import Carbon
+import Foundation
 import OmniWMIPC
 
 extension IPCPresentationCommand {
-    func actionDisplayName() -> String {
+    func actionDisplayName() -> LocalizedStringResource {
         switch self {
-        case .overview: "Toggle Overview"
-        case .systemStats: "Toggle System Stats"
-        case .quakeTerminal: "Toggle Quake Terminal"
-        case .workspaceBar: "Toggle Workspace Bar"
-        case .hiddenBar: "Toggle Hidden Icons Bar"
+        case .overview: LocalizedStringResource(
+                "command.presentation.overview", defaultValue: "Toggle Overview", table: "Commands", bundle: .omniWM
+            )
+        case .systemStats: LocalizedStringResource(
+                "command.presentation.systemStats", defaultValue: "Toggle System Stats", table: "Commands",
+                bundle: .omniWM
+            )
+        case .quakeTerminal: LocalizedStringResource(
+                "command.presentation.quakeTerminal", defaultValue: "Toggle Quake Terminal", table: "Commands",
+                bundle: .omniWM
+            )
+        case .workspaceBar: LocalizedStringResource(
+                "command.presentation.workspaceBar", defaultValue: "Toggle Workspace Bar", table: "Commands",
+                bundle: .omniWM
+            )
+        case .hiddenBar: LocalizedStringResource(
+                "command.presentation.hiddenBar", defaultValue: "Toggle Hidden Icons Bar", table: "Commands",
+                bundle: .omniWM
+            )
         }
     }
 

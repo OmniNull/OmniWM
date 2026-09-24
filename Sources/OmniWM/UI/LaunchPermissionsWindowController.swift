@@ -22,9 +22,9 @@ enum LaunchPermissionKind: CaseIterable, Identifiable {
 
     var title: String {
         switch self {
-        case .accessibility: "Accessibility"
-        case .inputMonitoring: "Input Monitoring"
-        case .screenRecording: "Screen Recording"
+        case .accessibility: String(localized: "Accessibility")
+        case .inputMonitoring: String(localized: "Input Monitoring")
+        case .screenRecording: String(localized: "Screen Recording")
         }
     }
 
@@ -39,11 +39,17 @@ enum LaunchPermissionKind: CaseIterable, Identifiable {
     var detail: String {
         switch self {
         case .accessibility:
-            "Lets OmniWM inspect, focus, move, and resize windows. Window management cannot start without it."
+            String(
+                localized: "Lets OmniWM inspect, focus, move, and resize windows. Window management cannot start without it."
+            )
         case .inputMonitoring:
-            "Lets OmniWM receive global keyboard, mouse, and trackpad input. Window management cannot start without it."
+            String(
+                localized: "Lets OmniWM receive global keyboard, mouse, and trackpad input. Window management cannot start without it."
+            )
         case .screenRecording:
-            "Enables Overview thumbnails, drag previews, and captured Hidden Bar glyphs. These visuals are unavailable without it; a restart may be required after granting access."
+            String(
+                localized: "Enables Overview thumbnails, drag previews, and captured Hidden Bar glyphs. These visuals are unavailable without it; a restart may be required after granting access."
+            )
         }
     }
 
@@ -123,7 +129,9 @@ final class LaunchPermissionsModel {
     }
 
     var primaryActionTitle: String {
-        snapshot.screenRecordingGranted ? "Start OmniWM" : "Continue Without Screen Recording"
+        snapshot.screenRecordingGranted
+            ? String(localized: "Start OmniWM")
+            : String(localized: "Continue Without Screen Recording")
     }
 
     func refresh() {
@@ -167,7 +175,7 @@ final class LaunchPermissionsWindowController {
         quitAction = onQuit
         model.refresh()
         presenter.present(
-            title: "OmniWM Permissions",
+            title: String(localized: "OmniWM Permissions"),
             styleMask: [.titled, .resizable],
             contentSize: NSSize(width: 640, height: 500),
             minSize: NSSize(width: 640, height: 500),
@@ -278,7 +286,7 @@ private struct LaunchPermissionRow: View {
             VStack(alignment: .leading, spacing: 5) {
                 HStack(spacing: 7) {
                     Text(kind.title).font(.headline)
-                    Text(kind.isRequired ? "Required" : "Optional")
+                    Text(kind.isRequired ? String(localized: "Required") : String(localized: "Optional"))
                         .font(.caption2.weight(.semibold))
                         .foregroundStyle(kind.isRequired ? Color.orange : Color.secondary)
                 }
@@ -292,7 +300,7 @@ private struct LaunchPermissionRow: View {
 
             VStack(alignment: .trailing, spacing: 8) {
                 Label(
-                    granted ? "Granted" : "Not Granted",
+                    granted ? String(localized: "Granted") : String(localized: "Not Granted"),
                     systemImage: granted ? "checkmark.circle.fill" : "exclamationmark.triangle.fill"
                 )
                 .font(.caption.weight(.semibold))

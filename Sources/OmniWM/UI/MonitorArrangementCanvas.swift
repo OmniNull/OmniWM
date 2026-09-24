@@ -53,7 +53,7 @@ struct MonitorArrangementTile: View {
 
     private var accessibilityName: String {
         guard let identifierNumber else { return name }
-        return "Display \(identifierNumber), \(name)"
+        return String(localized: "Display \(identifierNumber), \(name)")
     }
 
     var body: some View {
@@ -100,7 +100,7 @@ struct MonitorArrangementTile: View {
             }
         }
         .accessibilityElement(children: .ignore)
-        .accessibilityLabel(isMain ? "\(accessibilityName), main display" : accessibilityName)
+        .accessibilityLabel(isMain ? String(localized: "\(accessibilityName), main display") : accessibilityName)
     }
 }
 
@@ -225,11 +225,23 @@ struct RoutingAccessibleEditor: View {
         ForEach(rows) { row in
             LabeledContent(row.name) {
                 HStack(spacing: 6) {
-                    moveButton(row, .left, symbol: "arrow.left", label: "left")
-                    moveButton(row, .up, symbol: "arrow.up", label: "up")
-                    moveButton(row, .down, symbol: "arrow.down", label: "down")
-                    moveButton(row, .right, symbol: "arrow.right", label: "right")
+                    moveButton(row, .left, symbol: "arrow.left", label: String(localized: LocalizedStringResource(
+                        "monitor.moveDirection.left", defaultValue: "left",
+                        comment: "Physical monitor movement direction"
+                    )))
+                    moveButton(row, .up, symbol: "arrow.up", label: String(localized: LocalizedStringResource(
+                        "monitor.moveDirection.up", defaultValue: "up", comment: "Physical monitor movement direction"
+                    )))
+                    moveButton(row, .down, symbol: "arrow.down", label: String(localized: LocalizedStringResource(
+                        "monitor.moveDirection.down", defaultValue: "down",
+                        comment: "Physical monitor movement direction"
+                    )))
+                    moveButton(row, .right, symbol: "arrow.right", label: String(localized: LocalizedStringResource(
+                        "monitor.moveDirection.right", defaultValue: "right",
+                        comment: "Physical monitor movement direction"
+                    )))
                 }
+                .environment(\.layoutDirection, .leftToRight)
             }
         }
     }

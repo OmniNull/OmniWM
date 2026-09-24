@@ -28,9 +28,10 @@ struct MonitorSetupWorkspaceHomesStep: View {
     var body: some View {
         VStack(alignment: .leading, spacing: 20) {
             MonitorSetupExplanation(
-                title: "Make every display a window destination",
-                text: "Moving a window to another display requires a workspace there. Assign at least one "
-                    + "workspace to every connected display before finishing setup."
+                title: String(localized: "Make every display a window destination"),
+                text: String(
+                    localized: "Moving a window to another display requires a workspace there. Assign at least one workspace to every connected display before finishing setup."
+                )
             )
 
             MonitorSetupCard {
@@ -88,7 +89,7 @@ struct MonitorSetupWorkspaceHomesStep: View {
     private func displayName(for monitor: Monitor) -> String {
         let number = displayNumbers[monitor.id] ?? 0
         let name = draftDisplayLabels[monitor.id]?.accessibilityName ?? monitor.name
-        return "Display \(number), \(name)"
+        return String(localized: "Display \(number), \(name)")
     }
 
     private func monitorAssignmentBinding(

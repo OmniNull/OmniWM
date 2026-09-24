@@ -23,7 +23,7 @@ final class UpdateWindowController: UpdateWindowControlling {
         }
 
         presenter.present(
-            title: "Update Available",
+            title: String(localized: "Update Available"),
             styleMask: [.titled, .closable, .fullSizeContentView],
             contentSize: NSSize(width: 720, height: 560),
             minSize: NSSize(width: 620, height: 460),
@@ -116,8 +116,8 @@ private struct UpdatePopupView: View {
 
     private var versionStrip: some View {
         HStack(spacing: 12) {
-            versionCard(label: "Current", value: configuration.currentVersion)
-            versionCard(label: "Latest", value: configuration.latestVersion)
+            versionCard(label: String(localized: "Current"), value: configuration.currentVersion)
+            versionCard(label: String(localized: "Latest"), value: configuration.latestVersion)
             Spacer()
             commandChip
         }
@@ -189,7 +189,7 @@ private struct UpdatePopupView: View {
 
                 Spacer()
 
-                Button(copiedCommand ? "Copied" : "Copy brew upgrade omniwm") {
+                Button(copiedCommand ? String(localized: "Copied") : String(localized: "Copy brew upgrade omniwm")) {
                     configuration.copyCommand()
                     copiedCommand = true
                     DispatchQueue.main.asyncAfter(deadline: .now() + 1.5) {

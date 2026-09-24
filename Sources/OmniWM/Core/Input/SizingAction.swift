@@ -1,6 +1,7 @@
 // SPDX-License-Identifier: GPL-2.0-only
 // Copyright (C) 2026 BarutSRB — https://github.com/OmniNull/OmniWM
 
+import Foundation
 import OmniWMIPC
 
 enum SizingAction: Equatable, Hashable {
@@ -20,21 +21,80 @@ enum SizingAction: Equatable, Hashable {
 }
 
 extension SizingAction {
-    func actionDisplayName() -> String {
+    func actionDisplayName() -> LocalizedStringResource {
         switch self {
-        case .cycleSizeForward: "Cycle Size Forward"
-        case .cycleSizeBackward: "Cycle Size Backward"
-        case .cycleWindowPrimarySpanForward: "Cycle Window Primary Span Forward"
-        case .cycleWindowPrimarySpanBackward: "Cycle Window Primary Span Backward"
-        case .cycleWindowSecondarySpanForward: "Cycle Window Secondary Span Forward"
-        case .cycleWindowSecondarySpanBackward: "Cycle Window Secondary Span Backward"
-        case .toggleContainerFullPrimarySpan: "Toggle Container Full Primary Span"
-        case .expandContainerToAvailablePrimarySpan: "Expand Container to Available Primary Span"
-        case .resetWindowSecondarySpan: "Reset Window Secondary Span"
-        case let .setContainerPrimarySpan(change): "Set Container Primary Span \(Self.sizeChangeDisplayName(change))"
-        case let .setWindowPrimarySpan(change): "Set Window Primary Span \(Self.sizeChangeDisplayName(change))"
-        case let .setWindowSecondarySpan(change): "Set Window Secondary Span \(Self.sizeChangeDisplayName(change))"
-        case .balanceSizes: "Balance Sizes"
+        case .cycleSizeForward: LocalizedStringResource(
+                "command.sizing.cycleForward", defaultValue: "Cycle Size Forward", table: "Commands", bundle: .omniWM
+            )
+        case .cycleSizeBackward: LocalizedStringResource(
+                "command.sizing.cycleBackward", defaultValue: "Cycle Size Backward", table: "Commands", bundle: .omniWM
+            )
+        case .cycleWindowPrimarySpanForward: LocalizedStringResource(
+                "command.sizing.cycleWindowPrimaryForward", defaultValue: "Cycle Window Primary Span Forward",
+                table: "Commands", bundle: .omniWM
+            )
+        case .cycleWindowPrimarySpanBackward: LocalizedStringResource(
+                "command.sizing.cycleWindowPrimaryBackward", defaultValue: "Cycle Window Primary Span Backward",
+                table: "Commands", bundle: .omniWM
+            )
+        case .cycleWindowSecondarySpanForward: LocalizedStringResource(
+                "command.sizing.cycleWindowSecondaryForward", defaultValue: "Cycle Window Secondary Span Forward",
+                table: "Commands", bundle: .omniWM
+            )
+        case .cycleWindowSecondarySpanBackward: LocalizedStringResource(
+                "command.sizing.cycleWindowSecondaryBackward", defaultValue: "Cycle Window Secondary Span Backward",
+                table: "Commands", bundle: .omniWM
+            )
+        case .balanceSizes: LocalizedStringResource(
+                "command.sizing.balance", defaultValue: "Balance Sizes", table: "Commands", bundle: .omniWM
+            )
+        case .toggleContainerFullPrimarySpan,
+             .expandContainerToAvailablePrimarySpan,
+             .resetWindowSecondarySpan,
+             .setContainerPrimarySpan,
+             .setWindowPrimarySpan,
+             .setWindowSecondarySpan:
+            spanTitle()
+        }
+    }
+
+    private func spanTitle() -> LocalizedStringResource {
+        switch self {
+        case .toggleContainerFullPrimarySpan: LocalizedStringResource(
+                "command.sizing.toggleContainerFullPrimary", defaultValue: "Toggle Container Full Primary Span",
+                table: "Commands", bundle: .omniWM
+            )
+        case .expandContainerToAvailablePrimarySpan: LocalizedStringResource(
+                "command.sizing.expandContainerPrimary", defaultValue: "Expand Container to Available Primary Span",
+                table: "Commands", bundle: .omniWM
+            )
+        case .resetWindowSecondarySpan: LocalizedStringResource(
+                "command.sizing.resetWindowSecondary", defaultValue: "Reset Window Secondary Span", table: "Commands",
+                bundle: .omniWM
+            )
+        case let .setContainerPrimarySpan(change): LocalizedStringResource(
+                "command.sizing.setContainerPrimary",
+                defaultValue: "Set Container Primary Span \(Self.sizeChangeDisplayName(change))", table: "Commands",
+                bundle: .omniWM
+            )
+        case let .setWindowPrimarySpan(change): LocalizedStringResource(
+                "command.sizing.setWindowPrimary",
+                defaultValue: "Set Window Primary Span \(Self.sizeChangeDisplayName(change))", table: "Commands",
+                bundle: .omniWM
+            )
+        case let .setWindowSecondarySpan(change): LocalizedStringResource(
+                "command.sizing.setWindowSecondary",
+                defaultValue: "Set Window Secondary Span \(Self.sizeChangeDisplayName(change))", table: "Commands",
+                bundle: .omniWM
+            )
+        case .cycleSizeForward,
+             .cycleSizeBackward,
+             .cycleWindowPrimarySpanForward,
+             .cycleWindowPrimarySpanBackward,
+             .cycleWindowSecondarySpanForward,
+             .cycleWindowSecondarySpanBackward,
+             .balanceSizes:
+            actionDisplayName()
         }
     }
 

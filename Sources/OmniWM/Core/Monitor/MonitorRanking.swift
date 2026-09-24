@@ -71,10 +71,10 @@ enum MonitorRanking {
 
     static func roleName(forRank index: Int) -> String {
         switch index {
-        case 0: "Main"
-        case 1: "Secondary"
-        case 2: "Tertiary"
-        default: "Rank \(index + 1)"
+        case 0: String(localized: "Main")
+        case 1: String(localized: "Secondary")
+        case 2: String(localized: "Tertiary")
+        default: String(localized: "Rank \(index + 1)")
         }
     }
 

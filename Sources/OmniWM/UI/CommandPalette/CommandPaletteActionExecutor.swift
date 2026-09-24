@@ -45,33 +45,33 @@ final class CommandPaletteActionExecutor {
         var message: String {
             switch self {
             case .targetUnavailable:
-                "The original app is no longer available."
+                String(localized: "The original app is no longer available.")
             case .focusNotRestored:
-                "The original app could not be focused."
+                String(localized: "The original app could not be focused.")
             case .focusTimedOut:
-                "Focus did not return to the original app in time."
+                String(localized: "Focus did not return to the original app in time.")
             case .focusInterrupted:
-                "Focus moved to another app."
+                String(localized: "Focus moved to another app.")
             case let .execution(result):
                 switch result {
                 case .executed:
                     ""
                 case .ignoredDisabled:
-                    "OmniWM is disabled."
+                    String(localized: "OmniWM is disabled.")
                 case .ignoredOverview:
-                    "The command is unavailable while Overview is open."
+                    String(localized: "The command is unavailable while Overview is open.")
                 case .ignoredLayoutMismatch:
-                    "The command is unavailable for the current layout."
+                    String(localized: "The command is unavailable for the current layout.")
                 case .noChange:
-                    "The command made no change."
+                    String(localized: "The command made no change.")
                 case .staleWindowId,
                      .notFound:
-                    "The target window is no longer available."
+                    String(localized: "The target window is no longer available.")
                 case .workspaceAssignmentConflict,
                      .workspaceStateConflict,
                      .windowActionFailed,
                      .invalidArguments:
-                    "The command could not be completed."
+                    String(localized: "The command could not be completed.")
                 }
             }
         }

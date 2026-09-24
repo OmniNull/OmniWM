@@ -62,54 +62,58 @@ enum StatusMenuControl: String, CaseIterable, Identifiable {
     var label: String {
         switch self {
         case .bordersEnabled:
-            "Borders"
+            String(localized: "Borders")
         case .workspaceBarEnabled:
-            "Workspace Bar"
+            String(localized: "Workspace Bar")
         case .preventSleepEnabled:
-            "Keep Awake"
+            String(localized: "Keep Awake")
         case .focusFollowsMouse:
-            "Focus Mouse"
+            String(localized: "Focus Mouse")
         case .focusCrossesMonitorAtEdge:
-            "Focus Edge"
+            String(localized: "Focus Edge")
         case .moveMouseToFocusedWindow:
-            "Mouse to Focused"
+            String(localized: "Mouse to Focused")
         case .focusFollowsWindowToMonitor:
-            "Follow Monitor"
+            String(localized: "Follow Monitor")
         case .moveCrossesMonitorAtEdge:
-            "Move Edge"
+            String(localized: "Move Edge")
         case .mouseWarpEnabled:
-            "Mouse Warp"
+            String(localized: "Mouse Warp")
         case .hiddenBarEnabled:
-            "Hide Menu Icons"
+            String(localized: "Hide Menu Icons")
         }
     }
 
     var accessibilityName: String {
         switch self {
         case .bordersEnabled:
-            "Window Borders"
+            String(localized: "Window Borders")
         case .workspaceBarEnabled:
-            "Workspace Bar"
+            String(localized: "Workspace Bar")
         case .preventSleepEnabled:
-            "Keep Awake"
+            String(localized: "Keep Awake")
         case .focusFollowsMouse:
-            "Focus Follows Mouse"
+            String(localized: "Focus Follows Mouse")
         case .focusCrossesMonitorAtEdge:
-            "Focus Across Monitor at Edge"
+            String(localized: "Focus Across Monitor at Edge")
         case .moveMouseToFocusedWindow:
-            "Mouse to Focused"
+            String(localized: "Mouse to Focused")
         case .focusFollowsWindowToMonitor:
-            "Follow Window to Monitor"
+            String(localized: "Follow Window to Monitor")
         case .moveCrossesMonitorAtEdge:
-            "Move Window Across Monitor at Edge"
+            String(localized: "Move Window Across Monitor at Edge")
         case .mouseWarpEnabled:
-            "Mouse Warp"
+            String(localized: "Mouse Warp")
         case .hiddenBarEnabled:
-            "Hide Menu Bar Icons"
+            String(localized: "Hide Menu Bar Icons")
         }
     }
 
     var explanation: String {
+        String(localized: explanationResource)
+    }
+
+    private var explanationResource: LocalizedStringResource {
         switch self {
         case .bordersEnabled:
             "Shows a colored outline around the currently focused managed window. Customize its appearance in Settings."
@@ -192,7 +196,7 @@ final class StatusMenuModel {
             alert.alertStyle = .informational
             alert.messageText = title
             alert.informativeText = message
-            alert.addButton(withTitle: "OK")
+            alert.addButton(withTitle: String(localized: "OK"))
             NSApplication.shared.activate(ignoringOtherApps: true)
             _ = alert.runModal()
         }
@@ -393,7 +397,9 @@ final class StatusMenuModel {
                 NSWorkspace.shared.activateFileViewerSelecting([artifact.url])
             case let .writeFailed(reason):
                 infoAlertPresenter(
-                    wasRecording ? "Recording could not be saved" : "Recording could not be started",
+                    wasRecording
+                        ? String(localized: "Recording could not be saved")
+                        : String(localized: "Recording could not be started"),
                     reason
                 )
             }
@@ -421,16 +427,21 @@ final class StatusMenuModel {
 
         let directoryURL = linkURL.deletingLastPathComponent()
         var message =
-            "OmniWM will create a symlink at \(linkURL.path) pointing to its bundled omniwmctl binary."
+            String(
+                localized: "OmniWM will create a symlink at \(linkURL.path) pointing to its bundled omniwmctl binary."
+            )
         if !directoryOnPath {
-            message += "\n\n\(directoryURL.path) is not currently in your PATH, so Terminal may not find `omniwmctl` until you add that directory."
+            message +=
+                String(
+                    localized: "\n\n\(directoryURL.path) is not currently in your PATH, so Terminal may not find `omniwmctl` until you add that directory."
+                )
         }
 
         guard confirmationAlertPresenter(
-            "Install CLI to PATH?",
+            String(localized: "Install CLI to PATH?"),
             message,
-            "Install",
-            "Cancel"
+            String(localized: "Install"),
+            String(localized: "Cancel")
         ) else {
             return
         }
@@ -438,19 +449,19 @@ final class StatusMenuModel {
         do {
             let result = try cliManager.installCLIToPATH()
             cliStatus = cliManager.exposureStatus()
-            infoAlertPresenter("CLI Installed", installResultMessage(result))
+            infoAlertPresenter(String(localized: "CLI Installed"), installResultMessage(result))
         } catch {
-            infoAlertPresenter("CLI Install Failed", error.localizedDescription)
+            infoAlertPresenter(String(localized: "CLI Install Failed"), error.localizedDescription)
         }
     }
 
     func removeCLI() {
         guard let cliManager else { return }
         guard confirmationAlertPresenter(
-            "Remove CLI from PATH?",
-            "OmniWM will remove the symlink it created for `omniwmctl`.",
-            "Remove",
-            "Cancel"
+            String(localized: "Remove CLI from PATH?"),
+            String(localized: "OmniWM will remove the symlink it created for `omniwmctl`."),
+            String(localized: "Remove"),
+            String(localized: "Cancel")
         ) else {
             return
         }
@@ -458,9 +469,9 @@ final class StatusMenuModel {
         do {
             let result = try cliManager.removeInstalledCLI()
             cliStatus = cliManager.exposureStatus()
-            infoAlertPresenter("CLI Link Updated", installResultMessage(result))
+            infoAlertPresenter(String(localized: "CLI Link Updated"), installResultMessage(result))
         } catch {
-            infoAlertPresenter("CLI Removal Failed", error.localizedDescription)
+            infoAlertPresenter(String(localized: "CLI Removal Failed"), error.localizedDescription)
         }
     }
 
@@ -469,15 +480,18 @@ final class StatusMenuModel {
         case let .installed(linkURL, directoryOnPath),
              let .alreadyInstalled(linkURL, directoryOnPath):
             let state = directoryOnPath
-                ? "You can now run `omniwmctl` from Terminal."
-                : "Add \(linkURL.deletingLastPathComponent().path) to PATH before using `omniwmctl` in Terminal."
+                ? String(localized: "You can now run `omniwmctl` from Terminal.")
+                :
+                String(
+                    localized: "Add \(linkURL.deletingLastPathComponent().path) to PATH before using `omniwmctl` in Terminal."
+                )
             return "\(linkURL.path)\n\n\(state)"
         case let .homebrewManaged(linkURL):
-            return "Homebrew already manages `omniwmctl` at \(linkURL.path)."
+            return String(localized: "Homebrew already manages `omniwmctl` at \(linkURL.path).")
         case let .notInstalled(linkURL):
-            return "No OmniWM-managed CLI symlink was found at \(linkURL.path)."
+            return String(localized: "No OmniWM-managed CLI symlink was found at \(linkURL.path).")
         case let .removed(linkURL):
-            return "Removed OmniWM's CLI symlink at \(linkURL.path)."
+            return String(localized: "Removed OmniWM's CLI symlink at \(linkURL.path).")
         }
     }
 }

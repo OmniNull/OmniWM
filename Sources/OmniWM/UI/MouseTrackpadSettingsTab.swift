@@ -42,7 +42,7 @@ struct MouseTrackpadSettingsTab: View {
     private var macOSGestureSection: some View {
         Section("macOS Gestures") {
             SettingsCaption(
-                "macOS can also respond to the same fingers. Turn off matching gestures in System Settings → Trackpad → More Gestures if both actions fire."
+                localized: "macOS can also respond to the same fingers. Turn off matching gestures in System Settings → Trackpad → More Gestures if both actions fire."
             )
             if missionControlGestureProbe.status == .enabled {
                 Label(
@@ -61,22 +61,21 @@ struct MouseTrackpadSettingsTab: View {
         Section("Mouse Move & Resize") {
             Picker("Left Mouse Move Modifier", selection: Bindable(settings.gestures).mouseMoveModifierKey) {
                 ForEach(MouseMoveModifierKey.allCases, id: \.self) { key in
-                    Text(key.displayName).tag(key)
+                    Text(key.localizedDisplayName).tag(key)
                 }
             }
 
             SettingsCaption(
-                "Hold this modifier and left-drag to swap Niri tiled windows. "
-                    + "Add Shift to insert instead; choose Off to leave modified drags to apps."
+                localized: "Hold this modifier and left-drag to swap Niri tiled windows. Add Shift to insert instead; choose Off to leave modified drags to apps."
             )
 
             Picker("Right Mouse Resize Modifier", selection: Bindable(settings.gestures).mouseResizeModifierKey) {
                 ForEach(MouseResizeModifierKey.allCases, id: \.self) { key in
-                    Text(key.displayName).tag(key)
+                    Text(key.localizedDisplayName).tag(key)
                 }
             }
 
-            SettingsCaption("Hold this modifier combo + right mouse drag to resize tiled windows")
+            SettingsCaption(localized: "Hold this modifier combo + right mouse drag to resize tiled windows")
         }
     }
 
@@ -92,12 +91,14 @@ struct MouseTrackpadSettingsTab: View {
 
             Picker("Focus Lock Modifier", selection: Bindable(settings.focus).lockModifier) {
                 ForEach(FocusLockModifier.allCases, id: \.self) { key in
-                    Text(key.displayName).tag(key)
+                    Text(key.localizedDisplayName).tag(key)
                 }
             }
             .disabled(!settings.focus.followsMouse)
 
-            SettingsCaption("Hold this modifier to move the cursor over other windows without changing focus.")
+            SettingsCaption(
+                localized: "Hold this modifier to move the cursor over other windows without changing focus."
+            )
         }
     }
 }

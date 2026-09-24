@@ -27,7 +27,7 @@ final class SettingsWindowController {
         }
 
         presenter.present(
-            title: "OmniWM Settings",
+            title: String(localized: "OmniWM Settings"),
             styleMask: [.titled, .closable, .miniaturizable, .resizable],
             contentSize: NSSize(width: 900, height: 680),
             minSize: NSSize(width: 760, height: 560)

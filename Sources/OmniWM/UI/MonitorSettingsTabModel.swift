@@ -14,7 +14,7 @@ struct MonitorDisplayLabel: Equatable {
 
     var accessibilityName: String {
         if let duplicateIndex {
-            return "\(name), duplicate \(duplicateIndex)"
+            return String(localized: "\(name), duplicate \(duplicateIndex)")
         }
         return name
     }
@@ -116,8 +116,8 @@ enum MonitorSettingsTabModel {
 extension Monitor.Orientation {
     var displayName: String {
         switch self {
-        case .horizontal: "Horizontal"
-        case .vertical: "Vertical"
+        case .horizontal: String(localized: "Horizontal")
+        case .vertical: String(localized: "Vertical")
         }
     }
 }

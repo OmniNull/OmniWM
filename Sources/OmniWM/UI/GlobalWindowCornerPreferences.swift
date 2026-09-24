@@ -65,7 +65,7 @@ final class GlobalWindowCornerPreferences {
     static let defaultDraftRadius = 16.0
     static let squareStoredRadius = 0.01
     static let radiusRange = 0.0 ... 64.0
-    static let relaunchMessage = "Fully quit and reopen affected apps to apply."
+    static let relaunchMessage = String(localized: "Fully quit and reopen affected apps to apply.")
 
     private(set) var state: State = .systemDefault
     private(set) var draftRadius = defaultDraftRadius
@@ -90,7 +90,10 @@ final class GlobalWindowCornerPreferences {
 
     func refresh() {
         guard operations.synchronize() else {
-            reportFailure("Couldn’t refresh the macOS window corner setting.", isRefreshFailure: true)
+            reportFailure(
+                String(localized: "Couldn’t refresh the macOS window corner setting."),
+                isRefreshFailure: true
+            )
             return
         }
 
@@ -143,7 +146,7 @@ final class GlobalWindowCornerPreferences {
               Self.radiusRange.contains(radius),
               radius == 0 || radius >= Self.squareStoredRadius
         else {
-            reportFailure("Choose Square or a corner radius from 0.01 to 64 points.")
+            reportFailure(String(localized: "Choose Square or a corner radius from 0.01 to 64 points."))
             return
         }
 
@@ -154,11 +157,11 @@ final class GlobalWindowCornerPreferences {
 
     private func apply(values: [String: Any], removedKeys: [String], expected: State) {
         guard isSupported else {
-            reportFailure("App window corner controls require macOS 26.4 or later.")
+            reportFailure(String(localized: "App window corner controls require macOS 26.4 or later."))
             return
         }
         guard operations.synchronize() else {
-            reportFailure("Couldn’t refresh the macOS window corner setting, so no change was made.")
+            reportFailure(String(localized: "Couldn’t refresh the macOS window corner setting, so no change was made."))
             return
         }
 
@@ -167,7 +170,7 @@ final class GlobalWindowCornerPreferences {
         guard !isManaged else {
             load(snapshot: previous)
             lastConfirmedObservation = ConfirmedObservation(snapshot: previous, isManaged: true)
-            reportFailure("This setting is managed by your organization.")
+            reportFailure(String(localized: "This setting is managed by your organization."))
             return
         }
 
@@ -175,7 +178,9 @@ final class GlobalWindowCornerPreferences {
         guard operations.synchronize() else {
             load(snapshot: previous)
             lastConfirmedObservation = ConfirmedObservation(snapshot: previous, isManaged: false)
-            reportFailure("macOS could not confirm the window corner change. Its current value is unknown.")
+            reportFailure(
+                String(localized: "macOS could not confirm the window corner change. Its current value is unknown.")
+            )
             return
         }
 
@@ -184,7 +189,9 @@ final class GlobalWindowCornerPreferences {
         lastConfirmedObservation = ConfirmedObservation(snapshot: confirmed, isManaged: false)
         guard Self.decode(confirmed) == expected else {
             reportFailure(
-                "The macOS window corner setting differs from the requested value. The current value was reloaded."
+                String(
+                    localized: "The macOS window corner setting differs from the requested value. The current value was reloaded."
+                )
             )
             return
         }

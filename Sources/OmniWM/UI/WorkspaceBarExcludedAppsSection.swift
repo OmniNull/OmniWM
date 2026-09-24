@@ -37,12 +37,11 @@ struct WorkspaceBarExcludedAppsSection: View {
     var body: some View {
         Section("Excluded Apps — All Monitors") {
             SettingsCaption(
-                "Excluded apps stay running and fully managed by OmniWM. Only their workspace-bar "
-                    + "representation is removed on every monitor."
+                localized: "Excluded apps stay running and fully managed by OmniWM. Only their workspace-bar representation is removed on every monitor."
             )
 
             if candidates.isEmpty {
-                SettingsCaption("No managed apps with bundle IDs are currently available.")
+                SettingsCaption(localized: "No managed apps with bundle IDs are currently available.")
             } else {
                 ForEach(candidates) { candidate in
                     Toggle(isOn: exclusionBinding(for: candidate.bundleID)) {

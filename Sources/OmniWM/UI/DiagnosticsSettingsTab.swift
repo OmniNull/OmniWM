@@ -14,11 +14,11 @@ enum DiagnosticsActionStatus: Equatable {
 func diagnosticsRecordingStartStatus(for outcome: TraceCaptureOutcome) -> DiagnosticsActionStatus {
     switch outcome {
     case .started:
-        .success("Recording started")
+        .success(String(localized: "Recording started"))
     case .noChange:
-        .failure("A recording is already running")
+        .failure(String(localized: "A recording is already running"))
     case .stopped:
-        .failure("Unexpected recording state")
+        .failure(String(localized: "Unexpected recording state"))
     case let .writeFailed(reason):
         .failure(reason)
     }
@@ -26,24 +26,26 @@ func diagnosticsRecordingStartStatus(for outcome: TraceCaptureOutcome) -> Diagno
 
 func privateAPIProbePresentationStatus(for report: PrivateAPIProbeReport) -> DiagnosticsActionStatus {
     let failures = report.selfTests.filter { $0.outcome == .failed }.count
-    let checks = "\(report.selfTests.count) checks, \(failures) failures"
+    let checks = String(localized: "\(report.selfTests.count) checks, \(failures) failures")
     guard let foreign = report.foreign else {
-        let prefix = failures == 0 ? "Inconclusive: " : ""
-        return .failure("\(prefix)\(checks) · no unmanaged foreign window probed")
+        return .failure(failures == 0
+            ? String(localized: "Inconclusive: \(checks) · no unmanaged foreign window probed")
+            : String(localized: "\(checks) · no unmanaged foreign window probed"))
     }
-    let foreignResult = "foreign transaction move=\(foreign.skylightMoved ? "yes" : "no")"
-        + ", restored=\(foreign.restored ? "yes" : "no")"
+    let moved = foreign.skylightMoved ? String(localized: "yes") : String(localized: "no")
+    let restored = foreign.restored ? String(localized: "yes") : String(localized: "no")
+    let foreignResult = String(localized: "foreign transaction move=\(moved), restored=\(restored)")
     guard failures == 0 else {
-        return .failure("\(checks) · \(foreignResult)")
+        return .failure(String(localized: "\(checks) · \(foreignResult)"))
     }
     switch foreign.outcome {
     case .works where foreign.skylightMoved && foreign.restored:
-        return .success("\(checks) · \(foreignResult)")
+        return .success(String(localized: "\(checks) · \(foreignResult)"))
     case .inconclusive:
-        return .failure("Inconclusive: \(checks) · \(foreignResult)")
+        return .failure(String(localized: "Inconclusive: \(checks) · \(foreignResult)"))
     case .works,
          .failed:
-        return .failure("\(checks) · \(foreignResult)")
+        return .failure(String(localized: "\(checks) · \(foreignResult)"))
     }
 }
 
@@ -109,7 +111,7 @@ struct DiagnosticsSettingsTab: View {
                 }
                 Text(crash.reason)
                     .font(.callout)
-                SettingsCaption("Report it to open a pre-filled issue with the crash details.")
+                SettingsCaption(localized: "Report it to open a pre-filled issue with the crash details.")
                 HStack(spacing: 8) {
                     Button("Copy File") {
                         copyFile(crash.url)
@@ -135,10 +137,7 @@ struct DiagnosticsSettingsTab: View {
             .disabled(isPrivateAPIProbeRunning)
             DiagnosticsStatusLabel(status: probeStatus)
             SettingsCaption(
-                "On-demand check of every private window-server API on this Mac, confirming each actually works. "
-                    + "It briefly nudges one unmanaged open window a few pixels and restores its verified starting "
-                    + "position, so you may see a window jump for an instant. The full result is written "
-                    + "into the Private API Capability section of your next diagnostics report."
+                localized: "On-demand check of every private window-server API on this Mac, confirming each actually works. It briefly nudges one unmanaged open window a few pixels and restores its verified starting position, so you may see a window jump for an instant. The full result is written into the Private API Capability section of your next diagnostics report."
             )
         }
     }
@@ -157,8 +156,8 @@ struct DiagnosticsSettingsTab: View {
                         .controlSize(.small)
                     Text(
                         controller.traceCaptureStatus.profile == .problem
-                            ? "Starting diagnostics…"
-                            : "A performance capture is starting."
+                            ? String(localized: "Starting diagnostics…")
+                            : String(localized: "A performance capture is starting.")
                     )
                 }
             case .recording:
@@ -180,9 +179,7 @@ struct DiagnosticsSettingsTab: View {
             }
             DiagnosticsStatusLabel(status: traceStatus)
             SettingsCaption(
-                "Start recording, reproduce one problem, then stop and attach the saved trace log. "
-                    + "The app and window evidence is captured automatically. This detailed recording changes runtime "
-                    + "work and must not be used for energy comparisons."
+                localized: "Start recording, reproduce one problem, then stop and attach the saved trace log. The app and window evidence is captured automatically. This detailed recording changes runtime work and must not be used for energy comparisons."
             )
         }
     }
@@ -201,8 +198,8 @@ struct DiagnosticsSettingsTab: View {
                         .controlSize(.small)
                     Text(
                         controller.traceCaptureStatus.profile == .performance
-                            ? "Starting performance capture…"
-                            : "A detailed problem recording is starting."
+                            ? String(localized: "Starting performance capture…")
+                            : String(localized: "A detailed problem recording is starting.")
                     )
                 }
             case .recording:
@@ -223,9 +220,7 @@ struct DiagnosticsSettingsTab: View {
                 }
             }
             SettingsCaption(
-                "Records aggregate operation counts, CPU energy, CPU time, wakeups and memory with one final write. "
-                    + "It does not enable detailed event traces. Use Instruments or powermetrics separately to measure "
-                    + "WindowServer and GPU energy."
+                localized: "Records aggregate operation counts, CPU energy, CPU time, wakeups and memory with one final write. It does not enable detailed event traces. Use Instruments or powermetrics separately to measure WindowServer and GPU energy."
             )
         }
     }
@@ -253,11 +248,11 @@ struct DiagnosticsSettingsTab: View {
             case .stopped:
                 break
             case let .writeFailed(reason):
-                traceStatus = .failure("Failed to write the recording: \(reason)")
+                traceStatus = .failure(String(localized: "Failed to write the recording: \(reason)"))
             case .noChange:
-                traceStatus = .failure("No recording is running")
+                traceStatus = .failure(String(localized: "No recording is running"))
             case .started:
-                traceStatus = .failure("Unexpected recording state")
+                traceStatus = .failure(String(localized: "Unexpected recording state"))
             }
         }
     }
@@ -281,11 +276,11 @@ struct DiagnosticsSettingsTab: View {
             case .stopped:
                 break
             case let .writeFailed(reason):
-                traceStatus = .failure("Failed to write the performance capture: \(reason)")
+                traceStatus = .failure(String(localized: "Failed to write the performance capture: \(reason)"))
             case .noChange:
-                traceStatus = .failure("No performance capture is running")
+                traceStatus = .failure(String(localized: "No performance capture is running"))
             case .started:
-                traceStatus = .failure("Unexpected capture state")
+                traceStatus = .failure(String(localized: "Unexpected capture state"))
             }
         }
     }

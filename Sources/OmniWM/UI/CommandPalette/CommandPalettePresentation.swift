@@ -8,7 +8,8 @@ import Observation
 import SwiftUI
 
 enum CommandPalettePresentation {
-    static let unavailableMenuStatusText = "Open the palette while another app is frontmost to search its menus."
+    static let unavailableMenuStatusText =
+        String(localized: "Open the palette while another app is frontmost to search its menus.")
 
     struct InlineHint: Equatable {
         let title: String
@@ -20,19 +21,19 @@ enum CommandPalettePresentation {
     }
 
     static func availableMenuStatusText(for appName: String?) -> String {
-        "Searching menus in \(appName ?? "Current App")"
+        String(localized: "Searching menus in \(appName ?? String(localized: "Current App"))")
     }
 
     static func modeHint(for mode: CommandPaletteMode) -> InlineHint {
         switch mode {
         case .windows:
-            InlineHint(title: mode.displayName, shortcut: "⌘1")
+            InlineHint(title: mode.localizedDisplayName, shortcut: "⌘1")
         case .menu:
-            InlineHint(title: mode.displayName, shortcut: "⌘2")
+            InlineHint(title: mode.localizedDisplayName, shortcut: "⌘2")
         case .clipboard:
-            InlineHint(title: mode.displayName, shortcut: "⌘3")
+            InlineHint(title: mode.localizedDisplayName, shortcut: "⌘3")
         case .commands:
-            InlineHint(title: mode.displayName, shortcut: "⌘4")
+            InlineHint(title: mode.localizedDisplayName, shortcut: "⌘4")
         }
     }
 
@@ -78,7 +79,7 @@ enum CommandPalettePresentation {
 
     static func selectedWindowHint(isSummonRightAvailable: Bool) -> InlineHint? {
         guard isSummonRightAvailable else { return nil }
-        return InlineHint(title: "Summon Right", shortcut: "⇧↩")
+        return InlineHint(title: String(localized: "Summon Right"), shortcut: "⇧↩")
     }
 
     static func allowsSummonRight(_ item: CommandPaletteWindowItem) -> Bool {
@@ -90,14 +91,22 @@ enum CommandPalettePresentation {
         isSummonRightAvailable: Bool
     ) -> String {
         if selectedItem?.isAppHidden == true {
-            return "Return · Unhide & Focus"
+            return String(localized: "Return · Unhide & Focus")
         }
 
-        let summonText = if isSummonRightAvailable {
-            "Shift-Enter summons right."
-        } else {
-            "Shift-Enter unavailable for this session."
+        return isSummonRightAvailable
+            ? String(localized: "Enter jumps. Shift-Enter summons right.")
+            : String(localized: "Enter jumps. Shift-Enter unavailable for this session.")
+    }
+}
+
+extension CommandPaletteMode {
+    var localizedDisplayName: String {
+        switch self {
+        case .windows: String(localized: "Windows")
+        case .menu: String(localized: "Menu")
+        case .clipboard: String(localized: "Clipboard")
+        case .commands: String(localized: "Commands")
         }
-        return "Enter jumps. \(summonText)"
     }
 }

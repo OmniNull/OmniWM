@@ -70,7 +70,7 @@ struct ReportIssueSettingsTab: View {
                 .focused($titleFocused)
             Picker("Category", selection: $model.category) {
                 ForEach(IssueCategory.allCases) { category in
-                    Text(category.displayName).tag(category)
+                    Text(category.localizedDisplayName).tag(category)
                 }
             }
             labeledEditor("What happened", text: $model.actual)
@@ -91,12 +91,12 @@ struct ReportIssueSettingsTab: View {
                 .textFieldStyle(.roundedBorder)
             Picker("Active layout", selection: $model.layout) {
                 ForEach(LayoutType.reportChoices) { layout in
-                    Text(layout.displayName).tag(layout)
+                    Text(layout.localizedDisplayName).tag(layout)
                 }
             }
             Picker("Worked in an earlier version?", selection: $model.regression) {
                 ForEach(IssueRegression.allCases) { regression in
-                    Text(regression.displayName).tag(regression)
+                    Text(regression.localizedDisplayName).tag(regression)
                 }
             }
             if model.regression == .yes {
@@ -104,8 +104,7 @@ struct ReportIssueSettingsTab: View {
                     .textFieldStyle(.roundedBorder)
             }
             SettingsCaption(
-                "OmniWM version, macOS, your settings, and explicitly selected evidence are included "
-                    + "in the diagnostic log — no need to type them."
+                localized: "OmniWM version, macOS, your settings, and explicitly selected evidence are included in the diagnostic log — no need to type them."
             )
         }
     }
@@ -128,8 +127,7 @@ struct ReportIssueSettingsTab: View {
                     suggestionPreview(suggestion)
                 }
                 SettingsCaption(
-                    "On-device AI polishes your report into a clear, well-structured issue. "
-                        + "Review it, then apply. Nothing leaves your Mac."
+                    localized: "On-device AI polishes your report into a clear, well-structured issue. Review it, then apply. Nothing leaves your Mac."
                 )
             }
         }
@@ -161,12 +159,10 @@ struct ReportIssueSettingsTab: View {
     private var submitSection: some View {
         Section {
             SettingsCaption(
-                "A fresh diagnostic snapshot is always prepared. Explicitly selected crash or trace evidence "
-                    + "is appended to that same .log."
+                localized: "A fresh diagnostic snapshot is always prepared. Explicitly selected crash or trace evidence is appended to that same .log."
             )
             SettingsCaption(
-                "Diagnostic logs may include OmniWM settings, app and window titles, and title-based rule "
-                    + "matchers. Review the .log in Finder before attaching it to a public GitHub issue."
+                localized: "Diagnostic logs may include OmniWM settings, app and window titles, and title-based rule matchers. Review the .log in Finder before attaching it to a public GitHub issue."
             )
             HStack {
                 Button("Submit to GitHub") { Task { await model.submit() } }
@@ -185,17 +181,21 @@ struct ReportIssueSettingsTab: View {
             if controller.traceCaptureStatus.phase != .idle {
                 SettingsCaption(
                     controller.traceCaptureStatus.profile == .problem
-                        ? "Stop, Save & Include the recording before submitting so this trace is attached."
-                        : "Finish the performance capture before submitting. Performance artifacts are not attached "
-                        + "as problem traces."
+                        ?
+                        String(
+                            localized: "Stop, Save & Include the recording before submitting so this trace is attached."
+                        )
+                        :
+                        String(
+                            localized: "Finish the performance capture before submitting. Performance artifacts are not attached as problem traces."
+                        )
                 )
             }
             if let hint = model.submitRequirementHint {
                 SettingsCaption(hint)
             }
             SettingsCaption(
-                "Opens a pre-filled new-issue page in your browser; you review and post it with your own "
-                    + "GitHub account. OmniWM never sees your GitHub login."
+                localized: "Opens a pre-filled new-issue page in your browser; you review and post it with your own GitHub account. OmniWM never sees your GitHub login."
             )
             draftFooter
         }
@@ -241,8 +241,7 @@ struct ReportIssueSettingsTab: View {
                 .foregroundStyle(.green)
             case .copiedToClipboard:
                 Label(
-                    "The issue was too long for a link, so it was copied to your clipboard. "
-                        + "Paste it into the GitHub page that just opened.",
+                    "The issue was too long for a link, so it was copied to your clipboard. Paste it into the GitHub page that just opened.",
                     systemImage: "doc.on.clipboard"
                 )
                 .foregroundStyle(.secondary)
@@ -303,8 +302,8 @@ extension ReportIssueSettingsTab {
                         .controlSize(.small)
                     Text(
                         controller.traceCaptureStatus.profile == .problem
-                            ? "Starting diagnostics…"
-                            : "A performance capture is starting."
+                            ? String(localized: "Starting diagnostics…")
+                            : String(localized: "A performance capture is starting.")
                     )
                 }
             case .recording:
@@ -312,11 +311,11 @@ extension ReportIssueSettingsTab {
                     DiagnosticsRecordingProgress(startedAt: controller.traceCaptureStatus.startedAt)
                     Button("Stop, Save & Include Recording") { stopRecording() }
                     SettingsCaption(
-                        "Stop, save, and include before submitting — an in-progress recording isn't ready to attach."
+                        localized: "Stop, save, and include before submitting — an in-progress recording isn't ready to attach."
                     )
                 } else {
                     Label("Performance capture in progress", systemImage: "gauge.with.dots.needle.67percent")
-                    SettingsCaption("Performance captures are not diagnostic trace attachments.")
+                    SettingsCaption(localized: "Performance captures are not diagnostic trace attachments.")
                 }
             case .finalizing:
                 HStack(spacing: 8) {
@@ -324,8 +323,8 @@ extension ReportIssueSettingsTab {
                         .controlSize(.small)
                     Text(
                         controller.traceCaptureStatus.profile == .problem
-                            ? "Finalizing diagnostics…"
-                            : "Finalizing performance capture…"
+                            ? String(localized: "Finalizing diagnostics…")
+                            : String(localized: "Finalizing performance capture…")
                     )
                 }
             case .idle:
@@ -336,15 +335,13 @@ extension ReportIssueSettingsTab {
                    !model.availableEvidence.contains(selected)
                 {
                     SettingsCaption(
-                        "The selected file is no longer available. Submission will continue with the fresh "
-                            + "snapshot unless you select different evidence."
+                        localized: "The selected file is no longer available. Submission will continue with the fresh snapshot unless you select different evidence."
                     )
                 }
                 Button(recordButtonTitle) { startRecording() }
                     .buttonStyle(.borderedProminent)
                 SettingsCaption(
-                    "Reproduce the bug while recording, then come back — your draft is saved. "
-                        + "Crash and trace evidence is included only when you explicitly select it."
+                    localized: "Reproduce the bug while recording, then come back — your draft is saved. Crash and trace evidence is included only when you explicitly select it."
                 )
             }
             DiagnosticsStatusLabel(status: traceStatus)
@@ -385,23 +382,27 @@ extension ReportIssueSettingsTab {
     private func evidenceLabel(_ evidence: IssueDiagnosticEvidence) -> String {
         switch evidence {
         case let .crash(url):
-            "Crash: \(url.lastPathComponent)"
+            String(localized: "Crash: \(url.lastPathComponent)")
         case let .trace(url):
-            "Saved trace: \(url.lastPathComponent)"
+            String(localized: "Saved trace: \(url.lastPathComponent)")
         }
     }
 
     private var recordButtonTitle: String {
         switch model.selectedEvidence {
         case .some(.crash):
-            "Record a Trace"
+            String(localized: "Record a Trace")
         case .some(.trace):
-            "Record Again"
+            String(localized: "Record Again")
         case nil:
-            model.availableEvidence.contains { evidence in
+            if model.availableEvidence.contains(where: { evidence in
                 if case .trace = evidence { return true }
                 return false
-            } ? "Record Again" : "Record a Trace"
+            }) {
+                String(localized: "Record Again")
+            } else {
+                String(localized: "Record a Trace")
+            }
         }
     }
 
@@ -458,14 +459,14 @@ extension ReportIssueSettingsTab {
         guard controller.traceCaptureStatus.phase == .recording,
               controller.traceCaptureStatus.profile == .problem
         else {
-            traceStatus = .failure("No diagnostic recording is running")
+            traceStatus = .failure(String(localized: "No diagnostic recording is running"))
             return
         }
         Task {
             switch await controller.toggleTraceCapture(desiredState: .inactive) {
             case let .stopped(artifact):
                 guard artifact.profile == .problem else {
-                    traceStatus = .failure("The active capture was not a diagnostic recording")
+                    traceStatus = .failure(String(localized: "The active capture was not a diagnostic recording"))
                     return
                 }
                 traceStatus = .idle
@@ -473,11 +474,11 @@ extension ReportIssueSettingsTab {
                 await refreshAvailableEvidence()
                 NSWorkspace.shared.activateFileViewerSelecting([artifact.url])
             case let .writeFailed(reason):
-                traceStatus = .failure("Failed to write the recording: \(reason)")
+                traceStatus = .failure(String(localized: "Failed to write the recording: \(reason)"))
             case .noChange:
-                traceStatus = .failure("No recording is running")
+                traceStatus = .failure(String(localized: "No recording is running"))
             case .started:
-                traceStatus = .failure("Unexpected recording state")
+                traceStatus = .failure(String(localized: "Unexpected recording state"))
             }
         }
     }

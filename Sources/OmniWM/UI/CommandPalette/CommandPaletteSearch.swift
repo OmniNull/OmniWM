@@ -9,6 +9,12 @@ import SwiftUI
 
 @MainActor
 enum CommandPaletteSearch {
+    private static let unassignedShortcut = String(localized: "Unassigned")
+    private static let noShortcut = String(localized: "No shortcut")
+    private static let hiddenSearchTerms = ActionCatalog.uniqueTerms([
+        String(localized: "hidden").lowercased(),
+        "hidden"
+    ])
     private static let commandCategoryOrder = Dictionary(
         uniqueKeysWithValues: HotkeyCategory.allCases.enumerated().map { ($0.element, $0.offset) }
     )
@@ -43,9 +49,13 @@ enum CommandPaletteSearch {
                 return (item, 2000 + pos)
             }
 
-            if item.isAppHidden, let range = "hidden".range(of: query) {
-                let pos = "hidden".distance(from: "hidden".startIndex, to: range.lowerBound)
-                return (item, 3000 + pos)
+            if item.isAppHidden {
+                for term in hiddenSearchTerms {
+                    if let range = term.range(of: query) {
+                        let pos = term.distance(from: term.startIndex, to: range.lowerBound)
+                        return (item, 3000 + pos)
+                    }
+                }
             }
 
             return nil
@@ -171,17 +181,28 @@ enum CommandPaletteSearch {
 
         return ActionCatalog.allSpecs().map { spec in
             let trigger = spec.visibility == .unassignable ? nil : triggersByID[spec.id]
+            let hasShortcut = trigger?.isUnassigned == false
             let shortcut = if spec.visibility == .unassignable {
-                "No shortcut"
+                noShortcut
+            } else if let trigger, hasShortcut {
+                trigger.displayString
             } else {
-                trigger?.displayString ?? "Unassigned"
+                unassignedShortcut
+            }
+            let canonicalShortcut = if spec.visibility == .unassignable {
+                "No shortcut"
+            } else if hasShortcut {
+                trigger?.humanReadableString ?? shortcut
+            } else {
+                "Unassigned"
             }
             return CommandPaletteCommandItem(
                 spec: spec,
                 shortcut: shortcut,
+                hasShortcut: hasShortcut,
                 shortcutSearchTerms: ActionCatalog.uniqueTerms([
                     shortcut,
-                    trigger?.humanReadableString ?? shortcut
+                    canonicalShortcut
                 ]).map(ActionCatalog.normalizedSearchTerm),
                 isLayoutCompatible: CommandHandler.isLayoutCompatible(
                     spec.layoutCompatibility,
@@ -193,16 +214,22 @@ enum CommandPaletteSearch {
     }
 
     private static func commandSearchRank(_ item: CommandPaletteCommandItem, query: String) -> Int? {
-        let title = ActionCatalog.normalizedSearchTerm(item.spec.title)
+        let title = ActionCatalog.normalizedSearchTerm(item.spec.localizedTitle)
         if title.hasPrefix(query) { return 0 }
         if title.contains(query) { return 1 }
 
         let layout = ActionCatalog.normalizedSearchTerm(item.spec.layoutCompatibility.rawValue)
+        let localizedLayout = ActionCatalog.normalizedSearchTerm(item.spec.layoutCompatibility.localizedDisplayName)
+        let category = ActionCatalog.normalizedSearchTerm(item.spec.category.rawValue)
+        let localizedCategory = ActionCatalog.normalizedSearchTerm(item.spec.category.localizedDisplayName)
         let terms = ActionCatalog.normalizedSearchTerms(for: item.id)
             ?? item.spec.searchTerms.map(ActionCatalog.normalizedSearchTerm)
-        if terms.contains(where: { $0 != title && $0 != layout && $0.contains(query) }) { return 2 }
-        if ActionCatalog.normalizedSearchTerm(item.spec.category.rawValue).contains(query) { return 3 }
-        if layout.contains(query) { return 4 }
+        if terms.contains(where: {
+            $0 != title && $0 != layout && $0 != localizedLayout && $0 != category && $0 != localizedCategory
+                && $0.contains(query)
+        }) { return 2 }
+        if category.contains(query) || localizedCategory.contains(query) { return 3 }
+        if layout.contains(query) || localizedLayout.contains(query) { return 4 }
         if item.shortcutSearchTerms.contains(where: { $0.contains(query) }) { return 5 }
         return nil
     }
@@ -218,7 +245,7 @@ enum CommandPaletteSearch {
     private static func commandTitleOrder(_ lhs: CommandPaletteCommandItem, _ rhs: CommandPaletteCommandItem)
         -> Bool
     {
-        let titleOrder = lhs.spec.title.localizedStandardCompare(rhs.spec.title)
+        let titleOrder = lhs.spec.localizedTitle.localizedStandardCompare(rhs.spec.localizedTitle)
         return titleOrder == .orderedSame ? lhs.id < rhs.id : titleOrder == .orderedAscending
     }
 
@@ -239,7 +266,7 @@ enum CommandPaletteSearch {
                 id: entry.token,
                 handle: handle,
                 title: title,
-                appName: appInfo?.name ?? "Unknown",
+                appName: appInfo?.name ?? String(localized: "Unknown"),
                 appIcon: appInfo?.icon,
                 workspaceName: workspaceName,
                 isAppHidden: wmController.workspaceManager.isAppHidden(pid: entry.pid)

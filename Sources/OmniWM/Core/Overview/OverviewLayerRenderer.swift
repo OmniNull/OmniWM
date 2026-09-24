@@ -8,6 +8,7 @@ import QuartzCore
 final class OverviewLayerRenderer {
     typealias Colors = OverviewRenderStyle.Colors
     typealias Metrics = OverviewRenderStyle.Metrics
+    static let searchPlaceholder = String(localized: "Type to search...")
 
     let root = CALayer()
     private let backdropGroup = CALayer()
@@ -60,7 +61,7 @@ final class OverviewLayerRenderer {
         search.addSublayer(caret)
         search.addSublayer(searchStatus)
         search.addSublayer(searchClear)
-        searchClear.string = "Clear"
+        searchClear.string = String(localized: "Clear")
         selectionOutline.fillColor = nil
         selectionOutline.lineWidth = 2
         search.backgroundColor = Colors.searchBarBackground

@@ -34,7 +34,7 @@ struct HotkeyBindingRow: View {
 
                 HotkeyBindingControl(
                     binding: binding.binding,
-                    commandName: binding.command.displayName,
+                    commandName: binding.command.localizedDisplayName,
                     isRecordingChord: recordingTarget == .chord(binding.id),
                     isHyperActive: isHyperActive,
                     onStartChordRecording: {
@@ -54,14 +54,14 @@ struct HotkeyBindingRow: View {
                     }
                 )
 
-                ResetIconButton(title: "Reset \(binding.command.displayName) to default") {
+                ResetIconButton(title: String(localized: "Reset \(binding.command.localizedDisplayName) to default")) {
                     recordingTarget = nil
                     onResetBindings(binding.id)
                 }
             }
         } label: {
             VStack(alignment: .leading, spacing: 4) {
-                Text(binding.command.displayName)
+                Text(binding.command.localizedDisplayName)
                     .font(.body)
 
                 HStack(spacing: 6) {
@@ -85,8 +85,8 @@ struct HotkeyBindingRow: View {
 
     private var accessibilityValue: String {
         var parts = [
-            "Shortcut \(HotkeySettingsDisplayModel.humanReadableString(for: binding.binding))",
-            "Scope \(binding.command.layoutCompatibility.rawValue)"
+            String(localized: "Shortcut \(HotkeySettingsDisplayModel.humanReadableString(for: binding.binding))"),
+            String(localized: "Scope \(binding.command.layoutCompatibility.localizedDisplayName)")
         ]
         if let failureReason {
             parts.append(failureMessage(for: failureReason))
@@ -97,11 +97,13 @@ struct HotkeyBindingRow: View {
     private func failureMessage(for reason: HotkeyRegistrationFailureReason) -> String {
         switch reason {
         case .duplicateBinding:
-            return "Failed to register: this key combination is already assigned to another OmniWM command"
+            return String(
+                localized: "Failed to register: this key combination is already assigned to another OmniWM command"
+            )
         case .systemReserved:
-            return "Failed to register: this key combination may be reserved by the system"
+            return String(localized: "Failed to register: this key combination may be reserved by the system")
         case .requiresInputMonitoring:
-            return "Left/Right-specific shortcuts need Input Monitoring permission to work"
+            return String(localized: "Left/Right-specific shortcuts need Input Monitoring permission to work")
         }
     }
 }
@@ -110,7 +112,7 @@ private struct HotkeyScopeText: View {
     let compatibility: LayoutCompatibility
 
     var body: some View {
-        Text("Scope: \(compatibility.rawValue)")
+        Text("Scope: \(compatibility.localizedDisplayName)")
             .font(.caption)
             .foregroundStyle(.secondary)
             .padding(.horizontal, 7)
@@ -134,7 +136,7 @@ private struct HotkeyBindingControl: View {
         HStack(spacing: 8) {
             if isRecordingChord {
                 KeyRecorderView(
-                    accessibilityLabel: "Recording hotkey for \(commandName)",
+                    accessibilityLabel: String(localized: "Recording hotkey for \(commandName)"),
                     isHyperActive: isHyperActive,
                     onCapture: onCaptured,
                     onCancel: onCancel
@@ -152,8 +154,10 @@ private struct HotkeyBindingControl: View {
                             .frame(minWidth: 112, alignment: .center)
                     }
                     .buttonStyle(.bordered)
-                    .help("Change hotkey for \(commandName). Current shortcut: \(humanReadableString)")
-                    .accessibilityLabel("Change hotkey for \(commandName)")
+                    .help(
+                        String(localized: "Change hotkey for \(commandName). Current shortcut: \(humanReadableString)")
+                    )
+                    .accessibilityLabel(String(localized: "Change hotkey for \(commandName)"))
                     .accessibilityValue(humanReadableString)
                 }
 
@@ -161,12 +165,12 @@ private struct HotkeyBindingControl: View {
                     Button {
                         onRemove()
                     } label: {
-                        Label("Clear hotkey for \(commandName)", systemImage: "xmark.circle")
+                        Label(String(localized: "Clear hotkey for \(commandName)"), systemImage: "xmark.circle")
                             .labelStyle(.iconOnly)
                     }
                     .buttonStyle(.borderless)
                     .help("Clear this hotkey")
-                    .accessibilityLabel("Clear hotkey for \(commandName)")
+                    .accessibilityLabel(String(localized: "Clear hotkey for \(commandName)"))
                 }
 
                 if let chord = binding.chordBinding, chord.modifiers != 0 {
@@ -182,7 +186,7 @@ private struct HotkeyBindingControl: View {
                     .pickerStyle(.menu)
                     .fixedSize()
                     .help("Restrict this shortcut to the left or right side of its modifier keys")
-                    .accessibilityLabel("Modifier side for \(commandName)")
+                    .accessibilityLabel(String(localized: "Modifier side for \(commandName)"))
                     .accessibilityValue(sideAccessibilityValue(chord.side))
                 }
             }
@@ -191,9 +195,9 @@ private struct HotkeyBindingControl: View {
 
     private func sideAccessibilityValue(_ side: ModifierSide) -> String {
         switch side {
-        case .either: "Either side"
-        case .left: "Left side"
-        case .right: "Right side"
+        case .either: String(localized: "Either side")
+        case .left: String(localized: "Left side")
+        case .right: String(localized: "Right side")
         }
     }
 

@@ -467,4 +467,34 @@ enum HotkeyCategory: String, CaseIterable {
     case monitor = "Monitor"
     case layout = "Layout"
     case column = "Container and Column"
+
+    var localizedDisplayName: String {
+        Self.localizedNames[self] ?? rawValue
+    }
+
+    private static let localizedNames: [HotkeyCategory: String] = [
+        .workspace: String(localized: LocalizedStringResource(
+            "command.category.workspace", defaultValue: "Workspace", table: "Commands",
+            bundle: .omniWM
+        )),
+        .focus: String(localized: LocalizedStringResource(
+            "command.category.focus", defaultValue: "Focus", table: "Commands", bundle: .omniWM
+        )),
+        .move: String(localized: LocalizedStringResource(
+            "command.category.move", defaultValue: "Move Window", table: "Commands",
+            bundle: .omniWM
+        )),
+        .monitor: String(localized: LocalizedStringResource(
+            "command.category.monitor", defaultValue: "Monitor", table: "Commands",
+            bundle: .omniWM
+        )),
+        .layout: String(localized: LocalizedStringResource(
+            "command.category.layout", defaultValue: "Layout", table: "Commands",
+            bundle: .omniWM
+        )),
+        .column: String(localized: LocalizedStringResource(
+            "command.category.column", defaultValue: "Container and Column", table: "Commands",
+            bundle: .omniWM
+        ))
+    ]
 }

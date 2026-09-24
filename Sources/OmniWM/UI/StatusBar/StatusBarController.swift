@@ -131,11 +131,11 @@ final class StatusBarController: NSObject {
             let config = NSImage.SymbolConfiguration(paletteColors: [.systemRed])
             button.image = NSImage(
                 systemSymbolName: "record.circle.fill",
-                accessibilityDescription: "OmniWM, recording diagnostics"
+                accessibilityDescription: String(localized: "OmniWM, recording diagnostics")
             )?.withSymbolConfiguration(config)
             button.image?.isTemplate = false
             button.contentTintColor = nil
-            button.toolTip = "OmniWM — recording diagnostics (auto-stops in 10 min)"
+            button.toolTip = String(localized: "OmniWM — recording diagnostics (auto-stops in 10 min)")
             applyRecordingPulse(to: button)
         } else if controller?.traceCaptureStatus.profile == .performance {
             button.layer?.removeAnimation(forKey: recordingPulseKey)
@@ -143,11 +143,11 @@ final class StatusBarController: NSObject {
             let config = NSImage.SymbolConfiguration(paletteColors: [.systemBlue])
             button.image = NSImage(
                 systemSymbolName: "gauge.with.dots.needle.67percent",
-                accessibilityDescription: "OmniWM, measuring performance"
+                accessibilityDescription: String(localized: "OmniWM, measuring performance")
             )?.withSymbolConfiguration(config)
             button.image?.isTemplate = false
             button.contentTintColor = nil
-            button.toolTip = "OmniWM — measuring performance (auto-stops in 10 min)"
+            button.toolTip = String(localized: "OmniWM — measuring performance (auto-stops in 10 min)")
         } else {
             button.layer?.removeAnimation(forKey: recordingPulseKey)
             button.layer?.opacity = 1
@@ -195,15 +195,16 @@ final class StatusBarController: NSObject {
     ) -> String {
         var components: [String] = []
         if isRecording {
-            components.append("Recording diagnostics")
+            components.append(String(localized: "Recording diagnostics"))
         }
         if let workspaceLabel, !workspaceLabel.isEmpty {
-            components.append("Workspace \(workspaceLabel)")
+            components.append(String(localized: "Workspace \(workspaceLabel)"))
         }
         if let focusedAppName, !focusedAppName.isEmpty {
-            components.append("Focused app \(focusedAppName)")
+            components.append(String(localized: "Focused app \(focusedAppName)"))
         }
-        return components.isEmpty ? "Window manager controls" : components.joined(separator: ", ")
+        return components.isEmpty ? String(localized: "Window manager controls") : components
+            .joined(separator: String(localized: ", "))
     }
 
     private func updateButtonAccessibility(_ button: NSStatusBarButton) {

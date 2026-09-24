@@ -2,14 +2,21 @@
 // Copyright (C) 2026 BarutSRB — https://github.com/OmniNull/OmniWM
 
 import Carbon
+import Foundation
 import OmniWMIPC
 
 extension IPCMonitorFocusCommand {
-    func actionDisplayName() -> String {
+    func actionDisplayName() -> LocalizedStringResource {
         switch self {
-        case .previous: "Focus Previous Monitor"
-        case .next: "Focus Next Monitor"
-        case .last: "Focus Last Monitor"
+        case .previous: LocalizedStringResource(
+                "command.monitor.previous", defaultValue: "Focus Previous Monitor", table: "Commands", bundle: .omniWM
+            )
+        case .next: LocalizedStringResource(
+                "command.monitor.next", defaultValue: "Focus Next Monitor", table: "Commands", bundle: .omniWM
+            )
+        case .last: LocalizedStringResource(
+                "command.monitor.last", defaultValue: "Focus Last Monitor", table: "Commands", bundle: .omniWM
+            )
         }
     }
 

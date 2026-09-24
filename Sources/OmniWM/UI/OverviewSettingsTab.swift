@@ -13,7 +13,7 @@ struct OverviewSettingsTab: View {
         Form {
             Section("Layout") {
                 SettingsSliderRow(
-                    label: "Zoom",
+                    label: String(localized: "Zoom"),
                     value: Bindable(settings.overview).zoom,
                     range: 0.5 ... 1.5,
                     step: 0.05,
@@ -22,19 +22,19 @@ struct OverviewSettingsTab: View {
                 .onChange(of: settings.overview.zoom) { _, _ in
                     scheduleUpdate()
                 }
-                SettingsCaption("Zoom changes made in Overview are remembered when it closes.")
+                SettingsCaption(localized: "Zoom changes made in Overview are remembered when it closes.")
             }
 
             Section("Input") {
                 Toggle("Invert Scrolling Direction", isOn: Bindable(settings.overview).invertScrollDirection)
                 SettingsSliderRow(
-                    label: "Mouse Wheel Speed",
+                    label: String(localized: "Mouse Wheel Speed"),
                     value: Bindable(settings.overview).mouseScrollSpeed,
                     range: 0.05 ... 2,
                     step: 0.05,
                     valueText: "\(Int((settings.overview.mouseScrollSpeed * 100).rounded()))%"
                 )
-                SettingsCaption("Adjusts mouse wheels. Trackpad scrolling keeps its normal speed.")
+                SettingsCaption(localized: "Adjusts mouse wheels. Trackpad scrolling keeps its normal speed.")
                 Picker("Toggle Overview Mouse Button", selection: Binding(
                     get: { settings.overview.mouseButton },
                     set: { button in
@@ -52,7 +52,9 @@ struct OverviewSettingsTab: View {
                             .disabled(settings.systemHyperTrigger.mouseButtonNumber == button)
                     }
                 }
-                SettingsCaption("Press to open or close Overview. Buttons assigned to System Hyper are unavailable.")
+                SettingsCaption(
+                    localized: "Press to open or close Overview. Buttons assigned to System Hyper are unavailable."
+                )
                 if let mouseButtonError {
                     SettingsCaption(mouseButtonError)
                 }

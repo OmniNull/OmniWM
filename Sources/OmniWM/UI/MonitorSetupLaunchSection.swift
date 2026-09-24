@@ -14,13 +14,16 @@ struct MonitorSetupLaunchSection: View {
                 Label {
                     VStack(alignment: .leading, spacing: 3) {
                         Text(isComplete
-                            ? "Multi-monitor setup is complete"
-                            : "Set up multiple displays")
+                            ? String(localized: "Multi-monitor setup is complete")
+                            : String(localized: "Set up multiple displays"))
                             .fontWeight(.medium)
                         Text(
                             isComplete
-                                ? "Run the guide again after moving, replacing, or adding a display."
-                                : "Follow four guided steps for display placement, workspace homes, and Mouse Warp."
+                                ? String(localized: "Run the guide again after moving, replacing, or adding a display.")
+                                :
+                                String(
+                                    localized: "Follow four guided steps for display placement, workspace homes, and Mouse Warp."
+                                )
                         )
                         .font(.caption)
                         .foregroundStyle(.secondary)

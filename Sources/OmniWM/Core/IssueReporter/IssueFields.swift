@@ -29,6 +29,19 @@ enum IssueCategory: String, CaseIterable, Identifiable {
         case .visual: "Visual (borders, bar, overview)"
         }
     }
+
+    var localizedDisplayName: String {
+        switch self {
+        case .unspecified: String(localized: "Unspecified")
+        case .layout: String(localized: "Tiling layout (Niri / Dwindle)")
+        case .focus: String(localized: "Focus / focus-follows-mouse")
+        case .multiMonitor: String(localized: "Multi-monitor / workspaces")
+        case .placement: String(localized: "Window placement or sizing")
+        case .crash: String(localized: "Crash")
+        case .performance: String(localized: "Performance / animation")
+        case .visual: String(localized: "Visual (borders, bar, overview)")
+        }
+    }
 }
 
 enum IssueRegression: String, CaseIterable, Identifiable {
@@ -45,6 +58,14 @@ enum IssueRegression: String, CaseIterable, Identifiable {
         case .unknown: "Unknown"
         case .no: "No — it never worked"
         case .yes: "Yes — it used to work"
+        }
+    }
+
+    var localizedDisplayName: String {
+        switch self {
+        case .unknown: String(localized: "Unknown")
+        case .no: String(localized: "No — it never worked")
+        case .yes: String(localized: "Yes — it used to work")
         }
     }
 }

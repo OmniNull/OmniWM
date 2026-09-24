@@ -208,17 +208,19 @@ final class TabRailView: NSView {
     }
 
     override func accessibilityLabel() -> String? {
-        "Window tabs"
+        String(localized: "Window tabs")
     }
 
     override func accessibilityValue() -> Any? {
-        guard tabCount > 0 else { return "No tabs" }
+        guard tabCount > 0 else { return String(localized: "No tabs") }
         let clampedActiveVisualIndex = min(max(0, activeVisualIndex), tabCount - 1)
-        return "Tab \(clampedActiveVisualIndex + 1) of \(tabCount) selected"
+        return String(localized: "Tab \(clampedActiveVisualIndex + 1) of \(tabCount) selected")
     }
 
     override func accessibilityHelp() -> String? {
-        style == .appIcons ? "Click an app icon to select its window. Scroll to see more tabs." : "Click a segment to select that tab."
+        style == .appIcons
+            ? String(localized: "Click an app icon to select its window. Scroll to see more tabs.")
+            : String(localized: "Click a segment to select that tab.")
     }
 
     private func updateHoveredVisualIndex(with event: NSEvent) {

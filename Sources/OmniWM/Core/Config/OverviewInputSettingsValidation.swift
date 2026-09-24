@@ -10,9 +10,11 @@ enum OverviewInputSettingsError: Error, LocalizedError {
     var errorDescription: String? {
         switch self {
         case .unsupportedButton:
-            "Overview supports the middle button and mouse buttons 3–5."
+            String(localized: "Overview supports the middle button and mouse buttons 3–5.")
         case .hyperConflict:
-            "Overview and System Hyper cannot use the same mouse button. Choose another button or unassign one."
+            String(
+                localized: "Overview and System Hyper cannot use the same mouse button. Choose another button or unassign one."
+            )
         }
     }
 }
@@ -27,7 +29,7 @@ enum OverviewInputSettingsValidation {
     }
 
     static func buttonLabel(_ button: Int64) -> String {
-        button == 2 ? "Middle Button" : "Mouse Button \(button)"
+        button == 2 ? String(localized: "Middle Button") : String(localized: "Mouse Button \(button)")
     }
 }
 

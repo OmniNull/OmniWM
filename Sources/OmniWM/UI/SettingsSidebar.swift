@@ -10,7 +10,7 @@ struct SettingsSidebar: View {
     var body: some View {
         List(selection: $selection) {
             ForEach(SettingsSectionGroup.allCases) { group in
-                Section(group.rawValue) {
+                Section(group.displayName) {
                     ForEach(group.sections) { section in
                         Label(section.displayName, systemImage: section.icon)
                             .badge(badge(for: section))

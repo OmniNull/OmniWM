@@ -276,7 +276,7 @@ final class CommandPaletteController: NSObject, NSWindowDelegate {
                 self?.clipboardItems = try await environment.clearClipboardHistory(wmController)
                 self?.clipboardErrorText = nil
             } catch {
-                self?.clipboardErrorText = "Could not clear clipboard history."
+                self?.clipboardErrorText = String(localized: "Could not clear clipboard history.")
             }
         }
     }
@@ -387,7 +387,7 @@ extension CommandPaletteController {
     }
 
     private func handleKeyDown(_ event: NSEvent) -> Bool {
-        if [UInt16(36), 76, 125, 126].contains(event.keyCode),
+        if [UInt16(36), 48, 53, 76, 125, 126].contains(event.keyCode),
            let inputClient = presentation.panel?.firstResponder as? NSTextInputClient,
            inputClient.hasMarkedText()
         {

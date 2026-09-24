@@ -204,7 +204,7 @@ private struct HiddenBarGlyphButton: View {
         }
         .buttonStyle(.plain)
         .help(glyph.name)
-        .accessibilityLabel("\(glyph.name), menu bar item \(glyph.key.ordinal + 1)")
+        .accessibilityLabel(String(localized: "\(glyph.name), menu bar item \(glyph.key.ordinal + 1)"))
         .accessibilityHint("Reveals this item and opens its menu")
         .onHover { hovering = $0 }
     }

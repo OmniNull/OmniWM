@@ -1,6 +1,7 @@
 // SPDX-License-Identifier: GPL-2.0-only
 // Copyright (C) 2026 BarutSRB — https://github.com/OmniNull/OmniWM
 
+import Foundation
 import OmniWMIPC
 
 enum ScratchpadAction: Equatable, Hashable {
@@ -9,10 +10,16 @@ enum ScratchpadAction: Equatable, Hashable {
 }
 
 extension ScratchpadAction {
-    func actionDisplayName() -> String {
+    func actionDisplayName() -> LocalizedStringResource {
         switch self {
-        case let .assign(index): "Assign Focused Window to Scratchpad \(index)"
-        case let .toggle(index): "Toggle Scratchpad \(index)"
+        case let .assign(index): LocalizedStringResource(
+                "command.scratchpad.assign", defaultValue: "Assign Focused Window to Scratchpad \(index)",
+                table: "Commands", bundle: .omniWM
+            )
+        case let .toggle(index): LocalizedStringResource(
+                "command.scratchpad.toggle", defaultValue: "Toggle Scratchpad \(index)", table: "Commands",
+                bundle: .omniWM
+            )
         }
     }
 

@@ -1,0 +1,4059 @@
+{
+  "sourceLanguage" : "en",
+  "strings" : {
+    "" : {
+
+    },
+    "\n\n%@ is not currently in your PATH, so Terminal may not find `omniwmctl` until you add that directory." : {
+
+    },
+    "%" : {
+
+    },
+    "%@" : {
+
+    },
+    "%@\n\nQuit anyway? Unsaved clipboard history will be lost." : {
+
+    },
+    "%@  %@" : {
+      "localizations" : {
+        "en" : {
+          "stringUnit" : {
+            "state" : "new",
+            "value" : "%1$@  %2$@"
+          }
+        }
+      }
+    },
+    "%@ (%@)" : {
+      "localizations" : {
+        "en" : {
+          "stringUnit" : {
+            "state" : "new",
+            "value" : "%1$@ (%2$@)"
+          }
+        }
+      }
+    },
+    "%@ (Disconnected)" : {
+
+    },
+    "%@ (missing)" : {
+
+    },
+    "%@ / %@" : {
+      "localizations" : {
+        "en" : {
+          "stringUnit" : {
+            "state" : "new",
+            "value" : "%1$@ / %2$@"
+          }
+        }
+      }
+    },
+    "%@ / %@ · %@" : {
+      "localizations" : {
+        "en" : {
+          "stringUnit" : {
+            "state" : "new",
+            "value" : "%1$@ / %2$@ · %3$@"
+          }
+        }
+      }
+    },
+    "%@ and %@ both use a %lld-finger gesture. Choose different fingers or disable one gesture." : {
+      "comment" : "Trackpad gesture conflict; the placeholders are gesture names",
+      "localizations" : {
+        "en" : {
+          "stringUnit" : {
+            "state" : "new",
+            "value" : "%1$@ and %2$@ both use a %3$lld-finger gesture. Choose different fingers or disable one gesture."
+          }
+        }
+      }
+    },
+    "%@ and %@ both use a %lld-finger upward swipe. Choose different fingers or disable one gesture." : {
+      "comment" : "Trackpad gesture conflict; the placeholders are gesture names",
+      "localizations" : {
+        "en" : {
+          "stringUnit" : {
+            "state" : "new",
+            "value" : "%1$@ and %2$@ both use a %3$lld-finger upward swipe. Choose different fingers or disable one gesture."
+          }
+        }
+      }
+    },
+    "%@ and %@ overlap vertically in the display arrangement. Horizontally parked windows can bleed onto the neighboring display." : {
+      "localizations" : {
+        "en" : {
+          "stringUnit" : {
+            "state" : "new",
+            "value" : "%1$@ and %2$@ overlap vertically in the display arrangement. Horizontally parked windows can bleed onto the neighboring display."
+          }
+        }
+      }
+    },
+    "%@ details" : {
+
+    },
+    "%@ fingers" : {
+
+    },
+    "%@ floating window" : {
+
+    },
+    "%@ height" : {
+
+    },
+    "%@ is restricted to %@-side modifiers (%@). The Hyper key sends generic modifiers, not specific left/right keys, so this shortcut won't trigger from Hyper (only from physically holding all four %@ modifier keys at once)." : {
+      "localizations" : {
+        "en" : {
+          "stringUnit" : {
+            "state" : "new",
+            "value" : "%1$@ is restricted to %2$@-side modifiers (%3$@). The Hyper key sends generic modifiers, not specific left/right keys, so this shortcut won't trigger from Hyper (only from physically holding all four %4$@ modifier keys at once)."
+          }
+        }
+      }
+    },
+    "%@ percent" : {
+
+    },
+    "%@ pt" : {
+
+    },
+    "%@ px" : {
+
+    },
+    "%@ used · %@ free" : {
+      "localizations" : {
+        "en" : {
+          "stringUnit" : {
+            "state" : "new",
+            "value" : "%1$@ used · %2$@ free"
+          }
+        }
+      }
+    },
+    "%@ uses global default" : {
+
+    },
+    "%@ width" : {
+
+    },
+    "%@ window" : {
+
+    },
+    "%@ · %@" : {
+      "localizations" : {
+        "en" : {
+          "stringUnit" : {
+            "state" : "new",
+            "value" : "%1$@ · %2$@"
+          }
+        }
+      }
+    },
+    "%@ · Full Screen" : {
+
+    },
+    "%@ · Tab %lld of %lld" : {
+      "localizations" : {
+        "en" : {
+          "stringUnit" : {
+            "state" : "new",
+            "value" : "%1$@ · Tab %2$lld of %3$lld"
+          }
+        }
+      }
+    },
+    "%@ · no unmanaged foreign window probed" : {
+
+    },
+    "%@%lld" : {
+      "localizations" : {
+        "en" : {
+          "stringUnit" : {
+            "state" : "new",
+            "value" : "%1$@%2$lld"
+          }
+        }
+      }
+    },
+    "%@, %@" : {
+      "localizations" : {
+        "en" : {
+          "stringUnit" : {
+            "state" : "new",
+            "value" : "%1$@, %2$@"
+          }
+        }
+      }
+    },
+    "%@, %@, %@" : {
+      "localizations" : {
+        "en" : {
+          "stringUnit" : {
+            "state" : "new",
+            "value" : "%1$@, %2$@, %3$@"
+          }
+        }
+      }
+    },
+    "%@, %lld floating windows" : {
+      "localizations" : {
+        "en" : {
+          "stringUnit" : {
+            "state" : "new",
+            "value" : "%1$@, %2$lld floating windows"
+          }
+        }
+      }
+    },
+    "%@, %lld windows" : {
+      "localizations" : {
+        "en" : {
+          "stringUnit" : {
+            "state" : "new",
+            "value" : "%1$@, %2$lld windows"
+          }
+        }
+      }
+    },
+    "%@, duplicate %lld" : {
+      "localizations" : {
+        "en" : {
+          "stringUnit" : {
+            "state" : "new",
+            "value" : "%1$@, duplicate %2$lld"
+          }
+        }
+      }
+    },
+    "%@, in macOS Full Screen" : {
+
+    },
+    "%@, invalid" : {
+
+    },
+    "%@, main display" : {
+
+    },
+    "%@, menu bar item %lld" : {
+      "localizations" : {
+        "en" : {
+          "stringUnit" : {
+            "state" : "new",
+            "value" : "%1$@, menu bar item %2$lld"
+          }
+        }
+      }
+    },
+    "%@. %@" : {
+      "localizations" : {
+        "en" : {
+          "stringUnit" : {
+            "state" : "new",
+            "value" : "%1$@. %2$@"
+          }
+        }
+      }
+    },
+    "%@s" : {
+
+    },
+    "%@x" : {
+
+    },
+    "%lld app rules" : {
+
+    },
+    "%lld by %lld pixels" : {
+      "localizations" : {
+        "en" : {
+          "stringUnit" : {
+            "state" : "new",
+            "value" : "%1$lld by %2$lld pixels"
+          }
+        }
+      }
+    },
+    "%lld checks, %lld failures" : {
+      "localizations" : {
+        "en" : {
+          "stringUnit" : {
+            "state" : "new",
+            "value" : "%1$lld checks, %2$lld failures"
+          }
+        }
+      }
+    },
+    "%lld fingers" : {
+
+    },
+    "%lld ms" : {
+
+    },
+    "%lld of %lld windows hidden" : {
+      "localizations" : {
+        "en" : {
+          "stringUnit" : {
+            "state" : "new",
+            "value" : "%1$lld of %2$lld windows hidden"
+          }
+        }
+      }
+    },
+    "%lld px" : {
+
+    },
+    "%lld results" : {
+      "localizations" : {
+        "en" : {
+          "variations" : {
+            "plural" : {
+              "one" : {
+                "stringUnit" : {
+                  "state" : "translated",
+                  "value" : "%1$lld result"
+                }
+              },
+              "other" : {
+                "stringUnit" : {
+                  "state" : "translated",
+                  "value" : "%1$lld results"
+                }
+              }
+            }
+          }
+        }
+      }
+    },
+    "%lld s" : {
+
+    },
+    "%lld windows" : {
+      "localizations" : {
+        "en" : {
+          "variations" : {
+            "plural" : {
+              "one" : {
+                "stringUnit" : {
+                  "state" : "translated",
+                  "value" : "%1$lld window"
+                }
+              },
+              "other" : {
+                "stringUnit" : {
+                  "state" : "translated",
+                  "value" : "%1$lld windows"
+                }
+              }
+            }
+          }
+        }
+      }
+    },
+    "%lld. %@" : {
+      "localizations" : {
+        "en" : {
+          "stringUnit" : {
+            "state" : "new",
+            "value" : "%1$lld. %2$@"
+          }
+        }
+      }
+    },
+    "%lldd %lldh %lldm" : {
+      "localizations" : {
+        "en" : {
+          "stringUnit" : {
+            "state" : "new",
+            "value" : "%1$lldd %2$lldh %3$lldm"
+          }
+        }
+      }
+    },
+    "%lldh %lldm" : {
+      "localizations" : {
+        "en" : {
+          "stringUnit" : {
+            "state" : "new",
+            "value" : "%1$lldh %2$lldm"
+          }
+        }
+      }
+    },
+    "%lldm" : {
+
+    },
+    "%lld×%lld" : {
+      "localizations" : {
+        "en" : {
+          "stringUnit" : {
+            "state" : "new",
+            "value" : "%1$lld×%2$lld"
+          }
+        }
+      }
+    },
+    "%lld×%lld @ %lld Hz" : {
+      "localizations" : {
+        "en" : {
+          "stringUnit" : {
+            "state" : "new",
+            "value" : "%1$lld×%2$lld @ %3$lld Hz"
+          }
+        }
+      }
+    },
+    "(Disconnected)" : {
+
+    },
+    "(Main)" : {
+
+    },
+    "(Session only)" : {
+
+    },
+    ", " : {
+
+    },
+    "1 app rule" : {
+
+    },
+    "1.0 = equal split, <1.0 = first smaller, >1.0 = first larger" : {
+
+    },
+    "@%@" : {
+
+    },
+    "A detailed problem recording is running." : {
+
+    },
+    "A detailed problem recording is starting." : {
+
+    },
+    "A display can be farther away in the grid, but every display must be reachable through a shared row or column. A diagonal tile by itself is disconnected." : {
+
+    },
+    "A display was connected or disconnected while setup was open." : {
+
+    },
+    "A fresh diagnostic snapshot is always prepared. Explicitly selected crash or trace evidence is appended to that same .log." : {
+
+    },
+    "A macOS corner preference has an invalid value." : {
+
+    },
+    "A performance capture is running." : {
+
+    },
+    "A performance capture is starting." : {
+
+    },
+    "A recording is already running" : {
+
+    },
+    "AX Role" : {
+
+    },
+    "AX Subrole" : {
+
+    },
+    "About" : {
+
+    },
+    "Accent Color" : {
+
+    },
+    "Accessibility" : {
+
+    },
+    "Accessibility access required" : {
+
+    },
+    "Active Zone Width" : {
+
+    },
+    "Active layout" : {
+
+    },
+    "Add" : {
+
+    },
+    "Add %@ to PATH before using `omniwmctl` in Terminal." : {
+
+    },
+    "Add App Rule" : {
+
+    },
+    "Add Monitor" : {
+
+    },
+    "Add Preset" : {
+
+    },
+    "Add Rule" : {
+
+    },
+    "Add Workspace" : {
+
+    },
+    "Add Workspace to %@" : {
+
+    },
+    "Add a bundle ID, app name, or title — AX role/subrole alone match too broadly." : {
+
+    },
+    "Add a title and what happened to submit." : {
+
+    },
+    "Add a title to submit." : {
+
+    },
+    "Add app rule" : {
+
+    },
+    "Add or reassign a workspace for each display below" : {
+
+    },
+    "Add the lowest unused workspace ID" : {
+
+    },
+    "Add what happened to submit." : {
+
+    },
+    "Add workspace" : {
+
+    },
+    "Additional evidence" : {
+
+    },
+    "Adjusts mouse wheels. Trackpad scrolling keeps its normal speed." : {
+
+    },
+    "Advanced" : {
+
+    },
+    "Advanced / Troubleshooting" : {
+
+    },
+    "Advanced Matchers" : {
+
+    },
+    "Advanced matchers" : {
+
+    },
+    "Affected app(s)" : {
+
+    },
+    "Affects column scrolling and workspace swipes. Swipe right = scroll left." : {
+
+    },
+    "Affects column scrolling and workspace swipes. Swipe right = scroll right." : {
+
+    },
+    "Affects when to prefer vertical vs horizontal splits" : {
+
+    },
+    "After moving a window or column to another workspace, switches there and keeps it focused. When off, you stay in the source workspace." : {
+
+    },
+    "All %lld windows hidden" : {
+
+    },
+    "All hotkey bindings will be restored to OmniWM defaults." : {
+
+    },
+    "Also match by app name" : {
+
+    },
+    "Also turns off modifier + mouse-wheel column scrolling." : {
+
+    },
+    "Always" : {
+
+    },
+    "Always Center Single Column" : {
+
+    },
+    "Animation Duration" : {
+
+    },
+    "App Bundle Not Found" : {
+
+    },
+    "App Icon Overrides — All Monitors" : {
+
+    },
+    "App Rules" : {
+
+    },
+    "App hidden" : {
+
+    },
+    "App hidden, Workspace %@" : {
+
+    },
+    "App name contains, e.g. Preview" : {
+
+    },
+    "App window corner controls require macOS 26.4 or later." : {
+
+    },
+    "App-provided: %@" : {
+
+    },
+    "Appearance" : {
+
+    },
+    "Application" : {
+
+    },
+    "Apply" : {
+
+    },
+    "Apply Custom" : {
+
+    },
+    "Apps to Hide" : {
+
+    },
+    "Arrange Displays in macOS" : {
+
+    },
+    "Arrange displays vertically or diagonally in System Settings → Displays so frames do not overlap." : {
+
+    },
+    "Arrangement" : {
+
+    },
+    "Assign a unique chord to one of the commands in Hotkeys." : {
+
+    },
+    "Assign to Workspace" : {
+
+    },
+    "Assigned to workspace %@" : {
+
+    },
+    "At 1.0x, sweeping the whole trackpad travels across the whole screen." : {
+
+    },
+    "At a workspace edge, Move Window sends the focused window left, right, up, or down to the adjacent routed display and follows it." : {
+
+    },
+    "At the last window in any direction, Focus continues left, right, up, or down onto the adjacent display in OmniWM’s Routing Arrangement." : {
+
+    },
+    "At the right edge of Display 1, the pointer appears at the left edge of Display 2." : {
+
+    },
+    "Auto" : {
+
+    },
+    "Auto divides the primary axis by the Visible Containers setting." : {
+
+    },
+    "Auto-detected" : {
+
+    },
+    "Auto-hide on Focus Loss" : {
+
+    },
+    "Automatic" : {
+
+    },
+    "Automatically choose split direction based on cursor position" : {
+
+    },
+    "Back" : {
+
+    },
+    "Backdrop Color" : {
+
+    },
+    "Background Blur" : {
+
+    },
+    "Background Effect" : {
+
+    },
+    "Background Opacity" : {
+
+    },
+    "Bar Height" : {
+
+    },
+    "Basics" : {
+
+    },
+    "Become a Sponsor" : {
+
+    },
+    "Become a sponsor" : {
+
+    },
+    "Become a sponsor on GitHub" : {
+
+    },
+    "Behavior" : {
+
+    },
+    "Below Menu Bar" : {
+
+    },
+    "Blur only shows through a translucent terminal - lower the opacity to see it." : {
+
+    },
+    "Border Color" : {
+
+    },
+    "Border Width" : {
+
+    },
+    "Borders" : {
+
+    },
+    "Borders are displayed around the currently focused window." : {
+
+    },
+    "Bottom" : {
+
+    },
+    "Briefly shows each tile’s number on its physical display." : {
+
+    },
+    "Browse modes" : {
+
+    },
+    "Bundle ID" : {
+
+    },
+    "Bundle ID is the app's runtime identifier (e.g. com.apple.finder). Some apps have none — leave it blank and match by app name or title instead. A codesign identifier won't match." : {
+
+    },
+    "CLI Install Failed" : {
+
+    },
+    "CLI Installed" : {
+
+    },
+    "CLI Link Updated" : {
+
+    },
+    "CLI Removal Failed" : {
+
+    },
+    "CLI available via Homebrew" : {
+
+    },
+    "CLI path is already occupied" : {
+
+    },
+    "CONTROLS" : {
+
+    },
+    "CPU" : {
+
+    },
+    "Cancel" : {
+
+    },
+    "Can’t drop here" : {
+
+    },
+    "Category" : {
+
+    },
+    "Center" : {
+
+    },
+    "Center Focused Column" : {
+
+    },
+    "Change hotkey for %@" : {
+
+    },
+    "Change hotkey for %@. Current shortcut: %@" : {
+      "localizations" : {
+        "en" : {
+          "stringUnit" : {
+            "state" : "new",
+            "value" : "Change hotkey for %1$@. Current shortcut: %2$@"
+          }
+        }
+      }
+    },
+    "Changes standard Mac app windows system-wide, including windows OmniWM doesn’t manage. Apps that draw their own window chrome may ignore it." : {
+
+    },
+    "Changes standard Mac app windows system-wide. Fully quit and reopen affected apps to apply." : {
+
+    },
+    "Changes take effect after each affected app is fully quit and reopened." : {
+
+    },
+    "Check Again" : {
+
+    },
+    "Check for Updates Automatically" : {
+
+    },
+    "Check for Updates..." : {
+
+    },
+    "Choose Image File…" : {
+
+    },
+    "Choose Square or a corner radius from 0.01 to 64 points." : {
+
+    },
+    "Choose an App-Provided Icon" : {
+
+    },
+    "Choose an icon packaged inside an app, or select an image file. Runtime-generated Dock icons may not be available. Other OmniWM surfaces keep the standard icon." : {
+
+    },
+    "Choose an image file instead." : {
+
+    },
+    "Choose fingers for each action. You can configure a gesture before turning it on." : {
+
+    },
+    "Choose…" : {
+
+    },
+    "Clear" : {
+
+    },
+    "Clear Clipboard History?" : {
+
+    },
+    "Clear Glass" : {
+
+    },
+    "Clear Unpinned History" : {
+
+    },
+    "Clear hotkey for %@" : {
+
+    },
+    "Clear hotkey search" : {
+
+    },
+    "Clear search" : {
+
+    },
+    "Clear this hotkey" : {
+
+    },
+    "Click \"Record a Trace\" below, then reproduce the bug so OmniWM captures what happened." : {
+
+    },
+    "Click a segment to select that tab." : {
+
+    },
+    "Click an app icon to select its window. Scroll to see more tabs." : {
+
+    },
+    "Clipboard" : {
+
+    },
+    "Clipboard History Could Not Be Saved" : {
+
+    },
+    "Clipboard history is disabled." : {
+
+    },
+    "Clipboard history is empty." : {
+
+    },
+    "Clipboard history is off" : {
+
+    },
+    "Close" : {
+
+    },
+    "Collapsed" : {
+
+    },
+    "Come back here" : {
+
+    },
+    "Command" : {
+
+    },
+    "Command Palette" : {
+
+    },
+    "Command, shortcut, or scope" : {
+
+    },
+    "Commands" : {
+
+    },
+    "Compare %@ with %@, restore valid values, and then remove the recovery file." : {
+      "localizations" : {
+        "en" : {
+          "stringUnit" : {
+            "state" : "new",
+            "value" : "Compare %1$@ with %2$@, restore valid values, and then remove the recovery file."
+          }
+        }
+      }
+    },
+    "Configuration Scope" : {
+
+    },
+    "Configure" : {
+
+    },
+    "Configure hotkey in Hotkeys settings" : {
+
+    },
+    "Confirms the physical size and corner placement that OmniWM cannot verify." : {
+
+    },
+    "Conflicting Window Managers Detected" : {
+
+    },
+    "Connect at least two displays to continue." : {
+
+    },
+    "Constrain Cursor to Arrangement" : {
+
+    },
+    "Contact Barut for public credit" : {
+
+    },
+    "Container Primary Span" : {
+
+    },
+    "Container Primary Span Presets" : {
+
+    },
+    "Contains" : {
+
+    },
+    "Context (optional)" : {
+
+    },
+    "Continue" : {
+
+    },
+    "Continue Without Screen Recording" : {
+
+    },
+    "Continue upward and to the right" : {
+
+    },
+    "Control" : {
+
+    },
+    "Control+Shift (⌃⇧)" : {
+
+    },
+    "Controls" : {
+
+    },
+    "Controls the appearance of menus and workspace bar" : {
+
+    },
+    "Copied" : {
+
+    },
+    "Copy" : {
+
+    },
+    "Copy %@" : {
+
+    },
+    "Copy Debug Dump" : {
+
+    },
+    "Copy File" : {
+
+    },
+    "Copy Path" : {
+
+    },
+    "Copy brew upgrade omniwm" : {
+
+    },
+    "Copy crash log file" : {
+
+    },
+    "Copy path for %@" : {
+
+    },
+    "Corner Radius" : {
+
+    },
+    "Correct the reported value at %@; OmniWM applies the file once it decodes. Saving from the Settings window first secures the rejected bytes as a recovery file." : {
+
+    },
+    "Could Not Check for Updates" : {
+
+    },
+    "Could not clear clipboard history." : {
+
+    },
+    "Could not update the login item: %@" : {
+
+    },
+    "Could not verify display Spaces setting" : {
+
+    },
+    "Couldn't prepare the diagnostic log: %@. Your issue still opened." : {
+
+    },
+    "Couldn’t Check Running Processes" : {
+
+    },
+    "Couldn’t Identify a Running Process" : {
+
+    },
+    "Couldn’t refresh the macOS window corner setting, so no change was made." : {
+
+    },
+    "Couldn’t refresh the macOS window corner setting." : {
+
+    },
+    "Crash" : {
+
+    },
+    "Crash: %@" : {
+
+    },
+    "Create workspace on %@" : {
+
+    },
+    "Critical" : {
+
+    },
+    "Cross-Monitor Behavior" : {
+
+    },
+    "Current" : {
+
+    },
+    "Current App" : {
+
+    },
+    "Cursor containment and other advanced options remain available in Monitors settings." : {
+
+    },
+    "Custom" : {
+
+    },
+    "Custom (W:H)" : {
+
+    },
+    "Custom Accent Color" : {
+
+    },
+    "Custom Arrangement" : {
+
+    },
+    "Custom Span" : {
+
+    },
+    "Custom Text Color" : {
+
+    },
+    "Custom routing does not match the connected monitors." : {
+
+    },
+    "Custom — matches your desk" : {
+
+    },
+    "Customize" : {
+
+    },
+    "Customize %@" : {
+
+    },
+    "Dark" : {
+
+    },
+    "Dark Mode Border Color" : {
+
+    },
+    "Dark Mode Glow Color" : {
+
+    },
+    "Dark Mode Gradient End" : {
+
+    },
+    "Dark Mode Gradient Start" : {
+
+    },
+    "Dark Mode colors follow the selected app appearance. Unset dark colors fall back to the light values." : {
+
+    },
+    "Deduplicate App Icons" : {
+
+    },
+    "Default" : {
+
+    },
+    "Default Layout" : {
+
+    },
+    "Default New Container Primary Span" : {
+
+    },
+    "Default Split Ratio" : {
+
+    },
+    "Default hotkey: Option + ` (backtick)" : {
+
+    },
+    "Defaults" : {
+
+    },
+    "Delete" : {
+
+    },
+    "Delete %@" : {
+
+    },
+    "Delete Rule" : {
+
+    },
+    "Delete Workspace" : {
+
+    },
+    "Delete app rule?" : {
+
+    },
+    "Delete the rule for %@?" : {
+
+    },
+    "Delete workspace" : {
+
+    },
+    "Delete workspace %@?" : {
+
+    },
+    "Delete workspace %@? This also clears workspace assignments from %@." : {
+      "localizations" : {
+        "en" : {
+          "stringUnit" : {
+            "state" : "new",
+            "value" : "Delete workspace %1$@? This also clears workspace assignments from %2$@."
+          }
+        }
+      }
+    },
+    "Delete workspace?" : {
+
+    },
+    "Denied" : {
+
+    },
+    "Describe it" : {
+
+    },
+    "Detecting menu-bar apps…" : {
+
+    },
+    "Device utilization" : {
+
+    },
+    "Diagnostic log revealed in Finder — drag %@ into the issue to attach it." : {
+
+    },
+    "Diagnostic logs may include OmniWM settings, app and window titles, and title-based rule matchers. Review the .log in Finder before attaching it to a public GitHub issue." : {
+
+    },
+    "Diagnostics" : {
+
+    },
+    "Diagnostics recording" : {
+
+    },
+    "Disable %@" : {
+
+    },
+    "Discard" : {
+
+    },
+    "Discard Changes" : {
+
+    },
+    "Discard Draft" : {
+
+    },
+    "Discard this draft?" : {
+
+    },
+    "Discard unsaved changes?" : {
+
+    },
+    "Disk" : {
+
+    },
+    "Dismiss" : {
+
+    },
+    "Display %lld, %@" : {
+      "localizations" : {
+        "en" : {
+          "stringUnit" : {
+            "state" : "new",
+            "value" : "Display %1$lld, %2$@"
+          }
+        }
+      }
+    },
+    "Display 1" : {
+
+    },
+    "Display 2" : {
+
+    },
+    "Display Name (optional)" : {
+
+    },
+    "Display data unavailable" : {
+
+    },
+    "Displays Changed" : {
+
+    },
+    "Do what you love" : {
+
+    },
+    "Down" : {
+
+    },
+    "Draft saved" : {
+
+    },
+    "Drag tiles, or use the arrow buttons below." : {
+
+    },
+    "Drag without clicking to resize the nearest movable window edges." : {
+
+    },
+    "Drag without clicking to swap tiled windows on the same display." : {
+
+    },
+    "Dwindle (BSP)" : {
+
+    },
+    "Dwindle Gaps" : {
+
+    },
+    "Dwindle Layout" : {
+
+    },
+    "Edit %@" : {
+
+    },
+    "Edit Settings File" : {
+
+    },
+    "Edit Workspace" : {
+
+    },
+    "Edit workspace configuration" : {
+
+    },
+    "Either" : {
+
+    },
+    "Either side" : {
+
+    },
+    "Enable" : {
+
+    },
+    "Enable %@" : {
+
+    },
+    "Enable Animations" : {
+
+    },
+    "Enable Borders" : {
+
+    },
+    "Enable Dock auto-hide in System Settings → Desktop & Dock, or move the Dock off the parking edge." : {
+
+    },
+    "Enable Focus Follows Mouse" : {
+
+    },
+    "Enable Hidden Bar" : {
+
+    },
+    "Enable IPC" : {
+
+    },
+    "Enable Quake Terminal" : {
+
+    },
+    "Enable Workspace Bar" : {
+
+    },
+    "Enable “Displays have separate Spaces”" : {
+
+    },
+    "Enables Overview thumbnails, drag previews, and captured Hidden Bar glyphs. These visuals are unavailable without it; a restart may be required after granting access." : {
+
+    },
+    "Enter a value from 5 through 100 percent." : {
+
+    },
+    "Enter copies. Shift-Enter pastes." : {
+
+    },
+    "Enter jumps. Shift-Enter summons right." : {
+
+    },
+    "Enter jumps. Shift-Enter unavailable for this session." : {
+
+    },
+    "Enter runs the selected command." : {
+
+    },
+    "Error: %@" : {
+
+    },
+    "Every display covered" : {
+
+    },
+    "Every display has a workspace" : {
+
+    },
+    "Every display is connected" : {
+
+    },
+    "Excluded Apps — All Monitors" : {
+
+    },
+    "Excluded apps stay running and fully managed by OmniWM. Only their workspace-bar representation is removed on every monitor." : {
+
+    },
+    "Existing macOS Configuration" : {
+
+    },
+    "Expanded" : {
+
+    },
+    "Failed to register: this key combination is already assigned to another OmniWM command" : {
+
+    },
+    "Failed to register: this key combination may be reserved by the system" : {
+
+    },
+    "Failed to write the performance capture: %@" : {
+
+    },
+    "Failed to write the recording: %@" : {
+
+    },
+    "Fill Left of Notch" : {
+
+    },
+    "Fill in what happened. Expected behavior and steps are optional but help a lot." : {
+
+    },
+    "Fill the workspace bar with fully opaque black, overriding the tint, material, and border." : {
+
+    },
+    "Finalizing capture…" : {
+
+    },
+    "Finalizing diagnostics…" : {
+
+    },
+    "Finalizing performance capture…" : {
+
+    },
+    "Finding icons in the app bundle…" : {
+
+    },
+    "Finish" : {
+
+    },
+    "Finish the performance capture before submitting. Performance artifacts are not attached as problem traces." : {
+
+    },
+    "First, make a technical staircase" : {
+
+    },
+    "Fixed Dock detected on %@" : {
+
+    },
+    "Float" : {
+
+    },
+    "Floating" : {
+
+    },
+    "Floating windows" : {
+
+    },
+    "Focus %@" : {
+
+    },
+    "Focus %@ window" : {
+
+    },
+    "Focus / focus-follows-mouse" : {
+
+    },
+    "Focus Across Monitor at Edge" : {
+
+    },
+    "Focus Edge" : {
+
+    },
+    "Focus Follows Mouse" : {
+
+    },
+    "Focus Lock Modifier" : {
+
+    },
+    "Focus Mouse" : {
+
+    },
+    "Focus did not return to the original app in time." : {
+
+    },
+    "Focus moved to another app." : {
+
+    },
+    "Focus workspace %@" : {
+
+    },
+    "Focused" : {
+
+    },
+    "Focused Window Inspector" : {
+
+    },
+    "Focused Window's Monitor" : {
+
+    },
+    "Focused app %@" : {
+
+    },
+    "Focuses a managed window when the pointer enters it—no click needed. Choose whether OmniWM explicitly raises it in Settings, or hold Focus Lock to cross windows without changing focus." : {
+
+    },
+    "Focuses this window" : {
+
+    },
+    "Follow Monitor" : {
+
+    },
+    "Follow Window to Monitor" : {
+
+    },
+    "Follow four guided steps for display placement, workspace homes, and Mouse Warp." : {
+
+    },
+    "For equal-size displays, any order is fine." : {
+
+    },
+    "Free inertial scrolling with rubber-band edges." : {
+
+    },
+    "Fresh diagnostic snapshot (always included)" : {
+
+    },
+    "Full Screen" : {
+
+    },
+    "Fully quit and reopen affected apps to apply." : {
+
+    },
+    "GPU" : {
+
+    },
+    "General" : {
+
+    },
+    "GitHub" : {
+
+    },
+    "GitHub profile unknown" : {
+
+    },
+    "GitHub returned HTTP %lld while checking for updates." : {
+
+    },
+    "GitHub returned an invalid response." : {
+
+    },
+    "GitHub returned an update tag OmniWM could not parse." : {
+
+    },
+    "Give Every Display a Workspace" : {
+
+    },
+    "Global" : {
+
+    },
+    "Global Defaults" : {
+
+    },
+    "Glow" : {
+
+    },
+    "Glow Color" : {
+
+    },
+    "Glow Opacity" : {
+
+    },
+    "Glow Radius" : {
+
+    },
+    "Got it" : {
+
+    },
+    "Gradient Border" : {
+
+    },
+    "Gradient Direction" : {
+
+    },
+    "Gradient End" : {
+
+    },
+    "Gradient Start" : {
+
+    },
+    "Gradient and glow are visual effects. Glow does not change layout gaps or window size." : {
+
+    },
+    "Grant %@ access" : {
+
+    },
+    "Grant Access" : {
+
+    },
+    "Grant Input Monitoring in System Settings, or reassign the chord." : {
+
+    },
+    "Grant the required permissions to start OmniWM. Screen Recording is optional." : {
+
+    },
+    "Granted" : {
+
+    },
+    "Group workspace windows by app with badge counts; scratchpad pills always group by app" : {
+
+    },
+    "Guided Setup" : {
+
+    },
+    "Health" : {
+
+    },
+    "Height" : {
+
+    },
+    "Help" : {
+
+    },
+    "Help & Links" : {
+
+    },
+    "Hidden" : {
+
+    },
+    "Hidden Bar" : {
+
+    },
+    "Hidden Icons Bar" : {
+
+    },
+    "Hide Empty Workspaces" : {
+
+    },
+    "Hide Menu Bar Icons" : {
+
+    },
+    "Hide Menu Icons" : {
+
+    },
+    "Hide in Native Fullscreen" : {
+
+    },
+    "Hide the bar on a monitor while it shows a native fullscreen window" : {
+
+    },
+    "Hide the workspace bar material, tint, and border while keeping its contents interactive." : {
+
+    },
+    "Hides the menu-bar items selected in Settings. Right-click or Option-click OmniWM’s icon to reveal the hidden-icons bar." : {
+
+    },
+    "Hides the selected menu-bar items while enabled. Click an icon in the hidden icons bar to reveal it temporarily." : {
+
+    },
+    "Hiding requires macOS 27 or later." : {
+
+    },
+    "Hold this key or button to act as %@ (Hyper). Needs Input Monitoring permission. Leave as None to use a Hyper key set up elsewhere, such as Karabiner." : {
+
+    },
+    "Hold this modifier and left-drag to swap Niri tiled windows. Add Shift to insert instead; choose Off to leave modified drags to apps." : {
+
+    },
+    "Hold this modifier and scroll the mouse wheel to scroll columns. Turning off Scroll columns disables both trackpad and modified mouse-wheel column scrolling." : {
+
+    },
+    "Hold this modifier combo + right mouse drag to resize tiled windows" : {
+
+    },
+    "Hold this modifier to move the cursor over other windows without changing focus." : {
+
+    },
+    "Home Monitor" : {
+
+    },
+    "Home monitor for workspace %@" : {
+
+    },
+    "Homebrew already manages `omniwmctl` at %@." : {
+
+    },
+    "Horizontal" : {
+
+    },
+    "Horizontal offset (negative = left, positive = right)" : {
+
+    },
+    "Hotkey Conflict" : {
+
+    },
+    "Hotkey may conflict: %@" : {
+
+    },
+    "Hotkey unavailable: %@" : {
+
+    },
+    "Hotkeys" : {
+
+    },
+    "Hover or focus a control to learn what it does." : {
+
+    },
+    "Hovered Window Border" : {
+
+    },
+    "How a lone window is sized: Full Screen fills the work area; Custom uses a fixed width × height" : {
+
+    },
+    "How a lone window is sized: Full Screen fills the work area; Custom uses a fixed width × height; Container Primary Span keeps the configured primary span." : {
+
+    },
+    "How long a clicked icon stays revealed. The countdown pauses while its menu is open." : {
+
+    },
+    "How reporting works" : {
+
+    },
+    "Hyper Key Modifiers" : {
+
+    },
+    "Hyper includes %@" : {
+
+    },
+    "Hyper shortcut may not fire: %@" : {
+
+    },
+    "I arranged the displays like the staircase above" : {
+
+    },
+    "IPC / CLI" : {
+
+    },
+    "IPC Failed to Start" : {
+
+    },
+    "Ignored while global animations are disabled." : {
+
+    },
+    "Image is unavailable; using the app's standard icon." : {
+
+    },
+    "In Hotkeys, set this shortcut's modifier side to “Either”, or re-record it without a side restriction. A single Hyper key emits generic modifier flags, so a left- or right-restricted binding cannot match it." : {
+
+    },
+    "In macOS Full Screen" : {
+
+    },
+    "Inactive Icon Opacity" : {
+
+    },
+    "Inconclusive: %@ · %@" : {
+      "localizations" : {
+        "en" : {
+          "stringUnit" : {
+            "state" : "new",
+            "value" : "Inconclusive: %1$@ · %2$@"
+          }
+        }
+      }
+    },
+    "Inconclusive: %@ · no unmanaged foreign window probed" : {
+
+    },
+    "Infinite Loop Navigation" : {
+
+    },
+    "Inherits Border Color" : {
+
+    },
+    "Inherits Border Gradient" : {
+
+    },
+    "Inherits Dark Border Color" : {
+
+    },
+    "Inherits Dark Border Gradient" : {
+
+    },
+    "Inherits Glow Color" : {
+
+    },
+    "Inherits Gradient End" : {
+
+    },
+    "Inherits Gradient Start" : {
+
+    },
+    "Initial Container Primary Span" : {
+
+    },
+    "Initial Niri container primary span %@ percent" : {
+
+    },
+    "Initial container primary span must be a finite proportion from 0.05 through 1.0 (5% through 100%)" : {
+
+    },
+    "Initial container primary span percentage" : {
+
+    },
+    "Inner Gap" : {
+
+    },
+    "Inner Gaps" : {
+
+    },
+    "Input" : {
+
+    },
+    "Input Monitoring" : {
+
+    },
+    "Inspect %@/settings.toml.corrupt and %@/settings.toml.corrupt.1 if present, then delete the recovery files to dismiss this notice." : {
+      "localizations" : {
+        "en" : {
+          "stringUnit" : {
+            "state" : "new",
+            "value" : "Inspect %1$@/settings.toml.corrupt and %2$@/settings.toml.corrupt.1 if present, then delete the recovery files to dismiss this notice."
+          }
+        }
+      }
+    },
+    "Install" : {
+
+    },
+    "Install CLI to PATH?" : {
+
+    },
+    "Install CLI to PATH…" : {
+
+    },
+    "Invalid bundle ID format" : {
+
+    },
+    "Invalid initial Niri container primary span" : {
+
+    },
+    "Invalid settings left untouched" : {
+
+    },
+    "Invalid settings recovered" : {
+
+    },
+    "Invert Direction (Natural)" : {
+
+    },
+    "Invert Scrolling Direction" : {
+
+    },
+    "Issue" : {
+
+    },
+    "Issues Detected (%lld)" : {
+
+    },
+    "Its bottom-left corner should touch the lower display’s top-right corner." : {
+
+    },
+    "Keep Awake" : {
+
+    },
+    "Keep Editing" : {
+
+    },
+    "Keep OmniWM Open" : {
+
+    },
+    "Keep Outer Margins in Full Screen" : {
+
+    },
+    "Keep window on same screen side when moving to root" : {
+
+    },
+    "Keeps these margins for OmniWM Full Screen and the Single Window ‘Full Screen’ fit. Any active Workspace Bar reservation is also kept; native macOS Full Screen is unchanged." : {
+
+    },
+    "Largest" : {
+
+    },
+    "Last working version/build" : {
+
+    },
+    "Latest" : {
+
+    },
+    "Launches OmniWM automatically when you log in." : {
+
+    },
+    "Layout" : {
+
+    },
+    "Layout Algorithm" : {
+
+    },
+    "Layouts" : {
+
+    },
+    "Left" : {
+
+    },
+    "Left Command" : {
+
+    },
+    "Left Control" : {
+
+    },
+    "Left Mouse Move Modifier" : {
+
+    },
+    "Left Option" : {
+
+    },
+    "Left Shift" : {
+
+    },
+    "Left side" : {
+
+    },
+    "Left/Right-specific shortcuts need Input Monitoring permission to work" : {
+
+    },
+    "Let the pointer follow your real desk" : {
+
+    },
+    "Lets OmniWM inspect, focus, move, and resize windows. Window management cannot start without it." : {
+
+    },
+    "Lets OmniWM receive global keyboard, mouse, and trackpad input. Window management cannot start without it." : {
+
+    },
+    "Light" : {
+
+    },
+    "Loading menu items..." : {
+
+    },
+    "Main" : {
+
+    },
+    "Main Monitor" : {
+
+    },
+    "Main is the display with the macOS menu bar; Secondary and Tertiary are the next displays in arrangement order. Add displays here to choose the order yourself: the highest-ranked connected display becomes Main, then Secondary, then Tertiary." : {
+
+    },
+    "Main, Secondary, and Tertiary follow the Monitor Roles order in Settings > Monitors; without a ranking, Main is the macOS main display and the others follow arrangement order. Specific Display pins this workspace to the selected monitor when available." : {
+
+    },
+    "Make every display a window destination" : {
+
+    },
+    "Make the Pointer Feel Natural" : {
+
+    },
+    "Make this look like your real desk. Displays in the same row or column can exchange focus, windows, and the pointer. OmniWM remembers an arrangement for each set of connected displays. This does not change where macOS places windows." : {
+
+    },
+    "Manual update command" : {
+
+    },
+    "Match Your Real Desk" : {
+
+    },
+    "Match specificity %lld — higher specificity wins; ties break by list order" : {
+
+    },
+    "Measure Performance" : {
+
+    },
+    "Memory" : {
+
+    },
+    "Menu" : {
+
+    },
+    "Middle Button" : {
+
+    },
+    "Minimum Height" : {
+
+    },
+    "Minimum Size (Layout Constraint)" : {
+
+    },
+    "Minimum Width" : {
+
+    },
+    "Minimum height must be a positive number." : {
+
+    },
+    "Minimum size set" : {
+
+    },
+    "Minimum width must be a positive number." : {
+
+    },
+    "Mission Control is enabled and may intercept matching upward swipes." : {
+
+    },
+    "Modifier side" : {
+
+    },
+    "Modifier side for %@" : {
+
+    },
+    "Modifiers that make up the Hyper chord. Unchecked modifiers stay free to combine with Hyper in shortcuts, such as Hyper+Shift when Shift is excluded." : {
+
+    },
+    "Momentum" : {
+
+    },
+    "Monitor" : {
+
+    },
+    "Monitor Orientation" : {
+
+    },
+    "Monitor Roles" : {
+
+    },
+    "Monitor setup progress" : {
+
+    },
+    "Monitors" : {
+
+    },
+    "More Actions" : {
+
+    },
+    "More actions for %@" : {
+
+    },
+    "More specific rules win; ties break by order — drag to reorder." : {
+
+    },
+    "Mouse & Trackpad" : {
+
+    },
+    "Mouse Button %lld" : {
+
+    },
+    "Mouse Cursor's Monitor" : {
+
+    },
+    "Mouse Move & Resize" : {
+
+    },
+    "Mouse Warp" : {
+
+    },
+    "Mouse Warp Margin" : {
+
+    },
+    "Mouse Warp moves the pointer across matching display edges using the OmniWM routing arrangement. It is recommended when the macOS displays touch only at their corners." : {
+
+    },
+    "Mouse Wheel Speed" : {
+
+    },
+    "Mouse scroll modifier" : {
+
+    },
+    "Mouse to Focused" : {
+
+    },
+    "Move %@ %@" : {
+      "localizations" : {
+        "en" : {
+          "stringUnit" : {
+            "state" : "new",
+            "value" : "Move %1$@ %2$@"
+          }
+        }
+      }
+    },
+    "Move %@ Down" : {
+
+    },
+    "Move %@ Up" : {
+
+    },
+    "Move & resize sensitivity" : {
+
+    },
+    "Move Below Menu Bar" : {
+
+    },
+    "Move Edge" : {
+
+    },
+    "Move Window Across Monitor at Edge" : {
+
+    },
+    "Move below the notch, split around it, or fill the area to its left, covering application menus. Without a notch, Fill Left covers the left half of the menu bar." : {
+
+    },
+    "Move or close all windows in this workspace before deleting it" : {
+
+    },
+    "Move or resize this slot; the window will return here." : {
+
+    },
+    "Move the tiles so every display connects through a left, right, up, or down path." : {
+
+    },
+    "Move to Root: Stable" : {
+
+    },
+    "Move to workspace %@" : {
+
+    },
+    "Move windows" : {
+
+    },
+    "Moves the pointer across matching display edges using OmniWM’s Routing Arrangement. Available only with multiple displays." : {
+
+    },
+    "Moves the pointer into a window after OmniWM navigation changes focus. It stays put if already inside or the pointer caused the focus." : {
+
+    },
+    "Moving a window to another display requires a workspace there. Assign at least one workspace to every connected display before finishing setup." : {
+
+    },
+    "Multi-monitor / workspaces" : {
+
+    },
+    "Multi-monitor setup is complete" : {
+
+    },
+    "Narrow a rule to specific windows within an app." : {
+
+    },
+    "Never" : {
+
+    },
+    "New Rule from Focused Window" : {
+
+    },
+    "New column" : {
+
+    },
+    "New or claimed containers start at this primary span until you resize them." : {
+
+    },
+    "Niri (Scrolling)" : {
+
+    },
+    "Niri Layout" : {
+
+    },
+    "Niri column scrolling" : {
+      "comment" : "Trackpad gesture name"
+    },
+    "No App Rule Selected" : {
+
+    },
+    "No App-Provided Icons Found" : {
+
+    },
+    "No Displays Detected" : {
+
+    },
+    "No OmniWM-managed CLI symlink was found at %@." : {
+
+    },
+    "No additional evidence" : {
+
+    },
+    "No bundle ID" : {
+
+    },
+    "No clipboard items available" : {
+
+    },
+    "No clipboard items found" : {
+
+    },
+    "No commands available" : {
+
+    },
+    "No commands found" : {
+
+    },
+    "No diagnostic recording is running" : {
+
+    },
+    "No diagnostics files yet." : {
+
+    },
+    "No focused window is available for inspection." : {
+
+    },
+    "No hidden items" : {
+
+    },
+    "No issues detected" : {
+
+    },
+    "No managed apps with bundle IDs are currently available." : {
+
+    },
+    "No matching hotkeys." : {
+
+    },
+    "No matching windows" : {
+
+    },
+    "No menu items available" : {
+
+    },
+    "No menu items found" : {
+
+    },
+    "No menu-bar apps detected." : {
+
+    },
+    "No monitors detected." : {
+
+    },
+    "No performance capture is running" : {
+
+    },
+    "No recording is running" : {
+
+    },
+    "No release notes were provided for this release." : {
+
+    },
+    "No role" : {
+
+    },
+    "No running apps found" : {
+
+    },
+    "No shortcut" : {
+
+    },
+    "No tabs" : {
+
+    },
+    "No valid saved arrangement covers the connected displays. The macOS arrangement is shown without changing your saved arrangements. Dragging a monitor or using the arrow controls saves an arrangement for these displays." : {
+
+    },
+    "No windows available" : {
+
+    },
+    "No windows found" : {
+
+    },
+    "No workspaces configured" : {
+
+    },
+    "No workspaces configured. Add workspaces in Settings." : {
+
+    },
+    "No — it never worked" : {
+
+    },
+    "None" : {
+
+    },
+    "Normal" : {
+
+    },
+    "Normal Window Border" : {
+
+    },
+    "Not Granted" : {
+
+    },
+    "Not Now" : {
+
+    },
+    "Not applied · %@" : {
+
+    },
+    "Not currently managed" : {
+
+    },
+    "Notch Mode" : {
+
+    },
+    "Now show OmniWM where the displays really are" : {
+
+    },
+    "OK" : {
+
+    },
+    "Off" : {
+
+    },
+    "Off while macOS Reduce Motion is on." : {
+
+    },
+    "Off · %@" : {
+
+    },
+    "Omni Sponsors" : {
+
+    },
+    "OmniWM" : {
+
+    },
+    "OmniWM %@ is already the latest available release." : {
+
+    },
+    "OmniWM Controls" : {
+
+    },
+    "OmniWM Permissions" : {
+
+    },
+    "OmniWM Routing Arrangement" : {
+
+    },
+    "OmniWM Settings" : {
+
+    },
+    "OmniWM Update Available" : {
+
+    },
+    "OmniWM cannot measure physical screen size, so choose the display yourself." : {
+
+    },
+    "OmniWM checks the latest GitHub release once per day on launch. Updates stay manual and the popup includes both the GitHub page and the Homebrew command." : {
+
+    },
+    "OmniWM could not decode %@ and left the file untouched: %@ The active settings were not changed." : {
+      "localizations" : {
+        "en" : {
+          "stringUnit" : {
+            "state" : "new",
+            "value" : "OmniWM could not decode %1$@ and left the file untouched: %2$@ The active settings were not changed."
+          }
+        }
+      }
+    },
+    "OmniWM could not decode %@: %@ The exact rejected bytes were preserved at %@." : {
+      "localizations" : {
+        "en" : {
+          "stringUnit" : {
+            "state" : "new",
+            "value" : "OmniWM could not decode %1$@: %2$@ The exact rejected bytes were preserved at %3$@."
+          }
+        }
+      }
+    },
+    "OmniWM could not determine its current version." : {
+
+    },
+    "OmniWM creates one fresh diagnostic log with any evidence you selected, then opens GitHub." : {
+
+    },
+    "OmniWM has not started because it could not identify process %d (see `ps -p %d`). It retries every second; click Check Again to retry now, or quit OmniWM." : {
+      "localizations" : {
+        "en" : {
+          "stringUnit" : {
+            "state" : "new",
+            "value" : "OmniWM has not started because it could not identify process %1$d (see `ps -p %2$d`). It retries every second; click Check Again to retry now, or quit OmniWM."
+          }
+        }
+      }
+    },
+    "OmniWM has not started because it could not safely inspect every running process. It retries every second; click Check Again to retry now, or quit OmniWM." : {
+
+    },
+    "OmniWM has not started. Quit these window managers or stop their background services. OmniWM continues automatically once they are gone, or click Check Again:\n\n%@" : {
+
+    },
+    "OmniWM is disabled." : {
+
+    },
+    "OmniWM keyboard shortcuts are disabled while a password field or secure text entry is active." : {
+
+    },
+    "OmniWM left %@ untouched and blocked configuration writes: %@" : {
+      "localizations" : {
+        "en" : {
+          "stringUnit" : {
+            "state" : "new",
+            "value" : "OmniWM left %1$@ untouched and blocked configuration writes: %2$@"
+          }
+        }
+      }
+    },
+    "OmniWM left %@ untouched and blocked configuration writes: %@ The exact original bytes are at %@." : {
+      "localizations" : {
+        "en" : {
+          "stringUnit" : {
+            "state" : "new",
+            "value" : "OmniWM left %1$@ untouched and blocked configuration writes: %2$@ The exact original bytes are at %3$@."
+          }
+        }
+      }
+    },
+    "OmniWM needs Accessibility access to observe and manage windows." : {
+
+    },
+    "OmniWM preserved settings data it could not parse as settings.toml.corrupt or settings.toml.corrupt.1." : {
+
+    },
+    "OmniWM recovered from a crash" : {
+
+    },
+    "OmniWM requires at least one configured workspace" : {
+
+    },
+    "OmniWM requires the macOS setting “Displays have separate Spaces.” Turn it on in System Settings > Desktop & Dock > Mission Control, then log out and back in. Window management stays paused until it is enabled." : {
+
+    },
+    "OmniWM routing arrangement" : {
+
+    },
+    "OmniWM upgraded %@ from schema version %lld to %lld. The exact original bytes were preserved at %@. %@" : {
+      "localizations" : {
+        "en" : {
+          "stringUnit" : {
+            "state" : "new",
+            "value" : "OmniWM upgraded %1$@ from schema version %2$lld to %3$lld. The exact original bytes were preserved at %4$@. %5$@"
+          }
+        }
+      }
+    },
+    "OmniWM version, macOS, your settings, and explicitly selected evidence are included in the diagnostic log — no need to type them." : {
+
+    },
+    "OmniWM will create a symlink at %@ pointing to its bundled omniwmctl binary." : {
+
+    },
+    "OmniWM will remove the symlink it created for `omniwmctl`." : {
+
+    },
+    "OmniWM — measuring performance (auto-stops in 10 min)" : {
+
+    },
+    "OmniWM — recording diagnostics (auto-stops in 10 min)" : {
+
+    },
+    "OmniWM, measuring performance" : {
+
+    },
+    "OmniWM, recording diagnostics" : {
+
+    },
+    "On" : {
+
+    },
+    "On Overflow" : {
+
+    },
+    "On-demand check of every private window-server API on this Mac, confirming each actually works. It briefly nudges one unmanaged open window a few pixels and restores its verified starting position, so you may see a window jump for an instant. The full result is written into the Private API Capability section of your next diagnostics report." : {
+
+    },
+    "On-device AI polishes your report into a clear, well-structured issue. Review it, then apply. Nothing leaves your Mac." : {
+
+    },
+    "Only affects resizable windows in Niri when they create or claim a container. Primary span is width in horizontal orientation and height in vertical orientation." : {
+
+    },
+    "Opacity of app icons that are not focused" : {
+
+    },
+    "Open %@ settings" : {
+
+    },
+    "Open Display Settings" : {
+
+    },
+    "Open Login Items Settings..." : {
+
+    },
+    "Open Release Page" : {
+
+    },
+    "Open Settings" : {
+
+    },
+    "Open System Settings for %@" : {
+
+    },
+    "Open System Settings → Privacy & Security → Accessibility and enable OmniWM." : {
+
+    },
+    "Open Trackpad Settings" : {
+
+    },
+    "Open Troubleshooting…" : {
+
+    },
+    "Open the palette while another app is frontmost to search its menus." : {
+
+    },
+    "Opened GitHub in your browser. Review it, then click \"Submit new issue\"." : {
+
+    },
+    "Opening OmniWM Settings…" : {
+
+    },
+    "Opens a pre-filled new-issue page in your browser; you review and post it with your own GitHub account. OmniWM never sees your GitHub login." : {
+
+    },
+    "Opens macOS Trackpad settings. Select More Gestures to review system gestures." : {
+
+    },
+    "Opens the window list" : {
+
+    },
+    "Option" : {
+
+    },
+    "Option+Shift (⌥⇧)" : {
+
+    },
+    "Optional" : {
+
+    },
+    "Orientation Override" : {
+
+    },
+    "Outer Margins" : {
+
+    },
+    "Overlapping Menu Bar" : {
+
+    },
+    "Overrides" : {
+
+    },
+    "Overrides selected global outer-margin values for %@. %@" : {
+      "localizations" : {
+        "en" : {
+          "stringUnit" : {
+            "state" : "new",
+            "value" : "Overrides selected global outer-margin values for %1$@. %2$@"
+          }
+        }
+      }
+    },
+    "Overrides the global inner gap for %@." : {
+
+    },
+    "Overview" : {
+      "comment" : "Trackpad gesture name"
+    },
+    "Overview and System Hyper cannot use the same mouse button. Choose another button or unassign one." : {
+
+    },
+    "Overview supports the middle button and mouse buttons 3–5." : {
+
+    },
+    "Paste" : {
+
+    },
+    "Paste %@" : {
+
+    },
+    "Paste Without Formatting" : {
+
+    },
+    "Performance" : {
+
+    },
+    "Performance / animation" : {
+
+    },
+    "Performance capture in progress" : {
+
+    },
+    "Performance captures are not diagnostic trace attachments." : {
+
+    },
+    "Pick from running apps" : {
+
+    },
+    "Pin" : {
+
+    },
+    "Place floating window" : {
+
+    },
+    "Place the next display on its top-right corner" : {
+
+    },
+    "Point at a tiled window and drag without clicking. Drop over another window to swap. Movement stays on the starting display; lift your fingers to drop." : {
+
+    },
+    "Point at a tiled window and drag without clicking. Resize pulls the nearest movable edges. Lift your fingers to finish." : {
+
+    },
+    "Popup" : {
+
+    },
+    "Position" : {
+
+    },
+    "Position & Level" : {
+
+    },
+    "Position & Size" : {
+
+    },
+    "Position Offset" : {
+
+    },
+    "Preparing diagnostics…" : {
+
+    },
+    "Preset %lld" : {
+
+    },
+    "Preset %lld primary span" : {
+
+    },
+    "Press Escape to cancel recording" : {
+
+    },
+    "Press keys..." : {
+
+    },
+    "Press to open or close Overview. Buttons assigned to System Hyper are unavailable." : {
+
+    },
+    "Press to open the OmniWM menu. Right-click or Option-click to show hidden icons when Hidden Bar is enabled." : {
+
+    },
+    "Press to switch Spaces. The tiling position remains reserved." : {
+
+    },
+    "Press to switch to the app's macOS Full Screen Space. Its tiling position remains reserved." : {
+
+    },
+    "Prevents idle display sleep while your user session is active. Manual sleep and closing the laptop lid still work." : {
+
+    },
+    "Prevents the layout engine from sizing the window smaller than these values." : {
+
+    },
+    "Preview" : {
+
+    },
+    "Preview unavailable" : {
+
+    },
+    "Primary %@%%" : {
+
+    },
+    "Primary Span" : {
+
+    },
+    "Primary invalid" : {
+
+    },
+    "Private Sponsor" : {
+
+    },
+    "Private-API Capability" : {
+
+    },
+    "Published %@" : {
+
+    },
+    "Put your physically largest or widest display at the bottom" : {
+
+    },
+    "Quake Background Opacity" : {
+
+    },
+    "Quake Terminal" : {
+
+    },
+    "Quake Terminal provides a drop-down terminal that can be toggled with a hotkey, similar to the console in Quake-style games." : {
+
+    },
+    "Quit OmniWM" : {
+
+    },
+    "Quit Without Saving" : {
+
+    },
+    "Raise Window When Focus Follows Mouse" : {
+
+    },
+    "Rank %lld" : {
+
+    },
+    "Ranks reflect sponsorship order, not donation amounts" : {
+
+    },
+    "Ready to apply" : {
+
+    },
+    "Reassign this command in Hotkeys, or clear the conflicting shortcut in System Settings → Keyboard." : {
+
+    },
+    "Reassign this command to a free chord in Hotkeys." : {
+
+    },
+    "Recommended" : {
+
+    },
+    "Reconnect your displays, then return to this guide." : {
+
+    },
+    "Record Again" : {
+
+    },
+    "Record a Problem" : {
+
+    },
+    "Record a Trace" : {
+
+    },
+    "Record a trace" : {
+
+    },
+    "Recording %@" : {
+
+    },
+    "Recording could not be saved" : {
+
+    },
+    "Recording could not be started" : {
+
+    },
+    "Recording diagnostics" : {
+
+    },
+    "Recording hotkey" : {
+
+    },
+    "Recording hotkey for %@" : {
+
+    },
+    "Recording in progress" : {
+
+    },
+    "Recording started" : {
+
+    },
+    "Records aggregate operation counts, CPU energy, CPU time, wakeups and memory with one final write. It does not enable detailed event traces. Use Instruments or powermetrics separately to measure WindowServer and GPU energy." : {
+
+    },
+    "Refresh" : {
+
+    },
+    "Regex" : {
+
+    },
+    "Registration issue" : {
+
+    },
+    "Regular Glass" : {
+
+    },
+    "Rehide Delay" : {
+
+    },
+    "Release Notes" : {
+
+    },
+    "Remove" : {
+
+    },
+    "Remove %@" : {
+
+    },
+    "Remove CLI from PATH?" : {
+
+    },
+    "Remove CLI from PATH…" : {
+
+    },
+    "Remove Workspace %@" : {
+
+    },
+    "Remove or fix the keys in %@." : {
+
+    },
+    "Remove preset %lld" : {
+
+    },
+    "Remove this newly added workspace" : {
+
+    },
+    "Remove workspace %@" : {
+
+    },
+    "Removed OmniWM's CLI symlink at %@." : {
+
+    },
+    "Replace" : {
+
+    },
+    "Replaces compact markers with app icons. Applies to Niri and Dwindle." : {
+
+    },
+    "Replace…" : {
+
+    },
+    "Replay" : {
+
+    },
+    "Report Crash…" : {
+
+    },
+    "Report a Bug…" : {
+
+    },
+    "Report an Issue" : {
+
+    },
+    "Report another issue" : {
+
+    },
+    "Report it to open a pre-filled issue with the crash details." : {
+
+    },
+    "Reproduce the bug while recording, then come back — your draft is saved. Crash and trace evidence is included only when you explicitly select it." : {
+
+    },
+    "Request Permission" : {
+
+    },
+    "Required" : {
+
+    },
+    "Reserve Space for Workspace Bar" : {
+
+    },
+    "Reserve tiled layout space using the configured workspace bar height." : {
+
+    },
+    "Reserved for company sponsors" : {
+
+    },
+    "Reserved for company sponsors — become a sponsor" : {
+
+    },
+    "Reset" : {
+
+    },
+    "Reset %@" : {
+
+    },
+    "Reset %@ to default" : {
+
+    },
+    "Reset %@ to global default" : {
+
+    },
+    "Reset Custom Arrangement to macOS Layout" : {
+
+    },
+    "Reset Cycle Presets" : {
+
+    },
+    "Reset Hotkeys" : {
+
+    },
+    "Reset all hotkeys?" : {
+
+    },
+    "Reset to Auto" : {
+
+    },
+    "Reset to Default" : {
+
+    },
+    "Reset to Default Position" : {
+
+    },
+    "Reset to Defaults" : {
+
+    },
+    "Reset to Global" : {
+
+    },
+    "Reset to System Default" : {
+
+    },
+    "Resize commands cycle through these presets in order. Duplicates are allowed." : {
+
+    },
+    "Resize windows" : {
+
+    },
+    "Resolve the reported schema or backup problem at %@, then reload or restart OmniWM." : {
+
+    },
+    "Restart with Current Displays" : {
+
+    },
+    "Restrict this shortcut to the left or right side of its modifier keys" : {
+
+    },
+    "Return · Unhide & Focus" : {
+
+    },
+    "Reveal" : {
+
+    },
+    "Reveal %@ in Finder" : {
+
+    },
+    "Reveal Config Folder" : {
+
+    },
+    "Reveal Folder" : {
+
+    },
+    "Reveal Hold Delay" : {
+
+    },
+    "Reveal Log Again" : {
+
+    },
+    "Reveal Settings File" : {
+
+    },
+    "Reveal config folder for %@" : {
+
+    },
+    "Reveal crash log in Finder" : {
+
+    },
+    "Reveal in Finder" : {
+
+    },
+    "Reveal on Modifier Hold" : {
+
+    },
+    "Reveals this item and opens its menu" : {
+
+    },
+    "Revert" : {
+
+    },
+    "Review conflicting assignments and choose which gestures to turn off." : {
+
+    },
+    "Rewrite & Format with AI" : {
+
+    },
+    "Right" : {
+
+    },
+    "Right Command" : {
+
+    },
+    "Right Control" : {
+
+    },
+    "Right Mouse Resize Modifier" : {
+
+    },
+    "Right Option" : {
+
+    },
+    "Right Shift" : {
+
+    },
+    "Right side" : {
+
+    },
+    "Right-click or Option-click the OmniWM menu-bar icon to show the hidden icons below the workspace bar. Click an icon to open its menu." : {
+
+    },
+    "Routing" : {
+
+    },
+    "Routing currently follows the technical macOS map. Run the setup guide to create a separate map that matches your desk." : {
+
+    },
+    "Run Monitor Setup…" : {
+
+    },
+    "Run Private-API Probe" : {
+
+    },
+    "Run the guide again after moving, replacing, or adding a display." : {
+
+    },
+    "Running Apps" : {
+
+    },
+    "Running application" : {
+
+    },
+    "Runs this OmniWM command" : {
+
+    },
+    "SETTINGS FILE" : {
+
+    },
+    "Save" : {
+
+    },
+    "Saved Diagnostics" : {
+
+    },
+    "Saved trace: %@" : {
+
+    },
+    "Scope %@" : {
+
+    },
+    "Scope: %@" : {
+
+    },
+    "Scratchpad %@" : {
+
+    },
+    "Scratchpad %@: %@, hidden" : {
+      "localizations" : {
+        "en" : {
+          "stringUnit" : {
+            "state" : "new",
+            "value" : "Scratchpad %1$@: %2$@, hidden"
+          }
+        }
+      }
+    },
+    "Scratchpad %@: %@, visible" : {
+      "localizations" : {
+        "en" : {
+          "stringUnit" : {
+            "state" : "new",
+            "value" : "Scratchpad %1$@: %2$@, visible"
+          }
+        }
+      }
+    },
+    "Screen Recording" : {
+
+    },
+    "Screen Saver" : {
+
+    },
+    "Scroll along the Niri layout direction. Also enables modified mouse-wheel scrolling." : {
+
+    },
+    "Scroll columns" : {
+
+    },
+    "Scroll sensitivity" : {
+
+    },
+    "Scroll snaps to the nearest column." : {
+
+    },
+    "Search" : {
+
+    },
+    "Search OmniWM commands..." : {
+
+    },
+    "Search clipboard history..." : {
+
+    },
+    "Search commands, edit shortcuts, and review registration problems without leaving the settings window." : {
+
+    },
+    "Search hotkeys" : {
+
+    },
+    "Search menu items..." : {
+
+    },
+    "Search rules" : {
+
+    },
+    "Search windows..." : {
+
+    },
+    "Searching menus in %@" : {
+
+    },
+    "Secondary" : {
+
+    },
+    "Secure Input Active" : {
+
+    },
+    "Select a rule from the sidebar to edit it, or add a new rule to get started." : {
+
+    },
+    "Selected Border Matches Focus Border" : {
+
+    },
+    "Selected Window Border" : {
+
+    },
+    "Set %@ to %@" : {
+      "localizations" : {
+        "en" : {
+          "stringUnit" : {
+            "state" : "new",
+            "value" : "Set %1$@ to %2$@"
+          }
+        }
+      }
+    },
+    "Set %@ to %lld fingers" : {
+      "localizations" : {
+        "en" : {
+          "stringUnit" : {
+            "state" : "new",
+            "value" : "Set %1$@ to %2$lld fingers"
+          }
+        }
+      }
+    },
+    "Set Up…" : {
+
+    },
+    "Set up %@" : {
+
+    },
+    "Set up multiple displays" : {
+
+    },
+    "Settings" : {
+
+    },
+    "Settings file opened" : {
+
+    },
+    "Settings file revealed in Finder" : {
+
+    },
+    "Settings recovery file available" : {
+
+    },
+    "Settings upgraded" : {
+
+    },
+    "Settings writes blocked" : {
+
+    },
+    "Shared Gesture Controls" : {
+
+    },
+    "Shift" : {
+
+    },
+    "Shortcut %@" : {
+
+    },
+    "Shortcuts" : {
+
+    },
+    "Show %@ windows" : {
+
+    },
+    "Show %@ windows — %lld of %lld hidden" : {
+      "localizations" : {
+        "en" : {
+          "stringUnit" : {
+            "state" : "new",
+            "value" : "Show %1$@ windows — %2$lld of %3$lld hidden"
+          }
+        }
+      }
+    },
+    "Show %@ windows — app hidden" : {
+
+    },
+    "Show Accent Highlights" : {
+
+    },
+    "Show Floating Windows" : {
+
+    },
+    "Show Focused App" : {
+
+    },
+    "Show Hidden Icons" : {
+
+    },
+    "Show Item Backgrounds" : {
+
+    },
+    "Show Numbers on Screens" : {
+
+    },
+    "Show On" : {
+
+    },
+    "Show Workspace" : {
+
+    },
+    "Show Workspace Labels" : {
+
+    },
+    "Show a small workspace bar button that opens a system stats popup" : {
+
+    },
+    "Show app icons in tab rails" : {
+
+    },
+    "Show guide" : {
+
+    },
+    "Show material backgrounds behind workspace groups, floating windows, scratchpad, and stats." : {
+
+    },
+    "Show system stats" : {
+
+    },
+    "Show the focused-workspace outline and focused-icon accent glow." : {
+
+    },
+    "Show the workspace bar as an overlay only while the selected modifiers are held" : {
+
+    },
+    "Shows a colored outline around the currently focused managed window. Customize its appearance in Settings." : {
+
+    },
+    "Shows the active workspace and focused app beside the menu bar icon" : {
+
+    },
+    "Shows workspaces and their windows in a clickable bar on each display. Per-display overrides can change an individual bar." : {
+
+    },
+    "Single Window" : {
+
+    },
+    "Size" : {
+
+    },
+    "Skip This Version" : {
+
+    },
+    "Skip for Now" : {
+
+    },
+    "Smart Split" : {
+
+    },
+    "Snap to Columns" : {
+
+    },
+    "Solid Black Background" : {
+
+    },
+    "Some displays still share an edge. The recommended staircase touches only at the corners." : {
+
+    },
+    "Span Mode" : {
+
+    },
+    "Specificity %lld" : {
+
+    },
+    "Split Width Multiplier" : {
+
+    },
+    "Split — Active Left" : {
+
+    },
+    "Split — Active Right" : {
+
+    },
+    "Sponsor on GitHub" : {
+
+    },
+    "Sponsor on PayPal" : {
+
+    },
+    "Square" : {
+
+    },
+    "Stack above" : {
+
+    },
+    "Stack below" : {
+
+    },
+    "Stack left" : {
+
+    },
+    "Stack right" : {
+
+    },
+    "Standard Blur" : {
+
+    },
+    "Start OmniWM" : {
+
+    },
+    "Start Performance Capture" : {
+
+    },
+    "Start Recording" : {
+
+    },
+    "Start at Login" : {
+
+    },
+    "Start recording, reproduce one problem, then stop and attach the saved trace log. The app and window evidence is captured automatically. This detailed recording changes runtime work and must not be used for energy comparisons." : {
+
+    },
+    "Starting OmniWM…" : {
+
+    },
+    "Starting diagnostics…" : {
+
+    },
+    "Starting performance capture…" : {
+
+    },
+    "Startup" : {
+
+    },
+    "Status Bar" : {
+
+    },
+    "Step %lld of %lld" : {
+      "localizations" : {
+        "en" : {
+          "stringUnit" : {
+            "state" : "new",
+            "value" : "Step %1$lld of %2$lld"
+          }
+        }
+      }
+    },
+    "Stop & Save Performance Capture" : {
+
+    },
+    "Stop & Save Recording" : {
+
+    },
+    "Stop & Save the recording, then return — anything you typed stays saved as a draft." : {
+
+    },
+    "Stop, Save & Include Recording" : {
+
+    },
+    "Stop, Save & Include the recording before submitting so this trace is attached." : {
+
+    },
+    "Stop, save, and include before submitting — an in-progress recording isn't ready to attach." : {
+
+    },
+    "Submit" : {
+
+    },
+    "Submit to GitHub" : {
+
+    },
+    "Suggested rewrite" : {
+
+    },
+    "Summon Right" : {
+
+    },
+    "Swipe axis" : {
+
+    },
+    "Swipe up to open Overview and down to close it." : {
+
+    },
+    "Swipe up to open and down to close. Thumbnails follow your fingers; move past halfway or flick to commit. Lift all fingers between gestures." : {
+
+    },
+    "Switch workspaces" : {
+
+    },
+    "Switch workspaces under the pointer with %@." : {
+
+    },
+    "Switch workspaces under the pointer; perpendicular to column scrolling in Niri." : {
+
+    },
+    "System Hyper Trigger" : {
+
+    },
+    "System Hyper trigger" : {
+
+    },
+    "System Hyper trigger is unavailable: Caps Lock remapping failed." : {
+
+    },
+    "System Hyper trigger is unavailable: grant Input Monitoring permission." : {
+
+    },
+    "System Stats Button" : {
+
+    },
+    "System stats" : {
+
+    },
+    "System-wide Window Corners" : {
+
+    },
+    "System-wide window corner radius" : {
+
+    },
+    "Tab %lld" : {
+
+    },
+    "Tab %lld of %lld selected" : {
+      "localizations" : {
+        "en" : {
+          "stringUnit" : {
+            "state" : "new",
+            "value" : "Tab %1$lld of %2$lld selected"
+          }
+        }
+      }
+    },
+    "Technical staircase" : {
+
+    },
+    "Tertiary" : {
+
+    },
+    "Text Color" : {
+
+    },
+    "Thank you to our amazing supporters!" : {
+
+    },
+    "The Command Palette shortcut (Control+Option+Space) matches an enabled macOS system shortcut. macOS documents this chord for “Select next source in Input menu,” so both can fire together. Reassign this hotkey or clear the matching macOS shortcut in System Settings → Keyboard → Keyboard Shortcuts → Input Sources." : {
+
+    },
+    "The Dock appears to reserve %lld px on the %@ edge. Parked windows can be clamped to the Dock boundary and leave a visible strip." : {
+      "localizations" : {
+        "en" : {
+          "stringUnit" : {
+            "state" : "new",
+            "value" : "The Dock appears to reserve %1$lld px on the %2$@ edge. Parked windows can be clamped to the Dock boundary and leave a visible strip."
+          }
+        }
+      }
+    },
+    "The active capture was not a diagnostic recording" : {
+
+    },
+    "The command could not be completed." : {
+
+    },
+    "The command is unavailable for the current layout." : {
+
+    },
+    "The command is unavailable while Overview is open." : {
+
+    },
+    "The command made no change." : {
+
+    },
+    "The existing macOS corner value is outside OmniWM’s supported range." : {
+
+    },
+    "The issue was too long for a link, so it was copied to your clipboard. Paste it into the GitHub page that just opened." : {
+
+    },
+    "The largest example stays at the bottom; every smaller display continues from the top-right corner." : {
+
+    },
+    "The macOS staircase leaves only corner contact between displays. Mouse Warp uses your OmniWM arrangement to move the pointer across the matching display edge." : {
+
+    },
+    "The macOS window corner setting differs from the requested value. The current value was reloaded." : {
+
+    },
+    "The original app could not be focused." : {
+
+    },
+    "The original app is no longer available." : {
+
+    },
+    "The saved Standard Blur radius is preserved and becomes active again when Standard Blur is selected." : {
+
+    },
+    "The selected evidence was unavailable, so the log contains a fresh snapshot only." : {
+
+    },
+    "The selected file is no longer available. Submission will continue with the fresh snapshot unless you select different evidence." : {
+
+    },
+    "The target window is no longer available." : {
+
+    },
+    "The two macOS corner preferences do not match." : {
+
+    },
+    "Theme" : {
+
+    },
+    "This app may create its Dock icon only while running." : {
+
+    },
+    "This arrangement is saved for the connected displays. Changes update only this arrangement." : {
+
+    },
+    "This is the technical macOS map used for actual window placement. For multiple displays, the setup guide shows how to arrange them as a corner-to-corner staircase." : {
+
+    },
+    "This key combination is already used by \"%@\". Do you want to replace it?" : {
+
+    },
+    "This key combination is used by: %@. Do you want to replace all?" : {
+
+    },
+    "This macOS arrangement is intentionally different from your desk. It keeps OmniWM’s hidden windows from appearing on another display." : {
+
+    },
+    "This preview updates when you return from Display Settings." : {
+
+    },
+    "This removes unpinned clipboard history. Pinned items and the current system clipboard are unchanged." : {
+
+    },
+    "This rule matches windows but has no effect — set a layout, workspace, initial container primary span, or minimum size." : {
+
+    },
+    "This setting is managed by your organization." : {
+
+    },
+    "This shortcut needs Input Monitoring permission." : {
+
+    },
+    "Tile" : {
+
+    },
+    "Tiled" : {
+
+    },
+    "Tiling layout (Niri / Dwindle)" : {
+
+    },
+    "Title" : {
+
+    },
+    "Title Match" : {
+
+    },
+    "Title contains" : {
+
+    },
+    "Title regex" : {
+
+    },
+    "Title regex is invalid: %@" : {
+
+    },
+    "Toggle Overview Mouse Button" : {
+
+    },
+    "Top" : {
+
+    },
+    "Top Left → Bottom Right" : {
+
+    },
+    "Top Right → Bottom Left" : {
+
+    },
+    "Top is measured from the screen's physical top edge: %lld px → %lld px below the menu bar on %@." : {
+      "localizations" : {
+        "en" : {
+          "stringUnit" : {
+            "state" : "new",
+            "value" : "Top is measured from the screen's physical top edge: %1$lld px → %2$lld px below the menu bar on %3$@."
+          }
+        }
+      }
+    },
+    "Total processor" : {
+
+    },
+    "Trace" : {
+
+    },
+    "Trace (incomplete)" : {
+
+    },
+    "Trackpad Gestures" : {
+
+    },
+    "Trackpad scroll style" : {
+
+    },
+    "Transparent Background" : {
+
+    },
+    "Troubleshooting" : {
+
+    },
+    "Turn off %@ and disable %@" : {
+      "localizations" : {
+        "en" : {
+          "stringUnit" : {
+            "state" : "new",
+            "value" : "Turn off %1$@ and disable %2$@"
+          }
+        }
+      }
+    },
+    "Turn off %@ and enable %@" : {
+      "localizations" : {
+        "en" : {
+          "stringUnit" : {
+            "state" : "new",
+            "value" : "Turn off %1$@ and enable %2$@"
+          }
+        }
+      }
+    },
+    "Turn off %@ and set %@ to %@" : {
+      "localizations" : {
+        "en" : {
+          "stringUnit" : {
+            "state" : "new",
+            "value" : "Turn off %1$@ and set %2$@ to %3$@"
+          }
+        }
+      }
+    },
+    "Turn off %@ and set %@ to %lld fingers" : {
+      "localizations" : {
+        "en" : {
+          "stringUnit" : {
+            "state" : "new",
+            "value" : "Turn off %1$@ and set %2$@ to %3$lld fingers"
+          }
+        }
+      }
+    },
+    "Turns OmniWM-authored animations on or off live without relaunching." : {
+
+    },
+    "Two OmniWM commands are bound to this shortcut." : {
+
+    },
+    "Two displays overlap or may be mirrored. Turn off mirroring before continuing." : {
+
+    },
+    "Two-finger gestures can intercept normal scrolling in apps." : {
+
+    },
+    "Type to search..." : {
+
+    },
+    "Unassigned" : {
+
+    },
+    "Unavailable" : {
+
+    },
+    "Unavailable in the current layout" : {
+
+    },
+    "Unavailable: %@" : {
+
+    },
+    "Unexpected capture state" : {
+
+    },
+    "Unexpected recording state" : {
+
+    },
+    "Unhide and focus %@" : {
+
+    },
+    "Unhides the app and focuses this window" : {
+
+    },
+    "Unknown" : {
+
+    },
+    "Unpin" : {
+
+    },
+    "Unrecognized settings keys" : {
+
+    },
+    "Unsaved changes" : {
+
+    },
+    "Unspecified" : {
+
+    },
+    "Unsupported vertical display overlap detected" : {
+
+    },
+    "Untitled window" : {
+
+    },
+    "Up" : {
+
+    },
+    "Update Available" : {
+
+    },
+    "Updates" : {
+
+    },
+    "Updates stay manual. OmniWM can open the release page or copy the Homebrew upgrade command for you." : {
+
+    },
+    "Use %@" : {
+
+    },
+    "Use Global Gap Settings" : {
+
+    },
+    "Use Workspace Number" : {
+
+    },
+    "Use current size: %lld × %lld px" : {
+      "localizations" : {
+        "en" : {
+          "stringUnit" : {
+            "state" : "new",
+            "value" : "Use current size: %1$lld × %2$lld px"
+          }
+        }
+      }
+    },
+    "Use macOS Arrangement" : {
+
+    },
+    "Use macOS Default" : {
+
+    },
+    "Using an arrangement saved with additional displays. Editing or resetting saves a separate arrangement for the displays connected now." : {
+
+    },
+    "Using global defaults" : {
+
+    },
+    "Verify the upgraded settings, then keep the backup or delete %@ to dismiss this notice." : {
+
+    },
+    "Vertical" : {
+
+    },
+    "Vertical monitors scroll windows top-to-bottom instead of left-to-right." : {
+
+    },
+    "Vertical offset (negative = down, positive = up)" : {
+
+    },
+    "Visible" : {
+
+    },
+    "Visible Containers" : {
+
+    },
+    "Visual (borders, bar, overview)" : {
+
+    },
+    "WS" : {
+
+    },
+    "WS %@" : {
+
+    },
+    "Waiting for delta" : {
+
+    },
+    "Warning" : {
+
+    },
+    "When enabled, uses the gap values from General settings" : {
+
+    },
+    "When sharing fingers with column scrolling in Niri, workspace swipes use the perpendicular direction on each display. The selected axis applies without column scrolling." : {
+
+    },
+    "When the pointer reaches a display edge, OmniWM moves it to the matching edge of the neighboring display." : {
+
+    },
+    "Width" : {
+
+    },
+    "Width of the zone next to the notch that the focused workspace stays centered in" : {
+
+    },
+    "Window" : {
+
+    },
+    "Window Behavior" : {
+
+    },
+    "Window Borders" : {
+
+    },
+    "Window Level" : {
+
+    },
+    "Window Size" : {
+
+    },
+    "Window manager controls" : {
+
+    },
+    "Window placement or sizing" : {
+
+    },
+    "Window tabs" : {
+
+    },
+    "Windows" : {
+
+    },
+    "With the macOS staircase, the pointer may not move naturally between displays without Mouse Warp." : {
+
+    },
+    "Worked in an earlier version?" : {
+
+    },
+    "Workspace" : {
+
+    },
+    "Workspace \"%@\" no longer exists. Pick another." : {
+
+    },
+    "Workspace %@" : {
+
+    },
+    "Workspace Bar" : {
+
+    },
+    "Workspace Configurations" : {
+
+    },
+    "Workspace Homes" : {
+
+    },
+    "Workspace ID" : {
+
+    },
+    "Workspace IDs use positive numeric slots. Display Name stays editable. Direct workspace hotkeys remain limited to 1-9; add 10+ here or through IPC/CLI." : {
+
+    },
+    "Workspace home monitors" : {
+
+    },
+    "Workspaces" : {
+
+    },
+    "Workspaces assigned to Main, Secondary, or Tertiary follow this order using only the displays that are connected. Unranked displays follow after the ranked ones, and the Quake terminal's Main Monitor option uses the same Main." : {
+
+    },
+    "X Offset" : {
+
+    },
+    "Y Offset" : {
+
+    },
+    "Yes — it used to work" : {
+
+    },
+    "You can change these later in Workspaces settings." : {
+
+    },
+    "You can now run `omniwmctl` from Terminal." : {
+
+    },
+    "You have unsaved changes to this app rule." : {
+
+    },
+    "You have unsaved changes to this app rule. Closing the window will discard them." : {
+
+    },
+    "You're Up to Date" : {
+
+    },
+    "Your current macOS arrangement" : {
+
+    },
+    "Your real desk" : {
+
+    },
+    "Your settings or displays changed. Review the updated choices before applying." : {
+
+    },
+    "Zoom" : {
+
+    },
+    "Zoom changes made in Overview are remembered when it closes." : {
+
+    },
+    "better." : {
+
+    },
+    "diagnostics.modifierSide.left" : {
+      "comment" : "Physical modifier key side",
+      "extractionState" : "extracted_with_value",
+      "localizations" : {
+        "en" : {
+          "stringUnit" : {
+            "state" : "new",
+            "value" : "left"
+          }
+        }
+      }
+    },
+    "diagnostics.modifierSide.right" : {
+      "comment" : "Physical modifier key side",
+      "extractionState" : "extracted_with_value",
+      "localizations" : {
+        "en" : {
+          "stringUnit" : {
+            "state" : "new",
+            "value" : "right"
+          }
+        }
+      }
+    },
+    "diagnostics.screenEdge.bottom" : {
+      "comment" : "Physical screen edge",
+      "extractionState" : "extracted_with_value",
+      "localizations" : {
+        "en" : {
+          "stringUnit" : {
+            "state" : "new",
+            "value" : "bottom"
+          }
+        }
+      }
+    },
+    "diagnostics.screenEdge.left" : {
+      "comment" : "Physical screen edge",
+      "extractionState" : "extracted_with_value",
+      "localizations" : {
+        "en" : {
+          "stringUnit" : {
+            "state" : "new",
+            "value" : "left"
+          }
+        }
+      }
+    },
+    "diagnostics.screenEdge.right" : {
+      "comment" : "Physical screen edge",
+      "extractionState" : "extracted_with_value",
+      "localizations" : {
+        "en" : {
+          "stringUnit" : {
+            "state" : "new",
+            "value" : "right"
+          }
+        }
+      }
+    },
+    "e.g. AXStandardWindow" : {
+
+    },
+    "e.g. AXWindow" : {
+
+    },
+    "easier." : {
+
+    },
+    "faster." : {
+
+    },
+    "foreign transaction move=%@, restored=%@" : {
+      "localizations" : {
+        "en" : {
+          "stringUnit" : {
+            "state" : "new",
+            "value" : "foreign transaction move=%1$@, restored=%2$@"
+          }
+        }
+      }
+    },
+    "hidden" : {
+
+    },
+    "horizontal swipes" : {
+
+    },
+    "macOS Arrangement" : {
+
+    },
+    "macOS Default" : {
+
+    },
+    "macOS Gestures" : {
+
+    },
+    "macOS can also respond to the same fingers. Turn off matching gestures in System Settings → Trackpad → More Gestures if both actions fire." : {
+
+    },
+    "macOS controls where windows are placed. OmniWM can use a separate map that matches how your displays are actually arranged on your desk." : {
+
+    },
+    "macOS could not confirm the window corner change. Its current value is unknown." : {
+
+    },
+    "macOS is still updating the display layout. Wait a moment and try again." : {
+
+    },
+    "macOS keeps the technical staircase. In OmniWM, arrange the numbered tiles to match which display is left, right, above, or below on your desk." : {
+
+    },
+    "macOS needs your approval before OmniWM can start at login. Approve it under System Settings > General > Login Items." : {
+
+    },
+    "macOS or another app already uses this shortcut." : {
+
+    },
+    "monitor.moveDirection.down" : {
+      "comment" : "Physical monitor movement direction",
+      "extractionState" : "extracted_with_value",
+      "localizations" : {
+        "en" : {
+          "stringUnit" : {
+            "state" : "new",
+            "value" : "down"
+          }
+        }
+      }
+    },
+    "monitor.moveDirection.left" : {
+      "comment" : "Physical monitor movement direction",
+      "extractionState" : "extracted_with_value",
+      "localizations" : {
+        "en" : {
+          "stringUnit" : {
+            "state" : "new",
+            "value" : "left"
+          }
+        }
+      }
+    },
+    "monitor.moveDirection.right" : {
+      "comment" : "Physical monitor movement direction",
+      "extractionState" : "extracted_with_value",
+      "localizations" : {
+        "en" : {
+          "stringUnit" : {
+            "state" : "new",
+            "value" : "right"
+          }
+        }
+      }
+    },
+    "monitor.moveDirection.up" : {
+      "comment" : "Physical monitor movement direction",
+      "extractionState" : "extracted_with_value",
+      "localizations" : {
+        "en" : {
+          "stringUnit" : {
+            "state" : "new",
+            "value" : "up"
+          }
+        }
+      }
+    },
+    "no" : {
+
+    },
+    "no bundle ID" : {
+
+    },
+    "off" : {
+
+    },
+    "on" : {
+
+    },
+    "pt" : {
+
+    },
+    "px" : {
+
+    },
+    "settings.toml contains keys OmniWM does not recognize: %@. They are ignored." : {
+
+    },
+    "v%@" : {
+
+    },
+    "vertical swipes" : {
+
+    },
+    "window moving" : {
+      "comment" : "Trackpad gesture name"
+    },
+    "window resizing" : {
+      "comment" : "Trackpad gesture name"
+    },
+    "workspace switching" : {
+      "comment" : "Trackpad gesture name"
+    },
+    "yes" : {
+
+    },
+    "×" : {
+
+    },
+    "⇧ Shift" : {
+
+    },
+    "⌃ Control" : {
+
+    },
+    "⌘ Command" : {
+
+    },
+    "⌥ Option" : {
+
+    }
+  },
+  "version" : "1.0"
+}

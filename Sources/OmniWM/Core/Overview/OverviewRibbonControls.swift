@@ -213,8 +213,14 @@ extension OverviewLayout {
 
     func searchFeedback(query: String) -> String {
         let count = searchResultCount
-        if query.isEmpty { return "\(count) \(count == 1 ? "window" : "windows")" }
-        if count == 0 { return "No matching windows" }
-        return "\(count) \(count == 1 ? "result" : "results")"
+        if query.isEmpty {
+            return String(localized: LocalizedStringResource(
+                "\(count) windows", bundle: .omniWM
+            ))
+        }
+        if count == 0 { return String(localized: "No matching windows") }
+        return String(localized: LocalizedStringResource(
+            "\(count) results", bundle: .omniWM
+        ))
     }
 }

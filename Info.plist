@@ -4,6 +4,8 @@
 <dict>
 	<key>CFBundleDisplayName</key>
 	<string>OmniWM</string>
+	<key>CFBundleDevelopmentRegion</key>
+	<string>en</string>
 	<key>CFBundleExecutable</key>
 	<string>OmniWM</string>
 	<key>CFBundleIconFile</key>

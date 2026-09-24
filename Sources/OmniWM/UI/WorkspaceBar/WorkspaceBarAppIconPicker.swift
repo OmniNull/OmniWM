@@ -46,13 +46,13 @@ struct WorkspaceBarAppIconPicker: View {
                     .frame(maxWidth: .infinity, maxHeight: .infinity)
                 } else if result?.bundleURL == nil {
                     emptyState(
-                        title: "App Bundle Not Found",
-                        detail: "Choose an image file instead."
+                        title: String(localized: "App Bundle Not Found"),
+                        detail: String(localized: "Choose an image file instead.")
                     )
                 } else if result?.candidates.isEmpty != false {
                     emptyState(
-                        title: "No App-Provided Icons Found",
-                        detail: "This app may create its Dock icon only while running."
+                        title: String(localized: "No App-Provided Icons Found"),
+                        detail: String(localized: "This app may create its Dock icon only while running.")
                     )
                 } else if let candidates = result?.candidates {
                     ScrollView {

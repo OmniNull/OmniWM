@@ -2,6 +2,7 @@
 // Copyright (C) 2026 BarutSRB — https://github.com/OmniNull/OmniWM
 
 import Carbon
+import Foundation
 import OmniWMIPC
 
 enum HotkeyVisibility: String {
@@ -14,6 +15,7 @@ struct ActionSpec: Equatable {
     let id: String
     let command: HotkeyCommand
     let title: String
+    let localizedTitle: String
     let keywords: [String]
     let category: HotkeyCategory
     let visibility: HotkeyVisibility
@@ -27,7 +29,15 @@ struct ActionSpec: Equatable {
 
     var searchTerms: [String] {
         ActionCatalog.uniqueTerms(
-            [title, id, layoutCompatibility.rawValue]
+            [
+                localizedTitle,
+                title,
+                id,
+                layoutCompatibility.localizedDisplayName,
+                layoutCompatibility.rawValue,
+                category.localizedDisplayName,
+                category.rawValue
+            ]
                 + keywords
                 + (ipcDescriptor.map { [$0.path] + $0.commandWords } ?? [])
         )
@@ -35,6 +45,8 @@ struct ActionSpec: Equatable {
 }
 
 enum ActionCatalog {
+    private static let searchLocale = Locale(identifier: Bundle.module.preferredLocalizations.first ?? Locale.current
+        .identifier)
     static let workspaceSlotRange = 1 ... 9
 
     static let digitCodes: [UInt32] = [
@@ -75,6 +87,10 @@ enum ActionCatalog {
         spec(for: command)?.title
     }
 
+    static func localizedTitle(for command: HotkeyCommand) -> String? {
+        spec(for: command)?.localizedTitle
+    }
+
     static func layoutCompatibility(for command: HotkeyCommand) -> LayoutCompatibility? {
         spec(for: command)?.layoutCompatibility
     }
@@ -110,11 +126,21 @@ enum ActionCatalog {
 
     static func normalizedSearchTerm(_ value: String) -> String {
         value
-            .lowercased()
+            .lowercased(with: searchLocale)
+            .folding(options: .diacriticInsensitive, locale: searchLocale)
             .replacingOccurrences(of: ".", with: " ")
             .replacingOccurrences(of: "-", with: " ")
             .replacingOccurrences(of: "_", with: " ")
             .trimmingCharacters(in: .whitespacesAndNewlines)
+    }
+
+    static func canonicalSourceTitle(for resource: LocalizedStringResource) -> String {
+        String(
+            localized: resource.defaultValue,
+            table: "CanonicalCommandSource",
+            bundle: .module,
+            locale: Locale(identifier: "en")
+        )
     }
 
     private static func buildSpecs() -> [ActionSpec] {
@@ -167,11 +193,14 @@ enum ActionCatalog {
         visibility: HotkeyVisibility = .normal,
         keywords: [String] = []
     ) -> ActionSpec {
-        let title = displayName(for: command)
+        let resource = titleResource(for: command)
+        let localizedTitle = String(localized: resource)
+        let title = canonicalSourceTitle(for: resource)
         return ActionSpec(
             id: id,
             command: command,
             title: title,
+            localizedTitle: localizedTitle,
             keywords: uniqueTerms(keywords + [title, id]),
             category: category,
             visibility: visibility,
@@ -216,18 +245,28 @@ enum ActionCatalog {
         }
     }
 
-    private static func displayName(for command: HotkeyCommand) -> String {
+    private static func titleResource(for command: HotkeyCommand) -> LocalizedStringResource {
         switch command {
-        case let .focus(dir): "Focus \(dir.displayName)"
-        case let .move(dir): "Move \(dir.displayName)"
+        case let .focus(direction): focusTitle(direction)
+        case let .move(direction): moveTitle(direction)
         case let .monitorFocus(command): command.actionDisplayName()
         case let .fullscreen(command): command.actionDisplayName()
-        case let .moveColumn(dir): "Move Container \(dir.displayName)"
-        case .openCommandPalette: "Toggle Command Palette"
-        case .raiseAllFloatingWindows: "Raise All Floating Windows"
-        case .rescueOffscreenWindows: "Rescue Off-Screen Floating Windows"
+        case let .moveColumn(direction): moveContainerTitle(direction)
+        case .openCommandPalette: LocalizedStringResource(
+                "command.palette.toggle", defaultValue: "Toggle Command Palette", table: "Commands", bundle: .omniWM
+            )
+        case .raiseAllFloatingWindows: LocalizedStringResource(
+                "command.floating.raiseAll", defaultValue: "Raise All Floating Windows", table: "Commands",
+                bundle: .omniWM
+            )
+        case .rescueOffscreenWindows: LocalizedStringResource(
+                "command.floating.rescueOffscreen", defaultValue: "Rescue Off-Screen Floating Windows",
+                table: "Commands", bundle: .omniWM
+            )
         case let .windowState(command): command.actionDisplayName()
-        case .openMenuAnywhere: "Open Menu Anywhere"
+        case .openMenuAnywhere: LocalizedStringResource(
+                "command.menu.openAnywhere", defaultValue: "Open Menu Anywhere", table: "Commands", bundle: .omniWM
+            )
         case let .presentation(command): command.actionDisplayName()
         case let .focusNavigation(action):
             action.actionDisplayName()
@@ -285,5 +324,64 @@ enum ActionCatalog {
         case let .scratchpad(action):
             action.ipcCommandName()
         }
+    }
+}
+
+extension ActionCatalog {
+    private static func focusTitle(_ direction: Direction) -> LocalizedStringResource {
+        switch direction {
+        case .left: LocalizedStringResource(
+                "command.focus.left", defaultValue: "Focus Left", table: "Commands", bundle: .omniWM
+            )
+        case .right: LocalizedStringResource(
+                "command.focus.right", defaultValue: "Focus Right", table: "Commands", bundle: .omniWM
+            )
+        case .up: LocalizedStringResource(
+                "command.focus.up", defaultValue: "Focus Up", table: "Commands", bundle: .omniWM
+            )
+        case .down: LocalizedStringResource(
+                "command.focus.down", defaultValue: "Focus Down", table: "Commands", bundle: .omniWM
+            )
+        }
+    }
+
+    private static func moveTitle(_ direction: Direction) -> LocalizedStringResource {
+        switch direction {
+        case .left: LocalizedStringResource(
+                "command.move.left", defaultValue: "Move Left", table: "Commands", bundle: .omniWM
+            )
+        case .right: LocalizedStringResource(
+                "command.move.right", defaultValue: "Move Right", table: "Commands", bundle: .omniWM
+            )
+        case .up: LocalizedStringResource(
+                "command.move.up", defaultValue: "Move Up", table: "Commands", bundle: .omniWM
+            )
+        case .down: LocalizedStringResource(
+                "command.move.down", defaultValue: "Move Down", table: "Commands", bundle: .omniWM
+            )
+        }
+    }
+
+    private static func moveContainerTitle(_ direction: Direction) -> LocalizedStringResource {
+        switch direction {
+        case .left: LocalizedStringResource(
+                "command.moveContainer.left", defaultValue: "Move Container Left", table: "Commands", bundle: .omniWM
+            )
+        case .right: LocalizedStringResource(
+                "command.moveContainer.right", defaultValue: "Move Container Right", table: "Commands", bundle: .omniWM
+            )
+        case .up: LocalizedStringResource(
+                "command.moveContainer.up", defaultValue: "Move Container Up", table: "Commands", bundle: .omniWM
+            )
+        case .down: LocalizedStringResource(
+                "command.moveContainer.down", defaultValue: "Move Container Down", table: "Commands", bundle: .omniWM
+            )
+        }
+    }
+}
+
+extension LocalizedStringResource.BundleDescription {
+    static var omniWM: Self {
+        .atURL(Bundle.module.bundleURL)
     }
 }

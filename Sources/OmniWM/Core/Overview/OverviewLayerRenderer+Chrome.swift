@@ -211,7 +211,7 @@ extension OverviewLayerRenderer {
 
     func updateSearch(_ layout: OverviewLayout, state: OverviewRenderState, caretAnimated: Bool) {
         search.frame = layout.searchBarFrame
-        let text = state.searchQuery.isEmpty ? "Type to search..." : state.searchQuery
+        let text = state.searchQuery.isEmpty ? Self.searchPlaceholder : state.searchQuery
         if searchText.string as? String != text { searchText.string = text }
         searchText.foregroundColor = state.searchQuery.isEmpty ? Colors.textDimmed : Colors.textWhite
         let textWidth = max(0, search.bounds.width - 124)

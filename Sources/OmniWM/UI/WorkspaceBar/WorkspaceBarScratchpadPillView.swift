@@ -130,7 +130,9 @@ struct ScratchpadPillView: View {
         }
         .accessibilityLabel("Scratchpad \(item.name)")
         .accessibilityValue(accessibilityValue)
-        .help("Scratchpad \(item.name): \(windowSummary), \(item.isVisible ? "visible" : "hidden")")
+        .help(item.isVisible
+            ? String(localized: "Scratchpad \(item.name): \(windowSummary), visible")
+            : String(localized: "Scratchpad \(item.name): \(windowSummary), hidden"))
     }
 
     private var scale: CGFloat {
@@ -146,13 +148,13 @@ struct ScratchpadPillView: View {
     private var windowSummary: String {
         item.windowCount == 1
             ? item.windows[0].appName
-            : "\(item.windowCount) windows"
+            : String(localized: "\(item.windowCount) windows")
     }
 
     private var accessibilityValue: String {
-        var parts = [windowSummary, item.isVisible ? "Visible" : "Hidden"]
+        var parts = [windowSummary, item.isVisible ? String(localized: "Visible") : String(localized: "Hidden")]
         if item.isFocused {
-            parts.append("Focused")
+            parts.append(String(localized: "Focused"))
         }
         return parts.joined(separator: ", ")
     }

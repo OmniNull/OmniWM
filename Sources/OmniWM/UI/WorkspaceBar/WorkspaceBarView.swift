@@ -170,6 +170,7 @@ private struct WorkspaceBarContentView: View {
                 )
             }
         }
+        .environment(\.layoutDirection, .leftToRight)
     }
 }
 
@@ -312,7 +313,7 @@ private struct WorkspaceLabelButton: View {
         }
         .buttonStyle(.plain)
         .accessibilityLabel("Workspace \(item.name)")
-        .accessibilityValue(item.isFocused ? "Focused" : "")
+        .accessibilityValue(item.isFocused ? String(localized: "Focused") : "")
         .help("Focus workspace \(item.name)")
     }
 }

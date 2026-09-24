@@ -13,7 +13,7 @@ struct OverviewDropResolution: Equatable {
     let label: String
 
     static var invalid: OverviewDropResolution {
-        OverviewDropResolution(target: nil, label: "Can’t drop here")
+        OverviewDropResolution(target: nil, label: String(localized: "Can’t drop here"))
     }
 }
 
@@ -33,21 +33,21 @@ extension OverviewLayout {
         let label: String
         switch target {
         case .newWorkspace:
-            label = "Create workspace on \(monitor.name)"
+            label = String(localized: "Create workspace on \(monitor.name)")
         case .niriColumnInsert:
-            label = "New column"
+            label = String(localized: "New column")
         case let .niriWindowInsert(workspaceId, _, position):
             let vertical = workspaceSections.first { $0.workspaceId == workspaceId }?.orientation == .vertical
             if vertical {
-                label = position == .before ? "Stack right" : "Stack left"
+                label = position == .before ? String(localized: "Stack right") : String(localized: "Stack left")
             } else {
-                label = position == .before ? "Stack above" : "Stack below"
+                label = position == .before ? String(localized: "Stack above") : String(localized: "Stack below")
             }
         case let .workspaceMove(workspaceId):
             guard workspaceId != sourceWorkspaceId,
                   let section = workspaceSections.first(where: { $0.workspaceId == workspaceId })
             else { return .invalid }
-            label = "Move to workspace \(section.name)"
+            label = String(localized: "Move to workspace \(section.name)")
         case .floatingPlacement:
             return .invalid
         }
@@ -69,11 +69,11 @@ extension OverviewLayout {
                 width: monitor.frame.width * scale,
                 height: newWorkspaceTarget.frame.height
             )
-            label = "Create workspace on \(monitor.name)"
+            label = String(localized: "Create workspace on \(monitor.name)")
         } else if let section = workspaceSection(at: point), section.visibleFrame.contains(adjustedPoint) {
             destination = .workspace(section.workspaceId)
             visibleFrame = section.visibleFrame
-            label = "Place floating window"
+            label = String(localized: "Place floating window")
         } else {
             return .invalid
         }

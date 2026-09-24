@@ -2,13 +2,19 @@
 // Copyright (C) 2026 BarutSRB — https://github.com/OmniNull/OmniWM
 
 import Carbon
+import Foundation
 import OmniWMIPC
 
 extension IPCWindowStateCommand {
-    func actionDisplayName() -> String {
+    func actionDisplayName() -> LocalizedStringResource {
         switch self {
-        case .toggleFloating: "Toggle Focused Window Floating"
-        case .close: "Close Focused Window"
+        case .toggleFloating: LocalizedStringResource(
+                "command.windowState.toggleFloating", defaultValue: "Toggle Focused Window Floating", table: "Commands",
+                bundle: .omniWM
+            )
+        case .close: LocalizedStringResource(
+                "command.windowState.close", defaultValue: "Close Focused Window", table: "Commands", bundle: .omniWM
+            )
         }
     }
 

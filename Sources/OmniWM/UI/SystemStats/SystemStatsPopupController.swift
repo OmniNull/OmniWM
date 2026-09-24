@@ -144,7 +144,7 @@ final class SystemStatsPopupController {
             let scale = screen.backingScaleFactor
             let width = Int(screen.frame.width * scale)
             let height = Int(screen.frame.height * scale)
-            return "\(width)×\(height) @ \(screen.maximumFramesPerSecond) Hz"
+            return String(localized: "\(width)×\(height) @ \(screen.maximumFramesPerSecond) Hz")
         }
     }
 

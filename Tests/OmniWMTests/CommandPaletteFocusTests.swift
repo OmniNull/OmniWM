@@ -261,6 +261,22 @@ final class CommandPaletteFocusTests: XCTestCase {
         try sendKey(keyCode: 36, characters: "\r", to: panel)
         XCTAssertTrue(fixture.palette.isVisible)
         XCTAssertEqual(copyCount, 0)
+
+        editor.setMarkedText(
+            "候",
+            selectedRange: NSRange(location: 1, length: 0),
+            replacementRange: NSRange(location: NSNotFound, length: 0)
+        )
+        try sendKey(keyCode: 53, characters: "\u{1B}", to: panel)
+        XCTAssertTrue(fixture.palette.isVisible)
+
+        editor.setMarkedText(
+            "候",
+            selectedRange: NSRange(location: 1, length: 0),
+            replacementRange: NSRange(location: NSNotFound, length: 0)
+        )
+        try sendKey(keyCode: 48, characters: "\t", to: panel)
+        XCTAssertEqual(fixture.palette.selectedMode, .clipboard)
     }
 
     func testClipboardReturnCopiesSelectedItem() async throws {

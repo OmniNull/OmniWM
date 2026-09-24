@@ -26,14 +26,14 @@ struct TabRailTabInfo: Equatable {
     let isActive: Bool
 
     var accessibilityLabel: String {
-        let ordinal = "Tab \(visualIndex + 1)"
+        let ordinal = String(localized: "Tab \(visualIndex + 1)")
         switch (title?.nilIfEmpty, appName?.nilIfEmpty) {
         case let (title?, appName?):
-            return "\(ordinal), \(title), \(appName)"
+            return String(localized: "\(ordinal), \(title), \(appName)")
         case let (title?, nil):
-            return "\(ordinal), \(title)"
+            return String(localized: "\(ordinal), \(title)")
         case let (nil, appName?):
-            return "\(ordinal), \(appName)"
+            return String(localized: "\(ordinal), \(appName)")
         case (nil, nil):
             return ordinal
         }

@@ -98,9 +98,9 @@ final class TabRailHoverCardWindow: NSPanel {
         iconView.image = app?.icon ?? NSImage(named: NSImage.applicationIconName)
         titleLabel.stringValue = tab.title?.nilIfEmpty
             ?? tab.appName?.nilIfEmpty
-            ?? "Untitled window"
-        let appName = tab.appName?.nilIfEmpty ?? app?.localizedName?.nilIfEmpty ?? "Window"
-        detailLabel.stringValue = "\(appName) · Tab \(tab.visualIndex + 1) of \(tabCount)"
+            ?? String(localized: "Untitled window")
+        let appName = tab.appName?.nilIfEmpty ?? app?.localizedName?.nilIfEmpty ?? String(localized: "Window")
+        detailLabel.stringValue = String(localized: "\(appName) · Tab \(tab.visualIndex + 1) of \(tabCount)")
         setFrame(frame, display: false)
         orderFront(nil)
     }

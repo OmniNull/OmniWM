@@ -9,7 +9,7 @@ struct QuakeTerminalSettingsTab: View {
 
     private var blurValueText: String {
         settings.quakeTerminal.backgroundBlurRadius == QuakeTerminalAppearancePolicy.disabledBackgroundBlurRadius
-            ? "Off"
+            ? String(localized: "Off")
             : "\(settings.quakeTerminal.backgroundBlurRadius)"
     }
 
@@ -26,18 +26,18 @@ struct QuakeTerminalSettingsTab: View {
                 Section("Position & Size") {
                     Picker("Position", selection: Bindable(settings.quakeTerminal).position) {
                         ForEach(QuakeTerminalPosition.allCases, id: \.self) { position in
-                            Text(position.displayName).tag(position)
+                            Text(position.localizedDisplayName).tag(position)
                         }
                     }
 
                     Picker("Show On", selection: Bindable(settings.quakeTerminal).monitorMode) {
                         ForEach(QuakeTerminalMonitorMode.allCases, id: \.self) { mode in
-                            Text(mode.displayName).tag(mode)
+                            Text(mode.localizedDisplayName).tag(mode)
                         }
                     }
 
                     SettingsSliderRow(
-                        label: "Width",
+                        label: String(localized: "Width"),
                         value: Bindable(settings.quakeTerminal).widthPercent,
                         range: 10 ... 100,
                         step: 5,
@@ -45,7 +45,7 @@ struct QuakeTerminalSettingsTab: View {
                     )
 
                     SettingsSliderRow(
-                        label: "Height",
+                        label: String(localized: "Height"),
                         value: Bindable(settings.quakeTerminal).heightPercent,
                         range: 10 ... 100,
                         step: 5,
@@ -62,7 +62,7 @@ struct QuakeTerminalSettingsTab: View {
                 Section("Appearance") {
                     Picker("Background Effect", selection: Bindable(settings.quakeTerminal).backgroundEffect) {
                         ForEach(QuakeTerminalBackgroundEffect.allCases, id: \.self) { effect in
-                            Text(effect.displayName).tag(effect)
+                            Text(effect.localizedDisplayName).tag(effect)
                         }
                     }
                     .onChange(of: settings.quakeTerminal.backgroundEffect) { _, _ in
@@ -70,7 +70,7 @@ struct QuakeTerminalSettingsTab: View {
                     }
 
                     SettingsSliderRow(
-                        label: "Quake Background Opacity",
+                        label: String(localized: "Quake Background Opacity"),
                         value: Bindable(settings.quakeTerminal).opacity,
                         range: 0.1 ... 1.0,
                         step: 0.05,
@@ -81,7 +81,7 @@ struct QuakeTerminalSettingsTab: View {
                     }
 
                     SettingsSliderRow(
-                        label: "Background Blur",
+                        label: String(localized: "Background Blur"),
                         value: Binding(
                             get: { [settings] in Double(settings.quakeTerminal.backgroundBlurRadius) },
                             set: { [settings] in settings.quakeTerminal.backgroundBlurRadius = Int($0.rounded()) }
@@ -98,28 +98,32 @@ struct QuakeTerminalSettingsTab: View {
 
                     if settings.quakeTerminal.backgroundEffect != .standardBlur {
                         SettingsCaption(
-                            "The saved Standard Blur radius is preserved and becomes active again when Standard Blur is selected."
+                            localized: "The saved Standard Blur radius is preserved and becomes active again when Standard Blur is selected."
                         )
                     } else if QuakeTerminalAppearancePolicy.backgroundBlurIsHiddenByOpaqueBackground(
                         radius: settings.quakeTerminal.backgroundBlurRadius,
                         opacity: settings.quakeTerminal.opacity
                     ) {
-                        SettingsCaption("Blur only shows through a translucent terminal - lower the opacity to see it.")
+                        SettingsCaption(
+                            localized: "Blur only shows through a translucent terminal - lower the opacity to see it."
+                        )
                     }
                 }
 
                 Section("Behavior") {
                     SettingsSliderRow(
-                        label: "Animation Duration",
+                        label: String(localized: "Animation Duration"),
                         value: Bindable(settings.quakeTerminal).animationDuration,
                         range: 0 ... 1,
                         step: 0.1,
-                        valueText: "\(String(format: "%.1f", settings.quakeTerminal.animationDuration))s"
+                        valueText: String(
+                            localized: "\(settings.quakeTerminal.animationDuration.formatted(.number.precision(.fractionLength(1))))s"
+                        )
                     )
                     .disabled(!controller.motionPolicy.animationsEnabled)
 
                     if !controller.motionPolicy.animationsEnabled {
-                        SettingsCaption("Ignored while global animations are disabled.")
+                        SettingsCaption(localized: "Ignored while global animations are disabled.")
                     }
 
                     Toggle("Auto-hide on Focus Loss", isOn: Bindable(settings.quakeTerminal).autoHide)
@@ -129,7 +133,7 @@ struct QuakeTerminalSettingsTab: View {
             Section("About") {
                 VStack(alignment: .leading, spacing: 8) {
                     SettingsCaption(
-                        "Quake Terminal provides a drop-down terminal that can be toggled with a hotkey, similar to the console in Quake-style games."
+                        localized: "Quake Terminal provides a drop-down terminal that can be toggled with a hotkey, similar to the console in Quake-style games."
                     )
 
                     Label("Default hotkey: Option + ` (backtick)", systemImage: "keyboard")

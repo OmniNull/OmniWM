@@ -54,6 +54,8 @@ if command -v plutil >/dev/null 2>&1; then
 fi
 cp "$ROOT_DIR/Resources/AppIcon.icns" "$APP_DIR/Contents/Resources/AppIcon.icns"
 cp -R "$BUILD_DIR/OmniWM_OmniWM.bundle" "$APP_DIR/Contents/Resources/"
+python3 "$ROOT_DIR/Scripts/localization.py" package \
+  --bundle "$BUILD_DIR/OmniWM_OmniWM.bundle" --app "$APP_DIR"
 
 if command -v plutil >/dev/null 2>&1; then
   plutil -lint "$APP_DIR/Contents/Info.plist" >/dev/null

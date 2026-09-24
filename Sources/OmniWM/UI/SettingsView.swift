@@ -69,27 +69,27 @@ struct GeneralSettingsTab: View {
             Section("Appearance") {
                 Picker("Theme", selection: $settings.appearanceMode) {
                     ForEach(AppearanceMode.allCases, id: \.self) { mode in
-                        Text(mode.displayName).tag(mode)
+                        Text(mode.localizedDisplayName).tag(mode)
                     }
                 }
                 .onChange(of: settings.appearanceMode) { _, _ in
                     controller.applyCurrentAppearanceMode()
                 }
 
-                SettingsCaption("Controls the appearance of menus and workspace bar")
+                SettingsCaption(localized: "Controls the appearance of menus and workspace bar")
 
                 Toggle("Show app icons in tab rails", isOn: Binding(
                     get: { settings.tabRailAppIcons },
                     set: { controller.setTabRailAppIcons($0) }
                 ))
-                SettingsCaption("Replaces compact markers with app icons. Applies to Niri and Dwindle.")
+                SettingsCaption(localized: "Replaces compact markers with app icons. Applies to Niri and Dwindle.")
 
                 Toggle("Enable Animations", isOn: animationsEnabled)
                     .disabled(controller.motionPolicy.systemReducesMotion)
                 SettingsCaption(
                     controller.motionPolicy.systemReducesMotion
-                        ? "Off while macOS Reduce Motion is on."
-                        : "Turns OmniWM-authored animations on or off live without relaunching."
+                        ? String(localized: "Off while macOS Reduce Motion is on.")
+                        : String(localized: "Turns OmniWM-authored animations on or off live without relaunching.")
                 )
 
                 AppWindowCornerSettings(preferences: windowCornerPreferences)
@@ -110,7 +110,7 @@ struct GeneralSettingsTab: View {
                         controller.refreshStatusBar()
                     }
                     .disabled(!settings.statusBar.showWorkspaceName)
-                SettingsCaption("Shows the active workspace and focused app beside the menu bar icon")
+                SettingsCaption(localized: "Shows the active workspace and focused app beside the menu bar icon")
             }
 
             Section("Startup") {
@@ -126,14 +126,13 @@ struct GeneralSettingsTab: View {
                         LoginItemManager.openLoginItemsSettings()
                     }
                     SettingsCaption(
-                        "macOS needs your approval before OmniWM can start at login. "
-                            + "Approve it under System Settings > General > Login Items."
+                        localized: "macOS needs your approval before OmniWM can start at login. Approve it under System Settings > General > Login Items."
                     )
                 }
                 if let loginItemError = loginItems.lastErrorDescription {
-                    SettingsCaption("Could not update the login item: \(loginItemError)")
+                    SettingsCaption(localized: "Could not update the login item: \(loginItemError)")
                 }
-                SettingsCaption("Launches OmniWM automatically when you log in.")
+                SettingsCaption(localized: "Launches OmniWM automatically when you log in.")
             }
 
             Section("Updates") {
@@ -145,7 +144,7 @@ struct GeneralSettingsTab: View {
                 .disabled(updateCoordinator == nil)
 
                 SettingsCaption(
-                    "OmniWM checks the latest GitHub release once per day on launch. Updates stay manual and the popup includes both the GitHub page and the Homebrew command."
+                    localized: "OmniWM checks the latest GitHub release once per day on launch. Updates stay manual and the popup includes both the GitHub page and the Homebrew command."
                 )
             }
 
@@ -164,23 +163,23 @@ struct GeneralSettingsTab: View {
                    let monitor = connectedMonitors.first(where: { $0.id == monitorId })
                 {
                     OverridableSlider(
-                        label: "Inner Gaps",
+                        label: String(localized: "Inner Gaps"),
                         value: settings.gaps.settings(for: monitor)?.innerGap,
                         globalValue: settings.gaps.size,
                         range: 0 ... 32,
                         step: 1,
-                        formatter: { "\(Int($0)) px" },
+                        formatter: { String(localized: "\(Int($0)) px") },
                         onChange: { value in updateGapSetting(for: monitor) { $0.innerGap = value } },
                         onReset: { updateGapSetting(for: monitor) { $0.innerGap = nil } }
                     )
-                    SettingsCaption("Overrides the global inner gap for \(monitor.name).")
+                    SettingsCaption(localized: "Overrides the global inner gap for \(monitor.name).")
                 } else {
                     SettingsSliderRow(
-                        label: "Inner Gaps",
+                        label: String(localized: "Inner Gaps"),
                         value: Bindable(settings.gaps).size,
                         range: 0 ... 32,
                         step: 1,
-                        valueText: "\(Int(settings.gaps.size)) px",
+                        valueText: String(localized: "\(Int(settings.gaps.size)) px"),
                         valueWidth: 64
                     )
                     .onChange(of: settings.gaps.size) { _, newValue in
@@ -194,47 +193,47 @@ struct GeneralSettingsTab: View {
                    let monitor = connectedMonitors.first(where: { $0.id == monitorId })
                 {
                     OverridableSlider(
-                        label: "Left",
+                        label: String(localized: "Left"),
                         value: settings.gaps.settings(for: monitor)?.outerGapLeft,
                         globalValue: settings.gaps.outerGapLeft,
                         range: 0 ... 64,
                         step: 1,
-                        formatter: { "\(Int($0)) px" },
+                        formatter: { String(localized: "\(Int($0)) px") },
                         onChange: { value in updateGapSetting(for: monitor) { $0.outerGapLeft = value } },
                         onReset: { updateGapSetting(for: monitor) { $0.outerGapLeft = nil } }
                     )
                     OverridableSlider(
-                        label: "Right",
+                        label: String(localized: "Right"),
                         value: settings.gaps.settings(for: monitor)?.outerGapRight,
                         globalValue: settings.gaps.outerGapRight,
                         range: 0 ... 64,
                         step: 1,
-                        formatter: { "\(Int($0)) px" },
+                        formatter: { String(localized: "\(Int($0)) px") },
                         onChange: { value in updateGapSetting(for: monitor) { $0.outerGapRight = value } },
                         onReset: { updateGapSetting(for: monitor) { $0.outerGapRight = nil } }
                     )
                     OverridableSlider(
-                        label: "Top",
+                        label: String(localized: "Top"),
                         value: settings.gaps.settings(for: monitor)?.outerGapTop,
                         globalValue: settings.gaps.outerGapTop,
                         range: 0 ... 64,
                         step: 1,
-                        formatter: { "\(Int($0)) px" },
+                        formatter: { String(localized: "\(Int($0)) px") },
                         onChange: { value in updateGapSetting(for: monitor) { $0.outerGapTop = value } },
                         onReset: { updateGapSetting(for: monitor) { $0.outerGapTop = nil } }
                     )
                     OverridableSlider(
-                        label: "Bottom",
+                        label: String(localized: "Bottom"),
                         value: settings.gaps.settings(for: monitor)?.outerGapBottom,
                         globalValue: settings.gaps.outerGapBottom,
                         range: 0 ... 64,
                         step: 1,
-                        formatter: { "\(Int($0)) px" },
+                        formatter: { String(localized: "\(Int($0)) px") },
                         onChange: { value in updateGapSetting(for: monitor) { $0.outerGapBottom = value } },
                         onReset: { updateGapSetting(for: monitor) { $0.outerGapBottom = nil } }
                     )
                     OverridableToggle(
-                        label: "Keep Outer Margins in Full Screen",
+                        label: String(localized: "Keep Outer Margins in Full Screen"),
                         value: settings.gaps.settings(for: monitor)?.fullscreenUsesOuterGaps,
                         globalValue: settings.gaps.fullscreenUsesOuterGaps,
                         onChange: { value in
@@ -242,43 +241,39 @@ struct GeneralSettingsTab: View {
                         },
                         onReset: { updateGapSetting(for: monitor) { $0.fullscreenUsesOuterGaps = nil } }
                     )
+                    SettingsCaption(String(
+                        localized: "Overrides selected global outer-margin values for \(monitor.name). \(topGapCaption(settings.gaps.settings(for: monitor)?.outerGapTop ?? settings.gaps.outerGapTop, on: monitor))"
+                    ))
                     SettingsCaption(
-                        "Overrides selected global outer-margin values for \(monitor.name). "
-                            + topGapCaption(
-                                settings.gaps.settings(for: monitor)?.outerGapTop ?? settings.gaps.outerGapTop,
-                                on: monitor
-                            )
-                    )
-                    SettingsCaption(
-                        "Keeps these margins for OmniWM Full Screen and the Single Window ‘Full Screen’ fit. Any active Workspace Bar reservation is also kept; native macOS Full Screen is unchanged."
+                        localized: "Keeps these margins for OmniWM Full Screen and the Single Window ‘Full Screen’ fit. Any active Workspace Bar reservation is also kept; native macOS Full Screen is unchanged."
                     )
                 } else {
                     SettingsSliderRow(
-                        label: "Left",
+                        label: String(localized: "Left"),
                         value: Bindable(settings.gaps).outerGapLeft,
                         range: 0 ... 64,
                         step: 1,
-                        valueText: "\(Int(settings.gaps.outerGapLeft)) px",
+                        valueText: String(localized: "\(Int(settings.gaps.outerGapLeft)) px"),
                         valueWidth: 64
                     )
                     .onChange(of: settings.gaps.outerGapLeft) { _, _ in syncOuterGaps() }
 
                     SettingsSliderRow(
-                        label: "Right",
+                        label: String(localized: "Right"),
                         value: Bindable(settings.gaps).outerGapRight,
                         range: 0 ... 64,
                         step: 1,
-                        valueText: "\(Int(settings.gaps.outerGapRight)) px",
+                        valueText: String(localized: "\(Int(settings.gaps.outerGapRight)) px"),
                         valueWidth: 64
                     )
                     .onChange(of: settings.gaps.outerGapRight) { _, _ in syncOuterGaps() }
 
                     SettingsSliderRow(
-                        label: "Top",
+                        label: String(localized: "Top"),
                         value: Bindable(settings.gaps).outerGapTop,
                         range: 0 ... 64,
                         step: 1,
-                        valueText: "\(Int(settings.gaps.outerGapTop)) px",
+                        valueText: String(localized: "\(Int(settings.gaps.outerGapTop)) px"),
                         valueWidth: 64
                     )
                     .onChange(of: settings.gaps.outerGapTop) { _, _ in syncOuterGaps() }
@@ -287,11 +282,11 @@ struct GeneralSettingsTab: View {
                     }
 
                     SettingsSliderRow(
-                        label: "Bottom",
+                        label: String(localized: "Bottom"),
                         value: Bindable(settings.gaps).outerGapBottom,
                         range: 0 ... 64,
                         step: 1,
-                        valueText: "\(Int(settings.gaps.outerGapBottom)) px",
+                        valueText: String(localized: "\(Int(settings.gaps.outerGapBottom)) px"),
                         valueWidth: 64
                     )
                     .onChange(of: settings.gaps.outerGapBottom) { _, _ in syncOuterGaps() }
@@ -305,7 +300,7 @@ struct GeneralSettingsTab: View {
                     }
 
                     SettingsCaption(
-                        "Keeps these margins for OmniWM Full Screen and the Single Window ‘Full Screen’ fit. Any active Workspace Bar reservation is also kept; native macOS Full Screen is unchanged."
+                        localized: "Keeps these margins for OmniWM Full Screen and the Single Window ‘Full Screen’ fit. Any active Workspace Bar reservation is also kept; native macOS Full Screen is unchanged."
                     )
                 }
             }
@@ -319,8 +314,9 @@ struct GeneralSettingsTab: View {
     private func topGapCaption(_ top: Double, on monitor: Monitor) -> String {
         let menuBarInset = Int(max(0, monitor.frame.maxY - monitor.visibleFrame.maxY))
         let belowMenuBar = max(0, Int(top) - menuBarInset)
-        return "Top is measured from the screen's physical top edge: "
-            + "\(Int(top)) px → \(belowMenuBar) px below the menu bar on \(monitor.name)."
+        return String(
+            localized: "Top is measured from the screen's physical top edge: \(Int(top)) px → \(belowMenuBar) px below the menu bar on \(monitor.name)."
+        )
     }
 
     private func syncOuterGaps() {

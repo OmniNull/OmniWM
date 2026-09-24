@@ -1,0 +1,28 @@
+{
+  "sourceLanguage" : "en",
+  "strings" : {
+    "NSMicrophoneUsageDescription" : {
+      "extractionState" : "manual",
+      "localizations" : {
+        "en" : {
+          "stringUnit" : {
+            "state" : "translated",
+            "value" : "A program running within OmniWM's Quake Terminal would like to use your microphone."
+          }
+        }
+      }
+    },
+    "NSScreenCaptureUsageDescription" : {
+      "extractionState" : "manual",
+      "localizations" : {
+        "en" : {
+          "stringUnit" : {
+            "state" : "translated",
+            "value" : "OmniWM uses screen capture for Overview thumbnails, window drag previews, and Hidden Bar icons."
+          }
+        }
+      }
+    }
+  },
+  "version" : "1.0"
+}

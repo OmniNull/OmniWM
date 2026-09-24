@@ -135,7 +135,7 @@ struct StatusMenuPrimaryView: View {
             if !model.diagnosticsIssues.isEmpty {
                 MenuActionRow(
                     icon: "exclamationmark.triangle.fill",
-                    label: "Issues Detected (\(model.diagnosticsIssues.count))"
+                    label: String(localized: "Issues Detected (\(model.diagnosticsIssues.count))")
                 ) {
                     model.openSettings(section: .diagnostics)
                 }
@@ -145,12 +145,12 @@ struct StatusMenuPrimaryView: View {
                 MenuInfoRow(
                     icon: "exclamationmark.triangle.fill",
                     label: model.displaySpacesMode == .disabled
-                        ? "Enable “Displays have separate Spaces”"
-                        : "Could not verify display Spaces setting"
+                        ? String(localized: "Enable “Displays have separate Spaces”")
+                        : String(localized: "Could not verify display Spaces setting")
                 )
                 MenuDivider()
             }
-            MenuSectionLabel(text: "CONTROLS")
+            MenuSectionLabel(text: String(localized: "CONTROLS"))
             LazyVGrid(columns: Array(repeating: GridItem(.flexible(), spacing: 6), count: 3), spacing: 6) {
                 ForEach(model.toggleTiles) { tile in
                     MenuToggleTile(
@@ -167,21 +167,21 @@ struct StatusMenuPrimaryView: View {
                 .padding(.bottom, 10)
             MenuDivider()
             if model.canShowHiddenIcons {
-                MenuActionRow(icon: "eye", label: "Show Hidden Icons") {
+                MenuActionRow(icon: "eye", label: String(localized: "Show Hidden Icons")) {
                     model.showHiddenIcons()
                 }
             }
-            MenuActionRow(icon: "gearshape", label: "Settings") {
+            MenuActionRow(icon: "gearshape", label: String(localized: "Settings")) {
                 model.openSettings()
             }
-            MenuActionRow(icon: "ladybug", label: "Report a Bug…") {
+            MenuActionRow(icon: "ladybug", label: String(localized: "Report a Bug…")) {
                 model.openReportIssue()
             }
-            MenuActionRow(icon: "slider.horizontal.3", label: "App Rules") {
+            MenuActionRow(icon: "slider.horizontal.3", label: String(localized: "App Rules")) {
                 model.openAppRules()
             }
             if model.checkForUpdatesAction != nil {
-                MenuActionRow(icon: "arrow.down.circle", label: "Check for Updates...") {
+                MenuActionRow(icon: "arrow.down.circle", label: String(localized: "Check for Updates...")) {
                     model.checkForUpdates()
                 }
             }
@@ -210,11 +210,11 @@ struct StatusMenuFooterView: View {
     var body: some View {
         VStack(spacing: 0) {
             MenuDivider()
-            MenuActionRow(icon: "sparkles", label: "Omni Sponsors") {
+            MenuActionRow(icon: "sparkles", label: String(localized: "Omni Sponsors")) {
                 model.openSponsors()
             }
             MenuDivider()
-            MenuActionRow(icon: "power", label: "Quit OmniWM", isDestructive: true) {
+            MenuActionRow(icon: "power", label: String(localized: "Quit OmniWM"), isDestructive: true) {
                 model.quit()
             }
         }
@@ -227,20 +227,20 @@ struct StatusMenuAdvancedView: View {
     var body: some View {
         VStack(spacing: 0) {
             if model.ipcMenuEnabled {
-                MenuSectionLabel(text: "IPC / CLI")
+                MenuSectionLabel(text: String(localized: "IPC / CLI"))
                 MenuToggleRow(
                     icon: "point.3.connected.trianglepath.dotted",
-                    label: "Enable IPC",
+                    label: String(localized: "Enable IPC"),
                     isOn: ipcEnabled
                 )
                 cliStatusRow
                 MenuDivider()
             }
-            MenuSectionLabel(text: "SETTINGS FILE")
-            MenuActionRow(icon: "folder", label: "Reveal Settings File") {
+            MenuSectionLabel(text: String(localized: "SETTINGS FILE"))
+            MenuActionRow(icon: "folder", label: String(localized: "Reveal Settings File")) {
                 model.performSettingsFileAction(.reveal)
             }
-            MenuActionRow(icon: "pencil", label: "Edit Settings File") {
+            MenuActionRow(icon: "pencil", label: String(localized: "Edit Settings File")) {
                 model.performSettingsFileAction(.open)
             }
         }
@@ -258,15 +258,18 @@ struct StatusMenuAdvancedView: View {
         if model.cliManager != nil, let status = model.cliStatus {
             switch status {
             case .appManaged:
-                MenuActionRow(icon: "trash", label: "Remove CLI from PATH…") {
+                MenuActionRow(icon: "trash", label: String(localized: "Remove CLI from PATH…")) {
                     model.removeCLI()
                 }
             case .conflict:
-                MenuInfoRow(icon: "exclamationmark.triangle.fill", label: "CLI path is already occupied")
+                MenuInfoRow(
+                    icon: "exclamationmark.triangle.fill",
+                    label: String(localized: "CLI path is already occupied")
+                )
             case .homebrewManaged:
-                MenuInfoRow(icon: "checkmark.circle.fill", label: "CLI available via Homebrew")
+                MenuInfoRow(icon: "checkmark.circle.fill", label: String(localized: "CLI available via Homebrew"))
             case .notInstalled:
-                MenuActionRow(icon: "terminal", label: "Install CLI to PATH…") {
+                MenuActionRow(icon: "terminal", label: String(localized: "Install CLI to PATH…")) {
                     model.installCLI()
                 }
             }
@@ -280,10 +283,13 @@ struct StatusMenuDiagnosticsView: View {
     var body: some View {
         VStack(spacing: 0) {
             if model.traceCapturePhase == .idle {
-                MenuActionRow(icon: "record.circle", label: "Record a Problem") {
+                MenuActionRow(icon: "record.circle", label: String(localized: "Record a Problem")) {
                     model.toggleTraceRecording(profile: .problem)
                 }
-                MenuActionRow(icon: "gauge.with.dots.needle.67percent", label: "Measure Performance") {
+                MenuActionRow(
+                    icon: "gauge.with.dots.needle.67percent",
+                    label: String(localized: "Measure Performance")
+                ) {
                     model.toggleTraceRecording(profile: .performance)
                 }
             } else {
@@ -295,7 +301,7 @@ struct StatusMenuDiagnosticsView: View {
                 }
                 .disabled(model.traceCapturePhase == .starting || model.traceCapturePhase == .finalizing)
             }
-            MenuActionRow(icon: "stethoscope", label: "Open Troubleshooting…") {
+            MenuActionRow(icon: "stethoscope", label: String(localized: "Open Troubleshooting…")) {
                 model.openSettings(section: .diagnostics)
             }
         }
@@ -312,19 +318,25 @@ struct StatusMenuDiagnosticsView: View {
 
     private var traceLabel: String {
         switch model.traceCapturePhase {
-        case .idle: "Start Recording"
+        case .idle: String(localized: "Start Recording")
         case .starting:
-            model.traceCaptureProfile == .performance
-                ? "Starting performance capture…"
-                : "Starting diagnostics…"
+            if model.traceCaptureProfile == .performance {
+                String(localized: "Starting performance capture…")
+            } else {
+                String(localized: "Starting diagnostics…")
+            }
         case .recording:
-            model.traceCaptureProfile == .performance
-                ? "Stop & Save Performance Capture"
-                : "Stop & Save Recording"
+            if model.traceCaptureProfile == .performance {
+                String(localized: "Stop & Save Performance Capture")
+            } else {
+                String(localized: "Stop & Save Recording")
+            }
         case .finalizing:
-            model.traceCaptureProfile == .performance
-                ? "Finalizing performance capture…"
-                : "Finalizing diagnostics…"
+            if model.traceCaptureProfile == .performance {
+                String(localized: "Finalizing performance capture…")
+            } else {
+                String(localized: "Finalizing diagnostics…")
+            }
         }
     }
 }
@@ -334,13 +346,13 @@ struct StatusMenuHelpLinksView: View {
 
     var body: some View {
         VStack(spacing: 0) {
-            MenuActionRow(icon: "link", label: "GitHub", isExternal: true) {
+            MenuActionRow(icon: "link", label: String(localized: "GitHub"), isExternal: true) {
                 open("https://github.com/OmniNull/OmniWM")
             }
-            MenuActionRow(icon: "heart", label: "Sponsor on GitHub", isExternal: true) {
+            MenuActionRow(icon: "heart", label: String(localized: "Sponsor on GitHub"), isExternal: true) {
                 open("https://github.com/sponsors/BarutSRB")
             }
-            MenuActionRow(icon: "heart", label: "Sponsor on PayPal", isExternal: true) {
+            MenuActionRow(icon: "heart", label: String(localized: "Sponsor on PayPal"), isExternal: true) {
                 open("https://paypal.me/beacon2024")
             }
         }

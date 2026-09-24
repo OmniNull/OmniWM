@@ -31,8 +31,8 @@ final class OverviewWindowFacts {
         return OverviewWindowLayoutData(
             token: entry.token,
             workspaceId: entry.workspaceId,
-            title: title.isEmpty ? (appInfo?.name ?? "Window") : title,
-            appName: appInfo?.name ?? "Unknown",
+            title: title.isEmpty ? (appInfo?.name ?? String(localized: "Window")) : title,
+            appName: appInfo?.name ?? String(localized: "Unknown"),
             appIcon: appInfo?.icon,
             frame: preferredFrame ?? environment.windowFrame(entry) ?? .zero,
             isNativeFullscreen: entry.layoutReason == .nativeFullscreen,

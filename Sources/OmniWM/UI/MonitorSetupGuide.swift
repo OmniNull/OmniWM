@@ -13,10 +13,10 @@ struct MonitorSetupGuide: View {
 
         var title: String {
             switch self {
-            case .macOSArrangement: "Arrange Displays in macOS"
-            case .physicalArrangement: "Match Your Real Desk"
-            case .workspaceHomes: "Give Every Display a Workspace"
-            case .mouseWarp: "Make the Pointer Feel Natural"
+            case .macOSArrangement: String(localized: "Arrange Displays in macOS")
+            case .physicalArrangement: String(localized: "Match Your Real Desk")
+            case .workspaceHomes: String(localized: "Give Every Display a Workspace")
+            case .mouseWarp: String(localized: "Make the Pointer Feel Natural")
             }
         }
 

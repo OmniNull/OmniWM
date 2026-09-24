@@ -18,10 +18,10 @@ enum StatusMenuPage: CaseIterable, Hashable, Sendable {
 
     var title: String {
         switch self {
-        case .root: "OmniWM"
-        case .advanced: "Advanced"
-        case .diagnostics: "Diagnostics"
-        case .help: "Help & Links"
+        case .root: String(localized: "OmniWM")
+        case .advanced: String(localized: "Advanced")
+        case .diagnostics: String(localized: "Diagnostics")
+        case .help: String(localized: "Help & Links")
         }
     }
 

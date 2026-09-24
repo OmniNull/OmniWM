@@ -24,14 +24,14 @@ enum WorkspaceConfigurationDeletePolicy {
         workspaceManager: WorkspaceManager
     ) -> String {
         if settings.workspaces.configurations.count <= 1 {
-            return "OmniWM requires at least one configured workspace"
+            return String(localized: "OmniWM requires at least one configured workspace")
         }
         guard let workspaceId = workspaceManager.workspaceId(named: config.name) else {
-            return "Delete workspace"
+            return String(localized: "Delete workspace")
         }
-        return workspaceManager.entries(in: workspaceId).isEmpty ?
-            "Delete workspace" :
-            "Move or close all windows in this workspace before deleting it"
+        return workspaceManager.entries(in: workspaceId).isEmpty
+            ? String(localized: "Delete workspace")
+            : String(localized: "Move or close all windows in this workspace before deleting it")
     }
 }
 
@@ -40,9 +40,11 @@ enum WorkspaceConfigurationAddPolicy {
         WorkspaceIDPolicy.lowestUnusedRawID(in: configurations.map(\.name))
     }
 
-    static let addButtonHelp = "Add the lowest unused workspace ID"
+    static let addButtonHelp = String(localized: "Add the lowest unused workspace ID")
     static let footerText =
-        "Workspace IDs use positive numeric slots. Display Name stays editable. Direct workspace hotkeys remain limited to 1-9; add 10+ here or through IPC/CLI."
+        String(
+            localized: "Workspace IDs use positive numeric slots. Display Name stays editable. Direct workspace hotkeys remain limited to 1-9; add 10+ here or through IPC/CLI."
+        )
 }
 
 struct WorkspacesSettingsTab: View {
@@ -59,7 +61,7 @@ struct WorkspacesSettingsTab: View {
             Section("Default Layout") {
                 Picker("Layout Algorithm", selection: Bindable(settings.workspaces).defaultLayoutType) {
                     ForEach(LayoutType.allCases.filter { $0 != .defaultLayout }) { layout in
-                        Text(layout.displayName).tag(layout)
+                        Text(layout.localizedDisplayName).tag(layout)
                     }
                 }
                 .onChange(of: settings.workspaces.defaultLayoutType) { _, _ in
@@ -169,10 +171,14 @@ struct WorkspacesSettingsTab: View {
     private func deleteConfirmationMessage(for config: WorkspaceConfiguration) -> String {
         let matchingRuleCount = settings.appRules.count { $0.assignToWorkspace == config.name }
         guard matchingRuleCount > 0 else {
-            return "Delete workspace \(config.effectiveDisplayName)?"
+            return String(localized: "Delete workspace \(config.effectiveDisplayName)?")
         }
-        let ruleText = matchingRuleCount == 1 ? "1 app rule" : "\(matchingRuleCount) app rules"
-        return "Delete workspace \(config.effectiveDisplayName)? This also clears workspace assignments from \(ruleText)."
+        let ruleText = matchingRuleCount == 1
+            ? String(localized: "1 app rule")
+            : String(localized: "\(matchingRuleCount) app rules")
+        return String(
+            localized: "Delete workspace \(config.effectiveDisplayName)? This also clears workspace assignments from \(ruleText)."
+        )
     }
 
     private func canDeleteConfiguration(_ config: WorkspaceConfiguration) -> Bool {
@@ -248,7 +254,7 @@ struct WorkspaceConfigurationRow: View {
             Divider()
                 .frame(height: 24)
 
-            Text(configuration.layoutType.displayName)
+            Text(configuration.layoutType.localizedDisplayName)
                 .font(.caption)
                 .padding(.horizontal, 6)
                 .padding(.vertical, 2)
@@ -280,16 +286,16 @@ struct WorkspaceConfigurationRow: View {
     private func monitorDisplayName(_ assignment: MonitorAssignment) -> String {
         switch assignment {
         case .main:
-            return "Main"
+            return String(localized: "Main")
         case .secondary:
-            return "Secondary"
+            return String(localized: "Secondary")
         case .tertiary:
-            return "Tertiary"
+            return String(localized: "Tertiary")
         case let .specificDisplay(output):
             if let monitor = output.resolveMonitor(in: connectedMonitors) {
                 return monitor.name
             }
-            return "\(output.name) (Disconnected)"
+            return String(localized: "\(output.name) (Disconnected)")
         }
     }
 }
@@ -317,7 +323,7 @@ struct WorkspaceEditSheet: View {
 
     var body: some View {
         VStack(spacing: 16) {
-            Text(isNew ? "Add Workspace" : "Edit Workspace")
+            Text(isNew ? String(localized: "Add Workspace") : String(localized: "Edit Workspace"))
                 .font(.headline)
 
             Form {
@@ -346,7 +352,7 @@ struct WorkspaceEditSheet: View {
 
                 Picker("Layout", selection: $configuration.layoutType) {
                     ForEach(LayoutType.allCases) { layout in
-                        Text(layout.displayName).tag(layout)
+                        Text(layout.localizedDisplayName).tag(layout)
                     }
                 }
             }
@@ -357,7 +363,7 @@ struct WorkspaceEditSheet: View {
 
                 Spacer()
 
-                Button(isNew ? "Add" : "Save") {
+                Button(isNew ? String(localized: "Add") : String(localized: "Save")) {
                     onSave(configuration)
                 }
                 .keyboardShortcut(.defaultAction)

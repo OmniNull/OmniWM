@@ -27,7 +27,9 @@ struct TrackpadGesturesSettingsPanel: View {
 
     var body: some View {
         Section("Trackpad Gestures") {
-            SettingsCaption("Choose fingers for each action. You can configure a gesture before turning it on.")
+            SettingsCaption(
+                localized: "Choose fingers for each action. You can configure a gesture before turning it on."
+            )
             ForEach(GestureAssignmentAction.allCases) { action in
                 gestureRow(action)
             }
@@ -164,23 +166,23 @@ struct TrackpadGesturesSettingsPanel: View {
                 set: { submit(.workspaces, .workspaceAxis($0)) }
             )) {
                 ForEach(WorkspaceSwipeAxis.allCases) { axis in
-                    Text(axis.displayName).tag(axis)
+                    Text(axis.localizedDisplayName).tag(axis)
                 }
             }
             SettingsCaption(
-                "When sharing fingers with column scrolling in Niri, workspace swipes use the perpendicular direction on each display. The selected axis applies without column scrolling."
+                localized: "When sharing fingers with column scrolling in Niri, workspace swipes use the perpendicular direction on each display. The selected axis applies without column scrolling."
             )
         case .overview:
             SettingsCaption(
-                "Swipe up to open and down to close. Thumbnails follow your fingers; move past halfway or flick to commit. Lift all fingers between gestures."
+                localized: "Swipe up to open and down to close. Thumbnails follow your fingers; move past halfway or flick to commit. Lift all fingers between gestures."
             )
         case .move:
             SettingsCaption(
-                "Point at a tiled window and drag without clicking. Drop over another window to swap. Movement stays on the starting display; lift your fingers to drop."
+                localized: "Point at a tiled window and drag without clicking. Drop over another window to swap. Movement stays on the starting display; lift your fingers to drop."
             )
         case .resize:
             SettingsCaption(
-                "Point at a tiled window and drag without clicking. Resize pulls the nearest movable edges. Lift your fingers to finish."
+                localized: "Point at a tiled window and drag without clicking. Resize pulls the nearest movable edges. Lift your fingers to finish."
             )
         }
     }
@@ -188,27 +190,29 @@ struct TrackpadGesturesSettingsPanel: View {
     private var columnDetails: some View {
         Group {
             SettingsSliderRow(
-                label: "Scroll sensitivity",
+                label: String(localized: "Scroll sensitivity"),
                 value: Bindable(settings.gestures).scrollSensitivity,
                 range: 0.1 ... 100.0,
                 step: 0.1,
-                valueText: String(format: "%.1f", settings.gestures.scrollSensitivity) + "x"
+                valueText: String(
+                    localized: "\(settings.gestures.scrollSensitivity.formatted(.number.precision(.fractionLength(1))))x"
+                )
             )
             Picker("Trackpad scroll style", selection: Bindable(settings.gestures).trackpadScrollStyle) {
                 ForEach(TrackpadScrollStyle.allCases) { style in
-                    Text(style.displayName).tag(style)
+                    Text(style.localizedDisplayName).tag(style)
                 }
             }
             SettingsCaption(settings.gestures.trackpadScrollStyle == .momentum
-                ? "Free inertial scrolling with rubber-band edges."
-                : "Scroll snaps to the nearest column.")
+                ? String(localized: "Free inertial scrolling with rubber-band edges.")
+                : String(localized: "Scroll snaps to the nearest column."))
             Picker("Mouse scroll modifier", selection: Bindable(settings.gestures).scrollModifierKey) {
                 ForEach(ScrollModifierKey.allCases, id: \.self) { key in
-                    Text(key.displayName).tag(key)
+                    Text(key.localizedDisplayName).tag(key)
                 }
             }
             SettingsCaption(
-                "Hold this modifier and scroll the mouse wheel to scroll columns. Turning off Scroll columns disables both trackpad and modified mouse-wheel column scrolling."
+                localized: "Hold this modifier and scroll the mouse wheel to scroll columns. Turning off Scroll columns disables both trackpad and modified mouse-wheel column scrolling."
             )
         }
     }
@@ -216,34 +220,40 @@ struct TrackpadGesturesSettingsPanel: View {
     private var sharedControls: some View {
         Section("Shared Gesture Controls") {
             SettingsSliderRow(
-                label: "Move & resize sensitivity",
+                label: String(localized: "Move & resize sensitivity"),
                 value: Bindable(settings.gestures).windowGestureSensitivity,
                 range: GestureSettings.windowGestureSensitivityRange,
                 step: 0.1,
-                valueText: String(format: "%.1f", settings.gestures.windowGestureSensitivity) + "x"
+                valueText: String(
+                    localized: "\(settings.gestures.windowGestureSensitivity.formatted(.number.precision(.fractionLength(1))))x"
+                )
             )
-            SettingsCaption("At 1.0x, sweeping the whole trackpad travels across the whole screen.")
+            SettingsCaption(localized: "At 1.0x, sweeping the whole trackpad travels across the whole screen.")
             Toggle("Invert Direction (Natural)", isOn: Bindable(settings.gestures).invertDirection)
             SettingsCaption(settings.gestures.invertDirection
-                ? "Affects column scrolling and workspace swipes. Swipe right = scroll right."
-                : "Affects column scrolling and workspace swipes. Swipe right = scroll left.")
+                ? String(localized: "Affects column scrolling and workspace swipes. Swipe right = scroll right.")
+                : String(localized: "Affects column scrolling and workspace swipes. Swipe right = scroll left."))
         }
     }
 
     private func description(for action: GestureAssignmentAction) -> String {
         switch action {
         case .columns:
-            "Scroll along the Niri layout direction. Also enables modified mouse-wheel scrolling."
+            String(localized: "Scroll along the Niri layout direction. Also enables modified mouse-wheel scrolling.")
         case .workspaces:
-            settings.gestures.workspaceSwipeAxisLockedToVertical
-                ? "Switch workspaces under the pointer; perpendicular to column scrolling in Niri."
-                : "Switch workspaces under the pointer with \(settings.gestures.workspaceSwipeAxis.rawValue) swipes."
+            if settings.gestures.workspaceSwipeAxisLockedToVertical {
+                String(localized: "Switch workspaces under the pointer; perpendicular to column scrolling in Niri.")
+            } else {
+                String(
+                    localized: "Switch workspaces under the pointer with \(settings.gestures.workspaceSwipeAxis.localizedSwipePhrase)."
+                )
+            }
         case .overview:
-            "Swipe up to open Overview and down to close it."
+            String(localized: "Swipe up to open Overview and down to close it.")
         case .move:
-            "Drag without clicking to swap tiled windows on the same display."
+            String(localized: "Drag without clicking to swap tiled windows on the same display.")
         case .resize:
-            "Drag without clicking to resize the nearest movable window edges."
+            String(localized: "Drag without clicking to resize the nearest movable window edges.")
         }
     }
 

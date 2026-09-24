@@ -17,9 +17,9 @@ enum MemoryPressureLevel: Equatable, Sendable {
 
     var displayName: String {
         switch self {
-        case .normal: "Normal"
-        case .warning: "Warning"
-        case .critical: "Critical"
+        case .normal: String(localized: "Normal")
+        case .warning: String(localized: "Warning")
+        case .critical: String(localized: "Critical")
         }
     }
 }

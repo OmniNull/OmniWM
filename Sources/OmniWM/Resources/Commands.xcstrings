@@ -1,0 +1,1304 @@
+{
+  "sourceLanguage" : "en",
+  "strings" : {
+    "command.category.column" : {
+      "extractionState" : "extracted_with_value",
+      "localizations" : {
+        "en" : {
+          "stringUnit" : {
+            "state" : "new",
+            "value" : "Container and Column"
+          }
+        }
+      }
+    },
+    "command.category.focus" : {
+      "extractionState" : "extracted_with_value",
+      "localizations" : {
+        "en" : {
+          "stringUnit" : {
+            "state" : "new",
+            "value" : "Focus"
+          }
+        }
+      }
+    },
+    "command.category.layout" : {
+      "extractionState" : "extracted_with_value",
+      "localizations" : {
+        "en" : {
+          "stringUnit" : {
+            "state" : "new",
+            "value" : "Layout"
+          }
+        }
+      }
+    },
+    "command.category.monitor" : {
+      "extractionState" : "extracted_with_value",
+      "localizations" : {
+        "en" : {
+          "stringUnit" : {
+            "state" : "new",
+            "value" : "Monitor"
+          }
+        }
+      }
+    },
+    "command.category.move" : {
+      "extractionState" : "extracted_with_value",
+      "localizations" : {
+        "en" : {
+          "stringUnit" : {
+            "state" : "new",
+            "value" : "Move Window"
+          }
+        }
+      }
+    },
+    "command.category.workspace" : {
+      "extractionState" : "extracted_with_value",
+      "localizations" : {
+        "en" : {
+          "stringUnit" : {
+            "state" : "new",
+            "value" : "Workspace"
+          }
+        }
+      }
+    },
+    "command.column.moveToFirst" : {
+      "extractionState" : "extracted_with_value",
+      "localizations" : {
+        "en" : {
+          "stringUnit" : {
+            "state" : "new",
+            "value" : "Move Column to First"
+          }
+        }
+      }
+    },
+    "command.column.moveToIndex" : {
+      "extractionState" : "extracted_with_value",
+      "localizations" : {
+        "en" : {
+          "stringUnit" : {
+            "state" : "new",
+            "value" : "Move Column to Index %lld"
+          }
+        }
+      }
+    },
+    "command.column.moveToLast" : {
+      "extractionState" : "extracted_with_value",
+      "localizations" : {
+        "en" : {
+          "stringUnit" : {
+            "state" : "new",
+            "value" : "Move Column to Last"
+          }
+        }
+      }
+    },
+    "command.column.moveToWorkspace" : {
+      "extractionState" : "extracted_with_value",
+      "localizations" : {
+        "en" : {
+          "stringUnit" : {
+            "state" : "new",
+            "value" : "Move Column to Workspace %lld"
+          }
+        }
+      }
+    },
+    "command.column.moveToWorkspaceDown" : {
+      "extractionState" : "extracted_with_value",
+      "localizations" : {
+        "en" : {
+          "stringUnit" : {
+            "state" : "new",
+            "value" : "Move Column to Workspace Down"
+          }
+        }
+      }
+    },
+    "command.column.moveToWorkspaceUp" : {
+      "extractionState" : "extracted_with_value",
+      "localizations" : {
+        "en" : {
+          "stringUnit" : {
+            "state" : "new",
+            "value" : "Move Column to Workspace Up"
+          }
+        }
+      }
+    },
+    "command.column.toggleTabbed" : {
+      "extractionState" : "extracted_with_value",
+      "localizations" : {
+        "en" : {
+          "stringUnit" : {
+            "state" : "new",
+            "value" : "Toggle Column Tabbed"
+          }
+        }
+      }
+    },
+    "command.dwindle.clearPreselection" : {
+      "extractionState" : "extracted_with_value",
+      "localizations" : {
+        "en" : {
+          "stringUnit" : {
+            "state" : "new",
+            "value" : "Clear Preselection"
+          }
+        }
+      }
+    },
+    "command.dwindle.growFocusedWindow" : {
+      "extractionState" : "extracted_with_value",
+      "localizations" : {
+        "en" : {
+          "stringUnit" : {
+            "state" : "new",
+            "value" : "Grow Focused Window"
+          }
+        }
+      }
+    },
+    "command.dwindle.growHorizontally" : {
+      "extractionState" : "extracted_with_value",
+      "localizations" : {
+        "en" : {
+          "stringUnit" : {
+            "state" : "new",
+            "value" : "Grow Horizontally"
+          }
+        }
+      }
+    },
+    "command.dwindle.growVertically" : {
+      "extractionState" : "extracted_with_value",
+      "localizations" : {
+        "en" : {
+          "stringUnit" : {
+            "state" : "new",
+            "value" : "Grow Vertically"
+          }
+        }
+      }
+    },
+    "command.dwindle.moveToRoot" : {
+      "extractionState" : "extracted_with_value",
+      "localizations" : {
+        "en" : {
+          "stringUnit" : {
+            "state" : "new",
+            "value" : "Move to Root"
+          }
+        }
+      }
+    },
+    "command.dwindle.preselectDown" : {
+      "extractionState" : "extracted_with_value",
+      "localizations" : {
+        "en" : {
+          "stringUnit" : {
+            "state" : "new",
+            "value" : "Preselect Down"
+          }
+        }
+      }
+    },
+    "command.dwindle.preselectLeft" : {
+      "extractionState" : "extracted_with_value",
+      "localizations" : {
+        "en" : {
+          "stringUnit" : {
+            "state" : "new",
+            "value" : "Preselect Left"
+          }
+        }
+      }
+    },
+    "command.dwindle.preselectRight" : {
+      "extractionState" : "extracted_with_value",
+      "localizations" : {
+        "en" : {
+          "stringUnit" : {
+            "state" : "new",
+            "value" : "Preselect Right"
+          }
+        }
+      }
+    },
+    "command.dwindle.preselectUp" : {
+      "extractionState" : "extracted_with_value",
+      "localizations" : {
+        "en" : {
+          "stringUnit" : {
+            "state" : "new",
+            "value" : "Preselect Up"
+          }
+        }
+      }
+    },
+    "command.dwindle.shrinkFocusedWindow" : {
+      "extractionState" : "extracted_with_value",
+      "localizations" : {
+        "en" : {
+          "stringUnit" : {
+            "state" : "new",
+            "value" : "Shrink Focused Window"
+          }
+        }
+      }
+    },
+    "command.dwindle.shrinkHorizontally" : {
+      "extractionState" : "extracted_with_value",
+      "localizations" : {
+        "en" : {
+          "stringUnit" : {
+            "state" : "new",
+            "value" : "Shrink Horizontally"
+          }
+        }
+      }
+    },
+    "command.dwindle.shrinkVertically" : {
+      "extractionState" : "extracted_with_value",
+      "localizations" : {
+        "en" : {
+          "stringUnit" : {
+            "state" : "new",
+            "value" : "Shrink Vertically"
+          }
+        }
+      }
+    },
+    "command.dwindle.swapSplit" : {
+      "extractionState" : "extracted_with_value",
+      "localizations" : {
+        "en" : {
+          "stringUnit" : {
+            "state" : "new",
+            "value" : "Swap Split"
+          }
+        }
+      }
+    },
+    "command.dwindle.toggleSplit" : {
+      "extractionState" : "extracted_with_value",
+      "localizations" : {
+        "en" : {
+          "stringUnit" : {
+            "state" : "new",
+            "value" : "Toggle Split"
+          }
+        }
+      }
+    },
+    "command.floating.raiseAll" : {
+      "extractionState" : "extracted_with_value",
+      "localizations" : {
+        "en" : {
+          "stringUnit" : {
+            "state" : "new",
+            "value" : "Raise All Floating Windows"
+          }
+        }
+      }
+    },
+    "command.floating.rescueOffscreen" : {
+      "extractionState" : "extracted_with_value",
+      "localizations" : {
+        "en" : {
+          "stringUnit" : {
+            "state" : "new",
+            "value" : "Rescue Off-Screen Floating Windows"
+          }
+        }
+      }
+    },
+    "command.focus.centerColumn" : {
+      "extractionState" : "extracted_with_value",
+      "localizations" : {
+        "en" : {
+          "stringUnit" : {
+            "state" : "new",
+            "value" : "Center Column"
+          }
+        }
+      }
+    },
+    "command.focus.centerVisibleColumns" : {
+      "extractionState" : "extracted_with_value",
+      "localizations" : {
+        "en" : {
+          "stringUnit" : {
+            "state" : "new",
+            "value" : "Center Visible Columns"
+          }
+        }
+      }
+    },
+    "command.focus.column" : {
+      "extractionState" : "extracted_with_value",
+      "localizations" : {
+        "en" : {
+          "stringUnit" : {
+            "state" : "new",
+            "value" : "Focus Column %lld"
+          }
+        }
+      }
+    },
+    "command.focus.columnFirst" : {
+      "extractionState" : "extracted_with_value",
+      "localizations" : {
+        "en" : {
+          "stringUnit" : {
+            "state" : "new",
+            "value" : "Focus First Column"
+          }
+        }
+      }
+    },
+    "command.focus.columnLast" : {
+      "extractionState" : "extracted_with_value",
+      "localizations" : {
+        "en" : {
+          "stringUnit" : {
+            "state" : "new",
+            "value" : "Focus Last Column"
+          }
+        }
+      }
+    },
+    "command.focus.down" : {
+      "extractionState" : "extracted_with_value",
+      "localizations" : {
+        "en" : {
+          "stringUnit" : {
+            "state" : "new",
+            "value" : "Focus Down"
+          }
+        }
+      }
+    },
+    "command.focus.left" : {
+      "extractionState" : "extracted_with_value",
+      "localizations" : {
+        "en" : {
+          "stringUnit" : {
+            "state" : "new",
+            "value" : "Focus Left"
+          }
+        }
+      }
+    },
+    "command.focus.previous" : {
+      "extractionState" : "extracted_with_value",
+      "localizations" : {
+        "en" : {
+          "stringUnit" : {
+            "state" : "new",
+            "value" : "Focus Previous Window"
+          }
+        }
+      }
+    },
+    "command.focus.right" : {
+      "extractionState" : "extracted_with_value",
+      "localizations" : {
+        "en" : {
+          "stringUnit" : {
+            "state" : "new",
+            "value" : "Focus Right"
+          }
+        }
+      }
+    },
+    "command.focus.traverseBackward" : {
+      "extractionState" : "extracted_with_value",
+      "localizations" : {
+        "en" : {
+          "stringUnit" : {
+            "state" : "new",
+            "value" : "Traverse Backward"
+          }
+        }
+      }
+    },
+    "command.focus.traverseForward" : {
+      "extractionState" : "extracted_with_value",
+      "localizations" : {
+        "en" : {
+          "stringUnit" : {
+            "state" : "new",
+            "value" : "Traverse Forward"
+          }
+        }
+      }
+    },
+    "command.focus.up" : {
+      "extractionState" : "extracted_with_value",
+      "localizations" : {
+        "en" : {
+          "stringUnit" : {
+            "state" : "new",
+            "value" : "Focus Up"
+          }
+        }
+      }
+    },
+    "command.focus.windowBottom" : {
+      "extractionState" : "extracted_with_value",
+      "localizations" : {
+        "en" : {
+          "stringUnit" : {
+            "state" : "new",
+            "value" : "Focus Bottom Window"
+          }
+        }
+      }
+    },
+    "command.focus.windowDownOrTop" : {
+      "extractionState" : "extracted_with_value",
+      "localizations" : {
+        "en" : {
+          "stringUnit" : {
+            "state" : "new",
+            "value" : "Focus Down or Top"
+          }
+        }
+      }
+    },
+    "command.focus.windowInColumn" : {
+      "extractionState" : "extracted_with_value",
+      "localizations" : {
+        "en" : {
+          "stringUnit" : {
+            "state" : "new",
+            "value" : "Focus Window %lld in Column"
+          }
+        }
+      }
+    },
+    "command.focus.windowOrWorkspaceDown" : {
+      "extractionState" : "extracted_with_value",
+      "localizations" : {
+        "en" : {
+          "stringUnit" : {
+            "state" : "new",
+            "value" : "Focus Window or Workspace Down"
+          }
+        }
+      }
+    },
+    "command.focus.windowOrWorkspaceUp" : {
+      "extractionState" : "extracted_with_value",
+      "localizations" : {
+        "en" : {
+          "stringUnit" : {
+            "state" : "new",
+            "value" : "Focus Window or Workspace Up"
+          }
+        }
+      }
+    },
+    "command.focus.windowTop" : {
+      "extractionState" : "extracted_with_value",
+      "localizations" : {
+        "en" : {
+          "stringUnit" : {
+            "state" : "new",
+            "value" : "Focus Top Window"
+          }
+        }
+      }
+    },
+    "command.focus.windowUpOrBottom" : {
+      "extractionState" : "extracted_with_value",
+      "localizations" : {
+        "en" : {
+          "stringUnit" : {
+            "state" : "new",
+            "value" : "Focus Up or Bottom"
+          }
+        }
+      }
+    },
+    "command.fullscreen.toggle" : {
+      "extractionState" : "extracted_with_value",
+      "localizations" : {
+        "en" : {
+          "stringUnit" : {
+            "state" : "new",
+            "value" : "Toggle Fullscreen"
+          }
+        }
+      }
+    },
+    "command.fullscreen.toggleNative" : {
+      "extractionState" : "extracted_with_value",
+      "localizations" : {
+        "en" : {
+          "stringUnit" : {
+            "state" : "new",
+            "value" : "Toggle Native Fullscreen"
+          }
+        }
+      }
+    },
+    "command.menu.openAnywhere" : {
+      "extractionState" : "extracted_with_value",
+      "localizations" : {
+        "en" : {
+          "stringUnit" : {
+            "state" : "new",
+            "value" : "Open Menu Anywhere"
+          }
+        }
+      }
+    },
+    "command.monitor.last" : {
+      "extractionState" : "extracted_with_value",
+      "localizations" : {
+        "en" : {
+          "stringUnit" : {
+            "state" : "new",
+            "value" : "Focus Last Monitor"
+          }
+        }
+      }
+    },
+    "command.monitor.next" : {
+      "extractionState" : "extracted_with_value",
+      "localizations" : {
+        "en" : {
+          "stringUnit" : {
+            "state" : "new",
+            "value" : "Focus Next Monitor"
+          }
+        }
+      }
+    },
+    "command.monitor.previous" : {
+      "extractionState" : "extracted_with_value",
+      "localizations" : {
+        "en" : {
+          "stringUnit" : {
+            "state" : "new",
+            "value" : "Focus Previous Monitor"
+          }
+        }
+      }
+    },
+    "command.move.down" : {
+      "extractionState" : "extracted_with_value",
+      "localizations" : {
+        "en" : {
+          "stringUnit" : {
+            "state" : "new",
+            "value" : "Move Down"
+          }
+        }
+      }
+    },
+    "command.move.left" : {
+      "extractionState" : "extracted_with_value",
+      "localizations" : {
+        "en" : {
+          "stringUnit" : {
+            "state" : "new",
+            "value" : "Move Left"
+          }
+        }
+      }
+    },
+    "command.move.right" : {
+      "extractionState" : "extracted_with_value",
+      "localizations" : {
+        "en" : {
+          "stringUnit" : {
+            "state" : "new",
+            "value" : "Move Right"
+          }
+        }
+      }
+    },
+    "command.move.up" : {
+      "extractionState" : "extracted_with_value",
+      "localizations" : {
+        "en" : {
+          "stringUnit" : {
+            "state" : "new",
+            "value" : "Move Up"
+          }
+        }
+      }
+    },
+    "command.moveContainer.down" : {
+      "extractionState" : "extracted_with_value",
+      "localizations" : {
+        "en" : {
+          "stringUnit" : {
+            "state" : "new",
+            "value" : "Move Container Down"
+          }
+        }
+      }
+    },
+    "command.moveContainer.left" : {
+      "extractionState" : "extracted_with_value",
+      "localizations" : {
+        "en" : {
+          "stringUnit" : {
+            "state" : "new",
+            "value" : "Move Container Left"
+          }
+        }
+      }
+    },
+    "command.moveContainer.right" : {
+      "extractionState" : "extracted_with_value",
+      "localizations" : {
+        "en" : {
+          "stringUnit" : {
+            "state" : "new",
+            "value" : "Move Container Right"
+          }
+        }
+      }
+    },
+    "command.moveContainer.up" : {
+      "extractionState" : "extracted_with_value",
+      "localizations" : {
+        "en" : {
+          "stringUnit" : {
+            "state" : "new",
+            "value" : "Move Container Up"
+          }
+        }
+      }
+    },
+    "command.palette.toggle" : {
+      "extractionState" : "extracted_with_value",
+      "localizations" : {
+        "en" : {
+          "stringUnit" : {
+            "state" : "new",
+            "value" : "Toggle Command Palette"
+          }
+        }
+      }
+    },
+    "command.presentation.hiddenBar" : {
+      "extractionState" : "extracted_with_value",
+      "localizations" : {
+        "en" : {
+          "stringUnit" : {
+            "state" : "new",
+            "value" : "Toggle Hidden Icons Bar"
+          }
+        }
+      }
+    },
+    "command.presentation.overview" : {
+      "extractionState" : "extracted_with_value",
+      "localizations" : {
+        "en" : {
+          "stringUnit" : {
+            "state" : "new",
+            "value" : "Toggle Overview"
+          }
+        }
+      }
+    },
+    "command.presentation.quakeTerminal" : {
+      "extractionState" : "extracted_with_value",
+      "localizations" : {
+        "en" : {
+          "stringUnit" : {
+            "state" : "new",
+            "value" : "Toggle Quake Terminal"
+          }
+        }
+      }
+    },
+    "command.presentation.systemStats" : {
+      "extractionState" : "extracted_with_value",
+      "localizations" : {
+        "en" : {
+          "stringUnit" : {
+            "state" : "new",
+            "value" : "Toggle System Stats"
+          }
+        }
+      }
+    },
+    "command.presentation.workspaceBar" : {
+      "extractionState" : "extracted_with_value",
+      "localizations" : {
+        "en" : {
+          "stringUnit" : {
+            "state" : "new",
+            "value" : "Toggle Workspace Bar"
+          }
+        }
+      }
+    },
+    "command.scope.dwindle" : {
+      "extractionState" : "extracted_with_value",
+      "localizations" : {
+        "en" : {
+          "stringUnit" : {
+            "state" : "new",
+            "value" : "Dwindle"
+          }
+        }
+      }
+    },
+    "command.scope.niri" : {
+      "extractionState" : "extracted_with_value",
+      "localizations" : {
+        "en" : {
+          "stringUnit" : {
+            "state" : "new",
+            "value" : "Niri"
+          }
+        }
+      }
+    },
+    "command.scope.shared" : {
+      "extractionState" : "extracted_with_value",
+      "localizations" : {
+        "en" : {
+          "stringUnit" : {
+            "state" : "new",
+            "value" : "Shared"
+          }
+        }
+      }
+    },
+    "command.scratchpad.assign" : {
+      "extractionState" : "extracted_with_value",
+      "localizations" : {
+        "en" : {
+          "stringUnit" : {
+            "state" : "new",
+            "value" : "Assign Focused Window to Scratchpad %lld"
+          }
+        }
+      }
+    },
+    "command.scratchpad.toggle" : {
+      "extractionState" : "extracted_with_value",
+      "localizations" : {
+        "en" : {
+          "stringUnit" : {
+            "state" : "new",
+            "value" : "Toggle Scratchpad %lld"
+          }
+        }
+      }
+    },
+    "command.sizing.balance" : {
+      "extractionState" : "extracted_with_value",
+      "localizations" : {
+        "en" : {
+          "stringUnit" : {
+            "state" : "new",
+            "value" : "Balance Sizes"
+          }
+        }
+      }
+    },
+    "command.sizing.cycleBackward" : {
+      "extractionState" : "extracted_with_value",
+      "localizations" : {
+        "en" : {
+          "stringUnit" : {
+            "state" : "new",
+            "value" : "Cycle Size Backward"
+          }
+        }
+      }
+    },
+    "command.sizing.cycleForward" : {
+      "extractionState" : "extracted_with_value",
+      "localizations" : {
+        "en" : {
+          "stringUnit" : {
+            "state" : "new",
+            "value" : "Cycle Size Forward"
+          }
+        }
+      }
+    },
+    "command.sizing.cycleWindowPrimaryBackward" : {
+      "extractionState" : "extracted_with_value",
+      "localizations" : {
+        "en" : {
+          "stringUnit" : {
+            "state" : "new",
+            "value" : "Cycle Window Primary Span Backward"
+          }
+        }
+      }
+    },
+    "command.sizing.cycleWindowPrimaryForward" : {
+      "extractionState" : "extracted_with_value",
+      "localizations" : {
+        "en" : {
+          "stringUnit" : {
+            "state" : "new",
+            "value" : "Cycle Window Primary Span Forward"
+          }
+        }
+      }
+    },
+    "command.sizing.cycleWindowSecondaryBackward" : {
+      "extractionState" : "extracted_with_value",
+      "localizations" : {
+        "en" : {
+          "stringUnit" : {
+            "state" : "new",
+            "value" : "Cycle Window Secondary Span Backward"
+          }
+        }
+      }
+    },
+    "command.sizing.cycleWindowSecondaryForward" : {
+      "extractionState" : "extracted_with_value",
+      "localizations" : {
+        "en" : {
+          "stringUnit" : {
+            "state" : "new",
+            "value" : "Cycle Window Secondary Span Forward"
+          }
+        }
+      }
+    },
+    "command.sizing.expandContainerPrimary" : {
+      "extractionState" : "extracted_with_value",
+      "localizations" : {
+        "en" : {
+          "stringUnit" : {
+            "state" : "new",
+            "value" : "Expand Container to Available Primary Span"
+          }
+        }
+      }
+    },
+    "command.sizing.resetWindowSecondary" : {
+      "extractionState" : "extracted_with_value",
+      "localizations" : {
+        "en" : {
+          "stringUnit" : {
+            "state" : "new",
+            "value" : "Reset Window Secondary Span"
+          }
+        }
+      }
+    },
+    "command.sizing.setContainerPrimary" : {
+      "extractionState" : "extracted_with_value",
+      "localizations" : {
+        "en" : {
+          "stringUnit" : {
+            "state" : "new",
+            "value" : "Set Container Primary Span %@"
+          }
+        }
+      }
+    },
+    "command.sizing.setWindowPrimary" : {
+      "extractionState" : "extracted_with_value",
+      "localizations" : {
+        "en" : {
+          "stringUnit" : {
+            "state" : "new",
+            "value" : "Set Window Primary Span %@"
+          }
+        }
+      }
+    },
+    "command.sizing.setWindowSecondary" : {
+      "extractionState" : "extracted_with_value",
+      "localizations" : {
+        "en" : {
+          "stringUnit" : {
+            "state" : "new",
+            "value" : "Set Window Secondary Span %@"
+          }
+        }
+      }
+    },
+    "command.sizing.toggleContainerFullPrimary" : {
+      "extractionState" : "extracted_with_value",
+      "localizations" : {
+        "en" : {
+          "stringUnit" : {
+            "state" : "new",
+            "value" : "Toggle Container Full Primary Span"
+          }
+        }
+      }
+    },
+    "command.window.consumeIntoColumn" : {
+      "extractionState" : "extracted_with_value",
+      "localizations" : {
+        "en" : {
+          "stringUnit" : {
+            "state" : "new",
+            "value" : "Consume Window into Column"
+          }
+        }
+      }
+    },
+    "command.window.consumeOrExpelLeft" : {
+      "extractionState" : "extracted_with_value",
+      "localizations" : {
+        "en" : {
+          "stringUnit" : {
+            "state" : "new",
+            "value" : "Consume or Expel Window Left"
+          }
+        }
+      }
+    },
+    "command.window.consumeOrExpelRight" : {
+      "extractionState" : "extracted_with_value",
+      "localizations" : {
+        "en" : {
+          "stringUnit" : {
+            "state" : "new",
+            "value" : "Consume or Expel Window Right"
+          }
+        }
+      }
+    },
+    "command.window.downOrWorkspaceDown" : {
+      "extractionState" : "extracted_with_value",
+      "localizations" : {
+        "en" : {
+          "stringUnit" : {
+            "state" : "new",
+            "value" : "Move Window Down or to Workspace Down"
+          }
+        }
+      }
+    },
+    "command.window.expelFromColumn" : {
+      "extractionState" : "extracted_with_value",
+      "localizations" : {
+        "en" : {
+          "stringUnit" : {
+            "state" : "new",
+            "value" : "Expel Window from Column"
+          }
+        }
+      }
+    },
+    "command.window.reorderDown" : {
+      "extractionState" : "extracted_with_value",
+      "localizations" : {
+        "en" : {
+          "stringUnit" : {
+            "state" : "new",
+            "value" : "Reorder Window Down"
+          }
+        }
+      }
+    },
+    "command.window.reorderUp" : {
+      "extractionState" : "extracted_with_value",
+      "localizations" : {
+        "en" : {
+          "stringUnit" : {
+            "state" : "new",
+            "value" : "Reorder Window Up"
+          }
+        }
+      }
+    },
+    "command.window.upOrWorkspaceUp" : {
+      "extractionState" : "extracted_with_value",
+      "localizations" : {
+        "en" : {
+          "stringUnit" : {
+            "state" : "new",
+            "value" : "Move Window Up or to Workspace Up"
+          }
+        }
+      }
+    },
+    "command.windowState.close" : {
+      "extractionState" : "extracted_with_value",
+      "localizations" : {
+        "en" : {
+          "stringUnit" : {
+            "state" : "new",
+            "value" : "Close Focused Window"
+          }
+        }
+      }
+    },
+    "command.windowState.toggleFloating" : {
+      "extractionState" : "extracted_with_value",
+      "localizations" : {
+        "en" : {
+          "stringUnit" : {
+            "state" : "new",
+            "value" : "Toggle Focused Window Floating"
+          }
+        }
+      }
+    },
+    "command.workspace.backAndForth" : {
+      "extractionState" : "extracted_with_value",
+      "localizations" : {
+        "en" : {
+          "stringUnit" : {
+            "state" : "new",
+            "value" : "Switch to Last Active Workspace"
+          }
+        }
+      }
+    },
+    "command.workspace.moveTo" : {
+      "extractionState" : "extracted_with_value",
+      "localizations" : {
+        "en" : {
+          "stringUnit" : {
+            "state" : "new",
+            "value" : "Move to Workspace %lld"
+          }
+        }
+      }
+    },
+    "command.workspace.moveToMonitor.down" : {
+      "extractionState" : "extracted_with_value",
+      "localizations" : {
+        "en" : {
+          "stringUnit" : {
+            "state" : "new",
+            "value" : "Move Workspace to Down Monitor"
+          }
+        }
+      }
+    },
+    "command.workspace.moveToMonitor.left" : {
+      "extractionState" : "extracted_with_value",
+      "localizations" : {
+        "en" : {
+          "stringUnit" : {
+            "state" : "new",
+            "value" : "Move Workspace to Left Monitor"
+          }
+        }
+      }
+    },
+    "command.workspace.moveToMonitor.right" : {
+      "extractionState" : "extracted_with_value",
+      "localizations" : {
+        "en" : {
+          "stringUnit" : {
+            "state" : "new",
+            "value" : "Move Workspace to Right Monitor"
+          }
+        }
+      }
+    },
+    "command.workspace.moveToMonitor.up" : {
+      "extractionState" : "extracted_with_value",
+      "localizations" : {
+        "en" : {
+          "stringUnit" : {
+            "state" : "new",
+            "value" : "Move Workspace to Up Monitor"
+          }
+        }
+      }
+    },
+    "command.workspace.moveToSlot" : {
+      "extractionState" : "extracted_with_value",
+      "localizations" : {
+        "en" : {
+          "stringUnit" : {
+            "state" : "new",
+            "value" : "Move to Workspace Slot %lld"
+          }
+        }
+      }
+    },
+    "command.workspace.moveWindowDown" : {
+      "extractionState" : "extracted_with_value",
+      "localizations" : {
+        "en" : {
+          "stringUnit" : {
+            "state" : "new",
+            "value" : "Move Window to Workspace Down"
+          }
+        }
+      }
+    },
+    "command.workspace.moveWindowToMonitor.down" : {
+      "extractionState" : "extracted_with_value",
+      "localizations" : {
+        "en" : {
+          "stringUnit" : {
+            "state" : "new",
+            "value" : "Move Window to Down Monitor"
+          }
+        }
+      }
+    },
+    "command.workspace.moveWindowToMonitor.left" : {
+      "extractionState" : "extracted_with_value",
+      "localizations" : {
+        "en" : {
+          "stringUnit" : {
+            "state" : "new",
+            "value" : "Move Window to Left Monitor"
+          }
+        }
+      }
+    },
+    "command.workspace.moveWindowToMonitor.right" : {
+      "extractionState" : "extracted_with_value",
+      "localizations" : {
+        "en" : {
+          "stringUnit" : {
+            "state" : "new",
+            "value" : "Move Window to Right Monitor"
+          }
+        }
+      }
+    },
+    "command.workspace.moveWindowToMonitor.up" : {
+      "extractionState" : "extracted_with_value",
+      "localizations" : {
+        "en" : {
+          "stringUnit" : {
+            "state" : "new",
+            "value" : "Move Window to Up Monitor"
+          }
+        }
+      }
+    },
+    "command.workspace.moveWindowUp" : {
+      "extractionState" : "extracted_with_value",
+      "localizations" : {
+        "en" : {
+          "stringUnit" : {
+            "state" : "new",
+            "value" : "Move Window to Workspace Up"
+          }
+        }
+      }
+    },
+    "command.workspace.next" : {
+      "extractionState" : "extracted_with_value",
+      "localizations" : {
+        "en" : {
+          "stringUnit" : {
+            "state" : "new",
+            "value" : "Switch to Next Workspace"
+          }
+        }
+      }
+    },
+    "command.workspace.previous" : {
+      "extractionState" : "extracted_with_value",
+      "localizations" : {
+        "en" : {
+          "stringUnit" : {
+            "state" : "new",
+            "value" : "Switch to Previous Workspace"
+          }
+        }
+      }
+    },
+    "command.workspace.swapWithMonitor.down" : {
+      "extractionState" : "extracted_with_value",
+      "localizations" : {
+        "en" : {
+          "stringUnit" : {
+            "state" : "new",
+            "value" : "Swap Workspace with Down Monitor"
+          }
+        }
+      }
+    },
+    "command.workspace.swapWithMonitor.left" : {
+      "extractionState" : "extracted_with_value",
+      "localizations" : {
+        "en" : {
+          "stringUnit" : {
+            "state" : "new",
+            "value" : "Swap Workspace with Left Monitor"
+          }
+        }
+      }
+    },
+    "command.workspace.swapWithMonitor.right" : {
+      "extractionState" : "extracted_with_value",
+      "localizations" : {
+        "en" : {
+          "stringUnit" : {
+            "state" : "new",
+            "value" : "Swap Workspace with Right Monitor"
+          }
+        }
+      }
+    },
+    "command.workspace.swapWithMonitor.up" : {
+      "extractionState" : "extracted_with_value",
+      "localizations" : {
+        "en" : {
+          "stringUnit" : {
+            "state" : "new",
+            "value" : "Swap Workspace with Up Monitor"
+          }
+        }
+      }
+    },
+    "command.workspace.switchSlot" : {
+      "extractionState" : "extracted_with_value",
+      "localizations" : {
+        "en" : {
+          "stringUnit" : {
+            "state" : "new",
+            "value" : "Switch to Workspace Slot %lld"
+          }
+        }
+      }
+    },
+    "command.workspace.switchTo" : {
+      "extractionState" : "extracted_with_value",
+      "localizations" : {
+        "en" : {
+          "stringUnit" : {
+            "state" : "new",
+            "value" : "Switch to Workspace %lld"
+          }
+        }
+      }
+    },
+    "command.workspace.toggleLayout" : {
+      "extractionState" : "extracted_with_value",
+      "localizations" : {
+        "en" : {
+          "stringUnit" : {
+            "state" : "new",
+            "value" : "Toggle Workspace Layout"
+          }
+        }
+      }
+    }
+  },
+  "version" : "1.0"
+}

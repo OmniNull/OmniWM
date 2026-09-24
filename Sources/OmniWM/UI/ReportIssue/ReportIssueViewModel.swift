@@ -129,11 +129,10 @@ final class ReportIssueViewModel {
     }
 
     var submitRequirementHint: String? {
-        guard phase == .editing, !canSubmit else { return nil }
-        var missing: [String] = []
-        if isTitleEmpty { missing.append("a title") }
-        if isActualEmpty { missing.append("what happened") }
-        return missing.isEmpty ? nil : "Add \(missing.joined(separator: " and ")) to submit."
+        guard phase == .editing, !canSubmit, isTitleEmpty || isActualEmpty else { return nil }
+        guard isTitleEmpty else { return String(localized: "Add what happened to submit.") }
+        guard isActualEmpty else { return String(localized: "Add a title to submit.") }
+        return String(localized: "Add a title and what happened to submit.")
     }
 
     var submissionBody: String {
@@ -193,7 +192,9 @@ final class ReportIssueViewModel {
             guard phase == .submitting else { return }
             lastAttachment = result.url
             if evidence != nil, !result.includedEvidence {
-                lastAttachmentWarning = "The selected evidence was unavailable, so the log contains a fresh snapshot only."
+                lastAttachmentWarning = String(
+                    localized: "The selected evidence was unavailable, so the log contains a fresh snapshot only."
+                )
             }
             revealInFinder(result.url)
         } catch {
@@ -229,8 +230,7 @@ final class ReportIssueViewModel {
         else { return }
         title = "Crash: \(report.reason)"
         category = .crash
-        actual = "OmniWM recovered from a crash (log: \(report.url.lastPathComponent)).\n\n"
-            + "Reason: \(report.reason)"
+        actual = "OmniWM recovered from a crash (log: \(report.url.lastPathComponent)).\n\nReason: \(report.reason)"
         selectEvidence(evidence)
     }
 

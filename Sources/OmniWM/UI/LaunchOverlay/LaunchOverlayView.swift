@@ -27,8 +27,12 @@ struct LaunchTextChoreography {
         }
     }
 
-    static let prefix = "Do what you love"
-    static let words = ["easier.", "faster.", "better."]
+    static let prefix = String(localized: "Do what you love")
+    static let words = [
+        String(localized: "easier."),
+        String(localized: "faster."),
+        String(localized: "better.")
+    ]
     static let totalDuration: CFTimeInterval = 3.6
     static let wordmarkWriteWindow: ClosedRange<CFTimeInterval> = 0.18 ... 1.60
     static let taglineEntryWindow: ClosedRange<CFTimeInterval> = 0.90 ... 1.20

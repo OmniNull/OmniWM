@@ -37,7 +37,7 @@ enum WorkspaceBarIconOverrideSource: Equatable {
         case let .file(path):
             path
         case let .bundleResource(name):
-            "App-provided: \(name)"
+            String(localized: "App-provided: \(name)")
         }
     }
 }

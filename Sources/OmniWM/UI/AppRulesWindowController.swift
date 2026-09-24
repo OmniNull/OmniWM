@@ -13,7 +13,7 @@ final class AppRulesWindowController: NSObject, NSWindowDelegate {
 
     func show(settings: SettingsStore, controller: WMController) {
         presenter.present(
-            title: "App Rules",
+            title: String(localized: "App Rules"),
             styleMask: [.titled, .closable, .miniaturizable, .resizable, .fullSizeContentView],
             contentSize: NSSize(width: 1140, height: 870),
             minSize: NSSize(width: 880, height: 680),
@@ -34,10 +34,12 @@ final class AppRulesWindowController: NSObject, NSWindowDelegate {
     func windowShouldClose(_ sender: NSWindow) -> Bool {
         guard editorState.isDirty else { return true }
         let alert = NSAlert()
-        alert.messageText = "Discard unsaved changes?"
-        alert.informativeText = "You have unsaved changes to this app rule. Closing the window will discard them."
-        alert.addButton(withTitle: "Discard")
-        alert.addButton(withTitle: "Cancel")
+        alert.messageText = String(localized: "Discard unsaved changes?")
+        alert
+            .informativeText =
+            String(localized: "You have unsaved changes to this app rule. Closing the window will discard them.")
+        alert.addButton(withTitle: String(localized: "Discard"))
+        alert.addButton(withTitle: String(localized: "Cancel"))
         if alert.runModal() == .alertFirstButtonReturn {
             editorState.isDirty = false
             return true

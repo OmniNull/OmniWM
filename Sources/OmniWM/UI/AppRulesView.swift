@@ -247,34 +247,46 @@ struct AppRuleSidebarRow: View {
     @ViewBuilder private var badges: some View {
         switch rule.effectiveLayoutAction {
         case .float:
-            RuleBadge(text: "Float", color: .blue, accessibilityLabel: "Floating")
+            RuleBadge(text: String(localized: "Float"), color: .blue, accessibilityLabel: String(localized: "Floating"))
         case .tile:
-            RuleBadge(text: "Tile", color: .teal, accessibilityLabel: "Tiled")
+            RuleBadge(text: String(localized: "Tile"), color: .teal, accessibilityLabel: String(localized: "Tiled"))
         case .auto:
             EmptyView()
         }
         if let workspace = rule.assignToWorkspace {
-            RuleBadge(text: "WS", color: .green, accessibilityLabel: "Assigned to workspace \(workspace)")
+            RuleBadge(
+                text: String(localized: "WS"),
+                color: .green,
+                accessibilityLabel: String(localized: "Assigned to workspace \(workspace)")
+            )
         }
         if let width = rule.validInitialContainerPrimarySpan {
             let percent = AppRulePrimarySpanPercent.displayText(for: width)
             RuleBadge(
-                text: "Primary \(percent)%",
+                text: String(localized: "Primary \(percent)%"),
                 color: .indigo,
-                accessibilityLabel: "Initial Niri container primary span \(percent) percent"
+                accessibilityLabel: String(localized: "Initial Niri container primary span \(percent) percent")
             )
         } else if rule.initialContainerPrimarySpan != nil {
             RuleBadge(
-                text: "Primary invalid",
+                text: String(localized: "Primary invalid"),
                 color: .red,
-                accessibilityLabel: "Invalid initial Niri container primary span"
+                accessibilityLabel: String(localized: "Invalid initial Niri container primary span")
             )
         }
         if rule.minWidth != nil || rule.minHeight != nil {
-            RuleBadge(text: "Size", color: .orange, accessibilityLabel: "Minimum size set")
+            RuleBadge(
+                text: String(localized: "Size"),
+                color: .orange,
+                accessibilityLabel: String(localized: "Minimum size set")
+            )
         }
         if rule.hasAdvancedMatchers {
-            RuleBadge(text: "Advanced", color: .purple, accessibilityLabel: "Advanced matchers")
+            RuleBadge(
+                text: String(localized: "Advanced"),
+                color: .purple,
+                accessibilityLabel: String(localized: "Advanced matchers")
+            )
         }
     }
 }

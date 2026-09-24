@@ -62,10 +62,15 @@ struct MonitorSettingsTab: View {
 
     private var routingNeighborPreview: [(direction: String, name: String)] {
         guard let monitor = selectedConnectedMonitor else { return [] }
-        let directions: [(String, Direction)] = [("Left", .left), ("Right", .right), ("Up", .up), ("Down", .down)]
+        let directions: [(String, Direction)] = [
+            (String(localized: "Left"), .left),
+            (String(localized: "Right"), .right),
+            (String(localized: "Up"), .up),
+            (String(localized: "Down"), .down)
+        ]
         return directions.map { label, direction in
             let neighbor = routingNeighbor(of: monitor, direction)
-            let name = neighbor.flatMap { displayLabels[$0.id]?.name } ?? neighbor?.name ?? "None"
+            let name = neighbor.flatMap { displayLabels[$0.id]?.name } ?? neighbor?.name ?? String(localized: "None")
             return (label, name)
         }
     }
@@ -83,8 +88,9 @@ struct MonitorSettingsTab: View {
 
     var body: some View {
         SettingsPage(
-            subtitle: "macOS controls where windows are placed. OmniWM can use a separate map that matches how "
-                + "your displays are actually arranged on your desk."
+            subtitle: String(
+                localized: "macOS controls where windows are placed. OmniWM can use a separate map that matches how your displays are actually arranged on your desk."
+            )
         ) {
             MonitorSetupLaunchSection(isComplete: settings.monitorSetupStatus == .completed) {
                 isMonitorSetupPresented = true
@@ -102,8 +108,7 @@ struct MonitorSettingsTab: View {
                         onSelect: { selectedMonitor = $0 }
                     )
                     SettingsCaption(
-                        "This is the technical macOS map used for actual window placement. "
-                            + "For multiple displays, the setup guide shows how to arrange them as a corner-to-corner staircase."
+                        localized: "This is the technical macOS map used for actual window placement. For multiple displays, the setup guide shows how to arrange them as a corner-to-corner staircase."
                     )
                 }
             }
@@ -119,8 +124,8 @@ struct MonitorSettingsTab: View {
                     if routingTiles.isEmpty {
                         Text(
                             connectedMonitors.isEmpty ?
-                                "No monitors detected." :
-                                "Custom routing does not match the connected monitors."
+                                String(localized: "No monitors detected.") :
+                                String(localized: "Custom routing does not match the connected monitors.")
                         )
                         .foregroundStyle(.secondary)
                     } else {
@@ -146,19 +151,15 @@ struct MonitorSettingsTab: View {
                         switch routingEditorLayout.source {
                         case .exact:
                             SettingsCaption(
-                                "This arrangement is saved for the connected displays. "
-                                    + "Changes update only this arrangement."
+                                localized: "This arrangement is saved for the connected displays. Changes update only this arrangement."
                             )
                         case .inherited:
                             SettingsCaption(
-                                "Using an arrangement saved with additional displays. "
-                                    + "Editing or resetting saves a separate arrangement for the displays connected now."
+                                localized: "Using an arrangement saved with additional displays. Editing or resetting saves a separate arrangement for the displays connected now."
                             )
                         case .macOS:
                             SettingsCaption(
-                                "No valid saved arrangement covers the connected displays. "
-                                    + "The macOS arrangement is shown without changing your saved arrangements. "
-                                    + "Dragging a monitor or using the arrow controls saves an arrangement for these displays."
+                                localized: "No valid saved arrangement covers the connected displays. The macOS arrangement is shown without changing your saved arrangements. Dragging a monitor or using the arrow controls saves an arrangement for these displays."
                             )
                         }
                     }
@@ -166,14 +167,11 @@ struct MonitorSettingsTab: View {
                     Button("Reset Custom Arrangement to macOS Layout") { seedFromMacOS() }
 
                     SettingsCaption(
-                        "Make this look like your real desk. Displays in the same row or column can exchange focus, "
-                            + "windows, and the pointer. OmniWM remembers an arrangement for each set of connected displays. "
-                            + "This does not change where macOS places windows."
+                        localized: "Make this look like your real desk. Displays in the same row or column can exchange focus, windows, and the pointer. OmniWM remembers an arrangement for each set of connected displays. This does not change where macOS places windows."
                     )
                 } else {
                     SettingsCaption(
-                        "Routing currently follows the technical macOS map. Run the setup guide to create a separate "
-                            + "map that matches your desk."
+                        localized: "Routing currently follows the technical macOS map. Run the setup guide to create a separate map that matches your desk."
                     )
                 }
             }
@@ -192,7 +190,7 @@ struct MonitorSettingsTab: View {
                 Toggle(isOn: Bindable(settings.pointer).enabled) {
                     HStack(spacing: 8) {
                         Text("Mouse Warp")
-                        MonitorBadge(text: "Recommended")
+                        MonitorBadge(text: String(localized: "Recommended"))
                     }
                 }
                 Toggle("Constrain Cursor to Arrangement", isOn: Bindable(settings.pointer).constrainToArrangement)
@@ -208,8 +206,7 @@ struct MonitorSettingsTab: View {
                 .disabled(!settings.pointer.enabled)
 
                 SettingsCaption(
-                    "Mouse Warp moves the pointer across matching display edges using the OmniWM routing arrangement. "
-                        + "It is recommended when the macOS displays touch only at their corners."
+                    localized: "Mouse Warp moves the pointer across matching display edges using the OmniWM routing arrangement. It is recommended when the macOS displays touch only at their corners."
                 )
             }
 
@@ -343,7 +340,7 @@ private struct MonitorBadgeRow: View {
             }
 
             if isMain {
-                MonitorBadge(text: "Main")
+                MonitorBadge(text: String(localized: "Main"))
             }
         }
     }
@@ -425,9 +422,7 @@ private struct SelectedMonitorDetails: View {
             }
         }
 
-        SettingsCaption(
-            "Vertical monitors scroll windows top-to-bottom instead of left-to-right."
-        )
+        SettingsCaption(localized: "Vertical monitors scroll windows top-to-bottom instead of left-to-right.")
 
         if let conflict = gestureConflict {
             Label(conflict.localizedDescription, systemImage: "exclamationmark.triangle.fill")

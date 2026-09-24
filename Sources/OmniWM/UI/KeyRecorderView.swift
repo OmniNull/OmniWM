@@ -65,11 +65,11 @@ enum KeyRecorderBindingResolver {
 class KeyRecorderNSView: NSView {
     var onCapture: ((KeyBinding) -> Void)?
     var onCancel: (() -> Void)?
-    var recordingAccessibilityLabel = "Recording hotkey"
+    var recordingAccessibilityLabel = String(localized: "Recording hotkey")
     var allowsBareKeys = false
     var isHyperActive: () -> Bool = { false }
 
-    private let label = NSTextField(labelWithString: "Press keys...")
+    private let label = NSTextField(labelWithString: String(localized: "Press keys..."))
 
     override init(frame frameRect: NSRect) {
         super.init(frame: frameRect)

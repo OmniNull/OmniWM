@@ -25,20 +25,20 @@ enum SettingsSection: String, CaseIterable, Identifiable {
 
     var displayName: String {
         switch self {
-        case .general: "General"
-        case .diagnostics: "Troubleshooting"
-        case .niri: "Niri Layout"
-        case .dwindle: "Dwindle Layout"
-        case .monitors: "Monitors"
-        case .workspaces: "Workspaces"
-        case .overview: "Overview"
-        case .borders: "Borders"
-        case .bar: "Workspace Bar"
-        case .hiddenBar: "Hidden Bar"
-        case .hotkeys: "Hotkeys"
-        case .mouseTrackpad: "Mouse & Trackpad"
-        case .quakeTerminal: "Quake Terminal"
-        case .reportIssue: "Report an Issue"
+        case .general: String(localized: "General")
+        case .diagnostics: String(localized: "Troubleshooting")
+        case .niri: String(localized: "Niri Layout")
+        case .dwindle: String(localized: "Dwindle Layout")
+        case .monitors: String(localized: "Monitors")
+        case .workspaces: String(localized: "Workspaces")
+        case .overview: String(localized: "Overview")
+        case .borders: String(localized: "Borders")
+        case .bar: String(localized: "Workspace Bar")
+        case .hiddenBar: String(localized: "Hidden Bar")
+        case .hotkeys: String(localized: "Hotkeys")
+        case .mouseTrackpad: String(localized: "Mouse & Trackpad")
+        case .quakeTerminal: String(localized: "Quake Terminal")
+        case .reportIssue: String(localized: "Report an Issue")
         }
     }
 
@@ -71,6 +71,16 @@ enum SettingsSectionGroup: String, CaseIterable, Identifiable {
 
     var id: String {
         rawValue
+    }
+
+    var displayName: String {
+        switch self {
+        case .basics: String(localized: "Basics")
+        case .layouts: String(localized: "Layouts")
+        case .workspace: String(localized: "Workspace")
+        case .input: String(localized: "Input")
+        case .help: String(localized: "Help")
+        }
     }
 
     var sections: [SettingsSection] {

@@ -15,7 +15,7 @@ struct SettingsSceneRedirectView: View {
     var body: some View {
         VStack(spacing: 8) {
             ProgressView()
-            Text(didRedirect ? "Opening OmniWM Settings…" : "Starting OmniWM…")
+            Text(didRedirect ? String(localized: "Opening OmniWM Settings…") : String(localized: "Starting OmniWM…"))
                 .foregroundColor(.secondary)
         }
         .frame(width: 1, height: 1)

@@ -9,18 +9,27 @@ struct TrackpadGestureConflict: Error, Equatable, LocalizedError {
     let otherGesture: TrackpadGestureMode
 
     var errorDescription: String? {
-        let assignment = gesture == .overview(.open) ? "upward swipe" : "gesture"
-        return "\(Self.name(for: gesture)) and \(Self.name(for: otherGesture)) both use a \(fingerCount)-finger \(assignment). "
-            + "Choose different fingers or disable one gesture."
+        let first = Self.name(for: gesture)
+        let second = Self.name(for: otherGesture)
+        if gesture == .overview(.open) {
+            return String(
+                localized: "\(first) and \(second) both use a \(fingerCount)-finger upward swipe. Choose different fingers or disable one gesture.",
+                comment: "Trackpad gesture conflict; the placeholders are gesture names"
+            )
+        }
+        return String(
+            localized: "\(first) and \(second) both use a \(fingerCount)-finger gesture. Choose different fingers or disable one gesture.",
+            comment: "Trackpad gesture conflict; the placeholders are gesture names"
+        )
     }
 
     private static func name(for gesture: TrackpadGestureMode) -> String {
         switch gesture {
-        case .columnScroll: "Niri column scrolling"
-        case .workspaceSwitch: "workspace switching"
-        case .overview: "Overview"
-        case .windowMove: "window moving"
-        case .windowResize: "window resizing"
+        case .columnScroll: String(localized: "Niri column scrolling", comment: "Trackpad gesture name")
+        case .workspaceSwitch: String(localized: "workspace switching", comment: "Trackpad gesture name")
+        case .overview: String(localized: "Overview", comment: "Trackpad gesture name")
+        case .windowMove: String(localized: "window moving", comment: "Trackpad gesture name")
+        case .windowResize: String(localized: "window resizing", comment: "Trackpad gesture name")
         }
     }
 }

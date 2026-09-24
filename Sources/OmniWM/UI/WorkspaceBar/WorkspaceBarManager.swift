@@ -17,11 +17,11 @@ enum WorkspaceBarWindowLevel: String, CaseIterable, Codable, Identifiable {
 
     var displayName: String {
         switch self {
-        case .normal: "Normal"
-        case .floating: "Floating"
-        case .status: "Status Bar"
-        case .popup: "Popup"
-        case .screensaver: "Screen Saver"
+        case .normal: String(localized: "Normal")
+        case .floating: String(localized: "Floating")
+        case .status: String(localized: "Status Bar")
+        case .popup: String(localized: "Popup")
+        case .screensaver: String(localized: "Screen Saver")
         }
     }
 
@@ -46,8 +46,8 @@ enum WorkspaceBarPosition: String, CaseIterable, Codable, Identifiable {
 
     var displayName: String {
         switch self {
-        case .overlappingMenuBar: "Overlapping Menu Bar"
-        case .belowMenuBar: "Below Menu Bar"
+        case .overlappingMenuBar: String(localized: "Overlapping Menu Bar")
+        case .belowMenuBar: String(localized: "Below Menu Bar")
         }
     }
 }
@@ -69,11 +69,11 @@ enum WorkspaceBarNotchMode: String, CaseIterable, Codable, Identifiable {
 
     var displayName: String {
         switch self {
-        case .off: "Off"
-        case .moveBelowMenuBar: "Move Below Menu Bar"
-        case .splitActiveLeft: "Split — Active Left"
-        case .splitActiveRight: "Split — Active Right"
-        case .fillLeftOfNotch: "Fill Left of Notch"
+        case .off: String(localized: "Off")
+        case .moveBelowMenuBar: String(localized: "Move Below Menu Bar")
+        case .splitActiveLeft: String(localized: "Split — Active Left")
+        case .splitActiveRight: String(localized: "Split — Active Right")
+        case .fillLeftOfNotch: String(localized: "Fill Left of Notch")
         }
     }
 }

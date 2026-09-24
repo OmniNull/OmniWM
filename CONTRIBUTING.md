@@ -141,13 +141,23 @@ OMNIWM_SIGNING_IDENTITY="Your Certificate Name" make run
 
 ## Verification
 
-Run `make format` to apply formatting and the required license headers. Run `make verify` afterward to check formatting, lint, and an arm64 debug build. The commands use the versions installed by `make setup`.
+Run `make format` to apply formatting and the required license headers. Run `make verify` afterward to check formatting, lint, localization catalogs, and an arm64 debug build. The commands use the versions installed by `make setup`.
 
 Every Swift source and test file starts with the two-line GPL-2.0 header enforced by SwiftFormat. Preserve that header. `Package.swift` keeps its `swift-tools-version` directive on line one. Keep contributions in Swift, and avoid additional source comments; use clear names and structure.
 
 Use focused regression tests for changed behavior. Runtime changes require the full serial `swift test` suite, and changes affecting concurrency also require `swift test --parallel`. Environment-dependent live tests remain opt-in. For motion, focus, layout, and other visible behavior, also describe the manual checks you performed.
 
 For changes to setup, packaging, development installation, or related tooling, also run `make test-dev-tools`. This runs the Python development-tooling tests and is included in CI's **Verify** job.
+
+### Translating the App
+
+Translations live in the [string catalogs](Sources/OmniWM/Resources). `Localizable.xcstrings` contains interface text, `Commands.xcstrings` contains command names, categories, and scopes, and `InfoPlist.xcstrings` contains the macOS permission descriptions. Add or edit your language's `localizations` entries in those files. Keep the English keys and source values intact, and translate the meaning in context. English is the fallback for strings without a translation.
+
+Preserve each format argument's type when translating. You may reorder arguments with positional forms such as `%2$@` and `%1$lld`; a `%lld` count cannot become `%@`. Plural branches may omit a count when the wording does not need it. `make verify` checks format arguments, including plural forms, before a translation is accepted. To preview length and direction issues, use Xcode's localization pseudolanguages or change the app language in macOS settings.
+
+If you change localized Swift source text, run `make localization-sync` after building to update the catalogs from compiler-extracted strings, then review the catalog diff. `make verify` fails when source and catalogs differ. For translation-only changes, edit the catalogs directly and run `make verify` and `make test-dev-tools`. This SwiftPM repository has no Xcode project for XLIFF export and import; contribute the catalog files directly. See Apple's [string catalog guide](https://developer.apple.com/documentation/xcode/localizing-and-varying-text-with-a-string-catalog) for the catalog format and plural variations.
+
+Before adding the first translation for a new language, translate every desktop string in all three catalogs and have a fluent speaker review the result in the packaged app. A partial catalog activates that language for macOS users as soon as it ships. After a language is established, newly added strings may temporarily fall back to English while translations catch up.
 
 Website changes use the checks in [website/README.md](website/README.md): `npm run check` and `npm run build` from `website/`. Small documentation-only changes do not need app builds or Swift tests.
 

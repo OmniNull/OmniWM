@@ -1,4 +1,4 @@
-.PHONY: setup doctor format format-check lint lint-fix build run dev-install use-dev use-release test-dev-tools energy-profile test-skylight-live release-check verify check check-tool-versions check-swiftformat-version check-swiftlint-version
+.PHONY: setup doctor format format-check lint lint-fix build localization-check localization-sync run dev-install use-dev use-release test-dev-tools energy-profile test-skylight-live release-check verify check check-tool-versions check-swiftformat-version check-swiftlint-version
 
 include Scripts/dev-tools.env
 
@@ -39,6 +39,12 @@ build:
 	./Scripts/ghostty-preflight.sh verify
 	$(SWIFT_WITH_GHOSTTY) swift build --arch arm64
 
+localization-check: build
+	python3 Scripts/localization.py check
+
+localization-sync: build
+	python3 Scripts/localization.py sync
+
 run: dev-install
 
 dev-install:
@@ -59,8 +65,8 @@ energy-profile:
 test-skylight-live:
 	OMNIWM_RUN_SKYLIGHT_LIVE_TESTS=1 swift test --filter SkyLightNativeSpaceInventoryLiveTests/testLiveTransactionMoveIsObservedThroughWindowServerBounds
 
-release-check: build
+release-check: localization-check
 
-verify: format-check lint build
+verify: format-check lint localization-check
 
 check: verify

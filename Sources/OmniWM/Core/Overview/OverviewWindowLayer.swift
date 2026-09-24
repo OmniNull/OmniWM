@@ -34,6 +34,7 @@ final class OverviewWindowLayer {
     private var previewContentSize = CGSize.zero
     private var activeTransition: OverviewNativeTransition?
     private var emphasizedFullscreenCaption = ""
+    private static let fullScreenCaption = String(localized: "Full Screen")
 
     init() {
         root.backgroundColor = Colors.windowBackground
@@ -74,9 +75,11 @@ final class OverviewWindowLayer {
     func updateContent(_ window: OverviewWindowItem, contentsScale: CGFloat) {
         self.contentsScale = contentsScale
         if title.string as? String != window.title { title.string = window.title }
-        let caption = window.isNativeFullscreen ? "Full Screen" : window.appName
+        let caption = window.isNativeFullscreen ? Self.fullScreenCaption : window.appName
         if appName.string as? String != caption { appName.string = caption }
-        if window.isNativeFullscreen { emphasizedFullscreenCaption = "\(window.appName) · Full Screen" }
+        if window.isNativeFullscreen {
+            emphasizedFullscreenCaption = String(localized: "\(window.appName) · Full Screen")
+        }
         if (icon.contents as AnyObject?) !== window.appIcon { icon.contents = window.appIcon }
         let fontSize = min(13, max(10, window.overviewFrame.height * 0.055))
         if title.fontSize != fontSize {
@@ -246,7 +249,7 @@ final class OverviewWindowLayer {
     private func updateCaption(_ window: OverviewWindowItem, emphasized: Bool) {
         appName.isHidden = !emphasized && !window.isNativeFullscreen
         let caption = if window.isNativeFullscreen {
-            emphasized ? emphasizedFullscreenCaption : "Full Screen"
+            emphasized ? emphasizedFullscreenCaption : Self.fullScreenCaption
         } else {
             window.appName
         }

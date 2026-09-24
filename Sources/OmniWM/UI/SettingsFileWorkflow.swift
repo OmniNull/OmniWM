@@ -40,9 +40,9 @@ enum SettingsFileStatus: Equatable {
 
     var message: String {
         switch self {
-        case .revealed: "Settings file revealed in Finder"
-        case .opened: "Settings file opened"
-        case let .error(msg): "Error: \(msg)"
+        case .revealed: String(localized: "Settings file revealed in Finder")
+        case .opened: String(localized: "Settings file opened")
+        case let .error(msg): String(localized: "Error: \(msg)")
         }
     }
 

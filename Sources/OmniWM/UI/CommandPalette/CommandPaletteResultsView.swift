@@ -92,7 +92,7 @@ struct CommandPaletteResultsView: View {
                 ForEach(HotkeyCategory.allCases, id: \.self) { category in
                     let items = controller.commandItems.filter { $0.spec.category == category }
                     if !items.isEmpty {
-                        Text(category.rawValue)
+                        Text(category.localizedDisplayName)
                             .font(.system(size: 11, weight: .semibold))
                             .foregroundColor(.secondary)
                             .frame(maxWidth: .infinity, alignment: .leading)

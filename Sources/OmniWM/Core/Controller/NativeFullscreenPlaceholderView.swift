@@ -5,8 +5,8 @@ import AppKit
 import CoreText
 
 final class NativeFullscreenPlaceholderView: NSView {
-    private static let status = "In macOS Full Screen"
-    private static let subtitle = "Move or resize this slot; the window will return here."
+    private static let status = String(localized: "In macOS Full Screen")
+    private static let subtitle = String(localized: "Move or resize this slot; the window will return here.")
     private static let activationModifiers: NSEvent.ModifierFlags = [.command, .control, .option, .shift, .function]
     private static let titleFont = NSFont.systemFont(ofSize: 17, weight: .semibold) as CTFont
     private static let subtitleFont = NSFont.systemFont(ofSize: 12) as CTFont
@@ -40,7 +40,7 @@ final class NativeFullscreenPlaceholderView: NSView {
     var onActivate: (() -> Void)?
 
     init(windowTitle: String, appName: String?, icon: NSImage?) {
-        let resolvedAppName = appName.flatMap { $0.isEmpty ? nil : $0 } ?? "Application"
+        let resolvedAppName = appName.flatMap { $0.isEmpty ? nil : $0 } ?? String(localized: "Application")
         self.appName = resolvedAppName
         titleText = Self.resolvedTitle(windowTitle, appName: resolvedAppName)
         titleLine = Self.makeLine(titleText, font: Self.titleFont, color: .white)
@@ -49,7 +49,7 @@ final class NativeFullscreenPlaceholderView: NSView {
         super.init(frame: .zero)
         wantsLayer = true
         layerContentsRedrawPolicy = .onSetNeedsDisplay
-        toolTip = "Press to switch Spaces. The tiling position remains reserved."
+        toolTip = String(localized: "Press to switch Spaces. The tiling position remains reserved.")
         updateTextGeometry()
     }
 
@@ -188,11 +188,11 @@ final class NativeFullscreenPlaceholderView: NSView {
     }
 
     override func accessibilityLabel() -> String? {
-        "\(titleText), in macOS Full Screen"
+        String(localized: "\(titleText), in macOS Full Screen")
     }
 
     override func accessibilityHelp() -> String? {
-        "Press to switch to the app's macOS Full Screen Space. Its tiling position remains reserved."
+        String(localized: "Press to switch to the app's macOS Full Screen Space. Its tiling position remains reserved.")
     }
 
     override func accessibilityValue() -> Any? {

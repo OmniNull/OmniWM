@@ -79,16 +79,18 @@ struct SavedDiagnosticsSection: View {
     private func artifactType(_ file: DiagnosticsFile) -> String {
         let name = file.name
         if name.hasPrefix("omniwm-trace-") {
-            return name.hasSuffix(".partial.log") ? "Trace (incomplete)" : "Trace"
+            return name.hasSuffix(".partial.log")
+                ? String(localized: "Trace (incomplete)")
+                : String(localized: "Trace")
         }
         if name.hasPrefix("omniwm-performance-") {
-            return "Performance"
+            return String(localized: "Performance")
         }
         if name.hasPrefix("omniwm-crash-") {
-            return "Crash"
+            return String(localized: "Crash")
         }
         if name.hasPrefix("omniwm-diagnostics-") {
-            return "Diagnostics"
+            return String(localized: "Diagnostics")
         }
         return name
     }

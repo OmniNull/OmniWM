@@ -32,7 +32,7 @@ struct RuleApplicationSection: View {
                         .font(.headline)
 
                     if runningApps.isEmpty {
-                        SettingsCaption("No running apps found")
+                        SettingsCaption(localized: "No running apps found")
                     } else {
                         ScrollView(.vertical) {
                             LazyVStack(spacing: 0) {
@@ -77,8 +77,7 @@ struct RuleApplicationSection: View {
             }
 
             SettingsCaption(
-                "Bundle ID is the app's runtime identifier (e.g. com.apple.finder). Some apps have none — "
-                    + "leave it blank and match by app name or title instead. A codesign identifier won't match."
+                localized: "Bundle ID is the app's runtime identifier (e.g. com.apple.finder). Some apps have none — leave it blank and match by app name or title instead. A codesign identifier won't match."
             )
 
             if let identifierHint = draft.identifierHint {
@@ -133,7 +132,7 @@ private struct RunningAppRow: View {
                 Text(app.appName)
                     .font(.body)
                     .foregroundStyle(.primary)
-                Text(app.bundleId ?? "No bundle ID")
+                Text(app.bundleId ?? String(localized: "No bundle ID"))
                     .font(.caption)
                     .foregroundStyle(.secondary)
             }
@@ -148,12 +147,14 @@ private struct RunningAppRow: View {
         }
         .padding(.vertical, 4)
         .accessibilityElement(children: .ignore)
-        .accessibilityLabel("\(app.appName), \(app.bundleId ?? "no bundle ID")")
+        .accessibilityLabel(String(localized: "\(app.appName), \(app.bundleId ?? String(localized: "no bundle ID"))"))
         .accessibilityValue(accessibilityValue)
     }
 
     private var accessibilityValue: String {
-        guard let windowSize = app.trackedWindowSize else { return "Running application" }
-        return "\(Int(windowSize.width)) by \(Int(windowSize.height)) pixels"
+        guard let windowSize = app.trackedWindowSize else {
+            return String(localized: "Running application")
+        }
+        return String(localized: "\(Int(windowSize.width)) by \(Int(windowSize.height)) pixels")
     }
 }

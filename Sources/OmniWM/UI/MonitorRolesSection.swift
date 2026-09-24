@@ -41,15 +41,11 @@ struct MonitorRolesSection: View {
 
             if settings.ranking.isEmpty {
                 SettingsCaption(
-                    "Main is the display with the macOS menu bar; Secondary and Tertiary are the next displays "
-                        + "in arrangement order. Add displays here to choose the order yourself: the "
-                        + "highest-ranked connected display becomes Main, then Secondary, then Tertiary."
+                    localized: "Main is the display with the macOS menu bar; Secondary and Tertiary are the next displays in arrangement order. Add displays here to choose the order yourself: the highest-ranked connected display becomes Main, then Secondary, then Tertiary."
                 )
             } else {
                 SettingsCaption(
-                    "Workspaces assigned to Main, Secondary, or Tertiary follow this order using only the "
-                        + "displays that are connected. Unranked displays follow after the ranked ones, and the "
-                        + "Quake terminal's Main Monitor option uses the same Main."
+                    localized: "Workspaces assigned to Main, Secondary, or Tertiary follow this order using only the displays that are connected. Unranked displays follow after the ranked ones, and the Quake terminal's Main Monitor option uses the same Main."
                 )
             }
         }
@@ -57,7 +53,9 @@ struct MonitorRolesSection: View {
 
     private func rankedMonitorRoleLabel(at index: Int) -> String {
         let ranks = MonitorRanking.effectiveRanks(ranking: settings.ranking, monitors: connectedMonitors)
-        guard ranks.indices.contains(index), let rank = ranks[index] else { return "No role" }
+        guard ranks.indices.contains(index), let rank = ranks[index] else {
+            return String(localized: "No role")
+        }
         return MonitorRanking.roleName(forRank: rank)
     }
 

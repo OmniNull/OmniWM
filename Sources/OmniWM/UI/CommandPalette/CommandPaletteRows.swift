@@ -72,8 +72,8 @@ struct CommandPaletteWindowRow: View {
         .accessibilityLabel(accessibilityLabel)
         .accessibilityValue(accessibilityValue)
         .accessibilityHint(item.isAppHidden
-            ? "Unhides the app and focuses this window"
-            : "Focuses this window")
+            ? String(localized: "Unhides the app and focuses this window")
+            : String(localized: "Focuses this window"))
         .accessibilityAddTraits(.isButton)
         .accessibilityAddTraits(isSelected ? .isSelected : [])
     }
@@ -87,8 +87,10 @@ struct CommandPaletteWindowRow: View {
     }
 
     private var accessibilityValue: String {
-        let workspace = "Workspace \(item.workspaceName)"
-        return item.isAppHidden ? "App hidden, \(workspace)" : workspace
+        if item.isAppHidden {
+            return String(localized: "App hidden, Workspace \(item.workspaceName)")
+        }
+        return String(localized: "Workspace \(item.workspaceName)")
     }
 }
 
@@ -135,11 +137,11 @@ struct CommandPaletteCommandRow: View {
                     .frame(width: 28, height: 28)
 
                 VStack(alignment: .leading, spacing: 2) {
-                    Text(item.spec.title)
+                    Text(item.spec.localizedTitle)
                         .font(.system(size: 13, weight: .medium))
                         .lineLimit(1)
                     if showsCategory {
-                        Text(item.spec.category.rawValue)
+                        Text(item.spec.category.localizedDisplayName)
                             .font(.system(size: 11))
                             .foregroundColor(.secondary)
                             .lineLimit(1)
@@ -149,7 +151,7 @@ struct CommandPaletteCommandRow: View {
 
                 Spacer(minLength: 8)
 
-                Text(item.spec.layoutCompatibility.rawValue)
+                Text(item.spec.layoutCompatibility.localizedDisplayName)
                     .font(.system(size: 10, weight: .medium))
                     .foregroundColor(item.isLayoutCompatible ? .secondary : .orange)
                     .padding(.horizontal, 7)
@@ -161,7 +163,7 @@ struct CommandPaletteCommandRow: View {
 
                 CommandPaletteShortcutBadge(
                     text: item.shortcut,
-                    enabled: item.shortcut != "Unassigned" && item.shortcut != "No shortcut"
+                    enabled: item.hasShortcut
                 )
             }
             .modifier(CommandPaletteResultRowStyle(isSelected: isSelected && item.isLayoutCompatible))
@@ -170,15 +172,19 @@ struct CommandPaletteCommandRow: View {
         .disabled(!item.isLayoutCompatible)
         .opacity(item.isLayoutCompatible ? 1 : 0.55)
         .accessibilityElement(children: .ignore)
-        .accessibilityLabel(item.spec.title)
+        .accessibilityLabel(item.spec.localizedTitle)
         .accessibilityValue(accessibilityValue)
-        .accessibilityHint(item.isLayoutCompatible ? "Runs this OmniWM command" : "Unavailable in the current layout")
+        .accessibilityHint(item.isLayoutCompatible
+            ? String(localized: "Runs this OmniWM command")
+            : String(localized: "Unavailable in the current layout"))
         .accessibilityAddTraits(.isButton)
         .accessibilityAddTraits(isSelected && item.isLayoutCompatible ? .isSelected : [])
     }
 
     private var accessibilityValue: String {
-        "\(item.spec.category.rawValue), \(item.spec.layoutCompatibility.rawValue), \(item.shortcut)"
+        String(
+            localized: "\(item.spec.category.localizedDisplayName), \(item.spec.layoutCompatibility.localizedDisplayName), \(item.shortcut)"
+        )
     }
 }
 
@@ -227,7 +233,7 @@ struct CommandPaletteClipboardRow: View {
             }
             .buttonStyle(.plain)
             .help("Copy")
-            .accessibilityLabel("Copy \(item.title)")
+            .accessibilityLabel(String(localized: "Copy \(item.title)"))
 
             Button(action: onPaste) {
                 Image(systemName: "arrow.turn.down.left")
@@ -235,7 +241,7 @@ struct CommandPaletteClipboardRow: View {
             }
             .buttonStyle(.plain)
             .help("Paste")
-            .accessibilityLabel("Paste \(item.title)")
+            .accessibilityLabel(String(localized: "Paste \(item.title)"))
             .foregroundColor(.secondary)
 
             Menu {
@@ -244,7 +250,7 @@ struct CommandPaletteClipboardRow: View {
                         onPasteWithoutFormatting()
                     }
                 }
-                Button(item.isPinned ? "Unpin" : "Pin", action: onPin)
+                Button(item.isPinned ? String(localized: "Unpin") : String(localized: "Pin"), action: onPin)
                 Button("Delete", systemImage: "trash", action: onDelete)
             } label: {
                 Image(systemName: "ellipsis")
@@ -252,7 +258,7 @@ struct CommandPaletteClipboardRow: View {
             }
             .menuStyle(.borderlessButton)
             .help("More Actions")
-            .accessibilityLabel("More actions for \(item.title)")
+            .accessibilityLabel(String(localized: "More actions for \(item.title)"))
             .foregroundColor(.secondary)
         }
         .modifier(CommandPaletteResultRowStyle(isSelected: isSelected))

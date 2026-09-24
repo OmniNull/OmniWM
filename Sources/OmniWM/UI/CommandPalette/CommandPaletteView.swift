@@ -93,7 +93,7 @@ struct CommandPaletteView: View {
                 controller.enableClipboardHistory()
             }
         } else if controller.selectedMode == .menu && controller.isMenuLoading {
-            CommandPaletteLoadingView(text: "Loading menu items...")
+            CommandPaletteLoadingView(text: String(localized: "Loading menu items..."))
         } else if isEmptyStateVisible {
             CommandPaletteEmptyStateView(
                 symbolName: emptyStateSymbol,
@@ -172,7 +172,11 @@ struct CommandPaletteView: View {
             if controller.isExpanded {
                 Menu {
                     ForEach(CommandPaletteMode.allCases, id: \.self) { mode in
-                        Button("\(mode.displayName)  \(CommandPalettePresentation.modeHint(for: mode).shortcut)") {
+                        Button(
+                            String(
+                                localized: "\(mode.localizedDisplayName)  \(CommandPalettePresentation.modeHint(for: mode).shortcut)"
+                            )
+                        ) {
                             controller.selectMode(mode)
                         }
                         .disabled(mode == .menu && !controller.isMenuModeAvailable)
@@ -213,13 +217,13 @@ struct CommandPaletteView: View {
     private var searchPlaceholder: String {
         switch controller.selectedMode {
         case .windows:
-            "Search windows..."
+            String(localized: "Search windows...")
         case .menu:
-            "Search menu items..."
+            String(localized: "Search menu items...")
         case .clipboard:
-            "Search clipboard history..."
+            String(localized: "Search clipboard history...")
         case .commands:
-            "Search OmniWM commands..."
+            String(localized: "Search OmniWM commands...")
         }
     }
 
@@ -235,7 +239,7 @@ struct CommandPaletteView: View {
         case .clipboard:
             controller.clipboardStatusText
         case .commands:
-            "Enter runs the selected command."
+            String(localized: "Enter runs the selected command.")
         }
     }
 
@@ -274,16 +278,20 @@ struct CommandPaletteView: View {
     private var emptyStateText: String {
         switch controller.selectedMode {
         case .windows:
-            return controller.searchText.isEmpty ? "No windows available" : "No windows found"
+            return controller.searchText.isEmpty
+                ? String(localized: "No windows available") : String(localized: "No windows found")
         case .menu:
             if !controller.isMenuModeAvailable {
                 return controller.menuStatusText
             }
-            return controller.searchText.isEmpty ? "No menu items available" : "No menu items found"
+            return controller.searchText.isEmpty
+                ? String(localized: "No menu items available") : String(localized: "No menu items found")
         case .clipboard:
-            return controller.searchText.isEmpty ? "No clipboard items available" : "No clipboard items found"
+            return controller.searchText.isEmpty
+                ? String(localized: "No clipboard items available") : String(localized: "No clipboard items found")
         case .commands:
-            return controller.searchText.isEmpty ? "No commands available" : "No commands found"
+            return controller.searchText.isEmpty
+                ? String(localized: "No commands available") : String(localized: "No commands found")
         }
     }
 }
@@ -333,7 +341,7 @@ struct CommandPaletteModePicker: View {
         })
         .buttonStyle(.plain)
         .disabled(!enabled)
-        .help("\(hint.title) (\(hint.shortcut))")
+        .help(String(localized: "\(hint.title) (\(hint.shortcut))"))
         .accessibilityLabel(hint.title)
         .accessibilityAddTraits(isSelected ? .isSelected : [])
     }

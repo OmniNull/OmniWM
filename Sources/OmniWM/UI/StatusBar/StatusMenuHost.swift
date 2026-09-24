@@ -215,7 +215,7 @@ final class StatusMenuHost {
         panel.hidesOnDeactivate = false
         panel.isReleasedWhenClosed = false
         panel.isMovable = false
-        panel.title = "OmniWM Controls"
+        panel.title = String(localized: "OmniWM Controls")
         let hostingView = NSHostingView(rootView: AnyView(EmptyView()))
         hostingView.sizingOptions = [.intrinsicContentSize]
         let scrollView = NSScrollView()

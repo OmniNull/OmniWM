@@ -21,6 +21,23 @@ enum DockEdge: String, Equatable {
         case .bottom: "Bottom"
         }
     }
+
+    var localizedName: String {
+        switch self {
+        case .left:
+            String(localized: LocalizedStringResource(
+                "diagnostics.screenEdge.left", defaultValue: "left", comment: "Physical screen edge"
+            ))
+        case .right:
+            String(localized: LocalizedStringResource(
+                "diagnostics.screenEdge.right", defaultValue: "right", comment: "Physical screen edge"
+            ))
+        case .bottom:
+            String(localized: LocalizedStringResource(
+                "diagnostics.screenEdge.bottom", defaultValue: "bottom", comment: "Physical screen edge"
+            ))
+        }
+    }
 }
 
 struct DiagnosticsIssue: Identifiable, Equatable {
@@ -225,5 +242,163 @@ struct DiagnosticsIssue: Identifiable, Equatable {
 
     private var configDirectoryPath: String {
         (configFileURL ?? SettingsFilePersistence.fileURL).deletingLastPathComponent().path
+    }
+}
+
+extension DiagnosticsIssue {
+    var localizedTitle: String {
+        switch kind {
+        case .accessibilityNotGranted: String(localized: "Accessibility access required")
+        case let .hotkeyRegistration(command, _):
+            String(localized: "Hotkey unavailable: \(localizedCommand(command))")
+        case let .hotkeyCoFireAdvisory(actionID, command, _, _):
+            String(localized: "Hotkey may conflict: \(localizedCommand(command, actionID: actionID))")
+        case let .hotkeySidedHyper(actionID, command, _, _):
+            String(localized: "Hyper shortcut may not fire: \(localizedCommand(command, actionID: actionID))")
+        case let .fixedDock(monitorName, _, _, _):
+            String(localized: "Fixed Dock detected on \(monitorName)")
+        case .horizontalDisplayArrangement:
+            String(localized: "Unsupported vertical display overlap detected")
+        case .unknownConfigKeys: String(localized: "Unrecognized settings keys")
+        case .settingsFileCorrupt: String(localized: "Settings recovery file available")
+        case .settingsMigrated: String(localized: "Settings upgraded")
+        case .settingsRecovered: String(localized: "Invalid settings recovered")
+        case .settingsPersistenceBlocked: String(localized: "Settings writes blocked")
+        case .settingsInvalidRejected: String(localized: "Invalid settings left untouched")
+        }
+    }
+
+    var localizedMessage: String {
+        switch kind {
+        case .accessibilityNotGranted:
+            return String(localized: "OmniWM needs Accessibility access to observe and manage windows.")
+        case let .hotkeyRegistration(_, reason):
+            switch reason {
+            case .duplicateBinding:
+                return String(localized: "Two OmniWM commands are bound to this shortcut.")
+            case .systemReserved:
+                return String(localized: "macOS or another app already uses this shortcut.")
+            case .requiresInputMonitoring:
+                return String(localized: "This shortcut needs Input Monitoring permission.")
+            }
+        case let .hotkeyCoFireAdvisory(actionID, _, _, advisory):
+            if actionID == "openCommandPalette" {
+                return String(
+                    localized: "The Command Palette shortcut (Control+Option+Space) matches an enabled macOS system shortcut. macOS documents this chord for “Select next source in Input menu,” so both can fire together. Reassign this hotkey or clear the matching macOS shortcut in System Settings → Keyboard → Keyboard Shortcuts → Input Sources."
+                )
+            } else {
+                return advisory
+            }
+        case let .hotkeySidedHyper(actionID, command, chord, side):
+            let localizedSide = side == "Left"
+                ? String(localized: LocalizedStringResource(
+                    "diagnostics.modifierSide.left", defaultValue: "left", comment: "Physical modifier key side"
+                ))
+                : String(localized: LocalizedStringResource(
+                    "diagnostics.modifierSide.right", defaultValue: "right", comment: "Physical modifier key side"
+                ))
+            return String(
+                localized: "\(localizedCommand(command, actionID: actionID)) is restricted to \(localizedSide)-side modifiers (\(chord)). The Hyper key sends generic modifiers, not specific left/right keys, so this shortcut won't trigger from Hyper (only from physically holding all four \(localizedSide) modifier keys at once)."
+            )
+        case let .fixedDock(_, edge, inset, _):
+            return String(
+                localized: "The Dock appears to reserve \(Int(inset.rounded())) px on the \(edge.localizedName) edge. Parked windows can be clamped to the Dock boundary and leave a visible strip."
+            )
+        case let .horizontalDisplayArrangement(firstName, secondName, _, _):
+            return String(
+                localized: "\(firstName) and \(secondName) overlap vertically in the display arrangement. Horizontally parked windows can bleed onto the neighboring display."
+            )
+        case let .unknownConfigKeys(keyPaths):
+            return String(
+                localized: "settings.toml contains keys OmniWM does not recognize: \(keyPaths.joined(separator: ", ")). They are ignored."
+            )
+        case .settingsFileCorrupt:
+            return String(
+                localized: "OmniWM preserved settings data it could not parse as settings.toml.corrupt or settings.toml.corrupt.1."
+            )
+        case let .settingsMigrated(report, backupURL):
+            return String(
+                localized: "OmniWM upgraded \(configPath) from schema version \(report.fromVersion) to \(report.toVersion). The exact original bytes were preserved at \(backupURL.path). \(report.messages.joined(separator: " "))"
+            )
+        case let .settingsRecovered(reason, backupURL):
+            return String(
+                localized: "OmniWM could not decode \(configPath): \(reason) The exact rejected bytes were preserved at \(backupURL.path)."
+            )
+        case let .settingsPersistenceBlocked(reason, backupURL):
+            if let backupURL {
+                return String(
+                    localized: "OmniWM left \(configPath) untouched and blocked configuration writes: \(reason) The exact original bytes are at \(backupURL.path)."
+                )
+            } else {
+                return String(
+                    localized: "OmniWM left \(configPath) untouched and blocked configuration writes: \(reason)"
+                )
+            }
+        case let .settingsInvalidRejected(reason):
+            return String(
+                localized: "OmniWM could not decode \(configPath) and left the file untouched: \(reason) The active settings were not changed."
+            )
+        }
+    }
+
+    var localizedRemediation: String {
+        switch kind {
+        case .accessibilityNotGranted:
+            String(localized: "Open System Settings → Privacy & Security → Accessibility and enable OmniWM.")
+        case let .hotkeyRegistration(_, reason):
+            switch reason {
+            case .duplicateBinding:
+                String(localized: "Assign a unique chord to one of the commands in Hotkeys.")
+            case .systemReserved:
+                String(localized: "Reassign this command to a free chord in Hotkeys.")
+            case .requiresInputMonitoring:
+                String(localized: "Grant Input Monitoring in System Settings, or reassign the chord.")
+            }
+        case .hotkeyCoFireAdvisory:
+            String(
+                localized: "Reassign this command in Hotkeys, or clear the conflicting shortcut in System Settings → Keyboard."
+            )
+        case .hotkeySidedHyper:
+            String(
+                localized: "In Hotkeys, set this shortcut's modifier side to “Either”, or re-record it without a side restriction. A single Hyper key emits generic modifier flags, so a left- or right-restricted binding cannot match it."
+            )
+        case .fixedDock:
+            String(
+                localized: "Enable Dock auto-hide in System Settings → Desktop & Dock, or move the Dock off the parking edge."
+            )
+        case .horizontalDisplayArrangement:
+            String(
+                localized: "Arrange displays vertically or diagonally in System Settings → Displays so frames do not overlap."
+            )
+        case .unknownConfigKeys:
+            String(localized: "Remove or fix the keys in \(configPath).")
+        case .settingsFileCorrupt:
+            String(
+                localized: "Inspect \(configDirectoryPath)/settings.toml.corrupt and \(configDirectoryPath)/settings.toml.corrupt.1 if present, then delete the recovery files to dismiss this notice."
+            )
+        case let .settingsMigrated(_, backupURL):
+            String(
+                localized: "Verify the upgraded settings, then keep the backup or delete \(backupURL.path) to dismiss this notice."
+            )
+        case let .settingsRecovered(_, backupURL):
+            String(
+                localized: "Compare \(backupURL.path) with \(configPath), restore valid values, and then remove the recovery file."
+            )
+        case .settingsPersistenceBlocked:
+            String(
+                localized: "Resolve the reported schema or backup problem at \(configPath), then reload or restart OmniWM."
+            )
+        case .settingsInvalidRejected:
+            String(
+                localized: "Correct the reported value at \(configPath); OmniWM applies the file once it decodes. Saving from the Settings window first secures the rejected bytes as a recovery file."
+            )
+        }
+    }
+
+    private func localizedCommand(_ title: String, actionID: String? = nil) -> String {
+        if let actionID, let localizedTitle = ActionCatalog.spec(for: actionID)?.localizedTitle {
+            return localizedTitle
+        }
+        return ActionCatalog.allSpecs().first { $0.title == title }?.localizedTitle ?? title
     }
 }
