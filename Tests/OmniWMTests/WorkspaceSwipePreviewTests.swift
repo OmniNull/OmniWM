@@ -96,10 +96,7 @@ final class WorkspaceSwipePreviewTests: XCTestCase {
     }
 
     func testIdleStopsReuseWallpaperButVisiblePreviewStopRefreshesIt() throws {
-        let image = try XCTUnwrap(CGContext(
-            data: nil, width: 1200, height: 800, bitsPerComponent: 8, bytesPerRow: 0,
-            space: CGColorSpaceCreateDeviceRGB(), bitmapInfo: CGImageAlphaInfo.premultipliedLast.rawValue
-        )?.makeImage())
+        let image = try makeWallpaperImage()
         var captures = 0
         let cache = OverviewWallpaperCache()
         cache.desktopImageURL = { _ in nil }
@@ -124,16 +121,54 @@ final class WorkspaceSwipePreviewTests: XCTestCase {
         XCTAssertEqual(captures, 2, "A new visible swipe must refresh the wallpaper")
     }
 
+    func testFailedWallpaperCaptureRecoversOnNextSwipeWithoutRecapturingIdleTouches() throws {
+        let image = try makeWallpaperImage()
+        var wallpaper: CGImage?
+        var captures = 0
+        let cache = OverviewWallpaperCache()
+        cache.desktopImageURL = { _ in nil }
+        cache.captureWallpaper = { _ in
+            captures += 1
+            return wallpaper
+        }
+        let preview = WorkspaceSwipePreview(
+            ownedWindowRegistry: OwnedWindowRegistry(),
+            backdrop: WorkspaceSwipeBackdrop(wallpaperCache: cache),
+            hasCaptureAccess: { true }
+        )
+        defer { preview.stop() }
+
+        // Idle cleanup must retain the failed attempt instead of repeatedly capturing.
+        preview.warm(source: [], destination: [], monitor: monitor)
+        preview.stop()
+        preview.warm(source: [], destination: [], monitor: monitor)
+        XCTAssertEqual(captures, 1)
+        XCTAssertFalse(preview.begin(source: [], destination: [], monitor: monitor))
+        XCTAssertFalse(preview.isVisible)
+        preview.stop()
+
+        // A failed visible swipe must not prevent a later attempt from recovering.
+        wallpaper = image
+        preview.warm(source: [], destination: [], monitor: monitor)
+        XCTAssertTrue(preview.begin(source: [], destination: [], monitor: monitor))
+        XCTAssertTrue(preview.isVisible)
+        XCTAssertEqual(captures, 2)
+    }
+
     private func makeBackdrop() throws -> WorkspaceSwipeBackdrop {
         let cache = OverviewWallpaperCache()
         cache.desktopImageURL = { _ in nil }
+        let image = try makeWallpaperImage()
+        cache.captureWallpaper = { _ in image }
+        return WorkspaceSwipeBackdrop(wallpaperCache: cache)
+    }
+
+    private func makeWallpaperImage() throws -> CGImage {
         let context = try XCTUnwrap(CGContext(
             data: nil, width: 1200, height: 800, bitsPerComponent: 8, bytesPerRow: 4800,
             space: CGColorSpaceCreateDeviceRGB(), bitmapInfo: CGImageAlphaInfo.premultipliedLast.rawValue
         ))
-        let image = try XCTUnwrap(context.makeImage())
-        cache.captureWallpaper = { _ in image }
-        return WorkspaceSwipeBackdrop(wallpaperCache: cache)
+        return try XCTUnwrap(context.makeImage())
     }
 
     private var monitor: Monitor {
