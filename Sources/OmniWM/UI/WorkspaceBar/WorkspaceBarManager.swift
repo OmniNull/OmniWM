@@ -92,6 +92,8 @@ final class WorkspaceBarManager {
         panel.setFrame(frame, display: true)
     }
 
+    var onPrimaryBarFramesChanged: (@MainActor () -> Void)?
+
     private var barsByMonitor: [Monitor.ID: WorkspaceBarInstance] = [:]
     private weak var controller: WMController?
     private weak var settings: SettingsStore?
@@ -110,6 +112,7 @@ final class WorkspaceBarManager {
     func apply(_ bars: [DesiredBarSurface]) {
         guard controller != nil, settings != nil else { return }
 
+        let framesBefore = primaryFramesByMonitor()
         var staleMonitorIds = Set(barsByMonitor.keys)
         for bar in bars where bar.visible {
             staleMonitorIds.remove(bar.monitor.id)
@@ -126,6 +129,14 @@ final class WorkspaceBarManager {
         for monitorId in staleMonitorIds {
             removeBarForMonitor(monitorId)
         }
+
+        if primaryFramesByMonitor() != framesBefore {
+            onPrimaryBarFramesChanged?()
+        }
+    }
+
+    private func primaryFramesByMonitor() -> [Monitor.ID: CGRect?] {
+        barsByMonitor.mapValues { $0.primary.lastAppliedFrame }
     }
 
     func updateAppearance() {
