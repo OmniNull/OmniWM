@@ -135,7 +135,7 @@ final class WorkspaceBarInstance {
         } else if resolved.notchMode == .fillLeftOfNotch {
             geometry.frame(fittingWidth: 0, monitor: monitor, resolved: resolved).width
         } else {
-            monitor.frame.width
+            geometry.availableWidth(monitor: monitor, resolved: resolved)
         }
         let context = ScratchpadCompactionContext(
             availableWidth: availableWidth,

@@ -55,6 +55,7 @@ enum WorkspaceBarPosition: String, CaseIterable, Codable, Identifiable {
 enum WorkspaceBarNotchMode: String, CaseIterable, Codable, Identifiable {
     case off
     case moveBelowMenuBar
+    case rightOfNotch
     case splitActiveLeft
     case splitActiveRight
     case fillLeftOfNotch
@@ -71,6 +72,7 @@ enum WorkspaceBarNotchMode: String, CaseIterable, Codable, Identifiable {
         switch self {
         case .off: "Off"
         case .moveBelowMenuBar: "Move Below Menu Bar"
+        case .rightOfNotch: "Right of Notch"
         case .splitActiveLeft: "Split — Active Left"
         case .splitActiveRight: "Split — Active Right"
         case .fillLeftOfNotch: "Fill Left of Notch"

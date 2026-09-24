@@ -230,6 +230,69 @@ final class WorkspaceBarSplitGeometryTests: XCTestCase {
     func testSplitReturnsNilForNonSplitModes() {
         XCTAssertNil(splitLayout(activeWidth: 100, resolved: makeResolved(notchMode: .off)))
         XCTAssertNil(splitLayout(activeWidth: 100, resolved: makeResolved(notchMode: .moveBelowMenuBar)))
+        XCTAssertNil(splitLayout(activeWidth: 100, resolved: makeResolved(notchMode: .rightOfNotch)))
+    }
+
+    func testRightOfNotchKeepsLeadingEdgeFixedAsContentGrows() {
+        for position in WorkspaceBarPosition.allCases {
+            let monitor = makeMonitor(
+                frame: CGRect(x: -1512, y: 100, width: 1512, height: 982),
+                visibleTop: 1050,
+                notchRange: -912 ... -712
+            )
+            let resolved = makeResolved(notchMode: .rightOfNotch, position: position)
+            let geometry = WorkspaceBarGeometry.resolve(monitor: monitor, resolved: resolved, isVisible: true)
+
+            for fittingWidth: CGFloat in [4, 100, 300, 2000] {
+                let frame = geometry.frame(fittingWidth: fittingWidth, monitor: monitor, resolved: resolved)
+                XCTAssertEqual(frame.minX, -704)
+                XCTAssertEqual(frame.width, min(max(fittingWidth, 40), 704))
+                XCTAssertLessThanOrEqual(frame.maxX, monitor.frame.maxX)
+                XCTAssertEqual(frame.minY, position == .belowMenuBar ? 1026 : 1050)
+            }
+            XCTAssertEqual(geometry.availableWidth(monitor: monitor, resolved: resolved), 704)
+        }
+    }
+
+    func testRightOfNotchCentersOnPlainDisplays() {
+        let monitor = makeMonitor(
+            frame: CGRect(x: 1512, y: 0, width: 1920, height: 1080),
+            visibleTop: 1055,
+            hasNotch: false,
+            notchRange: nil
+        )
+        let resolved = makeResolved(notchMode: .rightOfNotch)
+        let geometry = WorkspaceBarGeometry.resolve(monitor: monitor, resolved: resolved, isVisible: true)
+
+        for fittingWidth: CGFloat in [40, 100, 700] {
+            let frame = geometry.frame(fittingWidth: fittingWidth, monitor: monitor, resolved: resolved)
+            XCTAssertEqual(frame.midX, monitor.frame.midX)
+            XCTAssertEqual(frame.width, fittingWidth)
+            XCTAssertEqual(frame.minY, 1055)
+        }
+    }
+
+    func testRightOfNotchAppliesOffsetsAndAvailableWidth() {
+        let monitor = makeMonitor()
+        let resolved = makeResolved(notchMode: .rightOfNotch, xOffset: 20, yOffset: -10)
+        let geometry = WorkspaceBarGeometry.resolve(monitor: monitor, resolved: resolved, isVisible: true)
+
+        XCTAssertEqual(
+            geometry.frame(fittingWidth: 2000, monitor: monitor, resolved: resolved),
+            CGRect(x: 884, y: 940, width: 628, height: 24)
+        )
+        XCTAssertEqual(geometry.availableWidth(monitor: monitor, resolved: resolved), 628)
+    }
+
+    func testRightOfNotchFallsBackBelowWhenNotchBoundsAreUnavailable() {
+        let monitor = makeMonitor(notchRange: nil)
+        let resolved = makeResolved(notchMode: .rightOfNotch)
+        let geometry = WorkspaceBarGeometry.resolve(monitor: monitor, resolved: resolved, isVisible: true)
+        let frame = geometry.frame(fittingWidth: 300, monitor: monitor, resolved: resolved)
+
+        XCTAssertEqual(geometry.effectivePosition, .belowMenuBar)
+        XCTAssertEqual(frame.midX, monitor.frame.midX)
+        XCTAssertEqual(frame.minY, 926)
     }
 
     func testEffectivePositionOnlyMovesBelowForMoveBelowMode() {
@@ -242,7 +305,7 @@ final class WorkspaceBarSplitGeometryTests: XCTestCase {
             ),
             .belowMenuBar
         )
-        for mode in [WorkspaceBarNotchMode.off, .splitActiveLeft, .splitActiveRight] {
+        for mode in [WorkspaceBarNotchMode.off, .rightOfNotch, .splitActiveLeft, .splitActiveRight] {
             XCTAssertEqual(
                 WorkspaceBarGeometry.effectivePosition(for: monitor, resolved: makeResolved(notchMode: mode)),
                 .overlappingMenuBar
