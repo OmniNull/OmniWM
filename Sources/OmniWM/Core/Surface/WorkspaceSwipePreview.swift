@@ -210,6 +210,7 @@ final class WorkspaceSwipePreview {
             ownedWindowRegistry.unregister(panel)
             panel.orderOut(nil)
             panel.close()
+            backdrop.clear()
         }
         panel = nil
         sourceLayer = nil

@@ -95,6 +95,35 @@ final class WorkspaceSwipePreviewTests: XCTestCase {
         XCTAssertFalse(preview.isVisible)
     }
 
+    func testIdleStopsReuseWallpaperButVisiblePreviewStopRefreshesIt() throws {
+        let image = try XCTUnwrap(CGContext(
+            data: nil, width: 1200, height: 800, bitsPerComponent: 8, bytesPerRow: 0,
+            space: CGColorSpaceCreateDeviceRGB(), bitmapInfo: CGImageAlphaInfo.premultipliedLast.rawValue
+        )?.makeImage())
+        var captures = 0
+        let cache = OverviewWallpaperCache()
+        cache.desktopImageURL = { _ in nil }
+        cache.captureWallpaper = { _ in
+            captures += 1
+            return image
+        }
+        let preview = WorkspaceSwipePreview(
+            ownedWindowRegistry: OwnedWindowRegistry(),
+            backdrop: WorkspaceSwipeBackdrop(wallpaperCache: cache),
+            hasCaptureAccess: { true }
+        )
+        defer { preview.stop() }
+        preview.prepare(source: [], destination: [], monitor: monitor)
+        preview.stop()
+        preview.prepare(source: [], destination: [], monitor: monitor)
+        XCTAssertEqual(captures, 1, "Ordinary trackpad touch cleanup must not trigger another wallpaper capture")
+
+        XCTAssertTrue(preview.begin(source: [], destination: [], monitor: monitor))
+        preview.stop()
+        preview.prepare(source: [], destination: [], monitor: monitor)
+        XCTAssertEqual(captures, 2, "A new visible swipe must refresh the wallpaper")
+    }
+
     private func makeBackdrop() throws -> WorkspaceSwipeBackdrop {
         let cache = OverviewWallpaperCache()
         cache.desktopImageURL = { _ in nil }
@@ -103,7 +132,8 @@ final class WorkspaceSwipePreviewTests: XCTestCase {
             space: CGColorSpaceCreateDeviceRGB(), bitmapInfo: CGImageAlphaInfo.premultipliedLast.rawValue
         ))
         let image = try XCTUnwrap(context.makeImage())
-        return WorkspaceSwipeBackdrop(wallpaperCache: cache, capture: { _ in image })
+        cache.captureWallpaper = { _ in image }
+        return WorkspaceSwipeBackdrop(wallpaperCache: cache)
     }
 
     private var monitor: Monitor {

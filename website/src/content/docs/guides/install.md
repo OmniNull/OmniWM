@@ -9,7 +9,7 @@ sidebar:
 
 - macOS 26+ (Tahoe) on Apple Silicon
 - Accessibility and Input Monitoring permissions (required at launch)
-- Screen Recording permission for Overview thumbnails, drag previews, and captured Hidden Bar glyphs (optional)
+- Screen Recording permission for Overview thumbnails, rendered wallpaper previews, drag previews, and captured Hidden Bar glyphs (optional)
 - `Displays have separate Spaces` **ON** (the macOS default; OmniWM pauses window management until it is enabled)
 
 ## Homebrew
@@ -76,7 +76,7 @@ After either installation, finish with the [first-launch setup](#first-launch-se
 1. In **System Settings > Desktop & Dock > Mission Control**, turn **ON** `Displays have separate Spaces`.
 2. Log out of macOS and log back in for that change to take effect, unless you had it on already.
 3. Launch OmniWM and grant **Accessibility** and **Input Monitoring** when prompted. Both are required at launch.
-4. Optionally grant **Screen Recording** for capture-derived visuals: Overview thumbnails, drag previews, and captured Hidden Bar glyphs.
+4. Optionally grant **Screen Recording** for capture-derived visuals: Overview thumbnails, rendered wallpaper previews, drag previews, and captured Hidden Bar glyphs.
 5. Return to OmniWM’s permissions window and click **Start OmniWM** or **Continue Without Screen Recording**. If a required permission still appears missing, click **Check Again**.
 
 :::note
