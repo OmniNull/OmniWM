@@ -7,6 +7,8 @@ import Foundation
 struct ResizeEdge: OptionSet, Hashable, CustomStringConvertible {
     let rawValue: UInt32
 
+    private static let diagonalAccessibilityDescription = String(localized: "Resize diagonally")
+
     static let top = ResizeEdge(rawValue: 0b0001)
     static let bottom = ResizeEdge(rawValue: 0b0010)
     static let left = ResizeEdge(rawValue: 0b0100)
@@ -55,7 +57,7 @@ struct ResizeEdge: OptionSet, Hashable, CustomStringConvertible {
     private static func makeDiagonalNWSECursor() -> NSCursor {
         if let image = NSImage(
             systemSymbolName: "arrow.up.left.and.arrow.down.right",
-            accessibilityDescription: "Resize diagonally"
+            accessibilityDescription: diagonalAccessibilityDescription
         ) {
             return NSCursor(image: image, hotSpot: NSPoint(x: 8, y: 8))
         }
@@ -66,7 +68,7 @@ struct ResizeEdge: OptionSet, Hashable, CustomStringConvertible {
     private static func makeDiagonalNESWCursor() -> NSCursor {
         if let image = NSImage(
             systemSymbolName: "arrow.up.right.and.arrow.down.left",
-            accessibilityDescription: "Resize diagonally"
+            accessibilityDescription: diagonalAccessibilityDescription
         ) {
             return NSCursor(image: image, hotSpot: NSPoint(x: 8, y: 8))
         }

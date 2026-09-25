@@ -104,8 +104,8 @@ class KeyRecorderNSView: NSView {
     func updateAccessibility() {
         setAccessibilityRole(.group)
         setAccessibilityLabel(recordingAccessibilityLabel)
-        setAccessibilityValue("Recording. Press a key combination.")
-        setAccessibilityHelp("Press a key combination. Press Escape to cancel recording.")
+        setAccessibilityValue(String(localized: "Recording. Press a key combination."))
+        setAccessibilityHelp(String(localized: "Press a key combination. Press Escape to cancel recording."))
     }
 
     override func becomeFirstResponder() -> Bool {

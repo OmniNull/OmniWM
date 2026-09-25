@@ -223,7 +223,7 @@ final class StatusBarController: NSObject {
                 isRecording: controller?.isTraceCaptureActive == true
             )
         )
-        button.setAccessibilityHelp("Press to open OmniWM controls.")
+        button.setAccessibilityHelp(String(localized: "Press to open OmniWM controls."))
     }
 
     func refreshWorkspaces() {

@@ -36,17 +36,20 @@ enum QuakeClipboardAlert {
     ) -> NSAlert {
         let alert = NSAlert()
         alert.alertStyle = .warning
-        let requester = programName.map { "\"\($0)\"" } ?? "A terminal application"
+        let requester = programName.map { "\"\($0)\"" } ?? String(localized: "A terminal application")
         switch kind {
         case .read:
-            alert.messageText = "Allow Clipboard Read?"
-            alert.informativeText = "\(requester) wants to read the contents of the clipboard."
+            alert.messageText = String(localized: "Allow Clipboard Read?")
+            alert.informativeText = String(localized:
+                "\(requester) wants to read the contents of the clipboard.")
         case .write:
-            alert.messageText = "Allow Clipboard Write?"
-            alert.informativeText = "\(requester) wants to replace the contents of the clipboard."
+            alert.messageText = String(localized: "Allow Clipboard Write?")
+            alert.informativeText = String(localized:
+                "\(requester) wants to replace the contents of the clipboard.")
         case .unsafePaste:
-            alert.messageText = "Allow Potentially Unsafe Paste?"
-            alert.informativeText = "The text being pasted contains characters that may run commands in the terminal."
+            alert.messageText = String(localized: "Allow Potentially Unsafe Paste?")
+            alert.informativeText = String(localized:
+                "The text being pasted contains characters that may run commands in the terminal.")
         }
 
         let preview = preview(contents)
@@ -58,13 +61,13 @@ enum QuakeClipboardAlert {
         }
         if canRemember {
             alert.accessoryView = NSButton(
-                checkboxWithTitle: "Remember this choice for the session",
+                checkboxWithTitle: String(localized: "Remember this choice for the session"),
                 target: nil,
                 action: nil
             )
         }
-        alert.addButton(withTitle: "Deny")
-        alert.addButton(withTitle: "Allow")
+        alert.addButton(withTitle: String(localized: "Deny"))
+        alert.addButton(withTitle: String(localized: "Allow"))
         return alert
     }
 

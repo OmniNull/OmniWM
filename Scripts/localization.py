@@ -18,6 +18,29 @@ FORMAT = re.compile(
 )
 SUBSTITUTION = re.compile(r"%(?:(\d+)\$)?#@([A-Za-z_][A-Za-z_0-9]*)@")
 INFO_KEYS = ("NSMicrophoneUsageDescription", "NSScreenCaptureUsageDescription")
+PLURAL_CATEGORIES = {
+    "ar": {"zero", "one", "two", "few", "many", "other"},
+    "da": {"one", "other"},
+    "de": {"one", "other"},
+    "el": {"one", "other"},
+    "en": {"one", "other"},
+    "es": {"one", "many", "other"},
+    "fi": {"one", "other"},
+    "fr": {"one", "many", "other"},
+    "he": {"one", "two", "other"},
+    "hi": {"one", "other"},
+    "it": {"one", "many", "other"},
+    "ja": {"other"},
+    "ko": {"other"},
+    "nb": {"one", "other"},
+    "nl": {"one", "other"},
+    "pl": {"one", "few", "many", "other"},
+    "ru": {"one", "few", "many", "other"},
+    "sr-Latn": {"one", "few", "other"},
+    "sv": {"one", "other"},
+    "uk": {"one", "few", "many", "other"},
+    "zh-Hans": {"other"},
+}
 
 
 def format_type(specifier):
@@ -160,6 +183,75 @@ def validate_catalogs(catalog_dir=CATALOGS, info_plist=ROOT / "Info.plist"):
                     raise ValueError(f"InfoPlist.xcstrings: English {key} must match Info.plist")
 
 
+def has_plural(node):
+    variations = node.get("variations", {})
+    if "plural" in variations:
+        return True
+    return any(
+        has_plural(branch)
+        for branches in variations.values()
+        for branch in branches.values()
+    ) or any(has_plural(substitution) for substitution in node.get("substitutions", {}).values())
+
+
+def translation_error(node, plural_categories):
+    if not isinstance(node, dict):
+        return "missing translation"
+    unit = node.get("stringUnit")
+    variations = node.get("variations", {})
+    if unit is None and not variations:
+        return "missing translated string"
+    if unit is not None and (
+        not isinstance(unit, dict)
+        or unit.get("state") != "translated"
+        or not isinstance(unit.get("value"), str)
+        or not unit["value"].strip()
+    ):
+        return "empty or unreviewed translated string"
+    for kind, branches in variations.items():
+        if not isinstance(branches, dict) or not branches:
+            return f"missing {kind} branches"
+        if kind == "plural":
+            missing = plural_categories - branches.keys()
+            if missing:
+                return f"missing plural {sorted(missing)[0]} branch"
+        for branch in branches.values():
+            error = translation_error(branch, plural_categories)
+            if error:
+                return error
+    for substitution in node.get("substitutions", {}).values():
+        error = translation_error(substitution, plural_categories)
+        if error:
+            return error
+    return None
+
+
+def validate_locale_completeness(catalog_dir, languages):
+    problems = []
+    for name in ("Localizable", "Commands", "InfoPlist"):
+        strings = json.loads((catalog_dir / f"{name}.xcstrings").read_text())["strings"]
+        for language in languages:
+            if language not in PLURAL_CATEGORIES:
+                raise ValueError(f"unsupported plural categories for {language}")
+            plural_categories = PLURAL_CATEGORIES[language]
+            incomplete = []
+            for key, entry in strings.items():
+                if not key:
+                    continue
+                locales = entry.get("localizations", {})
+                translation = locales.get(language)
+                error = translation_error(translation, plural_categories)
+                if not error and has_plural(locales.get("en", {})) and not has_plural(translation):
+                    error = "missing plural branches"
+                if error:
+                    incomplete.append(f"{key!r} ({error})")
+            if incomplete:
+                examples = ", ".join(incomplete[:3])
+                problems.append(f"{language} {name}.xcstrings: {len(incomplete)} incomplete; e.g. {examples}")
+    if problems:
+        raise ValueError("locale completeness failed:\n" + "\n".join(problems))
+
+
 def compiler_stringsdata():
     result = subprocess.run(
         ["swift", "build", "--arch", "arm64", "--show-bin-path"],
@@ -249,10 +341,11 @@ def package(bundle, app):
 
 def main():
     parser = argparse.ArgumentParser()
-    parser.add_argument("command", choices=("check", "sync", "validate", "package"))
+    parser.add_argument("command", choices=("check", "sync", "validate", "completeness", "package"))
     parser.add_argument("--bundle", type=Path)
     parser.add_argument("--app", type=Path)
     parser.add_argument("--catalog-dir", type=Path, default=CATALOGS)
+    parser.add_argument("--locales", nargs="+", metavar="LOCALE")
     args = parser.parse_args()
     try:
         if args.command == "check":
@@ -264,6 +357,11 @@ def main():
             validate_command_defaults(stringsdata)
         elif args.command == "validate":
             validate_catalogs(args.catalog_dir)
+        elif args.command == "completeness":
+            if not args.locales:
+                parser.error("completeness requires --locales LOCALE [LOCALE ...]")
+            validate_locale_completeness(args.catalog_dir, args.locales)
+            print(f"Complete translations for {', '.join(args.locales)} in all three catalogs")
         elif args.bundle and args.app:
             package(args.bundle, args.app)
         else:

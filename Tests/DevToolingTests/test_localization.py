@@ -145,6 +145,74 @@ class LocalizationTests(unittest.TestCase):
                 with self.assertRaisesRegex(ValueError, "must match source value"):
                     localization.validate_command_defaults([metadata])
 
+    def test_completeness_requires_every_nonempty_key_in_each_catalog(self):
+        with tempfile.TemporaryDirectory() as temporary:
+            root = Path(temporary)
+            entries = {
+                "Localizable": {"": {}, "Open": {"localizations": {"fr": unit("Ouvrir")}}},
+                "Commands": {"command.open": {"localizations": {"fr": unit("Ouvrir")}}},
+                "InfoPlist": {"NSMicrophoneUsageDescription": {"localizations": {"fr": unit("Microphone")}}},
+            }
+            for name, strings in entries.items():
+                (root / f"{name}.xcstrings").write_text(json.dumps({"strings": strings}))
+            localization.validate_locale_completeness(root, ["fr"])
+            for name, key in (("Localizable", "Open"), ("Commands", "command.open"),
+                              ("InfoPlist", "NSMicrophoneUsageDescription")):
+                translated = entries[name][key]["localizations"].pop("fr")
+                (root / f"{name}.xcstrings").write_text(json.dumps({"strings": entries[name]}))
+                with self.assertRaisesRegex(ValueError, rf"fr {name}.xcstrings: 1 incomplete"):
+                    localization.validate_locale_completeness(root, ["fr"])
+                entries[name][key]["localizations"]["fr"] = translated
+                (root / f"{name}.xcstrings").write_text(json.dumps({"strings": entries[name]}))
+
+    def test_completeness_checks_translated_values_and_plural_branches(self):
+        with tempfile.TemporaryDirectory() as temporary:
+            root = Path(temporary)
+            plural = {"variations": {"plural": {"one": unit("%1$lld fenêtre"),
+                                                 "many": unit("%1$lld fenêtres"),
+                                                 "other": unit("%1$lld fenêtres")}}}
+            strings = {"%lld windows": {"localizations": {
+                "en": {"variations": {"plural": {"one": unit("%1$lld window"),
+                                                      "other": unit("%1$lld windows")}}},
+                "fr": plural,
+            }}}
+            (root / "Localizable.xcstrings").write_text(json.dumps({"strings": strings}))
+            for name in ("Commands", "InfoPlist"):
+                (root / f"{name}.xcstrings").write_text(json.dumps({"strings": {}}))
+            localization.validate_locale_completeness(root, ["fr"])
+
+            plural["variations"]["plural"].pop("one")
+            (root / "Localizable.xcstrings").write_text(json.dumps({"strings": strings}))
+            with self.assertRaisesRegex(ValueError, "missing plural one branch"):
+                localization.validate_locale_completeness(root, ["fr"])
+            plural["variations"]["plural"]["one"] = unit("%1$lld fenêtre")
+
+            plural["variations"]["plural"]["one"] = unit("  ")
+            (root / "Localizable.xcstrings").write_text(json.dumps({"strings": strings}))
+            with self.assertRaisesRegex(ValueError, "empty or unreviewed translated string"):
+                localization.validate_locale_completeness(root, ["fr"])
+
+            plural["variations"]["plural"]["one"] = {"stringUnit": {"state": "needs_review", "value": "Fenêtre"}}
+            (root / "Localizable.xcstrings").write_text(json.dumps({"strings": strings}))
+            with self.assertRaisesRegex(ValueError, "empty or unreviewed translated string"):
+                localization.validate_locale_completeness(root, ["fr"])
+
+            plural["variations"]["plural"].pop("other")
+            (root / "Localizable.xcstrings").write_text(json.dumps({"strings": strings}))
+            with self.assertRaisesRegex(ValueError, "missing plural other branch"):
+                localization.validate_locale_completeness(root, ["fr"])
+
+            strings["%lld windows"]["localizations"]["fr"] = unit("%lld fenêtres")
+            (root / "Localizable.xcstrings").write_text(json.dumps({"strings": strings}))
+            with self.assertRaisesRegex(ValueError, "missing plural branches"):
+                localization.validate_locale_completeness(root, ["fr"])
+
+            strings["%lld windows"]["localizations"]["ja"] = {
+                "variations": {"plural": {"other": unit("%1$lld 件のウィンドウ")}}
+            }
+            (root / "Localizable.xcstrings").write_text(json.dumps({"strings": strings}))
+            localization.validate_locale_completeness(root, ["ja"])
+
     def test_packaging_places_locales_in_main_app_bundle(self):
         with tempfile.TemporaryDirectory() as temporary:
             root = Path(temporary)

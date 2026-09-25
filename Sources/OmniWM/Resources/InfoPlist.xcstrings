@@ -9,6 +9,126 @@
             "state" : "translated",
             "value" : "A program running within OmniWM's Quake Terminal would like to use your microphone."
           }
+        },
+        "ja" : {
+          "stringUnit" : {
+            "state" : "translated",
+            "value" : "OmniWM の Quakeターミナルで実行中のプログラムがマイクの使用を求めています。"
+          }
+        },
+        "de" : {
+          "stringUnit" : {
+            "state" : "translated",
+            "value" : "Ein Programm, das innerhalb des Quake-Terminal von OmniWM läuft, möchte Ihr Mikrofon verwenden."
+          }
+        },
+        "nb" : {
+          "stringUnit" : {
+            "state" : "translated",
+            "value" : "Et program som kjører i OmniWMs Quake-terminal, ønsker å bruke mikrofonen din."
+          }
+        },
+        "sv" : {
+          "stringUnit" : {
+            "state" : "translated",
+            "value" : "Ett program som körs inom OmniWM:s Quake Terminal vill använda din mikrofon."
+          }
+        },
+        "es" : {
+          "stringUnit" : {
+            "state" : "translated",
+            "value" : "Un programa que se ejecuta en el Terminal Quake de OmniWM quiere usar el micrófono."
+          }
+        },
+        "zh-Hans" : {
+          "stringUnit" : {
+            "state" : "translated",
+            "value" : "OmniWM 的 Quake 终端中有一个程序希望使用您的麦克风。"
+          }
+        },
+        "hi" : {
+          "stringUnit" : {
+            "state" : "translated",
+            "value" : "OmniWM के Quake टर्मिनल के भीतर चल रहा एक प्रोग्राम आपके माइक्रोफ़ोन का उपयोग करना चाहता है।"
+          }
+        },
+        "ar" : {
+          "stringUnit" : {
+            "state" : "translated",
+            "value" : "يرغب برنامج يعمل داخل طرفية Quake التابعة لـ OmniWM في استخدام الميكروفون."
+          }
+        },
+        "sr-Latn" : {
+          "stringUnit" : {
+            "state" : "translated",
+            "value" : "Program pokrenut u Quake terminalu aplikacije OmniWM želi da koristi vaš mikrofon."
+          }
+        },
+        "el" : {
+          "stringUnit" : {
+            "state" : "translated",
+            "value" : "Ένα πρόγραμμα που εκτελείται στο Τερματικό Quake του OmniWM θέλει να χρησιμοποιήσει το μικρόφωνό σας."
+          }
+        },
+        "he" : {
+          "stringUnit" : {
+            "state" : "translated",
+            "value" : "תוכנית הפועלת בתוך Quake Terminal של OmniWM מבקשת להשתמש במיקרופון שלך."
+          }
+        },
+        "ru" : {
+          "stringUnit" : {
+            "state" : "translated",
+            "value" : "Программа, запущенная в Quake Terminal приложения OmniWM, запрашивает доступ к микрофону."
+          }
+        },
+        "pl" : {
+          "stringUnit" : {
+            "state" : "translated",
+            "value" : "Program uruchomiony w Quake Terminal aplikacji OmniWM chce użyć mikrofonu."
+          }
+        },
+        "uk" : {
+          "stringUnit" : {
+            "state" : "translated",
+            "value" : "Програма, запущена в Quake Terminal OmniWM, хоче використовувати ваш мікрофон."
+          }
+        },
+        "fr" : {
+          "stringUnit" : {
+            "state" : "translated",
+            "value" : "Un programme exécuté dans Quake Terminal d’OmniWM souhaite utiliser votre microphone."
+          }
+        },
+        "nl" : {
+          "stringUnit" : {
+            "state" : "translated",
+            "value" : "Een programma dat in Quake Terminal van OmniWM wordt uitgevoerd, wil uw microfoon gebruiken."
+          }
+        },
+        "it" : {
+          "stringUnit" : {
+            "state" : "translated",
+            "value" : "Un programma in esecuzione nel Quake Terminal di OmniWM vuole usare il microfono."
+          }
+        },
+        "fi" : {
+          "stringUnit" : {
+            "state" : "translated",
+            "value" : "OmniWM:n Quake Terminalissa toimiva ohjelma haluaa käyttää mikrofonia."
+          }
+        },
+        "da" : {
+          "stringUnit" : {
+            "state" : "translated",
+            "value" : "Et program, der kører i Quake Terminal i OmniWM, vil gerne bruge din mikrofon."
+          }
+        },
+        "ko" : {
+          "stringUnit" : {
+            "state" : "translated",
+            "value" : "OmniWM의 Quake Terminal에서 실행 중인 프로그램이 마이크를 사용하려고 합니다."
+          }
         }
       }
     },
@@ -19,6 +139,126 @@
           "stringUnit" : {
             "state" : "translated",
             "value" : "OmniWM uses screen capture for Overview thumbnails, window drag previews, and Hidden Bar icons."
+          }
+        },
+        "ja" : {
+          "stringUnit" : {
+            "state" : "translated",
+            "value" : "OmniWM は、オーバービューのサムネイル、ウィンドウのドラッグプレビュー、隠しバーのアイコンのために画面収録を使用します。"
+          }
+        },
+        "de" : {
+          "stringUnit" : {
+            "state" : "translated",
+            "value" : "OmniWM verwendet Bildschirmaufnahmen für Vorschaubilder in der Übersicht, Vorschauen beim Ziehen von Fenstern und Symbole der versteckten Leiste."
+          }
+        },
+        "nb" : {
+          "stringUnit" : {
+            "state" : "translated",
+            "value" : "OmniWM bruker skjermopptak til miniatyrbilder i Oversikt, forhåndsvisninger ved vindusdraing og ikoner i Skjult linje."
+          }
+        },
+        "sv" : {
+          "stringUnit" : {
+            "state" : "translated",
+            "value" : "OmniWM använder skärmfångst för miniatyrbilder i Översikt, förhandsvisningar vid fönsterdragning och ikoner i Hidden Bar."
+          }
+        },
+        "es" : {
+          "stringUnit" : {
+            "state" : "translated",
+            "value" : "OmniWM usa la captura de pantalla para las miniaturas de Vista general, las vistas previas al arrastrar ventanas y los iconos de Barra oculta."
+          }
+        },
+        "zh-Hans" : {
+          "stringUnit" : {
+            "state" : "translated",
+            "value" : "OmniWM 使用屏幕录制生成概览缩略图、窗口拖动预览和隐藏栏图标。"
+          }
+        },
+        "hi" : {
+          "stringUnit" : {
+            "state" : "translated",
+            "value" : "OmniWM ओवरव्यू थंबनेल, विंडो ड्रैग प्रीव्यू और हिडन बार आइकन के लिए स्क्रीन कैप्चर का उपयोग करता है।"
+          }
+        },
+        "ar" : {
+          "stringUnit" : {
+            "state" : "translated",
+            "value" : "يستخدم OmniWM التقاط الشاشة لإنشاء الصور المصغرة لميزة «نظرة عامة»، ومعاينات سحب النوافذ، وأيقونات الشريط المخفي."
+          }
+        },
+        "sr-Latn" : {
+          "stringUnit" : {
+            "state" : "translated",
+            "value" : "OmniWM koristi snimanje ekrana za sličice Pregleda, prikaze pri prevlačenju prozora i ikone Skrivene trake."
+          }
+        },
+        "el" : {
+          "stringUnit" : {
+            "state" : "translated",
+            "value" : "Το OmniWM χρησιμοποιεί καταγραφή οθόνης για τις μικρογραφίες της Επισκόπησης, τις προεπισκοπήσεις μεταφοράς παραθύρων και τα εικονίδια της Κρυφής γραμμής."
+          }
+        },
+        "he" : {
+          "stringUnit" : {
+            "state" : "translated",
+            "value" : "OmniWM משתמש בצילום מסך עבור תמונות ממוזערות ב-Overview, תצוגות מקדימות של גרירת חלונות וסמלים ב-Hidden Bar."
+          }
+        },
+        "ru" : {
+          "stringUnit" : {
+            "state" : "translated",
+            "value" : "OmniWM использует захват экрана для миниатюр Overview, предварительного просмотра перетаскиваемых окон и значков Hidden Bar."
+          }
+        },
+        "pl" : {
+          "stringUnit" : {
+            "state" : "translated",
+            "value" : "OmniWM korzysta z przechwytywania ekranu do miniatur w Overview, podglądu przeciąganych okien i ikon w Hidden Bar."
+          }
+        },
+        "uk" : {
+          "stringUnit" : {
+            "state" : "translated",
+            "value" : "OmniWM використовує запис екрана для мініатюр Overview, попереднього перегляду під час перетягування вікон і піктограм Hidden Bar."
+          }
+        },
+        "fr" : {
+          "stringUnit" : {
+            "state" : "translated",
+            "value" : "OmniWM utilise l’enregistrement de l’écran pour les vignettes d’Overview, les aperçus de déplacement des fenêtres et les icônes de Hidden Bar."
+          }
+        },
+        "nl" : {
+          "stringUnit" : {
+            "state" : "translated",
+            "value" : "OmniWM gebruikt schermopname voor miniaturen in Overview, voorbeelden bij het verslepen van vensters en pictogrammen in Hidden Bar."
+          }
+        },
+        "it" : {
+          "stringUnit" : {
+            "state" : "translated",
+            "value" : "OmniWM usa la cattura dello schermo per le miniature di Overview, le anteprime durante il trascinamento delle finestre e le icone di Hidden Bar."
+          }
+        },
+        "fi" : {
+          "stringUnit" : {
+            "state" : "translated",
+            "value" : "OmniWM käyttää näytön tallennusta Overview-pienoiskuviin, ikkunoiden vetämisen esikatseluun ja Hidden Bar -kuvakkeisiin."
+          }
+        },
+        "da" : {
+          "stringUnit" : {
+            "state" : "translated",
+            "value" : "OmniWM bruger skærmoptagelse til miniaturer i Overview, forhåndsvisninger ved vinduestræk og Hidden Bar-ikoner."
+          }
+        },
+        "ko" : {
+          "stringUnit" : {
+            "state" : "translated",
+            "value" : "OmniWM은 Overview 축소판, 창 드래그 미리보기, Hidden Bar 아이콘에 화면 캡처를 사용합니다."
           }
         }
       }
