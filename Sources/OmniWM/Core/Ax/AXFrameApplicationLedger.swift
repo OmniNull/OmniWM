@@ -337,15 +337,16 @@ extension AXFrameApplicationLedger {
 
     func handleFrameApplyResults(
         _ results: [AXFrameApplyResult],
-        onAcceptedSuccess: (AXFrameApplyResult) -> Void = { _ in }
+        onAcceptedSuccess: (AXFrameApplyResult) -> Void = { _ in },
+        onDiscardedResult: (AXFrameApplyResult) -> Void = { _ in }
     ) -> AXFrameApplyOutcome {
         var outcome = AXFrameApplyOutcome()
         for result in results {
             let resolvedWindowId = rekeyedWindowIds.resolve(for: result.windowId)
             let resultResolvedThroughRekey = resolvedWindowId != result.windowId
             let resolvedResult = resolvedWindowId == result.windowId ? result : result.rekeyed(to: resolvedWindowId)
-            guard pendingFrameWrites[resolvedWindowId]?.matchesResult(resolvedResult) == true
-            else {
+            guard pendingFrameWrites[resolvedWindowId]?.matchesResult(resolvedResult) == true else {
+                onDiscardedResult(result)
                 continue
             }
 

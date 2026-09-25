@@ -51,15 +51,20 @@ func applyFrameWriteRequest(
     let windowId = request.windowId
 
     let metricsToken = AXWriteMetrics.ContextToken(pid: pid, callbackGeneration: callbackGeneration)
+    var didAttemptWrite = false
 
     func performWrite(_ window: AXWindowRef, attempt: UInt8) -> AXFrameWriteResult {
-        guard let traceAttempt else {
-            return AXWriteMetrics.shared.measure(metricsToken, lane: traceLane) {
+        let result: AXFrameWriteResult
+        if let traceAttempt {
+            result = AppAXFrameTraceContext(request: request, metricsToken: metricsToken, lane: traceLane)
+                .write(window, attempt: attempt, traceAttempt: traceAttempt)
+        } else {
+            result = AXWriteMetrics.shared.measure(metricsToken, lane: traceLane) {
                 writeFrame(window, request.frame, request.currentFrameHint, request.components, request.verify)
             } succeeded: { $0.failureReason == nil }
         }
-        return AppAXFrameTraceContext(request: request, metricsToken: metricsToken, lane: traceLane)
-            .write(window, attempt: attempt, traceAttempt: traceAttempt)
+        didAttemptWrite = didAttemptWrite || result.failureReason != .valueCreationFailed
+        return result
     }
 
     let expectedWindow = request.expectedWindow
@@ -68,7 +73,7 @@ func applyFrameWriteRequest(
     }
     let initialResult = performWrite(expectedWindow, attempt: 1)
     guard generations.isCurrent(request.generation, for: windowId) else {
-        return cancelledFrameApplyResult(for: request)
+        return cancelledFrameApplyResult(for: request, didAttemptWrite: didAttemptWrite)
     }
     if initialResult.shouldRetryAfterRefresh,
        generations.isCurrent(request.generation, for: windowId),
@@ -81,22 +86,25 @@ func applyFrameWriteRequest(
             requestGeneration: request.generation,
             generations: generations
         ) else {
-            return cancelledFrameApplyResult(for: request)
+            return cancelledFrameApplyResult(for: request, didAttemptWrite: didAttemptWrite)
         }
         guard generations.isCurrent(request.generation, for: windowId) else {
-            return cancelledFrameApplyResult(for: request)
+            return cancelledFrameApplyResult(for: request, didAttemptWrite: didAttemptWrite)
         }
         let retryResult = performWrite(refreshedAXRef, attempt: 2)
         guard generations.isCurrent(request.generation, for: windowId) else {
-            return cancelledFrameApplyResult(for: request)
+            return cancelledFrameApplyResult(for: request, didAttemptWrite: didAttemptWrite)
         }
-        return request.applyResult(pid: pid, writeResult: retryResult)
+        return request.applyResult(pid: pid, writeResult: retryResult, didAttemptWrite: didAttemptWrite)
     }
 
-    return request.applyResult(pid: pid, writeResult: initialResult)
+    return request.applyResult(pid: pid, writeResult: initialResult, didAttemptWrite: didAttemptWrite)
 }
 
-private func cancelledFrameApplyResult(for request: AppAXFrameWriteRequest) -> AXFrameApplyResult {
+private func cancelledFrameApplyResult(
+    for request: AppAXFrameWriteRequest,
+    didAttemptWrite: Bool = false
+) -> AXFrameApplyResult {
     AXFrameApplyResult(
         requestId: request.requestId,
         pid: request.pid,
@@ -110,6 +118,7 @@ private func cancelledFrameApplyResult(for request: AppAXFrameWriteRequest) -> A
             failureReason: .cancelled,
             components: request.components
         ),
+        didAttemptWrite: didAttemptWrite,
         traceRequestId: request.traceRequestId
     )
 }
@@ -147,7 +156,11 @@ private struct AppAXFrameTraceContext {
 }
 
 extension AppAXFrameWriteRequest {
-    fileprivate func applyResult(pid: pid_t, writeResult: AXFrameWriteResult) -> AXFrameApplyResult {
+    fileprivate func applyResult(
+        pid: pid_t,
+        writeResult: AXFrameWriteResult,
+        didAttemptWrite: Bool
+    ) -> AXFrameApplyResult {
         AXFrameApplyResult(
             requestId: requestId,
             pid: pid,
@@ -156,6 +169,7 @@ extension AppAXFrameWriteRequest {
             targetFrame: frame,
             currentFrameHint: currentFrameHint,
             writeResult: writeResult,
+            didAttemptWrite: didAttemptWrite,
             traceRequestId: traceRequestId
         )
     }
