@@ -45,24 +45,36 @@ struct CommandPaletteWindowRow: View {
 
                 Spacer()
 
-                HStack(spacing: 8) {
-                    if let summonHint {
-                        Text(summonHint.title)
+                VStack(alignment: .trailing, spacing: 4) {
+                    HStack(spacing: 8) {
+                        if let summonHint {
+                            Text(summonHint.title)
+                                .font(.system(size: 11, weight: .medium))
+                                .foregroundColor(.secondary)
+                            CommandPaletteShortcutBadge(text: summonHint.shortcut)
+                        }
+
+                        if item.isAppHidden {
+                            AppHiddenStatusBadge()
+                        }
+
+                        Text(item.workspaceName)
                             .font(.system(size: 11, weight: .medium))
-                            .foregroundColor(.secondary)
-                        CommandPaletteShortcutBadge(text: summonHint.shortcut)
+                            .padding(.horizontal, 8)
+                            .padding(.vertical, 3)
+                            .background(Color.secondary.opacity(0.18))
+                            .clipShape(Capsule())
                     }
 
-                    if item.isAppHidden {
-                        AppHiddenStatusBadge()
+                    ForEach(markLabels, id: \.self) { markLabel in
+                        Text(markLabel)
+                            .font(.system(size: 11, weight: .medium))
+                            .foregroundColor(.accentColor)
+                            .padding(.horizontal, 8)
+                            .padding(.vertical, 3)
+                            .background(Color.accentColor.opacity(0.12))
+                            .clipShape(Capsule())
                     }
-
-                    Text(item.workspaceName)
-                        .font(.system(size: 11, weight: .medium))
-                        .padding(.horizontal, 8)
-                        .padding(.vertical, 3)
-                        .background(Color.secondary.opacity(0.18))
-                        .clipShape(Capsule())
                 }
             }
             .modifier(CommandPaletteResultRowStyle(isSelected: isSelected))
@@ -82,8 +94,14 @@ struct CommandPaletteWindowRow: View {
         item.title.isEmpty ? item.appName : item.title
     }
 
-    private var accessibilityLabel: String {
-        displayTitle == item.appName ? item.appName : "\(displayTitle), \(item.appName)"
+    var markLabels: [String] {
+        item.markNames.map { "Mark: \($0)" }
+    }
+
+    var accessibilityLabel: String {
+        let windowAndApp = displayTitle == item.appName ? item.appName : "\(displayTitle), \(item.appName)"
+        guard !markLabels.isEmpty else { return windowAndApp }
+        return ([windowAndApp] + markLabels).joined(separator: ", ")
     }
 
     private var accessibilityValue: String {

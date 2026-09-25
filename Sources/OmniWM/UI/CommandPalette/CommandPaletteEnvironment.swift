@@ -72,6 +72,12 @@ private enum CommandPalettePasteKeyCode {
 
 @MainActor
 struct CommandPaletteEnvironment {
+    var focusedManagedWindowToken: (WMController) -> WindowToken? = { $0.focusedManagedTokenForCommand() }
+    var requestWindowMarkName: () -> String? = { CommandPaletteMarkNamePrompt.requestName() }
+    var chooseWindowMarkNameToRemove: ([String]) -> String? = { markNames in
+        CommandPaletteMarkRemovalPrompt.requestName(from: markNames)
+    }
+
     var frontmostApplication: () -> NSRunningApplication? = { NSWorkspace.shared.frontmostApplication }
     var runningApplication: (pid_t) -> NSRunningApplication? = { NSRunningApplication(processIdentifier: $0) }
     var ownBundleIdentifier: () -> String? = { Bundle.main.bundleIdentifier }
@@ -234,6 +240,19 @@ struct CommandPaletteEnvironment {
             anchorWorkspaceId: anchorWorkspaceId
         )
     }
+
+    var summonWindowRightOutcome: (WMController, WindowHandle, CommandPaletteSummonAnchor?)
+        -> WindowSummonRightOutcome = {
+            controller,
+            handle,
+            anchor in
+            guard let anchor else { return .noAnchor }
+            return controller.windowActionHandler.summonWindowRightOutcome(
+                handle: handle,
+                anchorToken: anchor.token,
+                anchorWorkspaceId: anchor.workspaceId
+            )
+        }
 
     var scheduleMenuAction: (@escaping () -> Void) -> Void = { action in
         let box = CommandPaletteActionBox(action)

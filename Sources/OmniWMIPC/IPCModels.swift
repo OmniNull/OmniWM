@@ -20,6 +20,7 @@ public enum IPCRequestKind: String, Codable, Equatable, Sendable {
     case rule
     case workspace
     case window
+    case windowMark = "window-mark"
     case subscribe
 }
 
@@ -32,6 +33,7 @@ public enum IPCResponseKind: String, Codable, Equatable, Sendable {
     case rule
     case workspace
     case window
+    case windowMark = "window-mark"
     case subscribe
     case error
 
@@ -53,6 +55,8 @@ public enum IPCResponseKind: String, Codable, Equatable, Sendable {
             self = .workspace
         case .window:
             self = .window
+        case .windowMark:
+            self = .windowMark
         case .subscribe:
             self = .subscribe
         }
@@ -82,6 +86,14 @@ public enum IPCErrorCode: String, Codable, Equatable, Sendable, Error {
     case workspaceAssignmentConflict = "workspace_assignment_conflict"
     case workspaceStateConflict = "workspace_state_conflict"
     case captureStateConflict = "capture_state_conflict"
+    case staleMark = "stale_mark"
+    case unknownMark = "unknown_mark"
+    case noFocusedWindow = "no_focused_window"
+    case selfSummon = "self_summon"
+    case hiddenWindow = "hidden_window"
+    case unsupportedLayout = "unsupported_layout"
+    case duplicateMark = "duplicate_mark"
+    case invalidMark = "invalid_mark"
     case internalError = "internal_error"
 }
 

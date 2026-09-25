@@ -137,7 +137,13 @@ _omniwmctl()
       return 0
       ;;
     window)
-      __omniwmctl_compgen "#{{windowActionNames}}"
+      if [[ ${COMP_CWORD} -eq 2 ]]; then
+        __omniwmctl_compgen "#{{windowActionNames}}"
+      elif [[ ${COMP_CWORD} -eq 3 && "${COMP_WORDS[2]}" == "mark" ]]; then
+        __omniwmctl_compgen "#{{windowMarkActionNames}}"
+      elif [[ ${COMP_CWORD} -eq 4 && "${COMP_WORDS[2]}" == "mark" && "${COMP_WORDS[3]}" == "list" ]]; then
+        __omniwmctl_compgen "#{{windowMarkListFlags}}"
+      fi
       return 0
       ;;
     completion)

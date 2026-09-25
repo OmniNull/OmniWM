@@ -71,7 +71,14 @@ def omniwmctl_choices [words: list<string>] {
             let directions = if $count == 3 { $catalog.workspaceMoveDirections } else { [] }
             $directions | append $catalog.workspaceMoveOptionalFlags
         }
-        window => { if $count == 1 { $catalog.windowActionNames } else { [] } }
+        window => {
+            if $count == 1 { return $catalog.windowActionNames }
+            if $action != "mark" { return [] }
+            let mark_action = ($words | get -o 2 | default "")
+            if $count == 2 { $catalog.windowMarkActionNames }
+            else if $count == 3 and $mark_action == "list" { $catalog.windowMarkListFlags }
+            else { [] }
+        }
         subscribe => { $catalog.subscribeTokens }
         watch => { $catalog.watchTokens }
         _ => { [] }

@@ -22,6 +22,7 @@ public enum IPCResultKind: String, Codable, Equatable, Sendable {
     case subscriptions
     case capabilities
     case subscribed
+    case windowMarks = "window-marks"
     case metrics
 }
 
@@ -75,6 +76,7 @@ public struct IPCResult: Codable, Equatable, Sendable {
         case subscriptions(IPCSubscriptionsQueryResult)
         case capabilities(IPCCapabilitiesQueryResult)
         case subscribed(IPCSubscribeResult)
+        case windowMarks(IPCWindowMarksResult)
         case metrics(IPCMetricsQueryResult)
     }
 
@@ -158,6 +160,10 @@ public struct IPCResult: Codable, Equatable, Sendable {
         self.init(kind: .subscribed, payload: .subscribed(subscribed))
     }
 
+    public init(windowMarks: IPCWindowMarksResult) {
+        self.init(kind: .windowMarks, payload: .windowMarks(windowMarks))
+    }
+
     public init(metrics: IPCMetricsQueryResult) {
         self.init(kind: .metrics, payload: .metrics(metrics))
     }
@@ -208,6 +214,8 @@ public struct IPCResult: Codable, Equatable, Sendable {
             payload = .capabilities(try container.decode(IPCCapabilitiesQueryResult.self, forKey: .payload))
         case .subscribed:
             payload = .subscribed(try container.decode(IPCSubscribeResult.self, forKey: .payload))
+        case .windowMarks:
+            payload = .windowMarks(try container.decode(IPCWindowMarksResult.self, forKey: .payload))
         case .metrics:
             payload = .metrics(try container.decode(IPCMetricsQueryResult.self, forKey: .payload))
         }
@@ -253,6 +261,8 @@ public struct IPCResult: Codable, Equatable, Sendable {
         case let .capabilities(payload):
             try container.encode(payload, forKey: .payload)
         case let .subscribed(payload):
+            try container.encode(payload, forKey: .payload)
+        case let .windowMarks(payload):
             try container.encode(payload, forKey: .payload)
         case let .metrics(payload):
             try container.encode(payload, forKey: .payload)

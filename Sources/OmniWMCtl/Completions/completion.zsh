@@ -112,7 +112,13 @@ _omniwmctl() {
       fi
       ;;
     window)
-      suggestions="#{{windowActionNames}}"
+      if (( CURRENT == 3 )); then
+        suggestions="#{{windowActionNames}}"
+      elif [[ "${words[3]}" == "mark" && CURRENT == 4 ]]; then
+        suggestions="#{{windowMarkActionNames}}"
+      elif [[ "${words[3]}" == "mark" && "${words[4]}" == "list" && CURRENT == 5 ]]; then
+        suggestions="#{{windowMarkListFlags}}"
+      fi
       ;;
     completion)
       suggestions="#{{shellNames}}"

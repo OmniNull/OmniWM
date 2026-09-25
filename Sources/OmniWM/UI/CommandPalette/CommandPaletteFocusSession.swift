@@ -11,6 +11,7 @@ import SwiftUI
 final class CommandPaletteFocusSession {
     private let environment: CommandPaletteEnvironment
     private weak var wmController: WMController?
+    private(set) var focusedMarkTargetToken: WindowToken?
     private(set) var restoreFocusTarget: CommandPaletteFocusTarget?
     private(set) var menuFocusTarget: CommandPaletteFocusTarget?
     private(set) var summonAnchor: CommandPaletteSummonAnchor?
@@ -21,6 +22,7 @@ final class CommandPaletteFocusSession {
     }
 
     func begin(wmController: WMController) {
+        focusedMarkTargetToken = environment.focusedManagedWindowToken(wmController)
         self.wmController = wmController
         restoreFocusTarget = captureFrontmostFocusTarget()
         menuFocusTarget = resolveMenuFocusTarget()
@@ -28,6 +30,7 @@ final class CommandPaletteFocusSession {
     }
 
     func clear() {
+        focusedMarkTargetToken = nil
         restoreFocusTarget = nil
         menuFocusTarget = nil
         summonAnchor = nil

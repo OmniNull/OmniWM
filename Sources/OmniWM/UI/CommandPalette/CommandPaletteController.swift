@@ -12,8 +12,10 @@ import SwiftUI
 final class CommandPaletteController: NSObject, NSWindowDelegate {
     private(set) var isVisible = false
     private(set) var isExpanded = false
+    var actionFeedbackText: String?
     var searchText = "" {
         didSet {
+            if searchText != oldValue { actionFeedbackText = nil }
             if isVisible, isLauncherMode {
                 launcherSearchTextDidChange(from: oldValue)
             } else {
@@ -32,12 +34,13 @@ final class CommandPaletteController: NSObject, NSWindowDelegate {
     var selectedItemID: CommandPaletteSelectionID? {
         didSet {
             if selectedItemID != oldValue {
+                actionFeedbackText = nil
                 loadSelectedClipboardPreview()
             }
         }
     }
 
-    private(set) var windows: [CommandPaletteWindowItem] = [] {
+    var windows: [CommandPaletteWindowItem] = [] {
         didSet { updateSelectionAfterFilterChange() }
     }
 
@@ -236,7 +239,27 @@ final class CommandPaletteController: NSObject, NSWindowDelegate {
             pendingLauncherSelection = (launcherRequestGeneration, trigger)
             return
         }
-        guard let action = resolvedSelectionAction(for: trigger) else { return }
+        let previousSelectionID = selectedItemID
+        if selectedMode == .windows {
+            refreshWindowItems()
+        }
+        guard selectedItemID == previousSelectionID,
+              let action = resolvedSelectionAction(for: trigger)
+        else {
+            if selectedMode == .windows {
+                actionFeedbackText = windowSelectionFeedback(for: trigger, selectedItemID: previousSelectionID)
+            }
+            return
+        }
+        if case .summonMarkedWindowRight = action {
+            let outcome = actionExecutor.perform(action) ?? .actionFailed
+            guard outcome == .summoned else {
+                actionFeedbackText = markedSummonFeedback(for: outcome)
+                return
+            }
+            dismiss(reason: .selection)
+            return
+        }
         if case .command(_, .openCommandPalette, _) = action {
             dismiss(reason: .cancel)
             return
@@ -387,6 +410,7 @@ extension CommandPaletteController {
 
     private func clearPresentedContent() {
         menuSession.resetCache()
+        actionFeedbackText = nil
         searchText = ""
         selectedItemID = nil
         windows = []
@@ -419,6 +443,21 @@ extension CommandPaletteController {
             return false
         }
         let relevantModifiers = event.modifierFlags.intersection([.shift, .command, .control, .option])
+
+        if selectedMode == .windows,
+           let markAction = CommandPalettePresentation.markAction(
+               forKeyCode: event.keyCode,
+               relevantModifiers: relevantModifiers
+           )
+        {
+            switch markAction {
+            case .set:
+                setMarkOnFocusedWindow()
+            case .remove:
+                removeMarkFromSelectedWindow()
+            }
+            return true
+        }
 
         if handleLauncherKeyDown(event, relevantModifiers: relevantModifiers) {
             return true

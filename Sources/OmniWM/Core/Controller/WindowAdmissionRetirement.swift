@@ -49,6 +49,7 @@ extension AXEventHandler {
         }
 
         prepareRetirementFocus(entry, policy: policy, ownsLiveFocus: ownsLiveFocus, controller: controller)
+        controller.windowMarkRegistry.retire(token)
         controller.mouseEventHandler.discardNativeTitleBarDrag(for: token)
         _ = controller.workspaceManager.removeWindow(pid: token.pid, windowId: token.windowId)
         noteManagedWindowSubscriptionIdentityChanged()

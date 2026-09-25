@@ -16,6 +16,29 @@ enum CommandPalettePresentation {
         let shortcut: String
     }
 
+    enum MarkAction: Equatable {
+        case set
+        case remove
+    }
+
+    static let setMarkShortcut = "⌃⌥M"
+    static let removeMarkShortcut = "⌃⌥R"
+
+    static func markAction(
+        forKeyCode keyCode: UInt16,
+        relevantModifiers: NSEvent.ModifierFlags
+    ) -> MarkAction? {
+        guard relevantModifiers == [.control, .option] else { return nil }
+        return switch keyCode {
+        case UInt16(kVK_ANSI_M):
+            .set
+        case UInt16(kVK_ANSI_R):
+            .remove
+        default:
+            nil
+        }
+    }
+
     static func menuModeAvailable(hasMenuFocusTarget: Bool) -> Bool {
         hasMenuFocusTarget
     }

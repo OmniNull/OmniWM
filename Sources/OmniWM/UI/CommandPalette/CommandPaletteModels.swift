@@ -15,6 +15,7 @@ struct CommandPaletteWindowItem: Identifiable {
     let appIcon: NSImage?
     let workspaceName: String
     let isAppHidden: Bool
+    let markNames: [String]
 }
 
 struct CommandPaletteCommandItem: Identifiable {

@@ -179,11 +179,65 @@ final class CommandPaletteControllerTests: XCTestCase {
 
         XCTAssertEqual(items.map(\.id), [visibleToken, hiddenToken])
         XCTAssertEqual(items.map(\.isAppHidden), [false, true])
+        XCTAssertTrue(items.allSatisfy { $0.markNames.isEmpty })
         XCTAssertTrue(items[0].handle === wmController.workspaceManager.handle(for: visibleToken))
         XCTAssertTrue(items[1].handle === wmController.workspaceManager.handle(for: hiddenToken))
         XCTAssertEqual(CommandPaletteSearch.filterWindowItems(items, query: "hidden").map(\.id), [hiddenToken])
         XCTAssertTrue(CommandPalettePresentation.allowsSummonRight(items[0]))
         XCTAssertFalse(CommandPalettePresentation.allowsSummonRight(items[1]))
+    }
+
+    func testWindowRowsReadAllLiveRegistryMarksAndSearchEveryName() throws {
+        let (wmController, visibleToken, hiddenToken) = try makeWindowFixture()
+        XCTAssertEqual(wmController.windowMarkRegistry.set("editor", for: visibleToken), .inserted)
+        XCTAssertEqual(wmController.windowMarkRegistry.set("focus-later", for: visibleToken), .inserted)
+        XCTAssertEqual(wmController.windowMarkRegistry.set("hidden-review", for: hiddenToken), .inserted)
+
+        let items = CommandPaletteSearch.buildWindowItems(from: wmController)
+        let visibleItem = try XCTUnwrap(items.first { $0.id == visibleToken })
+        let hiddenItem = try XCTUnwrap(items.first { $0.id == hiddenToken })
+
+        XCTAssertEqual(visibleItem.markNames, ["editor", "focus-later"])
+        XCTAssertEqual(hiddenItem.markNames, ["hidden-review"])
+        XCTAssertEqual(CommandPaletteSearch.filterWindowItems(items, query: "later").map(\.id), [visibleToken])
+        XCTAssertEqual(CommandPaletteSearch.filterWindowItems(items, query: "hidden-review").map(\.id), [hiddenToken])
+
+        XCTAssertEqual(wmController.windowMarkRegistry.remove("focus-later"), .removed)
+        let refreshedItems = CommandPaletteSearch.buildWindowItems(from: wmController)
+        XCTAssertEqual(refreshedItems.first { $0.id == visibleToken }?.markNames, ["editor"])
+        XCTAssertTrue(CommandPaletteSearch.filterWindowItems(refreshedItems, query: "later").isEmpty)
+    }
+
+    func testWindowSearchMatchesAnyLiteralMarkNameAndPreservesExistingFields() {
+        let item = makeWindowItem(windowId: 92_110, markNames: ["editor", "late-review"])
+        let items = [item]
+
+        XCTAssertEqual(CommandPaletteSearch.filterWindowItems(items, query: "EDITOR").map(\.id), [item.id])
+        XCTAssertEqual(CommandPaletteSearch.filterWindowItems(items, query: "review").map(\.id), [item.id])
+        XCTAssertTrue(CommandPaletteSearch.filterWindowItems(items, query: "@editor").isEmpty)
+        XCTAssertEqual(CommandPaletteSearch.filterWindowItems(items, query: "quarterly").map(\.id), [item.id])
+        XCTAssertEqual(CommandPaletteSearch.filterWindowItems(items, query: "drafts").map(\.id), [item.id])
+        XCTAssertEqual(CommandPaletteSearch.filterWindowItems(items, query: "research").map(\.id), [item.id])
+    }
+
+    func testWindowRowShowsEachMarkIndividuallyAndAccessibly() {
+        let markedRow = CommandPaletteWindowRow(
+            item: makeWindowItem(windowId: 92_111, markNames: ["editor", "research"]),
+            isSelected: false,
+            isSummonRightAvailable: false,
+            onSelect: {}
+        )
+        let unmarkedRow = CommandPaletteWindowRow(
+            item: makeWindowItem(windowId: 92_112),
+            isSelected: false,
+            isSummonRightAvailable: false,
+            onSelect: {}
+        )
+
+        XCTAssertEqual(markedRow.markLabels, ["Mark: editor", "Mark: research"])
+        XCTAssertEqual(markedRow.accessibilityLabel, "Quarterly review, Drafts, Mark: editor, Mark: research")
+        XCTAssertTrue(unmarkedRow.markLabels.isEmpty)
+        XCTAssertEqual(unmarkedRow.accessibilityLabel, "Quarterly review, Drafts")
     }
 
     func testWindowStatusTextDescribesSelectedHiddenWindowPrimaryAction() throws {
@@ -325,6 +379,23 @@ final class CommandPaletteControllerTests: XCTestCase {
         return (controller, visibleToken, hiddenToken)
     }
 
+    private func makeWindowItem(
+        windowId: Int,
+        markNames: [String] = []
+    ) -> CommandPaletteWindowItem {
+        let token = WindowToken(pid: 92_010, windowId: windowId)
+        return CommandPaletteWindowItem(
+            id: token,
+            handle: WindowHandle(id: token),
+            title: "Quarterly review",
+            appName: "Drafts",
+            appIcon: nil,
+            workspaceName: "Research",
+            isAppHidden: false,
+            markNames: markNames
+        )
+    }
+
     private func commandPaletteWindowRowHeight(isAppHidden: Bool) -> CGFloat {
         let token = WindowToken(pid: 92_003, windowId: isAppHidden ? 92_104 : 92_103)
         let item = CommandPaletteWindowItem(
@@ -334,7 +405,8 @@ final class CommandPaletteControllerTests: XCTestCase {
             appName: "Ghostty",
             appIcon: nil,
             workspaceName: "1",
-            isAppHidden: isAppHidden
+            isAppHidden: isAppHidden,
+            markNames: []
         )
         let hostingView = NSHostingView(rootView: CommandPaletteWindowRow(
             item: item,

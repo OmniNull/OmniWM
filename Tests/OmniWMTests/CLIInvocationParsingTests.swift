@@ -16,7 +16,8 @@ final class CLIInvocationParsingTests: XCTestCase {
             (["rule", "remove", "B9B137A2-9406-4D68-BD0E-8ED465450413"], .rule),
             (["capture", "status"], .capture),
             (["workspace", "focus-name", "1"], .workspace),
-            (["window", "focus", "window-id"], .window)
+            (["window", "focus", "window-id"], .window),
+            (["window", "mark", "list"], .windowMark)
         ]
         for testCase in cases {
             for formatArguments in [[], ["--format", "json"]] {

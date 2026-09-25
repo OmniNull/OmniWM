@@ -32,6 +32,8 @@ final class WMController {
     @ObservationIgnored
     private var appliedBorderLayoutConfig: BorderLayoutConfig
     let workspaceManager: WorkspaceManager
+    @ObservationIgnored
+    let windowMarkRegistry = WindowMarkRegistry()
     let hotkeys = HotkeyCenter()
     private(set) var hotkeyRegistrationFailures: [HotkeyCommand: HotkeyRegistrationFailureReason] = [:]
     private(set) var systemHyperTriggerFailure: SystemHyperTriggerFailure?

@@ -42,7 +42,9 @@ enum CLICompletionGenerator {
             "workspaceMoveActionName": Catalog.workspaceMoveActionName,
             "workspaceMoveDirections": shellWords(Catalog.workspaceMoveDirections),
             "workspaceMoveOptionalFlags": shellWords(Catalog.workspaceMoveOptionalFlags),
-            "windowActionNames": shellWords(Catalog.windowActionNames)
+            "windowActionNames": shellWords(Catalog.windowActionNames),
+            "windowMarkActionNames": shellWords(Catalog.windowMarkActionNames),
+            "windowMarkListFlags": shellWords(Catalog.windowMarkListFlags)
         ])
     }
 
@@ -69,7 +71,9 @@ enum CLICompletionGenerator {
             "workspaceMoveActionName": Catalog.workspaceMoveActionName,
             "workspaceMoveDirections": shellWords(Catalog.workspaceMoveDirections),
             "workspaceMoveOptionalFlags": shellWords(Catalog.workspaceMoveOptionalFlags),
-            "windowActionNames": shellWords(Catalog.windowActionNames)
+            "windowActionNames": shellWords(Catalog.windowActionNames),
+            "windowMarkActionNames": shellWords(Catalog.windowMarkActionNames),
+            "windowMarkListFlags": shellWords(Catalog.windowMarkListFlags)
         ])
     }
 
@@ -115,6 +119,8 @@ enum CLICompletionGenerator {
             ),
             "workspaceMoveFlagLines": fishWorkspaceMoveFlags(when: moveWorkspace),
             "windowLines": fishCompletions(Catalog.windowActionNames, when: "__fish_seen_subcommand_from window"),
+            "windowMarkActionLines": fishWindowMarkActionLines(),
+            "windowMarkListFlagLines": fishWindowMarkListFlagLines(),
             "shellLines": fishCompletions(
                 CLIShell.allCases.map(\.rawValue),
                 when: "__fish_seen_subcommand_from completion"
@@ -173,6 +179,20 @@ enum CLICompletionGenerator {
             )
         }
         .joined(separator: "\n")
+    }
+
+    private static func fishWindowMarkActionLines() -> String {
+        fishCompletions(
+            Catalog.windowMarkActionNames,
+            when: "__fish_seen_subcommand_from window; and __fish_seen_subcommand_from mark"
+        )
+    }
+
+    private static func fishWindowMarkListFlagLines() -> String {
+        fishCompletions(
+            Catalog.windowMarkListFlags,
+            when: "__fish_seen_subcommand_from window; and __fish_seen_subcommand_from mark; and __fish_seen_subcommand_from list"
+        )
     }
 
     static func renderTemplate(_ bytes: [UInt8], values: [String: String]) -> String {

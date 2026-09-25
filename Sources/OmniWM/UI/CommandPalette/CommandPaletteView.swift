@@ -81,6 +81,36 @@ struct CommandPaletteView: View {
             .fill(Color.primary.opacity(0.1))
             .frame(height: 1)
 
+        if controller.selectedMode == .windows {
+            HStack(spacing: 10) {
+                Button(action: { controller.setMarkOnFocusedWindow() }) {
+                    Label("Mark focused window…", systemImage: "tag")
+                }
+                .accessibilityHint("Marks the managed window focused before opening this Palette. Shortcut Control-Option-M.")
+                .help("Mark the captured focused window (Control-Option-M)")
+
+                Button(action: { controller.removeMarkFromSelectedWindow() }) {
+                    Label("Remove mark…", systemImage: "tag.slash")
+                }
+                .accessibilityHint("Choose a mark to remove from the selected window. Shortcut Control-Option-R.")
+                .help("Choose a mark to remove from the selected window (Control-Option-R)")
+            }
+            .buttonStyle(.bordered)
+            .frame(maxWidth: .infinity, alignment: .leading)
+            .padding(.horizontal, 16)
+            .padding(.vertical, 8)
+        }
+
+        if let actionFeedbackText = controller.actionFeedbackText {
+            Text(actionFeedbackText)
+                .font(.system(size: 12))
+                .foregroundStyle(.secondary)
+                .frame(maxWidth: .infinity, alignment: .leading)
+                .padding(.horizontal, 20)
+                .padding(.bottom, 6)
+                .accessibilityIdentifier("command-palette-mark-feedback")
+        }
+
         if controller.selectedMode == .clipboard,
            let clipboardErrorText = controller.clipboardErrorText
         {
@@ -289,7 +319,8 @@ struct CommandPaletteView: View {
         switch controller.selectedMode {
         case .windows:
             return controller.searchText.isEmpty
-                ? String(localized: "No windows available") : String(localized: "No windows found")
+                ? String(localized: "No windows available")
+                : String(localized: "No windows found. Check the mark name or try a title, app, or workspace.")
         case .menu:
             if !controller.isMenuModeAvailable {
                 return controller.menuStatusText

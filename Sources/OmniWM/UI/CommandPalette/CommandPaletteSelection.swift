@@ -114,7 +114,11 @@ extension CommandPaletteController {
     ) -> CommandPaletteActionExecutor.Action? {
         guard let wmController,
               case let .window(token)? = selectedItemID,
-              let item = filteredWindowItems.first(where: { $0.id == token })
+              let item = filteredWindowItems.first(where: { $0.id == token }),
+              let entry = wmController.workspaceManager.entry(for: token),
+              entry.layoutReason == .standard,
+              let liveHandle = wmController.workspaceManager.handle(for: token),
+              liveHandle === item.handle
         else {
             return nil
         }
@@ -124,7 +128,15 @@ extension CommandPaletteController {
             return .navigateWindow(wmController, item.handle)
         case .alternate:
             guard CommandPalettePresentation.allowsSummonRight(item),
-                  let summonAnchor = focusSession.summonAnchor else { return nil }
+                  !wmController.workspaceManager.isAppHidden(pid: token.pid)
+            else { return nil }
+            let summonAnchor = focusSession.summonAnchor
+            if !item.markNames.isEmpty || summonAnchor == nil {
+                return .summonMarkedWindowRight(wmController, item.handle, summonAnchor)
+            }
+            guard let summonAnchor,
+                  wmController.workspaceManager.entry(for: summonAnchor.token) != nil
+            else { return .summonMarkedWindowRight(wmController, item.handle, nil) }
             return .summonWindowRight(wmController, item.handle, summonAnchor)
         }
     }
