@@ -393,6 +393,7 @@ final class WorkspaceSwipePresentationTests: XCTestCase {
         let image = try XCTUnwrap(context.makeImage())
         let wallpaper = OverviewWallpaperCache()
         wallpaper.desktopImageURL = { _ in nil }
-        return WorkspaceSwipeBackdrop(wallpaperCache: wallpaper) { _ in image }
+        wallpaper.captureWallpaper = { _ in image }
+        return WorkspaceSwipeBackdrop(wallpaperCache: wallpaper)
     }
 }

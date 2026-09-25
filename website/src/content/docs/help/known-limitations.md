@@ -20,7 +20,7 @@ installing so you can decide whether it fits your system and workflow.
 - **Accessibility** is required to discover, focus, move, and resize application windows.
 - **Input Monitoring** is required for global hotkeys and optional System Hyper Trigger keys or mouse buttons.
 - **Screen Recording is optional.** Without it, OmniWM still tiles windows. Overview thumbnails, drag previews, and
-  captured Hidden Bar glyphs are unavailable.
+  captured Hidden Bar glyphs are unavailable. Wallpaper previews fall back to macOS's image URL, which may show the system default image instead of a native solid colour.
 
 See the [installation guide](/guides/install/) for the exact setup sequence.
 

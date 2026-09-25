@@ -134,7 +134,12 @@ final class WorkspaceSwipePreview {
     }
 
     func begin(source: [Item], destination: [Item], monitor: Monitor, workingFrame: CGRect? = nil) -> Bool {
-        guard panel == nil, hasCaptureAccess(), let wallpaperImage = backdrop.image(for: monitor) else { return false }
+        guard panel == nil, hasCaptureAccess() else { return false }
+        guard let wallpaperImage = backdrop.image(for: monitor) else {
+            // Retry after a failed swipe, without invalidating on ordinary touch cleanup.
+            backdrop.clear()
+            return false
+        }
         let frame = workingFrame ?? monitor.visibleFrame
         let source = source.filter { $0.frame.intersects(frame) }
         let destination = destination.filter { $0.frame.intersects(frame) }
@@ -210,6 +215,7 @@ final class WorkspaceSwipePreview {
             ownedWindowRegistry.unregister(panel)
             panel.orderOut(nil)
             panel.close()
+            backdrop.clear()
         }
         panel = nil
         sourceLayer = nil

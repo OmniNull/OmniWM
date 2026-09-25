@@ -7,15 +7,35 @@ import XCTest
 
 @MainActor
 final class WorkspaceSwipeBackdropTests: XCTestCase {
+    func testNativeBlackCaptureTakesPrecedenceOverValidWallpaperFile() throws {
+        let url = FileManager.default.temporaryDirectory.appendingPathComponent("\(UUID().uuidString).png")
+        defer { try? FileManager.default.removeItem(at: url) }
+        try XCTUnwrap(NSBitmapImageRep(cgImage: makeImage()).representation(using: .png, properties: [:]))
+            .write(to: url)
+        let wallpaper = OverviewWallpaperCache()
+        wallpaper.desktopImageURL = { _ in url }
+        let black = try makeImage(color: CGColor(gray: 0, alpha: 1))
+        wallpaper.captureWallpaper = { _ in black }
+        let backdrop = WorkspaceSwipeBackdrop(wallpaperCache: wallpaper)
+
+        let image = try XCTUnwrap(backdrop.image(for: monitor))
+        let pixel = try XCTUnwrap(NSBitmapImageRep(cgImage: image).colorAt(x: 0, y: 0)?.usingColorSpace(.deviceRGB))
+        XCTAssertEqual(pixel.redComponent, 0)
+        XCTAssertEqual(pixel.greenComponent, 0)
+        XCTAssertEqual(pixel.blueComponent, 0)
+        XCTAssertEqual(pixel.alphaComponent, 1)
+    }
+
     func testMissingWallpaperFileUsesAndCachesRealDesktopImage() throws {
         let wallpaper = OverviewWallpaperCache()
         wallpaper.desktopImageURL = { _ in URL(fileURLWithPath: "/nonexistent/swipe-wallpaper.png") }
         let image = try makeImage()
         var captures = 0
-        let backdrop = WorkspaceSwipeBackdrop(wallpaperCache: wallpaper) { _ in
+        wallpaper.captureWallpaper = { _ in
             captures += 1
             return image
         }
+        let backdrop = WorkspaceSwipeBackdrop(wallpaperCache: wallpaper)
 
         XCTAssertTrue(backdrop.image(for: monitor) === image)
         XCTAssertTrue(backdrop.image(for: monitor) === image)
@@ -23,13 +43,16 @@ final class WorkspaceSwipeBackdropTests: XCTestCase {
     }
 
     func testMissingOrCroppedDesktopImageCannotBecomeBackdrop() throws {
-        let wallpaper = OverviewWallpaperCache()
-        wallpaper.desktopImageURL = { _ in nil }
-        let missing = WorkspaceSwipeBackdrop(wallpaperCache: wallpaper) { _ in nil }
-        XCTAssertNil(missing.image(for: monitor))
+        let missingCache = OverviewWallpaperCache()
+        missingCache.desktopImageURL = { _ in nil }
+        missingCache.captureWallpaper = { _ in nil }
+        XCTAssertNil(WorkspaceSwipeBackdrop(wallpaperCache: missingCache).image(for: monitor))
+
         let croppedImage = try makeImage(width: 1)
-        let cropped = WorkspaceSwipeBackdrop(wallpaperCache: wallpaper) { _ in croppedImage }
-        XCTAssertNil(cropped.image(for: monitor))
+        let croppedCache = OverviewWallpaperCache()
+        croppedCache.desktopImageURL = { _ in nil }
+        croppedCache.captureWallpaper = { _ in croppedImage }
+        XCTAssertNil(WorkspaceSwipeBackdrop(wallpaperCache: croppedCache).image(for: monitor))
     }
 
     func testWallpaperSelectionExcludesBackstopOtherDisplaysAndAppWindows() {
@@ -71,12 +94,15 @@ final class WorkspaceSwipeBackdropTests: XCTestCase {
         ]
     }
 
-    private func makeImage(width: Int = 4) throws -> CGImage {
+    private func makeImage(
+        width: Int = 4,
+        color: CGColor = CGColor(red: 1, green: 0, blue: 0, alpha: 1)
+    ) throws -> CGImage {
         let context = try XCTUnwrap(CGContext(
             data: nil, width: width, height: 3, bitsPerComponent: 8, bytesPerRow: width * 4,
             space: CGColorSpaceCreateDeviceRGB(), bitmapInfo: CGImageAlphaInfo.premultipliedLast.rawValue
         ))
-        context.setFillColor(CGColor(red: 1, green: 0, blue: 0, alpha: 1))
+        context.setFillColor(color)
         context.fill(CGRect(x: 0, y: 0, width: width, height: 3))
         return try XCTUnwrap(context.makeImage())
     }
