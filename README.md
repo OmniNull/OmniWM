@@ -130,6 +130,23 @@ OmniWM is a free, open-source, Developer ID-signed and Apple-notarized tiling wi
       <sub>@MuhammadKh</sub>
     </td>
     <td align="center" valign="top">
+      <a href="https://github.com/liip">
+        <img src="https://avatars.githubusercontent.com/u/166102?v=4" width="72" alt="Liip">
+      </a>
+      <br>
+      <a href="https://github.com/liip"><strong>Liip</strong></a>
+      <br>
+      <sub>━━━━━━━━</sub>
+      <br>
+      <a href="https://github.com/Jonathanm10" title="Jonathan Macheret">
+        <img src="https://github.com/Jonathanm10.png?size=96" width="72" alt="Jonathan Macheret">
+      </a>
+      <br>
+      <a href="https://github.com/Jonathanm10"><strong>Jonathan Macheret</strong></a>
+      <br>
+      <sub>@Jonathanm10</sub>
+    </td>
+    <td align="center" valign="top">
       <a href="https://luxor.tech">
         <img src="https://github.com/LuxorLabs.png?size=96" width="72" alt="Luxor Labs">
       </a>
@@ -404,6 +421,9 @@ OmniWM is a free, open-source, Developer ID-signed and Apple-notarized tiling wi
       <a href="https://github.com/jthomaschewski" title="Janek Thomaschewski">
         <img src="https://github.com/jthomaschewski.png?size=96" width="72" alt="Janek Thomaschewski">
       </a>
+      <a href="https://github.com/Jonathanm10" title="Jonathan Macheret">
+        <img src="https://github.com/Jonathanm10.png?size=96" width="72" alt="Jonathan Macheret">
+      </a>
       <a href="https://github.com/jcardama" title="Jose Cardama">
         <img src="https://github.com/jcardama.png?size=96" width="72" alt="Jose Cardama">
       </a>
@@ -445,6 +465,9 @@ OmniWM is a free, open-source, Developer ID-signed and Apple-notarized tiling wi
       </a>
       <a href="https://github.com/georgebastille" title="Rich Hanes">
         <img src="https://github.com/georgebastille.png?size=96" width="72" alt="Rich Hanes">
+      </a>
+      <a href="https://github.com/rickythefox" title="Richard Ginzburg">
+        <img src="https://github.com/rickythefox.png?size=96" width="72" alt="Richard Ginzburg">
       </a>
       <a href="https://github.com/1Pio" title="rPio">
         <img src="https://github.com/1Pio.png?size=96" width="72" alt="rPio">

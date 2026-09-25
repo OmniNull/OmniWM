@@ -13,6 +13,7 @@ export const employers: Employer[] = [
   { name: 'Finanzguru', url: 'https://github.com/finanzguru', logo: '/credits/employers/finanzguru.png', contributor: 'Janek Thomaschewski', handle: 'jthomaschewski' },
   { name: 'GitHub', url: 'https://github.com/github', logo: '/credits/employers/github.png', contributor: 'Ryan Hecht', handle: 'RyanHecht' },
   { name: 'Google', url: 'https://github.com/google', logo: '/credits/employers/google.png', contributor: 'muhammadkh', handle: 'MuhammadKh' },
+  { name: 'Liip', url: 'https://github.com/liip', logo: '/credits/employers/liip.png', contributor: 'Jonathan Macheret', handle: 'Jonathanm10' },
   { name: 'Luxor Labs', url: 'https://luxor.tech', logo: '/credits/employers/luxor-labs.png', contributor: 'Albert Ilagan', handle: 'albertilagan' },
   { name: 'Nx', url: 'https://github.com/nrwl', logo: '/credits/employers/nx.png', contributor: 'Steven Nance', handle: 'llwt' },
   { name: 'ReactSquad', url: 'https://www.reactsquad.io', logo: '/credits/employers/reactsquad.png', contributor: 'Jan Hesters', handle: 'janhesters' },
