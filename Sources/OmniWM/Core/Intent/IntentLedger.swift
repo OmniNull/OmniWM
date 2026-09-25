@@ -81,7 +81,8 @@ final class IntentLedger {
         handleIdentity: ObjectIdentifier,
         pendingApps: [pid_t: UInt64],
         focusFingerprint: AppRevealFocusFingerprint,
-        destination: AppRevealFocusDestination = .window
+        destination: AppRevealFocusDestination = .window,
+        origin: ManagedFocusOrigin = .keyboardOrProgrammatic
     ) -> Intent {
         for entry in entries where entry.phase == .pending {
             guard case .appRevealFocus = entry.kind else { continue }
@@ -102,7 +103,7 @@ final class IntentLedger {
                     destination: destination
                 )
             ),
-            origin: .keyboardOrProgrammatic
+            origin: origin
         )
         deadlineWheel?.schedule(intentId: intent.id, after: Self.appRevealDeadline)
         AppVisibilityTrace.record(

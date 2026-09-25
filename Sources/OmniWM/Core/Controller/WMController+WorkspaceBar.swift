@@ -110,15 +110,11 @@ extension WMController {
     }
 
     func focusWorkspaceFromBar(id workspaceId: WorkspaceDescriptor.ID) {
-        windowActionHandler.focusWorkspaceFromBar(id: workspaceId)
-    }
-
-    func focusWindowFromBar(token: WindowToken) {
-        windowActionHandler.focusWindowFromBar(token: token)
+        windowActionHandler.focusWorkspaceFromBar(id: workspaceId, focusOrigin: .pointerSelection)
     }
 
     func focusWindowFromBar(handle: WindowHandle) {
-        windowActionHandler.focusWindowFromBar(handle: handle)
+        windowActionHandler.focusWindowFromBar(handle: handle, focusOrigin: .pointerSelection)
     }
 
     @discardableResult

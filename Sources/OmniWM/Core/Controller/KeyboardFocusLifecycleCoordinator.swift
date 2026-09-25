@@ -28,6 +28,7 @@ extension KeyboardFocusTarget: Equatable {
 
 enum ManagedFocusOrigin: Equatable {
     case keyboardOrProgrammatic
+    case pointerSelection
     case pointerHover
     case focusFollowsMouse
 
@@ -35,14 +36,21 @@ enum ManagedFocusOrigin: Equatable {
         self == .keyboardOrProgrammatic
     }
 
+    var preservesViewportOnActivation: Bool {
+        self == .pointerHover || self == .focusFollowsMouse
+    }
+
     func merged(with origin: ManagedFocusOrigin) -> ManagedFocusOrigin {
-        if self == .keyboardOrProgrammatic || origin == .keyboardOrProgrammatic {
-            return .keyboardOrProgrammatic
+        mergeRank >= origin.mergeRank ? self : origin
+    }
+
+    private var mergeRank: Int {
+        switch self {
+        case .keyboardOrProgrammatic: 3
+        case .pointerSelection: 2
+        case .pointerHover: 1
+        case .focusFollowsMouse: 0
         }
-        if self == .pointerHover || origin == .pointerHover {
-            return .pointerHover
-        }
-        return .focusFollowsMouse
     }
 }
 

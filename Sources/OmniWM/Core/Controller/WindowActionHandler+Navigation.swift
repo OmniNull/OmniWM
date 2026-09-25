@@ -9,7 +9,8 @@ extension WindowActionHandler {
     func navigateToWindowInternal(
         token: WindowToken,
         workspaceId: WorkspaceDescriptor.ID,
-        affectedWorkspaces: Set<WorkspaceDescriptor.ID> = []
+        affectedWorkspaces: Set<WorkspaceDescriptor.ID> = [],
+        focusOrigin: ManagedFocusOrigin = .keyboardOrProgrammatic
     ) -> Bool {
         guard let controller,
               let handle = prepareWindowNavigation(token: token, workspaceId: workspaceId)
@@ -18,7 +19,7 @@ extension WindowActionHandler {
         }
         commitWindowNavigation(
             handle: handle, workspaceId: workspaceId,
-            affectedWorkspaces: affectedWorkspaces, controller: controller
+            affectedWorkspaces: affectedWorkspaces, focusOrigin: focusOrigin, controller: controller
         )
         return true
     }
@@ -145,6 +146,7 @@ extension WindowActionHandler {
         handle: WindowHandle,
         workspaceId: WorkspaceDescriptor.ID,
         affectedWorkspaces: Set<WorkspaceDescriptor.ID>,
+        focusOrigin: ManagedFocusOrigin,
         controller: WMController
     ) {
         let newestFocusIntentId = controller.intentLedger.newestFocusIntentId()
@@ -156,7 +158,7 @@ extension WindowActionHandler {
             else {
                 return
             }
-            controller.focusWindow(handle.id)
+            controller.focusWindow(handle.id, origin: focusOrigin)
         }
         let focusTargetIfStillCurrent: LayoutRefreshController.PostLayoutAction = { [weak controller] in
             guard let controller,

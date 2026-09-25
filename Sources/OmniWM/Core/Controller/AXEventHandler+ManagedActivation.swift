@@ -263,7 +263,7 @@ extension AXEventHandler {
         let preservesPointerViewport = switch observation.focusObservation {
         case let .echoOf(intent),
              let .lateEcho(intent):
-            !intent.origin.allowsMouseToFocusedWarp
+            intent.origin.preservesViewportOnActivation
         case .external: false
         }
         let preserveViewport = controller.workspaceManager.animationDriver.hasMotion(in: wsId)

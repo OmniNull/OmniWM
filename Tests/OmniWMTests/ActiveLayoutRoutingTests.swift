@@ -485,6 +485,63 @@ final class ActiveLayoutRoutingTests: XCTestCase {
         XCTAssertTrue(controller.niriLayoutHandler.desiredTabRailInfos().isEmpty)
     }
 
+    func testSelectTabInNiriRequestsFocusWithPointerSelectionOrigin() async throws {
+        let controller = makeController()
+        controller.niriLayoutHandler.enableNiriLayout()
+        let niriEngine = try XCTUnwrap(controller.niriEngine)
+        let monitor = Monitor(
+            id: .init(displayId: 20_002), displayId: 20_002,
+            frame: screenFrame, visibleFrame: screenFrame,
+            hasNotch: false, name: "Rail Click"
+        )
+        controller.workspaceManager.applyMonitorConfigurationChange([monitor])
+        let workspaceId = try makeTransientWorkspace(named: "73", layoutType: .niri, controller: controller)
+        let firstToken = addManagedWindow(pid: 963, windowId: 1, to: workspaceId, controller: controller)
+        let secondToken = addManagedWindow(pid: 963, windowId: 2, to: workspaceId, controller: controller)
+        controller.workspaceManager.withEngineMutationScope {
+            let firstNode = niriEngine.addWindow(token: firstToken, to: workspaceId, afterSelection: nil)
+            let secondNode = niriEngine.addWindow(token: secondToken, to: workspaceId, afterSelection: firstNode.id)
+            if let column = niriEngine.columns(in: workspaceId).first {
+                var state = ViewportState(selectedNodeId: firstNode.id)
+                _ = niriEngine.consumeWindow(
+                    secondNode,
+                    into: column,
+                    enteringFrom: .right,
+                    context: .init(
+                        workspaceId: workspaceId,
+                        motion: .disabled,
+                        workingFrame: screenFrame,
+                        gaps: 10,
+                        orientation: .horizontal
+                    ),
+                    state: &state
+                )
+                column.displayMode = .tabbed
+            }
+        }
+        XCTAssertTrue(controller.workspaceManager.setActiveWorkspace(workspaceId, on: monitor.id))
+        await WindowAdmissionTestSupport.drainLayoutRefreshes(controller)
+        let column = try XCTUnwrap(niriEngine.columns(in: workspaceId).first)
+        let info = TabRailInfo(
+            workspaceId: workspaceId,
+            owner: .niriColumn(column.id),
+            plannedSeq: controller.workspaceManager.worldSeq,
+            tileFrame: staleNiriFrame,
+            tabCount: 2,
+            activeVisualIndex: 0,
+            activeWindowId: nil,
+            tabs: []
+        )
+
+        controller.niriLayoutHandler.selectTabInNiri(info: info, visualIndex: 1, expectedToken: secondToken)
+        await WindowAdmissionTestSupport.drainLayoutRefreshes(controller)
+
+        let request = try XCTUnwrap(controller.intentLedger.activeManagedRequest)
+        XCTAssertEqual(request.token, secondToken)
+        XCTAssertEqual(request.origin, .pointerSelection)
+        XCTAssertFalse(controller.intentLedger.allowsMouseToFocusedWarp(for: secondToken))
+    }
+
     func testSelectTabInNiriIgnoresDwindleWorkspace() throws {
         let controller = makeController()
         controller.niriLayoutHandler.enableNiriLayout()

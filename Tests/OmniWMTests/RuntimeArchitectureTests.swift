@@ -267,12 +267,19 @@ final class RuntimeArchitectureTests: XCTestCase {
         let cases: [(ManagedFocusOrigin, ManagedFocusOrigin, ManagedFocusOrigin)] = [
             (.focusFollowsMouse, .focusFollowsMouse, .focusFollowsMouse),
             (.focusFollowsMouse, .pointerHover, .pointerHover),
+            (.focusFollowsMouse, .pointerSelection, .pointerSelection),
             (.focusFollowsMouse, .keyboardOrProgrammatic, .keyboardOrProgrammatic),
             (.pointerHover, .focusFollowsMouse, .pointerHover),
             (.pointerHover, .pointerHover, .pointerHover),
+            (.pointerHover, .pointerSelection, .pointerSelection),
             (.pointerHover, .keyboardOrProgrammatic, .keyboardOrProgrammatic),
+            (.pointerSelection, .focusFollowsMouse, .pointerSelection),
+            (.pointerSelection, .pointerHover, .pointerSelection),
+            (.pointerSelection, .pointerSelection, .pointerSelection),
+            (.pointerSelection, .keyboardOrProgrammatic, .keyboardOrProgrammatic),
             (.keyboardOrProgrammatic, .focusFollowsMouse, .keyboardOrProgrammatic),
             (.keyboardOrProgrammatic, .pointerHover, .keyboardOrProgrammatic),
+            (.keyboardOrProgrammatic, .pointerSelection, .keyboardOrProgrammatic),
             (.keyboardOrProgrammatic, .keyboardOrProgrammatic, .keyboardOrProgrammatic)
         ]
 
@@ -292,6 +299,10 @@ final class RuntimeArchitectureTests: XCTestCase {
             XCTAssertEqual(merged.requestId, initial.requestId)
             XCTAssertEqual(merged.origin, expected, "\(current) + \(incoming)")
             XCTAssertEqual(merged.origin.allowsMouseToFocusedWarp, expected == .keyboardOrProgrammatic)
+            XCTAssertEqual(
+                merged.origin.preservesViewportOnActivation,
+                expected == .pointerHover || expected == .focusFollowsMouse
+            )
         }
     }
 
@@ -333,6 +344,19 @@ final class RuntimeArchitectureTests: XCTestCase {
             source: .focusedWindowChanged
         ))
         XCTAssertEqual(focusFollowsMouseConfirmation.origin, .focusFollowsMouse)
+        XCTAssertFalse(bridge.allowsMouseToFocusedWarp(for: token))
+
+        _ = bridge.beginManagedRequest(
+            token: token,
+            workspaceId: workspaceId,
+            origin: .pointerSelection
+        )
+        XCTAssertFalse(bridge.allowsMouseToFocusedWarp(for: token))
+        let pointerSelectionConfirmation = try XCTUnwrap(bridge.confirmManagedRequest(
+            token: token,
+            source: .focusedWindowChanged
+        ))
+        XCTAssertEqual(pointerSelectionConfirmation.origin, .pointerSelection)
         XCTAssertFalse(bridge.allowsMouseToFocusedWarp(for: token))
 
         _ = bridge.beginManagedRequest(
@@ -387,6 +411,72 @@ final class RuntimeArchitectureTests: XCTestCase {
             origin: .focusFollowsMouse,
             pid: 765_710,
             windowId: 765_810
+        )
+    }
+
+    @MainActor
+    func testPointerSelectionManagedFocusDoesNotMoveMouseToFocusedWindowOnActivationConfirm() throws {
+        let fixture = try Self.managedNiriActivationFixture(
+            origin: .pointerSelection,
+            pid: 765_730,
+            windowId: 765_830
+        )
+        var warpedPoints: [CGPoint] = []
+        fixture.controller.warpMouseCursorPosition = { warpedPoints.append($0) }
+        fixture.controller.currentMouseLocation = { CGPoint(x: -10_000, y: -10_000) }
+
+        fixture.controller.axEventHandler.handleManagedAppActivation(
+            entry: fixture.entry,
+            isWorkspaceActive: true,
+            appFullscreen: false,
+            activeRequestId: fixture.requestId
+        )
+
+        XCTAssertTrue(warpedPoints.isEmpty)
+    }
+
+    @MainActor
+    func testPointerSelectionManagedFocusConfirmationRevealsNiriViewport() throws {
+        let fixture = try Self.managedNiriActivationFixture(
+            origin: .pointerSelection,
+            pid: 765_740,
+            windowId: 765_840
+        )
+        let controller = fixture.controller
+        let workspaceId = fixture.entry.workspaceId
+        let engine = try XCTUnwrap(controller.niriEngine)
+        for index in 1 ..< 3 {
+            let addedPID = pid_t(765_740 + index)
+            let addedWindowId = 765_840 + index
+            let token = controller.workspaceManager.addWindow(
+                AXWindowRef(element: AXUIElementCreateApplication(addedPID), windowId: addedWindowId),
+                pid: addedPID,
+                windowId: addedWindowId,
+                to: workspaceId
+            )
+            _ = engine.addWindow(token: token, to: workspaceId, afterSelection: nil)
+        }
+        for column in engine.columns(in: workspaceId) {
+            column.cachedWidth = 700
+        }
+        let node = try XCTUnwrap(engine.findNode(for: fixture.entry.token, in: workspaceId))
+        controller.workspaceManager.withNiriViewportState(for: workspaceId) { state in
+            state.selectedNodeId = node.id
+            state.activeColumnIndex = 0
+            state.jumpOffset(to: 300)
+        }
+
+        controller.axEventHandler.handleManagedAppActivation(
+            entry: fixture.entry,
+            isWorkspaceActive: true,
+            appFullscreen: false,
+            activeRequestId: fixture.requestId
+        )
+
+        XCTAssertNotEqual(
+            controller.workspaceManager.niriViewportState(for: workspaceId).viewOffset,
+            300,
+            accuracy: 0.001
         )
     }
 
@@ -607,6 +697,30 @@ final class RuntimeArchitectureTests: XCTestCase {
         )
         var warpedPoints: [CGPoint] = []
         fixture.controller.warpMouseCursorPosition = { warpedPoints.append($0) }
+
+        Self.confirmManagedNiriFocus(
+            controller: fixture.controller,
+            entry: fixture.entry,
+            requestId: fixture.requestId
+        )
+        try Self.settleNiriAnimation(
+            controller: fixture.controller,
+            workspaceId: fixture.entry.workspaceId
+        )
+
+        XCTAssertTrue(warpedPoints.isEmpty)
+    }
+
+    @MainActor
+    func testNiriPointerSelectionConfirmedFocusDoesNotMoveMouseToFocusedWindowAfterAnimationSettles() throws {
+        let fixture = try Self.managedNiriActivationFixture(
+            origin: .pointerSelection,
+            pid: 765_750,
+            windowId: 765_850
+        )
+        var warpedPoints: [CGPoint] = []
+        fixture.controller.warpMouseCursorPosition = { warpedPoints.append($0) }
+        fixture.controller.currentMouseLocation = { CGPoint(x: -10_000, y: -10_000) }
 
         Self.confirmManagedNiriFocus(
             controller: fixture.controller,

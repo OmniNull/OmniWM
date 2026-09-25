@@ -85,6 +85,35 @@ final class AppRevealFocusTests: XCTestCase {
         XCTAssertTrue(dump.contains("reason=unhide_request_reported_not_sent"))
     }
 
+    func testHiddenSelectionCarriesPointerSelectionOriginIntoCompletedFocus() async throws {
+        let fixture = try makeFixture(pid: 91_016, windowId: 91_116)
+        let handler = makeHandler(controller: fixture.controller) { _ in true }
+        fixture.controller.workspaceManager.setAppHidden(
+            true,
+            pid: fixture.token.pid,
+            source: .service
+        )
+
+        XCTAssertTrue(handler.navigateToExplicitlySelectedWindow(
+            handle: fixture.handle,
+            focusOrigin: .pointerSelection
+        ))
+        let open = try XCTUnwrap(
+            fixture.controller.intentLedger.openAppRevealFocusIntent(pid: fixture.token.pid)
+        )
+        XCTAssertEqual(open.intent.origin, .pointerSelection)
+
+        fixture.controller.axEventHandler.handleAppUnhidden(
+            pid: fixture.token.pid,
+            source: .service
+        )
+        await WindowAdmissionTestSupport.drainLayoutRefreshes(fixture.controller)
+
+        let request = try XCTUnwrap(fixture.controller.intentLedger.activeManagedRequest)
+        XCTAssertEqual(request.token, fixture.token)
+        XCTAssertEqual(request.origin, .pointerSelection)
+    }
+
     func testFalseUnhideResultExpiresWithoutAuthoritativeNotification() throws {
         let fixture = try makeFixture(pid: 91_016, windowId: 91_116)
         let handler = makeHandler(controller: fixture.controller) { _ in false }

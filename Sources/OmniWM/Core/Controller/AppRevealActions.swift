@@ -19,7 +19,8 @@ final class AppRevealActions {
 
     func requestIfNeeded(
         handle: WindowHandle,
-        destination: AppRevealFocusDestination
+        destination: AppRevealFocusDestination,
+        focusOrigin: ManagedFocusOrigin = .keyboardOrProgrammatic
     ) -> Bool {
         let trace = AppRevealRequestTrace(handle: handle, destination: destination)
 
@@ -45,6 +46,7 @@ final class AppRevealActions {
                 destination,
                 token: handle.id,
                 workspaceId: entry.workspaceId,
+                focusOrigin: focusOrigin,
                 controller: controller
             )
         }
@@ -57,27 +59,26 @@ final class AppRevealActions {
                 generation: controller.workspaceManager.appVisibilityGeneration(for: entry.pid)
             )
         }
+        return requestUnhide(
+            pendingApps, handle: handle, entry: entry,
+            destination: destination, focusOrigin: focusOrigin
+        )
+    }
+
+    private func requestUnhide(
+        _ pendingApps: [pid_t: UInt64], handle: WindowHandle, entry: WindowState,
+        destination: AppRevealFocusDestination, focusOrigin: ManagedFocusOrigin
+    ) -> Bool {
+        guard let controller else { return false }
         let intent = controller.intentLedger.beginAppRevealFocus(
             token: entry.token,
             workspaceId: entry.workspaceId,
             handleIdentity: ObjectIdentifier(handle),
             pendingApps: pendingApps,
             focusFingerprint: Self.appRevealFocusFingerprint(controller: controller),
-            destination: destination
-        )
-        return requestUnhide(
-            pendingApps,
-            entry: entry,
-            intent: intent,
             destination: destination,
-            controller: controller
+            origin: focusOrigin
         )
-    }
-
-    private func requestUnhide(
-        _ pendingApps: [pid_t: UInt64], entry: WindowState, intent: Intent,
-        destination: AppRevealFocusDestination, controller: WMController
-    ) -> Bool {
         var requestFailed = false
         for pid in pendingApps.keys.sorted() {
             let unhideResult = requestApplicationUnhide(pid)
@@ -147,8 +148,14 @@ final class AppRevealActions {
             return false
         }
 
-        return AppRevealCompletion(controller: controller, actions: self, intentId: intentId, payload: payload)
-            .perform()
+        return AppRevealCompletion(
+            controller: controller,
+            actions: self,
+            intentId: intentId,
+            payload: payload,
+            focusOrigin: intent.origin
+        )
+        .perform()
     }
 
     private func pendingAppRevealApplications(
@@ -182,11 +189,16 @@ final class AppRevealActions {
         _ destination: AppRevealFocusDestination,
         token: WindowToken,
         workspaceId: WorkspaceDescriptor.ID,
+        focusOrigin: ManagedFocusOrigin,
         controller: WMController
     ) -> Bool {
         switch destination {
         case .window:
-            controller.windowActionHandler.navigateToWindowInternal(token: token, workspaceId: workspaceId)
+            controller.windowActionHandler.navigateToWindowInternal(
+                token: token,
+                workspaceId: workspaceId,
+                focusOrigin: focusOrigin
+            )
         case let .scratchpad(index, monitorId):
             controller.activateScratchpadFromBar(index: index, on: monitorId) == .executed
         case let .scratchpadWindow(index, monitorId):

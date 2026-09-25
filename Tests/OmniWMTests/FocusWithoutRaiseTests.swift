@@ -369,6 +369,7 @@ final class FocusWithoutRaiseTests: XCTestCase {
         let cases: [(ManagedFocusOrigin, Bool)] = [
             (.focusFollowsMouse, true),
             (.pointerHover, false),
+            (.pointerSelection, false),
             (.keyboardOrProgrammatic, false)
         ]
 

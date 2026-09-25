@@ -97,6 +97,68 @@ final class NiriPortraitRevealIntegrationTests: XCTestCase {
         try assertVisible(target.token, state: state, in: fixture)
     }
 
+    func testWorkspaceBarClicksRequestFocusWithPointerSelectionOrigin() async throws {
+        let fixture = try await makeFixture(seed: 483_000, animationsEnabled: false)
+        let windows = addExistingColumns(count: 3, seed: 483_100, to: fixture)
+        installViewport(
+            selected: windows[0],
+            activeColumnIndex: 0,
+            rememberedToken: windows[0].token,
+            in: fixture
+        )
+        let handle = try XCTUnwrap(fixture.controller.workspaceManager.handle(for: windows[2].token))
+
+        fixture.controller.focusWindowFromBar(handle: handle)
+        await WindowAdmissionTestSupport.drainLayoutRefreshes(fixture.controller)
+
+        let windowRequest = try XCTUnwrap(fixture.controller.intentLedger.activeManagedRequest)
+        XCTAssertEqual(windowRequest.token, windows[2].token)
+        XCTAssertEqual(windowRequest.origin, .pointerSelection)
+        XCTAssertFalse(fixture.controller.intentLedger.allowsMouseToFocusedWarp(for: windows[2].token))
+        try assertVisible(
+            windows[2].token,
+            state: fixture.controller.workspaceManager.niriViewportState(for: fixture.workspaceId),
+            in: fixture
+        )
+    }
+
+    func testWorkspaceBarWorkspaceClickRequestsFocusWithPointerSelectionOrigin() async throws {
+        let fixture = try await makeFixture(seed: 485_000, animationsEnabled: false)
+        let windows = addExistingColumns(count: 3, seed: 485_100, to: fixture)
+        primeLayout(fixture)
+        installViewport(
+            selected: windows[1],
+            activeColumnIndex: 1,
+            rememberedToken: windows[1].token,
+            in: fixture
+        )
+
+        fixture.controller.focusWorkspaceFromBar(id: fixture.workspaceId)
+        await WindowAdmissionTestSupport.drainLayoutRefreshes(fixture.controller)
+
+        let request = try XCTUnwrap(fixture.controller.intentLedger.activeManagedRequest)
+        XCTAssertEqual(request.token, windows[1].token)
+        XCTAssertEqual(request.origin, .pointerSelection)
+    }
+
+    func testExternalWindowFocusRequestKeepsKeyboardOrigin() async throws {
+        let fixture = try await makeFixture(seed: 484_000, animationsEnabled: false)
+        let windows = addExistingColumns(count: 2, seed: 484_100, to: fixture)
+        installViewport(
+            selected: windows[0],
+            activeColumnIndex: 0,
+            rememberedToken: windows[0].token,
+            in: fixture
+        )
+
+        XCTAssertTrue(fixture.controller.windowActionHandler.focusWindowFromBar(token: windows[1].token))
+        await WindowAdmissionTestSupport.drainLayoutRefreshes(fixture.controller)
+
+        let request = try XCTUnwrap(fixture.controller.intentLedger.activeManagedRequest)
+        XCTAssertEqual(request.token, windows[1].token)
+        XCTAssertEqual(request.origin, .keyboardOrProgrammatic)
+    }
+
     func testPortraitNewWindowIsVisibleAfterFirstCompletedLayout() async throws {
         let scenarios: [(existingCount: Int, animationsEnabled: Bool)] = [
             (0, false),

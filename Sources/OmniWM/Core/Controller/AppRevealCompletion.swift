@@ -10,6 +10,7 @@ struct AppRevealCompletion {
     let actions: AppRevealActions
     let intentId: IntentID
     let payload: AppRevealFocusPayload
+    let focusOrigin: ManagedFocusOrigin
 
     func perform() -> Bool {
         guard validateFocus(), drainPendingApps(), validateCoordinatedApps(), let handle = validatedHandle() else {
@@ -114,7 +115,8 @@ struct AppRevealCompletion {
             }
             return finish(controller.windowActionHandler.navigateToWindowInternal(
                 token: handle.id,
-                workspaceId: payload.workspaceId
+                workspaceId: payload.workspaceId,
+                focusOrigin: focusOrigin
             ))
         case let .scratchpad(index, monitorId):
             return finish(controller.activateScratchpadFromBar(index: index, on: monitorId) == .executed)

@@ -174,7 +174,12 @@ extension NiriLayoutHandler {
         revealSelectedTab(target, workspaceId: workspaceId, engine: engine, controller: controller, state: &state)
         activateNode(
             target, in: workspaceId, state: &state,
-            options: .init(activateWindow: false, ensureVisible: false, startAnimation: false)
+            options: .init(
+                activateWindow: false,
+                ensureVisible: false,
+                focusOrigin: .pointerSelection,
+                startAnimation: false
+            )
         )
         _ = controller.workspaceManager.applySessionPatch(
             .init(
