@@ -38,9 +38,15 @@ extension WorkspaceSwipePresentation {
               let source = makeWorkspace(current.id, monitor: monitor, active: true)
         else { return nil }
         let wm = controller.workspaceManager
-        let previous = wm.previousWorkspaceInOrder(on: monitorId, from: current.id, wrapAround: true)
-            .flatMap { makeWorkspace($0.id, monitor: monitor, active: false) }
-        let next = wm.nextWorkspaceInOrder(on: monitorId, from: current.id, wrapAround: true)
+        let skipEmpty = controller.workspaceNavigationHandler.skipsEmptyWorkspaces(on: monitorId)
+        let previous = wm.previousWorkspaceInOrder(
+            on: monitorId,
+            from: current.id,
+            wrapAround: true,
+            skipEmpty: skipEmpty
+        )
+        .flatMap { makeWorkspace($0.id, monitor: monitor, active: false) }
+        let next = wm.nextWorkspaceInOrder(on: monitorId, from: current.id, wrapAround: true, skipEmpty: skipEmpty)
             .flatMap { makeWorkspace($0.id, monitor: monitor, active: false) }
         return Preparation(
             monitor: monitor,

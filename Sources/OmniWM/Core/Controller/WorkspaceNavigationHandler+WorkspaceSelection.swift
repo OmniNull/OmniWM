@@ -68,23 +68,34 @@ extension WorkspaceNavigationHandler {
             ? controller.activeWorkspace()
             : controller.workspaceManager.activeWorkspaceOrFirst(on: currentMonitorId)
         guard let currentWorkspace = resolvedWorkspace else { return }
+        let skipEmpty = skipsEmptyWorkspaces(on: currentMonitorId)
 
         let targetWorkspace: WorkspaceDescriptor? = if isNext {
             controller.workspaceManager.nextWorkspaceInOrder(
                 on: currentMonitorId,
                 from: currentWorkspace.id,
-                wrapAround: wrapAround
+                wrapAround: wrapAround,
+                skipEmpty: skipEmpty
             )
         } else {
             controller.workspaceManager.previousWorkspaceInOrder(
                 on: currentMonitorId,
                 from: currentWorkspace.id,
-                wrapAround: wrapAround
+                wrapAround: wrapAround,
+                skipEmpty: skipEmpty
             )
         }
 
         guard let targetWorkspace else { return }
         activateWorkspaceInOrder(targetWorkspace, from: currentWorkspace.id, on: currentMonitorId)
+    }
+
+    /// Relative workspace navigation skips empty workspaces when the monitor's bar hides them.
+    func skipsEmptyWorkspaces(on monitorId: Monitor.ID) -> Bool {
+        guard let controller, let monitor = controller.workspaceManager.monitor(byId: monitorId) else {
+            return false
+        }
+        return controller.settings.workspaceBar.resolved(for: monitor).hideEmptyWorkspaces
     }
 
     func workspaceSlot(_ slot: Int) -> WorkspaceDescriptor? {
