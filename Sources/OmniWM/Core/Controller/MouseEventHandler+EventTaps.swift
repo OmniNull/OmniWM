@@ -259,11 +259,13 @@ extension MouseEventHandler {
             location: screenLocation,
             deltaX: resolvedWheelAxisDelta(
                 pointDelta: CGFloat(event.getDoubleValueField(.scrollWheelEventPointDeltaAxis2)),
-                fixedPointDelta: CGFloat(event.getDoubleValueField(.scrollWheelEventFixedPtDeltaAxis2))
+                fixedPointDelta: CGFloat(event.getDoubleValueField(.scrollWheelEventFixedPtDeltaAxis2)),
+                isContinuous: isContinuous
             ),
             deltaY: resolvedWheelAxisDelta(
                 pointDelta: CGFloat(event.getDoubleValueField(.scrollWheelEventPointDeltaAxis1)),
-                fixedPointDelta: CGFloat(event.getDoubleValueField(.scrollWheelEventFixedPtDeltaAxis1))
+                fixedPointDelta: CGFloat(event.getDoubleValueField(.scrollWheelEventFixedPtDeltaAxis1)),
+                isContinuous: isContinuous
             ),
             momentumPhase: momentumPhase,
             phase: phase,

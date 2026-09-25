@@ -4,7 +4,7 @@
 import AppKit
 import Foundation
 
-private let niriWheelScrollTickAmount: CGFloat = 120.0
+let niriWheelScrollTickAmount: CGFloat = 120.0
 
 struct MouseInputState {
     enum InteractionSource: Hashable {

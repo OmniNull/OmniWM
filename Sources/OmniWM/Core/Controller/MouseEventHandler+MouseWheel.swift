@@ -114,7 +114,9 @@ extension MouseEventHandler {
         }
 
         if didApply {
-            controller.layoutRefreshController.requestImmediateRelayout(reason: .interactiveGesture)
+            controller.niriLayoutHandler.focusSelectedWindowAndRequestRelayout(
+                in: wsId, raisesWindow: false, defersRetryRaise: true
+            )
             if shouldStartAnimation {
                 controller.layoutRefreshController.startScrollAnimation(for: wsId)
             }
@@ -165,11 +167,12 @@ extension MouseEventHandler {
         return true
     }
 
-    nonisolated static func resolvedWheelAxisDelta(pointDelta: CGFloat, fixedPointDelta: CGFloat) -> CGFloat {
-        if abs(pointDelta) > mouseWheelAxisEpsilon {
-            return pointDelta
-        }
-        return fixedPointDelta
+    nonisolated static func resolvedWheelAxisDelta(
+        pointDelta: CGFloat, fixedPointDelta: CGFloat, isContinuous: Bool
+    ) -> CGFloat {
+        let delta = abs(pointDelta) > mouseWheelAxisEpsilon ? pointDelta : fixedPointDelta
+        guard !isContinuous, abs(delta) > mouseWheelAxisEpsilon else { return delta }
+        return delta > 0 ? niriWheelScrollTickAmount : -niriWheelScrollTickAmount
     }
 
     nonisolated static func mouseWheelModifiersMatch(_ modifiers: CGEventFlags, required: CGEventFlags) -> Bool {
