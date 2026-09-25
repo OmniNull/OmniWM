@@ -770,7 +770,7 @@ final class CommandPaletteFocusTests: XCTestCase {
 }
 
 @MainActor
-private final class CommandPaletteFocusFixture {
+final class CommandPaletteFocusFixture {
     let root = FileManager.default.temporaryDirectory.appendingPathComponent("OmniWMPaletteFocusTests-\(UUID())")
     let controller: WMController
     let palette: CommandPaletteController

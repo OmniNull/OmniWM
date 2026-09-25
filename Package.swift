@@ -52,12 +52,20 @@ let package = Package(
             ]
         ),
         .target(
+            name: "OmniWMLauncherSPI",
+            path: "Sources/OmniWMLauncherSPI",
+            cSettings: [
+                .treatAllWarnings(as: .error)
+            ]
+        ),
+        .target(
             name: "OmniWM",
             dependencies: [
                 "GhosttyKit",
                 "OmniWMIPC",
                 "OmniWMMenuBarAssertion",
                 "OmniWMLayerCorners",
+                "OmniWMLauncherSPI",
                 .product(name: "TOML", package: "swift-toml")
             ],
             path: "Sources/OmniWM",

@@ -8,6 +8,75 @@ import XCTest
 
 @MainActor
 final class RuntimeStateStoreTests: XCTestCase {
+    func testLauncherPreferencesAndHistoryPersistWithinBounds() throws {
+        let directory = makeDirectory()
+        let store = RuntimeStateStore(directory: directory, deferSaves: false)
+        store.setCommandPaletteViewStyle(.list, for: .applications)
+        for index in 0 ..< 40 {
+            store.recordLauncherLaunch(
+                targetID: "/Applications/Calculator.app",
+                displayName: "Calculator",
+                query: "calc",
+                date: Date(timeIntervalSince1970: Double(index))
+            )
+        }
+        store.launcherHiddenSuggestions = ["/Applications/Calculator.app"]
+
+        let reopened = RuntimeStateStore(directory: directory, deferSaves: false)
+        XCTAssertEqual(reopened.commandPaletteViewStyle(for: .applications), .list)
+        XCTAssertEqual(reopened.commandPaletteViewStyle(for: .files), .grid)
+        XCTAssertEqual(reopened.launcherLaunches(for: "/Applications/Calculator.app").count, 32)
+        XCTAssertEqual(reopened.launcherShortcutTarget(for: "calc"), "/Applications/Calculator.app")
+        XCTAssertTrue(reopened.launcherHiddenSuggestions.contains("/Applications/Calculator.app"))
+    }
+
+    func testLauncherShortcutPrunesFrom250To200() throws {
+        let directory = makeDirectory()
+        let store = RuntimeStateStore(directory: directory)
+        for index in 0 ..< 251 {
+            store.recordLauncherLaunch(
+                targetID: "/Applications/App\(index).app",
+                displayName: "App\(index)",
+                query: "query\(index)",
+                date: Date(timeIntervalSince1970: Double(index))
+            )
+        }
+        store.flushNow()
+        let persisted = try persistedState(store)
+        XCTAssertEqual(persisted.launcherShortcuts?.count, 200)
+        XCTAssertNil(persisted.launcherShortcuts?["query0"])
+        XCTAssertNotNil(persisted.launcherShortcuts?["query250"])
+    }
+
+    func testLauncherHistoryCapKeepsNewestLaunchesPerTarget() throws {
+        let store = RuntimeStateStore(directory: makeDirectory(), deferSaves: false)
+        for index in 0 ..< 1_010 {
+            store.recordLauncherLaunch(
+                targetID: "/Applications/App\(index % 40).app",
+                displayName: "App",
+                query: "",
+                date: Date(timeIntervalSince1970: Double(index))
+            )
+        }
+        store.recordLauncherLaunch(
+            targetID: "/Applications/App0.app",
+            displayName: "App",
+            query: "",
+            date: Date(timeIntervalSince1970: 5_000)
+        )
+        let dates = store.launcherLaunches(for: "/Applications/App0.app").map(\.date.timeIntervalSince1970)
+        XCTAssertEqual(dates, dates.sorted())
+        XCTAssertEqual(dates.last, 5_000)
+        XCTAssertTrue(dates.contains(1_000))
+    }
+
+    func testLauncherShortcutKeyUsesTheQueryAsTyped() {
+        let store = RuntimeStateStore(directory: makeDirectory(), deferSaves: false)
+        store.recordLauncherLaunch(targetID: "/Applications/Safari.app", displayName: "Safari", query: "Safari ")
+        XCTAssertEqual(store.launcherShortcutTarget(for: "safari "), "/Applications/Safari.app")
+        XCTAssertNil(store.launcherShortcutTarget(for: "safari"))
+    }
+
     func testDeferredSavesCoalesceAndWriteOffMainThread() async throws {
         let directory = makeDirectory()
         let calls = Mutex<[(String?, Bool)]>([])

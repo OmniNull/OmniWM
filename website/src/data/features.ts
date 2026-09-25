@@ -34,9 +34,9 @@ export const features: Feature[] = [
   {
     id: 'palette',
     title: 'Command palette',
-    kicker: 'Windows · menus · clipboard',
+    kicker: 'Windows · menus · apps · files',
     blurb:
-      'Search windows, accessible menu items of the frontmost app, and your clipboard history behind one hotkey. Window results rank by title, then app, then workspace. In Windows mode, Enter focuses; Shift+Enter summons the window right next to you.',
+      'Search windows, accessible menu items, clipboard history, OmniWM commands, applications, and files behind one hotkey. Browse apps and recent files, narrow files by type, or type to search. In Windows mode, Enter focuses; Shift+Enter summons the window right next to you.',
     kbHref: '/features/command-palette/',
   },
   {

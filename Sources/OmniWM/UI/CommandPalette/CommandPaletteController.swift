@@ -14,7 +14,11 @@ final class CommandPaletteController: NSObject, NSWindowDelegate {
     private(set) var isExpanded = false
     var searchText = "" {
         didSet {
-            updateSelectionAfterFilterChange()
+            if isVisible, isLauncherMode {
+                launcherSearchTextDidChange(from: oldValue)
+            } else {
+                updateSelectionAfterFilterChange()
+            }
             if !searchText.isEmpty {
                 expandResults()
             }
@@ -55,9 +59,28 @@ final class CommandPaletteController: NSObject, NSWindowDelegate {
     private(set) var clipboardPreviewImage: NSImage?
     private(set) var isClipboardPreviewLoading = false
     private(set) var clipboardErrorText: String?
-    private(set) var selectionScrollRequest = 0
+    var selectionScrollRequest = 0
 
-    private let environment: CommandPaletteEnvironment
+    var applicationSections: [LauncherSection<LauncherApplicationResult>] = []
+    var fileSections: [LauncherSection<LauncherFileResult>] = []
+    var applicationChips: [LauncherChip] = []
+    var fileChips: [LauncherChip] = []
+    var selectedApplicationChip: LauncherChip?
+    var selectedFileChip: LauncherChip?
+    var applicationViewStyle: LauncherViewStyle = .grid
+    var fileViewStyle: LauncherViewStyle = .grid
+    var isApplicationLoading = false
+    var isFileLoading = false
+    var launcherColumnCount = 1
+    var launcherScopeChipIndex = 0
+    var launcherResultsFocused = false
+    var launcherShowsPaths = false
+    var isLauncherPreviewVisible = false
+    var launcherRequestGeneration = 0
+    var launcherPublishedGeneration = -1
+    var pendingLauncherSelection: (generation: Int, trigger: CommandPaletteSelectionTrigger)?
+
+    let environment: CommandPaletteEnvironment
     private let presentation: CommandPalettePanel
     private var eventMonitor: Any?
 
@@ -115,6 +138,7 @@ final class CommandPaletteController: NSObject, NSWindowDelegate {
         commandItems = CommandPaletteSearch.buildCommandItems(from: wmController)
         menuSession.resetCache()
         isMenuLoading = false
+        resetLauncherState(settings: wmController.settings)
         searchText = ""
         selectedItemID = nil
         menuSession.invalidate()
@@ -147,6 +171,9 @@ final class CommandPaletteController: NSObject, NSWindowDelegate {
 
         if selectedMode == .menu {
             loadMenuItemsIfNeeded()
+        } else if isLauncherMode {
+            expandResults()
+            startLauncherSearch()
         }
     }
 
@@ -161,12 +188,17 @@ final class CommandPaletteController: NSObject, NSWindowDelegate {
             selectedMode = .windows
             return
         }
+        invalidateLauncherSearch()
+        launcherResultsFocused = false
+        selectedItemID = nil
         expandResults()
         wmController?.settings.commandPaletteLastMode = selectedMode
         if selectedMode == .menu {
             loadMenuItemsIfNeeded()
         } else if selectedMode == .clipboard {
             refreshClipboardItems()
+        } else if isLauncherMode {
+            startLauncherSearch()
         }
         updateSelectionAfterFilterChange()
     }
@@ -200,6 +232,10 @@ final class CommandPaletteController: NSObject, NSWindowDelegate {
             expandResults()
             return
         }
+        if isLauncherMode, launcherPublishedGeneration != launcherRequestGeneration {
+            pendingLauncherSelection = (launcherRequestGeneration, trigger)
+            return
+        }
         guard let action = resolvedSelectionAction(for: trigger) else { return }
         if case .command(_, .openCommandPalette, _) = action {
             dismiss(reason: .cancel)
@@ -209,12 +245,16 @@ final class CommandPaletteController: NSObject, NSWindowDelegate {
         actionExecutor.perform(action)
     }
 
+    func dismissForLauncherSelection() {
+        dismiss(reason: .selection)
+    }
+
     func selectMode(_ mode: CommandPaletteMode) {
         selectedMode = mode
         expandResults()
     }
 
-    private func expandResults() {
+    func expandResults() {
         guard isVisible, !isExpanded, let panel = presentation.panel else { return }
         if presentation.animatesPresentation {
             withAnimation(.easeOut(duration: CommandPalettePanel.expansionDuration)) {
@@ -224,22 +264,6 @@ final class CommandPaletteController: NSObject, NSWindowDelegate {
             isExpanded = true
         }
         presentation.expand(panel)
-    }
-
-    func enableClipboardHistory() {
-        guard let wmController else { return }
-        environment.setClipboardHistoryEnabled(wmController, true)
-        isClipboardHistoryEnabled = true
-        refreshClipboardItems()
-    }
-
-    func refreshClipboardItems() {
-        guard let wmController else {
-            clipboardItems = []
-            return
-        }
-        isClipboardHistoryEnabled = environment.isClipboardHistoryEnabled(wmController)
-        clipboardItems = isClipboardHistoryEnabled ? environment.clipboardItems(wmController) : []
     }
 
     func pasteClipboardItem(_ id: UUID, withoutFormatting: Bool = false) {
@@ -316,6 +340,7 @@ final class CommandPaletteController: NSObject, NSWindowDelegate {
 extension CommandPaletteController {
     private func dismiss(reason: DismissReason) {
         removeEventMonitor()
+        invalidateLauncherSearch()
         isVisible = false
         clipboardPreviewGeneration &+= 1
         clipboardPreview = nil
@@ -387,13 +412,17 @@ extension CommandPaletteController {
     }
 
     private func handleKeyDown(_ event: NSEvent) -> Bool {
-        if [UInt16(36), 48, 53, 76, 125, 126].contains(event.keyCode),
+        if [UInt16(36), 48, 49, 51, 53, 76, 123, 124, 125, 126].contains(event.keyCode),
            let inputClient = presentation.panel?.firstResponder as? NSTextInputClient,
            inputClient.hasMarkedText()
         {
             return false
         }
         let relevantModifiers = event.modifierFlags.intersection([.shift, .command, .control, .option])
+
+        if handleLauncherKeyDown(event, relevantModifiers: relevantModifiers) {
+            return true
+        }
 
         if let targetMode = CommandPalettePresentation.modeNavigationTarget(
             currentMode: selectedMode,
@@ -411,9 +440,11 @@ extension CommandPaletteController {
             dismiss(reason: .cancel)
             return true
         case 126:
+            guard !isLauncherMode else { return false }
             moveSelection(by: -1)
             return true
         case 125:
+            guard !isLauncherMode else { return false }
             moveSelection(by: 1)
             return true
         default:
@@ -440,22 +471,22 @@ extension CommandPaletteController {
             return nil
         }
     }
+}
 
-    func moveSelection(by delta: Int) {
-        expandResults()
-        let selectionList = currentSelectionList()
-        guard !selectionList.isEmpty else { return }
+extension CommandPaletteController {
+    func enableClipboardHistory() {
+        guard let wmController else { return }
+        environment.setClipboardHistoryEnabled(wmController, true)
+        isClipboardHistoryEnabled = true
+        refreshClipboardItems()
+    }
 
-        let currentIndex: Int = if let selectedItemID,
-                                   let idx = selectionList.firstIndex(of: selectedItemID)
-        {
-            idx
-        } else {
-            0
+    func refreshClipboardItems() {
+        guard let wmController else {
+            clipboardItems = []
+            return
         }
-
-        let newIndex = (currentIndex + delta + selectionList.count) % selectionList.count
-        selectedItemID = selectionList[newIndex]
-        selectionScrollRequest &+= 1
+        isClipboardHistoryEnabled = environment.isClipboardHistoryEnabled(wmController)
+        clipboardItems = isClipboardHistoryEnabled ? environment.clipboardItems(wmController) : []
     }
 }

@@ -36,6 +36,43 @@ extension WorkspaceManager {
         }
     }
 
+    func mostRecentlyFocusedHandle(forPid pid: pid_t) -> WindowHandle? {
+        let entries = entries(forPid: pid).filter { $0.layoutReason == .standard }
+        let eligibleTokens = Set(entries.map(\.token))
+        guard !eligibleTokens.isEmpty else { return nil }
+
+        func handleIfEligible(_ token: WindowToken?) -> WindowHandle? {
+            guard let token, eligibleTokens.contains(token) else { return nil }
+            return handle(for: token)
+        }
+
+        if let handle = handleIfEligible(selectedManagedToken) { return handle }
+        for token in focusSessionSnapshot.tiledFocusHistory {
+            if let handle = handleIfEligible(token) { return handle }
+        }
+        if let interactionMonitorId,
+           let workspaceId = activeWorkspace(on: interactionMonitorId)?.id,
+           let handle = handleIfEligible(focusSessionSnapshot.lastFocusedByWorkspace[workspaceId])
+        {
+            return handle
+        }
+        for monitor in monitors where monitor.id != interactionMonitorId {
+            if let workspaceId = activeWorkspace(on: monitor.id)?.id,
+               let handle = handleIfEligible(focusSessionSnapshot.lastFocusedByWorkspace[workspaceId])
+            {
+                return handle
+            }
+        }
+        for workspaceId in focusSessionSnapshot.lastFocusedByWorkspace.keys.sorted(by: {
+            $0.uuidString < $1.uuidString
+        }) {
+            if let handle = handleIfEligible(focusSessionSnapshot.lastFocusedByWorkspace[workspaceId]) {
+                return handle
+            }
+        }
+        return entries.min { $0.windowId < $1.windowId }.flatMap { handle(for: $0.token) }
+    }
+
     var selectedManagedHandle: WindowHandle? {
         selectedManagedToken.flatMap { windowQueries.handle(for: $0) }
     }

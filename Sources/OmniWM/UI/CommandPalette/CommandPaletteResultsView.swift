@@ -106,6 +106,9 @@ struct CommandPaletteResultsView: View {
             } else {
                 commandRows(controller.filteredCommandItems, showsCategory: true)
             }
+        case .applications,
+             .files:
+            EmptyView()
         }
     }
 

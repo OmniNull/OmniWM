@@ -71,11 +71,14 @@ enum CommandPaletteSelectionID: Hashable {
     case menu(UUID)
     case clipboard(UUID)
     case command(String)
+    case application(LauncherSectionID, String)
+    case file(LauncherSectionID, String)
 }
 
-enum CommandPaletteSelectionTrigger {
+enum CommandPaletteSelectionTrigger: Equatable {
     case primary
     case alternate
+    case reveal
 }
 
 struct CommandPaletteClipboardPasteTarget {

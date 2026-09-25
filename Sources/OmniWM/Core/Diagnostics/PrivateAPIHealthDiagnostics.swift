@@ -5,6 +5,7 @@ import AppKit
 import ApplicationServices
 import CoreGraphics
 import Foundation
+import OmniWMLauncherSPI
 
 enum PrivateAPISelfTestOutcome: String, Sendable {
     case works
@@ -69,6 +70,7 @@ struct PrivateAPIHealthSnapshot: Sendable {
     let multitouchSymbols: [(name: String, resolved: Bool)]
     let cgsRegistration: String
     let cgsWindowSubscription: String
+    let launcherSPIStatus: UInt32
     let fallbackDump: String
     let lastProbe: PrivateAPIProbeReport?
 
@@ -81,6 +83,7 @@ struct PrivateAPIHealthSnapshot: Sendable {
             "multitouchSymbols: \(trackpad)",
             "cgsEventRegistration=\(cgsRegistration)",
             "cgsWindowSubscription=\(cgsWindowSubscription)",
+            "launcherSPICapabilities=0x\(String(launcherSPIStatus, radix: 16))",
             "",
             "Fallback / failure firings since launch (by subsystem):",
             fallbackDump,
@@ -125,6 +128,7 @@ enum PrivateAPIHealthDiagnostics {
             multitouchSymbols: MultitouchBinding.resolvedSymbols(),
             cgsRegistration: CGSEventObserver.shared.lastRegistrationSummary,
             cgsWindowSubscription: CGSEventObserver.shared.lastWindowSubscriptionSummary,
+            launcherSPIStatus: omniwm_launcher_spi_status(),
             fallbackDump: FallbackFiringRecorder.shared.dump(),
             lastProbe: PrivateAPIProbeStore.shared.last
         )

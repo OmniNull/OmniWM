@@ -15,7 +15,9 @@ final class CommandPaletteControllerTests: XCTestCase {
             (.windows, .menu),
             (.menu, .clipboard),
             (.clipboard, .commands),
-            (.commands, .windows)
+            (.commands, .applications),
+            (.applications, .files),
+            (.files, .windows)
         ]
 
         for (currentMode, expectedMode) in transitions {
@@ -28,10 +30,12 @@ final class CommandPaletteControllerTests: XCTestCase {
 
     func testShiftTabCyclesBackwardAndWrapsAcrossAvailableModes() {
         let transitions: [(CommandPaletteMode, CommandPaletteMode)] = [
-            (.windows, .commands),
+            (.windows, .files),
             (.menu, .windows),
             (.clipboard, .menu),
-            (.commands, .clipboard)
+            (.commands, .clipboard),
+            (.applications, .commands),
+            (.files, .applications)
         ]
 
         for (currentMode, expectedMode) in transitions {
@@ -42,7 +46,7 @@ final class CommandPaletteControllerTests: XCTestCase {
         }
     }
 
-    func testCycleSkipsUnavailableMenuAndIncludesCommands() {
+    func testCycleSkipsUnavailableMenuAndIncludesLauncherModes() {
         XCTAssertEqual(
             modeNavigationTarget(currentMode: .windows, isMenuModeAvailable: false),
             .clipboard
@@ -53,10 +57,26 @@ final class CommandPaletteControllerTests: XCTestCase {
         )
         XCTAssertEqual(
             modeNavigationTarget(currentMode: .commands, isMenuModeAvailable: false),
+            .applications
+        )
+        XCTAssertEqual(
+            modeNavigationTarget(currentMode: .applications, isMenuModeAvailable: false),
+            .files
+        )
+        XCTAssertEqual(
+            modeNavigationTarget(currentMode: .files, isMenuModeAvailable: false),
             .windows
         )
         XCTAssertEqual(
             modeNavigationTarget(currentMode: .windows, isMenuModeAvailable: false, modifiers: .shift),
+            .files
+        )
+        XCTAssertEqual(
+            modeNavigationTarget(currentMode: .files, isMenuModeAvailable: false, modifiers: .shift),
+            .applications
+        )
+        XCTAssertEqual(
+            modeNavigationTarget(currentMode: .applications, isMenuModeAvailable: false, modifiers: .shift),
             .commands
         )
         XCTAssertEqual(
@@ -103,6 +123,14 @@ final class CommandPaletteControllerTests: XCTestCase {
             directModeTarget(keyCode: UInt16(kVK_ANSI_4), characters: "4"),
             .commands
         )
+        XCTAssertEqual(
+            directModeTarget(keyCode: UInt16(kVK_ANSI_5), characters: "5"),
+            .applications
+        )
+        XCTAssertEqual(
+            directModeTarget(keyCode: UInt16(kVK_ANSI_6), characters: "6"),
+            .files
+        )
         XCTAssertNil(
             directModeTarget(
                 keyCode: UInt16(kVK_ANSI_2),
@@ -129,6 +157,19 @@ final class CommandPaletteControllerTests: XCTestCase {
             CommandPalettePresentation.modeHint(for: .commands),
             .init(title: "Commands", shortcut: "⌘4")
         )
+        XCTAssertEqual(
+            CommandPalettePresentation.modeHint(for: .applications),
+            .init(title: "Applications", shortcut: "⌘5")
+        )
+        XCTAssertEqual(
+            CommandPalettePresentation.modeHint(for: .files),
+            .init(title: "Files", shortcut: "⌘6")
+        )
+    }
+
+    func testCompactModePickerLeaves326PointSearchField() {
+        XCTAssertEqual(CommandPaletteModePicker.compactWidth, 304)
+        XCTAssertEqual(CommandPalettePanel.width - CommandPaletteModePicker.compactWidth - 10, 326)
     }
 
     func testHiddenManagedRowsRemainSearchableAndSortAfterVisibleRows() throws {

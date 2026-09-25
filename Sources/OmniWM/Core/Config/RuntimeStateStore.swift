@@ -49,11 +49,26 @@ enum MonitorSetupStatus: String, Codable, Equatable, Sendable {
     case completed
 }
 
+struct LauncherLaunch: Codable, Equatable, Sendable {
+    let date: Date
+    let foldedQuery: String
+}
+
+struct LauncherShortcut: Codable, Equatable, Sendable {
+    let targetID: String
+    let displayName: String
+    let lastUsed: Date
+}
+
 struct RuntimeState: Codable, Equatable, Sendable {
     var windowRestoreCatalog: PersistedWindowRestoreCatalog?
     var updaterLastCheckedAt: Date?
     var updaterSkippedReleaseTag: String?
     var commandPaletteLastMode: String?
+    var commandPaletteViewStyles: [String: LauncherViewStyle]?
+    var launcherLaunches: [String: [LauncherLaunch]]?
+    var launcherShortcuts: [String: LauncherShortcut]?
+    var launcherHiddenSuggestions: [String]?
     var quakeTerminalUseCustomFrame: Bool?
     var quakeTerminalCustomFrame: RuntimeQuakeTerminalFrame?
     var issueDraft: IssueDraft?
@@ -182,6 +197,69 @@ final class RuntimeStateStore {
         set {
             guard commandPaletteLastMode != newValue else { return }
             state.commandPaletteLastMode = newValue.rawValue
+            scheduleSave()
+        }
+    }
+
+    func commandPaletteViewStyle(for mode: CommandPaletteMode) -> LauncherViewStyle {
+        state.commandPaletteViewStyles?[mode.rawValue] ?? .grid
+    }
+
+    func setCommandPaletteViewStyle(_ style: LauncherViewStyle, for mode: CommandPaletteMode) {
+        guard commandPaletteViewStyle(for: mode) != style else { return }
+        state.commandPaletteViewStyles = state.commandPaletteViewStyles ?? [:]
+        state.commandPaletteViewStyles?[mode.rawValue] = style
+        scheduleSave()
+    }
+
+    func recordLauncherLaunch(targetID: String, displayName: String, query: String, date: Date = Date()) {
+        let foldedQuery = query.localizedLowercase.trimmingCharacters(in: .whitespacesAndNewlines)
+        var launches = state.launcherLaunches ?? [:]
+        var targetLaunches = launches[targetID] ?? []
+        targetLaunches.append(LauncherLaunch(date: date, foldedQuery: foldedQuery))
+        launches[targetID] = Array(targetLaunches.suffix(32))
+        if launches.values.reduce(0, { $0 + $1.count }) > 1_000 {
+            let newest = launches.flatMap { target, values in values.map { (target, $0) } }
+                .sorted { $0.1.date < $1.1.date }
+                .suffix(1_000)
+            launches = Dictionary(grouping: newest, by: { $0.0 }).mapValues { values in values.map { $0.1 } }
+        }
+        state.launcherLaunches = launches
+
+        if !foldedQuery.isEmpty {
+            var shortcuts = state.launcherShortcuts ?? [:]
+            shortcuts[query.localizedLowercase] = LauncherShortcut(
+                targetID: targetID,
+                displayName: displayName,
+                lastUsed: date
+            )
+            if shortcuts.count > 250 {
+                let retained = shortcuts.sorted { $0.value.lastUsed > $1.value.lastUsed }.prefix(200)
+                shortcuts = Dictionary(uniqueKeysWithValues: retained.map { ($0.key, $0.value) })
+            }
+            state.launcherShortcuts = shortcuts
+        }
+        scheduleSave()
+    }
+
+    func launcherShortcutTarget(for query: String) -> String? {
+        state.launcherShortcuts?[query.localizedLowercase]?.targetID
+    }
+
+    func launcherLaunches(for targetID: String) -> [LauncherLaunch] {
+        state.launcherLaunches?[targetID] ?? []
+    }
+
+    var launcherLaunchesSnapshot: [String: [LauncherLaunch]] {
+        state.launcherLaunches ?? [:]
+    }
+
+    var launcherHiddenSuggestions: Set<String> {
+        get { Set(state.launcherHiddenSuggestions ?? []) }
+        set {
+            let values = newValue.sorted()
+            guard state.launcherHiddenSuggestions != values else { return }
+            state.launcherHiddenSuggestions = values
             scheduleSave()
         }
     }

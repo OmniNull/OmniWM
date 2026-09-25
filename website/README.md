@@ -46,7 +46,7 @@ The full contributor guide is published at `/developers/contributing/`, and this
 
 The documentation follows `main`, which can include features newer than the latest release. Place an **Unreleased** note beside each unreleased feature or setting, stating that it is available when building from `main`. Check the feature against the latest release tag before removing the note. Keep download links and the displayed release version tied to the published release.
 
-Keep facts in sync with the app: defaults belong to `Sources/OmniWM/Core/Config/SettingsExport.swift` and its `SettingsExport+*.swift` extensions; the domain settings types consume those defaults and map live values to/from the export. The TOML schema lives in `CanonicalTOMLConfig.swift`, and default hotkeys are assembled by `Core/Input/ActionCatalog.swift` from its `ActionCatalog+*.swift` extensions. The command palette uses substring matching with tiered ranking (not fuzzy search), and the quake terminal's default position is Center, which fades rather than slides.
+Keep facts in sync with the app: defaults belong to `Sources/OmniWM/Core/Config/SettingsExport.swift` and its `SettingsExport+*.swift` extensions; the domain settings types consume those defaults and map live values to/from the export. The TOML schema lives in `CanonicalTOMLConfig.swift`, and default hotkeys are assembled by `Core/Input/ActionCatalog.swift` from its `ActionCatalog+*.swift` extensions. The command palette uses substring matching with tiered ranking for its original four modes and Spotlight-style token matching for Applications and Files. The quake terminal's default position is Center, which fades rather than slides.
 
 ## Landing page
 

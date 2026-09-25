@@ -34,6 +34,10 @@ enum CommandPalettePresentation {
             InlineHint(title: mode.localizedDisplayName, shortcut: "⌘3")
         case .commands:
             InlineHint(title: mode.localizedDisplayName, shortcut: "⌘4")
+        case .applications:
+            InlineHint(title: mode.localizedDisplayName, shortcut: "⌘5")
+        case .files:
+            InlineHint(title: mode.localizedDisplayName, shortcut: "⌘6")
         }
     }
 
@@ -54,6 +58,10 @@ enum CommandPalettePresentation {
                 return .clipboard
             case "4":
                 return .commands
+            case "5":
+                return .applications
+            case "6":
+                return .files
             default:
                 return nil
             }
@@ -107,6 +115,8 @@ extension CommandPaletteMode {
         case .menu: String(localized: "Menu")
         case .clipboard: String(localized: "Clipboard")
         case .commands: String(localized: "Commands")
+        case .applications: String(localized: "Applications")
+        case .files: String(localized: "Files")
         }
     }
 }

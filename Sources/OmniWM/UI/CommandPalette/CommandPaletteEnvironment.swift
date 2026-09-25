@@ -15,6 +15,19 @@ private final class CommandPaletteActionBox: @unchecked Sendable {
     }
 }
 
+@MainActor
+enum CommandPaletteKeyboardLanguage {
+    static func current() -> String {
+        guard let source = TISCopyCurrentKeyboardInputSource()?.takeRetainedValue(),
+              let property = TISGetInputSourceProperty(source, kTISPropertyInputSourceLanguages)
+        else {
+            return "en"
+        }
+        let languages = Unmanaged<CFArray>.fromOpaque(property).takeUnretainedValue() as? [String]
+        return languages?.first ?? "en"
+    }
+}
+
 private enum CommandPalettePasteKeyCode {
     static func current() -> UInt16? {
         guard let source = TISCopyCurrentKeyboardLayoutInputSource()?.takeRetainedValue(),
@@ -83,6 +96,132 @@ struct CommandPaletteEnvironment {
     var navigateToWindow: (WMController, WindowHandle) -> Void = { controller, handle in
         controller.navigateToCommandPaletteWindow(handle)
     }
+
+    var submitApplicationSearch: (
+        WMController,
+        String,
+        LauncherChip?,
+        Int,
+        @escaping @MainActor (Int, [LauncherSection<LauncherApplicationResult>], [LauncherChip]) -> Void
+    ) -> Void = { controller, query, chip, generation, publish in
+        let service = ApplicationCatalogService.shared
+        let settings = controller.settings
+        let publishSnapshot: @MainActor () -> Void = { [weak service] in
+            guard let service, service.hasLoadedCatalog else { return }
+            if query.isEmpty {
+                publish(
+                    generation,
+                    service.browse(
+                        chip: chip,
+                        hiddenSuggestions: settings.launcherHiddenSuggestions,
+                        launchesFor: { settings.launcherLaunches(for: $0) }
+                    ),
+                    service.chips
+                )
+            } else {
+                service.rank(
+                    query: query,
+                    chip: chip,
+                    generation: generation,
+                    language: CommandPaletteKeyboardLanguage.current(),
+                    shortcutTarget: settings.launcherShortcutTarget(for: query),
+                    launchesFor: { settings.launcherLaunches(for: $0) },
+                    publish: { publishedGeneration, sections in
+                        publish(publishedGeneration, sections, service.chips)
+                    }
+                )
+            }
+        }
+        let firstSubmissionForOpening = service.onCatalogChanged == nil
+        service.onCatalogChanged = publishSnapshot
+        service.refreshIfNeeded(refreshMetadata: firstSubmissionForOpening)
+        publishSnapshot()
+    }
+
+    var stopApplicationSearch: () -> Void = {
+        let service = ApplicationCatalogService.shared
+        service.onCatalogChanged = nil
+        service.cancelRanking()
+    }
+
+    var submitFileSearch: (
+        WMController,
+        String,
+        LauncherChip?,
+        Int,
+        @escaping @MainActor (Int, [LauncherSection<LauncherFileResult>]) -> Void
+    ) -> Void = { controller, query, chip, generation, publish in
+        FileSearchEngine.shared.submit(
+            query: query,
+            chip: chip,
+            generation: generation,
+            personalization: FileSearchPersonalization(
+                language: CommandPaletteKeyboardLanguage.current(),
+                shortcutTarget: controller.settings.launcherShortcutTarget(for: query),
+                launchesByTarget: controller.settings.launcherLaunchesSnapshot
+            ),
+            publish: publish
+        )
+    }
+
+    var stopFileSearch: () -> Void = {
+        FileSearchEngine.shared.stop()
+    }
+
+    var runningApplicationForResult: (LauncherApplicationResult) -> pid_t? = { result in
+        let applications = NSWorkspace.shared.runningApplications
+        let bundleURL = result.bundleURL.standardizedFileURL
+        if let exact = applications.first(where: { $0.bundleURL?.standardizedFileURL == bundleURL }) {
+            return exact.processIdentifier
+        }
+        guard let bundleIdentifier = result.bundleIdentifier else { return nil }
+        return applications.first(where: { $0.bundleIdentifier == bundleIdentifier })?.processIdentifier
+    }
+
+    var mostRecentWindowForPID: (WMController, pid_t) -> WindowHandle? = { controller, pid in
+        controller.workspaceManager.mostRecentlyFocusedHandle(forPid: pid)
+    }
+
+    var navigateToApplicationWindow: (WMController, WindowHandle) -> Bool = { controller, handle in
+        controller.navigateToCommandPaletteWindow(handle)
+    }
+
+    var openApplication: (URL, @escaping @MainActor @Sendable (String?) -> Void) -> Void = { url, completion in
+        let configuration = NSWorkspace.OpenConfiguration()
+        configuration.activates = true
+        NSWorkspace.shared.openApplication(at: url, configuration: configuration) { _, error in
+            let failure = error?.localizedDescription
+            Task { @MainActor in completion(failure) }
+        }
+    }
+
+    var openFile: (URL, @escaping @MainActor @Sendable (String?) -> Void) -> Void = { url, completion in
+        let configuration = NSWorkspace.OpenConfiguration()
+        configuration.activates = true
+        NSWorkspace.shared.open(url, configuration: configuration) { _, error in
+            let failure = error?.localizedDescription
+            Task { @MainActor in completion(failure) }
+        }
+    }
+
+    var revealInFinder: (URL) -> Void = { url in
+        NSWorkspace.shared.activateFileViewerSelecting([url])
+    }
+
+    var copyFiles: ([URL]) -> Void = { urls in
+        NSPasteboard.general.clearContents()
+        NSPasteboard.general.writeObjects(urls.map { $0 as NSURL })
+    }
+
+    var copyPath: (String) -> Void = { path in
+        NSPasteboard.general.clearContents()
+        NSPasteboard.general.setString(path, forType: .string)
+    }
+
+    var recordLauncherLaunch: (WMController, String, String, String)
+        -> Void = { controller, targetID, query, displayName in
+            controller.settings.recordLauncherLaunch(targetID: targetID, query: query, displayName: displayName)
+        }
 
     var summonWindowRight: (WMController, WindowHandle, WindowToken, WorkspaceDescriptor.ID) -> Void = {
         controller,

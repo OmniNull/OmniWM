@@ -5,6 +5,7 @@ import AppKit
 import ApplicationServices
 import Carbon
 import Observation
+import OmniWMLauncherSPI
 import SwiftUI
 
 struct CommandPaletteView: View {
@@ -32,6 +33,9 @@ struct CommandPaletteView: View {
             if controller.isVisible {
                 isSearchFocused = true
             }
+        }
+        .onModifierKeysChanged { _, modifiers in
+            controller.launcherShowsPaths = modifiers.contains(.command)
         }
     }
 
@@ -94,6 +98,12 @@ struct CommandPaletteView: View {
             }
         } else if controller.selectedMode == .menu && controller.isMenuLoading {
             CommandPaletteLoadingView(text: String(localized: "Loading menu items..."))
+        } else if controller.selectedMode == .applications && controller.isApplicationLoading
+            && controller.applicationSections.isEmpty
+        {
+            CommandPaletteLoadingView(text: String(localized: "Loading applications…"))
+        } else if controller.selectedMode == .files && controller.isFileLoading && controller.fileSections.isEmpty {
+            CommandPaletteLoadingView(text: String(localized: "Loading files…"))
         } else if isEmptyStateVisible {
             CommandPaletteEmptyStateView(
                 symbolName: emptyStateSymbol,
@@ -111,50 +121,44 @@ struct CommandPaletteView: View {
                         .frame(maxWidth: .infinity, maxHeight: .infinity)
                 }
             }
+        } else if controller.isLauncherMode {
+            if controller.selectedMode == .files, controller.isLauncherPreviewVisible {
+                GeometryReader { geometry in
+                    HStack(spacing: 0) {
+                        launcherResults
+                            .frame(width: geometry.size.width * 0.55)
+                        Rectangle()
+                            .fill(Color.primary.opacity(0.1))
+                            .frame(width: 1)
+                        Group {
+                            if let item = controller.selectedLauncherFileResult {
+                                CommandPaletteLauncherPreviewView(item: item)
+                            } else {
+                                Color.clear
+                            }
+                        }
+                        .frame(maxWidth: .infinity, maxHeight: .infinity)
+                    }
+                }
+            } else {
+                launcherResults
+            }
         } else {
             CommandPaletteResultsView(controller: controller, motionPolicy: motionPolicy)
         }
     }
 
-    @ViewBuilder
-    private var clipboardPreview: some View {
-        if controller.isClipboardPreviewLoading {
-            ProgressView()
-                .frame(maxWidth: .infinity, maxHeight: .infinity)
-        } else if let preview = controller.clipboardPreview {
-            ScrollView([.vertical, .horizontal]) {
-                switch preview {
-                case let .text(text):
-                    Text(text)
-                        .font(.system(size: 12))
-                        .textSelection(.enabled)
-                        .frame(maxWidth: .infinity, alignment: .leading)
-                case .image:
-                    if let image = controller.clipboardPreviewImage {
-                        Image(nsImage: image)
-                            .resizable()
-                            .scaledToFit()
-                            .frame(maxWidth: .infinity)
-                    } else {
-                        Text("Preview unavailable")
-                            .foregroundColor(.secondary)
-                    }
-                }
-            }
-            .padding(12)
-        } else {
-            Text("Preview unavailable")
-                .font(.system(size: 12))
-                .foregroundColor(.secondary)
-                .frame(maxWidth: .infinity, maxHeight: .infinity)
-        }
-    }
-
     private var searchField: some View {
         HStack(spacing: 12) {
-            Image(systemName: controller.isExpanded ? selectedModeSymbol : "magnifyingglass")
-                .font(.system(size: 18, weight: .medium))
-                .foregroundColor(.secondary)
+            Group {
+                if controller.isExpanded {
+                    CommandPaletteModeIcon(mode: controller.selectedMode, pointSize: 18)
+                } else {
+                    Image(systemName: "magnifyingglass")
+                }
+            }
+            .font(.system(size: 18, weight: .medium))
+            .foregroundColor(.secondary)
 
             TextField(searchPlaceholder, text: $controller.searchText)
                 .textFieldStyle(.plain)
@@ -205,15 +209,6 @@ struct CommandPaletteView: View {
         .help(statusText)
     }
 
-    private var selectedModeSymbol: String {
-        switch controller.selectedMode {
-        case .windows: "macwindow.on.rectangle"
-        case .menu: "menubar.rectangle"
-        case .clipboard: "clipboard"
-        case .commands: "command"
-        }
-    }
-
     private var searchPlaceholder: String {
         switch controller.selectedMode {
         case .windows:
@@ -224,6 +219,10 @@ struct CommandPaletteView: View {
             String(localized: "Search clipboard history...")
         case .commands:
             String(localized: "Search OmniWM commands...")
+        case .applications:
+            String(localized: "Search applications...")
+        case .files:
+            String(localized: "Search files...")
         }
     }
 
@@ -240,6 +239,10 @@ struct CommandPaletteView: View {
             controller.clipboardStatusText
         case .commands:
             String(localized: "Enter runs the selected command.")
+        case .applications:
+            String(localized: "Enter opens the selected application.")
+        case .files:
+            String(localized: "Enter opens the selected file.")
         }
     }
 
@@ -259,6 +262,9 @@ struct CommandPaletteView: View {
             controller.isClipboardHistoryEnabled && controller.filteredClipboardItems.isEmpty
         case .commands:
             controller.filteredCommandItems.isEmpty
+        case .applications,
+             .files:
+            false
         }
     }
 
@@ -272,6 +278,10 @@ struct CommandPaletteView: View {
             "clipboard"
         case .commands:
             "command"
+        case .applications:
+            "app.fill"
+        case .files:
+            "folder"
         }
     }
 
@@ -292,13 +302,17 @@ struct CommandPaletteView: View {
         case .commands:
             return controller.searchText.isEmpty
                 ? String(localized: "No commands available") : String(localized: "No commands found")
+        case .applications:
+            return String(localized: "No applications found")
+        case .files:
+            return String(localized: "No files found")
         }
     }
 }
 
 struct CommandPaletteModePicker: View {
-    private static let buttonSize: CGFloat = 54
-    private static let buttonSpacing: CGFloat = 10
+    private static let buttonSize: CGFloat = 44
+    private static let buttonSpacing: CGFloat = 8
 
     static var compactWidth: CGFloat {
         CGFloat(CommandPaletteMode.allCases.count) * buttonSize
@@ -321,7 +335,7 @@ struct CommandPaletteModePicker: View {
         let hint = CommandPalettePresentation.modeHint(for: mode)
         let isSelected = selectedMode == mode
         return Button(action: { onSelect(mode) }, label: {
-            Image(systemName: symbol(for: mode))
+            CommandPaletteModeIcon(mode: mode, pointSize: 20)
                 .font(.system(size: 20, weight: .medium))
                 .foregroundColor(.primary)
                 .frame(width: Self.buttonSize, height: Self.buttonSize)
@@ -345,13 +359,31 @@ struct CommandPaletteModePicker: View {
         .accessibilityLabel(hint.title)
         .accessibilityAddTraits(isSelected ? .isSelected : [])
     }
+}
 
-    private func symbol(for mode: CommandPaletteMode) -> String {
+struct CommandPaletteModeIcon: View {
+    @MainActor private static let applicationImage = omniwm_launcher_private_symbol("appstore")
+
+    let mode: CommandPaletteMode
+    let pointSize: CGFloat
+
+    var body: some View {
+        if mode == .applications, let image = Self.applicationImage {
+            Image(nsImage: image.withSymbolConfiguration(.init(pointSize: pointSize, weight: .medium)) ?? image)
+                .renderingMode(.template)
+        } else {
+            Image(systemName: symbolName)
+        }
+    }
+
+    private var symbolName: String {
         switch mode {
         case .windows: "macwindow.on.rectangle"
         case .menu: "menubar.rectangle"
         case .clipboard: "clipboard"
         case .commands: "command"
+        case .applications: "square.grid.3x3"
+        case .files: "folder"
         }
     }
 }

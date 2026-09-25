@@ -1,20 +1,22 @@
 ---
 title: Command Palette
-description: Search windows, app menus, clipboard history, and OmniWM commands from one keyboard-driven palette.
+description: Search windows, app menus, clipboard history, OmniWM commands, applications, and files from one keyboard-driven palette.
 sidebar:
   order: 2
 ---
 
-Open the palette with `Control + Option + Space` (configurable with the other [keyboard shortcuts](/guides/keyboard-shortcuts/)) and search windows, app menus, clipboard history, or OmniWM commands from one shared surface.
+Open the palette with `Control + Option + Space` (configurable with the other [keyboard shortcuts](/guides/keyboard-shortcuts/)) and search windows, app menus, clipboard history, OmniWM commands, applications, or files from one shared surface.
 
 ## Modes
 
-The palette has four modes:
+The palette has six modes:
 
 - **Windows** — `Cmd + 1`
 - **Menu** — `Cmd + 2`
 - **Clipboard** — `Cmd + 3`
 - **Commands** — `Cmd + 4`
+- **Applications** — `Cmd + 5`
+- **Files** — `Cmd + 6`
 
 `Tab` / `Shift + Tab` cycle forward or backward through the available modes.
 
@@ -23,6 +25,7 @@ The palette has four modes:
 - `Up` / `Down` move the selection.
 - `Enter` activates the selected result.
 - In Windows mode, `Shift + Enter` summons the selected window to the right of the current one, when available.
+- In Applications and Files, `Cmd + Enter` reveals the selection in Finder.
 - `Escape` dismisses the palette.
 
 Windows from macOS-hidden apps remain searchable and carry a **Hidden** badge; selecting one unhides its app and focuses that exact window. In Menu mode, results always show keyboard shortcuts when available.
@@ -32,6 +35,12 @@ Windows from macOS-hidden apps remain searchable and carry a **Hidden** badge; s
 Commands mode lists OmniWM actions by category, including actions without a shortcut. Each row shows the layout it supports and its current shortcut, or **Unassigned** / **No shortcut** when none is available. Type to search across command names, related terms, and shortcuts; results then appear in relevance order without category headings.
 
 Select a compatible command and press `Enter` to run it. Commands that require a different layout remain visible with a dimmed row and cannot be run until that layout is active.
+
+## Applications and Files
+
+Applications and Files open as browse grids. Use the view menu to switch either mode between grid and list; the choice is remembered separately for each mode. Type to search the current mode. Applications come from the system's registered app catalog, including alternate app names. Files are searched through the macOS metadata index and can be narrowed with type chips. Before typing, Files shows recent documents and, when the local prediction cache is readable, suggested documents.
+
+`Enter` opens the selected app or file. `Cmd + Enter` reveals it in Finder. Typed searches are ranked with the decoded macOS Spotlight scoring rules where available, while browsing without a query lists suggestions and apps alphabetically; Spotlight's full app prediction and semantic suggestion models are not available to OmniWM.
 
 ## How search ranks results
 

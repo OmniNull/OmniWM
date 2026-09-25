@@ -117,6 +117,10 @@ final class CommandPaletteActionExecutor {
         case copyClipboard(WMController, UUID)
         case pasteClipboard(WMController, UUID, CommandPaletteClipboardPasteTarget?, Bool)
         case command(WMController, HotkeyCommand, CommandPaletteFocusTarget?)
+        case openApplication(WMController, LauncherApplicationResult, String)
+        case openFile(WMController, LauncherFileResult, String)
+        case revealApplication(URL)
+        case revealFile(URL)
     }
 
     func perform(_ action: Action) {
@@ -140,33 +144,74 @@ final class CommandPaletteActionExecutor {
                 _ = await environment.copyClipboardItem(wmController, id)
             }
         case let .pasteClipboard(wmController, id, target, withoutFormatting):
-            cancelPendingCommand()
-            let requestGeneration = activationGeneration
-            Task { @MainActor [weak self, environment] in
-                let didCopy = if withoutFormatting {
-                    await environment.copyClipboardItemPlainText(wmController, id)
-                } else {
-                    await environment.copyClipboardItem(wmController, id)
-                }
-                guard didCopy,
-                      let self,
-                      self.activationGeneration == requestGeneration,
-                      let target,
-                      !environment.isLockScreenActive(wmController),
-                      environment.isAccessibilityTrusted(),
-                      !environment.isSecureInputActive()
-                else {
-                    return
-                }
-                self.beginFocusedAction(
-                    .paste(wmController),
-                    target: target.focusTarget,
-                    expectedWindowID: target.expectedWindowId,
-                    restoreFocus: { self.focusSession.focus(target: target.focusTarget) }
-                )
-            }
+            pasteClipboard(wmController, id: id, target: target, withoutFormatting: withoutFormatting)
         case let .command(wmController, command, target):
             performCommand(command, controller: wmController, target: target)
+        case let .openApplication(wmController, item, query):
+            if let pid = environment.runningApplicationForResult(item),
+               let handle = environment.mostRecentWindowForPID(wmController, pid),
+               environment.navigateToApplicationWindow(wmController, handle)
+            {
+                environment.recordLauncherLaunch(wmController, item.id, query, item.displayName)
+                return
+            }
+            environment.openApplication(item.bundleURL) { [weak self] failure in
+                self?.completeLauncherOpen(failure, wmController, item.id, query, item.displayName)
+            }
+        case let .openFile(wmController, item, query):
+            environment.openFile(item.fileURL) { [weak self] failure in
+                self?.completeLauncherOpen(failure, wmController, item.id, query, item.displayName)
+            }
+        case let .revealApplication(url),
+             let .revealFile(url):
+            environment.revealInFinder(url)
+        }
+    }
+
+    private func completeLauncherOpen(
+        _ failure: String?,
+        _ wmController: WMController,
+        _ targetID: String,
+        _ query: String,
+        _ displayName: String
+    ) {
+        if let failure {
+            environment.presentCommandFailure(failure)
+        } else {
+            environment.recordLauncherLaunch(wmController, targetID, query, displayName)
+        }
+    }
+
+    private func pasteClipboard(
+        _ wmController: WMController,
+        id: UUID,
+        target: CommandPaletteClipboardPasteTarget?,
+        withoutFormatting: Bool
+    ) {
+        cancelPendingCommand()
+        let requestGeneration = activationGeneration
+        Task { @MainActor [weak self, environment] in
+            let didCopy = if withoutFormatting {
+                await environment.copyClipboardItemPlainText(wmController, id)
+            } else {
+                await environment.copyClipboardItem(wmController, id)
+            }
+            guard didCopy,
+                  let self,
+                  self.activationGeneration == requestGeneration,
+                  let target,
+                  !environment.isLockScreenActive(wmController),
+                  environment.isAccessibilityTrusted(),
+                  !environment.isSecureInputActive()
+            else {
+                return
+            }
+            self.beginFocusedAction(
+                .paste(wmController),
+                target: target.focusTarget,
+                expectedWindowID: target.expectedWindowId,
+                restoreFocus: { self.focusSession.focus(target: target.focusTarget) }
+            )
         }
     }
 
