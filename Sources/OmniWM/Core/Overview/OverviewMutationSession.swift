@@ -243,7 +243,7 @@ extension OverviewMutationSession {
             return
         }
 
-        let inserted = insertDeferredWindow(mutation, target: target, wmController: wmController)
+        let inserted = structuralActions.placeAdmittedWindow(mutation.selectedHandle, target: target)
 
         guard inserted else {
             finishDeferredDragMutation(
@@ -274,50 +274,6 @@ extension OverviewMutationSession {
             }
         )
         wmController.layoutRefreshController.startScrollAnimation(for: mutation.destinationWorkspaceId)
-    }
-
-    private func insertDeferredWindow(
-        _ mutation: StructuralMutation,
-        target: OverviewDragTarget,
-        wmController: WMController
-    ) -> Bool {
-        switch target {
-        case let .niriWindowInsert(workspaceId, targetHandle, position):
-            guard windowFacts.visibleManagedEntry(for: targetHandle) != nil else { return false }
-            return wmController.niriLayoutHandler.insertWindow(
-                handle: mutation.selectedHandle,
-                targetHandle: targetHandle,
-                position: structuralActions.overviewInsertPositionToNiri(position),
-                in: workspaceId,
-                source: .mouse
-            )
-        case let .niriColumnInsert(workspaceId, insertIndex):
-            let admittedColumnIndex = wmController.niriEngine
-                .flatMap { engine in
-                    engine.findNode(for: mutation.selectedHandle, in: workspaceId)
-                        .flatMap { engine.findColumn(containing: $0, in: workspaceId) }
-                        .flatMap { column in
-                            column.windowNodes.count == 1
-                                ? engine.columnIndex(of: column, in: workspaceId)
-                                : nil
-                        }
-                }
-            let resolvedInsertIndex = OverviewStructuralActions.deferredColumnInsertIndex(
-                requestedIndex: insertIndex,
-                admittedColumnIndex: admittedColumnIndex
-            )
-            return wmController.niriLayoutHandler.insertWindowInNewColumn(
-                handle: mutation.selectedHandle,
-                insertIndex: resolvedInsertIndex,
-                in: workspaceId,
-                sizingPolicy: .workspaceDefault,
-                source: .mouse
-            )
-        case .floatingPlacement,
-             .workspaceMove,
-             .newWorkspace:
-            return false
-        }
     }
 
     private func finishDeferredDragMutation(

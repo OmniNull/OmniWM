@@ -81,6 +81,9 @@ enum WorkspaceBarDropResolver {
         if workspace.id == source.workspaceId {
             return resolveWithinWorkspace(source: source, at: point, in: workspace)
         }
+        if let positional = resolveIntoOtherWorkspace(source: source, at: point, in: workspace) {
+            return positional
+        }
         return WorkspaceBarDropResolution(
             action: .moveToWorkspace(workspace.id),
             label: String(localized: "Move to \(workspace.name)"),
@@ -110,6 +113,40 @@ enum WorkspaceBarDropResolver {
                 sourcePlacement: sourcePlacement,
                 zone: zone,
                 in: workspace
+            )
+        }
+    }
+
+    private static func resolveIntoOtherWorkspace(
+        source: WorkspaceBarDragSource,
+        at point: CGPoint,
+        in workspace: WorkspaceBarDropGeometry.Workspace
+    ) -> WorkspaceBarDropResolution? {
+        let positional = workspace.icons.filter { $0.placement != nil }
+        guard !source.isFloating,
+              source.tokens.count == 1,
+              workspace.layout == .niri,
+              let first = positional.first,
+              let last = positional.last,
+              point.x >= first.frame.minX - 4,
+              point.x <= last.frame.maxX + 4,
+              let zone = zone(at: point, in: workspace.icons)
+        else {
+            return nil
+        }
+        switch zone {
+        case let .icon(index, position):
+            guard let target = workspace.icons[index].tokens.first else { return nil }
+            return WorkspaceBarDropResolution(
+                action: .niriStack(workspace.id, target: target, position: position),
+                label: String(localized: "Stack with \(workspace.icons[index].appName)"),
+                highlights: [.workspace(workspace.id), .icon(workspace.id, target)]
+            )
+        case let .gap(beforeIcon):
+            return WorkspaceBarDropResolution(
+                action: .niriNewColumn(workspace.id, gap: columnGap(beforeIcon: beforeIcon, in: workspace)),
+                label: String(localized: "New column in \(workspace.name)"),
+                highlights: [.workspace(workspace.id), .gap(workspace.id, beforeIcon: beforeIcon)]
             )
         }
     }

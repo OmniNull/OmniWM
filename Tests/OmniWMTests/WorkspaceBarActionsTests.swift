@@ -324,6 +324,53 @@ final class WorkspaceBarActionsTests: XCTestCase {
         XCTAssertEqual(fixture.controller.workspaceManager.workspace(for: second.id), fixture.ws3)
     }
 
+    func testDroppingIntoAnotherNiriRowInsertsAtThatPosition() async throws {
+        let fixture = try makeFixture(followsFocus: false)
+        let moved = try addWindow(pid: 700_084, windowId: 15, to: fixture.ws1, fixture: fixture)
+        let stayed = try addWindow(pid: 700_085, windowId: 16, to: fixture.ws1, fixture: fixture)
+        let target = try addWindow(pid: 700_086, windowId: 17, to: fixture.ws2, fixture: fixture)
+        try select(stayed, in: fixture.ws1, fixture: fixture)
+
+        XCTAssertTrue(fixture.controller.commitWorkspaceBarDrop(
+            .niriStack(fixture.ws2, target: target.id, position: .before),
+            source: .init(tokens: [moved.id], workspaceId: fixture.ws1, isFloating: false)
+        ))
+        await WindowAdmissionTestSupport.drainLayoutRefreshes(fixture.controller)
+
+        XCTAssertEqual(try columnTokens(in: fixture.ws2, fixture: fixture), [[moved.id, target.id]])
+        XCTAssertEqual(fixture.controller.workspaceManager.activeWorkspace(on: fixture.mainMonitor.id)?.id, fixture.ws1)
+        XCTAssertEqual(fixture.controller.workspaceManager.selectedManagedToken, stayed.id)
+
+        XCTAssertTrue(fixture.controller.commitWorkspaceBarDrop(
+            .niriNewColumn(fixture.ws1, gap: 0),
+            source: .init(tokens: [moved.id], workspaceId: fixture.ws2, isFloating: false)
+        ))
+        await WindowAdmissionTestSupport.drainLayoutRefreshes(fixture.controller)
+
+        XCTAssertEqual(try columnTokens(in: fixture.ws1, fixture: fixture), [[moved.id], [stayed.id]])
+    }
+
+    func testDroppingADwindleWindowIntoANiriRowWaitsForAdmission() async throws {
+        let fixture = try makeFixture(followsFocus: false)
+        fixture.controller.performWorkspaceBarMenuAction(
+            .setLayout(fixture.ws2, .dwindle),
+            barMonitorId: fixture.mainMonitor.id
+        )
+        await WindowAdmissionTestSupport.drainLayoutRefreshes(fixture.controller)
+        let niriWindow = try addWindow(pid: 700_087, windowId: 18, to: fixture.ws1, fixture: fixture)
+        let dwindleWindow = try addWindow(pid: 700_088, windowId: 19, to: fixture.ws2, fixture: fixture)
+        try select(niriWindow, in: fixture.ws1, fixture: fixture)
+
+        XCTAssertTrue(fixture.controller.commitWorkspaceBarDrop(
+            .niriNewColumn(fixture.ws1, gap: 0),
+            source: .init(tokens: [dwindleWindow.id], workspaceId: fixture.ws2, isFloating: false)
+        ))
+        await WindowAdmissionTestSupport.drainLayoutRefreshes(fixture.controller)
+
+        XCTAssertEqual(fixture.controller.workspaceManager.workspace(for: dwindleWindow.id), fixture.ws1)
+        XCTAssertEqual(try columnTokens(in: fixture.ws1, fixture: fixture), [[dwindleWindow.id], [niriWindow.id]])
+    }
+
     func testDropLayoutReportsProjectedColumnPlacements() throws {
         let fixture = try makeFixture(followsFocus: false)
         let first = try addWindow(pid: 700_079, windowId: 10, to: fixture.ws1, fixture: fixture)

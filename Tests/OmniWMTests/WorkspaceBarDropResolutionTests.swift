@@ -135,6 +135,21 @@ final class WorkspaceBarDropResolutionTests: XCTestCase {
         XCTAssertEqual(resolve([a], floating: true, atX: 150).action, .moveToWorkspace(dwindleWorkspace))
     }
 
+    func testDroppingInsideAnotherNiriRowPlacesTheWindowThere() {
+        let stack = resolve([a], atX: 2026)
+        XCTAssertEqual(stack.action, .niriStack(ws2, target: e, position: .before))
+        XCTAssertEqual(stack.highlights, [.workspace(ws2), .icon(ws2, e)])
+
+        let column = resolve([b], atX: 2018)
+        XCTAssertEqual(column.action, .niriNewColumn(ws2, gap: 0))
+        XCTAssertEqual(column.label, "New column in 2")
+        XCTAssertEqual(resolve([a], atX: 2043).action, .niriNewColumn(ws2, gap: 1))
+
+        XCTAssertEqual(resolve([a], atX: 2005).action, .moveToWorkspace(ws2))
+        XCTAssertEqual(resolve([a], floating: true, atX: 2026).action, .moveToWorkspace(ws2))
+        XCTAssertEqual(resolve([b, c], atX: 2026).action, .moveToWorkspace(ws2))
+    }
+
     func testFloatingAndGroupedSourcesCannotBeReorderedInPlace() {
         XCTAssertEqual(resolve([a], floating: true, atX: 83).action, .noOp)
         XCTAssertEqual(resolve([b, c], atX: 83).action, .noOp)

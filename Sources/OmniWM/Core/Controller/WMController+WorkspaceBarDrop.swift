@@ -40,40 +40,128 @@ extension WMController {
         case let .dwindleSwap(workspaceId, target):
             guard let token = barDragToken(source, in: workspaceId) else { return false }
             return dwindleLayoutHandler.swapWindows(token, with: target, in: workspaceId)
-        case let .niriMoveColumn(workspaceId, oneBasedIndex):
-            guard let handle = barDragHandle(source, in: workspaceId),
-                  niriLayoutHandler.moveColumn(containing: handle, toOneBasedIndex: oneBasedIndex).didMutate
-            else {
-                return false
-            }
-            completeWorkspaceBarReorder(handle.id, in: workspaceId)
-            return true
-        case let .niriNewColumn(workspaceId, gap):
-            guard let handle = barDragHandle(source, in: workspaceId),
-                  let insertIndex = durableColumnIndex(forGap: gap, in: workspaceId),
-                  niriLayoutHandler.insertWindowInNewColumn(handle: handle, insertIndex: insertIndex, in: workspaceId)
-            else {
-                return false
-            }
-            completeWorkspaceBarReorder(handle.id, in: workspaceId)
-            return true
-        case let .niriStack(workspaceId, target, position):
-            guard let handle = barDragHandle(source, in: workspaceId),
-                  let targetHandle = workspaceManager.handle(for: target),
-                  niriLayoutHandler.insertWindow(
-                      handle: handle,
-                      targetHandle: targetHandle,
-                      position: position,
-                      in: workspaceId
-                  )
-            else {
-                return false
-            }
-            completeWorkspaceBarReorder(handle.id, in: workspaceId)
-            return true
+        case let .niriMoveColumn(workspaceId, _),
+             let .niriNewColumn(workspaceId, _),
+             let .niriStack(workspaceId, _, _):
+            return workspaceId == source.workspaceId
+                ? commitWorkspaceBarReorder(action, source: source)
+                : commitWorkspaceBarTransfer(action, source: source)
         case .noOp,
              .cancel:
             return false
+        }
+    }
+
+    private func commitWorkspaceBarReorder(_ action: WorkspaceBarDropAction, source: WorkspaceBarDragSource) -> Bool {
+        guard let handle = barDragHandle(source, in: source.workspaceId) else { return false }
+        let workspaceId = source.workspaceId
+        let changed: Bool
+        switch action {
+        case let .niriMoveColumn(_, oneBasedIndex):
+            changed = niriLayoutHandler.moveColumn(containing: handle, toOneBasedIndex: oneBasedIndex).didMutate
+        case let .niriNewColumn(_, gap):
+            changed = durableColumnIndex(forGap: gap, in: workspaceId).map {
+                niriLayoutHandler.insertWindowInNewColumn(handle: handle, insertIndex: $0, in: workspaceId)
+            } ?? false
+        case let .niriStack(_, target, position):
+            changed = workspaceManager.handle(for: target).map {
+                niriLayoutHandler.insertWindow(handle: handle, targetHandle: $0, position: position, in: workspaceId)
+            } ?? false
+        default:
+            changed = false
+        }
+        if changed {
+            completeWorkspaceBarReorder(handle.id, in: workspaceId)
+        }
+        return changed
+    }
+
+    private func commitWorkspaceBarTransfer(_ action: WorkspaceBarDropAction, source: WorkspaceBarDragSource) -> Bool {
+        let actions = workspaceBarStructuralActions()
+        switch action {
+        case let .niriNewColumn(workspaceId, gap):
+            guard let insertIndex = durableColumnIndex(forGap: gap, in: workspaceId) else { return false }
+            return commitWorkspaceBarTransfer(
+                source,
+                into: .niriColumnInsert(workspaceId: workspaceId, insertIndex: insertIndex),
+                actions: actions
+            )
+        case let .niriStack(workspaceId, target, position):
+            guard let targetHandle = workspaceManager.handle(for: target) else { return false }
+            return commitWorkspaceBarTransfer(
+                source,
+                into: .niriWindowInsert(
+                    workspaceId: workspaceId,
+                    targetHandle: targetHandle,
+                    position: actions.niriInsertPositionToOverview(position)
+                ),
+                actions: actions
+            )
+        default:
+            return false
+        }
+    }
+
+    private func workspaceBarStructuralActions() -> OverviewStructuralActions {
+        OverviewStructuralActions(
+            wmController: self,
+            windowFacts: OverviewWindowFacts(wmController: self, environment: OverviewEnvironment())
+        )
+    }
+
+    private func commitWorkspaceBarTransfer(
+        _ source: WorkspaceBarDragSource,
+        into target: OverviewDragTarget,
+        actions: OverviewStructuralActions
+    ) -> Bool {
+        guard let handle = barDragHandle(source, in: source.workspaceId),
+              let monitorId = workspaceManager.monitorId(for: source.workspaceId)
+        else {
+            return false
+        }
+        let movesSelection = workspaceManager.selectedManagedToken == handle.id
+        let session = OverviewStructuralActions.DragSession(
+            handle: handle,
+            windowId: handle.id.windowId,
+            workspaceId: source.workspaceId,
+            monitorId: monitorId,
+            startPoint: .zero
+        )
+        switch actions.performDragAction(session: session, target: target) {
+        case let .changed(mutation):
+            finishWorkspaceBarTransfer(mutation, movesSelection: movesSelection)
+            return true
+        case let .awaitingAdmission(mutation, target):
+            layoutRefreshController.commitWorkspaceTransition(
+                affectedWorkspaces: mutation.affectedWorkspaceIds,
+                postLayout: { [weak self] in
+                    _ = actions.placeAdmittedWindow(mutation.selectedHandle, target: target)
+                    self?.finishWorkspaceBarTransfer(mutation, movesSelection: movesSelection)
+                },
+                postLayoutInvalidated: { [weak self] in
+                    self?.finishWorkspaceBarTransfer(mutation, movesSelection: movesSelection)
+                }
+            )
+            return true
+        case .placedFloating,
+             .unchanged:
+            return false
+        }
+    }
+
+    private func finishWorkspaceBarTransfer(_ mutation: StructuralMutation, movesSelection: Bool) {
+        let follows = movesSelection || settings.focus.followsWindowToMonitor
+        workspaceNavigationHandler.finishWorkspaceMove(
+            mutation,
+            focusPolicy: follows ? .configured : .retainCurrent,
+            focusOrigin: .pointerSelection
+        )
+        let destination = mutation.destinationWorkspaceId
+        if mutation.scrollWorkspaceId != nil,
+           workspaceManager.monitorId(for: destination).flatMap({ workspaceManager.activeWorkspace(on: $0)?.id })
+           == destination
+        {
+            layoutRefreshController.startScrollAnimation(for: destination)
         }
     }
 

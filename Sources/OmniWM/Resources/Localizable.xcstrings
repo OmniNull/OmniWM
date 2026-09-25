@@ -76399,6 +76399,7 @@
         }
       }
     },
+    "New column in %@" : {},
     "New or claimed containers start at this primary span until you resize them." : {
       "localizations" : {
         "ja" : {

@@ -204,6 +204,50 @@ extension OverviewStructuralActions {
         }
     }
 
+    func niriInsertPositionToOverview(_ position: InsertPosition) -> InsertPosition {
+        overviewInsertPositionToNiri(position)
+    }
+
+    func placeAdmittedWindow(_ handle: WindowHandle, target: OverviewDragTarget) -> Bool {
+        guard let wmController else { return false }
+        switch target {
+        case let .niriWindowInsert(workspaceId, targetHandle, position):
+            guard windowFacts.visibleManagedEntry(for: targetHandle) != nil else { return false }
+            return wmController.niriLayoutHandler.insertWindow(
+                handle: handle,
+                targetHandle: targetHandle,
+                position: overviewInsertPositionToNiri(position),
+                in: workspaceId,
+                source: .mouse
+            )
+        case let .niriColumnInsert(workspaceId, insertIndex):
+            let admittedColumnIndex = wmController.niriEngine
+                .flatMap { engine in
+                    engine.findNode(for: handle, in: workspaceId)
+                        .flatMap { engine.findColumn(containing: $0, in: workspaceId) }
+                        .flatMap { column in
+                            column.windowNodes.count == 1
+                                ? engine.columnIndex(of: column, in: workspaceId)
+                                : nil
+                        }
+                }
+            return wmController.niriLayoutHandler.insertWindowInNewColumn(
+                handle: handle,
+                insertIndex: Self.deferredColumnInsertIndex(
+                    requestedIndex: insertIndex,
+                    admittedColumnIndex: admittedColumnIndex
+                ),
+                in: workspaceId,
+                sizingPolicy: .workspaceDefault,
+                source: .mouse
+            )
+        case .floatingPlacement,
+             .workspaceMove,
+             .newWorkspace:
+            return false
+        }
+    }
+
     static func deferredColumnInsertIndex(
         requestedIndex: Int,
         admittedColumnIndex: Int?
