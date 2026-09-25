@@ -5,6 +5,26 @@ import AppKit
 import Foundation
 
 extension DwindleLayoutHandler {
+    @discardableResult
+    func swapWindows(
+        _ token: WindowToken,
+        with otherToken: WindowToken,
+        in workspaceId: WorkspaceDescriptor.ID
+    ) -> Bool {
+        guard let controller, let engine = controller.dwindleEngine else { return false }
+        let swapped = controller.workspaceManager.withEngineMutationScope(
+            in: workspaceId,
+            label: "dwindle_bar_swap",
+            source: .mouse
+        ) {
+            engine.swapLeafTiles(of: token, and: otherToken, in: workspaceId)
+        }
+        guard swapped else { return false }
+        recordLayoutOperation(.windowsSwapped, in: workspaceId, source: .mouse)
+        controller.layoutRefreshController.requestLayoutCommandRelayout(affectedWorkspaceIds: [workspaceId])
+        return true
+    }
+
     func moveToRootInDwindle() -> Bool {
         guard let controller else { return false }
         var changed = false

@@ -16,6 +16,7 @@ struct WorkspaceBarView: View {
     var onToggleSystemStats: () -> Void = {}
     var onSystemStatsAnchorChange: (CGPoint?) -> Void = { _ in }
     var interaction: WorkspaceBarIslandInteraction?
+    var dragPresentation: WorkspaceBarDragPresentation?
 
     var body: some View {
         WorkspaceBarContentView(
@@ -31,6 +32,7 @@ struct WorkspaceBarView: View {
         )
         .environment(\.workspaceBarInteraction, interaction)
         .environment(model)
+        .environment(dragPresentation)
     }
 }
 
@@ -196,6 +198,24 @@ private struct WorkspaceItemView: View {
 
     @State private var isHovered = false
     @Environment(\.workspaceBarInteraction) private var interaction
+    @Environment(WorkspaceBarDragPresentation.self) private var drag: WorkspaceBarDragPresentation?
+
+    private var isDropTarget: Bool {
+        drag?.highlights.contains(.workspace(item.id)) == true
+    }
+
+    private var dropGapIndex: Int? {
+        drag?.highlights.lazy.compactMap { highlight -> Int? in
+            guard case let .gap(workspaceId, index) = highlight, workspaceId == item.id else { return nil }
+            return index
+        }.first
+    }
+
+    private func reflowOffset(forIconAt index: Int) -> CGFloat {
+        guard let gap = dropGapIndex else { return 0 }
+        let halfGap = min(8, iconSize * 0.4) / 2
+        return index < gap ? -halfGap : halfGap
+    }
 
     var body: some View {
         HStack(spacing: windowSpacing) {
@@ -224,7 +244,7 @@ private struct WorkspaceItemView: View {
                 )
             }
 
-            ForEach(item.tiledWindows, id: \.id) { window in
+            ForEach(Array(item.tiledWindows.enumerated()), id: \.element.id) { index, window in
                 WindowIconView(
                     window: window,
                     workspaceId: item.id,
@@ -239,6 +259,9 @@ private struct WorkspaceItemView: View {
                     textColor: textColor,
                     onFocusWindow: onFocusWindow
                 )
+                .offset(x: reflowOffset(forIconAt: index))
+                .animation(animationsEnabled ? .spring(duration: 0.2) : nil, value: dropGapIndex)
+                .workspaceBarHitRegion(.window(item.id, window.id))
             }
 
             if !item.tiledWindows.isEmpty && !item.floatingWindows.isEmpty {
@@ -276,9 +299,9 @@ private struct WorkspaceItemView: View {
                 if showItemBackgrounds, item.isFocused || isHovered {
                     RoundedRectangle(cornerRadius: cornerRadius).fill(.regularMaterial)
                 }
-                if showAccentHighlights, item.isFocused {
+                if (showAccentHighlights && item.isFocused) || isDropTarget {
                     RoundedRectangle(cornerRadius: cornerRadius)
-                        .strokeBorder(accentColor ?? .accentColor, lineWidth: 1)
+                        .strokeBorder(accentColor ?? .accentColor, lineWidth: isDropTarget ? 1.5 : 1)
                 }
             }
         }
@@ -370,6 +393,7 @@ private struct FloatingWindowsGroupView: View {
                     textColor: textColor,
                     onFocusWindow: onFocusWindow
                 )
+                .workspaceBarHitRegion(.window(workspaceId, window.id))
             }
         }
         .padding(.horizontal, 5)

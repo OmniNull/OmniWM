@@ -34,7 +34,11 @@ extension WorkspaceBarManager {
         }
         let point = context.island.hostingView.workspaceBarLocalPoint(forWindowPoint: event.locationInWindow)
         let target = context.island.interaction.target(at: point)
-        switch pressTracker.handle(kind, modifiers: event.modifierFlags, target: target) {
+        let screenPoint = panel.convertPoint(toScreen: event.locationInWindow)
+        if kind == .leftDown {
+            dragController.cancel()
+        }
+        switch pressTracker.handle(kind, modifiers: event.modifierFlags, target: target, location: screenPoint) {
         case .passThrough:
             return false
         case .consume:
@@ -47,6 +51,20 @@ extension WorkspaceBarManager {
             return true
         case let .activateWindow(workspaceId, token):
             activateWindowIcon(workspaceId: workspaceId, token: token, monitorId: context.instance.monitorId)
+            return true
+        case let .beginDrag(workspaceId, token):
+            beginDrag(
+                workspaceId: workspaceId,
+                token: token,
+                snapshot: context.instance.model.snapshot,
+                at: screenPoint
+            )
+            return true
+        case .continueDrag:
+            dragController.update(at: screenPoint)
+            return true
+        case .endDrag:
+            dragController.end(at: screenPoint)
             return true
         }
     }

@@ -74908,6 +74908,7 @@
         }
       }
     },
+    "Move to %@" : {},
     "Move to Monitor" : {},
     "Move to Root: Stable" : {
       "localizations" : {
@@ -120879,6 +120880,7 @@
         }
       }
     },
+    "Stack with %@" : {},
     "Standard Blur" : {
       "localizations" : {
         "ja" : {
@@ -123614,6 +123616,7 @@
       }
     },
     "Summon to the Right" : {},
+    "Swap with %@" : {},
     "Swipe axis" : {
       "localizations" : {
         "ja" : {

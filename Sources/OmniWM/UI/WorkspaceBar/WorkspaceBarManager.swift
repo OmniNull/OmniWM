@@ -98,6 +98,7 @@ final class WorkspaceBarManager {
     var pressTracker = WorkspaceBarPressTracker()
     let menuPresenter = WorkspaceBarMenuPresenter()
     var renamePanel: WorkspaceBarRenamePanel?
+    let dragController = WorkspaceBarDragController()
     private let motionPolicy: MotionPolicy
     private let surfaceCoordinator = SurfaceCoordinator.shared
 
@@ -108,6 +109,7 @@ final class WorkspaceBarManager {
     func setup(controller: WMController, settings: SettingsStore) {
         self.controller = controller
         self.settings = settings
+        configureDragController(controller: controller)
     }
 
     func apply(_ bars: [DesiredBarSurface]) {
@@ -129,6 +131,7 @@ final class WorkspaceBarManager {
         for monitorId in staleMonitorIds {
             removeBarForMonitor(monitorId)
         }
+        dragController.barsDidUpdate()
     }
 
     func updateAppearance() {
@@ -248,12 +251,15 @@ final class WorkspaceBarManager {
             onSystemStatsAnchorChange: { [weak self] anchor in
                 self?.barsByMonitor[monitorId]?.statsAnchor = anchor
             },
-            interaction: interaction
+            interaction: interaction,
+            dragPresentation: dragController.presentation
         )
     }
 
     private func removeBarForMonitor(_ monitorId: Monitor.ID) {
         if let instance = barsByMonitor[monitorId] {
+            dragController.cancel()
+            pressTracker.reset()
             controller?.dismissSystemStatsPopup(anchoredTo: monitorId)
             removeSecondaryPanel(from: instance)
             surfaceCoordinator.unregister(id: instance.surfaceId())
@@ -264,6 +270,7 @@ final class WorkspaceBarManager {
     }
 
     func cleanup() {
+        dragController.cancel()
         menuPresenter.cancel()
         renamePanel?.dismiss()
         pressTracker.reset()
@@ -331,7 +338,46 @@ final class WorkspaceBarManager {
             interaction: island.interaction
         )
     }
+}
 
+extension WorkspaceBarManager {
+    func statsAnchor(on monitorId: Monitor.ID) -> CGPoint? {
+        barsByMonitor[monitorId]?.statsAnchor
+    }
+
+    func primaryBarFrame(on monitorId: Monitor.ID) -> CGRect? {
+        barsByMonitor[monitorId]?.primary.lastAppliedFrame
+    }
+
+    func isWorkspaceBarWindow(_ window: NSWindow) -> Bool {
+        barsByMonitor.values.contains {
+            $0.primary.panel === window || $0.secondary?.panel === window
+        }
+    }
+
+    func islandContext(
+        for panel: WorkspaceBarPanel
+    ) -> (instance: WorkspaceBarInstance, island: WorkspaceBarIslandPanel)? {
+        for instance in barsByMonitor.values {
+            if instance.primary.panel === panel {
+                return (instance, instance.primary)
+            }
+            if let secondary = instance.secondary, secondary.panel === panel {
+                return (instance, secondary)
+            }
+        }
+        return nil
+    }
+
+    func islandContexts(
+        on monitorId: Monitor.ID
+    ) -> [(instance: WorkspaceBarInstance, island: WorkspaceBarIslandPanel)] {
+        guard let instance = barsByMonitor[monitorId] else { return [] }
+        return [(instance, instance.primary)] + (instance.secondary.map { [(instance, $0)] } ?? [])
+    }
+}
+
+extension WorkspaceBarManager {
     private func makeSecondaryPanel(
         for instance: WorkspaceBarInstance,
         resolved: ResolvedBarSettings,
@@ -365,6 +411,7 @@ final class WorkspaceBarManager {
 
     private func removeSecondaryPanel(from instance: WorkspaceBarInstance) {
         guard let secondary = instance.secondary else { return }
+        dragController.cancel()
         surfaceCoordinator.unregister(id: instance.secondarySurfaceId())
         secondary.panel.orderOut(nil)
         secondary.panel.close()
@@ -403,42 +450,5 @@ final class WorkspaceBarManager {
         } else {
             removeSecondaryPanel(from: instance)
         }
-    }
-}
-
-extension WorkspaceBarManager {
-    func statsAnchor(on monitorId: Monitor.ID) -> CGPoint? {
-        barsByMonitor[monitorId]?.statsAnchor
-    }
-
-    func primaryBarFrame(on monitorId: Monitor.ID) -> CGRect? {
-        barsByMonitor[monitorId]?.primary.lastAppliedFrame
-    }
-
-    func isWorkspaceBarWindow(_ window: NSWindow) -> Bool {
-        barsByMonitor.values.contains {
-            $0.primary.panel === window || $0.secondary?.panel === window
-        }
-    }
-
-    func islandContext(
-        for panel: WorkspaceBarPanel
-    ) -> (instance: WorkspaceBarInstance, island: WorkspaceBarIslandPanel)? {
-        for instance in barsByMonitor.values {
-            if instance.primary.panel === panel {
-                return (instance, instance.primary)
-            }
-            if let secondary = instance.secondary, secondary.panel === panel {
-                return (instance, secondary)
-            }
-        }
-        return nil
-    }
-
-    func islandContexts(
-        on monitorId: Monitor.ID
-    ) -> [(instance: WorkspaceBarInstance, island: WorkspaceBarIslandPanel)] {
-        guard let instance = barsByMonitor[monitorId] else { return [] }
-        return [(instance, instance.primary)] + (instance.secondary.map { [(instance, $0)] } ?? [])
     }
 }

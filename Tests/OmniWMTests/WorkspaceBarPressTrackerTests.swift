@@ -75,6 +75,56 @@ final class WorkspaceBarPressTrackerTests: XCTestCase {
         XCTAssertEqual(tracker.handle(.leftUp, modifiers: [], target: .workspace(workspaceId)), .passThrough)
     }
 
+    func testDraggingAWindowIconPastTheThresholdStartsAndEndsADrag() {
+        var tracker = WorkspaceBarPressTracker()
+        let target = WorkspaceBarHitTarget.window(workspaceId, token)
+
+        XCTAssertEqual(
+            tracker.handle(.leftDown, modifiers: [], target: target, location: CGPoint(x: 100, y: 10)),
+            .consume
+        )
+        XCTAssertEqual(
+            tracker.handle(.leftDragged, modifiers: [], target: target, location: CGPoint(x: 104, y: 10)),
+            .consume
+        )
+        XCTAssertEqual(
+            tracker.handle(.leftDragged, modifiers: [], target: nil, location: CGPoint(x: 107, y: 10)),
+            .beginDrag(workspaceId, token)
+        )
+        XCTAssertEqual(
+            tracker.handle(.leftDragged, modifiers: [], target: nil, location: CGPoint(x: 400, y: 10)),
+            .continueDrag
+        )
+        XCTAssertEqual(
+            tracker.handle(.leftUp, modifiers: [], target: target, location: CGPoint(x: 100, y: 10)),
+            .endDrag
+        )
+        XCTAssertEqual(tracker.handle(.leftUp, modifiers: [], target: target), .passThrough)
+    }
+
+    func testRightClickDuringADragIsConsumedWithoutAMenu() {
+        var tracker = WorkspaceBarPressTracker()
+        let target = WorkspaceBarHitTarget.window(workspaceId, token)
+        _ = tracker.handle(.leftDown, modifiers: [], target: target, location: .zero)
+        _ = tracker.handle(.leftDragged, modifiers: [], target: target, location: CGPoint(x: 20, y: 0))
+
+        XCTAssertEqual(tracker.handle(.rightDown, modifiers: [], target: target), .consume)
+        XCTAssertEqual(tracker.handle(.leftUp, modifiers: [], target: nil, location: CGPoint(x: 20, y: 0)), .endDrag)
+    }
+
+    func testDraggingFromAWorkspaceLabelDoesNotStartADrag() {
+        var tracker = WorkspaceBarPressTracker()
+
+        XCTAssertEqual(
+            tracker.handle(.leftDown, modifiers: [], target: .workspace(workspaceId), location: .zero),
+            .passThrough
+        )
+        XCTAssertEqual(
+            tracker.handle(.leftDragged, modifiers: [], target: nil, location: CGPoint(x: 50, y: 0)),
+            .passThrough
+        )
+    }
+
     func testIslandInteractionPrefersWindowAndPillTargetsOverTheirWorkspace() {
         let interaction = WorkspaceBarIslandInteraction()
         interaction.update(.workspace(workspaceId), frame: CGRect(x: 0, y: 0, width: 100, height: 20))

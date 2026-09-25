@@ -177,6 +177,15 @@ struct WindowIconView: View {
     @State private var isHovered = false
     @Environment(\.workspaceBarInteraction) private var interaction
     @Environment(WorkspaceBarModel.self) private var model: WorkspaceBarModel?
+    @Environment(WorkspaceBarDragPresentation.self) private var drag: WorkspaceBarDragPresentation?
+
+    private var isDragSource: Bool {
+        drag?.sourceTokens.contains(window.id) == true
+    }
+
+    private var isDropTarget: Bool {
+        drag?.highlights.contains(.icon(workspaceId, window.id)) == true
+    }
 
     private var windowListBinding: Binding<Bool> {
         Binding(
@@ -212,7 +221,7 @@ struct WindowIconView: View {
                             .blendMode(.sourceAtop)
                     }
                 }
-                .opacity(presentation.iconOpacity)
+                .opacity(isDragSource ? 0.35 : presentation.iconOpacity)
                 .shadow(color: resolvedAccentColor.opacity(glowOpacity), radius: glowRadius)
                 .accessibilityHidden(true)
                 .overlay(alignment: .topTrailing) {
@@ -228,10 +237,15 @@ struct WindowIconView: View {
                     }
                 }
                 .frame(minWidth: max(16, iconSize + 4), minHeight: max(16, iconSize + 4))
+                .overlay {
+                    if isDropTarget {
+                        RoundedRectangle(cornerRadius: 4, style: .continuous)
+                            .strokeBorder(resolvedAccentColor, lineWidth: 1.5)
+                    }
+                }
                 .contentShape(Rectangle())
         }
         .buttonStyle(.plain)
-        .workspaceBarHitRegion(.window(workspaceId, window.id))
         .scaleEffect(scale)
         .animation(animationsEnabled ? .easeInOut(duration: 0.15) : nil, value: isFocused)
         .animation(animationsEnabled ? .easeInOut(duration: 0.1) : nil, value: isHovered)
