@@ -132,6 +132,23 @@ final class SpatialNeighborTokenTests: XCTestCase {
         XCTAssertNil(result)
     }
 
+    func testEmptyCandidatesDoNotComputeTargetFrame() {
+        var computed = false
+        func targetFrame() -> CGRect {
+            computed = true
+            return CGRect(x: 1000, y: 0, width: 1000, height: 1000)
+        }
+
+        let result = WorkspaceNavigationHandler.spatialNeighborToken(
+            from: nil,
+            candidates: [(token: WindowToken, frame: CGRect)](),
+            direction: .right,
+            targetFrame: targetFrame()
+        )
+        XCTAssertNil(result)
+        XCTAssertFalse(computed)
+    }
+
     func testNegativeOriginStackedMonitorsDownPicksTopMost() {
         let target = CGRect(x: 0, y: -1080, width: 1920, height: 1080)
         let top = token(1)
