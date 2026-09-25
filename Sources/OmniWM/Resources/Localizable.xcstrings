@@ -8638,6 +8638,7 @@
         }
       }
     },
+    "+%lld more" : {},
     ", " : {
       "localizations" : {
         "ja" : {
@@ -48967,113 +48968,12 @@
       }
     },
     "Focus %@ window" : {
+      "extractionState" : "stale",
       "localizations" : {
-        "ja" : {
-          "stringUnit" : {
-            "state" : "translated",
-            "value" : "焦点 %@ ウィンドウ"
-          }
-        },
-        "de" : {
-          "stringUnit" : {
-            "state" : "translated",
-            "value" : "Fokusieren Sie das Fenster %@."
-          }
-        },
-        "nb" : {
-          "stringUnit" : {
-            "state" : "translated",
-            "value" : "Fokus %@-vindu"
-          }
-        },
-        "sv" : {
-          "stringUnit" : {
-            "state" : "translated",
-            "value" : "Fokusera på fönster %@"
-          }
-        },
-        "es" : {
-          "stringUnit" : {
-            "state" : "translated",
-            "value" : "Pantalla de enfoque %@"
-          }
-        },
-        "zh-Hans" : {
-          "stringUnit" : {
-            "state" : "translated",
-            "value" : "聚焦%@窗口"
-          }
-        },
-        "hi" : {
-          "stringUnit" : {
-            "state" : "translated",
-            "value" : "फ़ोकस %@ विंडो"
-          }
-        },
         "ar" : {
           "stringUnit" : {
             "state" : "translated",
             "value" : "تركيز نافذة %@"
-          }
-        },
-        "sr-Latn" : {
-          "stringUnit" : {
-            "state" : "translated",
-            "value" : "Fokus %@ prozor"
-          }
-        },
-        "el" : {
-          "stringUnit" : {
-            "state" : "translated",
-            "value" : "Εστίαση %@ παραθύρου"
-          }
-        },
-        "he" : {
-          "stringUnit" : {
-            "state" : "translated",
-            "value" : "התמקד %@ חלון"
-          }
-        },
-        "ru" : {
-          "stringUnit" : {
-            "state" : "translated",
-            "value" : "Фокусное окно %@"
-          }
-        },
-        "pl" : {
-          "stringUnit" : {
-            "state" : "translated",
-            "value" : "Skup się na oknie %@"
-          }
-        },
-        "uk" : {
-          "stringUnit" : {
-            "state" : "translated",
-            "value" : "Вибрати вікно %@"
-          }
-        },
-        "fr" : {
-          "stringUnit" : {
-            "state" : "translated",
-            "value" : "Sélectionner la fenêtre %@"
-          }
-        },
-        "nl" : {
-          "stringUnit" : {
-            "state" : "translated",
-            "value" : "%@-venster focussen"
-          }
-        },
-        "it" : {
-          "stringUnit" : {
-            "state" : "translated",
-            "value" : "Finestra messa a fuoco %@"
-          }
-        },
-        "fi" : {
-          "stringUnit" : {
-            "state" : "translated",
-            "value" : "Focus %@ ikkuna"
           }
         },
         "da" : {
@@ -49082,10 +48982,112 @@
             "value" : "Fokusér %@ vindue"
           }
         },
+        "de" : {
+          "stringUnit" : {
+            "state" : "translated",
+            "value" : "Fokusieren Sie das Fenster %@."
+          }
+        },
+        "el" : {
+          "stringUnit" : {
+            "state" : "translated",
+            "value" : "Εστίαση %@ παραθύρου"
+          }
+        },
+        "es" : {
+          "stringUnit" : {
+            "state" : "translated",
+            "value" : "Pantalla de enfoque %@"
+          }
+        },
+        "fi" : {
+          "stringUnit" : {
+            "state" : "translated",
+            "value" : "Focus %@ ikkuna"
+          }
+        },
+        "fr" : {
+          "stringUnit" : {
+            "state" : "translated",
+            "value" : "Sélectionner la fenêtre %@"
+          }
+        },
+        "he" : {
+          "stringUnit" : {
+            "state" : "translated",
+            "value" : "התמקד %@ חלון"
+          }
+        },
+        "hi" : {
+          "stringUnit" : {
+            "state" : "translated",
+            "value" : "फ़ोकस %@ विंडो"
+          }
+        },
+        "it" : {
+          "stringUnit" : {
+            "state" : "translated",
+            "value" : "Finestra messa a fuoco %@"
+          }
+        },
+        "ja" : {
+          "stringUnit" : {
+            "state" : "translated",
+            "value" : "焦点 %@ ウィンドウ"
+          }
+        },
         "ko" : {
           "stringUnit" : {
             "state" : "translated",
             "value" : "%@ 창에 포커스"
+          }
+        },
+        "nb" : {
+          "stringUnit" : {
+            "state" : "translated",
+            "value" : "Fokus %@-vindu"
+          }
+        },
+        "nl" : {
+          "stringUnit" : {
+            "state" : "translated",
+            "value" : "%@-venster focussen"
+          }
+        },
+        "pl" : {
+          "stringUnit" : {
+            "state" : "translated",
+            "value" : "Skup się na oknie %@"
+          }
+        },
+        "ru" : {
+          "stringUnit" : {
+            "state" : "translated",
+            "value" : "Фокусное окно %@"
+          }
+        },
+        "sr-Latn" : {
+          "stringUnit" : {
+            "state" : "translated",
+            "value" : "Fokus %@ prozor"
+          }
+        },
+        "sv" : {
+          "stringUnit" : {
+            "state" : "translated",
+            "value" : "Fokusera på fönster %@"
+          }
+        },
+        "uk" : {
+          "stringUnit" : {
+            "state" : "translated",
+            "value" : "Вибрати вікно %@"
+          }
+        },
+        "zh-Hans" : {
+          "stringUnit" : {
+            "state" : "translated",
+            "value" : "聚焦%@窗口"
           }
         }
       }
@@ -115667,11 +115669,18 @@
       }
     },
     "Show %@ windows" : {
+      "extractionState" : "stale",
       "localizations" : {
-        "ja" : {
+        "ar" : {
           "stringUnit" : {
             "state" : "translated",
-            "value" : "%@ウィンドウを表示する"
+            "value" : "إظهار %@ نوافذ"
+          }
+        },
+        "da" : {
+          "stringUnit" : {
+            "state" : "translated",
+            "value" : "Vis %@ vinduer"
           }
         },
         "de" : {
@@ -115680,16 +115689,10 @@
             "value" : "Zeigen Sie %@ Fenster an"
           }
         },
-        "nb" : {
+        "el" : {
           "stringUnit" : {
             "state" : "translated",
-            "value" : "Vis %@ vinduer"
-          }
-        },
-        "sv" : {
-          "stringUnit" : {
-            "state" : "translated",
-            "value" : "Visa %@ fönster"
+            "value" : "Εμφάνιση παραθύρων %@"
           }
         },
         "es" : {
@@ -115698,58 +115701,10 @@
             "value" : "Mostrar %@ ventanas"
           }
         },
-        "zh-Hans" : {
+        "fi" : {
           "stringUnit" : {
             "state" : "translated",
-            "value" : "显示%@窗口"
-          }
-        },
-        "hi" : {
-          "stringUnit" : {
-            "state" : "translated",
-            "value" : "%@ विंडो दिखाएं"
-          }
-        },
-        "ar" : {
-          "stringUnit" : {
-            "state" : "translated",
-            "value" : "إظهار %@ نوافذ"
-          }
-        },
-        "sr-Latn" : {
-          "stringUnit" : {
-            "state" : "translated",
-            "value" : "Pokazati %@ prozor"
-          }
-        },
-        "el" : {
-          "stringUnit" : {
-            "state" : "translated",
-            "value" : "Εμφάνιση παραθύρων %@"
-          }
-        },
-        "he" : {
-          "stringUnit" : {
-            "state" : "translated",
-            "value" : "הצג %@ חלונות"
-          }
-        },
-        "ru" : {
-          "stringUnit" : {
-            "state" : "translated",
-            "value" : "Показать %@ окон"
-          }
-        },
-        "pl" : {
-          "stringUnit" : {
-            "state" : "translated",
-            "value" : "Pokaż okna %@"
-          }
-        },
-        "uk" : {
-          "stringUnit" : {
-            "state" : "translated",
-            "value" : "Показати вікна %@"
+            "value" : "Näytä %@ ikkunat"
           }
         },
         "fr" : {
@@ -115758,10 +115713,16 @@
             "value" : "Afficher les fenêtres %@"
           }
         },
-        "nl" : {
+        "he" : {
           "stringUnit" : {
             "state" : "translated",
-            "value" : "%@ vensters tonen"
+            "value" : "הצג %@ חלונות"
+          }
+        },
+        "hi" : {
+          "stringUnit" : {
+            "state" : "translated",
+            "value" : "%@ विंडो दिखाएं"
           }
         },
         "it" : {
@@ -115770,16 +115731,10 @@
             "value" : "Mostra le finestre %@"
           }
         },
-        "fi" : {
+        "ja" : {
           "stringUnit" : {
             "state" : "translated",
-            "value" : "Näytä %@ ikkunat"
-          }
-        },
-        "da" : {
-          "stringUnit" : {
-            "state" : "translated",
-            "value" : "Vis %@ vinduer"
+            "value" : "%@ウィンドウを表示する"
           }
         },
         "ko" : {
@@ -115787,123 +115742,64 @@
             "state" : "translated",
             "value" : "%@ 창 표시"
           }
-        }
-      }
-    },
-    "Show %@ windows — %lld of %lld hidden" : {
-      "localizations" : {
-        "en" : {
-          "stringUnit" : {
-            "state" : "new",
-            "value" : "Show %1$@ windows — %2$lld of %3$lld hidden"
-          }
-        },
-        "ja" : {
-          "stringUnit" : {
-            "state" : "translated",
-            "value" : "%1$@ウィンドウを表示 — %3$lldの%2$lldが隠されています"
-          }
-        },
-        "de" : {
-          "stringUnit" : {
-            "state" : "translated",
-            "value" : "Zeige %1$@ Fenster an — %2$lld von %3$lld versteckt"
-          }
         },
         "nb" : {
           "stringUnit" : {
             "state" : "translated",
-            "value" : "Vis %1$@ vinduer — %2$lld av %3$lld skjult"
-          }
-        },
-        "sv" : {
-          "stringUnit" : {
-            "state" : "translated",
-            "value" : "Visa %1$@ fönster — %2$lld av %3$lld dolda"
-          }
-        },
-        "es" : {
-          "stringUnit" : {
-            "state" : "translated",
-            "value" : "Mostrar %1$@ ventanas — %2$lld de %3$lld ocultas"
-          }
-        },
-        "zh-Hans" : {
-          "stringUnit" : {
-            "state" : "translated",
-            "value" : "显示%1$@个窗口——%2$lld个%3$lld个隐藏的"
-          }
-        },
-        "hi" : {
-          "stringUnit" : {
-            "state" : "translated",
-            "value" : "%1$@ विंडो दिखाएं — %3$lld में से %2$lld छिपे हुए हैं"
-          }
-        },
-        "ar" : {
-          "stringUnit" : {
-            "state" : "translated",
-            "value" : "اعرض %1$@ نوافذ — %2$lld من %3$lld مخفية"
-          }
-        },
-        "sr-Latn" : {
-          "stringUnit" : {
-            "state" : "translated",
-            "value" : "Pokazati %1$@ prozor — %2$lld od %3$lld skriven"
-          }
-        },
-        "el" : {
-          "stringUnit" : {
-            "state" : "translated",
-            "value" : "Εμφάνιση παραθύρων %1$@ — %2$lld από %3$lld κρυφά"
-          }
-        },
-        "he" : {
-          "stringUnit" : {
-            "state" : "translated",
-            "value" : "הצג חלונות של %1$@ — %2$lld מתוך %3$lld מוסתרים"
-          }
-        },
-        "ru" : {
-          "stringUnit" : {
-            "state" : "translated",
-            "value" : "Показать %1$@ окон — %2$lld из %3$lld скрыто"
-          }
-        },
-        "pl" : {
-          "stringUnit" : {
-            "state" : "translated",
-            "value" : "Pokaż okna %1$@ — ukrytych: %2$lld z %3$lld"
-          }
-        },
-        "uk" : {
-          "stringUnit" : {
-            "state" : "translated",
-            "value" : "Показати вікна %1$@ — %2$lld з %3$lld приховано"
-          }
-        },
-        "fr" : {
-          "stringUnit" : {
-            "state" : "translated",
-            "value" : "Afficher les fenêtres %1$@ — %2$lld de %3$lld cachées"
+            "value" : "Vis %@ vinduer"
           }
         },
         "nl" : {
           "stringUnit" : {
             "state" : "translated",
-            "value" : "%1$@ vensters tonen %2$lld van %3$lld verborgen"
+            "value" : "%@ vensters tonen"
           }
         },
-        "it" : {
+        "pl" : {
           "stringUnit" : {
             "state" : "translated",
-            "value" : "Mostra le finestre %1$@ %2$lld di %3$lld nascoste"
+            "value" : "Pokaż okna %@"
           }
         },
-        "fi" : {
+        "ru" : {
           "stringUnit" : {
             "state" : "translated",
-            "value" : "Näytä %1$@ ikkunat – %2$lld %3$lld piilotettuna"
+            "value" : "Показать %@ окон"
+          }
+        },
+        "sr-Latn" : {
+          "stringUnit" : {
+            "state" : "translated",
+            "value" : "Pokazati %@ prozor"
+          }
+        },
+        "sv" : {
+          "stringUnit" : {
+            "state" : "translated",
+            "value" : "Visa %@ fönster"
+          }
+        },
+        "uk" : {
+          "stringUnit" : {
+            "state" : "translated",
+            "value" : "Показати вікна %@"
+          }
+        },
+        "zh-Hans" : {
+          "stringUnit" : {
+            "state" : "translated",
+            "value" : "显示%@窗口"
+          }
+        }
+      }
+    },
+    "Show %@ windows — %lld of %lld hidden" : {
+      "extractionState" : "stale",
+      "localizations" : {
+        "ar" : {
+          "stringUnit" : {
+            "state" : "translated",
+            "value" : "اعرض %1$@ نوافذ — %2$lld من %3$lld مخفية"
           }
         },
         "da" : {
@@ -115912,122 +115808,129 @@
             "value" : "Vis %1$@ vinduer %2$lld af %3$lld skjult"
           }
         },
-        "ko" : {
-          "stringUnit" : {
-            "state" : "translated",
-            "value" : "%1$@ 창을 표시 — %3$lld 중 %2$lld이 숨겨져 있습니다."
-          }
-        }
-      }
-    },
-    "Show %@ windows — app hidden" : {
-      "localizations" : {
-        "ja" : {
-          "stringUnit" : {
-            "state" : "translated",
-            "value" : "%@ウィンドウを表示する — アプリが隠されています"
-          }
-        },
         "de" : {
           "stringUnit" : {
             "state" : "translated",
-            "value" : "Zeigen Sie %@ Fenster an - App versteckt"
-          }
-        },
-        "nb" : {
-          "stringUnit" : {
-            "state" : "translated",
-            "value" : "Vis %@ vinduer — appen er skjult"
-          }
-        },
-        "sv" : {
-          "stringUnit" : {
-            "state" : "translated",
-            "value" : "Visa %@ fönster — appen är dold"
-          }
-        },
-        "es" : {
-          "stringUnit" : {
-            "state" : "translated",
-            "value" : "Mostrar %@ ventanas — aplicación oculta"
-          }
-        },
-        "zh-Hans" : {
-          "stringUnit" : {
-            "state" : "translated",
-            "value" : "显示%@个窗口——应用程序隐藏"
-          }
-        },
-        "hi" : {
-          "stringUnit" : {
-            "state" : "translated",
-            "value" : "%@ विंडो दिखाएं — ऐप छिपा हुआ है"
-          }
-        },
-        "ar" : {
-          "stringUnit" : {
-            "state" : "translated",
-            "value" : "إظهار %@ نوافذ - التطبيق مخفي"
-          }
-        },
-        "sr-Latn" : {
-          "stringUnit" : {
-            "state" : "translated",
-            "value" : "Pokazati %@ prozor — aplikacija skrivena"
+            "value" : "Zeige %1$@ Fenster an — %2$lld von %3$lld versteckt"
           }
         },
         "el" : {
           "stringUnit" : {
             "state" : "translated",
-            "value" : "Εμφάνιση παραθύρων %@ — η εφαρμογή είναι κρυφή"
+            "value" : "Εμφάνιση παραθύρων %1$@ — %2$lld από %3$lld κρυφά"
           }
         },
-        "he" : {
+        "en" : {
           "stringUnit" : {
-            "state" : "translated",
-            "value" : "הצג חלונות של %@ — האפליקציה מוסתרת"
+            "state" : "new",
+            "value" : "Show %1$@ windows — %2$lld of %3$lld hidden"
           }
         },
-        "ru" : {
+        "es" : {
           "stringUnit" : {
             "state" : "translated",
-            "value" : "Показать %@ окон — приложение скрыто"
-          }
-        },
-        "pl" : {
-          "stringUnit" : {
-            "state" : "translated",
-            "value" : "Pokaż okna %@ — aplikacja jest ukryta"
-          }
-        },
-        "uk" : {
-          "stringUnit" : {
-            "state" : "translated",
-            "value" : "Показати вікна %@ — програму приховано"
-          }
-        },
-        "fr" : {
-          "stringUnit" : {
-            "state" : "translated",
-            "value" : "Afficher les fenêtres %@ — application cachée"
-          }
-        },
-        "nl" : {
-          "stringUnit" : {
-            "state" : "translated",
-            "value" : "Toon %@ vensters verborgen-app"
-          }
-        },
-        "it" : {
-          "stringUnit" : {
-            "state" : "translated",
-            "value" : "Mostra l'app %@ delle finestre"
+            "value" : "Mostrar %1$@ ventanas — %2$lld de %3$lld ocultas"
           }
         },
         "fi" : {
           "stringUnit" : {
             "state" : "translated",
-            "value" : "Näytä %@-ikkunat – sovellus piilotettu"
+            "value" : "Näytä %1$@ ikkunat – %2$lld %3$lld piilotettuna"
+          }
+        },
+        "fr" : {
+          "stringUnit" : {
+            "state" : "translated",
+            "value" : "Afficher les fenêtres %1$@ — %2$lld de %3$lld cachées"
+          }
+        },
+        "he" : {
+          "stringUnit" : {
+            "state" : "translated",
+            "value" : "הצג חלונות של %1$@ — %2$lld מתוך %3$lld מוסתרים"
+          }
+        },
+        "hi" : {
+          "stringUnit" : {
+            "state" : "translated",
+            "value" : "%1$@ विंडो दिखाएं — %3$lld में से %2$lld छिपे हुए हैं"
+          }
+        },
+        "it" : {
+          "stringUnit" : {
+            "state" : "translated",
+            "value" : "Mostra le finestre %1$@ %2$lld di %3$lld nascoste"
+          }
+        },
+        "ja" : {
+          "stringUnit" : {
+            "state" : "translated",
+            "value" : "%1$@ウィンドウを表示 — %3$lldの%2$lldが隠されています"
+          }
+        },
+        "ko" : {
+          "stringUnit" : {
+            "state" : "translated",
+            "value" : "%1$@ 창을 표시 — %3$lld 중 %2$lld이 숨겨져 있습니다."
+          }
+        },
+        "nb" : {
+          "stringUnit" : {
+            "state" : "translated",
+            "value" : "Vis %1$@ vinduer — %2$lld av %3$lld skjult"
+          }
+        },
+        "nl" : {
+          "stringUnit" : {
+            "state" : "translated",
+            "value" : "%1$@ vensters tonen %2$lld van %3$lld verborgen"
+          }
+        },
+        "pl" : {
+          "stringUnit" : {
+            "state" : "translated",
+            "value" : "Pokaż okna %1$@ — ukrytych: %2$lld z %3$lld"
+          }
+        },
+        "ru" : {
+          "stringUnit" : {
+            "state" : "translated",
+            "value" : "Показать %1$@ окон — %2$lld из %3$lld скрыто"
+          }
+        },
+        "sr-Latn" : {
+          "stringUnit" : {
+            "state" : "translated",
+            "value" : "Pokazati %1$@ prozor — %2$lld od %3$lld skriven"
+          }
+        },
+        "sv" : {
+          "stringUnit" : {
+            "state" : "translated",
+            "value" : "Visa %1$@ fönster — %2$lld av %3$lld dolda"
+          }
+        },
+        "uk" : {
+          "stringUnit" : {
+            "state" : "translated",
+            "value" : "Показати вікна %1$@ — %2$lld з %3$lld приховано"
+          }
+        },
+        "zh-Hans" : {
+          "stringUnit" : {
+            "state" : "translated",
+            "value" : "显示%1$@个窗口——%2$lld个%3$lld个隐藏的"
+          }
+        }
+      }
+    },
+    "Show %@ windows — app hidden" : {
+      "extractionState" : "stale",
+      "localizations" : {
+        "ar" : {
+          "stringUnit" : {
+            "state" : "translated",
+            "value" : "إظهار %@ نوافذ - التطبيق مخفي"
           }
         },
         "da" : {
@@ -116036,10 +115939,112 @@
             "value" : "Vis %@ windows &amp; nbsp; app skjult"
           }
         },
+        "de" : {
+          "stringUnit" : {
+            "state" : "translated",
+            "value" : "Zeigen Sie %@ Fenster an - App versteckt"
+          }
+        },
+        "el" : {
+          "stringUnit" : {
+            "state" : "translated",
+            "value" : "Εμφάνιση παραθύρων %@ — η εφαρμογή είναι κρυφή"
+          }
+        },
+        "es" : {
+          "stringUnit" : {
+            "state" : "translated",
+            "value" : "Mostrar %@ ventanas — aplicación oculta"
+          }
+        },
+        "fi" : {
+          "stringUnit" : {
+            "state" : "translated",
+            "value" : "Näytä %@-ikkunat – sovellus piilotettu"
+          }
+        },
+        "fr" : {
+          "stringUnit" : {
+            "state" : "translated",
+            "value" : "Afficher les fenêtres %@ — application cachée"
+          }
+        },
+        "he" : {
+          "stringUnit" : {
+            "state" : "translated",
+            "value" : "הצג חלונות של %@ — האפליקציה מוסתרת"
+          }
+        },
+        "hi" : {
+          "stringUnit" : {
+            "state" : "translated",
+            "value" : "%@ विंडो दिखाएं — ऐप छिपा हुआ है"
+          }
+        },
+        "it" : {
+          "stringUnit" : {
+            "state" : "translated",
+            "value" : "Mostra l'app %@ delle finestre"
+          }
+        },
+        "ja" : {
+          "stringUnit" : {
+            "state" : "translated",
+            "value" : "%@ウィンドウを表示する — アプリが隠されています"
+          }
+        },
         "ko" : {
           "stringUnit" : {
             "state" : "translated",
             "value" : "%@ 창 표시 — 앱 숨겨짐"
+          }
+        },
+        "nb" : {
+          "stringUnit" : {
+            "state" : "translated",
+            "value" : "Vis %@ vinduer — appen er skjult"
+          }
+        },
+        "nl" : {
+          "stringUnit" : {
+            "state" : "translated",
+            "value" : "Toon %@ vensters verborgen-app"
+          }
+        },
+        "pl" : {
+          "stringUnit" : {
+            "state" : "translated",
+            "value" : "Pokaż okna %@ — aplikacja jest ukryta"
+          }
+        },
+        "ru" : {
+          "stringUnit" : {
+            "state" : "translated",
+            "value" : "Показать %@ окон — приложение скрыто"
+          }
+        },
+        "sr-Latn" : {
+          "stringUnit" : {
+            "state" : "translated",
+            "value" : "Pokazati %@ prozor — aplikacija skrivena"
+          }
+        },
+        "sv" : {
+          "stringUnit" : {
+            "state" : "translated",
+            "value" : "Visa %@ fönster — appen är dold"
+          }
+        },
+        "uk" : {
+          "stringUnit" : {
+            "state" : "translated",
+            "value" : "Показати вікна %@ — програму приховано"
+          }
+        },
+        "zh-Hans" : {
+          "stringUnit" : {
+            "state" : "translated",
+            "value" : "显示%@个窗口——应用程序隐藏"
           }
         }
       }

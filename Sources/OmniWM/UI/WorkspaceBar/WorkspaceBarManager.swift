@@ -99,6 +99,7 @@ final class WorkspaceBarManager {
     let menuPresenter = WorkspaceBarMenuPresenter()
     var renamePanel: WorkspaceBarRenamePanel?
     let dragController = WorkspaceBarDragController()
+    var hoverPreview: WorkspaceBarHoverPreviewController?
     private let motionPolicy: MotionPolicy
     private let surfaceCoordinator = SurfaceCoordinator.shared
 
@@ -110,6 +111,7 @@ final class WorkspaceBarManager {
         self.controller = controller
         self.settings = settings
         configureDragController(controller: controller)
+        configureHoverPreview(controller: controller)
     }
 
     func apply(_ bars: [DesiredBarSurface]) {
@@ -132,6 +134,9 @@ final class WorkspaceBarManager {
             removeBarForMonitor(monitorId)
         }
         dragController.barsDidUpdate()
+        hoverPreview?.targetsDidChange { [weak self] key in
+            self?.hoverTarget(for: key)
+        }
     }
 
     func updateAppearance() {
@@ -270,6 +275,7 @@ final class WorkspaceBarManager {
     }
 
     func cleanup() {
+        hoverPreview?.dismiss()
         dragController.cancel()
         menuPresenter.cancel()
         renamePanel?.dismiss()
@@ -295,7 +301,7 @@ final class WorkspaceBarManager {
             applySplitLayout(split, resolved: resolved, instance: instance)
         } else {
             updateIslandView(
-                &instance.primary,
+                instance.primary,
                 model: instance.model,
                 slice: .all,
                 showsSystemStatsButton: snapshot.showSystemStatsButton,
@@ -317,7 +323,7 @@ final class WorkspaceBarManager {
     }
 
     private func updateIslandView(
-        _ island: inout WorkspaceBarIslandPanel,
+        _ island: WorkspaceBarIslandPanel,
         model: WorkspaceBarModel,
         slice: WorkspaceBarIslandSlice,
         showsSystemStatsButton: Bool,
@@ -424,7 +430,7 @@ extension WorkspaceBarManager {
         instance: WorkspaceBarInstance
     ) {
         updateIslandView(
-            &instance.primary,
+            instance.primary,
             model: instance.model,
             slice: .active,
             showsSystemStatsButton: split.primaryShowsSystemStatsButton,
@@ -432,14 +438,14 @@ extension WorkspaceBarManager {
         )
         instance.primary.applyFrame(split.layout.activeFrame, using: frameApplier)
         if let secondaryFrame = split.layout.secondaryFrame,
-           var secondary = instance.secondary ?? makeSecondaryPanel(
+           let secondary = instance.secondary ?? makeSecondaryPanel(
                for: instance,
                resolved: resolved,
                showsSystemStatsButton: split.secondaryShowsSystemStatsButton
            )
         {
             updateIslandView(
-                &secondary,
+                secondary,
                 model: instance.model,
                 slice: .secondary,
                 showsSystemStatsButton: split.secondaryShowsSystemStatsButton,

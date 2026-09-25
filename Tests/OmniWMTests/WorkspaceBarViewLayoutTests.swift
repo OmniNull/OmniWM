@@ -172,7 +172,6 @@ final class WorkspaceBarViewLayoutTests: XCTestCase {
         XCTAssertEqual(hiddenPresentation.accessibilityLabel, "Mail window")
         XCTAssertEqual(hiddenPresentation.accessibilityValue, "Focused, App hidden")
         XCTAssertEqual(hiddenPresentation.accessibilityHint, "Unhides the app and focuses this window")
-        XCTAssertEqual(hiddenPresentation.help, "Unhide and focus Mail")
 
         let partialGroup = makeWindowItem(
             appName: "Browser",
@@ -192,7 +191,6 @@ final class WorkspaceBarViewLayoutTests: XCTestCase {
         XCTAssertEqual(partialPresentation.accessibilityLabel, "Browser, 3 floating windows")
         XCTAssertEqual(partialPresentation.accessibilityValue, "1 of 3 windows hidden")
         XCTAssertEqual(partialPresentation.accessibilityHint, "Opens the window list")
-        XCTAssertEqual(partialPresentation.help, "Show Browser windows — 1 of 3 hidden")
     }
 
     func testWindowPresentationUsesExactVisibleAndAllHiddenGroupActions() {
@@ -209,17 +207,6 @@ final class WorkspaceBarViewLayoutTests: XCTestCase {
         XCTAssertEqual(visiblePresentation.iconOpacity, 0.5)
         XCTAssertEqual(visiblePresentation.accessibilityValue, "")
         XCTAssertEqual(visiblePresentation.accessibilityHint, "Focuses this window")
-        XCTAssertEqual(visiblePresentation.help, "Focus Notes window")
-
-        let visibleGroup = makeWindowItem(appName: "Terminal", windowCount: 2, hiddenWindowCount: 0)
-        let visibleGroupPresentation = WorkspaceBarWindowPresentation(
-            window: visibleGroup,
-            context: .tiled,
-            isFocused: false,
-            isInFocusedWorkspace: false
-        )
-
-        XCTAssertEqual(visibleGroupPresentation.help, "Show Terminal windows")
 
         let hiddenGroup = makeWindowItem(appName: "Terminal", windowCount: 2, hiddenWindowCount: 2)
         let hiddenGroupPresentation = WorkspaceBarWindowPresentation(
@@ -230,7 +217,6 @@ final class WorkspaceBarViewLayoutTests: XCTestCase {
         )
 
         XCTAssertEqual(hiddenGroupPresentation.accessibilityValue, "All 2 windows hidden")
-        XCTAssertEqual(hiddenGroupPresentation.help, "Show Terminal windows — app hidden")
     }
 
     func testWindowListRowPresentationDescribesRevealAction() {

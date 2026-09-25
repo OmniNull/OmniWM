@@ -113,23 +113,6 @@ struct WorkspaceBarWindowPresentation {
             ? String(localized: "Unhides the app and focuses this window")
             : String(localized: "Focuses this window")
     }
-
-    var help: String {
-        if window.windowCount == 1 {
-            return window.isAppHidden
-                ? String(localized: "Unhide and focus \(window.appName)")
-                : String(localized: "Focus \(window.appName) window")
-        }
-        if window.isAppHidden {
-            return String(localized: "Show \(window.appName) windows — app hidden")
-        }
-        if window.hasHiddenWindows {
-            return String(
-                localized: "Show \(window.appName) windows — \(window.hiddenWindowCount) of \(window.windowCount) hidden"
-            )
-        }
-        return String(localized: "Show \(window.appName) windows")
-    }
 }
 
 struct WorkspaceBarWindowListRowPresentation {
@@ -251,6 +234,7 @@ struct WindowIconView: View {
         .animation(animationsEnabled ? .easeInOut(duration: 0.1) : nil, value: isHovered)
         .onHover { hovering in
             isHovered = hovering
+            interaction?.onHoverWindow(workspaceId, window.id, hovering)
         }
         .sheet(isPresented: windowListBinding) {
             WindowListSheet(
@@ -270,7 +254,6 @@ struct WindowIconView: View {
         .accessibilityAction(.showMenu) {
             interaction?.onShowMenu(.window(workspaceId, window.id))
         }
-        .help(presentation.help)
     }
 
     private var scale: CGFloat {

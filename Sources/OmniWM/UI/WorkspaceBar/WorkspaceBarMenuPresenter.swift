@@ -9,6 +9,10 @@ final class WorkspaceBarMenuPresenter: NSObject {
     private var selectedAction: WorkspaceBarMenuAction?
     private var activeMenu: NSMenu?
 
+    var isTracking: Bool {
+        activeMenu != nil
+    }
+
     func present(
         _ items: [WorkspaceBarMenuItem],
         at location: CGPoint,

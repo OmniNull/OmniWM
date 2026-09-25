@@ -73,7 +73,7 @@ final class WorkspaceBarInstanceTests: XCTestCase {
 
     func testRepeatedFrameDoesNotApplyAgainAndRetargetingUsesSamePanel() {
         let fixture = makeFixture()
-        var island = fixture.instance.primary
+        let island = fixture.instance.primary
         let panel = island.panel
         let initial = NSRect(x: 100, y: 740, width: 120, height: 24)
         let retargeted = initial.offsetBy(dx: 80, dy: 0)
@@ -89,6 +89,24 @@ final class WorkspaceBarInstanceTests: XCTestCase {
         island.applyFrame(retargeted, using: apply)
         XCTAssertEqual(appliedFrames, [initial, retargeted])
         XCTAssertEqual(island.lastAppliedFrame, retargeted)
+    }
+
+    func testFrameApplicationAllowsSynchronousIslandRead() {
+        let fixture = makeFixture()
+        let instance = fixture.instance
+        let panel = instance.primary.panel
+        let frame = NSRect(x: 100, y: 740, width: 120, height: 24)
+        var applied = false
+        defer { panel.close() }
+
+        instance.primary.applyFrame(frame) { target, _ in
+            applied = true
+            XCTAssertTrue(instance.primary.panel === target)
+            XCTAssertEqual(instance.primary.slice, .all)
+        }
+
+        XCTAssertTrue(applied)
+        XCTAssertEqual(instance.primary.lastAppliedFrame, frame)
     }
 
     func testFillModeCompactsAgainstPanelWidthAndRecalculatesAfterModeAndMonitorChanges() {

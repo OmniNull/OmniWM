@@ -33,6 +33,7 @@ final class WorkspaceBarIslandInteraction {
     private(set) var generation: UInt64 = 0
     var onShowMenu: (WorkspaceBarHitTarget) -> Void = { _ in }
     var onActivateWindow: (WorkspaceDescriptor.ID, WindowToken) -> Void = { _, _ in }
+    var onHoverWindow: (WorkspaceDescriptor.ID, WindowToken, Bool) -> Void = { _, _, _ in }
 
     func update(_ target: WorkspaceBarHitTarget, frame: CGRect) {
         guard frames[target] != frame else { return }

@@ -13,6 +13,9 @@ extension WorkspaceBarManager {
         interaction.onActivateWindow = { [weak self] workspaceId, token in
             self?.activateWindowIcon(workspaceId: workspaceId, token: token, monitorId: monitorId)
         }
+        interaction.onHoverWindow = { [weak self] workspaceId, token, hovering in
+            self?.windowHoverChanged(.window(workspaceId, token), hovering: hovering)
+        }
         panel.interactionHandler = { [weak self] event, panel in
             self?.handlePanelEvent(event, panel: panel) ?? false
         }
@@ -35,8 +38,9 @@ extension WorkspaceBarManager {
         let point = context.island.hostingView.workspaceBarLocalPoint(forWindowPoint: event.locationInWindow)
         let target = context.island.interaction.target(at: point)
         let screenPoint = panel.convertPoint(toScreen: event.locationInWindow)
-        if kind == .leftDown {
+        if kind == .leftDown || kind == .rightDown {
             dragController.cancel()
+            hoverPreview?.dismiss(suppressing: target)
         }
         switch pressTracker.handle(kind, modifiers: event.modifierFlags, target: target, location: screenPoint) {
         case .passThrough:
@@ -53,6 +57,7 @@ extension WorkspaceBarManager {
             activateWindowIcon(workspaceId: workspaceId, token: token, monitorId: context.instance.monitorId)
             return true
         case let .beginDrag(workspaceId, token):
+            hoverPreview?.dismiss(suppressing: target)
             beginDrag(
                 workspaceId: workspaceId,
                 token: token,
@@ -83,6 +88,7 @@ extension WorkspaceBarManager {
     }
 
     private func showMenu(for target: WorkspaceBarHitTarget, on panel: WorkspaceBarPanel, at point: CGPoint?) {
+        hoverPreview?.dismiss(suppressing: target)
         guard let controller,
               let context = islandContext(for: panel),
               let anchor = point ?? context.island.interaction.frames[target].map({ CGPoint(x: $0.minX, y: $0.maxY) })

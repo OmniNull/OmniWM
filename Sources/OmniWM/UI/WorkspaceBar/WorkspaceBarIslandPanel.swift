@@ -5,7 +5,7 @@ import AppKit
 import SwiftUI
 
 @MainActor
-struct WorkspaceBarIslandPanel {
+final class WorkspaceBarIslandPanel {
     let panel: WorkspaceBarPanel
     let hostingView: NSHostingView<WorkspaceBarView>
     let interaction: WorkspaceBarIslandInteraction
@@ -44,7 +44,7 @@ struct WorkspaceBarIslandPanel {
             : resolved.windowLevel.nsWindowLevel
     }
 
-    mutating func applyFrame(
+    func applyFrame(
         _ frame: NSRect,
         using frameApplier: (WorkspaceBarPanel, NSRect) -> Void
     ) {
