@@ -114,6 +114,7 @@ final class CommandPaletteActionExecutor {
         case navigateWindow(WMController, WindowHandle)
         case summonWindowRight(WMController, WindowHandle, CommandPaletteSummonAnchor)
         case summonMarkedWindowRight(WMController, WindowHandle, CommandPaletteSummonAnchor?)
+        case moveWindowToWorkspace(WMController, WindowHandle, WorkspaceDescriptor.ID)
         case pressMenu(CommandPaletteFocusTarget, AXUIElement)
         case copyClipboard(WMController, UUID)
         case pasteClipboard(WMController, UUID, CommandPaletteClipboardPasteTarget?, Bool)
@@ -129,6 +130,10 @@ final class CommandPaletteActionExecutor {
         switch action {
         case let .summonMarkedWindowRight(wmController, handle, anchor):
             return environment.summonWindowRightOutcome(wmController, handle, anchor)
+        case let .moveWindowToWorkspace(wmController, handle, workspaceId):
+            return environment.moveWindowToWorkspace(wmController, handle, workspaceId)
+                ? .movedToWorkspace
+                : .moveFailed
         case let .navigateWindow(wmController, handle):
             environment.navigateToWindow(wmController, handle)
         case let .summonWindowRight(wmController, handle, summonAnchor):

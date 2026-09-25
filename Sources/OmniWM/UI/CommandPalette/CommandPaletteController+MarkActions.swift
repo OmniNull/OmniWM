@@ -94,7 +94,7 @@ extension CommandPaletteController {
         case .moveFailed:
             "Could not move this window into the empty workspace. Press Enter to focus it instead."
         case .noAnchor:
-            "Summon right needs a focused managed window in the active workspace. Focus one and try again."
+            "This workspace is not empty. Focus a managed window here before using Shift-Enter."
         case .selfSummon:
             "A window cannot be summoned beside itself. Choose a different marked window."
         case .hiddenTarget:
@@ -125,7 +125,8 @@ extension CommandPaletteController {
         }
 
         switch trigger {
-        case .primary:
+        case .primary,
+             .reveal:
             return "This window is no longer in the current results. Search again before focusing it."
         case .alternate:
             break

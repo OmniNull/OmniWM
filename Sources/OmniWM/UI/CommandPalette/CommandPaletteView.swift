@@ -86,13 +86,17 @@ struct CommandPaletteView: View {
                 Button(action: { controller.setMarkOnFocusedWindow() }) {
                     Label("Mark focused window…", systemImage: "tag")
                 }
-                .accessibilityHint("Marks the managed window focused before opening this Palette. Shortcut Control-Option-M.")
+                .accessibilityHint(
+                    "Marks the managed window focused before opening this Palette. Shortcut Control-Option-M."
+                )
                 .help("Mark the captured focused window (Control-Option-M)")
 
                 Button(action: { controller.removeMarkFromSelectedWindow() }) {
                     Label("Remove mark…", systemImage: "tag.slash")
                 }
-                .accessibilityHint("Choose a mark to remove from the selected window. Shortcut Control-Option-R.")
+                .accessibilityHint(
+                    "Choose a mark to remove from the selected window. Shortcut Control-Option-R."
+                )
                 .help("Choose a mark to remove from the selected window (Control-Option-R)")
             }
             .buttonStyle(.bordered)
@@ -261,7 +265,8 @@ struct CommandPaletteView: View {
         case .windows:
             CommandPalettePresentation.windowsStatusText(
                 selectedItem: selectedWindowItem,
-                isSummonRightAvailable: controller.isSummonRightAvailable
+                isSummonRightAvailable: controller.isSummonRightAvailable,
+                isCurrentWorkspaceEmpty: controller.isCurrentWorkspaceEmpty
             )
         case .menu:
             controller.menuStatusText

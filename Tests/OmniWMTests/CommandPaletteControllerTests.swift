@@ -280,7 +280,28 @@ final class CommandPaletteControllerTests: XCTestCase {
                 selectedItem: visibleItem,
                 isSummonRightAvailable: false
             ),
-            "Enter jumps. Shift-Enter unavailable for this session."
+            "Enter jumps. Shift-Enter unavailable without an anchor."
+        )
+    }
+
+    func testWindowStatusTextExplainsEmptyWorkspaceMoveAndAnchoredSummon() {
+        let item = makeWindowItem(windowId: 92_113)
+
+        XCTAssertEqual(
+            CommandPalettePresentation.windowsStatusText(
+                selectedItem: item,
+                isSummonRightAvailable: false,
+                isCurrentWorkspaceEmpty: true
+            ),
+            "Enter jumps. Shift-Enter moves here (empty workspace)."
+        )
+        XCTAssertEqual(
+            CommandPalettePresentation.windowsStatusText(
+                selectedItem: item,
+                isSummonRightAvailable: true,
+                isCurrentWorkspaceEmpty: false
+            ),
+            "Enter jumps. Shift-Enter summons right."
         )
     }
 

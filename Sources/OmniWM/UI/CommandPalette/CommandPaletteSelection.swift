@@ -130,6 +130,9 @@ extension CommandPaletteController {
             guard CommandPalettePresentation.allowsSummonRight(item),
                   !wmController.workspaceManager.isAppHidden(pid: token.pid)
             else { return nil }
+            if isCurrentWorkspaceEmpty, let workspaceId = focusSession.workspaceId {
+                return .moveWindowToWorkspace(wmController, item.handle, workspaceId)
+            }
             let summonAnchor = focusSession.summonAnchor
             if !item.markNames.isEmpty || summonAnchor == nil {
                 return .summonMarkedWindowRight(wmController, item.handle, summonAnchor)

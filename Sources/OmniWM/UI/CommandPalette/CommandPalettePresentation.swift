@@ -119,15 +119,21 @@ enum CommandPalettePresentation {
 
     static func windowsStatusText(
         selectedItem: CommandPaletteWindowItem?,
-        isSummonRightAvailable: Bool
+        isSummonRightAvailable: Bool,
+        isCurrentWorkspaceEmpty: Bool = false
     ) -> String {
         if selectedItem?.isAppHidden == true {
             return String(localized: "Return · Unhide & Focus")
         }
 
-        return isSummonRightAvailable
-            ? String(localized: "Enter jumps. Shift-Enter summons right.")
-            : String(localized: "Enter jumps. Shift-Enter unavailable for this session.")
+        let summonText = if isCurrentWorkspaceEmpty {
+            String(localized: "Shift-Enter moves here (empty workspace).")
+        } else if isSummonRightAvailable {
+            String(localized: "Shift-Enter summons right.")
+        } else {
+            String(localized: "Shift-Enter unavailable without an anchor.")
+        }
+        return String(localized: "Enter jumps. \(summonText)")
     }
 }
 

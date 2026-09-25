@@ -116,6 +116,11 @@ final class CommandPaletteController: NSObject, NSWindowDelegate {
         super.init()
     }
 
+    var isCurrentWorkspaceEmpty: Bool {
+        guard let wmController, let workspaceId = focusSession.workspaceId else { return false }
+        return wmController.workspaceManager.windowCount(in: workspaceId) == 0
+    }
+
     func toggle(wmController: WMController) {
         if isVisible {
             dismiss(reason: .cancel)
@@ -170,6 +175,7 @@ final class CommandPaletteController: NSObject, NSWindowDelegate {
         loadSelectedClipboardPreview()
         panel.orderFrontRegardless()
         panel.makeKey()
+        environment.activateOmniWM()
         presentation.reveal(panel)
 
         if selectedMode == .menu {
@@ -251,6 +257,17 @@ final class CommandPaletteController: NSObject, NSWindowDelegate {
             }
             return
         }
+
+        if case .moveWindowToWorkspace = action {
+            let outcome = actionExecutor.perform(action) ?? .moveFailed
+            guard outcome == .movedToWorkspace else {
+                actionFeedbackText = markedSummonFeedback(for: outcome)
+                return
+            }
+            dismiss(reason: .selection)
+            return
+        }
+
         if case .summonMarkedWindowRight = action {
             let outcome = actionExecutor.perform(action) ?? .actionFailed
             guard outcome == .summoned else {

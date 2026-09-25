@@ -741,6 +741,24 @@ final class CommandPaletteFocusTests: XCTestCase {
         await fulfillment(of: [plainCopied], timeout: 1)
     }
 
+    func testCapturesFocusedManagedTokenBeforeActivatingPalette() throws {
+        let token = WindowToken(pid: 92_401, windowId: 92_501)
+        var events: [String] = []
+        let fixture = CommandPaletteFocusFixture { environment in
+            environment.focusedManagedWindowToken = { _ in
+                events.append("capture")
+                return token
+            }
+            environment.activateOmniWM = { events.append("activate") }
+        }
+        defer { fixture.cleanup() }
+
+        _ = try fixture.show()
+
+        XCTAssertEqual(fixture.palette.focusSession.focusedMarkTargetToken, token)
+        XCTAssertEqual(events, ["capture", "activate"])
+    }
+
     private func showAndWaitForEditing(_ fixture: CommandPaletteFocusFixture) async throws -> NSPanel {
         let panel = try fixture.show()
         let editing = expectation(description: "Search becomes the first responder")

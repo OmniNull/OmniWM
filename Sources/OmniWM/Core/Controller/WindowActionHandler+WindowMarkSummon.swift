@@ -16,6 +16,24 @@ enum WindowSummonRightOutcome: Equatable {
 }
 
 extension WindowActionHandler {
+    func summonWindowRightOutcome(handle: WindowHandle) -> WindowSummonRightOutcome {
+        guard let controller,
+              let workspace = controller.activeWorkspace(),
+              let anchorToken = controller.workspaceManager.selectedManagedToken,
+              let anchorEntry = controller.workspaceManager.entry(for: anchorToken),
+              anchorEntry.workspaceId == workspace.id,
+              controller.workspaceManager.handle(for: anchorToken) != nil,
+              !controller.workspaceManager.isAppHidden(pid: anchorEntry.pid)
+        else {
+            return .noAnchor
+        }
+        return summonWindowRightOutcome(
+            handle: handle,
+            anchorToken: anchorToken,
+            anchorWorkspaceId: workspace.id
+        )
+    }
+
     func summonWindowRightOutcome(
         handle: WindowHandle,
         anchorToken: WindowToken,
@@ -46,7 +64,8 @@ extension WindowActionHandler {
             switch controller.settings.workspaces.layoutType(for: workspaceName) {
             case .dwindle:
                 return controller.dwindleEngine != nil
-            case .niri, .defaultLayout:
+            case .niri,
+                 .defaultLayout:
                 return controller.niriEngine != nil
             }
         }

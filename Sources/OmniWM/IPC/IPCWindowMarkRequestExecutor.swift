@@ -150,6 +150,10 @@ struct IPCWindowMarkRequestExecutor {
         switch controller.windowActionHandler.summonWindowRightOutcome(handle: handle) {
         case .summoned:
             return .success(id: id, kind: .windowMark, status: .executed)
+        case .movedToWorkspace:
+            return .success(id: id, kind: .windowMark, status: .executed)
+        case .moveFailed:
+            return .failure(id: id, kind: .windowMark, code: .windowActionFailed)
         case .noAnchor:
             return .failure(id: id, kind: .windowMark, code: .noFocusedWindow)
         case .selfSummon:
