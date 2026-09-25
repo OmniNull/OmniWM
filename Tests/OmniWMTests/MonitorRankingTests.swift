@@ -76,7 +76,7 @@ final class MonitorRankingTests: XCTestCase {
         XCTAssertEqual(
             MonitorRanking.roleOrder(ranking: [stale, OutputId(from: lg)], sortedMonitors: [builtIn, dell, lg])
                 .map(\.displayId),
-            [3, 1, 2]
+            [lg.displayId] + MonitorRanking.defaultOrder([builtIn, dell]).map(\.displayId)
         )
     }
 
