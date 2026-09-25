@@ -17,7 +17,7 @@ extension AXEventHandler {
         {
             return
         }
-        if repairInactiveWorkspaceFrame(entry, windowInfo: windowInfo, controller: controller) { return }
+        if repairParkedWindowFrame(entry, windowInfo: windowInfo, controller: controller) { return }
         let focusedObservedFrame = observedFrameForFocusedFrameChange(
             windowId: windowId,
             windowServerToken: windowServerToken,
@@ -37,19 +37,23 @@ extension AXEventHandler {
         return false
     }
 
-    private func repairInactiveWorkspaceFrame(
+    private func repairParkedWindowFrame(
         _ entry: WindowState,
         windowInfo: WindowServerInfo,
         controller: WMController
     ) -> Bool {
-        if controller.workspaceManager.hiddenState(for: entry.token)?.workspaceInactive == true {
-            controller.layoutRefreshController.repairWorkspaceInactivePark(
+        guard let hiddenState = controller.workspaceManager.hiddenState(for: entry.token) else { return false }
+        let observedFrame = ScreenCoordinateSpace.toAppKit(rect: windowInfo.frame)
+        if hiddenState.workspaceInactive {
+            controller.layoutRefreshController.repairWorkspaceInactivePark(for: entry, observedFrame: observedFrame)
+        } else if let side = hiddenState.offscreenSide {
+            controller.layoutRefreshController.repairLayoutTransientPark(
                 for: entry,
-                observedFrame: ScreenCoordinateSpace.toAppKit(rect: windowInfo.frame)
+                side: side,
+                observedFrame: observedFrame
             )
-            return true
         }
-        return false
+        return true
     }
 
     private func applyObservedFrameChange(
@@ -158,6 +162,7 @@ extension AXEventHandler {
     private func shouldIgnoreScrollingFrameChange(_ windowId: UInt32, controller: WMController) -> Bool {
         if let trackedEntry = controller.workspaceManager.entry(forWindowId: Int(windowId)),
            trackedEntry.mode == .tiling,
+           trackedEntry.hiddenState == nil,
            controller.niriLayoutHandler.hasScrollAnimation(for: trackedEntry.workspaceId)
         {
             return true

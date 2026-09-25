@@ -14,8 +14,7 @@ extension LayoutRefreshController {
         guard let controller,
               entry.layoutReason == .standard,
               let verifiedFrame = controller.axManager.verifiedParkFrame(for: entry.windowId),
-              abs(observedFrame.minX - verifiedFrame.minX) >= FrameTolerance.frameWrite
-              || abs(observedFrame.minY - verifiedFrame.minY) >= FrameTolerance.frameWrite,
+              !observedFrame.approximatelyEqual(to: verifiedFrame, tolerance: FrameTolerance.frameWrite),
               let monitor = controller.workspaceManager.monitor(for: entry.workspaceId),
               controller.workspaceManager.activeWorkspaceOrFirst(on: monitor.id)?.id != entry.workspaceId
         else { return }
@@ -32,6 +31,36 @@ extension LayoutRefreshController {
             monitor: monitor,
             side: preferredHideSide(for: monitor),
             reason: .workspaceInactive,
+            observedFrame: observedFrame
+        )
+    }
+
+    func repairLayoutTransientPark(for entry: WindowState, side: HideSide, observedFrame: CGRect) {
+        guard let controller,
+              entry.layoutReason == .standard,
+              let parkFrame = controller.axManager.parkTargetFrame(for: entry.windowId),
+              !observedFrame.size.isWithinFrameTolerance(of: parkFrame.size),
+              let monitor = controller.workspaceManager.monitor(for: entry.workspaceId),
+              let parkOrigin = liveFrameHideOrigin(
+                  for: observedFrame,
+                  monitor: monitor,
+                  side: side,
+                  reason: .layoutTransient
+              ),
+              !observedFrame.approximatelyEqual(
+                  to: CGRect(origin: parkOrigin, size: observedFrame.size),
+                  tolerance: FrameTolerance.frameWrite
+              ),
+              !controller.workspaceManager.isWindowSuppressedByMacOS(entry.token),
+              !controller.axManager.macOSHiddenAppPIDs.contains(entry.pid),
+              !controller.workspaceManager.spaceTopology.isWindowOnKnownInactiveSpace(entry.windowId)
+        else { return }
+
+        hideWindow(
+            entry,
+            monitor: monitor,
+            side: side,
+            reason: .layoutTransient,
             observedFrame: observedFrame
         )
     }

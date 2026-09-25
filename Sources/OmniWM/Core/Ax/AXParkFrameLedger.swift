@@ -99,6 +99,10 @@ final class AXParkFrameLedger {
         return state.target.frame
     }
 
+    func parkTargetFrame(for windowId: Int) -> CGRect? {
+        parkFrameTargetStatesByWindowId[windowId]?.target.frame
+    }
+
     private func parkFrameFailureReason(for result: AXFrameApplyResult) -> AXFrameWriteFailureReason? {
         if let failureReason = result.writeResult.failureReason {
             return failureReason
