@@ -136,7 +136,6 @@ final class WorkspaceSwipePreview {
     func begin(source: [Item], destination: [Item], monitor: Monitor, workingFrame: CGRect? = nil) -> Bool {
         guard panel == nil, hasCaptureAccess() else { return false }
         guard let wallpaperImage = backdrop.image(for: monitor) else {
-            // Retry after a failed swipe, without invalidating on ordinary touch cleanup.
             backdrop.clear()
             return false
         }
@@ -161,11 +160,7 @@ final class WorkspaceSwipePreview {
         let scale = Self.scale(for: monitor)
         root.addSublayer(makeWallpaperLayer(wallpaperImage, monitor: monitor, frame: frame))
         let sourceLayer = makeWorkspaceLayer(
-            source,
-            monitor: monitor,
-            frame: frame,
-            scale: scale,
-            image: wallpaperImage
+            source, monitor: monitor, frame: frame, scale: scale, image: wallpaperImage
         )
         let destinationLayer = makeWorkspaceLayer(
             destination, monitor: monitor, frame: frame, scale: scale, image: wallpaperImage

@@ -24,11 +24,7 @@ final class OverviewWallpaperCache {
     private var images: [Key: CGImage] = [:]
     private var urlsByDisplay: [CGDirectDisplayID: URL] = [:]
     private var capturesByDisplay: [CGDirectDisplayID: Capture] = [:]
-    var captureWallpaper: (CGRect) -> CGImage? = { frame in
-        guard CGPreflightScreenCaptureAccess() else { return nil }
-        return SkyLight.shared.captureWallpaper(in: frame)
-    }
-
+    var captureWallpaper: (CGRect) -> CGImage?
     var desktopImageURL: (CGDirectDisplayID) -> URL? = { displayId in
         NSScreen.screens.first { $0.displayId == displayId }
             .flatMap { NSWorkspace.shared.desktopImageURL(for: $0) }
@@ -39,6 +35,13 @@ final class OverviewWallpaperCache {
         return sizes.first { CGFloat($0) >= pixelSize } ?? 4096
     }
 
+    init(captureWallpaper: @escaping (CGRect) -> CGImage? = { frame in
+        guard CGPreflightScreenCaptureAccess() else { return nil }
+        return SkyLight.shared.captureWallpaper(in: frame)
+    }) {
+        self.captureWallpaper = captureWallpaper
+    }
+
     func image(for displayId: CGDirectDisplayID, maxPixelSize: Int, frame: CGRect? = nil) -> CGImage? {
         let frame = frame ?? CGDisplayBounds(displayId)
         if !frame.isEmpty, let image = capturedImage(for: displayId, frame: frame, maxPixelSize: maxPixelSize) {
@@ -47,7 +50,6 @@ final class OverviewWallpaperCache {
         return fileImage(for: displayId, maxPixelSize: maxPixelSize)
     }
 
-    // Retain only requested thumbnails, not a second full-size copy of each desktop.
     private func capturedImage(for displayId: CGDirectDisplayID, frame: CGRect, maxPixelSize: Int) -> CGImage? {
         if capturesByDisplay[displayId]?.frame != frame {
             capturesByDisplay[displayId] = Capture(frame: frame)
@@ -81,7 +83,6 @@ final class OverviewWallpaperCache {
         return context.makeImage()
     }
 
-    // File URLs remain a fallback when Screen Recording or wallpaper-window capture is unavailable.
     private func fileImage(for displayId: CGDirectDisplayID, maxPixelSize: Int) -> CGImage? {
         let url = desktopImageURL(displayId)
         let previousURL = urlsByDisplay[displayId]

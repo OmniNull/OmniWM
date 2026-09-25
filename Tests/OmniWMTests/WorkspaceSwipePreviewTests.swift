@@ -138,7 +138,6 @@ final class WorkspaceSwipePreviewTests: XCTestCase {
         )
         defer { preview.stop() }
 
-        // Idle cleanup must retain the failed attempt instead of repeatedly capturing.
         preview.warm(source: [], destination: [], monitor: monitor)
         preview.stop()
         preview.warm(source: [], destination: [], monitor: monitor)
@@ -147,7 +146,6 @@ final class WorkspaceSwipePreviewTests: XCTestCase {
         XCTAssertFalse(preview.isVisible)
         preview.stop()
 
-        // A failed visible swipe must not prevent a later attempt from recovering.
         wallpaper = image
         preview.warm(source: [], destination: [], monitor: monitor)
         XCTAssertTrue(preview.begin(source: [], destination: [], monitor: monitor))
