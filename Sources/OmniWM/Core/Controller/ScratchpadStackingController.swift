@@ -19,14 +19,16 @@ final class ScratchpadStackingController {
     func stackScratchpadMembers(
         _ tokens: [WindowToken],
         in index: ScratchpadIndex,
-        on workspaceId: WorkspaceDescriptor.ID
+        on workspaceId: WorkspaceDescriptor.ID,
+        focusOrigin: ManagedFocusOrigin = .keyboardOrProgrammatic
     ) {
         let planId = reserveScratchpadStackingGeneration()
         startScratchpadStacking(
             tokens,
             in: index,
             on: workspaceId,
-            planId: planId
+            planId: planId,
+            focusOrigin: focusOrigin
         )
     }
 
@@ -42,6 +44,7 @@ final class ScratchpadStackingController {
         in index: ScratchpadIndex,
         on workspaceId: WorkspaceDescriptor.ID,
         planId: UInt64,
+        focusOrigin: ManagedFocusOrigin = .keyboardOrProgrammatic,
         waitingFor barrierRequest: ManagedFocusRequest? = nil
     ) {
         guard let controller else { return }
@@ -60,7 +63,8 @@ final class ScratchpadStackingController {
             pendingHandle: nil,
             pendingRequestId: nil,
             pendingActivationSettled: false,
-            continuationScheduled: false
+            continuationScheduled: false,
+            focusOrigin: focusOrigin
         )
         if let barrierRequest {
             guard barrierRequest.workspaceId == workspaceId,
@@ -127,7 +131,7 @@ final class ScratchpadStackingController {
             scratchpadStackingPlan = plan
             let origin: ManagedFocusOrigin = plan.handles[plan.nextHandleIndex...].contains { candidate in
                 scratchpadStackingEntry(for: candidate, in: plan) != nil
-            } ? .pointerHover : .keyboardOrProgrammatic
+            } ? .pointerHover : plan.focusOrigin
             guard let request = controller.focusWindow(handle.id, origin: origin) else {
                 plan.pendingHandle = nil
                 scratchpadStackingPlan = plan
@@ -223,6 +227,7 @@ private struct ScratchpadStackingPlan {
     var pendingRequestId: IntentID?
     var pendingActivationSettled: Bool
     var continuationScheduled: Bool
+    let focusOrigin: ManagedFocusOrigin
 }
 
 private struct DeferredScratchpadStacking {

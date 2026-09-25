@@ -37,6 +37,107 @@ final class ScratchpadRevealTests: XCTestCase {
         XCTAssertTrue(fixture.controller.workspaceManager.scratchpadMembers(in: 1).isEmpty)
     }
 
+    func testUnassigningAVisibleMemberReturnsItToTheLayout() throws {
+        let fixture = try makeFixture()
+        let token = addFloatingWindow(pid: 971_014, windowId: 971_114, to: fixture)
+        XCTAssertEqual(assign(token, to: 1, in: fixture), .executed)
+        XCTAssertEqual(fixture.controller.toggleScratchpad(1), .executed)
+        try completeReveal(token, in: fixture)
+
+        XCTAssertEqual(fixture.controller.unassignScratchpadWindows([token], on: fixture.monitor.id), .executed)
+
+        XCTAssertNil(fixture.controller.workspaceManager.scratchpadIndex(for: token))
+        XCTAssertEqual(fixture.controller.workspaceManager.manualLayoutOverride(for: token), .forceTile)
+    }
+
+    func testUnassigningAHiddenMemberRevealsItBeforeReleasingIt() throws {
+        let fixture = try makeFixture()
+        let token = addFloatingWindow(pid: 971_015, windowId: 971_115, to: fixture)
+        XCTAssertEqual(assign(token, to: 2, in: fixture), .executed)
+        XCTAssertEqual(fixture.controller.workspaceManager.hiddenState(for: token)?.isScratchpad, true)
+
+        XCTAssertEqual(fixture.controller.unassignScratchpadWindows([token], on: fixture.monitor.id), .executed)
+        XCTAssertEqual(fixture.controller.workspaceManager.scratchpadIndex(for: token), 2)
+        XCTAssertNil(fixture.controller.workspaceManager.revealedScratchpadIndex())
+
+        try completeReveal(token, in: fixture)
+
+        XCTAssertNil(fixture.controller.workspaceManager.scratchpadIndex(for: token))
+        XCTAssertNil(fixture.controller.workspaceManager.hiddenState(for: token))
+        XCTAssertEqual(fixture.controller.workspaceManager.manualLayoutOverride(for: token), .forceTile)
+        XCTAssertEqual(fixture.controller.workspaceManager.workspace(for: token), fixture.workspaceId)
+    }
+
+    func testUnassignAllReleasesEveryHiddenMember() throws {
+        let fixture = try makeFixture()
+        let first = addFloatingWindow(pid: 971_017, windowId: 971_117, to: fixture)
+        let second = addFloatingWindow(pid: 971_018, windowId: 971_118, to: fixture)
+        for token in [first, second] {
+            XCTAssertEqual(assign(token, to: 4, in: fixture), .executed)
+        }
+
+        XCTAssertEqual(
+            fixture.controller.unassignScratchpadWindows([first, second], on: fixture.monitor.id),
+            .executed
+        )
+        try completeReveal(first, in: fixture)
+        XCTAssertEqual(fixture.controller.workspaceManager.scratchpadIndex(for: first), 4)
+        try completeReveal(second, in: fixture)
+
+        for token in [first, second] {
+            XCTAssertNil(fixture.controller.workspaceManager.scratchpadIndex(for: token))
+            XCTAssertNil(fixture.controller.workspaceManager.hiddenState(for: token))
+            XCTAssertEqual(fixture.controller.workspaceManager.manualLayoutOverride(for: token), .forceTile)
+        }
+    }
+
+    func testScratchpadMenuOffersHideOnlyWhenTheToggleWouldHide() throws {
+        let fixture = try makeFixture()
+        let token = addFloatingWindow(pid: 971_019, windowId: 971_119, to: fixture)
+        XCTAssertEqual(assign(token, to: 5, in: fixture), .executed)
+        let item = WorkspaceBarScratchpadItem(index: 5, label: nil, windows: [], isVisible: false)
+
+        XCTAssertEqual(
+            fixture.controller.workspaceBarScratchpadMenuTarget(for: item, barMonitorId: fixture.monitor.id)?.isVisible,
+            false
+        )
+        XCTAssertEqual(fixture.controller.toggleScratchpad(5, on: fixture.monitor.id), .executed)
+        try completeReveal(token, in: fixture)
+        XCTAssertEqual(
+            fixture.controller.workspaceBarScratchpadMenuTarget(for: item, barMonitorId: fixture.monitor.id)?.isVisible,
+            true
+        )
+        XCTAssertTrue(fixture.controller.canUnassignScratchpadWindow(token))
+    }
+
+    func testBarScratchpadRevealsRequestFocusWithoutPointerWarp() throws {
+        for revealsSingleWindow in [false, true] {
+            let fixture = try makeFixture()
+            let token = addFloatingWindow(pid: 971_016, windowId: 971_116, to: fixture)
+            XCTAssertEqual(assign(token, to: 3, in: fixture), .executed)
+            fixture.focusRecorder.reset()
+
+            if revealsSingleWindow {
+                let handle = try XCTUnwrap(fixture.controller.workspaceManager.handle(for: token))
+                XCTAssertTrue(fixture.controller.windowActionHandler.revealScratchpadWindowFromBar(
+                    handle: handle,
+                    index: 3,
+                    monitorId: fixture.monitor.id
+                ))
+            } else {
+                XCTAssertEqual(
+                    fixture.controller.activateScratchpadFromBar(index: 3, on: fixture.monitor.id),
+                    .executed
+                )
+            }
+            try completeReveal(token, in: fixture, completeFronting: false)
+
+            let request = try XCTUnwrap(fixture.controller.intentLedger.activeManagedRequest)
+            XCTAssertEqual(request.token, token)
+            XCTAssertEqual(request.origin, .pointerSelection)
+        }
+    }
+
     func testAssigningToAnotherSlotMovesTheWindow() throws {
         let fixture = try makeFixture()
         let token = addFloatingWindow(pid: 971_021, windowId: 971_121, to: fixture)

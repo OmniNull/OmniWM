@@ -213,6 +213,19 @@ final class WindowActionHandler {
     }
 
     @discardableResult
+    func revealScratchpadWindowFromBar(
+        handle: WindowHandle,
+        index: ScratchpadIndex,
+        monitorId: Monitor.ID
+    ) -> Bool {
+        appReveal.requestIfNeeded(
+            handle: handle,
+            destination: .scratchpadWindow(index: index, monitorId: monitorId),
+            focusOrigin: .pointerSelection
+        )
+    }
+
+    @discardableResult
     func revealScratchpadFromBar(
         handle: WindowHandle,
         index: ScratchpadIndex,

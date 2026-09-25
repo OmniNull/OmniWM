@@ -131,7 +131,34 @@ extension WMController {
         case let .closeWindow(token):
             guard let handle = workspaceManager.handle(for: token) else { return }
             _ = windowActionHandler.closeWindow(handle: handle)
+        case let .toggleScratchpad(index):
+            activateScratchpadFromBar(index: index, on: barMonitorId)
+        case let .focusScratchpadWindow(token, index):
+            guard let handle = workspaceManager.handle(for: token) else { return }
+            windowActionHandler.revealScratchpadWindowFromBar(handle: handle, index: index, monitorId: barMonitorId)
+        case let .unassignScratchpadWindows(tokens):
+            unassignScratchpadWindows(tokens, on: barMonitorId)
         }
+    }
+
+    func workspaceBarScratchpadMenuTarget(
+        for item: WorkspaceBarScratchpadItem,
+        barMonitorId: Monitor.ID
+    ) -> WorkspaceBarScratchpadMenuTarget? {
+        guard let index = ScratchpadIndex(item.index) else { return nil }
+        let members = item.windows.flatMap { window in
+            window.allWindows.map { info in
+                WorkspaceBarScratchpadMenuTarget.Member(
+                    token: info.id,
+                    title: info.title.isEmpty ? window.appName : info.title,
+                    canUnassign: canUnassignScratchpadWindow(info.id)
+                )
+            }
+        }
+        let targetWorkspaceId = scratchpadTarget(on: barMonitorId)?.workspaceId
+        let togglesOff = workspaceManager.revealedScratchpadIndex() == index
+            && scratchpadEntries(in: index).allSatisfy { $0.workspaceId == targetWorkspaceId }
+        return WorkspaceBarScratchpadMenuTarget(index: index, isVisible: togglesOff, members: members)
     }
 
     private func monitorOfWindow(_ token: WindowToken) -> Monitor? {

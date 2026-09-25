@@ -49834,6 +49834,7 @@
         }
       }
     },
+    "Focus Window" : {},
     "Focus Workspace" : {},
     "Focus did not return to the original app in time." : {
       "localizations" : {
@@ -56531,6 +56532,7 @@
         }
       }
     },
+    "Hide Scratchpad" : {},
     "Hide in Native Fullscreen" : {
       "localizations" : {
         "ja" : {
@@ -116908,6 +116910,7 @@
         }
       }
     },
+    "Show Scratchpad" : {},
     "Show Workspace" : {
       "localizations" : {
         "ja" : {
@@ -133698,6 +133701,8 @@
         }
       }
     },
+    "Unassign All" : {},
+    "Unassign from Scratchpad" : {},
     "Unassigned" : {
       "localizations" : {
         "ja" : {

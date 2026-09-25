@@ -168,6 +168,41 @@ final class WorkspaceBarMenuModelTests: XCTestCase {
         XCTAssertEqual(items.last, .action("Close Window", .closeWindow(windowA)))
     }
 
+    func testScratchpadMenuForASingleMember() {
+        let target = WorkspaceBarScratchpadMenuTarget(
+            index: 2,
+            isVisible: false,
+            members: [.init(token: windowA, title: "Notes", canUnassign: true)]
+        )
+
+        XCTAssertEqual(WorkspaceBarMenuBuilder.scratchpadMenu(for: target), [
+            .action("Show Scratchpad", .toggleScratchpad(2)),
+            .action("Focus Window", .focusScratchpadWindow(windowA, 2)),
+            .separator,
+            .action("Unassign from Scratchpad", .unassignScratchpadWindows([windowA]))
+        ])
+    }
+
+    func testScratchpadMenuForSeveralMembersOffersPerWindowAndUnassignAll() {
+        let target = WorkspaceBarScratchpadMenuTarget(
+            index: 1,
+            isVisible: true,
+            members: [
+                .init(token: windowA, title: "Notes", canUnassign: true),
+                .init(token: windowB, title: "Music", canUnassign: false)
+            ]
+        )
+        let items = WorkspaceBarMenuBuilder.scratchpadMenu(for: target)
+
+        XCTAssertEqual(items.first, .action("Hide Scratchpad", .toggleScratchpad(1)))
+        XCTAssertEqual(action(items, titled: "Music"), .submenu("Music", [
+            .action("Focus Window", .focusScratchpadWindow(windowB, 1)),
+            .separator,
+            .action("Unassign from Scratchpad", .unassignScratchpadWindows([windowB]), isEnabled: false)
+        ]))
+        XCTAssertEqual(items.last, .action("Unassign All", .unassignScratchpadWindows([windowA])))
+    }
+
     func testGroupedWindowMenuMovesAllAndOffersPerWindowSubmenus() {
         let items = WorkspaceBarMenuBuilder.windowMenu(
             for: [windowTarget(windowA, title: "First"), windowTarget(windowB, title: "Second")],

@@ -207,7 +207,7 @@ final class AppRevealActions {
                 workspaceId: workspaceId,
                 index: index,
                 monitorId: monitorId,
-                controller: controller
+                focusOrigin: focusOrigin
             )
         }
     }
@@ -217,12 +217,22 @@ final class AppRevealActions {
         workspaceId: WorkspaceDescriptor.ID,
         index: ScratchpadIndex,
         monitorId: Monitor.ID?,
-        controller: WMController
+        focusOrigin: ManagedFocusOrigin
     ) -> Bool {
+        guard let controller else { return false }
         guard controller.workspaceManager.scratchpadIndex(for: token) == index else {
-            return controller.windowActionHandler.navigateToWindowInternal(token: token, workspaceId: workspaceId)
+            return controller.windowActionHandler.navigateToWindowInternal(
+                token: token,
+                workspaceId: workspaceId,
+                focusOrigin: focusOrigin
+            )
         }
-        return controller.revealScratchpadWindow(token, index: index, on: monitorId) == .executed
+        return controller.revealScratchpadWindow(
+            token,
+            index: index,
+            on: monitorId,
+            focusOrigin: focusOrigin
+        ) == .executed
     }
 
     static func appRevealFocusFingerprint(controller: WMController) -> AppRevealFocusFingerprint {

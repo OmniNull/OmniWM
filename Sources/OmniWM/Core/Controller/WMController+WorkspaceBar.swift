@@ -139,7 +139,7 @@ extension WMController {
         if let monitorId {
             _ = workspaceManager.setInteractionMonitor(monitorId)
         }
-        return toggleScratchpad(index, on: monitorId)
+        return toggleScratchpad(index, on: monitorId, focusOrigin: .pointerSelection)
     }
 
     func publishWorkspaceDataChanged() {

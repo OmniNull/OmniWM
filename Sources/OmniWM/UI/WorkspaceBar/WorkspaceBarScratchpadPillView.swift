@@ -17,6 +17,7 @@ struct ScratchpadPillView: View {
     let onActivateScratchpad: (Int) -> Void
 
     @State private var isHovered = false
+    @Environment(\.workspaceBarInteraction) private var interaction
 
     private var resolvedAccentColor: Color {
         accentColor ?? .accentColor
@@ -125,10 +126,14 @@ struct ScratchpadPillView: View {
                     .strokeBorder(Color.secondary.opacity(item.isVisible ? 0.36 : 0.22), lineWidth: 0.8)
             }
         }
+        .workspaceBarHitRegion(.scratchpad(item.index))
         .onHover { hovering in
             isHovered = hovering
         }
         .accessibilityLabel("Scratchpad \(item.name)")
+        .accessibilityAction(.showMenu) {
+            interaction?.onShowMenu(.scratchpad(item.index))
+        }
         .accessibilityValue(accessibilityValue)
         .help(item.isVisible
             ? String(localized: "Scratchpad \(item.name): \(windowSummary), visible")

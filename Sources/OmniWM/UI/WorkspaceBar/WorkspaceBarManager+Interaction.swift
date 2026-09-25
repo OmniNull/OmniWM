@@ -71,7 +71,12 @@ extension WorkspaceBarManager {
         else {
             return
         }
-        let items = menuItems(for: target, snapshot: context.instance.model.snapshot, controller: controller)
+        let items = menuItems(
+            for: target,
+            snapshot: context.instance.model.snapshot,
+            monitorId: context.instance.monitorId,
+            controller: controller
+        )
         guard !items.isEmpty else { return }
         let hostingView = context.island.hostingView
         let location = hostingView.isFlipped ? anchor : CGPoint(x: anchor.x, y: hostingView.bounds.height - anchor.y)
@@ -90,6 +95,7 @@ extension WorkspaceBarManager {
     private func menuItems(
         for target: WorkspaceBarHitTarget,
         snapshot: WorkspaceBarSnapshot,
+        monitorId: Monitor.ID,
         controller: WMController
     ) -> [WorkspaceBarMenuItem] {
         let facts = controller.workspaceBarMenuFacts()
@@ -106,8 +112,13 @@ extension WorkspaceBarManager {
                 )
             }
             return WorkspaceBarMenuBuilder.windowMenu(for: targets, facts: facts)
-        case .scratchpad:
-            return []
+        case let .scratchpad(index):
+            guard let item = snapshot.scratchpads.first(where: { $0.index == index }),
+                  let menuTarget = controller.workspaceBarScratchpadMenuTarget(for: item, barMonitorId: monitorId)
+            else {
+                return []
+            }
+            return WorkspaceBarMenuBuilder.scratchpadMenu(for: menuTarget)
         }
     }
 

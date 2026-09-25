@@ -16,6 +16,9 @@ enum WorkspaceBarMenuAction: Equatable {
     case assignToScratchpad(WindowToken, ScratchpadIndex)
     case createAppRule(WindowToken)
     case closeWindow(WindowToken)
+    case toggleScratchpad(ScratchpadIndex)
+    case focusScratchpadWindow(WindowToken, ScratchpadIndex)
+    case unassignScratchpadWindows([WindowToken])
 }
 
 indirect enum WorkspaceBarMenuItem: Equatable {
@@ -64,7 +67,55 @@ struct WorkspaceBarWindowMenuTarget: Equatable {
     let canSummon: Bool
 }
 
+struct WorkspaceBarScratchpadMenuTarget: Equatable {
+    struct Member: Equatable {
+        let token: WindowToken
+        let title: String
+        let canUnassign: Bool
+    }
+
+    let index: ScratchpadIndex
+    let isVisible: Bool
+    let members: [Member]
+}
+
 enum WorkspaceBarMenuBuilder {
+    static func scratchpadMenu(for target: WorkspaceBarScratchpadMenuTarget) -> [WorkspaceBarMenuItem] {
+        let toggle = WorkspaceBarMenuItem.action(
+            target.isVisible ? String(localized: "Hide Scratchpad") : String(localized: "Show Scratchpad"),
+            .toggleScratchpad(target.index)
+        )
+        guard target.members.count > 1 else {
+            return [toggle] + (target.members.first.map { memberItems(for: $0, index: target.index) } ?? [])
+        }
+        let unassignable = target.members.filter(\.canUnassign).map(\.token)
+        return [toggle, .separator]
+            + target.members.map { .submenu($0.title, memberItems(for: $0, index: target.index)) }
+            + [
+                .separator,
+                .action(
+                    String(localized: "Unassign All"),
+                    .unassignScratchpadWindows(unassignable),
+                    isEnabled: !unassignable.isEmpty
+                )
+            ]
+    }
+
+    private static func memberItems(
+        for member: WorkspaceBarScratchpadMenuTarget.Member,
+        index: ScratchpadIndex
+    ) -> [WorkspaceBarMenuItem] {
+        [
+            .action(String(localized: "Focus Window"), .focusScratchpadWindow(member.token, index)),
+            .separator,
+            .action(
+                String(localized: "Unassign from Scratchpad"),
+                .unassignScratchpadWindows([member.token]),
+                isEnabled: member.canUnassign
+            )
+        ]
+    }
+
     static func workspaceMenu(
         for target: WorkspaceBarWorkspaceMenuTarget,
         facts: WorkspaceBarMenuFacts

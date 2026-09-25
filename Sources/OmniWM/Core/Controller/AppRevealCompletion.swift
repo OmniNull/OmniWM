@@ -127,7 +127,7 @@ struct AppRevealCompletion {
                     workspaceId: payload.workspaceId,
                     index: index,
                     monitorId: monitorId,
-                    controller: controller
+                    focusOrigin: focusOrigin
                 )
             )
         }
