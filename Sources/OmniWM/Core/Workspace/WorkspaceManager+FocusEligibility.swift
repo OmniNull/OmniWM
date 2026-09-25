@@ -38,7 +38,7 @@ extension WorkspaceManager {
     ) -> Bool {
         guard entry.workspaceId == workspaceId,
               entry.mode == mode,
-              !isWindowSuppressedByMacOS(entry.token)
+              !isWindowSuppressedByMacOS(entry)
         else {
             return false
         }

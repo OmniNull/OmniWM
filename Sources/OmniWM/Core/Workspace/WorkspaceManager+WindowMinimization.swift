@@ -8,6 +8,10 @@ extension WorkspaceManager {
         isAppHidden(token) || entry(for: token)?.observedState.isMinimized == true
     }
 
+    func isWindowSuppressedByMacOS(_ entry: WindowState) -> Bool {
+        isAppHidden(entry.token) || entry.observedState.isMinimized
+    }
+
     @discardableResult
     func setWindowMinimized(
         _ minimized: Bool,

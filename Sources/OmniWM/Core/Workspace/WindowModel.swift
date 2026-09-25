@@ -261,13 +261,12 @@ final class WindowModel {
         workspaceIndex.tokensByKey[workspace]?.count ?? 0
     }
 
-    func windows(
-        in workspace: WorkspaceDescriptor.ID,
-        mode: TrackedWindowMode
-    ) -> [WindowState] {
-        let key = WorkspaceModeKey(workspaceId: workspace, mode: mode)
-        guard let tokens = workspaceModeIndex.tokensByKey[key] else { return [] }
-        return tokens.compactMap { entries[$0] }
+    func windows(in workspace: WorkspaceDescriptor.ID, mode: TrackedWindowMode) -> [WindowState] {
+        tokens(in: workspace, mode: mode).compactMap { entries[$0] }
+    }
+
+    func tokens(in workspace: WorkspaceDescriptor.ID, mode: TrackedWindowMode) -> [WindowToken] {
+        workspaceModeIndex.tokensByKey[WorkspaceModeKey(workspaceId: workspace, mode: mode)] ?? []
     }
 
     func workspace(for token: WindowToken) -> WorkspaceDescriptor.ID? {

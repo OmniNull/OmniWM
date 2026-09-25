@@ -140,7 +140,7 @@ extension WorkspaceManager {
             return confirmed
         }
 
-        return tiledEntries(in: workspaceId).first {
+        return windowQueries.firstWindow(in: workspaceId, mode: .tiling) {
             isFocusResolutionEligible($0, in: workspaceId, mode: .tiling)
         }?.token
     }
@@ -177,7 +177,7 @@ extension WorkspaceManager {
         ) {
             return confirmed
         }
-        return floatingEntries(in: workspaceId).first {
+        return windowQueries.firstWindow(in: workspaceId, mode: .floating) {
             isFocusResolutionEligible($0, in: workspaceId, mode: .floating)
         }?.token
     }

@@ -34,7 +34,7 @@ extension LayoutRefreshController {
         snapshots.reserveCapacity(entries.count)
 
         for entry in entries {
-            let layoutReason = controller.workspaceManager.layoutReason(for: entry.token)
+            let layoutReason = entry.layoutReason
             let constraints: WindowSizeConstraints
             if excludedTokens.contains(entry.token) || !resolveConstraints || layoutReason == .nativeFullscreen {
                 constraints = controller.workspaceManager.cachedConstraints(for: entry.token) ?? .unconstrained
@@ -54,7 +54,7 @@ extension LayoutRefreshController {
                 packingHints = mergeObservedAndRuleConstraints(&mergedConstraints, entry: entry, controller: controller)
             }
 
-            let hiddenState = controller.workspaceManager.hiddenState(for: entry.token)
+            let hiddenState = entry.hiddenState
             let nativeFullscreenOriginalToken: WindowToken? = if layoutReason == .nativeFullscreen,
                                                                  let record = controller.workspaceManager
                                                                  .nativeFullscreenRecord(for: entry.token),
@@ -136,7 +136,7 @@ extension LayoutRefreshController {
         let entries = controller.workspaceManager.tiledEntries(in: workspaceId)
         let excludedTokens = Set(
             entries.lazy
-                .filter { controller.workspaceManager.isWindowSuppressedByMacOS($0.token) }
+                .filter { controller.workspaceManager.isWindowSuppressedByMacOS($0) }
                 .map(\.token)
         )
         let windows = buildWindowSnapshots(
