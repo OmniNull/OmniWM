@@ -3389,6 +3389,24 @@ final class RuntimeArchitectureTests: XCTestCase {
     }
 
     @MainActor
+    func testPendingParksAwaitingSkyLightMoveExcludeWindowsAlreadyMovedBySkyLight() {
+        let manager = AXManager()
+        defer { manager.cleanup() }
+        let pid: pid_t = 71038
+        manager.markParkPending(for: 10, pid: pid)
+        manager.markParkPending(for: 20, pid: pid)
+        manager.recordSkyLightMove(windowId: 20, origin: CGPoint(x: -799, y: 16))
+        manager.recordSkyLightMove(windowId: 30, origin: CGPoint(x: 2559, y: 16))
+
+        XCTAssertEqual(manager.pendingParkWindowIds, [10, 20])
+        XCTAssertEqual(manager.pendingParkWindowIdsAwaitingSkyLightMove, [10])
+
+        manager.clearSkyLightLivePosition(for: 20)
+
+        XCTAssertEqual(manager.pendingParkWindowIdsAwaitingSkyLightMove, [10, 20])
+    }
+
+    @MainActor
     func testAcceptedFrameApplyClearsOnlyItsSkyLightLiveOrigin() {
         let manager = AXManager()
         defer { manager.cleanup() }
