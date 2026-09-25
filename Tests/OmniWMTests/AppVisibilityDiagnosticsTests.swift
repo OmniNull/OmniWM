@@ -59,6 +59,7 @@ final class AppVisibilityDiagnosticsTests: XCTestCase {
         let report = RuntimeDiagnosticsReport.build(controller, traceLimit: 10)
 
         XCTAssertTrue(report.contains("== macOS App Visibility State =="))
+        XCTAssertTrue(report.contains("mainThreadWindowServerSpanMinimumUs=1000"))
         XCTAssertTrue(report.contains("pid=\(token.pid) worldHidden=true generation=1"))
         XCTAssertTrue(report.contains("axManagerHidden=true appAXHidden=true"))
         XCTAssertTrue(report.contains("windows=1 workspaces=1 activeWorkspaces=1"))
@@ -85,6 +86,55 @@ final class AppVisibilityDiagnosticsTests: XCTestCase {
         XCTAssertTrue(report.contains("pid=\(token.pid) worldHidden=true"))
         XCTAssertTrue(report.contains("axManagerHidden=false appAXHidden=false"))
         XCTAssertTrue(report.contains("sync=DESYNC"))
+    }
+
+    func testReportIdentifiesDistinctWindowsWithinEachProcessFromCachedMetadata() throws {
+        let controller = makeController()
+        let workspaceId = try XCTUnwrap(
+            controller.workspaceManager.workspaceId(for: "1", createIfMissing: true)
+        )
+        let windows: [(pid: pid_t, windowId: Int, bundleId: String, title: String?)] = [
+            (881_006, 881_106, "com.mitchellh.ghostty", "OmniWM\n\"build\""),
+            (881_006, 881_107, "com.mitchellh.ghostty", String(repeating: "x", count: 300)),
+            (881_007, 881_108, "com.apple.finder", nil)
+        ]
+        for window in windows {
+            let token = addWindow(
+                pid: window.pid,
+                windowId: window.windowId,
+                workspaceId: workspaceId,
+                controller: controller
+            )
+            controller.workspaceManager.setManagedReplacementMetadata(
+                ManagedReplacementMetadata(
+                    bundleId: window.bundleId,
+                    workspaceId: workspaceId,
+                    mode: .tiling,
+                    role: kAXWindowRole as String,
+                    subrole: kAXStandardWindowSubrole as String,
+                    title: window.title,
+                    windowLevel: nil,
+                    parentWindowId: nil,
+                    frame: nil
+                ),
+                for: token
+            )
+        }
+
+        let report = RuntimeDiagnosticsReport.build(controller, traceLimit: 10)
+        let lines = report.components(separatedBy: "\n")
+        let ghostty = try XCTUnwrap(lines.first { $0.hasPrefix("pid=881006 ") })
+        let finder = try XCTUnwrap(lines.first { $0.hasPrefix("pid=881007 ") })
+        XCTAssertTrue(ghostty.contains("windows=2 workspaces=1"), ghostty)
+        XCTAssertTrue(ghostty.contains("bundleId=\"com.mitchellh.ghostty\""), ghostty)
+        XCTAssertTrue(finder.contains("windows=1 workspaces=1"), finder)
+        XCTAssertTrue(finder.contains("bundleId=\"com.apple.finder\""), finder)
+        XCTAssertEqual(lines.filter { $0.contains(" token=881006:") }.count, 2)
+        XCTAssertEqual(lines.filter { $0.contains(" token=881007:") }.count, 1)
+        XCTAssertTrue(report.contains("token=881006:881106 cachedTitle=\"OmniWM\\n\\\"build\\\"\""))
+        XCTAssertTrue(report.contains("token=881006:881107 cachedTitle=\"\(String(repeating: "x", count: 256))\""))
+        XCTAssertFalse(report.contains(String(repeating: "x", count: 257)))
+        XCTAssertTrue(report.contains("token=881007:881108 cachedTitle=unknown"))
     }
 
     func testReportSurfacesStaleProjectionExclusionsWithoutManagedWindows() throws {

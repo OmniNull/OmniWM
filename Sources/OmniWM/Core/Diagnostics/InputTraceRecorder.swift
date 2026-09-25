@@ -7,6 +7,7 @@ import os
 enum InputTrace {
     struct Record: Sendable {
         let timestamp: Date
+        let uptimeNs: UInt64
         let detail: String
     }
 
@@ -14,12 +15,12 @@ enum InputTrace {
         sectionTitle: "Input Trace",
         capacity: 1024
     ) { record in
-        "\(record.timestamp.ISO8601Format()) \(record.detail)"
+        "\(record.timestamp.ISO8601Format()) t_ns=\(record.uptimeNs) \(record.detail)"
     }
 
     static func record(_ detail: @autoclosure () -> String) {
         guard shared.isActive else { return }
-        shared.record(Record(timestamp: Date(), detail: detail()))
+        shared.record(Record(timestamp: Date(), uptimeNs: DispatchTime.now().uptimeNanoseconds, detail: detail()))
     }
 }
 

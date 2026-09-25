@@ -31,6 +31,10 @@ enum RuntimeTraceLimits {
 }
 
 enum TraceFormat {
+    static func token(_ token: WindowToken?) -> String {
+        token.map { "\($0.pid):\($0.windowId)" } ?? "none"
+    }
+
     static func rect(_ rect: CGRect?) -> String {
         guard let rect else { return "nil" }
         return String(

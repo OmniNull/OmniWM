@@ -36,7 +36,9 @@ extension SkyLight {
         let cid = getMainConnectionID()
         guard cid != 0 else { return nil }
         var rect = CGRect.zero
-        let result = transactions.getWindowBounds(cid, wid, &rect)
+        let result = MainThreadAXSpanTrace.measure(.windowServerBounds, windowId: Int(wid)) {
+            transactions.getWindowBounds(cid, wid, &rect)
+        } succeeded: { $0 == .success } status: { $0.rawValue }
         guard result == .success else { return nil }
         return rect
     }

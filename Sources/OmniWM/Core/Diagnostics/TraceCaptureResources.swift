@@ -11,6 +11,7 @@ struct TraceCaptureResources {
         NativeFullscreenPlaceholderTrace.motion,
         WindowAdmissionTrace.shared,
         AnimationTickTrace.shared,
+        EventIntakeTrace.shared,
         MainThreadAXSpanTrace.shared,
         RawAXNotificationTrace.shared,
         FrameApplyTrace.shared,

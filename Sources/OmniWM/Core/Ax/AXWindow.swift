@@ -280,7 +280,12 @@ enum AXWindowService {
         MainThreadAXSpanTrace.measure(.lookupWindowRef, pid: pid, windowId: Int(windowId)) {
             if let pinned = pinnedAXElement(for: windowId) {
                 var winId: CGWindowID = 0
-                if _AXUIElementGetWindow(pinned, &winId) == .success, winId == windowId {
+                let result = MainThreadAXSpanTrace.measure(.lookupPinnedWindowID, pid: pid, windowId: Int(windowId)) {
+                    _AXUIElementGetWindow(pinned, &winId)
+                } succeeded: { $0 == .success } status: { $0.rawValue } resolvedWindowId: {
+                    $0 == .success ? Int(winId) : nil
+                }
+                if result == .success, winId == windowId {
                     return AXWindowRef(element: pinned, windowId: Int(winId))
                 }
                 unpinAXElement(for: windowId)
@@ -288,11 +293,9 @@ enum AXWindowService {
 
             let appElement = AXUIElementCreateApplication(pid)
             var windowsRef: CFTypeRef?
-            let result = AXUIElementCopyAttributeValue(
-                appElement,
-                kAXWindowsAttribute as CFString,
-                &windowsRef
-            )
+            let result = MainThreadAXSpanTrace.measure(.readApplicationWindows, pid: pid, windowId: Int(windowId)) {
+                AXUIElementCopyAttributeValue(appElement, kAXWindowsAttribute as CFString, &windowsRef)
+            } succeeded: { $0 == .success } status: { $0.rawValue }
 
             guard result == .success, let windows = windowsRef as? [AXUIElement] else {
                 return nil
@@ -300,7 +303,14 @@ enum AXWindowService {
 
             for window in windows {
                 var winId: CGWindowID = 0
-                if _AXUIElementGetWindow(window, &winId) == .success, winId == windowId {
+                let result = MainThreadAXSpanTrace.measure(
+                    .lookupCandidateWindowID, pid: pid, windowId: Int(windowId), count: windows.count
+                ) {
+                    _AXUIElementGetWindow(window, &winId)
+                } succeeded: { $0 == .success } status: { $0.rawValue } resolvedWindowId: {
+                    $0 == .success ? Int(winId) : nil
+                }
+                if result == .success, winId == windowId {
                     return AXWindowRef(element: window, windowId: Int(winId))
                 }
             }

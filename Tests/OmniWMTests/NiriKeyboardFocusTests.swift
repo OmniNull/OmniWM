@@ -54,6 +54,33 @@ final class NiriKeyboardFocusTests: XCTestCase {
         }
     }
 
+    func testKeyboardTraceLinksIntakeSequenceToSelectedAndPendingWindow() throws {
+        try withFixture { fixture in
+            let controller = fixture.controller
+            let source = controller.workspaceManager.selectedManagedToken
+            let target = fixture.windows[2].token
+            InputTrace.shared.beginCapture()
+            defer { InputTrace.shared.endCapture() }
+
+            controller.eventInterpreter.handleIntakeEvent(StampedIntakeEvent(
+                seq: 77,
+                event: .hotkeyInvocation(HotkeyInvocation(
+                    command: .focus(.left),
+                    trigger: PhysicalHotkeyTrigger(keyCode: 123, modifiers: 0, isRepeat: true)
+                ))
+            ))
+
+            let dump = InputTrace.shared.dump()
+            XCTAssertTrue(dump.contains("t_ns="), dump)
+            XCTAssertTrue(dump.contains("hotkey.dispatch.begin seq=77 source=\(TraceFormat.token(source))"), dump)
+            XCTAssertTrue(dump.contains("repeat=true"), dump)
+            XCTAssertTrue(dump.contains("hotkey.dispatch.end seq=77 selected=\(TraceFormat.token(source))"), dump)
+            XCTAssertTrue(dump.contains("pending=\(TraceFormat.token(target))"), dump)
+            XCTAssertEqual(controller.workspaceManager.selectedManagedToken, source)
+            XCTAssertEqual(controller.intentLedger.activeManagedRequest?.token, target)
+        }
+    }
+
     func testPrimaryNavigationCommitsOneEngineMutationBeforeSemanticSelectionAndFocus() throws {
         for orientation in [Monitor.Orientation.horizontal, .vertical] {
             try withFixture(orientation: orientation) { fixture in

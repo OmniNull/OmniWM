@@ -56,7 +56,9 @@ final class SkyLight {
     }
 
     func commit(_ transaction: CFTypeRef) {
-        transactions.transactionCommit(transaction, 0)
+        MainThreadAXSpanTrace.measure(.windowServerCommit) {
+            transactions.transactionCommit(transaction, 0)
+        }
     }
 
     func windowInfoConnection() -> WindowInfoConnection? {

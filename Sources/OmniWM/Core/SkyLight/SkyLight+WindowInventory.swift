@@ -68,7 +68,9 @@ extension SkyLight {
 
     func queryWindowInfo(windowIds: Set<UInt32>) -> [UInt32: WindowServerInfo]? {
         guard !windowIds.isEmpty else { return [:] }
-        return windowInfoQuery(windowIds).read(connectionId: getMainConnectionID())
+        return MainThreadAXSpanTrace.measure(.windowServerBatchQuery, count: windowIds.count) {
+            windowInfoQuery(windowIds).read(connectionId: getMainConnectionID())
+        } succeeded: { $0 != nil }
     }
 
     func queryWindowInfoDeferred(windowIds: Set<UInt32>) async throws -> [UInt32: WindowServerInfo]? {
@@ -80,37 +82,77 @@ extension SkyLight {
     }
 
     func queryAllVisibleWindows() -> [WindowServerInfo] {
-        let cid = getMainConnectionID()
-        guard cid != 0 else { return [] }
+        let result = MainThreadAXSpanTrace.measure(.windowServerVisibleQuery) { () -> [WindowServerInfo]? in
+            let cid = getMainConnectionID()
+            guard cid != 0 else { return nil }
 
-        let emptyArray = [] as CFArray
-        guard let query = queries.windowQueryWindows(cid, emptyArray, 0)?.takeRetainedValue() else { return [] }
-        guard let iterator = queries.windowQueryResultCopyWindows(query)?.takeRetainedValue() else { return [] }
+            let emptyArray = [] as CFArray
+            guard let query = queries.windowQueryWindows(cid, emptyArray, 0)?.takeRetainedValue() else { return nil }
+            guard let iterator = queries.windowQueryResultCopyWindows(query)?.takeRetainedValue() else { return nil }
 
-        var results: [WindowServerInfo] = []
+            var results: [WindowServerInfo] = []
 
-        while queries.windowIteratorAdvance(iterator) {
-            let parentId = queries.windowIteratorGetParentID(iterator)
-            guard parentId == 0 else { continue }
+            while queries.windowIteratorAdvance(iterator) {
+                let parentId = queries.windowIteratorGetParentID(iterator)
+                guard parentId == 0 else { continue }
 
-            let level = queries.windowIteratorGetLevel(iterator)
-            guard level == 0 || level == 3 || level == 8 else { continue }
+                let level = queries.windowIteratorGetLevel(iterator)
+                guard level == 0 || level == 3 || level == 8 else { continue }
 
-            let tags = queries.windowIteratorGetTags(iterator)
-            let attributes = queries.windowIteratorGetAttributes(iterator)
+                let tags = queries.windowIteratorGetTags(iterator)
+                let attributes = queries.windowIteratorGetAttributes(iterator)
 
-            let hasVisibleAttribute = (attributes & 0x2) != 0
-            let hasTagBit54 = (tags & 0x0040_0000_0000_0000) != 0
-            guard hasVisibleAttribute || hasTagBit54 else { continue }
-            let hasDocumentTag = WindowServerInfo.hasDocumentTag(tags)
-            let hasFloatingTag = WindowServerInfo.hasFloatingTag(tags)
-            let hasModalTag = WindowServerInfo.hasModalTag(tags)
-            guard hasDocumentTag || (hasFloatingTag && hasModalTag) else { continue }
+                let hasVisibleAttribute = (attributes & 0x2) != 0
+                let hasTagBit54 = (tags & 0x0040_0000_0000_0000) != 0
+                guard hasVisibleAttribute || hasTagBit54 else { continue }
+                let hasDocumentTag = WindowServerInfo.hasDocumentTag(tags)
+                let hasFloatingTag = WindowServerInfo.hasFloatingTag(tags)
+                let hasModalTag = WindowServerInfo.hasModalTag(tags)
+                guard hasDocumentTag || (hasFloatingTag && hasModalTag) else { continue }
+
+                let wid = queries.windowIteratorGetWindowID(iterator)
+                let pid = queries.windowIteratorGetPID(iterator)
+                let bounds = queries.windowIteratorGetBounds(iterator)
+                let info = WindowServerInfo(
+                    id: wid,
+                    pid: pid,
+                    level: level,
+                    frame: bounds,
+                    tags: tags,
+                    attributes: attributes,
+                    parentId: parentId
+                )
+
+                results.append(info)
+            }
+
+            return results
+        } succeeded: { $0 != nil }
+        return result ?? []
+    }
+
+    func queryWindowInfo(_ windowId: UInt32) -> WindowServerInfo? {
+        MainThreadAXSpanTrace.measure(.windowServerQuery, windowId: Int(windowId), count: 1) {
+            let cid = getMainConnectionID()
+            guard cid != 0 else { return nil }
+
+            var widValue = Int32(windowId)
+            let widNumber = CFNumberCreate(nil, .sInt32Type, &widValue)!
+            let windowArray = [widNumber] as CFArray
+
+            guard let query = queries.windowQueryWindows(cid, windowArray, 1)?.takeRetainedValue() else { return nil }
+            guard let iterator = queries.windowQueryResultCopyWindows(query)?.takeRetainedValue() else { return nil }
+            guard queries.windowIteratorAdvance(iterator) else { return nil }
 
             let wid = queries.windowIteratorGetWindowID(iterator)
             let pid = queries.windowIteratorGetPID(iterator)
+            let level = queries.windowIteratorGetLevel(iterator)
             let bounds = queries.windowIteratorGetBounds(iterator)
-            let info = WindowServerInfo(
+            let tags = queries.windowIteratorGetTags(iterator)
+            let attributes = queries.windowIteratorGetAttributes(iterator)
+            let parentId = queries.windowIteratorGetParentID(iterator)
+
+            return WindowServerInfo(
                 id: wid,
                 pid: pid,
                 level: level,
@@ -119,41 +161,6 @@ extension SkyLight {
                 attributes: attributes,
                 parentId: parentId
             )
-
-            results.append(info)
-        }
-
-        return results
-    }
-
-    func queryWindowInfo(_ windowId: UInt32) -> WindowServerInfo? {
-        let cid = getMainConnectionID()
-        guard cid != 0 else { return nil }
-
-        var widValue = Int32(windowId)
-        let widNumber = CFNumberCreate(nil, .sInt32Type, &widValue)!
-        let windowArray = [widNumber] as CFArray
-
-        guard let query = queries.windowQueryWindows(cid, windowArray, 1)?.takeRetainedValue() else { return nil }
-        guard let iterator = queries.windowQueryResultCopyWindows(query)?.takeRetainedValue() else { return nil }
-        guard queries.windowIteratorAdvance(iterator) else { return nil }
-
-        let wid = queries.windowIteratorGetWindowID(iterator)
-        let pid = queries.windowIteratorGetPID(iterator)
-        let level = queries.windowIteratorGetLevel(iterator)
-        let bounds = queries.windowIteratorGetBounds(iterator)
-        let tags = queries.windowIteratorGetTags(iterator)
-        let attributes = queries.windowIteratorGetAttributes(iterator)
-        let parentId = queries.windowIteratorGetParentID(iterator)
-
-        return WindowServerInfo(
-            id: wid,
-            pid: pid,
-            level: level,
-            frame: bounds,
-            tags: tags,
-            attributes: attributes,
-            parentId: parentId
-        )
+        } succeeded: { $0 != nil }
     }
 }

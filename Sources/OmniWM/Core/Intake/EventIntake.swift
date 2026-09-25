@@ -77,6 +77,21 @@ struct MouseScrollIntake: Sendable {
 struct StampedIntakeEvent: Sendable {
     let seq: UInt64
     let event: IntakeEvent
+    let enqueuedUptimeNs: UInt64?
+
+    init(
+        seq: UInt64,
+        event: IntakeEvent,
+        enqueuedUptimeNs: UInt64? = EventIntakeTrace.shared.isActive ? DispatchTime.now().uptimeNanoseconds : nil
+    ) {
+        self.seq = seq
+        self.event = event
+        self.enqueuedUptimeNs = enqueuedUptimeNs
+    }
+
+    func replacingEvent(with event: IntakeEvent) -> StampedIntakeEvent {
+        StampedIntakeEvent(seq: seq, event: event, enqueuedUptimeNs: enqueuedUptimeNs)
+    }
 }
 
 @MainActor
@@ -288,7 +303,7 @@ final class EventIntake {
                 if existing.matches(payload), existing.canCoalesce(payload) {
                     var merged = existing
                     merged.accumulate(payload)
-                    state.orderedEvents[index] = StampedIntakeEvent(seq: openSeq, event: .mouseScroll(merged))
+                    state.orderedEvents[index] = state.orderedEvents[index].replacingEvent(with: .mouseScroll(merged))
                     return
                 }
                 state.closeMouseCoalescingWindows()
@@ -309,7 +324,7 @@ final class EventIntake {
         to event: IntakeEvent
     ) -> Bool {
         guard let seq, let index = state.orderedEvents.lastIndex(where: { $0.seq == seq }) else { return false }
-        state.orderedEvents[index] = StampedIntakeEvent(seq: seq, event: event)
+        state.orderedEvents[index] = state.orderedEvents[index].replacingEvent(with: event)
         return true
     }
 
@@ -367,7 +382,9 @@ final class EventIntake {
         }
         guard let sink else { return }
         for stamped in events {
-            sink.handleIntakeEvent(stamped)
+            EventIntakeTrace.measure(stamped) {
+                sink.handleIntakeEvent(stamped)
+            }
         }
     }
 

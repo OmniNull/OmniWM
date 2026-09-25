@@ -51,43 +51,61 @@ enum RuntimeDiagnosticsReport {
         let projectionSnapshots = controller.workspaceManager.appVisibilityProjectionDiagnosticsSnapshot()
         guard !snapshots.isEmpty || !projectionSnapshots.isEmpty else { return "none" }
 
-        var lines = snapshots
-            .flatMap { snapshot -> [String] in
-                let axManagerHidden = controller.axManager.macOSHiddenAppPIDs.contains(snapshot.pid)
-                let appAXHidden = AppAXContextRegistry.isMacOSAppHidden(pid: snapshot.pid)
-                let osHidden = NSRunningApplication(processIdentifier: snapshot.pid)?.isHidden
-                let fenceConsistent = snapshot.worldHidden == axManagerHidden
-                    && snapshot.worldHidden == appAXHidden
-                let sync: String
-                if !fenceConsistent || osHidden.map({ $0 != snapshot.worldHidden }) == true {
-                    sync = "DESYNC"
-                } else if osHidden == nil {
-                    sync = "unverified-os"
-                } else {
-                    sync = "consistent"
-                }
-                let pendingReveal = pendingReveals[snapshot.pid].map(formatAppReveal) ?? "none"
-                var lines = [
-                    "pid=\(snapshot.pid) worldHidden=\(snapshot.worldHidden)"
-                        + " generation=\(snapshot.generation)"
-                        + " axManagerHidden=\(axManagerHidden)"
-                        + " appAXHidden=\(appAXHidden)"
-                        + " osHidden=\(osHidden.map(String.init) ?? "unavailable")"
-                        + " windows=\(snapshot.windows.count)"
-                        + " workspaces=\(snapshot.workspaceCount)"
-                        + " activeWorkspaces=\(snapshot.visibleWorkspaceCount)"
-                        + " pendingReveal=\(pendingReveal)"
-                        + " sync=\(sync)"
-                ]
-                lines.append(contentsOf: snapshot.windows.map(formatAppVisibilityWindow))
-                return lines
-            }
+        var lines = snapshots.flatMap {
+            formatAppVisibilityPID(
+                $0,
+                controller: controller,
+                pendingReveal: pendingReveals[$0.pid].map(formatAppReveal) ?? "none"
+            )
+        }
         lines.append(contentsOf: projectionSnapshots.map {
             "projection workspace=\($0.workspaceId.uuidString) expectedExcluded=\($0.expectedExcludedCount)"
                 + " niri=\(formatProjectionEngine($0.niri))"
                 + " dwindle=\(formatProjectionEngine($0.dwindle))"
         })
         return lines.joined(separator: "\n")
+    }
+
+    private static func formatAppVisibilityPID(
+        _ snapshot: AppVisibilityPIDDiagnostics,
+        controller: WMController,
+        pendingReveal: String
+    ) -> [String] {
+        let axManagerHidden = controller.axManager.macOSHiddenAppPIDs.contains(snapshot.pid)
+        let appAXHidden = AppAXContextRegistry.isMacOSAppHidden(pid: snapshot.pid)
+        let osHidden = NSRunningApplication(processIdentifier: snapshot.pid)?.isHidden
+        let fenceConsistent = snapshot.worldHidden == axManagerHidden && snapshot.worldHidden == appAXHidden
+        let sync: String
+        if !fenceConsistent || osHidden.map({ $0 != snapshot.worldHidden }) == true {
+            sync = "DESYNC"
+        } else if osHidden == nil {
+            sync = "unverified-os"
+        } else {
+            sync = "consistent"
+        }
+        let bundleId = snapshot.windows.lazy.compactMap {
+            controller.workspaceManager.managedReplacementMetadata(for: $0.token)?.bundleId
+        }.first
+        var lines = [
+            "pid=\(snapshot.pid) worldHidden=\(snapshot.worldHidden)"
+                + " generation=\(snapshot.generation)"
+                + " axManagerHidden=\(axManagerHidden)"
+                + " appAXHidden=\(appAXHidden)"
+                + " osHidden=\(osHidden.map(String.init) ?? "unavailable")"
+                + " windows=\(snapshot.windows.count)"
+                + " workspaces=\(snapshot.workspaceCount)"
+                + " activeWorkspaces=\(snapshot.visibleWorkspaceCount)"
+                + " pendingReveal=\(pendingReveal)"
+                + " sync=\(sync)"
+                + " bundleId=\(cachedIdentityText(bundleId))"
+        ]
+        lines.append(contentsOf: snapshot.windows.map {
+            formatAppVisibilityWindow(
+                $0,
+                metadata: controller.workspaceManager.managedReplacementMetadata(for: $0.token)
+            )
+        })
+        return lines
     }
 
     private static func formatAppReveal(_ intent: Intent) -> String {
@@ -102,7 +120,10 @@ enum RuntimeDiagnosticsReport {
         return "id:\(intent.id),win:\(payload.token.windowId),workspace:\(payload.workspaceId.uuidString),destination:\(destination)"
     }
 
-    private static func formatAppVisibilityWindow(_ window: AppVisibilityWindowDiagnostics) -> String {
+    private static func formatAppVisibilityWindow(
+        _ window: AppVisibilityWindowDiagnostics,
+        metadata: ManagedReplacementMetadata?
+    ) -> String {
         let hidden = switch window.hiddenReason {
         case .none:
             "none"
@@ -129,6 +150,12 @@ enum RuntimeDiagnosticsReport {
             + " hidden=\(hidden)"
             + " layout=\(window.layoutReason)"
             + " nativeFullscreen=\(nativeFullscreen)"
+            + " token=\(window.token.pid):\(window.token.windowId)"
+            + " cachedTitle=\(cachedIdentityText(metadata?.title))"
+    }
+
+    private static func cachedIdentityText(_ value: String?) -> String {
+        value.map { String(reflecting: RuntimeTraceLimits.boundedString($0, maxBytes: 256)) } ?? "unknown"
     }
 
     private static func formatProjectionEngine(_ engine: AppVisibilityProjectionEngineDiagnostics) -> String {
@@ -208,6 +235,7 @@ enum RuntimeDiagnosticsReport {
             "appVersion=\(OmniWMBuildInfo.version)",
             "build=\(OmniWMBuildInfo.build)",
             "gitHash=\(OmniWMBuildInfo.gitHash)",
+            "mainThreadWindowServerSpanMinimumUs=\(MainThreadAXSpanTrace.windowServerMinimumNanoseconds / 1_000)",
             "os=\(ProcessInfo.processInfo.operatingSystemVersionString)",
             "accessibilityGranted=\(controller.accessibilityPermissionGranted)",
             "enabled=\(controller.isEnabled)"
