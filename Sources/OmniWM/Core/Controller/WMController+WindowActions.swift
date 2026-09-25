@@ -14,12 +14,13 @@ extension WMController {
     }
 
     func toggleFocusedWindowFloating() -> ExternalCommandResult {
-        let token = focusedManagedTokenForCommand()
-        guard let token,
-              let entry = workspaceManager.entry(for: token)
-        else {
-            return .notFound
-        }
+        guard let token = focusedManagedTokenForCommand() else { return .notFound }
+        return toggleWindowFloating(token)
+    }
+
+    @discardableResult
+    func toggleWindowFloating(_ token: WindowToken, preferredMonitor: Monitor? = nil) -> ExternalCommandResult {
+        guard let entry = workspaceManager.entry(for: token) else { return .notFound }
 
         let nextOverride: ManualWindowOverride?
         if workspaceManager.manualLayoutOverride(for: token) != nil {
@@ -28,14 +29,15 @@ extension WMController {
             nextOverride = entry.mode == .tiling ? .forceFloat : .forceTile
         }
 
-        applyManagedWindowOverride(nextOverride, for: token, entry: entry)
+        applyManagedWindowOverride(nextOverride, for: token, entry: entry, preferredMonitor: preferredMonitor)
         return .executed
     }
 
     func applyManagedWindowOverride(
         _ override: ManualWindowOverride?,
         for token: WindowToken,
-        entry: WindowState
+        entry: WindowState,
+        preferredMonitor: Monitor? = nil
     ) {
         workspaceManager.setManualLayoutOverride(override, for: token)
         let entry = workspaceManager.entry(for: token) ?? entry
@@ -68,7 +70,7 @@ extension WMController {
         _ = transitionWindowMode(
             for: token,
             to: trackedMode,
-            preferredMonitor: monitorForInteraction(),
+            preferredMonitor: preferredMonitor ?? monitorForInteraction(),
             applyFloatingFrame: true
         )
         if let windowId = UInt32(exactly: token.windowId) {

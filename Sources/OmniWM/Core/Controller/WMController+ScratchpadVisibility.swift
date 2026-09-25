@@ -68,7 +68,8 @@ extension WMController {
     func hideScratchpadMembers(
         _ entries: [WindowState],
         fallbackMonitor: Monitor,
-        captureGeometry: Bool = true
+        captureGeometry: Bool = true,
+        focusOrigin: ManagedFocusOrigin = .keyboardOrProgrammatic
     ) {
         let focusedEntry = workspaceManager.selectedManagedToken.flatMap { focusedToken in
             entries.first { $0.token == focusedToken }
@@ -85,7 +86,8 @@ extension WMController {
             recoverFocusAfterScratchpadHide(
                 in: workspaceManager.workspace(for: focusedEntry.token) ?? focusedEntry.workspaceId,
                 excluding: Set(entries.map(\.token)),
-                on: (workspaceManager.monitor(for: focusedEntry.workspaceId) ?? fallbackMonitor).id
+                on: (workspaceManager.monitor(for: focusedEntry.workspaceId) ?? fallbackMonitor).id,
+                focusOrigin: focusOrigin
             )
         }
     }

@@ -27,7 +27,8 @@ extension WindowActionHandler {
     func summonWindowRight(
         handle: WindowHandle,
         anchorToken: WindowToken,
-        anchorWorkspaceId: WorkspaceDescriptor.ID
+        anchorWorkspaceId: WorkspaceDescriptor.ID,
+        focusOrigin: ManagedFocusOrigin = .keyboardOrProgrammatic
     ) -> Bool {
         guard let controller,
               let anchorEntry = controller.workspaceManager.entry(for: anchorToken),
@@ -49,7 +50,8 @@ extension WindowActionHandler {
                 token: token,
                 sourceWorkspaceId: targetEntry.workspaceId,
                 targetWorkspaceId: targetWorkspaceId,
-                focusedToken: anchorToken
+                focusedToken: anchorToken,
+                focusOrigin: focusOrigin
             )
         case .niri,
              .defaultLayout:
@@ -57,7 +59,8 @@ extension WindowActionHandler {
                 token: token,
                 sourceWorkspaceId: targetEntry.workspaceId,
                 targetWorkspaceId: targetWorkspaceId,
-                focusedToken: anchorToken
+                focusedToken: anchorToken,
+                focusOrigin: focusOrigin
             )
         }
     }
@@ -67,7 +70,8 @@ extension WindowActionHandler {
         token: WindowToken,
         sourceWorkspaceId: WorkspaceDescriptor.ID,
         targetWorkspaceId: WorkspaceDescriptor.ID,
-        focusedToken: WindowToken
+        focusedToken: WindowToken,
+        focusOrigin: ManagedFocusOrigin
     ) -> Bool {
         guard let controller,
               let handle = controller.workspaceManager.handle(for: token),
@@ -90,7 +94,7 @@ extension WindowActionHandler {
             ) else {
                 return false
             }
-            commitSummonedWindowFocus(token: token, workspaceId: targetWorkspaceId, startNiriScrollAnimation: true)
+            commitSummonedWindowFocus(token, in: targetWorkspaceId, origin: focusOrigin, scrollsNiri: true)
             return true
         }
 
@@ -103,10 +107,11 @@ extension WindowActionHandler {
 
         if sourceLayoutType == .dwindle {
             commitSummonedWindowFocus(
-                token: token,
-                workspaceId: targetWorkspaceId,
+                token,
+                in: targetWorkspaceId,
+                origin: focusOrigin,
                 rememberedFocusToken: focusedToken,
-                startNiriScrollAnimation: true
+                scrollsNiri: true
             )
             return true
         }
@@ -119,7 +124,7 @@ extension WindowActionHandler {
         ) else {
             return false
         }
-        commitSummonedWindowFocus(token: token, workspaceId: targetWorkspaceId, startNiriScrollAnimation: true)
+        commitSummonedWindowFocus(token, in: targetWorkspaceId, origin: focusOrigin, scrollsNiri: true)
         return true
     }
 
@@ -128,7 +133,8 @@ extension WindowActionHandler {
         token: WindowToken,
         sourceWorkspaceId: WorkspaceDescriptor.ID,
         targetWorkspaceId: WorkspaceDescriptor.ID,
-        focusedToken: WindowToken
+        focusedToken: WindowToken,
+        focusOrigin: ManagedFocusOrigin
     ) -> Bool {
         guard let controller,
               let engine = controller.dwindleEngine,
@@ -145,7 +151,7 @@ extension WindowActionHandler {
                 return false
             }
             controller.workspaceManager.recordLayoutOperation(.windowInserted(token: token), in: targetWorkspaceId)
-            commitSummonedWindowFocus(token: token, workspaceId: targetWorkspaceId)
+            commitSummonedWindowFocus(token, in: targetWorkspaceId, origin: focusOrigin)
             return true
         }
 
@@ -166,15 +172,16 @@ extension WindowActionHandler {
             return false
         }
 
-        commitSummonedWindowFocus(token: token, workspaceId: targetWorkspaceId)
+        commitSummonedWindowFocus(token, in: targetWorkspaceId, origin: focusOrigin)
         return true
     }
 
     private func commitSummonedWindowFocus(
-        token: WindowToken,
-        workspaceId: WorkspaceDescriptor.ID,
+        _ token: WindowToken,
+        in workspaceId: WorkspaceDescriptor.ID,
+        origin focusOrigin: ManagedFocusOrigin,
         rememberedFocusToken: WindowToken? = nil,
-        startNiriScrollAnimation: Bool = false
+        scrollsNiri startNiriScrollAnimation: Bool = false
     ) {
         guard let controller else { return }
 
@@ -189,7 +196,7 @@ extension WindowActionHandler {
         controller.layoutRefreshController.requestLayoutCommandRelayout(
             affectedWorkspaceIds: [workspaceId]
         ) { [weak controller] in
-            controller?.focusWindow(token)
+            controller?.focusWindow(token, origin: focusOrigin)
         }
         if startNiriScrollAnimation {
             controller.layoutRefreshController.startScrollAnimation(for: workspaceId)

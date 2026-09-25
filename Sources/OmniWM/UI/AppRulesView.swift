@@ -30,6 +30,8 @@ struct AppRulesView: View {
         }
         .navigationSplitViewStyle(.balanced)
         .sheet(item: $addDraft, content: addSheet)
+        .onAppear(perform: presentRequestedDraft)
+        .onChange(of: editorState.requestedDraft?.id) { _, _ in presentRequestedDraft() }
         .confirmationDialog(
             "Delete app rule?",
             isPresented: isConfirmingDelete,
@@ -141,6 +143,12 @@ struct AppRulesView: View {
         if selectedRuleId == rule.id {
             selectedRuleId = nil
         }
+    }
+
+    private func presentRequestedDraft() {
+        guard let draft = editorState.requestedDraft else { return }
+        editorState.requestedDraft = nil
+        presentNewRule(draft)
     }
 
     private func presentNewRule(_ draft: AppRuleDraft = AppRuleDraft()) {

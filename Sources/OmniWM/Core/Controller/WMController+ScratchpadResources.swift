@@ -94,10 +94,11 @@ extension WMController {
     func recoverFocusAfterScratchpadHide(
         in workspaceId: WorkspaceDescriptor.ID,
         excluding tokens: Set<WindowToken>,
-        on monitorId: Monitor.ID?
+        on monitorId: Monitor.ID?,
+        focusOrigin: ManagedFocusOrigin = .keyboardOrProgrammatic
     ) {
         if let nextFocusToken = visibleFocusRecoveryToken(in: workspaceId, excluding: tokens) {
-            focusWindow(nextFocusToken)
+            focusWindow(nextFocusToken, origin: focusOrigin)
             return
         }
 

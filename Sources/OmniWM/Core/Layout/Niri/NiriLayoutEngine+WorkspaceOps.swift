@@ -33,7 +33,11 @@ extension NiriLayoutEngine {
         let targetWorkspaceState = ensureState(for: targetWorkspaceId)
         let targetRoot = targetWorkspaceState.root
 
-        let fallbackSelection = fallbackSelectionOnRemoval(removing: window.id, in: sourceWorkspaceId)
+        let retainedSelection = sourceState.selectedNodeId.flatMap { selectedId in
+            selectedId != window.id && findNode(by: selectedId, in: sourceWorkspaceId) != nil ? selectedId : nil
+        }
+        let fallbackSelection = retainedSelection
+            ?? fallbackSelectionOnRemoval(removing: window.id, in: sourceWorkspaceId)
 
         if targetWorkspaceState.nodesByToken[window.token] != nil {
             removeWindow(token: window.token, in: targetWorkspaceId)

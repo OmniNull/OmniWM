@@ -35,24 +35,11 @@ final class CommandPaletteFocusSession {
     }
 
     static func resolveSummonAnchor(for wmController: WMController) -> CommandPaletteSummonAnchor? {
-        guard let activeWorkspace = wmController.activeWorkspace() else { return nil }
-
-        let anchorToken = if let focusedToken = wmController.workspaceManager.selectedManagedToken,
-                             let entry = wmController.workspaceManager.entry(for: focusedToken),
-                             entry.workspaceId == activeWorkspace.id
-        {
-            focusedToken
-        } else {
-            wmController.workspaceManager.lastFocusedToken(in: activeWorkspace.id)
-        }
-
-        guard let anchorToken,
-              let entry = wmController.workspaceManager.entry(for: anchorToken),
-              entry.workspaceId == activeWorkspace.id
+        guard let activeWorkspace = wmController.activeWorkspace(),
+              let anchorToken = wmController.summonAnchorToken(in: activeWorkspace.id)
         else {
             return nil
         }
-
         return .init(token: anchorToken, workspaceId: activeWorkspace.id)
     }
 

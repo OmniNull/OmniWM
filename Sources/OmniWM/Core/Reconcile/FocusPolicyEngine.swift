@@ -10,6 +10,7 @@ enum FocusPolicyLeaseOwner: String, Equatable {
     case nativeMenu = "native_menu"
     case statusPanel = "status_panel"
     case commandPalette = "command_palette"
+    case workspaceBarRename = "workspace_bar_rename"
     case windowCloseFocusRecovery = "window_close_focus_recovery"
     case nativeAppSwitch = "native_app_switch"
 }
@@ -46,6 +47,7 @@ final class FocusPolicyEngine {
         .nativeMenu,
         .statusPanel,
         .commandPalette,
+        .workspaceBarRename,
         .windowCloseFocusRecovery,
         .nativeAppSwitch
     ]

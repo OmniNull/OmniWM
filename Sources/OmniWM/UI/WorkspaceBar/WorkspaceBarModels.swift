@@ -227,6 +227,7 @@ enum WorkspaceBarIslandSlice: Hashable {
 @MainActor @Observable
 final class WorkspaceBarModel {
     var snapshot: WorkspaceBarSnapshot
+    var presentedWindowList: WindowToken?
 
     init(snapshot: WorkspaceBarSnapshot) {
         self.snapshot = snapshot

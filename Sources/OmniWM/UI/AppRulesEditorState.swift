@@ -2,8 +2,10 @@
 // Copyright (C) 2026 BarutSRB — https://github.com/OmniNull/OmniWM
 
 import Foundation
+import Observation
 
-@MainActor
+@MainActor @Observable
 final class AppRulesEditorState {
-    var isDirty = false
+    @ObservationIgnored var isDirty = false
+    var requestedDraft: AppRuleDraft?
 }

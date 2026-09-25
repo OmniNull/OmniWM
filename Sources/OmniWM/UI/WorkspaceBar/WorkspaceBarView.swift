@@ -15,6 +15,7 @@ struct WorkspaceBarView: View {
     let onActivateScratchpad: (Int) -> Void
     var onToggleSystemStats: () -> Void = {}
     var onSystemStatsAnchorChange: (CGPoint?) -> Void = { _ in }
+    var interaction: WorkspaceBarIslandInteraction?
 
     var body: some View {
         WorkspaceBarContentView(
@@ -28,6 +29,8 @@ struct WorkspaceBarView: View {
             onToggleSystemStats: onToggleSystemStats,
             onSystemStatsAnchorChange: onSystemStatsAnchorChange
         )
+        .environment(\.workspaceBarInteraction, interaction)
+        .environment(model)
     }
 }
 
@@ -192,6 +195,7 @@ private struct WorkspaceItemView: View {
     let onFocusWindow: (WindowHandle) -> Void
 
     @State private var isHovered = false
+    @Environment(\.workspaceBarInteraction) private var interaction
 
     var body: some View {
         HStack(spacing: windowSpacing) {
@@ -223,6 +227,7 @@ private struct WorkspaceItemView: View {
             ForEach(item.tiledWindows, id: \.id) { window in
                 WindowIconView(
                     window: window,
+                    workspaceId: item.id,
                     iconSize: iconSize,
                     isFocused: window.isFocused,
                     isInFocusedWorkspace: item.isFocused,
@@ -246,6 +251,7 @@ private struct WorkspaceItemView: View {
             if !item.floatingWindows.isEmpty {
                 FloatingWindowsGroupView(
                     windows: item.floatingWindows,
+                    workspaceId: item.id,
                     iconSize: iconSize,
                     itemHeight: itemHeight,
                     isInFocusedWorkspace: item.isFocused,
@@ -263,6 +269,7 @@ private struct WorkspaceItemView: View {
         .padding(.vertical, 2)
         .frame(height: itemHeight)
         .contentShape(RoundedRectangle(cornerRadius: cornerRadius))
+        .workspaceBarHitRegion(.workspace(item.id))
         .onTapGesture(perform: onFocusWorkspace)
         .background {
             ZStack {
@@ -279,6 +286,9 @@ private struct WorkspaceItemView: View {
             isHovered = hovering
         }
         .accessibilityElement(children: .contain)
+        .accessibilityAction(.showMenu) {
+            interaction?.onShowMenu(.workspace(item.id))
+        }
     }
 }
 
@@ -312,6 +322,7 @@ private struct WorkspaceLabelButton: View {
                 .contentShape(Rectangle())
         }
         .buttonStyle(.plain)
+        .workspaceBarLabelRegion(item.id)
         .accessibilityLabel("Workspace \(item.name)")
         .accessibilityValue(item.isFocused ? String(localized: "Focused") : "")
         .help("Focus workspace \(item.name)")
@@ -321,6 +332,7 @@ private struct WorkspaceLabelButton: View {
 @MainActor
 private struct FloatingWindowsGroupView: View {
     let windows: [WorkspaceBarWindowItem]
+    let workspaceId: WorkspaceDescriptor.ID
     let iconSize: CGFloat
     let itemHeight: CGFloat
     let isInFocusedWorkspace: Bool
@@ -346,6 +358,7 @@ private struct FloatingWindowsGroupView: View {
             ForEach(windows, id: \.id) { window in
                 WindowIconView(
                     window: window,
+                    workspaceId: workspaceId,
                     iconSize: iconSize,
                     isFocused: window.isFocused,
                     isInFocusedWorkspace: isInFocusedWorkspace,

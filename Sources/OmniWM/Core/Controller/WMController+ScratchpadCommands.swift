@@ -8,8 +8,18 @@ import OmniWMIPC
 extension WMController {
     @discardableResult
     func assignFocusedWindowToScratchpad(_ index: ScratchpadIndex) -> ExternalCommandResult {
-        guard let token = focusedManagedTokenForCommand(),
-              let entry = workspaceManager.entry(for: token),
+        guard let token = focusedManagedTokenForCommand() else { return .notFound }
+        return assignWindowToScratchpad(token, to: index, preferredMonitor: monitorForInteraction())
+    }
+
+    @discardableResult
+    func assignWindowToScratchpad(
+        _ token: WindowToken,
+        to index: ScratchpadIndex,
+        preferredMonitor: Monitor?,
+        focusOrigin: ManagedFocusOrigin = .keyboardOrProgrammatic
+    ) -> ExternalCommandResult {
+        guard let entry = workspaceManager.entry(for: token),
               !isManagedWindowSuspendedForNativeFullscreen(token)
         else {
             return .notFound
@@ -24,7 +34,7 @@ extension WMController {
             return .executed
         }
 
-        let preferredMonitor = monitorForInteraction() ?? workspaceManager.monitor(for: entry.workspaceId)
+        let preferredMonitor = preferredMonitor ?? workspaceManager.monitor(for: entry.workspaceId)
         let transitionedFromTiling = entry.mode == .tiling
         guard prepareWindowForScratchpadAssignment(token, preferredMonitor: preferredMonitor) else {
             return .notFound
@@ -45,7 +55,8 @@ extension WMController {
             hideScratchpadMembers(
                 [updatedEntry],
                 fallbackMonitor: hideMonitor,
-                captureGeometry: false
+                captureGeometry: false,
+                focusOrigin: focusOrigin
             )
         }
 

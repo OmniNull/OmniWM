@@ -90,14 +90,6 @@ extension IPCCommandRouter {
             return result
         }
 
-        var configs = controller.settings.workspaces.configurations
-        guard let index = configs.firstIndex(where: { $0.name == rawWorkspaceID }) else { return .notFound }
-        let normalized: String? = displayName.isEmpty || displayName == rawWorkspaceID ? nil : displayName
-        guard configs[index].displayName != normalized else { return .noChange }
-
-        configs[index].displayName = normalized
-        controller.settings.workspaces.configurations = configs
-        controller.requestWorkspaceBarRefresh()
-        return .executed
+        return controller.setWorkspaceDisplayName(displayName, forWorkspaceNamed: rawWorkspaceID)
     }
 }

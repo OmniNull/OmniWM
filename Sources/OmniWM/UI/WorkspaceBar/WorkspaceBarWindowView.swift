@@ -162,6 +162,7 @@ struct WorkspaceBarWindowListRowPresentation {
 @MainActor
 struct WindowIconView: View {
     let window: WorkspaceBarWindowItem
+    let workspaceId: WorkspaceDescriptor.ID
     let iconSize: CGFloat
     let isFocused: Bool
     let isInFocusedWorkspace: Bool
@@ -174,7 +175,18 @@ struct WindowIconView: View {
     let onFocusWindow: (WindowHandle) -> Void
 
     @State private var isHovered = false
-    @State private var showingWindowList = false
+    @Environment(\.workspaceBarInteraction) private var interaction
+    @Environment(WorkspaceBarModel.self) private var model: WorkspaceBarModel?
+
+    private var windowListBinding: Binding<Bool> {
+        Binding(
+            get: { model?.presentedWindowList == window.id },
+            set: { isPresented in
+                guard !isPresented, model?.presentedWindowList == window.id else { return }
+                model?.presentedWindowList = nil
+            }
+        )
+    }
 
     private var resolvedAccentColor: Color {
         accentColor ?? .accentColor
@@ -189,11 +201,7 @@ struct WindowIconView: View {
             inactiveIconOpacity: inactiveIconOpacity
         )
         Button {
-            if window.windowCount > 1 {
-                showingWindowList = true
-            } else {
-                onFocusWindow(window.handle)
-            }
+            interaction?.onActivateWindow(workspaceId, window.id)
         } label: {
             AppIconImage(icon: window.icon)
                 .frame(width: iconSize, height: iconSize)
@@ -223,13 +231,14 @@ struct WindowIconView: View {
                 .contentShape(Rectangle())
         }
         .buttonStyle(.plain)
+        .workspaceBarHitRegion(.window(workspaceId, window.id))
         .scaleEffect(scale)
         .animation(animationsEnabled ? .easeInOut(duration: 0.15) : nil, value: isFocused)
         .animation(animationsEnabled ? .easeInOut(duration: 0.1) : nil, value: isHovered)
         .onHover { hovering in
             isHovered = hovering
         }
-        .sheet(isPresented: $showingWindowList) {
+        .sheet(isPresented: windowListBinding) {
             WindowListSheet(
                 windows: window.allWindows,
                 appName: window.appName,
@@ -237,13 +246,16 @@ struct WindowIconView: View {
                 textColor: textColor,
                 onFocusWindow: { handle in
                     onFocusWindow(handle)
-                    showingWindowList = false
+                    model?.presentedWindowList = nil
                 }
             )
         }
         .accessibilityLabel(presentation.accessibilityLabel)
         .accessibilityValue(presentation.accessibilityValue)
         .accessibilityHint(presentation.accessibilityHint)
+        .accessibilityAction(.showMenu) {
+            interaction?.onShowMenu(.window(workspaceId, window.id))
+        }
         .help(presentation.help)
     }
 

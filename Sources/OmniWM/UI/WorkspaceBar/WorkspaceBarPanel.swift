@@ -6,6 +6,12 @@ import AppKit
 @MainActor
 final class WorkspaceBarPanel: NSPanel {
     var targetScreen: NSScreen?
+    var interactionHandler: ((NSEvent, WorkspaceBarPanel) -> Bool)?
+
+    override func sendEvent(_ event: NSEvent) {
+        if interactionHandler?(event, self) == true { return }
+        super.sendEvent(event)
+    }
 
     override func constrainFrameRect(_ frameRect: NSRect, to screen: NSScreen?) -> NSRect {
         guard let constrainingScreen = targetScreen ?? screen else {

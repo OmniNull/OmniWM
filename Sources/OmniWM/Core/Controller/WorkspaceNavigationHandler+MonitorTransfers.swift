@@ -134,10 +134,18 @@ extension WorkspaceNavigationHandler {
         else {
             return nil
         }
+        return moveWorkspaceToMonitor(workspaceId, to: targetMonitor.id, force: force)
+    }
 
+    func moveWorkspaceToMonitor(
+        _ workspaceId: WorkspaceDescriptor.ID,
+        to targetMonitorId: Monitor.ID,
+        force: Bool
+    ) -> WorkspaceMonitorMoveOutcome? {
+        guard let controller else { return nil }
         let outcome = controller.workspaceManager.moveWorkspaceToMonitor(
             workspaceId,
-            to: targetMonitor.id,
+            to: targetMonitorId,
             force: force
         )
         controller.layoutRefreshController.commitWorkspaceMonitorTransition(outcome)

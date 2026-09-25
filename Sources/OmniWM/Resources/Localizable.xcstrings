@@ -18186,6 +18186,7 @@
         }
       }
     },
+    "Assign to Scratchpad" : {},
     "Assign to Workspace" : {
       "localizations" : {
         "ja" : {
@@ -27988,6 +27989,7 @@
         }
       }
     },
+    "Close Window" : {},
     "Collapsed" : {
       "localizations" : {
         "ja" : {
@@ -33946,6 +33948,7 @@
         }
       }
     },
+    "Create App Rule…" : {},
     "Create workspace on %@" : {
       "localizations" : {
         "ja" : {
@@ -48590,6 +48593,7 @@
         }
       }
     },
+    "Float Window" : {},
     "Floating" : {
       "localizations" : {
         "ja" : {
@@ -49830,6 +49834,7 @@
         }
       }
     },
+    "Focus Workspace" : {},
     "Focus did not return to the original app in time." : {
       "localizations" : {
         "ja" : {
@@ -66334,6 +66339,7 @@
         }
       }
     },
+    "Layout (configured workspaces only)" : {},
     "Layout Algorithm" : {
       "localizations" : {
         "ja" : {
@@ -74028,6 +74034,8 @@
         }
       }
     },
+    "Move All to Monitor" : {},
+    "Move All to Workspace" : {},
     "Move Below Menu Bar" : {
       "localizations" : {
         "ja" : {
@@ -74276,6 +74284,7 @@
         }
       }
     },
+    "Move Focused Window Here" : {},
     "Move Window Across Monitor at Edge" : {
       "localizations" : {
         "ja" : {
@@ -74400,6 +74409,7 @@
         }
       }
     },
+    "Move Workspace to Monitor" : {},
     "Move below the notch, split around it, or fill the area to its left, covering application menus. Without a notch, Fill Left covers the left half of the menu bar." : {
       "localizations" : {
         "ja" : {
@@ -74896,6 +74906,7 @@
         }
       }
     },
+    "Move to Monitor" : {},
     "Move to Root: Stable" : {
       "localizations" : {
         "ja" : {
@@ -75020,6 +75031,7 @@
         }
       }
     },
+    "Move to Workspace" : {},
     "Move to workspace %@" : {
       "localizations" : {
         "ja" : {
@@ -101724,6 +101736,9 @@
         }
       }
     },
+    "Rename Workspace" : {},
+    "Rename…" : {},
+    "Rename… (configured workspaces only)" : {},
     "Replace" : {
       "localizations" : {
         "ja" : {
@@ -111280,6 +111295,17 @@
           "stringUnit" : {
             "state" : "translated",
             "value" : "스크래치패드 %1$@: %2$@, 가시적"
+          }
+        }
+      }
+    },
+    "Scratchpad %lld" : {},
+    "Scratchpad %lld — %@" : {
+      "localizations" : {
+        "en" : {
+          "stringUnit" : {
+            "state" : "new",
+            "value" : "Scratchpad %1$lld — %2$@"
           }
         }
       }
@@ -123584,6 +123610,7 @@
         }
       }
     },
+    "Summon to the Right" : {},
     "Swipe axis" : {
       "localizations" : {
         "ja" : {
@@ -130168,6 +130195,7 @@
         }
       }
     },
+    "Tile Window" : {},
     "Tiled" : {
       "localizations" : {
         "ja" : {
@@ -141488,6 +141516,7 @@
         }
       }
     },
+    "Workspace name" : {},
     "Workspaces" : {
       "localizations" : {
         "ja" : {

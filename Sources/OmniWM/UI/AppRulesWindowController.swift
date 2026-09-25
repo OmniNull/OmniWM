@@ -11,7 +11,10 @@ final class AppRulesWindowController: NSObject, NSWindowDelegate {
     private let presenter = HostedWindowPresenter()
     private let editorState = AppRulesEditorState()
 
-    func show(settings: SettingsStore, controller: WMController) {
+    func show(settings: SettingsStore, controller: WMController, draft: AppRuleDraft? = nil) {
+        if let draft {
+            editorState.requestedDraft = draft
+        }
         presenter.present(
             title: String(localized: "App Rules"),
             styleMask: [.titled, .closable, .miniaturizable, .resizable, .fullSizeContentView],

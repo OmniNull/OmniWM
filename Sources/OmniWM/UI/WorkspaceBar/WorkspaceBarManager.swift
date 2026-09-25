@@ -92,9 +92,12 @@ final class WorkspaceBarManager {
         panel.setFrame(frame, display: true)
     }
 
-    private var barsByMonitor: [Monitor.ID: WorkspaceBarInstance] = [:]
-    private weak var controller: WMController?
+    private(set) var barsByMonitor: [Monitor.ID: WorkspaceBarInstance] = [:]
+    weak var controller: WMController?
     private weak var settings: SettingsStore?
+    var pressTracker = WorkspaceBarPressTracker()
+    let menuPresenter = WorkspaceBarMenuPresenter()
+    var renamePanel: WorkspaceBarRenamePanel?
     private let motionPolicy: MotionPolicy
     private let surfaceCoordinator = SurfaceCoordinator.shared
 
@@ -137,7 +140,7 @@ final class WorkspaceBarManager {
     }
 
     private func createBarForMonitor(_ monitor: Monitor, snapshot: WorkspaceBarSnapshot) {
-        guard let controller, let settings else { return }
+        guard controller != nil, let settings else { return }
 
         let resolved = settings.workspaceBar.resolved(for: monitor)
         let model = WorkspaceBarModel(snapshot: snapshot)
@@ -145,6 +148,7 @@ final class WorkspaceBarManager {
         let screen = screenProvider(monitor.displayId)
         let panel = panelFactory()
         panel.targetScreen = screen
+        let interaction = makeIslandInteraction(panel: panel, monitorId: monitor.id)
         let primary = WorkspaceBarIslandPanel(
             panel: panel,
             rootView: makeBarView(
@@ -152,8 +156,9 @@ final class WorkspaceBarManager {
                 slice: .all,
                 showsSystemStatsButton: snapshot.showSystemStatsButton,
                 monitorId: monitor.id,
-                controller: controller
+                interaction: interaction
             ),
+            interaction: interaction,
             resolved: resolved
         )
 
@@ -220,29 +225,30 @@ final class WorkspaceBarManager {
         slice: WorkspaceBarIslandSlice,
         showsSystemStatsButton: Bool,
         monitorId: Monitor.ID,
-        controller: WMController
+        interaction: WorkspaceBarIslandInteraction
     ) -> WorkspaceBarView {
         WorkspaceBarView(
             model: model,
             slice: slice,
             showsSystemStatsButton: showsSystemStatsButton,
             motionPolicy: motionPolicy,
-            onFocusWorkspace: { [weak controller] item in
-                controller?.focusWorkspaceFromBar(id: item.id)
+            onFocusWorkspace: { [weak self] item in
+                self?.controller?.focusWorkspaceFromBar(id: item.id)
             },
-            onFocusWindow: { [weak controller] handle in
-                controller?.focusWindowFromBar(handle: handle)
+            onFocusWindow: { [weak self] handle in
+                self?.controller?.focusWindowFromBar(handle: handle)
             },
-            onActivateScratchpad: { [weak controller] index in
+            onActivateScratchpad: { [weak self] index in
                 guard let index = ScratchpadIndex(index) else { return }
-                controller?.activateScratchpadFromBar(index: index, on: monitorId)
+                self?.controller?.activateScratchpadFromBar(index: index, on: monitorId)
             },
-            onToggleSystemStats: { [weak controller] in
-                controller?.toggleSystemStatsFromBar(on: monitorId)
+            onToggleSystemStats: { [weak self] in
+                self?.controller?.toggleSystemStatsFromBar(on: monitorId)
             },
             onSystemStatsAnchorChange: { [weak self] anchor in
                 self?.barsByMonitor[monitorId]?.statsAnchor = anchor
-            }
+            },
+            interaction: interaction
         )
     }
 
@@ -258,6 +264,9 @@ final class WorkspaceBarManager {
     }
 
     func cleanup() {
+        menuPresenter.cancel()
+        renamePanel?.dismiss()
+        pressTracker.reset()
         for monitorId in Array(barsByMonitor.keys) {
             removeBarForMonitor(monitorId)
         }
@@ -300,20 +309,6 @@ final class WorkspaceBarManager {
         }
     }
 
-    func statsAnchor(on monitorId: Monitor.ID) -> CGPoint? {
-        barsByMonitor[monitorId]?.statsAnchor
-    }
-
-    func primaryBarFrame(on monitorId: Monitor.ID) -> CGRect? {
-        barsByMonitor[monitorId]?.primary.lastAppliedFrame
-    }
-
-    func isWorkspaceBarWindow(_ window: NSWindow) -> Bool {
-        barsByMonitor.values.contains {
-            $0.primary.panel === window || $0.secondary?.panel === window
-        }
-    }
-
     private func updateIslandView(
         _ island: inout WorkspaceBarIslandPanel,
         model: WorkspaceBarModel,
@@ -322,7 +317,7 @@ final class WorkspaceBarManager {
         monitorId: Monitor.ID
     ) {
         guard island.slice != slice || island.showsSystemStatsButton != showsSystemStatsButton,
-              let controller
+              controller != nil
         else {
             return
         }
@@ -333,7 +328,7 @@ final class WorkspaceBarManager {
             slice: slice,
             showsSystemStatsButton: showsSystemStatsButton,
             monitorId: monitorId,
-            controller: controller
+            interaction: island.interaction
         )
     }
 
@@ -342,10 +337,11 @@ final class WorkspaceBarManager {
         resolved: ResolvedBarSettings,
         showsSystemStatsButton: Bool
     ) -> WorkspaceBarIslandPanel? {
-        guard let controller else { return nil }
+        guard controller != nil else { return nil }
         let screen = screenProvider(instance.monitor.displayId)
         let panel = panelFactory()
         panel.targetScreen = screen
+        let interaction = makeIslandInteraction(panel: panel, monitorId: instance.monitorId)
         let island = WorkspaceBarIslandPanel(
             panel: panel,
             rootView: makeBarView(
@@ -353,8 +349,9 @@ final class WorkspaceBarManager {
                 slice: .secondary,
                 showsSystemStatsButton: showsSystemStatsButton,
                 monitorId: instance.monitorId,
-                controller: controller
+                interaction: interaction
             ),
+            interaction: interaction,
             resolved: resolved
         )
         surfaceCoordinator.register(
@@ -406,5 +403,42 @@ final class WorkspaceBarManager {
         } else {
             removeSecondaryPanel(from: instance)
         }
+    }
+}
+
+extension WorkspaceBarManager {
+    func statsAnchor(on monitorId: Monitor.ID) -> CGPoint? {
+        barsByMonitor[monitorId]?.statsAnchor
+    }
+
+    func primaryBarFrame(on monitorId: Monitor.ID) -> CGRect? {
+        barsByMonitor[monitorId]?.primary.lastAppliedFrame
+    }
+
+    func isWorkspaceBarWindow(_ window: NSWindow) -> Bool {
+        barsByMonitor.values.contains {
+            $0.primary.panel === window || $0.secondary?.panel === window
+        }
+    }
+
+    func islandContext(
+        for panel: WorkspaceBarPanel
+    ) -> (instance: WorkspaceBarInstance, island: WorkspaceBarIslandPanel)? {
+        for instance in barsByMonitor.values {
+            if instance.primary.panel === panel {
+                return (instance, instance.primary)
+            }
+            if let secondary = instance.secondary, secondary.panel === panel {
+                return (instance, secondary)
+            }
+        }
+        return nil
+    }
+
+    func islandContexts(
+        on monitorId: Monitor.ID
+    ) -> [(instance: WorkspaceBarInstance, island: WorkspaceBarIslandPanel)] {
+        guard let instance = barsByMonitor[monitorId] else { return [] }
+        return [(instance, instance.primary)] + (instance.secondary.map { [(instance, $0)] } ?? [])
     }
 }

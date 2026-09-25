@@ -196,6 +196,13 @@ final class WorkspaceBarInstance {
             model.snapshot = snapshot
             measuredWidths = [:]
         }
+        if let presented = model.presentedWindowList,
+           !snapshot.items.contains(where: { item in
+               item.windows.contains { $0.id == presented && $0.windowCount > 1 }
+           })
+        {
+            model.presentedWindowList = nil
+        }
     }
 
     func refreshAppearance(resolved: ResolvedBarSettings) {
