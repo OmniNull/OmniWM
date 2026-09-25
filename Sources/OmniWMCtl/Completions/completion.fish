@@ -1,3 +1,6 @@
+# Disable file fallback even when no conditional completion matches.
+complete -c omniwmctl -f
+
 function __omniwmctl_prev_arg_is
     set -l tokens (commandline -opc)
     test (count $tokens) -gt 0; or return 1
