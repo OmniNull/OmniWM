@@ -591,7 +591,6 @@ final class TrackpadWorkspaceGestureTests: XCTestCase {
             windowFocusOperations: windowFocusOperations
         )
         controller.layoutRefreshController.displayLinkActivationForTests = { _ in true }
-        // Gesture recognition must not depend on the host's screen-capture permission or live wallpaper.
         controller.layoutRefreshController.workspaceSwipe = WorkspaceSwipePresentation(
             refreshController: controller.layoutRefreshController,
             previewSurface: WorkspaceSwipePreview(

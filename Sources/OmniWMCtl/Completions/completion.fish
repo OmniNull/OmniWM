@@ -1,4 +1,3 @@
-# Disable file fallback even when no conditional completion matches.
 complete -c omniwmctl -f
 
 function __omniwmctl_prev_arg_is

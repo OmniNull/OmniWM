@@ -410,6 +410,13 @@ final class GlobalWindowCornerPreferencesTests: XCTestCase {
         XCTAssertNil(preferences.errorMessage)
     }
 
+    func testRadiusFormattingPreservesVisibleFractionPrecision() {
+        let separator = Locale.current.decimalSeparator ?? "."
+        XCTAssertEqual(AppWindowCornerRadiusFormatting.string(for: 0), "Square")
+        XCTAssertEqual(AppWindowCornerRadiusFormatting.string(for: 12.25), "12\(separator)25 pt")
+        XCTAssertEqual(AppWindowCornerRadiusFormatting.string(for: 12.345_678), "12\(separator)3457 pt")
+    }
+
     func testInvalidCustomRadiusDoesNotWrite() {
         for radius in [-0.5, 0.005, 64.5, .infinity, .nan] {
             let fixture = Fixture()
