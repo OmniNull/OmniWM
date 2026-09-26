@@ -81,7 +81,7 @@ struct IPCWindowMarkRequestExecutor {
                   let descriptor = controller.workspaceManager.descriptor(for: entry.workspaceId)
             else {
                 _ = controller.windowMarkRegistry.remove(mark.name)
-                return .failure(id: id, kind: .windowMark, code: .staleMark)
+                continue
             }
 
             let appInfo = controller.appInfoCache.info(for: entry.pid)

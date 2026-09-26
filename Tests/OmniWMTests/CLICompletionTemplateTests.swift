@@ -10,6 +10,30 @@ final class CLICompletionTemplateTests: XCTestCase {
         try assertValidTemplate(PackageResources.completion_zsh, shell: .zsh, executable: "/bin/zsh")
     }
 
+    func testZshMarkCompletionSuggestsActionsAndListFlags() throws {
+        let script = CLICompletionGenerator.script(for: .zsh)
+        for (words, position, expected) in [
+            ("omniwmctl window mark ''", 4, "set"),
+            ("omniwmctl window mark list ''", 5, "--json")
+        ] {
+            let process = Process()
+            let output = Pipe()
+            let errors = Pipe()
+            process.executableURL = URL(fileURLWithPath: "/bin/zsh")
+            let setup = "words=(\(words)); CURRENT=\(position); compadd() { print -r -- \"$@\" }; "
+            process.arguments = ["-fc", setup + script]
+            process.standardOutput = output
+            process.standardError = errors
+            try process.run()
+            process.waitUntilExit()
+            let errorText = String(decoding: errors.fileHandleForReading.readDataToEndOfFile(), as: UTF8.self)
+            let suggestions = String(decoding: output.fileHandleForReading.readDataToEndOfFile(), as: UTF8.self)
+                .split(whereSeparator: \.isWhitespace)
+            XCTAssertEqual(process.terminationStatus, 0, errorText)
+            XCTAssertTrue(suggestions.contains(Substring(expected)), words)
+        }
+    }
+
     func testBashTemplateAndRenderedScriptHaveValidNativeSyntax() throws {
         try assertValidTemplate(PackageResources.completion_bash, shell: .bash, executable: "/bin/bash")
     }

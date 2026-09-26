@@ -52,6 +52,29 @@ final class WindowMarkRequestExecutorTests: XCTestCase {
         XCTAssertEqual(response(executor, .focus(name: "reserved")).code, .overviewOpen)
     }
 
+    func testListPrunesStaleMarkWithoutDiscardingLiveMarks() throws {
+        let controller = WindowAdmissionTestSupport.controller(prefix: "OmniWMWindowMarkList")
+        let workspaceId = try XCTUnwrap(
+            WindowAdmissionTestSupport.workspace(named: "79", layoutType: .niri, controller: controller)
+        )
+        let liveToken = WindowToken(pid: 79_001, windowId: 79_101)
+        _ = WindowAdmissionTestSupport.track(liveToken, in: workspaceId, controller: controller)
+        let staleToken = WindowToken(pid: 79_002, windowId: 79_102)
+        XCTAssertEqual(controller.windowMarkRegistry.set("a-stale", for: staleToken), .inserted)
+        XCTAssertEqual(controller.windowMarkRegistry.set("b-live", for: liveToken), .inserted)
+
+        let executor = IPCWindowMarkRequestExecutor(controller: controller)
+        let result = response(executor, .list)
+        XCTAssertNil(result.code)
+        guard case let .windowMarks(marks)? = result.result?.payload else {
+            return XCTFail("Expected window mark list")
+        }
+        XCTAssertEqual(marks.marks.map(\.name), ["b-live"])
+        XCTAssertEqual(controller.windowMarkRegistry.lookup("a-stale"), .unknown)
+        XCTAssertEqual(controller.windowMarkRegistry.lookup("b-live"), .found(liveToken))
+        XCTAssertEqual(response(executor, .list).result, result.result)
+    }
+
     private func response(
         _ executor: IPCWindowMarkRequestExecutor,
         _ request: IPCWindowMarkRequest

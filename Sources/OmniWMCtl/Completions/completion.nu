@@ -20,6 +20,8 @@ const omniwmctl_catalog = {
     workspaceMoveDirections: #{{workspaceMoveDirections}}
     workspaceMoveOptionalFlags: #{{workspaceMoveOptionalFlags}}
     windowActionNames: #{{windowActionNames}}
+    windowMarkActionNames: #{{windowMarkActionNames}}
+    windowMarkListFlags: #{{windowMarkListFlags}}
     shellNames: #{{shellNames}}
     valueFlags: #{{valueFlags}}
     flagValuesByName: #{{flagValuesByName}}
