@@ -37,7 +37,8 @@ extension DwindleLayoutEngine {
         focusedToken: WindowToken?,
         bootstrapScreen: CGRect? = nil,
         bootstrapBorderSafeFillScreen: CGRect? = nil,
-        bootstrapFullscreenScreen: CGRect? = nil
+        bootstrapFullscreenScreen: CGRect? = nil,
+        stackingTokens: Set<WindowToken> = []
     ) -> Set<WindowToken> {
         assertSanctionedMutation()
         let existingWindows: Set<WindowToken> = existingState(for: workspaceId).map { Set($0.leafByToken.keys) } ?? []
@@ -72,7 +73,12 @@ extension DwindleLayoutEngine {
         var activeFrame = insertionFrame(focusedToken: focusedToken, in: workspaceId)
 
         for token in toAdd {
-            let newNode = addWindow(token: token, to: workspaceId, activeWindowFrame: activeFrame)
+            let newNode = addWindow(
+                token: token,
+                to: workspaceId,
+                activeWindowFrame: activeFrame,
+                joinsSelectedTile: stackingTokens.contains(token)
+            )
             if shouldBootstrapIncrementally, let bootstrapScreen {
                 let frames = calculateLayout(
                     for: workspaceId,

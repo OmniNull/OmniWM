@@ -143,7 +143,8 @@ extension WMController {
             smartSplit: settings.dwindle.smartSplit,
             defaultSplitRatio: settings.dwindle.defaultSplitRatio,
             splitWidthMultiplier: settings.dwindle.splitWidthMultiplier,
-            singleWindowFit: settings.dwindle.singleWindowFit
+            singleWindowFit: settings.dwindle.singleWindowFit,
+            stackIncomingWindows: settings.dwindle.stackIncomingWindows
         )
     }
 }

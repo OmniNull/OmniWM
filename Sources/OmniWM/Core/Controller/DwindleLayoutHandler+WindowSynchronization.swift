@@ -30,7 +30,8 @@ extension DwindleLayoutHandler {
             focusedToken: snapshot.preferredFocusToken,
             bootstrapScreen: snapshot.monitor.workingFrame,
             bootstrapBorderSafeFillScreen: snapshot.monitor.borderSafeFillFrame,
-            bootstrapFullscreenScreen: snapshot.monitor.fullscreenLayoutFrame
+            bootstrapFullscreenScreen: snapshot.monitor.fullscreenLayoutFrame,
+            stackingTokens: claimIncomingStackingTokens(windowTokens, in: snapshot.workspaceId)
         )
 
         for window in snapshot.windows {

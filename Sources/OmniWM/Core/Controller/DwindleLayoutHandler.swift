@@ -19,6 +19,7 @@ import QuartzCore
     weak var controller: WMController?
 
     var dwindleAnimationByDisplay: [CGDirectDisplayID: (WorkspaceDescriptor.ID, Monitor)] = [:]
+    var stackableIncomingWorkspaceByToken: [WindowToken: WorkspaceDescriptor.ID] = [:]
     private(set) var animationSessionByDisplay: [CGDirectDisplayID: AnimationSession] = [:]
     private var staleRelayoutWorkspaceByDisplay: [CGDirectDisplayID: WorkspaceDescriptor.ID] = [:]
 
