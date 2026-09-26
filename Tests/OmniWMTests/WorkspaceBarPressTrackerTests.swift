@@ -147,6 +147,11 @@ final class WorkspaceBarPressTrackerTests: XCTestCase {
 @MainActor
 final class WorkspaceBarIslandInteractionLayoutTests: XCTestCase {
     func testHostedBarRegistersRegionsThatMapBackToTheirScreenLocation() throws {
+        try assertHostedRegions(orientation: .horizontal)
+        try assertHostedRegions(orientation: .vertical)
+    }
+
+    private func assertHostedRegions(orientation: WorkspaceBarOrientation) throws {
         let token = WindowToken(pid: 30, windowId: 1)
         let handle = WindowHandle(id: token)
         let window = WorkspaceBarWindowItem(
@@ -185,7 +190,8 @@ final class WorkspaceBarIslandInteractionLayoutTests: XCTestCase {
             backgroundOpacity: 0.6,
             barHeight: 24,
             accentColor: nil,
-            textColor: nil
+            textColor: nil,
+            orientation: orientation
         )
         let interaction = WorkspaceBarIslandInteraction()
         let panel = WorkspaceBarPanel.defaultPanel()
@@ -211,7 +217,7 @@ final class WorkspaceBarIslandInteractionLayoutTests: XCTestCase {
                 notchMode: .off,
                 notchActiveZoneWidth: 180,
                 systemStatsButton: false,
-                position: .overlappingMenuBar,
+                position: orientation.isVertical ? .left : .overlappingMenuBar,
                 windowLevel: .popup,
                 height: 24,
                 backgroundOpacity: 0.6,
@@ -226,7 +232,10 @@ final class WorkspaceBarIslandInteractionLayoutTests: XCTestCase {
                 textColor: nil
             )
         )
-        let panelFrame = CGRect(x: 200, y: 700, width: 200, height: 28)
+        defer { panel.close() }
+        let panelFrame = orientation.isVertical
+            ? CGRect(x: 200, y: 300, width: 24, height: 200)
+            : CGRect(x: 200, y: 700, width: 200, height: 28)
         panel.setFrame(panelFrame, display: true)
         island.hostingView.layoutSubtreeIfNeeded()
 

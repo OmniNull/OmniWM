@@ -60,20 +60,20 @@ final class WorkspaceBarPreviewPanel: NSPanel {
         cachedPreview: (WindowHandle) -> OverviewPreviewFrame?
     ) {
         refreshAppearance()
-        let size = layoutTiles(
+        guard let size = layoutTiles(
             windows,
             overflowCount: overflowCount,
             showsThumbnails: showsThumbnails,
+            maximumSize: target.attachment.availableSize(in: target.visibleFrame),
             cachedPreview: cachedPreview
-        )
+        ) else {
+            hide()
+            return
+        }
         level = NSWindow.Level(rawValue: target.level.rawValue + 1)
         ignoresMouseEvents = windows.count <= 1
         setFrame(
-            NonactivatingPanel.frame(
-                anchor: CGPoint(x: target.anchor.midX, y: target.anchor.minY - 2),
-                size: size,
-                screenVisibleFrame: target.visibleFrame
-            ),
+            target.attachment.frame(size: size, visibleFrame: target.visibleFrame),
             display: true
         )
         updateTrackingArea()
@@ -94,13 +94,35 @@ final class WorkspaceBarPreviewPanel: NSPanel {
         _ windows: [WorkspaceBarHoverTarget.Window],
         overflowCount: Int,
         showsThumbnails: Bool,
+        maximumSize: CGSize,
         cachedPreview: (WindowHandle) -> OverviewPreviewFrame?
-    ) -> CGSize {
-        effectView.subviews.forEach { $0.removeFromSuperview() }
-        let thumbnailSize = showsThumbnails ? Self.tileSize(forWindowCount: windows.count) : CGSize(
+    ) -> CGSize? {
+        guard !windows.isEmpty, maximumSize.height >= Self.textHeight + Self.padding * 2 else { return nil }
+        let more: NSTextField? = overflowCount > 0
+            ? NSTextField(labelWithString: String(localized: "+\(overflowCount) more")) : nil
+        more?.font = .systemFont(ofSize: 11, weight: .medium)
+        more?.textColor = .secondaryLabelColor
+        more?.lineBreakMode = .byTruncatingTail
+        more?.sizeToFit()
+        if let more {
+            more.frame.size.width = min(more.frame.width, maximumSize.width / 4)
+        }
+        let overflowWidth = more.map { $0.frame.width + Self.padding } ?? 0
+        var thumbnailSize = showsThumbnails ? Self.tileSize(forWindowCount: windows.count) : CGSize(
             width: 200,
             height: 0
         )
+        let thumbnailWidth = min(
+            thumbnailSize.width,
+            (maximumSize.width - Self.padding - overflowWidth) / CGFloat(windows.count) - Self.padding
+        )
+        guard thumbnailWidth > 0 else { return nil }
+        thumbnailSize.height = min(
+            thumbnailSize.height * thumbnailWidth / thumbnailSize.width,
+            maximumSize.height - Self.textHeight - Self.padding * 2
+        )
+        thumbnailSize.width = thumbnailWidth
+        effectView.subviews.forEach { $0.removeFromSuperview() }
         let tileSize = CGSize(width: thumbnailSize.width, height: thumbnailSize.height + Self.textHeight)
         tiles = windows.enumerated().map { index, window in
             let tile = WorkspaceBarPreviewTile(
@@ -118,11 +140,7 @@ final class WorkspaceBarPreviewPanel: NSPanel {
             return tile
         }
         var width = Self.padding + CGFloat(windows.count) * (tileSize.width + Self.padding)
-        if overflowCount > 0 {
-            let more = NSTextField(labelWithString: String(localized: "+\(overflowCount) more"))
-            more.font = .systemFont(ofSize: 11, weight: .medium)
-            more.textColor = .secondaryLabelColor
-            more.sizeToFit()
+        if let more {
             more.frame.origin = CGPoint(x: width, y: Self.padding + (tileSize.height - more.frame.height) / 2)
             effectView.addSubview(more)
             width += more.frame.width + Self.padding

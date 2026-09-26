@@ -5,7 +5,7 @@ import AppKit
 import SwiftUI
 
 struct HiddenBarPanelPlacement: Equatable {
-    let anchor: CGPoint
+    let attachment: PopupAttachment
     let visibleFrame: CGRect
 }
 
@@ -54,21 +54,6 @@ final class HiddenBarPanelController {
                 keyWindow.makeFirstResponder(firstResponder)
             }
         }
-    }
-
-    nonisolated static func panelAnchor(
-        monitor: Monitor,
-        resolved: ResolvedBarSettings,
-        barVisible: Bool
-    ) -> CGPoint {
-        guard barVisible else {
-            return CGPoint(x: monitor.frame.midX, y: monitor.visibleFrame.maxY)
-        }
-        let geometry = WorkspaceBarGeometry.resolve(monitor: monitor, resolved: resolved, isVisible: true)
-        return CGPoint(
-            x: monitor.frame.midX + CGFloat(resolved.xOffset),
-            y: geometry.originY(for: monitor) + CGFloat(resolved.yOffset)
-        )
     }
 
     nonisolated static func glyphDisplayWidth(for size: CGSize, rowHeight: CGFloat) -> CGFloat {
@@ -122,10 +107,6 @@ final class HiddenBarPanelController {
             width: min(maxRowWidth, maxContentWidth) + padding * 2,
             height: rows * rowHeight + (rows - 1) * spacing + padding * 2
         )
-    }
-
-    nonisolated static func panelFrame(anchor: CGPoint, size: CGSize, screenVisibleFrame: CGRect) -> CGRect {
-        NonactivatingPanel.frame(anchor: anchor, size: size, screenVisibleFrame: screenVisibleFrame)
     }
 
     private func show(placement: HiddenBarPanelPlacement, items: [HiddenBarGlyph]) {
@@ -182,7 +163,7 @@ final class HiddenBarPanelController {
             padding: Self.padding
         )
         panel.setFrame(
-            Self.panelFrame(anchor: placement.anchor, size: size, screenVisibleFrame: placement.visibleFrame),
+            placement.attachment.frame(size: size, visibleFrame: placement.visibleFrame),
             display: true
         )
     }

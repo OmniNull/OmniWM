@@ -44,7 +44,7 @@ struct WorkingAreaContext {
     }
 }
 
-struct Struts {
+struct Struts: Equatable {
     var left: CGFloat = 0
     var right: CGFloat = 0
     var top: CGFloat = 0

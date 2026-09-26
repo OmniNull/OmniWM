@@ -33,19 +33,20 @@ extension WorkspaceBarManager {
     }
 
     func hoverTarget(for key: WorkspaceBarHitTarget) -> WorkspaceBarHoverTarget? {
-        guard case let .window(workspaceId, token) = key else { return nil }
+        guard let settings = controller?.settings, case let .window(workspaceId, token) = key else { return nil }
         for instance in barsByMonitor.values {
             guard let window = instance.model.snapshot.windowItem(workspaceId: workspaceId, token: token) else {
                 continue
             }
             for island in [instance.primary] + (instance.secondary.map { [$0] } ?? []) {
-                guard island.panel.attachedSheet == nil,
+                guard island.panel.isVisible, island.panel.attachedSheet == nil,
                       let local = island.interaction.frames[key],
                       let anchor = island.hostingView.workspaceBarScreenRect(forLocalRect: local),
                       let screen = island.panel.screen
                 else {
                     continue
                 }
+                guard island.panel.frame.intersects(anchor) else { continue }
                 return WorkspaceBarHoverTarget(
                     key: key,
                     windows: window.allWindows.map {
@@ -56,7 +57,11 @@ extension WorkspaceBarManager {
                             icon: window.icon
                         )
                     },
-                    anchor: anchor,
+                    attachment: PopupAttachment(
+                        sourceFrame: island.panel.frame,
+                        edge: settings.workspaceBar.resolved(for: instance.monitor).position.popupEdge,
+                        alignment: CGPoint(x: anchor.midX, y: anchor.midY)
+                    ),
                     visibleFrame: screen.visibleFrame,
                     level: island.panel.level
                 )

@@ -13,8 +13,8 @@ final class WorkspaceBarInstance {
     var primary: WorkspaceBarIslandPanel
     var secondary: WorkspaceBarIslandPanel?
     var monitor: Monitor
-    private var measuredWidths: [WorkspaceBarMeasurementKey: CGFloat] = [:]
-    var statsAnchor: CGPoint?
+    private var measuredLengths: [WorkspaceBarMeasurementKey: CGFloat] = [:]
+    weak var statsAnchorView: NSView?
     var screenDisplayId: CGDirectDisplayID?
     private var uncompactedSnapshot: WorkspaceBarSnapshot?
     private var scratchpadCompactionContext: ScratchpadCompactionContext?
@@ -67,13 +67,13 @@ final class WorkspaceBarInstance {
         let activeShowsSystemStatsButton = snapshot.showSystemStatsButton && !hasSecondaryContent
         let secondaryShowsSystemStatsButton = snapshot.showSystemStatsButton && hasSecondaryContent
         guard let layout = geometry.splitFrame(
-            activeWidth: measuredWidth(
+            activeWidth: measuredLength(
                 for: snapshot,
                 slice: .active,
                 showsSystemStatsButton: activeShowsSystemStatsButton
             ),
             secondaryWidth: hasSecondaryContent
-                ? measuredWidth(
+                ? measuredLength(
                     for: snapshot,
                     slice: .secondary,
                     showsSystemStatsButton: secondaryShowsSystemStatsButton
@@ -91,7 +91,7 @@ final class WorkspaceBarInstance {
         )
     }
 
-    func measuredWidth(
+    func measuredLength(
         for snapshot: WorkspaceBarSnapshot,
         slice: WorkspaceBarIslandSlice,
         showsSystemStatsButton: Bool
@@ -100,16 +100,16 @@ final class WorkspaceBarInstance {
             slice: slice,
             showsSystemStatsButton: showsSystemStatsButton
         )
-        if let cached = measuredWidths[key] {
+        if let cached = measuredLengths[key] {
             return cached
         }
-        let width = uncachedMeasuredWidth(
+        let length = uncachedMeasuredLength(
             for: snapshot,
             slice: slice,
             showsSystemStatsButton: showsSystemStatsButton
         )
-        measuredWidths[key] = width
-        return width
+        measuredLengths[key] = length
+        return length
     }
 
     func scratchpadCompactedSnapshot(
@@ -117,7 +117,7 @@ final class WorkspaceBarInstance {
         monitor: Monitor,
         resolved: ResolvedBarSettings
     ) -> WorkspaceBarSnapshot {
-        guard !snapshot.scratchpads.isEmpty else {
+        guard !snapshot.scratchpads.isEmpty, !snapshot.orientation.isVertical else {
             uncompactedSnapshot = snapshot
             scratchpadCompactionContext = nil
             compactedScratchpads = nil
@@ -133,7 +133,7 @@ final class WorkspaceBarInstance {
         let availableWidth = if usesSplitLayout {
             splitAvailableWidths?.secondary ?? monitor.frame.width
         } else if resolved.notchMode == .fillLeftOfNotch {
-            geometry.frame(fittingWidth: 0, monitor: monitor, resolved: resolved).width
+            geometry.frame(fittingLength: 0, monitor: monitor, resolved: resolved).width
         } else {
             monitor.frame.width
         }
@@ -151,7 +151,7 @@ final class WorkspaceBarInstance {
         scratchpadCompactionContext = context
         let showsSystemStatsButton = snapshot.showSystemStatsButton
         let baseSnapshot = snapshot.replacingScratchpads([])
-        let baseWidth = uncachedMeasuredWidth(
+        let baseWidth = uncachedMeasuredLength(
             for: baseSnapshot,
             slice: slice,
             showsSystemStatsButton: showsSystemStatsButton
@@ -168,7 +168,7 @@ final class WorkspaceBarInstance {
         return snapshot.replacingScratchpads(scratchpads)
     }
 
-    private func uncachedMeasuredWidth(
+    private func uncachedMeasuredLength(
         for snapshot: WorkspaceBarSnapshot,
         slice: WorkspaceBarIslandSlice,
         showsSystemStatsButton: Bool
@@ -179,7 +179,7 @@ final class WorkspaceBarInstance {
             showsSystemStatsButton: showsSystemStatsButton
         )
         measurementView.layoutSubtreeIfNeeded()
-        return measurementView.fittingSize.width
+        return snapshot.orientation.isVertical ? measurementView.fittingSize.height : measurementView.fittingSize.width
     }
 
     func applyCurrentAppearance() {
@@ -194,7 +194,7 @@ final class WorkspaceBarInstance {
     func updateSnapshot(_ snapshot: WorkspaceBarSnapshot) {
         if model.snapshot != snapshot {
             model.snapshot = snapshot
-            measuredWidths = [:]
+            measuredLengths = [:]
         }
         if let presented = model.presentedWindowList,
            !snapshot.items.contains(where: { item in
@@ -219,7 +219,8 @@ final class WorkspaceBarInstance {
             showAccentHighlights: current.showAccentHighlights,
             barHeight: current.barHeight,
             accentColor: resolved.accentColor,
-            textColor: resolved.textColor
+            textColor: resolved.textColor,
+            orientation: current.orientation
         )
 
         if snapshot != current {

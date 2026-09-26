@@ -117,7 +117,7 @@ final class StatusBarController: NSObject {
     }
 
     private func showMenu(from anchor: NSView) {
-        menuHost?.toggle(from: anchor)
+        menuHost?.toggle(from: anchor, edge: controller?.statusMenuEdge(from: anchor) ?? .below)
     }
 
     func handleTraceCaptureStateChange() {

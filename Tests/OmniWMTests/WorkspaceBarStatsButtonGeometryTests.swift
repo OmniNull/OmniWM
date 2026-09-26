@@ -6,12 +6,12 @@ import CoreGraphics
 import XCTest
 
 final class WorkspaceBarStatsButtonGeometryTests: XCTestCase {
-    func testStatsButtonAnchorUsesBottomCenterOfInlineButton() {
+    func testStatsButtonAnchorUsesCenterForEitherOrientation() {
         let buttonFrame = CGRect(x: 628, y: 950, width: 22, height: 20)
 
         let anchor = WorkspaceBarGeometry.statsButtonAnchor(buttonFrame: buttonFrame)
 
-        XCTAssertEqual(anchor, CGPoint(x: 639, y: 950))
+        XCTAssertEqual(anchor, CGPoint(x: 639, y: 960))
     }
 
     func testStatsButtonAnchorTracksMovedInlineButton() {
@@ -23,6 +23,6 @@ final class WorkspaceBarStatsButtonGeometryTests: XCTestCase {
         )
 
         XCTAssertEqual(moved.x - first.x, 72)
-        XCTAssertEqual(moved.y, 926)
+        XCTAssertEqual(moved.y, 936)
     }
 }

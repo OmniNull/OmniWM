@@ -20667,6 +20667,7 @@
       }
     },
     "Bar Height" : {
+      "extractionState" : "stale",
       "localizations" : {
         "ja" : {
           "stringUnit" : {
@@ -20790,6 +20791,7 @@
         }
       }
     },
+    "Bar Thickness" : {},
     "Basics" : {
       "localizations" : {
         "ja" : {
@@ -78246,6 +78248,7 @@
       }
     },
     "Move below the notch, split around it, or fill the area to its left, covering application menus. Without a notch, Fill Left covers the left half of the menu bar." : {
+      "extractionState" : "stale",
       "localizations" : {
         "ja" : {
           "stringUnit" : {
@@ -78369,6 +78372,7 @@
         }
       }
     },
+    "Move below the notch, split around it, or fill the area to its left, covering application menus. Without a notch, Fill Left covers the left half of the menu bar. Notch modes are ignored at Bottom, Left, and Right." : {},
     "Move or close all windows in this workspace before deleting it" : {
       "localizations" : {
         "ja" : {
@@ -109289,7 +109293,9 @@
         }
       }
     },
+    "Reserve tiled layout space at the selected edge using the configured bar thickness." : {},
     "Reserve tiled layout space using the configured workspace bar height." : {
+      "extractionState" : "stale",
       "localizations" : {
         "ja" : {
           "stringUnit" : {

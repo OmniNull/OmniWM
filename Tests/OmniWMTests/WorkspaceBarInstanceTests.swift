@@ -28,17 +28,17 @@ final class WorkspaceBarInstanceTests: XCTestCase {
         let snapshot = instance.model.snapshot
         defer { instance.primary.panel.close() }
 
-        XCTAssertEqual(instance.measuredWidth(for: snapshot, slice: .all, showsSystemStatsButton: false), 120)
+        XCTAssertEqual(instance.measuredLength(for: snapshot, slice: .all, showsSystemStatsButton: false), 120)
         XCTAssertEqual(fixture.measurementView.measurementCount, 1)
         instance.updateSnapshot(snapshot)
-        XCTAssertEqual(instance.measuredWidth(for: snapshot, slice: .all, showsSystemStatsButton: false), 120)
+        XCTAssertEqual(instance.measuredLength(for: snapshot, slice: .all, showsSystemStatsButton: false), 120)
         XCTAssertEqual(fixture.measurementView.measurementCount, 1)
 
         let changed = snapshot.replacingScratchpads([
             WorkspaceBarScratchpadItem(index: 1, label: "Terminal", windows: [], isVisible: false)
         ])
         instance.updateSnapshot(changed)
-        XCTAssertEqual(instance.measuredWidth(for: changed, slice: .all, showsSystemStatsButton: false), 120)
+        XCTAssertEqual(instance.measuredLength(for: changed, slice: .all, showsSystemStatsButton: false), 120)
         XCTAssertEqual(fixture.measurementView.measurementCount, 2)
         XCTAssertEqual(instance.model.snapshot, changed)
     }
@@ -119,7 +119,7 @@ final class WorkspaceBarInstanceTests: XCTestCase {
             WorkspaceBarScratchpadItem(index: $0, label: "Scratchpad number \($0)", windows: [], isVisible: false)
         })
         let frame = WorkspaceBarGeometry.resolve(monitor: monitor, resolved: resolved, isVisible: true)
-            .frame(fittingWidth: 0, monitor: monitor, resolved: resolved)
+            .frame(fittingLength: 0, monitor: monitor, resolved: resolved)
         let expandedWidth = 120 + WorkspaceBarScratchpadLayout.estimatedWidth(
             of: snapshot.scratchpads,
             barHeight: snapshot.barHeight

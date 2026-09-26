@@ -39,6 +39,27 @@ enum WorkspaceBarWindowLevel: String, CaseIterable, Codable, Identifiable {
 enum WorkspaceBarPosition: String, CaseIterable, Codable, Identifiable {
     case overlappingMenuBar
     case belowMenuBar
+    case bottom
+    case left
+    case right
+
+    var isVertical: Bool {
+        self == .left || self == .right
+    }
+
+    var usesNotch: Bool {
+        self == .overlappingMenuBar || self == .belowMenuBar
+    }
+
+    var popupEdge: PopupAttachment.Edge {
+        switch self {
+        case .overlappingMenuBar,
+             .belowMenuBar: .below
+        case .bottom: .above
+        case .left: .right
+        case .right: .left
+        }
+    }
 
     var id: String {
         rawValue
@@ -48,6 +69,9 @@ enum WorkspaceBarPosition: String, CaseIterable, Codable, Identifiable {
         switch self {
         case .overlappingMenuBar: String(localized: "Overlapping Menu Bar")
         case .belowMenuBar: String(localized: "Below Menu Bar")
+        case .bottom: String(localized: "Bottom")
+        case .left: String(localized: "Left")
+        case .right: String(localized: "Right")
         }
     }
 }
@@ -254,7 +278,7 @@ final class WorkspaceBarManager {
                 self?.controller?.toggleSystemStatsFromBar(on: monitorId)
             },
             onSystemStatsAnchorChange: { [weak self] anchor in
-                self?.barsByMonitor[monitorId]?.statsAnchor = anchor
+                self?.barsByMonitor[monitorId]?.statsAnchorView = anchor
             },
             interaction: interaction,
             dragPresentation: dragController.presentation
@@ -308,16 +332,16 @@ final class WorkspaceBarManager {
                 monitorId: instance.monitorId
             )
             removeSecondaryPanel(from: instance)
-            let width = instance.measuredWidth(
+            let length = instance.measuredLength(
                 for: snapshot,
                 slice: .all,
                 showsSystemStatsButton: snapshot.showSystemStatsButton
             )
-            let frame = geometry.frame(fittingWidth: width, monitor: monitor, resolved: resolved)
+            let frame = geometry.frame(fittingLength: length, monitor: monitor, resolved: resolved)
             instance.primary.applyFrame(frame, using: frameApplier)
         }
         if !snapshot.showSystemStatsButton {
-            instance.statsAnchor = nil
+            instance.statsAnchorView = nil
             controller?.dismissSystemStatsPopup(anchoredTo: instance.monitorId)
         }
     }
@@ -348,11 +372,13 @@ final class WorkspaceBarManager {
 
 extension WorkspaceBarManager {
     func statsAnchor(on monitorId: Monitor.ID) -> CGPoint? {
-        barsByMonitor[monitorId]?.statsAnchor
+        guard let view = barsByMonitor[monitorId]?.statsAnchorView, let window = view.window else { return nil }
+        let frame = window.convertToScreen(view.convert(view.bounds, to: nil))
+        return WorkspaceBarGeometry.statsButtonAnchor(buttonFrame: frame)
     }
 
     func primaryBarFrame(on monitorId: Monitor.ID) -> CGRect? {
-        barsByMonitor[monitorId]?.primary.lastAppliedFrame
+        barsByMonitor[monitorId]?.primary.panel.frame
     }
 
     func isWorkspaceBarWindow(_ window: NSWindow) -> Bool {
@@ -456,5 +482,18 @@ extension WorkspaceBarManager {
         } else {
             removeSecondaryPanel(from: instance)
         }
+    }
+}
+
+extension WorkspaceBarManager {
+    func popupAttachment(on monitorId: Monitor.ID, forStats: Bool = false) -> PopupAttachment? {
+        guard let instance = barsByMonitor[monitorId], let settings,
+              let window = forStats ? instance.statsAnchorView?.window : instance.primary.panel
+        else { return nil }
+        let edge = settings.workspaceBar.resolved(for: instance.monitor).position.popupEdge
+        return PopupAttachment(
+            sourceFrame: window.frame, edge: edge,
+            alignment: forStats ? statsAnchor(on: monitorId) : nil
+        )
     }
 }

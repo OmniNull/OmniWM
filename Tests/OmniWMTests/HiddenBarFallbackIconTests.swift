@@ -39,6 +39,26 @@ final class HiddenBarFallbackIconTests: XCTestCase {
         XCTAssertEqual(frame.minY, 851)
     }
 
+    func testBottomFallbackStaysBesideShortBarsAndAboveWideBars() {
+        let bounds = CGRect(x: -800, y: -600, width: 800, height: 600)
+        let visible = CGRect(x: -752, y: -560, width: 752, height: 532)
+        let screen = monitor(frame: bounds, visibleFrame: visible)
+        for width: CGFloat in [300, visible.width, 1000] {
+            let bar = CGRect(x: visible.midX - width / 2, y: visible.minY, width: width, height: 32)
+            let icon = HiddenBarFallbackIconController.iconFrame(
+                monitor: screen, barVisible: true, barFrame: bar, position: .bottom
+            )
+            XCTAssertTrue(visible.contains(icon))
+            XCTAssertFalse(icon.intersects(bar))
+            if width == 300 {
+                XCTAssertEqual(icon.maxX + HiddenBarFallbackIconController.gap, bar.minX)
+                XCTAssertEqual(icon.minY, bar.minY)
+            } else {
+                XCTAssertEqual(icon.minY, bar.maxY + HiddenBarFallbackIconController.gap)
+            }
+        }
+    }
+
     func testIconFrameFallsBackBelowMenuBarWhenBarHidden() {
         let frame = HiddenBarFallbackIconController.iconFrame(
             monitor: monitor(),

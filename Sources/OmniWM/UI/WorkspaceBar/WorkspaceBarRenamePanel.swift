@@ -26,7 +26,7 @@ final class WorkspaceBarRenamePanel {
     func show(
         currentName: String,
         placeholder: String,
-        anchor: CGRect,
+        attachment: PopupAttachment,
         visibleFrame: CGRect,
         onCommit: @escaping (String) -> Void
     ) {
@@ -45,11 +45,7 @@ final class WorkspaceBarRenamePanel {
             )
         )
         panel.setFrame(
-            NonactivatingPanel.frame(
-                anchor: CGPoint(x: anchor.midX, y: anchor.minY),
-                size: Self.contentSize,
-                screenVisibleFrame: visibleFrame
-            ),
+            attachment.frame(size: Self.contentSize, visibleFrame: visibleFrame),
             display: true
         )
         isVisible = true

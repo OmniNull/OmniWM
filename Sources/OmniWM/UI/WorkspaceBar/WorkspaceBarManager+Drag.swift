@@ -65,6 +65,7 @@ extension WorkspaceBarManager {
                 workspaces += dropWorkspaces(
                     in: island,
                     items: island.slice.items(in: instance.model.snapshot),
+                    orientation: instance.model.snapshot.orientation,
                     controller: controller
                 )
             }
@@ -75,8 +76,10 @@ extension WorkspaceBarManager {
     private func dropWorkspaces(
         in island: WorkspaceBarIslandPanel,
         items: [WorkspaceBarItem],
+        orientation: WorkspaceBarOrientation,
         controller: WMController
     ) -> [WorkspaceBarDropGeometry.Workspace] {
+        guard island.panel.isVisible else { return [] }
         let interaction = island.interaction
         let panelFrame = island.panel.frame
         return items.compactMap { item in
@@ -105,13 +108,14 @@ extension WorkspaceBarManager {
                 name: item.name,
                 layout: layout.layout,
                 hitFrame: CGRect(
-                    x: frame.minX - 4,
-                    y: panelFrame.minY,
-                    width: frame.width + 8,
-                    height: panelFrame.height
-                ),
+                    x: orientation.isVertical ? panelFrame.minX : frame.minX - 4,
+                    y: orientation.isVertical ? frame.minY - 4 : panelFrame.minY,
+                    width: orientation.isVertical ? panelFrame.width : frame.width + 8,
+                    height: orientation.isVertical ? frame.height + 8 : panelFrame.height
+                ).intersection(panelFrame),
                 icons: icons,
-                columnCount: layout.columnCount
+                columnCount: layout.columnCount,
+                orientation: orientation
             )
         }
     }

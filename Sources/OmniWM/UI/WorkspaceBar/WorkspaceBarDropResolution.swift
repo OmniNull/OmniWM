@@ -31,6 +31,7 @@ struct WorkspaceBarDropGeometry: Equatable {
         let hitFrame: CGRect
         let icons: [Icon]
         let columnCount: Int
+        var orientation: WorkspaceBarOrientation = .horizontal
     }
 
     let workspaces: [Workspace]
@@ -104,7 +105,7 @@ enum WorkspaceBarDropResolver {
             return resolveDwindleSwap(token: token, at: point, in: workspace)
         case .niri:
             guard let sourcePlacement = workspace.icons.first(where: { $0.tokens == [token] })?.placement,
-                  let zone = zone(at: point, in: workspace.icons)
+                  let zone = zone(at: point, in: workspace.icons, orientation: workspace.orientation)
             else {
                 return noOp
             }
@@ -123,14 +124,15 @@ enum WorkspaceBarDropResolver {
         in workspace: WorkspaceBarDropGeometry.Workspace
     ) -> WorkspaceBarDropResolution? {
         let positional = workspace.icons.filter { $0.placement != nil }
+        let coordinate = workspace.orientation.coordinate(of: point)
         guard !source.isFloating,
               source.tokens.count == 1,
               workspace.layout == .niri,
               let first = positional.first,
               let last = positional.last,
-              point.x >= first.frame.minX - 4,
-              point.x <= last.frame.maxX + 4,
-              let zone = zone(at: point, in: workspace.icons)
+              coordinate >= workspace.orientation.range(of: first.frame).lowerBound - 4,
+              coordinate <= workspace.orientation.range(of: last.frame).upperBound + 4,
+              let zone = zone(at: point, in: workspace.icons, orientation: workspace.orientation)
         else {
             return nil
         }
@@ -210,18 +212,23 @@ enum WorkspaceBarDropResolver {
         }
     }
 
-    private static func zone(at point: CGPoint, in icons: [WorkspaceBarDropGeometry.Icon]) -> Zone? {
+    private static func zone(
+        at point: CGPoint,
+        in icons: [WorkspaceBarDropGeometry.Icon],
+        orientation: WorkspaceBarOrientation
+    ) -> Zone? {
         let positional = icons.indices.filter { icons[$0].placement != nil }
         guard let last = positional.last else { return nil }
+        let coordinate = orientation.coordinate(of: point)
         var previous: Int?
         for index in positional {
-            let frame = icons[index].frame
-            let band = min(6, frame.width / 4)
-            if point.x < frame.minX + band {
+            let range = orientation.range(of: icons[index].frame)
+            let band = min(6, (range.upperBound - range.lowerBound) / 4)
+            if coordinate < range.lowerBound + band {
                 return boundary(before: index, previous: previous, icons: icons)
             }
-            if point.x <= frame.maxX - band {
-                return .icon(index, point.x < frame.midX ? .before : .after)
+            if coordinate <= range.upperBound - band {
+                return .icon(index, coordinate < (range.lowerBound + range.upperBound) / 2 ? .before : .after)
             }
             previous = index
         }

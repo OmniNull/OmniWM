@@ -69,7 +69,7 @@ final class WorkspaceBarFillLeftGeometryTests: XCTestCase {
         let resolved = makeResolved(notchMode: .fillLeftOfNotch)
         let geometry = WorkspaceBarGeometry.resolve(monitor: monitor, resolved: resolved, isVisible: true)
 
-        let frame = geometry.frame(fittingWidth: 200, monitor: monitor, resolved: resolved)
+        let frame = geometry.frame(fittingLength: 200, monitor: monitor, resolved: resolved)
 
         let expectedNotchStart = monitor.notchRange?.lowerBound ?? monitor.frame.midX
         let expectedMaxX = expectedNotchStart - WorkspaceBarGeometry.notchGap
@@ -87,7 +87,7 @@ final class WorkspaceBarFillLeftGeometryTests: XCTestCase {
         let resolved = makeResolved(notchMode: .fillLeftOfNotch)
         let geometry = WorkspaceBarGeometry.resolve(monitor: monitor, resolved: resolved, isVisible: true)
 
-        let frame = geometry.frame(fittingWidth: 200, monitor: monitor, resolved: resolved)
+        let frame = geometry.frame(fittingLength: 200, monitor: monitor, resolved: resolved)
 
         XCTAssertEqual(frame.minX, monitor.frame.minX)
         XCTAssertEqual(frame.maxX, monitor.frame.midX - WorkspaceBarGeometry.notchGap)
@@ -95,7 +95,7 @@ final class WorkspaceBarFillLeftGeometryTests: XCTestCase {
         XCTAssertEqual(frame.minY, monitor.frame.maxY - geometry.menuBarHeight)
         XCTAssertEqual(geometry.effectivePosition, .overlappingMenuBar)
         XCTAssertEqual(geometry.barHeight, geometry.menuBarHeight)
-        XCTAssertEqual(geometry.reservedTopInset, 0)
+        XCTAssertEqual(geometry.reservedInsets, .zero)
     }
 
     func testFillLeftOfNotchFrameWithTranslatedMonitor() throws {
@@ -108,7 +108,7 @@ final class WorkspaceBarFillLeftGeometryTests: XCTestCase {
         let resolved = makeResolved(notchMode: .fillLeftOfNotch)
         let geometry = WorkspaceBarGeometry.resolve(monitor: monitor, resolved: resolved, isVisible: true)
 
-        let frame = geometry.frame(fittingWidth: 200, monitor: monitor, resolved: resolved)
+        let frame = geometry.frame(fittingLength: 200, monitor: monitor, resolved: resolved)
 
         let expectedNotchStart = monitor.notchRange?.lowerBound ?? monitor.frame.midX
         let expectedMaxX = expectedNotchStart - WorkspaceBarGeometry.notchGap
@@ -133,7 +133,7 @@ final class WorkspaceBarFillLeftGeometryTests: XCTestCase {
         )
         let geometry = WorkspaceBarGeometry.resolve(monitor: monitor, resolved: resolved, isVisible: true)
 
-        let frame = geometry.frame(fittingWidth: 200, monitor: monitor, resolved: resolved)
+        let frame = geometry.frame(fittingLength: 200, monitor: monitor, resolved: resolved)
 
         let expectedNotchStart = monitor.notchRange?.lowerBound ?? monitor.frame.midX
         let expectedMaxX = expectedNotchStart - WorkspaceBarGeometry.notchGap
@@ -147,7 +147,7 @@ final class WorkspaceBarFillLeftGeometryTests: XCTestCase {
         XCTAssertEqual(geometry.menuBarHeight, 32)
         XCTAssertEqual(geometry.barHeight, geometry.menuBarHeight)
         XCTAssertEqual(geometry.effectivePosition, .overlappingMenuBar)
-        XCTAssertEqual(geometry.reservedTopInset, 0)
+        XCTAssertEqual(geometry.reservedInsets, .zero)
     }
 
     func testFillLeftOfNotchWithSplitModeIgnored() throws {
@@ -155,7 +155,7 @@ final class WorkspaceBarFillLeftGeometryTests: XCTestCase {
         let resolved = makeResolved(notchMode: .splitActiveLeft)
         let geometry = WorkspaceBarGeometry.resolve(monitor: monitor, resolved: resolved, isVisible: true)
 
-        let frame = geometry.frame(fittingWidth: 200, monitor: monitor, resolved: resolved)
+        let frame = geometry.frame(fittingLength: 200, monitor: monitor, resolved: resolved)
 
         XCTAssertEqual(frame.width, 200)
         XCTAssertEqual(frame.minX, monitor.frame.midX - 100)

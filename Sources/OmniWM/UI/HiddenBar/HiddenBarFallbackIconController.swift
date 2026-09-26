@@ -67,10 +67,30 @@ final class HiddenBarFallbackIconController {
     nonisolated static func iconFrame(
         monitor: Monitor,
         barVisible: Bool,
-        barFrame: CGRect?
+        barFrame: CGRect?,
+        position: WorkspaceBarPosition = .overlappingMenuBar
     ) -> CGRect {
         if barVisible, let barFrame {
+            if position.isVertical {
+                let side = barFrame.width
+                if barFrame.minY - gap - side >= monitor.visibleFrame.minY {
+                    return CGRect(x: barFrame.minX, y: barFrame.minY - gap - side, width: side, height: side)
+                }
+                if barFrame.maxY + gap + side <= monitor.visibleFrame.maxY {
+                    return CGRect(x: barFrame.minX, y: barFrame.maxY + gap, width: side, height: side)
+                }
+                let x = position == .left ? barFrame.maxX + gap : barFrame.minX - gap - side
+                return CGRect(x: x, y: monitor.visibleFrame.minY, width: side, height: side)
+            }
             let side = barFrame.height
+            if position == .bottom {
+                let x = min(
+                    max(barFrame.minX - gap - side, monitor.visibleFrame.minX + 8),
+                    monitor.visibleFrame.maxX - side - 8
+                )
+                let y = x + side + gap <= barFrame.minX ? barFrame.minY : barFrame.maxY + gap
+                return CGRect(x: x, y: y, width: side, height: side)
+            }
             let x = max(barFrame.minX - gap - side, monitor.frame.minX + 8)
             return CGRect(x: x, y: barFrame.minY, width: side, height: side)
         }

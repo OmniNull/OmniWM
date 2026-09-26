@@ -38,7 +38,7 @@ final class StatusMenuHost {
     private let dismissalMonitor = PanelDismissalMonitor()
     private var root: HostedPanel?
     private var submenu: HostedPanel?
-    private var placement: (anchor: CGPoint, visibleFrame: CGRect)?
+    private var placement: (attachment: PopupAttachment, visibleFrame: CGRect)?
     private var rowFrames: [StatusMenuPage: CGRect] = [:]
     private var hoverTask: Task<Void, Never>?
     private var hoverCandidate: StatusMenuPage?
@@ -62,19 +62,22 @@ final class StatusMenuHost {
         focusPolicyEngine = controller.focusPolicyEngine
     }
 
-    func toggle(from anchor: NSView) {
+    func toggle(from anchor: NSView, edge: PopupAttachment.Edge = .below) {
         if isVisible {
             dismiss()
             return
         }
         guard let window = anchor.window, let screen = window.screen else { return }
         let anchorFrame = window.convertToScreen(anchor.convert(anchor.bounds, to: nil))
-        show(anchor: CGPoint(x: anchorFrame.midX, y: anchorFrame.minY), visibleFrame: screen.visibleFrame)
+        show(
+            attachment: PopupAttachment(sourceFrame: anchorFrame, edge: edge),
+            visibleFrame: screen.visibleFrame
+        )
     }
 
-    func show(anchor: CGPoint, visibleFrame: CGRect) {
+    func show(attachment: PopupAttachment, visibleFrame: CGRect) {
         guard !isVisible else { return }
-        placement = (anchor, visibleFrame)
+        placement = (attachment, visibleFrame)
         presentation.expandedPage = nil
         presentation.rootFocusRequest = nil
         model.menuWillOpen()
@@ -270,14 +273,14 @@ final class StatusMenuHost {
         if hosted.view.frame.size != contentSize {
             hosted.view.setFrameSize(contentSize)
         }
-        let panelSize = StatusMenuGeometry.panelSize(contentSize: contentSize, visibleFrame: placement.visibleFrame)
+        var panelSize = StatusMenuGeometry.panelSize(contentSize: contentSize, visibleFrame: placement.visibleFrame)
+        if page == .root, placement.attachment.edge == .above {
+            let availableHeight = placement.visibleFrame.maxY - placement.attachment.anchor.y - 4
+            panelSize.height = min(panelSize.height, max(1, availableHeight))
+        }
         let frame: CGRect
         if page == .root {
-            frame = NonactivatingPanel.frame(
-                anchor: placement.anchor,
-                size: panelSize,
-                screenVisibleFrame: placement.visibleFrame
-            )
+            frame = placement.attachment.frame(size: panelSize, visibleFrame: placement.visibleFrame)
         } else {
             guard var rowFrame = rowFrames[page] else { return }
             if !root.view.isFlipped {

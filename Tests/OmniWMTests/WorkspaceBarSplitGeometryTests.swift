@@ -216,13 +216,13 @@ final class WorkspaceBarSplitGeometryTests: XCTestCase {
         let resolved = makeResolved(notchMode: .off)
         let geometry = WorkspaceBarGeometry.resolve(monitor: monitor, resolved: resolved, isVisible: true)
 
-        for fittingWidth: CGFloat in [40, 60, 221, 288, 355, 700] {
-            let frame = geometry.frame(fittingWidth: fittingWidth, monitor: monitor, resolved: resolved)
-            XCTAssertEqual(frame.width, fittingWidth, accuracy: 0.01, "fitting \(fittingWidth)")
-            XCTAssertEqual(frame.midX, monitor.frame.midX, accuracy: 0.01, "fitting \(fittingWidth)")
+        for fittingLength: CGFloat in [40, 60, 221, 288, 355, 700] {
+            let frame = geometry.frame(fittingLength: fittingLength, monitor: monitor, resolved: resolved)
+            XCTAssertEqual(frame.width, fittingLength, accuracy: 0.01, "fitting \(fittingLength)")
+            XCTAssertEqual(frame.midX, monitor.frame.midX, accuracy: 0.01, "fitting \(fittingLength)")
         }
 
-        let degenerate = geometry.frame(fittingWidth: 4, monitor: monitor, resolved: resolved)
+        let degenerate = geometry.frame(fittingLength: 4, monitor: monitor, resolved: resolved)
         XCTAssertEqual(degenerate.width, WorkspaceBarGeometry.minimumIslandWidth)
         XCTAssertEqual(degenerate.midX, monitor.frame.midX, accuracy: 0.01)
     }
