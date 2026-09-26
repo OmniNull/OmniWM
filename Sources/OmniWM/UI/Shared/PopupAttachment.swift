@@ -26,6 +26,18 @@ struct PopupAttachment: Equatable {
         }
     }
 
+    func availableSize(in visibleFrame: CGRect) -> CGSize {
+        let bounds = visibleFrame.insetBy(dx: 8, dy: 8)
+        var size = bounds.size
+        switch edge {
+        case .above: size.height = min(size.height, bounds.maxY - anchor.y - 4)
+        case .below: size.height = min(size.height, anchor.y - 4 - bounds.minY)
+        case .left: size.width = min(size.width, anchor.x - 4 - bounds.minX)
+        case .right: size.width = min(size.width, bounds.maxX - anchor.x - 4)
+        }
+        return CGSize(width: max(0, size.width), height: max(0, size.height))
+    }
+
     func frame(size: CGSize, visibleFrame: CGRect) -> CGRect {
         let origin: CGPoint = switch edge {
         case .above: CGPoint(x: anchor.x - size.width / 2, y: anchor.y + 4)

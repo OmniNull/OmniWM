@@ -240,6 +240,42 @@ final class WorkspaceBarHoverPreviewTests: XCTestCase {
         }
     }
 
+    func testGroupedPreviewsFitNarrowDisplaysWithoutCoveringSideBars() {
+        let panel = WorkspaceBarPreviewPanel(ownedWindowRegistry: OwnedWindowRegistry())
+        defer { panel.hide() }
+        let base = target([11, 12, 13, 14])
+        for width: CGFloat in [640, 320] {
+            let visible = CGRect(x: -800, y: -500, width: width, height: 180)
+            for position in [WorkspaceBarPosition.left, .right] {
+                let bar = CGRect(
+                    x: position == .left ? visible.minX : visible.maxX - 32,
+                    y: visible.minY, width: 32, height: visible.height
+                )
+                let hovered = WorkspaceBarHoverTarget(
+                    key: base.key, windows: base.windows,
+                    attachment: PopupAttachment(sourceFrame: bar, edge: position.popupEdge),
+                    visibleFrame: visible, level: base.level
+                )
+                for thumbnails in [true, false] {
+                    for overflow in [0, 17] {
+                        panel.show(
+                            hovered, windows: hovered.windows, overflowCount: overflow,
+                            showsThumbnails: thumbnails, cachedPreview: { _ in nil }
+                        )
+                        XCTAssertTrue(visible.contains(panel.frame))
+                        XCTAssertFalse(panel.frame.intersects(bar))
+                        let content = panel.contentView!
+                        XCTAssertEqual(content.subviews.count, 4 + (overflow > 0 ? 1 : 0))
+                        for tile in content.subviews {
+                            XCTAssertTrue(content.bounds.contains(tile.frame))
+                            XCTAssertGreaterThan(tile.frame.width, 0)
+                        }
+                    }
+                }
+            }
+        }
+    }
+
     func testPanelIsClickableOnlyForGroupedPreviews() throws {
         let registry = OwnedWindowRegistry()
         let panel = WorkspaceBarPreviewPanel(ownedWindowRegistry: registry)
