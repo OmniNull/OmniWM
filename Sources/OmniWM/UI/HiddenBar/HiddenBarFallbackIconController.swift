@@ -83,6 +83,14 @@ final class HiddenBarFallbackIconController {
                 return CGRect(x: x, y: monitor.visibleFrame.minY, width: side, height: side)
             }
             let side = barFrame.height
+            if position == .bottom {
+                let x = min(
+                    max(barFrame.minX - gap - side, monitor.visibleFrame.minX + 8),
+                    monitor.visibleFrame.maxX - side - 8
+                )
+                let y = x + side + gap <= barFrame.minX ? barFrame.minY : barFrame.maxY + gap
+                return CGRect(x: x, y: y, width: side, height: side)
+            }
             let x = max(barFrame.minX - gap - side, monitor.frame.minX + 8)
             return CGRect(x: x, y: barFrame.minY, width: side, height: side)
         }
