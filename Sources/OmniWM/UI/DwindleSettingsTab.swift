@@ -59,6 +59,12 @@ private struct GlobalDwindleSettingsSection: View {
             Toggle("Move to Root: Stable", isOn: Bindable(settings.dwindle).moveToRootStable)
             SettingsCaption(localized: "Keep window on same screen side when moving to root")
 
+            Toggle("Stack Incoming Windows", isOn: Bindable(settings.dwindle).stackIncomingWindows)
+                .onChange(of: settings.dwindle.stackIncomingWindows) { _, newValue in
+                    controller.updateDwindleConfig(stackIncomingWindows: newValue)
+                }
+            SettingsCaption(localized: "New and moved windows join the focused tile's stack instead of splitting it")
+
             SettingsSliderRow(
                 label: String(localized: "Default Split Ratio"),
                 value: Bindable(settings.dwindle).defaultSplitRatio,
@@ -138,6 +144,14 @@ private struct MonitorDwindleSettingsSection: View {
                 onReset: { updateSetting { $0.smartSplit = nil } }
             )
             SettingsCaption(localized: "Automatically choose split direction based on cursor position")
+
+            OverridableToggle(
+                label: String(localized: "Stack Incoming Windows"),
+                value: ms.stackIncomingWindows,
+                globalValue: settings.dwindle.stackIncomingWindows,
+                onChange: { newValue in updateSetting { $0.stackIncomingWindows = newValue } },
+                onReset: { updateSetting { $0.stackIncomingWindows = nil } }
+            )
 
             OverridableSlider(
                 label: String(localized: "Default Split Ratio"),

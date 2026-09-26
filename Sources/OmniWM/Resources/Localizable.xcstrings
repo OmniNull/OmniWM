@@ -80973,6 +80973,7 @@
         }
       }
     },
+    "New and moved windows join the focused tile's stack instead of splitting it" : {},
     "New or claimed containers start at this primary span until you resize them." : {
       "localizations" : {
         "ja" : {
@@ -127432,6 +127433,7 @@
         }
       }
     },
+    "Stack Incoming Windows" : {},
     "Stack above" : {
       "localizations" : {
         "ja" : {

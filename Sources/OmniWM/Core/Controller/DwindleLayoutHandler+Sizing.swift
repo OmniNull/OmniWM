@@ -78,7 +78,8 @@ extension DwindleLayoutHandler {
         defaultSplitRatio: CGFloat? = nil,
         splitWidthMultiplier: CGFloat? = nil,
         singleWindowFit: SingleWindowFit? = nil,
-        innerGap: CGFloat? = nil
+        innerGap: CGFloat? = nil,
+        stackIncomingWindows: Bool? = nil
     ) {
         guard let controller, let engine = controller.dwindleEngine else { return }
         controller.workspaceManager.withEngineMutationScope {
@@ -87,6 +88,7 @@ extension DwindleLayoutHandler {
             if let splitWidthMultiplier { engine.settings.splitWidthMultiplier = splitWidthMultiplier }
             if let singleWindowFit { engine.settings.singleWindowFit = singleWindowFit }
             if let innerGap { engine.settings.innerGap = innerGap }
+            if let stackIncomingWindows { engine.settings.stackIncomingWindows = stackIncomingWindows }
         }
         controller.workspaceManager.invalidateAllLayouts()
         controller.layoutRefreshController.requestRelayout(reason: .layoutConfigChanged)

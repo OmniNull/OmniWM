@@ -148,6 +148,7 @@ struct SettingsExport: Equatable {
         var singleWindowFit: SingleWindowFit
         var useGlobalGaps: Bool
         var moveToRootStable: Bool
+        var stackIncomingWindows: Bool
     }
 
     struct Overview: Codable, Equatable {
@@ -378,6 +379,17 @@ extension SettingsExport.Niri {
 }
 
 extension SettingsExport.Dwindle {
+    init(from decoder: Decoder) throws {
+        let container = try decoder.container(keyedBy: CodingKeys.self)
+        smartSplit = try container.decode(Bool.self, forKey: .smartSplit)
+        defaultSplitRatio = try container.decode(Double.self, forKey: .defaultSplitRatio)
+        splitWidthMultiplier = try container.decode(Double.self, forKey: .splitWidthMultiplier)
+        singleWindowFit = try container.decode(SingleWindowFit.self, forKey: .singleWindowFit)
+        useGlobalGaps = try container.decode(Bool.self, forKey: .useGlobalGaps)
+        moveToRootStable = try container.decode(Bool.self, forKey: .moveToRootStable)
+        stackIncomingWindows = try container.decodeIfPresent(Bool.self, forKey: .stackIncomingWindows) ?? false
+    }
+
     static func defaults() -> Self {
         Self(
             smartSplit: false,
@@ -385,7 +397,8 @@ extension SettingsExport.Dwindle {
             splitWidthMultiplier: 1.0,
             singleWindowFit: .fullScreen,
             useGlobalGaps: true,
-            moveToRootStable: true
+            moveToRootStable: true,
+            stackIncomingWindows: false
         )
     }
 }
