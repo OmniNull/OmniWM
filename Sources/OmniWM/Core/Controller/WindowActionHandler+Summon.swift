@@ -172,7 +172,11 @@ extension WindowActionHandler {
             return false
         }
 
-        commitSummonedWindowFocus(token, in: targetWorkspaceId, origin: focusOrigin)
+        commitCrossWorkspaceDwindleSummonFocus(
+            token,
+            in: targetWorkspaceId,
+            origin: focusOrigin
+        )
         return true
     }
 
@@ -201,6 +205,49 @@ extension WindowActionHandler {
         if startNiriScrollAnimation {
             controller.layoutRefreshController.startScrollAnimation(for: workspaceId)
         }
+    }
+
+    /// Cross-workspace Dwindle summon needs a relaxed postLayout gate
+    /// (`.layoutCommit`, which excludes `.focus`) because the workspace
+    /// transfer itself invalidates the focus domain before the relayout
+    /// that admits the summoned token into the target tree.  A
+    /// `newestFocusIntentId` check ensures a newer user-initiated focus
+    /// request supersedes this callback.
+    private func commitCrossWorkspaceDwindleSummonFocus(
+        _ token: WindowToken,
+        in workspaceId: WorkspaceDescriptor.ID,
+        origin focusOrigin: ManagedFocusOrigin
+    ) {
+        guard let controller else { return }
+
+        _ = controller.workspaceManager.applySessionPatch(
+            .init(
+                workspaceId: workspaceId,
+                viewportState: nil,
+                rememberedFocusToken: token,
+                plannedSeq: controller.workspaceManager.worldSeq
+            )
+        )
+
+        let newestFocusIntentId = controller.intentLedger.newestFocusIntentId()
+        controller.layoutRefreshController.requestLayoutCommandRelayout(
+            affectedWorkspaceIds: [workspaceId],
+            postLayout: { [weak controller] in
+                guard let controller,
+                      controller.intentLedger.newestFocusIntentId() == newestFocusIntentId
+                else {
+                    return
+                }
+                _ = controller.dwindleLayoutHandler.activateWindow(
+                    token,
+                    in: workspaceId,
+                    layoutRefresh: false,
+                    focusAfterLayout: false
+                )
+                controller.focusWindow(token, origin: focusOrigin)
+            },
+            postLayoutDomains: .layoutCommit
+        )
     }
 
     private func layoutType(for workspaceId: WorkspaceDescriptor.ID) -> LayoutType {

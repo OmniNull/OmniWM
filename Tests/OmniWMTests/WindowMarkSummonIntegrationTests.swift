@@ -114,6 +114,30 @@ final class WindowMarkSummonIntegrationTests: XCTestCase {
         XCTAssertEqual(controller.intentLedger.activeManagedRequest?.token, fixture.markedToken)
     }
 
+    func testCrossWorkspaceDwindleSummonFocusIsSupersededByNewerIntent() async throws {
+        let fixture = try makeFixture(layoutType: .dwindle, displayId: 78_307)
+        let controller = fixture.controller
+        let engine = try XCTUnwrap(controller.dwindleEngine)
+        XCTAssertEqual(controller.windowMarkRegistry.set("supersede-mark", for: fixture.markedToken), .inserted)
+
+        let response = summonResponse(fixture, mark: "supersede-mark")
+        XCTAssertTrue(response.ok)
+
+        // Inject a newer focus intent on the anchor before the relayout
+        // drains — the summon's postLayout callback must yield.
+        controller.focusWindow(fixture.anchorToken)
+
+        await WindowAdmissionTestSupport.drainLayoutRefreshes(controller)
+
+        // The window moved to the target workspace (structural mutation is
+        // committed before the postLayout), but the Dwindle engine should
+        // still select the anchor because the newer focus intent superseded
+        // the summon's activation callback.
+        XCTAssertEqual(controller.workspaceManager.workspace(for: fixture.markedToken), fixture.targetWorkspaceId)
+        XCTAssertEqual(engine.activeToken(in: fixture.targetWorkspaceId), fixture.anchorToken)
+        XCTAssertEqual(controller.intentLedger.activeManagedRequest?.token, fixture.anchorToken)
+    }
+
     func testSummonRefusalsAreTypedAndDoNotMoveTheMarkedWindow() throws {
         let noAnchorFixture = try makeFixture(layoutType: .niri, displayId: 78_303, shouldFocusAnchor: false)
         let noAnchorController = noAnchorFixture.controller
