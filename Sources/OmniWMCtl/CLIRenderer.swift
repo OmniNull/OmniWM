@@ -66,6 +66,14 @@ enum CLIRenderer {
              .workspaceAssignmentConflict,
              .workspaceStateConflict,
              .captureStateConflict,
+             .staleMark,
+             .unknownMark,
+             .noFocusedWindow,
+             .selfSummon,
+             .hiddenWindow,
+             .unsupportedLayout,
+             .duplicateMark,
+             .invalidMark,
              .invalidArguments,
              .invalidRequest,
              .none:
@@ -195,6 +203,8 @@ enum CLIRenderer {
             return "subscribed: \(payload.channels.map(\.rawValue).joined(separator: ", "))"
         case let .metrics(payload):
             return CLIDiagnosticsRenderer.formattedMetrics(payload, format: format)
+        case let .windowMarks(payload):
+            return formattedWindowMarks(payload, format: format)
         }
     }
 
@@ -281,10 +291,11 @@ enum CLIRenderer {
         }
         let workspaceRows = payload.workspaceActions.map { [$0.path, $0.summary, "workspace"] }
         let windowRows = payload.windowActions.map { [$0.path, $0.summary, "window"] }
+        let windowMarkRows = payload.windowMarkActions.map { [$0.path, $0.summary, "window-mark"] }
 
         return CLITableRenderer.formatRows(
             headers: ["PATH", "SUMMARY", "SURFACE"],
-            rows: commandRows + workspaceRows + windowRows,
+            rows: commandRows + workspaceRows + windowRows + windowMarkRows,
             format: format
         )
     }
@@ -314,10 +325,30 @@ enum CLIRenderer {
             ["capture-actions", String(payload.captureActions.count)],
             ["workspace-actions", String(payload.workspaceActions.count)],
             ["window-actions", String(payload.windowActions.count)],
+            ["window-mark-actions", String(payload.windowMarkActions.count)],
             ["subscriptions", String(payload.subscriptions.count)]
         ]
 
         return CLITableRenderer.formatRows(headers: ["CAPABILITY", "VALUE"], rows: rows, format: format)
+    }
+
+    private static func formattedWindowMarks(
+        _ payload: IPCWindowMarksResult,
+        format: CLIOutputFormat
+    ) -> String {
+        let rows = payload.marks.map { mark in
+            [
+                mark.name,
+                mark.workspace.displayName,
+                mark.app.name,
+                dashIfEmpty(mark.title ?? "")
+            ]
+        }
+        return CLITableRenderer.formatRows(
+            headers: ["MARK", "WORKSPACE", "APP", "TITLE"],
+            rows: rows,
+            format: format
+        )
     }
 
     private static func dashIfEmpty(_ value: String) -> String {

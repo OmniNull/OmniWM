@@ -20,6 +20,8 @@ extension CLICompletionGenerator {
             "workspaceMoveDirections": Catalog.workspaceMoveDirections,
             "workspaceMoveOptionalFlags": Catalog.workspaceMoveOptionalFlags,
             "windowActionNames": Catalog.windowActionNames,
+            "windowMarkActionNames": Catalog.windowMarkActionNames,
+            "windowMarkListFlags": Catalog.windowMarkListFlags,
             "shellNames": CLIShell.allCases.map(\.rawValue),
             "valueFlags": Catalog.valueFlags
         ]

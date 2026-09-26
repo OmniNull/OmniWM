@@ -16,6 +16,29 @@ enum CommandPalettePresentation {
         let shortcut: String
     }
 
+    enum MarkAction: Equatable {
+        case set
+        case remove
+    }
+
+    static let setMarkShortcut = "⌃⌥M"
+    static let removeMarkShortcut = "⌃⌥R"
+
+    static func markAction(
+        forKeyCode keyCode: UInt16,
+        relevantModifiers: NSEvent.ModifierFlags
+    ) -> MarkAction? {
+        guard relevantModifiers == [.control, .option] else { return nil }
+        return switch keyCode {
+        case UInt16(kVK_ANSI_M):
+            .set
+        case UInt16(kVK_ANSI_R):
+            .remove
+        default:
+            nil
+        }
+    }
+
     static func menuModeAvailable(hasMenuFocusTarget: Bool) -> Bool {
         hasMenuFocusTarget
     }
@@ -96,15 +119,21 @@ enum CommandPalettePresentation {
 
     static func windowsStatusText(
         selectedItem: CommandPaletteWindowItem?,
-        isSummonRightAvailable: Bool
+        isSummonRightAvailable: Bool,
+        isCurrentWorkspaceEmpty: Bool = false
     ) -> String {
         if selectedItem?.isAppHidden == true {
             return String(localized: "Return · Unhide & Focus")
         }
 
-        return isSummonRightAvailable
-            ? String(localized: "Enter jumps. Shift-Enter summons right.")
-            : String(localized: "Enter jumps. Shift-Enter unavailable for this session.")
+        let summonText = if isCurrentWorkspaceEmpty {
+            String(localized: "Shift-Enter moves here (empty workspace).")
+        } else if isSummonRightAvailable {
+            String(localized: "Shift-Enter summons right.")
+        } else {
+            String(localized: "Shift-Enter unavailable without an anchor.")
+        }
+        return String(localized: "Enter jumps. \(summonText)")
     }
 }
 

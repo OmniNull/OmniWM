@@ -113,6 +113,8 @@ final class CommandPaletteActionExecutor {
     enum Action {
         case navigateWindow(WMController, WindowHandle)
         case summonWindowRight(WMController, WindowHandle, CommandPaletteSummonAnchor)
+        case summonMarkedWindowRight(WMController, WindowHandle, CommandPaletteSummonAnchor?)
+        case moveWindowToWorkspace(WMController, WindowHandle, WorkspaceDescriptor.ID)
         case pressMenu(CommandPaletteFocusTarget, AXUIElement)
         case copyClipboard(WMController, UUID)
         case pasteClipboard(WMController, UUID, CommandPaletteClipboardPasteTarget?, Bool)
@@ -123,8 +125,15 @@ final class CommandPaletteActionExecutor {
         case revealFile(URL)
     }
 
-    func perform(_ action: Action) {
+    @discardableResult
+    func perform(_ action: Action) -> WindowSummonRightOutcome? {
         switch action {
+        case let .summonMarkedWindowRight(wmController, handle, anchor):
+            return environment.summonWindowRightOutcome(wmController, handle, anchor)
+        case let .moveWindowToWorkspace(wmController, handle, workspaceId):
+            return environment.moveWindowToWorkspace(wmController, handle, workspaceId)
+                ? .movedToWorkspace
+                : .moveFailed
         case let .navigateWindow(wmController, handle):
             environment.navigateToWindow(wmController, handle)
         case let .summonWindowRight(wmController, handle, summonAnchor):
@@ -153,7 +162,7 @@ final class CommandPaletteActionExecutor {
                environment.navigateToApplicationWindow(wmController, handle)
             {
                 environment.recordLauncherLaunch(wmController, item.id, query, item.displayName)
-                return
+                return nil
             }
             environment.openApplication(item.bundleURL) { [weak self] failure in
                 self?.completeLauncherOpen(failure, wmController, item.id, query, item.displayName)
@@ -166,6 +175,7 @@ final class CommandPaletteActionExecutor {
              let .revealFile(url):
             environment.revealInFinder(url)
         }
+        return nil
     }
 
     private func completeLauncherOpen(

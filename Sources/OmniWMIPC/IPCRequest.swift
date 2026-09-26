@@ -19,6 +19,7 @@ public struct IPCRequest: Codable, Equatable, Sendable {
         case rule(IPCRuleRequest)
         case workspace(IPCWorkspaceRequest)
         case window(IPCWindowRequest)
+        case windowMark(IPCWindowMarkRequest)
         case subscribe(IPCSubscribeRequest)
     }
 
@@ -64,6 +65,10 @@ public struct IPCRequest: Codable, Equatable, Sendable {
 
     public init(id: String, window: IPCWindowRequest, authorizationToken: String? = nil) {
         self.init(id: id, kind: .window, authorizationToken: authorizationToken, payload: .window(window))
+    }
+
+    public init(id: String, windowMark: IPCWindowMarkRequest, authorizationToken: String? = nil) {
+        self.init(id: id, kind: .windowMark, authorizationToken: authorizationToken, payload: .windowMark(windowMark))
     }
 
     public init(id: String, subscribe: IPCSubscribeRequest, authorizationToken: String? = nil) {
@@ -115,6 +120,8 @@ public struct IPCRequest: Codable, Equatable, Sendable {
             payload = .workspace(try container.decode(IPCWorkspaceRequest.self, forKey: .payload))
         case .window:
             payload = .window(try container.decode(IPCWindowRequest.self, forKey: .payload))
+        case .windowMark:
+            payload = .windowMark(try container.decode(IPCWindowMarkRequest.self, forKey: .payload))
         case .subscribe:
             payload = .subscribe(try container.decode(IPCSubscribeRequest.self, forKey: .payload))
         }
@@ -141,6 +148,8 @@ public struct IPCRequest: Codable, Equatable, Sendable {
         case let .workspace(payload):
             try container.encode(payload, forKey: .payload)
         case let .window(payload):
+            try container.encode(payload, forKey: .payload)
+        case let .windowMark(payload):
             try container.encode(payload, forKey: .payload)
         case let .subscribe(payload):
             try container.encode(payload, forKey: .payload)

@@ -72,11 +72,17 @@ private enum CommandPalettePasteKeyCode {
 
 @MainActor
 struct CommandPaletteEnvironment {
+    var requestWindowMarkName: () -> String? = { CommandPaletteMarkNamePrompt.requestName() }
+    var chooseWindowMarkNameToRemove: ([String]) -> String? = { markNames in
+        CommandPaletteMarkRemovalPrompt.requestName(from: markNames)
+    }
+
     var frontmostApplication: () -> NSRunningApplication? = { NSWorkspace.shared.frontmostApplication }
     var runningApplication: (pid_t) -> NSRunningApplication? = { NSRunningApplication(processIdentifier: $0) }
     var ownBundleIdentifier: () -> String? = { Bundle.main.bundleIdentifier }
     var ownProcessIdentifier: () -> pid_t = { NSRunningApplication.current.processIdentifier }
     var fetchMenuItems: (pid_t) -> [MenuItemModel] = { MenuAnywhereFetcher().fetchMenuItemsSync(for: $0) }
+    var activateOmniWM: () -> Void = { NSApp.activate(ignoringOtherApps: true) }
     var applicationActivationNotifications: NotificationCenter = NSWorkspace.shared.notificationCenter
     var performCommand: (WMController, HotkeyCommand) -> ExternalCommandResult = { controller, command in
         controller.commandHandler.performCommand(command)
@@ -234,6 +240,37 @@ struct CommandPaletteEnvironment {
             anchorWorkspaceId: anchorWorkspaceId
         )
     }
+
+    var moveWindowToWorkspace: (WMController, WindowHandle, WorkspaceDescriptor.ID) -> Bool = {
+        controller,
+        handle,
+        workspaceId in
+        guard controller.workspaceManager.windowCount(in: workspaceId) == 0,
+              controller.workspaceManager.handle(for: handle.id) === handle,
+              let entry = controller.workspaceManager.entry(for: handle),
+              entry.layoutReason == .standard,
+              !controller.workspaceManager.isAppHidden(pid: handle.id.pid),
+              entry.workspaceId != workspaceId,
+              case .changed = controller.workspaceNavigationHandler.commitWindowMove(
+                  handle: handle,
+                  toWorkspaceId: workspaceId
+              )
+        else { return false }
+        return true
+    }
+
+    var summonWindowRightOutcome: (WMController, WindowHandle, CommandPaletteSummonAnchor?)
+        -> WindowSummonRightOutcome = {
+            controller,
+            handle,
+            anchor in
+            guard let anchor else { return .noAnchor }
+            return controller.windowActionHandler.summonWindowRightOutcome(
+                handle: handle,
+                anchorToken: anchor.token,
+                anchorWorkspaceId: anchor.workspaceId
+            )
+        }
 
     var scheduleMenuAction: (@escaping () -> Void) -> Void = { action in
         let box = CommandPaletteActionBox(action)

@@ -58,6 +58,17 @@ enum CommandPaletteSearch {
                 }
             }
 
+            let markMatchScore = item.markNames
+                .compactMap { markName -> Int? in
+                    let markNameLower = markName.lowercased()
+                    guard let range = markNameLower.range(of: query) else { return nil }
+                    return markNameLower.distance(from: markNameLower.startIndex, to: range.lowerBound)
+                }
+                .min()
+            if let markMatchScore {
+                return (item, 4000 + markMatchScore)
+            }
+
             return nil
         }
 
@@ -269,7 +280,8 @@ enum CommandPaletteSearch {
                 appName: appInfo?.name ?? String(localized: "Unknown"),
                 appIcon: appInfo?.icon,
                 workspaceName: workspaceName,
-                isAppHidden: wmController.workspaceManager.isAppHidden(pid: entry.pid)
+                isAppHidden: wmController.workspaceManager.isAppHidden(pid: entry.pid),
+                markNames: wmController.windowMarkRegistry.names(for: entry.token)
             ))
         }
 

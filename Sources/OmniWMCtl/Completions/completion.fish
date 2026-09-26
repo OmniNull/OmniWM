@@ -59,4 +59,6 @@ end
 #{{workspaceMoveDirectionLines}}
 #{{workspaceMoveFlagLines}}
 #{{windowLines}}
+#{{windowMarkActionLines}}
+#{{windowMarkListFlagLines}}
 #{{shellLines}}

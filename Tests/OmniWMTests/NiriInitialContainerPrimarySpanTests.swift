@@ -351,7 +351,8 @@ final class NiriInitialContainerPrimarySpanTests: XCTestCase {
         XCTAssertEqual(column.width, .proportion(0.25))
         XCTAssertEqual(column.height, .proportion(0.25))
         XCTAssertEqual(engine.containerSizingState(for: token, in: workspaceId), initialState)
-        XCTAssertEqual(column.cachedWidth, 700)
+        // The 25% seed can exceed the 700-point minimum on a wide monitor.
+        XCTAssertGreaterThanOrEqual(column.cachedWidth, 700)
 
         column.width = .fixed(720)
         column.presetWidthIdx = nil

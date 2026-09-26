@@ -126,6 +126,10 @@ extension AXEventHandler {
                 return nil
             }
 
+            let markRekeyResult = controller.windowMarkRegistry.rekey(from: oldToken, to: newToken)
+            if markRekeyResult == .conflict {
+                Log.reconcile.error("Runtime window mark rekey conflict from \(oldToken) to \(newToken)")
+            }
             controller.intentLedger.rekeyManagedRequest(from: oldToken, to: newToken)
             controller.rekeyScratchpadWindowResources(from: oldToken, to: newToken, axRef: axRef)
             controller.layoutRefreshController.rekeyPendingRevealTransaction(

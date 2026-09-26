@@ -14,6 +14,7 @@ final class CommandPaletteFocusSession {
     private(set) var restoreFocusTarget: CommandPaletteFocusTarget?
     private(set) var menuFocusTarget: CommandPaletteFocusTarget?
     private(set) var summonAnchor: CommandPaletteSummonAnchor?
+    private(set) var workspaceId: WorkspaceDescriptor.ID?
     private var cachedMenuTargetApp: CommandPaletteAppSnapshot?
 
     init(environment: CommandPaletteEnvironment) {
@@ -24,6 +25,7 @@ final class CommandPaletteFocusSession {
         self.wmController = wmController
         restoreFocusTarget = captureFrontmostFocusTarget()
         menuFocusTarget = resolveMenuFocusTarget()
+        workspaceId = wmController.activeWorkspace()?.id
         summonAnchor = Self.resolveSummonAnchor(for: wmController)
     }
 
@@ -31,6 +33,7 @@ final class CommandPaletteFocusSession {
         restoreFocusTarget = nil
         menuFocusTarget = nil
         summonAnchor = nil
+        workspaceId = nil
         wmController = nil
     }
 

@@ -85,6 +85,8 @@ actor IPCApplicationBridge {
         case let .window(window):
             let result = await commandResult { $0.handle(window) }
             return Self.response(for: result, id: request.id, kind: .window)
+        case let .windowMark(windowMark):
+            return await Self.windowMarkResponse(for: windowMark, id: request.id, controller: controller)
         case let .subscribe(subscribe):
             return await MainActor.run {
                 let channels = IPCAutomationManifest.expandedChannels(for: subscribe)
@@ -125,6 +127,7 @@ actor IPCApplicationBridge {
              .rule,
              .workspace,
              .window,
+             .windowMark,
              .subscribe:
             return IPCResponse(failing: request, code: .invalidRequest)
         }

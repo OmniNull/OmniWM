@@ -10,6 +10,8 @@ final class NuCompletionTests: XCTestCase {
     func testGenerationIsDeterministicAndRendersEveryPlaceholder() {
         let script = CLICompletionGenerator.script(for: .nu)
         XCTAssertFalse(script.contains("#{{"))
+        XCTAssertTrue(script.contains("    windowMarkActionNames: ["))
+        XCTAssertTrue(script.contains("    windowMarkListFlags: ["))
         XCTAssertEqual(script, CLICompletionGenerator.script(for: .nu))
     }
 
@@ -57,6 +59,8 @@ final class NuCompletionTests: XCTestCase {
             ("omniwmctl capture ", CLICompletionCatalog.captureActionNames),
             ("omniwmctl workspace ", CLICompletionCatalog.workspaceActionNames),
             ("omniwmctl window ", CLICompletionCatalog.windowActionNames),
+            ("omniwmctl window mark ", CLICompletionCatalog.windowMarkActionNames),
+            ("omniwmctl window mark list ", CLICompletionCatalog.windowMarkListFlags),
             ("omniwmctl completion ", CLIShell.allCases.map(\.rawValue)),
             ("omniwmctl que", ["query"])
         ]
