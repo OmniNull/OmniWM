@@ -4,13 +4,15 @@
 import AppKit
 
 extension CommandPaletteController {
-    func setMarkOnFocusedWindow() {
-        guard let wmController else {
-            actionFeedbackText = "No focused managed window was captured. Open the Windows Palette while a managed window is focused."
+    func setMarkOnSelectedWindow() {
+        guard let wmController else { return }
+        guard let item = selectedWindowItemForMarkAction() else {
+            actionFeedbackText = markActionFeedback(for: .noSelectedWindow)
             return
         }
-
-        let outcome = makeMarkInteraction(for: wmController).setFocusedWindowMark()
+        isPresentingMarkPrompt = true
+        defer { isPresentingMarkPrompt = false }
+        let outcome = makeMarkInteraction(for: wmController, selectedItem: item).setSelectedWindowMark()
         guard outcome != .cancelled else { return }
         refreshWindowItems()
         actionFeedbackText = markActionFeedback(for: outcome)
@@ -18,24 +20,40 @@ extension CommandPaletteController {
 
     func removeMarkFromSelectedWindow() {
         guard let wmController else { return }
-        let selectedWindowToken: WindowToken? = if case let .window(token)? = selectedItemID {
-            token
-        } else {
-            nil
+        guard let item = selectedWindowItemForMarkAction() else {
+            actionFeedbackText = markActionFeedback(for: .noSelectedWindow)
+            return
         }
-        let outcome = makeMarkInteraction(for: wmController).removeMarkFromSelectedWindow(selectedWindowToken)
+        isPresentingMarkPrompt = true
+        defer { isPresentingMarkPrompt = false }
+        let outcome = makeMarkInteraction(for: wmController, selectedItem: item)
+            .removeMarkFromSelectedWindow(item.id)
         guard outcome != .cancelled else { return }
         refreshWindowItems()
         actionFeedbackText = markActionFeedback(for: outcome)
     }
 
-    private func makeMarkInteraction(for wmController: WMController) -> CommandPaletteMarkInteraction {
+    private func selectedWindowItemForMarkAction() -> CommandPaletteWindowItem? {
+        guard case let .window(token)? = selectedItemID else { return nil }
+        let selection = selectedItemID
+        refreshWindowItems()
+        guard selection == selectedItemID else {
+            selectedItemID = nil
+            return nil
+        }
+        return filteredWindowItems.first { $0.id == token }
+    }
+
+    private func makeMarkInteraction(
+        for wmController: WMController,
+        selectedItem: CommandPaletteWindowItem
+    ) -> CommandPaletteMarkInteraction {
         CommandPaletteMarkInteraction(
-            focusedWindowToken: focusSession.focusedMarkTargetToken,
+            selectedWindowToken: selectedItem.id,
             isEligibleWindow: { token in
                 guard let entry = wmController.workspaceManager.entry(for: token),
                       entry.layoutReason == .standard,
-                      wmController.workspaceManager.handle(for: token) != nil
+                      wmController.workspaceManager.handle(for: token) === selectedItem.handle
                 else {
                     return false
                 }
@@ -61,15 +79,13 @@ extension CommandPaletteController {
     private func markActionFeedback(for outcome: CommandPaletteMarkInteraction.Outcome) -> String {
         switch outcome {
         case let .marked(name):
-            "Marked the captured window as ‘\(name)’."
+            "Marked the selected window as ‘\(name)’."
         case let .alreadyMarked(name):
-            "The captured window is already marked ‘\(name)’."
+            "The selected window is already marked ‘\(name)’."
         case let .duplicateName(name):
             "‘\(name)’ is already used by another window. Choose a different mark name."
         case .invalidName:
             "Mark names must be non-empty and contain no control characters. Try another name."
-        case .noFocusedWindow:
-            "No focused managed window was captured. Reopen the Palette while a managed window is focused."
         case .staleWindow:
             "The window is no longer eligible. Reopen the Palette and choose a current managed window."
         case .cancelled:
@@ -77,7 +93,7 @@ extension CommandPaletteController {
         case let .removed(name):
             "Removed mark ‘\(name)’ from the selected window."
         case .noSelectedWindow:
-            "Select a window row before removing a mark."
+            "Select a current window row before changing its marks."
         case .noMarks:
             "The selected window has no marks to remove. Select a marked window."
         case .staleMark:

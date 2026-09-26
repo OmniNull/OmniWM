@@ -72300,13 +72300,13 @@
         }
       }
     },
-    "Mark focused window…" : {
+    "Mark selected window…" : {
 
     },
-    "Mark the captured focused window (Control-Option-M)" : {
+    "Mark the selected window (Control-Option-M)" : {
 
     },
-    "Marks the managed window focused before opening this Palette. Shortcut Control-Option-M." : {
+    "Marks the selected window row. Shortcut Control-Option-M." : {
 
     },
     "Match Your Real Desk" : {

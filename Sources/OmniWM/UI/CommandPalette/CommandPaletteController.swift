@@ -93,6 +93,7 @@ final class CommandPaletteController: NSObject, NSWindowDelegate {
     private let menuSession: CommandPaletteMenuSession
     private var isProgrammaticDismiss = false
     private var isConfirmingClipboardClear = false
+    var isPresentingMarkPrompt = false
     private var clipboardPreviewGeneration = 0
 
     private enum DismissReason {
@@ -187,7 +188,9 @@ final class CommandPaletteController: NSObject, NSWindowDelegate {
     }
 
     func windowDidResignKey(_: Notification) {
-        guard isVisible, !isProgrammaticDismiss, !isConfirmingClipboardClear else { return }
+        guard isVisible, !isProgrammaticDismiss, !isConfirmingClipboardClear, !isPresentingMarkPrompt else {
+            return
+        }
         dismiss(reason: .deactivation)
     }
 
@@ -440,7 +443,7 @@ extension CommandPaletteController {
     private func installEventMonitor() {
         removeEventMonitor()
         eventMonitor = NSEvent.addLocalMonitorForEvents(matching: .keyDown) { [weak self] event in
-            guard let self, isVisible else { return event }
+            guard let self, isVisible, !isPresentingMarkPrompt else { return event }
             return handleKeyDown(event) ? nil : event
         }
     }
@@ -467,9 +470,14 @@ extension CommandPaletteController {
                relevantModifiers: relevantModifiers
            )
         {
+            guard isExpanded else {
+                expandResults()
+                actionFeedbackText = "Select a window row before changing its marks."
+                return true
+            }
             switch markAction {
             case .set:
-                setMarkOnFocusedWindow()
+                setMarkOnSelectedWindow()
             case .remove:
                 removeMarkFromSelectedWindow()
             }

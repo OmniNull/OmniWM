@@ -5,7 +5,7 @@ import AppKit
 
 @MainActor
 enum CommandPaletteMarkNamePrompt {
-    static let title = "Mark focused window"
+    static let title = "Mark selected window"
     static let message = "Enter a name you can search for in the Windows palette."
     static let fieldLabel = "Window mark name"
     static let confirmTitle = "Set Mark"
@@ -17,16 +17,19 @@ enum CommandPaletteMarkNamePrompt {
         nameField.placeholderString = fieldLabel
         nameField.setAccessibilityLabel(fieldLabel)
 
+        guard makeAlert(nameField: nameField).runModal() == .alertFirstButtonReturn else { return nil }
+        return nameField.stringValue
+    }
+
+    static func makeAlert(nameField: NSTextField) -> NSAlert {
         let alert = NSAlert()
         alert.messageText = title
         alert.informativeText = message
         alert.accessoryView = nameField
         alert.addButton(withTitle: confirmTitle)
-        alert.addButton(withTitle: cancelTitle)
+        alert.addButton(withTitle: cancelTitle).keyEquivalent = "\u{1b}"
         alert.window.initialFirstResponder = nameField
-
-        guard alert.runModal() == .alertFirstButtonReturn else { return nil }
-        return nameField.stringValue
+        return alert
     }
 }
 
@@ -45,16 +48,19 @@ enum CommandPaletteMarkRemovalPrompt {
         namePicker.addItems(withTitles: markNames)
         namePicker.setAccessibilityLabel(fieldLabel)
 
+        guard makeAlert(namePicker: namePicker).runModal() == .alertFirstButtonReturn else { return nil }
+        return namePicker.titleOfSelectedItem
+    }
+
+    static func makeAlert(namePicker: NSPopUpButton) -> NSAlert {
         let alert = NSAlert()
         alert.messageText = title
         alert.informativeText = message
         alert.accessoryView = namePicker
         alert.addButton(withTitle: confirmTitle)
-        alert.addButton(withTitle: cancelTitle)
+        alert.addButton(withTitle: cancelTitle).keyEquivalent = "\u{1b}"
         alert.window.initialFirstResponder = namePicker
-
-        guard alert.runModal() == .alertFirstButtonReturn else { return nil }
-        return namePicker.titleOfSelectedItem
+        return alert
     }
 }
 
@@ -65,7 +71,6 @@ struct CommandPaletteMarkInteraction {
         case alreadyMarked(String)
         case duplicateName(String)
         case invalidName
-        case noFocusedWindow
         case staleWindow
         case cancelled
         case removed(String)
@@ -74,7 +79,7 @@ struct CommandPaletteMarkInteraction {
         case staleMark
     }
 
-    let focusedWindowToken: WindowToken?
+    let selectedWindowToken: WindowToken?
     let isEligibleWindow: (WindowToken) -> Bool
     let requestName: () -> String?
     let chooseRemovalName: ([String]) -> String?
@@ -83,14 +88,14 @@ struct CommandPaletteMarkInteraction {
     let setMark: (WindowToken, String) -> WindowMarkRegistry.SetResult
     let removeMark: (String) -> WindowMarkRegistry.RemoveResult
 
-    func setFocusedWindowMark() -> Outcome {
-        guard let focusedWindowToken else { return .noFocusedWindow }
-        guard isEligibleWindow(focusedWindowToken) else { return .staleWindow }
+    func setSelectedWindowMark() -> Outcome {
+        guard let selectedWindowToken else { return .noSelectedWindow }
+        guard isEligibleWindow(selectedWindowToken) else { return .staleWindow }
         guard let name = requestName() else { return .cancelled }
-        guard isEligibleWindow(focusedWindowToken) else { return .staleWindow }
+        guard isEligibleWindow(selectedWindowToken) else { return .staleWindow }
         let feedbackName = name.trimmingCharacters(in: .whitespacesAndNewlines)
 
-        switch setMark(focusedWindowToken, name) {
+        switch setMark(selectedWindowToken, name) {
         case .inserted:
             return .marked(feedbackName)
         case .unchanged:

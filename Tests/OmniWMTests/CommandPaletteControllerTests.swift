@@ -187,6 +187,52 @@ final class CommandPaletteControllerTests: XCTestCase {
         XCTAssertFalse(CommandPalettePresentation.allowsSummonRight(items[1]))
     }
 
+    func testMarkTargetsSelectedWindowEvenWhenSelectionChangesDuringPrompt() throws {
+        let (wmController, otherToken, selectedToken) = try makeWindowFixture()
+        var palette: CommandPaletteController!
+        var environment = CommandPaletteEnvironment()
+        environment.requestWindowMarkName = {
+            XCTAssertTrue(palette.isPresentingMarkPrompt)
+            palette.selectedItemID = .window(otherToken)
+            return "review"
+        }
+        palette = CommandPaletteController(
+            motionPolicy: MotionPolicy(animationsEnabled: false), environment: environment
+        )
+        palette.wmController = wmController
+        palette.windows = CommandPaletteSearch.buildWindowItems(from: wmController)
+        palette.selectedItemID = .window(selectedToken)
+
+        palette.setMarkOnSelectedWindow()
+
+        XCTAssertFalse(palette.isPresentingMarkPrompt)
+        XCTAssertEqual(wmController.windowMarkRegistry.lookup("review"), .found(selectedToken))
+        XCTAssertTrue(wmController.windowMarkRegistry.names(for: otherToken).isEmpty)
+    }
+
+    func testMarkWithNoSelectedWindowDoesNotPromptOrTargetFirstResult() throws {
+        let (wmController, firstToken, _) = try makeWindowFixture()
+        var promptCount = 0
+        var environment = CommandPaletteEnvironment()
+        environment.requestWindowMarkName = {
+            promptCount += 1
+            return "review"
+        }
+        let palette = CommandPaletteController(
+            motionPolicy: MotionPolicy(animationsEnabled: false), environment: environment
+        )
+        palette.wmController = wmController
+        palette.windows = CommandPaletteSearch.buildWindowItems(from: wmController)
+        palette.selectedItemID = nil
+
+        palette.setMarkOnSelectedWindow()
+
+        XCTAssertEqual(promptCount, 0)
+        XCTAssertNil(palette.selectedItemID)
+        XCTAssertTrue(wmController.windowMarkRegistry.names(for: firstToken).isEmpty)
+        XCTAssertEqual(palette.actionFeedbackText, "Select a current window row before changing its marks.")
+    }
+
     func testWindowRowsReadAllLiveRegistryMarksAndSearchEveryName() throws {
         let (wmController, visibleToken, hiddenToken) = try makeWindowFixture()
         XCTAssertEqual(wmController.windowMarkRegistry.set("editor", for: visibleToken), .inserted)

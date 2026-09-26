@@ -1,12 +1,13 @@
 // SPDX-License-Identifier: GPL-2.0-only
 // Copyright (C) 2026 BarutSRB — https://github.com/OmniNull/OmniWM
 
+import AppKit
 @testable import OmniWM
 import XCTest
 
 @MainActor
 final class CommandPaletteMarkInteractionTests: XCTestCase {
-    func testSetUsesCapturedFocusedWindowAndPromptedName() {
+    func testSetUsesCapturedSelectedWindowAndPromptedName() {
         let target = WindowToken(pid: 92_201, windowId: 92_301)
         let registry = WindowMarkRegistry()
         var promptCount = 0
@@ -15,7 +16,7 @@ final class CommandPaletteMarkInteractionTests: XCTestCase {
             return "editor"
         })
 
-        XCTAssertEqual(interaction.setFocusedWindowMark(), .marked("editor"))
+        XCTAssertEqual(interaction.setSelectedWindowMark(), .marked("editor"))
         XCTAssertEqual(promptCount, 1)
         XCTAssertEqual(registry.lookup("editor"), .found(target))
     }
@@ -26,13 +27,13 @@ final class CommandPaletteMarkInteractionTests: XCTestCase {
         let registry = WindowMarkRegistry()
 
         let marked = makeInteraction(target: target, registry: registry, requestName: { " \t editor \n " })
-        XCTAssertEqual(marked.setFocusedWindowMark(), .marked("editor"))
+        XCTAssertEqual(marked.setSelectedWindowMark(), .marked("editor"))
 
         let unchanged = makeInteraction(target: target, registry: registry, requestName: { " \t editor \n " })
-        XCTAssertEqual(unchanged.setFocusedWindowMark(), .alreadyMarked("editor"))
+        XCTAssertEqual(unchanged.setSelectedWindowMark(), .alreadyMarked("editor"))
 
         let duplicate = makeInteraction(target: other, registry: registry, requestName: { " \t editor \n " })
-        XCTAssertEqual(duplicate.setFocusedWindowMark(), .duplicateName("editor"))
+        XCTAssertEqual(duplicate.setSelectedWindowMark(), .duplicateName("editor"))
     }
 
     func testCancellingNamePromptDoesNotMutateMarkState() {
@@ -40,30 +41,30 @@ final class CommandPaletteMarkInteractionTests: XCTestCase {
         let registry = WindowMarkRegistry()
         let interaction = makeInteraction(target: target, registry: registry, requestName: { nil })
 
-        XCTAssertEqual(interaction.setFocusedWindowMark(), .cancelled)
+        XCTAssertEqual(interaction.setSelectedWindowMark(), .cancelled)
         XCTAssertTrue(registry.marks.isEmpty)
     }
 
-    func testMissingOrStaleCapturedTargetDoesNotPromptOrMutate() {
+    func testMissingOrStaleSelectedTargetDoesNotPromptOrMutate() {
         let registry = WindowMarkRegistry()
         var promptCount = 0
         let missingTarget = makeInteraction(target: nil, registry: registry, requestName: {
             promptCount += 1
             return "editor"
         })
-        XCTAssertEqual(missingTarget.setFocusedWindowMark(), .noFocusedWindow)
+        XCTAssertEqual(missingTarget.setSelectedWindowMark(), .noSelectedWindow)
 
         let target = WindowToken(pid: 92_203, windowId: 92_303)
         let staleTarget = makeInteraction(target: target, registry: registry, isEligible: { _ in false }, requestName: {
             promptCount += 1
             return "editor"
         })
-        XCTAssertEqual(staleTarget.setFocusedWindowMark(), .staleWindow)
+        XCTAssertEqual(staleTarget.setSelectedWindowMark(), .staleWindow)
         XCTAssertEqual(promptCount, 0)
         XCTAssertTrue(registry.marks.isEmpty)
     }
 
-    func testSetRevalidatesCapturedTargetAfterPrompt() {
+    func testSetRevalidatesSelectedTargetAfterPrompt() {
         let target = WindowToken(pid: 92_204, windowId: 92_304)
         let registry = WindowMarkRegistry()
         var isEligible = true
@@ -77,7 +78,7 @@ final class CommandPaletteMarkInteractionTests: XCTestCase {
             }
         )
 
-        XCTAssertEqual(interaction.setFocusedWindowMark(), .staleWindow)
+        XCTAssertEqual(interaction.setSelectedWindowMark(), .staleWindow)
         XCTAssertTrue(registry.marks.isEmpty)
     }
 
@@ -88,10 +89,10 @@ final class CommandPaletteMarkInteractionTests: XCTestCase {
         XCTAssertEqual(registry.set("editor", for: other), .inserted)
 
         let duplicate = makeInteraction(target: target, registry: registry, requestName: { "editor" })
-        XCTAssertEqual(duplicate.setFocusedWindowMark(), .duplicateName("editor"))
+        XCTAssertEqual(duplicate.setSelectedWindowMark(), .duplicateName("editor"))
 
         let invalid = makeInteraction(target: target, registry: registry, requestName: { "  " })
-        XCTAssertEqual(invalid.setFocusedWindowMark(), .invalidName)
+        XCTAssertEqual(invalid.setSelectedWindowMark(), .invalidName)
         XCTAssertEqual(registry.lookup("editor"), .found(other))
     }
 
@@ -136,7 +137,7 @@ final class CommandPaletteMarkInteractionTests: XCTestCase {
     }
 
     func testPromptsExposeAccessibleLabelsAndExplicitActions() {
-        XCTAssertEqual(CommandPaletteMarkNamePrompt.title, "Mark focused window")
+        XCTAssertEqual(CommandPaletteMarkNamePrompt.title, "Mark selected window")
         XCTAssertEqual(CommandPaletteMarkNamePrompt.fieldLabel, "Window mark name")
         XCTAssertEqual(CommandPaletteMarkNamePrompt.confirmTitle, "Set Mark")
         XCTAssertEqual(CommandPaletteMarkNamePrompt.cancelTitle, "Cancel")
@@ -144,6 +145,16 @@ final class CommandPaletteMarkInteractionTests: XCTestCase {
         XCTAssertEqual(CommandPaletteMarkRemovalPrompt.fieldLabel, "Window mark to remove")
         XCTAssertEqual(CommandPaletteMarkRemovalPrompt.confirmTitle, "Remove Mark")
         XCTAssertEqual(CommandPaletteMarkRemovalPrompt.cancelTitle, "Cancel")
+    }
+
+    func testBothMarkPromptsBindEscapeToCancel() {
+        let nameAlert = CommandPaletteMarkNamePrompt.makeAlert(nameField: NSTextField())
+        let pickerAlert = CommandPaletteMarkRemovalPrompt.makeAlert(namePicker: NSPopUpButton(frame: .zero))
+
+        XCTAssertEqual(nameAlert.buttons.last?.title, "Cancel")
+        XCTAssertEqual(nameAlert.buttons.last?.keyEquivalent, "\u{1b}")
+        XCTAssertEqual(pickerAlert.buttons.last?.title, "Cancel")
+        XCTAssertEqual(pickerAlert.buttons.last?.keyEquivalent, "\u{1b}")
     }
 
     private func makeInteraction(
@@ -154,7 +165,7 @@ final class CommandPaletteMarkInteractionTests: XCTestCase {
         chooseRemovalName: @escaping ([String]) -> String? = { _ in nil }
     ) -> CommandPaletteMarkInteraction {
         CommandPaletteMarkInteraction(
-            focusedWindowToken: target,
+            selectedWindowToken: target,
             isEligibleWindow: isEligible,
             requestName: requestName,
             chooseRemovalName: chooseRemovalName,

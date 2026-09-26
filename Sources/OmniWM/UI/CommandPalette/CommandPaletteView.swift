@@ -83,13 +83,13 @@ struct CommandPaletteView: View {
 
         if controller.selectedMode == .windows {
             HStack(spacing: 10) {
-                Button(action: { controller.setMarkOnFocusedWindow() }) {
-                    Label("Mark focused window…", systemImage: "tag")
+                Button(action: { controller.setMarkOnSelectedWindow() }) {
+                    Label("Mark selected window…", systemImage: "tag")
                 }
                 .accessibilityHint(
-                    "Marks the managed window focused before opening this Palette. Shortcut Control-Option-M."
+                    "Marks the selected window row. Shortcut Control-Option-M."
                 )
-                .help("Mark the captured focused window (Control-Option-M)")
+                .help("Mark the selected window (Control-Option-M)")
 
                 Button(action: { controller.removeMarkFromSelectedWindow() }) {
                     Label("Remove mark…", systemImage: "tag.slash")

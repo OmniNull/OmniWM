@@ -72,7 +72,6 @@ private enum CommandPalettePasteKeyCode {
 
 @MainActor
 struct CommandPaletteEnvironment {
-    var focusedManagedWindowToken: (WMController) -> WindowToken? = { $0.focusedManagedTokenForCommand() }
     var requestWindowMarkName: () -> String? = { CommandPaletteMarkNamePrompt.requestName() }
     var chooseWindowMarkNameToRemove: ([String]) -> String? = { markNames in
         CommandPaletteMarkRemovalPrompt.requestName(from: markNames)
