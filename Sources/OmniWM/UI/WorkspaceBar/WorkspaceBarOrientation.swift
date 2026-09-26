@@ -10,6 +10,14 @@ enum WorkspaceBarOrientation: Equatable {
         self == .vertical
     }
 
+    func coordinate(of point: CGPoint) -> CGFloat {
+        isVertical ? -point.y : point.x
+    }
+
+    func range(of frame: CGRect) -> ClosedRange<CGFloat> {
+        isVertical ? -frame.maxY ... -frame.minY : frame.minX ... frame.maxX
+    }
+
     @MainActor
     func stack<Content: View>(spacing: CGFloat, @ViewBuilder content: () -> Content) -> some View {
         let layout = isVertical ? AnyLayout(VStackLayout(spacing: spacing)) : AnyLayout(HStackLayout(spacing: spacing))

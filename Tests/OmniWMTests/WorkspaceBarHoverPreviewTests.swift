@@ -44,7 +44,7 @@ final class WorkspaceBarHoverPreviewTests: XCTestCase {
         return WorkspaceBarHoverTarget(
             key: .window(workspaceId, token ?? windows[0].handle.id),
             windows: windows,
-            anchor: CGRect(x: 100, y: 800, width: 20, height: 20),
+            attachment: PopupAttachment(sourceFrame: CGRect(x: 100, y: 800, width: 20, height: 20), edge: .below),
             visibleFrame: CGRect(x: 0, y: 0, width: 1600, height: 900),
             level: .statusBar
         )
@@ -177,14 +177,17 @@ final class WorkspaceBarHoverPreviewTests: XCTestCase {
         let retitled = WorkspaceBarHoverTarget(
             key: hovered.key,
             windows: [hovered.windows[0]],
-            anchor: hovered.anchor,
+            attachment: hovered.attachment,
             visibleFrame: hovered.visibleFrame,
             level: hovered.level
         )
         let moved = WorkspaceBarHoverTarget(
             key: hovered.key,
             windows: retitled.windows,
-            anchor: hovered.anchor.offsetBy(dx: 40, dy: 0),
+            attachment: PopupAttachment(
+                anchor: CGPoint(x: hovered.attachment.anchor.x + 40, y: hovered.attachment.anchor.y),
+                edge: hovered.attachment.edge
+            ),
             visibleFrame: hovered.visibleFrame,
             level: hovered.level
         )
@@ -204,6 +207,37 @@ final class WorkspaceBarHoverPreviewTests: XCTestCase {
         XCTAssertTrue(scheduler.liveDelays.isEmpty)
         scheduler.fireLatest()
         XCTAssertNil(controller.visibleTarget)
+    }
+
+    func testPreviewOpensInwardFromEveryBarEdge() {
+        let panel = WorkspaceBarPreviewPanel(ownedWindowRegistry: OwnedWindowRegistry())
+        defer { panel.hide() }
+        let base = target([10])
+        let cases: [(WorkspaceBarPosition, CGRect)] = [
+            (.overlappingMenuBar, CGRect(x: 300, y: 876, width: 800, height: 24)),
+            (.bottom, CGRect(x: 300, y: 0, width: 800, height: 24)),
+            (.left, CGRect(x: 0, y: 200, width: 24, height: 500)),
+            (.right, CGRect(x: 1576, y: 200, width: 24, height: 500))
+        ]
+        for (position, barFrame) in cases {
+            let hovered = WorkspaceBarHoverTarget(
+                key: base.key, windows: base.windows,
+                attachment: PopupAttachment(sourceFrame: barFrame, edge: position.popupEdge),
+                visibleFrame: base.visibleFrame, level: base.level
+            )
+            panel.show(
+                hovered, windows: hovered.windows, overflowCount: 0,
+                showsThumbnails: true, cachedPreview: { _ in nil }
+            )
+            XCTAssertTrue(base.visibleFrame.contains(panel.frame), "\(position)")
+            XCTAssertFalse(panel.frame.intersects(barFrame), "\(position)")
+            switch position.popupEdge {
+            case .above: XCTAssertGreaterThan(panel.frame.minY, barFrame.maxY)
+            case .below: XCTAssertLessThan(panel.frame.maxY, barFrame.minY)
+            case .left: XCTAssertLessThan(panel.frame.maxX, barFrame.minX)
+            case .right: XCTAssertGreaterThan(panel.frame.minX, barFrame.maxX)
+            }
+        }
     }
 
     func testPanelIsClickableOnlyForGroupedPreviews() throws {

@@ -346,16 +346,6 @@ final class WorkspaceBarManager {
         }
     }
 
-    func primaryBarFrame(on monitorId: Monitor.ID) -> CGRect? {
-        barsByMonitor[monitorId]?.primary.panel.frame
-    }
-
-    func isWorkspaceBarWindow(_ window: NSWindow) -> Bool {
-        barsByMonitor.values.contains {
-            $0.primary.panel === window || $0.secondary?.panel === window
-        }
-    }
-
     private func updateIslandView(
         _ island: WorkspaceBarIslandPanel,
         model: WorkspaceBarModel,
@@ -382,11 +372,13 @@ final class WorkspaceBarManager {
 
 extension WorkspaceBarManager {
     func statsAnchor(on monitorId: Monitor.ID) -> CGPoint? {
-        barsByMonitor[monitorId]?.statsAnchor
+        guard let view = barsByMonitor[monitorId]?.statsAnchorView, let window = view.window else { return nil }
+        let frame = window.convertToScreen(view.convert(view.bounds, to: nil))
+        return WorkspaceBarGeometry.statsButtonAnchor(buttonFrame: frame)
     }
 
     func primaryBarFrame(on monitorId: Monitor.ID) -> CGRect? {
-        barsByMonitor[monitorId]?.primary.lastAppliedFrame
+        barsByMonitor[monitorId]?.primary.panel.frame
     }
 
     func isWorkspaceBarWindow(_ window: NSWindow) -> Bool {
@@ -494,12 +486,6 @@ extension WorkspaceBarManager {
 }
 
 extension WorkspaceBarManager {
-    func statsAnchor(on monitorId: Monitor.ID) -> CGPoint? {
-        guard let view = barsByMonitor[monitorId]?.statsAnchorView, let window = view.window else { return nil }
-        let frame = window.convertToScreen(view.convert(view.bounds, to: nil))
-        return WorkspaceBarGeometry.statsButtonAnchor(buttonFrame: frame)
-    }
-
     func popupAttachment(on monitorId: Monitor.ID, forStats: Bool = false) -> PopupAttachment? {
         guard let instance = barsByMonitor[monitorId], let settings,
               let window = forStats ? instance.statsAnchorView?.window : instance.primary.panel

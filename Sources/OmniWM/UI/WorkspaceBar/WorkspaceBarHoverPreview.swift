@@ -13,7 +13,7 @@ struct WorkspaceBarHoverTarget: Equatable {
 
     let key: WorkspaceBarHitTarget
     let windows: [Window]
-    let anchor: CGRect
+    let attachment: PopupAttachment
     let visibleFrame: CGRect
     let level: NSWindow.Level
 }
@@ -133,7 +133,7 @@ final class WorkspaceBarHoverPreviewController {
             }
             phase = .pending(current, cancel: cancel)
         case let .visible(target):
-            guard let current = resolve(target.key), current.anchor == target.anchor else {
+            guard let current = resolve(target.key), current.attachment == target.attachment else {
                 dismiss()
                 return
             }
@@ -194,7 +194,7 @@ final class WorkspaceBarHoverPreviewController {
             return
         }
         let tileSize = WorkspaceBarPreviewPanel.tileSize(forWindowCount: windows.count)
-        let scale = NSScreen.screen(containing: CGPoint(x: target.anchor.midX, y: target.anchor.midY))?
+        let scale = NSScreen.screen(containing: target.attachment.anchor)?
             .backingScaleFactor ?? 2
         capture.reconcile(
             represented: Set(windows.map(\.handle)),

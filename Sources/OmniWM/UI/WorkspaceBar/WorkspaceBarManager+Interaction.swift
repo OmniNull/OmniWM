@@ -157,7 +157,7 @@ extension WorkspaceBarManager {
     private func beginRename(workspaceId: WorkspaceDescriptor.ID, monitorId: Monitor.ID) {
         guard let controller,
               let rawName = controller.workspaceManager.descriptor(for: workspaceId)?.name,
-              let (_, island) = islandContexts(on: monitorId).first(where: {
+              let (instance, island) = islandContexts(on: monitorId).first(where: {
                   $0.island.interaction.frames[.workspace(workspaceId)] != nil
               }),
               let localAnchor = island.interaction.labelFrames[workspaceId]
@@ -178,7 +178,11 @@ extension WorkspaceBarManager {
         panel.show(
             currentName: configuredName ?? "",
             placeholder: rawName,
-            anchor: anchor,
+            attachment: PopupAttachment(
+                sourceFrame: island.panel.frame,
+                edge: controller.settings.workspaceBar.resolved(for: instance.monitor).position.popupEdge,
+                alignment: CGPoint(x: anchor.midX, y: anchor.midY)
+            ),
             visibleFrame: screen.visibleFrame
         ) { [weak controller] name in
             _ = controller?.setWorkspaceDisplayName(

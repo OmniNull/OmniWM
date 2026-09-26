@@ -69,11 +69,7 @@ final class WorkspaceBarPreviewPanel: NSPanel {
         level = NSWindow.Level(rawValue: target.level.rawValue + 1)
         ignoresMouseEvents = windows.count <= 1
         setFrame(
-            NonactivatingPanel.frame(
-                anchor: CGPoint(x: target.anchor.midX, y: target.anchor.minY - 2),
-                size: size,
-                screenVisibleFrame: target.visibleFrame
-            ),
+            target.attachment.frame(size: size, visibleFrame: target.visibleFrame),
             display: true
         )
         updateTrackingArea()

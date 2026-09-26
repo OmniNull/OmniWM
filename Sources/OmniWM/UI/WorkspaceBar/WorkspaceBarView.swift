@@ -273,7 +273,10 @@ private struct WorkspaceItemView: View {
                     textColor: textColor,
                     onFocusWindow: onFocusWindow
                 )
-                .offset(x: reflowOffset(forIconAt: index))
+                .offset(
+                    x: orientation.isVertical ? 0 : reflowOffset(forIconAt: index),
+                    y: orientation.isVertical ? reflowOffset(forIconAt: index) : 0
+                )
                 .animation(animationsEnabled ? .spring(duration: 0.2) : nil, value: dropGapIndex)
                 .workspaceBarHitRegion(.window(item.id, window.id))
             }
