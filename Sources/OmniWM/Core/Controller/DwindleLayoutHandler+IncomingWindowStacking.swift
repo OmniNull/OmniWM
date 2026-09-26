@@ -9,17 +9,27 @@ extension DwindleLayoutHandler {
               controller.layoutRefreshController.layoutState.hasCompletedInitialRefresh,
               controller.workspaceManager.activeLayoutKind(for: workspaceId) == .dwindle
         else { return }
-        stackableIncomingTokens.insert(token)
+        stackableIncomingWorkspaceByToken[token] = workspaceId
     }
 
     func forgetIncomingWindow(_ token: WindowToken) {
-        stackableIncomingTokens.remove(token)
+        stackableIncomingWorkspaceByToken.removeValue(forKey: token)
     }
 
-    func claimIncomingStackingTokens(_ windowTokens: [WindowToken]) -> Set<WindowToken> {
-        guard !stackableIncomingTokens.isEmpty else { return [] }
-        let claimed = stackableIncomingTokens.intersection(windowTokens)
-        stackableIncomingTokens.subtract(claimed)
+    func claimIncomingStackingTokens(
+        _ windowTokens: [WindowToken],
+        in workspaceId: WorkspaceDescriptor.ID
+    ) -> Set<WindowToken> {
+        guard !stackableIncomingWorkspaceByToken.isEmpty else { return [] }
+        var claimed = Set<WindowToken>()
+        for token in windowTokens {
+            guard let markedWorkspaceId = stackableIncomingWorkspaceByToken.removeValue(forKey: token) else {
+                continue
+            }
+            if markedWorkspaceId == workspaceId {
+                claimed.insert(token)
+            }
+        }
         return claimed
     }
 }

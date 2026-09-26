@@ -28,7 +28,8 @@ final class DwindleIncomingWindowStackingIntegrationTests: XCTestCase {
         let snapshot = try XCTUnwrap(fixture.engine.tileSnapshot(for: incoming, in: fixture.workspaceId))
         XCTAssertEqual(snapshot.members.map(\.token), [existing, incoming])
         XCTAssertEqual(snapshot.activeToken, incoming)
-        XCTAssertFalse(fixture.controller.dwindleLayoutHandler.stackableIncomingTokens.contains(incoming))
+        XCTAssertFalse(fixture.controller.dwindleLayoutHandler.stackableIncomingWorkspaceByToken.keys
+            .contains(incoming))
     }
 
     func testUnmarkedWindowStillSplits() throws {
@@ -52,7 +53,8 @@ final class DwindleIncomingWindowStackingIntegrationTests: XCTestCase {
         layout(fixture.workspaceId, fixture: fixture)
 
         XCTAssertEqual(fixture.engine.tileCount(in: fixture.workspaceId), 2)
-        XCTAssertFalse(fixture.controller.dwindleLayoutHandler.stackableIncomingTokens.contains(incoming))
+        XCTAssertFalse(fixture.controller.dwindleLayoutHandler.stackableIncomingWorkspaceByToken.keys
+            .contains(incoming))
     }
 
     func testWindowsAreNotMarkedBeforeInitialRefreshCompletes() throws {
@@ -62,7 +64,7 @@ final class DwindleIncomingWindowStackingIntegrationTests: XCTestCase {
 
         fixture.controller.dwindleLayoutHandler.markIncomingWindowForStacking(token, in: fixture.workspaceId)
 
-        XCTAssertFalse(fixture.controller.dwindleLayoutHandler.stackableIncomingTokens.contains(token))
+        XCTAssertFalse(fixture.controller.dwindleLayoutHandler.stackableIncomingWorkspaceByToken.keys.contains(token))
     }
 
     func testWindowsAdmittedToNiriWorkspaceAreNotMarked() throws {
@@ -75,7 +77,21 @@ final class DwindleIncomingWindowStackingIntegrationTests: XCTestCase {
 
         fixture.controller.dwindleLayoutHandler.markIncomingWindowForStacking(token, in: niriWorkspaceId)
 
-        XCTAssertFalse(fixture.controller.dwindleLayoutHandler.stackableIncomingTokens.contains(token))
+        XCTAssertFalse(fixture.controller.dwindleLayoutHandler.stackableIncomingWorkspaceByToken.keys.contains(token))
+    }
+
+    func testMarkForAnotherWorkspaceSplitsAndIsDropped() throws {
+        let fixture = try makeFixture(seed: 898_000, stackIncomingWindows: true)
+        addExistingWindow(seed: 898_100, in: fixture.workspaceId, fixture: fixture)
+        let incoming = WindowToken(pid: 898_200, windowId: 898_201)
+        fixture.controller.dwindleLayoutHandler.markIncomingWindowForStacking(incoming, in: fixture.otherWorkspaceId)
+        _ = WindowAdmissionTestSupport.track(incoming, in: fixture.workspaceId, controller: fixture.controller)
+
+        layout(fixture.workspaceId, fixture: fixture)
+
+        XCTAssertEqual(fixture.engine.tileCount(in: fixture.workspaceId), 2)
+        XCTAssertFalse(fixture.controller.dwindleLayoutHandler.stackableIncomingWorkspaceByToken.keys
+            .contains(incoming))
     }
 
     func testMoveToDwindleWorkspaceStacksIntoTargetSelectedTile() throws {

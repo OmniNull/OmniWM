@@ -63,7 +63,9 @@ private struct GlobalDwindleSettingsSection: View {
                 .onChange(of: settings.dwindle.stackIncomingWindows) { _, newValue in
                     controller.updateDwindleConfig(stackIncomingWindows: newValue)
                 }
-            SettingsCaption(localized: "New and moved windows join the focused tile's stack instead of splitting it")
+            SettingsCaption(
+                localized: "Newly opened and moved windows join the focused tile's stack instead of splitting it"
+            )
 
             SettingsSliderRow(
                 label: String(localized: "Default Split Ratio"),
