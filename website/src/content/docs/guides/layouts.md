@@ -17,6 +17,12 @@ On monitors using horizontal orientation, windows form vertical columns that scr
 
 A binary space partition layout that recursively divides screen space. Each new window splits the space in half, and a tile can group multiple windows as tabs. Best for traditional tiling with predictable layouts.
 
+Turn on **Settings → Dwindle → Stack Incoming Windows** to have newly opened windows, and windows moved in from another workspace or monitor, join the focused tile as its active tab instead of splitting it. A preselected split direction still splits. See the [Dwindle reference](/config/settings-reference/#dwindle).
+
+:::note[Unreleased]
+Stack Incoming Windows is available on current `main`, not in v0.7.3.
+:::
+
 ## Tabbed windows
 
 Both layouts show a tab rail beside grouped windows. Click a tab to reveal and focus that window without changing the group order. Hovering a tab also shows its window title, app, and position in the group.

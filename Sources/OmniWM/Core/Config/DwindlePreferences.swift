@@ -41,6 +41,10 @@ final class DwindlePreferences {
         didSet { onChange?() }
     }
 
+    var stackIncomingWindows = DwindlePreferences.defaults.stackIncomingWindows {
+        didSet { onChange?() }
+    }
+
     var monitorOverrides: [MonitorDwindleSettings] = [] {
         didSet { onChange?() }
     }
@@ -52,7 +56,8 @@ final class DwindlePreferences {
             splitWidthMultiplier: splitWidthMultiplier,
             singleWindowFit: singleWindowFit,
             useGlobalGaps: useGlobalGaps,
-            moveToRootStable: moveToRootStable
+            moveToRootStable: moveToRootStable,
+            stackIncomingWindows: stackIncomingWindows
         )
     }
 
@@ -63,6 +68,7 @@ final class DwindlePreferences {
         singleWindowFit = dwindle.singleWindowFit
         useGlobalGaps = dwindle.useGlobalGaps
         moveToRootStable = dwindle.moveToRootStable
+        stackIncomingWindows = dwindle.stackIncomingWindows
     }
 
     func settings(for monitor: Monitor) -> MonitorDwindleSettings? {
@@ -95,7 +101,8 @@ final class DwindlePreferences {
             splitWidthMultiplier: CGFloat(override?.splitWidthMultiplier ?? splitWidthMultiplier),
             singleWindowFit: override?.singleWindowFit ?? singleWindowFit,
             useGlobalGaps: useGlobalGaps,
-            innerGap: useGlobalGaps ? sharedInnerGap : gaps.resolvedInnerGap(override?.innerGap)
+            innerGap: useGlobalGaps ? sharedInnerGap : gaps.resolvedInnerGap(override?.innerGap),
+            stackIncomingWindows: override?.stackIncomingWindows ?? stackIncomingWindows
         )
     }
 }

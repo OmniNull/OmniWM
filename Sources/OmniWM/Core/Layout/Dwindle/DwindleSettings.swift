@@ -16,6 +16,8 @@ struct DwindleSettings {
 
     var innerGap: CGFloat = 8.0
 
+    var stackIncomingWindows = false
+
     func clampedRatio(_ ratio: CGFloat) -> CGFloat {
         min(max(ratio, 0.1), 1.9)
     }

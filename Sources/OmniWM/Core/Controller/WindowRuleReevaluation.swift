@@ -206,6 +206,9 @@ struct WindowRuleReevaluation {
             )
         } ?? true
         if shouldAdmit {
+            if window.existingEntry == nil, window.mode == .tiling {
+                controller.dwindleLayoutHandler.markIncomingWindowForStacking(window.token, in: workspaceId)
+            }
             _ = controller.workspaceManager.addWindow(
                 window.axRef,
                 pid: window.token.pid,

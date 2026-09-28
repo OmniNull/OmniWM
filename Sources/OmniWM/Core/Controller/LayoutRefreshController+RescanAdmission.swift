@@ -156,6 +156,9 @@ extension LayoutRefreshController {
             if isMinimized {
                 controller.axManager.setWindowMinimized(true, token: window.identity.token)
             }
+            if refreshedEntry == nil, admittedMode == .tiling {
+                controller.dwindleLayoutHandler.markIncomingWindowForStacking(window.identity.token, in: wsForWindow)
+            }
             return controller.workspaceManager.addWindow(
                 ax,
                 pid: pid,

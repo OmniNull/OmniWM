@@ -104,14 +104,16 @@ extension WMController {
         defaultSplitRatio: CGFloat? = nil,
         splitWidthMultiplier: CGFloat? = nil,
         singleWindowFit: SingleWindowFit? = nil,
-        innerGap: CGFloat? = nil
+        innerGap: CGFloat? = nil,
+        stackIncomingWindows: Bool? = nil
     ) {
         dwindleLayoutHandler.updateDwindleConfig(
             smartSplit: smartSplit,
             defaultSplitRatio: defaultSplitRatio,
             splitWidthMultiplier: splitWidthMultiplier,
             singleWindowFit: singleWindowFit,
-            innerGap: innerGap
+            innerGap: innerGap,
+            stackIncomingWindows: stackIncomingWindows
         )
     }
 

@@ -10,7 +10,8 @@ extension DwindleLayoutEngine {
     func addWindow(
         token: WindowToken,
         to workspaceId: WorkspaceDescriptor.ID,
-        activeWindowFrame: CGRect?
+        activeWindowFrame: CGRect?,
+        joinsSelectedTile: Bool = false
     ) -> DwindleNode {
         let state = ensureState(for: workspaceId)
 
@@ -33,6 +34,17 @@ extension DwindleLayoutEngine {
             targetNode = selected
         } else {
             targetNode = state.root.descendToFirstLeaf()
+        }
+
+        if joinsSelectedTile,
+           settings.stackIncomingWindows,
+           state.preselection == nil,
+           let targetTile = targetNode.tile
+        {
+            targetTile.insertAfterActive(DwindleTileMember(token: token, isFullscreen: false))
+            state.leafByToken[token] = targetNode
+            state.selectedNodeId = targetNode.id
+            return targetNode
         }
 
         let newLeaf = splitLeaf(

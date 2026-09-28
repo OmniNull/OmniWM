@@ -65,6 +65,7 @@ extension WMController {
         }
         workspaceManager.onWindowRemoved = { [weak self] entry in
             self?.windowActionHandlerStorage?.handleOverviewWindowRemoved(entry)
+            self?.dwindleLayoutHandler.forgetIncomingWindow(entry.token)
         }
         workspaceManager.onDeferredWorkspaceMonitorMove = { [weak self] outcome in
             self?.layoutRefreshController.commitWorkspaceMonitorTransition(outcome)

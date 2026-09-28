@@ -50,6 +50,7 @@ extension WorkspaceNavigationHandler {
             .targetIsDwindle
         if succeeded {
             if !progress.movedWithNiri {
+                controller.dwindleLayoutHandler.markIncomingWindowForStacking(token, in: targetWsId)
                 controller.reassignManagedWindow(token, to: targetWsId)
             }
             if let sourceWsId {

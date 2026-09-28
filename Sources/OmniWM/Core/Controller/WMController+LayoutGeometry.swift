@@ -36,7 +36,8 @@ extension WMController {
             splitWidthMultiplier: resolved.splitWidthMultiplier,
             singleWindowFit: resolved.singleWindowFit,
             useGlobalGaps: resolved.useGlobalGaps,
-            innerGap: max(resolved.innerGap, borderClearance(scale: scale))
+            innerGap: max(resolved.innerGap, borderClearance(scale: scale)),
+            stackIncomingWindows: resolved.stackIncomingWindows
         )
     }
 

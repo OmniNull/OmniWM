@@ -16,6 +16,7 @@ struct MonitorDwindleSettings: MonitorSettingsType {
     var singleWindowFit: SingleWindowFit?
     var useGlobalGaps: Bool?
     var innerGap: Double?
+    var stackIncomingWindows: Bool?
 
     init(
         id: UUID = UUID(),
@@ -27,7 +28,8 @@ struct MonitorDwindleSettings: MonitorSettingsType {
         splitWidthMultiplier: Double? = nil,
         singleWindowFit: SingleWindowFit? = nil,
         useGlobalGaps: Bool? = nil,
-        innerGap: Double? = nil
+        innerGap: Double? = nil,
+        stackIncomingWindows: Bool? = nil
     ) {
         self.id = id
         self.monitorName = monitorName
@@ -39,6 +41,7 @@ struct MonitorDwindleSettings: MonitorSettingsType {
         self.singleWindowFit = singleWindowFit
         self.useGlobalGaps = useGlobalGaps
         self.innerGap = innerGap
+        self.stackIncomingWindows = stackIncomingWindows
     }
 
     private enum CodingKeys: String, CodingKey {
@@ -46,6 +49,7 @@ struct MonitorDwindleSettings: MonitorSettingsType {
         case smartSplit, defaultSplitRatio, splitWidthMultiplier
         case singleWindowFit
         case useGlobalGaps, innerGap
+        case stackIncomingWindows
     }
 
     init(from decoder: Decoder) throws {
@@ -60,6 +64,7 @@ struct MonitorDwindleSettings: MonitorSettingsType {
         singleWindowFit = try container.decodeIfPresent(SingleWindowFit.self, forKey: .singleWindowFit)
         useGlobalGaps = try container.decodeIfPresent(Bool.self, forKey: .useGlobalGaps)
         innerGap = try container.decodeIfPresent(Double.self, forKey: .innerGap)
+        stackIncomingWindows = try container.decodeIfPresent(Bool.self, forKey: .stackIncomingWindows)
     }
 
     func encode(to encoder: Encoder) throws {
@@ -79,6 +84,7 @@ struct MonitorDwindleSettings: MonitorSettingsType {
         try container.encodeIfPresent(singleWindowFit, forKey: .singleWindowFit)
         try container.encodeIfPresent(useGlobalGaps, forKey: .useGlobalGaps)
         try container.encodeIfPresent(innerGap, forKey: .innerGap)
+        try container.encodeIfPresent(stackIncomingWindows, forKey: .stackIncomingWindows)
     }
 }
 
@@ -89,4 +95,5 @@ struct ResolvedDwindleSettings: Equatable {
     let singleWindowFit: SingleWindowFit
     let useGlobalGaps: Bool
     let innerGap: CGFloat
+    let stackIncomingWindows: Bool
 }

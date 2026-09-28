@@ -174,6 +174,9 @@ extension AXEventHandler {
             handleCollidingCreate(candidate, trackedEntry: trackedEntry, axPid: axPid)
             return nil
         }
+        if trackedEntry.mode == .tiling {
+            controller.dwindleLayoutHandler.markIncomingWindowForStacking(trackedToken, in: candidate.workspaceId)
+        }
         WindowAdmissionTrace.record(
             .init(
                 action: .admissionTracked,
