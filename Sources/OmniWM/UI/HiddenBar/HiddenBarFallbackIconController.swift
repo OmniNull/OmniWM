@@ -71,8 +71,18 @@ final class HiddenBarFallbackIconController {
     ) -> CGRect {
         if barVisible, let barFrame {
             let side = barFrame.height
-            let x = max(barFrame.minX - gap - side, monitor.frame.minX + 8)
-            return CGRect(x: x, y: barFrame.minY, width: side, height: side)
+            let bounds = monitor.frame
+            let minimumX = bounds.minX + 8
+            let maximumX = bounds.maxX - side
+            let minimumY = bounds.minY
+            let maximumY = bounds.maxY - side
+            let x = maximumX >= minimumX
+                ? min(max(barFrame.minX - gap - side, minimumX), maximumX)
+                : minimumX
+            let y = maximumY >= minimumY
+                ? min(max(barFrame.minY, minimumY), maximumY)
+                : minimumY
+            return CGRect(x: x, y: y, width: side, height: side)
         }
         return CGRect(
             x: monitor.frame.midX - fallbackSide / 2,
