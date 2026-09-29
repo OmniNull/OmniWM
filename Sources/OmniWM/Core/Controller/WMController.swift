@@ -404,6 +404,7 @@ extension WMController {
 
     func setWorkspaceBarRevealHeld(_ revealed: Bool) {
         guard isWorkspaceBarRevealHeld != revealed else { return }
+        workspaceBarManager.refreshAutoHide()
         isWorkspaceBarRevealHeld = revealed
         surfaceReconciler.noteWorldChanged()
     }
@@ -417,9 +418,14 @@ extension WMController {
         systemHyperTriggerFailure = hotkeys.systemHyperTriggerFailure
     }
 
+    func isWorkspaceBarEnabled(on monitor: Monitor, resolved: ResolvedBarSettings) -> Bool {
+        resolved.enabled && !hiddenWorkspaceBarMonitorIds.contains(monitor.id)
+    }
+
     func isWorkspaceBarConfiguredVisible(on monitor: Monitor, resolved: ResolvedBarSettings) -> Bool {
-        guard resolved.enabled, !hiddenWorkspaceBarMonitorIds.contains(monitor.id) else { return false }
-        return settings.workspaceBar.revealModifier == .off || isWorkspaceBarRevealHeld
+        guard isWorkspaceBarEnabled(on: monitor, resolved: resolved) else { return false }
+        return (!resolved.autoHide && settings.workspaceBar.revealModifier == .off)
+            || isWorkspaceBarRevealHeld || (resolved.autoHide && workspaceBarManager.isPointerRevealed(on: monitor.id))
     }
 
     func pruneHiddenWorkspaceBarMonitorIds() {

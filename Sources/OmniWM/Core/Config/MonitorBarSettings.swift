@@ -16,6 +16,7 @@ struct MonitorBarSettings: MonitorSettingsType {
     var deduplicateAppIcons: Bool?
     var hideEmptyWorkspaces: Bool?
     var reserveLayoutSpace: Bool?
+    var autoHide: Bool?
     var notchMode: WorkspaceBarNotchMode?
     var notchActiveZoneWidth: Double?
     var position: WorkspaceBarPosition?
@@ -41,6 +42,7 @@ struct MonitorBarSettings: MonitorSettingsType {
         deduplicateAppIcons: Bool? = nil,
         hideEmptyWorkspaces: Bool? = nil,
         reserveLayoutSpace: Bool? = nil,
+        autoHide: Bool? = nil,
         notchMode: WorkspaceBarNotchMode? = nil,
         notchActiveZoneWidth: Double? = nil,
         position: WorkspaceBarPosition? = nil,
@@ -65,6 +67,7 @@ struct MonitorBarSettings: MonitorSettingsType {
         self.deduplicateAppIcons = deduplicateAppIcons
         self.hideEmptyWorkspaces = hideEmptyWorkspaces
         self.reserveLayoutSpace = reserveLayoutSpace
+        self.autoHide = autoHide
         self.notchMode = notchMode
         self.notchActiveZoneWidth = notchActiveZoneWidth
         self.position = position
@@ -83,6 +86,7 @@ struct MonitorBarSettings: MonitorSettingsType {
     private enum CodingKeys: String, CodingKey {
         case id, monitorName, monitorDisplayUUID, monitorDisplayId
         case enabled, showLabels, showFloatingWindows, deduplicateAppIcons
+        case autoHide
         case hideEmptyWorkspaces, reserveLayoutSpace, notchMode, notchActiveZoneWidth, position, windowLevel
         case height, backgroundOpacity, inactiveIconOpacity, transparentBackground, solidBlackBackground,
              showItemBackgrounds, showAccentHighlights, xOffset, yOffset
@@ -100,6 +104,7 @@ struct MonitorBarSettings: MonitorSettingsType {
         deduplicateAppIcons = try container.decodeIfPresent(Bool.self, forKey: .deduplicateAppIcons)
         hideEmptyWorkspaces = try container.decodeIfPresent(Bool.self, forKey: .hideEmptyWorkspaces)
         reserveLayoutSpace = try container.decodeIfPresent(Bool.self, forKey: .reserveLayoutSpace)
+        autoHide = try container.decodeIfPresent(Bool.self, forKey: .autoHide)
         notchMode = try container.decodeIfPresent(WorkspaceBarNotchMode.self, forKey: .notchMode)
         notchActiveZoneWidth = try container.decodeIfPresent(Double.self, forKey: .notchActiveZoneWidth)
         position = try container.decodeIfPresent(WorkspaceBarPosition.self, forKey: .position)
@@ -132,6 +137,7 @@ struct MonitorBarSettings: MonitorSettingsType {
         try container.encodeIfPresent(deduplicateAppIcons, forKey: .deduplicateAppIcons)
         try container.encodeIfPresent(hideEmptyWorkspaces, forKey: .hideEmptyWorkspaces)
         try container.encodeIfPresent(reserveLayoutSpace, forKey: .reserveLayoutSpace)
+        try container.encodeIfPresent(autoHide, forKey: .autoHide)
         try container.encodeIfPresent(notchMode, forKey: .notchMode)
         try container.encodeIfPresent(notchActiveZoneWidth, forKey: .notchActiveZoneWidth)
         try container.encodeIfPresent(position, forKey: .position)
@@ -156,6 +162,7 @@ struct ResolvedBarSettings {
     let hideEmptyWorkspaces: Bool
     let excludedBundleIDs: Set<String>
     let reserveLayoutSpace: Bool
+    var autoHide = false
     let notchMode: WorkspaceBarNotchMode
     let notchActiveZoneWidth: Double
     let systemStatsButton: Bool

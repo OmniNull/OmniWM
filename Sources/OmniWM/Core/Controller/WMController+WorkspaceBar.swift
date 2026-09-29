@@ -210,6 +210,11 @@ extension WMController {
         return !isWorkspaceBarSuppressedByNativeFullscreen(on: monitor, resolved: effective)
     }
 
+    func canAutoHideWorkspaceBar(on monitor: Monitor, resolved: ResolvedBarSettings) -> Bool {
+        resolved.autoHide && isWorkspaceBarEnabled(on: monitor, resolved: resolved)
+            && !isWorkspaceBarSuppressedByNativeFullscreen(on: monitor, resolved: resolved)
+    }
+
     private func isWorkspaceBarSuppressedByNativeFullscreen(
         on monitor: Monitor,
         resolved: ResolvedBarSettings

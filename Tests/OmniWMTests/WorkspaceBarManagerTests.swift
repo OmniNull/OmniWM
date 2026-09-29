@@ -118,6 +118,119 @@ final class WorkspaceBarManagerTests: XCTestCase {
         }
     }
 
+    func testAutoHideReusesHiddenPanelsAndRetainsPopupAndDragInteractions() throws {
+        controller.settings.workspaceBar.autoHide = true
+        let manager = makeManager()
+        defer {
+            controller.systemStatsPopupController.dismiss()
+            manager.cleanup()
+        }
+        var pointer = monitor.frame.center
+        controller.currentMouseLocation = { pointer }
+        var bar = barSurface(itemCount: 1)
+        bar.visible = false
+        bar.retainWhileHidden = true
+        manager.apply([bar])
+        let panel = try XCTUnwrap(manager.barsByMonitor[monitor.id]?.primary.panel)
+        panel.setFrame(CGRect(x: 100, y: 100, width: 200, height: 24), display: false)
+        XCTAssertFalse(panel.isVisible)
+        XCTAssertNil(manager.popupAttachment(on: monitor.id))
+
+        func apply() {
+            manager.refreshAutoHide()
+            bar.visible = manager.isPointerRevealed(on: monitor.id)
+            manager.apply([bar])
+        }
+
+        pointer = panel.frame.center
+        apply()
+        XCTAssertTrue(panel.isVisible)
+        XCTAssertNotNil(manager.popupAttachment(on: monitor.id))
+        controller.systemStatsPopupController.toggle(
+            attachment: try XCTUnwrap(manager.popupAttachment(on: monitor.id)),
+            monitorId: monitor.id, screenVisibleFrame: monitor.visibleFrame
+        )
+        pointer = monitor.frame.center
+        apply()
+        XCTAssertTrue(panel.isVisible)
+        controller.systemStatsPopupController.dismiss()
+        apply()
+        XCTAssertFalse(panel.isVisible)
+        XCTAssertTrue(manager.barsByMonitor[monitor.id]?.primary.panel === panel)
+
+        pointer = panel.frame.center
+        apply()
+        manager.dragController.sourceIsValid = { _ in true }
+        manager.dragController.begin(
+            source: .init(
+                tokens: [WindowToken(pid: 42, windowId: 42)],
+                workspaceId: bar.snapshot.items[0].id,
+                isFloating: false
+            ),
+            icon: nil, at: pointer
+        )
+        pointer = monitor.frame.center
+        apply()
+        XCTAssertTrue(panel.isVisible)
+        manager.dragController.cancel()
+        apply()
+        XCTAssertFalse(panel.isVisible)
+        manager.cleanup()
+        XCTAssertFalse(manager.autoHideMonitor.isRunning)
+        XCTAssertFalse(manager.isPointerRevealed(on: monitor.id))
+        XCTAssertTrue(manager.barsByMonitor.isEmpty)
+    }
+
+    func testAutoHideSuppressionAndMonitorRemovalClearReveal() throws {
+        controller.settings.workspaceBar.autoHide = true
+        controller.workspaceManager.applyMonitorConfigurationChange([monitor])
+        let manager = controller.workspaceBarManager
+        manager.setup(controller: controller, settings: controller.settings)
+        defer { manager.cleanup() }
+        var pointer = CGPoint(x: -10000, y: -10000)
+        controller.currentMouseLocation = { pointer }
+        var bar = barSurface(itemCount: 1)
+        bar.visible = false
+        bar.retainWhileHidden = true
+        manager.apply([bar])
+        let panel = try XCTUnwrap(manager.barsByMonitor[monitor.id]?.primary.panel)
+        panel.setFrame(CGRect(x: 100, y: 100, width: 200, height: 24), display: false)
+        pointer = panel.frame.center
+        manager.refreshAutoHide()
+        XCTAssertTrue(controller.isWorkspaceBarVisible(on: monitor))
+        controller.settings.workspaceBar.revealModifier = .option
+        pointer = monitor.frame.center
+        manager.refreshAutoHide()
+        controller.setWorkspaceBarRevealHeld(true)
+        XCTAssertTrue(controller.isWorkspaceBarVisible(on: monitor))
+        controller.setWorkspaceBarRevealHeld(false)
+        XCTAssertFalse(controller.isWorkspaceBarVisible(on: monitor))
+        pointer = panel.frame.center
+        manager.refreshAutoHide()
+        XCTAssertTrue(controller.isWorkspaceBarVisible(on: monitor))
+        XCTAssertTrue(controller.toggleWorkspaceBarVisibility())
+        manager.refreshAutoHide()
+        XCTAssertFalse(controller.isWorkspaceBarVisible(on: monitor))
+        XCTAssertFalse(manager.isPointerRevealed(on: monitor.id))
+        XCTAssertTrue(controller.toggleWorkspaceBarVisibility())
+        controller.settings.workspaceBar.hideInNativeFullscreen = true
+        controller.workspaceManager.commitSpaceTopology(SpaceTopology(
+            displays: [.init(displayIdentifier: String(monitor.displayId), spaceIds: [1], currentSpaceId: 1)],
+            activeSpaceId: 1, fullscreenSpaceIds: [1], windowSpace: [:]
+        ))
+        manager.refreshAutoHide()
+        XCTAssertFalse(controller.isWorkspaceBarVisible(on: monitor))
+        XCTAssertFalse(manager.isPointerRevealed(on: monitor.id))
+        controller.settings.workspaceBar.hideInNativeFullscreen = false
+        manager.refreshAutoHide()
+        XCTAssertTrue(controller.isWorkspaceBarVisible(on: monitor))
+        controller.settings.workspaceBar.enabled = false
+        manager.refreshAutoHide()
+        XCTAssertFalse(manager.isPointerRevealed(on: monitor.id))
+        manager.apply([])
+        XCTAssertFalse(manager.autoHideMonitor.isRunning)
+    }
+
     private func makeManager() -> WorkspaceBarManager {
         let manager = WorkspaceBarManager(motionPolicy: MotionPolicy(animationsEnabled: false))
         manager.setup(controller: controller, settings: controller.settings)
