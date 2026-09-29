@@ -35,6 +35,7 @@ extension WorkspaceBarManager {
             pressTracker.reset()
             return false
         }
+        defer { refreshAutoHide() }
         let point = context.island.hostingView.workspaceBarLocalPoint(forWindowPoint: event.locationInWindow)
         let target = context.island.interaction.target(at: point)
         let screenPoint = panel.convertPoint(toScreen: event.locationInWindow)
@@ -110,6 +111,7 @@ extension WorkspaceBarManager {
             suppressesFocusFollowsMouse: true,
             duration: nil
         )
+        defer { refreshAutoHide() }
         let action = menuPresenter.present(items, at: location, in: hostingView)
         controller.focusPolicyEngine.endLease(owner: .nativeMenu)
         guard let action else { return }

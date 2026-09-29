@@ -22533,6 +22533,7 @@
         }
       }
     },
+    "Automatically hide and show the workspace bar" : {},
     "Back" : {
       "localizations" : {
         "ja" : {
@@ -117747,6 +117748,7 @@
         }
       }
     },
+    "Reveal the workspace bar while holding these modifiers. Can be combined with automatic hiding." : {},
     "Reveals this item and opens its menu" : {
       "localizations" : {
         "ja" : {
@@ -128948,6 +128950,7 @@
       }
     },
     "Show the workspace bar as an overlay only while the selected modifiers are held" : {
+      "extractionState" : "stale",
       "localizations" : {
         "ja" : {
           "stringUnit" : {
@@ -129071,6 +129074,7 @@
         }
       }
     },
+    "Show when the pointer approaches; hide when not in use. Never reserves layout space." : {},
     "Shows a colored outline around the currently focused managed window. Customize its appearance in Settings." : {
       "localizations" : {
         "ja" : {

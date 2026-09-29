@@ -242,6 +242,7 @@ The per-monitor workspace bar. Per-monitor exceptions live in [`monitorBarOverri
 | `excludedBundleIDs` | string array | `[]` | Bundle IDs whose windows never contribute icons to the bar. |
 | `iconOverrides` | table | `{}` | Bundle ID → custom icon source (see below). |
 | `reserveLayoutSpace` | boolean | `false` | Reserves the configured bar thickness at its selected edge for tiled and layout-fullscreen windows. Offsets do not change the reservation. |
+| `autoHide` *(optional)* | boolean | `false` | **Unreleased**, available when building from `main`. Reveal immediately near the bar and hide after the pointer leaves and interactions end. Never reserves layout space. Supports per-display overrides and combines with modifier-hold reveal. |
 | `revealModifier` | string | `"off"` | Reveal the bar by holding a modifier. Any value other than `off` makes the bar overlay-only: it reserves no layout space at all while the modifier is configured, not just while it is held. Values: `off`, `option`, `control`, `command`, `shift`, `controlOption`, `optionCommand`, `optionShift`, `controlCommand`, `controlShift`, `commandShift`, `controlOptionCommand`, `controlOptionShift`, `optionCommandShift`, `controlCommandShift`, `controlOptionCommandShift`. |
 | `revealHoldMilliseconds` | float | `200.0` | How long the modifier must be held before the bar reveals. |
 | `hideInNativeFullscreen` | boolean | `false` | Hides the bar while a native-fullscreen space is active. Effective `fillLeftOfNotch` at a top position always hides there, regardless of this setting. |
@@ -461,7 +462,7 @@ When `workspaceBar.enabled = false`, no monitor can show its bar. Saved `monitor
 
 | Array | Overridable keys |
 | --- | --- |
-| `monitorBarOverrides` | `enabled`, `showLabels`, `showFloatingWindows`, `deduplicateAppIcons`, `hideEmptyWorkspaces`, `reserveLayoutSpace`, `notchMode`, `notchActiveZoneWidth`, `position`, `windowLevel`, `height`, `backgroundOpacity`, `inactiveIconOpacity`, `transparentBackground`, `solidBlackBackground`, `showItemBackgrounds`, `showAccentHighlights`, `xOffset`, `yOffset` — see [`workspaceBar`](#workspacebar) |
+| `monitorBarOverrides` | `enabled`, `showLabels`, `showFloatingWindows`, `deduplicateAppIcons`, `hideEmptyWorkspaces`, `reserveLayoutSpace`, `autoHide`, `notchMode`, `notchActiveZoneWidth`, `position`, `windowLevel`, `height`, `backgroundOpacity`, `inactiveIconOpacity`, `transparentBackground`, `solidBlackBackground`, `showItemBackgrounds`, `showAccentHighlights`, `xOffset`, `yOffset` — see [`workspaceBar`](#workspacebar) |
 | `monitorOrientationOverrides` | `orientation`: `horizontal` or `vertical` layout orientation for that monitor |
 | `monitorNiriOverrides` | `visibleContainerCount`, `centerFocusedColumn`, `alwaysCenterSingleColumn`, `singleWindowFit`, `infiniteLoop` — see [`niri`](#niri) |
 | `monitorDwindleOverrides` | `smartSplit`, `defaultSplitRatio`, `splitWidthMultiplier`, `singleWindowFit`, `useGlobalGaps`, `innerGap` — see [`dwindle`](#dwindle) |

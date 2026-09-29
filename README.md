@@ -999,6 +999,7 @@ A visual indicator showing your workspaces:
 
 Workspace-bar appearance controls are optional and also support per-monitor overrides:
 
+- **Automatically hide and show** (**Unreleased**, available when building from `main`) reveals the bar on pointer approach and keeps it visible during interaction, without reserving layout space. Set `workspaceBar.autoHide = true`; the default is `false`.
 - **Transparent Background** removes the outer bar material, tint, and border; icons remain clickable. It takes precedence over **Solid Black Background**.
 - **Solid Black Background** uses opaque black instead of the outer bar's material and tint.
 - **Inactive Icon Opacity** adjusts non-focused app icons. Leaving it unset preserves the standard opacity for each kind of item; hidden-app icons retain their hidden-state appearance. Values are limited to 0–1, and nonfinite values are treated as unset.

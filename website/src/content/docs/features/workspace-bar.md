@@ -41,7 +41,8 @@ Configure position, height, and appearance in Settings:
 
 - **Position** — overlap the menu bar, sit below it, or dock at **Bottom**, **Left**, or **Right**. Available globally and per display.
 - **Notch handling** — `Off`, `Move Below Menu Bar`, or a split layout (`Split — Active Left` / `Split — Active Right`) that flows the bar around the notch with your chosen side for the active workspace.
-- **Reveal on modifier hold** — keep the bar hidden until you hold a chosen modifier.
+- **Automatically hide and show** — reveal on pointer approach and hide when not in use. See [Automatic hiding](#automatic-hiding).
+- **Reveal on modifier hold** — keep the bar hidden until you hold a chosen modifier; with automatic hiding enabled, either trigger can reveal it.
 - **Hide empty workspaces** — omit chips for workspaces with no windows.
 - **Reserve layout space** — reserve room for the bar so tiled windows never sit underneath it.
 - **Hide in Native Fullscreen** — hide the bar on a monitor while that monitor shows a macOS native fullscreen window, and bring it back on exit; reserved tiled layout space is left untouched so windows do not shuffle around the fullscreen session.
@@ -60,6 +61,21 @@ Placement follows the usable display edge, avoiding a visible Dock. X/Y offsets 
 Side bars stack upright labels and icons and scroll vertically when needed. **Bar Thickness** (`height` in TOML) controls their width. Drag-and-drop follows the bar's horizontal or vertical order. Stats, hover previews, workspace rename panels, hidden-icon panels, and the fallback OmniWM menu open inward from the displayed bar or icon.
 
 Notch modes, including **Fill Left of Notch**, are ignored at bottom/left/right without changing your saved preference. Existing visibility settings still apply; modifier-hold bars remain overlay-only.
+
+### Automatic hiding
+
+**Unreleased** — available when building from `main`.
+
+Enable **Automatically hide and show the workspace bar** globally or per display:
+
+```toml
+[workspaceBar]
+autoHide = true # default: false
+```
+
+The bar appears immediately when the pointer approaches its location, not anywhere along the display edge. It stays visible during bar, menu, popup, and drag interactions, including pointer transitions between them, then hides immediately when interaction ends and the pointer leaves. There are no new animations or configurable pointer delays.
+
+Auto-hidden bars never reserve layout space, even while visible. Manual hiding, disabling, and native-fullscreen suppression take precedence. Existing modifier-only configurations remain unchanged; when combined with `autoHide`, pointer approach or modifier hold can reveal the bar. The existing modifier hold delay applies only to that modifier trigger.
 
 ### Additional appearance controls
 

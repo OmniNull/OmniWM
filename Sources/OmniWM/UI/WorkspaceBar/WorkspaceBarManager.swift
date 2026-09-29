@@ -25,6 +25,7 @@ final class WorkspaceBarManager {
     let menuPresenter = WorkspaceBarMenuPresenter()
     var renamePanel: WorkspaceBarRenamePanel?
     let dragController = WorkspaceBarDragController()
+    let autoHideMonitor = WorkspaceBarAutoHideMonitor()
     var hoverPreview: WorkspaceBarHoverPreviewController?
     let notificationBadges: WorkspaceBarBadgeService
     var notificationBadgeTargetsByMonitor: [Monitor.ID: Set<String>] = [:]
@@ -40,6 +41,9 @@ final class WorkspaceBarManager {
     func setup(controller: WMController, settings: SettingsStore) {
         self.controller = controller
         self.settings = settings
+        autoHideMonitor.targets = { [weak self] in self?.autoHideTargets() ?? [] }
+        autoHideMonitor.pointer = { [weak controller] in controller?.currentMouseLocation() ?? NSEvent.mouseLocation }
+        autoHideMonitor.onRevealChanged = { [weak controller] in controller?.requestWorkspaceBarRefresh() }
         controller.hiddenBarController.onWorkspaceBarJoin = { [weak self] join in
             self?.setHiddenBarJoin(join)
         }
@@ -51,7 +55,7 @@ final class WorkspaceBarManager {
         guard controller != nil, settings != nil else { return }
 
         var staleMonitorIds = Set(barsByMonitor.keys)
-        for bar in bars where bar.visible {
+        for bar in bars where bar.visible || bar.retainWhileHidden {
             staleMonitorIds.remove(bar.monitor.id)
             if let existing = barsByMonitor[bar.monitor.id] {
                 if !updateBarForMonitor(bar.monitor, snapshot: bar.snapshot, instance: existing) {
@@ -61,6 +65,7 @@ final class WorkspaceBarManager {
             } else {
                 createBarForMonitor(bar.monitor, snapshot: bar.snapshot)
             }
+            applyVisibility(bar.visible, on: bar.monitor.id)
         }
 
         for monitorId in staleMonitorIds {
@@ -72,6 +77,7 @@ final class WorkspaceBarManager {
             self?.hoverTarget(for: key)
         }
         controller?.hiddenBarController.updatePanelPlacement(hiddenBarPanelPlacement(on:))
+        if bars.contains(where: \.retainWhileHidden) { autoHideMonitor.start() } else { autoHideMonitor.stop() }
     }
 
     func updateAppearance() {
@@ -133,7 +139,6 @@ final class WorkspaceBarManager {
             id: instance.surfaceId(),
             policy: WorkspaceBarInstance.surfacePolicy
         )
-        primary.panel.orderFrontRegardless()
     }
 
     private func updateBarForMonitor(
@@ -221,6 +226,7 @@ final class WorkspaceBarManager {
     }
 
     func cleanup() {
+        autoHideMonitor.stop()
         notificationBadges.stop()
         notificationBadgeTargetsByMonitor.removeAll()
         hoverPreview?.dismiss()
@@ -327,7 +333,8 @@ extension WorkspaceBarManager {
     }
 
     func statsAnchor(on monitorId: Monitor.ID) -> CGPoint? {
-        guard let view = barsByMonitor[monitorId]?.statsAnchorView, let window = view.window else { return nil }
+        guard let view = barsByMonitor[monitorId]?.statsAnchorView,
+              let window = view.window, window.isVisible else { return nil }
         let frame = window.convertToScreen(view.convert(view.bounds, to: nil))
         return WorkspaceBarGeometry.statsButtonAnchor(buttonFrame: frame)
     }
@@ -388,7 +395,6 @@ extension WorkspaceBarManager {
             id: instance.secondarySurfaceId(),
             policy: WorkspaceBarInstance.surfacePolicy
         )
-        island.panel.orderFrontRegardless()
         return island
     }
 
@@ -439,7 +445,8 @@ extension WorkspaceBarManager {
 extension WorkspaceBarManager {
     func popupAttachment(on monitorId: Monitor.ID, forStats: Bool = false) -> PopupAttachment? {
         guard let instance = barsByMonitor[monitorId], let settings,
-              let window = forStats ? instance.statsAnchorView?.window : instance.primary.panel
+              let window = forStats ? instance.statsAnchorView?.window : instance.primary.panel,
+              window.isVisible
         else { return nil }
         let edge = settings.workspaceBar.resolved(for: instance.monitor).position.popupEdge
         return PopupAttachment(

@@ -18,6 +18,7 @@ struct DesiredBarSurface: Equatable {
     var monitor: Monitor
     var visible: Bool
     var snapshot: WorkspaceBarSnapshot
+    var retainWhileHidden = false
 }
 
 struct ParkingEdgeMaskKey: Hashable {
