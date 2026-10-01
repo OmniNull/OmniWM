@@ -16,7 +16,7 @@ extension NiriLayoutEngine {
 
     func updateAccordionStyle(padding: CGFloat, axis: AccordionAxis) {
         assertSanctionedMutation()
-        renderStyle.accordionPadding = min(max(padding, 0), 200)
+        renderStyle.accordionPadding = NiriSettings.validatedAccordionPadding(padding)
         renderStyle.accordionAxis = axis
     }
 

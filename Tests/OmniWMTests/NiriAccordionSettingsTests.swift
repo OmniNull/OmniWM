@@ -68,6 +68,19 @@ final class NiriAccordionSettingsTests: XCTestCase {
         XCTAssertEqual(decoded.niri.accordionAxis, .vertical)
     }
 
+    @MainActor
+    func testApplyNormalizesOutOfRangeAndNonFinitePadding() {
+        let settings = NiriSettings()
+        var incoming = SettingsExport.Niri.defaults()
+        let cases: [(Double, Double)] = [(1e30, 200), (-5, 0), (.infinity, 30), (.nan, 30), (44, 44)]
+
+        for (input, expected) in cases {
+            incoming.accordionPadding = input
+            settings.apply(incoming, baseline: SettingsExport.Niri.defaults())
+            XCTAssertEqual(settings.accordionPadding, expected, "input \(input)")
+        }
+    }
+
     func testPaddingIsClampedToTwoHundred() {
         let engine = NiriLayoutEngine()
         engine.updateAccordionStyle(padding: 900, axis: .vertical)

@@ -109,7 +109,9 @@ final class NiriSettings {
         )
         defaultContainerPrimarySpan = NiriSettings
             .validatedDefaultContainerPrimarySpan(niri.defaultContainerPrimarySpan)
-        accordionPadding = niri.accordionPadding ?? baseline.accordionPadding ?? 30
+        accordionPadding = NiriSettings.validatedAccordionPadding(
+            niri.accordionPadding ?? baseline.accordionPadding ?? 30
+        )
         accordionAxis = niri.accordionAxis ?? baseline.accordionAxis ?? .horizontal
     }
 
@@ -153,5 +155,10 @@ final class NiriSettings {
     static func validatedDefaultContainerPrimarySpan(_ width: Double?) -> Double? {
         guard let width else { return nil }
         return min(1.0, max(0.05, width))
+    }
+
+    nonisolated static func validatedAccordionPadding(_ padding: Double) -> Double {
+        guard padding.isFinite else { return 30 }
+        return min(200, max(0, padding))
     }
 }
