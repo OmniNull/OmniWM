@@ -185,6 +185,7 @@ Workspace IDs are global, so `switch-workspace 3` targets workspace `3` wherever
 | `command cycle-size backward` | — | shared | Cycle layout sizing presets backward (in Dwindle the focused window takes 70, 50, or 30 % of its split) |
 | `command toggle-workspace-layout` | — | shared | Toggle the workspace between Niri and Dwindle |
 | `command set-workspace-layout` | `<default\|niri\|dwindle>` | shared | Set the workspace layout explicitly |
+| `command toggle-accordion` | — | niri | Toggle the accordion layout for the current workspace |
 | `command toggle-fullscreen` | — | shared | Toggle OmniWM-managed fullscreen |
 | `command toggle-native-fullscreen` | — | shared | Toggle native macOS fullscreen |
 

@@ -252,7 +252,9 @@ final class NiriLayoutEngine {
         alwaysCenterSingleColumn: Bool? = nil,
         singleWindowFit: SingleWindowFit? = nil,
         presetContainerPrimarySpans: [PresetSize]? = nil,
-        defaultContainerPrimarySpan: CGFloat?? = nil
+        defaultContainerPrimarySpan: CGFloat?? = nil,
+        accordionPadding: CGFloat? = nil,
+        accordionAxis: AccordionAxis? = nil
     ) {
         assertSanctionedMutation()
         if let max = visibleContainerCount {
@@ -273,6 +275,13 @@ final class NiriLayoutEngine {
         // Double optional distinguishes "no config change" from "set Auto/nil".
         if let defaultContainerPrimarySpan {
             self.defaultContainerPrimarySpan = defaultContainerPrimarySpan?.clamped(to: 0.05 ... 1.0)
+        }
+
+        if accordionPadding != nil || accordionAxis != nil {
+            updateAccordionStyle(
+                padding: accordionPadding ?? renderStyle.accordionPadding,
+                axis: accordionAxis ?? renderStyle.accordionAxis
+            )
         }
 
         if let presets = presetContainerPrimarySpans, !presets.isEmpty {

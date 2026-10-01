@@ -129,6 +129,7 @@ The window-to-monitor actions send the focused window directly to the current wo
 | Assign Focused Window to Scratchpad 1-10 | `Unassigned` | `Shared` |
 | Toggle Scratchpad 1-10 | `Unassigned` | `Shared` |
 | Toggle Workspace Layout | `Option + Shift + L` | `Shared` |
+| Toggle Accordion | `Unassigned` | `Niri` |
 
 ## Container and Column
 

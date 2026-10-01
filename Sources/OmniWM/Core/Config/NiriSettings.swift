@@ -66,6 +66,14 @@ final class NiriSettings {
         didSet { onChange?() }
     }
 
+    var accordionPadding = NiriSettings.defaults.accordionPadding ?? 30 {
+        didSet { onChange?() }
+    }
+
+    var accordionAxis = NiriSettings.defaults.accordionAxis ?? .horizontal {
+        didSet { onChange?() }
+    }
+
     var monitorOverrides: [MonitorNiriSettings] = [] {
         didSet { onChange?() }
     }
@@ -80,7 +88,9 @@ final class NiriSettings {
             containerPrimarySpanPresets: containerPrimarySpanPresets,
             defaultContainerPrimarySpan: defaultContainerPrimarySpan,
             edgeGaps: edgeGaps,
-            resizeStepPercent: resizeStepPercent
+            resizeStepPercent: resizeStepPercent,
+            accordionPadding: accordionPadding,
+            accordionAxis: accordionAxis
         )
     }
 
@@ -99,6 +109,8 @@ final class NiriSettings {
         )
         defaultContainerPrimarySpan = NiriSettings
             .validatedDefaultContainerPrimarySpan(niri.defaultContainerPrimarySpan)
+        accordionPadding = niri.accordionPadding ?? baseline.accordionPadding ?? 30
+        accordionAxis = niri.accordionAxis ?? baseline.accordionAxis ?? .horizontal
     }
 
     func settings(for monitor: Monitor) -> MonitorNiriSettings? {

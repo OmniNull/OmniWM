@@ -74,6 +74,15 @@ extension CenterFocusedColumn {
     }
 }
 
+extension AccordionAxis {
+    var localizedDisplayName: String {
+        switch self {
+        case .horizontal: String(localized: "Horizontal")
+        case .vertical: String(localized: "Vertical")
+        }
+    }
+}
+
 extension TrackpadScrollStyle {
     var localizedDisplayName: String {
         switch self {

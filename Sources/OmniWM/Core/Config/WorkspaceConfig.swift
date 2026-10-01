@@ -91,6 +91,11 @@ struct WorkspaceConfiguration: Codable, Identifiable, Equatable {
     var displayName: String?
     var monitorAssignment: MonitorAssignment
     var layoutType: LayoutType
+    var accordion: Bool
+
+    private enum CodingKeys: String, CodingKey {
+        case id, name, displayName, monitorAssignment, layoutType, accordion
+    }
 
     var effectiveDisplayName: String {
         displayName.flatMap { $0.isEmpty ? nil : $0 } ?? name
@@ -101,18 +106,36 @@ struct WorkspaceConfiguration: Codable, Identifiable, Equatable {
         name: String,
         displayName: String? = nil,
         monitorAssignment: MonitorAssignment = .main,
-        layoutType: LayoutType = .defaultLayout
+        layoutType: LayoutType = .defaultLayout,
+        accordion: Bool = false
     ) {
         self.id = id
         self.name = name
         self.displayName = displayName
         self.monitorAssignment = monitorAssignment
         self.layoutType = layoutType
+        self.accordion = accordion
+    }
+
+    init(from decoder: Decoder) throws {
+        let container = try decoder.container(keyedBy: CodingKeys.self)
+        id = try container.decode(UUID.self, forKey: .id)
+        name = try container.decode(String.self, forKey: .name)
+        displayName = try container.decodeIfPresent(String.self, forKey: .displayName)
+        monitorAssignment = try container.decode(MonitorAssignment.self, forKey: .monitorAssignment)
+        layoutType = try container.decode(LayoutType.self, forKey: .layoutType)
+        accordion = try container.decodeIfPresent(Bool.self, forKey: .accordion) ?? false
     }
 
     func with(layoutType: LayoutType) -> WorkspaceConfiguration {
         var copy = self
         copy.layoutType = layoutType
+        return copy
+    }
+
+    func with(accordion: Bool) -> WorkspaceConfiguration {
+        var copy = self
+        copy.accordion = accordion
         return copy
     }
 

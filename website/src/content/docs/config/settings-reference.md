@@ -164,6 +164,8 @@ Options for the scrolling (Niri) layout.
 | `defaultContainerPrimarySpan` *(optional)* | float | `0.5` | Primary-axis span fraction for new containers. |
 | `resizeStepPercent` *(optional)* | integer | `5` | Increment for Niri grow/shrink actions in percentage points, clamped to 1–100. Applies to container primary, window primary, and window secondary spans. Explicit CLI sizes are unaffected. |
 | `edgeGaps` *(optional)* | boolean | `true` | Keeps the inner gap between columns and the screen edges, in addition to the outer gaps. `false` uses the inner gap only between columns and between stacked windows. A lone window is unaffected. |
+| `accordionPadding` *(optional)* | float | `30` | Size in points of the strip that each neighbor window shows beside the active column. `0` to `200`. |
+| `accordionAxis` *(optional)* | string | `"horizontal"` | Direction of the strips: `horizontal` or `vertical`. |
 
 The resize increment defaults to 5% instead of the previous fixed 10%.
 
@@ -405,6 +407,7 @@ Array of workspace definitions.
 | `displayName` *(optional)* | string | Label shown in the bar instead of `name` (emoji welcome). |
 | `monitorAssignment` | table | `type` = `main`, `secondary`, `tertiary`, or `specificDisplay`. For `specificDisplay`, the `output` sub-table contains a required `name` (string), optional `displayUUID` (string), and optional `displayId` (integer). The role types resolve through the [`monitors`](#monitors) ranking. |
 | `layoutType` | string | `default` (follow `general.defaultLayoutType`), `niri`, or `dwindle`. |
+| `accordion` *(optional)* | boolean | Accordion layout for this Niri workspace. Default `false`. |
 
 For `specificDisplay`, `displayUUID` takes precedence when present. Without it, `displayId` and `name` must match a monitor that has no display UUID. A name alone cannot identify the target monitor.
 

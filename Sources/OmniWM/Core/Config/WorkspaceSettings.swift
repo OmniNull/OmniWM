@@ -31,6 +31,10 @@ final class WorkspaceSettings {
         return defaultLayoutType
     }
 
+    func isAccordion(for workspaceName: String) -> Bool {
+        configurations.first { $0.name == workspaceName }?.accordion ?? false
+    }
+
     func displayName(for workspaceName: String) -> String {
         configurations.first(where: { $0.name == workspaceName })?.effectiveDisplayName ?? workspaceName
     }

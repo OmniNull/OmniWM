@@ -72,6 +72,7 @@ raise-all-floating-windows
 rescue-offscreen-windows
 toggle-workspace-layout
 set-workspace-layout
+toggle-accordion
 toggle-fullscreen
 toggle-native-fullscreen
 toggle-overview

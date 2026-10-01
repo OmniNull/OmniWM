@@ -49,9 +49,20 @@ extension ActionCatalog {
                 binding: KeyBinding(keyCode: UInt32(kVK_ANSI_L), modifiers: UInt32(optionKey | shiftKey)),
                 keywords: ["layout", "niri", "dwindle"]
             ),
+            toggleAccordionActionSpec,
             IPCPresentationCommand.overview.actionSpec(),
             IPCPresentationCommand.systemStats.actionSpec()
         ])
+    }
+
+    private static var toggleAccordionActionSpec: ActionSpec {
+        action(
+            id: "toggleAccordion",
+            command: .workspace(.toggleAccordion),
+            category: .layout,
+            binding: .unassigned,
+            keywords: ["accordion", "niri"]
+        )
     }
 
     private static var setWindowMarkActionSpec: ActionSpec {

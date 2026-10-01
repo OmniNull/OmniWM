@@ -79,7 +79,9 @@ extension WMController {
         alwaysCenterSingleColumn: Bool? = nil,
         singleWindowFit: SingleWindowFit? = nil,
         containerPrimarySpanPresets: [Double]? = nil,
-        defaultContainerPrimarySpan: Double?? = nil
+        defaultContainerPrimarySpan: Double?? = nil,
+        accordionPadding: Double? = nil,
+        accordionAxis: AccordionAxis? = nil
     ) {
         niriLayoutHandler.updateNiriConfig(
             visibleContainerCount: visibleContainerCount,
@@ -88,7 +90,9 @@ extension WMController {
             alwaysCenterSingleColumn: alwaysCenterSingleColumn,
             singleWindowFit: singleWindowFit,
             containerPrimarySpanPresets: containerPrimarySpanPresets,
-            defaultContainerPrimarySpan: defaultContainerPrimarySpan
+            defaultContainerPrimarySpan: defaultContainerPrimarySpan,
+            accordionPadding: accordionPadding,
+            accordionAxis: accordionAxis
         )
     }
 

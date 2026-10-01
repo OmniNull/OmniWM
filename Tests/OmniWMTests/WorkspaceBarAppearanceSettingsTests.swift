@@ -49,7 +49,7 @@ final class WorkspaceBarAppearanceSettingsTests: XCTestCase {
             .joined(separator: "\n")
 
         let result = try SettingsTOMLCodec.decodeForLoad(Data(toml.utf8))
-        XCTAssertTrue(toml.contains("schemaVersion = 4"))
+        XCTAssertTrue(toml.contains("schemaVersion = 5"))
         XCTAssertNil(result.migration)
         XCTAssertNil(result.migratedData)
         XCTAssertFalse(result.export.workspaceBar.transparentBackground)

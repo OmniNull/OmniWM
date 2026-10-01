@@ -143,6 +143,8 @@ struct SettingsExport: Equatable {
         var defaultContainerPrimarySpan: Double?
         var edgeGaps: Bool?
         var resizeStepPercent: Int?
+        var accordionPadding: Double?
+        var accordionAxis: AccordionAxis?
     }
 
     struct Dwindle: Codable, Equatable {
@@ -381,7 +383,9 @@ extension SettingsExport.Niri {
             containerPrimarySpanPresets: BuiltInSettingsDefaults.niriContainerPrimarySpanPresets,
             defaultContainerPrimarySpan: 0.5,
             edgeGaps: true,
-            resizeStepPercent: BuiltInSettingsDefaults.niriResizeStepPercent
+            resizeStepPercent: BuiltInSettingsDefaults.niriResizeStepPercent,
+            accordionPadding: 30,
+            accordionAxis: .horizontal
         )
     }
 }

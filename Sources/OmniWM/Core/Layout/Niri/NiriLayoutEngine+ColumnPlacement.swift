@@ -137,17 +137,13 @@ extension NiriLayoutEngine {
             } else {
                 renderedContainerRect = visibilityRect
             }
-            if projectedColumn.column.isTabbed, projectedColumn.windows.count > 1 {
-                let parkEdge = layoutArea.hiddenEdge(
-                    for: visibilityRect,
-                    fallback: idx == 0 ? .minimum : .maximum,
-                    orientation: orientation
-                )
-                let activeWindow = projectedActiveWindow(in: projectedColumn)
-                for window in projectedColumn.windows where window !== activeWindow {
-                    result.hiddenHandles[window.token] = parkEdge.encodedHideSide
-                }
-            }
+            parkInactiveTabs(
+                of: projectedColumn,
+                visibleRect: visibilityRect,
+                isFirst: idx == 0,
+                context: pass.context,
+                result: &result
+            )
         case let .hidden(hiddenEdge):
             for window in projectedColumn.windows {
                 result.hiddenHandles[window.token] = hiddenEdge.encodedHideSide
@@ -161,5 +157,24 @@ extension NiriLayoutEngine {
             )
         }
         return renderedContainerRect
+    }
+
+    func parkInactiveTabs(
+        of projectedColumn: NiriProjectedColumn,
+        visibleRect: CGRect,
+        isFirst: Bool,
+        context: NiriCalculationContext,
+        result: inout LayoutResult
+    ) {
+        guard projectedColumn.column.isTabbed, projectedColumn.windows.count > 1 else { return }
+        let parkEdge = context.area.hiddenEdge(
+            for: visibleRect,
+            fallback: isFirst ? .minimum : .maximum,
+            orientation: context.orientation
+        )
+        let activeWindow = projectedActiveWindow(in: projectedColumn)
+        for window in projectedColumn.windows where window !== activeWindow {
+            result.hiddenHandles[window.token] = parkEdge.encodedHideSide
+        }
     }
 }

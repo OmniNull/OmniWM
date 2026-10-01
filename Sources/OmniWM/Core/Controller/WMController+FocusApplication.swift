@@ -29,7 +29,7 @@ extension WMController {
         guard validateMouseFocusRequest(liveRequest, validatesPointer: validatesPointer) else { return false }
 
         let focusesWithoutRaise = liveRequest.origin == .focusFollowsMouse
-            && !settings.focus.raiseOnMouseFocus
+            && !raisesOnMouseFocus(entry)
         guard focusesWithoutRaise else {
             return frontManagedFocusRequest(liveRequest, entry: entry, raisesWindow: raisesWindow)
         }
@@ -115,6 +115,15 @@ extension WMController {
         confirmSameAppFocusHandoff(liveRequest, sourceToken: sourceToken, isRetry: isRetry)
     }
 
+    func accordionFocusRaiseOrder(for entry: WindowState) -> [WindowToken] {
+        guard workspaceManager.activeLayoutKind(for: entry.workspaceId) == .niri else { return [] }
+        return niriEngine?.accordionRaiseOrder(for: entry.token, in: entry.workspaceId) ?? []
+    }
+
+    func raisesOnMouseFocus(_ entry: WindowState) -> Bool {
+        settings.focus.raiseOnMouseFocus || !accordionFocusRaiseOrder(for: entry).isEmpty
+    }
+
     private func validateMouseFocusRequest(_ liveRequest: ManagedFocusRequest, validatesPointer: Bool) -> Bool {
         if liveRequest.origin == .focusFollowsMouse {
             guard focusFollowsMouseEnabled else {
@@ -142,7 +151,14 @@ extension WMController {
         entry: WindowState,
         raisesWindow: Bool
     ) -> Bool {
-        let applied = raisesWindow
+        let accordionOrder = accordionFocusRaiseOrder(for: entry)
+        for token in accordionOrder.dropLast() {
+            guard let sibling = workspaceManager.entry(for: token),
+                  canFocusWindow(pid: sibling.pid, windowId: sibling.windowId)
+            else { continue }
+            windowFocusOperations.raiseWindow(sibling.axRef.element)
+        }
+        let applied = raisesWindow || !accordionOrder.isEmpty
             ? performWindowFronting(pid: entry.pid, windowId: entry.windowId, axRef: entry.axRef)
             : submitWindowFocus(pid: entry.pid, windowId: entry.windowId, axRef: entry.axRef)
         if applied, case .awaitingSameAppActivation = liveRequest.phase {

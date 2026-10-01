@@ -4,11 +4,13 @@
 public enum IPCWorkspaceLayoutCommandName: String, CaseIterable, Hashable, Sendable {
     case toggle = "toggle-workspace-layout"
     case set = "set-workspace-layout"
+    case toggleAccordion = "toggle-accordion"
 }
 
 public enum IPCWorkspaceLayoutCommand: Equatable, Sendable {
     case toggle
     case set(layout: IPCWorkspaceLayout)
+    case toggleAccordion
 
     public var name: IPCWorkspaceLayoutCommandName {
         switch self {
@@ -16,6 +18,8 @@ public enum IPCWorkspaceLayoutCommand: Equatable, Sendable {
             .toggle
         case .set:
             .set
+        case .toggleAccordion:
+            .toggleAccordion
         }
     }
 
@@ -25,6 +29,8 @@ public enum IPCWorkspaceLayoutCommand: Equatable, Sendable {
             self = try arguments.requireNoArguments(.toggle)
         case .set:
             self = try .set(layout: arguments.layout())
+        case .toggleAccordion:
+            self = try arguments.requireNoArguments(.toggleAccordion)
         }
     }
 
@@ -32,7 +38,8 @@ public enum IPCWorkspaceLayoutCommand: Equatable, Sendable {
         switch self {
         case let .set(layout):
             try writer.encode(layout: layout)
-        case .toggle:
+        case .toggle,
+             .toggleAccordion:
             break
         }
     }
