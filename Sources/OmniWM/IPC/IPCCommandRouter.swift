@@ -114,6 +114,8 @@ final class IPCCommandRouter {
         switch command {
         case .toggle:
             return controller.commandHandler.performCommand(.workspace(.toggleLayout))
+        case .toggleAccordion:
+            return controller.commandHandler.performCommand(.workspace(.toggleAccordion))
         case let .set(layout):
             if let guardResult = IPCCommandValidation.controllerState(controller) {
                 return guardResult

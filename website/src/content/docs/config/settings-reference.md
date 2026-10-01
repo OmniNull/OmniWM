@@ -10,7 +10,7 @@ This reference follows current `main`; features newer than the latest release ar
 Complete reference for `settings.toml`, in the file's canonical order. The authoritative schema is [`CanonicalTOMLConfig.swift`](https://github.com/OmniNull/OmniWM/blob/main/Sources/OmniWM/Core/Config/CanonicalTOMLConfig.swift); defaults come from [`SettingsExport.swift`](https://github.com/OmniNull/OmniWM/blob/main/Sources/OmniWM/Core/Config/SettingsExport.swift) and [`BuiltInSettingsDefaults.swift`](https://github.com/OmniNull/OmniWM/blob/main/Sources/OmniWM/Core/Config/BuiltInSettingsDefaults.swift).
 
 :::caution
-The current schema is strict — a missing required key in a version 4 file invalidates the whole file, `hotkeys` must list every required action exactly once, and an enumerated string key must use one of its listed values (an unknown value rejects the whole file, exactly like a missing key). Conflicting trackpad gesture finger counts under [`gestures`](#gestures) reject the whole file too. Edit values in place; see [Configuration](/config/configuration/).
+The current schema is strict — a missing required key in a version 5 file invalidates the whole file, `hotkeys` must list every required action exactly once, and an enumerated string key must use one of its listed values (an unknown value rejects the whole file, exactly like a missing key). Conflicting trackpad gesture finger counts under [`gestures`](#gestures) reject the whole file too. Edit values in place; see [Configuration](/config/configuration/).
 :::
 
 **Conventions**
@@ -24,15 +24,15 @@ The current schema is strict — a missing required key in a version 4 file inva
 
 | Key | Type | Default | Description |
 | --- | --- | --- | --- |
-| `schemaVersion` | integer | `4` | Version of the complete `settings.toml` schema. This top-level key appears before the first table. |
+| `schemaVersion` | integer | `5` | Version of the complete `settings.toml` schema. This top-level key appears before the first table. |
 
 The canonical file declares:
 
 ```toml
-schemaVersion = 4
+schemaVersion = 5
 ```
 
-An absent version identifies a legacy version 0 file, while OmniWM v0.6.4 emitted version 1. OmniWM upgrades version 0, 1, 2, and 3 files sequentially in memory before strict version 4 validation, retaining the compatibility guarantee for settings emitted by v0.6.2 through v0.6.4. The version 2 to version 3 step moves the old flat routing rows into one saved arrangement; version 3 to version 4 adds the unassigned set/remove window-mark hotkey actions. A successful upgrade creates an exact write-once `settings.toml.pre-v4` or `settings.toml.pre-v4.1` backup, then atomically rewrites canonical TOML once; this can reorder keys and removes comments, while preserving unrecognized keys when their owner can be matched safely. Valid release migrations never use the `.corrupt` recovery slots. Older schema-less files are attempted but remain untouched with defaults active if they cannot validate, and files declaring a newer unsupported version remain untouched with configuration writes blocked. See [Automatic version upgrades](/config/configuration/#automatic-version-upgrades) for the migration rules and recovery behavior.
+An absent version identifies a legacy version 0 file, while OmniWM v0.6.4 emitted version 1. OmniWM upgrades version 0, 1, 2, 3, and 4 files sequentially in memory before strict version 5 validation, retaining the compatibility guarantee for settings emitted by v0.6.2 through v0.6.4. The version 2 to version 3 step moves the old flat routing rows into one saved arrangement; version 3 to version 4 adds the unassigned set/remove window-mark hotkey actions; version 4 to version 5 adds the unassigned Toggle Accordion hotkey action. A successful upgrade creates an exact write-once `settings.toml.pre-v5` or `settings.toml.pre-v5.1` backup, then atomically rewrites canonical TOML once; this can reorder keys and removes comments, while preserving unrecognized keys when their owner can be matched safely. Valid release migrations never use the `.corrupt` recovery slots. Older schema-less files are attempted but remain untouched with defaults active if they cannot validate, and files declaring a newer unsupported version remain untouched with configuration writes blocked. See [Automatic version upgrades](/config/configuration/#automatic-version-upgrades) for the migration rules and recovery behavior.
 
 ## general
 
@@ -164,6 +164,8 @@ Options for the scrolling (Niri) layout.
 | `defaultContainerPrimarySpan` *(optional)* | float | `0.5` | Primary-axis span fraction for new containers. |
 | `resizeStepPercent` *(optional)* | integer | `5` | Increment for Niri grow/shrink actions in percentage points, clamped to 1–100. Applies to container primary, window primary, and window secondary spans. Explicit CLI sizes are unaffected. |
 | `edgeGaps` *(optional)* | boolean | `true` | Keeps the inner gap between columns and the screen edges, in addition to the outer gaps. `false` uses the inner gap only between columns and between stacked windows. A lone window is unaffected. |
+| `accordionPadding` *(optional)* | float | `30` | Size in points of the strip that each neighbor window shows beside the active column. `0` to `200`. |
+| `accordionAxis` *(optional)* | string | `"horizontal"` | Direction of the strips: `horizontal` or `vertical`. |
 
 The resize increment defaults to 5% instead of the previous fixed 10%.
 
@@ -405,6 +407,7 @@ Array of workspace definitions.
 | `displayName` *(optional)* | string | Label shown in the bar instead of `name` (emoji welcome). |
 | `monitorAssignment` | table | `type` = `main`, `secondary`, `tertiary`, or `specificDisplay`. For `specificDisplay`, the `output` sub-table contains a required `name` (string), optional `displayUUID` (string), and optional `displayId` (integer). The role types resolve through the [`monitors`](#monitors) ranking. |
 | `layoutType` | string | `default` (follow `general.defaultLayoutType`), `niri`, or `dwindle`. |
+| `accordion` *(optional)* | boolean | Accordion layout for this Niri workspace. Default `false`. |
 
 For `specificDisplay`, `displayUUID` takes precedence when present. Without it, `displayId` and `name` must match a monitor that has no display UUID. A name alone cannot identify the target monitor.
 

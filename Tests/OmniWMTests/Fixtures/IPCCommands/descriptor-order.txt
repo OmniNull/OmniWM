@@ -80,6 +80,7 @@ hidden-bar-panel
 toggle-quake-terminal
 toggle-workspace-layout
 set-workspace-layout
+toggle-accordion
 toggle-fullscreen
 toggle-native-fullscreen
 toggle-overview

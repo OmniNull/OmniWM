@@ -18,6 +18,7 @@ enum WorkspaceAction: Equatable, Hashable {
     case swapWithMonitor(Direction)
     case backAndForth
     case toggleLayout
+    case toggleAccordion
 }
 
 extension WorkspaceAction {
@@ -63,6 +64,10 @@ extension WorkspaceAction {
             )
         case .toggleLayout: LocalizedStringResource(
                 "command.workspace.toggleLayout", defaultValue: "Toggle Workspace Layout", table: "Commands",
+                bundle: .omniWM
+            )
+        case .toggleAccordion: LocalizedStringResource(
+                "command.workspace.toggleAccordion", defaultValue: "Toggle Accordion", table: "Commands",
                 bundle: .omniWM
             )
         }
@@ -159,6 +164,8 @@ extension WorkspaceAction {
             .swapWorkspaceWithMonitor
         case .toggleLayout:
             .workspaceLayout(.toggle)
+        case .toggleAccordion:
+            .workspaceLayout(.toggleAccordion)
         }
     }
 
@@ -178,6 +185,8 @@ extension WorkspaceAction {
              .backAndForth,
              .toggleLayout:
             .shared
+        case .toggleAccordion:
+            .niri
         }
     }
 }

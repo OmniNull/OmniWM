@@ -126,6 +126,7 @@ final class IPCCommandWireShapeTests: XCTestCase {
         #"{"name":"rescue-offscreen-windows"}"#,
         #"{"name":"toggle-workspace-layout"}"#,
         #"{"arguments":{"layout":"niri"},"name":"set-workspace-layout"}"#,
+        #"{"name":"toggle-accordion"}"#,
         #"{"name":"toggle-fullscreen"}"#,
         #"{"name":"toggle-native-fullscreen"}"#,
         #"{"name":"toggle-overview"}"#,

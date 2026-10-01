@@ -65,12 +65,18 @@ extension MouseEventHandler {
             return nil
         }
 
+        guard supportsNiriColumnScroll(in: workspace) else { return nil }
+        return ScrollContext(engine: engine, wsId: workspace.id, monitor: monitor)
+    }
+
+    func supportsNiriColumnScroll(in workspace: WorkspaceDescriptor) -> Bool {
+        guard let controller, let engine = controller.niriEngine else { return false }
         switch controller.settings.workspaces.layoutType(for: workspace.name) {
         case .niri,
              .defaultLayout:
-            return ScrollContext(engine: engine, wsId: workspace.id, monitor: monitor)
+            return !engine.isAccordion(in: workspace.id)
         case .dwindle:
-            return nil
+            return false
         }
     }
 

@@ -106,6 +106,27 @@ private struct GlobalNiriSettingsSection: View {
                 controller.updateNiriConfig(centerFocusedColumn: newValue)
             }
 
+            Picker("Accordion Axis", selection: Bindable(settings.niri).accordionAxis) {
+                ForEach(AccordionAxis.allCases, id: \.self) { axis in
+                    Text(axis.localizedDisplayName).tag(axis)
+                }
+            }
+            .onChange(of: settings.niri.accordionAxis) { _, newValue in
+                controller.updateNiriConfig(accordionAxis: newValue)
+            }
+
+            SettingsSliderRow(
+                label: String(localized: "Accordion Padding"),
+                value: Bindable(settings.niri).accordionPadding,
+                range: 0 ... 200,
+                step: 5,
+                valueText: String(localized: "\(Int(settings.niri.accordionPadding).formatted()) pt"),
+                valueWidth: 56
+            )
+            .onChange(of: settings.niri.accordionPadding) { _, newValue in
+                controller.updateNiriConfig(accordionPadding: newValue)
+            }
+
             Toggle("Always Center Single Column", isOn: Bindable(settings.niri).alwaysCenterSingleColumn)
                 .onChange(of: settings.niri.alwaysCenterSingleColumn) { _, newValue in
                     controller.updateNiriConfig(alwaysCenterSingleColumn: newValue)

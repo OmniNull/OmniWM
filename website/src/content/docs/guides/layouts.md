@@ -23,6 +23,10 @@ Both layouts show a tab rail beside grouped windows. Click a tab to reveal and f
 
 Enable **Settings → General → Appearance → Show app icons in tab rails** to replace compact markers with icons; crowded icon rails scroll vertically. See the [appearance reference](/config/settings-reference/#appearance).
 
+## Accordion workspaces
+
+`Toggle Accordion` (unassigned by default) switches the active Niri workspace to an accordion layout. All columns overlap in the working area, and the columns next to the active column show a strip. Set the strip size with `accordionPadding` and the direction with `accordionAxis` in **Settings → Niri Layout**. OmniWM saves the accordion state for each workspace.
+
 ## Floating windows
 
 Windows can also float above the tiled layout in either engine:

@@ -20,16 +20,24 @@ extension NiriLayoutEngine {
         clearInteractiveResize()
     }
 
+    func hitTestCandidates(
+        in column: NiriContainer,
+        workspaceId: WorkspaceDescriptor.ID
+    ) -> [NiriWindow] {
+        let windows = column.children.compactMap { $0 as? NiriWindow }
+        guard column.isTabbed,
+              let active = projectedActiveWindow(in: column, workspaceId: workspaceId)
+        else { return windows }
+        return [active] + windows.filter { $0 !== active }
+    }
+
     func hitTestTiled(
         point: CGPoint,
         in workspaceId: WorkspaceDescriptor.ID
     ) -> NiriWindow? {
-        guard let root = root(for: workspaceId) else { return nil }
-
-        for column in root.columns {
-            for child in column.children {
-                guard let window = child as? NiriWindow,
-                      isProjectedFocusableWindow(window, in: workspaceId),
+        for column in hitTestColumns(in: workspaceId) {
+            for window in hitTestCandidates(in: column, workspaceId: workspaceId) {
+                guard isProjectedFocusableWindow(window, in: workspaceId),
                       let frame = window.renderedFrame ?? window.frame else { continue }
 
                 if frame.contains(point) {
@@ -45,14 +53,11 @@ extension NiriLayoutEngine {
         point: CGPoint,
         in workspaceId: WorkspaceDescriptor.ID
     ) -> NiriWindow? {
-        guard let root = root(for: workspaceId) else { return nil }
-
         var firstVisibleMatch: NiriWindow?
 
-        for column in root.columns {
-            for child in column.children {
-                guard let window = child as? NiriWindow,
-                      isProjectedFocusableWindow(window, in: workspaceId),
+        for column in hitTestColumns(in: workspaceId) {
+            for window in hitTestCandidates(in: column, workspaceId: workspaceId) {
+                guard isProjectedFocusableWindow(window, in: workspaceId),
                       let frame = window.renderedFrame ?? window.frame,
                       frame.contains(point)
                 else {

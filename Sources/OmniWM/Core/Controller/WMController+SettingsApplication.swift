@@ -145,7 +145,9 @@ extension WMController {
             alwaysCenterSingleColumn: settings.niri.alwaysCenterSingleColumn,
             singleWindowFit: settings.niri.singleWindowFit,
             containerPrimarySpanPresets: settings.niri.containerPrimarySpanPresets,
-            defaultContainerPrimarySpan: settings.niri.defaultContainerPrimarySpan
+            defaultContainerPrimarySpan: settings.niri.defaultContainerPrimarySpan,
+            accordionPadding: settings.niri.accordionPadding,
+            accordionAxis: settings.niri.accordionAxis
         )
 
         if dwindleEngine == nil {

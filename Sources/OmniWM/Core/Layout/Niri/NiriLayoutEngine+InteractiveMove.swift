@@ -149,12 +149,9 @@ extension NiriLayoutEngine {
         orientation: Monitor.Orientation,
         in workspaceId: WorkspaceDescriptor.ID
     ) -> MoveHoverTarget? {
-        guard let root = root(for: workspaceId) else { return nil }
-
-        for column in root.columns {
-            for child in column.children {
-                guard let window = child as? NiriWindow,
-                      window.id != excludingWindowId,
+        for column in hitTestColumns(in: workspaceId) {
+            for window in hitTestCandidates(in: column, workspaceId: workspaceId) {
+                guard window.id != excludingWindowId,
                       !isExcludedFromProjection(window.token, in: workspaceId),
                       let frame = window.renderedFrame ?? window.frame else { continue }
 

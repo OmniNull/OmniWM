@@ -433,6 +433,11 @@ extension IPCAutomationManifest {
             arguments: [.layout]
         ),
         .init(
+            name: .workspaceLayout(.toggleAccordion),
+            summary: "Toggle the accordion layout for the current Niri workspace.",
+            layoutCompatibility: .niri
+        ),
+        .init(
             name: .fullscreen(.managed),
             summary: "Toggle OmniWM-managed fullscreen."
         ),
