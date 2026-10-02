@@ -15,6 +15,19 @@ final class WindowSwitcherPanel: NSPanel {
     }
 
     private static let surfaceId = "window-switcher"
+    private static let backgroundMask: NSImage = {
+        let radius: CGFloat = 22
+        let size = NSSize(width: radius * 2 + 1, height: radius * 2 + 1)
+        let image = NSImage(size: size, flipped: false) { rect in
+            NSColor.black.setFill()
+            NSBezierPath(roundedRect: rect, xRadius: radius, yRadius: radius).fill()
+            return true
+        }
+        image.capInsets = NSEdgeInsets(top: radius, left: radius, bottom: radius, right: radius)
+        image.resizingMode = .stretch
+        return image
+    }()
+
     private let ownedWindowRegistry: OwnedWindowRegistry
     private let effectView = NSVisualEffectView()
     private var tiles: [WindowSwitcherTile] = []
@@ -40,8 +53,8 @@ final class WindowSwitcherPanel: NSPanel {
         animationBehavior = .none
         effectView.state = .active
         effectView.wantsLayer = true
-        effectView.layer?.cornerRadius = 22
-        effectView.layer?.masksToBounds = true
+        // Mask the material and window shadow as well as the visible background.
+        effectView.maskImage = Self.backgroundMask
         contentView = effectView
         setAccessibilityLabel(String(localized: "Window Switcher"))
     }
