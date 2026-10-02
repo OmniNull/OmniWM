@@ -15,6 +15,7 @@ extension WMController {
         switch surfaceScope {
         case .full:
             surfaceReconciler.noteWorldChanged()
+            windowSwitcherControllerStorage?.refreshWindows()
         case .border:
             surfaceReconciler.noteBorderChanged()
         }

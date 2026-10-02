@@ -9,6 +9,17 @@ final class WindowSwitcherSelectionTests: XCTestCase {
     private let second = WindowToken(pid: 1, windowId: 2)
     private let third = WindowToken(pid: 2, windowId: 3)
 
+    func testRowNavigationClampsToShortFinalRowAndWraps() {
+        var selection = WindowSwitcherSelection()
+        selection.begin(tokens: [first, second, third], current: first, reverse: false)
+        selection.moveRow(columns: 2, reverse: false)
+        XCTAssertEqual(selection.selected, third)
+        selection.moveRow(columns: 2, reverse: false)
+        XCTAssertEqual(selection.selected, first)
+        selection.moveRow(columns: 2, reverse: true)
+        XCTAssertEqual(selection.selected, third)
+    }
+
     func testInitialSelectionSkipsCurrentWindowAndWrapsInBothDirections() {
         var selection = WindowSwitcherSelection()
         selection.begin(tokens: [first, second, third], current: first, reverse: false)

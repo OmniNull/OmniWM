@@ -8,6 +8,8 @@ enum WindowSwitcherAction: Equatable, Sendable {
     case begin(reverse: Bool, scope: WindowSwitcherScope? = nil)
     case cycle(reverse: Bool)
     case toggleScope
+    case close
+    case moveRow(reverse: Bool)
     case commit
     case cancel
 }
@@ -68,13 +70,17 @@ struct WindowSwitcherInput {
         switch keyCode {
         case kVK_Tab:
             return Decision(consumed: true, action: .cycle(reverse: flags.contains(.maskShift)))
-        case kVK_LeftArrow,
-             kVK_UpArrow:
+        case kVK_LeftArrow:
             return Decision(consumed: true, action: .cycle(reverse: true))
-        case kVK_RightArrow,
-             kVK_DownArrow:
+        case kVK_RightArrow:
             return Decision(consumed: true, action: .cycle(reverse: false))
         case kVK_ANSI_W:
+            return Decision(consumed: true, action: isRepeat ? nil : .close)
+        case kVK_UpArrow:
+            return Decision(consumed: true, action: .moveRow(reverse: true))
+        case kVK_DownArrow:
+            return Decision(consumed: true, action: .moveRow(reverse: false))
+        case kVK_ANSI_S:
             return Decision(consumed: true, action: isRepeat ? nil : .toggleScope)
         case kVK_Return,
              kVK_ANSI_KeypadEnter:

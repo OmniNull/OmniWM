@@ -9,6 +9,7 @@ struct WindowSwitcherItem {
     let appName: String
     let icon: NSImage?
     var workspaceName: String
+    var workspaceIndex = 0
 }
 
 @MainActor
@@ -46,6 +47,8 @@ final class WindowSwitcherController {
             self?.commit()
         }
         panel.onToggleScope = { [weak self] in self?.handle(.toggleScope) }
+        panel.onClose = { [weak self] token in self?.close(token) }
+        panel.onVisibleItemsChanged = { [weak self] displayed in self?.captureVisibleItems(displayed) }
     }
 
     func handle(_ action: WindowSwitcherAction, generation: UInt64? = nil) {
@@ -70,6 +73,13 @@ final class WindowSwitcherController {
             controller?.settings.windowSwitcher.scope = scope
             reconcileItems()
             render()
+        case let .moveRow(reverse):
+            guard isVisible else { return }
+            reconcileItems()
+            selection.moveRow(columns: panel.columns, reverse: reverse)
+            render()
+        case .close:
+            if let token = selection.selected { close(token) }
         case .commit:
             commit()
         case .cancel:
@@ -134,16 +144,31 @@ final class WindowSwitcherController {
     private func scopedItems() -> [WindowSwitcherItem] {
         guard let controller else { return [] }
         let manager = controller.workspaceManager
-        return items.compactMap { item in
+        let workspaceRanks = Dictionary(uniqueKeysWithValues: manager.workspaces.enumerated().map { (
+            $0.element.id,
+            $0.offset
+        ) })
+        let scoped = items.compactMap { item -> WindowSwitcherItem? in
             guard manager.handle(for: item.handle.id) === item.handle,
                   let entry = manager.entry(for: item.handle),
                   !entry.observedState.isNativeSuppressed,
                   scope == .allWorkspaces || entry.workspaceId == workspaceId,
-                  let workspace = manager.descriptor(for: entry.workspaceId)
+                  let workspace = manager.descriptor(for: entry.workspaceId),
+                  let workspaceIndex = workspaceRanks[workspace.id]
             else { return nil }
             var item = item
             item.workspaceName = controller.settings.workspaces.displayName(for: workspace.name)
+            item.workspaceIndex = workspaceIndex
             return item
+        }
+        guard scope == .allWorkspaces else { return scoped }
+        return scoped.sorted {
+            if $0.workspaceIndex != $1.workspaceIndex { return $0.workspaceIndex < $1.workspaceIndex }
+            let appOrder = $0.appName.localizedStandardCompare($1.appName)
+            if appOrder != .orderedSame { return appOrder == .orderedAscending }
+            let titleOrder = $0.title.localizedStandardCompare($1.title)
+            if titleOrder != .orderedSame { return titleOrder == .orderedAscending }
+            return $0.handle.id.windowId < $1.handle.id.windowId
         }
     }
 
@@ -155,7 +180,7 @@ final class WindowSwitcherController {
         guard let controller else { return }
         let visibleItems = scopedItems()
         let hasCaptureAccess = CGPreflightScreenCaptureAccess()
-        let displayed = panel.show(
+        panel.show(
             content: WindowSwitcherPanel.Content(
                 items: visibleItems,
                 selected: selection.selected,
@@ -166,14 +191,37 @@ final class WindowSwitcherController {
             screenFrame: screenFrame,
             cachedPreview: capture.preview(for:)
         )
+    }
+
+    private func captureVisibleItems(_ displayed: [WindowSwitcherItem]) {
+        guard isVisible else { return }
+        for item in displayed {
+            panel.updatePreview(capture.preview(for: item.handle), for: item.handle)
+        }
         capture.reconcile(
-            represented: Set(visibleItems.map(\.handle)),
+            represented: Set(scopedItems().map(\.handle)),
             visible: displayed.map {
-                OverviewPreviewRequest(handle: $0.handle, pixelWidth: Int(220 * scale), pixelHeight: Int(150 * scale))
+                OverviewPreviewRequest(handle: $0.handle, pixelWidth: Int(220 * scale), pixelHeight: Int(180 * scale))
             },
             prioritizing: displayed.first { $0.handle.id == selection.selected }?.handle,
             firstFrameOnly: true
         )
+    }
+
+    func refreshWindows() {
+        guard isVisible else { return }
+        reconcileItems()
+        render()
+    }
+
+    private func close(_ token: WindowToken) {
+        guard isVisible, let controller,
+              let target = scopedItems().first(where: { $0.handle.id == token })
+        else { return }
+        selection.select(token)
+        render()
+        if !controller.windowActionHandler.closeWindow(handle: target.handle) { NSSound.beep() }
+        // The workspace event removes the card only after the application closes its window.
     }
 
     private func commit() {

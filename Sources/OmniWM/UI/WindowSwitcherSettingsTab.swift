@@ -34,7 +34,7 @@ struct WindowSwitcherSettingsTab: View {
                 )
                 Text("Each shortcut opens its assigned workspace scope. Last Used Scope remembers your choice.")
                 Text(
-                    "The switcher footer shows the scope button and window count. Press W to change scope, even with the footer hidden."
+                    "The footer shows the scope button and window count. S changes scope; W closes the selected window."
                 )
                 Text("Previews require Screen Recording permission. Disable matching shortcuts in AltTab.")
             }

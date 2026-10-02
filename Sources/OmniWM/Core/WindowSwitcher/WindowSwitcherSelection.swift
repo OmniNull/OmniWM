@@ -38,4 +38,11 @@ struct WindowSwitcherSelection {
         guard tokens.contains(token) else { return }
         selected = token
     }
+
+    mutating func moveRow(columns: Int, reverse: Bool) {
+        guard columns > 0, let selected, let index = tokens.firstIndex(of: selected), !tokens.isEmpty else { return }
+        let rows = (tokens.count + columns - 1) / columns
+        let row = (index / columns + (reverse ? -1 : 1) + rows) % rows
+        self.selected = tokens[min(row * columns + index % columns, tokens.count - 1)]
+    }
 }

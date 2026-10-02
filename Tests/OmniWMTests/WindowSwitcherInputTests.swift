@@ -7,6 +7,17 @@ import CoreGraphics
 import XCTest
 
 final class WindowSwitcherInputTests: XCTestCase {
+    func testCloseDoesNotRepeatOrLeakAndKeepsSwitcherOpen() {
+        var input = WindowSwitcherInput()
+        _ = key(&input, kVK_Tab)
+        XCTAssertEqual(key(&input, kVK_ANSI_W).action, .close)
+        XCTAssertNil(key(&input, kVK_ANSI_W, isRepeat: true).action)
+        XCTAssertTrue(input.isActive)
+        XCTAssertTrue(key(&input, kVK_ANSI_W, type: .keyUp).consumed)
+        XCTAssertEqual(key(&input, kVK_DownArrow).action, .moveRow(reverse: false))
+        XCTAssertEqual(key(&input, kVK_UpArrow).action, .moveRow(reverse: true))
+    }
+
     func testHoldCycleAndReleaseCommitsOnceWithoutLeakingTabKeyUp() {
         var input = WindowSwitcherInput()
         XCTAssertEqual(key(&input, kVK_Tab).action, .begin(reverse: false, scope: .activeWorkspace))
@@ -37,14 +48,14 @@ final class WindowSwitcherInputTests: XCTestCase {
         XCTAssertTrue(key(&input, kVK_Escape, type: .keyUp).consumed)
     }
 
-    func testScopeShortcutNeverLeaksCommandWAndDoesNotRepeat() {
+    func testScopeShortcutNeverLeaksCommandSAndDoesNotRepeat() {
         var input = WindowSwitcherInput()
         _ = key(&input, kVK_Tab)
-        XCTAssertEqual(key(&input, kVK_ANSI_W).action, .toggleScope)
-        let repeated = key(&input, kVK_ANSI_W, isRepeat: true)
+        XCTAssertEqual(key(&input, kVK_ANSI_S).action, .toggleScope)
+        let repeated = key(&input, kVK_ANSI_S, isRepeat: true)
         XCTAssertTrue(repeated.consumed)
         XCTAssertNil(repeated.action)
-        XCTAssertTrue(key(&input, kVK_ANSI_W, type: .keyUp).consumed)
+        XCTAssertTrue(key(&input, kVK_ANSI_S, type: .keyUp).consumed)
     }
 
     func testOtherApplicationShortcutsAreSuppressedOnlyDuringSession() {
@@ -105,7 +116,7 @@ final class WindowSwitcherInputTests: XCTestCase {
         input.shortcuts = WindowSwitcherShortcuts(commandTab: .remembered, optionTab: .disabled)
         XCTAssertFalse(key(&input, kVK_Tab, flags: [.maskAlternate]).consumed)
         XCTAssertEqual(key(&input, kVK_Tab).action, .begin(reverse: false))
-        XCTAssertEqual(key(&input, kVK_ANSI_W).action, .toggleScope)
+        XCTAssertEqual(key(&input, kVK_ANSI_S).action, .toggleScope)
         XCTAssertEqual(key(&input, kVK_Command, type: .flagsChanged, flags: []).action, .commit)
     }
 
@@ -113,7 +124,7 @@ final class WindowSwitcherInputTests: XCTestCase {
         var input = WindowSwitcherInput()
         _ = key(&input, kVK_Tab)
         _ = key(&input, kVK_Tab, type: .keyUp)
-        XCTAssertEqual(key(&input, kVK_ANSI_W).action, .toggleScope)
+        XCTAssertEqual(key(&input, kVK_ANSI_S).action, .toggleScope)
         _ = key(&input, kVK_Command, type: .flagsChanged, flags: [])
         XCTAssertEqual(key(&input, kVK_Tab).action, .begin(reverse: false, scope: .activeWorkspace))
     }
