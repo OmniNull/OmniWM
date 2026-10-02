@@ -22,6 +22,8 @@ Each shortcut opens its assigned scope. **Last Used Scope** remembers the choice
 
 ## Appearance and previews
 
+In All Workspaces, each card shows a workspace badge using the same name or emoji as the workspace bar. Windows stay in recency order as you cycle.
+
 **Show Switcher Footer** controls the scope button and window count together. Turning it off removes the footer; W still changes scope.
 
 The panel displays a row around the current selection. Continue cycling to reach windows beyond the visible row. Previews are captured on demand and released when the switcher closes.

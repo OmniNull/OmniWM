@@ -8,7 +8,7 @@ struct WindowSwitcherItem {
     let title: String
     let appName: String
     let icon: NSImage?
-    let workspaceName: String
+    var workspaceName: String
 }
 
 @MainActor
@@ -110,7 +110,8 @@ final class WindowSwitcherController {
         let ranks = Dictionary(recency.enumerated().map { ($0.element, $0.offset) }, uniquingKeysWith: min)
         return controller.workspaceManager.allEntries().compactMap { entry -> WindowSwitcherItem? in
             guard !entry.observedState.isNativeSuppressed,
-                  let handle = controller.workspaceManager.handle(for: entry.token)
+                  let handle = controller.workspaceManager.handle(for: entry.token),
+                  let workspace = controller.workspaceManager.descriptor(for: entry.workspaceId)
             else { return nil }
             let app = controller.appInfoCache.info(for: entry.pid)
             let title = AXWindowService.titlePreferFast(windowId: UInt32(entry.windowId)) ?? ""
@@ -119,7 +120,7 @@ final class WindowSwitcherController {
                 title: title.isEmpty ? (app?.name ?? String(localized: "Window")) : title,
                 appName: app?.name ?? String(localized: "Unknown"),
                 icon: app?.icon,
-                workspaceName: controller.workspaceManager.descriptor(for: entry.workspaceId)?.name ?? ""
+                workspaceName: controller.settings.workspaces.displayName(for: workspace.name)
             )
         }.sorted {
             let left = ranks[$0.handle.id] ?? Int.max
@@ -131,13 +132,18 @@ final class WindowSwitcherController {
     }
 
     private func scopedItems() -> [WindowSwitcherItem] {
-        guard let manager = controller?.workspaceManager else { return [] }
-        return items.filter { item in
+        guard let controller else { return [] }
+        let manager = controller.workspaceManager
+        return items.compactMap { item in
             guard manager.handle(for: item.handle.id) === item.handle,
                   let entry = manager.entry(for: item.handle),
-                  !entry.observedState.isNativeSuppressed
-            else { return false }
-            return scope == .allWorkspaces || entry.workspaceId == workspaceId
+                  !entry.observedState.isNativeSuppressed,
+                  scope == .allWorkspaces || entry.workspaceId == workspaceId,
+                  let workspace = manager.descriptor(for: entry.workspaceId)
+            else { return nil }
+            var item = item
+            item.workspaceName = controller.settings.workspaces.displayName(for: workspace.name)
+            return item
         }
     }
 

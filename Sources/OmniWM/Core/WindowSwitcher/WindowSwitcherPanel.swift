@@ -126,7 +126,8 @@ final class WindowSwitcherPanel: NSPanel {
                 item: item,
                 size: size,
                 selected: item.handle.id == content.selected,
-                hasCaptureAccess: content.hasCaptureAccess
+                hasCaptureAccess: content.hasCaptureAccess,
+                showsWorkspace: content.scope == .allWorkspaces
             )
             tile.frame.origin = CGPoint(x: 16 + CGFloat(index) * (size.width + 12), y: content.showsFooter ? 44 : 16)
             tile.onSelect = { [weak self] in self?.onSelect(item.handle.id) }
@@ -196,7 +197,7 @@ private final class WindowSwitcherTile: NSView {
     private var preview: OverviewPreviewFrame?
     var onSelect: () -> Void = {}
 
-    init(item: WindowSwitcherItem, size: CGSize, selected: Bool, hasCaptureAccess: Bool) {
+    init(item: WindowSwitcherItem, size: CGSize, selected: Bool, hasCaptureAccess: Bool, showsWorkspace: Bool) {
         handle = item.handle
         self.hasCaptureAccess = hasCaptureAccess
         thumbnailBounds = CGRect(x: 8, y: 28, width: size.width - 16, height: size.height - 60)
@@ -219,11 +220,12 @@ private final class WindowSwitcherTile: NSView {
         title.lineBreakMode = .byTruncatingTail
         title.frame = CGRect(x: 34, y: size.height - 26, width: size.width - 44, height: 18)
         addSubview(title)
-        let subtitle = NSTextField(labelWithString: "\(item.appName) · \(item.workspaceName)")
+        let badgeWidth = showsWorkspace ? layoutWorkspaceBadge(item.workspaceName, size: size) : 0
+        let subtitle = NSTextField(labelWithString: item.appName)
         subtitle.font = .systemFont(ofSize: 10)
         subtitle.textColor = .secondaryLabelColor
         subtitle.lineBreakMode = .byTruncatingTail
-        subtitle.frame = CGRect(x: 10, y: 8, width: size.width - 20, height: 14)
+        subtitle.frame = CGRect(x: 10, y: 8, width: size.width - 20 - badgeWidth, height: 14)
         addSubview(subtitle)
         unavailable.alignment = .center
         unavailable.textColor = .secondaryLabelColor
@@ -241,6 +243,25 @@ private final class WindowSwitcherTile: NSView {
     @available(*, unavailable)
     required init?(coder: NSCoder) {
         nil
+    }
+
+    private func layoutWorkspaceBadge(_ name: String, size: CGSize) -> CGFloat {
+        let label = NSTextField(labelWithString: name)
+        label.font = .monospacedSystemFont(ofSize: 11, weight: .medium)
+        label.textColor = .labelColor
+        label.alignment = .center
+        label.lineBreakMode = .byTruncatingTail
+        label.sizeToFit()
+        let width = min(max(26, label.frame.width + 16), (size.width - 20) / 2)
+        let badge = NSView(frame: CGRect(x: size.width - 10 - width, y: 5, width: width, height: 20))
+        badge.wantsLayer = true
+        badge.layer?.cornerRadius = 6
+        badge.layer?.backgroundColor = NSColor.labelColor.withAlphaComponent(0.1).cgColor
+        label.frame = CGRect(x: 8, y: 3, width: width - 16, height: 14)
+        badge.addSubview(label)
+        badge.toolTip = name
+        addSubview(badge)
+        return width + 8
     }
 
     func setCapturePending(_ pending: Bool) {
