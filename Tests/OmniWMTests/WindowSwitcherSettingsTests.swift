@@ -55,7 +55,15 @@ final class WindowSwitcherSettingsTests: XCTestCase {
 
     @MainActor
     func testSettingsOwnerImportsAndExportsScope() {
-        let settings = makeSettingsStore()
+        let directory = FileManager.default.temporaryDirectory.appendingPathComponent(UUID().uuidString)
+        defer { try? FileManager.default.removeItem(at: directory) }
+        let settings = SettingsStore(
+            persistence: SettingsFilePersistence(
+                directory: directory.appendingPathComponent("config"), startWatching: false, deferSaves: false
+            ),
+            runtimeState: RuntimeStateStore(directory: directory.appendingPathComponent("state"), deferSaves: false),
+            autosaveEnabled: false
+        )
         var export = SettingsExport.defaults()
         export.windowSwitcher.enabled = true
         export.windowSwitcher.scope = .activeWorkspace

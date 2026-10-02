@@ -89,6 +89,13 @@ final class WindowSwitcherPanel: NSPanel {
         content: Content,
         screenFrame: CGRect
     ) {
+        updateContent(content, screenFrame: screenFrame)
+        registerSurface()
+        orderFrontRegardless()
+        didScroll()
+    }
+
+    func updateContent(_ content: Content, screenFrame: CGRect) {
         isLayingOut = true
         let oldOrigin = scrollView.contentView.bounds.origin
         let revealSelection = !isVisible || selected != content.selected || items.map(\.handle.id) != content.items
@@ -108,11 +115,10 @@ final class WindowSwitcherPanel: NSPanel {
         let viewportHeight = min(documentHeight, max(80, screenFrame.height - 80 - footerHeight))
         let height = viewportHeight + 32 + footerHeight
         updateMaterial()
-        effectView.subviews.forEach { $0.removeFromSuperview() }
+        effectView.subviews.filter { $0 !== scrollView }.forEach { $0.removeFromSuperview() }
         scrollView.frame = CGRect(x: 16, y: 16 + footerHeight, width: width - 32, height: viewportHeight)
         gridView.frame = CGRect(x: 0, y: 0, width: width - 32, height: documentHeight)
-        effectView.addSubview(scrollView)
-        gridView.subviews.forEach { $0.removeFromSuperview() }
+        if scrollView.superview == nil { effectView.addSubview(scrollView) }
         layoutTiles(
             content.items,
             content: content,
@@ -127,15 +133,13 @@ final class WindowSwitcherPanel: NSPanel {
             CGRect(x: screenFrame.midX - width / 2, y: screenFrame.midY - height / 2, width: width, height: height),
             display: true
         )
-        registerSurface()
-        orderFrontRegardless()
         scrollView.contentView.scroll(to: CGPoint(x: 0, y: min(oldOrigin.y, max(0, documentHeight - viewportHeight))))
         if revealSelection, !tiles.isEmpty {
             gridView.scrollToVisible(tiles[selectedIndex].frame)
         }
         scrollView.reflectScrolledClipView(scrollView.contentView)
         isLayingOut = false
-        didScroll()
+        tiles.forEach { $0.refreshHover() }
     }
 
     private func updateMaterial() {
@@ -171,6 +175,7 @@ final class WindowSwitcherPanel: NSPanel {
                 tile.setSelected(item.handle.id == content.selected)
             } else {
                 old?.updatePreview(nil)
+                old?.removeFromSuperview()
                 tile = WindowSwitcherTile(
                     item: item,
                     size: size,
@@ -184,10 +189,13 @@ final class WindowSwitcherPanel: NSPanel {
             )
             tile.onSelect = { [weak self] in self?.onSelect(item.handle.id) }
             tile.onClose = { [weak self] in self?.onClose(item.handle.id) }
-            gridView.addSubview(tile)
+            if tile.superview == nil { gridView.addSubview(tile) }
             return tile
         }
-        previous.values.forEach { $0.updatePreview(nil) }
+        previous.values.forEach {
+            $0.updatePreview(nil)
+            $0.removeFromSuperview()
+        }
     }
 
     private func layoutFooter(content: Content, selectedIndex: Int, width: CGFloat) {
@@ -244,6 +252,7 @@ final class WindowSwitcherPanel: NSPanel {
 
     @objc private func didScroll() {
         guard !isLayingOut, isVisible else { return }
+        tiles.forEach { $0.refreshHover() }
         let visible = gridView.visibleRect
         let displayed = zip(items, tiles).compactMap { item, tile -> WindowSwitcherItem? in
             if tile.frame.intersects(visible) { return item }

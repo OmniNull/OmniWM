@@ -5,6 +5,17 @@ import AppKit
 import Foundation
 
 extension WindowActionHandler {
+    func restoreMinimizedWindowIfNeeded(handle: WindowHandle) -> Bool {
+        guard let controller,
+              controller.workspaceManager.handle(for: handle.id) === handle,
+              let entry = controller.workspaceManager.entry(for: handle)
+        else { return false }
+        guard entry.observedState.isMinimized else { return true }
+        guard AXWindowService.restoreMinimizedWindow(entry.axRef) else { return false }
+        controller.axEventHandler.updateWindowMinimizedState(false, token: handle.id)
+        return true
+    }
+
     @discardableResult
     func navigateToWindowInternal(
         token: WindowToken,

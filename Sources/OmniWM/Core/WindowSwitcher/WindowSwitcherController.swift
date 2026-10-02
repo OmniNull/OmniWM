@@ -9,6 +9,7 @@ struct WindowSwitcherItem {
     let appName: String
     let icon: NSImage?
     var workspaceName: String
+    var isMinimized: Bool
 }
 
 @MainActor
@@ -116,7 +117,7 @@ final class WindowSwitcherController {
 
     private func buildItems(controller: WMController) -> [WindowSwitcherItem] {
         return controller.workspaceManager.allEntries().compactMap { entry -> WindowSwitcherItem? in
-            guard !entry.observedState.isNativeSuppressed,
+            guard !entry.observedState.isNativeWithdrawn,
                   let handle = controller.workspaceManager.handle(for: entry.token),
                   let workspace = controller.workspaceManager.descriptor(for: entry.workspaceId)
             else { return nil }
@@ -127,7 +128,8 @@ final class WindowSwitcherController {
                 title: title.isEmpty ? (app?.name ?? String(localized: "Window")) : title,
                 appName: app?.name ?? String(localized: "Unknown"),
                 icon: app?.icon,
-                workspaceName: controller.settings.workspaces.displayName(for: workspace.name)
+                workspaceName: controller.settings.workspaces.displayName(for: workspace.name),
+                isMinimized: entry.observedState.isMinimized
             )
         }
     }
@@ -138,11 +140,12 @@ final class WindowSwitcherController {
         let byToken = Dictionary(uniqueKeysWithValues: items.map { ($0.handle.id, $0) })
         return manager.workspaces.filter { scope == .allWorkspaces || $0.id == workspaceId }.flatMap { workspace in
             orderedEntries(in: workspace.id, manager: manager).compactMap { entry -> WindowSwitcherItem? in
-                guard !entry.observedState.isNativeSuppressed,
+                guard !entry.observedState.isNativeWithdrawn,
                       var item = byToken[entry.token],
                       manager.handle(for: entry.token) === item.handle
                 else { return nil }
                 item.workspaceName = controller.settings.workspaces.displayName(for: workspace.name)
+                item.isMinimized = entry.observedState.isMinimized
                 return item
             }
         }
@@ -185,13 +188,20 @@ final class WindowSwitcherController {
     }
 
     private func captureVisibleItems(_ displayed: [WindowSwitcherItem]) {
-        guard isVisible else { return }
+        guard isVisible, let controller else { return }
+        guard CGPreflightScreenCaptureAccess() else {
+            capture.clear()
+            capture.releaseCache()
+            return
+        }
         for item in displayed {
             panel.updatePreview(capture.preview(for: item.handle), for: item.handle)
         }
         capture.reconcile(
-            represented: Set(scopedItems().map(\.handle)),
-            visible: displayed.map {
+            represented: Set(controller.workspaceManager.allEntries().compactMap {
+                controller.workspaceManager.handle(for: $0.token)
+            }),
+            visible: displayed.filter { !$0.isMinimized }.map {
                 OverviewPreviewRequest(handle: $0.handle, pixelWidth: Int(220 * scale), pixelHeight: Int(180 * scale))
             },
             prioritizing: displayed.first { $0.handle.id == selection.selected }?.handle,
@@ -200,7 +210,16 @@ final class WindowSwitcherController {
     }
 
     func refreshWindows() {
-        guard isVisible else { return }
+        guard let controller else { return }
+        guard isVisible else {
+            capture.reconcile(
+                represented: Set(controller.workspaceManager.allEntries().compactMap {
+                    controller.workspaceManager.handle(for: $0.token)
+                }),
+                visible: []
+            )
+            return
+        }
         reconcileItems()
         render()
     }
@@ -220,17 +239,19 @@ final class WindowSwitcherController {
         let target = scopedItems().first { $0.handle.id == selection.selected }?.handle
         dismiss()
         guard let target, let controller else { return }
-        _ = controller.windowActionHandler.activateExplicitlySelectedWindow(handle: target)
+        if !controller.windowActionHandler.activateExplicitlySelectedWindow(handle: target) { NSSound.beep() }
     }
 
     func dismiss() {
         controller?.hotkeys.cancelWindowSwitcherSession(generation: generation)
+        capture.clear()
+        if controller?.settings.windowSwitcher.enabled != true || controller?.isLockScreenActive == true {
+            capture.releaseCache()
+        }
         guard isVisible else { return }
         isVisible = false
         panel.hide()
         controller?.focusPolicyEngine.endLease(owner: .windowSwitcher)
-        capture.clear()
-        capture.releaseCache()
         items.removeAll()
         selection = WindowSwitcherSelection()
         dismissalMonitor.stop()

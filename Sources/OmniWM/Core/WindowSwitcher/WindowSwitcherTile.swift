@@ -59,6 +59,7 @@ final class WindowSwitcherTile: NSView {
         setAccessibilityElement(true)
         setAccessibilityRole(.button)
         setAccessibilityLabel("\(item.appName), \(item.title), \(item.workspaceName)")
+        if item.isMinimized { setAccessibilityHelp(String(localized: "Minimized")) }
         toolTip = item.title
     }
 
@@ -70,6 +71,7 @@ final class WindowSwitcherTile: NSView {
     func matches(_ item: WindowSwitcherItem, size: CGSize, content: WindowSwitcherPanel.Content) -> Bool {
         handle === item.handle && self.item.title == item.title && self.item.appName == item.appName
             && self.item.workspaceName == item.workspaceName && self.item.icon === item.icon
+            && self.item.isMinimized == item.isMinimized
             && bounds.size == size && scope == content.scope
             && hasCaptureAccess == content.hasCaptureAccess
     }
@@ -101,6 +103,7 @@ final class WindowSwitcherTile: NSView {
 
     private func configurePreviewLayer() {
         thumbnail.contentsGravity = .resizeAspectFill
+        thumbnail.opacity = item.isMinimized ? 0.45 : 1
         thumbnail.cornerRadius = 6
         thumbnail.masksToBounds = true
         layer?.addSublayer(thumbnail)
@@ -136,6 +139,10 @@ final class WindowSwitcherTile: NSView {
     }
 
     func setCapturePending(_ pending: Bool) {
+        if item.isMinimized {
+            unavailable.stringValue = String(localized: "Minimized")
+            return
+        }
         unavailable.stringValue = !hasCaptureAccess
             ? String(localized: "Screen Recording permission required")
             : (pending ? String(localized: "Loading preview…") : String(localized: "Preview unavailable"))
@@ -173,17 +180,29 @@ final class WindowSwitcherTile: NSView {
         )
         addTrackingArea(tracking)
         hoverTracking = tracking
-        if let window {
-            closeButton.isHidden = !visibleRect.contains(convert(window.mouseLocationOutsideOfEventStream, from: nil))
+        refreshHover()
+    }
+
+    func refreshHover() {
+        guard let window else {
+            closeButton.isHidden = true
+            return
         }
+        updateHover(at: window.mouseLocationOutsideOfEventStream)
+    }
+
+    func updateHover(at windowPoint: NSPoint) {
+        closeButton.isHidden = !visibleRect.contains(convert(windowPoint, from: nil))
     }
 
     override func mouseEntered(with event: NSEvent) {
-        closeButton.isHidden = false
+        guard event.trackingArea === hoverTracking else { return }
+        refreshHover()
     }
 
     override func mouseExited(with event: NSEvent) {
-        closeButton.isHidden = true
+        guard event.trackingArea === hoverTracking else { return }
+        refreshHover()
     }
 
     @objc private func closeWindow() {

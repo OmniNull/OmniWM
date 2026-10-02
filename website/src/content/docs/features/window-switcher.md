@@ -17,7 +17,7 @@ Configure **Command-Tab** and **Option-Tab** independently as **Active Workspace
 - Press `S` or click the scope button to switch between all workspaces and the active workspace.
 - Press `W` or use the close button that appears when hovering over a preview to close that window. The card stays until the app actually closes the window, including when it asks about unsaved changes.
 
-**Active Workspace** uses the workspace on OmniWM's interaction monitor when the switcher opens. **All Workspaces** includes tracked windows across monitors, including floating windows and hidden applications. Minimized, natively withdrawn, and untracked windows are omitted.
+**Active Workspace** uses the workspace on OmniWM's interaction monitor when the switcher opens. **All Workspaces** includes tracked windows across monitors, including floating windows and hidden applications. Minimized windows remain selectable with dimmed previews; selecting one restores it. Natively withdrawn and untracked windows are omitted.
 
 Each shortcut opens its assigned scope. **Last Used Scope** remembers the choice made with S or the scope button. For a single shortcut with a remembered scope, set Command-Tab to Last Used Scope and Option-Tab to Disabled.
 
@@ -29,7 +29,7 @@ Windows follow their layout order within each workspace: Niri column and tile or
 
 Previews fill each card and stay sharp. A short, subtle fade behind the bottom caption and a text shadow improve readability. Absolute paths are shortened to their final component; hovering over the card shows the full original title.
 
-Cards wrap into additional rows at maximum width. When the grid exceeds the available screen height, scroll vertically with a mouse or trackpad. Keyboard navigation brings the selected card into view. Only visible cards request previews, and capture resources are released when the switcher closes.
+Cards wrap into additional rows at maximum width. When the grid exceeds the available screen height, scroll vertically with a mouse or trackpad. Keyboard navigation brings the selected card into view. Only visible, non-minimized cards request previews. Capture streams stop when the switcher closes, while a bounded thumbnail cache remains available for the next opening. Cached previews appear immediately and refresh in place. Minimized windows keep their last captured preview, or show a Minimized label if none is available.
 
 :::note
 Thumbnails require Screen Recording permission. Without it, window titles and keyboard selection remain available. Some offscreen or native fullscreen windows may show an unavailable-preview label.
