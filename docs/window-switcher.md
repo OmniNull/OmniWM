@@ -26,6 +26,8 @@ Minimized or natively withdrawn windows and windows excluded from OmniWM’s tra
 
 ## Configuration
 
+![Window switcher settings](images/window-switcher/settings.png)
+
 ```toml
 [windowSwitcher]
 enabled = true
@@ -60,6 +62,10 @@ The implementation is original code using these OmniWM components. No AltTab sou
 
 ## Developer validation
 
+The contributor built and exercised the development app and confirmed the rounded-corner fix. The screenshots and [demo video](https://www.youtube.com/watch?v=-_CSUTBrcCI) show the switcher before that visual fix.
+
+![Window switcher on the OmniWM desktop](images/window-switcher/desktop.png)
+
 Follow [CONTRIBUTING.md](../CONTRIBUTING.md) for dependency setup and the development app. This branch has focused input, selection, persistence, and focus-lease tests. Before using the replacement, run `make verify`, `swift test`, and `swift test --parallel` with the required dependencies installed.
 
-Manually check both shortcuts, fast modifier release, held-key repetition, reverse cycling, Escape, scope changes across two monitors, selection on an inactive workspace, a window closing during selection, hidden applications, native fullscreen, missing Screen Recording permission, and more windows than fit in the row. Check that fixed-scope shortcuts reset after using the scope button, remembered-scope shortcuts retain the button choice, and disabled shortcuts pass through. Confirm stopping OmniWM restores normal Command-Tab behavior. The implementation has not been built or runtime-tested as part of its creation.
+Manually check both shortcuts, fast modifier release, held-key repetition, reverse cycling, Escape, scope changes across two monitors, selection on an inactive workspace, a window closing during selection, hidden applications, native fullscreen, missing Screen Recording permission, and more windows than fit in the row. Check that fixed-scope shortcuts reset after using the scope button, remembered-scope shortcuts retain the button choice, and disabled shortcuts pass through. Confirm stopping OmniWM restores normal Command-Tab behavior. The full validation checklist and automated test suite have not yet been run.
