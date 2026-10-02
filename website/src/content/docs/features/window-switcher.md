@@ -23,11 +23,11 @@ Each shortcut opens its assigned scope. **Last Used Scope** remembers the choice
 
 ## Appearance and previews
 
-In All Workspaces, windows follow workspace-bar order, then alphabetical app and window-title order within each workspace. Each card shows a workspace badge using the same name or emoji as the bar. Active Workspace keeps recently used windows first.
+Windows follow their layout order within each workspace: Niri column and tile order, or Dwindle tree order, with floating windows afterward. All Workspaces groups them in workspace-bar order and shows a workspace badge using the same name or emoji as the bar. Active Workspace uses the same layout ordering for its windows.
 
 **Show Switcher Footer** controls the scope button and window count together. Turning it off removes the footer; S still changes scope.
 
-Cards place the preview above a compact app icon, title, and workspace badge. Absolute paths are shortened to their final component; hovering over the card shows the full original title.
+Previews fill each card and stay sharp. A short, subtle fade behind the bottom caption and a text shadow improve readability. Absolute paths are shortened to their final component; hovering over the card shows the full original title.
 
 Cards wrap into additional rows at maximum width. When the grid exceeds the available screen height, scroll vertically with a mouse or trackpad. Keyboard navigation brings the selected card into view. Only visible cards request previews, and capture resources are released when the switcher closes.
 

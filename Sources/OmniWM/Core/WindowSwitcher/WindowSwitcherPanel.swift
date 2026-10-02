@@ -87,8 +87,7 @@ final class WindowSwitcherPanel: NSPanel {
 
     func show(
         content: Content,
-        screenFrame: CGRect,
-        cachedPreview: (WindowHandle) -> OverviewPreviewFrame?
+        screenFrame: CGRect
     ) {
         isLayingOut = true
         let oldOrigin = scrollView.contentView.bounds.origin
@@ -117,8 +116,7 @@ final class WindowSwitcherPanel: NSPanel {
         layoutTiles(
             content.items,
             content: content,
-            size: CGSize(width: tileWidth, height: tileHeight),
-            cachedPreview: cachedPreview
+            size: CGSize(width: tileWidth, height: tileHeight)
         )
         if content.showsFooter {
             layoutFooter(content: content, selectedIndex: selectedIndex, width: width)
@@ -162,27 +160,34 @@ final class WindowSwitcherPanel: NSPanel {
     private func layoutTiles(
         _ items: [WindowSwitcherItem],
         content: Content,
-        size: CGSize,
-        cachedPreview: (WindowHandle) -> OverviewPreviewFrame?
+        size: CGSize
     ) {
+        var previous = Dictionary(uniqueKeysWithValues: tiles.map { ($0.handle.id, $0) })
         tiles = items.enumerated().map { index, item in
-            let tile = WindowSwitcherTile(
-                item: item,
-                size: size,
-                selected: item.handle.id == content.selected,
-                hasCaptureAccess: content.hasCaptureAccess,
-                showsWorkspace: content.scope == .allWorkspaces
-            )
+            let old = previous.removeValue(forKey: item.handle.id)
+            let tile: WindowSwitcherTile
+            if let old, old.matches(item, size: size, content: content) {
+                tile = old
+                tile.setSelected(item.handle.id == content.selected)
+            } else {
+                old?.updatePreview(nil)
+                tile = WindowSwitcherTile(
+                    item: item,
+                    size: size,
+                    selected: item.handle.id == content.selected,
+                    content: content
+                )
+            }
             tile.frame.origin = CGPoint(
                 x: CGFloat(index % columns) * (size.width + 12),
                 y: CGFloat(index / columns) * (size.height + 12)
             )
             tile.onSelect = { [weak self] in self?.onSelect(item.handle.id) }
             tile.onClose = { [weak self] in self?.onClose(item.handle.id) }
-            tile.updatePreview(cachedPreview(item.handle))
             gridView.addSubview(tile)
             return tile
         }
+        previous.values.forEach { $0.updatePreview(nil) }
     }
 
     private func layoutFooter(content: Content, selectedIndex: Int, width: CGFloat) {

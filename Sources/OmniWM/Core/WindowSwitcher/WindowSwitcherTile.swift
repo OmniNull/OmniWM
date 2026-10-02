@@ -7,7 +7,10 @@ import QuartzCore
 @MainActor
 final class WindowSwitcherTile: NSView {
     let handle: WindowHandle
+    private let item: WindowSwitcherItem
+    private let scope: WindowSwitcherScope
     private let thumbnail = CALayer()
+    private let captionShade = CAGradientLayer()
     private let thumbnailBounds: CGRect
     private let unavailable = NSTextField(wrappingLabelWithString: "")
     private let hasCaptureAccess: Bool
@@ -17,31 +20,24 @@ final class WindowSwitcherTile: NSView {
     var onSelect: () -> Void = {}
     var onClose: () -> Void = {}
 
-    init(item: WindowSwitcherItem, size: CGSize, selected: Bool, hasCaptureAccess: Bool, showsWorkspace: Bool) {
+    init(
+        item: WindowSwitcherItem,
+        size: CGSize,
+        selected: Bool,
+        content: WindowSwitcherPanel.Content
+    ) {
         handle = item.handle
-        self.hasCaptureAccess = hasCaptureAccess
-        thumbnailBounds = CGRect(x: 2, y: 28, width: size.width - 4, height: size.height - 30)
+        self.item = item
+        scope = content.scope
+        hasCaptureAccess = content.hasCaptureAccess
+        thumbnailBounds = CGRect(origin: .zero, size: size).insetBy(dx: 2, dy: 2)
         super.init(frame: CGRect(origin: .zero, size: size))
         wantsLayer = true
         layer?.cornerRadius = 12
         layer?.masksToBounds = true
-        layer?.borderWidth = selected ? 3 : 1
-        layer?.borderColor = (selected ? NSColor.controlAccentColor : NSColor.separatorColor).cgColor
-        layer?.backgroundColor = NSColor.black.withAlphaComponent(selected ? 0.2 : 0.1).cgColor
-        thumbnail.contentsGravity = .resizeAspectFill
-        thumbnail.cornerRadius = 6
-        thumbnail.masksToBounds = true
-        layer?.addSublayer(thumbnail)
-
-        let icon = NSImageView(frame: CGRect(x: 8, y: 6, width: 16, height: 16))
-        icon.image = item.icon
-        addSubview(icon)
-        let badgeWidth = showsWorkspace ? layoutWorkspaceBadge(item.workspaceName, size: size) : 0
-        let title = NSTextField(labelWithString: WindowSwitcherTitle.label(appName: item.appName, title: item.title))
-        title.font = .systemFont(ofSize: 12, weight: .medium)
-        title.lineBreakMode = .byTruncatingTail
-        title.frame = CGRect(x: 28, y: 5, width: size.width - 38 - badgeWidth, height: 18)
-        addSubview(title)
+        setSelected(selected)
+        configurePreviewLayer()
+        layoutCaption(size: size)
         closeButton.image = NSImage(
             systemSymbolName: "xmark.circle.fill",
             accessibilityDescription: String(localized: "Close Window")
@@ -63,7 +59,6 @@ final class WindowSwitcherTile: NSView {
         setAccessibilityElement(true)
         setAccessibilityRole(.button)
         setAccessibilityLabel("\(item.appName), \(item.title), \(item.workspaceName)")
-        setAccessibilityValue(selected ? String(localized: "Selected") : "")
         toolTip = item.title
     }
 
@@ -72,10 +67,59 @@ final class WindowSwitcherTile: NSView {
         nil
     }
 
+    func matches(_ item: WindowSwitcherItem, size: CGSize, content: WindowSwitcherPanel.Content) -> Bool {
+        handle === item.handle && self.item.title == item.title && self.item.appName == item.appName
+            && self.item.workspaceName == item.workspaceName && self.item.icon === item.icon
+            && bounds.size == size && scope == content.scope
+            && hasCaptureAccess == content.hasCaptureAccess
+    }
+
+    func setSelected(_ selected: Bool) {
+        layer?.borderWidth = selected ? 3 : 1
+        layer?.borderColor = (selected ? NSColor.controlAccentColor : NSColor.separatorColor).cgColor
+        layer?.backgroundColor = NSColor.black.withAlphaComponent(selected ? 0.2 : 0.1).cgColor
+        setAccessibilityValue(selected ? String(localized: "Selected") : "")
+    }
+
+    private func layoutCaption(size: CGSize) {
+        let icon = NSImageView(frame: CGRect(x: 8, y: 6, width: 16, height: 16))
+        icon.image = item.icon
+        addSubview(icon)
+        let badgeWidth = scope == .allWorkspaces ? layoutWorkspaceBadge(item.workspaceName, size: size) : 0
+        let title = NSTextField(labelWithString: WindowSwitcherTitle.label(appName: item.appName, title: item.title))
+        title.font = .systemFont(ofSize: 12, weight: .medium)
+        title.textColor = .white
+        let shadow = NSShadow()
+        shadow.shadowColor = NSColor.black.withAlphaComponent(0.9)
+        shadow.shadowBlurRadius = 3
+        shadow.shadowOffset = NSSize(width: 0, height: -1)
+        title.shadow = shadow
+        title.lineBreakMode = .byTruncatingTail
+        title.frame = CGRect(x: 28, y: 5, width: size.width - 38 - badgeWidth, height: 18)
+        addSubview(title)
+    }
+
+    private func configurePreviewLayer() {
+        thumbnail.contentsGravity = .resizeAspectFill
+        thumbnail.cornerRadius = 6
+        thumbnail.masksToBounds = true
+        layer?.addSublayer(thumbnail)
+        captionShade.frame = CGRect(x: 2, y: 2, width: bounds.width - 4, height: 36)
+        let stops = (0 ... 8).map { CGFloat($0) / 8 }
+        captionShade.colors = stops.map { position in
+            let progress = position * position * (3 - 2 * position)
+            return CGColor(gray: 0, alpha: 0.5 * (1 - progress))
+        }
+        captionShade.locations = stops.map { NSNumber(value: Double($0)) }
+        captionShade.startPoint = CGPoint(x: 0.5, y: 0)
+        captionShade.endPoint = CGPoint(x: 0.5, y: 1)
+        layer?.addSublayer(captionShade)
+    }
+
     private func layoutWorkspaceBadge(_ name: String, size: CGSize) -> CGFloat {
         let label = NSTextField(labelWithString: name)
         label.font = .monospacedSystemFont(ofSize: 11, weight: .medium)
-        label.textColor = .labelColor
+        label.textColor = .white
         label.alignment = .center
         label.lineBreakMode = .byTruncatingTail
         label.sizeToFit()
@@ -83,7 +127,7 @@ final class WindowSwitcherTile: NSView {
         let badge = NSView(frame: CGRect(x: size.width - 10 - width, y: 5, width: width, height: 20))
         badge.wantsLayer = true
         badge.layer?.cornerRadius = 6
-        badge.layer?.backgroundColor = NSColor.labelColor.withAlphaComponent(0.1).cgColor
+        badge.layer?.backgroundColor = NSColor(white: 0.19, alpha: 0.9).cgColor
         label.frame = CGRect(x: 8, y: 3, width: width - 16, height: 14)
         badge.addSubview(label)
         badge.toolTip = name
@@ -98,6 +142,7 @@ final class WindowSwitcherTile: NSView {
     }
 
     func updatePreview(_ frame: OverviewPreviewFrame?) {
+        guard preview !== frame else { return }
         let previous = preview
         CATransaction.begin()
         CATransaction.setDisableActions(true)

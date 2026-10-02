@@ -9,7 +9,6 @@ struct WindowSwitcherItem {
     let appName: String
     let icon: NSImage?
     var workspaceName: String
-    var workspaceIndex = 0
 }
 
 @MainActor
@@ -103,7 +102,7 @@ final class WindowSwitcherController {
         let current = controller.focusedOrFrontmostWindowTokenForAutomation(
             preferFrontmostWhenExternalOrOwnedFocusActive: true
         )
-        items = buildItems(controller: controller, current: current)
+        items = buildItems(controller: controller)
         selection.begin(tokens: scopedItems().map { $0.handle.id }, current: current, reverse: reverse)
         isVisible = true
         controller.focusPolicyEngine.beginLease(owner: .windowSwitcher, reason: "window_switcher", duration: nil)
@@ -115,9 +114,7 @@ final class WindowSwitcherController {
         render()
     }
 
-    private func buildItems(controller: WMController, current: WindowToken?) -> [WindowSwitcherItem] {
-        let recency = [current].compactMap { $0 } + controller.workspaceManager.windowFocusRecencyOrder
-        let ranks = Dictionary(recency.enumerated().map { ($0.element, $0.offset) }, uniquingKeysWith: min)
+    private func buildItems(controller: WMController) -> [WindowSwitcherItem] {
         return controller.workspaceManager.allEntries().compactMap { entry -> WindowSwitcherItem? in
             guard !entry.observedState.isNativeSuppressed,
                   let handle = controller.workspaceManager.handle(for: entry.token),
@@ -132,44 +129,39 @@ final class WindowSwitcherController {
                 icon: app?.icon,
                 workspaceName: controller.settings.workspaces.displayName(for: workspace.name)
             )
-        }.sorted {
-            let left = ranks[$0.handle.id] ?? Int.max
-            let right = ranks[$1.handle.id] ?? Int.max
-            if left != right { return left < right }
-            if $0.appName != $1.appName { return $0.appName < $1.appName }
-            return $0.handle.id.windowId < $1.handle.id.windowId
         }
     }
 
     private func scopedItems() -> [WindowSwitcherItem] {
         guard let controller else { return [] }
         let manager = controller.workspaceManager
-        let workspaceRanks = Dictionary(uniqueKeysWithValues: manager.workspaces.enumerated().map { (
-            $0.element.id,
-            $0.offset
-        ) })
-        let scoped = items.compactMap { item -> WindowSwitcherItem? in
-            guard manager.handle(for: item.handle.id) === item.handle,
-                  let entry = manager.entry(for: item.handle),
-                  !entry.observedState.isNativeSuppressed,
-                  scope == .allWorkspaces || entry.workspaceId == workspaceId,
-                  let workspace = manager.descriptor(for: entry.workspaceId),
-                  let workspaceIndex = workspaceRanks[workspace.id]
-            else { return nil }
-            var item = item
-            item.workspaceName = controller.settings.workspaces.displayName(for: workspace.name)
-            item.workspaceIndex = workspaceIndex
-            return item
+        let byToken = Dictionary(uniqueKeysWithValues: items.map { ($0.handle.id, $0) })
+        return manager.workspaces.filter { scope == .allWorkspaces || $0.id == workspaceId }.flatMap { workspace in
+            orderedEntries(in: workspace.id, manager: manager).compactMap { entry -> WindowSwitcherItem? in
+                guard !entry.observedState.isNativeSuppressed,
+                      var item = byToken[entry.token],
+                      manager.handle(for: entry.token) === item.handle
+                else { return nil }
+                item.workspaceName = controller.settings.workspaces.displayName(for: workspace.name)
+                return item
+            }
         }
-        guard scope == .allWorkspaces else { return scoped }
-        return scoped.sorted {
-            if $0.workspaceIndex != $1.workspaceIndex { return $0.workspaceIndex < $1.workspaceIndex }
-            let appOrder = $0.appName.localizedStandardCompare($1.appName)
-            if appOrder != .orderedSame { return appOrder == .orderedAscending }
-            let titleOrder = $0.title.localizedStandardCompare($1.title)
-            if titleOrder != .orderedSame { return titleOrder == .orderedAscending }
-            return $0.handle.id.windowId < $1.handle.id.windowId
+    }
+
+    private func orderedEntries(in workspaceId: WorkspaceDescriptor.ID, manager: WorkspaceManager) -> [WindowState] {
+        let entries = manager.entries(in: workspaceId)
+        if manager.activeLayoutKind(for: workspaceId) == .dwindle,
+           let root = manager.dwindleEngine?.root(for: workspaceId)
+        {
+            let byToken = Dictionary(uniqueKeysWithValues: entries.map { ($0.token, $0) })
+            var seen: Set<WindowToken> = []
+            // Tree order includes every member of a tabbed tile; floating windows follow.
+            return (root.collectAllWindows() + entries.map(\.token)).compactMap { token in
+                guard seen.insert(token).inserted else { return nil }
+                return byToken[token]
+            }
         }
+        return WorkspaceEntryOrdering.orderedEntries(entries, topology: manager.layoutTopology(for: workspaceId))
     }
 
     private func reconcileItems() {
@@ -188,8 +180,7 @@ final class WindowSwitcherController {
                 hasCaptureAccess: hasCaptureAccess,
                 showsFooter: controller.settings.windowSwitcher.showFooter
             ),
-            screenFrame: screenFrame,
-            cachedPreview: capture.preview(for:)
+            screenFrame: screenFrame
         )
     }
 
