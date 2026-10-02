@@ -16,6 +16,7 @@ extension WMController {
         applyCurrentAppearanceMode()
 
         updateHotkeyBindings(settings.hotkeyBindings)
+        updateWindowSwitcherSettings()
         setHotkeysEnabled(settings.hotkeysEnabled)
 
         setGapSize(settings.gaps.size, publishChange: false)

@@ -10,6 +10,23 @@ import IOKit.hidsystem
 final class HotkeyCenter {
     var onCommand: ((HotkeyInvocation) -> Void)?
     var isOverviewMouseButtonCaptured: ((Int64) -> Bool)?
+    var onWindowSwitcherAction: ((WindowSwitcherAction, UInt64) -> Void)?
+    private var windowSwitcherEnabled = false
+    private var windowSwitcherInput = WindowSwitcherInput()
+
+    var isWindowSwitcherAvailable: Bool {
+        windowSwitcherEnabled && hyperTriggerTap != nil
+    }
+
+    func setWindowSwitcherEnabled(_ enabled: Bool) {
+        guard windowSwitcherEnabled != enabled else { return }
+        windowSwitcherEnabled = enabled
+        if isRunning { refreshCommandHotkeyRegistrations() }
+    }
+
+    func cancelWindowSwitcherSession(generation: UInt64) {
+        windowSwitcherInput.cancel(generation: generation)
+    }
 
     private let carbonRegistrations = CarbonHotkeyRegistration()
     private var isRunning = false
@@ -118,7 +135,7 @@ final class HotkeyCenter {
         hyperTrigger = HyperTriggerStateMachine(trigger: .none, capsLockRemapped: false)
 
         let hyperEnabled = configuration.systemHyperTrigger.isEnabled
-        guard hyperEnabled || !sideSpecificDispatch.isEmpty else { return }
+        guard hyperEnabled || !sideSpecificDispatch.isEmpty || windowSwitcherEnabled else { return }
 
         if hyperEnabled {
             if activateCapsLockHyperRemapIfNeeded() {
@@ -233,6 +250,8 @@ final class HotkeyCenter {
     }
 
     func stopHyperTriggerTap() {
+        windowSwitcherInput.reset()
+        onWindowSwitcherAction?(.cancel, windowSwitcherInput.generation)
         hyperTrigger.reset()
         suppressedHotkeyKeyCodes.removeAll()
         EventTapTeardown.tearDown(
@@ -244,6 +263,19 @@ final class HotkeyCenter {
 
 extension HotkeyCenter {
     private func handleHyperTriggerEvent(type: CGEventType, event: CGEvent) -> Unmanaged<CGEvent>? {
+        if type == .tapDisabledByTimeout || type == .tapDisabledByUserInput {
+            windowSwitcherInput.reset()
+            onWindowSwitcherAction?(.cancel, windowSwitcherInput.generation)
+        }
+        let switcherDecision = windowSwitcherInput.handle(
+            type: type,
+            keyCode: Int(event.getIntegerValueField(.keyboardEventKeycode)),
+            flags: event.flags,
+            isRepeat: event.getIntegerValueField(.keyboardEventAutorepeat) != 0,
+            canBegin: windowSwitcherEnabled && !commandHotkeysSuspended
+        )
+        if let action = switcherDecision.action { onWindowSwitcherAction?(action, windowSwitcherInput.generation) }
+        if switcherDecision.consumed { return nil }
         switch type {
         case .tapDisabledByTimeout:
             InputTapHealth.recordTapDisabled(mouse: false, byTimeout: true)

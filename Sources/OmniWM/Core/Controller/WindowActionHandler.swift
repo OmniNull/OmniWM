@@ -300,6 +300,14 @@ final class WindowActionHandler {
         handle: WindowHandle,
         focusOrigin: ManagedFocusOrigin = .keyboardOrProgrammatic
     ) -> Bool {
+        activateExplicitlySelectedWindow(handle: handle, focusOrigin: focusOrigin)
+    }
+
+    @discardableResult
+    func activateExplicitlySelectedWindow(
+        handle: WindowHandle,
+        focusOrigin: ManagedFocusOrigin = .keyboardOrProgrammatic
+    ) -> Bool {
         let navigated = navigateToExplicitlySelectedWindow(handle: handle, focusOrigin: focusOrigin)
         if navigated,
            let controller,

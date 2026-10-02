@@ -64,6 +64,7 @@ struct SettingsExport: Equatable {
     var borders: Borders
 
     var overview: Overview
+    var windowSwitcher = WindowSwitcher()
 
     var hotkeyBindings: [HotkeyBinding]
     var systemHyperTrigger: SystemHyperTrigger

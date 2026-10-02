@@ -23,6 +23,16 @@ extension WMController {
                 _ = commandHandler.handleHotkeyInvocation(invocation)
             }
         }
+        hotkeys.onWindowSwitcherAction = { [weak self] action, generation in
+            DispatchQueue.main.async { [weak self] in
+                guard let self else { return }
+                if case .begin = action {
+                    windowSwitcherController.handle(action, generation: generation)
+                } else {
+                    windowSwitcherControllerStorage?.handle(action, generation: generation)
+                }
+            }
+        }
         settings.onWorkspaceHotkeysChanged = { [weak self] in
             guard let self else { return }
             updateHotkeyBindings(settings.hotkeyBindings)
