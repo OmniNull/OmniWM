@@ -9,7 +9,7 @@ import XCTest
 final class WindowSwitcherInputTests: XCTestCase {
     func testHoldCycleAndReleaseCommitsOnceWithoutLeakingTabKeyUp() {
         var input = WindowSwitcherInput()
-        XCTAssertEqual(key(&input, kVK_Tab).action, .begin(reverse: false))
+        XCTAssertEqual(key(&input, kVK_Tab).action, .begin(reverse: false, scope: .activeWorkspace))
         XCTAssertTrue(key(&input, kVK_Tab, type: .keyUp).consumed)
         XCTAssertEqual(key(&input, kVK_Tab).action, .cycle(reverse: false))
         XCTAssertEqual(key(&input, kVK_Command, type: .flagsChanged, flags: []).action, .commit)
@@ -20,7 +20,10 @@ final class WindowSwitcherInputTests: XCTestCase {
 
     func testShiftReversesAndReleasingShiftDoesNotCommit() {
         var input = WindowSwitcherInput()
-        XCTAssertEqual(key(&input, kVK_Tab, flags: [.maskCommand, .maskShift]).action, .begin(reverse: true))
+        XCTAssertEqual(
+            key(&input, kVK_Tab, flags: [.maskCommand, .maskShift]).action,
+            .begin(reverse: true, scope: .activeWorkspace)
+        )
         XCTAssertNil(key(&input, kVK_Shift, type: .flagsChanged).action)
         XCTAssertTrue(input.isActive)
         XCTAssertEqual(key(&input, kVK_Tab, flags: [.maskCommand, .maskShift]).action, .cycle(reverse: true))
@@ -58,7 +61,7 @@ final class WindowSwitcherInputTests: XCTestCase {
         var input = WindowSwitcherInput()
         XCTAssertFalse(key(&input, kVK_Tab, canBegin: false).consumed)
         XCTAssertFalse(key(&input, kVK_Tab, flags: []).consumed)
-        XCTAssertFalse(key(&input, kVK_Tab, flags: [.maskAlternate]).consumed)
+        XCTAssertFalse(key(&input, kVK_Tab, flags: [.maskCommand, .maskAlternate]).consumed)
         XCTAssertFalse(key(&input, kVK_Tab, flags: [.maskCommand, .maskControl]).consumed)
         XCTAssertFalse(key(&input, kVK_Tab, isRepeat: true).consumed)
     }
@@ -80,7 +83,59 @@ final class WindowSwitcherInputTests: XCTestCase {
         _ = key(&input, kVK_Tab)
         input.reset()
         XCTAssertNil(key(&input, kVK_Command, type: .flagsChanged, flags: []).action)
+        XCTAssertEqual(key(&input, kVK_Tab).action, .begin(reverse: false, scope: .activeWorkspace))
+    }
+
+    func testOptionTabOpensAllWorkspacesAndWaitsForOptionRelease() {
+        var input = WindowSwitcherInput()
+        XCTAssertEqual(
+            key(&input, kVK_Tab, flags: [.maskAlternate, .maskShift]).action,
+            .begin(reverse: true, scope: .allWorkspaces)
+        )
+        XCTAssertNil(key(&input, kVK_Shift, type: .flagsChanged, flags: [.maskAlternate]).action)
+        XCTAssertNil(key(&input, kVK_Command, type: .flagsChanged, flags: [.maskAlternate, .maskCommand]).action)
+        XCTAssertNil(key(&input, kVK_Command, type: .flagsChanged, flags: [.maskAlternate]).action)
+        XCTAssertEqual(key(&input, kVK_Tab, flags: [.maskAlternate]).action, .cycle(reverse: false))
+        XCTAssertEqual(key(&input, kVK_Option, type: .flagsChanged, flags: []).action, .commit)
+        XCTAssertTrue(key(&input, kVK_Tab, type: .keyUp, flags: []).consumed)
+    }
+
+    func testSingleShortcutCanUseRememberedScopeAndLeaveOptionTabAlone() {
+        var input = WindowSwitcherInput()
+        input.shortcuts = WindowSwitcherShortcuts(commandTab: .remembered, optionTab: .disabled)
+        XCTAssertFalse(key(&input, kVK_Tab, flags: [.maskAlternate]).consumed)
         XCTAssertEqual(key(&input, kVK_Tab).action, .begin(reverse: false))
+        XCTAssertEqual(key(&input, kVK_ANSI_W).action, .toggleScope)
+        XCTAssertEqual(key(&input, kVK_Command, type: .flagsChanged, flags: []).action, .commit)
+    }
+
+    func testScopeToggleDoesNotChangeFixedShortcutAssignment() {
+        var input = WindowSwitcherInput()
+        _ = key(&input, kVK_Tab)
+        _ = key(&input, kVK_Tab, type: .keyUp)
+        XCTAssertEqual(key(&input, kVK_ANSI_W).action, .toggleScope)
+        _ = key(&input, kVK_Command, type: .flagsChanged, flags: [])
+        XCTAssertEqual(key(&input, kVK_Tab).action, .begin(reverse: false, scope: .activeWorkspace))
+    }
+
+    func testOptionOnlyConfigurationLeavesCommandTabToMacOS() {
+        var input = WindowSwitcherInput()
+        input.shortcuts = WindowSwitcherShortcuts(commandTab: .disabled, optionTab: .activeWorkspace)
+        XCTAssertFalse(key(&input, kVK_Tab).consumed)
+        XCTAssertEqual(
+            key(&input, kVK_Tab, flags: [.maskAlternate]).action,
+            .begin(reverse: false, scope: .activeWorkspace)
+        )
+        XCTAssertEqual(key(&input, kVK_Escape, flags: [.maskAlternate]).action, .cancel)
+        XCTAssertNil(key(&input, kVK_Option, type: .flagsChanged, flags: []).action)
+    }
+
+    func testBothShortcutsCanBeDisabled() {
+        var input = WindowSwitcherInput()
+        input.shortcuts = WindowSwitcherShortcuts(commandTab: .disabled, optionTab: .disabled)
+        XCTAssertFalse(input.shortcuts.isEnabled)
+        XCTAssertFalse(key(&input, kVK_Tab).consumed)
+        XCTAssertFalse(key(&input, kVK_Tab, flags: [.maskAlternate]).consumed)
     }
 
     private func key(

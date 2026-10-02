@@ -7,7 +7,7 @@ import OmniWMIPC
 
 extension WMController {
     func updateWindowSwitcherSettings() {
-        hotkeys.setWindowSwitcherEnabled(settings.windowSwitcher.enabled)
+        hotkeys.configureWindowSwitcher(settings.windowSwitcher.export())
         refreshHotkeyFailureSnapshots()
         if !settings.windowSwitcher.enabled { windowSwitcherControllerStorage?.dismiss() }
     }

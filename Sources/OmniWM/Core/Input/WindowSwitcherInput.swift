@@ -5,7 +5,7 @@ import Carbon
 import CoreGraphics
 
 enum WindowSwitcherAction: Equatable, Sendable {
-    case begin(reverse: Bool)
+    case begin(reverse: Bool, scope: WindowSwitcherScope? = nil)
     case cycle(reverse: Bool)
     case toggleScope
     case commit
@@ -21,6 +21,8 @@ struct WindowSwitcherInput {
     private(set) var isActive = false
     private(set) var generation: UInt64 = 0
     private var suppressedKeys: Set<Int> = []
+    var shortcuts = WindowSwitcherShortcuts()
+    private var heldModifier = CGEventFlags.maskCommand
 
     mutating func cancel(generation: UInt64) {
         guard generation == self.generation else { return }
@@ -43,7 +45,7 @@ struct WindowSwitcherInput {
             return Decision(consumed: suppressedKeys.remove(keyCode) != nil)
         }
         if type == .flagsChanged {
-            guard isActive, !flags.contains(.maskCommand) else { return Decision() }
+            guard isActive, !flags.contains(heldModifier) else { return Decision() }
             isActive = false
             return Decision(action: .commit)
         }
@@ -51,25 +53,31 @@ struct WindowSwitcherInput {
         if !isActive {
             if suppressedKeys.contains(keyCode) { return Decision(consumed: true) }
             guard canBegin, keyCode == kVK_Tab, !isRepeat,
-                  flags.contains(.maskCommand),
-                  flags.intersection([.maskAlternate, .maskControl]).isEmpty
+                  let shortcut = shortcut(for: flags)
             else { return Decision() }
+            heldModifier = flags.contains(.maskCommand) ? .maskCommand : .maskAlternate
             isActive = true
             generation &+= 1
             suppressedKeys.insert(keyCode)
-            return Decision(consumed: true, action: .begin(reverse: flags.contains(.maskShift)))
+            return Decision(
+                consumed: true,
+                action: .begin(reverse: flags.contains(.maskShift), scope: shortcut.initialScope)
+            )
         }
         suppressedKeys.insert(keyCode)
         switch keyCode {
         case kVK_Tab:
             return Decision(consumed: true, action: .cycle(reverse: flags.contains(.maskShift)))
-        case kVK_LeftArrow, kVK_UpArrow:
+        case kVK_LeftArrow,
+             kVK_UpArrow:
             return Decision(consumed: true, action: .cycle(reverse: true))
-        case kVK_RightArrow, kVK_DownArrow:
+        case kVK_RightArrow,
+             kVK_DownArrow:
             return Decision(consumed: true, action: .cycle(reverse: false))
         case kVK_ANSI_W:
             return Decision(consumed: true, action: isRepeat ? nil : .toggleScope)
-        case kVK_Return, kVK_ANSI_KeypadEnter:
+        case kVK_Return,
+             kVK_ANSI_KeypadEnter:
             isActive = false
             return Decision(consumed: true, action: .commit)
         case kVK_Escape:
@@ -78,5 +86,16 @@ struct WindowSwitcherInput {
         default:
             return Decision(consumed: true)
         }
+    }
+
+    private func shortcut(for flags: CGEventFlags) -> WindowSwitcherShortcutScope? {
+        let modifiers = flags.intersection([.maskCommand, .maskAlternate, .maskControl])
+        let shortcut: WindowSwitcherShortcutScope
+        switch modifiers {
+        case .maskCommand: shortcut = shortcuts.commandTab
+        case .maskAlternate: shortcut = shortcuts.optionTab
+        default: return nil
+        }
+        return shortcut == .disabled ? nil : shortcut
     }
 }

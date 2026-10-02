@@ -11,6 +11,7 @@ final class WindowSwitcherPanel: NSPanel {
         let selected: WindowToken?
         let scope: WindowSwitcherScope
         let hasCaptureAccess: Bool
+        var showsFooter = true
     }
 
     private static let surfaceId = "window-switcher"
@@ -45,8 +46,13 @@ final class WindowSwitcherPanel: NSPanel {
         setAccessibilityLabel(String(localized: "Window Switcher"))
     }
 
-    override var canBecomeKey: Bool { false }
-    override var canBecomeMain: Bool { false }
+    override var canBecomeKey: Bool {
+        false
+    }
+
+    override var canBecomeMain: Bool {
+        false
+    }
 
     func show(
         content: Content,
@@ -56,11 +62,13 @@ final class WindowSwitcherPanel: NSPanel {
         let maximumWidth = max(240, screenFrame.width - 64)
         let tileWidth = min(220, maximumWidth - 32)
         let capacity = max(1, Int((maximumWidth - 20) / (tileWidth + 12)))
-        let selectedIndex = content.selected.flatMap { token in content.items.firstIndex { $0.handle.id == token } } ?? 0
+        let selectedIndex = content.selected
+            .flatMap { token in content.items.firstIndex { $0.handle.id == token } } ?? 0
         let start = min(max(0, selectedIndex - capacity / 2), max(0, content.items.count - capacity))
         let displayed = Array(content.items.dropFirst(start).prefix(capacity))
         let width = max(min(360, maximumWidth), 20 + CGFloat(displayed.count) * (tileWidth + 12))
-        let height = min(266, screenFrame.height - 48)
+        let footerHeight: CGFloat = content.showsFooter ? 28 : 0
+        let height = min(238 + footerHeight, screenFrame.height - 48)
         let reduceTransparency = NSWorkspace.shared.accessibilityDisplayShouldReduceTransparency
         effectView.material = reduceTransparency ? .windowBackground : .hudWindow
         effectView.blendingMode = reduceTransparency ? .withinWindow : .behindWindow
@@ -68,10 +76,14 @@ final class WindowSwitcherPanel: NSPanel {
         layoutTiles(
             displayed,
             content: content,
-            size: CGSize(width: tileWidth, height: max(80, height - 60)),
+            size: CGSize(width: tileWidth, height: max(80, height - 32 - footerHeight)),
             cachedPreview: cachedPreview
         )
-        layoutFooter(content: content, selectedIndex: selectedIndex, width: width)
+        if content.showsFooter {
+            layoutFooter(content: content, selectedIndex: selectedIndex, width: width)
+        } else if content.items.isEmpty {
+            layoutEmptyState(size: CGSize(width: width, height: height))
+        }
         setFrame(
             CGRect(x: screenFrame.midX - width / 2, y: screenFrame.midY - height / 2, width: width, height: height),
             display: true
@@ -103,7 +115,7 @@ final class WindowSwitcherPanel: NSPanel {
                 selected: item.handle.id == content.selected,
                 hasCaptureAccess: content.hasCaptureAccess
             )
-            tile.frame.origin = CGPoint(x: 16 + CGFloat(index) * (size.width + 12), y: 44)
+            tile.frame.origin = CGPoint(x: 16 + CGFloat(index) * (size.width + 12), y: content.showsFooter ? 44 : 16)
             tile.onSelect = { [weak self] in self?.onSelect(item.handle.id) }
             tile.updatePreview(cachedPreview(item.handle))
             effectView.addSubview(tile)
@@ -130,6 +142,14 @@ final class WindowSwitcherPanel: NSPanel {
         count.textColor = .secondaryLabelColor
         count.frame = CGRect(x: 192, y: 15, width: width - 208, height: 16)
         effectView.addSubview(count)
+    }
+
+    private func layoutEmptyState(size: CGSize) {
+        let message = NSTextField(wrappingLabelWithString: String(localized: "No windows in this workspace"))
+        message.alignment = .center
+        message.textColor = .secondaryLabelColor
+        message.frame = CGRect(x: 16, y: size.height / 2 - 20, width: size.width - 32, height: 40)
+        effectView.addSubview(message)
     }
 
     func updatePreview(_ frame: OverviewPreviewFrame?, for handle: WindowHandle) {
@@ -206,7 +226,9 @@ private final class WindowSwitcherTile: NSView {
     }
 
     @available(*, unavailable)
-    required init?(coder: NSCoder) { nil }
+    required init?(coder: NSCoder) {
+        nil
+    }
 
     func setCapturePending(_ pending: Bool) {
         unavailable.stringValue = !hasCaptureAccess
@@ -237,7 +259,9 @@ private final class WindowSwitcherTile: NSView {
         frame.contains(point) ? self : nil
     }
 
-    override func acceptsFirstMouse(for event: NSEvent?) -> Bool { true }
+    override func acceptsFirstMouse(for event: NSEvent?) -> Bool {
+        true
+    }
 
     override func mouseUp(with event: NSEvent) {
         guard bounds.contains(convert(event.locationInWindow, from: nil)) else { return }

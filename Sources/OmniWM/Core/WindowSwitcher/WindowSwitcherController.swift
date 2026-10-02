@@ -56,8 +56,8 @@ final class WindowSwitcherController {
             return
         }
         switch action {
-        case let .begin(reverse):
-            begin(reverse: reverse)
+        case let .begin(reverse, initialScope):
+            begin(reverse: reverse, initialScope: initialScope)
         case let .cycle(reverse):
             guard isVisible else { return }
             let previous = selection.selected
@@ -77,7 +77,7 @@ final class WindowSwitcherController {
         }
     }
 
-    private func begin(reverse: Bool) {
+    private func begin(reverse: Bool, initialScope: WindowSwitcherScope?) {
         guard let controller, controller.hotkeysEnabled, controller.settings.windowSwitcher.enabled,
               !controller.isLockScreenActive,
               !controller.isOverviewOpen(), !controller.commandPaletteController.isVisible,
@@ -87,7 +87,7 @@ final class WindowSwitcherController {
             return
         }
         workspaceId = controller.activeWorkspace()?.id
-        scope = controller.settings.windowSwitcher.scope
+        scope = initialScope ?? controller.settings.windowSwitcher.scope
         screenFrame = monitor.visibleFrame
         scale = NSScreen.screens.first { $0.displayId == monitor.displayId }?.backingScaleFactor ?? 2
         let current = controller.focusedOrFrontmostWindowTokenForAutomation(
@@ -97,9 +97,11 @@ final class WindowSwitcherController {
         selection.begin(tokens: scopedItems().map { $0.handle.id }, current: current, reverse: reverse)
         isVisible = true
         controller.focusPolicyEngine.beginLease(owner: .windowSwitcher, reason: "window_switcher", duration: nil)
-        dismissalMonitor.start(panels: [panel], isExemptWindow: { _ in false }) { [weak self] in
-            self?.dismiss()
-        }
+        dismissalMonitor.start(
+            panels: [panel],
+            isExemptWindow: { _ in false },
+            onDismiss: { [weak self] in self?.dismiss() }
+        )
         render()
     }
 
@@ -144,6 +146,7 @@ final class WindowSwitcherController {
     }
 
     private func render() {
+        guard let controller else { return }
         let visibleItems = scopedItems()
         let hasCaptureAccess = CGPreflightScreenCaptureAccess()
         let displayed = panel.show(
@@ -151,7 +154,8 @@ final class WindowSwitcherController {
                 items: visibleItems,
                 selected: selection.selected,
                 scope: scope,
-                hasCaptureAccess: hasCaptureAccess
+                hasCaptureAccess: hasCaptureAccess,
+                showsFooter: controller.settings.windowSwitcher.showFooter
             ),
             screenFrame: screenFrame,
             cachedPreview: capture.preview(for:)

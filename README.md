@@ -528,7 +528,7 @@ OmniWM is a free, open-source, Developer ID-signed and Apple-notarized tiling wi
 
 ## Highlights
 
-- Optional [Command-Tab window switcher](docs/window-switcher.md) with previews and all-workspace or active-workspace scope
+- Optional [window switcher](docs/window-switcher.md) with previews and separate Command-Tab / Option-Tab workspace scopes
 
 - Ghostty-powered quake/sticky terminal
 - Native macOS window-tab support

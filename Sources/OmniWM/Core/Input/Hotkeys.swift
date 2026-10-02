@@ -18,9 +18,11 @@ final class HotkeyCenter {
         windowSwitcherEnabled && hyperTriggerTap != nil
     }
 
-    func setWindowSwitcherEnabled(_ enabled: Bool) {
-        guard windowSwitcherEnabled != enabled else { return }
+    func configureWindowSwitcher(_ settings: SettingsExport.WindowSwitcher) {
+        let enabled = settings.enabled && settings.shortcuts.isEnabled
+        guard windowSwitcherEnabled != enabled || windowSwitcherInput.shortcuts != settings.shortcuts else { return }
         windowSwitcherEnabled = enabled
+        windowSwitcherInput.shortcuts = settings.shortcuts
         if isRunning { refreshCommandHotkeyRegistrations() }
     }
 
