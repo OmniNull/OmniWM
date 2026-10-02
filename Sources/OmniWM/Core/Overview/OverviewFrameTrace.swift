@@ -20,7 +20,7 @@ enum OverviewFrameTrace {
     }
 
     enum PreviewConsumer: String, Sendable {
-        case overview, workspaceSwipe, workspaceBarHover
+        case overview, workspaceSwipe, workspaceBarHover, windowSwitcher
     }
 
     enum PreviewReason: String, Sendable {

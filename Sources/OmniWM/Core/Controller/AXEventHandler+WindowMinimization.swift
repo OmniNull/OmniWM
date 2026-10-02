@@ -90,5 +90,6 @@ extension AXEventHandler {
             )
         }
         controller.surfaceReconciler.noteWorldChanged()
+        controller.windowSwitcherControllerStorage?.refreshWindows()
     }
 }

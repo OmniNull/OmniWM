@@ -6,6 +6,12 @@ import Foundation
 import OmniWMIPC
 
 extension WMController {
+    func updateWindowSwitcherSettings() {
+        hotkeys.configureWindowSwitcher(settings.windowSwitcher.export())
+        refreshHotkeyFailureSnapshots()
+        if !settings.windowSwitcher.enabled { windowSwitcherControllerStorage?.dismiss() }
+    }
+
     func invalidateOverviewDeferredActionsForServiceStop() {
         windowActionHandlerStorage?.invalidateOverviewDeferredActionsForServiceStop()
     }

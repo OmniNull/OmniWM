@@ -37,6 +37,7 @@ final class WMController {
     let hotkeys = HotkeyCenter()
     private(set) var hotkeyRegistrationFailures: [HotkeyCommand: HotkeyRegistrationFailureReason] = [:]
     private(set) var systemHyperTriggerFailure: SystemHyperTriggerFailure?
+    private(set) var windowSwitcherInputAvailable = false
     var isHyperTriggerActive: Bool {
         hotkeys.isHyperTriggerActive
     }
@@ -47,6 +48,7 @@ final class WMController {
         didSet {
             guard oldValue != isLockScreenActive else { return }
             if isLockScreenActive {
+                windowSwitcherControllerStorage?.dismiss()
                 layoutRefreshController.suspendForLockScreen()
                 resetWorkspaceBarReveal()
                 mouseEventHandler.handleInputSuppressionBegan()
@@ -133,6 +135,13 @@ final class WMController {
     )
     @ObservationIgnored
     private(set) lazy var commandPaletteController: CommandPaletteController = .init(motionPolicy: motionPolicy)
+    @ObservationIgnored private(set) var windowSwitcherControllerStorage: WindowSwitcherController?
+    var windowSwitcherController: WindowSwitcherController {
+        if let windowSwitcherControllerStorage { return windowSwitcherControllerStorage }
+        let switcher = WindowSwitcherController(controller: self)
+        windowSwitcherControllerStorage = switcher
+        return switcher
+    }
 
     @ObservationIgnored
     private(set) lazy var systemStatsPopupController: SystemStatsPopupController = {
@@ -410,6 +419,7 @@ extension WMController {
     func refreshHotkeyFailureSnapshots() {
         hotkeyRegistrationFailures = hotkeys.registrationFailures
         systemHyperTriggerFailure = hotkeys.systemHyperTriggerFailure
+        windowSwitcherInputAvailable = hotkeys.isWindowSwitcherAvailable
     }
 
     var statusBarRefreshIsEnabled: Bool {
@@ -501,6 +511,7 @@ extension WMController {
     }
 
     func cleanupUIOnStop() {
+        windowSwitcherControllerStorage?.dismiss()
         workspaceBarRevealMonitor.stop()
         workspaceBarManager.cleanup()
     }

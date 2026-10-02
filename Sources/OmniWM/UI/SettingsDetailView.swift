@@ -45,6 +45,8 @@ struct SettingsDetailView: View {
             WorkspacesSettingsTab(settings: settings, controller: controller)
         case .overview:
             OverviewSettingsTab(settings: settings, controller: controller)
+        case .windowSwitcher:
+            WindowSwitcherSettingsTab(settings: settings, controller: controller)
         case .borders:
             BorderSettingsTab(settings: settings, controller: controller)
         case .bar:

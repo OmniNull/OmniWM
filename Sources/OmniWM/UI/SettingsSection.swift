@@ -11,6 +11,7 @@ enum SettingsSection: String, CaseIterable, Identifiable {
     case monitors
     case workspaces
     case overview
+    case windowSwitcher
     case borders
     case bar
     case hiddenBar
@@ -32,6 +33,7 @@ enum SettingsSection: String, CaseIterable, Identifiable {
         case .monitors: String(localized: "Monitors")
         case .workspaces: String(localized: "Workspaces")
         case .overview: String(localized: "Overview")
+        case .windowSwitcher: String(localized: "Window Switcher")
         case .borders: String(localized: "Borders")
         case .bar: String(localized: "Workspace Bar")
         case .hiddenBar: String(localized: "Hidden Bar")
@@ -51,6 +53,7 @@ enum SettingsSection: String, CaseIterable, Identifiable {
         case .monitors: "display"
         case .workspaces: "rectangle.3.group"
         case .overview: "rectangle.grid.2x2"
+        case .windowSwitcher: "rectangle.stack"
         case .borders: "square.dashed"
         case .bar: "menubar.rectangle"
         case .hiddenBar: "eye.slash"
@@ -90,7 +93,7 @@ enum SettingsSectionGroup: String, CaseIterable, Identifiable {
         case .layouts:
             [.niri, .dwindle, .monitors]
         case .workspace:
-            [.workspaces, .overview, .borders, .bar, .hiddenBar]
+            [.workspaces, .overview, .windowSwitcher, .borders, .bar, .hiddenBar]
         case .input:
             [.hotkeys, .mouseTrackpad, .quakeTerminal]
         case .help:
