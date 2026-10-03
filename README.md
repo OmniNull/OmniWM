@@ -732,17 +732,17 @@ Settings > Hotkeys lists all actions that can be assigned a shortcut, including 
 | Action | Default Shortcut | Layout |
 |--------|------------------|--------|
 | Switch to Workspace 1-9 | `Option + 1-9` | `Shared` |
-| Move to Workspace 1-9 | `Option + Shift + 1-9` | `Shared` |
+| Move Focused Window to Workspace 1-9 | `Option + Shift + 1-9` | `Shared` |
 | Switch to Workspace Slot 1-9 (position on the current monitor) | `Unassigned` | `Shared` |
-| Move to Workspace Slot 1-9 (position on the current monitor) | `Unassigned` | `Shared` |
+| Move Focused Window to Workspace Slot 1-9 (position on the current monitor) | `Unassigned` | `Shared` |
 | Switch to Last Active Workspace (Back and Forth) | `Control + Option + Tab` | `Shared` |
 | Switch to Next Workspace | `Unassigned` | `Shared` |
 | Switch to Previous Workspace (Sequential) | `Unassigned` | `Shared` |
-| Move Window to Workspace Up | `Control + Option + Shift + Up Arrow` | `Shared` |
-| Move Window to Workspace Down | `Control + Option + Shift + Down Arrow` | `Shared` |
-| Move Column to Workspace 1-9 | `Unassigned` | `Niri` |
-| Move Column to Workspace Up | `Control + Option + Shift + Page Up` | `Niri` |
-| Move Column to Workspace Down | `Control + Option + Shift + Page Down` | `Niri` |
+| Move Focused Window to Workspace Up | `Control + Option + Shift + Up Arrow` | `Shared` |
+| Move Focused Window to Workspace Down | `Control + Option + Shift + Down Arrow` | `Shared` |
+| Move Focused Column to Workspace 1-9 | `Unassigned` | `Niri` |
+| Move Focused Column to Workspace Up | `Control + Option + Shift + Page Up` | `Niri` |
+| Move Focused Column to Workspace Down | `Control + Option + Shift + Page Down` | `Niri` |
 
 When you create workspace 10 or higher, Settings > Hotkeys adds its Switch, Move, and Move Column actions as `Unassigned`.
 
@@ -751,10 +751,10 @@ When you create workspace 10 or higher, Settings > Hotkeys adds its Switch, Move
 | Action | Default Shortcut | Layout |
 |--------|------------------|--------|
 | Focus Left / Right / Up / Down | `Option + Arrow Keys` | `Shared` |
-| Focus Down or Top / Up or Bottom | `Unassigned` | `Shared` |
-| Focus Top Window / Bottom Window | `Unassigned` | `Niri` |
+| Focus Next / Previous Window (Wrap) | `Unassigned` | `Shared` |
+| Focus First / Last Window in Column | `Unassigned` | `Niri` |
 | Focus Window or Workspace Down / Up | `Unassigned` | `Niri` |
-| Focus Previous Window | `Option + Tab` | `Shared` |
+| Focus Previously Focused Window | `Option + Tab` | `Shared` |
 | Traverse Backward | `Unassigned` | `Niri` |
 | Traverse Forward | `Unassigned` | `Niri` |
 | Focus First Column | `Option + Home` | `Niri` |
@@ -767,7 +767,7 @@ When you create workspace 10 or higher, Settings > Hotkeys adds its Switch, Move
 | Remove Mark from Focused Window | `Unassigned` | `Shared` |
 | Close Focused Window | `Unassigned` | `Shared` |
 | Toggle Workspace Bar | `Unassigned` | `Shared` |
-| Toggle Hidden Icons Bar | `Unassigned` | `Shared` |
+| Toggle Hidden Icons Panel | `Unassigned` | `Shared` |
 | Toggle Quake Terminal | `` Option + ` `` | `Shared` |
 | Toggle Overview | `Option + Shift + O` | `Shared` |
 | Toggle System Stats | `Unassigned` | `Shared` |
@@ -777,19 +777,22 @@ When you create workspace 10 or higher, Settings > Hotkeys adds its Switch, Move
 | Action | Default Shortcut | Layout |
 |--------|------------------|--------|
 | Move Left / Right / Up / Down | `Option + Shift + Arrow Keys` | `Shared` |
-| Reorder Window Up / Down | `Unassigned` | `Shared` |
+| Move Window to Previous / Next Position | `Unassigned` | `Shared` |
 | Move Window Down or to Workspace Down / Up or to Workspace Up | `Unassigned` | `Niri` |
-| Consume Window into Column / Expel Window from Column | `Unassigned` | `Niri` |
+| Pull Top Window from Next Column into Focused Column | `Unassigned` | `Niri` |
+| Push Bottom Window from Focused Column into New Column | `Unassigned` | `Niri` |
+
+The pull action treats the focused column as the destination and does nothing when there is no next column. The push action moves the bottom window from the focused column into a new following column. Neither action wraps, and there is no pull-from-previous action.
 
 #### Monitor
 
 | Action | Default Shortcut | Layout |
 |--------|------------------|--------|
-| Focus Next Monitor | `Control + Command + Tab` | `Shared` |
-| Focus Previous Monitor | `Unassigned` | `Shared` |
-| Focus Last Monitor | `` Control + Command + ` `` | `Shared` |
-| Move Workspace to Left / Right / Up / Down Monitor | `Unassigned` | `Shared` |
-| Move Window to Left / Right / Up / Down Monitor | `Unassigned` | `Shared` |
+| Focus Next Monitor in Order | `Control + Command + Tab` | `Shared` |
+| Focus Previous Monitor in Order | `Unassigned` | `Shared` |
+| Focus Last Active Monitor | `` Control + Command + ` `` | `Shared` |
+| Move Workspace to Monitor on Left / Right / Above / Below | `Unassigned` | `Shared` |
+| Move Focused Window to Monitor on Left / Right / Above / Below | `Unassigned` | `Shared` |
 
 The workspace-to-monitor actions target the active workspace and intentionally use the same temporary runtime override as `omniwmctl workspace move-to-monitor --force`. They do not rewrite the workspace's Home Monitor or swap workspaces, and unsafe fullscreen, hidden-app, scratchpad, or focus states still block the move.
 
@@ -799,7 +802,7 @@ The window-to-monitor actions send the focused window directly to the current wo
 
 | Action | Default Shortcut | Layout |
 |--------|------------------|--------|
-| Toggle Fullscreen | `Option + Return` | `Shared` |
+| Toggle OmniWM Fullscreen | `Option + Return` | `Shared` |
 | Toggle Native Fullscreen | `Unassigned` | `Shared` |
 | Balance Sizes | `Option + Shift + B` | `Shared` |
 | Cycle Size Forward | `Option + .` | `Shared` |
@@ -815,7 +818,7 @@ The window-to-monitor actions send the focused window directly to the current wo
 | Raise All Floating Windows | `Option + Shift + R` | `Shared` |
 | Rescue Off-Screen Floating Windows | `Unassigned` | `Shared` |
 | Toggle Focused Window Floating | `Unassigned` | `Shared` |
-| Assign Focused Window to Scratchpad 1-10 | `Unassigned` | `Shared` |
+| Toggle Scratchpad 1-10 Assignment for Focused Window | `Unassigned` | `Shared` |
 | Toggle Scratchpad 1-10 | `Unassigned` | `Shared` |
 | Toggle Workspace Layout | `Option + Shift + L` | `Shared` |
 
@@ -825,18 +828,18 @@ The window-to-monitor actions send the focused window directly to the current wo
 |--------|------------------|--------|
 | Move Container Left / Right | `Control + Option + Shift + Left / Right Arrow` | `Shared` |
 | Move Container Up / Down | `Unassigned` | `Dwindle` |
-| Toggle Column Tabbed | `Option + T` | `Niri` |
+| Toggle Tabbed Mode for Focused Column | `Option + T` | `Niri` |
 | Toggle Container Full Primary Span | `Option + Shift + F` | `Niri` |
 | Expand Container to Available Primary Span | `Control + Option + F` | `Niri` |
-| Move Column to First / Last | `Control + Option + Home / End` | `Niri` |
-| Move Column to Index 1-9 | `Unassigned` | `Niri` |
+| Move Focused Column to First / Last Position | `Control + Option + Home / End` | `Niri` |
+| Move Focused Column to Position 1-9 | `Unassigned` | `Niri` |
 | Shrink / Grow Container Primary Span | `Option + -` / `Option + =` | `Niri` |
 | Shrink / Grow Window Secondary Span | `Option + Shift + -` / `Option + Shift + =` | `Niri` |
 | Shrink / Grow Window Primary Span | `Unassigned` | `Niri` |
 | Reset Window Secondary Span | `Control + Option + R` | `Niri` |
 | Cycle Window Primary Span Forward / Backward | `Unassigned` | `Niri` |
 | Cycle Window Secondary Span Forward / Backward | `Unassigned` | `Niri` |
-| Center Column | `Unassigned` | `Niri` |
+| Center Focused Column | `Unassigned` | `Niri` |
 | Center Visible Columns | `Unassigned` | `Niri` |
 
 Niri grow/shrink actions use a configurable increment, defaulting to 5% instead of 10%. Change **Resize Increment** in Niri settings or `[niri].resizeStepPercent` in TOML (1–100). Explicit `omniwmctl` size arguments keep their specified amounts.
@@ -860,7 +863,7 @@ Dwindle groups use the existing Focus and Move bindings, so there are no separat
 
 Moving a tab directly from one existing group into another is intentionally a two-step operation: extract it first, then move the resulting singleton toward the destination group. A singleton at a genuine workspace edge can still use the normal cross-monitor Move behavior; a rejected group mutation does not fall through to tile swapping or monitor movement.
 
-The unassigned advanced actions are available in Settings > Hotkeys. `Focus Down or Top / Up or Bottom` always wraps within the active Niri column or Dwindle group. `Reorder Window Up / Down` changes the active member's position by one without wrapping. `Move Container` is the whole-structure escape hatch and never transfers to another monitor at a workspace edge. Dwindle join/extract and Move Container operations are intentionally unavailable while Overview is open; leave Overview before changing a Dwindle tree.
+The unassigned advanced actions are available in Settings > Hotkeys. `Focus Next / Previous Window (Wrap)` always wraps within the active Niri column or Dwindle group. `Move Window to Previous / Next Position` changes the active member's position by one without wrapping. `Move Container` is the whole-structure escape hatch and never transfers to another monitor at a workspace edge. Dwindle join/extract and Move Container operations are intentionally unavailable while Overview is open; leave Overview before changing a Dwindle tree.
 
 #### Quake Terminal (Inside Terminal)
 
@@ -1049,7 +1052,7 @@ A scratchpad is a slot that holds any number of floating windows and overlays th
 you are looking at. There are ten slots, numbered 1 to 10; a slot with no windows in it is inert and
 invisible.
 
-- **Assign Focused Window to Scratchpad N** moves the focused window into slot N, floating it if it
+- **Toggle Scratchpad N Assignment for Focused Window** moves the focused window into slot N, floating it if it
   was tiled. It stays visible if slot N is already revealed; otherwise it is parked off-screen. Pressing
   the same shortcut again on a window already in slot N returns it to the layout.
 - **Toggle Scratchpad N** reveals eligible windows in slot N on the monitor you are interacting with, or

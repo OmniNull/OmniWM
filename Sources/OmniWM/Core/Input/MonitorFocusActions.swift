@@ -9,13 +9,14 @@ extension IPCMonitorFocusCommand {
     func actionDisplayName() -> LocalizedStringResource {
         switch self {
         case .previous: LocalizedStringResource(
-                "command.monitor.previous", defaultValue: "Focus Previous Monitor", table: "Commands", bundle: .omniWM
+                "command.monitor.previous", defaultValue: "Focus Previous Monitor in Order", table: "Commands",
+                bundle: .omniWM
             )
         case .next: LocalizedStringResource(
-                "command.monitor.next", defaultValue: "Focus Next Monitor", table: "Commands", bundle: .omniWM
+                "command.monitor.next", defaultValue: "Focus Next Monitor in Order", table: "Commands", bundle: .omniWM
             )
         case .last: LocalizedStringResource(
-                "command.monitor.last", defaultValue: "Focus Last Monitor", table: "Commands", bundle: .omniWM
+                "command.monitor.last", defaultValue: "Focus Last Active Monitor", table: "Commands", bundle: .omniWM
             )
         }
     }

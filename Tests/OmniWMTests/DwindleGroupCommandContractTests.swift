@@ -111,8 +111,8 @@ final class DwindleGroupCommandContractTests: XCTestCase {
 
     func testWindowReorderActionsAreSharedAdvancedActions() throws {
         let cases: [(HotkeyCommand, String, String, IPCCommandName)] = [
-            (.windowMovement(.down), "moveWindowDown", "Reorder Window Down", .windowMovement(.down)),
-            (.windowMovement(.up), "moveWindowUp", "Reorder Window Up", .windowMovement(.up))
+            (.windowMovement(.down), "moveWindowDown", "Move Window to Next Position", .windowMovement(.down)),
+            (.windowMovement(.up), "moveWindowUp", "Move Window to Previous Position", .windowMovement(.up))
         ]
 
         for (command, id, title, ipcName) in cases {

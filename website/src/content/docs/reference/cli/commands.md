@@ -123,7 +123,7 @@ In Dwindle, `focus left/right` remains spatial. `focus up/down` traverses a grou
 
 Workspace IDs are positive numeric strings. Direct hotkeys for `1-9` have default bindings. Creating workspace `10+` adds unassigned direct hotkey actions. The workspace UI and IPC/CLI both support `10+`.
 
-Workspace IDs are global, so `switch-workspace 3` targets workspace `3` wherever it lives. The `slot` variants address a position in the interaction monitor's ordered workspace list instead, the same order the workspace bar shows, so `switch-workspace slot 2` opens whichever workspace comes second on the monitor you are using. A slot beyond that monitor's list reports `not_found`; the native actions `Switch to Workspace Slot 1-9` and `Move to Workspace Slot 1-9` are unassigned by default.
+Workspace IDs are global, so `switch-workspace 3` targets workspace `3` wherever it lives. The `slot` variants address a position in the interaction monitor's ordered workspace list instead, the same order the workspace bar shows, so `switch-workspace slot 2` opens whichever workspace comes second on the monitor you are using. A slot beyond that monitor's list reports `not_found`; the native actions `Switch to Workspace Slot 1-9` and `Move Focused Window to Workspace Slot 1-9` are unassigned by default.
 
 ### Monitor Focus
 

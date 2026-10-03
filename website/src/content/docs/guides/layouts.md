@@ -38,7 +38,7 @@ Windows can also float above the tiled layout in either engine:
 
 ## Fullscreen: OmniWM vs native
 
-- **`Toggle Fullscreen`** (`Option + Return`) is OmniWM's own fullscreen: the focused window fills the monitor while staying on its workspace, under OmniWM's management. Press it again to drop back into the layout. In Dwindle, a tiled window that opens on or moves to that workspace ends fullscreen first, so it splits the normal tile instead of covering the fullscreen window.
+- **`Toggle OmniWM Fullscreen`** (`Option + Return`) is OmniWM's own fullscreen: the focused window fills the monitor while staying on its workspace, under OmniWM's management. Press it again to drop back into the layout. In Dwindle, a tiled window that opens on or moves to that workspace ends fullscreen first, so it splits the normal tile instead of covering the fullscreen window.
 - **`Toggle Native Fullscreen`** (unassigned by default) uses macOS's built-in fullscreen, which moves the window into its own native fullscreen Space outside the tiled layout.
 
 :::tip

@@ -20,7 +20,7 @@ final class ScratchpadCommandTests: XCTestCase {
 
             let assign = try XCTUnwrap(ActionCatalog.spec(for: .scratchpad(.assign(slot))))
             XCTAssertEqual(assign.id, "assignFocusedWindowToScratchpad.\(slot)")
-            XCTAssertEqual(assign.title, "Assign Focused Window to Scratchpad \(slot)")
+            XCTAssertEqual(assign.title, "Toggle Scratchpad \(slot) Assignment for Focused Window")
             XCTAssertEqual(assign.ipcCommandName, .scratchpad(.assign))
         }
     }

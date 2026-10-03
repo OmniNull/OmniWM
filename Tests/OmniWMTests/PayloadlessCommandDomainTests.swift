@@ -12,7 +12,7 @@ final class PayloadlessCommandDomainTests: XCTestCase {
         try assertSpec(
             command: .fullscreen(.managed),
             id: "toggleFullscreen",
-            title: "Toggle Fullscreen",
+            title: "Toggle OmniWM Fullscreen",
             binding: KeyBinding(keyCode: UInt32(kVK_Return), modifiers: UInt32(optionKey)),
             ipcName: .fullscreen(.managed)
         )
@@ -50,7 +50,7 @@ final class PayloadlessCommandDomainTests: XCTestCase {
         try assertSpec(
             command: .monitorFocus(.previous),
             id: "focusMonitorPrevious",
-            title: "Focus Previous Monitor",
+            title: "Focus Previous Monitor in Order",
             binding: .unassigned,
             ipcName: .monitorFocus(.previous)
         )
@@ -58,7 +58,7 @@ final class PayloadlessCommandDomainTests: XCTestCase {
         try assertSpec(
             command: .monitorFocus(.next),
             id: "focusMonitorNext",
-            title: "Focus Next Monitor",
+            title: "Focus Next Monitor in Order",
             binding: KeyBinding(keyCode: UInt32(kVK_Tab), modifiers: UInt32(controlKey | cmdKey)),
             ipcName: .monitorFocus(.next)
         )
@@ -66,7 +66,7 @@ final class PayloadlessCommandDomainTests: XCTestCase {
         try assertSpec(
             command: .monitorFocus(.last),
             id: "focusMonitorLast",
-            title: "Focus Last Monitor",
+            title: "Focus Last Active Monitor",
             binding: KeyBinding(keyCode: UInt32(kVK_ANSI_Grave), modifiers: UInt32(controlKey | cmdKey)),
             ipcName: .monitorFocus(.last)
         )

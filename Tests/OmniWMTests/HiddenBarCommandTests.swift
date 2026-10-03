@@ -11,7 +11,7 @@ final class HiddenBarCommandTests: XCTestCase {
         let spec = try XCTUnwrap(ActionCatalog.spec(for: .presentation(.hiddenBar)))
 
         XCTAssertEqual(spec.id, "toggleHiddenBarPanel")
-        XCTAssertEqual(spec.title, "Toggle Hidden Icons Bar")
+        XCTAssertEqual(spec.title, "Toggle Hidden Icons Panel")
         XCTAssertEqual(spec.layoutCompatibility, .shared)
         XCTAssertEqual(spec.defaultBinding, .unassigned)
         XCTAssertEqual(spec.ipcCommandName, .presentation(.hiddenBar))

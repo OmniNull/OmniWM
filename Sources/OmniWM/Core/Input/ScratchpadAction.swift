@@ -13,7 +13,7 @@ extension ScratchpadAction {
     func actionDisplayName() -> LocalizedStringResource {
         switch self {
         case let .assign(index): LocalizedStringResource(
-                "command.scratchpad.assign", defaultValue: "Assign Focused Window to Scratchpad \(index)",
+                "command.scratchpad.assign", defaultValue: "Toggle Scratchpad \(index) Assignment for Focused Window",
                 table: "Commands", bundle: .omniWM
             )
         case let .toggle(index): LocalizedStringResource(

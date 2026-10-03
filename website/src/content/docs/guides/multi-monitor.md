@@ -46,8 +46,8 @@ The **Monitor Roles** list in **Settings > Monitors** fixes that. Add displays w
 
 ## Workspaces and their home monitor
 
-Every workspace has a **Home Monitor**, and every connected display needs at least one workspace assigned to it for cross-display window moves to have a destination. The `Move Workspace to Left / Right / Up / Down Monitor` actions target the active workspace and intentionally use the same temporary runtime override as `omniwmctl workspace move-to-monitor --force` — they do not rewrite the workspace's Home Monitor or swap workspaces, and unsafe fullscreen, hidden-app, scratchpad, or focus states still block the move. See the [CLI reference](/reference/cli/overview/) for the scripted equivalent.
+Every workspace has a **Home Monitor**, and every connected display needs at least one workspace assigned to it for cross-display window moves to have a destination. The `Move Workspace to Monitor on Left / Right / Above / Below` actions target the active workspace and intentionally use the same temporary runtime override as `omniwmctl workspace move-to-monitor --force` — they do not rewrite the workspace's Home Monitor or swap workspaces, and unsafe fullscreen, hidden-app, scratchpad, or focus states still block the move. See the [CLI reference](/reference/cli/overview/) for the scripted equivalent.
 
 :::note
-The monitor-related shortcuts (`Focus Next Monitor`, `Focus Last Monitor`, and the move actions above) are listed with their defaults in [Keyboard Shortcuts](/guides/keyboard-shortcuts/).
+The monitor-related shortcuts (`Focus Next Monitor in Order`, `Focus Last Active Monitor`, and the move actions above) are listed with their defaults in [Keyboard Shortcuts](/guides/keyboard-shortcuts/).
 :::
