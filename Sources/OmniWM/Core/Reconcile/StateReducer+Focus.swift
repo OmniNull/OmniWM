@@ -78,6 +78,7 @@ extension StateReducer {
             focusSession.nativeFocusOwner = owner
             if case let .managed(token) = owner {
                 focusSession.selectedManagedToken = token
+                focusSession.recordWindowFocus(token)
             }
             if !preservePendingManagedFocus {
                 focusSession.pendingManagedFocus = .empty
@@ -128,6 +129,7 @@ extension StateReducer {
         case let .nativeFullscreenPlaceholderSelected(token, _, _):
             var focusSession = currentSnapshot.focusSession
             focusSession.selectedManagedToken = token
+            focusSession.recordWindowFocus(token)
             focusSession.nativeFocusOwner = .external(pid: token.pid, windowId: token.windowId)
             focusSession.clearPendingManagedFocus()
             setFocusSession(focusSession, current: currentSnapshot.focusSession, plan: &plan)

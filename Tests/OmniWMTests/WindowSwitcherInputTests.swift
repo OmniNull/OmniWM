@@ -7,6 +7,16 @@ import CoreGraphics
 import XCTest
 
 final class WindowSwitcherInputTests: XCTestCase {
+    func testDirectSwitchCancellationSuppressesHeldTabAndAllowsNextPress() {
+        var input = WindowSwitcherInput()
+        XCTAssertEqual(key(&input, kVK_Tab).action, .begin(reverse: false, scope: .activeWorkspace))
+        input.cancel(generation: input.generation)
+        XCTAssertNil(key(&input, kVK_Tab, isRepeat: true).action)
+        XCTAssertTrue(key(&input, kVK_Tab, type: .keyUp).consumed)
+        XCTAssertNil(key(&input, kVK_Command, type: .flagsChanged, flags: []).action)
+        XCTAssertEqual(key(&input, kVK_Tab).action, .begin(reverse: false, scope: .activeWorkspace))
+    }
+
     func testCloseDoesNotRepeatOrLeakAndKeepsSwitcherOpen() {
         var input = WindowSwitcherInput()
         _ = key(&input, kVK_Tab)

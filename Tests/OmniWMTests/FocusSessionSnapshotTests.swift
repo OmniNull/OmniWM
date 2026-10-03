@@ -5,6 +5,36 @@
 import XCTest
 
 final class FocusSessionSnapshotTests: XCTestCase {
+    func testWindowRecencyTracksTiledAndFloatingFocusWithoutChangingTiledHistory() {
+        let tiled = WindowToken(pid: 1, windowId: 1)
+        let floating = WindowToken(pid: 1, windowId: 2)
+        var focus = StateReducer.adoptingManagedFocus(
+            in: FocusSessionSnapshot(), token: tiled, monitorId: nil, mode: .tiling
+        )
+        focus = StateReducer.adoptingManagedFocus(
+            in: focus, token: floating, monitorId: nil, mode: .floating
+        )
+        XCTAssertEqual(focus.windowFocusHistory, [floating, tiled])
+        XCTAssertEqual(focus.tiledFocusHistory, [tiled])
+        focus = StateReducer.adoptingManagedFocus(
+            in: focus, token: tiled, monitorId: nil, mode: .tiling
+        )
+        XCTAssertEqual(focus.windowFocusHistory, [tiled, floating])
+        focus.recordWindowFocus(tiled)
+        XCTAssertEqual(focus.windowFocusHistory, [tiled, floating])
+    }
+
+    func testWindowRecencyIsBoundedAndRekeyingPreservesOrderWithoutDuplicates() {
+        var focus = FocusSessionSnapshot()
+        let tokens = (1 ... 33).map { WindowToken(pid: 1, windowId: $0) }
+        for token in tokens { focus.recordWindowFocus(token) }
+        XCTAssertEqual(focus.windowFocusHistory, Array(tokens.dropFirst().reversed()))
+        XCTAssertTrue(focus.replaceRememberedFocus(from: tokens[32], to: tokens[31]))
+        XCTAssertEqual(focus.windowFocusHistory, Array(tokens[1 ... 31].reversed()))
+        XCTAssertTrue(focus.clearRememberedFocus(tokens[31], workspaceId: nil))
+        XCTAssertEqual(focus.windowFocusHistory, Array(tokens[1 ... 30].reversed()))
+    }
+
     func testSelectedManagedWindowRemainsIndependentFromNativeFocusOwner() {
         let selected = WindowToken(pid: 1, windowId: 10)
         let external = WindowToken(pid: 1, windowId: 11)

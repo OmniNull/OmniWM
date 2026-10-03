@@ -79,6 +79,7 @@ extension StateReducer {
     ) -> FocusSessionSnapshot {
         var focusSession = focusSession
         focusSession.selectedManagedToken = token
+        focusSession.recordWindowFocus(token)
         focusSession.nativeFocusOwner = .managed(token)
         focusSession.pendingManagedFocus = .empty
         if mode != .floating {

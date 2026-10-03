@@ -21,6 +21,10 @@ Configure **Command-Tab** and **Option-Tab** independently as **Active Workspace
 
 Each shortcut opens its assigned scope. **Last Used Scope** remembers the choice made with S or the scope button. For a single shortcut with a remembered scope, set Command-Tab to Last Used Scope and Option-Tab to Disabled.
 
+The first forward Tab selects the most recently focused window available in that scope, excluding the current window. Further presses follow the displayed layout order. Repeatedly pressing and releasing the shortcut switches back and forth between the two most recently used windows. Shift-Tab starts in reverse layout order.
+
+When exactly two eligible windows exist across all workspaces and both belong to the shortcut's scope, the shortcut focuses the other window immediately without opening the panel. Having two windows in the active workspace is not enough if other workspaces contain more windows.
+
 ## Appearance and previews
 
 Windows follow their layout order within each workspace: Niri column and tile order, or Dwindle tree order, with floating windows afterward. All Workspaces groups them in workspace-bar order and shows a workspace badge using the same name or emoji as the bar. Active Workspace uses the same layout ordering for its windows.

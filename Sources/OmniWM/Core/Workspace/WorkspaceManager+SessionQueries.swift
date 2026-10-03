@@ -32,6 +32,7 @@ extension WorkspaceManager {
 
     var windowFocusRecencyOrder: [WindowToken] {
         var candidates = [selectedManagedToken].compactMap { $0 }
+        candidates.append(contentsOf: focusSessionSnapshot.windowFocusHistory)
         candidates.append(contentsOf: focusSessionSnapshot.tiledFocusHistory)
         let workspaceOrder = focusSessionSnapshot.lastFocusedByWorkspace.keys.sorted {
             $0.uuidString < $1.uuidString

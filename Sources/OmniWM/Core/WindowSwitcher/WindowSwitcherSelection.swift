@@ -7,10 +7,23 @@ struct WindowSwitcherSelection {
     private(set) var tokens: [WindowToken] = []
     private(set) var selected: WindowToken?
 
-    mutating func begin(tokens: [WindowToken], current: WindowToken?, reverse: Bool) {
+    mutating func begin(
+        tokens: [WindowToken],
+        current: WindowToken?,
+        reverse: Bool,
+        recent: [WindowToken] = []
+    ) {
         self.tokens = tokens
+        if !reverse, let previous = recent.first(where: { $0 != current && tokens.contains($0) }) {
+            selected = previous
+            return
+        }
         selected = current.flatMap { tokens.contains($0) ? $0 : nil }
         cycle(reverse: reverse)
+    }
+
+    func directSwitchTarget(totalWindowCount: Int) -> WindowToken? {
+        totalWindowCount == 2 && tokens.count == 2 ? selected : nil
     }
 
     mutating func reconcile(tokens: [WindowToken]) {

@@ -104,7 +104,17 @@ final class WindowSwitcherController {
             preferFrontmostWhenExternalOrOwnedFocusActive: true
         )
         items = buildItems(controller: controller)
-        selection.begin(tokens: scopedItems().map { $0.handle.id }, current: current, reverse: reverse)
+        selection.begin(
+            tokens: scopedItems().map { $0.handle.id }, current: current, reverse: reverse,
+            recent: controller.workspaceManager.windowFocusRecencyOrder
+        )
+        if let token = selection.directSwitchTarget(totalWindowCount: items.count),
+           let target = scopedItems().first(where: { $0.handle.id == token })?.handle
+        {
+            dismiss()
+            activate(target)
+            return
+        }
         isVisible = true
         controller.focusPolicyEngine.beginLease(owner: .windowSwitcher, reason: "window_switcher", duration: nil)
         dismissalMonitor.start(
@@ -238,7 +248,12 @@ final class WindowSwitcherController {
         guard isVisible else { return }
         let target = scopedItems().first { $0.handle.id == selection.selected }?.handle
         dismiss()
-        guard let target, let controller else { return }
+        guard let target else { return }
+        activate(target)
+    }
+
+    private func activate(_ target: WindowHandle) {
+        guard let controller else { return }
         if !controller.windowActionHandler.activateExplicitlySelectedWindow(handle: target) { NSSound.beep() }
     }
 
@@ -248,12 +263,12 @@ final class WindowSwitcherController {
         if controller?.settings.windowSwitcher.enabled != true || controller?.isLockScreenActive == true {
             capture.releaseCache()
         }
+        items.removeAll()
+        selection = WindowSwitcherSelection()
         guard isVisible else { return }
         isVisible = false
         panel.hide()
         controller?.focusPolicyEngine.endLease(owner: .windowSwitcher)
-        items.removeAll()
-        selection = WindowSwitcherSelection()
         dismissalMonitor.stop()
     }
 }
