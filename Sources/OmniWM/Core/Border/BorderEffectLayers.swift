@@ -50,11 +50,15 @@ extension BorderEffectLayers {
         cornerRadii: WindowCornerRadii,
         config: BorderConfig,
         baseColor: CGColor,
-        scale: CGFloat
+        scale: CGFloat,
+        drawsSolidStroke: Bool = false
     ) {
         let gradient = config.gradient.flatMap { $0.enabled ? $0 : nil }
         let surfaceBounds = CGRect(origin: .zero, size: geometry.surfaceFrame.size)
-        updateGradient(gradient, geometry: geometry, cornerRadii: cornerRadii)
+        updateStroke(
+            gradient, geometry: geometry, cornerRadii: cornerRadii,
+            baseColor: baseColor, drawsSolidStroke: drawsSolidStroke
+        )
         glowColorLayer.frame = surfaceBounds
         glowMaskLayer.frame = surfaceBounds
         if let glow = config.glow, glow.enabled, glow.opacity > 0, geometry.surfacePadding > 0 {
@@ -85,12 +89,14 @@ extension BorderEffectLayers {
         gradientRingMaskLayer.contentsScale = scale
     }
 
-    private func updateGradient(
+    private func updateStroke(
         _ gradient: BorderGradient?,
         geometry: BorderConfig.ResolvedGeometry,
-        cornerRadii: WindowCornerRadii
+        cornerRadii: WindowCornerRadii,
+        baseColor: CGColor,
+        drawsSolidStroke: Bool
     ) {
-        guard let gradient else {
+        guard gradient != nil || drawsSolidStroke else {
             gradientStrokeLayer.isHidden = true
             return
         }
@@ -101,10 +107,11 @@ extension BorderEffectLayers {
         path.addPath(Self.roundedRectPath(in: ringFrame, radii: outerRadii))
         path.addPath(Self.roundedRectPath(in: geometry.targetFrame, radii: radii))
         let surfaceBounds = CGRect(origin: .zero, size: geometry.surfaceFrame.size)
-        let points = Self.gradientUnitPoints(for: gradient.direction)
+        let points = Self.gradientUnitPoints(for: gradient?.direction ?? .topLeftToBottomRight)
         gradientStrokeLayer.isHidden = false
         gradientStrokeLayer.frame = surfaceBounds
-        gradientStrokeLayer.colors = [Self.cgColor(gradient.start), Self.cgColor(gradient.end)]
+        gradientStrokeLayer.colors = gradient.map { [Self.cgColor($0.start), Self.cgColor($0.end)] }
+            ?? [baseColor, baseColor]
         gradientStrokeLayer.startPoint = points.start
         gradientStrokeLayer.endPoint = points.end
         gradientRingMaskLayer.frame = surfaceBounds

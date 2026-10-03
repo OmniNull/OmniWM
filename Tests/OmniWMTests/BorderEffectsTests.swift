@@ -50,13 +50,19 @@ final class BorderEffectsTests: XCTestCase {
         XCTAssertNotNil(panel.gradientRingMaskLayer.path)
     }
 
-    func testSolidKeepsRimVisibleAndHidesGradient() throws {
+    func testSolidUsesRoundedRingWithoutNativeRim() throws {
         let panel = try makePanel()
         updateEffects(panel, geometry: geometry(width: 4, padding: 0), gradient: false, glowOpacity: 0)
 
-        XCTAssertEqual(panel.borderLayer.rimOpacity, 1)
-        XCTAssertTrue(panel.gradientStrokeLayer.isHidden)
-        XCTAssertNil(panel.gradientRingMaskLayer.path)
+        XCTAssertEqual(panel.borderLayer.rimOpacity, 0)
+        XCTAssertFalse(panel.gradientStrokeLayer.isHidden)
+        let path = try XCTUnwrap(panel.gradientRingMaskLayer.path)
+        let shape = geometry(width: 4, padding: 0)
+        XCTAssertFalse(path.contains(CGPoint(x: 0.5, y: 0.5), using: .evenOdd))
+        XCTAssertTrue(path.contains(CGPoint(x: shape.surfaceFrame.midX, y: 2), using: .evenOdd))
+        XCTAssertFalse(path.contains(
+            CGPoint(x: shape.targetFrame.midX, y: shape.targetFrame.midY), using: .evenOdd
+        ))
     }
 
     func testGlowInstallsBandMask() throws {

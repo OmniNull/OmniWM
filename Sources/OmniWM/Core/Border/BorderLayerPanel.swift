@@ -49,7 +49,7 @@ class BorderLayerPanel: NSPanel {
         let view = NSView(frame: CGRect(origin: .zero, size: frame.integral.size))
         view.wantsLayer = true
         borderLayer.cornerCurve = .continuous
-        borderLayer.rimOpacity = 1
+        borderLayer.rimOpacity = 0
         borderLayer.actions = [
             "rimWidth": NSNull(), "rimColor": NSNull(), "rimOpacity": NSNull(), "cornerRadii": NSNull(),
             "bounds": NSNull(), "position": NSNull(), "contentsScale": NSNull()
@@ -137,9 +137,9 @@ extension BorderLayerPanel {
             cornerRadii: cornerRadii,
             config: config,
             baseColor: baseColor,
-            scale: scale
+            scale: scale,
+            drawsSolidStroke: true
         )
-        borderLayer.rimOpacity = config.gradient?.enabled == true ? 0 : 1
         CATransaction.commit()
     }
 

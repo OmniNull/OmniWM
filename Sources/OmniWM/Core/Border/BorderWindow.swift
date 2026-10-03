@@ -132,9 +132,7 @@ final class BorderWindow {
         currentSurfaceFrame = localGeometry.surfaceFrame
         currentCornerRadii = resolvedCornerRadii
 
-        if needsRedraw {
-            draw(geometry: localGeometry)
-        }
+        updateLayerGeometry(localGeometry)
 
         let retryingTargetLevel = pendingTargetLevelRetryToken == targetToken
         let needsOrdering = forceOrdering || createdWindow || !isVisible
@@ -172,7 +170,6 @@ final class BorderWindow {
         needsOrdering: Bool,
         retryingTargetLevel: Bool
     ) {
-        layerPanel?.applyFrame(targetFrame: appliedTargetFrame, surfaceFrame: appliedSurfaceFrame)
         if needsOrdering {
             BorderOpMetricsRecorder.shared.noteMoveAndOrder()
             let level = resolvedTargetLevel(
@@ -356,5 +353,15 @@ extension BorderWindow {
         )
         needsRedraw = false
         BorderOpMetricsRecorder.shared.noteRedraw()
+    }
+}
+
+extension BorderWindow {
+    private func updateLayerGeometry(_ geometry: BorderConfig.ResolvedGeometry) {
+        CATransaction.begin()
+        CATransaction.setDisableActions(true)
+        defer { CATransaction.commit() }
+        layerPanel?.applyFrame(targetFrame: appliedTargetFrame, surfaceFrame: appliedSurfaceFrame)
+        if needsRedraw { draw(geometry: geometry) }
     }
 }
