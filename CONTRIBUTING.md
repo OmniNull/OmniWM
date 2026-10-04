@@ -185,7 +185,7 @@ Reviewed development lands on `main`; published releases come from version tags.
 
 ### Releases
 
-Releases use the **OmniWM Release** workflow, dispatched in two runs: `prepare` with the version number, then `publish` with the prepare run ID and the final release notes. The workflow fails fast when credentials are missing.
+Releases use the **OmniWM release** workflow, dispatched from `main` in two runs: `prepare` with the version number, then `publish` with the prepare run ID and the final release notes. The prepare run's summary prints the `gh workflow run` command for publish, because the web form cannot take multi-line notes. The workflow fails fast when credentials are missing.
 
 Set these repository secrets:
 
