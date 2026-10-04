@@ -9,11 +9,27 @@ set -euo pipefail
 
 SCRIPT_NAME="release-ci-credentials"
 KEYCHAIN_PATH="${RUNNER_TEMP:-}/omniwm-release.keychain-db"
+STATE_FILE="${RUNNER_TEMP:-}/omniwm-release-keychain-state"
 
 case "${1:-store}" in
   cleanup)
-    if [ -n "${RUNNER_TEMP:-}" ] && [ -e "$KEYCHAIN_PATH" ]; then
-      security delete-keychain "$KEYCHAIN_PATH"
+    if [ -n "${RUNNER_TEMP:-}" ]; then
+      if [ -f "$STATE_FILE" ]; then
+        RESTORE=()
+        while IFS= read -r keychain; do
+          if [ -n "$keychain" ]; then
+            RESTORE+=("$keychain")
+          fi
+        done < "$STATE_FILE"
+        if [ "${#RESTORE[@]}" -gt 0 ]; then
+          security list-keychains -d user -s "${RESTORE[@]}"
+          security default-keychain -d user -s "${RESTORE[0]}"
+        fi
+      fi
+      if [ -e "$KEYCHAIN_PATH" ]; then
+        security delete-keychain "$KEYCHAIN_PATH"
+      fi
+      rm -f "$STATE_FILE"
     fi
     exit 0
     ;;
@@ -47,6 +63,12 @@ trap 'rm -f "$CERT_PATH" "$NOTARY_KEY_PATH"' EXIT
 
 umask 077
 printf '%s' "$APPLE_DEVELOPER_ID_CERT_P12_BASE64" | base64 --decode > "$CERT_PATH"
+
+# Record the user's keychain state so cleanup can restore it.
+{
+  security default-keychain -d user
+  security list-keychains -d user
+} | sed 's/^"//; s/"$//' > "$STATE_FILE"
 
 security create-keychain -p "$KEYCHAIN_PASSWORD" "$KEYCHAIN_PATH"
 security set-keychain-settings -lut 21600 "$KEYCHAIN_PATH"

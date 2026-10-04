@@ -44,6 +44,14 @@ set -eu
 } >> "$OMNIWM_TEST_CMDLOG"
 if [ "${1:-}" = "find-identity" ] && [ -n "${OMNIWM_TEST_FAKE_IDENTITY:-}" ]; then
   printf '  1) 1234ABCDEF "%s"\n' "$OMNIWM_TEST_FAKE_IDENTITY"
+elif [ "${1:-}" = "default-keychain" ] && [ "${2:-}" = "-d" ]; then
+  printf '"%s"\n' "$OMNIWM_TEST_LOGIN_KEYCHAIN"
+elif [ "${1:-}" = "list-keychains" ] && [ "${2:-}" = "-d" ]; then
+  printf '"%s"\n' "$OMNIWM_TEST_LOGIN_KEYCHAIN"
+  printf '"%s"\n' "$OMNIWM_TEST_OTHER_KEYCHAIN"
+fi
+if [ "${1:-}" = "delete-keychain" ]; then
+  rm -f "${2:-}"
 fi
 """
 
@@ -70,6 +78,8 @@ class ReleaseCICredentialsTests(unittest.TestCase):
         self.write_command(self.tools / "xcrun", XCRUN_STUB)
         self.runner_temp = self.root / "runner-temp"
         self.runner_temp.mkdir()
+        self.login_keychain = self.root / "login.keychain-db"
+        self.other_keychain = self.root / "other.keychain-db"
         self.cmdlog = self.root / "commands.log"
         clean = self.clean_environ()
         self.environment = {
@@ -77,6 +87,8 @@ class ReleaseCICredentialsTests(unittest.TestCase):
             "PATH": f"{self.tools}:{clean['PATH']}",
             "OMNIWM_TEST_CMDLOG": str(self.cmdlog),
             "OMNIWM_TEST_FAKE_IDENTITY": SIGNING_IDENTITY,
+            "OMNIWM_TEST_LOGIN_KEYCHAIN": str(self.login_keychain),
+            "OMNIWM_TEST_OTHER_KEYCHAIN": str(self.other_keychain),
             "RUNNER_TEMP": str(self.runner_temp),
             "APPLE_DEVELOPER_ID_CERT_P12_BASE64": CERT_P12_BASE64,
             "APPLE_DEVELOPER_ID_CERT_PASSWORD": CERT_PASSWORD,
@@ -127,9 +139,12 @@ class ReleaseCICredentialsTests(unittest.TestCase):
         self.assertNotIn("store-credentials", self.log_text())
 
     def assert_ordered(self, tokens, expected):
-        positions = [tokens.index(command) for command in expected]
-        self.assertEqual(sorted(positions), positions, tokens)
-        self.assertEqual(len(set(positions)), len(positions), tokens)
+        position = 0
+        for command in expected:
+            while position < len(tokens) and tokens[position] != command:
+                position += 1
+            self.assertLess(position, len(tokens), tokens)
+            position += 1
 
     def assert_no_secrets(self, result):
         for secret in SECRET_VALUES:
@@ -176,6 +191,13 @@ class ReleaseCICredentialsTests(unittest.TestCase):
             ],
         )
         self.assertEqual(tokens[-1], "notarytool", tokens)
+        self.assertEqual(tokens[:2], ["default-keychain", "list-keychains"])
+
+        state = self.runner_temp / "omniwm-release-keychain-state"
+        self.assertEqual(
+            state.read_text(),
+            f"{self.login_keychain}\n{self.login_keychain}\n{self.other_keychain}\n",
+        )
 
         create = commands[tokens.index("create-keychain")]
         self.assertIn("-p", create)
@@ -186,11 +208,10 @@ class ReleaseCICredentialsTests(unittest.TestCase):
         self.assertIn(str(self.runner_temp / "developer-id.p12"), imported)
         self.assertIn(keychain, imported)
 
-        listing = commands[tokens.index("list-keychains")]
-        self.assertEqual(["list-keychains", "-d", "user", "-s", keychain], listing)
-        default = commands[tokens.index("default-keychain")]
-        self.assertEqual(["default-keychain", "-s", keychain], default)
-
+        set_calls = [c for c in commands if c[:4] == ["list-keychains", "-d", "user", "-s"]]
+        self.assertEqual(set_calls, [["list-keychains", "-d", "user", "-s", keychain]])
+        set_defaults = [c for c in commands if c[:2] == ["default-keychain", "-s"]]
+        self.assertEqual(set_defaults, [["default-keychain", "-s", keychain]])
         partition = commands[tokens.index("set-key-partition-list")]
         self.assertIn("-S", partition)
         self.assertIn(keychain, partition)
@@ -213,7 +234,10 @@ class ReleaseCICredentialsTests(unittest.TestCase):
         self.assertIn("--keychain", store)
         self.assertIn(keychain, store)
 
-        self.assertEqual(list(self.runner_temp.iterdir()), [])
+        self.assertEqual(
+            sorted(p.name for p in self.runner_temp.iterdir()),
+            ["omniwm-release-keychain-state"],
+        )
         self.assert_no_secrets(result)
 
     def test_absent_signing_identity_fails_before_storing_credentials(self):
@@ -252,6 +276,48 @@ class ReleaseCICredentialsTests(unittest.TestCase):
 
         self.assertEqual(result.returncode, 0, result.stderr)
         self.assertEqual(self.commands(), [["delete-keychain", str(keychain)]])
+
+    def test_cleanup_restores_recorded_keychains_then_deletes_its_own(self):
+        keychain = self.runner_temp / "omniwm-release.keychain-db"
+        keychain.write_bytes(b"keychain")
+        state = self.runner_temp / "omniwm-release-keychain-state"
+        state.write_text(
+            f"{self.login_keychain}\n{self.login_keychain}\n{self.other_keychain}\n"
+        )
+
+        result = self.run_script("cleanup")
+
+        self.assertEqual(result.returncode, 0, result.stderr)
+        self.assertEqual(
+            self.commands(),
+            [
+                [
+                    "list-keychains",
+                    "-d",
+                    "user",
+                    "-s",
+                    str(self.login_keychain),
+                    str(self.login_keychain),
+                    str(self.other_keychain),
+                ],
+                ["default-keychain", "-d", "user", "-s", str(self.login_keychain)],
+                ["delete-keychain", str(keychain)],
+            ],
+        )
+        self.assertFalse(state.exists())
+
+    def test_second_cleanup_run_is_a_noop(self):
+        (self.runner_temp / "omniwm-release.keychain-db").write_bytes(b"keychain")
+        state = self.runner_temp / "omniwm-release-keychain-state"
+        state.write_text(f"{self.login_keychain}\n")
+        self.assertEqual(self.run_script("cleanup").returncode, 0)
+
+        self.cmdlog.unlink()
+
+        result = self.run_script("cleanup")
+
+        self.assertEqual(result.returncode, 0, result.stderr)
+        self.assertEqual(self.commands(), [])
 
     def test_cleanup_without_keychain_is_a_noop(self):
         result = self.run_script("cleanup")
