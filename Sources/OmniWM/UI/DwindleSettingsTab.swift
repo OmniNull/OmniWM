@@ -54,7 +54,7 @@ private struct GlobalDwindleSettingsSection: View {
                 .onChange(of: settings.dwindle.smartSplit) { _, newValue in
                     controller.updateDwindleConfig(smartSplit: newValue)
                 }
-            SettingsCaption(localized: "Automatically choose split direction based on cursor position")
+            SettingsCaption(localized: "Automatically choose split direction")
 
             Toggle("Move to Root: Stable", isOn: Bindable(settings.dwindle).moveToRootStable)
             SettingsCaption(localized: "Keep window on same screen side when moving to root")
@@ -137,7 +137,7 @@ private struct MonitorDwindleSettingsSection: View {
                 onChange: { newValue in updateSetting { $0.smartSplit = newValue } },
                 onReset: { updateSetting { $0.smartSplit = nil } }
             )
-            SettingsCaption(localized: "Automatically choose split direction based on cursor position")
+            SettingsCaption(localized: "Automatically choose split direction")
 
             OverridableSlider(
                 label: String(localized: "Default Split Ratio"),
