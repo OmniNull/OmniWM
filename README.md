@@ -12,7 +12,7 @@ OmniWM is a free, open-source, Developer ID-signed and Apple-notarized tiling wi
 
 ## Demo Video
 
-[![Watch the demo](https://img.youtube.com/vi/WcHjGkuD2Fc/maxresdefault.jpg)](https://youtu.be/WcHjGkuD2Fc)
+[![Watch the demo](https://img.youtube.com/vi/SWzGMEKtdbI/maxresdefault.jpg)](https://www.youtube.com/watch?v=SWzGMEKtdbI)
 
 <!-- contributors:start -->
 ## Contributors
@@ -1015,6 +1015,8 @@ Conceal selected menu-bar icons and reach them from a panel:
 - Right-click (or Option-click) the OmniWM menu bar icon to open the Hidden Icons Bar; click an icon to reveal and use it
 - Revealed icons re-hide automatically after a configurable interval
 - An optional global hotkey is available and starts unassigned
+
+If you need more features for hiding status bar icons, I recommend [Thaw](https://github.com/thaw-app/Thaw). It also supports macOS 26, where OmniWM's built-in Hidden Bar is for macOS 27.
 
 ### Tips
 

@@ -19,6 +19,8 @@ Hidden Bar conceals selected menu-bar icons and lets you reach them from a panel
 Concealment requires macOS 27 or later; core window management supports macOS 26.
 :::
 
+If you need more features for hiding status bar icons, we recommend [Thaw](https://github.com/thaw-app/Thaw). It also supports macOS 26, where OmniWM's built-in Hidden Bar is unavailable.
+
 ## The status-bar menu
 
 Clicking OmniWM's status bar icon opens a menu of toggle tiles for the behaviors you flip most often:
