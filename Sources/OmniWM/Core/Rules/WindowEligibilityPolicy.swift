@@ -53,7 +53,8 @@ struct WindowEligibilityPolicy {
     private static func pictureInPictureTitleRegex(for bundleId: String?) -> NSRegularExpression? {
         switch bundleId?.lowercased() {
         case "org.mozilla.firefox",
-             "app.zen-browser.zen": mozillaPictureInPictureTitleRegex
+             "app.zen-browser.zen",
+             "net.librewolf.librewolf": mozillaPictureInPictureTitleRegex
         case "com.google.chrome",
              "com.brave.browser": chromiumPictureInPictureTitleRegex
         case "com.microsoft.edgemac": edgePictureInPictureTitleRegex
