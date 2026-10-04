@@ -191,9 +191,10 @@ Set these repository secrets:
 
 - `APPLE_DEVELOPER_ID_CERT_P12_BASE64` and `APPLE_DEVELOPER_ID_CERT_PASSWORD`: the Developer ID certificate and its export password, produced with `base64 -i cert.p12 | pbcopy`.
 - `APPLE_NOTARY_KEY_ID`, `APPLE_NOTARY_ISSUER_ID`, and `APPLE_NOTARY_KEY_P8`: the App Store Connect API key ID, issuer ID, and the `.p8` contents pasted raw (`pbcopy < AuthKey_XXXX.p8`).
-- `KEYCHAIN_PASSWORD`: a strong password for the temporary CI keychain.
 
 Two optional repository variables override defaults: `OMNIWM_RELEASE_SIGNING_IDENTITY` (default `Developer ID Application: Oliver Nikolic (VF8LDJRGFM)`) and `OMNIWM_RELEASE_NOTARIZE_PROFILE` (default `OmniWM-Notarize`).
+
+Pass the optional `skip_app_launch` input to skip the post-notarization app launch check on runners where the GUI cannot start.
 
 Local releases via `Scripts/omniwm_release.py` use your own keychain and notarytool profile instead.
 
