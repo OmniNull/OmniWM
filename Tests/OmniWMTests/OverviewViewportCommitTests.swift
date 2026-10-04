@@ -250,9 +250,7 @@ final class OverviewViewportCommitTests: XCTestCase {
             wmController: fixture.controller,
             motionPolicy: fixture.controller.motionPolicy,
             environment: environment,
-            previewCapture: OverviewThumbnailCapture(
-                environment: environment, ownedWindowRegistry: .shared, hasCaptureAccess: { false }
-            )
+            previewCapture: OverviewThumbnailCapture(hasCaptureAccess: { false })
         )
     }
 

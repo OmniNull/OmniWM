@@ -5,7 +5,6 @@ import AppKit
 import Carbon
 import Foundation
 import QuartzCore
-import ScreenCaptureKit
 
 extension OverviewStructuralActions {
     enum DragMutationOutcome {

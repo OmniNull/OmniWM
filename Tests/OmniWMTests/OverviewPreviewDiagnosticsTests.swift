@@ -66,21 +66,27 @@ final class OverviewPreviewDiagnosticsTests: XCTestCase {
         trace.beginCapture()
         defer { trace.endCapture() }
         let driver = OverviewPreviewTestDriver()
-        let frame = try makeOverviewPreviewFrame()
-        let capture = driver.makeCapture(traceRecorder: trace, maximumRetainedBytes: frame.surface.allocationSize)
+        let frames = try [makeOverviewPreviewFrame(), makeOverviewPreviewFrame()]
+        let capture = driver.makeCapture(traceRecorder: trace, maximumRetainedBytes: frames[0].surface.allocationSize)
         let handles = [makeHandle(1), makeHandle(2)]
         capture.reconcile(represented: Set(handles), visible: handles.map(request), prioritizing: handles[1])
         await driver.waitForStarts(2)
         driver.completeAllStarts()
-        for stream in driver.streams { await publish(frame, through: stream, into: capture) }
+        for stream in driver.streams {
+            let index = try XCTUnwrap(handles.firstIndex { $0 === stream.request.handle })
+            await publish(frames[index], through: stream, into: capture)
+        }
         capture.clear()
         await driver.waitForStops(2)
         XCTAssertNil(capture.preview(for: handles[0]))
-        XCTAssertTrue(capture.preview(for: handles[1]) === frame)
+        XCTAssertTrue(capture.preview(for: handles[1]) === frames[1])
         let evicted = lines(trace, event: "previewEvicted")
         XCTAssertEqual(evicted.count, 1)
         XCTAssertTrue(evicted[0].contains("pid=123 wid=1 reason=budget"), evicted[0])
-        XCTAssertTrue(evicted[0].contains("pixels=80x60 bytes=\(frame.surface.allocationSize) cached=1"), evicted[0])
+        XCTAssertTrue(
+            evicted[0].contains("pixels=80x60 bytes=\(frames[0].surface.allocationSize) cached=1"),
+            evicted[0]
+        )
     }
 
     func testIdentityRemovalAndRepresentationEvictionsKeepOriginalToken() async throws {

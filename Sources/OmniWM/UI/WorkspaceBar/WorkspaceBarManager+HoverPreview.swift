@@ -13,8 +13,6 @@ extension WorkspaceBarManager {
         guard hoverPreview == nil else { return }
         let preview = WorkspaceBarHoverPreviewController(
             capture: OverviewThumbnailCapture(
-                environment: OverviewEnvironment(),
-                ownedWindowRegistry: controller.ownedWindowRegistry,
                 consumer: .workspaceBarHover,
                 maximumRetainedBytes: 24 * 1_024 * 1_024
             ),

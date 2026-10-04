@@ -5,7 +5,6 @@ import AppKit
 import Carbon
 import Foundation
 import QuartzCore
-import ScreenCaptureKit
 
 struct OverviewAppearance: Equatable {
     let backdrop: SettingsColor

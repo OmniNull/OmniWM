@@ -298,6 +298,15 @@ extension WorkspaceSwipePresentation {
         preview?.remove(token: token)
     }
 
+    func syncAvailability() {
+        guard let controller, preview != nil,
+              !controller.motionPolicy.animationsEnabled || !controller.settings.gestures.workspaceSwipeEnabled
+        else { return }
+        cancel(reason: "disabled")
+        preview?.release()
+        preview = nil
+    }
+
     func previewSurface(_ controller: WMController) -> WorkspaceSwipePreview {
         if let preview { return preview }
         let preview = WorkspaceSwipePreview(ownedWindowRegistry: controller.ownedWindowRegistry)

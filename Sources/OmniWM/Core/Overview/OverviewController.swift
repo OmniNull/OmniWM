@@ -92,10 +92,7 @@ final class OverviewController {
             structuralActions: structuralActions,
             mutationSession: mutationSession
         )
-        thumbnailCapture = previewCapture ?? OverviewThumbnailCapture(
-            environment: environment,
-            ownedWindowRegistry: ownedWindowRegistry
-        )
+        thumbnailCapture = previewCapture ?? OverviewThumbnailCapture()
         input = OverviewInputHandler(
             projection: projection,
             windowSession: windowSession,
@@ -133,6 +130,7 @@ final class OverviewController {
         thumbnailCapture.onPreview = { [weak windowSession] handle, frame in
             windowSession?.updatePreview(frame, for: handle)
         }
+        thumbnailCapture.onCaptureStarted = { [weak self] in self?.environment.onThumbnailCaptureStarted() }
     }
 
     isolated deinit {

@@ -182,7 +182,7 @@ final class OverviewDragCaptureIntegrationTests: XCTestCase {
         environment.onThumbnailCaptureStarted = { captureStarts.count += 1 }
         let registry = OwnedWindowRegistry(surfaceCoordinator: SurfaceCoordinator())
         let driver = OverviewPreviewTestDriver()
-        let capture = driver.makeCapture(environment: environment, ownedWindowRegistry: registry)
+        let capture = driver.makeCapture()
         let overview = OverviewController(
             wmController: controller,
             motionPolicy: controller.motionPolicy,

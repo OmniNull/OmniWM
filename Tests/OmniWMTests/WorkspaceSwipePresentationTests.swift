@@ -332,6 +332,44 @@ final class WorkspaceSwipePresentationTests: XCTestCase {
         await driver.waitForStops(1)
     }
 
+    func testTurningSwipeOrAnimationsOffReleasesThePreviewAndItsCache() async throws {
+        let disablers: [@MainActor (WMController) -> Void] = [
+            { $0.settings.gestures.workspaceSwipeEnabled = false },
+            { $0.setAnimationsEnabled(false) },
+            { $0.motionPolicy.systemReducesMotion = true }
+        ]
+        for disable in disablers {
+            let driver = OverviewPreviewTestDriver()
+            let capture = driver.makeCapture(consumer: .workspaceSwipe)
+            let preview = try WorkspaceSwipePreview(
+                ownedWindowRegistry: OwnedWindowRegistry(), previewCapture: capture,
+                backdrop: makeBackdrop(), hasCaptureAccess: { true }
+            )
+            let (controller, swipe, _, _) = try fixture(previewSurface: preview)
+            controller.settings.gestures.workspaceSwipeEnabled = true
+            let handle = WindowHandle(id: WindowToken(pid: 764_951, windowId: 1))
+            capture.reconcile(
+                represented: [handle],
+                visible: [OverviewPreviewRequest(handle: handle, pixelWidth: 80, pixelHeight: 60)]
+            )
+            await driver.waitForStarts(1)
+            driver.completeAllStarts()
+            let frame = try makeOverviewPreviewFrame()
+            let published = expectation(description: "swipe frame published")
+            capture.onPreview = { _, image in if image === frame { published.fulfill() } }
+            driver.streams[0].output.offer(frame)
+            await fulfillment(of: [published], timeout: 1)
+            capture.clear()
+            await driver.waitForStops(1)
+            XCTAssertGreaterThan(capture.cachedByteCount, 0)
+
+            disable(controller)
+
+            XCTAssertEqual(capture.cachedByteCount, 0)
+            XCTAssertFalse(swipe.previewSurface(controller) === preview)
+        }
+    }
+
     private func makeSettings() -> SettingsStore {
         let root = FileManager.default.temporaryDirectory.appendingPathComponent(UUID().uuidString)
         return SettingsStore(

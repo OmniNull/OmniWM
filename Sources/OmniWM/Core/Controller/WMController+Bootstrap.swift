@@ -27,6 +27,12 @@ extension WMController {
             guard let self else { return }
             updateHotkeyBindings(settings.hotkeyBindings)
         }
+        settings.gestures.onWorkspaceSwipeEnabledChange = { [weak self] in
+            self?.layoutRefreshController.workspaceSwipe.syncAvailability()
+        }
+        motionPolicy.onAnimationsEnabledChange = { [weak self] in
+            self?.layoutRefreshController.workspaceSwipe.syncAvailability()
+        }
     }
 
     func configureSurfaceCallbacks() {
@@ -71,6 +77,7 @@ extension WMController {
             self?.windowMarkRegistry.retire(entry.token)
             self?.windowActionHandlerStorage?.handleOverviewWindowRemoved(entry)
             self?.layoutRefreshController.workspaceSwipe.windowRemoved(entry.token)
+            PreviewCaptureCoordinator.shared.windowRemoved(entry.token)
         }
         workspaceManager.onDeferredWorkspaceMonitorMove = { [weak self] outcome in
             self?.layoutRefreshController.commitWorkspaceMonitorTransition(outcome)

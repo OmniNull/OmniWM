@@ -48,6 +48,10 @@ final class OverviewPreviewRetentionTests: XCTestCase {
         await publish(frames[2], through: driver.streams[2], into: capture)
         capture.reconcile(represented: Set(handles), visible: [])
         XCTAssertGreaterThan(capture.cachedByteCount, budget)
+        driver.makeCapture(consumer: .workspaceBarHover, maximumRetainedBytes: budget).clear()
+        XCTAssertGreaterThan(capture.cachedByteCount, budget)
+        driver.coordinator.releaseCaches(reason: .memoryPressure)
+        XCTAssertGreaterThan(capture.cachedByteCount, budget)
         var removed: [WindowHandle] = []
         capture.onPreview = { handle, frame in if frame == nil { removed.append(handle) } }
         capture.clear()

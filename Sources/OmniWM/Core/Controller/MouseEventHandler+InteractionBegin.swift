@@ -55,7 +55,7 @@ extension MouseEventHandler {
                 state.dragGhostController = DragGhostController()
             }
             state.dragGhostController?.beginDrag(
-                windowId: entry.windowId,
+                token: entry.token,
                 originalFrame: frame,
                 cursorLocation: location
             )
@@ -123,7 +123,7 @@ extension MouseEventHandler {
         if state.dragGhostController == nil {
             state.dragGhostController = DragGhostController()
         }
-        state.dragGhostController?.beginDrag(windowId: token.windowId, originalFrame: frame, cursorLocation: location)
+        state.dragGhostController?.beginDrag(token: token, originalFrame: frame, cursorLocation: location)
         return true
     }
 

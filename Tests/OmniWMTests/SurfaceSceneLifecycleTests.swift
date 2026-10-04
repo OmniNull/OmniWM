@@ -38,11 +38,12 @@ final class SurfaceSceneLifecycleTests: XCTestCase {
         let coordinator = SurfaceCoordinator(scene: scene)
         let controller = DragGhostController(
             surfaceCoordinator: coordinator,
+            previews: PreviewCaptureCoordinator(ownedWindowRegistry: OwnedWindowRegistry()),
             captureAccessAllowed: { false }
         )
 
         controller.beginDrag(
-            windowId: 720_001,
+            token: WindowToken(pid: 1, windowId: 720_001),
             originalFrame: CGRect(x: 0, y: 0, width: 800, height: 600),
             cursorLocation: CGPoint(x: 400, y: 300)
         )
@@ -67,10 +68,11 @@ final class SurfaceSceneLifecycleTests: XCTestCase {
             ghostWindow.destroy()
             let controller = DragGhostController(
                 surfaceCoordinator: coordinator,
+                previews: PreviewCaptureCoordinator(ownedWindowRegistry: OwnedWindowRegistry()),
                 captureAccessAllowed: { false }
             )
             controller.beginDrag(
-                windowId: 800_000 + index,
+                token: WindowToken(pid: 1, windowId: 800_000 + index),
                 originalFrame: CGRect(x: 0, y: 0, width: 800, height: 600),
                 cursorLocation: CGPoint(x: 400, y: 300)
             )

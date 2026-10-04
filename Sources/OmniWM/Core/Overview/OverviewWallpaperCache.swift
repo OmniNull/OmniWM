@@ -36,7 +36,7 @@ final class OverviewWallpaperCache {
     }
 
     init(captureWallpaper: @escaping (CGRect) -> CGImage? = { frame in
-        guard CGPreflightScreenCaptureAccess() else { return nil }
+        guard ScreenCapturePermissionMonitor.shared.isGranted else { return nil }
         return SkyLight.shared.captureWallpaper(in: frame)
     }) {
         self.captureWallpaper = captureWallpaper
@@ -52,7 +52,7 @@ final class OverviewWallpaperCache {
 
     func hasCapturedImage(for displayId: CGDirectDisplayID, maxPixelSize: Int, frame: CGRect) -> Bool {
         guard let capture = capturesByDisplay[displayId], capture.frame == frame else { return false }
-        return capture.thumbnails[maxPixelSize] != nil
+        return capture.thumbnails.keys.contains { $0 >= maxPixelSize }
     }
 
     private func capturedImage(for displayId: CGDirectDisplayID, frame: CGRect, maxPixelSize: Int) -> CGImage? {
@@ -61,6 +61,12 @@ final class OverviewWallpaperCache {
         }
         guard let capture = capturesByDisplay[displayId] else { return nil }
         if let thumbnail = capture.thumbnails[maxPixelSize] { return thumbnail }
+        if let source = capture.thumbnails.filter({ $0.key > maxPixelSize }).min(by: { $0.key < $1.key })?.value,
+           let thumbnail = Self.thumbnail(source, maxPixelSize: maxPixelSize)
+        {
+            capture.thumbnails[maxPixelSize] = thumbnail
+            return thumbnail
+        }
         guard !capture.unavailable else { return nil }
         guard let image = captureWallpaper(frame),
               image.width >= Int(ceil(frame.width)), image.height >= Int(ceil(frame.height)),

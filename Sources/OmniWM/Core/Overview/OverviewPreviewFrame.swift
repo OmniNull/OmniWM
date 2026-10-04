@@ -31,3 +31,10 @@ final class OverviewPreviewFrame: @unchecked Sendable {
         self.pixelBuffer = pixelBuffer
     }
 }
+
+extension OverviewPreviewFrame {
+    func covers(_ request: OverviewPreviewRequest) -> Bool {
+        CGFloat(surface.width) * contentsRect.width + 1 >= CGFloat(request.pixelWidth)
+            && CGFloat(surface.height) * contentsRect.height + 1 >= CGFloat(request.pixelHeight)
+    }
+}

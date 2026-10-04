@@ -45,7 +45,7 @@ final class WorkspaceBarHoverPreviewController {
 
     init(
         capture: OverviewThumbnailCapture,
-        hasCaptureAccess: @escaping () -> Bool = { CGPreflightScreenCaptureAccess() },
+        hasCaptureAccess: @escaping () -> Bool = { ScreenCapturePermissionMonitor.shared.isGranted },
         scheduleAfter: @escaping Scheduler = WorkspaceBarHoverPreviewController.scheduleWithTask,
         makePanel: @escaping () -> WorkspaceBarPreviewPanel? = { nil }
     ) {
@@ -211,7 +211,8 @@ final class WorkspaceBarHoverPreviewController {
                     pixelWidth: Int(tileSize.width * scale),
                     pixelHeight: Int(tileSize.height * scale)
                 )
-            }
+            },
+            retainingUnrepresentedPreviews: true
         )
     }
 

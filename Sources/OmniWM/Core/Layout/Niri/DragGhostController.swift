@@ -6,53 +6,60 @@ import ScreenCaptureKit
 
 @MainActor
 final class DragGhostController {
-    private var ghostWindow: DragGhostWindow?
-    private var captureTask: Task<Void, Never>?
+    typealias ImageCapture = @MainActor (WindowToken, CGSize) async -> CGImage?
+
+    private static let unitRect = CGRect(x: 0, y: 0, width: 1, height: 1)
+
+    private(set) var ghostWindow: DragGhostWindow?
+    private(set) var captureTask: Task<Void, Never>?
     private var isActive: Bool = false
+    private var cursorLocation: CGPoint = .zero
     private var swapTargetOverlay: SwapTargetOverlay?
     private let surfaceCoordinator: SurfaceCoordinator
+    private let previews: PreviewCaptureCoordinator
     private let captureAccessAllowed: @MainActor () -> Bool
+    private let captureImage: ImageCapture
 
     init(
         surfaceCoordinator: SurfaceCoordinator = .shared,
-        captureAccessAllowed: @escaping @MainActor () -> Bool = { CGPreflightScreenCaptureAccess() }
+        previews: PreviewCaptureCoordinator = .shared,
+        captureAccessAllowed: @escaping @MainActor () -> Bool = { ScreenCapturePermissionMonitor.shared.isGranted },
+        captureImage: ImageCapture? = nil
     ) {
         self.surfaceCoordinator = surfaceCoordinator
+        self.previews = previews
         self.captureAccessAllowed = captureAccessAllowed
+        self.captureImage = captureImage ?? { token, pixelSize in
+            await Self.captureWindowImage(token: token, pixelSize: pixelSize, previews: previews)
+        }
     }
 
     isolated deinit {
         destroy()
     }
 
-    func beginDrag(windowId: Int, originalFrame: CGRect, cursorLocation: CGPoint) {
+    func beginDrag(token: WindowToken, originalFrame: CGRect, cursorLocation: CGPoint) {
         isActive = true
-
+        self.cursorLocation = cursorLocation
         captureTask?.cancel()
+
+        let size = CGSize(width: originalFrame.width * 0.5, height: originalFrame.height * 0.5)
+        let scale = NSScreen.screen(containing: cursorLocation)?.backingScaleFactor ?? 2
+        let pixelSize = CGSize(width: (size.width * scale).rounded(), height: (size.height * scale).rounded())
+        if let shared = previews.sharedPreview(for: token)?.frame {
+            show(shared.surface, contentsRect: shared.contentsRect, holding: shared, size: size)
+        }
         guard captureAccessAllowed() else { return }
-        captureTask = Task { [weak self] in
-            guard let self else { return }
-
-            let scaledSize = CGSize(
-                width: originalFrame.width * 0.5,
-                height: originalFrame.height * 0.5
-            )
-
-            if let thumbnail = await captureWindowThumbnail(windowId: windowId, targetSize: scaledSize) {
-                guard isActive, !Task.isCancelled else { return }
-
-                if ghostWindow == nil {
-                    ghostWindow = DragGhostWindow(surfaceCoordinator: surfaceCoordinator)
-                }
-
-                ghostWindow?.setImage(thumbnail, size: scaledSize)
-                ghostWindow?.showAt(cursorLocation: cursorLocation)
-            }
+        captureTask = Task { [weak self, captureImage] in
+            guard let image = await captureImage(token, pixelSize) else { return }
+            guard let self, isActive, !Task.isCancelled else { return }
+            show(image, contentsRect: Self.unitRect, holding: nil, size: size)
         }
     }
 
     func updatePosition(cursorLocation: CGPoint) {
         guard isActive else { return }
+        self.cursorLocation = cursorLocation
         ghostWindow?.moveTo(cursorLocation: cursorLocation)
     }
 
@@ -84,27 +91,38 @@ final class DragGhostController {
         swapTargetOverlay = nil
     }
 
-    private func captureWindowThumbnail(windowId: Int, targetSize: CGSize) async -> CGImage? {
+    private func show(_ contents: Any, contentsRect: CGRect, holding preview: OverviewPreviewFrame?, size: CGSize) {
+        if ghostWindow == nil {
+            ghostWindow = DragGhostWindow(surfaceCoordinator: surfaceCoordinator)
+        }
+        ghostWindow?.setContents(contents, contentsRect: contentsRect, holding: preview, size: size)
+        ghostWindow?.showAt(cursorLocation: cursorLocation)
+    }
+
+    private static func captureWindowImage(
+        token: WindowToken,
+        pixelSize: CGSize,
+        previews: PreviewCaptureCoordinator
+    ) async -> CGImage? {
+        guard let window = await previews.window(for: token).window else {
+            FallbackFiringRecorder.shared.note(.capture, "dragGhostWindowMapMiss")
+            return nil
+        }
+        let config = SCStreamConfiguration()
+        config.width = Int(pixelSize.width)
+        config.height = Int(pixelSize.height)
+        config.showsCursor = false
+        config.capturesAudio = false
+        config.scalesToFit = true
+        config.preservesAspectRatio = true
+        config.ignoreShadowsSingleWindow = true
         do {
-            let content = try await SCShareableContent.excludingDesktopWindows(false, onScreenWindowsOnly: true)
-            guard let scWindow = content.windows.first(where: { $0.windowID == CGWindowID(windowId) }) else {
-                FallbackFiringRecorder.shared.note(.capture, "dragGhostWindowMapMiss")
-                return nil
-            }
-
-            let filter = SCContentFilter(desktopIndependentWindow: scWindow)
-            let config = SCStreamConfiguration()
-            config.width = Int(targetSize.width)
-            config.height = Int(targetSize.height)
-            config.showsCursor = false
-            config.capturesAudio = false
-            config.scalesToFit = true
-
             return try await SCScreenshotManager.captureImage(
-                contentFilter: filter,
+                contentFilter: SCContentFilter(desktopIndependentWindow: window),
                 configuration: config
             )
         } catch {
+            ScreenCapturePermissionMonitor.shared.noteCaptureFailure(error)
             FallbackFiringRecorder.shared.note(.capture, "dragGhostCaptureException")
             return nil
         }

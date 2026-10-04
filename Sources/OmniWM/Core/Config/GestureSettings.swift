@@ -10,6 +10,7 @@ import OmniWMIPC
 final class GestureSettings {
     private nonisolated static let defaults = SettingsExport.Gestures.defaults()
     @ObservationIgnored var onChange: (() -> Void)?
+    @ObservationIgnored var onWorkspaceSwipeEnabledChange: (() -> Void)?
 
     @ObservationIgnored private var isApplying = false
 
@@ -67,6 +68,7 @@ final class GestureSettings {
     var workspaceSwipeEnabled = GestureSettings.defaults.workspaceSwipeEnabled {
         didSet {
             guard oldValue != workspaceSwipeEnabled else { return }
+            onWorkspaceSwipeEnabledChange?()
             notifyChange()
         }
     }

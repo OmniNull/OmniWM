@@ -103,7 +103,7 @@ struct LaunchPermissionEnvironment {
             },
             inputMonitoringGranted: HotkeyCenter.inputMonitoringAccessGranted,
             requestInputMonitoring: { _ = HotkeyCenter.requestInputMonitoringAccess() },
-            screenRecordingGranted: CGPreflightScreenCaptureAccess,
+            screenRecordingGranted: { ScreenCapturePermissionMonitor.shared.refresh() },
             requestScreenRecording: { _ = CGRequestScreenCaptureAccess() }
         )
     }
