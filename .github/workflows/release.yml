@@ -48,7 +48,7 @@ env:
 jobs:
   validate:
     name: Validate release request
-    runs-on: xcode-27
+    runs-on: ubuntu-latest
     timeout-minutes: 5
     permissions: {}
     steps:
