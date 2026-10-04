@@ -173,7 +173,7 @@ Options for the Dwindle (BSP) layout.
 
 | Key | Type | Default | Description |
 | --- | --- | --- | --- |
-| `smartSplit` | boolean | `false` | Automatically chooses the split direction based on cursor position. |
+| `smartSplit` | boolean | `false` | Automatically chooses the split direction from the active window's center relative to the target tile's center and aspect ratio. |
 | `defaultSplitRatio` | float | `1.0` | `1.0` = equal split, `<1.0` = first window smaller, `>1.0` = first window larger. |
 | `splitWidthMultiplier` | float | `1.0` | Biases when vertical vs. horizontal splits are preferred. |
 | `singleWindowFit` | string | `"fill"` | Size of a lone window: `fill` (the "Full Screen" fit, which uses the fullscreen layout frame and honors `fullscreenUsesOuterGaps`) or `WIDTHxHEIGHT` (no span mode in Dwindle). |
