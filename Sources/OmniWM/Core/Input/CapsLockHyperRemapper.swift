@@ -3,29 +3,20 @@
 
 import Carbon
 import Foundation
+import IOKit.hidsystem
 
-struct HIDKeyboardModifierMapping: Codable, Equatable {
+struct HIDKeyboardModifierMapping: Equatable {
     let source: UInt64
     let destination: UInt64
-
-    private enum CodingKeys: String, CodingKey {
-        case source = "HIDKeyboardModifierMappingSrc"
-        case destination = "HIDKeyboardModifierMappingDst"
-    }
-}
-
-struct HIDKeyboardModifierMappingPayload: Codable, Equatable {
-    let userKeyMapping: [HIDKeyboardModifierMapping]
-
-    private enum CodingKeys: String, CodingKey {
-        case userKeyMapping = "UserKeyMapping"
-    }
 }
 
 enum CapsLockHyperMapping {
     static let capsLockSource: UInt64 = 0x700000039
     static let f18Destination: UInt64 = 0x70000006D
     static let f18KeyCode = UInt32(kVK_F18)
+    static let userKeyMappingKey = "UserKeyMapping"
+    private static let sourceKey = "HIDKeyboardModifierMappingSrc"
+    private static let destinationKey = "HIDKeyboardModifierMappingDst"
 
     static let omniMapping = HIDKeyboardModifierMapping(
         source: capsLockSource,
@@ -42,93 +33,76 @@ enum CapsLockHyperMapping {
     ) -> [HIDKeyboardModifierMapping] {
         var restored = current.filter { $0 != omniMapping }
         if !restored.contains(where: { $0.source == capsLockSource }) {
-            restored.append(contentsOf: original.filter { $0.source == capsLockSource })
+            restored.append(contentsOf: original.filter { $0.source == capsLockSource && $0 != omniMapping })
         }
         return restored
     }
 
-    static func parseMappings(from data: Data) -> [HIDKeyboardModifierMapping] {
-        if let payload = try? JSONDecoder().decode(HIDKeyboardModifierMappingPayload.self, from: data) {
-            return payload.userKeyMapping
-        }
-        if let mappings = try? JSONDecoder().decode([HIDKeyboardModifierMapping].self, from: data) {
-            return mappings
-        }
-
-        guard let text = String(data: data, encoding: .utf8) else { return [] }
-        let pattern = #"HIDKeyboardModifierMappingSrc\s*=\s*(\d+)[^}]*HIDKeyboardModifierMappingDst\s*=\s*(\d+)"#
-        guard let regex = try? NSRegularExpression(pattern: pattern) else { return [] }
-        let range = NSRange(text.startIndex ..< text.endIndex, in: text)
-        return regex.matches(in: text, range: range).compactMap { match in
-            guard match.numberOfRanges == 3,
-                  let sourceRange = Range(match.range(at: 1), in: text),
-                  let destinationRange = Range(match.range(at: 2), in: text),
-                  let source = UInt64(text[sourceRange]),
-                  let destination = UInt64(text[destinationRange])
+    static func mappings(fromPropertyValue value: Any?) -> [HIDKeyboardModifierMapping]? {
+        guard let value else { return [] }
+        guard let entries = value as? [[String: Any]] else { return nil }
+        var mappings: [HIDKeyboardModifierMapping] = []
+        mappings.reserveCapacity(entries.count)
+        for entry in entries {
+            guard let source = entry[sourceKey] as? UInt64,
+                  let destination = entry[destinationKey] as? UInt64
             else { return nil }
-            return HIDKeyboardModifierMapping(source: source, destination: destination)
+            mappings.append(HIDKeyboardModifierMapping(source: source, destination: destination))
         }
+        return mappings
     }
 
-    static func payloadString(for mappings: [HIDKeyboardModifierMapping]) -> String? {
-        let payload = HIDKeyboardModifierMappingPayload(userKeyMapping: mappings)
-        guard let data = try? JSONEncoder().encode(payload) else { return nil }
-        return String(data: data, encoding: .utf8)
+    static func propertyValue(for mappings: [HIDKeyboardModifierMapping]) -> CFArray {
+        mappings.map { [sourceKey: $0.source, destinationKey: $0.destination] } as CFArray
     }
 }
 
 final class CapsLockHyperRemapper {
+    private let readUserKeyMapping: () -> Any?
+    private let writeUserKeyMapping: (CFArray) -> Bool
     private var originalMappings: [HIDKeyboardModifierMapping]?
-    private var isApplied = false
+
+    init(
+        readUserKeyMapping: @escaping () -> Any? = {
+            IOHIDEventSystemClientCopyProperty(
+                IOHIDEventSystemClientCreateSimpleClient(kCFAllocatorDefault),
+                CapsLockHyperMapping.userKeyMappingKey as CFString
+            )
+        },
+        writeUserKeyMapping: @escaping (CFArray) -> Bool = {
+            IOHIDEventSystemClientSetProperty(
+                IOHIDEventSystemClientCreateSimpleClient(kCFAllocatorDefault),
+                CapsLockHyperMapping.userKeyMappingKey as CFString,
+                $0
+            )
+        }
+    ) {
+        self.readUserKeyMapping = readUserKeyMapping
+        self.writeUserKeyMapping = writeUserKeyMapping
+    }
 
     func apply() -> Bool {
-        if isApplied { return true }
+        if originalMappings != nil { return true }
         guard let currentMappings = readMappings(),
               writeMappings(CapsLockHyperMapping.applying(to: currentMappings))
         else { return false }
         originalMappings = currentMappings
-        isApplied = true
         return true
     }
 
     func restore() {
-        guard isApplied else { return }
-        let currentMappings = readMappings() ?? []
-        let originalMappings = originalMappings ?? []
-        _ = writeMappings(CapsLockHyperMapping.restoring(current: currentMappings, original: originalMappings))
+        guard let originalMappings,
+              let currentMappings = readMappings(),
+              writeMappings(CapsLockHyperMapping.restoring(current: currentMappings, original: originalMappings))
+        else { return }
         self.originalMappings = nil
-        isApplied = false
     }
 
     private func readMappings() -> [HIDKeyboardModifierMapping]? {
-        guard let data = try? runHidutil(arguments: ["property", "--get", "UserKeyMapping"]) else {
-            return nil
-        }
-        return CapsLockHyperMapping.parseMappings(from: data)
+        CapsLockHyperMapping.mappings(fromPropertyValue: readUserKeyMapping())
     }
 
     private func writeMappings(_ mappings: [HIDKeyboardModifierMapping]) -> Bool {
-        guard let payload = CapsLockHyperMapping.payloadString(for: mappings) else { return false }
-        return (try? runHidutil(arguments: ["property", "--set", payload])) != nil
-    }
-
-    private func runHidutil(arguments: [String]) throws -> Data {
-        let process = Process()
-        process.executableURL = URL(fileURLWithPath: "/usr/bin/hidutil")
-        process.arguments = arguments
-
-        let outputPipe = Pipe()
-        let errorPipe = Pipe()
-        process.standardOutput = outputPipe
-        process.standardError = errorPipe
-
-        try process.run()
-        process.waitUntilExit()
-
-        let data = outputPipe.fileHandleForReading.readDataToEndOfFile()
-        if process.terminationStatus != 0 {
-            throw CocoaError(.executableLoad)
-        }
-        return data
+        writeUserKeyMapping(CapsLockHyperMapping.propertyValue(for: mappings))
     }
 }
