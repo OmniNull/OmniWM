@@ -21,8 +21,11 @@ case "${1:-store}" in
             RESTORE+=("$keychain")
           fi
         done < "$STATE_FILE"
+        # Line 1 is the default keychain; the rest is the search list.
+        if [ "${#RESTORE[@]}" -gt 1 ]; then
+          security list-keychains -d user -s "${RESTORE[@]:1}"
+        fi
         if [ "${#RESTORE[@]}" -gt 0 ]; then
-          security list-keychains -d user -s "${RESTORE[@]}"
           security default-keychain -d user -s "${RESTORE[0]}"
         fi
       fi
@@ -83,7 +86,7 @@ fi
 {
   security default-keychain -d user
   security list-keychains -d user
-} | sed 's/^"//; s/"$//' > "$STATE_FILE"
+} | sed 's/^[[:space:]]*"//; s/"[[:space:]]*$//' > "$STATE_FILE"
 
 security create-keychain -p "$KEYCHAIN_PASSWORD" "$KEYCHAIN_PATH"
 security set-keychain-settings -lut 21600 "$KEYCHAIN_PATH"

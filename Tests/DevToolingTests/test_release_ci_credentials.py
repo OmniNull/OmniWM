@@ -45,10 +45,10 @@ set -eu
 if [ "${1:-}" = "find-identity" ] && [ -n "${OMNIWM_TEST_FAKE_IDENTITY:-}" ]; then
   printf '  1) 1234ABCDEF "%s"\n' "$OMNIWM_TEST_FAKE_IDENTITY"
 elif [ "${1:-}" = "default-keychain" ] && [ "${2:-}" = "-d" ]; then
-  printf '"%s"\n' "$OMNIWM_TEST_LOGIN_KEYCHAIN"
+  printf '    "%s"\n' "$OMNIWM_TEST_LOGIN_KEYCHAIN"
 elif [ "${1:-}" = "list-keychains" ] && [ "${2:-}" = "-d" ]; then
-  printf '"%s"\n' "$OMNIWM_TEST_LOGIN_KEYCHAIN"
-  printf '"%s"\n' "$OMNIWM_TEST_OTHER_KEYCHAIN"
+  printf '    "%s"\n' "$OMNIWM_TEST_LOGIN_KEYCHAIN"
+  printf '    "%s"\n' "$OMNIWM_TEST_OTHER_KEYCHAIN"
 fi
 if [ "${1:-}" = "delete-keychain" ]; then
   rm -f "${2:-}"
@@ -296,7 +296,6 @@ class ReleaseCICredentialsTests(unittest.TestCase):
                     "-d",
                     "user",
                     "-s",
-                    str(self.login_keychain),
                     str(self.login_keychain),
                     str(self.other_keychain),
                 ],
