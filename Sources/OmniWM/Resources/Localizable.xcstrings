@@ -994,7 +994,7 @@
       }
     },
     "Customize terminal tab and pane shortcuts in ~/.config/ghostty/config.ghostty. Reload with Cmd + Shift + , or relaunch OmniWM." : {},
-    "Move below the notch, place it to the right (centered on displays without a notch), split around it, or fill the area to its left, covering application menus. Without a notch, Fill Left covers the left half of the menu bar. Notch modes are ignored at Bottom, Left, and Right." : {},
+    "Move below the menu bar, place it to the right of the notch (centered on displays without a notch), split around it, or fill the area to its left, covering application menus. Without a notch, Fill Left covers the left half of the menu bar. Notch modes are ignored at Bottom, Left, and Right." : {},
     "Right of Notch" : {},
     "%@×" : {},
     "1× is the default. Higher values make window and workspace transitions faster." : {},
@@ -81358,7 +81358,6 @@
         }
       }
     },
-    "Move below the notch, split around it, or fill the area to its left, covering application menus. Without a notch, Fill Left covers the left half of the menu bar. Notch modes are ignored at Bottom, Left, and Right." : {},
     "Move or close all windows in this workspace before deleting it" : {
       "localizations" : {
         "ja" : {

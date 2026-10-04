@@ -148,7 +148,7 @@ private struct GlobalBarSettingsSection: View {
                     controller.updateWorkspaceBarSettings()
                 }
                 .help(
-                    "Move below the notch, place it to the right (centered on displays without a notch), split around it, or fill the area to its left, covering application menus. Without a notch, Fill Left covers the left half of the menu bar. Notch modes are ignored at Bottom, Left, and Right."
+                    "Move below the menu bar, place it to the right of the notch (centered on displays without a notch), split around it, or fill the area to its left, covering application menus. Without a notch, Fill Left covers the left half of the menu bar. Notch modes are ignored at Bottom, Left, and Right."
                 )
 
                 if settings.workspaceBar.notchMode.isSplit {
