@@ -10,6 +10,7 @@ struct OverviewSettingsTab: View {
     @State private var mouseButtonError: String?
 
     var body: some View {
+        let hotkeyMouseButtons = OverviewInputSettingsValidation.hotkeyMouseButtons(settings.hotkeyBindings)
         Form {
             Section("Overview") {
                 Toggle("Enable Overview", isOn: Binding(
@@ -57,11 +58,14 @@ struct OverviewSettingsTab: View {
                     Text("Unassigned").tag(nil as Int64?)
                     ForEach(Array(OverviewInputSettingsValidation.mouseButtons), id: \.self) { button in
                         Text(OverviewInputSettingsValidation.buttonLabel(button)).tag(Optional(button))
-                            .disabled(settings.systemHyperTrigger.mouseButtonNumber == button)
+                            .disabled(
+                                settings.systemHyperTrigger.mouseButtonNumber == button
+                                    || hotkeyMouseButtons.contains(button)
+                            )
                     }
                 }
                 SettingsCaption(
-                    localized: "Press to open or close Overview. Buttons assigned to System Hyper are unavailable."
+                    localized: "Press to open or close Overview. Buttons assigned to System Hyper or a hotkey are unavailable."
                 )
                 if let mouseButtonError {
                     SettingsCaption(mouseButtonError)

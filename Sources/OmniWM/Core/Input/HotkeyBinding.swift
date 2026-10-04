@@ -216,6 +216,7 @@ extension HyperKeyModifiers: Codable {
 enum HotkeyTrigger: Equatable, Hashable {
     case unassigned
     case chord(KeyBinding)
+    case mouseButton(MouseButtonBinding)
 
     var isUnassigned: Bool {
         switch self {
@@ -223,6 +224,8 @@ enum HotkeyTrigger: Equatable, Hashable {
             return true
         case let .chord(binding):
             return binding.isUnassigned
+        case .mouseButton:
+            return false
         }
     }
 
@@ -231,6 +234,8 @@ enum HotkeyTrigger: Equatable, Hashable {
         case .unassigned:
             return "Unassigned"
         case let .chord(binding):
+            return binding.displayString
+        case let .mouseButton(binding):
             return binding.displayString
         }
     }
@@ -241,6 +246,8 @@ enum HotkeyTrigger: Equatable, Hashable {
             return "Unassigned"
         case let .chord(binding):
             return binding.humanReadableString
+        case let .mouseButton(binding):
+            return binding.humanReadableString
         }
     }
 
@@ -249,11 +256,18 @@ enum HotkeyTrigger: Equatable, Hashable {
         return binding
     }
 
+    var mouseButtonBinding: MouseButtonBinding? {
+        guard case let .mouseButton(binding) = self else { return nil }
+        return binding
+    }
+
     func conflicts(with other: HotkeyTrigger) -> Bool {
         guard !isUnassigned, !other.isUnassigned else { return false }
         switch (self, other) {
         case let (.chord(lhs), .chord(rhs)):
             return lhs.conflicts(with: rhs)
+        case let (.mouseButton(lhs), .mouseButton(rhs)):
+            return lhs == rhs
         default:
             return false
         }
@@ -265,7 +279,7 @@ enum HotkeyTrigger: Equatable, Hashable {
         if let binding = KeySymbolMapper.fromHumanReadable(trimmed) {
             return binding.isUnassigned ? .unassigned : .chord(binding)
         }
-        return nil
+        return MouseButtonBinding.fromHumanReadable(trimmed).map(HotkeyTrigger.mouseButton)
     }
 }
 
@@ -284,7 +298,8 @@ extension HotkeyTrigger: Codable {
 
     func encode(to encoder: Encoder) throws {
         switch self {
-        case .unassigned:
+        case .unassigned,
+             .mouseButton:
             var container = encoder.singleValueContainer()
             try container.encode(humanReadableString)
         case let .chord(binding):

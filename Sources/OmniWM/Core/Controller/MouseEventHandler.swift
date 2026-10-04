@@ -59,7 +59,7 @@ final class MouseEventHandler {
         clearNativeTitleBarDrag()
         cancelActiveMouseInteraction()
         state.capturedInteractionButton = nil
-        state.capturedOverviewButton = nil
+        state.capturedOtherMouseButton = nil
         tearDownEventTaps()
         let retiringMultitouchSource = multitouchSource
         if retiringMultitouchSource?.shutdown() != false {

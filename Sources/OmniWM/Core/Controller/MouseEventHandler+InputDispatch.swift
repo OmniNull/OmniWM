@@ -145,30 +145,45 @@ extension MouseEventHandler {
         )
     }
 
-    func receiveTapOverviewMouseButton(type: CGEventType, button: Int64) -> Bool {
-        if state.capturedOverviewButton == button {
+    func receiveTapOtherMouseButton(type: CGEventType, button: Int64, modifiers: CGEventFlags = []) -> Bool {
+        if state.capturedOtherMouseButton == button {
             if type == .otherMouseUp {
-                state.capturedOverviewButton = nil
+                state.capturedOtherMouseButton = nil
             }
             return true
         }
-        guard type == .otherMouseDown,
-              let controller,
-              OverviewInputSettingsValidation.mouseButtons.contains(button),
-              controller.settings.overview.enabled,
-              controller.settings.overview.mouseButton == button,
-              controller.settings.systemHyperTrigger.mouseButtonNumber != button
+        guard type == .otherMouseDown, let controller else { return false }
+        if isOverviewMouseButton(button, controller: controller) {
+            return captureOverviewMouseButton(button, controller: controller)
+        }
+        guard canCaptureOtherMouseButton(controller),
+              controller.hotkeys.dispatchMouseButton(button, flags: modifiers)
         else { return false }
+        state.capturedOtherMouseButton = button
+        return true
+    }
 
+    private func isOverviewMouseButton(_ button: Int64, controller: WMController) -> Bool {
+        OverviewInputSettingsValidation.mouseButtons.contains(button)
+            && controller.settings.overview.enabled
+            && controller.settings.overview.mouseButton == button
+            && controller.settings.systemHyperTrigger.mouseButtonNumber != button
+    }
+
+    private func captureOverviewMouseButton(_ button: Int64, controller: WMController) -> Bool {
         flushQueuedTapEventsBeforeImmediateDispatch()
-        guard controller.isEnabled, !isInputSuppressed,
-              state.capturedOverviewButton == nil, state.capturedInteractionButton == nil,
-              !state.isMoving, !state.isResizing, !isTrackpadSwipeSessionActive,
+        guard canCaptureOtherMouseButton(controller), !isTrackpadSwipeSessionActive,
               state.nativeTitleBarDrag == nil, !state.awaitsNativeTitleBarDragTarget
         else { return false }
-        state.capturedOverviewButton = button
+        state.capturedOtherMouseButton = button
         controller.windowActionHandler.toggleOverview()
         return true
+    }
+
+    private func canCaptureOtherMouseButton(_ controller: WMController) -> Bool {
+        controller.isEnabled && !isInputSuppressed
+            && state.capturedOtherMouseButton == nil && state.capturedInteractionButton == nil
+            && !state.isMoving && !state.isResizing
     }
 
     @discardableResult

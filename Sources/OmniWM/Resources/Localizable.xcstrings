@@ -1,6 +1,998 @@
 {
   "sourceLanguage" : "en",
   "strings" : {
+    "Press keys or a mouse button..." : {
+      "localizations" : {
+        "ar" : {
+          "stringUnit" : {
+            "state" : "translated",
+            "value" : "اضغط على المفاتيح أو زر الماوس..."
+          }
+        },
+        "da" : {
+          "stringUnit" : {
+            "state" : "translated",
+            "value" : "Tryk på taster eller en museknap..."
+          }
+        },
+        "de" : {
+          "stringUnit" : {
+            "state" : "translated",
+            "value" : "Tasten oder eine Maustaste drücken..."
+          }
+        },
+        "el" : {
+          "stringUnit" : {
+            "state" : "translated",
+            "value" : "Πατήστε πλήκτρα ή ένα κουμπί ποντικιού..."
+          }
+        },
+        "es" : {
+          "stringUnit" : {
+            "state" : "translated",
+            "value" : "Presione teclas o un botón del ratón..."
+          }
+        },
+        "fi" : {
+          "stringUnit" : {
+            "state" : "translated",
+            "value" : "Paina näppäimiä tai hiiren painiketta..."
+          }
+        },
+        "fr" : {
+          "stringUnit" : {
+            "state" : "translated",
+            "value" : "Appuyez sur des touches ou un bouton de souris..."
+          }
+        },
+        "he" : {
+          "stringUnit" : {
+            "state" : "translated",
+            "value" : "לחצו על מקשים או על כפתור עכבר..."
+          }
+        },
+        "hi" : {
+          "stringUnit" : {
+            "state" : "translated",
+            "value" : "कुंजियाँ या कोई माउस बटन दबाएँ..."
+          }
+        },
+        "it" : {
+          "stringUnit" : {
+            "state" : "translated",
+            "value" : "Premi tasti o un pulsante del mouse..."
+          }
+        },
+        "ja" : {
+          "stringUnit" : {
+            "state" : "translated",
+            "value" : "キーまたはマウスボタンを押す..."
+          }
+        },
+        "ko" : {
+          "stringUnit" : {
+            "state" : "translated",
+            "value" : "키 또는 마우스 버튼을 누르세요..."
+          }
+        },
+        "nb" : {
+          "stringUnit" : {
+            "state" : "translated",
+            "value" : "Trykk på taster eller en museknapp..."
+          }
+        },
+        "nl" : {
+          "stringUnit" : {
+            "state" : "translated",
+            "value" : "Druk op toetsen of een muisknop..."
+          }
+        },
+        "pl" : {
+          "stringUnit" : {
+            "state" : "translated",
+            "value" : "Naciśnij klawisze lub przycisk myszy..."
+          }
+        },
+        "ru" : {
+          "stringUnit" : {
+            "state" : "translated",
+            "value" : "Нажмите клавиши или кнопку мыши..."
+          }
+        },
+        "sr-Latn" : {
+          "stringUnit" : {
+            "state" : "translated",
+            "value" : "Pritisnite tastere ili dugme miša..."
+          }
+        },
+        "sv" : {
+          "stringUnit" : {
+            "state" : "translated",
+            "value" : "Tryck på tangenter eller en musknapp..."
+          }
+        },
+        "uk" : {
+          "stringUnit" : {
+            "state" : "translated",
+            "value" : "Натисніть клавіші або кнопку миші..."
+          }
+        },
+        "zh-Hans" : {
+          "stringUnit" : {
+            "state" : "translated",
+            "value" : "按下按键或鼠标按钮..."
+          }
+        }
+      }
+    },
+    "Recording. Press a key combination or a mouse button." : {
+      "localizations" : {
+        "ar" : {
+          "stringUnit" : {
+            "state" : "translated",
+            "value" : "جارٍ التسجيل. اضغط على مجموعة مفاتيح أو زر ماوس."
+          }
+        },
+        "da" : {
+          "stringUnit" : {
+            "state" : "translated",
+            "value" : "Optager. Tryk på en tastekombination eller en museknap."
+          }
+        },
+        "de" : {
+          "stringUnit" : {
+            "state" : "translated",
+            "value" : "Aufnahme. Drücken Sie eine Tastenkombination oder eine Maustaste."
+          }
+        },
+        "el" : {
+          "stringUnit" : {
+            "state" : "translated",
+            "value" : "Καταγραφή. Πατήστε έναν συνδυασμό πλήκτρων ή ένα κουμπί ποντικιού."
+          }
+        },
+        "es" : {
+          "stringUnit" : {
+            "state" : "translated",
+            "value" : "Grabando. Presione una combinación de teclas o un botón del ratón."
+          }
+        },
+        "fi" : {
+          "stringUnit" : {
+            "state" : "translated",
+            "value" : "Tallennetaan. Paina näppäinyhdistelmää tai hiiren painiketta."
+          }
+        },
+        "fr" : {
+          "stringUnit" : {
+            "state" : "translated",
+            "value" : "Enregistrement en cours. Appuyez sur une combinaison de touches ou un bouton de souris."
+          }
+        },
+        "he" : {
+          "stringUnit" : {
+            "state" : "translated",
+            "value" : "מקליט. לחצו על צירוף מקשים או על כפתור עכבר."
+          }
+        },
+        "hi" : {
+          "stringUnit" : {
+            "state" : "translated",
+            "value" : "रिकॉर्डिंग। कोई कुंजी संयोजन या माउस बटन दबाएँ।"
+          }
+        },
+        "it" : {
+          "stringUnit" : {
+            "state" : "translated",
+            "value" : "Registrazione. Premi una combinazione di tasti o un pulsante del mouse."
+          }
+        },
+        "ja" : {
+          "stringUnit" : {
+            "state" : "translated",
+            "value" : "記録中。キーの組み合わせまたはマウスボタンを押してください。"
+          }
+        },
+        "ko" : {
+          "stringUnit" : {
+            "state" : "translated",
+            "value" : "기록 중입니다. 키 조합 또는 마우스 버튼을 누르세요."
+          }
+        },
+        "nb" : {
+          "stringUnit" : {
+            "state" : "translated",
+            "value" : "Tar opp. Trykk på en tastekombinasjon eller en museknapp."
+          }
+        },
+        "nl" : {
+          "stringUnit" : {
+            "state" : "translated",
+            "value" : "Opnemen. Druk op een toetscombinatie of een muisknop."
+          }
+        },
+        "pl" : {
+          "stringUnit" : {
+            "state" : "translated",
+            "value" : "Trwa rejestrowanie skrótu. Naciśnij kombinację klawiszy lub przycisk myszy."
+          }
+        },
+        "ru" : {
+          "stringUnit" : {
+            "state" : "translated",
+            "value" : "Запись. Нажмите комбинацию клавиш или кнопку мыши."
+          }
+        },
+        "sr-Latn" : {
+          "stringUnit" : {
+            "state" : "translated",
+            "value" : "Snimanje. Pritisnite kombinaciju tastera ili dugme miša."
+          }
+        },
+        "sv" : {
+          "stringUnit" : {
+            "state" : "translated",
+            "value" : "Spelar in. Tryck på en tangentkombination eller en musknapp."
+          }
+        },
+        "uk" : {
+          "stringUnit" : {
+            "state" : "translated",
+            "value" : "Запис. Натисніть комбінацію клавіш або кнопку миші."
+          }
+        },
+        "zh-Hans" : {
+          "stringUnit" : {
+            "state" : "translated",
+            "value" : "正在录制。请按下组合键或鼠标按钮。"
+          }
+        }
+      }
+    },
+    "Press a key combination or a mouse button. Press Escape to cancel recording." : {
+      "localizations" : {
+        "ar" : {
+          "stringUnit" : {
+            "state" : "translated",
+            "value" : "اضغط على مجموعة مفاتيح أو زر ماوس. اضغط على Escape لإلغاء التسجيل."
+          }
+        },
+        "da" : {
+          "stringUnit" : {
+            "state" : "translated",
+            "value" : "Tryk på en tastekombination eller en museknap. Tryk på Escape for at annullere optagelsen."
+          }
+        },
+        "de" : {
+          "stringUnit" : {
+            "state" : "translated",
+            "value" : "Drücken Sie eine Tastenkombination oder eine Maustaste. Drücken Sie Escape, um die Aufnahme abzubrechen."
+          }
+        },
+        "el" : {
+          "stringUnit" : {
+            "state" : "translated",
+            "value" : "Πατήστε έναν συνδυασμό πλήκτρων ή ένα κουμπί ποντικιού. Πατήστε Escape για να ακυρώσετε την καταγραφή."
+          }
+        },
+        "es" : {
+          "stringUnit" : {
+            "state" : "translated",
+            "value" : "Presione una combinación de teclas o un botón del ratón. Presione Escape para cancelar la grabación."
+          }
+        },
+        "fi" : {
+          "stringUnit" : {
+            "state" : "translated",
+            "value" : "Paina näppäinyhdistelmää tai hiiren painiketta. Peruuta tallennus painamalla Escape."
+          }
+        },
+        "fr" : {
+          "stringUnit" : {
+            "state" : "translated",
+            "value" : "Appuyez sur une combinaison de touches ou un bouton de souris. Appuyez sur Échap pour annuler l’enregistrement."
+          }
+        },
+        "he" : {
+          "stringUnit" : {
+            "state" : "translated",
+            "value" : "לחצו על צירוף מקשים או על כפתור עכבר. לחצו על Escape כדי לבטל את ההקלטה."
+          }
+        },
+        "hi" : {
+          "stringUnit" : {
+            "state" : "translated",
+            "value" : "कोई कुंजी संयोजन या माउस बटन दबाएँ। रिकॉर्डिंग रद्द करने के लिए Escape दबाएँ।"
+          }
+        },
+        "it" : {
+          "stringUnit" : {
+            "state" : "translated",
+            "value" : "Premi una combinazione di tasti o un pulsante del mouse. Premi Esc per annullare la registrazione."
+          }
+        },
+        "ja" : {
+          "stringUnit" : {
+            "state" : "translated",
+            "value" : "キーの組み合わせまたはマウスボタンを押してください。記録をキャンセルするには Esc キーを押してください。"
+          }
+        },
+        "ko" : {
+          "stringUnit" : {
+            "state" : "translated",
+            "value" : "키 조합 또는 마우스 버튼을 누르세요. 기록을 취소하려면 Esc를 누르세요."
+          }
+        },
+        "nb" : {
+          "stringUnit" : {
+            "state" : "translated",
+            "value" : "Trykk på en tastekombinasjon eller en museknapp. Trykk Esc for å avbryte opptaket."
+          }
+        },
+        "nl" : {
+          "stringUnit" : {
+            "state" : "translated",
+            "value" : "Druk op een toetscombinatie of een muisknop. Druk op Escape om de opname te annuleren."
+          }
+        },
+        "pl" : {
+          "stringUnit" : {
+            "state" : "translated",
+            "value" : "Naciśnij kombinację klawiszy lub przycisk myszy. Naciśnij Escape, aby anulować nagrywanie."
+          }
+        },
+        "ru" : {
+          "stringUnit" : {
+            "state" : "translated",
+            "value" : "Нажмите комбинацию клавиш или кнопку мыши. Нажмите Escape, чтобы отменить запись."
+          }
+        },
+        "sr-Latn" : {
+          "stringUnit" : {
+            "state" : "translated",
+            "value" : "Pritisnite kombinaciju tastera ili dugme miša. Pritisnite Escape da biste otkazali snimanje."
+          }
+        },
+        "sv" : {
+          "stringUnit" : {
+            "state" : "translated",
+            "value" : "Tryck på en tangentkombination eller en musknapp. Tryck på Esc för att avbryta inspelningen."
+          }
+        },
+        "uk" : {
+          "stringUnit" : {
+            "state" : "translated",
+            "value" : "Натисніть комбінацію клавіш або кнопку миші. Натисніть Escape, щоб скасувати запис."
+          }
+        },
+        "zh-Hans" : {
+          "stringUnit" : {
+            "state" : "translated",
+            "value" : "请按下组合键或鼠标按钮。按 Escape 键取消录制。"
+          }
+        }
+      }
+    },
+    "Click a shortcut, then press keys or an extra mouse button. Buttons used by System Hyper or Overview must be unassigned there first." : {
+      "localizations" : {
+        "ar" : {
+          "stringUnit" : {
+            "state" : "translated",
+            "value" : "انقر على اختصار، ثم اضغط على المفاتيح أو زر ماوس إضافيًا. يجب أولًا إلغاء تعيين الأزرار التي يستخدمها System Hyper أو «نظرة عامة» من إعداداتهما."
+          }
+        },
+        "da" : {
+          "stringUnit" : {
+            "state" : "translated",
+            "value" : "Klik på en genvej, og tryk derefter på taster eller en ekstra museknap. Knapper, der bruges af System Hyper eller Oversigt, skal først fjernes der."
+          }
+        },
+        "de" : {
+          "stringUnit" : {
+            "state" : "translated",
+            "value" : "Klicken Sie auf ein Tastenkürzel und drücken Sie dann Tasten oder eine zusätzliche Maustaste. Tasten, die System Hyper oder die Übersicht verwenden, müssen dort zuerst freigegeben werden."
+          }
+        },
+        "el" : {
+          "stringUnit" : {
+            "state" : "translated",
+            "value" : "Κάντε κλικ σε μια συντόμευση και, στη συνέχεια, πατήστε πλήκτρα ή ένα επιπλέον κουμπί ποντικιού. Τα κουμπιά που χρησιμοποιούνται από το System Hyper ή την Επισκόπηση πρέπει πρώτα να αποδεσμευτούν εκεί."
+          }
+        },
+        "es" : {
+          "stringUnit" : {
+            "state" : "translated",
+            "value" : "Haz clic en un atajo y luego pulsa teclas o un botón adicional del ratón. Los botones que usan System Hyper o Vista general deben desasignarse allí primero."
+          }
+        },
+        "fi" : {
+          "stringUnit" : {
+            "state" : "translated",
+            "value" : "Napsauta pikanäppäintä ja paina sitten näppäimiä tai hiiren lisäpainiketta. System Hyperin tai Yleiskatsauksen käyttämien painikkeiden määritys on ensin poistettava niiden asetuksista."
+          }
+        },
+        "fr" : {
+          "stringUnit" : {
+            "state" : "translated",
+            "value" : "Cliquez sur un raccourci, puis appuyez sur des touches ou sur un bouton de souris supplémentaire. Les boutons utilisés par System Hyper ou Overview doivent d’abord y être désaffectés."
+          }
+        },
+        "he" : {
+          "stringUnit" : {
+            "state" : "translated",
+            "value" : "לחצו על קיצור, ואז לחצו על מקשים או על כפתור עכבר נוסף. יש קודם לבטל בהגדרות שלהם את השיוך של כפתורים שמשמשים את System Hyper או את Overview."
+          }
+        },
+        "hi" : {
+          "stringUnit" : {
+            "state" : "translated",
+            "value" : "किसी शॉर्टकट पर क्लिक करें, फिर कुंजियाँ या कोई अतिरिक्त माउस बटन दबाएँ। सिस्टम हाइपर या ओवरव्यू द्वारा उपयोग किए जा रहे बटनों का असाइनमेंट पहले वहीं हटाना होगा।"
+          }
+        },
+        "it" : {
+          "stringUnit" : {
+            "state" : "translated",
+            "value" : "Fai clic su una scorciatoia, poi premi dei tasti o un pulsante aggiuntivo del mouse. I pulsanti usati da System Hyper o da Panoramica devono prima essere rimossi lì."
+          }
+        },
+        "ja" : {
+          "stringUnit" : {
+            "state" : "translated",
+            "value" : "ショートカットをクリックしてから、キーまたは追加のマウスボタンを押してください。System Hyper またはオーバービューで使用中のボタンは、先にそちらで割り当てを解除する必要があります。"
+          }
+        },
+        "ko" : {
+          "stringUnit" : {
+            "state" : "translated",
+            "value" : "단축키를 클릭한 다음 키 또는 추가 마우스 버튼을 누르세요. System Hyper 또는 개요에서 사용 중인 버튼은 먼저 해당 설정에서 지정을 해제해야 합니다."
+          }
+        },
+        "nb" : {
+          "stringUnit" : {
+            "state" : "translated",
+            "value" : "Klikk på en snarvei, og trykk deretter på taster eller en ekstra museknapp. Knapper som brukes av System Hyper eller Oversikt, må først fjernes der."
+          }
+        },
+        "nl" : {
+          "stringUnit" : {
+            "state" : "translated",
+            "value" : "Klik op een sneltoets en druk daarna op toetsen of een extra muisknop. Knoppen die door System Hyper of Overview worden gebruikt, moeten daar eerst worden losgekoppeld."
+          }
+        },
+        "pl" : {
+          "stringUnit" : {
+            "state" : "translated",
+            "value" : "Kliknij skrót, a następnie naciśnij klawisze lub dodatkowy przycisk myszy. Najpierw usuń tam przypisanie przycisków używanych przez System Hyper lub Widok ogólny."
+          }
+        },
+        "ru" : {
+          "stringUnit" : {
+            "state" : "translated",
+            "value" : "Щёлкните сочетание клавиш, затем нажмите клавиши или дополнительную кнопку мыши. Кнопки, которые использует System Hyper или Overview, сначала нужно отвязать в их настройках."
+          }
+        },
+        "sr-Latn" : {
+          "stringUnit" : {
+            "state" : "translated",
+            "value" : "Kliknite na prečicu, a zatim pritisnite tastere ili dodatno dugme miša. Dugmadi koju koriste System Hyper ili Pregled prvo morate tamo da uklonite dodelu."
+          }
+        },
+        "sv" : {
+          "stringUnit" : {
+            "state" : "translated",
+            "value" : "Klicka på ett kortkommando och tryck sedan på tangenter eller en extra musknapp. Knappar som används av System Hyper eller Översikt måste först tas bort där."
+          }
+        },
+        "uk" : {
+          "stringUnit" : {
+            "state" : "translated",
+            "value" : "Клацніть комбінацію клавіш, потім натисніть клавіші або додаткову кнопку миші. Кнопки, які використовують System Hyper або Overview, спершу потрібно відв’язати в їхніх налаштуваннях."
+          }
+        },
+        "zh-Hans" : {
+          "stringUnit" : {
+            "state" : "translated",
+            "value" : "点按一个快捷键，然后按下按键或额外的鼠标按钮。System Hyper 或概览正在使用的按钮必须先在相应设置中取消分配。"
+          }
+        }
+      }
+    },
+    "Press to open or close Overview. Buttons assigned to System Hyper or a hotkey are unavailable." : {
+      "localizations" : {
+        "ar" : {
+          "stringUnit" : {
+            "state" : "translated",
+            "value" : "اضغط لفتح «نظرة عامة» أو إغلاقها. الأزرار المخصصة لـ System Hyper أو لاختصار غير متاحة."
+          }
+        },
+        "da" : {
+          "stringUnit" : {
+            "state" : "translated",
+            "value" : "Tryk for at åbne eller lukke Oversigt. Knapper tildelt System Hyper eller en genvejstast er ikke tilgængelige."
+          }
+        },
+        "de" : {
+          "stringUnit" : {
+            "state" : "translated",
+            "value" : "Drücken Sie, um die Übersicht zu öffnen oder zu schließen. Tasten, die System Hyper oder einem Hotkey zugewiesen sind, sind nicht verfügbar."
+          }
+        },
+        "el" : {
+          "stringUnit" : {
+            "state" : "translated",
+            "value" : "Πατήστε για να ανοίξετε ή να κλείσετε την Επισκόπηση. Τα κουμπιά που έχουν αντιστοιχιστεί στο System Hyper ή σε συντόμευση δεν είναι διαθέσιμα."
+          }
+        },
+        "es" : {
+          "stringUnit" : {
+            "state" : "translated",
+            "value" : "Pulsa para abrir o cerrar Vista general. Los botones asignados a System Hyper o a un atajo no están disponibles."
+          }
+        },
+        "fi" : {
+          "stringUnit" : {
+            "state" : "translated",
+            "value" : "Avaa tai sulje Yleiskatsaus painamalla. System Hyperille tai pikanäppäimelle määritetyt painikkeet eivät ole käytettävissä."
+          }
+        },
+        "fr" : {
+          "stringUnit" : {
+            "state" : "translated",
+            "value" : "Appuyez pour ouvrir ou fermer Overview. Les boutons affectés à System Hyper ou à un raccourci ne sont pas disponibles."
+          }
+        },
+        "he" : {
+          "stringUnit" : {
+            "state" : "translated",
+            "value" : "לחצו כדי לפתוח או לסגור את Overview. כפתורים שמשויכים ל-System Hyper או לקיצור מקשים אינם זמינים."
+          }
+        },
+        "hi" : {
+          "stringUnit" : {
+            "state" : "translated",
+            "value" : "ओवरव्यू खोलने या बंद करने के लिए दबाएँ। सिस्टम हाइपर या किसी हॉटकी को असाइन किए गए बटन उपलब्ध नहीं हैं।"
+          }
+        },
+        "it" : {
+          "stringUnit" : {
+            "state" : "translated",
+            "value" : "Premi per aprire o chiudere Panoramica. I pulsanti assegnati a System Hyper o a una scorciatoia non sono disponibili."
+          }
+        },
+        "ja" : {
+          "stringUnit" : {
+            "state" : "translated",
+            "value" : "押すとオーバービューを開閉します。System Hyper またはホットキーに割り当てられたボタンは使用できません。"
+          }
+        },
+        "ko" : {
+          "stringUnit" : {
+            "state" : "translated",
+            "value" : "눌러서 개요를 열거나 닫습니다. System Hyper 또는 단축키에 할당된 버튼은 사용할 수 없습니다."
+          }
+        },
+        "nb" : {
+          "stringUnit" : {
+            "state" : "translated",
+            "value" : "Trykk for å åpne eller lukke Oversikt. Knapper tildelt System Hyper eller en hurtigtast er utilgjengelige."
+          }
+        },
+        "nl" : {
+          "stringUnit" : {
+            "state" : "translated",
+            "value" : "Druk om Overview te openen of te sluiten. Knoppen die aan System Hyper of een sneltoets zijn toegewezen, zijn niet beschikbaar."
+          }
+        },
+        "pl" : {
+          "stringUnit" : {
+            "state" : "translated",
+            "value" : "Naciśnij, aby otworzyć lub zamknąć Widok ogólny. Przyciski przypisane do System Hyper lub skrótu są niedostępne."
+          }
+        },
+        "ru" : {
+          "stringUnit" : {
+            "state" : "translated",
+            "value" : "Нажмите, чтобы открыть или закрыть Overview. Кнопки, назначенные System Hyper или горячей клавише, недоступны."
+          }
+        },
+        "sr-Latn" : {
+          "stringUnit" : {
+            "state" : "translated",
+            "value" : "Pritisnite da otvorite ili zatvorite Pregled. Dugmad dodeljena funkciji System Hyper ili prečici nisu dostupna."
+          }
+        },
+        "sv" : {
+          "stringUnit" : {
+            "state" : "translated",
+            "value" : "Tryck för att öppna eller stänga översikten. Knappar som är tilldelade System Hyper eller ett kortkommando är otillgängliga."
+          }
+        },
+        "uk" : {
+          "stringUnit" : {
+            "state" : "translated",
+            "value" : "Натисніть, щоб відкрити або закрити Overview. Кнопки, призначені для System Hyper або комбінації клавіш, недоступні."
+          }
+        },
+        "zh-Hans" : {
+          "stringUnit" : {
+            "state" : "translated",
+            "value" : "按一下打开或关闭概览。分配给 System Hyper 或热键的按钮不可用。"
+          }
+        }
+      }
+    },
+    "This mouse button is assigned to a hotkey. Clear that hotkey or choose another button." : {
+      "localizations" : {
+        "ar" : {
+          "stringUnit" : {
+            "state" : "translated",
+            "value" : "زر الماوس هذا مخصص لاختصار. امسح ذلك الاختصار أو اختر زرًا آخر."
+          }
+        },
+        "da" : {
+          "stringUnit" : {
+            "state" : "translated",
+            "value" : "Denne museknap er tildelt en genvejstast. Ryd den genvejstast, eller vælg en anden knap."
+          }
+        },
+        "de" : {
+          "stringUnit" : {
+            "state" : "translated",
+            "value" : "Diese Maustaste ist einem Hotkey zugewiesen. Löschen Sie diesen Hotkey oder wählen Sie eine andere Taste."
+          }
+        },
+        "el" : {
+          "stringUnit" : {
+            "state" : "translated",
+            "value" : "Αυτό το κουμπί ποντικιού έχει αντιστοιχιστεί σε συντόμευση. Καταργήστε αυτή τη συντόμευση ή επιλέξτε άλλο κουμπί."
+          }
+        },
+        "es" : {
+          "stringUnit" : {
+            "state" : "translated",
+            "value" : "Este botón del ratón está asignado a un atajo. Elimina ese atajo o elige otro botón."
+          }
+        },
+        "fi" : {
+          "stringUnit" : {
+            "state" : "translated",
+            "value" : "Tämä hiiren painike on määritetty pikanäppäimelle. Tyhjennä se pikanäppäin tai valitse toinen painike."
+          }
+        },
+        "fr" : {
+          "stringUnit" : {
+            "state" : "translated",
+            "value" : "Ce bouton de souris est affecté à un raccourci. Effacez ce raccourci ou choisissez un autre bouton."
+          }
+        },
+        "he" : {
+          "stringUnit" : {
+            "state" : "translated",
+            "value" : "כפתור העכבר הזה משויך לקיצור מקשים. נקו את קיצור המקשים או בחרו כפתור אחר."
+          }
+        },
+        "hi" : {
+          "stringUnit" : {
+            "state" : "translated",
+            "value" : "यह माउस बटन किसी हॉटकी को असाइन है। उस हॉटकी को साफ़ करें या कोई दूसरा बटन चुनें।"
+          }
+        },
+        "it" : {
+          "stringUnit" : {
+            "state" : "translated",
+            "value" : "Questo pulsante del mouse è assegnato a una scorciatoia. Cancella quella scorciatoia o scegli un altro pulsante."
+          }
+        },
+        "ja" : {
+          "stringUnit" : {
+            "state" : "translated",
+            "value" : "このマウスボタンはホットキーに割り当てられています。そのホットキーをクリアするか、別のボタンを選択してください。"
+          }
+        },
+        "ko" : {
+          "stringUnit" : {
+            "state" : "translated",
+            "value" : "이 마우스 버튼은 단축키에 할당되어 있습니다. 해당 단축키를 지우거나 다른 버튼을 선택하세요."
+          }
+        },
+        "nb" : {
+          "stringUnit" : {
+            "state" : "translated",
+            "value" : "Denne museknappen er tildelt en hurtigtast. Fjern hurtigtasten, eller velg en annen knapp."
+          }
+        },
+        "nl" : {
+          "stringUnit" : {
+            "state" : "translated",
+            "value" : "Deze muisknop is aan een sneltoets toegewezen. Wis die sneltoets of kies een andere knop."
+          }
+        },
+        "pl" : {
+          "stringUnit" : {
+            "state" : "translated",
+            "value" : "Ten przycisk myszy jest przypisany do skrótu. Wyczyść ten skrót lub wybierz inny przycisk."
+          }
+        },
+        "ru" : {
+          "stringUnit" : {
+            "state" : "translated",
+            "value" : "Эта кнопка мыши назначена горячей клавише. Очистите эту горячую клавишу или выберите другую кнопку."
+          }
+        },
+        "sr-Latn" : {
+          "stringUnit" : {
+            "state" : "translated",
+            "value" : "Ovo dugme miša je dodeljeno prečici. Obrišite tu prečicu ili izaberite drugo dugme."
+          }
+        },
+        "sv" : {
+          "stringUnit" : {
+            "state" : "translated",
+            "value" : "Den här musknappen är tilldelad ett kortkommando. Rensa det kortkommandot eller välj en annan knapp."
+          }
+        },
+        "uk" : {
+          "stringUnit" : {
+            "state" : "translated",
+            "value" : "Цю кнопку миші призначено комбінації клавіш. Видаліть цю комбінацію або виберіть іншу кнопку."
+          }
+        },
+        "zh-Hans" : {
+          "stringUnit" : {
+            "state" : "translated",
+            "value" : "此鼠标按钮已分配给某个热键。请清除该热键或选择其他按钮。"
+          }
+        }
+      }
+    },
+    "This mouse button is the System Hyper trigger. Change System Hyper first or choose another button." : {
+      "localizations" : {
+        "ar" : {
+          "stringUnit" : {
+            "state" : "translated",
+            "value" : "زر الماوس هذا هو مشغّل System Hyper. غيّر System Hyper أولًا أو اختر زرًا آخر."
+          }
+        },
+        "da" : {
+          "stringUnit" : {
+            "state" : "translated",
+            "value" : "Denne museknap er udløseren for System Hyper. Skift System Hyper først, eller vælg en anden knap."
+          }
+        },
+        "de" : {
+          "stringUnit" : {
+            "state" : "translated",
+            "value" : "Diese Maustaste ist der Auslöser für System Hyper. Ändern Sie zuerst System Hyper oder wählen Sie eine andere Taste."
+          }
+        },
+        "el" : {
+          "stringUnit" : {
+            "state" : "translated",
+            "value" : "Αυτό το κουμπί ποντικιού είναι ο ενεργοποιητής του System Hyper. Αλλάξτε πρώτα το System Hyper ή επιλέξτε άλλο κουμπί."
+          }
+        },
+        "es" : {
+          "stringUnit" : {
+            "state" : "translated",
+            "value" : "Este botón del ratón es el activador de System Hyper. Cambia primero System Hyper o elige otro botón."
+          }
+        },
+        "fi" : {
+          "stringUnit" : {
+            "state" : "translated",
+            "value" : "Tämä hiiren painike on System Hyperin laukaisin. Vaihda ensin System Hyper tai valitse toinen painike."
+          }
+        },
+        "fr" : {
+          "stringUnit" : {
+            "state" : "translated",
+            "value" : "Ce bouton de souris est le déclencheur de System Hyper. Modifiez d’abord System Hyper ou choisissez un autre bouton."
+          }
+        },
+        "he" : {
+          "stringUnit" : {
+            "state" : "translated",
+            "value" : "כפתור העכבר הזה הוא המפעיל של System Hyper. שנו קודם את System Hyper או בחרו כפתור אחר."
+          }
+        },
+        "hi" : {
+          "stringUnit" : {
+            "state" : "translated",
+            "value" : "यह माउस बटन सिस्टम हाइपर का ट्रिगर है। पहले सिस्टम हाइपर बदलें या कोई दूसरा बटन चुनें।"
+          }
+        },
+        "it" : {
+          "stringUnit" : {
+            "state" : "translated",
+            "value" : "Questo pulsante del mouse è l’attivatore di System Hyper. Modifica prima System Hyper o scegli un altro pulsante."
+          }
+        },
+        "ja" : {
+          "stringUnit" : {
+            "state" : "translated",
+            "value" : "このマウスボタンは System Hyper のトリガーです。先に System Hyper を変更するか、別のボタンを選択してください。"
+          }
+        },
+        "ko" : {
+          "stringUnit" : {
+            "state" : "translated",
+            "value" : "이 마우스 버튼은 System Hyper 트리거입니다. 먼저 System Hyper를 변경하거나 다른 버튼을 선택하세요."
+          }
+        },
+        "nb" : {
+          "stringUnit" : {
+            "state" : "translated",
+            "value" : "Denne museknappen er utløseren for System Hyper. Endre System Hyper først, eller velg en annen knapp."
+          }
+        },
+        "nl" : {
+          "stringUnit" : {
+            "state" : "translated",
+            "value" : "Deze muisknop is de trigger voor System Hyper. Wijzig eerst System Hyper of kies een andere knop."
+          }
+        },
+        "pl" : {
+          "stringUnit" : {
+            "state" : "translated",
+            "value" : "Ten przycisk myszy jest wyzwalaczem System Hyper. Najpierw zmień System Hyper lub wybierz inny przycisk."
+          }
+        },
+        "ru" : {
+          "stringUnit" : {
+            "state" : "translated",
+            "value" : "Эта кнопка мыши — триггер System Hyper. Сначала измените System Hyper или выберите другую кнопку."
+          }
+        },
+        "sr-Latn" : {
+          "stringUnit" : {
+            "state" : "translated",
+            "value" : "Ovo dugme miša je okidač za System Hyper. Prvo promenite System Hyper ili izaberite drugo dugme."
+          }
+        },
+        "sv" : {
+          "stringUnit" : {
+            "state" : "translated",
+            "value" : "Den här musknappen är utlösaren för System Hyper. Ändra System Hyper först eller välj en annan knapp."
+          }
+        },
+        "uk" : {
+          "stringUnit" : {
+            "state" : "translated",
+            "value" : "Ця кнопка миші — тригер System Hyper. Спершу змініть System Hyper або виберіть іншу кнопку."
+          }
+        },
+        "zh-Hans" : {
+          "stringUnit" : {
+            "state" : "translated",
+            "value" : "此鼠标按钮是 System Hyper 的触发器。请先更改 System Hyper 或选择其他按钮。"
+          }
+        }
+      }
+    },
+    "This mouse button toggles Overview. Unassign it in Overview settings first or choose another button." : {
+      "localizations" : {
+        "ar" : {
+          "stringUnit" : {
+            "state" : "translated",
+            "value" : "زر الماوس هذا يفتح «نظرة عامة» ويغلقها. ألغِ تعيينه في إعدادات «نظرة عامة» أولًا أو اختر زرًا آخر."
+          }
+        },
+        "da" : {
+          "stringUnit" : {
+            "state" : "translated",
+            "value" : "Denne museknap åbner og lukker Oversigt. Fjern tildelingen i indstillingerne for Oversigt først, eller vælg en anden knap."
+          }
+        },
+        "de" : {
+          "stringUnit" : {
+            "state" : "translated",
+            "value" : "Diese Maustaste öffnet und schließt die Übersicht. Entfernen Sie die Zuweisung zuerst in den Übersicht-Einstellungen oder wählen Sie eine andere Taste."
+          }
+        },
+        "el" : {
+          "stringUnit" : {
+            "state" : "translated",
+            "value" : "Αυτό το κουμπί ποντικιού ανοίγει και κλείνει την Επισκόπηση. Καταργήστε πρώτα την αντιστοίχισή του στις ρυθμίσεις της Επισκόπησης ή επιλέξτε άλλο κουμπί."
+          }
+        },
+        "es" : {
+          "stringUnit" : {
+            "state" : "translated",
+            "value" : "Este botón del ratón abre y cierra Vista general. Desasígnalo primero en los ajustes de Vista general o elige otro botón."
+          }
+        },
+        "fi" : {
+          "stringUnit" : {
+            "state" : "translated",
+            "value" : "Tämä hiiren painike avaa ja sulkee Yleiskatsauksen. Poista sen määritys ensin Yleiskatsauksen asetuksista tai valitse toinen painike."
+          }
+        },
+        "fr" : {
+          "stringUnit" : {
+            "state" : "translated",
+            "value" : "Ce bouton de souris ouvre et ferme Overview. Désaffectez-le d’abord dans les réglages d’Overview ou choisissez un autre bouton."
+          }
+        },
+        "he" : {
+          "stringUnit" : {
+            "state" : "translated",
+            "value" : "כפתור העכבר הזה פותח וסוגר את Overview. בטלו קודם את השיוך שלו בהגדרות Overview או בחרו כפתור אחר."
+          }
+        },
+        "hi" : {
+          "stringUnit" : {
+            "state" : "translated",
+            "value" : "यह माउस बटन ओवरव्यू खोलता और बंद करता है। पहले ओवरव्यू सेटिंग्स में इसका असाइनमेंट हटाएँ या कोई दूसरा बटन चुनें।"
+          }
+        },
+        "it" : {
+          "stringUnit" : {
+            "state" : "translated",
+            "value" : "Questo pulsante del mouse apre e chiude Panoramica. Rimuovi prima l’assegnazione nelle impostazioni di Panoramica o scegli un altro pulsante."
+          }
+        },
+        "ja" : {
+          "stringUnit" : {
+            "state" : "translated",
+            "value" : "このマウスボタンはオーバービューを開閉します。先にオーバービュー設定で割り当てを解除するか、別のボタンを選択してください。"
+          }
+        },
+        "ko" : {
+          "stringUnit" : {
+            "state" : "translated",
+            "value" : "이 마우스 버튼은 개요를 열고 닫습니다. 먼저 개요 설정에서 지정을 해제하거나 다른 버튼을 선택하세요."
+          }
+        },
+        "nb" : {
+          "stringUnit" : {
+            "state" : "translated",
+            "value" : "Denne museknappen åpner og lukker Oversikt. Fjern tilordningen i innstillingene for Oversikt først, eller velg en annen knapp."
+          }
+        },
+        "nl" : {
+          "stringUnit" : {
+            "state" : "translated",
+            "value" : "Deze muisknop opent en sluit Overview. Maak de toewijzing eerst ongedaan in de instellingen van Overview of kies een andere knop."
+          }
+        },
+        "pl" : {
+          "stringUnit" : {
+            "state" : "translated",
+            "value" : "Ten przycisk myszy otwiera i zamyka Widok ogólny. Najpierw usuń jego przypisanie w ustawieniach Widoku ogólnego lub wybierz inny przycisk."
+          }
+        },
+        "ru" : {
+          "stringUnit" : {
+            "state" : "translated",
+            "value" : "Эта кнопка мыши открывает и закрывает Overview. Сначала снимите назначение в настройках Overview или выберите другую кнопку."
+          }
+        },
+        "sr-Latn" : {
+          "stringUnit" : {
+            "state" : "translated",
+            "value" : "Ovo dugme miša otvara i zatvara Pregled. Prvo uklonite dodelu u podešavanjima Pregleda ili izaberite drugo dugme."
+          }
+        },
+        "sv" : {
+          "stringUnit" : {
+            "state" : "translated",
+            "value" : "Den här musknappen öppnar och stänger översikten. Ta bort tilldelningen i inställningarna för Översikt först eller välj en annan knapp."
+          }
+        },
+        "uk" : {
+          "stringUnit" : {
+            "state" : "translated",
+            "value" : "Ця кнопка миші відкриває й закриває Overview. Спершу скасуйте призначення в налаштуваннях Overview або виберіть іншу кнопку."
+          }
+        },
+        "zh-Hans" : {
+          "stringUnit" : {
+            "state" : "translated",
+            "value" : "此鼠标按钮用于打开和关闭概览。请先在概览设置中取消分配，或选择其他按钮。"
+          }
+        }
+      }
+    },
     "Customize terminal tab and pane shortcuts in ~/.config/ghostty/config.ghostty. Reload with Cmd + Shift + , or relaunch OmniWM." : {},
     "%@×" : {},
     "1× is the default. Higher values make window and workspace transitions faster." : {},
@@ -101368,6 +102360,7 @@
       }
     },
     "Press a key combination. Press Escape to cancel recording." : {
+      "extractionState" : "stale",
       "localizations" : {
         "ja" : {
           "stringUnit" : {
@@ -101492,6 +102485,7 @@
       }
     },
     "Press keys..." : {
+      "extractionState" : "stale",
       "localizations" : {
         "ja" : {
           "stringUnit" : {
@@ -101740,6 +102734,7 @@
       }
     },
     "Press to open or close Overview. Buttons assigned to System Hyper are unavailable." : {
+      "extractionState" : "stale",
       "localizations" : {
         "ja" : {
           "stringUnit" : {
@@ -106949,6 +107944,7 @@
       }
     },
     "Recording. Press a key combination." : {
+      "extractionState" : "stale",
       "localizations" : {
         "ja" : {
           "stringUnit" : {

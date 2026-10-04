@@ -93,6 +93,8 @@ enum HotkeyBindingRegistry {
             return .unassigned
         case let .chord(binding):
             return binding.isUnassigned ? .unassigned : .chord(binding)
+        case .mouseButton:
+            return trigger
         }
     }
 
@@ -103,7 +105,7 @@ enum HotkeyBindingRegistry {
         let encoded = bindings.map { ($0, $0.binding.humanReadableString) }
         KeySymbolMapper.setHyperKeyModifiers(composition)
         return encoded.map { binding, string in
-            guard case .chord = binding.binding,
+            guard !binding.binding.isUnassigned,
                   let trigger = HotkeyTrigger.fromHumanReadable(string)
             else { return binding }
             return HotkeyBinding(id: binding.id, command: binding.command, trigger: trigger)

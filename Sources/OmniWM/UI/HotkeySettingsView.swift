@@ -7,6 +7,7 @@ import SwiftUI
 enum HotkeyCaptureResult {
     case applied
     case conflict(ConflictAlert)
+    case rejected(String)
 }
 
 @MainActor enum HotkeyBindingEditor {
@@ -23,6 +24,11 @@ enum HotkeyCaptureResult {
         for actionId: String,
         settings: SettingsStore
     ) -> HotkeyCaptureResult {
+        do {
+            try settings.validateHotkeyTrigger(newTrigger)
+        } catch {
+            return .rejected(error.localizedDescription)
+        }
         let conflicts = settings.findConflicts(for: newTrigger, excluding: actionId)
         guard conflicts.isEmpty else {
             return .conflict(
@@ -114,6 +120,8 @@ enum HotkeySettingsDisplayModel {
             return unassignedText
         case let .chord(binding):
             return displayString(for: binding)
+        case let .mouseButton(binding):
+            return binding.displayString
         }
     }
 
@@ -127,6 +135,8 @@ enum HotkeySettingsDisplayModel {
             return unassignedText
         case let .chord(binding):
             return humanReadableString(for: binding)
+        case let .mouseButton(binding):
+            return binding.humanReadableString
         }
     }
 
@@ -144,6 +154,7 @@ struct HotkeySettingsView: View {
     @Bindable var controller: WMController
     @State private var recordingTarget: HotkeyRecordingTarget?
     @State private var conflictAlert: ConflictAlert?
+    @State private var captureRejection: String?
     @State private var hyperTriggerError: String?
     @State private var searchText: String = ""
     @State private var confirmsResetToDefaults = false
@@ -153,6 +164,7 @@ struct HotkeySettingsView: View {
 
     var body: some View {
         let groups = HotkeySettingsDisplayModel.search(searchText, bindings: settings.hotkeyBindings)
+        let hotkeyMouseButtons = OverviewInputSettingsValidation.hotkeyMouseButtons(settings.hotkeyBindings)
         HotkeySettingsPage(
             subtitle: String(
                 localized: "Search commands, edit shortcuts, and review registration problems without leaving the settings window."
@@ -167,7 +179,9 @@ struct HotkeySettingsView: View {
                         }
                         ForEach(SystemHyperTrigger.selectableMouseButtons, id: \.self) { button in
                             Text("Mouse Button \(button)").tag(SystemHyperTrigger.mouseButton(button))
-                                .disabled(settings.overview.mouseButton == button)
+                                .disabled(
+                                    settings.overview.mouseButton == button || hotkeyMouseButtons.contains(button)
+                                )
                         }
                     }
                     .labelsHidden()
@@ -242,6 +256,10 @@ struct HotkeySettingsView: View {
                     }
                 }
 
+                SettingsCaption(localized:
+                    "Click a shortcut, then press keys or an extra mouse button. Buttons used by System Hyper or Overview must be unassigned there first."
+                )
+
                 if groups.isEmpty {
                     Text("No matching hotkeys.")
                         .foregroundStyle(.secondary)
@@ -296,6 +314,15 @@ struct HotkeySettingsView: View {
                 }
             )
         }
+        .alert(
+            "Hotkey Conflict",
+            isPresented: Binding(get: { captureRejection != nil }, set: { if !$0 { captureRejection = nil } }),
+            presenting: captureRejection
+        ) { _ in
+            Button("OK", role: .cancel) {}
+        } message: { message in
+            Text(message)
+        }
         .confirmationDialog("Reset all hotkeys?", isPresented: $confirmsResetToDefaults) {
             Button("Reset Hotkeys", role: .destructive) {
                 settings.resetHotkeysToDefaults()
@@ -340,14 +367,14 @@ struct HotkeySettingsView: View {
         }
     }
 
-    private func handleChordCaptured(actionId: String, newBinding: KeyBinding) {
-        guard !newBinding.isUnassigned else {
-            handleTriggerCaptured(actionId: actionId, newTrigger: .unassigned)
+    private func handleChordCaptured(actionId: String, newTrigger: HotkeyTrigger) {
+        guard let chord = newTrigger.chordBinding else {
+            handleTriggerCaptured(actionId: actionId, newTrigger: newTrigger)
             return
         }
         let previousSide = settings.hotkeyBindings
             .first { $0.id == actionId }?.binding.chordBinding?.side ?? .either
-        handleTriggerCaptured(actionId: actionId, newTrigger: .chord(newBinding.settingSide(previousSide)))
+        handleTriggerCaptured(actionId: actionId, newTrigger: .chord(chord.settingSide(previousSide)))
     }
 
     private func handleTriggerCaptured(actionId: String, newTrigger: HotkeyTrigger) {
@@ -357,6 +384,9 @@ struct HotkeySettingsView: View {
             cancelRecording()
         case let .conflict(alert):
             conflictAlert = alert
+            cancelRecording()
+        case let .rejected(message):
+            captureRejection = message
             cancelRecording()
         }
     }

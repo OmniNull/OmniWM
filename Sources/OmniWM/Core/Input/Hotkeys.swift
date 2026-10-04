@@ -9,7 +9,7 @@ import IOKit.hidsystem
 @MainActor
 final class HotkeyCenter {
     var onCommand: ((HotkeyInvocation) -> Void)?
-    var isOverviewMouseButtonCaptured: ((Int64) -> Bool)?
+    var isMouseButtonCaptured: ((Int64) -> Bool)?
 
     private let carbonRegistrations = CarbonHotkeyRegistration()
     private var isRunning = false
@@ -17,10 +17,11 @@ final class HotkeyCenter {
 
     private var configuration = HotkeyRuntimeConfiguration()
     private var sideSpecificDispatch: [CommandHotkeyTapMatcher.Entry] = []
+    private var mouseButtonDispatch: [MouseButtonBinding: HotkeyCommand] = [:]
     private var suppressedHotkeyKeyCodes: Set<UInt32> = []
     var hyperTriggerTap: CFMachPort?
     var hyperTriggerRunLoopSource: CFRunLoopSource?
-    private var hyperTrigger = HyperTriggerStateMachine(trigger: .none, capsLockRemapped: false)
+    var hyperTrigger = HyperTriggerStateMachine(trigger: .none, capsLockRemapped: false)
     private let capsLockHyperRemapper = CapsLockHyperRemapper()
     private var capsLockToggler = CapsLockToggler()
     private var capsLockHyperRemapActive = false
@@ -153,6 +154,7 @@ final class HotkeyCenter {
 
         guard !commandHotkeysSuspended else {
             sideSpecificDispatch = []
+            mouseButtonDispatch = [:]
             reconcileEventTap()
             DiagnosticsEventRecorder.shared.recordLifecycle(name: "hotkeys.suspended")
             return
@@ -163,6 +165,7 @@ final class HotkeyCenter {
         sideSpecificDispatch = plan.sideSpecificRegistrations.map {
             CommandHotkeyTapMatcher.Entry(binding: $0.binding, command: $0.command)
         }
+        mouseButtonDispatch = plan.mouseButtonRegistrations
         reconcileEventTap()
         if !sideSpecificDispatch.isEmpty, hyperTriggerTap == nil {
             for entry in sideSpecificDispatch {
@@ -172,7 +175,8 @@ final class HotkeyCenter {
         }
         DiagnosticsEventRecorder.shared.recordLifecycle(
             name: "hotkeys.registered registered=\(carbonRegistrations.count) "
-                + "failures=\(registrationFailures.count) sided=\(sideSpecificDispatch.count)"
+                + "failures=\(registrationFailures.count) sided=\(sideSpecificDispatch.count) "
+                + "mouse=\(mouseButtonDispatch.count)"
         )
     }
 
@@ -319,7 +323,7 @@ extension HotkeyCenter {
 
     private func handleHyperTriggerMouseEvent(type: CGEventType, event: CGEvent) -> Unmanaged<CGEvent>? {
         let button = event.getIntegerValueField(.mouseEventButtonNumber)
-        if isOverviewMouseButtonCaptured?(button) == true {
+        if isMouseButtonCaptured?(button) == true {
             return Unmanaged.passUnretained(event)
         }
         switch type {
@@ -358,6 +362,25 @@ extension HotkeyCenter {
     private func recordHyperDecision(_ phase: String, _ decision: HyperTriggerStateMachine.Decision) {
         guard decision != .passThrough else { return }
         InputTrace.record("hyper \(phase) decision=\(Self.decisionLabel(decision))")
+    }
+
+    func dispatchMouseButton(_ button: Int64, flags: CGEventFlags) -> Bool {
+        guard isRunning, !mouseButtonDispatch.isEmpty else { return false }
+        var modifiers = ModifierFlagMask.all.reduce(UInt32(0)) { mask, flag in
+            flags.rawValue & flag.independent != 0 ? mask | flag.carbon : mask
+        }
+        if hyperTrigger.isActive {
+            modifiers |= KeySymbolMapper.hyperModifiers
+        }
+        guard let binding = MouseButtonBinding(button: button, modifiers: modifiers),
+              let command = mouseButtonDispatch[binding]
+        else { return false }
+        if hyperTrigger.isActive {
+            _ = hyperTrigger.handleMouseDown(button)
+        }
+        InputTrace.record("hotkey.mouse cmd=\(command.displayName)")
+        onCommand?(HotkeyInvocation(command: command))
+        return true
     }
 
     private func dispatchSideSpecificHotkey(keyCode: UInt32, event: CGEvent) -> Bool {

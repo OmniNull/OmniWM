@@ -190,7 +190,7 @@ extension MouseEventHandler {
             guard let handler = MouseEventHandler._instance else { return false }
             if handler.isCapturingPerformance { handler.recordCGEvent(type) }
             if let buttonNumber {
-                return handler.receiveTapOverviewMouseButton(type: type, button: buttonNumber)
+                return handler.receiveTapOtherMouseButton(type: type, button: buttonNumber, modifiers: modifiers)
             }
             return handler.dispatchTapEvent(
                 type: type, location: screenLocation, modifiers: modifiers,

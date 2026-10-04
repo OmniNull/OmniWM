@@ -10,17 +10,16 @@ extension HotkeyCenter {
     nonisolated static func bindingFacts(for bindings: [HotkeyBinding]) -> [HotkeyBindingFact] {
         let failures = registrationPlan(for: bindings).failures
         return bindings.compactMap { binding in
-            guard case let .chord(chord) = binding.binding, !chord.isUnassigned else { return nil }
-            let route: String
-            if let reason = failures[binding.command] {
-                route = "unregistered(\(reason))"
-            } else if chord.sidedModifiers.isEmpty {
-                route = "carbon"
-            } else {
-                route = "sided"
-            }
-            return HotkeyBindingFact(command: binding.command.displayName, display: chord.displayString, route: route)
+            let trigger = binding.binding
+            guard !trigger.isUnassigned else { return nil }
+            let route = failures[binding.command].map { "unregistered(\($0))" } ?? registeredRoute(for: trigger)
+            return HotkeyBindingFact(command: binding.command.displayName, display: trigger.displayString, route: route)
         }
+    }
+
+    private nonisolated static func registeredRoute(for trigger: HotkeyTrigger) -> String {
+        if trigger.mouseButtonBinding != nil { return "mouse" }
+        return trigger.chordBinding?.sidedModifiers.isEmpty == false ? "sided" : "carbon"
     }
 
     static func decisionLabel(_ decision: HyperTriggerStateMachine.Decision) -> String {
@@ -42,11 +41,7 @@ extension HotkeyCenter {
     }
 
     nonisolated static func registrationPlan(for bindings: [HotkeyBinding]) -> HotkeyRegistrationPlan {
-        var candidates: [(command: HotkeyCommand, binding: KeyBinding)] = []
-        for binding in bindings {
-            guard case let .chord(keyBinding) = binding.binding, !keyBinding.isUnassigned else { continue }
-            candidates.append((binding.command, keyBinding))
-        }
+        let candidates = bindings.filter { !$0.binding.isUnassigned }
 
         var failures: [HotkeyCommand: HotkeyRegistrationFailureReason] = [:]
         for index in candidates.indices {
@@ -58,17 +53,29 @@ extension HotkeyCenter {
             }
         }
 
-        let registrable = candidates.filter { failures[$0.command] == nil }
-        let registrations = registrable
-            .filter { $0.binding.sidedModifiers.isEmpty }
-            .map { HotkeyPlannedRegistration(binding: $0.binding, command: $0.command) }
-        let sideSpecific = registrable
-            .filter { !$0.binding.sidedModifiers.isEmpty }
-            .map { HotkeyPlannedRegistration(binding: $0.binding, command: $0.command) }
+        var registrations: [HotkeyPlannedRegistration] = []
+        var sideSpecific: [HotkeyPlannedRegistration] = []
+        var mouseButtons: [MouseButtonBinding: HotkeyCommand] = [:]
+        for candidate in candidates where failures[candidate.command] == nil {
+            switch candidate.binding {
+            case let .chord(binding):
+                let registration = HotkeyPlannedRegistration(binding: binding, command: candidate.command)
+                if binding.sidedModifiers.isEmpty {
+                    registrations.append(registration)
+                } else {
+                    sideSpecific.append(registration)
+                }
+            case let .mouseButton(binding):
+                mouseButtons[binding] = candidate.command
+            case .unassigned:
+                break
+            }
+        }
 
         return HotkeyRegistrationPlan(
             registrations: registrations,
             sideSpecificRegistrations: sideSpecific,
+            mouseButtonRegistrations: mouseButtons,
             failures: failures
         )
     }

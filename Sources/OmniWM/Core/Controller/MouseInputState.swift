@@ -75,7 +75,7 @@ struct MouseInputState {
     }
 
     var capturedInteractionButton: MouseEventHandler.MouseButton?
-    var capturedOverviewButton: Int64?
+    var capturedOtherMouseButton: Int64?
     var resizeLayout: LayoutType?
     var moveLayout: LayoutType?
     var awaitsNativeTitleBarDragTarget = false

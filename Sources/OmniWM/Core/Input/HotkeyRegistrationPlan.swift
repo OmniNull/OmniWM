@@ -25,15 +25,18 @@ enum SystemHyperTriggerFailure: Equatable {
 struct HotkeyRegistrationPlan: Equatable {
     let registrations: [HotkeyPlannedRegistration]
     let sideSpecificRegistrations: [HotkeyPlannedRegistration]
+    let mouseButtonRegistrations: [MouseButtonBinding: HotkeyCommand]
     var failures: [HotkeyCommand: HotkeyRegistrationFailureReason]
 
     init(
         registrations: [HotkeyPlannedRegistration],
         sideSpecificRegistrations: [HotkeyPlannedRegistration] = [],
+        mouseButtonRegistrations: [MouseButtonBinding: HotkeyCommand] = [:],
         failures: [HotkeyCommand: HotkeyRegistrationFailureReason]
     ) {
         self.registrations = registrations
         self.sideSpecificRegistrations = sideSpecificRegistrations
+        self.mouseButtonRegistrations = mouseButtonRegistrations
         self.failures = failures
     }
 }
