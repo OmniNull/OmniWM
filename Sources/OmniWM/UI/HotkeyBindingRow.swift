@@ -149,7 +149,7 @@ private struct HotkeyBindingControl: View {
                         onStartChordRecording()
                     } label: {
                         Text(displayString)
-                            .font(.system(.body, design: .monospaced))
+                            .font(.body)
                             .lineLimit(1)
                             .frame(minWidth: 112, alignment: .center)
                     }
