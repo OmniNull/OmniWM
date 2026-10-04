@@ -22,8 +22,8 @@ final class IPCProtocolEnvelopeTests: XCTestCase {
         """.utf8)
     }
 
-    func testCurrentProtocolVersionIsSeventeen() {
-        XCTAssertEqual(OmniWMIPCProtocol.version, 17)
+    func testCurrentProtocolVersionIsEighteen() {
+        XCTAssertEqual(OmniWMIPCProtocol.version, 18)
     }
 
     func testScratchpadCommandDecodesLiteralScratchpadIndexField() throws {
@@ -200,7 +200,7 @@ final class IPCProtocolEnvelopeTests: XCTestCase {
         withExtendedLifetime(controller) {}
     }
 
-    func testV16ConnectionRejectsWindowQueriesButAllowsVersionRequests() async throws {
+    func testV17ConnectionRejectsWindowQueriesButAllowsVersionRequests() async throws {
         var sockets = [Int32](repeating: -1, count: 2)
         guard socketpair(AF_UNIX, SOCK_STREAM, 0, &sockets) == 0 else {
             throw ConnectionTestError.socketPairFailed
@@ -213,7 +213,7 @@ final class IPCProtocolEnvelopeTests: XCTestCase {
 
         for kind in ["query", "version"] {
             let request = requestLine(
-                version: 16, kind: kind, payload: kind == "query" ? #"{"name":"windows"}"# : "{}"
+                version: 17, kind: kind, payload: kind == "query" ? #"{"name":"windows"}"# : "{}"
             )
             await connection.process(String(decoding: request, as: UTF8.self))
             let responseData = try Self.readResponseLine(from: clientHandle.fileDescriptor)
@@ -223,7 +223,7 @@ final class IPCProtocolEnvelopeTests: XCTestCase {
             XCTAssertEqual(response.kind, kind == "query" ? .query : .version)
             XCTAssertEqual(response.ok, kind == "version")
             XCTAssertEqual(response.code, kind == "query" ? .protocolMismatch : nil)
-            XCTAssertEqual(protocolVersion(in: response), 17)
+            XCTAssertEqual(protocolVersion(in: response), 18)
         }
 
         await connection.stop()
@@ -268,7 +268,7 @@ final class IPCProtocolEnvelopeTests: XCTestCase {
 
     func testVersionResultCarriesTheBuildFingerprintOnTheWire() throws {
         let result = IPCVersionResult(
-            protocolVersion: 17,
+            protocolVersion: 18,
             appVersion: "0.6.5",
             gitHash: "5a82c1f5",
             buildConfiguration: "release",

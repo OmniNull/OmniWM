@@ -31,8 +31,12 @@ struct IPCWindowQueryProjection {
     }
 
     func result() -> IPCWindowsQueryResult {
+        let includesColumnIndex = IPCQuerySelection.include("column-index", in: fields)
         let windows = IPCQuerySelection.orderedWorkspaces(controller: controller).flatMap { workspace in
             let topology = controller.workspaceManager.layoutTopology(for: workspace.id)
+            let columnIndexByToken = includesColumnIndex
+                ? controller.niriLayoutHandler.columnSummary(for: workspace.id)?.columnIndexByToken
+                : nil
             return WorkspaceEntryOrdering.orderedEntries(
                 controller.workspaceManager.entries(in: workspace.id),
                 topology: topology
@@ -41,25 +45,29 @@ struct IPCWindowQueryProjection {
                 matchesWindowQuery(entry)
             }
             .map { entry in
-                windowSnapshot(from: entry, isFullscreen: topology.isFullscreen(entry.token))
+                windowSnapshot(
+                    from: entry,
+                    isFullscreen: topology.isFullscreen(entry.token),
+                    columnIndex: columnIndexByToken?[entry.token]
+                )
             }
         }
 
         return IPCWindowsQueryResult(windows: windows)
     }
 
-    private func windowSnapshot(from entry: WindowState, isFullscreen: Bool) -> IPCWindowQuerySnapshot {
+    private func windowSnapshot(
+        from entry: WindowState,
+        isFullscreen: Bool,
+        columnIndex: Int?
+    ) -> IPCWindowQuerySnapshot {
         let workspaceDescriptor = controller.workspaceManager.descriptor(for: entry.workspaceId)
         let monitor = controller.workspaceManager.monitor(for: entry.workspaceId)
         let appInfo = controller.appInfoCache.info(for: entry.pid)
         let hiddenState = controller.workspaceManager.hiddenState(for: entry.token)
         let isAppHidden = controller.workspaceManager.isAppHidden(pid: entry.pid)
         let scratchpadIndex = controller.workspaceManager.scratchpadIndex(for: entry.token)
-        let isVisible = isWindowVisible(
-            entry,
-            hiddenState: hiddenState,
-            isAppHidden: isAppHidden
-        )
+        let isVisible = isWindowVisible(entry, hiddenState: hiddenState, isAppHidden: isAppHidden)
 
         return IPCWindowQuerySnapshot(
             id: IPCQuerySelection.include("id", in: fields) ? IPCWindowOpaqueID.encode(
@@ -98,7 +106,8 @@ struct IPCWindowQueryProjection {
                     isInactiveTabMember: hiddenState.offscreenSide != nil
                         && controller.workspaceManager.isInactiveTabMember(entry.token, in: entry.workspaceId)
                 )
-            } : nil
+            } : nil,
+            columnIndex: columnIndex
         )
     }
 

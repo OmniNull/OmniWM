@@ -1287,6 +1287,32 @@ final class TrackpadWorkspaceGestureTests: XCTestCase {
         XCTAssertNotEqual(snapOffset, momentumOffset)
     }
 
+    func testColumnViewportHoldsDuringDragAndSwitchesToLandingOnRelease() throws {
+        let fixture = try makeFixture(workspaceSwipeEnabled: false, scrollGestureEnabled: true)
+        fixture.controller.settings.gestures.trackpadScrollStyle = .snap
+        try addColumnGestureWindows(to: fixture)
+        let engine = try XCTUnwrap(fixture.controller.niriEngine)
+        for (column, width) in zip(engine.columns(in: fixture.ws1), [400, 1_000, 1_000] as [CGFloat]) {
+            column.cachedWidth = width
+        }
+        let manager = fixture.controller.workspaceManager
+        let driver = manager.animationDriver
+        let handler = fixture.controller.niriLayoutHandler
+        let semanticOffset = manager.niriViewportState(for: fixture.ws1).viewOffset
+        XCTAssertEqual(handler.columnSummary(for: fixture.ws1)?.viewport, [.intersecting, .intersecting, .intersecting])
+
+        var time = beginCommittedColumnGesture(fixture)
+
+        XCTAssertNotEqual(driver.liveViewOffset(in: fixture.ws1, semanticOffset: semanticOffset), semanticOffset)
+        XCTAssertEqual(handler.columnSummary(for: fixture.ws1)?.viewport, [.intersecting, .intersecting, .intersecting])
+
+        time += 0.01
+        sendFrame(fixture, phase: .ended, fingers: 0, x: 0, y: 0, at: time)
+
+        XCTAssertTrue(driver.hasMotion(in: fixture.ws1))
+        XCTAssertEqual(handler.columnSummary(for: fixture.ws1)?.viewport, [.before, .intersecting, .intersecting])
+    }
+
     func testCancelledColumnGestureDoesNotFocusLandingWindow() throws {
         var focusedWindowIds: [UInt32] = []
         let fixture = try makeFixture(

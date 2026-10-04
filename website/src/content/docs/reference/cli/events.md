@@ -26,9 +26,9 @@ core window relayout is not consumer-gated.
 | `workspace-bar` | workspace-bar | Workspace bar projection updates; each app pill carries `id`, `appName`, `bundleId` (omitted when unknown), `isFocused`, `windowCount`, and `allWindows` |
 | `active-workspace` | active-workspace | Interaction monitor and active workspace updates |
 | `focused-monitor` | focused-monitor | Focused monitor updates |
-| `windows-changed` | windows | Managed window inventory updates |
+| `windows-changed` | windows | Managed window inventory updates, including Niri column renumbering |
 | `display-changed` | displays | Full display snapshot after any adopted display add, remove, or reconfigure, after a gap-setting change, or when the interaction monitor changes; identical consecutive snapshots are not repeated |
-| `layout-changed` | workspaces | Workspace layout updates |
+| `layout-changed` | workspaces | Workspace layout updates, including Niri column viewport changes |
 
 ## subscribe
 

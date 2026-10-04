@@ -134,6 +134,15 @@ struct WorldView {
         return bars
     }
 
+    func niriColumnSummaries() -> [WorkspaceDescriptor.ID: NiriColumnSummary] {
+        guard controller.hasWindowOrLayoutEventSubscribers else { return [:] }
+        var summaries: [WorkspaceDescriptor.ID: NiriColumnSummary] = [:]
+        for workspace in controller.workspaceManager.workspaces {
+            summaries[workspace.id] = controller.niriLayoutHandler.columnSummary(for: workspace.id)
+        }
+        return summaries
+    }
+
     func nativeFullscreenPlaceholders() -> [NativeFullscreenPlaceholderUpdate] {
         let workspaceManager = controller.workspaceManager
         var updates: [NativeFullscreenPlaceholderUpdate] = []

@@ -11,7 +11,7 @@ sidebar:
 
 ```json
 {
-  "version": 17,
+  "version": 18,
   "id": "<uuid>",
   "kind": "<ping|version|command|capture|query|rule|workspace|window|window-mark|subscribe>",
   "authorizationToken": "<token>",
@@ -166,7 +166,7 @@ Workspace requests use this flat wire shape. For `move-to-monitor`, `force` is o
 
 ```json
 {
-  "version": 17,
+  "version": 18,
   "id": "<request-id>",
   "ok": true,
   "kind": "<ping|version|command|capture|query|rule|workspace|window|window-mark|subscribe>",
@@ -186,7 +186,7 @@ Authorization, protocol, validation, and routing failures keep the originating r
 
 ```json
 {
-  "version": 17,
+  "version": 18,
   "id": "<request-id>",
   "ok": false,
   "kind": "query",
@@ -203,7 +203,7 @@ Events are sent on subscription connections after the initial response.
 
 ```json
 {
-  "version": 17,
+  "version": 18,
   "id": "<event-id>",
   "kind": "event",
   "channel": "focus",

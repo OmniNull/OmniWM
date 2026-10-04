@@ -168,6 +168,56 @@ final class CLIRendererOutputTests: XCTestCase {
         XCTAssertFalse(omittedText.contains("WINDOW ID"))
     }
 
+    func testNiriColumnColumnsAreAppendedOnlyWhenPresent() throws {
+        let windows = IPCResponse.success(
+            id: "1",
+            kind: .query,
+            result: IPCResult(windows: IPCWindowsQueryResult(windows: [
+                IPCWindowQuerySnapshot(id: "ow_a", columnIndex: 2),
+                IPCWindowQuerySnapshot(id: "ow_b")
+            ]))
+        )
+        let windowLines = try String(decoding: CLIRenderer.responseOutput(windows, format: .tsv).data, as: UTF8.self)
+            .split(separator: "\n")
+        let windowHeaders = try XCTUnwrap(windowLines.first).split(separator: "\t", omittingEmptySubsequences: false)
+        let windowColumn = try XCTUnwrap(windowHeaders.firstIndex(of: "COLUMN"))
+        XCTAssertEqual(windowLines[1].split(separator: "\t", omittingEmptySubsequences: false)[windowColumn], "2")
+        XCTAssertEqual(windowLines[2].split(separator: "\t", omittingEmptySubsequences: false)[windowColumn], "-")
+
+        let workspaces = IPCResponse.success(
+            id: "2",
+            kind: .query,
+            result: IPCResult(workspaces: IPCWorkspacesQueryResult(workspaces: [
+                IPCWorkspaceQuerySnapshot(id: "niri", columns: [
+                    IPCWorkspaceColumn(index: 1, viewport: .before),
+                    IPCWorkspaceColumn(index: 2, viewport: .intersecting),
+                    IPCWorkspaceColumn(index: 3, viewport: .before)
+                ]),
+                IPCWorkspaceQuerySnapshot(id: "dwindle")
+            ]))
+        )
+        let workspaceLines = try String(
+            decoding: CLIRenderer.responseOutput(workspaces, format: .tsv).data,
+            as: UTF8.self
+        ).split(separator: "\n")
+        let workspaceHeaders = try XCTUnwrap(workspaceLines.first)
+            .split(separator: "\t", omittingEmptySubsequences: false)
+        let workspaceColumn = try XCTUnwrap(workspaceHeaders.firstIndex(of: "COLUMNS"))
+        XCTAssertEqual(
+            workspaceLines[1].split(separator: "\t", omittingEmptySubsequences: false)[workspaceColumn],
+            "before=2, intersecting=1, after=0"
+        )
+        XCTAssertEqual(workspaceLines[2].split(separator: "\t", omittingEmptySubsequences: false)[workspaceColumn], "-")
+
+        let omitted = IPCResponse.success(
+            id: "3",
+            kind: .query,
+            result: IPCResult(workspaces: IPCWorkspacesQueryResult(workspaces: [IPCWorkspaceQuerySnapshot(id: "niri")]))
+        )
+        XCTAssertFalse(try String(decoding: CLIRenderer.responseOutput(omitted, format: .tsv).data, as: UTF8.self)
+            .contains("COLUMNS"))
+    }
+
     func testDisplayFullscreenGapsColumnUsesTrueFalseAndIsOmittedWhenUnrequested() throws {
         let response = IPCResponse.success(
             id: "1",

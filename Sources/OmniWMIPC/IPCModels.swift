@@ -4,7 +4,7 @@
 import Foundation
 
 public enum OmniWMIPCProtocol {
-    public static let version = 17
+    public static let version = 18
 }
 
 public struct IPCNoPayload: Codable, Equatable, Sendable {
@@ -125,6 +125,12 @@ public enum IPCHiddenReason: String, Codable, Equatable, Sendable {
     case tabInactive = "tab-inactive"
     case layoutTransient = "layout-transient"
     case scratchpad
+}
+
+public enum IPCColumnViewport: String, Codable, CaseIterable, Equatable, Sendable {
+    case before
+    case intersecting
+    case after
 }
 
 public enum IPCLayoutReason: String, Codable, Equatable, Sendable {

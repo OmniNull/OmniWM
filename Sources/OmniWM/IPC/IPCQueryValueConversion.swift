@@ -101,6 +101,19 @@ extension IPCHiddenReason {
     }
 }
 
+extension IPCColumnViewport {
+    init(relation: NiriColumnViewportRelation) {
+        switch relation {
+        case .before:
+            self = .before
+        case .intersecting:
+            self = .intersecting
+        case .after:
+            self = .after
+        }
+    }
+}
+
 extension IPCWorkspaceLayout {
     init(layout: LayoutType) {
         switch layout {

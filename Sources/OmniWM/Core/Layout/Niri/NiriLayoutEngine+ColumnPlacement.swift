@@ -77,10 +77,20 @@ extension NiriLayoutEngine {
         let area = context.area.workingFrame
         switch context.orientation {
         case .horizontal:
-            return area.insetBy(dx: ((area.width - activeSpan) / 2).clamped(to: 0 ... context.primaryGap), dy: 0)
+            return area.insetBy(
+                dx: settledContentInset(viewportSpan: area.width, activeSpan: activeSpan, gap: context.primaryGap),
+                dy: 0
+            )
         case .vertical:
-            return area.insetBy(dx: 0, dy: ((area.height - activeSpan) / 2).clamped(to: 0 ... context.primaryGap))
+            return area.insetBy(
+                dx: 0,
+                dy: settledContentInset(viewportSpan: area.height, activeSpan: activeSpan, gap: context.primaryGap)
+            )
         }
+    }
+
+    func settledContentInset(viewportSpan: CGFloat, activeSpan: CGFloat, gap: CGFloat) -> CGFloat {
+        ((viewportSpan - activeSpan) / 2).clamped(to: 0 ... gap)
     }
 
     func layoutProjectedColumn(

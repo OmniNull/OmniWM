@@ -76,7 +76,12 @@ struct IPCWorkspaceQueryProjection {
             isCurrent: IPCQuerySelection
                 .include("is-current", in: fields) ? (currentWorkspaceId == descriptor.id) : nil,
             counts: IPCQuerySelection.include("window-counts", in: fields) ? counts : nil,
-            focusedWindowId: IPCQuerySelection.include("focused-window-id", in: fields) ? focusedWindowId : nil
+            focusedWindowId: IPCQuerySelection.include("focused-window-id", in: fields) ? focusedWindowId : nil,
+            columns: IPCQuerySelection.include("columns", in: fields)
+                ? controller.niriLayoutHandler.columnSummary(for: descriptor.id)?.viewport?.enumerated().map {
+                    IPCWorkspaceColumn(index: $0.offset + 1, viewport: IPCColumnViewport(relation: $0.element))
+                }
+                : nil
         )
     }
 

@@ -14,12 +14,16 @@ extension WMController {
         statusBarController != nil && settings.statusBar.showWorkspaceName
     }
 
+    var hasWindowOrLayoutEventSubscribers: Bool {
+        ipcApplicationBridge?.hasSubscribers(for: .windowsChanged) == true
+            || ipcApplicationBridge?.hasSubscribers(for: .layoutChanged) == true
+    }
+
     var hasWorkspaceBarDataConsumers: Bool {
         workspaceBarRefreshIsEnabled
             || statusBarRefreshIsEnabled
             || ipcApplicationBridge?.hasSubscribers(for: .workspaceBar) == true
-            || ipcApplicationBridge?.hasSubscribers(for: .windowsChanged) == true
-            || ipcApplicationBridge?.hasSubscribers(for: .layoutChanged) == true
+            || hasWindowOrLayoutEventSubscribers
     }
 
     func setWorkspaceBarEnabled(_ enabled: Bool) {
@@ -169,17 +173,35 @@ extension WMController {
         return toggleScratchpad(index, on: monitorId, focusOrigin: .pointerSelection)
     }
 
-    func publishWorkspaceDataChanged() {
-        if statusBarRefreshIsEnabled {
+    func publishWorkspaceDataChanges(from previous: DesiredSurfaceScene, to desired: DesiredSurfaceScene) {
+        if desired.bars != previous.bars, statusBarRefreshIsEnabled {
             refreshStatusBar()
         }
-        if let ipcApplicationBridge {
-            Task {
-                await ipcApplicationBridge.publishEvent(.workspaceBar)
-                await ipcApplicationBridge.publishEvent(.windowsChanged)
-                await ipcApplicationBridge.publishEvent(.layoutChanged)
+        let channels = Self.workspaceDataChannels(from: previous, to: desired)
+        guard !channels.isEmpty, let ipcApplicationBridge else { return }
+        Task {
+            for channel in channels {
+                await ipcApplicationBridge.publishEvent(channel)
             }
         }
+    }
+
+    static func workspaceDataChannels(
+        from previous: DesiredSurfaceScene,
+        to desired: DesiredSurfaceScene
+    ) -> [IPCSubscriptionChannel] {
+        if desired.bars != previous.bars {
+            return [.workspaceBar, .windowsChanged, .layoutChanged]
+        }
+        guard desired.niriColumns != previous.niriColumns else { return [] }
+        var channels: [IPCSubscriptionChannel] = []
+        if desired.niriColumns.mapValues(\.columnIndexByToken) != previous.niriColumns.mapValues(\.columnIndexByToken) {
+            channels.append(.windowsChanged)
+        }
+        if desired.niriColumns.mapValues(\.viewport) != previous.niriColumns.mapValues(\.viewport) {
+            channels.append(.layoutChanged)
+        }
+        return channels
     }
 
     func isWorkspaceBarVisible(on monitor: Monitor, resolved: ResolvedBarSettings? = nil) -> Bool {

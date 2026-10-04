@@ -22,7 +22,8 @@ extension IPCAutomationManifest {
         "is-app-hidden",
         "is-scratchpad",
         "scratchpad-index",
-        "hidden-reason"
+        "hidden-reason",
+        "column-index"
     ]
 
     public static let workspaceFieldCatalog: [String] = [
@@ -36,7 +37,8 @@ extension IPCAutomationManifest {
         "is-visible",
         "is-current",
         "window-counts",
-        "focused-window-id"
+        "focused-window-id",
+        "columns"
     ]
 
     public static let displayFieldCatalog: [String] = [

@@ -42,6 +42,7 @@ struct DesiredSurfaceScene: Equatable {
     var placeholders: [NativeFullscreenPlaceholderUpdate] = []
     var bars: [DesiredBarSurface] = []
     var parkingEdgeMasks: [DesiredParkingEdgeMask] = []
+    var niriColumns: [WorkspaceDescriptor.ID: NiriColumnSummary] = [:]
 
     static let empty = DesiredSurfaceScene()
 }
