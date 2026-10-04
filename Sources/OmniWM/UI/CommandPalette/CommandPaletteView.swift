@@ -399,7 +399,7 @@ struct CommandPaletteShortcutBadge: View {
 
     var body: some View {
         Text(text)
-            .font(.system(size: 10, weight: .semibold, design: .monospaced))
+            .font(.system(size: 10, weight: .semibold))
             .foregroundColor(foregroundColor)
             .padding(.horizontal, 6)
             .padding(.vertical, 2)
