@@ -26,12 +26,15 @@ final class WorkspaceBarManager {
     var renamePanel: WorkspaceBarRenamePanel?
     let dragController = WorkspaceBarDragController()
     var hoverPreview: WorkspaceBarHoverPreviewController?
+    let notificationBadges: WorkspaceBarBadgeService
+    var notificationBadgeTargetsByMonitor: [Monitor.ID: Set<String>] = [:]
     private let motionPolicy: MotionPolicy
     private let surfaceCoordinator = SurfaceCoordinator.shared
     private var hiddenBarJoin: HiddenBarPanelPlacement.Join?
 
-    init(motionPolicy: MotionPolicy) {
+    init(motionPolicy: MotionPolicy, notificationBadges: WorkspaceBarBadgeService = WorkspaceBarBadgeService()) {
         self.motionPolicy = motionPolicy
+        self.notificationBadges = notificationBadges
     }
 
     func setup(controller: WMController, settings: SettingsStore) {
@@ -63,6 +66,7 @@ final class WorkspaceBarManager {
         for monitorId in staleMonitorIds {
             removeBarForMonitor(monitorId)
         }
+        updateNotificationBadgeTargets(bars)
         dragController.barsDidUpdate()
         hoverPreview?.targetsDidChange { [weak self] key in
             self?.hoverTarget(for: key)
@@ -198,7 +202,8 @@ final class WorkspaceBarManager {
                 self?.barsByMonitor[monitorId]?.statsAnchorView = anchor
             },
             interaction: interaction,
-            dragPresentation: dragController.presentation
+            dragPresentation: dragController.presentation,
+            notificationBadges: notificationBadges
         )
     }
 
@@ -216,6 +221,8 @@ final class WorkspaceBarManager {
     }
 
     func cleanup() {
+        notificationBadges.stop()
+        notificationBadgeTargetsByMonitor.removeAll()
         hoverPreview?.dismiss()
         dragController.cancel()
         menuPresenter.cancel()

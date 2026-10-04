@@ -43,6 +43,10 @@ extension WMController {
         surfaceReconciler.noteWorldChanged()
     }
 
+    func updateWorkspaceBarNotificationBadgeSettings() {
+        workspaceBarManager.syncNotificationBadges()
+    }
+
     func refreshStatusBar() {
         statusBarController?.refreshWorkspaces()
     }
@@ -72,6 +76,7 @@ extension WMController {
     }
 
     func updateWorkspaceBarSettings(forceIconReload: Bool = false) {
+        updateWorkspaceBarNotificationBadgeSettings()
         workspaceBarManager.syncHoverPreview(controller: self, settings: settings)
         synchronizeWorkspaceBarIconOverrides(
             forceReload: forceIconReload

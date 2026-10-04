@@ -7,6 +7,8 @@ extension SettingsExport {
     struct WorkspaceBar: Codable, Equatable {
         var enabled: Bool
         var hoverPreviewsEnabled: Bool
+        var notificationBadges: WorkspaceBarNotificationBadgeMode
+        var notificationBadgeRefreshIntervalSeconds: Double
         var showLabels: Bool
         var showFloatingWindows: Bool
         var windowLevel: WorkspaceBarWindowLevel
@@ -43,6 +45,14 @@ extension SettingsExport.WorkspaceBar {
         enabled = try container.decode(Bool.self, forKey: .enabled)
         hoverPreviewsEnabled = try container.decodeIfPresent(Bool.self, forKey: .hoverPreviewsEnabled)
             ?? defaults.hoverPreviewsEnabled
+        notificationBadges = try container.decodeIfPresent(
+            WorkspaceBarNotificationBadgeMode.self,
+            forKey: .notificationBadges
+        ) ?? defaults.notificationBadges
+        notificationBadgeRefreshIntervalSeconds = try container.decodeIfPresent(
+            Double.self,
+            forKey: .notificationBadgeRefreshIntervalSeconds
+        ) ?? defaults.notificationBadgeRefreshIntervalSeconds
         showLabels = try container.decode(Bool.self, forKey: .showLabels)
         showFloatingWindows = try container.decode(Bool.self, forKey: .showFloatingWindows)
         windowLevel = try container.decode(WorkspaceBarWindowLevel.self, forKey: .windowLevel)
@@ -79,6 +89,8 @@ extension SettingsExport.WorkspaceBar {
         Self(
             enabled: true,
             hoverPreviewsEnabled: true,
+            notificationBadges: .off,
+            notificationBadgeRefreshIntervalSeconds: 5,
             showLabels: true,
             showFloatingWindows: false,
             windowLevel: .popup,

@@ -228,6 +228,8 @@ The per-monitor workspace bar. Per-monitor exceptions live in [`monitorBarOverri
 | --- | --- | --- | --- |
 | `enabled` | boolean | `true` | Shows the workspace bar. When off, all monitors' bars are off, including monitors with `enabled = true` overrides; those preferences return when the global bar is re-enabled. |
 | `hoverPreviewsEnabled` *(optional)* | boolean | `true` | Shows window thumbnail previews when hovering over bar icons. Turning it off releases the preview capture and cache while leaving the bar active. |
+| `notificationBadges` *(optional, unreleased)* | string | `"off"` | App-wide Dock badges on existing icons: `off`, `dot`, or `text`. Global setting; available when building from `main`. |
+| `notificationBadgeRefreshIntervalSeconds` *(optional, unreleased)* | float | `5.0` | Badge refresh interval, rounded to whole seconds and clamped to `1`–`60`. Available when building from `main`. |
 | `showLabels` | boolean | `true` | Shows workspace names next to their numbers. |
 | `showFloatingWindows` | boolean | `false` | Includes floating windows' icons in workspace pills. |
 | `windowLevel` | string | `"popup"` | Bar window level: `normal`, `floating`, `status`, `popup`, `screensaver`. |

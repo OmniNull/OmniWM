@@ -89,6 +89,9 @@ struct ScratchpadPillView: View {
                                 )
                             )
                             .accessibilityHidden(true)
+                            .overlay(alignment: .topLeading) {
+                                WorkspaceBarNotificationBadge(bundleId: window.bundleId, iconSize: iconSize)
+                            }
                     }
 
                     if hiddenAppIconCount > 0 {
@@ -135,10 +138,13 @@ struct ScratchpadPillView: View {
         .accessibilityAction(.showMenu) {
             interaction?.onShowMenu(.scratchpad(item.index))
         }
-        .accessibilityValue(accessibilityValue)
-        .help(item.isVisible
-            ? String(localized: "Scratchpad \(item.name): \(windowSummary), visible")
-            : String(localized: "Scratchpad \(item.name): \(windowSummary), hidden"))
+        .modifier(WorkspaceBarBadgeAccessibility(
+            windows: item.presentation == .expanded ? shownWindows : [],
+            value: accessibilityValue,
+            help: item.isVisible
+                ? String(localized: "Scratchpad \(item.name): \(windowSummary), visible")
+                : String(localized: "Scratchpad \(item.name): \(windowSummary), hidden")
+        ))
     }
 
     private var scale: CGFloat {

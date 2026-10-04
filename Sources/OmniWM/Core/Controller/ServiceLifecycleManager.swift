@@ -111,6 +111,7 @@ final class ServiceLifecycleManager {
             controller.syncMonitorsToNiriEngine()
         }
         controller.hasStartedServices = true
+        controller.updateWorkspaceBarNotificationBadgeSettings()
         controller.reconcileEnabledAndHotkeysState()
         controller.eventIntake.open(sink: controller.eventInterpreter)
         controller.layoutRefreshController.setup()
@@ -298,6 +299,7 @@ final class ServiceLifecycleManager {
             controller.cancelManagedFocusRequestAndRestoreSource(request)
         }
         controller.hasStartedServices = false
+        controller.updateWorkspaceBarNotificationBadgeSettings()
         controller.invalidateOverviewDeferredActionsForServiceStop()
         topologyInventory.cancel()
 

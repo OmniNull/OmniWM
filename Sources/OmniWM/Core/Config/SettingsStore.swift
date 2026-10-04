@@ -283,6 +283,7 @@ final class SettingsStore {
             self?.scheduleSave()
         }
         workspaceBar.onChange = { [weak self] in self?.layoutConfigurationDidChange() }
+        workspaceBar.onNotificationBadgesChange = { [weak self] in self?.scheduleSave() }
         workspaces.onChange = { [weak self] in self?.workspacesDidChange() }
         borders.onChange = { [weak self] in self?.layoutConfigurationDidChange() }
         overview.onChange = { [weak self] in

@@ -18,6 +18,7 @@ struct WorkspaceBarView: View {
     var onSystemStatsAnchorChange: (NSView?) -> Void = { _ in }
     var interaction: WorkspaceBarIslandInteraction?
     var dragPresentation: WorkspaceBarDragPresentation?
+    var notificationBadges: WorkspaceBarBadgeService?
 
     var body: some View {
         if model.snapshot.orientation.isVertical {
@@ -48,6 +49,7 @@ struct WorkspaceBarView: View {
         .environment(\.workspaceBarInteraction, interaction)
         .environment(model)
         .environment(dragPresentation)
+        .environment(notificationBadges)
     }
 }
 

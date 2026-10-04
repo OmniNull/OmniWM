@@ -21,6 +21,22 @@ Window hover previews can be turned off separately. Turning off the global Works
 
 Optionally show a System Stats button that opens a CPU, memory, GPU, disk, and uptime popup. The `Toggle System Stats` hotkey and `omniwmctl command toggle-system-stats` drive the same popup, and both do nothing unless a monitor currently shows that workspace-bar button. See the [CLI reference](/reference/cli/overview/).
 
+## Notification badges
+
+**Unreleased:** available when building from `main`.
+
+In the global Workspace Bar settings, set **Notification Badges** to **Dot** or **Text** to show each app's Dock badge at the upper-left of its existing icons. **Text** shows the Dock's count or symbol, using an ellipsis when it cannot fit. Badges are off by default.
+
+The same app-wide badge appears on every matching icon, including expanded scratchpads. Focusing a window does not clear it. Apps without a Dock badge do not show one, and badges do not add otherwise absent app icons.
+
+**Refresh Interval** controls how often badges update, from 1 to 60 seconds (default 5). Turning off badges or the Workspace Bar stops badge checks.
+
+```toml
+[workspaceBar]
+notificationBadges = "text" # "off", "dot", or "text"
+notificationBadgeRefreshIntervalSeconds = 5
+```
+
 ## Layout and appearance options
 
 Configure position, height, and appearance in Settings:
