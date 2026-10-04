@@ -74,6 +74,9 @@ final class EventInterpreter: EventIntakeSink {
                 generation: generation
             )
 
+        case let .secureInputStateMayHaveChanged(session):
+            handleSecureInputNotification(session: session, controller: controller)
+
         case .systemSleep:
             _ = controller.workspaceManager.recordReconcileEvent(.systemSleep(source: .service))
             controller.mouseEventHandler.suspendMultitouchForSleep()
@@ -100,6 +103,12 @@ final class EventInterpreter: EventIntakeSink {
                 + " pending=\(TraceFormat.token(controller.workspaceManager.pendingFocusedToken))"
                 + " result=\(result)"
         )
+    }
+
+    private func handleSecureInputNotification(session: UInt32, controller: WMController) {
+        guard controller.secureInputMonitor.recordNotification(session: session) else { return }
+        controller.hotkeys.resetTransientInputState()
+        controller.secureInputMonitor.refresh()
     }
 
     private func acceptsCallbackGeneration(_ callbackGeneration: UInt64?, pid: pid_t) -> Bool {

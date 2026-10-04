@@ -236,9 +236,13 @@ final class HotkeyCenter {
         return true
     }
 
-    func stopHyperTriggerTap() {
+    func resetTransientInputState() {
         hyperTrigger.reset()
         suppressedHotkeyKeyCodes.removeAll()
+    }
+
+    func stopHyperTriggerTap() {
+        resetTransientInputState()
         EventTapTeardown.tearDown(
             tap: &hyperTriggerTap,
             runLoopSource: &hyperTriggerRunLoopSource
@@ -254,13 +258,11 @@ extension HotkeyCenter {
             if let tap = hyperTriggerTap {
                 CGEvent.tapEnable(tap: tap, enable: true)
             }
-            hyperTrigger.reset()
-            suppressedHotkeyKeyCodes.removeAll()
+            resetTransientInputState()
             return Unmanaged.passUnretained(event)
         case .tapDisabledByUserInput:
             InputTapHealth.recordTapDisabled(mouse: false, byTimeout: false)
-            hyperTrigger.reset()
-            suppressedHotkeyKeyCodes.removeAll()
+            resetTransientInputState()
             return Unmanaged.passUnretained(event)
         case .keyDown,
              .keyUp:

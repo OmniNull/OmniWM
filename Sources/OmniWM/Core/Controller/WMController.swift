@@ -300,7 +300,6 @@ extension WMController {
         let shouldEnableHotkeys = desiredHotkeysEnabled
             && isEnabled
             && hasStartedServices
-            && !serviceLifecycleManager.isSecureInputActive
         hotkeysEnabled = shouldEnableHotkeys
         if shouldEnableHotkeys {
             hotkeys.start()

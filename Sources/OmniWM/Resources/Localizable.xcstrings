@@ -93532,6 +93532,7 @@
       }
     },
     "OmniWM keyboard shortcuts are disabled while a password field or secure text entry is active." : {
+      "extractionState" : "stale",
       "localizations" : {
         "ja" : {
           "stringUnit" : {
@@ -93651,6 +93652,130 @@
           "stringUnit" : {
             "state" : "translated",
             "value" : "OmniWM 키보드 단축키는 비밀번호 필드 또는 보안 텍스트 입력이 활성화되어 있는 동안 비활성화됩니다."
+          }
+        }
+      }
+    },
+    "macOS Secure Input is on. Until it turns off, some shortcuts may not work: Hyper and left/right-specific shortcuts, and those on letter, number or symbol keys without Control or Command." : {
+      "localizations" : {
+        "ar" : {
+          "stringUnit" : {
+            "state" : "translated",
+            "value" : "الإدخال الآمن في macOS مُفعّل. إلى أن يتم إيقافه، قد لا تعمل بعض الاختصارات: اختصارات Hyper والاختصارات الخاصة بالجانب الأيسر/الأيمن، والاختصارات على مفاتيح الحروف أو الأرقام أو الرموز دون Control أو Command."
+          }
+        },
+        "da" : {
+          "stringUnit" : {
+            "state" : "translated",
+            "value" : "Sikker input i macOS er slået til. Indtil det slås fra, virker nogle genveje muligvis ikke: Hyper-genveje og venstre/højre-specifikke genveje samt genveje på bogstav-, tal- eller symboltaster uden Control eller Command."
+          }
+        },
+        "de" : {
+          "stringUnit" : {
+            "state" : "translated",
+            "value" : "Die sichere Eingabe von macOS ist aktiv. Bis sie deaktiviert wird, funktionieren einige Kurzbefehle möglicherweise nicht: Hyper- und links/rechts-spezifische Kurzbefehle sowie Kurzbefehle auf Buchstaben-, Zahlen- oder Symboltasten ohne Control oder Command."
+          }
+        },
+        "el" : {
+          "stringUnit" : {
+            "state" : "translated",
+            "value" : "Η ασφαλής είσοδος του macOS είναι ενεργή. Μέχρι να απενεργοποιηθεί, ορισμένες συντομεύσεις ενδέχεται να μη λειτουργούν: οι συντομεύσεις Hyper και αριστερής/δεξιάς πλευράς, καθώς και όσες βρίσκονται σε πλήκτρα γραμμάτων, αριθμών ή συμβόλων χωρίς Control ή Command."
+          }
+        },
+        "es" : {
+          "stringUnit" : {
+            "state" : "translated",
+            "value" : "La entrada segura de macOS está activada. Hasta que se desactive, es posible que algunos atajos no funcionen: los atajos Hyper y los específicos de izquierda/derecha, y los de teclas de letras, números o símbolos sin Control ni Command."
+          }
+        },
+        "fi" : {
+          "stringUnit" : {
+            "state" : "translated",
+            "value" : "macOSin turvallinen syöte on käytössä. Kunnes se poistuu käytöstä, osa pikanäppäimistä ei välttämättä toimi: Hyper- ja vasen/oikea-kohtaiset pikanäppäimet sekä kirjain-, numero- tai symbolinäppäinten pikanäppäimet ilman Control- tai Command-näppäintä."
+          }
+        },
+        "fr" : {
+          "stringUnit" : {
+            "state" : "translated",
+            "value" : "L'entrée sécurisée de macOS est activée. Tant qu'elle reste active, certains raccourcis risquent de ne pas fonctionner : les raccourcis Hyper et spécifiques gauche/droite, ainsi que ceux sur des touches de lettre, de chiffre ou de symbole sans Contrôle ni Commande."
+          }
+        },
+        "he" : {
+          "stringUnit" : {
+            "state" : "translated",
+            "value" : "הקלט המאובטח של macOS פעיל. עד שיכובה, ייתכן שחלק מקיצורי המקשים לא יפעלו: קיצורי Hyper וקיצורים ייעודיים לצד שמאל/ימין, וכן קיצורים על מקשי אותיות, ספרות או סמלים ללא Control או Command."
+          }
+        },
+        "hi" : {
+          "stringUnit" : {
+            "state" : "translated",
+            "value" : "macOS का सुरक्षित इनपुट चालू है। इसके बंद होने तक, कुछ शॉर्टकट शायद काम न करें: Hyper और बाएँ/दाएँ-विशिष्ट शॉर्टकट, तथा Control या Command के बिना अक्षर, संख्या या प्रतीक कुंजियों वाले शॉर्टकट।"
+          }
+        },
+        "it" : {
+          "stringUnit" : {
+            "state" : "translated",
+            "value" : "L'input protetto di macOS è attivo. Finché non viene disattivato, alcune scorciatoie potrebbero non funzionare: le scorciatoie Hyper e specifiche per sinistra/destra, e quelle su tasti di lettere, numeri o simboli senza Control o Command."
+          }
+        },
+        "ja" : {
+          "stringUnit" : {
+            "state" : "translated",
+            "value" : "macOSのセキュア入力がオンになっています。オフになるまで、一部のショートカットは動作しない場合があります：Hyperおよび左右指定のショートカットと、ControlまたはCommandを含まない文字・数字・記号キーのショートカットです。"
+          }
+        },
+        "ko" : {
+          "stringUnit" : {
+            "state" : "translated",
+            "value" : "macOS 보안 입력이 켜져 있습니다. 꺼질 때까지 일부 단축키가 작동하지 않을 수 있습니다: Hyper 및 왼쪽/오른쪽 지정 단축키와 Control 또는 Command가 없는 문자, 숫자 또는 기호 키의 단축키입니다."
+          }
+        },
+        "nb" : {
+          "stringUnit" : {
+            "state" : "translated",
+            "value" : "Sikker inndata i macOS er på. Til den slås av, kan det hende at noen snarveier ikke fungerer: Hyper-snarveier og venstre/høyre-spesifikke snarveier, samt snarveier på bokstav-, tall- eller symboltaster uten Control eller Command."
+          }
+        },
+        "nl" : {
+          "stringUnit" : {
+            "state" : "translated",
+            "value" : "Beveiligde invoer van macOS staat aan. Totdat deze uitgaat, werken sommige sneltoetsen mogelijk niet: Hyper- en links/rechts-specifieke sneltoetsen, en sneltoetsen op letter-, cijfer- of symbooltoetsen zonder Control of Command."
+          }
+        },
+        "pl" : {
+          "stringUnit" : {
+            "state" : "translated",
+            "value" : "Bezpieczne wprowadzanie w macOS jest włączone. Dopóki nie zostanie wyłączone, niektóre skróty mogą nie działać: skróty Hyper i skróty zależne od lewej/prawej strony oraz skróty na klawiszach liter, cyfr lub symboli bez klawisza Control ani Command."
+          }
+        },
+        "ru" : {
+          "stringUnit" : {
+            "state" : "translated",
+            "value" : "Безопасный ввод macOS включён. Пока он не отключится, некоторые сочетания могут не работать: сочетания Hyper и сочетания с левыми/правыми модификаторами, а также сочетания на клавишах букв, цифр или символов без Control или Command."
+          }
+        },
+        "sr-Latn" : {
+          "stringUnit" : {
+            "state" : "translated",
+            "value" : "Bezbedni ulaz u macOS-u je uključen. Dok se ne isključi, neke prečice možda neće raditi: Hyper prečice i prečice za levu/desnu stranu, kao i prečice na tasterima slova, brojeva ili simbola bez Control ili Command."
+          }
+        },
+        "sv" : {
+          "stringUnit" : {
+            "state" : "translated",
+            "value" : "Säker inmatning i macOS är på. Tills den stängs av kanske vissa kortkommandon inte fungerar: Hyper- och vänster/höger-specifika kortkommandon samt kortkommandon på bokstavs-, siffer- eller symboltangenter utan Control eller Command."
+          }
+        },
+        "uk" : {
+          "stringUnit" : {
+            "state" : "translated",
+            "value" : "Захищене введення macOS увімкнено. Доки його не вимкнено, деякі сполучення можуть не працювати: сполучення Hyper і сполучення з лівими/правими модифікаторами, а також сполучення на клавішах літер, цифр або символів без Control чи Command."
+          }
+        },
+        "zh-Hans" : {
+          "stringUnit" : {
+            "state" : "translated",
+            "value" : "macOS 安全输入已开启。在其关闭之前，部分快捷键可能无法使用：Hyper 快捷键和区分左右的快捷键，以及不含 Control 或 Command 的字母、数字或符号键快捷键。"
           }
         }
       }

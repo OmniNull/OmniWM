@@ -74,6 +74,7 @@ enum EventIntakeTrace {
         case .mouseScroll: Identity(kind: "mouse-scroll")
         case let .nativeFullscreenTransitionExpired(token, _):
             Identity(kind: "fullscreen-expired", pid: token.pid, windowId: token.windowId)
+        case .secureInputStateMayHaveChanged: Identity(kind: "secure-input")
         case .systemSleep: Identity(kind: "sleep")
         case .systemWake: Identity(kind: "wake")
         case let .windowConstraintsResolved(fact):

@@ -101,6 +101,8 @@ enum NativeSpaceWindowInventoryResult: Equatable, Sendable {
 }
 
 enum CGSEventType: UInt32 {
+    case secureEventInputStarted = 752
+    case secureEventInputStopped = 753
     case windowClosed = 804
     case windowMoved = 806
     case windowResized = 807

@@ -4,180 +4,120 @@
 import Carbon
 import Foundation
 
-private func secureInputMonitorEventTapCallback(
-    proxy: CGEventTapProxy,
-    type: CGEventType,
-    event: CGEvent,
-    refcon: UnsafeMutableRawPointer?
-) -> Unmanaged<CGEvent>? {
-    let disabledByUserInput = type == .tapDisabledByUserInput
-    let disabledByTimeout = type == .tapDisabledByTimeout
-    MainActor.assumeIsolated {
-        SecureInputMonitor.handleEventTap(
-            disabledByUserInput: disabledByUserInput,
-            disabledByTimeout: disabledByTimeout
-        )
-    }
-    return Unmanaged.passUnretained(event)
+private func secureInputNotifyCallback(
+    event _: UInt32,
+    data _: UnsafeMutableRawPointer?,
+    length _: Int,
+    context: Int32
+) {
+    EventIntake.post(.secureInputStateMayHaveChanged(session: UInt32(bitPattern: context)))
+}
+
+struct SecureInputHealthFacts: Sendable, Equatable {
+    let observed: Bool
+    let live: Bool
+    let subscribed: Bool
+    let notifications: UInt64
 }
 
 @MainActor @Observable
 final class SecureInputMonitor {
-    struct PerformanceSnapshot: Equatable, Sendable {
-        let recoveryTimerFires: UInt64
+    private static let notificationEvents: [CGSEventType] = [.secureEventInputStarted, .secureEventInputStopped]
+    private static var lastSession: UInt32 = 0
+
+    private(set) var isSecureInputActive = false
+    private(set) var isSubscribed = false
+    private(set) var notificationCount: UInt64 = 0
+
+    private var session: UInt32?
+    private var onStateChange: ((Bool) -> Void)?
+    var secureInputStateProviderForTests: (() -> Bool)?
+    var registerNotification: (CGSEventType, UInt32) -> Bool = { event, session in
+        SkyLight.shared.registerNotifyProc(
+            event: event,
+            callback: secureInputNotifyCallback,
+            context: UnsafeMutableRawPointer(bitPattern: UInt(session))
+        )
     }
 
-    private(set) var isSecureInputActive: Bool = false
-
-    private var eventTap: CFMachPort?
-    private var runLoopSource: CFRunLoopSource?
-    private var recoveryTimer: Timer?
-    private var onStateChange: ((Bool) -> Void)?
-    private var performanceRecoveryTimerFires: UInt64?
-    var secureInputStateProviderForTests: (() -> Bool)?
-    var eventTapInstallerForTests: (() -> (tap: CFMachPort, runLoopSource: CFRunLoopSource))?
-
-    private static var sharedMonitor: SecureInputMonitor?
+    var unregisterNotification: (CGSEventType, UInt32) -> Bool = { event, session in
+        SkyLight.shared.unregisterNotifyProc(
+            event: event,
+            callback: secureInputNotifyCallback,
+            context: UnsafeMutableRawPointer(bitPattern: UInt(session))
+        )
+    }
 
     func start(onStateChange: @escaping (Bool) -> Void) {
-        tearDownEventTap()
-        stopRecoveryTimer()
+        stop()
+        Self.lastSession &+= 1
+        let session = Self.lastSession
+        self.session = session
         self.onStateChange = onStateChange
-        SecureInputMonitor.sharedMonitor = self
-        setupEventTap()
-        checkSecureInput()
+        subscribe(session: session)
+        refresh()
     }
 
     func stop() {
-        tearDownEventTap()
-        stopRecoveryTimer()
-        SecureInputMonitor.sharedMonitor = nil
+        if let session {
+            unsubscribe(session: session)
+        }
+        session = nil
         onStateChange = nil
+        isSecureInputActive = false
     }
 
-    func beginPerformanceCapture() {
-        performanceRecoveryTimerFires = 0
+    func recordNotification(session: UInt32) -> Bool {
+        guard session == self.session else { return false }
+        notificationCount &+= 1
+        return true
     }
 
-    func performanceSnapshot() -> PerformanceSnapshot? {
-        performanceRecoveryTimerFires.map { PerformanceSnapshot(recoveryTimerFires: $0) }
+    func refresh() {
+        guard let onStateChange else { return }
+        let state = secureInputState()
+        guard state != isSecureInputActive else { return }
+        isSecureInputActive = state
+        DiagnosticsEventRecorder.shared.recordLifecycle(name: "secureInput.changed active=\(state)")
+        onStateChange(state)
     }
 
-    func endPerformanceCapture() -> PerformanceSnapshot? {
-        let snapshot = performanceSnapshot()
-        performanceRecoveryTimerFires = nil
-        return snapshot
-    }
-
-    private func setupEventTap() {
-        if let installation = eventTapInstallerForTests?() {
-            eventTap = installation.tap
-            runLoopSource = installation.runLoopSource
-            return
-        }
-        let eventMask: CGEventMask = 1 << CGEventType.keyDown.rawValue
-
-        eventTap = CGEvent.tapCreate(
-            tap: .cgSessionEventTap,
-            place: .headInsertEventTap,
-            options: .listenOnly,
-            eventsOfInterest: eventMask,
-            callback: secureInputMonitorEventTapCallback,
-            userInfo: nil
+    func healthFacts() -> SecureInputHealthFacts {
+        SecureInputHealthFacts(
+            observed: isSecureInputActive,
+            live: secureInputState(),
+            subscribed: isSubscribed,
+            notifications: notificationCount
         )
-
-        if let tap = eventTap {
-            runLoopSource = CFMachPortCreateRunLoopSource(kCFAllocatorDefault, tap, 0)
-            if let source = runLoopSource {
-                CFRunLoopAddSource(CFRunLoopGetMain(), source, .commonModes)
-            } else {
-                tearDownEventTap()
-                FallbackFiringRecorder.shared.note(.input, "secureInputTapRunLoopSourceFailed")
-                return
-            }
-            CGEvent.tapEnable(tap: tap, enable: true)
-        } else {
-            FallbackFiringRecorder.shared.note(.input, "secureInputTapCreateFailed")
-        }
     }
 
-    fileprivate static func handleEventTap(
-        disabledByUserInput: Bool,
-        disabledByTimeout: Bool
-    ) {
-        if disabledByUserInput {
-            Task { @MainActor in
-                sharedMonitor?.handleSecureInputDetected()
-            }
-            if let tap = sharedMonitor?.eventTap {
-                CGEvent.tapEnable(tap: tap, enable: true)
-            }
-            return
+    private func subscribe(session: UInt32) {
+        var registered: [CGSEventType] = []
+        for event in Self.notificationEvents {
+            guard registerNotification(event, session) else { break }
+            registered.append(event)
         }
-        if disabledByTimeout {
-            if let tap = sharedMonitor?.eventTap {
-                CGEvent.tapEnable(tap: tap, enable: true)
-            }
-            return
+        isSubscribed = registered.count == Self.notificationEvents.count
+        if !isSubscribed {
+            unregister(registered, session: session)
+            FallbackFiringRecorder.shared.note(.input, "secureInputSubscriptionFailed")
         }
-        if sharedMonitor?.isSecureInputActive ?? false {
-            Task { @MainActor in
-                sharedMonitor?.checkSecureInputEnded()
-            }
-        }
+        DiagnosticsEventRecorder.shared.recordLifecycle(name: "secureInput.subscribed=\(isSubscribed)")
     }
 
-    private func handleSecureInputDetected() {
-        guard !isSecureInputActive else { return }
-        if secureInputState() {
-            isSecureInputActive = true
-            onStateChange?(true)
-            startRecoveryTimer()
-        }
+    private func unsubscribe(session: UInt32) {
+        guard isSubscribed else { return }
+        unregister(Self.notificationEvents, session: session)
+        isSubscribed = false
     }
 
-    private func checkSecureInputEnded() {
-        if !secureInputState() {
-            isSecureInputActive = false
-            onStateChange?(false)
-            stopRecoveryTimer()
-        }
-    }
-
-    private func startRecoveryTimer() {
-        stopRecoveryTimer()
-        recoveryTimer = Timer.scheduledTimer(withTimeInterval: 2.0, repeats: true) { [weak self] _ in
-            Task { @MainActor in
-                self?.performanceRecoveryTimerFires? &+= 1
-                self?.checkSecureInputEnded()
-            }
-        }
-        if let timer = recoveryTimer {
-            RunLoop.main.add(timer, forMode: .common)
-        }
-    }
-
-    private func stopRecoveryTimer() {
-        recoveryTimer?.invalidate()
-        recoveryTimer = nil
-    }
-
-    private func checkSecureInput() {
-        let newState = secureInputState()
-        if newState != isSecureInputActive {
-            isSecureInputActive = newState
-            onStateChange?(newState)
-            if newState {
-                startRecoveryTimer()
-            }
+    private func unregister(_ events: [CGSEventType], session: UInt32) {
+        for event in events where !unregisterNotification(event, session) {
+            FallbackFiringRecorder.shared.note(.input, "secureInputUnsubscribeFailed")
         }
     }
 
     private func secureInputState() -> Bool {
         secureInputStateProviderForTests?() ?? IsSecureEventInputEnabled()
-    }
-
-    private func tearDownEventTap() {
-        EventTapTeardown.tearDown(tap: &eventTap, runLoopSource: &runLoopSource)
     }
 }

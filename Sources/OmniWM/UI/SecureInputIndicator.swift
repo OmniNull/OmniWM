@@ -5,7 +5,7 @@ import AppKit
 import SwiftUI
 
 private let iconSize = CGSize(width: 44, height: 44)
-private let expandedSize = CGSize(width: 380, height: 100)
+private let expandedSize = CGSize(width: 380, height: 140)
 
 @MainActor
 final class SecureInputIndicatorController {
@@ -109,7 +109,7 @@ struct SecureInputIndicatorView: View {
                             .font(.headline)
                     }
                     Text(
-                        "OmniWM keyboard shortcuts are disabled while a password field or secure text entry is active."
+                        "macOS Secure Input is on. Until it turns off, some shortcuts may not work: Hyper and left/right-specific shortcuts, and those on letter, number or symbol keys without Control or Command."
                     )
                     .font(.subheadline)
                     .multilineTextAlignment(.leading)
