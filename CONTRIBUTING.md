@@ -183,6 +183,20 @@ Start with `make doctor` and the first error reported by the failing command.
 
 Reviewed development lands on `main`; published releases come from version tags. Merging a PR does not itself update users' installed apps.
 
+### Releases
+
+Releases use the **OmniWM Release** workflow, dispatched in two runs: `prepare` with the version number, then `publish` with the prepare run ID and the final release notes. The workflow fails fast when credentials are missing.
+
+Set these repository secrets:
+
+- `APPLE_DEVELOPER_ID_CERT_P12_BASE64` and `APPLE_DEVELOPER_ID_CERT_PASSWORD`: the Developer ID certificate and its export password, produced with `base64 -i cert.p12 | pbcopy`.
+- `APPLE_NOTARY_KEY_ID`, `APPLE_NOTARY_ISSUER_ID`, and `APPLE_NOTARY_KEY_P8`: the App Store Connect API key ID, issuer ID, and the `.p8` contents pasted raw (`pbcopy < AuthKey_XXXX.p8`).
+- `KEYCHAIN_PASSWORD`: a strong password for the temporary CI keychain.
+
+Two optional repository variables override defaults: `OMNIWM_RELEASE_SIGNING_IDENTITY` (default `Developer ID Application: Oliver Nikolic (VF8LDJRGFM)`) and `OMNIWM_RELEASE_NOTARIZE_PROFILE` (default `OmniWM-Notarize`).
+
+Local releases via `Scripts/omniwm_release.py` use your own keychain and notarytool profile instead.
+
 ### Maintainer CI Rollout
 
 The **Main branch protection** ruleset blocks branch deletion and force-pushes, with repository-admin bypass for local merges and releases. GitHub uses merge commits and automatically deletes merged branches in this repository.
