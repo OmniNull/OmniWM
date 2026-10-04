@@ -64,6 +64,21 @@ trap 'rm -f "$CERT_PATH" "$NOTARY_KEY_PATH"' EXIT
 umask 077
 printf '%s' "$APPLE_DEVELOPER_ID_CERT_P12_BASE64" | base64 --decode > "$CERT_PATH"
 
+# Validate the pasted .p8 before touching any keychain.
+printf '%s\n' "$APPLE_NOTARY_KEY_P8" > "$NOTARY_KEY_PATH"
+head -n 1 "$NOTARY_KEY_PATH" | grep -q 'BEGIN PRIVATE KEY' || {
+  echo "$SCRIPT_NAME: APPLE_NOTARY_KEY_P8 does not start with a BEGIN PRIVATE KEY line" >&2
+  exit 1
+}
+tail -n 1 "$NOTARY_KEY_PATH" | grep -q 'END PRIVATE KEY' || {
+  echo "$SCRIPT_NAME: APPLE_NOTARY_KEY_P8 does not end with an END PRIVATE KEY line; check for a truncated paste" >&2
+  exit 1
+}
+if grep -q '\\n' "$NOTARY_KEY_PATH"; then
+  echo "$SCRIPT_NAME: APPLE_NOTARY_KEY_P8 contains literal \\n sequences; paste the raw .p8 contents instead" >&2
+  exit 1
+fi
+
 # Record the user's keychain state so cleanup can restore it.
 {
   security default-keychain -d user
@@ -93,20 +108,6 @@ security set-key-partition-list \
 IDENTITIES="$(security find-identity -v -p codesigning "$KEYCHAIN_PATH")"
 if ! grep -qF -- "$IDENTITY" <<<"$IDENTITIES"; then
   echo "$SCRIPT_NAME: signing identity '$IDENTITY' not found in $KEYCHAIN_PATH; check OMNIWM_RELEASE_SIGNING_IDENTITY and the imported certificate" >&2
-  exit 1
-fi
-
-printf '%s\n' "$APPLE_NOTARY_KEY_P8" > "$NOTARY_KEY_PATH"
-head -n 1 "$NOTARY_KEY_PATH" | grep -q 'BEGIN PRIVATE KEY' || {
-  echo "$SCRIPT_NAME: APPLE_NOTARY_KEY_P8 does not start with a BEGIN PRIVATE KEY line" >&2
-  exit 1
-}
-tail -n 1 "$NOTARY_KEY_PATH" | grep -q 'END PRIVATE KEY' || {
-  echo "$SCRIPT_NAME: APPLE_NOTARY_KEY_P8 does not end with an END PRIVATE KEY line; check for a truncated paste" >&2
-  exit 1
-}
-if grep -q '\\n' "$NOTARY_KEY_PATH"; then
-  echo "$SCRIPT_NAME: APPLE_NOTARY_KEY_P8 contains literal \\n sequences; paste the raw .p8 contents instead" >&2
   exit 1
 fi
 

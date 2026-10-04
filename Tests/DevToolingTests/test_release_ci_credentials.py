@@ -254,7 +254,7 @@ class ReleaseCICredentialsTests(unittest.TestCase):
         )
 
         self.assertNotEqual(result.returncode, 0)
-        self.assert_not_stored()
+        self.assertEqual(self.commands(), [])
 
     def test_p8_with_literal_newline_escapes_fails_before_storing_credentials(self):
         literal = "\\n".join(P8_BODY.splitlines())
@@ -262,7 +262,7 @@ class ReleaseCICredentialsTests(unittest.TestCase):
         result = self.run_script(overrides={"APPLE_NOTARY_KEY_P8": literal})
 
         self.assertNotEqual(result.returncode, 0)
-        self.assert_not_stored()
+        self.assertEqual(self.commands(), [])
         self.assert_no_secrets(result)
 
     def test_secrets_never_reach_stdout_or_stderr(self):
