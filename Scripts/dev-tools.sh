@@ -184,13 +184,15 @@ install_framework() {
 }
 
 case "${1:-doctor}" in
-  setup)
+  setup|setup-tools)
     check_prerequisites
     [ "$ERRORS" -eq 0 ] || exit 1
     mkdir -p "$BIN_DIR" "$DOWNLOAD_DIR"
     WORK_DIR="$(mktemp -d "$TOOLS_DIR/setup.XXXXXX")"
     trap cleanup EXIT
-    install_framework
+    if [ "$1" = setup ]; then
+      install_framework
+    fi
     install_tool swiftformat "$SWIFTFORMAT_VERSION" "https://github.com/nicklockwood/SwiftFormat/releases/download/$SWIFTFORMAT_VERSION/swiftformat.zip" "$OMNIWM_SWIFTFORMAT_ZIP_SHA256"
     install_tool swiftlint "$SWIFTLINT_VERSION" "https://github.com/realm/SwiftLint/releases/download/$SWIFTLINT_VERSION/portable_swiftlint.zip" "$OMNIWM_SWIFTLINT_ZIP_SHA256"
     check_tool swiftformat "$SWIFTFORMAT_VERSION"
@@ -209,7 +211,7 @@ case "${1:-doctor}" in
     [ "$ERRORS" -eq 0 ]
     ;;
   *)
-    echo "Usage: Scripts/dev-tools.sh [setup|doctor]" >&2
+    echo "Usage: Scripts/dev-tools.sh [setup|setup-tools|doctor]" >&2
     exit 64
     ;;
 esac
