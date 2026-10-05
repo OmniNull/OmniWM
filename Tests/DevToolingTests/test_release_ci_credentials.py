@@ -268,6 +268,9 @@ class ReleaseCICredentialsTests(unittest.TestCase):
     def test_secrets_never_reach_stdout_or_stderr(self):
         result = self.run_script()
 
+        self.assertEqual(result.returncode, 0, result.stderr)
+        self.assert_no_secrets(result)
+
     def test_cleanup_deletes_existing_keychain(self):
         keychain = self.runner_temp / "omniwm-release.keychain-db"
         keychain.write_bytes(b"keychain")
