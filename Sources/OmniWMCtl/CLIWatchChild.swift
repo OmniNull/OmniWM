@@ -168,7 +168,11 @@ enum CLIWatchChild {
             let candidate = URL(fileURLWithPath: String(directory))
                 .appendingPathComponent(executableName)
                 .path
-            if FileManager.default.isExecutableFile(atPath: candidate) {
+            var isDirectory: ObjCBool = false
+            if FileManager.default.fileExists(atPath: candidate, isDirectory: &isDirectory),
+               !isDirectory.boolValue,
+               FileManager.default.isExecutableFile(atPath: candidate)
+            {
                 return candidate
             }
         }
