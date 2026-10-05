@@ -155,7 +155,7 @@ enum CLIWatchChild {
         return environment
     }
 
-    private static func resolveExecutablePath(
+    static func resolveExecutablePath(
         named executableName: String,
         environment: [String: String] = ProcessInfo.processInfo.environment
     ) throws -> String {
@@ -164,7 +164,7 @@ enum CLIWatchChild {
         }
 
         let pathValue = environment["PATH"] ?? "/usr/bin:/bin:/usr/sbin:/sbin"
-        for directory in pathValue.split(separator: ":") {
+        for directory in pathValue.split(separator: ":", omittingEmptySubsequences: false) {
             let candidate = URL(fileURLWithPath: String(directory))
                 .appendingPathComponent(executableName)
                 .path
