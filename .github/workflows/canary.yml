@@ -135,7 +135,9 @@ jobs:
         run: |
           set -euo pipefail
           STAMP="$(date -u +%Y%m%d-%H%M)"
-          TAG="canary-$STAMP"
+          # Run id keeps forced re-runs in the same UTC minute from colliding
+          # on one tag.
+          TAG="canary-$STAMP-$GITHUB_RUN_ID"
           # The tag must name the commit the ZIP and notes were built from;
           # checkout of main can be newer than the event's GITHUB_SHA.
           HEAD_SHA="$(git rev-parse HEAD)"
