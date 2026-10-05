@@ -138,8 +138,10 @@ final class HiddenBarLifecyclePolicyTests: XCTestCase {
         hiddenBar.observation.onRunningApplicationsRefreshForTests = { refreshes += 1 }
         hiddenBar.setup()
 
+        // No await between enqueue and cleanup: the queued task must still be
+        // pending when cleanup bumps the generation, otherwise the event may
+        // deliver first and the assertion below becomes timing-dependent.
         hiddenBar.observation.enqueueRunningApplicationsChangedForTests()
-        await Task.yield()
         hiddenBar.cleanup()
         for _ in 0 ..< 8 {
             await Task.yield()
