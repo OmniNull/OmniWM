@@ -1103,7 +1103,8 @@ class ReleaseManager:
         self.write_plist_version(version, plan["next_build"])
         self.write_website_version(version)
         self.runner.run(["make", "verify"], cwd=self.main, capture=False)
-        self.runner.run(["swift", "test"], cwd=self.main, capture=False)
+        # CI runs the serial suite on every push to main; the release gate
+        # keeps only the stricter parallel run.
         self.runner.run(["swift", "test", "--parallel"], cwd=self.main, capture=False)
         release_files = ["Info.plist", "website/src/data/site.ts"]
         if ghostty_build is not None:
