@@ -6,6 +6,32 @@ import Foundation
 import XCTest
 
 final class CLIWatchChildTests: XCTestCase {
+    func testExecutablePathSkipsDirectories() throws {
+        let fileManager = FileManager.default
+        let directoryURL = fileManager.temporaryDirectory
+            .appendingPathComponent("OmniWMWatchPath-\(UUID().uuidString)", isDirectory: true)
+        let firstDirectoryURL = directoryURL.appendingPathComponent("first", isDirectory: true)
+        let secondDirectoryURL = directoryURL.appendingPathComponent("second", isDirectory: true)
+        let executableName = "hook"
+        let executableURL = secondDirectoryURL.appendingPathComponent(executableName)
+        try fileManager.createDirectory(
+            at: firstDirectoryURL.appendingPathComponent(executableName, isDirectory: true),
+            withIntermediateDirectories: true
+        )
+        try fileManager.createDirectory(at: secondDirectoryURL, withIntermediateDirectories: true)
+        defer { try? fileManager.removeItem(at: directoryURL) }
+        try "#!/bin/sh\nexit 0\n".write(to: executableURL, atomically: true, encoding: .utf8)
+        try fileManager.setAttributes([.posixPermissions: 0o700], ofItemAtPath: executableURL.path)
+
+        XCTAssertEqual(
+            try CLIWatchChild.resolveExecutablePath(
+                named: executableName,
+                environment: ["PATH": "\(firstDirectoryURL.path):\(secondDirectoryURL.path)"]
+            ),
+            executableURL.path
+        )
+    }
+
     func testExecutablePathPreservesEmptyEntriesAndSearchOrder() throws {
         let fileManager = FileManager.default
         let executableName = "omniwm-watch-path-\(UUID().uuidString)"
