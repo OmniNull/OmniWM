@@ -146,7 +146,9 @@ OMNIWM_SIGNING_IDENTITY="Your Certificate Name" make run
 
 ## Verification
 
-Run `make format` to apply formatting and the required license headers. Run `make verify` afterward to check formatting, lint, and an arm64 debug build. The commands use the versions installed by `make setup`.
+Run `make format` to apply formatting and the required license headers. Run `make verify` afterward to check formatting, lint, localization catalogs, and an arm64 debug build. The commands use the versions installed by `make setup`.
+
+Localization checks and synchronization generate compiler metadata with the selected Xcode installation's default Swift toolchain in `.build/localization`. This separate incremental build supports localization extraction even when `swift` on your PATH selects a standalone toolchain that does not emit the metadata.
 
 Every Swift source and test file starts with the two-line GPL-2.0 header enforced by SwiftFormat. Preserve that header. `Package.swift` keeps its `swift-tools-version` directive on line one. Keep contributions in Swift, and avoid additional source comments; use clear names and structure.
 

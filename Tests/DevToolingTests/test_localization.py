@@ -2,6 +2,7 @@ import importlib.util
 import json
 from pathlib import Path
 import plistlib
+import subprocess
 import tempfile
 import unittest
 from unittest.mock import patch
@@ -227,6 +228,109 @@ class LocalizationTests(unittest.TestCase):
             copied = app / "Contents/Resources/fr.lproj/Localizable.strings"
             self.assertEqual(copied.read_text(), '"Open" = "Ouvrir";')
             self.assertTrue((app / "Contents/Resources/fr.lproj/InfoPlist.strings").is_file())
+
+
+class CompilerMetadataTests(unittest.TestCase):
+    def write_metadata(self, root, build, configuration="Debug", target="OmniWM-t.build", key="Current"):
+        source = root / "Sources/OmniWM/Example.swift"
+        source.parent.mkdir(parents=True, exist_ok=True)
+        source.write_text('String(localized: "Current")')
+        metadata = (
+            build / "out/Intermediates.noindex/OmniWM.build" / configuration
+            / target / "Objects-normal/arm64/Example.stringsdata"
+        )
+        metadata.parent.mkdir(parents=True, exist_ok=True)
+        metadata.write_text(json.dumps({
+            "source": str(source),
+            "tables": {"Localizable": [{"key": key, "comment": ""}]},
+            "version": 1,
+        }))
+        return metadata
+
+    def test_extraction_builds_with_xcode_before_discovery_and_preserves_library_path(self):
+        with tempfile.TemporaryDirectory() as temporary:
+            root = Path(temporary).resolve()
+            scratch = root / ".build/localization"
+            bin_path = scratch / "out/Products/Debug"
+            library = root / "Frameworks/GhosttyKit.xcframework/macos-arm64"
+            command = [
+                "xcrun", "--toolchain", "XcodeDefault", "swift", "build",
+                "--build-system", "swiftbuild", "--arch", "arm64",
+                "--configuration", "debug", "--product", "OmniWM",
+                "--scratch-path", str(scratch),
+            ]
+            calls = []
+            metadata = None
+
+            def run(arguments, **kwargs):
+                nonlocal metadata
+                calls.append(arguments)
+                self.assertEqual(kwargs["cwd"], root)
+                self.assertTrue(kwargs["check"])
+                if len(calls) == 1:
+                    self.assertEqual(arguments, [str(root / "Scripts/ghostty-preflight.sh"), "print-library-dir"])
+                    return subprocess.CompletedProcess(arguments, 0, stdout=f"{library}\n")
+                self.assertEqual(kwargs["env"]["LIBRARY_PATH"], f"{library}:/existing/libraries")
+                if len(calls) == 2:
+                    self.assertEqual(arguments, command)
+                    metadata = self.write_metadata(root, scratch)
+                    return subprocess.CompletedProcess(arguments, 0)
+                self.assertEqual(arguments, command + ["--show-bin-path"])
+                self.assertTrue(kwargs["capture_output"])
+                self.assertTrue(kwargs["text"])
+                return subprocess.CompletedProcess(arguments, 0, stdout=f"{bin_path}\n")
+
+            with patch.object(localization, "ROOT", root), \
+                    patch.dict("os.environ", {"LIBRARY_PATH": "/existing/libraries"}), \
+                    patch.object(localization.subprocess, "run", side_effect=run):
+                found = localization.compiler_stringsdata()
+            self.assertEqual(len(calls), 3)
+            self.assertEqual(found, [metadata])
+
+    def test_discovery_excludes_testable_release_and_regular_build_metadata(self):
+        with tempfile.TemporaryDirectory() as temporary:
+            root = Path(temporary).resolve()
+            scratch = root / ".build/localization"
+            current = self.write_metadata(root, scratch)
+            self.write_metadata(root, scratch, target="OmniWM-testable-t.build", key="Test only")
+            self.write_metadata(root, scratch, configuration="Release", key="Release only")
+            self.write_metadata(root, root / ".build", key="Old ordinary build")
+            results = [
+                subprocess.CompletedProcess([], 0, stdout="/ghostty\n"),
+                subprocess.CompletedProcess([], 0),
+                subprocess.CompletedProcess([], 0, stdout=str(scratch / "out/Products/Debug")),
+            ]
+            with patch.object(localization, "ROOT", root), \
+                    patch.object(localization.subprocess, "run", side_effect=results):
+                self.assertEqual(localization.compiler_stringsdata(), [current])
+
+    def test_build_failure_cannot_reuse_existing_metadata(self):
+        with tempfile.TemporaryDirectory() as temporary:
+            root = Path(temporary).resolve()
+            self.write_metadata(root, root / ".build/localization")
+            failure = subprocess.CalledProcessError(1, ["xcrun", "swift", "build"])
+            with patch.object(localization, "ROOT", root), \
+                    patch.object(localization.subprocess, "run", side_effect=[
+                        subprocess.CompletedProcess([], 0, stdout="/ghostty\n"), failure,
+                    ]) as run:
+                with self.assertRaises(subprocess.CalledProcessError) as raised:
+                    localization.compiler_stringsdata()
+            self.assertIs(raised.exception, failure)
+            self.assertEqual(run.call_count, 2)
+
+    def test_successful_build_without_metadata_still_fails(self):
+        with tempfile.TemporaryDirectory() as temporary:
+            root = Path(temporary).resolve()
+            self.write_metadata(root, root / ".build", key="Old ordinary build")
+            results = [
+                subprocess.CompletedProcess([], 0, stdout="/ghostty\n"),
+                subprocess.CompletedProcess([], 0),
+                subprocess.CompletedProcess([], 0, stdout=str(root / ".build/localization/out/Products/Debug")),
+            ]
+            with patch.object(localization, "ROOT", root), \
+                    patch.object(localization.subprocess, "run", side_effect=results):
+                with self.assertRaisesRegex(ValueError, "Xcode localization build produced no OmniWM compiler"):
+                    localization.compiler_stringsdata()
 
 
 if __name__ == "__main__":
