@@ -70,8 +70,24 @@ class Config:
 
     @classmethod
     def from_environment(cls) -> "Config":
+        main_repo = os.environ.get("OMNIWM_RELEASE_MAIN_REPO")
+        if os.environ.get("GITHUB_ACTIONS") == "true":
+            require(bool(main_repo), "OMNIWM_RELEASE_MAIN_REPO must be set in GitHub Actions")
+            checkout = Path(main_repo)
+            require(
+                checkout.is_dir() and (checkout / ".git").exists(),
+                "OMNIWM_RELEASE_MAIN_REPO must point to a Git checkout in GitHub Actions",
+            )
+            result = Runner().run(
+                ["git", "rev-parse", "--is-inside-work-tree"],
+                cwd=checkout, check=False, quiet=True,
+            )
+            require(
+                result.returncode == 0 and result.stdout.strip() == "true",
+                "OMNIWM_RELEASE_MAIN_REPO must point to a Git checkout in GitHub Actions",
+            )
         return cls(
-            main_repo=Path(os.environ.get("OMNIWM_RELEASE_MAIN_REPO", DEFAULT_MAIN_REPO)),
+            main_repo=Path(main_repo if main_repo is not None else DEFAULT_MAIN_REPO),
             github_repo=os.environ.get("OMNIWM_RELEASE_GITHUB_REPO", DEFAULT_GITHUB_REPO),
             signing_identity=os.environ.get("OMNIWM_RELEASE_SIGNING_IDENTITY", SIGNING_IDENTITY),
             notarize_profile=os.environ.get("OMNIWM_RELEASE_NOTARIZE_PROFILE", NOTARIZE_PROFILE),
@@ -120,12 +136,12 @@ class Runner:
     def output(self, args, cwd=None, check=True):
         return self.run(args, cwd=cwd, check=check, quiet=True).stdout.strip()
 
-    def popen(self, args, cwd=None):
+    def popen(self, args, cwd=None, output=None):
         return subprocess.Popen(
             [str(arg) for arg in args],
             cwd=cwd,
-            stdout=subprocess.DEVNULL,
-            stderr=subprocess.DEVNULL,
+            stdout=output if output is not None else subprocess.DEVNULL,
+            stderr=subprocess.STDOUT if output is not None else subprocess.DEVNULL,
             start_new_session=True,
         )
 
@@ -311,7 +327,11 @@ class ReleaseManager:
             else:
                 archive = root / "GhosttyKit.zip"
                 self.runner.run(
-                    ["curl", "--disable", "--fail", "--location", "--silent", "--show-error", "--output", archive, url],
+                    [
+                        "curl", "--disable", "--fail", "--location", "--silent", "--show-error",
+                        "--retry", "5", "--retry-all-errors", "--retry-delay", "5",
+                        "--output", archive, url,
+                    ],
                     cwd=self.main,
                 )
             require(sha256_file(archive) == pins["OMNIWM_GHOSTTY_ZIP_SHA256"], "Ghostty dependency ZIP hash mismatch")
@@ -676,15 +696,30 @@ class ReleaseManager:
                 "api",
                 f"repos/{repository}",
                 "--jq",
-                ".permissions.push",
+                '.permissions.push | if . == null then "unknown" else . end',
             ],
             cwd=self.main,
             check=False,
             quiet=True,
         )
+        if result.returncode == 0 and result.stdout.strip() == "unknown":
+            # Installation tokens such as GITHUB_TOKEN do not report user permissions.
+            # Authenticate to Git's receive-pack endpoint without updating any refs.
+            remote = self.remote_url(self.main)
+            self.verify_remote_identity(remote, repository, "write-access probe")
+            result = self.runner.run(
+                ["git", "push", "--dry-run", "origin", "origin/main:refs/heads/main"],
+                cwd=self.main,
+                check=False,
+                quiet=True,
+            )
+            return {
+                "ok": result.returncode == 0,
+                "detail": "GH_TOKEN/GITHUB_TOKEN Git write-access probe: " + (result.stderr or result.stdout).strip(),
+            }
         return {
             "ok": result.returncode == 0 and result.stdout.strip() == "true",
-            "detail": (result.stderr or result.stdout).strip(),
+            "detail": "GH_TOKEN/GITHUB_TOKEN repository push permission: " + (result.stderr or result.stdout).strip(),
         }
 
     def notary_profile_access(self):
@@ -901,18 +936,40 @@ class ReleaseManager:
     def smoke_test(self, app_path, seconds=2):
         executable = app_path / "Contents" / "MacOS" / "OmniWM"
         require(executable.exists(), f"missing app executable: {executable}")
-        process = self.runner.popen([executable], cwd=self.main)
-        try:
-            time.sleep(seconds)
-            require(process.poll() is None, f"OmniWM exited during smoke test with {process.returncode}")
-        finally:
-            if process.poll() is None:
-                process.terminate()
+        skip_launch = os.environ.get("OMNIWM_RELEASE_SKIP_APP_LAUNCH", "0")
+        require(
+            skip_launch in {"0", "1"},
+            "OMNIWM_RELEASE_SKIP_APP_LAUNCH must be 0 or 1",
+        )
+        if skip_launch == "1":
+            print(
+                "WARNING: skipping app launch smoke test because "
+                "OMNIWM_RELEASE_SKIP_APP_LAUNCH=1; "
+                "signature, notarization and quarantine checks still apply"
+            )
+            return
+        with tempfile.TemporaryDirectory(prefix="omniwm-launch-") as raw:
+            with (Path(raw) / "launch.log").open("w+b") as output:
+                process = self.runner.popen([executable], cwd=self.main, output=output)
                 try:
-                    process.wait(timeout=5)
-                except subprocess.TimeoutExpired:
-                    process.kill()
-                    process.wait(timeout=5)
+                    time.sleep(seconds)
+                    if process.poll() is not None:
+                        output.flush()
+                        size = output.seek(0, os.SEEK_END)
+                        output.seek(max(0, size - 8192))
+                        tail = "\n".join(output.read().decode("utf-8", errors="replace").splitlines()[-40:])
+                        raise ReleaseError(
+                            f"OmniWM exited during smoke test with {process.returncode}"
+                            f"\nApp output tail:\n{tail or '(no output)'}"
+                        )
+                finally:
+                    if process.poll() is None:
+                        process.terminate()
+                        try:
+                            process.wait(timeout=5)
+                        except subprocess.TimeoutExpired:
+                            process.kill()
+                            process.wait(timeout=5)
 
     def verify_app_zip(
         self,
@@ -1382,8 +1439,8 @@ def build_parser():
 
 def main():
     args = build_parser().parse_args()
-    manager = ReleaseManager()
     try:
+        manager = ReleaseManager()
         if args.command == "plan":
             plan = manager.plan_data(args.version)
             manager.print_plan(plan)

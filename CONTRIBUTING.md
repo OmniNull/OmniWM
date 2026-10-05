@@ -183,11 +183,26 @@ Start with `make doctor` and the first error reported by the failing command.
 
 Reviewed development lands on `main`; published releases come from version tags. Merging a PR does not itself update users' installed apps.
 
+### Releases
+
+Releases use the **OmniWM release** workflow, dispatched from `main` in two runs: `prepare` with the version number, then `publish` with the prepare run ID and the final release notes. The prepare run's summary prints the `gh workflow run` command for publish, because the web form cannot take multi-line notes. The workflow fails fast when credentials are missing.
+
+Set these repository secrets:
+
+- `APPLE_DEVELOPER_ID_CERT_P12_BASE64` and `APPLE_DEVELOPER_ID_CERT_PASSWORD`: the Developer ID certificate and its export password, produced with `base64 -i cert.p12 | pbcopy`.
+- `APPLE_NOTARY_KEY_ID`, `APPLE_NOTARY_ISSUER_ID`, and `APPLE_NOTARY_KEY_P8`: the App Store Connect API key ID, issuer ID, and the `.p8` contents pasted raw (`pbcopy < AuthKey_XXXX.p8`).
+
+Two optional repository variables override defaults: `OMNIWM_RELEASE_SIGNING_IDENTITY` (default `Developer ID Application: Oliver Nikolic (VF8LDJRGFM)`) and `OMNIWM_RELEASE_NOTARIZE_PROFILE` (default `OmniWM-Notarize`).
+
+Pass the optional `skip_app_launch` input to skip the post-notarization app launch check on runners where the GUI cannot start.
+
+Local releases via `Scripts/omniwm_release.py` use your own keychain and notarytool profile instead.
+
 ### Maintainer CI Rollout
 
 The **Main branch protection** ruleset blocks branch deletion and force-pushes, with repository-admin bypass for local merges and releases. GitHub uses merge commits and automatically deletes merged branches in this repository.
 
-After publishing the CI workflow, confirm that **Verify** passes on GitHub, then add **Verify** from GitHub Actions as a required status check in that existing ruleset. Keep the admin bypass and leave **Tests** non-required until several hosted runs establish that the serial suite works reliably there.
+After publishing the CI workflow, confirm that **Verify** passes on GitHub, then add **Verify** from GitHub Actions as a required status check in that existing ruleset. Keep the admin bypass and leave **Tests** non-required until several hosted runs establish that the serial suite works reliably there. The release workflow pushes the `Release X.Y.Z` commit to `main` as `GITHUB_TOKEN`, which neither has the admin bypass nor produces a **Verify** run for that commit. Before requiring **Verify**, add GitHub Actions to the ruleset's bypass list (mode **Always**). The release workflow checks the token's bypass for every such rule and refuses to start without it.
 
 For an existing PR, use **Actions → OmniWM CI → Run workflow** and enter its PR number to test its merge with the base branch. A manual run provides logs; it does not replace the PR's required check. Updating the PR branch triggers its normal PR checks. Approve first-time fork runs when needed.
 
