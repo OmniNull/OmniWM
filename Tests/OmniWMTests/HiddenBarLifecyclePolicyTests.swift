@@ -131,6 +131,22 @@ final class HiddenBarLifecyclePolicyTests: XCTestCase {
     }
 
     @MainActor
+    func testCleanupRejectsQueuedRunningApplicationsObserverEvent() async {
+        let controller = WindowAdmissionTestSupport.controller(prefix: "HiddenBarRunningAppsObserverCleanup")
+        let hiddenBar = controller.hiddenBarController
+        var refreshes = 0
+        hiddenBar.observation.onRunningApplicationsRefreshForTests = { refreshes += 1 }
+        hiddenBar.setup()
+
+        hiddenBar.observation.enqueueRunningApplicationsChangedForTests()
+        hiddenBar.cleanup()
+        for _ in 0 ..< 8 {
+            await Task.yield()
+        }
+        XCTAssertEqual(refreshes, 0)
+    }
+
+    @MainActor
     func testCleanupDropsQueuedRunningApplicationsRefreshWithoutBlockingLaterOnes() async {
         let controller = WindowAdmissionTestSupport.controller(prefix: "HiddenBarRunningAppsCleanup")
         let hiddenBar = controller.hiddenBarController
@@ -138,10 +154,9 @@ final class HiddenBarLifecyclePolicyTests: XCTestCase {
         hiddenBar.observation.onRunningApplicationsRefreshForTests = { refreshes += 1 }
         hiddenBar.setup()
 
-        // No await between enqueue and cleanup: the queued task must still be
-        // pending when cleanup bumps the generation, otherwise the event may
-        // deliver first and the assertion below becomes timing-dependent.
-        hiddenBar.observation.enqueueRunningApplicationsChangedForTests()
+        // Queue the refresh directly so cleanup retires its generation before
+        // it can run, without relying on the timing of the observer-event hop.
+        hiddenBar.observation.queueRunningApplicationsRefreshForTests()
         hiddenBar.cleanup()
         for _ in 0 ..< 8 {
             await Task.yield()

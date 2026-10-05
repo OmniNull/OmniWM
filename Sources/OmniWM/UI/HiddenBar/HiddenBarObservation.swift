@@ -134,6 +134,10 @@ final class HiddenBarObservation {
         enqueueObserverEvent(.runningApplicationsChanged, generation: observerGeneration)
     }
 
+    func queueRunningApplicationsRefreshForTests() {
+        queueRunningApplicationsRefresh(generation: observerGeneration)
+    }
+
     private func removeRunningApplicationObservers() {
         let notificationCenter = NSWorkspace.shared.notificationCenter
         if let appLaunchObserver {
