@@ -50,7 +50,8 @@ jobs:
     name: Validate release request
     runs-on: ubuntu-latest
     timeout-minutes: 5
-    permissions: {}
+    permissions:
+      contents: read
     steps:
       - name: Validate inputs before checkout or credential setup
         env:
@@ -86,6 +87,21 @@ jobs:
               exit 1
               ;;
           esac
+      - name: Check main rules allow the release push
+        env:
+          GH_TOKEN: ${{ github.token }}
+          MAIN_BYPASS: ${{ vars.OMNIWM_RELEASE_MAIN_BYPASS }}
+        shell: bash
+        run: |
+          set -euo pipefail
+          # Publish pushes main last, after the tag and GitHub release are public,
+          # as GITHUB_TOKEN. Rules beyond these two would reject that push.
+          BLOCKING="$(gh api "repos/$GITHUB_REPOSITORY/rules/branches/main" \
+            --jq '[.[].type | select(. != "deletion" and . != "non_fast_forward")] | unique | join(", ")')"
+          if [[ -n "$BLOCKING" && "$MAIN_BYPASS" != true ]]; then
+            echo "::error::main has ruleset rules ($BLOCKING) that would reject the GITHUB_TOKEN release push after the tag and release are public. Let GitHub Actions bypass them, then set repository variable OMNIWM_RELEASE_MAIN_BYPASS=true."
+            exit 1
+          fi
 
   prepare:
     name: Prepare signed release
@@ -121,15 +137,6 @@ jobs:
             echo '::error::main moved since dispatch; re-run prepare.'
             exit 1
           fi
-      - name: Import signing and notarization credentials
-        env:
-          APPLE_DEVELOPER_ID_CERT_P12_BASE64: ${{ secrets.APPLE_DEVELOPER_ID_CERT_P12_BASE64 }}
-          APPLE_DEVELOPER_ID_CERT_PASSWORD: ${{ secrets.APPLE_DEVELOPER_ID_CERT_PASSWORD }}
-          APPLE_NOTARY_KEY_ID: ${{ secrets.APPLE_NOTARY_KEY_ID }}
-          APPLE_NOTARY_ISSUER_ID: ${{ secrets.APPLE_NOTARY_ISSUER_ID }}
-          APPLE_NOTARY_KEY_P8: ${{ secrets.APPLE_NOTARY_KEY_P8 }}
-          KEYCHAIN_PASSWORD: ${{ github.run_id }}
-        run: ./Scripts/release-ci-credentials.sh
       - uses: actions/cache@v6.1.0
         with:
           path: |
@@ -139,6 +146,16 @@ jobs:
           key: dev-deps-${{ runner.os }}-${{ runner.arch }}-${{ hashFiles('Scripts/dev-tools.env', 'Scripts/build-metadata.env') }}
       - name: Set up dependencies
         run: ./Scripts/dev-tools.sh setup
+      # Imported after dependency setup and removed before any later action step.
+      - name: Import signing and notarization credentials
+        env:
+          APPLE_DEVELOPER_ID_CERT_P12_BASE64: ${{ secrets.APPLE_DEVELOPER_ID_CERT_P12_BASE64 }}
+          APPLE_DEVELOPER_ID_CERT_PASSWORD: ${{ secrets.APPLE_DEVELOPER_ID_CERT_PASSWORD }}
+          APPLE_NOTARY_KEY_ID: ${{ secrets.APPLE_NOTARY_KEY_ID }}
+          APPLE_NOTARY_ISSUER_ID: ${{ secrets.APPLE_NOTARY_ISSUER_ID }}
+          APPLE_NOTARY_KEY_P8: ${{ secrets.APPLE_NOTARY_KEY_P8 }}
+          KEYCHAIN_PASSWORD: ${{ github.run_id }}
+        run: ./Scripts/release-ci-credentials.sh
       - name: Prepare release commit, tag and signed assets
         shell: bash
         run: |
@@ -151,6 +168,9 @@ jobs:
           python3 Scripts/omniwm_release.py prepare "$VERSION"
           git bundle create "dist/release-v$VERSION.bundle" main "v$VERSION"
           git bundle verify "dist/release-v$VERSION.bundle"
+      - name: Remove release credentials after signing
+        if: always()
+        run: ./Scripts/release-ci-credentials.sh cleanup
       - name: Upload prepared release
         uses: actions/upload-artifact@v7
         with:
