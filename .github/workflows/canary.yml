@@ -29,10 +29,38 @@ env:
   OMNIWM_NOTARIZE_TIMEOUT: 30m
 
 jobs:
+  prereq:
+    name: Check canary signing setup
+    runs-on: ubuntu-latest
+    timeout-minutes: 5
+    permissions:
+      contents: read
+    outputs:
+      ready: ${{ steps.environment.outputs.ready }}
+    steps:
+      - name: Require the canary-signing environment
+        id: environment
+        env:
+          GH_TOKEN: ${{ github.token }}
+        run: |
+          set -euo pipefail
+          if gh api "repos/$GITHUB_REPOSITORY/environments/canary-signing" > /dev/null 2>&1; then
+            echo "ready=true" >> "$GITHUB_OUTPUT"
+          else
+            echo "ready=false" >> "$GITHUB_OUTPUT"
+            {
+              printf '## Canary disabled\n\n'
+              printf 'The `canary-signing` environment does not exist yet. Create it with the same five `APPLE_*`\n'
+              printf 'secrets as `release-signing`, no required reviewers, and a selected-branches deployment\n'
+              printf 'policy that only allows `main`. The daily schedule stays green while it is missing.\n'
+            } >> "$GITHUB_STEP_SUMMARY"
+          fi
+
   canary:
     name: Build and publish a canary
+    needs: prereq
     # Scheduled workflows also fire on forks; only the upstream repo signs.
-    if: github.repository == 'OmniNull/OmniWM' && github.ref == 'refs/heads/main'
+    if: github.repository == 'OmniNull/OmniWM' && github.ref == 'refs/heads/main' && needs.prereq.outputs.ready == 'true'
     runs-on: xcode-27
     timeout-minutes: 60
     # Deliberately not release-signing: that environment requires the owner
