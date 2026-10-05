@@ -35,6 +35,7 @@ jobs:
     timeout-minutes: 5
     permissions:
       contents: read
+      actions: read
     outputs:
       ready: ${{ steps.environment.outputs.ready }}
     steps:
@@ -44,10 +45,11 @@ jobs:
           GH_TOKEN: ${{ github.token }}
         run: |
           set -euo pipefail
-          if gh api "repos/$GITHUB_REPOSITORY/environments/canary-signing" > /dev/null 2>&1; then
-            echo "ready=true" >> "$GITHUB_OUTPUT"
-          else
-            echo "ready=false" >> "$GITHUB_OUTPUT"
+          # A 404 can also mean denied access; skip only after a successful list.
+          READY="$(gh api "repos/$GITHUB_REPOSITORY/environments?per_page=100" --paginate --slurp \
+            | jq 'any(.[].environments[]; .name == "canary-signing")')"
+          echo "ready=$READY" >> "$GITHUB_OUTPUT"
+          if [[ "$READY" == "false" ]]; then
             {
               printf '## Canary disabled\n\n'
               printf 'The `canary-signing` environment does not exist yet. Create it with the same five `APPLE_*`\n'
