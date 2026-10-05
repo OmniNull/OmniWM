@@ -141,6 +141,8 @@ jobs:
         run: |
           brew install gettext
           echo "$(brew --prefix gettext)/bin" >> "$GITHUB_PATH"
+      - name: Install Metal Toolchain
+        run: xcodebuild -downloadComponent metalToolchain
       - name: Build the current upstream main revision
         run: python3 Scripts/build-ghosttykit.py --output-dir .build/release-ghostty
       - name: Upload source build and provenance
