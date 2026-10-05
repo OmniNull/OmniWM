@@ -98,56 +98,65 @@ final class HiddenBarLifecyclePolicyTests: XCTestCase {
         hiddenBar.setup()
         hiddenBar.performance.begin()
 
-        hiddenBar.observation.enqueueDidBecomeActiveForTests()
+        let observerEvent = hiddenBar.observation.enqueueDidBecomeActiveForTests()
         hiddenBar.cleanup()
-        for _ in 0 ..< 8 {
-            await Task.yield()
-        }
+        await observerEvent.value
 
         XCTAssertEqual(hiddenBar.performance.end()?.refreshEvents, 0)
     }
 
     @MainActor
-    func testRunningApplicationsChangesCoalesceIntoOneRefreshPerTurn() async {
+    func testRunningApplicationsRefreshesCoalesceWhileQueued() async throws {
         let controller = WindowAdmissionTestSupport.controller(prefix: "HiddenBarRunningAppsCoalesce")
         let hiddenBar = controller.hiddenBarController
         var refreshes = 0
         hiddenBar.observation.onRunningApplicationsRefreshForTests = { refreshes += 1 }
 
-        for _ in 0 ..< 3 {
-            hiddenBar.observation.enqueueRunningApplicationsChangedForTests()
+        let firstRefresh = try XCTUnwrap(hiddenBar.observation.queueRunningApplicationsRefreshForTests())
+        for _ in 0 ..< 2 {
+            XCTAssertNil(hiddenBar.observation.queueRunningApplicationsRefreshForTests())
         }
-        let refreshedOnce = await waitUntil { refreshes == 1 }
-        for _ in 0 ..< 8 {
-            await Task.yield()
-        }
-        XCTAssertTrue(refreshedOnce)
+        await firstRefresh.value
         XCTAssertEqual(refreshes, 1)
 
-        hiddenBar.observation.enqueueRunningApplicationsChangedForTests()
-        let refreshedAgain = await waitUntil { refreshes == 2 }
-        XCTAssertTrue(refreshedAgain)
+        let laterRefresh = try XCTUnwrap(hiddenBar.observation.queueRunningApplicationsRefreshForTests())
+        await laterRefresh.value
+        XCTAssertEqual(refreshes, 2)
         hiddenBar.cleanup()
     }
 
     @MainActor
-    func testCleanupDropsQueuedRunningApplicationsRefreshWithoutBlockingLaterOnes() async {
+    func testCleanupRejectsQueuedRunningApplicationsObserverEvent() async {
+        let controller = WindowAdmissionTestSupport.controller(prefix: "HiddenBarRunningAppsObserverCleanup")
+        let hiddenBar = controller.hiddenBarController
+        var refreshes = 0
+        hiddenBar.observation.onRunningApplicationsRefreshForTests = { refreshes += 1 }
+        hiddenBar.setup()
+
+        let observerEvent = hiddenBar.observation.enqueueRunningApplicationsChangedForTests()
+        hiddenBar.cleanup()
+        await observerEvent.value
+        XCTAssertEqual(refreshes, 0)
+    }
+
+    @MainActor
+    func testCleanupDropsQueuedRunningApplicationsRefreshWithoutBlockingLaterOnes() async throws {
         let controller = WindowAdmissionTestSupport.controller(prefix: "HiddenBarRunningAppsCleanup")
         let hiddenBar = controller.hiddenBarController
         var refreshes = 0
         hiddenBar.observation.onRunningApplicationsRefreshForTests = { refreshes += 1 }
         hiddenBar.setup()
 
-        hiddenBar.observation.enqueueRunningApplicationsChangedForTests()
-        await Task.yield()
+        // Queue the refresh directly so cleanup retires its generation before
+        // it can run, without relying on the timing of the observer-event hop.
+        let queuedRefresh = try XCTUnwrap(hiddenBar.observation.queueRunningApplicationsRefreshForTests())
         hiddenBar.cleanup()
-        for _ in 0 ..< 8 {
-            await Task.yield()
-        }
+        await queuedRefresh.value
         XCTAssertEqual(refreshes, 0)
 
         hiddenBar.setup()
-        hiddenBar.observation.enqueueRunningApplicationsChangedForTests()
+        let laterObserverEvent = hiddenBar.observation.enqueueRunningApplicationsChangedForTests()
+        await laterObserverEvent.value
         let refreshed = await waitUntil { refreshes >= 1 }
         XCTAssertTrue(refreshed)
         hiddenBar.cleanup()

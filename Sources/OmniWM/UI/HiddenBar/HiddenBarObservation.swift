@@ -98,7 +98,8 @@ final class HiddenBarObservation {
         }
     }
 
-    private nonisolated func enqueueObserverEvent(_ event: ObserverEvent, generation: Int) {
+    @discardableResult
+    private nonisolated func enqueueObserverEvent(_ event: ObserverEvent, generation: Int) -> Task<Void, Never> {
         Task { @MainActor [weak self] in
             guard let self, generation == observerGeneration, let controller else { return }
             switch event {
@@ -112,10 +113,11 @@ final class HiddenBarObservation {
         }
     }
 
-    private func queueRunningApplicationsRefresh(generation: Int) {
-        guard !runningApplicationsRefreshQueued else { return }
+    @discardableResult
+    private func queueRunningApplicationsRefresh(generation: Int) -> Task<Void, Never>? {
+        guard !runningApplicationsRefreshQueued else { return nil }
         runningApplicationsRefreshQueued = true
-        Task { @MainActor [weak self] in
+        return Task { @MainActor [weak self] in
             guard let self else { return }
             runningApplicationsRefreshQueued = false
             guard generation == observerGeneration, let controller else { return }
@@ -126,12 +128,16 @@ final class HiddenBarObservation {
         }
     }
 
-    func enqueueDidBecomeActiveForTests() {
+    func enqueueDidBecomeActiveForTests() -> Task<Void, Never> {
         enqueueObserverEvent(.didBecomeActive, generation: observerGeneration)
     }
 
-    func enqueueRunningApplicationsChangedForTests() {
+    func enqueueRunningApplicationsChangedForTests() -> Task<Void, Never> {
         enqueueObserverEvent(.runningApplicationsChanged, generation: observerGeneration)
+    }
+
+    func queueRunningApplicationsRefreshForTests() -> Task<Void, Never>? {
+        queueRunningApplicationsRefresh(generation: observerGeneration)
     }
 
     private func removeRunningApplicationObservers() {
