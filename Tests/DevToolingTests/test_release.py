@@ -150,6 +150,55 @@ class ReleaseTests(unittest.TestCase):
     def command_index(self, prefix):
         return next(index for index, command in enumerate(self.commands) if command[:len(prefix)] == prefix)
 
+    def source_build(self):
+        directory = self.root / "source-build"
+        directory.mkdir()
+        shutil.copy2(self.paths["ghostty"], directory / "GhosttyKit.xcframework.zip")
+        provenance = {
+            "source_repository": "https://github.com/ghostty-org/ghostty.git",
+            "source_revision": "c" * 40,
+            "zig_version": "0.16.0",
+            "zip_sha256": self.zip_sha,
+            "framework_files": self.manager.framework_hashes(self.framework),
+        }
+        (directory / "provenance.json").write_text(json.dumps(provenance))
+        return directory
+
+    def test_source_build_installs_verified_files_and_pins_the_release_asset(self):
+        directory = self.source_build()
+        (self.framework / "macos-arm64/libghostty-internal.a").write_bytes(b"old library")
+        self.runner.output.return_value = "arm64"
+        with patch.dict(os.environ, {"GITHUB_ACTIONS": "true"}):
+            self.manager.install_ghostty_build(self.version, directory)
+        pins = self.manager.ghostty_pins()
+        self.assertEqual(pins["OMNIWM_GHOSTTY_SOURCE_COMMIT"], "c" * 40)
+        self.assertEqual(pins["OMNIWM_GHOSTTY_ZIG_VERSION"], "0.16.0")
+        self.assertEqual(pins["OMNIWM_GHOSTTY_ZIP_SHA256"], self.zip_sha)
+        self.assertEqual(pins["OMNIWM_GHOSTTY_DOWNLOAD_URL"], self.manager.ghostty_release_url(self.version))
+        self.assertEqual((self.framework / "macos-arm64/libghostty-internal.a").read_bytes(), b"library")
+        self.assertFalse(any(command[0] == "curl" for command in self.commands))
+
+    def test_source_build_cannot_replace_a_local_developer_framework(self):
+        directory = self.source_build()
+        with patch.dict(os.environ, {"GITHUB_ACTIONS": "false"}):
+            with self.assertRaisesRegex(RELEASE.ReleaseError, "disposable Actions runner"):
+                self.manager.install_ghostty_build(self.version, directory)
+        self.assertEqual(self.commands, [])
+
+    def test_invalid_source_provenance_preserves_existing_framework_and_pins(self):
+        directory = self.source_build()
+        provenance_path = directory / "provenance.json"
+        original = json.loads(provenance_path.read_text())
+        before = self.manager.framework_hashes(self.framework)
+        pins = self.manager.ghostty_pins()
+        for field, value in (("zip_sha256", "0" * 64), ("framework_files", {}), ("source_repository", "https://example.com/fork.git")):
+            with self.subTest(field=field), patch.dict(os.environ, {"GITHUB_ACTIONS": "true"}):
+                provenance_path.write_text(json.dumps({**original, field: value}))
+                with self.assertRaises(RELEASE.ReleaseError):
+                    self.manager.install_ghostty_build(self.version, directory)
+                self.assertEqual(self.manager.framework_hashes(self.framework), before)
+                self.assertEqual(self.manager.ghostty_pins(), pins)
+
     def test_github_write_access_accepts_reported_push_permission(self):
         self.runner.run.side_effect = None
         self.runner.run.return_value = subprocess.CompletedProcess([], 0, "true\n", "")

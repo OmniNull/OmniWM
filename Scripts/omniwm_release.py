@@ -354,6 +354,52 @@ class ReleaseManager:
         else:
             self.create_zip(self.main / "Frameworks/GhosttyKit.xcframework", self.asset_paths(version)["ghostty"])
 
+    def install_ghostty_build(self, version, directory):
+        require(os.environ.get("GITHUB_ACTIONS") == "true", "source-built GhosttyKit installation requires a disposable Actions runner")
+        directory = Path(directory)
+        provenance = json.loads((directory / "provenance.json").read_text())
+        require(provenance["source_repository"] == "https://github.com/ghostty-org/ghostty.git", "unexpected Ghostty source repository")
+        require(re.fullmatch(r"[0-9a-f]{40}", provenance["source_revision"]) is not None, "invalid Ghostty source revision")
+        require(re.fullmatch(r"[0-9A-Za-z.+-]+", provenance["zig_version"]) is not None, "invalid Ghostty Zig version")
+        archive = directory / "GhosttyKit.xcframework.zip"
+        require(sha256_file(archive) == provenance["zip_sha256"], "source-built Ghostty ZIP hash mismatch")
+        with tempfile.TemporaryDirectory(prefix="omniwm-ghostty-source-") as raw:
+            root = Path(raw)
+            self.runner.run(["ditto", "-x", "-k", archive, root], cwd=self.main)
+            framework = root / "GhosttyKit.xcframework"
+            hashes = self.framework_hashes(framework)
+            require(hashes == provenance["framework_files"], "source-built Ghostty framework differs from its provenance")
+            library = "macos-arm64/libghostty-internal.a"
+            require(library in hashes and "macos-arm64/Headers/ghostty.h" in hashes, "source-built Ghostty framework lacks its ARM64 library or header")
+            require(self.runner.output(["lipo", "-archs", framework / library]) == "arm64", "source-built GhosttyKit must be arm64-only")
+            destination = self.main / "Frameworks/GhosttyKit.xcframework"
+            if destination.exists():
+                shutil.rmtree(destination)
+            destination.parent.mkdir(parents=True, exist_ok=True)
+            shutil.copytree(framework, destination)
+        shutil.copy2(archive, self.asset_paths(version)["ghostty"])
+        updates = {
+            "dev-tools.env": {
+                "OMNIWM_GHOSTTY_DOWNLOAD_URL": self.ghostty_release_url(version),
+                "OMNIWM_GHOSTTY_ZIP_SHA256": provenance["zip_sha256"],
+                "OMNIWM_GHOSTTY_SOURCE_COMMIT": provenance["source_revision"],
+                "OMNIWM_GHOSTTY_ZIG_VERSION": provenance["zig_version"],
+            },
+            "build-metadata.env": {
+                "OMNIWM_GHOSTTY_ARCHIVE_RELATIVE_PATH": f"Frameworks/GhosttyKit.xcframework/{library}",
+                "OMNIWM_GHOSTTY_ARCHIVE_SHA256": hashes[library],
+            },
+        }
+        for filename, values in updates.items():
+            path = self.main / "Scripts" / filename
+            lines = []
+            for line in path.read_text().splitlines():
+                key = line.partition("=")[0]
+                lines.append(f"{key}={values.pop(key)}" if key in values else line)
+            lines.extend(f"{key}={value}" for key, value in values.items())
+            path.write_text("\n".join(lines) + "\n")
+        self.verify_ghostty_dependency(version)
+
     def load_manifest(self, version):
         path = self.manifest_path(version)
         require(path.exists(), f"missing release manifest: {path}")
@@ -827,7 +873,7 @@ class ReleaseManager:
         for commit in plan["commits"] or ["none"]:
             print(f"- {commit}")
 
-    def enforce_new_release_plan(self, plan):
+    def enforce_new_release_plan(self, plan, verify_ghostty=True):
         require(
             plan["website_version"] == plan["current_version"],
             "website version differs from Info.plist",
@@ -855,7 +901,8 @@ class ReleaseManager:
             "target version must be newer than Info.plist",
         )
         require(plan["commits"], f"no unreleased commits after {plan['previous_tag']}")
-        print(f"Ghostty dependency: {self.verify_ghostty_dependency(plan['version'])}")
+        if verify_ghostty:
+            print(f"Ghostty dependency: {self.verify_ghostty_dependency(plan['version'])}")
 
     def release_bullets(self, commits):
         verbs = {
@@ -1017,11 +1064,11 @@ class ReleaseManager:
             self.check_distribution(app, verbose=True)
             self.smoke_test(app)
 
-    def prepare(self, version):
+    def prepare(self, version, ghostty_build=None):
         require(not self.manifest_path(version).exists(), "release manifest already exists; use status or abort")
         plan = self.plan_data(version)
         self.print_plan(plan)
-        self.enforce_new_release_plan(plan)
+        self.enforce_new_release_plan(plan, verify_ghostty=ghostty_build is None)
         manifest = {
             "schema": MANIFEST_SCHEMA,
             "version": version,
@@ -1047,12 +1094,17 @@ class ReleaseManager:
             "release_url": None,
         }
         self.save_manifest(manifest)
+        if ghostty_build is not None:
+            self.install_ghostty_build(version, ghostty_build)
         self.write_plist_version(version, plan["next_build"])
         self.write_website_version(version)
         self.runner.run(["make", "verify"], cwd=self.main, capture=False)
         self.runner.run(["swift", "test"], cwd=self.main, capture=False)
         self.runner.run(["swift", "test", "--parallel"], cwd=self.main, capture=False)
-        self.run_git(self.main, "add", "Info.plist", "website/src/data/site.ts")
+        release_files = ["Info.plist", "website/src/data/site.ts"]
+        if ghostty_build is not None:
+            release_files.extend(["Scripts/dev-tools.env", "Scripts/build-metadata.env"])
+        self.run_git(self.main, "add", *release_files)
         self.run_git(self.main, "commit", "-m", f"Release {version}")
         release_commit = self.git(self.main, "rev-parse", "HEAD")
         self.require_clean_worktree(
@@ -1430,6 +1482,8 @@ def build_parser():
     for name in ("plan", "prepare", "verify", "status", "abort"):
         child = subparsers.add_parser(name)
         child.add_argument("version")
+        if name == "prepare":
+            child.add_argument("--ghostty-build", type=Path)
     for name in ("publish", "resume"):
         child = subparsers.add_parser(name)
         child.add_argument("version")
@@ -1446,7 +1500,7 @@ def main():
             manager.print_plan(plan)
             manager.enforce_new_release_plan(plan)
         elif args.command == "prepare":
-            manager.prepare(args.version)
+            manager.prepare(args.version, args.ghostty_build)
         elif args.command == "verify":
             manager.verify(args.version)
         elif args.command in {"publish", "resume"}:

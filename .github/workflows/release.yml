@@ -52,6 +52,10 @@ jobs:
     timeout-minutes: 5
     permissions:
       contents: read
+      actions: read
+    outputs:
+      artifact_id: ${{ steps.artifact.outputs.artifact_id }}
+      source_commit: ${{ steps.artifact.outputs.source_commit }}
     steps:
       - name: Validate inputs before checkout or credential setup
         env:
@@ -87,44 +91,86 @@ jobs:
               exit 1
               ;;
           esac
-      - name: Check main rules allow the release push
+      - uses: actions/checkout@3d3c42e5aac5ba805825da76410c181273ba90b1
+        with:
+          persist-credentials: false
+      - name: Check owner approvals and branch protection
         env:
           GH_TOKEN: ${{ github.token }}
-        shell: bash
+        run: python3 Scripts/release-ci-policy.py
+      - name: Identify the prepared artifact
+        if: inputs.mode == 'publish'
+        id: artifact
+        env:
+          GH_TOKEN: ${{ github.token }}
+          PREPARE_RUN_ID: ${{ inputs.prepare_run_id }}
+        run: python3 Scripts/release-ci-review.py
+      - name: Download the artifact for review
+        if: inputs.mode == 'publish'
+        uses: actions/download-artifact@3e5f45b2cfb9172054b4087a40e8e0b5a5461e7c
+        with:
+          artifact-ids: ${{ steps.artifact.outputs.artifact_id }}
+          path: ${{ runner.temp }}/release-review
+          merge-multiple: true
+          run-id: ${{ inputs.prepare_run_id }}
+          github-token: ${{ github.token }}
+      - name: Show the files and notes awaiting owner approval
+        if: inputs.mode == 'publish'
+        env:
+          PREPARE_SOURCE_COMMIT: ${{ steps.artifact.outputs.source_commit }}
+          RELEASE_ARTIFACT_ID: ${{ steps.artifact.outputs.artifact_id }}
+          PREPARE_RUN_URL: ${{ steps.artifact.outputs.run_url }}
+          RELEASE_NOTES: ${{ inputs.notes }}
+        run: python3 Scripts/release-ci-review.py "$RUNNER_TEMP/release-review"
+
+  ghostty:
+    name: Build latest GhosttyKit for Apple Silicon
+    needs: validate
+    if: inputs.mode == 'prepare'
+    runs-on: xcode-27
+    timeout-minutes: 90
+    permissions:
+      contents: read
+    outputs:
+      artifact_id: ${{ steps.upload.outputs.artifact-id }}
+    steps:
+      - uses: actions/checkout@3d3c42e5aac5ba805825da76410c181273ba90b1
+        with:
+          persist-credentials: false
+      - name: Install translation build tools
         run: |
-          set -euo pipefail
-          # Publish pushes main last, after the tag and GitHub release are public,
-          # as GITHUB_TOKEN. Every ruleset with a rule that push could fail must let
-          # this token bypass it; fail closed if that cannot be read.
-          RULESETS="$(gh api "repos/$GITHUB_REPOSITORY/rules/branches/main" \
-            --jq '[.[] | select(.type != "deletion" and .type != "non_fast_forward")] | map("\(.ruleset_source_type) \(.ruleset_id) \(.type)") | .[]')"
-          FAILED=0
-          while read -r SOURCE ID TYPE; do
-            [[ -n "${ID:-}" ]] || continue
-            BYPASS=never
-            if [[ "$SOURCE" == Repository ]]; then
-              BYPASS="$(gh api "repos/$GITHUB_REPOSITORY/rulesets/$ID" --jq '.current_user_can_bypass // "never"')"
-            fi
-            if [[ "$BYPASS" != always ]]; then
-              echo "::error::main rule '$TYPE' (ruleset $ID, $SOURCE) would reject the GITHUB_TOKEN release push after the tag and release are public; bypass for this token is '$BYPASS'. Add GitHub Actions to that ruleset's bypass list with mode Always."
-              FAILED=1
-            fi
-          done <<<"$RULESETS"
-          exit "$FAILED"
+          brew install gettext
+          echo "$(brew --prefix gettext)/bin" >> "$GITHUB_PATH"
+      - name: Build the current upstream main revision
+        run: python3 Scripts/build-ghosttykit.py --output-dir .build/release-ghostty
+      - name: Upload source build and provenance
+        id: upload
+        uses: actions/upload-artifact@043fb46d1a93c77aae656e7c1c64a875d1fc6a0a
+        with:
+          name: ghosttykit-source-${{ github.run_id }}
+          path: |
+            .build/release-ghostty/GhosttyKit.xcframework.zip
+            .build/release-ghostty/provenance.json
+          if-no-files-found: error
+          include-hidden-files: true
+          compression-level: 0
+          retention-days: 30
 
   prepare:
     name: Prepare signed release
-    needs: validate
+    environment: release-signing
+    needs: [validate, ghostty]
     if: inputs.mode == 'prepare'
     runs-on: xcode-27
     timeout-minutes: 120
     permissions:
       # Write is required only for the no-op push-access probe; prepare never pushes.
       contents: write
+      actions: read
     env:
       GH_TOKEN: ${{ github.token }}
     steps:
-      - uses: actions/checkout@v7
+      - uses: actions/checkout@3d3c42e5aac5ba805825da76410c181273ba90b1
         with:
           ref: main
           fetch-depth: 0
@@ -146,15 +192,20 @@ jobs:
             echo '::error::main moved since dispatch; re-run prepare.'
             exit 1
           fi
-      - uses: actions/cache@v6.1.0
+      - uses: actions/cache@55cc8345863c7cc4c66a329aec7e433d2d1c52a9
         with:
           path: |
             .cache/dev-tools/bin
             .cache/dev-tools/downloads
-            Frameworks/GhosttyKit.xcframework
           key: dev-deps-${{ runner.os }}-${{ runner.arch }}-${{ hashFiles('Scripts/dev-tools.env', 'Scripts/build-metadata.env') }}
       - name: Set up dependencies
-        run: ./Scripts/dev-tools.sh setup
+        run: ./Scripts/dev-tools.sh setup-tools
+      - name: Download the source-built GhosttyKit
+        uses: actions/download-artifact@3e5f45b2cfb9172054b4087a40e8e0b5a5461e7c
+        with:
+          artifact-ids: ${{ needs.ghostty.outputs.artifact_id }}
+          merge-multiple: true
+          path: .build/release-ghostty
       # Imported after dependency setup and removed before any later action step.
       - name: Import signing and notarization credentials
         env:
@@ -163,8 +214,11 @@ jobs:
           APPLE_NOTARY_KEY_ID: ${{ secrets.APPLE_NOTARY_KEY_ID }}
           APPLE_NOTARY_ISSUER_ID: ${{ secrets.APPLE_NOTARY_ISSUER_ID }}
           APPLE_NOTARY_KEY_P8: ${{ secrets.APPLE_NOTARY_KEY_P8 }}
-          KEYCHAIN_PASSWORD: ${{ github.run_id }}
-        run: ./Scripts/release-ci-credentials.sh
+        run: |
+          KEYCHAIN_PASSWORD="$(openssl rand -hex 32)"
+          echo "::add-mask::$KEYCHAIN_PASSWORD"
+          export KEYCHAIN_PASSWORD
+          ./Scripts/release-ci-credentials.sh
       - name: Prepare release commit, tag and signed assets
         shell: bash
         run: |
@@ -172,16 +226,17 @@ jobs:
           git config user.name 'github-actions[bot]'
           git config user.email '41898282+github-actions[bot]@users.noreply.github.com'
           # The release script runs Swift tests directly, outside Makefile's linker env.
-          LIBRARY_PATH="$(./Scripts/ghostty-preflight.sh print-library-dir)${LIBRARY_PATH:+:$LIBRARY_PATH}"
+          LIBRARY_PATH="$GITHUB_WORKSPACE/Frameworks/GhosttyKit.xcframework/macos-arm64${LIBRARY_PATH:+:$LIBRARY_PATH}"
           export LIBRARY_PATH
-          python3 Scripts/omniwm_release.py prepare "$VERSION"
+          python3 Scripts/omniwm_release.py prepare "$VERSION" --ghostty-build .build/release-ghostty
+          cp .build/release-ghostty/provenance.json "dist/ghostty-provenance-v$VERSION.json"
           git bundle create "dist/release-v$VERSION.bundle" main "v$VERSION"
           git bundle verify "dist/release-v$VERSION.bundle"
       - name: Remove release credentials after signing
         if: always()
         run: ./Scripts/release-ci-credentials.sh cleanup
       - name: Upload prepared release
-        uses: actions/upload-artifact@v7
+        uses: actions/upload-artifact@043fb46d1a93c77aae656e7c1c64a875d1fc6a0a
         with:
           name: omniwm-release-v${{ inputs.version }}
           path: |
@@ -191,6 +246,7 @@ jobs:
             dist/release-notes-v${{ inputs.version }}.md
             dist/release-source-v${{ inputs.version }}.txt
             dist/release-v${{ inputs.version }}.bundle
+            dist/ghostty-provenance-v${{ inputs.version }}.json
           if-no-files-found: error
           compression-level: 0
           retention-days: 30
@@ -226,6 +282,7 @@ jobs:
 
   publish:
     name: Verify and publish reviewed release
+    environment: release-publish
     needs: validate
     if: inputs.mode == 'publish'
     runs-on: xcode-27
@@ -235,9 +292,9 @@ jobs:
       actions: read
     env:
       GH_TOKEN: ${{ github.token }}
-      PREPARE_RUN_ID: ${{ inputs.prepare_run_id }}
+      PREPARE_SOURCE_COMMIT: ${{ needs.validate.outputs.source_commit }}
     steps:
-      - uses: actions/checkout@v7
+      - uses: actions/checkout@3d3c42e5aac5ba805825da76410c181273ba90b1
         with:
           ref: main
           fetch-depth: 0
@@ -251,34 +308,11 @@ jobs:
             echo '::error::origin must be the canonical token-free checkout URL in both release modes.'
             exit 1
           fi
-      - name: Check prepare run provenance
-        shell: bash
-        run: |
-          set -euo pipefail
-          gh api "repos/$GITHUB_REPOSITORY/actions/runs/$PREPARE_RUN_ID" > "$RUNNER_TEMP/prepare-run.json"
-          python3 - <<'PY'
-          import json
-          import os
-          from pathlib import Path
-
-          run = json.loads((Path(os.environ['RUNNER_TEMP']) / 'prepare-run.json').read_text())
-          expected = {
-              'path': '.github/workflows/release.yml',
-              'event': 'workflow_dispatch',
-              'head_branch': 'main',
-              'status': 'completed',
-              'conclusion': 'success',
-          }
-          for key, value in expected.items():
-              if run.get(key) != value:
-                  raise SystemExit(f'prepare_run_id must identify a successful release workflow on main: {key} mismatch')
-          if run['repository']['full_name'] != os.environ['GITHUB_REPOSITORY']:
-              raise SystemExit('prepare run repository mismatch')
-          PY
       - name: Download prepared release
-        uses: actions/download-artifact@v8
+        uses: actions/download-artifact@3e5f45b2cfb9172054b4087a40e8e0b5a5461e7c
         with:
-          name: omniwm-release-v${{ inputs.version }}
+          artifact-ids: ${{ needs.validate.outputs.artifact_id }}
+          merge-multiple: true
           path: dist
           run-id: ${{ inputs.prepare_run_id }}
           github-token: ${{ github.token }}
@@ -305,8 +339,7 @@ jobs:
               raise SystemExit(f'Invalid prepared artifact or changed workspace path: {error}')
           if manifest['state'] != 'prepared':
               raise SystemExit('Artifact must contain an unsealed prepared release')
-          run = json.loads((Path(os.environ['RUNNER_TEMP']) / 'prepare-run.json').read_text())
-          if run['head_sha'] != manifest['original_main_head']:
+          if os.environ['PREPARE_SOURCE_COMMIT'] != manifest['original_main_head']:
               raise SystemExit('Prepare run source commit differs from the artifact original main commit; prepare again')
           manager.fetch()
           remote_main = manager.git(manager.main, 'rev-parse', 'origin/main')
@@ -338,13 +371,17 @@ jobs:
           if manager.git(manager.main, 'rev-parse', 'HEAD') != manifest['release_commit']:
               raise SystemExit('Restored main HEAD differs from the manifest release commit')
           PY
-      - uses: actions/cache@v6.1.0
+      - uses: actions/cache@55cc8345863c7cc4c66a329aec7e433d2d1c52a9
         with:
           path: |
             .cache/dev-tools/bin
             .cache/dev-tools/downloads
-            Frameworks/GhosttyKit.xcframework
           key: dev-deps-${{ runner.os }}-${{ runner.arch }}-${{ hashFiles('Scripts/dev-tools.env', 'Scripts/build-metadata.env') }}
+      - name: Restore the frozen GhosttyKit dependency
+        run: |
+          mkdir -p Frameworks
+          ditto -x -k "dist/GhosttyKit.xcframework-v$VERSION.zip" Frameworks
+          ./Scripts/ghostty-preflight.sh verify
       - name: Set up dependencies
         run: ./Scripts/dev-tools.sh setup
       - name: Check frozen worktree is clean
@@ -365,6 +402,7 @@ jobs:
           set -euo pipefail
           printf '%s' "$RELEASE_NOTES" > "dist/release-notes-v$VERSION.md"
           python3 Scripts/omniwm_release.py verify "$VERSION"
+          python3 Scripts/release-ci-policy.py
           python3 Scripts/omniwm_release.py publish "$VERSION" --yes
           {
             printf '## Published OmniWM v%s\n\n' "$VERSION"

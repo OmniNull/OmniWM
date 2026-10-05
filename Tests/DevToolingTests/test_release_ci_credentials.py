@@ -162,6 +162,13 @@ class ReleaseCICredentialsTests(unittest.TestCase):
             self.assertIn(name, result.stderr)
         self.assertEqual(self.commands(), [])
 
+    def test_newline_terminated_notary_key_is_accepted(self):
+        result = self.run_script(overrides={"APPLE_NOTARY_KEY_P8": P8_BODY + "\n"})
+
+        self.assertEqual(result.returncode, 0, result.stderr)
+        self.assertIn("store-credentials", self.log_text())
+        self.assert_no_secrets(result)
+
     def test_single_missing_variable_is_listed_by_name(self):
         result = self.run_script(overrides={"KEYCHAIN_PASSWORD": ""})
 
