@@ -11,11 +11,14 @@ final class TabRailIconTests: XCTestCase {
     func testIconClickHoverAndAccessibilityAgreeAcrossCountsAndSelections() throws {
         let manager = TabRailManager(motionPolicy: MotionPolicy(animationsEnabled: false))
         defer { manager.removeAll() }
+        let visibleFrame = try XCTUnwrap(NSScreen.screens.first).visibleFrame
         var selected: Int?
         manager.onSelect = { _, index, _ in selected = index }
         for count in [2, 5, 6, 10] {
             for active in [0, count / 2, count - 1] {
-                let info = makeInfo(count: count, active: active)
+                let info = makeInfo(
+                    count: count, active: active, height: visibleFrame.height, origin: visibleFrame.origin
+                )
                 manager.updateRails([info], style: .appIcons)
                 let (window, view, icons) = try views(manager, info)
                 XCTAssertEqual(window.frame.width, 28)
