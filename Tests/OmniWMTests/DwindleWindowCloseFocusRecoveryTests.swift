@@ -75,6 +75,27 @@ final class DwindleWindowCloseFocusRecoveryTests: XCTestCase {
         try await Self.verifyCloseRecovery(layouts: .niriToDwindle)
     }
 
+    func testDwindleCloseFocusesTreeNeighborAheadOfOldestWindow() async throws {
+        let oldestToken = WindowToken(pid: 952_103, windowId: 952_204)
+        let fixture = try Self.makeFixture(layouts: .dwindleToDwindle, oldestToken: oldestToken)
+        defer { Self.stop(fixture) }
+        let engine = try XCTUnwrap(fixture.controller.dwindleEngine)
+        let closingNode = try XCTUnwrap(engine.findNode(for: fixture.closingToken, in: fixture.localWorkspaceId))
+        XCTAssertEqual(closingNode.sibling()?.windowToken, fixture.fallbackToken)
+        XCTAssertEqual(
+            fixture.controller.workspaceManager.windowQueries
+                .windows(in: fixture.localWorkspaceId, mode: .tiling).first?.token,
+            oldestToken
+        )
+
+        await Self.closeFocusedWindow(in: fixture)
+        await Self.settleClose(fixture)
+
+        Self.assertRecoveredLocally(fixture)
+        XCTAssertEqual(engine.projectedActiveToken(in: fixture.localWorkspaceId), fixture.fallbackToken)
+        XCTAssertTrue(engine.containsWindow(oldestToken, in: fixture.localWorkspaceId))
+    }
+
     func testDelayedFocusFactsCannotLeaveLocalWorkspaceAfterRemoval() async throws {
         for layouts in LayoutPair.allCases {
             for order in FocusOrder.allCases {
@@ -205,7 +226,7 @@ final class DwindleWindowCloseFocusRecoveryTests: XCTestCase {
         }
     }
 
-    private static func makeFixture(layouts: LayoutPair) throws -> Fixture {
+    private static func makeFixture(layouts: LayoutPair, oldestToken: WindowToken? = nil) throws -> Fixture {
         let controller = WindowAdmissionTestSupport.controller(prefix: "OmniWMDwindleCloseFocusTests")
         controller.settings.animationsEnabled = false
         let monitor = Monitor(
@@ -232,6 +253,9 @@ final class DwindleWindowCloseFocusRecoveryTests: XCTestCase {
         let closingToken = WindowToken(pid: 952_101, windowId: 952_201)
         let fallbackToken = WindowToken(pid: 952_102, windowId: 952_202)
         let remoteToken = WindowToken(pid: closingToken.pid, windowId: 952_203)
+        if let oldestToken {
+            addWindow(oldestToken, to: localWorkspaceId, controller: controller)
+        }
         addWindow(fallbackToken, to: localWorkspaceId, controller: controller)
         addWindow(
             closingToken,
