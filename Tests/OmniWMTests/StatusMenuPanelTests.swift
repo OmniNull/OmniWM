@@ -214,17 +214,24 @@ final class StatusMenuPanelTests: XCTestCase {
         fixture.show()
         fixture.seedSubmenuRows()
         fixture.host.hoverSubmenu(.advanced, hovered: true)
+        let abandonedDwell = try XCTUnwrap(fixture.host.hoverTask)
+        await fixture.sleeper.waitForPendingSleeps(1)
         fixture.host.hoverSubmenu(.advanced, hovered: false)
+        await abandonedDwell.value
 
-        try await Task.sleep(for: .milliseconds(225))
-
+        XCTAssertEqual(fixture.sleeper.requestedDurations, [.milliseconds(150)])
+        XCTAssertEqual(fixture.sleeper.pendingCount, 0)
         XCTAssertNil(fixture.host.presentation.expandedPage)
         XCTAssertNotEqual(fixture.host.submenuPanel?.isVisible, true)
         fixture.host.hoverSubmenu(.help, hovered: true)
+        let dismissedDwell = try XCTUnwrap(fixture.host.hoverTask)
+        await fixture.sleeper.waitForPendingSleeps(1)
+
+        XCTAssertEqual(fixture.sleeper.pendingCount, 1)
         fixture.host.dismiss()
+        await dismissedDwell.value
 
-        try await Task.sleep(for: .milliseconds(225))
-
+        XCTAssertEqual(fixture.sleeper.pendingCount, 0)
         XCTAssertFalse(fixture.host.isVisible)
         XCTAssertNil(fixture.host.presentation.expandedPage)
         XCTAssertNotEqual(fixture.host.submenuPanel?.isVisible, true)
@@ -237,25 +244,50 @@ final class StatusMenuPanelTests: XCTestCase {
         fixture.show()
         fixture.seedSubmenuRows()
         fixture.host.hoverSubmenu(.advanced, hovered: true)
+        await fixture.sleeper.waitForPendingSleeps(1)
 
-        try await Task.sleep(for: .milliseconds(225))
+        XCTAssertEqual(fixture.sleeper.requestedDurations, [.milliseconds(150)])
+        XCTAssertNil(fixture.host.presentation.expandedPage)
+        try await fixture.elapseHoverDwell()
 
         XCTAssertEqual(fixture.host.presentation.expandedPage, .advanced)
         let submenu = try XCTUnwrap(fixture.host.submenuPanel)
         fixture.host.hoverSubmenu(.help, hovered: true)
-
-        try await Task.sleep(for: .milliseconds(225))
+        try await fixture.elapseHoverDwell()
 
         XCTAssertEqual(fixture.host.presentation.expandedPage, .help)
         XCTAssertTrue(fixture.host.submenuPanel === submenu)
         fixture.host.hoverSubmenu(nil, hovered: true)
-
-        try await Task.sleep(for: .milliseconds(225))
+        try await fixture.elapseHoverDwell()
 
         XCTAssertNil(fixture.host.presentation.expandedPage)
         XCTAssertFalse(submenu.isVisible)
         XCTAssertTrue(fixture.host.isVisible)
         XCTAssertEqual(fixture.model.menuPresentationGeneration, 1)
+    }
+
+    func testSupersededHoverCannotOpenAfterItsDwellElapses() async throws {
+        let fixture = makeFixture()
+        defer { fixture.cleanup() }
+        fixture.show()
+        fixture.seedSubmenuRows()
+        fixture.host.openSubmenu(.advanced, enterKeyboard: false)
+        let submenu = try XCTUnwrap(fixture.host.submenuPanel)
+        fixture.host.hoverSubmenu(.help, hovered: true)
+        let supersededDwell = try XCTUnwrap(fixture.host.hoverTask)
+        await fixture.sleeper.waitForPendingSleeps(1)
+        fixture.sleeper.resumeNext()
+        fixture.host.hoverSubmenu(nil, hovered: true)
+        let closeDwell = try XCTUnwrap(fixture.host.hoverTask)
+        await supersededDwell.value
+
+        XCTAssertEqual(fixture.host.presentation.expandedPage, .advanced)
+        fixture.sleeper.resumeNext()
+        await closeDwell.value
+
+        XCTAssertNil(fixture.host.presentation.expandedPage)
+        XCTAssertFalse(submenu.isVisible)
+        XCTAssertTrue(fixture.host.isVisible)
     }
 
     func testEnteringSubmenuCancelsPendingHoverClose() async throws {
@@ -266,10 +298,14 @@ final class StatusMenuPanelTests: XCTestCase {
         fixture.host.openSubmenu(.advanced, enterKeyboard: false)
         let submenu = try XCTUnwrap(fixture.host.submenuPanel)
         fixture.host.hoverSubmenu(nil, hovered: true)
+        let closeDwell = try XCTUnwrap(fixture.host.hoverTask)
+        await fixture.sleeper.waitForPendingSleeps(1)
+
+        XCTAssertEqual(fixture.sleeper.pendingCount, 1)
         fixture.host.submenuEntered()
+        await closeDwell.value
 
-        try await Task.sleep(for: .milliseconds(225))
-
+        XCTAssertEqual(fixture.sleeper.pendingCount, 0)
         XCTAssertEqual(fixture.host.presentation.expandedPage, .advanced)
         XCTAssertTrue(submenu.isVisible)
         XCTAssertEqual(fixture.model.menuPresentationGeneration, 1)
@@ -332,6 +368,7 @@ final class StatusMenuPanelTests: XCTestCase {
 @MainActor
 private final class StatusMenuPanelFixture {
     let root = FileManager.default.temporaryDirectory.appendingPathComponent("OmniWMStatusPanelTests-\(UUID())")
+    let sleeper = ManualSleeper()
     let controller: WMController
     let model: StatusMenuModel
     let host: StatusMenuHost
@@ -352,12 +389,21 @@ private final class StatusMenuPanelFixture {
             diagnosticsDirectory: root.appendingPathComponent("diagnostics")
         )
         model = StatusMenuModel(settings: settings, controller: controller)
-        host = StatusMenuHost(model: model, controller: controller)
+        host = StatusMenuHost(model: model, controller: controller) { [sleeper] in
+            try await sleeper.sleep(for: $0)
+        }
     }
 
     func show(visibleFrame: CGRect? = nil) {
         let frame = visibleFrame ?? NSScreen.main?.visibleFrame ?? CGRect(x: 0, y: 0, width: 1920, height: 1080)
         host.show(attachment: PopupAttachment(anchor: CGPoint(x: frame.maxX - 160, y: frame.maxY)), visibleFrame: frame)
+    }
+
+    func elapseHoverDwell() async throws {
+        let dwell = try XCTUnwrap(host.hoverTask)
+        await sleeper.waitForPendingSleeps(1)
+        sleeper.resumeNext()
+        await dwell.value
     }
 
     func seedSubmenuRows() {

@@ -10,13 +10,19 @@ final class WorkspaceBarRevealMonitor {
 
     private var modifier: WorkspaceBarRevealModifier
     private var holdMilliseconds: Int64
-    private var holdTask: Task<Void, Never>?
+    private(set) var holdTask: Task<Void, Never>?
     private var localMonitor: Any?
     private var globalMonitor: Any?
+    private let sleep: @MainActor (Duration) async throws -> Void
 
-    init(modifier: WorkspaceBarRevealModifier = .off, holdMilliseconds: Double = 200) {
+    init(
+        modifier: WorkspaceBarRevealModifier = .off,
+        holdMilliseconds: Double = 200,
+        sleep: @escaping @MainActor (Duration) async throws -> Void = { try await Task.sleep(for: $0) }
+    ) {
         self.modifier = modifier
         self.holdMilliseconds = Self.normalizedHoldMilliseconds(holdMilliseconds)
+        self.sleep = sleep
     }
 
     func start(modifier: WorkspaceBarRevealModifier, holdMilliseconds: Double) {
@@ -53,8 +59,9 @@ final class WorkspaceBarRevealMonitor {
                 return
             }
             let delay = holdMilliseconds
+            let sleep = sleep
             holdTask = Task { @MainActor [weak self, delay] in
-                try? await Task.sleep(for: .milliseconds(delay))
+                try? await sleep(.milliseconds(delay))
                 guard let self, !Task.isCancelled else { return }
                 holdTask = nil
                 setRevealed(true)

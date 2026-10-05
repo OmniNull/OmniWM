@@ -210,35 +210,39 @@ final class StatusMenuControlHelpTests: XCTestCase {
         XCTAssertNil(selection.presentedControl)
     }
 
-    func testPresentationSchedulesExactHoverDwellBeforePresenting() async {
-        let sleeper = StatusMenuHelpManualSleeper()
+    func testPresentationSchedulesExactHoverDwellBeforePresenting() async throws {
+        let sleeper = ManualSleeper()
         let presentation = StatusMenuHelpPresentation { try await sleeper.sleep(for: $0) }
 
         presentation.hoverChanged(.focusFollowsMouse, isHovered: true)
+        let dwell = try XCTUnwrap(presentation.transitionTask)
 
         XCTAssertEqual(presentation.selection.hoveredControl, .focusFollowsMouse)
         XCTAssertNil(presentation.selection.presentedControl)
 
-        await drainStatusMenuHelpTasks()
+        await sleeper.waitForPendingSleeps(1)
 
         XCTAssertEqual(sleeper.requestedDurations, [.milliseconds(300)])
         XCTAssertEqual(sleeper.pendingCount, 1)
         XCTAssertNil(presentation.selection.presentedControl)
 
         sleeper.resumeNext()
-        await drainStatusMenuHelpTasks()
+        await dwell.value
 
         XCTAssertEqual(presentation.selection.presentedControl, .focusFollowsMouse)
     }
 
-    func testPresentationCancelsFirstDwellDuringRapidHover() async {
-        let sleeper = StatusMenuHelpManualSleeper()
+    func testPresentationCancelsFirstDwellDuringRapidHover() async throws {
+        let sleeper = ManualSleeper()
         let presentation = StatusMenuHelpPresentation { try await sleeper.sleep(for: $0) }
 
         presentation.hoverChanged(.focusFollowsMouse, isHovered: true)
-        await drainStatusMenuHelpTasks()
+        let firstDwell = try XCTUnwrap(presentation.transitionTask)
+        await sleeper.waitForPendingSleeps(1)
         presentation.hoverChanged(.mouseWarpEnabled, isHovered: true)
-        await drainStatusMenuHelpTasks()
+        let secondDwell = try XCTUnwrap(presentation.transitionTask)
+        await firstDwell.value
+        await sleeper.waitForPendingSleeps(1)
 
         XCTAssertEqual(sleeper.requestedDurations, [.milliseconds(300), .milliseconds(300)])
         XCTAssertEqual(sleeper.pendingCount, 1)
@@ -246,45 +250,48 @@ final class StatusMenuControlHelpTests: XCTestCase {
         XCTAssertNil(presentation.selection.presentedControl)
 
         sleeper.resumeNext()
-        await drainStatusMenuHelpTasks()
+        await secondDwell.value
 
         XCTAssertEqual(presentation.selection.presentedControl, .mouseWarpEnabled)
     }
 
-    func testPresentationKeepsHoveredHelpThroughExactExitGrace() async {
-        let sleeper = StatusMenuHelpManualSleeper()
+    func testPresentationKeepsHoveredHelpThroughExactExitGrace() async throws {
+        let sleeper = ManualSleeper()
         let presentation = StatusMenuHelpPresentation { try await sleeper.sleep(for: $0) }
         presentation.focusChanged(.bordersEnabled, isFocused: true)
         presentation.hoverChanged(.workspaceBarEnabled, isHovered: true)
-        await drainStatusMenuHelpTasks()
+        let dwell = try XCTUnwrap(presentation.transitionTask)
+        await sleeper.waitForPendingSleeps(1)
         sleeper.resumeNext()
-        await drainStatusMenuHelpTasks()
+        await dwell.value
 
         presentation.hoverChanged(.workspaceBarEnabled, isHovered: false)
+        let exitGrace = try XCTUnwrap(presentation.transitionTask)
 
         XCTAssertNil(presentation.selection.hoveredControl)
         XCTAssertEqual(presentation.selection.presentedControl, .workspaceBarEnabled)
 
-        await drainStatusMenuHelpTasks()
+        await sleeper.waitForPendingSleeps(1)
 
         XCTAssertEqual(sleeper.requestedDurations, [.milliseconds(300), .milliseconds(150)])
         XCTAssertEqual(sleeper.pendingCount, 1)
         XCTAssertEqual(presentation.selection.presentedControl, .workspaceBarEnabled)
 
         sleeper.resumeNext()
-        await drainStatusMenuHelpTasks()
+        await exitGrace.value
 
         XCTAssertEqual(presentation.selection.presentedControl, .bordersEnabled)
     }
 
-    func testPresentationResetCancelsPendingTransition() async {
-        let sleeper = StatusMenuHelpManualSleeper()
+    func testPresentationResetCancelsPendingTransition() async throws {
+        let sleeper = ManualSleeper()
         let presentation = StatusMenuHelpPresentation { try await sleeper.sleep(for: $0) }
         presentation.hoverChanged(.moveCrossesMonitorAtEdge, isHovered: true)
-        await drainStatusMenuHelpTasks()
+        let dwell = try XCTUnwrap(presentation.transitionTask)
+        await sleeper.waitForPendingSleeps(1)
 
         presentation.reset()
-        await drainStatusMenuHelpTasks()
+        await dwell.value
 
         XCTAssertEqual(sleeper.requestedDurations, [.milliseconds(300)])
         XCTAssertEqual(sleeper.pendingCount, 0)
@@ -360,54 +367,5 @@ final class StatusMenuControlHelpTests: XCTestCase {
             controller: controller,
             model: StatusMenuModel(settings: settings, controller: controller)
         )
-    }
-}
-
-@MainActor
-private final class StatusMenuHelpManualSleeper {
-    private struct Waiter {
-        let id: UInt64
-        let continuation: CheckedContinuation<Void, Never>
-    }
-
-    private(set) var requestedDurations: [Duration] = []
-    private var nextId: UInt64 = 0
-    private var waiters: [Waiter] = []
-
-    var pendingCount: Int {
-        waiters.count
-    }
-
-    func sleep(for duration: Duration) async throws {
-        requestedDurations.append(duration)
-        nextId &+= 1
-        let id = nextId
-        try await withTaskCancellationHandler {
-            await withCheckedContinuation { continuation in
-                waiters.append(Waiter(id: id, continuation: continuation))
-            }
-            try Task.checkCancellation()
-        } onCancel: {
-            Task { @MainActor [weak self] in
-                self?.cancel(id: id)
-            }
-        }
-    }
-
-    func resumeNext() {
-        guard !waiters.isEmpty else { return }
-        waiters.removeFirst().continuation.resume()
-    }
-
-    private func cancel(id: UInt64) {
-        guard let index = waiters.firstIndex(where: { $0.id == id }) else { return }
-        waiters.remove(at: index).continuation.resume()
-    }
-}
-
-@MainActor
-private func drainStatusMenuHelpTasks() async {
-    for _ in 0 ..< 8 {
-        await Task.yield()
     }
 }

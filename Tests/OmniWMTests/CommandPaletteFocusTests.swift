@@ -27,21 +27,18 @@ final class CommandPaletteFocusTests: XCTestCase {
         revealObservation.cancel()
         XCTAssertEqual(panel.frame.height, compactFrame.height, accuracy: 0.5)
 
-        let intermediate = expectation(description: "Animated panel passes through intermediate height")
         let expanded = expectation(description: "Animated panel reaches expanded height")
         let resizeEvents = NotificationCenter.default.publisher(for: NSWindow.didResizeNotification, object: panel)
             .compactMap { ($0.object as? NSPanel)?.frame.height }
             .share()
-        let intermediateObservation = resizeEvents
-            .first { $0 > compactFrame.height + 10 && $0 < CommandPalettePanel.expandedHeight - 10 }
-            .sink { _ in intermediate.fulfill() }
         let expandedObservation = resizeEvents
             .first { $0 >= CommandPalettePanel.expandedHeight - 0.5 }
             .sink { _ in expanded.fulfill() }
 
         try fixture.insertText("first")
-        await fulfillment(of: [intermediate, expanded], timeout: 2)
-        intermediateObservation.cancel()
+        XCTAssertTrue(fixture.palette.isExpanded)
+        XCTAssertEqual(panel.frame.height, compactFrame.height, accuracy: 0.5)
+        await fulfillment(of: [expanded], timeout: 2)
         expandedObservation.cancel()
         fixture.layout()
         XCTAssertTrue(fixture.palette.isExpanded)
@@ -50,12 +47,13 @@ final class CommandPaletteFocusTests: XCTestCase {
         try fixture.insertText(" second")
         XCTAssertEqual(fixture.palette.searchText, "first second")
 
-        let closing = expectation(description: "Cancel animation reaches its closing frames")
+        let closing = expectation(description: "Cancel animation starts collapsing the panel")
         let closingObservation = resizeEvents
-            .first { $0 < 180 && $0 > CommandPalettePanel.collapsedHeight + 10 }
+            .first { $0 < CommandPalettePanel.expandedHeight - 0.5 }
             .sink { _ in closing.fulfill() }
         fixture.palette.toggle(wmController: fixture.controller)
         XCTAssertFalse(fixture.palette.isVisible)
+        XCTAssertEqual(panel.frame.height, CommandPalettePanel.expandedHeight, accuracy: 0.5)
         XCTAssertEqual(fixture.palette.searchText, "first second")
         await fulfillment(of: [closing], timeout: 2)
         closingObservation.cancel()

@@ -70,7 +70,7 @@ final class StatusMenuHelpPresentation {
     private let sleep: Sleep
 
     @ObservationIgnored
-    private var transitionTask: Task<Void, Never>?
+    private(set) var transitionTask: Task<Void, Never>?
 
     init(sleep: @escaping Sleep = { try await Task<Never, Never>.sleep(for: $0) }) {
         self.sleep = sleep
