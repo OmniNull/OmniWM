@@ -178,7 +178,7 @@ The unassigned advanced actions are available in Settings > Hotkeys. `Focus Next
 
 ## Quake Terminal (Inside Terminal)
 
-These are the default shortcuts inside the [Quake Terminal](/features/quake-terminal/). **Unreleased — available when building from `main`:** customize tab and pane shortcuts in your [Ghostty configuration](/features/quake-terminal/#inside-terminal-shortcuts).
+These are the default shortcuts inside the [Quake Terminal](/features/quake-terminal/). Customize tab and pane shortcuts in your [Ghostty configuration](/features/quake-terminal/#inside-terminal-shortcuts).
 
 | Action | Default Shortcut |
 |--------|----------|

@@ -39,7 +39,7 @@ Command-click an OSC 8 web or email hyperlink printed by a terminal application 
 
 ## Inside-terminal shortcuts
 
-**Unreleased — available when building from `main`.** Customize tab and pane shortcuts with Ghostty `keybind` entries in `~/.config/ghostty/config.ghostty` (or your existing Ghostty config). User bindings override the defaults below; `unbind` removes a binding. Reload inside Quake with `Cmd + Shift + ,`, or relaunch OmniWM. The global toggle stays in **Settings → Hotkeys** and OmniWM's `settings.toml`.
+Customize tab and pane shortcuts with Ghostty `keybind` entries in `~/.config/ghostty/config.ghostty` (or your existing Ghostty config). User bindings override the defaults below; `unbind` removes a binding. Reload inside Quake with `Cmd + Shift + ,`, or relaunch OmniWM. The global toggle stays in **Settings → Hotkeys** and OmniWM's `settings.toml`.
 
 ```ini
 keybind = cmd+t=unbind

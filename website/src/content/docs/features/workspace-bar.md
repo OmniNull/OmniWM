@@ -23,8 +23,6 @@ Optionally show a System Stats button that opens a CPU, memory, GPU, disk, and u
 
 ## Notification badges
 
-**Unreleased:** available when building from `main`.
-
 In the global Workspace Bar settings, set **Notification Badges** to **Dot** or **Text** to show each app's Dock badge at the upper-left of its existing icons. **Text** shows the Dock's count or symbol, using an ellipsis when it cannot fit. Badges are off by default.
 
 The same app-wide badge appears on every matching icon, including expanded scratchpads. Focusing a window does not clear it. Apps without a Dock badge do not show one, and badges do not add otherwise absent app icons.

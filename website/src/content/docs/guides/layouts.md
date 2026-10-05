@@ -13,7 +13,7 @@ OmniWM offers two layout engines, and each workspace picks its own. Switch the a
 
 On monitors using horizontal orientation, windows form vertical columns that scroll left and right; in vertical orientation, they form horizontal rows that scroll up and down. Each container can hold multiple windows or be "tabbed" — multiple windows with one visible at a time.
 
-**Unreleased — available when building from `main`.** When fewer containers are open than **Visible Containers**, they expand proportionally to fill unused space. Wider and narrower containers keep their relative sizes, and their chosen spans return when the configured count is reached. Windows that require more space still scroll normally; a lone window follows **Single Window Fit**.
+When fewer containers are open than **Visible Containers**, they expand proportionally to fill unused space. Wider and narrower containers keep their relative sizes, and their chosen spans return when the configured count is reached. Windows that require more space still scroll normally; a lone window follows **Single Window Fit**.
 
 Mouse and command resizing use the usual Niri behavior and keep your chosen size, even if that leaves empty space. Automatic filling resumes when the number of containers changes.
 
