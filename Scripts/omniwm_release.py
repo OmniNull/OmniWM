@@ -748,7 +748,11 @@ class ReleaseManager:
             check=False,
             quiet=True,
         )
-        if result.returncode == 0 and result.stdout.strip() == "unknown":
+        permission = result.stdout.strip()
+        if result.returncode == 0 and (
+            permission == "unknown"
+            or (permission == "false" and os.environ.get("GITHUB_ACTIONS") == "true")
+        ):
             # Installation tokens such as GITHUB_TOKEN do not report user permissions.
             # Authenticate to Git's receive-pack endpoint without updating any refs.
             remote = self.remote_url(self.main)
@@ -764,7 +768,7 @@ class ReleaseManager:
                 "detail": "GH_TOKEN/GITHUB_TOKEN Git write-access probe: " + (result.stderr or result.stdout).strip(),
             }
         return {
-            "ok": result.returncode == 0 and result.stdout.strip() == "true",
+            "ok": result.returncode == 0 and permission == "true",
             "detail": "GH_TOKEN/GITHUB_TOKEN repository push permission: " + (result.stderr or result.stdout).strip(),
         }
 
