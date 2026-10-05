@@ -134,12 +134,15 @@ jobs:
           set -euo pipefail
           STAMP="$(date -u +%Y%m%d-%H%M)"
           TAG="canary-$STAMP"
+          # The tag must name the commit the ZIP and notes were built from;
+          # checkout of main can be newer than the event's GITHUB_SHA.
+          HEAD_SHA="$(git rev-parse HEAD)"
           SHORT="$(git rev-parse --short HEAD)"
           python3 Scripts/canary_release.py notes --repo . --output "$RUNNER_TEMP/canary-notes.md"
           ZIP="dist/OmniWM-canary-$TAG.zip"
           ditto -c -k --keepParent dist/OmniWM.app "$ZIP"
           URL="$(gh release create "$TAG" "$ZIP" \
-            --target "$GITHUB_SHA" \
+            --target "$HEAD_SHA" \
             --prerelease \
             --title "Canary $STAMP ($SHORT)" \
             --notes-file "$RUNNER_TEMP/canary-notes.md")"

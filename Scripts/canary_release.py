@@ -92,20 +92,20 @@ def check(repo, force):
 
 
 def notes_base(repo, commit):
-    """Newest canary containing commit, else the newest stable tag that does.
+    """Newest tag (canary or stable) that is an ancestor of commit.
 
-    This mirrors the skip gate: canary notes resume where the previous canary
-    ended, falling back to the last stable release.
+    Both pools compete on creatordate without pattern priority: when a stable
+    release lands after a canary, its tag describes history the canary
+    predates, so the next canary's notes must resume after the release.
     """
-    for pattern in (CANARY_GLOB, STABLE_GLOB):
-        candidates = [
+    candidates = []
+    for pattern in TAG_GLOBS:
+        candidates.extend(
             (date, tag)
             for date, tag in tags_with_create_dates(repo, pattern)
             if is_ancestor(repo, tag, commit)
-        ]
-        if candidates:
-            return max(candidates)[1]
-    return None
+        )
+    return max(candidates)[1] if candidates else None
 
 
 def notes(repo):

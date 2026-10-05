@@ -119,6 +119,20 @@ class CanaryReleaseTests(unittest.TestCase):
         text = canary_release.notes(str(self.repo.path))
         self.assertIn("Base tag: `v0.7.10`", text)
 
+    def test_stable_release_after_canary_becomes_notes_base(self):
+        self.seed_release()
+        self.repo.commit("alpha")
+        self.repo.tag("canary-20261004-0400")
+        self.repo.commit("release commit")
+        self.repo.tag("v0.7.6")
+        self.repo.commit("beta")
+        text = canary_release.notes(str(self.repo.path))
+        # The canary tag predates the release that already covered "alpha",
+        # so the notes must resume after v0.7.6 and repeat nothing.
+        self.assertIn("Base tag: `v0.7.6`", text)
+        self.assertIn("beta", text)
+        self.assertNotIn(" alpha", text)
+
     def test_notes_list_commits_since_previous_tag(self):
         self.seed_release()
         self.repo.commit("feature one")
