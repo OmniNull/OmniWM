@@ -29,6 +29,7 @@ export const contributors: Contributor[] = [
   { name: 'Jonathan Macheret', handle: 'Jonathanm10' },
   { name: 'Jose Cardama', handle: 'jcardama' },
   { name: 'Lukas Gerlinski', handle: 'lgerlinski' },
+  { name: 'Luke Stephens', handle: 'imprisonedmind' },
   { name: 'Marcus Harlid Davin', handle: 'zucram' },
   { name: 'Mateusz Juszczyk', handle: 'MateuszJuszczyk' },
   { name: 'matt petters', handle: 'mattpetters' },
@@ -50,5 +51,6 @@ export const contributors: Contributor[] = [
   { name: 'Yang-Yiming', handle: 'Yang-Yiming' },
   { name: 'YeungKC', handle: 'YeungKC' },
   { name: 'Yuri Chukhlib', handle: 'YuriNachos' },
+  { name: 'Zhizhen He', handle: 'hezhizhen' },
   { name: 'Zicochaos', handle: 'zicochaos' },
 ];

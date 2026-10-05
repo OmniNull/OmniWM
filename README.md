@@ -164,6 +164,23 @@ OmniWM is a free, open-source, Developer ID-signed and Apple-notarized tiling wi
       <sub>@albertilagan</sub>
     </td>
     <td align="center" valign="top">
+      <a href="https://mooola.co.za/">
+        <img src="https://mooola.co.za/assets/webp/app-logo.webp" width="72" alt="mooola">
+      </a>
+      <br>
+      <a href="https://mooola.co.za/"><strong>mooola</strong></a>
+      <br>
+      <sub>━━━━━━━━</sub>
+      <br>
+      <a href="https://github.com/imprisonedmind" title="Luke Stephens">
+        <img src="https://github.com/imprisonedmind.png?size=96" width="72" alt="Luke Stephens">
+      </a>
+      <br>
+      <a href="https://github.com/imprisonedmind"><strong>Luke Stephens</strong></a>
+      <br>
+      <sub>@imprisonedmind</sub>
+    </td>
+    <td align="center" valign="top">
       <a href="https://github.com/nrwl">
         <img src="https://avatars.githubusercontent.com/u/23692104?v=4" width="72" alt="Nx">
       </a>
@@ -442,6 +459,9 @@ OmniWM is a free, open-source, Developer ID-signed and Apple-notarized tiling wi
       <a href="https://github.com/lgerlinski" title="Lukas Gerlinski">
         <img src="https://github.com/lgerlinski.png?size=96" width="72" alt="Lukas Gerlinski">
       </a>
+      <a href="https://github.com/imprisonedmind" title="Luke Stephens">
+        <img src="https://github.com/imprisonedmind.png?size=96" width="72" alt="Luke Stephens">
+      </a>
       <a href="https://github.com/zucram" title="Marcus Harlid Davin">
         <img src="https://github.com/zucram.png?size=96" width="72" alt="Marcus Harlid Davin">
       </a>
@@ -504,6 +524,9 @@ OmniWM is a free, open-source, Developer ID-signed and Apple-notarized tiling wi
       </a>
       <a href="https://github.com/YuriNachos" title="Yuri Chukhlib">
         <img src="https://github.com/YuriNachos.png?size=96" width="72" alt="Yuri Chukhlib">
+      </a>
+      <a href="https://github.com/hezhizhen" title="Zhizhen He">
+        <img src="https://github.com/hezhizhen.png?size=96" width="72" alt="Zhizhen He">
       </a>
       <a href="https://github.com/zicochaos" title="Zicochaos">
         <img src="https://github.com/zicochaos.png?size=96" width="72" alt="Zicochaos">
