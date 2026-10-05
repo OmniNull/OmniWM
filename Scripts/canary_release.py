@@ -43,7 +43,12 @@ def is_ancestor(repo, maybe_ancestor, descendant):
     result = subprocess.run(
         ["git", "-C", str(repo), "merge-base", "--is-ancestor", maybe_ancestor, descendant],
         capture_output=True,
+        text=True,
         check=False,
+    )
+    require(
+        result.returncode in (0, 1),
+        f"git merge-base --is-ancestor {maybe_ancestor} {descendant} failed: {result.stderr.strip()}",
     )
     return result.returncode == 0
 
@@ -52,7 +57,7 @@ def tags_with_create_dates(repo, pattern):
     """Return (create_date, tag) for every tag matching the pattern.
 
     creatordate is the tagger date for annotated tags and the commit date for
-    lightweight ones (GitHub release tags are lightweight), so it works for
+    lightweight ones (auto-created canary tags are lightweight), so it works for
     both.
     """
     refs = git(

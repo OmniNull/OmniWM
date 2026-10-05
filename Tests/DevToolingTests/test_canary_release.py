@@ -56,7 +56,7 @@ class CanaryReleaseTests(unittest.TestCase):
         self.repo.git("config", "user.email", "test@example.com")
 
     def seed_release(self):
-        self.repo.commit("c1")
+        self.repo.commit("c1", date="2026-01-01T12:00:00+00:00")
         self.repo.tag("v0.7.5")
 
     def test_no_tags_builds(self):
@@ -121,17 +121,61 @@ class CanaryReleaseTests(unittest.TestCase):
 
     def test_stable_release_after_canary_becomes_notes_base(self):
         self.seed_release()
-        self.repo.commit("alpha")
+        self.repo.commit("alpha", date="2026-01-02T12:00:00+00:00")
         self.repo.tag("canary-20261004-0400")
-        self.repo.commit("release commit")
-        self.repo.tag("v0.7.6")
-        self.repo.commit("beta")
+        self.repo.commit("release commit", date="2026-01-03T12:00:00+00:00")
+        self.repo.annotated_tag("v0.7.6", date="2026-01-03T18:00:00+00:00")
+        self.repo.commit("beta", date="2026-01-04T12:00:00+00:00")
         text = canary_release.notes(str(self.repo.path))
         # The canary tag predates the release that already covered "alpha",
         # so the notes must resume after v0.7.6 and repeat nothing.
         self.assertIn("Base tag: `v0.7.6`", text)
         self.assertIn("beta", text)
         self.assertNotIn(" alpha", text)
+
+    def test_lightweight_tag_uses_commit_date_not_tag_creation_date(self):
+        self.seed_release()
+        self.repo.tag("canary-20261005-0400", date="2026-02-01T12:00:00+00:00")
+        commit_date = int(self.repo.git("show", "-s", "--format=%ct", "HEAD"))
+        self.assertEqual(
+            canary_release.tags_with_create_dates(self.repo.path, canary_release.CANARY_GLOB),
+            [(commit_date, "canary-20261005-0400")],
+        )
+
+    def test_canary_after_annotated_release_becomes_notes_base(self):
+        self.repo.commit("released", date="2026-01-01T12:00:00+00:00")
+        self.repo.annotated_tag("v0.7.5", date="2026-01-02T12:00:00+00:00")
+        self.repo.commit("previous canary", date="2026-01-03T12:00:00+00:00")
+        self.repo.tag("canary-20261004-0400")
+        self.repo.commit("new feature", date="2026-01-04T12:00:00+00:00")
+        text = canary_release.notes(self.repo.path)
+        self.assertIn("Base tag: `canary-20261004-0400`", text)
+        self.assertIn("new feature", text)
+        self.assertNotIn("previous canary", text)
+        self.assertNotIn("released", text)
+
+    def test_diverged_tag_neither_skips_nor_becomes_notes_base(self):
+        self.seed_release()
+        self.repo.git("checkout", "-b", "other")
+        self.repo.commit("other branch", date="2026-01-05T12:00:00+00:00")
+        self.repo.annotated_tag("canary-20261005-0400", date="2026-01-06T12:00:00+00:00")
+        self.repo.git("checkout", "main")
+        self.repo.commit("main feature", date="2026-01-02T12:00:00+00:00")
+        self.assertEqual(canary_release.check(self.repo.path, False)["should_skip"], "false")
+        text = canary_release.notes(self.repo.path)
+        self.assertIn("Base tag: `v0.7.5`", text)
+        self.assertIn("main feature", text)
+        self.assertNotIn("other branch", text)
+
+    def test_head_before_released_commit_skips(self):
+        self.seed_release()
+        old_head = self.repo.git("rev-parse", "HEAD")
+        self.repo.commit("already canaried", date="2026-01-02T12:00:00+00:00")
+        self.repo.tag("canary-20261005-0400")
+        self.repo.git("checkout", "--detach", old_head)
+        result = canary_release.check(self.repo.path, False)
+        self.assertEqual(result["should_skip"], "true")
+        self.assertIn("canary-20261005-0400", result["skip_reason"])
 
     def test_notes_list_commits_since_previous_tag(self):
         self.seed_release()
@@ -150,6 +194,34 @@ class CanaryReleaseTests(unittest.TestCase):
         self.assertNotIn("Base tag", text)
         self.assertIn("Recent changes", text)
         self.assertIn("first", text)
+
+    def test_non_commit_release_tag_fails_instead_of_looking_unreachable(self):
+        self.seed_release()
+        blob = self.repo.git("hash-object", "-w", str(SOURCE / "Scripts/canary_release.py"))
+        self.repo.git("tag", "canary-invalid", blob)
+        operations = (
+            ("check", lambda: canary_release.check(self.repo.path, False)),
+            ("notes", lambda: canary_release.notes(self.repo.path)),
+        )
+        for command, operation in operations:
+            with self.subTest(command=command):
+                with self.assertRaisesRegex(canary_release.CanaryError, "merge-base --is-ancestor .* failed"):
+                    operation()
+
+    def test_check_error_does_not_write_a_build_decision(self):
+        self.seed_release()
+        output = self.repo.path / "github-output.txt"
+        blob = self.repo.git("hash-object", "-w", str(SOURCE / "Scripts/canary_release.py"))
+        self.repo.git("tag", "canary-invalid", blob)
+        result = subprocess.run(
+            ["python3", str(SOURCE / "Scripts/canary_release.py"), "check",
+             "--repo", str(self.repo.path), "--github-output", str(output)],
+            capture_output=True,
+            text=True,
+        )
+        self.assertEqual(result.returncode, 2)
+        self.assertIn("merge-base --is-ancestor", result.stderr)
+        self.assertFalse(output.exists())
 
     def test_check_writes_github_output(self):
         self.seed_release()
