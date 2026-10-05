@@ -90,18 +90,27 @@ jobs:
       - name: Check main rules allow the release push
         env:
           GH_TOKEN: ${{ github.token }}
-          MAIN_BYPASS: ${{ vars.OMNIWM_RELEASE_MAIN_BYPASS }}
         shell: bash
         run: |
           set -euo pipefail
           # Publish pushes main last, after the tag and GitHub release are public,
-          # as GITHUB_TOKEN. Rules beyond these two would reject that push.
-          BLOCKING="$(gh api "repos/$GITHUB_REPOSITORY/rules/branches/main" \
-            --jq '[.[].type | select(. != "deletion" and . != "non_fast_forward")] | unique | join(", ")')"
-          if [[ -n "$BLOCKING" && "$MAIN_BYPASS" != true ]]; then
-            echo "::error::main has ruleset rules ($BLOCKING) that would reject the GITHUB_TOKEN release push after the tag and release are public. Let GitHub Actions bypass them, then set repository variable OMNIWM_RELEASE_MAIN_BYPASS=true."
-            exit 1
-          fi
+          # as GITHUB_TOKEN. Every ruleset with a rule that push could fail must let
+          # this token bypass it; fail closed if that cannot be read.
+          RULESETS="$(gh api "repos/$GITHUB_REPOSITORY/rules/branches/main" \
+            --jq '[.[] | select(.type != "deletion" and .type != "non_fast_forward")] | map("\(.ruleset_source_type) \(.ruleset_id) \(.type)") | .[]')"
+          FAILED=0
+          while read -r SOURCE ID TYPE; do
+            [[ -n "${ID:-}" ]] || continue
+            BYPASS=never
+            if [[ "$SOURCE" == Repository ]]; then
+              BYPASS="$(gh api "repos/$GITHUB_REPOSITORY/rulesets/$ID" --jq '.current_user_can_bypass // "never"')"
+            fi
+            if [[ "$BYPASS" != always ]]; then
+              echo "::error::main rule '$TYPE' (ruleset $ID, $SOURCE) would reject the GITHUB_TOKEN release push after the tag and release are public; bypass for this token is '$BYPASS'. Add GitHub Actions to that ruleset's bypass list with mode Always."
+              FAILED=1
+            fi
+          done <<<"$RULESETS"
+          exit "$FAILED"
 
   prepare:
     name: Prepare signed release
