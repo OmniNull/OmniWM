@@ -96,6 +96,179 @@ final class DwindleWindowCloseFocusRecoveryTests: XCTestCase {
         XCTAssertTrue(engine.containsWindow(oldestToken, in: fixture.localWorkspaceId))
     }
 
+    func testDwindleCloseOfStackTopFocusesWindowBelowAfterObservedFocus() async throws {
+        try await Self.verifyCloseFocusesNearestWindow(.stack, keyboardPathToClosing: nil)
+    }
+
+    func testDwindleCloseOfStackTopFocusesWindowBelowAfterKeyboardFocus() async throws {
+        try await Self.verifyCloseFocusesNearestWindow(.stack, keyboardPathToClosing: [.up, .up, .up])
+    }
+
+    func testDwindleCloseOfSpiralRootFocusesTopNeighborAfterObservedFocus() async throws {
+        try await Self.verifyCloseFocusesNearestWindow(.spiral, keyboardPathToClosing: nil)
+    }
+
+    func testDwindleCloseOfSpiralRootFocusesTopNeighborAfterKeyboardFocus() async throws {
+        try await Self.verifyCloseFocusesNearestWindow(.spiral, keyboardPathToClosing: [.left, .up, .left])
+    }
+
+    private enum TreeShape {
+        case stack
+        case spiral
+
+        var smartSplit: Bool {
+            self == .stack
+        }
+
+        var structuralFirstLeafIndex: Int {
+            self == .stack ? 3 : 2
+        }
+
+        var siblingDirection: Direction {
+            self == .stack ? .down : .right
+        }
+
+        var navigationNeighborIndex: Int {
+            self == .stack ? 1 : 2
+        }
+    }
+
+    func testDwindleCloseWithEdgeGapsFocusesTopNeighborOfTiedSubtree() async throws {
+        let (fixture, windows) = try Self.makeSequentialFixture(
+            windowCount: 6,
+            smartSplit: false,
+            closingIndex: 2,
+            nearestIndex: 3,
+            monitorFrame: CGRect(x: 0, y: 0, width: 1920, height: 1080),
+            visibleFrame: CGRect(x: 0, y: 0, width: 1920, height: 1080),
+            gaps: (inner: 16, outer: 0)
+        )
+        defer { Self.stop(fixture) }
+        let controller = fixture.controller
+        let workspaceId = fixture.localWorkspaceId
+        let engine = try XCTUnwrap(controller.dwindleEngine)
+        let closing = fixture.closingToken
+        let top = fixture.fallbackToken
+        let bottomLeft = windows[4]
+        try Self.observeFocus(on: closing, controller: controller, confirmRequest: false)
+
+        let closingNode = try XCTUnwrap(engine.findNode(for: closing, in: workspaceId))
+        XCTAssertEqual(closingNode.sibling()?.descendToFirstLeaf().windowToken, bottomLeft)
+        let frames = engine.currentFrames(in: workspaceId)
+        let closingFrame = try XCTUnwrap(frames[closing])
+        let topFrame = try XCTUnwrap(frames[top])
+        let bottomLeftFrame = try XCTUnwrap(frames[bottomLeft])
+        XCTAssertEqual(bottomLeftFrame.minY, closingFrame.minY, accuracy: 0.5)
+        XCTAssertEqual(topFrame.maxY, closingFrame.maxY, accuracy: 0.5)
+        XCTAssertGreaterThan(bottomLeftFrame.height, topFrame.height)
+        XCTAssertEqual(engine.findGeometricNeighbor(from: closing, direction: .right, in: workspaceId), bottomLeft)
+
+        await Self.closeFocusedWindow(in: fixture)
+        await Self.settleClose(fixture)
+
+        Self.assertRecoveredLocally(fixture)
+        XCTAssertEqual(engine.projectedActiveToken(in: workspaceId), top)
+    }
+
+    func testDwindleCloseBelowSideBySideNeighborsFocusesLeftmostOnTie() async throws {
+        let (fixture, windows) = try Self.makeSequentialFixture(
+            windowCount: 5,
+            smartSplit: false,
+            closingIndex: 2,
+            nearestIndex: 4,
+            admissionAnchors: [3: 1, 4: 1]
+        )
+        defer { Self.stop(fixture) }
+        let controller = fixture.controller
+        let workspaceId = fixture.localWorkspaceId
+        let engine = try XCTUnwrap(controller.dwindleEngine)
+        let closing = fixture.closingToken
+        let shortLeft = fixture.fallbackToken
+        let tallRight = windows[3]
+        try Self.observeFocus(on: closing, controller: controller, confirmRequest: false)
+
+        let frames = engine.currentFrames(in: workspaceId)
+        let closingFrame = try XCTUnwrap(frames[closing])
+        let shortLeftFrame = try XCTUnwrap(frames[shortLeft])
+        let tallRightFrame = try XCTUnwrap(frames[tallRight])
+        XCTAssertGreaterThan(shortLeftFrame.minY, closingFrame.maxY)
+        XCTAssertGreaterThan(tallRightFrame.minY, closingFrame.maxY)
+        XCTAssertLessThan(shortLeftFrame.minX, tallRightFrame.minX)
+        XCTAssertGreaterThan(tallRightFrame.maxY, shortLeftFrame.maxY)
+        XCTAssertGreaterThan(tallRightFrame.width, shortLeftFrame.width)
+
+        await Self.closeFocusedWindow(in: fixture)
+        await Self.settleClose(fixture)
+
+        Self.assertRecoveredLocally(fixture)
+        XCTAssertEqual(engine.projectedActiveToken(in: workspaceId), shortLeft)
+    }
+
+    func testDwindleFocusRightFromSpiralRootKeepsTreeOrderTieResolution() throws {
+        let (fixture, windows) = try Self.makeSequentialFixture(windowCount: 3, smartSplit: false)
+        defer { Self.stop(fixture) }
+        let controller = fixture.controller
+        let workspaceId = fixture.localWorkspaceId
+        let engine = try XCTUnwrap(controller.dwindleEngine)
+        let root = windows[0]
+        let topRight = windows[1]
+        let bottomRight = windows[2]
+        try Self.observeFocus(on: root, controller: controller, confirmRequest: false)
+
+        let frames = engine.currentFrames(in: workspaceId)
+        let rootFrame = try XCTUnwrap(frames[root])
+        let topRightFrame = try XCTUnwrap(frames[topRight])
+        let bottomRightFrame = try XCTUnwrap(frames[bottomRight])
+        XCTAssertGreaterThan(topRightFrame.minY, bottomRightFrame.minY)
+        XCTAssertGreaterThan(topRightFrame.minX, rootFrame.maxX)
+        XCTAssertGreaterThan(bottomRightFrame.minX, rootFrame.maxX)
+        XCTAssertEqual(topRightFrame.height, bottomRightFrame.height, accuracy: 0.5)
+
+        XCTAssertEqual(engine.findGeometricNeighbor(from: root, direction: .right, in: workspaceId), bottomRight)
+        XCTAssertTrue(controller.dwindleLayoutHandler.focusNeighbor(direction: .right))
+        XCTAssertEqual(engine.activeToken(in: workspaceId), bottomRight)
+    }
+
+    private static func verifyCloseFocusesNearestWindow(
+        _ shape: TreeShape,
+        keyboardPathToClosing: [Direction]?
+    ) async throws {
+        let (fixture, windows) = try makeSequentialFixture(windowCount: 4, smartSplit: shape.smartSplit)
+        defer { stop(fixture) }
+        let controller = fixture.controller
+        let workspaceId = fixture.localWorkspaceId
+        let engine = try XCTUnwrap(controller.dwindleEngine)
+        let closing = fixture.closingToken
+        let nearest = fixture.fallbackToken
+
+        if let keyboardPathToClosing {
+            for direction in keyboardPathToClosing {
+                XCTAssertTrue(controller.dwindleLayoutHandler.focusNeighbor(direction: direction))
+                let focused = try XCTUnwrap(engine.activeToken(in: workspaceId))
+                try observeFocus(on: focused, controller: controller)
+            }
+            XCTAssertEqual(controller.workspaceManager.nativeManagedFocusToken, closing)
+        } else {
+            try observeFocus(on: closing, controller: controller, confirmRequest: false)
+        }
+
+        let closingNode = try XCTUnwrap(engine.findNode(for: closing, in: workspaceId))
+        XCTAssertEqual(
+            closingNode.sibling()?.descendToFirstLeaf().windowToken,
+            windows[shape.structuralFirstLeafIndex]
+        )
+        XCTAssertEqual(
+            engine.findGeometricNeighbor(from: closing, direction: shape.siblingDirection, in: workspaceId),
+            windows[shape.navigationNeighborIndex]
+        )
+
+        await closeFocusedWindow(in: fixture)
+        await settleClose(fixture)
+
+        assertRecoveredLocally(fixture)
+        XCTAssertEqual(engine.projectedActiveToken(in: workspaceId), nearest)
+    }
+
     func testDelayedFocusFactsCannotLeaveLocalWorkspaceAfterRemoval() async throws {
         for layouts in LayoutPair.allCases {
             for order in FocusOrder.allCases {
@@ -226,14 +399,25 @@ final class DwindleWindowCloseFocusRecoveryTests: XCTestCase {
         }
     }
 
-    private static func makeFixture(layouts: LayoutPair, oldestToken: WindowToken? = nil) throws -> Fixture {
+    private struct Scaffold {
+        let controller: WMController
+        let monitor: Monitor
+        let localWorkspaceId: WorkspaceDescriptor.ID
+        let remoteWorkspaceId: WorkspaceDescriptor.ID
+    }
+
+    private static func makeScaffold(
+        layouts: LayoutPair,
+        monitorFrame: CGRect = CGRect(x: 0, y: 0, width: 1440, height: 900),
+        visibleFrame: CGRect = CGRect(x: 0, y: 0, width: 1440, height: 860)
+    ) throws -> Scaffold {
         let controller = WindowAdmissionTestSupport.controller(prefix: "OmniWMDwindleCloseFocusTests")
         controller.settings.animationsEnabled = false
         let monitor = Monitor(
             id: .init(displayId: 952_001),
             displayId: 952_001,
-            frame: CGRect(x: 0, y: 0, width: 1440, height: 900),
-            visibleFrame: CGRect(x: 0, y: 0, width: 1440, height: 860),
+            frame: monitorFrame,
+            visibleFrame: visibleFrame,
             hasNotch: false,
             name: "Dwindle Close Focus"
         )
@@ -249,6 +433,119 @@ final class DwindleWindowCloseFocusRecoveryTests: XCTestCase {
         controller.dwindleLayoutHandler.enableDwindleLayout()
         controller.layoutRefreshController.resetState()
         controller.axEventHandler.windowInfoProvider = { _ in nil }
+        return Scaffold(
+            controller: controller,
+            monitor: monitor,
+            localWorkspaceId: localWorkspaceId,
+            remoteWorkspaceId: remoteWorkspaceId
+        )
+    }
+
+    private static func makeSequentialFixture(
+        windowCount: Int,
+        smartSplit: Bool,
+        closingIndex: Int = 0,
+        nearestIndex: Int = 1,
+        monitorFrame: CGRect = CGRect(x: 0, y: 0, width: 1440, height: 900),
+        visibleFrame: CGRect = CGRect(x: 0, y: 0, width: 1440, height: 860),
+        gaps: (inner: CGFloat, outer: CGFloat)? = nil,
+        admissionAnchors: [Int: Int] = [:]
+    ) throws -> (fixture: Fixture, windows: [WindowToken]) {
+        let scaffold = try makeScaffold(
+            layouts: .dwindleToDwindle,
+            monitorFrame: monitorFrame,
+            visibleFrame: visibleFrame
+        )
+        let controller = scaffold.controller
+        let workspaceId = scaffold.localWorkspaceId
+        controller.settings.dwindle.smartSplit = smartSplit
+        if let gaps {
+            controller.settings.gaps.size = gaps.inner
+            controller.settings.gaps.outerGapLeft = gaps.outer
+            controller.settings.gaps.outerGapRight = gaps.outer
+            controller.settings.gaps.outerGapTop = gaps.outer
+            controller.settings.gaps.outerGapBottom = gaps.outer
+        }
+        var windows: [WindowToken] = []
+        for index in 0 ..< windowCount {
+            let token = WindowToken(pid: 952_301, windowId: 952_401 + index)
+            if let anchorIndex = admissionAnchors[index] {
+                try observeFocus(on: windows[anchorIndex], controller: controller, confirmRequest: false)
+            }
+            admitWindow(token, to: workspaceId, controller: controller)
+            relayout(workspaceId, controller: controller)
+            try observeFocus(on: token, controller: controller, confirmRequest: false)
+            windows.append(token)
+        }
+        controller.factResolver.factProvider = { _ in nil }
+        controller.hasStartedServices = true
+        controller.eventIntake.open(sink: controller.eventInterpreter)
+        let fixture = Fixture(
+            controller: controller,
+            localWorkspaceId: workspaceId,
+            remoteWorkspaceId: scaffold.remoteWorkspaceId,
+            closingToken: windows[closingIndex],
+            fallbackToken: windows[nearestIndex],
+            remoteToken: WindowToken(pid: 952_301, windowId: 952_499)
+        )
+        return (fixture, windows)
+    }
+
+    private static func admitWindow(
+        _ token: WindowToken,
+        to workspaceId: WorkspaceDescriptor.ID,
+        controller: WMController
+    ) {
+        _ = controller.workspaceManager.addWindow(
+            WindowAdmissionTestSupport.axRef(for: token),
+            pid: token.pid,
+            windowId: token.windowId,
+            to: workspaceId,
+            managedReplacementMetadata: ManagedReplacementMetadata(
+                bundleId: "com.omniwm.tests.dwindle-close-focus",
+                workspaceId: workspaceId,
+                mode: .tiling,
+                role: kAXWindowRole as String,
+                subrole: kAXStandardWindowSubrole as String,
+                title: "stacked \(token.windowId)",
+                windowLevel: 0,
+                parentWindowId: nil,
+                frame: CGRect(x: 0, y: 0, width: 1440, height: 860)
+            )
+        )
+    }
+
+    private static func relayout(_ workspaceId: WorkspaceDescriptor.ID, controller: WMController) {
+        let plan = controller.layoutRefreshController.buildRelayoutEffectPlan(
+            useScrollAnimationPath: false,
+            recoverFocus: false,
+            affectedWorkspaceIds: [workspaceId]
+        )
+        controller.layoutRefreshController.applyEffectPlan(plan, controller: controller)
+    }
+
+    private static func observeFocus(
+        on token: WindowToken,
+        controller: WMController,
+        confirmRequest: Bool? = nil
+    ) throws {
+        let entry = try XCTUnwrap(controller.workspaceManager.entry(for: token))
+        controller.axEventHandler.handleManagedAppActivation(
+            entry: entry,
+            isWorkspaceActive: true,
+            appFullscreen: false,
+            confirmRequest: confirmRequest
+        )
+        XCTAssertEqual(controller.workspaceManager.nativeManagedFocusToken, token)
+        XCTAssertEqual(controller.dwindleEngine?.activeToken(in: entry.workspaceId), token)
+    }
+
+    private static func makeFixture(layouts: LayoutPair, oldestToken: WindowToken? = nil) throws -> Fixture {
+        let scaffold = try makeScaffold(layouts: layouts)
+        let controller = scaffold.controller
+        let monitor = scaffold.monitor
+        let localWorkspaceId = scaffold.localWorkspaceId
+        let remoteWorkspaceId = scaffold.remoteWorkspaceId
 
         let closingToken = WindowToken(pid: 952_101, windowId: 952_201)
         let fallbackToken = WindowToken(pid: 952_102, windowId: 952_202)
