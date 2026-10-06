@@ -172,6 +172,9 @@ final class CommandPaletteController: NSObject, NSWindowDelegate {
 
         let preferredMode = mode ?? wmController.settings.commandPaletteLastMode
         selectedMode = resolvedInitialMode(preferredMode)
+        if mode != nil {
+            wmController.settings.commandPaletteLastMode = selectedMode
+        }
 
         installEventMonitor()
 

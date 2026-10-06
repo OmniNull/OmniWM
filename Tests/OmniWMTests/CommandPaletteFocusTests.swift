@@ -248,13 +248,13 @@ final class CommandPaletteFocusTests: XCTestCase {
     }
 
     func testRequestedModeOpensSwitchesAndClosesPalette() throws {
-        let fixture = CommandPaletteFocusFixture(initialMode: .windows)
+        let fixture = CommandPaletteFocusFixture(initialMode: .clipboard)
         defer { fixture.cleanup() }
 
-        _ = try fixture.show(mode: .clipboard)
+        _ = try fixture.show(mode: .windows)
         XCTAssertTrue(fixture.palette.isVisible)
-        XCTAssertEqual(fixture.palette.selectedMode, .clipboard)
-        XCTAssertEqual(fixture.controller.settings.commandPaletteLastMode, .clipboard)
+        XCTAssertEqual(fixture.palette.selectedMode, .windows)
+        XCTAssertEqual(fixture.controller.settings.commandPaletteLastMode, .windows)
 
         fixture.palette.toggle(wmController: fixture.controller, mode: .commands)
         XCTAssertTrue(fixture.palette.isVisible)
