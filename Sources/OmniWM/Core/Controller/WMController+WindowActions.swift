@@ -86,6 +86,10 @@ extension WMController {
         windowActionHandler.raiseAllFloatingWindows()
     }
 
+    func toggleFloatingFocus() -> ExternalCommandResult {
+        windowActionHandler.toggleFloatingFocus()
+    }
+
     @discardableResult
     func restoreVisibleWorkspaceInactiveFloatingWindows() -> Int {
         layoutRefreshController.restoreWorkspaceInactiveFloatingWindows(

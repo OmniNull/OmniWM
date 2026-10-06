@@ -57,6 +57,7 @@ enum HotkeyCommand: Equatable, Hashable {
     case openCommandPalette
 
     case raiseAllFloatingWindows
+    case toggleFloatingFocus
     case rescueOffscreenWindows
     case windowState(IPCWindowStateCommand)
 

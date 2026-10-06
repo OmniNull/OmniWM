@@ -71,6 +71,10 @@ final class WindowActionHandler {
         floatingWindows.raiseAllFloatingWindows()
     }
 
+    func toggleFloatingFocus() -> ExternalCommandResult {
+        floatingWindows.toggleFloatingFocus()
+    }
+
     func hasRaisableFloatingWindows() -> Bool {
         floatingWindows.hasRaisableFloatingWindows()
     }

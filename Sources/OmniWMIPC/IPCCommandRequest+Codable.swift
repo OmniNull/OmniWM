@@ -32,6 +32,7 @@ extension IPCCommandRequest: Codable {
         case .monitorFocus,
              .openCommandPalette,
              .raiseAllFloatingWindows,
+             .toggleFloatingFocus,
              .rescueOffscreenWindows,
              .fullscreen,
              .presentation,

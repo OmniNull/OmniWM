@@ -839,6 +839,7 @@ The window-to-monitor actions send the focused window directly to the current wo
 | Preselect Left / Right / Up / Down | `Unassigned` | `Dwindle` |
 | Clear Preselection | `Unassigned` | `Dwindle` |
 | Raise All Floating Windows | `Option + Shift + R` | `Shared` |
+| Toggle Floating/Tiled Focus | `Unassigned` | `Shared` |
 | Rescue Off-Screen Floating Windows | `Unassigned` | `Shared` |
 | Toggle Focused Window Floating | `Unassigned` | `Shared` |
 | Toggle Scratchpad 1-10 Assignment for Focused Window | `Unassigned` | `Shared` |

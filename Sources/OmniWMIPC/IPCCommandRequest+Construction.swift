@@ -28,6 +28,8 @@ extension IPCCommandRequest {
             self = try arguments.requireNoArguments(.openCommandPalette)
         case .raiseAllFloatingWindows:
             self = try arguments.requireNoArguments(.raiseAllFloatingWindows)
+        case .toggleFloatingFocus:
+            self = try arguments.requireNoArguments(.toggleFloatingFocus)
         case .rescueOffscreenWindows:
             self = try arguments.requireNoArguments(.rescueOffscreenWindows)
         case let .workspaceLayout(name):

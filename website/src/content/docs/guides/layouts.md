@@ -34,6 +34,7 @@ Windows can also float above the tiled layout in either engine:
 - `Toggle Focused Window Floating` (unassigned by default) floats or re-tiles the focused window.
 - [App Rules](/features/app-rules/) can force matching windows to float — or to tile — instead of the automatic classification.
 - `Raise All Floating Windows` (`Option + Shift + R`) brings every floating window to the front, and `Rescue Off-Screen Floating Windows` (unassigned) recovers strays.
+- `Toggle Floating/Tiled Focus` (unassigned) jumps focus between the floating and tiled windows of the active workspace, raising the floating windows when moving to them.
 - [Scratchpads](/features/scratchpads/) hold floating windows in ten toggleable slots.
 
 ## Fullscreen: OmniWM vs native

@@ -38,6 +38,8 @@ final class IPCCommandRouter {
             return controller.commandHandler.performCommand(.openCommandPalette)
         case .raiseAllFloatingWindows:
             return raiseAllFloatingWindows()
+        case .toggleFloatingFocus:
+            return controller.commandHandler.performCommand(.toggleFloatingFocus)
         case .rescueOffscreenWindows:
             return rescueOffscreenWindows()
         case let .workspaceLayout(command):

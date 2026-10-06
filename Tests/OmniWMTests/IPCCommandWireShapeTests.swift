@@ -123,6 +123,7 @@ final class IPCCommandWireShapeTests: XCTestCase {
         #"{"name":"preselect-clear"}"#,
         #"{"name":"open-command-palette"}"#,
         #"{"name":"raise-all-floating-windows"}"#,
+        #"{"name":"toggle-floating-focus"}"#,
         #"{"name":"rescue-offscreen-windows"}"#,
         #"{"name":"toggle-workspace-layout"}"#,
         #"{"arguments":{"layout":"niri"},"name":"set-workspace-layout"}"#,

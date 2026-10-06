@@ -383,6 +383,10 @@ extension IPCAutomationManifest {
             summary: "Raise all visible floating windows."
         ),
         .init(
+            name: .toggleFloatingFocus,
+            summary: "Toggle focus between the floating and tiled windows of the active workspace."
+        ),
+        .init(
             name: .rescueOffscreenWindows,
             summary: "Clamp tracked floating windows back onto their visible monitors."
         ),

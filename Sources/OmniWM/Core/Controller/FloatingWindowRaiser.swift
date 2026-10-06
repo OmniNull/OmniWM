@@ -63,11 +63,7 @@ final class FloatingWindowRaiser {
     }
 
     func raiseAllFloatingWindows() {
-        guard let controller else { return }
-        guard !controller.isLockScreenActive else { return }
-        if controller.hasStartedServices {
-            guard !controller.isFrontmostAppLockScreen() else { return }
-        }
+        guard let controller, canRaiseWindows(controller) else { return }
 
         controller.restoreVisibleWorkspaceInactiveFloatingWindows()
         guard let plan = makeRaiseAllFloatingPlan() else { return }
@@ -81,8 +77,35 @@ final class FloatingWindowRaiser {
         }
     }
 
+    func toggleFloatingFocus() -> ExternalCommandResult {
+        guard let controller, canRaiseWindows(controller),
+              let workspaceId = controller.activeWorkspace()?.id
+        else { return .noChange }
+        let workspaceManager = controller.workspaceManager
+
+        if workspaceManager.isFloatingFocusToggleSource(controller.focusedManagedTokenForCommand(), in: workspaceId) {
+            guard let target = workspaceManager.preferredFocusToken(in: workspaceId) else { return .noChange }
+            return controller.windowActionHandler.navigateToWindowInternal(token: target, workspaceId: workspaceId)
+                ? .executed
+                : .noChange
+        }
+
+        raiseAllFloatingWindows()
+        guard let target = workspaceManager.floatingFocusToggleTarget(in: workspaceId) else { return .noChange }
+        controller.focusWindow(target)
+        return .executed
+    }
+
     func hasRaisableFloatingWindows() -> Bool {
         makeRaiseAllFloatingPlan() != nil || controller?.hasVisibleWorkspaceInactiveFloatingWindows() == true
+    }
+
+    private func canRaiseWindows(_ controller: WMController) -> Bool {
+        guard !controller.isLockScreenActive else { return false }
+        if controller.hasStartedServices {
+            return !controller.isFrontmostAppLockScreen()
+        }
+        return true
     }
 
     private func makeRaiseAllFloatingPlan() -> FloatingWindowRaisePlan? {

@@ -69,6 +69,7 @@ preselect
 preselect-clear
 open-command-palette
 raise-all-floating-windows
+toggle-floating-focus
 rescue-offscreen-windows
 toggle-focused-window-floating
 close-focused-window

@@ -3800,6 +3800,17 @@
         }
       }
     },
+    "command.floating.toggleFocus" : {
+      "extractionState" : "extracted_with_value",
+      "localizations" : {
+        "en" : {
+          "stringUnit" : {
+            "state" : "new",
+            "value" : "Toggle Floating/Tiled Focus"
+          }
+        }
+      }
+    },
     "command.focus.centerColumn" : {
       "extractionState" : "extracted_with_value",
       "localizations" : {
