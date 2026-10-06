@@ -138,6 +138,11 @@ struct GeneralSettingsTab: View {
                         controller.refreshStatusBar()
                     }
                     .disabled(!settings.statusBar.showWorkspaceName)
+                Toggle("Show Menu Bar Icon", isOn: Bindable(settings.statusBar).showIcon)
+                    .onChange(of: settings.statusBar.showIcon) { _, _ in
+                        controller.refreshStatusBar()
+                    }
+                    .disabled(!settings.statusBar.showWorkspaceName)
                 SettingsCaption(localized: "Shows the active workspace and focused app beside the menu bar icon")
             }
 

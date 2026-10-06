@@ -236,7 +236,8 @@ final class StatusBarController: NSObject {
         let workspaceLabel = settings.statusBar.useWorkspaceId ? summary.workspaceRawName : summary.workspaceLabel
         let focusedAppName = settings.statusBar.showAppNames ? summary.focusedAppName : nil
         button.title = Self.statusButtonTitle(workspaceLabel: workspaceLabel, focusedAppName: focusedAppName)
-        button.imagePosition = .imageLeft
+        let isTracing = controller?.traceCaptureStatus.profile != nil
+        button.imagePosition = settings.statusBar.showIcon || isTracing ? .imageLeft : .noImage
     }
 
     func cleanup() {
