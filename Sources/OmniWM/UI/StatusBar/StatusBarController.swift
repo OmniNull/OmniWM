@@ -115,7 +115,7 @@ final class StatusBarController: NSObject {
     }
 
     func handleTraceCaptureStateChange() {
-        updateButtonAppearance()
+        refreshWorkspaces()
     }
 
     func updateButtonAppearance() {
