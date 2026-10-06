@@ -125,15 +125,19 @@ final class CommandPaletteController: NSObject, NSWindowDelegate {
         return wmController.workspaceManager.windowCount(in: workspaceId) == 0
     }
 
-    func toggle(wmController: WMController) {
-        if isVisible {
-            dismiss(reason: .cancel)
+    func toggle(wmController: WMController, mode: CommandPaletteMode? = nil) {
+        guard isVisible else {
+            show(wmController: wmController, mode: mode)
+            return
+        }
+        if let mode, mode != selectedMode {
+            selectedMode = mode
         } else {
-            show(wmController: wmController)
+            dismiss(reason: .cancel)
         }
     }
 
-    func show(wmController: WMController) {
+    func show(wmController: WMController, mode: CommandPaletteMode? = nil) {
         actionExecutor.cancelPendingCommand()
         if isVisible {
             dismiss(reason: .superseded)
@@ -166,7 +170,7 @@ final class CommandPaletteController: NSObject, NSWindowDelegate {
         presentation.position(panel)
         isExpanded = false
 
-        let preferredMode = wmController.settings.commandPaletteLastMode
+        let preferredMode = mode ?? wmController.settings.commandPaletteLastMode
         selectedMode = resolvedInitialMode(preferredMode)
 
         installEventMonitor()

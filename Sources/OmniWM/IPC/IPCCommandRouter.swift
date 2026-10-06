@@ -36,6 +36,12 @@ final class IPCCommandRouter {
             return controller.commandHandler.performCommand(HotkeyCommand(ipc: command))
         case .openCommandPalette:
             return controller.commandHandler.performCommand(.openCommandPalette)
+        case let .openCommandPaletteMode(mode):
+            if let guardResult = IPCCommandValidation.controllerState(controller) {
+                return guardResult
+            }
+            controller.openCommandPalette(mode: CommandPaletteMode(ipc: mode))
+            return .executed
         case .raiseAllFloatingWindows:
             return raiseAllFloatingWindows()
         case .rescueOffscreenWindows:

@@ -120,6 +120,15 @@ public enum IPCWorkspaceLayout: String, Codable, Equatable, Sendable {
     case dwindle
 }
 
+public enum IPCCommandPaletteMode: String, Codable, CaseIterable, Equatable, Sendable {
+    case windows
+    case menu
+    case clipboard
+    case commands
+    case applications
+    case files
+}
+
 public enum IPCHiddenReason: String, Codable, Equatable, Sendable {
     case workspaceInactive = "workspace-inactive"
     case tabInactive = "tab-inactive"

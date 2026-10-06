@@ -379,6 +379,12 @@ extension IPCAutomationManifest {
             summary: "Toggle the command palette."
         ),
         .init(
+            commandWords: ["open-command-palette"],
+            name: .openCommandPaletteMode,
+            summary: "Open the command palette in a mode; switch to it if open, close it if already there.",
+            arguments: [.paletteMode]
+        ),
+        .init(
             name: .raiseAllFloatingWindows,
             summary: "Raise all visible floating windows."
         ),

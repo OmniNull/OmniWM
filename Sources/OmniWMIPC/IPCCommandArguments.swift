@@ -51,6 +51,18 @@ enum IPCCommandArgumentSource {
         }
     }
 
+    func paletteMode() throws -> IPCCommandPaletteMode {
+        switch self {
+        case let .values(arguments):
+            guard arguments.count == 1, case let .paletteMode(value) = arguments[0] else {
+                throw IPCCommandRequestConstructionError.invalidArgumentType
+            }
+            return value
+        case let .json(container):
+            return try container.decode(IPCPaletteModeArguments.self, forKey: .arguments).mode
+        }
+    }
+
     func sizeChange() throws -> IPCSizeChange {
         switch self {
         case let .values(arguments):
@@ -147,6 +159,10 @@ struct IPCCommandArgumentWriter {
         try container.encode(IPCLayoutArguments(layout: value), forKey: .arguments)
     }
 
+    mutating func encode(paletteMode value: IPCCommandPaletteMode) throws {
+        try container.encode(IPCPaletteModeArguments(mode: value), forKey: .arguments)
+    }
+
     mutating func encode(sizeChange value: IPCSizeChange) throws {
         try container.encode(IPCSizeChangeArguments(change: value), forKey: .arguments)
     }
@@ -213,6 +229,10 @@ private struct IPCWorkspaceOnMonitorArguments: Codable, Equatable, Sendable {
 
 private struct IPCLayoutArguments: Codable, Equatable, Sendable {
     let layout: IPCWorkspaceLayout
+}
+
+private struct IPCPaletteModeArguments: Codable, Equatable, Sendable {
+    let mode: IPCCommandPaletteMode
 }
 
 private struct IPCResizeArguments: Codable, Equatable, Sendable {

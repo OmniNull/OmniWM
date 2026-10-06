@@ -247,6 +247,27 @@ final class CommandPaletteFocusTests: XCTestCase {
         }
     }
 
+    func testRequestedModeOpensSwitchesAndClosesPalette() throws {
+        let fixture = CommandPaletteFocusFixture(initialMode: .windows)
+        defer { fixture.cleanup() }
+
+        _ = try fixture.show(mode: .clipboard)
+        XCTAssertTrue(fixture.palette.isVisible)
+        XCTAssertEqual(fixture.palette.selectedMode, .clipboard)
+        XCTAssertEqual(fixture.controller.settings.commandPaletteLastMode, .clipboard)
+
+        fixture.palette.toggle(wmController: fixture.controller, mode: .commands)
+        XCTAssertTrue(fixture.palette.isVisible)
+        XCTAssertEqual(fixture.palette.selectedMode, .commands)
+
+        fixture.palette.toggle(wmController: fixture.controller, mode: .commands)
+        XCTAssertFalse(fixture.palette.isVisible)
+
+        fixture.palette.toggle(wmController: fixture.controller)
+        XCTAssertTrue(fixture.palette.isVisible)
+        XCTAssertEqual(fixture.palette.selectedMode, .commands)
+    }
+
     func testArrowKeysNavigateBeforeAnyMouseInteraction() async throws {
         let fixture = CommandPaletteFocusFixture(initialMode: .clipboard)
         defer { fixture.cleanup() }
@@ -905,8 +926,8 @@ final class CommandPaletteFocusFixture {
         )
     }
 
-    func show() throws -> NSPanel {
-        palette.show(wmController: controller)
+    func show(mode: CommandPaletteMode? = nil) throws -> NSPanel {
+        palette.show(wmController: controller, mode: mode)
         let panel = try XCTUnwrap(NSApp.windows.first { $0.delegate === palette } as? NSPanel)
         panel.isReleasedWhenClosed = false
         self.panel = panel
