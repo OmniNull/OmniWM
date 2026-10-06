@@ -16,7 +16,7 @@ Hidden Bar conceals selected menu-bar icons and lets you reach them from a panel
 - An optional global hotkey is available and starts unassigned.
 
 :::caution
-Concealment requires macOS 27 or later; core window management supports macOS 26.
+Concealment requires macOS 27 or later and Full Disk Access; core window management supports macOS 26. Turn on OmniWM in System Settings → Privacy & Security → Full Disk Access, then quit and reopen OmniWM.
 :::
 
 If you need more features for hiding status bar icons, we recommend [Thaw](https://github.com/thaw-app/Thaw). It also supports macOS 26, where OmniWM's built-in Hidden Bar is unavailable.

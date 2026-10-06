@@ -1,7 +1,9 @@
 // SPDX-License-Identifier: GPL-2.0-only
 // Copyright (C) 2026 BarutSRB — https://github.com/OmniNull/OmniWM
 
+import Observation
 @testable import OmniWM
+import Synchronization
 import XCTest
 
 @MainActor
@@ -120,6 +122,25 @@ final class NativeMenuBarHiderTests: XCTestCase {
 
         XCTAssertEqual(try fixture.allowed("a"), false)
         XCTAssertEqual(hider.systemSettingsAllowance(), ["a": true, "b": false])
+    }
+
+    func testSystemSettingsAllowanceRestoresAvailabilityAfterRefusedRead() throws {
+        let fixture = try fixture()
+        fixture.failRead = true
+        let hider = fixture.hider()
+        XCTAssertFalse(hider.available)
+
+        fixture.failRead = false
+        let changes = Mutex(0)
+        withObservationTracking {
+            _ = hider.available
+        } onChange: {
+            changes.withLock { $0 += 1 }
+        }
+
+        XCTAssertEqual(hider.systemSettingsAllowance(), ["a": true, "b": false, "other": true])
+        XCTAssertTrue(hider.available)
+        XCTAssertEqual(changes.withLock { $0 }, 1)
     }
 
     func testRemovingOneConfiguredAppRestoresOnlyThatApp() throws {

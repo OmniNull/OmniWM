@@ -33,6 +33,13 @@ enum HiddenBarSettingsEdits {
     static func setRehideInterval(_ value: Double, settings: SettingsStore) {
         settings.hiddenBar.rehideIntervalSeconds = HiddenBarSettingsPolicy.validatedRehideIntervalSeconds(value)
     }
+
+    static func openFullDiskAccessSettings() {
+        guard let url = URL(
+            string: "x-apple.systempreferences:com.apple.settings.PrivacySecurity.extension?Privacy_AllFiles"
+        ) else { return }
+        NSWorkspace.shared.open(url)
+    }
 }
 
 struct HiddenBarSettingsTab: View {
@@ -52,7 +59,10 @@ struct HiddenBarSettingsTab: View {
                         localized: "Hides the selected menu-bar items while enabled. Click an icon in the hidden icons bar to reveal it temporarily."
                     )
                 } else {
-                    SettingsCaption(localized: "Hiding requires macOS 27 or later.")
+                    SettingsCaption(
+                        localized: "Hidden Bar requires macOS 27 or later and Full Disk Access. After turning on OmniWM in Full Disk Access, quit and reopen OmniWM."
+                    )
+                    Button("Open Full Disk Access Settings", action: HiddenBarSettingsEdits.openFullDiskAccessSettings)
                 }
             }
 
@@ -65,11 +75,9 @@ struct HiddenBarSettingsTab: View {
         }
         .formStyle(.grouped)
         .task(id: settings.hiddenBar.enabled) {
+            let allowance = controller.hiddenBarSystemSettingsAllowance()
             rows = settings.hiddenBar.enabled
-                ? HiddenBarAppRow.rows(
-                    allowance: controller.hiddenBarSystemSettingsAllowance(),
-                    selected: settings.hiddenBar.hiddenBundleIDs
-                )
+                ? HiddenBarAppRow.rows(allowance: allowance, selected: settings.hiddenBar.hiddenBundleIDs)
                 : []
         }
     }

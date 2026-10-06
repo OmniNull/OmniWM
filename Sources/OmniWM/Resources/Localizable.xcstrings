@@ -62864,7 +62864,256 @@
         }
       }
     },
+    "Hidden Bar requires macOS 27 or later and Full Disk Access. After turning on OmniWM in Full Disk Access, quit and reopen OmniWM." : {
+      "localizations" : {
+        "ar" : {
+          "stringUnit" : {
+            "state" : "translated",
+            "value" : "يتطلب الشريط المخفي macOS 27 أو أحدث والوصول الكامل إلى القرص. بعد تفعيل OmniWM في الوصول الكامل إلى القرص، أغلق OmniWM ثم أعد فتحه."
+          }
+        },
+        "da" : {
+          "stringUnit" : {
+            "state" : "translated",
+            "value" : "Hidden Bar kræver macOS 27 eller nyere og Fuld adgang til disk. Når du har slået OmniWM til under Fuld adgang til disk, skal du afslutte OmniWM og åbne det igen."
+          }
+        },
+        "de" : {
+          "stringUnit" : {
+            "state" : "translated",
+            "value" : "Versteckte Leiste erfordert macOS 27 oder neuer und Festplattenvollzugriff. Nachdem Sie OmniWM unter „Festplattenvollzugriff“ aktiviert haben, beenden Sie OmniWM und öffnen Sie es erneut."
+          }
+        },
+        "el" : {
+          "stringUnit" : {
+            "state" : "translated",
+            "value" : "Η Κρυφή γραμμή απαιτεί macOS 27 ή νεότερο και Πλήρη πρόσβαση στον δίσκο. Αφού ενεργοποιήσετε το OmniWM στην Πλήρη πρόσβαση στον δίσκο, κλείστε το OmniWM και ανοίξτε το ξανά."
+          }
+        },
+        "es" : {
+          "stringUnit" : {
+            "state" : "translated",
+            "value" : "La barra oculta requiere macOS 27 o posterior y Acceso total al disco. Después de activar OmniWM en Acceso total al disco, cierra OmniWM y vuelve a abrirlo."
+          }
+        },
+        "fi" : {
+          "stringUnit" : {
+            "state" : "translated",
+            "value" : "Hidden Bar vaatii macOS 27:n tai uudemman ja Koko levyn käyttö -oikeuden. Kun olet ottanut OmniWM:n käyttöön kohdassa Koko levyn käyttö, lopeta OmniWM ja avaa se uudelleen."
+          }
+        },
+        "fr" : {
+          "stringUnit" : {
+            "state" : "translated",
+            "value" : "Hidden Bar nécessite macOS 27 ou version ultérieure et l’Accès complet au disque. Après avoir activé OmniWM dans Accès complet au disque, quittez OmniWM puis rouvrez-le."
+          }
+        },
+        "he" : {
+          "stringUnit" : {
+            "state" : "translated",
+            "value" : "העמודה הנסתרת דורשת macOS 27 ואילך וגישה מלאה לכונן. לאחר שתפעילו את OmniWM בגישה מלאה לכונן, צאו מ-OmniWM ופתחו אותו מחדש."
+          }
+        },
+        "hi" : {
+          "stringUnit" : {
+            "state" : "translated",
+            "value" : "हिडन बार के लिए macOS 27 या बाद का संस्करण और पूर्ण डिस्क ऐक्सेस आवश्यक है। पूर्ण डिस्क ऐक्सेस में OmniWM चालू करने के बाद OmniWM को बंद करें और फिर से खोलें।"
+          }
+        },
+        "it" : {
+          "stringUnit" : {
+            "state" : "translated",
+            "value" : "La barra nascosta richiede macOS 27 o versioni successive e l’Accesso completo al disco. Dopo aver attivato OmniWM in Accesso completo al disco, esci da OmniWM e riaprilo."
+          }
+        },
+        "ja" : {
+          "stringUnit" : {
+            "state" : "translated",
+            "value" : "隠しバーにはmacOS 27以降とフルディスクアクセスが必要です。フルディスクアクセスでOmniWMをオンにしたら、OmniWMを終了してもう一度開いてください。"
+          }
+        },
+        "ko" : {
+          "stringUnit" : {
+            "state" : "translated",
+            "value" : "Hidden Bar를 사용하려면 macOS 27 이상과 전체 디스크 접근 권한이 필요합니다. 전체 디스크 접근 권한에서 OmniWM을 켠 후 OmniWM을 종료했다가 다시 여세요."
+          }
+        },
+        "nb" : {
+          "stringUnit" : {
+            "state" : "translated",
+            "value" : "Skjult linje krever macOS 27 eller nyere og Full disktilgang. Når du har slått på OmniWM under Full disktilgang, avslutter du OmniWM og åpner det på nytt."
+          }
+        },
+        "nl" : {
+          "stringUnit" : {
+            "state" : "translated",
+            "value" : "Hidden Bar vereist macOS 27 of nieuwer en Volledige schijftoegang. Schakel OmniWM in bij Volledige schijftoegang, stop OmniWM en open het opnieuw."
+          }
+        },
+        "pl" : {
+          "stringUnit" : {
+            "state" : "translated",
+            "value" : "Pasek ukryty wymaga systemu macOS 27 lub nowszego oraz pełnego dostępu do dysku. Po włączeniu OmniWM w sekcji Pełny dostęp do dysku zamknij OmniWM i otwórz go ponownie."
+          }
+        },
+        "ru" : {
+          "stringUnit" : {
+            "state" : "translated",
+            "value" : "Для «Скрытого бара» нужны macOS 27 или новее и «Доступ к диску». Включив OmniWM в разделе «Доступ к диску», завершите OmniWM и откройте его снова."
+          }
+        },
+        "sr-Latn" : {
+          "stringUnit" : {
+            "state" : "translated",
+            "value" : "Skrivena traka zahteva macOS 27 ili noviji i pun pristup disku. Kada uključite OmniWM u odeljku Pun pristup disku, zatvorite OmniWM i ponovo ga otvorite."
+          }
+        },
+        "sv" : {
+          "stringUnit" : {
+            "state" : "translated",
+            "value" : "Hidden Bar kräver macOS 27 eller senare och Full skivtillgång. När du har slagit på OmniWM under Full skivtillgång avslutar du OmniWM och öppnar det igen."
+          }
+        },
+        "uk" : {
+          "stringUnit" : {
+            "state" : "translated",
+            "value" : "Hidden Bar потребує macOS 27 або новішої версії та повного доступу до диска. Увімкнувши OmniWM у розділі «Повний доступ до диска», закрийте OmniWM і відкрийте його знову."
+          }
+        },
+        "zh-Hans" : {
+          "stringUnit" : {
+            "state" : "translated",
+            "value" : "隐藏栏需要 macOS 27 或更高版本以及完全磁盘访问权限。在“完全磁盘访问权限”中打开 OmniWM 后，请退出并重新打开 OmniWM。"
+          }
+        }
+      }
+    },
+    "Open Full Disk Access Settings" : {
+      "localizations" : {
+        "ar" : {
+          "stringUnit" : {
+            "state" : "translated",
+            "value" : "افتح إعدادات الوصول الكامل إلى القرص"
+          }
+        },
+        "da" : {
+          "stringUnit" : {
+            "state" : "translated",
+            "value" : "Åbn indstillinger for Fuld adgang til disk"
+          }
+        },
+        "de" : {
+          "stringUnit" : {
+            "state" : "translated",
+            "value" : "Einstellungen für Festplattenvollzugriff öffnen"
+          }
+        },
+        "el" : {
+          "stringUnit" : {
+            "state" : "translated",
+            "value" : "Άνοιγμα ρυθμίσεων Πλήρους πρόσβασης στον δίσκο"
+          }
+        },
+        "es" : {
+          "stringUnit" : {
+            "state" : "translated",
+            "value" : "Abrir la configuración de Acceso total al disco"
+          }
+        },
+        "fi" : {
+          "stringUnit" : {
+            "state" : "translated",
+            "value" : "Avaa Koko levyn käyttö -asetukset"
+          }
+        },
+        "fr" : {
+          "stringUnit" : {
+            "state" : "translated",
+            "value" : "Ouvrir les réglages d’Accès complet au disque"
+          }
+        },
+        "he" : {
+          "stringUnit" : {
+            "state" : "translated",
+            "value" : "פתחו את הגדרות הגישה המלאה לכונן"
+          }
+        },
+        "hi" : {
+          "stringUnit" : {
+            "state" : "translated",
+            "value" : "पूर्ण डिस्क ऐक्सेस सेटिंग्स खोलें"
+          }
+        },
+        "it" : {
+          "stringUnit" : {
+            "state" : "translated",
+            "value" : "Apri le impostazioni di Accesso completo al disco"
+          }
+        },
+        "ja" : {
+          "stringUnit" : {
+            "state" : "translated",
+            "value" : "フルディスクアクセスの設定を開く"
+          }
+        },
+        "ko" : {
+          "stringUnit" : {
+            "state" : "translated",
+            "value" : "전체 디스크 접근 권한 설정 열기"
+          }
+        },
+        "nb" : {
+          "stringUnit" : {
+            "state" : "translated",
+            "value" : "Åpne innstillinger for Full disktilgang"
+          }
+        },
+        "nl" : {
+          "stringUnit" : {
+            "state" : "translated",
+            "value" : "Instellingen voor Volledige schijftoegang openen"
+          }
+        },
+        "pl" : {
+          "stringUnit" : {
+            "state" : "translated",
+            "value" : "Otwórz ustawienia pełnego dostępu do dysku"
+          }
+        },
+        "ru" : {
+          "stringUnit" : {
+            "state" : "translated",
+            "value" : "Открыть настройки «Доступ к диску»"
+          }
+        },
+        "sr-Latn" : {
+          "stringUnit" : {
+            "state" : "translated",
+            "value" : "Otvori podešavanja punog pristupa disku"
+          }
+        },
+        "sv" : {
+          "stringUnit" : {
+            "state" : "translated",
+            "value" : "Öppna inställningar för Full skivtillgång"
+          }
+        },
+        "uk" : {
+          "stringUnit" : {
+            "state" : "translated",
+            "value" : "Відкрити параметри повного доступу до диска"
+          }
+        },
+        "zh-Hans" : {
+          "stringUnit" : {
+            "state" : "translated",
+            "value" : "打开“完全磁盘访问权限”设置"
+          }
+        }
+      }
+    },
     "Hiding requires macOS 27 or later." : {
+      "extractionState" : "stale",
       "localizations" : {
         "ja" : {
           "stringUnit" : {

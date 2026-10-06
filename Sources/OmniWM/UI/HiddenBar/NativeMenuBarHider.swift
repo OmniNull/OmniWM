@@ -2,9 +2,11 @@
 // Copyright (C) 2026 BarutSRB — https://github.com/OmniNull/OmniWM
 
 import Foundation
+import Observation
 import OSLog
 
 @MainActor
+@Observable
 final class NativeMenuBarHider {
     private struct Ownership {
         var original: Bool
@@ -23,9 +25,9 @@ final class NativeMenuBarHider {
     private static let logger = Logger(subsystem: "com.barut.OmniWM", category: "HiddenBar")
     private let preferences: NativeMenuBarPreferences?
     private let journalURL: URL?
-    private var ownership: [String: Ownership] = [:]
-    private var journalLoaded = false
-    private var verifiedVisibility: [String: Bool] = [:]
+    @ObservationIgnored private var ownership: [String: Ownership] = [:]
+    @ObservationIgnored private var journalLoaded = false
+    @ObservationIgnored private var verifiedVisibility: [String: Bool] = [:]
     private(set) var available = false
 
     init(preferences: NativeMenuBarPreferences? = nil, journalURL: URL? = nil) {
@@ -151,9 +153,12 @@ final class NativeMenuBarHider {
     }
 
     func systemSettingsAllowance() -> [String: Bool] {
-        guard let preferences, let applications = try? NativeMenuBarApplications(data: preferences.read()) else {
+        guard let preferences else { return [:] }
+        guard let applications = try? NativeMenuBarApplications(data: preferences.read()) else {
+            available = false
             return [:]
         }
+        available = true
         let bundleIDs = HiddenBarSettingsPolicy.normalizedBundleIDs(
             applications.bundleIDs,
             additionalProtectedBundleIDs: [Bundle.main.bundleIdentifier ?? "com.barut.OmniWM"]

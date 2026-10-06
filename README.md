@@ -588,6 +588,7 @@ OmniWM is built for high responsiveness and smooth, crisp animations.
 - Hidden Bar concealment and optional issue-report rewriting require macOS 27 or later; rewriting also requires enabled Apple Intelligence and an available local model
 - Accessibility and Input Monitoring permissions (required at launch)
 - Screen Recording permission for Overview thumbnails, drag previews, and captured Hidden Bar glyphs (optional)
+- Full Disk Access permission for Hidden Bar concealment (optional)
 - Displays have separate spaces **ON** (the macOS default; OmniWM pauses window management until it is enabled)
 
 ## Installation
@@ -1032,7 +1033,7 @@ Workspace-bar icon overrides can also be configured in `settings.toml`. Quote bu
 #### Hidden Bar
 
 Conceal selected menu-bar icons and reach them from a panel:
-- Concealment requires macOS 27 or later; core window management supports macOS 26
+- Concealment requires macOS 27 or later and Full Disk Access; core window management supports macOS 26
 - Pick the apps to hide in `Settings > Hidden Bar`
 - Hidden Bar runs while the workspace bar is on; turning the bar off shows the hidden icons again
 - Right-click (or Option-click) the OmniWM menu bar icon to open the Hidden Icons Bar; click an icon to reveal and use it

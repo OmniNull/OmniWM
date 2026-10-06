@@ -308,7 +308,7 @@ Extra readouts beside the menu bar icon.
 
 ## hiddenBar
 
-Menu-bar icon concealment (concealment requires macOS 27+).
+Menu-bar icon concealment (requires macOS 27+ and Full Disk Access).
 
 | Key | Type | Default | Description |
 | --- | --- | --- | --- |
