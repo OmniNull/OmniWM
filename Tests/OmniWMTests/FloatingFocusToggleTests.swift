@@ -95,6 +95,21 @@ final class FloatingFocusToggleTests: XCTestCase {
         XCTAssertEqual(fixture.controller.intentLedger.activeManagedRequest?.token, firstTiled)
     }
 
+    func testToggleRaisesOnlyTheActiveWorkspaceFloatingWindows() throws {
+        var orderedWindowIds: [UInt32] = []
+        let fixture = try makeFixture(secondMonitor: true, orderWindow: { orderedWindowIds.append($0) })
+        defer { fixture.controller.layoutRefreshController.resetState() }
+        let tiled = addWindow(5011, 91, to: fixture.workspace1, manager: fixture.manager)
+        let floating = addWindow(5011, 92, to: fixture.workspace1, mode: .floating, manager: fixture.manager)
+        _ = addWindow(5012, 93, to: fixture.workspace2, mode: .floating, manager: fixture.manager)
+        XCTAssertTrue(fixture.manager.visibleWorkspaceIds().contains(fixture.workspace2))
+        XCTAssertTrue(fixture.manager.setManagedFocus(tiled, in: fixture.workspace1))
+
+        XCTAssertEqual(fixture.controller.toggleFloatingFocus(), .executed)
+        XCTAssertEqual(orderedWindowIds, [92])
+        XCTAssertEqual(fixture.manager.pendingFocusedToken, floating)
+    }
+
     func testToggleWithoutACounterpartReportsNoChange() throws {
         let fixture = try makeFixture()
         defer { fixture.controller.layoutRefreshController.resetState() }
@@ -134,7 +149,10 @@ final class FloatingFocusToggleTests: XCTestCase {
         )
     }
 
-    private func makeFixture() throws -> Fixture {
+    private func makeFixture(
+        secondMonitor: Bool = false,
+        orderWindow: @escaping (UInt32) -> Void = { _ in }
+    ) throws -> Fixture {
         let monitor = Monitor(
             id: .init(displayId: 472_000),
             displayId: 472_000,
@@ -143,6 +161,15 @@ final class FloatingFocusToggleTests: XCTestCase {
             hasNotch: false,
             name: "FloatingFocusToggle"
         )
+        let monitor2 = Monitor(
+            id: .init(displayId: 472_001),
+            displayId: 472_001,
+            frame: CGRect(x: 1600, y: 0, width: 1600, height: 900),
+            visibleFrame: CGRect(x: 1600, y: 0, width: 1600, height: 900),
+            hasNotch: false,
+            name: "FloatingFocusToggle 2"
+        )
+        let monitors = secondMonitor ? [monitor, monitor2] : [monitor]
         let root = FileManager.default.temporaryDirectory
             .appendingPathComponent("FloatingFocusToggleTests-\(UUID().uuidString)", isDirectory: true)
         let settings = SettingsStore(
@@ -165,7 +192,7 @@ final class FloatingFocusToggleTests: XCTestCase {
             ),
             WorkspaceConfiguration(
                 name: "2",
-                monitorAssignment: .specificDisplay(OutputId(from: monitor)),
+                monitorAssignment: .specificDisplay(OutputId(from: monitors.last!)),
                 layoutType: .niri
             )
         ]
@@ -174,15 +201,19 @@ final class FloatingFocusToggleTests: XCTestCase {
             windowFocusOperations: WindowFocusOperations(
                 activateApp: { _ in },
                 focusSpecificWindow: { _, _, _ in },
-                raiseWindow: { _ in }
+                raiseWindow: { _ in },
+                orderWindow: orderWindow
             )
         )
-        controller.workspaceManager.applyMonitorConfigurationChange([monitor])
+        controller.workspaceManager.applyMonitorConfigurationChange(monitors)
         controller.workspaceManager.applySettings()
         controller.niriLayoutHandler.enableNiriLayout()
         let workspace1 = try XCTUnwrap(controller.workspaceManager.workspaceId(named: "1"))
         let workspace2 = try XCTUnwrap(controller.workspaceManager.workspaceId(named: "2"))
         XCTAssertTrue(controller.workspaceManager.setActiveWorkspace(workspace1, on: monitor.id))
+        if secondMonitor {
+            XCTAssertTrue(controller.workspaceManager.setActiveWorkspace(workspace2, on: monitor2.id))
+        }
         controller.layoutRefreshController.resetState()
 
         return Fixture(

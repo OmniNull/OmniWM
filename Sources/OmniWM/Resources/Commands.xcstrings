@@ -3808,6 +3808,126 @@
             "state" : "new",
             "value" : "Toggle Floating/Tiled Focus"
           }
+        },
+        "ja" : {
+          "stringUnit" : {
+            "state" : "translated",
+            "value" : "フローティング/タイルウィンドウのフォーカスを切り替える"
+          }
+        },
+        "de" : {
+          "stringUnit" : {
+            "state" : "translated",
+            "value" : "Fokus zwischen schwebenden und gekachelten Fenstern wechseln"
+          }
+        },
+        "nb" : {
+          "stringUnit" : {
+            "state" : "translated",
+            "value" : "Bytt fokus mellom flytende og flislagte vinduer"
+          }
+        },
+        "sv" : {
+          "stringUnit" : {
+            "state" : "translated",
+            "value" : "Växla fokus mellan flytande och kaklade fönster"
+          }
+        },
+        "es" : {
+          "stringUnit" : {
+            "state" : "translated",
+            "value" : "Alternar el foco entre ventanas flotantes y en mosaico"
+          }
+        },
+        "zh-Hans" : {
+          "stringUnit" : {
+            "state" : "translated",
+            "value" : "在浮动和平铺窗口之间切换焦点"
+          }
+        },
+        "hi" : {
+          "stringUnit" : {
+            "state" : "translated",
+            "value" : "फ्लोटिंग और टाइल्ड विंडो के बीच फोकस टॉगल करें"
+          }
+        },
+        "ar" : {
+          "stringUnit" : {
+            "state" : "translated",
+            "value" : "تبديل التركيز بين النوافذ العائمة والمتجانبة"
+          }
+        },
+        "sr-Latn" : {
+          "stringUnit" : {
+            "state" : "translated",
+            "value" : "Prebaci fokus između plutajućih i popločanih prozora"
+          }
+        },
+        "el" : {
+          "stringUnit" : {
+            "state" : "translated",
+            "value" : "Εναλλαγή εστίασης μεταξύ αιωρούμενων και παρατεταγμένων παραθύρων"
+          }
+        },
+        "he" : {
+          "stringUnit" : {
+            "state" : "translated",
+            "value" : "החלף מיקוד בין חלונות צפים לחלונות מרוצפים"
+          }
+        },
+        "ru" : {
+          "stringUnit" : {
+            "state" : "translated",
+            "value" : "Переключить фокус между плавающими и мозаичными окнами"
+          }
+        },
+        "pl" : {
+          "stringUnit" : {
+            "state" : "translated",
+            "value" : "Przełącz fokus między oknami pływającymi i kafelkowymi"
+          }
+        },
+        "uk" : {
+          "stringUnit" : {
+            "state" : "translated",
+            "value" : "Перемкнути фокус між плаваючими та мозаїчними вікнами"
+          }
+        },
+        "fr" : {
+          "stringUnit" : {
+            "state" : "translated",
+            "value" : "Basculer le focus entre fenêtres flottantes et en mosaïque"
+          }
+        },
+        "nl" : {
+          "stringUnit" : {
+            "state" : "translated",
+            "value" : "Focus wisselen tussen zwevende en getegelde vensters"
+          }
+        },
+        "it" : {
+          "stringUnit" : {
+            "state" : "translated",
+            "value" : "Alterna il focus tra finestre fluttuanti e affiancate"
+          }
+        },
+        "fi" : {
+          "stringUnit" : {
+            "state" : "translated",
+            "value" : "Vaihda fokus kelluvien ja vierekkäisten ikkunoiden välillä"
+          }
+        },
+        "da" : {
+          "stringUnit" : {
+            "state" : "translated",
+            "value" : "Skift fokus mellem flydende og fliselagte vinduer"
+          }
+        },
+        "ko" : {
+          "stringUnit" : {
+            "state" : "translated",
+            "value" : "플로팅 창과 타일 창 사이 포커스 전환"
+          }
         }
       }
     },

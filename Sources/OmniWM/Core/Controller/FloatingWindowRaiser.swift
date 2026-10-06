@@ -67,7 +67,10 @@ final class FloatingWindowRaiser {
 
         controller.restoreVisibleWorkspaceInactiveFloatingWindows()
         guard let plan = makeRaiseAllFloatingPlan() else { return }
+        raise(plan, controller: controller)
+    }
 
+    private func raise(_ plan: FloatingWindowRaisePlan, controller: WMController) {
         for batch in plan.batches {
             for surface in batch {
                 controller.performWindowOrdering(windowId: surface.windowId)
@@ -90,8 +93,11 @@ final class FloatingWindowRaiser {
                 : .noChange
         }
 
-        raiseAllFloatingWindows()
+        controller.layoutRefreshController.restoreWorkspaceInactiveFloatingWindows(activeWorkspaceIds: [workspaceId])
         guard let target = workspaceManager.floatingFocusToggleTarget(in: workspaceId) else { return .noChange }
+        if let plan = makeRaiseAllFloatingPlan(in: workspaceId) {
+            raise(plan, controller: controller)
+        }
         controller.focusWindow(target)
         return .executed
     }
@@ -108,14 +114,15 @@ final class FloatingWindowRaiser {
         return true
     }
 
-    private func makeRaiseAllFloatingPlan() -> FloatingWindowRaisePlan? {
+    private func makeRaiseAllFloatingPlan(in workspaceId: WorkspaceDescriptor.ID? = nil) -> FloatingWindowRaisePlan? {
         guard let controller else { return nil }
 
-        let managedSurfaces = controller.workspaceManager.visibleWorkspaceIds()
+        let workspaceIds = workspaceId.map { [$0] } ?? Array(controller.workspaceManager.visibleWorkspaceIds())
+        let managedSurfaces = workspaceIds
             .flatMap { controller.workspaceManager.floatingEntries(in: $0) }
             .filter { controller.workspaceManager.isFloatingWindowDisplayable($0) }
             .map(RaisableSurface.managed)
-        let ownedSurfaces = visibleOwnedWindowsProvider()
+        let ownedSurfaces = workspaceId != nil ? [] : visibleOwnedWindowsProvider()
             .filter { $0.windowNumber > 0 }
             .map(RaisableSurface.owned)
         let surfaces = managedSurfaces + ownedSurfaces
