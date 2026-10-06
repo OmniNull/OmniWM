@@ -118,7 +118,7 @@ final class WorkspaceBarManagerTests: XCTestCase {
         }
     }
 
-    func testAutoHideReusesHiddenPanelsAndRetainsPopupAndDragInteractions() throws {
+    func testAutoHideReusesHiddenPanelsAndRetainsPopupAndDragInteractions() async throws {
         controller.settings.workspaceBar.autoHide = true
         let manager = makeManager()
         defer {
@@ -128,6 +128,7 @@ final class WorkspaceBarManagerTests: XCTestCase {
         var pointer = monitor.frame.center
         controller.currentMouseLocation = { pointer }
         var bar = barSurface(itemCount: 1)
+        bar.snapshot = snapshot(itemCount: 1, showSystemStatsButton: true)
         bar.visible = false
         bar.retainWhileHidden = true
         manager.apply([bar])
@@ -153,8 +154,19 @@ final class WorkspaceBarManagerTests: XCTestCase {
         pointer = monitor.frame.center
         apply()
         XCTAssertTrue(panel.isVisible)
+        XCTAssertTrue(controller.systemStatsPopupController.isVisible)
+        let hidden = expectation(description: "Popup dismissal hides the bar without pointer movement")
+        let onRevealChanged = manager.autoHideMonitor.onRevealChanged
+        manager.autoHideMonitor.onRevealChanged = {
+            onRevealChanged()
+            bar.visible = manager.isPointerRevealed(on: self.monitor.id)
+            manager.apply([bar])
+            if !bar.visible { hidden.fulfill() }
+        }
         controller.systemStatsPopupController.dismiss()
-        apply()
+        NSApp.updateWindows()
+        await fulfillment(of: [hidden], timeout: 1)
+        manager.autoHideMonitor.onRevealChanged = onRevealChanged
         XCTAssertFalse(panel.isVisible)
         XCTAssertTrue(manager.barsByMonitor[monitor.id]?.primary.panel === panel)
 
@@ -252,7 +264,7 @@ final class WorkspaceBarManagerTests: XCTestCase {
         )
     }
 
-    private func snapshot(itemCount: Int) -> WorkspaceBarSnapshot {
+    private func snapshot(itemCount: Int, showSystemStatsButton: Bool = false) -> WorkspaceBarSnapshot {
         let items = (0 ..< itemCount).map { index in
             WorkspaceBarItem(
                 id: WorkspaceDescriptor.ID(),
@@ -266,7 +278,7 @@ final class WorkspaceBarManagerTests: XCTestCase {
         return WorkspaceBarSnapshot(
             projection: WorkspaceBarProjection(items: items, scratchpads: []),
             showLabels: true,
-            showSystemStatsButton: false,
+            showSystemStatsButton: showSystemStatsButton,
             backgroundOpacity: 0.6,
             barHeight: 24,
             accentColor: nil,
