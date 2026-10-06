@@ -41,6 +41,11 @@ final class WorkspaceBarAutoHideStateTests: XCTestCase {
             monitor: monitor, frames: [frame], position: .bottom, isVisible: false, isPinned: false
         )
         var state = WorkspaceBarAutoHideState()
+        let hiddenPinned = WorkspaceBarAutoHideTarget(
+            monitor: monitor, frames: [frame], position: .bottom, isVisible: false, isPinned: true
+        )
+        state.update(targets: [hiddenPinned], pointer: .zero)
+        XCTAssertTrue(state.revealed.isEmpty)
         let margin = CGPoint(x: frame.minX - 15, y: frame.midY)
         state.update(targets: [target], pointer: margin)
         XCTAssertTrue(state.revealed.isEmpty)
