@@ -221,7 +221,8 @@ final class WorkspaceBarInstance {
             barHeight: current.barHeight,
             accentColor: resolved.accentColor,
             textColor: resolved.textColor,
-            orientation: current.orientation
+            orientation: current.orientation,
+            secureInputActive: current.secureInputActive
         )
 
         if snapshot != current {

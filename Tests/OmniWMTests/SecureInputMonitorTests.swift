@@ -25,10 +25,10 @@ final class SecureInputMonitorTests: XCTestCase {
         }
         for controller in controllersToStop {
             controller.hotkeys.stop()
+            controller.secureInputIndicator.destroy()
         }
         monitorsToStop = []
         controllersToStop = []
-        SecureInputIndicatorController.shared.hide()
         try await super.tearDown()
     }
 
@@ -203,6 +203,35 @@ final class SecureInputMonitorTests: XCTestCase {
 
         controller.setHotkeysEnabled(false)
         XCTAssertFalse(controller.hotkeys.hotkeyHealthFacts().isRunning)
+    }
+
+    func testSecureInputIsIndicatedOnlyWhileHotkeysAreEnabled() {
+        let controller = makeController()
+        controllersToStop.append(controller)
+        controller.hotkeys.updateBindings([], force: true)
+        controller.hasStartedServices = true
+        controller.updateAccessibilityPermissionGranted(true)
+        let recorder = Recorder()
+        recorder.isSecure = true
+        configure(controller.secureInputMonitor, recorder)
+
+        controller.serviceLifecycleManager.startSecureInputMonitor()
+        XCTAssertTrue(controller.isSecureInputIndicated)
+        XCTAssertTrue(controller.secureInputIndicator.isIndicated)
+        XCTAssertNotNil(controller.secureInputIndicator.explanationTask)
+        XCTAssertFalse(controller.secureInputIndicator.isExplanationVisible)
+
+        controller.setHotkeysEnabled(false)
+        XCTAssertFalse(controller.isSecureInputIndicated)
+        XCTAssertFalse(controller.secureInputIndicator.isIndicated)
+        XCTAssertNil(controller.secureInputIndicator.explanationTask)
+
+        controller.setHotkeysEnabled(true)
+        XCTAssertTrue(controller.secureInputIndicator.isIndicated)
+        recorder.isSecure = false
+        controller.secureInputMonitor.refresh()
+        XCTAssertFalse(controller.isSecureInputIndicated)
+        XCTAssertFalse(controller.secureInputIndicator.isIndicated)
     }
 
     private func makeMonitor(_ recorder: Recorder) -> SecureInputMonitor {

@@ -132,6 +132,17 @@ struct StatusMenuPrimaryView: View {
         VStack(spacing: 0) {
             MenuHeader()
             MenuDivider()
+            if model.isSecureInputIndicated {
+                MenuActionRow(
+                    icon: "lock.fill",
+                    label: String(localized: "Secure Input is on"),
+                    showChevron: true,
+                    iconTint: Color(nsColor: .systemRed)
+                ) {
+                    model.showSecureInputExplanation()
+                }
+                MenuDivider()
+            }
             if !model.diagnosticsIssues.isEmpty {
                 MenuActionRow(
                     icon: "exclamationmark.triangle.fill",

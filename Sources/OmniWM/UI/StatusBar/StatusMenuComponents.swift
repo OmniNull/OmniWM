@@ -87,6 +87,7 @@ struct MenuActionRow: View {
     var isDestructive = false
     var dismissesMenu = true
     var isExpanded: Bool?
+    var iconTint: Color?
     let action: @MainActor () -> Void
 
     @Environment(MotionPolicy.self) private var motionPolicy
@@ -183,7 +184,7 @@ struct MenuActionRow: View {
 
     private var iconColor: Color {
         if isDestructive, isHighlighted { return Color(nsColor: .systemRed) }
-        return isHighlighted ? .white : Color(nsColor: .secondaryLabelColor)
+        return isHighlighted ? .white : iconTint ?? Color(nsColor: .secondaryLabelColor)
     }
 
     private var labelColor: Color {

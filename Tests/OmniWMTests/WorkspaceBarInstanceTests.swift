@@ -181,8 +181,10 @@ final class WorkspaceBarInstanceTests: XCTestCase {
             showAccentHighlights: false,
             barHeight: 24,
             accentColor: nil,
-            textColor: nil
+            textColor: nil,
+            secureInputActive: true
         )
+        XCTAssertTrue(snapshot.replacingScratchpads([]).secureInputActive)
         instance.updateSnapshot(snapshot)
         let accentColor = SettingsColor(red: 0.2, green: 0.3, blue: 0.4, alpha: 1)
 
@@ -194,6 +196,7 @@ final class WorkspaceBarInstanceTests: XCTestCase {
         XCTAssertTrue(instance.model.snapshot.solidBlackBackground)
         XCTAssertFalse(instance.model.snapshot.showItemBackgrounds)
         XCTAssertFalse(instance.model.snapshot.showAccentHighlights)
+        XCTAssertTrue(instance.model.snapshot.secureInputActive)
     }
 
     private func makeFixture(screenDisplayId: CGDirectDisplayID? = nil, barHeight: CGFloat = 24) -> Fixture {

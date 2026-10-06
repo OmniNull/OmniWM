@@ -26,9 +26,19 @@ final class StatusItemClickRoutingTests: XCTestCase {
             StatusBarController.statusButtonAccessibilityValue(
                 workspaceLabel: "Code",
                 focusedAppName: "Xcode",
-                isRecording: true
+                isRecording: true,
+                isSecureInputActive: false
             ),
             "Recording diagnostics, Workspace Code, Focused app Xcode"
+        )
+        XCTAssertEqual(
+            StatusBarController.statusButtonAccessibilityValue(
+                workspaceLabel: "Code",
+                focusedAppName: nil,
+                isRecording: false,
+                isSecureInputActive: true
+            ),
+            "Secure Input is on, Workspace Code"
         )
     }
 
@@ -37,7 +47,8 @@ final class StatusItemClickRoutingTests: XCTestCase {
             StatusBarController.statusButtonAccessibilityValue(
                 workspaceLabel: nil,
                 focusedAppName: nil,
-                isRecording: false
+                isRecording: false,
+                isSecureInputActive: false
             ),
             "Window manager controls"
         )

@@ -4,70 +4,138 @@
 import AppKit
 import SwiftUI
 
-private let iconSize = CGSize(width: 44, height: 44)
-private let expandedSize = CGSize(width: 380, height: 140)
+private let explanationWidth: CGFloat = 380
+private let screenInset: CGFloat = 20
 
 @MainActor
 final class SecureInputIndicatorController {
-    static let shared = SecureInputIndicatorController()
+    static let surfaceId = "secure-input-indicator"
+    static let explanationDelay: Duration = .seconds(10)
 
+    var openHotkeysSettings: () -> Void = {}
+    private(set) var isIndicated = false
+    private(set) var explanationTask: Task<Void, Never>?
+    private var generation = 0
     private var panel: NSPanel?
-    private var hostingView: NSHostingView<SecureInputIndicatorView>?
-    private var isExpanded = false
+    private let ownedWindowRegistry: OwnedWindowRegistry
+    private let sleep: @MainActor (Duration) async throws -> Void
 
-    private init() {}
+    init(
+        ownedWindowRegistry: OwnedWindowRegistry = .shared,
+        sleep: @escaping @MainActor (Duration) async throws -> Void = { try await Task.sleep(for: $0) }
+    ) {
+        self.ownedWindowRegistry = ownedWindowRegistry
+        self.sleep = sleep
+    }
 
-    func show() {
-        if panel == nil {
-            createPanel()
+    isolated deinit {
+        destroy()
+    }
+
+    var isExplanationVisible: Bool {
+        panel?.isVisible == true
+    }
+
+    @discardableResult
+    func setIndicated(_ indicated: Bool) -> Bool {
+        guard indicated != isIndicated else { return false }
+        isIndicated = indicated
+        generation += 1
+        cancelScheduledExplanation()
+        if indicated {
+            scheduleExplanation()
+        } else {
+            hideExplanation()
         }
-        updateFrame()
-        panel?.orderFrontRegardless()
+        return true
     }
 
-    func hide() {
-        panel?.orderOut(nil)
-        isExpanded = false
-    }
-
-    func toggle() {
-        isExpanded.toggle()
-        updateFrame()
-        if let hostingView {
-            hostingView.rootView = SecureInputIndicatorView(
-                isExpanded: isExpanded,
-                onTap: { [weak self] in self?.toggle() }
+    func showExplanation() {
+        guard isIndicated else { return }
+        cancelScheduledExplanation()
+        let panel = panel ?? makePanel()
+        if let screen = NSScreen.screen(containing: NSEvent.mouseLocation) ?? NSScreen.main,
+           let contentView = panel.contentView
+        {
+            panel.setFrame(
+                Self.panelFrame(size: contentView.fittingSize, visibleFrame: screen.visibleFrame),
+                display: true
             )
         }
+        panel.orderFrontRegardless()
     }
 
-    private func createPanel() {
-        let panel = NSPanel(
+    func hideExplanation() {
+        panel?.orderOut(nil)
+    }
+
+    func destroy() {
+        cancelScheduledExplanation()
+        guard let panel else { return }
+        panel.orderOut(nil)
+        ownedWindowRegistry.unregister(surfaceId: Self.surfaceId)
+        panel.close()
+        self.panel = nil
+    }
+
+    static func panelFrame(size: CGSize, visibleFrame: CGRect) -> CGRect {
+        CGRect(
+            x: visibleFrame.maxX - size.width - screenInset,
+            y: visibleFrame.minY + screenInset,
+            width: size.width,
+            height: size.height
+        )
+    }
+
+    private func scheduleExplanation() {
+        let scheduledGeneration = generation
+        let sleep = sleep
+        explanationTask = Task { @MainActor [weak self] in
+            do {
+                try await sleep(Self.explanationDelay)
+            } catch {
+                return
+            }
+            guard let self, !Task.isCancelled, generation == scheduledGeneration else { return }
+            explanationTask = nil
+            showExplanation()
+        }
+    }
+
+    private func cancelScheduledExplanation() {
+        explanationTask?.cancel()
+        explanationTask = nil
+    }
+
+    private func makePanel() -> NSPanel {
+        let panel = NonactivatingPanel(
             contentRect: .zero,
-            styleMask: [.nonactivatingPanel, .borderless, .hudWindow, .utilityWindow],
+            styleMask: [.borderless, .nonactivatingPanel],
             backing: .buffered,
             defer: false
         )
-
         panel.level = .floating
         panel.collectionBehavior = [.canJoinAllSpaces, .fullScreenAuxiliary]
         panel.isReleasedWhenClosed = false
         panel.hidesOnDeactivate = false
-        panel.isMovableByWindowBackground = false
-        panel.alphaValue = 1
+        panel.isMovable = false
+        panel.isOpaque = false
         panel.hasShadow = true
         panel.backgroundColor = .clear
-
-        let view = SecureInputIndicatorView(
-            isExpanded: isExpanded,
-            onTap: { [weak self] in self?.toggle() }
+        panel.contentView = NSHostingView(
+            rootView: SecureInputExplanationView(
+                onOpenHotkeysSettings: { [weak self] in
+                    self?.hideExplanation()
+                    self?.openHotkeysSettings()
+                },
+                onClose: { [weak self] in
+                    self?.hideExplanation()
+                }
+            )
         )
-        let hostingView = NSHostingView(rootView: view)
-        panel.contentView = hostingView
-
-        OwnedWindowRegistry.shared.register(
+        ownedWindowRegistry.register(
             panel,
-            surfaceId: "secure-input-indicator",
+            surfaceId: Self.surfaceId,
             policy: SurfacePolicy(
                 kind: .secureInputIndicator,
                 hitTestPolicy: .interactive,
@@ -75,60 +143,45 @@ final class SecureInputIndicatorController {
                 suppressesManagedFocusRecovery: false
             )
         )
-
         self.panel = panel
-        self.hostingView = hostingView
-    }
-
-    private func updateFrame() {
-        guard let panel,
-              let screen = NSScreen.screen(containing: NSEvent.mouseLocation) ?? NSScreen.main
-        else { return }
-
-        let size = isExpanded ? expandedSize : iconSize
-        let x = screen.frame.maxX - size.width - 20
-        let y: CGFloat = 20
-
-        panel.setFrame(NSRect(x: x, y: y, width: size.width, height: size.height), display: true)
-        hostingView?.frame = NSRect(x: 0, y: 0, width: size.width, height: size.height)
+        return panel
     }
 }
 
-struct SecureInputIndicatorView: View {
-    let isExpanded: Bool
-    let onTap: () -> Void
+struct SecureInputExplanationView: View {
+    let onOpenHotkeysSettings: () -> Void
+    let onClose: () -> Void
 
     var body: some View {
-        ZStack(alignment: .center) {
-            if isExpanded {
-                VStack(alignment: .leading, spacing: 8) {
-                    HStack {
-                        Image(systemName: "lock.shield.fill")
-                            .font(.title2)
-                        Text("Secure Input Active")
-                            .font(.headline)
-                    }
-                    Text(
-                        "macOS Secure Input is on. Until it turns off, some shortcuts may not work: Hyper and left/right-specific shortcuts, and those on letter, number or symbol keys without Control or Command."
-                    )
-                    .font(.subheadline)
-                    .multilineTextAlignment(.leading)
+        VStack(alignment: .leading, spacing: 10) {
+            HStack(spacing: 8) {
+                Image(systemName: "lock.fill")
+                    .foregroundStyle(Color(nsColor: .systemRed))
+                Text("Secure Input is on")
+                    .font(.headline)
+                Spacer(minLength: 0)
+                Button(action: onClose) {
+                    Image(systemName: "xmark")
                 }
-                .padding(16)
-            } else {
-                Image(systemName: "lock.shield.fill")
-                    .resizable().scaledToFit()
-                    .padding(10)
+                .buttonStyle(.borderless)
+                .help("Close")
+                .accessibilityLabel("Close")
             }
+            Group {
+                Text(
+                    "Until it turns off, shortcuts that use only Option or Option + Shift with a letter, number, or symbol key are paused, along with Hyper and left/right-specific shortcuts. Shortcuts with Control or Command keep working."
+                )
+                Text(
+                    "Apps turn it on to protect what you type: Terminal or iTerm with Secure Keyboard Entry, password managers, and browser password fields. If it stays on, quit the app that turned it on."
+                )
+            }
+            .font(.subheadline)
+            .foregroundStyle(.secondary)
+            .fixedSize(horizontal: false, vertical: true)
+            Button("Open Hotkeys Settings", action: onOpenHotkeysSettings)
         }
-        .foregroundStyle(.primary)
-        .frame(
-            width: isExpanded ? expandedSize.width : iconSize.width,
-            height: isExpanded ? expandedSize.height : iconSize.height
-        )
+        .padding(16)
+        .frame(width: explanationWidth, alignment: .leading)
         .omniGlassEffect(in: RoundedRectangle(cornerRadius: 12))
-        .onTapGesture {
-            onTap()
-        }
     }
 }

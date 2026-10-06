@@ -42,6 +42,7 @@ final class WMController {
     }
 
     let secureInputMonitor = SecureInputMonitor()
+    let secureInputIndicator = SecureInputIndicatorController()
     let lockScreenObserver = LockScreenObserver()
     var isLockScreenActive: Bool = false {
         didSet {
@@ -306,7 +307,7 @@ extension WMController {
         } else {
             hotkeys.stop()
         }
-        refreshHotkeyFailureSnapshots()
+        refreshHotkeyPresentation()
     }
 
     func borderSettingsChanged() {

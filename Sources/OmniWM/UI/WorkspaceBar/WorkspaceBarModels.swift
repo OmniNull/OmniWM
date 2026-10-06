@@ -136,6 +136,7 @@ struct WorkspaceBarSnapshot: Equatable {
     let orientation: WorkspaceBarOrientation
     let accentColor: SettingsColor?
     let textColor: SettingsColor?
+    let secureInputActive: Bool
 
     init(
         projection: WorkspaceBarProjection,
@@ -150,7 +151,8 @@ struct WorkspaceBarSnapshot: Equatable {
         barHeight: CGFloat,
         accentColor: SettingsColor?,
         textColor: SettingsColor?,
-        orientation: WorkspaceBarOrientation = .horizontal
+        orientation: WorkspaceBarOrientation = .horizontal,
+        secureInputActive: Bool = false
     ) {
         self.projection = projection
         self.showLabels = showLabels
@@ -165,6 +167,7 @@ struct WorkspaceBarSnapshot: Equatable {
         self.orientation = orientation
         self.accentColor = accentColor
         self.textColor = textColor
+        self.secureInputActive = secureInputActive
     }
 
     var items: [WorkspaceBarItem] {
@@ -205,7 +208,8 @@ struct WorkspaceBarSnapshot: Equatable {
             barHeight: barHeight,
             accentColor: accentColor,
             textColor: textColor,
-            orientation: orientation
+            orientation: orientation,
+            secureInputActive: secureInputActive
         )
     }
 }

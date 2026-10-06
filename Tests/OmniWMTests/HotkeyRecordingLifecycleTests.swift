@@ -70,6 +70,7 @@ private struct RecordingFixture: View {
                         binding: binding,
                         recordingTarget: $state.target,
                         failureReason: nil,
+                        pausedDuringSecureInput: false,
                         isHyperActive: { false },
                         onStartChordRecording: { state.target = .chord($0) },
                         onChordCaptured: { _, _ in },

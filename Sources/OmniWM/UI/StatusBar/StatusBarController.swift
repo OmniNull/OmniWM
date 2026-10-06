@@ -114,6 +114,16 @@ final class StatusBarController: NSObject {
         menuHost?.dismiss()
     }
 
+    func openSettings(section: SettingsSection) {
+        guard let controller else { return }
+        SettingsWindowController.shared.show(
+            settings: settings,
+            controller: controller,
+            updateCoordinator: updateCoordinator,
+            section: section
+        )
+    }
+
     func handleTraceCaptureStateChange() {
         updateButtonAppearance()
     }
@@ -142,6 +152,13 @@ final class StatusBarController: NSObject {
             button.image?.isTemplate = false
             button.contentTintColor = nil
             button.toolTip = String(localized: "OmniWM — measuring performance (auto-stops in 10 min)")
+        } else if controller?.isSecureInputIndicated == true {
+            button.layer?.removeAnimation(forKey: recordingPulseKey)
+            button.layer?.opacity = 1
+            button.image = OmniWMBrandMark.secureInputStatusImage(pointSize: 18, tint: .labelColor)
+            button.image?.accessibilityDescription = String(localized: "OmniWM, Secure Input is on")
+            button.contentTintColor = nil
+            button.toolTip = String(localized: "Secure Input is on: Option shortcuts are paused")
         } else {
             button.layer?.removeAnimation(forKey: recordingPulseKey)
             button.layer?.opacity = 1
@@ -185,11 +202,15 @@ final class StatusBarController: NSObject {
     nonisolated static func statusButtonAccessibilityValue(
         workspaceLabel: String?,
         focusedAppName: String?,
-        isRecording: Bool
+        isRecording: Bool,
+        isSecureInputActive: Bool
     ) -> String {
         var components: [String] = []
         if isRecording {
             components.append(String(localized: "Recording diagnostics"))
+        }
+        if isSecureInputActive {
+            components.append(String(localized: "Secure Input is on"))
         }
         if let workspaceLabel, !workspaceLabel.isEmpty {
             components.append(String(localized: "Workspace \(workspaceLabel)"))
@@ -214,7 +235,8 @@ final class StatusBarController: NSObject {
             Self.statusButtonAccessibilityValue(
                 workspaceLabel: workspaceLabel,
                 focusedAppName: focusedAppName,
-                isRecording: controller?.isTraceCaptureActive == true
+                isRecording: controller?.isTraceCaptureActive == true,
+                isSecureInputActive: controller?.isSecureInputIndicated == true
             )
         )
         button.setAccessibilityHelp(String(localized: "Press to open OmniWM controls."))

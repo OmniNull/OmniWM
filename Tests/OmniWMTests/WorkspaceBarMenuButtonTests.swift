@@ -66,7 +66,11 @@ final class WorkspaceBarMenuButtonTests: XCTestCase {
     func testMenuButtonDeliversRightClickAndAccessibilityPressThroughSameCallback() throws {
         var events: [NSEvent.EventType?] = []
         var receivedAnchor: NSView?
-        let host = NSHostingView(rootView: WorkspaceBarMenuButton(iconSize: 18, textColor: nil) { anchor, event in
+        let host = NSHostingView(rootView: WorkspaceBarMenuButton(
+            iconSize: 18,
+            textColor: nil,
+            isSecureInputActive: false
+        ) { anchor, event in
             events.append(event?.type)
             receivedAnchor = anchor
         }.frame(width: 24, height: 24))
@@ -90,6 +94,24 @@ final class WorkspaceBarMenuButtonTests: XCTestCase {
         _ = button.accessibilityPerformPress()
         XCTAssertEqual(events.count, 2)
         XCTAssertTrue(receivedAnchor === button)
+    }
+
+    func testMenuButtonShowsSecureInputLockOnlyWhileActive() throws {
+        let host = NSHostingView(rootView: badgeButton(isSecureInputActive: true))
+        host.frame = CGRect(x: 0, y: 0, width: 24, height: 24)
+        host.layoutSubtreeIfNeeded()
+        let button = try XCTUnwrap(menuButtons(in: host).first)
+        XCTAssertEqual(button.image?.isTemplate, false)
+        XCTAssertEqual(button.accessibilityValue() as? String, "Secure Input is on")
+
+        host.rootView = badgeButton(isSecureInputActive: false)
+        host.layoutSubtreeIfNeeded()
+        XCTAssertEqual(button.image?.isTemplate, true)
+        XCTAssertNil(button.accessibilityValue() as? String)
+    }
+
+    private func badgeButton(isSecureInputActive: Bool) -> WorkspaceBarMenuButton {
+        WorkspaceBarMenuButton(iconSize: 18, textColor: nil, isSecureInputActive: isSecureInputActive) { _, _ in }
     }
 
     private func menuButtons(in view: NSView) -> [WorkspaceBarMenuButton.MenuButton] {

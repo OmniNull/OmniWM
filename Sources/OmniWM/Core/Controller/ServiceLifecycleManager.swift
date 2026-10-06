@@ -224,12 +224,8 @@ final class ServiceLifecycleManager {
         guard let controller else { return }
         if isSecure {
             controller.resetWorkspaceBarReveal()
-            if controller.hotkeysEnabled {
-                SecureInputIndicatorController.shared.show()
-            }
-        } else {
-            SecureInputIndicatorController.shared.hide()
         }
+        controller.refreshSecureInputPresentation()
     }
 
     func reconcileStoppedApplicationTerminationsAndResumeTimeouts(liveApplicationPIDs: Set<pid_t>) {
@@ -333,7 +329,6 @@ final class ServiceLifecycleManager {
         workspaceObservation.stop()
 
         controller.secureInputMonitor.stop()
-        SecureInputIndicatorController.shared.hide()
         controller.lockScreenObserver.stop()
         permissionCheckerTask?.cancel()
         permissionCheckerTask = nil

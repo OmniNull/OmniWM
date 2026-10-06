@@ -164,6 +164,7 @@ struct HotkeySettingsView: View {
 
     var body: some View {
         let groups = HotkeySettingsDisplayModel.search(searchText, bindings: settings.hotkeyBindings)
+        let shiftedCharacters = SecureInputShortcutRisk.currentLayoutShiftedCharacters()
         let hotkeyMouseButtons = OverviewInputSettingsValidation.hotkeyMouseButtons(settings.hotkeyBindings)
         HotkeySettingsPage(
             subtitle: String(
@@ -259,6 +260,7 @@ struct HotkeySettingsView: View {
                 SettingsCaption(localized:
                     "Click a shortcut, then press keys or an extra mouse button. Buttons used by System Hyper or Overview must be unassigned there first."
                 )
+                SettingsCaption(HotkeyBindingRow.secureInputTip)
 
                 if groups.isEmpty {
                     Text("No matching hotkeys.")
@@ -273,6 +275,12 @@ struct HotkeySettingsView: View {
                             binding: binding,
                             recordingTarget: $recordingTarget,
                             failureReason: controller.hotkeyRegistrationFailures[binding.command],
+                            pausedDuringSecureInput: SecureInputShortcutRisk.isPaused(
+                                binding.binding,
+                                hyperTriggerConfigured: settings.systemHyperTrigger != .none,
+                                hyperModifiers: settings.hyperKeyModifiers.carbonMask,
+                                shiftedCharacters: shiftedCharacters
+                            ),
                             isHyperActive: {
                                 controller.isHyperTriggerActive
                             },

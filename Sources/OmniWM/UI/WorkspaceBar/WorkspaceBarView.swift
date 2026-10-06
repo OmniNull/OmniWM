@@ -132,8 +132,13 @@ private struct WorkspaceBarContentView: View {
     var body: some View {
         snapshot.orientation.stack(spacing: workspaceSpacing) {
             if slice.showsOmniWMButton {
-                WorkspaceBarMenuButton(iconSize: iconSize, textColor: textColor, onClick: onOmniWMClick)
-                    .frame(width: itemHeight, height: itemHeight)
+                WorkspaceBarMenuButton(
+                    iconSize: iconSize,
+                    textColor: textColor,
+                    isSecureInputActive: snapshot.secureInputActive,
+                    onClick: onOmniWMClick
+                )
+                .frame(width: itemHeight, height: itemHeight)
             }
 
             ForEach(slice.items(in: snapshot), id: \.id) { item in

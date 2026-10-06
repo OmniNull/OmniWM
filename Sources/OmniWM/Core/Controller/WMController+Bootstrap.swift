@@ -39,6 +39,9 @@ extension WMController {
         traceCaptureCoordinator.onStateChange = { [weak self] in
             self?.statusBarController?.handleTraceCaptureStateChange()
         }
+        secureInputIndicator.openHotkeysSettings = { [weak self] in
+            self?.statusBarController?.openSettings(section: .hotkeys)
+        }
         tabRailManager.onSelect = { [weak self] info, visualIndex, token in
             guard let self else { return }
             switch info.owner {

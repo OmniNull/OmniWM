@@ -8,6 +8,7 @@ import SwiftUI
 struct WorkspaceBarMenuButton: NSViewRepresentable {
     let iconSize: CGFloat
     let textColor: Color?
+    let isSecureInputActive: Bool
     let onClick: (NSView, NSEvent?) -> Void
 
     func makeNSView(context: Context) -> MenuButton {
@@ -19,15 +20,27 @@ struct WorkspaceBarMenuButton: NSViewRepresentable {
         button.target = button
         button.action = #selector(MenuButton.activate(_:))
         button.setAccessibilityLabel(String(localized: "OmniWM"))
-        button.toolTip = String(localized: "Window manager controls")
         return button
     }
 
     func updateNSView(_ button: MenuButton, context: Context) {
-        if button.image?.size.width != iconSize {
-            button.image = OmniWMBrandMark.statusItemImage(pointSize: iconSize)
+        let tint = textColor.map { NSColor($0) } ?? .labelColor
+        let imageKey = ImageKey(
+            iconSize: iconSize,
+            textColor: textColor,
+            isSecureInputActive: isSecureInputActive
+        )
+        if button.imageKey != imageKey {
+            button.imageKey = imageKey
+            button.image = isSecureInputActive
+                ? OmniWMBrandMark.secureInputStatusImage(pointSize: iconSize, tint: tint)
+                : OmniWMBrandMark.statusItemImage(pointSize: iconSize)
+            button.toolTip = isSecureInputActive
+                ? String(localized: "Secure Input is on: Option shortcuts are paused")
+                : String(localized: "Window manager controls")
+            button.setAccessibilityValue(isSecureInputActive ? String(localized: "Secure Input is on") : nil)
         }
-        button.contentTintColor = textColor.map { NSColor($0) } ?? .labelColor
+        button.contentTintColor = tint
         button.onClick = onClick
     }
 
@@ -44,7 +57,14 @@ struct WorkspaceBarMenuButton: NSViewRepresentable {
         return false
     }
 
+    struct ImageKey: Equatable {
+        let iconSize: CGFloat
+        let textColor: Color?
+        let isSecureInputActive: Bool
+    }
+
     final class MenuButton: NSButton {
+        var imageKey: ImageKey?
         var onClick: (NSView, NSEvent?) -> Void = { _, _ in }
 
         @objc func activate(_: Any?) {

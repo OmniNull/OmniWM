@@ -94031,6 +94031,7 @@
       }
     },
     "macOS Secure Input is on. Until it turns off, some shortcuts may not work: Hyper and left/right-specific shortcuts, and those on letter, number or symbol keys without Control or Command." : {
+      "extractionState" : "stale",
       "localizations" : {
         "ar" : {
           "stringUnit" : {
@@ -123965,6 +123966,7 @@
       }
     },
     "Secure Input Active" : {
+      "extractionState" : "stale",
       "localizations" : {
         "ja" : {
           "stringUnit" : {
@@ -161506,6 +161508,998 @@
           "stringUnit" : {
             "state" : "translated",
             "value" : "循环切换尺寸的命令会按顺序使用这些预设。允许设置重复值。"
+          }
+        }
+      }
+    },
+    "Secure Input is on" : {
+      "localizations" : {
+        "ar" : {
+          "stringUnit" : {
+            "state" : "translated",
+            "value" : "الإدخال الآمن مُفعّل"
+          }
+        },
+        "da" : {
+          "stringUnit" : {
+            "state" : "translated",
+            "value" : "Sikker input er slået til"
+          }
+        },
+        "de" : {
+          "stringUnit" : {
+            "state" : "translated",
+            "value" : "Sichere Eingabe ist aktiv"
+          }
+        },
+        "el" : {
+          "stringUnit" : {
+            "state" : "translated",
+            "value" : "Η ασφαλής είσοδος είναι ενεργή"
+          }
+        },
+        "es" : {
+          "stringUnit" : {
+            "state" : "translated",
+            "value" : "La entrada segura está activada"
+          }
+        },
+        "fi" : {
+          "stringUnit" : {
+            "state" : "translated",
+            "value" : "Turvallinen syöte on käytössä"
+          }
+        },
+        "fr" : {
+          "stringUnit" : {
+            "state" : "translated",
+            "value" : "L'entrée sécurisée est activée"
+          }
+        },
+        "he" : {
+          "stringUnit" : {
+            "state" : "translated",
+            "value" : "הקלט המאובטח פעיל"
+          }
+        },
+        "hi" : {
+          "stringUnit" : {
+            "state" : "translated",
+            "value" : "सुरक्षित इनपुट चालू है"
+          }
+        },
+        "it" : {
+          "stringUnit" : {
+            "state" : "translated",
+            "value" : "L'input protetto è attivo"
+          }
+        },
+        "ja" : {
+          "stringUnit" : {
+            "state" : "translated",
+            "value" : "セキュア入力がオンです"
+          }
+        },
+        "ko" : {
+          "stringUnit" : {
+            "state" : "translated",
+            "value" : "보안 입력이 켜져 있습니다"
+          }
+        },
+        "nb" : {
+          "stringUnit" : {
+            "state" : "translated",
+            "value" : "Sikker inndata er på"
+          }
+        },
+        "nl" : {
+          "stringUnit" : {
+            "state" : "translated",
+            "value" : "Beveiligde invoer staat aan"
+          }
+        },
+        "pl" : {
+          "stringUnit" : {
+            "state" : "translated",
+            "value" : "Bezpieczne wprowadzanie jest włączone"
+          }
+        },
+        "ru" : {
+          "stringUnit" : {
+            "state" : "translated",
+            "value" : "Безопасный ввод включён"
+          }
+        },
+        "sr-Latn" : {
+          "stringUnit" : {
+            "state" : "translated",
+            "value" : "Bezbedni ulaz je uključen"
+          }
+        },
+        "sv" : {
+          "stringUnit" : {
+            "state" : "translated",
+            "value" : "Säker inmatning är på"
+          }
+        },
+        "uk" : {
+          "stringUnit" : {
+            "state" : "translated",
+            "value" : "Захищене введення увімкнено"
+          }
+        },
+        "zh-Hans" : {
+          "stringUnit" : {
+            "state" : "translated",
+            "value" : "安全输入已开启"
+          }
+        }
+      }
+    },
+    "Secure Input is on: Option shortcuts are paused" : {
+      "localizations" : {
+        "ar" : {
+          "stringUnit" : {
+            "state" : "translated",
+            "value" : "الإدخال الآمن مُفعّل: اختصارات Option متوقفة مؤقتًا"
+          }
+        },
+        "da" : {
+          "stringUnit" : {
+            "state" : "translated",
+            "value" : "Sikker input er slået til: Option-genveje er sat på pause"
+          }
+        },
+        "de" : {
+          "stringUnit" : {
+            "state" : "translated",
+            "value" : "Sichere Eingabe ist aktiv: Option-Kurzbefehle sind pausiert"
+          }
+        },
+        "el" : {
+          "stringUnit" : {
+            "state" : "translated",
+            "value" : "Η ασφαλής είσοδος είναι ενεργή: οι συντομεύσεις Option έχουν τεθεί σε παύση"
+          }
+        },
+        "es" : {
+          "stringUnit" : {
+            "state" : "translated",
+            "value" : "La entrada segura está activada: los atajos con Option están en pausa"
+          }
+        },
+        "fi" : {
+          "stringUnit" : {
+            "state" : "translated",
+            "value" : "Turvallinen syöte on käytössä: Option-pikanäppäimet on keskeytetty"
+          }
+        },
+        "fr" : {
+          "stringUnit" : {
+            "state" : "translated",
+            "value" : "L'entrée sécurisée est activée : les raccourcis Option sont en pause"
+          }
+        },
+        "he" : {
+          "stringUnit" : {
+            "state" : "translated",
+            "value" : "הקלט המאובטח פעיל: קיצורי Option מושהים"
+          }
+        },
+        "hi" : {
+          "stringUnit" : {
+            "state" : "translated",
+            "value" : "सुरक्षित इनपुट चालू है: Option शॉर्टकट रुके हुए हैं"
+          }
+        },
+        "it" : {
+          "stringUnit" : {
+            "state" : "translated",
+            "value" : "L'input protetto è attivo: le scorciatoie con Option sono in pausa"
+          }
+        },
+        "ja" : {
+          "stringUnit" : {
+            "state" : "translated",
+            "value" : "セキュア入力がオンです：Optionショートカットは一時停止中です"
+          }
+        },
+        "ko" : {
+          "stringUnit" : {
+            "state" : "translated",
+            "value" : "보안 입력이 켜져 있습니다: Option 단축키가 일시 중지되었습니다"
+          }
+        },
+        "nb" : {
+          "stringUnit" : {
+            "state" : "translated",
+            "value" : "Sikker inndata er på: Option-snarveier er satt på pause"
+          }
+        },
+        "nl" : {
+          "stringUnit" : {
+            "state" : "translated",
+            "value" : "Beveiligde invoer staat aan: Option-sneltoetsen zijn gepauzeerd"
+          }
+        },
+        "pl" : {
+          "stringUnit" : {
+            "state" : "translated",
+            "value" : "Bezpieczne wprowadzanie jest włączone: skróty z Option są wstrzymane"
+          }
+        },
+        "ru" : {
+          "stringUnit" : {
+            "state" : "translated",
+            "value" : "Безопасный ввод включён: сочетания с Option приостановлены"
+          }
+        },
+        "sr-Latn" : {
+          "stringUnit" : {
+            "state" : "translated",
+            "value" : "Bezbedni ulaz je uključen: Option prečice su pauzirane"
+          }
+        },
+        "sv" : {
+          "stringUnit" : {
+            "state" : "translated",
+            "value" : "Säker inmatning är på: Option-kortkommandon är pausade"
+          }
+        },
+        "uk" : {
+          "stringUnit" : {
+            "state" : "translated",
+            "value" : "Захищене введення увімкнено: сполучення з Option призупинено"
+          }
+        },
+        "zh-Hans" : {
+          "stringUnit" : {
+            "state" : "translated",
+            "value" : "安全输入已开启：Option 快捷键已暂停"
+          }
+        }
+      }
+    },
+    "OmniWM, Secure Input is on" : {
+      "localizations" : {
+        "ar" : {
+          "stringUnit" : {
+            "state" : "translated",
+            "value" : "OmniWM، الإدخال الآمن مُفعّل"
+          }
+        },
+        "da" : {
+          "stringUnit" : {
+            "state" : "translated",
+            "value" : "OmniWM, sikker input er slået til"
+          }
+        },
+        "de" : {
+          "stringUnit" : {
+            "state" : "translated",
+            "value" : "OmniWM, sichere Eingabe ist aktiv"
+          }
+        },
+        "el" : {
+          "stringUnit" : {
+            "state" : "translated",
+            "value" : "OmniWM, η ασφαλής είσοδος είναι ενεργή"
+          }
+        },
+        "es" : {
+          "stringUnit" : {
+            "state" : "translated",
+            "value" : "OmniWM, la entrada segura está activada"
+          }
+        },
+        "fi" : {
+          "stringUnit" : {
+            "state" : "translated",
+            "value" : "OmniWM, turvallinen syöte on käytössä"
+          }
+        },
+        "fr" : {
+          "stringUnit" : {
+            "state" : "translated",
+            "value" : "OmniWM, l'entrée sécurisée est activée"
+          }
+        },
+        "he" : {
+          "stringUnit" : {
+            "state" : "translated",
+            "value" : "OmniWM, הקלט המאובטח פעיל"
+          }
+        },
+        "hi" : {
+          "stringUnit" : {
+            "state" : "translated",
+            "value" : "OmniWM, सुरक्षित इनपुट चालू है"
+          }
+        },
+        "it" : {
+          "stringUnit" : {
+            "state" : "translated",
+            "value" : "OmniWM, l'input protetto è attivo"
+          }
+        },
+        "ja" : {
+          "stringUnit" : {
+            "state" : "translated",
+            "value" : "OmniWM、セキュア入力がオンです"
+          }
+        },
+        "ko" : {
+          "stringUnit" : {
+            "state" : "translated",
+            "value" : "OmniWM, 보안 입력이 켜져 있습니다"
+          }
+        },
+        "nb" : {
+          "stringUnit" : {
+            "state" : "translated",
+            "value" : "OmniWM, sikker inndata er på"
+          }
+        },
+        "nl" : {
+          "stringUnit" : {
+            "state" : "translated",
+            "value" : "OmniWM, beveiligde invoer staat aan"
+          }
+        },
+        "pl" : {
+          "stringUnit" : {
+            "state" : "translated",
+            "value" : "OmniWM, bezpieczne wprowadzanie jest włączone"
+          }
+        },
+        "ru" : {
+          "stringUnit" : {
+            "state" : "translated",
+            "value" : "OmniWM, безопасный ввод включён"
+          }
+        },
+        "sr-Latn" : {
+          "stringUnit" : {
+            "state" : "translated",
+            "value" : "OmniWM, bezbedni ulaz je uključen"
+          }
+        },
+        "sv" : {
+          "stringUnit" : {
+            "state" : "translated",
+            "value" : "OmniWM, säker inmatning är på"
+          }
+        },
+        "uk" : {
+          "stringUnit" : {
+            "state" : "translated",
+            "value" : "OmniWM, захищене введення увімкнено"
+          }
+        },
+        "zh-Hans" : {
+          "stringUnit" : {
+            "state" : "translated",
+            "value" : "OmniWM，安全输入已开启"
+          }
+        }
+      }
+    },
+    "Open Hotkeys Settings" : {
+      "localizations" : {
+        "ar" : {
+          "stringUnit" : {
+            "state" : "translated",
+            "value" : "فتح إعدادات مفاتيح الاختصار"
+          }
+        },
+        "da" : {
+          "stringUnit" : {
+            "state" : "translated",
+            "value" : "Åbn indstillinger for genvejstaster"
+          }
+        },
+        "de" : {
+          "stringUnit" : {
+            "state" : "translated",
+            "value" : "Hotkey-Einstellungen öffnen"
+          }
+        },
+        "el" : {
+          "stringUnit" : {
+            "state" : "translated",
+            "value" : "Άνοιγμα ρυθμίσεων συντομεύσεων"
+          }
+        },
+        "es" : {
+          "stringUnit" : {
+            "state" : "translated",
+            "value" : "Abrir ajustes de teclas de acceso rápido"
+          }
+        },
+        "fi" : {
+          "stringUnit" : {
+            "state" : "translated",
+            "value" : "Avaa pikanäppäinasetukset"
+          }
+        },
+        "fr" : {
+          "stringUnit" : {
+            "state" : "translated",
+            "value" : "Ouvrir les réglages des raccourcis clavier"
+          }
+        },
+        "he" : {
+          "stringUnit" : {
+            "state" : "translated",
+            "value" : "פתיחת הגדרות קיצורי המקשים"
+          }
+        },
+        "hi" : {
+          "stringUnit" : {
+            "state" : "translated",
+            "value" : "हॉटकी सेटिंग्स खोलें"
+          }
+        },
+        "it" : {
+          "stringUnit" : {
+            "state" : "translated",
+            "value" : "Apri le impostazioni dei tasti di scelta rapida"
+          }
+        },
+        "ja" : {
+          "stringUnit" : {
+            "state" : "translated",
+            "value" : "ホットキー設定を開く"
+          }
+        },
+        "ko" : {
+          "stringUnit" : {
+            "state" : "translated",
+            "value" : "핫키 설정 열기"
+          }
+        },
+        "nb" : {
+          "stringUnit" : {
+            "state" : "translated",
+            "value" : "Åpne innstillinger for hurtigtaster"
+          }
+        },
+        "nl" : {
+          "stringUnit" : {
+            "state" : "translated",
+            "value" : "Sneltoetsinstellingen openen"
+          }
+        },
+        "pl" : {
+          "stringUnit" : {
+            "state" : "translated",
+            "value" : "Otwórz ustawienia skrótów klawiszowych"
+          }
+        },
+        "ru" : {
+          "stringUnit" : {
+            "state" : "translated",
+            "value" : "Открыть настройки сочетаний клавиш"
+          }
+        },
+        "sr-Latn" : {
+          "stringUnit" : {
+            "state" : "translated",
+            "value" : "Otvori podešavanja prečica"
+          }
+        },
+        "sv" : {
+          "stringUnit" : {
+            "state" : "translated",
+            "value" : "Öppna inställningar för kortkommandon"
+          }
+        },
+        "uk" : {
+          "stringUnit" : {
+            "state" : "translated",
+            "value" : "Відкрити налаштування комбінацій клавіш"
+          }
+        },
+        "zh-Hans" : {
+          "stringUnit" : {
+            "state" : "translated",
+            "value" : "打开快捷键设置"
+          }
+        }
+      }
+    },
+    "Paused during Secure Input" : {
+      "localizations" : {
+        "ar" : {
+          "stringUnit" : {
+            "state" : "translated",
+            "value" : "متوقف مؤقتًا أثناء الإدخال الآمن"
+          }
+        },
+        "da" : {
+          "stringUnit" : {
+            "state" : "translated",
+            "value" : "Sat på pause under sikker input"
+          }
+        },
+        "de" : {
+          "stringUnit" : {
+            "state" : "translated",
+            "value" : "Während sicherer Eingabe pausiert"
+          }
+        },
+        "el" : {
+          "stringUnit" : {
+            "state" : "translated",
+            "value" : "Σε παύση κατά την ασφαλή είσοδο"
+          }
+        },
+        "es" : {
+          "stringUnit" : {
+            "state" : "translated",
+            "value" : "En pausa durante la entrada segura"
+          }
+        },
+        "fi" : {
+          "stringUnit" : {
+            "state" : "translated",
+            "value" : "Keskeytetty turvallisen syötteen aikana"
+          }
+        },
+        "fr" : {
+          "stringUnit" : {
+            "state" : "translated",
+            "value" : "En pause pendant l'entrée sécurisée"
+          }
+        },
+        "he" : {
+          "stringUnit" : {
+            "state" : "translated",
+            "value" : "מושהה בזמן קלט מאובטח"
+          }
+        },
+        "hi" : {
+          "stringUnit" : {
+            "state" : "translated",
+            "value" : "सुरक्षित इनपुट के दौरान रुका हुआ"
+          }
+        },
+        "it" : {
+          "stringUnit" : {
+            "state" : "translated",
+            "value" : "In pausa durante l'input protetto"
+          }
+        },
+        "ja" : {
+          "stringUnit" : {
+            "state" : "translated",
+            "value" : "セキュア入力中は一時停止"
+          }
+        },
+        "ko" : {
+          "stringUnit" : {
+            "state" : "translated",
+            "value" : "보안 입력 중 일시 중지됨"
+          }
+        },
+        "nb" : {
+          "stringUnit" : {
+            "state" : "translated",
+            "value" : "Satt på pause under sikker inndata"
+          }
+        },
+        "nl" : {
+          "stringUnit" : {
+            "state" : "translated",
+            "value" : "Gepauzeerd tijdens beveiligde invoer"
+          }
+        },
+        "pl" : {
+          "stringUnit" : {
+            "state" : "translated",
+            "value" : "Wstrzymany podczas bezpiecznego wprowadzania"
+          }
+        },
+        "ru" : {
+          "stringUnit" : {
+            "state" : "translated",
+            "value" : "Приостановлено во время безопасного ввода"
+          }
+        },
+        "sr-Latn" : {
+          "stringUnit" : {
+            "state" : "translated",
+            "value" : "Pauzirano tokom bezbednog ulaza"
+          }
+        },
+        "sv" : {
+          "stringUnit" : {
+            "state" : "translated",
+            "value" : "Pausad under säker inmatning"
+          }
+        },
+        "uk" : {
+          "stringUnit" : {
+            "state" : "translated",
+            "value" : "Призупинено під час захищеного введення"
+          }
+        },
+        "zh-Hans" : {
+          "stringUnit" : {
+            "state" : "translated",
+            "value" : "安全输入期间暂停"
+          }
+        }
+      }
+    },
+    "Shortcuts marked “Paused during Secure Input” stop working while another app uses Secure Input. Add Control or Command to keep them working." : {
+      "localizations" : {
+        "ar" : {
+          "stringUnit" : {
+            "state" : "translated",
+            "value" : "تتوقف الاختصارات المميزة بـ «متوقف مؤقتًا أثناء الإدخال الآمن» عن العمل عندما يستخدم تطبيق آخر الإدخال الآمن. أضف Control أو Command لتبقى تعمل."
+          }
+        },
+        "da" : {
+          "stringUnit" : {
+            "state" : "translated",
+            "value" : "Genveje markeret med »Sat på pause under sikker input« holder op med at virke, mens en anden app bruger sikker input. Tilføj Control eller Command for at holde dem i gang."
+          }
+        },
+        "de" : {
+          "stringUnit" : {
+            "state" : "translated",
+            "value" : "Mit „Während sicherer Eingabe pausiert“ markierte Kurzbefehle funktionieren nicht, solange eine andere App die sichere Eingabe verwendet. Fügen Sie Control oder Command hinzu, damit sie weiter funktionieren."
+          }
+        },
+        "el" : {
+          "stringUnit" : {
+            "state" : "translated",
+            "value" : "Οι συντομεύσεις με την ένδειξη «Σε παύση κατά την ασφαλή είσοδο» σταματούν να λειτουργούν όσο μια άλλη εφαρμογή χρησιμοποιεί την ασφαλή είσοδο. Προσθέστε Control ή Command για να συνεχίσουν να λειτουργούν."
+          }
+        },
+        "es" : {
+          "stringUnit" : {
+            "state" : "translated",
+            "value" : "Los atajos marcados con «En pausa durante la entrada segura» dejan de funcionar mientras otra app usa la entrada segura. Añade Control o Command para que sigan funcionando."
+          }
+        },
+        "fi" : {
+          "stringUnit" : {
+            "state" : "translated",
+            "value" : "Merkinnällä ”Keskeytetty turvallisen syötteen aikana” varustetut pikanäppäimet lakkaavat toimimasta, kun toinen sovellus käyttää turvallista syötettä. Lisää Control tai Command, jotta ne toimivat edelleen."
+          }
+        },
+        "fr" : {
+          "stringUnit" : {
+            "state" : "translated",
+            "value" : "Les raccourcis marqués « En pause pendant l'entrée sécurisée » cessent de fonctionner tant qu'une autre app utilise l'entrée sécurisée. Ajoutez Contrôle ou Commande pour qu'ils continuent de fonctionner."
+          }
+        },
+        "he" : {
+          "stringUnit" : {
+            "state" : "translated",
+            "value" : "קיצורים המסומנים ב“מושהה בזמן קלט מאובטח” מפסיקים לפעול בזמן שאפליקציה אחרת משתמשת בקלט מאובטח. הוסיפו Control או Command כדי שימשיכו לפעול."
+          }
+        },
+        "hi" : {
+          "stringUnit" : {
+            "state" : "translated",
+            "value" : "“सुरक्षित इनपुट के दौरान रुका हुआ” चिह्नित शॉर्टकट तब काम करना बंद कर देते हैं जब कोई दूसरा ऐप सुरक्षित इनपुट का उपयोग करता है। उन्हें चालू रखने के लिए Control या Command जोड़ें।"
+          }
+        },
+        "it" : {
+          "stringUnit" : {
+            "state" : "translated",
+            "value" : "Le scorciatoie contrassegnate con «In pausa durante l'input protetto» smettono di funzionare mentre un'altra app usa l'input protetto. Aggiungi Control o Command per mantenerle attive."
+          }
+        },
+        "ja" : {
+          "stringUnit" : {
+            "state" : "translated",
+            "value" : "「セキュア入力中は一時停止」と表示されたショートカットは、別のアプリがセキュア入力を使用している間は動作しません。動作させ続けるには、ControlまたはCommandを追加してください。"
+          }
+        },
+        "ko" : {
+          "stringUnit" : {
+            "state" : "translated",
+            "value" : "'보안 입력 중 일시 중지됨'으로 표시된 단축키는 다른 앱이 보안 입력을 사용하는 동안 작동하지 않습니다. 계속 작동하게 하려면 Control 또는 Command를 추가하세요."
+          }
+        },
+        "nb" : {
+          "stringUnit" : {
+            "state" : "translated",
+            "value" : "Snarveier merket «Satt på pause under sikker inndata» slutter å virke mens en annen app bruker sikker inndata. Legg til Control eller Command for å holde dem i gang."
+          }
+        },
+        "nl" : {
+          "stringUnit" : {
+            "state" : "translated",
+            "value" : "Sneltoetsen met de markering 'Gepauzeerd tijdens beveiligde invoer' werken niet zolang een andere app beveiligde invoer gebruikt. Voeg Control of Command toe om ze te laten blijven werken."
+          }
+        },
+        "pl" : {
+          "stringUnit" : {
+            "state" : "translated",
+            "value" : "Skróty oznaczone jako „Wstrzymany podczas bezpiecznego wprowadzania” przestają działać, gdy inna aplikacja używa bezpiecznego wprowadzania. Dodaj Control lub Command, aby nadal działały."
+          }
+        },
+        "ru" : {
+          "stringUnit" : {
+            "state" : "translated",
+            "value" : "Сочетания с пометкой «Приостановлено во время безопасного ввода» не работают, пока другое приложение использует безопасный ввод. Добавьте Control или Command, чтобы они продолжали работать."
+          }
+        },
+        "sr-Latn" : {
+          "stringUnit" : {
+            "state" : "translated",
+            "value" : "Prečice označene sa „Pauzirano tokom bezbednog ulaza“ prestaju da rade dok druga aplikacija koristi bezbedni ulaz. Dodajte Control ili Command da bi nastavile da rade."
+          }
+        },
+        "sv" : {
+          "stringUnit" : {
+            "state" : "translated",
+            "value" : "Kortkommandon markerade med ”Pausad under säker inmatning” slutar fungera medan en annan app använder säker inmatning. Lägg till Control eller Command för att de ska fortsätta fungera."
+          }
+        },
+        "uk" : {
+          "stringUnit" : {
+            "state" : "translated",
+            "value" : "Сполучення з позначкою «Призупинено під час захищеного введення» не працюють, доки інша програма використовує захищене введення. Додайте Control або Command, щоб вони й далі працювали."
+          }
+        },
+        "zh-Hans" : {
+          "stringUnit" : {
+            "state" : "translated",
+            "value" : "标有“安全输入期间暂停”的快捷键在其他 App 使用安全输入时会停止工作。添加 Control 或 Command 可让它们继续工作。"
+          }
+        }
+      }
+    },
+    "Until it turns off, shortcuts that use only Option or Option + Shift with a letter, number, or symbol key are paused, along with Hyper and left/right-specific shortcuts. Shortcuts with Control or Command keep working." : {
+      "localizations" : {
+        "ar" : {
+          "stringUnit" : {
+            "state" : "translated",
+            "value" : "إلى أن يتم إيقافه، تتوقف مؤقتًا الاختصارات التي تستخدم Option فقط أو Option + Shift مع مفتاح حرف أو رقم أو رمز، وكذلك اختصارات Hyper والاختصارات الخاصة بالجانب الأيسر/الأيمن. تستمر الاختصارات التي تتضمن Control أو Command في العمل."
+          }
+        },
+        "da" : {
+          "stringUnit" : {
+            "state" : "translated",
+            "value" : "Indtil det slås fra, er genveje, der kun bruger Option eller Option + Shift med en bogstav-, tal- eller symboltast, sat på pause, ligesom Hyper-genveje og venstre/højre-specifikke genveje. Genveje med Control eller Command virker fortsat."
+          }
+        },
+        "de" : {
+          "stringUnit" : {
+            "state" : "translated",
+            "value" : "Bis sie deaktiviert wird, sind Kurzbefehle pausiert, die nur Option oder Option + Shift mit einer Buchstaben-, Zahlen- oder Symboltaste verwenden, ebenso Hyper- und links/rechts-spezifische Kurzbefehle. Kurzbefehle mit Control oder Command funktionieren weiterhin."
+          }
+        },
+        "el" : {
+          "stringUnit" : {
+            "state" : "translated",
+            "value" : "Μέχρι να απενεργοποιηθεί, οι συντομεύσεις που χρησιμοποιούν μόνο Option ή Option + Shift με πλήκτρο γράμματος, αριθμού ή συμβόλου τίθενται σε παύση, όπως και οι συντομεύσεις Hyper και αριστερής/δεξιάς πλευράς. Οι συντομεύσεις με Control ή Command συνεχίζουν να λειτουργούν."
+          }
+        },
+        "es" : {
+          "stringUnit" : {
+            "state" : "translated",
+            "value" : "Hasta que se desactive, los atajos que usan solo Option u Option + Shift con una tecla de letra, número o símbolo quedan en pausa, junto con los atajos Hyper y los específicos de izquierda/derecha. Los atajos con Control o Command siguen funcionando."
+          }
+        },
+        "fi" : {
+          "stringUnit" : {
+            "state" : "translated",
+            "value" : "Kunnes se poistuu käytöstä, pikanäppäimet, jotka käyttävät vain Optionia tai Option + Shiftiä kirjain-, numero- tai symbolinäppäimen kanssa, on keskeytetty, samoin Hyper- ja vasen/oikea-kohtaiset pikanäppäimet. Control- tai Command-näppäintä käyttävät pikanäppäimet toimivat edelleen."
+          }
+        },
+        "fr" : {
+          "stringUnit" : {
+            "state" : "translated",
+            "value" : "Tant qu'elle reste active, les raccourcis qui utilisent uniquement Option ou Option + Maj avec une touche de lettre, de chiffre ou de symbole sont en pause, de même que les raccourcis Hyper et spécifiques gauche/droite. Les raccourcis avec Contrôle ou Commande continuent de fonctionner."
+          }
+        },
+        "he" : {
+          "stringUnit" : {
+            "state" : "translated",
+            "value" : "עד שיכובה, קיצורים שמשתמשים רק ב-Option או ב-Option + Shift עם מקש של אות, ספרה או סמל מושהים, וכך גם קיצורי Hyper וקיצורים ייעודיים לצד שמאל/ימין. קיצורים עם Control או Command ממשיכים לפעול."
+          }
+        },
+        "hi" : {
+          "stringUnit" : {
+            "state" : "translated",
+            "value" : "इसके बंद होने तक, केवल Option या Option + Shift के साथ किसी अक्षर, संख्या या प्रतीक कुंजी का उपयोग करने वाले शॉर्टकट रुके रहते हैं, साथ ही Hyper और बाएँ/दाएँ-विशिष्ट शॉर्टकट भी। Control या Command वाले शॉर्टकट काम करते रहते हैं।"
+          }
+        },
+        "it" : {
+          "stringUnit" : {
+            "state" : "translated",
+            "value" : "Finché non viene disattivato, le scorciatoie che usano solo Option o Option + Shift con un tasto di lettera, numero o simbolo sono in pausa, insieme alle scorciatoie Hyper e a quelle specifiche per sinistra/destra. Le scorciatoie con Control o Command continuano a funzionare."
+          }
+        },
+        "ja" : {
+          "stringUnit" : {
+            "state" : "translated",
+            "value" : "オフになるまで、OptionまたはOption + Shiftのみを文字・数字・記号キーと組み合わせたショートカットは一時停止され、Hyperおよび左右指定のショートカットも同様です。ControlまたはCommandを含むショートカットは引き続き動作します。"
+          }
+        },
+        "ko" : {
+          "stringUnit" : {
+            "state" : "translated",
+            "value" : "꺼질 때까지 Option 또는 Option + Shift만 문자, 숫자 또는 기호 키와 함께 사용하는 단축키는 일시 중지되며, Hyper 및 왼쪽/오른쪽 지정 단축키도 마찬가지입니다. Control 또는 Command가 포함된 단축키는 계속 작동합니다."
+          }
+        },
+        "nb" : {
+          "stringUnit" : {
+            "state" : "translated",
+            "value" : "Til den slås av, er snarveier som bare bruker Option eller Option + Shift med en bokstav-, tall- eller symboltast satt på pause, i tillegg til Hyper-snarveier og venstre/høyre-spesifikke snarveier. Snarveier med Control eller Command fortsetter å virke."
+          }
+        },
+        "nl" : {
+          "stringUnit" : {
+            "state" : "translated",
+            "value" : "Totdat deze uitgaat, zijn sneltoetsen gepauzeerd die alleen Option of Option + Shift met een letter-, cijfer- of symbooltoets gebruiken, net als Hyper- en links/rechts-specifieke sneltoetsen. Sneltoetsen met Control of Command blijven werken."
+          }
+        },
+        "pl" : {
+          "stringUnit" : {
+            "state" : "translated",
+            "value" : "Dopóki nie zostanie wyłączone, skróty używające tylko Option lub Option + Shift z klawiszem litery, cyfry lub symbolu są wstrzymane, podobnie jak skróty Hyper i skróty zależne od lewej/prawej strony. Skróty z Control lub Command nadal działają."
+          }
+        },
+        "ru" : {
+          "stringUnit" : {
+            "state" : "translated",
+            "value" : "Пока он не отключится, сочетания, использующие только Option или Option + Shift с клавишей буквы, цифры или символа, приостановлены, как и сочетания Hyper и сочетания с левыми/правыми модификаторами. Сочетания с Control или Command продолжают работать."
+          }
+        },
+        "sr-Latn" : {
+          "stringUnit" : {
+            "state" : "translated",
+            "value" : "Dok se ne isključi, prečice koje koriste samo Option ili Option + Shift sa tasterom slova, broja ili simbola su pauzirane, kao i Hyper prečice i prečice za levu/desnu stranu. Prečice sa Control ili Command nastavljaju da rade."
+          }
+        },
+        "sv" : {
+          "stringUnit" : {
+            "state" : "translated",
+            "value" : "Tills den stängs av är kortkommandon som bara använder Option eller Option + Shift med en bokstavs-, siffer- eller symboltangent pausade, liksom Hyper- och vänster/höger-specifika kortkommandon. Kortkommandon med Control eller Command fortsätter att fungera."
+          }
+        },
+        "uk" : {
+          "stringUnit" : {
+            "state" : "translated",
+            "value" : "Доки його не вимкнено, сполучення, що використовують лише Option або Option + Shift з клавішею літери, цифри чи символу, призупинено, як і сполучення Hyper і сполучення з лівими/правими модифікаторами. Сполучення з Control або Command і далі працюють."
+          }
+        },
+        "zh-Hans" : {
+          "stringUnit" : {
+            "state" : "translated",
+            "value" : "在其关闭之前，仅使用 Option 或 Option + Shift 搭配字母、数字或符号键的快捷键会被暂停，Hyper 快捷键和区分左右的快捷键也一样。包含 Control 或 Command 的快捷键会继续工作。"
+          }
+        }
+      }
+    },
+    "Apps turn it on to protect what you type: Terminal or iTerm with Secure Keyboard Entry, password managers, and browser password fields. If it stays on, quit the app that turned it on." : {
+      "localizations" : {
+        "ar" : {
+          "stringUnit" : {
+            "state" : "translated",
+            "value" : "تُفعّله التطبيقات لحماية ما تكتبه: Terminal أو iTerm مع الإدخال الآمن بلوحة المفاتيح، ومديرو كلمات المرور، وحقول كلمات المرور في المتصفحات. إذا بقي مُفعّلًا، فأنهِ التطبيق الذي فعّله."
+          }
+        },
+        "da" : {
+          "stringUnit" : {
+            "state" : "translated",
+            "value" : "Apps slår det til for at beskytte det, du skriver: Terminal eller iTerm med sikker tastaturindtastning, adgangskodeadministratorer og adgangskodefelter i browsere. Hvis det forbliver slået til, skal du afslutte den app, der slog det til."
+          }
+        },
+        "de" : {
+          "stringUnit" : {
+            "state" : "translated",
+            "value" : "Apps aktivieren sie, um Ihre Eingaben zu schützen: Terminal oder iTerm mit sicherer Tastatureingabe, Passwortmanager und Passwortfelder im Browser. Bleibt sie aktiv, beenden Sie die App, die sie aktiviert hat."
+          }
+        },
+        "el" : {
+          "stringUnit" : {
+            "state" : "translated",
+            "value" : "Οι εφαρμογές την ενεργοποιούν για να προστατεύσουν ό,τι πληκτρολογείτε: το Terminal ή το iTerm με ασφαλή εισαγωγή πληκτρολογίου, οι διαχειριστές κωδικών πρόσβασης και τα πεδία κωδικών στα προγράμματα περιήγησης. Αν παραμένει ενεργή, τερματίστε την εφαρμογή που την ενεργοποίησε."
+          }
+        },
+        "es" : {
+          "stringUnit" : {
+            "state" : "translated",
+            "value" : "Las apps la activan para proteger lo que escribes: Terminal o iTerm con la entrada segura de teclado, los gestores de contraseñas y los campos de contraseña del navegador. Si sigue activada, cierra la app que la activó."
+          }
+        },
+        "fi" : {
+          "stringUnit" : {
+            "state" : "translated",
+            "value" : "Sovellukset ottavat sen käyttöön suojatakseen kirjoittamasi tekstin: Terminal tai iTerm suojatulla näppäimistösyötteellä, salasanojen hallintaohjelmat ja selainten salasanakentät. Jos se pysyy käytössä, lopeta sovellus, joka otti sen käyttöön."
+          }
+        },
+        "fr" : {
+          "stringUnit" : {
+            "state" : "translated",
+            "value" : "Les apps l'activent pour protéger ce que vous tapez : Terminal ou iTerm avec la saisie clavier sécurisée, les gestionnaires de mots de passe et les champs de mot de passe des navigateurs. Si elle reste activée, quittez l'app qui l'a activée."
+          }
+        },
+        "he" : {
+          "stringUnit" : {
+            "state" : "translated",
+            "value" : "אפליקציות מפעילות אותו כדי להגן על מה שאתם מקלידים: Terminal או iTerm עם הקלדה מאובטחת, מנהלי סיסמאות ושדות סיסמה בדפדפנים. אם הוא נשאר פעיל, צאו מהאפליקציה שהפעילה אותו."
+          }
+        },
+        "hi" : {
+          "stringUnit" : {
+            "state" : "translated",
+            "value" : "ऐप आपके टाइप किए गए टेक्स्ट को सुरक्षित रखने के लिए इसे चालू करते हैं: सुरक्षित कीबोर्ड प्रविष्टि वाला Terminal या iTerm, पासवर्ड मैनेजर और ब्राउज़र के पासवर्ड फ़ील्ड। अगर यह चालू रहता है, तो उस ऐप को बंद करें जिसने इसे चालू किया।"
+          }
+        },
+        "it" : {
+          "stringUnit" : {
+            "state" : "translated",
+            "value" : "Le app lo attivano per proteggere ciò che digiti: Terminal o iTerm con l'inserimento protetto da tastiera, i gestori di password e i campi password dei browser. Se rimane attivo, esci dall'app che l'ha attivato."
+          }
+        },
+        "ja" : {
+          "stringUnit" : {
+            "state" : "translated",
+            "value" : "入力内容を保護するためにアプリがオンにします：セキュアキーボード入力を有効にしたTerminalやiTerm、パスワードマネージャ、ブラウザのパスワード欄などです。オンのままの場合は、オンにしたアプリを終了してください。"
+          }
+        },
+        "ko" : {
+          "stringUnit" : {
+            "state" : "translated",
+            "value" : "앱은 입력 내용을 보호하기 위해 이를 켭니다: 보안 키보드 입력을 사용하는 Terminal 또는 iTerm, 암호 관리자, 브라우저의 암호 필드 등입니다. 계속 켜져 있으면 이를 켠 앱을 종료하세요."
+          }
+        },
+        "nb" : {
+          "stringUnit" : {
+            "state" : "translated",
+            "value" : "Apper slår den på for å beskytte det du skriver: Terminal eller iTerm med sikker tastaturinndata, passordbehandlere og passordfelt i nettlesere. Hvis den forblir på, avslutter du appen som slo den på."
+          }
+        },
+        "nl" : {
+          "stringUnit" : {
+            "state" : "translated",
+            "value" : "Apps zetten dit aan om te beschermen wat je typt: Terminal of iTerm met beveiligde toetsenbordinvoer, wachtwoordbeheerders en wachtwoordvelden in browsers. Blijft het aan, stop dan de app die het heeft aangezet."
+          }
+        },
+        "pl" : {
+          "stringUnit" : {
+            "state" : "translated",
+            "value" : "Aplikacje włączają je, aby chronić to, co wpisujesz: Terminal lub iTerm z bezpiecznym wprowadzaniem z klawiatury, menedżery haseł i pola haseł w przeglądarkach. Jeśli pozostaje włączone, zakończ aplikację, która je włączyła."
+          }
+        },
+        "ru" : {
+          "stringUnit" : {
+            "state" : "translated",
+            "value" : "Приложения включают его, чтобы защитить то, что вы вводите: Terminal или iTerm с защищённым вводом с клавиатуры, менеджеры паролей и поля паролей в браузерах. Если он остаётся включённым, завершите приложение, которое его включило."
+          }
+        },
+        "sr-Latn" : {
+          "stringUnit" : {
+            "state" : "translated",
+            "value" : "Aplikacije ga uključuju da bi zaštitile ono što kucate: Terminal ili iTerm sa bezbednim unosom sa tastature, menadžeri lozinki i polja za lozinke u pregledačima. Ako ostane uključen, zatvorite aplikaciju koja ga je uključila."
+          }
+        },
+        "sv" : {
+          "stringUnit" : {
+            "state" : "translated",
+            "value" : "Appar slår på den för att skydda det du skriver: Terminal eller iTerm med säker tangentbordsinmatning, lösenordshanterare och lösenordsfält i webbläsare. Om den förblir på avslutar du appen som slog på den."
+          }
+        },
+        "uk" : {
+          "stringUnit" : {
+            "state" : "translated",
+            "value" : "Програми вмикають його, щоб захистити те, що ви вводите: Terminal або iTerm із захищеним введенням з клавіатури, менеджери паролів і поля паролів у браузерах. Якщо воно залишається увімкненим, закрийте програму, яка його увімкнула."
+          }
+        },
+        "zh-Hans" : {
+          "stringUnit" : {
+            "state" : "translated",
+            "value" : "App 会开启它来保护你输入的内容：开启了安全键盘输入的 Terminal 或 iTerm、密码管理器以及浏览器中的密码栏。如果它一直开启，请退出开启它的 App。"
           }
         }
       }
