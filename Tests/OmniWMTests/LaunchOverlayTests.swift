@@ -14,6 +14,29 @@ final class LaunchOverlayTests: XCTestCase {
         XCTAssertEqual(completions, 1)
     }
 
+    func testPlaysOncePerVersionWhileAnimationsAreEnabled() {
+        XCTAssertTrue(shouldPlay(playedVersion: nil, currentVersion: "0.7.6", animationsEnabled: true))
+        XCTAssertTrue(shouldPlay(playedVersion: "0.7.5", currentVersion: "0.7.6", animationsEnabled: true))
+        XCTAssertFalse(shouldPlay(playedVersion: "0.7.6", currentVersion: "0.7.6", animationsEnabled: true))
+    }
+
+    func testSkipsWhileAnimationsAreDisabled() {
+        XCTAssertFalse(shouldPlay(playedVersion: nil, currentVersion: "0.7.6", animationsEnabled: false))
+        XCTAssertFalse(shouldPlay(playedVersion: "0.7.5", currentVersion: "0.7.6", animationsEnabled: false))
+    }
+
+    func testPlayedVersionPersistsAcrossRuntimeStateReloads() {
+        let root = FileManager.default.temporaryDirectory
+            .appendingPathComponent("OmniWMLaunchOverlay-\(UUID().uuidString)", isDirectory: true)
+        defer { try? FileManager.default.removeItem(at: root) }
+        let writer = RuntimeStateStore(directory: root, deferSaves: false)
+        XCTAssertNil(writer.launchOverlayPlayedVersion)
+
+        writer.launchOverlayPlayedVersion = "0.7.6"
+
+        XCTAssertEqual(RuntimeStateStore(directory: root, deferSaves: false).launchOverlayPlayedVersion, "0.7.6")
+    }
+
     func testLaunchLockupImageIsNonEmpty() {
         let image = OmniWMBrandMark.launchLockupImage
         XCTAssertTrue(image.isValid)
@@ -70,6 +93,7 @@ final class LaunchOverlayTests: XCTestCase {
 
     func testTextChoreographyWindowsAreOrderedWithinTotalDuration() {
         let windows = [
+            LaunchTextChoreography.backdropEntryWindow,
             LaunchTextChoreography.taglineEntryWindow,
             LaunchTextChoreography.swapWindows[0],
             LaunchTextChoreography.swapWindows[1],
@@ -110,5 +134,13 @@ final class LaunchOverlayTests: XCTestCase {
             .map { ($0 as NSString).size(withAttributes: [.font: font]).width }
             .max() ?? 0
         XCTAssertGreaterThanOrEqual(layout.tickerRect.width, widestWord)
+    }
+
+    private func shouldPlay(playedVersion: String?, currentVersion: String, animationsEnabled: Bool) -> Bool {
+        LaunchOverlayController.shouldPlay(
+            playedVersion: playedVersion,
+            currentVersion: currentVersion,
+            animationsEnabled: animationsEnabled
+        )
     }
 }

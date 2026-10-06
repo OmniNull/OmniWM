@@ -33,11 +33,12 @@ struct LaunchTextChoreography {
         String(localized: "faster."),
         String(localized: "better.")
     ]
-    static let totalDuration: CFTimeInterval = 3.6
-    static let wordmarkWriteWindow: ClosedRange<CFTimeInterval> = 0.18 ... 1.60
-    static let taglineEntryWindow: ClosedRange<CFTimeInterval> = 0.90 ... 1.20
-    static let swapWindows: [ClosedRange<CFTimeInterval>] = [1.70 ... 1.95, 2.35 ... 2.60]
-    static let exitWindow: ClosedRange<CFTimeInterval> = 3.10 ... 3.55
+    static let totalDuration: CFTimeInterval = 1.9
+    static let backdropEntryWindow: ClosedRange<CFTimeInterval> = 0.00 ... 0.20
+    static let wordmarkWriteWindow: ClosedRange<CFTimeInterval> = 0.05 ... 0.70
+    static let taglineEntryWindow: ClosedRange<CFTimeInterval> = 0.35 ... 0.55
+    static let swapWindows: [ClosedRange<CFTimeInterval>] = [0.80 ... 0.95, 1.20 ... 1.35]
+    static let exitWindow: ClosedRange<CFTimeInterval> = 1.55 ... 1.85
 
     static let wordTracks = [
         WordTrack(
@@ -169,13 +170,12 @@ struct LaunchOverlayLayout {
 
 @MainActor
 final class LaunchOverlayPanel: NSPanel {
+    private let backdrop = NSGlassEffectView()
     private let overlay: LaunchOverlayView
 
     init(screen: NSScreen) {
-        overlay = LaunchOverlayView(
-            frame: CGRect(origin: .zero, size: screen.frame.size),
-            scale: screen.backingScaleFactor
-        )
+        let bounds = CGRect(origin: .zero, size: screen.frame.size)
+        overlay = LaunchOverlayView(frame: bounds, scale: screen.backingScaleFactor)
         super.init(
             contentRect: screen.frame,
             styleMask: [.borderless, .nonactivatingPanel],
@@ -192,7 +192,16 @@ final class LaunchOverlayPanel: NSPanel {
         ignoresMouseEvents = true
         level = .screenSaver
         collectionBehavior = [.canJoinAllSpaces, .fullScreenAuxiliary, .stationary, .ignoresCycle]
-        contentView = overlay
+        backdrop.frame = bounds
+        backdrop.style = .regular
+        backdrop.appearance = NSAppearance(named: .darkAqua)
+        backdrop.tintColor = NSColor.black.withAlphaComponent(0.35)
+        backdrop.wantsLayer = true
+        backdrop.layer?.opacity = 0
+        let container = NSView(frame: bounds)
+        container.addSubview(backdrop)
+        container.addSubview(overlay)
+        contentView = container
     }
 
     override var canBecomeKey: Bool {
@@ -205,10 +214,28 @@ final class LaunchOverlayPanel: NSPanel {
 
     func startAnimation(at startTime: CFTimeInterval) {
         overlay.startAnimation(at: startTime)
+        addBackdropFade(at: startTime)
     }
 
     func teardown() {
         overlay.teardown()
+        backdrop.layer?.removeAllAnimations()
+    }
+
+    private func addBackdropFade(at startTime: CFTimeInterval) {
+        guard let backdropLayer = backdrop.layer else { return }
+        let entry = LaunchTextChoreography.backdropEntryWindow
+        let exit = LaunchTextChoreography.exitWindow
+        let fade = CAKeyframeAnimation(keyPath: "opacity")
+        fade.values = [0.0, 1.0, 1.0, 0.0]
+        fade.keyTimes = [entry.lowerBound, entry.upperBound, exit.lowerBound, exit.upperBound]
+            .map { NSNumber(value: $0 / exit.upperBound) }
+        fade.timingFunctions = [LaunchTextChoreography.Timing.move, .hold, .move].map(\.function)
+        fade.beginTime = backdropLayer.convertTime(startTime, from: nil)
+        fade.duration = exit.upperBound
+        fade.fillMode = .both
+        fade.isRemovedOnCompletion = false
+        backdropLayer.add(fade, forKey: "opacity")
     }
 }
 

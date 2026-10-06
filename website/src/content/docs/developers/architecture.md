@@ -223,8 +223,9 @@ snapshot are outside scope.
 8. **`StatusBarController`** — menu-bar UI and manual update checks.
 9. **`IPCServer`** — started only if `ipcEnabled` is set.
 10. **Automatic update checks** — started after the rest of the core bootstrap succeeds.
-11. **Launch and monitor-setup presentation** — starts monitor-readiness observation, plays the per-display
-    `LaunchOverlayController`, then evaluates whether to present the monitor setup guide after the overlay finishes.
+11. **Launch and monitor-setup presentation** — starts monitor-readiness observation, plays `LaunchOverlayController`
+    on the primary display the first time each version launches with animations enabled, then evaluates whether to
+    present the monitor setup guide once the overlay finishes or is skipped.
 
 `FatalCapture` is not a process-wide Swift trap handler. Preconditions, force unwraps, Core Foundation ownership
 faults, and other raw traps bypass those explicit shims. GhosttyKit's embedded crash handler can instead write a

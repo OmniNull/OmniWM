@@ -186,7 +186,7 @@ public final class AppDelegate: NSObject, NSApplicationDelegate {
         updateCoordinator.startAutomaticChecks()
 
         startMonitorSetupPresentationObservation()
-        playLaunchOverlay()
+        playLaunchOverlay(runtimeState: runtimeState, animationsEnabled: controller.motionPolicy.animationsEnabled)
     }
 
     private func observeSettings(_ settings: SettingsStore, controller: WMController) {
@@ -213,10 +213,10 @@ public final class AppDelegate: NSObject, NSApplicationDelegate {
         }
     }
 
-    private func playLaunchOverlay() {
+    private func playLaunchOverlay(runtimeState: RuntimeStateStore, animationsEnabled: Bool) {
         let overlay = LaunchOverlayController()
         launchOverlayController = overlay
-        overlay.play { [weak self] in
+        overlay.play(runtimeState: runtimeState, animationsEnabled: animationsEnabled) { [weak self] in
             guard let self else { return }
             launchOverlayController = nil
             launchOverlayFinished = true
