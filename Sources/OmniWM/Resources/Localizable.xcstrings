@@ -113405,7 +113405,7 @@
         }
       }
     },
-    "Reserve tiled layout space at the selected edge using the configured bar thickness." : {},
+    "Reserve tiled layout space at the selected edge. Overlapping bars reserve only the portion below the menu bar." : {},
     "Reserve tiled layout space using the configured workspace bar height." : {
       "extractionState" : "stale",
       "localizations" : {

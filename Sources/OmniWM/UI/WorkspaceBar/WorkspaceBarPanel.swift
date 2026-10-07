@@ -22,7 +22,9 @@ final class WorkspaceBarPanel: NSPanel {
         let screenFrame = constrainingScreen.frame
 
         constrained.origin.x = max(screenFrame.minX, min(constrained.origin.x, screenFrame.maxX - constrained.width))
-        constrained.origin.y = max(screenFrame.minY, min(constrained.origin.y, screenFrame.maxY - constrained.height))
+        constrained.origin.y = WorkspaceBarGeometry.constrainedOriginY(
+            constrained.origin.y, height: constrained.height, screenFrame: screenFrame
+        )
 
         return constrained
     }
