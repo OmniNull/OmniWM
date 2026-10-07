@@ -120,7 +120,7 @@ final class SettingsTOMLCodecTests: XCTestCase {
         }
     }
 
-    func testTOMLRejectsFileMissingAKnownHotkeyAction() throws {
+    func testTOMLTreatsAMissingKnownHotkeyActionAsUnassigned() throws {
         let firstID = try XCTUnwrap(HotkeyBindingRegistry.defaults().first?.id)
         let withoutEntry = try canonicalDefaultLines { lines in
             let idIndex = try XCTUnwrap(lines.firstIndex(of: #"id = "\#(firstID)""#))
@@ -128,9 +128,29 @@ final class SettingsTOMLCodecTests: XCTestCase {
             lines.removeSubrange((idIndex - 2) ... idIndex)
         }
 
-        XCTAssertThrowsError(try SettingsTOMLCodec.decode(withoutEntry)) { error in
-            XCTAssertEqual(error as? HotkeyBindingResolutionError, .missingActionID(firstID))
+        let result = try SettingsTOMLCodec.decodeForLoad(withoutEntry)
+
+        XCTAssertNil(result.migration)
+        let bindings = result.export.hotkeyBindings
+        XCTAssertEqual(bindings.first { $0.id == firstID }?.binding, .unassigned)
+        XCTAssertEqual(
+            bindings.filter { $0.id != firstID },
+            SettingsExport.defaults().hotkeyBindings.filter { $0.id != firstID }
+        )
+    }
+
+    func testVersionFourFileWithoutFloatingFocusToggleLoadsWithoutMigration() throws {
+        let withoutToggle = try canonicalDefaultLines { lines in
+            let idIndex = try XCTUnwrap(lines.firstIndex(of: #"id = "toggleFloatingFocus""#))
+            XCTAssertEqual(lines[idIndex - 2], "[[hotkeys]]")
+            lines.removeSubrange((idIndex - 2) ... idIndex)
         }
+        XCTAssertTrue(String(decoding: withoutToggle, as: UTF8.self).contains("schemaVersion = 4"))
+
+        let result = try SettingsTOMLCodec.decodeForLoad(withoutToggle)
+
+        XCTAssertNil(result.migration)
+        XCTAssertEqual(result.export.hotkeyBindings, SettingsExport.defaults().hotkeyBindings)
     }
 
     func testTOMLRejectsDuplicateHotkeyAction() throws {
@@ -261,9 +281,12 @@ final class SettingsTOMLCodecTests: XCTestCase {
         }
 
         let firstID = try XCTUnwrap(defaults.first?.id)
-        XCTAssertThrowsError(try HotkeyBindingRegistry.resolve(Array(complete.dropFirst()))) { error in
-            XCTAssertEqual(error as? HotkeyBindingResolutionError, .missingActionID(firstID))
-        }
+        let withoutFirst = try HotkeyBindingRegistry.resolve(Array(complete.dropFirst()))
+        XCTAssertEqual(withoutFirst.first { $0.id == firstID }?.binding, .unassigned)
+        XCTAssertEqual(
+            withoutFirst.filter { $0.id != firstID },
+            try HotkeyBindingRegistry.resolve(complete).filter { $0.id != firstID }
+        )
 
         let withDuplicate = try complete + [XCTUnwrap(complete.first)]
         XCTAssertThrowsError(try HotkeyBindingRegistry.resolve(withDuplicate)) { error in

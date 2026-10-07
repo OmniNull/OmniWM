@@ -387,7 +387,6 @@ struct PersistedHotkeyBinding: Codable, Equatable {
 enum HotkeyBindingResolutionError: LocalizedError, Equatable {
     case unknownActionID(String)
     case unassignableActionID(String)
-    case missingActionID(String)
     case duplicateActionID(String)
 
     var errorDescription: String? {
@@ -396,8 +395,6 @@ enum HotkeyBindingResolutionError: LocalizedError, Equatable {
             "hotkeys: \(id) is not an action in this build."
         case let .unassignableActionID(id):
             "hotkeys: \(id) cannot be assigned as a hotkey."
-        case let .missingActionID(id):
-            "hotkeys: \(id) is missing."
         case let .duplicateActionID(id):
             "hotkeys: \(id) is listed more than once."
         }

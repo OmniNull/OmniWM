@@ -75,11 +75,8 @@ enum HotkeyBindingRegistry {
             }
             overrides[entry.id] = canonicalizeTrigger(entry.binding)
         }
-        let staticBindings = try defaultBindings.map { binding in
-            guard let override = overrides[binding.id] else {
-                throw HotkeyBindingResolutionError.missingActionID(binding.id)
-            }
-            return HotkeyBinding(id: binding.id, command: binding.command, trigger: override)
+        let staticBindings = defaultBindings.map { binding in
+            HotkeyBinding(id: binding.id, command: binding.command, trigger: overrides[binding.id] ?? .unassigned)
         }
         let workspaceNumberBindings = persisted
             .filter { bindingsByID[$0.id] == nil }

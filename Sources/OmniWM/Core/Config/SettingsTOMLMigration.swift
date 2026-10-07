@@ -59,12 +59,6 @@ enum SettingsTOMLMigration {
 
     static let hotkeyIDsAddedInVersionFour = Set(versionFourHotkeyIDs)
 
-    private static let versionFiveHotkeyIDs = [
-        "toggleFloatingFocus"
-    ]
-
-    static let hotkeyIDsAddedInVersionFive = Set(versionFiveHotkeyIDs)
-
     private struct PersistedHotkeyArray: Decodable {
         let hotkeys: [PersistedHotkeyBinding]
     }
@@ -74,14 +68,13 @@ enum SettingsTOMLMigration {
         let versionTwoAddedHotkeyIDs = version <= 1 ? migrateVersionOne(&raw) : []
         let versionThreeDefaultedPaths = version <= 2 ? try migrateVersionTwo(&raw) : []
         let versionFourAddedHotkeyIDs = version <= 3 ? migrateVersionThree(&raw) : []
-        let versionFiveAddedHotkeyIDs = version <= 4 ? migrateVersionFour(&raw) : []
         canonicalizeMigratedHotkeys(in: &raw)
         return SettingsMigrationReport(
             fromVersion: version,
             toVersion: SettingsTOMLCodec.currentSchemaVersion,
             defaultedPaths: (versionOneReport?.defaultedPaths ?? []) + versionThreeDefaultedPaths,
             addedHotkeyIDs: (versionOneReport?.addedHotkeyIDs ?? []) + versionTwoAddedHotkeyIDs
-                + versionFourAddedHotkeyIDs + versionFiveAddedHotkeyIDs,
+                + versionFourAddedHotkeyIDs,
             mappedHotkeys: versionOneReport?.mappedHotkeys ?? [],
             retiredHotkeys: versionOneReport?.retiredHotkeys ?? []
         )
@@ -270,15 +263,6 @@ enum SettingsTOMLMigration {
         guard case var .array(entries) = raw["hotkeys"] else { return [] }
 
         let addedIDs = appendMissingUnassignedHotkeys(versionFourHotkeyIDs, to: &entries)
-        raw["hotkeys"] = .array(entries)
-        return addedIDs
-    }
-
-    private static func migrateVersionFour(_ raw: inout [String: TOMLNode]) -> [String] {
-        defer { raw["schemaVersion"] = .integer(5) }
-        guard case var .array(entries) = raw["hotkeys"] else { return [] }
-
-        let addedIDs = appendMissingUnassignedHotkeys(versionFiveHotkeyIDs, to: &entries)
         raw["hotkeys"] = .array(entries)
         return addedIDs
     }
