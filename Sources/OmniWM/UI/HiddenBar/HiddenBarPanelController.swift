@@ -13,6 +13,7 @@ final class HiddenBarPanelController {
     nonisolated static let minimumTargetSide: CGFloat = 20
 
     var onActivate: ((MenuBarItemKey) -> Void)?
+    var onVisibilityChanged: (() -> Void)?
     var onWorkspaceBarJoin: ((HiddenBarPanelPlacement.Join?) -> Void)?
     var isExemptWindow: ((NSWindow) -> Bool)?
     var motionPolicy: MotionPolicy?
@@ -67,6 +68,7 @@ final class HiddenBarPanelController {
         OwnedWindowRegistry.shared.unregister(surfaceId: Self.surfaceId)
         panel?.orderOut(nil)
         onWorkspaceBarJoin?(nil)
+        onVisibilityChanged?()
     }
 
     func activate(_ key: MenuBarItemKey) {
@@ -160,6 +162,7 @@ final class HiddenBarPanelController {
         register(panel, interactive: true)
         panel.makeKeyAndOrderFront(nil)
         isVisible = true
+        onVisibilityChanged?()
         drawer?.setVisible(true, edge: placement.attachment.edge, motion: motionPolicy?.snapshot() ?? .disabled)
         dismissalMonitor.start(
             panels: [panel],

@@ -23,6 +23,7 @@ extension WorkspaceBarManager {
         preview.onSelect = { [weak controller] handle in
             controller?.focusWindowFromBar(handle: handle)
         }
+        preview.onVisibilityChanged = { [weak self] in self?.refreshAutoHide() }
         hoverPreview = preview
     }
 

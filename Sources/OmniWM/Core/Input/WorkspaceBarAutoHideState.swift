@@ -8,8 +8,8 @@ struct WorkspaceBarAutoHideTarget {
     let monitorFrame: CGRect
     let activationRegions: [CGRect]
     let retentionRegions: [CGRect]
-    let isVisible: Bool
-    let isPinned: Bool
+    var isVisible: Bool
+    var isPinned: Bool
 
     init(monitor: Monitor, frames: [CGRect], resolved: ResolvedBarSettings, isVisible: Bool, isPinned: Bool) {
         id = monitor.id

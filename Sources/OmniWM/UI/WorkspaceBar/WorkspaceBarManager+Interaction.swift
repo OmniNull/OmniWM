@@ -16,6 +16,7 @@ extension WorkspaceBarManager {
         interaction.onHoverWindow = { [weak self] workspaceId, token, hovering in
             self?.windowHoverChanged(.window(workspaceId, token), hovering: hovering)
         }
+        panel.onSheetChanged = { [weak self] in self?.refreshAutoHide() }
         panel.interactionHandler = { [weak self] event, panel in
             self?.handlePanelEvent(event, panel: panel) ?? false
         }
@@ -35,7 +36,6 @@ extension WorkspaceBarManager {
             pressTracker.reset()
             return false
         }
-        defer { refreshAutoHide() }
         let point = context.island.hostingView.workspaceBarLocalPoint(forWindowPoint: event.locationInWindow)
         let target = context.island.interaction.target(at: point)
         let screenPoint = panel.convertPoint(toScreen: event.locationInWindow)
@@ -112,6 +112,7 @@ extension WorkspaceBarManager {
             duration: nil
         )
         menuMonitorId = context.instance.monitorId
+        refreshAutoHide()
         defer {
             menuMonitorId = nil
             refreshAutoHide()
@@ -178,6 +179,7 @@ extension WorkspaceBarManager {
             focusPolicyEngine: controller.focusPolicyEngine
         )
         renamePanel = panel
+        panel.onVisibilityChanged = { [weak self] in self?.refreshAutoHide() }
         panel.isExemptWindow = { [weak self] in self?.isWorkspaceBarWindow($0) == true }
         let configuredName = controller.settings.workspaces.configurations
             .first { $0.name == rawName }?.displayName

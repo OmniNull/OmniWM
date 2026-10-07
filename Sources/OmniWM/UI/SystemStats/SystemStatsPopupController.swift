@@ -20,6 +20,7 @@ final class SystemStatsPopupController {
     private static let surfaceId = "system-stats-popup"
 
     var isToggleSourceWindow: (@MainActor (NSWindow) -> Bool)?
+    var onVisibilityChanged: (() -> Void)?
 
     private(set) var isVisible = false
     private var panel: SystemStatsPopupPanel?
@@ -45,6 +46,7 @@ final class SystemStatsPopupController {
         removeEventMonitors()
         OwnedWindowRegistry.shared.unregister(surfaceId: Self.surfaceId)
         panel?.orderOut(nil)
+        onVisibilityChanged?()
     }
 
     func dismissIfAnchored(to monitorId: Monitor.ID) {
@@ -92,6 +94,7 @@ final class SystemStatsPopupController {
         isVisible = true
         startRefresh(displayResolutions: Self.displayResolutions())
         installEventMonitors(panel: panel)
+        onVisibilityChanged?()
     }
 
     private func makePanel() -> SystemStatsPopupPanel {

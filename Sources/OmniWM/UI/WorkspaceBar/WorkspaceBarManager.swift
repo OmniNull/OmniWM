@@ -27,7 +27,8 @@ final class WorkspaceBarManager {
     var menuMonitorId: Monitor.ID?
     var renameMonitorId: Monitor.ID?
     let dragController = WorkspaceBarDragController()
-    let autoHideMonitor = WorkspaceBarAutoHideMonitor()
+    var autoHideTargets: [WorkspaceBarAutoHideTarget] = []
+    var autoHideState = WorkspaceBarAutoHideState()
     var hoverPreview: WorkspaceBarHoverPreviewController?
     let notificationBadges: WorkspaceBarBadgeService
     var notificationBadgeTargetsByMonitor: [Monitor.ID: Set<String>] = [:]
@@ -43,9 +44,8 @@ final class WorkspaceBarManager {
     func setup(controller: WMController, settings: SettingsStore) {
         self.controller = controller
         self.settings = settings
-        autoHideMonitor.targets = { [weak self] in self?.autoHideTargets() ?? [] }
-        autoHideMonitor.pointer = { [weak controller] in controller?.currentMouseLocation() ?? NSEvent.mouseLocation }
-        autoHideMonitor.onRevealChanged = { [weak controller] in controller?.requestWorkspaceBarRefresh() }
+        controller.systemStatsPopupController.onVisibilityChanged = { [weak self] in self?.refreshAutoHide() }
+        controller.hiddenBarController.onPanelVisibilityChanged = { [weak self] in self?.refreshAutoHide() }
         controller.hiddenBarController.onWorkspaceBarJoin = { [weak self] join in
             self?.setHiddenBarJoin(join)
         }
@@ -79,7 +79,7 @@ final class WorkspaceBarManager {
             self?.hoverTarget(for: key)
         }
         controller?.hiddenBarController.updatePanelPlacement(hiddenBarPanelPlacement(on:))
-        if bars.contains(where: \.retainWhileHidden) { autoHideMonitor.start() } else { autoHideMonitor.stop() }
+        rebuildAutoHideTargets()
     }
 
     func updateAppearance() {
@@ -228,7 +228,9 @@ final class WorkspaceBarManager {
     }
 
     func cleanup() {
-        autoHideMonitor.stop()
+        autoHideTargets = []
+        handleAutoHideMouseMoved(at: .zero)
+        controller?.mouseEventHandler.reconcileMouseMoveSubscription()
         notificationBadges.stop()
         notificationBadgeTargetsByMonitor.removeAll()
         hoverPreview?.dismiss()

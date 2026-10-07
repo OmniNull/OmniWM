@@ -35,6 +35,7 @@ final class StatusMenuHost {
     private let motionPolicy: MotionPolicy
     private let ownedWindowRegistry: OwnedWindowRegistry
     private let focusPolicyEngine: FocusPolicyEngine
+    private let onVisibilityChanged: () -> Void
     private let sleep: @MainActor (Duration) async throws -> Void
     private let dismissalMonitor = PanelDismissalMonitor()
     private var root: HostedPanel?
@@ -65,6 +66,7 @@ final class StatusMenuHost {
         motionPolicy = controller.motionPolicy
         ownedWindowRegistry = controller.ownedWindowRegistry
         focusPolicyEngine = controller.focusPolicyEngine
+        onVisibilityChanged = { [weak controller] in controller?.workspaceBarManager.refreshAutoHide() }
         self.sleep = sleep
     }
 
@@ -101,6 +103,7 @@ final class StatusMenuHost {
             onDismiss: { [weak self] in self?.dismiss() }
         )
         observeRootScroll()
+        onVisibilityChanged()
     }
 
     func dismiss() {
@@ -119,6 +122,7 @@ final class StatusMenuHost {
         rowFrames.removeAll(keepingCapacity: true)
         model.menuDidClose()
         root?.view.rootView = AnyView(EmptyView())
+        onVisibilityChanged()
     }
 
     func openSubmenu(_ page: StatusMenuPage, enterKeyboard: Bool) {

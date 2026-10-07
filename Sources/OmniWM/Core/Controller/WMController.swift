@@ -103,9 +103,9 @@ final class WMController {
     @ObservationIgnored
     let floatDemotionTracker = FloatDemotionTracker()
     @ObservationIgnored
-    private var hiddenWorkspaceBarMonitorIds: Set<Monitor.ID> = []
+    private(set) var hiddenWorkspaceBarMonitorIds: Set<Monitor.ID> = []
     @ObservationIgnored
-    private var isWorkspaceBarRevealHeld = false
+    private(set) var isWorkspaceBarRevealHeld = false
     @ObservationIgnored
     private lazy var workspaceBarRevealMonitor: WorkspaceBarRevealMonitor = {
         let monitor = WorkspaceBarRevealMonitor()
@@ -416,16 +416,6 @@ extension WMController {
     func refreshHotkeyFailureSnapshots() {
         hotkeyRegistrationFailures = hotkeys.registrationFailures
         systemHyperTriggerFailure = hotkeys.systemHyperTriggerFailure
-    }
-
-    func isWorkspaceBarEnabled(on monitor: Monitor, resolved: ResolvedBarSettings) -> Bool {
-        resolved.enabled && !hiddenWorkspaceBarMonitorIds.contains(monitor.id)
-    }
-
-    func isWorkspaceBarConfiguredVisible(on monitor: Monitor, resolved: ResolvedBarSettings) -> Bool {
-        guard isWorkspaceBarEnabled(on: monitor, resolved: resolved) else { return false }
-        return (!resolved.autoHide && settings.workspaceBar.revealModifier == .off)
-            || isWorkspaceBarRevealHeld || (resolved.autoHide && workspaceBarManager.isPointerRevealed(on: monitor.id))
     }
 
     func pruneHiddenWorkspaceBarMonitorIds() {
