@@ -35,6 +35,74 @@ final class WorkspaceBarAutoHideStateTests: XCTestCase {
         }
     }
 
+    func testInwardOffsetsDoNotActivateOrRetainAcrossTheGapToTheEdge() {
+        let cases: [(WorkspaceBarPosition, CGRect, CGPoint, CGPoint)] = [
+            (
+                .overlappingMenuBar,
+                CGRect(x: -500, y: -224, width: 200, height: 24),
+                CGPoint(x: -400, y: -100),
+                CGPoint(x: -400, y: -1)
+            ),
+            (
+                .belowMenuBar,
+                CGRect(x: -500, y: -244, width: 200, height: 24),
+                CGPoint(x: -400, y: -120),
+                CGPoint(x: -400, y: -1)
+            ),
+            (
+                .bottom,
+                CGRect(x: -500, y: -380, width: 200, height: 24),
+                CGPoint(x: -400, y: -480),
+                CGPoint(x: -400, y: -580)
+            ),
+            (
+                .left,
+                CGRect(x: -580, y: -400, width: 24, height: 200),
+                CGPoint(x: -680, y: -300),
+                CGPoint(x: -780, y: -300)
+            ),
+            (
+                .right,
+                CGRect(x: -244, y: -400, width: 24, height: 200),
+                CGPoint(x: -120, y: -300),
+                CGPoint(x: -21, y: -300)
+            )
+        ]
+        for (position, frame, gap, edge) in cases {
+            let target = WorkspaceBarAutoHideTarget(
+                monitor: monitor, frames: [frame], position: position, isVisible: false, isPinned: false
+            )
+            let approach = CGPoint(x: frame.minX - 7, y: frame.midY)
+            for point in [gap, edge] {
+                var state = WorkspaceBarAutoHideState()
+                state.update(targets: [target], pointer: point)
+                XCTAssertTrue(state.revealed.isEmpty, "\(position)")
+                state.update(targets: [target], pointer: approach)
+                XCTAssertEqual(state.revealed, [monitor.id], "\(position)")
+                state.update(targets: [target], pointer: point)
+                XCTAssertTrue(state.revealed.isEmpty, "\(position)")
+            }
+        }
+    }
+
+    func testBarsNearTheDisplayEdgeStillRevealFromTheEdge() {
+        let cases: [(WorkspaceBarPosition, CGRect, CGPoint)] = [
+            (.overlappingMenuBar, CGRect(x: -500, y: -24, width: 200, height: 24), CGPoint(x: -400, y: -1)),
+            (.belowMenuBar, CGRect(x: -500, y: -44, width: 200, height: 24), CGPoint(x: -400, y: -1)),
+            (.bottom, CGRect(x: -500, y: -576, width: 200, height: 24), CGPoint(x: -400, y: -580)),
+            (.left, CGRect(x: -776, y: -400, width: 24, height: 200), CGPoint(x: -780, y: -300)),
+            (.right, CGRect(x: -48, y: -400, width: 24, height: 200), CGPoint(x: -21, y: -300))
+        ]
+        for (position, frame, edge) in cases {
+            var state = WorkspaceBarAutoHideState()
+            let target = WorkspaceBarAutoHideTarget(
+                monitor: monitor, frames: [frame], position: position, isVisible: false, isPinned: false
+            )
+            state.update(targets: [target], pointer: edge)
+            XCTAssertEqual(state.revealed, [monitor.id], "\(position)")
+        }
+    }
+
     func testSpatialHysteresisAndInteractionsDoNotSummonHiddenBars() {
         let frame = CGRect(x: -500, y: -580, width: 200, height: 24)
         let target = WorkspaceBarAutoHideTarget(
