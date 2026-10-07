@@ -944,6 +944,43 @@ final class MultitouchLifecycleTests: XCTestCase {
         await shutdown(harness)
     }
 
+    func testIdleSteadyTouchesBelowTheGestureFloorNeverReachTheMainThread() async throws {
+        let harness = makeHarness([FakeMultitouchBackend.enumeration([deviceA])])
+        let controller = WindowAdmissionTestSupport.controller(prefix: "MultitouchSteadyFloor")
+        let gestures = controller.settings.gestures
+        gestures.scrollEnabled = true
+        gestures.fingerCount = .three
+        gestures.workspaceSwipeEnabled = false
+        gestures.windowMoveEnabled = false
+        gestures.windowResizeEnabled = false
+        let handler = controller.mouseEventHandler
+        XCTAssertTrue(handler.installMultitouchSource(harness.source))
+        await runNext(harness)
+        harness.source.beginPerformanceCapture()
+
+        harness.backend.emitFrame(registryId: 101, touches: contacts(1), timestamp: 1)
+        harness.source.drainRawFrameMailbox(location: .zero)
+        for tick in 1 ... 50 {
+            harness.backend.emitFrame(registryId: 101, touches: contacts(1), timestamp: 1 + Double(tick) / 1_000)
+        }
+        harness.backend.emitFrame(registryId: 101, touches: contacts(2), timestamp: 1.06)
+        harness.source.drainRawFrameMailbox(location: .zero)
+        for tick in 1 ... 50 {
+            harness.backend.emitFrame(registryId: 101, touches: contacts(2), timestamp: 1.06 + Double(tick) / 1_000)
+        }
+        harness.source.drainRawFrameMailbox(location: .zero)
+
+        let snapshot = try XCTUnwrap(harness.source.endPerformanceCapture())
+        XCTAssertEqual(snapshot.rawCallbacks, 102)
+        XCTAssertEqual(snapshot.drainBatches, 2)
+        XCTAssertEqual(snapshot.overwrittenChanges, 0)
+        XCTAssertEqual(snapshot.pendingFrames, 0)
+
+        controller.layoutRefreshController.resetState()
+        handler.cleanup()
+        await harness.sleeper.resumeAll()
+    }
+
     private func contacts(_ count: Int) -> [(x: Float, y: Float)] {
         Array(repeating: (x: Float(0.5), y: Float(0.5)), count: count)
     }

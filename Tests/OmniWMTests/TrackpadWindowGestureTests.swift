@@ -584,6 +584,55 @@ final class TrackpadWindowGestureTests: XCTestCase {
         XCTAssertNil(fixture.handler.state.activeInteractionSource)
     }
 
+    func testRestingFingerBelowTheGestureFloorStillEndsAMoveAfterTheFlickerGrace() async throws {
+        let fixture = try makeNiriFixture(pid: 9_121)
+        let handler = fixture.handler
+        let backend = FakeMultitouchBackend()
+        backend.enumerations = [FakeMultitouchBackend.enumeration([
+            FakeMultitouchBackend.device(pointer: 0xA1, registryId: 101)
+        ])]
+        let sleeper = ManualMultitouchSleeper()
+        let source = MultitouchGestureSource(
+            operations: backend.operations(sleeper: sleeper),
+            topologyMonitoringEnabled: false
+        )
+        XCTAssertTrue(handler.installMultitouchSource(source))
+        await sleeper.waitForScheduledSleep(of: source)
+        await sleeper.resumeNext()
+        await sleeper.waitForScheduledSleep(of: source)
+
+        let location = fixture.firstFrame.center
+        let startX: Float = 0.2
+        let endX = startX + Float(fixture.travelToSecond)
+        var time = 100.0
+        func emit(fingers: Int, x: Float) {
+            time += 0.01
+            backend.emitFrame(
+                registryId: 101,
+                touches: Array(repeating: (x: x, y: Float(0.5)), count: fingers),
+                timestamp: time
+            )
+            source.drainRawFrameMailbox(location: location)
+        }
+
+        emit(fingers: 4, x: startX)
+        for step in 1 ... 10 {
+            emit(fingers: 4, x: startX + (endX - startX) * Float(step) / 10)
+        }
+        XCTAssertTrue(handler.state.isMoving)
+
+        for _ in 0 ..< 20 {
+            emit(fingers: 1, x: endX)
+        }
+        XCTAssertFalse(handler.state.isMoving)
+        XCTAssertEqual(fixture.windowOrder(), [fixture.second.token, fixture.first.token])
+
+        emit(fingers: 0, x: 0)
+        fixture.controller.layoutRefreshController.resetState()
+        handler.cleanup()
+        await sleeper.resumeAll()
+    }
+
     func testMoveOvershootKeepsEdgeWindowAsDropTarget() throws {
         let fixture = try makeNiriFixture(pid: 9_120)
         fixture.second.renderedFrame = CGRect(x: 800, y: 0, width: 800, height: 900)

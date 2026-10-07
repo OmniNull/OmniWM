@@ -33,8 +33,10 @@ final class MouseEventHandler {
             guard current.shutdown() else { return false }
             accumulateRetiredMultitouchPerformance(from: current)
         }
-        source.onSnapshot = { [weak self] snapshot in
-            self?.receiveTapGestureEvent(snapshot)
+        source.onSnapshot = { [weak self, weak source] snapshot in
+            guard let self else { return }
+            receiveTapGestureEvent(snapshot)
+            source?.rawFrameMailbox.setSteadyFrameFloor(steadyTouchFrameFloor)
         }
         source.onContactSessions = { [weak self] contacts in
             self?.updateContactSessions(contacts)

@@ -31,6 +31,11 @@ extension MouseEventHandler {
         )
     }
 
+    var steadyTouchFrameFloor: Int {
+        guard state.gesturePhase == .idle, let config = trackpadGestureConfig else { return 0 }
+        return config.minimumFingerCount
+    }
+
     var overviewGestureInteractive: Bool {
         controller?.motionPolicy.animationsEnabled == true
     }

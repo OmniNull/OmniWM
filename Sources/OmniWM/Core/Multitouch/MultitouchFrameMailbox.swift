@@ -11,44 +11,6 @@ import Synchronization
 private let multitouchLiftTimeout = 0.12
 
 final class MultitouchFrameMailbox: @unchecked Sendable {
-    struct PerformanceSnapshot: Equatable, Sendable {
-        let rawCallbacks: UInt64
-        let staleCallbacks: UInt64
-        let drainBatches: UInt64
-        let overwrittenChanges: UInt64
-        let transitionsQueued: UInt64
-        let cursorSamples: UInt64
-        let pendingFrames: Int
-        let maximumPendingFrames: Int
-    }
-
-    private final class PerformanceCounters: @unchecked Sendable {
-        let rawCallbacks = Atomic<UInt64>(0)
-        let staleCallbacks = Atomic<UInt64>(0)
-        let drainBatches = Atomic<UInt64>(0)
-        let overwrittenChanges = Atomic<UInt64>(0)
-        let transitionsQueued = Atomic<UInt64>(0)
-        let cursorSamples = Atomic<UInt64>(0)
-        var maximumPendingFrames: Int
-
-        init(maximumPendingFrames: Int) {
-            self.maximumPendingFrames = maximumPendingFrames
-        }
-
-        func snapshot(pendingFrames: Int) -> PerformanceSnapshot {
-            PerformanceSnapshot(
-                rawCallbacks: rawCallbacks.load(ordering: .relaxed),
-                staleCallbacks: staleCallbacks.load(ordering: .relaxed),
-                drainBatches: drainBatches.load(ordering: .relaxed),
-                overwrittenChanges: overwrittenChanges.load(ordering: .relaxed),
-                transitionsQueued: transitionsQueued.load(ordering: .relaxed),
-                cursorSamples: cursorSamples.load(ordering: .relaxed),
-                pendingFrames: pendingFrames,
-                maximumPendingFrames: maximumPendingFrames
-            )
-        }
-    }
-
     enum Kind: Equatable, Sendable {
         case began
         case changed
@@ -82,6 +44,7 @@ final class MultitouchFrameMailbox: @unchecked Sendable {
         var contactsChanged = false
         var ownerSlot: Int?
         var ownerTimestamp: Double = 0
+        var steadyFrameFloor = 0
         var drainScheduled = false
         var pending: [Delivery] = []
         var spare: [Delivery] = []
@@ -111,6 +74,10 @@ final class MultitouchFrameMailbox: @unchecked Sendable {
 
     func invalidate() {
         activate(generation: 0)
+    }
+
+    func setSteadyFrameFloor(_ floor: Int) {
+        state.withLock { $0.steadyFrameFloor = floor }
     }
 
     func offer(_ frame: MultitouchGestureSource.RawFrame, generation: UInt, slot: Int) -> Bool {
@@ -158,18 +125,20 @@ final class MultitouchFrameMailbox: @unchecked Sendable {
                     in: &value
                 )
             }
-            let routed = route(frame, hasTouches: hasTouches, generation: generation, slot: slot, in: &value)
+            let routed = route(frame, previous: previousFingerCount, generation: generation, slot: slot, in: &value)
             return scheduleDrainIfNeeded(in: &value) || routed || scheduled
         }
     }
 
     private func route(
         _ frame: MultitouchGestureSource.RawFrame,
-        hasTouches: Bool,
+        previous previousFingerCount: Int,
         generation: UInt,
         slot: Int,
         in value: inout State
     ) -> Bool {
+        let fingerCount = frame.touches.count
+        let hasTouches = fingerCount > 0
         let slotMask: UInt64 = 1 << UInt64(slot)
         let wasTouching = value.touchingSlots & slotMask != 0
         if hasTouches {
@@ -190,6 +159,8 @@ final class MultitouchFrameMailbox: @unchecked Sendable {
             return enqueue(.ended, frame, generation: generation, slot: slot, in: &value)
         }
         value.ownerTimestamp = frame.timestamp
+        let isSteadyBelowFloor = fingerCount == previousFingerCount && fingerCount < value.steadyFrameFloor
+        guard !isSteadyBelowFloor else { return false }
         if value.pending.last?.kind == .changed, value.pending.last?.frame.touches.count == frame.touches.count {
             value.pending[value.pending.count - 1] = Delivery(
                 frame: frame,
@@ -332,6 +303,46 @@ final class MultitouchFrameMailbox: @unchecked Sendable {
               let endIndex = value.pending.firstIndex(where: { $0.kind.isTerminal })
         {
             value.pending.removeFirst(endIndex + 1)
+        }
+    }
+}
+
+extension MultitouchFrameMailbox {
+    struct PerformanceSnapshot: Equatable, Sendable {
+        let rawCallbacks: UInt64
+        let staleCallbacks: UInt64
+        let drainBatches: UInt64
+        let overwrittenChanges: UInt64
+        let transitionsQueued: UInt64
+        let cursorSamples: UInt64
+        let pendingFrames: Int
+        let maximumPendingFrames: Int
+    }
+
+    private final class PerformanceCounters: @unchecked Sendable {
+        let rawCallbacks = Atomic<UInt64>(0)
+        let staleCallbacks = Atomic<UInt64>(0)
+        let drainBatches = Atomic<UInt64>(0)
+        let overwrittenChanges = Atomic<UInt64>(0)
+        let transitionsQueued = Atomic<UInt64>(0)
+        let cursorSamples = Atomic<UInt64>(0)
+        var maximumPendingFrames: Int
+
+        init(maximumPendingFrames: Int) {
+            self.maximumPendingFrames = maximumPendingFrames
+        }
+
+        func snapshot(pendingFrames: Int) -> PerformanceSnapshot {
+            PerformanceSnapshot(
+                rawCallbacks: rawCallbacks.load(ordering: .relaxed),
+                staleCallbacks: staleCallbacks.load(ordering: .relaxed),
+                drainBatches: drainBatches.load(ordering: .relaxed),
+                overwrittenChanges: overwrittenChanges.load(ordering: .relaxed),
+                transitionsQueued: transitionsQueued.load(ordering: .relaxed),
+                cursorSamples: cursorSamples.load(ordering: .relaxed),
+                pendingFrames: pendingFrames,
+                maximumPendingFrames: maximumPendingFrames
+            )
         }
     }
 }

@@ -153,6 +153,20 @@ final class TrackpadGestureIntentTests: XCTestCase {
         XCTAssertFalse(TrackpadGestureIntent.allowsGestureStart(config, fingerCount: 2))
     }
 
+    func testMinimumFingerCountCoversEveryEnabledGesture() {
+        XCTAssertEqual(makeConfig(columnFingers: 3, workspaceFingers: 4).minimumFingerCount, 3)
+        XCTAssertEqual(makeConfig(columnEnabled: false, workspaceFingers: 4).minimumFingerCount, 4)
+        var config = makeConfig(columnEnabled: false, workspaceEnabled: false)
+        XCTAssertEqual(config.minimumFingerCount, 0)
+        config.overviewAction = .open
+        XCTAssertEqual(config.minimumFingerCount, 4)
+        config.windowResizeEnabled = true
+        XCTAssertEqual(config.minimumFingerCount, 3)
+        config.columnScrollEnabled = true
+        config.columnScrollFingerCount = 2
+        XCTAssertEqual(config.minimumFingerCount, 2)
+    }
+
     func testGestureStartRejectedWhenBothGesturesDisabled() {
         let config = makeConfig(columnEnabled: false, workspaceEnabled: false)
         XCTAssertFalse(TrackpadGestureIntent.allowsGestureStart(config, fingerCount: 3))

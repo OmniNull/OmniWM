@@ -69,6 +69,16 @@ enum TrackpadGestureIntent {
         var windowMoveFingerCount = 4
         var windowResizeEnabled = false
         var windowResizeFingerCount = 3
+
+        var minimumFingerCount: Int {
+            var minimum = Int.max
+            if columnScrollEnabled { minimum = min(minimum, columnScrollFingerCount) }
+            if workspaceSwipeEnabled { minimum = min(minimum, workspaceSwipeFingerCount) }
+            if overviewAction != nil { minimum = min(minimum, overviewFingerCount) }
+            if windowMoveEnabled { minimum = min(minimum, windowMoveFingerCount) }
+            if windowResizeEnabled { minimum = min(minimum, windowResizeFingerCount) }
+            return minimum == .max ? 0 : minimum
+        }
     }
 
     static let workspaceSwipeTriggerUnits: CGFloat = 140.0
