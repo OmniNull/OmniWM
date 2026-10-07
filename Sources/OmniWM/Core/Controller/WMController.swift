@@ -373,6 +373,7 @@ extension WMController {
 
     func setFocusFollowsMouse(_ enabled: Bool) {
         focusFollowsMouseEnabled = enabled
+        mouseEventHandler.reconcileMouseMoveSubscription()
         guard !enabled,
               let request = intentLedger.activeManagedRequest,
               request.origin == .focusFollowsMouse
@@ -473,11 +474,10 @@ extension WMController {
     func syncMouseWarpPolicy(for monitors: [Monitor]? = nil) -> Bool {
         let effectiveMonitors = monitors ?? workspaceManager.monitors
         let shouldEnable = shouldUseMouseWarp(for: effectiveMonitors)
-
+        mouseEventHandler.reconcileMouseMoveSubscription()
         guard shouldEnable != isMouseWarpPolicyEnabled else {
             return shouldEnable
         }
-
         if shouldEnable {
             mouseWarpHandler.setup()
         } else {

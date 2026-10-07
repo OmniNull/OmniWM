@@ -23,6 +23,17 @@ extension MouseEventHandler {
         return mask
     }
 
+    nonisolated static func annotatedMoveEventMask(includesMouseMoved: Bool) -> CGEventMask {
+        let dragged: CGEventMask = 1 << CGEventType.leftMouseDragged.rawValue
+        return includesMouseMoved ? dragged | 1 << CGEventType.mouseMoved.rawValue : dragged
+    }
+
+    var mouseMovesNeeded: Bool {
+        guard let controller else { return true }
+        return controller.focusFollowsMouseEnabled
+            || (controller.settings.pointer.enabled && controller.workspaceManager.monitors.count > 1)
+    }
+
     func setup() {
         tearDownEventTaps()
         MouseEventHandler._instance = self
@@ -33,7 +44,20 @@ extension MouseEventHandler {
         controller?.settings.onTrackpadGestureAvailabilityChanged = { [weak self] _ in
             self?.reconcileMultitouchSource()
         }
+        controller?.settings.onPointerSettingsChanged = { [weak self] in
+            self?.reconcileMouseMoveSubscription()
+        }
         reconcileMultitouchSource()
+    }
+
+    func reconcileMouseMoveSubscription() {
+        guard state.moveTap != nil, state.moveTapDeliversMouseMoved != mouseMovesNeeded else { return }
+        state.latestFocusFollowsMouseSample = nil
+        controller?.resetMouseWarpTransientState()
+        tearDownMoveEventTap()
+        if !installAnnotatedMoveTap() {
+            setup()
+        }
     }
 
     private func installAnnotatedMoveTap() -> Bool {
@@ -67,15 +91,16 @@ extension MouseEventHandler {
     }
 
     private func installAnnotatedMoveTap(callback: CGEventTapCallBack) -> Bool {
+        let includesMouseMoved = mouseMovesNeeded
         state.moveTap = CGEvent.tapCreate(
             tap: .cgAnnotatedSessionEventTap,
             place: .headInsertEventTap,
             options: .listenOnly,
-            eventsOfInterest: (1 << CGEventType.mouseMoved.rawValue)
-                | (1 << CGEventType.leftMouseDragged.rawValue),
+            eventsOfInterest: Self.annotatedMoveEventMask(includesMouseMoved: includesMouseMoved),
             callback: callback,
             userInfo: nil
         )
+        state.moveTapDeliversMouseMoved = includesMouseMoved
 
         var annotatedMoveTapInstalled = false
         if let tap = state.moveTap {
