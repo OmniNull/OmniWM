@@ -68,7 +68,7 @@ body:
     id: omniwm-version
     attributes:
       label: OmniWM version
-      description: Shown in the status-bar menu (e.g. v0.5.1).
+      description: Shown in the status-bar menu (e.g. v0.5.1). For a canary build, paste its release link.
     validations:
       required: true
   - type: input

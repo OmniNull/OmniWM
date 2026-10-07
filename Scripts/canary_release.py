@@ -120,6 +120,10 @@ def notes(repo):
         "Automated canary build of `main`. It is signed and notarized like a"
         " release but skips the owner review, so treat it as unstable.",
         "",
+        "See the [canary guide](https://omniwm.app/guides/install/#canary-builds)"
+        " to install, update, or return to stable. For everyday use, download the"
+        " [latest stable release](https://github.com/OmniNull/OmniWM/releases/latest).",
+        "",
         f"- Commit: `{head[:12]}`",
     ]
     if previous:

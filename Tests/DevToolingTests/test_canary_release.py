@@ -195,6 +195,12 @@ class CanaryReleaseTests(unittest.TestCase):
         self.assertIn("Recent changes", text)
         self.assertIn("first", text)
 
+    def test_notes_link_canary_guide_and_latest_stable_release(self):
+        self.repo.commit("first")
+        text = canary_release.notes(self.repo.path)
+        self.assertIn("(https://omniwm.app/guides/install/#canary-builds)", text)
+        self.assertIn("(https://github.com/OmniNull/OmniWM/releases/latest)", text)
+
     def test_non_commit_release_tag_fails_instead_of_looking_unreachable(self):
         self.seed_release()
         blob = self.repo.git("hash-object", "-w", str(SOURCE / "Scripts/canary_release.py"))

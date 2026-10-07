@@ -68,7 +68,7 @@ After either installation, finish with the [first-launch setup](#first-launch-se
 
 ## GitHub Releases
 
-1. Download the latest `OmniWM-v<version>.zip` app archive from [Releases](https://github.com/OmniNull/OmniWM/releases).
+1. Download the `OmniWM-v<version>.zip` app archive from the [latest release](https://github.com/OmniNull/OmniWM/releases/latest).
 2. Extract and move `OmniWM.app` to `/Applications`.
 3. Continue with the first-launch setup.
 
@@ -83,6 +83,18 @@ After either installation, finish with the [first-launch setup](#first-launch-se
 :::note
 An optional **System Hyper Trigger** (acting as the `Hyper` chord while a key or mouse button is held) also needs the Input Monitoring permission. See [Keyboard Shortcuts](/guides/keyboard-shortcuts/).
 :::
+
+## Canary builds
+
+Stable releases are recommended for everyday use. Canary builds let you try recent changes and help test fixes before the next release. They are built daily when `main` has new changes and are signed and notarized, but may contain regressions.
+
+To try one with a Homebrew or GitHub Releases install:
+
+1. Save a copy of `~/.config/omniwm/settings.toml`.
+2. Quit OmniWM, then download the newest [canary build](https://github.com/OmniNull/OmniWM/releases?q=canary) and replace `OmniWM.app` in `/Applications` with the app from its ZIP.
+3. Relaunch OmniWM. It uses your existing settings.
+
+OmniWM's update check only tracks stable releases, so download newer canaries the same way. To return to stable, quit OmniWM. For a Homebrew install, run `brew reinstall --cask omniwm`; for a direct download, replace the app with the [latest release](https://github.com/OmniNull/OmniWM/releases/latest). If stable cannot read settings saved by a canary, quit OmniWM and restore your copy. When reporting a canary bug, include its release link.
 
 ## Updates
 

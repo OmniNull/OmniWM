@@ -653,13 +653,25 @@ After either installation, complete the macOS setup in steps 3-7 below.
 
 ### GitHub Releases
 
-1. Download the latest `OmniWM-v<version>.zip` app archive from [Releases](https://github.com/OmniNull/OmniWM/releases)
+1. Download the `OmniWM-v<version>.zip` app archive from the [latest release](https://github.com/OmniNull/OmniWM/releases/latest)
 2. Extract and move `OmniWM.app` to `/Applications`
 3. In System Settings > Desktop & Dock > Mission Control, turn **ON** `Displays have separate Spaces`
 4. Log out of macOS and log back in for that change to take effect unless you had it on already
 5. Launch OmniWM and grant Accessibility and Input Monitoring when prompted
 6. Optionally grant Screen Recording for capture-derived visuals
 7. Return to OmniWM’s permissions window and click **Start OmniWM** or **Continue Without Screen Recording**. If a required permission still appears missing, click **Check Again**
+
+### Canary builds
+
+Stable releases are recommended for everyday use. Canary builds let you try recent changes and help test fixes before the next release. They are built daily when `main` has new changes and are signed and notarized, but may contain regressions.
+
+To try one with a Homebrew or GitHub Releases install:
+
+1. Save a copy of `~/.config/omniwm/settings.toml`
+2. Quit OmniWM, then download the newest [canary build](https://github.com/OmniNull/OmniWM/releases?q=canary) and replace `OmniWM.app` in `/Applications` with the app from its ZIP
+3. Relaunch OmniWM. It uses your existing settings
+
+OmniWM's update check only tracks stable releases, so download newer canaries the same way. To return to stable, quit OmniWM. For a Homebrew install, run `brew reinstall --cask omniwm`; for a direct download, replace the app with the [latest release](https://github.com/OmniNull/OmniWM/releases/latest). If stable cannot read settings saved by a canary, quit OmniWM and restore your copy. When reporting a canary bug, include its release link.
 
 ## Updates
 

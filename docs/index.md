@@ -15,4 +15,4 @@ The documentation now lives at [omniwm.app](https://omniwm.app) — user guides,
 - [Architecture Guide](https://omniwm.app/developers/architecture/)
 - [CLI & IPC Reference](https://omniwm.app/reference/cli/overview/)
 - [Contributing](https://omniwm.app/developers/contributing/)
-- [Latest Releases](https://github.com/OmniNull/OmniWM/releases)
+- [Latest Release](https://github.com/OmniNull/OmniWM/releases/latest)
