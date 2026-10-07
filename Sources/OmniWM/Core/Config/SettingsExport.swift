@@ -199,14 +199,14 @@ struct SettingsExport: Equatable {
         var scrollModifierKey: ScrollModifierKey
         var mouseMoveModifierKey: MouseMoveModifierKey
         var mouseResizeModifierKey: MouseResizeModifierKey
-        var fingerCount: GestureFingerCount
+        var fingerCount: ThreeOrFourFingerCount
         var invertDirection: Bool
         var trackpadScrollStyle: TrackpadScrollStyle
         var workspaceSwipeEnabled: Bool
         var workspaceSwipeFingerCount: GestureFingerCount
         var workspaceSwipeAxis: WorkspaceSwipeAxis
         var overviewGestureEnabled: Bool? = false
-        var overviewGestureFingerCount: OverviewGestureFingerCount? = .four
+        var overviewGestureFingerCount: ThreeOrFourFingerCount? = .four
         var windowMoveEnabled: Bool? = false
         var windowMoveFingerCount: GestureFingerCount? = .four
         var windowResizeEnabled: Bool? = false

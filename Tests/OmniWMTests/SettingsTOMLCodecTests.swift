@@ -627,6 +627,11 @@ final class SettingsTOMLCodecTests: XCTestCase {
         XCTAssertThrowsError(try SettingsTOMLCodec.decode(data))
     }
 
+    func testColumnScrollRejectsTwoFingers() throws {
+        let data = try defaultsWithReplacements(("\nfingerCount = 3", "\nfingerCount = 2"))
+        XCTAssertThrowsError(try SettingsTOMLCodec.decode(data))
+    }
+
     func testWorkspaceSwipeSettingsRoundTrip() throws {
         let defaults = SettingsExport.defaults()
         XCTAssertFalse(defaults.gestures.workspaceSwipeEnabled)

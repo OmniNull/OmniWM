@@ -129,7 +129,7 @@ final class GestureSettings {
     }
 
     var workspaceSwipeAxisLockedToVertical: Bool {
-        scrollEnabled && workspaceSwipeFingerCount == fingerCount
+        scrollEnabled && workspaceSwipeFingerCount.rawValue == fingerCount.rawValue
     }
 
     var effectiveWorkspaceSwipeAxis: WorkspaceSwipeAxis {

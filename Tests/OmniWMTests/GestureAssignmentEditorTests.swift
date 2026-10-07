@@ -7,9 +7,12 @@ import XCTest
 
 @MainActor
 final class GestureAssignmentEditorTests: XCTestCase {
-    func testFingerChoicesKeepOverviewRestriction() {
+    func testFingerChoicesKeepColumnsAndOverviewOffTwoFingers() {
         for action in GestureAssignmentAction.allCases {
-            XCTAssertEqual(action.supportedFingerCounts, action == .overview ? [3, 4] : [2, 3, 4])
+            XCTAssertEqual(
+                action.supportedFingerCounts,
+                action == .columns || action == .overview ? [3, 4] : [2, 3, 4]
+            )
         }
     }
 
