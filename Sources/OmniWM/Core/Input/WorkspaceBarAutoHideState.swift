@@ -26,7 +26,10 @@ struct WorkspaceBarAutoHideTarget {
             case .right:
                 CGRect(x: monitor.visibleFrame.maxX - 1, y: frame.minY, width: 1, height: frame.height)
             }
-            return frame.union(edge).insetBy(dx: -8, dy: -8).intersection(monitor.frame)
+            let menuBarHeight = position.usesNotch ? max(0, monitor.frame.maxY - monitor.visibleFrame.maxY) : 0
+            let nearEdge = frame.insetBy(dx: -8, dy: -8)
+                .intersects(edge.insetBy(dx: 0, dy: -menuBarHeight))
+            return (nearEdge ? frame.union(edge) : frame).insetBy(dx: -8, dy: -8).intersection(monitor.frame)
         }
         retentionRegions = frames.map {
             $0.insetBy(dx: -20, dy: -20).intersection(monitor.frame)
