@@ -117,7 +117,7 @@ final class WorkspaceSwipePresentation {
             return false
         }
         self.preparation = preparation
-        previewSurface(controller).prepare(
+        previewSurface(controller).warm(
             source: preparation.source.items,
             destination: (preparation.previous?.items ?? []) + (preparation.next?.items ?? []),
             monitor: preparation.monitor, workingFrame: preparation.frame
@@ -158,6 +158,12 @@ final class WorkspaceSwipePresentation {
             trace("fallback-preview-unavailable")
             return
         }
+        preview?.prepare(
+            source: preparation.source.items,
+            destination: destination.items,
+            monitor: preparation.monitor,
+            workingFrame: preparation.frame
+        )
         refreshController?.stopScrollAnimation(for: preparation.monitor.displayId)
         refreshController?.stopDwindleAnimation(for: preparation.monitor.displayId)
         self.flight = flight

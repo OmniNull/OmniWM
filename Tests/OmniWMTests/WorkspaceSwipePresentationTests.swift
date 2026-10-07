@@ -277,59 +277,62 @@ final class WorkspaceSwipePresentationTests: XCTestCase {
         XCTAssertNil(swipe.preparation)
     }
 
-    func testPhysicalPreparationPromotesOwnerWarmupWithoutRestartingStream() async throws {
-        let driver = OverviewPreviewTestDriver()
-        let capture = driver.makeCapture()
-        let preview = WorkspaceSwipePreview(
-            ownedWindowRegistry: OwnedWindowRegistry(), previewCapture: capture,
-            backdrop: try makeBackdrop(), hasCaptureAccess: { true }
-        )
-        let (controller, swipe, monitor, source) = try fixture(previewSurface: preview)
-        controller.niriLayoutHandler.enableNiriLayout()
-        let pid: pid_t = 764_941
-        let windowId = 764_942
-        let token = controller.workspaceManager.addWindow(
-            AXWindowRef(element: AXUIElementCreateApplication(pid), windowId: windowId),
-            pid: pid, windowId: windowId, to: source
-        )
-        controller.workspaceManager.setCachedConstraints(.unconstrained, for: token)
-        let engine = try XCTUnwrap(controller.niriEngine)
-        let node = engine.addWindow(token: token, to: source, afterSelection: nil)
-        controller.workspaceManager.withNiriViewportState(for: source) { $0.selectedNodeId = node.id }
-        controller.axManager.confirmFrameWrite(
-            for: windowId, frame: CGRect(x: 50, y: 50, width: 600, height: 500)
-        )
-        let preparation = try XCTUnwrap(swipe.makePreparation(monitorId: monitor.id))
-        XCTAssertEqual(preparation.source.items.map(\.handle.token), [token])
-        preview.warm(
-            source: preparation.source.items,
-            destination: (preparation.previous?.items ?? []) + (preparation.next?.items ?? []),
-            monitor: monitor, workingFrame: preparation.frame
-        )
-        await driver.waitForStarts(1)
-        XCTAssertTrue(preview.isWarming)
-        let stream = driver.streams[0]
+    func testContactCapturesOnlyMissingPreviewsUntilTheirFirstFrame() async throws {
+        let fixture = try previewFixture()
 
-        XCTAssertFalse(swipe.prepare(monitorId: monitor.id, timestamp: 1))
+        XCTAssertFalse(fixture.swipe.prepare(monitorId: fixture.monitor.id, timestamp: 1))
 
-        XCTAssertFalse(preview.isWarming)
-        XCTAssertNotNil(swipe.preparation)
-        XCTAssertEqual(driver.streams.count, 1)
-        XCTAssertEqual(stream.stopCount, 0)
-        driver.completeAllStarts()
+        XCTAssertNotNil(fixture.swipe.preparation)
+        try requireContactWarmup(fixture)
+        await fixture.driver.waitForStarts(1)
+        fixture.driver.completeAllStarts()
+        await publish(try makeOverviewPreviewFrame(), through: fixture.driver.streams[0], into: fixture.capture)
+        await fixture.driver.waitForStops(1)
+        XCTAssertFalse(fixture.preview.isWarming)
+        XCTAssertNotNil(fixture.capture.preview(for: fixture.handle))
+        XCTAssertEqual(fixture.driver.streams.count, 1)
+        fixture.swipe.stopPreparing()
+    }
+
+    func testContactWithCachedPreviewsStartsNoCapture() async throws {
+        let fixture = try previewFixture()
+        try await cachePreviewThroughContact(fixture)
+
+        XCTAssertFalse(fixture.swipe.prepare(monitorId: fixture.monitor.id, timestamp: 2))
+
+        XCTAssertFalse(fixture.preview.isWarming)
+        XCTAssertNotNil(fixture.swipe.preparation)
+        XCTAssertEqual(fixture.driver.streams.count, 1)
+        fixture.swipe.stopPreparing()
+    }
+
+    func testRecognitionStreamsOnlyTheSourceAndDestination() async throws {
+        let fixture = try previewFixture()
+        try await cachePreviewThroughContact(fixture)
+        XCTAssertFalse(fixture.swipe.prepare(monitorId: fixture.monitor.id, timestamp: 2))
+        XCTAssertEqual(fixture.driver.streams.count, 1)
+
+        fixture.swipe.begin(axis: .vertical, cumulative: 20, timestamp: 2.01)
+
+        XCTAssertTrue(fixture.swipe.hasPresentation)
+        _ = try XCTUnwrap(
+            fixture.capture.hasPendingFirstFrames ? fixture.capture : nil,
+            "Recognition must start continuous capture for the swipe"
+        )
+        await fixture.driver.waitForStarts(2)
+        XCTAssertFalse(fixture.preview.isWarming)
+        let stream = fixture.driver.streams[1]
+        XCTAssertTrue(stream.request.handle === fixture.handle)
+        fixture.driver.completeAllStarts()
         for _ in 0 ..< 2 {
             let frame = try makeOverviewPreviewFrame()
-            let published = expectation(description: "promoted owner stream publishes")
-            capture.onPreview = { _, image in if image === frame { published.fulfill() } }
-            stream.output.offer(frame)
-            await fulfillment(of: [published], timeout: 1)
-            XCTAssertTrue(capture.preview(for: stream.request.handle) === frame)
+            await publish(frame, through: stream, into: fixture.capture)
+            XCTAssertTrue(fixture.capture.preview(for: fixture.handle) === frame)
             XCTAssertEqual(stream.stopCount, 0)
         }
-        XCTAssertEqual(driver.streams.count, 1)
-        XCTAssertFalse(preview.isVisible)
-        swipe.stopPreparing()
-        await driver.waitForStops(1)
+        XCTAssertEqual(fixture.driver.streams.count, 2)
+        fixture.swipe.cancel(reason: "test")
+        XCTAssertEqual(stream.stopCount, 1)
     }
 
     func testTurningSwipeOrAnimationsOffReleasesThePreviewAndItsCache() async throws {
@@ -419,6 +422,76 @@ final class WorkspaceSwipePresentationTests: XCTestCase {
             hasNotch: false,
             name: "Swipe test"
         )
+    }
+
+    private struct PreviewFixture {
+        let controller: WMController
+        let driver: OverviewPreviewTestDriver
+        let capture: OverviewThumbnailCapture
+        let preview: WorkspaceSwipePreview
+        let swipe: WorkspaceSwipePresentation
+        let monitor: Monitor
+        let handle: WindowHandle
+    }
+
+    private func previewFixture() throws -> PreviewFixture {
+        let driver = OverviewPreviewTestDriver()
+        let capture = driver.makeCapture()
+        let preview = try WorkspaceSwipePreview(
+            ownedWindowRegistry: OwnedWindowRegistry(), previewCapture: capture,
+            backdrop: makeBackdrop(), hasCaptureAccess: { true }
+        )
+        let (controller, swipe, monitor, source) = try fixture(previewSurface: preview)
+        controller.niriLayoutHandler.enableNiriLayout()
+        let pid: pid_t = 764_941
+        let windowId = 764_942
+        let token = controller.workspaceManager.addWindow(
+            AXWindowRef(element: AXUIElementCreateApplication(pid), windowId: windowId),
+            pid: pid, windowId: windowId, to: source
+        )
+        controller.workspaceManager.setCachedConstraints(.unconstrained, for: token)
+        let engine = try XCTUnwrap(controller.niriEngine)
+        let node = engine.addWindow(token: token, to: source, afterSelection: nil)
+        controller.workspaceManager.withNiriViewportState(for: source) { $0.selectedNodeId = node.id }
+        controller.axManager.confirmFrameWrite(
+            for: windowId, frame: CGRect(x: 50, y: 50, width: 600, height: 500)
+        )
+        let preparation = try XCTUnwrap(swipe.makePreparation(monitorId: monitor.id))
+        XCTAssertEqual(preparation.source.items.map(\.handle.token), [token])
+        let handle = try XCTUnwrap(preparation.source.items.first?.handle)
+        return PreviewFixture(
+            controller: controller, driver: driver, capture: capture, preview: preview, swipe: swipe,
+            monitor: monitor, handle: handle
+        )
+    }
+
+    private func requireContactWarmup(_ fixture: PreviewFixture) throws {
+        _ = try XCTUnwrap(
+            fixture.preview.isWarming ? fixture.preview : nil,
+            "Contact must capture only missing previews, not start continuous capture"
+        )
+    }
+
+    private func cachePreviewThroughContact(_ fixture: PreviewFixture) async throws {
+        XCTAssertFalse(fixture.swipe.prepare(monitorId: fixture.monitor.id, timestamp: 1))
+        try requireContactWarmup(fixture)
+        await fixture.driver.waitForStarts(1)
+        fixture.driver.completeAllStarts()
+        await publish(try makeOverviewPreviewFrame(), through: fixture.driver.streams[0], into: fixture.capture)
+        await fixture.driver.waitForStops(1)
+        fixture.swipe.stopPreparing()
+        XCTAssertNotNil(fixture.capture.preview(for: fixture.handle))
+    }
+
+    private func publish(
+        _ frame: OverviewPreviewFrame,
+        through stream: OverviewPreviewTestStream,
+        into capture: OverviewThumbnailCapture
+    ) async {
+        let published = expectation(description: "swipe preview frame published")
+        capture.onPreview = { _, preview in if preview === frame { published.fulfill() } }
+        stream.output.offer(frame)
+        await fulfillment(of: [published], timeout: 1)
     }
 
     private func makeBackdrop() throws -> WorkspaceSwipeBackdrop {

@@ -61,7 +61,7 @@ final class WorkspaceSwipePreviewWarmupTests: XCTestCase {
         XCTAssertFalse(preview.isVisible)
     }
 
-    func testPhysicalPreparationConvertsWarmupToContinuousCapture() async throws {
+    func testPreparationConvertsWarmupToContinuousCapture() async throws {
         let driver = OverviewPreviewTestDriver()
         let capture = driver.makeCapture()
         let preview = makePreview(capture)
