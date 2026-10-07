@@ -21,6 +21,7 @@ extension ActionCatalog {
                 binding: KeyBinding(keyCode: UInt32(kVK_ANSI_R), modifiers: UInt32(optionKey | shiftKey)),
                 keywords: ["float", "floating", "raise"]
             ),
+            toggleFloatingFocusActionSpec,
             action(
                 id: "rescueOffscreenWindows",
                 command: .rescueOffscreenWindows,
@@ -52,6 +53,16 @@ extension ActionCatalog {
             IPCPresentationCommand.overview.actionSpec(),
             IPCPresentationCommand.systemStats.actionSpec()
         ])
+    }
+
+    private static var toggleFloatingFocusActionSpec: ActionSpec {
+        action(
+            id: "toggleFloatingFocus",
+            command: .toggleFloatingFocus,
+            category: .focus,
+            binding: .unassigned,
+            keywords: ["float", "floating", "tiled", "focus", "toggle"]
+        )
     }
 
     private static var setWindowMarkActionSpec: ActionSpec {

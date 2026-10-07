@@ -63,15 +63,14 @@ final class FloatingWindowRaiser {
     }
 
     func raiseAllFloatingWindows() {
-        guard let controller else { return }
-        guard !controller.isLockScreenActive else { return }
-        if controller.hasStartedServices {
-            guard !controller.isFrontmostAppLockScreen() else { return }
-        }
+        guard let controller, canRaiseWindows(controller) else { return }
 
         controller.restoreVisibleWorkspaceInactiveFloatingWindows()
         guard let plan = makeRaiseAllFloatingPlan() else { return }
+        raise(plan, controller: controller)
+    }
 
+    private func raise(_ plan: FloatingWindowRaisePlan, controller: WMController) {
         for batch in plan.batches {
             for surface in batch {
                 controller.performWindowOrdering(windowId: surface.windowId)
@@ -81,18 +80,49 @@ final class FloatingWindowRaiser {
         }
     }
 
+    func toggleFloatingFocus() -> ExternalCommandResult {
+        guard let controller, canRaiseWindows(controller),
+              let workspaceId = controller.activeWorkspace()?.id
+        else { return .noChange }
+        let workspaceManager = controller.workspaceManager
+
+        if workspaceManager.isFloatingFocusToggleSource(controller.focusedManagedTokenForCommand(), in: workspaceId) {
+            guard let target = workspaceManager.preferredFocusToken(in: workspaceId) else { return .noChange }
+            return controller.windowActionHandler.navigateToWindowInternal(token: target, workspaceId: workspaceId)
+                ? .executed
+                : .noChange
+        }
+
+        controller.layoutRefreshController.restoreWorkspaceInactiveFloatingWindows(activeWorkspaceIds: [workspaceId])
+        guard let target = workspaceManager.floatingFocusToggleTarget(in: workspaceId) else { return .noChange }
+        if let plan = makeRaiseAllFloatingPlan(in: workspaceId) {
+            raise(plan, controller: controller)
+        }
+        controller.focusWindow(target)
+        return .executed
+    }
+
     func hasRaisableFloatingWindows() -> Bool {
         makeRaiseAllFloatingPlan() != nil || controller?.hasVisibleWorkspaceInactiveFloatingWindows() == true
     }
 
-    private func makeRaiseAllFloatingPlan() -> FloatingWindowRaisePlan? {
+    private func canRaiseWindows(_ controller: WMController) -> Bool {
+        guard !controller.isLockScreenActive else { return false }
+        if controller.hasStartedServices {
+            return !controller.isFrontmostAppLockScreen()
+        }
+        return true
+    }
+
+    private func makeRaiseAllFloatingPlan(in workspaceId: WorkspaceDescriptor.ID? = nil) -> FloatingWindowRaisePlan? {
         guard let controller else { return nil }
 
-        let managedSurfaces = controller.workspaceManager.visibleWorkspaceIds()
+        let workspaceIds = workspaceId.map { [$0] } ?? Array(controller.workspaceManager.visibleWorkspaceIds())
+        let managedSurfaces = workspaceIds
             .flatMap { controller.workspaceManager.floatingEntries(in: $0) }
             .filter { controller.workspaceManager.isFloatingWindowDisplayable($0) }
             .map(RaisableSurface.managed)
-        let ownedSurfaces = visibleOwnedWindowsProvider()
+        let ownedSurfaces = workspaceId != nil ? [] : visibleOwnedWindowsProvider()
             .filter { $0.windowNumber > 0 }
             .map(RaisableSurface.owned)
         let surfaces = managedSurfaces + ownedSurfaces

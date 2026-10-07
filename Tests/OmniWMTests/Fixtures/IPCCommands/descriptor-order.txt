@@ -70,6 +70,7 @@ preselect-clear
 open-command-palette
 open-command-palette-mode
 raise-all-floating-windows
+toggle-floating-focus
 rescue-offscreen-windows
 toggle-focused-window-floating
 close-focused-window

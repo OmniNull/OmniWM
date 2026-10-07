@@ -16,7 +16,7 @@ final class WindowGesturePersistenceTests: XCTestCase {
 
         let result = try SettingsTOMLCodec.decodeForLoad(data)
 
-        XCTAssertEqual(SettingsTOMLCodec.currentSchemaVersion, 4)
+        XCTAssertEqual(SettingsTOMLCodec.currentSchemaVersion, 5)
         XCTAssertNil(result.migration)
         XCTAssertEqual(result.export.gestures.windowMoveEnabled, false)
         XCTAssertEqual(result.export.gestures.windowMoveFingerCount, .four)
