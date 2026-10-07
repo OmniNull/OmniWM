@@ -28,7 +28,7 @@ extension DwindleLayoutHandler {
             windows: refreshInput.windows,
             excludedTokens: refreshInput.excludedTokens,
             plannedSeq: refreshInput.plannedSeq,
-            preferredFocusToken: controller.workspaceManager.preferredFocusToken(in: wsId),
+            preferredFocusToken: controller.workspaceManager.rememberedTiledFocusToken(in: wsId),
             preferredHideSide: controller.layoutRefreshController.preferredHideSide(for: monitor),
             settings: controller.resolvedDwindleSettings(for: monitor, scale: refreshInput.monitor.scale),
             isActiveWorkspace: refreshInput.isActiveWorkspace

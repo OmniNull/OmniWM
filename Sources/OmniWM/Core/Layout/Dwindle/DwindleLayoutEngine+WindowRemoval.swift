@@ -18,11 +18,14 @@ extension DwindleLayoutEngine {
             _ = tile.remove(at: memberIndex)
             state.leafByToken.removeValue(forKey: token)
         } else {
+            let successorToken = state.selectedNodeId == leaf.id
+                ? removalSuccessorToken(for: token, in: workspaceId)
+                : nil
             state.leafByToken.removeValue(forKey: token)
             leaf.kind = .leaf(tile: nil)
             leaf.cachedContentFrame = nil
             state.tileCount -= 1
-            cleanupAfterRemoval(leaf, state: state)
+            cleanupAfterRemoval(leaf, state: state, successorToken: successorToken)
         }
         state.pendingMovementFrameSeeds.removeValue(forKey: token)
         if state.leafByToken.isEmpty {

@@ -113,7 +113,7 @@ extension WorkspaceManager {
         focusSessionSnapshot.lastFloatingFocusedByWorkspace[workspaceId]
     }
 
-    func preferredFocusToken(in workspaceId: WorkspaceDescriptor.ID) -> WindowToken? {
+    func rememberedTiledFocusToken(in workspaceId: WorkspaceDescriptor.ID) -> WindowToken? {
         if let pendingToken = eligibleFocusCandidate(
             focusSessionSnapshot.pendingManagedFocus.token,
             in: workspaceId,
@@ -132,12 +132,16 @@ extension WorkspaceManager {
             return remembered
         }
 
-        if let confirmed = eligibleFocusCandidate(
+        return eligibleFocusCandidate(
             focusSessionSnapshot.selectedManagedToken,
             in: workspaceId,
             mode: .tiling
-        ) {
-            return confirmed
+        )
+    }
+
+    func preferredFocusToken(in workspaceId: WorkspaceDescriptor.ID) -> WindowToken? {
+        if let remembered = rememberedTiledFocusToken(in: workspaceId) {
+            return remembered
         }
 
         return windowQueries.firstWindow(in: workspaceId, mode: .tiling) {
