@@ -24,6 +24,8 @@ final class WorkspaceBarManager {
     var pressTracker = WorkspaceBarPressTracker()
     let menuPresenter = WorkspaceBarMenuPresenter()
     var renamePanel: WorkspaceBarRenamePanel?
+    var menuMonitorId: Monitor.ID?
+    var renameMonitorId: Monitor.ID?
     let dragController = WorkspaceBarDragController()
     let autoHideMonitor = WorkspaceBarAutoHideMonitor()
     var hoverPreview: WorkspaceBarHoverPreviewController?
@@ -233,6 +235,8 @@ final class WorkspaceBarManager {
         dragController.cancel()
         menuPresenter.cancel()
         renamePanel?.dismiss()
+        menuMonitorId = nil
+        renameMonitorId = nil
         pressTracker.reset()
         for monitorId in Array(barsByMonitor.keys) {
             removeBarForMonitor(monitorId)

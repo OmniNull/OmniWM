@@ -111,7 +111,11 @@ extension WorkspaceBarManager {
             suppressesFocusFollowsMouse: true,
             duration: nil
         )
-        defer { refreshAutoHide() }
+        menuMonitorId = context.instance.monitorId
+        defer {
+            menuMonitorId = nil
+            refreshAutoHide()
+        }
         let action = menuPresenter.present(items, at: location, in: hostingView)
         controller.focusPolicyEngine.endLease(owner: .nativeMenu)
         guard let action else { return }
@@ -177,6 +181,7 @@ extension WorkspaceBarManager {
         panel.isExemptWindow = { [weak self] in self?.isWorkspaceBarWindow($0) == true }
         let configuredName = controller.settings.workspaces.configurations
             .first { $0.name == rawName }?.displayName
+        renameMonitorId = monitorId
         panel.show(
             currentName: configuredName ?? "",
             placeholder: rawName,

@@ -133,7 +133,7 @@ final class WorkspaceBarManagerTests: XCTestCase {
         bar.retainWhileHidden = true
         manager.apply([bar])
         let panel = try XCTUnwrap(manager.barsByMonitor[monitor.id]?.primary.panel)
-        panel.setFrame(CGRect(x: 100, y: 100, width: 200, height: 24), display: false)
+        panel.setFrame(CGRect(x: 100, y: monitor.frame.maxY - 24, width: 200, height: 24), display: false)
         XCTAssertFalse(panel.isVisible)
         XCTAssertNil(manager.popupAttachment(on: monitor.id))
 
@@ -143,7 +143,7 @@ final class WorkspaceBarManagerTests: XCTestCase {
             manager.apply([bar])
         }
 
-        pointer = panel.frame.center
+        pointer = CGPoint(x: panel.frame.midX, y: panel.frame.maxY - 0.5)
         apply()
         XCTAssertTrue(panel.isVisible)
         XCTAssertNotNil(manager.popupAttachment(on: monitor.id))
@@ -170,7 +170,7 @@ final class WorkspaceBarManagerTests: XCTestCase {
         XCTAssertFalse(panel.isVisible)
         XCTAssertTrue(manager.barsByMonitor[monitor.id]?.primary.panel === panel)
 
-        pointer = panel.frame.center
+        pointer = CGPoint(x: panel.frame.midX, y: panel.frame.maxY - 0.5)
         apply()
         manager.dragController.sourceIsValid = { _ in true }
         manager.dragController.begin(
@@ -206,8 +206,8 @@ final class WorkspaceBarManagerTests: XCTestCase {
         bar.retainWhileHidden = true
         manager.apply([bar])
         let panel = try XCTUnwrap(manager.barsByMonitor[monitor.id]?.primary.panel)
-        panel.setFrame(CGRect(x: 100, y: 100, width: 200, height: 24), display: false)
-        pointer = panel.frame.center
+        panel.setFrame(CGRect(x: 100, y: monitor.frame.maxY - 24, width: 200, height: 24), display: false)
+        pointer = CGPoint(x: panel.frame.midX, y: panel.frame.maxY - 0.5)
         manager.refreshAutoHide()
         XCTAssertTrue(controller.isWorkspaceBarVisible(on: monitor))
         controller.settings.workspaceBar.revealModifier = .option
@@ -217,7 +217,7 @@ final class WorkspaceBarManagerTests: XCTestCase {
         XCTAssertTrue(controller.isWorkspaceBarVisible(on: monitor))
         controller.setWorkspaceBarRevealHeld(false)
         XCTAssertFalse(controller.isWorkspaceBarVisible(on: monitor))
-        pointer = panel.frame.center
+        pointer = CGPoint(x: panel.frame.midX, y: panel.frame.maxY - 0.5)
         manager.refreshAutoHide()
         XCTAssertTrue(controller.isWorkspaceBarVisible(on: monitor))
         XCTAssertTrue(controller.toggleWorkspaceBarVisibility())

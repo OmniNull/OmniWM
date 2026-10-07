@@ -121,7 +121,9 @@ private struct GlobalBarSettingsSection: View {
                     .onChange(of: settings.workspaceBar.autoHide) { _, _ in
                         controller.updateWorkspaceBarSettings()
                     }
-                    .help("Show when the pointer approaches; hide when not in use. Never reserves layout space.")
+                    .help(
+                        "Show at the bar edge; hide when the pointer moves inward past the bar and interactions end. Never reserves layout space."
+                    )
 
                 Toggle("Reserve Space for Workspace Bar", isOn: Bindable(settings.workspaceBar).reserveLayoutSpace)
                     .onChange(of: settings.workspaceBar.reserveLayoutSpace) { _, _ in

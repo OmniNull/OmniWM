@@ -41,7 +41,7 @@ Configure position, height, and appearance in Settings:
 
 - **Position** — overlap the menu bar, sit below it, or dock at **Bottom**, **Left**, or **Right**. Available globally and per display.
 - **Notch handling** — `Off`, `Move Below Menu Bar`, or a split layout (`Split — Active Left` / `Split — Active Right`) that flows the bar around the notch with your chosen side for the active workspace.
-- **Automatically hide and show** — reveal on pointer approach and hide when not in use. See [Automatic hiding](#automatic-hiding).
+- **Automatically hide and show** — reveal at the bar's edge and hide when the pointer moves inward past the bar and interactions end. See [Automatic hiding](#automatic-hiding).
 - **Reveal on modifier hold** — keep the bar hidden until you hold a chosen modifier; with automatic hiding enabled, either trigger can reveal it.
 - **Hide empty workspaces** — omit chips for workspaces with no windows.
 - **Reserve layout space** — reserve space at the bar's selected edge for tiled and layout-fullscreen windows.
@@ -73,9 +73,11 @@ Enable **Automatically hide and show the workspace bar** globally or per display
 autoHide = true # default: false
 ```
 
-The bar appears immediately when the pointer approaches its location, not anywhere along the display edge. It stays visible during bar, menu, popup, and drag interactions, including pointer transitions between them, then hides immediately when interaction ends and the pointer leaves. There are no new animations or configurable pointer delays.
+The bar appears immediately when the pointer touches the edge along its span, not anywhere along the display edge. Once visible, it stays up while the pointer moves along that edge on the same display. It hides when the pointer moves inward beyond the bar's thickness (height for horizontal bars, width for side bars) and interactions end. Menus, popups, previews, renaming, and sheets retain their display's bar; dragging can retain visible bars across displays.
 
-Auto-hidden bars never reserve layout space, even while visible. Manual hiding, disabling, and native-fullscreen suppression take precedence. Existing modifier-only configurations remain unchanged; when combined with `autoHide`, pointer approach or modifier hold can reveal the bar. The existing modifier hold delay applies only to that modifier trigger.
+The reveal edge follows the bar's placement and offsets. With no vertical offset, top bars reveal at the screen edge; below-menu-bar placement retains the path across the menu bar to the bar itself. There is no extra activation or retention padding, and no new animations or configurable pointer delays.
+
+Auto-hidden bars never reserve layout space, even while visible. Manual hiding, disabling, and native-fullscreen suppression take precedence. Existing modifier-only configurations remain unchanged; when combined with `autoHide`, touching the edge or holding the modifier can reveal the bar. The existing modifier hold delay applies only to that modifier trigger.
 
 ### Additional appearance controls
 

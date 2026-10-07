@@ -112,6 +112,38 @@ struct WorkspaceBarGeometry: Equatable {
         return CGRect(x: x, y: y, width: width, height: barHeight)
     }
 
+    func autoHideRegions(
+        frame: CGRect,
+        monitor: Monitor,
+        resolved: ResolvedBarSettings
+    ) -> (activation: CGRect, retention: CGRect) {
+        let activation: CGRect
+        let retention: CGRect
+        switch effectivePosition {
+        case .overlappingMenuBar,
+             .belowMenuBar:
+            let edge = resolved.yOffset == 0 || resolved.notchMode == .fillLeftOfNotch
+                ? monitor.frame.maxY : frame.maxY
+            activation = CGRect(x: frame.minX, y: edge - 1, width: frame.width, height: 1)
+            retention = CGRect(
+                x: monitor.frame.minX,
+                y: frame.minY,
+                width: monitor.frame.width,
+                height: edge - frame.minY
+            )
+        case .bottom:
+            activation = CGRect(x: frame.minX, y: frame.minY, width: frame.width, height: 1)
+            retention = CGRect(x: monitor.frame.minX, y: frame.minY, width: monitor.frame.width, height: frame.height)
+        case .left:
+            activation = CGRect(x: frame.minX, y: frame.minY, width: 1, height: frame.height)
+            retention = CGRect(x: frame.minX, y: monitor.frame.minY, width: frame.width, height: monitor.frame.height)
+        case .right:
+            activation = CGRect(x: frame.maxX - 1, y: frame.minY, width: 1, height: frame.height)
+            retention = CGRect(x: frame.minX, y: monitor.frame.minY, width: frame.width, height: monitor.frame.height)
+        }
+        return (activation.intersection(monitor.frame), retention.intersection(monitor.frame))
+    }
+
     private func fillLeftOfNotchFrame(for monitor: Monitor) -> CGRect {
         let frame = monitor.frame
         let virtualNotch = frame.midX ... frame.midX

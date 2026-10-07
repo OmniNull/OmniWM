@@ -33,9 +33,11 @@ extension WorkspaceBarManager {
             return WorkspaceBarAutoHideTarget(
                 monitor: instance.monitor,
                 frames: panels.map(\.frame),
-                position: resolved.position,
+                resolved: resolved,
                 isVisible: instance.primary.panel.isVisible,
-                isPinned: dragController.isDragging || menuPresenter.isTracking || renamePanel?.isVisible == true
+                isPinned: dragController.isDragging
+                    || (menuPresenter.isTracking && menuMonitorId == instance.monitorId)
+                    || (renamePanel?.isVisible == true && renameMonitorId == instance.monitorId)
                     || hoverPreview?.visibleTarget.map { instance.monitor.frame.contains($0.attachment.anchor) } == true
                     || panels.contains { $0.attachedSheet != nil }
                     || popupFrames.contains { instance.monitor.frame.contains($0.center) }

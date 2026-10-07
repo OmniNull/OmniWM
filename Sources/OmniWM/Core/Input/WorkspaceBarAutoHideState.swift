@@ -5,35 +5,27 @@ import CoreGraphics
 
 struct WorkspaceBarAutoHideTarget {
     let id: Monitor.ID
+    let monitorFrame: CGRect
     let activationRegions: [CGRect]
     let retentionRegions: [CGRect]
     let isVisible: Bool
     let isPinned: Bool
 
-    init(monitor: Monitor, frames: [CGRect], position: WorkspaceBarPosition, isVisible: Bool, isPinned: Bool) {
+    init(monitor: Monitor, frames: [CGRect], resolved: ResolvedBarSettings, isVisible: Bool, isPinned: Bool) {
         id = monitor.id
+        monitorFrame = monitor.frame
         self.isVisible = isVisible
         self.isPinned = isPinned
-        activationRegions = frames.map { frame in
-            let edge: CGRect = switch position {
-            case .overlappingMenuBar,
-                 .belowMenuBar:
-                CGRect(x: frame.minX, y: monitor.frame.maxY - 1, width: frame.width, height: 1)
-            case .bottom:
-                CGRect(x: frame.minX, y: monitor.visibleFrame.minY, width: frame.width, height: 1)
-            case .left:
-                CGRect(x: monitor.visibleFrame.minX, y: frame.minY, width: 1, height: frame.height)
-            case .right:
-                CGRect(x: monitor.visibleFrame.maxX - 1, y: frame.minY, width: 1, height: frame.height)
-            }
-            let menuBarHeight = position.usesNotch ? max(0, monitor.frame.maxY - monitor.visibleFrame.maxY) : 0
-            let nearEdge = frame.insetBy(dx: -8, dy: -8)
-                .intersects(edge.insetBy(dx: 0, dy: -menuBarHeight))
-            return (nearEdge ? frame.union(edge) : frame).insetBy(dx: -8, dy: -8).intersection(monitor.frame)
+        let geometry = WorkspaceBarGeometry.resolve(monitor: monitor, resolved: resolved, isVisible: true)
+        let regions = frames.map { geometry.autoHideRegions(frame: $0, monitor: monitor, resolved: resolved) }
+        activationRegions = regions.map(\.activation)
+        retentionRegions = regions.map(\.retention)
+    }
+
+    func retains(_ pointer: CGPoint) -> Bool {
+        monitorFrame.contains(pointer) && retentionRegions.contains {
+            !$0.isNull && ($0.minX ... $0.maxX).contains(pointer.x) && ($0.minY ... $0.maxY).contains(pointer.y)
         }
-        retentionRegions = frames.map {
-            $0.insetBy(dx: -20, dy: -20).intersection(monitor.frame)
-        } + activationRegions
     }
 }
 
@@ -44,7 +36,7 @@ struct WorkspaceBarAutoHideState {
         revealed = Set(targets.filter { target in
             target.activationRegions.contains { $0.contains(pointer) }
                 || ((revealed.contains(target.id) || target.isVisible)
-                    && (target.isPinned || target.retentionRegions.contains { $0.contains(pointer) }))
+                    && (target.isPinned || target.retains(pointer)))
         }.map(\.id))
     }
 
