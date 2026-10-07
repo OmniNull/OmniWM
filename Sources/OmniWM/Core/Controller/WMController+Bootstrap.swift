@@ -131,6 +131,9 @@ extension WMController {
         self.hiddenBarController.onCursorWarp = { [weak self] point in
             self?.mouseWarpHandler.noteProgrammaticCursorMove(to: point)
         }
+        ownedWindowRegistry.onWindowWillClose = { [weak self] in
+            self?.releaseStaleOwnedSurfaceFocus()
+        }
     }
 
     func setHotkeyRecordingActive(_ active: Bool) {

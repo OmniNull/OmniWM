@@ -9,6 +9,7 @@ final class OwnedWindowRegistry {
     static let shared = OwnedWindowRegistry()
 
     private let surfaceCoordinator: SurfaceCoordinator
+    var onWindowWillClose: (@MainActor () -> Void)?
 
     init(surfaceCoordinator: SurfaceCoordinator = .shared) {
         self.surfaceCoordinator = surfaceCoordinator
@@ -57,6 +58,11 @@ final class OwnedWindowRegistry {
 
     func unregister(_ window: NSWindow) {
         surfaceCoordinator.unregister(window: window)
+    }
+
+    func windowWillClose(_ window: NSWindow) {
+        unregister(window)
+        onWindowWillClose?()
     }
 
     func unregister(surfaceId: String) {

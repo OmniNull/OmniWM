@@ -21,6 +21,11 @@ extension WMController {
         ownedWindowRegistry.hasVisibleWindow
     }
 
+    func releaseStaleOwnedSurfaceFocus() {
+        guard workspaceManager.nativeFocusOwner == .ownedSurface, !hasVisibleOwnedWindow else { return }
+        workspaceManager.clearNativeFocusOwner()
+    }
+
     func isOwnedWindow(windowNumber: Int) -> Bool {
         ownedWindowRegistry.contains(windowNumber: windowNumber)
     }

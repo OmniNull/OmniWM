@@ -116,7 +116,7 @@ extension MouseEventHandler {
         ) else { return }
         let token = focusFollowsMouseToken(for: target)
 
-        guard token != controller.workspaceManager.selectedManagedToken else { return }
+        guard token != controller.workspaceManager.nativeManagedFocusToken else { return }
         controller.focusPolicyEngine.performIfFocusFollowsMouseAllowed {
             state.lastFocusFollowsMouseTime = now
             activateFocusFollowsMouseTarget(target)
