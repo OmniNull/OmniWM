@@ -1,10 +1,17 @@
 // SPDX-License-Identifier: GPL-2.0-only
 // Copyright (C) 2026 BarutSRB — https://github.com/OmniNull/OmniWM
 
+import AppKit
 @testable import OmniWM
 import XCTest
 
 final class StatusItemClickRoutingTests: XCTestCase {
+    func testHiddenMenuBarIconReturnsWhileRecordingOrSecureInputIsShown() {
+        XCTAssertEqual(StatusBarController.labeledImagePosition(showIcon: true, hasStateIcon: false), .imageLeft)
+        XCTAssertEqual(StatusBarController.labeledImagePosition(showIcon: false, hasStateIcon: false), .noImage)
+        XCTAssertEqual(StatusBarController.labeledImagePosition(showIcon: false, hasStateIcon: true), .imageLeft)
+    }
+
     func testRightClickOpensHiddenIconsBar() {
         XCTAssertEqual(StatusBarController.clickRoute(isRightClick: true, optionHeld: false), .hiddenIconsBar)
     }

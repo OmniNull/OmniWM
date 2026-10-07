@@ -305,6 +305,7 @@ Extra readouts beside the menu bar icon.
 | `showWorkspaceName` | boolean | `false` | Shows the active workspace beside the menu bar icon. |
 | `showAppNames` | boolean | `false` | Also shows the focused app's name. |
 | `useWorkspaceId` | boolean | `false` | Shows the workspace number instead of its name. |
+| `showIcon` | boolean | `true` | Shows the OmniWM icon beside the workspace. When off, only the workspace shows, except while diagnostics are recording or Secure Input is on. Has no effect while `showWorkspaceName` is off. |
 
 ## hiddenBar
 

@@ -13,7 +13,7 @@ extension WMController {
 
     func refreshSecureInputPresentation() {
         guard secureInputIndicator.setIndicated(isSecureInputIndicated) else { return }
-        statusBarController?.updateButtonAppearance()
+        refreshStatusBar()
         requestWorkspaceBarRefresh()
     }
 

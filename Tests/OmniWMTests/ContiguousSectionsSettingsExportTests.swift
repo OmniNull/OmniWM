@@ -33,6 +33,22 @@ final class ContiguousSectionsSettingsExportTests: XCTestCase {
         }
     }
 
+    @MainActor
+    func testStatusBarIconStaysShownWhenOmittedAndRoundTripsWhenHidden() throws {
+        let source = String(decoding: try SettingsTOMLCodec.encode(.defaults()), as: UTF8.self)
+        let omitted = try removing(key: "showIcon", from: "statusBar", in: source)
+        let decoded = try SettingsTOMLCodec.decode(Data(omitted.utf8))
+        XCTAssertNotEqual(decoded.statusBar.showIcon, false)
+        let settings = StatusBarSettings()
+        settings.showIcon = false
+        settings.apply(decoded.statusBar)
+        XCTAssertTrue(settings.showIcon)
+
+        var hidden = SettingsExport.defaults()
+        hidden.statusBar.showIcon = false
+        XCTAssertEqual(try SettingsTOMLCodec.decode(SettingsTOMLCodec.encode(hidden)).statusBar.showIcon, false)
+    }
+
     private func removing(key: String, from section: String, in source: String) throws -> String {
         var lines = source.components(separatedBy: "\n")
         let header = try XCTUnwrap(lines.firstIndex(of: "[\(section)]"))

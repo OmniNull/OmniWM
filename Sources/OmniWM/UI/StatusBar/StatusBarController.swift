@@ -88,6 +88,10 @@ final class StatusBarController: NSObject {
         isRightClick || optionHeld ? .hiddenIconsBar : .menu
     }
 
+    nonisolated static func labeledImagePosition(showIcon: Bool, hasStateIcon: Bool) -> NSControl.ImagePosition {
+        showIcon || hasStateIcon ? .imageLeft : .noImage
+    }
+
     @objc private func handleClick(_ button: NSStatusBarButton) {
         routeClick(event: NSApp.currentEvent, anchor: button)
     }
@@ -258,8 +262,11 @@ final class StatusBarController: NSObject {
         let workspaceLabel = settings.statusBar.useWorkspaceId ? summary.workspaceRawName : summary.workspaceLabel
         let focusedAppName = settings.statusBar.showAppNames ? summary.focusedAppName : nil
         button.title = Self.statusButtonTitle(workspaceLabel: workspaceLabel, focusedAppName: focusedAppName)
-        let isTracing = controller?.traceCaptureStatus.profile != nil
-        button.imagePosition = settings.statusBar.showIcon || isTracing ? .imageLeft : .noImage
+        let hasStateIcon = controller?.traceCaptureStatus.profile != nil || controller?.isSecureInputIndicated == true
+        button.imagePosition = Self.labeledImagePosition(
+            showIcon: settings.statusBar.showIcon,
+            hasStateIcon: hasStateIcon
+        )
     }
 
     func cleanup() {
