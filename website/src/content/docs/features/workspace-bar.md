@@ -66,8 +66,6 @@ Notch modes, including **Fill Left of Notch**, are ignored at bottom/left/right 
 
 ### Automatic hiding
 
-**Unreleased** — available when building from `main`.
-
 Enable **Automatically hide and show the workspace bar** globally or per display:
 
 ```toml
