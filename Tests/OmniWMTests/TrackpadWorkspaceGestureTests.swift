@@ -2060,6 +2060,31 @@ final class TrackpadWorkspaceGestureTests: XCTestCase {
         XCTAssertTrue(gesture.contains("processed=false"))
     }
 
+    func testFreshScrollThatArmsColumnScrollReleasesTheEarlierGesturesMomentumLatch() throws {
+        let fixture = try makeFixture(scrollGestureEnabled: true, columnFingers: .two)
+        let handler = fixture.controller.mouseEventHandler
+        let recorder = TrackpadScrollTrace.shared
+        recorder.beginCapture()
+        defer {
+            recorder.endCapture()
+            recorder.releaseStorage()
+        }
+
+        sendFrame(fixture, phase: .began, fingers: 3, x: 0.5, y: 0.2, at: 100)
+        sendFrame(fixture, phase: .changed, fingers: 3, x: 0.5, y: 0.3, at: 100.01)
+        sendFrame(fixture, phase: .ended, fingers: 0, x: 0, y: 0, at: 100.02)
+        XCTAssertTrue(handler.state.suppressTrackpadMomentumScroll)
+
+        sendFrame(fixture, phase: .began, fingers: 2, x: 0.5, y: 0.5, at: 101)
+        XCTAssertEqual(handler.state.gesturePhase, .armed)
+        try assertTracedScroll(fixture, phase: CGScrollPhase.began.rawValue, decision: .activeGesture)
+        sendFrame(fixture, phase: .changed, fingers: 2, x: 0.5, y: 0.6, at: 101.01)
+        XCTAssertEqual(handler.state.gesturePhase, .idle)
+
+        try assertTracedScroll(fixture, phase: CGScrollPhase.changed.rawValue, decision: .trackpadUnclaimed)
+        try assertTracedScroll(fixture, momentumPhase: 2, decision: .trackpadUnclaimed)
+    }
+
     @discardableResult
     private func assertTracedScroll(
         _ fixture: Fixture,
