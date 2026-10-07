@@ -20,11 +20,16 @@ final class StatusBarSettings {
         didSet { onChange?() }
     }
 
+    var showIcon = StatusBarSettings.defaults.showIcon ?? true {
+        didSet { onChange?() }
+    }
+
     func export() -> SettingsExport.StatusBar {
         SettingsExport.StatusBar(
             showWorkspaceName: showWorkspaceName,
             showAppNames: showAppNames,
-            useWorkspaceId: useWorkspaceId
+            useWorkspaceId: useWorkspaceId,
+            showIcon: showIcon
         )
     }
 
@@ -32,5 +37,6 @@ final class StatusBarSettings {
         showWorkspaceName = values.showWorkspaceName
         showAppNames = values.showAppNames
         useWorkspaceId = values.useWorkspaceId
+        showIcon = values.showIcon ?? true
     }
 }

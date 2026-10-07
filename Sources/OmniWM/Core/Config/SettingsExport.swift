@@ -218,6 +218,7 @@ struct SettingsExport: Equatable {
         var showWorkspaceName: Bool
         var showAppNames: Bool
         var useWorkspaceId: Bool
+        var showIcon: Bool? = true
     }
 
     struct HiddenBar: Codable, Equatable {
