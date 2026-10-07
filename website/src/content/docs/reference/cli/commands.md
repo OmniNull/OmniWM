@@ -204,6 +204,7 @@ Workspace IDs are global, so `switch-workspace 3` targets workspace `3` wherever
 | Command | Arguments | Layout | Description |
 |---------|-----------|--------|-------------|
 | `command open-command-palette` | — | shared | Toggle the command palette |
+| `command open-command-palette` | `<windows\|menu\|clipboard\|commands\|applications\|files>` | shared | Open the command palette in a mode; switch to it if open, close it if already there |
 | `command open-menu-anywhere` | — | shared | Open the menu surface |
 | `command toggle-workspace-bar` | — | shared | Toggle workspace bar visibility |
 | `command hidden-bar panel` | — | shared | Toggle the panel containing configured hidden menu-bar items |

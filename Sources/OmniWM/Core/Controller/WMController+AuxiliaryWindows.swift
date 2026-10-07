@@ -114,8 +114,8 @@ extension WMController {
         systemStatsPopupController.dismissIfAnchored(to: monitorId)
     }
 
-    func openCommandPalette() {
-        commandPaletteController.toggle(wmController: self)
+    func openCommandPalette(mode: CommandPaletteMode? = nil) {
+        commandPaletteController.toggle(wmController: self, mode: mode)
     }
 
     func clipboardPaletteItems() -> [ClipboardPaletteItem] {

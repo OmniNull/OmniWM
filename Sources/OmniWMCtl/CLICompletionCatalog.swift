@@ -194,6 +194,8 @@ enum CLICompletionCatalog {
             return ["left", "right", "up", "down"]
         case .layout:
             return ["default", "niri", "dwindle"]
+        case .paletteMode:
+            return IPCCommandPaletteMode.allCases.map(\.rawValue)
         case .resizeAxis:
             return ["horizontal", "vertical"]
         case .resizeOperation:
