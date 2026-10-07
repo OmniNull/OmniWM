@@ -43,6 +43,11 @@ extension MouseEventHandler {
             return
         }
 
+        guard controller.focusFollowsMouseEnabled || state.isResizing else {
+            resetHoveredEdgesIfNeeded()
+            return
+        }
+
         if shouldBlockOwnWindowInput(at: location) {
             resetHoveredEdgesIfNeeded()
             return
