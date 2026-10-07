@@ -43,10 +43,12 @@ Configure position, height, and appearance in Settings:
 - **Notch handling** — `Off`, `Move Below Menu Bar`, or a split layout (`Split — Active Left` / `Split — Active Right`) that flows the bar around the notch with your chosen side for the active workspace.
 - **Reveal on modifier hold** — keep the bar hidden until you hold a chosen modifier.
 - **Hide empty workspaces** — omit chips for workspaces with no windows.
-- **Reserve layout space** — reserve room for the bar so tiled windows never sit underneath it.
+- **Reserve layout space** — reserve space at the bar's selected edge for tiled and layout-fullscreen windows.
 - **Hide in Native Fullscreen** — hide the bar on a monitor while that monitor shows a macOS native fullscreen window, and bring it back on exit; reserved tiled layout space is left untouched so windows do not shuffle around the fullscreen session.
 - **Custom accent and text colors**.
 - **Per-monitor overrides** — change an individual display's bar independently.
+
+**Unreleased (when building from `main`):** overlapping placement reserves only the space below the menu bar reached by the bar's actual bottom edge, after applying Y offset and constraining it to the display. A bar that fits entirely within the menu-bar area adds no reservation. Below-menu-bar, bottom, left, and right placement continue reserving the configured bar thickness regardless of offsets.
 
 ### Bottom and side placement
 

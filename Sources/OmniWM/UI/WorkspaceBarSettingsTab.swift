@@ -122,7 +122,7 @@ private struct GlobalBarSettingsSection: View {
                         controller.updateWorkspaceBarSettings()
                     }
                     .help(
-                        "Reserve tiled layout space at the selected edge using the configured bar thickness."
+                        "Reserve tiled layout space at the selected edge. Overlapping bars reserve only the portion below the menu bar."
                     )
 
                 Picker("Reveal on Modifier Hold", selection: Bindable(settings.workspaceBar).revealModifier) {

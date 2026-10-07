@@ -57,6 +57,7 @@ final class WorkspaceBarRevealSettingsTests: XCTestCase {
         settings.workspaceBar.enabled = true
         settings.workspaceBar.reserveLayoutSpace = true
         settings.workspaceBar.height = 24
+        settings.workspaceBar.position = .belowMenuBar
         settings.workspaceBar.revealModifier = .option
         let controller = WMController(settings: settings)
         let monitor = Monitor(
@@ -107,6 +108,7 @@ final class WorkspaceBarRevealSettingsTests: XCTestCase {
         settings.workspaceBar.enabled = true
         settings.workspaceBar.reserveLayoutSpace = true
         settings.workspaceBar.height = 24
+        settings.workspaceBar.position = .belowMenuBar
         settings.workspaceBar.revealModifier = .option
         let controller = WMController(settings: settings)
         let monitor = Monitor(

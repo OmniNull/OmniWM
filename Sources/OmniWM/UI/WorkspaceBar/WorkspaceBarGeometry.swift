@@ -53,8 +53,16 @@ struct WorkspaceBarGeometry: Equatable {
 
         var insets = Struts.zero
         switch effectivePosition {
-        case .overlappingMenuBar,
-             .belowMenuBar: insets.top = reservedInset
+        case .overlappingMenuBar:
+            if reservedInset > 0 {
+                let y = constrainedOriginY(
+                    monitor.visibleFrame.maxY + CGFloat(resolved.yOffset),
+                    height: barHeight,
+                    screenFrame: monitor.frame
+                )
+                insets.top = max(0, monitor.visibleFrame.maxY - y)
+            }
+        case .belowMenuBar: insets.top = reservedInset
         case .bottom: insets.bottom = reservedInset
         case .left: insets.left = reservedInset
         case .right: insets.right = reservedInset
@@ -65,6 +73,10 @@ struct WorkspaceBarGeometry: Equatable {
             barHeight: barHeight,
             reservedInsets: insets
         )
+    }
+
+    static func constrainedOriginY(_ originY: CGFloat, height: CGFloat, screenFrame: CGRect) -> CGFloat {
+        max(screenFrame.minY, min(originY, screenFrame.maxY - height))
     }
 
     func frame(
