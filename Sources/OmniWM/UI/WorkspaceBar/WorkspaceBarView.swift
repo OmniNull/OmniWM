@@ -179,8 +179,6 @@ private struct WorkspaceBarContentView: View {
                 SystemStatsButtonView(
                     itemHeight: itemHeight,
                     showItemBackgrounds: snapshot.showItemBackgrounds,
-                    showAccentHighlights: snapshot.showAccentHighlights,
-                    accentColor: accentColor,
                     textColor: textColor,
                     onToggle: onToggleSystemStats,
                     onAnchorChange: onSystemStatsAnchorChange

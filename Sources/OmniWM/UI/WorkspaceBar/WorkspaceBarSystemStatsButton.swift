@@ -8,8 +8,6 @@ import SwiftUI
 struct SystemStatsButtonView: View {
     let itemHeight: CGFloat
     let showItemBackgrounds: Bool
-    let showAccentHighlights: Bool
-    let accentColor: Color?
     let textColor: Color?
     let onToggle: () -> Void
     let onAnchorChange: (NSView?) -> Void
@@ -20,33 +18,23 @@ struct SystemStatsButtonView: View {
         max(18, itemHeight)
     }
 
-    private var iconColor: Color {
-        if isHovered, showAccentHighlights {
-            return accentColor ?? .accentColor
-        }
-        return textColor ?? .secondary
+    private var symbolSize: CGFloat {
+        max(11, (itemHeight - 6) * 0.8)
     }
 
     private var buttonShape: RoundedRectangle {
-        RoundedRectangle(cornerRadius: 6, style: .continuous)
+        RoundedRectangle(cornerRadius: 6)
     }
 
     var body: some View {
         Button(action: onToggle) {
             Image(systemName: "gauge.with.needle")
-                .font(.system(size: max(11, itemHeight * 0.58), weight: .semibold))
-                .foregroundStyle(iconColor)
+                .font(.system(size: symbolSize))
+                .foregroundStyle(textColor ?? .primary)
                 .frame(width: buttonSize, height: buttonSize)
                 .background {
-                    if showItemBackgrounds {
-                        buttonShape
-                            .fill(isHovered ? .regularMaterial : .thinMaterial)
-                            .overlay {
-                                buttonShape.strokeBorder(
-                                    Color.secondary.opacity(isHovered ? 0.3 : 0.18),
-                                    lineWidth: 0.75
-                                )
-                            }
+                    if showItemBackgrounds, isHovered {
+                        buttonShape.fill(.regularMaterial)
                     }
                 }
                 .contentShape(buttonShape)
