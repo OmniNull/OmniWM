@@ -22,4 +22,5 @@ export const employers: Employer[] = [
   { name: 'SSW Consulting', url: 'https://github.com/SSWConsulting', logo: '/credits/employers/ssw-consulting.png', contributor: 'Matt Wicks', handle: 'wicksipedia' },
   { name: 'vhf', url: 'https://www.vhf.com', logo: '/credits/employers/vhf.png', contributor: 'Lukas Gerlinski', handle: 'lgerlinski' },
   { name: 'Viber', url: 'https://github.com/viber', logo: '/credits/employers/viber.png', contributor: 'Yuri Chukhlib', handle: 'YuriNachos' },
+  { name: 'Walt', url: 'https://walt.io', logo: '/credits/employers/walt.png', contributor: 'Anton Plotnikov', handle: 'pltanton' },
 ];

@@ -282,6 +282,23 @@ OmniWM is a free, open-source, Developer ID-signed and Apple-notarized tiling wi
       <br>
       <sub>@YuriNachos</sub>
     </td>
+    <td align="center" valign="top">
+      <a href="https://walt.io">
+        <img src="https://walt.io/apple-touch-icon.png" width="72" alt="Walt">
+      </a>
+      <br>
+      <a href="https://walt.io"><strong>Walt</strong></a>
+      <br>
+      <sub>━━━━━━━━</sub>
+      <br>
+      <a href="https://github.com/pltanton" title="Anton Plotnikov">
+        <img src="https://github.com/pltanton.png?size=96" width="72" alt="Anton Plotnikov">
+      </a>
+      <br>
+      <a href="https://github.com/pltanton"><strong>Anton Plotnikov</strong></a>
+      <br>
+      <sub>@pltanton</sub>
+    </td>
   </tr>
 </table>
 
@@ -555,6 +572,12 @@ OmniWM is a free, open-source, Developer ID-signed and Apple-notarized tiling wi
 <table align="center">
   <tr>
     <td nowrap>
+      <a href="https://github.com/9j7axvsLuF" title="9j7axvsLuF">
+        <img src="https://github.com/9j7axvsLuF.png?size=96" width="72" alt="9j7axvsLuF">
+      </a>
+      <a href="https://github.com/monkeyjunglejuice" title="Dan Dee">
+        <img src="https://github.com/monkeyjunglejuice.png?size=96" width="72" alt="Dan Dee">
+      </a>
       <a href="https://github.com/datarip" title="Datarip">
         <img src="https://github.com/datarip.png?size=96" width="72" alt="Datarip">
       </a>
@@ -566,6 +589,9 @@ OmniWM is a free, open-source, Developer ID-signed and Apple-notarized tiling wi
       </a>
       <a href="https://github.com/macsmister" title="macsmister">
         <img src="https://github.com/macsmister.png?size=96" width="72" alt="macsmister">
+      </a>
+      <a href="https://github.com/kashyapmanu" title="Manukashyap.U.V">
+        <img src="https://github.com/kashyapmanu.png?size=96" width="72" alt="Manukashyap.U.V">
       </a>
       <a href="https://github.com/maxandersen" title="Max Rydahl Andersen">
         <img src="https://github.com/maxandersen.png?size=96" width="72" alt="Max Rydahl Andersen">
