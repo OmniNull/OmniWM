@@ -210,6 +210,10 @@ final class CommandPaletteFocusTests: XCTestCase {
     }
 
     func testPalettePanelIsNonactivatingAndSearchRemainsFocused() async throws {
+        let session = CGSessionCopyCurrentDictionary() as? [String: Any]
+        guard session?["CGSSessionScreenIsLocked"] as? Bool != true else {
+            throw XCTSkip("A locked console cannot grant key-window status")
+        }
         _ = NSApplication.shared
         let originalPolicy = NSApp.activationPolicy()
         NSApp.setActivationPolicy(.accessory)

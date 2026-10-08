@@ -347,7 +347,9 @@ private struct GlobalBarSettingsSection: View {
             }
         }
     }
+}
 
+extension GlobalBarSettingsSection {
     private var customAccentColorBinding: Binding<Bool> {
         Binding(
             get: { settings.workspaceBar.accentColor != nil },

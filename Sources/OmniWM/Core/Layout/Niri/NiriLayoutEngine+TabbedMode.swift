@@ -35,19 +35,12 @@ extension NiriLayoutEngine {
 
     @discardableResult
     func toggleColumnTabbed(
+        _ column: NiriContainer,
         in workspaceId: WorkspaceDescriptor.ID,
-        state: ViewportState,
         motion: MotionSnapshot,
         orientation: Monitor.Orientation
     ) -> Bool {
         assertSanctionedMutation()
-        guard let selectedId = state.selectedNodeId,
-              let selectedNode = findNode(by: selectedId, in: workspaceId),
-              let column = column(of: selectedNode)
-        else {
-            return false
-        }
-
         let newMode: ColumnDisplay = column.displayMode == .normal ? .tabbed : .normal
         return setColumnDisplay(
             newMode,

@@ -12,6 +12,57 @@ enum CLIArgumentParser {
         return direction
     }
 
+    static func parseCycleDirection(_ rawValue: String) throws -> IPCCycleDirection {
+        guard let cycle = IPCCycleDirection(rawValue: rawValue) else {
+            throw CLIParseError.usage(CLIParser.usageText)
+        }
+        return cycle
+    }
+
+    static func parseWindowRequest(
+        _ action: IPCWindowActionName,
+        windowId: String,
+        argument: String?
+    ) throws -> IPCWindowRequest {
+        guard let argument else { return IPCWindowRequest(name: action, windowId: windowId) }
+        switch action {
+        case .moveToWorkspace:
+            return IPCWindowRequest(
+                name: action,
+                windowId: windowId,
+                workspaceTarget: WorkspaceTarget(resolvingInput: argument)
+            )
+        case .moveColumnToIndex:
+            return try IPCWindowRequest(name: action, windowId: windowId, columnIndex: parsePositiveInteger(argument))
+        case .moveColumn:
+            return try IPCWindowRequest(name: action, windowId: windowId, direction: parseDirection(argument))
+        case .setContainerPrimarySpan,
+             .setWindowPrimarySpan,
+             .setWindowSecondarySpan:
+            return try IPCWindowRequest(name: action, windowId: windowId, change: parseSizeChange(argument))
+        case .cycleWindowPrimarySpan,
+             .cycleWindowSecondarySpan:
+            return try IPCWindowRequest(name: action, windowId: windowId, cycle: parseCycleDirection(argument))
+        case .assignToScratchpad:
+            return try IPCWindowRequest(
+                name: action,
+                windowId: windowId,
+                scratchpadIndex: parseScratchpadIndex(argument)
+            )
+        case .focus,
+             .navigate,
+             .summonRight,
+             .close,
+             .moveColumnToFirst,
+             .moveColumnToLast,
+             .toggleContainerFullPrimarySpan,
+             .resetWindowSecondarySpan,
+             .toggleColumnTabbed,
+             .toggleFloating:
+            throw CLIParseError.usage(CLIParser.usageText)
+        }
+    }
+
     static func parseResizeAxis(_ rawValue: String) throws -> IPCResizeAxis {
         guard let axis = IPCResizeAxis(rawValue: rawValue) else {
             throw CLIParseError.usage(CLIParser.usageText)

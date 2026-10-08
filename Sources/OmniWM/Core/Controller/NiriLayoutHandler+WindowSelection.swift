@@ -98,7 +98,7 @@ extension NiriLayoutHandler {
         snapshot: NiriWorkspaceSnapshot
     ) -> ArrivalContext {
         let wasEmpty = existingHandleIds.subtracting(snapshot.excludedTokens).isEmpty
-        let newTokens = insertion.newTokens
+        let newTokens = insertion.newTokens.filter { !snapshot.quietArrivalTokens.contains($0) }
         let nativeArrival = nativeArrivalToken(in: newTokens)
 
         var arrival = ArrivalContext(

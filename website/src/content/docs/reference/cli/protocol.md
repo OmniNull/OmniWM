@@ -149,7 +149,18 @@ Workspace requests use this flat wire shape. For `move-to-monitor`, `force` is o
 }
 ```
 
-`workspaceTarget` is required by `move-to-workspace` and rejected by every other window action.
+Each window action accepts at most one argument field, and requires exactly the one it uses; every other argument field is rejected:
+
+| Field | Type | Required by |
+|-------|------|-------------|
+| `workspaceTarget` | workspace target object | `move-to-workspace` |
+| `columnIndex` | integer, one-based (>= 1) | `move-column-to-index` |
+| `direction` | `left` \| `right` \| `up` \| `down` | `move-column` |
+| `change` | size-change object | `set-container-primary-span`, `set-window-primary-span`, `set-window-secondary-span` |
+| `cycle` | `forward` \| `backward` | `cycle-window-primary-span`, `cycle-window-secondary-span` |
+| `scratchpadIndex` | integer, 1-10 | `assign-to-scratchpad` |
+
+All other window actions take no argument field.
 
 **Window marks:**
 

@@ -97,6 +97,7 @@ struct NiriWorkspaceSnapshot {
     let niriWorkingFrame: CGRect
     let displayRefreshRate: Double
     let isActiveWorkspace: Bool
+    let quietArrivalTokens: Set<WindowToken>
 }
 
 struct DwindleWorkspaceSnapshot {

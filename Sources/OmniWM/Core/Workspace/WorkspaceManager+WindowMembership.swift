@@ -43,6 +43,7 @@ extension WorkspaceManager {
             )
         )
         _ = removeNativeFullscreenRecord(containing: entry.token)
+        quietArrivalTokens.remove(entry.token)
         if removesNativeFullscreenFocusOwner {
             _ = clearNativeFocusOwner()
         }
@@ -59,6 +60,7 @@ extension WorkspaceManager {
     func setWorkspace(for token: WindowToken, to workspace: WorkspaceDescriptor.ID) {
         let previousWorkspace = windowQueries.workspace(for: token)
         guard previousWorkspace != workspace else { return }
+        quietArrivalTokens.remove(token)
         if let originalToken = nativeFullscreenOriginalToken(forCurrentToken: token),
            var record = nativeFullscreenRecordsByOriginalToken[originalToken],
            record.currentToken == token,

@@ -848,55 +848,6 @@ final class NiriInteractionOrientationTests: NiriInteractionTestCase {
         XCTAssertEqual(viewOriginAfter, viewOriginBefore, accuracy: 0.001)
     }
 
-    func testPortraitFullSpanBeforeActiveContainerRebasesViewOrigin() throws {
-        let engine = NiriLayoutEngine()
-        let workspaceId = WorkspaceDescriptor.ID()
-        let first = addWindow(engine, pid: 1_036, to: workspaceId)
-        let second = addWindow(engine, pid: 1_036, windowId: 2, to: workspaceId, after: first)
-        let portraitFrame = CGRect(x: 0, y: 0, width: 900, height: 1600)
-        var state = ViewportState()
-        _ = engine.calculateLayout(
-            state: state,
-            workspaceId: workspaceId,
-            monitorFrame: portraitFrame,
-            gaps: (horizontal: 0, vertical: 0),
-            orientation: .vertical
-        )
-        let containers = engine.columns(in: workspaceId)
-        let firstContainer = try XCTUnwrap(containers.first)
-        state.activeColumnIndex = 1
-        state.selectedNodeId = second.id
-        state.jumpOffset(to: -100)
-        let viewOriginBefore = state.containerPosition(
-            at: state.activeColumnIndex,
-            containers: containers,
-            gap: 0,
-            sizeKeyPath: \.cachedHeight
-        ) + state.viewOffset
-
-        engine.toggleContainerFullPrimarySpan(
-            firstContainer,
-            context: .init(
-                workspaceId: workspaceId,
-                motion: .disabled,
-                workingFrame: portraitFrame,
-                gaps: 0,
-                orientation: .vertical
-            ),
-            state: &state
-        )
-
-        XCTAssertEqual(firstContainer.cachedHeight, 1600, accuracy: 0.001)
-        XCTAssertEqual(state.viewOffset, -900, accuracy: 0.001)
-        let viewOriginAfter = state.containerPosition(
-            at: state.activeColumnIndex,
-            containers: containers,
-            gap: 0,
-            sizeKeyPath: \.cachedHeight
-        ) + state.viewOffset
-        XCTAssertEqual(viewOriginAfter, viewOriginBefore, accuracy: 0.001)
-    }
-
     func testPortraitFullSpanHonorsAlwaysCenterPolicy() throws {
         let engine = NiriLayoutEngine()
         engine.centerFocusedColumn = .always

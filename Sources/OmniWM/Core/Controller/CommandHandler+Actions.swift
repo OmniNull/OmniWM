@@ -245,30 +245,6 @@ extension CommandHandler {
     }
 
     func toggleColumnTabbedInNiri() {
-        guard let controller else { return }
-        controller.niriLayoutHandler.withNiriWorkspaceContext { engine, wsId, motion, state, _, _, _, orientation in
-            if engine.toggleColumnTabbed(
-                in: wsId,
-                state: state,
-                motion: motion,
-                orientation: orientation
-            ) {
-                controller.workspaceManager.recordReconcileEvent(
-                    .layoutOperationPerformed(workspaceId: wsId, operation: .displayModeChanged, source: .command)
-                )
-                controller.layoutRefreshController.requestLayoutCommandRelayout(
-                    affectedWorkspaceIds: [wsId]
-                )
-                if engine.hasAnyWindowAnimationsRunning(in: wsId) {
-                    controller.layoutRefreshController.startScrollAnimation(for: wsId)
-                }
-                controller.niriLayoutHandler.showColumnModeToast(
-                    engine: engine,
-                    workspaceId: wsId,
-                    state: state,
-                    motion: motion
-                )
-            }
-        }
+        controller?.niriLayoutHandler.toggleColumnTabbed(target: .focused)
     }
 }
