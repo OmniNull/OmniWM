@@ -315,7 +315,9 @@ final class CommandPaletteController: NSObject, NSWindowDelegate {
             }
         }
     }
+}
 
+extension CommandPaletteController {
     private func loadSelectedClipboardPreview() {
         clipboardPreviewGeneration &+= 1
         let generation = clipboardPreviewGeneration
