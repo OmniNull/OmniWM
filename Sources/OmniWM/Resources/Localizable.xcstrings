@@ -22533,7 +22533,130 @@
         }
       }
     },
-    "Automatically hide and show the workspace bar" : {},
+    "Automatically hide and show the workspace bar" : {
+      "localizations" : {
+        "ar" : {
+          "stringUnit" : {
+            "state" : "translated",
+            "value" : "إخفاء شريط مساحات العمل وإظهاره تلقائيًا"
+          }
+        },
+        "da" : {
+          "stringUnit" : {
+            "state" : "translated",
+            "value" : "Skjul og vis arbejdsområdelinjen automatisk"
+          }
+        },
+        "de" : {
+          "stringUnit" : {
+            "state" : "translated",
+            "value" : "Workspace-Leiste automatisch aus- und einblenden"
+          }
+        },
+        "el" : {
+          "stringUnit" : {
+            "state" : "translated",
+            "value" : "Αυτόματη απόκρυψη και εμφάνιση της γραμμής χώρου εργασίας"
+          }
+        },
+        "es" : {
+          "stringUnit" : {
+            "state" : "translated",
+            "value" : "Ocultar y mostrar automáticamente la barra de espacios de trabajo"
+          }
+        },
+        "fi" : {
+          "stringUnit" : {
+            "state" : "translated",
+            "value" : "Piilota ja näytä työtilapalkki automaattisesti"
+          }
+        },
+        "fr" : {
+          "stringUnit" : {
+            "state" : "translated",
+            "value" : "Masquer et afficher automatiquement la barre des espaces de travail"
+          }
+        },
+        "he" : {
+          "stringUnit" : {
+            "state" : "translated",
+            "value" : "הסתרה והצגה אוטומטית של סרגל מרחבי העבודה"
+          }
+        },
+        "hi" : {
+          "stringUnit" : {
+            "state" : "translated",
+            "value" : "वर्कस्पेस बार को अपने आप छिपाएं और दिखाएं"
+          }
+        },
+        "it" : {
+          "stringUnit" : {
+            "state" : "translated",
+            "value" : "Nascondi e mostra automaticamente la barra degli spazi di lavoro"
+          }
+        },
+        "ja" : {
+          "stringUnit" : {
+            "state" : "translated",
+            "value" : "ワークスペースバーを自動的に表示/非表示"
+          }
+        },
+        "ko" : {
+          "stringUnit" : {
+            "state" : "translated",
+            "value" : "자동으로 워크스페이스 바 가리기와 보기"
+          }
+        },
+        "nb" : {
+          "stringUnit" : {
+            "state" : "translated",
+            "value" : "Skjul og vis arbeidsområdelinjen automatisk"
+          }
+        },
+        "nl" : {
+          "stringUnit" : {
+            "state" : "translated",
+            "value" : "Werkruimtebalk automatisch verbergen en tonen"
+          }
+        },
+        "pl" : {
+          "stringUnit" : {
+            "state" : "translated",
+            "value" : "Automatycznie ukrywaj i pokazuj pasek przestrzeni roboczych"
+          }
+        },
+        "ru" : {
+          "stringUnit" : {
+            "state" : "translated",
+            "value" : "Автоматически скрывать и показывать панель рабочих пространств"
+          }
+        },
+        "sr-Latn" : {
+          "stringUnit" : {
+            "state" : "translated",
+            "value" : "Automatski sakrij i prikaži traku radnih prostora"
+          }
+        },
+        "sv" : {
+          "stringUnit" : {
+            "state" : "translated",
+            "value" : "Göm och visa arbetsytans bar automatiskt"
+          }
+        },
+        "uk" : {
+          "stringUnit" : {
+            "state" : "translated",
+            "value" : "Автоматично ховати й показувати смугу робочих просторів"
+          }
+        },
+        "zh-Hans" : {
+          "stringUnit" : {
+            "state" : "translated",
+            "value" : "自动隐藏和显示工作区栏"
+          }
+        }
+      }
+    },
     "Back" : {
       "localizations" : {
         "ja" : {
@@ -117748,7 +117871,130 @@
         }
       }
     },
-    "Reveal the workspace bar while holding these modifiers. Can be combined with automatic hiding." : {},
+    "Reveal the workspace bar while holding these modifiers. Can be combined with automatic hiding." : {
+      "localizations" : {
+        "ar" : {
+          "stringUnit" : {
+            "state" : "translated",
+            "value" : "أظهر شريط مساحات العمل أثناء الضغط مع الاستمرار على هذه المعدِّلات. يمكن استخدامه مع الإخفاء التلقائي."
+          }
+        },
+        "da" : {
+          "stringUnit" : {
+            "state" : "translated",
+            "value" : "Vis arbejdsområdelinjen, mens disse modifikatorer holdes nede. Kan kombineres med automatisk skjulning."
+          }
+        },
+        "de" : {
+          "stringUnit" : {
+            "state" : "translated",
+            "value" : "Blendet die Workspace-Leiste ein, solange diese Modifikatoren gedrückt gehalten werden. Kann mit dem automatischen Ausblenden kombiniert werden."
+          }
+        },
+        "el" : {
+          "stringUnit" : {
+            "state" : "translated",
+            "value" : "Εμφάνιση της γραμμής χώρου εργασίας όσο κρατάτε πατημένους αυτούς τους τροποποιητές. Μπορεί να συνδυαστεί με την αυτόματη απόκρυψη."
+          }
+        },
+        "es" : {
+          "stringUnit" : {
+            "state" : "translated",
+            "value" : "Muestra la barra de espacios de trabajo mientras se mantienen pulsados estos modificadores. Se puede combinar con la ocultación automática."
+          }
+        },
+        "fi" : {
+          "stringUnit" : {
+            "state" : "translated",
+            "value" : "Näyttää työtilapalkin, kun näitä muokkaimia pidetään painettuina. Voidaan yhdistää automaattiseen piilotukseen."
+          }
+        },
+        "fr" : {
+          "stringUnit" : {
+            "state" : "translated",
+            "value" : "Affiche la barre des espaces de travail pendant le maintien de ces touches de modification. Peut être combiné avec le masquage automatique."
+          }
+        },
+        "he" : {
+          "stringUnit" : {
+            "state" : "translated",
+            "value" : "הצג את סרגל מרחבי העבודה בזמן החזקת מקשי השינוי האלה. ניתן לשלב עם הסתרה אוטומטית."
+          }
+        },
+        "hi" : {
+          "stringUnit" : {
+            "state" : "translated",
+            "value" : "इन संशोधकों को दबाए रखने पर वर्कस्पेस बार दिखाएं। इसे अपने आप छिपाने के साथ इस्तेमाल किया जा सकता है।"
+          }
+        },
+        "it" : {
+          "stringUnit" : {
+            "state" : "translated",
+            "value" : "Mostra la barra degli spazi di lavoro mentre tieni premuti questi modificatori. Può essere combinato con l'occultamento automatico."
+          }
+        },
+        "ja" : {
+          "stringUnit" : {
+            "state" : "translated",
+            "value" : "これらの修飾キーを押している間、ワークスペースバーを表示します。自動的な表示/非表示と組み合わせて使用できます。"
+          }
+        },
+        "ko" : {
+          "stringUnit" : {
+            "state" : "translated",
+            "value" : "이 보조 키를 누르고 있는 동안 워크스페이스 바를 표시합니다. 자동 가리기와 함께 사용할 수 있습니다."
+          }
+        },
+        "nb" : {
+          "stringUnit" : {
+            "state" : "translated",
+            "value" : "Vis arbeidsområdelinjen mens disse modifikatorene holdes inne. Kan kombineres med automatisk skjuling."
+          }
+        },
+        "nl" : {
+          "stringUnit" : {
+            "state" : "translated",
+            "value" : "Toont de werkruimtebalk zolang deze modifiers worden vastgehouden. Kan worden gecombineerd met automatisch verbergen."
+          }
+        },
+        "pl" : {
+          "stringUnit" : {
+            "state" : "translated",
+            "value" : "Pokazuje pasek przestrzeni roboczych podczas przytrzymywania tych klawiszy modyfikujących. Można łączyć z automatycznym ukrywaniem."
+          }
+        },
+        "ru" : {
+          "stringUnit" : {
+            "state" : "translated",
+            "value" : "Показывает панель рабочих пространств, пока удерживаются эти модификаторы. Можно сочетать с автоматическим скрытием."
+          }
+        },
+        "sr-Latn" : {
+          "stringUnit" : {
+            "state" : "translated",
+            "value" : "Prikazuje traku radnih prostora dok držite ove modifikatore. Može se kombinovati sa automatskim sakrivanjem."
+          }
+        },
+        "sv" : {
+          "stringUnit" : {
+            "state" : "translated",
+            "value" : "Visa arbetsytans bar medan de här modifierarna hålls nere. Kan kombineras med automatisk gömning."
+          }
+        },
+        "uk" : {
+          "stringUnit" : {
+            "state" : "translated",
+            "value" : "Показує смугу робочих просторів, поки утримуються ці клавіші-модифікатори. Можна поєднувати з автоматичним приховуванням."
+          }
+        },
+        "zh-Hans" : {
+          "stringUnit" : {
+            "state" : "translated",
+            "value" : "按住这些修饰键时显示工作区栏。可与自动隐藏同时使用。"
+          }
+        }
+      }
+    },
     "Reveals this item and opens its menu" : {
       "localizations" : {
         "ja" : {
@@ -128329,7 +128575,130 @@
         }
       }
     },
-    "Show at the bar edge; hide when the pointer moves inward past the bar and interactions end. Never reserves layout space." : {},
+    "Show at the bar edge; hide when the pointer moves inward past the bar and interactions end. Never reserves layout space." : {
+      "localizations" : {
+        "ar" : {
+          "stringUnit" : {
+            "state" : "translated",
+            "value" : "يظهر عند حافة الشريط، ويختفي عندما يتحرك المؤشر إلى الداخل متجاوزًا الشريط وتنتهي التفاعلات. لا يحجز مساحة في التخطيط أبدًا."
+          }
+        },
+        "da" : {
+          "stringUnit" : {
+            "state" : "translated",
+            "value" : "Vises ved linjens kant og skjules, når markøren bevæger sig indad forbi linjen, og interaktionerne er afsluttet. Reserverer aldrig plads i layoutet."
+          }
+        },
+        "de" : {
+          "stringUnit" : {
+            "state" : "translated",
+            "value" : "Wird am Rand der Leiste eingeblendet und ausgeblendet, sobald der Zeiger über die Leiste hinaus nach innen bewegt wird und keine Interaktion mehr läuft. Reserviert nie Platz im Layout."
+          }
+        },
+        "el" : {
+          "stringUnit" : {
+            "state" : "translated",
+            "value" : "Εμφανίζεται στο άκρο της γραμμής και κρύβεται όταν ο δείκτης κινηθεί προς τα μέσα πέρα από τη γραμμή και ολοκληρωθούν οι αλληλεπιδράσεις. Δεν δεσμεύει ποτέ χώρο στη διάταξη."
+          }
+        },
+        "es" : {
+          "stringUnit" : {
+            "state" : "translated",
+            "value" : "Aparece en el borde de la barra y se oculta cuando el puntero se desplaza hacia dentro más allá de la barra y terminan las interacciones. Nunca reserva espacio en la disposición."
+          }
+        },
+        "fi" : {
+          "stringUnit" : {
+            "state" : "translated",
+            "value" : "Tulee näkyviin palkin reunalla ja piiloutuu, kun osoitin siirtyy palkin ohi sisäänpäin ja vuorovaikutus päättyy. Ei koskaan varaa tilaa asettelusta."
+          }
+        },
+        "fr" : {
+          "stringUnit" : {
+            "state" : "translated",
+            "value" : "S’affiche au bord de la barre et se masque lorsque le pointeur se déplace vers l’intérieur au-delà de la barre et que les interactions sont terminées. Ne réserve jamais d’espace dans la disposition."
+          }
+        },
+        "he" : {
+          "stringUnit" : {
+            "state" : "translated",
+            "value" : "מוצג בקצה הסרגל ומוסתר כשהסמן זז פנימה מעבר לסרגל והאינטראקציות מסתיימות. אף פעם לא שומר מקום בפריסה."
+          }
+        },
+        "hi" : {
+          "stringUnit" : {
+            "state" : "translated",
+            "value" : "बार के किनारे पर दिखता है; जब पॉइंटर बार से आगे अंदर की ओर जाता है और इंटरैक्शन खत्म हो जाते हैं, तब छिप जाता है। लेआउट में कभी जगह आरक्षित नहीं करता।"
+          }
+        },
+        "it" : {
+          "stringUnit" : {
+            "state" : "translated",
+            "value" : "Compare al bordo della barra e si nasconde quando il puntatore si sposta verso l'interno oltre la barra e le interazioni terminano. Non riserva mai spazio nel layout."
+          }
+        },
+        "ja" : {
+          "stringUnit" : {
+            "state" : "translated",
+            "value" : "バーの端で表示し、ポインタがバーを越えて内側に移動して操作が終わると非表示にします。レイアウトのスペースは予約しません。"
+          }
+        },
+        "ko" : {
+          "stringUnit" : {
+            "state" : "translated",
+            "value" : "바의 가장자리에서 표시되고, 포인터가 바를 지나 안쪽으로 이동하고 상호작용이 끝나면 가려집니다. 레이아웃 공간을 예약하지 않습니다."
+          }
+        },
+        "nb" : {
+          "stringUnit" : {
+            "state" : "translated",
+            "value" : "Vises ved linjens kant og skjules når pekeren flyttes innover forbi linjen og samhandlingen er ferdig. Reserverer aldri plass i oppsettet."
+          }
+        },
+        "nl" : {
+          "stringUnit" : {
+            "state" : "translated",
+            "value" : "Verschijnt aan de rand van de balk en verdwijnt wanneer de aanwijzer voorbij de balk naar binnen beweegt en interacties zijn afgelopen. Reserveert nooit ruimte in de indeling."
+          }
+        },
+        "pl" : {
+          "stringUnit" : {
+            "state" : "translated",
+            "value" : "Pojawia się przy krawędzi paska i znika, gdy wskaźnik przesunie się do wewnątrz poza pasek, a interakcje się zakończą. Nigdy nie rezerwuje miejsca w układzie."
+          }
+        },
+        "ru" : {
+          "stringUnit" : {
+            "state" : "translated",
+            "value" : "Появляется у края панели и скрывается, когда указатель уходит внутрь за пределы панели и взаимодействия завершены. Никогда не резервирует место в компоновке окон."
+          }
+        },
+        "sr-Latn" : {
+          "stringUnit" : {
+            "state" : "translated",
+            "value" : "Pojavljuje se na ivici trake i sakriva se kada se pokazivač pomeri unutra, preko trake, i kada se interakcije završe. Nikada ne rezerviše prostor u rasporedu."
+          }
+        },
+        "sv" : {
+          "stringUnit" : {
+            "state" : "translated",
+            "value" : "Visas vid barens kant och göms när pekaren rör sig inåt förbi baren och interaktionerna är klara. Reserverar aldrig utrymme i layouten."
+          }
+        },
+        "uk" : {
+          "stringUnit" : {
+            "state" : "translated",
+            "value" : "З’являється біля краю смуги й ховається, коли вказівник переміщується всередину за межі смуги, а взаємодії завершено. Ніколи не резервує місце в компонуванні."
+          }
+        },
+        "zh-Hans" : {
+          "stringUnit" : {
+            "state" : "translated",
+            "value" : "在栏的边缘显示；当指针向内移过工作区栏且交互结束时隐藏。从不预留布局空间。"
+          }
+        }
+      }
+    },
     "Show guide" : {
       "localizations" : {
         "ja" : {
@@ -128946,131 +129315,6 @@
           "stringUnit" : {
             "state" : "translated",
             "value" : "포커스된 워크스페이스의 윤곽선과 포커스된 아이콘의 강조 발광 효과를 표시합니다."
-          }
-        }
-      }
-    },
-    "Show the workspace bar as an overlay only while the selected modifiers are held" : {
-      "extractionState" : "stale",
-      "localizations" : {
-        "ja" : {
-          "stringUnit" : {
-            "state" : "translated",
-            "value" : "選択された修飾キーを押している間だけ、ワークスペースバーをオーバーレイとして表示します"
-          }
-        },
-        "de" : {
-          "stringUnit" : {
-            "state" : "translated",
-            "value" : "Zeigen Sie die Workspace-Leiste nur als Overlay an, während die ausgewählten Modifikatoren gedrückt gehalten werden"
-          }
-        },
-        "nb" : {
-          "stringUnit" : {
-            "state" : "translated",
-            "value" : "Vis arbeidsområdelinjen som et overlegg bare mens de valgte modifikatorene holdes inne"
-          }
-        },
-        "sv" : {
-          "stringUnit" : {
-            "state" : "translated",
-            "value" : "Visa arbetsytans bar som ett överlag endast medan de valda modifierarna hålls nere"
-          }
-        },
-        "es" : {
-          "stringUnit" : {
-            "state" : "translated",
-            "value" : "Muestra la barra de espacios de trabajo como una superposición solo mientras se mantengan pulsados los modificadores seleccionados"
-          }
-        },
-        "zh-Hans" : {
-          "stringUnit" : {
-            "state" : "translated",
-            "value" : "仅在按住所选修饰键时，将工作区栏显示为叠加层"
-          }
-        },
-        "hi" : {
-          "stringUnit" : {
-            "state" : "translated",
-            "value" : "केवल तभी वर्कस्पेस बार को ओवरले के रूप में दिखाएं जब चयनित संशोधक दबाए रखे गए हों"
-          }
-        },
-        "ar" : {
-          "stringUnit" : {
-            "state" : "translated",
-            "value" : "اعرض شريط مساحات العمل كطبقة علوية فقط أثناء الضغط مع الاستمرار على المعدِّلات المحددة"
-          }
-        },
-        "sr-Latn" : {
-          "stringUnit" : {
-            "state" : "translated",
-            "value" : "Prikaži traku radnih prostora kao preklop samo dok držite izabrane modifikatore"
-          }
-        },
-        "el" : {
-          "stringUnit" : {
-            "state" : "translated",
-            "value" : "Εμφάνιση της γραμμής χώρου εργασίας ως επικάλυψης μόνο όσο κρατάτε πατημένους τους επιλεγμένους τροποποιητές"
-          }
-        },
-        "he" : {
-          "stringUnit" : {
-            "state" : "translated",
-            "value" : "הצג את סרגל מרחבי העבודה כשכבת-על רק בזמן שמקשי השינוי הנבחרים מוחזקים"
-          }
-        },
-        "ru" : {
-          "stringUnit" : {
-            "state" : "translated",
-            "value" : "Показывать панель рабочих пространств как наложение только при удержании выбранных модификаторов"
-          }
-        },
-        "pl" : {
-          "stringUnit" : {
-            "state" : "translated",
-            "value" : "Pokaż pasek przestrzeni roboczych jako nakładkę tylko podczas przytrzymywania wybranych klawiszy modyfikujących"
-          }
-        },
-        "uk" : {
-          "stringUnit" : {
-            "state" : "translated",
-            "value" : "Показувати смугу робочих просторів як накладку лише під час утримання вибраних клавіш-модифікаторів"
-          }
-        },
-        "fr" : {
-          "stringUnit" : {
-            "state" : "translated",
-            "value" : "Afficher la barre des espaces de travail en superposition uniquement pendant le maintien des touches de modification sélectionnées"
-          }
-        },
-        "nl" : {
-          "stringUnit" : {
-            "state" : "translated",
-            "value" : "De werkruimtebalk alleen tonen als een overlay terwijl de geselecteerde modifiers worden vastgehouden"
-          }
-        },
-        "it" : {
-          "stringUnit" : {
-            "state" : "translated",
-            "value" : "Mostra la barra degli spazi di lavoro in sovrimpressione solo mentre i modificatori selezionati sono tenuti premuti"
-          }
-        },
-        "fi" : {
-          "stringUnit" : {
-            "state" : "translated",
-            "value" : "Näytä työtilapalkki peittokuvana vain, kun valittuja muokkaimia pidetään painettuina"
-          }
-        },
-        "da" : {
-          "stringUnit" : {
-            "state" : "translated",
-            "value" : "Vis arbejdsområdelinjen som en overlejring kun mens de valgte modifikatorer holdes"
-          }
-        },
-        "ko" : {
-          "stringUnit" : {
-            "state" : "translated",
-            "value" : "선택한 보조 키를 누르고 있는 동안에만 워크스페이스 바를 오버레이로 표시합니다"
           }
         }
       }
