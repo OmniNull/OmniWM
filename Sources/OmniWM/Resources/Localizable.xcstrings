@@ -132047,6 +132047,130 @@
         }
       }
     },
+    "Stack Moved Window Into Adjacent Column" : {
+      "localizations" : {
+        "ar" : {
+          "stringUnit" : {
+            "state" : "translated",
+            "value" : "تكديس النافذة المنقولة في العمود المجاور"
+          }
+        },
+        "da" : {
+          "stringUnit" : {
+            "state" : "translated",
+            "value" : "Stabl flyttet vindue i tilstødende kolonne"
+          }
+        },
+        "de" : {
+          "stringUnit" : {
+            "state" : "translated",
+            "value" : "Verschobenes Fenster in benachbarte Spalte stapeln"
+          }
+        },
+        "el" : {
+          "stringUnit" : {
+            "state" : "translated",
+            "value" : "Στοίβαξη μετακινημένου παραθύρου στη γειτονική στήλη"
+          }
+        },
+        "es" : {
+          "stringUnit" : {
+            "state" : "translated",
+            "value" : "Apilar la ventana movida en la columna adyacente"
+          }
+        },
+        "fi" : {
+          "stringUnit" : {
+            "state" : "translated",
+            "value" : "Pinoa siirretty ikkuna viereiseen sarakkeeseen"
+          }
+        },
+        "fr" : {
+          "stringUnit" : {
+            "state" : "translated",
+            "value" : "Empiler la fenêtre déplacée dans la colonne adjacente"
+          }
+        },
+        "he" : {
+          "stringUnit" : {
+            "state" : "translated",
+            "value" : "לערום חלון שהוזז בעמודה הסמוכה"
+          }
+        },
+        "hi" : {
+          "stringUnit" : {
+            "state" : "translated",
+            "value" : "स्थानांतरित विंडो को आसन्न कॉलम में स्टैक करें"
+          }
+        },
+        "it" : {
+          "stringUnit" : {
+            "state" : "translated",
+            "value" : "Impila la finestra spostata nella colonna adiacente"
+          }
+        },
+        "ja" : {
+          "stringUnit" : {
+            "state" : "translated",
+            "value" : "移動したウィンドウを隣の列に重ねる"
+          }
+        },
+        "ko" : {
+          "stringUnit" : {
+            "state" : "translated",
+            "value" : "이동한 창을 인접한 열에 쌓기"
+          }
+        },
+        "nb" : {
+          "stringUnit" : {
+            "state" : "translated",
+            "value" : "Stable flyttet vindu i tilstøtende kolonne"
+          }
+        },
+        "nl" : {
+          "stringUnit" : {
+            "state" : "translated",
+            "value" : "Verplaatst venster stapelen in aangrenzende kolom"
+          }
+        },
+        "pl" : {
+          "stringUnit" : {
+            "state" : "translated",
+            "value" : "Układaj przeniesione okno w sąsiedniej kolumnie"
+          }
+        },
+        "ru" : {
+          "stringUnit" : {
+            "state" : "translated",
+            "value" : "Складывать перемещённое окно в соседний столбец"
+          }
+        },
+        "sr-Latn" : {
+          "stringUnit" : {
+            "state" : "translated",
+            "value" : "Složi premešteni prozor u susednu kolonu"
+          }
+        },
+        "sv" : {
+          "stringUnit" : {
+            "state" : "translated",
+            "value" : "Stapla flyttat fönster i intilliggande kolumn"
+          }
+        },
+        "uk" : {
+          "stringUnit" : {
+            "state" : "translated",
+            "value" : "Складати переміщене вікно в сусідній стовпець"
+          }
+        },
+        "zh-Hans" : {
+          "stringUnit" : {
+            "state" : "translated",
+            "value" : "将移动的窗口堆叠到相邻列"
+          }
+        }
+      }
+    },
     "Stack above" : {
       "localizations" : {
         "ja" : {
