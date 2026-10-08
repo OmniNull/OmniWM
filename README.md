@@ -402,6 +402,9 @@ OmniWM is a free, open-source, Developer ID-signed and Apple-notarized tiling wi
       <a href="https://github.com/minchik" title="Aliaksandr">
         <img src="https://github.com/minchik.png?size=96" width="72" alt="Aliaksandr">
       </a>
+      <a href="https://github.com/pltanton" title="Anton Plotnikov">
+        <img src="https://github.com/pltanton.png?size=96" width="72" alt="Anton Plotnikov">
+      </a>
       <a href="https://github.com/gloomy-breaker" title="Ayaan Sandhu">
         <img src="https://github.com/gloomy-breaker.png?size=96" width="72" alt="Ayaan Sandhu">
       </a>
@@ -456,6 +459,9 @@ OmniWM is a free, open-source, Developer ID-signed and Apple-notarized tiling wi
       <a href="https://github.com/jcardama" title="Jose Cardama">
         <img src="https://github.com/jcardama.png?size=96" width="72" alt="Jose Cardama">
       </a>
+      <a href="https://github.com/komarov-dc" title="KomarovD">
+        <img src="https://github.com/komarov-dc.png?size=96" width="72" alt="KomarovD">
+      </a>
       <a href="https://github.com/lgerlinski" title="Lukas Gerlinski">
         <img src="https://github.com/lgerlinski.png?size=96" width="72" alt="Lukas Gerlinski">
       </a>
@@ -479,6 +485,9 @@ OmniWM is a free, open-source, Developer ID-signed and Apple-notarized tiling wi
       </a>
       <a href="https://github.com/zwo-bot" title="mm">
         <img src="https://github.com/zwo-bot.png?size=96" width="72" alt="mm">
+      </a>
+      <a href="https://github.com/Mokhtar25" title="Mokhtar">
+        <img src="https://github.com/Mokhtar25.png?size=96" width="72" alt="Mokhtar">
       </a>
       <a href="https://github.com/MuhammadKh" title="muhammadkh">
         <img src="https://github.com/MuhammadKh.png?size=96" width="72" alt="muhammadkh">
@@ -535,6 +544,36 @@ OmniWM is a free, open-source, Developer ID-signed and Apple-notarized tiling wi
   </tr>
 </table>
 <!-- contributors:end -->
+
+<!-- bug-reporters:start -->
+### 🐞 Bug Reporters
+
+<p align="center">
+  Thank you to everyone whose bug reports led to fixes.
+</p>
+
+<table align="center">
+  <tr>
+    <td nowrap>
+      <a href="https://github.com/datarip" title="Datarip">
+        <img src="https://github.com/datarip.png?size=96" width="72" alt="Datarip">
+      </a>
+      <a href="https://github.com/0xGodspeed" title="Dhruv Jain">
+        <img src="https://github.com/0xGodspeed.png?size=96" width="72" alt="Dhruv Jain">
+      </a>
+      <a href="https://github.com/dna07rak" title="dna07rak">
+        <img src="https://github.com/dna07rak.png?size=96" width="72" alt="dna07rak">
+      </a>
+      <a href="https://github.com/macsmister" title="macsmister">
+        <img src="https://github.com/macsmister.png?size=96" width="72" alt="macsmister">
+      </a>
+      <a href="https://github.com/maxandersen" title="Max Rydahl Andersen">
+        <img src="https://github.com/maxandersen.png?size=96" width="72" alt="Max Rydahl Andersen">
+      </a>
+    </td>
+  </tr>
+</table>
+<!-- bug-reporters:end -->
 
 <p align="center">
   <img src="https://img.shields.io/badge/macOS-26.0%2B-green?logo=apple&logoColor=white" alt="macOS">
