@@ -43,15 +43,66 @@ struct WorkspaceBarAutoHideTarget {
 struct WorkspaceBarAutoHideState {
     private(set) var revealed: Set<Monitor.ID> = []
 
-    mutating func update(targets: [WorkspaceBarAutoHideTarget], pointer: CGPoint) {
-        revealed = Set(targets.filter { target in
+    func desired(targets: [WorkspaceBarAutoHideTarget], pointer: CGPoint) -> Set<Monitor.ID> {
+        Set(targets.filter { target in
             target.activates(pointer)
                 || ((revealed.contains(target.id) || target.isVisible)
                     && (target.isPinned || target.retains(pointer)))
         }.map(\.id))
     }
 
+    mutating func update(targets: [WorkspaceBarAutoHideTarget], pointer: CGPoint) {
+        revealed = desired(targets: targets, pointer: pointer)
+    }
+
+    mutating func setRevealed(_ isRevealed: Bool, for id: Monitor.ID) {
+        if isRevealed {
+            revealed.insert(id)
+        } else {
+            revealed.remove(id)
+        }
+    }
+
     mutating func reset() {
         revealed = []
+    }
+}
+
+@MainActor
+final class WorkspaceBarAutoHideDelays {
+    var sleep: @MainActor (Duration) async throws -> Void = { try await Task.sleep(for: $0) }
+    private var pending: [Monitor.ID: (revealing: Bool, task: Task<Void, Never>)] = [:]
+
+    var pendingIds: Set<Monitor.ID> {
+        Set(pending.keys)
+    }
+
+    func schedule(
+        revealing: Bool,
+        for id: Monitor.ID,
+        afterMilliseconds milliseconds: Double,
+        fire: @escaping @MainActor () -> Void
+    ) {
+        guard pending[id]?.revealing != revealing else { return }
+        cancel(id)
+        let sleep = sleep
+        let task = Task { [weak self] in
+            do { try await sleep(.milliseconds(Int64(milliseconds.rounded()))) } catch { return }
+            guard let self, !Task.isCancelled else { return }
+            pending[id] = nil
+            fire()
+        }
+        pending[id] = (revealing, task)
+    }
+
+    func cancel(_ id: Monitor.ID) {
+        pending.removeValue(forKey: id)?.task.cancel()
+    }
+
+    func cancelAll() {
+        for entry in pending.values {
+            entry.task.cancel()
+        }
+        pending = [:]
     }
 }

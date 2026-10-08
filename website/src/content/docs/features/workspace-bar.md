@@ -71,13 +71,17 @@ Enable **Automatically hide and show the workspace bar** globally or per display
 ```toml
 [workspaceBar]
 autoHide = true # default: false
+autoHideRevealDelayMilliseconds = 0 # 0-1000
+autoHideHideDelayMilliseconds = 0 # 0-1000
 ```
 
-The bar appears immediately when the pointer touches the edge along its span, not anywhere along the display edge. Once visible, it stays up while the pointer moves along that edge on the same display. It hides when the pointer moves inward beyond the bar's thickness (height for horizontal bars, width for side bars) and interactions end. Menus, popups, previews, renaming, and sheets retain their display's bar; dragging can retain visible bars across displays.
+The bar appears when the pointer touches the edge along its span, not anywhere along the display edge. Once visible, it stays up while the pointer moves along that edge on the same display. It hides when the pointer moves inward beyond the bar's thickness (height for horizontal bars, width for side bars) and interactions end. Menus, popups, previews, renaming, and sheets retain their display's bar; dragging can retain visible bars across displays.
 
-The reveal edge follows the bar's placement and offsets. With no vertical offset, top bars reveal at the screen edge; below-menu-bar placement retains the path across the menu bar to the bar itself. There is no extra activation or retention padding, and no new animations or configurable pointer delays.
+The reveal edge follows the bar's placement and offsets. With no vertical offset, top bars reveal at the screen edge; below-menu-bar placement retains the path across the menu bar to the bar itself. There is no extra activation or retention padding and no animation.
 
-Auto-hidden bars never reserve layout space, even while visible. Manual hiding, disabling, and native-fullscreen suppression take precedence. Existing modifier-only configurations remain unchanged; when combined with `autoHide`, touching the edge or holding the modifier can reveal the bar. The existing modifier hold delay applies only to that modifier trigger.
+**Auto-Hide Reveal Delay** is how long the pointer must stay at the edge before the bar appears; leaving the edge sooner cancels the reveal. **Auto-Hide Hide Delay** is how long the bar stays after the pointer moves inward past it and interactions end; returning to the bar sooner cancels the hide. Both default to 0 ms, apply to every display that auto-hides, and accept up to 1000 ms.
+
+Auto-hidden bars never reserve layout space, even while visible. Manual hiding, disabling, and native-fullscreen suppression take precedence. Existing modifier-only configurations remain unchanged; when combined with `autoHide`, touching the edge or holding the modifier can reveal the bar. The modifier hold delay applies only to the modifier trigger, and the auto-hide delays only to the pointer.
 
 ### Additional appearance controls
 

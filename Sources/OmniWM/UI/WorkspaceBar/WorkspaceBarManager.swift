@@ -29,6 +29,7 @@ final class WorkspaceBarManager {
     let dragController = WorkspaceBarDragController()
     var autoHideTargets: [WorkspaceBarAutoHideTarget] = []
     var autoHideState = WorkspaceBarAutoHideState()
+    let autoHideDelays = WorkspaceBarAutoHideDelays()
     var hoverPreview: WorkspaceBarHoverPreviewController?
     let notificationBadges: WorkspaceBarBadgeService
     var notificationBadgeTargetsByMonitor: [Monitor.ID: Set<String>] = [:]
@@ -228,6 +229,7 @@ final class WorkspaceBarManager {
     }
 
     func cleanup() {
+        autoHideDelays.cancelAll()
         autoHideTargets = []
         handleAutoHideMouseMoved(at: .zero)
         controller?.mouseEventHandler.reconcileMouseMoveSubscription()

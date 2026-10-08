@@ -14,11 +14,45 @@ extension WorkspaceBarManager {
 
     func handleAutoHideMouseMoved(at pointer: CGPoint) {
         guard needsAutoHideMouseMoves || !autoHideState.revealed.isEmpty else { return }
-        let previous = autoHideState.revealed
-        autoHideState.update(targets: autoHideTargets, pointer: pointer)
-        if previous != autoHideState.revealed {
+        let desired = autoHideState.desired(targets: autoHideTargets, pointer: pointer)
+        var changed = false
+        for id in desired.union(autoHideState.revealed).union(autoHideDelays.pendingIds) {
+            let reveals = desired.contains(id)
+            guard reveals != autoHideState.revealed.contains(id) else {
+                autoHideDelays.cancel(id)
+                continue
+            }
+            let delay = autoHideDelayMilliseconds(revealing: reveals, for: id)
+            guard delay <= 0 else {
+                autoHideDelays.schedule(revealing: reveals, for: id, afterMilliseconds: delay) { [weak self] in
+                    self?.completeAutoHideDelay(for: id)
+                }
+                continue
+            }
+            autoHideDelays.cancel(id)
+            autoHideState.setRevealed(reveals, for: id)
+            changed = true
+        }
+        if changed {
             controller?.requestWorkspaceBarRefresh()
         }
+    }
+
+    private func autoHideDelayMilliseconds(revealing: Bool, for id: Monitor.ID) -> Double {
+        guard let settings = controller?.settings.workspaceBar,
+              let target = autoHideTargets.first(where: { $0.id == id })
+        else { return 0 }
+        guard revealing else { return settings.autoHideHideDelayMilliseconds }
+        return target.isVisible ? 0 : settings.autoHideRevealDelayMilliseconds
+    }
+
+    private func completeAutoHideDelay(for id: Monitor.ID) {
+        guard let controller else { return }
+        let reveals = autoHideState.desired(targets: autoHideTargets, pointer: controller.currentMouseLocation())
+            .contains(id)
+        guard reveals != autoHideState.revealed.contains(id) else { return }
+        autoHideState.setRevealed(reveals, for: id)
+        controller.requestWorkspaceBarRefresh()
     }
 
     func refreshAutoHide() {

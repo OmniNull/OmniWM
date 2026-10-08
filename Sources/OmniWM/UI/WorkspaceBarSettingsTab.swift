@@ -125,6 +125,32 @@ private struct GlobalBarSettingsSection: View {
                         "Show at the bar edge; hide when the pointer moves inward past the bar and interactions end. Never reserves layout space."
                     )
 
+                if settings.workspaceBar.autoHide || settings.workspaceBar.monitorOverrides
+                    .contains(where: { $0.autoHide == true })
+                {
+                    SettingsSliderRow(
+                        label: String(localized: "Auto-Hide Reveal Delay"),
+                        value: Bindable(settings.workspaceBar).autoHideRevealDelayMilliseconds,
+                        range: 0 ... 1000,
+                        step: 50,
+                        valueText: String(localized: "\(Int(settings.workspaceBar.autoHideRevealDelayMilliseconds)) ms")
+                    )
+                    .onChange(of: settings.workspaceBar.autoHideRevealDelayMilliseconds) { _, _ in
+                        controller.updateWorkspaceBarSettings()
+                    }
+
+                    SettingsSliderRow(
+                        label: String(localized: "Auto-Hide Hide Delay"),
+                        value: Bindable(settings.workspaceBar).autoHideHideDelayMilliseconds,
+                        range: 0 ... 1000,
+                        step: 50,
+                        valueText: String(localized: "\(Int(settings.workspaceBar.autoHideHideDelayMilliseconds)) ms")
+                    )
+                    .onChange(of: settings.workspaceBar.autoHideHideDelayMilliseconds) { _, _ in
+                        controller.updateWorkspaceBarSettings()
+                    }
+                }
+
                 Toggle("Reserve Space for Workspace Bar", isOn: Bindable(settings.workspaceBar).reserveLayoutSpace)
                     .onChange(of: settings.workspaceBar.reserveLayoutSpace) { _, _ in
                         controller.updateWorkspaceBarSettings()

@@ -334,6 +334,146 @@ final class WorkspaceBarManagerTests: XCTestCase {
         XCTAssertFalse(manager.isPointerRevealed(on: monitor.id))
     }
 
+    func testAutoHideRevealDelayWaitsWhileThePointerRestsAtTheEdge() async throws {
+        var pointer = monitor.frame.center
+        let manager = try autoHidingManager { pointer }
+        defer { manager.cleanup() }
+        var sleeps: [CheckedContinuation<Void, Never>] = []
+        manager.autoHideDelays.sleep = { _ in await withCheckedContinuation { sleeps.append($0) } }
+        controller.settings.workspaceBar.autoHideRevealDelayMilliseconds = 300
+
+        pointer = Self.edgePoint
+        manager.handleAutoHideMouseMoved(at: pointer)
+        await waitUntil { sleeps.count == 1 }
+        manager.handleAutoHideMouseMoved(at: pointer)
+
+        XCTAssertFalse(manager.isPointerRevealed(on: monitor.id))
+        try resumeNextSleep(&sleeps)
+        await waitUntil { manager.isPointerRevealed(on: monitor.id) }
+        XCTAssertTrue(manager.isPointerRevealed(on: monitor.id))
+        XCTAssertTrue(sleeps.isEmpty)
+    }
+
+    func testAutoHideRevealDelayIsCancelledWhenThePointerLeavesTheEdge() async throws {
+        var pointer = monitor.frame.center
+        let manager = try autoHidingManager { pointer }
+        defer { manager.cleanup() }
+        var sleeps: [CheckedContinuation<Void, Never>] = []
+        manager.autoHideDelays.sleep = { _ in await withCheckedContinuation { sleeps.append($0) } }
+        controller.settings.workspaceBar.autoHideRevealDelayMilliseconds = 300
+        pointer = Self.edgePoint
+        manager.handleAutoHideMouseMoved(at: pointer)
+        await waitUntil { sleeps.count == 1 }
+
+        pointer = monitor.frame.center
+        manager.handleAutoHideMouseMoved(at: pointer)
+        try resumeNextSleep(&sleeps)
+        await settle()
+
+        XCTAssertFalse(manager.isPointerRevealed(on: monitor.id))
+        XCTAssertTrue(manager.autoHideDelays.pendingIds.isEmpty)
+    }
+
+    func testAutoHideRevealDelaySkipsABarAlreadyShownByTheModifier() throws {
+        let manager = try autoHidingManager { Self.retentionPoint }
+        defer { manager.cleanup() }
+        controller.settings.workspaceBar.autoHideRevealDelayMilliseconds = 300
+        manager.autoHideTargets[0].isVisible = true
+
+        manager.handleAutoHideMouseMoved(at: Self.retentionPoint)
+
+        XCTAssertTrue(manager.isPointerRevealed(on: monitor.id))
+        XCTAssertTrue(manager.autoHideDelays.pendingIds.isEmpty)
+    }
+
+    func testAutoHideHideDelayKeepsTheBarAndReturningToItCancelsTheHide() async throws {
+        var pointer = Self.edgePoint
+        let manager = try autoHidingManager { pointer }
+        defer { manager.cleanup() }
+        var sleeps: [CheckedContinuation<Void, Never>] = []
+        manager.autoHideDelays.sleep = { _ in await withCheckedContinuation { sleeps.append($0) } }
+        controller.settings.workspaceBar.autoHideHideDelayMilliseconds = 300
+        manager.handleAutoHideMouseMoved(at: pointer)
+        XCTAssertTrue(manager.isPointerRevealed(on: monitor.id))
+
+        pointer = monitor.frame.center
+        manager.handleAutoHideMouseMoved(at: pointer)
+        await waitUntil { sleeps.count == 1 }
+        XCTAssertTrue(manager.isPointerRevealed(on: monitor.id))
+        pointer = Self.retentionPoint
+        manager.handleAutoHideMouseMoved(at: pointer)
+        try resumeNextSleep(&sleeps)
+        await settle()
+        XCTAssertTrue(manager.isPointerRevealed(on: monitor.id))
+
+        pointer = monitor.frame.center
+        manager.handleAutoHideMouseMoved(at: pointer)
+        await waitUntil { sleeps.count == 1 }
+        try resumeNextSleep(&sleeps)
+        await waitUntil { !manager.isPointerRevealed(on: monitor.id) }
+        XCTAssertFalse(manager.isPointerRevealed(on: monitor.id))
+    }
+
+    func testTurningAutoHideOffHidesImmediatelyDespiteTheHideDelay() throws {
+        let pointer = Self.edgePoint
+        let manager = try autoHidingManager { pointer }
+        defer { manager.cleanup() }
+        controller.settings.workspaceBar.autoHideHideDelayMilliseconds = 300
+        manager.handleAutoHideMouseMoved(at: pointer)
+        XCTAssertTrue(manager.isPointerRevealed(on: monitor.id))
+
+        controller.settings.workspaceBar.autoHide = false
+        manager.apply([DesiredBarSurface(monitor: monitor, visible: true, snapshot: snapshot(itemCount: 1))])
+
+        XCTAssertFalse(manager.isPointerRevealed(on: monitor.id))
+        XCTAssertTrue(manager.autoHideDelays.pendingIds.isEmpty)
+    }
+
+    private static let edgePoint = CGPoint(x: 200, y: 1079.5)
+    private static let retentionPoint = CGPoint(x: 500, y: 1070)
+
+    private func autoHidingManager(pointer: @escaping () -> CGPoint) throws -> WorkspaceBarManager {
+        controller.workspaceManager.applyMonitorConfigurationChange([monitor])
+        controller.currentMouseLocation = pointer
+        controller.settings.workspaceBar.autoHide = true
+        let manager = makeManager()
+        manager.apply([
+            DesiredBarSurface(
+                monitor: monitor,
+                visible: false,
+                snapshot: snapshot(itemCount: 1),
+                retainWhileHidden: true
+            )
+        ])
+        let panel = try XCTUnwrap(manager.barsByMonitor[monitor.id]?.primary.panel)
+        panel.setFrame(
+            CGRect(x: monitor.frame.minX + 100, y: monitor.frame.maxY - 24, width: 200, height: 24),
+            display: false
+        )
+        manager.rebuildAutoHideTargets()
+        return manager
+    }
+
+    private func waitUntil(_ condition: () -> Bool) async {
+        var attempts = 0
+        while !condition(), attempts < 200 {
+            attempts += 1
+            await Task.yield()
+        }
+    }
+
+    private func resumeNextSleep(_ sleeps: inout [CheckedContinuation<Void, Never>]) throws {
+        let next = try XCTUnwrap(sleeps.first, "Expected a pending auto-hide delay")
+        sleeps.removeFirst()
+        next.resume()
+    }
+
+    private func settle() async {
+        for _ in 0 ..< 20 {
+            await Task.yield()
+        }
+    }
+
     private func makeManager() -> WorkspaceBarManager {
         let manager = WorkspaceBarManager(motionPolicy: MotionPolicy(animationsEnabled: false))
         manager.setup(controller: controller, settings: controller.settings)

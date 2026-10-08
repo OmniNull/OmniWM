@@ -94,6 +94,14 @@ final class WorkspaceBarSettings {
         didSet { onChange?() }
     }
 
+    var autoHideRevealDelayMilliseconds = WorkspaceBarSettings.defaults.autoHideRevealDelayMilliseconds {
+        didSet { onChange?() }
+    }
+
+    var autoHideHideDelayMilliseconds = WorkspaceBarSettings.defaults.autoHideHideDelayMilliseconds {
+        didSet { onChange?() }
+    }
+
     var revealModifier = WorkspaceBarSettings.defaults.revealModifier {
         didSet { onChange?() }
     }
@@ -199,6 +207,8 @@ extension WorkspaceBarSettings {
             iconOverrides: iconOverrides,
             reserveLayoutSpace: reserveLayoutSpace,
             autoHide: autoHide,
+            autoHideRevealDelayMilliseconds: autoHideRevealDelayMilliseconds,
+            autoHideHideDelayMilliseconds: autoHideHideDelayMilliseconds,
             revealModifier: revealModifier,
             revealHoldMilliseconds: revealHoldMilliseconds,
             hideInNativeFullscreen: hideInNativeFullscreen,
@@ -241,6 +251,12 @@ extension WorkspaceBarSettings {
     func applyAppearance(_ bar: SettingsExport.WorkspaceBar, monitorOverrides: [MonitorBarSettings]) {
         reserveLayoutSpace = bar.reserveLayoutSpace
         autoHide = bar.autoHide
+        autoHideRevealDelayMilliseconds = WorkspaceBarSettings.validatedAutoHideDelayMilliseconds(
+            bar.autoHideRevealDelayMilliseconds
+        )
+        autoHideHideDelayMilliseconds = WorkspaceBarSettings.validatedAutoHideDelayMilliseconds(
+            bar.autoHideHideDelayMilliseconds
+        )
         revealModifier = bar.revealModifier
         revealHoldMilliseconds = WorkspaceBarSettings.validatedRevealHoldMilliseconds(
             bar.revealHoldMilliseconds
@@ -370,6 +386,11 @@ extension WorkspaceBarSettings {
         }
         iconOverrides.removeValue(forKey: storedBundleID)
         return true
+    }
+
+    static func validatedAutoHideDelayMilliseconds(_ value: Double) -> Double {
+        guard value.isFinite else { return 0 }
+        return min(max(value, 0), 1000)
     }
 
     static func validatedRevealHoldMilliseconds(_ value: Double) -> Double {

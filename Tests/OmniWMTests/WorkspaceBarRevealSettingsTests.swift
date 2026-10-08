@@ -39,15 +39,21 @@ final class WorkspaceBarRevealSettingsTests: XCTestCase {
         var export = SettingsExport.defaults()
         XCTAssertFalse(export.workspaceBar.autoHide)
         export.workspaceBar.autoHide = true
+        export.workspaceBar.autoHideRevealDelayMilliseconds = 300
+        export.workspaceBar.autoHideHideDelayMilliseconds = 450
         export.workspaceBar.revealModifier = .option
         export.monitorBarSettings = [MonitorBarSettings(monitorName: "External", autoHide: false)]
         let data = try SettingsTOMLCodec.encode(export)
         XCTAssertEqual(try SettingsTOMLCodec.decode(data), export)
         let legacy = String(decoding: data, as: UTF8.self)
             .replacingOccurrences(of: "autoHide = true\n", with: "")
+            .replacingOccurrences(of: "autoHideRevealDelayMilliseconds = 300.0\n", with: "")
+            .replacingOccurrences(of: "autoHideHideDelayMilliseconds = 450.0\n", with: "")
             .replacingOccurrences(of: "[[monitorBarOverrides]]\nautoHide = false\n", with: "[[monitorBarOverrides]]\n")
         let decoded = try SettingsTOMLCodec.decode(Data(legacy.utf8))
         XCTAssertFalse(decoded.workspaceBar.autoHide)
+        XCTAssertEqual(decoded.workspaceBar.autoHideRevealDelayMilliseconds, 0)
+        XCTAssertEqual(decoded.workspaceBar.autoHideHideDelayMilliseconds, 0)
         XCTAssertEqual(decoded.workspaceBar.revealModifier, .option)
         XCTAssertNil(decoded.monitorBarSettings[0].autoHide)
     }
@@ -102,6 +108,16 @@ final class WorkspaceBarRevealSettingsTests: XCTestCase {
         export.workspaceBar.revealHoldMilliseconds = 5000
         settings.applyExport(export)
         XCTAssertEqual(settings.workspaceBar.revealHoldMilliseconds, 1000)
+
+        export.workspaceBar.autoHideRevealDelayMilliseconds = -50
+        export.workspaceBar.autoHideHideDelayMilliseconds = 5000
+        settings.applyExport(export)
+        XCTAssertEqual(settings.workspaceBar.autoHideRevealDelayMilliseconds, 0)
+        XCTAssertEqual(settings.workspaceBar.autoHideHideDelayMilliseconds, 1000)
+
+        export.workspaceBar.autoHideRevealDelayMilliseconds = .nan
+        settings.applyExport(export)
+        XCTAssertEqual(settings.workspaceBar.autoHideRevealDelayMilliseconds, 0)
     }
 
     @MainActor
