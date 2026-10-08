@@ -94,7 +94,9 @@ extension NiriLayoutHandler {
             niriWorkingFrame: controller.niriWorkingFrame(refreshInput.monitor.workingFrame, gap: gap),
             displayRefreshRate: controller.layoutRefreshController.layoutState
                 .refreshRateByDisplay[monitor.displayId] ?? 60.0,
-            isActiveWorkspace: refreshInput.isActiveWorkspace
+            isActiveWorkspace: refreshInput.isActiveWorkspace,
+            quietArrivalTokens: controller.workspaceManager.quietArrivalTokens
+                .intersection(refreshInput.windows.map(\.token))
         )
     }
 
@@ -166,6 +168,7 @@ extension NiriLayoutHandler {
         let pass = makeLayoutPass(snapshot: snapshot, engine: engine, monitor: monitor, motion: motion)
         let currentSelection = state.selectedNodeId
         pass.engine.setProjectionExclusions(snapshot.excludedTokens, in: pass.wsId)
+        controller?.workspaceManager.quietArrivalTokens.subtract(snapshot.quietArrivalTokens)
 
         let removal = processWindowRemovals(
             pass: pass,
@@ -176,13 +179,13 @@ extension NiriLayoutHandler {
 
         let viewOriginBeforeInsertion = currentViewOrigin(pass: pass, state: state)
 
-        restoreInitialNiriPlacementsIfNeeded(pass: pass)
+        restoreInitialNiriPlacementsIfNeeded(pass: pass, ignoring: snapshot.quietArrivalTokens)
 
         let insertion = syncAndInsert(
             pass: pass,
             state: &state,
             removal: removal,
-            preferredFocusToken: snapshot.preferredFocusToken,
+            snapshot: snapshot,
             viewOriginBeforeInsertion: viewOriginBeforeInsertion
         )
 
@@ -214,14 +217,15 @@ extension NiriLayoutHandler {
     }
 
     private func restoreInitialNiriPlacementsIfNeeded(
-        pass: NiriLayoutPass
+        pass: NiriLayoutPass,
+        ignoring quietArrivalTokens: Set<WindowToken>
     ) {
         guard let controller else { return }
 
         var placements: [WindowToken: PersistedNiriPlacement] = [:]
         placements.reserveCapacity(pass.windowTokens.count)
 
-        for token in pass.windowTokens {
+        for token in pass.windowTokens where !quietArrivalTokens.contains(token) {
             if let placement = controller.workspaceManager.restoreIntent(for: token)?.niriPlacement {
                 placements[token] = placement
             }
@@ -262,14 +266,14 @@ extension NiriLayoutHandler {
         pass: NiriLayoutPass,
         state: inout ViewportState,
         removal: RemovalContext,
-        preferredFocusToken: WindowToken?,
+        snapshot: NiriWorkspaceSnapshot,
         viewOriginBeforeInsertion: CGFloat?
     ) -> InsertionContext {
         let currentSelection = state.selectedNodeId
         syncWindowsAndInstallConstraints(
             pass: pass,
             selectedNodeId: currentSelection,
-            preferredFocusToken: preferredFocusToken
+            preferredFocusToken: snapshot.preferredFocusToken
         )
         let newTokens = pass.windowTokens.filter { !removal.existingHandleIds.contains($0) }
         let visibleNewTokens = newTokens.filter {
@@ -292,7 +296,8 @@ extension NiriLayoutHandler {
             let insertedBeforeActive = newColumnData.filter { $0.colIdx <= originalActiveIdx }
             if !insertedBeforeActive.isEmpty, !removal.removedColumn {
                 let totalInsertedSpan = insertedBeforeActive.reduce(CGFloat(0)) { total, data in
-                    total + data.col[keyPath: pass.primarySpanKeyPath] + pass.gap
+                    let isQuiet = data.col.windowNodes.allSatisfy { snapshot.quietArrivalTokens.contains($0.token) }
+                    return isQuiet ? total : total + data.col[keyPath: pass.primarySpanKeyPath] + pass.gap
                 }
                 state.rebaseOffset(by: -totalInsertedSpan)
                 state.activeColumnIndex = originalActiveIdx + insertedBeforeActive.count

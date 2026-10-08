@@ -156,50 +156,85 @@ extension NiriLayoutHandler {
 
     func moveColumn(
         containing handle: WindowHandle,
-        target: ColumnMoveTarget
+        target: NiriColumnMoveTarget
     ) -> StructuralMutationOutcome {
         performStructuralMutation(handle: handle) { ctx, state in
             guard let column = ctx.engine.findColumn(containing: ctx.windowNode, in: ctx.wsId) else { return nil }
             let movedTokens = column.windowNodes.map(\.token)
             let oldFrames = ctx.engine.captureWindowFrames(in: ctx.wsId)
-            let interactionContext = NiriInteractionContext(
-                workspaceId: ctx.wsId,
-                motion: ctx.motion,
-                workingFrame: ctx.workingFrame,
-                gaps: ctx.gaps,
-                orientation: ctx.orientation
-            )
-            let moved = switch target {
-            case let .direction(direction):
-                ctx.engine.moveColumn(
-                    column,
-                    direction: direction,
-                    context: interactionContext,
-                    state: &state
-                )
-            case .first:
-                ctx.engine.moveColumnToFirst(
-                    column,
-                    context: interactionContext,
-                    state: &state
-                )
-            case .last:
-                ctx.engine.moveColumnToLast(
-                    column,
-                    context: interactionContext,
-                    state: &state
-                )
-            case let .index(index):
-                ctx.engine.moveColumnToIndex(
-                    column,
-                    index,
-                    context: interactionContext,
-                    state: &state
-                )
-            }
-            guard moved else { return nil }
+            guard ctx.engine.moveColumn(
+                column,
+                target: target,
+                context: ctx.interactionContext(motion: ctx.motion),
+                state: &state
+            ) else { return nil }
             ctx.prepareCapturedAnimation(oldFrames: oldFrames)
             return NiriStructuralMutation(movedTokens: movedTokens, operation: .columnMoved)
         }
+    }
+
+    func moveColumnPreservingFocus(
+        containing handle: WindowHandle,
+        target: NiriColumnMoveTarget
+    ) -> Bool {
+        var moved = false
+        withNiriWindowContext(.window(handle)) { engine, windowNode, context, state in
+            let workspaceId = context.workspaceId
+            guard let column = engine.findColumn(containing: windowNode, in: workspaceId) else { return }
+            let focusedColumn = state.selectedNodeId
+                .flatMap { engine.findNode(by: $0, in: workspaceId) }
+                .flatMap(engine.column(of:))
+            let oldFrames = engine.captureWindowFrames(in: workspaceId)
+            let didMove = if let focusedColumn {
+                engine.moveColumnPreservingFocus(
+                    column,
+                    target: target,
+                    focused: focusedColumn,
+                    context: context,
+                    state: &state
+                )
+            } else {
+                engine.moveColumn(column, target: target, context: context, state: &state)
+            }
+            guard didMove else { return }
+            _ = engine.triggerMoveAnimations(
+                in: workspaceId,
+                oldFrames: oldFrames,
+                newFrames: engine.captureWindowFrames(in: workspaceId),
+                motion: context.motion
+            )
+            recordLayoutOperation(.columnMoved, in: workspaceId)
+            requestLayoutCommandRelayout(in: workspaceId)
+            startScrollAnimationIfNeeded(for: workspaceId, state: state, engine: engine)
+            moved = true
+        }
+        return moved
+    }
+
+    @discardableResult
+    func toggleColumnTabbed(target: WindowTarget) -> Bool {
+        guard let controller else { return false }
+        var toggled = false
+        withNiriWindowContext(target) { engine, windowNode, context, state in
+            let workspaceId = context.workspaceId
+            guard let column = engine.column(of: windowNode),
+                  engine.toggleColumnTabbed(
+                      column,
+                      in: workspaceId,
+                      motion: context.motion,
+                      orientation: context.orientation
+                  )
+            else { return }
+            recordLayoutOperation(.displayModeChanged, in: workspaceId)
+            controller.layoutRefreshController.requestLayoutCommandRelayout(affectedWorkspaceIds: [workspaceId])
+            if engine.hasAnyWindowAnimationsRunning(in: workspaceId) {
+                controller.layoutRefreshController.startScrollAnimation(for: workspaceId)
+            }
+            if case .focused = target {
+                showColumnModeToast(engine: engine, workspaceId: workspaceId, state: state, motion: context.motion)
+            }
+            toggled = true
+        }
+        return toggled
     }
 }

@@ -105,11 +105,9 @@ enum StructuralMutationOutcome: Equatable {
         let operation: LayoutOperation
     }
 
-    enum ColumnMoveTarget {
-        case direction(Direction)
-        case first
-        case last
-        case index(Int)
+    enum WindowTarget {
+        case focused
+        case window(WindowHandle)
     }
 
     var scrollAnimationByDisplay: [CGDirectDisplayID: WorkspaceDescriptor.ID] = [:]

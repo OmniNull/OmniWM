@@ -56,6 +56,90 @@ extension IPCAutomationManifest {
             name: .moveToWorkspace,
             summary: "Move a managed window to a workspace by raw id or unambiguous display name without changing focus.",
             arguments: ["opaque-id", "workspace"]
+        ),
+        .init(
+            path: "window move-column-to-first <opaque-id>",
+            name: .moveColumnToFirst,
+            summary: "Move the column containing a managed window to the first position without changing focus (Niri only).",
+            arguments: ["opaque-id"]
+        ),
+        .init(
+            path: "window move-column-to-last <opaque-id>",
+            name: .moveColumnToLast,
+            summary: "Move the column containing a managed window to the last position without changing focus (Niri only).",
+            arguments: ["opaque-id"]
+        ),
+        .init(
+            path: "window move-column-to-index <opaque-id> <number>",
+            name: .moveColumnToIndex,
+            summary: "Move the column containing a managed window to a one-based column index without changing focus (Niri only).",
+            arguments: ["opaque-id", "number"]
+        ),
+        .init(
+            path: "window move-column <opaque-id> <left|right|up|down>",
+            name: .moveColumn,
+            summary: "Move the column containing a managed window one step in a direction without changing focus (Niri only).",
+            arguments: ["opaque-id", "direction"]
+        ),
+        .init(
+            path: "window toggle-container-full-primary-span <opaque-id>",
+            name: .toggleContainerFullPrimarySpan,
+            summary: "Toggle full primary span for the column containing a managed window without changing focus (Niri only).",
+            arguments: ["opaque-id"]
+        ),
+        .init(
+            path: "window set-container-primary-span <opaque-id> <size-change>",
+            name: .setContainerPrimarySpan,
+            summary: "Set the primary span of the column containing a managed window without changing focus (Niri only).",
+            arguments: ["opaque-id", "size-change"]
+        ),
+        .init(
+            path: "window set-window-primary-span <opaque-id> <size-change>",
+            name: .setWindowPrimarySpan,
+            summary: "Set the primary span of a managed window without changing focus (Niri only).",
+            arguments: ["opaque-id", "size-change"]
+        ),
+        .init(
+            path: "window cycle-window-primary-span <opaque-id> <forward|backward>",
+            name: .cycleWindowPrimarySpan,
+            summary: "Cycle the primary span preset of a managed window without changing focus (Niri only).",
+            arguments: ["opaque-id", "cycle-direction"]
+        ),
+        .init(
+            path: "window set-window-secondary-span <opaque-id> <size-change>",
+            name: .setWindowSecondarySpan,
+            summary: "Set the secondary span of a managed window within its column without changing focus (Niri only).",
+            arguments: ["opaque-id", "size-change"]
+        ),
+        .init(
+            path: "window reset-window-secondary-span <opaque-id>",
+            name: .resetWindowSecondarySpan,
+            summary: "Reset the secondary span of a managed window within its column without changing focus (Niri only).",
+            arguments: ["opaque-id"]
+        ),
+        .init(
+            path: "window cycle-window-secondary-span <opaque-id> <forward|backward>",
+            name: .cycleWindowSecondarySpan,
+            summary: "Cycle the secondary span preset of a managed window without changing focus (Niri only).",
+            arguments: ["opaque-id", "cycle-direction"]
+        ),
+        .init(
+            path: "window toggle-column-tabbed <opaque-id>",
+            name: .toggleColumnTabbed,
+            summary: "Toggle tabbed display for the column containing a managed window without changing focus (Niri only).",
+            arguments: ["opaque-id"]
+        ),
+        .init(
+            path: "window toggle-floating <opaque-id>",
+            name: .toggleFloating,
+            summary: "Toggle a managed window between tiled and floating without changing focus.",
+            arguments: ["opaque-id"]
+        ),
+        .init(
+            path: "window assign-to-scratchpad <opaque-id> <number>",
+            name: .assignToScratchpad,
+            summary: "Assign a managed window to a numbered scratchpad slot, or release it when already there, without changing focus.",
+            arguments: ["opaque-id", "number"]
         )
     ]
 

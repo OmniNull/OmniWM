@@ -5,6 +5,13 @@ import CoreGraphics
 import Foundation
 import QuartzCore
 
+enum NiriColumnMoveTarget: Equatable {
+    case direction(Direction)
+    case first
+    case last
+    case index(Int)
+}
+
 extension NiriLayoutEngine {
     func moveColumn(
         _ column: NiriContainer,
@@ -12,22 +19,7 @@ extension NiriLayoutEngine {
         context: NiriInteractionContext,
         state: inout ViewportState
     ) -> Bool {
-        assertSanctionedMutation()
-        guard let step = direction.primaryStep(for: context.orientation) else { return false }
-
-        let projectedColumns = projectedColumns(in: context.workspaceId)
-        guard let currentProjectedIndex = projectedColumns.firstIndex(where: { $0.column === column }) else {
-            return false
-        }
-        let targetProjectedIndex = currentProjectedIndex + step
-        guard projectedColumns.indices.contains(targetProjectedIndex) else { return false }
-        let targetIdx = projectedColumns[targetProjectedIndex].durableIndex
-        return moveColumn(
-            column,
-            to: targetIdx,
-            context: context,
-            state: &state
-        )
+        moveColumn(column, target: .direction(direction), context: context, state: &state)
     }
 
     func moveColumnToFirst(
@@ -35,13 +27,7 @@ extension NiriLayoutEngine {
         context: NiriInteractionContext,
         state: inout ViewportState
     ) -> Bool {
-        assertSanctionedMutation()
-        return moveColumnToIndex(
-            column,
-            1,
-            context: context,
-            state: &state
-        )
+        moveColumn(column, target: .first, context: context, state: &state)
     }
 
     func moveColumnToLast(
@@ -49,13 +35,7 @@ extension NiriLayoutEngine {
         context: NiriInteractionContext,
         state: inout ViewportState
     ) -> Bool {
-        assertSanctionedMutation()
-        return moveColumnToIndex(
-            column,
-            Int.max,
-            context: context,
-            state: &state
-        )
+        moveColumn(column, target: .last, context: context, state: &state)
     }
 
     func moveColumnToIndex(
@@ -64,22 +44,122 @@ extension NiriLayoutEngine {
         context: NiriInteractionContext,
         state: inout ViewportState
     ) -> Bool {
+        moveColumn(column, target: .index(oneBasedIndex), context: context, state: &state)
+    }
+
+    func moveColumn(
+        _ column: NiriContainer,
+        target: NiriColumnMoveTarget,
+        context: NiriInteractionContext,
+        state: inout ViewportState
+    ) -> Bool {
         assertSanctionedMutation()
-        let projectedColumns = projectedColumns(in: context.workspaceId)
-        guard !projectedColumns.isEmpty,
-              projectedColumns.contains(where: { $0.column === column })
-        else {
+        guard let targetIdx = durableMoveTargetIndex(for: column, target: target, context: context) else {
             return false
         }
-
-        let projectedTargetIndex = min(oneBasedIndex <= 1 ? 0 : oneBasedIndex - 1, projectedColumns.count - 1)
-        let targetIdx = projectedColumns[projectedTargetIndex].durableIndex
         return moveColumn(
             column,
             to: targetIdx,
             context: context,
             state: &state
         )
+    }
+
+    func moveColumnPreservingFocus(
+        _ column: NiriContainer,
+        target: NiriColumnMoveTarget,
+        focused: NiriContainer,
+        context: NiriInteractionContext,
+        state: inout ViewportState
+    ) -> Bool {
+        assertSanctionedMutation()
+        if column === focused {
+            return moveColumn(column, target: target, context: context, state: &state)
+        }
+        guard let targetIdx = durableMoveTargetIndex(for: column, target: target, context: context),
+              let currentIdx = columnIndex(of: column, in: context.workspaceId),
+              targetIdx != currentIdx,
+              let root = root(for: context.workspaceId)
+        else { return false }
+
+        let previousPositions = primaryPositions(context: context, state: state)
+        cancelInteractiveResizeForMovedColumn(column, in: context.workspaceId)
+        root.insertChild(column, at: targetIdx)
+        if let focusedIdx = columnIndex(of: focused, in: context.workspaceId) {
+            state.activeColumnIndex = focusedIdx
+        }
+        state.activatePrevColumnOnRemoval = nil
+        state.viewOffsetToRestore = nil
+        let currentPositions = primaryPositions(context: context, state: state)
+
+        if let previousFocused = previousPositions[focused.id], let currentFocused = currentPositions[focused.id] {
+            let focusedShift = currentFocused - previousFocused
+            for movedColumn in columns(in: context.workspaceId) {
+                guard let previous = previousPositions[movedColumn.id],
+                      let current = currentPositions[movedColumn.id]
+                else { continue }
+                let displacement = previous - current + focusedShift
+                guard abs(displacement) > 0.001 else { continue }
+                animateReorderedColumn(movedColumn, displacement: displacement, context: context)
+            }
+        }
+        return true
+    }
+
+    private func durableMoveTargetIndex(
+        for column: NiriContainer,
+        target: NiriColumnMoveTarget,
+        context: NiriInteractionContext
+    ) -> Int? {
+        let projectedColumns = projectedColumns(in: context.workspaceId)
+        guard let currentProjectedIndex = projectedColumns.firstIndex(where: { $0.column === column }) else {
+            return nil
+        }
+        let targetProjectedIndex: Int
+        switch target {
+        case let .direction(direction):
+            guard let step = direction.primaryStep(for: context.orientation) else { return nil }
+            targetProjectedIndex = currentProjectedIndex + step
+        case .first:
+            targetProjectedIndex = 0
+        case .last:
+            targetProjectedIndex = projectedColumns.count - 1
+        case let .index(oneBasedIndex):
+            targetProjectedIndex = min(oneBasedIndex <= 1 ? 0 : oneBasedIndex - 1, projectedColumns.count - 1)
+        }
+        guard projectedColumns.indices.contains(targetProjectedIndex) else { return nil }
+        return projectedColumns[targetProjectedIndex].durableIndex
+    }
+
+    private func primaryPositions(
+        context: NiriInteractionContext,
+        state: ViewportState
+    ) -> [NodeId: CGFloat] {
+        resolvePrimaryContainerSpans(
+            in: context.workspaceId,
+            workingFrame: context.workingFrame,
+            gaps: context.gaps,
+            orientation: context.orientation
+        )
+        if !projectionExclusions(in: context.workspaceId).isEmpty {
+            let geometry = projectedGeometrySnapshot(
+                in: context.workspaceId,
+                workingFrame: context.workingFrame,
+                gaps: context.gaps,
+                orientation: context.orientation
+            )
+            return Dictionary(
+                uniqueKeysWithValues: geometry.columns.map { ($0.projectedColumn.column.id, $0.primaryPosition) }
+            )
+        }
+        let cols = columns(in: context.workspaceId)
+        let sizeKeyPath = primarySizeKeyPath(for: context.orientation)
+        return Dictionary(uniqueKeysWithValues: cols.indices.map { index in
+            (
+                cols[index].id,
+                state.containerPosition(at: index, containers: cols, gap: context.gaps, sizeKeyPath: sizeKeyPath)
+            )
+        })
     }
 
     private func moveColumn(

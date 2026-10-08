@@ -38,6 +38,19 @@ extension NiriLayoutEngine {
         column.isTabbed ? renderStyle.tabIndicatorWidth : 0
     }
 
+    func isViewportAnchor(
+        _ column: NiriContainer,
+        in workspaceId: WorkspaceDescriptor.ID,
+        state: ViewportState
+    ) -> Bool {
+        if let selectedId = state.selectedNodeId,
+           column.windowNodes.contains(where: { $0.id == selectedId })
+        {
+            return true
+        }
+        return columnIndex(of: column, in: workspaceId) == state.activeColumnIndex
+    }
+
     private func applyColumnWidth(
         _ column: NiriContainer,
         width newWidth: ProportionalSize,
@@ -69,6 +82,7 @@ extension NiriLayoutEngine {
             animated: context.motion.animationsEnabled
         )
 
+        guard isViewportAnchor(column, in: context.workspaceId, state: state) else { return }
         if context.orientation == .horizontal {
             ensureContainerSelectionVisible(column, context: context, state: &state)
         }
@@ -108,6 +122,7 @@ extension NiriLayoutEngine {
         )
 
         let verticalContext = context.oriented(.vertical)
+        guard isViewportAnchor(column, in: context.workspaceId, state: state) else { return }
         ensureContainerSelectionVisible(column, context: verticalContext, state: &state)
         recoverSettledCoverage(context: verticalContext, state: &state)
     }
@@ -180,6 +195,7 @@ extension NiriLayoutEngine {
 
         let settings = effectiveSettings(in: context.workspaceId)
         let verticalContext = context.oriented(.vertical)
+        guard isViewportAnchor(column, in: context.workspaceId, state: state) else { return }
         if settings.centerFocusedColumn == .always
             || (settings.alwaysCenterSingleColumn && containers.count == 1)
         {
@@ -386,6 +402,7 @@ extension NiriLayoutEngine {
             animated: context.motion.animationsEnabled
         )
 
+        guard isViewportAnchor(column, in: context.workspaceId, state: state) else { return }
         if context.orientation == .horizontal {
             ensureContainerSelectionVisible(column, context: context, state: &state)
         }

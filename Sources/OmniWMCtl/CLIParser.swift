@@ -246,12 +246,12 @@ enum CLIParser {
             throw CLIParseError.usage(usageText)
         }
 
-        return IPCRequest(
+        return try IPCRequest(
             id: id,
-            window: IPCWindowRequest(
-                name: action,
+            window: CLIArgumentParser.parseWindowRequest(
+                action,
                 windowId: arguments[1],
-                workspaceTarget: action == .moveToWorkspace ? WorkspaceTarget(resolvingInput: arguments[2]) : nil
+                argument: arguments.dropFirst(2).first
             )
         )
     }

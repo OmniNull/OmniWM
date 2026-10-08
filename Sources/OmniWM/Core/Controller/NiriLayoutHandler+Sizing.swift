@@ -7,161 +7,75 @@ import QuartzCore
 
 extension NiriLayoutHandler {
     func toggleFullscreen() {
-        withNiriWorkspaceContext { engine, wsId, motion, state, _, workingFrame, gaps, orientation in
-            guard let currentId = state.selectedNodeId,
-                  let currentNode = engine.findNode(by: currentId, in: wsId),
-                  let windowNode = currentNode as? NiriWindow
-            else { return }
-
-            engine.toggleFullscreen(windowNode, motion: motion, state: &state)
+        performWindowSizing(on: .focused) { engine, windowNode, context, state in
+            engine.toggleFullscreen(windowNode, motion: context.motion, state: &state)
             if windowNode.sizingMode == .normal {
-                engine.recoverSettledCoverage(
-                    context: .init(
-                        workspaceId: wsId,
-                        motion: motion,
-                        workingFrame: workingFrame,
-                        gaps: gaps,
-                        orientation: orientation
-                    ),
-                    state: &state
-                )
+                engine.recoverSettledCoverage(context: context, state: &state)
             }
-
-            recordLayoutOperation(.fullscreenToggled(token: windowNode.token), in: wsId)
-            requestLayoutCommandRelayout(in: wsId)
-            startScrollAnimationIfNeeded(for: wsId, state: state, engine: engine)
+            return .fullscreenToggled(token: windowNode.token)
         }
     }
 
     func cycleSize(forward: Bool) {
-        withNiriWorkspaceContext { engine, wsId, motion, state, _, workingFrame, gaps, orientation in
-            guard let currentId = state.selectedNodeId,
-                  let windowNode = engine.findNode(by: currentId, in: wsId) as? NiriWindow,
-                  let column = engine.findColumn(containing: windowNode, in: wsId)
-            else { return }
+        cycleContainerPrimarySpan(forward: forward)
+    }
 
-            engine.toggleContainerPrimarySpan(
-                column,
-                forwards: forward,
-                context: .init(
-                    workspaceId: wsId,
-                    motion: motion,
-                    workingFrame: workingFrame,
-                    gaps: gaps,
-                    orientation: orientation
-                ),
-                state: &state
-            )
-            recordLayoutOperation(.containerPrimarySpanChanged, in: wsId)
-            requestLayoutCommandRelayout(in: wsId)
-            startScrollAnimationIfNeeded(for: wsId, state: state, engine: engine)
+    @discardableResult
+    func cycleContainerPrimarySpan(forward: Bool, target: WindowTarget = .focused) -> Bool {
+        performWindowSizing(on: target) { engine, windowNode, context, state in
+            guard let column = engine.findColumn(containing: windowNode, in: context.workspaceId) else { return nil }
+            engine.toggleContainerPrimarySpan(column, forwards: forward, context: context, state: &state)
+            return .containerPrimarySpanChanged
         }
     }
 
-    func cycleWindowPrimarySpan(forward: Bool) {
-        withNiriWorkspaceContext { engine, wsId, motion, state, _, workingFrame, gaps, orientation in
-            guard let currentId = state.selectedNodeId,
-                  let windowNode = engine.findNode(by: currentId, in: wsId) as? NiriWindow
-            else { return }
-
-            engine.toggleWindowPrimarySpan(
-                windowNode,
-                forwards: forward,
-                context: .init(
-                    workspaceId: wsId,
-                    motion: motion,
-                    workingFrame: workingFrame,
-                    gaps: gaps,
-                    orientation: orientation
-                ),
-                state: &state
-            )
-            recordLayoutOperation(.windowSizeChanged(token: windowNode.token), in: wsId)
-            requestLayoutCommandRelayout(in: wsId)
-            startScrollAnimationIfNeeded(for: wsId, state: state, engine: engine)
+    @discardableResult
+    func cycleWindowPrimarySpan(forward: Bool, target: WindowTarget = .focused) -> Bool {
+        performWindowSizing(on: target) { engine, windowNode, context, state in
+            engine.toggleWindowPrimarySpan(windowNode, forwards: forward, context: context, state: &state)
+            return .windowSizeChanged(token: windowNode.token)
         }
     }
 
-    func cycleWindowSecondarySpan(forward: Bool) {
-        withNiriWorkspaceContext { engine, wsId, _, state, _, workingFrame, gaps, orientation in
-            guard let currentId = state.selectedNodeId,
-                  let windowNode = engine.findNode(by: currentId, in: wsId) as? NiriWindow
-            else { return }
-
+    @discardableResult
+    func cycleWindowSecondarySpan(forward: Bool, target: WindowTarget = .focused) -> Bool {
+        performWindowSizing(on: target) { engine, windowNode, context, _ in
             engine.toggleWindowSecondarySpan(
                 windowNode,
                 forwards: forward,
-                in: wsId,
+                in: context.workspaceId,
                 geometry: NiriSizingGeometry(
-                    workingFrame: workingFrame,
-                    gaps: gaps,
-                    orientation: orientation
+                    workingFrame: context.workingFrame,
+                    gaps: context.gaps,
+                    orientation: context.orientation
                 )
             )
-            recordLayoutOperation(.windowSizeChanged(token: windowNode.token), in: wsId)
-            requestLayoutCommandRelayout(in: wsId)
-            startScrollAnimationIfNeeded(for: wsId, state: state, engine: engine)
+            return .windowSizeChanged(token: windowNode.token)
         }
     }
 
-    func toggleContainerFullPrimarySpan() {
-        withNiriWorkspaceContext { engine, wsId, motion, state, _, workingFrame, gaps, orientation in
-            guard let currentId = state.selectedNodeId,
-                  let windowNode = engine.findNode(by: currentId, in: wsId) as? NiriWindow,
-                  let column = engine.findColumn(containing: windowNode, in: wsId)
-            else { return }
-
-            engine.toggleContainerFullPrimarySpan(
-                column,
-                context: .init(
-                    workspaceId: wsId,
-                    motion: motion,
-                    workingFrame: workingFrame,
-                    gaps: gaps,
-                    orientation: orientation
-                ),
-                state: &state
-            )
-            recordLayoutOperation(.containerPrimarySpanChanged, in: wsId)
-            requestLayoutCommandRelayout(in: wsId)
-            startScrollAnimationIfNeeded(for: wsId, state: state, engine: engine)
+    @discardableResult
+    func toggleContainerFullPrimarySpan(target: WindowTarget = .focused) -> Bool {
+        performWindowSizing(on: target) { engine, windowNode, context, state in
+            guard let column = engine.findColumn(containing: windowNode, in: context.workspaceId) else { return nil }
+            engine.toggleContainerFullPrimarySpan(column, context: context, state: &state)
+            return .containerPrimarySpanChanged
         }
     }
 
     func expandContainerToAvailablePrimarySpan() {
-        withNiriWorkspaceContext { engine, wsId, motion, state, _, workingFrame, gaps, orientation in
-            guard let currentId = state.selectedNodeId,
-                  let windowNode = engine.findNode(by: currentId, in: wsId) as? NiriWindow,
-                  let column = engine.findColumn(containing: windowNode, in: wsId)
-            else { return }
-
-            engine.expandContainerToAvailablePrimarySpan(
-                column,
-                context: .init(
-                    workspaceId: wsId,
-                    motion: motion,
-                    workingFrame: workingFrame,
-                    gaps: gaps,
-                    orientation: orientation
-                ),
-                state: &state
-            )
-            recordLayoutOperation(.containerPrimarySpanChanged, in: wsId)
-            requestLayoutCommandRelayout(in: wsId)
-            startScrollAnimationIfNeeded(for: wsId, state: state, engine: engine)
+        performWindowSizing(on: .focused) { engine, windowNode, context, state in
+            guard let column = engine.findColumn(containing: windowNode, in: context.workspaceId) else { return nil }
+            engine.expandContainerToAvailablePrimarySpan(column, context: context, state: &state)
+            return .containerPrimarySpanChanged
         }
     }
 
-    func resetWindowSecondarySpan() {
-        withNiriWorkspaceContext { engine, wsId, _, state, _, _, _, orientation in
-            guard let currentId = state.selectedNodeId,
-                  let windowNode = engine.findNode(by: currentId, in: wsId) as? NiriWindow
-            else { return }
-
-            engine.resetWindowSecondarySpan(windowNode, in: wsId, orientation: orientation)
-            recordLayoutOperation(.windowSizeChanged(token: windowNode.token), in: wsId)
-            requestLayoutCommandRelayout(in: wsId)
-            startScrollAnimationIfNeeded(for: wsId, state: state, engine: engine)
+    @discardableResult
+    func resetWindowSecondarySpan(target: WindowTarget = .focused) -> Bool {
+        performWindowSizing(on: target) { engine, windowNode, context, _ in
+            engine.resetWindowSecondarySpan(windowNode, in: context.workspaceId, orientation: context.orientation)
+            return .windowSizeChanged(token: windowNode.token)
         }
     }
 
@@ -201,74 +115,37 @@ extension NiriLayoutHandler {
         }
     }
 
-    func setContainerPrimarySpan(_ change: NiriSizeChange) {
-        withNiriWorkspaceContext { engine, wsId, motion, state, _, workingFrame, gaps, orientation in
-            guard let currentId = state.selectedNodeId,
-                  let windowNode = engine.findNode(by: currentId, in: wsId) as? NiriWindow,
-                  let column = engine.findColumn(containing: windowNode, in: wsId)
-            else { return }
-
-            engine.setContainerPrimarySpan(
-                column,
-                change: change,
-                context: .init(
-                    workspaceId: wsId,
-                    motion: motion,
-                    workingFrame: workingFrame,
-                    gaps: gaps,
-                    orientation: orientation
-                ),
-                state: &state
-            )
-            recordLayoutOperation(.containerPrimarySpanChanged, in: wsId)
-            requestLayoutCommandRelayout(in: wsId)
-            startScrollAnimationIfNeeded(for: wsId, state: state, engine: engine)
+    @discardableResult
+    func setContainerPrimarySpan(_ change: NiriSizeChange, target: WindowTarget = .focused) -> Bool {
+        performWindowSizing(on: target) { engine, windowNode, context, state in
+            guard let column = engine.findColumn(containing: windowNode, in: context.workspaceId) else { return nil }
+            engine.setContainerPrimarySpan(column, change: change, context: context, state: &state)
+            return .containerPrimarySpanChanged
         }
     }
 
-    func setWindowPrimarySpan(_ change: NiriSizeChange) {
-        withNiriWorkspaceContext { engine, wsId, motion, state, _, workingFrame, gaps, orientation in
-            guard let currentId = state.selectedNodeId,
-                  let windowNode = engine.findNode(by: currentId, in: wsId) as? NiriWindow
-            else { return }
-
-            engine.setWindowPrimarySpan(
-                windowNode,
-                change: change,
-                context: .init(
-                    workspaceId: wsId,
-                    motion: motion,
-                    workingFrame: workingFrame,
-                    gaps: gaps,
-                    orientation: orientation
-                ),
-                state: &state
-            )
-            recordLayoutOperation(.windowSizeChanged(token: windowNode.token), in: wsId)
-            requestLayoutCommandRelayout(in: wsId)
-            startScrollAnimationIfNeeded(for: wsId, state: state, engine: engine)
+    @discardableResult
+    func setWindowPrimarySpan(_ change: NiriSizeChange, target: WindowTarget = .focused) -> Bool {
+        performWindowSizing(on: target) { engine, windowNode, context, state in
+            engine.setWindowPrimarySpan(windowNode, change: change, context: context, state: &state)
+            return .windowSizeChanged(token: windowNode.token)
         }
     }
 
-    func setWindowSecondarySpan(_ change: NiriSizeChange) {
-        withNiriWorkspaceContext { engine, wsId, _, state, _, workingFrame, gaps, orientation in
-            guard let currentId = state.selectedNodeId,
-                  let windowNode = engine.findNode(by: currentId, in: wsId) as? NiriWindow
-            else { return }
-
+    @discardableResult
+    func setWindowSecondarySpan(_ change: NiriSizeChange, target: WindowTarget = .focused) -> Bool {
+        performWindowSizing(on: target) { engine, windowNode, context, _ in
             engine.setWindowSecondarySpan(
                 windowNode,
                 change: change,
-                in: wsId,
+                in: context.workspaceId,
                 geometry: NiriSizingGeometry(
-                    workingFrame: workingFrame,
-                    gaps: gaps,
-                    orientation: orientation
+                    workingFrame: context.workingFrame,
+                    gaps: context.gaps,
+                    orientation: context.orientation
                 )
             )
-            recordLayoutOperation(.windowSizeChanged(token: windowNode.token), in: wsId)
-            requestLayoutCommandRelayout(in: wsId)
-            startScrollAnimationIfNeeded(for: wsId, state: state, engine: engine)
+            return .windowSizeChanged(token: windowNode.token)
         }
     }
 
@@ -329,5 +206,22 @@ extension NiriLayoutHandler {
         if !changed.isEmpty {
             controller.layoutRefreshController.requestLayoutCommandRelayout(affectedWorkspaceIds: changed)
         }
+    }
+
+    @discardableResult
+    private func performWindowSizing(
+        on target: WindowTarget,
+        _ operation: (NiriLayoutEngine, NiriWindow, NiriInteractionContext, inout ViewportState) -> LayoutOperation?
+    ) -> Bool {
+        var performed = false
+        withNiriWindowContext(target) { engine, windowNode, context, state in
+            guard let layoutOperation = operation(engine, windowNode, context, &state) else { return }
+            let workspaceId = context.workspaceId
+            recordLayoutOperation(layoutOperation, in: workspaceId)
+            requestLayoutCommandRelayout(in: workspaceId)
+            startScrollAnimationIfNeeded(for: workspaceId, state: state, engine: engine)
+            performed = true
+        }
+        return performed
     }
 }
