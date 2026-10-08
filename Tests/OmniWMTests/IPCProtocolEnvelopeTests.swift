@@ -23,7 +23,7 @@ final class IPCProtocolEnvelopeTests: XCTestCase {
     }
 
     func testCurrentProtocolVersionIsEighteen() {
-        XCTAssertEqual(OmniWMIPCProtocol.version, 18)
+        XCTAssertEqual(OmniWMIPCProtocol.version, 19)
     }
 
     func testScratchpadCommandDecodesLiteralScratchpadIndexField() throws {
@@ -200,7 +200,7 @@ final class IPCProtocolEnvelopeTests: XCTestCase {
         withExtendedLifetime(controller) {}
     }
 
-    func testV17ConnectionRejectsWindowQueriesButAllowsVersionRequests() async throws {
+    func testV18ConnectionRejectsWindowQueriesButAllowsVersionRequests() async throws {
         var sockets = [Int32](repeating: -1, count: 2)
         guard socketpair(AF_UNIX, SOCK_STREAM, 0, &sockets) == 0 else {
             throw ConnectionTestError.socketPairFailed
@@ -213,7 +213,7 @@ final class IPCProtocolEnvelopeTests: XCTestCase {
 
         for kind in ["query", "version"] {
             let request = requestLine(
-                version: 17, kind: kind, payload: kind == "query" ? #"{"name":"windows"}"# : "{}"
+                version: 18, kind: kind, payload: kind == "query" ? #"{"name":"windows"}"# : "{}"
             )
             await connection.process(String(decoding: request, as: UTF8.self))
             let responseData = try Self.readResponseLine(from: clientHandle.fileDescriptor)
@@ -223,7 +223,7 @@ final class IPCProtocolEnvelopeTests: XCTestCase {
             XCTAssertEqual(response.kind, kind == "query" ? .query : .version)
             XCTAssertEqual(response.ok, kind == "version")
             XCTAssertEqual(response.code, kind == "query" ? .protocolMismatch : nil)
-            XCTAssertEqual(protocolVersion(in: response), 18)
+            XCTAssertEqual(protocolVersion(in: response), 19)
         }
 
         await connection.stop()
@@ -268,7 +268,7 @@ final class IPCProtocolEnvelopeTests: XCTestCase {
 
     func testVersionResultCarriesTheBuildFingerprintOnTheWire() throws {
         let result = IPCVersionResult(
-            protocolVersion: 18,
+            protocolVersion: 19,
             appVersion: "0.6.5",
             gitHash: "5a82c1f5",
             buildConfiguration: "release",
