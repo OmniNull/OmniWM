@@ -49,7 +49,7 @@ Configure position, height, and appearance in Settings:
 - **Custom accent and text colors**.
 - **Per-monitor overrides** — change an individual display's bar independently.
 
-**Unreleased (when building from `main`):** overlapping placement reserves only the space below the menu bar reached by the bar's actual bottom edge, after applying Y offset and constraining it to the display. A bar that fits entirely within the menu-bar area adds no reservation. Below-menu-bar, bottom, left, and right placement continue reserving the configured bar thickness regardless of offsets.
+Overlapping placement reserves only the space below the menu bar reached by the bar's actual bottom edge, after applying Y offset and constraining it to the display. A bar that fits entirely within the menu-bar area adds no reservation. Below-menu-bar, bottom, left, and right placement continue reserving the configured bar thickness regardless of offsets.
 
 ### Bottom and side placement
 
