@@ -71,6 +71,7 @@ enum TrackpadScrollTrace {
             projectedProgress: Double? = nil, target: Double? = nil, allowFlick: Bool? = nil
         )
         case workspaceFallback(cumulative: Double, velocity: Double, allowFlick: Bool, fired: Bool)
+        case workspaceHandoff(windowId: UInt32, incoming: Bool, coverage: Double, expected: CGRect, observed: CGRect)
         case overviewMotion(action: String, progress: Double, velocity: Double, target: Double? = nil)
         case overviewScroll(
             phase: UInt, momentum: UInt, precise: Bool, state: String, suppressed: Bool,
@@ -103,6 +104,9 @@ enum TrackpadScrollTrace {
             "workspace-presentation renderer=\(renderer) action=\(action) progress=\(progress)"
                 + " velocity=\(decimal(velocity)) projected=\(decimal(projected)) target=\(decimal(target))"
                 + " allowFlick=\(allowFlick.map(String.init) ?? "none")"
+        case let .workspaceHandoff(windowId, incoming, coverage, expected, observed):
+            "workspace-handoff win=\(windowId) side=\(incoming ? "incoming" : "outgoing")"
+                + " coverage=\(decimal(coverage)) expected=\(expected) observed=\(observed)"
         case let .workspaceFallback(cumulative, velocity, allowFlick, fired):
             "workspace-fallback cumulative=\(cumulative) velocityUnits=\(velocity) allowFlick=\(allowFlick) fired=\(fired)"
         case let .overviewMotion(action, progress, velocity, target):

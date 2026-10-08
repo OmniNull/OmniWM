@@ -36,6 +36,7 @@ final class WorkspaceSwipePresentation {
         }
 
         var settlement: AXFrameSettlement?
+        var handoff: Handoff?
 
         init(
             preparation: Preparation,
@@ -72,6 +73,11 @@ final class WorkspaceSwipePresentation {
     private(set) var flight: Flight?
     private var preview: WorkspaceSwipePreview?
     private let mediaTimeProvider: () -> TimeInterval
+    var handoffWindowInfo: @MainActor (Set<UInt32>) async throws -> [UInt32: WindowServerInfo]? = {
+        try await SkyLight.shared.queryWindowInfoDeferred(windowIds: $0)
+    }
+
+    var handoffSleep: @MainActor (Duration) async throws -> Void = { try await Task.sleep(for: $0) }
 
     init(
         refreshController: LayoutRefreshController,
@@ -233,6 +239,7 @@ final class WorkspaceSwipePresentation {
             return
         }
         self.flight = nil
+        flight.handoff?.cancel()
         flight.settlement?.onChange = nil
         if controller?.axManager.workspaceFrameSettlement === flight.settlement {
             controller?.axManager.workspaceFrameSettlement = nil
@@ -242,7 +249,7 @@ final class WorkspaceSwipePresentation {
         trace(reason, progress: flight.progress)
         controller?.surfaceReconciler.noteWorldChanged()
         refreshController?.stopDisplayLinkIfIdle(for: flight.preparation.monitor.displayId)
-        if reason == "completed" || reason == "placement-failed" || reason == "cancelled" {
+        if ["completed", "placement-failed", "handoff-unconfirmed", "cancelled"].contains(reason) {
             refreshController?.collectUnusedWorkspacesIfIdle()
             warmPreviews()
         }
@@ -253,7 +260,7 @@ final class WorkspaceSwipePresentation {
         if settlement.tokens.contains(where: {
             refreshController?.hasPendingRevealTransaction(for: $0.windowId) == true
         }) { return }
-        cancel(reason: settlement.failed ? "placement-failed" : "completed")
+        confirmHandoff(flight)
     }
 
     func didSubmitPlacement() {
