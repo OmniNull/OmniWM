@@ -60,14 +60,50 @@ final class DisplayConfigurationTransientSampleTests: XCTestCase {
         XCTAssertTrue(events.isEmpty)
     }
 
-    private func makeMonitor(displayId: CGDirectDisplayID, name: String, originX: CGFloat, width: CGFloat) -> Monitor {
+    func testSafeApertureChangeResamplesNotchMetadata() async {
+        let plain = makeMonitor(displayId: 1, name: "Built-in", originX: 0, width: 1512)
+        let notched = makeMonitor(displayId: 1, name: "Built-in", originX: 0, width: 1512, notchRange: 666 ... 846)
+        let external = makeMonitor(displayId: 2, name: "External", originX: 1512, width: 1440)
+        sampledMonitors = [plain, external]
+        let observer = DisplayConfigurationObserver(monitorSampler: { self.sampledMonitors })
+        var reconfigured: [Monitor] = []
+        var resampled: XCTestExpectation?
+        observer.setEventHandler { event in
+            guard case let .reconfigured(monitor) = event else {
+                XCTFail("Unexpected display event \(event)")
+                return
+            }
+            reconfigured.append(monitor)
+            resampled?.fulfill()
+        }
+
+        for builtIn in [notched, plain] {
+            sampledMonitors = [builtIn, external]
+            let notified = expectation(description: "Resampled after safe aperture change")
+            resampled = notified
+            NotificationCenter.default.post(name: .screenSafeApertureDidChange, object: nil)
+            await fulfillment(of: [notified], timeout: 5)
+        }
+        observer.sampleNow()
+
+        XCTAssertEqual(reconfigured, [notched, plain])
+    }
+
+    private func makeMonitor(
+        displayId: CGDirectDisplayID,
+        name: String,
+        originX: CGFloat,
+        width: CGFloat,
+        notchRange: ClosedRange<CGFloat>? = nil
+    ) -> Monitor {
         let frame = CGRect(x: originX, y: 0, width: width, height: 900)
         return Monitor(
             id: .init(displayId: displayId),
             displayId: displayId,
             frame: frame,
             visibleFrame: frame,
-            hasNotch: false,
+            hasNotch: notchRange != nil,
+            notchRange: notchRange,
             name: name
         )
     }
