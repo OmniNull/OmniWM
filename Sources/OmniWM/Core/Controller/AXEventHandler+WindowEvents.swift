@@ -47,6 +47,12 @@ extension AXEventHandler {
         case let .orderChanged(windowId):
             handleWindowOrderChanged(windowId: windowId)
 
+        case let .visibilityChanged(windowId, orderedIn):
+            let entry = controller.workspaceManager.entry(forWindowId: Int(windowId))
+            guard !orderedIn || entry?.observedState.isNativeWithdrawn == true || hasVisibilityQuery(windowId: windowId)
+            else { return }
+            enqueueLifecycleQuery(windowId: windowId, kind: .visibilityChanged)
+
         case let .titleChanged(windowId):
             guard case let .exact(token, windowInfo) = resolveWindowServerIdentity(windowId),
                   controller.workspaceManager.entry(for: token) != nil
@@ -82,6 +88,17 @@ extension AXEventHandler {
         controller.surfaceReconciler.noteRestackOccurred()
     }
 
+    func applyWindowVisibilityChanged(windowId: UInt32, windowInfo: WindowServerInfo?) {
+        guard let controller,
+              case let .exact(token, _) = WindowServerIdentityResolution(windowId: windowId, info: windowInfo)
+        else { return }
+        guard windowInfo?.isOrderedIn != false || controller.workspaceManager.nativeManagedFocusToken != token else {
+            lifecycleQueries.visibilityRechecksAfterFocusLoss.insert(token)
+            return
+        }
+        applyObservedWindowOrdering(windowInfo, token: token)
+    }
+
     func applyObservedWindowOrdering(
         _ windowInfo: WindowServerInfo?,
         token: WindowToken,
@@ -93,12 +110,12 @@ extension AXEventHandler {
               windowInfo.id == UInt32(exactly: token.windowId),
               managedWindowTokenUsingCachedIdentity(token, matchesObservedPid: windowInfo.pid),
               let isOrderedIn = windowInfo.isOrderedIn,
-              let entry = controller.workspaceManager.entry(for: token)
+              controller.workspaceManager.entry(for: token) != nil
         else { return }
+        lifecycleQueries.visibilityRechecksAfterFocusLoss.remove(token)
         if !isOrderedIn {
             let topology = controller.workspaceManager.spaceTopology
             guard !appFullscreen,
-                  entry.hiddenState == nil,
                   !topology.isWindowOnFullscreenSpace(token.windowId),
                   !topology.isWindowOnKnownInactiveSpace(token.windowId)
             else { return }

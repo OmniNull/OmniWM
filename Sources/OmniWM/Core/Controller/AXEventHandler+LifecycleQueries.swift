@@ -13,6 +13,7 @@ extension AXEventHandler {
         case spaceDestroyed
         case closed
         case orderChanged
+        case visibilityChanged
         case activation(ActivationFacts)
     }
 
@@ -56,6 +57,7 @@ extension AXEventHandler {
         var nextSequence: UInt64 = 1
         var task: Task<Void, Never>?
         var deferredCloseProbeExpiration: IntentID?
+        var visibilityRechecksAfterFocusLoss: Set<WindowToken> = []
     }
 
     func enqueueLifecycleQuery(windowId: UInt32, kind: LifecycleQueryKind) {
@@ -80,6 +82,7 @@ extension AXEventHandler {
              .spaceDestroyed: lifecycleIdentity(windowId: windowId)
         case .created,
              .orderChanged,
+             .visibilityChanged,
              .activation: nil
         }
         let query = LifecycleQuery(
@@ -108,11 +111,15 @@ extension AXEventHandler {
                 if case .activation = $0.kind { return true }
                 return false
             }
-        case .orderChanged:
+        case .orderChanged,
+             .visibilityChanged:
             return lifecycleQueries.pending.contains {
                 guard $0.windowId == windowId else { return false }
-                if case .orderChanged = $0.kind { return true }
-                return false
+                switch ($0.kind, kind) {
+                case (.orderChanged, .orderChanged),
+                     (.visibilityChanged, .visibilityChanged): return true
+                default: return false
+                }
             }
         default:
             break
@@ -139,6 +146,18 @@ extension AXEventHandler {
         lifecycleQueries.active = nil
         lifecycleQueries.pending.removeAll()
         lifecycleQueries.deferredCloseProbeExpiration = nil
+        lifecycleQueries.visibilityRechecksAfterFocusLoss.removeAll()
+    }
+
+    func recheckVisibilityAfterFocusLoss() {
+        guard let controller, !lifecycleQueries.visibilityRechecksAfterFocusLoss.isEmpty else { return }
+        let focusedToken = controller.workspaceManager.nativeManagedFocusToken
+        let unfocused = lifecycleQueries.visibilityRechecksAfterFocusLoss.filter { $0 != focusedToken }
+        lifecycleQueries.visibilityRechecksAfterFocusLoss.subtract(unfocused)
+        for token in unfocused where controller.workspaceManager.entry(for: token) != nil {
+            guard let windowId = UInt32(exactly: token.windowId) else { continue }
+            enqueueLifecycleQuery(windowId: windowId, kind: .visibilityChanged)
+        }
     }
 
     private func performLifecycleQuery(_ request: LifecycleQuery) async {
@@ -198,18 +217,32 @@ extension AXEventHandler {
                     windowId: request.windowId, evidence: .transientLifecycle, windowInfo: windowInfo
                 )
             }
-        case .orderChanged:
-            guard let current,
-                  controller.workspaceManager.isSeqCurrent(
-                      observedAtSeq, for: current.workspaceId, domains: .layoutCommit
-                  )
-            else {
-                controller.surfaceReconciler.noteRestackOccurred()
-                return
-            }
-            applyWindowOrderChanged(windowId: request.windowId, windowInfo: windowInfo)
+        case .orderChanged,
+             .visibilityChanged:
+            applyLifecycleOrdering(request, current: current, observedAtSeq: observedAtSeq, windowInfo: windowInfo)
         case let .activation(facts):
             applyLifecycleActivation(facts, current: current, observedAtSeq: observedAtSeq, windowInfo: windowInfo)
+        }
+    }
+
+    private func applyLifecycleOrdering(
+        _ request: LifecycleQuery, current: WindowState?, observedAtSeq: UInt64, windowInfo: WindowServerInfo?
+    ) {
+        guard let controller else { return }
+        let isCurrent = current.map {
+            controller.workspaceManager.isSeqCurrent(observedAtSeq, for: $0.workspaceId, domains: .layoutCommit)
+        } ?? false
+        if case .visibilityChanged = request.kind {
+            guard let current else { return }
+            guard isCurrent, !hasPendingLifecycleDestruction(current.token) else {
+                enqueueLifecycleQuery(windowId: request.windowId, kind: .visibilityChanged)
+                return
+            }
+            applyWindowVisibilityChanged(windowId: request.windowId, windowInfo: windowInfo)
+        } else if isCurrent {
+            applyWindowOrderChanged(windowId: request.windowId, windowInfo: windowInfo)
+        } else {
+            controller.surfaceReconciler.noteRestackOccurred()
         }
     }
 
@@ -294,6 +327,14 @@ extension AXEventHandler {
             retryGeneration: admissionRetryStateByWindowId[windowId]?.generation,
             hiddenState: entry?.hiddenState
         )
+    }
+
+    func hasVisibilityQuery(windowId: UInt32) -> Bool {
+        func matches(_ request: LifecycleQuery) -> Bool {
+            guard request.windowId == windowId, case .visibilityChanged = request.kind else { return false }
+            return true
+        }
+        return lifecycleQueries.active.map(matches) == true || lifecycleQueries.pending.contains(where: matches)
     }
 
     func hasPendingLifecycleDestruction(_ token: WindowToken) -> Bool {

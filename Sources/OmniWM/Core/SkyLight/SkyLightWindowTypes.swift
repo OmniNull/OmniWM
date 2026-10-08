@@ -107,6 +107,8 @@ enum CGSEventType: UInt32 {
     case windowMoved = 806
     case windowResized = 807
     case windowOrderChanged = 808
+    case windowOrderedIn = 815
+    case windowOrderedOut = 816
     case windowTitleChanged = 1322
     case spaceWindowCreated = 1325
     case spaceWindowDestroyed = 1326

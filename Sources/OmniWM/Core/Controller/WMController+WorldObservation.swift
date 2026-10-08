@@ -8,6 +8,7 @@ import OmniWMIPC
 extension WMController {
     func handleSessionStateChanged(surfaceScope: SessionSurfaceInvalidationScope) {
         intentLedger.cancelConfirmedWorkerRaise(unlessFocused: workspaceManager.nativeManagedFocusToken)
+        axEventHandler.recheckVisibilityAfterFocusLoss()
         if let source = columnModeToast.source,
            workspaceManager.visibleWorkspaceId(on: source.monitorId) != source.workspaceId
         {

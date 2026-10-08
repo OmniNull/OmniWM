@@ -12,12 +12,25 @@ enum CGSWindowEvent: Equatable {
     case closed(windowId: UInt32)
     case frontAppChanged(pid: pid_t)
     case orderChanged(windowId: UInt32)
+    case visibilityChanged(windowId: UInt32, orderedIn: Bool)
     case titleChanged(windowId: UInt32)
 }
 
 @MainActor
 final class CGSEventObserver {
     static let shared = CGSEventObserver()
+
+    private static let eventsViaConnectionNotify: [CGSEventType] = [
+        .spaceWindowCreated,
+        .spaceWindowDestroyed,
+        .windowMoved,
+        .windowResized,
+        .windowOrderChanged,
+        .windowOrderedIn,
+        .windowOrderedOut,
+        .windowTitleChanged,
+        .frontmostApplicationChanged
+    ]
 
     private var isRegistered = false
     private var isWindowClosedNotifyRegistered = false
@@ -29,18 +42,8 @@ final class CGSEventObserver {
     func start() {
         guard !isRegistered else { return }
 
-        let eventsViaConnectionNotify: [CGSEventType] = [
-            .spaceWindowCreated,
-            .spaceWindowDestroyed,
-            .windowMoved,
-            .windowResized,
-            .windowOrderChanged,
-            .windowTitleChanged,
-            .frontmostApplicationChanged
-        ]
-
         var successCount = 0
-        for event in eventsViaConnectionNotify {
+        for event in Self.eventsViaConnectionNotify {
             let success = SkyLight.shared.registerForNotification(
                 event: event,
                 callback: cgsConnectionCallback,
@@ -71,7 +74,7 @@ final class CGSEventObserver {
             }
         }
 
-        let total = eventsViaConnectionNotify.count + 1
+        let total = Self.eventsViaConnectionNotify.count + 1
         lastRegistrationSummary = "\(successCount)/\(total) events registered"
         let registered = successCount > 0
         isRegistered = registered
@@ -80,17 +83,7 @@ final class CGSEventObserver {
 
     func stop() {
         if isRegistered {
-            let eventsToUnregister: [CGSEventType] = [
-                .spaceWindowCreated,
-                .spaceWindowDestroyed,
-                .windowMoved,
-                .windowResized,
-                .windowOrderChanged,
-                .windowTitleChanged,
-                .frontmostApplicationChanged
-            ]
-
-            for event in eventsToUnregister {
+            for event in Self.eventsViaConnectionNotify {
                 _ = SkyLight.shared.unregisterForNotification(
                     event: event,
                     callback: cgsConnectionCallback
@@ -200,11 +193,14 @@ private func decodeCGSEvent(
         }
         return .event(.frameChanged(windowId: windowId))
 
-    case .windowOrderChanged:
+    case .windowOrderChanged,
+         .windowOrderedIn,
+         .windowOrderedOut:
         guard let windowId = copyUInt32(from: data, length: length, offset: 0) else {
             return .malformed
         }
-        return .event(.orderChanged(windowId: windowId))
+        guard cgsEvent != .windowOrderChanged else { return .event(.orderChanged(windowId: windowId)) }
+        return .event(.visibilityChanged(windowId: windowId, orderedIn: cgsEvent == .windowOrderedIn))
 
     case .frontmostApplicationChanged:
         guard let pid = copyInt32(from: data, length: length, offset: 0) else {
