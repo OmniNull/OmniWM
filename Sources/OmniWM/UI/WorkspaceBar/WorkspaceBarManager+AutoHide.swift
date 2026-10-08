@@ -13,7 +13,8 @@ extension WorkspaceBarManager {
     }
 
     func handleAutoHideMouseMoved(at pointer: CGPoint) {
-        guard needsAutoHideMouseMoves || !autoHideState.revealed.isEmpty else { return }
+        guard needsAutoHideMouseMoves || !autoHideState.revealed.isEmpty || !autoHideDelays.pendingIds.isEmpty
+        else { return }
         let desired = autoHideState.desired(targets: autoHideTargets, pointer: pointer)
         var changed = false
         for id in desired.union(autoHideState.revealed).union(autoHideDelays.pendingIds) {

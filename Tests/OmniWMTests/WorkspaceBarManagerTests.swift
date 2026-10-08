@@ -414,6 +414,40 @@ final class WorkspaceBarManagerTests: XCTestCase {
         XCTAssertFalse(manager.isPointerRevealed(on: monitor.id))
     }
 
+    func testRemovingTheLastAutoHideTargetRestartsAPendingRevealDelay() async throws {
+        var pointer = monitor.frame.center
+        let manager = try autoHidingManager { pointer }
+        defer { manager.cleanup() }
+        var sleeps: [CheckedContinuation<Void, Never>] = []
+        manager.autoHideDelays.sleep = { _ in await withCheckedContinuation { sleeps.append($0) } }
+        controller.settings.workspaceBar.autoHideRevealDelayMilliseconds = 300
+        pointer = Self.edgePoint
+        manager.handleAutoHideMouseMoved(at: pointer)
+        await waitUntil { sleeps.count == 1 }
+        let hiddenBar = DesiredBarSurface(
+            monitor: monitor,
+            visible: false,
+            snapshot: snapshot(itemCount: 1),
+            retainWhileHidden: true
+        )
+
+        controller.settings.workspaceBar.autoHide = false
+        manager.apply([hiddenBar])
+        XCTAssertTrue(manager.autoHideDelays.pendingIds.isEmpty)
+
+        controller.settings.workspaceBar.autoHide = true
+        manager.apply([hiddenBar])
+        await waitUntil { sleeps.count == 2 }
+        XCTAssertEqual(sleeps.count, 2)
+        try resumeNextSleep(&sleeps)
+        await settle()
+        XCTAssertFalse(manager.isPointerRevealed(on: monitor.id))
+
+        try resumeNextSleep(&sleeps)
+        await waitUntil { manager.isPointerRevealed(on: monitor.id) }
+        XCTAssertTrue(manager.isPointerRevealed(on: monitor.id))
+    }
+
     func testTurningAutoHideOffHidesImmediatelyDespiteTheHideDelay() throws {
         let pointer = Self.edgePoint
         let manager = try autoHidingManager { pointer }

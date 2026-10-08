@@ -73,8 +73,8 @@ final class WorkspaceBarAutoHideDelays {
     var sleep: @MainActor (Duration) async throws -> Void = { try await Task.sleep(for: $0) }
     private var pending: [Monitor.ID: (revealing: Bool, task: Task<Void, Never>)] = [:]
 
-    var pendingIds: Set<Monitor.ID> {
-        Set(pending.keys)
+    var pendingIds: some Collection<Monitor.ID> {
+        pending.keys
     }
 
     func schedule(
