@@ -15,6 +15,7 @@ final class WorkspaceBarRenamePanel {
     private var panel: NonactivatingPanel?
     private var hostingView: NSHostingView<AnyView>?
     var isExemptWindow: (NSWindow) -> Bool = { _ in false }
+    var onVisibilityChanged: (() -> Void)?
 
     private(set) var isVisible = false
 
@@ -66,6 +67,7 @@ final class WorkspaceBarRenamePanel {
             isExemptWindow: { [weak self] in self?.isExemptWindow($0) == true },
             onDismiss: { [weak self] in self?.dismiss() }
         )
+        onVisibilityChanged?()
     }
 
     func dismiss() {
@@ -76,6 +78,7 @@ final class WorkspaceBarRenamePanel {
         ownedWindowRegistry.unregister(surfaceId: Self.surfaceId)
         focusPolicyEngine.endLease(owner: .workspaceBarRename)
         hostingView?.rootView = AnyView(EmptyView())
+        onVisibilityChanged?()
     }
 
     private func makePanel() -> NonactivatingPanel {

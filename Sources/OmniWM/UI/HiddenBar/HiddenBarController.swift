@@ -66,6 +66,11 @@ final class HiddenBarController {
         set { forwarder.onCursorWarp = newValue }
     }
 
+    var onPanelVisibilityChanged: (() -> Void)? {
+        get { panel.onVisibilityChanged }
+        set { panel.onVisibilityChanged = newValue }
+    }
+
     var onWorkspaceBarJoin: ((HiddenBarPanelPlacement.Join?) -> Void)? {
         get { panel.onWorkspaceBarJoin }
         set { panel.onWorkspaceBarJoin = newValue }

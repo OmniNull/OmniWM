@@ -204,10 +204,25 @@ extension WMController {
         return channels
     }
 
+    func isWorkspaceBarEnabled(on monitor: Monitor, resolved: ResolvedBarSettings) -> Bool {
+        resolved.enabled && !hiddenWorkspaceBarMonitorIds.contains(monitor.id)
+    }
+
+    func isWorkspaceBarConfiguredVisible(on monitor: Monitor, resolved: ResolvedBarSettings) -> Bool {
+        guard isWorkspaceBarEnabled(on: monitor, resolved: resolved) else { return false }
+        return (!resolved.autoHide && settings.workspaceBar.revealModifier == .off)
+            || isWorkspaceBarRevealHeld || (resolved.autoHide && workspaceBarManager.isPointerRevealed(on: monitor.id))
+    }
+
     func isWorkspaceBarVisible(on monitor: Monitor, resolved: ResolvedBarSettings? = nil) -> Bool {
         let effective = resolved ?? settings.workspaceBar.resolved(for: monitor)
         guard isWorkspaceBarConfiguredVisible(on: monitor, resolved: effective) else { return false }
         return !isWorkspaceBarSuppressedByNativeFullscreen(on: monitor, resolved: effective)
+    }
+
+    func canAutoHideWorkspaceBar(on monitor: Monitor, resolved: ResolvedBarSettings) -> Bool {
+        resolved.autoHide && isWorkspaceBarEnabled(on: monitor, resolved: resolved)
+            && !isWorkspaceBarSuppressedByNativeFullscreen(on: monitor, resolved: resolved)
     }
 
     private func isWorkspaceBarSuppressedByNativeFullscreen(

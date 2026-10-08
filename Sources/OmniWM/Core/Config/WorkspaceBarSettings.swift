@@ -90,6 +90,10 @@ final class WorkspaceBarSettings {
         didSet { onChange?() }
     }
 
+    var autoHide = WorkspaceBarSettings.defaults.autoHide {
+        didSet { onChange?() }
+    }
+
     var revealModifier = WorkspaceBarSettings.defaults.revealModifier {
         didSet { onChange?() }
     }
@@ -194,6 +198,7 @@ extension WorkspaceBarSettings {
             ),
             iconOverrides: iconOverrides,
             reserveLayoutSpace: reserveLayoutSpace,
+            autoHide: autoHide,
             revealModifier: revealModifier,
             revealHoldMilliseconds: revealHoldMilliseconds,
             hideInNativeFullscreen: hideInNativeFullscreen,
@@ -235,6 +240,7 @@ extension WorkspaceBarSettings {
 
     func applyAppearance(_ bar: SettingsExport.WorkspaceBar, monitorOverrides: [MonitorBarSettings]) {
         reserveLayoutSpace = bar.reserveLayoutSpace
+        autoHide = bar.autoHide
         revealModifier = bar.revealModifier
         revealHoldMilliseconds = WorkspaceBarSettings.validatedRevealHoldMilliseconds(
             bar.revealHoldMilliseconds
@@ -280,6 +286,7 @@ extension WorkspaceBarSettings {
             hideEmptyWorkspaces: override?.hideEmptyWorkspaces ?? hideEmptyWorkspaces,
             excludedBundleIDs: excludedBundleIDs,
             reserveLayoutSpace: override?.reserveLayoutSpace ?? reserveLayoutSpace,
+            autoHide: override?.autoHide ?? autoHide,
             notchMode: position.usesNotch ? (override?.notchMode ?? notchMode) : .off,
             notchActiveZoneWidth: override?.notchActiveZoneWidth ?? notchActiveZoneWidth,
             systemStatsButton: systemStatsButton,

@@ -43,6 +43,8 @@ extension MouseEventHandler {
             return
         }
 
+        controller.workspaceBarManager.handleAutoHideMouseMoved(at: location)
+
         guard controller.focusFollowsMouseEnabled || state.isResizing else {
             resetHoveredEdgesIfNeeded()
             return

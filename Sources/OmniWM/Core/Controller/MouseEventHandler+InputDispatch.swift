@@ -106,6 +106,7 @@ extension MouseEventHandler {
         }
         controller?.mouseWarpHandler.handleMouseWarpMoved(at: location)
         recordMouseWarpSample()
+        controller?.workspaceBarManager.handleAutoHideMouseMoved(at: location)
         beginNativeTitleBarDragIfNeeded(button: button)
         if !isCapturedInteraction(button), shouldBlockOwnWindowInput(at: location) {
             cancelActiveMouseInteraction()
@@ -403,8 +404,9 @@ extension MouseEventHandler {
         }
         controller?.mouseWarpHandler.handleMouseWarpMoved(at: location)
         recordMouseWarpSample()
+        controller?.workspaceBarManager.handleAutoHideMouseMoved(at: location)
         beginNativeTitleBarDragIfNeeded(button: button)
-        if shouldBlockOwnWindowInput(at: location) {
+        if !isCapturedInteraction(button), shouldBlockOwnWindowInput(at: location) {
             cancelActiveMouseInteraction()
             return
         }

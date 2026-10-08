@@ -73,6 +73,14 @@ struct MonitorBarSettingsSection: View {
             )
 
             OverridableToggle(
+                label: String(localized: "Automatically hide and show the workspace bar"),
+                value: ms.autoHide,
+                globalValue: settings.workspaceBar.autoHide,
+                onChange: { newValue in updateSetting { $0.autoHide = newValue } },
+                onReset: { updateSetting { $0.autoHide = nil } }
+            )
+
+            OverridableToggle(
                 label: String(localized: "Reserve Space for Workspace Bar"),
                 value: ms.reserveLayoutSpace,
                 globalValue: settings.workspaceBar.reserveLayoutSpace,
