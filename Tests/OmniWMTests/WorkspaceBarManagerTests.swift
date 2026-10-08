@@ -292,7 +292,7 @@ final class WorkspaceBarManagerTests: XCTestCase {
         controller.setFocusFollowsMouse(false)
 
         pointer = CGPoint(x: -1720, y: 2159.5)
-        handler.dispatchMouseMoved(at: pointer)
+        handler.dispatchQueuedMouseDragged(at: pointer, button: .left)
         XCTAssertFalse(manager.isPointerRevealed(on: monitor.id))
         XCTAssertTrue(manager.isPointerRevealed(on: second.id))
 

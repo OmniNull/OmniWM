@@ -22,9 +22,20 @@ struct WorkspaceBarAutoHideTarget {
         retentionRegions = regions.map(\.retention)
     }
 
+    func activates(_ pointer: CGPoint) -> Bool {
+        contains(pointer, in: activationRegions)
+    }
+
     func retains(_ pointer: CGPoint) -> Bool {
-        monitorFrame.contains(pointer) && retentionRegions.contains {
-            !$0.isNull && ($0.minX ... $0.maxX).contains(pointer.x) && ($0.minY ... $0.maxY).contains(pointer.y)
+        contains(pointer, in: retentionRegions)
+    }
+
+    private func contains(_ pointer: CGPoint, in regions: [CGRect]) -> Bool {
+        guard (monitorFrame.minX ..< monitorFrame.maxX).contains(pointer.x),
+              pointer.y > monitorFrame.minY, pointer.y <= monitorFrame.maxY
+        else { return false }
+        return regions.contains {
+            !$0.isEmpty && ($0.minX ... $0.maxX).contains(pointer.x) && ($0.minY ... $0.maxY).contains(pointer.y)
         }
     }
 }
@@ -34,7 +45,7 @@ struct WorkspaceBarAutoHideState {
 
     mutating func update(targets: [WorkspaceBarAutoHideTarget], pointer: CGPoint) {
         revealed = Set(targets.filter { target in
-            target.activationRegions.contains { $0.contains(pointer) }
+            target.activates(pointer)
                 || ((revealed.contains(target.id) || target.isVisible)
                     && (target.isPinned || target.retains(pointer)))
         }.map(\.id))

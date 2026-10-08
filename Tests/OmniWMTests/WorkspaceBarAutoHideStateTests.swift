@@ -18,15 +18,15 @@ final class WorkspaceBarAutoHideStateTests: XCTestCase {
         let cases: [(WorkspaceBarPosition, CGPoint, CGPoint, CGPoint, CGPoint)] = [
             (
                 .overlappingMenuBar,
-                CGPoint(x: -400, y: -0.5),
-                CGPoint(x: -790, y: -0.5),
+                CGPoint(x: -400, y: 0),
+                CGPoint(x: -790, y: 0),
                 CGPoint(x: -790, y: -20),
                 CGPoint(x: -790, y: -20.5)
             ),
             (
                 .belowMenuBar,
-                CGPoint(x: -400, y: -0.5),
-                CGPoint(x: -790, y: -0.5),
+                CGPoint(x: -400, y: 0),
+                CGPoint(x: -790, y: 0),
                 CGPoint(x: -790, y: -44),
                 CGPoint(x: -790, y: -44.5)
             ),
