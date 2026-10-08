@@ -77,6 +77,7 @@ extension CanonicalTOMLConfig {
         gaps = try container.decode(SettingsExport.Gaps.self, forKey: .gaps)
         niri = try container.decode(SettingsExport.Niri.self, forKey: .niri)
         niri.edgeGaps = niri.edgeGaps ?? true
+        niri.moveWindowStacksIntoColumn = niri.moveWindowStacksIntoColumn ?? true
         dwindle = try container.decode(SettingsExport.Dwindle.self, forKey: .dwindle)
         borders = try container.decode(SettingsExport.Borders.self, forKey: .borders)
         overview = try container.decode(SettingsExport.Overview.self, forKey: .overview)

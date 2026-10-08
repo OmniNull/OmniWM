@@ -66,6 +66,10 @@ final class NiriSettings {
         didSet { onChange?() }
     }
 
+    var moveWindowStacksIntoColumn = NiriSettings.defaults.moveWindowStacksIntoColumn ?? true {
+        didSet { onChange?() }
+    }
+
     var monitorOverrides: [MonitorNiriSettings] = [] {
         didSet { onChange?() }
     }
@@ -80,7 +84,8 @@ final class NiriSettings {
             containerPrimarySpanPresets: containerPrimarySpanPresets,
             defaultContainerPrimarySpan: defaultContainerPrimarySpan,
             edgeGaps: edgeGaps,
-            resizeStepPercent: resizeStepPercent
+            resizeStepPercent: resizeStepPercent,
+            moveWindowStacksIntoColumn: moveWindowStacksIntoColumn
         )
     }
 
@@ -91,6 +96,7 @@ final class NiriSettings {
         alwaysCenterSingleColumn = niri.alwaysCenterSingleColumn
         singleWindowFit = niri.singleWindowFit
         edgeGaps = niri.edgeGaps ?? baseline.edgeGaps ?? true
+        moveWindowStacksIntoColumn = niri.moveWindowStacksIntoColumn ?? baseline.moveWindowStacksIntoColumn ?? true
         resizeStepPercent = niri.resizeStepPercent ?? baseline.resizeStepPercent ?? BuiltInSettingsDefaults
             .niriResizeStepPercent
         containerPrimarySpanPresets = NiriSettings.validatedContainerPrimarySpanPresets(

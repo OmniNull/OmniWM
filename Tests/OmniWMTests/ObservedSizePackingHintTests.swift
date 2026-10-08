@@ -36,6 +36,20 @@ final class ObservedSizePackingHintTests: XCTestCase {
             .contains("move ws=\(fixture.workspaceId.uuidString) left win=709202 outcome=movedWithinWorkspace"))
     }
 
+    func testDirectionalMoveSwapsColumnsWhenStackingDisabled() throws {
+        let fixture = try makeFixture()
+        defer { cleanup(fixture) }
+        fixture.controller.settings.niri.moveWindowStacksIntoColumn = false
+        let engine = try XCTUnwrap(fixture.controller.niriEngine)
+
+        XCTAssertEqual(fixture.controller.niriLayoutHandler.moveWindow(direction: .left), .movedWithinWorkspace)
+        XCTAssertEqual(
+            engine.columns(in: fixture.workspaceId).map { $0.windowNodes.map(\.token) },
+            [[fixture.tokens[1]], [fixture.tokens[0]]]
+        )
+        XCTAssertEqual(fixture.controller.niriLayoutHandler.moveWindow(direction: .left), .atWorkspaceEdge)
+    }
+
     func testBoundedHeightGrowthBecomesHintAndKeepsStackedMoveFeasible() throws {
         for learnedCount in 1 ... 2 {
             let fixture = try makeFixture()
