@@ -102,7 +102,7 @@ final class WindowSwitcherTile: NSView {
     }
 
     private func configurePreviewLayer() {
-        thumbnail.contentsGravity = .resizeAspectFill
+        thumbnail.contentsGravity = .resize
         thumbnail.opacity = item.isMinimized ? 0.45 : 1
         thumbnail.cornerRadius = 6
         thumbnail.masksToBounds = true
@@ -156,7 +156,20 @@ final class WindowSwitcherTile: NSView {
         CATransaction.setCompletionBlock { withExtendedLifetime(previous) {} }
         preview = frame
         thumbnail.contents = frame?.surface
-        thumbnail.contentsRect = frame?.contentsRect ?? CGRect(x: 0, y: 0, width: 1, height: 1)
+        thumbnail.contentsRect = frame.map { frame in
+            // Crop within the captured content, excluding the stream's padding,
+            // before scaling it to fill the card.
+            var rect = frame.contentsRect
+            let contentWidth = CGFloat(frame.surface.width) * rect.width
+            let contentHeight = CGFloat(frame.surface.height) * rect.height
+            let scale = max(thumbnailBounds.width / contentWidth, thumbnailBounds.height / contentHeight)
+            let width = thumbnailBounds.width / scale / CGFloat(frame.surface.width)
+            let height = thumbnailBounds.height / scale / CGFloat(frame.surface.height)
+            rect.origin.x += (rect.width - width) / 2
+            rect.origin.y += (rect.height - height) / 2
+            rect.size = CGSize(width: width, height: height)
+            return rect
+        } ?? CGRect(x: 0, y: 0, width: 1, height: 1)
         thumbnail.frame = thumbnailBounds
         unavailable.isHidden = frame != nil
         CATransaction.commit()

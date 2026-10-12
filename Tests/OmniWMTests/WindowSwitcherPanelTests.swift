@@ -7,6 +7,30 @@ import XCTest
 
 @MainActor
 final class WindowSwitcherPanelTests: XCTestCase {
+    func testPreviewFillsCardUsingOnlyCapturedContentForWideAndTallWindows() throws {
+        let item = makeItem(1)
+        let tile = WindowSwitcherTile(
+            item: item, size: CGSize(width: 204, height: 204), selected: true,
+            content: .init(items: [item], selected: item.handle.id, scope: .activeWorkspace, hasCaptureAccess: true)
+        )
+        let thumbnail = try XCTUnwrap(tile.layer?.sublayers?.first)
+        let cases: [(CGRect, CGRect)] = [
+            (CGRect(x: 0, y: 0, width: 400, height: 200), CGRect(x: 0.25, y: 0, width: 0.5, height: 0.5)),
+            (CGRect(x: 100, y: 0, width: 200, height: 400), CGRect(x: 0.25, y: 0.25, width: 0.5, height: 0.5)),
+            (CGRect(x: 0, y: 0, width: 400, height: 400), CGRect(x: 0, y: 0, width: 1, height: 1))
+        ]
+        for (contentRect, expectedCrop) in cases {
+            let preview = try makeOverviewPreviewFrame(width: 400, height: 400, contentRect: contentRect)
+            tile.updatePreview(preview)
+            XCTAssertEqual(thumbnail.contentsRect, expectedCrop)
+            XCTAssertEqual(thumbnail.contentsGravity, .resize)
+            XCTAssertEqual(thumbnail.frame, tile.bounds.insetBy(dx: 2, dy: 2))
+        }
+        tile.updatePreview(nil)
+        XCTAssertNil(thumbnail.contents)
+        XCTAssertEqual(thumbnail.contentsRect, CGRect(x: 0, y: 0, width: 1, height: 1))
+    }
+
     func testClosingIdenticallyNamedWindowsKeepsSurvivingCardsAndCloseTargets() throws {
         let panel = WindowSwitcherPanel(ownedWindowRegistry: OwnedWindowRegistry())
         defer { panel.close() }

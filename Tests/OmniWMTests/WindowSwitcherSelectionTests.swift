@@ -32,17 +32,27 @@ final class WindowSwitcherSelectionTests: XCTestCase {
         XCTAssertEqual(selection.selected, third)
     }
 
-    func testDirectSwitchRequiresExactlyTwoWindowsGloballyAndInScope() {
+    func testDirectSwitchForTwoWindowsRequiresBothGloballyAndInScope() {
         var selection = WindowSwitcherSelection()
         selection.begin(tokens: [first, second], current: first, reverse: false)
         XCTAssertEqual(selection.directSwitchTarget(totalWindowCount: 2), second)
         XCTAssertNil(selection.directSwitchTarget(totalWindowCount: 3))
         selection.begin(tokens: [first, second], current: second, reverse: true)
         XCTAssertEqual(selection.directSwitchTarget(totalWindowCount: 2), first)
-        selection.begin(tokens: [first], current: first, reverse: false)
-        XCTAssertNil(selection.directSwitchTarget(totalWindowCount: 2))
         selection.reconcile(tokens: [])
         XCTAssertNil(selection.directSwitchTarget(totalWindowCount: 0))
+    }
+
+    func testSingleWindowInScopeBypassesOverlayEvenWithOtherWorkspaceWindows() {
+        for current: WindowToken? in [first, third, nil] {
+            for reverse in [false, true] {
+                var selection = WindowSwitcherSelection()
+                selection.begin(tokens: [first], current: current, reverse: reverse, recent: [third, first])
+                for totalWindowCount in [1, 2, 3] {
+                    XCTAssertEqual(selection.directSwitchTarget(totalWindowCount: totalWindowCount), first)
+                }
+            }
+        }
     }
 
     func testRowNavigationClampsToShortFinalRowAndWraps() {
