@@ -1,12 +1,39 @@
 // SPDX-License-Identifier: GPL-2.0-only
 // Copyright (C) 2026 BarutSRB — https://github.com/OmniNull/OmniWM
 
+import CoreVideo
 import Foundation
+import IOSurface
 @testable import OmniWM
 import Synchronization
 import XCTest
 
 final class OverviewPreviewCaptureTests: XCTestCase {
+    func testFrameReservesSurfaceUntilItsLastOwnerReleasesIt() throws {
+        var pixelBuffer: CVPixelBuffer?
+        XCTAssertEqual(CVPixelBufferCreate(
+            kCFAllocatorDefault, 80, 60, kCVPixelFormatType_32BGRA,
+            [kCVPixelBufferIOSurfacePropertiesKey as String: [:]] as CFDictionary,
+            &pixelBuffer
+        ), kCVReturnSuccess)
+        let buffer = try XCTUnwrap(pixelBuffer)
+        let surface = try XCTUnwrap(CVPixelBufferGetIOSurface(buffer)?.takeUnretainedValue())
+        let initialUseCount = IOSurfaceGetUseCount(surface)
+        var frame: OverviewPreviewFrame? = try XCTUnwrap(OverviewPreviewFrame(pixelBuffer: buffer))
+        weak var lifetime = frame
+        XCTAssertEqual(IOSurfaceGetUseCount(surface), initialUseCount + 1)
+        XCTAssertTrue(IOSurfaceIsInUse(surface))
+
+        var cached = frame
+        frame = nil
+        XCTAssertNotNil(lifetime)
+        XCTAssertEqual(IOSurfaceGetUseCount(surface), initialUseCount + 1)
+        withExtendedLifetime(cached) {}
+        cached = nil
+        XCTAssertNil(lifetime)
+        XCTAssertEqual(IOSurfaceGetUseCount(surface), initialUseCount)
+    }
+
     func testMailboxKeepsOnlyLatestFrameAndSchedulesOneDrain() throws {
         let callbacks = Mutex(0)
         let output = OverviewPreviewStream(onReady: { callbacks.withLock { $0 += 1 } }, onFailure: {})

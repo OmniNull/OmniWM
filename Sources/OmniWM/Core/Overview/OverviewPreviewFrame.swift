@@ -29,6 +29,15 @@ final class OverviewPreviewFrame: @unchecked Sendable {
         }
         self.surface = surface
         self.pixelBuffer = pixelBuffer
+        // ScreenCaptureKit's producer lives in another process. Retaining the
+        // local pixel buffer alone does not reserve its shared surface there.
+        // Keep the pixels paired with this frame's metadata until every cache
+        // and presentation consumer has released the frame.
+        self.surface.incrementUseCount()
+    }
+
+    deinit {
+        surface.decrementUseCount()
     }
 }
 

@@ -85,6 +85,9 @@ final class OverviewPreviewLiveTests: XCTestCase {
         for update in 1 ... 5 {
             let nextReady = expectation(description: "updated native preview \(update)")
             signal.withLock { $0 = nextReady }
+            // Keep the first landscape frame alive while the producer draws
+            // portrait frames into its pool. Its pixels and crop must not change.
+            panel.setContentSize(CGSize(width: 160, height: 320))
             quadrants.swapped.toggle()
             quadrants.needsDisplay = true
             panel.displayIfNeeded()
