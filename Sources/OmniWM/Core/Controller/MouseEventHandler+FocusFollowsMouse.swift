@@ -43,6 +43,13 @@ extension MouseEventHandler {
             return
         }
 
+        controller.workspaceBarManager.handleAutoHideMouseMoved(at: location)
+
+        guard controller.focusFollowsMouseEnabled || state.isResizing else {
+            resetHoveredEdgesIfNeeded()
+            return
+        }
+
         if shouldBlockOwnWindowInput(at: location) {
             resetHoveredEdgesIfNeeded()
             return
@@ -111,7 +118,7 @@ extension MouseEventHandler {
         ) else { return }
         let token = focusFollowsMouseToken(for: target)
 
-        guard token != controller.workspaceManager.selectedManagedToken else { return }
+        guard token != controller.workspaceManager.nativeManagedFocusToken else { return }
         controller.focusPolicyEngine.performIfFocusFollowsMouseAllowed {
             state.lastFocusFollowsMouseTime = now
             activateFocusFollowsMouseTarget(target)

@@ -8,8 +8,9 @@ extension WorkspaceManager {
         isAppHidden(token) || entry(for: token)?.observedState.isNativeSuppressed == true
     }
 
-    func isWindowSuppressedByMacOS(_ entry: WindowState) -> Bool {
-        isAppHidden(entry.token) || entry.observedState.isNativeSuppressed
+    func isWindowSuppressedByMacOS(_ entry: borrowing WindowState) -> Bool {
+        if isAppHidden(entry.token) { return true }
+        return entry.observedState.isNativeSuppressed
     }
 
     @discardableResult

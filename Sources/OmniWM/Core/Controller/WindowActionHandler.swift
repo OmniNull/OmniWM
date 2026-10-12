@@ -71,6 +71,10 @@ final class WindowActionHandler {
         floatingWindows.raiseAllFloatingWindows()
     }
 
+    func toggleFloatingFocus() -> ExternalCommandResult {
+        floatingWindows.toggleFloatingFocus()
+    }
+
     func hasRaisableFloatingWindows() -> Bool {
         floatingWindows.hasRaisableFloatingWindows()
     }
@@ -195,7 +199,7 @@ final class WindowActionHandler {
                     closeButton,
                     kAXPressAction as CFString,
                     noteKey: "performPressFailed"
-                )
+                ) == .success
             }
             return false
         } succeeded: { $0 }

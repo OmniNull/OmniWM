@@ -25,7 +25,6 @@ final class ServiceLifecycleManager {
     private var screenParametersObserver: NSObjectProtocol?
     private var permissionCheckerTask: Task<Void, Never>?
 
-    private(set) var isSecureInputActive = false
     var userStopPhase = UserStopPhase.idle
     var quitRequested = false
     var stopCompletions: [@MainActor @Sendable () -> Void] = []
@@ -111,6 +110,7 @@ final class ServiceLifecycleManager {
             controller.syncMonitorsToNiriEngine()
         }
         controller.hasStartedServices = true
+        controller.updateWorkspaceBarNotificationBadgeSettings()
         controller.reconcileEnabledAndHotkeysState()
         controller.eventIntake.open(sink: controller.eventInterpreter)
         controller.layoutRefreshController.setup()
@@ -213,7 +213,7 @@ final class ServiceLifecycleManager {
         handleUnlockDetected()
     }
 
-    private func startSecureInputMonitor() {
+    func startSecureInputMonitor() {
         guard let controller else { return }
         controller.secureInputMonitor.start { [weak self] isSecure in
             self?.handleSecureInputChange(isSecure)
@@ -222,17 +222,10 @@ final class ServiceLifecycleManager {
 
     private func handleSecureInputChange(_ isSecure: Bool) {
         guard let controller else { return }
-        let didSuppressActiveHotkeys = isSecure && controller.hotkeysEnabled
-        isSecureInputActive = isSecure
-        controller.reconcileEnabledAndHotkeysState()
         if isSecure {
             controller.resetWorkspaceBarReveal()
-            if didSuppressActiveHotkeys {
-                SecureInputIndicatorController.shared.show()
-            }
-        } else {
-            SecureInputIndicatorController.shared.hide()
         }
+        controller.refreshSecureInputPresentation()
     }
 
     func reconcileStoppedApplicationTerminationsAndResumeTimeouts(liveApplicationPIDs: Set<pid_t>) {
@@ -298,6 +291,7 @@ final class ServiceLifecycleManager {
             controller.cancelManagedFocusRequestAndRestoreSource(request)
         }
         controller.hasStartedServices = false
+        controller.updateWorkspaceBarNotificationBadgeSettings()
         controller.invalidateOverviewDeferredActionsForServiceStop()
         topologyInventory.cancel()
 
@@ -335,8 +329,6 @@ final class ServiceLifecycleManager {
         workspaceObservation.stop()
 
         controller.secureInputMonitor.stop()
-        isSecureInputActive = false
-        SecureInputIndicatorController.shared.hide()
         controller.lockScreenObserver.stop()
         permissionCheckerTask?.cancel()
         permissionCheckerTask = nil

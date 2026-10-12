@@ -1,10 +1,17 @@
 // SPDX-License-Identifier: GPL-2.0-only
 // Copyright (C) 2026 BarutSRB — https://github.com/OmniNull/OmniWM
 
+import AppKit
 import Foundation
 
 @MainActor
 extension AXEventHandler {
+    static func nativeApplicationIsHidden(_ pid: pid_t) -> Bool {
+        let application = AppAXContextRegistry.contexts[pid]?.nsApp
+            ?? NSRunningApplication(processIdentifier: pid)
+        return application?.isHidden == true
+    }
+
     func handleAppDeactivated(pid: pid_t) {
         guard let controller else { return }
         let workspaceManager = controller.workspaceManager
@@ -19,8 +26,9 @@ extension AXEventHandler {
         workspaceManager.suppressFocusBorder(for: focusedToken)
     }
 
-    func handleAppHidden(pid: pid_t, source: WMEventSource = .ax) {
-        guard let controller = acceptAppVisibilityChange(hidden: true, pid: pid, source: source) else { return }
+    @discardableResult
+    func handleAppHidden(pid: pid_t, source: WMEventSource = .ax) -> Bool {
+        guard let controller = acceptAppVisibilityChange(hidden: true, pid: pid, source: source) else { return false }
         let entries = controller.workspaceManager.entries(forPid: pid)
         let affectedWorkspaceIds = Set(entries.map(\.workspaceId))
         controller.dwindleLayoutHandler.groupReveals.cancelPendingGroupReveals(pid: pid)
@@ -39,6 +47,8 @@ extension AXEventHandler {
             entries: entries.map { (pid: $0.pid, windowId: $0.windowId) }
         )
         controller.workspaceManager.setAppHidden(true, pid: pid, source: source)
+
+        let handedOffFocus = handOffFocusAfterAppHide(pid: pid, controller: controller)
 
         if let activeRequest = controller.intentLedger.activeManagedRequest,
            activeRequest.token.pid == pid
@@ -67,6 +77,86 @@ extension AXEventHandler {
             controller: controller
         )
         controller.surfaceReconciler.noteWorldChanged()
+        return handedOffFocus
+    }
+
+    func reconcileHiddenAppBeforeActivation(
+        pid: pid_t,
+        source: ActivationEventSource,
+        origin: ActivationCallOrigin
+    ) -> Bool {
+        guard origin == .external, source != .workspaceDidUnhideApplication,
+              let controller,
+              controller.intentLedger.activeManagedRequest == nil,
+              let selected = controller.workspaceManager.selectedManagedToken,
+              selected.pid != pid,
+              !controller.workspaceManager.isAppHidden(selected),
+              let entry = controller.workspaceManager.entry(for: selected),
+              let monitorId = controller.workspaceManager.monitorId(for: entry.workspaceId),
+              controller.workspaceManager.activeWorkspace(on: monitorId)?.id == entry.workspaceId,
+              applicationIsHiddenProvider(selected.pid)
+        else { return false }
+
+        return handleAppHidden(pid: selected.pid, source: .service)
+    }
+
+    private func handOffFocusAfterAppHide(pid: pid_t, controller: WMController) -> Bool {
+        guard controller.hasStartedServices,
+              controller.focusPolicyEngine.evaluate(.managedFocusRecovery).allowsFocusChange,
+              controller.workspaceManager.nativeFocusOwner != .ownedSurface,
+              controller.workspaceManager.externalFocusIdentity?.windowId == nil,
+              let selected = controller.workspaceManager.selectedManagedToken,
+              selected.pid == pid,
+              let entry = controller.workspaceManager.entry(for: selected),
+              let monitorId = controller.workspaceManager.monitorId(for: entry.workspaceId),
+              controller.workspaceManager.activeWorkspace(on: monitorId)?.id == entry.workspaceId,
+              controller.intentLedger.activeManagedRequest.map({ $0.token.pid == pid }) ?? true
+        else { return false }
+
+        guard controller.workspaceManager.resolveWorkspaceFocusToken(in: entry.workspaceId) == nil else { return false }
+        invalidateActivationObservations()
+        _ = controller.resolveAndSetWorkspaceFocusToken(for: entry.workspaceId)
+        let intent = controller.intentLedger.registerActivateApp(pid: getpid())
+        controller.deadlineWheel.schedule(intentId: intent.id, after: IntentLedger.activationSettleDeadline)
+        controller.workspaceNavigationHandler.clearManagedFocusAfterEmptyWorkspaceSwitch()
+        return true
+    }
+
+    func suppressesActivationDuringAppHideHandoff(
+        pid: pid_t,
+        source: ActivationEventSource,
+        origin: ActivationCallOrigin
+    ) -> Bool {
+        guard let controller else { return false }
+        let ledger = controller.intentLedger
+        guard let intent = ledger.entries.last(where: { $0.kind == .activateApp(pid: getpid()) }),
+              intent.phase == .pending || intent.phase == .confirmed
+        else { return false }
+        if intent.phase == .confirmed,
+           controller.workspaceManager.externalFocusIdentity?.pid != getpid()
+           || ledger.newestFocusIntentId().map({ $0 > intent.id }) == true
+        {
+            return false
+        }
+        if intent.phase == .pending {
+            if pid == getpid() || frontmostApplicationPIDProvider() == getpid() {
+                _ = ledger.confirm(id: intent.id, source: source)
+                controller.deadlineWheel.cancel(intentId: intent.id)
+            } else if source == .workspaceDidUnhideApplication
+                || ledger.newestFocusIntentId().map({ $0 > intent.id }) == true
+                || hasRecentMouseFocusIntent(forPID: pid)
+            {
+                _ = ledger.cancel(id: intent.id)
+                controller.deadlineWheel.cancel(intentId: intent.id)
+                return false
+            } else {
+                return origin == .external
+            }
+        }
+        return origin == .external && pid != getpid()
+            && controller.workspaceManager.selectedManagedToken == nil
+            && ledger.activeManagedRequest == nil
+            && frontmostApplicationPIDProvider() == getpid()
     }
 
     func handleNativeAppUnhide(pid: pid_t) {

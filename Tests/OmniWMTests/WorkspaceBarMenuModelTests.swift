@@ -44,7 +44,9 @@ final class WorkspaceBarMenuModelTests: XCTestCase {
         title: String = "Doc",
         workspace: WorkspaceDescriptor.ID? = nil,
         canMove: Bool = true,
-        canSummon: Bool = true
+        canSummon: Bool = true,
+        canMark: Bool = true,
+        hasMarks: Bool = false
     ) -> WorkspaceBarWindowMenuTarget {
         WorkspaceBarWindowMenuTarget(
             token: token,
@@ -53,7 +55,9 @@ final class WorkspaceBarMenuModelTests: XCTestCase {
             monitorId: mainMonitor,
             isFloating: false,
             canMove: canMove,
-            canSummon: canSummon
+            canSummon: canSummon,
+            canMark: canMark,
+            hasMarks: hasMarks
         )
     }
 
@@ -165,6 +169,11 @@ final class WorkspaceBarMenuModelTests: XCTestCase {
             action(items, titled: "Summon to the Right"),
             .action("Summon to the Right", .summonRight(windowA), isEnabled: false)
         )
+        XCTAssertEqual(action(items, titled: "Mark Window…"), .action("Mark Window…", .windowMark(windowA, .set)))
+        XCTAssertEqual(
+            action(items, titled: "Remove Mark…"),
+            .action("Remove Mark…", .windowMark(windowA, .remove), isEnabled: false)
+        )
         XCTAssertEqual(items.last, .action("Close Window", .closeWindow(windowA)))
     }
 
@@ -205,7 +214,7 @@ final class WorkspaceBarMenuModelTests: XCTestCase {
 
     func testGroupedWindowMenuMovesAllAndOffersPerWindowSubmenus() {
         let items = WorkspaceBarMenuBuilder.windowMenu(
-            for: [windowTarget(windowA, title: "First"), windowTarget(windowB, title: "Second")],
+            for: [windowTarget(windowA, title: "First"), windowTarget(windowB, title: "Second", hasMarks: true)],
             facts: facts(displays: 1)
         )
 
@@ -214,10 +223,20 @@ final class WorkspaceBarMenuModelTests: XCTestCase {
             [.action("2", .moveWindowsToWorkspace([windowA, windowB], ws2))]
         ))
         guard case let .submenu(_, firstItems, _)? = action(items, titled: "First"),
-              case .submenu? = action(items, titled: "Second")
+              case let .submenu(_, secondItems, _)? = action(items, titled: "Second")
         else {
             return XCTFail("missing per-window submenus")
         }
         XCTAssertEqual(firstItems.last, .action("Close Window", .closeWindow(windowA)))
+        XCTAssertEqual(action(firstItems, titled: "Mark Window…"), .action("Mark Window…", .windowMark(windowA, .set)))
+        XCTAssertEqual(action(secondItems, titled: "Mark Window…"), .action("Mark Window…", .windowMark(windowB, .set)))
+        XCTAssertEqual(
+            action(firstItems, titled: "Remove Mark…"),
+            .action("Remove Mark…", .windowMark(windowA, .remove), isEnabled: false)
+        )
+        XCTAssertEqual(
+            action(secondItems, titled: "Remove Mark…"),
+            .action("Remove Mark…", .windowMark(windowB, .remove))
+        )
     }
 }

@@ -12,6 +12,7 @@ final class WindowRuleEngineTests: XCTestCase {
     private let pictureInPictureBrowsers: [(bundleId: String, title: String)] = [
         ("org.mozilla.firefox", "Picture-in-Picture"),
         ("app.zen-browser.zen", "Picture-in-Picture"),
+        ("net.librewolf.librewolf", "Picture-in-Picture"),
         ("com.google.Chrome", "Picture-in-picture"),
         ("com.brave.Browser", "Picture-in-picture"),
         ("com.microsoft.edgemac", "Picture in Picture")

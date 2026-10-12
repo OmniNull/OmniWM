@@ -354,7 +354,7 @@ final class MacOSHiddenAppTests: XCTestCase {
             )
         )
 
-        XCTAssertTrue(controller.workspaceManager.nativeFocusOwner.isExternal)
+        XCTAssertEqual(controller.workspaceManager.nativeFocusOwner, .none)
         XCTAssertNil(controller.workspaceManager.renderableFocusToken)
     }
 
@@ -391,7 +391,7 @@ final class MacOSHiddenAppTests: XCTestCase {
             )
         )
 
-        XCTAssertTrue(controller.workspaceManager.nativeFocusOwner.isExternal)
+        XCTAssertEqual(controller.workspaceManager.nativeFocusOwner, .none)
         XCTAssertNil(controller.workspaceManager.renderableFocusToken)
     }
 

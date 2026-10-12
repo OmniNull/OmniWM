@@ -20,6 +20,7 @@ enum IntakeEvent: Sendable {
     case mouseMoved(location: CGPoint, modifiersRawValue: UInt64, windowIdUnderPointer: Int?)
     case mouseScroll(MouseScrollIntake)
     case nativeFullscreenTransitionExpired(originalToken: WindowToken, generation: Int)
+    case secureInputStateMayHaveChanged(session: UInt32)
     case systemSleep
     case systemWake
     case windowConstraintsResolved(WindowConstraintsFact)

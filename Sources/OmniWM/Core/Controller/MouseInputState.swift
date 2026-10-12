@@ -61,6 +61,7 @@ struct MouseInputState {
     var runLoopSource: CFRunLoopSource?
     var moveTap: CFMachPort?
     var moveTapRunLoopSource: CFRunLoopSource?
+    var moveTapDeliversMouseMoved = false
     var currentHoveredEdges: ResizeEdge = []
     var isResizing: Bool = false
     var isMoving: Bool = false
@@ -75,7 +76,7 @@ struct MouseInputState {
     }
 
     var capturedInteractionButton: MouseEventHandler.MouseButton?
-    var capturedOverviewButton: Int64?
+    var capturedOtherMouseButton: Int64?
     var resizeLayout: LayoutType?
     var moveLayout: LayoutType?
     var awaitsNativeTitleBarDragTarget = false

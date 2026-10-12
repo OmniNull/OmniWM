@@ -76,7 +76,7 @@ if [ "$SIGN_AND_NOTARIZE" = "true" ]; then
   ditto -c -k --keepParent "$APP_DIR" "$ZIP_PATH"
 
   echo "Submitting for notarization (this may take a few minutes)..."
-  xcrun notarytool submit "$ZIP_PATH" --keychain-profile "$NOTARIZE_PROFILE" --wait
+  xcrun notarytool submit "$ZIP_PATH" --keychain-profile "$NOTARIZE_PROFILE" --wait --timeout "${OMNIWM_NOTARIZE_TIMEOUT:-30m}"
 
   echo "Stapling notarization ticket..."
   xcrun stapler staple "$APP_DIR"

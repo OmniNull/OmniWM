@@ -519,6 +519,83 @@ final class HotkeyChordTests: XCTestCase {
         XCTAssertEqual(mappings, [externalCapsLock])
     }
 
+    func testCapsLockHyperRemapperPreservesExistingMappingsThroughApplyAndRestore() {
+        let existing = HIDKeyboardModifierMapping(source: 0x70000006E, destination: 0x70000006E)
+        let store = UserKeyMappingStoreStub(value: CapsLockHyperMapping.propertyValue(for: [existing]))
+        let remapper = store.makeRemapper()
+
+        XCTAssertTrue(remapper.apply())
+        XCTAssertEqual(store.mappings, [existing, CapsLockHyperMapping.omniMapping])
+
+        remapper.restore()
+        XCTAssertEqual(store.mappings, [existing])
+        XCTAssertEqual(store.writeCount, 2)
+    }
+
+    func testCapsLockHyperRemapperAppliesAndRestoresWithoutExistingMappings() {
+        let store = UserKeyMappingStoreStub(value: nil)
+        let remapper = store.makeRemapper()
+
+        XCTAssertTrue(remapper.apply())
+        XCTAssertEqual(store.mappings, [CapsLockHyperMapping.omniMapping])
+
+        remapper.restore()
+        XCTAssertEqual(store.mappings, [])
+        XCTAssertEqual(store.writeCount, 2)
+    }
+
+    func testCapsLockHyperRemapperDoesNotWriteWhenApplyReadsMalformedMappings() {
+        for malformed in Self.malformedUserKeyMappingValues {
+            let store = UserKeyMappingStoreStub(value: malformed)
+            let remapper = store.makeRemapper()
+
+            XCTAssertFalse(remapper.apply())
+            XCTAssertEqual(store.writeCount, 0)
+        }
+    }
+
+    func testCapsLockHyperRemapperDoesNotWriteWhenRestoreReadsMalformedMappings() {
+        for malformed in Self.malformedUserKeyMappingValues {
+            let store = UserKeyMappingStoreStub(value: nil)
+            let remapper = store.makeRemapper()
+            XCTAssertTrue(remapper.apply())
+
+            store.value = malformed
+            remapper.restore()
+            XCTAssertEqual(store.writeCount, 1)
+
+            store.value = CapsLockHyperMapping.propertyValue(for: [CapsLockHyperMapping.omniMapping])
+            remapper.restore()
+            XCTAssertEqual(store.mappings, [])
+            XCTAssertEqual(store.writeCount, 2)
+        }
+    }
+
+    func testCapsLockHyperRemapperRemovesLeftoverOmniMappingAfterUncleanExit() {
+        let existing = HIDKeyboardModifierMapping(source: 0x70000006E, destination: 0x70000006E)
+        let store = UserKeyMappingStoreStub(
+            value: CapsLockHyperMapping.propertyValue(for: [existing, CapsLockHyperMapping.omniMapping])
+        )
+        let remapper = store.makeRemapper()
+
+        XCTAssertTrue(remapper.apply())
+        remapper.restore()
+
+        XCTAssertEqual(store.mappings, [existing])
+    }
+
+    private static var malformedUserKeyMappingValues: [Any] {
+        [
+            "UserKeyMapping" as CFString,
+            [NSNumber(value: 1)] as CFArray,
+            [["HIDKeyboardModifierMappingSrc": NSNumber(value: 0x70000006E)]] as CFArray,
+            [[
+                "HIDKeyboardModifierMappingSrc": "30064771182",
+                "HIDKeyboardModifierMappingDst": "30064771182"
+            ]] as CFArray
+        ]
+    }
+
     func testKeyRecorderBindingResolverRecordsHyperModifiedKey() {
         XCTAssertEqual(
             KeyRecorderBindingResolver.binding(
@@ -791,5 +868,29 @@ final class HotkeyChordTests: XCTestCase {
             )
         }
         return Data(toml.utf8)
+    }
+}
+
+private final class UserKeyMappingStoreStub {
+    var value: Any?
+    private(set) var writeCount = 0
+
+    init(value: Any?) {
+        self.value = value
+    }
+
+    var mappings: [HIDKeyboardModifierMapping]? {
+        CapsLockHyperMapping.mappings(fromPropertyValue: value)
+    }
+
+    func makeRemapper() -> CapsLockHyperRemapper {
+        CapsLockHyperRemapper(
+            readUserKeyMapping: { self.value },
+            writeUserKeyMapping: { value in
+                self.value = value
+                self.writeCount += 1
+                return true
+            }
+        )
     }
 }

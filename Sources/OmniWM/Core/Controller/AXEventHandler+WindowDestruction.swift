@@ -5,6 +5,18 @@ import AppKit
 import Foundation
 
 extension AXEventHandler {
+    func hasPendingWindowClose(_ token: WindowToken, workspaceId: WorkspaceDescriptor.ID) -> Bool {
+        if hasPendingManagedReplacementDestroy(token, workspaceId: workspaceId, evidence: .windowClosed) {
+            return true
+        }
+        return admissionRetryStateByWindowId.values.contains { state in
+            guard let source = state.identityRebindSource,
+                  source.closedToken == token
+            else { return false }
+            return controller?.workspaceManager.handle(for: token) === source.handle
+        }
+    }
+
     private func prepareDestroyCandidate(
         windowInfo: WindowServerInfo?,
         token: WindowToken?,

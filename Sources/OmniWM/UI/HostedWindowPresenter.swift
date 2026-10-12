@@ -50,7 +50,7 @@ final class HostedWindowPresenter {
                         NotificationCenter.default.removeObserver(closeObserver)
                     }
                     self.closeObserver = nil
-                    self.ownedWindowRegistry.unregister(window)
+                    self.ownedWindowRegistry.windowWillClose(window)
                     self.window = nil
                     onWillClose()
                 }

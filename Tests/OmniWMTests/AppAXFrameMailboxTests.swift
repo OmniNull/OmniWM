@@ -10,6 +10,64 @@ import XCTest
 
 @MainActor
 final class AppAXFrameMailboxTests: XCTestCase {
+    func testDrainPreservesItemAttributionAndResults() {
+        let generations = LockedWindowGenerationMap()
+        let stale = request(id: 901, windowId: 991, generations: generations)
+        let suppressed = request(id: 902, windowId: 992, generations: generations)
+        generations.invalidateAndRemove(stale.windowId)
+        let suppression = LockedWindowIdSet()
+        suppression.insert(suppressed.windowId)
+        let items = [stale, suppressed].enumerated().map { index, request in
+            AppAXFrameMailbox.Item(submissionId: UInt64(index + 41), index: 0, request: request, enqueuedAt: nil)
+        }
+        let drain = AppAXFrameMailbox.Drain(id: 73, items: items)
+        AppAXContextRuntimeMetrics.shared.beginCapture()
+        AXWriteLatencyTrace.shared.beginCapture()
+        defer {
+            AppAXContextRuntimeMetrics.shared.endCapture()
+            AXWriteLatencyTrace.shared.endCapture()
+        }
+
+        $appThreadToken.withValue(AppThreadToken(pid: stale.pid)) {
+            let axApp = ThreadGuardedValue(AXUIElementCreateApplication(stale.pid))
+            defer { axApp.destroy() }
+            let execution = AppAXFrameDrainExecution(
+                writer: AppAXFrameBatchWriter(
+                    generations: generations,
+                    suppression: suppression,
+                    hardSuppression: nil,
+                    trace: .init(
+                        context: .init(pid: stale.pid, callbackGeneration: 17),
+                        bundleId: nil,
+                        lane: .ordinary,
+                        drainId: drain.id
+                    )
+                ),
+                axApp: axApp
+            )
+            for cancelled in [false, true] {
+                let job = RunLoopJob()
+                if cancelled { job.cancel() }
+                let results = execution.execute(drain, job: job)
+                XCTAssertEqual(results.map(\.requestId), [stale.requestId, suppressed.requestId])
+                XCTAssertEqual(
+                    results.map(\.writeResult.failureReason),
+                    [.cancelled, cancelled ? .cancelled : .suppressed]
+                )
+                for (result, item) in zip(results, items) {
+                    XCTAssertTrue(result.expectedWindow.element === item.request.expectedWindow.element)
+                    XCTAssertEqual(result.targetFrame, item.request.frame)
+                    XCTAssertEqual(result.currentFrameHint, item.request.currentFrameHint)
+                    XCTAssertEqual(result.writeResult.components, item.request.components)
+                }
+            }
+        }
+        XCTAssertEqual(AppAXContextRuntimeMetrics.shared.snapshot().enhancedUICalls, 0)
+        let trace = AXWriteLatencyTrace.shared.dump()
+        XCTAssertTrue(trace.contains("submission=41 drain=73"))
+        XCTAssertTrue(trace.contains("submission=42 drain=73"))
+    }
+
     func testConcurrentAtomicCountersAreExactAndFreezeAfterEnd() {
         let metrics = AppAXContextRuntimeMetrics.shared
         metrics.beginCapture()
@@ -192,7 +250,7 @@ final class AppAXFrameMailboxTests: XCTestCase {
                 drainId: 0
             )
         ).execute(
-            [request],
+            [AppAXFrameMailbox.Item(submissionId: 0, index: 0, request: request, enqueuedAt: nil)].span,
             axApp: AXUIElementCreateApplication(request.pid),
             isCancelled: { false }
         )
@@ -227,7 +285,10 @@ final class AppAXFrameMailboxTests: XCTestCase {
                 lane: .park,
                 drainId: 29
             )
-        ).execute([request], axApp: AXUIElementCreateApplication(request.pid)) {
+        ).execute(
+            [AppAXFrameMailbox.Item(submissionId: 0, index: 0, request: request, enqueuedAt: nil)].span,
+            axApp: AXUIElementCreateApplication(request.pid)
+        ) {
             cancellationChecks += 1
             return cancellationChecks == 2
         }
@@ -567,7 +628,7 @@ final class AppAXFrameMailboxTests: XCTestCase {
                 drainId: 0
             )
         ).execute(
-            [request],
+            [AppAXFrameMailbox.Item(submissionId: 0, index: 0, request: request, enqueuedAt: nil)].span,
             axApp: AXUIElementCreateApplication(request.pid),
             isCancelled: { false }
         )

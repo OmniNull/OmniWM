@@ -21,68 +21,57 @@ extension LayoutRefreshController {
         }
     }
 
-    func buildWindowSnapshots(
-        for entries: [WindowState],
-        excludedTokens: Set<WindowToken>,
+    private func buildWindowSnapshot(
+        for entry: borrowing WindowState,
+        isExcluded: Bool,
         resolveConstraints: Bool,
-        workArea: CGSize,
-        neighborAxes: MonitorNeighborAxes
-    ) -> [LayoutWindowSnapshot] {
-        guard let controller else { return [] }
-
-        var snapshots: [LayoutWindowSnapshot] = []
-        snapshots.reserveCapacity(entries.count)
-
-        for entry in entries {
-            let layoutReason = entry.layoutReason
-            let constraints: WindowSizeConstraints
-            if excludedTokens.contains(entry.token) || !resolveConstraints || layoutReason == .nativeFullscreen {
-                constraints = controller.workspaceManager.cachedConstraints(for: entry.token) ?? .unconstrained
-            } else if let cached = controller.workspaceManager.cachedConstraints(for: entry.token) {
-                constraints = cached
-            } else {
-                controller.factResolver.resolveWindowConstraints(token: entry.token, axRef: entry.axRef)
-                constraints = controller.workspaceManager.cachedConstraints(
-                    for: entry.token,
-                    maxAge: .greatestFiniteMagnitude
-                ) ?? .unconstrained
-            }
-
-            var mergedConstraints = constraints
-            var packingHints = ObservedPackingHints.none
-            if resolveConstraints {
-                packingHints = mergeObservedAndRuleConstraints(&mergedConstraints, entry: entry, controller: controller)
-            }
-
-            let hiddenState = entry.hiddenState
-            let nativeFullscreenOriginalToken: WindowToken? = if layoutReason == .nativeFullscreen,
-                                                                 let record = controller.workspaceManager
-                                                                 .nativeFullscreenRecord(for: entry.token),
-                                                                 record.currentToken == entry.token
-            {
-                record.originalToken
-            } else {
-                nil
-            }
-
-            snapshots.append(
-                LayoutWindowSnapshot(
-                    token: entry.token,
-                    constraints: Self.overflowCappedConstraints(
-                        mergedConstraints,
-                        layoutReason: layoutReason,
-                        workArea: workArea,
-                        cappedAxes: neighborAxes
-                    ),
-                    packingHints: packingHints,
-                    hiddenState: hiddenState,
-                    layoutReason: layoutReason,
-                    nativeFullscreenOriginalToken: nativeFullscreenOriginalToken
-                )
-            )
+        bounds: (workArea: CGSize, cappedAxes: MonitorNeighborAxes),
+        controller: WMController
+    ) -> LayoutWindowSnapshot {
+        let layoutReason = entry.layoutReason
+        let constraints: WindowSizeConstraints
+        if isExcluded || !resolveConstraints || layoutReason == .nativeFullscreen {
+            constraints = controller.workspaceManager.cachedConstraints(for: entry.token) ?? .unconstrained
+        } else if let cached = controller.workspaceManager.cachedConstraints(for: entry.token) {
+            constraints = cached
+        } else {
+            controller.factResolver.resolveWindowConstraints(token: entry.token, axRef: entry.axRef)
+            constraints = controller.workspaceManager.cachedConstraints(
+                for: entry.token,
+                maxAge: .greatestFiniteMagnitude
+            ) ?? .unconstrained
         }
 
-        return snapshots
+        var mergedConstraints = constraints
+        var packingHints = ObservedPackingHints.none
+        if resolveConstraints {
+            packingHints = mergeObservedAndRuleConstraints(&mergedConstraints, entry: entry, controller: controller)
+        }
+
+        let hiddenState = entry.hiddenState
+        let nativeFullscreenOriginalToken: WindowToken? = if layoutReason == .nativeFullscreen,
+                                                             let record = controller.workspaceManager
+                                                             .nativeFullscreenRecord(for: entry.token),
+                                                             record.currentToken == entry.token
+        {
+            record.originalToken
+        } else {
+            nil
+        }
+
+        return LayoutWindowSnapshot(
+            token: entry.token,
+            constraints: Self.overflowCappedConstraints(
+                mergedConstraints,
+                layoutReason: layoutReason,
+                workArea: bounds.workArea,
+                cappedAxes: bounds.cappedAxes
+            ),
+            packingHints: packingHints,
+            hiddenState: hiddenState,
+            layoutReason: layoutReason,
+            nativeFullscreenOriginalToken: nativeFullscreenOriginalToken
+        )
     }
 
     nonisolated static func overflowCappedConstraints(
@@ -133,19 +122,21 @@ extension LayoutRefreshController {
         guard let controller else { return nil }
 
         let monitorSnapshot = buildMonitorSnapshot(for: monitor, orientation: orientation)
-        let entries = controller.workspaceManager.tiledEntries(in: workspaceId)
-        let excludedTokens = Set(
-            entries.lazy
-                .filter { controller.workspaceManager.isWindowSuppressedByMacOS($0) }
-                .map(\.token)
-        )
-        let windows = buildWindowSnapshots(
-            for: entries,
-            excludedTokens: excludedTokens,
-            resolveConstraints: resolveConstraints,
-            workArea: monitorSnapshot.workingFrame.size,
-            neighborAxes: monitor.neighborAxes(among: controller.workspaceManager.monitors)
-        )
+        let neighborAxes = monitor.neighborAxes(among: controller.workspaceManager.monitors)
+        var excludedTokens: Set<WindowToken> = []
+        var windows: [LayoutWindowSnapshot] = []
+        windows.reserveCapacity(controller.workspaceManager.windowCount(in: workspaceId))
+        controller.workspaceManager.windowQueries.forEachWindow(in: workspaceId, mode: .tiling) { entry in
+            let isExcluded = controller.workspaceManager.isWindowSuppressedByMacOS(entry)
+            if isExcluded { excludedTokens.insert(entry.token) }
+            windows.append(buildWindowSnapshot(
+                for: entry,
+                isExcluded: isExcluded,
+                resolveConstraints: resolveConstraints,
+                bounds: (monitorSnapshot.workingFrame.size, neighborAxes),
+                controller: controller
+            ))
+        }
 
         return WorkspaceRefreshInput(
             workspaceId: workspaceId,
@@ -158,14 +149,15 @@ extension LayoutRefreshController {
     }
 
     func backingScale(for monitor: Monitor) -> CGFloat {
-        NSScreen.screens.first(where: { $0.displayId == monitor.displayId })?.backingScaleFactor ?? 2.0
+        if let scales = layoutState.backingScaleByDisplay { return scales[monitor.displayId] ?? 2.0 }
+        return NSScreen.screens.first(where: { $0.displayId == monitor.displayId })?.backingScaleFactor ?? 2.0
     }
 }
 
 extension LayoutRefreshController {
     private func mergeObservedAndRuleConstraints(
         _ mergedConstraints: inout WindowSizeConstraints,
-        entry: WindowState,
+        entry: borrowing WindowState,
         controller: WMController
     ) -> ObservedPackingHints {
         if let minW = entry.ruleEffects.minWidth {

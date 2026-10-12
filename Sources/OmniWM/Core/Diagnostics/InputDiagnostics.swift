@@ -29,7 +29,7 @@ struct HotkeyHealthFacts: Sendable, Equatable {
 struct InputHealthSnapshot: Sendable, Equatable {
     let hotkey: HotkeyHealthFacts
     let mouseTapInstalled: Bool
-    let secureInputActive: Bool
+    let secureInput: SecureInputHealthFacts
     let liveModifierFlags: UInt
     let mouseTapDisableCount: Int
     let hyperTapDisableCount: Int
@@ -45,8 +45,9 @@ struct InputHealthSnapshot: Sendable, Equatable {
             "bindings=\(hotkey.bindingCount) sideSpecific=\(hotkey.sideSpecificCount) "
                 +
                 "registrationFailures=\(hotkey.registrationFailureCount) suppressedKeys=\(hotkey.suppressedHotkeyCount)",
-            "mouseTapInstalled=\(mouseTapInstalled) secureInputActive=\(secureInputActive) "
-                + "modifierFlags=\(InputDiagnostics.modifierLabel(liveModifierFlags))",
+            "mouseTapInstalled=\(mouseTapInstalled) modifierFlags=\(InputDiagnostics.modifierLabel(liveModifierFlags))",
+            "secureInput observed=\(secureInput.observed) live=\(secureInput.live) "
+                + "subscribed=\(secureInput.subscribed) notifications=\(secureInput.notifications)",
             "tapDisables mouse=\(mouseTapDisableCount) hyper=\(hyperTapDisableCount) "
                 + "last=\(lastTapDisable?.ISO8601Format() ?? "never")"
         ]
@@ -115,7 +116,7 @@ enum InputDiagnostics {
         return InputHealthSnapshot(
             hotkey: controller.hotkeys.hotkeyHealthFacts(),
             mouseTapInstalled: MouseEventHandler._instance?.state.eventTap != nil,
-            secureInputActive: controller.secureInputMonitor.isSecureInputActive,
+            secureInput: controller.secureInputMonitor.healthFacts(),
             liveModifierFlags: NSEvent.modifierFlags.rawValue,
             mouseTapDisableCount: counters.mouseDisableCount,
             hyperTapDisableCount: counters.hyperDisableCount,

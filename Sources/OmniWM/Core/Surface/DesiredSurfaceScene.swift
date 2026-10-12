@@ -18,6 +18,7 @@ struct DesiredBarSurface: Equatable {
     var monitor: Monitor
     var visible: Bool
     var snapshot: WorkspaceBarSnapshot
+    var retainWhileHidden = false
 }
 
 struct ParkingEdgeMaskKey: Hashable {
@@ -42,6 +43,7 @@ struct DesiredSurfaceScene: Equatable {
     var placeholders: [NativeFullscreenPlaceholderUpdate] = []
     var bars: [DesiredBarSurface] = []
     var parkingEdgeMasks: [DesiredParkingEdgeMask] = []
+    var niriColumns: [WorkspaceDescriptor.ID: NiriColumnSummary] = [:]
 
     static let empty = DesiredSurfaceScene()
 }

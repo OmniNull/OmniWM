@@ -45,6 +45,7 @@ struct LayoutRefreshState {
     var lastParkAuditTime: CFTimeInterval = 0
     var trailingAuditTask: Task<Void, Never>?
     var refreshRateByDisplay: [CGDirectDisplayID: Double] = [:]
+    var backingScaleByDisplay: [CGDirectDisplayID: CGFloat]?
     var closingAnimationsByDisplay: [CGDirectDisplayID: [Int: ClosingAnimation]] = [:]
     var screenChangeObserver: NSObjectProtocol?
     var hasCompletedInitialRefresh: Bool = false

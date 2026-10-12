@@ -10,7 +10,25 @@ final class LaunchOverlayController {
     private var completion: (() -> Void)?
     private var didFinish = false
 
-    func play(screens: [NSScreen] = NSScreen.screens, completion: @escaping () -> Void) {
+    static func shouldPlay(playedVersion: String?, currentVersion: String, animationsEnabled: Bool) -> Bool {
+        animationsEnabled && playedVersion != currentVersion
+    }
+
+    func play(runtimeState: RuntimeStateStore, animationsEnabled: Bool, completion: @escaping () -> Void) {
+        let version = OmniWMBuildInfo.version
+        let isDue = Self.shouldPlay(
+            playedVersion: runtimeState.launchOverlayPlayedVersion,
+            currentVersion: version,
+            animationsEnabled: animationsEnabled
+        )
+        let screens = isDue ? Array(NSScreen.screens.prefix(1)) : []
+        if !screens.isEmpty {
+            runtimeState.launchOverlayPlayedVersion = version
+        }
+        play(screens: screens, completion: completion)
+    }
+
+    func play(screens: [NSScreen], completion: @escaping () -> Void) {
         self.completion = completion
         guard !screens.isEmpty else {
             finish()

@@ -177,6 +177,38 @@ final class WorkspaceBarActionsTests: XCTestCase {
         XCTAssertNil(manager.scratchpadIndex(for: focused.id))
     }
 
+    func testMarkActionsTargetTheClickedWindowAndRemoveOnlyTheChosenMark() async throws {
+        let fixture = try makeFixture(followsFocus: false)
+        let controller = fixture.controller
+        let focused = try addWindow(pid: 700_046, windowId: 700_146, to: fixture.ws1, fixture: fixture)
+        let clicked = try addWindow(pid: 700_047, windowId: 700_147, to: fixture.ws2, fixture: fixture)
+        try select(focused, in: fixture.ws1, fixture: fixture)
+        await WindowAdmissionTestSupport.drainLayoutRefreshes(controller)
+        let initialTarget = try XCTUnwrap(controller.workspaceBarWindowMenuTarget(for: clicked.id, title: "Clicked"))
+        XCTAssertTrue(initialTarget.canMark)
+        XCTAssertFalse(initialTarget.hasMarks)
+
+        controller.commandHandler.requestWindowMarkName = { "work" }
+        controller.performWorkspaceBarMenuAction(.windowMark(clicked.id, .set), barMonitorId: fixture.mainMonitor.id)
+        controller.commandHandler.requestWindowMarkName = { "later" }
+        controller.performWorkspaceBarMenuAction(.windowMark(clicked.id, .set), barMonitorId: fixture.mainMonitor.id)
+
+        XCTAssertEqual(controller.windowMarkRegistry.names(for: clicked.id), ["later", "work"])
+        XCTAssertTrue(controller.windowMarkRegistry.names(for: focused.id).isEmpty)
+        XCTAssertEqual(controller.workspaceBarWindowMenuTarget(for: clicked.id, title: "Clicked")?.hasMarks, true)
+
+        controller.commandHandler.chooseWindowMarkNameToRemove = { names in
+            XCTAssertEqual(names, ["later", "work"])
+            return "work"
+        }
+        controller.performWorkspaceBarMenuAction(.windowMark(clicked.id, .remove), barMonitorId: fixture.mainMonitor.id)
+
+        XCTAssertEqual(controller.windowMarkRegistry.names(for: clicked.id), ["later"])
+        XCTAssertEqual(controller.workspaceManager.selectedManagedToken, focused.id)
+        XCTAssertEqual(controller.workspaceManager.activeWorkspace(on: fixture.mainMonitor.id)?.id, fixture.ws1)
+        XCTAssertNil(controller.intentLedger.activeManagedRequest)
+    }
+
     func testAssigningTheFocusedWindowToAScratchpadRecoversFocusWithoutWarping() throws {
         let fixture = try makeFixture(followsFocus: false)
         let neighbor = try addWindow(pid: 700_044, windowId: 700_144, to: fixture.ws1, fixture: fixture)

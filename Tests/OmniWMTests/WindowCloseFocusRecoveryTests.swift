@@ -80,6 +80,123 @@ final class WindowCloseFocusRecoveryTests: XCTestCase {
         let closingMetadata: ManagedReplacementMetadata
     }
 
+    func testAuthoritativeCloseHidesBorderWhileRetainingReplacementIdentity() throws {
+        for startsWithTransientDestroy in [false, true] {
+            let fixture = try Self.makeFixture()
+            let controller = fixture.controller
+            let handler = controller.axEventHandler
+            defer {
+                controller.surfaceReconciler.cleanup()
+                Self.stop(fixture)
+            }
+            controller.settings.borders.enabled = true
+            let frame = try XCTUnwrap(fixture.closingMetadata.frame)
+            controller.axManager.confirmFrameWrite(for: fixture.closingToken.windowId, frame: frame)
+            controller.surfaceReconciler.cleanup()
+            let world = WorldView(controller: controller, liveBoundsProvider: { _ in nil })
+            let previous = try XCTUnwrap(SurfaceDerivation.deriveBorder(world: world))
+            let handle = try XCTUnwrap(controller.workspaceManager.handle(for: fixture.closingToken))
+
+            if startsWithTransientDestroy {
+                handler.handleWindowDestroyed(
+                    windowId: UInt32(fixture.closingToken.windowId), pidHint: fixture.pid,
+                    evidence: .transientLifecycle, windowInfo: nil
+                )
+                XCTAssertEqual(SurfaceDerivation.deriveBorder(world: world), previous)
+                XCTAssertEqual(SurfaceDerivation.deriveAnimationBorder(world: world, previous: previous), previous)
+                XCTAssertNil(controller.surfaceReconciler.pendingReconcileScope)
+            }
+
+            handler.handleWindowDestroyed(
+                windowId: UInt32(fixture.closingToken.windowId), pidHint: fixture.pid,
+                evidence: .windowClosed, windowInfo: nil
+            )
+
+            XCTAssertEqual(controller.surfaceReconciler.pendingReconcileScope, .borderOnly)
+            XCTAssertNil(SurfaceDerivation.deriveBorder(world: world))
+            XCTAssertNil(SurfaceDerivation.deriveAnimationBorder(world: world, previous: previous))
+            XCTAssertNil(SurfaceDerivation.deriveBorder(world: WorldView(
+                controller: controller, liveBoundsProvider: { _ in frame }
+            )))
+            XCTAssertTrue(handler.hasPendingManagedReplacementDestroy(fixture.closingToken))
+            XCTAssertTrue(controller.workspaceManager.handle(for: fixture.closingToken) === handle)
+            XCTAssertEqual(controller.workspaceManager.selectedManagedToken, fixture.closingToken)
+            XCTAssertTrue(fixture.engine.findNode(for: fixture.closingToken, in: fixture.localWorkspaceId)
+                === fixture.closingNode)
+            XCTAssertEqual(controller.axManager.lastAppliedFrame(for: fixture.closingToken.windowId), frame)
+        }
+    }
+
+    func testClosedBorderStaysHiddenThroughReplacementAcknowledgementAndReturnsForNewIdentity() async throws {
+        let fixture = try Self.makeFixture()
+        let controller = fixture.controller
+        let handler = controller.axEventHandler
+        var acknowledgement: CheckedContinuation<Bool, Never>?
+        defer {
+            acknowledgement?.resume(returning: false)
+            handler.resetCreatedWindowRetryState()
+            controller.layoutRefreshController.resetState()
+            controller.surfaceReconciler.cleanup()
+            Self.stop(fixture)
+        }
+        controller.settings.borders.enabled = true
+        let frame = try XCTUnwrap(fixture.closingMetadata.frame)
+        controller.axManager.confirmFrameWrite(for: fixture.closingToken.windowId, frame: frame)
+        let world = WorldView(controller: controller, liveBoundsProvider: { _ in frame })
+        let previous = try XCTUnwrap(SurfaceDerivation.deriveBorder(world: world))
+        let handle = try XCTUnwrap(controller.workspaceManager.handle(for: fixture.closingToken))
+        let entered = expectation(description: "replacement acknowledgement suspended")
+        handler.managedWindowIdentityRebindTargetIsAliveProvider = { _ in true }
+        handler.managedWindowIdentityRebindAcknowledgementProvider = { _, _ in
+            await withCheckedContinuation {
+                acknowledgement = $0
+                entered.fulfill()
+            }
+        }
+        handler.managedWindowIdentityRebindFinalizationProvider = { _, _ in true }
+        handler.handleWindowDestroyed(
+            windowId: UInt32(fixture.closingToken.windowId), pidHint: fixture.pid,
+            evidence: .windowClosed, windowInfo: nil
+        )
+        let replacementToken = WindowToken(pid: fixture.pid, windowId: 951_110)
+        let windowId = UInt32(replacementToken.windowId)
+        handler.retainPreparedWindowSubscription(windowId)
+        handler.enqueueManagedReplacementCreate(.init(
+            windowId: windowId,
+            token: replacementToken,
+            axRef: WindowAdmissionTestSupport.axRef(for: replacementToken),
+            ruleEffects: .none,
+            admissionHints: .none,
+            appFullscreen: false,
+            replacementMetadata: fixture.closingMetadata,
+            structuralReplacementMatch: nil
+        ))
+        XCTAssertFalse(handler.hasPendingManagedReplacementDestroy(fixture.closingToken))
+        XCTAssertTrue(handler.dispatchAdmissionRetry(windowId: windowId))
+        let completion = try XCTUnwrap(handler.admissionRetryStateByWindowId[windowId]?.task)
+        await fulfillment(of: [entered], timeout: 2)
+
+        XCTAssertNotNil(controller.workspaceManager.entry(for: fixture.closingToken))
+        XCTAssertNil(controller.workspaceManager.entry(for: replacementToken))
+        XCTAssertNil(SurfaceDerivation.deriveBorder(world: world))
+        XCTAssertNil(SurfaceDerivation.deriveAnimationBorder(world: world, previous: previous))
+
+        acknowledgement?.resume(returning: true)
+        acknowledgement = nil
+        await completion.value
+
+        XCTAssertNil(controller.workspaceManager.entry(for: fixture.closingToken))
+        XCTAssertNil(handler.admissionRetryStateByWindowId[windowId])
+        XCTAssertTrue(controller.workspaceManager.handle(for: replacementToken) === handle)
+        XCTAssertTrue(fixture.engine.findNode(for: replacementToken, in: fixture.localWorkspaceId)
+            === fixture.closingNode)
+        XCTAssertEqual(SurfaceDerivation.deriveBorder(world: world)?.token, replacementToken)
+        XCTAssertEqual(
+            SurfaceDerivation.deriveAnimationBorder(world: world, previous: previous)?.token,
+            replacementToken
+        )
+    }
+
     func testPendingManagedDestroyPreservesLocalFocusAndViewportForBothEventOrders() async throws {
         let control = try await Self.runCloseScenario(order: nil)
         let focusThenDestroy = try await Self.runCloseScenario(order: .focusThenDestroy)

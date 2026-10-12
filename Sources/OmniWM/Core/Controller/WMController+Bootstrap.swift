@@ -14,8 +14,8 @@ extension WMController {
         intentLedger.deadlineWheel = deadlineWheel
         focusPolicyEngine.intentLedger = intentLedger
         focusPolicyEngine.deadlineWheel = deadlineWheel
-        hotkeys.isOverviewMouseButtonCaptured = { [weak self] button in
-            self?.mouseEventHandler.state.capturedOverviewButton == button
+        hotkeys.isMouseButtonCaptured = { [weak self] button in
+            self?.mouseEventHandler.state.capturedOtherMouseButton == button
         }
         hotkeys.onCommand = { [weak self] invocation in
             guard let self else { return }
@@ -37,11 +37,20 @@ extension WMController {
             guard let self else { return }
             updateHotkeyBindings(settings.hotkeyBindings)
         }
+        settings.gestures.onWorkspaceSwipeEnabledChange = { [weak self] in
+            self?.layoutRefreshController.workspaceSwipe.syncAvailability()
+        }
+        motionPolicy.onAnimationsEnabledChange = { [weak self] in
+            self?.layoutRefreshController.workspaceSwipe.syncAvailability()
+        }
     }
 
     func configureSurfaceCallbacks() {
         traceCaptureCoordinator.onStateChange = { [weak self] in
             self?.statusBarController?.handleTraceCaptureStateChange()
+        }
+        secureInputIndicator.openHotkeysSettings = { [weak self] in
+            self?.statusBarController?.openSettings(section: .hotkeys)
         }
         tabRailManager.onSelect = { [weak self] info, visualIndex, token in
             guard let self else { return }
@@ -81,6 +90,7 @@ extension WMController {
             self?.windowMarkRegistry.retire(entry.token)
             self?.windowActionHandlerStorage?.handleOverviewWindowRemoved(entry)
             self?.layoutRefreshController.workspaceSwipe.windowRemoved(entry.token)
+            PreviewCaptureCoordinator.shared.windowRemoved(entry.token)
         }
         workspaceManager.onDeferredWorkspaceMonitorMove = { [weak self] outcome in
             self?.layoutRefreshController.commitWorkspaceMonitorTransition(outcome)
@@ -127,14 +137,12 @@ extension WMController {
                 self.focusPolicyEngine.endLease(owner: .nativeMenu)
             }
         }
+        self.hiddenBarController.configureMotion(motionPolicy)
         self.hiddenBarController.onCursorWarp = { [weak self] point in
             self?.mouseWarpHandler.noteProgrammaticCursorMove(to: point)
         }
-        self.hiddenBarController.statusItems.fallbackPlacementsProvider = { [weak self] in
-            self?.hiddenBarFallbackIconPlacements() ?? []
-        }
-        self.workspaceBarManager.onPrimaryBarFramesChanged = { [weak self] in
-            self?.hiddenBarController.statusItems.syncFallbackIcon()
+        ownedWindowRegistry.onWindowWillClose = { [weak self] in
+            self?.releaseStaleOwnedSurfaceFocus()
         }
     }
 

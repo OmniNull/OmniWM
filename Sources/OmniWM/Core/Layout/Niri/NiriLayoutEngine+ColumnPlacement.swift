@@ -41,7 +41,7 @@ extension NiriLayoutEngine {
     func columnLayoutPass(
         selection: NiriViewportSelection,
         columns: [NiriProjectedColumn],
-        prepared: NiriPreparedLayoutColumns,
+        prepared: borrowing [NiriPreparedLayoutColumn],
         context: NiriCalculationContext,
         sampling: NiriViewportSampling
     ) -> NiriColumnLayoutPass {
@@ -50,7 +50,8 @@ extension NiriLayoutEngine {
             columns: columns,
             in: selection.workspaceId
         )
-        let activePosition = prepared.positions[activeIndex]
+        let activeColumn = prepared[activeIndex]
+        let activePosition = activeColumn.position
         let viewPosition = activePosition + sampling.viewOffset
         let viewPositions = sampling.settledVisibilityOffset
             .map { [activePosition + $0, viewPosition] } ?? [viewPosition]
@@ -60,7 +61,6 @@ extension NiriLayoutEngine {
         }
         return NiriColumnLayoutPass(
             context: context,
-            prepared: prepared,
             viewport: NiriLayoutViewport(
                 area: context.area, orientation: context.orientation, workspaceOffset: 0,
                 viewPositions: viewPositions, revealMargin: revealMargin
@@ -69,7 +69,7 @@ extension NiriLayoutEngine {
             viewPosition: viewPosition,
             selectedNodeId: selection.state.selectedNodeId,
             settledContentFrame: sampling.isSettled
-                ? settledContentFrame(context: context, activeSpan: prepared.spans[activeIndex]) : nil
+                ? settledContentFrame(context: context, activeSpan: activeColumn.span) : nil
         )
     }
 
@@ -77,20 +77,31 @@ extension NiriLayoutEngine {
         let area = context.area.workingFrame
         switch context.orientation {
         case .horizontal:
-            return area.insetBy(dx: ((area.width - activeSpan) / 2).clamped(to: 0 ... context.primaryGap), dy: 0)
+            return area.insetBy(
+                dx: settledContentInset(viewportSpan: area.width, activeSpan: activeSpan, gap: context.primaryGap),
+                dy: 0
+            )
         case .vertical:
-            return area.insetBy(dx: 0, dy: ((area.height - activeSpan) / 2).clamped(to: 0 ... context.primaryGap))
+            return area.insetBy(
+                dx: 0,
+                dy: settledContentInset(viewportSpan: area.height, activeSpan: activeSpan, gap: context.primaryGap)
+            )
         }
+    }
+
+    func settledContentInset(viewportSpan: CGFloat, activeSpan: CGFloat, gap: CGFloat) -> CGFloat {
+        ((viewportSpan - activeSpan) / 2).clamped(to: 0 ... gap)
     }
 
     func layoutProjectedColumn(
         _ column: NiriProjectedColumn,
+        prepared: NiriPreparedLayoutColumn,
         at index: Int,
         pass: NiriColumnLayoutPass,
         result: inout LayoutResult
     ) {
         let visibility = pass.viewport.columnVisibility(
-            in: pass.prepared, at: index, viewPosition: pass.viewPosition,
+            for: prepared, at: index, viewPosition: pass.viewPosition,
             hiddenPlacementMonitor: pass.context.hiddenPlacementMonitor,
             hiddenPlacementMonitors: pass.context.hiddenPlacementMonitors
         )

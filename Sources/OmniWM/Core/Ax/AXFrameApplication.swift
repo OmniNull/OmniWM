@@ -17,8 +17,8 @@ func axFrameMatches(
     tolerance: CGFloat = FrameTolerance.frameWrite
 ) -> Bool {
     (!components.contains(.position)
-        || (abs(observed.origin.x - target.origin.x) < tolerance
-            && abs(observed.origin.y - target.origin.y) < tolerance))
+        || (abs(observed.minX - target.minX) < tolerance
+            && abs(observed.maxY - target.maxY) < tolerance))
         && (!components.contains(.size)
             || (abs(observed.width - target.width) < tolerance
                 && abs(observed.height - target.height) < tolerance))

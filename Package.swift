@@ -38,13 +38,6 @@ let package = Package(
             ]
         ),
         .target(
-            name: "OmniWMMenuBarAssertion",
-            path: "Sources/OmniWMMenuBarAssertion",
-            cSettings: [
-                .treatAllWarnings(as: .error)
-            ]
-        ),
-        .target(
             name: "OmniWMLayerCorners",
             path: "Sources/OmniWMLayerCorners",
             cSettings: [
@@ -63,7 +56,6 @@ let package = Package(
             dependencies: [
                 "GhosttyKit",
                 "OmniWMIPC",
-                "OmniWMMenuBarAssertion",
                 "OmniWMLayerCorners",
                 "OmniWMLauncherSPI",
                 .product(name: "TOML", package: "swift-toml")

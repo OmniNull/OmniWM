@@ -23,8 +23,9 @@ struct HiddenBarGlyph: Identifiable, Equatable {
 @Observable
 final class HiddenBarPanelModel {
     var items: [HiddenBarGlyph] = []
-    var maxContentWidth: CGFloat = 600
     var focusRequest = 0
+    var placement: HiddenBarPanelPlacement?
+    var layout: HiddenBarPanelLayout?
 }
 
 struct HiddenBarPanelView: View {
@@ -32,12 +33,16 @@ struct HiddenBarPanelView: View {
     var onActivate: (MenuBarItemKey) -> Void
     var onDismiss: () -> Void
 
-    @Environment(\.accessibilityReduceTransparency) private var accessibilityReduceTransparency
-    @Environment(\.colorSchemeContrast) private var colorSchemeContrast
     @FocusState private var focusedKey: MenuBarItemKey?
 
-    private var barShape: RoundedRectangle {
-        RoundedRectangle(cornerRadius: 8, style: .continuous)
+    private var bodyInsets: EdgeInsets {
+        guard let layout = model.layout else { return EdgeInsets() }
+        return EdgeInsets(
+            top: layout.body.minY,
+            leading: layout.body.minX,
+            bottom: layout.frame.height - layout.body.maxY,
+            trailing: layout.frame.width - layout.body.maxX
+        )
     }
 
     var body: some View {
@@ -47,24 +52,22 @@ struct HiddenBarPanelView: View {
                     .font(.footnote)
                     .foregroundStyle(.secondary)
                     .padding(.horizontal, 8)
-                    .frame(maxWidth: .infinity, minHeight: HiddenBarPanelController.rowHeight)
+                    .frame(maxWidth: .infinity, minHeight: cellHeight)
             } else {
-                rows
+                glyphs
             }
         }
-        .padding(HiddenBarPanelController.padding)
+        .padding(
+            .horizontal,
+            isVertical ? HiddenBarPanelController.crossPadding : HiddenBarPanelController.alongPadding
+        )
+        .padding(.vertical, isVertical ? HiddenBarPanelController.alongPadding : HiddenBarPanelController.crossPadding)
+        .frame(maxWidth: .infinity, maxHeight: .infinity)
+        .padding(bodyInsets)
         .background {
-            if accessibilityReduceTransparency {
-                barShape.fill(Color(NSColor.windowBackgroundColor).opacity(0.96))
-            } else {
-                barShape.fill(.ultraThinMaterial)
+            if let layout = model.layout {
+                HiddenBarPanelBackground(layout: layout, placement: model.placement)
             }
-            barShape.strokeBorder(
-                colorSchemeContrast == .increased
-                    ? Color.primary.opacity(0.45)
-                    : Color.secondary.opacity(0.18),
-                lineWidth: colorSchemeContrast == .increased ? 1 : 0.5
-            )
         }
         .onAppear {
             focusFirstItem()
@@ -84,14 +87,27 @@ struct HiddenBarPanelView: View {
         .onExitCommand(perform: onDismiss)
     }
 
-    private var rows: some View {
-        return VStack(spacing: HiddenBarPanelController.spacing) {
-            ForEach(Array(rowRanges.enumerated()), id: \.offset) { _, range in
-                HStack(spacing: HiddenBarPanelController.spacing) {
+    private var isVertical: Bool {
+        model.placement?.isVertical == true
+    }
+
+    private var cellHeight: CGFloat {
+        model.placement?.cellHeight ?? 20
+    }
+
+    private var glyphs: some View {
+        let outer = isVertical
+            ? AnyLayout(HStackLayout(alignment: .top, spacing: HiddenBarPanelController.lineSpacing))
+            : AnyLayout(VStackLayout(spacing: HiddenBarPanelController.lineSpacing))
+        let inner = isVertical ? AnyLayout(VStackLayout(spacing: 0)) : AnyLayout(HStackLayout(spacing: 0))
+        return outer {
+            ForEach(Array(itemRanges.enumerated()), id: \.offset) { _, range in
+                inner {
                     ForEach(range, id: \.self) { index in
                         HiddenBarGlyphButton(
                             glyph: model.items[index],
-                            width: itemWidths[index],
+                            width: isVertical ? columnWidth(range) : itemWidths[index],
+                            height: cellHeight,
                             isFocused: focusedKey == model.items[index].key,
                             onActivate: onActivate
                         )
@@ -103,17 +119,16 @@ struct HiddenBarPanelView: View {
     }
 
     private var itemWidths: [CGFloat] {
-        model.items.map {
-            HiddenBarPanelController.glyphDisplayWidth(for: $0.size, rowHeight: HiddenBarPanelController.rowHeight)
-        }
+        model.items.map { HiddenBarPanelController.glyphDisplayWidth(for: $0.size) }
     }
 
-    private var rowRanges: [Range<Int>] {
-        HiddenBarPanelController.rowRanges(
-            itemWidths: itemWidths,
-            maxContentWidth: model.maxContentWidth,
-            spacing: HiddenBarPanelController.spacing
-        )
+    private func columnWidth(_ range: Range<Int>) -> CGFloat {
+        itemWidths[range].max() ?? HiddenBarPanelController.minimumTargetSide
+    }
+
+    private var itemRanges: [Range<Int>] {
+        guard let placement = model.placement else { return [] }
+        return HiddenBarPanelController.itemRanges(itemWidths: itemWidths, placement: placement)
     }
 
     private func handleKeyPress(_ press: KeyPress) -> KeyPress.Result {
@@ -121,13 +136,13 @@ struct HiddenBarPanelView: View {
         case .tab:
             moveLinear(by: press.modifiers.contains(.shift) ? -1 : 1)
         case .leftArrow:
-            moveLinear(by: -1)
+            if isVertical { moveAcrossLines(by: -1) } else { moveLinear(by: -1) }
         case .rightArrow:
-            moveLinear(by: 1)
+            if isVertical { moveAcrossLines(by: 1) } else { moveLinear(by: 1) }
         case .upArrow:
-            moveVertically(by: -1)
+            if isVertical { moveLinear(by: -1) } else { moveAcrossLines(by: -1) }
         case .downArrow:
-            moveVertically(by: 1)
+            if isVertical { moveLinear(by: 1) } else { moveAcrossLines(by: 1) }
         default:
             return .ignored
         }
@@ -148,8 +163,8 @@ struct HiddenBarPanelView: View {
         focusedKey = model.items[(currentIndex + offset + count) % count].key
     }
 
-    private func moveVertically(by offset: Int) {
-        let ranges = rowRanges
+    private func moveAcrossLines(by offset: Int) {
+        let ranges = itemRanges
         guard ranges.count > 1, let currentIndex,
               let currentRow = ranges.firstIndex(where: { $0.contains(currentIndex) })
         else {
@@ -174,6 +189,7 @@ struct HiddenBarPanelView: View {
 private struct HiddenBarGlyphButton: View {
     let glyph: HiddenBarGlyph
     let width: CGFloat
+    let height: CGFloat
     let isFocused: Bool
     var onActivate: (MenuBarItemKey) -> Void
 
@@ -184,23 +200,23 @@ private struct HiddenBarGlyphButton: View {
             onActivate(glyph.key)
         } label: {
             glyphImage
-                .frame(
-                    width: width - HiddenBarPanelController.glyphInset * 2,
-                    height: HiddenBarPanelController.rowHeight - HiddenBarPanelController.glyphInset * 2
-                )
-                .padding(HiddenBarPanelController.glyphInset)
+                .frame(width: width, height: height)
+                .clipped()
                 .background {
                     if hovering || isFocused {
                         RoundedRectangle(cornerRadius: 6, style: .continuous)
                             .fill(Color.primary.opacity(0.12))
+                            .padding(2)
                     }
                 }
                 .overlay {
                     if isFocused {
                         RoundedRectangle(cornerRadius: 6, style: .continuous)
                             .strokeBorder(Color.accentColor, lineWidth: 2)
+                            .padding(2)
                     }
                 }
+                .contentShape(Rectangle())
         }
         .buttonStyle(.plain)
         .help(glyph.name)
@@ -214,13 +230,13 @@ private struct HiddenBarGlyphButton: View {
             if let image = glyph.image {
                 Image(nsImage: image)
                     .resizable()
-                    .interpolation(.high).scaledToFit()
-                    .clipShape(RoundedRectangle(cornerRadius: 5, style: .continuous))
+                    .interpolation(.high)
+                    .frame(width: glyph.size.width, height: glyph.size.height)
             } else {
                 Image(systemName: "app.dashed")
                     .resizable().scaledToFit()
                     .foregroundStyle(.secondary)
-                    .padding(2)
+                    .frame(width: 16, height: 16)
             }
         }
     }

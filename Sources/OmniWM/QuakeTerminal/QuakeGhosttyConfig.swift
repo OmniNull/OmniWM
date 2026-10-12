@@ -81,14 +81,6 @@ struct QuakeGhosttyAppearance: Sendable, Equatable {
     }
 }
 
-enum QuakeGhosttyConfigLoadStep: Equatable {
-    case makeConfig
-    case loadDefaultFiles
-    case loadRecursiveFiles
-    case loadFile
-    case finalize
-}
-
 struct QuakeGhosttyConfigOperations: @unchecked Sendable {
     var makeConfig: @Sendable () -> ghostty_config_t?
     var loadDefaultFiles: @Sendable (ghostty_config_t) -> Void
@@ -96,7 +88,6 @@ struct QuakeGhosttyConfigOperations: @unchecked Sendable {
     var loadFile: @Sendable (ghostty_config_t, String) -> Void
     var finalize: @Sendable (ghostty_config_t) -> Void
     var freeConfig: @Sendable (ghostty_config_t) -> Void
-    var recordStep: @Sendable (QuakeGhosttyConfigLoadStep) -> Void
 
     static let live = QuakeGhosttyConfigOperations(
         makeConfig: ghostty_config_new,
@@ -108,8 +99,7 @@ struct QuakeGhosttyConfigOperations: @unchecked Sendable {
             }
         },
         finalize: ghostty_config_finalize,
-        freeConfig: ghostty_config_free,
-        recordStep: { _ in }
+        freeConfig: ghostty_config_free
     )
 }
 
@@ -130,22 +120,27 @@ struct QuakeGhosttyConfigBuilder: Sendable {
         opacity: Double,
         backgroundEffect: QuakeTerminalBackgroundEffect
     ) -> ghostty_config_t? {
-        operations.recordStep(.makeConfig)
         guard let config = operations.makeConfig() else { return nil }
 
         do {
-            operations.recordStep(.loadDefaultFiles)
-            operations.loadDefaultFiles(config)
-            operations.recordStep(.loadRecursiveFiles)
-            operations.loadRecursiveFiles(config)
-            try withOverrideFile(
-                opacity: opacity,
-                backgroundEffect: backgroundEffect
-            ) { url in
-                operations.recordStep(.loadFile)
+            try withConfigFile(content: """
+            confirm-close-surface = false
+            keybind = cmd+w=close_tab
+            keybind = cmd+shift+w=close_surface
+            keybind = cmd+shift+equal=equalize_splits
+            keybind = cmd+digit_9=goto_tab:9
+            keybind = cmd+9=goto_tab:9
+            """) { url in
                 operations.loadFile(config, url.path)
             }
-            operations.recordStep(.finalize)
+            operations.loadDefaultFiles(config)
+            operations.loadRecursiveFiles(config)
+            try withConfigFile(content: Self.overrideContent(
+                opacity: opacity,
+                backgroundEffect: backgroundEffect
+            )) { url in
+                operations.loadFile(config, url.path)
+            }
             operations.finalize(config)
             return config
         } catch {
@@ -167,19 +162,15 @@ struct QuakeGhosttyConfigBuilder: Sendable {
         """
     }
 
-    private func withOverrideFile<T>(
-        opacity: Double,
-        backgroundEffect: QuakeTerminalBackgroundEffect,
+    private func withConfigFile<T>(
+        content: String,
         body: (URL) throws -> T
     ) throws -> T {
         try FileManager.default.createDirectory(at: temporaryDirectory, withIntermediateDirectories: true)
         let url = temporaryDirectory
             .appendingPathComponent("quake-\(UUID().uuidString)", isDirectory: false)
             .appendingPathExtension("ghostty")
-        try Self.overrideContent(
-            opacity: opacity,
-            backgroundEffect: backgroundEffect
-        ).write(to: url, atomically: true, encoding: .utf8)
+        try content.write(to: url, atomically: true, encoding: .utf8)
         defer { try? FileManager.default.removeItem(at: url) }
         return try body(url)
     }

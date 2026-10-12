@@ -60,6 +60,8 @@ final class AXEventHandler {
         NSWorkspace.shared.frontmostApplication?.processIdentifier
     }
 
+    var applicationIsHiddenProvider: @MainActor (pid_t) -> Bool = AXEventHandler.nativeApplicationIsHidden
+
     var applicationIsTerminatedProvider: (pid_t) -> Bool = { pid in
         if AppAXContextRegistry.contexts[pid]?.nsApp.isTerminated == true {
             return true
@@ -118,11 +120,12 @@ extension AXEventHandler {
 
     func hasPendingManagedReplacementDestroy(
         _ token: WindowToken,
-        workspaceId: WorkspaceDescriptor.ID
+        workspaceId: WorkspaceDescriptor.ID,
+        evidence: WindowDestroyEvidence? = nil
     ) -> Bool {
         let key = ManagedReplacementKey(pid: token.pid, workspaceId: workspaceId)
         return pendingManagedReplacementBursts[key]?.destroys.contains {
-            $0.candidate.token == token
+            $0.candidate.token == token && (evidence == nil || $0.candidate.evidence == evidence)
         } == true
     }
 
@@ -273,16 +276,16 @@ extension AXEventHandler {
             )
         )
         controller.scratchpadStacking.noteScratchpadStackingAppActivation(pid: pid, source: source)
-        let observationGeneration: UInt64
         if let causalGeneration {
-            observationGeneration = causalGeneration
-        } else {
-            observationGeneration = nextActivationObservationGeneration
-            nextActivationObservationGeneration &+= 1
-            latestActivationObservationGeneration = observationGeneration
+            return causalGeneration
         }
+        invalidateActivationObservations()
+        return latestActivationObservationGeneration
+    }
 
-        return observationGeneration
+    func invalidateActivationObservations() {
+        latestActivationObservationGeneration = nextActivationObservationGeneration
+        nextActivationObservationGeneration &+= 1
     }
 
     func isCurrentFocusedAdmissionContinuation(

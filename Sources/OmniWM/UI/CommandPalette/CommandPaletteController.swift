@@ -87,19 +87,19 @@ final class CommandPaletteController: NSObject, NSWindowDelegate {
     var pendingLauncherSelection: (generation: Int, trigger: CommandPaletteSelectionTrigger)?
 
     let environment: CommandPaletteEnvironment
-    private let presentation: CommandPalettePanel
+    let presentation: CommandPalettePanel
     private var eventMonitor: Any?
 
     weak var wmController: WMController?
     let focusSession: CommandPaletteFocusSession
-    private let actionExecutor: CommandPaletteActionExecutor
+    let actionExecutor: CommandPaletteActionExecutor
     private let menuSession: CommandPaletteMenuSession
     private var isProgrammaticDismiss = false
     private var isConfirmingClipboardClear = false
     var isPresentingMarkPrompt = false
     private var clipboardPreviewGeneration = 0
 
-    private enum DismissReason {
+    enum DismissReason {
         case cancel
         case selection
         case deactivation
@@ -125,15 +125,19 @@ final class CommandPaletteController: NSObject, NSWindowDelegate {
         return wmController.workspaceManager.windowCount(in: workspaceId) == 0
     }
 
-    func toggle(wmController: WMController) {
-        if isVisible {
-            dismiss(reason: .cancel)
+    func toggle(wmController: WMController, mode: CommandPaletteMode? = nil) {
+        guard isVisible else {
+            show(wmController: wmController, mode: mode)
+            return
+        }
+        if let mode, mode != selectedMode {
+            selectedMode = mode
         } else {
-            show(wmController: wmController)
+            dismiss(reason: .cancel)
         }
     }
 
-    func show(wmController: WMController) {
+    func show(wmController: WMController, mode: CommandPaletteMode? = nil) {
         actionExecutor.cancelPendingCommand()
         if isVisible {
             dismiss(reason: .superseded)
@@ -166,8 +170,11 @@ final class CommandPaletteController: NSObject, NSWindowDelegate {
         presentation.position(panel)
         isExpanded = false
 
-        let preferredMode = wmController.settings.commandPaletteLastMode
+        let preferredMode = mode ?? wmController.settings.commandPaletteLastMode
         selectedMode = resolvedInitialMode(preferredMode)
+        if mode != nil {
+            wmController.settings.commandPaletteLastMode = selectedMode
+        }
 
         installEventMonitor()
 
@@ -244,55 +251,6 @@ final class CommandPaletteController: NSObject, NSWindowDelegate {
         })
     }
 
-    func selectCurrent(trigger: CommandPaletteSelectionTrigger = .primary) {
-        guard isExpanded else {
-            expandResults()
-            return
-        }
-        if isLauncherMode, launcherPublishedGeneration != launcherRequestGeneration {
-            pendingLauncherSelection = (launcherRequestGeneration, trigger)
-            return
-        }
-        let previousSelectionID = selectedItemID
-        if selectedMode == .windows {
-            refreshWindowItems()
-        }
-        guard selectedItemID == previousSelectionID,
-              let action = resolvedSelectionAction(for: trigger)
-        else {
-            if selectedMode == .windows {
-                actionFeedbackText = windowSelectionFeedback(for: trigger, selectedItemID: previousSelectionID)
-            }
-            return
-        }
-
-        if case .moveWindowToWorkspace = action {
-            let outcome = actionExecutor.perform(action) ?? .moveFailed
-            guard outcome == .movedToWorkspace else {
-                actionFeedbackText = markedSummonFeedback(for: outcome)
-                return
-            }
-            dismiss(reason: .selection)
-            return
-        }
-
-        if case .summonMarkedWindowRight = action {
-            let outcome = actionExecutor.perform(action) ?? .actionFailed
-            guard outcome == .summoned else {
-                actionFeedbackText = markedSummonFeedback(for: outcome)
-                return
-            }
-            dismiss(reason: .selection)
-            return
-        }
-        if case .command(_, .openCommandPalette, _) = action {
-            dismiss(reason: .cancel)
-            return
-        }
-        dismiss(reason: .selection)
-        actionExecutor.perform(action)
-    }
-
     func dismissForLauncherSelection() {
         dismiss(reason: .selection)
     }
@@ -312,13 +270,6 @@ final class CommandPaletteController: NSObject, NSWindowDelegate {
             isExpanded = true
         }
         presentation.expand(panel)
-    }
-
-    func pasteClipboardItem(_ id: UUID, withoutFormatting: Bool = false) {
-        guard let wmController, isClipboardHistoryEnabled else { return }
-        let target = focusSession.clipboardPasteTarget()
-        dismiss(reason: .selection)
-        actionExecutor.perform(.pasteClipboard(wmController, id, target, withoutFormatting))
     }
 
     func setClipboardItemPinned(_ pinned: Bool, id: UUID) {
@@ -398,7 +349,7 @@ final class CommandPaletteController: NSObject, NSWindowDelegate {
 }
 
 extension CommandPaletteController {
-    private func dismiss(reason: DismissReason) {
+    func dismiss(reason: DismissReason) {
         removeEventMonitor()
         invalidateLauncherSearch()
         isVisible = false
@@ -475,91 +426,6 @@ extension CommandPaletteController {
     func restoreKeyWindowAfterMarkPrompt() {
         if isVisible {
             presentation.panel?.makeKey()
-        }
-    }
-
-    private func handleKeyDown(_ event: NSEvent) -> Bool {
-        if [UInt16(36), 48, 49, 51, 53, 76, 123, 124, 125, 126].contains(event.keyCode),
-           let inputClient = presentation.panel?.firstResponder as? NSTextInputClient,
-           inputClient.hasMarkedText()
-        {
-            return false
-        }
-        let relevantModifiers = event.modifierFlags.intersection([.shift, .command, .control, .option])
-
-        if handleMarkKeyDown(event, relevantModifiers: relevantModifiers) { return true }
-
-        if handleLauncherKeyDown(event, relevantModifiers: relevantModifiers) {
-            return true
-        }
-
-        if let targetMode = CommandPalettePresentation.modeNavigationTarget(
-            currentMode: selectedMode,
-            isMenuModeAvailable: isMenuModeAvailable,
-            keyCode: event.keyCode,
-            relevantModifiers: relevantModifiers,
-            charactersIgnoringModifiers: event.charactersIgnoringModifiers
-        ) {
-            selectedMode = targetMode
-            return true
-        }
-
-        switch event.keyCode {
-        case 53:
-            dismiss(reason: .cancel)
-            return true
-        case 126:
-            guard !isLauncherMode else { return false }
-            moveSelection(by: -1)
-            return true
-        case 125:
-            guard !isLauncherMode else { return false }
-            moveSelection(by: 1)
-            return true
-        default:
-            guard let trigger = Self.selectionTrigger(
-                forKeyCode: event.keyCode,
-                modifierFlags: relevantModifiers
-            ) else {
-                return false
-            }
-            selectCurrent(trigger: trigger)
-            return true
-        }
-    }
-
-    private func handleMarkKeyDown(_ event: NSEvent, relevantModifiers: NSEvent.ModifierFlags) -> Bool {
-        guard selectedMode == .windows,
-              let markAction = CommandPalettePresentation.markAction(
-                  forKeyCode: event.keyCode,
-                  relevantModifiers: relevantModifiers
-              ),
-              markShortcut(for: markAction) != nil
-        else { return false }
-        guard isExpanded else {
-            expandResults()
-            actionFeedbackText = String(localized: "Select a window row before changing its marks.")
-            return true
-        }
-        switch markAction {
-        case .set:
-            setMarkOnSelectedWindow()
-        case .remove:
-            removeMarkFromSelectedWindow()
-        }
-        return true
-    }
-
-    private static func selectionTrigger(
-        forKeyCode keyCode: UInt16,
-        modifierFlags: NSEvent.ModifierFlags
-    ) -> CommandPaletteSelectionTrigger? {
-        switch keyCode {
-        case 36,
-             76:
-            return modifierFlags == .shift ? .alternate : .primary
-        default:
-            return nil
         }
     }
 }

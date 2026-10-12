@@ -24,7 +24,7 @@ extension IPCPresentationCommand {
                 bundle: .omniWM
             )
         case .hiddenBar: LocalizedStringResource(
-                "command.presentation.hiddenBar", defaultValue: "Toggle Hidden Icons Bar", table: "Commands",
+                "command.presentation.hiddenBar", defaultValue: "Toggle Hidden Icons Panel", table: "Commands",
                 bundle: .omniWM
             )
         }

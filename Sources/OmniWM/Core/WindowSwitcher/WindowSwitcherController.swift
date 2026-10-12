@@ -30,11 +30,7 @@ final class WindowSwitcherController {
     init(controller: WMController) {
         self.controller = controller
         panel = WindowSwitcherPanel(ownedWindowRegistry: controller.ownedWindowRegistry)
-        capture = OverviewThumbnailCapture(
-            environment: OverviewEnvironment(),
-            ownedWindowRegistry: controller.ownedWindowRegistry,
-            consumer: .windowSwitcher
-        )
+        capture = OverviewThumbnailCapture(consumer: .windowSwitcher)
         capture.onPreview = { [weak self] handle, frame in
             self?.panel.updatePreview(frame, for: handle)
         }
@@ -184,7 +180,7 @@ final class WindowSwitcherController {
     private func render() {
         guard let controller else { return }
         let visibleItems = scopedItems()
-        let hasCaptureAccess = CGPreflightScreenCaptureAccess()
+        let hasCaptureAccess = ScreenCapturePermissionMonitor.shared.isGranted
         panel.show(
             content: WindowSwitcherPanel.Content(
                 items: visibleItems,
@@ -199,7 +195,7 @@ final class WindowSwitcherController {
 
     private func captureVisibleItems(_ displayed: [WindowSwitcherItem]) {
         guard isVisible, let controller else { return }
-        guard CGPreflightScreenCaptureAccess() else {
+        guard ScreenCapturePermissionMonitor.shared.isGranted else {
             capture.clear()
             capture.releaseCache()
             return

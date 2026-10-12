@@ -112,6 +112,16 @@ extension AXEventHandler {
         guard result.isHandled else {
             return result
         }
+        if case .pending = result,
+           destroy.candidate.evidence == .windowClosed,
+           let state = admissionRetryStateByWindowId[create.candidate.windowId],
+           case let .identityRebind(oldWindow, newWindow, _, _, _) = state.trigger,
+           oldWindow.token == destroy.candidate.token,
+           newWindow.token == create.candidate.token
+        {
+            admissionRetryStateByWindowId[create.candidate.windowId]?.identityRebindSource?.closedToken =
+                destroy.candidate.token
+        }
         completeDelayedFocusedManagedAdmission(create)
         return result
     }
@@ -304,6 +314,12 @@ extension AXEventHandler {
     func finishManagedReplacementEnqueue(
         _ burst: PendingManagedReplacementBurst, key: ManagedReplacementKey, resetExistingDeadline: Bool
     ) {
+        if let controller,
+           let token = controller.workspaceManager.borderFocusToken,
+           burst.destroys.contains(where: { $0.candidate.token == token && $0.candidate.evidence == .windowClosed })
+        {
+            controller.surfaceReconciler.noteBorderChanged()
+        }
         let policy = burst.policy
         recordManagedReplacementTrace(
             key: key,

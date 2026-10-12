@@ -149,7 +149,6 @@ final class QuakeTerminalController: NSObject {
     private func createWindow() {
         let win = QuakeTerminalWindow()
         win.delegate = self
-        win.tabController = tabs
         self.window = win
         surfaceCoordinator.register(
             window: win,
@@ -408,6 +407,10 @@ extension QuakeTerminalController: NSWindowDelegate {
 }
 
 extension QuakeTerminalController {
+    func handleGhosttyAction(_ action: ghostty_action_s, from view: GhosttySurfaceView) -> Bool {
+        tabs.handleGhosttyAction(action, from: view)
+    }
+
     func isActiveSurface(_ view: GhosttySurfaceView) -> Bool {
         surfaceView === view
     }

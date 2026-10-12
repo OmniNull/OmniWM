@@ -40,7 +40,7 @@ final class PresentationActionContractTests: XCTestCase {
             ["overview", "Toggle Overview", "toggleOverview"]
         )
         XCTAssertEqual(ActionCatalog.spec(for: "toggleHiddenBarPanel")?.keywords, [
-            "hidden bar", "icons", "menu bar", "Toggle Hidden Icons Bar", "toggleHiddenBarPanel"
+            "hidden bar", "icons", "menu bar", "Toggle Hidden Icons Panel", "toggleHiddenBarPanel"
         ])
     }
 
@@ -137,7 +137,7 @@ private struct PresentationExpectation {
                 ipc: .hiddenBar,
                 command: .presentation(.hiddenBar),
                 id: "toggleHiddenBarPanel",
-                title: "Toggle Hidden Icons Bar",
+                title: "Toggle Hidden Icons Panel",
                 binding: .unassigned
             )
         ]

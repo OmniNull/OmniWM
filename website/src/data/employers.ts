@@ -15,10 +15,12 @@ export const employers: Employer[] = [
   { name: 'Google', url: 'https://github.com/google', logo: '/credits/employers/google.png', contributor: 'muhammadkh', handle: 'MuhammadKh' },
   { name: 'Liip', url: 'https://github.com/liip', logo: '/credits/employers/liip.png', contributor: 'Jonathan Macheret', handle: 'Jonathanm10' },
   { name: 'Luxor Labs', url: 'https://luxor.tech', logo: '/credits/employers/luxor-labs.png', contributor: 'Albert Ilagan', handle: 'albertilagan' },
+  { name: 'mooola', url: 'https://mooola.co.za/', logo: '/credits/employers/mooola.webp', contributor: 'Luke Stephens', handle: 'imprisonedmind' },
   { name: 'Nx', url: 'https://github.com/nrwl', logo: '/credits/employers/nx.png', contributor: 'Steven Nance', handle: 'llwt' },
   { name: 'ReactSquad', url: 'https://www.reactsquad.io', logo: '/credits/employers/reactsquad.png', contributor: 'Jan Hesters', handle: 'janhesters' },
   { name: 'Spotify', url: 'https://github.com/spotify', logo: '/credits/employers/spotify.png', contributor: 'Alexander Dergachev', handle: 'Cy6erBr4in' },
   { name: 'SSW Consulting', url: 'https://github.com/SSWConsulting', logo: '/credits/employers/ssw-consulting.png', contributor: 'Matt Wicks', handle: 'wicksipedia' },
   { name: 'vhf', url: 'https://www.vhf.com', logo: '/credits/employers/vhf.png', contributor: 'Lukas Gerlinski', handle: 'lgerlinski' },
   { name: 'Viber', url: 'https://github.com/viber', logo: '/credits/employers/viber.png', contributor: 'Yuri Chukhlib', handle: 'YuriNachos' },
+  { name: 'Walt', url: 'https://walt.io', logo: '/credits/employers/walt.png', contributor: 'Anton Plotnikov', handle: 'pltanton' },
 ];

@@ -24,8 +24,7 @@ extension ServiceLifecycleManager {
         guard let controller else { return [] }
         let manager = controller.workspaceManager
         return manager.allEntries().compactMap { entry in
-            guard !entry.observedState.isNativeWithdrawn,
-                  entry.layoutReason != .nativeFullscreen,
+            guard entry.layoutReason != .nativeFullscreen,
                   manager.nativeFullscreenRecord(for: entry.token) == nil,
                   !manager.spaceTopology.isWindowOnFullscreenSpace(entry.windowId),
                   !manager.spaceTopology.isWindowOnKnownInactiveSpace(entry.windowId)
@@ -39,10 +38,10 @@ extension ServiceLifecycleManager {
                     return overlap.width > 1 && overlap.height > 1
                 }
             } ?? false
-            guard hidden != nil || reveal != nil || offscreen
+            let parkedByOmniWM = hidden != nil || reveal != nil
                 || controller.axManager.pendingParkWindowIds.contains(entry.windowId)
                 || controller.axManager.verifiedParkFrame(for: entry.windowId) != nil
-            else { return nil }
+            guard parkedByOmniWM || offscreen && !entry.observedState.isNativeWithdrawn else { return nil }
             let monitor = manager.monitor(for: entry.workspaceId)
                 ?? (hidden?.referenceMonitorId ?? entry.floatingState?.referenceMonitorId)
                 .flatMap { manager.monitor(byId: $0) }

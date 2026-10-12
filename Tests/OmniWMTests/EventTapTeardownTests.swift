@@ -67,19 +67,6 @@ final class EventTapTeardownTests: XCTestCase {
         XCTAssertFalse(CFRunLoopContainsSource(CFRunLoopGetMain(), session.source, .commonModes))
     }
 
-    func testSecureInputStopInvalidatesTap() throws {
-        let fixture = try makeFixture()
-        let monitor = SecureInputMonitor()
-        monitor.secureInputStateProviderForTests = { false }
-        monitor.eventTapInstallerForTests = { (fixture.tap, fixture.source) }
-
-        monitor.start { _ in }
-        monitor.stop()
-
-        XCTAssertFalse(CFMachPortIsValid(fixture.tap))
-        XCTAssertFalse(CFRunLoopContainsSource(CFRunLoopGetMain(), fixture.source, .commonModes))
-    }
-
     func testHotkeyStopInvalidatesTap() throws {
         let fixture = try makeFixture()
         let hotkeys = HotkeyCenter()

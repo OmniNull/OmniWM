@@ -8,10 +8,10 @@ import XCTest
 final class WorkspaceMonitorHotkeyCommandTests: XCTestCase {
     func testDirectionalWorkspaceMoveActionsAreRegistered() throws {
         let cases: [(direction: Direction, id: String, title: String)] = [
-            (.left, "moveWorkspaceToMonitor.left", "Move Workspace to Left Monitor"),
-            (.right, "moveWorkspaceToMonitor.right", "Move Workspace to Right Monitor"),
-            (.up, "moveWorkspaceToMonitor.up", "Move Workspace to Up Monitor"),
-            (.down, "moveWorkspaceToMonitor.down", "Move Workspace to Down Monitor")
+            (.left, "moveWorkspaceToMonitor.left", "Move Workspace to Monitor on Left"),
+            (.right, "moveWorkspaceToMonitor.right", "Move Workspace to Monitor on Right"),
+            (.up, "moveWorkspaceToMonitor.up", "Move Workspace to Monitor Above"),
+            (.down, "moveWorkspaceToMonitor.down", "Move Workspace to Monitor Below")
         ]
 
         for entry in cases {
@@ -47,7 +47,7 @@ final class WorkspaceMonitorHotkeyCommandTests: XCTestCase {
                 (
                     .workspace(.moveToSlot(slot)),
                     "moveToWorkspaceSlot.\(slot)",
-                    "Move to Workspace Slot \(slot)",
+                    "Move Focused Window to Workspace Slot \(slot)",
                     .workspace(.moveToSlot)
                 )
             ]
@@ -75,10 +75,10 @@ final class WorkspaceMonitorHotkeyCommandTests: XCTestCase {
 
     func testDirectionalWindowMoveActionsAreRegistered() throws {
         let cases: [(direction: Direction, id: String, title: String)] = [
-            (.left, "moveWindowToMonitor.left", "Move Window to Left Monitor"),
-            (.right, "moveWindowToMonitor.right", "Move Window to Right Monitor"),
-            (.up, "moveWindowToMonitor.up", "Move Window to Up Monitor"),
-            (.down, "moveWindowToMonitor.down", "Move Window to Down Monitor")
+            (.left, "moveWindowToMonitor.left", "Move Focused Window to Monitor on Left"),
+            (.right, "moveWindowToMonitor.right", "Move Focused Window to Monitor on Right"),
+            (.up, "moveWindowToMonitor.up", "Move Focused Window to Monitor Above"),
+            (.down, "moveWindowToMonitor.down", "Move Focused Window to Monitor Below")
         ]
 
         for entry in cases {

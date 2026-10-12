@@ -70,7 +70,7 @@ final class StatusMenuHelpPresentation {
     private let sleep: Sleep
 
     @ObservationIgnored
-    private var transitionTask: Task<Void, Never>?
+    private(set) var transitionTask: Task<Void, Never>?
 
     init(sleep: @escaping Sleep = { try await Task<Never, Never>.sleep(for: $0) }) {
         self.sleep = sleep
@@ -132,6 +132,17 @@ struct StatusMenuPrimaryView: View {
         VStack(spacing: 0) {
             MenuHeader()
             MenuDivider()
+            if model.isSecureInputIndicated {
+                MenuActionRow(
+                    icon: "lock.fill",
+                    label: String(localized: "Secure Input is on"),
+                    showChevron: true,
+                    iconTint: Color(nsColor: .systemRed)
+                ) {
+                    model.showSecureInputExplanation()
+                }
+                MenuDivider()
+            }
             if !model.diagnosticsIssues.isEmpty {
                 MenuActionRow(
                     icon: "exclamationmark.triangle.fill",

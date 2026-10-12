@@ -11,8 +11,7 @@ struct AppAXFrameDrainExecution: Sendable {
     let axApp: ThreadGuardedValue<AXUIElement>
 
     func execute(_ drain: AppAXFrameMailbox.Drain, job: RunLoopJob) -> [AXFrameApplyResult] {
-        let requests = drain.items.map(\.request)
-        return writer.execute(requests, axApp: axApp.value, traceItems: drain.items, isCancelled: { job.isCancelled })
+        writer.execute(drain.items.span, axApp: axApp.value, isCancelled: { job.isCancelled })
     }
 }
 

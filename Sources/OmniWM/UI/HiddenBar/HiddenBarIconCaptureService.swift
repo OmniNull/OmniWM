@@ -66,7 +66,7 @@ enum HiddenBarIconCaptureService {
 
         guard let content = try? await SCShareableContent.excludingDesktopWindows(
             false,
-            onScreenWindowsOnly: true
+            onScreenWindowsOnly: false
         ) else { return nil }
 
         let display = content.displays
@@ -76,35 +76,77 @@ enum HiddenBarIconCaptureService {
             .0
         guard let display else { return nil }
 
-        let filter = SCContentFilter(display: display, excludingWindows: [])
+        let window = content.windows.lazy.filter {
+            isMenuBarHostingWindow(
+                bundleIdentifier: $0.owningApplication?.bundleIdentifier,
+                layer: $0.windowLayer,
+                frame: $0.frame,
+                displayFrame: display.frame,
+                itemBounds: union
+            )
+        }.max { $0.windowID < $1.windowID }
+        guard let window else { return nil }
+
+        let filter = SCContentFilter(desktopIndependentWindow: window)
         let scale = CGFloat(filter.pointPixelScale)
 
         let configuration = SCStreamConfiguration()
         configuration.showsCursor = false
         configuration.capturesAudio = false
-        configuration.sourceRect = CGRect(
-            x: union.origin.x - display.frame.origin.x,
-            y: union.origin.y - display.frame.origin.y,
-            width: union.width,
-            height: union.height
-        )
-        configuration.width = Int((union.width * scale).rounded())
-        configuration.height = Int((union.height * scale).rounded())
+        configuration.ignoreShadowsSingleWindow = true
+        configuration.width = Int((window.frame.width * scale).rounded())
+        configuration.height = Int((window.frame.height * scale).rounded())
 
         guard let composite = try? await SCScreenshotManager.captureImage(
             contentFilter: filter,
             configuration: configuration
-        ), !isEffectivelyTransparent(composite) else { return nil }
+        ) else { return nil }
 
         var result: [MenuBarItemKey: CapturedIcon] = [:]
-        let rects = cropRects(bounds: bounds, union: union, scale: scale)
+        let rects = cropRects(bounds: bounds, union: window.frame, scale: scale)
+        let imageBounds = CGRect(x: 0, y: 0, width: composite.width, height: composite.height)
         for (item, rect) in zip(items, rects) {
-            guard let cropped = composite.cropping(to: rect),
+            let rect = rect.intersection(imageBounds)
+            guard !rect.isNull, !rect.isEmpty,
+                  let cropped = isolatedCrop(composite, to: rect),
                   !isEffectivelyTransparent(cropped)
             else { continue }
             result[item.key] = CapturedIcon(image: cropped, scale: scale)
         }
         return result.isEmpty ? nil : result
+    }
+
+    static func isolatedCrop(_ image: CGImage, to rect: CGRect) -> CGImage? {
+        guard let cropped = image.cropping(to: rect),
+              let context = CGContext(
+                  data: nil,
+                  width: cropped.width,
+                  height: cropped.height,
+                  bitsPerComponent: 8,
+                  bytesPerRow: cropped.width * 4,
+                  space: CGColorSpaceCreateDeviceRGB(),
+                  bitmapInfo: CGImageAlphaInfo.premultipliedLast.rawValue
+              )
+        else { return nil }
+        context.draw(cropped, in: CGRect(x: 0, y: 0, width: cropped.width, height: cropped.height))
+        return context.makeImage()
+    }
+
+    static func isMenuBarHostingWindow(
+        bundleIdentifier: String?,
+        layer: Int,
+        frame: CGRect,
+        displayFrame: CGRect,
+        itemBounds: CGRect
+    ) -> Bool {
+        bundleIdentifier == "com.apple.MenuBarAgent"
+            && layer == Int(CGWindowLevelForKey(.mainMenuWindow))
+            && frame.minX == displayFrame.minX
+            && frame.minY == displayFrame.minY
+            && frame.width == displayFrame.width
+            && frame.height > 0
+            && frame.height <= 40
+            && frame.contains(itemBounds)
     }
 
     static func cropRects(bounds: [CGRect], union: CGRect, scale: CGFloat) -> [CGRect] {
@@ -114,7 +156,7 @@ enum HiddenBarIconCaptureService {
                 y: (rect.origin.y - union.origin.y) * scale,
                 width: rect.width * scale,
                 height: rect.height * scale
-            )
+            ).integral
         }
     }
 

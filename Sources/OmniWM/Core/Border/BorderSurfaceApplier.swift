@@ -32,6 +32,7 @@ final class BorderSurfaceApplier {
     private var appliedCornerRadii: WindowCornerRadii?
     private var cornerTargetToken: WindowToken?
     private var cachedCornerSample: CachedCornerSample?
+    private var recentCornerSamples: [CachedCornerSample] = []
     private var cornerRetryState: CornerRetryState?
     private var cornerDesiredSize: CGSize?
     private var cornerQueryGeneration: UInt64 = 0
@@ -76,6 +77,7 @@ final class BorderSurfaceApplier {
 
     func invalidateDisplayScale() {
         borderWindow?.invalidateScaleCache()
+        recentCornerSamples.removeAll()
         clearCornerState()
         scaleInvalidated = true
     }
@@ -165,6 +167,7 @@ final class BorderSurfaceApplier {
 
     func cleanup() {
         hide()
+        recentCornerSamples.removeAll()
         borderWindow?.destroy()
         borderWindow = nil
         if let screenParametersObserver {
@@ -240,6 +243,7 @@ final class BorderSurfaceApplier {
                     observedSize: sample.observedSize,
                     source: sample.source
                 ))
+                rememberCornerSample()
                 cornerRetryState = nil
                 onCornerSampleResolved?()
             } else if recordCornerFailure(for: token, desiredSize: desiredSize) {
@@ -262,8 +266,10 @@ final class BorderSurfaceApplier {
     }
 
     private func fallbackCornerRadii(for token: WindowToken) -> WindowCornerRadii {
-        guard let cachedCornerSample, cachedCornerSample.token == token else { return defaultCornerRadii }
-        return cachedCornerSample.sample.radii
+        if let cachedCornerSample, cachedCornerSample.token == token {
+            return cachedCornerSample.sample.radii
+        }
+        return recentCornerSamples.first { $0.token == token }?.sample.radii ?? defaultCornerRadii
     }
 
     private func needsAutomaticRetry(for token: WindowToken, desiredSize: CGSize) -> Bool {
@@ -297,16 +303,6 @@ final class BorderSurfaceApplier {
         return cornerRetryState.phase == .exhausted
     }
 
-    private func clearCornerState() {
-        cornerQueryGeneration &+= 1
-        cornerQueryTask?.cancel()
-        cornerDesiredSize = nil
-        wantsCornerQuery = false
-        cornerTargetToken = nil
-        cachedCornerSample = nil
-        cornerRetryState = nil
-    }
-
     private func syncSurfaceRegistration() {
         guard let borderWindow, let windowNumber = borderWindow.windowId.map(Int.init) else {
             unregisterSurface()
@@ -336,5 +332,24 @@ final class BorderSurfaceApplier {
     private func unregisterSurface() {
         surfaceCoordinator.unregister(id: surfaceID)
         registeredSurfaceWindowNumber = nil
+    }
+}
+
+extension BorderSurfaceApplier {
+    private func clearCornerState() {
+        cornerQueryGeneration &+= 1
+        cornerQueryTask?.cancel()
+        cornerDesiredSize = nil
+        wantsCornerQuery = false
+        cornerTargetToken = nil
+        cachedCornerSample = nil
+        cornerRetryState = nil
+    }
+
+    private func rememberCornerSample() {
+        guard let cachedCornerSample else { return }
+        recentCornerSamples.removeAll { $0.token == cachedCornerSample.token }
+        recentCornerSamples.insert(cachedCornerSample, at: 0)
+        if recentCornerSamples.count > 32 { recentCornerSamples.removeLast() }
     }
 }

@@ -233,7 +233,7 @@ final class DiagnosticsTraceRecorderTests: XCTestCase {
             hardSuppression: nil,
             trace: .init(context: .init(pid: pid, callbackGeneration: 0), bundleId: nil, lane: .ordinary, drainId: 0)
         ).execute(
-            [request],
+            [AppAXFrameMailbox.Item(submissionId: 0, index: 0, request: request, enqueuedAt: nil)].span,
             axApp: AXUIElementCreateApplication(pid),
             isCancelled: { false }
         )

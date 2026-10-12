@@ -5,9 +5,7 @@ import AppKit
 
 @MainActor
 enum HiddenBarGlyphProjection {
-    static func current(
-        bundleIDs: [String], iconCache: HiddenBarIconCache, hider: AssessmentModeHider
-    ) -> [HiddenBarGlyph] {
+    static func current(bundleIDs: [String], iconCache: HiddenBarIconCache) -> [HiddenBarGlyph] {
         var appsByBundleID: [String: NSRunningApplication] = [:]
         for app in NSWorkspace.shared.runningApplications {
             if let bundleID = app.bundleIdentifier, appsByBundleID[bundleID] == nil {
@@ -17,14 +15,14 @@ enum HiddenBarGlyphProjection {
         var glyphs: [HiddenBarGlyph] = []
         for bundleID in bundleIDs {
             guard let app = appsByBundleID[bundleID] else { continue }
-            let name = app.localizedName ?? hider.displayName(for: bundleID) ?? bundleID
+            let name = app.localizedName ?? bundleID
             guard let resolved = iconCache.resolvedItems(for: bundleID) else {
                 glyphs.append(
                     HiddenBarGlyph(
                         key: MenuBarItemKey(bundleID: bundleID, ordinal: 0),
                         name: name,
                         image: app.icon,
-                        size: CGSize(width: 20, height: 20)
+                        size: CGSize(width: 16, height: 16)
                     )
                 )
                 continue
@@ -47,7 +45,7 @@ enum HiddenBarGlyphProjection {
                         key: item.key,
                         name: name,
                         image: app.icon,
-                        size: CGSize(width: 20, height: 20)
+                        size: CGSize(width: 16, height: 16)
                     ))
                 }
             }

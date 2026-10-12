@@ -32,7 +32,7 @@ final class ActionCatalogLookupTests: XCTestCase {
 
         for expected in [
             "movewindowtomonitor left",
-            "move window to left monitor",
+            "move focused window to monitor on left",
             "shared",
             "adjacent monitor",
             "send window",
@@ -48,6 +48,39 @@ final class ActionCatalogLookupTests: XCTestCase {
     func testCanonicalEnglishTitlesStayIndependentOfCurrentCatalogLanguage() {
         XCTAssertEqual(ActionCatalog.spec(for: .focus(.left))?.title, "Focus Left")
         XCTAssertEqual(ActionCatalog.spec(for: .workspace(.switchTo(1)))?.title, "Switch to Workspace 2")
+    }
+
+    func testClarifiedTitlesNameTheirActualTargetsAndDirection() {
+        let cases: [(HotkeyCommand, String)] = [
+            (.focusNavigation(.previous), "Focus Previously Focused Window"),
+            (.focusNavigation(.windowTop), "Focus First Window in Column"),
+            (.focusNavigation(.windowDownOrTop), "Focus Next Window (Wrap)"),
+            (
+                .windowMovement(.consumeIntoColumn),
+                "Pull Top Window from Next Column into Focused Column"
+            ),
+            (
+                .windowMovement(.expelFromColumn),
+                "Push Bottom Window from Focused Column into New Column"
+            ),
+            (.monitorFocus(.previous), "Focus Previous Monitor in Order"),
+            (.monitorFocus(.last), "Focus Last Active Monitor"),
+            (.fullscreen(.managed), "Toggle OmniWM Fullscreen"),
+            (.column(.toggleTabbed), "Toggle Tabbed Mode for Focused Column"),
+            (.workspace(.moveTo(1)), "Move Focused Window to Workspace 2")
+        ]
+
+        for (command, expectedTitle) in cases {
+            XCTAssertEqual(ActionCatalog.spec(for: command)?.title, expectedTitle)
+        }
+    }
+
+    func testLegacyConsumeAndExpelTermsRemainSearchable() throws {
+        let consumeTerms = try XCTUnwrap(ActionCatalog.normalizedSearchTerms(for: "consumeWindowIntoColumn"))
+        let expelTerms = try XCTUnwrap(ActionCatalog.normalizedSearchTerms(for: "expelWindowFromColumn"))
+
+        XCTAssertTrue(consumeTerms.contains("consume"))
+        XCTAssertTrue(expelTerms.contains("expel"))
     }
 
     func testCanonicalSourceTitleIgnoresTranslatedCatalogValue() throws {

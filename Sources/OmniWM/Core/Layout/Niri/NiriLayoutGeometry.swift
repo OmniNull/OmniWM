@@ -52,10 +52,10 @@ struct NiriLayoutGeometry {
     }
 }
 
-struct NiriPreparedLayoutColumns {
-    let spans: [CGFloat]
-    let renderOffsets: [CGPoint]
-    let positions: [CGFloat]
+struct NiriPreparedLayoutColumn {
+    let span: CGFloat
+    let renderOffset: CGPoint
+    let position: CGFloat
 }
 
 struct NiriColumnVisibility {
@@ -86,18 +86,16 @@ struct NiriLayoutViewport {
     }
 
     func columnVisibility(
-        in preparedColumns: NiriPreparedLayoutColumns,
+        for column: NiriPreparedLayoutColumn,
         at idx: Int,
         viewPosition viewPos: CGFloat,
         hiddenPlacementMonitor: HiddenPlacementMonitorContext?,
         hiddenPlacementMonitors: [HiddenPlacementMonitorContext]
     ) -> NiriColumnVisibility {
-        let containerPos = preparedColumns.positions[idx]
-        let containerSpan = preparedColumns.spans[idx]
-        let renderOffset = preparedColumns.renderOffsets[idx]
+        let renderOffset = column.renderOffset
         let canonicalContainerRect = area.canonicalContainerRect(
-            position: containerPos,
-            span: containerSpan,
+            position: column.position,
+            span: column.span,
             orientation: orientation
         )
         let visibilityRect = area.visibleRenderedContainerRect(

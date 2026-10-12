@@ -215,3 +215,22 @@ extension LayoutType {
         }
     }
 }
+
+extension CommandPaletteMode {
+    init(ipc value: IPCCommandPaletteMode) {
+        switch value {
+        case .windows:
+            self = .windows
+        case .menu:
+            self = .menu
+        case .clipboard:
+            self = .clipboard
+        case .commands:
+            self = .commands
+        case .applications:
+            self = .applications
+        case .files:
+            self = .files
+        }
+    }
+}

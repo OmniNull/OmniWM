@@ -123,7 +123,7 @@ In Dwindle, `focus left/right` remains spatial. `focus up/down` traverses a grou
 
 Workspace IDs are positive numeric strings. Direct hotkeys for `1-9` have default bindings. Creating workspace `10+` adds unassigned direct hotkey actions. The workspace UI and IPC/CLI both support `10+`.
 
-Workspace IDs are global, so `switch-workspace 3` targets workspace `3` wherever it lives. The `slot` variants address a position in the interaction monitor's ordered workspace list instead, the same order the workspace bar shows, so `switch-workspace slot 2` opens whichever workspace comes second on the monitor you are using. A slot beyond that monitor's list reports `not_found`; the native actions `Switch to Workspace Slot 1-9` and `Move to Workspace Slot 1-9` are unassigned by default.
+Workspace IDs are global, so `switch-workspace 3` targets workspace `3` wherever it lives. The `slot` variants address a position in the interaction monitor's ordered workspace list instead, the same order the workspace bar shows, so `switch-workspace slot 2` opens whichever workspace comes second on the monitor you are using. A slot beyond that monitor's list reports `not_found`; the native actions `Switch to Workspace Slot 1-9` and `Move Focused Window to Workspace Slot 1-9` are unassigned by default.
 
 ### Monitor Focus
 
@@ -195,6 +195,7 @@ Workspace IDs are global, so `switch-workspace 3` targets workspace `3` wherever
 | `command toggle-focused-window-floating` | — | shared | Toggle focused window between tiled and floating |
 | `command close-focused-window` | — | shared | Close the focused managed window through its close button; returns `window_action_failed` when the window has no close button or refuses the press |
 | `command raise-all-floating-windows` | — | shared | Raise all visible floating windows |
+| `command toggle-floating-focus` | — | shared | Toggle focus between the floating and tiled windows of the active workspace |
 | `command rescue-offscreen-windows` | — | shared | Clamp tracked floating windows back onto their visible monitors |
 | `command scratchpad assign <number>` | — | shared | Assign the focused window to scratchpad 1-10, or remove it when already there |
 | `command scratchpad toggle <number>` | — | shared | Show or hide the windows in scratchpad 1-10 |
@@ -204,6 +205,7 @@ Workspace IDs are global, so `switch-workspace 3` targets workspace `3` wherever
 | Command | Arguments | Layout | Description |
 |---------|-----------|--------|-------------|
 | `command open-command-palette` | — | shared | Toggle the command palette |
+| `command open-command-palette` | `<windows\|menu\|clipboard\|commands\|applications\|files>` | shared | Open the command palette in a mode; switch to it if open, close it if already there |
 | `command open-menu-anywhere` | — | shared | Open the menu surface |
 | `command toggle-workspace-bar` | — | shared | Toggle workspace bar visibility |
 | `command hidden-bar panel` | — | shared | Toggle the panel containing configured hidden menu-bar items |

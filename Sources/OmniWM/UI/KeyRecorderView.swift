@@ -9,7 +9,7 @@ struct KeyRecorderView: NSViewRepresentable {
     let accessibilityLabel: String
     var allowsBareKeys: Bool = false
     var isHyperActive: () -> Bool = { false }
-    let onCapture: (KeyBinding) -> Void
+    let onCapture: (HotkeyTrigger) -> Void
     let onCancel: () -> Void
 
     func makeNSView(context _: Context) -> KeyRecorderNSView {
@@ -49,6 +49,13 @@ enum KeyRecorderBindingResolver {
         return KeyBinding(keyCode: keyCode, modifiers: resolvedModifiers)
     }
 
+    static func mouseBinding(button: Int64, modifiers: UInt32, hyperActive: Bool) -> MouseButtonBinding? {
+        MouseButtonBinding(
+            button: button,
+            modifiers: hyperActive ? modifiers | KeySymbolMapper.hyperModifiers : modifiers
+        )
+    }
+
     private static func isHyperTriggerKey(_ keyCode: UInt32) -> Bool {
         keyCode == UInt32(kVK_CapsLock) || keyCode == CapsLockHyperMapping.f18KeyCode
     }
@@ -63,13 +70,13 @@ enum KeyRecorderBindingResolver {
 }
 
 class KeyRecorderNSView: NSView {
-    var onCapture: ((KeyBinding) -> Void)?
+    var onCapture: ((HotkeyTrigger) -> Void)?
     var onCancel: (() -> Void)?
     var recordingAccessibilityLabel = String(localized: "Recording hotkey")
     var allowsBareKeys = false
     var isHyperActive: () -> Bool = { false }
 
-    private let label = NSTextField(labelWithString: String(localized: "Press keys..."))
+    private let label = NSTextField(labelWithString: String(localized: "Press keys or a mouse button..."))
 
     override init(frame frameRect: NSRect) {
         super.init(frame: frameRect)
@@ -104,8 +111,10 @@ class KeyRecorderNSView: NSView {
     func updateAccessibility() {
         setAccessibilityRole(.group)
         setAccessibilityLabel(recordingAccessibilityLabel)
-        setAccessibilityValue(String(localized: "Recording. Press a key combination."))
-        setAccessibilityHelp(String(localized: "Press a key combination. Press Escape to cancel recording."))
+        setAccessibilityValue(String(localized: "Recording. Press a key combination or a mouse button."))
+        setAccessibilityHelp(
+            String(localized: "Press a key combination or a mouse button. Press Escape to cancel recording.")
+        )
     }
 
     override func becomeFirstResponder() -> Bool {
@@ -153,7 +162,7 @@ class KeyRecorderNSView: NSView {
         guard let binding = binding(from: event) else { return false }
 
         stopRecording()
-        onCapture?(binding)
+        onCapture?(.chord(binding))
         return true
     }
 
@@ -178,6 +187,19 @@ class KeyRecorderNSView: NSView {
         if flags.contains(.command) { modifiers |= UInt32(cmdKey) }
 
         return modifiers
+    }
+
+    override func otherMouseDown(with event: NSEvent) {
+        guard let binding = KeyRecorderBindingResolver.mouseBinding(
+            button: Int64(event.buttonNumber),
+            modifiers: carbonModifiersFromNSEvent(event),
+            hyperActive: isHyperActive()
+        ) else {
+            super.otherMouseDown(with: event)
+            return
+        }
+        stopRecording()
+        onCapture?(.mouseButton(binding))
     }
 
     override func keyDown(with event: NSEvent) {

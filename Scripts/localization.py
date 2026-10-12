@@ -1,6 +1,7 @@
 #!/usr/bin/env python3
 import argparse
 import json
+import os
 import plistlib
 import re
 import shutil
@@ -253,9 +254,23 @@ def validate_locale_completeness(catalog_dir, languages):
 
 
 def compiler_stringsdata():
-    result = subprocess.run(
-        ["swift", "build", "--arch", "arm64", "--show-bin-path"],
+    library_dir = subprocess.run(
+        [str(ROOT / "Scripts/ghostty-preflight.sh"), "print-library-dir"],
         cwd=ROOT, check=True, capture_output=True, text=True,
+    ).stdout.strip()
+    environment = os.environ.copy()
+    library_path = environment.get("LIBRARY_PATH")
+    environment["LIBRARY_PATH"] = library_dir + (f":{library_path}" if library_path else "")
+    command = [
+        "xcrun", "--toolchain", "XcodeDefault", "swift", "build",
+        "--build-system", "swiftbuild", "--arch", "arm64",
+        "--configuration", "debug", "--product", "OmniWM",
+        "--scratch-path", str(ROOT / ".build/localization"),
+    ]
+    subprocess.run(command, cwd=ROOT, check=True, env=environment)
+    result = subprocess.run(
+        [*command, "--show-bin-path"],
+        cwd=ROOT, check=True, capture_output=True, text=True, env=environment,
     )
     bin_path = Path(result.stdout.strip())
     intermediates = bin_path.parent.parent / "Intermediates.noindex"
@@ -275,7 +290,7 @@ def compiler_stringsdata():
             raise ValueError(f"conflicting compiler strings metadata for {source}")
         found[source] = (path, data)
     if not found:
-        raise ValueError("no OmniWM compiler .stringsdata found; run make build first")
+        raise ValueError("Xcode localization build produced no OmniWM compiler .stringsdata")
     return [entry[0] for entry in found.values()]
 
 

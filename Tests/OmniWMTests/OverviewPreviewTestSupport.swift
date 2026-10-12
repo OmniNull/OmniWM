@@ -48,6 +48,7 @@ final class OverviewPreviewTestStream: OverviewPreviewStreamControl {
 
 @MainActor
 final class OverviewPreviewTestDriver {
+    let coordinator = PreviewCaptureCoordinator(ownedWindowRegistry: OwnedWindowRegistry())
     private(set) var streams: [OverviewPreviewTestStream] = []
     private var startedCount = 0
     private var startWaiters: [(Int, CheckedContinuation<Void, Never>)] = []
@@ -55,18 +56,18 @@ final class OverviewPreviewTestDriver {
     private var stopWaiters: [(Int, CheckedContinuation<Void, Never>)] = []
 
     func makeCapture(
-        environment: OverviewEnvironment = OverviewEnvironment(),
-        ownedWindowRegistry: OwnedWindowRegistry = OwnedWindowRegistry(),
         consumer: OverviewFrameTrace.PreviewConsumer = .overview,
         traceRecorder: OverviewFrameTrace.Recorder = OverviewFrameTrace.shared,
+        hasCaptureAccess: @escaping @MainActor () -> Bool = { true },
+        adoptsProvisionalPreviews: Bool = true,
         maximumRetainedBytes: Int = 128 * 1_024 * 1_024
     ) -> OverviewThumbnailCapture {
         OverviewThumbnailCapture(
-            environment: environment,
-            ownedWindowRegistry: ownedWindowRegistry,
+            coordinator: coordinator,
             consumer: consumer,
             traceRecorder: traceRecorder,
-            hasCaptureAccess: { true },
+            hasCaptureAccess: hasCaptureAccess,
+            adoptsProvisionalPreviews: adoptsProvisionalPreviews,
             maximumRetainedBytes: maximumRetainedBytes,
             streamFactory: { [self] request, output in
                 let stream = OverviewPreviewTestStream(request: request, output: output, onStart: { [self] in

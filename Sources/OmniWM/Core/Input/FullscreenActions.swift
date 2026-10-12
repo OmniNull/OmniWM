@@ -9,7 +9,8 @@ extension IPCFullscreenCommand {
     func actionDisplayName() -> LocalizedStringResource {
         switch self {
         case .managed: LocalizedStringResource(
-                "command.fullscreen.toggle", defaultValue: "Toggle Fullscreen", table: "Commands", bundle: .omniWM
+                "command.fullscreen.toggle", defaultValue: "Toggle OmniWM Fullscreen", table: "Commands",
+                bundle: .omniWM
             )
         case .native: LocalizedStringResource(
                 "command.fullscreen.toggleNative", defaultValue: "Toggle Native Fullscreen", table: "Commands",

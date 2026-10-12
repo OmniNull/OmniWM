@@ -5,6 +5,26 @@ import Foundation
 
 extension IntentLedger {
     @discardableResult
+    func confirm(id: IntentID, source: ActivationEventSource? = nil) -> Intent? {
+        retire(id: id, phase: .confirmed, source: source)
+    }
+
+    @discardableResult
+    func cancel(id: IntentID) -> Intent? {
+        retire(id: id, phase: .cancelled, source: nil)
+    }
+
+    @discardableResult
+    func supersede(id: IntentID) -> Intent? {
+        retire(id: id, phase: .superseded, source: nil)
+    }
+
+    @discardableResult
+    func markExpired(id: IntentID) -> Intent? {
+        retire(id: id, phase: .expired, source: nil)
+    }
+
+    @discardableResult
     func cancelManagedRequest(
         matching token: WindowToken? = nil,
         workspaceId: WorkspaceDescriptor.ID? = nil

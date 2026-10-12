@@ -24,7 +24,6 @@ extension AXEventHandler {
         let shouldConfirmRequest: Bool
         let source: ActivationEventSource
         let focusObservation: EchoClassification
-        let omitsExplicitOrdering: Bool
     }
 
     func handleManagedAppActivation(
@@ -129,13 +128,6 @@ extension AXEventHandler {
         }
         let shouldConfirmRequest = request.confirmRequest ?? true
         let focusObservation = controller.intentLedger.classifyFocusObservation(token: entry.token)
-        let omitsExplicitOrdering = switch focusObservation {
-        case let .echoOf(intent),
-             let .lateEcho(intent):
-            intent.origin == .focusFollowsMouse && !controller.settings.focus.raiseOnMouseFocus
-        case .external:
-            false
-        }
         return ManagedActivationObservation(
             entry: entry,
             isWorkspaceActive: isWorkspaceActive,
@@ -145,8 +137,7 @@ extension AXEventHandler {
             activeRequest: activeRequest,
             shouldConfirmRequest: shouldConfirmRequest,
             source: request.source,
-            focusObservation: focusObservation,
-            omitsExplicitOrdering: omitsExplicitOrdering
+            focusObservation: focusObservation
         )
     }
 
@@ -218,13 +209,18 @@ extension AXEventHandler {
         _ observation: ManagedActivationObservation,
         controller: WMController
     ) {
-        if !observation.omitsExplicitOrdering,
-           observation.isRetriedAuthoritativeSystemModalFocus,
-           frontmostApplicationPIDProvider() == observation.entry.pid,
-           controller.workspaceManager.nativeManagedFocusToken == observation.entry.token
-        {
-            controller.performWindowOrdering(windowId: observation.entry.windowId)
+        guard observation.isRetriedAuthoritativeSystemModalFocus,
+              frontmostApplicationPIDProvider() == observation.entry.pid,
+              controller.workspaceManager.nativeManagedFocusToken == observation.entry.token
+        else { return }
+        switch observation.focusObservation {
+        case let .echoOf(intent),
+             let .lateEcho(intent):
+            guard controller.shouldRaiseManagedFocus(origin: intent.origin, entry: observation.entry) else { return }
+        case .external:
+            break
         }
+        controller.performWindowOrdering(windowId: observation.entry.windowId)
     }
 
     private func activateManagedLayoutTarget(

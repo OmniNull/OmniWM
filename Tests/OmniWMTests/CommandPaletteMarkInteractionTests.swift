@@ -137,7 +137,7 @@ final class CommandPaletteMarkInteractionTests: XCTestCase {
     }
 
     func testPromptsExposeAccessibleLabelsAndExplicitActions() {
-        XCTAssertEqual(CommandPaletteMarkNamePrompt.title, "Mark selected window")
+        XCTAssertEqual(CommandPaletteMarkNamePrompt.title, "Mark window")
         XCTAssertEqual(CommandPaletteMarkNamePrompt.fieldLabel, "Window mark name")
         XCTAssertEqual(CommandPaletteMarkNamePrompt.confirmTitle, "Set Mark")
         XCTAssertEqual(CommandPaletteMarkNamePrompt.cancelTitle, "Cancel")

@@ -56,6 +56,9 @@ extension AXEventHandler {
         {
             handleSameAppCloseProbeDeadline(closeProbe, focusedToken: newWindow.token)
         }
+        if oldWindow.token.windowId != newWindow.token.windowId, entry.observedState.isNativeWithdrawn {
+            enqueueLifecycleQuery(windowId: windowId, kind: .visibilityChanged)
+        }
     }
 
     private func completeReboundWindowAdmission(

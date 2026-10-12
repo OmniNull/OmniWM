@@ -7,6 +7,45 @@ import XCTest
 
 @MainActor
 final class QuakeWindowInteractionTests: XCTestCase {
+    func testOrderingWindowPreservesOffscreenSlideOrigins() throws {
+        let screen = try XCTUnwrap(NSScreen.main)
+        let size = CGSize(width: 400, height: 200)
+
+        for position in QuakeTerminalPosition.allCases {
+            let window = QuakeTerminalWindow()
+            defer { window.close() }
+            let frame = CGRect(
+                origin: position.initialOrigin(visibleFrame: screen.visibleFrame, windowSize: size),
+                size: size
+            )
+            window.alphaValue = 0
+            window.setFrame(frame, display: false)
+            window.level = .popUpMenu
+            window.orderBack(nil)
+
+            XCTAssertEqual(window.frame, frame, "\(position) slide origin changed when ordering the window")
+        }
+    }
+
+    func testWindowContentFillsFrameWithoutNativeTitlebarDragRegion() throws {
+        let (window, view) = makeSurface()
+        defer { window.close() }
+
+        for size in [CGSize(width: 400, height: 200), CGSize(width: 600, height: 350)] {
+            window.setFrame(CGRect(origin: window.frame.origin, size: size), display: false)
+            let content = try XCTUnwrap(window.contentView)
+            let frameView = try XCTUnwrap(content.superview)
+
+            XCTAssertEqual(content.frame, CGRect(origin: .zero, size: size))
+            XCTAssertEqual(window.contentLayoutRect, content.frame)
+            XCTAssertEqual(view.frame, content.bounds)
+            let point = view.convert(CGPoint(x: size.width / 2, y: size.height - 16), to: frameView)
+            XCTAssertTrue(frameView.hitTest(point) === view)
+            XCTAssertTrue(window.makeFirstResponder(view))
+        }
+        XCTAssertFalse(window.isVisible)
+    }
+
     func testDetachedEventsRemainTerminalEvents() throws {
         let interaction = QuakeWindowInteraction()
         let view = NSView(frame: CGRect(x: 0, y: 0, width: 400, height: 200))
@@ -115,14 +154,11 @@ final class QuakeWindowInteractionTests: XCTestCase {
     }
 
     private func makeSurface() -> (NSWindow, GhosttySurfaceView) {
-        let window = NSWindow(
-            contentRect: CGRect(x: 100, y: 100, width: 400, height: 200),
-            styleMask: .borderless,
-            backing: .buffered,
-            defer: true
-        )
+        let window = QuakeTerminalWindow()
+        window.setFrame(CGRect(x: 100, y: 100, width: 400, height: 200), display: false)
         let view = GhosttySurfaceView(occlusionHandlerForTests: { _ in })
         view.frame = CGRect(x: 0, y: 0, width: 400, height: 200)
+        view.autoresizingMask = [.width, .height]
         window.contentView?.addSubview(view)
         return (window, view)
     }

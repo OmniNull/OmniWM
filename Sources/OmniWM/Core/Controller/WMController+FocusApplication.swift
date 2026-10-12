@@ -5,6 +5,24 @@ import AppKit
 import Foundation
 
 extension WMController {
+    func shouldRaiseManagedFocus(origin: ManagedFocusOrigin, entry: borrowing WindowState) -> Bool {
+        guard origin == .focusFollowsMouse else { return true }
+        guard settings.focus.raiseOnMouseFocus else { return false }
+        guard entry.mode == .tiling, let windowId = UInt32(exactly: entry.windowId) else { return true }
+        var candidates: Set<UInt32> = []
+        for workspaceId in workspaceManager.visibleWorkspaceIds() {
+            workspaceManager.windowQueries.forEachWindow(in: workspaceId, mode: .floating) { floatingEntry in
+                if workspaceManager.isFloatingWindowDisplayable(floatingEntry),
+                   let floatingId = UInt32(exactly: floatingEntry.windowId)
+                {
+                    candidates.insert(floatingId)
+                }
+            }
+        }
+        guard !candidates.isEmpty else { return true }
+        return windowFocusOperations.hasOverlappingWindowsAbove(windowId, candidates) != true
+    }
+
     @discardableResult
     func applyManagedFocusRequest(
         _ request: ManagedFocusRequest,
@@ -28,8 +46,7 @@ extension WMController {
 
         guard validateMouseFocusRequest(liveRequest, validatesPointer: validatesPointer) else { return false }
 
-        let focusesWithoutRaise = liveRequest.origin == .focusFollowsMouse
-            && !settings.focus.raiseOnMouseFocus
+        let focusesWithoutRaise = !shouldRaiseManagedFocus(origin: liveRequest.origin, entry: entry)
         guard focusesWithoutRaise else {
             return frontManagedFocusRequest(liveRequest, entry: entry, raisesWindow: raisesWindow)
         }
@@ -94,7 +111,7 @@ extension WMController {
             )
             return
         }
-        let raisesWindow = settings.focus.raiseOnMouseFocus
+        let raisesWindow = shouldRaiseManagedFocus(origin: liveRequest.origin, entry: entry)
         if raisesWindow {
             windowFocusOperations.activateApp(entry.pid)
         }

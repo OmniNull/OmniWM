@@ -108,7 +108,7 @@ final class GestureSettingsBatchTests: XCTestCase {
             let original = settings.gestures.export()
             var candidate = original
             candidate.windowMoveEnabled = true
-            candidate.windowMoveFingerCount = candidate.fingerCount
+            candidate.windowMoveFingerCount = GestureFingerCount(rawValue: candidate.fingerCount.rawValue)
             var changes = 0
             var availability: [Bool] = []
             let originalOnChange = settings.gestures.onChange

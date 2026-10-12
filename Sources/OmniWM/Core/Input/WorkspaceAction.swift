@@ -24,16 +24,16 @@ extension WorkspaceAction {
     func actionDisplayName() -> LocalizedStringResource {
         switch self {
         case let .moveTo(idx): LocalizedStringResource(
-                "command.workspace.moveTo", defaultValue: "Move to Workspace \(idx + 1)", table: "Commands",
-                bundle: .omniWM
+                "command.workspace.moveTo", defaultValue: "Move Focused Window to Workspace \(idx + 1)",
+                table: "Commands", bundle: .omniWM
             )
         case .moveUp: LocalizedStringResource(
-                "command.workspace.moveWindowUp", defaultValue: "Move Window to Workspace Up", table: "Commands",
-                bundle: .omniWM
+                "command.workspace.moveWindowUp", defaultValue: "Move Focused Window to Workspace Up",
+                table: "Commands", bundle: .omniWM
             )
         case .moveDown: LocalizedStringResource(
-                "command.workspace.moveWindowDown", defaultValue: "Move Window to Workspace Down", table: "Commands",
-                bundle: .omniWM
+                "command.workspace.moveWindowDown", defaultValue: "Move Focused Window to Workspace Down",
+                table: "Commands", bundle: .omniWM
             )
         case let .switchTo(idx): LocalizedStringResource(
                 "command.workspace.switchTo", defaultValue: "Switch to Workspace \(idx + 1)", table: "Commands",
@@ -44,8 +44,8 @@ extension WorkspaceAction {
                 bundle: .omniWM
             )
         case let .moveToSlot(slot): LocalizedStringResource(
-                "command.workspace.moveToSlot", defaultValue: "Move to Workspace Slot \(slot)", table: "Commands",
-                bundle: .omniWM
+                "command.workspace.moveToSlot", defaultValue: "Move Focused Window to Workspace Slot \(slot)",
+                table: "Commands", bundle: .omniWM
             )
         case .next: LocalizedStringResource(
                 "command.workspace.next", defaultValue: "Switch to Next Workspace", table: "Commands", bundle: .omniWM
@@ -71,19 +71,19 @@ extension WorkspaceAction {
     private static func moveToMonitorTitle(_ direction: Direction) -> LocalizedStringResource {
         switch direction {
         case .left: LocalizedStringResource(
-                "command.workspace.moveWindowToMonitor.left", defaultValue: "Move Window to Left Monitor",
+                "command.workspace.moveWindowToMonitor.left", defaultValue: "Move Focused Window to Monitor on Left",
                 table: "Commands", bundle: .omniWM
             )
         case .right: LocalizedStringResource(
-                "command.workspace.moveWindowToMonitor.right", defaultValue: "Move Window to Right Monitor",
+                "command.workspace.moveWindowToMonitor.right", defaultValue: "Move Focused Window to Monitor on Right",
                 table: "Commands", bundle: .omniWM
             )
         case .up: LocalizedStringResource(
-                "command.workspace.moveWindowToMonitor.up", defaultValue: "Move Window to Up Monitor",
+                "command.workspace.moveWindowToMonitor.up", defaultValue: "Move Focused Window to Monitor Above",
                 table: "Commands", bundle: .omniWM
             )
         case .down: LocalizedStringResource(
-                "command.workspace.moveWindowToMonitor.down", defaultValue: "Move Window to Down Monitor",
+                "command.workspace.moveWindowToMonitor.down", defaultValue: "Move Focused Window to Monitor Below",
                 table: "Commands", bundle: .omniWM
             )
         }
@@ -92,19 +92,19 @@ extension WorkspaceAction {
     private static func moveWorkspaceToMonitorTitle(_ direction: Direction) -> LocalizedStringResource {
         switch direction {
         case .left: LocalizedStringResource(
-                "command.workspace.moveToMonitor.left", defaultValue: "Move Workspace to Left Monitor",
+                "command.workspace.moveToMonitor.left", defaultValue: "Move Workspace to Monitor on Left",
                 table: "Commands", bundle: .omniWM
             )
         case .right: LocalizedStringResource(
-                "command.workspace.moveToMonitor.right", defaultValue: "Move Workspace to Right Monitor",
+                "command.workspace.moveToMonitor.right", defaultValue: "Move Workspace to Monitor on Right",
                 table: "Commands", bundle: .omniWM
             )
         case .up: LocalizedStringResource(
-                "command.workspace.moveToMonitor.up", defaultValue: "Move Workspace to Up Monitor", table: "Commands",
-                bundle: .omniWM
+                "command.workspace.moveToMonitor.up", defaultValue: "Move Workspace to Monitor Above",
+                table: "Commands", bundle: .omniWM
             )
         case .down: LocalizedStringResource(
-                "command.workspace.moveToMonitor.down", defaultValue: "Move Workspace to Down Monitor",
+                "command.workspace.moveToMonitor.down", defaultValue: "Move Workspace to Monitor Below",
                 table: "Commands", bundle: .omniWM
             )
         }
@@ -113,19 +113,19 @@ extension WorkspaceAction {
     private static func swapWithMonitorTitle(_ direction: Direction) -> LocalizedStringResource {
         switch direction {
         case .left: LocalizedStringResource(
-                "command.workspace.swapWithMonitor.left", defaultValue: "Swap Workspace with Left Monitor",
+                "command.workspace.swapWithMonitor.left", defaultValue: "Swap Workspace with Monitor on Left",
                 table: "Commands", bundle: .omniWM
             )
         case .right: LocalizedStringResource(
-                "command.workspace.swapWithMonitor.right", defaultValue: "Swap Workspace with Right Monitor",
+                "command.workspace.swapWithMonitor.right", defaultValue: "Swap Workspace with Monitor on Right",
                 table: "Commands", bundle: .omniWM
             )
         case .up: LocalizedStringResource(
-                "command.workspace.swapWithMonitor.up", defaultValue: "Swap Workspace with Up Monitor",
+                "command.workspace.swapWithMonitor.up", defaultValue: "Swap Workspace with Monitor Above",
                 table: "Commands", bundle: .omniWM
             )
         case .down: LocalizedStringResource(
-                "command.workspace.swapWithMonitor.down", defaultValue: "Swap Workspace with Down Monitor",
+                "command.workspace.swapWithMonitor.down", defaultValue: "Swap Workspace with Monitor Below",
                 table: "Commands", bundle: .omniWM
             )
         }

@@ -783,6 +783,8 @@ final class NativeTitleBarDragTests: NiriInteractionTestCase {
     func testStaleReusedWindowIdFrameEventCannotAdvanceNativeDrag() throws {
         let fixture = try makeFixture(pid: 561_027)
         beginPlainDrag(fixture)
+        XCTAssertTrue(fixture.controller.workspaceManager.setManagedFocus(fixture.token, in: fixture.workspaceId))
+        fixture.controller.surfaceReconciler.cleanup()
         var frameReadCount = 0
         fixture.handler.nativeWindowFrameProvider = { _ in
             frameReadCount += 1
@@ -805,11 +807,93 @@ final class NativeTitleBarDragTests: NiriInteractionTestCase {
         XCTAssertEqual(frameReadCount, 0)
         XCTAssertEqual(fixture.controller.workspaceManager.worldSeq, worldSeq)
         XCTAssertNil(fixture.controller.layoutRefreshController.layoutState.pendingRefresh)
+        XCTAssertNil(fixture.controller.surfaceReconciler.pendingReconcileScope)
         XCTAssertEqual(fixture.handler.state.nativeTitleBarDrag?.token, fixture.token)
         if case .dragging? = fixture.handler.state.nativeTitleBarDrag?.phase {
         } else {
             XCTFail("a stale reused-window event cannot advance the active drag")
         }
+    }
+
+    func testFocusedNativeDragFrameEventRefreshesOnlyBorderWithoutRelayout() throws {
+        let fixture = try makeFixture(pid: 561_028)
+        beginPlainDrag(fixture)
+        XCTAssertTrue(fixture.controller.workspaceManager.setManagedFocus(fixture.token, in: fixture.workspaceId))
+        fixture.controller.surfaceReconciler.cleanup()
+        let worldSeq = fixture.controller.workspaceManager.worldSeq
+
+        fixture.controller.axEventHandler.handleCGSEvent(
+            .frameChanged(windowId: UInt32(fixture.token.windowId))
+        )
+
+        XCTAssertEqual(fixture.controller.surfaceReconciler.pendingReconcileScope, .borderOnly)
+        XCTAssertNil(fixture.controller.layoutRefreshController.layoutState.pendingRefresh)
+        XCTAssertEqual(fixture.controller.workspaceManager.worldSeq, worldSeq)
+        XCTAssertTrue(fixture.handler.state.nativeTitleBarDrag?.receivedFrameChange == true)
+        XCTAssertTrue(fixture.controller.axManager.isNativeTitleBarDragActive(for: fixture.token))
+    }
+
+    func testMatchingFrameEventAfterNativeDragCorrectionRefreshesOnlyBorder() throws {
+        let fixture = try makeFixture(pid: 561_029)
+        let blocker = blockRefreshes(fixture)
+        defer { unblockRefreshes(fixture, blocker: blocker) }
+        beginPlainDrag(fixture)
+        XCTAssertTrue(fixture.controller.workspaceManager.setManagedFocus(fixture.token, in: fixture.workspaceId))
+        fixture.handler.nativeWindowFrameProvider = { _ in fixture.frame.offsetBy(dx: 12, dy: 0) }
+        XCTAssertTrue(fixture.handler.handleNativeTitleBarDragFrameChanged(for: fixture.entry))
+        fixture.handler.dispatchMouseUp(at: fixture.frame.center)
+        XCTAssertNotNil(fixture.controller.layoutRefreshController.layoutState.pendingRefresh)
+        fixture.controller.layoutRefreshController.layoutState.pendingRefresh = nil
+        fixture.handler.nativeWindowFrameProvider = { _ in fixture.frame }
+        fixture.handler.handleNativeTitleBarDragFrameApplySucceeded(successfulFrameResult(fixture, requestId: 93))
+        fixture.controller.surfaceReconciler.cleanup()
+
+        fixture.controller.axEventHandler.handleCGSEvent(
+            .frameChanged(windowId: UInt32(fixture.token.windowId))
+        )
+
+        XCTAssertEqual(fixture.controller.surfaceReconciler.pendingReconcileScope, .borderOnly)
+        XCTAssertNil(fixture.controller.layoutRefreshController.layoutState.pendingRefresh)
+        XCTAssertFalse(fixture.controller.axManager.isNativeTitleBarDragActive(for: fixture.token))
+        if case .awaitingFrameChange? = fixture.handler.state.nativeTitleBarDrag?.phase {
+        } else {
+            XCTFail("a matching corrective event must preserve the delayed native-frame obligation")
+        }
+    }
+
+    func testUnfocusedNativeDragFrameEventDoesNotRefreshBorder() throws {
+        let fixture = try makeFixture(pid: 561_030)
+        beginPlainDrag(fixture)
+        XCTAssertTrue(fixture.controller.workspaceManager.setManagedFocus(fixture.otherToken, in: fixture.workspaceId))
+        fixture.controller.surfaceReconciler.cleanup()
+
+        fixture.controller.axEventHandler.handleCGSEvent(
+            .frameChanged(windowId: UInt32(fixture.token.windowId))
+        )
+
+        XCTAssertNil(fixture.controller.surfaceReconciler.pendingReconcileScope)
+        XCTAssertNil(fixture.controller.layoutRefreshController.layoutState.pendingRefresh)
+        XCTAssertTrue(fixture.handler.state.nativeTitleBarDrag?.receivedFrameChange == true)
+    }
+
+    func testFocusedScrollingFrameEventDoesNotRefreshBorderOrAdvanceNativeDrag() throws {
+        let fixture = try makeFixture(pid: 561_031)
+        beginPlainDrag(fixture)
+        XCTAssertTrue(fixture.controller.workspaceManager.setManagedFocus(fixture.token, in: fixture.workspaceId))
+        let monitor = try XCTUnwrap(fixture.controller.workspaceManager.monitor(for: fixture.workspaceId))
+        XCTAssertTrue(fixture.controller.niriLayoutHandler.registerScrollAnimation(
+            fixture.workspaceId,
+            on: monitor.displayId
+        ))
+        fixture.controller.surfaceReconciler.cleanup()
+
+        fixture.controller.axEventHandler.handleCGSEvent(
+            .frameChanged(windowId: UInt32(fixture.token.windowId))
+        )
+
+        XCTAssertNil(fixture.controller.surfaceReconciler.pendingReconcileScope)
+        XCTAssertNil(fixture.controller.layoutRefreshController.layoutState.pendingRefresh)
+        XCTAssertEqual(fixture.handler.state.nativeTitleBarDrag?.receivedFrameChange, false)
     }
 
     func testServiceCleanupCannotRestoreStaleAppliedFrameDeduplication() throws {

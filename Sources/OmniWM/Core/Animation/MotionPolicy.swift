@@ -45,8 +45,15 @@ struct MotionSnapshot: Equatable, Sendable {
 
 @MainActor @Observable
 final class MotionPolicy {
-    var userAnimationsEnabled: Bool
-    var systemReducesMotion = false
+    var userAnimationsEnabled: Bool {
+        didSet { if oldValue != userAnimationsEnabled { onAnimationsEnabledChange() } }
+    }
+
+    var systemReducesMotion = false {
+        didSet { if oldValue != systemReducesMotion { onAnimationsEnabledChange() } }
+    }
+
+    @ObservationIgnored var onAnimationsEnabledChange: @MainActor () -> Void = {}
     var animationSpeed: Double {
         didSet {
             let normalized = AnimationSpeed.normalized(animationSpeed)

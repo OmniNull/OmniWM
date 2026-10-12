@@ -6,6 +6,12 @@ import GhosttyKit
 
 @MainActor
 final class QuakeTerminalTabs: QuakeTerminalTabBarDelegate {
+    private enum Mutation {
+        case newTab
+        case closeTab(ghostty_action_close_tab_mode_e)
+        case split(SplitDirection, before: Bool)
+    }
+
     private weak var window: QuakeTerminalWindow?
     private var containerView: NSView?
     private var tabBar: QuakeTerminalTabBar?
@@ -81,37 +87,109 @@ final class QuakeTerminalTabs: QuakeTerminalTabBarDelegate {
         return tab
     }
 
-    func splitActivePane(direction: SplitDirection) {
-        guard let tab = activeTab,
-              let focused = tab.focusedSurfaceView,
-              let newView = makeSurfaceView?() else { return }
-        tab.splitContainer.split(view: focused, direction: direction, newView: newView)
-        window?.makeFirstResponder(newView)
+    func handleGhosttyAction(_ action: ghostty_action_s, from view: GhosttySurfaceView) -> Bool {
+        guard let index = tabs.firstIndex(where: { $0.splitContainer.contains(view: view) }) else { return false }
+        let container = tabs[index].splitContainer
+        switch action.tag {
+        case GHOSTTY_ACTION_NEW_TAB:
+            scheduleMutation(.newTab, from: view)
+            return true
+        case GHOSTTY_ACTION_CLOSE_TAB:
+            let mode = action.action.close_tab_mode
+            guard mode == GHOSTTY_ACTION_CLOSE_TAB_MODE_THIS || mode == GHOSTTY_ACTION_CLOSE_TAB_MODE_OTHER
+                || mode == GHOSTTY_ACTION_CLOSE_TAB_MODE_RIGHT else { return false }
+            scheduleMutation(.closeTab(mode), from: view)
+            return true
+        case GHOSTTY_ACTION_NEW_SPLIT:
+            let mutation: Mutation
+            switch action.action.new_split {
+            case GHOSTTY_SPLIT_DIRECTION_RIGHT: mutation = .split(.horizontal, before: false)
+            case GHOSTTY_SPLIT_DIRECTION_DOWN: mutation = .split(.vertical, before: false)
+            case GHOSTTY_SPLIT_DIRECTION_LEFT: mutation = .split(.horizontal, before: true)
+            case GHOSTTY_SPLIT_DIRECTION_UP: mutation = .split(.vertical, before: true)
+            default: return false
+            }
+            scheduleMutation(mutation, from: view)
+            return true
+        case GHOSTTY_ACTION_GOTO_TAB:
+            return goToTab(action.action.goto_tab, from: index)
+        case GHOSTTY_ACTION_GOTO_SPLIT:
+            return goToSplit(action.action.goto_split, from: view, in: container, tabIndex: index)
+        case GHOSTTY_ACTION_EQUALIZE_SPLITS:
+            container.equalize()
+            return true
+        default:
+            return false
+        }
     }
 
-    func closeActivePane() {
-        guard let tab = activeTab,
-              let focused = tab.focusedSurfaceView else { return }
-
-        if tab.splitContainer.root.leafCount() <= 1 {
-            closeTab(at: activeTabIndex)
-            return
-        }
-
-        if tab.splitContainer.remove(view: focused) {
-            focused.releaseSurface()
-            if let newFocus = tab.splitContainer.focusedView {
-                window?.makeFirstResponder(newFocus)
+    private func scheduleMutation(_ mutation: Mutation, from view: GhosttySurfaceView) {
+        DispatchQueue.main.async { [weak self, weak view] in
+            guard let self, let view,
+                  let index = self.tabs.firstIndex(where: { $0.splitContainer.contains(view: view) }) else { return }
+            switch mutation {
+            case .newTab:
+                self.createTab()
+            case let .split(direction, before):
+                guard let newView = self.makeSurfaceView?() else { return }
+                let container = self.tabs[index].splitContainer
+                container.split(view: view, direction: direction, newView: newView, before: before)
+                if index == self.activeTabIndex { self.window?.makeFirstResponder(newView) }
+            case let .closeTab(mode):
+                for candidate in self.tabs.indices.reversed() {
+                    if mode == GHOSTTY_ACTION_CLOSE_TAB_MODE_THIS && candidate == index
+                        || mode == GHOSTTY_ACTION_CLOSE_TAB_MODE_OTHER && candidate != index
+                        || mode == GHOSTTY_ACTION_CLOSE_TAB_MODE_RIGHT && candidate > index
+                    {
+                        self.closeTab(at: candidate)
+                    }
+                }
             }
         }
     }
 
-    func navigatePane(direction: NavigationDirection) {
-        activeTab?.splitContainer.navigate(direction: direction)
+    private func goToTab(_ destination: ghostty_action_goto_tab_e, from index: Int) -> Bool {
+        let target: Int
+        switch destination {
+        case GHOSTTY_GOTO_TAB_PREVIOUS: target = (index - 1 + tabs.count) % tabs.count
+        case GHOSTTY_GOTO_TAB_NEXT: target = (index + 1) % tabs.count
+        case GHOSTTY_GOTO_TAB_LAST: target = tabs.count - 1
+        default: target = Int(destination.rawValue) - 1
+        }
+        guard tabs.indices.contains(target), target != activeTabIndex else { return false }
+        switchToTab(at: target)
+        return true
     }
 
-    func equalizeSplits() {
-        activeTab?.splitContainer.equalize()
+    private func goToSplit(
+        _ destination: ghostty_action_goto_split_e,
+        from view: GhosttySurfaceView,
+        in container: QuakeSplitContainer,
+        tabIndex: Int
+    ) -> Bool {
+        let target: GhosttySurfaceView?
+        switch destination {
+        case GHOSTTY_GOTO_SPLIT_PREVIOUS,
+             GHOSTTY_GOTO_SPLIT_NEXT:
+            let views = container.allSurfaceViews()
+            guard let index = views.firstIndex(where: { $0 === view }), views.count > 1 else { return false }
+            let offset = destination == GHOSTTY_GOTO_SPLIT_NEXT ? 1 : -1
+            target = views[(index + offset + views.count) % views.count]
+        default:
+            let direction: NavigationDirection
+            switch destination {
+            case GHOSTTY_GOTO_SPLIT_LEFT: direction = .left
+            case GHOSTTY_GOTO_SPLIT_RIGHT: direction = .right
+            case GHOSTTY_GOTO_SPLIT_UP: direction = .up
+            case GHOSTTY_GOTO_SPLIT_DOWN: direction = .down
+            default: return false
+            }
+            target = container.root.findNeighbor(of: view, direction: direction, in: container.bounds)
+        }
+        guard let target else { return false }
+        if tabIndex != activeTabIndex { switchToTab(at: tabIndex) }
+        container.focus(view: target)
+        return true
     }
 
     func closeTab(at index: Int) {
@@ -170,29 +248,6 @@ final class QuakeTerminalTabs: QuakeTerminalTabBarDelegate {
 
         updateTabBarVisibility()
         tab.splitContainer.relayout()
-    }
-
-    func selectNextTab() {
-        guard tabs.count > 1 else { return }
-        switchToTab(at: (activeTabIndex + 1) % tabs.count)
-    }
-
-    func selectPreviousTab() {
-        guard tabs.count > 1 else { return }
-        switchToTab(at: (activeTabIndex - 1 + tabs.count) % tabs.count)
-    }
-
-    func selectTab(at index: Int) {
-        switchToTab(at: index)
-    }
-
-    func requestNewTab() {
-        createTab()
-    }
-
-    func requestCloseActiveTab() {
-        guard !tabs.isEmpty else { return }
-        closeTab(at: activeTabIndex)
     }
 
     func updateTabBarVisibility() {

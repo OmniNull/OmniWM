@@ -23,6 +23,7 @@ private struct WorkspaceBarSplitMetrics {
 }
 
 struct WorkspaceBarGeometry: Equatable {
+    static let cornerRadius: CGFloat = 8
     static let notchGap: CGFloat = 8
     static let minimumSplitSideSpace: CGFloat = 60
     static let minimumIslandWidth: CGFloat = 40
@@ -48,12 +49,20 @@ struct WorkspaceBarGeometry: Equatable {
             resolved: resolved
         )
         let barHeight = isFill ? resolvedMenuBarHeight : max(0, CGFloat(resolved.height))
-        let reservedInset = isFill ? 0 : (isVisible && resolved.reserveLayoutSpace ? barHeight : 0)
+        let reservedInset = isFill || resolved.autoHide ? 0 : (isVisible && resolved.reserveLayoutSpace ? barHeight : 0)
 
         var insets = Struts.zero
         switch effectivePosition {
-        case .overlappingMenuBar,
-             .belowMenuBar: insets.top = reservedInset
+        case .overlappingMenuBar:
+            if reservedInset > 0 {
+                let y = constrainedOriginY(
+                    monitor.visibleFrame.maxY + CGFloat(resolved.yOffset),
+                    height: barHeight,
+                    screenFrame: monitor.frame
+                )
+                insets.top = max(0, monitor.visibleFrame.maxY - y)
+            }
+        case .belowMenuBar: insets.top = reservedInset
         case .bottom: insets.bottom = reservedInset
         case .left: insets.left = reservedInset
         case .right: insets.right = reservedInset
@@ -64,6 +73,10 @@ struct WorkspaceBarGeometry: Equatable {
             barHeight: barHeight,
             reservedInsets: insets
         )
+    }
+
+    static func constrainedOriginY(_ originY: CGFloat, height: CGFloat, screenFrame: CGRect) -> CGFloat {
+        max(screenFrame.minY, min(originY, screenFrame.maxY - height))
     }
 
     func frame(
@@ -84,15 +97,51 @@ struct WorkspaceBarGeometry: Equatable {
                 width: barHeight, height: length
             )
         }
-        let width = max(fittingLength, Self.minimumIslandWidth)
+        var width = max(fittingLength, Self.minimumIslandWidth)
         let centerX = effectivePosition == .bottom ? monitor.visibleFrame.midX : monitor.frame.midX
         var x = centerX - width / 2
+        if let anchor = rightOfNotchAnchor(monitor: monitor, resolved: resolved) {
+            x = anchor
+            width = min(width, availableWidth(monitor: monitor, resolved: resolved))
+        }
         var y = originY(for: monitor)
 
         x += CGFloat(resolved.xOffset)
         y += CGFloat(resolved.yOffset)
 
         return CGRect(x: x, y: y, width: width, height: barHeight)
+    }
+
+    func autoHideRegions(
+        frame: CGRect,
+        monitor: Monitor,
+        resolved: ResolvedBarSettings
+    ) -> (activation: CGRect, retention: CGRect) {
+        let activation: CGRect
+        let retention: CGRect
+        switch effectivePosition {
+        case .overlappingMenuBar,
+             .belowMenuBar:
+            let edge = resolved.yOffset == 0 || resolved.notchMode == .fillLeftOfNotch
+                ? monitor.frame.maxY : frame.maxY
+            activation = CGRect(x: frame.minX, y: edge - 1, width: frame.width, height: 1)
+            retention = CGRect(
+                x: monitor.frame.minX,
+                y: frame.minY,
+                width: monitor.frame.width,
+                height: edge - frame.minY
+            )
+        case .bottom:
+            activation = CGRect(x: frame.minX, y: frame.minY, width: frame.width, height: 1)
+            retention = CGRect(x: monitor.frame.minX, y: frame.minY, width: monitor.frame.width, height: frame.height)
+        case .left:
+            activation = CGRect(x: frame.minX, y: frame.minY, width: 1, height: frame.height)
+            retention = CGRect(x: frame.minX, y: monitor.frame.minY, width: frame.width, height: monitor.frame.height)
+        case .right:
+            activation = CGRect(x: frame.maxX - 1, y: frame.minY, width: 1, height: frame.height)
+            retention = CGRect(x: frame.minX, y: monitor.frame.minY, width: frame.width, height: monitor.frame.height)
+        }
+        return (activation.intersection(monitor.frame), retention.intersection(monitor.frame))
     }
 
     private func fillLeftOfNotchFrame(for monitor: Monitor) -> CGRect {
@@ -106,6 +155,20 @@ struct WorkspaceBarGeometry: Equatable {
             width: max(0, maxX - frame.minX),
             height: menuBarHeight
         )
+    }
+
+    func availableWidth(monitor: Monitor, resolved: ResolvedBarSettings) -> CGFloat {
+        guard let anchor = rightOfNotchAnchor(monitor: monitor, resolved: resolved) else {
+            return monitor.frame.width
+        }
+        return max(0, monitor.frame.maxX - anchor - CGFloat(resolved.xOffset))
+    }
+
+    private func rightOfNotchAnchor(monitor: Monitor, resolved: ResolvedBarSettings) -> CGFloat? {
+        guard resolved.notchMode == .rightOfNotch, monitor.hasNotch,
+              let notch = monitor.notchRange
+        else { return nil }
+        return notch.upperBound + Self.notchGap
     }
 
     func splitFrame(
@@ -185,7 +248,8 @@ struct WorkspaceBarGeometry: Equatable {
         resolved: ResolvedBarSettings
     ) -> WorkspaceBarPosition {
         if monitor.hasNotch,
-           resolved.notchMode == .moveBelowMenuBar,
+           resolved.notchMode == .moveBelowMenuBar
+           || (resolved.notchMode == .rightOfNotch && monitor.notchRange == nil),
            resolved.position == .overlappingMenuBar
         {
             return .belowMenuBar

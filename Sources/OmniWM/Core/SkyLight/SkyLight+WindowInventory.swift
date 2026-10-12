@@ -77,6 +77,39 @@ extension SkyLight {
         } succeeded: { $0 != nil }
     }
 
+    func hasOverlappingWindowsAbove(_ windowId: UInt32, among candidates: Set<UInt32>) -> Bool? {
+        MainThreadAXSpanTrace.measure(.focusCoverageQuery, windowId: Int(windowId), count: candidates.count) {
+            guard let windows = CGWindowListCopyWindowInfo(
+                [.optionOnScreenAboveWindow, .optionIncludingWindow], windowId
+            ) as? [[String: Any]] else { return nil as Bool? }
+            return Self.hasOverlappingWindowsAbove(windowId, among: candidates, in: windows)
+        } succeeded: { $0 != nil }
+    }
+
+    static func hasOverlappingWindowsAbove(
+        _ windowId: UInt32,
+        among candidates: Set<UInt32>,
+        in windows: [[String: Any]]
+    ) -> Bool? {
+        guard let targetIndex = windows.firstIndex(where: { $0[kCGWindowNumber as String] as? UInt32 == windowId }),
+              let targetBounds = windows[targetIndex][kCGWindowBounds as String] as? [String: Any],
+              let targetFrame = CGRect(dictionaryRepresentation: targetBounds as CFDictionary)
+        else { return nil }
+        for window in windows[..<targetIndex] {
+            guard let candidateId = window[kCGWindowNumber as String] as? UInt32,
+                  candidates.contains(candidateId)
+            else { continue }
+            guard let bounds = window[kCGWindowBounds as String] as? [String: Any],
+                  let frame = CGRect(dictionaryRepresentation: bounds as CFDictionary)
+            else { return nil }
+            let overlap = targetFrame.intersection(frame)
+            if !overlap.isNull, overlap.width > 4, overlap.height > 4 {
+                return true
+            }
+        }
+        return false
+    }
+
     func queryWindowInfoDeferred(
         windowIds: Set<UInt32>,
         includeOrderedIn: Bool = false

@@ -27,8 +27,7 @@ final class HiddenBarCaptureSession {
 
     func reconcile(
         snapshot: HiddenBarRunningAppsSnapshot,
-        captureBundleIDs requestedCaptureBundleIDs: Set<String>,
-        bypassHysteresis: Bool = false
+        captureBundleIDs requestedCaptureBundleIDs: Set<String>
     ) {
         guard let controller else { return }
         let eligible = controller.captureEligibleBundleIDs.intersection(snapshot.bundleIDs)
@@ -39,40 +38,29 @@ final class HiddenBarCaptureSession {
             if !captureBundleIDs.isEmpty {
                 cancel()
             }
-            controller.applyConcealment(
-                runningBundleIDs: snapshot.bundleIDs,
-                bypassHysteresis: bypassHysteresis
-            )
+            controller.applyConcealment()
             return
         }
         guard targets != captureBundleIDs || captureTask == nil else {
-            controller.applyConcealment(
-                runningBundleIDs: snapshot.bundleIDs,
-                bypassHysteresis: bypassHysteresis
-            )
+            controller.applyConcealment()
             return
         }
         scheduleCapture(
             bundleIDs: targets,
-            snapshot: snapshot,
-            bypassHysteresis: bypassHysteresis
+            snapshot: snapshot
         )
     }
 
     private func scheduleCapture(
         bundleIDs: Set<String>,
-        snapshot: HiddenBarRunningAppsSnapshot,
-        bypassHysteresis: Bool
+        snapshot: HiddenBarRunningAppsSnapshot
     ) {
         guard let controller else { return }
         let targets = bundleIDs
             .intersection(controller.captureEligibleBundleIDs)
             .intersection(snapshot.bundleIDs)
         guard !targets.isEmpty else {
-            controller.applyConcealment(
-                runningBundleIDs: snapshot.bundleIDs,
-                bypassHysteresis: bypassHysteresis
-            )
+            controller.applyConcealment()
             return
         }
 
@@ -80,10 +68,7 @@ final class HiddenBarCaptureSession {
         captureGeneration += 1
         captureBundleIDs = targets
         let allowEmptyBundleIDs = targets.filter { iconCache.hasResolvedItems(for: $0) }
-        controller.applyConcealment(
-            runningBundleIDs: snapshot.bundleIDs,
-            bypassHysteresis: true
-        )
+        controller.applyConcealment()
         let generation = captureGeneration
         captureTask = Task { @MainActor [weak controller] in
             guard let controller else { return }
@@ -119,7 +104,7 @@ final class HiddenBarCaptureSession {
         )
         captureTask = nil
         captureBundleIDs.removeAll(keepingCapacity: true)
-        controller.applyConcealment(runningBundleIDs: snapshot.bundleIDs, bypassHysteresis: true)
+        controller.applyConcealment(verifiedMenuItemBundleIDs: snapshot.verifiedMenuItemBundleIDs(for: resolved))
     }
 
     func cancel() {

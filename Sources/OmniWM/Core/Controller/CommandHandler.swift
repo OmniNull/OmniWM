@@ -94,6 +94,8 @@ final class CommandHandler {
             controller.openCommandPalette()
         case .raiseAllFloatingWindows:
             controller.raiseAllFloatingWindows()
+        case .toggleFloatingFocus:
+            return controller.toggleFloatingFocus()
         case .rescueOffscreenWindows:
             _ = controller.rescueOffscreenWindows()
         case .windowState(.toggleFloating):
@@ -105,7 +107,7 @@ final class CommandHandler {
         case .openMenuAnywhere:
             controller.openMenuAnywhere()
         case let .windowMark(action):
-            return perform(action, controller: controller)
+            return performWindowMarkAction(action, for: controller.workspaceManager.nativeManagedFocusToken)
         case let .presentation(action):
             return perform(action, controller: controller)
         }
@@ -326,8 +328,8 @@ final class CommandHandler {
 }
 
 extension CommandHandler {
-    private func perform(_ action: WindowMarkHotkeyAction, controller: WMController) -> ExternalCommandResult {
-        let token = controller.workspaceManager.nativeManagedFocusToken
+    func performWindowMarkAction(_ action: WindowMarkHotkeyAction, for token: WindowToken?) -> ExternalCommandResult {
+        guard let controller else { return .notFound }
         let expectedHandle = token.flatMap { controller.workspaceManager.handle(for: $0) }
         let interaction = CommandPaletteMarkInteraction(
             selectedWindowToken: token,

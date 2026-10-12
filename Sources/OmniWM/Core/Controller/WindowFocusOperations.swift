@@ -15,6 +15,7 @@ struct WindowFocusOperations {
     let activateAndFocusSameAppWindow: (pid_t, UInt32, AXUIElement) -> Bool
     let raiseWindow: (AXUIElement) -> Void
     let orderWindow: (UInt32) -> Void
+    let hasOverlappingWindowsAbove: (UInt32, Set<UInt32>) -> Bool?
     let enqueueRetryRaise: (pid_t, AXWindowRef, RunLoopJob, @escaping @MainActor @Sendable () -> Void) -> Bool
 
     init(
@@ -26,6 +27,7 @@ struct WindowFocusOperations {
         activateAndFocusSameAppWindow: @escaping (pid_t, UInt32, AXUIElement) -> Bool = { _, _, _ in false },
         raiseWindow: @escaping (AXUIElement) -> Void,
         orderWindow: @escaping (UInt32) -> Void = { _ in },
+        hasOverlappingWindowsAbove: @escaping (UInt32, Set<UInt32>) -> Bool? = { _, _ in nil },
         enqueueRetryRaise: @escaping (
             pid_t, AXWindowRef, RunLoopJob, @escaping @MainActor @Sendable () -> Void
         ) -> Bool = { pid, window, job, completion in
@@ -46,6 +48,7 @@ struct WindowFocusOperations {
         self.activateAndFocusSameAppWindow = activateAndFocusSameAppWindow
         self.raiseWindow = raiseWindow
         self.orderWindow = orderWindow
+        self.hasOverlappingWindowsAbove = hasOverlappingWindowsAbove
         self.enqueueRetryRaise = enqueueRetryRaise
     }
 
@@ -88,13 +91,16 @@ struct WindowFocusOperations {
             WindowFocusDispatcher.shared.drain()
             _ = MainThreadAXSpanTrace.measure(.axRaise) {
                 performAXAction(element, kAXRaiseAction as CFString, noteKey: "performRaiseFailed")
-            } succeeded: { $0 }
+            } succeeded: { $0 == .success } status: { $0.rawValue }
         },
         orderWindow: { windowId in
             WindowFocusDispatcher.shared.drain()
             MainThreadAXSpanTrace.measure(.orderWindow, windowId: Int(windowId)) {
                 SkyLight.shared.orderWindow(windowId, relativeTo: 0, order: .above)
             }
+        },
+        hasOverlappingWindowsAbove: { windowId, candidates in
+            SkyLight.shared.hasOverlappingWindowsAbove(windowId, among: candidates)
         }
     )
 }

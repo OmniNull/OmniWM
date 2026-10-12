@@ -513,7 +513,14 @@ final class SettingsMigrationTests: XCTestCase {
         XCTAssertEqual(rule.minWidth, 720)
         XCTAssertEqual(rule.minHeight, 480)
 
-        XCTAssertEqual(hotkeyIDs(in: migratedData), HotkeyBindingRegistry.defaults().map(\.id))
+        let actionsAddedAfterVersionFour: Set<String> = ["toggleFloatingFocus"]
+        XCTAssertEqual(
+            hotkeyIDs(in: migratedData),
+            HotkeyBindingRegistry.defaults().map(\.id).filter { !actionsAddedAfterVersionFour.contains($0) }
+        )
+        for id in actionsAddedAfterVersionFour {
+            XCTAssertEqual(hotkey(id, in: result.export)?.binding, .unassigned, id)
+        }
         let markerSections = hotkeySections(in: migratedData).filter {
             $0.contains("futureHotkeySetting = \"keep-by-id\"")
         }
@@ -647,8 +654,11 @@ final class SettingsMigrationTests: XCTestCase {
             of: "binding = \"Option+J\"\nfutureHotkeySetting = \"keep-by-id\"\nid = \"swapSplit\"",
             with: "binding = \"NotAKey\"\nfutureHotkeySetting = \"keep-by-id\"\nid = \"swapSplit\""
         ).utf8)
+        XCTAssertEqual(
+            try hotkey("swapSplit", in: SettingsTOMLCodec.decodeForLoad(missingAction).export)?.binding,
+            .unassigned
+        )
         let cases = [
-            ("missing", missingAction),
             ("duplicate", duplicateAction),
             ("unknown", unknownAction),
             ("partial", partialEntry),

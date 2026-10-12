@@ -12,9 +12,10 @@ struct HotkeyBindingRow: View {
     let binding: HotkeyBinding
     @Binding var recordingTarget: HotkeyRecordingTarget?
     let failureReason: HotkeyRegistrationFailureReason?
+    let pausedDuringSecureInput: Bool
     let isHyperActive: () -> Bool
     let onStartChordRecording: (String) -> Void
-    let onChordCaptured: (String, KeyBinding) -> Void
+    let onChordCaptured: (String, HotkeyTrigger) -> Void
     let onCancelRecording: () -> Void
     let onClearBinding: (String) -> Void
     let onResetBindings: (String) -> Void
@@ -67,6 +68,13 @@ struct HotkeyBindingRow: View {
                 HStack(spacing: 6) {
                     HotkeyScopeText(compatibility: binding.command.layoutCompatibility)
 
+                    if pausedDuringSecureInput {
+                        Label("Paused during Secure Input", systemImage: "lock.fill")
+                            .font(.caption)
+                            .foregroundStyle(.orange)
+                            .help(Self.secureInputTip)
+                    }
+
                     if let failureReason {
                         Text(failureMessage(for: failureReason))
                             .font(.caption)
@@ -88,10 +96,19 @@ struct HotkeyBindingRow: View {
             String(localized: "Shortcut \(HotkeySettingsDisplayModel.humanReadableString(for: binding.binding))"),
             String(localized: "Scope \(binding.command.layoutCompatibility.localizedDisplayName)")
         ]
+        if pausedDuringSecureInput {
+            parts.append(String(localized: "Paused during Secure Input"))
+        }
         if let failureReason {
             parts.append(failureMessage(for: failureReason))
         }
         return parts.joined(separator: ", ")
+    }
+
+    static var secureInputTip: String {
+        String(
+            localized: "Shortcuts marked “Paused during Secure Input” stop working while another app uses Secure Input. Add Control or Command to keep them working."
+        )
     }
 
     private func failureMessage(for reason: HotkeyRegistrationFailureReason) -> String {
@@ -127,7 +144,7 @@ private struct HotkeyBindingControl: View {
     let isRecordingChord: Bool
     let isHyperActive: () -> Bool
     let onStartChordRecording: () -> Void
-    let onCaptured: (KeyBinding) -> Void
+    let onCaptured: (HotkeyTrigger) -> Void
     let onCancel: () -> Void
     let onRemove: () -> Void
     let onSetSide: (ModifierSide) -> Void
@@ -149,7 +166,7 @@ private struct HotkeyBindingControl: View {
                         onStartChordRecording()
                     } label: {
                         Text(displayString)
-                            .font(.system(.body, design: .monospaced))
+                            .font(.body)
                             .lineLimit(1)
                             .frame(minWidth: 112, alignment: .center)
                     }

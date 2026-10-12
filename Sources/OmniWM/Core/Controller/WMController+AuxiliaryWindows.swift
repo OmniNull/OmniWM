@@ -24,40 +24,29 @@ extension WMController {
         }
     }
 
-    func toggleHiddenBarPanel() {
+    func toggleHiddenBarPanel(on monitorId: Monitor.ID? = nil) {
         statusBarController?.dismissPanel()
-        hiddenBarController.togglePanel(placement: hiddenBarPanelPlacement())
+        hiddenBarController.togglePanel(placement: hiddenBarPanelPlacement(on: monitorId))
     }
 
-    private func hiddenBarPanelPlacement() -> HiddenBarPanelPlacement? {
+    private func hiddenBarPanelPlacement(on monitorId: Monitor.ID?) -> HiddenBarPanelPlacement? {
         let monitors = workspaceManager.monitors
-        guard let monitor = currentMouseLocation().monitorApproximation(in: monitors)
+        guard let monitor = monitors.first(where: { $0.id == monitorId })
+            ?? currentMouseLocation().monitorApproximation(in: monitors)
             ?? monitors.first(where: \.isMain) ?? monitors.first
         else { return nil }
         let resolved = settings.workspaceBar.resolved(for: monitor)
-        let attachment = isWorkspaceBarVisible(on: monitor, resolved: resolved)
-            ? workspaceBarManager.popupAttachment(on: monitor.id) : nil
+        if isWorkspaceBarVisible(on: monitor, resolved: resolved),
+           let placement = workspaceBarManager.hiddenBarPanelPlacement(on: monitor.id)
+        {
+            return placement
+        }
         return HiddenBarPanelPlacement(
-            attachment: attachment ?? PopupAttachment(
+            attachment: PopupAttachment(
                 anchor: CGPoint(x: monitor.frame.midX, y: monitor.visibleFrame.maxY)
             ),
             visibleFrame: monitor.visibleFrame
         )
-    }
-
-    func hiddenBarFallbackIconPlacements() -> [HiddenBarFallbackIconPlacement] {
-        workspaceManager.monitors.map { monitor in
-            let resolved = settings.workspaceBar.resolved(for: monitor)
-            return HiddenBarFallbackIconPlacement(
-                monitorId: monitor.id,
-                frame: HiddenBarFallbackIconController.iconFrame(
-                    monitor: monitor,
-                    barVisible: isWorkspaceBarVisible(on: monitor, resolved: resolved),
-                    barFrame: workspaceBarManager.primaryBarFrame(on: monitor.id),
-                    position: resolved.position
-                )
-            )
-        }
     }
 
     func setHiddenBarEnabled(_ enabled: Bool) {
@@ -68,12 +57,8 @@ extension WMController {
         hiddenBarController.applySettings()
     }
 
-    func detectMenuBarApps() async -> [DetectedMenuBarApp] {
-        await hiddenBarController.detectMenuBarApps()
-    }
-
-    func hiddenBarDisplayName(for bundleID: String) -> String {
-        hiddenBarController.displayName(for: bundleID)
+    func hiddenBarSystemSettingsAllowance() -> [String: Bool] {
+        hiddenBarController.systemSettingsAllowance()
     }
 
     func setQuakeTerminalEnabled(_ enabled: Bool) {
@@ -131,21 +116,12 @@ extension WMController {
         )
     }
 
-    func statusMenuEdge(from anchor: NSView) -> PopupAttachment.Edge {
-        guard anchor is HiddenBarFallbackIconButton,
-              let monitor = workspaceManager.monitors
-              .first(where: { $0.displayId == anchor.window?.screen?.displayId }),
-              isWorkspaceBarVisible(on: monitor)
-        else { return .below }
-        return workspaceBarManager.popupAttachment(on: monitor.id)?.edge ?? .below
-    }
-
     func dismissSystemStatsPopup(anchoredTo monitorId: Monitor.ID) {
         systemStatsPopupController.dismissIfAnchored(to: monitorId)
     }
 
-    func openCommandPalette() {
-        commandPaletteController.toggle(wmController: self)
+    func openCommandPalette(mode: CommandPaletteMode? = nil) {
+        commandPaletteController.toggle(wmController: self, mode: mode)
     }
 
     func clipboardPaletteItems() -> [ClipboardPaletteItem] {

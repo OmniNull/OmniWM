@@ -135,7 +135,7 @@ final class WorkspaceBarInstance {
         } else if resolved.notchMode == .fillLeftOfNotch {
             geometry.frame(fittingLength: 0, monitor: monitor, resolved: resolved).width
         } else {
-            monitor.frame.width
+            geometry.availableWidth(monitor: monitor, resolved: resolved)
         }
         let context = ScratchpadCompactionContext(
             availableWidth: availableWidth,
@@ -156,7 +156,8 @@ final class WorkspaceBarInstance {
             slice: slice,
             showsSystemStatsButton: showsSystemStatsButton
         )
-        let hasAdjacentContent = !slice.items(in: baseSnapshot).isEmpty || showsSystemStatsButton
+        let hasAdjacentContent = slice.showsOmniWMButton || !slice.items(in: baseSnapshot)
+            .isEmpty || showsSystemStatsButton
         let scratchpads = WorkspaceBarScratchpadLayout.compactedItems(
             snapshot.scratchpads,
             availableWidth: availableWidth,
@@ -220,7 +221,8 @@ final class WorkspaceBarInstance {
             barHeight: current.barHeight,
             accentColor: resolved.accentColor,
             textColor: resolved.textColor,
-            orientation: current.orientation
+            orientation: current.orientation,
+            secureInputActive: current.secureInputActive
         )
 
         if snapshot != current {

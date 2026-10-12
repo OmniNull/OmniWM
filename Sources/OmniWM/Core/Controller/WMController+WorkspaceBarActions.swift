@@ -89,7 +89,9 @@ extension WMController {
             monitorId: monitorId,
             isFloating: entry.mode == .floating,
             canMove: canMove,
-            canSummon: canMove && entry.mode == .tiling && anchor != nil && anchor != token
+            canSummon: canMove && entry.mode == .tiling && anchor != nil && anchor != token,
+            canMark: entry.layoutReason == .standard,
+            hasMarks: !windowMarkRegistry.names(for: token).isEmpty
         )
     }
 
@@ -115,6 +117,8 @@ extension WMController {
             toggleWindowFloating(token, preferredMonitor: monitorOfWindow(token))
         case let .summonRight(token):
             summonWindowRightFromBar(token, barMonitorId: barMonitorId)
+        case let .windowMark(token, action):
+            _ = commandHandler.performWindowMarkAction(action, for: token)
         case let .assignToScratchpad(token, index):
             assignWindowToScratchpad(
                 token,

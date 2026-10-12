@@ -74,6 +74,7 @@ final class IPCNoChangeRoutingTests: XCTestCase {
 
         XCTAssertEqual(fixture.router.handle(IPCCommandRequest.rescueOffscreenWindows), .noChange)
         XCTAssertEqual(fixture.router.handle(IPCCommandRequest.raiseAllFloatingWindows), .noChange)
+        XCTAssertEqual(fixture.router.handle(IPCCommandRequest.toggleFloatingFocus), .noChange)
         XCTAssertEqual(fixture.router.handle(IPCCommandRequest.workspaceLayout(.set(layout: .niri))), .noChange)
         XCTAssertEqual(fixture.router.handle(IPCCommandRequest.monitorFocus(.next)), .noChange)
         XCTAssertEqual(fixture.router.handle(IPCCommandRequest.swapWorkspaceWithMonitor(direction: .left)), .notFound)

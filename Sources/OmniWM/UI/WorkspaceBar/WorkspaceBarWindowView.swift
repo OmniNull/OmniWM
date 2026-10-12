@@ -207,6 +207,9 @@ struct WindowIconView: View {
                 .opacity(isDragSource ? 0.35 : presentation.iconOpacity)
                 .shadow(color: resolvedAccentColor.opacity(glowOpacity), radius: glowRadius)
                 .accessibilityHidden(true)
+                .overlay(alignment: .topLeading) {
+                    WorkspaceBarNotificationBadge(bundleId: window.bundleId, iconSize: iconSize)
+                }
                 .overlay(alignment: .topTrailing) {
                     if window.windowCount > 1 {
                         WindowCountBadge(count: window.windowCount, iconSize: iconSize, textColor: textColor)
@@ -249,7 +252,11 @@ struct WindowIconView: View {
             )
         }
         .accessibilityLabel(presentation.accessibilityLabel)
-        .accessibilityValue(presentation.accessibilityValue)
+        .modifier(WorkspaceBarBadgeAccessibility(
+            windows: [window][...],
+            value: presentation.accessibilityValue,
+            help: presentation.accessibilityLabel
+        ))
         .accessibilityHint(presentation.accessibilityHint)
         .accessibilityAction(.showMenu) {
             interaction?.onShowMenu(.window(workspaceId, window.id))

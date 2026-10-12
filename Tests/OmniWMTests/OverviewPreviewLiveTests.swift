@@ -130,8 +130,9 @@ final class OverviewPreviewLiveTests: XCTestCase {
             trace.releaseStorage()
         }
         let capture = OverviewThumbnailCapture(
-            environment: OverviewEnvironment(),
-            ownedWindowRegistry: OwnedWindowRegistry(surfaceCoordinator: SurfaceCoordinator())
+            coordinator: PreviewCaptureCoordinator(
+                ownedWindowRegistry: OwnedWindowRegistry(surfaceCoordinator: SurfaceCoordinator())
+            )
         )
         let handle = WindowHandle(id: WindowToken(pid: getpid(), windowId: panel.windowNumber))
         let request = OverviewPreviewRequest(handle: handle, pixelWidth: 200, pixelHeight: 200)

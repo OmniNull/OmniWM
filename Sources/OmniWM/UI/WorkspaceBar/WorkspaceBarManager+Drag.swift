@@ -5,6 +5,7 @@ import AppKit
 
 extension WorkspaceBarManager {
     func configureDragController(controller: WMController) {
+        dragController.onDraggingChanged = { [weak self] in self?.refreshAutoHide() }
         dragController.geometryProvider = { [weak self] in
             self?.dropGeometry() ?? WorkspaceBarDropGeometry(workspaces: [])
         }

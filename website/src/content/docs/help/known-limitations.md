@@ -21,6 +21,7 @@ installing so you can decide whether it fits your system and workflow.
 - **Input Monitoring** is required for global hotkeys and optional System Hyper Trigger keys or mouse buttons.
 - **Screen Recording is optional.** Without it, OmniWM still tiles windows. Overview thumbnails, drag previews, and
   captured Hidden Bar glyphs are unavailable. Wallpaper previews fall back to macOS's image URL, which may show the system default image instead of a native solid colour.
+- **Full Disk Access is optional.** Only Hidden Bar uses it; without it, Hidden Bar is unavailable.
 
 See the [installation guide](/guides/install/) for the exact setup sequence.
 
@@ -45,8 +46,7 @@ OmniWM uses public macOS frameworks and selected private Apple APIs. This enable
 not expose, but private interfaces can change in a future macOS release. OmniWM therefore pins a strict supported
 macOS baseline and validates new releases against that baseline.
 
-Hidden Bar concealment dynamically loads the private MenuBarClientCore framework and is available only on macOS 27
-or later. Core window management supports macOS 26.
+Hidden Bar uses macOS per-app menu-bar visibility preferences, whose stored format is private to macOS.
 
 ## Current functional limitations
 

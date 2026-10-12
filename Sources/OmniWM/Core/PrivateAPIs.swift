@@ -39,10 +39,10 @@ func getWindowId(from windowRef: AXUIElement) -> CGWindowID? {
 }
 
 @discardableResult
-func performAXAction(_ element: AXUIElement, _ action: CFString, noteKey: String) -> Bool {
-    let ok = AXUIElementPerformAction(element, action) == .success
-    if !ok { FallbackFiringRecorder.shared.note(.ax, noteKey) }
-    return ok
+func performAXAction(_ element: AXUIElement, _ action: CFString, noteKey: String) -> AXError {
+    let result = AXUIElementPerformAction(element, action)
+    if result != .success { FallbackFiringRecorder.shared.note(.ax, noteKey) }
+    return result
 }
 
 enum KeyWindowEventRecord {

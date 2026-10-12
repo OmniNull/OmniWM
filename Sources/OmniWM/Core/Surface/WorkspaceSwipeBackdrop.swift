@@ -7,9 +7,7 @@ import AppKit
 final class WorkspaceSwipeBackdrop {
     private let wallpaperCache: OverviewWallpaperCache
 
-    init(
-        wallpaperCache: OverviewWallpaperCache = OverviewWallpaperCache { SkyLight.shared.captureWallpaper(in: $0) }
-    ) {
+    init(wallpaperCache: OverviewWallpaperCache = OverviewWallpaperCache()) {
         self.wallpaperCache = wallpaperCache
     }
 

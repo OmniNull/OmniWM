@@ -1,0 +1,176 @@
+name: OmniWM canary
+
+# Publishes main HEAD as an automated signed and notarized prerelease for
+# testers. Daily schedule; runs become no-ops when nothing new landed after
+# the newest canary or stable tag. A manual dispatch can force a rebuild.
+
+on:
+  schedule:
+    - cron: "0 4 * * *"
+  workflow_dispatch:
+    inputs:
+      force:
+        description: Build even when main has no commits after the newest canary or release tag
+        type: boolean
+        default: false
+
+permissions: {}
+
+concurrency:
+  # Shared with the release workflow so a canary never interleaves with a
+  # stable release on the same runner and Apple account.
+  group: release
+  cancel-in-progress: false
+
+env:
+  DEVELOPER_DIR: /Applications/Xcode_27.0.app/Contents/Developer
+  OMNIWM_RELEASE_SIGNING_IDENTITY: "${{ vars.OMNIWM_RELEASE_SIGNING_IDENTITY || 'Developer ID Application: Oliver Nikolic (VF8LDJRGFM)' }}"
+  OMNIWM_RELEASE_NOTARIZE_PROFILE: ${{ vars.OMNIWM_RELEASE_NOTARIZE_PROFILE || 'OmniWM-Notarize' }}
+  OMNIWM_NOTARIZE_TIMEOUT: 30m
+
+jobs:
+  prereq:
+    name: Check canary signing setup
+    runs-on: ubuntu-latest
+    timeout-minutes: 5
+    permissions:
+      contents: read
+      actions: read
+    outputs:
+      ready: ${{ steps.environment.outputs.ready }}
+    steps:
+      - name: Require the canary-signing environment
+        id: environment
+        env:
+          GH_TOKEN: ${{ github.token }}
+        run: |
+          set -euo pipefail
+          # A 404 can also mean denied access; skip only after a successful list.
+          READY="$(gh api "repos/$GITHUB_REPOSITORY/environments?per_page=100" --paginate --slurp \
+            | jq 'any(.[].environments[]; .name == "canary-signing")')"
+          echo "ready=$READY" >> "$GITHUB_OUTPUT"
+          if [[ "$READY" == "false" ]]; then
+            {
+              printf '## Canary disabled\n\n'
+              printf 'The `canary-signing` environment does not exist yet. Create it with the same five `APPLE_*`\n'
+              printf 'secrets as `release-signing`, no required reviewers, and a selected-branches deployment\n'
+              printf 'policy that only allows `main`. The daily schedule stays green while it is missing.\n'
+            } >> "$GITHUB_STEP_SUMMARY"
+          fi
+
+  canary:
+    name: Build and publish a canary
+    needs: prereq
+    # Scheduled workflows also fire on forks; only the upstream repo signs.
+    if: github.repository == 'OmniNull/OmniWM' && github.ref == 'refs/heads/main' && needs.prereq.outputs.ready == 'true'
+    runs-on: xcode-27
+    timeout-minutes: 60
+    # Deliberately not release-signing: that environment requires the owner
+    # review every stable release needs, and a daily schedule must not queue
+    # on it. Create the canary-signing environment with the same five APPLE_*
+    # secrets, no required reviewers, and a selected-branches policy for main.
+    environment: canary-signing
+    permissions:
+      contents: write
+    steps:
+      - uses: actions/checkout@3d3c42e5aac5ba805825da76410c181273ba90b1
+        with:
+          ref: main
+          fetch-depth: 0
+          persist-credentials: false
+      - name: Assert canonical token-free origin
+        shell: bash
+        run: |
+          set -euo pipefail
+          if [[ "$(git remote get-url origin)" != "$GITHUB_SERVER_URL/$GITHUB_REPOSITORY" ]]; then
+            echo '::error::origin must be the canonical token-free checkout URL.'
+            exit 1
+          fi
+      - name: Decide whether main has anything new to canary
+        id: check
+        env:
+          FORCE: ${{ inputs.force }}
+        run: |
+          set -euo pipefail
+          FORCE_ARG=""
+          if [[ "$FORCE" == "true" ]]; then
+            FORCE_ARG="--force"
+          fi
+          python3 Scripts/canary_release.py check --github-output "$GITHUB_OUTPUT" $FORCE_ARG
+      - uses: actions/cache@55cc8345863c7cc4c66a329aec7e433d2d1c52a9
+        with:
+          path: |
+            .cache/dev-tools/bin
+            .cache/dev-tools/downloads
+            Frameworks/GhosttyKit.xcframework
+          key: dev-deps-${{ runner.os }}-${{ runner.arch }}-${{ hashFiles('Scripts/dev-tools.env', 'Scripts/build-metadata.env') }}
+      - name: Set up dependencies
+        if: steps.check.outputs.should_skip != 'true'
+        run: ./Scripts/dev-tools.sh setup
+      # Imported after dependency setup and removed before any later action step.
+      - name: Import signing and notarization credentials
+        if: steps.check.outputs.should_skip != 'true'
+        env:
+          APPLE_DEVELOPER_ID_CERT_P12_BASE64: ${{ secrets.APPLE_DEVELOPER_ID_CERT_P12_BASE64 }}
+          APPLE_DEVELOPER_ID_CERT_PASSWORD: ${{ secrets.APPLE_DEVELOPER_ID_CERT_PASSWORD }}
+          APPLE_NOTARY_KEY_ID: ${{ secrets.APPLE_NOTARY_KEY_ID }}
+          APPLE_NOTARY_ISSUER_ID: ${{ secrets.APPLE_NOTARY_ISSUER_ID }}
+          APPLE_NOTARY_KEY_P8: ${{ secrets.APPLE_NOTARY_KEY_P8 }}
+        run: |
+          KEYCHAIN_PASSWORD="$(openssl rand -hex 32)"
+          echo "::add-mask::$KEYCHAIN_PASSWORD"
+          export KEYCHAIN_PASSWORD
+          ./Scripts/release-ci-credentials.sh
+      - name: Build, sign and notarize the canary app
+        if: steps.check.outputs.should_skip != 'true'
+        env:
+          OMNIWM_SIGNING_IDENTITY: ${{ env.OMNIWM_RELEASE_SIGNING_IDENTITY }}
+          OMNIWM_NOTARIZE_PROFILE: ${{ env.OMNIWM_RELEASE_NOTARIZE_PROFILE }}
+        run: Scripts/package-app.sh release true
+      - name: Publish the canary prerelease
+        id: publish
+        if: steps.check.outputs.should_skip != 'true'
+        env:
+          GH_TOKEN: ${{ github.token }}
+        run: |
+          set -euo pipefail
+          STAMP="$(date -u +%Y%m%d-%H%M)"
+          # Run and attempt IDs keep forced reruns in the same UTC minute
+          # from sharing a tag.
+          TAG="canary-$STAMP-$GITHUB_RUN_ID-$GITHUB_RUN_ATTEMPT"
+          # The tag must name the commit the ZIP and notes were built from;
+          # checkout of main can be newer than the event's GITHUB_SHA.
+          HEAD_SHA="$(git rev-parse HEAD)"
+          SHORT="$(git rev-parse --short HEAD)"
+          python3 Scripts/canary_release.py notes --repo . --output "$RUNNER_TEMP/canary-notes.md"
+          ZIP="dist/OmniWM-canary-$TAG.zip"
+          ditto -c -k --keepParent dist/OmniWM.app "$ZIP"
+          URL="$(gh release create "$TAG" "$ZIP" \
+            --target "$HEAD_SHA" \
+            --prerelease \
+            --title "Canary $STAMP ($SHORT)" \
+            --notes-file "$RUNNER_TEMP/canary-notes.md")"
+          echo "tag=$TAG" >> "$GITHUB_OUTPUT"
+          echo "url=$URL" >> "$GITHUB_OUTPUT"
+      - name: Remove release credentials
+        if: always()
+        run: |
+          if [[ -f Scripts/release-ci-credentials.sh ]]; then
+            ./Scripts/release-ci-credentials.sh cleanup
+          fi
+      - name: Summarize
+        if: always()
+        env:
+          SHOULD_SKIP: ${{ steps.check.outputs.should_skip }}
+          SKIP_REASON: ${{ steps.check.outputs.skip_reason }}
+          PUBLISHED_TAG: ${{ steps.publish.outputs.tag }}
+          PUBLISHED_URL: ${{ steps.publish.outputs.url }}
+        run: |
+          set -euo pipefail
+          {
+            if [[ "$SHOULD_SKIP" == "true" ]]; then
+              printf '## Canary skipped\n\n%s\n' "$SKIP_REASON"
+            elif [[ -n "$PUBLISHED_TAG" ]]; then
+              printf '## Canary published\n\n- Tag: `%s`\n- Release: %s\n' "$PUBLISHED_TAG" "$PUBLISHED_URL"
+            fi
+          } >> "$GITHUB_STEP_SUMMARY"

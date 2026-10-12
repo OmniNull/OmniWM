@@ -18,6 +18,7 @@ final class NonactivatingPanel: NSPanel {
 final class PanelDismissalMonitor {
     private var panels: [NSPanel] = []
     private var isExemptWindow: ((NSWindow) -> Bool)?
+    private var containsPanelPoint: ((NSPanel, CGPoint) -> Bool)?
     private var onEscape: (() -> Void)?
     private var onDismiss: (() -> Void)?
     private var eventMonitors: [Any] = []
@@ -26,12 +27,14 @@ final class PanelDismissalMonitor {
     func start(
         panels: [NSPanel],
         isExemptWindow: @escaping (NSWindow) -> Bool,
+        containsPanelPoint: ((NSPanel, CGPoint) -> Bool)? = nil,
         onEscape: (() -> Void)? = nil,
         onDismiss: @escaping () -> Void
     ) {
         stop()
         self.panels = panels
         self.isExemptWindow = isExemptWindow
+        self.containsPanelPoint = containsPanelPoint
         self.onEscape = onEscape
         self.onDismiss = onDismiss
 
@@ -81,6 +84,7 @@ final class PanelDismissalMonitor {
         }
         panels = []
         isExemptWindow = nil
+        containsPanelPoint = nil
         onEscape = nil
         onDismiss = nil
     }
@@ -98,7 +102,14 @@ final class PanelDismissalMonitor {
             handlePointer(location: NSEvent.mouseLocation)
             return false
         }
-        if panels.contains(where: { $0 === window }) || isExemptWindow?(window) == true {
+        if let panel = panels.first(where: { $0 === window }) {
+            if containsPointer(window.convertPoint(toScreen: event.locationInWindow), in: panel) {
+                return false
+            }
+            onDismiss?()
+            return true
+        }
+        if isExemptWindow?(window) == true {
             return false
         }
         onDismiss?()
@@ -107,9 +118,13 @@ final class PanelDismissalMonitor {
 
     func handlePointer(location: CGPoint) {
         guard !panels.isEmpty else { return }
-        if !panels.contains(where: { $0.frame.contains(location) }) {
+        if !panels.contains(where: { containsPointer(location, in: $0) }) {
             onDismiss?()
         }
+    }
+
+    private func containsPointer(_ location: CGPoint, in panel: NSPanel) -> Bool {
+        panel.frame.contains(location) && (containsPanelPoint?(panel, location) ?? true)
     }
 
     private func handleEscape() {

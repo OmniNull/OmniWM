@@ -23,7 +23,9 @@ enum TerminalCellWidth {
     private static let locale = TerminalWidthLocale()
 
     static func measure(_ string: some StringProtocol) -> Int {
-        string.reduce(into: 0) { width, character in
+        let previousLocale = uselocale(locale.value)
+        defer { uselocale(previousLocale) }
+        return string.reduce(into: 0) { width, character in
             width += measure(character)
         }
     }
@@ -53,7 +55,7 @@ enum TerminalCellWidth {
                 emojiCount += 1
             }
 
-            let scalarWidth = wcwidth_l(Int32(scalar.value), locale.value)
+            let scalarWidth = wcwidth(Int32(scalar.value))
             if scalarWidth >= 0 {
                 width += Int(scalarWidth)
             } else if properties.generalCategory != .control,

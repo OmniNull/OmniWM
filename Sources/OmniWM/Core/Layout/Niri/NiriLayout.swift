@@ -140,7 +140,9 @@ extension NiriLayoutEngine {
             prepared: prepared, context: context, sampling: sampling
         )
         for index in projectedColumns.indices {
-            layoutProjectedColumn(projectedColumns[index], at: index, pass: pass, result: &result)
+            layoutProjectedColumn(
+                projectedColumns[index], prepared: prepared[index], at: index, pass: pass, result: &result
+            )
         }
     }
 
@@ -150,7 +152,7 @@ extension NiriLayoutEngine {
         primaryGap: CGFloat,
         time: TimeInterval,
         orientation: Monitor.Orientation
-    ) -> NiriPreparedLayoutColumns {
+    ) -> [NiriPreparedLayoutColumn] {
         for projectedColumn in projectedColumns
             where projectedColumn.windows.count == projectedColumn.column.windowNodes.count
         {
@@ -175,30 +177,25 @@ extension NiriLayoutEngine {
             }
         }
 
-        let containerSpans = projectedColumns.map {
-            projectedPrimarySpan(
-                for: $0,
+        var columns: [NiriPreparedLayoutColumn] = []
+        columns.reserveCapacity(projectedColumns.count)
+        var runningPos: CGFloat = 0
+        for projectedColumn in projectedColumns {
+            let span = projectedPrimarySpan(
+                for: projectedColumn,
                 workingFrame: area.workingFrame,
                 gap: primaryGap,
                 orientation: orientation
             )
-        }
-        let containerRenderOffsets = projectedColumns.map { $0.column.renderOffset(at: time) }
-
-        var containerPositions = [CGFloat]()
-        containerPositions.reserveCapacity(projectedColumns.count)
-        var runningPos: CGFloat = 0
-        for i in 0 ..< projectedColumns.count {
-            containerPositions.append(runningPos)
-            let span = containerSpans[i]
+            columns.append(NiriPreparedLayoutColumn(
+                span: span,
+                renderOffset: projectedColumn.column.renderOffset(at: time),
+                position: runningPos
+            ))
             runningPos += span + primaryGap
         }
 
-        return NiriPreparedLayoutColumns(
-            spans: containerSpans,
-            renderOffsets: containerRenderOffsets,
-            positions: containerPositions
-        )
+        return columns
     }
 
     func layoutContainer(

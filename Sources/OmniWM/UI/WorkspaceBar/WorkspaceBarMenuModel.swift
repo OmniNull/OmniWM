@@ -13,6 +13,7 @@ enum WorkspaceBarMenuAction: Equatable {
     case moveWindowsToMonitor([WindowToken], Monitor.ID)
     case toggleFloating(WindowToken)
     case summonRight(WindowToken)
+    case windowMark(WindowToken, WindowMarkHotkeyAction)
     case assignToScratchpad(WindowToken, ScratchpadIndex)
     case createAppRule(WindowToken)
     case closeWindow(WindowToken)
@@ -65,6 +66,8 @@ struct WorkspaceBarWindowMenuTarget: Equatable {
     let isFloating: Bool
     let canMove: Bool
     let canSummon: Bool
+    let canMark: Bool
+    let hasMarks: Bool
 }
 
 struct WorkspaceBarScratchpadMenuTarget: Equatable {
@@ -202,6 +205,17 @@ enum WorkspaceBarMenuBuilder {
                 isEnabled: window.canMove
             ),
             .action(String(localized: "Create App Rule…"), .createAppRule(window.token)),
+            .separator,
+            .action(
+                String(localized: "Mark Window…"),
+                .windowMark(window.token, .set),
+                isEnabled: window.canMark
+            ),
+            .action(
+                String(localized: "Remove Mark…"),
+                .windowMark(window.token, .remove),
+                isEnabled: window.canMark && window.hasMarks
+            ),
             .separator,
             .action(String(localized: "Close Window"), .closeWindow(window.token))
         ]

@@ -70,13 +70,11 @@ final class StatusBarController: NSObject {
         let host = StatusMenuHost(model: model, controller: controller)
         host.isExemptWindow = { [weak hiddenBarController] in
             hiddenBarController?.statusItems.ownsStatusItemWindow($0) == true
+                || WorkspaceBarMenuButton.contains(NSApp.currentEvent, in: $0)
         }
         menuHost = host
 
-        hiddenBarController.statusItems.bind(omniButton: button, statusItem: ownedStatusItem)
-        hiddenBarController.statusItems.onFallbackIconClick = { [weak self] event, anchor in
-            self?.routeClick(event: event, anchor: anchor)
-        }
+        hiddenBarController.statusItems.bind(omniButton: button)
         hiddenBarController.setup()
         refreshWorkspaces()
     }
@@ -90,25 +88,29 @@ final class StatusBarController: NSObject {
         isRightClick || optionHeld ? .hiddenIconsBar : .menu
     }
 
-    @objc private func handleClick(_ button: NSStatusBarButton) {
-        if let event = NSApp.currentEvent {
-            routeClick(event: event, anchor: button)
-        } else {
-            hiddenBarController.dismissPanel()
-            showMenu(from: button)
-        }
+    nonisolated static func labeledImagePosition(showIcon: Bool, hasStateIcon: Bool) -> NSControl.ImagePosition {
+        showIcon || hasStateIcon ? .imageLeft : .noImage
     }
 
-    private func routeClick(event: NSEvent, anchor: NSView) {
+    @objc private func handleClick(_ button: NSStatusBarButton) {
+        routeClick(event: NSApp.currentEvent, anchor: button)
+    }
+
+    func routeClick(
+        event: NSEvent?,
+        anchor: NSView,
+        edge: PopupAttachment.Edge = .below,
+        monitorId: Monitor.ID? = nil
+    ) {
         switch Self.clickRoute(
-            isRightClick: event.type == .rightMouseUp,
-            optionHeld: event.modifierFlags.contains(.option)
+            isRightClick: event?.type == .rightMouseUp,
+            optionHeld: event?.modifierFlags.contains(.option) == true
         ) {
         case .hiddenIconsBar:
-            controller?.toggleHiddenBarPanel()
+            controller?.toggleHiddenBarPanel(on: monitorId)
         case .menu:
             hiddenBarController.dismissPanel()
-            showMenu(from: anchor)
+            menuHost?.toggle(from: anchor, edge: edge)
         }
     }
 
@@ -116,12 +118,18 @@ final class StatusBarController: NSObject {
         menuHost?.dismiss()
     }
 
-    private func showMenu(from anchor: NSView) {
-        menuHost?.toggle(from: anchor, edge: controller?.statusMenuEdge(from: anchor) ?? .below)
+    func openSettings(section: SettingsSection) {
+        guard let controller else { return }
+        SettingsWindowController.shared.show(
+            settings: settings,
+            controller: controller,
+            updateCoordinator: updateCoordinator,
+            section: section
+        )
     }
 
     func handleTraceCaptureStateChange() {
-        updateButtonAppearance()
+        refreshWorkspaces()
     }
 
     func updateButtonAppearance() {
@@ -148,6 +156,13 @@ final class StatusBarController: NSObject {
             button.image?.isTemplate = false
             button.contentTintColor = nil
             button.toolTip = String(localized: "OmniWM — measuring performance (auto-stops in 10 min)")
+        } else if controller?.isSecureInputIndicated == true {
+            button.layer?.removeAnimation(forKey: recordingPulseKey)
+            button.layer?.opacity = 1
+            button.image = OmniWMBrandMark.secureInputStatusImage(pointSize: 18, tint: .labelColor)
+            button.image?.accessibilityDescription = String(localized: "OmniWM, Secure Input is on")
+            button.contentTintColor = nil
+            button.toolTip = String(localized: "Secure Input is on: Option shortcuts are paused")
         } else {
             button.layer?.removeAnimation(forKey: recordingPulseKey)
             button.layer?.opacity = 1
@@ -191,11 +206,15 @@ final class StatusBarController: NSObject {
     nonisolated static func statusButtonAccessibilityValue(
         workspaceLabel: String?,
         focusedAppName: String?,
-        isRecording: Bool
+        isRecording: Bool,
+        isSecureInputActive: Bool
     ) -> String {
         var components: [String] = []
         if isRecording {
             components.append(String(localized: "Recording diagnostics"))
+        }
+        if isSecureInputActive {
+            components.append(String(localized: "Secure Input is on"))
         }
         if let workspaceLabel, !workspaceLabel.isEmpty {
             components.append(String(localized: "Workspace \(workspaceLabel)"))
@@ -220,7 +239,8 @@ final class StatusBarController: NSObject {
             Self.statusButtonAccessibilityValue(
                 workspaceLabel: workspaceLabel,
                 focusedAppName: focusedAppName,
-                isRecording: controller?.isTraceCaptureActive == true
+                isRecording: controller?.isTraceCaptureActive == true,
+                isSecureInputActive: controller?.isSecureInputIndicated == true
             )
         )
         button.setAccessibilityHelp(String(localized: "Press to open OmniWM controls."))
@@ -242,7 +262,11 @@ final class StatusBarController: NSObject {
         let workspaceLabel = settings.statusBar.useWorkspaceId ? summary.workspaceRawName : summary.workspaceLabel
         let focusedAppName = settings.statusBar.showAppNames ? summary.focusedAppName : nil
         button.title = Self.statusButtonTitle(workspaceLabel: workspaceLabel, focusedAppName: focusedAppName)
-        button.imagePosition = .imageLeft
+        let hasStateIcon = controller?.traceCaptureStatus.profile != nil || controller?.isSecureInputIndicated == true
+        button.imagePosition = Self.labeledImagePosition(
+            showIcon: settings.statusBar.showIcon,
+            hasStateIcon: hasStateIcon
+        )
     }
 
     func cleanup() {

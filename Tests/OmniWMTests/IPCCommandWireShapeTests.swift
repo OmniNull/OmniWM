@@ -42,6 +42,8 @@ final class IPCCommandWireShapeTests: XCTestCase {
             .integer(2)
         case .layout:
             .layout(.niri)
+        case .paletteMode:
+            .paletteMode(.clipboard)
         case .resizeAxis:
             .resizeAxis(.horizontal)
         case .resizeOperation:
@@ -122,7 +124,9 @@ final class IPCCommandWireShapeTests: XCTestCase {
         #"{"arguments":{"direction":"left"},"name":"preselect"}"#,
         #"{"name":"preselect-clear"}"#,
         #"{"name":"open-command-palette"}"#,
+        #"{"arguments":{"mode":"clipboard"},"name":"open-command-palette-mode"}"#,
         #"{"name":"raise-all-floating-windows"}"#,
+        #"{"name":"toggle-floating-focus"}"#,
         #"{"name":"rescue-offscreen-windows"}"#,
         #"{"name":"toggle-workspace-layout"}"#,
         #"{"arguments":{"layout":"niri"},"name":"set-workspace-layout"}"#,

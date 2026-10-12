@@ -168,7 +168,7 @@ enum MenuBarItemLocator {
                             item.element,
                             "AXPress" as CFString,
                             noteKey: "hiddenBarAXPressFailed"
-                        ) {
+                        ) == .success {
                             return .axPressed
                         }
                     }

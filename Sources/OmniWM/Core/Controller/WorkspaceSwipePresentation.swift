@@ -36,6 +36,7 @@ final class WorkspaceSwipePresentation {
         }
 
         var settlement: AXFrameSettlement?
+        var handoff: Handoff?
 
         init(
             preparation: Preparation,
@@ -72,6 +73,11 @@ final class WorkspaceSwipePresentation {
     private(set) var flight: Flight?
     private var preview: WorkspaceSwipePreview?
     private let mediaTimeProvider: () -> TimeInterval
+    var handoffWindowInfo: @MainActor (Set<UInt32>) async throws -> [UInt32: WindowServerInfo]? = {
+        try await SkyLight.shared.queryWindowInfoDeferred(windowIds: $0)
+    }
+
+    var handoffSleep: @MainActor (Duration) async throws -> Void = { try await Task.sleep(for: $0) }
 
     init(
         refreshController: LayoutRefreshController,
@@ -117,7 +123,7 @@ final class WorkspaceSwipePresentation {
             return false
         }
         self.preparation = preparation
-        previewSurface(controller).prepare(
+        previewSurface(controller).warm(
             source: preparation.source.items,
             destination: (preparation.previous?.items ?? []) + (preparation.next?.items ?? []),
             monitor: preparation.monitor, workingFrame: preparation.frame
@@ -158,6 +164,12 @@ final class WorkspaceSwipePresentation {
             trace("fallback-preview-unavailable")
             return
         }
+        preview?.prepare(
+            source: preparation.source.items,
+            destination: destination.items,
+            monitor: preparation.monitor,
+            workingFrame: preparation.frame
+        )
         refreshController?.stopScrollAnimation(for: preparation.monitor.displayId)
         refreshController?.stopDwindleAnimation(for: preparation.monitor.displayId)
         self.flight = flight
@@ -227,6 +239,7 @@ final class WorkspaceSwipePresentation {
             return
         }
         self.flight = nil
+        flight.handoff?.cancel()
         flight.settlement?.onChange = nil
         if controller?.axManager.workspaceFrameSettlement === flight.settlement {
             controller?.axManager.workspaceFrameSettlement = nil
@@ -236,7 +249,7 @@ final class WorkspaceSwipePresentation {
         trace(reason, progress: flight.progress)
         controller?.surfaceReconciler.noteWorldChanged()
         refreshController?.stopDisplayLinkIfIdle(for: flight.preparation.monitor.displayId)
-        if reason == "completed" || reason == "placement-failed" || reason == "cancelled" {
+        if ["completed", "placement-failed", "handoff-unconfirmed", "cancelled"].contains(reason) {
             refreshController?.collectUnusedWorkspacesIfIdle()
             warmPreviews()
         }
@@ -247,7 +260,7 @@ final class WorkspaceSwipePresentation {
         if settlement.tokens.contains(where: {
             refreshController?.hasPendingRevealTransaction(for: $0.windowId) == true
         }) { return }
-        cancel(reason: settlement.failed ? "placement-failed" : "completed")
+        confirmHandoff(flight)
     }
 
     func didSubmitPlacement() {
@@ -296,6 +309,15 @@ final class WorkspaceSwipePresentation {
 extension WorkspaceSwipePresentation {
     func windowRemoved(_ token: WindowToken) {
         preview?.remove(token: token)
+    }
+
+    func syncAvailability() {
+        guard let controller, preview != nil,
+              !controller.motionPolicy.animationsEnabled || !controller.settings.gestures.workspaceSwipeEnabled
+        else { return }
+        cancel(reason: "disabled")
+        preview?.release()
+        preview = nil
     }
 
     func previewSurface(_ controller: WMController) -> WorkspaceSwipePreview {

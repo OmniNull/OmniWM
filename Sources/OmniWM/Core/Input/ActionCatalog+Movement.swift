@@ -94,14 +94,16 @@ extension ActionCatalog {
                 command: .windowMovement(.consumeIntoColumn),
                 category: .move,
                 binding: .unassigned,
-                visibility: .advanced
+                visibility: .advanced,
+                keywords: ["consume", "pull", "next column", "focused column"]
             ),
             action(
                 id: "expelWindowFromColumn",
                 command: .windowMovement(.expelFromColumn),
                 category: .move,
                 binding: .unassigned,
-                visibility: .advanced
+                visibility: .advanced,
+                keywords: ["expel", "push", "bottom window", "new column"]
             )
         ])
     }

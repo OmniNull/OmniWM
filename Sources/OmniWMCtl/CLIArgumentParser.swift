@@ -68,6 +68,13 @@ enum CLIArgumentParser {
         return layout
     }
 
+    static func parsePaletteMode(_ rawValue: String) throws -> IPCCommandPaletteMode {
+        guard let mode = IPCCommandPaletteMode(rawValue: rawValue) else {
+            throw CLIParseError.usage(CLIParser.usageText)
+        }
+        return mode
+    }
+
     static func parseSizeChange(_ rawValue: String) throws -> IPCSizeChange {
         let trimmed = rawValue.trimmingCharacters(in: .whitespacesAndNewlines)
         guard !trimmed.isEmpty else {
@@ -102,6 +109,8 @@ enum CLIArgumentParser {
             return .integer(try parseScratchpadIndex(token))
         case .layout:
             return .layout(try parseWorkspaceLayout(token))
+        case .paletteMode:
+            return .paletteMode(try parsePaletteMode(token))
         case .resizeAxis:
             return .resizeAxis(try parseResizeAxis(token))
         case .resizeOperation:

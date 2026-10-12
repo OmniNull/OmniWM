@@ -37,8 +37,8 @@ final class QuakeSplitContainer: NSView {
         root.allSurfaceViews()
     }
 
-    func split(view: GhosttySurfaceView, direction: SplitDirection, newView: GhosttySurfaceView) {
-        root = root.inserting(at: view, direction: direction, newView: newView)
+    func split(view: GhosttySurfaceView, direction: SplitDirection, newView: GhosttySurfaceView, before: Bool) {
+        root = root.inserting(at: view, direction: direction, newView: newView, before: before)
         addSubview(newView)
         focusedView = newView
         relayout(rebuildDividers: true)
@@ -67,13 +67,6 @@ final class QuakeSplitContainer: NSView {
         focusedView = view
         window?.makeFirstResponder(view)
         onFocusChanged?(view)
-    }
-
-    func navigate(direction: NavigationDirection) {
-        guard let focused = focusedView else { return }
-        if let neighbor = root.findNeighbor(of: focused, direction: direction, in: bounds) {
-            focus(view: neighbor)
-        }
     }
 
     func equalize() {

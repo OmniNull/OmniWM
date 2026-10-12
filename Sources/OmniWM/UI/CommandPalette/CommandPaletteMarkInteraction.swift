@@ -26,7 +26,7 @@ private enum CommandPaletteMarkModal {
 
 @MainActor
 enum CommandPaletteMarkNamePrompt {
-    static let title = String(localized: "Mark selected window")
+    static let title = String(localized: "Mark window")
     static let message = String(localized: "Enter a name you can search for in the Windows palette.")
     static let fieldLabel = String(localized: "Window mark name")
     static let confirmTitle = String(localized: "Set Mark")

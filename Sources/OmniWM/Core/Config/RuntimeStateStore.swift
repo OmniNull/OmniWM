@@ -74,6 +74,7 @@ struct RuntimeState: Codable, Equatable, Sendable {
     var issueDraft: IssueDraft?
     var hasSeenIssueWalkthrough: Bool?
     var monitorSetupStatus: MonitorSetupStatus?
+    var launchOverlayPlayedVersion: String?
 }
 
 @MainActor
@@ -312,6 +313,15 @@ final class RuntimeStateStore {
         set {
             guard monitorSetupStatus != newValue else { return }
             state.monitorSetupStatus = newValue
+            scheduleSave()
+        }
+    }
+
+    var launchOverlayPlayedVersion: String? {
+        get { state.launchOverlayPlayedVersion }
+        set {
+            guard state.launchOverlayPlayedVersion != newValue else { return }
+            state.launchOverlayPlayedVersion = newValue
             scheduleSave()
         }
     }

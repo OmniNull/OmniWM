@@ -39,7 +39,18 @@ Command-click an OSC 8 web or email hyperlink printed by a terminal application 
 
 ## Inside-terminal shortcuts
 
-| Action | Shortcut |
+Customize tab and pane shortcuts with Ghostty `keybind` entries in `~/.config/ghostty/config.ghostty` (or your existing Ghostty config). User bindings override the defaults below; `unbind` removes a binding. Reload inside Quake with `Cmd + Shift + ,`, or relaunch OmniWM. The global toggle stays in **Settings → Hotkeys** and OmniWM's `settings.toml`.
+
+```ini
+keybind = cmd+t=unbind
+keybind = ctrl+shift+t=new_tab
+keybind = cmd+enter=new_split:right
+keybind = cmd+shift+enter=close_surface
+```
+
+See [Ghostty's keybinding syntax](https://ghostty.org/docs/config/keybind). Quake supports `new_tab`, `close_tab`, `goto_tab`, `next_tab`, `previous_tab`, `last_tab`, `new_split`, `goto_split`, `close_surface`, and `equalize_splits`, alongside Ghostty's terminal actions such as copy, paste, and font sizing.
+
+| Action | Default Shortcut |
 |--------|----------|
 | New Tab | `Cmd + T` |
 | Close Tab | `Cmd + W` |

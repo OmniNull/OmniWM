@@ -13,10 +13,12 @@ struct WorkspaceBarView: View {
     let onFocusWorkspace: (WorkspaceBarItem) -> Void
     let onFocusWindow: (WindowHandle) -> Void
     let onActivateScratchpad: (Int) -> Void
+    var onOmniWMClick: (NSView, NSEvent?) -> Void = { _, _ in }
     var onToggleSystemStats: () -> Void = {}
     var onSystemStatsAnchorChange: (NSView?) -> Void = { _ in }
     var interaction: WorkspaceBarIslandInteraction?
     var dragPresentation: WorkspaceBarDragPresentation?
+    var notificationBadges: WorkspaceBarBadgeService?
 
     var body: some View {
         if model.snapshot.orientation.isVertical {
@@ -35,16 +37,32 @@ struct WorkspaceBarView: View {
             snapshot: model.snapshot,
             slice: slice,
             showsSystemStatsButton: showsSystemStatsButton,
+            hiddenBarJoinEdge: slice == .secondary ? nil : model.hiddenBarJoinEdge,
             animationsEnabled: motionPolicy.animationsEnabled,
             onFocusWorkspace: onFocusWorkspace,
             onFocusWindow: onFocusWindow,
             onActivateScratchpad: onActivateScratchpad,
+            onOmniWMClick: onOmniWMClick,
             onToggleSystemStats: onToggleSystemStats,
             onSystemStatsAnchorChange: onSystemStatsAnchorChange
         )
         .environment(\.workspaceBarInteraction, interaction)
         .environment(model)
         .environment(dragPresentation)
+        .environment(notificationBadges)
+    }
+}
+
+extension WorkspaceBarView {
+    static func barShape(joinedAt edge: PopupAttachment.Edge?) -> UnevenRoundedRectangle {
+        let radius = WorkspaceBarGeometry.cornerRadius
+        return UnevenRoundedRectangle(
+            topLeadingRadius: edge == .above || edge == .left ? 0 : radius,
+            bottomLeadingRadius: edge == .below || edge == .left ? 0 : radius,
+            bottomTrailingRadius: edge == .below || edge == .right ? 0 : radius,
+            topTrailingRadius: edge == .above || edge == .right ? 0 : radius,
+            style: .continuous
+        )
     }
 }
 
@@ -63,6 +81,7 @@ struct WorkspaceBarMeasurementView: View {
             onFocusWorkspace: { _ in },
             onFocusWindow: { _ in },
             onActivateScratchpad: { _ in },
+            onOmniWMClick: { _, _ in },
             onToggleSystemStats: {},
             onSystemStatsAnchorChange: { _ in }
         )
@@ -75,15 +94,15 @@ private struct WorkspaceBarContentView: View {
     let snapshot: WorkspaceBarSnapshot
     var slice: WorkspaceBarIslandSlice = .all
     var showsSystemStatsButton = false
+    var hiddenBarJoinEdge: PopupAttachment.Edge?
     let animationsEnabled: Bool
     let onFocusWorkspace: (WorkspaceBarItem) -> Void
     let onFocusWindow: (WindowHandle) -> Void
     let onActivateScratchpad: (Int) -> Void
+    let onOmniWMClick: (NSView, NSEvent?) -> Void
     let onToggleSystemStats: () -> Void
     let onSystemStatsAnchorChange: (NSView?) -> Void
 
-    @Environment(\.accessibilityReduceTransparency) private var accessibilityReduceTransparency
-    @Environment(\.colorScheme) private var colorScheme
     @Environment(\.colorSchemeContrast) private var colorSchemeContrast
 
     private var itemHeight: CGFloat {
@@ -98,12 +117,6 @@ private struct WorkspaceBarContentView: View {
     private let windowSpacing: CGFloat = 2
     private let cornerRadius: CGFloat = 6
 
-    private var backgroundColor: Color {
-        colorScheme == .dark
-            ? Color.white.opacity(snapshot.backgroundOpacity)
-            : Color.black.opacity(snapshot.backgroundOpacity * 0.5)
-    }
-
     private var accentColor: Color? {
         snapshot.accentColor?.swiftUIColor
     }
@@ -112,12 +125,22 @@ private struct WorkspaceBarContentView: View {
         snapshot.textColor?.swiftUIColor
     }
 
-    private var barShape: RoundedRectangle {
-        RoundedRectangle(cornerRadius: 8, style: .continuous)
+    private var barShape: UnevenRoundedRectangle {
+        WorkspaceBarView.barShape(joinedAt: hiddenBarJoinEdge)
     }
 
     var body: some View {
         snapshot.orientation.stack(spacing: workspaceSpacing) {
+            if slice.showsOmniWMButton {
+                WorkspaceBarMenuButton(
+                    iconSize: iconSize,
+                    textColor: textColor,
+                    isSecureInputActive: snapshot.secureInputActive,
+                    onClick: onOmniWMClick
+                )
+                .frame(width: itemHeight, height: itemHeight)
+            }
+
             ForEach(slice.items(in: snapshot), id: \.id) { item in
                 WorkspaceItemView(
                     item: item,
@@ -156,8 +179,6 @@ private struct WorkspaceBarContentView: View {
                 SystemStatsButtonView(
                     itemHeight: itemHeight,
                     showItemBackgrounds: snapshot.showItemBackgrounds,
-                    showAccentHighlights: snapshot.showAccentHighlights,
-                    accentColor: accentColor,
                     textColor: textColor,
                     onToggle: onToggleSystemStats,
                     onAnchorChange: onSystemStatsAnchorChange
@@ -173,15 +194,17 @@ private struct WorkspaceBarContentView: View {
         )
         .background {
             if snapshot.backgroundStyle == .solidBlack {
-                Rectangle().fill(Color.black)
+                WorkspaceBarSurfaceFill(
+                    shape: Rectangle(),
+                    backgroundStyle: snapshot.backgroundStyle,
+                    backgroundOpacity: snapshot.backgroundOpacity
+                )
             } else if snapshot.backgroundStyle == .material {
-                if accessibilityReduceTransparency {
-                    barShape.fill(Color(NSColor.windowBackgroundColor).opacity(0.96))
-                } else {
-                    barShape
-                        .fill(backgroundColor)
-                        .background(.ultraThinMaterial, in: barShape)
-                }
+                WorkspaceBarSurfaceFill(
+                    shape: barShape,
+                    backgroundStyle: snapshot.backgroundStyle,
+                    backgroundOpacity: snapshot.backgroundOpacity
+                )
 
                 barShape.strokeBorder(
                     colorSchemeContrast == .increased
@@ -191,6 +214,10 @@ private struct WorkspaceBarContentView: View {
                 )
             }
         }
+        .animation(
+            animationsEnabled && hiddenBarJoinEdge == nil ? .easeOut(duration: 0.12) : nil,
+            value: hiddenBarJoinEdge
+        )
         .environment(\.layoutDirection, .leftToRight)
     }
 }

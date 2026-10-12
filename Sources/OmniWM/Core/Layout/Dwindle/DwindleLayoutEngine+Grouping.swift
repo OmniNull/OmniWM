@@ -189,7 +189,11 @@ extension DwindleLayoutEngine {
         return member
     }
 
-    func cleanupAfterRemoval(_ node: DwindleNode, state: DwindleWorkspaceState) {
+    func cleanupAfterRemoval(
+        _ node: DwindleNode,
+        state: DwindleWorkspaceState,
+        successorToken: WindowToken? = nil
+    ) {
         guard let parent = node.parent, let sibling = node.sibling() else { return }
 
         node.detach()
@@ -207,7 +211,8 @@ extension DwindleLayoutEngine {
         }
 
         if state.selectedNodeId == node.id {
-            state.selectedNodeId = parent.descendToFirstLeaf().id
+            let successor = successorToken.flatMap { state.leafByToken[$0] }
+            state.selectedNodeId = (successor ?? parent.descendToFirstLeaf()).id
         }
 
         let selectionResolves = state.selectedNodeId.flatMap { findNodeById($0, in: state.root) } != nil

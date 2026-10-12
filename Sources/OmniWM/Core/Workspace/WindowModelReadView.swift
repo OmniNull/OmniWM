@@ -60,6 +60,18 @@ extension WindowModel {
             model.windows(in: workspace, mode: mode)
         }
 
+        func forEachWindow(
+            in workspace: WorkspaceDescriptor.ID,
+            mode: TrackedWindowMode,
+            _ body: (borrowing WindowState) -> Void
+        ) {
+            for token in model.tokens(in: workspace, mode: mode) {
+                if let entry = model.entry(for: token) {
+                    body(entry)
+                }
+            }
+        }
+
         func firstWindow(
             in workspace: WorkspaceDescriptor.ID,
             mode: TrackedWindowMode,

@@ -2656,7 +2656,7 @@ final class OverviewBehaviorTests: XCTestCase {
     func testDismissedOverviewRejectsLatePreviewFrame() async throws {
         let fixture = try makeRuntimeOverviewFixture(windowCount: 1)
         let driver = OverviewPreviewTestDriver()
-        let capture = driver.makeCapture(environment: fixture.environment)
+        let capture = driver.makeCapture()
         let overview = OverviewController(
             wmController: fixture.controller,
             motionPolicy: fixture.controller.motionPolicy,
@@ -2688,7 +2688,7 @@ final class OverviewBehaviorTests: XCTestCase {
     func testReopenedOverviewRejectsPreviousSessionFrames() async throws {
         let fixture = try makeRuntimeOverviewFixture(windowCount: 1)
         let driver = OverviewPreviewTestDriver()
-        let capture = driver.makeCapture(environment: fixture.environment)
+        let capture = driver.makeCapture()
         let overview = OverviewController(
             wmController: fixture.controller,
             motionPolicy: fixture.controller.motionPolicy,

@@ -989,6 +989,50 @@ final class RuntimeArchitectureTests: XCTestCase {
         }
     }
 
+    func testAnnotatedMoveTapSubscribesToMouseMovesOnlyWhenNeeded() {
+        let moveBit: CGEventMask = 1 << CGEventType.mouseMoved.rawValue
+        let dragBit: CGEventMask = 1 << CGEventType.leftMouseDragged.rawValue
+        XCTAssertEqual(MouseEventHandler.annotatedMoveEventMask(includesMouseMoved: true), moveBit | dragBit)
+        XCTAssertEqual(MouseEventHandler.annotatedMoveEventMask(includesMouseMoved: false), dragBit)
+    }
+
+    @MainActor
+    func testMouseMovesAreNeededOnlyForFocusFollowsMouseOrMultiDisplayWarp() {
+        let controller = WindowAdmissionTestSupport.controller(prefix: "MouseMoveDemand")
+        let handler = controller.mouseEventHandler
+        let displays = (0 ..< 2).map { index in
+            Monitor(
+                id: .init(displayId: 10_101 + UInt32(index)),
+                displayId: 10_101 + UInt32(index),
+                frame: CGRect(x: CGFloat(index) * 1200, y: 0, width: 1200, height: 800),
+                visibleFrame: CGRect(x: CGFloat(index) * 1200, y: 0, width: 1200, height: 800),
+                hasNotch: false,
+                name: "Display \(index)"
+            )
+        }
+        controller.settings.pointer.enabled = true
+        controller.workspaceManager.applyMonitorConfigurationChange([displays[0]])
+        XCTAssertFalse(handler.mouseMovesNeeded)
+
+        controller.setFocusFollowsMouse(true)
+        XCTAssertTrue(handler.mouseMovesNeeded)
+        controller.setFocusFollowsMouse(false)
+
+        controller.workspaceManager.applyMonitorConfigurationChange(displays)
+        XCTAssertTrue(handler.mouseMovesNeeded)
+        controller.settings.pointer.enabled = false
+        XCTAssertFalse(handler.mouseMovesNeeded)
+    }
+
+    @MainActor
+    func testPointerSettingChangesNotifyTheRuntime() {
+        let controller = WindowAdmissionTestSupport.controller(prefix: "PointerSettingsHook")
+        var notifications = 0
+        controller.settings.onPointerSettingsChanged = { notifications += 1 }
+        controller.settings.pointer.enabled.toggle()
+        XCTAssertEqual(notifications, 1)
+    }
+
     @MainActor
     func testNiriFocusFollowsMouseDispatchFocusesHoveredWindowImmediately() throws {
         try assertNiriFocusFollowsMouseReveal(

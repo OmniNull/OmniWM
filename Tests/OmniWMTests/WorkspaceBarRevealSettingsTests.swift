@@ -35,6 +35,65 @@ final class WorkspaceBarRevealSettingsTests: XCTestCase {
         XCTAssertEqual(decoded.workspaceBar.revealHoldMilliseconds, 350)
     }
 
+    func testAutoHideDefaultsAndLegacyModifierSettingsRoundTrip() throws {
+        var export = SettingsExport.defaults()
+        XCTAssertFalse(export.workspaceBar.autoHide)
+        export.workspaceBar.autoHide = true
+        export.workspaceBar.autoHideRevealDelayMilliseconds = 300
+        export.workspaceBar.autoHideHideDelayMilliseconds = 450
+        export.workspaceBar.revealModifier = .option
+        export.monitorBarSettings = [MonitorBarSettings(monitorName: "External", autoHide: false)]
+        let data = try SettingsTOMLCodec.encode(export)
+        XCTAssertEqual(try SettingsTOMLCodec.decode(data), export)
+        let legacy = String(decoding: data, as: UTF8.self)
+            .replacingOccurrences(of: "autoHide = true\n", with: "")
+            .replacingOccurrences(of: "autoHideRevealDelayMilliseconds = 300.0\n", with: "")
+            .replacingOccurrences(of: "autoHideHideDelayMilliseconds = 450.0\n", with: "")
+            .replacingOccurrences(of: "[[monitorBarOverrides]]\nautoHide = false\n", with: "[[monitorBarOverrides]]\n")
+        let decoded = try SettingsTOMLCodec.decode(Data(legacy.utf8))
+        XCTAssertFalse(decoded.workspaceBar.autoHide)
+        XCTAssertEqual(decoded.workspaceBar.autoHideRevealDelayMilliseconds, 0)
+        XCTAssertEqual(decoded.workspaceBar.autoHideHideDelayMilliseconds, 0)
+        XCTAssertEqual(decoded.workspaceBar.revealModifier, .option)
+        XCTAssertNil(decoded.monitorBarSettings[0].autoHide)
+    }
+
+    @MainActor
+    func testAutoHideOverridesReserveNoSpaceAtAnyEdge() {
+        let settings = makeSettingsStore()
+        settings.workspaceBar.autoHide = true
+        settings.workspaceBar.reserveLayoutSpace = true
+        let controller = WMController(settings: settings)
+        let monitor = Monitor(
+            id: .init(displayId: 1), displayId: 1,
+            frame: CGRect(x: 0, y: 0, width: 1440, height: 900),
+            visibleFrame: CGRect(x: 0, y: 0, width: 1440, height: 860),
+            hasNotch: false, name: "Test"
+        )
+        for position in WorkspaceBarPosition.allCases {
+            settings.workspaceBar.position = position
+            XCTAssertFalse(controller.isWorkspaceBarVisible(on: monitor))
+            XCTAssertEqual(WorkspaceBarGeometry.resolve(
+                monitor: monitor, resolved: settings.workspaceBar.resolved(for: monitor), isVisible: true
+            ).reservedInsets, .zero)
+            let before = controller.layoutFrames(for: monitor, scale: 1)
+            controller.setWorkspaceBarRevealHeld(true)
+            XCTAssertTrue(controller.isWorkspaceBarVisible(on: monitor))
+            XCTAssertEqual(controller.layoutFrames(for: monitor, scale: 1).workingFrame, before.workingFrame)
+            XCTAssertEqual(controller.fullscreenLayoutFrame(for: monitor), monitor.visibleFrame)
+            controller.setWorkspaceBarRevealHeld(false)
+        }
+        settings.workspaceBar.update(MonitorBarSettings(monitorName: monitor.name, autoHide: false), for: monitor)
+        XCTAssertFalse(settings.workspaceBar.resolved(for: monitor).autoHide)
+        XCTAssertTrue(controller.isWorkspaceBarVisible(on: monitor))
+        settings.workspaceBar.remove(for: monitor)
+        XCTAssertTrue(settings.workspaceBar.resolved(for: monitor).autoHide)
+        XCTAssertTrue(settings.workspaceBar.export().autoHide)
+        let restored = makeSettingsStore()
+        restored.applyExport(settings.toExport())
+        XCTAssertTrue(restored.workspaceBar.autoHide)
+    }
+
     @MainActor
     func testApplyExportClampsDelay() {
         let settings = makeSettingsStore()
@@ -49,6 +108,16 @@ final class WorkspaceBarRevealSettingsTests: XCTestCase {
         export.workspaceBar.revealHoldMilliseconds = 5000
         settings.applyExport(export)
         XCTAssertEqual(settings.workspaceBar.revealHoldMilliseconds, 1000)
+
+        export.workspaceBar.autoHideRevealDelayMilliseconds = -50
+        export.workspaceBar.autoHideHideDelayMilliseconds = 5000
+        settings.applyExport(export)
+        XCTAssertEqual(settings.workspaceBar.autoHideRevealDelayMilliseconds, 0)
+        XCTAssertEqual(settings.workspaceBar.autoHideHideDelayMilliseconds, 1000)
+
+        export.workspaceBar.autoHideRevealDelayMilliseconds = .nan
+        settings.applyExport(export)
+        XCTAssertEqual(settings.workspaceBar.autoHideRevealDelayMilliseconds, 0)
     }
 
     @MainActor
@@ -57,6 +126,7 @@ final class WorkspaceBarRevealSettingsTests: XCTestCase {
         settings.workspaceBar.enabled = true
         settings.workspaceBar.reserveLayoutSpace = true
         settings.workspaceBar.height = 24
+        settings.workspaceBar.position = .belowMenuBar
         settings.workspaceBar.revealModifier = .option
         let controller = WMController(settings: settings)
         let monitor = Monitor(
@@ -107,6 +177,7 @@ final class WorkspaceBarRevealSettingsTests: XCTestCase {
         settings.workspaceBar.enabled = true
         settings.workspaceBar.reserveLayoutSpace = true
         settings.workspaceBar.height = 24
+        settings.workspaceBar.position = .belowMenuBar
         settings.workspaceBar.revealModifier = .option
         let controller = WMController(settings: settings)
         let monitor = Monitor(

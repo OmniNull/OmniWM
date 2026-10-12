@@ -75,12 +75,19 @@ enum CLIStateRenderer {
             headers: &headers,
             rows: &rows
         )
+        appendColumn(
+            "COLUMN",
+            values: payload.windows.map { $0.columnIndex.map(String.init) },
+            headers: &headers,
+            rows: &rows
+        )
 
         return CLITableRenderer.formatRows(headers: headers, rows: rows, format: format)
     }
 
     static func formattedWorkspaces(_ payload: IPCWorkspacesQueryResult, format: CLIOutputFormat) -> String {
-        let rows = payload.workspaces.map { workspace in
+        var headers = ["ID", "WORKSPACE", "DISPLAY", "LAYOUT", "CURRENT", "VISIBLE", "COUNTS", "FOCUSED WINDOW"]
+        var rows = payload.workspaces.map { workspace in
             [
                 workspace.id ?? "-",
                 workspace.displayName ?? workspace.rawName ?? "-",
@@ -92,12 +99,14 @@ enum CLIStateRenderer {
                 workspace.focusedWindowId ?? "-"
             ]
         }
-
-        return CLITableRenderer.formatRows(
-            headers: ["ID", "WORKSPACE", "DISPLAY", "LAYOUT", "CURRENT", "VISIBLE", "COUNTS", "FOCUSED WINDOW"],
-            rows: rows,
-            format: format
+        appendColumn(
+            "COLUMNS",
+            values: payload.workspaces.map { $0.columns.map(columnsDescription) },
+            headers: &headers,
+            rows: &rows
         )
+
+        return CLITableRenderer.formatRows(headers: headers, rows: rows, format: format)
     }
 
     static func formattedDisplays(_ payload: IPCDisplaysQueryResult, format: CLIOutputFormat) -> String {
@@ -242,6 +251,13 @@ enum CLIStateRenderer {
     private static func countsDescription(_ counts: IPCWorkspaceWindowCounts?) -> String {
         guard let counts else { return "-" }
         return "total=\(counts.total), tiled=\(counts.tiled), floating=\(counts.floating), scratchpad=\(counts.scratchpad)"
+    }
+
+    private static func columnsDescription(_ columns: [IPCWorkspaceColumn]) -> String {
+        IPCColumnViewport.allCases.map { viewport in
+            "\(viewport.rawValue)=\(columns.count { $0.viewport == viewport })"
+        }
+        .joined(separator: ", ")
     }
 
     private static func frameDescription(_ rect: IPCRect?) -> String {

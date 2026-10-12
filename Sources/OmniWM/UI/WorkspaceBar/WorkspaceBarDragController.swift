@@ -30,6 +30,7 @@ final class WorkspaceBarDragController {
     var commit: (WorkspaceBarDropAction, WorkspaceBarDragSource) -> Bool = { _, _ in false }
     var makeGhost: (NSImage?) -> WorkspaceBarDragGhost? = { _ in nil }
     var sourceIsValid: (WorkspaceBarDragSource) -> Bool = { _ in true }
+    var onDraggingChanged: (() -> Void)?
     private let escapeMonitor = PanelDismissalMonitor()
     private var session: Session?
     private var clearsPresentationOnNextUpdate = false
@@ -46,6 +47,7 @@ final class WorkspaceBarDragController {
         let resolution = WorkspaceBarDropResolver.resolve(source: source, at: point, in: geometry)
         let ghost = makeGhost(icon)
         session = Session(source: source, geometry: geometry, geometryVersion: version, ghost: ghost)
+        onDraggingChanged?()
         presentation.sourceTokens = Set(source.tokens)
         apply(resolution, at: point)
         if let ghost {
@@ -123,5 +125,6 @@ final class WorkspaceBarDragController {
         } else {
             presentation.clear()
         }
+        onDraggingChanged?()
     }
 }

@@ -20,16 +20,22 @@ final class IntentLedger {
     private(set) var lastConfirmedManagedFocus: (token: WindowToken, origin: ManagedFocusOrigin)?
     private var nextIntentId: IntentID = 1
     private var intentIssuanceGeneration: UInt64 = 0
-    private var deferredRetryRaise: (request: ManagedFocusRequest, job: RunLoopJob?)?
+    private var deferredRetryRaise: WorkerRaise?
+
+    private struct WorkerRaise {
+        let request: ManagedFocusRequest
+        var job: RunLoopJob?
+        var required: Bool
+    }
 
     var activeManagedRequest: ManagedFocusRequest? {
         entries.last { $0.phase == .pending && $0.kind.isFocusWindow }?.asManagedFocusRequest
     }
 
-    func enableDeferredRetryRaise(for request: ManagedFocusRequest) {
+    func enableDeferredRetryRaise(for request: ManagedFocusRequest, required: Bool = false) {
         cancelDeferredRetryRaise()
         guard activeManagedRequest(requestId: request.requestId) == request else { return }
-        deferredRetryRaise = (request, nil)
+        deferredRetryRaise = WorkerRaise(request: request, required: required)
     }
 
     func defersRetryRaise(for request: ManagedFocusRequest) -> Bool {
@@ -41,7 +47,8 @@ final class IntentLedger {
 
     func beginDeferredRetryRaise(for request: ManagedFocusRequest) -> RunLoopJob? {
         guard defersRetryRaise(for: request), deferredRetryRaise?.job == nil,
-              activeManagedRequest(requestId: request.requestId)?.phase == .awaitingConfirmation
+              deferredRetryRaise?.required == true
+              || activeManagedRequest(requestId: request.requestId)?.phase == .awaitingConfirmation
         else { return nil }
         let job = RunLoopJob()
         deferredRetryRaise?.job = job
@@ -49,16 +56,30 @@ final class IntentLedger {
     }
 
     func completeDeferredRetryRaise(job: RunLoopJob) -> ManagedFocusRequest? {
-        guard let pending = deferredRetryRaise, pending.job === job,
-              let request = activeManagedRequest(requestId: pending.request.requestId),
+        guard let pending = deferredRetryRaise, pending.job === job else { return nil }
+        guard let request = activeManagedRequest(requestId: pending.request.requestId),
               defersRetryRaise(for: request), request.phase == .awaitingConfirmation
-        else { return nil }
+        else {
+            deferredRetryRaise = nil
+            return nil
+        }
         deferredRetryRaise?.job = nil
+        deferredRetryRaise?.required = false
         return request
     }
 
+    func cancelConfirmedWorkerRaise(unlessFocused token: WindowToken?) {
+        guard let pending = deferredRetryRaise, pending.required,
+              pending.request.token != token,
+              activeManagedRequest(requestId: pending.request.requestId) == nil
+        else { return }
+        cancelDeferredRetryRaise()
+    }
+
     private func cancelDeferredRetryRaise(rearmingRequest: Bool = false) {
-        if rearmingRequest, let pending = deferredRetryRaise, pending.job != nil {
+        if rearmingRequest, let pending = deferredRetryRaise, pending.job != nil,
+           activeManagedRequest(requestId: pending.request.requestId) != nil
+        {
             deadlineWheel?.schedule(intentId: pending.request.requestId, after: Self.activationSettleDeadline)
         }
         deferredRetryRaise?.job?.cancel()
@@ -207,26 +228,6 @@ final class IntentLedger {
         intentIssuanceGeneration
     }
 
-    @discardableResult
-    func confirm(id: IntentID, source: ActivationEventSource? = nil) -> Intent? {
-        retire(id: id, phase: .confirmed, source: source)
-    }
-
-    @discardableResult
-    func cancel(id: IntentID) -> Intent? {
-        retire(id: id, phase: .cancelled, source: nil)
-    }
-
-    @discardableResult
-    func supersede(id: IntentID) -> Intent? {
-        retire(id: id, phase: .superseded, source: nil)
-    }
-
-    @discardableResult
-    func markExpired(id: IntentID) -> Intent? {
-        retire(id: id, phase: .expired, source: nil)
-    }
-
     func rekey(from oldToken: WindowToken, to newToken: WindowToken) {
         if deferredRetryRaise?.request.token == oldToken {
             cancelDeferredRetryRaise(rearmingRequest: true)
@@ -269,14 +270,16 @@ final class IntentLedger {
         return intent
     }
 
-    private func retire(
+    func retire(
         id: IntentID,
         phase: IntentPhase,
         source: ActivationEventSource?,
         reason: AppVisibilityTrace.Reason? = nil
     ) -> Intent? {
         guard let index = entries.firstIndex(where: { $0.id == id && $0.phase == .pending }) else { return nil }
-        if deferredRetryRaise?.request.requestId == id {
+        if deferredRetryRaise?.request.requestId == id,
+           phase != .confirmed || deferredRetryRaise?.required != true
+        {
             cancelDeferredRetryRaise()
         }
         entries[index].phase = phase
@@ -331,6 +334,7 @@ extension IntentLedger {
             return entries[index].asManagedFocusRequest!
         }
 
+        cancelDeferredRetryRaise()
         for entry in entries where entry.phase == .pending && entry.kind.isFocusWindow {
             _ = supersede(id: entry.id)
             deadlineWheel?.cancel(intentId: entry.id)

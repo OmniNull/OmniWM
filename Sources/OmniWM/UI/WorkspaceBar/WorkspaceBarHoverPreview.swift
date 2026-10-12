@@ -42,10 +42,11 @@ final class WorkspaceBarHoverPreviewController {
     private var suppressedKey: WorkspaceBarHitTarget?
     private var isPointerInPanel = false
     var onSelect: (WindowHandle) -> Void = { _ in }
+    var onVisibilityChanged: (() -> Void)?
 
     init(
         capture: OverviewThumbnailCapture,
-        hasCaptureAccess: @escaping () -> Bool = { CGPreflightScreenCaptureAccess() },
+        hasCaptureAccess: @escaping () -> Bool = { ScreenCapturePermissionMonitor.shared.isGranted },
         scheduleAfter: @escaping Scheduler = WorkspaceBarHoverPreviewController.scheduleWithTask,
         makePanel: @escaping () -> WorkspaceBarPreviewPanel? = { nil }
     ) {
@@ -196,6 +197,7 @@ final class WorkspaceBarHoverPreviewController {
             cachedPreview: { [capture] in capture.preview(for: $0) }
         )
         phase = .visible(target)
+        onVisibilityChanged?()
         guard showsThumbnails else {
             capture.clear()
             return
@@ -211,15 +213,18 @@ final class WorkspaceBarHoverPreviewController {
                     pixelWidth: Int(tileSize.width * scale),
                     pixelHeight: Int(tileSize.height * scale)
                 )
-            }
+            },
+            retainingUnrepresentedPreviews: true
         )
     }
 
     private func hide() {
+        let wasVisible = visibleTarget != nil
         phase = .idle
         isPointerInPanel = false
         capture.clear()
         panel?.hide()
+        if wasVisible { onVisibilityChanged?() }
     }
 
     static func scheduleWithTask(_ delay: Duration, _ action: @escaping @MainActor () -> Void) -> () -> Void {

@@ -2,6 +2,12 @@
 import { employers } from '../../data/employers';
 import { education } from '../../data/education';
 import { contributors } from '../../data/contributors';
+import { bugReporters } from '../../data/reporters';
+
+const walls = [
+  { title: 'All contributors', people: contributors },
+  { title: 'Bug reporters', people: bugReporters },
+];
 ---
 
 <section class="section credits" id="credits">
@@ -55,16 +61,20 @@ import { contributors } from '../../data/contributors';
       }
     </div>
 
-    <h3 class="group-title">All contributors</h3>
-    <div class="wall">
-      {
-        contributors.map((person) => (
-          <a href={`https://github.com/${person.handle}`} title={person.name}>
-            <img src={`https://github.com/${person.handle}.png?size=96`} alt={person.name} width="56" height="56" loading="lazy" />
-          </a>
-        ))
-      }
-    </div>
+    {
+      walls.map((wall) => (
+        <>
+          <h3 class="group-title">{wall.title}</h3>
+          <div class="wall">
+            {wall.people.map((person) => (
+              <a href={`https://github.com/${person.handle}`} title={person.name}>
+                <img src={`https://github.com/${person.handle}.png?size=96`} alt={person.name} width="56" height="56" loading="lazy" />
+              </a>
+            ))}
+          </div>
+        </>
+      ))
+    }
   </div>
 </section>
 

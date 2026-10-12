@@ -9,6 +9,30 @@ import XCTest
 
 @MainActor
 final class NiriLayoutBuildMetricsRegressionTests: XCTestCase {
+    func testAnimationSnapshotReflectsMinimizationAndWorldSequence() throws {
+        let fixture = try makeFixture()
+        let refresh = fixture.controller.layoutRefreshController
+        let before = try XCTUnwrap(refresh.buildRefreshInput(
+            workspaceId: fixture.workspaceId,
+            monitor: fixture.monitor,
+            resolveConstraints: false,
+            isActiveWorkspace: true
+        ))
+        XCTAssertEqual(before.windows.map(\.token), [fixture.token])
+        XCTAssertTrue(before.excludedTokens.isEmpty)
+
+        fixture.controller.workspaceManager.setWindowMinimized(true, token: fixture.token)
+        let after = try XCTUnwrap(refresh.buildRefreshInput(
+            workspaceId: fixture.workspaceId,
+            monitor: fixture.monitor,
+            resolveConstraints: false,
+            isActiveWorkspace: true
+        ))
+        XCTAssertEqual(after.windows.map(\.token), [fixture.token])
+        XCTAssertEqual(after.excludedTokens, [fixture.token])
+        XCTAssertGreaterThan(after.plannedSeq, before.plannedSeq)
+    }
+
     private struct Fixture {
         let controller: WMController
         let engine: NiriLayoutEngine

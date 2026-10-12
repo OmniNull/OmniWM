@@ -33,6 +33,14 @@ extension WorkspaceManager {
         windowQueries.windows(in: workspace, mode: .floating)
     }
 
+    func isFloatingWindowDisplayable(_ entry: borrowing WindowState) -> Bool {
+        guard entry.mode == .floating,
+              entry.layoutReason == .standard,
+              !isWindowSuppressedByMacOS(entry)
+        else { return false }
+        return !isHiddenInCorner(entry.token)
+    }
+
     private func barVisibleFloatingEntries(in workspace: WorkspaceDescriptor.ID) -> [WindowState] {
         floatingEntries(in: workspace).filter {
             !isScratchpadToken($0.token) && hiddenState(for: $0.token)?.isScratchpad != true

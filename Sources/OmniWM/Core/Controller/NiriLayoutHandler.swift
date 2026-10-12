@@ -155,10 +155,40 @@ enum StructuralMutationOutcome: Equatable {
             controller.focusWindow(
                 selectedWindow.token,
                 raisesWindow: raisesWindow,
-                defersRetryRaise: defersRetryRaise
+                defersRetryRaise: defersRetryRaise,
+                requiresWorkerRaise: !raisesWindow && defersRetryRaise
+                    && hasFullscreenOverlap(with: selectedWindow, in: workspaceId)
             )
         }
         requestLayoutCommandRelayout(in: workspaceId)
+    }
+
+    private func hasFullscreenOverlap(
+        with selectedWindow: NiriWindow,
+        in workspaceId: WorkspaceDescriptor.ID
+    ) -> Bool {
+        guard let controller,
+              let root = controller.niriEngine?.root(for: workspaceId),
+              let monitor = controller.workspaceManager.monitor(for: workspaceId),
+              let selectedFrame = selectedWindow.renderedFrame,
+              controller.isManagedWindowDisplayable(selectedWindow.token)
+        else { return false }
+        let visibleSelectedFrame = selectedFrame.intersection(monitor.frame)
+        guard !visibleSelectedFrame.isEmpty else { return false }
+
+        return root.allWindows.contains { window in
+            guard window !== selectedWindow,
+                  selectedWindow.isFullscreen || window.isFullscreen,
+                  let entry = controller.workspaceManager.entry(for: window.token),
+                  entry.workspaceId == workspaceId,
+                  entry.mode == .tiling,
+                  entry.layoutReason == .standard,
+                  entry.hiddenState == nil,
+                  !controller.workspaceManager.isWindowSuppressedByMacOS(entry),
+                  let frame = window.renderedFrame
+            else { return false }
+            return frame.intersects(visibleSelectedFrame)
+        }
     }
 
     func activatePointerHoveredWindow(

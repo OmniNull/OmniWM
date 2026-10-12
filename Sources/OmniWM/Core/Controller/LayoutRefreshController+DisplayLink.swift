@@ -88,10 +88,13 @@ extension LayoutRefreshController {
 
     private func detectRefreshRates() {
         layoutState.refreshRateByDisplay.removeAll()
+        var backingScales: [CGDirectDisplayID: CGFloat] = [:]
         for screen in NSScreen.screens {
             guard let displayId = screen.displayId else { continue }
             layoutState.refreshRateByDisplay[displayId] = Monitor.refreshRate(for: displayId)
+            backingScales[displayId] = screen.backingScaleFactor
         }
+        layoutState.backingScaleByDisplay = backingScales
     }
 
     @objc private func displayLinkFired(_ displayLink: CADisplayLink) {

@@ -10,7 +10,7 @@ This reference follows current `main`; features newer than the latest release ar
 Complete reference for `settings.toml`, in the file's canonical order. The authoritative schema is [`CanonicalTOMLConfig.swift`](https://github.com/OmniNull/OmniWM/blob/main/Sources/OmniWM/Core/Config/CanonicalTOMLConfig.swift); defaults come from [`SettingsExport.swift`](https://github.com/OmniNull/OmniWM/blob/main/Sources/OmniWM/Core/Config/SettingsExport.swift) and [`BuiltInSettingsDefaults.swift`](https://github.com/OmniNull/OmniWM/blob/main/Sources/OmniWM/Core/Config/BuiltInSettingsDefaults.swift).
 
 :::caution
-The current schema is strict — a missing required key in a version 4 file invalidates the whole file, `hotkeys` must list every required action exactly once, and an enumerated string key must use one of its listed values (an unknown value rejects the whole file, exactly like a missing key). Conflicting trackpad gesture finger counts under [`gestures`](#gestures) reject the whole file too. Edit values in place; see [Configuration](/config/configuration/).
+The current schema is strict — a missing required key in a version 4 file invalidates the whole file, `hotkeys` may list each action only once (an action left out is unassigned), and an enumerated string key must use one of its listed values (an unknown value rejects the whole file, exactly like a missing key). Conflicting trackpad gesture finger counts under [`gestures`](#gestures), or one mouse button shared by a hotkey, `systemHyperTrigger`, or Overview, reject the whole file too. Edit values in place; see [Configuration](/config/configuration/).
 :::
 
 **Conventions**
@@ -48,7 +48,7 @@ Global switches: hotkeys, Hyper key, default layout, sleep, updates, IPC, animat
 | `updateChecksEnabled` | boolean | `true` | Automatic update checks. |
 | `ipcEnabled` | boolean | `false` | Enables the IPC server used by `omniwmctl`. |
 | `animationsEnabled` | boolean | `true` | Animates window layout changes and other OmniWM-authored motion. macOS Reduce Motion turns them off regardless of this key. |
-| `animationSpeed` *(optional)* | float | `1.0` | **Unreleased — available when building from `main`.** Tiling animation speed multiplier: `2.0` is twice as fast, `0.5` is half as fast. Applies to Niri focus, window/column movement and resizing, Dwindle layout changes, and workspace swipe settling. Values are clamped to `0.25`–`4.0`; nonfinite values use `1.0`. Changes apply to newly started transitions. Direct gesture tracking, inertial scrolling, Overview, and Quake terminal animations keep their own behavior. |
+| `animationSpeed` *(optional)* | float | `1.0` | Tiling animation speed multiplier: `2.0` is twice as fast, `0.5` is half as fast. Applies to Niri focus, window/column movement and resizing, Dwindle layout changes, and workspace swipe settling. Values are clamped to `0.25`–`4.0`; nonfinite values use `1.0`. Changes apply to newly started transitions. Direct gesture tracking, inertial scrolling, Overview, and Quake terminal animations keep their own behavior. |
 | `language` | string | unset | Interface language as a packaged localization code, such as `"ja"` or `"sr-Latn"`. Leave it unset to follow macOS. Takes effect the next time OmniWM starts. |
 
 ## focus
@@ -58,7 +58,7 @@ Pointer-driven focus and monitor-edge focus/move behavior.
 | Key | Type | Default | Description |
 | --- | --- | --- | --- |
 | `followsMouse` | boolean | `false` | Focuses a managed window when the pointer enters it, no click needed. |
-| `raiseOnMouseFocus` | boolean | `false` | Also raises the window when focus-follows-mouse focuses it. |
+| `raiseOnMouseFocus` | boolean | `false` | Also raises the window when focus-follows-mouse focuses it. A tiled window that a visible floating window overlaps from the front is focused without raising. |
 | `lockModifier` | string | `"off"` | Modifier that holds focus in place while pressed: `off`, `option`, `leftOption`, `rightOption`, `command`, `leftCommand`, `rightCommand`, `control`, `leftControl`, `rightControl`, `shift`, `leftShift`, `rightShift`. |
 | `moveMouseToFocusedWindow` | boolean | `false` | Moves the pointer to the window that gains focus. |
 | `followsWindowToMonitor` | boolean | `false` | Follows ordinary window or column transfers to another workspace, including dedicated monitor-move actions. Edge-crossing moves always follow. |
@@ -155,7 +155,7 @@ Options for the scrolling (Niri) layout.
 
 | Key | Type | Default | Description |
 | --- | --- | --- | --- |
-| `visibleContainerCount` | integer | `2` | How many containers (columns) share the viewport side by side. **Unreleased — available when building from `main`:** when fewer containers are open, they expand proportionally to fill unused space while preserving their relative widths. Manual resizing takes priority until the container count changes. |
+| `visibleContainerCount` | integer | `2` | How many containers (columns) share the viewport side by side. When fewer containers are open, they expand proportionally to fill unused space while preserving their relative widths. Manual resizing takes priority until the container count changes. |
 | `infiniteLoop` | boolean | `false` | Treats the column strip as a loop instead of a bounded row. |
 | `centerFocusedColumn` | string | `"never"` | When to center the focused column: `never`, `always`, `onOverflow`. |
 | `alwaysCenterSingleColumn` | boolean | `false` | Centers the column when a workspace holds only one. |
@@ -173,7 +173,7 @@ Options for the Dwindle (BSP) layout.
 
 | Key | Type | Default | Description |
 | --- | --- | --- | --- |
-| `smartSplit` | boolean | `false` | Automatically chooses the split direction based on cursor position. |
+| `smartSplit` | boolean | `false` | Automatically chooses the split direction from the active window's center relative to the target tile's center and aspect ratio. |
 | `defaultSplitRatio` | float | `1.0` | `1.0` = equal split, `<1.0` = first window smaller, `>1.0` = first window larger. |
 | `splitWidthMultiplier` | float | `1.0` | Biases when vertical vs. horizontal splits are preferred. |
 | `singleWindowFit` | string | `"fill"` | Size of a lone window: `fill` (the "Full Screen" fit, which uses the fullscreen layout frame and honors `fullscreenUsesOuterGaps`) or `WIDTHxHEIGHT` (no span mode in Dwindle). |
@@ -228,6 +228,8 @@ The per-monitor workspace bar. Per-monitor exceptions live in [`monitorBarOverri
 | --- | --- | --- | --- |
 | `enabled` | boolean | `true` | Shows the workspace bar. When off, all monitors' bars are off, including monitors with `enabled = true` overrides; those preferences return when the global bar is re-enabled. |
 | `hoverPreviewsEnabled` *(optional)* | boolean | `true` | Shows window thumbnail previews when hovering over bar icons. Turning it off releases the preview capture and cache while leaving the bar active. |
+| `notificationBadges` *(optional)* | string | `"off"` | App-wide Dock badges on existing icons: `off`, `dot`, or `text`. Global setting. |
+| `notificationBadgeRefreshIntervalSeconds` *(optional)* | float | `5.0` | Badge refresh interval, rounded to whole seconds and clamped to `1`–`60`. |
 | `showLabels` | boolean | `true` | Shows workspace names next to their numbers. |
 | `showFloatingWindows` | boolean | `false` | Includes floating windows' icons in workspace pills. |
 | `windowLevel` | string | `"popup"` | Bar window level: `normal`, `floating`, `status`, `popup`, `screensaver`. |
@@ -239,7 +241,10 @@ The per-monitor workspace bar. Per-monitor exceptions live in [`monitorBarOverri
 | `hideEmptyWorkspaces` | boolean | `false` | Hides inactive empty workspaces in the bar and Overview; next/previous navigation skips them. |
 | `excludedBundleIDs` | string array | `[]` | Bundle IDs whose windows never contribute icons to the bar. |
 | `iconOverrides` | table | `{}` | Bundle ID → custom icon source (see below). |
-| `reserveLayoutSpace` | boolean | `false` | Reserves the configured bar thickness at its selected edge for tiled and layout-fullscreen windows. Offsets do not change the reservation. |
+| `reserveLayoutSpace` | boolean | `false` | Reserves space at the selected edge for tiled and layout-fullscreen windows. Overlapping placement reserves only how far the bar's screen-constrained bottom edge extends below the top of the usable frame, including `yOffset` (zero when it fits within the menu-bar area). Other positions reserve the configured bar thickness regardless of offsets. |
+| `autoHide` *(optional)* | boolean | `false` | Reveal when the pointer touches the bar's edge span. Hide after the pointer moves inward past the bar and interactions end; moving along the edge keeps it visible. Never reserves layout space. Supports per-display overrides and combines with modifier-hold reveal. |
+| `autoHideRevealDelayMilliseconds` *(optional)* | float | `0.0` | How long the pointer must stay at the bar's edge before an auto-hidden bar appears, clamped to `0`–`1000`. Leaving the edge sooner cancels the reveal. Global setting. |
+| `autoHideHideDelayMilliseconds` *(optional)* | float | `0.0` | How long an auto-hidden bar stays after the pointer moves inward past it and interactions end, clamped to `0`–`1000`. Returning to the bar sooner cancels the hide. Global setting. |
 | `revealModifier` | string | `"off"` | Reveal the bar by holding a modifier. Any value other than `off` makes the bar overlay-only: it reserves no layout space at all while the modifier is configured, not just while it is held. Values: `off`, `option`, `control`, `command`, `shift`, `controlOption`, `optionCommand`, `optionShift`, `controlCommand`, `controlShift`, `commandShift`, `controlOptionCommand`, `controlOptionShift`, `optionCommandShift`, `controlCommandShift`, `controlOptionCommandShift`. |
 | `revealHoldMilliseconds` | float | `200.0` | How long the modifier must be held before the bar reveals. |
 | `hideInNativeFullscreen` | boolean | `false` | Hides the bar while a native-fullscreen space is active. Effective `fillLeftOfNotch` at a top position always hides there, regardless of this setting. |
@@ -273,10 +278,10 @@ The seven optional `overviewGesture…` and `window…` keys below configure Ove
 | --- | --- | --- | --- |
 | `scrollEnabled` | boolean | `true` | Trackpad column scrolling (`fingerCount`) and modifier + mouse scroll wheel scrolling along the Niri primary axis; `false` turns off both. |
 | `scrollSensitivity` | float | `5.0` | Scroll gesture sensitivity. |
-| `scrollModifierKey` | string | `"optionShift"` | Modifier for wheel scrolling: `optionShift` or `controlShift`. |
+| `scrollModifierKey` | string | `"optionShift"` | Modifier for wheel scrolling: `optionShift`, `controlShift`, `commandShift`, `controlOptionShift`, `optionCommandShift`, `controlCommandShift`, or `controlOptionCommandShift`. The System Hyper Trigger does not add modifiers to wheel events. |
 | `mouseMoveModifierKey` | string | `"option"` | Modifier for drag-to-swap of tiled windows in Niri and Dwindle (Niri also accepts `Shift` for insert): `off`, `option`, `control`, `command`, `controlOption`, `optionCommand`, `controlCommand`, `controlOptionCommand`. |
 | `mouseResizeModifierKey` | string | `"option"` | Modifier for right-drag resize: `option`, `control`, `command`, `shift`, `controlOption`, `optionCommand`, `optionShift`, `controlCommand`, `controlShift`, `commandShift`, `controlOptionCommand`, `controlOptionShift`, `optionCommandShift`, `controlCommandShift`, `controlOptionCommandShift`. |
-| `fingerCount` | integer | `3` | Trackpad column-scroll finger count: `2`, `3`, or `4`. |
+| `fingerCount` | integer | `3` | Trackpad column-scroll finger count: `3` or `4`. |
 | `invertDirection` | boolean | `true` | Inverts trackpad gesture direction. |
 | `trackpadScrollStyle` | string | `"snap"` | `snap` (snap to columns) or `momentum`. |
 | `workspaceSwipeEnabled` | boolean | `false` | Trackpad swipe switches to the next/previous workspace. |
@@ -303,10 +308,11 @@ Extra readouts beside the menu bar icon.
 | `showWorkspaceName` | boolean | `false` | Shows the active workspace beside the menu bar icon. |
 | `showAppNames` | boolean | `false` | Also shows the focused app's name. |
 | `useWorkspaceId` | boolean | `false` | Shows the workspace number instead of its name. |
+| `showIcon` | boolean | `true` | Shows the OmniWM icon beside the workspace. When off, only the workspace shows, except while diagnostics are recording or Secure Input is on. Has no effect while `showWorkspaceName` is off. |
 
 ## hiddenBar
 
-Menu-bar icon concealment (concealment requires macOS 27+).
+Menu-bar icon concealment (requires macOS 27+ and Full Disk Access).
 
 | Key | Type | Default | Description |
 | --- | --- | --- | --- |
@@ -388,8 +394,8 @@ binding = "Unassigned"
 id = "toggleScratchpad.1"
 ```
 
-- `binding` is a human-readable chord: `+`-joined modifiers (`Control`, `Option`, `Shift`, `Command`, or the `Hyper` shorthand for the full [`hyperKeyModifiers`](#general) set) followed by a key name — or `"Unassigned"`. A `Left `/`Right ` prefix pins a modifier to one side (e.g. `"Left Option+H"`).
-- The array is validated strictly: every required action must appear **exactly once**. Workspace `10+` action IDs are optional and appear while those workspaces exist. An unknown, unassignable, duplicate, or missing required action id rejects the whole file, so rebind by editing `binding` values in place.
+- `binding` is a human-readable chord: `+`-joined modifiers (`Control`, `Option`, `Shift`, `Command`, or the `Hyper` shorthand for the full [`hyperKeyModifiers`](#general) set) followed by a key name — or `"Unassigned"`. A `Left `/`Right ` prefix pins a modifier to one side (e.g. `"Left Option+H"`). A binding can instead be an extra mouse button, `MouseButton2`–`MouseButton31`, alone or after modifiers without side prefixes (e.g. `"Option+MouseButton3"`); a button used by `systemHyperTrigger` or Overview cannot also be a hotkey.
+- The array is validated strictly: each action may appear **only once**, and an action that is left out is unassigned. Workspace `10+` action IDs are optional and appear while those workspaces exist. An unknown, unassignable, or duplicate action id rejects the whole file, so rebind by editing `binding` values in place.
 - The numeric suffix is zero-based for `switchWorkspace.N`, `moveToWorkspace.N`, `focusColumn.N`, and `moveColumnToWorkspace.N` — `switchWorkspace.0` is *Switch to Workspace 1* (`Option + 1` by default) — and one-based for `switchWorkspaceSlot.N`, `moveToWorkspaceSlot.N`, `focusWindowInColumn.N`, `moveColumnToIndex.N`, `toggleScratchpad.N`, and `assignFocusedWindowToScratchpad.N`.
 
 The default bindings are listed in the [keyboard shortcuts guide](/guides/keyboard-shortcuts/); assignable actions appear in **Settings > Hotkeys**.
@@ -458,7 +464,7 @@ When `workspaceBar.enabled = false`, no monitor can show its bar. Saved `monitor
 
 | Array | Overridable keys |
 | --- | --- |
-| `monitorBarOverrides` | `enabled`, `showLabels`, `showFloatingWindows`, `deduplicateAppIcons`, `hideEmptyWorkspaces`, `reserveLayoutSpace`, `notchMode`, `notchActiveZoneWidth`, `position`, `windowLevel`, `height`, `backgroundOpacity`, `inactiveIconOpacity`, `transparentBackground`, `solidBlackBackground`, `showItemBackgrounds`, `showAccentHighlights`, `xOffset`, `yOffset` — see [`workspaceBar`](#workspacebar) |
+| `monitorBarOverrides` | `enabled`, `showLabels`, `showFloatingWindows`, `deduplicateAppIcons`, `hideEmptyWorkspaces`, `reserveLayoutSpace`, `autoHide`, `notchMode`, `notchActiveZoneWidth`, `position`, `windowLevel`, `height`, `backgroundOpacity`, `inactiveIconOpacity`, `transparentBackground`, `solidBlackBackground`, `showItemBackgrounds`, `showAccentHighlights`, `xOffset`, `yOffset` — see [`workspaceBar`](#workspacebar) |
 | `monitorOrientationOverrides` | `orientation`: `horizontal` or `vertical` layout orientation for that monitor |
 | `monitorNiriOverrides` | `visibleContainerCount`, `centerFocusedColumn`, `alwaysCenterSingleColumn`, `singleWindowFit`, `infiniteLoop` — see [`niri`](#niri) |
 | `monitorDwindleOverrides` | `smartSplit`, `defaultSplitRatio`, `splitWidthMultiplier`, `singleWindowFit`, `useGlobalGaps`, `innerGap` — see [`dwindle`](#dwindle) |

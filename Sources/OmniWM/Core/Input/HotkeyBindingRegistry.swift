@@ -75,11 +75,8 @@ enum HotkeyBindingRegistry {
             }
             overrides[entry.id] = canonicalizeTrigger(entry.binding)
         }
-        let staticBindings = try defaultBindings.map { binding in
-            guard let override = overrides[binding.id] else {
-                throw HotkeyBindingResolutionError.missingActionID(binding.id)
-            }
-            return HotkeyBinding(id: binding.id, command: binding.command, trigger: override)
+        let staticBindings = defaultBindings.map { binding in
+            HotkeyBinding(id: binding.id, command: binding.command, trigger: overrides[binding.id] ?? .unassigned)
         }
         let workspaceNumberBindings = persisted
             .filter { bindingsByID[$0.id] == nil }
@@ -93,6 +90,8 @@ enum HotkeyBindingRegistry {
             return .unassigned
         case let .chord(binding):
             return binding.isUnassigned ? .unassigned : .chord(binding)
+        case .mouseButton:
+            return trigger
         }
     }
 
@@ -103,7 +102,7 @@ enum HotkeyBindingRegistry {
         let encoded = bindings.map { ($0, $0.binding.humanReadableString) }
         KeySymbolMapper.setHyperKeyModifiers(composition)
         return encoded.map { binding, string in
-            guard case .chord = binding.binding,
+            guard !binding.binding.isUnassigned,
                   let trigger = HotkeyTrigger.fromHumanReadable(string)
             else { return binding }
             return HotkeyBinding(id: binding.id, command: binding.command, trigger: trigger)

@@ -73,6 +73,14 @@ struct MonitorBarSettingsSection: View {
             )
 
             OverridableToggle(
+                label: String(localized: "Automatically hide and show the workspace bar"),
+                value: ms.autoHide,
+                globalValue: settings.workspaceBar.autoHide,
+                onChange: { newValue in updateSetting { $0.autoHide = newValue } },
+                onReset: { updateSetting { $0.autoHide = nil } }
+            )
+
+            OverridableToggle(
                 label: String(localized: "Reserve Space for Workspace Bar"),
                 value: ms.reserveLayoutSpace,
                 globalValue: settings.workspaceBar.reserveLayoutSpace,
@@ -80,7 +88,7 @@ struct MonitorBarSettingsSection: View {
                 onReset: { updateSetting { $0.reserveLayoutSpace = nil } }
             )
             .help(
-                "Reserve tiled layout space at the selected edge using the configured bar thickness."
+                "Reserve tiled layout space at the selected edge. Overlapping bars reserve only the portion below the menu bar."
             )
 
             OverridablePicker(
@@ -93,7 +101,7 @@ struct MonitorBarSettingsSection: View {
                 onReset: { updateSetting { $0.notchMode = nil } }
             )
             .help(
-                "Move below the notch, split around it, or fill the area to its left, covering application menus. Without a notch, Fill Left covers the left half of the menu bar. Notch modes are ignored at Bottom, Left, and Right."
+                "Move below the menu bar, place it to the right of the notch (centered on displays without a notch), split around it, or fill the area to its left, covering application menus. Without a notch, Fill Left covers the left half of the menu bar. Notch modes are ignored at Bottom, Left, and Right."
             )
 
             OverridableSlider(

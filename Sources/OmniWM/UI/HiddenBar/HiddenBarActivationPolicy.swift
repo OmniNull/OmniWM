@@ -26,6 +26,11 @@ enum HiddenBarActivationPolicy {
             let matches = freshSameProcessItems.filter { $0.semanticIdentity == semanticIdentity }
             return matches.count == 1 ? matches[0] : nil
         }
+        if cachedSameProcessItems.count == 1, freshSameProcessItems.count == 1,
+           let item = freshSameProcessItems.first, item.semanticIdentity == nil
+        {
+            return item
+        }
         guard let cachedIcon = cachedIcons[key] else { return nil }
         guard cachedSameProcessItems.allSatisfy({ cachedIcons[$0.key] != nil }),
               freshSameProcessItems.allSatisfy({ freshIcons[$0.key] != nil }),

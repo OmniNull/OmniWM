@@ -45,6 +45,50 @@ final class QuakeTerminalBackgroundTests: XCTestCase {
         XCTAssertEqual(effect.style, .clear)
     }
 
+    func testGlassUsesNativeQuakeWindowCornerRadius() throws {
+        let window = QuakeTerminalWindow()
+        defer { window.close() }
+        let cornerRadiusKey = "_cornerRadius"
+        guard window.responds(to: Selector(cornerRadiusKey)) else {
+            XCTFail("Native window corner radius is unavailable")
+            return
+        }
+        let radius = try XCTUnwrap(window.value(forKey: cornerRadiusKey) as? CGFloat)
+        let container = try XCTUnwrap(window.contentView)
+        let background = makeBackground()
+        XCTAssertTrue(background.updateAppearance(appearance(backgroundBlur: -1)))
+
+        background.reconcile(in: container, window: window)
+
+        let glass = try XCTUnwrap(container.subviews.first as? QuakeTerminalGlassView)
+        let effect = try XCTUnwrap(glass.subviews.first as? NSGlassEffectView)
+        XCTAssertEqual(effect.cornerRadius, radius)
+        XCTAssertFalse(window.isVisible)
+    }
+
+    func testGlassPropagatesNativeCornersAndRejectsInvalidRadii() throws {
+        let window = QuakeCornerRadiusTestWindow(
+            contentRect: CGRect(x: 0, y: 0, width: 500, height: 300),
+            styleMask: .borderless,
+            backing: .buffered,
+            defer: false
+        )
+        window.isReleasedWhenClosed = false
+        defer { window.close() }
+        let glass = QuakeTerminalGlassView(frame: CGRect(x: 0, y: 0, width: 500, height: 300))
+        window.contentView = glass
+        let effect = try XCTUnwrap(glass.subviews.first as? NSGlassEffectView)
+        let cases: [(CGFloat, CGFloat)] = [(37, 37), (0.01, 0.01), (0, 0), (-1, 0), (.nan, 0), (.infinity, 0)]
+
+        for (radius, expected) in cases {
+            window.reportedRadius = radius
+            glass.configure(style: .clear, backgroundColor: .black, backgroundOpacity: 0.8, isKeyWindow: true)
+
+            XCTAssertEqual(effect.cornerRadius, expected)
+        }
+        XCTAssertFalse(window.isVisible)
+    }
+
     func testLosingAppearanceOrGlassStyleRemovesTheGlassView() throws {
         let absentOrStandard: [QuakeGhosttyAppearance?] = [nil, appearance(backgroundBlur: 0)]
         for replacement in absentOrStandard {
@@ -138,5 +182,14 @@ final class QuakeTerminalBackgroundTests: XCTestCase {
             autosaveEnabled: false
         )
         return QuakeTerminalBackground(settings: settings)
+    }
+}
+
+@MainActor
+private final class QuakeCornerRadiusTestWindow: NSWindow {
+    var reportedRadius: CGFloat = 0
+
+    @objc(_cornerRadius) func nativeCornerRadius() -> CGFloat {
+        reportedRadius
     }
 }

@@ -35,12 +35,14 @@ final class StatusMenuHost {
     private let motionPolicy: MotionPolicy
     private let ownedWindowRegistry: OwnedWindowRegistry
     private let focusPolicyEngine: FocusPolicyEngine
+    private let onVisibilityChanged: () -> Void
+    private let sleep: @MainActor (Duration) async throws -> Void
     private let dismissalMonitor = PanelDismissalMonitor()
     private var root: HostedPanel?
     private var submenu: HostedPanel?
     private var placement: (attachment: PopupAttachment, visibleFrame: CGRect)?
     private var rowFrames: [StatusMenuPage: CGRect] = [:]
-    private var hoverTask: Task<Void, Never>?
+    private(set) var hoverTask: Task<Void, Never>?
     private var hoverCandidate: StatusMenuPage?
     private var scrollObserver: NSObjectProtocol?
     private var rootScrollOrigin = CGPoint.zero
@@ -55,11 +57,17 @@ final class StatusMenuHost {
         submenu?.window
     }
 
-    init(model: StatusMenuModel, controller: WMController) {
+    init(
+        model: StatusMenuModel,
+        controller: WMController,
+        sleep: @escaping @MainActor (Duration) async throws -> Void = { try await Task.sleep(for: $0) }
+    ) {
         self.model = model
         motionPolicy = controller.motionPolicy
         ownedWindowRegistry = controller.ownedWindowRegistry
         focusPolicyEngine = controller.focusPolicyEngine
+        onVisibilityChanged = { [weak controller] in controller?.workspaceBarManager.refreshAutoHide() }
+        self.sleep = sleep
     }
 
     func toggle(from anchor: NSView, edge: PopupAttachment.Edge = .below) {
@@ -95,6 +103,7 @@ final class StatusMenuHost {
             onDismiss: { [weak self] in self?.dismiss() }
         )
         observeRootScroll()
+        onVisibilityChanged()
     }
 
     func dismiss() {
@@ -113,6 +122,7 @@ final class StatusMenuHost {
         rowFrames.removeAll(keepingCapacity: true)
         model.menuDidClose()
         root?.view.rootView = AnyView(EmptyView())
+        onVisibilityChanged()
     }
 
     func openSubmenu(_ page: StatusMenuPage, enterKeyboard: Bool) {
@@ -169,13 +179,14 @@ final class StatusMenuHost {
         cancelHover()
         guard isVisible, page != presentation.expandedPage else { return }
         hoverCandidate = page
+        let sleep = sleep
         hoverTask = Task { @MainActor [weak self] in
             do {
-                try await Task.sleep(for: .milliseconds(150))
+                try await sleep(.milliseconds(150))
             } catch {
                 return
             }
-            guard let self, isVisible else { return }
+            guard !Task.isCancelled, let self, isVisible else { return }
             if let page {
                 openSubmenu(page, enterKeyboard: false)
             } else {

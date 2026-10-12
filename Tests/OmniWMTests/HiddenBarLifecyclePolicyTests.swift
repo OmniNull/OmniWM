@@ -47,7 +47,6 @@ final class HiddenBarLifecyclePolicyTests: XCTestCase {
 
         hiddenBar.setup()
 
-        XCTAssertFalse(hiddenBar.observation.hasScreenParametersObserverForTests)
         XCTAssertFalse(hiddenBar.observation.hasRunningApplicationsObservationForTests)
         XCTAssertFalse(hiddenBar.isItemServiceRunningForTests)
         hiddenBar.cleanup()
@@ -58,17 +57,14 @@ final class HiddenBarLifecyclePolicyTests: XCTestCase {
         let controller = WindowAdmissionTestSupport.controller(prefix: "HiddenBarToggleServices")
         let hiddenBar = controller.hiddenBarController
         hiddenBar.setup()
-        XCTAssertTrue(hiddenBar.observation.hasScreenParametersObserverForTests)
         XCTAssertTrue(hiddenBar.observation.hasRunningApplicationsObservationForTests)
         XCTAssertTrue(hiddenBar.isItemServiceRunningForTests)
 
         hiddenBar.setEnabled(false)
-        XCTAssertFalse(hiddenBar.observation.hasScreenParametersObserverForTests)
         XCTAssertFalse(hiddenBar.observation.hasRunningApplicationsObservationForTests)
         XCTAssertFalse(hiddenBar.isItemServiceRunningForTests)
 
         hiddenBar.setEnabled(true)
-        XCTAssertTrue(hiddenBar.observation.hasScreenParametersObserverForTests)
         XCTAssertTrue(hiddenBar.observation.hasRunningApplicationsObservationForTests)
         XCTAssertTrue(hiddenBar.isItemServiceRunningForTests)
         hiddenBar.cleanup()
@@ -84,57 +80,15 @@ final class HiddenBarLifecyclePolicyTests: XCTestCase {
         controller.setWorkspaceBarEnabled(false)
         XCTAssertTrue(controller.settings.hiddenBar.enabled)
         XCTAssertFalse(controller.settings.effectiveHiddenBarEnabled)
-        XCTAssertFalse(hiddenBar.observation.hasScreenParametersObserverForTests)
         XCTAssertFalse(hiddenBar.observation.hasRunningApplicationsObservationForTests)
         XCTAssertFalse(hiddenBar.isItemServiceRunningForTests)
 
         controller.setWorkspaceBarEnabled(true)
         XCTAssertTrue(controller.settings.effectiveHiddenBarEnabled)
-        XCTAssertTrue(hiddenBar.observation.hasScreenParametersObserverForTests)
         XCTAssertTrue(hiddenBar.observation.hasRunningApplicationsObservationForTests)
         XCTAssertTrue(hiddenBar.isItemServiceRunningForTests)
         hiddenBar.cleanup()
         controller.workspaceBarManager.cleanup()
-    }
-
-    @MainActor
-    func testTopologyRefreshDebouncesScreenChanges() async {
-        let controller = WindowAdmissionTestSupport.controller(prefix: "HiddenBarTopologyDebounce")
-        let hiddenBar = controller.hiddenBarController
-        var refreshes = 0
-        hiddenBar.observation.topologyRefreshSleeper = { _ in await Task.yield() }
-        hiddenBar.observation.onTopologyRefreshForTests = { refreshes += 1 }
-
-        hiddenBar.observation.scheduleTopologyRefresh()
-        hiddenBar.observation.scheduleTopologyRefresh()
-        let didRefresh = await waitUntil { refreshes == 1 }
-
-        XCTAssertTrue(didRefresh)
-        XCTAssertEqual(refreshes, 1)
-        XCTAssertFalse(hiddenBar.observation.hasPendingTopologyRefreshForTests)
-        hiddenBar.cleanup()
-    }
-
-    @MainActor
-    func testCleanupRemovesScreenObserverAndCancelsTopologyRefresh() async {
-        let controller = WindowAdmissionTestSupport.controller(prefix: "HiddenBarTopologyCleanup")
-        let hiddenBar = controller.hiddenBarController
-        var refreshes = 0
-        hiddenBar.observation.topologyRefreshSleeper = { _ in try await Task.sleep(for: .seconds(60)) }
-        hiddenBar.observation.onTopologyRefreshForTests = { refreshes += 1 }
-        hiddenBar.setup()
-        XCTAssertTrue(hiddenBar.observation.hasScreenParametersObserverForTests)
-
-        hiddenBar.observation.scheduleTopologyRefresh()
-        XCTAssertTrue(hiddenBar.observation.hasPendingTopologyRefreshForTests)
-        hiddenBar.cleanup()
-        for _ in 0 ..< 8 {
-            await Task.yield()
-        }
-
-        XCTAssertFalse(hiddenBar.observation.hasScreenParametersObserverForTests)
-        XCTAssertFalse(hiddenBar.observation.hasPendingTopologyRefreshForTests)
-        XCTAssertEqual(refreshes, 0)
     }
 
     @MainActor
@@ -144,81 +98,68 @@ final class HiddenBarLifecyclePolicyTests: XCTestCase {
         hiddenBar.setup()
         hiddenBar.performance.begin()
 
-        hiddenBar.observation.enqueueDidBecomeActiveForTests()
+        let observerEvent = hiddenBar.observation.enqueueDidBecomeActiveForTests()
         hiddenBar.cleanup()
-        for _ in 0 ..< 8 {
-            await Task.yield()
-        }
+        await observerEvent.value
 
         XCTAssertEqual(hiddenBar.performance.end()?.refreshEvents, 0)
     }
 
     @MainActor
-    func testApplicationActivationSyncsFallbackIconWithoutRefreshingItems() async {
-        let controller = WindowAdmissionTestSupport.controller(prefix: "HiddenBarActivationRefresh")
-        let hiddenBar = controller.hiddenBarController
-        hiddenBar.setup()
-        hiddenBar.performance.begin()
-
-        hiddenBar.observation.enqueueApplicationActivatedForTests()
-        for _ in 0 ..< 8 {
-            await Task.yield()
-        }
-
-        XCTAssertEqual(hiddenBar.performance.end()?.refreshEvents, 0)
-        hiddenBar.cleanup()
-    }
-
-    @MainActor
-    func testRunningApplicationsChangesCoalesceIntoOneRefreshPerTurn() async {
+    func testRunningApplicationsRefreshesCoalesceWhileQueued() async throws {
         let controller = WindowAdmissionTestSupport.controller(prefix: "HiddenBarRunningAppsCoalesce")
         let hiddenBar = controller.hiddenBarController
         var refreshes = 0
         hiddenBar.observation.onRunningApplicationsRefreshForTests = { refreshes += 1 }
 
-        for _ in 0 ..< 3 {
-            hiddenBar.observation.enqueueRunningApplicationsChangedForTests()
+        let firstRefresh = try XCTUnwrap(hiddenBar.observation.queueRunningApplicationsRefreshForTests())
+        for _ in 0 ..< 2 {
+            XCTAssertNil(hiddenBar.observation.queueRunningApplicationsRefreshForTests())
         }
-        let refreshedOnce = await waitUntil { refreshes == 1 }
-        for _ in 0 ..< 8 {
-            await Task.yield()
-        }
-        XCTAssertTrue(refreshedOnce)
+        await firstRefresh.value
         XCTAssertEqual(refreshes, 1)
 
-        hiddenBar.observation.enqueueRunningApplicationsChangedForTests()
-        let refreshedAgain = await waitUntil { refreshes == 2 }
-        XCTAssertTrue(refreshedAgain)
+        let laterRefresh = try XCTUnwrap(hiddenBar.observation.queueRunningApplicationsRefreshForTests())
+        await laterRefresh.value
+        XCTAssertEqual(refreshes, 2)
         hiddenBar.cleanup()
     }
 
     @MainActor
-    func testCleanupDropsQueuedRunningApplicationsRefreshWithoutBlockingLaterOnes() async {
+    func testCleanupRejectsQueuedRunningApplicationsObserverEvent() async {
+        let controller = WindowAdmissionTestSupport.controller(prefix: "HiddenBarRunningAppsObserverCleanup")
+        let hiddenBar = controller.hiddenBarController
+        var refreshes = 0
+        hiddenBar.observation.onRunningApplicationsRefreshForTests = { refreshes += 1 }
+        hiddenBar.setup()
+
+        let observerEvent = hiddenBar.observation.enqueueRunningApplicationsChangedForTests()
+        hiddenBar.cleanup()
+        await observerEvent.value
+        XCTAssertEqual(refreshes, 0)
+    }
+
+    @MainActor
+    func testCleanupDropsQueuedRunningApplicationsRefreshWithoutBlockingLaterOnes() async throws {
         let controller = WindowAdmissionTestSupport.controller(prefix: "HiddenBarRunningAppsCleanup")
         let hiddenBar = controller.hiddenBarController
         var refreshes = 0
         hiddenBar.observation.onRunningApplicationsRefreshForTests = { refreshes += 1 }
         hiddenBar.setup()
 
-        hiddenBar.observation.enqueueRunningApplicationsChangedForTests()
-        await Task.yield()
+        // Queue the refresh directly so cleanup retires its generation before
+        // it can run, without relying on the timing of the observer-event hop.
+        let queuedRefresh = try XCTUnwrap(hiddenBar.observation.queueRunningApplicationsRefreshForTests())
         hiddenBar.cleanup()
-        for _ in 0 ..< 8 {
-            await Task.yield()
-        }
+        await queuedRefresh.value
         XCTAssertEqual(refreshes, 0)
 
         hiddenBar.setup()
-        hiddenBar.observation.enqueueRunningApplicationsChangedForTests()
+        let laterObserverEvent = hiddenBar.observation.enqueueRunningApplicationsChangedForTests()
+        await laterObserverEvent.value
         let refreshed = await waitUntil { refreshes >= 1 }
         XCTAssertTrue(refreshed)
         hiddenBar.cleanup()
-    }
-
-    func testRunningAppsSnapshotReadsNamesOnlyWhenRequested() {
-        let snapshot = HiddenBarRunningAppsSnapshot.current()
-        XCTAssertFalse(snapshot.candidates.isEmpty)
-        XCTAssertTrue(snapshot.candidates.allSatisfy { $0.name == $0.bundleID })
     }
 
     func testLaunchCaptureStaysAllowedDuringAnotherAppsReveal() {
@@ -227,14 +168,7 @@ final class HiddenBarLifecyclePolicyTests: XCTestCase {
             temporarilyRevealed: ["revealed"],
             pendingCapture: ["newly-launched"]
         )
-        let result = HiddenBarAllowlistResolver.resolve(
-            hiddenBundleIDs: effectiveHidden,
-            runningBundleIDs: ["revealed", "concealed", "newly-launched"],
-            protectedBundleIDs: []
-        )
-        XCTAssertTrue(result.allowed.contains("revealed"))
-        XCTAssertTrue(result.allowed.contains("newly-launched"))
-        XCTAssertEqual(result.concealed, ["concealed"])
+        XCTAssertEqual(effectiveHidden, ["concealed"])
     }
 
     func testOpenMenuDoesNotConsumeRehideTime() {
@@ -402,8 +336,8 @@ final class HiddenBarLifecyclePolicyTests: XCTestCase {
 
     func testActivationContextRequiresConfigurationRevealAndExactPID() {
         let candidates = [
-            MenuBarAppCandidate(bundleID: "target", pid: 42, name: "Target"),
-            MenuBarAppCandidate(bundleID: "target", pid: 43, name: "Replacement")
+            MenuBarAppCandidate(bundleID: "target", pid: 42),
+            MenuBarAppCandidate(bundleID: "target", pid: 43)
         ]
         XCTAssertTrue(HiddenBarActivationPolicy.activationContextIsValid(
             bundleID: "target",
@@ -435,17 +369,6 @@ final class HiddenBarLifecyclePolicyTests: XCTestCase {
         ))
     }
 
-    func testAppliedConfigReportsWhetherTargetRemainsConcealed() {
-        let config = HiddenBarAppliedConfig(
-            allowed: ["visible"],
-            concealed: ["hidden"],
-            at: .now
-        )
-        XCTAssertTrue(AssessmentModeHider.appliedConfig(config, conceals: "hidden"))
-        XCTAssertFalse(AssessmentModeHider.appliedConfig(config, conceals: "visible"))
-        XCTAssertFalse(AssessmentModeHider.appliedConfig(nil, conceals: "hidden"))
-    }
-
     @MainActor
     private func driveReconcealTask(_ hiddenBar: HiddenBarController) async {
         for _ in 0 ..< 256 {
@@ -455,265 +378,6 @@ final class HiddenBarLifecyclePolicyTests: XCTestCase {
             await Task.yield()
         }
         XCTFail("Reconceal task did not reach a terminal state")
-    }
-
-    @MainActor
-    func testDroppingAssertionInvalidatesActivationGeneration() {
-        let hider = AssessmentModeHider()
-        let generation = hider.activationGeneration
-
-        hider.drop()
-
-        XCTAssertEqual(hider.activationGeneration, generation + 1)
-    }
-
-    @MainActor
-    func testSynchronousActivationFailureRetriesUntilSuccess() async {
-        var attempts = 0
-        let handle = UnsafeMutableRawPointer(bitPattern: 1)!
-        let hider = AssessmentModeHider(
-            availabilityProvider: { true },
-            activationHandler: { _, _, _ in
-                attempts += 1
-                return attempts == 3 ? handle : nil
-            },
-            invalidationHandler: { _ in }
-        )
-        hider.retrySleeper = { _ in await Task.yield() }
-
-        XCTAssertFalse(hider.apply(
-            hiddenBundleIDs: ["com.example.hidden"],
-            runningBundleIDs: ["com.example.hidden"]
-        ))
-        let didConceal = await waitUntil { hider.isConcealing }
-        XCTAssertTrue(didConceal)
-        XCTAssertEqual(attempts, 3)
-        XCTAssertFalse(hider.hasPendingRetryForTests)
-        hider.drop()
-    }
-
-    @MainActor
-    func testSynchronousActivationRetriesAreBounded() async {
-        var attempts = 0
-        let hider = AssessmentModeHider(
-            availabilityProvider: { true },
-            activationHandler: { _, _, _ in
-                attempts += 1
-                return nil
-            },
-            invalidationHandler: { _ in }
-        )
-        hider.retrySleeper = { _ in await Task.yield() }
-
-        XCTAssertFalse(hider.apply(
-            hiddenBundleIDs: ["com.example.hidden"],
-            runningBundleIDs: ["com.example.hidden"]
-        ))
-        let didExhaustRetries = await waitUntil { !hider.hasPendingRetryForTests }
-        XCTAssertTrue(didExhaustRetries)
-        for _ in 0 ..< 8 {
-            await Task.yield()
-        }
-        XCTAssertEqual(attempts, 4)
-        hider.drop()
-    }
-
-    @MainActor
-    func testIdenticalRefreshesDoNotResetActivationRetryBudget() async {
-        var attempts = 0
-        let hider = AssessmentModeHider(
-            availabilityProvider: { true },
-            activationHandler: { _, _, _ in
-                attempts += 1
-                return nil
-            },
-            invalidationHandler: { _ in }
-        )
-        hider.retrySleeper = { _ in await Task.yield() }
-
-        XCTAssertFalse(hider.apply(hiddenBundleIDs: ["a"], runningBundleIDs: ["a"]))
-        for _ in 0 ..< 16 {
-            XCTAssertFalse(hider.apply(hiddenBundleIDs: ["a"], runningBundleIDs: ["a"]))
-            await Task.yield()
-        }
-        let didExhaustRetries = await waitUntil { !hider.hasPendingRetryForTests }
-        XCTAssertTrue(didExhaustRetries)
-
-        for _ in 0 ..< 8 {
-            XCTAssertFalse(hider.apply(hiddenBundleIDs: ["a"], runningBundleIDs: ["a"]))
-            await Task.yield()
-        }
-
-        XCTAssertEqual(attempts, 4)
-        hider.drop()
-    }
-
-    @MainActor
-    func testAsynchronousActivationFailureRetriesCurrentDesiredConfig() async {
-        var attempts = 0
-        var failures: [() -> Void] = []
-        var invalidated: [Int] = []
-        let firstHandle = UnsafeMutableRawPointer(bitPattern: 1)!
-        let secondHandle = UnsafeMutableRawPointer(bitPattern: 2)!
-        let hider = AssessmentModeHider(
-            availabilityProvider: { true },
-            activationHandler: { _, _, onFailure in
-                attempts += 1
-                failures.append(onFailure)
-                return attempts == 1 ? firstHandle : secondHandle
-            },
-            invalidationHandler: { invalidated.append(Int(bitPattern: $0)) }
-        )
-        hider.retrySleeper = { _ in await Task.yield() }
-
-        XCTAssertTrue(hider.apply(
-            hiddenBundleIDs: ["com.example.hidden"],
-            runningBundleIDs: ["com.example.hidden"]
-        ))
-        failures[0]()
-        let didRetry = await waitUntil { attempts == 2 && hider.isConcealing }
-        XCTAssertTrue(didRetry)
-        XCTAssertEqual(invalidated, [1])
-        XCTAssertFalse(hider.hasPendingRetryForTests)
-        hider.drop()
-    }
-
-    @MainActor
-    func testFailedReplacementCallbackCannotInvalidateNewerHandle() async {
-        var attempts = 0
-        var failures: [() -> Void] = []
-        var invalidated: [Int] = []
-        let firstHandle = UnsafeMutableRawPointer(bitPattern: 1)!
-        let newestHandle = UnsafeMutableRawPointer(bitPattern: 3)!
-        let hider = AssessmentModeHider(
-            availabilityProvider: { true },
-            activationHandler: { _, _, onFailure in
-                attempts += 1
-                failures.append(onFailure)
-                switch attempts {
-                case 1:
-                    return firstHandle
-                case 2:
-                    return nil
-                default:
-                    return newestHandle
-                }
-            },
-            invalidationHandler: { invalidated.append(Int(bitPattern: $0)) }
-        )
-        hider.retrySleeper = { _ in try await Task.sleep(for: .seconds(60)) }
-
-        XCTAssertTrue(hider.apply(hiddenBundleIDs: ["a"], runningBundleIDs: ["a"]))
-        XCTAssertTrue(hider.apply(hiddenBundleIDs: ["b"], runningBundleIDs: ["b"]))
-        XCTAssertTrue(hider.isConcealing)
-
-        failures[0]()
-        let didHonorOldHandleFailure = await waitUntil { !hider.isConcealing }
-        XCTAssertTrue(didHonorOldHandleFailure)
-        XCTAssertEqual(invalidated, [1])
-
-        XCTAssertTrue(hider.apply(hiddenBundleIDs: ["c"], runningBundleIDs: ["c"]))
-        XCTAssertTrue(hider.conceals("c"))
-        failures[1]()
-        for _ in 0 ..< 8 {
-            await Task.yield()
-        }
-
-        XCTAssertTrue(hider.isConcealing)
-        XCTAssertTrue(hider.conceals("c"))
-        XCTAssertEqual(invalidated, [1])
-        hider.drop()
-    }
-
-    @MainActor
-    func testOldHandleFailureCannotRestartExhaustedReplacementRetries() async {
-        var attemptsByBundleID: [String: Int] = [:]
-        var oldHandleFailure: (() -> Void)?
-        let oldHandle = UnsafeMutableRawPointer(bitPattern: 1)!
-        let hider = AssessmentModeHider(
-            availabilityProvider: { true },
-            activationHandler: { _, _, onFailure in
-                let bundleID = attemptsByBundleID["a"] == nil ? "a" : "b"
-                attemptsByBundleID[bundleID, default: 0] += 1
-                if bundleID == "a" {
-                    oldHandleFailure = onFailure
-                    return oldHandle
-                }
-                return nil
-            },
-            invalidationHandler: { _ in }
-        )
-        hider.retrySleeper = { _ in await Task.yield() }
-
-        XCTAssertTrue(hider.apply(hiddenBundleIDs: ["a"], runningBundleIDs: ["a"]))
-        XCTAssertTrue(hider.apply(hiddenBundleIDs: ["b"], runningBundleIDs: ["b"]))
-        let didExhaustReplacementRetries = await waitUntil {
-            attemptsByBundleID["b"] == 4 && !hider.hasPendingRetryForTests
-        }
-        XCTAssertTrue(didExhaustReplacementRetries)
-        XCTAssertTrue(hider.isConcealing)
-
-        oldHandleFailure?()
-        let didRemoveOldHandle = await waitUntil { !hider.isConcealing }
-        XCTAssertTrue(didRemoveOldHandle)
-        for _ in 0 ..< 8 {
-            await Task.yield()
-        }
-        XCTAssertEqual(attemptsByBundleID["b"], 4)
-        XCTAssertFalse(hider.hasPendingRetryForTests)
-
-        XCTAssertFalse(hider.apply(hiddenBundleIDs: ["b"], runningBundleIDs: ["b"]))
-        XCTAssertEqual(attemptsByBundleID["b"], 4)
-        hider.drop()
-    }
-
-    @MainActor
-    func testAntiFlapDeferralEventuallyAppliesDesiredConfig() async {
-        var attempts = 0
-        let hider = AssessmentModeHider(
-            availabilityProvider: { true },
-            activationHandler: { _, _, _ in
-                attempts += 1
-                return UnsafeMutableRawPointer(bitPattern: attempts)!
-            },
-            invalidationHandler: { _ in }
-        )
-        hider.retrySleeper = { _ in await Task.yield() }
-
-        XCTAssertTrue(hider.apply(hiddenBundleIDs: ["a"], runningBundleIDs: ["a"]))
-        XCTAssertTrue(hider.apply(hiddenBundleIDs: ["b"], runningBundleIDs: ["b"]))
-        XCTAssertTrue(hider.apply(hiddenBundleIDs: ["a"], runningBundleIDs: ["a"]))
-        XCTAssertTrue(hider.hasPendingRetryForTests)
-        let didApplyDeferredConfig = await waitUntil { hider.conceals("a") }
-        XCTAssertTrue(didApplyDeferredConfig)
-        XCTAssertEqual(attempts, 3)
-        hider.drop()
-    }
-
-    @MainActor
-    func testDropCancelsPendingActivationRetry() async {
-        var attempts = 0
-        let hider = AssessmentModeHider(
-            availabilityProvider: { true },
-            activationHandler: { _, _, _ in
-                attempts += 1
-                return nil
-            },
-            invalidationHandler: { _ in }
-        )
-        hider.retrySleeper = { _ in try await Task.sleep(for: .seconds(60)) }
-
-        XCTAssertFalse(hider.apply(
-            hiddenBundleIDs: ["com.example.hidden"],
-            runningBundleIDs: ["com.example.hidden"]
-        ))
-        XCTAssertTrue(hider.hasPendingRetryForTests)
-        hider.drop()
-        for _ in 0 ..< 8 {
-            await Task.yield()
-        }
-        XCTAssertEqual(attempts, 1)
-        XCTAssertFalse(hider.hasPendingRetryForTests)
     }
 
     @MainActor

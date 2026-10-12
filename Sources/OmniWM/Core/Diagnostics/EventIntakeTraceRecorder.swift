@@ -74,6 +74,7 @@ enum EventIntakeTrace {
         case .mouseScroll: Identity(kind: "mouse-scroll")
         case let .nativeFullscreenTransitionExpired(token, _):
             Identity(kind: "fullscreen-expired", pid: token.pid, windowId: token.windowId)
+        case .secureInputStateMayHaveChanged: Identity(kind: "secure-input")
         case .systemSleep: Identity(kind: "sleep")
         case .systemWake: Identity(kind: "wake")
         case let .windowConstraintsResolved(fact):
@@ -88,6 +89,8 @@ enum EventIntakeTrace {
         case let .closed(windowId): Identity(kind: "cgs.closed", windowId: Int(windowId))
         case let .frameChanged(windowId): Identity(kind: "cgs.frame", windowId: Int(windowId))
         case let .orderChanged(windowId): Identity(kind: "cgs.order", windowId: Int(windowId))
+        case let .visibilityChanged(windowId, orderedIn):
+            Identity(kind: orderedIn ? "cgs.ordered-in" : "cgs.ordered-out", windowId: Int(windowId))
         case let .titleChanged(windowId): Identity(kind: "cgs.title", windowId: Int(windowId))
         case let .frontAppChanged(pid): Identity(kind: "cgs.front-app", pid: pid)
         }

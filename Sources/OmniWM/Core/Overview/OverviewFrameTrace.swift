@@ -15,6 +15,7 @@ enum OverviewFrameTrace {
         case previewRequested
         case previewStarted
         case previewArrived
+        case previewAdopted
         case previewEvicted
         case previewCacheCleared
     }

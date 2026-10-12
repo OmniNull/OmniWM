@@ -53,7 +53,6 @@ struct NiriContainerLayoutContext {
 
 struct NiriColumnLayoutPass {
     let context: NiriCalculationContext
-    let prepared: NiriPreparedLayoutColumns
     let viewport: NiriLayoutViewport
     let activeIndex: Int
     let viewPosition: CGFloat

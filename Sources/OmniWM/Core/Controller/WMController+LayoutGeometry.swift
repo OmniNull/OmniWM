@@ -11,10 +11,17 @@ extension WMController {
     }
 
     func innerGap(for monitor: Monitor, scale: CGFloat) -> CGFloat {
+        let key = InnerGapCacheEntry.Key(
+            monitor: monitor, scale: scale, revision: settings.layoutConfigurationRevision,
+            runtimeGap: workspaceManager.gaps
+        )
+        if let cachedInnerGap, cachedInnerGap.key == key { return cachedInnerGap.value }
         let rawGap = settings.gaps.settings(for: monitor)?.innerGap == nil
             ? CGFloat(workspaceManager.gaps)
             : settings.gaps.resolved(for: monitor).innerGap
-        return max(rawGap, borderClearance(scale: scale))
+        let value = max(rawGap, borderClearance(scale: scale))
+        cachedInnerGap = InnerGapCacheEntry(key: key, value: value)
+        return value
     }
 
     func innerGap(for workspaceId: WorkspaceDescriptor.ID) -> CGFloat {
@@ -44,6 +51,16 @@ extension WMController {
         for monitor: Monitor,
         scale: CGFloat
     ) -> MonitorLayoutFrames {
+        let key = MonitorLayoutCacheEntry.Key(
+            monitor: monitor, scale: scale, revision: settings.layoutConfigurationRevision
+        )
+        if let cachedMonitorLayout, cachedMonitorLayout.key == key { return cachedMonitorLayout.value }
+        let value = buildLayoutFrames(for: monitor, scale: scale)
+        cachedMonitorLayout = MonitorLayoutCacheEntry(key: key, value: value)
+        return value
+    }
+
+    private func buildLayoutFrames(for monitor: Monitor, scale: CGFloat) -> MonitorLayoutFrames {
         let reserved = workspaceBarReservedInsets(for: monitor)
         let gaps = settings.gaps.resolved(for: monitor)
         let menuBarInset = max(0, monitor.frame.maxY - monitor.visibleFrame.maxY)
@@ -138,7 +155,7 @@ extension WMController {
     }
 
     func backingScaleFactor(for monitor: Monitor) -> CGFloat {
-        NSScreen.screens.first(where: { $0.displayId == monitor.displayId })?.backingScaleFactor ?? 2.0
+        layoutRefreshController.backingScale(for: monitor)
     }
 
     private func borderClearance(scale: CGFloat) -> CGFloat {

@@ -7,6 +7,8 @@ extension SettingsExport {
     struct WorkspaceBar: Codable, Equatable {
         var enabled: Bool
         var hoverPreviewsEnabled: Bool
+        var notificationBadges: WorkspaceBarNotificationBadgeMode
+        var notificationBadgeRefreshIntervalSeconds: Double
         var showLabels: Bool
         var showFloatingWindows: Bool
         var windowLevel: WorkspaceBarWindowLevel
@@ -19,6 +21,9 @@ extension SettingsExport {
         var excludedBundleIDs: [String]
         var iconOverrides: [String: String]
         var reserveLayoutSpace: Bool
+        var autoHide: Bool = false
+        var autoHideRevealDelayMilliseconds: Double = 0
+        var autoHideHideDelayMilliseconds: Double = 0
         var revealModifier: WorkspaceBarRevealModifier
         var revealHoldMilliseconds: Double
         var hideInNativeFullscreen: Bool
@@ -43,6 +48,14 @@ extension SettingsExport.WorkspaceBar {
         enabled = try container.decode(Bool.self, forKey: .enabled)
         hoverPreviewsEnabled = try container.decodeIfPresent(Bool.self, forKey: .hoverPreviewsEnabled)
             ?? defaults.hoverPreviewsEnabled
+        notificationBadges = try container.decodeIfPresent(
+            WorkspaceBarNotificationBadgeMode.self,
+            forKey: .notificationBadges
+        ) ?? defaults.notificationBadges
+        notificationBadgeRefreshIntervalSeconds = try container.decodeIfPresent(
+            Double.self,
+            forKey: .notificationBadgeRefreshIntervalSeconds
+        ) ?? defaults.notificationBadgeRefreshIntervalSeconds
         showLabels = try container.decode(Bool.self, forKey: .showLabels)
         showFloatingWindows = try container.decode(Bool.self, forKey: .showFloatingWindows)
         windowLevel = try container.decode(WorkspaceBarWindowLevel.self, forKey: .windowLevel)
@@ -55,6 +68,13 @@ extension SettingsExport.WorkspaceBar {
         excludedBundleIDs = try container.decode([String].self, forKey: .excludedBundleIDs)
         iconOverrides = try container.decode([String: String].self, forKey: .iconOverrides)
         reserveLayoutSpace = try container.decode(Bool.self, forKey: .reserveLayoutSpace)
+        autoHide = try container.decodeIfPresent(Bool.self, forKey: .autoHide) ?? defaults.autoHide
+        autoHideRevealDelayMilliseconds = try container.decodeIfPresent(
+            Double.self, forKey: .autoHideRevealDelayMilliseconds
+        ) ?? defaults.autoHideRevealDelayMilliseconds
+        autoHideHideDelayMilliseconds = try container.decodeIfPresent(
+            Double.self, forKey: .autoHideHideDelayMilliseconds
+        ) ?? defaults.autoHideHideDelayMilliseconds
         revealModifier = try container.decode(WorkspaceBarRevealModifier.self, forKey: .revealModifier)
         revealHoldMilliseconds = try container.decode(Double.self, forKey: .revealHoldMilliseconds)
         hideInNativeFullscreen = try container.decode(Bool.self, forKey: .hideInNativeFullscreen)
@@ -79,6 +99,8 @@ extension SettingsExport.WorkspaceBar {
         Self(
             enabled: true,
             hoverPreviewsEnabled: true,
+            notificationBadges: .off,
+            notificationBadgeRefreshIntervalSeconds: 5,
             showLabels: true,
             showFloatingWindows: false,
             windowLevel: .popup,
@@ -91,6 +113,7 @@ extension SettingsExport.WorkspaceBar {
             excludedBundleIDs: [],
             iconOverrides: [:],
             reserveLayoutSpace: false,
+            autoHide: false,
             revealModifier: .off,
             revealHoldMilliseconds: 200,
             hideInNativeFullscreen: false,

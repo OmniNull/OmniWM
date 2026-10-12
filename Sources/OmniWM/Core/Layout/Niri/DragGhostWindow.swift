@@ -5,16 +5,14 @@ import AppKit
 
 @MainActor
 final class DragGhostWindow: NSPanel {
-    private let imageView: NSImageView
+    private let contentLayer = CALayer()
     private let surfaceCoordinator: SurfaceCoordinator
     private var surfaceId: String?
+    private var preview: OverviewPreviewFrame?
     private var isDestroyed = false
 
     init(surfaceCoordinator: SurfaceCoordinator = .shared) {
         self.surfaceCoordinator = surfaceCoordinator
-        imageView = NSImageView(frame: .zero)
-        imageView.imageScaling = .scaleProportionallyUpOrDown
-        imageView.imageAlignment = .alignCenter
 
         super.init(
             contentRect: .zero,
@@ -37,7 +35,11 @@ final class DragGhostWindow: NSPanel {
         isReleasedWhenClosed = false
         alphaValue = 0.5
 
-        contentView = imageView
+        let view = NSView(frame: .zero)
+        view.wantsLayer = true
+        view.layer = contentLayer
+        contentLayer.contentsGravity = .resizeAspect
+        contentView = view
 
         let surfaceId = "drag-ghost-\(ObjectIdentifier(self).hashValue)"
         self.surfaceId = surfaceId
@@ -65,11 +67,18 @@ final class DragGhostWindow: NSPanel {
         false
     }
 
-    func setImage(_ image: CGImage, size: CGSize) {
-        let nsImage = NSImage(cgImage: image, size: size)
-        imageView.image = nsImage
+    func setContents(_ contents: Any, contentsRect: CGRect, holding retained: OverviewPreviewFrame?, size: CGSize) {
+        let previous = preview
+        preview = retained
+        CATransaction.begin()
+        CATransaction.setDisableActions(true)
+        CATransaction.setCompletionBlock { withExtendedLifetime(previous) {} }
+        contentLayer.contents = contents
+        contentLayer.contentsRect = contentsRect
+        contentLayer.frame = CGRect(origin: .zero, size: size)
+        CATransaction.commit()
         setFrame(CGRect(origin: frame.origin, size: size), display: false)
-        imageView.frame = CGRect(origin: .zero, size: size)
+        contentView?.frame = CGRect(origin: .zero, size: size)
     }
 
     func moveTo(cursorLocation: CGPoint) {
@@ -96,7 +105,8 @@ final class DragGhostWindow: NSPanel {
             surfaceCoordinator.unregister(id: surfaceId)
             self.surfaceId = nil
         }
-        imageView.image = nil
+        contentLayer.contents = nil
+        preview = nil
         orderOut(nil)
         close()
     }

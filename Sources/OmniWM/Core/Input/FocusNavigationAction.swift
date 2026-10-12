@@ -26,7 +26,8 @@ extension FocusNavigationAction {
     func actionDisplayName() -> LocalizedStringResource {
         switch self {
         case .previous: LocalizedStringResource(
-                "command.focus.previous", defaultValue: "Focus Previous Window", table: "Commands", bundle: .omniWM
+                "command.focus.previous", defaultValue: "Focus Previously Focused Window", table: "Commands",
+                bundle: .omniWM
             )
         case .downOrLeft: LocalizedStringResource(
                 "command.focus.traverseBackward", defaultValue: "Traverse Backward", table: "Commands", bundle: .omniWM
@@ -44,7 +45,7 @@ extension FocusNavigationAction {
                 "command.focus.column", defaultValue: "Focus Column \(idx + 1)", table: "Commands", bundle: .omniWM
             )
         case .centerColumn: LocalizedStringResource(
-                "command.focus.centerColumn", defaultValue: "Center Column", table: "Commands", bundle: .omniWM
+                "command.focus.centerColumn", defaultValue: "Center Focused Column", table: "Commands", bundle: .omniWM
             )
         case .centerVisibleColumns: LocalizedStringResource(
                 "command.focus.centerVisibleColumns", defaultValue: "Center Visible Columns", table: "Commands",
@@ -68,16 +69,20 @@ extension FocusNavigationAction {
                 bundle: .omniWM
             )
         case .windowTop: LocalizedStringResource(
-                "command.focus.windowTop", defaultValue: "Focus Top Window", table: "Commands", bundle: .omniWM
+                "command.focus.windowTop", defaultValue: "Focus First Window in Column", table: "Commands",
+                bundle: .omniWM
             )
         case .windowBottom: LocalizedStringResource(
-                "command.focus.windowBottom", defaultValue: "Focus Bottom Window", table: "Commands", bundle: .omniWM
+                "command.focus.windowBottom", defaultValue: "Focus Last Window in Column", table: "Commands",
+                bundle: .omniWM
             )
         case .windowDownOrTop: LocalizedStringResource(
-                "command.focus.windowDownOrTop", defaultValue: "Focus Down or Top", table: "Commands", bundle: .omniWM
+                "command.focus.windowDownOrTop", defaultValue: "Focus Next Window (Wrap)", table: "Commands",
+                bundle: .omniWM
             )
         case .windowUpOrBottom: LocalizedStringResource(
-                "command.focus.windowUpOrBottom", defaultValue: "Focus Up or Bottom", table: "Commands", bundle: .omniWM
+                "command.focus.windowUpOrBottom", defaultValue: "Focus Previous Window (Wrap)", table: "Commands",
+                bundle: .omniWM
             )
         case .windowOrWorkspaceDown: LocalizedStringResource(
                 "command.focus.windowOrWorkspaceDown", defaultValue: "Focus Window or Workspace Down",

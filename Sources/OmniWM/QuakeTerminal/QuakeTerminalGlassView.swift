@@ -30,7 +30,16 @@ final class QuakeTerminalGlassView: NSView {
     ) {
         glassEffectView.style = style
         glassEffectView.tintColor = backgroundColor.withAlphaComponent(backgroundOpacity)
-        glassEffectView.cornerRadius = 0
+        let cornerRadiusKey = "_cornerRadius"
+        glassEffectView.cornerRadius = if let window,
+                                          window.responds(to: Selector(cornerRadiusKey)),
+                                          let radius = window.value(forKey: cornerRadiusKey) as? CGFloat,
+                                          radius.isFinite, radius >= 0
+        {
+            radius
+        } else {
+            0
+        }
         updateKeyStatus(isKeyWindow, backgroundColor: backgroundColor)
     }
 

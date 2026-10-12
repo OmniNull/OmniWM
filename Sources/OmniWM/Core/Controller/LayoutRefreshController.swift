@@ -156,6 +156,7 @@ import QuartzCore
         resetDisplayLinkAndAnimationState()
 
         controller?.axManager.clearInactiveWorkspaceWindows()
+        layoutState.backingScaleByDisplay = nil
 
         if let observer = layoutState.screenChangeObserver {
             NotificationCenter.default.removeObserver(observer)

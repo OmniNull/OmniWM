@@ -25,6 +25,8 @@ extension IPCCommandRequest: Codable {
             try writer.encode(direction: direction)
         case let .dwindle(command):
             try command.encodeArguments(to: &writer)
+        case let .openCommandPaletteMode(mode):
+            try writer.encode(paletteMode: mode)
         case let .workspaceLayout(command):
             try command.encodeArguments(to: &writer)
         case let .scratchpad(command):
@@ -32,6 +34,7 @@ extension IPCCommandRequest: Codable {
         case .monitorFocus,
              .openCommandPalette,
              .raiseAllFloatingWindows,
+             .toggleFloatingFocus,
              .rescueOffscreenWindows,
              .fullscreen,
              .presentation,

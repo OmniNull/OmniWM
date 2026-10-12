@@ -42,7 +42,7 @@ Use `--fields` with a comma-separated list to limit returned fields.
 
 Field tokens are part of the CLI contract. Returned JSON still uses the payload schema's field names, so the selected token may not be byte-for-byte identical to the JSON key. For example, `window-counts` selects the workspace payload's `counts` field.
 
-**Window fields:** `id`, `pid`, `window-id`, `workspace`, `display`, `app`, `title`, `frame`, `mode`, `layout-reason`, `manual-override`, `is-focused`, `is-fullscreen`, `is-visible`, `is-app-hidden`, `is-scratchpad`, `scratchpad-index`, `hidden-reason`
+**Window fields:** `id`, `pid`, `window-id`, `workspace`, `display`, `app`, `title`, `frame`, `mode`, `layout-reason`, `manual-override`, `is-focused`, `is-fullscreen`, `is-visible`, `is-app-hidden`, `is-scratchpad`, `scratchpad-index`, `hidden-reason`, `column-index`
 
 `window-id` returns the JSON field `windowId`, the raw CGWindowID of the window. It is stable for the window's lifetime but not session-scoped; keep using `id` for `window` actions.
 
@@ -63,9 +63,13 @@ Workspace and scratchpad hiding retain their reasons. For other layout hiding, a
 
 `is-fullscreen` returns the JSON field `isFullscreen`: true while the window is in OmniWM's own fullscreen (`toggle-fullscreen`) in its workspace's active layout. Native macOS Full Screen is reported separately by `layout-reason`. The `focused-window` query always includes `isFullscreen` for the focused window.
 
-**Workspace fields:** `id`, `raw-name`, `display-name`, `number`, `layout`, `display`, `is-focused`, `is-visible`, `is-current`, `window-counts`, `focused-window-id`
+`column-index` returns the JSON field `columnIndex`: the one-based Niri column that holds the window, numbered like `focus-column` and `move-column-to-index`. Inactive tabs share their column's index; floating windows, Dwindle windows, and windows excluded from the layout, such as minimized windows, omit it.
+
+**Workspace fields:** `id`, `raw-name`, `display-name`, `number`, `layout`, `display`, `is-focused`, `is-visible`, `is-current`, `window-counts`, `focused-window-id`, `columns`
 
 The three workspace flags answer different questions. `is-focused` marks the workspace that holds the natively focused managed window, `is-current` marks the active workspace on the interaction monitor (the one `--current` selects), and `is-visible` marks every workspace that is active on some monitor. With two monitors, two workspaces are visible, one is current, and at most one is focused.
+
+`columns` lists a Niri workspace's columns in order as `{"index": 1, "viewport": "before"}` entries. `viewport` is `before` or `after` for a column entirely outside the viewport on that side and `intersecting` for a column that is at least partly visible. It describes the viewport's destination: a scroll animation reports its target immediately, and a trackpad drag keeps the previous value until release. Dwindle workspaces omit `columns`.
 
 **Display fields:** `id`, `name`, `is-main`, `is-current`, `frame`, `visible-frame`, `has-notch`, `orientation`, `inner-gap`, `outer-gap-left`, `outer-gap-right`, `outer-gap-top`, `outer-gap-bottom`, `fullscreen-uses-outer-gaps`, `active-workspace`
 

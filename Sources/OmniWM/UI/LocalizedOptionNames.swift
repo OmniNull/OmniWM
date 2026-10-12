@@ -88,6 +88,11 @@ extension ScrollModifierKey {
         switch self {
         case .optionShift: String(localized: "Option+Shift (⌥⇧)")
         case .controlShift: String(localized: "Control+Shift (⌃⇧)")
+        case .commandShift: String(localized: "Command+Shift (⌘⇧)")
+        case .controlOptionShift: String(localized: "Control+Option+Shift (⌃⌥⇧)")
+        case .optionCommandShift: String(localized: "Option+Command+Shift (⌥⌘⇧)")
+        case .controlCommandShift: String(localized: "Control+Command+Shift (⌃⌘⇧)")
+        case .controlOptionCommandShift: String(localized: "Control+Option+Command+Shift (⌃⌥⌘⇧)")
         }
     }
 }

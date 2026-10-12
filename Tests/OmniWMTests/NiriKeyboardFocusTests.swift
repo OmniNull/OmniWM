@@ -249,6 +249,97 @@ final class NiriKeyboardFocusTests: XCTestCase {
         }
     }
 
+    func testPrimaryNavigationAcrossFullscreenQueuesOneWorkerRaise() throws {
+        for sharedPid in [false, true] {
+            for fullscreenIndex in [2, 3] {
+                try withFixture(sharedPid: sharedPid) { fixture in
+                    try prepareFullscreenOverlap(fixture, fullscreenIndex: fullscreenIndex)
+                    let controller = fixture.controller
+                    let target = fixture.windows[2].token
+
+                    XCTAssertTrue(controller.niriLayoutHandler.focusNeighbor(direction: .left))
+
+                    XCTAssertEqual(fixture.recorder.operations, [.submittedFocus(target)])
+                    XCTAssertEqual(fixture.recorder.queuedRaises.count, 1)
+                    let queued = try XCTUnwrap(fixture.recorder.queuedRaises.first)
+                    XCTAssertFalse(queued.job.isCancelled)
+                    let request = try XCTUnwrap(controller.intentLedger.activeManagedRequest)
+                    XCTAssertEqual(request.token, target)
+                    XCTAssertTrue(controller.intentLedger.defersRetryRaise(for: request))
+
+                    controller.axEventHandler.handleIntentExpired(request.requestId)
+
+                    XCTAssertEqual(fixture.recorder.operations, [.submittedFocus(target)])
+                    XCTAssertEqual(fixture.recorder.queuedRaises.count, 1)
+                    XCTAssertNotNil(controller.intentLedger.confirmManagedRequest(
+                        token: target, source: .focusedWindowChanged
+                    ))
+                    XCTAssertFalse(queued.job.isCancelled)
+
+                    queued.completion()
+
+                    XCTAssertEqual(fixture.recorder.operations, [.submittedFocus(target)])
+                    XCTAssertEqual(fixture.recorder.queuedRaises.count, 1)
+                    XCTAssertNil(controller.intentLedger.activeManagedRequest)
+                }
+            }
+        }
+    }
+
+    func testPrimaryNavigationBetweenNormalWindowsUnderFullscreenQueuesWorkerRaise() throws {
+        try withFixture { fixture in
+            try prepareFullscreenOverlap(fixture, fullscreenIndex: 1)
+            let target = fixture.windows[2].token
+
+            XCTAssertTrue(fixture.controller.niriLayoutHandler.focusNeighbor(direction: .left))
+
+            XCTAssertEqual(fixture.recorder.operations, [.submittedFocus(target)])
+            XCTAssertEqual(fixture.recorder.queuedRaises.count, 1)
+            XCTAssertFalse(try XCTUnwrap(fixture.recorder.queuedRaises.first).job.isCancelled)
+        }
+    }
+
+    func testPrimaryNavigationIgnoresHiddenFullscreenOverlap() throws {
+        for reason in [HiddenReason.workspaceInactive, .layoutTransient(.left), .scratchpad] {
+            try withFixture { fixture in
+                try prepareFullscreenOverlap(fixture, fullscreenIndex: 0)
+                fixture.controller.workspaceManager.setHiddenState(
+                    HiddenState(proportionalPosition: .zero, referenceMonitorId: nil, reason: reason),
+                    for: fixture.windows[0].token
+                )
+
+                XCTAssertTrue(fixture.controller.niriLayoutHandler.focusNeighbor(direction: .left))
+
+                XCTAssertEqual(fixture.recorder.operations, [.submittedFocus(fixture.windows[2].token)])
+                XCTAssertTrue(fixture.recorder.queuedRaises.isEmpty)
+            }
+        }
+    }
+
+    func testPrimaryNavigationIgnoresOffscreenFullscreen() throws {
+        try withFixture { fixture in
+            try prepareFullscreenOverlap(fixture, fullscreenIndex: 0)
+            fixture.windows[0].renderedFrame = CGRect(x: -3_000, y: 0, width: 2_560, height: 1_440)
+
+            XCTAssertTrue(fixture.controller.niriLayoutHandler.focusNeighbor(direction: .left))
+
+            XCTAssertEqual(fixture.recorder.operations, [.submittedFocus(fixture.windows[2].token)])
+            XCTAssertTrue(fixture.recorder.queuedRaises.isEmpty)
+        }
+    }
+
+    func testPrimaryNavigationIgnoresNativeFullscreenOverlap() throws {
+        try withFixture { fixture in
+            try prepareFullscreenOverlap(fixture, fullscreenIndex: 0)
+            fixture.controller.workspaceManager.setLayoutReason(.nativeFullscreen, for: fixture.windows[0].token)
+
+            XCTAssertTrue(fixture.controller.niriLayoutHandler.focusNeighbor(direction: .left))
+
+            XCTAssertEqual(fixture.recorder.operations, [.submittedFocus(fixture.windows[2].token)])
+            XCTAssertTrue(fixture.recorder.queuedRaises.isEmpty)
+        }
+    }
+
     func testCrossAppRetryRaiseIsQueuedBeforeMainFocusCompletion() throws {
         try withFixture { fixture in
             let controller = fixture.controller
@@ -460,5 +551,18 @@ final class NiriKeyboardFocusTests: XCTestCase {
             gap: gap,
             recorder: recorder
         ))
+    }
+
+    private func prepareFullscreenOverlap(_ fixture: Fixture, fullscreenIndex: Int) throws {
+        let manager = fixture.controller.workspaceManager
+        let monitor = try XCTUnwrap(manager.monitor(for: fixture.workspaceId))
+        fixture.windows[2].renderedFrame = CGRect(x: 1_000, y: 16, width: 938, height: 1_408)
+        fixture.windows[3].renderedFrame = CGRect(x: 1_954, y: 16, width: 834, height: 1_408)
+        fixture.windows[fullscreenIndex].sizingMode = .fullscreen
+        fixture.windows[fullscreenIndex].renderedFrame = monitor.frame
+        XCTAssertTrue(manager.confirmManagedFocus(
+            fixture.windows[3].token, in: fixture.workspaceId, activateWorkspaceOnMonitor: false
+        ))
+        fixture.recorder.operations.removeAll()
     }
 }

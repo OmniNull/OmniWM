@@ -121,7 +121,7 @@ Turning **Enable IPC** on starts the server immediately and creates the Unix soc
 
 ## IPC Protocol
 
-**Protocol version:** 17
+**Protocol version:** 19
 
 The client and server versions must match exactly. A mismatched client can still call `version`, but every other remote request returns `protocol_mismatch`; there is no cross-version compatibility path.
 
@@ -129,8 +129,8 @@ The client and server versions must match exactly. A mismatched client can still
 
 | Item | Path |
 |------|------|
-| Socket | `~/Library/Caches/com.barut.OmniWM/ipc.sock` |
-| Secret | `~/Library/Caches/com.barut.OmniWM/ipc.sock.secret` |
+| Socket | `~/Library/Application Support/com.barut.OmniWM/ipc.sock` |
+| Secret | `~/Library/Application Support/com.barut.OmniWM/ipc.sock.secret` |
 
 The socket path can be overridden with the `OMNIWM_SOCKET` environment variable. The secret file path is always `<socket-path>.secret`. For custom socket paths, prefer a private same-user directory such as `$TMPDIR/omniwm/ipc.sock` after creating the parent directory with mode `0700`. Avoid shared directories such as `/tmp`.
 

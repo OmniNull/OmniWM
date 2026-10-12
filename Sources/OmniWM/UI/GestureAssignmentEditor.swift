@@ -38,7 +38,13 @@ enum GestureAssignmentAction: String, CaseIterable, Identifiable {
     }
 
     var supportedFingerCounts: [Int] {
-        self == .overview ? [3, 4] : [2, 3, 4]
+        switch self {
+        case .columns,
+             .overview: [3, 4]
+        case .workspaces,
+             .move,
+             .resize: [2, 3, 4]
+        }
     }
 
     func isEnabled(in gestures: SettingsExport.Gestures) -> Bool {
@@ -94,13 +100,16 @@ struct GestureAssignmentEdit: Equatable {
             }
         case let .fingers(count):
             precondition(action.supportedFingerCounts.contains(count))
+            let threeOrFour = ThreeOrFourFingerCount(rawValue: count)
             guard let fingers = GestureFingerCount(rawValue: count) else {
                 preconditionFailure("Unsupported gesture finger count")
             }
             switch action {
-            case .columns: candidate.fingerCount = fingers
+            case .columns:
+                guard let threeOrFour else { preconditionFailure("Unsupported gesture finger count") }
+                candidate.fingerCount = threeOrFour
             case .workspaces: candidate.workspaceSwipeFingerCount = fingers
-            case .overview: candidate.overviewGestureFingerCount = OverviewGestureFingerCount(rawValue: count)
+            case .overview: candidate.overviewGestureFingerCount = threeOrFour
             case .move: candidate.windowMoveFingerCount = fingers
             case .resize: candidate.windowResizeFingerCount = fingers
             }

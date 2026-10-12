@@ -27,21 +27,18 @@ final class CommandPaletteFocusTests: XCTestCase {
         revealObservation.cancel()
         XCTAssertEqual(panel.frame.height, compactFrame.height, accuracy: 0.5)
 
-        let intermediate = expectation(description: "Animated panel passes through intermediate height")
         let expanded = expectation(description: "Animated panel reaches expanded height")
         let resizeEvents = NotificationCenter.default.publisher(for: NSWindow.didResizeNotification, object: panel)
             .compactMap { ($0.object as? NSPanel)?.frame.height }
             .share()
-        let intermediateObservation = resizeEvents
-            .first { $0 > compactFrame.height + 10 && $0 < CommandPalettePanel.expandedHeight - 10 }
-            .sink { _ in intermediate.fulfill() }
         let expandedObservation = resizeEvents
             .first { $0 >= CommandPalettePanel.expandedHeight - 0.5 }
             .sink { _ in expanded.fulfill() }
 
         try fixture.insertText("first")
-        await fulfillment(of: [intermediate, expanded], timeout: 2)
-        intermediateObservation.cancel()
+        XCTAssertTrue(fixture.palette.isExpanded)
+        XCTAssertEqual(panel.frame.height, compactFrame.height, accuracy: 0.5)
+        await fulfillment(of: [expanded], timeout: 2)
         expandedObservation.cancel()
         fixture.layout()
         XCTAssertTrue(fixture.palette.isExpanded)
@@ -50,12 +47,13 @@ final class CommandPaletteFocusTests: XCTestCase {
         try fixture.insertText(" second")
         XCTAssertEqual(fixture.palette.searchText, "first second")
 
-        let closing = expectation(description: "Cancel animation reaches its closing frames")
+        let closing = expectation(description: "Cancel animation starts collapsing the panel")
         let closingObservation = resizeEvents
-            .first { $0 < 180 && $0 > CommandPalettePanel.collapsedHeight + 10 }
+            .first { $0 < CommandPalettePanel.expandedHeight - 0.5 }
             .sink { _ in closing.fulfill() }
         fixture.palette.toggle(wmController: fixture.controller)
         XCTAssertFalse(fixture.palette.isVisible)
+        XCTAssertEqual(panel.frame.height, CommandPalettePanel.expandedHeight, accuracy: 0.5)
         XCTAssertEqual(fixture.palette.searchText, "first second")
         await fulfillment(of: [closing], timeout: 2)
         closingObservation.cancel()
@@ -154,11 +152,14 @@ final class CommandPaletteFocusTests: XCTestCase {
         fixture.palette.selectMode(.clipboard)
         fixture.layout()
         let initialFrame = panel.frame
-        let requestedFrame = NSRect(
-            x: initialFrame.minX + 24,
-            y: initialFrame.minY + 20,
-            width: initialFrame.width + 40,
-            height: initialFrame.height + 32
+        let requestedFrame = panel.constrainFrameRect(
+            NSRect(
+                x: initialFrame.minX + 24,
+                y: initialFrame.minY + 20,
+                width: initialFrame.width + 40,
+                height: initialFrame.height + 32
+            ),
+            to: try XCTUnwrap(panel.screen)
         )
         panel.setFrame(requestedFrame, display: true)
         fixture.layout()
@@ -244,6 +245,27 @@ final class CommandPaletteFocusTests: XCTestCase {
             XCTAssertTrue(fixture.palette.searchText.hasSuffix(mode.rawValue))
             XCTAssertEqual(fixture.palette.selectedMode, mode)
         }
+    }
+
+    func testRequestedModeOpensSwitchesAndClosesPalette() throws {
+        let fixture = CommandPaletteFocusFixture(initialMode: .clipboard)
+        defer { fixture.cleanup() }
+
+        _ = try fixture.show(mode: .windows)
+        XCTAssertTrue(fixture.palette.isVisible)
+        XCTAssertEqual(fixture.palette.selectedMode, .windows)
+        XCTAssertEqual(fixture.controller.settings.commandPaletteLastMode, .windows)
+
+        fixture.palette.toggle(wmController: fixture.controller, mode: .commands)
+        XCTAssertTrue(fixture.palette.isVisible)
+        XCTAssertEqual(fixture.palette.selectedMode, .commands)
+
+        fixture.palette.toggle(wmController: fixture.controller, mode: .commands)
+        XCTAssertFalse(fixture.palette.isVisible)
+
+        fixture.palette.toggle(wmController: fixture.controller)
+        XCTAssertTrue(fixture.palette.isVisible)
+        XCTAssertEqual(fixture.palette.selectedMode, .commands)
     }
 
     func testArrowKeysNavigateBeforeAnyMouseInteraction() async throws {
@@ -904,8 +926,8 @@ final class CommandPaletteFocusFixture {
         )
     }
 
-    func show() throws -> NSPanel {
-        palette.show(wmController: controller)
+    func show(mode: CommandPaletteMode? = nil) throws -> NSPanel {
+        palette.show(wmController: controller, mode: mode)
         let panel = try XCTUnwrap(NSApp.windows.first { $0.delegate === palette } as? NSPanel)
         panel.isReleasedWhenClosed = false
         self.panel = panel

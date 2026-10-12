@@ -19,7 +19,8 @@ enum SurfaceDerivation {
             tabRailStyle: world.tabRailStyle,
             placeholders: world.nativeFullscreenPlaceholders(),
             bars: world.barSurfaces(),
-            parkingEdgeMasks: deriveParkingEdgeMasks(monitors: world.monitors, spaceTopology: world.spaceTopology)
+            parkingEdgeMasks: deriveParkingEdgeMasks(monitors: world.monitors, spaceTopology: world.spaceTopology),
+            niriColumns: world.niriColumnSummaries()
         )
     }
 
@@ -83,6 +84,7 @@ enum SurfaceDerivation {
             return nil
         }
         guard !world.hasPendingNativeFullscreenTransition(for: token) else { return nil }
+        guard !world.hasPendingWindowClose(for: entry) else { return nil }
         guard world.systemModalFocusToken != token else { return nil }
         guard world.suppressedFocusToken != token,
               !world.hasPendingNativeFullscreenTransition(in: entry.workspaceId),

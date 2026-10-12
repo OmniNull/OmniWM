@@ -95,6 +95,38 @@ final class PanelDismissalMonitorTests: XCTestCase {
         XCTAssertEqual(dismissals, 1)
     }
 
+    func testShadowMarginDismissesForLocalAndGlobalClicksWhileContentStaysOpen() throws {
+        let panel = makePanel(x: 300)
+        let monitor = PanelDismissalMonitor()
+        var dismissals = 0
+        monitor.start(
+            panels: [panel],
+            isExemptWindow: { _ in false },
+            containsPanelPoint: { panel, point in panel.frame.insetBy(dx: 10, dy: 10).contains(point) },
+            onDismiss: { dismissals += 1 }
+        )
+        defer { monitor.stop() }
+
+        let content = CGPoint(x: 100, y: 100)
+        let margin = CGPoint(x: 5, y: 100)
+        for type in [NSEvent.EventType.leftMouseDown, .rightMouseDown] {
+            XCTAssertFalse(monitor.handleLocalEvent(try mouseEvent(in: panel, at: content, type: type)))
+        }
+        monitor.handlePointer(location: panel.convertPoint(toScreen: content))
+        XCTAssertEqual(dismissals, 0)
+
+        for type in [NSEvent.EventType.leftMouseDown, .rightMouseDown] {
+            XCTAssertTrue(monitor.handleLocalEvent(try mouseEvent(in: panel, at: margin, type: type)))
+        }
+        monitor.handlePointer(location: panel.convertPoint(toScreen: margin))
+        XCTAssertEqual(dismissals, 3)
+
+        monitor.start(panels: [panel], isExemptWindow: { _ in false }, onDismiss: { dismissals += 1 })
+        XCTAssertFalse(monitor.handleLocalEvent(try mouseEvent(in: panel, at: margin)))
+        monitor.handlePointer(location: panel.convertPoint(toScreen: margin))
+        XCTAssertEqual(dismissals, 3)
+    }
+
     func testMembershipUpdateAcceptsNewPanelAndRemovesClosedSubmenu() throws {
         let root = makePanel()
         let submenu = makePanel(x: 300)
@@ -157,10 +189,12 @@ final class PanelDismissalMonitorTests: XCTestCase {
         )
     }
 
-    private func mouseEvent(in window: NSWindow) throws -> NSEvent {
+    private func mouseEvent(
+        in window: NSWindow, at point: CGPoint = CGPoint(x: 10, y: 10), type: NSEvent.EventType = .leftMouseDown
+    ) throws -> NSEvent {
         let event = try XCTUnwrap(NSEvent.mouseEvent(
-            with: .leftMouseDown,
-            location: CGPoint(x: 10, y: 10),
+            with: type,
+            location: point,
             modifierFlags: [],
             timestamp: 0,
             windowNumber: window.windowNumber,

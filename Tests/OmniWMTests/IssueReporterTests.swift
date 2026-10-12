@@ -20,7 +20,7 @@ final class IssueReporterTests: XCTestCase {
 
     func testRewritePromptContainsNoCopyableShortcutArtifacts() {
         let prompt = IssueTemplate.rewriteInstructions
-        for artifact in ["Alt+Enter", "Toggle Fullscreen", "Press Alt+Enter", "KNOWN SHORTCUTS"] {
+        for artifact in ["Alt+Enter", "Toggle OmniWM Fullscreen", "Press Alt+Enter", "KNOWN SHORTCUTS"] {
             XCTAssertFalse(
                 prompt.localizedCaseInsensitiveContains(artifact),
                 "base rewrite prompt must not contain copyable artifact: \(artifact)"

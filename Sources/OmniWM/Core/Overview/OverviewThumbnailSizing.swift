@@ -3,6 +3,20 @@
 
 import CoreGraphics
 
+struct OverviewPreviewRequest: Equatable {
+    let handle: WindowHandle
+    let token: WindowToken
+    let pixelWidth: Int
+    let pixelHeight: Int
+
+    init(handle: WindowHandle, pixelWidth: Int, pixelHeight: Int) {
+        self.handle = handle
+        token = handle.token
+        self.pixelWidth = max(1, pixelWidth)
+        self.pixelHeight = max(1, pixelHeight)
+    }
+}
+
 struct OverviewPreviewProjection {
     let layout: OverviewLayout
     let viewportFrame: CGRect

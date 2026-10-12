@@ -32,26 +32,42 @@ final class WorkspaceBarRevealMonitorTests: XCTestCase {
         XCTAssertEqual(callbacks, [true])
     }
 
-    func testDelayedPressQuickReleaseNeverReveals() async {
-        let monitor = WorkspaceBarRevealMonitor(modifier: .option, holdMilliseconds: 50)
+    func testDelayedPressQuickReleaseNeverReveals() async throws {
+        let sleeper = ManualSleeper()
+        let monitor = WorkspaceBarRevealMonitor(modifier: .option, holdMilliseconds: 50) {
+            try await sleeper.sleep(for: $0)
+        }
         var callbacks: [Bool] = []
         monitor.onRevealChanged = { callbacks.append($0) }
 
         monitor.handleFlagsChanged(rawFlags: option)
-        monitor.handleFlagsChanged(rawFlags: 0)
-        try? await Task.sleep(for: .milliseconds(120))
+        let hold = try XCTUnwrap(monitor.holdTask)
+        await sleeper.waitForPendingSleeps(1)
 
+        XCTAssertEqual(sleeper.pendingCount, 1)
+        monitor.handleFlagsChanged(rawFlags: 0)
+        await hold.value
+
+        XCTAssertEqual(sleeper.pendingCount, 0)
         XCTAssertEqual(callbacks, [])
     }
 
-    func testDelayedPressAndHoldRevealsAfterDelay() async {
-        let monitor = WorkspaceBarRevealMonitor(modifier: .option, holdMilliseconds: 50)
+    func testDelayedPressAndHoldRevealsAfterDelay() async throws {
+        let sleeper = ManualSleeper()
+        let monitor = WorkspaceBarRevealMonitor(modifier: .option, holdMilliseconds: 50) {
+            try await sleeper.sleep(for: $0)
+        }
         var callbacks: [Bool] = []
         monitor.onRevealChanged = { callbacks.append($0) }
 
         monitor.handleFlagsChanged(rawFlags: option)
+        let hold = try XCTUnwrap(monitor.holdTask)
+        await sleeper.waitForPendingSleeps(1)
+
+        XCTAssertEqual(sleeper.requestedDurations, [.milliseconds(50)])
         XCTAssertEqual(callbacks, [])
-        try? await Task.sleep(for: .milliseconds(120))
+        sleeper.resumeNext()
+        await hold.value
 
         XCTAssertEqual(callbacks, [true])
     }

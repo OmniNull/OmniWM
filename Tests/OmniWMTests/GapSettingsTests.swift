@@ -673,6 +673,11 @@ final class GapSettingsTests: XCTestCase {
         settings.borders.enabled = false
         let cases: [(WorkspaceBarPosition, CGRect, CGRect)] = [
             (
+                .overlappingMenuBar,
+                CGRect(x: 12, y: 14, width: 1416, height: 840),
+                CGRect(x: 0, y: 0, width: 1440, height: 860)
+            ),
+            (
                 .belowMenuBar,
                 CGRect(x: 12, y: 14, width: 1416, height: 816),
                 CGRect(x: 0, y: 0, width: 1440, height: 836)
@@ -691,6 +696,39 @@ final class GapSettingsTests: XCTestCase {
     }
 
     @MainActor
+    func testOverlappingBarReservesOnlyDisplayedIntrusionInLayoutFrames() {
+        let settings = makeSettingsStore()
+        settings.borders.enabled = false
+        settings.gaps.outerGapLeft = 0
+        settings.gaps.outerGapRight = 0
+        settings.gaps.outerGapTop = 0
+        settings.gaps.outerGapBottom = 0
+        settings.workspaceBar.enabled = true
+        settings.workspaceBar.position = .overlappingMenuBar
+        settings.workspaceBar.notchMode = .off
+        settings.workspaceBar.reserveLayoutSpace = true
+        let controller = WMController(settings: settings)
+        let monitor = Monitor(
+            id: .init(displayId: 1), displayId: 1,
+            frame: CGRect(x: 0, y: 0, width: 1440, height: 900),
+            visibleFrame: CGRect(x: 0, y: 0, width: 1440, height: 870),
+            hasNotch: false, name: "Built-in"
+        )
+        let cases: [(height: Double, yOffset: Double, reservedTop: CGFloat)] = [
+            (24, 0, 0), (32, 0, 2), (32, -5, 5), (32, 5, 2)
+        ]
+        for testCase in cases {
+            settings.workspaceBar.height = testCase.height
+            settings.workspaceBar.yOffset = testCase.yOffset
+            let frames = controller.layoutFrames(for: monitor, scale: 1)
+            let expected = CGRect(x: 0, y: 0, width: 1440, height: 870 - testCase.reservedTop)
+            XCTAssertEqual(frames.workingFrame, expected)
+            XCTAssertEqual(frames.fullscreenLayoutFrame, expected)
+            XCTAssertEqual(frames.borderSafeFillFrame, expected)
+        }
+    }
+
+    @MainActor
     func testFullscreenLayoutFrameUsesOuterGapsWhenPolicyEnabled() {
         let settings = makeSettingsStore()
         settings.gaps.outerGapLeft = 12
@@ -699,6 +737,7 @@ final class GapSettingsTests: XCTestCase {
         settings.gaps.outerGapBottom = 14
         settings.workspaceBar.reserveLayoutSpace = true
         settings.workspaceBar.height = 24
+        settings.workspaceBar.position = .belowMenuBar
         let controller = WMController(settings: settings)
         let monitor = Monitor(
             id: .init(displayId: 1),

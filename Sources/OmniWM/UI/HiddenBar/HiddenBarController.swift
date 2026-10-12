@@ -16,7 +16,7 @@ final class HiddenBarController {
     let capture: HiddenBarCaptureSession
     let reconcealment: HiddenBarReconcealment
     private let settings: SettingsStore
-    private let hider = AssessmentModeHider()
+    private let hider: NativeMenuBarHider
     private let itemService: MenuBarItemService
     private let panel = HiddenBarPanelController()
     private let iconCache = HiddenBarIconCache()
@@ -29,12 +29,13 @@ final class HiddenBarController {
     private var didSetup = false
     let performance = HiddenBarPerformanceCapture()
 
-    init(settings: SettingsStore) {
+    init(settings: SettingsStore, hider: NativeMenuBarHider = NativeMenuBarHider()) {
+        self.hider = hider
         self.settings = settings
         let itemService = MenuBarItemService()
         self.itemService = itemService
         forwarder = HiddenBarClickForwarder(itemService: itemService)
-        statusItems = HiddenBarStatusItems(hider: hider)
+        statusItems = HiddenBarStatusItems()
         capture = HiddenBarCaptureSession(itemService: itemService, iconCache: iconCache)
         reconcealment = HiddenBarReconcealment(itemService: itemService, performance: performance)
         capture.connect(controller: self)
@@ -46,14 +47,9 @@ final class HiddenBarController {
         iconCache.onChange = { [weak self] in
             self?.refreshPanelIfVisible()
         }
-        hider.onConcealingChanged = { [weak self] concealing in
-            self?.statusItems.handleConcealingChanged(concealing)
-        }
-        statusItems.setClickHandler { [weak self] event, anchor in
-            self?.statusItems.onFallbackIconClick?(event, anchor)
-        }
         panel.isExemptWindow = { [weak self] window in
             self?.statusItems.ownsStatusItemWindow(window) == true
+                || WorkspaceBarMenuButton.contains(NSApp.currentEvent, in: window)
         }
     }
 
@@ -61,25 +57,27 @@ final class HiddenBarController {
         hider.available
     }
 
+    func configureMotion(_ motionPolicy: MotionPolicy) {
+        panel.motionPolicy = motionPolicy
+    }
+
     var onCursorWarp: ((CGPoint) -> Void)? {
         get { forwarder.onCursorWarp }
         set { forwarder.onCursorWarp = newValue }
     }
 
-    func detectMenuBarApps() async -> [DetectedMenuBarApp] {
-        guard settings.effectiveHiddenBarEnabled, didSetup, itemService.isRunning else { return [] }
-        let snapshot = HiddenBarRunningAppsSnapshot.current(includingNames: true)
-        let apps = await itemService.scan(
-            candidates: snapshot.candidates,
-            ownBundleID: Bundle.main.bundleIdentifier
-        )
-        guard !Task.isCancelled, settings.effectiveHiddenBarEnabled, itemService.isRunning else { return [] }
-        hider.learn(apps)
-        return apps
+    var onPanelVisibilityChanged: (() -> Void)? {
+        get { panel.onVisibilityChanged }
+        set { panel.onVisibilityChanged = newValue }
     }
 
-    func displayName(for bundleID: String) -> String {
-        hider.displayName(for: bundleID) ?? bundleID
+    var onWorkspaceBarJoin: ((HiddenBarPanelPlacement.Join?) -> Void)? {
+        get { panel.onWorkspaceBarJoin }
+        set { panel.onWorkspaceBarJoin = newValue }
+    }
+
+    func systemSettingsAllowance() -> [String: Bool] {
+        hider.systemSettingsAllowance()
     }
 
     func setup() {
@@ -117,7 +115,6 @@ final class HiddenBarController {
             available: hider.available,
             hiddenBundleIDs: configured
         ) else {
-            observation.cancelTopologyRefresh()
             clearTemporaryReveals()
             hider.drop()
             panel.dismiss()
@@ -134,7 +131,6 @@ final class HiddenBarController {
         let unresolved = hiddenRunning.filter { !iconCache.hasResolvedItems(for: $0) }
         capture.reconcile(snapshot: snapshot, captureBundleIDs: Set(unresolved))
         refreshPanelIfVisible()
-        statusItems.syncFallbackIcon()
     }
 
     func setEnabled(_ enabled: Bool) {
@@ -150,7 +146,7 @@ final class HiddenBarController {
         }
         refreshItems()
         panel.toggle(placement: placement, items: HiddenBarGlyphProjection.current(
-            bundleIDs: settings.hiddenBar.hiddenBundleIDs, iconCache: iconCache, hider: hider
+            bundleIDs: settings.hiddenBar.hiddenBundleIDs, iconCache: iconCache
         ))
     }
 
@@ -161,8 +157,12 @@ final class HiddenBarController {
     func refreshPanelIfVisible() {
         guard panel.isVisible else { return }
         panel.refresh(items: HiddenBarGlyphProjection.current(
-            bundleIDs: settings.hiddenBar.hiddenBundleIDs, iconCache: iconCache, hider: hider
+            bundleIDs: settings.hiddenBar.hiddenBundleIDs, iconCache: iconCache
         ))
+    }
+
+    func updatePanelPlacement(_ placement: (Monitor.ID) -> HiddenBarPanelPlacement?) {
+        panel.updateWorkspaceBarPlacement(placement)
     }
 
     func cleanup() {
@@ -176,7 +176,6 @@ final class HiddenBarController {
         forwarder.cancel()
         clearTemporaryReveals()
         panel.teardown()
-        statusItems.dismiss()
         observation.removeObservers()
         hider.drop()
         if itemService.isRunning {
@@ -189,10 +188,6 @@ final class HiddenBarController {
         itemService.isRunning
     }
 
-    var isConcealing: Bool {
-        hider.isConcealing
-    }
-
     func refreshAvailabilityAndItems() {
         hider.refreshAvailability()
         refreshItems()
@@ -200,7 +195,6 @@ final class HiddenBarController {
 
     func refreshItems() {
         performance.recordRefresh()
-        statusItems.syncFallbackIcon()
         let configured = Set(settings.hiddenBar.hiddenBundleIDs)
         guard HiddenBarConcealmentPolicy.wantsRefresh(
             enabled: settings.effectiveHiddenBarEnabled,
@@ -227,10 +221,7 @@ final class HiddenBarController {
         )
     }
 
-    func applyConcealment(
-        runningBundleIDs: Set<String>,
-        bypassHysteresis: Bool = false
-    ) {
+    func applyConcealment(verifiedMenuItemBundleIDs: Set<String> = []) {
         let configured = Set(settings.hiddenBar.hiddenBundleIDs)
         guard HiddenBarConcealmentPolicy.wantsRefresh(
             enabled: settings.effectiveHiddenBarEnabled,
@@ -238,13 +229,13 @@ final class HiddenBarController {
             hiddenBundleIDs: configured
         ) else { return }
         hider.apply(
+            configuredBundleIDs: configured,
             hiddenBundleIDs: HiddenBarConcealmentPolicy.effectiveHiddenBundleIDs(
                 configured: configured,
                 temporarilyRevealed: temporarilyRevealed,
                 pendingCapture: capture.bundleIDs
             ),
-            runningBundleIDs: runningBundleIDs,
-            bypassHysteresis: bypassHysteresis
+            verifiedMenuItemBundleIDs: verifiedMenuItemBundleIDs
         )
     }
 }
@@ -375,10 +366,9 @@ extension HiddenBarController {
         temporarilyRevealed.insert(bundleID)
         capture.reconcile(
             snapshot: snapshot,
-            captureBundleIDs: [],
-            bypassHysteresis: true
+            captureBundleIDs: []
         )
-        guard !hider.conceals(bundleID) else {
+        guard hider.isRevealed(bundleID) else {
             temporarilyRevealed.remove(bundleID)
             return false
         }
@@ -454,18 +444,12 @@ extension HiddenBarController {
 
     func concealRevealed(_ bundleIDs: Set<String>) {
         temporarilyRevealed.subtract(bundleIDs)
-        applyConcealment(
-            runningBundleIDs: HiddenBarRunningAppsSnapshot.current().bundleIDs,
-            bypassHysteresis: true
-        )
+        applyConcealment()
     }
 
     func concealAllRevealed() {
         temporarilyRevealed.removeAll(keepingCapacity: true)
-        applyConcealment(
-            runningBundleIDs: HiddenBarRunningAppsSnapshot.current().bundleIDs,
-            bypassHysteresis: true
-        )
+        applyConcealment()
     }
 
     func startReconcealForTests(revealedBundleIDs: Set<String>) {

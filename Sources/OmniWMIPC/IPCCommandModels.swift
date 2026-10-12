@@ -40,6 +40,7 @@ public enum IPCCommandArgumentValue: Equatable, Sendable {
     case direction(IPCDirection)
     case integer(Int)
     case layout(IPCWorkspaceLayout)
+    case paletteMode(IPCCommandPaletteMode)
     case resizeAxis(IPCResizeAxis)
     case resizeOperation(IPCResizeOperation)
     case sizeChange(IPCSizeChange)
@@ -60,7 +61,9 @@ public enum IPCCommandRequest: Equatable, Sendable {
     case swapWorkspaceWithMonitor(direction: IPCDirection)
     case dwindle(IPCDwindleCommand)
     case openCommandPalette
+    case openCommandPaletteMode(mode: IPCCommandPaletteMode)
     case raiseAllFloatingWindows
+    case toggleFloatingFocus
     case rescueOffscreenWindows
     case workspaceLayout(IPCWorkspaceLayoutCommand)
     case fullscreen(IPCFullscreenCommand)
@@ -89,8 +92,12 @@ public enum IPCCommandRequest: Equatable, Sendable {
             .dwindle(command.name)
         case .openCommandPalette:
             .openCommandPalette
+        case .openCommandPaletteMode:
+            .openCommandPaletteMode
         case .raiseAllFloatingWindows:
             .raiseAllFloatingWindows
+        case .toggleFloatingFocus:
+            .toggleFloatingFocus
         case .rescueOffscreenWindows:
             .rescueOffscreenWindows
         case let .workspaceLayout(command):

@@ -195,6 +195,73 @@ final class HiddenBarActivationResolveTests: XCTestCase {
         )
     }
 
+    func testSoleUnnamedItemSurvivesChangedPixelsAndUsesFreshBounds() {
+        let fresh = ResolvedMenuBarItem(
+            key: key(0), pid: 1234,
+            bounds: CGRect(x: 500, y: 3, width: 36, height: 24)
+        )
+        let target = HiddenBarActivationPolicy.activationTarget(
+            for: key(0),
+            cachedItems: [item(ordinal: 0)],
+            cachedIcons: [key(0): icon(red: 1)],
+            freshItems: [fresh],
+            freshIcons: [key(0): icon(red: 0, green: 1)]
+        )
+
+        XCTAssertEqual(target?.bounds, fresh.bounds)
+        XCTAssertEqual(target?.pid, fresh.pid)
+    }
+
+    func testSoleUnnamedItemSurvivesMissingCapturedPixels() {
+        let captured = [key(0): icon(red: 1)]
+        let snapshots: [([MenuBarItemKey: CapturedIcon], [MenuBarItemKey: CapturedIcon])] = [
+            (captured, [:]), ([:], captured), ([:], [:])
+        ]
+        for (cachedIcons, freshIcons) in snapshots {
+            XCTAssertEqual(HiddenBarActivationPolicy.activationTarget(
+                for: key(0),
+                cachedItems: [item(ordinal: 0)],
+                cachedIcons: cachedIcons,
+                freshItems: [item(ordinal: 0)],
+                freshIcons: freshIcons
+            )?.key, key(0))
+        }
+    }
+
+    func testSoleUnnamedItemRejectsChangedProcess() {
+        XCTAssertNil(HiddenBarActivationPolicy.activationTarget(
+            for: key(0),
+            cachedItems: [item(ordinal: 0)],
+            cachedIcons: [:],
+            freshItems: [item(ordinal: 0, pid: 5678)],
+            freshIcons: [:]
+        ))
+    }
+
+    func testSoleUnnamedItemDoesNotIgnoreNewSemanticIdentity() {
+        XCTAssertNil(HiddenBarActivationPolicy.activationTarget(
+            for: key(0),
+            cachedItems: [item(ordinal: 0)],
+            cachedIcons: [:],
+            freshItems: [item(ordinal: 0, identity: identity("new"))],
+            freshIcons: [:]
+        ))
+    }
+
+    func testMultipleUnnamedItemsStillRequirePixelIdentity() {
+        let one = [item(ordinal: 0)]
+        let two = [item(ordinal: 0), item(ordinal: 1)]
+        for (cached, fresh) in [(one, two), (two, one), (two, two)] {
+            XCTAssertNil(HiddenBarActivationPolicy.activationTarget(
+                for: key(0),
+                cachedItems: cached,
+                cachedIcons: [:],
+                freshItems: fresh,
+                freshIcons: [:]
+            ))
+        }
+    }
+
     func testDuplicatePixelIdentityRejectsAmbiguousActivation() {
         let red = icon(red: 1)
         XCTAssertNil(HiddenBarActivationPolicy.activationTarget(
@@ -247,8 +314,8 @@ final class HiddenBarActivationResolveTests: XCTestCase {
                 selectedItem: selected,
                 cachedItems: [selected],
                 runningCandidates: [
-                    MenuBarAppCandidate(bundleID: bundleID, pid: 41, name: "Helper"),
-                    MenuBarAppCandidate(bundleID: bundleID, pid: 42, name: "Owner")
+                    MenuBarAppCandidate(bundleID: bundleID, pid: 41),
+                    MenuBarAppCandidate(bundleID: bundleID, pid: 42)
                 ]
             ),
             HiddenBarActivationOwner(pid: 42, allowsAuthoritativeEmpty: true)
@@ -261,8 +328,8 @@ final class HiddenBarActivationResolveTests: XCTestCase {
             selectedItem: nil,
             cachedItems: nil,
             runningCandidates: [
-                MenuBarAppCandidate(bundleID: bundleID, pid: 41, name: "Helper"),
-                MenuBarAppCandidate(bundleID: bundleID, pid: 42, name: "Owner")
+                MenuBarAppCandidate(bundleID: bundleID, pid: 41),
+                MenuBarAppCandidate(bundleID: bundleID, pid: 42)
             ]
         ))
     }
@@ -274,8 +341,8 @@ final class HiddenBarActivationResolveTests: XCTestCase {
                 selectedItem: nil,
                 cachedItems: [item(ordinal: 1, pid: 42)],
                 runningCandidates: [
-                    MenuBarAppCandidate(bundleID: bundleID, pid: 41, name: "Helper"),
-                    MenuBarAppCandidate(bundleID: bundleID, pid: 42, name: "Owner")
+                    MenuBarAppCandidate(bundleID: bundleID, pid: 41),
+                    MenuBarAppCandidate(bundleID: bundleID, pid: 42)
                 ]
             ),
             HiddenBarActivationOwner(pid: 42, allowsAuthoritativeEmpty: true)
@@ -289,7 +356,7 @@ final class HiddenBarActivationResolveTests: XCTestCase {
                 selectedItem: nil,
                 cachedItems: nil,
                 runningCandidates: [
-                    MenuBarAppCandidate(bundleID: bundleID, pid: 41, name: "Possible Helper")
+                    MenuBarAppCandidate(bundleID: bundleID, pid: 41)
                 ]
             ),
             HiddenBarActivationOwner(pid: 41, allowsAuthoritativeEmpty: false)
@@ -302,7 +369,7 @@ final class HiddenBarActivationResolveTests: XCTestCase {
             selectedItem: nil,
             cachedItems: [item(ordinal: 0, pid: 42)],
             runningCandidates: [
-                MenuBarAppCandidate(bundleID: bundleID, pid: 41, name: "Helper")
+                MenuBarAppCandidate(bundleID: bundleID, pid: 41)
             ]
         ))
     }

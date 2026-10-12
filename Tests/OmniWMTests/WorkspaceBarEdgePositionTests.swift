@@ -57,6 +57,110 @@ final class WorkspaceBarEdgePositionTests: XCTestCase {
         XCTAssertEqual(settings.resolved(for: monitor).notchMode, .splitActiveLeft)
     }
 
+    func testOverlappingReservationTracksScreenConstrainedBar() {
+        let monitor = Monitor(
+            id: .init(displayId: 7), displayId: 7,
+            frame: CGRect(x: -1440, y: -900, width: 1440, height: 900),
+            visibleFrame: CGRect(x: -1380, y: -840, width: 1380, height: 810),
+            hasNotch: false, name: "External"
+        )
+        let settings = WorkspaceBarSettings()
+        settings.position = .overlappingMenuBar
+        settings.notchMode = .off
+        settings.reserveLayoutSpace = true
+        let cases: [(height: Double, yOffset: Double, reservedTop: CGFloat)] = [
+            (24, 0, 0),
+            (32, 0, 2),
+            (40, 0, 10),
+            (32, -5, 5),
+            (32, 5, 2),
+            (24, -10, 10),
+            (24, 10, 0),
+            (24, -2000, 870),
+            (0, -10, 0),
+            (-10, -10, 0)
+        ]
+        for testCase in cases {
+            settings.height = testCase.height
+            settings.yOffset = testCase.yOffset
+            let resolved = settings.resolved(for: monitor)
+            let geometry = WorkspaceBarGeometry.resolve(monitor: monitor, resolved: resolved, isVisible: true)
+            XCTAssertEqual(
+                geometry.reservedInsets, Struts(top: testCase.reservedTop),
+                "height=\(testCase.height), yOffset=\(testCase.yOffset)"
+            )
+        }
+    }
+
+    func testOverlapDoesNotReserveWhenHiddenOrReservationDisabled() {
+        let settings = WorkspaceBarSettings()
+        settings.position = .overlappingMenuBar
+        settings.notchMode = .off
+        settings.height = 40
+        settings.yOffset = -10
+        settings.reserveLayoutSpace = true
+        XCTAssertEqual(
+            WorkspaceBarGeometry.resolve(
+                monitor: monitor, resolved: settings.resolved(for: monitor), isVisible: false
+            ).reservedInsets,
+            .zero
+        )
+        settings.reserveLayoutSpace = false
+        XCTAssertEqual(
+            WorkspaceBarGeometry.resolve(
+                monitor: monitor, resolved: settings.resolved(for: monitor), isVisible: true
+            ).reservedInsets,
+            .zero
+        )
+    }
+
+    func testBelowMenuBarAndNotchFallbackKeepFullHeightReservation() {
+        let settings = WorkspaceBarSettings()
+        settings.height = 24
+        settings.yOffset = -7
+        settings.reserveLayoutSpace = true
+        let cases: [(WorkspaceBarPosition, WorkspaceBarNotchMode)] = [
+            (.belowMenuBar, .off),
+            (.overlappingMenuBar, .moveBelowMenuBar),
+            (.overlappingMenuBar, .rightOfNotch)
+        ]
+        for (position, notchMode) in cases {
+            settings.position = position
+            settings.notchMode = notchMode
+            let resolved = settings.resolved(for: monitor)
+            let geometry = WorkspaceBarGeometry.resolve(monitor: monitor, resolved: resolved, isVisible: true)
+            XCTAssertEqual(geometry.effectivePosition, .belowMenuBar)
+            XCTAssertEqual(geometry.reservedInsets, Struts(top: 24))
+        }
+    }
+
+    func testOverlappingReservationMatchesPanelFrame() throws {
+        guard let screen = NSScreen.screens.first else {
+            throw XCTSkip("Requires an NSScreen to check the panel's frame constraint")
+        }
+        let monitor = Monitor(
+            id: .init(displayId: 7), displayId: 7,
+            frame: screen.frame, visibleFrame: screen.visibleFrame,
+            hasNotch: false, name: "Test"
+        )
+        let panel = WorkspaceBarPanel.defaultPanel()
+        defer { panel.close() }
+        let settings = WorkspaceBarSettings()
+        settings.position = .overlappingMenuBar
+        settings.notchMode = .off
+        settings.height = Double(screen.frame.maxY - screen.visibleFrame.maxY + 2)
+        settings.reserveLayoutSpace = true
+        for yOffset in [-5.0, 0, 10] {
+            settings.yOffset = yOffset
+            let resolved = settings.resolved(for: monitor)
+            let geometry = WorkspaceBarGeometry.resolve(monitor: monitor, resolved: resolved, isVisible: true)
+            let frame = panel.constrainFrameRect(
+                geometry.frame(fittingLength: 200, monitor: monitor, resolved: resolved), to: screen
+            )
+            XCTAssertEqual(geometry.reservedInsets.top, max(0, monitor.visibleFrame.maxY - frame.minY))
+        }
+    }
+
     func testStatsAttachmentTracksDisplayedBarAfterMovement() async throws {
         let root = FileManager.default.temporaryDirectory.appendingPathComponent(UUID().uuidString)
         defer { try? FileManager.default.removeItem(at: root) }

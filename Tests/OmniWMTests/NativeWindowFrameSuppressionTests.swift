@@ -252,7 +252,7 @@ final class NativeWindowFrameSuppressionTests: XCTestCase {
             lane: lane,
             drainId: drain.id
         )).execute(
-            drain.items.map(\.request),
+            drain.items.span,
             axApp: AXUIElementCreateApplication(688_201),
             isCancelled: { false }
         )

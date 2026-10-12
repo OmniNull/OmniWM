@@ -19,10 +19,12 @@ extension WindowMovementAction {
     func actionDisplayName() -> LocalizedStringResource {
         switch self {
         case .down: LocalizedStringResource(
-                "command.window.reorderDown", defaultValue: "Reorder Window Down", table: "Commands", bundle: .omniWM
+                "command.window.reorderDown", defaultValue: "Move Window to Next Position", table: "Commands",
+                bundle: .omniWM
             )
         case .up: LocalizedStringResource(
-                "command.window.reorderUp", defaultValue: "Reorder Window Up", table: "Commands", bundle: .omniWM
+                "command.window.reorderUp", defaultValue: "Move Window to Previous Position", table: "Commands",
+                bundle: .omniWM
             )
         case .downOrToWorkspaceDown: LocalizedStringResource(
                 "command.window.downOrWorkspaceDown", defaultValue: "Move Window Down or to Workspace Down",
@@ -41,12 +43,14 @@ extension WindowMovementAction {
                 bundle: .omniWM
             )
         case .consumeIntoColumn: LocalizedStringResource(
-                "command.window.consumeIntoColumn", defaultValue: "Consume Window into Column", table: "Commands",
-                bundle: .omniWM
+                "command.window.consumeIntoColumn",
+                defaultValue: "Pull Top Window from Next Column into Focused Column",
+                table: "Commands", bundle: .omniWM
             )
         case .expelFromColumn: LocalizedStringResource(
-                "command.window.expelFromColumn", defaultValue: "Expel Window from Column", table: "Commands",
-                bundle: .omniWM
+                "command.window.expelFromColumn",
+                defaultValue: "Push Bottom Window from Focused Column into New Column",
+                table: "Commands", bundle: .omniWM
             )
         }
     }

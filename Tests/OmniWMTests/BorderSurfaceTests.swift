@@ -1038,6 +1038,41 @@ final class BorderSurfaceTests: XCTestCase {
     }
 
     @MainActor
+    func testReturningFocusKeepsCachedNativeCornersWhileRefreshing() async throws {
+        let recorder = BorderOperationsRecorder()
+        let probe = DeferredCornerProbe()
+        let applier = probe.applier(recorder)
+        defer { applier.cleanup() }
+        for (windowId, radius) in [(77, 24.0), (78, 12.0)] {
+            let requested = expectation(description: "corners requested for \(windowId)")
+            probe.onRequest = { requested.fulfill() }
+            _ = applier.apply(desired(configRed, token: token(windowId: windowId)), forceOrdering: false)
+            await fulfillment(of: [requested], timeout: 1)
+            let resolved = expectation(description: "corners resolved for \(windowId)")
+            applier.onCornerSampleResolved = { resolved.fulfill() }
+            probe.complete(sample(WindowCornerRadii(uniform: radius)))
+            await fulfillment(of: [resolved], timeout: 1)
+        }
+        let panel = try XCTUnwrap(recorder.layerPanels.first)
+        for (windowId, radius) in [(77, 24.0), (78, 12.0), (77, 26.0)] {
+            let requested = expectation(description: "refresh corners for \(windowId)")
+            probe.onRequest = { requested.fulfill() }
+            _ = applier.apply(desired(configRed, token: token(windowId: windowId)), forceOrdering: false)
+            XCTAssertEqual(panel.renderedCornerRadii, WindowCornerRadii(uniform: radius))
+            XCTAssertEqual(panel.borderLayer.rimOpacity, 1)
+            XCTAssertTrue(panel.gradientStrokeLayer.isHidden)
+            await fulfillment(of: [requested], timeout: 1)
+            let resolved = expectation(description: "updated corners for \(windowId)")
+            applier.onCornerSampleResolved = { resolved.fulfill() }
+            probe.complete(sample(WindowCornerRadii(uniform: radius + 2)))
+            await fulfillment(of: [resolved], timeout: 1)
+            _ = applier.apply(desired(configRed, token: token(windowId: windowId)), forceOrdering: false)
+            XCTAssertEqual(panel.renderedCornerRadii, WindowCornerRadii(uniform: radius + 2))
+        }
+        XCTAssertEqual(probe.requests.count, 5)
+    }
+
+    @MainActor
     func testDeferredCornersDoNotInheritAnotherTargetsCache() async throws {
         let recorder = BorderOperationsRecorder()
         let probe = DeferredCornerProbe()
@@ -1784,6 +1819,61 @@ final class WindowCornerRadiiTests: XCTestCase {
 
         XCTAssertEqual(SurfaceDerivation.deriveAnimationBorder(world: world, previous: previous)?.frame, cached)
         XCTAssertEqual(SurfaceDerivation.deriveBorder(world: world)?.frame, live)
+    }
+
+    @MainActor
+    func testAnimationBorderKeepsRoundedConsumedWindowFrameAfterReadback() throws {
+        let (controller, initialEntry) = try borderFrameFixture()
+        XCTAssertTrue(controller.workspaceManager.setWindowMode(.tiling, for: initialEntry.token))
+        let entry = try XCTUnwrap(controller.workspaceManager.entry(for: initialEntry.token))
+        controller.hasStartedServices = true
+        controller.settings.borders.enabled = true
+        defer { controller.hasStartedServices = false }
+        XCTAssertTrue(controller.workspaceManager.setManagedFocus(entry.token, in: entry.workspaceId))
+        let fullHeight = CGRect(x: 10, y: 10, width: 1265, height: 1395)
+        let target = CGRect(x: 10, y: 10, width: 1265, height: 692.5)
+        let observed = CGRect(x: 10, y: 9, width: 1265, height: 693)
+        controller.axManager.confirmFrameWrite(for: entry.windowId, frame: fullHeight)
+        let world = WorldView(controller: controller, liveBoundsProvider: { _ in
+            XCTFail("Animation border must not query live bounds")
+            return nil
+        })
+        let originalBorder = try XCTUnwrap(SurfaceDerivation.deriveAnimationBorder(world: world, previous: nil))
+        XCTAssertEqual(originalBorder.frame, fullHeight)
+        let request = try XCTUnwrap(controller.axManager.stageFrameWrite(for: .init(
+            pid: entry.pid, window: entry.axRef, frame: target
+        )))
+        let pendingBorder = try XCTUnwrap(SurfaceDerivation.deriveAnimationBorder(
+            world: world,
+            previous: originalBorder
+        ))
+        XCTAssertEqual(pendingBorder.frame, target)
+
+        let outcome = controller.axManager.frameLedger.handleFrameApplyResults([AXFrameApplyResult(
+            requestId: request.requestId,
+            pid: request.pid,
+            windowId: request.windowId,
+            expectedWindow: request.expectedWindow,
+            targetFrame: request.frame,
+            currentFrameHint: request.currentFrameHint,
+            writeResult: AXFrameWriteResult(
+                observedFrame: observed,
+                writeOrder: .sizeThenPosition,
+                sizeError: .success,
+                positionError: .success,
+                failureReason: axFrameMatches(observed, target: target, components: .all) ? nil : .verificationMismatch
+            ),
+            didAttemptWrite: true
+        )])
+
+        XCTAssertTrue(outcome.retries.isEmpty)
+        XCTAssertFalse(controller.axManager.hasPendingFrameWrite(for: entry.windowId))
+        let observedBorder = try XCTUnwrap(SurfaceDerivation.deriveAnimationBorder(
+            world: world,
+            previous: pendingBorder
+        ))
+        XCTAssertEqual(observedBorder.frame, observed)
+        XCTAssertEqual(SurfaceDerivation.deriveAnimationBorder(world: world, previous: observedBorder)?.frame, observed)
     }
 
     @MainActor

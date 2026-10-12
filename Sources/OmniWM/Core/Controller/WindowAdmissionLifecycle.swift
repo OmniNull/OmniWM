@@ -245,6 +245,7 @@ struct ManagedReplacementFocusKey: Hashable, Equatable {
 struct ManagedWindowIdentityRebindSource {
     let handle: WindowHandle
     let requestOrder: UInt64
+    var closedToken: WindowToken?
 }
 
 struct AdmissionRetrySchedule {

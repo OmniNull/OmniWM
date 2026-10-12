@@ -12,66 +12,66 @@ final class OverviewMouseButtonTests: XCTestCase {
         defer { controller.windowActionHandler.invalidateOverviewDeferredActionsForServiceStop() }
         let handler = controller.mouseEventHandler
         try controller.settings.setOverviewMouseButton(2)
-        XCTAssertTrue(handler.receiveTapOverviewMouseButton(type: .otherMouseDown, button: 2))
+        XCTAssertTrue(handler.receiveTapOtherMouseButton(type: .otherMouseDown, button: 2))
         XCTAssertTrue(controller.windowActionHandler.isOverviewOpen())
-        XCTAssertTrue(handler.receiveTapOverviewMouseButton(type: .otherMouseDown, button: 2))
+        XCTAssertTrue(handler.receiveTapOtherMouseButton(type: .otherMouseDown, button: 2))
         XCTAssertTrue(controller.windowActionHandler.isOverviewOpen())
         try controller.settings.setOverviewMouseButton(4)
-        XCTAssertTrue(handler.receiveTapOverviewMouseButton(type: .otherMouseDragged, button: 2))
-        XCTAssertFalse(handler.receiveTapOverviewMouseButton(type: .otherMouseUp, button: 4))
-        XCTAssertEqual(handler.state.capturedOverviewButton, 2)
-        XCTAssertTrue(handler.receiveTapOverviewMouseButton(type: .otherMouseUp, button: 2))
-        XCTAssertNil(handler.state.capturedOverviewButton)
+        XCTAssertTrue(handler.receiveTapOtherMouseButton(type: .otherMouseDragged, button: 2))
+        XCTAssertFalse(handler.receiveTapOtherMouseButton(type: .otherMouseUp, button: 4))
+        XCTAssertEqual(handler.state.capturedOtherMouseButton, 2)
+        XCTAssertTrue(handler.receiveTapOtherMouseButton(type: .otherMouseUp, button: 2))
+        XCTAssertNil(handler.state.capturedOtherMouseButton)
         XCTAssertTrue(controller.windowActionHandler.isOverviewOpen())
-        XCTAssertTrue(handler.receiveTapOverviewMouseButton(type: .otherMouseDown, button: 4))
+        XCTAssertTrue(handler.receiveTapOtherMouseButton(type: .otherMouseDown, button: 4))
         XCTAssertFalse(controller.windowActionHandler.isOverviewOpen())
         try controller.settings.setOverviewMouseButton(nil)
         controller.isEnabled = false
         controller.isLockScreenActive = true
-        XCTAssertTrue(handler.receiveTapOverviewMouseButton(type: .otherMouseUp, button: 4))
-        XCTAssertNil(handler.state.capturedOverviewButton)
+        XCTAssertTrue(handler.receiveTapOtherMouseButton(type: .otherMouseUp, button: 4))
+        XCTAssertNil(handler.state.capturedOtherMouseButton)
     }
 
     func testUnassignedDisabledLockedAndOwnedInputDoNotActivateOverview() throws {
         let controller = makeController()
         let handler = controller.mouseEventHandler
-        XCTAssertFalse(handler.receiveTapOverviewMouseButton(type: .otherMouseDown, button: 2))
+        XCTAssertFalse(handler.receiveTapOtherMouseButton(type: .otherMouseDown, button: 2))
         try controller.settings.setOverviewMouseButton(2)
-        XCTAssertFalse(handler.receiveTapOverviewMouseButton(type: .otherMouseDown, button: 3))
+        XCTAssertFalse(handler.receiveTapOtherMouseButton(type: .otherMouseDown, button: 3))
         controller.isEnabled = false
-        XCTAssertFalse(handler.receiveTapOverviewMouseButton(type: .otherMouseDown, button: 2))
+        XCTAssertFalse(handler.receiveTapOtherMouseButton(type: .otherMouseDown, button: 2))
         controller.isEnabled = true
         controller.isLockScreenActive = true
-        XCTAssertFalse(handler.receiveTapOverviewMouseButton(type: .otherMouseDown, button: 2))
+        XCTAssertFalse(handler.receiveTapOtherMouseButton(type: .otherMouseDown, button: 2))
         controller.isLockScreenActive = false
         handler.state.capturedInteractionButton = .right
-        XCTAssertFalse(handler.receiveTapOverviewMouseButton(type: .otherMouseDown, button: 2))
+        XCTAssertFalse(handler.receiveTapOtherMouseButton(type: .otherMouseDown, button: 2))
         handler.state.capturedInteractionButton = nil
         handler.state.gesturePhase = .armed
-        XCTAssertFalse(handler.receiveTapOverviewMouseButton(type: .otherMouseDown, button: 2))
+        XCTAssertFalse(handler.receiveTapOtherMouseButton(type: .otherMouseDown, button: 2))
         handler.state.gesturePhase = .idle
         handler.state.isMoving = true
-        XCTAssertFalse(handler.receiveTapOverviewMouseButton(type: .otherMouseDown, button: 2))
+        XCTAssertFalse(handler.receiveTapOtherMouseButton(type: .otherMouseDown, button: 2))
         handler.state.isMoving = false
         XCTAssertFalse(controller.windowActionHandler.isOverviewOpen())
-        XCTAssertNil(handler.state.capturedOverviewButton)
+        XCTAssertNil(handler.state.capturedOtherMouseButton)
     }
 
     func testDisablingOverviewPassesNewPressAndConsumesCapturedRelease() throws {
         let controller = makeController()
         let handler = controller.mouseEventHandler
         try controller.settings.setOverviewMouseButton(2)
-        XCTAssertTrue(handler.receiveTapOverviewMouseButton(type: .otherMouseDown, button: 2))
+        XCTAssertTrue(handler.receiveTapOtherMouseButton(type: .otherMouseDown, button: 2))
         XCTAssertTrue(controller.isOverviewOpen())
 
         controller.setOverviewEnabled(false)
 
         XCTAssertFalse(controller.isOverviewOpen())
-        XCTAssertTrue(handler.receiveTapOverviewMouseButton(type: .otherMouseUp, button: 2))
-        XCTAssertFalse(handler.receiveTapOverviewMouseButton(type: .otherMouseDown, button: 2))
-        XCTAssertNil(handler.state.capturedOverviewButton)
+        XCTAssertTrue(handler.receiveTapOtherMouseButton(type: .otherMouseUp, button: 2))
+        XCTAssertFalse(handler.receiveTapOtherMouseButton(type: .otherMouseDown, button: 2))
+        XCTAssertNil(handler.state.capturedOtherMouseButton)
         controller.setOverviewEnabled(true)
-        XCTAssertTrue(handler.receiveTapOverviewMouseButton(type: .otherMouseDown, button: 2))
+        XCTAssertTrue(handler.receiveTapOtherMouseButton(type: .otherMouseDown, button: 2))
         XCTAssertTrue(controller.isOverviewOpen())
         controller.windowActionHandler.invalidateOverviewDeferredActionsForServiceStop()
     }
@@ -101,17 +101,17 @@ final class OverviewMouseButtonTests: XCTestCase {
         let controller = makeController()
         let handler = controller.mouseEventHandler
         try controller.settings.setOverviewMouseButton(4)
-        handler.state.capturedOverviewButton = 4
+        handler.state.capturedOtherMouseButton = 4
         try controller.settings.setOverviewMouseButton(3)
         try controller.settings.setSystemHyperTrigger(.mouseButton(4))
-        XCTAssertEqual(controller.hotkeys.isOverviewMouseButtonCaptured?(4), true)
-        XCTAssertEqual(controller.hotkeys.isOverviewMouseButtonCaptured?(3), false)
-        XCTAssertTrue(handler.receiveTapOverviewMouseButton(type: .otherMouseDown, button: 4))
-        XCTAssertTrue(handler.receiveTapOverviewMouseButton(type: .otherMouseUp, button: 4))
-        XCTAssertEqual(controller.hotkeys.isOverviewMouseButtonCaptured?(4), false)
+        XCTAssertEqual(controller.hotkeys.isMouseButtonCaptured?(4), true)
+        XCTAssertEqual(controller.hotkeys.isMouseButtonCaptured?(3), false)
+        XCTAssertTrue(handler.receiveTapOtherMouseButton(type: .otherMouseDown, button: 4))
+        XCTAssertTrue(handler.receiveTapOtherMouseButton(type: .otherMouseUp, button: 4))
+        XCTAssertEqual(controller.hotkeys.isMouseButtonCaptured?(4), false)
         try controller.settings.setSystemHyperTrigger(.none)
         try controller.settings.setOverviewMouseButton(4)
-        XCTAssertTrue(handler.receiveTapOverviewMouseButton(type: .otherMouseDown, button: 4))
+        XCTAssertTrue(handler.receiveTapOtherMouseButton(type: .otherMouseDown, button: 4))
         XCTAssertTrue(controller.windowActionHandler.isOverviewOpen())
         controller.windowActionHandler.invalidateOverviewDeferredActionsForServiceStop()
     }
@@ -120,17 +120,17 @@ final class OverviewMouseButtonTests: XCTestCase {
         let controller = makeController()
         let handler = controller.mouseEventHandler
         for button: Int64 in 2 ... 5 {
-            handler.state.capturedOverviewButton = button
+            handler.state.capturedOtherMouseButton = button
             handler.pressedMouseButtonsProvider = { 1 << Int(button) }
             handler.recoverAfterTapDisable()
-            XCTAssertEqual(handler.state.capturedOverviewButton, button)
+            XCTAssertEqual(handler.state.capturedOtherMouseButton, button)
             handler.pressedMouseButtonsProvider = { 0 }
             handler.recoverAfterTapDisable()
-            XCTAssertNil(handler.state.capturedOverviewButton)
+            XCTAssertNil(handler.state.capturedOtherMouseButton)
         }
-        handler.state.capturedOverviewButton = 3
+        handler.state.capturedOtherMouseButton = 3
         handler.cleanup()
-        XCTAssertNil(handler.state.capturedOverviewButton)
+        XCTAssertNil(handler.state.capturedOtherMouseButton)
     }
 
     func testConflictsRejectEitherUIAssignmentAndRuntimeDefersToHyper() throws {
@@ -147,8 +147,8 @@ final class OverviewMouseButtonTests: XCTestCase {
             XCTAssertEqual(settings.overview.mouseButton, 4)
         }
         settings.overview.mouseButton = 3
-        XCTAssertFalse(controller.mouseEventHandler.receiveTapOverviewMouseButton(type: .otherMouseDown, button: 3))
-        XCTAssertNil(controller.mouseEventHandler.state.capturedOverviewButton)
+        XCTAssertFalse(controller.mouseEventHandler.receiveTapOtherMouseButton(type: .otherMouseDown, button: 3))
+        XCTAssertNil(controller.mouseEventHandler.state.capturedOtherMouseButton)
     }
 
     func testConflictingExternalReloadRetainsValidConfigurationAndReportsError() throws {

@@ -4,9 +4,21 @@
 import AppKit
 
 @MainActor
-final class WorkspaceBarPanel: NSPanel {
+final class WorkspaceBarPanel: NSPanel, NSWindowDelegate {
     var targetScreen: NSScreen?
     var interactionHandler: ((NSEvent, WorkspaceBarPanel) -> Bool)?
+    var onSheetChanged: (() -> Void)?
+    private(set) var hasPresentedSheet = false
+
+    func windowWillBeginSheet(_ notification: Notification) {
+        hasPresentedSheet = true
+        onSheetChanged?()
+    }
+
+    func windowDidEndSheet(_ notification: Notification) {
+        hasPresentedSheet = false
+        onSheetChanged?()
+    }
 
     override func sendEvent(_ event: NSEvent) {
         if interactionHandler?(event, self) == true { return }
@@ -22,7 +34,9 @@ final class WorkspaceBarPanel: NSPanel {
         let screenFrame = constrainingScreen.frame
 
         constrained.origin.x = max(screenFrame.minX, min(constrained.origin.x, screenFrame.maxX - constrained.width))
-        constrained.origin.y = max(screenFrame.minY, min(constrained.origin.y, screenFrame.maxY - constrained.height))
+        constrained.origin.y = WorkspaceBarGeometry.constrainedOriginY(
+            constrained.origin.y, height: constrained.height, screenFrame: screenFrame
+        )
 
         return constrained
     }
@@ -35,6 +49,7 @@ final class WorkspaceBarPanel: NSPanel {
             defer: false
         )
 
+        panel.delegate = panel
         panel.collectionBehavior = [.canJoinAllSpaces, .fullScreenAuxiliary, .stationary]
         panel.isOpaque = false
         panel.backgroundColor = .clear

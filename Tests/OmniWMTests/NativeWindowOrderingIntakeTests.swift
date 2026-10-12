@@ -255,4 +255,231 @@ final class NativeWindowOrderingIntakeTests: XCTestCase {
         await task.value
         XCTAssertEqual(controller.workspaceManager.entry(for: token)?.observedState.isNativeWithdrawn, true)
     }
+
+    func testVisibilityEventsWithdrawAndRestoreWindowHiddenByItsApp() async throws {
+        let controller = try controller()
+        defer { cleanup(controller) }
+        let handler = controller.axEventHandler
+        let handle = controller.workspaceManager.handle(for: token)
+        for (orderedIn, withdrawn) in [(false, true), (true, false)] {
+            let windowInfo = info(orderedIn: orderedIn)
+            handler.lifecycleQueries.query = { _ in windowInfo }
+            handler.handleCGSEvent(.visibilityChanged(windowId: UInt32(token.windowId), orderedIn: orderedIn))
+            await handler.lifecycleQueries.task?.value
+            XCTAssertEqual(controller.workspaceManager.entry(for: token)?.observedState.isNativeWithdrawn, withdrawn)
+            XCTAssertTrue(controller.workspaceManager.handle(for: token) === handle)
+        }
+    }
+
+    func testRaisingVisibleWindowDoesNotQueryVisibility() async throws {
+        let controller = try controller()
+        defer { cleanup(controller) }
+        let handler = controller.axEventHandler
+        var queries = 0
+        handler.lifecycleQueries.query = { _ in
+            queries += 1
+            return nil
+        }
+        handler.handleCGSEvent(.visibilityChanged(windowId: UInt32(token.windowId), orderedIn: true))
+        XCTAssertNil(handler.lifecycleQueries.task)
+        XCTAssertEqual(queries, 0)
+    }
+
+    func testShowArrivingDuringHideSampleRestoresWindow() async throws {
+        let controller = try controller()
+        defer { cleanup(controller) }
+        let handler = controller.axEventHandler
+        let gate = LifecycleQueryGate()
+        defer { gate.resume() }
+        let started = expectation(description: "hide sample started")
+        let shown = info(orderedIn: true)
+        var queries = 0
+        handler.lifecycleQueries.query = { _ in
+            queries += 1
+            guard queries == 1 else { return shown }
+            started.fulfill()
+            return await gate.wait()
+        }
+        handler.handleCGSEvent(.visibilityChanged(windowId: UInt32(token.windowId), orderedIn: false))
+        let task = try XCTUnwrap(handler.lifecycleQueries.task)
+        await fulfillment(of: [started], timeout: 2)
+        handler.handleCGSEvent(.visibilityChanged(windowId: UInt32(token.windowId), orderedIn: true))
+        gate.resume(info(orderedIn: false))
+        await task.value
+        XCTAssertEqual(queries, 2)
+        XCTAssertEqual(controller.workspaceManager.entry(for: token)?.observedState.isNativeWithdrawn, false)
+    }
+
+    func testFocusedWindowHiddenByItsAppIsWithdrawnOnceNativeFocusMovesAway() async throws {
+        for movesToOwnedSurface in [false, true] {
+            let controller = try controller()
+            defer { cleanup(controller) }
+            let handler = controller.axEventHandler
+            let workspace = try XCTUnwrap(controller.workspaceManager.entry(for: token)?.workspaceId)
+            XCTAssertTrue(controller.workspaceManager.setManagedFocus(token, in: workspace))
+            let hidden = info(orderedIn: false)
+            var queries = 0
+            handler.lifecycleQueries.query = { _ in
+                queries += 1
+                return hidden
+            }
+
+            handler.handleCGSEvent(.visibilityChanged(windowId: UInt32(token.windowId), orderedIn: false))
+            await handler.lifecycleQueries.task?.value
+            XCTAssertEqual(controller.workspaceManager.entry(for: token)?.observedState.isNativeWithdrawn, false)
+            XCTAssertEqual(controller.workspaceManager.nativeManagedFocusToken, token)
+
+            handler.handleAppDeactivated(pid: token.pid)
+            XCTAssertNil(handler.lifecycleQueries.task)
+            XCTAssertEqual(queries, 1)
+
+            if movesToOwnedSurface {
+                XCTAssertTrue(controller.workspaceManager.recordOwnedSurfaceFocus())
+            } else {
+                XCTAssertTrue(controller.workspaceManager.recordExternalFocus(pid: token.pid + 1))
+            }
+            await handler.lifecycleQueries.task?.value
+            XCTAssertEqual(queries, 2)
+            XCTAssertEqual(controller.workspaceManager.entry(for: token)?.observedState.isNativeWithdrawn, true)
+
+            _ = controller.workspaceManager.recordExternalFocus(pid: token.pid + 2)
+            XCTAssertNil(handler.lifecycleQueries.task)
+            XCTAssertEqual(queries, 2)
+        }
+    }
+
+    func testResolvedOrRetiredDeferredWindowIsNotRequeried() async throws {
+        for retires in [false, true] {
+            let controller = try controller()
+            defer { cleanup(controller) }
+            let handler = controller.axEventHandler
+            let workspace = try XCTUnwrap(controller.workspaceManager.entry(for: token)?.workspaceId)
+            XCTAssertTrue(controller.workspaceManager.setManagedFocus(token, in: workspace))
+            let hidden = info(orderedIn: false)
+            var queries = 0
+            handler.lifecycleQueries.query = { _ in
+                queries += 1
+                return hidden
+            }
+            handler.handleCGSEvent(.visibilityChanged(windowId: UInt32(token.windowId), orderedIn: false))
+            await handler.lifecycleQueries.task?.value
+            XCTAssertEqual(handler.lifecycleQueries.visibilityRechecksAfterFocusLoss, [token])
+
+            if retires {
+                _ = controller.workspaceManager.removeWindow(pid: token.pid, windowId: token.windowId)
+            } else {
+                handler.applyObservedWindowOrdering(info(orderedIn: true), token: token)
+            }
+            _ = controller.workspaceManager.recordExternalFocus(pid: token.pid + 1)
+
+            XCTAssertNil(handler.lifecycleQueries.task)
+            XCTAssertEqual(queries, 1)
+            XCTAssertTrue(handler.lifecycleQueries.visibilityRechecksAfterFocusLoss.isEmpty)
+        }
+    }
+
+    func testHideSampleWaitsForQueuedDestruction() async throws {
+        let controller = try controller()
+        defer { cleanup(controller) }
+        let handler = controller.axEventHandler
+        let manager = controller.workspaceManager
+        let gate = LifecycleQueryGate()
+        defer { gate.resume() }
+        let started = expectation(description: "hide sample started")
+        let hidden = info(orderedIn: false)
+        let token = token
+        var queries = 0
+        var withdrawnBeforeDestruction: Bool?
+        handler.lifecycleQueries.query = { _ in
+            queries += 1
+            switch queries {
+            case 1:
+                started.fulfill()
+                return await gate.wait()
+            case 2:
+                withdrawnBeforeDestruction = manager.entry(for: token)?.observedState.isNativeWithdrawn
+                return nil
+            default:
+                return hidden
+            }
+        }
+        handler.handleCGSEvent(.visibilityChanged(windowId: UInt32(token.windowId), orderedIn: false))
+        let task = try XCTUnwrap(handler.lifecycleQueries.task)
+        await fulfillment(of: [started], timeout: 2)
+        handler.handleCGSEvent(.closed(windowId: UInt32(token.windowId)))
+        gate.resume(hidden)
+        await task.value
+        XCTAssertEqual(withdrawnBeforeDestruction, false)
+        XCTAssertNil(manager.entry(for: token))
+        XCTAssertEqual(queries, 3)
+    }
+
+    func testWithdrawnSlotMovedToNewWindowRechecksThatWindow() async throws {
+        let controller = try controller()
+        defer { cleanup(controller) }
+        let handler = controller.axEventHandler
+        handler.updateWindowNativeWithdrawalState(true, token: token, requestRefresh: false)
+        let replacement = WindowToken(pid: token.pid, windowId: token.windowId + 1)
+        let shown = WindowServerInfo(
+            id: UInt32(replacement.windowId), pid: replacement.pid, level: 0,
+            frame: CGRect(x: 10, y: 10, width: 800, height: 600), isOrderedIn: true
+        )
+        var queriedWindowIds: [UInt32] = []
+        handler.lifecycleQueries.query = { windowId in
+            queriedWindowIds.append(windowId)
+            return shown
+        }
+
+        let result = handler.rekeyManagedWindowIdentity(
+            from: token, to: replacement, windowId: UInt32(replacement.windowId),
+            axRef: WindowAdmissionTestSupport.axRef(for: replacement)
+        )
+        XCTAssertEqual(result.committedEntry?.observedState.isNativeWithdrawn, true)
+        await handler.lifecycleQueries.task?.value
+        XCTAssertEqual(queriedWindowIds, [UInt32(replacement.windowId)])
+        XCTAssertEqual(controller.workspaceManager.entry(for: replacement)?.observedState.isNativeWithdrawn, false)
+    }
+
+    func testParkedWindowHiddenByItsAppIsWithdrawn() async throws {
+        let controller = try controller()
+        defer { cleanup(controller) }
+        let handler = controller.axEventHandler
+        controller.workspaceManager.setHiddenState(
+            HiddenState(proportionalPosition: .zero, referenceMonitorId: nil, reason: .workspaceInactive),
+            for: token
+        )
+        let hidden = info(orderedIn: false)
+        handler.lifecycleQueries.query = { _ in hidden }
+        handler.handleCGSEvent(.visibilityChanged(windowId: UInt32(token.windowId), orderedIn: false))
+        await handler.lifecycleQueries.task?.value
+        XCTAssertEqual(controller.workspaceManager.entry(for: token)?.observedState.isNativeWithdrawn, true)
+    }
+
+    func testVisibilitySampleOverlappingWorkspaceSwitchIsResampled() async throws {
+        let controller = try controller()
+        defer { cleanup(controller) }
+        let handler = controller.axEventHandler
+        let gate = LifecycleQueryGate()
+        defer { gate.resume() }
+        let started = expectation(description: "visibility query started")
+        let hidden = info(orderedIn: false)
+        var queries = 0
+        handler.lifecycleQueries.query = { _ in
+            queries += 1
+            guard queries == 1 else { return hidden }
+            started.fulfill()
+            return await gate.wait()
+        }
+        handler.handleCGSEvent(.visibilityChanged(windowId: UInt32(token.windowId), orderedIn: false))
+        let task = try XCTUnwrap(handler.lifecycleQueries.task)
+        await fulfillment(of: [started], timeout: 2)
+        controller.workspaceManager.setHiddenState(
+            HiddenState(proportionalPosition: .zero, referenceMonitorId: nil, reason: .workspaceInactive),
+            for: token
+        )
+        gate.resume(info(orderedIn: true))
+        await task.value
+        XCTAssertEqual(queries, 2)
+        XCTAssertEqual(controller.workspaceManager.entry(for: token)?.observedState.isNativeWithdrawn, true)
+    }
 }

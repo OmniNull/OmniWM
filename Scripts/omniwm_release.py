@@ -70,8 +70,24 @@ class Config:
 
     @classmethod
     def from_environment(cls) -> "Config":
+        main_repo = os.environ.get("OMNIWM_RELEASE_MAIN_REPO")
+        if os.environ.get("GITHUB_ACTIONS") == "true":
+            require(bool(main_repo), "OMNIWM_RELEASE_MAIN_REPO must be set in GitHub Actions")
+            checkout = Path(main_repo)
+            require(
+                checkout.is_dir() and (checkout / ".git").exists(),
+                "OMNIWM_RELEASE_MAIN_REPO must point to a Git checkout in GitHub Actions",
+            )
+            result = Runner().run(
+                ["git", "rev-parse", "--is-inside-work-tree"],
+                cwd=checkout, check=False, quiet=True,
+            )
+            require(
+                result.returncode == 0 and result.stdout.strip() == "true",
+                "OMNIWM_RELEASE_MAIN_REPO must point to a Git checkout in GitHub Actions",
+            )
         return cls(
-            main_repo=Path(os.environ.get("OMNIWM_RELEASE_MAIN_REPO", DEFAULT_MAIN_REPO)),
+            main_repo=Path(main_repo if main_repo is not None else DEFAULT_MAIN_REPO),
             github_repo=os.environ.get("OMNIWM_RELEASE_GITHUB_REPO", DEFAULT_GITHUB_REPO),
             signing_identity=os.environ.get("OMNIWM_RELEASE_SIGNING_IDENTITY", SIGNING_IDENTITY),
             notarize_profile=os.environ.get("OMNIWM_RELEASE_NOTARIZE_PROFILE", NOTARIZE_PROFILE),
@@ -120,12 +136,12 @@ class Runner:
     def output(self, args, cwd=None, check=True):
         return self.run(args, cwd=cwd, check=check, quiet=True).stdout.strip()
 
-    def popen(self, args, cwd=None):
+    def popen(self, args, cwd=None, output=None):
         return subprocess.Popen(
             [str(arg) for arg in args],
             cwd=cwd,
-            stdout=subprocess.DEVNULL,
-            stderr=subprocess.DEVNULL,
+            stdout=output if output is not None else subprocess.DEVNULL,
+            stderr=subprocess.STDOUT if output is not None else subprocess.DEVNULL,
             start_new_session=True,
         )
 
@@ -311,7 +327,11 @@ class ReleaseManager:
             else:
                 archive = root / "GhosttyKit.zip"
                 self.runner.run(
-                    ["curl", "--disable", "--fail", "--location", "--silent", "--show-error", "--output", archive, url],
+                    [
+                        "curl", "--disable", "--fail", "--location", "--silent", "--show-error",
+                        "--retry", "5", "--retry-all-errors", "--retry-delay", "5",
+                        "--output", archive, url,
+                    ],
                     cwd=self.main,
                 )
             require(sha256_file(archive) == pins["OMNIWM_GHOSTTY_ZIP_SHA256"], "Ghostty dependency ZIP hash mismatch")
@@ -333,6 +353,52 @@ class ReleaseManager:
             self.verify_ghostty_dependency(version)
         else:
             self.create_zip(self.main / "Frameworks/GhosttyKit.xcframework", self.asset_paths(version)["ghostty"])
+
+    def install_ghostty_build(self, version, directory):
+        require(os.environ.get("GITHUB_ACTIONS") == "true", "source-built GhosttyKit installation requires a disposable Actions runner")
+        directory = Path(directory)
+        provenance = json.loads((directory / "provenance.json").read_text())
+        require(provenance["source_repository"] == "https://github.com/ghostty-org/ghostty.git", "unexpected Ghostty source repository")
+        require(re.fullmatch(r"[0-9a-f]{40}", provenance["source_revision"]) is not None, "invalid Ghostty source revision")
+        require(re.fullmatch(r"[0-9A-Za-z.+-]+", provenance["zig_version"]) is not None, "invalid Ghostty Zig version")
+        archive = directory / "GhosttyKit.xcframework.zip"
+        require(sha256_file(archive) == provenance["zip_sha256"], "source-built Ghostty ZIP hash mismatch")
+        with tempfile.TemporaryDirectory(prefix="omniwm-ghostty-source-") as raw:
+            root = Path(raw)
+            self.runner.run(["ditto", "-x", "-k", archive, root], cwd=self.main)
+            framework = root / "GhosttyKit.xcframework"
+            hashes = self.framework_hashes(framework)
+            require(hashes == provenance["framework_files"], "source-built Ghostty framework differs from its provenance")
+            library = "macos-arm64/libghostty-internal.a"
+            require(library in hashes and "macos-arm64/Headers/ghostty.h" in hashes, "source-built Ghostty framework lacks its ARM64 library or header")
+            require(self.runner.output(["lipo", "-archs", framework / library]) == "arm64", "source-built GhosttyKit must be arm64-only")
+            destination = self.main / "Frameworks/GhosttyKit.xcframework"
+            if destination.exists():
+                shutil.rmtree(destination)
+            destination.parent.mkdir(parents=True, exist_ok=True)
+            shutil.copytree(framework, destination)
+        shutil.copy2(archive, self.asset_paths(version)["ghostty"])
+        updates = {
+            "dev-tools.env": {
+                "OMNIWM_GHOSTTY_DOWNLOAD_URL": self.ghostty_release_url(version),
+                "OMNIWM_GHOSTTY_ZIP_SHA256": provenance["zip_sha256"],
+                "OMNIWM_GHOSTTY_SOURCE_COMMIT": provenance["source_revision"],
+                "OMNIWM_GHOSTTY_ZIG_VERSION": provenance["zig_version"],
+            },
+            "build-metadata.env": {
+                "OMNIWM_GHOSTTY_ARCHIVE_RELATIVE_PATH": f"Frameworks/GhosttyKit.xcframework/{library}",
+                "OMNIWM_GHOSTTY_ARCHIVE_SHA256": hashes[library],
+            },
+        }
+        for filename, values in updates.items():
+            path = self.main / "Scripts" / filename
+            lines = []
+            for line in path.read_text().splitlines():
+                key = line.partition("=")[0]
+                lines.append(f"{key}={values.pop(key)}" if key in values else line)
+            lines.extend(f"{key}={value}" for key, value in values.items())
+            path.write_text("\n".join(lines) + "\n")
+        self.verify_ghostty_dependency(version)
 
     def load_manifest(self, version):
         path = self.manifest_path(version)
@@ -676,15 +742,34 @@ class ReleaseManager:
                 "api",
                 f"repos/{repository}",
                 "--jq",
-                ".permissions.push",
+                '.permissions.push | if . == null then "unknown" else . end',
             ],
             cwd=self.main,
             check=False,
             quiet=True,
         )
+        permission = result.stdout.strip()
+        if result.returncode == 0 and (
+            permission == "unknown"
+            or (permission == "false" and os.environ.get("GITHUB_ACTIONS") == "true")
+        ):
+            # Installation tokens such as GITHUB_TOKEN do not report user permissions.
+            # Authenticate to Git's receive-pack endpoint without updating any refs.
+            remote = self.remote_url(self.main)
+            self.verify_remote_identity(remote, repository, "write-access probe")
+            result = self.runner.run(
+                ["git", "push", "--dry-run", "origin", "origin/main:refs/heads/main"],
+                cwd=self.main,
+                check=False,
+                quiet=True,
+            )
+            return {
+                "ok": result.returncode == 0,
+                "detail": "GH_TOKEN/GITHUB_TOKEN Git write-access probe: " + (result.stderr or result.stdout).strip(),
+            }
         return {
-            "ok": result.returncode == 0 and result.stdout.strip() == "true",
-            "detail": (result.stderr or result.stdout).strip(),
+            "ok": result.returncode == 0 and permission == "true",
+            "detail": "GH_TOKEN/GITHUB_TOKEN repository push permission: " + (result.stderr or result.stdout).strip(),
         }
 
     def notary_profile_access(self):
@@ -792,7 +877,7 @@ class ReleaseManager:
         for commit in plan["commits"] or ["none"]:
             print(f"- {commit}")
 
-    def enforce_new_release_plan(self, plan):
+    def enforce_new_release_plan(self, plan, verify_ghostty=True):
         require(
             plan["website_version"] == plan["current_version"],
             "website version differs from Info.plist",
@@ -820,7 +905,8 @@ class ReleaseManager:
             "target version must be newer than Info.plist",
         )
         require(plan["commits"], f"no unreleased commits after {plan['previous_tag']}")
-        print(f"Ghostty dependency: {self.verify_ghostty_dependency(plan['version'])}")
+        if verify_ghostty:
+            print(f"Ghostty dependency: {self.verify_ghostty_dependency(plan['version'])}")
 
     def release_bullets(self, commits):
         verbs = {
@@ -901,18 +987,40 @@ class ReleaseManager:
     def smoke_test(self, app_path, seconds=2):
         executable = app_path / "Contents" / "MacOS" / "OmniWM"
         require(executable.exists(), f"missing app executable: {executable}")
-        process = self.runner.popen([executable], cwd=self.main)
-        try:
-            time.sleep(seconds)
-            require(process.poll() is None, f"OmniWM exited during smoke test with {process.returncode}")
-        finally:
-            if process.poll() is None:
-                process.terminate()
+        skip_launch = os.environ.get("OMNIWM_RELEASE_SKIP_APP_LAUNCH", "0")
+        require(
+            skip_launch in {"0", "1"},
+            "OMNIWM_RELEASE_SKIP_APP_LAUNCH must be 0 or 1",
+        )
+        if skip_launch == "1":
+            print(
+                "WARNING: skipping app launch smoke test because "
+                "OMNIWM_RELEASE_SKIP_APP_LAUNCH=1; "
+                "signature, notarization and quarantine checks still apply"
+            )
+            return
+        with tempfile.TemporaryDirectory(prefix="omniwm-launch-") as raw:
+            with (Path(raw) / "launch.log").open("w+b") as output:
+                process = self.runner.popen([executable], cwd=self.main, output=output)
                 try:
-                    process.wait(timeout=5)
-                except subprocess.TimeoutExpired:
-                    process.kill()
-                    process.wait(timeout=5)
+                    time.sleep(seconds)
+                    if process.poll() is not None:
+                        output.flush()
+                        size = output.seek(0, os.SEEK_END)
+                        output.seek(max(0, size - 8192))
+                        tail = "\n".join(output.read().decode("utf-8", errors="replace").splitlines()[-40:])
+                        raise ReleaseError(
+                            f"OmniWM exited during smoke test with {process.returncode}"
+                            f"\nApp output tail:\n{tail or '(no output)'}"
+                        )
+                finally:
+                    if process.poll() is None:
+                        process.terminate()
+                        try:
+                            process.wait(timeout=5)
+                        except subprocess.TimeoutExpired:
+                            process.kill()
+                            process.wait(timeout=5)
 
     def verify_app_zip(
         self,
@@ -960,11 +1068,11 @@ class ReleaseManager:
             self.check_distribution(app, verbose=True)
             self.smoke_test(app)
 
-    def prepare(self, version):
+    def prepare(self, version, ghostty_build=None):
         require(not self.manifest_path(version).exists(), "release manifest already exists; use status or abort")
         plan = self.plan_data(version)
         self.print_plan(plan)
-        self.enforce_new_release_plan(plan)
+        self.enforce_new_release_plan(plan, verify_ghostty=ghostty_build is None)
         manifest = {
             "schema": MANIFEST_SCHEMA,
             "version": version,
@@ -990,12 +1098,17 @@ class ReleaseManager:
             "release_url": None,
         }
         self.save_manifest(manifest)
+        if ghostty_build is not None:
+            self.install_ghostty_build(version, ghostty_build)
         self.write_plist_version(version, plan["next_build"])
         self.write_website_version(version)
         self.runner.run(["make", "verify"], cwd=self.main, capture=False)
         self.runner.run(["swift", "test"], cwd=self.main, capture=False)
         self.runner.run(["swift", "test", "--parallel"], cwd=self.main, capture=False)
-        self.run_git(self.main, "add", "Info.plist", "website/src/data/site.ts")
+        release_files = ["Info.plist", "website/src/data/site.ts"]
+        if ghostty_build is not None:
+            release_files.extend(["Scripts/dev-tools.env", "Scripts/build-metadata.env"])
+        self.run_git(self.main, "add", *release_files)
         self.run_git(self.main, "commit", "-m", f"Release {version}")
         release_commit = self.git(self.main, "rev-parse", "HEAD")
         self.require_clean_worktree(
@@ -1373,6 +1486,8 @@ def build_parser():
     for name in ("plan", "prepare", "verify", "status", "abort"):
         child = subparsers.add_parser(name)
         child.add_argument("version")
+        if name == "prepare":
+            child.add_argument("--ghostty-build", type=Path)
     for name in ("publish", "resume"):
         child = subparsers.add_parser(name)
         child.add_argument("version")
@@ -1382,14 +1497,14 @@ def build_parser():
 
 def main():
     args = build_parser().parse_args()
-    manager = ReleaseManager()
     try:
+        manager = ReleaseManager()
         if args.command == "plan":
             plan = manager.plan_data(args.version)
             manager.print_plan(plan)
             manager.enforce_new_release_plan(plan)
         elif args.command == "prepare":
-            manager.prepare(args.version)
+            manager.prepare(args.version, args.ghostty_build)
         elif args.command == "verify":
             manager.verify(args.version)
         elif args.command in {"publish", "resume"}:

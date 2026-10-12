@@ -4,27 +4,27 @@
 import AppKit
 import SwiftUI
 
-struct HiddenBarPanelPlacement: Equatable {
-    let attachment: PopupAttachment
-    let visibleFrame: CGRect
-}
-
 @MainActor
 final class HiddenBarPanelController {
     private static let surfaceId = "hidden-bar-panel"
-    nonisolated static let rowHeight: CGFloat = 24
-    nonisolated static let spacing: CGFloat = 8
-    nonisolated static let padding: CGFloat = 8
-    nonisolated static let glyphInset: CGFloat = 2
-    nonisolated static let minimumTargetSide: CGFloat = 24
+    nonisolated static let alongPadding: CGFloat = 4
+    nonisolated static let crossPadding: CGFloat = 2
+    nonisolated static let lineSpacing: CGFloat = 2
+    nonisolated static let minimumTargetSide: CGFloat = 20
 
     var onActivate: ((MenuBarItemKey) -> Void)?
+    var onVisibilityChanged: (() -> Void)?
+    var onWorkspaceBarJoin: ((HiddenBarPanelPlacement.Join?) -> Void)?
     var isExemptWindow: ((NSWindow) -> Bool)?
+    var motionPolicy: MotionPolicy?
 
     private var model: HiddenBarPanelModel?
-    private var panel: NonactivatingPanel?
+    private(set) var panel: NonactivatingPanel?
+    private var drawer: HiddenBarDrawerView? {
+        panel?.contentView as? HiddenBarDrawerView
+    }
+
     private let dismissalMonitor = PanelDismissalMonitor()
-    private var lastPlacement: HiddenBarPanelPlacement?
     private weak var previousKeyWindow: NSWindow?
     private weak var previousFirstResponder: NSResponder?
     private(set) var isVisible = false
@@ -37,17 +37,24 @@ final class HiddenBarPanelController {
         }
     }
 
-    func dismiss() {
-        guard isVisible else { return }
+    func dismiss(animated: Bool = true) {
+        guard let panel, isVisible || (!animated && panel.isVisible) else { return }
+        let edge = model?.placement?.attachment.edge ?? .below
         let keyWindow = previousKeyWindow
         let firstResponder = previousFirstResponder
         isVisible = false
-        lastPlacement = nil
         previousKeyWindow = nil
         previousFirstResponder = nil
         dismissalMonitor.stop()
-        OwnedWindowRegistry.shared.unregister(surfaceId: Self.surfaceId)
-        panel?.orderOut(nil)
+        panel.ignoresMouseEvents = true
+        panel.contentView?.setAccessibilityHidden(true)
+        panel.resignKey()
+        register(panel, interactive: false)
+        drawer?.setVisible(
+            false, edge: edge, motion: animated ? motionPolicy?.snapshot() ?? .disabled : .disabled
+        ) { [weak self] in
+            self?.completeDismissal()
+        }
         if let keyWindow, keyWindow.isVisible {
             keyWindow.makeKey()
             if let firstResponder {
@@ -56,30 +63,38 @@ final class HiddenBarPanelController {
         }
     }
 
+    private func completeDismissal() {
+        guard !isVisible else { return }
+        OwnedWindowRegistry.shared.unregister(surfaceId: Self.surfaceId)
+        panel?.orderOut(nil)
+        onWorkspaceBarJoin?(nil)
+        onVisibilityChanged?()
+    }
+
+    func activate(_ key: MenuBarItemKey) {
+        guard isVisible else { return }
+        dismiss(animated: false)
+        onActivate?(key)
+    }
+
     func teardown() {
-        dismiss()
+        dismiss(animated: false)
         model?.items = []
         panel?.close()
         panel = nil
         model = nil
     }
 
-    nonisolated static func glyphDisplayWidth(for size: CGSize, rowHeight: CGFloat) -> CGFloat {
-        let contentHeight = rowHeight - glyphInset * 2
-        let scale = min(1, contentHeight / max(size.height, 1))
-        return max(minimumTargetSide, max(8, (size.width * scale).rounded(.up)) + glyphInset * 2)
+    nonisolated static func glyphDisplayWidth(for size: CGSize) -> CGFloat {
+        max(minimumTargetSide, size.width.rounded(.up))
     }
 
-    nonisolated static func rowRanges(
-        itemWidths: [CGFloat],
-        maxContentWidth: CGFloat,
-        spacing: CGFloat
-    ) -> [Range<Int>] {
+    nonisolated static func rowRanges(itemWidths: [CGFloat], maxContentWidth: CGFloat) -> [Range<Int>] {
         var ranges: [Range<Int>] = []
         var start = 0
         var accumulated: CGFloat = 0
         for (index, width) in itemWidths.enumerated() {
-            let candidate = index == start ? width : accumulated + spacing + width
+            let candidate = index == start ? width : accumulated + width
             if index > start, candidate > maxContentWidth {
                 ranges.append(start ..< index)
                 start = index
@@ -94,26 +109,37 @@ final class HiddenBarPanelController {
         return ranges
     }
 
-    nonisolated static func barSize(
-        itemWidths: [CGFloat],
-        rowHeight: CGFloat,
-        maxContentWidth: CGFloat,
-        spacing: CGFloat,
-        padding: CGFloat
-    ) -> CGSize {
-        guard !itemWidths.isEmpty else {
-            return CGSize(width: 140, height: rowHeight + padding * 2)
+    nonisolated static func itemRanges(
+        itemWidths: [CGFloat], placement: HiddenBarPanelPlacement
+    ) -> [Range<Int>] {
+        guard placement.isVertical else {
+            return rowRanges(itemWidths: itemWidths, maxContentWidth: placement.maxContentWidth)
         }
-        let ranges = rowRanges(itemWidths: itemWidths, maxContentWidth: maxContentWidth, spacing: spacing)
-        let maxRowWidth = ranges
-            .map { range in
-                itemWidths[range].reduce(0, +) + spacing * CGFloat(range.count - 1)
-            }
-            .max() ?? 0
-        let rows = CGFloat(ranges.count)
+        let capacity = max(1, Int(placement.maxContentHeight / placement.cellHeight))
+        return stride(from: 0, to: itemWidths.count, by: capacity).map {
+            $0 ..< min($0 + capacity, itemWidths.count)
+        }
+    }
+
+    nonisolated static func barSize(
+        itemWidths: [CGFloat], placement: HiddenBarPanelPlacement
+    ) -> CGSize {
+        let cellHeight = placement.cellHeight
+        guard !itemWidths.isEmpty else {
+            return CGSize(width: 140, height: cellHeight + crossPadding * 2)
+        }
+        let ranges = itemRanges(itemWidths: itemWidths, placement: placement)
+        let lines = CGFloat(ranges.count)
+        if placement.isVertical {
+            let width = ranges.reduce(CGFloat.zero) { $0 + (itemWidths[$1].max() ?? 0) }
+                + lineSpacing * (lines - 1)
+            let count = CGFloat(ranges.first?.count ?? 0)
+            return CGSize(width: width + crossPadding * 2, height: count * cellHeight + alongPadding * 2)
+        }
+        let maxRowWidth = ranges.map { itemWidths[$0].reduce(0, +) }.max() ?? 0
         return CGSize(
-            width: min(maxRowWidth, maxContentWidth) + padding * 2,
-            height: rows * rowHeight + (rows - 1) * spacing + padding * 2
+            width: min(maxRowWidth, placement.maxContentWidth) + alongPadding * 2,
+            height: lines * cellHeight + (lines - 1) * lineSpacing + crossPadding * 2
         )
     }
 
@@ -126,38 +152,66 @@ final class HiddenBarPanelController {
             previousKeyWindow = NSApp.keyWindow
             previousFirstResponder = NSApp.keyWindow?.firstResponder
         }
-        lastPlacement = placement
         applyContent(items: items, placement: placement, panel: panel, model: model)
+        if !panel.isVisible {
+            drawer?.setVisible(false, edge: placement.attachment.edge, motion: .disabled)
+        }
+        panel.ignoresMouseEvents = false
+        panel.contentView?.setAccessibilityHidden(false)
 
-        OwnedWindowRegistry.shared.register(
-            panel,
-            surfaceId: Self.surfaceId,
-            policy: SurfacePolicy(
-                kind: .hiddenBarPanel,
-                hitTestPolicy: .interactive,
-                capturePolicy: .excluded,
-                suppressesManagedFocusRecovery: true
-            )
-        )
+        register(panel, interactive: true)
         panel.makeKeyAndOrderFront(nil)
         isVisible = true
+        onVisibilityChanged?()
+        drawer?.setVisible(true, edge: placement.attachment.edge, motion: motionPolicy?.snapshot() ?? .disabled)
         dismissalMonitor.start(
             panels: [panel],
             isExemptWindow: { [weak self] window in
                 self?.isExemptWindow?(window) == true
             },
+            containsPanelPoint: { panel, point in
+                guard let drawer = panel.contentView as? HiddenBarDrawerView else { return false }
+                return drawer.containsContent(at: drawer.convert(panel.convertPoint(fromScreen: point), from: nil))
+            },
             onDismiss: { [weak self] in
                 self?.dismiss()
             }
         )
-        Task { @MainActor [weak self] in
-            self?.model?.focusRequest &+= 1
+        let drawer = self.drawer
+        let generation = drawer?.generation
+        Task { @MainActor [weak self, weak drawer] in
+            guard let self, let drawer, self.isVisible, self.drawer === drawer,
+                  drawer.generation == generation else { return }
+            self.model?.focusRequest &+= 1
         }
     }
 
+    private func register(_ panel: NSPanel, interactive: Bool) {
+        OwnedWindowRegistry.shared.register(
+            panel,
+            surfaceId: Self.surfaceId,
+            policy: SurfacePolicy(
+                kind: .hiddenBarPanel,
+                hitTestPolicy: interactive ? .interactive : .passthrough,
+                capturePolicy: .excluded,
+                suppressesManagedFocusRecovery: interactive
+            )
+        )
+    }
+
     func refresh(items: [HiddenBarGlyph]) {
-        guard isVisible, let panel, let model, let lastPlacement else { return }
-        applyContent(items: items, placement: lastPlacement, panel: panel, model: model)
+        guard isVisible, let panel, let model, let placement = model.placement else { return }
+        applyContent(items: items, placement: placement, panel: panel, model: model)
+    }
+
+    func updateWorkspaceBarPlacement(_ placement: (Monitor.ID) -> HiddenBarPanelPlacement?) {
+        guard isVisible, let panel, let model, let bar = model.placement?.workspaceBar else { return }
+        guard let next = placement(bar.monitorId) else {
+            dismiss(animated: false)
+            return
+        }
+        guard next != model.placement else { return }
+        applyContent(items: model.items, placement: next, panel: panel, model: model)
     }
 
     private func applyContent(
@@ -166,21 +220,22 @@ final class HiddenBarPanelController {
         panel: NonactivatingPanel,
         model: HiddenBarPanelModel
     ) {
-        let maxContentWidth = placement.visibleFrame.width - 16 - Self.padding * 2
-        model.maxContentWidth = maxContentWidth
         model.items = items
-        let widths = items.map { Self.glyphDisplayWidth(for: $0.size, rowHeight: Self.rowHeight) }
-        let size = Self.barSize(
-            itemWidths: widths,
-            rowHeight: Self.rowHeight,
-            maxContentWidth: maxContentWidth,
-            spacing: Self.spacing,
-            padding: Self.padding
+        model.placement = placement
+        let widths = items.map { Self.glyphDisplayWidth(for: $0.size) }
+        let size = Self.barSize(itemWidths: widths, placement: placement)
+        let layout = placement.layout(size: size)
+        model.layout = layout
+        let appearance = NSApp.appearance
+        panel.appearance = appearance
+        panel.contentView?.appearance = appearance
+        panel.hasShadow = placement.workspaceBar == nil
+        panel.setFrame(layout.frame, display: true)
+        drawer?.setRevealShape(
+            layout.contour(edge: placement.attachment.edge).cgPath,
+            spread: layout.seam == nil ? 0 : HiddenBarPanelPlacement.liftMargin
         )
-        panel.setFrame(
-            placement.attachment.frame(size: size, visibleFrame: placement.visibleFrame),
-            display: true
-        )
+        onWorkspaceBarJoin?(layout.squaresBar ? placement.join : nil)
     }
 
     private func makePanel(model: HiddenBarPanelModel) -> NonactivatingPanel {
@@ -199,18 +254,20 @@ final class HiddenBarPanelController {
         panel.hidesOnDeactivate = false
         panel.isReleasedWhenClosed = false
         panel.isMovable = false
-        panel.contentView = NSHostingView(
+        panel.animationBehavior = .none
+        let hosting = NSHostingView(
             rootView: HiddenBarPanelView(
                 model: model,
                 onActivate: { [weak self] key in
-                    self?.dismiss()
-                    self?.onActivate?(key)
+                    self?.activate(key)
                 },
                 onDismiss: { [weak self] in
                     self?.dismiss()
                 }
             )
         )
+        hosting.sizingOptions = []
+        panel.contentView = HiddenBarDrawerView(contentView: hosting)
         return panel
     }
 }

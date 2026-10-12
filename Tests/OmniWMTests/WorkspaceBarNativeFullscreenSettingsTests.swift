@@ -102,6 +102,7 @@ final class WorkspaceBarNativeFullscreenSettingsTests: XCTestCase {
         settings.workspaceBar.enabled = true
         settings.workspaceBar.reserveLayoutSpace = true
         settings.workspaceBar.height = 24
+        settings.workspaceBar.position = .belowMenuBar
         settings.workspaceBar.hideInNativeFullscreen = true
         let controller = WMController(settings: settings)
         let builtIn = makeMonitor(displayId: 71_003, uuid: Self.builtInUUID, name: "Built-in", originX: 0)

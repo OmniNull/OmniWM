@@ -101,6 +101,40 @@ final class WorkspaceBarHoverPreviewTests: XCTestCase {
         XCTAssertTrue(driver.streams.isEmpty)
     }
 
+    func testSwitchingIconsKeepsTheEarlierIconFrameForAnInstantRevisit() async throws {
+        let driver = OverviewPreviewTestDriver()
+        let scheduler = ManualScheduler()
+        let capture = driver.makeCapture()
+        let controller = WorkspaceBarHoverPreviewController(
+            capture: capture,
+            hasCaptureAccess: { true },
+            scheduleAfter: scheduler.scheduler
+        )
+        let first = target([11])
+        let second = target([12])
+        controller.hoverBegan(first)
+        scheduler.fireLatest()
+        await driver.waitForStarts(1)
+        driver.completeAllStarts()
+        let frame = try makeOverviewPreviewFrame()
+        let published = expectation(description: "first icon frame published")
+        let forward = capture.onPreview
+        capture.onPreview = { handle, preview in
+            forward(handle, preview)
+            if preview === frame { published.fulfill() }
+        }
+        driver.streams[0].output.offer(frame)
+        await fulfillment(of: [published], timeout: 1)
+
+        controller.hoverBegan(second)
+        await driver.waitForStarts(2)
+
+        XCTAssertTrue(capture.preview(for: first.windows[0].handle) === frame)
+        driver.completeAllStarts()
+        controller.dismiss()
+        await driver.waitForStops(2)
+    }
+
     func testMovingToAnotherIconWhilePreviewingSwitchesInstantly() async {
         let driver = OverviewPreviewTestDriver()
         let scheduler = ManualScheduler()

@@ -21,8 +21,8 @@ OmniWM is built with Swift Package Manager (Swift 6.4, strict concurrency, langu
 OmniWMApp                          (@main entry point)
 └── OmniWM                         (main library)
     ├── OmniWMIPC                  (shared IPC models — zero dependencies)
-    ├── OmniWMMenuBarAssertion     (Objective-C MenuBarClientCore bridge)
     ├── OmniWMLayerCorners         (Objective-C native border-layer bridge)
+    ├── OmniWMLauncherSPI          (Objective-C launcher integration bridge)
     ├── TOML                       (swift-toml — the only third-party package)
     └── GhosttyKit                 (binary xcframework)
 
@@ -38,10 +38,10 @@ OmniWMTests                        (test target)
 | Target | Purpose | Dependencies |
 |--------|---------|--------------|
 | `OmniWMIPC` | Shared IPC data models and wire format | None |
-| `OmniWMMenuBarAssertion` | Objective-C bridge to the private MenuBarClientCore framework (Hidden Bar concealment) | None |
 | `OmniWMLayerCorners` | Objective-C bridge for native CALayer corner radii and rim properties | None |
+| `OmniWMLauncherSPI` | Objective-C bridge for launcher integration | None |
 | `OmniWMCtl` | CLI tool (`omniwmctl`) | OmniWMIPC |
-| `OmniWM` | Core window manager library | OmniWMIPC, OmniWMMenuBarAssertion, OmniWMLayerCorners, GhosttyKit, TOML, system frameworks |
+| `OmniWM` | Core window manager library | OmniWMIPC, OmniWMLayerCorners, OmniWMLauncherSPI, GhosttyKit, TOML, system frameworks |
 | `OmniWMApp` | Executable wrapper with SwiftUI scene | OmniWM |
 | `OmniWMTests` | Test target (fixtures copied as a resource bundle) | OmniWM, OmniWMCtl, OmniWMLayerCorners |
 
@@ -96,8 +96,8 @@ Sources/
 ├── OmniWMApp/                       @main entry + settings redirect
 ├── OmniWMCtl/                       CLI parser, IPC client, renderer, completion
 ├── OmniWMIPC/                       models, wire format, socket path, automation manifest
-├── OmniWMMenuBarAssertion/          Objective-C MenuBarClientCore bridge (1 .m + 1 header)
-└── OmniWMLayerCorners/              Objective-C native border-layer bridge (1 .m + 1 header)
+├── OmniWMLayerCorners/              Objective-C native border-layer bridge (1 .m + 1 header)
+└── OmniWMLauncherSPI/               Objective-C launcher integration bridge
 ```
 
 ### External Dependencies
@@ -107,7 +107,7 @@ OmniWM has a single third-party Swift package and otherwise builds on system fra
 - **`swift-toml`** — the only third-party Swift package; used by `Core/Config/SettingsTOMLCodec.swift` and `SettingsTOMLMigration.swift` to decode, encode, and migrate `settings.toml`.
 - **Key system frameworks**: AppKit/SwiftUI, Accessibility/ApplicationServices, Carbon/CoreHID, Core Graphics/Core Text/QuartzCore/ScreenCaptureKit, IOKit (including `hidsystem` and `pwr_mgt`), ServiceManagement, and os. Metal and MetalKit are link-time only — no Swift file imports them; the Ghostty surface reaches Metal through a `CAMetalLayer`.
 - **SkyLight**: a private Apple framework for low-latency window-server access, linked via `-framework SkyLight` and additionally `dlopen`/`dlsym`-loaded for SLS* symbols.
-- **MenuBarClientCore**: a private Apple framework dynamically loaded for macOS 27 Hidden Bar concealment; all Objective-C declarations and exception handling stay in the `OmniWMMenuBarAssertion` target.
+- **CFPreferences**: Hidden Bar reads and updates the native per-app visibility data in the Control Center group preferences. The API is public; the stored data format is private to macOS.
 - **FoundationModels**: weak-linked and auto-link-disabled, so the app still launches where the framework is
   unavailable. Used only by `Core/IssueReporter` for the on-device rewrite of bug reports.
 - **GhosttyKit**: a local binary xcframework at `Frameworks/GhosttyKit.xcframework` (prepared outside git) providing the Quake Terminal.
@@ -153,10 +153,11 @@ LaunchServices with the fixed `com.barut.OmniWM.dev` identity and separate setti
 The helper builds before quitting the running OmniWM copy and leaves the normal release installed.
 See the [contributor guide](/developers/contributing/) for prerequisites,
 optional local signing, and switching between copies. `swift run OmniWM` starts an unbundled executable.
-Hidden Bar's status-item behavior does
-not depend on that launch style: while concealment is inactive OmniWM uses its native status item, and while
-concealment is active it replaces that item with one fallback icon per display. A fallback sits beside a visible
-workspace bar when possible and otherwise near the top center of the display.
+Hidden Bar uses macOS per-app menu-bar visibility preferences. OmniWM keeps its native status item and a leading
+workspace-bar button available. Left-click either for OmniWM controls; right-click or Option-click to reveal hidden
+icons. The workspace-bar button follows the bar's orientation and opens controls on that display. When the workspace
+bar is visible, hidden icons reveal in a drawer with curved shoulders and the same material and tint. Icons are captured
+from the transparent macOS menu-hosting window. Selecting an icon temporarily reveals the native item for interaction.
 
 ---
 
@@ -214,7 +215,7 @@ snapshot are outside scope.
    slots. An unsupported future version remains untouched and blocks settings writes. Structured configuration notices
    cover startup, live reload, and save-time races through one
    `SettingsStore` transition path, so diagnostics update only when the notice actually changes.
-4. **`HiddenBarController`** — per-app menu-bar concealment (assessment-mode assertion, hidden-icons panel).
+4. **`HiddenBarController`** — per-app native menu-bar visibility and the hidden-icons panel.
 5. **`WMController`** — central coordinator (see [4.1](#41-wmcontroller--the-coordinator)); passed the clipboard-history directory.
 6. **`AppCLIManager`** and **`UpdateCoordinator`** — CLI exposure plus GitHub release polling/popup.
 7. **`FatalCapture.install` / `consumePending`** — configure the diagnostic context used by the explicit `fatal()` /
@@ -222,14 +223,15 @@ snapshot are outside scope.
 8. **`StatusBarController`** — menu-bar UI and manual update checks.
 9. **`IPCServer`** — started only if `ipcEnabled` is set.
 10. **Automatic update checks** — started after the rest of the core bootstrap succeeds.
-11. **Launch and monitor-setup presentation** — starts monitor-readiness observation, plays the per-display
-    `LaunchOverlayController`, then evaluates whether to present the monitor setup guide after the overlay finishes.
+11. **Launch and monitor-setup presentation** — starts monitor-readiness observation, plays `LaunchOverlayController`
+    on the primary display the first time each version launches with animations enabled, then evaluates whether to
+    present the monitor setup guide once the overlay finishes or is skipped.
 
 `FatalCapture` is not a process-wide Swift trap handler. Preconditions, force unwraps, Core Foundation ownership
 faults, and other raw traps bypass those explicit shims. GhosttyKit's embedded crash handler can instead write a
 Sentry/breakpad envelope to `~/.local/state/ghostty/crash/<uuid>.ghosttycrash` for a silent signal crash.
 
-`applicationWillTerminate` tears down the status bar and Hidden Bar assessment assertion, stops window-management
+`applicationWillTerminate` tears down the status bar and restores Hidden Bar’s saved native visibility choices, stops window-management
 services, flushes the window-restore catalog, settings, and runtime state, then stops the IPC server.
 
 ### Service Startup
@@ -692,7 +694,7 @@ Focus management is split across several objects (there is no single coordinator
 
 Managed origins merge with `keyboardOrProgrammatic > pointerHover > focusFollowsMouse`; the request returned by `IntentLedger.beginManagedRequest` is authoritative, so a weaker hover cannot downgrade an existing request for the same target. Only `keyboardOrProgrammatic` confirmation may move the cursor into the focused window. Real Niri, Dwindle, deferred-Dwindle, and floating-window pointer focus use `focusFollowsMouse`; tab clicks and completed gestures retain `pointerHover` and therefore full fronting.
 
-Focus-follows-mouse has two effects. The generated default is `focus.raiseOnMouseFocus = false`; in that mode OmniWM omits `NSRunningApplication.activate`, `kAXRaiseAction`, and explicit SkyLight ordering. The private specific-window primitive still establishes keyboard routing through `_SLPSSetFrontProcessWithOptions`, so focus without raise is a best-effort ordering contract: macOS or the client may activate or reorder itself. With `raiseOnMouseFocus = true`, OmniWM uses the existing full-fronting sequence. Both effects pass through the same hidden-app, lock-screen, and focus-policy gates.
+Focus-follows-mouse has two effects. The generated default is `focus.raiseOnMouseFocus = false`; in that mode OmniWM omits `NSRunningApplication.activate`, `kAXRaiseAction`, and explicit SkyLight ordering. The private specific-window primitive still establishes keyboard routing through `_SLPSSetFrontProcessWithOptions`, so focus without raise is a best-effort ordering contract: macOS or the client may activate or reorder itself. With `raiseOnMouseFocus = true`, OmniWM uses the existing full-fronting sequence, except that a tiled target overlapped from the front by a visible managed floating window takes the focus-only path; `WMController.shouldRaiseManagedFocus` rechecks the live WindowServer order at each retry, same-app handoff, and retried system-modal confirmation. Both effects pass through the same hidden-app, lock-screen, and focus-policy gates.
 
 Focus-only switching between key windows inside one application requires a staged private handoff. OmniWM deactivates the source key window, schedules the target activation phase on the existing `DeadlineWheel` after a fixed 40 ms internal gap, and begins the normal 100 ms confirmation interval only after that phase runs. A handoff started by a confirmation retry retains retry-origin fact verification after activation, while the 40 ms phase itself does not consume retry budget. The gap is neither a pointer dwell preference nor a blocking sleep. If focus-follows-mouse is disabled or the pointer target becomes stale during the gap, OmniWM restores the source only while the handoff still owns focus; an external, modal, or lock-screen takeover is abandoned without restoration to avoid stealing focus. Cancellation retires the deadline and pending world request. Disabling focus-follows-mouse cancels only when the merged origin remains exactly `focusFollowsMouse`, while a stronger merged origin continues.
 
@@ -915,7 +917,7 @@ The per-frame **display link** is owned by `LayoutRefreshController` (not by `An
 | **Command Palette** | `UI/CommandPalette/CommandPaletteController.swift` | Substring search with tiered ranking over windows, application menus, and clipboard history. |
 | **Menu Anywhere** | `UI/MenuAnywhere/MenuAnywhereController.swift` | Pops the frontmost app's menu bar as a native `NSMenu` at the cursor, via `MenuExtractor` (ObjC runtime AX-tree walk). |
 | **Workspace Bar** | `UI/WorkspaceBar/WorkspaceBarManager.swift` | Per-monitor workspace bars — now **driven by `SurfaceReconciler`** via `apply([DesiredBarSurface])`, not self-polling. |
-| **Hidden Bar** | `UI/HiddenBar/HiddenBarController.swift` | Per-app menu-bar concealment coordinated through an isolated assessment-mode assertion, AX item discovery and icon capture, and a hidden-items panel. Concealment hides OmniWM's native status item and shows one fallback icon per display, beside a visible workspace bar or near the display's top center; bundled and unbundled launches behave the same. |
+| **Hidden Bar** | `UI/HiddenBar/HiddenBarController.swift` | Per-app concealment through macOS menu-bar visibility preferences, AX item discovery and icon capture, and a hidden-items panel. Original visibility choices are journaled before changes and restored when released or on recovery after an interrupted session. OmniWM keeps its native status item available. `HiddenBarDrawerView` reveals the panel from its attachment edge using a Core Animation clipping mask and the shared motion policy; icons and their hit regions stay fixed during the transition. Selection and teardown dismiss immediately before native item interaction. |
 | **Status Bar** | `UI/StatusBar/StatusBarController.swift` | Menu-bar icon, settings access, manual update checks. |
 | **Scratchpad** | `Core/World/ScratchpadState.swift`, `Core/Controller/WMController+Scratchpad*.swift` | Ten slots of floating windows (`membersBySlot` / `revealedIndex` in `WorldStore.scratchpads`); at most one slot revealed, show/hide coordinated by `WMController`. |
 | **Monitors** | `Core/Monitor/` | Display detection (`Monitor.current()`), UUID-first durable identity (`OutputId`), and `resolveWorkspaceRestoreAssignments` in `MonitorRestoreAssignments.swift` (re-maps saved per-monitor workspaces by unique display UUID, then uses runtime ID/name only for UUID-less displays before geometry/name best-match; `MonitorRestoreKey` is the data-only identity it matches on). Duplicate live UUID claims fail closed to session-only runtime identity. Orientation reported over IPC is the **effective** orientation (`settings.effectiveOrientation` — override or auto). |

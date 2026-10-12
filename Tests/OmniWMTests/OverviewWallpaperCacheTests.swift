@@ -17,6 +17,28 @@ final class OverviewWallpaperCacheTests: XCTestCase {
         XCTAssertEqual(OverviewWallpaperCache.bucketedPixelSize(9000), 4096)
     }
 
+    func testSmallerVariantIsDerivedFromLargerCaptureWithoutRecapturing() throws {
+        let image = try makeSolidImage(gray: 1)
+        let frame = CGRect(x: 0, y: 0, width: 400, height: 200)
+        var captures = 0
+        let cache = OverviewWallpaperCache()
+        cache.desktopImageURL = { _ in nil }
+        cache.captureWallpaper = { _ in
+            captures += 1
+            return image
+        }
+
+        let large = try XCTUnwrap(cache.image(for: 999, maxPixelSize: 512, frame: frame))
+        XCTAssertEqual(large.width, 400)
+        XCTAssertTrue(cache.hasCapturedImage(for: 999, maxPixelSize: 64, frame: frame))
+        let small = try XCTUnwrap(cache.image(for: 999, maxPixelSize: 64, frame: frame))
+
+        XCTAssertEqual(small.width, 64)
+        XCTAssertEqual(small.height, 32)
+        try assertGray(small, equals: 1)
+        XCTAssertEqual(captures, 1)
+    }
+
     func testCapturedImageStateTracksCaptureFrameClearAndUnavailability() throws {
         let image = try makeSolidImage(gray: 0.5)
         let frame = CGRect(x: 0, y: 0, width: 400, height: 200)

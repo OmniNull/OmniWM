@@ -26,8 +26,12 @@ extension IPCCommandRequest {
             self = try .dwindle(IPCDwindleCommand(name: name, arguments: arguments))
         case .openCommandPalette:
             self = try arguments.requireNoArguments(.openCommandPalette)
+        case .openCommandPaletteMode:
+            self = try .openCommandPaletteMode(mode: arguments.paletteMode())
         case .raiseAllFloatingWindows:
             self = try arguments.requireNoArguments(.raiseAllFloatingWindows)
+        case .toggleFloatingFocus:
+            self = try arguments.requireNoArguments(.toggleFloatingFocus)
         case .rescueOffscreenWindows:
             self = try arguments.requireNoArguments(.rescueOffscreenWindows)
         case let .workspaceLayout(name):

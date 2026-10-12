@@ -17,7 +17,6 @@ private struct PerformanceOwnerSnapshots {
     let input: MouseEventHandler.PerformanceSnapshot?
     let hiddenBar: HiddenBarController.PerformanceSnapshot?
     let clipboard: ClipboardHistoryService.PerformanceSnapshot?
-    let secureInput: SecureInputMonitor.PerformanceSnapshot?
     let sleep: SleepPreventionManager.PerformanceSnapshot?
     let ax: AppAXContextRuntimeSnapshot
     let pidBuffer: AXManagerPIDBufferRuntimeSnapshot
@@ -152,12 +151,10 @@ private struct PerformanceOwnerSnapshots {
 
     private func appendPeriodicServices(to lines: inout [String]) {
         if let clipboard,
-           let secureInput,
            let sleep
         {
             lines.append(
-                "periodic clipboard=\(clipboard.timerFires) secureInput=\(secureInput.recoveryTimerFires)"
-                    + " sleepAssertions=\(sleep.assertionAcquisitions)"
+                "periodic clipboard=\(clipboard.timerFires) sleepAssertions=\(sleep.assertionAcquisitions)"
             )
         }
     }
@@ -310,7 +307,6 @@ extension WMController {
         mouseEventHandler.beginPerformanceCapture()
         hiddenBarController.performance.begin()
         clipboardHistoryService.beginPerformanceCapture()
-        secureInputMonitor.beginPerformanceCapture()
         SleepPreventionManager.shared.beginPerformanceCapture()
         AppAXContextRuntimeMetrics.shared.beginCapture(
             initialDepths: AppAXContextRegistry.aggregateRuntimeMailboxDepths()
@@ -329,7 +325,6 @@ extension WMController {
             input: mouseEventHandler.performanceSnapshot(),
             hiddenBar: hiddenBarController.performance.snapshot(),
             clipboard: clipboardHistoryService.performanceSnapshot(),
-            secureInput: secureInputMonitor.performanceSnapshot(),
             sleep: SleepPreventionManager.shared.performanceSnapshot(),
             ax: AppAXContextRuntimeMetrics.shared.snapshot(),
             pidBuffer: axManager.pidBufferRuntimeSnapshot(),
@@ -346,7 +341,6 @@ extension WMController {
             input: mouseEventHandler.endPerformanceCapture(),
             hiddenBar: hiddenBarController.performance.end(),
             clipboard: clipboardHistoryService.endPerformanceCapture(),
-            secureInput: secureInputMonitor.endPerformanceCapture(),
             sleep: SleepPreventionManager.shared.endPerformanceCapture(),
             ax: endAXRuntimeCapture(),
             pidBuffer: endPIDBufferRuntimeCapture(),

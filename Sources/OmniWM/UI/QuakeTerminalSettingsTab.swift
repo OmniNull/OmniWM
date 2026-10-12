@@ -140,6 +140,10 @@ struct QuakeTerminalSettingsTab: View {
                         .font(.footnote)
                         .foregroundColor(.secondary)
 
+                    SettingsCaption(
+                        localized: "Customize terminal tab and pane shortcuts in ~/.config/ghostty/config.ghostty. Reload with Cmd + Shift + , or relaunch OmniWM."
+                    )
+
                     Label("Configure hotkey in Hotkeys settings", systemImage: "gearshape")
                         .font(.footnote)
                         .foregroundColor(.secondary)

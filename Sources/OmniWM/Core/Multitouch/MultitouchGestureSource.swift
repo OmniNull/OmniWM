@@ -26,7 +26,7 @@ final class MultitouchGestureSource {
     private let coalescingDelay: Duration
     private let wakeSettlingDelay: Duration
     private let retryDelays: [Duration]
-    private nonisolated let rawFrameMailbox = MultitouchFrameMailbox()
+    nonisolated let rawFrameMailbox = MultitouchFrameMailbox()
 
     private let devices: MultitouchDeviceRegistration
     private var activeGeneration: UInt = 0

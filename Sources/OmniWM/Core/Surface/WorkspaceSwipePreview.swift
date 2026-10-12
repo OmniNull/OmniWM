@@ -69,20 +69,15 @@ final class WorkspaceSwipePreview {
         ownedWindowRegistry: OwnedWindowRegistry,
         previewCapture: OverviewThumbnailCapture? = nil,
         backdrop: WorkspaceSwipeBackdrop = WorkspaceSwipeBackdrop(),
-        hasCaptureAccess: @escaping @MainActor () -> Bool = {
-            MainThreadAXSpanTrace.measure(.screenCapturePreflight) {
-                CGPreflightScreenCaptureAccess()
-            } succeeded: { $0 }
-        }
+        hasCaptureAccess: @escaping @MainActor () -> Bool = { ScreenCapturePermissionMonitor.shared.isGranted }
     ) {
         self.ownedWindowRegistry = ownedWindowRegistry
         self.hasCaptureAccess = hasCaptureAccess
         self.backdrop = backdrop
         capture = previewCapture ?? OverviewThumbnailCapture(
-            environment: OverviewEnvironment(),
-            ownedWindowRegistry: ownedWindowRegistry,
             consumer: .workspaceSwipe,
             hasCaptureAccess: hasCaptureAccess,
+            adoptsProvisionalPreviews: false,
             maximumRetainedBytes: 512 * 1_024 * 1_024
         )
         capture.onPreview = { [weak self] handle, frame in
@@ -229,6 +224,12 @@ final class WorkspaceSwipePreview {
         contents.removeAll()
         capture.clear()
         CATransaction.commit()
+    }
+
+    func release() {
+        stop()
+        backdrop.clear()
+        capture.releaseCache(reason: .shutdown)
     }
 
     private func makeWorkspaceLayer(

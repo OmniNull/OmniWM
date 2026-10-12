@@ -14,7 +14,7 @@ extension AppAXContext {
         job: RunLoopJob,
         awaitingSubmittedFocus: () -> Void,
         raiseWindow: (AXUIElement) -> Bool = {
-            performAXAction($0, kAXRaiseAction as CFString, noteKey: "performRaiseFailed")
+            performAXAction($0, kAXRaiseAction as CFString, noteKey: "performRaiseFailed") == .success
         }
     ) -> Bool {
         awaitingSubmittedFocus()

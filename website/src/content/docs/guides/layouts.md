@@ -13,7 +13,7 @@ OmniWM offers two layout engines, and each workspace picks its own. Switch the a
 
 On monitors using horizontal orientation, windows form vertical columns that scroll left and right; in vertical orientation, they form horizontal rows that scroll up and down. Each container can hold multiple windows or be "tabbed" — multiple windows with one visible at a time.
 
-**Unreleased — available when building from `main`.** When fewer containers are open than **Visible Containers**, they expand proportionally to fill unused space. Wider and narrower containers keep their relative sizes, and their chosen spans return when the configured count is reached. Windows that require more space still scroll normally; a lone window follows **Single Window Fit**.
+When fewer containers are open than **Visible Containers**, they expand proportionally to fill unused space. Wider and narrower containers keep their relative sizes, and their chosen spans return when the configured count is reached. Windows that require more space still scroll normally; a lone window follows **Single Window Fit**.
 
 Mouse and command resizing use the usual Niri behavior and keep your chosen size, even if that leaves empty space. Automatic filling resumes when the number of containers changes.
 
@@ -34,11 +34,12 @@ Windows can also float above the tiled layout in either engine:
 - `Toggle Focused Window Floating` (unassigned by default) floats or re-tiles the focused window.
 - [App Rules](/features/app-rules/) can force matching windows to float — or to tile — instead of the automatic classification.
 - `Raise All Floating Windows` (`Option + Shift + R`) brings every floating window to the front, and `Rescue Off-Screen Floating Windows` (unassigned) recovers strays.
+- `Toggle Floating/Tiled Focus` (unassigned) jumps focus between the floating and tiled windows of the active workspace, raising the floating windows when moving to them.
 - [Scratchpads](/features/scratchpads/) hold floating windows in ten toggleable slots.
 
 ## Fullscreen: OmniWM vs native
 
-- **`Toggle Fullscreen`** (`Option + Return`) is OmniWM's own fullscreen: the focused window fills the monitor while staying on its workspace, under OmniWM's management. Press it again to drop back into the layout. In Dwindle, a tiled window that opens on or moves to that workspace ends fullscreen first, so it splits the normal tile instead of covering the fullscreen window.
+- **`Toggle OmniWM Fullscreen`** (`Option + Return`) is OmniWM's own fullscreen: the focused window fills the monitor while staying on its workspace, under OmniWM's management. Press it again to drop back into the layout. In Dwindle, a tiled window that opens on or moves to that workspace ends fullscreen first, so it splits the normal tile instead of covering the fullscreen window.
 - **`Toggle Native Fullscreen`** (unassigned by default) uses macOS's built-in fullscreen, which moves the window into its own native fullscreen Space outside the tiled layout.
 
 :::tip
