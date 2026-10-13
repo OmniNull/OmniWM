@@ -27,7 +27,7 @@ import QuartzCore
     }
 
     weak var controller: WMController?
-    static let hiddenWindowEdgeRevealEpsilon: CGFloat = 1.0
+    nonisolated static let hiddenWindowEdgeRevealEpsilon: CGFloat = 1.0
     private static let delayedRevealVerificationDelay: Duration = .milliseconds(50)
 
     enum HideReason {

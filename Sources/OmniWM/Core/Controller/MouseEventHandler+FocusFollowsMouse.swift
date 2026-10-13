@@ -170,7 +170,7 @@ extension MouseEventHandler {
             else {
                 return nil
             }
-            return .niri(workspaceId: workspaceId, window: window)
+            return niriFocusFollowsMouseTarget(window, in: workspaceId, controller: controller)
 
         case .dwindle:
             guard let engine = controller.dwindleEngine else { return nil }
@@ -217,7 +217,7 @@ extension MouseEventHandler {
                 ) == true else {
                     return nil
                 }
-                return .niri(workspaceId: entry.workspaceId, window: window)
+                return niriFocusFollowsMouseTarget(window, in: entry.workspaceId, controller: controller)
 
             case .dwindle:
                 guard controller.dwindleEngine?.findNode(
@@ -229,6 +229,95 @@ extension MouseEventHandler {
                 return .dwindle(workspaceId: entry.workspaceId, token: entry.token)
             }
         }
+    }
+
+    private func niriFocusFollowsMouseTarget(
+        _ window: NiriWindow,
+        in workspaceId: WorkspaceDescriptor.ID,
+        controller: WMController
+    ) -> FocusFollowsMouseTarget? {
+        let percent = controller.settings.focus.hoverFocusMaxScrollPercent
+        guard percent < 100 else {
+            return .niri(workspaceId: workspaceId, window: window)
+        }
+        guard let monitor = controller.workspaceManager.monitor(for: workspaceId),
+              let engine = controller.niriEngine
+        else {
+            return nil
+        }
+        let geometry = controller.niriInteractionGeometry(for: monitor)
+        let orientation = resolvedNiriOrientation(engine: engine, workspaceId: workspaceId, monitor: monitor)
+        let scale = engine.displayScale(in: workspaceId)
+        guard let frame = window.renderedFrame ?? window.frame,
+              !NiriHoverParkedStrip.isParkedStrip(
+                  frame: frame,
+                  monitorFrame: monitor.frame,
+                  orientation: orientation,
+                  scale: scale
+              )
+        else {
+            return nil
+        }
+        let extent = orientation == .horizontal ? geometry.workingFrame.width : geometry.workingFrame.height
+        guard let amount = hoverScrollAmount(
+            for: window,
+            in: workspaceId,
+            engine: engine,
+            controller: controller,
+            geometry: geometry,
+            orientation: orientation,
+            scale: scale
+        ) else {
+            return nil
+        }
+        guard NiriHoverScroll.allows(amount: amount, percent: percent, extent: extent, scale: scale) else {
+            return nil
+        }
+        return .niri(workspaceId: workspaceId, window: window)
+    }
+
+    private func hoverScrollAmount(
+        for window: NiriWindow,
+        in workspaceId: WorkspaceDescriptor.ID,
+        engine: NiriLayoutEngine,
+        controller: WMController,
+        geometry: NiriInteractionGeometry,
+        orientation: Monitor.Orientation,
+        scale: CGFloat
+    ) -> CGFloat? {
+        if engine.singleWindowLayoutContext(in: workspaceId) != nil {
+            return 0
+        }
+        let columns = engine.columns(in: workspaceId)
+        if engine.projectionExclusions(in: workspaceId).isEmpty,
+           let column = engine.column(of: window),
+           let columnIndex = columns.firstIndex(where: { $0 === column }),
+           columns.allSatisfy({ $0[keyPath: orientation.settledSpanKeyPath] > 0 })
+        {
+            let settings = engine.effectiveSettings(in: workspaceId)
+            return NiriHoverScroll.scrollAmount(
+                state: controller.workspaceManager.niriViewportState(for: workspaceId),
+                columnIndex: columnIndex,
+                columns: columns,
+                context: NiriInteractionContext(
+                    workspaceId: workspaceId,
+                    motion: controller.motionPolicy.snapshot(),
+                    workingFrame: geometry.workingFrame,
+                    gaps: geometry.innerGap,
+                    orientation: orientation
+                ),
+                centerMode: settings.centerFocusedColumn,
+                alwaysCenterSingleColumn: settings.alwaysCenterSingleColumn,
+                scale: scale,
+                viewFrame: engine.monitorForWorkspace(workspaceId)?.frame
+            )
+        }
+        guard let frame = window.renderedFrame ?? window.frame else { return nil }
+        return NiriHoverScroll.geometricScrollAmount(
+            frame: frame,
+            workingFrame: geometry.workingFrame,
+            orientation: orientation
+        )
     }
 
     private func focusFollowsMouseToken(for target: FocusFollowsMouseTarget) -> WindowToken {
