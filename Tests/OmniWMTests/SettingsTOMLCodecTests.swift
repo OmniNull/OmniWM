@@ -212,6 +212,48 @@ final class SettingsTOMLCodecTests: XCTestCase {
         XCTAssertTrue(try SettingsTOMLCodec.decode(data).focus.raiseOnMouseFocus)
     }
 
+    func testHoverFocusMaxScrollPercentDefaultsAndRoundTrips() throws {
+        var export = SettingsExport.defaults()
+
+        XCTAssertEqual(export.focus.hoverFocusMaxScrollPercent, 100)
+        XCTAssertTrue(
+            String(decoding: try SettingsTOMLCodec.encode(export), as: UTF8.self)
+                .contains("hoverFocusMaxScrollPercent = 100")
+        )
+
+        for value in [0, 40] {
+            export.focus.hoverFocusMaxScrollPercent = value
+            let data = try SettingsTOMLCodec.encode(export)
+
+            XCTAssertTrue(String(decoding: data, as: UTF8.self).contains("hoverFocusMaxScrollPercent = \(value)"))
+            XCTAssertEqual(try SettingsTOMLCodec.decode(data).focus.hoverFocusMaxScrollPercent, value)
+            XCTAssertFalse(SettingsTOMLCodec.unknownKeyPaths(in: data).contains("focus.hoverFocusMaxScrollPercent"))
+        }
+    }
+
+    func testMissingHoverFocusMaxScrollPercentDefaultsTo100WithoutMigration() throws {
+        let withoutKey = try canonicalDefaultLines { lines in
+            let index = try XCTUnwrap(lines.firstIndex(of: "hoverFocusMaxScrollPercent = 100"))
+            lines.remove(at: index)
+        }
+
+        let result = try SettingsTOMLCodec.decodeForLoad(withoutKey)
+
+        XCTAssertEqual(result.export.focus.hoverFocusMaxScrollPercent, 100)
+        XCTAssertNil(result.migration)
+        XCTAssertNil(result.migratedData)
+    }
+
+    func testOutOfRangeHoverFocusMaxScrollPercentClampsOnDecode() throws {
+        for (raw, expected) in [(-5, 0), (250, 100)] {
+            var export = SettingsExport.defaults()
+            export.focus.hoverFocusMaxScrollPercent = raw
+            let data = try SettingsTOMLCodec.encode(export)
+
+            XCTAssertEqual(try SettingsTOMLCodec.decode(data).focus.hoverFocusMaxScrollPercent, expected)
+        }
+    }
+
     func testTOMLRejectsMissingFullscreenOuterGapPolicy() throws {
         let withoutKey = try canonicalDefaultLines { lines in
             let index = try XCTUnwrap(lines.firstIndex(of: "fullscreenUsesOuterGaps = false"))
@@ -603,6 +645,32 @@ final class SettingsTOMLCodecTests: XCTestCase {
         XCTAssertFalse(destination.focus.followsMouse)
         XCTAssertTrue(destination.focus.raiseOnMouseFocus)
         XCTAssertTrue(destination.toExport().focus.raiseOnMouseFocus)
+    }
+
+    @MainActor
+    func testHoverFocusMaxScrollPercentStoreMappingRoundTrips() {
+        let source = makeSettingsStore()
+        source.focus.hoverFocusMaxScrollPercent = 40
+        let destination = makeSettingsStore()
+
+        destination.applyExport(source.toExport())
+
+        XCTAssertEqual(destination.focus.hoverFocusMaxScrollPercent, 40)
+        XCTAssertEqual(destination.toExport().focus.hoverFocusMaxScrollPercent, 40)
+    }
+
+    @MainActor
+    func testHoverFocusMaxScrollPercentStoreApplyClampsOutOfRangeValues() {
+        let store = makeSettingsStore()
+        var export = store.toExport()
+
+        export.focus.hoverFocusMaxScrollPercent = 250
+        store.applyExport(export)
+        XCTAssertEqual(store.focus.hoverFocusMaxScrollPercent, 100)
+
+        export.focus.hoverFocusMaxScrollPercent = -5
+        store.applyExport(export)
+        XCTAssertEqual(store.focus.hoverFocusMaxScrollPercent, 0)
     }
 
     func testMalformedMouseMoveModifierTypeRejectsDecode() throws {

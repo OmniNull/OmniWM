@@ -39,6 +39,10 @@ final class FocusSettings {
         didSet { onChange?() }
     }
 
+    var hoverFocusMaxScrollPercent = FocusSettings.defaults.hoverFocusMaxScrollPercent {
+        didSet { onChange?() }
+    }
+
     func export() -> SettingsExport.Focus {
         SettingsExport.Focus(
             followsMouse: followsMouse,
@@ -47,7 +51,8 @@ final class FocusSettings {
             moveMouseToFocusedWindow: moveMouseToFocusedWindow,
             followsWindowToMonitor: followsWindowToMonitor,
             crossesMonitorAtEdge: crossesMonitorAtEdge,
-            moveCrossesMonitorAtEdge: moveCrossesMonitorAtEdge
+            moveCrossesMonitorAtEdge: moveCrossesMonitorAtEdge,
+            hoverFocusMaxScrollPercent: hoverFocusMaxScrollPercent
         )
     }
 
@@ -59,5 +64,6 @@ final class FocusSettings {
         followsWindowToMonitor = focus.followsWindowToMonitor
         crossesMonitorAtEdge = focus.crossesMonitorAtEdge
         moveCrossesMonitorAtEdge = focus.moveCrossesMonitorAtEdge
+        hoverFocusMaxScrollPercent = min(max(focus.hoverFocusMaxScrollPercent, 0), 100)
     }
 }

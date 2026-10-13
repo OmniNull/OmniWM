@@ -89,6 +89,19 @@ struct MouseTrackpadSettingsTab: View {
             Toggle("Raise Window When Focus Follows Mouse", isOn: Bindable(settings.focus).raiseOnMouseFocus)
                 .disabled(!settings.focus.followsMouse)
 
+            LabeledContent("Max Scroll on Hover") {
+                Stepper(value: Bindable(settings.focus).hoverFocusMaxScrollPercent, in: 0 ... 100, step: 5) {
+                    Text("\(settings.focus.hoverFocusMaxScrollPercent)%")
+                        .foregroundStyle(.secondary)
+                        .monospacedDigit()
+                }
+            }
+            .disabled(!settings.focus.followsMouse)
+
+            SettingsCaption(
+                localized: "Hover will not focus a Niri window if that would scroll the view by more than this percentage of the screen. Set 0 to never scroll, 100 for no limit."
+            )
+
             Picker("Focus Lock Modifier", selection: Bindable(settings.focus).lockModifier) {
                 ForEach(FocusLockModifier.allCases, id: \.self) { key in
                     Text(key.localizedDisplayName).tag(key)

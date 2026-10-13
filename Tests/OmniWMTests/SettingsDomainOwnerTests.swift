@@ -45,6 +45,25 @@ final class SettingsDomainOwnerTests: XCTestCase {
         XCTAssertEqual(try SettingsTOMLCodec.decode(Data(contentsOf: settings.settingsFileURL)), settings.toExport())
     }
 
+    func testHoverFocusMaxScrollPercentExportsAppliesAndPersists() throws {
+        let directory = FileManager.default.temporaryDirectory.appendingPathComponent(UUID().uuidString)
+        defer { try? FileManager.default.removeItem(at: directory) }
+        let settings = makeSettings(directory: directory)
+        XCTAssertEqual(settings.toExport().focus.hoverFocusMaxScrollPercent, 100)
+        var values = settings.toExport()
+        values.focus.hoverFocusMaxScrollPercent = 40
+
+        settings.applyExport(values)
+
+        XCTAssertEqual(settings.focus.hoverFocusMaxScrollPercent, 40)
+        XCTAssertEqual(settings.toExport().focus.hoverFocusMaxScrollPercent, 40)
+        settings.focus.hoverFocusMaxScrollPercent = 0
+        XCTAssertEqual(
+            try SettingsTOMLCodec.decode(Data(contentsOf: settings.settingsFileURL)).focus.hoverFocusMaxScrollPercent,
+            0
+        )
+    }
+
     func testDomainBindingTracksImportsAndPersistsEdits() throws {
         let directory = FileManager.default.temporaryDirectory.appendingPathComponent(UUID().uuidString)
         defer { try? FileManager.default.removeItem(at: directory) }

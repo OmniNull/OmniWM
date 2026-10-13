@@ -19,7 +19,8 @@ final class FocusRoutingSettingsExportTests: XCTestCase {
             "moveMouseToFocusedWindow": .boolean(false),
             "followsWindowToMonitor": .boolean(false),
             "crossesMonitorAtEdge": .boolean(false),
-            "moveCrossesMonitorAtEdge": .boolean(false)
+            "moveCrossesMonitorAtEdge": .boolean(false),
+            "hoverFocusMaxScrollPercent": .integer(100)
         ]))
         XCTAssertEqual(tree["mouseWarp"], .table([
             "margin": .integer(1),
@@ -56,6 +57,17 @@ final class FocusRoutingSettingsExportTests: XCTestCase {
                 }
             }
         }
+    }
+
+    func testHoverFocusMaxScrollPercentIsOptionalAndDefaultsTo100() throws {
+        let data = try SettingsTOMLCodec.encode(.defaults())
+        let source = String(decoding: data, as: UTF8.self)
+        let withoutKey = try removing(key: "hoverFocusMaxScrollPercent", from: "focus", in: source)
+
+        let decoded = try SettingsTOMLCodec.decode(Data(withoutKey.utf8))
+
+        XCTAssertEqual(decoded.focus.hoverFocusMaxScrollPercent, 100)
+        XCTAssertEqual(decoded, .defaults())
     }
 
     private func removing(key: String, from section: String, in source: String) throws -> String {

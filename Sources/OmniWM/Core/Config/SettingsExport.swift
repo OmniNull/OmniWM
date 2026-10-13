@@ -107,6 +107,7 @@ struct SettingsExport: Equatable {
         var followsWindowToMonitor: Bool
         var crossesMonitorAtEdge: Bool
         var moveCrossesMonitorAtEdge: Bool
+        var hoverFocusMaxScrollPercent: Int
     }
 
     struct MouseWarp: Codable, Equatable {
@@ -337,8 +338,27 @@ extension SettingsExport.Focus {
             moveMouseToFocusedWindow: false,
             followsWindowToMonitor: false,
             crossesMonitorAtEdge: false,
-            moveCrossesMonitorAtEdge: false
+            moveCrossesMonitorAtEdge: false,
+            hoverFocusMaxScrollPercent: 100
         )
+    }
+}
+
+extension SettingsExport.Focus {
+    init(from decoder: Decoder) throws {
+        let container = try decoder.container(keyedBy: CodingKeys.self)
+        followsMouse = try container.decode(Bool.self, forKey: .followsMouse)
+        raiseOnMouseFocus = try container.decode(Bool.self, forKey: .raiseOnMouseFocus)
+        lockModifier = try container.decode(FocusLockModifier.self, forKey: .lockModifier)
+        moveMouseToFocusedWindow = try container.decode(Bool.self, forKey: .moveMouseToFocusedWindow)
+        followsWindowToMonitor = try container.decode(Bool.self, forKey: .followsWindowToMonitor)
+        crossesMonitorAtEdge = try container.decode(Bool.self, forKey: .crossesMonitorAtEdge)
+        moveCrossesMonitorAtEdge = try container.decode(Bool.self, forKey: .moveCrossesMonitorAtEdge)
+        let maxScrollPercent = try container.decodeIfPresent(
+            Int.self,
+            forKey: .hoverFocusMaxScrollPercent
+        ) ?? 100
+        hoverFocusMaxScrollPercent = min(max(maxScrollPercent, 0), 100)
     }
 }
 

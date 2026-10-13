@@ -106956,6 +106956,378 @@
         }
       }
     },
+    "Max Scroll on Hover" : {
+      "localizations" : {
+        "ja" : {
+          "stringUnit" : {
+            "state" : "translated",
+            "value" : "ホバー時の最大スクロール量"
+          }
+        },
+        "de" : {
+          "stringUnit" : {
+            "state" : "translated",
+            "value" : "Max. Scrollen beim Überfahren"
+          }
+        },
+        "nb" : {
+          "stringUnit" : {
+            "state" : "translated",
+            "value" : "Maks. rulling ved hovring"
+          }
+        },
+        "sv" : {
+          "stringUnit" : {
+            "state" : "translated",
+            "value" : "Max rullning vid hovring"
+          }
+        },
+        "es" : {
+          "stringUnit" : {
+            "state" : "translated",
+            "value" : "Desplazamiento máximo al pasar el ratón"
+          }
+        },
+        "zh-Hans" : {
+          "stringUnit" : {
+            "state" : "translated",
+            "value" : "悬停时的最大滚动"
+          }
+        },
+        "hi" : {
+          "stringUnit" : {
+            "state" : "translated",
+            "value" : "होवर पर अधिकतम स्क्रॉल"
+          }
+        },
+        "ar" : {
+          "stringUnit" : {
+            "state" : "translated",
+            "value" : "أقصى تمرير عند التحويم"
+          }
+        },
+        "sr-Latn" : {
+          "stringUnit" : {
+            "state" : "translated",
+            "value" : "Maksimalno skrolovanje pri prelasku mišem"
+          }
+        },
+        "el" : {
+          "stringUnit" : {
+            "state" : "translated",
+            "value" : "Μέγιστη κύλιση κατά το πέρασμα"
+          }
+        },
+        "he" : {
+          "stringUnit" : {
+            "state" : "translated",
+            "value" : "גלילה מרבית בריחוף"
+          }
+        },
+        "ru" : {
+          "stringUnit" : {
+            "state" : "translated",
+            "value" : "Макс. прокрутка при наведении"
+          }
+        },
+        "pl" : {
+          "stringUnit" : {
+            "state" : "translated",
+            "value" : "Maks. przewijanie po najechaniu"
+          }
+        },
+        "uk" : {
+          "stringUnit" : {
+            "state" : "translated",
+            "value" : "Макс. прокручування при наведенні"
+          }
+        },
+        "fr" : {
+          "stringUnit" : {
+            "state" : "translated",
+            "value" : "Défilement max. au survol"
+          }
+        },
+        "nl" : {
+          "stringUnit" : {
+            "state" : "translated",
+            "value" : "Max. scrollen bij hover"
+          }
+        },
+        "it" : {
+          "stringUnit" : {
+            "state" : "translated",
+            "value" : "Scorrimento massimo al passaggio"
+          }
+        },
+        "fi" : {
+          "stringUnit" : {
+            "state" : "translated",
+            "value" : "Enimmäisvieritys osoitettaessa"
+          }
+        },
+        "da" : {
+          "stringUnit" : {
+            "state" : "translated",
+            "value" : "Maks. rulning ved hover"
+          }
+        },
+        "ko" : {
+          "stringUnit" : {
+            "state" : "translated",
+            "value" : "호버 시 최대 스크롤"
+          }
+        }
+      }
+    },
+    "Hover will not focus a Niri window if that would scroll the view by more than this percentage of the screen. Set 0 to never scroll, 100 for no limit." : {
+      "localizations" : {
+        "ja" : {
+          "stringUnit" : {
+            "state" : "translated",
+            "value" : "ホバーで Niri ウィンドウにフォーカスすると、ビューが画面に対するこの割合を超えてスクロールする場合は、フォーカスしません。0 で一切スクロールせず、100 で無制限です。"
+          }
+        },
+        "de" : {
+          "stringUnit" : {
+            "state" : "translated",
+            "value" : "Beim Überfahren wird ein Niri-Fenster nicht fokussiert, wenn die Ansicht dafür um mehr als diesen Prozentsatz des Bildschirms scrollen müsste. 0 scrollt nie, 100 hat keine Begrenzung."
+          }
+        },
+        "nb" : {
+          "stringUnit" : {
+            "state" : "translated",
+            "value" : "Hovring fokuserer ikke et Niri-vindu hvis visningen da måtte rulle mer enn denne prosentandelen av skjermen. 0 ruller aldri, 100 har ingen grense."
+          }
+        },
+        "sv" : {
+          "stringUnit" : {
+            "state" : "translated",
+            "value" : "Hovring fokuserar inte ett Niri-fönster om vyn då måste rullas mer än denna andel av skärmen i procent. 0 rullar aldrig, 100 saknar gräns."
+          }
+        },
+        "es" : {
+          "stringUnit" : {
+            "state" : "translated",
+            "value" : "Al pasar el ratón no se enfocará una ventana de Niri si la vista tuviera que desplazarse más de este porcentaje de la pantalla. 0 nunca desplaza; 100 no tiene límite."
+          }
+        },
+        "zh-Hans" : {
+          "stringUnit" : {
+            "state" : "translated",
+            "value" : "如果聚焦某个 Niri 窗口会使视图滚动超过屏幕的这一百分比，悬停时将不会聚焦该窗口。0 表示从不滚动，100 表示不限制。"
+          }
+        },
+        "hi" : {
+          "stringUnit" : {
+            "state" : "translated",
+            "value" : "यदि किसी Niri विंडो पर फोकस करने से दृश्य स्क्रीन के इस प्रतिशत से अधिक स्क्रॉल होगा, तो होवर करने पर वह फोकस नहीं होगी। 0 का अर्थ कभी स्क्रॉल नहीं, 100 का अर्थ कोई सीमा नहीं।"
+          }
+        },
+        "ar" : {
+          "stringUnit" : {
+            "state" : "translated",
+            "value" : "لن يتم التركيز على نافذة Niri عند التحويم إذا كان ذلك سيمرّر العرض بأكثر من هذه النسبة المئوية من الشاشة. القيمة 0 تعني عدم التمرير أبدًا، و100 تعني بلا حد."
+          }
+        },
+        "sr-Latn" : {
+          "stringUnit" : {
+            "state" : "translated",
+            "value" : "Prelazak mišem neće fokusirati Niri prozor ako bi to pomerilo prikaz za više od ovog procenta ekrana. 0 nikada ne skroluje, 100 nema ograničenja."
+          }
+        },
+        "el" : {
+          "stringUnit" : {
+            "state" : "translated",
+            "value" : "Το πέρασμα του ποντικιού δεν θα εστιάζει σε παράθυρο Niri αν αυτό θα κύλιζε την προβολή περισσότερο από αυτό το ποσοστό της οθόνης. Το 0 δεν κάνει ποτέ κύλιση, το 100 δεν έχει όριο."
+          }
+        },
+        "he" : {
+          "stringUnit" : {
+            "state" : "translated",
+            "value" : "ריחוף לא ימקד חלון Niri אם הדבר יגלול את התצוגה ביותר מאחוז זה מהמסך. 0 אינו גולל לעולם, 100 ללא הגבלה."
+          }
+        },
+        "ru" : {
+          "stringUnit" : {
+            "state" : "translated",
+            "value" : "При наведении курсора окно Niri не получит фокус, если для этого придётся прокрутить вид больше чем на этот процент экрана. 0 — не прокручивать никогда, 100 — без ограничений."
+          }
+        },
+        "pl" : {
+          "stringUnit" : {
+            "state" : "translated",
+            "value" : "Najechanie nie ustawi fokusu na oknie Niri, jeśli wymagałoby to przewinięcia widoku o więcej niż ten procent ekranu. 0 nigdy nie przewija, 100 oznacza brak limitu."
+          }
+        },
+        "uk" : {
+          "stringUnit" : {
+            "state" : "translated",
+            "value" : "При наведенні вікно Niri не отримає фокус, якщо для цього доведеться прокрутити вигляд більше ніж на цей відсоток екрана. 0 — ніколи не прокручувати, 100 — без обмежень."
+          }
+        },
+        "fr" : {
+          "stringUnit" : {
+            "state" : "translated",
+            "value" : "Le survol ne sélectionnera pas une fenêtre Niri si cela fait défiler la vue de plus de ce pourcentage de l’écran. 0 ne défile jamais, 100 n’impose aucune limite."
+          }
+        },
+        "nl" : {
+          "stringUnit" : {
+            "state" : "translated",
+            "value" : "Hoveren focust een Niri-venster niet als de weergave daarvoor meer dan dit percentage van het scherm zou scrollen. 0 scrolt nooit, 100 heeft geen limiet."
+          }
+        },
+        "it" : {
+          "stringUnit" : {
+            "state" : "translated",
+            "value" : "Il passaggio del mouse non attiva una finestra Niri se la vista dovesse scorrere più di questa percentuale dello schermo. 0 non scorre mai, 100 non ha limiti."
+          }
+        },
+        "fi" : {
+          "stringUnit" : {
+            "state" : "translated",
+            "value" : "Osoittaminen ei kohdista Niri-ikkunaan, jos näkymä joutuisi vierittämään yli tämän prosenttiosuuden näytöstä. 0 ei vieritä koskaan, 100 ei rajoita."
+          }
+        },
+        "da" : {
+          "stringUnit" : {
+            "state" : "translated",
+            "value" : "Hover fokuserer ikke et Niri-vindue, hvis visningen så skulle rulle mere end denne procentdel af skærmen. 0 ruller aldrig, 100 har ingen grænse."
+          }
+        },
+        "ko" : {
+          "stringUnit" : {
+            "state" : "translated",
+            "value" : "포커스를 주면 보기가 화면의 이 비율보다 많이 스크롤되는 경우 호버해도 Niri 창에 포커스를 주지 않습니다. 0은 스크롤하지 않으며 100은 제한이 없습니다."
+          }
+        }
+      }
+    },
+    "%lld%%" : {
+      "localizations" : {
+        "ja" : {
+          "stringUnit" : {
+            "state" : "translated",
+            "value" : "%lld%%"
+          }
+        },
+        "de" : {
+          "stringUnit" : {
+            "state" : "translated",
+            "value" : "%lld%%"
+          }
+        },
+        "nb" : {
+          "stringUnit" : {
+            "state" : "translated",
+            "value" : "%lld%%"
+          }
+        },
+        "sv" : {
+          "stringUnit" : {
+            "state" : "translated",
+            "value" : "%lld%%"
+          }
+        },
+        "es" : {
+          "stringUnit" : {
+            "state" : "translated",
+            "value" : "%lld%%"
+          }
+        },
+        "zh-Hans" : {
+          "stringUnit" : {
+            "state" : "translated",
+            "value" : "%lld%%"
+          }
+        },
+        "hi" : {
+          "stringUnit" : {
+            "state" : "translated",
+            "value" : "%lld%%"
+          }
+        },
+        "ar" : {
+          "stringUnit" : {
+            "state" : "translated",
+            "value" : "%lld%%"
+          }
+        },
+        "sr-Latn" : {
+          "stringUnit" : {
+            "state" : "translated",
+            "value" : "%lld%%"
+          }
+        },
+        "el" : {
+          "stringUnit" : {
+            "state" : "translated",
+            "value" : "%lld%%"
+          }
+        },
+        "he" : {
+          "stringUnit" : {
+            "state" : "translated",
+            "value" : "%lld%%"
+          }
+        },
+        "ru" : {
+          "stringUnit" : {
+            "state" : "translated",
+            "value" : "%lld%%"
+          }
+        },
+        "pl" : {
+          "stringUnit" : {
+            "state" : "translated",
+            "value" : "%lld%%"
+          }
+        },
+        "uk" : {
+          "stringUnit" : {
+            "state" : "translated",
+            "value" : "%lld%%"
+          }
+        },
+        "fr" : {
+          "stringUnit" : {
+            "state" : "translated",
+            "value" : "%lld%%"
+          }
+        },
+        "nl" : {
+          "stringUnit" : {
+            "state" : "translated",
+            "value" : "%lld%%"
+          }
+        },
+        "it" : {
+          "stringUnit" : {
+            "state" : "translated",
+            "value" : "%lld%%"
+          }
+        },
+        "fi" : {
+          "stringUnit" : {
+            "state" : "translated",
+            "value" : "%lld%%"
+          }
+        },
+        "da" : {
+          "stringUnit" : {
+            "state" : "translated",
+            "value" : "%lld%%"
+          }
+        },
+        "ko" : {
+          "stringUnit" : {
+            "state" : "translated",
+            "value" : "%lld%%"
+          }
+        }
+      }
+    },
     "Rank %lld" : {
       "localizations" : {
         "ja" : {

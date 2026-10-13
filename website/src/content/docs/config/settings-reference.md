@@ -59,6 +59,7 @@ Pointer-driven focus and monitor-edge focus/move behavior.
 | --- | --- | --- | --- |
 | `followsMouse` | boolean | `false` | Focuses a managed window when the pointer enters it, no click needed. |
 | `raiseOnMouseFocus` | boolean | `false` | Also raises the window when focus-follows-mouse focuses it. A tiled window that a visible floating window overlaps from the front is focused without raising. |
+| `hoverFocusMaxScrollPercent` | integer | `100` | With focus-follows-mouse on, a Niri window is not focused on hover if doing so would scroll the view by more than this percentage of the screen's working width (height in vertical layouts). `0` never scrolls, `100` has no limit. Values are clamped to 0-100. |
 | `lockModifier` | string | `"off"` | Modifier that holds focus in place while pressed: `off`, `option`, `leftOption`, `rightOption`, `command`, `leftCommand`, `rightCommand`, `control`, `leftControl`, `rightControl`, `shift`, `leftShift`, `rightShift`. |
 | `moveMouseToFocusedWindow` | boolean | `false` | Moves the pointer to the window that gains focus. |
 | `followsWindowToMonitor` | boolean | `false` | Follows ordinary window or column transfers to another workspace, including dedicated monitor-move actions. Edge-crossing moves always follow. |
