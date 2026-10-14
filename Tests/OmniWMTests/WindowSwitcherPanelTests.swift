@@ -13,18 +13,22 @@ final class WindowSwitcherPanelTests: XCTestCase {
             item: item, size: CGSize(width: 204, height: 204), selected: true,
             content: .init(items: [item], selected: item.handle.id, scope: .activeWorkspace, hasCaptureAccess: true)
         )
-        let thumbnail = try XCTUnwrap(tile.layer?.sublayers?.first)
+        let clip = try XCTUnwrap(tile.layer?.sublayers?.first)
+        let thumbnail = try XCTUnwrap(clip.sublayers?.first)
+        XCTAssertTrue(clip.masksToBounds)
+        XCTAssertTrue(clip.isGeometryFlipped)
+        XCTAssertEqual(clip.frame, tile.bounds.insetBy(dx: 2, dy: 2))
         let cases: [(CGRect, CGRect)] = [
-            (CGRect(x: 0, y: 0, width: 400, height: 200), CGRect(x: 0.25, y: 0, width: 0.5, height: 0.5)),
-            (CGRect(x: 100, y: 0, width: 200, height: 400), CGRect(x: 0.25, y: 0.25, width: 0.5, height: 0.5)),
-            (CGRect(x: 0, y: 0, width: 400, height: 400), CGRect(x: 0, y: 0, width: 1, height: 1))
+            (CGRect(x: 0, y: 0, width: 400, height: 200), CGRect(x: -100, y: 0, width: 400, height: 400)),
+            (CGRect(x: 100, y: 0, width: 200, height: 400), CGRect(x: -100, y: -100, width: 400, height: 400)),
+            (CGRect(x: 0, y: 0, width: 400, height: 400), CGRect(x: 0, y: 0, width: 200, height: 200))
         ]
-        for (contentRect, expectedCrop) in cases {
+        for (contentRect, expectedFrame) in cases {
             let preview = try makeOverviewPreviewFrame(width: 400, height: 400, contentRect: contentRect)
             tile.updatePreview(preview)
-            XCTAssertEqual(thumbnail.contentsRect, expectedCrop)
+            XCTAssertEqual(thumbnail.contentsRect, CGRect(x: 0, y: 0, width: 1, height: 1))
             XCTAssertEqual(thumbnail.contentsGravity, .resize)
-            XCTAssertEqual(thumbnail.frame, tile.bounds.insetBy(dx: 2, dy: 2))
+            XCTAssertEqual(thumbnail.frame, expectedFrame)
         }
         tile.updatePreview(nil)
         XCTAssertNil(thumbnail.contents)

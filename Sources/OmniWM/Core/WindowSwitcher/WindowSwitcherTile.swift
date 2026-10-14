@@ -9,6 +9,7 @@ final class WindowSwitcherTile: NSView {
     let handle: WindowHandle
     private let item: WindowSwitcherItem
     private let scope: WindowSwitcherScope
+    private let thumbnailClip = CALayer()
     private let thumbnail = CALayer()
     private let captionShade = CAGradientLayer()
     private let thumbnailBounds: CGRect
@@ -104,9 +105,12 @@ final class WindowSwitcherTile: NSView {
     private func configurePreviewLayer() {
         thumbnail.contentsGravity = .resize
         thumbnail.opacity = item.isMinimized ? 0.45 : 1
-        thumbnail.cornerRadius = 6
-        thumbnail.masksToBounds = true
-        layer?.addSublayer(thumbnail)
+        thumbnailClip.frame = thumbnailBounds
+        thumbnailClip.cornerRadius = 6
+        thumbnailClip.masksToBounds = true
+        thumbnailClip.isGeometryFlipped = true
+        thumbnailClip.addSublayer(thumbnail)
+        layer?.addSublayer(thumbnailClip)
         captionShade.frame = CGRect(x: 2, y: 2, width: bounds.width - 4, height: 36)
         let stops = (0 ... 8).map { CGFloat($0) / 8 }
         captionShade.colors = stops.map { position in
@@ -156,21 +160,21 @@ final class WindowSwitcherTile: NSView {
         CATransaction.setCompletionBlock { withExtendedLifetime(previous) {} }
         preview = frame
         thumbnail.contents = frame?.surface
-        thumbnail.contentsRect = frame.map { frame in
-            // Crop within the captured content, excluding the stream's padding,
-            // before scaling it to fill the card.
-            var rect = frame.contentsRect
+        thumbnail.frame = frame.map { frame in
+            // Position the full surface behind a clip using its captured content
+            // bounds. This keeps IOSurface padding outside the visible card.
+            let rect = frame.contentsRect
             let contentWidth = CGFloat(frame.surface.width) * rect.width
             let contentHeight = CGFloat(frame.surface.height) * rect.height
             let scale = max(thumbnailBounds.width / contentWidth, thumbnailBounds.height / contentHeight)
-            let width = thumbnailBounds.width / scale / CGFloat(frame.surface.width)
-            let height = thumbnailBounds.height / scale / CGFloat(frame.surface.height)
-            rect.origin.x += (rect.width - width) / 2
-            rect.origin.y += (rect.height - height) / 2
-            rect.size = CGSize(width: width, height: height)
-            return rect
-        } ?? CGRect(x: 0, y: 0, width: 1, height: 1)
-        thumbnail.frame = thumbnailBounds
+            let width = CGFloat(frame.surface.width) * scale
+            let height = CGFloat(frame.surface.height) * scale
+            return CGRect(
+                x: (thumbnailBounds.width - contentWidth * scale) / 2 - rect.minX * width,
+                y: (thumbnailBounds.height - contentHeight * scale) / 2 - rect.minY * height,
+                width: width, height: height
+            )
+        } ?? thumbnailClip.bounds
         unavailable.isHidden = frame != nil
         CATransaction.commit()
     }

@@ -152,6 +152,102 @@ final class OverviewPreviewLiveTests: XCTestCase {
         }
     }
 
+    func testReopenedPreviewAfterWindowDoublesInWidth() async throws {
+        guard ProcessInfo.processInfo.environment["OMNIWM_RUN_OVERVIEW_PREVIEW_LIVE_TESTS"] == "1" else {
+            throw XCTSkip("Live preview checks require OMNIWM_RUN_OVERVIEW_PREVIEW_LIVE_TESTS=1")
+        }
+        // currentProcess exposes only this test's windows and needs no TCC grant.
+        _ = NSApplication.shared
+        let panel = NSPanel(
+            contentRect: CGRect(x: 100, y: 100, width: 320, height: 320),
+            styleMask: [.borderless, .nonactivatingPanel], backing: .buffered, defer: false
+        )
+        panel.isReleasedWhenClosed = false
+        panel.ignoresMouseEvents = true
+        let quadrants = Quadrants(frame: CGRect(x: 0, y: 0, width: 320, height: 320))
+        panel.contentView = quadrants
+        panel.orderBack(nil)
+        panel.displayIfNeeded()
+        CATransaction.flush()
+        defer { panel.close() }
+
+        let content = try await SCShareableContent.currentProcess
+        let originalWindow = try XCTUnwrap(content.windows.first { Int($0.windowID) == panel.windowNumber })
+        let handle = WindowHandle(id: WindowToken(pid: getpid(), windowId: panel.windowNumber))
+        let request = OverviewPreviewRequest(handle: handle, pixelWidth: 200, pixelHeight: 200)
+
+        func captureFirstFrame(_ window: SCWindow) async throws -> OverviewPreviewFrame {
+            let ready = expectation(description: "first complete frame after opening capture")
+            ready.assertForOverFulfill = false
+            let output = OverviewPreviewStream(onReady: { ready.fulfill() }, onFailure: {})
+            let stream = try OverviewNativePreviewStream(window: window, request: request, output: output)
+            defer {
+                output.invalidate()
+                stream.stop()
+            }
+            try await stream.start()
+            await fulfillment(of: [ready], timeout: 5)
+            return try XCTUnwrap(output.take())
+        }
+
+        let original = try await captureFirstFrame(originalWindow)
+        XCTAssertEqual(original.contentsRect.height, 1, accuracy: 0.01)
+        panel.setContentSize(CGSize(width: 640, height: 320))
+        quadrants.needsDisplay = true
+        panel.displayIfNeeded()
+        CATransaction.flush()
+
+        let reused = try await captureFirstFrame(originalWindow)
+        let refreshed = try await SCShareableContent.currentProcess
+        let freshWindow = try XCTUnwrap(refreshed.windows.first { Int($0.windowID) == panel.windowNumber })
+        let fresh = try await captureFirstFrame(freshWindow)
+        for frame in [reused, fresh] {
+            XCTAssertEqual(frame.contentsRect.width, 1, accuracy: 0.01)
+            XCTAssertEqual(frame.contentsRect.height, 0.5, accuracy: 0.01)
+            XCTAssertEqual(try dominantColor(frame, x: 0.25, y: 0.25), .red)
+            XCTAssertEqual(try dominantColor(frame, x: 0.75, y: 0.25), .green)
+            XCTAssertEqual(try dominantColor(frame, x: 0.25, y: 0.75), .blue)
+            XCTAssertEqual(try dominantColor(frame, x: 0.75, y: 0.75), .yellow)
+        }
+        panel.setContentSize(CGSize(width: 320, height: 320))
+        quadrants.needsDisplay = true
+        panel.displayIfNeeded()
+        CATransaction.flush()
+        let narrowed = try await captureFirstFrame(originalWindow)
+        XCTAssertEqual(narrowed.contentsRect, CGRect(x: 0, y: 0, width: 1, height: 1))
+
+        // Exercise the real layer-backed card as well as the capture metadata.
+        let item = WindowSwitcherItem(
+            handle: handle, title: "Resize", appName: "Test", icon: nil,
+            workspaceName: "1", isMinimized: false
+        )
+        let tile = WindowSwitcherTile(
+            item: item, size: CGSize(width: 220, height: 207), selected: false,
+            content: .init(items: [item], selected: nil, scope: .activeWorkspace, hasCaptureAccess: true)
+        )
+        let tilePanel = NSPanel(
+            contentRect: CGRect(origin: CGPoint(x: 800, y: 100), size: tile.bounds.size),
+            styleMask: [.borderless, .nonactivatingPanel], backing: .buffered, defer: false
+        )
+        tilePanel.isReleasedWhenClosed = false
+        tilePanel.ignoresMouseEvents = true
+        tilePanel.contentView = tile
+        tilePanel.orderBack(nil)
+        defer { tilePanel.close() }
+        for frame in [original, reused, fresh, narrowed] {
+            tile.updatePreview(frame)
+            tilePanel.displayIfNeeded()
+            CATransaction.flush()
+            let tileContent = try await SCShareableContent.currentProcess
+            let tileWindow = try XCTUnwrap(tileContent.windows.first { Int($0.windowID) == tilePanel.windowNumber })
+            let rendered = try await captureFirstFrame(tileWindow)
+            XCTAssertEqual(try dominantColor(rendered, x: 0.25, y: 0.25), .red)
+            XCTAssertEqual(try dominantColor(rendered, x: 0.75, y: 0.25), .green)
+            XCTAssertEqual(try dominantColor(rendered, x: 0.25, y: 0.75), .blue)
+            XCTAssertEqual(try dominantColor(rendered, x: 0.75, y: 0.75), .yellow)
+        }
+    }
+
     private enum SampleColor {
         case red, green, blue, yellow, unknown
     }

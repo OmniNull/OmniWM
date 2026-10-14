@@ -20,7 +20,7 @@ final class OverviewPreviewCaptureTests: XCTestCase {
         let surface = try XCTUnwrap(CVPixelBufferGetIOSurface(buffer)?.takeUnretainedValue())
         let initialUseCount = IOSurfaceGetUseCount(surface)
         var frame: OverviewPreviewFrame? = try XCTUnwrap(OverviewPreviewFrame(pixelBuffer: buffer))
-        weak var lifetime = frame
+        weak let lifetime = frame
         XCTAssertEqual(IOSurfaceGetUseCount(surface), initialUseCount + 1)
         XCTAssertTrue(IOSurfaceIsInUse(surface))
 
