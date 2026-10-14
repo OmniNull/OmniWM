@@ -17,6 +17,7 @@ final class WindowSwitcherController {
     private weak var controller: WMController?
     private let panel: WindowSwitcherPanel
     private let capture: OverviewThumbnailCapture
+    private var previews = WindowSwitcherPreviews()
     private var items: [WindowSwitcherItem] = []
     private var selection = WindowSwitcherSelection()
     private var workspaceId: WorkspaceDescriptor.ID?
@@ -32,7 +33,8 @@ final class WindowSwitcherController {
         panel = WindowSwitcherPanel(ownedWindowRegistry: controller.ownedWindowRegistry)
         capture = OverviewThumbnailCapture(consumer: .windowSwitcher)
         capture.onPreview = { [weak self] handle, frame in
-            self?.panel.updatePreview(frame, for: handle)
+            guard let self, isVisible else { return }
+            panel.updatePreview(previews.preview(for: handle, candidate: frame), for: handle)
         }
         capture.onReadinessChange = { [weak self] in
             guard let self, isVisible else { return }
@@ -196,12 +198,16 @@ final class WindowSwitcherController {
     private func captureVisibleItems(_ displayed: [WindowSwitcherItem]) {
         guard isVisible, let controller else { return }
         guard ScreenCapturePermissionMonitor.shared.isGranted else {
+            previews.removeAll()
             capture.clear()
             capture.releaseCache()
             return
         }
         for item in displayed {
-            panel.updatePreview(capture.preview(for: item.handle), for: item.handle)
+            panel.updatePreview(
+                previews.preview(for: item.handle, candidate: capture.preview(for: item.handle)),
+                for: item.handle
+            )
         }
         capture.reconcile(
             represented: Set(controller.workspaceManager.allEntries().compactMap {
@@ -260,6 +266,7 @@ final class WindowSwitcherController {
             capture.releaseCache()
         }
         items.removeAll()
+        previews.removeAll()
         selection = WindowSwitcherSelection()
         guard isVisible else { return }
         isVisible = false
