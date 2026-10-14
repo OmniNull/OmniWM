@@ -85,14 +85,19 @@ final class WindowSwitcherPanel: NSPanel {
         false
     }
 
-    func show(
+    func prepare(
         content: Content,
         screenFrame: CGRect
     ) {
         updateContent(content, screenFrame: screenFrame)
         registerSurface()
+        reportVisibleItems()
+    }
+
+    func present() {
+        guard !isVisible else { return }
         orderFrontRegardless()
-        didScroll()
+        tiles.forEach { $0.refreshHover() }
     }
 
     func updateContent(_ content: Content, screenFrame: CGRect) {
@@ -253,7 +258,13 @@ final class WindowSwitcherPanel: NSPanel {
     @objc private func didScroll() {
         guard !isLayingOut, isVisible else { return }
         tiles.forEach { $0.refreshHover() }
-        let visible = gridView.visibleRect
+        reportVisibleItems()
+    }
+
+    private func reportVisibleItems() {
+        // The viewport exists before the panel is ordered on screen, allowing
+        // its initial cards to be captured without exposing loading previews.
+        let visible = scrollView.documentVisibleRect
         let displayed = zip(items, tiles).compactMap { item, tile -> WindowSwitcherItem? in
             if tile.frame.intersects(visible) { return item }
             tile.updatePreview(nil)

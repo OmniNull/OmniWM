@@ -7,6 +7,25 @@ import XCTest
 
 @MainActor
 final class WindowSwitcherPanelTests: XCTestCase {
+    func testPreparingPanelRequestsViewportPreviewsWithoutShowingLoadingCards() {
+        let panel = WindowSwitcherPanel(ownedWindowRegistry: OwnedWindowRegistry())
+        defer {
+            panel.hide()
+            panel.close()
+        }
+        let items = (1 ... 3).map(makeItem)
+        var requested: [WindowToken] = []
+        panel.onVisibleItemsChanged = { requested = $0.map(\.handle.id) }
+        panel.prepare(
+            content: .init(items: items, selected: items[1].handle.id, scope: .activeWorkspace, hasCaptureAccess: true),
+            screenFrame: CGRect(x: 0, y: 0, width: 1600, height: 900)
+        )
+        XCTAssertFalse(panel.isVisible)
+        XCTAssertEqual(requested, items.map(\.handle.id))
+        panel.hide()
+        XCTAssertFalse(panel.isVisible)
+    }
+
     func testPreviewFillsCardUsingOnlyCapturedContentForWideAndTallWindows() throws {
         let item = makeItem(1)
         let tile = WindowSwitcherTile(

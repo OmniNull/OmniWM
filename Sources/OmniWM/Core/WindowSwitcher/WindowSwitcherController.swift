@@ -18,6 +18,8 @@ final class WindowSwitcherController {
     private let panel: WindowSwitcherPanel
     private let capture: OverviewThumbnailCapture
     private var previews = WindowSwitcherPreviews()
+    private var previewHandles: [WindowHandle] = []
+    private var isReconcilingPreviews = false
     private var items: [WindowSwitcherItem] = []
     private var selection = WindowSwitcherSelection()
     private var workspaceId: WorkspaceDescriptor.ID?
@@ -37,8 +39,7 @@ final class WindowSwitcherController {
             panel.updatePreview(previews.preview(for: handle, candidate: frame), for: handle)
         }
         capture.onReadinessChange = { [weak self] in
-            guard let self, isVisible else { return }
-            panel.setCapturePending(capture.hasPendingFirstFrames)
+            self?.presentWhenReady()
         }
         panel.onSelect = { [weak self] token in
             self?.selection.select(token)
@@ -183,7 +184,7 @@ final class WindowSwitcherController {
         guard let controller else { return }
         let visibleItems = scopedItems()
         let hasCaptureAccess = ScreenCapturePermissionMonitor.shared.isGranted
-        panel.show(
+        panel.prepare(
             content: WindowSwitcherPanel.Content(
                 items: visibleItems,
                 selected: selection.selected,
@@ -197,6 +198,12 @@ final class WindowSwitcherController {
 
     private func captureVisibleItems(_ displayed: [WindowSwitcherItem]) {
         guard isVisible, let controller else { return }
+        previewHandles = displayed.filter { !$0.isMinimized }.map(\.handle)
+        isReconcilingPreviews = true
+        defer {
+            isReconcilingPreviews = false
+            presentWhenReady()
+        }
         guard ScreenCapturePermissionMonitor.shared.isGranted else {
             previews.removeAll()
             capture.clear()
@@ -219,6 +226,17 @@ final class WindowSwitcherController {
             prioritizing: displayed.first { $0.handle.id == selection.selected }?.handle,
             firstFrameOnly: true
         )
+    }
+
+    private func presentWhenReady() {
+        guard isVisible, !isReconcilingPreviews else { return }
+        let pending = capture.hasPendingFirstFrames
+        panel.setCapturePending(pending)
+        // Cached sessions can appear immediately. On a cold start, keep the
+        // panel offscreen until captures arrive or fail, so no loading state
+        // flashes. The input session remains active for commit and cancellation.
+        guard previews.isReady(for: previewHandles) || !pending else { return }
+        panel.present()
     }
 
     func refreshWindows() {
@@ -267,6 +285,7 @@ final class WindowSwitcherController {
         }
         items.removeAll()
         previews.removeAll()
+        previewHandles.removeAll()
         selection = WindowSwitcherSelection()
         guard isVisible else { return }
         isVisible = false
