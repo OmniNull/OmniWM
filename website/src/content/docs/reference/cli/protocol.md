@@ -13,7 +13,7 @@ sidebar:
 {
   "version": 20,
   "id": "<uuid>",
-  "kind": "<ping|version|command|capture|query|rule|workspace|window|window-mark|subscribe>",
+  "kind": "<ping|version|command|capture|query|rule|workspace|window|window-mark|window-gather|subscribe>",
   "authorizationToken": "<token>",
   "payload": { ... }
 }
@@ -162,6 +162,38 @@ Workspace requests use this flat wire shape. For `move-to-monitor`, `force` is o
 
 `focus`, `summon`, and `remove` use the same `mark` field. `list` sends only `{"name":"list"}`; a `mark` field on `list` is rejected.
 
+**Window gather:**
+
+```json
+{
+  "windowIds": ["ow_...", "ow_..."],
+  "workspaceTarget": {
+    "kind": "raw-id",
+    "value": "3"
+  }
+}
+```
+
+`window-gather` places the listed windows, in the given order, as the only windows of the leading (first) Niri column of an existing workspace. Both fields are required, and the workspace is never created. The windows may come from several workspaces, including inactive ones; OmniWM does not switch workspaces, reveal hidden windows or move focus to perform the gather.
+
+If the destination's first column already holds only listed windows, it is reused, keeping its width and display mode, including tabbed. Otherwise a new first column with the workspace's default width is inserted. Windows that change column lose their column-local sizes; other columns keep their windows, order and sizes.
+
+The request is validated as a whole before anything changes. One ineligible window refuses the whole request, and nothing moves. Ineligible windows include:
+
+- app-hidden, minimized, or natively withdrawn windows
+- scratchpad windows, whether hidden or revealed
+- native or layout fullscreen windows
+- floating windows
+- non-Niri windows
+
+The request is also refused, with nothing moved, when:
+
+- an ID is invalid, stale, duplicated, or no longer managed
+- the destination is missing or not a Niri workspace
+- the combined minimum sizes do not fit the destination column
+
+Windows on inactive workspaces, inactive tabs, or scrolled out of view are eligible.
+
 ### Response Format
 
 ```json
@@ -169,10 +201,10 @@ Workspace requests use this flat wire shape. For `move-to-monitor`, `force` is o
   "version": 20,
   "id": "<request-id>",
   "ok": true,
-  "kind": "<ping|version|command|capture|query|rule|workspace|window|window-mark|subscribe>",
+  "kind": "<ping|version|command|capture|query|rule|workspace|window|window-mark|window-gather|subscribe>",
   "status": "<success|executed|ignored|error|subscribed>",
   "result": {
-    "kind": "<pong|version|capture|workspace-bar|active-workspace|focused-monitor|apps|metrics|focused-window|windows|workspaces|displays|rules|rule-actions|queries|commands|subscriptions|capabilities|subscribed|window-marks>",
+    "kind": "<pong|version|capture|workspace-bar|active-workspace|focused-monitor|apps|metrics|focused-window|windows|workspaces|displays|rules|rule-actions|queries|commands|subscriptions|capabilities|subscribed|window-marks|window-gather>",
     "payload": { ... }
   }
 }
@@ -181,6 +213,60 @@ Workspace requests use this flat wire shape. For `move-to-monitor`, `force` is o
 Optional response fields are omitted when unavailable. For example, a successful response has no `code` key; it does not send `"code": null`.
 
 A `window mark list` response has `kind: "window-mark"` and `result.kind: "window-marks"`. Its `result.payload.marks` array contains each mark's `name`, `workspace` (`id`, `rawName`, `displayName`, optional `number`), `app` (`name`, optional `bundleId`), and optional window `title`. Other mark actions return `status: "executed"` without a result payload.
+
+A `window-gather` response has `kind: "window-gather"` and, whenever its arguments were evaluated, `result.kind: "window-gather"`. The payload has these fields:
+
+- `outcome`: `gathered`, `unchanged`, or `refused`.
+- `workspace`: the destination, using the same shape as `window mark list` workspaces; omitted when the destination is unresolved.
+- `reason`: a request-level reason, present only when refused.
+- `windows`: one entry per requested ID, in request order. Each entry has `windowId`, `status`, and an optional `reason`. The status is one of:
+  - `moved`
+  - `unchanged`
+  - `blocked`: eligible, but the request was refused for another reason
+  - `refused`
+  - `unresolved`
+- `moved`: the IDs whose placement changed.
+- `relayoutWorkspaces`: the destination first, then each source workspace once.
+- `modelCommitted` and `relayoutRequested`.
+
+Every outcome returns a different envelope:
+
+- **Gathered:** returns `status: "executed"`. It means OmniWM published the new layout in one model update and requested one relayout for `relayoutWorkspaces`. It does not mean window frames have already settled.
+- **Already satisfied:** returns `no_change` with `status: "ignored"`. Nothing is published, and no relayout is requested.
+- **Refused:** returns `status: "error"` and requests no relayout. The `code` comes from the first failing input in request order, after any destination failure:
+  - `invalid_arguments`: malformed or duplicate ID, an empty list, or an invalid target.
+  - `stale_window_id`: an ID from a previous session.
+  - `not_found`: a missing window or workspace.
+  - `unsupported_layout`: a non-Niri source or destination.
+  - `ineligible_window`: any other ineligible window.
+  - `does_not_fit`: the combined minimum sizes do not fit the destination column.
+  - `workspace_state_conflict`: a layout/model conflict, or a plan that went stale before publication.
+
+Per-window `reason` values are:
+
+- `invalid_window_id`
+- `stale_window_id`
+- `duplicate_window`
+- `not_found`
+- `scratchpad`
+- `native_fullscreen`
+- `app_hidden`
+- `minimized`
+- `native_withdrawn`
+- `floating`
+- `unsupported_layout`
+- `layout_conflict`
+- `layout_fullscreen`
+
+Request-level `reason` values are:
+
+- `no_windows`
+- `destination_not_found`
+- `invalid_destination`
+- `unsupported_layout`
+- `window_refused`
+- `does_not_fit`
+- `stale_plan`
 
 Authorization, protocol, validation, and routing failures keep the originating response `kind`. For example:
 
@@ -253,16 +339,18 @@ This envelope is produced locally by the CLI, so it does not include IPC fields 
 | `window_action_failed` | The requested close, mark focus, or summon could not complete |
 | `no_change` | Request resolved to the current state (workspace already active and holding keyboard focus, window already on the target, nothing to raise or rescue); status is `ignored`. `switch-workspace`, `switch-workspace slot`, `switch-workspace anywhere`, and `workspace focus-name` return `executed` instead when the workspace is already visible but keyboard focus must be handed back to it |
 | `workspace_assignment_conflict` | Configured monitor assignment prevents the requested workspace move |
-| `workspace_state_conflict` | Current fullscreen, scratchpad, or pending focus state prevents the requested workspace move |
+| `workspace_state_conflict` | Current fullscreen, scratchpad, or pending focus state prevents the requested workspace move, or a `window-gather` layout conflicts with the window model or changed before publication |
 | `capture_state_conflict` | Capture state does not permit the requested start or stop transition |
 | `stale_mark` | A mark points to a window that is no longer available; the mark is removed |
 | `unknown_mark` | No window has this mark |
 | `no_focused_window` | Setting or summoning a mark requires a focused managed window |
 | `self_summon` | The marked window is also the summon anchor |
 | `hidden_window` | A hidden app's marked window cannot be summoned |
-| `unsupported_layout` | The source or target layout cannot summon the marked window |
+| `unsupported_layout` | The source or target layout cannot summon the marked window, or a `window-gather` window or destination is not in a Niri workspace |
 | `duplicate_mark` | The name is already assigned to another window |
 | `invalid_mark` | The mark name is empty or contains control characters |
+| `ineligible_window` | A `window-gather` window is hidden, minimized, withdrawn, in the scratchpad, fullscreen, or floating |
+| `does_not_fit` | The windows of a `window-gather` request do not fit in one destination column |
 | `internal_error` | Unexpected server-side error |
 
 Malformed opaque window IDs return `invalid_arguments`. For window actions, a valid current-session ID whose window is no longer managed returns `not_found`.
