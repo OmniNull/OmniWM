@@ -3,7 +3,7 @@
 
 import CoreGraphics
 
-struct NiriSizingGeometry {
+struct NiriSizingGeometry: Equatable {
     let workingFrame: CGRect
     let gaps: CGFloat
     let orientation: Monitor.Orientation
