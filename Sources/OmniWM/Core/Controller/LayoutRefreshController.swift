@@ -118,7 +118,7 @@ import QuartzCore
     }
 
     func resetState() {
-        workspaceSwipe.cancel(reason: "reset")
+        workspaceSwipe.cancelAll(reason: "reset")
         let discardedScratchpadIndices = revealGroups.indices()
         layoutState.activeRefreshTask?.cancel()
         layoutState.activeRefreshTask = nil

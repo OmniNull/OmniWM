@@ -188,7 +188,7 @@ final class WorkspaceSwipePresentationTests: XCTestCase {
         let settlement = AXFrameSettlement(tokens: [token])
         flight.phase = .waitingForPlacement
         flight.settlement = settlement
-        controller.axManager.workspaceFrameSettlement = settlement
+        controller.axManager.workspaceFrameSettlements = [settlement]
         settlement.reject(.init(pid: token.pid, window: axRef, frame: targetFrame))
         settlement.seal()
         XCTAssertTrue(settlement.failed)
@@ -203,7 +203,7 @@ final class WorkspaceSwipePresentationTests: XCTestCase {
         ))
         swipe.checkSettlement()
         XCTAssertFalse(swipe.hasPresentation)
-        XCTAssertNil(controller.axManager.workspaceFrameSettlement)
+        XCTAssertTrue(controller.axManager.workspaceFrameSettlements.isEmpty)
     }
 
     func testUnrelatedEffectPlanDoesNotSealPlacementSettlement() throws {
@@ -237,23 +237,174 @@ final class WorkspaceSwipePresentationTests: XCTestCase {
         XCTAssertFalse(swipe.hasPresentation)
     }
 
-    func testTouchCatchesSettlingAtCurrentProgressAndLiftCanCancel() throws {
-        var mediaTime = 1.06
+    func testTouchCatchesCancellingSettleAtCurrentProgress() throws {
+        var mediaTime = 1.3
         let (controller, swipe, monitor, source) = try fixture(mediaTimeProvider: { mediaTime })
         _ = swipe.prepare(monitorId: monitor.id, timestamp: 1)
         swipe.begin(axis: .vertical, cumulative: 20, timestamp: 1.01)
         swipe.update(cumulative: 80, timestamp: 1.05)
-        swipe.release(timestamp: 1.06, allowFlick: true)
-        mediaTime = 1.07
+        swipe.release(timestamp: 1.3, allowFlick: true)
+        XCTAssertEqual(swipe.flight?.motion.target, 0)
+        mediaTime = 1.31
         let expected = try XCTUnwrap(swipe.flight).motion.progress(at: mediaTime)
-        XCTAssertTrue(swipe.prepare(monitorId: monitor.id, timestamp: 1.07))
+        XCTAssertTrue(swipe.prepare(monitorId: monitor.id, timestamp: 1.31))
         XCTAssertEqual(try XCTUnwrap(swipe.flight).progress, expected, accuracy: 0.000001)
         XCTAssertNil(swipe.flight?.motion.target)
-        mediaTime = 1.3
-        swipe.release(timestamp: 1.3, allowFlick: true)
+        mediaTime = 1.6
+        swipe.release(timestamp: 1.6, allowFlick: true)
         swipe.tick(displayId: monitor.displayId, timestamp: 3)
         XCTAssertEqual(controller.workspaceManager.activeWorkspace(on: monitor.id)?.id, source)
         XCTAssertFalse(swipe.hasPresentation)
+    }
+
+    func testTouchDuringCommittingSettleLeavesTheSwitchRunning() throws {
+        var mediaTime = 1.06
+        let (controller, swipe, monitor, _) = try fixture(mediaTimeProvider: { mediaTime })
+        _ = swipe.prepare(monitorId: monitor.id, timestamp: 1)
+        swipe.begin(axis: .vertical, cumulative: 20, timestamp: 1.01)
+        swipe.update(cumulative: 80, timestamp: 1.05)
+        swipe.release(timestamp: 1.06, allowFlick: true)
+        let destination = try XCTUnwrap(swipe.flight).destination.id
+        mediaTime = 1.07
+        XCTAssertFalse(swipe.prepare(monitorId: monitor.id, timestamp: 1.07))
+        XCTAssertEqual(swipe.flight?.motion.target, 1)
+        swipe.stopPreparing(warm: true)
+        swipe.tick(displayId: monitor.displayId, timestamp: 3)
+        XCTAssertEqual(controller.workspaceManager.activeWorkspace(on: monitor.id)?.id, destination)
+    }
+
+    func testSwipeDuringCommittingSettleChainsFromTheDestination() throws {
+        var mediaTime = 1.06
+        let (controller, swipe, monitor, _) = try fixture(mediaTimeProvider: { mediaTime })
+        let manager = controller.workspaceManager
+        let third = try XCTUnwrap(manager.workspaceId(for: "3", createIfMissing: true))
+        manager.assignWorkspaceToMonitor(third, monitorId: monitor.id)
+        _ = swipe.prepare(monitorId: monitor.id, timestamp: 1)
+        swipe.begin(axis: .horizontal, cumulative: -20, timestamp: 1.01)
+        swipe.update(cumulative: -80, timestamp: 1.05)
+        swipe.release(timestamp: 1.06, allowFlick: true)
+        let first = try XCTUnwrap(swipe.flight)
+        XCTAssertEqual(first.motion.target, 1)
+        mediaTime = 1.1
+        XCTAssertFalse(swipe.prepare(monitorId: monitor.id, timestamp: 1.1))
+        let residual = try XCTUnwrap(first.residual(at: mediaTime))
+        XCTAssertGreaterThan(residual.dx, 0)
+
+        swipe.begin(axis: .horizontal, cumulative: -20, timestamp: 1.12)
+
+        let second = try XCTUnwrap(swipe.flight)
+        XCTAssertFalse(second === first)
+        XCTAssertEqual(manager.activeWorkspace(on: monitor.id)?.id, first.destination.id)
+        XCTAssertEqual(second.preparation.source.id, first.destination.id)
+        XCTAssertEqual(
+            second.destination.id,
+            manager.nextWorkspaceInOrder(on: monitor.id, from: first.destination.id, wrapAround: true)?.id
+        )
+        XCTAssertEqual(second.offset(destination: false).dx, residual.dx, accuracy: 0.000001)
+        XCTAssertTrue(swipe.hasDisplayWork(monitor.displayId))
+
+        XCTAssertTrue(swipe.update(cumulative: -260, timestamp: 1.2))
+        mediaTime = 1.4
+        XCTAssertTrue(swipe.release(timestamp: 1.4, allowFlick: true))
+        swipe.tick(displayId: monitor.displayId, timestamp: 3)
+        XCTAssertEqual(manager.activeWorkspace(on: monitor.id)?.id, second.destination.id)
+        XCTAssertEqual(second.carried, .zero)
+        swipe.didSubmitPlacement()
+        XCTAssertFalse(swipe.hasPresentation)
+    }
+
+    func testSwipeOnAnotherMonitorRunsAlongsideTheSettlingSwitch() throws {
+        var mediaTime = 1.06
+        let (controller, swipe, monitor, other, source, otherSource) = try twoMonitorFixture { mediaTime }
+        let manager = controller.workspaceManager
+        let first = try settleForwardSwipe(swipe, on: monitor)
+        mediaTime = 1.1
+
+        XCTAssertFalse(swipe.prepare(monitorId: other.id, timestamp: 1.1))
+        XCTAssertTrue(manager.setInteractionMonitor(other.id))
+        swipe.begin(axis: .horizontal, cumulative: -20, timestamp: 1.12)
+
+        let second = try XCTUnwrap(swipe.flight)
+        XCTAssertTrue(swipe.flights[monitor.id] === first)
+        XCTAssertTrue(swipe.flights[other.id] === second)
+        XCTAssertEqual(second.preparation.source.id, otherSource)
+        XCTAssertEqual(second.carried, .zero)
+        XCTAssertEqual(manager.activeWorkspace(on: monitor.id)?.id, source)
+
+        swipe.tick(displayId: monitor.displayId, timestamp: 3)
+
+        XCTAssertEqual(manager.activeWorkspace(on: monitor.id)?.id, first.destination.id)
+        XCTAssertEqual(first.phase, .waitingForPlacement)
+        XCTAssertEqual(manager.interactionMonitorId, other.id)
+        XCTAssertEqual(manager.activeWorkspace(on: other.id)?.id, otherSource)
+        XCTAssertNil(second.motion.target)
+
+        XCTAssertTrue(swipe.update(cumulative: -260, timestamp: 1.2))
+        mediaTime = 1.4
+        XCTAssertTrue(swipe.release(timestamp: 1.4, allowFlick: true))
+        swipe.tick(displayId: other.displayId, timestamp: 3)
+        XCTAssertEqual(manager.activeWorkspace(on: other.id)?.id, second.destination.id)
+        XCTAssertEqual(manager.interactionMonitorId, other.id)
+        swipe.cancelAll(reason: "test-complete")
+        XCTAssertFalse(swipe.hasPresentation)
+    }
+
+    func testCancelledNewerSwipeTakesTheFocusTheBackgroundSwitchSkipped() throws {
+        var mediaTime = 1.06
+        let (controller, swipe, monitor, other, _, otherSource) = try twoMonitorFixture { mediaTime }
+        let manager = controller.workspaceManager
+        let first = try settleForwardSwipe(swipe, on: monitor)
+        mediaTime = 1.1
+        XCTAssertFalse(swipe.prepare(monitorId: other.id, timestamp: 1.1))
+        swipe.begin(axis: .horizontal, cumulative: -20, timestamp: 1.12)
+        swipe.tick(displayId: monitor.displayId, timestamp: 3)
+        XCTAssertEqual(manager.activeWorkspace(on: monitor.id)?.id, first.destination.id)
+        XCTAssertEqual(manager.interactionMonitorId, monitor.id)
+
+        swipe.update(cumulative: -30, timestamp: 1.5)
+        mediaTime = 2
+        XCTAssertTrue(swipe.release(timestamp: 2, allowFlick: true))
+        XCTAssertEqual(swipe.flight?.motion.target, 0)
+        swipe.tick(displayId: other.displayId, timestamp: 4)
+
+        XCTAssertEqual(manager.activeWorkspace(on: other.id)?.id, otherSource)
+        XCTAssertNil(swipe.flights[other.id])
+        XCTAssertEqual(manager.interactionMonitorId, other.id)
+        swipe.cancelAll(reason: "test-complete")
+    }
+
+    private func settleForwardSwipe(
+        _ swipe: WorkspaceSwipePresentation, on monitor: Monitor
+    ) throws -> WorkspaceSwipePresentation.Flight {
+        _ = swipe.prepare(monitorId: monitor.id, timestamp: 1)
+        swipe.begin(axis: .horizontal, cumulative: -20, timestamp: 1.01)
+        swipe.update(cumulative: -80, timestamp: 1.05)
+        swipe.release(timestamp: 1.06, allowFlick: true)
+        let flight = try XCTUnwrap(swipe.flight)
+        XCTAssertEqual(flight.motion.target, 1)
+        return flight
+    }
+
+    private func twoMonitorFixture(
+        mediaTimeProvider: @escaping () -> TimeInterval
+    ) throws -> (
+        WMController, WorkspaceSwipePresentation, Monitor, Monitor, WorkspaceDescriptor.ID, WorkspaceDescriptor.ID
+    ) {
+        let (controller, swipe, monitor, source) = try fixture(mediaTimeProvider: mediaTimeProvider)
+        let manager = controller.workspaceManager
+        let other = makeMonitor(2, x: 1600, y: 0)
+        controller.settings.workspaces.configurations = ["1", "2", "3", "4"].map {
+            WorkspaceConfiguration(
+                name: $0,
+                monitorAssignment: .specificDisplay(OutputId(from: Int($0)! <= 2 ? monitor : other))
+            )
+        }
+        manager.applyMonitorConfigurationChange([monitor, other])
+        manager.applySettings()
+        let otherSource = try XCTUnwrap(manager.workspaceId(named: "3"))
+        XCTAssertTrue(manager.setActiveWorkspace(otherSource, on: other.id))
+        XCTAssertTrue(manager.setActiveWorkspace(source, on: monitor.id))
+        return (controller, swipe, monitor, other, source, otherSource)
     }
 
     func testPreviousWorkspaceWrapsAsOneVisualStep() throws {
@@ -474,7 +625,7 @@ final class WorkspaceSwipePresentationTests: XCTestCase {
                 ownedWindowRegistry: OwnedWindowRegistry(), previewCapture: capture,
                 backdrop: makeBackdrop(), hasCaptureAccess: { true }
             )
-            let (controller, swipe, _, _) = try fixture(previewSurface: preview)
+            let (controller, swipe, monitor, _) = try fixture(previewSurface: preview)
             defer {
                 swipe.cancel(reason: "test")
                 preview.stop()
@@ -504,7 +655,7 @@ final class WorkspaceSwipePresentationTests: XCTestCase {
             disable(controller)
 
             XCTAssertEqual(capture.cachedByteCount, 0)
-            XCTAssertFalse(swipe.previewSurface(controller) === preview)
+            XCTAssertFalse(swipe.previewSurface(controller, for: monitor.id) === preview)
         }
     }
 
@@ -539,9 +690,16 @@ final class WorkspaceSwipePresentationTests: XCTestCase {
             ownedWindowRegistry: controller.ownedWindowRegistry,
             backdrop: makeBackdrop(), hasCaptureAccess: { true }
         )
+        let backdrop = try makeBackdrop()
         let swipe = WorkspaceSwipePresentation(
             refreshController: controller.layoutRefreshController,
-            previewSurface: preview, mediaTimeProvider: mediaTimeProvider
+            previewSurface: preview,
+            previewFactory: { controller in
+                WorkspaceSwipePreview(
+                    ownedWindowRegistry: controller.ownedWindowRegistry, backdrop: backdrop, hasCaptureAccess: { true }
+                )
+            },
+            mediaTimeProvider: mediaTimeProvider
         )
         controller.layoutRefreshController.workspaceSwipe = swipe
         return (controller, swipe, monitor, source)

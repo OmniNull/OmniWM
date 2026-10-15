@@ -38,6 +38,10 @@ final class WorkspaceSwipePresentation {
 
         var settlement: AXFrameSettlement?
         var handoff: Handoff?
+        var carry: ((TimeInterval) -> CGVector?)?
+        var carried = CGVector.zero
+        var chained = false
+        var serial = 0
 
         init(
             preparation: Preparation,
@@ -66,16 +70,34 @@ final class WorkspaceSwipePresentation {
         }
 
         func offset(destination: Bool) -> CGVector {
-            let translation = (CGFloat(progress) - (destination ? 1 : 0)) * stride * visualSign
-            return axis == .horizontal ? CGVector(dx: -translation, dy: 0) : CGVector(dx: 0, dy: translation)
+            let own = vector((CGFloat(progress) - (destination ? 1 : 0)) * stride * visualSign)
+            return CGVector(dx: own.dx + carried.dx, dy: own.dy + carried.dy)
+        }
+
+        func residual(at timestamp: TimeInterval) -> CGVector? {
+            let inherited = carry?(timestamp)
+            if inherited == nil { carry = nil }
+            guard inherited != nil || !motion.isComplete(at: timestamp) else { return nil }
+            let own = vector((CGFloat(motion.progress(at: timestamp)) - 1) * stride * visualSign)
+            return CGVector(dx: own.dx + (inherited?.dx ?? 0), dy: own.dy + (inherited?.dy ?? 0))
+        }
+
+        private func vector(_ translation: CGFloat) -> CGVector {
+            axis == .horizontal ? CGVector(dx: -translation, dy: 0) : CGVector(dx: 0, dy: translation)
         }
     }
 
     weak var refreshController: LayoutRefreshController?
     var preparation: Preparation?
-    private(set) var flight: Flight?
-    private var preview: WorkspaceSwipePreview?
-    private let mediaTimeProvider: () -> TimeInterval
+    private(set) var flights: [Monitor.ID: Flight] = [:]
+    private var gestureMonitorId: Monitor.ID?
+    private var chainMonitorId: Monitor.ID?
+    private var latestSerial = 0
+    private var focusOwed = false
+    var previews: [Monitor.ID: WorkspaceSwipePreview] = [:]
+    var unclaimedPreview: WorkspaceSwipePreview?
+    let previewFactory: (@MainActor (WMController) -> WorkspaceSwipePreview)?
+    let mediaTimeProvider: () -> TimeInterval
     var handoffWindowInfo: @MainActor (Set<UInt32>) async throws -> [UInt32: WindowServerInfo]? = {
         try await SkyLight.shared.queryWindowInfoDeferred(windowIds: $0)
     }
@@ -85,10 +107,12 @@ final class WorkspaceSwipePresentation {
     init(
         refreshController: LayoutRefreshController,
         previewSurface: WorkspaceSwipePreview? = nil,
+        previewFactory: (@MainActor (WMController) -> WorkspaceSwipePreview)? = nil,
         mediaTimeProvider: @escaping () -> TimeInterval = CACurrentMediaTime
     ) {
         self.refreshController = refreshController
-        preview = previewSurface
+        unclaimedPreview = previewSurface
+        self.previewFactory = previewFactory
         self.mediaTimeProvider = mediaTimeProvider
     }
 
@@ -96,29 +120,44 @@ final class WorkspaceSwipePresentation {
         refreshController?.controller
     }
 
+    var flight: Flight? {
+        gestureMonitorId.flatMap { flights[$0] }
+    }
+
     var hasPresentation: Bool {
-        flight != nil
+        !flights.isEmpty
     }
 
     func hasDisplayWork(_ displayId: CGDirectDisplayID) -> Bool {
-        flight?.preparation.monitor.displayId == displayId && flight?.committing == false
-            && flight?.motion.target != nil
+        flights.values.contains { hasDisplayWork($0, displayId) }
+    }
+
+    private func hasDisplayWork(_ flight: Flight, _ displayId: CGDirectDisplayID) -> Bool {
+        flight.preparation.monitor.displayId == displayId && !flight.committing
+            && (flight.motion.target != nil || flight.carry != nil)
     }
 
     func prepare(monitorId: Monitor.ID, timestamp: TimeInterval) -> Bool {
         guard let controller, controller.motionPolicy.animationsEnabled else { return false }
+        gestureMonitorId = monitorId
         let mediaTime = mediaTimeProvider()
-        if let flight, flight.preparation.monitor.id == monitorId, !flight.committing,
-           flight.motion.target != nil, flight.motion.catchMotion(
+        let existing = flights[monitorId]
+        if let existing, existing.committing || existing.motion.target == 1 {
+            chainMonitorId = monitorId
+            return false
+        }
+        chainMonitorId = nil
+        if let existing, !existing.committing,
+           existing.motion.target != nil, existing.motion.catchMotion(
                cumulativeUnits: 0, timestamp: timestamp, animationTime: mediaTime
            )
         {
-            flight.progress = flight.motion.progress(at: mediaTime)
-            flight.phase = .tracking
-            trace("caught", progress: flight.progress)
+            existing.progress = existing.motion.progress(at: mediaTime)
+            existing.phase = .tracking
+            trace("caught", progress: existing.progress)
             return true
         }
-        if flight != nil { cancel(reason: "new-contact") }
+        if let existing { cancel(existing, reason: "new-contact") }
         preparation = nil
         guard let preparation = makePreparation(monitorId: monitorId) else {
             stopPreparing()
@@ -126,7 +165,7 @@ final class WorkspaceSwipePresentation {
             return false
         }
         self.preparation = preparation
-        previewSurface(controller).warm(
+        previewSurface(controller, for: monitorId).warm(
             source: preparation.source.items,
             destination: (preparation.previous?.items ?? []) + (preparation.next?.items ?? []),
             monitor: preparation.monitor, workingFrame: preparation.frame
@@ -138,14 +177,24 @@ final class WorkspaceSwipePresentation {
         axis: WorkspaceSwipeAxis, cumulative: Double, timestamp: TimeInterval,
         recognitionMovement: SwipeEvent? = nil
     ) {
-        guard let controller, let preparation,
-              controller.motionPolicy.animationsEnabled,
+        guard let controller, controller.motionPolicy.animationsEnabled else { return }
+        let (preparation, predecessor) = beginPreparation()
+        guard let preparation,
               let isNext = TrackpadGestureIntent.isNextWorkspace(
                   axis: axis, displacement: cumulative, naturalDirection: controller.settings.gestures.invertDirection
               ),
               let destination = isNext ? preparation.next : preparation.previous,
               destination.id != preparation.source.id
         else { return }
+        if let predecessor, !retire(predecessor) { return }
+        let preview = previewSurface(controller, for: preparation.monitor.id)
+        if self.preparation == nil {
+            self.preparation = preparation
+            preview.warm(
+                source: preparation.source.items, destination: destination.items,
+                monitor: preparation.monitor, workingFrame: preparation.frame
+            )
+        }
         let flight = Flight(
             preparation: preparation,
             destination: destination,
@@ -159,25 +208,11 @@ final class WorkspaceSwipePresentation {
             trace("fallback-participants")
             return
         }
-        guard preview?.begin(
-            source: preparation.source.items,
-            destination: destination.items,
-            monitor: preparation.monitor,
-            workingFrame: preparation.frame
-        ) == true else {
+        guard show(preview, for: flight) else {
             trace("fallback-preview-unavailable")
             return
         }
-        preview?.prepare(
-            source: preparation.source.items,
-            destination: destination.items,
-            monitor: preparation.monitor,
-            workingFrame: preparation.frame
-        )
-        refreshController?.stopScrollAnimation(for: preparation.monitor.displayId)
-        refreshController?.stopDwindleAnimation(for: preparation.monitor.displayId)
-        self.flight = flight
-        trace("began")
+        install(flight, after: predecessor)
         controller.surfaceReconciler.reconcileNow()
         present(flight, at: mediaTimeProvider())
     }
@@ -186,7 +221,7 @@ final class WorkspaceSwipePresentation {
     func update(cumulative: Double, timestamp: TimeInterval) -> Bool {
         guard let flight, !flight.committing, flight.motion.target == nil else { return false }
         guard participantsAreCurrent(flight), controller?.motionPolicy.animationsEnabled == true else {
-            cancel(reason: "invalidated")
+            cancel(flight, reason: "invalidated")
             return true
         }
         flight.motion.update(cumulativeUnits: cumulative * flight.inputSign, timestamp: timestamp)
@@ -201,40 +236,111 @@ final class WorkspaceSwipePresentation {
             timestamp: timestamp, allowFlick: allowFlick, animationTime: mediaTimeProvider(),
             motion: controller?.motionPolicy.snapshot() ?? .enabled
         ) else {
-            cancel(reason: "invalid-release")
+            cancel(flight, reason: "invalid-release")
             return true
         }
         flight.phase = .settling
+        if !activateDisplayLink(for: flight) { cancel(flight, reason: "display-link-unavailable") }
+        return true
+    }
+
+    private func activateDisplayLink(for flight: Flight) -> Bool {
         if refreshController?
             .displayLinkActivationForTests?(flight.preparation.monitor.displayId) == true { return true }
         guard let link = refreshController?.getOrCreateDisplayLink(for: flight.preparation.monitor.displayId) else {
-            cancel(reason: "display-link-unavailable")
-            return true
+            return false
         }
         link.add(to: .main, forMode: .common)
         return true
     }
 
-    func tick(displayId: CGDirectDisplayID, timestamp: TimeInterval) {
-        guard hasDisplayWork(displayId), let flight else { return }
-        guard participantsAreCurrent(flight), controller?.motionPolicy.animationsEnabled == true else {
-            cancel(reason: "invalidated")
+    private func retire(_ predecessor: Flight) -> Bool {
+        if !predecessor.committing { commit(predecessor) }
+        guard isCurrent(predecessor), predecessor.committing else { return false }
+        cancel(predecessor, reason: "chained")
+        return true
+    }
+
+    func isCurrent(_ flight: Flight) -> Bool {
+        flights[flight.preparation.monitor.id] === flight
+    }
+
+    func otherGestureRecognized() {
+        guard chainMonitorId == nil else {
+            chainMonitorId = nil
             return
         }
-        present(flight, at: timestamp)
-        if flight.motion.isComplete(at: timestamp) {
-            if flight.motion.target == 1 { commit(flight) } else { cancel(reason: "cancelled") }
+        cancel(reason: "other-gesture")
+    }
+
+    func tick(displayId: CGDirectDisplayID, timestamp: TimeInterval) {
+        for flight in flights.values where hasDisplayWork(flight, displayId) {
+            guard participantsAreCurrent(flight), controller?.motionPolicy.animationsEnabled == true else {
+                cancel(flight, reason: "invalidated")
+                continue
+            }
+            present(flight, at: timestamp)
+            if flight.motion.isComplete(at: timestamp) {
+                if flight.motion.target == 1 { commit(flight) } else { cancel(flight, reason: "cancelled") }
+            }
         }
     }
 
     func stopPreparing(warm: Bool = false) {
+        chainMonitorId = nil
         guard flight == nil else { return }
         preparation = nil
-        preview?.stop()
+        for (monitorId, preview) in previews where flights[monitorId] == nil {
+            preview.stop()
+        }
         if warm {
             refreshController?.collectUnusedWorkspacesIfIdle()
             warmPreviews()
         }
+    }
+}
+
+extension WorkspaceSwipePresentation {
+    private func beginPreparation() -> (Preparation?, predecessor: Flight?) {
+        guard let chainMonitorId else { return (preparation, nil) }
+        self.chainMonitorId = nil
+        if let existing = flights[chainMonitorId] {
+            return (makePreparation(monitorId: chainMonitorId, chainedSource: existing.destination), existing)
+        }
+        return (preparation ?? makePreparation(monitorId: chainMonitorId), nil)
+    }
+
+    private func show(_ preview: WorkspaceSwipePreview, for flight: Flight) -> Bool {
+        let preparation = flight.preparation
+        guard preview.begin(
+            source: preparation.source.items,
+            destination: flight.destination.items,
+            monitor: preparation.monitor,
+            workingFrame: preparation.frame
+        ) else { return false }
+        preview.prepare(
+            source: preparation.source.items,
+            destination: flight.destination.items,
+            monitor: preparation.monitor,
+            workingFrame: preparation.frame
+        )
+        return true
+    }
+
+    private func install(_ flight: Flight, after predecessor: Flight?) {
+        let monitor = flight.preparation.monitor
+        refreshController?.stopScrollAnimation(for: monitor.displayId)
+        refreshController?.stopDwindleAnimation(for: monitor.displayId)
+        if let predecessor {
+            flight.chained = true
+            flight.carry = { predecessor.residual(at: $0) }
+            _ = activateDisplayLink(for: flight)
+        }
+        latestSerial += 1
+        flight.serial = latestSerial
+        flights[monitor.id] = flight
+        gestureMonitorId = monitor.id
+        trace(predecessor == nil ? "began" : "chained")
     }
 
     func cancel(reason: String) {
@@ -242,17 +348,38 @@ final class WorkspaceSwipePresentation {
             stopPreparing()
             return
         }
-        self.flight = nil
+        cancel(flight, reason: reason)
+    }
+
+    func cancelAll(reason: String) {
+        focusOwed = false
+        for flight in Array(flights.values) {
+            cancel(flight, reason: reason)
+        }
+        stopPreparing()
+    }
+
+    func cancelFlights(onDisplay displayId: CGDirectDisplayID, reason: String) {
+        for flight in Array(flights.values) where flight.preparation.monitor.displayId == displayId {
+            cancel(flight, reason: reason)
+        }
+    }
+
+    func cancel(_ flight: Flight, reason: String) {
+        let monitorId = flight.preparation.monitor.id
+        guard flights[monitorId] === flight else { return }
+        flights[monitorId] = nil
         flight.handoff?.cancel()
         flight.settlement?.onChange = nil
-        if controller?.axManager.workspaceFrameSettlement === flight.settlement {
-            controller?.axManager.workspaceFrameSettlement = nil
-        }
-        preview?.stop()
-        preparation = nil
+        controller?.axManager.workspaceFrameSettlements.removeAll { $0 === flight.settlement }
+        previews[monitorId]?.stop()
+        if preparation?.monitor.id == monitorId { preparation = nil }
         trace(reason, progress: flight.progress)
         controller?.surfaceReconciler.noteWorldChanged()
         refreshController?.stopDisplayLinkIfIdle(for: flight.preparation.monitor.displayId)
+        if focusOwed, flight.serial == latestSerial, !flight.committing, reason != "chained" {
+            settleOwedFocus(on: flight.preparation.monitor)
+        }
         if ["completed", "placement-failed", "handoff-unconfirmed", "cancelled"].contains(reason) {
             refreshController?.collectUnusedWorkspacesIfIdle()
             warmPreviews()
@@ -260,93 +387,83 @@ final class WorkspaceSwipePresentation {
     }
 
     func checkSettlement() {
-        guard let flight, flight.committing, let settlement = flight.settlement, settlement.isSettled else { return }
-        if settlement.tokens.contains(where: {
-            refreshController?.hasPendingRevealTransaction(for: $0.windowId) == true
-        }) { return }
-        confirmHandoff(flight)
+        for flight in Array(flights.values) {
+            guard flight.committing, let settlement = flight.settlement, settlement.isSettled else { continue }
+            if settlement.tokens.contains(where: {
+                refreshController?.hasPendingRevealTransaction(for: $0.windowId) == true
+            }) { continue }
+            confirmHandoff(flight)
+        }
     }
 
     func didSubmitPlacement() {
-        guard let flight, flight.committing else { return }
+        guard let flight else { return }
+        didSubmitPlacement(flight)
+    }
+
+    private func didSubmitPlacement(_ flight: Flight) {
+        guard isCurrent(flight), flight.committing else { return }
         flight.settlement?.seal()
     }
 
     private func commit(_ flight: Flight) {
+        let monitor = flight.preparation.monitor
         guard let controller, let refreshController,
-              controller.workspaceManager.activeWorkspaceOrFirst(on: flight.preparation.monitor.id)?.id
+              controller.workspaceManager.activeWorkspaceOrFirst(on: monitor.id)?.id
               == flight.preparation.source.id
         else {
-            cancel(reason: "superseded")
+            cancel(flight, reason: "superseded")
             return
         }
+        let takesFocus = flight.serial == latestSerial
         flight.phase = .committing
         let settlement =
             AXFrameSettlement(tokens: Set(controller.workspaceManager.entries(in: flight.destination.id).map(\.token)))
         flight.settlement = settlement
         settlement.onChange = { [weak self] in self?.checkSettlement() }
-        controller.axManager.workspaceFrameSettlement = settlement
+        controller.axManager.workspaceFrameSettlements.append(settlement)
         controller.workspaceNavigationHandler.saveNiriViewportState(for: flight.preparation.source.id)
-        guard controller.workspaceManager.setActiveWorkspace(flight.destination.id, on: flight.preparation.monitor.id)
-        else {
+        guard controller.workspaceManager.setActiveWorkspace(
+            flight.destination.id, on: monitor.id, updateInteractionMonitor: takesFocus
+        ) else {
             flight.phase = .settling
-            cancel(reason: "commit-failed")
+            cancel(flight, reason: "commit-failed")
             return
         }
-        trace("committed", progress: flight.progress)
-        controller.workspaceNavigationHandler.commitWorkspaceTransitionFocusHandoff(
-            targetWorkspaceId: flight.destination.id, monitor: flight.preparation.monitor, startScrollAnimation: false,
-            placementSubmitted: { [weak self, weak flight] in
-                guard let self, let flight, self.flight === flight else { return }
-                didSubmitPlacement()
-            },
-            placementInvalidated: { [weak self, weak flight] in
-                guard let self, let flight, self.flight === flight else { return }
-                cancel(reason: "placement-invalidated")
-            }
-        )
+        trace(takesFocus ? "committed" : "committed-background", progress: flight.progress)
+        let placementSubmitted: LayoutRefreshController.PostLayoutAction = { [weak self, weak flight] in
+            guard let self, let flight else { return }
+            didSubmitPlacement(flight)
+        }
+        let placementInvalidated: LayoutRefreshController.PostLayoutAction = { [weak self, weak flight] in
+            guard let self, let flight, isCurrent(flight) else { return }
+            cancel(flight, reason: "placement-invalidated")
+        }
+        if takesFocus {
+            focusOwed = false
+            controller.workspaceNavigationHandler.commitWorkspaceTransitionFocusHandoff(
+                targetWorkspaceId: flight.destination.id, monitor: monitor, startScrollAnimation: false,
+                placementSubmitted: placementSubmitted, placementInvalidated: placementInvalidated
+            )
+        } else {
+            focusOwed = true
+            refreshController.stopScrollAnimation(for: monitor.displayId)
+            refreshController.commitWorkspaceTransition(
+                postLayout: placementSubmitted, postLayoutInvalidated: placementInvalidated
+            )
+        }
         flight.phase = .waitingForPlacement
-        refreshController.stopDisplayLinkIfIdle(for: flight.preparation.monitor.displayId)
-    }
-}
-
-extension WorkspaceSwipePresentation {
-    func windowRemoved(_ token: WindowToken) {
-        preview?.remove(token: token)
+        refreshController.stopDisplayLinkIfIdle(for: monitor.displayId)
     }
 
-    func syncAvailability() {
-        guard let controller, preview != nil,
-              !controller.motionPolicy.animationsEnabled || !controller.settings.gestures.workspaceSwipeEnabled
+    private func settleOwedFocus(on monitor: Monitor) {
+        focusOwed = false
+        guard let controller, let workspace = controller.workspaceManager.activeWorkspaceOrFirst(on: monitor.id)
         else { return }
-        cancel(reason: "disabled")
-        preview?.release()
-        preview = nil
-    }
-
-    func previewSurface(_ controller: WMController) -> WorkspaceSwipePreview {
-        if let preview { return preview }
-        let preview = WorkspaceSwipePreview(ownedWindowRegistry: controller.ownedWindowRegistry)
-        self.preview = preview
-        return preview
-    }
-
-    private func present(_ flight: Flight, at timestamp: TimeInterval) {
-        flight.progress = flight.motion.progress(at: timestamp)
-        preview?.update(
-            sourceOffset: flight.offset(destination: false),
-            destinationOffset: flight.offset(destination: true)
+        trace("focus-owed")
+        _ = controller.workspaceManager.setInteractionMonitor(monitor.id)
+        controller.workspaceNavigationHandler.commitWorkspaceTransitionFocusHandoff(
+            targetWorkspaceId: workspace.id, monitor: monitor, startScrollAnimation: false
         )
-    }
-
-    func trace(_ action: String, progress: Double = 0) {
-        guard TrackpadScrollTrace.shared.isActive else { return }
-        TrackpadScrollTrace.record(.workspacePresentation(
-            renderer: "preview",
-            action: action,
-            progress: progress,
-            velocity: flight?.motion.velocity(at: mediaTimeProvider()),
-            target: flight?.motion.target
-        ))
     }
 }

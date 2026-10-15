@@ -55,9 +55,9 @@ extension MouseEventHandler {
                     timestamp: metrics.previousTimestamp
                 )
             )
-            if controller.layoutRefreshController.workspaceSwipe.hasPresentation { state.workspaceSwipeFired = true }
+            if controller.layoutRefreshController.workspaceSwipe.flight != nil { state.workspaceSwipeFired = true }
         } else {
-            controller.layoutRefreshController.workspaceSwipe.cancel(reason: "other-gesture")
+            controller.layoutRefreshController.workspaceSwipe.otherGestureRecognized()
         }
         return true
     }
