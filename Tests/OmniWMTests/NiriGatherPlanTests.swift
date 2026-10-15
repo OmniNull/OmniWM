@@ -114,6 +114,9 @@ final class NiriGatherPlanTests: XCTestCase {
 
         engine.applyGather(plan)
 
+        for patch in plan.workspaces {
+            XCTAssertEqual(engine.columns(in: patch.workspaceId).map { $0.windowNodes.map(\.id) }, patch.finalColumns)
+        }
         XCTAssertEqual(layout(destination, in: engine), [[1, 3, 4, 2], [13]])
         XCTAssertEqual(layout(firstSource, in: engine), [[11]])
         XCTAssertEqual(layout(secondSource, in: engine), [[12]])
@@ -260,6 +263,28 @@ final class NiriGatherPlanTests: XCTestCase {
         engine.moveWindowToColumn(unrelated, from: column, to: other, in: firstSource)
         column.remove()
         XCTAssertNotEqual(engine.planGather(gatherRequest, selections: [:]), accepted)
+    }
+
+    func testPlannedFinalColumnsMatchTheAppliedTreeAroundStrayEmptyColumns() throws {
+        let engine = NiriLayoutEngine()
+        add(1, to: destination, in: engine)
+        add(2, to: firstSource, in: engine)
+        let root = try XCTUnwrap(engine.root(for: destination))
+        let leading = try XCTUnwrap(root.columns.first)
+        root.insertBefore(NiriContainer(), reference: leading)
+        XCTAssertEqual(layout(destination, in: engine), [[], [1]])
+
+        let planning = engine.planGather(request([1, 2], sources: [1: destination, 2: firstSource]), selections: [:])
+        guard case let .ready(plan) = planning else { return XCTFail("expected ready, got \(planning)") }
+        engine.applyGather(plan)
+
+        for patch in plan.workspaces {
+            XCTAssertEqual(
+                engine.columns(in: patch.workspaceId).map { $0.windowNodes.map(\.id) },
+                patch.finalColumns
+            )
+        }
+        XCTAssertEqual(layout(destination, in: engine), [[1, 2]])
     }
 
     func testEmptiedSourceLosesSelectionAndAllItsColumns() throws {

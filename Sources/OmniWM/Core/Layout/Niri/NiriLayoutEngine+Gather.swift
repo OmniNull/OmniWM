@@ -90,6 +90,7 @@ extension NiriLayoutEngine {
             gatherWorkspacePatch(
                 workspaceId,
                 isDestination: workspaceId == destinationId,
+                reusesLeadingColumn: reusedColumn != nil,
                 targetIds: targetIds,
                 selection: selections[workspaceId]
             )
@@ -247,6 +248,7 @@ extension NiriLayoutEngine {
     private func gatherWorkspacePatch(
         _ workspaceId: WorkspaceDescriptor.ID,
         isDestination: Bool,
+        reusesLeadingColumn: Bool,
         targetIds: [NodeId],
         selection: NodeId?
     ) -> NiriGatherPlan.WorkspacePatch {
@@ -257,7 +259,7 @@ extension NiriLayoutEngine {
             return !column.isEmpty && survivors.isEmpty ? nil : survivors
         }
         if isDestination {
-            if originalColumns.allSatisfy(\.isEmpty) {
+            if !reusesLeadingColumn, finalColumns.allSatisfy(\.isEmpty) {
                 finalColumns = []
             }
             finalColumns.insert(targetIds, at: 0)
