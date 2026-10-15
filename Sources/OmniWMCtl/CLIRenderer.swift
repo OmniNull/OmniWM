@@ -74,6 +74,8 @@ enum CLIRenderer {
              .unsupportedLayout,
              .duplicateMark,
              .invalidMark,
+             .ineligibleWindow,
+             .doesNotFit,
              .invalidArguments,
              .invalidRequest,
              .none:
@@ -163,8 +165,11 @@ enum CLIRenderer {
             return "\(status)\n\(CLIDiagnosticsRenderer.formattedCapture(capture, format: format))"
         }
         guard let result = response.result else { return humanReadableStatus(for: response) }
+        return formattedPayload(result.payload, format: format)
+    }
 
-        switch result.payload {
+    private static func formattedPayload(_ payload: IPCResult.Payload, format: CLIOutputFormat) -> String {
+        switch payload {
         case let .pong(pong):
             return pong.message
         case let .version(version):
@@ -205,6 +210,8 @@ enum CLIRenderer {
             return CLIDiagnosticsRenderer.formattedMetrics(payload, format: format)
         case let .windowMarks(payload):
             return formattedWindowMarks(payload, format: format)
+        case let .windowGather(payload):
+            return "window-gather \(payload.outcome.rawValue): moved \(payload.moved.count)"
         }
     }
 
@@ -326,6 +333,7 @@ enum CLIRenderer {
             ["workspace-actions", String(payload.workspaceActions.count)],
             ["window-actions", String(payload.windowActions.count)],
             ["window-mark-actions", String(payload.windowMarkActions.count)],
+            ["window-gather-actions", String(payload.windowGatherActions.count)],
             ["subscriptions", String(payload.subscriptions.count)]
         ]
 

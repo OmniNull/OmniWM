@@ -56,6 +56,7 @@ final class NiriGatherPublicationTests: XCTestCase {
         let sequence = fixture.lastTraceSequence()
 
         XCTAssertTrue(manager.commitNiriGather(plan))
+        manager.onRuntimeInvalidation = previousObserver
 
         let lines = fixture.traceLines(after: sequence)
         XCTAssertEqual(lines.count, 1, lines.joined(separator: "\n"))

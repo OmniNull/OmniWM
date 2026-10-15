@@ -46,14 +46,10 @@ extension NiriLayoutHandler {
         }
         guard let monitor = manager.monitor(for: destinationId) else { return .refused(.invalidDestination) }
 
-        var issues: [WindowToken: NiriGatherWindowIssue] = [:]
+        var issues = gatherEligibilityIssues(for: tokens)
         var sourceWorkspaceIds: [WindowToken: WorkspaceDescriptor.ID] = [:]
-        for token in tokens {
-            if let issue = gatherEligibilityIssue(for: token, manager: manager) {
-                issues[token] = issue
-            } else {
-                sourceWorkspaceIds[token] = manager.workspace(for: token)
-            }
+        for token in tokens where issues[token] == nil {
+            sourceWorkspaceIds[token] = manager.workspace(for: token)
         }
         let request = NiriGatherRequest(
             tokens: tokens.filter { issues[$0] == nil },
@@ -84,6 +80,15 @@ extension NiriLayoutHandler {
             )
             return .gathered(plan)
         }
+    }
+
+    func gatherEligibilityIssues(for tokens: [WindowToken]) -> [WindowToken: NiriGatherWindowIssue] {
+        guard let manager = controller?.workspaceManager else { return [:] }
+        var issues: [WindowToken: NiriGatherWindowIssue] = [:]
+        for token in tokens {
+            issues[token] = gatherEligibilityIssue(for: token, manager: manager)
+        }
+        return issues
     }
 
     private func gatherEligibilityIssue(

@@ -93,6 +93,7 @@ final class IPCCaptureContractTests: XCTestCase {
             workspaceActions: [],
             windowActions: [],
             windowMarkActions: [],
+            windowGatherActions: [],
             subscriptions: []
         )
         let commands = IPCCommandsQueryResult(

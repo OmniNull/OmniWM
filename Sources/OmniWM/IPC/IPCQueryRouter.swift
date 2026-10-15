@@ -222,6 +222,7 @@ final class IPCQueryRouter {
             workspaceActions: IPCAutomationManifest.workspaceActionDescriptors,
             windowActions: IPCAutomationManifest.windowActionDescriptors,
             windowMarkActions: IPCAutomationManifest.windowMarkActionDescriptors,
+            windowGatherActions: IPCAutomationManifest.windowGatherActionDescriptors,
             subscriptions: IPCAutomationManifest.subscriptionDescriptors
         )
     }
