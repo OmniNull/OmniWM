@@ -8,107 +8,20 @@ import XCTest
 
 @MainActor
 final class NiriGatherPublicationTests: XCTestCase {
-    @MainActor
-    private struct Fixture {
-        let controller: WMController
-        let monitor: Monitor
-        let firstSource: WorkspaceDescriptor.ID
-        let secondSource: WorkspaceDescriptor.ID
-        let destination: WorkspaceDescriptor.ID
-
-        var manager: WorkspaceManager {
-            controller.workspaceManager
-        }
-
-        var engine: NiriLayoutEngine {
-            controller.niriEngine!
-        }
-
-        func token(_ id: Int) -> WindowToken {
-            WindowToken(pid: 73_000 + pid_t(id), windowId: 73_000 + id)
-        }
-
-        func layout(_ workspaceId: WorkspaceDescriptor.ID) -> [[Int]] {
-            engine.columns(in: workspaceId).map { $0.windowNodes.map { $0.token.windowId - 73_000 } }
-        }
-
-        func node(_ id: Int, in workspaceId: WorkspaceDescriptor.ID) -> NiriWindow? {
-            engine.findNode(for: token(id), in: workspaceId)
-        }
-
-        func request(_ ids: [Int]) -> NiriGatherRequest {
-            NiriGatherRequest(
-                tokens: ids.map(token),
-                sourceWorkspaceIds: Dictionary(uniqueKeysWithValues: ids.compactMap { id in
-                    manager.workspace(for: token(id)).map { (token(id), $0) }
-                }),
-                destinationWorkspaceId: destination,
-                geometry: NiriSizingGeometry(
-                    workingFrame: controller.niriWorkingFrame(for: monitor),
-                    gaps: controller.innerGap(for: monitor),
-                    orientation: .horizontal
-                )
-            )
-        }
-
-        func traceSequence(of line: String) -> UInt64? {
-            guard line.hasPrefix("#") else { return nil }
-            return UInt64(line.dropFirst().prefix { $0 != " " })
-        }
-
-        func lastTraceSequence() -> UInt64 {
-            manager.reconcileTraceDump().split(separator: "\n").compactMap { traceSequence(of: String($0)) }.max() ?? 0
-        }
-
-        func traceLines(after sequence: UInt64) -> [String] {
-            manager.reconcileTraceDump().split(separator: "\n").map(String.init).filter { line in
-                traceSequence(of: line).map { $0 > sequence } ?? false
-            }
-        }
-    }
-
-    private func makeFixture(displayId: UInt32) throws -> Fixture {
-        let controller = WindowAdmissionTestSupport.controller(prefix: "OmniWMNiriGatherPublication")
-        let monitor = Monitor(
-            id: .init(displayId: displayId),
-            displayId: displayId,
-            frame: CGRect(x: 0, y: 0, width: 1_200, height: 800),
-            visibleFrame: CGRect(x: 0, y: 0, width: 1_200, height: 800),
-            hasNotch: false,
-            name: "Gather"
+    private func makeFixture(displayId: UInt32) throws -> NiriGatherFixture {
+        try NiriGatherFixture(
+            prefix: "OmniWMNiriGatherPublication",
+            monitors: [NiriGatherFixture.monitor(displayId: displayId)],
+            workspaces: [.init(name: "1"), .init(name: "2"), .init(name: "3")]
         )
-        controller.workspaceManager.applyMonitorConfigurationChange([monitor])
-        let names = ["1", "2", "3"]
-        let ids = try names.map { name in
-            try XCTUnwrap(WindowAdmissionTestSupport.workspace(named: name, layoutType: .niri, controller: controller))
-        }
-        controller.niriLayoutHandler.enableNiriLayout()
-        return Fixture(
-            controller: controller,
-            monitor: monitor,
-            firstSource: ids[0],
-            secondSource: ids[1],
-            destination: ids[2]
-        )
-    }
-
-    private func add(_ ids: [Int], to workspaceId: WorkspaceDescriptor.ID, fixture: Fixture) {
-        for id in ids {
-            _ = WindowAdmissionTestSupport.track(fixture.token(id), in: workspaceId, controller: fixture.controller)
-        }
-        fixture.manager.withEngineMutationScope {
-            for id in ids {
-                _ = fixture.engine.addWindow(token: fixture.token(id), to: workspaceId, afterSelection: nil)
-            }
-        }
     }
 
     func testMultiRootGatherPublishesOneCompleteCommit() throws {
         let fixture = try makeFixture(displayId: 73_101)
         let manager = fixture.manager
-        add([1, 11, 2], to: fixture.firstSource, fixture: fixture)
-        add([3, 12], to: fixture.secondSource, fixture: fixture)
-        add([13, 4], to: fixture.destination, fixture: fixture)
+        fixture.add([1, 11, 2], to: fixture.firstSource)
+        fixture.add([3, 12], to: fixture.secondSource)
+        fixture.add([13, 4], to: fixture.destination)
         _ = manager.rememberFocus(fixture.token(1), in: fixture.firstSource)
         _ = manager.rememberFocus(fixture.token(3), in: fixture.secondSource)
         _ = manager.beginManagedFocusRequest(
@@ -185,9 +98,9 @@ final class NiriGatherPublicationTests: XCTestCase {
     func testStalePlansAreRefusedBeforeAnyPublication() throws {
         let fixture = try makeFixture(displayId: 73_102)
         let manager = fixture.manager
-        add([1, 11], to: fixture.firstSource, fixture: fixture)
-        add([2], to: fixture.secondSource, fixture: fixture)
-        add([13], to: fixture.destination, fixture: fixture)
+        fixture.add([1, 11], to: fixture.firstSource)
+        fixture.add([2], to: fixture.secondSource)
+        fixture.add([13], to: fixture.destination)
         guard case let .ready(treePlan) = manager.planNiriGather(fixture.request([1, 2])) else {
             return XCTFail("expected ready plan")
         }
@@ -213,7 +126,7 @@ final class NiriGatherPublicationTests: XCTestCase {
     func testEmptyDestinationIsPlannedWithoutAllocation() throws {
         let fixture = try makeFixture(displayId: 73_103)
         let manager = fixture.manager
-        add([1, 2], to: fixture.firstSource, fixture: fixture)
+        fixture.add([1, 2], to: fixture.firstSource)
         XCTAssertEqual(fixture.layout(fixture.destination), [])
         let engineStates = fixture.engine.states.count
 
@@ -241,7 +154,7 @@ final class NiriGatherPublicationTests: XCTestCase {
         let viewports: [WorkspaceDescriptor.ID: ViewportState]
         let engineStates: Int
 
-        init(_ fixture: Fixture) {
+        init(_ fixture: NiriGatherFixture) {
             let workspaceIds = [fixture.firstSource, fixture.secondSource, fixture.destination]
             worldSeq = fixture.manager.worldSeq
             trace = fixture.manager.reconcileTraceDump()
@@ -251,5 +164,27 @@ final class NiriGatherPublicationTests: XCTestCase {
             viewports = fixture.manager.recordedViewportStates
             engineStates = fixture.engine.states.count
         }
+    }
+}
+
+private extension NiriGatherFixture {
+    var firstSource: WorkspaceDescriptor.ID {
+        workspace("1")
+    }
+
+    var secondSource: WorkspaceDescriptor.ID {
+        workspace("2")
+    }
+
+    var destination: WorkspaceDescriptor.ID {
+        workspace("3")
+    }
+
+    var monitor: Monitor {
+        monitors[0]
+    }
+
+    func request(_ ids: [Int]) -> NiriGatherRequest {
+        request(ids, into: destination)
     }
 }
