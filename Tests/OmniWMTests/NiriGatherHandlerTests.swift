@@ -109,6 +109,50 @@ final class NiriGatherHandlerTests: XCTestCase {
         XCTAssertEqual(manager.workspace(for: fixture.token(1)), source)
     }
 
+    func testInactiveTabsOffViewportAndInactiveWorkspaceWindowsAreEligible() throws {
+        let monitor = NiriGatherFixture.monitor(displayId: 74_105)
+        let fixture = try NiriGatherFixture(
+            prefix: "OmniWMNiriGatherHandler",
+            monitors: [monitor],
+            workspaces: [.init(name: "1"), .init(name: "2"), .init(name: "3")]
+        )
+        let manager = fixture.manager
+        let active = fixture.workspace("1")
+        let parked = fixture.workspace("2")
+        XCTAssertTrue(manager.setActiveWorkspace(active, on: monitor.id))
+        fixture.add([1, 2, 3], to: active)
+        fixture.add([4], to: parked)
+        manager.withEngineMutationScope {
+            let first = fixture.node(1, in: active)!
+            let firstColumn = fixture.engine.findColumn(containing: first, in: active)!
+            let secondNode = fixture.node(2, in: active)!
+            let secondColumn = fixture.engine.findColumn(containing: secondNode, in: active)!
+            fixture.engine.moveWindowToColumn(secondNode, from: secondColumn, to: firstColumn, in: active)
+            secondColumn.remove()
+            firstColumn.displayMode = .tabbed
+            fixture.engine.updateTabbedColumnVisibility(column: firstColumn)
+        }
+        XCTAssertTrue(manager.isInactiveTabMember(fixture.token(2), in: active))
+        manager.setHiddenState(
+            HiddenState(proportionalPosition: .zero, referenceMonitorId: monitor.id, reason: .layoutTransient(.right)),
+            for: fixture.token(3)
+        )
+        manager.setHiddenState(
+            HiddenState(proportionalPosition: .zero, referenceMonitorId: monitor.id, reason: .workspaceInactive),
+            for: fixture.token(4)
+        )
+
+        let outcome = fixture.controller.niriLayoutHandler.gatherWindows(
+            [2, 3, 4].map(fixture.token),
+            into: fixture.workspace("3")
+        )
+
+        guard case .gathered = outcome else { return XCTFail("expected gathered, got \(outcome)") }
+        XCTAssertEqual(fixture.layout(fixture.workspace("3")), [[2, 3, 4]])
+        XCTAssertEqual(fixture.layout(active), [[1]])
+        XCTAssertEqual(manager.activeWorkspace(on: monitor.id)?.id, active)
+    }
+
     func testDestinationRequirementsAndDestinationGeometryDecideTheRequest() throws {
         let tall = NiriGatherFixture.monitor(displayId: 74_103, height: 1_600)
         let short = NiriGatherFixture.monitor(displayId: 74_104, x: 1_200, height: 800)
