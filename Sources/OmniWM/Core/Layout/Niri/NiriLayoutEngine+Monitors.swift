@@ -58,6 +58,7 @@ extension NiriLayoutEngine {
     func globalResolvedSettings() -> ResolvedNiriSettings {
         ResolvedNiriSettings(
             visibleContainerCount: visibleContainerCount,
+            defaultContainerPrimarySpan: defaultContainerPrimarySpan.map(Double.init),
             centerFocusedColumn: centerFocusedColumn,
             alwaysCenterSingleColumn: alwaysCenterSingleColumn,
             singleWindowFit: singleWindowFit,
@@ -184,7 +185,7 @@ extension NiriLayoutEngine {
     }
 
     private func rederiveAutomaticContainerSpans(in root: NiriRoot, for monitor: NiriMonitor) {
-        guard defaultContainerPrimarySpan == nil else { return }
+        guard effectiveSettings(for: monitor.id).defaultContainerPrimarySpan == nil else { return }
         let reset = resolvedContainerResetPrimarySpan(for: monitor.id)
         switch monitor.orientation {
         case .horizontal:

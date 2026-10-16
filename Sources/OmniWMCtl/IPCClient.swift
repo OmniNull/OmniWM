@@ -98,6 +98,7 @@ actor IPCClientConnection {
     private let fileDescriptor: Int32
     private let authorizationToken: String?
     private var readBuffer = Data()
+    private var readScratch = InlineArray<4096, UInt8>(repeating: 0)
 
     init(handle: FileHandle, authorizationToken: String?) {
         self.handle = handle
@@ -113,14 +114,14 @@ actor IPCClientConnection {
         guard let line = try readNextLine() else {
             throw POSIXError(.ECONNRESET)
         }
-        return try IPCWire.decodeResponse(from: Data(line.utf8))
+        return try IPCWire.decodeResponse(from: line)
     }
 
     func readEvent() throws -> IPCEventEnvelope? {
         guard let line = try readNextLine() else {
             return nil
         }
-        return try IPCWire.decodeEvent(from: Data(line.utf8))
+        return try IPCWire.decodeEvent(from: line)
     }
 
     func close() {
@@ -132,46 +133,54 @@ actor IPCClientConnection {
         _ = Darwin.shutdown(fileDescriptor, SHUT_RDWR)
     }
 
-    private func readNextLine() throws -> String? {
+    private func readNextLine() throws -> Data? {
         while true {
             if let newlineIndex = readBuffer.firstIndex(of: 0x0A) {
-                let lineData = readBuffer.prefix(upTo: newlineIndex)
+                let lineByteCount = readBuffer.distance(from: readBuffer.startIndex, to: newlineIndex)
+                try Self.validateUTF8(readBuffer.span.extracting(first: lineByteCount))
+                let line = readBuffer.withUnsafeBytes { bytes in
+                    Data(bytes: bytes.baseAddress!, count: lineByteCount)
+                }
                 readBuffer.removeSubrange(...newlineIndex)
-                guard let line = String(data: lineData, encoding: .utf8) else {
-                    throw POSIXError(.EINVAL)
-                }
                 return line
             }
 
-            guard let chunk = try readChunk(), !chunk.isEmpty else {
+            guard try appendChunk() else {
                 guard !readBuffer.isEmpty else { return nil }
+                try Self.validateUTF8(readBuffer.span)
                 let remaining = readBuffer
-                readBuffer.removeAll()
-                guard let line = String(data: remaining, encoding: .utf8) else {
-                    throw POSIXError(.EINVAL)
-                }
-                return line
+                readBuffer = Data()
+                return remaining
             }
-
-            readBuffer.append(chunk)
         }
     }
 
-    private func readChunk() throws -> Data? {
-        var buffer = [UInt8](repeating: 0, count: 4096)
-        while true {
-            let count = Darwin.read(fileDescriptor, &buffer, buffer.count)
-            if count > 0 {
-                return Data(buffer[0 ..< count])
+    private func appendChunk() throws -> Bool {
+        try withUnsafeMutableBytes(of: &readScratch) { bytes in
+            let buffer = bytes.bindMemory(to: UInt8.self)
+            while true {
+                let count = Darwin.read(fileDescriptor, buffer.baseAddress!, buffer.count)
+                if count > 0 {
+                    readBuffer.append(buffer.baseAddress!, count: count)
+                    return true
+                }
+                if count == 0 {
+                    return false
+                }
+                if errno == EINTR {
+                    continue
+                }
+                let error = POSIXErrorCode(rawValue: errno) ?? .EIO
+                throw POSIXError(error)
             }
-            if count == 0 {
-                return nil
-            }
-            if errno == EINTR {
-                continue
-            }
-            let error = POSIXErrorCode(rawValue: errno) ?? .EIO
-            throw POSIXError(error)
+        }
+    }
+
+    private static func validateUTF8(_ bytes: Span<UInt8>) throws {
+        do {
+            _ = try UTF8Span(validating: bytes)
+        } catch {
+            throw POSIXError(.EINVAL)
         }
     }
 }

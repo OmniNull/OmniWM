@@ -1,0 +1,88 @@
+---
+title: Layout and styling
+description: Shared element properties, sizes, palette colors, materials, transforms, and host interaction targets.
+sidebar:
+  order: 2
+---
+
+import LuauDeclaration from '../../../../components/docs/LuauDeclaration.astro';
+
+:::note[Unreleased]
+OmniShell and this API are available when building from `main`.
+:::
+
+Every UI element accepts `Props`; specialized constructors add their own fields. Dimensions, offsets, radii, gaps, and padding are in points. Properties are optional unless the constructor’s type requires them. Children are the numeric entries of the property table.
+
+## Sizing and identity
+
+| Property | Meaning and default |
+|---|---|
+| `key` | Stable identity under the same parent for retained handlers and motion. Use a distinct key for each logical item; native inputs require one. |
+| `w`, `h` | Explicit width/height; omitted dimensions use intrinsic layout. An unsized shader fills its stack without enlarging it. |
+| `grow` | Nonnegative weight dividing spare space along a row/column’s main axis; default 0. |
+| `gap` | Space between row/column children; default 0. |
+| `pad` | Equal inset on all sides; default 0. |
+| `center` | Center children across the row/column’s cross axis; default true. False starts them at the padding. |
+| `align` | Placement inside an overlapping stack; defaults to center. Supports leading/trailing, top/bottom, and the four corners. |
+| `scroll` | Enable native scrolling in an overflowing fixed-size row or column. |
+
+```lua
+ui.row{ w = 260, pad = 12, gap = 8,
+    ui.text{ text = "Status", grow = 1 },
+    ui.text{ text = "Ready", color = "accent" },
+}
+```
+
+<LuauDeclaration name="Align" />
+
+## Colors and surfaces
+
+A `Color` is a palette role (`"accent"`, `"surface"`, `"foreground"`), a role with alpha (`"surface/0.8"`), a `"#RRGGBB"` or `"#RRGGBBAA"` string, or a packed `0xRRGGBBAA` number. `0` is transparent. Role alpha must be 0–1; unknown roles fail validation. [Profiles and palettes](/omnishell/configuration/profiles-palettes/) lists palette configuration.
+
+| Property | Meaning and default |
+|---|---|
+| `fill` | Background color or tint. Omitted fill is transparent. |
+| `border`, `borderWidth` | Edge color and stroke width in points. |
+| `radius` | Rounded corners; also clips images. |
+| `opacity` | Painted opacity; default 1. |
+| `material` | Native background material; omitted means none. `glass` on a popout root uses Liquid Glass; `clear` draws no panel behind it. |
+| `blurRadius`, `saturation` | Layer-material blur 0–64 points and saturation 0–3. Omitted blur uses the material; saturation defaults to 1.8. Does not alter root glass/popover system materials. |
+| `shadow`, `shadowRadius` | Shadow color and blur radius in points. |
+| `mask` | A shader/path shapes its parent stack; use one mask per stack. See [shaders and effects](/omnishell/reference/effects-shaders/). |
+
+<LuauDeclaration name="Color" />
+
+<LuauDeclaration name="Material" />
+
+Palette roles include `background`, `surface`, `elevatedSurface`, `highestSurface`, `foreground`, `secondaryForeground`, `mutedForeground`, `border`, `accent`, `accentForeground`, `success`, `warning`, `error`, `focus`, `shadow`, `scrim`, and `badge`. Container roles are `accentContainer`, `secondaryAccent`, `secondaryContainer`, `tertiaryAccent`, and `tertiaryContainer`, each container with a `…Foreground` role. Named hue roles are `red`, `orange`, `yellow`, `green`, `mint`, `teal`, `cyan`, `blue`, `indigo`, `purple`, `pink`, `brown`, and `gray`.
+
+## Pointer feedback and transforms
+
+| Property | Meaning |
+|---|---|
+| `hover`, `hoverScale`, `hoverOpacity`, `hoverMaterial`, `hoverAnimate` | Hover color/material or paint feedback. Unspecified values retain the element’s ordinary appearance. |
+| `help` | Tooltip text. |
+| `pressScale`, `pressOpacity`, `pressFill`, `pressAnimate` | Native mouse-down feedback; a transparent `pressFill = 0` explicitly replaces the base fill. |
+| `dx`, `dy`, `scale`, `rotate` | Paint offsets in points, scale (default 1), and rotation in degrees. A 90-degree text rotation also takes rotated layout space. |
+| `animate`, `appear`, `exit`, `enter`, `loop`, `trail` | Motion and identity transitions; see [input and motion](/omnishell/reference/input-motion/). |
+| `onClick`, `onRightClick`, `onScroll` | Command strings or callbacks; see [actions](/omnishell/reference/context-data/#actions). |
+| `onPress`, `onHover`, `hoverDelay`, `hoverGrace` | Boundary callbacks and dwell/grace in seconds; see [native input](/omnishell/reference/input-motion/#native-input-and-intent). |
+| `gesture`, `onGesture`, `gestureEvents`, `scrollMomentum` | Captured pointer/scroll gestures and scroll delivery; see [gestures](/omnishell/reference/input-motion/#captured-gestures). |
+| `focusable`, `focusRing`, `keys`, `onKey`, `onOutsidePress` | Declared keyboard input and island dismissal; see [keyboard input](/omnishell/reference/input-motion/#declared-keyboard-input-and-outside-presses). |
+
+## Popouts, desktop resources, and workspace targets
+
+| Property | Meaning |
+|---|---|
+| `popout` | Shorthand for opening the widget’s `popout(ctx)` when no explicit click action is present. Equivalent to `onClick = ui.popout`. |
+| `bridge` | On a popout root, stretches its background toward the opening bar item. Clicks there still reach the bar. In a clear popout only drawn/actionable elements catch the pointer. |
+| `attach` | On a popout root, places the panel flush with its bar instead of leaving the usual gap. |
+| `open`, `close` | Explicit opening/closing seconds for shader progress; see [shader timing](/omnishell/reference/effects-shaders/#shaders). |
+| `accepts`, `onDrop`, `onDropHover`, `dragItems`, `onDragOut` | Resource drop/drag declarations; see [resources and desktop services](/omnishell/reference/resources-desktop/). |
+| `target`, `menu`, `preview`, `drag`, `drop` | Managed window/workspace interaction metadata for bar items. Targets use IDs from `ctx.data.bar`. `menu` enables the native target menu, `preview` enables window previews, `drag` starts managed-item dragging, and `drop` publishes a managed-window destination. Shift-click a bar target moves the focused window there. These are separate from Resource dragging. |
+
+Pointer hit testing follows drawn/actionable shapes: shader transparent pixels pass through, path outlines define their targets, and stack masks constrain hits. Transparent island windows still require a live click-through check on the target macOS system; cached island hit rectangles conservatively include rounded corners and path holes.
+
+## Complete common properties
+
+<LuauDeclaration name="Props" />

@@ -8,17 +8,10 @@ import SwiftUI
 final class WorkspaceBarIslandPanel {
     let panel: WorkspaceBarPanel
     let hostingView: NSHostingView<WorkspaceBarView>
-    let interaction: WorkspaceBarIslandInteraction
     var slice: WorkspaceBarIslandSlice
-    var showsSystemStatsButton: Bool
     var lastAppliedFrame: NSRect?
 
-    init(
-        panel: WorkspaceBarPanel,
-        rootView: WorkspaceBarView,
-        interaction: WorkspaceBarIslandInteraction = WorkspaceBarIslandInteraction(),
-        resolved: ResolvedBarSettings
-    ) {
+    init(panel: WorkspaceBarPanel, rootView: WorkspaceBarView, resolved: ResolvedBarSettings, monitor: Monitor) {
         let hostingView = NSHostingView(rootView: rootView)
         hostingView.sizingOptions = []
         panel.contentView = hostingView
@@ -27,21 +20,26 @@ final class WorkspaceBarIslandPanel {
         hostingView.appearance = appearance
         self.panel = panel
         self.hostingView = hostingView
-        self.interaction = interaction
         slice = rootView.slice
-        showsSystemStatsButton = rootView.showsSystemStatsButton
         lastAppliedFrame = nil
-        applySettings(resolved: resolved)
+        applySettings(resolved: resolved, monitor: monitor)
     }
 
-    func applySettings(resolved: ResolvedBarSettings) {
+    func applySettings(resolved: ResolvedBarSettings, monitor: Monitor) {
         let fillsMenuBar = resolved.notchMode == .fillLeftOfNotch
         panel.collectionBehavior = fillsMenuBar
             ? [.canJoinAllSpaces, .stationary]
             : [.canJoinAllSpaces, .fullScreenAuxiliary, .stationary]
-        panel.level = fillsMenuBar
-            ? NSWindow.Level(rawValue: NSWindow.Level.statusBar.rawValue + 1)
-            : resolved.windowLevel.nsWindowLevel
+        let level = resolved.windowLevel.nsWindowLevel
+        panel.level = if fillsMenuBar {
+            NSWindow.Level(rawValue: NSWindow.Level.statusBar.rawValue + 1)
+        } else if resolved.fullWidth,
+                  WorkspaceBarGeometry.effectivePosition(for: monitor, resolved: resolved) == .overlappingMenuBar
+        {
+            NSWindow.Level(rawValue: max(level.rawValue, NSWindow.Level.statusBar.rawValue + 1))
+        } else {
+            level
+        }
     }
 
     func applyFrame(

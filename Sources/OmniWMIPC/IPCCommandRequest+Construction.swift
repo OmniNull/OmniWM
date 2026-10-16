@@ -40,6 +40,8 @@ extension IPCCommandRequest {
             self = try .fullscreen(arguments.requireNoArguments(name))
         case let .presentation(name):
             self = try .presentation(arguments.requireNoArguments(name))
+        case let .media(name):
+            self = try .media(arguments.requireNoArguments(name))
         case let .windowState(name):
             self = try .windowState(arguments.requireNoArguments(name))
         case let .scratchpad(name):

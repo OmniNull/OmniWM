@@ -183,156 +183,51 @@ final class HiddenBarDrawerTests: XCTestCase {
         XCTAssertEqual(second.convert(second.bounds, to: drawer), second.frame)
     }
 
-    func testPanelCloseWaitsForCompletionAndReopenRejectsStaleCompletion() throws {
-        let controller = makeController()
-        defer { controller.teardown() }
-        controller.toggle(placement: placement, items: [])
-        let panel = try XCTUnwrap(controller.panel)
-        let drawer = try XCTUnwrap(panel.contentView as? HiddenBarDrawerView)
-
-        controller.dismiss()
-        let closing = drawer.generation
-        XCTAssertFalse(controller.isVisible)
-        XCTAssertTrue(panel.isVisible)
-        XCTAssertTrue(panel.ignoresMouseEvents)
-        XCTAssertFalse(OwnedWindowRegistry.shared.isCaptureEligible(windowNumber: panel.windowNumber))
-        XCTAssertFalse(OwnedWindowRegistry.shared.visibleSurfaceIDs(suppressesManagedFocusRecovery: true)
-            .contains("hidden-bar-panel"))
-
-        controller.toggle(placement: placement, items: [])
-        drawer.complete(generation: closing)
-        XCTAssertTrue(controller.isVisible)
-        XCTAssertTrue(panel.isVisible)
-        XCTAssertFalse(panel.ignoresMouseEvents)
-
-        controller.dismiss()
-        drawer.complete(generation: drawer.generation)
-        XCTAssertFalse(panel.isVisible)
-        XCTAssertFalse(OwnedWindowRegistry.shared.contains(window: panel))
-    }
-
-    func testActivationHidesPanelBeforeOpeningNativeItemAndIgnoresClosingActions() throws {
-        let controller = makeController()
-        defer { controller.teardown() }
-        controller.toggle(placement: placement, items: [])
-        let panel = try XCTUnwrap(controller.panel)
-        var activations = 0
-        controller.onActivate = { _ in
-            activations += 1
-            XCTAssertFalse(panel.isVisible)
-            XCTAssertFalse(OwnedWindowRegistry.shared.contains(window: panel))
-        }
-        let key = MenuBarItemKey(bundleID: "test.hidden", ordinal: 0)
-
-        controller.activate(key)
-
-        XCTAssertEqual(activations, 1)
-        controller.toggle(placement: placement, items: [])
-        controller.dismiss()
-        controller.activate(key)
-        XCTAssertEqual(activations, 1)
-    }
-
-    func testTeardownDuringCloseCannotAffectReplacementPanel() throws {
-        let controller = makeController()
-        defer { controller.teardown() }
-        controller.toggle(placement: placement, items: [])
-        let oldPanel = try XCTUnwrap(controller.panel)
-        let oldDrawer = try XCTUnwrap(oldPanel.contentView as? HiddenBarDrawerView)
-        controller.dismiss()
-        let closing = oldDrawer.generation
-
-        controller.teardown()
-        XCTAssertFalse(oldPanel.isVisible)
-        controller.toggle(placement: placement, items: [])
-        oldDrawer.complete(generation: closing)
-
-        XCTAssertTrue(controller.isVisible)
-        XCTAssertTrue(controller.panel?.isVisible == true)
-        XCTAssertTrue(OwnedWindowRegistry.shared.contains(window: controller.panel))
-    }
-
-    func testAttachedPanelFollowsSourceBarAndDismissesWhenItDisappears() throws {
-        let controller = makeController()
-        defer { controller.teardown() }
-        let bar = CGRect(x: -7600, y: 700, width: 200, height: 24)
-        var attached = HiddenBarPanelPlacement(
-            attachment: PopupAttachment(sourceFrame: bar, edge: .below), visibleFrame: placement.visibleFrame,
-            workspaceBar: HiddenBarPanelPlacement.WorkspaceBar(
-                monitorId: .init(displayId: 92_200), frame: bar,
-                backgroundStyle: .material, backgroundOpacity: 0.6
-            )
-        )
-        controller.toggle(placement: attached, items: [])
-        let panel = try XCTUnwrap(controller.panel)
-        let firstFrame = panel.frame
-        XCTAssertFalse(panel.hasShadow)
-        let movedBar = bar.offsetBy(dx: 150, dy: -20)
-        attached = HiddenBarPanelPlacement(
-            attachment: PopupAttachment(sourceFrame: movedBar, edge: .below), visibleFrame: placement.visibleFrame,
-            workspaceBar: HiddenBarPanelPlacement.WorkspaceBar(
-                monitorId: .init(displayId: 92_200), frame: movedBar,
-                backgroundStyle: .solidBlack, backgroundOpacity: 1
-            )
-        )
-
-        controller.updateWorkspaceBarPlacement { monitorId in
-            XCTAssertEqual(monitorId, .init(displayId: 92_200))
-            return attached
-        }
-
-        XCTAssertNotEqual(panel.frame, firstFrame)
-        XCTAssertEqual(panel.frame.minX, firstFrame.minX + 150)
-        XCTAssertEqual(panel.frame.maxY, movedBar.minY)
-        XCTAssertTrue(controller.isVisible)
-        controller.updateWorkspaceBarPlacement { _ in nil }
-        XCTAssertFalse(controller.isVisible)
-        XCTAssertFalse(panel.isVisible)
-    }
-
-    func testJoinedDrawerSquaresBarUntilItsOwnDismissalCompletes() throws {
-        let controller = makeController()
+    @MainActor
+    private final class JoinLog {
         var joins: [HiddenBarPanelPlacement.Join?] = []
-        controller.onWorkspaceBarJoin = { joins.append($0) }
-        let narrowBar = CGRect(x: -7600, y: 700, width: 116, height: 24)
-        let merged = attachedPlacement(bar: narrowBar)
-        let joined = try XCTUnwrap(merged.join)
-
-        controller.toggle(placement: merged, items: [])
-        let drawer = try XCTUnwrap(controller.panel?.contentView as? HiddenBarDrawerView)
-        XCTAssertEqual(joins.last, joined)
-        controller.dismiss()
-        let closing = drawer.generation
-        XCTAssertEqual(joins.last, joined)
-
-        controller.toggle(placement: merged, items: [])
-        drawer.complete(generation: closing)
-        XCTAssertEqual(joins.last, joined)
-
-        controller.dismiss()
-        drawer.complete(generation: drawer.generation)
-        XCTAssertEqual(joins.last, .some(nil))
-
-        controller.toggle(placement: attachedPlacement(bar: narrowBar.insetBy(dx: -100, dy: 0)), items: [])
-        XCTAssertEqual(joins.last, .some(nil))
-        controller.toggle(placement: merged, items: [])
-        controller.toggle(placement: merged, items: [])
-        controller.teardown()
-        XCTAssertEqual(joins.last, .some(nil))
     }
 
-    func testDetachedOrClosedPanelDoesNotReadWorkspaceBarPlacement() {
-        let controller = makeController()
-        defer { controller.teardown() }
-        controller.updateWorkspaceBarPlacement { _ in
-            XCTFail("Closed panel must not query workspace bars")
-            return nil
-        }
-        controller.toggle(placement: placement, items: [])
-        controller.updateWorkspaceBarPlacement { _ in
-            XCTFail("Detached panel must not query workspace bars")
-            return nil
-        }
+    func testAttachedDrawerFollowsItsBarWithoutAShadow() throws {
+        let log = JoinLog()
+        let chrome = ShellDrawerChrome(
+            content: NSView(),
+            placement: attachedPlacement(bar: CGRect(x: -7600, y: 700, width: 200, height: 24)),
+            motion: MotionPolicy(animationsEnabled: false)
+        ) { log.joins.append($0) }
+        defer { chrome.close(animated: false) }
+        chrome.show(size: CGSize(width: 120, height: 24), level: .popUpMenu)
+        let firstFrame = chrome.panel.frame
+        XCTAssertFalse(chrome.panel.hasShadow)
+
+        let movedBar = CGRect(x: -7450, y: 680, width: 200, height: 24)
+        chrome.move(to: attachedPlacement(bar: movedBar))
+        XCTAssertEqual(chrome.panel.frame.minX, firstFrame.minX + 150, accuracy: 1)
+        XCTAssertEqual(chrome.panel.frame.maxY, movedBar.minY, accuracy: 1)
+        XCTAssertTrue(chrome.panel.isVisible)
+
+        chrome.move(to: placement)
+        XCTAssertTrue(chrome.panel.hasShadow)
+    }
+
+    func testJoinedDrawerSquaresTheBarUntilItsOwnCloseCompletes() async throws {
+        let log = JoinLog()
+        let merged = attachedPlacement(bar: CGRect(x: -7600, y: 700, width: 116, height: 24))
+        let joined = try XCTUnwrap(merged.join)
+        let chrome = ShellDrawerChrome(
+            content: NSView(),
+            placement: merged,
+            motion: MotionPolicy(animationsEnabled: true)
+        ) { log.joins.append($0) }
+        chrome.show(size: CGSize(width: 140, height: 24), level: .popUpMenu)
+        XCTAssertEqual(log.joins.last, joined)
+
+        chrome.close(animated: true)
+        XCTAssertEqual(log.joins.last, joined)
+        XCTAssertTrue(chrome.panel.isVisible)
+        let closed = XCTNSPredicateExpectation(predicate: NSPredicate { _, _ in !chrome.panel.isVisible }, object: nil)
+        await fulfillment(of: [closed], timeout: 10)
+        XCTAssertEqual(log.joins.last, .some(nil))
     }
 
     private var placement: HiddenBarPanelPlacement {
@@ -350,13 +245,6 @@ final class HiddenBarDrawerTests: XCTestCase {
                 backgroundStyle: .material, backgroundOpacity: 0.6
             )
         )
-    }
-
-    private func makeController() -> HiddenBarPanelController {
-        _ = NSApplication.shared
-        let controller = HiddenBarPanelController()
-        controller.motionPolicy = MotionPolicy()
-        return controller
     }
 
     private func makeDrawer() -> HiddenBarDrawerView {

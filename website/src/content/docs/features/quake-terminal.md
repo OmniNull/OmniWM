@@ -7,14 +7,14 @@ sidebar:
 
 OmniWM ships a true quake/sticky terminal you can summon over any workspace. It is a real embedded terminal built on Ghostty's [libghostty](https://ghostty.org) — not a wrapper around another terminal app — and it supports multiple tabs and splits within tabs.
 
-Toggle it with `` Option + ` `` (backtick) by default; the binding is configurable in Settings under Hotkeys, alongside the rest of the [keyboard shortcuts](/guides/keyboard-shortcuts/).
+Toggle it with `` Option + ` `` (backtick) by default; the binding is configurable in Settings under Keyboard Shortcuts, alongside the rest of the [keyboard shortcuts](/guides/keyboard-shortcuts/).
 
 ## Position and size
 
 Configure the terminal in **Settings → Quake Terminal**:
 
 - **Position** — `Top`, `Bottom`, `Left`, `Right`, or `Center`. The default is `Center`, which fades the terminal in place; the four edge positions slide it in from that screen edge.
-- **Show On** — which monitor the terminal appears on: `Mouse Cursor's Monitor`, `Focused Window's Monitor` (the default), or `Main Monitor`. `Main Monitor` follows the **Monitor Roles** ranking in **Settings → Monitors** when one is set, so you can pin the terminal to a preferred display with a fallback when it is disconnected; without a ranking it is the display with the macOS menu bar. See [Multi-Monitor Setup](/guides/multi-monitor/#monitor-roles).
+- **Show On** — which monitor the terminal appears on: `Mouse Cursor's Monitor`, `Focused Window's Monitor` (the default), or `Main Monitor`. `Main Monitor` follows the **Monitor Roles** ranking in **Settings → Displays** when one is set, so you can pin the terminal to a preferred display with a fallback when it is disconnected; without a ranking it is the display with the macOS menu bar. See [Multi-Monitor Setup](/guides/multi-monitor/#monitor-roles).
 - **Width / Height** — each 10–100% of the monitor's available screen area in 5% steps; both default to 50%.
 
 You can also adjust the terminal directly with the mouse: drag its edges to resize, and hold `Option` and drag to move it. OmniWM remembers one custom size and position. It reuses that frame when it fits the selected monitor; otherwise it uses the configured position and percentages. A **Reset to Default Position** button appears in Settings once a custom frame is in use.
@@ -39,7 +39,7 @@ Command-click an OSC 8 web or email hyperlink printed by a terminal application 
 
 ## Inside-terminal shortcuts
 
-Customize tab and pane shortcuts with Ghostty `keybind` entries in `~/.config/ghostty/config.ghostty` (or your existing Ghostty config). User bindings override the defaults below; `unbind` removes a binding. Reload inside Quake with `Cmd + Shift + ,`, or relaunch OmniWM. The global toggle stays in **Settings → Hotkeys** and OmniWM's `settings.toml`.
+Customize tab and pane shortcuts with Ghostty `keybind` entries in `~/.config/ghostty/config.ghostty` (or your existing Ghostty config). User bindings override the defaults below; `unbind` removes a binding. Reload inside Quake with `Cmd + Shift + ,`, or relaunch OmniWM. The global toggle stays in **Settings → Keyboard Shortcuts** and OmniWM's `settings.toml`.
 
 ```ini
 keybind = cmd+t=unbind

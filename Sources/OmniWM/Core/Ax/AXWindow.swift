@@ -195,6 +195,11 @@ enum AXWindowService {
     @MainActor private static var titleInsertionOrder: [UInt32] = []
 
     @MainActor
+    static func cachedTitle(windowId: UInt32) -> String? {
+        titleCache[windowId] ?? nil
+    }
+
+    @MainActor
     static func titlePreferFast(windowId: UInt32) -> String? {
         if let cached = titleCache[windowId] {
             return cached

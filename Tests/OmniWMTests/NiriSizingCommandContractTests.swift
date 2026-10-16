@@ -17,7 +17,7 @@ final class NiriSizingCommandContractTests: XCTestCase {
         let primary = try XCTUnwrap(
             ActionCatalog.spec(for: .sizing(.resizeContainerPrimarySpan(grow: true)))
         )
-        XCTAssertEqual(primary.id, "setContainerPrimarySpan.increase10Percent")
+        XCTAssertEqual(primary.id, "resizeContainerPrimarySpan.grow")
         XCTAssertEqual(primary.layoutCompatibility, .niri)
         XCTAssertNil(primary.ipcCommandName)
 

@@ -43,12 +43,9 @@ struct HiddenBarPanelBackground: View {
                 backgroundStyle: style,
                 backgroundOpacity: placement?.workspaceBar?.backgroundOpacity ?? 0
             )
-            if style == .material {
-                contour.stroke(
-                    contrast == .increased ? Color.primary.opacity(0.45) : Color.secondary.opacity(0.18),
-                    lineWidth: contrast == .increased ? 1 : 0.5
-                )
-                .mask { Rectangle().subtracting(Path(layout.seam ?? .zero)) }
+            if let outline = style.outline(contrast: contrast, colorScheme: colorScheme) {
+                contour.stroke(outline.color, lineWidth: outline.width)
+                    .mask { Rectangle().subtracting(Path(layout.seam ?? .zero)) }
             }
         }
     }

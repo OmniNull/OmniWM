@@ -75,6 +75,8 @@ struct RuntimeState: Codable, Equatable, Sendable {
     var hasSeenIssueWalkthrough: Bool?
     var monitorSetupStatus: MonitorSetupStatus?
     var launchOverlayPlayedVersion: String?
+    var appVolumes: [String: AppVolumeSetting]?
+    var menuBarHideHold: MenuBarHideHold?
 }
 
 @MainActor
@@ -317,11 +319,30 @@ final class RuntimeStateStore {
         }
     }
 
+    var menuBarHideHold: MenuBarHideHold? {
+        get { state.menuBarHideHold }
+        set {
+            guard menuBarHideHold != newValue else { return }
+            state.menuBarHideHold = newValue
+            scheduleSave()
+        }
+    }
+
     var launchOverlayPlayedVersion: String? {
         get { state.launchOverlayPlayedVersion }
         set {
             guard state.launchOverlayPlayedVersion != newValue else { return }
             state.launchOverlayPlayedVersion = newValue
+            scheduleSave()
+        }
+    }
+
+    var appVolumes: [String: AppVolumeSetting] {
+        get { state.appVolumes ?? [:] }
+        set {
+            let stored = newValue.isEmpty ? nil : newValue
+            guard state.appVolumes != stored else { return }
+            state.appVolumes = stored
             scheduleSave()
         }
     }

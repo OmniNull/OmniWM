@@ -357,6 +357,161 @@ final class MenuExtractorTests: XCTestCase {
         XCTAssertTrue(elements.allSatisfy { CFEqual($0, element) })
     }
 
+    func testApplicationRootOmitsAppleBeforeResolvingItsSubmenuAndKeepsAppMenusLazy() throws {
+        let menuBar = AXUIElementCreateApplication(91_600)
+        let apple = AXUIElementCreateApplication(91_601)
+        let appleRoot = AXUIElementCreateApplication(91_602)
+        let application = AXUIElementCreateApplication(91_603)
+        let applicationRoot = AXUIElementCreateApplication(91_604)
+        let file = AXUIElementCreateApplication(91_605)
+        let fileRoot = AXUIElementCreateApplication(91_606)
+        var rootReads: [AXUIElement] = []
+        let extractor = contentExtractor(
+            children: [(menuBar, [apple, application, file])],
+            attributes: [
+                (apple, menuAttributes(title: "Apple", root: appleRoot)),
+                (application, menuAttributes(title: "Example", root: applicationRoot)),
+                (file, menuAttributes(title: "File", root: fileRoot))
+            ],
+            onReadAttribute: { element, attribute in
+                guard attribute == kAXRoleAttribute as CFString else { return }
+                XCTAssertFalse(CFEqual(element, appleRoot))
+                rootReads.append(element)
+            }
+        )
+        let target = MenuExtractorTarget()
+
+        let items = try extractor.buildMenu(
+            from: menuBar,
+            content: .application,
+            target: target,
+            action: #selector(MenuExtractorTarget.activate(_:))
+        )
+
+        XCTAssertEqual(items.map(\.title), ["Example", "File"])
+        XCTAssertEqual(rootReads.count, 2)
+        XCTAssertNotNil(try XCTUnwrap(items[0].attributedTitle).attribute(.font, at: 0, effectiveRange: nil))
+        XCTAssertTrue(try XCTUnwrap(items[0].submenu).items.isEmpty)
+        XCTAssertTrue(try XCTUnwrap(items[1].submenu).items.isEmpty)
+        XCTAssertTrue(items[0].submenu?.axRootElement.map { CFEqual($0, applicationRoot) } == true)
+        XCTAssertTrue(items[1].submenu?.axRootElement.map { CFEqual($0, fileRoot) } == true)
+    }
+
+    func testAppleRootReturnsDirectContentsAndSkipsOtherApplicationHeaders() throws {
+        let menuBar = AXUIElementCreateApplication(91_610)
+        let apple = AXUIElementCreateApplication(91_611)
+        let appleRoot = AXUIElementCreateApplication(91_612)
+        let unrelated = AXUIElementCreateApplication(91_613)
+        let about = AXUIElementCreateApplication(91_614)
+        let recent = AXUIElementCreateApplication(91_615)
+        let recentRoot = AXUIElementCreateApplication(91_616)
+        let extractor = contentExtractor(
+            children: [(menuBar, [apple, unrelated]), (appleRoot, [about, recent])],
+            attributes: [
+                (apple, menuAttributes(title: "Apple", root: appleRoot)),
+                (about, [
+                    "AXTitle": "About This Mac", "AXRole": "AXMenuItem", "AXEnabled": false,
+                    "AXMenuItemMarkChar": "✓", "AXMenuItemCmdChar": "a", "AXMenuItemCmdModifiers": 8
+                ]),
+                (recent, menuAttributes(title: "Recent Items", root: recentRoot))
+            ],
+            onReadAttributes: { element in XCTAssertFalse(CFEqual(element, unrelated)) }
+        )
+
+        let items = try extractor.buildMenu(from: menuBar, content: .apple, target: nil, action: nil)
+
+        XCTAssertEqual(items.map(\.title), ["About This Mac", "Recent Items"])
+        XCTAssertFalse(items[0].isEnabled)
+        XCTAssertEqual(items[0].state, .on)
+        XCTAssertEqual(items[0].keyEquivalent, "a")
+        XCTAssertNil(items[0].target)
+        XCTAssertNil(items[0].action)
+        XCTAssertTrue(try XCTUnwrap(items[1].submenu).items.isEmpty)
+        XCTAssertTrue(items[1].submenu?.axRootElement.map { CFEqual($0, recentRoot) } == true)
+    }
+
+    func testAppleSelectionDistinguishesEmptyContentsFromMissingAppleRoot() throws {
+        let menuBar = AXUIElementCreateApplication(91_620)
+        let apple = AXUIElementCreateApplication(91_621)
+        let appleRoot = AXUIElementCreateApplication(91_622)
+        let empty = contentExtractor(
+            children: [(menuBar, [apple]), (appleRoot, [])],
+            attributes: [(apple, menuAttributes(title: "Apple", root: appleRoot))]
+        )
+        XCTAssertTrue(try empty.buildMenu(from: menuBar, content: .apple, target: nil, action: nil).isEmpty)
+
+        let missing = contentExtractor(children: [(menuBar, [])], attributes: [])
+        XCTAssertTrue(try missing.buildMenu(from: menuBar, content: .application, target: nil, action: nil).isEmpty)
+        XCTAssertThrowsError(try missing.buildMenu(from: menuBar, content: .apple, target: nil, action: nil)) { error in
+            XCTAssertEqual(error as? MenuExtractionError, .invalidResponse)
+        }
+    }
+
+    func testAppleHeaderAndContentsShareOneDeadline() {
+        let menuBar = AXUIElementCreateApplication(91_630)
+        let apple = AXUIElementCreateApplication(91_631)
+        let appleRoot = AXUIElementCreateApplication(91_632)
+        var now: TimeInterval = 0
+        var contentReads = 0
+        let extractor = MenuExtractor(
+            environment: MenuExtractorEnvironment(
+                now: { now },
+                readAttribute: { element, attribute, _ in
+                    if CFEqual(element, menuBar) { return [apple] }
+                    if attribute == kAXRoleAttribute as CFString {
+                        now = 0.25
+                        return kAXMenuRole as String
+                    }
+                    contentReads += 1
+                    return [AXUIElement]()
+                },
+                readAttributes: { _, attributes, _ in
+                    self.attributeValues(attributes, values: self.menuAttributes(title: "Apple", root: appleRoot))
+                }
+            )
+        )
+
+        XCTAssertThrowsError(try extractor.buildMenu(
+            from: menuBar,
+            content: .apple,
+            target: nil,
+            action: nil
+        )) { error in
+            XCTAssertEqual(error as? MenuExtractionError, .deadlineExceeded)
+        }
+        XCTAssertEqual(contentReads, 0)
+    }
+
+    private func contentExtractor(
+        children: [(AXUIElement, [AXUIElement])],
+        attributes: [(AXUIElement, [String: Any])],
+        onReadAttribute: @escaping (AXUIElement, CFString) -> Void = { _, _ in },
+        onReadAttributes: @escaping (AXUIElement) -> Void = { _ in }
+    ) -> MenuExtractor {
+        MenuExtractor(environment: MenuExtractorEnvironment(
+            now: { 0 },
+            readAttribute: { element, attribute, _ in
+                onReadAttribute(element, attribute)
+                if attribute == kAXRoleAttribute as CFString { return kAXMenuRole as String }
+                guard let value = children.first(where: { CFEqual($0.0, element) })?.1 else {
+                    throw MenuExtractionError.ax(.cannotComplete)
+                }
+                return value
+            },
+            readAttributes: { element, names, _ in
+                onReadAttributes(element)
+                guard let values = attributes.first(where: { CFEqual($0.0, element) })?.1 else {
+                    throw MenuExtractionError.ax(.cannotComplete)
+                }
+                return self.attributeValues(names, values: values)
+            }
+        ))
+    }
+
+    private func menuAttributes(title: String, root: AXUIElement) -> [String: Any] {
+        ["AXTitle": title, "AXRole": "AXMenuBarItem", "AXEnabled": true, "AXChildren": [root]]
+    }
+
     private func attributeValues(
         _ attributes: CFArray,
         values: [String: Any]

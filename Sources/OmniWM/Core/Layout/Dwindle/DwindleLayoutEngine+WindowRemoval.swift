@@ -14,6 +14,12 @@ extension DwindleLayoutEngine {
               let memberIndex = tile.memberIndex(for: token)
         else { return }
 
+        if let move = interactiveMove, move.workspaceId == workspaceId,
+           move.token == token || move.targetToken == token
+        {
+            interactiveMoveCancel()
+        }
+
         if tile.members.count > 1 {
             _ = tile.remove(at: memberIndex)
             state.leafByToken.removeValue(forKey: token)

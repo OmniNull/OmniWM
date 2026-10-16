@@ -35,6 +35,11 @@ extension IPCAutomationManifest {
             channel: .layoutChanged,
             summary: "Workspace layout updates.",
             resultKind: .workspaces
+        ),
+        .init(
+            channel: .shellWidgets,
+            summary: "Luau shell widget load and failure updates.",
+            resultKind: .shellWidgets
         )
     ]
 

@@ -154,14 +154,17 @@ final class OverviewViewportCommitTests: XCTestCase {
         var handoffs: [@MainActor () -> Void] = []
         let overview = makeOverview(fixture) { handoffs.append($0) }
         let target = try XCTUnwrap(manager.handle(for: fixture.tokens[1][0]))
-        var expectedOffsets: [CGFloat] = []
+        final class ExpectedOffsets {
+            var values: [CGFloat] = []
+        }
+        let expectedOffsets = ExpectedOffsets()
         var prepared = 0
         var activated = 0
         overview.onPrepareActivation = { handle, workspaceId in
             prepared += 1
             XCTAssertEqual(handle, target)
-            XCTAssertEqual(manager.niriViewportState(for: fixture.workspaces[0]).viewOffset, expectedOffsets[0])
-            XCTAssertEqual(manager.niriViewportState(for: fixture.workspaces[1]).viewOffset, expectedOffsets[1])
+            XCTAssertEqual(manager.niriViewportState(for: fixture.workspaces[0]).viewOffset, expectedOffsets.values[0])
+            XCTAssertEqual(manager.niriViewportState(for: fixture.workspaces[1]).viewOffset, expectedOffsets.values[1])
             controller.windowActionHandler.prepareOverviewSelection(handle: handle, workspaceId: workspaceId)
         }
         overview.onActivateWindow = { handle, workspaceId in
@@ -171,7 +174,7 @@ final class OverviewViewportCommitTests: XCTestCase {
             ))
         }
         overview.open()
-        expectedOffsets = [
+        expectedOffsets.values = [
             try panToEnd(overview, fixture: fixture, workspaceIndex: 0),
             try panToEnd(overview, fixture: fixture, workspaceIndex: 1)
         ]
@@ -187,12 +190,12 @@ final class OverviewViewportCommitTests: XCTestCase {
         XCTAssertEqual(handoffs.count, 1)
         while let task = controller.layoutRefreshController.layoutState.activeRefreshTask { await task.value }
         let selectedOffset = manager.niriViewportState(for: fixture.workspaces[1]).viewOffset
-        XCTAssertNotEqual(selectedOffset, expectedOffsets[1])
+        XCTAssertNotEqual(selectedOffset, expectedOffsets.values[1])
         handoffs.removeFirst()()
         while let task = controller.layoutRefreshController.layoutState.activeRefreshTask { await task.value }
 
         XCTAssertEqual(activated, 1)
-        XCTAssertEqual(manager.niriViewportState(for: fixture.workspaces[0]).viewOffset, expectedOffsets[0])
+        XCTAssertEqual(manager.niriViewportState(for: fixture.workspaces[0]).viewOffset, expectedOffsets.values[0])
         XCTAssertEqual(manager.niriViewportState(for: fixture.workspaces[1]).viewOffset, selectedOffset)
         XCTAssertEqual(
             manager.niriViewportState(for: fixture.workspaces[1]).selectedNodeId,

@@ -1,0 +1,19 @@
+---
+import api from '../../data/omnishell-api.json';
+const symbols = [...api.symbols].sort((a, b) => a.name.localeCompare(b.name, 'en'));
+---
+<table>
+  <thead><tr><th>Symbol</th><th>Kind</th><th>Fields</th></tr></thead>
+  <tbody>{symbols.map(symbol => <tr>
+    <td><a href={`/omnishell/reference/${symbol.topic}/#${symbol.anchor}`}><code>{symbol.name}</code></a></td>
+    <td>{symbol.kind}</td>
+    <td>{symbol.fields.map((field, index) => <><a href={`/omnishell/reference/${symbol.topic}/#${symbol.anchor}-${field.toLowerCase()}`}><code>{field}</code></a>{index < symbol.fields.length - 1 ? ', ' : ''}</>)}</td>
+  </tr>)}</tbody>
+</table>
+
+<style>
+  table { width: 100%; }
+  th, td { overflow-wrap: anywhere; }
+  td:last-child { min-width: 15rem; }
+  code { white-space: normal; }
+</style>

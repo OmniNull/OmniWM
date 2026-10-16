@@ -3,6 +3,16 @@
 
 import Observation
 
+struct HiddenBarProfileOverride: Equatable {
+    let profile: String
+    var enabled: Bool?
+    var rehideIntervalSeconds: Double?
+
+    var overriddenKeys: [String] {
+        [enabled.map { _ in "enabled" }, rehideIntervalSeconds.map { _ in "rehideIntervalSeconds" }].compactMap(\.self)
+    }
+}
+
 @MainActor @Observable
 final class HiddenBarSettings {
     private nonisolated static let defaults = SettingsExport.HiddenBar.defaults()
@@ -18,6 +28,16 @@ final class HiddenBarSettings {
 
     var rehideIntervalSeconds = HiddenBarSettings.defaults.rehideIntervalSeconds {
         didSet { onChange?() }
+    }
+
+    var profileOverride: HiddenBarProfileOverride?
+
+    var resolvedEnabled: Bool {
+        profileOverride?.enabled ?? enabled
+    }
+
+    var resolvedRehideIntervalSeconds: Double {
+        profileOverride?.rehideIntervalSeconds ?? rehideIntervalSeconds
     }
 
     func export() -> SettingsExport.HiddenBar {
@@ -37,6 +57,6 @@ final class HiddenBarSettings {
 
 extension SettingsStore {
     var effectiveHiddenBarEnabled: Bool {
-        hiddenBar.enabled && workspaceBar.enabled
+        hiddenBar.resolvedEnabled && workspaceBar.enabled
     }
 }

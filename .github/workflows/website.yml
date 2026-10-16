@@ -6,11 +6,13 @@ on:
       - main
     paths:
       - website/**
+      - Sources/OmniWM/Resources/omniwm.d.luau
       - .do/app.yaml
       - .github/workflows/website.yml
   pull_request:
     paths:
       - website/**
+      - Sources/OmniWM/Resources/omniwm.d.luau
       - .do/app.yaml
       - .github/workflows/website.yml
 
@@ -31,5 +33,6 @@ jobs:
           cache: npm
           cache-dependency-path: website/package-lock.json
       - run: npm ci
+      - run: npm run reference:check
       - run: npm run check
       - run: npm run build

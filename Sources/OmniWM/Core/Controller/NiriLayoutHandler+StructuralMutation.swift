@@ -70,7 +70,6 @@ extension NiriLayoutHandler {
                 sourceWorkspaceId: workspaceId,
                 destinationWorkspaceId: workspaceId,
                 selectedHandle: handle,
-                movedTokens: completedMutation.movedTokens,
                 scrollWorkspaceId: scrollWorkspaceId
             )
         )

@@ -2,6 +2,7 @@
 // Copyright (C) 2026 BarutSRB — https://github.com/OmniNull/OmniWM
 
 import AppKit
+import CoreGraphics
 import Foundation
 
 @MainActor
@@ -15,35 +16,39 @@ final class LockScreenObserver {
     }
 
     private enum ObserverEvent: Sendable {
-        case appActivated(String?)
         case locked
         case unlocked
+        case appActivated
     }
 
     private(set) var state: LockState = .unlocked
 
     var onLockDetected: (() -> Void)?
     var onUnlockDetected: (() -> Void)?
-    var frontmostBundleIdProvider: @MainActor () -> String? = {
-        NSWorkspace.shared.frontmostApplication?.bundleIdentifier
+    var screenLockedProvider: @MainActor () -> Bool? = {
+        LockScreenObserver.currentSessionScreenIsLocked()
     }
 
     private var activationObserver: NSObjectProtocol?
     private var screenLockObserver: NSObjectProtocol?
     private var screenUnlockObserver: NSObjectProtocol?
-    private var frontmostIsLockScreen = false
+    private var screenIsLocked = false
     private var observerGeneration = 0
     private var transitionGeneration = 0
 
     init() {}
 
+    static func currentSessionScreenIsLocked() -> Bool? {
+        guard let session = CGSessionCopyCurrentDictionary() as? [String: Any] else { return nil }
+        return (session["CGSSessionScreenIsLocked"] as? Bool) ?? false
+    }
+
     func start() {
-        guard activationObserver == nil else { return }
+        guard screenLockObserver == nil else { return }
         observerGeneration &+= 1
         setupObservers(generation: observerGeneration)
-        guard let frontmostBundleId = frontmostBundleIdProvider() else { return }
-        frontmostIsLockScreen = frontmostBundleId == Self.lockScreenAppBundleId
-        if frontmostIsLockScreen {
+        guard let isLocked = screenLockedProvider() else { return }
+        if isLocked {
             handleLockEvent()
         } else {
             handleUnlockEvent()
@@ -55,18 +60,12 @@ final class LockScreenObserver {
     }
 
     private func setupObservers(generation: Int) {
-        let nc = NSWorkspace.shared.notificationCenter
-
-        activationObserver = nc.addObserver(
+        activationObserver = NSWorkspace.shared.notificationCenter.addObserver(
             forName: NSWorkspace.didActivateApplicationNotification,
             object: nil,
             queue: .main
-        ) { [weak self] notification in
-            guard let app = notification.userInfo?[NSWorkspace.applicationUserInfoKey] as? NSRunningApplication else {
-                return
-            }
-            let bundleId = app.bundleIdentifier
-            self?.enqueueObserverEvent(.appActivated(bundleId), generation: generation)
+        ) { [weak self] _ in
+            self?.enqueueObserverEvent(.appActivated, generation: generation)
         }
 
         let dnc = DistributedNotificationCenter.default()
@@ -92,12 +91,12 @@ final class LockScreenObserver {
         Task { @MainActor [weak self] in
             guard let self, generation == observerGeneration else { return }
             switch event {
-            case let .appActivated(bundleId):
-                handleAppActivation(bundleId: bundleId)
             case .locked:
                 handleLockEvent()
             case .unlocked:
                 handleUnlockEvent()
+            case .appActivated:
+                reconcileMissedUnlock()
             }
         }
     }
@@ -106,18 +105,13 @@ final class LockScreenObserver {
         enqueueObserverEvent(.locked, generation: observerGeneration)
     }
 
-    func handleAppActivation(bundleId: String?) {
-        guard let bundleId else { return }
-        frontmostIsLockScreen = bundleId == Self.lockScreenAppBundleId
-        if frontmostIsLockScreen {
-            handleLockEvent()
-        } else if state == .locked || state == .transitioning {
-            handleUnlockEvent()
-        }
+    private func reconcileMissedUnlock() {
+        guard screenIsLocked, screenLockedProvider() == false else { return }
+        handleUnlockEvent()
     }
 
     private func handleLockEvent() {
-        frontmostIsLockScreen = true
+        screenIsLocked = true
         guard state != .locked else { return }
         transitionGeneration &+= 1
         state = .locked
@@ -125,7 +119,7 @@ final class LockScreenObserver {
     }
 
     func handleUnlockEvent() {
-        frontmostIsLockScreen = false
+        screenIsLocked = false
         guard state == .locked else { return }
         transitionGeneration &+= 1
         let generation = transitionGeneration
@@ -141,7 +135,7 @@ final class LockScreenObserver {
     }
 
     func isFrontmostAppLockScreen() -> Bool {
-        frontmostIsLockScreen
+        screenIsLocked
     }
 
     func cleanup() {

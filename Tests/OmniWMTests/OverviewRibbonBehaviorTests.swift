@@ -510,9 +510,12 @@ final class OverviewRibbonBehaviorTests: XCTestCase {
         let frame = try XCTUnwrap(layout.window(for: fixture.handles[0])).overviewFrame
         let start = CGPoint(x: frame.midX, y: frame.midY)
         let end = CGPoint(x: start.x + 35, y: start.y + 8)
-        var deltas: [CGFloat] = []
+        final class PanRecorder {
+            var deltas: [CGFloat] = []
+        }
+        let recorder = PanRecorder()
         var unintendedCallbacks = 0
-        view.onStripPan = { _, delta in deltas.append(delta) }
+        view.onStripPan = { _, delta in recorder.deltas.append(delta) }
         view.onWindowSelected = { _ in unintendedCallbacks += 1 }
         view.onDragBegin = { _, _ in unintendedCallbacks += 1 }
         view.onDragEnd = { _ in unintendedCallbacks += 1 }
@@ -521,7 +524,7 @@ final class OverviewRibbonBehaviorTests: XCTestCase {
         view.rightMouseDragged(with: try mouseEvent(.rightMouseDragged, at: end, in: panel))
         view.rightMouseUp(with: try mouseEvent(.rightMouseUp, at: end, in: panel))
         view.rightMouseDragged(with: try mouseEvent(.rightMouseDragged, at: start, in: panel))
-        XCTAssertEqual(deltas, [35])
+        XCTAssertEqual(recorder.deltas, [35])
         XCTAssertEqual(unintendedCallbacks, 0)
     }
 

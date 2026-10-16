@@ -66,6 +66,7 @@ struct ReportIssueSettingsTab: View {
     private var issueSection: some View {
         Section("Issue") {
             TextField("Title", text: $model.title)
+                .id("Title")
                 .textFieldStyle(.roundedBorder)
                 .focused($titleFocused)
             Picker("Category", selection: $model.category) {
@@ -73,40 +74,47 @@ struct ReportIssueSettingsTab: View {
                     Text(category.localizedDisplayName).tag(category)
                 }
             }
-            labeledEditor("What happened", text: $model.actual)
-            labeledEditor("What did you expect? (optional)", text: $model.expected, minHeight: 70)
-            labeledEditor("Steps to reproduce (optional)", text: $model.repro, minHeight: 70)
+            .id("Category")
+            IssueTextEditor("What happened", text: $model.actual)
+            IssueTextEditor("What did you expect? (optional)", text: $model.expected, minHeight: 70)
+            IssueTextEditor("Steps to reproduce (optional)", text: $model.repro, minHeight: 70)
             if let errorMessage = model.errorMessage {
                 Label(errorMessage, systemImage: "exclamationmark.triangle.fill")
                     .font(.caption)
                     .foregroundStyle(.red)
             }
         }
+        .id("Issue")
     }
 
     @ViewBuilder
     private var contextSection: some View {
         Section("Context (optional)") {
             TextField("Affected app(s)", text: $model.affectedApps)
+                .id("Affected app(s)")
                 .textFieldStyle(.roundedBorder)
             Picker("Active layout", selection: $model.layout) {
                 ForEach(LayoutType.reportChoices) { layout in
                     Text(layout.localizedDisplayName).tag(layout)
                 }
             }
+            .id("Active layout")
             Picker("Worked in an earlier version?", selection: $model.regression) {
                 ForEach(IssueRegression.allCases) { regression in
                     Text(regression.localizedDisplayName).tag(regression)
                 }
             }
+            .id("Worked in an earlier version?")
             if model.regression == .yes {
                 TextField("Last working version/build", text: $model.regressionVersion)
+                    .id("Last working version/build")
                     .textFieldStyle(.roundedBorder)
             }
             SettingsCaption(
                 localized: "OmniWM version, macOS, your settings, and explicitly selected evidence are included in the diagnostic log — no need to type them."
             )
         }
+        .id("Context (optional)")
     }
 
     @ViewBuilder
@@ -117,6 +125,7 @@ struct ReportIssueSettingsTab: View {
                     Button("Rewrite & Format with AI") {
                         Task { await model.requestRewrite() }
                     }
+                    .id("Rewrite & Format with AI")
                     .buttonStyle(.bordered)
                     .disabled(!model.canRequestRewrite)
                     if model.phase == .rewriting {
@@ -148,8 +157,10 @@ struct ReportIssueSettingsTab: View {
                 .textSelection(.enabled)
             HStack {
                 Button("Apply") { model.applyRewrite() }
+                    .id("Apply")
                     .buttonStyle(.borderedProminent)
                 Button("Dismiss") { model.dismissSuggestion() }
+                    .id("Dismiss")
             }
             .controlSize(.small)
         }
@@ -166,6 +177,7 @@ struct ReportIssueSettingsTab: View {
             )
             HStack {
                 Button("Submit to GitHub") { Task { await model.submit() } }
+                    .id("Submit to GitHub")
                     .buttonStyle(.borderedProminent)
                     .disabled(!model.canSubmit || controller.traceCaptureStatus.phase != .idle)
                 if model.phase == .submitting {
@@ -205,7 +217,9 @@ struct ReportIssueSettingsTab: View {
             titleVisibility: .visible
         ) {
             Button("Discard Draft", role: .destructive) { model.startOver() }
+                .id("Discard Draft")
             Button("Keep Editing", role: .cancel) {}
+                .id("Keep Editing")
         }
     }
 
@@ -220,10 +234,12 @@ struct ReportIssueSettingsTab: View {
             Spacer()
             if !showWalkthrough {
                 Button("Show guide") { showWalkthrough = true }
+                    .id("Show guide")
                     .controlSize(.small)
             }
             if model.hasDraftContent {
                 Button("Discard Draft", role: .destructive) { showDiscardConfirm = true }
+                    .id("Discard Draft")
                     .controlSize(.small)
             }
         }
@@ -248,6 +264,7 @@ struct ReportIssueSettingsTab: View {
             }
             attachmentStatus
             Button("Report another issue") { model.startOver() }
+                .id("Report another issue")
         }
     }
 
@@ -261,6 +278,7 @@ struct ReportIssueSettingsTab: View {
             .font(.caption)
             .foregroundStyle(.secondary)
             Button("Reveal Log Again") { model.revealLastAttachment() }
+                .id("Reveal Log Again")
                 .controlSize(.small)
         }
         if let attachmentError = model.lastAttachmentError {
@@ -275,18 +293,6 @@ struct ReportIssueSettingsTab: View {
             Label(attachmentWarning, systemImage: "exclamationmark.triangle.fill")
                 .font(.caption)
                 .foregroundStyle(.orange)
-        }
-    }
-
-    @ViewBuilder
-    private func labeledEditor(_ label: String, text: Binding<String>, minHeight: CGFloat = 90) -> some View {
-        VStack(alignment: .leading, spacing: 4) {
-            Text(label)
-                .font(.callout)
-            TextEditor(text: text)
-                .frame(minHeight: minHeight)
-                .font(.body)
-                .accessibilityLabel(label)
         }
     }
 }
@@ -310,6 +316,7 @@ extension ReportIssueSettingsTab {
                 if controller.traceCaptureStatus.profile == .problem {
                     DiagnosticsRecordingProgress(startedAt: controller.traceCaptureStatus.startedAt)
                     Button("Stop, Save & Include Recording") { stopRecording() }
+                        .id("Stop, Save & Include Recording")
                     SettingsCaption(
                         localized: "Stop, save, and include before submitting — an in-progress recording isn't ready to attach."
                     )
@@ -346,6 +353,7 @@ extension ReportIssueSettingsTab {
             }
             DiagnosticsStatusLabel(status: traceStatus)
         }
+        .id("Diagnostics recording")
     }
 
     @ViewBuilder
@@ -364,6 +372,7 @@ extension ReportIssueSettingsTab {
                     .tag(Optional(selected))
             }
         }
+        .id("Additional evidence")
         .pickerStyle(.radioGroup)
     }
 

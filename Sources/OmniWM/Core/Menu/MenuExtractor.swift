@@ -5,6 +5,12 @@ import AppKit
 import ApplicationServices
 import ObjectiveC
 
+enum MenuContent: Equatable, Sendable {
+    case all
+    case application
+    case apple
+}
+
 @MainActor
 final class MenuExtractor {
     private let boldFont = NSFontManager.shared.convert(
@@ -30,6 +36,26 @@ final class MenuExtractor {
     func buildMenu(from element: AXUIElement, target: AnyObject?, action: Selector?) -> [NSMenuItem] {
         autoreleasepool {
             buildMenuItems(from: element, target: target, action: action, isSubmenu: false)
+        }
+    }
+
+    func buildMenu(
+        from element: AXUIElement,
+        content: MenuContent,
+        target: AnyObject?,
+        action: Selector?
+    ) throws -> [NSMenuItem] {
+        if content == .all {
+            return buildMenu(from: element, target: target, action: action)
+        }
+        return try autoreleasepool {
+            let snapshots = try reader.readMenuBarSnapshots(from: element, content: content)
+            return buildMenuItems(
+                from: snapshots,
+                target: target,
+                action: action,
+                isSubmenu: content == .apple
+            )
         }
     }
 
@@ -100,7 +126,7 @@ final class MenuExtractor {
                    let subRole = firstSub.getAttribute("AXRole") as? String,
                    subRole == "AXMenu"
                 {
-                    if excludeAppleMenu, depth == 0, isAppleMenuItem(title: title, itemData: itemData) {
+                    if excludeAppleMenu, depth == 0, MenuAXReader.isAppleMenuItem(itemData) {
                         return
                     }
                     let newPath = parentPath + [title]
@@ -184,9 +210,7 @@ final class MenuExtractor {
         for snapshot in snapshots {
             autoreleasepool {
                 let itemData = snapshot.attributes
-                let isApple = isAppleMenuItem(
-                    title: itemData["AXTitle"] as? String, itemData: itemData
-                )
+                let isApple = MenuAXReader.isAppleMenuItem(itemData)
                 if let item = buildSingleMenuItem(
                     from: snapshot,
                     target: target,
@@ -299,10 +323,6 @@ final class MenuExtractor {
             return nil
         }
         return root
-    }
-
-    private func isAppleMenuItem(title: String?, itemData: [String: Any]) -> Bool {
-        title == "Apple" || (itemData["AXRoleDescription"] as? String) == "Apple menu"
     }
 }
 

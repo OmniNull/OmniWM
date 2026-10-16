@@ -5,6 +5,60 @@
 import XCTest
 
 final class HiddenBarLifecyclePolicyTests: XCTestCase {
+    @MainActor
+    func testNativeMenuAccessIsHeldUntilLastRevealEndsAndReleasedByCleanupOrDisable() {
+        for terminal in 0 ..< 3 {
+            let directory = FileManager.default.temporaryDirectory.appendingPathComponent(UUID().uuidString)
+            defer { try? FileManager.default.removeItem(at: directory) }
+            let state = RuntimeStateStore(directory: directory, deferSaves: false)
+            let settings = SettingsStore(
+                persistence: SettingsFilePersistence(directory: directory, startWatching: false, deferSaves: false),
+                runtimeState: state,
+                autosaveEnabled: false
+            )
+            let menuBar = FakeMenuBarAutohide()
+            menuBar.preference = true
+            let hold = MenuBarAutohideHold(system: menuBar.system, runtimeState: state)
+            let hiddenBar = HiddenBarController(settings: settings, setMenuAccess: { hold.setMenuAccess($0) })
+            hiddenBar.startReconcealForTests(revealedBundleIDs: ["first", "second"])
+            XCTAssertFalse(menuBar.nativeAutohide)
+            hiddenBar.concealRevealed(["first"])
+            XCTAssertFalse(menuBar.nativeAutohide)
+
+            switch terminal {
+            case 0: hiddenBar.concealRevealed(["second"])
+            case 1: hiddenBar.cleanup()
+            default: hiddenBar.setEnabled(false)
+            }
+
+            XCTAssertTrue(menuBar.nativeAutohide)
+            XCTAssertTrue(hiddenBar.revealedBundleIDs.isEmpty)
+            hiddenBar.cleanup()
+            XCTAssertEqual(menuBar.calls, [false, true])
+        }
+    }
+
+    @MainActor
+    func testFailedNativeMenuAccessDoesNotBeginRevealOrReconcealment() {
+        let directory = FileManager.default.temporaryDirectory.appendingPathComponent(UUID().uuidString)
+        defer { try? FileManager.default.removeItem(at: directory) }
+        let settings = SettingsStore(
+            persistence: SettingsFilePersistence(directory: directory, startWatching: false, deferSaves: false),
+            runtimeState: RuntimeStateStore(directory: directory, deferSaves: false),
+            autosaveEnabled: false
+        )
+        var accesses: [Bool] = []
+        let hiddenBar = HiddenBarController(settings: settings, setMenuAccess: {
+            accesses.append($0)
+            return false
+        })
+
+        hiddenBar.startReconcealForTests(revealedBundleIDs: ["first"])
+        XCTAssertTrue(hiddenBar.revealedBundleIDs.isEmpty)
+        hiddenBar.cleanup()
+        XCTAssertEqual(accesses, [true])
+    }
+
     func testRefreshRequiresEnabledAvailableAndConfiguredHiddenApp() {
         XCTAssertFalse(HiddenBarConcealmentPolicy.wantsRefresh(
             enabled: false,

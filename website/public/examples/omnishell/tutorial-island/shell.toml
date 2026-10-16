@@ -1,0 +1,16 @@
+theme = "native"
+leading = ["omniwm", "workspaces"]
+center = ["clock"]
+trailing = ["volume", "battery"]
+
+[island]
+root = "tutorial-root"
+displays = "main"
+width = 420
+height = 240
+fullscreen = "hide"
+
+[[island.components]]
+id = "desk-clock"
+widget = "demo-clock"
+label = "My desk"

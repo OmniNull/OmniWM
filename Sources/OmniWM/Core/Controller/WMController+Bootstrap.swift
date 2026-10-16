@@ -23,7 +23,7 @@ extension WMController {
                 _ = commandHandler.handleHotkeyInvocation(invocation)
             }
         }
-        settings.onWorkspaceHotkeysChanged = { [weak self] in
+        settings.onDynamicHotkeysChanged = { [weak self] in
             guard let self else { return }
             updateHotkeyBindings(settings.hotkeyBindings)
         }
@@ -32,6 +32,7 @@ extension WMController {
         }
         motionPolicy.onAnimationsEnabledChange = { [weak self] in
             self?.layoutRefreshController.workspaceSwipe.syncAvailability()
+            self?.workspaceBarManager.refreshShellShaders()
         }
     }
 
@@ -127,7 +128,6 @@ extension WMController {
                 self.focusPolicyEngine.endLease(owner: .nativeMenu)
             }
         }
-        self.hiddenBarController.configureMotion(motionPolicy)
         self.hiddenBarController.onCursorWarp = { [weak self] point in
             self?.mouseWarpHandler.noteProgrammaticCursorMove(to: point)
         }

@@ -21,7 +21,7 @@ enum HotkeyBindingRegistry {
 
     static func defaultBinding(for id: String) -> HotkeyBinding? {
         if let binding = bindingsByID[id] { return binding }
-        guard let spec = ActionCatalog.workspaceNumberSpec(for: id) else { return nil }
+        guard let spec = ActionCatalog.dynamicSpec(for: id) else { return nil }
         return HotkeyBinding(id: id, command: spec.command, binding: spec.defaultBinding)
     }
 
@@ -46,7 +46,7 @@ enum HotkeyBindingRegistry {
             .map { spec in
                 existing[spec.id] ?? HotkeyBinding(id: spec.id, command: spec.command, binding: spec.defaultBinding)
             }
-        var result = bindings.filter { bindingsByID[$0.id] != nil }
+        var result = bindings.filter { bindingsByID[$0.id] != nil || ActionCatalog.shellToggleSpec(for: $0.id) != nil }
         let groups = Dictionary(grouping: workspaceBindings) { rowGroup(of: $0.id) }
         let insertions = groups.map { group, rows in
             (index: result.lastIndex { rowGroup(of: $0.id) == group }.map { $0 + 1 } ?? result.count, rows: rows)
@@ -55,6 +55,21 @@ enum HotkeyBindingRegistry {
             result.insert(contentsOf: insertion.rows, at: insertion.index)
         }
         return result
+    }
+
+    static func reconcilingShellToggleBindings(_ bindings: [HotkeyBinding], names: [String]) -> [HotkeyBinding] {
+        let isToggle = { (binding: HotkeyBinding) in ActionCatalog.shellToggleSpec(for: binding.id) != nil }
+        let current = Set(names.compactMap { ActionCatalog.shellToggleSpec(name: $0)?.id })
+        var toggles = Dictionary(
+            bindings.filter { isToggle($0) && (!$0.binding.isUnassigned || current.contains($0.id)) }
+                .map { ($0.id, $0) },
+            uniquingKeysWith: { first, _ in first }
+        )
+        for name in names {
+            guard let spec = ActionCatalog.shellToggleSpec(name: name), toggles[spec.id] == nil else { continue }
+            toggles[spec.id] = HotkeyBinding(id: spec.id, command: spec.command, binding: spec.defaultBinding)
+        }
+        return bindings.filter { !isToggle($0) } + toggles.keys.sorted().compactMap { toggles[$0] }
     }
 
     private static func rowGroup(of id: String) -> WorkspaceNumberActionKind? {

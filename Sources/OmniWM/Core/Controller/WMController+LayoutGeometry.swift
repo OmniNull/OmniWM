@@ -166,8 +166,8 @@ extension WMController {
         )
     }
 
-    private func workspaceBarReservedInsets(for monitor: Monitor) -> Struts {
-        guard settings.workspaceBar.revealModifier == .off else { return .zero }
+    func workspaceBarReservedInsets(for monitor: Monitor) -> Struts {
+        guard settings.workspaceBar.resolvedRevealModifier == .off else { return .zero }
         let resolved = settings.workspaceBar.resolved(for: monitor)
         return WorkspaceBarGeometry.resolve(
             monitor: monitor,
@@ -198,5 +198,11 @@ extension WMController {
             )
         )
         return (layout, borderSafe)
+    }
+}
+
+extension Struts {
+    var ipcInsets: IPCInsets {
+        IPCInsets(top: Double(top), left: Double(left), bottom: Double(bottom), right: Double(right))
     }
 }

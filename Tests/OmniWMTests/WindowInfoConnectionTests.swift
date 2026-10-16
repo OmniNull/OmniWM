@@ -205,7 +205,7 @@ final class WindowInfoConnectionTests: XCTestCase {
         ))
     }
 
-    func testLiveDedicatedConnectionReadsCornersAndRejectsWrongPID() async throws {
+    func testLiveDedicatedConnectionReadsCornersAcrossProcesses() async throws {
         guard ProcessInfo.processInfo.environment["OMNIWM_RUN_METADATA_READ_LIVE_TESTS"] == "1" else {
             throw XCTSkip("Enable OMNIWM_RUN_METADATA_READ_LIVE_TESTS for read-only WindowServer checks")
         }
@@ -220,8 +220,9 @@ final class WindowInfoConnectionTests: XCTestCase {
             guard let expected = sky.cornerSample(forWindowId: token.windowId) else { continue }
             let actual = try await sky.cornerSampleDeferred(for: token)
             XCTAssertEqual(actual, expected)
-            let wrongOwner = try await sky.cornerSampleDeferred(for: WindowToken(pid: -1, windowId: token.windowId))
-            XCTAssertNil(wrongOwner)
+            let mismatchedPidToken = WindowToken(pid: -1, windowId: token.windowId)
+            let mismatchedPidSample = try await sky.cornerSampleDeferred(for: mismatchedPidToken)
+            XCTAssertEqual(mismatchedPidSample, expected)
             comparisons += 1
         }
         XCTAssertGreaterThan(comparisons, 0)

@@ -57,6 +57,27 @@ final class CLIInvocationParsingTests: XCTestCase {
         }
     }
 
+    func testCommandPaletteModesParseThroughSharedCommandWords() throws {
+        let toggle = try IPCCommandRequest(name: .openCommandPalette, argumentValues: [])
+        XCTAssertEqual(IPCCommandRequest(commandWords: ["open-command-palette"]), toggle)
+        XCTAssertEqual(
+            try CLIParser.parse(arguments: ["omniwmctl", "command", "open-command-palette"]).request.payload,
+            .command(toggle)
+        )
+        for mode in IPCCommandPaletteMode.allCases {
+            let expected = try IPCCommandRequest(name: .openCommandPaletteMode, argumentValues: [.paletteMode(mode)])
+            XCTAssertEqual(IPCCommandRequest(commandWords: ["open-command-palette", mode.rawValue]), expected)
+            let parsed = try CLIParser.parse(arguments: ["omniwmctl", "command", "open-command-palette", mode.rawValue])
+            XCTAssertEqual(parsed.request.payload, .command(expected))
+        }
+        for arguments in [["open-command-palette", "bogus"], ["open-command-palette", "windows", "extra"]] {
+            XCTAssertNil(IPCCommandRequest(commandWords: arguments))
+            XCTAssertThrowsError(try CLIParser.parse(arguments: ["omniwmctl", "command"] + arguments)) { error in
+                XCTAssertEqual(error as? CLIParseError, .usage(CLIParser.usageText))
+            }
+        }
+    }
+
     func testPositiveIndexAndWorkspaceArgumentsKeepIdenticalBounds() throws {
         let commands = ["switch-workspace", "focus-column", "focus-window-in-column"]
         for command in commands {

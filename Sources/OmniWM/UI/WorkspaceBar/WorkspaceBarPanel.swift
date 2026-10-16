@@ -4,24 +4,14 @@
 import AppKit
 
 @MainActor
-final class WorkspaceBarPanel: NSPanel, NSWindowDelegate {
+final class WorkspaceBarPanel: ShellFocusPanel {
     var targetScreen: NSScreen?
-    var interactionHandler: ((NSEvent, WorkspaceBarPanel) -> Bool)?
-    var onSheetChanged: (() -> Void)?
-    private(set) var hasPresentedSheet = false
-
-    func windowWillBeginSheet(_ notification: Notification) {
-        hasPresentedSheet = true
-        onSheetChanged?()
-    }
-
-    func windowDidEndSheet(_ notification: Notification) {
-        hasPresentedSheet = false
-        onSheetChanged?()
-    }
+    var onPress: (() -> Void)?
 
     override func sendEvent(_ event: NSEvent) {
-        if interactionHandler?(event, self) == true { return }
+        if event.type == .leftMouseDown || event.type == .rightMouseDown {
+            onPress?()
+        }
         super.sendEvent(event)
     }
 
@@ -49,7 +39,6 @@ final class WorkspaceBarPanel: NSPanel, NSWindowDelegate {
             defer: false
         )
 
-        panel.delegate = panel
         panel.collectionBehavior = [.canJoinAllSpaces, .fullScreenAuxiliary, .stationary]
         panel.isOpaque = false
         panel.backgroundColor = .clear

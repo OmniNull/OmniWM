@@ -95,6 +95,7 @@ final class LayoutDiffExecutor {
         Self.applyFrameUpdates(
             preparation.frameUpdates,
             isAnimationTick: plan.isAnimationTick,
+            isInteractiveResize: plan.isInteractiveResize,
             controller: controller
         )
         refreshController.applyWorkspaceMonitorRelocationFrameUpdates(
@@ -108,6 +109,7 @@ final class LayoutDiffExecutor {
     static func applyFrameUpdates(
         _ frameUpdates: [AXFrameApplicationTarget],
         isAnimationTick: Bool,
+        isInteractiveResize: Bool = false,
         controller: WMController
     ) {
         guard !frameUpdates.isEmpty else { return }
@@ -117,7 +119,13 @@ final class LayoutDiffExecutor {
                 axManager.forceApplyNextFrame(for: update.windowId)
             }
         }
-        axManager.applyFramesParallel(frameUpdates, verify: !isAnimationTick)
+        guard isInteractiveResize else {
+            axManager.applyFramesParallel(frameUpdates, verify: !isAnimationTick)
+            return
+        }
+        let moves = frameUpdates.filter { $0.components == .position }
+        axManager.applyFramesParallel(moves, verify: false)
+        axManager.applyFramesParallel(frameUpdates.filter { $0.components != .position })
     }
 
     private func resolveMonitor(

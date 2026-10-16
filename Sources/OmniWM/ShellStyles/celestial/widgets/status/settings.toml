@@ -1,0 +1,27 @@
+# SPDX-License-Identifier: GPL-2.0-only
+# Copyright (C) 2026 BarutSRB — https://github.com/OmniNull/OmniWM
+
+[options.audio]
+type = "boolean"
+title = "Show audio"
+default = false
+
+[options.keyboard]
+type = "boolean"
+title = "Show input source"
+default = false
+
+[options.network]
+type = "boolean"
+title = "Show Wi-Fi"
+default = true
+
+[options.bluetooth]
+type = "boolean"
+title = "Show Bluetooth"
+default = true
+
+[options.battery]
+type = "boolean"
+title = "Show battery"
+default = true

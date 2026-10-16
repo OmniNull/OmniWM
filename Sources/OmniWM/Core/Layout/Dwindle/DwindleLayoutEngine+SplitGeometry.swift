@@ -19,7 +19,8 @@ extension DwindleLayoutEngine {
             return 0.1 ... 1.9
         }
 
-        let childEdges = splitChildBoundaryEdges(tilingBoundaryEdges(of: split), orientation: orientation)
+        let boundaryEdges = tilingBoundaryEdges(of: split, excluding: excludedTokens)
+        let childEdges = splitChildBoundaryEdges(boundaryEdges, orientation: orientation)
         let firstMinSize = computeProjectedMinSizeForSubtree(
             first,
             boundaryEdges: childEdges.first,

@@ -165,6 +165,30 @@ final class EventIntakeReplayTests: XCTestCase {
     }
 
     @MainActor
+    func testAXTitleEventsCoalescePerWindowWithinADrain() {
+        let intake = EventIntake()
+        let sink = RecordingSink()
+        intake.open(sink: sink)
+        defer { intake.close() }
+
+        for _ in 0 ..< 5 {
+            intake.enqueue(.axWindow(.titleChanged(pid: 1, windowId: 7, callbackGeneration: nil)))
+        }
+        intake.enqueue(.axWindow(.titleChanged(pid: 1, windowId: 8, callbackGeneration: nil)))
+        intake.drainNow()
+        intake.enqueue(.axWindow(.titleChanged(pid: 1, windowId: 7, callbackGeneration: nil)))
+        intake.drainNow()
+
+        let titles = sink.received.compactMap { stamped -> UInt32? in
+            if case let .axWindow(.titleChanged(_, windowId, _)) = stamped.event {
+                return windowId
+            }
+            return nil
+        }
+        XCTAssertEqual(titles, [7, 8, 7])
+    }
+
+    @MainActor
     func testCGSFrameBurstForLiveWindowDeliversOnce() {
         let intake = EventIntake()
         let sink = RecordingSink()

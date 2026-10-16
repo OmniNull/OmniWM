@@ -64,10 +64,12 @@ struct WorkspacesSettingsTab: View {
                         Text(layout.localizedDisplayName).tag(layout)
                     }
                 }
+                .id("Layout Algorithm")
                 .onChange(of: settings.workspaces.defaultLayoutType) { _, _ in
                     controller.updateWorkspaceConfig()
                 }
             }
+            .id("Default Layout")
 
             Section {
                 if settings.workspaces.configurations.isEmpty {
@@ -94,7 +96,6 @@ struct WorkspacesSettingsTab: View {
                     Spacer()
                     Button(action: { isAddingNew = true }, label: {
                         Label("Add workspace", systemImage: "plus.circle")
-                            .labelStyle(.iconOnly)
                     })
                     .buttonStyle(.plain)
                     .help(addButtonHelp)
@@ -143,7 +144,9 @@ struct WorkspacesSettingsTab: View {
             Button("Delete Workspace", role: .destructive) {
                 deleteConfiguration(config)
             }
+            .id("Delete Workspace")
             Button("Cancel", role: .cancel) {}
+                .id("Cancel")
         } message: { config in
             Text(deleteConfirmationMessage(for: config))
         }
@@ -337,6 +340,7 @@ struct WorkspaceEditSheet: View {
                     get: { configuration.displayName ?? "" },
                     set: { configuration.displayName = $0.isEmpty ? nil : $0 }
                 ))
+                .id("Display Name (optional)")
                 .textFieldStyle(.roundedBorder)
 
                 WorkspaceHomeMonitorPicker(
@@ -355,10 +359,12 @@ struct WorkspaceEditSheet: View {
                         Text(layout.localizedDisplayName).tag(layout)
                     }
                 }
+                .id("Layout")
             }
 
             HStack {
                 Button("Cancel", action: onCancel)
+                    .id("Cancel")
                     .keyboardShortcut(.cancelAction)
 
                 Spacer()
@@ -406,5 +412,6 @@ struct WorkspaceHomeMonitorPicker: View {
                 .tag(MonitorAssignment.specificDisplay(OutputId(from: monitor)))
             }
         }
+        .id("Home Monitor")
     }
 }

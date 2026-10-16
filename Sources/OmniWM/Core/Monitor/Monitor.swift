@@ -67,6 +67,8 @@ struct Monitor: Identifiable, Hashable {
     let visibleFrame: CGRect
     let hasNotch: Bool
     var notchRange: ClosedRange<CGFloat>?
+    let notchHeight: CGFloat
+    let backingScale: CGFloat
 
     let name: String
     let displayUUID: String?
@@ -78,6 +80,8 @@ struct Monitor: Identifiable, Hashable {
         visibleFrame: CGRect,
         hasNotch: Bool,
         notchRange: ClosedRange<CGFloat>? = nil,
+        notchHeight: CGFloat = 0,
+        backingScale: CGFloat = 1,
         name: String,
         displayUUID: String? = nil
     ) {
@@ -87,6 +91,8 @@ struct Monitor: Identifiable, Hashable {
         self.visibleFrame = visibleFrame
         self.hasNotch = hasNotch
         self.notchRange = notchRange
+        self.notchHeight = notchHeight
+        self.backingScale = backingScale
         self.name = name
         self.displayUUID = DisplayUUID.canonical(displayUUID)
     }
@@ -105,6 +111,8 @@ struct Monitor: Identifiable, Hashable {
                 visibleFrame: screen.visibleFrame,
                 hasNotch: hasNotch,
                 notchRange: notchRange(of: screen),
+                notchHeight: screen.safeAreaInsets.top,
+                backingScale: screen.backingScaleFactor,
                 name: screen.localizedName,
                 displayUUID: SkyLight.displayUUID(for: displayId)
             )
@@ -137,6 +145,8 @@ struct Monitor: Identifiable, Hashable {
                 visibleFrame: monitor.visibleFrame,
                 hasNotch: monitor.hasNotch,
                 notchRange: monitor.notchRange,
+                notchHeight: monitor.notchHeight,
+                backingScale: monitor.backingScale,
                 name: monitor.name
             )
         }
@@ -174,6 +184,8 @@ struct Monitor: Identifiable, Hashable {
             visibleFrame: frame,
             hasNotch: hasNotch,
             notchRange: NSScreen.main.flatMap { notchRange(of: $0) },
+            notchHeight: NSScreen.main?.safeAreaInsets.top ?? 0,
+            backingScale: NSScreen.main?.backingScaleFactor ?? 1,
             name: "Fallback"
         )
     }

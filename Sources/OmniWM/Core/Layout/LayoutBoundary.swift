@@ -97,6 +97,7 @@ struct NiriWorkspaceSnapshot {
     let niriWorkingFrame: CGRect
     let displayRefreshRate: Double
     let isActiveWorkspace: Bool
+    let quietArrivalTokens: Set<WindowToken>
 }
 
 struct DwindleWorkspaceSnapshot {
@@ -265,10 +266,12 @@ struct WorkspaceLayoutPlan {
     var sessionPatch: WorkspaceSessionPatch
     var diff: WorkspaceLayoutDiff
     var niriRestorePlacements: [WindowToken: PersistedNiriPlacement] = [:]
+    var quietArrivalTokens: Set<WindowToken> = []
     var dwindleRestorePlacements: [WindowToken: PersistedDwindlePlacement] = [:]
     var animationDirectives: [AnimationDirective] = []
     var dwindleAnimationTargetDisposition: DwindleAnimationTargetDisposition?
     var isAnimationTick = false
+    var isInteractiveResize = false
     var isActiveWorkspace = true
 }
 

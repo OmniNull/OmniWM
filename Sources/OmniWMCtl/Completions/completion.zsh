@@ -120,6 +120,11 @@ _omniwmctl() {
         suggestions="#{{windowMarkListFlags}}"
       fi
       ;;
+    shell)
+      if (( CURRENT == 3 )); then
+        suggestions="#{{shellActionNames}}"
+      fi
+      ;;
     completion)
       suggestions="#{{shellNames}}"
       ;;

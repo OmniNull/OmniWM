@@ -457,6 +457,30 @@ extension IPCAutomationManifest {
         .init(
             name: .presentation(.systemStats),
             summary: "Toggle the system stats popup when a workspace-bar System Stats button is available."
+        ),
+        .init(
+            name: .media(.volumeUp),
+            summary: "Raise the output volume by one step."
+        ),
+        .init(
+            name: .media(.volumeDown),
+            summary: "Lower the output volume by one step."
+        ),
+        .init(
+            name: .media(.volumeMute),
+            summary: "Mute or unmute the output."
+        ),
+        .init(
+            name: .media(.playPause),
+            summary: "Play or pause what is playing."
+        ),
+        .init(
+            name: .media(.next),
+            summary: "Skip to the next track."
+        ),
+        .init(
+            name: .media(.previous),
+            summary: "Go back to the previous track."
         )
     ]
 }

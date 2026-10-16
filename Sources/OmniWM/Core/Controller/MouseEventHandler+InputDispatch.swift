@@ -318,7 +318,7 @@ extension MouseEventHandler {
             return .wheelDisabled
         }
         if controller.isOverviewOpen() { return .overview }
-        if shouldBlockOwnWindowInput(at: location) { return .ownWindow }
+        if shouldBlockOwnWindowGestureInput(at: location) { return .ownWindow }
         guard !state.isResizing, !state.isMoving else { return .windowInteraction }
         guard controller.settings.gestures.scrollEnabled else { return .wheelDisabled }
         let requiredModifiers = controller.settings.gestures.scrollModifierKey.cgEventFlag
@@ -363,7 +363,7 @@ extension MouseEventHandler {
             return
         }
         guard shouldProcessGestureFrame(snapshot) else { return }
-        if shouldBlockOwnWindowInput(at: snapshot.location) {
+        if shouldBlockOwnWindowGestureInput(at: snapshot.location) {
             dropPendingTapEvents()
         } else {
             flushQueuedTapEventsBeforeImmediateDispatch()

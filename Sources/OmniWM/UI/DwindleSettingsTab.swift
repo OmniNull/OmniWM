@@ -51,12 +51,14 @@ private struct GlobalDwindleSettingsSection: View {
     var body: some View {
         Section("Dwindle Layout") {
             Toggle("Smart Split", isOn: Bindable(settings.dwindle).smartSplit)
+                .id("Smart Split")
                 .onChange(of: settings.dwindle.smartSplit) { _, newValue in
                     controller.updateDwindleConfig(smartSplit: newValue)
                 }
             SettingsCaption(localized: "Automatically choose split direction")
 
             Toggle("Move to Root: Stable", isOn: Bindable(settings.dwindle).moveToRootStable)
+                .id("Move to Root: Stable")
             SettingsCaption(localized: "Keep window on same screen side when moving to root")
 
             SettingsSliderRow(
@@ -67,6 +69,7 @@ private struct GlobalDwindleSettingsSection: View {
                 valueText: settings.dwindle.defaultSplitRatio.formatted(.number.precision(.fractionLength(1))),
                 valueWidth: 40
             )
+            .id("Default Split Ratio")
             .onChange(of: settings.dwindle.defaultSplitRatio) { _, newValue in
                 controller.updateDwindleConfig(defaultSplitRatio: CGFloat(newValue))
             }
@@ -80,6 +83,7 @@ private struct GlobalDwindleSettingsSection: View {
                 valueText: settings.dwindle.splitWidthMultiplier.formatted(.number.precision(.fractionLength(1))),
                 valueWidth: 40
             )
+            .id("Split Width Multiplier")
             .onChange(of: settings.dwindle.splitWidthMultiplier) { _, newValue in
                 controller.updateDwindleConfig(splitWidthMultiplier: CGFloat(newValue))
             }
@@ -99,11 +103,13 @@ private struct GlobalDwindleSettingsSection: View {
             )
 
             Toggle("Use Global Gap Settings", isOn: Bindable(settings.dwindle).useGlobalGaps)
+                .id("Use Global Gap Settings")
                 .onChange(of: settings.dwindle.useGlobalGaps) { _, _ in
                     controller.updateDwindleConfig()
                 }
             SettingsCaption(localized: "When enabled, uses the gap values from General settings")
         }
+        .id("Dwindle Layout")
     }
 }
 
@@ -181,6 +187,7 @@ private struct MonitorDwindleSettingsSection: View {
             )
             SettingsCaption(localized: "When enabled, uses the gap values from General settings")
         }
+        .id("Dwindle Layout")
 
         if !usesGlobalGaps {
             Section("Dwindle Gaps") {
@@ -195,6 +202,7 @@ private struct MonitorDwindleSettingsSection: View {
                     onReset: { updateSetting { $0.innerGap = nil } }
                 )
             }
+            .id("Dwindle Gaps")
         }
     }
 }

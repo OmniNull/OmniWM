@@ -66,8 +66,13 @@ final class ServiceLifecycleManager {
                     controller.updateAccessibilityPermissionGranted(true)
                     self.maybeStartServices()
                 } else {
-                    _ = self.controller?.axManager.requestPermission() ?? false
                     controller.updateAccessibilityPermissionGranted(false)
+                    if controller.hasStartedServices {
+                        self.stopServices(retainingAXWorkers: false)
+                        self.startPermissionMonitoring()
+                        return
+                    }
+                    _ = self.controller?.axManager.requestPermission() ?? false
                 }
             }
         }
@@ -110,6 +115,7 @@ final class ServiceLifecycleManager {
             controller.syncMonitorsToNiriEngine()
         }
         controller.hasStartedServices = true
+        controller.appVolumeMixer.start()
         controller.updateWorkspaceBarNotificationBadgeSettings()
         controller.reconcileEnabledAndHotkeysState()
         controller.eventIntake.open(sink: controller.eventInterpreter)
@@ -258,7 +264,7 @@ final class ServiceLifecycleManager {
         guard let controller else { return }
         _ = controller.workspaceManager.recordReconcileEvent(.systemWake(source: .service))
         controller.axEventHandler.reconcileHiddenApplications()
-        controller.workspaceBarManager.cleanup()
+        controller.workspaceBarManager.cleanup(keepingShell: true)
         topologyInventory.schedule(reason: .unlock)
         controller.mouseEventHandler.requestMultitouchRevalidation(.wake)
     }

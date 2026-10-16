@@ -1,0 +1,106 @@
+---
+title: Async services, HTTP, JSON, and storage
+description: Cancellable owner-scoped services, timers, HTTP request limits, JSON conversion, and durable state.
+sidebar:
+  order: 6
+---
+
+import LuauDeclaration from '../../../../components/docs/LuauDeclaration.astro';
+
+:::note[Unreleased]
+OmniShell and this API are available when building from `main`.
+:::
+
+Use these services from input, lifecycle, or async callbacks, where the host knows the calling owner. Render and activity functions describe output; they must not start side-effecting service work. Components share a VM but their async reservations and durable stores retain each configured instance’s identity.
+
+## Timers and JSON
+
+`omniwm.after(seconds, callback)` schedules one callback, with a minimum delay of 0.01 seconds. It returns a handle with `handle:cancel()`, or `nil, error` when the request cannot be accepted. There are at most 32 outstanding async reservations per owner and 256 per root package. A completed request keeps its reservation until delivery; the reservation is released before its callback runs. Disabling or reloading an owner cancels its requests and rejects late completions.
+
+```lua
+local handle, err = omniwm.after(1, function()
+    omniwm.log("one second later")
+end)
+if not handle then omniwm.log(err) end
+```
+
+`json.encode(value)` and `json.decode(text)` return a result or `nil, error`. They accept finite numbers, strings, booleans, arrays and string-keyed objects, with depth at most 64 and encoded/input size at most 4 MiB. Use `json.null` for a JSON null inside an array or object; decoded empty arrays retain their identity.
+
+<LuauDeclaration name="omniwm.after" />
+
+<LuauDeclaration name="ServiceHandle" />
+
+<LuauDeclaration name="json.encode" />
+
+<LuauDeclaration name="json.decode" />
+
+<LuauDeclaration name="json.null" />
+
+<LuauDeclaration name="json" />
+
+## HTTP
+
+`omniwm.http(request, callback)` starts an asynchronous HTTP(S) request. It returns a cancellable service handle, or `nil, error` when admission fails. At most six HTTP requests are outstanding per package, within the shared 32-per-owner and 256-per-package service limits. A result waiting for delivery still occupies its native reservation. There are no automatic retries.
+
+```lua
+local request, err = omniwm.http({
+    url = "https://api.github.com/repos/OmniNull/OmniWM/actions/runs?per_page=5",
+    headers = { Accept = "application/vnd.github+json" },
+    response = "json",
+    maxBytes = 262144,
+    timeout = 30,
+}, function(result)
+    if result.ok then
+        instance.state.runs = result.json.workflow_runs
+    else
+        instance.state.error = result.error
+    end
+end)
+if not request then instance.state.error = err end
+```
+
+The method defaults to GET, the response to `"text"`, the response limit to 1 MiB and the total deadline to 30 seconds. Choose `"json"` for a parsed immutable value or `"bytes"` for a binary Luau string. Request bodies are binary strings or ready Resources; Resource bodies require the files capability and are prepared off the UI thread. Bodies and response limits are capped at 4 MiB; deadlines must be positive and at most 120 seconds. Request header text and encoded response headers each have a separate 64 KiB bound. The HTTP session has no disk cache, cookies or stored credentials.
+
+Callbacks receive `{ok, status, headers, text?, json?, bytes?, error?}`. Response header names are lowercase. `ok` is true only for a successfully decoded 2xx response. Non-2xx responses use `error="http_status"` and retain a successfully decoded body. Transport and JSON errors have no replacement body. Status is zero if no HTTP status was received. Keep prior valid component data when a request fails. Cancellation, instance removal and package close prevent late callback delivery.
+
+A component declares exact network hosts in its manifest:
+
+```toml
+capabilities = { network = ["api.github.com"] }
+```
+
+Explicit user configuration may add component hosts. Declarations do not grant wildcard or subdomain access, and each redirect is checked. Root/bar scripts retain unrestricted HTTP(S) access. These rules constrain API use within the shared VM; they are not a process sandbox. Provider and other capability grants cannot be widened by the Luau configuration API.
+
+The installed **CI status** component is optional and is not enabled by default. Add it through lake's component catalog or configure an instance with `widget="ci-status"`, `options.repo="owner/name"` and an integer `options.interval` between 15 and 3600 seconds (default 60). It uses public repository workflows without credentials. It keeps the last five valid runs across restarts, polls with one request or timer at a time and displays **Retry polling** if timer admission fails. A failed HTTP admission waits for the next ordinary poll; Retry resumes only when the user selects it. Replacing the component views leaves its HTTP, polling, storage and activity behavior available to custom layouts.
+
+A newly observed failed workflow offers a stable four-second `activity.alert` marker keyed by run and attempt. The lake profile temporarily selects that alert, then returns according to its editable attention policy. The component also exposes its status in compact and expanded views.
+
+<LuauDeclaration name="omniwm.http" />
+
+<LuauDeclaration name="HTTPRequest" />
+
+<LuauDeclaration name="HTTPResult" />
+
+## Durable state
+
+`omniwm.store.get(key)` reads an immutable snapshot from the current owner's durable store. `omniwm.store.set(key, value)` returns `true` or `nil, error`; passing `nil` deletes the key. The full snapshot is limited to 256 KiB. Stores are separate for each profile, root package and configured instance ID, and load before component `init`. They live outside the configuration folder. `ctx.state` and `instance.state` are not saved automatically.
+
+Writes coalesce on a separate utility queue, at least one second apart during normal operation, and flush on teardown, reload and quit. `omniwm.store.status` exposes `state` (`ready`, `pending` or `failed`), `revision`, `committedRevision` and an optional `error`. A failed commit retains the in-memory snapshot and reports the failure; it does not start an automatic retry loop.
+
+Async callbacks and coroutines retain their component identity. A coroutine whose owner or captured display no longer exists fails safely when resumed. Callbacks can log and issue commands without a display instance; commands without a captured display use the main screen. Incoming completions use one bounded queue and batches of at most 16, with affected trees rendered once after each batch.
+
+<LuauDeclaration name="omniwm.store.get" />
+
+<LuauDeclaration name="omniwm.store.set" />
+
+<LuauDeclaration name="omniwm.store.status" />
+
+<LuauDeclaration name="StoreStatus" />
+
+<LuauDeclaration name="omniwm.store" />
+
+## Complete OmniWM namespace
+
+This block is copied verbatim from the shipped declarations. Links in the [symbol index](/omnishell/reference/) lead to each service’s behavior and types.
+
+<LuauDeclaration name="omniwm" />

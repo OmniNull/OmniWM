@@ -8,6 +8,8 @@ struct PopupAttachment: Equatable {
         case above, below, left, right
     }
 
+    static let gap: CGFloat = 4
+
     let anchor: CGPoint
     let edge: Edge
 
@@ -26,24 +28,24 @@ struct PopupAttachment: Equatable {
         }
     }
 
-    func availableSize(in visibleFrame: CGRect) -> CGSize {
+    func availableSize(in visibleFrame: CGRect, gap: CGFloat = Self.gap) -> CGSize {
         let bounds = visibleFrame.insetBy(dx: 8, dy: 8)
         var size = bounds.size
         switch edge {
-        case .above: size.height = min(size.height, bounds.maxY - anchor.y - 4)
-        case .below: size.height = min(size.height, anchor.y - 4 - bounds.minY)
-        case .left: size.width = min(size.width, anchor.x - 4 - bounds.minX)
-        case .right: size.width = min(size.width, bounds.maxX - anchor.x - 4)
+        case .above: size.height = min(size.height, bounds.maxY - anchor.y - gap)
+        case .below: size.height = min(size.height, anchor.y - gap - bounds.minY)
+        case .left: size.width = min(size.width, anchor.x - gap - bounds.minX)
+        case .right: size.width = min(size.width, bounds.maxX - anchor.x - gap)
         }
         return CGSize(width: max(0, size.width), height: max(0, size.height))
     }
 
-    func frame(size: CGSize, visibleFrame: CGRect) -> CGRect {
+    func frame(size: CGSize, visibleFrame: CGRect, gap: CGFloat = Self.gap) -> CGRect {
         let origin: CGPoint = switch edge {
-        case .above: CGPoint(x: anchor.x - size.width / 2, y: anchor.y + 4)
-        case .below: CGPoint(x: anchor.x - size.width / 2, y: anchor.y - 4 - size.height)
-        case .left: CGPoint(x: anchor.x - 4 - size.width, y: anchor.y - size.height / 2)
-        case .right: CGPoint(x: anchor.x + 4, y: anchor.y - size.height / 2)
+        case .above: CGPoint(x: anchor.x - size.width / 2, y: anchor.y + gap)
+        case .below: CGPoint(x: anchor.x - size.width / 2, y: anchor.y - gap - size.height)
+        case .left: CGPoint(x: anchor.x - gap - size.width, y: anchor.y - size.height / 2)
+        case .right: CGPoint(x: anchor.x + gap, y: anchor.y - size.height / 2)
         }
         var frame = CGRect(origin: origin, size: size)
         let minX = visibleFrame.minX + 8

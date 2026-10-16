@@ -17,6 +17,10 @@ final class StatusBarController: NSObject {
     private let recordingPulseKey = "omniwm.recordingPulse"
     private weak var controller: WMController?
 
+    var settingsMenuModel: StatusMenuModel? {
+        menuHost?.model
+    }
+
     init(
         settings: SettingsStore,
         controller: WMController,
@@ -102,15 +106,32 @@ final class StatusBarController: NSObject {
         edge: PopupAttachment.Edge = .below,
         monitorId: Monitor.ID? = nil
     ) {
-        switch Self.clickRoute(
-            isRightClick: event?.type == .rightMouseUp,
-            optionHeld: event?.modifierFlags.contains(.option) == true
-        ) {
+        guard let window = anchor.window else { return }
+        routeClick(
+            route: Self.clickRoute(
+                isRightClick: event?.type == .rightMouseUp,
+                optionHeld: event?.modifierFlags.contains(.option) == true
+            ),
+            anchorFrame: window.convertToScreen(anchor.convert(anchor.bounds, to: nil)),
+            screen: window.screen,
+            edge: edge,
+            monitorId: monitorId
+        )
+    }
+
+    func routeClick(
+        route: StatusItemClickRoute,
+        anchorFrame: CGRect,
+        screen: NSScreen?,
+        edge: PopupAttachment.Edge,
+        monitorId: Monitor.ID?
+    ) {
+        switch route {
         case .hiddenIconsBar:
             controller?.toggleHiddenBarPanel(on: monitorId)
         case .menu:
             hiddenBarController.dismissPanel()
-            menuHost?.toggle(from: anchor, edge: edge)
+            menuHost?.toggle(anchorFrame: anchorFrame, screen: screen, edge: edge)
         }
     }
 

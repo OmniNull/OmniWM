@@ -16,6 +16,7 @@ struct CanonicalTOMLConfig: Codable, Equatable {
     var borders: SettingsExport.Borders
     var overview: SettingsExport.Overview
     var workspaceBar: SettingsExport.WorkspaceBar
+    var island: SettingsExport.Island
     var gestures: SettingsExport.Gestures
     var statusBar: SettingsExport.StatusBar
     var hiddenBar: SettingsExport.HiddenBar
@@ -77,10 +78,12 @@ extension CanonicalTOMLConfig {
         gaps = try container.decode(SettingsExport.Gaps.self, forKey: .gaps)
         niri = try container.decode(SettingsExport.Niri.self, forKey: .niri)
         niri.edgeGaps = niri.edgeGaps ?? true
+        niri.moveWindowStacksIntoColumn = niri.moveWindowStacksIntoColumn ?? true
         dwindle = try container.decode(SettingsExport.Dwindle.self, forKey: .dwindle)
         borders = try container.decode(SettingsExport.Borders.self, forKey: .borders)
         overview = try container.decode(SettingsExport.Overview.self, forKey: .overview)
         workspaceBar = try container.decode(SettingsExport.WorkspaceBar.self, forKey: .workspaceBar)
+        island = try container.decodeIfPresent(SettingsExport.Island.self, forKey: .island) ?? .defaults()
         gestures = try container.decode(SettingsExport.Gestures.self, forKey: .gestures)
         statusBar = try container.decode(SettingsExport.StatusBar.self, forKey: .statusBar)
         hiddenBar = try container.decode(SettingsExport.HiddenBar.self, forKey: .hiddenBar)
@@ -92,14 +95,20 @@ extension CanonicalTOMLConfig {
         hotkeys = try HotkeyBindingRegistry.resolve(persistedHotkeys)
         workspaces = try container.decode([WorkspaceConfiguration].self, forKey: .workspaces)
         appRules = try container.decode([AppRule].self, forKey: .appRules)
-        monitorBarOverrides = try container.decode([MonitorBarSettings].self, forKey: .monitorBarOverrides)
-        monitorOrientationOverrides = try container.decode(
+        monitorBarOverrides = try container
+            .decodeIfPresent([MonitorBarSettings].self, forKey: .monitorBarOverrides) ?? []
+        monitorOrientationOverrides = try container.decodeIfPresent(
             [MonitorOrientationSettings].self,
             forKey: .monitorOrientationOverrides
-        )
-        monitorNiriOverrides = try container.decode([MonitorNiriSettings].self, forKey: .monitorNiriOverrides)
-        monitorDwindleOverrides = try container.decode([MonitorDwindleSettings].self, forKey: .monitorDwindleOverrides)
-        monitorGapOverrides = try container.decode([MonitorGapSettings].self, forKey: .monitorGapOverrides)
+        ) ?? []
+        monitorNiriOverrides = try container
+            .decodeIfPresent([MonitorNiriSettings].self, forKey: .monitorNiriOverrides) ?? []
+        monitorDwindleOverrides = try container.decodeIfPresent(
+            [MonitorDwindleSettings].self,
+            forKey: .monitorDwindleOverrides
+        ) ?? []
+        monitorGapOverrides = try container
+            .decodeIfPresent([MonitorGapSettings].self, forKey: .monitorGapOverrides) ?? []
     }
 }
 
@@ -128,6 +137,7 @@ extension CanonicalTOMLConfig {
         borders = export.borders
         overview = export.overview
         workspaceBar = export.workspaceBar
+        island = export.island
         gestures = export.gestures
         statusBar = export.statusBar
         hiddenBar = export.hiddenBar
@@ -162,6 +172,7 @@ extension CanonicalTOMLConfig {
             systemHyperTrigger: general.systemHyperTrigger,
             hyperKeyModifiers: general.hyperKeyModifiers,
             workspaceBar: workspaceBar,
+            island: island,
             scratchpads: scratchpads,
             monitorBarSettings: monitorBarOverrides,
             appRules: appRules,

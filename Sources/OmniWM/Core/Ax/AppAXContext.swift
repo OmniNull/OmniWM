@@ -270,6 +270,13 @@ final class AppAXContext {
 }
 
 extension AppAXContext {
+    func setWindowTitleNotifications(_ enabled: Bool) {
+        nonisolated(unsafe) let appThread = thread
+        appThread?.runInLoopAsync { [axApp, focusedWindowObserver] _ in
+            AppAXContext.setTitleNotifications(enabled, app: axApp, observer: focusedWindowObserver)
+        }
+    }
+
     func makeWindowEnumerationOperation(
         inspectionContext: AXWindowInspectionContext,
         includedWindowIds: Set<Int>?,

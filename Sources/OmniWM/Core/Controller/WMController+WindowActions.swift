@@ -19,7 +19,11 @@ extension WMController {
     }
 
     @discardableResult
-    func toggleWindowFloating(_ token: WindowToken, preferredMonitor: Monitor? = nil) -> ExternalCommandResult {
+    func toggleWindowFloating(
+        _ token: WindowToken,
+        preferredMonitor: Monitor? = nil,
+        arrivesQuietly: Bool = false
+    ) -> ExternalCommandResult {
         guard let entry = workspaceManager.entry(for: token) else { return .notFound }
 
         let nextOverride: ManualWindowOverride?
@@ -29,7 +33,13 @@ extension WMController {
             nextOverride = entry.mode == .tiling ? .forceFloat : .forceTile
         }
 
-        applyManagedWindowOverride(nextOverride, for: token, entry: entry, preferredMonitor: preferredMonitor)
+        applyManagedWindowOverride(
+            nextOverride,
+            for: token,
+            entry: entry,
+            preferredMonitor: preferredMonitor,
+            arrivesQuietly: arrivesQuietly
+        )
         return .executed
     }
 
@@ -37,7 +47,8 @@ extension WMController {
         _ override: ManualWindowOverride?,
         for token: WindowToken,
         entry: WindowState,
-        preferredMonitor: Monitor? = nil
+        preferredMonitor: Monitor? = nil,
+        arrivesQuietly: Bool = false
     ) {
         workspaceManager.setManualLayoutOverride(override, for: token)
         let entry = workspaceManager.entry(for: token) ?? entry
@@ -49,9 +60,16 @@ extension WMController {
             decision: evaluation.decision,
             existingEntry: entry
         ) else {
+            workspaceManager.quietArrivalTokens.remove(token)
             axEventHandler.cancelTrackedTilingPromotionRetry(windowId: token.windowId)
             axEventHandler.retireManagedWindowAfterDecisionRejection(entry)
             return
+        }
+        let isNiriWorkspace = workspaceManager.activeLayoutKind(for: entry.workspaceId) == .niri
+        if trackedMode == .tiling, arrivesQuietly, entry.mode != .tiling, isNiriWorkspace {
+            workspaceManager.quietArrivalTokens.insert(token)
+        } else {
+            workspaceManager.quietArrivalTokens.remove(token)
         }
         if trackedMode != .tiling {
             axEventHandler.cancelTrackedTilingPromotionRetry(windowId: token.windowId)
@@ -78,7 +96,8 @@ extension WMController {
         }
         layoutRefreshController.requestRelayout(
             reason: .windowRuleReevaluation,
-            affectedWorkspaceIds: [entry.workspaceId]
+            affectedWorkspaceIds: [entry.workspaceId],
+            suppressWindowActivation: arrivesQuietly && !isNiriWorkspace
         )
     }
 

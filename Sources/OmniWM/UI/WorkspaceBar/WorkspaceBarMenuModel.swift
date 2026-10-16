@@ -20,6 +20,15 @@ enum WorkspaceBarMenuAction: Equatable {
     case toggleScratchpad(ScratchpadIndex)
     case focusScratchpadWindow(WindowToken, ScratchpadIndex)
     case unassignScratchpadWindows([WindowToken])
+    case editShellWidget(String, ShellWidgetEdit)
+    case openBarWidgetSettings
+}
+
+enum ShellWidgetEdit: Equatable {
+    case earlier
+    case later
+    case lane(ShellLane)
+    case remove
 }
 
 indirect enum WorkspaceBarMenuItem: Equatable {

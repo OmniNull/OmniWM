@@ -33,7 +33,7 @@ extension WMController {
         pruneHiddenWorkspaceBarMonitorIds()
         workspaceBarManager.setup(controller: self, settings: settings)
         if !enabled {
-            workspaceBarManager.cleanup()
+            workspaceBarManager.cleanup(keepingShell: settings.island.enabled)
         }
         workspaceManager.invalidateAllLayouts()
         layoutRefreshController.requestRelayout(reason: .monitorSettingsChanged)
@@ -210,7 +210,7 @@ extension WMController {
 
     func isWorkspaceBarConfiguredVisible(on monitor: Monitor, resolved: ResolvedBarSettings) -> Bool {
         guard isWorkspaceBarEnabled(on: monitor, resolved: resolved) else { return false }
-        return (!resolved.autoHide && settings.workspaceBar.revealModifier == .off)
+        return (!resolved.autoHide && settings.workspaceBar.resolvedRevealModifier == .off)
             || isWorkspaceBarRevealHeld || (resolved.autoHide && workspaceBarManager.isPointerRevealed(on: monitor.id))
     }
 
@@ -229,7 +229,7 @@ extension WMController {
         on monitor: Monitor,
         resolved: ResolvedBarSettings
     ) -> Bool {
-        guard settings.workspaceBar.hideInNativeFullscreen || resolved.notchMode == .fillLeftOfNotch else {
+        guard settings.workspaceBar.resolvedHideInNativeFullscreen || resolved.notchMode == .fillLeftOfNotch else {
             return false
         }
         let topology = workspaceManager.spaceTopology

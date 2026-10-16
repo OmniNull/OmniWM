@@ -17,10 +17,12 @@ struct QuakeTerminalSettingsTab: View {
         Form {
             Section("Quake Terminal") {
                 Toggle("Enable Quake Terminal", isOn: Bindable(settings.quakeTerminal).enabled)
+                    .id("Enable Quake Terminal")
                     .onChange(of: settings.quakeTerminal.enabled) { _, newValue in
                         controller.setQuakeTerminalEnabled(newValue)
                     }
             }
+            .id("Quake Terminal")
 
             if settings.quakeTerminal.enabled {
                 Section("Position & Size") {
@@ -29,12 +31,14 @@ struct QuakeTerminalSettingsTab: View {
                             Text(position.localizedDisplayName).tag(position)
                         }
                     }
+                    .id("Position")
 
                     Picker("Show On", selection: Bindable(settings.quakeTerminal).monitorMode) {
                         ForEach(QuakeTerminalMonitorMode.allCases, id: \.self) { mode in
                             Text(mode.localizedDisplayName).tag(mode)
                         }
                     }
+                    .id("Show On")
 
                     SettingsSliderRow(
                         label: String(localized: "Width"),
@@ -43,6 +47,7 @@ struct QuakeTerminalSettingsTab: View {
                         step: 5,
                         valueText: "\(Int(settings.quakeTerminal.widthPercent))%"
                     )
+                    .id("Width")
 
                     SettingsSliderRow(
                         label: String(localized: "Height"),
@@ -51,13 +56,16 @@ struct QuakeTerminalSettingsTab: View {
                         step: 5,
                         valueText: "\(Int(settings.quakeTerminal.heightPercent))%"
                     )
+                    .id("Height")
 
                     if settings.quakeTerminalUseCustomFrame {
                         Button("Reset to Default Position") {
                             settings.resetQuakeTerminalCustomFrame()
                         }
+                        .id("Reset to Default Position")
                     }
                 }
+                .id("Position & Size")
 
                 Section("Appearance") {
                     Picker("Background Effect", selection: Bindable(settings.quakeTerminal).backgroundEffect) {
@@ -65,6 +73,7 @@ struct QuakeTerminalSettingsTab: View {
                             Text(effect.localizedDisplayName).tag(effect)
                         }
                     }
+                    .id("Background Effect")
                     .onChange(of: settings.quakeTerminal.backgroundEffect) { _, _ in
                         controller.reloadQuakeTerminalBackgroundEffect()
                     }
@@ -76,6 +85,7 @@ struct QuakeTerminalSettingsTab: View {
                         step: 0.05,
                         valueText: "\(Int(settings.quakeTerminal.opacity * 100))%"
                     )
+                    .id("Quake Background Opacity")
                     .onChange(of: settings.quakeTerminal.opacity) { _, _ in
                         controller.reloadQuakeTerminalOpacity()
                     }
@@ -91,6 +101,7 @@ struct QuakeTerminalSettingsTab: View {
                         step: 5,
                         valueText: blurValueText
                     )
+                    .id("Background Blur")
                     .onChange(of: settings.quakeTerminal.backgroundBlurRadius) { _, _ in
                         controller.reloadQuakeTerminalBackgroundBlur()
                     }
@@ -109,6 +120,7 @@ struct QuakeTerminalSettingsTab: View {
                         )
                     }
                 }
+                .id("Appearance")
 
                 Section("Behavior") {
                     SettingsSliderRow(
@@ -120,6 +132,7 @@ struct QuakeTerminalSettingsTab: View {
                             localized: "\(settings.quakeTerminal.animationDuration.formatted(.number.precision(.fractionLength(1))))s"
                         )
                     )
+                    .id("Animation Duration")
                     .disabled(!controller.motionPolicy.animationsEnabled)
 
                     if !controller.motionPolicy.animationsEnabled {
@@ -127,7 +140,9 @@ struct QuakeTerminalSettingsTab: View {
                     }
 
                     Toggle("Auto-hide on Focus Loss", isOn: Bindable(settings.quakeTerminal).autoHide)
+                        .id("Auto-hide on Focus Loss")
                 }
+                .id("Behavior")
             }
 
             Section("About") {
@@ -149,6 +164,7 @@ struct QuakeTerminalSettingsTab: View {
                         .foregroundColor(.secondary)
                 }
             }
+            .id("About")
         }
         .formStyle(.grouped)
     }

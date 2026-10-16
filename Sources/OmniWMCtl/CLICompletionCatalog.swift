@@ -28,6 +28,7 @@ enum CLICompletionCatalog {
             "capture",
             "workspace",
             "window",
+            "shell",
             "subscribe",
             "watch"
         ]
@@ -89,6 +90,10 @@ enum CLICompletionCatalog {
 
     static var windowMarkListFlags: [String] {
         ["--json"]
+    }
+
+    static var shellActionNames: [String] {
+        IPCAutomationManifest.shellActionDescriptors.map(\.name.rawValue)
     }
 
     static var commandFirstWords: [String] {

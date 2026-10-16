@@ -50,11 +50,15 @@ extension BorderEffectLayers {
         cornerRadii: WindowCornerRadii,
         config: BorderConfig,
         baseColor: CGColor,
-        scale: CGFloat
+        scale: CGFloat,
+        cornerContour: WindowCornerContour? = nil
     ) {
         let gradient = config.gradient.flatMap { $0.enabled ? $0 : nil }
         let surfaceBounds = CGRect(origin: .zero, size: geometry.surfaceFrame.size)
-        updateGradient(gradient, geometry: geometry, cornerRadii: cornerRadii)
+        updateGradient(
+            gradient, geometry: geometry, cornerRadii: cornerRadii,
+            cornerContour: cornerContour, baseColor: baseColor
+        )
         glowColorLayer.frame = surfaceBounds
         glowMaskLayer.frame = surfaceBounds
         if let glow = config.glow, glow.enabled, glow.opacity > 0, geometry.surfacePadding > 0 {
@@ -74,7 +78,8 @@ extension BorderEffectLayers {
                 geometry: geometry,
                 cornerRadii: cornerRadii,
                 opacity: Self.component(glow.opacity),
-                scale: scale
+                scale: scale,
+                cornerContour: cornerContour
             )
         } else {
             glowColorLayer.isHidden = true
@@ -88,9 +93,11 @@ extension BorderEffectLayers {
     private func updateGradient(
         _ gradient: BorderGradient?,
         geometry: BorderConfig.ResolvedGeometry,
-        cornerRadii: WindowCornerRadii
+        cornerRadii: WindowCornerRadii,
+        cornerContour: WindowCornerContour?,
+        baseColor: CGColor
     ) {
-        guard let gradient else {
+        guard gradient != nil || cornerContour != nil else {
             gradientStrokeLayer.isHidden = true
             return
         }
@@ -98,13 +105,16 @@ extension BorderEffectLayers {
         let ringFrame = geometry.targetFrame.insetBy(dx: -geometry.width, dy: -geometry.width)
         let outerRadii = radii == .zero ? .zero : radii.adding(geometry.width)
         let path = CGMutablePath()
-        path.addPath(Self.roundedRectPath(in: ringFrame, radii: outerRadii))
-        path.addPath(Self.roundedRectPath(in: geometry.targetFrame, radii: radii))
+        path.addPath(cornerContour?.path(in: geometry.targetFrame, outset: geometry.width)
+            ?? Self.roundedRectPath(in: ringFrame, radii: outerRadii))
+        path.addPath(cornerContour?.path(in: geometry.targetFrame)
+            ?? Self.roundedRectPath(in: geometry.targetFrame, radii: radii))
         let surfaceBounds = CGRect(origin: .zero, size: geometry.surfaceFrame.size)
-        let points = Self.gradientUnitPoints(for: gradient.direction)
+        let points = Self.gradientUnitPoints(for: gradient?.direction ?? .topLeftToBottomRight)
         gradientStrokeLayer.isHidden = false
         gradientStrokeLayer.frame = surfaceBounds
-        gradientStrokeLayer.colors = [Self.cgColor(gradient.start), Self.cgColor(gradient.end)]
+        gradientStrokeLayer.colors = gradient.map { [Self.cgColor($0.start), Self.cgColor($0.end)] }
+            ?? [baseColor, baseColor]
         gradientStrokeLayer.startPoint = points.start
         gradientStrokeLayer.endPoint = points.end
         gradientRingMaskLayer.frame = surfaceBounds
@@ -115,7 +125,8 @@ extension BorderEffectLayers {
         geometry: BorderConfig.ResolvedGeometry,
         cornerRadii: WindowCornerRadii,
         opacity: CGFloat,
-        scale: CGFloat
+        scale: CGFloat,
+        cornerContour: WindowCornerContour?
     ) {
         let padding = geometry.surfacePadding
         let width = geometry.width
@@ -135,10 +146,11 @@ extension BorderEffectLayers {
             band.frame = bounds
             band.bounds = bounds
             band.contentsScale = effectiveScale
-            band.path = Self.roundedRectPath(
-                in: ringFrame.insetBy(dx: -centerOffset, dy: -centerOffset),
-                radii: radii.adding(width + centerOffset)
-            )
+            band.path = cornerContour?.path(in: geometry.targetFrame, outset: width + centerOffset)
+                ?? Self.roundedRectPath(
+                    in: ringFrame.insetBy(dx: -centerOffset, dy: -centerOffset),
+                    radii: radii.adding(width + centerOffset)
+                )
             band.lineWidth = bandWidth
             band.strokeColor = CGColor(gray: 1, alpha: alpha)
         }

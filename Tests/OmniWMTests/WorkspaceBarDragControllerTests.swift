@@ -104,91 +104,34 @@ final class WorkspaceBarDragControllerTests: XCTestCase {
         XCTAssertTrue(controller.presentation.sourceTokens.isEmpty)
     }
 
-    func testReflowLeavesHitRegionsAndMeasuredWidthUnchanged() throws {
-        let workspaceId = WorkspaceDescriptor.ID()
+    func testWorkspacesDragGapsKeepDropTargetsAndWidth() throws {
+        let widget = try ShellRenderedWidget("workspaces")
         let windows = (1 ... 3).map { index in
-            let token = WindowToken(pid: 41, windowId: index)
-            let handle = WindowHandle(id: token)
-            return WorkspaceBarWindowItem(
-                id: token,
-                handle: handle,
-                windowId: index,
-                appName: "App \(index)",
-                bundleId: nil,
-                icon: nil,
-                isFocused: false,
-                windowCount: 1,
-                hiddenWindowCount: 0,
-                allWindows: [
-                    WorkspaceBarWindowInfo(
-                        id: token,
-                        handle: handle,
-                        windowId: index,
-                        title: "Window \(index)",
-                        isFocused: false,
-                        isAppHidden: false
-                    )
-                ]
+            ShellBarItem(
+                id: "ow_\(index)", bundle: "com.apple.finder", name: "Finder", focused: false, count: 1, hidden: 0,
+                windows: [ShellBarWindow(id: "ow_\(index)", title: "W", focused: false, hidden: false)]
             )
         }
-        let snapshot = WorkspaceBarSnapshot(
-            projection: WorkspaceBarProjection(
-                items: [
-                    WorkspaceBarItem(
-                        id: workspaceId,
-                        name: "1",
-                        rawName: "1",
-                        isFocused: true,
-                        tiledWindows: windows,
-                        floatingWindows: []
-                    )
-                ],
-                scratchpads: []
-            ),
-            showLabels: true,
-            showSystemStatsButton: false,
-            backgroundOpacity: 0.6,
-            barHeight: 24,
-            accentColor: nil,
-            textColor: nil
+        var bar = ShellBarData()
+        bar.workspaces = [ShellBarWorkspace(id: "1", name: "1", focused: true, windows: windows)]
+        func layout() throws -> (size: CGSize, targets: [String: CGRect]) {
+            widget.render(bar)
+            let frames = widget.surface.targetFrames()
+            let origin = try XCTUnwrap(frames.first { widget.text.string($0.target) == "workspace 1" }).frame.origin
+            return (widget.surface.size, Dictionary(uniqueKeysWithValues: frames.map {
+                (widget.text.string($0.target), $0.frame.offsetBy(dx: -origin.x, dy: -origin.y))
+            }))
+        }
+
+        let resting = try layout()
+        XCTAssertEqual(Set(resting.targets.keys), ["workspace 1", "window ow_1", "window ow_2", "window ow_3"])
+        bar.drag = ShellBarDrag(
+            sources: ["ow_1"],
+            workspaces: ["1"],
+            gaps: [ShellBarDrag.Gap(workspace: "1", before: 2)]
         )
-        let interaction = WorkspaceBarIslandInteraction()
-        let presentation = WorkspaceBarDragPresentation()
-        let hostingView = NSHostingView(rootView: WorkspaceBarView(
-            model: WorkspaceBarModel(snapshot: snapshot),
-            motionPolicy: MotionPolicy(animationsEnabled: false),
-            onFocusWorkspace: { _ in },
-            onFocusWindow: { _ in },
-            onActivateScratchpad: { _ in },
-            interaction: interaction,
-            dragPresentation: presentation
-        ))
-        let window = NSWindow(
-            contentRect: CGRect(x: 0, y: 0, width: 300, height: 28),
-            styleMask: [.borderless],
-            backing: .buffered,
-            defer: false
-        )
-        window.contentView = hostingView
-        hostingView.frame = CGRect(x: 0, y: 0, width: 300, height: 28)
-        hostingView.layoutSubtreeIfNeeded()
-        let restingFrames = try relativeFrames(interaction, workspaceId: workspaceId)
-        let restingWidth = hostingView.fittingSize.width
-        XCTAssertEqual(restingFrames.count, 4)
-
-        presentation.sourceTokens = [windows[0].id]
-        presentation.highlights = [.workspace(workspaceId), .gap(workspaceId, beforeIcon: 1)]
-        hostingView.layoutSubtreeIfNeeded()
-
-        XCTAssertEqual(try relativeFrames(interaction, workspaceId: workspaceId), restingFrames)
-        XCTAssertEqual(hostingView.fittingSize.width, restingWidth, accuracy: 0.5)
-    }
-
-    private func relativeFrames(
-        _ interaction: WorkspaceBarIslandInteraction,
-        workspaceId: WorkspaceDescriptor.ID
-    ) throws -> [WorkspaceBarHitTarget: CGRect] {
-        let origin = try XCTUnwrap(interaction.frames[.workspace(workspaceId)]).origin
-        return interaction.frames.mapValues { $0.offsetBy(dx: -origin.x, dy: -origin.y) }
+        let dragging = try layout()
+        XCTAssertEqual(dragging.targets, resting.targets)
+        XCTAssertEqual(dragging.size.width, resting.size.width, accuracy: 0.5)
     }
 }

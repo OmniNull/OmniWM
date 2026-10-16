@@ -20,15 +20,21 @@ extension WMController {
 
     func toggleHiddenBarPanel(on monitorId: Monitor.ID? = nil) {
         statusBarController?.dismissPanel()
-        hiddenBarController.togglePanel(placement: hiddenBarPanelPlacement(on: monitorId))
+        hiddenBarController.toggleDrawer(
+            on: hiddenBarMonitor(on: monitorId)?.id,
+            placement: hiddenBarPanelPlacement(on: monitorId)
+        )
+    }
+
+    private func hiddenBarMonitor(on monitorId: Monitor.ID?) -> Monitor? {
+        let monitors = workspaceManager.monitors
+        return monitors.first(where: { $0.id == monitorId })
+            ?? currentMouseLocation().monitorApproximation(in: monitors)
+            ?? monitors.first(where: \.isMain) ?? monitors.first
     }
 
     private func hiddenBarPanelPlacement(on monitorId: Monitor.ID?) -> HiddenBarPanelPlacement? {
-        let monitors = workspaceManager.monitors
-        guard let monitor = monitors.first(where: { $0.id == monitorId })
-            ?? currentMouseLocation().monitorApproximation(in: monitors)
-            ?? monitors.first(where: \.isMain) ?? monitors.first
-        else { return nil }
+        guard let monitor = hiddenBarMonitor(on: monitorId) else { return nil }
         let resolved = settings.workspaceBar.resolved(for: monitor)
         if isWorkspaceBarVisible(on: monitor, resolved: resolved),
            let placement = workspaceBarManager.hiddenBarPanelPlacement(on: monitor.id)
@@ -88,30 +94,9 @@ extension WMController {
 
     func toggleSystemStats() {
         let monitors = workspaceManager.monitors
-        let target = SystemStatsPopupController.targetMonitor(
-            pointer: NSEvent.mouseLocation.monitorApproximation(in: monitors),
-            main: monitors.first(where: \.isMain),
-            monitors: monitors
-        ) { workspaceBarManager.statsAnchor(on: $0) != nil }
-        guard let target else { return }
-        toggleSystemStatsFromBar(on: target.id)
-    }
-
-    func toggleSystemStatsFromBar(on monitorId: Monitor.ID) {
-        guard let monitor = workspaceManager.monitors.first(where: { $0.id == monitorId }),
-              let attachment = workspaceBarManager.popupAttachment(on: monitorId, forStats: true)
-        else {
-            return
-        }
-        systemStatsPopupController.toggle(
-            attachment: attachment,
-            monitorId: monitorId,
-            screenVisibleFrame: monitor.visibleFrame
-        )
-    }
-
-    func dismissSystemStatsPopup(anchoredTo monitorId: Monitor.ID) {
-        systemStatsPopupController.dismissIfAnchored(to: monitorId)
+        let pointer = NSEvent.mouseLocation.monitorApproximation(in: monitors)
+        let main = monitors.first(where: \.isMain)
+        _ = workspaceBarManager.toggleShellSystemStats(preferring: [pointer, main].compactMap(\.self) + monitors)
     }
 
     func openCommandPalette(mode: CommandPaletteMode? = nil) {

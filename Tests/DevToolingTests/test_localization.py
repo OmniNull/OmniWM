@@ -116,18 +116,18 @@ class LocalizationTests(unittest.TestCase):
             plist = root / "Info.plist"
             plist.write_bytes(plistlib.dumps(info))
             empty = {"sourceLanguage": "en", "strings": {}, "version": "1.0"}
-            for name in ("Localizable", "Commands"):
+            for name in ("Localizable", "Commands", "Shell"):
                 (root / f"{name}.xcstrings").write_text(json.dumps(empty))
             strings = {
                 key: {"localizations": {"en": unit(value)}} for key, value in info.items()
             }
             catalog_path = root / "InfoPlist.xcstrings"
             catalog_path.write_text(json.dumps({**empty, "strings": strings}))
-            localization.validate_catalogs(root, plist)
+            localization.validate_catalogs(root, plist, widgets=(root,))
             strings[localization.INFO_KEYS[0]]["localizations"]["en"] = unit("Wrong text")
             catalog_path.write_text(json.dumps({**empty, "strings": strings}))
             with self.assertRaisesRegex(ValueError, "must match Info.plist"):
-                localization.validate_catalogs(root, plist)
+                localization.validate_catalogs(root, plist, widgets=(root,))
 
     def test_command_english_value_matches_compiler_default(self):
         with tempfile.TemporaryDirectory() as temporary:
@@ -153,12 +153,13 @@ class LocalizationTests(unittest.TestCase):
                 "Localizable": {"": {}, "Open": {"localizations": {"fr": unit("Ouvrir")}}},
                 "Commands": {"command.open": {"localizations": {"fr": unit("Ouvrir")}}},
                 "InfoPlist": {"NSMicrophoneUsageDescription": {"localizations": {"fr": unit("Microphone")}}},
+                "Shell": {"Wind %@": {"localizations": {"fr": unit("Vent %@")}}},
             }
             for name, strings in entries.items():
                 (root / f"{name}.xcstrings").write_text(json.dumps({"strings": strings}))
             localization.validate_locale_completeness(root, ["fr"])
             for name, key in (("Localizable", "Open"), ("Commands", "command.open"),
-                              ("InfoPlist", "NSMicrophoneUsageDescription")):
+                              ("InfoPlist", "NSMicrophoneUsageDescription"), ("Shell", "Wind %@")):
                 translated = entries[name][key]["localizations"].pop("fr")
                 (root / f"{name}.xcstrings").write_text(json.dumps({"strings": entries[name]}))
                 with self.assertRaisesRegex(ValueError, rf"fr {name}.xcstrings: 1 incomplete"):
@@ -178,7 +179,7 @@ class LocalizationTests(unittest.TestCase):
                 "fr": plural,
             }}}
             (root / "Localizable.xcstrings").write_text(json.dumps({"strings": strings}))
-            for name in ("Commands", "InfoPlist"):
+            for name in ("Commands", "InfoPlist", "Shell"):
                 (root / f"{name}.xcstrings").write_text(json.dumps({"strings": {}}))
             localization.validate_locale_completeness(root, ["fr"])
 
@@ -213,6 +214,20 @@ class LocalizationTests(unittest.TestCase):
             }
             (root / "Localizable.xcstrings").write_text(json.dumps({"strings": strings}))
             localization.validate_locale_completeness(root, ["ja"])
+
+    def test_shell_catalog_must_match_bundled_widget_keys(self):
+        with tempfile.TemporaryDirectory() as temporary:
+            widgets = Path(temporary)
+            (widgets / "widget-weather.luau").write_text('ui.text{ text = omniwm.l10n("Wind %@", speed) }')
+            strings = {"Wind %@": {"localizations": {"en": unit("Wind %@")}}}
+            localization.validate_shell_usage(strings, (widgets,))
+            with self.assertRaisesRegex(ValueError, "keys no bundled widget uses"):
+                localization.validate_shell_usage({**strings, "Rain": {}}, (widgets,))
+            with self.assertRaisesRegex(ValueError, "use missing keys"):
+                localization.validate_shell_usage({}, (widgets,))
+            plural = {"variations": {"plural": {"one": unit("%lld"), "other": unit("%lld")}}}
+            with self.assertRaisesRegex(ValueError, "plural variations"):
+                localization.validate_shell_usage({"Wind %@": {"localizations": {"en": plural}}}, (widgets,))
 
     def test_packaging_places_locales_in_main_app_bundle(self):
         with tempfile.TemporaryDirectory() as temporary:

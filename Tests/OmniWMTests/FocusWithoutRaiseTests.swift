@@ -54,7 +54,7 @@ final class FocusWithoutRaiseTests: XCTestCase {
             fixture.recorder.coverage = coverage
             fixture.recorder.operations.removeAll()
             fixture.controller.retryManagedFocusFronting(request)
-            XCTAssertEqual(fixture.recorder.operations, [.activate(target.pid), .focus(target), .raise])
+            XCTAssertEqual(fixture.recorder.operations, [.focus(target), .raise])
         }
     }
 
@@ -86,7 +86,7 @@ final class FocusWithoutRaiseTests: XCTestCase {
             XCTAssertEqual(
                 fixture.recorder.operations,
                 origin == .focusFollowsMouse && !raiseOnMouseFocus
-                    ? [.focus(target)] : [.activate(target.pid), .focus(target), .raise]
+                    ? [.focus(target)] : [.focus(target), .raise]
             )
         }
     }
@@ -110,7 +110,7 @@ final class FocusWithoutRaiseTests: XCTestCase {
         fixture.controller.focusWindow(target, origin: .focusFollowsMouse)
 
         XCTAssertTrue(fixture.recorder.coverageQueries.isEmpty)
-        XCTAssertEqual(fixture.recorder.operations, [.activate(target.pid), .focus(target), .raise])
+        XCTAssertEqual(fixture.recorder.operations, [.focus(target), .raise])
     }
 
     func testCoveredMouseFocusPromotionRetainsKeyboardAndClickRaising() throws {
@@ -131,7 +131,7 @@ final class FocusWithoutRaiseTests: XCTestCase {
             fixture.controller.focusWindow(target, origin: .focusFollowsMouse)
             fixture.controller.focusWindow(target, origin: origin)
 
-            XCTAssertEqual(fixture.recorder.operations, [.focus(target), .activate(target.pid), .focus(target), .raise])
+            XCTAssertEqual(fixture.recorder.operations, [.focus(target), .focus(target), .raise])
             XCTAssertEqual(fixture.recorder.coverageQueries.count, 1)
             XCTAssertEqual(fixture.controller.intentLedger.activeManagedRequest?.origin, origin)
         }
@@ -366,7 +366,7 @@ final class FocusWithoutRaiseTests: XCTestCase {
 
         XCTAssertEqual(
             fixture.recorder.operations,
-            [.deactivate(source), .activate(target.pid), .focus(target), .raise]
+            [.deactivate(source), .focus(target), .raise]
         )
         XCTAssertEqual(fixture.controller.intentLedger.activeManagedRequest?.origin, .pointerHover)
         XCTAssertEqual(fixture.controller.intentLedger.activeManagedRequest?.phase, .awaitingConfirmation)
@@ -579,7 +579,7 @@ final class FocusWithoutRaiseTests: XCTestCase {
 
             XCTAssertEqual(
                 fixture.recorder.operations,
-                [.activate(target.pid), .focus(target), .raise],
+                [.focus(target), .raise],
                 "origin=\(origin), raiseOnMouseFocus=\(raiseOnMouseFocus)"
             )
         }
@@ -606,7 +606,7 @@ final class FocusWithoutRaiseTests: XCTestCase {
 
         XCTAssertEqual(
             fixture.recorder.operations,
-            [.activate(target.pid), .focus(target), .raise]
+            [.focus(target), .raise]
         )
         XCTAssertEqual(fixture.controller.intentLedger.activeManagedRequest?.phase, .awaitingConfirmation)
     }
@@ -836,7 +836,7 @@ final class FocusWithoutRaiseTests: XCTestCase {
 
             fixture.controller.axEventHandler.handleIntentExpired(request.requestId)
 
-            XCTAssertEqual(fixture.recorder.operations, [.activate(target.pid), .focus(target), .raise])
+            XCTAssertEqual(fixture.recorder.operations, [.focus(target), .raise])
         }
     }
 
@@ -968,7 +968,7 @@ final class FocusWithoutRaiseTests: XCTestCase {
 
         XCTAssertEqual(
             fixture.recorder.operations,
-            [.focus(target), .activate(target.pid), .focus(target), .raise]
+            [.focus(target), .focus(target), .raise]
         )
         XCTAssertEqual(fixture.controller.intentLedger.activeManagedRequest?.origin, .pointerHover)
     }
@@ -1640,7 +1640,7 @@ final class FocusWithoutRaiseTests: XCTestCase {
 
         XCTAssertEqual(
             fixture.recorder.operations,
-            [.activate(target.pid), .focus(target), .raise, .focus(target)]
+            [.focus(target), .raise, .focus(target)]
         )
     }
 

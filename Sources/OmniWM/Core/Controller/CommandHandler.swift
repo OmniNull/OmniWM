@@ -67,31 +67,25 @@ final class CommandHandler {
         switch command {
         case let .focus(direction):
             focusWindow(direction: direction)
-        case let .focusNavigation(action):
-            return perform(action, controller: controller)
+        case let .focusNavigation(action): return perform(action, controller: controller)
         case let .move(direction):
             let outcome = moveWindow(direction: direction)
             if outcome == .atWorkspaceEdge, controller.settings.focus.moveCrossesMonitorAtEdge {
                 controller.workspaceNavigationHandler.moveWindowAcrossMonitorAtEdge(direction: direction)
             }
-        case let .workspace(action):
-            return perform(action, controller: controller)
-        case let .windowMovement(action):
-            return perform(action, controller: controller)
-        case let .column(action):
-            return perform(action, controller: controller)
-        case let .monitorFocus(action):
-            return perform(action, controller: controller)
-        case let .fullscreen(action):
-            return perform(action, controller: controller)
+        case let .workspace(action): return perform(action, controller: controller)
+        case let .windowMovement(action): return perform(action, controller: controller)
+        case let .column(action): return perform(action, controller: controller)
+        case let .monitorFocus(action): return perform(action, controller: controller)
+        case let .fullscreen(action): return perform(action, controller: controller)
         case let .moveColumn(direction):
             moveContainer(direction: direction)
-        case let .sizing(action):
-            return perform(action, controller: controller)
-        case let .dwindle(action):
-            return perform(action, controller: controller)
+        case let .sizing(action): return perform(action, controller: controller)
+        case let .dwindle(action): return perform(action, controller: controller)
         case .openCommandPalette:
             controller.openCommandPalette()
+        case let .openCommandPaletteMode(mode):
+            controller.openCommandPalette(mode: CommandPaletteMode(ipc: mode))
         case .raiseAllFloatingWindows:
             controller.raiseAllFloatingWindows()
         case .toggleFloatingFocus:
@@ -102,14 +96,16 @@ final class CommandHandler {
             return controller.toggleFocusedWindowFloating()
         case .windowState(.close):
             return controller.closeFocusedWindow()
-        case let .scratchpad(action):
-            return perform(action, controller: controller)
+        case let .scratchpad(action): return perform(action, controller: controller)
         case .openMenuAnywhere:
             controller.openMenuAnywhere()
         case let .windowMark(action):
             return performWindowMarkAction(action, for: controller.workspaceManager.nativeManagedFocusToken)
-        case let .presentation(action):
-            return perform(action, controller: controller)
+        case let .presentation(action): return perform(action, controller: controller)
+        case let .media(action):
+            perform(action, controller: controller)
+        case let .shellToggle(name):
+            return controller.workspaceBarManager.toggleShell(name) ? .executed : .notFound
         }
         return .executed
     }

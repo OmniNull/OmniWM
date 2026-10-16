@@ -4,411 +4,155 @@
 import AppKit
 import SwiftUI
 
-struct WorkspaceBarSettingsTab: View {
-    @Bindable var settings: SettingsStore
-    @Bindable var controller: WMController
+enum WorkspaceBarSettingsPane: String, CaseIterable, Identifiable {
+    case layout, appearance, behavior, apps
 
-    @State private var selectedMonitor: Monitor.ID?
-    @State private var connectedMonitors: [Monitor] = Monitor.current()
+    var id: String {
+        rawValue
+    }
 
-    var body: some View {
-        Form {
-            MonitorScopeSection(
-                selectedMonitor: $selectedMonitor,
-                monitors: connectedMonitors,
-                hasOverrides: { settings.workspaceBar.settings(for: $0) != nil },
-                reset: { monitor in
-                    settings.workspaceBar.remove(for: monitor)
-                    controller.updateWorkspaceBarSettings()
-                }
-            )
-
-            if let monitorId = selectedMonitor,
-               let monitor = connectedMonitors.first(where: { $0.id == monitorId })
-            {
-                MonitorBarSettingsSection(
-                    settings: settings,
-                    controller: controller,
-                    monitor: monitor
-                )
-            } else {
-                GlobalBarSettingsSection(
-                    settings: settings,
-                    controller: controller
-                )
-            }
-
-            WorkspaceBarExcludedAppsSection(
-                settings: settings,
-                controller: controller
-            )
-
-            WorkspaceBarIconOverridesSection(
-                settings: settings,
-                controller: controller
-            )
-        }
-        .formStyle(.grouped)
-        .onAppear {
-            connectedMonitors = Monitor.current()
+    var title: String {
+        switch self {
+        case .layout: String(localized: "Layout")
+        case .appearance: String(localized: "Appearance")
+        case .behavior: String(localized: "Behavior")
+        case .apps: String(localized: "Apps")
         }
     }
 }
 
-private struct GlobalBarSettingsSection: View {
+struct WorkspaceBarSettingsTab: View {
     @Bindable var settings: SettingsStore
     @Bindable var controller: WMController
-    @State private var pendingAppearanceSync: Task<Void, Never>?
+    @Environment(SettingsNavigationModel.self) private var navigation
+    @State private var selectedMonitor: Monitor.ID?
+    @State private var monitors = Monitor.current()
+    @State private var pane: WorkspaceBarSettingsPane = .layout
+    @State private var editError: String?
+    @State private var confirmingReset = false
+
+    private var configuration: ShellConfigurationCoordinator {
+        controller.workspaceBarManager.shellConfiguration
+    }
+
+    private var monitor: Monitor? {
+        monitors.first { $0.id == selectedMonitor }
+    }
+
+    private var previewStyle: ShellBarStyle {
+        ShellSettingsPreview.style(settings: settings.workspaceBar, config: configuration.config, monitor: monitor)
+    }
 
     var body: some View {
-        Section("Workspace Bar") {
-            Toggle("Enable Workspace Bar", isOn: Bindable(settings.workspaceBar).enabled)
-                .onChange(of: settings.workspaceBar.enabled) { _, newValue in
-                    controller.setWorkspaceBarEnabled(newValue)
+        VStack(spacing: 12) {
+            VStack(alignment: .leading, spacing: 10) {
+                HStack {
+                    Toggle("Enable Workspace Bar", isOn: Binding(
+                        get: { settings.workspaceBar.enabled }, set: { controller.setWorkspaceBarEnabled($0) }
+                    ))
+                    Spacer()
+                    Text(ShellWidgetSettingsModel.title(configuration.config.profile)).foregroundStyle(.secondary)
                 }
-
-            if settings.workspaceBar.enabled {
-                Toggle("Window Hover Previews", isOn: Bindable(settings.workspaceBar).hoverPreviewsEnabled)
-                    .onChange(of: settings.workspaceBar.hoverPreviewsEnabled) { _, _ in
-                        controller.updateWorkspaceBarSettings()
-                    }
-
-                Picker("Notification Badges", selection: Bindable(settings.workspaceBar).notificationBadges) {
-                    Text("Off").tag(WorkspaceBarNotificationBadgeMode.off)
-                    Text("Dot").tag(WorkspaceBarNotificationBadgeMode.dot)
-                    Text("Text").tag(WorkspaceBarNotificationBadgeMode.text)
+                if !settings.workspaceBar.enabled {
+                    SettingsCaption(localized: "Set up your bar now. It appears when you turn it on.")
                 }
-                .onChange(of: settings.workspaceBar.notificationBadges) { _, _ in
-                    controller.updateWorkspaceBarNotificationBadgeSettings()
-                }
-
-                SettingsSliderRow(
-                    label: String(localized: "Refresh Interval"),
-                    value: Bindable(settings.workspaceBar).notificationBadgeRefreshIntervalSeconds,
-                    range: 1 ... 60,
-                    step: 1,
-                    valueText: String(
-                        localized: "\(Int(settings.workspaceBar.notificationBadgeRefreshIntervalSeconds)) s"
-                    )
+                ShellSettingsPreview(
+                    config: configuration.config,
+                    style: previewStyle,
+                    revision: configuration.revision
                 )
-                .disabled(settings.workspaceBar.notificationBadges == .off)
-                .onChange(of: settings.workspaceBar.notificationBadgeRefreshIntervalSeconds) { _, _ in
-                    controller.updateWorkspaceBarNotificationBadgeSettings()
+                .frame(height: 120)
+            }
+            .padding(.horizontal, 20)
+            .padding(.top, 12)
+            TabView(selection: $pane) {
+                Tab("Layout", systemImage: "rectangle.3.group", value: WorkspaceBarSettingsPane.layout) {
+                    settingsForm(.layout)
                 }
-
-                Toggle("Show Workspace Labels", isOn: Bindable(settings.workspaceBar).showLabels)
-                    .onChange(of: settings.workspaceBar.showLabels) { _, _ in
-                        controller.updateWorkspaceBarSettings()
-                    }
-
-                Toggle("Show Floating Windows", isOn: Bindable(settings.workspaceBar).showFloatingWindows)
-                    .onChange(of: settings.workspaceBar.showFloatingWindows) { _, _ in
-                        controller.updateWorkspaceBarSettings()
-                    }
-
-                Toggle("Deduplicate App Icons", isOn: Bindable(settings.workspaceBar).deduplicateAppIcons)
-                    .onChange(of: settings.workspaceBar.deduplicateAppIcons) { _, _ in
-                        controller.updateWorkspaceBarSettings()
-                    }
-                    .help("Group workspace windows by app with badge counts; scratchpad pills always group by app")
-
-                Toggle("Hide Empty Workspaces", isOn: Bindable(settings.workspaceBar).hideEmptyWorkspaces)
-                    .onChange(of: settings.workspaceBar.hideEmptyWorkspaces) { _, _ in
-                        controller.updateWorkspaceBarSettings()
-                    }
-
-                Toggle("Automatically hide and show the workspace bar", isOn: Bindable(settings.workspaceBar).autoHide)
-                    .onChange(of: settings.workspaceBar.autoHide) { _, _ in
-                        controller.updateWorkspaceBarSettings()
-                    }
-                    .help(
-                        "Show at the bar edge; hide when the pointer moves inward past the bar and interactions end. Never reserves layout space."
-                    )
-
-                if settings.workspaceBar.autoHide || settings.workspaceBar.monitorOverrides
-                    .contains(where: { $0.autoHide == true })
-                {
-                    SettingsSliderRow(
-                        label: String(localized: "Auto-Hide Reveal Delay"),
-                        value: Bindable(settings.workspaceBar).autoHideRevealDelayMilliseconds,
-                        range: 0 ... 1000,
-                        step: 50,
-                        valueText: String(localized: "\(Int(settings.workspaceBar.autoHideRevealDelayMilliseconds)) ms")
-                    )
-                    .onChange(of: settings.workspaceBar.autoHideRevealDelayMilliseconds) { _, _ in
-                        controller.updateWorkspaceBarSettings()
-                    }
-
-                    SettingsSliderRow(
-                        label: String(localized: "Auto-Hide Hide Delay"),
-                        value: Bindable(settings.workspaceBar).autoHideHideDelayMilliseconds,
-                        range: 0 ... 1000,
-                        step: 50,
-                        valueText: String(localized: "\(Int(settings.workspaceBar.autoHideHideDelayMilliseconds)) ms")
-                    )
-                    .onChange(of: settings.workspaceBar.autoHideHideDelayMilliseconds) { _, _ in
-                        controller.updateWorkspaceBarSettings()
-                    }
+                Tab("Appearance", systemImage: "paintpalette", value: WorkspaceBarSettingsPane.appearance) {
+                    settingsForm(.appearance)
                 }
-
-                Toggle("Reserve Space for Workspace Bar", isOn: Bindable(settings.workspaceBar).reserveLayoutSpace)
-                    .onChange(of: settings.workspaceBar.reserveLayoutSpace) { _, _ in
-                        controller.updateWorkspaceBarSettings()
-                    }
-                    .help(
-                        "Reserve tiled layout space at the selected edge. Overlapping bars reserve only the portion below the menu bar."
-                    )
-
-                Picker("Reveal on Modifier Hold", selection: Bindable(settings.workspaceBar).revealModifier) {
-                    ForEach(WorkspaceBarRevealModifier.allCases, id: \.self) { modifier in
-                        Text(modifier.localizedDisplayName).tag(modifier)
-                    }
+                Tab("Behavior", systemImage: "slider.horizontal.3", value: WorkspaceBarSettingsPane.behavior) {
+                    settingsForm(.behavior)
                 }
-                .onChange(of: settings.workspaceBar.revealModifier) { _, _ in
-                    controller.updateWorkspaceBarSettings()
-                }
-                .help("Reveal the workspace bar while holding these modifiers. Can be combined with automatic hiding.")
-
-                if settings.workspaceBar.revealModifier != .off {
-                    SettingsSliderRow(
-                        label: String(localized: "Reveal Hold Delay"),
-                        value: Bindable(settings.workspaceBar).revealHoldMilliseconds,
-                        range: 0 ... 1000,
-                        step: 50,
-                        valueText: String(localized: "\(Int(settings.workspaceBar.revealHoldMilliseconds)) ms")
-                    )
-                    .onChange(of: settings.workspaceBar.revealHoldMilliseconds) { _, _ in
-                        controller.updateWorkspaceBarSettings()
-                    }
-                }
-
-                Toggle("Hide in Native Fullscreen", isOn: Bindable(settings.workspaceBar).hideInNativeFullscreen)
-                    .onChange(of: settings.workspaceBar.hideInNativeFullscreen) { _, _ in
-                        controller.updateWorkspaceBarSettings()
-                    }
-                    .help(
-                        "Hide the bar on a monitor while it shows a native fullscreen window"
-                    )
-
-                Toggle("System Stats Button", isOn: Bindable(settings.workspaceBar).systemStatsButton)
-                    .onChange(of: settings.workspaceBar.systemStatsButton) { _, _ in
-                        controller.updateWorkspaceBarSettings()
-                    }
-                    .help("Show a small workspace bar button that opens a system stats popup")
-
-                Picker("Notch Mode", selection: Bindable(settings.workspaceBar).notchMode) {
-                    ForEach(WorkspaceBarNotchMode.allCases) { mode in
-                        Text(mode.displayName).tag(mode)
-                    }
-                }
-                .onChange(of: settings.workspaceBar.notchMode) { _, _ in
-                    controller.updateWorkspaceBarSettings()
-                }
-                .help(
-                    "Move below the menu bar, place it to the right of the notch (centered on displays without a notch), split around it, or fill the area to its left, covering application menus. Without a notch, Fill Left covers the left half of the menu bar. Notch modes are ignored at Bottom, Left, and Right."
-                )
-
-                if settings.workspaceBar.notchMode.isSplit {
-                    SettingsSliderRow(
-                        label: String(localized: "Active Zone Width"),
-                        value: Bindable(settings.workspaceBar).notchActiveZoneWidth,
-                        range: 100 ... 400,
-                        step: 10,
-                        valueText: String(localized: "\(Int(settings.workspaceBar.notchActiveZoneWidth)) px")
-                    )
-                    .onChange(of: settings.workspaceBar.notchActiveZoneWidth) { _, _ in
-                        controller.updateWorkspaceBarSettings()
-                    }
-                    .help("Width of the zone next to the notch that the focused workspace stays centered in")
-                }
+                Tab("Apps", systemImage: "app", value: WorkspaceBarSettingsPane.apps) { settingsForm(.apps) }
             }
         }
+        .task {
+            do { try await configuration.ensureLoaded() } catch { editError = error.localizedDescription }
+            applyRoute()
+        }
+        .onChange(of: navigation.route) { _, _ in applyRoute() }
+        .onChange(of: pane) { _, next in
+            if navigation.route.section == .bar,
+               navigation.route.tab != next.rawValue { navigation.selectTab(next.rawValue) }
+        }
+        .onReceive(NotificationCenter.default
+            .publisher(for: NSApplication.didChangeScreenParametersNotification))
+        { _ in
+            monitors = Monitor.current()
+            if !monitors.contains(where: { $0.id == selectedMonitor }) { selectedMonitor = nil }
+        }
+        .confirmationDialog("Reset this style’s bar settings?", isPresented: $confirmingReset) {
+            Button("Reset Bar Settings", role: .destructive) {
+                perform { try await configuration.reset() }
+            }
+        } message: {
+            Text("Your widget layout, excluded apps, and icon overrides are kept.")
+        }
+        .shellSettingsError($editError)
+    }
 
-        if settings.workspaceBar.enabled {
-            Section("Position & Level") {
-                Picker("Position", selection: Bindable(settings.workspaceBar).position) {
-                    ForEach(WorkspaceBarPosition.allCases) { position in
-                        Text(position.displayName).tag(position)
+    private func settingsForm(_ pane: WorkspaceBarSettingsPane) -> some View {
+        Form {
+            if pane != .apps {
+                MonitorScopeSection(
+                    selectedMonitor: $selectedMonitor, monitors: monitors,
+                    hasOverrides: {
+                        MonitorSettingsStore.get(
+                            for: $0,
+                            in: settings.workspaceBar.profileOverride?.monitorOverrides ?? []
+                        ) != nil
+                    },
+                    reset: { monitor in
+                        perform { try await ShellSettingsEdits.updateMonitor(
+                            monitor,
+                            settings: settings,
+                            controller: controller,
+                            change: nil
+                        ) }
                     }
-                }
-                .onChange(of: settings.workspaceBar.position) { _, _ in
-                    controller.updateWorkspaceBarSettings()
-                }
-
-                Picker("Window Level", selection: Bindable(settings.workspaceBar).windowLevel) {
-                    ForEach(WorkspaceBarWindowLevel.allCases) { level in
-                        Text(level.displayName).tag(level)
-                    }
-                }
-                .onChange(of: settings.workspaceBar.windowLevel) { _, _ in
-                    controller.updateWorkspaceBarSettings()
+                )
+                if let monitor {
+                    MonitorBarSettingsSection(settings: settings, controller: controller, monitor: monitor, pane: pane)
+                } else {
+                    GlobalBarSettingsSection(settings: settings, controller: controller, pane: pane)
                 }
             }
-
-            Section("Position Offset") {
-                SettingsNumberStepperRow(
-                    label: String(localized: "X Offset"),
-                    value: Bindable(settings.workspaceBar).xOffset,
-                    step: 10,
-                    valueText: String(localized: "\(Int(settings.workspaceBar.xOffset)) px")
+            switch pane {
+            case .layout:
+                WorkspaceBarWidgetsSection(
+                    configuration: configuration,
+                    vertical: ShellBarLayout.vertical(settings.workspaceBar, on: monitors)
                 )
-                .help("Horizontal offset (negative = left, positive = right)")
-                .onChange(of: settings.workspaceBar.xOffset) { _, _ in
-                    controller.updateWorkspaceBarSettings()
-                }
-
-                SettingsNumberStepperRow(
-                    label: String(localized: "Y Offset"),
-                    value: Bindable(settings.workspaceBar).yOffset,
-                    step: 10,
-                    valueText: String(localized: "\(Int(settings.workspaceBar.yOffset)) px")
-                )
-                .help("Vertical offset (negative = down, positive = up)")
-                .onChange(of: settings.workspaceBar.yOffset) { _, _ in
-                    controller.updateWorkspaceBarSettings()
-                }
-            }
-
-            Section("Appearance") {
-                SettingsSliderRow(
-                    label: String(localized: "Bar Thickness"),
-                    value: Bindable(settings.workspaceBar).height,
-                    range: 20 ... 40,
-                    step: 2,
-                    valueText: String(localized: "\(Int(settings.workspaceBar.height)) px")
-                )
-                .onChange(of: settings.workspaceBar.height) { _, _ in
-                    controller.updateWorkspaceBarSettings()
-                }
-
-                SettingsSliderRow(
-                    label: String(localized: "Background Opacity"),
-                    value: Bindable(settings.workspaceBar).backgroundOpacity,
-                    range: 0 ... 0.5,
-                    step: 0.05,
-                    valueText: "\(Int(settings.workspaceBar.backgroundOpacity * 100))%"
-                )
-                .onChange(of: settings.workspaceBar.backgroundOpacity) { _, _ in
-                    controller.updateWorkspaceBarSettings()
-                }
-
-                SettingsSliderRow(
-                    label: String(localized: "Inactive Icon Opacity"),
-                    value: Binding(
-                        get: { settings.workspaceBar.inactiveIconOpacity ?? 0.5 },
-                        set: { settings.workspaceBar.inactiveIconOpacity = $0 }
-                    ),
-                    range: 0 ... 1,
-                    step: 0.05,
-                    valueText: "\(Int((settings.workspaceBar.inactiveIconOpacity ?? 0.5) * 100))%",
-                    resetAction: { settings.workspaceBar.inactiveIconOpacity = nil },
-                    resetHelp: String(localized: "Reset to System Default")
-                )
-                .onChange(of: settings.workspaceBar.inactiveIconOpacity) { _, _ in
-                    controller.updateWorkspaceBarSettings()
-                }
-                .help("Opacity of app icons that are not focused")
-
-                Toggle("Transparent Background", isOn: Bindable(settings.workspaceBar).transparentBackground)
-                    .help("Hide the workspace bar material, tint, and border while keeping its contents interactive.")
-                    .onChange(of: settings.workspaceBar.transparentBackground) { _, _ in
-                        controller.updateWorkspaceBarSettings()
-                    }
-
-                Toggle("Show Item Backgrounds", isOn: Bindable(settings.workspaceBar).showItemBackgrounds)
-                    .help("Show material backgrounds behind workspace groups, floating windows, scratchpad, and stats.")
-                    .onChange(of: settings.workspaceBar.showItemBackgrounds) { _, _ in
-                        controller.updateWorkspaceBarSettings()
-                    }
-
-                Toggle("Solid Black Background", isOn: Bindable(settings.workspaceBar).solidBlackBackground)
-                    .help("Fill the workspace bar with fully opaque black, overriding the tint, material, and border.")
-                    .onChange(of: settings.workspaceBar.solidBlackBackground) { _, _ in
-                        controller.updateWorkspaceBarSettings()
-                    }
-
-                Toggle("Show Accent Highlights", isOn: Bindable(settings.workspaceBar).showAccentHighlights)
-                    .help("Show the focused-workspace outline and focused-icon accent glow.")
-                    .onChange(of: settings.workspaceBar.showAccentHighlights) { _, _ in
-                        controller.updateWorkspaceBarSettings()
-                    }
-
-                Toggle("Custom Accent Color", isOn: customAccentColorBinding)
-
-                if settings.workspaceBar.accentColor != nil {
-                    ColorPicker("Accent Color", selection: accentColorBinding, supportsOpacity: false)
-                }
-
-                Toggle("Custom Text Color", isOn: customTextColorBinding)
-
-                if settings.workspaceBar.textColor != nil {
-                    ColorPicker("Text Color", selection: textColorBinding, supportsOpacity: false)
-                }
+            case .appearance:
+                ShellBarEffectsSettingsSection(configuration: configuration)
+            case .behavior:
+                Section { Button("Reset Bar Settings to Style Defaults…") { confirmingReset = true } }
+            case .apps:
+                WorkspaceBarExcludedAppsSection(settings: settings, controller: controller)
+                WorkspaceBarIconOverridesSection(settings: settings, controller: controller)
             }
         }
+        .formStyle(.grouped)
     }
 
-    private var customAccentColorBinding: Binding<Bool> {
-        Binding(
-            get: { settings.workspaceBar.accentColor != nil },
-            set: { enabled in
-                settings.workspaceBar.accentColor = enabled ? settings
-                    .workspaceBar.accentColor ?? defaultAccentColor : nil
-                debouncedAppearanceSync()
-            }
-        )
+    private func applyRoute() {
+        guard navigation.route.section == .bar else { return }
+        if let tab = navigation.route.tab.flatMap(WorkspaceBarSettingsPane.init(rawValue:)) { pane = tab }
     }
 
-    private var customTextColorBinding: Binding<Bool> {
-        Binding(
-            get: { settings.workspaceBar.textColor != nil },
-            set: { enabled in
-                settings.workspaceBar.textColor = enabled ? settings.workspaceBar.textColor ?? defaultTextColor : nil
-                debouncedAppearanceSync()
-            }
-        )
-    }
-
-    private var accentColorBinding: Binding<Color> {
-        Binding(
-            get: { (settings.workspaceBar.accentColor ?? defaultAccentColor).swiftUIColor },
-            set: { newColor in
-                if let color = SettingsColor(color: newColor, preservesAlpha: false) {
-                    settings.workspaceBar.accentColor = color
-                    debouncedAppearanceSync()
-                }
-            }
-        )
-    }
-
-    private var textColorBinding: Binding<Color> {
-        Binding(
-            get: { (settings.workspaceBar.textColor ?? defaultTextColor).swiftUIColor },
-            set: { newColor in
-                if let color = SettingsColor(color: newColor, preservesAlpha: false) {
-                    settings.workspaceBar.textColor = color
-                    debouncedAppearanceSync()
-                }
-            }
-        )
-    }
-
-    private var defaultAccentColor: SettingsColor {
-        SettingsColor(nsColor: .controlAccentColor, preservesAlpha: false)
-            ?? SettingsColor(red: 0, green: 0.4784313725, blue: 1, alpha: 1)
-    }
-
-    private var defaultTextColor: SettingsColor {
-        SettingsColor(nsColor: .labelColor, preservesAlpha: false)
-            ?? SettingsColor(red: 1, green: 1, blue: 1, alpha: 1)
-    }
-
-    private func debouncedAppearanceSync() {
-        pendingAppearanceSync?.cancel()
-        pendingAppearanceSync = Task { @MainActor in
-            try? await Task.sleep(for: .milliseconds(16))
-            guard !Task.isCancelled else { return }
-            controller.updateWorkspaceBarAppearance()
-        }
+    private func perform(_ operation: @escaping @MainActor () async throws -> Void) {
+        Task { do { try await operation() } catch { editError = error.localizedDescription } }
     }
 }

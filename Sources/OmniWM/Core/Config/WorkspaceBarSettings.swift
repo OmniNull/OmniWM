@@ -62,6 +62,14 @@ final class WorkspaceBarSettings {
         didSet { onChange?() }
     }
 
+    var fullWidth = WorkspaceBarSettings.defaults.fullWidth {
+        didSet { onChange?() }
+    }
+
+    var fullWidthNotchMode = WorkspaceBarSettings.defaults.fullWidthNotchMode {
+        didSet { onChange?() }
+    }
+
     var systemStatsButton = WorkspaceBarSettings.defaults.systemStatsButton {
         didSet { onChange?() }
     }
@@ -183,6 +191,13 @@ final class WorkspaceBarSettings {
             onChange?()
         }
     }
+
+    var profileOverride: WorkspaceBarProfileOverride? {
+        didSet {
+            guard profileOverride != oldValue else { return }
+            onChange?()
+        }
+    }
 }
 
 extension WorkspaceBarSettings {
@@ -198,6 +213,8 @@ extension WorkspaceBarSettings {
             position: position,
             notchMode: notchMode,
             notchActiveZoneWidth: notchActiveZoneWidth,
+            fullWidth: fullWidth,
+            fullWidthNotchMode: fullWidthNotchMode,
             systemStatsButton: systemStatsButton,
             deduplicateAppIcons: deduplicateAppIcons,
             hideEmptyWorkspaces: hideEmptyWorkspaces,
@@ -237,6 +254,8 @@ extension WorkspaceBarSettings {
         position = bar.position
         notchMode = bar.notchMode
         notchActiveZoneWidth = min(max(bar.notchActiveZoneWidth, 100), 400)
+        fullWidth = bar.fullWidth
+        fullWidthNotchMode = bar.fullWidthNotchMode
         systemStatsButton = bar.systemStatsButton
         deduplicateAppIcons = bar.deduplicateAppIcons
         hideEmptyWorkspaces = bar.hideEmptyWorkspaces
@@ -288,12 +307,61 @@ extension WorkspaceBarSettings {
         MonitorSettingsStore.remove(for: monitor, from: &monitorOverrides)
     }
 
-    func resolved(for monitor: Monitor) -> ResolvedBarSettings {
-        resolved(override: settings(for: monitor))
+    var resolvedHoverPreviewsEnabled: Bool {
+        profileOverride?.hoverPreviewsEnabled ?? hoverPreviewsEnabled
+    }
+
+    var resolvedHideInNativeFullscreen: Bool {
+        profileOverride?.hideInNativeFullscreen ?? hideInNativeFullscreen
+    }
+
+    var resolvedNotificationBadges: WorkspaceBarNotificationBadgeMode {
+        profileOverride?.notificationBadges ?? notificationBadges
+    }
+
+    var resolvedNotificationBadgeRefreshIntervalSeconds: Double {
+        profileOverride?.notificationBadgeRefreshIntervalSeconds ?? notificationBadgeRefreshIntervalSeconds
+    }
+
+    var resolvedAutoHideRevealDelayMilliseconds: Double {
+        profileOverride?.autoHideRevealDelayMilliseconds ?? autoHideRevealDelayMilliseconds
+    }
+
+    var resolvedAutoHideHideDelayMilliseconds: Double {
+        profileOverride?.autoHideHideDelayMilliseconds ?? autoHideHideDelayMilliseconds
+    }
+
+    var resolvedRevealModifier: WorkspaceBarRevealModifier {
+        profileOverride?.revealModifier ?? revealModifier
+    }
+
+    var resolvedRevealHoldMilliseconds: Double {
+        profileOverride?.revealHoldMilliseconds ?? revealHoldMilliseconds
+    }
+
+    func resolved(for monitor: Monitor, includingProfileMonitor: Bool = true) -> ResolvedBarSettings {
+        let monitorOverride = settings(for: monitor)
+        guard let profile = profileOverride else { return resolved(override: monitorOverride) }
+        var combined = monitorOverride?.overlaid(by: profile.settings) ?? profile.settings
+        if includingProfileMonitor,
+           let override = MonitorSettingsStore.get(for: monitor, in: profile.monitorOverrides)
+        {
+            combined = combined.overlaid(by: override)
+        }
+        return resolved(override: combined)
     }
 
     private func resolved(override: MonitorBarSettings?) -> ResolvedBarSettings {
         let position = override?.position ?? self.position
+        let fullWidth = override?.fullWidth ?? self.fullWidth
+        let fullWidthNotchMode = override?.fullWidthNotchMode ?? self.fullWidthNotchMode
+        let notchMode: WorkspaceBarNotchMode = if !position.usesNotch {
+            .off
+        } else if fullWidth {
+            fullWidthNotchMode == .moveBelowMenuBar ? .moveBelowMenuBar : .off
+        } else {
+            override?.notchMode ?? self.notchMode
+        }
         return ResolvedBarSettings(
             enabled: enabled && (override?.enabled ?? true),
             showLabels: override?.showLabels ?? showLabels,
@@ -303,9 +371,11 @@ extension WorkspaceBarSettings {
             excludedBundleIDs: excludedBundleIDs,
             reserveLayoutSpace: override?.reserveLayoutSpace ?? reserveLayoutSpace,
             autoHide: override?.autoHide ?? autoHide,
-            notchMode: position.usesNotch ? (override?.notchMode ?? notchMode) : .off,
+            notchMode: notchMode,
             notchActiveZoneWidth: override?.notchActiveZoneWidth ?? notchActiveZoneWidth,
-            systemStatsButton: systemStatsButton,
+            fullWidth: fullWidth,
+            fullWidthNotchMode: fullWidthNotchMode,
+            systemStatsButton: profileOverride?.systemStatsButton ?? systemStatsButton,
             position: position,
             windowLevel: override?.windowLevel ?? windowLevel,
             height: override?.height ?? height,
@@ -317,8 +387,10 @@ extension WorkspaceBarSettings {
             showAccentHighlights: override?.showAccentHighlights ?? showAccentHighlights,
             xOffset: override?.xOffset ?? xOffset,
             yOffset: override?.yOffset ?? yOffset,
-            accentColor: accentColor,
-            textColor: textColor
+            accentColor: profileOverride?.accentColor ?? (profileOverride?.usesThemeColors == true ? nil : accentColor),
+            textColor: profileOverride?.textColor ?? (profileOverride?.usesThemeColors == true ? nil : textColor),
+            barFill: profileOverride?.barFill,
+            barBorder: profileOverride?.barBorder
         )
     }
 

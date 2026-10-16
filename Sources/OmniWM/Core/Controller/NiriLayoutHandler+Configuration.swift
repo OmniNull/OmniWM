@@ -46,18 +46,29 @@ extension NiriLayoutHandler {
         }
     }
 
-    func refreshResolvedMonitorSettings() {
+    func refreshResolvedMonitorSettings(rebalanceChangedSpans: Bool = false) {
         guard let controller, let engine = controller.niriEngine else { return }
 
+        var changedSpanMonitors: [Monitor.ID] = []
         controller.workspaceManager.withEngineMutationScope {
             for monitor in controller.workspaceManager.monitors {
+                let resolved = controller.settings.niri.resolved(for: monitor)
+                if rebalanceChangedSpans,
+                   engine.effectiveSettings(for: monitor.id).defaultContainerPrimarySpan
+                   != resolved.defaultContainerPrimarySpan
+                {
+                    changedSpanMonitors.append(monitor.id)
+                }
                 _ = engine.ensureMonitor(
                     for: monitor.id,
                     monitor: monitor,
                     orientation: controller.settings.monitors.effectiveOrientation(for: monitor)
                 )
-                engine.updateMonitorSettings(controller.settings.niri.resolved(for: monitor), for: monitor.id)
+                engine.updateMonitorSettings(resolved, for: monitor.id)
             }
+        }
+        for monitorId in changedSpanMonitors {
+            balanceSizesAllWorkspaces(on: monitorId)
         }
     }
 
@@ -82,7 +93,7 @@ extension NiriLayoutHandler {
                 defaultContainerPrimarySpan: defaultContainerPrimarySpan.map { $0.map { CGFloat($0) } }
             )
         }
-        refreshResolvedMonitorSettings()
+        refreshResolvedMonitorSettings(rebalanceChangedSpans: defaultContainerPrimarySpan != nil)
         controller.layoutRefreshController.requestRelayout(reason: .layoutConfigChanged)
     }
 }

@@ -138,6 +138,31 @@ final class ScratchpadRevealTests: XCTestCase {
         }
     }
 
+    func testShiftClickingAScratchpadPillTogglesItsScratchpad() throws {
+        let fixture = try makeFixture()
+        let token = addFloatingWindow(pid: 971_031, windowId: 971_131, to: fixture)
+        XCTAssertEqual(assign(token, to: 3, in: fixture), .executed)
+        let manager = fixture.controller.workspaceBarManager
+        manager.setup(controller: fixture.controller, settings: fixture.controller.settings)
+        defer { manager.cleanup() }
+        manager.apply([DesiredBarSurface(
+            monitor: fixture.monitor,
+            visible: true,
+            snapshot: WorkspaceBarSnapshot(
+                projection: WorkspaceBarProjection(items: [], scratchpads: []),
+                backgroundOpacity: 0.5,
+                barHeight: 24
+            )
+        )])
+        XCTAssertNil(fixture.controller.workspaceManager.revealedScratchpadIndex())
+
+        manager.performShellRequest(
+            .moveFocusedWindow(target: "scratchpad 3"),
+            origin: ShellCommandOrigin(monitor: fixture.monitor.id)
+        )
+        XCTAssertEqual(fixture.controller.workspaceManager.revealedScratchpadIndex(), 3)
+    }
+
     func testAssigningToAnotherSlotMovesTheWindow() throws {
         let fixture = try makeFixture()
         let token = addFloatingWindow(pid: 971_021, windowId: 971_121, to: fixture)

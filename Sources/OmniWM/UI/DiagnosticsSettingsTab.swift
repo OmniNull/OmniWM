@@ -103,6 +103,7 @@ struct DiagnosticsSettingsTab: View {
                     Button("Report Crash…") {
                         navigation.section = .reportIssue
                     }
+                    .id("Report Crash…")
                     .buttonStyle(.borderedProminent)
                     .controlSize(.small)
                 } label: {
@@ -116,10 +117,12 @@ struct DiagnosticsSettingsTab: View {
                     Button("Copy File") {
                         copyFile(crash.url)
                     }
+                    .id("Copy File")
                     .accessibilityLabel("Copy crash log file")
                     Button("Reveal") {
                         NSWorkspace.shared.activateFileViewerSelecting([crash.url])
                     }
+                    .id("Reveal")
                     .accessibilityLabel("Reveal crash log in Finder")
                 }
                 .buttonStyle(.borderless)
@@ -134,12 +137,14 @@ struct DiagnosticsSettingsTab: View {
             Button("Run Private-API Probe") {
                 runPrivateAPIProbe()
             }
+            .id("Run Private-API Probe")
             .disabled(isPrivateAPIProbeRunning)
             DiagnosticsStatusLabel(status: probeStatus)
             SettingsCaption(
                 localized: "On-demand check of every private window-server API on this Mac, confirming each actually works. It briefly nudges one unmanaged open window a few pixels and restores its verified starting position, so you may see a window jump for an instant. The full result is written into the Private API Capability section of your next diagnostics report."
             )
         }
+        .id("Private-API Capability")
     }
 
     @ViewBuilder
@@ -150,6 +155,7 @@ struct DiagnosticsSettingsTab: View {
                 Button("Start Recording") {
                     startRecording()
                 }
+                .id("Start Recording")
             case .starting:
                 HStack(spacing: 8) {
                     ProgressView()
@@ -166,6 +172,7 @@ struct DiagnosticsSettingsTab: View {
                     Button("Stop & Save Recording") {
                         stopRecording()
                     }
+                    .id("Stop & Save Recording")
                 } else {
                     Text("A performance capture is running.")
                         .foregroundStyle(.secondary)
@@ -182,6 +189,7 @@ struct DiagnosticsSettingsTab: View {
                 localized: "Start recording, reproduce one problem, then stop and attach the saved trace log. The app and window evidence is captured automatically. This detailed recording changes runtime work and must not be used for energy comparisons."
             )
         }
+        .id("Record a Problem")
     }
 
     @ViewBuilder
@@ -192,6 +200,7 @@ struct DiagnosticsSettingsTab: View {
                 Button("Start Performance Capture") {
                     startPerformanceCapture()
                 }
+                .id("Start Performance Capture")
             case .starting:
                 HStack(spacing: 8) {
                     ProgressView()
@@ -208,6 +217,7 @@ struct DiagnosticsSettingsTab: View {
                     Button("Stop & Save Performance Capture") {
                         stopPerformanceCapture()
                     }
+                    .id("Stop & Save Performance Capture")
                 } else {
                     Text("A detailed problem recording is running.")
                         .foregroundStyle(.secondary)
@@ -223,6 +233,7 @@ struct DiagnosticsSettingsTab: View {
                 localized: "Records aggregate operation counts, CPU energy, CPU time, wakeups and memory with one final write. It does not enable detailed event traces. Use Instruments or powermetrics separately to measure WindowServer and GPU energy."
             )
         }
+        .id("Measure Performance")
     }
 
     private func runPrivateAPIProbe() {

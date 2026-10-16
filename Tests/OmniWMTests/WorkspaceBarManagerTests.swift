@@ -26,6 +26,10 @@ final class WorkspaceBarManagerTests: XCTestCase {
             ),
             autosaveEnabled: false
         )
+        let shell = root.appendingPathComponent("config/shell", isDirectory: true)
+        try FileManager.default.createDirectory(at: shell, withIntermediateDirectories: true)
+        try Data("profiles.default.leading = []\nprofiles.default.trailing = []\n".utf8)
+            .write(to: shell.appendingPathComponent("shell.toml"))
         controller = WMController(settings: settings)
     }
 
@@ -34,16 +38,62 @@ final class WorkspaceBarManagerTests: XCTestCase {
         try await super.tearDown()
     }
 
-    func testPrimaryBarFrameChangesWithContent() {
+    func testPrimaryBarFrameChangesWithContent() async throws {
+        executionTimeAllowance = 60
+        let widget = controller.settings.settingsFileURL.deletingLastPathComponent()
+            .appendingPathComponent("shell/widgets/count", isDirectory: true)
+        try FileManager.default.createDirectory(at: widget, withIntermediateDirectories: true)
+        try Data("function render(ctx) return ui.box{ w = 10 * #ctx.data.bar.workspaces, h = 10 } end".utf8)
+            .write(to: widget.appendingPathComponent("init.luau"))
+        try Data("profiles.default.leading = []\nprofiles.default.trailing = [\"count\"]\n".utf8)
+            .write(to: widget.deletingLastPathComponent().deletingLastPathComponent()
+                .appendingPathComponent("shell.toml"))
         let manager = makeManager()
         defer { manager.cleanup() }
+        func width(after bar: DesiredBarSurface, is expected: CGFloat) async throws -> NSRect? {
+            manager.apply([bar])
+            let model = try XCTUnwrap(manager.barsByMonitor[monitor.id]?.model)
+            while model.snapshot.shellWidgets.first?.size.width != expected {
+                await withCheckedContinuation { continuation in
+                    withObservationTracking {
+                        _ = model.snapshot
+                    } onChange: {
+                        continuation.resume()
+                    }
+                }
+            }
+            return manager.barsByMonitor[monitor.id]?.primary.lastAppliedFrame
+        }
 
-        manager.apply([barSurface(itemCount: 1)])
-        let originalFrame = manager.barsByMonitor[monitor.id]?.primary.lastAppliedFrame
+        let originalFrame = try await width(after: barSurface(itemCount: 1), is: 10)
         XCTAssertNotNil(originalFrame)
+        let wider = try await width(after: barSurface(itemCount: 4), is: 40)
+        XCTAssertNotEqual(wider, originalFrame)
+    }
 
-        manager.apply([barSurface(itemCount: 4)])
-        XCTAssertNotEqual(manager.barsByMonitor[monitor.id]?.primary.lastAppliedFrame, originalFrame)
+    func testPressingABarCancelsAnUnfinishedDrag() throws {
+        let manager = makeManager()
+        defer { manager.cleanup() }
+        let bar = barSurface(itemCount: 1)
+        manager.apply([bar])
+        let panel = try XCTUnwrap(manager.barsByMonitor[monitor.id]?.primary.panel)
+        manager.dragController.sourceIsValid = { _ in true }
+        manager.dragController.begin(
+            source: .init(
+                tokens: [WindowToken(pid: 42, windowId: 42)],
+                workspaceId: bar.snapshot.items[0].id,
+                isFloating: false
+            ),
+            icon: nil, at: .zero
+        )
+        XCTAssertTrue(manager.dragController.isDragging)
+
+        let press = try XCTUnwrap(NSEvent.mouseEvent(
+            with: .rightMouseDown, location: .zero, modifierFlags: [], timestamp: 0,
+            windowNumber: panel.windowNumber, context: nil, eventNumber: 0, clickCount: 1, pressure: 0
+        ))
+        panel.sendEvent(press)
+        XCTAssertFalse(manager.dragController.isDragging)
     }
 
     func testIdenticalSceneKeepsPrimaryBarFrame() {
@@ -93,7 +143,7 @@ final class WorkspaceBarManagerTests: XCTestCase {
         manager.apply([barSurface(itemCount: 2)])
         let model = try XCTUnwrap(manager.barsByMonitor[monitor.id]?.model)
 
-        controller.hiddenBarController.onWorkspaceBarJoin?(.init(monitorId: monitor.id, edge: .below))
+        manager.setHiddenBarJoin(.init(monitorId: monitor.id, edge: .below))
         XCTAssertEqual(model.hiddenBarJoinEdge, .below)
         manager.setHiddenBarJoin(.init(monitorId: .init(displayId: 4_242), edge: .above))
         XCTAssertNil(model.hiddenBarJoinEdge)
@@ -121,14 +171,21 @@ final class WorkspaceBarManagerTests: XCTestCase {
     func testAutoHideReusesHiddenPanelsAndRetainsPopupAndDragInteractions() throws {
         controller.settings.workspaceBar.autoHide = true
         let manager = makeManager()
+        let popup = NSPanel(
+            contentRect: CGRect(x: monitor.frame.midX - 50, y: monitor.frame.midY - 50, width: 100, height: 100),
+            styleMask: .borderless,
+            backing: .buffered,
+            defer: false
+        )
         defer {
-            controller.systemStatsPopupController.dismiss()
+            popup.orderOut(nil)
+            OwnedWindowRegistry.shared.unregister(surfaceId: "test-popup")
             manager.cleanup()
         }
         var pointer = monitor.frame.center
         controller.currentMouseLocation = { pointer }
         var bar = barSurface(itemCount: 1)
-        bar.snapshot = snapshot(itemCount: 1, showSystemStatsButton: true)
+        bar.snapshot = snapshot(itemCount: 1)
         bar.visible = false
         bar.retainWhileHidden = true
         manager.apply([bar])
@@ -148,17 +205,26 @@ final class WorkspaceBarManagerTests: XCTestCase {
         applyVisibility()
         XCTAssertTrue(panel.isVisible)
         XCTAssertNotNil(manager.popupAttachment(on: monitor.id))
-        controller.systemStatsPopupController.toggle(
-            attachment: try XCTUnwrap(manager.popupAttachment(on: monitor.id)),
-            monitorId: monitor.id, screenVisibleFrame: monitor.visibleFrame
+        OwnedWindowRegistry.shared.register(
+            popup,
+            surfaceId: "test-popup",
+            policy: SurfacePolicy(
+                kind: .statusPanel,
+                hitTestPolicy: .interactive,
+                capturePolicy: .excluded,
+                suppressesManagedFocusRecovery: false
+            )
         )
+        popup.orderFrontRegardless()
+        manager.refreshAutoHide()
         pointer = monitor.frame.center
         manager.handleAutoHideMouseMoved(at: pointer)
         applyVisibility()
         XCTAssertTrue(panel.isVisible)
-        XCTAssertTrue(controller.systemStatsPopupController.isVisible)
 
-        controller.systemStatsPopupController.dismiss()
+        popup.orderOut(nil)
+        OwnedWindowRegistry.shared.unregister(surfaceId: "test-popup")
+        manager.refreshAutoHide()
         XCTAssertFalse(manager.isPointerRevealed(on: monitor.id))
         applyVisibility()
         XCTAssertFalse(panel.isVisible)
@@ -188,6 +254,68 @@ final class WorkspaceBarManagerTests: XCTestCase {
         XCTAssertFalse(manager.needsAutoHideMouseMoves)
         XCTAssertFalse(manager.isPointerRevealed(on: monitor.id))
         XCTAssertTrue(manager.barsByMonitor.isEmpty)
+    }
+
+    func testShowLabelsChangesPublishWorkspaceBarEvents() {
+        controller.workspaceManager.applyMonitorConfigurationChange([monitor])
+        func scene() -> DesiredSurfaceScene {
+            var scene = DesiredSurfaceScene()
+            scene.bars = WorldView(controller: controller).barSurfaces()
+            return scene
+        }
+        let before = scene()
+        XCTAssertFalse(before.bars.isEmpty)
+        controller.settings.workspaceBar.showLabels.toggle()
+        XCTAssertEqual(
+            WMController.workspaceDataChannels(from: before, to: scene()),
+            [.workspaceBar, .windowsChanged, .layoutChanged]
+        )
+    }
+
+    func testRevealAndFullscreenVisibilityLeaveTheMenuBarHoldAlone() {
+        controller.settings.workspaceBar.fullWidth = true
+        controller.settings.workspaceBar.revealModifier = .option
+        controller.settings.workspaceBar.hideInNativeFullscreen = true
+        controller.workspaceManager.applyMonitorConfigurationChange([monitor])
+        let menuBar = FakeMenuBarAutohide()
+        let state = FileManager.default.temporaryDirectory.appendingPathComponent(UUID().uuidString, isDirectory: true)
+        defer { try? FileManager.default.removeItem(at: state) }
+        let manager = controller.workspaceBarManager
+        manager.menuBarHold = MenuBarAutohideHold(
+            system: menuBar.system,
+            runtimeState: RuntimeStateStore(directory: state, deferSaves: false)
+        )
+        manager.setup(controller: controller, settings: controller.settings)
+        defer { manager.cleanup() }
+        func apply() {
+            var bar = barSurface(itemCount: 1)
+            bar.visible = controller.isWorkspaceBarVisible(on: monitor)
+            manager.apply([bar])
+        }
+
+        apply()
+        XCTAssertFalse(controller.isWorkspaceBarVisible(on: monitor))
+        controller.setWorkspaceBarRevealHeld(true)
+        apply()
+        controller.setWorkspaceBarRevealHeld(false)
+        apply()
+        controller.workspaceManager.commitSpaceTopology(SpaceTopology(
+            displays: [.init(displayIdentifier: String(monitor.displayId), spaceIds: [1], currentSpaceId: 1)],
+            activeSpaceId: 1, fullscreenSpaceIds: [1], windowSpace: [:]
+        ))
+        controller.setWorkspaceBarRevealHeld(true)
+        apply()
+        XCTAssertFalse(controller.isWorkspaceBarVisible(on: monitor))
+        XCTAssertEqual(menuBar.calls, [true])
+
+        XCTAssertTrue(controller.toggleWorkspaceBarVisibility())
+        apply()
+        XCTAssertEqual(menuBar.calls, [true, false])
+        XCTAssertTrue(controller.toggleWorkspaceBarVisibility())
+        apply()
+        controller.settings.workspaceBar.fullWidth = false
+        apply()
+        XCTAssertEqual(menuBar.calls, [true, false, true, false])
     }
 
     func testAutoHideSuppressionAndMonitorRemovalClearReveal() throws {
@@ -308,30 +436,6 @@ final class WorkspaceBarManagerTests: XCTestCase {
         XCTAssertTrue(handler.mouseMovesNeeded)
         manager.cleanup()
         XCTAssertFalse(handler.mouseMovesNeeded)
-    }
-
-    func testSheetDismissalUpdatesAutoHideWithoutPointerMovement() throws {
-        controller.settings.workspaceBar.autoHide = true
-        let manager = makeManager()
-        defer { manager.cleanup() }
-        var pointer = monitor.frame.center
-        controller.currentMouseLocation = { pointer }
-        var bar = barSurface(itemCount: 1)
-        bar.retainWhileHidden = true
-        manager.apply([bar])
-        let panel = try XCTUnwrap(manager.barsByMonitor[monitor.id]?.primary.panel)
-        panel.setFrame(CGRect(x: 100, y: monitor.frame.maxY - 24, width: 200, height: 24), display: false)
-        manager.rebuildAutoHideTargets()
-        XCTAssertTrue(panel.delegate === panel)
-
-        panel.windowWillBeginSheet(Notification(name: NSWindow.willBeginSheetNotification, object: panel))
-        XCTAssertTrue(manager.isPointerRevealed(on: monitor.id))
-        pointer = CGPoint(x: 500, y: 500)
-        manager.handleAutoHideMouseMoved(at: pointer)
-        XCTAssertTrue(manager.isPointerRevealed(on: monitor.id))
-
-        panel.windowDidEndSheet(Notification(name: NSWindow.didEndSheetNotification, object: panel))
-        XCTAssertFalse(manager.isPointerRevealed(on: monitor.id))
     }
 
     func testAutoHideRevealDelayWaitsWhileThePointerRestsAtTheEdge() async throws {
@@ -509,7 +613,10 @@ final class WorkspaceBarManagerTests: XCTestCase {
     }
 
     private func makeManager() -> WorkspaceBarManager {
-        let manager = WorkspaceBarManager(motionPolicy: MotionPolicy(animationsEnabled: false))
+        let manager = WorkspaceBarManager(
+            configDirectory: controller.settings.settingsFileURL.deletingLastPathComponent(),
+            motionPolicy: MotionPolicy(animationsEnabled: false)
+        )
         manager.setup(controller: controller, settings: controller.settings)
         manager.panelFactory = { WorkspaceBarPanel.defaultPanel() }
         manager.frameApplier = { _, _ in }
@@ -529,7 +636,7 @@ final class WorkspaceBarManagerTests: XCTestCase {
         )
     }
 
-    private func snapshot(itemCount: Int, showSystemStatsButton: Bool = false) -> WorkspaceBarSnapshot {
+    private func snapshot(itemCount: Int) -> WorkspaceBarSnapshot {
         let items = (0 ..< itemCount).map { index in
             WorkspaceBarItem(
                 id: WorkspaceDescriptor.ID(),
@@ -542,12 +649,8 @@ final class WorkspaceBarManagerTests: XCTestCase {
         }
         return WorkspaceBarSnapshot(
             projection: WorkspaceBarProjection(items: items, scratchpads: []),
-            showLabels: true,
-            showSystemStatsButton: showSystemStatsButton,
             backgroundOpacity: 0.6,
-            barHeight: 24,
-            accentColor: nil,
-            textColor: nil
+            barHeight: 24
         )
     }
 }

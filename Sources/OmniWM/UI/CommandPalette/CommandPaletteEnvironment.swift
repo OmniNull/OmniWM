@@ -98,7 +98,7 @@ struct CommandPaletteEnvironment {
     }
 
     var restoreCommandFocus: ((CommandPaletteFocusTarget) -> Bool)?
-    var navigateToWindow: (WMController, WindowHandle) -> Void = { controller, handle in
+    var navigateToWindow: @MainActor (WMController, WindowHandle) -> Void = { controller, handle in
         controller.navigateToCommandPaletteWindow(handle)
     }
 
@@ -187,7 +187,7 @@ struct CommandPaletteEnvironment {
         controller.workspaceManager.mostRecentlyFocusedHandle(forPid: pid)
     }
 
-    var navigateToApplicationWindow: (WMController, WindowHandle) -> Bool = { controller, handle in
+    var navigateToApplicationWindow: @MainActor (WMController, WindowHandle) -> Bool = { controller, handle in
         controller.navigateToCommandPaletteWindow(handle)
     }
 
@@ -228,7 +228,7 @@ struct CommandPaletteEnvironment {
             controller.settings.recordLauncherLaunch(targetID: targetID, query: query, displayName: displayName)
         }
 
-    var summonWindowRight: (WMController, WindowHandle, WindowToken, WorkspaceDescriptor.ID) -> Void = {
+    var summonWindowRight: @MainActor (WMController, WindowHandle, WindowToken, WorkspaceDescriptor.ID) -> Void = {
         controller,
         handle,
         anchorToken,
@@ -240,7 +240,7 @@ struct CommandPaletteEnvironment {
         )
     }
 
-    var moveWindowToWorkspace: (WMController, WindowHandle, WorkspaceDescriptor.ID) -> Bool = {
+    var moveWindowToWorkspace: @MainActor (WMController, WindowHandle, WorkspaceDescriptor.ID) -> Bool = {
         controller,
         handle,
         workspaceId in
@@ -258,7 +258,7 @@ struct CommandPaletteEnvironment {
         return true
     }
 
-    var summonWindowRightOutcome: (WMController, WindowHandle, CommandPaletteSummonAnchor?)
+    var summonWindowRightOutcome: @MainActor (WMController, WindowHandle, CommandPaletteSummonAnchor?)
         -> WindowSummonRightOutcome = {
             controller,
             handle,

@@ -96,7 +96,7 @@ final class WorkspaceNumberHotkeyTests: XCTestCase {
         let manager = WorkspaceManager(settings: settings)
         let monitor = try XCTUnwrap(manager.monitors.first)
         var reregistrations = 0
-        settings.onWorkspaceHotkeysChanged = { reregistrations += 1 }
+        settings.onDynamicHotkeysChanged = { reregistrations += 1 }
 
         let workspace = try XCTUnwrap(manager.createDynamicWorkspace(named: "10", on: monitor.id))
         XCTAssertFalse(settings.workspaces.configuredNames().contains("10"))
@@ -119,7 +119,7 @@ final class WorkspaceNumberHotkeyTests: XCTestCase {
     func testRemovingWorkspaceRequestsHotkeyReregistrationOutsideExportApply() {
         let settings = makeSettingsStore()
         var reregistrations = 0
-        settings.onWorkspaceHotkeysChanged = { reregistrations += 1 }
+        settings.onDynamicHotkeysChanged = { reregistrations += 1 }
         let original = settings.workspaces.configurations
         let withTen = original + [WorkspaceConfiguration(name: "10")]
 

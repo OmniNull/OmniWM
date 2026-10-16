@@ -55,6 +55,7 @@ actor IPCConnection {
     var pendingSourceCancellations = 0
 
     var readBuffer = Data()
+    var readScratch = InlineArray<4096, UInt8>(repeating: 0)
     var pendingWrites: [Data] = []
     var pendingWriteOffset = 0
     var pendingWriteBytes = 0
@@ -118,9 +119,7 @@ actor IPCConnection {
         onClose(id)
     }
 
-    func process(_ line: String) async {
-        let data = Data(line.utf8)
-
+    func process(_ data: Data) async {
         if let envelope = IPCWire.decodeRequestEnvelope(from: data),
            envelope.version != OmniWMIPCProtocol.version
         {
@@ -205,9 +204,9 @@ actor IPCConnection {
         guard !isClosed else { throw POSIXError(.ECANCELED) }
     }
 
-    nonisolated static func decodeUTF8(_ bytes: Span<UInt8>) throws -> String {
+    nonisolated static func validateUTF8(_ bytes: Span<UInt8>) throws {
         do {
-            return String(copying: try UTF8Span(validating: bytes))
+            _ = try UTF8Span(validating: bytes)
         } catch {
             throw POSIXError(.EINVAL)
         }

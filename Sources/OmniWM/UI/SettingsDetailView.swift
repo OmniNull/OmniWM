@@ -4,61 +4,81 @@
 import SwiftUI
 
 struct SettingsDetailView: View {
-    let section: SettingsSection
     @Bindable var settings: SettingsStore
     @Bindable var controller: WMController
     @Bindable var windowCornerPreferences: GlobalWindowCornerPreferences
     let updateCoordinator: (any AppUpdateCoordinating)?
-    let navigation: SettingsNavigationModel
+    @Bindable var navigation: SettingsNavigationModel
 
     var body: some View {
-        contentView
-            .frame(maxWidth: .infinity, maxHeight: .infinity, alignment: .topLeading)
-            .frame(maxWidth: .infinity, maxHeight: .infinity)
-            .navigationTitle(section.displayName)
-            .backgroundExtensionEffect()
+        VStack(alignment: .leading, spacing: 0) {
+            VStack(alignment: .leading, spacing: 6) {
+                Text(navigation.section.displayName)
+                    .font(.title2.weight(.semibold))
+                Text(navigation.section.subtitle)
+                    .foregroundStyle(.secondary)
+                    .fixedSize(horizontal: false, vertical: true)
+            }
+            .padding(.horizontal, 24)
+            .padding(.top, 22)
+            .padding(.bottom, 16)
+            ScrollViewReader { proxy in
+                GeometryReader { geometry in
+                    contentView
+                        .frame(width: geometry.size.width, height: geometry.size.height, alignment: .topLeading)
+                        .onChange(of: navigation.route, initial: true) { _, route in
+                            if let anchor = route.anchor { proxy.scrollTo(anchor, anchor: .top) }
+                        }
+                }
+            }
+        }
+        .frame(maxWidth: .infinity, maxHeight: .infinity, alignment: .topLeading)
+        .navigationTitle(navigation.section.displayName)
     }
 
     @ViewBuilder
     private var contentView: some View {
-        switch section {
+        switch navigation.section {
         case .general:
-            GeneralSettingsTab(
+            GeneralSettingsTab(settings: settings, controller: controller, updateCoordinator: updateCoordinator)
+        case .appearance:
+            AppearanceSettingsPage(
                 settings: settings,
                 controller: controller,
-                windowCornerPreferences: windowCornerPreferences,
-                updateCoordinator: updateCoordinator
+                windowCornerPreferences: windowCornerPreferences
             )
-        case .diagnostics:
-            DiagnosticsSettingsTab(controller: controller, navigation: navigation)
-        case .niri:
-            NiriSettingsTab(settings: settings, controller: controller)
-        case .dwindle:
-            DwindleSettingsTab(settings: settings, controller: controller)
-        case .monitors:
-            MonitorSettingsTab(
-                settings: settings,
-                controller: controller,
-                navigation: navigation
-            )
-        case .workspaces:
-            WorkspacesSettingsTab(settings: settings, controller: controller)
-        case .overview:
-            OverviewSettingsTab(settings: settings, controller: controller)
-        case .borders:
-            BorderSettingsTab(settings: settings, controller: controller)
+        case .styles:
+            ShellStyleSettingsPage(settings: settings, controller: controller)
         case .bar:
             WorkspaceBarSettingsTab(settings: settings, controller: controller)
-        case .hiddenBar:
-            HiddenBarSettingsTab(settings: settings, controller: controller)
+        case .island:
+            DynamicIslandSettingsPage(settings: settings, controller: controller)
+        case .widgets:
+            WidgetsSettingsPage(settings: settings, controller: controller)
+        case .menuBar:
+            MenuBarSettingsPage(settings: settings, controller: controller)
+        case .workspaces:
+            WorkspacesSettingsTab(settings: settings, controller: controller)
+        case .layouts:
+            LayoutSettingsPage(settings: settings, controller: controller)
+        case .monitors:
+            MonitorSettingsTab(settings: settings, controller: controller, navigation: navigation)
+        case .appRules:
+            AppRulesView(settings: settings, controller: controller, editorState: navigation.ruleEditorState)
+        case .overview:
+            OverviewSettingsTab(settings: settings, controller: controller)
         case .hotkeys:
             HotkeySettingsView(settings: settings, controller: controller)
         case .mouseTrackpad:
             MouseTrackpadSettingsTab(settings: settings, controller: controller)
         case .quakeTerminal:
             QuakeTerminalSettingsTab(settings: settings, controller: controller)
+        case .diagnostics:
+            DiagnosticsSettingsTab(controller: controller, navigation: navigation)
         case .reportIssue:
             ReportIssueSettingsTab(controller: controller)
+        case .advanced:
+            AdvancedSettingsPage(settings: settings, controller: controller)
         }
     }
 }

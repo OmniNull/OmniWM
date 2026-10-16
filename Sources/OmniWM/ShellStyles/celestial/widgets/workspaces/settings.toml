@@ -1,0 +1,7 @@
+# SPDX-License-Identifier: GPL-2.0-only
+# Copyright (C) 2026 BarutSRB — https://github.com/OmniNull/OmniWM
+
+[options.occupiedBackground]
+type = "boolean"
+title = "Highlight occupied workspaces"
+default = false

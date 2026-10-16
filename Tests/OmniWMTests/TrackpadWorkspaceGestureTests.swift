@@ -578,6 +578,84 @@ final class TrackpadWorkspaceGestureTests: XCTestCase {
         XCTAssertEqual(manager.pendingFocusedToken, second.token)
     }
 
+    func testParkingEdgesAllowGestureFramesAndDrainQueuedInputWhileOtherOwnedSurfacesBlock() throws {
+        for kind in [SurfaceKind.parkingEdgeMask, .utility] {
+            let fixture = try makeFixture(workspaceSwipeEnabled: false, scrollGestureEnabled: true)
+            try addColumnGestureWindows(to: fixture)
+            let controller = fixture.controller
+            let handler = controller.mouseEventHandler
+            controller.setAnimationsEnabled(false)
+            let frame = ParkingEdgeMaskKey.Side.left.frame(in: fixture.monitor.frame)
+            let location = frame.center
+            let surfaceId = "gesture-edge-input-test"
+            controller.ownedWindowRegistry.registerWindowNumber(
+                surfaceId: surfaceId,
+                policy: SurfacePolicy(
+                    kind: kind, hitTestPolicy: .interactive, capturePolicy: .excluded,
+                    suppressesManagedFocusRecovery: false
+                ),
+                windowNumber: 999_302, frameProvider: { frame }, visibilityProvider: { true }
+            )
+            controller.eventIntake.open(sink: controller.eventInterpreter)
+            defer {
+                controller.eventIntake.close()
+                controller.ownedWindowRegistry.unregister(surfaceId: surfaceId)
+            }
+            XCTAssertTrue(handler.shouldBlockOwnWindowInput(at: location))
+            XCTAssertFalse(handler.dispatchMouseDown(at: location, modifiers: []))
+            handler.receiveTapMouseMoved(at: location, modifiersRawValue: 0)
+            sendFrame(fixture, phase: .began, fingers: 3, x: 0.8, y: 0.5, at: 100, location: location)
+            let allowsGesture = kind == .parkingEdgeMask
+            XCTAssertEqual(handler.state.latestFocusFollowsMouseSample?.location, allowsGesture ? location : nil)
+            XCTAssertEqual(handler.state.gesturePhase, allowsGesture ? .armed : .idle)
+            sendFrame(fixture, phase: .changed, fingers: 3, x: 0.74, y: 0.5, at: 100.1, location: location)
+            XCTAssertEqual(handler.isViewportGestureActive, allowsGesture)
+            sendFrame(fixture, phase: .ended, fingers: 0, x: 0, y: 0, at: 100.2, location: location)
+        }
+    }
+
+    func testParkingEdgesAllowWheelClaimAndExecutionWhileOtherOwnedSurfacesBlock() throws {
+        for kind in [SurfaceKind.parkingEdgeMask, .utility] {
+            let fixture = try makeFixture(workspaceSwipeEnabled: false, scrollGestureEnabled: true)
+            try addColumnGestureWindows(to: fixture)
+            let controller = fixture.controller
+            let manager = controller.workspaceManager
+            let columns = try XCTUnwrap(controller.niriEngine).columns(in: fixture.ws1)
+            let first = try XCTUnwrap(columns[0].windowNodes.first)
+            let second = try XCTUnwrap(columns[1].windowNodes.first)
+            manager.withNiriViewportState(for: fixture.ws1) { state in
+                state.selectedNodeId = first.id
+                state.activeColumnIndex = 0
+            }
+            let frame = ParkingEdgeMaskKey.Side.left.frame(in: fixture.monitor.frame)
+            let surfaceId = "wheel-edge-input-test"
+            controller.ownedWindowRegistry.registerWindowNumber(
+                surfaceId: surfaceId,
+                policy: SurfacePolicy(
+                    kind: kind, hitTestPolicy: .interactive, capturePolicy: .excluded,
+                    suppressesManagedFocusRecovery: false
+                ),
+                windowNumber: 999_303, frameProvider: { frame }, visibilityProvider: { true }
+            )
+            controller.eventIntake.open(sink: controller.eventInterpreter)
+            defer {
+                controller.eventIntake.close()
+                controller.ownedWindowRegistry.unregister(surfaceId: surfaceId)
+            }
+            let payload = MouseScrollIntake(
+                location: frame.center, deltaX: 120, deltaY: 0, momentumPhase: 0, phase: 0,
+                modifiersRawValue: controller.settings.gestures.scrollModifierKey.cgEventFlag.rawValue
+            )
+            let allowsWheel = kind == .parkingEdgeMask
+            XCTAssertEqual(controller.mouseEventHandler.receiveTapScrollWheel(payload), allowsWheel)
+            controller.eventIntake.drainNow()
+            XCTAssertEqual(
+                manager.niriViewportState(for: fixture.ws1).selectedNodeId,
+                allowsWheel ? second.id : first.id
+            )
+        }
+    }
+
     func testScrollModifierChoicesClaimOnlyMatchingVerticalWheelEventsAndAdvanceOneColumn() throws {
         let event = try XCTUnwrap(CGEvent(
             scrollWheelEvent2Source: nil, units: .line, wheelCount: 1,

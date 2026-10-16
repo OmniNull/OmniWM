@@ -7,7 +7,15 @@ import Observation
 @MainActor @Observable
 final class WorkspaceBarBadgeService {
     private(set) var mode: WorkspaceBarNotificationBadgeMode = .off
-    private(set) var labels: [String: String] = [:]
+    private(set) var labels: [String: String] = [:] {
+        didSet {
+            if let onLabelsChange, oldValue != labels {
+                onLabelsChange()
+            }
+        }
+    }
+
+    @ObservationIgnored var onLabelsChange: (@MainActor () -> Void)?
     @ObservationIgnored private(set) var bundleIDs: Set<String> = []
     @ObservationIgnored private var interval: TimeInterval = 5
     @ObservationIgnored private var generation: UInt64 = 0
@@ -55,8 +63,14 @@ final class WorkspaceBarBadgeService {
         return labels[bundleID.lowercased()]
     }
 
-    func configure(mode: WorkspaceBarNotificationBadgeMode, interval: TimeInterval, bundleIDs: Set<String>) {
-        let targets = mode == .off ? [] : Set(bundleIDs.map { $0.lowercased() }.filter { !$0.isEmpty })
+    func configure(
+        mode: WorkspaceBarNotificationBadgeMode,
+        interval: TimeInterval,
+        bundleIDs: Set<String>,
+        shellBundleIDs: Set<String> = []
+    ) {
+        let requested = (mode == .off ? [] : bundleIDs).union(shellBundleIDs)
+        let targets = Set(requested.lazy.map { $0.lowercased() }.filter { !$0.isEmpty })
         let targetsChanged = targets != self.bundleIDs
         let intervalChanged = interval != self.interval
         self.mode = mode

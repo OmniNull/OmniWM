@@ -44,7 +44,8 @@ enum CLICompletionGenerator {
             "workspaceMoveOptionalFlags": shellWords(Catalog.workspaceMoveOptionalFlags),
             "windowActionNames": shellWords(Catalog.windowActionNames),
             "windowMarkActionNames": shellWords(Catalog.windowMarkActionNames),
-            "windowMarkListFlags": shellWords(Catalog.windowMarkListFlags)
+            "windowMarkListFlags": shellWords(Catalog.windowMarkListFlags),
+            "shellActionNames": shellWords(Catalog.shellActionNames)
         ])
     }
 
@@ -73,7 +74,8 @@ enum CLICompletionGenerator {
             "workspaceMoveOptionalFlags": shellWords(Catalog.workspaceMoveOptionalFlags),
             "windowActionNames": shellWords(Catalog.windowActionNames),
             "windowMarkActionNames": shellWords(Catalog.windowMarkActionNames),
-            "windowMarkListFlags": shellWords(Catalog.windowMarkListFlags)
+            "windowMarkListFlags": shellWords(Catalog.windowMarkListFlags),
+            "shellActionNames": shellWords(Catalog.shellActionNames)
         ])
     }
 
@@ -81,10 +83,7 @@ enum CLICompletionGenerator {
         let query = "__fish_seen_subcommand_from query"
         let command = "__fish_seen_subcommand_from command"
         let rule = "__fish_seen_subcommand_from rule"
-        let capture = "__fish_seen_subcommand_from capture"
-        let workspace = "__fish_seen_subcommand_from workspace"
-        let moveWorkspace = "\(workspace); and __fish_seen_subcommand_from \(Catalog.workspaceMoveActionName)"
-        return renderTemplate(PackageResources.completion_fish, values: [
+        return renderTemplate(PackageResources.completion_fish, values: fishActionValues().merging([
             "workspaceMoveActionName": Catalog.workspaceMoveActionName,
             "baseLines": fishCompletions(Catalog.topLevelCommands, when: "__fish_use_subcommand"),
             "queryLines": fishCompletions(Catalog.queryNames, when: query),
@@ -104,7 +103,15 @@ enum CLICompletionGenerator {
             "ruleApplyLines": fishCompletions(
                 Catalog.ruleApplyFlags,
                 when: "\(rule); and __fish_seen_subcommand_from apply"
-            ),
+            )
+        ]) { action, _ in action })
+    }
+
+    private static func fishActionValues() -> [String: String] {
+        let capture = "__fish_seen_subcommand_from capture"
+        let workspace = "__fish_seen_subcommand_from workspace"
+        let moveWorkspace = "\(workspace); and __fish_seen_subcommand_from \(Catalog.workspaceMoveActionName)"
+        return [
             "captureActionLines": fishChoiceCompletions(Catalog.captureActionNames, when: capture),
             "captureProfileLines": fishChoiceCompletions(
                 Catalog.captureProfiles,
@@ -121,11 +128,15 @@ enum CLICompletionGenerator {
             "windowLines": fishCompletions(Catalog.windowActionNames, when: "__fish_seen_subcommand_from window"),
             "windowMarkActionLines": fishWindowMarkActionLines(),
             "windowMarkListFlagLines": fishWindowMarkListFlagLines(),
+            "shellActionLines": fishChoiceCompletions(
+                Catalog.shellActionNames,
+                when: "__fish_seen_subcommand_from shell"
+            ),
             "shellLines": fishCompletions(
                 CLIShell.allCases.map(\.rawValue),
                 when: "__fish_seen_subcommand_from completion"
             )
-        ])
+        ]
     }
 
     private static func fishCompletion(_ token: String, when condition: String) -> String {

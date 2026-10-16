@@ -78,7 +78,6 @@ extension WorkspaceNavigationHandler {
                 sourceWorkspaceId: mutation.sourceWorkspaceId,
                 destinationWorkspaceId: mutation.destinationWorkspaceId,
                 selectedHandle: mutation.selectedHandle,
-                movedTokens: mutation.movedTokens,
                 scrollWorkspaceId: nil
             )
         )

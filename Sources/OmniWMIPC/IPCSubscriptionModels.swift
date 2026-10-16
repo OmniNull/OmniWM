@@ -11,6 +11,7 @@ public enum IPCSubscriptionChannel: String, Codable, CaseIterable, Equatable, Ha
     case windowsChanged = "windows-changed"
     case displayChanged = "display-changed"
     case layoutChanged = "layout-changed"
+    case shellWidgets = "shell-widgets"
 }
 
 public enum IPCEventKind: String, Codable, Equatable, Sendable {

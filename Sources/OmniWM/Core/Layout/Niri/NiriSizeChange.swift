@@ -22,7 +22,6 @@ enum NiriSizeChange: Codable, Equatable, Hashable {
     }
 
     func primarySpanSpec(
-        currentSpec: ProportionalSize,
         currentPixels: CGFloat,
         axisSpan: CGFloat,
         gaps: CGFloat
@@ -35,18 +34,8 @@ enum NiriSizeChange: Codable, Equatable, Hashable {
         case let .adjustFixed(delta):
             return .fixed((currentPixels + delta).clamped(to: 1 ... NiriSizeChange.maxPixels))
         case let .adjustProportion(delta):
-            let currentProportion: CGFloat
-            switch currentSpec {
-            case let .proportion(proportion):
-                currentProportion = proportion
-            case .fixed:
-                let proportionalSpan = axisSpan - gaps
-                if proportionalSpan == 0 {
-                    currentProportion = 1
-                } else {
-                    currentProportion = (currentPixels + gaps) / proportionalSpan
-                }
-            }
+            let proportionalSpan = axisSpan - gaps
+            let currentProportion = proportionalSpan == 0 ? 1 : (currentPixels + gaps) / proportionalSpan
             return .proportion((currentProportion + delta / 100).clamped(to: 0 ... NiriSizeChange.maxProportion))
         }
     }

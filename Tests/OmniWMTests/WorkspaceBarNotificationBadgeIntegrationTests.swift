@@ -28,6 +28,14 @@ final class WorkspaceBarNotificationBadgeIntegrationTests: XCTestCase {
             controller.hasStartedServices = false
             manager.cleanup()
         }
+        controller.hasStartedServices = false
+        manager.startShellHostIfNeeded(settings: controller.settings)
+        await until {
+            controller.layoutRefreshController.layoutState.activeRefresh == nil
+                && controller.layoutRefreshController.layoutState.pendingRefresh == nil
+                && controller.surfaceReconciler.pendingReconcileScope == nil
+        }
+        controller.hasStartedServices = true
         let initialSequence = controller.workspaceManager.worldSeq
         XCTAssertNil(controller.surfaceReconciler.pendingReconcileScope)
 
@@ -122,49 +130,54 @@ final class WorkspaceBarNotificationBadgeIntegrationTests: XCTestCase {
         XCTAssertTrue(service.labels.isEmpty)
     }
 
-    func testWidthCompactionUsesPreparedIconDemandInsteadOfDesiredExpandedScratchpad() throws {
-        let service = WorkspaceBarBadgeService(
-            notificationCenter: NotificationCenter(),
-            read: { _, _ in
-                XCTFail("Compacted scratchpad has no displayed app icons to read")
-                return DockBadgeReadResult()
-            },
-            sleep: { _ in throw CancellationError() }
+    func testLuauCompactedScratchpadsCreateNoBadgeDemand() throws {
+        let messages = WorkspaceBarScratchpadItem(
+            index: 1, label: "Messages", windows: [window("com.example.mail", id: 1)],
+            isVisible: false, presentation: .expanded
         )
-        let narrowMonitor = Monitor(
-            id: monitor.id, displayId: monitor.displayId,
-            frame: CGRect(x: 0, y: 0, width: 100, height: 1080),
-            visibleFrame: CGRect(x: 0, y: 25, width: 100, height: 1055),
-            hasNotch: false, name: monitor.name
-        )
-        let (controller, manager) = makeManager(service: service, monitor: narrowMonitor)
-        defer {
-            controller.hasStartedServices = false
-            manager.cleanup()
+        let demand = { (width: CGFloat) -> (compacted: Set<Int>?, bundleIDs: Set<String>) in
+            let service = WorkspaceBarBadgeService(
+                notificationCenter: NotificationCenter(),
+                read: { _, _ in DockBadgeReadResult() },
+                sleep: { _ in throw CancellationError() }
+            )
+            let display = Monitor(
+                id: self.monitor.id, displayId: self.monitor.displayId,
+                frame: CGRect(x: 0, y: 0, width: width, height: 1080),
+                visibleFrame: CGRect(x: 0, y: 25, width: width, height: 1055),
+                hasNotch: false, name: self.monitor.name
+            )
+            let (controller, manager) = self.makeManager(
+                service: service,
+                monitor: display,
+                shellConfig: "leading = [\"scratchpads\"]\ntrailing = []\n"
+            )
+            defer {
+                controller.hasStartedServices = false
+                manager.cleanup()
+            }
+            manager.apply([self.surface(tiled: [], scratchpads: [messages], monitor: display, visible: true)])
+            XCTAssertEqual(manager.barsByMonitor[display.id]?.model.snapshot.scratchpads.first?.presentation, .expanded)
+            return (manager.shellCompactedScratchpads[display.id], service.bundleIDs)
         }
-        let desired = surface(
-            tiled: [],
-            scratchpads: [WorkspaceBarScratchpadItem(
-                index: 1, label: "Messages", windows: [window("com.example.mail", id: 1)],
-                isVisible: false, presentation: .expanded
-            )],
-            monitor: narrowMonitor,
-            visible: true
-        )
 
-        manager.apply([desired])
-
-        let instance = try XCTUnwrap(manager.barsByMonitor[narrowMonitor.id])
-        XCTAssertEqual(desired.snapshot.scratchpads.first?.presentation, .expanded)
-        XCTAssertEqual(instance.model.snapshot.scratchpads.first?.presentation, .compact)
-        XCTAssertTrue(service.bundleIDs.isEmpty)
+        let narrow = demand(100)
+        XCTAssertEqual(narrow.compacted, [1])
+        XCTAssertEqual(narrow.bundleIDs, [])
+        let wide = demand(1920)
+        XCTAssertEqual(wide.compacted, [])
+        XCTAssertEqual(wide.bundleIDs, ["com.example.mail"])
     }
 
     private func makeManager(
         service: WorkspaceBarBadgeService,
-        monitor: Monitor? = nil
+        monitor: Monitor? = nil,
+        shellConfig: String = "leading = []\ntrailing = []\n"
     ) -> (WMController, WorkspaceBarManager) {
         let controller = WindowAdmissionTestSupport.controller(prefix: "WorkspaceBarNotificationBadgeIntegration")
+        let shell = ShellWidgetHost.shellDirectory(in: controller.settings.settingsFileURL.deletingLastPathComponent())
+        try? FileManager.default.createDirectory(at: shell, withIntermediateDirectories: true)
+        try? Data(shellConfig.utf8).write(to: shell.appendingPathComponent("shell.toml"))
         controller.settings.workspaceBar.enabled = true
         controller.settings.workspaceBar.hoverPreviewsEnabled = false
         controller.settings.workspaceBar.notificationBadges = .text
@@ -172,6 +185,7 @@ final class WorkspaceBarNotificationBadgeIntegrationTests: XCTestCase {
         controller.surfaceReconciler.cleanup()
         controller.hasStartedServices = true
         let manager = WorkspaceBarManager(
+            configDirectory: controller.settings.settingsFileURL.deletingLastPathComponent(),
             motionPolicy: MotionPolicy(animationsEnabled: false), notificationBadges: service
         )
         manager.screenProvider = { _ in nil }
@@ -206,9 +220,8 @@ final class WorkspaceBarNotificationBadgeIntegrationTests: XCTestCase {
                         tiledWindows: tiled, floatingWindows: floating
                     )],
                     scratchpads: scratchpads
-                ),
-                showLabels: true, showSystemStatsButton: false, backgroundOpacity: 0.1,
-                barHeight: 28, accentColor: nil, textColor: nil
+                ), backgroundOpacity: 0.1,
+                barHeight: 28
             )
         )
     }

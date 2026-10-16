@@ -212,6 +212,8 @@ enum CLIRenderer {
             return formattedWindowMarks(payload, format: format)
         case let .windowGather(payload):
             return "window-gather \(payload.outcome.rawValue): moved \(payload.moved.count)"
+        case let .shellWidgets(payload):
+            return formattedShellWidgets(payload, format: format)
         }
     }
 
@@ -246,7 +248,9 @@ enum CLIRenderer {
         }
         return detail
     }
+}
 
+extension CLIRenderer {
     private static func formattedQueries(_ payload: IPCQueriesQueryResult, format: CLIOutputFormat) -> String {
         let rows = payload.queries.map { query in
             [
@@ -299,10 +303,11 @@ enum CLIRenderer {
         let workspaceRows = payload.workspaceActions.map { [$0.path, $0.summary, "workspace"] }
         let windowRows = payload.windowActions.map { [$0.path, $0.summary, "window"] }
         let windowMarkRows = payload.windowMarkActions.map { [$0.path, $0.summary, "window-mark"] }
+        let shellRows = payload.shellActions.map { [$0.path, $0.summary, "shell"] }
 
         return CLITableRenderer.formatRows(
             headers: ["PATH", "SUMMARY", "SURFACE"],
-            rows: commandRows + workspaceRows + windowRows + windowMarkRows,
+            rows: commandRows + workspaceRows + windowRows + windowMarkRows + shellRows,
             format: format
         )
     }
@@ -334,6 +339,7 @@ enum CLIRenderer {
             ["window-actions", String(payload.windowActions.count)],
             ["window-mark-actions", String(payload.windowMarkActions.count)],
             ["window-gather-actions", String(payload.windowGatherActions.count)],
+            ["shell-actions", String(payload.shellActions.count)],
             ["subscriptions", String(payload.subscriptions.count)]
         ]
 
@@ -357,6 +363,27 @@ enum CLIRenderer {
             rows: rows,
             format: format
         )
+    }
+
+    private static func formattedShellWidgets(
+        _ payload: IPCShellWidgetsQueryResult,
+        format: CLIOutputFormat
+    ) -> String {
+        let table = CLITableRenderer.formatRows(
+            headers: ["WIDGET", "STATE", "PLACEMENTS", "SOURCE", "ERROR"],
+            rows: payload.widgets.map { widget in
+                [
+                    widget.name,
+                    widget.state,
+                    dashIfEmpty(widget.placements.joined(separator: ", ")),
+                    widget.source,
+                    dashIfEmpty(widget.error ?? "")
+                ]
+            },
+            format: format
+        )
+        guard format == .table || format == .text, !payload.problems.isEmpty else { return table }
+        return ([table, "", "Problems:"] + payload.problems.map { "  \($0)" }).joined(separator: "\n")
     }
 
     private static func dashIfEmpty(_ value: String) -> String {

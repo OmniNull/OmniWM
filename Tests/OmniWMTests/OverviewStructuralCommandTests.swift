@@ -147,7 +147,7 @@ final class OverviewStructuralCommandTests: XCTestCase {
 
         XCTAssertFalse(fixture.controller.isOverviewOpen())
         await fulfillment(of: [focused], timeout: 1)
-        XCTAssertEqual(fixture.focusRecorder.activatedPIDs, [fullscreen.pid])
+        XCTAssertEqual(fixture.focusRecorder.activatedPIDs, [])
         XCTAssertEqual(fixture.focusRecorder.focusedTokens, [fullscreen.id])
         XCTAssertEqual(fixture.focusRecorder.raisedCount, 1)
         XCTAssertEqual(manager.nativeFullscreenRecord(for: fullscreen.id)?.transition, .suspended)
@@ -243,7 +243,6 @@ final class OverviewStructuralCommandTests: XCTestCase {
             [liveFocused.id, trailing.id, selected.id]
         )
         XCTAssertEqual(mutation.selectedHandle, selected)
-        XCTAssertEqual(mutation.movedTokens, [selected.id])
         XCTAssertEqual(fixture.controller.workspaceManager.selectedManagedToken, liveFocused.id)
         XCTAssertEqual(fixture.controller.workspaceManager.lastFocusedToken(in: workspaceId), selected.id)
         XCTAssertEqual(fixture.focusRecorder.callCount, 0)
@@ -686,7 +685,7 @@ final class OverviewStructuralCommandTests: XCTestCase {
         XCTAssertEqual(fixture.focusRecorder.callCount, 0)
     }
 
-    func testWholeColumnTransferPreservesSelectedMemberAndMovedTokens() throws {
+    func testWholeColumnTransferPreservesSelectedMemberAndMembership() throws {
         let fixture = try makeFixture(layouts: [.niri, .niri])
         let sourceWorkspaceId = fixture.workspaceIds[0]
         let destinationWorkspaceId = fixture.workspaceIds[1]
@@ -738,7 +737,6 @@ final class OverviewStructuralCommandTests: XCTestCase {
         let mutation = try XCTUnwrap(outcome?.mutation)
 
         XCTAssertEqual(mutation.selectedHandle, selected)
-        XCTAssertEqual(Set(mutation.movedTokens), [selected.id, stacked.id])
         XCTAssertEqual(fixture.controller.workspaceManager.workspace(for: selected.id), destinationWorkspaceId)
         XCTAssertEqual(fixture.controller.workspaceManager.workspace(for: stacked.id), destinationWorkspaceId)
         XCTAssertEqual(fixture.controller.workspaceManager.workspace(for: sourceRemainder.id), sourceWorkspaceId)

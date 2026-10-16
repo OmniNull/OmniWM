@@ -76,7 +76,7 @@ final class ForeignTransientFocusRecoveryTests: XCTestCase {
         )
         XCTAssertEqual(
             fixture.recorder.operations,
-            ["activate:\(target.pid)", "focus:\(target.pid):\(target.windowId)", "raise"]
+            ["focus:\(target.pid):\(target.windowId)", "raise"]
         )
     }
 
@@ -343,7 +343,6 @@ final class ForeignTransientFocusRecoveryTests: XCTestCase {
         XCTAssertEqual(
             fixture.recorder.operations,
             [
-                "activate:\(replacementToken.pid)",
                 "focus:\(replacementToken.pid):\(replacementToken.windowId)",
                 "raise"
             ]

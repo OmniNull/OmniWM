@@ -21,7 +21,6 @@ struct StructuralMutation: Equatable {
     let sourceWorkspaceId: WorkspaceDescriptor.ID
     let destinationWorkspaceId: WorkspaceDescriptor.ID
     let selectedHandle: WindowHandle
-    let movedTokens: [WindowToken]
     let scrollWorkspaceId: WorkspaceDescriptor.ID?
 
     var affectedWorkspaceIds: Set<WorkspaceDescriptor.ID> {
@@ -101,15 +100,12 @@ enum StructuralMutationOutcome: Equatable {
     }
 
     struct NiriStructuralMutation {
-        let movedTokens: [WindowToken]
         let operation: LayoutOperation
     }
 
-    enum ColumnMoveTarget {
-        case direction(Direction)
-        case first
-        case last
-        case index(Int)
+    enum WindowTarget {
+        case focused
+        case window(WindowHandle)
     }
 
     var scrollAnimationByDisplay: [CGDirectDisplayID: WorkspaceDescriptor.ID] = [:]

@@ -176,6 +176,8 @@ final class ObservedMinimumSizeClampTests: XCTestCase {
         controller.settings.gaps.outerGapRight = 0
         controller.settings.gaps.outerGapTop = 0
         controller.settings.gaps.outerGapBottom = 0
+        controller.settings.niri.defaultContainerPrimarySpan = 1.0 / 3.0
+        controller.settings.niri.visibleContainerCount = 3
         controller.niriLayoutHandler.enableNiriLayout()
         let engine = try XCTUnwrap(controller.niriEngine)
         engine.defaultContainerPrimarySpan = 1.0 / 3.0

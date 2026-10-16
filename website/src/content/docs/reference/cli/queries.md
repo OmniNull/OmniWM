@@ -71,7 +71,9 @@ The three workspace flags answer different questions. `is-focused` marks the wor
 
 `columns` lists a Niri workspace's columns in order as `{"index": 1, "viewport": "before"}` entries. `viewport` is `before` or `after` for a column entirely outside the viewport on that side and `intersecting` for a column that is at least partly visible. It describes the viewport's destination: a scroll animation reports its target immediately, and a trackpad drag keeps the previous value until release. Dwindle workspaces omit `columns`.
 
-**Display fields:** `id`, `name`, `is-main`, `is-current`, `frame`, `visible-frame`, `has-notch`, `orientation`, `inner-gap`, `outer-gap-left`, `outer-gap-right`, `outer-gap-top`, `outer-gap-bottom`, `fullscreen-uses-outer-gaps`, `active-workspace`
+**Display fields:** `id`, `name`, `is-main`, `is-current`, `frame`, `visible-frame`, `has-notch`, `orientation`, `inner-gap`, `outer-gap-left`, `outer-gap-right`, `outer-gap-top`, `outer-gap-bottom`, `fullscreen-uses-outer-gaps`, `active-workspace`, `uuid`, `notch`, `menu-bar-height`, `bar-frames`, `reserved-insets`
+
+`uuid` is the display's stable UUID, `notch` the notch's horizontal `start` and `end`, `menu-bar-height` the space above the visible frame, `bar-frames` the frames of the workspace bar panels shown on the display, and `reserved-insets` the space the workspace bar reserves for windows on each edge. Unreleased: available when building from `main`.
 
 `fullscreen-uses-outer-gaps` reports the resolved per-display policy used by OmniWM Full Screen, Niri maximized, and the Single Window “Full Screen” fit. It does not affect native macOS Full Screen.
 
@@ -93,9 +95,10 @@ The three workspace flags answer different questions. `is-focused` marks the wor
 | `rules` | — | — | Persisted user window rules |
 | `rule-actions` | — | — | Rule action registry |
 | `queries` | — | — | Query registry |
-| `commands` | — | — | Automation action registry for `command`, `workspace`, `window`, and `window mark` surfaces |
+| `commands` | — | — | Automation action registry for `command`, `workspace`, `window`, `window mark`, and `shell` surfaces |
 | `subscriptions` | — | — | Subscription registry |
-| `capabilities` | — | — | Full protocol capabilities, including `windowMarkActions` and `windowGatherActions` |
+| `capabilities` | — | — | Full protocol capabilities, including `windowMarkActions`, `windowGatherActions`, and `shellActions` |
+| `shell-widgets` | — | — | Luau shell widgets with their `state` (`loading`, `loaded`, `failed` or `fallback`), `placements`, `source` file and any `error`, plus `problems` found in `shell.toml` and theme files. Unreleased: available when building from `main` |
 
 `window mark` descriptors in `commands` and `capabilities` are available. List live marks with [`omniwmctl window mark list`](/reference/cli/actions/#window-marks).
 

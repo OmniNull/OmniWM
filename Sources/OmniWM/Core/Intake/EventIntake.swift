@@ -131,6 +131,7 @@ final class EventIntake {
         var orderedEvents: [StampedIntakeEvent] = []
         var spareOrderedEvents: [StampedIntakeEvent] = []
         var pendingCGSFrameWindowIds: Set<UInt32> = []
+        var pendingAXTitleWindowIds: Set<UInt32> = []
         var openMouseMovedSeq: UInt64?
         var openLeftDraggedSeq: UInt64?
         var openRightDraggedSeq: UInt64?
@@ -148,6 +149,24 @@ final class EventIntake {
             let keptSeq = self[keyPath: kept]
             closeMouseCoalescingWindows()
             self[keyPath: kept] = keptSeq
+        }
+
+        mutating func mergesScroll(_ payload: MouseScrollIntake) -> Bool {
+            closeMouseCoalescingWindows(keeping: \.openScrollSeq)
+            if let openSeq = openScrollSeq,
+               let index = orderedEvents.lastIndex(where: { $0.seq == openSeq }),
+               case let .mouseScroll(existing) = orderedEvents[index].event
+            {
+                if existing.matches(payload), existing.canCoalesce(payload) {
+                    var merged = existing
+                    merged.accumulate(payload)
+                    orderedEvents[index] = orderedEvents[index].replacingEvent(with: .mouseScroll(merged))
+                    return true
+                }
+                closeMouseCoalescingWindows()
+            }
+            openScrollSeq = nextSeq
+            return false
         }
     }
 
@@ -215,6 +234,7 @@ final class EventIntake {
             state.orderedEvents.removeAll(keepingCapacity: false)
             state.spareOrderedEvents.removeAll(keepingCapacity: false)
             state.pendingCGSFrameWindowIds.removeAll(keepingCapacity: false)
+            state.pendingAXTitleWindowIds.removeAll(keepingCapacity: false)
             state.closeMouseCoalescingWindows()
             return dropped
         }
@@ -267,6 +287,10 @@ final class EventIntake {
             state.closeMouseCoalescingWindows()
             guard state.pendingCGSFrameWindowIds.insert(windowId).inserted else { return }
 
+        case let .axWindow(.titleChanged(_, windowId, _)):
+            state.closeMouseCoalescingWindows()
+            guard state.pendingAXTitleWindowIds.insert(windowId).inserted else { return }
+
         case let .cgs(.closed(windowId)),
              let .cgs(.destroyed(windowId, _)):
             removePendingCGSFrameEvents(windowId: windowId, state: &state)
@@ -296,20 +320,9 @@ final class EventIntake {
             state.openMouseMovedSeq = state.nextSeq
 
         case let .mouseScroll(payload):
-            state.closeMouseCoalescingWindows(keeping: \.openScrollSeq)
-            if let openSeq = state.openScrollSeq,
-               let index = state.orderedEvents.lastIndex(where: { $0.seq == openSeq }),
-               case let .mouseScroll(existing) = state.orderedEvents[index].event
-            {
-                if existing.matches(payload), existing.canCoalesce(payload) {
-                    var merged = existing
-                    merged.accumulate(payload)
-                    state.orderedEvents[index] = state.orderedEvents[index].replacingEvent(with: .mouseScroll(merged))
-                    return
-                }
-                state.closeMouseCoalescingWindows()
+            if state.mergesScroll(payload) {
+                return
             }
-            state.openScrollSeq = state.nextSeq
 
         default:
             state.closeMouseCoalescingWindows()
@@ -372,6 +385,7 @@ final class EventIntake {
             events.removeAll(keepingCapacity: true)
             swap(&events, &state.orderedEvents)
             state.pendingCGSFrameWindowIds.removeAll(keepingCapacity: true)
+            state.pendingAXTitleWindowIds.removeAll(keepingCapacity: true)
             state.closeMouseCoalescingWindows()
             state.drainScheduled = false
             state.performanceCounters?.recordDrain(events)

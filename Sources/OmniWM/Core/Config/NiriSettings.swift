@@ -66,6 +66,10 @@ final class NiriSettings {
         didSet { onChange?() }
     }
 
+    var moveWindowStacksIntoColumn = NiriSettings.defaults.moveWindowStacksIntoColumn ?? true {
+        didSet { onChange?() }
+    }
+
     var monitorOverrides: [MonitorNiriSettings] = [] {
         didSet { onChange?() }
     }
@@ -80,7 +84,8 @@ final class NiriSettings {
             containerPrimarySpanPresets: containerPrimarySpanPresets,
             defaultContainerPrimarySpan: defaultContainerPrimarySpan,
             edgeGaps: edgeGaps,
-            resizeStepPercent: resizeStepPercent
+            resizeStepPercent: resizeStepPercent,
+            moveWindowStacksIntoColumn: moveWindowStacksIntoColumn
         )
     }
 
@@ -91,6 +96,7 @@ final class NiriSettings {
         alwaysCenterSingleColumn = niri.alwaysCenterSingleColumn
         singleWindowFit = niri.singleWindowFit
         edgeGaps = niri.edgeGaps ?? baseline.edgeGaps ?? true
+        moveWindowStacksIntoColumn = niri.moveWindowStacksIntoColumn ?? baseline.moveWindowStacksIntoColumn ?? true
         resizeStepPercent = niri.resizeStepPercent ?? baseline.resizeStepPercent ?? BuiltInSettingsDefaults
             .niriResizeStepPercent
         containerPrimarySpanPresets = NiriSettings.validatedContainerPrimarySpanPresets(
@@ -118,8 +124,14 @@ final class NiriSettings {
     }
 
     private func resolved(override: MonitorNiriSettings?) -> ResolvedNiriSettings {
+        let defaultSpan: Double? = if let spanOverride = override?.defaultContainerPrimarySpan {
+            spanOverride.customSpan
+        } else {
+            defaultContainerPrimarySpan
+        }
         return ResolvedNiriSettings(
             visibleContainerCount: override?.visibleContainerCount ?? visibleContainerCount,
+            defaultContainerPrimarySpan: defaultSpan,
             centerFocusedColumn: override?.centerFocusedColumn ?? centerFocusedColumn,
             alwaysCenterSingleColumn: override?.alwaysCenterSingleColumn ?? alwaysCenterSingleColumn,
             singleWindowFit: override?.singleWindowFit ?? singleWindowFit,

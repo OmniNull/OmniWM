@@ -82,6 +82,7 @@ final class NiriSingleWindowOverrideTransitionTests: NiriInteractionTestCase {
         fixture.engine.updateMonitorSettings(
             ResolvedNiriSettings(
                 visibleContainerCount: global.visibleContainerCount,
+                defaultContainerPrimarySpan: global.defaultContainerPrimarySpan,
                 centerFocusedColumn: global.centerFocusedColumn,
                 alwaysCenterSingleColumn: global.alwaysCenterSingleColumn,
                 singleWindowFit: customFit,

@@ -171,7 +171,7 @@ final class UpdateCoordinator: AppUpdateCoordinating {
         settings: SettingsStore,
         runtimeState: RuntimeStateStore = RuntimeStateStore(),
         releaseService: any GitHubReleaseFetching = GitHubReleaseService(
-            userAgent: "OmniWM/\(Bundle.main.appVersion ?? "unknown")"
+            userAgent: "OmniWM/" + (Bundle.main.appVersion ?? "unknown")
         ),
         currentVersionProvider: @escaping () -> ReleaseVersion? = { Bundle.main.releaseVersion },
         currentVersionStringProvider: @escaping () -> String = { Bundle.main.appVersion ?? "Unknown" },

@@ -36,6 +36,11 @@ final class IPCQueryRouter {
         )
     }
 
+    func shellWidgetsResult() -> IPCShellWidgetsQueryResult {
+        controller.workspaceBarManager.shellHost?.widgetReport
+            ?? IPCShellWidgetsQueryResult(profile: ShellDefaults.profile, widgets: [])
+    }
+
     func workspaceBarResult() -> IPCWorkspaceBarQueryResult {
         let monitors = controller.workspaceManager.monitors.map { monitor in
             let resolved = controller.settings.workspaceBar.resolved(for: monitor)
@@ -201,7 +206,8 @@ final class IPCQueryRouter {
             commands: IPCAutomationManifest.commandDescriptors,
             workspaceActions: IPCAutomationManifest.workspaceActionDescriptors,
             windowActions: IPCAutomationManifest.windowActionDescriptors,
-            windowMarkActions: IPCAutomationManifest.windowMarkActionDescriptors
+            windowMarkActions: IPCAutomationManifest.windowMarkActionDescriptors,
+            shellActions: IPCAutomationManifest.shellActionDescriptors
         )
     }
 
@@ -223,10 +229,13 @@ final class IPCQueryRouter {
             windowActions: IPCAutomationManifest.windowActionDescriptors,
             windowMarkActions: IPCAutomationManifest.windowMarkActionDescriptors,
             windowGatherActions: IPCAutomationManifest.windowGatherActionDescriptors,
+            shellActions: IPCAutomationManifest.shellActionDescriptors,
             subscriptions: IPCAutomationManifest.subscriptionDescriptors
         )
     }
+}
 
+extension IPCQueryRouter {
     private func workspaceBarWorkspace(from item: WorkspaceBarItem) -> IPCWorkspaceBarWorkspace {
         IPCWorkspaceBarWorkspace(
             id: item.id.uuidString,
@@ -293,7 +302,16 @@ final class IPCQueryRouter {
                 .map { IPCWorkspaceRef(
                     descriptor: $0,
                     settings: controller.settings
-                ) } : nil
+                ) } : nil,
+            uuid: IPCQuerySelection.include("uuid", in: fields) ? monitor.displayUUID : nil,
+            notch: IPCQuerySelection.include("notch", in: fields)
+                ? monitor.notchRange.map { IPCSpan(start: Double($0.lowerBound), end: Double($0.upperBound)) } : nil,
+            menuBarHeight: IPCQuerySelection.include("menu-bar-height", in: fields)
+                ? Double(max(0, monitor.frame.maxY - monitor.visibleFrame.maxY)) : nil,
+            barFrames: IPCQuerySelection.include("bar-frames", in: fields)
+                ? controller.workspaceBarManager.visibleBarFrames(on: monitor.id).map(IPCRect.init) : nil,
+            reservedInsets: IPCQuerySelection.include("reserved-insets", in: fields)
+                ? controller.workspaceBarReservedInsets(for: monitor).ipcInsets : nil
         )
     }
 

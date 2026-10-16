@@ -13,12 +13,24 @@ from pathlib import Path
 
 ROOT = Path(__file__).resolve().parents[1]
 CATALOGS = ROOT / "Sources/OmniWM/Resources"
+SHELL_WIDGETS = (ROOT / "Sources/OmniWM/ShellDefault", ROOT / "Sources/OmniWM/ShellStyles")
 FORMAT = re.compile(
     r"%(?:(\d+)\$)?[-+#0 ']*(?:\d+|\*)?(?:\.(?:\d+|\*))?"
     r"(hh|ll|h|l|q|z|t|j|L)?([@diuoxXfFeEgGaAcCsSp])"
 )
 SUBSTITUTION = re.compile(r"%(?:(\d+)\$)?#@([A-Za-z_][A-Za-z_0-9]*)@")
-INFO_KEYS = ("NSMicrophoneUsageDescription", "NSScreenCaptureUsageDescription")
+INFO_KEYS = (
+    "NSAppleEventsUsageDescription",
+    "NSAudioCaptureUsageDescription",
+    "NSBluetoothAlwaysUsageDescription",
+    "NSCalendarsFullAccessUsageDescription",
+    "NSLocationUsageDescription",
+    "NSLocationWhenInUseUsageDescription",
+    "NSMicrophoneUsageDescription",
+    "NSScreenCaptureUsageDescription",
+)
+CATALOG_NAMES = ("Localizable", "Commands", "InfoPlist", "Shell")
+SHELL_KEY = re.compile(r'omniwm\.l10n\(\s*"((?:[^"\\]|\\.)*)"')
 PLURAL_CATEGORIES = {
     "ar": {"zero", "one", "two", "few", "many", "other"},
     "da": {"one", "other"},
@@ -170,11 +182,29 @@ def validate_catalog_data(data, label):
             raise ValueError(f"{label}: {key!r}: {error}") from error
 
 
-def validate_catalogs(catalog_dir=CATALOGS, info_plist=ROOT / "Info.plist"):
-    for name in ("Localizable", "Commands", "InfoPlist"):
+def validate_shell_usage(strings, folders):
+    used = set()
+    for widget in sorted(widget for folder in folders for widget in folder.rglob("*.luau")):
+        used.update(SHELL_KEY.findall(widget.read_text()))
+    missing = sorted(used - strings.keys())
+    if missing:
+        raise ValueError(f"Shell.xcstrings: bundled widgets use missing keys {missing}")
+    unused = sorted(strings.keys() - used)
+    if unused:
+        raise ValueError(f"Shell.xcstrings: keys no bundled widget uses {unused}")
+    plural = sorted(key for key, entry in strings.items()
+                    if any(has_plural(node) for node in entry.get("localizations", {}).values()))
+    if plural:
+        raise ValueError(f"Shell.xcstrings: plural variations are not supported {plural}")
+
+
+def validate_catalogs(catalog_dir=CATALOGS, info_plist=ROOT / "Info.plist", widgets=SHELL_WIDGETS):
+    for name in CATALOG_NAMES:
         path = catalog_dir / f"{name}.xcstrings"
         data = json.loads(path.read_text())
         validate_catalog_data(data, path.name)
+        if name == "Shell":
+            validate_shell_usage(data["strings"], widgets)
         if name == "InfoPlist":
             info = plistlib.loads(info_plist.read_bytes())
             for key in INFO_KEYS:
@@ -229,7 +259,7 @@ def translation_error(node, plural_categories):
 
 def validate_locale_completeness(catalog_dir, languages):
     problems = []
-    for name in ("Localizable", "Commands", "InfoPlist"):
+    for name in CATALOG_NAMES:
         strings = json.loads((catalog_dir / f"{name}.xcstrings").read_text())["strings"]
         for language in languages:
             if language not in PLURAL_CATEGORIES:
@@ -376,7 +406,7 @@ def main():
             if not args.locales:
                 parser.error("completeness requires --locales LOCALE [LOCALE ...]")
             validate_locale_completeness(args.catalog_dir, args.locales)
-            print(f"Complete translations for {', '.join(args.locales)} in all three catalogs")
+            print(f"Complete translations for {', '.join(args.locales)} in all catalogs")
         elif args.bundle and args.app:
             package(args.bundle, args.app)
         else:

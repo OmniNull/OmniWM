@@ -73,7 +73,6 @@ extension WMController {
     ) -> Bool {
         guard canFocusWindow(pid: pid, windowId: windowId) else { return false }
         MainThreadAXSpanTrace.measure(.fronting, pid: pid, windowId: windowId) {
-            windowFocusOperations.activateApp(pid)
             windowFocusOperations.focusSpecificWindow(pid, UInt32(windowId), axRef.element)
             windowFocusOperations.raiseWindow(axRef.element)
         }

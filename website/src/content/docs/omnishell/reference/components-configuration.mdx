@@ -1,0 +1,196 @@
+---
+title: Components and configuration
+description: Component manifests, lifecycle, views, retained state, activity, catalog schemas, and asynchronous configuration actions.
+sidebar:
+  order: 5
+---
+
+import LuauDeclaration from '../../../../components/docs/LuauDeclaration.astro';
+
+:::note[Unreleased]
+OmniShell and this API are available when building from `main`.
+:::
+
+A component is a reusable package with declared views and options. An island root mounts configured instances; the root owns navigation, regions, and expansion policy. Follow [Build a Dynamic Island](/omnishell/guides/dynamic-island/) for a complete package and [island configuration](/omnishell/configuration/islands-components/) for placement.
+
+## Packages and manifests
+
+Configure instances in the selected profile's `shell.toml`, or override the entire list under `[[profiles.lake.island.components]]` in your top-level `shell.toml`:
+
+```toml
+[[island.components]]
+id = "london"
+widget = "world-clock"
+zone = "Europe/London"
+label = "London"
+
+[[island.components]]
+id = "tokyo"
+widget = "world-clock"
+zone = "Asia/Tokyo"
+label = "Tokyo"
+```
+
+Each `id` has its own validated options and shared `instance.state`; `ctx.state` is separate for each display and placement. Disabling an instance runs its `deinit` hook. Editing options calls `options(instance, previous)` without restarting the root. Up to 64 configured instances share the root's VM.
+
+Install components in `shell/widgets/<name>/` with two files. `component.toml` describes the component without running code:
+
+```toml
+title = "My clock"
+icon = "clock"
+views = ["compact", "expanded"]
+
+[options.zone]
+type = "string"
+default = "UTC"
+maxLength = 128
+```
+
+`component.luau` returns views and optional `init`, `options`, `deinit` and `activity` functions:
+
+```lua
+return {
+    views = {
+        compact = function(ctx)
+            return ui.text{ text = ctx.format.date(ctx.data.seconds, "jmm", ctx.instance.options.zone) or "—" }
+        end,
+        expanded = function(ctx)
+            return ui.text{ text = ctx.instance.options.zone, size = 24 }
+        end,
+    },
+    activity = function(ctx)
+        return { priority = 1, label = ctx.instance.options.zone }
+    end,
+}
+```
+
+The root uses `ctx.data.components` to discover configured instances, `omniwm.components.activity(id)` to read their activity, and `ui.component{ id = "tokyo", view = "expanded", w = 240, props = { density = "compact" } }` to compose a view. Views can have any name. The root chooses placement, navigation and promotion policy; native code does not assign meanings to those names.
+
+
+A widget’s `settings.toml` declares root/bar settings. A component’s `component.toml` declares metadata, views, and options. `component.luau` returns the component definition; it does not replace a root’s `init.luau`.
+
+## Lifecycle hooks
+
+| Hook | Contract |
+|---|---|
+| `init(instance)` | Initialize one configured instance; its store has loaded first. Shared across displays. |
+| `options(instance, previous)` | React to changed validated options without restarting the root. `previous` contains the earlier option values. |
+| `deinit(instance)` | Retire an instance on disable/removal/reload; its services are cancelled and durable writes are flushed. |
+| `activity(ctx)` | Return `ComponentActivity` for root policy independently of visible views. |
+| `views[name](ctx)` | Construct one view with per-display/placement `ctx.state` and shared `ctx.instance.state`. |
+| `receive(instance, event)` | Handle ordered events from an explicitly enabled [provider](/omnishell/reference/providers/). |
+
+Use `instance.state` for shared transient integration state and `ctx.state` for local presentation. Save explicitly through [durable storage](/omnishell/reference/services/#durable-state). Activity priority, labels, views, and alert data are interpreted by the root; native code does not prescribe promotion policy.
+
+<LuauDeclaration name="ComponentInstance" />
+
+<LuauDeclaration name="ComponentActivity" />
+
+<LuauDeclaration name="ComponentInfo" />
+
+<LuauDeclaration name="ComponentValue" />
+
+<LuauDeclaration name="ComponentOption" />
+
+## Mounting a view
+
+<LuauDeclaration name="ui.component" />
+
+<LuauDeclaration name="ComponentProps" />
+
+## Catalog and configuration actions
+
+`ctx.data.catalog` is an immutable array of installed component metadata. Each entry has `widget`, `title`, `icon`, `views`, `options`, `source`, `overrides` and an optional `error`. `source` identifies the effective folder; `overrides` lists lower-precedence copies. Broken packages remain visible with a diagnostic and cannot be added. Reading the catalog does not execute component source. Catalog and root-schema snapshots are bounded to 4 MiB each; excessive metadata produces a visible configuration error. Every `ctx.data.components` entry includes its effective `options`, even when that instance is disabled.
+
+Root handlers can use these asynchronous public actions:
+
+```lua
+omniwm.components.add("world-clock", { zone = "Asia/Tokyo" }, function(result)
+    if not result.ok then omniwm.log(result.error) end
+end)
+omniwm.components.move("tokyo", 1)
+omniwm.components.enable("tokyo", true)
+omniwm.components.set("tokyo", "seconds", false)
+omniwm.components.remove("tokyo")
+omniwm.config.set("hoverPreview", true)
+```
+
+`add` assigns a stable new instance ID and returns it as `result.id` on success. Move indexes are one-based final positions. Each call returns a service handle, or `nil, error` if admission fails. The optional callback receives `{ok, id?, revision?, error?}`; persistence failure is reported as an error. Configuration actions share the normal bounded async ledger. The host also bounds queued and pending file writes to 256 operations independently of callback cancellation; excess work receives an overload error before changing configuration. Cancellation retires callback delivery; an accepted change already applied in memory still completes its file write.
+
+All values must satisfy the package's declared option schema. `id`, `widget`, `enabled`, `provider` and capability names are reserved option keys. Configuration actions cannot grant provider access or widen capabilities; enabling an already configured instance preserves its existing grants. Existing grants are preserved when reordering or changing ordinary options. File writes run off the render executor, preserve unrelated current user configuration, and do not reload the root VM. The first component-list write copies the complete effective list into `[profiles.<profile>.island]` because profile arrays replace lower layers.
+
+`omniwm.config.set` writes only the calling root's declared settings. A root exposes its editable schema through `widgets/<root>/settings.toml`:
+
+```toml
+[options.hoverPreview]
+type = "boolean"
+title = "Hover preview"
+default = true
+
+[options.width]
+type = "number"
+title = "Expanded width"
+default = 520
+min = 380
+max = 640
+step = 20
+```
+
+The option types and validation rules are the same as component options. The host publishes effective values in `ctx.data.settings` and schema metadata in `ctx.data.settingsSchema`; they update together on configuration or source changes. A missing root schema means there are no declared root settings to write. A replacement profile can render these controls however it chooses while retaining the same component integrations and configuration APIs. Native Settings still provides the Island toggle, profile selection and shell folder access if a custom root cannot render.
+
+A component view receives `ctx.view.name`, explicit parent size offers `ctx.view.w/h`, and value-only `ctx.view.props` (acyclic, depth at most 64, encoded size at most 64 KiB). Invalid props and ordinary component errors fail that component boundary.
+
+Views and activities are retained independently. Each runs only when its selected data, owner state or offered size/props change, with its own 8 ms execution budget. An activity result is compared by value before invalidating its readers. A failed view keeps its last accepted output; a failed activity keeps its last accepted value. The package yields between units, and native code assembles their cached trees. Components still share the VM's 32 MiB memory limit and the configuration/load budget.
+
+`ui.component` declares a mount; it does not execute the component inside the root's call. Read updated component error/status metadata on later root updates. Repeated mounts of the same instance and view on one surface must offer equal size and props. Use separate configured instance IDs when they need different inputs or state. Passing a fresh equal props table reuses the view; changing a reused table's values invalidates it.
+
+Unchanged views keep their handlers while other components publish. Each unit retains four changed handler revisions, and removal or reload invalidates that unit's old handlers. Hidden islands retain their views without rendering; activity dependencies continue updating in the background. Static packages receive no feed wakeup for data they do not use.
+
+Option schemas support `boolean`, `number` (`min`, `max`, `step`), `string` (`maxLength`), `choice` (`choices`) and `strings`. Identity, provider and capability fields are reserved. Native provider execution is not enabled merely by installing a component.
+
+<LuauDeclaration name="ComponentCatalogEntry" />
+
+<LuauDeclaration name="ConfigResult" />
+
+<LuauDeclaration name="ConfigCallback" />
+
+<LuauDeclaration name="omniwm.components.activity" />
+
+<LuauDeclaration name="omniwm.components.add" />
+
+<LuauDeclaration name="omniwm.components.remove" />
+
+<LuauDeclaration name="omniwm.components.move" />
+
+<LuauDeclaration name="omniwm.components.enable" />
+
+<LuauDeclaration name="omniwm.components.set" />
+
+<LuauDeclaration name="omniwm.config.set" />
+
+<LuauDeclaration name="omniwm.components" />
+
+<LuauDeclaration name="omniwm.config" />
+
+## Keeping integrations when replacing views
+
+`lake` separates integrations in `lib/lake/services/` from component views. A custom component can reuse the media service, or extend the stock definition:
+
+```lua
+local lake = require("../lib/lake")
+local stock = require("@component/media")
+
+return lake.extend(stock, {
+    views = {
+        compact = function(ctx)
+            return ui.text{ text = ctx.select("media", "title") or "Nothing playing" }
+        end,
+    },
+})
+```
+
+Declare `uses = ["media"]` in the custom manifest so the stock definition loads even when no instance directly selects it. Components resolve the root profile's library overrides, including top-level `shell/lib/` files. The source limit is explicit: 64 files for ordinary widgets and 512 for roots, including libraries and components; exceeding it reports a load error.
+
+Editing a component reloads that definition and its declared `uses` dependents, cancels their services, flushes their stores and resets their runtime state. Other component instances and root state remain intact. Editing the root or a shared library replaces the root VM. A root that directly retains a component export through `require("@component/name")` also needs a full reload when that export changes; composing it through `ui.component` allows component-scoped reload.
+
+Use `omniwmctl shell eject <widget>` to copy a managed profile's widget or component into the persistent top-level override folder. `omniwmctl shell eject lib/lake/policy.luau` copies a library override. Bundled profile updates then leave these overrides in place.

@@ -11,6 +11,7 @@ struct BorderSettingsTab: View {
         Form {
             Section("Window Borders") {
                 Toggle("Enable Borders", isOn: Bindable(settings.borders).enabled)
+                    .id("Enable Borders")
                     .onChange(of: settings.borders.enabled) { _, _ in
                         controller.borderSettingsChanged()
                     }
@@ -26,11 +27,13 @@ struct BorderSettingsTab: View {
                         ),
                         valueWidth: 56
                     )
+                    .id("Border Width")
                     .onChange(of: settings.borders.width) { _, _ in
                         controller.borderSettingsChanged()
                     }
 
                     ColorPicker("Border Color", selection: colorBinding, supportsOpacity: true)
+                        .id("Border Color")
                     BorderColorOverrideRow(
                         title: String(localized: "Dark Mode Border Color"),
                         color: darkColorBinding,
@@ -39,14 +42,18 @@ struct BorderSettingsTab: View {
                     )
 
                     Toggle("Gradient Border", isOn: gradientEnabledBinding)
+                        .id("Gradient Border")
                     if settings.borders.gradient?.enabled == true {
                         Picker("Gradient Direction", selection: gradientDirectionBinding) {
                             ForEach(BorderGradientDirection.allCases, id: \.self) { direction in
                                 Text(direction.label).tag(direction)
                             }
                         }
+                        .id("Gradient Direction")
                         ColorPicker("Gradient Start", selection: gradientStartBinding, supportsOpacity: true)
+                            .id("Gradient Start")
                         ColorPicker("Gradient End", selection: gradientEndBinding, supportsOpacity: true)
+                            .id("Gradient End")
                         BorderColorOverrideRow(
                             title: String(localized: "Dark Mode Gradient Start"),
                             color: gradientDarkColorBinding(\.start),
@@ -62,6 +69,7 @@ struct BorderSettingsTab: View {
                     }
 
                     Toggle("Glow", isOn: glowEnabledBinding)
+                        .id("Glow")
                     if settings.borders.glow?.enabled == true {
                         SettingsSliderRow(
                             label: String(localized: "Glow Radius"),
@@ -73,6 +81,7 @@ struct BorderSettingsTab: View {
                             ),
                             valueWidth: 56
                         )
+                        .id("Glow Radius")
                         SettingsSliderRow(
                             label: String(localized: "Glow Opacity"),
                             value: glowOpacityBinding,
@@ -82,6 +91,7 @@ struct BorderSettingsTab: View {
                                 .formatted(.percent.precision(.fractionLength(0))),
                             valueWidth: 56
                         )
+                        .id("Glow Opacity")
                         BorderColorOverrideRow(
                             title: String(localized: "Glow Color"),
                             color: glowColorBinding(\.color),
@@ -98,6 +108,7 @@ struct BorderSettingsTab: View {
                     }
                 }
             }
+            .id("Window Borders")
 
             Section("About") {
                 Text("Borders are displayed around the currently focused window.")
@@ -114,6 +125,7 @@ struct BorderSettingsTab: View {
                 .font(.footnote)
                 .foregroundColor(.secondary)
             }
+            .id("About")
         }
         .formStyle(.grouped)
     }
@@ -298,11 +310,13 @@ private struct BorderColorOverrideRow: View {
                 ColorPicker(title, selection: colorBinding, supportsOpacity: true)
                     .labelsHidden()
                 Button("Reset") { color = nil }
+                    .id("Reset")
                     .accessibilityLabel("Reset \(title)")
             } else {
                 Text(inheritance)
                     .foregroundStyle(.secondary)
                 Button("Customize") { color = initialColor }
+                    .id("Customize")
                     .accessibilityLabel("Customize \(title)")
             }
         }

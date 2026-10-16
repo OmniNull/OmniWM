@@ -8,7 +8,7 @@ import OmniWMIPC
 
 @MainActor @Observable
 final class SettingsStore {
-    private nonisolated static let defaultExport = SettingsExport.defaults()
+    nonisolated static let defaultExport = SettingsExport.defaults()
     let focus = FocusSettings()
     let pointer = PointerSettings()
     let monitors = MonitorConfigurationSettings()
@@ -17,12 +17,13 @@ final class SettingsStore {
     let dwindle: DwindlePreferences
     let gestures = GestureSettings()
     let workspaceBar = WorkspaceBarSettings()
+    let island = IslandSettings()
     let workspaces = WorkspaceSettings()
 
     private let persistence: SettingsFilePersistence
     private let runtimeState: RuntimeStateStore
     private let autosaveEnabled: Bool
-    private var isApplyingExport = false
+    private(set) var isApplyingExport = false
     private var isApplyingRuntimeState = false
     @ObservationIgnored private var lastEffectiveTrackpadAvailability: Bool?
     @ObservationIgnored private(set) var layoutConfigurationRevision: UInt64 = 0
@@ -38,8 +39,9 @@ final class SettingsStore {
     var onConfigNoticeChanged: (@MainActor () -> Void)?
     var onTrackpadGestureAvailabilityChanged: (@MainActor (Bool) -> Void)?
     var onPointerSettingsChanged: (@MainActor () -> Void)?
-    var onWorkspaceHotkeysChanged: (@MainActor () -> Void)?
+    var onDynamicHotkeysChanged: (@MainActor () -> Void)?
     var liveWorkspaceNamesForHotkeys: (@MainActor () -> [String])?
+    var liveShellNamesForHotkeys: (@MainActor () -> [String])?
     private(set) var configNotice: SettingsConfigNotice?
 
     var hotkeysEnabled = SettingsStore.defaultExport.hotkeysEnabled {
@@ -240,16 +242,6 @@ final class SettingsStore {
         runtimeState.windowRestoreCatalog = catalog.entries.isEmpty ? nil : catalog
     }
 
-    var issueDraft: IssueDraft? {
-        get { runtimeState.issueDraft }
-        set { runtimeState.issueDraft = newValue }
-    }
-
-    var hasSeenIssueWalkthrough: Bool {
-        get { runtimeState.hasSeenIssueWalkthrough }
-        set { runtimeState.hasSeenIssueWalkthrough = newValue }
-    }
-
     var monitorSetupStatus = RuntimeStateStore.defaultMonitorSetupStatus {
         didSet { runtimeState.monitorSetupStatus = monitorSetupStatus }
     }
@@ -285,6 +277,7 @@ final class SettingsStore {
         }
         workspaceBar.onChange = { [weak self] in self?.layoutConfigurationDidChange() }
         workspaceBar.onNotificationBadgesChange = { [weak self] in self?.scheduleSave() }
+        island.onChange = { [weak self] in self?.scheduleSave() }
         workspaces.onChange = { [weak self] in self?.workspacesDidChange() }
         borders.onChange = { [weak self] in self?.layoutConfigurationDidChange() }
         overview.onChange = { [weak self] in
@@ -367,6 +360,23 @@ final class SettingsStore {
 }
 
 extension SettingsStore {
+    var issueDraft: IssueDraft? {
+        get { runtimeState.issueDraft }
+        set { runtimeState.issueDraft = newValue }
+    }
+
+    var hasSeenIssueWalkthrough: Bool {
+        get { runtimeState.hasSeenIssueWalkthrough }
+        set { runtimeState.hasSeenIssueWalkthrough = newValue }
+    }
+
+    var appVolumes: [String: AppVolumeSetting] {
+        get { runtimeState.appVolumes }
+        set { runtimeState.appVolumes = newValue }
+    }
+}
+
+extension SettingsStore {
     private func layoutConfigurationDidChange() {
         layoutConfigurationRevision &+= 1
         scheduleSave()
@@ -418,10 +428,11 @@ extension SettingsStore {
 
         hyperKeyModifiersStorage = export.hyperKeyModifiers
         KeySymbolMapper.setHyperKeyModifiers(export.hyperKeyModifiers)
-        hotkeyBindings = withWorkspaceNumberHotkeys(export.hotkeyBindings)
+        hotkeyBindings = withDynamicHotkeys(export.hotkeyBindings)
         systemHyperTrigger = export.systemHyperTrigger
 
         workspaceBar.applyIdentity(export.workspaceBar)
+        island.apply(export.island)
         scratchpadLabels = SettingsStore.normalizedScratchpadLabels(export.scratchpads.labels)
         workspaceBar.applyAppearance(export.workspaceBar, monitorOverrides: export.monitorBarSettings)
 
@@ -433,6 +444,10 @@ extension SettingsStore {
         dwindle.monitorOverrides = export.monitorDwindleSettings
         gaps.monitorOverrides = export.monitorGapSettings.filter(\.hasOverrides)
 
+        applyServiceSettings(export)
+    }
+
+    private func applyServiceSettings(_ export: SettingsExport) {
         preventSleepEnabled = export.preventSleepEnabled
         updateChecksEnabled = export.updateChecksEnabled
         ipcEnabled = export.ipcEnabled
@@ -461,35 +476,5 @@ extension SettingsStore {
         guard available != lastEffectiveTrackpadAvailability else { return }
         lastEffectiveTrackpadAvailability = available
         onTrackpadGestureAvailabilityChanged?(available)
-    }
-}
-
-extension SettingsStore {
-    func resetHotkeysToDefaults() {
-        hyperKeyModifiers = SettingsStore.defaultExport.hyperKeyModifiers
-        hotkeyBindings = withWorkspaceNumberHotkeys(HotkeyBindingRegistry.defaults())
-        systemHyperTrigger = SettingsStore.defaultExport.systemHyperTrigger
-    }
-
-    private func withWorkspaceNumberHotkeys(_ bindings: [HotkeyBinding]) -> [HotkeyBinding] {
-        HotkeyBindingRegistry.reconcilingWorkspaceNumberBindings(
-            bindings,
-            workspaceNames: workspaces.configuredNames() + (liveWorkspaceNamesForHotkeys?() ?? [])
-        )
-    }
-
-    private func workspacesDidChange() {
-        reconcileWorkspaceNumberHotkeys()
-        scheduleSave()
-    }
-
-    func reconcileWorkspaceNumberHotkeys() {
-        let reconciled = withWorkspaceNumberHotkeys(hotkeyBindings)
-        if reconciled != hotkeyBindings {
-            hotkeyBindings = reconciled
-            if !isApplyingExport {
-                onWorkspaceHotkeysChanged?()
-            }
-        }
     }
 }

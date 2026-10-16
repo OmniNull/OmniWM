@@ -86,7 +86,7 @@ final class IPCConnectionConcurrencyTests: XCTestCase {
         )
         try peerHandle.close()
 
-        await connection.process(String(decoding: line, as: UTF8.self))
+        await connection.process(line)
 
         let isClosed = await connection.isClosed
         let hasEventTasks = await !connection.eventTasks.isEmpty

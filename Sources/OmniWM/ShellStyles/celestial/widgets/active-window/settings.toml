@@ -1,0 +1,10 @@
+# SPDX-License-Identifier: GPL-2.0-only
+# Copyright (C) 2026 BarutSRB — https://github.com/OmniNull/OmniWM
+
+[options.maxWidth]
+type = "number"
+title = "Maximum title width"
+default = 320
+min = 40
+max = 1000
+step = 10

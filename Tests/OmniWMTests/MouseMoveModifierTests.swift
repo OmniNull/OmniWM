@@ -267,11 +267,11 @@ final class MouseMoveModifierTests: NiriInteractionTestCase {
     }
 
     @MainActor
-    func testDwindleShiftInsertModeAndUnmodifiedClickDoNotStartDrag() throws {
+    func testDwindleUnmodifiedAndUnconfiguredModifiersDoNotStartDrag() throws {
         let fixture = try makeDwindleFixture(pid: 1_202)
         let worldSeq = fixture.controller.workspaceManager.worldSeq
 
-        for modifiers in [CGEventFlags.maskShift.union(.maskControl), CGEventFlags(), .maskAlternate] {
+        for modifiers in [CGEventFlags.maskShift, CGEventFlags(), .maskAlternate] {
             XCTAssertFalse(fixture.handler.dispatchMouseDown(at: fixture.firstFrame.center, modifiers: modifiers))
             XCTAssertFalse(fixture.handler.state.isMoving)
             XCTAssertNil(fixture.handler.state.activeInteractionButton)
@@ -279,6 +279,61 @@ final class MouseMoveModifierTests: NiriInteractionTestCase {
         }
         XCTAssertNil(fixture.engine.interactiveResize)
         XCTAssertEqual(fixture.controller.workspaceManager.worldSeq, worldSeq)
+    }
+
+    @MainActor
+    func testDwindleConfiguredModifierWithShiftInsertsOnRelease() throws {
+        let directions: [Direction] = [.left, .right, .up, .down]
+        for (index, direction) in directions.enumerated() {
+            let fixture = try makeDwindleFixture(pid: pid_t(1_210 + index))
+            let manager = fixture.controller.workspaceManager
+            let worldSeq = manager.worldSeq
+            let target = fixture.secondFrame
+            let point: CGPoint = switch direction {
+            case .left: CGPoint(x: target.minX + 1, y: target.midY)
+            case .right: CGPoint(x: target.maxX - 1, y: target.midY)
+            case .up: CGPoint(x: target.midX, y: target.maxY - 1)
+            case .down: CGPoint(x: target.midX, y: target.minY + 1)
+            }
+            XCTAssertFalse(fixture.handler.dispatchMouseDown(
+                at: fixture.firstFrame.center, modifiers: [.maskControl, .maskShift]
+            ))
+            XCTAssertTrue(fixture.engine.interactiveMove?.isInsertMode == true)
+            fixture.handler.dispatchMouseDragged(at: point)
+            XCTAssertEqual(fixture.engine.interactiveMove?.targetDirection, direction)
+            XCTAssertEqual(manager.worldSeq, worldSeq)
+
+            fixture.handler.dispatchMouseUp(at: point)
+
+            XCTAssertGreaterThan(manager.worldSeq, worldSeq)
+            XCTAssertNil(fixture.engine.interactiveMove)
+            XCTAssertFalse(fixture.handler.state.isMoving)
+            fixture.relayout()
+            let first = try XCTUnwrap(fixture.engine.findNode(for: fixture.first, in: fixture.workspaceId))
+            let second = try XCTUnwrap(fixture.engine.findNode(for: fixture.second, in: fixture.workspaceId))
+            XCTAssertTrue(first.parent === second.parent)
+            XCTAssertEqual(first.parent?.splitOrientation, direction.dwindleOrientation)
+            XCTAssertEqual(
+                first.isFirstChild(of: try XCTUnwrap(first.parent)),
+                direction == .left || direction == .down
+            )
+        }
+    }
+
+    @MainActor
+    func testDwindleInsertionUsesTheReleaseLocation() throws {
+        let fixture = try makeDwindleFixture(pid: 1_220)
+        let target = fixture.secondFrame
+        XCTAssertFalse(fixture.handler.dispatchMouseDown(
+            at: fixture.firstFrame.center, modifiers: [.maskControl, .maskShift]
+        ))
+        fixture.handler.dispatchMouseDragged(at: CGPoint(x: target.minX + 1, y: target.midY))
+        XCTAssertEqual(fixture.engine.interactiveMove?.targetDirection, .left)
+        fixture.handler.dispatchMouseUp(at: CGPoint(x: target.midX, y: target.minY + 1))
+
+        let source = try XCTUnwrap(fixture.engine.findNode(for: fixture.first, in: fixture.workspaceId))
+        XCTAssertEqual(source.parent?.splitOrientation, .vertical)
+        XCTAssertTrue(source.isFirstChild(of: try XCTUnwrap(source.parent)))
     }
 
     @MainActor

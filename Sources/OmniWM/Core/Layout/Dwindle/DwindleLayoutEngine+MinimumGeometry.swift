@@ -126,11 +126,13 @@ extension DwindleLayoutEngine {
         return minSize
     }
 
-    func tilingBoundaryEdges(of node: DwindleNode) -> ResizeEdge {
+    func tilingBoundaryEdges(of node: DwindleNode, excluding excludedTokens: Set<WindowToken>) -> ResizeEdge {
         var edges = ResizeEdge.all
         var child = node
         while let parent = child.parent {
-            if case let .split(orientation, _) = parent.kind {
+            if case let .split(orientation, _) = parent.kind,
+               splitHasTwoVisibleBranches(parent, excluding: excludedTokens)
+            {
                 switch orientation {
                 case .horizontal:
                     edges.subtract(child.isFirstChild(of: parent) ? .right : .left)

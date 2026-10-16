@@ -1,0 +1,107 @@
+---
+title: Providers
+description: Opt-in native component processes, JSON Lines protocol, ordered actions, lifecycle bounds, and file attachments.
+sidebar:
+  order: 8
+---
+
+import LuauDeclaration from '../../../../components/docs/LuauDeclaration.astro';
+
+:::note[Unreleased]
+OmniShell and this API are available when building from `main`.
+:::
+
+Providers extend integrations that the built-in Luau services do not cover. Installing a component does not enable execution; the user must explicitly opt in through their own configuration. Prefer the [Luau HTTP and timer APIs](/omnishell/reference/services/) when they cover the integration.
+
+## Optional component providers
+
+A component can use a separate program for integrations that the Luau APIs do not cover. One process belongs to each enabled, explicitly opted-in component instance, regardless of how many displays render it. The process exchanges JSON Lines over stdin/stdout; rendering and animations stay in OmniShell.
+
+Declare the executable and capability in `component.toml`:
+
+```toml
+capabilities = { provider = true }
+
+[provider]
+command = ["provider.pl"]
+```
+
+The first argument must name an executable inside the component folder. Give scripts an executable bit and a valid shebang. Arguments are passed directly, without a shell. In your own `shell.toml`, set `provider = true` on the matching configured instance; a bundled profile or the Luau settings UI cannot grant execution. Disabling the instance stops its process. Providers are native programs with your account's access, not sandboxed Luau; macOS privacy authorization is not guaranteed to transfer from OmniWM.
+
+The program receives `OMNIWM_PROVIDER_PROTOCOL=1`, `OMNIWM_WIDGET`, `OMNIWM_WIDGET_DIR`, `OMNIWM_INSTANCE` and JSON `OMNIWM_PROVIDER_OPTIONS`. Changing options replaces the process after actual exit and pipe cleanup. Shutdown closes stdin, sends SIGTERM and, if it still has not exited after two seconds, sends SIGKILL. A crashed process is not restarted automatically; explicitly disable and re-enable its provider to start it again.
+
+```lua
+return {
+    receive = function(instance, event)
+        if event.name == "completed" then
+            instance.state.message = event.value
+        end
+    end,
+    views = {
+        compact = function(ctx)
+            local provider = ctx.instance.provider
+            return ui.text{ text = provider.state.summary or provider.status }
+        end,
+    },
+}
+```
+
+`instance.provider` is immutable and contains `status`, `state`, optional `error` and optional `exitCode`. Status is `stopped`, `starting`, `running`, `exited` or `failed`. State is shared across that instance's displays; `receive(instance, event)` runs once per event, with `{kind="event", name, value}`. It has the same instance-owned service and command access as lifecycle callbacks.
+
+Send an ordered action from a component callback:
+
+```lua
+local handle, err = omniwm.provider.send("refresh", { source = "manual" }, nil, function(result)
+    instance.state.message = result.ok and result.value or result.error
+end)
+if not handle then instance.state.message = err end
+```
+
+The callback is optional. The returned service handle supports `:cancel()`. Admission errors are synchronous; accepted requests keep the existing service reservation until result delivery or cancellation. Roots cannot send provider actions. Results arrive at their position among provider events, after the latest state for that process has been installed. Cancellation suppresses the callback and unsent work; it cannot undo an action already received by a native program.
+
+Protocol frames are JSON arrays, with one newline per frame:
+
+```json
+["state", "summary", "Ready"]
+["event", "completed", {"count": 3}]
+["action", "r42", "refresh", {"source": "manual"}]
+["result", "r42", true, {"count": 3}]
+["result", "r43", false, "Service unavailable"]
+```
+
+Only OmniShell sends `action`; providers send the other frames. Echo the request ID string exactly. Topic/event/action names begin with an ASCII letter and contain at most 64 ASCII letters, digits, underscores, periods or hyphens. A frame is at most 64 KiB including its newline. State keeps only the latest raw value for each of at most 64 topics, with a combined 1 MiB bound; `null` deletes a topic. State consumption is paced before JSON decoding. Invalid topic JSON preserves its prior valid value and reports a provider error.
+
+Events and results remain ordered. The package admits at most 256 queued events; overflow fails that provider while preserving already accepted replies. Results use reserved capacity, so event traffic cannot displace them. Outgoing unwritten actions share a 1 MiB limit and use nonblocking pipes. Stderr is drained with bounded diagnostics. None of these paths waits on the UI thread or advances animations.
+
+The optional **Converter** component is installed but unconfigured. Add it through the catalog, then explicitly enable its provider in your own configuration to convert dropped images. Its provider uses macOS image tools; returned outputs are ordinary Resources.
+
+<LuauDeclaration name="omniwm.provider.send" />
+
+<LuauDeclaration name="ProviderState" />
+
+<LuauDeclaration name="ProviderResult" />
+
+<LuauDeclaration name="ProviderEvent" />
+
+<LuauDeclaration name="omniwm.provider" />
+
+## Provider file attachments
+
+Send up to 32 Resources through the optional file envelope:
+
+```lua
+local request, err = omniwm.provider.send("convert", {format = "png"},
+    {files = {resource}}, function(result)
+        if result.ok then instance.state.outputs = result.files
+        else instance.state.error = result.error end
+    end)
+```
+
+A file-enabled component still requires explicit user `provider = true`. Inputs wait for readiness on a utility queue; a failed promise returns an error, and cancellation prevents unsent work. Data-only actions keep the four-field envelope. File actions add a fifth object:
+
+```json
+["action", "r42", "convert", {"format":"png"}, {"files":[{"name":"Input.jpg","path":"/host-resolved/Input.jpg"}],"outputDirectory":"/host-created/action"}]
+["result", "r42", true, {"count":1}, {"files":[{"name":"Output.png","path":"Output.png"}]}]
+```
+
+The paths are available only to the explicitly enabled native program. Write outputs under that action's `outputDirectory` and return relative paths. The host validates the entire output list, rejects traversal/symlink escapes and missing files, and imports Resources before delivering the result. Late or cancelled results cannot publish resources to a replacement owner. Input pins and action directories remain until the process has actually finished using them; cancellation suppresses callbacks but cannot undo native side effects. Original input files are never deleted. Persist output Resources if they should survive owner reload or application restart.

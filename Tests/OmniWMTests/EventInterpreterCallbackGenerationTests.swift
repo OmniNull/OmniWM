@@ -39,6 +39,58 @@ final class EventInterpreterCallbackGenerationTests: XCTestCase {
     }
 
     @MainActor
+    func testTitleCallbackRefreshesManagedTitleForCurrentGeneration() throws {
+        let pid: pid_t = 701_004
+        let windowId = 801_004
+        let currentGeneration: UInt64 = 32
+        let controller = WindowAdmissionTestSupport.controller()
+        defer { stop(controller) }
+        let workspaceId = try XCTUnwrap(
+            controller.workspaceManager.workspaceId(for: "1", createIfMissing: true)
+        )
+        let token = WindowToken(pid: pid, windowId: windowId)
+        _ = WindowAdmissionTestSupport.track(token, in: workspaceId, controller: controller)
+        let frame = CGRect(x: 0, y: 0, width: 800, height: 600)
+        _ = controller.workspaceManager.setManagedReplacementMetadata(
+            ManagedReplacementMetadata(
+                bundleId: "com.omniwm.tests.title",
+                workspaceId: workspaceId,
+                mode: .tiling,
+                role: nil,
+                subrole: nil,
+                title: "Original",
+                windowLevel: 0,
+                parentWindowId: nil,
+                frame: frame
+            ),
+            for: token
+        )
+        controller.axEventHandler.windowInfoProvider = { id in
+            WindowServerInfo(id: id, pid: pid, level: 0, frame: frame, title: "Renamed")
+        }
+        let interpreter = EventInterpreter(
+            controller: controller,
+            callbackGenerationProvider: { candidatePID in
+                candidatePID == pid ? currentGeneration : nil
+            }
+        )
+
+        interpreter.handleIntakeEvent(stamped(.axWindow(.titleChanged(
+            pid: pid,
+            windowId: UInt32(windowId),
+            callbackGeneration: currentGeneration - 1
+        ))))
+        XCTAssertEqual(controller.workspaceManager.managedReplacementMetadata(for: token)?.title, "Original")
+
+        interpreter.handleIntakeEvent(stamped(.axWindow(.titleChanged(
+            pid: pid,
+            windowId: UInt32(windowId),
+            callbackGeneration: currentGeneration
+        ))))
+        XCTAssertEqual(controller.workspaceManager.managedReplacementMetadata(for: token)?.title, "Renamed")
+    }
+
+    @MainActor
     func testDestroyedWindowCallbackRequiresCurrentGeneration() throws {
         let pid: pid_t = 701_002
         let windowId = 801_002

@@ -8,6 +8,7 @@ enum SurfaceKind: String, CaseIterable, Hashable, Sendable {
     case border
     case parkingEdgeMask
     case workspaceBar
+    case shellIsland
     case overview
     case workspaceSwipe
     case nativeFullscreenPlaceholder
@@ -18,7 +19,6 @@ enum SurfaceKind: String, CaseIterable, Hashable, Sendable {
     case quake
     case launchOverlay
     case secureInputIndicator
-    case systemStats
     case hiddenBarPanel
     case statusPanel
 }
@@ -72,12 +72,13 @@ struct SurfaceSceneRuntimeSnapshot: Equatable, Sendable {
 final class SurfaceScene {
     struct SurfaceNode {
         let id: String
-        let policy: SurfacePolicy
+        var policy: SurfacePolicy
         weak var window: NSWindow?
         var windowObjectIdentifier: ObjectIdentifier?
         var windowNumber: Int?
         var frameProvider: (@MainActor () -> CGRect?)?
         var visibilityProvider: (@MainActor () -> Bool)?
+        var regionProvider: (@MainActor () -> [CGRect])?
     }
 
     private var nodesByID: [String: SurfaceNode] = [:]
@@ -123,6 +124,22 @@ final class SurfaceScene {
         recordRuntimeHighWater()
     }
 
+    @discardableResult
+    func setManagedFocusRecoverySuppressed(_ suppressed: Bool, for window: NSWindow) -> Bool? {
+        guard let id = windowIDByObject[ObjectIdentifier(window)], var node = nodesByID[id],
+              node.window === window else { return nil }
+        let previous = node.policy.suppressesManagedFocusRecovery
+        guard previous != suppressed else { return previous }
+        node.policy = SurfacePolicy(
+            kind: node.policy.kind,
+            hitTestPolicy: node.policy.hitTestPolicy,
+            capturePolicy: node.policy.capturePolicy,
+            suppressesManagedFocusRecovery: suppressed
+        )
+        nodesByID[id] = node
+        return previous
+    }
+
     func unregister(window: NSWindow) {
         unregister(id: windowIDByObject[ObjectIdentifier(window)])
     }
@@ -143,52 +160,6 @@ final class SurfaceScene {
                 surfaceIDsByWindowNumber[windowNumber] = ids
             }
         }
-    }
-
-    func beginRuntimeCapture() {
-        runtimeHighWater = nodesByID.count
-        runtimeMetricsActive = true
-    }
-
-    func endRuntimeCapture() {
-        runtimeMetricsActive = false
-    }
-
-    func runtimeSnapshot() -> SurfaceSceneRuntimeSnapshot {
-        let nodeIds = Set(nodesByID.keys)
-        let numberReverseEntries = surfaceIDsByWindowNumber.values.reduce(0) { $0 + $1.count }
-        let live = nodesByID.values.count(where: {
-            $0.window != nil && $0.windowObjectIdentifier != nil
-        })
-        let dead = nodesByID.values.count(where: {
-            $0.window == nil && $0.windowObjectIdentifier != nil
-        })
-        let numberBacked = nodesByID.values.count(where: {
-            $0.windowObjectIdentifier == nil
-        })
-        var byKind: [SurfaceKind: Int] = [:]
-        for node in nodesByID.values {
-            byKind[node.policy.kind, default: 0] += 1
-        }
-        let orphanObjectEntries = windowIDByObject.values.count(where: { !nodeIds.contains($0) })
-        let orphanNumberEntries = surfaceIDsByWindowNumber.values.reduce(0) { count, ids in
-            count + ids.count(where: { !nodeIds.contains($0) })
-        }
-        return SurfaceSceneRuntimeSnapshot(
-            total: nodesByID.count,
-            live: live,
-            dead: dead,
-            numberBacked: numberBacked,
-            reverseEntries: windowIDByObject.count + numberReverseEntries,
-            orphanReverseEntries: orphanObjectEntries + orphanNumberEntries,
-            highWater: max(runtimeHighWater, nodesByID.count),
-            byKind: byKind
-        )
-    }
-
-    private func recordRuntimeHighWater() {
-        guard runtimeMetricsActive else { return }
-        runtimeHighWater = max(runtimeHighWater, nodesByID.count)
     }
 
     func contains(window: NSWindow?) -> Bool {
@@ -228,9 +199,10 @@ final class SurfaceScene {
         return true
     }
 
-    func containsInteractive(point: CGPoint) -> Bool {
+    func containsInteractive(point: CGPoint, excluding kind: SurfaceKind? = nil) -> Bool {
         nodesByID.values.contains { node in
-            guard node.policy.hitTestPolicy != .passthrough,
+            guard node.policy.kind != kind,
+                  node.policy.hitTestPolicy != .passthrough,
                   isVisible(node)
             else {
                 return false
@@ -247,7 +219,7 @@ final class SurfaceScene {
             case .passthrough:
                 break
             }
-            return resolvedFrame(for: node)?.contains(point) == true
+            return contains(point, in: node)
         }
     }
 
@@ -362,6 +334,16 @@ final class SurfaceScene {
         return node.window?.frame
     }
 
+    private func contains(_ point: CGPoint, in node: SurfaceNode) -> Bool {
+        if let regionProvider = node.regionProvider {
+            return regionProvider().contains { $0.contains(point) }
+        }
+        if node.policy.kind == .parkingEdgeMask {
+            return resolvedFrame(for: node).map { NSMouseInRect(point, $0, false) } == true
+        }
+        return resolvedFrame(for: node)?.contains(point) == true
+    }
+
     struct VisibleSurfaceInfo {
         let id: String
         let kind: SurfaceKind
@@ -393,7 +375,55 @@ final class SurfaceScene {
             else {
                 return false
             }
-            return resolvedFrame(for: node)?.contains(point) == true
+            return contains(point, in: node)
         }
+    }
+}
+
+extension SurfaceScene {
+    func beginRuntimeCapture() {
+        runtimeHighWater = nodesByID.count
+        runtimeMetricsActive = true
+    }
+
+    func endRuntimeCapture() {
+        runtimeMetricsActive = false
+    }
+
+    func runtimeSnapshot() -> SurfaceSceneRuntimeSnapshot {
+        let nodeIds = Set(nodesByID.keys)
+        let numberReverseEntries = surfaceIDsByWindowNumber.values.reduce(0) { $0 + $1.count }
+        let live = nodesByID.values.count(where: {
+            $0.window != nil && $0.windowObjectIdentifier != nil
+        })
+        let dead = nodesByID.values.count(where: {
+            $0.window == nil && $0.windowObjectIdentifier != nil
+        })
+        let numberBacked = nodesByID.values.count(where: {
+            $0.windowObjectIdentifier == nil
+        })
+        var byKind: [SurfaceKind: Int] = [:]
+        for node in nodesByID.values {
+            byKind[node.policy.kind, default: 0] += 1
+        }
+        let orphanObjectEntries = windowIDByObject.values.count(where: { !nodeIds.contains($0) })
+        let orphanNumberEntries = surfaceIDsByWindowNumber.values.reduce(0) { count, ids in
+            count + ids.count(where: { !nodeIds.contains($0) })
+        }
+        return SurfaceSceneRuntimeSnapshot(
+            total: nodesByID.count,
+            live: live,
+            dead: dead,
+            numberBacked: numberBacked,
+            reverseEntries: windowIDByObject.count + numberReverseEntries,
+            orphanReverseEntries: orphanObjectEntries + orphanNumberEntries,
+            highWater: max(runtimeHighWater, nodesByID.count),
+            byKind: byKind
+        )
+    }
+
+    private func recordRuntimeHighWater() {
+        guard runtimeMetricsActive else { return }
+        runtimeHighWater = max(runtimeHighWater, nodesByID.count)
     }
 }

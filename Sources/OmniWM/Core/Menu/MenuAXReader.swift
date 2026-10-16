@@ -62,6 +62,19 @@ struct MenuAXReader {
 
     func readSubmenuSnapshots(from element: AXUIElement) throws -> [MenuItemSnapshot] {
         let deadline = MenuAXDeadline(start: environment.now(), timeout: submenuTimeout)
+        return try readSnapshots(from: element, content: nil, deadline: deadline)
+    }
+
+    func readMenuBarSnapshots(from element: AXUIElement, content: MenuContent) throws -> [MenuItemSnapshot] {
+        let deadline = MenuAXDeadline(start: environment.now(), timeout: submenuTimeout)
+        return try readSnapshots(from: element, content: content, deadline: deadline)
+    }
+
+    private func readSnapshots(
+        from element: AXUIElement,
+        content: MenuContent?,
+        deadline: MenuAXDeadline
+    ) throws -> [MenuItemSnapshot] {
         let childrenValue = try environment.readAttribute(
             element,
             kAXChildrenAttribute as CFString,
@@ -88,11 +101,18 @@ struct MenuAXReader {
                 values: values
             )
             let role = try Self.validateMenuItemAttributes(&decoded)
+            let isApple = Self.isAppleMenuItem(decoded)
+            if content == .application, isApple { continue }
+            if content == .apple, !isApple { continue }
             let submenuRoot = try readSubmenuRoot(
                 from: decoded,
                 role: role,
                 deadline: deadline
             )
+            if content == .apple {
+                guard let submenuRoot else { throw MenuExtractionError.invalidResponse }
+                return try readSnapshots(from: submenuRoot, content: nil, deadline: deadline)
+            }
             snapshots.append(
                 MenuItemSnapshot(
                     element: child,
@@ -102,7 +122,13 @@ struct MenuAXReader {
             )
         }
 
+        if content == .apple { throw MenuExtractionError.invalidResponse }
         return snapshots
+    }
+
+    static func isAppleMenuItem(_ attributes: [String: Any]) -> Bool {
+        (attributes[kAXTitleAttribute as String] as? String) == "Apple"
+            || (attributes[kAXRoleDescriptionAttribute as String] as? String) == "Apple menu"
     }
 
     private func readSubmenuRoot(

@@ -128,7 +128,8 @@ extension BorderLayerPanel {
         cornerRadii: WindowCornerRadii,
         config: BorderConfig,
         baseColor: CGColor,
-        scale: CGFloat
+        scale: CGFloat,
+        cornerContour: WindowCornerContour? = nil
     ) {
         CATransaction.begin()
         CATransaction.setDisableActions(true)
@@ -137,9 +138,10 @@ extension BorderLayerPanel {
             cornerRadii: cornerRadii,
             config: config,
             baseColor: baseColor,
-            scale: scale
+            scale: scale,
+            cornerContour: cornerContour
         )
-        borderLayer.rimOpacity = config.gradient?.enabled == true ? 0 : 1
+        borderLayer.rimOpacity = config.gradient?.enabled == true || cornerContour != nil ? 0 : 1
         CATransaction.commit()
     }
 

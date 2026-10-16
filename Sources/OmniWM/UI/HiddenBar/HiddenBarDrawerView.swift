@@ -78,6 +78,7 @@ final class HiddenBarDrawerView: NSView {
         _ visible: Bool,
         edge: PopupAttachment.Edge,
         motion: MotionSnapshot,
+        duration: CFTimeInterval? = nil,
         completion: (@MainActor () -> Void)? = nil
     ) {
         generation &+= 1
@@ -100,9 +101,12 @@ final class HiddenBarDrawerView: NSView {
         layer.opacity = opacity
         revealMask.removeAnimation(forKey: "hiddenBar.reveal")
         layer.removeAnimation(forKey: "hiddenBar.fade")
-        if motion.animationsEnabled {
-            let travel = motion.scaled(visible ? Self.opening : Self.closing)
-            let fading = motion.scaled(visible ? Self.fadingIn : Self.closing)
+        let animates = duration.map { $0 > 0 } ?? motion.animationsEnabled
+        if animates {
+            let travel = Self.timed(visible ? Self.opening : Self.closing, motion: motion, over: duration)
+            let fading = Self.timed(visible ? Self.fadingIn : Self.closing, motion: motion, over: duration.map {
+                $0 * (visible ? Self.fadingIn.duration / Self.opening.duration : 1)
+            })
             let reveal = CABasicAnimation(keyPath: "position")
             reveal.fromValue = fromPosition
             reveal.toValue = position
@@ -118,9 +122,18 @@ final class HiddenBarDrawerView: NSView {
             layer.add(fade, forKey: "hiddenBar.fade")
         }
         CATransaction.commit()
-        if !motion.animationsEnabled {
+        if !animates {
             complete(generation: generation)
         }
+    }
+
+    private static func timed(
+        _ config: CubicConfig,
+        motion: MotionSnapshot,
+        over duration: CFTimeInterval?
+    ) -> CubicConfig {
+        guard let duration else { return motion.scaled(config) }
+        return CubicConfig(duration: duration, controlPoint1: config.controlPoint1, controlPoint2: config.controlPoint2)
     }
 
     func complete(generation: UInt64) {

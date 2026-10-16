@@ -44,7 +44,7 @@ Keep one macOS Space per display and navigate with OmniWM workspaces instead. Ex
 | `Control + Option + Space` | Toggle the [Command Palette](/features/command-palette/) |
 | `Option + Shift + O` | Toggle [Overview](/features/overview/) |
 
-Every shortcut is customizable in **Settings > Hotkeys**; the complete list lives in [Keyboard Shortcuts](/guides/keyboard-shortcuts/).
+Every shortcut is customizable in **Settings > Keyboard Shortcuts**; the complete list lives in [Keyboard Shortcuts](/guides/keyboard-shortcuts/).
 
 ## Where Settings lives
 

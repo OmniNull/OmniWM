@@ -38,10 +38,6 @@ struct WorkspaceBarWindowItem: Identifiable, Equatable, @unchecked Sendable {
         hiddenWindowCount == windowCount
     }
 
-    var hasHiddenWindows: Bool {
-        hiddenWindowCount > 0
-    }
-
     static func == (lhs: WorkspaceBarWindowItem, rhs: WorkspaceBarWindowItem) -> Bool {
         lhs.id == rhs.id
             && lhs.handle === rhs.handle
@@ -122,52 +118,59 @@ struct WorkspaceBarScratchpadItem: Identifiable, Equatable {
     }
 }
 
+struct WorkspaceBarShellWidget: Identifiable, Equatable {
+    let id: String
+    let size: CGSize
+    let lane: ShellLane
+    var island = WorkspaceBarIslandSlice.all
+    var failure: ShellWidgetFailure?
+}
+
+struct ShellWidgetFailure: Equatable {
+    let message: String
+    let source: URL
+}
+
 struct WorkspaceBarSnapshot: Equatable {
     let projection: WorkspaceBarProjection
     let showLabels: Bool
-    let showSystemStatsButton: Bool
     let backgroundOpacity: Double
-    let inactiveIconOpacity: Double?
     let transparentBackground: Bool
     let solidBlackBackground: Bool
-    let showItemBackgrounds: Bool
-    let showAccentHighlights: Bool
     let barHeight: CGFloat
     let orientation: WorkspaceBarOrientation
-    let accentColor: SettingsColor?
-    let textColor: SettingsColor?
     let secureInputActive: Bool
+    let barFill: ShellThemeColor?
+    let barBorder: ShellThemeColor?
+    var barShader: ShellBarShader?
+    let shellWidgets: [WorkspaceBarShellWidget]
 
     init(
         projection: WorkspaceBarProjection,
-        showLabels: Bool,
-        showSystemStatsButton: Bool,
+        showLabels: Bool = false,
         backgroundOpacity: Double,
-        inactiveIconOpacity: Double? = nil,
         transparentBackground: Bool = false,
         solidBlackBackground: Bool = false,
-        showItemBackgrounds: Bool = true,
-        showAccentHighlights: Bool = true,
         barHeight: CGFloat,
-        accentColor: SettingsColor?,
-        textColor: SettingsColor?,
         orientation: WorkspaceBarOrientation = .horizontal,
-        secureInputActive: Bool = false
+        secureInputActive: Bool = false,
+        barFill: ShellThemeColor? = nil,
+        barBorder: ShellThemeColor? = nil,
+        barShader: ShellBarShader? = nil,
+        shellWidgets: [WorkspaceBarShellWidget] = []
     ) {
         self.projection = projection
         self.showLabels = showLabels
-        self.showSystemStatsButton = showSystemStatsButton
         self.backgroundOpacity = backgroundOpacity
-        self.inactiveIconOpacity = inactiveIconOpacity
         self.transparentBackground = transparentBackground
         self.solidBlackBackground = solidBlackBackground
-        self.showItemBackgrounds = showItemBackgrounds
-        self.showAccentHighlights = showAccentHighlights
         self.barHeight = barHeight
         self.orientation = orientation
-        self.accentColor = accentColor
-        self.textColor = textColor
         self.secureInputActive = secureInputActive
+        self.barFill = barFill
+        self.barBorder = barBorder
+        self.barShader = barShader
+        self.shellWidgets = shellWidgets
     }
 
     var items: [WorkspaceBarItem] {
@@ -182,65 +185,49 @@ struct WorkspaceBarSnapshot: Equatable {
         case transparent
         case solidBlack
         case material
+        case palette(fill: ShellThemeColor, border: ShellThemeColor?)
     }
 
     var backgroundStyle: BackgroundStyle {
-        if transparentBackground { return .transparent }
         if solidBlackBackground { return .solidBlack }
+        if transparentBackground { return .transparent }
+        if let barFill { return .palette(fill: barFill, border: barBorder) }
         return .material
     }
 
-    var showsBackground: Bool {
-        backgroundStyle != .transparent
-    }
-
-    func replacingScratchpads(_ scratchpads: [WorkspaceBarScratchpadItem]) -> Self {
+    func replacingShellWidgets(_ shellWidgets: [WorkspaceBarShellWidget]) -> Self {
         Self(
-            projection: WorkspaceBarProjection(items: items, scratchpads: scratchpads),
+            projection: projection,
             showLabels: showLabels,
-            showSystemStatsButton: showSystemStatsButton,
             backgroundOpacity: backgroundOpacity,
-            inactiveIconOpacity: inactiveIconOpacity,
             transparentBackground: transparentBackground,
             solidBlackBackground: solidBlackBackground,
-            showItemBackgrounds: showItemBackgrounds,
-            showAccentHighlights: showAccentHighlights,
             barHeight: barHeight,
-            accentColor: accentColor,
-            textColor: textColor,
             orientation: orientation,
-            secureInputActive: secureInputActive
+            secureInputActive: secureInputActive,
+            barFill: barFill,
+            barBorder: barBorder,
+            barShader: barShader,
+            shellWidgets: shellWidgets
         )
     }
 }
 
-enum WorkspaceBarIslandSlice: Hashable {
+enum WorkspaceBarIslandSlice: String, CaseIterable, Sendable {
     case all
     case active
     case secondary
 
-    var showsOmniWMButton: Bool {
-        self != .secondary
-    }
-
-    func items(in snapshot: WorkspaceBarSnapshot) -> [WorkspaceBarItem] {
-        switch self {
-        case .all: snapshot.items
-        case .active: snapshot.items.filter(\.isFocused)
-        case .secondary: snapshot.items.filter { !$0.isFocused }
-        }
-    }
-
-    func scratchpads(in snapshot: WorkspaceBarSnapshot) -> [WorkspaceBarScratchpadItem] {
-        self == .active ? [] : snapshot.scratchpads
+    func shellWidgets(in snapshot: WorkspaceBarSnapshot, lane: ShellLane) -> [WorkspaceBarShellWidget] {
+        snapshot.shellWidgets.filter { $0.island == self && $0.lane == lane }
     }
 }
 
 @MainActor @Observable
 final class WorkspaceBarModel {
     var snapshot: WorkspaceBarSnapshot
-    var presentedWindowList: WindowToken?
     var hiddenBarJoinEdge: PopupAttachment.Edge?
+    var zones: WorkspaceBarZones?
 
     init(snapshot: WorkspaceBarSnapshot) {
         self.snapshot = snapshot

@@ -271,7 +271,9 @@ final class CommandPaletteController: NSObject, NSWindowDelegate {
         }
         presentation.expand(panel)
     }
+}
 
+extension CommandPaletteController {
     func setClipboardItemPinned(_ pinned: Bool, id: UUID) {
         guard let wmController, isClipboardHistoryEnabled,
               environment.isClipboardHistoryEnabled(wmController)

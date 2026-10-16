@@ -87,7 +87,6 @@ extension WorkspaceNavigationHandler {
             handle,
             from: sourceWorkspaceId,
             to: targetWorkspaceId,
-            movedTokens: movedTokens,
             sourceFocusNodeId: result.newFocusNodeId
         )
     }
@@ -135,7 +134,6 @@ extension WorkspaceNavigationHandler {
         _ handle: WindowHandle,
         from sourceWorkspaceId: WorkspaceDescriptor.ID,
         to targetWorkspaceId: WorkspaceDescriptor.ID,
-        movedTokens: [WindowToken],
         sourceFocusNodeId: NodeId?
     ) -> StructuralMutationOutcome {
         guard let controller else { return .unchanged }
@@ -152,7 +150,6 @@ extension WorkspaceNavigationHandler {
                 sourceWorkspaceId: sourceWorkspaceId,
                 destinationWorkspaceId: targetWorkspaceId,
                 selectedHandle: handle,
-                movedTokens: movedTokens,
                 scrollWorkspaceId: targetState.hasPendingOffsetAnimation ? targetWorkspaceId : nil
             )
         )

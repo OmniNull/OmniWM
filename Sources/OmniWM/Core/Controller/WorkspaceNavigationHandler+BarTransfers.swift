@@ -29,7 +29,6 @@ extension WorkspaceNavigationHandler {
                 sourceWorkspaceId: first.sourceWorkspaceId,
                 destinationWorkspaceId: targetWorkspaceId,
                 selectedHandle: selected.selectedHandle,
-                movedTokens: mutations.flatMap(\.movedTokens),
                 scrollWorkspaceId: mutations.lazy.compactMap(\.scrollWorkspaceId).first
             ),
             focusPolicy: followsMove ? .configured : .retainCurrent,

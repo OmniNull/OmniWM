@@ -368,7 +368,6 @@ final class OverviewDwindleProjectionTests: XCTestCase {
 
         let outcome = overview.executeStructuralHotkey(.workspace(.moveTo(97)), selectedHandle: target)
         let mutation = try XCTUnwrap(outcome?.mutation)
-        XCTAssertEqual(mutation.movedTokens, [fixture.first])
         XCTAssertEqual(mutation.sourceWorkspaceId, fixture.workspaceId)
         XCTAssertEqual(mutation.destinationWorkspaceId, destination)
         while let task = controller.layoutRefreshController.layoutState.activeRefreshTask {

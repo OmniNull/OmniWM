@@ -1,0 +1,251 @@
+---
+title: Context and data
+description: Widget lifecycle, reactive data, formatting, host commands, localization, and all data snapshot types.
+sidebar:
+  order: 3
+---
+
+import LuauDeclaration from '../../../../components/docs/LuauDeclaration.astro';
+
+:::note[Unreleased]
+OmniShell and this API are available when building from `main`.
+:::
+
+A [first widget](/omnishell/guides/first-widget/) uses this context directly. [Component views](/omnishell/reference/components-configuration/) add `ctx.instance` and `ctx.view`; ordinary bar widgets and roots do not have a component instance.
+
+## Widget lifecycle and dependencies
+
+A widget is a folder with an `init.luau`. `omniwmctl shell init <name>` creates a starter one:
+
+```lua
+interval = 60
+
+function render(ctx)
+    return ui.row{ gap = 6, onClick = ui.popout,
+        ui.symbol{ name = "clock" },
+        ui.text{ text = ctx.data.clock } }
+end
+
+function popout(ctx)
+    return ui.text{ text = ctx.data.date, pad = 12 }
+end
+```
+
+- `render(ctx)` draws the bar slot or configured island root; return `ui.box{ w = 0, h = 0 }` to draw nothing there.
+- `popout(ctx)` draws the popout, opened by `onClick = ui.popout`, `shell toggle <widget>`, or a drawer.
+- `interval` (seconds) sets how often timed data such as `seconds`, `cpu` and `network` updates this widget.
+- `trigger(ctx, event)` runs for `omniwmctl shell trigger <widget> <name> [value]` and [host lifecycle events](/omnishell/reference/input-motion/#root-triggers).
+- `require("./helpers")` and `require("@self/helpers")` load other files of the widget. `require("../lib/panel")` loads `lib/panel.luau` shared by every widget, from the shell folder, else the profile, else `default/`.
+- `ctx.state` keeps values between renders; `ctx.format` formats numbers, percentages and byte sizes for the user's locale. `ctx.format.date(seconds, template, zone)` formats a time from a date template such as `"jmm"` or `"EEEdMMM"`, following the user's 12- or 24-hour clock, and `ctx.format.offset(seconds, zone)` gives that zone's offset from UTC in seconds; `zone` is an identifier such as `"Asia/Tokyo"`, the local zone when omitted, and an unknown zone gives `nil`.
+- `onClick`, `onRightClick` and `onScroll` take a command string or a function `(ctx, event)`; `event` has the button, modifier keys, scroll `dx` and `dy`, and a slider's `value`.
+- `omniwm.run(command)` runs an [action](#actions), and `omniwm.log(...)` writes to the macOS log under the `shell` category.
+- `spanIslands = true` shows the widget on both islands of a bar split around the notch, instead of only its group's island.
+
+A widget only receives the data it reads, and OmniWM only gathers what some widget reads.
+
+Use `ctx.select("media", "title")` when a view needs one field of an object. The view updates when that field changes, so playback-position updates can leave a title-only widget alone. Paths can contain strings and integer array indices, for example `ctx.select("bluetooth", "devices", 1, "battery")`; a missing path returns `nil`. Bar and popout dependencies are tracked separately. Reading the same object through `ctx.data.media`, or selecting a table rather than a scalar, subscribes to the whole object. Event handlers still receive current data and rerender after changing widget state.
+
+
+`render` and `popout` are view construction hooks. Keep service requests and persistent-state mutations in event/lifecycle callbacks; do not start repeating work from a render. [Services](/omnishell/reference/services/) preserve the current owner when their callbacks run.
+
+| Context field | Use |
+|---|---|
+| `data` | Immutable host facts. Optional feeds can be `nil`; show an unavailable state before reading nested fields. |
+| `select(key, ...)` | Subscribe to a scalar path rather than all updates of a parent object. |
+| `state` | Mutable, in-memory state for this display and placement; it is not automatically saved. |
+| `format` | Locale-aware formatting functions below. |
+| `instance` | A component’s shared identity, options, state, and provider snapshot; absent outside component callbacks/views. |
+| `view` | Requested component view name, offered dimensions, and value-only props. |
+
+<LuauDeclaration name="Context" />
+
+<LuauDeclaration name="Format" />
+
+| Formatter | Behavior |
+|---|---|
+| `number(value, digits?)` | Localized number; digits defaults to 0 and is rounded/clamped to 0–6 fractional digits. |
+| `percent(fraction, digits?)` | Localized percentage: pass `0.5` for 50%. Same digits policy as `number`. |
+| `bytes(count, style?)` | Localized byte count; style defaults to `"memory"`, or use `"file"`. Invalid/out-of-range counts display `"—"`. |
+| `date(seconds, template, zone?)` | Localized date from Unix seconds and a nonempty template such as `"jmm"` or `"EEEdMMM"`. Zone defaults to local; an unknown zone returns `nil`. |
+| `offset(seconds, zone?)` | Zone offset from UTC in seconds at that time, including daylight-saving rules; unknown zones return `nil`. |
+
+```lua
+ui.text{ text = ctx.format.percent((ctx.data.battery or 0) / 100) }
+ui.text{ text = ctx.format.bytes(ctx.data.system and ctx.data.system.memory.used or 0) }
+```
+
+<LuauDeclaration name="TriggerEvent" />
+
+## Data feeds
+
+| `ctx.data` | Contents |
+|---|---|
+| `clock`, `date`, `seconds` | Localized time and date, and the current time in seconds |
+| `island` | Persistent island geometry and display state; `nil` for a bar instance |
+| `bar`, `workspaces`, `workspace`, `app`, `title` | The bar's workspaces, windows, scratchpads and style; the focused app |
+| `cpu`, `memory`, `gpu`, `disk`, `network`, `system` | System statistics and host details, including uptime |
+| `networkHistory` | The last 30 seconds of download and upload speed, and the totals since the Mac started |
+| `thermal` | CPU and GPU temperatures in °C |
+| `battery`, `charging` | Battery level |
+| `power` | Power source, minutes until empty or full, Low Power Mode, and battery health, cycles, temperature and watts |
+| `inputSource` | The keyboard input source and the enabled ones, each with a short label |
+| `privacy` | Whether any app is using a microphone or a camera |
+| `wifi` | Wi-Fi power, signal, band, channel and security, and the network name once Location access is allowed |
+| `bluetooth` | Bluetooth power and paired devices with their battery levels, once Bluetooth access is allowed |
+| `volume`, `muted`, `outputs` | Output volume and the audio outputs |
+| `audioApps` | Apps with audio and their own volume |
+| `media` | What is playing, with artwork, shuffle and repeat |
+| `lyrics` | Synced lyrics for what is playing, from [LRCLIB](https://lrclib.net); the title, artist and album are sent there only while a widget reads `lyrics` |
+| `spectrum` | 60 bars of what the Mac is playing, from 50 Hz to 10 kHz, and its tempo, about four times a second; needs System Audio Recording, like per-app volume |
+| `tempo` | Just the `spectrum` tempo in beats per minute, which changes far less often than the bars |
+| `calendar` | Upcoming events and a month to draw |
+| `reminders` | Access state, incomplete reminders, total count and read/action errors |
+| `badges` | Dock badge labels keyed by lowercase bundle ID for apps with managed windows; available to bars, islands and popouts |
+| `weather` | Current conditions with humidity, sunrise and sunset, 24 hours and 7 days |
+| `user` | Your name and account picture |
+| `appearance` | `"light"` or `"dark"` |
+| `hiddenBar` | Hidden Bar items |
+| `menuApp` | App-menu target with process ID, name, and bundle ID; absent if no target is available |
+| `components`, `catalog`, `settingsSchema` | Configured instance metadata, installed component catalog, and root option schema; see [components and configuration](/omnishell/reference/components-configuration/) |
+| `vars`, `settings` | Values from `omniwmctl shell set` and from `[widgets.<name>]` |
+
+`omniwm.d.luau` in the shell folder lists every field with its type.
+
+`seconds` is Unix time in seconds. A root island receives [Island](/omnishell/reference/context-data/#api-island) geometry and navigation data; ordinary bar placements receive `nil` for `island`. Reading a feed requests it; the host does not poll integrations that no widget uses. Library helpers obey the same dependency tracking.
+
+<LuauDeclaration name="Data" />
+
+## Reminders data
+
+`ctx.data.reminders` is a cached snapshot with `access`, `items`, `total`, `truncated` and optional `error`. Access is `"notDetermined"`, `"restricted"`, `"denied"`, `"writeOnly"` or `"full"`, independently of Calendar access. Reading this data does not request permission.
+
+With full access, `items` contains at most 100 incomplete reminders. Each `Reminder` has `id`, `title`, `list`, `color`, optional `due` (Unix seconds), `allDay`, `priority` and `canComplete`. Items are ordered by due date, then priority and identifier; undated items come last, and priority `0` means unset. `total` counts all fetched incomplete reminders; `truncated` is true when the snapshot contains fewer. Custom views can display any of the supplied items.
+
+Use `reminders authorize` to request access, `reminders settings` to open Reminders privacy settings, and `reminders complete <id>` to complete a selected item. Completion checks current access and whether its list is writable. These are commands, not callback-based service requests: read `ctx.data.reminders.error` for read or action failures. A successful authorization or completion clears the previous action error; a background refresh does not conceal it. Cached data updates on changes without a reminder polling timer.
+
+## Commands and popouts
+
+`omniwm.run(command)` sends a host command rather than invoking a shell process. It has no result callback. `ui.popout` is a host action marker when used as an element handler; it opens/closes the widget’s panel and closes a containing drawer when invoked from its section. Calling it as an ordinary Luau function does not open a native window.
+
+<LuauDeclaration name="omniwm.run" />
+
+<LuauDeclaration name="ui.popout" />
+
+## Actions
+
+`onClick`, `onRightClick` and `omniwm.run` take any `omniwmctl command` (for example `"switch-workspace 2"`) and these shell commands:
+
+| Command | Effect |
+|---|---|
+| `volume up [percent]`, `volume down [percent]`, `volume set <0-100>`, `volume mute` | Output volume |
+| `volume output <id>` | Switch the output |
+| `volume app <bundle> set <0-100>`, `volume app <bundle> mute`, `volume app <bundle> reset` | One app's volume |
+| `volume permission` | Open the System Audio Recording privacy settings |
+| `media play`, `media pause`, `media toggle`, `media next`, `media previous`, `media seek <seconds>`, `media shuffle`, `media repeat`, `media open` | Playback; shuffle turns shuffle on or off and repeat steps through off, one and all, as `media.shuffle` and `media.repeatMode` show; when no widget reads `media`, play, pause and track changes send the media keys |
+| `session lock`, `session sleep`, `session logout`, `session restart`, `session shutdown` | Lock the screen, sleep, or ask macOS to log out, restart or shut down; macOS shows its usual confirmation for the last three, and asks once for permission to control loginwindow |
+| `calendar authorize`, `calendar settings`, `calendar open [event]`, `calendar month next\|previous\|today` | Calendar; `settings` opens the Calendars privacy settings |
+| `reminders authorize`, `reminders settings`, `reminders complete <id>` | Request Reminders access, open its privacy settings, or complete a selected writable reminder; failures appear in `ctx.data.reminders.error` |
+| `battery settings` | Open the Battery settings |
+| `input-source select <id>`, `input-source settings` | Switch the keyboard input source; open the Keyboard settings |
+| `wifi authorize`, `wifi settings` | Ask for Location access, or open its privacy settings once asked; open the Wi-Fi settings |
+| `bluetooth authorize`, `bluetooth settings` | Ask for Bluetooth access, or open its privacy settings once asked; open the Bluetooth settings |
+| `shell toggle <name>` | Open or close a drawer or a widget's popout |
+| `shell menu` | Open the OmniWM menu at the widget |
+| `hidden-bar activate <id>` | Click a Hidden Bar item |
+| `window <action> <id>` | Any [`omniwmctl window`](/reference/cli/actions/) action on a window |
+
+## Logging and localization
+
+`omniwm.log(...)` sends diagnostic values to the macOS unified log’s `shell` category. Use it from a handler or lifecycle hook when diagnosing a widget. `omniwm.l10n(key, ...)` uses OmniWM’s localization catalog and optional format arguments. It accepts up to eight formatting arguments. For your own widget text, provide the string directly unless it corresponds to an existing catalog key.
+
+<LuauDeclaration name="omniwm.log" />
+
+<LuauDeclaration name="omniwm.l10n" />
+
+## Workspace and bar snapshots
+
+IDs are host-issued identities. Use a current snapshot for actions; titles and labels are presentation data. `BarStyle` describes the effective native bar settings, while `bar.island` indicates which split-bar group is rendering. Hidden Bar menu row IDs are valid only for the displayed native-menu page.
+
+<LuauDeclaration name="Workspace" />
+
+<LuauDeclaration name="Bar" />
+
+<LuauDeclaration name="BarStyle" />
+
+<LuauDeclaration name="BarWindow" />
+
+<LuauDeclaration name="BarItem" />
+
+<LuauDeclaration name="BarWorkspace" />
+
+<LuauDeclaration name="BarScratchpad" />
+
+<LuauDeclaration name="BarDrag" />
+
+<LuauDeclaration name="HiddenBar" />
+
+<LuauDeclaration name="HiddenBarItem" />
+
+<LuauDeclaration name="HiddenBarMenu" />
+
+<LuauDeclaration name="HiddenBarMenuRow" />
+
+## Audio and media snapshots
+
+Optional artwork is an image reference. Media elapsed time is sampled with `sampledAt` and `rate`; a missing duration/elapsed value must not be replaced with a claimed playback position. Spectrum and per-app volume require System Audio Recording permission; Now Playing does not.
+
+<LuauDeclaration name="AudioOutput" />
+
+<LuauDeclaration name="AudioApp" />
+
+<LuauDeclaration name="AudioApps" />
+
+<LuauDeclaration name="Media" />
+
+## Calendar and reminders snapshots
+
+Read access before rendering protected contents. Timestamps are Unix seconds. Calendar’s `end` field is accessed as `event["end"]` because it is a Luau keyword.
+
+<LuauDeclaration name="Calendar" />
+
+<LuauDeclaration name="CalendarEvent" />
+
+<LuauDeclaration name="CalendarMonth" />
+
+<LuauDeclaration name="Reminders" />
+
+<LuauDeclaration name="Reminder" />
+
+## Weather and system snapshots
+
+Weather supplies current conditions, 24 hourly entries, and seven daily entries; `status = "stale"` marks retained old data. Temperatures follow the configured unit. System and hardware fields can be absent when unavailable; show that state explicitly.
+
+<LuauDeclaration name="Weather" />
+
+<LuauDeclaration name="WeatherHour" />
+
+<LuauDeclaration name="WeatherDay" />
+
+<LuauDeclaration name="System" />
+
+<LuauDeclaration name="SystemDisplay" />
+
+<LuauDeclaration name="Power" />
+
+<LuauDeclaration name="InputSource" />
+
+<LuauDeclaration name="InputSourceEntry" />
+
+<LuauDeclaration name="WiFi" />
+
+<LuauDeclaration name="Bluetooth" />
+
+<LuauDeclaration name="BluetoothDevice" />
+
+## Island snapshots
+
+The panel envelope stays fixed while the Luau content expands or collapses. Coordinates begin at its top-left; size and notch dimensions are in points. `navigation.windows` follows Niri column/row order, then floating windows. `column` is one-based for Niri, zero otherwise. Titles use cached metadata and can be empty; fall back to `name`. Use `omniwm.run("window focus " .. id)` to focus a window.
+
+<LuauDeclaration name="Island" />
+
+<LuauDeclaration name="IslandNavigation" />

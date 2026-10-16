@@ -13,7 +13,10 @@ extension ActionCatalog {
                 category: .focus,
                 binding: KeyBinding(keyCode: UInt32(kVK_Space), modifiers: UInt32(controlKey | optionKey)),
                 keywords: ["palette", "search", "commands", "menu"]
-            ),
+            )
+        ])
+        specs.append(contentsOf: IPCCommandPaletteMode.allCases.map { $0.actionSpec() })
+        specs.append(contentsOf: [
             action(
                 id: "raiseAllFloatingWindows",
                 command: .raiseAllFloatingWindows,

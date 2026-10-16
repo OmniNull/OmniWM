@@ -77,7 +77,8 @@ extension DwindleLayoutEngine {
         tiles: (new: DwindleTile, existing: DwindleTile?),
         state: DwindleWorkspaceState,
         activeWindowFrame: CGRect?,
-        preselectedDirection: Direction?
+        preselectedDirection: Direction?,
+        splitRatio: CGFloat? = nil
     ) -> DwindleNode {
         let targetRect = leaf.cachedFrame
         let (orientation, newFirst): (DwindleOrientation, Bool)
@@ -94,7 +95,7 @@ extension DwindleLayoutEngine {
         let existingLeaf = DwindleNode(kind: .leaf(tile: tiles.existing))
         let newLeaf = DwindleNode(kind: .leaf(tile: tiles.new))
 
-        leaf.kind = .split(orientation: orientation, ratio: settings.defaultSplitRatio)
+        leaf.kind = .split(orientation: orientation, ratio: splitRatio ?? settings.defaultSplitRatio)
         leaf.cachedContentFrame = nil
         leaf.clearAnimations()
         state.tileCount += 1

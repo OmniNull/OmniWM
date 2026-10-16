@@ -59,6 +59,7 @@ struct MouseInputState {
 
     var eventTap: CFMachPort?
     var runLoopSource: CFRunLoopSource?
+    var eventTapRunLoop: CFRunLoop?
     var moveTap: CFMachPort?
     var moveTapRunLoopSource: CFRunLoopSource?
     var moveTapDeliversMouseMoved = false

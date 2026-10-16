@@ -81,6 +81,12 @@ toggle-system-stats
 toggle-quake-terminal
 toggle-workspace-bar
 hidden-bar-panel
+volume-up
+volume-down
+volume-mute
+media-play-pause
+media-next
+media-previous
 toggle-focused-window-floating
 close-focused-window
 scratchpad-assign

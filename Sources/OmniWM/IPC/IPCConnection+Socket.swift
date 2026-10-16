@@ -9,24 +9,26 @@ extension IPCConnection {
     func handleReadable() {
         guard !isClosed else { return }
 
-        var chunk = [UInt8](repeating: 0, count: 4096)
-        var consumed = 0
-        while consumed < Self.readBudgetPerFiring {
-            let count = Darwin.read(fileDescriptor, &chunk, chunk.count)
-            if count > 0 {
-                readBuffer.append(contentsOf: chunk[0 ..< count])
-                consumed += count
-                continue
+        withUnsafeMutableBytes(of: &readScratch) { bytes in
+            let chunk = bytes.bindMemory(to: UInt8.self)
+            var consumed = 0
+            while consumed < Self.readBudgetPerFiring {
+                let count = Darwin.read(fileDescriptor, chunk.baseAddress!, chunk.count)
+                if count > 0 {
+                    readBuffer.append(chunk.baseAddress!, count: count)
+                    consumed += count
+                    continue
+                }
+                if count == 0 {
+                    inputFinished = true
+                    cancelReadSource()
+                    break
+                }
+                if errno == EINTR { continue }
+                if errno == EAGAIN || errno == EWOULDBLOCK { break }
+                closeImmediately()
+                return
             }
-            if count == 0 {
-                inputFinished = true
-                cancelReadSource()
-                break
-            }
-            if errno == EINTR { continue }
-            if errno == EAGAIN || errno == EWOULDBLOCK { break }
-            closeImmediately()
-            return
         }
 
         drainRequests()
@@ -35,7 +37,7 @@ extension IPCConnection {
     func drainRequests() {
         guard !isProcessing, !isClosed else { return }
 
-        let line: String?
+        let line: Data?
         do {
             line = try takeNextLine()
         } catch {
@@ -63,13 +65,16 @@ extension IPCConnection {
         drainRequests()
     }
 
-    func takeNextLine() throws -> String? {
+    func takeNextLine() throws -> Data? {
         if let newlineIndex = readBuffer.firstIndex(of: 0x0A) {
             let lineByteCount = readBuffer.distance(from: readBuffer.startIndex, to: newlineIndex)
             guard lineByteCount <= Self.maxRequestLineBytes else {
                 throw ReadLoopError.requestTooLarge
             }
-            let line = try Self.decodeUTF8(readBuffer.span.extracting(first: lineByteCount))
+            try Self.validateUTF8(readBuffer.span.extracting(first: lineByteCount))
+            let line = readBuffer.withUnsafeBytes { bytes in
+                Data(bytes: bytes.baseAddress!, count: lineByteCount)
+            }
             readBuffer.removeSubrange(...newlineIndex)
             return line
         }
@@ -79,8 +84,9 @@ extension IPCConnection {
         }
 
         guard inputFinished, !readBuffer.isEmpty else { return nil }
-        let line = try Self.decodeUTF8(readBuffer.span)
-        readBuffer.removeAll(keepingCapacity: true)
+        try Self.validateUTF8(readBuffer.span)
+        let line = readBuffer
+        readBuffer = Data()
         return line
     }
 

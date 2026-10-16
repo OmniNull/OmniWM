@@ -226,6 +226,23 @@ extension CommandHandler {
         }
     }
 
+    func perform(_ action: IPCMediaCommand, controller: WMController) {
+        switch action {
+        case .volumeUp:
+            ShellAudio.perform(.change(percent: ShellVolumeCommand.step), appVolumes: controller.appVolumeMixer)
+        case .volumeDown:
+            ShellAudio.perform(.change(percent: -ShellVolumeCommand.step), appVolumes: controller.appVolumeMixer)
+        case .volumeMute:
+            ShellAudio.perform(.toggleMute, appVolumes: controller.appVolumeMixer)
+        case .playPause:
+            controller.mediaController.perform(.toggle)
+        case .next:
+            controller.mediaController.perform(.next)
+        case .previous:
+            controller.mediaController.perform(.previous)
+        }
+    }
+
     func perform(_ action: IPCPresentationCommand, controller: WMController) -> ExternalCommandResult {
         switch action {
         case .workspaceBar:
@@ -245,30 +262,6 @@ extension CommandHandler {
     }
 
     func toggleColumnTabbedInNiri() {
-        guard let controller else { return }
-        controller.niriLayoutHandler.withNiriWorkspaceContext { engine, wsId, motion, state, _, _, _, orientation in
-            if engine.toggleColumnTabbed(
-                in: wsId,
-                state: state,
-                motion: motion,
-                orientation: orientation
-            ) {
-                controller.workspaceManager.recordReconcileEvent(
-                    .layoutOperationPerformed(workspaceId: wsId, operation: .displayModeChanged, source: .command)
-                )
-                controller.layoutRefreshController.requestLayoutCommandRelayout(
-                    affectedWorkspaceIds: [wsId]
-                )
-                if engine.hasAnyWindowAnimationsRunning(in: wsId) {
-                    controller.layoutRefreshController.startScrollAnimation(for: wsId)
-                }
-                controller.niriLayoutHandler.showColumnModeToast(
-                    engine: engine,
-                    workspaceId: wsId,
-                    state: state,
-                    motion: motion
-                )
-            }
-        }
+        controller?.niriLayoutHandler.toggleColumnTabbed(target: .focused)
     }
 }

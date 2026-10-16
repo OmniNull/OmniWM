@@ -811,7 +811,7 @@ final class BorderSurfaceTests: XCTestCase {
         XCTAssertEqual(window.frameOnScreen, CGRect(x: 6, y: 16, width: 108, height: 88))
         XCTAssertEqual(panel.borderLayer.bounds, CGRect(x: 0, y: 0, width: 100, height: 80))
         XCTAssertEqual(panel.borderLayer.rimWidth, 4)
-        XCTAssertEqual(panel.renderedCornerRadii, WindowCornerRadii(uniform: 9))
+        XCTAssertEqual(panel.renderedCornerRadii, WindowCornerRadii.systemDefault)
         XCTAssertNil(panel.borderLayer.backgroundColor)
         XCTAssertNil(panel.borderLayer.contents)
         XCTAssertNil(panel.borderLayer.mask)
@@ -839,7 +839,7 @@ final class BorderSurfaceTests: XCTestCase {
         XCTAssertEqual(window.frameOnScreen, CGRect(x: 5, y: 15, width: 110, height: 90))
         XCTAssertEqual(panel.borderLayer.bounds, CGRect(x: 0, y: 0, width: 100, height: 80))
         XCTAssertEqual(panel.borderLayer.rimWidth, 5)
-        XCTAssertEqual(panel.renderedCornerRadii, WindowCornerRadii(uniform: 9))
+        XCTAssertEqual(panel.renderedCornerRadii, WindowCornerRadii.systemDefault)
     }
 
     @MainActor
@@ -1532,6 +1532,20 @@ final class BorderSurfaceTests: XCTestCase {
         ))
         let panel = try XCTUnwrap(recorder.layerPanels.first)
         XCTAssertEqual(panel.renderedCornerRadii, WindowCornerRadii(uniform: 25))
+    }
+
+    @MainActor
+    func testFallbackCornerRadiiUsesSystemDefaultOnMacOS26PlusWhenCornersUnavailable() async {
+        let recorder = BorderOperationsRecorder()
+        let applier = makeApplier(recorder) { _ in nil }
+        defer { applier.cleanup() }
+
+        _ = applier.apply(desired(configRed), forceOrdering: false)
+        let panel = recorder.layerPanels.first
+        XCTAssertEqual(panel?.renderedCornerRadii, WindowCornerRadii.systemDefault)
+        if ProcessInfo.processInfo.operatingSystemVersion.majorVersion >= 26 {
+            XCTAssertEqual(panel?.renderedCornerRadii, WindowCornerRadii(uniform: 16))
+        }
     }
 }
 

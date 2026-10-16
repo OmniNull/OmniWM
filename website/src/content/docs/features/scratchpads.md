@@ -9,7 +9,7 @@ A scratchpad is a slot that holds any number of floating windows and overlays th
 
 ## Assigning and toggling
 
-Both hotkey families start unassigned — bind them in Settings under Hotkeys (see [keyboard shortcuts](/guides/keyboard-shortcuts/)):
+Both hotkey families start unassigned — bind them in Settings under Keyboard Shortcuts (see [keyboard shortcuts](/guides/keyboard-shortcuts/)):
 
 - **Toggle Scratchpad N Assignment for Focused Window** moves the focused window into slot N, floating it if it was tiled. The window stays visible when slot N is already revealed; otherwise it is parked off-screen. Pressing the same shortcut again on a window already in slot N returns it to the layout.
 - **Toggle Scratchpad N** reveals eligible windows in slot N on the monitor you are interacting with, or parks them again if they are already there. Revealing a slot parks whichever slot was showing, so at most one scratchpad is on screen at a time.

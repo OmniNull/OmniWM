@@ -1,0 +1,19 @@
+# SPDX-License-Identifier: GPL-2.0-only
+# Copyright (C) 2026 BarutSRB — https://github.com/OmniNull/OmniWM
+
+theme = "nocturne"
+leading = ["apple-menu", "app-menu", "omniwm", "workspaces", "scratchpads"]
+trailing = ["calendar", "media", "weather", "volume", "battery", "system-stats", "clock"]
+
+[workspaceBar]
+height = 40
+reserveLayoutSpace = true
+transparentBackground = false
+backgroundOpacity = 1
+showItemBackgrounds = true
+showAccentHighlights = true
+solidBlackBackground = false
+showLabels = true
+xOffset = 0
+yOffset = 0
+barFill = "background"

@@ -68,6 +68,7 @@ public enum IPCCommandRequest: Equatable, Sendable {
     case workspaceLayout(IPCWorkspaceLayoutCommand)
     case fullscreen(IPCFullscreenCommand)
     case presentation(IPCPresentationCommand)
+    case media(IPCMediaCommand)
     case windowState(IPCWindowStateCommand)
     case scratchpad(IPCScratchpadCommand)
     case openMenuAnywhere
@@ -106,6 +107,8 @@ public enum IPCCommandRequest: Equatable, Sendable {
             .fullscreen(command)
         case let .presentation(command):
             .presentation(command)
+        case let .media(command):
+            .media(command)
         case let .windowState(command):
             .windowState(command)
         case let .scratchpad(command):

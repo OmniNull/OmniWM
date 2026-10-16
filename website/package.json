@@ -7,6 +7,8 @@
     "node": "24.x"
   },
   "scripts": {
+    "reference:generate": "node scripts/omnishell-api.mjs --write",
+    "reference:check": "node scripts/omnishell-api.mjs --check",
     "dev": "astro dev",
     "build": "astro build",
     "preview": "astro preview",
@@ -16,7 +18,7 @@
   "dependencies": {
     "@astrojs/starlight": "0.41.9",
     "astro": "7.2.9",
-    "sharp": "0.35.4"
+    "sharp": "0.35.5"
   },
   "devDependencies": {
     "@astrojs/check": "0.9.10",

@@ -98,6 +98,10 @@ extension MouseEventHandler {
         return controller.isPointInOwnWindow(location)
     }
 
+    func shouldBlockOwnWindowGestureInput(at location: CGPoint) -> Bool {
+        controller?.ownedWindowRegistry.contains(point: location, excluding: .parkingEdgeMask) == true
+    }
+
     private func handleFocusFollowsMouse(at location: CGPoint, windowIdUnderPointer: Int?) {
         guard let controller else { return }
         guard !externalFocusBlocksFocusFollowsMouse,

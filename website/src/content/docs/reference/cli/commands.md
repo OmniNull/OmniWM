@@ -23,6 +23,7 @@ omniwmctl <command> [arguments...] [--format json|ndjson|table|tsv|text] [--json
 | `rule` | remote | Manage persisted window rules and reapply them to windows |
 | `workspace` | remote | Perform workspace actions such as focusing, moving, or renaming by workspace name |
 | `window` | remote | Perform window actions using session-scoped opaque IDs; it also supports [window marks](/reference/cli/actions/#window-marks) |
+| `shell` | remote | Set [values for Luau bar widgets](/reference/cli/actions/#shell-widgets) or open their popouts. Unreleased: available when building from `main`. |
 | `subscribe` | remote | Stream the subscribe handshake plus live event envelopes as JSON |
 | `watch` | remote | Consume subscription events and run a child command once per event |
 | `help`, `--help`, `-h` | local | Print CLI usage text without connecting to IPC |
@@ -214,6 +215,19 @@ Workspace IDs are global, so `switch-workspace 3` targets workspace `3` wherever
 | `command toggle-system-stats` | — | shared | Toggle the system stats popup when a workspace-bar System Stats button is available |
 
 For example, run `omniwmctl command hidden-bar panel` to show or dismiss the Hidden Bar panel.
+
+### Volume and Media
+
+| Command | Arguments | Layout | Description |
+|---------|-----------|--------|-------------|
+| `command volume-up` | — | shared | Raise the output volume by one step |
+| `command volume-down` | — | shared | Lower the output volume by one step |
+| `command volume-mute` | — | shared | Mute or unmute the output |
+| `command media-play-pause` | — | shared | Play or pause what is playing |
+| `command media-next` | — | shared | Skip to the next track |
+| `command media-previous` | — | shared | Go back to the previous track |
+
+These are also available as hotkey actions in Settings.
 
 Overview is modal with respect to external commands. While it is open every IPC/external command except `toggle-overview` returns `ignored_overview`; `omniwmctl command toggle-overview` closes it onto the current selection, exactly like Escape, Enter, backdrop dismissal, or the configured physical Overview toggle.
 

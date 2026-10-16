@@ -4,6 +4,45 @@
 import CoreGraphics
 import Foundation
 
+enum NiriContainerPrimarySpanOverride: Codable, Equatable {
+    case auto
+    case custom(Double)
+
+    var customSpan: Double? {
+        if case let .custom(span) = self { return span }
+        return nil
+    }
+
+    init(from decoder: Decoder) throws {
+        let container = try decoder.singleValueContainer()
+        if let span = try? container.decode(Double.self) {
+            guard span.isFinite, (0.05 ... 1.0).contains(span) else {
+                throw DecodingError.dataCorruptedError(
+                    in: container,
+                    debugDescription: "Expected a primary span between 0.05 and 1.0."
+                )
+            }
+            self = .custom(span)
+        } else {
+            guard try container.decode(String.self) == "auto" else {
+                throw DecodingError.dataCorruptedError(
+                    in: container,
+                    debugDescription: "Expected auto or a primary span between 0.05 and 1.0."
+                )
+            }
+            self = .auto
+        }
+    }
+
+    func encode(to encoder: Encoder) throws {
+        var container = encoder.singleValueContainer()
+        switch self {
+        case .auto: try container.encode("auto")
+        case let .custom(span): try container.encode(span)
+        }
+    }
+}
+
 struct MonitorNiriSettings: MonitorSettingsType {
     let id: UUID
     var monitorName: String
@@ -11,6 +50,7 @@ struct MonitorNiriSettings: MonitorSettingsType {
     var monitorDisplayId: CGDirectDisplayID?
 
     var visibleContainerCount: Int?
+    var defaultContainerPrimarySpan: NiriContainerPrimarySpanOverride?
     var centerFocusedColumn: CenterFocusedColumn?
     var alwaysCenterSingleColumn: Bool?
     var singleWindowFit: SingleWindowFit?
@@ -22,6 +62,7 @@ struct MonitorNiriSettings: MonitorSettingsType {
         monitorDisplayUUID: String? = nil,
         monitorDisplayId: CGDirectDisplayID? = nil,
         visibleContainerCount: Int? = nil,
+        defaultContainerPrimarySpan: NiriContainerPrimarySpanOverride? = nil,
         centerFocusedColumn: CenterFocusedColumn? = nil,
         alwaysCenterSingleColumn: Bool? = nil,
         singleWindowFit: SingleWindowFit? = nil,
@@ -32,6 +73,7 @@ struct MonitorNiriSettings: MonitorSettingsType {
         self.monitorDisplayUUID = DisplayUUID.canonical(monitorDisplayUUID)
         self.monitorDisplayId = monitorDisplayId
         self.visibleContainerCount = visibleContainerCount
+        self.defaultContainerPrimarySpan = defaultContainerPrimarySpan
         self.centerFocusedColumn = centerFocusedColumn
         self.alwaysCenterSingleColumn = alwaysCenterSingleColumn
         self.singleWindowFit = singleWindowFit
@@ -40,6 +82,7 @@ struct MonitorNiriSettings: MonitorSettingsType {
 
     private enum CodingKeys: String, CodingKey {
         case id, monitorName, monitorDisplayUUID, monitorDisplayId, visibleContainerCount
+        case defaultContainerPrimarySpan
         case centerFocusedColumn, alwaysCenterSingleColumn
         case singleWindowFit
         case infiniteLoop
@@ -52,6 +95,10 @@ struct MonitorNiriSettings: MonitorSettingsType {
         monitorDisplayUUID = try DisplayUUID.decode(from: container, forKey: .monitorDisplayUUID)
         monitorDisplayId = try container.decodeIfPresent(CGDirectDisplayID.self, forKey: .monitorDisplayId)
         visibleContainerCount = try container.decodeIfPresent(Int.self, forKey: .visibleContainerCount)
+        defaultContainerPrimarySpan = try container.decodeIfPresent(
+            NiriContainerPrimarySpanOverride.self,
+            forKey: .defaultContainerPrimarySpan
+        )
         centerFocusedColumn = try container.decodeIfPresent(CenterFocusedColumn.self, forKey: .centerFocusedColumn)
         alwaysCenterSingleColumn = try container.decodeIfPresent(Bool.self, forKey: .alwaysCenterSingleColumn)
         singleWindowFit = try container.decodeIfPresent(SingleWindowFit.self, forKey: .singleWindowFit)
@@ -70,6 +117,7 @@ struct MonitorNiriSettings: MonitorSettingsType {
             displayIdKey: .monitorDisplayId
         )
         try container.encodeIfPresent(visibleContainerCount, forKey: .visibleContainerCount)
+        try container.encodeIfPresent(defaultContainerPrimarySpan, forKey: .defaultContainerPrimarySpan)
         try container.encodeIfPresent(centerFocusedColumn, forKey: .centerFocusedColumn)
         try container.encodeIfPresent(alwaysCenterSingleColumn, forKey: .alwaysCenterSingleColumn)
         try container.encodeIfPresent(singleWindowFit, forKey: .singleWindowFit)
@@ -79,6 +127,7 @@ struct MonitorNiriSettings: MonitorSettingsType {
 
 struct ResolvedNiriSettings: Equatable {
     let visibleContainerCount: Int
+    let defaultContainerPrimarySpan: Double?
     let centerFocusedColumn: CenterFocusedColumn
     let alwaysCenterSingleColumn: Bool
     let singleWindowFit: SingleWindowFit

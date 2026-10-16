@@ -15,7 +15,9 @@ Use [App Rules](/features/app-rules/) to exclude problematic apps from tiling or
 
 ## Swap windows by dragging
 
-Hold the configured mouse-move modifier and drag a tiled window onto another to swap them; this works in both layouts. On Niri, add `Shift` to insert into a column instead. In Dwindle the drag swaps whole tiles, so a tab group moves with all of its members, the drop target is outlined while you hover it, releasing anywhere else changes nothing, and `Shift` has no effect. The modifier defaults to `Option` and can be changed or disabled in **Settings → Mouse & Trackpad**. In [Overview](/features/overview/), dragging a thumbnail needs no modifier and targets a workspace, window position, or Niri column gap.
+Hold the configured mouse-move modifier and drag a tiled window onto another to swap them; this works in both layouts. In Niri, add `Shift` before starting the drag to insert into a column instead. Dwindle swaps move an entire tab group together. The modifier defaults to `Option` and can be changed or disabled in **Settings → Mouse & Trackpad**. In [Overview](/features/overview/), dragging a thumbnail needs no modifier and targets a workspace, window position, or Niri column gap.
+
+**Unreleased:** When building from `main`, Dwindle also supports adding `Shift` before starting a drag to insert above, below, left, or right of another tile. Drag onto the corresponding part of the target; the highlighted half shows the insertion direction. The tiles split the destination area equally where window minimum sizes allow. Tab groups move together, within the same workspace. Dropping over the source tile or outside another tile cancels the move. Insertion between splits and at workspace edges is not supported.
 
 ## Resize with a right-drag
 

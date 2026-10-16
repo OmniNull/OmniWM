@@ -15,6 +15,8 @@ extension SettingsExport {
         var position: WorkspaceBarPosition
         var notchMode: WorkspaceBarNotchMode
         var notchActiveZoneWidth: Double
+        var fullWidth: Bool = false
+        var fullWidthNotchMode: WorkspaceBarFullWidthNotchMode = .rightOfNotch
         var systemStatsButton: Bool
         var deduplicateAppIcons: Bool
         var hideEmptyWorkspaces: Bool
@@ -46,49 +48,45 @@ extension SettingsExport.WorkspaceBar {
         let container = try decoder.container(keyedBy: CodingKeys.self)
         let defaults = Self.defaults()
         enabled = try container.decode(Bool.self, forKey: .enabled)
-        hoverPreviewsEnabled = try container.decodeIfPresent(Bool.self, forKey: .hoverPreviewsEnabled)
-            ?? defaults.hoverPreviewsEnabled
-        notificationBadges = try container.decodeIfPresent(
-            WorkspaceBarNotificationBadgeMode.self,
-            forKey: .notificationBadges
-        ) ?? defaults.notificationBadges
-        notificationBadgeRefreshIntervalSeconds = try container.decodeIfPresent(
-            Double.self,
-            forKey: .notificationBadgeRefreshIntervalSeconds
-        ) ?? defaults.notificationBadgeRefreshIntervalSeconds
+        hoverPreviewsEnabled = try container.decode(.hoverPreviewsEnabled, or: defaults.hoverPreviewsEnabled)
+        notificationBadges = try container.decode(.notificationBadges, or: defaults.notificationBadges)
+        notificationBadgeRefreshIntervalSeconds = try container.decode(
+            .notificationBadgeRefreshIntervalSeconds,
+            or: defaults.notificationBadgeRefreshIntervalSeconds
+        )
         showLabels = try container.decode(Bool.self, forKey: .showLabels)
         showFloatingWindows = try container.decode(Bool.self, forKey: .showFloatingWindows)
         windowLevel = try container.decode(WorkspaceBarWindowLevel.self, forKey: .windowLevel)
         position = try container.decode(WorkspaceBarPosition.self, forKey: .position)
         notchMode = try container.decode(WorkspaceBarNotchMode.self, forKey: .notchMode)
         notchActiveZoneWidth = try container.decode(Double.self, forKey: .notchActiveZoneWidth)
+        fullWidth = try container.decode(.fullWidth, or: defaults.fullWidth)
+        fullWidthNotchMode = try container.decode(.fullWidthNotchMode, or: defaults.fullWidthNotchMode)
         systemStatsButton = try container.decode(Bool.self, forKey: .systemStatsButton)
         deduplicateAppIcons = try container.decode(Bool.self, forKey: .deduplicateAppIcons)
         hideEmptyWorkspaces = try container.decode(Bool.self, forKey: .hideEmptyWorkspaces)
         excludedBundleIDs = try container.decode([String].self, forKey: .excludedBundleIDs)
         iconOverrides = try container.decode([String: String].self, forKey: .iconOverrides)
         reserveLayoutSpace = try container.decode(Bool.self, forKey: .reserveLayoutSpace)
-        autoHide = try container.decodeIfPresent(Bool.self, forKey: .autoHide) ?? defaults.autoHide
-        autoHideRevealDelayMilliseconds = try container.decodeIfPresent(
-            Double.self, forKey: .autoHideRevealDelayMilliseconds
-        ) ?? defaults.autoHideRevealDelayMilliseconds
-        autoHideHideDelayMilliseconds = try container.decodeIfPresent(
-            Double.self, forKey: .autoHideHideDelayMilliseconds
-        ) ?? defaults.autoHideHideDelayMilliseconds
+        autoHide = try container.decode(.autoHide, or: defaults.autoHide)
+        autoHideRevealDelayMilliseconds = try container.decode(
+            .autoHideRevealDelayMilliseconds,
+            or: defaults.autoHideRevealDelayMilliseconds
+        )
+        autoHideHideDelayMilliseconds = try container.decode(
+            .autoHideHideDelayMilliseconds,
+            or: defaults.autoHideHideDelayMilliseconds
+        )
         revealModifier = try container.decode(WorkspaceBarRevealModifier.self, forKey: .revealModifier)
         revealHoldMilliseconds = try container.decode(Double.self, forKey: .revealHoldMilliseconds)
         hideInNativeFullscreen = try container.decode(Bool.self, forKey: .hideInNativeFullscreen)
         height = try container.decode(Double.self, forKey: .height)
         backgroundOpacity = try container.decode(Double.self, forKey: .backgroundOpacity)
         inactiveIconOpacity = try container.decodeIfPresent(Double.self, forKey: .inactiveIconOpacity)
-        transparentBackground = try container.decodeIfPresent(Bool.self, forKey: .transparentBackground)
-            ?? defaults.transparentBackground
-        solidBlackBackground = try container.decodeIfPresent(Bool.self, forKey: .solidBlackBackground)
-            ?? defaults.solidBlackBackground
-        showItemBackgrounds = try container.decodeIfPresent(Bool.self, forKey: .showItemBackgrounds)
-            ?? defaults.showItemBackgrounds
-        showAccentHighlights = try container.decodeIfPresent(Bool.self, forKey: .showAccentHighlights)
-            ?? defaults.showAccentHighlights
+        transparentBackground = try container.decode(.transparentBackground, or: defaults.transparentBackground)
+        solidBlackBackground = try container.decode(.solidBlackBackground, or: defaults.solidBlackBackground)
+        showItemBackgrounds = try container.decode(.showItemBackgrounds, or: defaults.showItemBackgrounds)
+        showAccentHighlights = try container.decode(.showAccentHighlights, or: defaults.showAccentHighlights)
         xOffset = try container.decode(Double.self, forKey: .xOffset)
         yOffset = try container.decode(Double.self, forKey: .yOffset)
         accentColor = try container.decodeIfPresent(SettingsColor.self, forKey: .accentColor)
@@ -192,5 +190,11 @@ extension SettingsExport.WorkspaceBar {
             normalized[candidate.bundleID] = candidate.value
         }
         return normalized
+    }
+}
+
+extension KeyedDecodingContainer {
+    fileprivate func decode<Value: Decodable>(_ key: Key, or fallback: Value) throws -> Value {
+        try decodeIfPresent(Value.self, forKey: key) ?? fallback
     }
 }

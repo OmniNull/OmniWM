@@ -1,0 +1,114 @@
+[options.width]
+type = "number"
+title = "Expanded width"
+default = 520
+min = 380
+max = 640
+step = 20
+
+[options.radius]
+type = "number"
+title = "Corner radius"
+default = 28
+min = 16
+max = 40
+step = 2
+
+[options.hoverPreview]
+type = "boolean"
+title = "Hover preview"
+default = true
+
+[options.hoverDelay]
+type = "number"
+title = "Hover delay"
+default = 0.16
+min = 0.06
+max = 0.50
+step = 0.02
+
+[options.hoverGrace]
+type = "number"
+title = "Hover leave grace"
+default = 0.12
+min = 0
+max = 0.40
+step = 0.02
+
+[options.springResponse]
+type = "number"
+title = "Expansion response"
+default = 0.38
+min = 0.10
+max = 0.80
+step = 0.02
+
+[options.springBounce]
+type = "number"
+title = "Expansion bounce"
+default = 0.18
+min = 0
+max = 0.60
+step = 0.02
+
+[options.regions]
+type = "strings"
+title = "Component regions"
+default = []
+maxLength = 160
+
+[options.appearance]
+type = "choice"
+title = "Appearance"
+default = "solid"
+choices = ["solid", "translucent"]
+
+[options.backgroundColor]
+type = "string"
+title = "Solid background color"
+default = "#000000"
+maxLength = 9
+
+[options.highlightColor]
+type = "string"
+title = "Selected tab color"
+default = "#ffffff22"
+maxLength = 9
+
+[options.clickTarget]
+type = "string"
+title = "Click target"
+default = "toggle"
+maxLength = 128
+
+[options.rightClickTarget]
+type = "string"
+title = "Right-click target"
+default = "settings"
+maxLength = 128
+
+[options.swipeTarget]
+type = "string"
+title = "Swipe target"
+default = "collapse"
+maxLength = 128
+
+[options.swipeDirection]
+type = "choice"
+title = "Swipe direction"
+default = "up"
+choices = ["up", "down", "left", "right"]
+
+[options.swipeSource]
+type = "choice"
+title = "Swipe input"
+default = "both"
+choices = ["both", "pointer", "scroll"]
+
+[options.swipeDistance]
+type = "number"
+title = "Swipe distance"
+default = 40
+min = 10
+max = 160
+step = 10

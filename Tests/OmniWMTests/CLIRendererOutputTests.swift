@@ -51,6 +51,38 @@ final class CLIRendererOutputTests: XCTestCase {
         XCTAssertTrue(lines[2].contains("Progress bar  second"))
     }
 
+    func testShellWidgetsRenderAsATableAndRoundTrip() throws {
+        let result = IPCResult(shellWidgets: IPCShellWidgetsQueryResult(profile: "default", widgets: [
+            IPCShellWidget(
+                name: "clock",
+                source: "/s/default/widgets/clock/init.luau",
+                state: "loaded",
+                error: nil,
+                placements: ["trailing", "drawer controls"]
+            ),
+            IPCShellWidget(
+                name: "broken",
+                source: "/s/widgets/broken/init.luau",
+                state: "failed",
+                error: "init.luau:1: oops",
+                placements: []
+            )
+        ], problems: ["shell.toml: unknown key trailling"]))
+        let output = try CLIRenderer.responseOutput(.success(id: "1", kind: .query, result: result), format: .tsv)
+        let lines = try XCTUnwrap(String(data: output.data, encoding: .utf8)).trimmingCharacters(in: .newlines)
+            .components(separatedBy: "\n")
+        XCTAssertEqual(lines, [
+            "WIDGET\tSTATE\tPLACEMENTS\tSOURCE\tERROR",
+            "clock\tloaded\ttrailing, drawer controls\t/s/default/widgets/clock/init.luau\t-",
+            "broken\tfailed\t-\t/s/widgets/broken/init.luau\tinit.luau:1: oops"
+        ])
+        XCTAssertEqual(try JSONDecoder().decode(IPCResult.self, from: JSONEncoder().encode(result)), result)
+
+        let table = try CLIRenderer.responseOutput(.success(id: "1", kind: .query, result: result), format: .table)
+        let text = try XCTUnwrap(String(data: table.data, encoding: .utf8)).trimmingCharacters(in: .newlines)
+        XCTAssertTrue(text.hasSuffix("\n\nProblems:\n  shell.toml: unknown key trailling"))
+    }
+
     func testPlainTitleIsUnchanged() throws {
         let response = windowResponse(title: "Clean title")
         let output = try CLIRenderer.responseOutput(response, format: .tsv)

@@ -96,6 +96,8 @@ enum CLIParser {
             return try parseWorkspaceRequest(id: id, arguments: arguments)
         case "window":
             return try parseWindowRequest(id: id, arguments: arguments)
+        case "shell":
+            return try parseShellRequest(id: id, arguments: arguments)
         default:
             throw CLIParseError.usage(usageText)
         }
@@ -125,29 +127,10 @@ enum CLIParser {
     }
 
     private static func parseCommandRequest(id: String, arguments: [String]) throws -> IPCRequest {
-        guard !arguments.isEmpty else {
+        guard let request = IPCCommandRequest(commandWords: arguments) else {
             throw CLIParseError.usage(usageText)
         }
-
-        for descriptor in IPCAutomationManifest.commandDescriptors(matching: arguments) {
-            let commandWordCount = descriptor.commandWords.count
-            let remainingCount = arguments.count - commandWordCount
-            guard remainingCount == descriptor.arguments.count else {
-                continue
-            }
-
-            let argumentTokens = Array(arguments.dropFirst(commandWordCount))
-            do {
-                let argumentValues = try zip(descriptor.arguments, argumentTokens)
-                    .map(CLIArgumentParser.parseCommandArgumentValue)
-                let request = try IPCCommandRequest(name: descriptor.name, argumentValues: argumentValues)
-                return IPCRequest(id: id, command: request)
-            } catch {
-                continue
-            }
-        }
-
-        throw CLIParseError.usage(usageText)
+        return IPCRequest(id: id, command: request)
     }
 
     private static func parseWorkspaceRequest(id: String, arguments: [String]) throws -> IPCRequest {
@@ -239,21 +222,10 @@ enum CLIParser {
             return try parseWindowMarkRequest(id: id, arguments: Array(arguments.dropFirst()))
         }
 
-        guard let action = arguments.first.flatMap(IPCWindowActionName.init(rawValue:)),
-              let descriptor = IPCAutomationManifest.windowActionDescriptors.first(where: { $0.name == action }),
-              arguments.count == 1 + descriptor.arguments.count
-        else {
+        guard let request = IPCWindowRequest(actionWords: arguments) else {
             throw CLIParseError.usage(usageText)
         }
-
-        return IPCRequest(
-            id: id,
-            window: IPCWindowRequest(
-                name: action,
-                windowId: arguments[1],
-                workspaceTarget: action == .moveToWorkspace ? WorkspaceTarget(resolvingInput: arguments[2]) : nil
-            )
-        )
+        return IPCRequest(id: id, window: request)
     }
 
     private static func parseWatchCommand(
@@ -298,6 +270,7 @@ enum CLIParser {
         let workspaceLines = IPCAutomationManifest.workspaceActionDescriptors.map(\.path)
         let windowLines = IPCAutomationManifest.windowActionDescriptors.map(\.path)
         let windowMarkLines = IPCAutomationManifest.windowMarkActionDescriptors.map(\.path)
+        let shellLines = IPCAutomationManifest.shellActionDescriptors.map(\.path)
         let captureLines = IPCAutomationManifest.captureActionDescriptors.map(\.path)
 
         var lines = [
@@ -316,6 +289,7 @@ enum CLIParser {
         lines += workspaceLines.map { "  omniwmctl \($0)" }
         lines += windowLines.map { "  omniwmctl \($0)" }
         lines += windowMarkLines.map { "  omniwmctl \($0)" }
+        lines += shellLines.map { "  omniwmctl \($0)" }
         lines += [
             "  omniwmctl subscribe <\(subscriptionNames)> [--no-send-initial] [--reconnect] [--format json|ndjson]",
             "  omniwmctl subscribe --all [--no-send-initial] [--reconnect] [--format json|ndjson]",

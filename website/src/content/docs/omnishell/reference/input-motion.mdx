@@ -1,0 +1,134 @@
+---
+title: Input and motion
+description: Native press and hover feedback, keyboard focus, gestures, springs, transitions, and event types.
+sidebar:
+  order: 4
+---
+
+import LuauDeclaration from '../../../../components/docs/LuauDeclaration.astro';
+
+:::note[Unreleased]
+OmniShell and this API are available when building from `main`.
+:::
+
+Declare native feedback and tracking so a widget can animate without rerendering Luau on each pointer sample. Add callbacks only for the state changes your interaction needs. See [the island guide](/omnishell/guides/dynamic-island/) for expansion and outside dismissal.
+
+## Native input and intent
+
+Press feedback is native: add `pressScale`, `pressOpacity`, `pressFill` and `pressAnimate` to an element. It starts on mouse-down and restores on release or cancellation, without calling Luau. `pressAnimate` uses the same presets, duration or custom curve as `animate`. A transparent `pressFill = 0` explicitly overrides the base fill. Add `onPress(ctx, event)` only when behavior needs the `down`, `up` and `cancel` boundaries.
+
+`onHover(ctx, event)` receives `began` after `hoverDelay` seconds and `ended` after `hoverGrace` seconds. Leaving before dwell cancels entry; returning during grace cancels exit. Both delays default to zero and accept 0–60 seconds. Pointer movement does not call Luau.
+
+```lua
+function render(ctx)
+    return ui.box{
+        w = 240, h = if ctx.state.peek then 80 else 32,
+        fill = "#000000", radius = 16, animate = "spring",
+        hoverDelay = 0.16, hoverGrace = 0.12,
+        onHover = function(next, event) next.state.peek = event.phase == "began" end,
+        pressScale = 0.97, pressOpacity = 0.85, pressAnimate = "ease",
+        onClick = function(next) next.state.expanded = not next.state.expanded end,
+        ui.text{ text = "My island", color = "#ffffff" },
+    }
+end
+```
+
+The five new handlers—`onPress`, `onHover`, `onGesture`, `onKey` and `onOutsidePress`—accept callback functions only. Existing `onClick`, `onRightClick` and `onScroll` retain their command-string form. Pointer events expose element-local `x` and `y` in points, with the origin at the top left; press events also include `button` and `clicks`.
+
+#### Captured gestures
+
+A `gesture` declaration opts into native pointer or trackpad recognition:
+
+```lua
+gesture = {
+    axis = "y", source = "both", threshold = 6,
+    lockDistance = 2, dominance = 1.3,
+    commit = { distance = 40, velocity = 300, direction = "up" },
+},
+onGesture = function(ctx, event)
+    if event.phase == "ended" and event.committed then ctx.state.expanded = false end
+end,
+```
+
+Axes are `x`, `y`, `free` and `auto` (default); sources are `pointer` (default), `scroll` and `both`. Recognition defaults to a 4-point threshold, 1-point axis-lock distance and a 1.25 dominance ratio. The innermost element accepting the locked axis claims the gesture, cancels its click, and keeps capture outside its bounds until the gesture ends or is cancelled. Existing sliders and window-item dragging retain their native ownership.
+
+Events use `began`, `ended` and `cancelled`. Set `gestureEvents = "all"` to also receive coalesced `changed` events; `dx/dy` are cumulative translation in points and `vx/vy` are velocity in points per second. By default, continuous changes stay native. `committed` is true at the end when an enabled distance **or** velocity threshold passes in the declared direction. Zero disables a criterion, and no enabled criteria means no commit. Directions are `any` (default), `left`, `right`, `up` and `down`.
+
+`onScroll` preserves physical scroll phase and `event.momentum` (`none`, `began`, `changed` or `ended`). `scrollMomentum = "consume"` is the default; use `"deliver"` to receive momentum. Phase-less wheel events are delivered through `onScroll`; they do not synthesize an end using an idle timer. Gesture-driven visual tracking is separate from these logical gesture events.
+
+#### Declared keyboard input and outside presses
+
+An expanded island can use `focusable = true`, `keys = {"left", "right", "escape"}` and `onKey(ctx, event)`. Declared keys are consumed synchronously by the focused native element; Luau receives `key`, optional `characters`, `event["repeat"]` and the existing modifier flags. Key names are lowercase; declarations normalize ASCII case and remove duplicates. There are at most 64 names, each 1–32 bytes. Standard names include `escape`, `return`, `left`, `right`, `up`, `down`, `space` and `tab`. Undeclared keys retain the existing native fallback. Set `focusRing = false` on a focusable presentation container to hide its native focus outline while keeping keyboard handling and focus ownership. Rings stay enabled by default; a child control that takes focus keeps its own ring.
+
+`onOutsidePress(ctx, event)` works on elements in an island tree. Declare it on the visible capsule or expanded container rather than the fixed panel envelope. The handler receives the mouse button and local coordinates of an outside press; the original click continues to its destination. Native monitoring exists only while a visible island needs outside handling or owns keyboard focus. Escape releases the island’s keyboard focus when declared.
+
+## Root triggers
+
+Root widgets with `trigger(ctx, event)` receive `{name = "reloaded", source = "host"}` when a display instance is first created, and `{name = "displayChanged", source = "host"}` when its display identity or geometry changes. Visibility and focus remain data facts; they do not trigger this hook. The bundled profile preserves its presentation state while hidden. User-triggered events retain their existing name/value form without `source`. Component `init`, `options` and `deinit` remain package-level hooks.
+
+A custom island root can keep the native **Customize Island Widgets…** entry point by implementing `trigger(ctx, event)` and opening its own controls when `ctx.data.island` is present and `event.name == "settings"`. Ignore unrelated trigger names. The native button becomes available after the root loads and declares a trigger handler; the profile owns what its settings controls contain. Keep integrations in component service modules so replacing those controls or the island layout does not replace their data and actions.
+
+## Springs, element transitions and native dragging
+
+Use `animate = { response = 0.31, bounce = 0.22 }` to choose a spring. `response` accepts 0.05–2.5 seconds; `bounce` accepts 0–0.95 and defaults to zero. Do not combine spring fields with `duration` or `curve`. The same form works for `pressAnimate` and element transitions. Interrupted scalar springs carry their velocity into the next target, bounded to a normalized magnitude of 20. Frame springs use independent position and size axes.
+
+`appear` and `exit` describe an element's insertion and removal relative to its normal paint. Opacity and scale multiply the painted values; `dx` and `dy` are point offsets. Omitted fields are identity values. Omitted transition `animate` uses the element's motion, or a short fade when it has none; `animate = "none"` is instant. An exiting subtree keeps its last contents until native completion. Reintroducing its key under the same parent cancels the outgoing copy. These properties are separate from `enter`, which stages popout/drawer opening.
+
+```lua
+ui.box {
+    key = "activity", w = 220, h = 64,
+    animate = { response = 0.31, bounce = 0.22 },
+    appear = { opacity = 0, scale = 0.88 },
+    exit = { opacity = 0, scale = 0.88, animate = { response = 0.24, bounce = 0 } },
+    gesture = {
+        axis = "y", source = "both",
+        commit = { distance = 50, velocity = 300, direction = "up" },
+        track = {
+            dy = { 0, -40, rubber = 0.4 },
+            scale = { 1, 0.94 },
+            opacity = { 1, 0.8 },
+        },
+    },
+    onGesture = function(ctx, event)
+        if event.phase == "ended" and event.committed then
+            ctx.state.expanded = false
+        end
+    end,
+}
+```
+
+Tracking needs a positive `commit.distance`, which defines full progress. `track` supports `dx`, `dy`, `scale` and `opacity`; each range has two endpoints and optional `rubber` from zero to one. Rubber affects overshoot beyond the endpoints. The native renderer applies these offsets without rendering Luau on each pointer sample. `onGesture` is optional: without it, release settles immediately. With it, committed release holds until that handler finishes, then settles alongside its new layout or returns to rest if the handler makes no visual change, fails, or is rejected. There is no timeout-based success path.
+
+Apply tracking and `appear`/`exit` to a visible container around a mask; they are rejected directly on `mask = true` nodes. Reduce Motion keeps direct finger tracking and makes settlement instant. Animation speed applies to spring response and duration curves.
+
+The editable `lake` profile keeps transition recipes in `lib/lake/motion.luau`. Its optional `lib/lake/digits.luau` prototype builds rolling numbers from ordinary clipped digit strips; it does not require a native text-animation API. Keep the default crossfade or replace that library to choose your own rollover behavior.
+
+## Motion recipes
+
+`animate` accepts a motion preset, curve name, duration in seconds, duration/curve table, or spring table. `hoverAnimate` accepts a motion preset or duration. `loop` repeats native paint motion as `{from, to, seconds}` for each of `dx`, `dy`, and `rotate`, with an optional `paused`; it does not schedule Luau renders. `trail = true` makes a moving indicator’s trailing edge settle 1.5 times slower.
+
+`enter` is for popout/drawer opening; `appear`/`exit` are for keyed element insertion/removal. `enter.from/to` are fractions of opening progress. `stretch` adds native squash along a slide; `d` can start a path morph, whose endpoints need compatible commands. See [effects and shader timing](/omnishell/reference/effects-shaders/) for custom curves and masks.
+
+<LuauDeclaration name="Motion" />
+
+<LuauDeclaration name="Curve" />
+
+<LuauDeclaration name="Animate" />
+
+<LuauDeclaration name="Presence" />
+
+<LuauDeclaration name="Enter" />
+
+<LuauDeclaration name="Gesture" />
+
+<LuauDeclaration name="GestureRange" />
+
+## Input contracts
+
+`Click` accepts a command string or callback for existing click/right-click/scroll actions and slider changes. Press, hover, gesture, keyboard, outside-press, and native-text handlers require callback functions. Event coordinates are element-local points; slider `value` is normalized to 0–1. Read `event["repeat"]` using bracket syntax.
+
+<LuauDeclaration name="InputHandler" />
+
+<LuauDeclaration name="Click" />
+
+<LuauDeclaration name="Event" />

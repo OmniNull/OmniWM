@@ -15,7 +15,7 @@ This guide is for contributors who want to understand OmniWM's internals. It is 
 
 ### SwiftPM Targets
 
-OmniWM is built with Swift Package Manager (Swift 6.4, strict concurrency, language mode v6). There are six production targets, one test target, and one binary target, with a clear dependency graph:
+OmniWM is built with Swift Package Manager (Swift 6.4, strict concurrency, language mode v6). There are eleven production targets, one test target, and one binary target, with a clear dependency graph:
 
 ```
 OmniWMApp                          (@main entry point)
@@ -23,16 +23,25 @@ OmniWMApp                          (@main entry point)
     ├── OmniWMIPC                  (shared IPC models — zero dependencies)
     ├── OmniWMLayerCorners         (Objective-C native border-layer bridge)
     ├── OmniWMLauncherSPI          (Objective-C launcher integration bridge)
+    ├── OmniWMAudioTap             (C gain renderer for per-app volume taps)
+    ├── OmniWMScriptHost           (C++ Luau shell host)
+    │   └── OmniWMLuau             (vendored Luau VM and compiler, MIT)
+    ├── OmniWMShellCore            (noncopyable shell layout and diff core)
     ├── TOML                       (swift-toml — the only third-party package)
     └── GhosttyKit                 (binary xcframework)
+
+OmniWMNowPlaying                   (dynamic library loaded by the Now Playing adapter)
 
 OmniWMCtl                          (omniwmctl CLI)
 └── OmniWMIPC
 
 OmniWMTests                        (test target)
 ├── OmniWM
+├── OmniWMAudioTap
 ├── OmniWMCtl
-└── OmniWMLayerCorners
+├── OmniWMLayerCorners
+├── OmniWMScriptHost
+└── OmniWMShellCore
 ```
 
 | Target | Purpose | Dependencies |
@@ -40,10 +49,15 @@ OmniWMTests                        (test target)
 | `OmniWMIPC` | Shared IPC data models and wire format | None |
 | `OmniWMLayerCorners` | Objective-C bridge for native CALayer corner radii and rim properties | None |
 | `OmniWMLauncherSPI` | Objective-C bridge for launcher integration | None |
+| `OmniWMAudioTap` | C gain renderer for per-app volume process taps | None |
+| `OmniWMNowPlaying` | Objective-C dynamic library the Now Playing adapter loads to read and control media | None |
+| `OmniWMLuau` | Vendored Luau VM and compiler (MIT) | None |
+| `OmniWMScriptHost` | C++ Luau shell host: VM containment, CPU and memory budgets, the `ui` prelude, rendering and the wire format | OmniWMLuau |
+| `OmniWMShellCore` | Noncopyable layout and diff core for shell widget trees | None |
 | `OmniWMCtl` | CLI tool (`omniwmctl`) | OmniWMIPC |
-| `OmniWM` | Core window manager library | OmniWMIPC, OmniWMLayerCorners, OmniWMLauncherSPI, GhosttyKit, TOML, system frameworks |
+| `OmniWM` | Core window manager library | OmniWMIPC, OmniWMLayerCorners, OmniWMLauncherSPI, OmniWMAudioTap, OmniWMScriptHost, OmniWMShellCore, GhosttyKit, TOML, system frameworks |
 | `OmniWMApp` | Executable wrapper with SwiftUI scene | OmniWM |
-| `OmniWMTests` | Test target (fixtures copied as a resource bundle) | OmniWM, OmniWMCtl, OmniWMLayerCorners |
+| `OmniWMTests` | Test target (fixtures copied as a resource bundle) | OmniWM, OmniWMAudioTap, OmniWMCtl, OmniWMLayerCorners, OmniWMScriptHost, OmniWMShellCore |
 
 ### Source Directory Map
 
@@ -67,6 +81,7 @@ Sources/
 │   │   ├── Ax/                      AXManager, per-app threads, frame ledger
 │   │   ├── Surface/                 STAGE 4 — SurfaceReconciler, WorldView, SurfaceScene
 │   │   ├── Border/                  Border config, applier, layered border panel
+│   │   ├── Shell/                   Luau shell host, widget packages, data feed, popouts, drawers, shaders
 │   │   ├── Spaces/                  SpaceTracker, SpaceTopology
 │   │   ├── Layout/
 │   │   │   ├── DNode.swift          WindowToken, WindowHandle identity types
@@ -97,7 +112,12 @@ Sources/
 ├── OmniWMCtl/                       CLI parser, IPC client, renderer, completion
 ├── OmniWMIPC/                       models, wire format, socket path, automation manifest
 ├── OmniWMLayerCorners/              Objective-C native border-layer bridge (1 .m + 1 header)
-└── OmniWMLauncherSPI/               Objective-C launcher integration bridge
+├── OmniWMLauncherSPI/               Objective-C launcher integration bridge
+├── OmniWMAudioTap/                  C per-app volume gain renderer
+├── OmniWMNowPlaying/                Objective-C Now Playing library
+├── OmniWMLuau/                      Vendored Luau VM and compiler
+├── OmniWMScriptHost/                C++ Luau shell host
+└── OmniWMShellCore/                 Shell layout and diff core
 ```
 
 ### External Dependencies
@@ -105,7 +125,7 @@ Sources/
 OmniWM has a single third-party Swift package and otherwise builds on system frameworks:
 
 - **`swift-toml`** — the only third-party Swift package; used by `Core/Config/SettingsTOMLCodec.swift` and `SettingsTOMLMigration.swift` to decode, encode, and migrate `settings.toml`.
-- **Key system frameworks**: AppKit/SwiftUI, Accessibility/ApplicationServices, Carbon/CoreHID, Core Graphics/Core Text/QuartzCore/ScreenCaptureKit, IOKit (including `hidsystem` and `pwr_mgt`), ServiceManagement, and os. Metal and MetalKit are link-time only — no Swift file imports them; the Ghostty surface reaches Metal through a `CAMetalLayer`.
+- **Key system frameworks**: AppKit/SwiftUI, Accessibility/ApplicationServices, Carbon/CoreHID, Core Graphics/Core Text/QuartzCore/ScreenCaptureKit, IOKit (including `hidsystem` and `pwr_mgt`), ServiceManagement, and os. The Luau shell's `ui.shader` compiles and draws Metal fragment shaders (`Core/Shell/ShellShader.swift`, `ShellShaderDrawer.swift`); MetalKit is link-time only, and the Ghostty surface reaches Metal through a `CAMetalLayer`.
 - **SkyLight**: a private Apple framework for low-latency window-server access, linked via `-framework SkyLight` and additionally `dlopen`/`dlsym`-loaded for SLS* symbols.
 - **CFPreferences**: Hidden Bar reads and updates the native per-app visibility data in the Control Center group preferences. The API is public; the stored data format is private to macOS.
 - **FoundationModels**: weak-linked and auto-link-disabled, so the app still launches where the framework is
@@ -651,7 +671,7 @@ enum DwindleNodeKind {
 
 Each leaf owns one stable tile containing an ordered member list and one active member. Singleton-to-neighbor joins preserve the destination tile identity; extraction removes only the active member while preserving the remaining group identity and per-member fullscreen state. `DwindleLayoutEngine` owns these tree/tile mutations, while `DwindleLayoutHandler` owns hidden-member reveal, rollback, and verified focus completion. Group rails are derived through `WorldView` and applied by the shared `TabRailManager`. Overview caches every eligible group member for search and projects one preview into the canonical group content frame; tab controls change only the preview until dismissal activates the selected member through the existing Dwindle handler.
 
-`DwindleLayoutEngine.calculateLayout(for:screen:) -> [WindowToken: CGRect]`. **Smart split** (`planSplit`) chooses orientation from the available rectangle's slope vs. aspect; **preselection** lets the user direct where the next window inserts. The engine also supports resize/balance/whole-tile swap/toggle-orientation/toggle-fullscreen, grouped-member reorder, and geometric-neighbor navigation. Like Niri it is a plain `final class`, AX-free, mutation-gated by `WorldStore`.
+`DwindleLayoutEngine.calculateLayout(for:screen:) -> [WindowToken: CGRect]`. **Smart split** (`planSplit`) chooses orientation from the available rectangle's slope vs. aspect; **preselection** lets the user direct where the next window inserts. The engine also supports resize/balance/whole-tile swap/toggle-orientation/toggle-fullscreen, grouped-member reorder, and geometric-neighbor navigation. Modifier-drag swaps complete tiles. **Unreleased, available when building from `main`:** adding Shift at mouse-down selects directional insertion within the same workspace. Hovering previews one half of the target; release detaches the source tile, collapses its old split, and splits the destination at a 50:50 ratio subject to the existing minimum-size projection. Group membership, constraints, and unrelated subtree ratios are preserved. Like Niri it is a plain `final class`, AX-free, mutation-gated by `WorldStore`.
 
 ### 4.5 Focus Lifecycle
 
@@ -884,7 +904,7 @@ Optional gradients replace the visible solid rim with an even-odd ring mask. An 
 
 `BorderSettings` owns optional gradient, glow, and dark-color values. Each absent dark endpoint inherits its corresponding light color independently, and the settings UI can reset optional overrides. `WMController` caches the resolved effective appearance at initialization, after an appearance setting is applied, and on effective-appearance notifications. `WorldView` passes that value into `BorderConfig`; animation ticks perform no AppKit appearance lookup. Style-only settings changes schedule border-only reconciliation.
 
-**`SurfaceCoordinator`** (a `.shared` singleton) is the registry of OmniWM-owned surfaces, backed by `SurfaceScene`. Beyond "exclude from tiling" it answers hit-testing (`containsInteractive`), ScreenCaptureKit capture-eligibility (`isCaptureEligible`), and focus-recovery suppression (`hasFrontmostSuppressingWindow`). The vocabulary lives in `SurfaceScene.swift`: `SurfaceKind` (`border`, `parkingEdgeMask`, `workspaceBar`, `overview`, `nativeFullscreenPlaceholder`, `tabRail`, `dragGhost`, `utility`, `quake`, `launchOverlay`, `secureInputIndicator`, `systemStats`, `hiddenBarPanel`), `HitTestPolicy`, `CapturePolicy`, and `SurfacePolicy` (which bundles them plus `suppressesManagedFocusRecovery`). `OwnedWindowRegistry` (in `App/`) is now a thin facade over `SurfaceCoordinator.shared`.
+**`SurfaceCoordinator`** (a `.shared` singleton) is the registry of OmniWM-owned surfaces, backed by `SurfaceScene`. Beyond "exclude from tiling" it answers hit-testing (`containsInteractive`), ScreenCaptureKit capture-eligibility (`isCaptureEligible`), and focus-recovery suppression (`hasFrontmostSuppressingWindow`). The vocabulary lives in `SurfaceScene.swift`: `SurfaceKind` (`border`, `parkingEdgeMask`, `workspaceBar`, `overview`, `nativeFullscreenPlaceholder`, `tabRail`, `dragGhost`, `utility`, `quake`, `launchOverlay`, `secureInputIndicator`, `hiddenBarPanel`), `HitTestPolicy`, `CapturePolicy`, and `SurfacePolicy` (which bundles them plus `suppressesManagedFocusRecovery`). `OwnedWindowRegistry` (in `App/`) is now a thin facade over `SurfaceCoordinator.shared`.
 
 ### 4.12 Animation System
 
@@ -922,7 +942,7 @@ The per-frame **display link** is owned by `LayoutRefreshController` (not by `An
 | **Scratchpad** | `Core/World/ScratchpadState.swift`, `Core/Controller/WMController+Scratchpad*.swift` | Ten slots of floating windows (`membersBySlot` / `revealedIndex` in `WorldStore.scratchpads`); at most one slot revealed, show/hide coordinated by `WMController`. |
 | **Monitors** | `Core/Monitor/` | Display detection (`Monitor.current()`), UUID-first durable identity (`OutputId`), and `resolveWorkspaceRestoreAssignments` in `MonitorRestoreAssignments.swift` (re-maps saved per-monitor workspaces by unique display UUID, then uses runtime ID/name only for UUID-less displays before geometry/name best-match; `MonitorRestoreKey` is the data-only identity it matches on). Duplicate live UUID claims fail closed to session-only runtime identity. Orientation reported over IPC is the **effective** orientation (`settings.effectiveOrientation` — override or auto). |
 | **Sleep / Lock** | `Core/Sleep/`, `Core/LockScreen/` | `SleepPreventionManager` (IOPM assertion), `LockScreenObserver` (DistributedNotificationCenter lock/unlock). |
-| **System Stats** | `UI/SystemStats/SystemStatsSampler.swift` | CPU, memory-pressure, GPU, disk, and uptime sampling behind an optional workspace-bar button and popup; registers as a `.systemStats` surface. |
+| **System Stats** | `Core/Shell/SystemStatsSampler.swift` | CPU, memory-pressure, GPU, disk, uptime, host, and display readings that shell widgets read as `ctx.data`; the bundled `system-stats` widget draws the button and popout. |
 | **Diagnostics & Trace Capture** | `Core/Diagnostics/RuntimeTraceCaptureCoordinator.swift` | Bounded ring recorders per domain plus the single capture owner for the `problem` (wire name `trace`) and `performance` profiles. Both auto-finalize after 600s; the UI, the status bar, and IPC all drive the same coordinator. |
 | **Issue Reporter** | `Core/IssueReporter/FoundationModelsIssueEngine.swift` | Optionally rewrites a rough bug report into the five-section issue template on Apple's on-device model, then builds a pre-filled GitHub URL (`maxURLLength` 8000). Without an applied rewrite, the manual form uses deterministic formatting; rewrite failures report an error and leave that draft available. Prompts live as Markdown resources — see [issue-report-prompt.md](https://github.com/OmniNull/OmniWM/blob/main/docs/issue-report-prompt.md). |
 | **Release Updater** | `App/UpdateCoordinator.swift` | Polls the latest GitHub release once per day, supports manual checks, shows a release-notes popup. |

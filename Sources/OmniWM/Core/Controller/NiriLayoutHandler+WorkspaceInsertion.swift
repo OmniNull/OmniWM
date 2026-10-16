@@ -107,6 +107,62 @@ extension NiriLayoutHandler {
         }
     }
 
+    func withNiriWindowContext(
+        _ target: WindowTarget,
+        perform: (NiriLayoutEngine, NiriWindow, NiriInteractionContext, inout ViewportState) -> Void
+    ) {
+        let workspaceId: WorkspaceDescriptor.ID? = switch target {
+        case .focused:
+            controller?.activeWorkspace()?.id
+        case let .window(handle):
+            controller?.workspaceManager.entry(for: handle.id)?.workspaceId
+        }
+        guard let workspaceId else { return }
+        withNiriWorkspaceContext(for: workspaceId) {
+            engine, wsId, motion, state, _, workingFrame, gaps, orientation in
+            let window: NiriWindow? = switch target {
+            case .focused:
+                state.selectedNodeId.flatMap { engine.findNode(by: $0, in: wsId) as? NiriWindow }
+            case let .window(handle):
+                engine.findNode(for: handle, in: wsId)
+            }
+            guard let window else { return }
+            perform(
+                engine,
+                window,
+                NiriInteractionContext(
+                    workspaceId: wsId,
+                    motion: motion,
+                    workingFrame: workingFrame,
+                    gaps: gaps,
+                    orientation: orientation
+                ),
+                &state
+            )
+        }
+    }
+
+    func preservingFocusedColumnAnchor<Result>(
+        for token: WindowToken,
+        _ body: () -> Result
+    ) -> Result {
+        guard let controller,
+              let engine = controller.niriEngine,
+              let workspaceId = controller.workspaceManager.entry(for: token)?.workspaceId,
+              controller.workspaceManager.activeLayoutKind(for: workspaceId) == .niri,
+              let selectedId = controller.workspaceManager.niriViewportState(for: workspaceId).selectedNodeId,
+              let focusedColumn = engine.findNode(by: selectedId, in: workspaceId).flatMap(engine.column(of:)),
+              !focusedColumn.windowNodes.contains(where: { $0.token == token })
+        else { return body() }
+        let result = body()
+        if let focusedIndex = engine.columnIndex(of: focusedColumn, in: workspaceId),
+           controller.workspaceManager.niriViewportState(for: workspaceId).activeColumnIndex != focusedIndex
+        {
+            controller.workspaceManager.withNiriViewportState(for: workspaceId) { $0.activeColumnIndex = focusedIndex }
+        }
+        return result
+    }
+
     @discardableResult
     func insertWindow(
         handle: WindowHandle,

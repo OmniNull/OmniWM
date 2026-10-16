@@ -47,7 +47,8 @@ final class BorderWindow {
     private var isVisible = false
     private var lastOrderedTargetToken: WindowToken?
     private var lastConfiguredScale: CGFloat = 0
-    private var currentCornerRadii = WindowCornerRadii(uniform: 9.0)
+    private var currentCornerRadii: WindowCornerRadii
+    private var currentCornerContour: WindowCornerContour?
     private var cachedScale: CGFloat = 0
     private var cachedScaleScreenFrame: CGRect = .null
     private var cachedTargetLevel: CachedTargetLevel?
@@ -60,11 +61,18 @@ final class BorderWindow {
     private(set) var needsWindowLevelRetry = false
     private(set) var appliedTargetLevel: Int32 = 0
 
-    private let defaultCornerRadii = WindowCornerRadii(uniform: 9.0)
+    private let defaultCornerRadii: WindowCornerRadii
 
-    init(config: BorderConfig, operations: Operations = .live) {
+    init(
+        config: BorderConfig,
+        operations: Operations = .live,
+        defaultCornerRadii: WindowCornerRadii = .systemDefault
+    ) {
         self.config = config
         self.operations = operations
+        self.defaultCornerRadii = defaultCornerRadii
+        self.currentCornerRadii = defaultCornerRadii
+        currentCornerContour = nil
     }
 
     isolated deinit {
@@ -85,20 +93,22 @@ final class BorderWindow {
         pendingTargetLevelRetryToken = nil
         needsWindowLevelRetry = false
         currentCornerRadii = defaultCornerRadii
+        currentCornerContour = nil
     }
 
     @discardableResult
     func update(
         frame targetFrame: CGRect,
         targetToken: WindowToken,
-        cornerRadii: WindowCornerRadii = WindowCornerRadii(uniform: 9.0),
+        cornerRadii: WindowCornerRadii? = nil,
+        cornerContour: WindowCornerContour? = nil,
         forceOrdering: Bool = false
     ) -> Bool {
         BorderOpMetricsRecorder.shared.noteUpdate()
         needsWindowLevelRetry = false
         guard let targetWid = UInt32(exactly: targetToken.windowId), targetWid != 0 else { return false }
         let scale = backingScale(for: targetFrame)
-        let resolvedCornerRadii = cornerRadii.nonnegative
+        let resolvedCornerRadii = (cornerRadii ?? defaultCornerRadii).nonnegative
         let geometry = config.resolvedGeometry(for: targetFrame, scale: scale)
         let surfaceFrame = geometry.surfaceFrame
         appliedTargetFrame = geometry.targetFrame
@@ -126,11 +136,12 @@ final class BorderWindow {
             BorderOpMetricsRecorder.shared.noteReshape()
             needsRedraw = true
         }
-        if currentCornerRadii != resolvedCornerRadii {
+        if currentCornerRadii != resolvedCornerRadii || currentCornerContour != cornerContour {
             needsRedraw = true
         }
         currentSurfaceFrame = localGeometry.surfaceFrame
         currentCornerRadii = resolvedCornerRadii
+        currentCornerContour = cornerContour
 
         updateLayerGeometry(localGeometry)
 
@@ -349,7 +360,8 @@ extension BorderWindow {
         )
         layerPanel.updateEffects(
             geometry: geometry, cornerRadii: currentCornerRadii,
-            config: config, baseColor: color, scale: lastConfiguredScale
+            config: config, baseColor: color, scale: lastConfiguredScale,
+            cornerContour: currentCornerContour
         )
         needsRedraw = false
         BorderOpMetricsRecorder.shared.noteRedraw()

@@ -17,7 +17,9 @@ struct OverviewSettingsTab: View {
                     get: { settings.overview.enabled },
                     set: { controller.setOverviewEnabled($0) }
                 ))
+                .id("Enable Overview")
             }
+            .id("Overview")
 
             Section("Layout") {
                 SettingsSliderRow(
@@ -27,15 +29,18 @@ struct OverviewSettingsTab: View {
                     step: 0.05,
                     valueText: "\(Int((settings.overview.zoom * 100).rounded()))%"
                 )
+                .id("Zoom")
                 .onChange(of: settings.overview.zoom) { _, _ in
                     scheduleUpdate()
                 }
                 SettingsCaption(localized: "Zoom changes made in Overview are remembered when it closes.")
             }
+            .id("Layout")
             .disabled(!settings.overview.enabled)
 
             Section("Input") {
                 Toggle("Invert Scrolling Direction", isOn: Bindable(settings.overview).invertScrollDirection)
+                    .id("Invert Scrolling Direction")
                 SettingsSliderRow(
                     label: String(localized: "Mouse Wheel Speed"),
                     value: Bindable(settings.overview).mouseScrollSpeed,
@@ -43,6 +48,7 @@ struct OverviewSettingsTab: View {
                     step: 0.05,
                     valueText: "\(Int((settings.overview.mouseScrollSpeed * 100).rounded()))%"
                 )
+                .id("Mouse Wheel Speed")
                 SettingsCaption(localized: "Adjusts mouse wheels. Trackpad scrolling keeps its normal speed.")
                 Picker("Toggle Overview Mouse Button", selection: Binding(
                     get: { settings.overview.mouseButton },
@@ -64,6 +70,7 @@ struct OverviewSettingsTab: View {
                             )
                     }
                 }
+                .id("Toggle Overview Mouse Button")
                 SettingsCaption(
                     localized: "Press to open or close Overview. Buttons assigned to System Hyper or a hotkey are unavailable."
                 )
@@ -71,6 +78,7 @@ struct OverviewSettingsTab: View {
                     SettingsCaption(mouseButtonError)
                 }
             }
+            .id("Input")
             .disabled(!settings.overview.enabled)
 
             Section("Appearance") {
@@ -90,6 +98,7 @@ struct OverviewSettingsTab: View {
                     supportsOpacity: true
                 )
                 Toggle("Selected Border Matches Focus Border", isOn: Bindable(settings.overview).matchFocusBorder)
+                    .id("Selected Border Matches Focus Border")
                     .onChange(of: settings.overview.matchFocusBorder) { _, _ in
                         scheduleUpdate()
                     }
@@ -100,6 +109,7 @@ struct OverviewSettingsTab: View {
                 )
                 .disabled(settings.overview.matchFocusBorder)
             }
+            .id("Appearance")
             .disabled(!settings.overview.enabled)
         }
         .formStyle(.grouped)

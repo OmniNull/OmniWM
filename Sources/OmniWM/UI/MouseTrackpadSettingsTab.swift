@@ -8,6 +8,7 @@ struct MouseTrackpadSettingsTab: View {
     @Bindable var settings: SettingsStore
     @Bindable var controller: WMController
     @State private var missionControlGestureProbe: MissionControlGestureProbe
+    @Environment(SettingsNavigationModel.self) private var navigation
     @State private var connectedMonitors: [Monitor] = Monitor.current()
 
     init(
@@ -21,13 +22,27 @@ struct MouseTrackpadSettingsTab: View {
     }
 
     var body: some View {
-        Form {
-            TrackpadGesturesSettingsPanel(settings: settings, monitors: connectedMonitors)
-            macOSGestureSection
-            mouseMoveAndResizeSection
-            focusFollowsMouseSection
+        TabView(selection: Binding(
+            get: { navigation.route.tab ?? "trackpad" },
+            set: { navigation.selectTab($0) }
+        )) {
+            Tab("Trackpad", systemImage: "hand.draw", value: "trackpad") {
+                Form {
+                    TrackpadGesturesSettingsPanel(settings: settings, monitors: connectedMonitors)
+                    macOSGestureSection
+                }
+                .formStyle(.grouped)
+            }
+            Tab("Mouse & Focus", systemImage: "computermouse", value: "mouse") {
+                Form {
+                    mouseMoveAndResizeSection
+                    focusFollowsMouseSection
+                }
+                .formStyle(.grouped)
+            }
         }
-        .formStyle(.grouped)
+        .padding(.horizontal, 20)
+        .padding(.bottom, 16)
         .onAppear(perform: missionControlGestureProbe.refresh)
         .onReceive(NotificationCenter.default.publisher(for: NSApplication.didBecomeActiveNotification)) { _ in
             missionControlGestureProbe.refresh()
@@ -53,8 +68,10 @@ struct MouseTrackpadSettingsTab: View {
                 .foregroundStyle(.secondary)
             }
             Button("Open Trackpad Settings", action: missionControlGestureProbe.openTrackpadSettings)
+                .id("Open Trackpad Settings")
                 .accessibilityHint("Opens macOS Trackpad settings. Select More Gestures to review system gestures.")
         }
+        .id("macOS Gestures")
     }
 
     private var mouseMoveAndResizeSection: some View {
@@ -64,9 +81,10 @@ struct MouseTrackpadSettingsTab: View {
                     Text(key.localizedDisplayName).tag(key)
                 }
             }
+            .id("Left Mouse Move Modifier")
 
             SettingsCaption(
-                localized: "Hold this modifier and left-drag to swap Niri tiled windows. Add Shift to insert instead; choose Off to leave modified drags to apps."
+                localized: "Hold this modifier and left-drag to swap tiled windows. Add Shift to insert into a Niri column or beside a Dwindle tile; choose Off to leave modified drags to apps."
             )
 
             Picker("Right Mouse Resize Modifier", selection: Bindable(settings.gestures).mouseResizeModifierKey) {
@@ -74,19 +92,23 @@ struct MouseTrackpadSettingsTab: View {
                     Text(key.localizedDisplayName).tag(key)
                 }
             }
+            .id("Right Mouse Resize Modifier")
 
             SettingsCaption(localized: "Hold this modifier combo + right mouse drag to resize tiled windows")
         }
+        .id("Mouse Move & Resize")
     }
 
     private var focusFollowsMouseSection: some View {
         Section("Focus Follows Mouse") {
             Toggle("Enable Focus Follows Mouse", isOn: Bindable(settings.focus).followsMouse)
+                .id("Enable Focus Follows Mouse")
                 .onChange(of: settings.focus.followsMouse) { _, newValue in
                     controller.setFocusFollowsMouse(newValue)
                 }
 
             Toggle("Raise Window When Focus Follows Mouse", isOn: Bindable(settings.focus).raiseOnMouseFocus)
+                .id("Raise Window When Focus Follows Mouse")
                 .disabled(!settings.focus.followsMouse)
 
             Picker("Focus Lock Modifier", selection: Bindable(settings.focus).lockModifier) {
@@ -94,11 +116,13 @@ struct MouseTrackpadSettingsTab: View {
                     Text(key.localizedDisplayName).tag(key)
                 }
             }
+            .id("Focus Lock Modifier")
             .disabled(!settings.focus.followsMouse)
 
             SettingsCaption(
                 localized: "Hold this modifier to move the cursor over other windows without changing focus."
             )
         }
+        .id("Focus Follows Mouse")
     }
 }

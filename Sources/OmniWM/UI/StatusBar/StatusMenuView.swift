@@ -191,6 +191,9 @@ struct StatusMenuPrimaryView: View {
             MenuActionRow(icon: "slider.horizontal.3", label: String(localized: "App Rules")) {
                 model.openAppRules()
             }
+            MenuActionRow(icon: "folder", label: String(localized: "Open Shell Folder")) {
+                model.openShellFolder()
+            }
             if model.checkForUpdatesAction != nil {
                 MenuActionRow(icon: "arrow.down.circle", label: String(localized: "Check for Updates...")) {
                     model.checkForUpdates()

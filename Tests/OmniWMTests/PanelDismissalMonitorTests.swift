@@ -7,6 +7,44 @@ import XCTest
 
 @MainActor
 final class PanelDismissalMonitorTests: XCTestCase {
+    func testScreenChangeDismissesByDefaultAndAllowsTheOwnerToKeepItsPanel() async {
+        let ordinary = PanelDismissalMonitor()
+        let retained = PanelDismissalMonitor()
+        let ordinaryDismissed = expectation(description: "ordinary panel dismissed")
+        let retainedChecked = expectation(description: "retained panel checked")
+        let panel = makePanel()
+        var retainedDismissals = 0
+        ordinary.start(
+            panels: [panel], isExemptWindow: { _ in false },
+            onDismiss: { ordinaryDismissed.fulfill() }
+        )
+        retained.start(
+            panels: [panel], isExemptWindow: { _ in false },
+            shouldDismissOnScreenChange: {
+                retainedChecked.fulfill()
+                return false
+            },
+            onDismiss: { retainedDismissals += 1 }
+        )
+        defer {
+            ordinary.stop()
+            retained.stop()
+        }
+
+        NotificationCenter.default.post(name: NSApplication.didChangeScreenParametersNotification, object: nil)
+        await fulfillment(of: [ordinaryDismissed, retainedChecked], timeout: 5)
+        XCTAssertEqual(retainedDismissals, 0)
+
+        let restartedDismissed = expectation(description: "restarted panel dismissed")
+        ordinary.stop()
+        retained.start(
+            panels: [panel], isExemptWindow: { _ in false },
+            onDismiss: { restartedDismissed.fulfill() }
+        )
+        NotificationCenter.default.post(name: NSApplication.didChangeScreenParametersNotification, object: nil)
+        await fulfillment(of: [restartedDismissed], timeout: 5)
+    }
+
     func testLocalEscapeDismissesAndIsConsumed() throws {
         let panel = makePanel()
         let monitor = PanelDismissalMonitor()

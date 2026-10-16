@@ -132,6 +132,7 @@ final class NiriResizeAnimationTakeoverTests: NiriInteractionTestCase {
     private func makeFixture() throws -> Fixture {
         let controller = WindowAdmissionTestSupport.controller(prefix: "NiriResizeAnimationTakeoverTests")
         controller.settings.niri.visibleContainerCount = 3
+        controller.settings.niri.defaultContainerPrimarySpan = nil
         let monitor = Monitor(
             id: .init(displayId: 51_061), displayId: 51_061,
             frame: CGRect(x: 0, y: 0, width: 1200, height: 900),

@@ -346,7 +346,7 @@ final class NativeFocusAdmissionTests: XCTestCase {
         )
         await WindowAdmissionTestSupport.drainLayoutRefreshes(controller)
 
-        XCTAssertEqual(operations.values, ["activate", "focus", "raise"])
+        XCTAssertEqual(operations.values, ["focus", "raise"])
         XCTAssertEqual(manager.nativeManagedFocusToken, focusedToken)
         XCTAssertEqual(manager.pendingFocusedToken, newToken)
         XCTAssertEqual(controller.intentLedger.activeManagedRequest?.token, newToken)

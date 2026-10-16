@@ -35,10 +35,17 @@ final class DisplayConfigurationObserver: NSObject {
                 object: nil
             )
         }
+        DistributedNotificationCenter.default().addObserver(
+            self,
+            selector: #selector(screensDidChange),
+            name: .menuBarHidingDidChange,
+            object: nil
+        )
     }
 
     deinit {
         NotificationCenter.default.removeObserver(self)
+        DistributedNotificationCenter.default().removeObserver(self)
     }
 
     func setEventHandler(_ handler: @escaping EventHandler) {

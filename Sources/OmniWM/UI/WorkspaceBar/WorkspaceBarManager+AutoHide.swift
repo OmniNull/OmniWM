@@ -13,6 +13,7 @@ extension WorkspaceBarManager {
     }
 
     func handleAutoHideMouseMoved(at pointer: CGPoint) {
+        handleShellEdgeHover(at: pointer)
         guard needsAutoHideMouseMoves || !autoHideState.revealed.isEmpty || !autoHideDelays.pendingIds.isEmpty
         else { return }
         let desired = autoHideState.desired(targets: autoHideTargets, pointer: pointer)
@@ -43,8 +44,8 @@ extension WorkspaceBarManager {
         guard let settings = controller?.settings.workspaceBar,
               let target = autoHideTargets.first(where: { $0.id == id })
         else { return 0 }
-        guard revealing else { return settings.autoHideHideDelayMilliseconds }
-        return target.isVisible ? 0 : settings.autoHideRevealDelayMilliseconds
+        guard revealing else { return settings.resolvedAutoHideHideDelayMilliseconds }
+        return target.isVisible ? 0 : settings.resolvedAutoHideRevealDelayMilliseconds
     }
 
     private func completeAutoHideDelay(for id: Monitor.ID) {
@@ -59,18 +60,18 @@ extension WorkspaceBarManager {
     func refreshAutoHide() {
         guard let controller, needsAutoHideMouseMoves else { return }
         let popupFrames = controller.ownedWindowRegistry.visibleSurfaceInfos().filter {
-            [.systemStats, .hiddenBarPanel, .statusPanel].contains($0.kind)
+            [.hiddenBarPanel, .statusPanel].contains($0.kind)
         }.compactMap(\.frame)
         for index in autoHideTargets.indices {
             guard let instance = barsByMonitor[autoHideTargets[index].id] else { continue }
-            let panels = [instance.primary.panel, instance.secondary?.panel].compactMap { $0 }
             autoHideTargets[index].isVisible = instance.primary.panel.isVisible
             autoHideTargets[index].isPinned = dragController.isDragging
                 || menuMonitorId == instance.monitorId
                 || (renamePanel?.isVisible == true && renameMonitorId == instance.monitorId)
                 || hoverPreview?.visibleTarget.map { instance.monitor.frame.contains($0.attachment.anchor) } == true
-                || panels.contains { $0.hasPresentedSheet }
                 || popupFrames.contains { instance.monitor.frame.contains($0.center) }
+                || (shellHost?.popout?.key.placement == .bar
+                    && shellHost?.popout?.key.monitor == instance.monitorId)
         }
         handleAutoHideMouseMoved(at: controller.currentMouseLocation())
     }
@@ -103,6 +104,6 @@ extension WorkspaceBarManager {
         for panel in panels where panel.isVisible != visible {
             if visible { panel.orderFrontRegardless() } else { panel.orderOut(nil) }
         }
-        if !visible { controller?.dismissSystemStatsPopup(anchoredTo: monitorId) }
+        if !visible { closeShellSystemStats(on: monitorId) }
     }
 }

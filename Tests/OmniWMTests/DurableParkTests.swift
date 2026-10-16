@@ -802,6 +802,46 @@ final class DurableParkTests: XCTestCase {
         XCTAssertEqual(manager.pendingParkFrameRequest(for: windowId), targetRequest)
     }
 
+    func testHidingInactiveWorkspacesParksEveryInactiveWindow() throws {
+        let controller = Self.controller()
+        let monitor = Self.monitor()
+        controller.workspaceManager.applyMonitorConfigurationChange([monitor])
+        let workspaceIds = try ["1", "2", "3"].map {
+            try XCTUnwrap(controller.workspaceManager.workspaceId(for: $0, createIfMissing: true))
+        }
+        _ = controller.workspaceManager.focusWorkspace(named: "1")
+
+        var frames: [WindowToken: CGRect] = [:]
+        var tokens: [WindowToken] = []
+        for (index, workspaceId) in workspaceIds.enumerated() {
+            for slot in 0 ..< 2 {
+                let pid = pid_t(959_001 + index)
+                let windowId = 959_101 + index * 10 + slot
+                let token = controller.workspaceManager.addWindow(
+                    AXWindowRef(element: AXUIElementCreateApplication(pid), windowId: windowId),
+                    pid: pid,
+                    windowId: windowId,
+                    to: workspaceId,
+                    mode: .floating
+                )
+                frames[token] = CGRect(x: 100 + CGFloat(slot * 40), y: 16, width: 800, height: 600)
+                tokens.append(token)
+            }
+        }
+        controller.layoutRefreshController.fastFrameProvider = { token, _ in frames[token] }
+
+        controller.layoutRefreshController.hideInactiveWorkspacesSync()
+
+        for token in tokens.prefix(2) {
+            XCTAssertNil(controller.workspaceManager.hiddenState(for: token))
+            XCTAssertFalse(controller.axManager.pendingParkWindowIds.contains(token.windowId))
+        }
+        for token in tokens.dropFirst(2) {
+            XCTAssertEqual(controller.workspaceManager.hiddenState(for: token)?.reason, .workspaceInactive)
+            XCTAssertTrue(controller.axManager.pendingParkWindowIds.contains(token.windowId))
+        }
+    }
+
     func testWorkspaceInactiveAndScratchpadFloatingHidesRemainPendingWithoutAXConfirmation() throws {
         let controller = Self.controller()
         let monitor = Self.monitor()

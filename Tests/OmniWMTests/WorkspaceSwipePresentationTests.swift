@@ -77,7 +77,7 @@ final class WorkspaceSwipePresentationTests: XCTestCase {
         }
     }
 
-    func testBothInputAxesAnimateVerticallyWithConfiguredDestinationDirection() throws {
+    func testAnimationFollowsInputAxisWithConfiguredDestinationDirection() throws {
         for axis in WorkspaceSwipeAxis.allCases {
             for inverted in [false, true] {
                 for cumulative in [-20.0, 20.0] {
@@ -102,12 +102,23 @@ final class WorkspaceSwipePresentationTests: XCTestCase {
                         )
                     XCTAssertEqual(flight.destination.id, expected?.id)
                     XCTAssertTrue(swipe.update(cumulative: cumulative * 8.5, timestamp: 1.1))
-                    let distance = monitor.visibleFrame.height * 1.1 / 2
                     XCTAssertEqual(flight.progress, 0.5, accuracy: 0.000001)
-                    XCTAssertEqual(flight.offset(destination: false).dx, 0)
-                    XCTAssertEqual(flight.offset(destination: true).dx, 0)
-                    XCTAssertEqual(flight.offset(destination: false).dy, next ? distance : -distance)
-                    XCTAssertEqual(flight.offset(destination: true).dy, next ? -distance : distance)
+                    let sourceOffset = flight.offset(destination: false)
+                    let destinationOffset = flight.offset(destination: true)
+                    switch axis {
+                    case .horizontal:
+                        let distance = monitor.visibleFrame.width * 1.1 / 2
+                        XCTAssertEqual(sourceOffset.dy, 0)
+                        XCTAssertEqual(destinationOffset.dy, 0)
+                        XCTAssertEqual(sourceOffset.dx, next ? -distance : distance)
+                        XCTAssertEqual(destinationOffset.dx, next ? distance : -distance)
+                    case .vertical:
+                        let distance = monitor.visibleFrame.height * 1.1 / 2
+                        XCTAssertEqual(sourceOffset.dx, 0)
+                        XCTAssertEqual(destinationOffset.dx, 0)
+                        XCTAssertEqual(sourceOffset.dy, next ? distance : -distance)
+                        XCTAssertEqual(destinationOffset.dy, next ? -distance : distance)
+                    }
                     swipe.cancel(reason: "test-complete")
                 }
             }
@@ -399,7 +410,8 @@ final class WorkspaceSwipePresentationTests: XCTestCase {
                 source: WorkspaceSwipePresentation.Workspace(id: UUID(), items: [visible, parked]),
                 previous: destination, next: destination
             ),
-            destination: destination, cumulative: 20, isNext: true, timestamp: 1, recognitionMovement: nil
+            destination: destination, axis: .vertical, cumulative: 20, isNext: true, timestamp: 1,
+            recognitionMovement: nil
         )
         let handoff = WorkspaceSwipePresentation.Handoff(flight: flight)
 

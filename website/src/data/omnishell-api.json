@@ -1,0 +1,2223 @@
+{
+  "source": "Sources/OmniWM/Resources/omniwm.d.luau",
+  "symbols": [
+    {
+      "name": "Color",
+      "kind": "type",
+      "topic": "layout-styling",
+      "anchor": "api-color",
+      "declaration": "export type Color = string | number",
+      "fields": [],
+      "related": []
+    },
+    {
+      "name": "Motion",
+      "kind": "type",
+      "topic": "input-motion",
+      "anchor": "api-motion",
+      "declaration": "export type Motion = \"none\" | \"spring\" | \"bouncy\" | \"smooth\" | \"ease\"",
+      "fields": [],
+      "related": []
+    },
+    {
+      "name": "Material",
+      "kind": "type",
+      "topic": "layout-styling",
+      "anchor": "api-material",
+      "declaration": "export type Material = \"none\" | \"ultraThin\" | \"thin\" | \"regular\" | \"thick\" | \"ultraThick\" | \"bar\" | \"popover\" | \"glass\" | \"clear\"",
+      "fields": [],
+      "related": []
+    },
+    {
+      "name": "TextStyle",
+      "kind": "type",
+      "topic": "ui-elements",
+      "anchor": "api-textstyle",
+      "declaration": "export type TextStyle = \"body\" | \"bold\" | \"mono\" | \"small\" | \"caption\" | \"rounded\"",
+      "fields": [],
+      "related": []
+    },
+    {
+      "name": "Font",
+      "kind": "type",
+      "topic": "ui-elements",
+      "anchor": "api-font",
+      "declaration": "export type Font = \"system\" | \"sans\" | \"rubik\" | \"symbols\"",
+      "fields": [],
+      "related": []
+    },
+    {
+      "name": "Weight",
+      "kind": "type",
+      "topic": "ui-elements",
+      "anchor": "api-weight",
+      "declaration": "export type Weight = \"ultraLight\" | \"thin\" | \"light\" | \"regular\" | \"medium\" | \"semibold\" | \"bold\" | \"heavy\" | \"black\"",
+      "fields": [],
+      "related": []
+    },
+    {
+      "name": "Align",
+      "kind": "type",
+      "topic": "layout-styling",
+      "anchor": "api-align",
+      "declaration": "export type Align =\n    \"center\"\n    | \"leading\"\n    | \"trailing\"\n    | \"top\"\n    | \"bottom\"\n    | \"topLeading\"\n    | \"topTrailing\"\n    | \"bottomLeading\"\n    | \"bottomTrailing\"",
+      "fields": [],
+      "related": []
+    },
+    {
+      "name": "Element",
+      "kind": "type",
+      "topic": "ui-elements",
+      "anchor": "api-element",
+      "declaration": "export type Element = { kind: number }",
+      "fields": [
+        "kind"
+      ],
+      "related": []
+    },
+    {
+      "name": "Curve",
+      "kind": "type",
+      "topic": "input-motion",
+      "anchor": "api-curve",
+      "declaration": "export type Curve = \"linear\" | \"easeIn\" | \"easeOut\" | \"easeInOut\" | \"back\"\n    | \"standard\" | \"standardAccel\" | \"standardDecel\" | \"emphasized\" | \"emphasizedAccel\" | \"emphasizedDecel\"\n    | \"fastSpatial\" | \"spatial\" | \"slowSpatial\" | \"fastEffects\" | \"effects\" | \"slowEffects\" | { number }",
+      "fields": [],
+      "related": []
+    },
+    {
+      "name": "Animate",
+      "kind": "type",
+      "topic": "input-motion",
+      "anchor": "api-animate",
+      "declaration": "export type Animate = Motion | Curve | number | { duration: number?, curve: Curve? } | { response: number, bounce: number? }",
+      "fields": [
+        "duration",
+        "curve",
+        "response",
+        "bounce"
+      ],
+      "related": [
+        "Motion",
+        "Curve"
+      ]
+    },
+    {
+      "name": "Presence",
+      "kind": "type",
+      "topic": "input-motion",
+      "anchor": "api-presence",
+      "declaration": "export type Presence = { opacity: number?, scale: number?, dx: number?, dy: number?, animate: Animate? }",
+      "fields": [
+        "opacity",
+        "scale",
+        "dx",
+        "dy",
+        "animate"
+      ],
+      "related": [
+        "Animate"
+      ]
+    },
+    {
+      "name": "GestureRange",
+      "kind": "type",
+      "topic": "input-motion",
+      "anchor": "api-gesturerange",
+      "declaration": "export type GestureRange = { number } & { rubber: number? }",
+      "fields": [
+        "rubber"
+      ],
+      "related": []
+    },
+    {
+      "name": "Enter",
+      "kind": "type",
+      "topic": "input-motion",
+      "anchor": "api-enter",
+      "declaration": "export type Enter = {\n    opacity: number?,\n    scale: number?,\n    dx: number?,\n    dy: number?,\n    from: number?,\n    to: number?,\n    curve: Curve?,\n    stretch: number?,\n    d: string?,\n}",
+      "fields": [
+        "opacity",
+        "scale",
+        "dx",
+        "dy",
+        "from",
+        "to",
+        "curve",
+        "stretch",
+        "d"
+      ],
+      "related": [
+        "Curve"
+      ]
+    },
+    {
+      "name": "BarWindow",
+      "kind": "type",
+      "topic": "context-data",
+      "anchor": "api-barwindow",
+      "declaration": "export type BarWindow = {\n    id: string,\n    title: string,\n    focused: boolean,\n    hidden: boolean,\n}",
+      "fields": [
+        "id",
+        "title",
+        "focused",
+        "hidden"
+      ],
+      "related": []
+    },
+    {
+      "name": "BarItem",
+      "kind": "type",
+      "topic": "context-data",
+      "anchor": "api-baritem",
+      "declaration": "export type BarItem = {\n    id: string,\n    bundle: string,\n    name: string,\n    focused: boolean,\n    count: number,\n    hidden: number,\n    badge: string,\n    floating: boolean,\n    windows: { BarWindow },\n}",
+      "fields": [
+        "id",
+        "bundle",
+        "name",
+        "focused",
+        "count",
+        "hidden",
+        "badge",
+        "floating",
+        "windows"
+      ],
+      "related": [
+        "BarWindow"
+      ]
+    },
+    {
+      "name": "BarWorkspace",
+      "kind": "type",
+      "topic": "context-data",
+      "anchor": "api-barworkspace",
+      "declaration": "export type BarWorkspace = {\n    id: string,\n    name: string,\n    focused: boolean,\n    windows: { BarItem },\n}",
+      "fields": [
+        "id",
+        "name",
+        "focused",
+        "windows"
+      ],
+      "related": [
+        "BarItem"
+      ]
+    },
+    {
+      "name": "BarScratchpad",
+      "kind": "type",
+      "topic": "context-data",
+      "anchor": "api-barscratchpad",
+      "declaration": "export type BarScratchpad = {\n    compact: boolean,\n    id: number,\n    name: string,\n    focused: boolean,\n    revealed: boolean,\n    visible: boolean,\n    windows: { BarItem },\n}",
+      "fields": [
+        "compact",
+        "id",
+        "name",
+        "focused",
+        "revealed",
+        "visible",
+        "windows"
+      ],
+      "related": [
+        "BarItem"
+      ]
+    },
+    {
+      "name": "BarStyle",
+      "kind": "type",
+      "topic": "context-data",
+      "anchor": "api-barstyle",
+      "declaration": "export type BarStyle = {\n    height: number,\n    labels: boolean,\n    backgrounds: boolean,\n    accents: boolean,\n    inactive: number,\n    position: \"overlappingMenuBar\" | \"belowMenuBar\" | \"bottom\" | \"left\" | \"right\" | \"top\",\n    vertical: boolean,\n    notch: string,\n    notchWidth: number,\n    level: string,\n    offsetX: number,\n    offsetY: number,\n    autoHide: boolean,\n    reveal: string,\n    opacity: number,\n    transparent: boolean,\n    solidBlack: boolean,\n    accentColor: string?,\n    textColor: string?,\n    statsButton: boolean,\n    secureInput: boolean,\n    previews: boolean,\n    hideInFullscreen: boolean,\n}",
+      "fields": [
+        "height",
+        "labels",
+        "backgrounds",
+        "accents",
+        "inactive",
+        "position",
+        "vertical",
+        "notch",
+        "notchWidth",
+        "level",
+        "offsetX",
+        "offsetY",
+        "autoHide",
+        "reveal",
+        "opacity",
+        "transparent",
+        "solidBlack",
+        "accentColor",
+        "textColor",
+        "statsButton",
+        "secureInput",
+        "previews",
+        "hideInFullscreen"
+      ],
+      "related": []
+    },
+    {
+      "name": "HiddenBarItem",
+      "kind": "type",
+      "topic": "context-data",
+      "anchor": "api-hiddenbaritem",
+      "declaration": "export type HiddenBarItem = {\n    id: string,\n    name: string,\n    image: string?,\n    w: number,\n    h: number,\n}",
+      "fields": [
+        "id",
+        "name",
+        "image",
+        "w",
+        "h"
+      ],
+      "related": []
+    },
+    {
+      "name": "HiddenBarMenuRow",
+      "kind": "type",
+      "topic": "context-data",
+      "anchor": "api-hiddenbarmenurow",
+      "declaration": "export type HiddenBarMenuRow = {\n    id: string,\n    title: string,\n    enabled: boolean,\n    mark: string,\n    shortcut: string,\n    submenu: boolean,\n    separator: boolean,\n}",
+      "fields": [
+        "id",
+        "title",
+        "enabled",
+        "mark",
+        "shortcut",
+        "submenu",
+        "separator"
+      ],
+      "related": []
+    },
+    {
+      "name": "HiddenBarMenu",
+      "kind": "type",
+      "topic": "context-data",
+      "anchor": "api-hiddenbarmenu",
+      "declaration": "export type HiddenBarMenu = {\n    title: string,\n    backID: string?,\n    rows: { HiddenBarMenuRow },\n}",
+      "fields": [
+        "title",
+        "backID",
+        "rows"
+      ],
+      "related": [
+        "HiddenBarMenuRow"
+      ]
+    },
+    {
+      "name": "HiddenBar",
+      "kind": "type",
+      "topic": "context-data",
+      "anchor": "api-hiddenbar",
+      "declaration": "export type HiddenBar = {\n    enabled: boolean,\n    available: boolean,\n    rehide: number,\n    items: { HiddenBarItem },\n    maxWidth: number,\n    maxHeight: number,\n    cell: number,\n    vertical: boolean,\n    menu: HiddenBarMenu?,\n}",
+      "fields": [
+        "enabled",
+        "available",
+        "rehide",
+        "items",
+        "maxWidth",
+        "maxHeight",
+        "cell",
+        "vertical",
+        "menu"
+      ],
+      "related": [
+        "HiddenBarItem",
+        "HiddenBarMenu"
+      ]
+    },
+    {
+      "name": "BarDrag",
+      "kind": "type",
+      "topic": "context-data",
+      "anchor": "api-bardrag",
+      "declaration": "export type BarDrag = {\n    sources: { string },\n    workspaces: { string },\n    icons: { string },\n    gaps: { { workspace: string, before: number } },\n}",
+      "fields": [
+        "sources",
+        "workspaces",
+        "icons",
+        "gaps"
+      ],
+      "related": []
+    },
+    {
+      "name": "Bar",
+      "kind": "type",
+      "topic": "context-data",
+      "anchor": "api-bar",
+      "declaration": "export type Bar = {\n    monitor: string,\n    island: \"all\" | \"active\" | \"secondary\",\n    drag: BarDrag?,\n    badges: \"off\" | \"dot\" | \"text\",\n    style: BarStyle,\n    workspaces: { BarWorkspace },\n    scratchpads: { BarScratchpad },\n}",
+      "fields": [
+        "monitor",
+        "island",
+        "drag",
+        "badges",
+        "style",
+        "workspaces",
+        "scratchpads"
+      ],
+      "related": [
+        "BarDrag",
+        "BarStyle",
+        "BarWorkspace",
+        "BarScratchpad"
+      ]
+    },
+    {
+      "name": "Workspace",
+      "kind": "type",
+      "topic": "context-data",
+      "anchor": "api-workspace",
+      "declaration": "export type Workspace = {\n    id: string,\n    name: string,\n    focused: boolean,\n    visible: boolean,\n    windows: number,\n}",
+      "fields": [
+        "id",
+        "name",
+        "focused",
+        "visible",
+        "windows"
+      ],
+      "related": []
+    },
+    {
+      "name": "AudioOutput",
+      "kind": "type",
+      "topic": "context-data",
+      "anchor": "api-audiooutput",
+      "declaration": "export type AudioOutput = {\n    id: string,\n    name: string,\n    transport: \"builtin\" | \"usb\" | \"bluetooth\" | \"hdmi\" | \"displayport\" | \"airplay\" | \"thunderbolt\" | \"virtual\"\n        | \"aggregate\" | \"other\",\n    default: boolean,\n}",
+      "fields": [
+        "id",
+        "name",
+        "transport",
+        "default"
+      ],
+      "related": []
+    },
+    {
+      "name": "AudioApp",
+      "kind": "type",
+      "topic": "context-data",
+      "anchor": "api-audioapp",
+      "declaration": "export type AudioApp = {\n    id: string,\n    name: string,\n    playing: boolean,\n    volume: number,\n    muted: boolean,\n}",
+      "fields": [
+        "id",
+        "name",
+        "playing",
+        "volume",
+        "muted"
+      ],
+      "related": []
+    },
+    {
+      "name": "AudioApps",
+      "kind": "type",
+      "topic": "context-data",
+      "anchor": "api-audioapps",
+      "declaration": "export type AudioApps = {\n    access: \"unknown\" | \"granted\" | \"denied\",\n    apps: { AudioApp },\n}",
+      "fields": [
+        "access",
+        "apps"
+      ],
+      "related": [
+        "AudioApp"
+      ]
+    },
+    {
+      "name": "Media",
+      "kind": "type",
+      "topic": "context-data",
+      "anchor": "api-media",
+      "declaration": "export type Media = {\n    title: string,\n    artist: string,\n    album: string,\n    app: string,\n    bundle: string,\n    pid: number,\n    playing: boolean,\n    duration: number?,\n    elapsed: number?,\n    rate: number,\n    sampledAt: number,\n    artwork: string?,\n    shuffle: boolean?,\n    repeatMode: (\"off\" | \"one\" | \"all\")?,\n}",
+      "fields": [
+        "title",
+        "artist",
+        "album",
+        "app",
+        "bundle",
+        "pid",
+        "playing",
+        "duration",
+        "elapsed",
+        "rate",
+        "sampledAt",
+        "artwork",
+        "shuffle",
+        "repeatMode"
+      ],
+      "related": []
+    },
+    {
+      "name": "CalendarEvent",
+      "kind": "type",
+      "topic": "context-data",
+      "anchor": "api-calendarevent",
+      "declaration": "export type CalendarEvent = {\n    id: string,\n    title: string,\n    calendar: string,\n    color: string,\n    start: number,\n    [\"end\"]: number,\n    allDay: boolean,\n    location: string?,\n    time: string,\n    day: string,\n}",
+      "fields": [
+        "id",
+        "title",
+        "calendar",
+        "color",
+        "start",
+        "end",
+        "allDay",
+        "location",
+        "time",
+        "day"
+      ],
+      "related": []
+    },
+    {
+      "name": "CalendarMonth",
+      "kind": "type",
+      "topic": "context-data",
+      "anchor": "api-calendarmonth",
+      "declaration": "export type CalendarMonth = {\n    title: string,\n    year: number,\n    month: number,\n    days: number,\n    offset: number,\n    today: number,\n    weekdays: { string },\n    marked: { number },\n}",
+      "fields": [
+        "title",
+        "year",
+        "month",
+        "days",
+        "offset",
+        "today",
+        "weekdays",
+        "marked"
+      ],
+      "related": []
+    },
+    {
+      "name": "Calendar",
+      "kind": "type",
+      "topic": "context-data",
+      "anchor": "api-calendar",
+      "declaration": "export type Calendar = {\n    access: \"full\" | \"writeOnly\" | \"denied\" | \"restricted\" | \"notDetermined\",\n    events: { CalendarEvent },\n    month: CalendarMonth?,\n}",
+      "fields": [
+        "access",
+        "events",
+        "month"
+      ],
+      "related": [
+        "CalendarEvent",
+        "CalendarMonth"
+      ]
+    },
+    {
+      "name": "Reminder",
+      "kind": "type",
+      "topic": "context-data",
+      "anchor": "api-reminder",
+      "declaration": "export type Reminder = {\n    id: string,\n    title: string,\n    list: string,\n    color: string,\n    due: number?,\n    allDay: boolean,\n    priority: number,\n    canComplete: boolean,\n}",
+      "fields": [
+        "id",
+        "title",
+        "list",
+        "color",
+        "due",
+        "allDay",
+        "priority",
+        "canComplete"
+      ],
+      "related": []
+    },
+    {
+      "name": "Reminders",
+      "kind": "type",
+      "topic": "context-data",
+      "anchor": "api-reminders",
+      "declaration": "export type Reminders = {\n    access: \"full\" | \"writeOnly\" | \"denied\" | \"restricted\" | \"notDetermined\",\n    items: { Reminder },\n    total: number,\n    truncated: boolean,\n    error: string?,\n}",
+      "fields": [
+        "access",
+        "items",
+        "total",
+        "truncated",
+        "error"
+      ],
+      "related": [
+        "Reminder"
+      ]
+    },
+    {
+      "name": "WeatherHour",
+      "kind": "type",
+      "topic": "context-data",
+      "anchor": "api-weatherhour",
+      "declaration": "export type WeatherHour = {\n    time: number,\n    code: number,\n    label: string,\n    temp: number,\n    condition: string,\n    symbol: string,\n    day: boolean,\n    rain: number?,\n}",
+      "fields": [
+        "time",
+        "code",
+        "label",
+        "temp",
+        "condition",
+        "symbol",
+        "day",
+        "rain"
+      ],
+      "related": []
+    },
+    {
+      "name": "WeatherDay",
+      "kind": "type",
+      "topic": "context-data",
+      "anchor": "api-weatherday",
+      "declaration": "export type WeatherDay = {\n    time: number,\n    code: number,\n    label: string,\n    high: number,\n    low: number,\n    condition: string,\n    symbol: string,\n    rain: number?,\n}",
+      "fields": [
+        "time",
+        "code",
+        "label",
+        "high",
+        "low",
+        "condition",
+        "symbol",
+        "rain"
+      ],
+      "related": []
+    },
+    {
+      "name": "Weather",
+      "kind": "type",
+      "topic": "context-data",
+      "anchor": "api-weather",
+      "declaration": "export type Weather = {\n    temp: number,\n    feels: number?,\n    high: number?,\n    low: number?,\n    rain: number?,\n    wind: number?,\n    humidity: number?,\n    sunrise: number?,\n    sunset: number?,\n    code: number,\n    day: boolean,\n    unit: string,\n    condition: string,\n    symbol: string,\n    place: string?,\n    status: \"ok\" | \"stale\",\n    hours: { WeatherHour },\n    days: { WeatherDay },\n}",
+      "fields": [
+        "temp",
+        "feels",
+        "high",
+        "low",
+        "rain",
+        "wind",
+        "humidity",
+        "sunrise",
+        "sunset",
+        "code",
+        "day",
+        "unit",
+        "condition",
+        "symbol",
+        "place",
+        "status",
+        "hours",
+        "days"
+      ],
+      "related": [
+        "WeatherHour",
+        "WeatherDay"
+      ]
+    },
+    {
+      "name": "SystemDisplay",
+      "kind": "type",
+      "topic": "context-data",
+      "anchor": "api-systemdisplay",
+      "declaration": "export type SystemDisplay = {\n    w: number,\n    h: number,\n    hz: number,\n}",
+      "fields": [
+        "w",
+        "h",
+        "hz"
+      ],
+      "related": []
+    },
+    {
+      "name": "System",
+      "kind": "type",
+      "topic": "context-data",
+      "anchor": "api-system",
+      "declaration": "export type System = {\n    memory: { used: number, total: number, pressure: (\"normal\" | \"warning\" | \"critical\")? },\n    disk: { used: number, total: number },\n    uptime: number,\n    host: { name: string, chip: string, model: string, os: string },\n    displays: { SystemDisplay },\n}",
+      "fields": [
+        "memory",
+        "disk",
+        "uptime",
+        "host",
+        "displays"
+      ],
+      "related": [
+        "SystemDisplay"
+      ]
+    },
+    {
+      "name": "Power",
+      "kind": "type",
+      "topic": "context-data",
+      "anchor": "api-power",
+      "declaration": "export type Power = {\n    source: \"ac\" | \"battery\" | \"ups\",\n    remaining: number?,\n    full: number?,\n    charged: boolean,\n    lowPower: boolean,\n    cycles: number?,\n    health: number?,\n    temperature: number?,\n    watts: number?,\n    adapter: number?,\n}",
+      "fields": [
+        "source",
+        "remaining",
+        "full",
+        "charged",
+        "lowPower",
+        "cycles",
+        "health",
+        "temperature",
+        "watts",
+        "adapter"
+      ],
+      "related": []
+    },
+    {
+      "name": "InputSourceEntry",
+      "kind": "type",
+      "topic": "context-data",
+      "anchor": "api-inputsourceentry",
+      "declaration": "export type InputSourceEntry = { id: string, name: string, short: string }",
+      "fields": [
+        "id",
+        "name",
+        "short"
+      ],
+      "related": []
+    },
+    {
+      "name": "InputSource",
+      "kind": "type",
+      "topic": "context-data",
+      "anchor": "api-inputsource",
+      "declaration": "export type InputSource = {\n    id: string,\n    name: string,\n    short: string,\n    sources: { InputSourceEntry },\n}",
+      "fields": [
+        "id",
+        "name",
+        "short",
+        "sources"
+      ],
+      "related": [
+        "InputSourceEntry"
+      ]
+    },
+    {
+      "name": "WiFi",
+      "kind": "type",
+      "topic": "context-data",
+      "anchor": "api-wifi",
+      "declaration": "export type WiFi = {\n    power: boolean,\n    connected: boolean,\n    ssid: string?,\n    rssi: number?,\n    band: string?,\n    channel: number?,\n    security: string?,\n    location: \"authorized\" | \"denied\" | \"restricted\" | \"notDetermined\",\n}",
+      "fields": [
+        "power",
+        "connected",
+        "ssid",
+        "rssi",
+        "band",
+        "channel",
+        "security",
+        "location"
+      ],
+      "related": []
+    },
+    {
+      "name": "BluetoothDevice",
+      "kind": "type",
+      "topic": "context-data",
+      "anchor": "api-bluetoothdevice",
+      "declaration": "export type BluetoothDevice = {\n    id: string,\n    name: string,\n    kind: \"headphones\" | \"keyboard\" | \"mouse\" | \"gamepad\" | \"computer\" | \"phone\" | \"other\",\n    connected: boolean,\n    battery: number?,\n    left: number?,\n    right: number?,\n    case: number?,\n}",
+      "fields": [
+        "id",
+        "name",
+        "kind",
+        "connected",
+        "battery",
+        "left",
+        "right",
+        "case"
+      ],
+      "related": []
+    },
+    {
+      "name": "Bluetooth",
+      "kind": "type",
+      "topic": "context-data",
+      "anchor": "api-bluetooth",
+      "declaration": "export type Bluetooth = {\n    power: boolean,\n    access: \"granted\" | \"denied\" | \"restricted\" | \"notDetermined\",\n    devices: { BluetoothDevice },\n}",
+      "fields": [
+        "power",
+        "access",
+        "devices"
+      ],
+      "related": [
+        "BluetoothDevice"
+      ]
+    },
+    {
+      "name": "IslandNavigation",
+      "kind": "type",
+      "topic": "context-data",
+      "anchor": "api-islandnavigation",
+      "declaration": "export type IslandNavigation = {\n    workspace: string,\n    name: string,\n    layout: \"niri\" | \"dwindle\",\n    focused: string?,\n    windows: {\n        {\n            id: string,\n            bundle: string,\n            name: string,\n            title: string,\n            column: number,\n        }\n    },\n}",
+      "fields": [
+        "workspace",
+        "name",
+        "layout",
+        "focused",
+        "windows"
+      ],
+      "related": []
+    },
+    {
+      "name": "Island",
+      "kind": "type",
+      "topic": "context-data",
+      "anchor": "api-island",
+      "declaration": "export type Island = {\n    display: string,\n    size: { w: number, h: number },\n    notch: { x: number, w: number, h: number }?,\n    menuBar: number,\n    scale: number,\n    main: boolean,\n    visible: boolean,\n    fullscreen: boolean,\n    focused: boolean,\n    drag: { active: boolean, types: { \"file\" | \"url\" | \"text\" | \"image\" } },\n    navigation: IslandNavigation?,\n}",
+      "fields": [
+        "display",
+        "size",
+        "notch",
+        "menuBar",
+        "scale",
+        "main",
+        "visible",
+        "fullscreen",
+        "focused",
+        "drag",
+        "navigation"
+      ],
+      "related": [
+        "IslandNavigation"
+      ]
+    },
+    {
+      "name": "Data",
+      "kind": "type",
+      "topic": "context-data",
+      "anchor": "api-data",
+      "declaration": "export type Data = {\n    clock: string,\n    date: string,\n    seconds: number,\n    cpu: number?,\n    memory: number,\n    battery: number?,\n    charging: boolean,\n    gpu: number?,\n    disk: number?,\n    network: { down: number, up: number }?,\n    volume: number?,\n    muted: boolean?,\n    vars: { [string]: string },\n    weather: Weather?,\n    workspace: string,\n    app: string,\n    bundle: string,\n    title: string,\n    workspaces: { Workspace },\n    bar: Bar,\n    settings: { [string]: any }?,\n    hiddenBar: HiddenBar,\n    system: System?,\n    outputs: { AudioOutput }?,\n    audioApps: AudioApps?,\n    media: Media?,\n    calendar: Calendar?,\n    power: Power?,\n    inputSource: InputSource?,\n    privacy: { microphone: boolean, camera: boolean }?,\n    wifi: WiFi?,\n    bluetooth: Bluetooth?,\n    user: { name: string, account: string, avatar: string? }?,\n    thermal: { cpu: number?, gpu: number?, gpuName: string? }?,\n    networkHistory: { down: { number }, up: { number }, received: number, sent: number }?,\n    appearance: (\"light\" | \"dark\")?,\n    lyrics: { status: \"loading\" | \"synced\" | \"none\", lines: { { time: number, text: string } } }?,\n    spectrum: { access: \"unknown\" | \"granted\" | \"denied\", bars: { number }, bpm: number? }?,\n    tempo: number?,\n    island: Island?,\n    components: { ComponentInfo }?,\n    catalog: { ComponentCatalogEntry }?,\n    settingsSchema: { [string]: ComponentOption }?,\n    reminders: Reminders?,\n    badges: { [string]: string },\n    menuApp: { pid: number, name: string, bundle: string }?,\n}",
+      "fields": [
+        "clock",
+        "date",
+        "seconds",
+        "cpu",
+        "memory",
+        "battery",
+        "charging",
+        "gpu",
+        "disk",
+        "network",
+        "volume",
+        "muted",
+        "vars",
+        "weather",
+        "workspace",
+        "app",
+        "bundle",
+        "title",
+        "workspaces",
+        "bar",
+        "settings",
+        "hiddenBar",
+        "system",
+        "outputs",
+        "audioApps",
+        "media",
+        "calendar",
+        "power",
+        "inputSource",
+        "privacy",
+        "wifi",
+        "bluetooth",
+        "user",
+        "thermal",
+        "networkHistory",
+        "appearance",
+        "lyrics",
+        "spectrum",
+        "tempo",
+        "island",
+        "components",
+        "catalog",
+        "settingsSchema",
+        "reminders",
+        "badges",
+        "menuApp"
+      ],
+      "related": [
+        "Weather",
+        "Workspace",
+        "Bar",
+        "HiddenBar",
+        "System",
+        "AudioOutput",
+        "AudioApps",
+        "Media",
+        "Calendar",
+        "Power",
+        "InputSource",
+        "WiFi",
+        "Bluetooth",
+        "Island",
+        "ComponentInfo",
+        "ComponentCatalogEntry",
+        "ComponentOption",
+        "Reminders"
+      ]
+    },
+    {
+      "name": "Format",
+      "kind": "type",
+      "topic": "context-data",
+      "anchor": "api-format",
+      "declaration": "export type Format = {\n    number: (value: number, digits: number?) -> string,\n    percent: (fraction: number, digits: number?) -> string,\n    bytes: (count: number, style: (\"memory\" | \"file\")?) -> string,\n    date: (seconds: number, template: string, zone: string?) -> string?,\n    offset: (seconds: number, zone: string?) -> number?,\n}",
+      "fields": [
+        "number",
+        "percent",
+        "bytes",
+        "date",
+        "offset"
+      ],
+      "related": []
+    },
+    {
+      "name": "ComponentInfo",
+      "kind": "type",
+      "topic": "components-configuration",
+      "anchor": "api-componentinfo",
+      "declaration": "export type ComponentInfo = {\n    id: string,\n    widget: string,\n    title: string,\n    enabled: boolean,\n    options: { [string]: ComponentValue },\n    status: string,\n    error: string?,\n}",
+      "fields": [
+        "id",
+        "widget",
+        "title",
+        "enabled",
+        "options",
+        "status",
+        "error"
+      ],
+      "related": [
+        "ComponentValue"
+      ]
+    },
+    {
+      "name": "ComponentValue",
+      "kind": "type",
+      "topic": "components-configuration",
+      "anchor": "api-componentvalue",
+      "declaration": "export type ComponentValue = boolean | number | string | { string }",
+      "fields": [],
+      "related": []
+    },
+    {
+      "name": "ComponentOption",
+      "kind": "type",
+      "topic": "components-configuration",
+      "anchor": "api-componentoption",
+      "declaration": "export type ComponentOption = {\n    type: \"boolean\" | \"number\" | \"string\" | \"choice\" | \"strings\",\n    title: string,\n    default: ComponentValue?,\n    min: number?,\n    max: number?,\n    step: number?,\n    maxLength: number,\n    choices: { string },\n}",
+      "fields": [
+        "type",
+        "title",
+        "default",
+        "min",
+        "max",
+        "step",
+        "maxLength",
+        "choices"
+      ],
+      "related": [
+        "ComponentValue"
+      ]
+    },
+    {
+      "name": "ComponentCatalogEntry",
+      "kind": "type",
+      "topic": "components-configuration",
+      "anchor": "api-componentcatalogentry",
+      "declaration": "export type ComponentCatalogEntry = {\n    widget: string,\n    title: string,\n    icon: string,\n    views: { string },\n    options: { [string]: ComponentOption },\n    source: string,\n    overrides: { string },\n    error: string?,\n}",
+      "fields": [
+        "widget",
+        "title",
+        "icon",
+        "views",
+        "options",
+        "source",
+        "overrides",
+        "error"
+      ],
+      "related": [
+        "ComponentOption"
+      ]
+    },
+    {
+      "name": "ConfigResult",
+      "kind": "type",
+      "topic": "components-configuration",
+      "anchor": "api-configresult",
+      "declaration": "export type ConfigResult = {\n    ok: boolean,\n    id: string?,\n    revision: number?,\n    error: string?,\n}",
+      "fields": [
+        "ok",
+        "id",
+        "revision",
+        "error"
+      ],
+      "related": []
+    },
+    {
+      "name": "ConfigCallback",
+      "kind": "type",
+      "topic": "components-configuration",
+      "anchor": "api-configcallback",
+      "declaration": "export type ConfigCallback = (result: ConfigResult) -> ()",
+      "fields": [],
+      "related": [
+        "ConfigResult"
+      ]
+    },
+    {
+      "name": "ProviderState",
+      "kind": "type",
+      "topic": "providers",
+      "anchor": "api-providerstate",
+      "declaration": "export type ProviderState = {\n    status: \"stopped\" | \"starting\" | \"running\" | \"exited\" | \"failed\",\n    error: string?,\n    exitCode: number?,\n    state: { [string]: any },\n}",
+      "fields": [
+        "status",
+        "error",
+        "exitCode",
+        "state"
+      ],
+      "related": []
+    },
+    {
+      "name": "ProviderResult",
+      "kind": "type",
+      "topic": "providers",
+      "anchor": "api-providerresult",
+      "declaration": "export type ProviderResult = {\n    files: { Resource }?,\n    ok: boolean,\n    value: any?,\n    error: string?,\n}",
+      "fields": [
+        "files",
+        "ok",
+        "value",
+        "error"
+      ],
+      "related": [
+        "Resource"
+      ]
+    },
+    {
+      "name": "ProviderEvent",
+      "kind": "type",
+      "topic": "providers",
+      "anchor": "api-providerevent",
+      "declaration": "export type ProviderEvent = {\n    kind: \"event\",\n    name: string,\n    value: any?,\n}",
+      "fields": [
+        "kind",
+        "name",
+        "value"
+      ],
+      "related": []
+    },
+    {
+      "name": "ComponentInstance",
+      "kind": "type",
+      "topic": "components-configuration",
+      "anchor": "api-componentinstance",
+      "declaration": "export type ComponentInstance = {\n    id: string,\n    widget: string,\n    options: { [string]: any },\n    state: { [string]: any },\n    provider: ProviderState,\n}",
+      "fields": [
+        "id",
+        "widget",
+        "options",
+        "state",
+        "provider"
+      ],
+      "related": [
+        "ProviderState"
+      ]
+    },
+    {
+      "name": "ComponentActivity",
+      "kind": "type",
+      "topic": "components-configuration",
+      "anchor": "api-componentactivity",
+      "declaration": "export type ComponentActivity = {\n    priority: number,\n    since: number?,\n    label: string?,\n    views: { string }?,\n    alert: any?,\n}",
+      "fields": [
+        "priority",
+        "since",
+        "label",
+        "views",
+        "alert"
+      ],
+      "related": []
+    },
+    {
+      "name": "Asset",
+      "kind": "type",
+      "topic": "resources-desktop",
+      "anchor": "api-asset",
+      "declaration": "export type Asset = string",
+      "fields": [],
+      "related": []
+    },
+    {
+      "name": "Context",
+      "kind": "type",
+      "topic": "context-data",
+      "anchor": "api-context",
+      "declaration": "export type Context = {\n    data: Data,\n    select: (key: string, ...(string | number)) -> any,\n    state: { [string]: any },\n    format: Format,\n    instance: ComponentInstance?,\n    view: { name: string, w: number?, h: number?, props: any? }?,\n}",
+      "fields": [
+        "data",
+        "select",
+        "state",
+        "format",
+        "instance",
+        "view"
+      ],
+      "related": [
+        "Data",
+        "Format",
+        "ComponentInstance"
+      ]
+    },
+    {
+      "name": "ResourceKind",
+      "kind": "type",
+      "topic": "resources-desktop",
+      "anchor": "api-resourcekind",
+      "declaration": "export type ResourceKind = \"file\" | \"url\" | \"text\" | \"image\"",
+      "fields": [],
+      "related": []
+    },
+    {
+      "name": "Resource",
+      "kind": "type",
+      "topic": "resources-desktop",
+      "anchor": "api-resource",
+      "declaration": "export type Resource = {\n    id: string,\n    name: string,\n    kind: ResourceKind,\n    uti: string,\n    size: number?,\n    state: \"pending\" | \"ready\" | \"failed\",\n    error: string?,\n    persistence: { token: string, state: \"pending\" | \"durable\" | \"failed\", error: string? }?,\n}",
+      "fields": [
+        "id",
+        "name",
+        "kind",
+        "uti",
+        "size",
+        "state",
+        "error",
+        "persistence"
+      ],
+      "related": [
+        "ResourceKind"
+      ]
+    },
+    {
+      "name": "DesktopResult",
+      "kind": "type",
+      "topic": "resources-desktop",
+      "anchor": "api-desktopresult",
+      "declaration": "export type DesktopResult = { ok: boolean, error: string?, items: { Resource }? }",
+      "fields": [
+        "ok",
+        "error",
+        "items"
+      ],
+      "related": [
+        "Resource"
+      ]
+    },
+    {
+      "name": "DesktopCallback",
+      "kind": "type",
+      "topic": "resources-desktop",
+      "anchor": "api-desktopcallback",
+      "declaration": "export type DesktopCallback = (result: DesktopResult) -> ()",
+      "fields": [],
+      "related": [
+        "DesktopResult"
+      ]
+    },
+    {
+      "name": "DropEvent",
+      "kind": "type",
+      "topic": "resources-desktop",
+      "anchor": "api-dropevent",
+      "declaration": "export type DropEvent = { items: { Resource }, x: number, y: number }",
+      "fields": [
+        "items",
+        "x",
+        "y"
+      ],
+      "related": [
+        "Resource"
+      ]
+    },
+    {
+      "name": "DropHoverEvent",
+      "kind": "type",
+      "topic": "resources-desktop",
+      "anchor": "api-drophoverevent",
+      "declaration": "export type DropHoverEvent = { phase: \"entered\" | \"exited\", types: { ResourceKind } }",
+      "fields": [
+        "phase",
+        "types"
+      ],
+      "related": [
+        "ResourceKind"
+      ]
+    },
+    {
+      "name": "DragOutEvent",
+      "kind": "type",
+      "topic": "resources-desktop",
+      "anchor": "api-dragoutevent",
+      "declaration": "export type DragOutEvent = { phase: \"began\" | \"ended\", operation: \"copy\" | \"none\" }",
+      "fields": [
+        "phase",
+        "operation"
+      ],
+      "related": []
+    },
+    {
+      "name": "Event",
+      "kind": "type",
+      "topic": "input-motion",
+      "anchor": "api-event",
+      "declaration": "export type Event = {\n    button: \"left\" | \"right\" | \"middle\" | \"none\",\n    shift: boolean,\n    option: boolean,\n    control: boolean,\n    command: boolean,\n    dx: number,\n    dy: number,\n    precise: boolean,\n    value: number?,\n    phase: (\"began\" | \"changed\" | \"ended\" | \"down\" | \"up\" | \"cancel\" | \"cancelled\")?,\n    x: number?,\n    y: number?,\n    clicks: number?,\n    vx: number?,\n    vy: number?,\n    committed: boolean?,\n    momentum: (\"none\" | \"began\" | \"changed\" | \"ended\")?,\n    key: string?,\n    characters: string?,\n    text: string?,\n    focused: boolean?,\n    [\"repeat\"]: boolean?,\n}",
+      "fields": [
+        "button",
+        "shift",
+        "option",
+        "control",
+        "command",
+        "dx",
+        "dy",
+        "precise",
+        "value",
+        "phase",
+        "x",
+        "y",
+        "clicks",
+        "vx",
+        "vy",
+        "committed",
+        "momentum",
+        "key",
+        "characters",
+        "text",
+        "focused",
+        "repeat"
+      ],
+      "related": []
+    },
+    {
+      "name": "TriggerEvent",
+      "kind": "type",
+      "topic": "context-data",
+      "anchor": "api-triggerevent",
+      "declaration": "export type TriggerEvent = {\n    source: \"host\"?,\n    name: string,\n    value: string?,\n}",
+      "fields": [
+        "source",
+        "name",
+        "value"
+      ],
+      "related": []
+    },
+    {
+      "name": "InputHandler",
+      "kind": "type",
+      "topic": "input-motion",
+      "anchor": "api-inputhandler",
+      "declaration": "export type InputHandler = (ctx: Context, event: Event) -> ()",
+      "fields": [],
+      "related": [
+        "Context",
+        "Event"
+      ]
+    },
+    {
+      "name": "Click",
+      "kind": "type",
+      "topic": "input-motion",
+      "anchor": "api-click",
+      "declaration": "export type Click = string | InputHandler",
+      "fields": [],
+      "related": [
+        "InputHandler"
+      ]
+    },
+    {
+      "name": "Gesture",
+      "kind": "type",
+      "topic": "input-motion",
+      "anchor": "api-gesture",
+      "declaration": "export type Gesture = {\n    track: { dx: GestureRange?, dy: GestureRange?, scale: GestureRange?, opacity: GestureRange? }?,\n    axis: (\"x\" | \"y\" | \"free\" | \"auto\")?,\n    source: (\"pointer\" | \"scroll\" | \"both\")?,\n    threshold: number?,\n    lockDistance: number?,\n    dominance: number?,\n    commit: { distance: number?, velocity: number?, direction: (\"any\" | \"left\" | \"right\" | \"up\" | \"down\")? }?,\n}",
+      "fields": [
+        "track",
+        "axis",
+        "source",
+        "threshold",
+        "lockDistance",
+        "dominance",
+        "commit"
+      ],
+      "related": [
+        "GestureRange"
+      ]
+    },
+    {
+      "name": "Props",
+      "kind": "type",
+      "topic": "layout-styling",
+      "anchor": "api-props",
+      "declaration": "export type Props = {\n    accepts: { ResourceKind }?,\n    onDrop: ((ctx: Context, event: DropEvent) -> ())?,\n    onDropHover: ((ctx: Context, event: DropHoverEvent) -> ())?,\n    dragItems: { Resource }?,\n    onDragOut: ((ctx: Context, event: DragOutEvent) -> ())?,\n    appear: Presence?,\n    exit: Presence?,\n    key: string?,\n    rotate: number?,\n    loop: { dx: { number }?, dy: { number }?, rotate: { number }?, paused: boolean? }?,\n    trail: boolean?,\n    w: number?,\n    h: number?,\n    grow: number?,\n    gap: number?,\n    pad: number?,\n    center: boolean?,\n    fill: Color?,\n    material: Material?,\n    blurRadius: number?,\n    saturation: number?,\n    bridge: boolean?,\n    attach: boolean?,\n    open: number?,\n    close: number?,\n    enter: Enter?,\n    mask: boolean?,\n    border: Color?,\n    borderWidth: number?,\n    radius: number?,\n    opacity: number?,\n    hover: Color?,\n    hoverScale: number?,\n    hoverOpacity: number?,\n    help: string?,\n    animate: Animate?,\n    hoverAnimate: (Motion | number)?,\n    hoverMaterial: Material?,\n    onClick: Click?,\n    onRightClick: Click?,\n    onScroll: Click?,\n    onPress: InputHandler?,\n    pressScale: number?,\n    pressOpacity: number?,\n    pressFill: Color?,\n    pressAnimate: Animate?,\n    onHover: InputHandler?,\n    hoverDelay: number?,\n    hoverGrace: number?,\n    gesture: Gesture?,\n    onGesture: InputHandler?,\n    gestureEvents: (\"boundary\" | \"all\")?,\n    scrollMomentum: (\"consume\" | \"deliver\")?,\n    focusable: boolean?,\n    focusRing: boolean?,\n    keys: { string }?,\n    onKey: InputHandler?,\n    onOutsidePress: InputHandler?,\n    popout: boolean?,\n    align: Align?,\n    dx: number?,\n    dy: number?,\n    scale: number?,\n    shadow: Color?,\n    shadowRadius: number?,\n    target: string?,\n    menu: boolean?,\n    preview: boolean?,\n    drag: boolean?,\n    drop: boolean?,\n    scroll: boolean?,\n    [number]: Element,\n}",
+      "fields": [
+        "accepts",
+        "onDrop",
+        "onDropHover",
+        "dragItems",
+        "onDragOut",
+        "appear",
+        "exit",
+        "key",
+        "rotate",
+        "loop",
+        "trail",
+        "w",
+        "h",
+        "grow",
+        "gap",
+        "pad",
+        "center",
+        "fill",
+        "material",
+        "blurRadius",
+        "saturation",
+        "bridge",
+        "attach",
+        "open",
+        "close",
+        "enter",
+        "mask",
+        "border",
+        "borderWidth",
+        "radius",
+        "opacity",
+        "hover",
+        "hoverScale",
+        "hoverOpacity",
+        "help",
+        "animate",
+        "hoverAnimate",
+        "hoverMaterial",
+        "onClick",
+        "onRightClick",
+        "onScroll",
+        "onPress",
+        "pressScale",
+        "pressOpacity",
+        "pressFill",
+        "pressAnimate",
+        "onHover",
+        "hoverDelay",
+        "hoverGrace",
+        "gesture",
+        "onGesture",
+        "gestureEvents",
+        "scrollMomentum",
+        "focusable",
+        "focusRing",
+        "keys",
+        "onKey",
+        "onOutsidePress",
+        "popout",
+        "align",
+        "dx",
+        "dy",
+        "scale",
+        "shadow",
+        "shadowRadius",
+        "target",
+        "menu",
+        "preview",
+        "drag",
+        "drop",
+        "scroll"
+      ],
+      "related": [
+        "ResourceKind",
+        "Context",
+        "DropEvent",
+        "DropHoverEvent",
+        "Resource",
+        "DragOutEvent",
+        "Presence",
+        "Color",
+        "Material",
+        "Enter",
+        "Animate",
+        "Motion",
+        "Click",
+        "InputHandler",
+        "Gesture",
+        "Align",
+        "Element"
+      ]
+    },
+    {
+      "name": "TextProps",
+      "kind": "type",
+      "topic": "ui-elements",
+      "anchor": "api-textprops",
+      "declaration": "export type TextProps = Props & {\n    text: string,\n    style: TextStyle?,\n    font: Font?,\n    filled: boolean?,\n    size: number?,\n    weight: Weight?,\n    maxWidth: number?,\n    lines: number?,\n    color: Color?,\n    reserve: string?,\n}",
+      "fields": [
+        "text",
+        "style",
+        "font",
+        "filled",
+        "size",
+        "weight",
+        "maxWidth",
+        "lines",
+        "color",
+        "reserve"
+      ],
+      "related": [
+        "Props",
+        "TextStyle",
+        "Font",
+        "Weight",
+        "Color"
+      ]
+    },
+    {
+      "name": "TextInputProps",
+      "kind": "type",
+      "topic": "ui-elements",
+      "anchor": "api-textinputprops",
+      "declaration": "export type TextInputProps = Props & {\n    key: string,\n    text: string?,\n    placeholder: string?,\n    multiline: boolean?,\n    maxLength: number?,\n    focus: boolean?,\n    style: TextStyle?,\n    font: Font?,\n    size: number?,\n    weight: Weight?,\n    color: Color?,\n    onChange: InputHandler?,\n    onCommit: InputHandler?,\n    onCancel: InputHandler?,\n    onFocus: InputHandler?,\n}",
+      "fields": [
+        "key",
+        "text",
+        "placeholder",
+        "multiline",
+        "maxLength",
+        "focus",
+        "style",
+        "font",
+        "size",
+        "weight",
+        "color",
+        "onChange",
+        "onCommit",
+        "onCancel",
+        "onFocus"
+      ],
+      "related": [
+        "Props",
+        "TextStyle",
+        "Font",
+        "Weight",
+        "Color",
+        "InputHandler"
+      ]
+    },
+    {
+      "name": "SymbolProps",
+      "kind": "type",
+      "topic": "ui-elements",
+      "anchor": "api-symbolprops",
+      "declaration": "export type SymbolProps = Props & {\n    name: string,\n    size: number?,\n    weight: Weight?,\n    color: Color?,\n}",
+      "fields": [
+        "name",
+        "size",
+        "weight",
+        "color"
+      ],
+      "related": [
+        "Props",
+        "Weight",
+        "Color"
+      ]
+    },
+    {
+      "name": "IconProps",
+      "kind": "type",
+      "topic": "ui-elements",
+      "anchor": "api-iconprops",
+      "declaration": "export type IconProps = Props & {\n    app: string?,\n    window: string?,\n    pid: number?,\n    placeholder: string?,\n    color: Color?,\n}",
+      "fields": [
+        "app",
+        "window",
+        "pid",
+        "placeholder",
+        "color"
+      ],
+      "related": [
+        "Props",
+        "Color"
+      ]
+    },
+    {
+      "name": "ImageProps",
+      "kind": "type",
+      "topic": "ui-elements",
+      "anchor": "api-imageprops",
+      "declaration": "export type ImageProps = Props & {\n    image: string | Resource,\n    thumbnail: number?,\n    playing: boolean?,\n    speed: number?,\n}",
+      "fields": [
+        "image",
+        "thumbnail",
+        "playing",
+        "speed"
+      ],
+      "related": [
+        "Props",
+        "Resource"
+      ]
+    },
+    {
+      "name": "ProgressProps",
+      "kind": "type",
+      "topic": "ui-elements",
+      "anchor": "api-progressprops",
+      "declaration": "export type ProgressProps = Props & {\n    value: number,\n    color: Color?,\n}",
+      "fields": [
+        "value",
+        "color"
+      ],
+      "related": [
+        "Props",
+        "Color"
+      ]
+    },
+    {
+      "name": "SliderProps",
+      "kind": "type",
+      "topic": "ui-elements",
+      "anchor": "api-sliderprops",
+      "declaration": "export type SliderProps = Props & {\n    value: number,\n    color: Color?,\n    onChange: Click?,\n}",
+      "fields": [
+        "value",
+        "color",
+        "onChange"
+      ],
+      "related": [
+        "Props",
+        "Color",
+        "Click"
+      ]
+    },
+    {
+      "name": "PathProps",
+      "kind": "type",
+      "topic": "ui-elements",
+      "anchor": "api-pathprops",
+      "declaration": "export type PathProps = Props & {\n    d: string,\n    viewBox: { number }?,\n    evenOdd: boolean?,\n}",
+      "fields": [
+        "d",
+        "viewBox",
+        "evenOdd"
+      ],
+      "related": [
+        "Props"
+      ]
+    },
+    {
+      "name": "ShaderProps",
+      "kind": "type",
+      "topic": "effects-shaders",
+      "anchor": "api-shaderprops",
+      "declaration": "export type ShaderProps = Props & {\n    source: string,\n    texture: string?,\n    values: { number }?,\n    fps: number?,\n    audio: boolean?,\n}",
+      "fields": [
+        "source",
+        "texture",
+        "values",
+        "fps",
+        "audio"
+      ],
+      "related": [
+        "Props"
+      ]
+    },
+    {
+      "name": "ComponentProps",
+      "kind": "type",
+      "topic": "components-configuration",
+      "anchor": "api-componentprops",
+      "declaration": "export type ComponentProps = Props & {\n    id: string,\n    view: string,\n    props: any?,\n}",
+      "fields": [
+        "id",
+        "view",
+        "props"
+      ],
+      "related": [
+        "Props"
+      ]
+    },
+    {
+      "name": "ServiceHandle",
+      "kind": "type",
+      "topic": "services",
+      "anchor": "api-servicehandle",
+      "declaration": "export type ServiceHandle = {\n    cancel: (self: ServiceHandle) -> (),\n}",
+      "fields": [
+        "cancel"
+      ],
+      "related": []
+    },
+    {
+      "name": "HTTPRequest",
+      "kind": "type",
+      "topic": "services",
+      "anchor": "api-httprequest",
+      "declaration": "export type HTTPRequest = {\n    url: string,\n    method: string?,\n    headers: { [string]: string }?,\n    body: (string | Resource)?,\n    response: (\"text\" | \"json\" | \"bytes\")?,\n    maxBytes: number?,\n    timeout: number?,\n}",
+      "fields": [
+        "url",
+        "method",
+        "headers",
+        "body",
+        "response",
+        "maxBytes",
+        "timeout"
+      ],
+      "related": [
+        "Resource"
+      ]
+    },
+    {
+      "name": "HTTPResult",
+      "kind": "type",
+      "topic": "services",
+      "anchor": "api-httpresult",
+      "declaration": "export type HTTPResult = {\n    ok: boolean,\n    status: number,\n    headers: { [string]: string },\n    text: string?,\n    json: any?,\n    bytes: string?,\n    error: string?,\n}",
+      "fields": [
+        "ok",
+        "status",
+        "headers",
+        "text",
+        "json",
+        "bytes",
+        "error"
+      ],
+      "related": []
+    },
+    {
+      "name": "StoreStatus",
+      "kind": "type",
+      "topic": "services",
+      "anchor": "api-storestatus",
+      "declaration": "export type StoreStatus = {\n    state: \"ready\" | \"pending\" | \"failed\",\n    revision: number,\n    committedRevision: number,\n    error: string?,\n}",
+      "fields": [
+        "state",
+        "revision",
+        "committedRevision",
+        "error"
+      ],
+      "related": []
+    },
+    {
+      "name": "json",
+      "kind": "namespace",
+      "topic": "services",
+      "anchor": "api-json",
+      "declaration": "declare json: {\n    null: any,\n    encode: (value: any) -> (string?, string?),\n    decode: (text: string) -> (any, string?),\n}",
+      "fields": [],
+      "related": []
+    },
+    {
+      "name": "json.null",
+      "kind": "member",
+      "topic": "services",
+      "anchor": "api-json-null",
+      "declaration": "    null: any,",
+      "fields": [],
+      "related": []
+    },
+    {
+      "name": "json.encode",
+      "kind": "member",
+      "topic": "services",
+      "anchor": "api-json-encode",
+      "declaration": "    encode: (value: any) -> (string?, string?),",
+      "fields": [],
+      "related": []
+    },
+    {
+      "name": "json.decode",
+      "kind": "member",
+      "topic": "services",
+      "anchor": "api-json-decode",
+      "declaration": "    decode: (text: string) -> (any, string?),",
+      "fields": [],
+      "related": []
+    },
+    {
+      "name": "omniwm",
+      "kind": "namespace",
+      "topic": "services",
+      "anchor": "api-omniwm",
+      "declaration": "declare omniwm: {\n    resources: {\n        persist: (resource: Resource, callback: ((result: { ok: boolean, token: string?, error: string? }) -> ())?) -> (string?, string?),\n        restore: (token: string) -> (Resource?, string?),\n    },\n    pick: (options: { files: boolean, multiple: boolean? }, callback: DesktopCallback?) -> (ServiceHandle?, string?),\n    open: (resource: string | Resource, callback: DesktopCallback?) -> (ServiceHandle?, string?),\n    reveal: (resource: Resource, callback: DesktopCallback?) -> (ServiceHandle?, string?),\n    quicklook: ((resources: { Resource }, index: number?, callback: DesktopCallback?) -> (ServiceHandle?, string?))\n        & ((resources: { Resource }, callback: DesktopCallback) -> (ServiceHandle?, string?)),\n    share: ((resources: { Resource }, anchor: string, service: \"airdrop\"?, callback: DesktopCallback?) -> (ServiceHandle?, string?))\n        & ((resources: { Resource }, anchor: string, callback: DesktopCallback) -> (ServiceHandle?, string?)),\n    clipboard: {\n        copy: (content: string | Resource, callback: DesktopCallback?) -> (ServiceHandle?, string?),\n        read: (callback: DesktopCallback) -> (ServiceHandle?, string?),\n    },\n    provider: {\n        send: (name: string, args: any, options: { files: { Resource }? }?, callback: ((result: ProviderResult) -> ())?) -> (ServiceHandle?, string?),\n    },\n    http: (request: HTTPRequest, callback: (result: HTTPResult) -> ()) -> (ServiceHandle?, string?),\n    after: (seconds: number, callback: () -> ()) -> (ServiceHandle?, string?),\n    store: {\n        get: (key: string) -> any,\n        set: (key: string, value: any) -> (boolean?, string?),\n        status: StoreStatus,\n    },\n    asset: (path: string) -> Asset,\n    components: {\n        activity: (id: string) -> ComponentActivity?,\n        add: (widget: string, options: { [string]: ComponentValue }?, callback: ConfigCallback?) -> (ServiceHandle?, string?),\n        remove: (id: string, callback: ConfigCallback?) -> (ServiceHandle?, string?),\n        move: (id: string, index: number, callback: ConfigCallback?) -> (ServiceHandle?, string?),\n        enable: (id: string, enabled: boolean, callback: ConfigCallback?) -> (ServiceHandle?, string?),\n        set: (id: string, key: string, value: ComponentValue, callback: ConfigCallback?) -> (ServiceHandle?, string?),\n    },\n    config: {\n        set: (key: string, value: ComponentValue, callback: ConfigCallback?) -> (ServiceHandle?, string?),\n    },\n    run: (command: string) -> (),\n    log: (...any) -> (),\n    l10n: (key: string, ...any) -> string,\n}",
+      "fields": [],
+      "related": [
+        "Resource",
+        "DesktopCallback",
+        "ServiceHandle",
+        "ProviderResult",
+        "HTTPRequest",
+        "HTTPResult",
+        "StoreStatus",
+        "Asset",
+        "ComponentActivity",
+        "ComponentValue",
+        "ConfigCallback"
+      ]
+    },
+    {
+      "name": "omniwm.resources",
+      "kind": "namespace",
+      "topic": "resources-desktop",
+      "anchor": "api-omniwm-resources",
+      "declaration": "    resources: {\n        persist: (resource: Resource, callback: ((result: { ok: boolean, token: string?, error: string? }) -> ())?) -> (string?, string?),\n        restore: (token: string) -> (Resource?, string?),\n    },",
+      "fields": [],
+      "related": [
+        "Resource"
+      ]
+    },
+    {
+      "name": "omniwm.resources.persist",
+      "kind": "member",
+      "topic": "resources-desktop",
+      "anchor": "api-omniwm-resources-persist",
+      "declaration": "        persist: (resource: Resource, callback: ((result: { ok: boolean, token: string?, error: string? }) -> ())?) -> (string?, string?),",
+      "fields": [],
+      "related": [
+        "Resource"
+      ]
+    },
+    {
+      "name": "omniwm.resources.restore",
+      "kind": "member",
+      "topic": "resources-desktop",
+      "anchor": "api-omniwm-resources-restore",
+      "declaration": "        restore: (token: string) -> (Resource?, string?),",
+      "fields": [],
+      "related": [
+        "Resource"
+      ]
+    },
+    {
+      "name": "omniwm.pick",
+      "kind": "member",
+      "topic": "resources-desktop",
+      "anchor": "api-omniwm-pick",
+      "declaration": "    pick: (options: { files: boolean, multiple: boolean? }, callback: DesktopCallback?) -> (ServiceHandle?, string?),",
+      "fields": [],
+      "related": [
+        "DesktopCallback",
+        "ServiceHandle"
+      ]
+    },
+    {
+      "name": "omniwm.open",
+      "kind": "member",
+      "topic": "resources-desktop",
+      "anchor": "api-omniwm-open",
+      "declaration": "    open: (resource: string | Resource, callback: DesktopCallback?) -> (ServiceHandle?, string?),",
+      "fields": [],
+      "related": [
+        "Resource",
+        "DesktopCallback",
+        "ServiceHandle"
+      ]
+    },
+    {
+      "name": "omniwm.reveal",
+      "kind": "member",
+      "topic": "resources-desktop",
+      "anchor": "api-omniwm-reveal",
+      "declaration": "    reveal: (resource: Resource, callback: DesktopCallback?) -> (ServiceHandle?, string?),",
+      "fields": [],
+      "related": [
+        "Resource",
+        "DesktopCallback",
+        "ServiceHandle"
+      ]
+    },
+    {
+      "name": "omniwm.quicklook",
+      "kind": "member",
+      "topic": "resources-desktop",
+      "anchor": "api-omniwm-quicklook",
+      "declaration": "    quicklook: ((resources: { Resource }, index: number?, callback: DesktopCallback?) -> (ServiceHandle?, string?))\n        & ((resources: { Resource }, callback: DesktopCallback) -> (ServiceHandle?, string?)),",
+      "fields": [],
+      "related": [
+        "Resource",
+        "DesktopCallback",
+        "ServiceHandle"
+      ]
+    },
+    {
+      "name": "omniwm.share",
+      "kind": "member",
+      "topic": "resources-desktop",
+      "anchor": "api-omniwm-share",
+      "declaration": "    share: ((resources: { Resource }, anchor: string, service: \"airdrop\"?, callback: DesktopCallback?) -> (ServiceHandle?, string?))\n        & ((resources: { Resource }, anchor: string, callback: DesktopCallback) -> (ServiceHandle?, string?)),",
+      "fields": [],
+      "related": [
+        "Resource",
+        "DesktopCallback",
+        "ServiceHandle"
+      ]
+    },
+    {
+      "name": "omniwm.clipboard",
+      "kind": "namespace",
+      "topic": "resources-desktop",
+      "anchor": "api-omniwm-clipboard",
+      "declaration": "    clipboard: {\n        copy: (content: string | Resource, callback: DesktopCallback?) -> (ServiceHandle?, string?),\n        read: (callback: DesktopCallback) -> (ServiceHandle?, string?),\n    },",
+      "fields": [],
+      "related": [
+        "Resource",
+        "DesktopCallback",
+        "ServiceHandle"
+      ]
+    },
+    {
+      "name": "omniwm.clipboard.copy",
+      "kind": "member",
+      "topic": "resources-desktop",
+      "anchor": "api-omniwm-clipboard-copy",
+      "declaration": "        copy: (content: string | Resource, callback: DesktopCallback?) -> (ServiceHandle?, string?),",
+      "fields": [],
+      "related": [
+        "Resource",
+        "DesktopCallback",
+        "ServiceHandle"
+      ]
+    },
+    {
+      "name": "omniwm.clipboard.read",
+      "kind": "member",
+      "topic": "resources-desktop",
+      "anchor": "api-omniwm-clipboard-read",
+      "declaration": "        read: (callback: DesktopCallback) -> (ServiceHandle?, string?),",
+      "fields": [],
+      "related": [
+        "DesktopCallback",
+        "ServiceHandle"
+      ]
+    },
+    {
+      "name": "omniwm.provider",
+      "kind": "namespace",
+      "topic": "providers",
+      "anchor": "api-omniwm-provider",
+      "declaration": "    provider: {\n        send: (name: string, args: any, options: { files: { Resource }? }?, callback: ((result: ProviderResult) -> ())?) -> (ServiceHandle?, string?),\n    },",
+      "fields": [],
+      "related": [
+        "Resource",
+        "ProviderResult",
+        "ServiceHandle"
+      ]
+    },
+    {
+      "name": "omniwm.provider.send",
+      "kind": "member",
+      "topic": "providers",
+      "anchor": "api-omniwm-provider-send",
+      "declaration": "        send: (name: string, args: any, options: { files: { Resource }? }?, callback: ((result: ProviderResult) -> ())?) -> (ServiceHandle?, string?),",
+      "fields": [],
+      "related": [
+        "Resource",
+        "ProviderResult",
+        "ServiceHandle"
+      ]
+    },
+    {
+      "name": "omniwm.http",
+      "kind": "member",
+      "topic": "services",
+      "anchor": "api-omniwm-http",
+      "declaration": "    http: (request: HTTPRequest, callback: (result: HTTPResult) -> ()) -> (ServiceHandle?, string?),",
+      "fields": [],
+      "related": [
+        "HTTPRequest",
+        "HTTPResult",
+        "ServiceHandle"
+      ]
+    },
+    {
+      "name": "omniwm.after",
+      "kind": "member",
+      "topic": "services",
+      "anchor": "api-omniwm-after",
+      "declaration": "    after: (seconds: number, callback: () -> ()) -> (ServiceHandle?, string?),",
+      "fields": [],
+      "related": [
+        "ServiceHandle"
+      ]
+    },
+    {
+      "name": "omniwm.store",
+      "kind": "namespace",
+      "topic": "services",
+      "anchor": "api-omniwm-store",
+      "declaration": "    store: {\n        get: (key: string) -> any,\n        set: (key: string, value: any) -> (boolean?, string?),\n        status: StoreStatus,\n    },",
+      "fields": [],
+      "related": [
+        "StoreStatus"
+      ]
+    },
+    {
+      "name": "omniwm.store.get",
+      "kind": "member",
+      "topic": "services",
+      "anchor": "api-omniwm-store-get",
+      "declaration": "        get: (key: string) -> any,",
+      "fields": [],
+      "related": []
+    },
+    {
+      "name": "omniwm.store.set",
+      "kind": "member",
+      "topic": "services",
+      "anchor": "api-omniwm-store-set",
+      "declaration": "        set: (key: string, value: any) -> (boolean?, string?),",
+      "fields": [],
+      "related": []
+    },
+    {
+      "name": "omniwm.store.status",
+      "kind": "member",
+      "topic": "services",
+      "anchor": "api-omniwm-store-status",
+      "declaration": "        status: StoreStatus,",
+      "fields": [],
+      "related": [
+        "StoreStatus"
+      ]
+    },
+    {
+      "name": "omniwm.asset",
+      "kind": "member",
+      "topic": "resources-desktop",
+      "anchor": "api-omniwm-asset",
+      "declaration": "    asset: (path: string) -> Asset,",
+      "fields": [],
+      "related": [
+        "Asset"
+      ]
+    },
+    {
+      "name": "omniwm.components",
+      "kind": "namespace",
+      "topic": "components-configuration",
+      "anchor": "api-omniwm-components",
+      "declaration": "    components: {\n        activity: (id: string) -> ComponentActivity?,\n        add: (widget: string, options: { [string]: ComponentValue }?, callback: ConfigCallback?) -> (ServiceHandle?, string?),\n        remove: (id: string, callback: ConfigCallback?) -> (ServiceHandle?, string?),\n        move: (id: string, index: number, callback: ConfigCallback?) -> (ServiceHandle?, string?),\n        enable: (id: string, enabled: boolean, callback: ConfigCallback?) -> (ServiceHandle?, string?),\n        set: (id: string, key: string, value: ComponentValue, callback: ConfigCallback?) -> (ServiceHandle?, string?),\n    },",
+      "fields": [],
+      "related": [
+        "ComponentActivity",
+        "ComponentValue",
+        "ConfigCallback",
+        "ServiceHandle"
+      ]
+    },
+    {
+      "name": "omniwm.components.activity",
+      "kind": "member",
+      "topic": "components-configuration",
+      "anchor": "api-omniwm-components-activity",
+      "declaration": "        activity: (id: string) -> ComponentActivity?,",
+      "fields": [],
+      "related": [
+        "ComponentActivity"
+      ]
+    },
+    {
+      "name": "omniwm.components.add",
+      "kind": "member",
+      "topic": "components-configuration",
+      "anchor": "api-omniwm-components-add",
+      "declaration": "        add: (widget: string, options: { [string]: ComponentValue }?, callback: ConfigCallback?) -> (ServiceHandle?, string?),",
+      "fields": [],
+      "related": [
+        "ComponentValue",
+        "ConfigCallback",
+        "ServiceHandle"
+      ]
+    },
+    {
+      "name": "omniwm.components.remove",
+      "kind": "member",
+      "topic": "components-configuration",
+      "anchor": "api-omniwm-components-remove",
+      "declaration": "        remove: (id: string, callback: ConfigCallback?) -> (ServiceHandle?, string?),",
+      "fields": [],
+      "related": [
+        "ConfigCallback",
+        "ServiceHandle"
+      ]
+    },
+    {
+      "name": "omniwm.components.move",
+      "kind": "member",
+      "topic": "components-configuration",
+      "anchor": "api-omniwm-components-move",
+      "declaration": "        move: (id: string, index: number, callback: ConfigCallback?) -> (ServiceHandle?, string?),",
+      "fields": [],
+      "related": [
+        "ConfigCallback",
+        "ServiceHandle"
+      ]
+    },
+    {
+      "name": "omniwm.components.enable",
+      "kind": "member",
+      "topic": "components-configuration",
+      "anchor": "api-omniwm-components-enable",
+      "declaration": "        enable: (id: string, enabled: boolean, callback: ConfigCallback?) -> (ServiceHandle?, string?),",
+      "fields": [],
+      "related": [
+        "ConfigCallback",
+        "ServiceHandle"
+      ]
+    },
+    {
+      "name": "omniwm.components.set",
+      "kind": "member",
+      "topic": "components-configuration",
+      "anchor": "api-omniwm-components-set",
+      "declaration": "        set: (id: string, key: string, value: ComponentValue, callback: ConfigCallback?) -> (ServiceHandle?, string?),",
+      "fields": [],
+      "related": [
+        "ComponentValue",
+        "ConfigCallback",
+        "ServiceHandle"
+      ]
+    },
+    {
+      "name": "omniwm.config",
+      "kind": "namespace",
+      "topic": "components-configuration",
+      "anchor": "api-omniwm-config",
+      "declaration": "    config: {\n        set: (key: string, value: ComponentValue, callback: ConfigCallback?) -> (ServiceHandle?, string?),\n    },",
+      "fields": [],
+      "related": [
+        "ComponentValue",
+        "ConfigCallback",
+        "ServiceHandle"
+      ]
+    },
+    {
+      "name": "omniwm.config.set",
+      "kind": "member",
+      "topic": "components-configuration",
+      "anchor": "api-omniwm-config-set",
+      "declaration": "        set: (key: string, value: ComponentValue, callback: ConfigCallback?) -> (ServiceHandle?, string?),",
+      "fields": [],
+      "related": [
+        "ComponentValue",
+        "ConfigCallback",
+        "ServiceHandle"
+      ]
+    },
+    {
+      "name": "omniwm.run",
+      "kind": "member",
+      "topic": "context-data",
+      "anchor": "api-omniwm-run",
+      "declaration": "    run: (command: string) -> (),",
+      "fields": [],
+      "related": []
+    },
+    {
+      "name": "omniwm.log",
+      "kind": "member",
+      "topic": "context-data",
+      "anchor": "api-omniwm-log",
+      "declaration": "    log: (...any) -> (),",
+      "fields": [],
+      "related": []
+    },
+    {
+      "name": "omniwm.l10n",
+      "kind": "member",
+      "topic": "context-data",
+      "anchor": "api-omniwm-l10n",
+      "declaration": "    l10n: (key: string, ...any) -> string,",
+      "fields": [],
+      "related": []
+    },
+    {
+      "name": "ui",
+      "kind": "namespace",
+      "topic": "ui-elements",
+      "anchor": "api-ui",
+      "declaration": "declare ui: {\n    component: (props: ComponentProps) -> Element,\n    row: (props: Props) -> Element,\n    column: (props: Props) -> Element,\n    stack: (props: Props) -> Element,\n    box: (props: Props) -> Element,\n    text: (props: TextProps) -> Element,\n    input: (props: TextInputProps) -> Element,\n    symbol: (props: SymbolProps) -> Element,\n    icon: (props: IconProps) -> Element,\n    image: (props: ImageProps) -> Element,\n    progress: (props: ProgressProps) -> Element,\n    shader: (props: ShaderProps) -> Element,\n    path: (props: PathProps) -> Element,\n    slider: (props: SliderProps) -> Element,\n    popout: (ctx: Context) -> (),\n}",
+      "fields": [],
+      "related": [
+        "ComponentProps",
+        "Element",
+        "Props",
+        "TextProps",
+        "TextInputProps",
+        "SymbolProps",
+        "IconProps",
+        "ImageProps",
+        "ProgressProps",
+        "ShaderProps",
+        "PathProps",
+        "SliderProps",
+        "Context"
+      ]
+    },
+    {
+      "name": "ui.component",
+      "kind": "member",
+      "topic": "components-configuration",
+      "anchor": "api-ui-component",
+      "declaration": "    component: (props: ComponentProps) -> Element,",
+      "fields": [],
+      "related": [
+        "ComponentProps",
+        "Element"
+      ]
+    },
+    {
+      "name": "ui.row",
+      "kind": "member",
+      "topic": "ui-elements",
+      "anchor": "api-ui-row",
+      "declaration": "    row: (props: Props) -> Element,",
+      "fields": [],
+      "related": [
+        "Props",
+        "Element"
+      ]
+    },
+    {
+      "name": "ui.column",
+      "kind": "member",
+      "topic": "ui-elements",
+      "anchor": "api-ui-column",
+      "declaration": "    column: (props: Props) -> Element,",
+      "fields": [],
+      "related": [
+        "Props",
+        "Element"
+      ]
+    },
+    {
+      "name": "ui.stack",
+      "kind": "member",
+      "topic": "ui-elements",
+      "anchor": "api-ui-stack",
+      "declaration": "    stack: (props: Props) -> Element,",
+      "fields": [],
+      "related": [
+        "Props",
+        "Element"
+      ]
+    },
+    {
+      "name": "ui.box",
+      "kind": "member",
+      "topic": "ui-elements",
+      "anchor": "api-ui-box",
+      "declaration": "    box: (props: Props) -> Element,",
+      "fields": [],
+      "related": [
+        "Props",
+        "Element"
+      ]
+    },
+    {
+      "name": "ui.text",
+      "kind": "member",
+      "topic": "ui-elements",
+      "anchor": "api-ui-text",
+      "declaration": "    text: (props: TextProps) -> Element,",
+      "fields": [],
+      "related": [
+        "TextProps",
+        "Element"
+      ]
+    },
+    {
+      "name": "ui.input",
+      "kind": "member",
+      "topic": "ui-elements",
+      "anchor": "api-ui-input",
+      "declaration": "    input: (props: TextInputProps) -> Element,",
+      "fields": [],
+      "related": [
+        "TextInputProps",
+        "Element"
+      ]
+    },
+    {
+      "name": "ui.symbol",
+      "kind": "member",
+      "topic": "ui-elements",
+      "anchor": "api-ui-symbol",
+      "declaration": "    symbol: (props: SymbolProps) -> Element,",
+      "fields": [],
+      "related": [
+        "SymbolProps",
+        "Element"
+      ]
+    },
+    {
+      "name": "ui.icon",
+      "kind": "member",
+      "topic": "ui-elements",
+      "anchor": "api-ui-icon",
+      "declaration": "    icon: (props: IconProps) -> Element,",
+      "fields": [],
+      "related": [
+        "IconProps",
+        "Element"
+      ]
+    },
+    {
+      "name": "ui.image",
+      "kind": "member",
+      "topic": "ui-elements",
+      "anchor": "api-ui-image",
+      "declaration": "    image: (props: ImageProps) -> Element,",
+      "fields": [],
+      "related": [
+        "ImageProps",
+        "Element"
+      ]
+    },
+    {
+      "name": "ui.progress",
+      "kind": "member",
+      "topic": "ui-elements",
+      "anchor": "api-ui-progress",
+      "declaration": "    progress: (props: ProgressProps) -> Element,",
+      "fields": [],
+      "related": [
+        "ProgressProps",
+        "Element"
+      ]
+    },
+    {
+      "name": "ui.shader",
+      "kind": "member",
+      "topic": "effects-shaders",
+      "anchor": "api-ui-shader",
+      "declaration": "    shader: (props: ShaderProps) -> Element,",
+      "fields": [],
+      "related": [
+        "ShaderProps",
+        "Element"
+      ]
+    },
+    {
+      "name": "ui.path",
+      "kind": "member",
+      "topic": "ui-elements",
+      "anchor": "api-ui-path",
+      "declaration": "    path: (props: PathProps) -> Element,",
+      "fields": [],
+      "related": [
+        "PathProps",
+        "Element"
+      ]
+    },
+    {
+      "name": "ui.slider",
+      "kind": "member",
+      "topic": "ui-elements",
+      "anchor": "api-ui-slider",
+      "declaration": "    slider: (props: SliderProps) -> Element,",
+      "fields": [],
+      "related": [
+        "SliderProps",
+        "Element"
+      ]
+    },
+    {
+      "name": "ui.popout",
+      "kind": "member",
+      "topic": "context-data",
+      "anchor": "api-ui-popout",
+      "declaration": "    popout: (ctx: Context) -> (),",
+      "fields": [],
+      "related": [
+        "Context"
+      ]
+    }
+  ]
+}

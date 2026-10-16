@@ -20,6 +20,8 @@ final class PanelDismissalMonitor {
     private var isExemptWindow: ((NSWindow) -> Bool)?
     private var containsPanelPoint: ((NSPanel, CGPoint) -> Bool)?
     private var onEscape: (() -> Void)?
+    private var shouldHandleEscape: (() -> Bool)?
+    private var shouldDismissOnScreenChange: (() -> Bool)?
     private var onDismiss: (() -> Void)?
     private var eventMonitors: [Any] = []
     private var screenObserver: NSObjectProtocol?
@@ -29,6 +31,8 @@ final class PanelDismissalMonitor {
         isExemptWindow: @escaping (NSWindow) -> Bool,
         containsPanelPoint: ((NSPanel, CGPoint) -> Bool)? = nil,
         onEscape: (() -> Void)? = nil,
+        shouldHandleEscape: (() -> Bool)? = nil,
+        shouldDismissOnScreenChange: (() -> Bool)? = nil,
         onDismiss: @escaping () -> Void
     ) {
         stop()
@@ -36,6 +40,8 @@ final class PanelDismissalMonitor {
         self.isExemptWindow = isExemptWindow
         self.containsPanelPoint = containsPanelPoint
         self.onEscape = onEscape
+        self.shouldHandleEscape = shouldHandleEscape
+        self.shouldDismissOnScreenChange = shouldDismissOnScreenChange
         self.onDismiss = onDismiss
 
         let local = NSEvent.addLocalMonitorForEvents(
@@ -64,6 +70,7 @@ final class PanelDismissalMonitor {
             queue: nil
         ) { [weak self] _ in
             Task { @MainActor [weak self] in
+                guard self?.shouldDismissOnScreenChange?() != false else { return }
                 self?.onDismiss?()
             }
         }
@@ -86,15 +93,16 @@ final class PanelDismissalMonitor {
         isExemptWindow = nil
         containsPanelPoint = nil
         onEscape = nil
+        shouldHandleEscape = nil
+        shouldDismissOnScreenChange = nil
         onDismiss = nil
     }
 
     func handleLocalEvent(_ event: NSEvent) -> Bool {
-        guard !panels.isEmpty else { return false }
+        guard !hasOwnedChildPresentation, !panels.isEmpty else { return false }
         if event.type == .keyDown {
             if event.keyCode == 53 {
-                handleEscape()
-                return true
+                return handleEscape()
             }
             return false
         }
@@ -117,18 +125,24 @@ final class PanelDismissalMonitor {
     }
 
     func handlePointer(location: CGPoint) {
-        guard !panels.isEmpty else { return }
+        guard !hasOwnedChildPresentation, !panels.isEmpty else { return }
         if !panels.contains(where: { containsPointer(location, in: $0) }) {
             onDismiss?()
         }
+    }
+
+    private var hasOwnedChildPresentation: Bool {
+        panels.contains { ($0 as? ShellFocusPanel)?.hasOwnedChildPresentation?() == true }
     }
 
     private func containsPointer(_ location: CGPoint, in panel: NSPanel) -> Bool {
         panel.frame.contains(location) && (containsPanelPoint?(panel, location) ?? true)
     }
 
-    private func handleEscape() {
-        guard !panels.isEmpty else { return }
+    @discardableResult
+    private func handleEscape() -> Bool {
+        guard !hasOwnedChildPresentation, !panels.isEmpty, shouldHandleEscape?() != false else { return false }
         (onEscape ?? onDismiss)?()
+        return true
     }
 }

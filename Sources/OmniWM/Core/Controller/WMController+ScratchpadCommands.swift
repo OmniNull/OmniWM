@@ -17,7 +17,8 @@ extension WMController {
         _ token: WindowToken,
         to index: ScratchpadIndex,
         preferredMonitor: Monitor?,
-        focusOrigin: ManagedFocusOrigin = .keyboardOrProgrammatic
+        focusOrigin: ManagedFocusOrigin = .keyboardOrProgrammatic,
+        arrivesQuietly: Bool = false
     ) -> ExternalCommandResult {
         guard let entry = workspaceManager.entry(for: token),
               !isManagedWindowSuspendedForNativeFullscreen(token)
@@ -29,7 +30,7 @@ extension WMController {
             guard !workspaceManager.isHiddenInCorner(token) else {
                 return .notFound
             }
-            releaseScratchpadWindow(token, entry: entry)
+            releaseScratchpadWindow(token, entry: entry, arrivesQuietly: arrivesQuietly)
             return .executed
         }
 
@@ -69,17 +70,22 @@ extension WMController {
     }
 
     @discardableResult
-    func unassignScratchpadWindows(_ tokens: [WindowToken], on monitorId: Monitor.ID?) -> ExternalCommandResult {
+    func unassignScratchpadWindows(
+        _ tokens: [WindowToken],
+        on monitorId: Monitor.ID?,
+        arrivesQuietly: Bool = false
+    ) -> ExternalCommandResult {
         let entries = tokens.compactMap { token in
             canUnassignScratchpadWindow(token) ? workspaceManager.entry(for: token) : nil
         }
         guard !entries.isEmpty else { return .notFound }
         let hidden = entries.filter { workspaceManager.hiddenState(for: $0.token)?.isScratchpad == true }
         for entry in entries where workspaceManager.hiddenState(for: entry.token)?.isScratchpad != true {
-            releaseScratchpadWindow(entry.token, entry: entry)
+            releaseScratchpadWindow(entry.token, entry: entry, arrivesQuietly: arrivesQuietly)
         }
         guard !hidden.isEmpty else { return .executed }
-        return revealAndReleaseScratchpadWindows(hidden, on: monitorId) || hidden.count < entries.count
+        return revealAndReleaseScratchpadWindows(hidden, on: monitorId, arrivesQuietly: arrivesQuietly)
+            || hidden.count < entries.count
             ? .executed
             : .notFound
     }
@@ -92,7 +98,11 @@ extension WMController {
                 || !workspaceManager.isHiddenInCorner(token))
     }
 
-    private func revealAndReleaseScratchpadWindows(_ entries: [WindowState], on monitorId: Monitor.ID?) -> Bool {
+    private func revealAndReleaseScratchpadWindows(
+        _ entries: [WindowState],
+        on monitorId: Monitor.ID?,
+        arrivesQuietly: Bool
+    ) -> Bool {
         guard let index = entries.first.flatMap({ workspaceManager.scratchpadIndex(for: $0.token) }),
               let target = scratchpadTarget(on: monitorId)
         else {
@@ -111,7 +121,7 @@ extension WMController {
                 else {
                     continue
                 }
-                releaseScratchpadWindow(handle.id, entry: entry)
+                releaseScratchpadWindow(handle.id, entry: entry, arrivesQuietly: arrivesQuietly)
             }
         }
         var revealed = false
@@ -131,9 +141,9 @@ extension WMController {
         return true
     }
 
-    private func releaseScratchpadWindow(_ token: WindowToken, entry: WindowState) {
+    private func releaseScratchpadWindow(_ token: WindowToken, entry: WindowState, arrivesQuietly: Bool = false) {
         cleanupScratchpadWindowResources(for: token)
-        applyManagedWindowOverride(.forceTile, for: token, entry: entry)
+        applyManagedWindowOverride(.forceTile, for: token, entry: entry, arrivesQuietly: arrivesQuietly)
     }
 
     @discardableResult

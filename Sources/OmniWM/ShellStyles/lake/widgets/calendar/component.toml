@@ -1,0 +1,24 @@
+title = "Agenda"
+icon = "calendar"
+views = ["compact", "expanded"]
+
+[options.leadMinutes]
+type = "number"
+title = "Event alert lead time (minutes)"
+default = 5
+min = 0
+max = 1440
+step = 1
+
+[options.alerts]
+type = "boolean"
+title = "Upcoming event alerts"
+default = true
+
+[options.alertSeconds]
+type = "number"
+title = "Alert duration (seconds)"
+default = 4
+min = 1
+max = 10
+step = 1

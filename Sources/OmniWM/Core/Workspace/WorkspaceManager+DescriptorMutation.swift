@@ -27,7 +27,7 @@ extension WorkspaceManager {
         workspaceCatalog.insertWorkspace(workspace)
         invalidateWorkspaceProjectionCaches()
         noteInvalidation(workspaceId: workspace.id, domains: [.workspace, .layout, .focus])
-        settings.reconcileWorkspaceNumberHotkeys()
+        settings.reconcileDynamicHotkeys()
         return workspace.id
     }
 }

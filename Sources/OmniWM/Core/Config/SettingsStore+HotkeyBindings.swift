@@ -41,3 +41,36 @@ extension SettingsStore {
         }
     }
 }
+
+extension SettingsStore {
+    func resetHotkeysToDefaults() {
+        hyperKeyModifiers = SettingsStore.defaultExport.hyperKeyModifiers
+        hotkeyBindings = withDynamicHotkeys(HotkeyBindingRegistry.defaults())
+        systemHyperTrigger = SettingsStore.defaultExport.systemHyperTrigger
+    }
+
+    func withDynamicHotkeys(_ bindings: [HotkeyBinding]) -> [HotkeyBinding] {
+        HotkeyBindingRegistry.reconcilingShellToggleBindings(
+            HotkeyBindingRegistry.reconcilingWorkspaceNumberBindings(
+                bindings,
+                workspaceNames: workspaces.configuredNames() + (liveWorkspaceNamesForHotkeys?() ?? [])
+            ),
+            names: liveShellNamesForHotkeys?() ?? []
+        )
+    }
+
+    func workspacesDidChange() {
+        reconcileDynamicHotkeys()
+        scheduleSave()
+    }
+
+    func reconcileDynamicHotkeys() {
+        let reconciled = withDynamicHotkeys(hotkeyBindings)
+        if reconciled != hotkeyBindings {
+            hotkeyBindings = reconciled
+            if !isApplyingExport {
+                onDynamicHotkeysChanged?()
+            }
+        }
+    }
+}

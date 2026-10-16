@@ -1,6 +1,792 @@
 {
   "sourceLanguage" : "en",
   "strings" : {
+    "NSAppleEventsUsageDescription" : {
+      "extractionState" : "manual",
+      "localizations" : {
+        "ar" : {
+          "stringUnit" : {
+            "state" : "translated",
+            "value" : "يعرض OmniWM تأكيدات macOS لتسجيل الخروج وإعادة التشغيل وإيقاف التشغيل من أدوات الواجهة."
+          }
+        },
+        "da" : {
+          "stringUnit" : {
+            "state" : "translated",
+            "value" : "OmniWM viser macOS’ bekræftelser for log ud, genstart og sluk fra shell-widgets."
+          }
+        },
+        "de" : {
+          "stringUnit" : {
+            "state" : "translated",
+            "value" : "OmniWM zeigt die macOS-Bestätigungen zum Abmelden, Neustarten und Ausschalten aus Shell-Widgets an."
+          }
+        },
+        "el" : {
+          "stringUnit" : {
+            "state" : "translated",
+            "value" : "Το OmniWM εμφανίζει τις επιβεβαιώσεις του macOS για αποσύνδεση, επανεκκίνηση και τερματισμό από τα widget του shell."
+          }
+        },
+        "en" : {
+          "stringUnit" : {
+            "state" : "translated",
+            "value" : "OmniWM shows the macOS log out, restart and shut down confirmations from shell widgets."
+          }
+        },
+        "es" : {
+          "stringUnit" : {
+            "state" : "translated",
+            "value" : "OmniWM muestra las confirmaciones de macOS para cerrar sesión, reiniciar y apagar desde los widgets del shell."
+          }
+        },
+        "fi" : {
+          "stringUnit" : {
+            "state" : "translated",
+            "value" : "OmniWM näyttää macOS:n uloskirjautumisen, uudelleenkäynnistyksen ja sammutuksen vahvistukset shell-widgeteistä."
+          }
+        },
+        "fr" : {
+          "stringUnit" : {
+            "state" : "translated",
+            "value" : "OmniWM affiche les confirmations macOS de fermeture de session, de redémarrage et d’extinction depuis les widgets du shell."
+          }
+        },
+        "he" : {
+          "stringUnit" : {
+            "state" : "translated",
+            "value" : "OmniWM מציג את אישורי macOS להתנתקות, להפעלה מחדש ולכיבוי מהווידג׳טים של ה-shell."
+          }
+        },
+        "hi" : {
+          "stringUnit" : {
+            "state" : "translated",
+            "value" : "OmniWM शेल विजेट से macOS के लॉग आउट, रीस्टार्ट और शट डाउन की पुष्टि दिखाता है।"
+          }
+        },
+        "it" : {
+          "stringUnit" : {
+            "state" : "translated",
+            "value" : "OmniWM mostra le conferme di macOS per logout, riavvio e spegnimento dai widget della shell."
+          }
+        },
+        "ja" : {
+          "stringUnit" : {
+            "state" : "translated",
+            "value" : "OmniWM は、シェルウィジェットから macOS のログアウト、再起動、システム終了の確認を表示します。"
+          }
+        },
+        "ko" : {
+          "stringUnit" : {
+            "state" : "translated",
+            "value" : "OmniWM은 셸 위젯에서 macOS의 로그아웃, 재시동, 시스템 종료 확인 창을 표시합니다."
+          }
+        },
+        "nb" : {
+          "stringUnit" : {
+            "state" : "translated",
+            "value" : "OmniWM viser macOS-bekreftelsene for logg ut, start på nytt og slå av fra shell-widgeter."
+          }
+        },
+        "nl" : {
+          "stringUnit" : {
+            "state" : "translated",
+            "value" : "OmniWM toont de macOS-bevestigingen voor afmelden, herstarten en uitzetten vanuit shell-widgets."
+          }
+        },
+        "pl" : {
+          "stringUnit" : {
+            "state" : "translated",
+            "value" : "OmniWM wyświetla potwierdzenia macOS dotyczące wylogowania, ponownego uruchomienia i wyłączenia z widżetów powłoki."
+          }
+        },
+        "ru" : {
+          "stringUnit" : {
+            "state" : "translated",
+            "value" : "OmniWM показывает подтверждения macOS для выхода, перезагрузки и выключения из виджетов оболочки."
+          }
+        },
+        "sr-Latn" : {
+          "stringUnit" : {
+            "state" : "translated",
+            "value" : "OmniWM prikazuje macOS potvrde za odjavljivanje, ponovno pokretanje i isključivanje iz vidžeta okruženja."
+          }
+        },
+        "sv" : {
+          "stringUnit" : {
+            "state" : "translated",
+            "value" : "OmniWM visar macOS bekräftelser för logga ut, starta om och stäng av från shell-widgetar."
+          }
+        },
+        "uk" : {
+          "stringUnit" : {
+            "state" : "translated",
+            "value" : "OmniWM показує підтвердження macOS для виходу, перезавантаження та вимкнення з віджетів оболонки."
+          }
+        },
+        "zh-Hans" : {
+          "stringUnit" : {
+            "state" : "translated",
+            "value" : "OmniWM 会从 Shell 小组件显示 macOS 的注销、重新启动和关机确认。"
+          }
+        }
+      }
+    },
+    "NSAudioCaptureUsageDescription" : {
+      "extractionState" : "manual",
+      "localizations" : {
+        "ar" : {
+          "stringUnit" : {
+            "state" : "translated",
+            "value" : "يستخدم OmniWM تسجيل صوت النظام لضبط مستوى صوت كل تطبيق على حدة ولعرض مرئيات الصوت في أدوات الواجهة."
+          }
+        },
+        "da" : {
+          "stringUnit" : {
+            "state" : "translated",
+            "value" : "OmniWM bruger optagelse af systemlyd til at indstille lydstyrken for de enkelte apps og til at vise lydvisualiseringer i shell-widgets."
+          }
+        },
+        "de" : {
+          "stringUnit" : {
+            "state" : "translated",
+            "value" : "OmniWM verwendet die Aufnahme des Systemaudios, um die Lautstärke einzelner Apps einzustellen und Audiovisualisierungen in Shell-Widgets anzuzeigen."
+          }
+        },
+        "el" : {
+          "stringUnit" : {
+            "state" : "translated",
+            "value" : "Το OmniWM χρησιμοποιεί την εγγραφή ήχου συστήματος για να ρυθμίζει την ένταση μεμονωμένων εφαρμογών και να εμφανίζει οπτικοποιήσεις ήχου στα widget του shell."
+          }
+        },
+        "en" : {
+          "stringUnit" : {
+            "state" : "translated",
+            "value" : "OmniWM uses system audio recording to set the volume of individual apps and to show audio visualizers in shell widgets."
+          }
+        },
+        "es" : {
+          "stringUnit" : {
+            "state" : "translated",
+            "value" : "OmniWM usa la grabación del audio del sistema para ajustar el volumen de cada app y mostrar visualizadores de audio en los widgets del shell."
+          }
+        },
+        "fi" : {
+          "stringUnit" : {
+            "state" : "translated",
+            "value" : "OmniWM käyttää järjestelmän äänen tallennusta yksittäisten appien äänenvoimakkuuden säätämiseen ja äänivisualisointien näyttämiseen shell-widgeteissä."
+          }
+        },
+        "fr" : {
+          "stringUnit" : {
+            "state" : "translated",
+            "value" : "OmniWM utilise l’enregistrement de l’audio du système pour régler le volume de chaque app et afficher des visualiseurs audio dans les widgets du shell."
+          }
+        },
+        "he" : {
+          "stringUnit" : {
+            "state" : "translated",
+            "value" : "OmniWM משתמש בהקלטת שמע המערכת כדי לכוונן את עוצמת הקול של כל יישום בנפרד ולהציג המחשות שמע בווידג׳טים של ה-shell."
+          }
+        },
+        "hi" : {
+          "stringUnit" : {
+            "state" : "translated",
+            "value" : "OmniWM अलग-अलग ऐप्स का वॉल्यूम सेट करने और शेल विजेट में ऑडियो विज़ुअलाइज़र दिखाने के लिए सिस्टम ऑडियो रिकॉर्डिंग का उपयोग करता है।"
+          }
+        },
+        "it" : {
+          "stringUnit" : {
+            "state" : "translated",
+            "value" : "OmniWM usa la registrazione dell’audio di sistema per impostare il volume delle singole app e mostrare visualizzatori audio nei widget della shell."
+          }
+        },
+        "ja" : {
+          "stringUnit" : {
+            "state" : "translated",
+            "value" : "OmniWM は、アプリごとの音量を設定し、シェルウィジェットにオーディオビジュアライザを表示するためにシステムオーディオ録音を使用します。"
+          }
+        },
+        "ko" : {
+          "stringUnit" : {
+            "state" : "translated",
+            "value" : "OmniWM은 앱별 음량을 설정하고 셸 위젯에 오디오 시각화를 표시하기 위해 시스템 오디오 녹음을 사용합니다."
+          }
+        },
+        "nb" : {
+          "stringUnit" : {
+            "state" : "translated",
+            "value" : "OmniWM bruker opptak av systemlyd til å stille inn volumet for enkeltapper og til å vise lydvisualiseringer i shell-widgeter."
+          }
+        },
+        "nl" : {
+          "stringUnit" : {
+            "state" : "translated",
+            "value" : "OmniWM gebruikt opname van systeemaudio om het volume van afzonderlijke apps in te stellen en audiovisualisaties in shell-widgets te tonen."
+          }
+        },
+        "pl" : {
+          "stringUnit" : {
+            "state" : "translated",
+            "value" : "OmniWM używa nagrywania dźwięku systemowego, aby ustawiać głośność poszczególnych aplikacji i wyświetlać wizualizacje dźwięku w widżetach powłoki."
+          }
+        },
+        "ru" : {
+          "stringUnit" : {
+            "state" : "translated",
+            "value" : "OmniWM использует запись системного звука, чтобы настраивать громкость отдельных приложений и показывать визуализацию звука в виджетах оболочки."
+          }
+        },
+        "sr-Latn" : {
+          "stringUnit" : {
+            "state" : "translated",
+            "value" : "OmniWM koristi snimanje sistemskog zvuka za podešavanje jačine zvuka pojedinačnih aplikacija i prikaz vizuelizacije zvuka u vidžetima okruženja."
+          }
+        },
+        "sv" : {
+          "stringUnit" : {
+            "state" : "translated",
+            "value" : "OmniWM använder inspelning av systemljud för att ställa in volymen för enskilda appar och visa ljudvisualiseringar i shell-widgetar."
+          }
+        },
+        "uk" : {
+          "stringUnit" : {
+            "state" : "translated",
+            "value" : "OmniWM використовує запис системного звуку, щоб налаштовувати гучність окремих програм і показувати візуалізацію звуку у віджетах оболонки."
+          }
+        },
+        "zh-Hans" : {
+          "stringUnit" : {
+            "state" : "translated",
+            "value" : "OmniWM 使用系统音频录制来设置单个 App 的音量，并在 Shell 小组件中显示音频可视化效果。"
+          }
+        }
+      }
+    },
+    "NSBluetoothAlwaysUsageDescription" : {
+      "extractionState" : "manual",
+      "localizations" : {
+        "ar" : {
+          "stringUnit" : {
+            "state" : "translated",
+            "value" : "يعرض OmniWM أجهزة Bluetooth الخاصة بك ومستويات بطارياتها في أدوات الواجهة."
+          }
+        },
+        "da" : {
+          "stringUnit" : {
+            "state" : "translated",
+            "value" : "OmniWM viser dine Bluetooth-enheder og deres batteriniveauer i shell-widgets."
+          }
+        },
+        "de" : {
+          "stringUnit" : {
+            "state" : "translated",
+            "value" : "OmniWM zeigt deine Bluetooth-Geräte und ihre Akkustände in Shell-Widgets an."
+          }
+        },
+        "el" : {
+          "stringUnit" : {
+            "state" : "translated",
+            "value" : "Το OmniWM εμφανίζει τις συσκευές Bluetooth σας και τα επίπεδα μπαταρίας τους στα widget του shell."
+          }
+        },
+        "en" : {
+          "stringUnit" : {
+            "state" : "translated",
+            "value" : "OmniWM shows your Bluetooth devices and their battery levels in shell widgets."
+          }
+        },
+        "es" : {
+          "stringUnit" : {
+            "state" : "translated",
+            "value" : "OmniWM muestra tus dispositivos Bluetooth y el nivel de sus baterías en los widgets del shell."
+          }
+        },
+        "fi" : {
+          "stringUnit" : {
+            "state" : "translated",
+            "value" : "OmniWM näyttää Bluetooth-laitteesi ja niiden akkujen varaustasot shell-widgeteissä."
+          }
+        },
+        "fr" : {
+          "stringUnit" : {
+            "state" : "translated",
+            "value" : "OmniWM affiche vos appareils Bluetooth et le niveau de leur batterie dans les widgets du shell."
+          }
+        },
+        "he" : {
+          "stringUnit" : {
+            "state" : "translated",
+            "value" : "OmniWM מציג את מכשירי ה-Bluetooth שלך ואת רמות הסוללה שלהם בווידג׳טים של ה-shell."
+          }
+        },
+        "hi" : {
+          "stringUnit" : {
+            "state" : "translated",
+            "value" : "OmniWM शेल विजेट में आपके Bluetooth डिवाइस और उनकी बैटरी का स्तर दिखाता है।"
+          }
+        },
+        "it" : {
+          "stringUnit" : {
+            "state" : "translated",
+            "value" : "OmniWM mostra i tuoi dispositivi Bluetooth e il livello delle loro batterie nei widget della shell."
+          }
+        },
+        "ja" : {
+          "stringUnit" : {
+            "state" : "translated",
+            "value" : "OmniWM は、シェルウィジェットに Bluetooth デバイスとそのバッテリー残量を表示します。"
+          }
+        },
+        "ko" : {
+          "stringUnit" : {
+            "state" : "translated",
+            "value" : "OmniWM은 셸 위젯에 Bluetooth 기기와 배터리 잔량을 표시합니다."
+          }
+        },
+        "nb" : {
+          "stringUnit" : {
+            "state" : "translated",
+            "value" : "OmniWM viser Bluetooth-enhetene dine og batterinivåene deres i shell-widgeter."
+          }
+        },
+        "nl" : {
+          "stringUnit" : {
+            "state" : "translated",
+            "value" : "OmniWM toont je Bluetooth-apparaten en hun batterijniveau in shell-widgets."
+          }
+        },
+        "pl" : {
+          "stringUnit" : {
+            "state" : "translated",
+            "value" : "OmniWM wyświetla Twoje urządzenia Bluetooth i poziom ich baterii w widżetach powłoki."
+          }
+        },
+        "ru" : {
+          "stringUnit" : {
+            "state" : "translated",
+            "value" : "OmniWM показывает ваши устройства Bluetooth и уровень их заряда в виджетах оболочки."
+          }
+        },
+        "sr-Latn" : {
+          "stringUnit" : {
+            "state" : "translated",
+            "value" : "OmniWM prikazuje vaše Bluetooth uređaje i nivo njihovih baterija u vidžetima okruženja."
+          }
+        },
+        "sv" : {
+          "stringUnit" : {
+            "state" : "translated",
+            "value" : "OmniWM visar dina Bluetooth-enheter och deras batterinivåer i shell-widgetar."
+          }
+        },
+        "uk" : {
+          "stringUnit" : {
+            "state" : "translated",
+            "value" : "OmniWM показує ваші пристрої Bluetooth і рівень їхнього заряду у віджетах оболонки."
+          }
+        },
+        "zh-Hans" : {
+          "stringUnit" : {
+            "state" : "translated",
+            "value" : "OmniWM 会在 Shell 小组件中显示你的蓝牙设备及其电池电量。"
+          }
+        }
+      }
+    },
+    "NSCalendarsFullAccessUsageDescription" : {
+      "extractionState" : "manual",
+      "localizations" : {
+        "ar" : {
+          "stringUnit" : {
+            "state" : "translated",
+            "value" : "يعرض OmniWM أحداثك القادمة في أدوات الواجهة."
+          }
+        },
+        "da" : {
+          "stringUnit" : {
+            "state" : "translated",
+            "value" : "OmniWM viser dine kommende begivenheder i shell-widgets."
+          }
+        },
+        "de" : {
+          "stringUnit" : {
+            "state" : "translated",
+            "value" : "OmniWM zeigt deine anstehenden Ereignisse in Shell-Widgets an."
+          }
+        },
+        "el" : {
+          "stringUnit" : {
+            "state" : "translated",
+            "value" : "Το OmniWM εμφανίζει τα επερχόμενα γεγονότα σας στα widget του shell."
+          }
+        },
+        "en" : {
+          "stringUnit" : {
+            "state" : "translated",
+            "value" : "OmniWM shows your upcoming events in shell widgets."
+          }
+        },
+        "es" : {
+          "stringUnit" : {
+            "state" : "translated",
+            "value" : "OmniWM muestra tus próximos eventos en los widgets del shell."
+          }
+        },
+        "fi" : {
+          "stringUnit" : {
+            "state" : "translated",
+            "value" : "OmniWM näyttää tulevat tapahtumasi shell-widgeteissä."
+          }
+        },
+        "fr" : {
+          "stringUnit" : {
+            "state" : "translated",
+            "value" : "OmniWM affiche vos prochains événements dans les widgets du shell."
+          }
+        },
+        "he" : {
+          "stringUnit" : {
+            "state" : "translated",
+            "value" : "OmniWM מציג את האירועים הקרובים שלך בווידג׳טים של ה-shell."
+          }
+        },
+        "hi" : {
+          "stringUnit" : {
+            "state" : "translated",
+            "value" : "OmniWM शेल विजेट में आपके आने वाले इवेंट दिखाता है।"
+          }
+        },
+        "it" : {
+          "stringUnit" : {
+            "state" : "translated",
+            "value" : "OmniWM mostra i tuoi prossimi eventi nei widget della shell."
+          }
+        },
+        "ja" : {
+          "stringUnit" : {
+            "state" : "translated",
+            "value" : "OmniWM は、シェルウィジェットに今後の予定を表示します。"
+          }
+        },
+        "ko" : {
+          "stringUnit" : {
+            "state" : "translated",
+            "value" : "OmniWM은 셸 위젯에 다가오는 일정을 표시합니다."
+          }
+        },
+        "nb" : {
+          "stringUnit" : {
+            "state" : "translated",
+            "value" : "OmniWM viser de kommende hendelsene dine i shell-widgeter."
+          }
+        },
+        "nl" : {
+          "stringUnit" : {
+            "state" : "translated",
+            "value" : "OmniWM toont je komende activiteiten in shell-widgets."
+          }
+        },
+        "pl" : {
+          "stringUnit" : {
+            "state" : "translated",
+            "value" : "OmniWM wyświetla nadchodzące wydarzenia w widżetach powłoki."
+          }
+        },
+        "ru" : {
+          "stringUnit" : {
+            "state" : "translated",
+            "value" : "OmniWM показывает предстоящие события в виджетах оболочки."
+          }
+        },
+        "sr-Latn" : {
+          "stringUnit" : {
+            "state" : "translated",
+            "value" : "OmniWM prikazuje vaše predstojeće događaje u vidžetima okruženja."
+          }
+        },
+        "sv" : {
+          "stringUnit" : {
+            "state" : "translated",
+            "value" : "OmniWM visar dina kommande händelser i shell-widgetar."
+          }
+        },
+        "uk" : {
+          "stringUnit" : {
+            "state" : "translated",
+            "value" : "OmniWM показує ваші найближчі події у віджетах оболонки."
+          }
+        },
+        "zh-Hans" : {
+          "stringUnit" : {
+            "state" : "translated",
+            "value" : "OmniWM 会在 Shell 小组件中显示你即将到来的日程。"
+          }
+        }
+      }
+    },
+    "NSLocationUsageDescription" : {
+      "extractionState" : "manual",
+      "localizations" : {
+        "ar" : {
+          "stringUnit" : {
+            "state" : "translated",
+            "value" : "يعرض OmniWM اسم شبكة Wi-Fi الخاصة بك في أدوات الواجهة."
+          }
+        },
+        "da" : {
+          "stringUnit" : {
+            "state" : "translated",
+            "value" : "OmniWM viser navnet på dit Wi-Fi-netværk i shell-widgets."
+          }
+        },
+        "de" : {
+          "stringUnit" : {
+            "state" : "translated",
+            "value" : "OmniWM zeigt den Namen deines WLAN-Netzwerks in Shell-Widgets an."
+          }
+        },
+        "el" : {
+          "stringUnit" : {
+            "state" : "translated",
+            "value" : "Το OmniWM εμφανίζει το όνομα του δικτύου Wi-Fi σας στα widget του shell."
+          }
+        },
+        "en" : {
+          "stringUnit" : {
+            "state" : "translated",
+            "value" : "OmniWM shows the name of your Wi-Fi network in shell widgets."
+          }
+        },
+        "es" : {
+          "stringUnit" : {
+            "state" : "translated",
+            "value" : "OmniWM muestra el nombre de tu red Wi-Fi en los widgets del shell."
+          }
+        },
+        "fi" : {
+          "stringUnit" : {
+            "state" : "translated",
+            "value" : "OmniWM näyttää Wi-Fi-verkkosi nimen shell-widgeteissä."
+          }
+        },
+        "fr" : {
+          "stringUnit" : {
+            "state" : "translated",
+            "value" : "OmniWM affiche le nom de votre réseau Wi-Fi dans les widgets du shell."
+          }
+        },
+        "he" : {
+          "stringUnit" : {
+            "state" : "translated",
+            "value" : "OmniWM מציג את שם רשת ה-Wi-Fi שלך בווידג׳טים של ה-shell."
+          }
+        },
+        "hi" : {
+          "stringUnit" : {
+            "state" : "translated",
+            "value" : "OmniWM शेल विजेट में आपके Wi-Fi नेटवर्क का नाम दिखाता है।"
+          }
+        },
+        "it" : {
+          "stringUnit" : {
+            "state" : "translated",
+            "value" : "OmniWM mostra il nome della tua rete Wi-Fi nei widget della shell."
+          }
+        },
+        "ja" : {
+          "stringUnit" : {
+            "state" : "translated",
+            "value" : "OmniWM は、シェルウィジェットに Wi-Fi ネットワーク名を表示します。"
+          }
+        },
+        "ko" : {
+          "stringUnit" : {
+            "state" : "translated",
+            "value" : "OmniWM은 셸 위젯에 Wi-Fi 네트워크 이름을 표시합니다."
+          }
+        },
+        "nb" : {
+          "stringUnit" : {
+            "state" : "translated",
+            "value" : "OmniWM viser navnet på Wi-Fi-nettverket ditt i shell-widgeter."
+          }
+        },
+        "nl" : {
+          "stringUnit" : {
+            "state" : "translated",
+            "value" : "OmniWM toont de naam van je wifinetwerk in shell-widgets."
+          }
+        },
+        "pl" : {
+          "stringUnit" : {
+            "state" : "translated",
+            "value" : "OmniWM wyświetla nazwę Twojej sieci Wi-Fi w widżetach powłoki."
+          }
+        },
+        "ru" : {
+          "stringUnit" : {
+            "state" : "translated",
+            "value" : "OmniWM показывает имя вашей сети Wi-Fi в виджетах оболочки."
+          }
+        },
+        "sr-Latn" : {
+          "stringUnit" : {
+            "state" : "translated",
+            "value" : "OmniWM prikazuje ime vaše Wi-Fi mreže u vidžetima okruženja."
+          }
+        },
+        "sv" : {
+          "stringUnit" : {
+            "state" : "translated",
+            "value" : "OmniWM visar namnet på ditt Wi-Fi-nätverk i shell-widgetar."
+          }
+        },
+        "uk" : {
+          "stringUnit" : {
+            "state" : "translated",
+            "value" : "OmniWM показує назву вашої мережі Wi-Fi у віджетах оболонки."
+          }
+        },
+        "zh-Hans" : {
+          "stringUnit" : {
+            "state" : "translated",
+            "value" : "OmniWM 会在 Shell 小组件中显示你的 Wi-Fi 网络名称。"
+          }
+        }
+      }
+    },
+    "NSLocationWhenInUseUsageDescription" : {
+      "extractionState" : "manual",
+      "localizations" : {
+        "ar" : {
+          "stringUnit" : {
+            "state" : "translated",
+            "value" : "يعرض OmniWM اسم شبكة Wi-Fi الخاصة بك في أدوات الواجهة."
+          }
+        },
+        "da" : {
+          "stringUnit" : {
+            "state" : "translated",
+            "value" : "OmniWM viser navnet på dit Wi-Fi-netværk i shell-widgets."
+          }
+        },
+        "de" : {
+          "stringUnit" : {
+            "state" : "translated",
+            "value" : "OmniWM zeigt den Namen deines WLAN-Netzwerks in Shell-Widgets an."
+          }
+        },
+        "el" : {
+          "stringUnit" : {
+            "state" : "translated",
+            "value" : "Το OmniWM εμφανίζει το όνομα του δικτύου Wi-Fi σας στα widget του shell."
+          }
+        },
+        "en" : {
+          "stringUnit" : {
+            "state" : "translated",
+            "value" : "OmniWM shows the name of your Wi-Fi network in shell widgets."
+          }
+        },
+        "es" : {
+          "stringUnit" : {
+            "state" : "translated",
+            "value" : "OmniWM muestra el nombre de tu red Wi-Fi en los widgets del shell."
+          }
+        },
+        "fi" : {
+          "stringUnit" : {
+            "state" : "translated",
+            "value" : "OmniWM näyttää Wi-Fi-verkkosi nimen shell-widgeteissä."
+          }
+        },
+        "fr" : {
+          "stringUnit" : {
+            "state" : "translated",
+            "value" : "OmniWM affiche le nom de votre réseau Wi-Fi dans les widgets du shell."
+          }
+        },
+        "he" : {
+          "stringUnit" : {
+            "state" : "translated",
+            "value" : "OmniWM מציג את שם רשת ה-Wi-Fi שלך בווידג׳טים של ה-shell."
+          }
+        },
+        "hi" : {
+          "stringUnit" : {
+            "state" : "translated",
+            "value" : "OmniWM शेल विजेट में आपके Wi-Fi नेटवर्क का नाम दिखाता है।"
+          }
+        },
+        "it" : {
+          "stringUnit" : {
+            "state" : "translated",
+            "value" : "OmniWM mostra il nome della tua rete Wi-Fi nei widget della shell."
+          }
+        },
+        "ja" : {
+          "stringUnit" : {
+            "state" : "translated",
+            "value" : "OmniWM は、シェルウィジェットに Wi-Fi ネットワーク名を表示します。"
+          }
+        },
+        "ko" : {
+          "stringUnit" : {
+            "state" : "translated",
+            "value" : "OmniWM은 셸 위젯에 Wi-Fi 네트워크 이름을 표시합니다."
+          }
+        },
+        "nb" : {
+          "stringUnit" : {
+            "state" : "translated",
+            "value" : "OmniWM viser navnet på Wi-Fi-nettverket ditt i shell-widgeter."
+          }
+        },
+        "nl" : {
+          "stringUnit" : {
+            "state" : "translated",
+            "value" : "OmniWM toont de naam van je wifinetwerk in shell-widgets."
+          }
+        },
+        "pl" : {
+          "stringUnit" : {
+            "state" : "translated",
+            "value" : "OmniWM wyświetla nazwę Twojej sieci Wi-Fi w widżetach powłoki."
+          }
+        },
+        "ru" : {
+          "stringUnit" : {
+            "state" : "translated",
+            "value" : "OmniWM показывает имя вашей сети Wi-Fi в виджетах оболочки."
+          }
+        },
+        "sr-Latn" : {
+          "stringUnit" : {
+            "state" : "translated",
+            "value" : "OmniWM prikazuje ime vaše Wi-Fi mreže u vidžetima okruženja."
+          }
+        },
+        "sv" : {
+          "stringUnit" : {
+            "state" : "translated",
+            "value" : "OmniWM visar namnet på ditt Wi-Fi-nätverk i shell-widgetar."
+          }
+        },
+        "uk" : {
+          "stringUnit" : {
+            "state" : "translated",
+            "value" : "OmniWM показує назву вашої мережі Wi-Fi у віджетах оболонки."
+          }
+        },
+        "zh-Hans" : {
+          "stringUnit" : {
+            "state" : "translated",
+            "value" : "OmniWM 会在 Shell 小组件中显示你的 Wi-Fi 网络名称。"
+          }
+        }
+      }
+    },
     "NSMicrophoneUsageDescription" : {
       "extractionState" : "manual",
       "localizations" : {

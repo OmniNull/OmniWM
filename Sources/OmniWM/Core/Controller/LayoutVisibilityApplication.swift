@@ -301,6 +301,7 @@ extension LayoutVisibilityApplication {
         LayoutDiffExecutor.applyFrameUpdates(
             frameUpdates,
             isAnimationTick: plan.isAnimationTick,
+            isInteractiveResize: plan.isInteractiveResize,
             controller: controller
         )
         refreshController.applyWorkspaceMonitorRelocationFrameUpdates(

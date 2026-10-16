@@ -1,0 +1,13 @@
+title = "Image converter"
+icon = "arrow.triangle.2.circlepath"
+views = ["compact", "peek", "expanded"]
+capabilities = { provider = true, files = true, clipboard = true }
+
+[provider]
+command = ["provider.pl"]
+
+[options.format]
+type = "choice"
+default = "png"
+choices = ["png", "jpeg", "tiff"]
+title = "Output format"

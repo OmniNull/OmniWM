@@ -1,0 +1,174 @@
+---
+title: UI elements
+description: Luau constructors for containers, text, icons, images, inputs, sliders, and vector paths.
+sidebar:
+  order: 1
+---
+
+import LuauDeclaration from '../../../../components/docs/LuauDeclaration.astro';
+
+:::note[Unreleased]
+OmniShell and this API are available when building from `main`.
+:::
+
+Build a tree by calling `ui` constructors with a Luau table. `ui.row{ ... }` is shorthand for `ui.row({ ... })`; named entries are properties and numeric entries are ordered children. Return the tree from `render(ctx)`, `popout(ctx)`, or a component view. Constructors return `Element` values; do not manufacture `kind` yourself.
+
+Start with [your first widget](/omnishell/guides/first-widget/) or [a menu](/omnishell/guides/menus/). All constructors share [layout, styling, and interaction properties](/omnishell/reference/layout-styling/#api-props). [Components](/omnishell/reference/components-configuration/#api-ui-component) and [shaders](/omnishell/reference/effects-shaders/#api-ui-shader) have their own pages.
+
+## Containers
+
+| Constructor | Layout |
+|---|---|
+| `ui.row` | Children from left to right; `gap` separates them. |
+| `ui.column` | Children from top to bottom. Use a fixed `h` and `scroll = true` for a scrollable list. |
+| `ui.stack` | Overlapping children; `align` positions each child. Useful for a material, shader, or path behind content. |
+| `ui.box` | A basic container for a background, hit target, or one child. An empty `w = 0, h = 0` box draws nothing. |
+
+```lua
+ui.row{ gap = 8, pad = 10, radius = 12, fill = "surface",
+    ui.symbol{ name = "clock", size = 16, color = "accent" },
+    ui.text{ text = ctx.data.clock, weight = "semibold" },
+}
+```
+
+<LuauDeclaration name="ui.row" />
+
+<LuauDeclaration name="ui.column" />
+
+<LuauDeclaration name="ui.stack" />
+
+<LuauDeclaration name="ui.box" />
+
+<LuauDeclaration name="Element" />
+
+## Text and icons
+
+| Constructor / property | Behavior |
+|---|---|
+| `ui.text.text` | Displayed string. `style` selects body, bold, mono, small, caption, or rounded presentation. |
+| `font` | `system`, `sans` (Google Sans Flex), `rubik`, or `symbols`; custom fonts are bundled. With `symbols`, `text` is a Material Symbols icon name and `filled = true` selects its filled style. |
+| `size`, `weight`, `color` | Explicit font size in points, font weight, and [color](/omnishell/reference/layout-styling/#api-color). |
+| `maxWidth`, `lines` | Bound text width and line count; without explicit limits text uses its measured size. |
+| `reserve` | Measure a stable placeholder string instead of the displayed text, for example `reserve = "00:00:00"` for a clock. |
+| `ui.symbol.name` | An SF Symbol name, with optional `size`, `weight`, and `color`. |
+| `ui.icon.app`, `window`, `pid` | An app bundle ID, opaque managed-window ID, or process ID. Use one identity source per icon; `placeholder` supplies a fallback symbol and `color` a tint. |
+
+```lua
+ui.text{ font = "symbols", text = "dashboard", filled = true, size = 22 }
+ui.icon{ app = "com.apple.finder", placeholder = "app", w = 20, h = 20 }
+```
+
+<LuauDeclaration name="ui.text" />
+
+<LuauDeclaration name="TextProps" />
+
+<LuauDeclaration name="TextStyle" />
+
+<LuauDeclaration name="Font" />
+
+<LuauDeclaration name="Weight" />
+
+<LuauDeclaration name="ui.symbol" />
+
+<LuauDeclaration name="SymbolProps" />
+
+<LuauDeclaration name="ui.icon" />
+
+<LuauDeclaration name="IconProps" />
+
+## Images
+
+`ui.image.image` accepts a contained image path, a [qualified asset](/omnishell/reference/resources-desktop/#api-omniwm-asset), or a host-issued [Resource](/omnishell/reference/resources-desktop/#api-resource). A relative file such as `assets/cat.gif` resolves through the widget, shell, selected profile, and bundled default folders. Setting `radius` clips the image to rounded corners.
+
+Animated GIF, PNG, WebP, and HEIC images play automatically. `playing = false` holds the current frame; `speed` scales playback speed. For Resource images, `thumbnail` requests 1–2048 pixels and defaults to 128. Preparation occurs off the UI thread; a pending or failed image leaves the rest of the widget usable.
+
+```lua
+ui.image{ image = "assets/cat.gif", w = 48, h = 48, radius = 8 }
+```
+
+<LuauDeclaration name="ui.image" />
+
+<LuauDeclaration name="ImageProps" />
+
+## Progress and sliders
+
+`ui.progress` displays `value` as a fraction from 0 to 1. `ui.slider` uses the same normalized value; its `onChange(ctx, event)` receives `event.value`. Values are clamped to the displayed range. Convert percentages to fractions when rendering and back when sending a command.
+
+```lua
+ui.slider{ key = "volume", w = 180, h = 20,
+    value = (ctx.data.volume or 0) / 100, color = "accent",
+    onChange = function(ctx, event)
+        omniwm.run("volume set " .. tostring(math.floor((event.value or 0) * 100)))
+    end,
+}
+```
+
+<LuauDeclaration name="ui.progress" />
+
+<LuauDeclaration name="ProgressProps" />
+
+<LuauDeclaration name="ui.slider" />
+
+<LuauDeclaration name="SliderProps" />
+
+## Native text fields
+
+Give `ui.input` a stable `key` and explicit width and height in a bar, island, popout or drawer:
+
+```luau
+ui.input{
+    key = "query", text = ctx.state.query or "", placeholder = "Search",
+    w = 240, h = 28, maxLength = 256,
+    onCommit = function(ctx, event) ctx.state.query = event.text end,
+    onCancel = function(ctx) ctx.state.editing = false end,
+}
+```
+
+AppKit owns selection, composition, clipboard and undo. While focused, the native editor keeps its text across renders. Once unfocused, it adopts the next declared `text`. `focus = true` requests focus when it changes to true; it does not repeatedly steal focus. `focus = false` releases it. `onFocus` receives `event.focused`.
+
+Return commits a single-line field. With `multiline = true`, Return inserts a newline and Command + Return commits. Escape sends `onCancel` unless an IME is composing; it does not itself rewrite the value. Tab and Shift + Tab move among visible inputs. `maxLength` counts grapheme clusters, accepts 0–65,536 and defaults to 65,536. Composition can temporarily exceed the limit until committed.
+
+`onChange` is optional. Pending changes for the same field are coalesced; commit, cancel and focus events keep their order. Omit `onChange` when only the final text matters, so typing needs no Luau callback. A shell focus session transfers between surfaces while retaining its previous-window return target.
+
+Place editors in settled, untransformed regions. Their frames follow delivered layout and rectangular scroll clips. Arbitrary ancestor path masks, rotation, scale and animated layer geometry are not mirrored onto AppKit editors each frame. Surrounding shell content keeps its usual animations.
+
+`ui.input` does not accept children or `mask = true`. Its `onChange`, `onCommit`, `onCancel`, and `onFocus` must be callbacks. Typography properties have the same meanings as on `ui.text`.
+
+<LuauDeclaration name="ui.input" />
+
+<LuauDeclaration name="TextInputProps" />
+
+## Vector paths
+
+`ui.path` draws a vector shape from SVG path data, without writing a shader: `d` takes the commands `M L H V C S Q T A Z` (lowercase for relative), `fill`, `border` and `borderWidth` colour it, and `evenOdd = true` switches the fill rule. With `viewBox = { x, y, width, height }` the path is stretched to the element's size, so `viewBox = { 0, 0, 24, 24 }` with `w` and `h` draws a 24-point icon at any size; without `w` and `h` it takes the viewBox size, or fills the `ui.stack` it is in. A path with `mask = true` shapes its stack like a mask shader. When `d` changes and the path has `animate`, it morphs to the new shape, and `enter = { d = "..." }` morphs from that shape as the popout opens; both shapes need the same commands for a smooth morph.
+
+```lua
+ui.stack{ material = "thin", w = 120, h = 120,
+    ui.path{ viewBox = { 0, 0, 24, 24 }, mask = true,
+        d = "M12 2 L15 9 L22 9 L16.5 13.5 L18.5 21 L12 16.5 L5.5 21 L7.5 13.5 L2 9 L9 9 Z",
+        enter = { d = "M12 12 L12 12 L12 12 L12 12 L12 12 L12 12 L12 12 L12 12 L12 12 L12 12 Z" } } }
+```
+
+OmniWM ships `liquid.metal`, which grows a drop from the bar item into the popout:
+
+```lua
+function popout(ctx)
+    return ui.stack{ material = "clear", bridge = true,
+        ui.shader{ source = "liquid.metal", fps = 60 },
+        ui.column{ pad = 16, gap = 4,
+            ui.text{ text = ctx.data.clock, style = "bold" },
+            ui.text{ text = ctx.data.date },
+        },
+    }
+end
+```
+
+<LuauDeclaration name="ui.path" />
+
+<LuauDeclaration name="PathProps" />
+
+## Complete UI namespace
+
+This block is copied verbatim from the shipped declarations. Use the [symbol index](/omnishell/reference/) to jump to individual constructors and all their types.
+
+<LuauDeclaration name="ui" />

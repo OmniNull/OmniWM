@@ -2,125 +2,93 @@
 // Copyright (C) 2026 BarutSRB — https://github.com/OmniNull/OmniWM
 
 import AppKit
+import OmniWMIPC
 
 extension WorkspaceBarManager {
-    func makeIslandInteraction(panel: WorkspaceBarPanel, monitorId: Monitor.ID) -> WorkspaceBarIslandInteraction {
-        let interaction = WorkspaceBarIslandInteraction()
-        interaction.onShowMenu = { [weak self, weak panel] target in
-            guard let self, let panel else { return }
-            showMenu(for: target, on: panel, at: nil)
-        }
-        interaction.onActivateWindow = { [weak self] workspaceId, token in
-            self?.activateWindowIcon(workspaceId: workspaceId, token: token, monitorId: monitorId)
-        }
-        interaction.onHoverWindow = { [weak self] workspaceId, token, hovering in
-            self?.windowHoverChanged(.window(workspaceId, token), hovering: hovering)
-        }
-        panel.onSheetChanged = { [weak self] in self?.refreshAutoHide() }
-        panel.interactionHandler = { [weak self] event, panel in
-            self?.handlePanelEvent(event, panel: panel) ?? false
-        }
-        return interaction
-    }
-
-    func handlePanelEvent(_ event: NSEvent, panel: WorkspaceBarPanel) -> Bool {
-        let kind: WorkspaceBarPressTracker.EventKind
-        switch event.type {
-        case .leftMouseDown: kind = .leftDown
-        case .leftMouseDragged: kind = .leftDragged
-        case .leftMouseUp: kind = .leftUp
-        case .rightMouseDown: kind = .rightDown
-        default: return false
-        }
-        guard panel.attachedSheet == nil, let context = islandContext(for: panel) else {
-            pressTracker.reset()
-            return false
-        }
-        let point = context.island.hostingView.workspaceBarLocalPoint(forWindowPoint: event.locationInWindow)
-        let target = context.island.interaction.target(at: point)
-        let screenPoint = panel.convertPoint(toScreen: event.locationInWindow)
-        if kind == .leftDown || kind == .rightDown {
-            dragController.cancel()
-            hoverPreview?.dismiss(suppressing: target)
-        }
-        switch pressTracker.handle(kind, modifiers: event.modifierFlags, target: target, location: screenPoint) {
-        case .passThrough:
-            return false
-        case .consume:
-            return true
-        case let .showMenu(target):
-            showMenu(for: target, on: panel, at: point)
-            return true
-        case let .moveFocusedWindow(workspaceId):
-            controller?.workspaceNavigationHandler.moveFocusedWindowFromBar(toWorkspaceId: workspaceId)
-            return true
-        case let .activateWindow(workspaceId, token):
-            activateWindowIcon(workspaceId: workspaceId, token: token, monitorId: context.instance.monitorId)
-            return true
-        case let .beginDrag(workspaceId, token):
-            hoverPreview?.dismiss(suppressing: target)
-            beginDrag(
-                workspaceId: workspaceId,
-                token: token,
-                snapshot: context.instance.model.snapshot,
-                at: screenPoint
-            )
-            return true
-        case .continueDrag:
-            dragController.update(at: screenPoint)
-            return true
-        case .endDrag:
-            dragController.end(at: screenPoint)
-            return true
-        }
-    }
-
-    func activateWindowIcon(workspaceId: WorkspaceDescriptor.ID, token: WindowToken, monitorId: Monitor.ID) {
-        guard let instance = islandContexts(on: monitorId).first?.instance,
-              let window = instance.model.snapshot.windowItem(workspaceId: workspaceId, token: token)
-        else {
-            return
-        }
-        if window.windowCount > 1 {
-            instance.model.presentedWindowList = window.id
-        } else {
-            controller?.focusWindowFromBar(handle: window.handle)
-        }
-    }
-
-    private func showMenu(for target: WorkspaceBarHitTarget, on panel: WorkspaceBarPanel, at point: CGPoint?) {
-        hoverPreview?.dismiss(suppressing: target)
+    func showShellMenu(_ request: ShellMenuRequest) {
         guard let controller,
-              let context = islandContext(for: panel),
-              let anchor = point ?? context.island.interaction.frames[target].map({ CGPoint(x: $0.minX, y: $0.maxY) })
+              let instance = barsByMonitor[request.monitor],
+              let target = Self.shellTarget(
+                  request.target,
+                  sessionToken: shellSessionToken,
+                  snapshot: instance.model.snapshot,
+                  workspaceId: controller.workspaceManager.workspaceId(named:)
+              ),
+              let window = request.view.window
         else {
             return
         }
+        hoverPreview?.dismiss(suppressing: target)
         let items = menuItems(
             for: target,
-            snapshot: context.instance.model.snapshot,
-            monitorId: context.instance.monitorId,
+            snapshot: instance.model.snapshot,
+            monitorId: request.monitor,
             controller: controller
         )
         guard !items.isEmpty else { return }
-        let hostingView = context.island.hostingView
-        let location = hostingView.isFlipped ? anchor : CGPoint(x: anchor.x, y: hostingView.bounds.height - anchor.y)
+        let rect = request.view.convert(window.convertFromScreen(request.anchor.frame), from: nil)
+        let location = CGPoint(x: rect.minX, y: request.view.isFlipped ? rect.maxY : rect.minY)
+        present(
+            items,
+            at: location,
+            in: request.view,
+            monitorId: request.monitor,
+            renameAnchor: request.label ?? request.anchor.frame
+        )
+    }
+
+    static func shellTarget(
+        _ text: String,
+        sessionToken: String,
+        snapshot: WorkspaceBarSnapshot,
+        workspaceId: (String) -> WorkspaceDescriptor.ID?
+    ) -> WorkspaceBarHitTarget? {
+        let words = text.split(separator: " ", maxSplits: 1).map(String.init)
+        guard words.count == 2 else { return nil }
+        switch words[0] {
+        case "workspace":
+            return workspaceId(words[1]).map { .workspace($0) }
+        case "scratchpad":
+            return Int(words[1]).map { .scratchpad($0) }
+        case "window":
+            guard case let .valid(pid, windowId) = IPCWindowOpaqueID.validate(
+                words[1],
+                expectingSessionToken: sessionToken
+            )
+            else {
+                return nil
+            }
+            let token = WindowToken(pid: pid, windowId: windowId)
+            return snapshot.items.first { $0.windows.contains { $0.id == token } }.map { .window($0.id, token) }
+        default:
+            return nil
+        }
+    }
+
+    private func present(
+        _ items: [WorkspaceBarMenuItem],
+        at location: CGPoint,
+        in view: NSView,
+        monitorId: Monitor.ID,
+        renameAnchor: CGRect
+    ) {
+        guard let controller else { return }
         controller.focusPolicyEngine.beginLease(
             owner: .nativeMenu,
             reason: "workspace_bar_menu",
             suppressesFocusFollowsMouse: true,
             duration: nil
         )
-        menuMonitorId = context.instance.monitorId
+        menuMonitorId = monitorId
         refreshAutoHide()
         defer {
             menuMonitorId = nil
             refreshAutoHide()
         }
-        let action = menuPresenter.present(items, at: location, in: hostingView)
+        let action = menuPresenter.present(items, at: location, in: view)
         controller.focusPolicyEngine.endLease(owner: .nativeMenu)
         guard let action else { return }
-        perform(action, monitorId: context.instance.monitorId)
+        perform(action, monitorId: monitorId, renameAnchor: renameAnchor)
     }
 
     private func menuItems(
@@ -153,23 +121,87 @@ extension WorkspaceBarManager {
         }
     }
 
-    private func perform(_ action: WorkspaceBarMenuAction, monitorId: Monitor.ID) {
-        guard case let .renameWorkspace(workspaceId) = action else {
+    private func perform(_ action: WorkspaceBarMenuAction, monitorId: Monitor.ID, renameAnchor: CGRect) {
+        switch action {
+        case let .renameWorkspace(workspaceId):
+            beginRename(workspaceId: workspaceId, monitorId: monitorId, anchor: renameAnchor)
+        case let .editShellWidget(name, edit):
+            editShellWidget(name, edit)
+        case .openBarWidgetSettings:
+            controller?.statusBarController?.openSettings(section: .bar)
+        default:
             controller?.performWorkspaceBarMenuAction(action, barMonitorId: monitorId)
-            return
         }
-        beginRename(workspaceId: workspaceId, monitorId: monitorId)
     }
 
-    private func beginRename(workspaceId: WorkspaceDescriptor.ID, monitorId: Monitor.ID) {
+    func showWidgetMenu(_ request: ShellWidgetMenuRequest) {
+        guard let controller, let shellDirectory = shellHost?.shellDirectory, let window = request.view.window,
+              let monitor = barsByMonitor[request.monitor]?.monitor
+        else {
+            return
+        }
+        let items = Self.widgetMenuItems(
+            for: request.widget,
+            layout: try? ShellBarLayout.load(shellDirectory: shellDirectory).get(),
+            vertical: controller.settings.workspaceBar.resolved(for: monitor).position.isVertical
+        )
+        let rect = request.view.convert(window.convertFromScreen(request.anchor.frame), from: nil)
+        let location = CGPoint(x: rect.minX, y: request.view.isFlipped ? rect.maxY : rect.minY)
+        present(items, at: location, in: request.view, monitorId: request.monitor, renameAnchor: request.anchor.frame)
+    }
+
+    static func widgetMenuItems(for name: String, layout: ShellBarLayout?, vertical: Bool) -> [WorkspaceBarMenuItem] {
+        let settings = WorkspaceBarMenuItem.action(String(localized: "Bar Widgets…"), .openBarWidgetSettings)
+        guard let layout else { return [.header(ShellBarLayout.title(of: name)), settings] }
+        let lane = layout.lane(of: name) ?? .trailing
+        let names = layout.names(in: lane)
+        let moves = ShellLane.allCases.filter { $0 != lane }.map { target in
+            WorkspaceBarMenuItem.action(
+                String(localized: "Move to \(ShellBarLayout.side(target, vertical: vertical))"),
+                .editShellWidget(name, .lane(target))
+            )
+        }
+        return [
+            .header(ShellBarLayout.title(of: name)),
+            .action(
+                vertical ? String(localized: "Move Up") : String(localized: "Move Left"),
+                .editShellWidget(name, .earlier),
+                isEnabled: names.first != name
+            ),
+            .action(
+                vertical ? String(localized: "Move Down") : String(localized: "Move Right"),
+                .editShellWidget(name, .later),
+                isEnabled: names.last != name
+            )
+        ] + moves + [
+            .separator,
+            .action(String(localized: "Remove from Bar"), .editShellWidget(name, .remove)),
+            .separator,
+            settings
+        ]
+    }
+
+    private func editShellWidget(_ name: String, _ edit: ShellWidgetEdit) {
+        Task { [self] in
+            do {
+                try await shellConfiguration.editBar { layout in
+                    switch edit {
+                    case .earlier: layout.shift(name, by: -1)
+                    case .later: layout.shift(name, by: 1)
+                    case let .lane(target): layout.move(name, to: target)
+                    case .remove: layout.remove(name)
+                    }
+                }
+            } catch {
+                Log.shell.error("Failed to save the bar widget layout: \(error.localizedDescription)")
+            }
+        }
+    }
+
+    private func beginRename(workspaceId: WorkspaceDescriptor.ID, monitorId: Monitor.ID, anchor: CGRect) {
         guard let controller,
               let rawName = controller.workspaceManager.descriptor(for: workspaceId)?.name,
-              let (instance, island) = islandContexts(on: monitorId).first(where: {
-                  $0.island.interaction.frames[.workspace(workspaceId)] != nil
-              }),
-              let localAnchor = island.interaction.labelFrames[workspaceId]
-              ?? island.interaction.frames[.workspace(workspaceId)],
-              let anchor = island.hostingView.workspaceBarScreenRect(forLocalRect: localAnchor),
+              let (instance, island) = islandContexts(on: monitorId).first,
               let screen = island.panel.screen
         else {
             return

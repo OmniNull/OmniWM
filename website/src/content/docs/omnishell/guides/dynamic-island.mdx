@@ -1,0 +1,110 @@
+---
+title: Build a Dynamic Island
+description: Create an isolated island profile with compact and expanded states and a reusable clock component.
+sidebar:
+  order: 3
+---
+
+import ExampleFile from '../../../../components/docs/ExampleFile.astro';
+
+:::note[Unreleased]
+OmniShell is available when [building OmniWM from `main`](/developers/building/).
+:::
+
+Build a **tutorial-island** profile with a black capsule that expands on click and collapses on an outside press or Escape. Its **demo-clock** component can also be added to Lake. You need OmniWM running, `omniwmctl` on your `PATH`, and a text editor. This guide assumes the UI tables and callbacks introduced in the [widget](/omnishell/guides/first-widget/) and [menu](/omnishell/guides/menus/) guides.
+
+An island has two parts: a **root widget** owns its shape and interactions, and **components** supply reusable views and their own options. The root chooses which component view to mount.
+
+## 1. Create separate folders
+
+Record your current style in **Settings > Styles**, so you can return to it afterward. Create these new folders:
+
+```sh
+mkdir -p ~/.config/omniwm/shell/tutorial-island/widgets/tutorial-root
+mkdir -p ~/.config/omniwm/shell/widgets/demo-clock
+```
+
+If either name already belongs to your own work, choose a fresh name and update the matching `root`, `widget`, and file paths below. The profile-owned root does not replace the bundled `lake` root. The unique top-level component name makes `demo-clock` available in other profiles.
+
+## 2. Declare the reusable component
+
+Save this manifest as `~/.config/omniwm/shell/widgets/demo-clock/component.toml`:
+
+<ExampleFile file="widgets/demo-clock/component.toml" />
+
+The manifest names the views and declares a **Label** option. `default` supplies `"Desk"` when no label is configured; `maxLength` bounds user input. The host validates options before creating the component instance.
+
+Save its implementation as `~/.config/omniwm/shell/widgets/demo-clock/component.luau`:
+
+<ExampleFile file="widgets/demo-clock/component.luau" />
+
+A component returns a table; it does not define a global `render`. Its view functions receive a context with `ctx.instance.options`, the validated options for this configured instance. The compact view combines its label and time; the expanded view adds the date. Both use ordinary [UI elements](/omnishell/reference/ui-elements/).
+
+## 3. Define the profile and instance
+
+Save this as `~/.config/omniwm/shell/tutorial-island/shell.toml`:
+
+<ExampleFile file="tutorial-island/shell.toml" />
+
+`[island]` selects the root widget and its fixed native envelope. The 420 × 240 envelope bounds the rendered contents; expansion changes the UI tree inside it. This profile shows the island on the main display and hides it in native fullscreen.
+
+`[[island.components]]` adds one configured instance. `widget = "demo-clock"` selects the package, while `id = "desk-clock"` identifies this particular instance. The root mounts that ID. `label = "My desk"` overrides the manifest default.
+
+Profile files use `[island]`; overrides in the top-level shell file use `[profiles.tutorial-island.island]`. Keep this example in its own profile file. See [islands and components](/omnishell/configuration/islands-components/) for configuration layering.
+
+## 4. Draw the compact and expanded root
+
+Save this as `~/.config/omniwm/shell/tutorial-island/widgets/tutorial-root/init.luau`:
+
+<ExampleFile file="tutorial-island/widgets/tutorial-root/init.luau" />
+
+The root reads `ctx.data.island` for display geometry. This tutorial places the capsule below the menu bar or notch, leaving its text unobstructed. The outer box is the fixed envelope; only the visible inner capsule has input handlers.
+
+Clicking the capsule toggles `ctx.state.expanded`. The same keyed capsule changes its size with a spring, and `ui.component` switches between `"compact"` and `"expanded"`. View names are chosen by your component; native code does not assign them behavior.
+
+The expanded capsule declares `onOutsidePress`, which collapses it while allowing the original click to reach its destination. `focusable` and `keys = { "escape" }` let a clicked capsule handle Escape and release keyboard focus. See [input and motion](/omnishell/reference/input-motion/) for keyboard, outside-press, and spring contracts.
+
+Your final installation tree is:
+
+```text
+~/.config/omniwm/shell/
+├── tutorial-island/
+│   ├── shell.toml
+│   └── widgets/tutorial-root/init.luau
+└── widgets/demo-clock/
+    ├── component.toml
+    └── component.luau
+```
+
+## 5. Select and test the profile
+
+```sh
+omniwmctl shell profile tutorial-island
+omniwmctl query shell-widgets
+```
+
+Selecting this profile changes the shared style for the bar and island, and keeps your previous profile's saved choices. It does not enable the island. Open **Settings > Dynamic Island** and turn **Enable Dynamic Island** on.
+
+You should see **My desk: [local time]** in the compact capsule on your main display. Click to expand it and see the larger time and date. Click outside to collapse it; click the capsule again and press Escape to collapse and release its keyboard focus. Try these interactions while an ordinary app is active to check focus restoration on your Mac.
+
+Change `label = "My desk"` to `label = "Studio"` in the profile file and save. The component's label should update. Changing component options does not require editing its view source.
+
+## 6. Add the component to Lake
+
+1. Select **Lake** in **Settings > Styles**, then choose **Use Style** (or run `omniwmctl shell profile lake`).
+2. Open **Settings > Dynamic Island > Widgets** and select **Add Widget…**.
+3. Choose **Demo clock**. Open its **Options…** and set its label and placement.
+4. Expand Lake and select the new clock to see its expanded view.
+
+Lake creates its own instance ID and mounts the same component package; you do not copy the tutorial root or replace Lake's component list. Existing Lake instances stay in place. Return to the style you recorded in step 1 when finished, or keep Lake selected.
+
+## Troubleshooting
+
+| Symptom | Check |
+|---|---|
+| No island appears | Select `tutorial-island`, enable Dynamic Island, leave native fullscreen, and inspect `shell-widgets` for root errors. |
+| The capsule appears without clock content | Match `id = "desk-clock"` in `shell.toml` with `ui.component` and check the component's manifest/source filenames. |
+| Escape does nothing | Click the capsule to give it focus first; the root must keep `focusable`, `keys`, and `onKey`. |
+| Demo clock is absent from Lake's catalog | Install both component files in top-level `shell/widgets/demo-clock/` and check the manifest for errors. |
+
+Continue with [components and configuration](/omnishell/reference/components-configuration/) for lifecycle hooks and activity, or [async services](/omnishell/reference/services/) to build a component that fetches its own data.

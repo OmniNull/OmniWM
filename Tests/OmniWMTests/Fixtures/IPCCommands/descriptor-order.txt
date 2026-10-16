@@ -86,3 +86,9 @@ toggle-fullscreen
 toggle-native-fullscreen
 toggle-overview
 toggle-system-stats
+volume-up
+volume-down
+volume-mute
+media-play-pause
+media-next
+media-previous

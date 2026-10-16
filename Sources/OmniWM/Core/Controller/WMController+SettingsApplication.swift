@@ -113,6 +113,7 @@ extension WMController {
         ) { [weak self] _, _ in
             Task { @MainActor [weak self] in
                 self?.refreshBorderAppearance()
+                self?.workspaceBarManager.refreshShellAppearance()
             }
         }
     }

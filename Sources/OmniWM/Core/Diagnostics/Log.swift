@@ -48,4 +48,6 @@ enum Log {
     static let reconcile = LogChannel(category: "reconcile")
     static let ipc = LogChannel(category: "ipc")
     static let diagnostics = LogChannel(category: "diagnostics")
+    static let shell = LogChannel(category: "shell")
+    static let hiddenBar = LogChannel(category: "HiddenBar")
 }

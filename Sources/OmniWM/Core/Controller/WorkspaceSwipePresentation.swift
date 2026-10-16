@@ -26,6 +26,7 @@ final class WorkspaceSwipePresentation {
     final class Flight {
         let preparation: Preparation
         let destination: Workspace
+        let axis: WorkspaceSwipeAxis
         let inputSign: Double
         let visualSign: CGFloat
         let motion: WorkspaceSwipeMotion
@@ -41,6 +42,7 @@ final class WorkspaceSwipePresentation {
         init(
             preparation: Preparation,
             destination: Workspace,
+            axis: WorkspaceSwipeAxis,
             cumulative: Double,
             isNext: Bool,
             timestamp: TimeInterval,
@@ -48,6 +50,7 @@ final class WorkspaceSwipePresentation {
         ) {
             self.preparation = preparation
             self.destination = destination
+            self.axis = axis
             inputSign = cumulative < 0 ? -1 : 1
             visualSign = isNext ? 1 : -1
             motion = WorkspaceSwipeMotion(
@@ -59,12 +62,12 @@ final class WorkspaceSwipePresentation {
         }
 
         var stride: CGFloat {
-            preparation.frame.height * 1.1
+            (axis == .horizontal ? preparation.frame.width : preparation.frame.height) * 1.1
         }
 
         func offset(destination: Bool) -> CGVector {
             let translation = (CGFloat(progress) - (destination ? 1 : 0)) * stride * visualSign
-            return CGVector(dx: 0, dy: translation)
+            return axis == .horizontal ? CGVector(dx: -translation, dy: 0) : CGVector(dx: 0, dy: translation)
         }
     }
 
@@ -146,6 +149,7 @@ final class WorkspaceSwipePresentation {
         let flight = Flight(
             preparation: preparation,
             destination: destination,
+            axis: axis,
             cumulative: cumulative,
             isNext: isNext,
             timestamp: timestamp,

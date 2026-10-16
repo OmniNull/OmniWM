@@ -10,13 +10,13 @@ sidebar:
 OmniWM uses two display maps that do different work — the macOS arrangement handles technical window placement, while the OmniWM routing map decides where directional actions go.
 
 1. Open **System Settings > Displays > Arrange**. Put the physically largest or widest display at the bottom. Place the next smaller display above and to its right so its bottom-left corner touches the lower display's top-right corner. Continue the same staircase for every additional display. This macOS map is a technical arrangement used for actual window placement; it does not need to look like your desk.
-2. Open **OmniWM Settings > Monitors** and arrange the OmniWM routing map to match where the displays really sit on your desk. Tiles can be separated by empty grid cells, but every display must remain connected through a chain of shared rows or columns. A diagonal-only tile is disconnected and cannot exchange directional focus, window moves, or mouse warp.
+2. Open **OmniWM Settings > Displays** and arrange the OmniWM routing map to match where the displays really sit on your desk. Tiles can be separated by empty grid cells, but every display must remain connected through a chain of shared rows or columns. A diagonal-only tile is disconnected and cannot exchange directional focus, window moves, or mouse warp.
 3. Assign at least one workspace to every connected display. Window moves between displays need a destination workspace, so the setup assistant will not finish while a display is uncovered. You can reassign an existing workspace or explicitly add one for that display.
 4. Leave **Mouse Warp** turned on for the recommended experience. It lets the pointer cross between displays according to the real-desk OmniWM map even though macOS uses the staircase.
 
 ## The Monitor Setup assistant
 
-The setup assistant opens automatically when OmniWM first sees multiple displays. To review or redo it later, choose **Run Monitor Setup…** in **Settings > Monitors**. The assistant's **Show Numbers on Screens** action helps match each physical display to its tile. Routing, workspace-home, and Mouse Warp changes remain drafts until you finish the assistant.
+The setup assistant opens automatically when OmniWM first sees multiple displays. To review or redo it later, choose **Run Monitor Setup…** in **Settings > Displays**. The assistant's **Show Numbers on Screens** action helps match each physical display to its tile. Routing, workspace-home, and Mouse Warp changes remain drafts until you finish the assistant.
 
 ## Remembered arrangements
 
@@ -42,7 +42,7 @@ Three settings shape how focus and windows travel between displays:
 
 A workspace's home can be **Main**, **Secondary**, **Tertiary**, or a specific display. By default Main is the display with the macOS menu bar and Secondary and Tertiary are the next displays in arrangement order, which leaves you no say over which of two external displays plays which role.
 
-The **Monitor Roles** list in **Settings > Monitors** fixes that. Add displays with **Add Monitor** and reorder them with the arrows: the highest-ranked connected display becomes Main, the next becomes Secondary, the third becomes Tertiary, and unranked displays follow after them. Disconnected entries stay in the list and are skipped, so ranking `DELL, LG, Built-in` gives the two externals the Main and Secondary roles at your desk and hands Main back to the built-in display when you unplug. The Quake terminal's **Main Monitor** option follows the same Main. Leave the list empty to keep the default behavior. See [`monitors` in the Settings Reference](/config/settings-reference/#monitors) for the configuration format.
+The **Monitor Roles** list in **Settings > Displays** fixes that. Add displays with **Add Monitor** and reorder them with the arrows: the highest-ranked connected display becomes Main, the next becomes Secondary, the third becomes Tertiary, and unranked displays follow after them. Disconnected entries stay in the list and are skipped, so ranking `DELL, LG, Built-in` gives the two externals the Main and Secondary roles at your desk and hands Main back to the built-in display when you unplug. The Quake terminal's **Main Monitor** option follows the same Main. Leave the list empty to keep the default behavior. See [`monitors` in the Settings Reference](/config/settings-reference/#monitors) for the configuration format.
 
 ## Workspaces and their home monitor
 

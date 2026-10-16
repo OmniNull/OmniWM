@@ -54,16 +54,21 @@ extension AXEventHandler {
             enqueueLifecycleQuery(windowId: windowId, kind: .visibilityChanged)
 
         case let .titleChanged(windowId):
-            guard case let .exact(token, windowInfo) = resolveWindowServerIdentity(windowId),
-                  controller.workspaceManager.entry(for: token) != nil
-            else {
-                return
-            }
-            AXWindowService.invalidateCachedTitle(windowId: windowId)
-            controller.requestWorkspaceBarRefresh()
-            updateManagedReplacementTitle(windowInfo: windowInfo, token: token)
-            scheduleWindowRuleReevaluationIfNeeded(targets: [.window(token)])
+            handleWindowTitleChanged(windowId: windowId)
         }
+    }
+
+    func handleWindowTitleChanged(windowId: UInt32) {
+        guard let controller,
+              case let .exact(token, windowInfo) = resolveWindowServerIdentity(windowId),
+              controller.workspaceManager.entry(for: token) != nil
+        else {
+            return
+        }
+        AXWindowService.invalidateCachedTitle(windowId: windowId)
+        controller.requestWorkspaceBarRefresh()
+        updateManagedReplacementTitle(windowInfo: windowInfo, token: token)
+        scheduleWindowRuleReevaluationIfNeeded(targets: [.window(token)])
     }
 
     private func handleCGSWindowClosed(windowId: UInt32) {

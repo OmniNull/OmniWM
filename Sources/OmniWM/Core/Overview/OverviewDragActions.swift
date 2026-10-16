@@ -94,7 +94,6 @@ extension OverviewStructuralActions {
                     sourceWorkspaceId: session.workspaceId,
                     destinationWorkspaceId: workspaceId,
                     selectedHandle: session.handle,
-                    movedTokens: [session.handle.id],
                     scrollWorkspaceId: nil
                 )
             } else {
@@ -187,7 +186,6 @@ extension OverviewStructuralActions {
             sourceWorkspaceId: session.workspaceId,
             destinationWorkspaceId: destination,
             selectedHandle: session.handle,
-            movedTokens: [session.handle.id],
             scrollWorkspaceId: destination
         )
     }

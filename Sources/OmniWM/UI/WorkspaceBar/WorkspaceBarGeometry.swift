@@ -8,6 +8,11 @@ struct WorkspaceBarSplitLayout: Equatable {
     let secondaryFrame: CGRect?
 }
 
+struct WorkspaceBarZones: Equatable {
+    let notch: ClosedRange<CGFloat>?
+    let mode: WorkspaceBarFullWidthNotchMode
+}
+
 struct WorkspaceBarSplitAvailableWidths: Equatable {
     let active: CGFloat
     let secondary: CGFloat
@@ -27,10 +32,6 @@ struct WorkspaceBarGeometry: Equatable {
     static let notchGap: CGFloat = 8
     static let minimumSplitSideSpace: CGFloat = 60
     static let minimumIslandWidth: CGFloat = 40
-    static func statsButtonAnchor(buttonFrame: CGRect) -> CGPoint {
-        CGPoint(x: buttonFrame.midX, y: buttonFrame.midY)
-    }
-
     let effectivePosition: WorkspaceBarPosition
     let menuBarHeight: CGFloat
     let barHeight: CGFloat
@@ -55,11 +56,7 @@ struct WorkspaceBarGeometry: Equatable {
         switch effectivePosition {
         case .overlappingMenuBar:
             if reservedInset > 0 {
-                let y = constrainedOriginY(
-                    monitor.visibleFrame.maxY + CGFloat(resolved.yOffset),
-                    height: barHeight,
-                    screenFrame: monitor.frame
-                )
+                let y = overMenuBarOriginY(monitor: monitor, resolved: resolved, barHeight: barHeight)
                 insets.top = max(0, monitor.visibleFrame.maxY - y)
             }
         case .belowMenuBar: insets.top = reservedInset
@@ -75,6 +72,11 @@ struct WorkspaceBarGeometry: Equatable {
         )
     }
 
+    static func overMenuBarOriginY(monitor: Monitor, resolved: ResolvedBarSettings, barHeight: CGFloat) -> CGFloat {
+        let top = resolved.fullWidth ? monitor.frame.maxY - barHeight : monitor.visibleFrame.maxY
+        return constrainedOriginY(top + CGFloat(resolved.yOffset), height: barHeight, screenFrame: monitor.frame)
+    }
+
     static func constrainedOriginY(_ originY: CGFloat, height: CGFloat, screenFrame: CGRect) -> CGFloat {
         max(screenFrame.minY, min(originY, screenFrame.maxY - height))
     }
@@ -86,6 +88,9 @@ struct WorkspaceBarGeometry: Equatable {
     ) -> CGRect {
         if resolved.notchMode == .fillLeftOfNotch {
             return fillLeftOfNotchFrame(for: monitor)
+        }
+        if resolved.fullWidth {
+            return fullWidthFrame(monitor: monitor, resolved: resolved)
         }
 
         if effectivePosition.isVertical {
@@ -110,6 +115,41 @@ struct WorkspaceBarGeometry: Equatable {
         y += CGFloat(resolved.yOffset)
 
         return CGRect(x: x, y: y, width: width, height: barHeight)
+    }
+
+    func zones(frame: CGRect, monitor: Monitor, resolved: ResolvedBarSettings) -> WorkspaceBarZones? {
+        guard resolved.fullWidth else { return nil }
+        let notch = effectivePosition == .overlappingMenuBar && monitor.hasNotch ? monitor.notchRange : nil
+        return WorkspaceBarZones(
+            notch: notch.map { $0.lowerBound - frame.minX ... $0.upperBound - frame.minX },
+            mode: resolved.fullWidthNotchMode
+        )
+    }
+
+    private func fullWidthFrame(monitor: Monitor, resolved: ResolvedBarSettings) -> CGRect {
+        let visible = monitor.visibleFrame
+        if effectivePosition.isVertical {
+            return CGRect(
+                x: (effectivePosition == .left ? visible.minX : visible.maxX - barHeight) + CGFloat(resolved.xOffset),
+                y: visible.minY,
+                width: barHeight,
+                height: visible.height
+            )
+        }
+        let overMenuBar = effectivePosition == .overlappingMenuBar
+        let span = overMenuBar ? monitor.frame : visible
+        return CGRect(
+            x: span.minX,
+            y: overMenuBar
+                ? Self.overMenuBarOriginY(monitor: monitor, resolved: resolved, barHeight: barHeight)
+                : Self.constrainedOriginY(
+                    originY(for: monitor) + CGFloat(resolved.yOffset),
+                    height: barHeight,
+                    screenFrame: monitor.frame
+                ),
+            width: span.width,
+            height: barHeight
+        )
     }
 
     func autoHideRegions(

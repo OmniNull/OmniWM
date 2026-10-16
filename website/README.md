@@ -22,6 +22,7 @@ Every docs page is a Markdown file under `src/content/docs/`, grouped by directo
 |---|---|
 | `guides/` | Getting Started |
 | `features/` | Features |
+| `omnishell/` | OmniShell (Guides, Configuration, Luau API Reference) |
 | `config/` | Configuration |
 | `reference/cli/` | CLI & IPC |
 | `help/` | Help |
@@ -41,6 +42,14 @@ Content starts here — no `# H1`, Starlight renders the title.
 ```
 
 The sidebar is generated automatically; `sidebar.order` controls position within the group. Use `:::note`, `:::tip`, and `:::caution` asides where helpful. Internal links are root-relative with a trailing slash (`/guides/install/`); links to repository files use absolute GitHub URLs. Every published page has an "Edit page" link that opens the file on GitHub, so small fixes can be PRed straight from the site.
+
+### OmniShell documentation
+
+OmniShell's overview keeps its published `/features/luau-shell/` URL and is linked explicitly from the OmniShell sidebar section. Its `sidebar.hidden` setting excludes it from Features. Focused guides, configuration pages and the Luau reference live under `src/content/docs/omnishell/`.
+
+The API signatures and types come from `Sources/OmniWM/Resources/omniwm.d.luau`. After changing that file, run `npm run reference:generate` from `website/`, review the generated data and update the affected reference prose. `npm run reference:check` checks freshness and topic coverage without writing files; website CI runs it before the normal check and build. Generated data is checked in so deployments can build the website on its own. Defaults, capabilities, lifecycle rules and error behavior remain authored documentation verified against the implementation.
+
+Complete tutorial packages live under `public/examples/omnishell/`. MDX guides use `ExampleFile.astro` to show those same files with download links. Update the package files rather than copying final listings into Markdown, and verify them with the headless shell documentation example tests. The examples must never be installed into a developer's active shell during automated checks.
 
 The full contributor guide is published at `/developers/contributing/`, and this website-development guide at `/developers/website/`. Keep their Markdown pages in sync with the repository copies in `CONTRIBUTING.md` and `website/README.md`; adapt navigation links to stay within the website.
 

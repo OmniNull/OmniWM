@@ -116,7 +116,7 @@ enum SettingsFileAccess {
         return resolvedURL
     }
 
-    private static func canonicalURL(for url: URL) throws -> URL {
+    static func canonicalURL(for url: URL) throws -> URL {
         try url.withUnsafeFileSystemRepresentation { path in
             guard let path else { throw CocoaError(.fileReadInvalidFileName) }
             errno = 0

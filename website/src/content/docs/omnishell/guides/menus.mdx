@@ -1,0 +1,85 @@
+---
+title: Build a menu
+description: Build a bar menu with a popout, submenu state, commands, and an optional edge drawer.
+sidebar:
+  order: 2
+---
+
+import ExampleFile from '../../../../components/docs/ExampleFile.astro';
+
+:::note[Unreleased]
+OmniShell is available when [building OmniWM from `main`](/developers/building/).
+:::
+
+Build **quick-menu**, a bar button with an Audio submenu, volume controls, and an entry to OmniWM's menu. You need OmniWM running, `omniwmctl` on your `PATH`, and a text editor. Enable the Workspace Bar to try the bar button. The [first widget guide](/omnishell/guides/first-widget/) explains UI tables and child elements.
+
+## 1. Create the menu widget
+
+```sh
+omniwmctl shell init quick-menu
+```
+
+Open `~/.config/omniwm/shell/widgets/quick-menu/init.luau`. Replace its starter contents with the complete file below. Use a different name if you already have a widget called `quick-menu`; adjust the later toggle command too.
+
+## 2. Add the button, rows, and submenu
+
+<ExampleFile file="widgets/quick-menu/init.luau" />
+
+The file has three parts:
+
+- `render(ctx)` draws the bar button. `onClick = ui.popout` tells the native host to toggle this widget's popout.
+- `popout(ctx)` draws the open panel. The local `item` helper builds a row from an icon, label, and action, keeping row styling in one place.
+- Clicking **Audio…** changes `ctx.state.page` to `"audio"`; clicking **Back** changes it to `"main"`. OmniShell rerenders after the callback, so there is no second window or polling loop.
+
+`function(next) ... end` is an anonymous callback. Its first argument is the current context when clicked. `ctx.state` survives renders and stays separate for each display/placement; it resets when the widget reloads. Closing and reopening this menu retains the selected submenu.
+
+The volume callbacks use `omniwm.run` to issue shell commands. **Volume +5%** and **Mute output** keep the menu open for repeated use. **OmniWM menu** opens OmniWM's existing menu at the widget. Find more commands in [shell actions](/omnishell/reference/context-data/#actions) and the [CLI action reference](/reference/cli/actions/).
+
+**Close** also uses `onClick = ui.popout`. Keep this as a direct handler value: `ui.popout` is a native toggle marker, and calling it inside a Luau callback does not toggle a panel. This Close row works in both a normal popout and a drawer.
+
+## 3. Place and try the menu
+
+1. Open **Settings > Workspace Bar > Layout > Bar Widgets**.
+2. Select **Add Widget…**, choose **quick-menu**, and add it to **Trailing**.
+3. Click **Quick menu** on the bar, then **Audio…**.
+4. Try **Volume +5%**, then **Back**.
+5. Choose **Close**, then reopen the button.
+
+You should see the panel replace its main rows with Audio rows, then return to the main page. The Close row dismisses the panel. Volume actions change the system output volume.
+
+You can also open or close the popout from a terminal:
+
+```sh
+omniwmctl shell toggle quick-menu
+```
+
+## 4. Reuse the popout in a drawer
+
+1. Open **Settings > Widgets > Drawers** and add a drawer named **quick-drawer**.
+2. Choose the **Right** edge and add **quick-menu** to its widgets.
+3. Open it with the command below. To open it at the edge, turn on the drawer's **Hover** option.
+
+```sh
+omniwmctl shell toggle quick-drawer
+```
+
+The drawer uses the same `popout(ctx)` tree. Its Close row dismisses the containing drawer, and running the drawer toggle command again also closes it. A drawer works while either the bar or island is enabled, even if `quick-menu` is not on a bar lane. The [bars, popouts, and drawers guide](/omnishell/configuration/bars-drawers/) explains drawer width, hover, and close behavior.
+
+## 5. Verify and extend it
+
+```sh
+omniwmctl query shell-widgets
+```
+
+Check `quick-menu` for a load or render error. To add a row, append another `item(...)` to the relevant branch and give it a unique key. Use a command from the existing API or update widget state in its callback. Refer to [UI elements](/omnishell/reference/ui-elements/) for sliders, inputs, and other controls.
+
+## Troubleshooting
+
+| Symptom | Check |
+|---|---|
+| The button does not open | Ensure `popout(ctx)` is a global function and `onClick = ui.popout` is assigned directly. |
+| A submenu is still shown after reopening | This is retained `ctx.state`; use **Back** or reload the source to reset it. |
+| The drawer does not open | Enable either the Workspace Bar or Dynamic Island and check that its widget list contains `quick-menu`. |
+| A command fails | Use `omniwmctl query shell-widgets` to read the reported command error and compare the command with the reference. |
+
+Next, [build a Dynamic Island](/omnishell/guides/dynamic-island/) and reuse a component across profiles.

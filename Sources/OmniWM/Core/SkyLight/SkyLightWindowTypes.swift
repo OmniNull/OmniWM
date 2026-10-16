@@ -35,6 +35,14 @@ struct WindowCornerRadii: Equatable, Sendable {
 
     static let zero = WindowCornerRadii(uniform: 0)
 
+    static let systemDefault: WindowCornerRadii = {
+        if ProcessInfo.processInfo.operatingSystemVersion.majorVersion >= 26 {
+            WindowCornerRadii(uniform: 16.0)
+        } else {
+            WindowCornerRadii(uniform: 9.0)
+        }
+    }()
+
     var isAllZero: Bool {
         topLeft == 0 && topRight == 0 && bottomLeft == 0 && bottomRight == 0
     }
@@ -79,12 +87,14 @@ struct WindowCornerRadii: Equatable, Sendable {
 enum WindowCornerSource: Equatable, Sendable {
     case resolved
     case raw
+    case captured
 }
 
 struct WindowCornerSample: Equatable, Sendable {
     let radii: WindowCornerRadii
     let observedSize: CGSize
     let source: WindowCornerSource
+    var contour: WindowCornerContour?
 }
 
 struct ManagedDisplaySpaces: Sendable {

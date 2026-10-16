@@ -4,8 +4,16 @@
 import AppKit
 
 extension WorkspaceBarManager {
+    struct ShellPreview {
+        let key: WorkspaceBarHitTarget
+        let monitor: Monitor.ID
+        let anchor: CGRect
+    }
+}
+
+extension WorkspaceBarManager {
     func syncHoverPreview(controller: WMController, settings: SettingsStore) {
-        guard settings.workspaceBar.enabled && settings.workspaceBar.hoverPreviewsEnabled else {
+        guard settings.workspaceBar.enabled && settings.workspaceBar.resolvedHoverPreviewsEnabled else {
             hoverPreview?.shutdown()
             hoverPreview = nil
             return
@@ -27,51 +35,101 @@ extension WorkspaceBarManager {
         hoverPreview = preview
     }
 
-    func windowHoverChanged(_ key: WorkspaceBarHitTarget, hovering: Bool) {
-        guard let hoverPreview else { return }
-        guard hovering else {
-            hoverPreview.hoverEnded(key)
+    func shellPreviewChanged(_ request: ShellPreviewRequest) {
+        let key = shellPreviewKey(request)
+        if let key, let anchor = request.anchor, let current = shellPreview, current.key == key,
+           current.monitor == request.monitor
+        {
+            shellPreview = ShellPreview(key: key, monitor: request.monitor, anchor: anchor)
+            hoverPreview?.targetsDidChange { [weak self] key in
+                self?.shellHoverTarget(for: key)
+            }
             return
         }
-        guard !dragController.isDragging, !menuPresenter.isTracking, let target = hoverTarget(for: key) else { return }
-        hoverPreview.hoverBegan(target)
+        if let previous = shellPreview {
+            shellPreview = nil
+            hoverPreview?.hoverEnded(previous.key)
+        }
+        guard let key, let anchor = request.anchor else { return }
+        shellPreview = ShellPreview(key: key, monitor: request.monitor, anchor: anchor)
+        guard !dragController.isDragging, !menuPresenter.isTracking, let target = shellHoverTarget(for: key) else {
+            return
+        }
+        hoverPreview?.hoverBegan(target)
     }
 
-    func hoverTarget(for key: WorkspaceBarHitTarget) -> WorkspaceBarHoverTarget? {
-        guard let settings = controller?.settings, case let .window(workspaceId, token) = key else { return nil }
-        for instance in barsByMonitor.values {
-            guard let window = instance.model.snapshot.windowItem(workspaceId: workspaceId, token: token) else {
-                continue
-            }
-            for island in [instance.primary] + (instance.secondary.map { [$0] } ?? []) {
-                guard island.panel.isVisible, island.panel.attachedSheet == nil,
-                      let local = island.interaction.frames[key],
-                      let anchor = island.hostingView.workspaceBarScreenRect(forLocalRect: local),
-                      let screen = island.panel.screen
-                else {
-                    continue
-                }
-                guard island.panel.frame.intersects(anchor) else { continue }
-                return WorkspaceBarHoverTarget(
-                    key: key,
-                    windows: window.allWindows.map {
-                        .init(
-                            handle: $0.handle,
-                            title: $0.title.isEmpty ? window.appName : $0.title,
-                            appName: window.appName,
-                            icon: window.icon
-                        )
-                    },
-                    attachment: PopupAttachment(
-                        sourceFrame: island.panel.frame,
-                        edge: settings.workspaceBar.resolved(for: instance.monitor).position.popupEdge,
-                        alignment: CGPoint(x: anchor.midX, y: anchor.midY)
-                    ),
-                    visibleFrame: screen.visibleFrame,
-                    level: island.panel.level
-                )
-            }
+    private func shellPreviewKey(_ request: ShellPreviewRequest) -> WorkspaceBarHitTarget? {
+        guard let text = request.target,
+              request.anchor != nil,
+              let controller,
+              let instance = barsByMonitor[request.monitor],
+              let key = Self.shellTarget(
+                  text,
+                  sessionToken: shellSessionToken,
+                  snapshot: instance.model.snapshot,
+                  workspaceId: controller.workspaceManager.workspaceId(named:)
+              ),
+              case .window = key
+        else {
+            return nil
         }
-        return nil
+        return key
+    }
+
+    func shellHoverTarget(for key: WorkspaceBarHitTarget) -> WorkspaceBarHoverTarget? {
+        guard let shellPreview, shellPreview.key == key,
+              let instance = barsByMonitor[shellPreview.monitor],
+              case let .window(workspaceId, token) = key,
+              let window = instance.model.snapshot.windowItem(workspaceId: workspaceId, token: token)
+        else {
+            return nil
+        }
+        let center = CGPoint(x: shellPreview.anchor.midX, y: shellPreview.anchor.midY)
+        return ([instance.primary] + (instance.secondary.map { [$0] } ?? []))
+            .lazy
+            .filter { $0.panel.frame.contains(center) }
+            .compactMap { self.hoverTarget(
+                key: key,
+                window: window,
+                instance: instance,
+                island: $0,
+                anchor: shellPreview.anchor
+            ) }
+            .first
+    }
+
+    private func hoverTarget(
+        key: WorkspaceBarHitTarget,
+        window: WorkspaceBarWindowItem,
+        instance: WorkspaceBarInstance,
+        island: WorkspaceBarIslandPanel,
+        anchor: CGRect
+    ) -> WorkspaceBarHoverTarget? {
+        guard let settings = controller?.settings,
+              island.panel.isVisible,
+              island.panel.attachedSheet == nil,
+              let screen = island.panel.screen,
+              island.panel.frame.intersects(anchor)
+        else {
+            return nil
+        }
+        return WorkspaceBarHoverTarget(
+            key: key,
+            windows: window.allWindows.map {
+                .init(
+                    handle: $0.handle,
+                    title: $0.title.isEmpty ? window.appName : $0.title,
+                    appName: window.appName,
+                    icon: window.icon
+                )
+            },
+            attachment: PopupAttachment(
+                sourceFrame: island.panel.frame,
+                edge: settings.workspaceBar.resolved(for: instance.monitor).position.popupEdge,
+                alignment: CGPoint(x: anchor.midX, y: anchor.midY)
+            ),
+            visibleFrame: screen.visibleFrame,
+            level: island.panel.level
+        )
     }
 }

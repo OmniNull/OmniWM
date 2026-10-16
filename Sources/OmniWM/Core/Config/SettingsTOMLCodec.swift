@@ -8,15 +8,14 @@ enum SettingsTOMLCodec {
     static let currentSchemaVersion = 4
 
     static func encode(_ export: SettingsExport) throws -> Data {
-        try encodeCanonical(export)
+        try encode(export, preservingUnknownKeysFrom: nil)
     }
 
     static func encode(_ export: SettingsExport, preservingUnknownKeysFrom previous: Data?) throws -> Data {
         let canonicalData = try encodeCanonical(export)
-        guard let previous else { return canonicalData }
-
         let decoder = TOMLDecoder()
         let newCanonicalTree = try decoder.decode([String: TOMLNode].self, from: canonicalData)
+        guard let previous else { return try encodeFile(newCanonicalTree) }
         let oldRawTree: [String: TOMLNode]
         let oldExport: SettingsExport
         do {
@@ -40,11 +39,21 @@ enum SettingsTOMLCodec {
             oldRaw: oldRawTree,
             oldSchemaKnown: oldSchemaKnownTree
         )
-        guard merged != newCanonicalTree else { return canonicalData }
+        return try encodeFile(merged)
+    }
+
+    private static func encodeFile(_ tree: [String: TOMLNode]) throws -> Data {
+        var output = tree
+        for key in [
+            "monitorBarOverrides", "monitorOrientationOverrides", "monitorNiriOverrides",
+            "monitorDwindleOverrides", "monitorGapOverrides"
+        ] where output[key] == .array([]) {
+            output.removeValue(forKey: key)
+        }
 
         let encoder = TOMLEncoder()
         encoder.outputFormatting = [.sortedKeys, .prettyPrinted]
-        return try encoder.encode(merged)
+        return try encoder.encode(output)
     }
 
     private static func encodeCanonical(_ export: SettingsExport) throws -> Data {
@@ -117,7 +126,7 @@ enum SettingsTOMLCodec {
     }
 }
 
-enum TOMLNode: Codable, Equatable {
+enum TOMLNode: Codable, Equatable, Sendable {
     case string(String)
     case integer(Int64)
     case float(Double)

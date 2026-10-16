@@ -2,6 +2,7 @@
 // Copyright (C) 2026 BarutSRB — https://github.com/OmniNull/OmniWM
 
 import Foundation
+import TOML
 
 enum SettingsTOMLCodecError: Error, Equatable, LocalizedError {
     case cannotSafelyPreservePreviousData
@@ -84,6 +85,8 @@ struct SettingsTOMLDecodeResult: Equatable {
 extension SettingsTOMLCodec {
     static func diagnosticDescription(for error: Error) -> String {
         switch error {
+        case let error as TOMLDecodingError:
+            error.description
         case let DecodingError.keyNotFound(key, context):
             "\(diagnosticPath(context.codingPath + [key])): \(context.debugDescription)"
         case let DecodingError.typeMismatch(_, context),

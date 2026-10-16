@@ -116,18 +116,14 @@ struct WorldView {
                     snapshot: WorkspaceBarSnapshot(
                         projection: projection,
                         showLabels: resolved.showLabels,
-                        showSystemStatsButton: resolved.systemStatsButton,
                         backgroundOpacity: resolved.backgroundOpacity,
-                        inactiveIconOpacity: resolved.inactiveIconOpacity,
                         transparentBackground: resolved.transparentBackground,
                         solidBlackBackground: resolved.solidBlackBackground,
-                        showItemBackgrounds: resolved.showItemBackgrounds,
-                        showAccentHighlights: resolved.showAccentHighlights,
                         barHeight: geometry.barHeight,
-                        accentColor: resolved.accentColor,
-                        textColor: resolved.textColor,
                         orientation: resolved.position.isVertical ? .vertical : .horizontal,
-                        secureInputActive: controller.isSecureInputIndicated
+                        secureInputActive: controller.isSecureInputIndicated,
+                        barFill: resolved.barFill,
+                        barBorder: resolved.barBorder
                     ),
                     retainWhileHidden: controller.canAutoHideWorkspaceBar(on: monitor, resolved: resolved)
                 )
@@ -143,6 +139,118 @@ struct WorldView {
             summaries[workspace.id] = controller.niriLayoutHandler.columnSummary(for: workspace.id)
         }
         return summaries
+    }
+
+    func parkingEdgeMasks() -> [DesiredParkingEdgeMask] {
+        var masks = SurfaceDerivation.deriveParkingEdgeMasks(monitors: monitors, spaceTopology: spaceTopology)
+        guard controller.isEnabled, !controller.isOverviewOpen(),
+              !controller.mouseEventHandler.isInputSuppressed,
+              let engine = controller.niriEngine
+        else { return masks }
+
+        for monitor in monitors {
+            guard masks.contains(where: { $0.key.monitorId == monitor.id }),
+                  let workspace = controller.workspaceManager.activeWorkspaceOrFirst(on: monitor.id),
+                  controller.workspaceManager.activeLayoutKind(for: workspace.id) == .niri,
+                  !hasPendingNativeFullscreenTransition(in: workspace.id)
+            else { continue }
+            let columns = engine.projectedColumns(in: workspace.id)
+            guard !columns.isEmpty else { continue }
+            let state = controller.workspaceManager.niriViewportState(for: workspace.id)
+            let activeIndex = engine.projectedActiveColumnIndex(state: state, columns: columns, in: workspace.id)
+            let orientation = controller.settings.monitors.effectiveOrientation(for: monitor)
+            let sides: [ParkingEdgeMaskKey.Side] = orientation == .horizontal ? [.left, .right] : [.bottom, .top]
+            for side in sides {
+                let key = ParkingEdgeMaskKey(monitorId: monitor.id, side: side)
+                let targetIndex = activeIndex + side.step
+                let navigation: ParkingEdgeNavigation? = if columns.indices.contains(targetIndex),
+                                                            let window = engine
+                                                            .projectedActiveWindow(in: columns[targetIndex])
+                {
+                    ParkingEdgeNavigation(
+                        workspaceId: workspace.id,
+                        target: window.token,
+                        hoverEnabled: controller.focusFollowsMouseEnabled
+                    )
+                } else {
+                    nil
+                }
+                if let index = masks.firstIndex(where: { $0.key == key }) {
+                    masks[index].navigation = navigation
+                } else {
+                    masks.append(DesiredParkingEdgeMask(
+                        key: key, frame: side.frame(in: monitor.visibleFrame), navigation: navigation
+                    ))
+                }
+            }
+        }
+        return masks
+    }
+
+    func islandSurfaces() -> [DesiredIslandSurface] {
+        guard controller.settings.island.enabled else { return [] }
+        let topology = spaceTopology
+        return monitors.map { monitor in
+            DesiredIslandSurface(
+                monitor: monitor,
+                fullscreen: topology.isDisplayShowingFullscreenSpace(on: monitor) == true,
+                navigation: controller.workspaceBarManager.hasShellIsland(on: monitor)
+                    ? islandNavigation(on: monitor) : nil
+            )
+        }
+    }
+
+    private func islandNavigation(on monitor: Monitor) -> IslandNavigationSnapshot? {
+        let manager = controller.workspaceManager
+        guard let workspace = manager.activeWorkspaceOrFirst(on: monitor.id) else { return nil }
+        let entries = manager.barVisibleEntries(in: workspace.id, showFloatingWindows: true)
+        var remaining = Dictionary(uniqueKeysWithValues: entries.lazy.map { ($0.token, $0) })
+        var windows: [IslandNavigationSnapshot.Window] = []
+        windows.reserveCapacity(entries.count)
+        let layout = manager.activeLayoutKind(for: workspace.id)
+        if layout == .niri {
+            for (index, column) in manager.layoutTopology(for: workspace.id).columns.enumerated() {
+                for tile in column.tiles {
+                    if let entry = remaining.removeValue(forKey: tile.token) {
+                        windows.append(islandWindow(entry, column: index + 1))
+                    }
+                }
+            }
+        }
+        for entry in entries where remaining.removeValue(forKey: entry.token) != nil {
+            windows.append(islandWindow(entry, column: 0))
+        }
+        let selected = manager.selectedManagedToken
+        let remembered = manager.focusSessionSnapshot.lastFocusedByWorkspace[workspace.id]
+        let focused: WindowToken? = if let selected, windows.contains(where: { $0.token == selected }) {
+            selected
+        } else if let remembered, windows.contains(where: { $0.token == remembered }) {
+            remembered
+        } else {
+            nil
+        }
+        return IslandNavigationSnapshot(
+            workspace: workspace.name,
+            name: controller.settings.workspaces.displayName(for: workspace.name),
+            layout: layout == .niri ? "niri" : "dwindle",
+            focused: focused,
+            windows: windows
+        )
+    }
+
+    private func islandWindow(_ entry: WindowState, column: Int) -> IslandNavigationSnapshot.Window {
+        let cache = controller.appInfoCache
+        let info = cache.hasCachedInfo(for: entry.pid) ? cache.info(for: entry.pid) : nil
+        let name = info?.name ?? String(localized: "Unknown")
+        let title = AXWindowService.cachedTitle(windowId: UInt32(entry.windowId))
+            ?? entry.managedReplacementMetadata?.title
+        return IslandNavigationSnapshot.Window(
+            token: entry.token,
+            bundle: entry.managedReplacementMetadata?.bundleId ?? info?.bundleId ?? "",
+            name: name,
+            title: title ?? "",
+            column: column
+        )
     }
 
     func nativeFullscreenPlaceholders() -> [NativeFullscreenPlaceholderUpdate] {

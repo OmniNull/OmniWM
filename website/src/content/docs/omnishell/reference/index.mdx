@@ -1,0 +1,32 @@
+---
+title: Luau API symbol index
+description: Browse every exported Luau type, UI constructor, OmniWM service, and property by name.
+sidebar:
+  order: 10
+---
+
+import LuauSymbolIndex from '../../../../components/docs/LuauSymbolIndex.astro';
+
+:::note[Unreleased]
+OmniShell and this API are available when building from `main`.
+:::
+
+The signatures on these pages come from the shipped `omniwm.d.luau`; handwritten sections explain behavior, defaults, limits, and failure states. Start with [a widget](/omnishell/guides/first-widget/), [a menu](/omnishell/guides/menus/), or [an island](/omnishell/guides/dynamic-island/) before looking up details here.
+
+| Topic | Find |
+|---|---|
+| [UI elements](/omnishell/reference/ui-elements/) | Containers, text, icons, images, inputs, sliders, paths |
+| [Layout and styling](/omnishell/reference/layout-styling/) | Common properties, palette colors, materials, host targets |
+| [Context and data](/omnishell/reference/context-data/) | Widget lifecycle, selected data, formatting, actions, all feed records |
+| [Input and motion](/omnishell/reference/input-motion/) | Events, native feedback, gestures, keyboard focus, springs |
+| [Components and configuration](/omnishell/reference/components-configuration/) | Manifests, lifecycle hooks, views, catalog, schema and configuration actions |
+| [Async services, HTTP, JSON, and storage](/omnishell/reference/services/) | Cancellation, request bounds, HTTP, timers, encoding, durable state |
+| [Resources and desktop services](/omnishell/reference/resources-desktop/) | Assets, Resource handles, drag/drop, clipboard, native file UI |
+| [Providers](/omnishell/reference/providers/) | Native process opt-in, JSON Lines, ordered actions, file envelopes |
+| [Effects and shaders](/omnishell/reference/effects-shaders/) | Metal programs, motion recipes, texture effects, reveal masks |
+
+## Alphabetical symbols and properties
+
+Each symbol links to its complete declaration. Field links target the owning type’s declaration; its surrounding topic describes their use. Specialized element properties extend [Props](/omnishell/reference/layout-styling/#api-props), so shared fields such as `key`, `w`, `onClick`, and `animate` are listed there.
+
+<LuauSymbolIndex />

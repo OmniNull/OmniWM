@@ -214,6 +214,7 @@ final class TabRailStyleLayoutTests: XCTestCase {
             XCTAssertEqual(controller.layoutRefreshController.layoutState.activeRefresh?.reason, .layoutConfigChanged)
         }
 
+        settings.quakeTerminal.enabled = false
         for enabled in [true, false] {
             var exported = settings.toExport()
             exported.tabRailAppIcons = enabled

@@ -19,7 +19,7 @@ extension WMController {
 
     func updateMonitorNiriSettings() {
         guard niriEngine != nil else { return }
-        niriLayoutHandler.refreshResolvedMonitorSettings()
+        niriLayoutHandler.refreshResolvedMonitorSettings(rebalanceChangedSpans: true)
         layoutRefreshController.requestRelayout(reason: .monitorSettingsChanged)
     }
 
@@ -92,8 +92,8 @@ extension WMController {
         )
     }
 
-    func balanceNiriSizesAllWorkspaces() {
-        niriLayoutHandler.balanceSizesAllWorkspaces()
+    func rebalanceNiriSizesForVisibleContainerCountChange(on monitorId: Monitor.ID? = nil) {
+        niriLayoutHandler.balanceSizesAllWorkspaces(on: monitorId, onlyAutomaticSpans: true)
     }
 
     func enableDwindleLayout() {

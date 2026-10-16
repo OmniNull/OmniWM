@@ -194,6 +194,10 @@ final class EventInterpreter: EventIntakeSink {
         case let .windowDeminiaturized(pid, axRef, callbackGeneration):
             guard acceptsCallbackGeneration(callbackGeneration, pid: pid) else { return }
             controller.axEventHandler.handleWindowMinimized(pid: pid, axRef: axRef, minimized: false)
+
+        case let .titleChanged(pid, windowId, callbackGeneration):
+            guard acceptsCallbackGeneration(callbackGeneration, pid: pid) else { return }
+            controller.axEventHandler.handleWindowTitleChanged(windowId: windowId)
         }
     }
 }

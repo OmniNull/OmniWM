@@ -67,7 +67,7 @@ extension MouseEventHandler {
             cancelActiveMouseInteraction()
             return false
         }
-        if shouldBlockOwnWindowInput(at: location) { return false }
+        if shouldBlockOwnWindowGestureInput(at: location) { return false }
         guard !state.isResizing, !state.isMoving else { return false }
 
         return true

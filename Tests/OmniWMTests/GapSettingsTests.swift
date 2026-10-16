@@ -457,6 +457,7 @@ final class GapSettingsTests: XCTestCase {
         controller.workspaceManager.applySettings()
         controller.niriLayoutHandler.enableNiriLayout()
         controller.syncMonitorsToNiriEngine()
+        settings.quakeTerminal.enabled = false
         controller.applyPersistedSettings(settings, startServices: false)
         controller.layoutRefreshController.resetState()
         let leftWorkspace = try XCTUnwrap(controller.workspaceManager.workspaceId(named: "1"))

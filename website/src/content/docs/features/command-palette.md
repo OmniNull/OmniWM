@@ -32,7 +32,7 @@ Windows from macOS-hidden apps remain searchable and carry a **Hidden** badge; s
 
 ## Window marks
 
-In Windows mode, **Mark selected window** (`Control + Option + Shift + M`) names the selected result, and **Remove mark** (`Control + Option + Shift + R`) removes one of its marks. The buttons remain available if an enabled global shortcut uses either chord. Marks appear beside windows and match searches by name. Names are unique across windows and last until the window closes or OmniWM quits. Separate global set/remove actions default to **Unassigned** in [Settings > Hotkeys](/guides/keyboard-shortcuts/#focus).
+In Windows mode, **Mark selected window** (`Control + Option + Shift + M`) names the selected result, and **Remove mark** (`Control + Option + Shift + R`) removes one of its marks. The buttons remain available if an enabled global shortcut uses either chord. Marks appear beside windows and match searches by name. Names are unique across windows and last until the window closes or OmniWM quits. Separate global set/remove actions default to **Unassigned** in [Settings > Keyboard Shortcuts](/guides/keyboard-shortcuts/#focus).
 
 ## OmniWM commands
 

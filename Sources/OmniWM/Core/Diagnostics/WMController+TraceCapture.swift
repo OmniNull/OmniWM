@@ -238,6 +238,14 @@ extension WMController {
                 guard profile == .performance else { return }
                 performanceSnapshots.finalOwnerSnapshots = self?.endPerformanceMetricsCapture()
             },
+            traceMetricsBegin: { [weak self] in
+                await self?.workspaceBarManager.shellHost?.beginTraceCapture()
+            },
+            traceMetricsEnd: { [weak self] in
+                ShellWidgetHost.sealTraceCapture()
+                await self?.workspaceBarManager.shellHost?.endTraceCapture()
+                await ShellWidgetHost.finishTraceRetirements()
+            },
             automaticEvidenceProvider: { [weak self] in
                 await self?.automaticTraceEvidence() ?? "status=controller_unavailable"
             }

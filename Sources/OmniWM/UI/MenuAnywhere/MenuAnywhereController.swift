@@ -12,63 +12,114 @@ enum MenuSubmenuLoadResult {
 @MainActor
 final class MenuAnywhereController: NSObject, NSMenuDelegate {
     typealias SubmenuLoader = @MainActor (AXUIElement, AnyObject?, Selector?) -> MenuSubmenuLoadResult
+    typealias MenuLoader = @MainActor (pid_t, MenuContent, AnyObject?, Selector?) -> MenuSubmenuLoadResult
+    typealias MenuPresenter = @MainActor (NSMenu, CGPoint) -> Void
 
     static let shared = MenuAnywhereController()
 
-    private let menuExtractor: MenuExtractor
+    private let menuLoader: MenuLoader
     private let submenuLoader: SubmenuLoader
-    private weak var currentApp: NSRunningApplication?
+    private let menuPresenter: MenuPresenter
+    private let makeMenu: @MainActor () -> NSMenu
+    private var currentApp: NSRunningApplication?
     private var activeMenu: NSMenu?
     var onMenuTrackingChanged: ((Bool) -> Void)?
 
     private static let kAXPressAction = "AXPress" as CFString
     private static let appActivationDelay: TimeInterval = 0.1
 
-    override private init() {
+    override private convenience init() {
         let extractor = MenuExtractor()
-        menuExtractor = extractor
-        submenuLoader = { root, target, action in
+        self.init(
+            menuLoader: Self.makeMenuLoader(using: extractor),
+            submenuLoader: { root, target, action in
+                do {
+                    return .loaded(
+                        try extractor.buildSubmenu(from: root, target: target, action: action)
+                    )
+                } catch {
+                    return .unavailable
+                }
+            }
+        )
+    }
+
+    convenience init(submenuLoader: @escaping SubmenuLoader) {
+        self.init(menuLoader: Self.makeMenuLoader(using: MenuExtractor()), submenuLoader: submenuLoader)
+    }
+
+    init(
+        menuLoader: @escaping MenuLoader,
+        menuPresenter: @escaping MenuPresenter = { menu, location in
+            menu.popUp(positioning: nil, at: location, in: nil)
+        },
+        makeMenu: @escaping @MainActor () -> NSMenu = { NSMenu() },
+        submenuLoader: @escaping SubmenuLoader
+    ) {
+        self.menuLoader = menuLoader
+        self.menuPresenter = menuPresenter
+        self.makeMenu = makeMenu
+        self.submenuLoader = submenuLoader
+        super.init()
+    }
+
+    private static func makeMenuLoader(using extractor: MenuExtractor) -> MenuLoader {
+        { pid, content, target, action in
+            guard let menuBar = extractor.getMenuBar(for: pid) else { return .unavailable }
             do {
                 return .loaded(
-                    try extractor.buildSubmenu(from: root, target: target, action: action)
+                    try extractor.buildMenu(from: menuBar, content: content, target: target, action: action)
                 )
             } catch {
                 return .unavailable
             }
         }
-        super.init()
-    }
-
-    init(submenuLoader: @escaping SubmenuLoader) {
-        menuExtractor = MenuExtractor()
-        self.submenuLoader = submenuLoader
-        super.init()
     }
 
     func showNativeMenu() {
-        guard activeMenu == nil else { return }
-
         guard let app = NSWorkspace.shared.frontmostApplication else { return }
-        currentApp = app
+        showNativeMenu(for: app, content: .all) { _ in NSEvent.mouseLocation }
+    }
 
-        guard let menuBar = menuExtractor.getMenuBar(for: app.processIdentifier) else { return }
+    func showNativeMenu(
+        for app: NSRunningApplication,
+        content: MenuContent,
+        anchor: CGRect,
+        edge: PopupAttachment.Edge,
+        visibleFrame: CGRect
+    ) {
+        showNativeMenu(for: app, content: content) { menu in
+            let frame = PopupAttachment(sourceFrame: anchor, edge: edge)
+                .frame(size: menu.size, visibleFrame: visibleFrame)
+            return CGPoint(x: frame.minX, y: frame.maxY)
+        }
+    }
 
-        let items = menuExtractor.buildMenu(
-            from: menuBar,
-            target: self,
-            action: #selector(menuAction(_:))
+    func cancelTracking() {
+        activeMenu?.cancelTracking()
+    }
+
+    private func showNativeMenu(
+        for app: NSRunningApplication,
+        content: MenuContent,
+        location: (NSMenu) -> CGPoint
+    ) {
+        guard activeMenu == nil else { return }
+        let result = menuLoader(
+            app.processIdentifier, content, self, #selector(menuAction(_:))
         )
+        if content == .all, case .unavailable = result { return }
 
-        let menu = NSMenu()
+        let menu = makeMenu()
         menu.delegate = self
         menu.autoenablesItems = false
-        menu.axRootElement = menuBar
-        items.forEach(menu.addItem)
+        populate(menu, with: result, showsStatus: content != .all)
+        currentApp = app
         activeMenu = menu
 
         onMenuTrackingChanged?(true)
         defer { cleanupActiveMenu() }
-        menu.popUp(positioning: nil, at: NSEvent.mouseLocation, in: nil)
+        menuPresenter(menu, location(menu))
     }
 
     private func cleanupActiveMenu() {
@@ -114,11 +165,15 @@ final class MenuAnywhereController: NSObject, NSMenuDelegate {
         menu.autoenablesItems = false
         guard menu.items.isEmpty, let axRoot = menu.axRootElement else { return }
 
-        switch submenuLoader(axRoot, self, #selector(menuAction(_:))) {
+        populate(menu, with: submenuLoader(axRoot, self, #selector(menuAction(_:))))
+    }
+
+    private func populate(_ menu: NSMenu, with result: MenuSubmenuLoadResult, showsStatus: Bool = true) {
+        switch result {
         case let .loaded(items) where !items.isEmpty:
             items.forEach(menu.addItem)
         case .loaded:
-            menu.addItem(statusItem(title: "(No items)"))
+            if showsStatus { menu.addItem(statusItem(title: "(No items)")) }
         case .unavailable:
             menu.addItem(statusItem(title: "(Unavailable)"))
         }

@@ -41,6 +41,24 @@ final class WorkspaceBarBadgeServiceTests: XCTestCase {
     }
 
     @MainActor
+    func testLabelChangesNotifyTheShell() async {
+        let harness = BadgeServiceHarness()
+        let service = makeService(harness)
+        defer { service.stop() }
+        var changes = 0
+        service.onLabelsChange = { changes += 1 }
+
+        service.configure(mode: .dot, interval: 5, bundleIDs: ["com.example.App"])
+        await harness.waitForReads(1)
+        await harness.completeRead(0, result: DockBadgeReadResult(labels: ["com.example.app": "3"], dockPID: 42))
+        await harness.waitForSleeps(1)
+        XCTAssertEqual(changes, 1)
+
+        service.stop()
+        XCTAssertEqual(changes, 2)
+    }
+
+    @MainActor
     func testTargetAndLifecycleChangesDuringReadDoNotOverlapOrPublishStaleLabels() async {
         let harness = BadgeServiceHarness()
         let service = makeService(harness)

@@ -6,37 +6,44 @@ import Foundation
 
 extension MouseEventHandler {
     private func handleDwindleMoveDrag(at location: CGPoint) {
-        guard let controller, let engine = controller.dwindleEngine, let move = engine.interactiveMove else {
+        guard let controller, let engine = controller.dwindleEngine, engine.interactiveMove != nil else {
             cancelActiveMouseInteraction()
             return
         }
         let now = controller.animationClock.now()
         state.dragGhostController?.updatePosition(cursorLocation: location)
-        if let target = engine.interactiveMoveUpdate(currentLocation: location, at: now),
-           let frame = engine.presentedFrame(for: target, in: move.workspaceId, at: now)
-        {
+        _ = engine.interactiveMoveUpdate(currentLocation: location, at: now)
+        guard engine.interactiveMove != nil else {
+            cancelActiveMouseInteraction()
+            return
+        }
+        if let frame = engine.interactiveMoveTargetFrame(at: now) {
             state.dragGhostController?.showSwapTarget(frame: frame)
         } else {
             state.dragGhostController?.hideSwapTarget()
         }
     }
 
-    func finishDwindleMove() {
+    func finishDwindleMove(at location: CGPoint) {
         guard let controller, let engine = controller.dwindleEngine, let move = engine.interactiveMove else { return }
-        guard move.targetToken != nil else {
+        guard engine.interactiveMoveUpdate(currentLocation: location, at: controller.animationClock.now()) != nil else {
             engine.interactiveMoveCancel()
             return
         }
         let wsId = move.workspaceId
-        let swapped = controller.workspaceManager.withEngineMutationScope(
+        let changed = controller.workspaceManager.withEngineMutationScope(
             in: wsId,
-            label: "dwindle_mouse_swap",
+            label: move.isInsertMode ? "dwindle_mouse_insert" : "dwindle_mouse_swap",
             source: .mouse
         ) {
             engine.interactiveMoveEnd() != nil
         }
-        guard swapped else { return }
-        controller.workspaceManager.recordLayoutOperation(.windowsSwapped, in: wsId, source: .mouse)
+        guard changed else { return }
+        controller.workspaceManager.recordLayoutOperation(
+            move.isInsertMode ? .interactiveMoveEnded(token: move.token) : .windowsSwapped,
+            in: wsId,
+            source: .mouse
+        )
         if controller.hasStartedServices {
             controller.layoutRefreshController.requestImmediateRelayout(reason: .interactiveGesture)
         }

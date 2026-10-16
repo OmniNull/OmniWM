@@ -23,6 +23,8 @@ struct WorkspaceBarSurfaceFill<Surface: Shape>: View {
             } else {
                 shape.fill(tint).background(.ultraThinMaterial, in: shape)
             }
+        case let .palette(fill, _):
+            shape.fill(Color(nsColor: fill.color(dark: colorScheme == .dark)).opacity(backgroundOpacity))
         }
     }
 
@@ -30,5 +32,18 @@ struct WorkspaceBarSurfaceFill<Surface: Shape>: View {
         colorScheme == .dark
             ? Color.white.opacity(backgroundOpacity)
             : Color.black.opacity(backgroundOpacity * 0.5)
+    }
+}
+
+extension WorkspaceBarSnapshot.BackgroundStyle {
+    func outline(contrast: ColorSchemeContrast, colorScheme: ColorScheme) -> (color: Color, width: CGFloat)? {
+        switch self {
+        case .material:
+            contrast == .increased ? (Color.primary.opacity(0.45), 1) : (Color.secondary.opacity(0.18), 0.5)
+        case let .palette(_, border?):
+            (Color(nsColor: border.color(dark: colorScheme == .dark)), 1)
+        default:
+            nil
+        }
     }
 }

@@ -156,7 +156,7 @@ extension MouseEventHandler {
                 return false
             }
         }
-        if !isOverviewOpen, shouldBlockOwnWindowInput(at: location) {
+        if !isOverviewOpen, shouldBlockOwnWindowGestureInput(at: location) {
             abortActiveGestureIfNeeded()
             return false
         }

@@ -155,6 +155,7 @@ extension LayoutRefreshController {
         {
             return nil
         }
+        controller.workspaceManager.quietArrivalTokens.subtract(plan.quietArrivalTokens)
 
         applyLayoutMutations(plan, controller: controller)
         publishAcceptedLayoutSurfaces(plan, controller: controller)

@@ -192,7 +192,7 @@ final class ParkingEdgeMaskTests: XCTestCase {
     }
 
     @MainActor
-    func testManagerRegistersReusesAndRemovesClickThroughMask() throws {
+    func testManagerRegistersReusesAndRemovesInputBlockingMask() throws {
         let manager = ParkingEdgeMaskManager()
         let key = ParkingEdgeMaskKey(
             monitorId: Monitor.ID(displayId: 95_001),
@@ -209,12 +209,12 @@ final class ParkingEdgeMaskTests: XCTestCase {
         )
         let firstWindow = try XCTUnwrap(firstInfo.window)
         XCTAssertEqual(firstInfo.kind, .parkingEdgeMask)
-        XCTAssertEqual(firstInfo.hitTestPolicy, .passthrough)
+        XCTAssertEqual(firstInfo.hitTestPolicy, .interactive)
         XCTAssertEqual(firstInfo.capturePolicy, .excluded)
         XCTAssertFalse(firstInfo.suppressesManagedFocusRecovery)
         XCTAssertEqual(firstInfo.frame, firstFrame)
         XCTAssertEqual(firstWindow.level, .statusBar)
-        XCTAssertTrue(firstWindow.ignoresMouseEvents)
+        XCTAssertFalse(firstWindow.ignoresMouseEvents)
 
         manager.apply([DesiredParkingEdgeMask(key: key, frame: secondFrame)])
 

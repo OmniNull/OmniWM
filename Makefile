@@ -1,4 +1,4 @@
-.PHONY: setup doctor format format-check lint lint-fix build localization-check localization-sync run dev-install use-dev use-release test-dev-tools energy-profile test-skylight-live release-check verify check check-tool-versions check-swiftformat-version check-swiftlint-version
+.PHONY: setup doctor format format-check lint lint-fix build localization-check localization-sync run dev-install use-dev use-release test-dev-tools energy-profile arc-audit test-skylight-live release-check verify check check-tool-versions check-swiftformat-version check-swiftlint-version
 
 include Scripts/dev-tools.env
 
@@ -61,6 +61,9 @@ test-dev-tools:
 
 energy-profile:
 	./Scripts/energy-profile.sh
+
+arc-audit:
+	./Scripts/arc-audit.sh
 
 test-skylight-live:
 	OMNIWM_RUN_SKYLIGHT_LIVE_TESTS=1 swift test --filter SkyLightNativeSpaceInventoryLiveTests/testLiveTransactionMoveIsObservedThroughWindowServerBounds

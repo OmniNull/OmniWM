@@ -29,6 +29,7 @@ core window relayout is not consumer-gated.
 | `windows-changed` | windows | Managed window inventory updates, including Niri column renumbering |
 | `display-changed` | displays | Full display snapshot after any adopted display add, remove, or reconfigure, after a gap-setting change, or when the interaction monitor changes; identical consecutive snapshots are not repeated |
 | `layout-changed` | workspaces | Workspace layout updates, including Niri column viewport changes |
+| `shell-widgets` | shell-widgets | Luau shell widget loads and failures, and problems in `shell.toml` and theme files. Unreleased: available when building from `main` |
 
 ## subscribe
 

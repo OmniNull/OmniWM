@@ -17,7 +17,8 @@ final class SurfaceCoordinator {
     func register(
         window: NSWindow,
         id: String,
-        policy: SurfacePolicy
+        policy: SurfacePolicy,
+        regionProvider: (@MainActor () -> [CGRect])? = nil
     ) {
         scene.register(
             window: window,
@@ -28,7 +29,8 @@ final class SurfaceCoordinator {
                 windowObjectIdentifier: ObjectIdentifier(window),
                 windowNumber: window.windowNumber > 0 ? window.windowNumber : nil,
                 frameProvider: nil,
-                visibilityProvider: nil
+                visibilityProvider: nil,
+                regionProvider: regionProvider
             )
         )
     }
@@ -53,6 +55,11 @@ final class SurfaceCoordinator {
         )
     }
 
+    @discardableResult
+    func setManagedFocusRecoverySuppressed(_ suppressed: Bool, for window: NSWindow) -> Bool? {
+        scene.setManagedFocusRecoverySuppressed(suppressed, for: window)
+    }
+
     func unregister(window: NSWindow) {
         scene.unregister(window: window)
     }
@@ -69,8 +76,8 @@ final class SurfaceCoordinator {
         scene.contains(windowNumber: windowNumber)
     }
 
-    func containsInteractive(point: CGPoint) -> Bool {
-        scene.containsInteractive(point: point)
+    func containsInteractive(point: CGPoint, excluding kind: SurfaceKind? = nil) -> Bool {
+        scene.containsInteractive(point: point, excluding: kind)
     }
 
     func containsGeometric(point: CGPoint) -> Bool {

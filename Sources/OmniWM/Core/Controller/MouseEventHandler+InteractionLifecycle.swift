@@ -216,7 +216,7 @@ extension MouseEventHandler {
 
     func completeActiveMove(at location: CGPoint) {
         if state.moveLayout == .dwindle {
-            finishDwindleMove()
+            finishDwindleMove(at: location)
         } else {
             finishNiriMove(at: location)
         }

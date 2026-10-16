@@ -1,0 +1,23 @@
+---
+import { Code } from '@astrojs/starlight/components';
+import api from '../../data/omnishell-api.json';
+interface Props { name: string }
+const { name } = Astro.props;
+const symbol = api.symbols.find(entry => entry.name === name);
+if (!symbol) throw new Error(`Unknown Luau declaration: ${name}`);
+const related = symbol.related.map(name => api.symbols.find(entry => entry.name === name)!);
+---
+<section class="luau-declaration" aria-label={`${name} declaration`}>
+  <h3 id={symbol.anchor}><a href={`#${symbol.anchor}`}><code>{name}</code></a></h3>
+  <Code code={symbol.declaration} lang="lua" />
+  {symbol.fields.length > 0 && <p class="fields"><strong>Fields:</strong> {symbol.fields.map((field, index) => <><span id={`${symbol.anchor}-${field.toLowerCase()}`}><code>{field}</code></span>{index < symbol.fields.length - 1 ? ', ' : ''}</>)}</p>}
+  {related.length > 0 && <p class="related"><strong>Related types:</strong> {related.map((entry, index) => <><a href={`/omnishell/reference/${entry.topic}/#${entry.anchor}`}><code>{entry.name}</code></a>{index < related.length - 1 ? ', ' : ''}</>)}</p>}
+</section>
+<style>
+  .luau-declaration { margin-block: 1.5rem; min-width: 0; }
+  h3 { scroll-margin-top: 6rem; }
+  h3 a { text-decoration: none; }
+  .fields, .related { overflow-wrap: anywhere; font-size: .875rem; }
+  .fields span { scroll-margin-top: 6rem; }
+  pre { overflow-x: auto; }
+</style>

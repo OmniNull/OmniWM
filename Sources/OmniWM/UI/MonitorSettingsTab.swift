@@ -87,145 +87,32 @@ struct MonitorSettingsTab: View {
     }
 
     var body: some View {
-        SettingsPage(
-            subtitle: String(
-                localized: "macOS controls where windows are placed. OmniWM can use a separate map that matches how your displays are actually arranged on your desk."
-            )
-        ) {
-            MonitorSetupLaunchSection(isComplete: settings.monitorSetupStatus == .completed) {
-                isMonitorSetupPresented = true
+        TabView(selection: Binding(
+            get: { navigation.route.tab ?? "arrangement" },
+            set: { navigation.selectTab($0) }
+        )) {
+            Tab("Arrangement", systemImage: "display.2", value: "arrangement") {
+                Form { arrangementSections }
+                    .formStyle(.grouped)
             }
-
-            Section("macOS Arrangement") {
-                if sortedMonitors.isEmpty {
-                    Text("No monitors detected.")
-                        .foregroundStyle(.secondary)
-                } else {
-                    MonitorArrangementCanvas(
-                        monitors: sortedMonitors,
-                        displayLabels: displayLabels,
-                        selected: effectiveSelectedMonitorID,
-                        onSelect: { selectedMonitor = $0 }
-                    )
-                    SettingsCaption(
-                        localized: "This is the technical macOS map used for actual window placement. For multiple displays, the setup guide shows how to arrange them as a corner-to-corner staircase."
-                    )
-                }
-            }
-
-            Section("OmniWM Routing Arrangement") {
-                Picker("Arrangement", selection: routingModeSelection) {
-                    Text("Use macOS Arrangement").tag(MonitorRoutingMode.macOS)
-                    Text("Custom Arrangement").tag(MonitorRoutingMode.custom)
-                }
-                .pickerStyle(.segmented)
-
-                if settings.monitors.routingMode == .custom {
-                    if routingTiles.isEmpty {
-                        Text(
-                            connectedMonitors.isEmpty ?
-                                String(localized: "No monitors detected.") :
-                                String(localized: "Custom routing does not match the connected monitors.")
-                        )
-                        .foregroundStyle(.secondary)
-                    } else {
-                        RoutingArrangementCanvas(
-                            tiles: routingTiles,
-                            selected: effectiveSelectedMonitorID,
-                            onSelect: { selectedMonitor = $0 },
-                            onPlace: { placeRouting($0, column: $1, row: $2) }
-                        )
-
-                        if !routingNeighborPreview.isEmpty {
-                            ForEach(routingNeighborPreview, id: \.direction) { entry in
-                                LabeledContent(entry.direction) {
-                                    Text(entry.name).foregroundStyle(.secondary)
-                                }
+            Tab("Behavior", systemImage: "cursorarrow.motionlines", value: "behavior") {
+                Form {
+                    Section("Display") {
+                        Picker("Configure Display", selection: $selectedMonitor) {
+                            ForEach(sortedMonitors, id: \.id) { monitor in
+                                Text(monitor.name).tag(Optional(monitor.id))
                             }
                         }
-
-                        RoutingAccessibleEditor(rows: routingRows, onMove: { moveRouting($0, $1) })
+                        .id("Configure Display")
                     }
-
-                    if !sortedMonitors.isEmpty {
-                        switch routingEditorLayout.source {
-                        case .exact:
-                            SettingsCaption(
-                                localized: "This arrangement is saved for the connected displays. Changes update only this arrangement."
-                            )
-                        case .inherited:
-                            SettingsCaption(
-                                localized: "Using an arrangement saved with additional displays. Editing or resetting saves a separate arrangement for the displays connected now."
-                            )
-                        case .macOS:
-                            SettingsCaption(
-                                localized: "No valid saved arrangement covers the connected displays. The macOS arrangement is shown without changing your saved arrangements. Dragging a monitor or using the arrow controls saves an arrangement for these displays."
-                            )
-                        }
-                    }
-
-                    Button("Reset Custom Arrangement to macOS Layout") { seedFromMacOS() }
-
-                    SettingsCaption(
-                        localized: "Make this look like your real desk. Displays in the same row or column can exchange focus, windows, and the pointer. OmniWM remembers an arrangement for each set of connected displays. This does not change where macOS places windows."
-                    )
-                } else {
-                    SettingsCaption(
-                        localized: "Routing currently follows the technical macOS map. Run the setup guide to create a separate map that matches your desk."
-                    )
+                    .id("Display")
+                    behaviorSections
                 }
-            }
-
-            MonitorRolesSection(
-                settings: settings.monitors,
-                connectedMonitors: connectedMonitors,
-                displayLabels: displayLabels,
-                onRankingChanged: controller.updateWorkspaceConfig
-            )
-
-            Section("Cross-Monitor Behavior") {
-                Toggle("Focus Across Monitor at Edge", isOn: Bindable(settings.focus).crossesMonitorAtEdge)
-                Toggle("Move Window Across Monitor at Edge", isOn: Bindable(settings.focus).moveCrossesMonitorAtEdge)
-                Toggle("Follow Window to Monitor", isOn: Bindable(settings.focus).followsWindowToMonitor)
-                Toggle(isOn: Bindable(settings.pointer).enabled) {
-                    HStack(spacing: 8) {
-                        Text("Mouse Warp")
-                        MonitorBadge(text: String(localized: "Recommended"))
-                    }
-                }
-                Toggle("Constrain Cursor to Arrangement", isOn: Bindable(settings.pointer).constrainToArrangement)
-                    .disabled(!settings.pointer.enabled || settings.monitors.routingMode != .custom)
-
-                LabeledContent("Mouse Warp Margin") {
-                    Stepper(value: Bindable(settings.pointer).margin, in: 1 ... 10) {
-                        Text("\(settings.pointer.margin) px")
-                            .foregroundStyle(.secondary)
-                            .monospacedDigit()
-                    }
-                }
-                .disabled(!settings.pointer.enabled)
-
-                SettingsCaption(
-                    localized: "Mouse Warp moves the pointer across matching display edges using the OmniWM routing arrangement. It is recommended when the macOS displays touch only at their corners."
-                )
-            }
-
-            Section("Monitor Orientation") {
-                if let monitor = selectedConnectedMonitor,
-                   let displayLabel = displayLabels[monitor.id]
-                {
-                    SelectedMonitorDetails(
-                        settings: settings,
-                        controller: controller,
-                        monitor: monitor,
-                        displayLabel: displayLabel
-                    )
-                } else {
-                    Text("No monitors detected.")
-                        .foregroundStyle(.secondary)
-                }
+                .formStyle(.grouped)
             }
         }
+        .padding(.horizontal, 20)
+        .padding(.bottom, 16)
         .onAppear {
             refreshConnectedMonitors()
             presentRequestedMonitorSetupIfNeeded()
@@ -250,6 +137,156 @@ struct MonitorSettingsTab: View {
         }
     }
 
+    @ViewBuilder
+    private var arrangementSections: some View {
+        MonitorSetupLaunchSection(isComplete: settings.monitorSetupStatus == .completed) {
+            isMonitorSetupPresented = true
+        }
+
+        Section("macOS Arrangement") {
+            if sortedMonitors.isEmpty {
+                Text("No monitors detected.")
+                    .foregroundStyle(.secondary)
+            } else {
+                MonitorArrangementCanvas(
+                    monitors: sortedMonitors,
+                    displayLabels: displayLabels,
+                    selected: effectiveSelectedMonitorID,
+                    onSelect: { selectedMonitor = $0 }
+                )
+                SettingsCaption(
+                    localized: "This is the technical macOS map used for actual window placement. For multiple displays, the setup guide shows how to arrange them as a corner-to-corner staircase."
+                )
+            }
+        }
+        .id("macOS Arrangement")
+
+        Section("OmniWM Routing Arrangement") {
+            Picker("Arrangement", selection: routingModeSelection) {
+                Text("Use macOS Arrangement").tag(MonitorRoutingMode.macOS)
+                Text("Custom Arrangement").tag(MonitorRoutingMode.custom)
+            }
+            .id("Arrangement")
+            .pickerStyle(.segmented)
+
+            if settings.monitors.routingMode == .custom {
+                if routingTiles.isEmpty {
+                    Text(
+                        connectedMonitors.isEmpty ?
+                            String(localized: "No monitors detected.") :
+                            String(localized: "Custom routing does not match the connected monitors.")
+                    )
+                    .foregroundStyle(.secondary)
+                } else {
+                    RoutingArrangementCanvas(
+                        tiles: routingTiles,
+                        selected: effectiveSelectedMonitorID,
+                        onSelect: { selectedMonitor = $0 },
+                        onPlace: { placeRouting($0, column: $1, row: $2) }
+                    )
+
+                    if !routingNeighborPreview.isEmpty {
+                        ForEach(routingNeighborPreview, id: \.direction) { entry in
+                            LabeledContent(entry.direction) {
+                                Text(entry.name).foregroundStyle(.secondary)
+                            }
+                        }
+                    }
+
+                    RoutingAccessibleEditor(rows: routingRows, onMove: { moveRouting($0, $1) })
+                }
+
+                if !sortedMonitors.isEmpty {
+                    switch routingEditorLayout.source {
+                    case .exact:
+                        SettingsCaption(
+                            localized: "This arrangement is saved for the connected displays. Changes update only this arrangement."
+                        )
+                    case .inherited:
+                        SettingsCaption(
+                            localized: "Using an arrangement saved with additional displays. Editing or resetting saves a separate arrangement for the displays connected now."
+                        )
+                    case .macOS:
+                        SettingsCaption(
+                            localized: "No valid saved arrangement covers the connected displays. The macOS arrangement is shown without changing your saved arrangements. Dragging a monitor or using the arrow controls saves an arrangement for these displays."
+                        )
+                    }
+                }
+
+                Button("Reset Custom Arrangement to macOS Layout") { seedFromMacOS() }
+                    .id("Reset Custom Arrangement to macOS Layout")
+
+                SettingsCaption(
+                    localized: "Make this look like your real desk. Displays in the same row or column can exchange focus, windows, and the pointer. OmniWM remembers an arrangement for each set of connected displays. This does not change where macOS places windows."
+                )
+            } else {
+                SettingsCaption(
+                    localized: "Routing currently follows the technical macOS map. Run the setup guide to create a separate map that matches your desk."
+                )
+            }
+        }
+        .id("OmniWM Routing Arrangement")
+
+        MonitorRolesSection(
+            settings: settings.monitors,
+            connectedMonitors: connectedMonitors,
+            displayLabels: displayLabels,
+            onRankingChanged: controller.updateWorkspaceConfig
+        )
+    }
+
+    @ViewBuilder
+    private var behaviorSections: some View {
+        Section("Cross-Monitor Behavior") {
+            Toggle("Focus Across Monitor at Edge", isOn: Bindable(settings.focus).crossesMonitorAtEdge)
+                .id("Focus Across Monitor at Edge")
+            Toggle("Move Window Across Monitor at Edge", isOn: Bindable(settings.focus).moveCrossesMonitorAtEdge)
+                .id("Move Window Across Monitor at Edge")
+            Toggle("Follow Window to Monitor", isOn: Bindable(settings.focus).followsWindowToMonitor)
+                .id("Follow Window to Monitor")
+            Toggle(isOn: Bindable(settings.pointer).enabled) {
+                HStack(spacing: 8) {
+                    Text("Mouse Warp")
+                    MonitorBadge(text: String(localized: "Recommended"))
+                }
+            }
+            Toggle("Constrain Cursor to Arrangement", isOn: Bindable(settings.pointer).constrainToArrangement)
+                .id("Constrain Cursor to Arrangement")
+                .disabled(!settings.pointer.enabled || settings.monitors.routingMode != .custom)
+
+            LabeledContent("Mouse Warp Margin") {
+                Stepper(value: Bindable(settings.pointer).margin, in: 1 ... 10) {
+                    Text("\(settings.pointer.margin) px")
+                        .foregroundStyle(.secondary)
+                        .monospacedDigit()
+                }
+            }
+            .disabled(!settings.pointer.enabled)
+
+            SettingsCaption(
+                localized: "Mouse Warp moves the pointer across matching display edges using the OmniWM routing arrangement. It is recommended when the macOS displays touch only at their corners."
+            )
+        }
+        .id("Cross-Monitor Behavior")
+
+        Section("Monitor Orientation") {
+            if let monitor = selectedConnectedMonitor,
+               let displayLabel = displayLabels[monitor.id]
+            {
+                SelectedMonitorDetails(
+                    settings: settings,
+                    controller: controller,
+                    monitor: monitor,
+                    displayLabel: displayLabel
+                )
+            } else {
+                Text("No monitors detected.")
+                    .foregroundStyle(.secondary)
+            }
+        }
+        .id("Monitor Orientation")
+    }
+
     private func presentRequestedMonitorSetupIfNeeded() {
         guard navigation.consumeMonitorSetupPresentationRequest() else { return }
         isMonitorSetupPresented = true
@@ -263,7 +300,9 @@ struct MonitorSettingsTab: View {
             monitors: MonitorSettingsTabModel.sortedMonitors(monitors)
         )
     }
+}
 
+extension MonitorSettingsTab {
     private func routingNeighbor(of monitor: Monitor, _ direction: Direction) -> Monitor? {
         switch MonitorRouting.gridAdjacent(
             from: monitor,
@@ -414,12 +453,14 @@ private struct SelectedMonitorDetails: View {
             Text("Horizontal").tag(Monitor.Orientation.horizontal as Monitor.Orientation?)
             Text("Vertical").tag(Monitor.Orientation.vertical as Monitor.Orientation?)
         }
+        .id("Orientation Override")
         .pickerStyle(.segmented)
 
         if orientationOverride != nil {
             Button("Reset to Auto") {
                 updateOrientation(nil)
             }
+            .id("Reset to Auto")
         }
 
         SettingsCaption(localized: "Vertical monitors scroll windows top-to-bottom instead of left-to-right.")

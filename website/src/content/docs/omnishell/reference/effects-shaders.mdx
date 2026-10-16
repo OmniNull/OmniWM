@@ -1,0 +1,195 @@
+---
+title: Effects and shaders
+description: Editable motion presets, Metal shaders, texture effects, shaped materials, masks, and explicit opening timing.
+sidebar:
+  order: 9
+---
+
+import LuauDeclaration from '../../../../components/docs/LuauDeclaration.astro';
+
+:::note[Unreleased]
+OmniShell and this API are available when building from `main`.
+:::
+
+Use [shared element properties](/omnishell/reference/layout-styling/) for material and paint, and [input and motion](/omnishell/reference/input-motion/) for native transitions. The effects library is editable Luau and Metal source, rather than additional `ui` globals.
+
+## Shaders
+
+`ui.shader{ source = "glow.metal", values = { 1, 0.5 }, fps = 30 }` draws a Metal fragment shader from the widget's folder or a `shaders/` folder. The file defines one function:
+
+```cpp
+float4 shade(float2 uv, constant OmniShader& shader) {
+    float edge = smoothstep(0.0, 0.2, uv.y) * shader.progress;
+    return float4(shader.colors[omni_accent].rgb, edge);
+}
+```
+
+`uv` runs from 0 to 1 across the shader, top left first. `shader` holds:
+
+- `size` (points), `scale`, `time` (seconds, while `fps` is above 0), `values` (up to four numbers) and `colors` (the theme's roles, such as `omni_accent`);
+- `progress`, which runs from 0 to 1 as a popout opens and back to 0 as it closes;
+- `anchor`, the middle of the bar item that opened the popout, and `content`, the popout's content as x, y, width and height, both in points from the shader's top left;
+- `audio`, with `audio = true` on the shader: the 60 `spectrum` bars from 0 to 1, updated 30 times a second without re-rendering the widget. Such a shader draws at 30 fps unless `fps` says otherwise.
+
+With `fps` at 0, animations off or Low Power Mode, a shader draws once, with `progress` at its end value.
+
+A profile can also draw a shader behind the entire workspace bar, underneath all three widget lanes:
+
+```toml
+[barShader]
+source = "matrix-rain.metal"
+fps = 30
+values = [0.38, 1, 12, 1]
+```
+
+Put this table in the profile's `shell.toml`; in the user shell file, use `[profiles.matrix.barShader]`. The source is a `.metal` filename resolved through `shell/shaders/`, the selected profile's `shaders/`, then `default/shaders/`. `fps` accepts integers from 0 to 60, and `values` accepts up to four finite numbers. `enabled = false` disables the profile's bar shader. Matrix's four values are intensity, speed, character size in points, and bar glow (0–1). Sakura's are petal opacity, speed, petal size in points, and time offset; its popouts set these in `sakura/lib/style.luau`. The background follows bar opacity and yields to transparent or solid-black bar settings. It never intercepts clicks, and it pauses while hidden, locked or displays are asleep. Oversized bars keep their full logical bounds while lowering shader resolution to fit the existing 4096-pixel limit; widget text remains at display resolution. Failed shaders leave the ordinary bar fill visible and report their error in the shell log.
+
+`open` and `close` on a popout's root set how many seconds `progress` takes to run from 0 to 1 and back, for example `ui.stack{ open = 0.8, close = 0.4, ... }`. They are exact: they ignore the animation speed setting, still play with animations off, and keep the shader drawing while they run whatever its `fps`. Drawers use the `open` and `close` of each widget they show; without them a drawer's shaders follow its slide.
+
+Any element in a popout or drawer can take `enter`, the state it starts from as the popout opens: `opacity`, `scale` (around its centre), `dx` and `dy` (points), plus `from` and `to`, the part of the opening it moves in (0 to 1, by default all of it), and `curve`. Closing plays it backwards. Give rows different `from` values to bring them in one after another:
+
+```lua
+ui.text{ text = "Hello", enter = { opacity = 0, dy = -8, from = 0.5, to = 0.9, curve = "back" } }
+```
+
+A `curve` is `linear`, `easeIn`, `easeOut`, `easeInOut`, `back` (overshoots), one of Material 3's `standard`, `standardAccel`, `standardDecel`, `emphasized`, `emphasizedAccel` and `emphasizedDecel`, one of the expressive `fastSpatial`, `spatial`, `slowSpatial` (these overshoot), `fastEffects`, `effects` and `slowEffects`, or your own cubic Bézier as 4 numbers, or 6 numbers per segment ending each at `x, y`. `animate` takes the same names, with their Material durations (`spatial` is 0.5 s), or `{ duration = 0.3, curve = ... }`. When the root of a popout or drawer has `animate`, the panel morphs to its new size instead of jumping, for example between dashboard tabs. `enter = { dy = -400, curve = "spatial", stretch = 0.1 }` also squashes the element along its slide while it moves fast and springs it back, as Caelestia's panels do; `stretch` is how strongly (Caelestia uses 0.03 to 0.25). `rotate` turns an element by degrees around its centre; a text turned by 90 also takes the turned space in its row or column, for vertical titles on side bars. `loop = { rotate = { 0, 360, 20 }, dx = { -10, 10, 6 }, dy = ..., paused = not playing }` repeats each motion from `from` to `to` every `seconds`, without re-rendering the widget. `trail = true` on an element with `animate` moves its leading edge on time and its trailing edge 1.5 times slower, so a moving indicator stretches and catches up.
+
+`mask = true` turns a shader into the shape of the stack it sits in. The shader is not drawn; everything else in that stack (its material, fill, border and children) shows only where the shader's alpha is. That gives blurred material in any shape. Use one mask per stack, and for a shaped popout put the shaped material in a stack inside a `clear` root, because the popout's own panel background stays a rounded rectangle:
+
+```lua
+function popout(ctx)
+    return ui.stack{ material = "clear", open = 0.6,
+        ui.stack{ material = "regular",
+            ui.shader{ source = "blob.metal", mask = true, fps = 60 },
+            ui.column{ pad = 24, ui.text{ text = "Shaped glass" } } } }
+end
+```
+
+Until a mask shader draws its first frame its stack stays hidden; if it fails to compile, the stack shows unmasked.
+
+The element shader `fps` property is bounded to 0–120; profile-wide `[barShader].fps` is 0–60. Those are distinct contracts. `texture` accepts a qualified asset or contained image path; `source` names the Metal program, `values` supplies up to four parameters, and `audio = true` enables the native spectrum input.
+
+<LuauDeclaration name="ui.shader" />
+
+<LuauDeclaration name="ShaderProps" />
+
+## Editable effects library
+
+Add **Effects Lab** from **Bar Widgets** to try the bundled motion, light and mask presets. The gallery is opt-in and works with every profile. Its **Glass / Frosted** button changes the panel material; the light and mask previews also use a blurred material behind their content. **Hide / Show** plays element transitions, **Move** retargets the trailing indicator, **Freeze / Animate** selects a static or animated shader, and the mask slider scrubs the reveal. Stretch also plays when the panel opens. Freeze draws the shader at time zero; it does not hold its last animated frame.
+
+The editable files are installed under `~/.config/omniwm/shell/default/`:
+
+- `lib/effects.luau` contains the recipes and defaults.
+- `shaders/effects-*.metal` contains the visual effects and reveal masks.
+- `widgets/effects-lab/init.luau` is the complete gallery example.
+
+From a widget's `init.luau`, load the library with `require("../lib/effects")`. User `shell/lib/` and `shell/shaders/` files override the selected profile, which overrides `default/`. Use `omniwmctl shell eject lib/effects.luau` to create a persistent library override. To customize a shader, copy it into `shell/shaders/` with the same filename. To customize the gallery, use `omniwmctl shell eject effects-lab`.
+
+`effects.motion(name, props)` returns element properties. Preset tables are copied, caller properties win, and your supplied properties are not modified. Nested properties such as `animate`, `appear` and `exit` replace the preset's corresponding table as a whole.
+
+| Motion | Behavior |
+| --- | --- |
+| `fade` | Short ease-out opacity transition |
+| `slide` | Spring movement and fade on insertion/removal |
+| `pop` | Scale from half size, settle with a small bounce, shrink on removal |
+| `spring` | Softer, more pronounced spring |
+| `stretch` | Spatial entrance with native stretch; insertion/removal slides |
+| `indicator` | Spring retargeting with a trailing edge |
+
+```lua
+local effects = require("../lib/effects")
+
+function render(ctx)
+    return ui.box(effects.motion("pop", {
+        key = "status", pad = 8, radius = 10, fill = "surface",
+        pressScale = 0.95,
+        ui.text{ text = "Ready" },
+    }))
+end
+```
+
+Keep the same key when moving or resizing an element. `appear` and `exit` run when an element is inserted or removed; changing its key requests a new identity. Ordinary motion runs in Core Animation, without a Luau update for every frame.
+
+`effects.shader(name, props)` and `effects.mask(name, props)` return `ui.shader` elements. Properties such as `w`, `h`, `key`, `fps` and `values` override their defaults. Omit size to fill the parent stack. Supply all four `values` when overriding them:
+
+| Helper / name | Four values, in order | Default fps |
+| --- | --- | --- |
+| `shader("aurora")` | strength `0.7`, speed `1`, unused `0`, unused `0` | 30 |
+| `shader("sheen")` | strength `0.3`, pattern frequency `1`, unused `0`, unused `0` | 0 |
+| `shader("glow")` | corner radius `16`, inward reach `18`, strength `0.65`, falloff power `2` | 0 |
+| `shader("ring")` | corner radius `16`, stroke width `2`, angle in degrees `45`, opacity `1` | 0 |
+| `shader("rotating-border")` | corner radius `16`, stroke width `3`, degrees per second `90`, opacity `1` | 30 |
+| `shader("pixelate")` | maximum block size `48`, unused `0`, unused `0`, progress `-1` | 0 |
+| `shader("genie")` | horizontal anchor `0.5`, top anchor `0` (bottom; `1` for top), unused `0`, progress `-1` | 0 |
+| `mask("burn")` | noise size `26`, feather `0.015`, edge overlay `0`, progress `-1` | 0 |
+| `mask("smoke")` | cloud size `60`, softness `0.14`, haze overlay `0`, progress `-1` | 0 |
+| `mask("circle")` | origin x `0.5`, origin y `0.5`, feather `1`, progress `-1` | 0 |
+| `mask("wipe")` | direction x `1`, direction y `0`, feather `1`, progress `-1` | 0 |
+| `mask("dissolve")` | cell size `8`, softness `1`, seed `0`, progress `-1` | 0 |
+
+Lengths are in points, circle origins are fractions of the element size, and strength/opacity/softness range from 0 to 1. A wipe direction of `0, 1` reveals downward; `-1, 0` reveals from the right. Reveal presets use `shader.progress` when the fourth value is `-1`, an explicit 0–1 reveal otherwise, or `-2` with `fps = 30` for a three-second repeating preview. Dissolve is deterministic for the same size, seed and progress. All masks fully hide at 0 and fully reveal at 1.
+
+The **Light** tab includes a rotating gradient border. **Masks** includes burn and smoke; their paired `effects.shader("burn")` / `effects.shader("smoke")` presets use the same parameters with the third value set to `1` to draw the ember edge or haze over the masked content. The **Texture** tab demonstrates actual image pixelation and genie deformation. **Play preview** animates on the native shader clock; moving the progress slider returns to manual scrubbing.
+
+The **Blur** tab adjusts the existing native backdrop with `blurRadius = 0…64` points and `saturation = 0…3`; omitted values retain the material's radius and saturation `1.8`. Zero radius removes blur, and saturation `1` is neutral. Use `fill` for tint and opacity. These properties apply to layer materials such as `regular`; they do not change root `glass` or `popover` system materials. The Lab uses a clear panel and an image behind the controlled material so you can compare the full range.
+
+```lua
+ui.stack{ material = "regular", blurRadius = 28, saturation = 1.2,
+    fill = "surface/0.15", radius = 16, w = 320, h = 180,
+    ui.text{ text = "Adjustable native blur" },
+}
+```
+
+A texture shader accepts `texture = omniwm.asset("@self/card.png")` or a contained image path using the same lookup as `ui.image`. It samples the first image frame, stretched into the shader bounds. The image uploads once when its decoded identity changes; normal shader frames only sample that texture. Missing images render transparently. This operates on the supplied image, not a live subtree or another application's window. Keep live blur/glass on the surrounding stack.
+
+```lua
+local effects = require("../lib/effects")
+local card = omniwm.asset("@self/card.png")
+
+function popout(ctx)
+    return ui.stack{ w = 360, h = 180, material = "glass", open = 0.65, close = 0.35,
+        effects.shader("genie", { texture = card }),
+    }
+end
+```
+
+Custom texture shaders declare `#define OMNI_TEXTURE` and use `float4 shade(float2 uv, constant OmniShader& shader, texture2d<float> image)`. `omni_sample(image, uv)` returns straight RGBA with safe premultiplied filtering; return that color directly. Coordinates outside 0–1 are transparent; edge texels stay opaque when enlarged. Existing two-argument shaders keep their usual signature. `omni_progress(shader)` implements the reveal convention above, and `omni_noise(point)` provides smooth deterministic value noise. The editable sample texture is `widgets/effects-lab/sample.png`.
+
+This example combines a circular reveal, blurred material, aurora and real text. Explicit root `open`/`close` timing drives the mask while its `fps = 0` leaves it idle after the transition. As with other explicit shader timing, it still plays with ordinary animations disabled.
+
+```lua
+local effects = require("../lib/effects")
+
+function render(ctx)
+    return ui.box{ popout = true, pad = 6, ui.text{ text = "Reveal" } }
+end
+
+function popout(ctx)
+    return ui.stack{ material = "clear", open = 0.55, close = 0.25,
+        ui.stack{ w = 320, h = 180, radius = 16, material = "regular", center = true,
+            effects.mask("circle"),
+            effects.shader("aurora"),
+            ui.text{ text = "A softer arrival", size = 20, weight = "semibold" },
+        },
+    }
+end
+```
+
+For native Liquid Glass, set the popout root to `material = "glass"` and add a ring or sheen:
+
+```lua
+local effects = require("../lib/effects")
+
+function render(ctx)
+    return ui.box{ popout = true, pad = 6, ui.text{ text = "Glass" } }
+end
+
+function popout(ctx)
+    return ui.stack{ w = 320, h = 180, radius = 16, material = "glass", center = true,
+        effects.shader("ring", { values = { 16, 2, 45, 0.8 } }),
+        ui.text{ text = "Glass with a little color", size = 18 },
+    }
+end
+```
+
+The library draws procedural color and alpha. Aurora and sheen are decorative adaptations; they do not refract the desktop. Masks shape their parent, including its material and children, but do not distort the children's pixels. The native Liquid Glass panel remains rectangular with rounded corners; use a `clear` root and a masked inner material for shaped panels. Existing shader visibility, Low Power Mode and GPU-budget controls apply. No screen capture, extra animation loop or provider is needed.

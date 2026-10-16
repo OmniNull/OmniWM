@@ -10,7 +10,7 @@ extension WorkspaceManager {
         settings.liveWorkspaceNamesForHotkeys = { [weak self] in
             self?.workspaceCatalog.descriptors.values.map(\.name) ?? []
         }
-        settings.reconcileWorkspaceNumberHotkeys()
+        settings.reconcileDynamicHotkeys()
     }
 
     func garbageCollectUnusedWorkspaces(focusedWorkspaceId: WorkspaceDescriptor.ID?) {

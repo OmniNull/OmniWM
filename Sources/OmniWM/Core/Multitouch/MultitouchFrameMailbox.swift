@@ -80,6 +80,19 @@ final class MultitouchFrameMailbox: @unchecked Sendable {
         state.withLock { $0.steadyFrameFloor = floor }
     }
 
+    var activePhysicalFingerCount: Int {
+        state.withLock { value in
+            if let owner = value.ownerSlot {
+                return value.physicalFingerCounts[owner]
+            }
+            var maxCount = 0
+            for i in 0 ..< 64 where value.physicalFingerCounts[i] > maxCount {
+                maxCount = value.physicalFingerCounts[i]
+            }
+            return maxCount
+        }
+    }
+
     func offer(_ frame: MultitouchGestureSource.RawFrame, generation: UInt, slot: Int) -> Bool {
         state.withLock { value in
             if let counters = value.performanceCounters {

@@ -54,6 +54,8 @@ final class IPCCommandRouter {
             return controller.commandHandler.performCommand(.fullscreen(command))
         case let .presentation(command):
             return controller.commandHandler.performCommand(.presentation(command))
+        case let .media(command):
+            return controller.commandHandler.performCommand(.media(command))
         case let .windowState(command):
             return controller.commandHandler.performCommand(.windowState(command))
         case let .scratchpad(command):

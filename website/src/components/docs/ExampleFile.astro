@@ -1,0 +1,23 @@
+---
+import { readFileSync } from 'node:fs';
+import { fileURLToPath } from 'node:url';
+import { resolve, sep } from 'node:path';
+import { Code } from '@astrojs/starlight/components';
+
+interface Props {
+  file: string;
+}
+
+const { file } = Astro.props;
+const directory = fileURLToPath(new URL('../../../public/examples/omnishell/', import.meta.url));
+const path = resolve(directory, file);
+if (!path.startsWith(directory.endsWith(sep) ? directory : directory + sep)) {
+  throw new Error(`Example path is outside the examples directory: ${file}`);
+}
+const code = readFileSync(path, 'utf8');
+const language = file.endsWith('.toml') ? 'toml' : 'lua';
+const url = '/examples/omnishell/' + file.split('/').map(encodeURIComponent).join('/');
+---
+
+<p><a href={url} download>Download {file}</a></p>
+<Code code={code} lang={language} title={file} />

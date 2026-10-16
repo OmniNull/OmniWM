@@ -61,6 +61,53 @@ enum MenuBarItemLocator {
     private static let settlePollInterval: TimeInterval = 0.05
     private static let locateDeadline: Duration = .seconds(2)
 
+    @MainActor
+    static func menuTarget(
+        matching target: ResolvedMenuBarItem,
+        cachedItems: [ResolvedMenuBarItem],
+        environment: MenuExtractorEnvironment
+    ) throws -> AXUIElement? {
+        let deadline = MenuAXDeadline(start: environment.now(), timeout: 0.25)
+        let app = AXUIElementCreateApplication(target.pid)
+        let extrasValue = try environment.readAttribute(
+            app, "AXExtrasMenuBar" as CFString, deadline.remaining(at: environment.now())
+        )
+        guard let extrasValue, let extras = AXUIElement.from(extrasValue as CFTypeRef) else {
+            throw MenuExtractionError.invalidResponse
+        }
+        let childrenValue = try environment.readAttribute(
+            extras, kAXChildrenAttribute as CFString, deadline.remaining(at: environment.now())
+        )
+        guard let children = childrenValue as? [AXUIElement] else {
+            throw MenuExtractionError.invalidResponse
+        }
+        let names = ["AXIdentifier", "AXTitle", "AXDescription", "AXHelp"]
+        var freshItems: [ResolvedMenuBarItem] = []
+        freshItems.reserveCapacity(children.count)
+        for (index, child) in children.enumerated() {
+            let values = try environment.readAttributes(
+                child, names as CFArray, deadline.remaining(at: environment.now())
+            )
+            let attributes = try MenuAXReader.decodeAttributeValues(names: names, values: values)
+            var strings: [String: String] = [:]
+            for (name, value) in attributes {
+                guard let value = value as? String else { throw MenuExtractionError.invalidResponse }
+                let normalized = value.trimmingCharacters(in: .whitespacesAndNewlines)
+                if !normalized.isEmpty { strings[name] = normalized }
+            }
+            let identity = semanticIdentity { strings[$0] }
+            freshItems.append(ResolvedMenuBarItem(
+                key: MenuBarItemKey(bundleID: target.key.bundleID, ordinal: index),
+                pid: target.pid, bounds: .zero, semanticIdentity: identity
+            ))
+        }
+        guard let match = HiddenBarActivationPolicy.activationTarget(
+            for: target.key, cachedItems: cachedItems, cachedIcons: [:],
+            freshItems: freshItems, freshIcons: [:]
+        ) else { return nil }
+        return children[match.key.ordinal]
+    }
+
     static func resolveItems(
         candidates: [MenuBarAppCandidate],
         bundleIDs: Set<String>,
@@ -236,7 +283,11 @@ enum MenuBarItemLocator {
     }
 
     private static func semanticIdentity(of element: AXUIElement) -> MenuBarItemSemanticIdentity? {
-        if let identifier = stringAttribute("AXIdentifier", of: element) {
+        semanticIdentity { stringAttribute($0, of: element) }
+    }
+
+    private static func semanticIdentity(read: (String) -> String?) -> MenuBarItemSemanticIdentity? {
+        if let identifier = read("AXIdentifier") {
             return MenuBarItemSemanticIdentity(
                 identifier: identifier,
                 title: nil,
@@ -246,9 +297,9 @@ enum MenuBarItemLocator {
         }
         let identity = MenuBarItemSemanticIdentity(
             identifier: nil,
-            title: stringAttribute(kAXTitleAttribute, of: element),
-            accessibilityDescription: stringAttribute(kAXDescriptionAttribute, of: element),
-            help: stringAttribute(kAXHelpAttribute, of: element)
+            title: read(kAXTitleAttribute),
+            accessibilityDescription: read(kAXDescriptionAttribute),
+            help: read(kAXHelpAttribute)
         )
         guard identity.identifier != nil || identity.title != nil
             || identity.accessibilityDescription != nil || identity.help != nil

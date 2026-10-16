@@ -38,6 +38,19 @@ extension NiriLayoutEngine {
         column.isTabbed ? renderStyle.tabIndicatorWidth : 0
     }
 
+    func isViewportAnchor(
+        _ column: NiriContainer,
+        in workspaceId: WorkspaceDescriptor.ID,
+        state: ViewportState
+    ) -> Bool {
+        if let selectedId = state.selectedNodeId,
+           column.windowNodes.contains(where: { $0.id == selectedId })
+        {
+            return true
+        }
+        return columnIndex(of: column, in: workspaceId) == state.activeColumnIndex
+    }
+
     private func applyColumnWidth(
         _ column: NiriContainer,
         width newWidth: ProportionalSize,
@@ -69,6 +82,7 @@ extension NiriLayoutEngine {
             animated: context.motion.animationsEnabled
         )
 
+        guard isViewportAnchor(column, in: context.workspaceId, state: state) else { return }
         if context.orientation == .horizontal {
             ensureContainerSelectionVisible(column, context: context, state: &state)
         }
@@ -108,6 +122,7 @@ extension NiriLayoutEngine {
         )
 
         let verticalContext = context.oriented(.vertical)
+        guard isViewportAnchor(column, in: context.workspaceId, state: state) else { return }
         ensureContainerSelectionVisible(column, context: verticalContext, state: &state)
         recoverSettledCoverage(context: verticalContext, state: &state)
     }
@@ -130,9 +145,7 @@ extension NiriLayoutEngine {
             gaps: context.gaps
         )
 
-        let currentSpec = column.isFullHeight ? ProportionalSize.proportion(1) : column.height
         let newHeight = NiriSizeChange(presetContainerPrimarySpans[nextIndex]).primarySpanSpec(
-            currentSpec: currentSpec,
             currentPixels: currentHeight,
             axisSpan: context.workingFrame.height,
             gaps: context.gaps
@@ -180,6 +193,7 @@ extension NiriLayoutEngine {
 
         let settings = effectiveSettings(in: context.workspaceId)
         let verticalContext = context.oriented(.vertical)
+        guard isViewportAnchor(column, in: context.workspaceId, state: state) else { return }
         if settings.centerFocusedColumn == .always
             || (settings.alwaysCenterSingleColumn && containers.count == 1)
         {
@@ -229,9 +243,7 @@ extension NiriLayoutEngine {
             context: context
         )
 
-        let currentSpec = column.isFullWidth ? ProportionalSize.proportion(1) : column.width
         let newWidth = NiriSizeChange(presetContainerPrimarySpans[nextIdx]).primarySpanSpec(
-            currentSpec: currentSpec,
             currentPixels: previousWidth,
             axisSpan: context.workingFrame.width,
             gaps: context.gaps
@@ -309,48 +321,42 @@ extension NiriLayoutEngine {
     ) {
         assertSanctionedMutation()
         beginManualPrimarySpanResize(column, in: context.workspaceId, orientation: context.orientation)
-        if context.orientation == .vertical {
-            let previousHeight = column.currentHeightForSizing(
-                workingAreaHeight: context.workingFrame.height,
-                gaps: context.gaps
+        let horizontal = context.orientation == .horizontal
+        let currentSpec = horizontal
+            ? (column.isFullWidth ? .proportion(1) : column.width)
+            : (column.isFullHeight ? .proportion(1) : column.height)
+        let axisSpan = horizontal ? context.workingFrame.width : context.workingFrame.height
+        let contentInset = horizontal ? tabContentInset(for: column) : 0
+        let currentPixels: CGFloat
+        if case .adjustProportion = change, currentSpec.isProportion {
+            currentPixels = column.resolvedPrimarySpan(
+                currentSpec,
+                orientation: context.orientation,
+                availableSpace: axisSpan,
+                gaps: context.gaps,
+                contentInset: contentInset,
+                applyingPackingHints: false
             )
-            let currentSpec = column.isFullHeight ? ProportionalSize.proportion(1) : column.height
-            let newHeight = change.primarySpanSpec(
-                currentSpec: currentSpec,
-                currentPixels: previousHeight,
-                axisSpan: context.workingFrame.height,
-                gaps: context.gaps
+        } else if horizontal {
+            currentPixels = column.resolvedWidthPixels(
+                currentSpec,
+                availableSpan: axisSpan,
+                gaps: context.gaps,
+                contentInset: contentInset
             )
-            applyContainerHeight(
-                column,
-                height: newHeight,
-                context: context,
-                state: &state
-            )
-            return
+        } else {
+            currentPixels = column.currentHeightForSizing(workingAreaHeight: axisSpan, gaps: context.gaps)
         }
-
-        let currentSpec = column.isFullWidth ? ProportionalSize.proportion(1) : column.width
-        let currentPixels = column.resolvedWidthPixels(
-            currentSpec,
-            availableSpan: context.workingFrame.width,
-            gaps: context.gaps,
-            contentInset: tabContentInset(for: column)
-        )
-        let newWidth = change.primarySpanSpec(
-            currentSpec: currentSpec,
+        let newSpan = change.primarySpanSpec(
             currentPixels: currentPixels,
-            axisSpan: context.workingFrame.width,
+            axisSpan: axisSpan,
             gaps: context.gaps
         )
-
-        applyColumnWidth(
-            column,
-            width: newWidth,
-            presetIndex: nil,
-            context: context,
-            state: &state
-        )
+        if horizontal {
+            applyColumnWidth(column, width: newSpan, presetIndex: nil, context: context, state: &state)
+        } else {
+            applyContainerHeight(column, height: newSpan, context: context, state: &state)
+        }
     }
 
     func toggleContainerFullPrimarySpan(
@@ -386,6 +392,7 @@ extension NiriLayoutEngine {
             animated: context.motion.animationsEnabled
         )
 
+        guard isViewportAnchor(column, in: context.workspaceId, state: state) else { return }
         if context.orientation == .horizontal {
             ensureContainerSelectionVisible(column, context: context, state: &state)
         }

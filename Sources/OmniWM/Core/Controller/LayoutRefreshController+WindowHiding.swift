@@ -6,6 +6,12 @@ import Foundation
 import QuartzCore
 
 extension LayoutRefreshController {
+    struct HideTarget {
+        let entry: WindowState
+        let monitor: Monitor
+        let side: HideSide
+    }
+
     private enum HideOperationResolution {
         case movable(WindowPositionPlan, hiddenState: HiddenState)
         case alreadyHidden(WindowPositionPlan, hiddenState: HiddenState)
@@ -185,22 +191,37 @@ extension LayoutRefreshController {
         preserveWorkspaceInactive: Bool
     ) {
         guard !hiddenEntries.isEmpty, let controller else { return }
-        var hiddenJobs: [(pid: pid_t, windowId: Int)] = []
-        hiddenJobs.reserveCapacity(hiddenEntries.count)
-        var parkPlans: [WindowPositionPlan] = []
-        parkPlans.reserveCapacity(hiddenEntries.count)
-        var movableParkPlans: [WindowPositionPlan] = []
-        movableParkPlans.reserveCapacity(hiddenEntries.count)
-        let hiddenPlacementMonitors = controller.workspaceManager.monitors.map(
-            HiddenPlacementMonitorContext.init
+        applyHides(
+            hiddenEntries.map { HideTarget(entry: $0.entry, monitor: monitor, side: $0.side) },
+            reason: .layoutTransient,
+            hiddenPlacementMonitors: controller.workspaceManager.monitors.map(HiddenPlacementMonitorContext.init),
+            isAnimationTick: isAnimationTick,
+            preserveWorkspaceInactive: preserveWorkspaceInactive
         )
+    }
 
-        for (entry, side) in hiddenEntries {
+    func applyHides(
+        _ targets: [HideTarget],
+        reason: HideReason,
+        hiddenPlacementMonitors: [HiddenPlacementMonitorContext],
+        isAnimationTick: Bool = false,
+        preserveWorkspaceInactive: Bool = true
+    ) {
+        guard !targets.isEmpty, let controller else { return }
+        var hiddenJobs: [(pid: pid_t, windowId: Int)] = []
+        hiddenJobs.reserveCapacity(targets.count)
+        var parkPlans: [WindowPositionPlan] = []
+        parkPlans.reserveCapacity(targets.count)
+        var movableParkPlans: [WindowPositionPlan] = []
+        movableParkPlans.reserveCapacity(targets.count)
+
+        for target in targets {
+            let entry = target.entry
             switch resolveHideOperation(
                 for: entry,
-                monitor: monitor,
-                side: side,
-                reason: .layoutTransient,
+                monitor: target.monitor,
+                side: target.side,
+                reason: reason,
                 hiddenPlacementMonitors: hiddenPlacementMonitors,
                 animationTick: isAnimationTick,
                 preserveWorkspaceInactive: preserveWorkspaceInactive

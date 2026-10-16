@@ -8,20 +8,20 @@ import XCTest
 final class HotkeySettingsDisplayModelTests: XCTestCase {
     func testSearchFindsAdvancedSizingCommands() {
         let ids = [
-            "setContainerPrimarySpan.decrease10Percent",
-            "setContainerPrimarySpan.increase10Percent",
-            "setWindowSecondarySpan.decrease10Percent",
-            "setWindowSecondarySpan.increase10Percent"
+            "resizeContainerPrimarySpan.shrink",
+            "resizeContainerPrimarySpan.grow",
+            "resizeWindowSecondarySpan.shrink",
+            "resizeWindowSecondarySpan.grow"
         ]
         let bindings = HotkeyBindingRegistry.defaults().filter { ids.contains($0.id) }
 
         XCTAssertEqual(
             Set(searchIDs("increase", bindings: bindings)),
-            Set(["setContainerPrimarySpan.increase10Percent", "setWindowSecondarySpan.increase10Percent"])
+            Set(["resizeContainerPrimarySpan.grow", "resizeWindowSecondarySpan.grow"])
         )
         XCTAssertEqual(
             Set(searchIDs("decrease", bindings: bindings)),
-            Set(["setContainerPrimarySpan.decrease10Percent", "setWindowSecondarySpan.decrease10Percent"])
+            Set(["resizeContainerPrimarySpan.shrink", "resizeWindowSecondarySpan.shrink"])
         )
     }
 
@@ -48,7 +48,7 @@ final class HotkeySettingsDisplayModelTests: XCTestCase {
     func testSearchFindsAdvancedCommandByConfiguredShortcut() throws {
         let shortcut = try XCTUnwrap(KeySymbolMapper.fromHumanReadable("Hyper+Minus"))
         let binding = try XCTUnwrap(HotkeyBindingRegistry.makeBinding(
-            id: "setContainerPrimarySpan.decrease10Percent",
+            id: "resizeContainerPrimarySpan.shrink",
             binding: shortcut
         ))
 

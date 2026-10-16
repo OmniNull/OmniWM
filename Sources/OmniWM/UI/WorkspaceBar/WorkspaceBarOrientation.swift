@@ -24,7 +24,3 @@ enum WorkspaceBarOrientation: Equatable {
         return layout { content() }
     }
 }
-
-extension EnvironmentValues {
-    @Entry var workspaceBarOrientation = WorkspaceBarOrientation.horizontal
-}

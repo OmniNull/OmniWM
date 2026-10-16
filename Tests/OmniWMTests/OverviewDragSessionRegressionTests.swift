@@ -8,33 +8,37 @@ import XCTest
 
 @MainActor
 final class OverviewDragSessionRegressionTests: XCTestCase {
+    private final class TickRecorder {
+        var values: [(Monitor.ID, CGFloat)] = []
+    }
+
     func testAutoScrollStartsFromSinglePointerUpdateAndRestartsAcrossDisplays() throws {
         let screens = NSScreen.screens
         XCTAssertFalse(screens.isEmpty)
         let autoScroll = OverviewDragAutoScroll()
         defer { autoScroll.stop() }
-        var ticks: [(Monitor.ID, CGFloat)] = []
-        autoScroll.onTick = { ticks.append(($0, $1)) }
+        let ticks = TickRecorder()
+        autoScroll.onTick = { ticks.values.append(($0, $1)) }
 
         for screen in screens {
             let monitorId = Monitor.ID(displayId: try XCTUnwrap(screen.displayId))
             autoScroll.update(monitorId: monitorId, pointer: CGPoint(x: 100, y: 10), velocity: -720)
             autoScroll.advance(by: 1.0 / 60)
-            XCTAssertEqual(ticks.last?.0, monitorId)
-            XCTAssertEqual(try XCTUnwrap(ticks.last?.1), -12, accuracy: 0.0001)
+            XCTAssertEqual(ticks.values.last?.0, monitorId)
+            XCTAssertEqual(try XCTUnwrap(ticks.values.last?.1), -12, accuracy: 0.0001)
         }
-        XCTAssertEqual(ticks.count, screens.count)
+        XCTAssertEqual(ticks.values.count, screens.count)
 
         autoScroll.stop()
         autoScroll.advance(by: 1.0 / 60)
-        XCTAssertEqual(ticks.count, screens.count)
+        XCTAssertEqual(ticks.values.count, screens.count)
         let monitorId = Monitor.ID(displayId: try XCTUnwrap(screens.first?.displayId))
         autoScroll.update(monitorId: monitorId, pointer: CGPoint(x: 100, y: 790), velocity: 360)
         autoScroll.advance(by: 1.0 / 60)
-        XCTAssertEqual(try XCTUnwrap(ticks.last?.1), 6, accuracy: 0.0001)
+        XCTAssertEqual(try XCTUnwrap(ticks.values.last?.1), 6, accuracy: 0.0001)
         autoScroll.update(monitorId: monitorId, pointer: CGPoint(x: 100, y: 400), velocity: 0)
         autoScroll.advance(by: 1.0 / 60)
-        XCTAssertEqual(ticks.count, screens.count + 1)
+        XCTAssertEqual(ticks.values.count, screens.count + 1)
         XCTAssertNil(autoScroll.monitorId)
     }
 

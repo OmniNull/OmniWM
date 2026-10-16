@@ -127,6 +127,50 @@ final class WindowCloseFocusRecoveryTests: XCTestCase {
         }
     }
 
+    func testLastFloatingWindowCloseClearsNativeFocusOwnerAndHidesBorder() throws {
+        let controller = WindowAdmissionTestSupport.controller(prefix: "OmniWMLastFloatingWindowCloseTests")
+        let workspaceId = try XCTUnwrap(
+            controller.workspaceManager.workspaceId(for: "1", createIfMissing: true)
+        )
+        _ = controller.workspaceManager.focusWorkspace(named: "1")
+        controller.settings.borders.enabled = true
+        defer {
+            controller.surfaceReconciler.cleanup()
+        }
+
+        let pid: pid_t = 952_001
+        let token = WindowToken(pid: pid, windowId: 952_101)
+        let frame = CGRect(x: 100, y: 100, width: 600, height: 400)
+        let axRef = WindowAdmissionTestSupport.axRef(for: token)
+        _ = controller.workspaceManager.addWindow(
+            axRef,
+            pid: token.pid,
+            windowId: token.windowId,
+            to: workspaceId,
+            mode: .floating
+        )
+        controller.workspaceManager.updateFloatingGeometry(frame: frame, for: token)
+        controller.axManager.confirmFrameWrite(for: token.windowId, frame: frame)
+        let monitorId = controller.workspaceManager.monitorId(for: workspaceId)
+        XCTAssertTrue(controller.workspaceManager.setManagedFocus(token, in: workspaceId, onMonitor: monitorId))
+
+        let world = WorldView(controller: controller, liveBoundsProvider: { _ in frame })
+        XCTAssertNotNil(SurfaceDerivation.deriveBorder(world: world))
+        XCTAssertEqual(controller.workspaceManager.nativeManagedFocusToken, token)
+        controller.surfaceReconciler.reconcileNow()
+        XCTAssertNil(controller.surfaceReconciler.pendingReconcileScope)
+
+        controller.axEventHandler.retireManagedWindow(
+            try XCTUnwrap(controller.workspaceManager.entry(for: token)),
+            reason: .destroyed(shouldRecoverFocus: false, allowsPreferredRecoveryToken: false)
+        )
+
+        XCTAssertNil(controller.workspaceManager.nativeManagedFocusToken)
+        XCTAssertNil(controller.workspaceManager.borderFocusToken)
+        XCTAssertNil(SurfaceDerivation.deriveBorder(world: world))
+        XCTAssertNotNil(controller.surfaceReconciler.pendingReconcileScope)
+    }
+
     func testClosedBorderStaysHiddenThroughReplacementAcknowledgementAndReturnsForNewIdentity() async throws {
         let fixture = try Self.makeFixture()
         let controller = fixture.controller

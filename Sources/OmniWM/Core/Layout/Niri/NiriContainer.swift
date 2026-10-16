@@ -67,7 +67,8 @@ class NiriContainer: NiriNode {
         orientation: Monitor.Orientation,
         availableSpace: CGFloat,
         gaps: CGFloat,
-        contentInset: CGFloat = 0
+        contentInset: CGFloat = 0,
+        applyingPackingHints: Bool = true
     ) -> CGFloat {
         let bounds = orientation == .horizontal ? widthBounds(contentInset: contentInset) : heightBounds()
         var result: CGFloat = switch spec {
@@ -78,12 +79,14 @@ class NiriContainer: NiriNode {
         }
         let effectiveMaxConstraint = bounds.max.map { max($0, bounds.min) }
         if result < bounds.min { result = bounds.min }
-        result = packedPrimarySpan(
-            result,
-            orientation: orientation,
-            limit: availableSpace - gaps * 2,
-            contentInset: contentInset
-        )
+        if applyingPackingHints {
+            result = packedPrimarySpan(
+                result,
+                orientation: orientation,
+                limit: availableSpace - gaps * 2,
+                contentInset: contentInset
+            )
+        }
         if let effectiveMaxConstraint, result > effectiveMaxConstraint { result = effectiveMaxConstraint }
         return result
     }

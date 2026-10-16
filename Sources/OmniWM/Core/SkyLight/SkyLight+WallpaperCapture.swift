@@ -29,7 +29,7 @@ extension SkyLight {
         return nil
     }
 
-    static func firstCapturedImage(in images: CFArray) -> CGImage? {
+    nonisolated static func firstCapturedImage(in images: CFArray) -> CGImage? {
         guard CFArrayGetCount(images) == 1,
               let pointer = CFArrayGetValueAtIndex(images, 0)
         else { return nil }

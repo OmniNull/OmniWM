@@ -26,6 +26,7 @@ final class WorkspaceManager {
     var nativeFullscreenTransitionTimeoutTasks: [WindowToken: Task<Void, Never>] = [:]
     var pendingRuntimeMonitorOverrideClearWorkspaceIds: Set<WorkspaceDescriptor.ID> = []
     var isDrainingPendingRuntimeMonitorOverrideClears = false
+    var quietArrivalTokens: Set<WindowToken> = []
     private lazy var persistedRestoreCatalogStore = PersistedRestoreCatalogStore(
         bootCatalog: settings.loadPersistedWindowRestoreCatalog(),
         buildSnapshot: { [unowned self] in self.persistedWindowRestoreCatalogBuildSnapshot() },

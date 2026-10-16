@@ -1,0 +1,21 @@
+title = "Clock"
+icon = "globe"
+views = ["compact", "expanded"]
+
+[options.label]
+type = "string"
+default = "Local"
+maxLength = 48
+
+[options.zone]
+type = "string"
+default = "UTC"
+maxLength = 128
+
+[options.seconds]
+type = "boolean"
+default = false
+
+[options.rollDigits]
+type = "boolean"
+default = false

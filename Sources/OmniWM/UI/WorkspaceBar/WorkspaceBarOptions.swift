@@ -102,3 +102,25 @@ enum WorkspaceBarNotchMode: String, CaseIterable, Codable, Identifiable {
         }
     }
 }
+
+enum WorkspaceBarFullWidthNotchMode: String, CaseIterable, Codable, Identifiable {
+    case off
+    case moveBelowMenuBar
+    case rightOfNotch
+    case leftOfNotch
+    case splitAroundNotch
+
+    var id: String {
+        rawValue
+    }
+
+    var displayName: String {
+        switch self {
+        case .off: String(localized: "Off")
+        case .moveBelowMenuBar: String(localized: "Move Below Menu Bar")
+        case .rightOfNotch: String(localized: "Right of Notch")
+        case .leftOfNotch: String(localized: "Left of Notch")
+        case .splitAroundNotch: String(localized: "Split Around Notch")
+        }
+    }
+}

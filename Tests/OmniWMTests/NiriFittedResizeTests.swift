@@ -272,6 +272,74 @@ final class NiriFittedResizeTests: XCTestCase {
         }
     }
 
+    func testProportionalShrinkEscapesPackingHintsInBothOrientations() throws {
+        for orientation in [Monitor.Orientation.horizontal, .vertical] {
+            var fixture = fixture(count: 3, visibleCount: 3, orientation: orientation)
+            let column = fixture.columns[0]
+            column.width = .proportion(0.5)
+            column.height = .proportion(0.5)
+            let hint = ObservedAxisHint(requested: 600, observed: 616)
+            let hints = orientation == .horizontal
+                ? ObservedPackingHints(width: hint) : ObservedPackingHints(height: hint)
+            fixture.engine.updateWindowConstraints(
+                for: fixture.windows[0].token,
+                constraints: .unconstrained,
+                packingHints: hints,
+                in: fixture.workspaceId,
+                motion: .disabled
+            )
+            try assertShownSpans(fixture, [616, 400, 400])
+            let engine = fixture.engine
+
+            for step in 1 ... 5 {
+                engine.setWindowPrimarySpan(
+                    fixture.windows[0], change: .adjustProportion(-1), context: fixture.context, state: &fixture.state
+                )
+                _ = layout(fixture)
+                XCTAssertEqual(fixture.spans[0], 600 - CGFloat(step) * 12, accuracy: 0.000001)
+                XCTAssertEqual(fixture.windows[0].packingHints, hints)
+            }
+
+            engine.setWindowPrimarySpan(
+                fixture.windows[0], change: .setProportion(50), context: fixture.context, state: &fixture.state
+            )
+            try assertShownSpans(fixture, [616, 400, 400])
+        }
+    }
+
+    func testProportionalResizeDoesNotBankStepsOutsideApplicationBounds() throws {
+        for orientation in [Monitor.Orientation.horizontal, .vertical] {
+            var fixture = fixture(count: 3, visibleCount: 3, orientation: orientation)
+            let engine = fixture.engine
+            engine.updateWindowConstraints(
+                for: fixture.windows[0].token,
+                constraints: WindowSizeConstraints(
+                    minSize: .init(width: 500, height: 500),
+                    maxSize: .init(width: 700, height: 700), isFixed: false
+                ),
+                in: fixture.workspaceId, motion: .disabled
+            )
+            _ = layout(fixture)
+
+            for grow in [false, true] {
+                for _ in 0 ..< 5 {
+                    engine.setWindowPrimarySpan(
+                        fixture.windows[0], change: .adjustProportion(grow ? 10 : -10),
+                        context: fixture.context, state: &fixture.state
+                    )
+                    _ = layout(fixture)
+                }
+                XCTAssertEqual(fixture.spans[0], grow ? 700 : 500, accuracy: 0.000001)
+                engine.setWindowPrimarySpan(
+                    fixture.windows[0], change: .adjustProportion(grow ? -10 : 10),
+                    context: fixture.context, state: &fixture.state
+                )
+                _ = layout(fixture)
+                XCTAssertEqual(fixture.spans[0], grow ? 580 : 620, accuracy: 0.000001)
+            }
+        }
+    }
+
     func testPresetCyclingUsesTheShownSpanAndRetainsTheResult() throws {
         for orientation in [Monitor.Orientation.horizontal, .vertical] {
             var fixture = fixture(orientation: orientation)

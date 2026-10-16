@@ -1,0 +1,50 @@
+leading = ["apple-menu", "app-menu", "omniwm", "workspaces", "scratchpads"]
+center = ["active-window"]
+trailing = ["hidden-bar", "clock", "volume", "battery"]
+
+[workspaceBar]
+position = "belowMenuBar"
+height = 32
+fullWidth = true
+reserveLayoutSpace = true
+transparentBackground = false
+backgroundOpacity = 1
+solidBlackBackground = true
+
+[widgets.workspaces]
+indicator = "underline"
+
+[island]
+root = "lake"
+displays = "all"
+width = 760
+height = 360
+fullscreen = "hide"
+
+[[island.components]]
+id = "music"
+widget = "media"
+
+[[island.components]]
+id = "agenda"
+widget = "calendar"
+
+[[island.components]]
+id = "forecast"
+widget = "weather"
+
+[[island.components]]
+id = "power"
+widget = "battery"
+
+[[island.components]]
+id = "london"
+widget = "world-clock"
+label = "London"
+zone = "Europe/London"
+
+[[island.components]]
+id = "tokyo"
+widget = "world-clock"
+label = "Tokyo"
+zone = "Asia/Tokyo"

@@ -24,8 +24,22 @@
 	<string>26.0</string>
 	<key>LSUIElement</key>
 	<true/>
+	<key>NSAppleEventsUsageDescription</key>
+	<string>OmniWM shows the macOS log out, restart and shut down confirmations from shell widgets.</string>
+	<key>NSAudioCaptureUsageDescription</key>
+	<string>OmniWM uses system audio recording to set the volume of individual apps and to show audio visualizers in shell widgets.</string>
+	<key>NSBluetoothAlwaysUsageDescription</key>
+	<string>OmniWM shows your Bluetooth devices and their battery levels in shell widgets.</string>
+	<key>NSCalendarsFullAccessUsageDescription</key>
+	<string>OmniWM shows your upcoming events in shell widgets.</string>
+	<key>NSRemindersFullAccessUsageDescription</key>
+	<string>OmniWM shows your reminders in shell widgets and completes reminders you choose.</string>
 	<key>NSHighResolutionCapable</key>
 	<true/>
+	<key>NSLocationUsageDescription</key>
+	<string>OmniWM shows the name of your Wi-Fi network in shell widgets.</string>
+	<key>NSLocationWhenInUseUsageDescription</key>
+	<string>OmniWM shows the name of your Wi-Fi network in shell widgets.</string>
 	<key>NSMicrophoneUsageDescription</key>
 	<string>A program running within OmniWM's Quake Terminal would like to use your microphone.</string>
 	<key>NSPrincipalClass</key>

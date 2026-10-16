@@ -38,6 +38,7 @@ extension IPCCommandRequest: Codable {
              .rescueOffscreenWindows,
              .fullscreen,
              .presentation,
+             .media,
              .windowState,
              .openMenuAnywhere:
             break

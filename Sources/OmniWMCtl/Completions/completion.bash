@@ -146,6 +146,12 @@ _omniwmctl()
       fi
       return 0
       ;;
+    shell)
+      if [[ ${COMP_CWORD} -eq 2 ]]; then
+        __omniwmctl_compgen "#{{shellActionNames}}"
+      fi
+      return 0
+      ;;
     completion)
       __omniwmctl_compgen "#{{shellNames}}"
       return 0

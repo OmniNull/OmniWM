@@ -221,7 +221,7 @@ final class MissionControlGestureProbeTests: XCTestCase {
             settings: settings,
             controller: controller,
             missionControlGestureProbe: probe
-        ))
+        ).environment(SettingsNavigationModel()))
         let window = NSWindow(
             contentRect: CGRect(x: 0, y: 0, width: 760, height: 560),
             styleMask: [.titled],

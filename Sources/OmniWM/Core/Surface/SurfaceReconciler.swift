@@ -1,6 +1,7 @@
 // SPDX-License-Identifier: GPL-2.0-only
 // Copyright (C) 2026 BarutSRB — https://github.com/OmniNull/OmniWM
 
+import AppKit
 import CoreGraphics
 import Foundation
 
@@ -18,7 +19,7 @@ final class SurfaceReconciler {
         case fullScene
     }
 
-    private weak var controller: WMController?
+    weak var controller: WMController?
     private(set) var reconcileScheduled = false
     private(set) var forceOrderingOnNextReconcile = false
     private(set) var pendingReconcileScope: ReconcileScope?
@@ -64,6 +65,7 @@ final class SurfaceReconciler {
         borderApplier.onCornerSampleResolved = { [weak self] in
             self?.noteBorderChanged()
         }
+        configureParkingEdgeCallbacks(parkingEdgeMaskManager)
     }
 
     func noteWorldChanged() {
@@ -307,6 +309,7 @@ final class SurfaceReconciler {
         refreshCornerRadii: Bool
     ) -> BorderSurfaceApplyResult {
         controller.workspaceBarManager.apply(desired.bars)
+        controller.workspaceBarManager.applyIslands(desired.islands)
         controller.publishWorkspaceDataChanges(from: appliedScene, to: desired)
         let borderOutcome = borderApplier.apply(
             desired.border,

@@ -94,8 +94,10 @@ actor IPCApplicationBridge {
                 controller: controller,
                 session: sessionToken
             )
+        case let .shell(shell):
+            return await Self.shellResponse(for: shell, id: request.id, controller: controller)
         case let .subscribe(subscribe):
-            return await Self.subscribeResponse(for: subscribe, id: request.id)
+            return await MainActor.run { Self.subscribeResponse(for: subscribe, id: request.id) }
         }
     }
 
@@ -139,6 +141,7 @@ actor IPCApplicationBridge {
              .window,
              .windowMark,
              .windowGather,
+             .shell,
              .subscribe:
             return IPCResponse(failing: request, code: .invalidRequest)
         }

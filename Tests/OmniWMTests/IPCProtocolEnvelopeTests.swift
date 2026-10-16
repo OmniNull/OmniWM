@@ -183,7 +183,7 @@ final class IPCProtocolEnvelopeTests: XCTestCase {
 
         let request = requestLine(version: 11, kind: "workspace", payload: #"{"name":"move-to-monitor"}"#)
         XCTAssertThrowsError(try IPCWire.decodeRequest(from: request))
-        await connection.process(String(decoding: request, as: UTF8.self))
+        await connection.process(request)
 
         let clientDescriptor = clientHandle.fileDescriptor
         let responseData = try Self.readResponseLine(from: clientDescriptor)
@@ -215,7 +215,7 @@ final class IPCProtocolEnvelopeTests: XCTestCase {
             let request = requestLine(
                 version: 20, kind: kind, payload: kind == "query" ? #"{"name":"windows"}"# : "{}"
             )
-            await connection.process(String(decoding: request, as: UTF8.self))
+            await connection.process(request)
             let responseData = try Self.readResponseLine(from: clientHandle.fileDescriptor)
             let response = try IPCWire.decodeResponse(from: responseData)
 

@@ -19,6 +19,7 @@ public enum IPCQueryName: String, Codable, CaseIterable, Equatable, Sendable {
     case subscriptions
     case capabilities
     case metrics
+    case shellWidgets = "shell-widgets"
 }
 
 public struct IPCQuerySelectors: Codable, Equatable, Sendable {
@@ -352,6 +353,11 @@ public struct IPCDisplayQuerySnapshot: Codable, Equatable, Sendable {
     public let outerGapBottom: Double?
     public let fullscreenUsesOuterGaps: Bool?
     public let activeWorkspace: IPCWorkspaceRef?
+    public let uuid: String?
+    public let notch: IPCSpan?
+    public let menuBarHeight: Double?
+    public let barFrames: [IPCRect]?
+    public let reservedInsets: IPCInsets?
 
     public init(
         id: String? = nil,
@@ -368,7 +374,12 @@ public struct IPCDisplayQuerySnapshot: Codable, Equatable, Sendable {
         outerGapTop: Double? = nil,
         outerGapBottom: Double? = nil,
         fullscreenUsesOuterGaps: Bool? = nil,
-        activeWorkspace: IPCWorkspaceRef? = nil
+        activeWorkspace: IPCWorkspaceRef? = nil,
+        uuid: String? = nil,
+        notch: IPCSpan? = nil,
+        menuBarHeight: Double? = nil,
+        barFrames: [IPCRect]? = nil,
+        reservedInsets: IPCInsets? = nil
     ) {
         self.id = id
         self.name = name
@@ -385,6 +396,11 @@ public struct IPCDisplayQuerySnapshot: Codable, Equatable, Sendable {
         self.outerGapBottom = outerGapBottom
         self.fullscreenUsesOuterGaps = fullscreenUsesOuterGaps
         self.activeWorkspace = activeWorkspace
+        self.uuid = uuid
+        self.notch = notch
+        self.menuBarHeight = menuBarHeight
+        self.barFrames = barFrames
+        self.reservedInsets = reservedInsets
     }
 }
 

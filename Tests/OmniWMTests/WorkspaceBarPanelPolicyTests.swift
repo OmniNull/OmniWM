@@ -7,6 +7,15 @@ import XCTest
 
 @MainActor
 final class WorkspaceBarPanelPolicyTests: XCTestCase {
+    private let monitor = Monitor(
+        id: .init(displayId: 7),
+        displayId: 7,
+        frame: CGRect(x: 0, y: 0, width: 1512, height: 982),
+        visibleFrame: CGRect(x: 0, y: 0, width: 1512, height: 950),
+        hasNotch: false,
+        name: "Plain"
+    )
+
     func testFillModeUsesAboveStatusLevelWithoutFullscreenAuxiliary() {
         let resolved = makeResolved(notchMode: .fillLeftOfNotch, windowLevel: .screensaver)
         let island = makeIsland(resolved: resolved)
@@ -39,11 +48,14 @@ final class WorkspaceBarPanelPolicyTests: XCTestCase {
         let island = makeIsland(resolved: normal)
         defer { island.panel.close() }
 
-        island.applySettings(resolved: makeResolved(notchMode: .fillLeftOfNotch, windowLevel: .screensaver))
+        island.applySettings(
+            resolved: makeResolved(notchMode: .fillLeftOfNotch, windowLevel: .screensaver),
+            monitor: monitor
+        )
         XCTAssertEqual(island.panel.level.rawValue, NSWindow.Level.statusBar.rawValue + 1)
         XCTAssertFalse(island.panel.collectionBehavior.contains(.fullScreenAuxiliary))
 
-        island.applySettings(resolved: normal)
+        island.applySettings(resolved: normal, monitor: monitor)
         XCTAssertEqual(island.panel.level, .floating)
         XCTAssertEqual(island.panel.collectionBehavior, [.canJoinAllSpaces, .fullScreenAuxiliary, .stationary])
     }
@@ -51,23 +63,17 @@ final class WorkspaceBarPanelPolicyTests: XCTestCase {
     private func makeIsland(resolved: ResolvedBarSettings) -> WorkspaceBarIslandPanel {
         let snapshot = WorkspaceBarSnapshot(
             projection: WorkspaceBarProjection(items: [], scratchpads: []),
-            showLabels: true,
-            showSystemStatsButton: false,
             backgroundOpacity: 0.6,
-            barHeight: 24,
-            accentColor: nil,
-            textColor: nil
+            barHeight: 24
         )
         return WorkspaceBarIslandPanel(
             panel: WorkspaceBarPanel.defaultPanel(),
             rootView: WorkspaceBarView(
                 model: WorkspaceBarModel(snapshot: snapshot),
-                motionPolicy: MotionPolicy(animationsEnabled: false),
-                onFocusWorkspace: { _ in },
-                onFocusWindow: { _ in },
-                onActivateScratchpad: { _ in }
+                motionPolicy: MotionPolicy(animationsEnabled: false)
             ),
-            resolved: resolved
+            resolved: resolved,
+            monitor: monitor
         )
     }
 

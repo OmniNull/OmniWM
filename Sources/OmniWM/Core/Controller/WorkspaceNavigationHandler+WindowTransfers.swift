@@ -146,7 +146,6 @@ extension WorkspaceNavigationHandler {
                 sourceWorkspaceId: currentWorkspaceId,
                 destinationWorkspaceId: targetWsId,
                 selectedHandle: handle,
-                movedTokens: [token],
                 scrollWorkspaceId: targetViewportState?.hasPendingOffsetAnimation == true ? targetWsId : nil
             )
         )

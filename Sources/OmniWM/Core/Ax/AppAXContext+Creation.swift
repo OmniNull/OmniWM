@@ -117,7 +117,7 @@ extension AppAXContext {
         }
 
         var focusObserver: AXObserver?
-        if AXObserverCreate(pid, axFocusedWindowChangedCallback, &focusObserver) != .success {
+        if AXObserverCreate(pid, axApplicationNotificationCallback, &focusObserver) != .success {
             FallbackFiringRecorder.shared.note(.ax, "focusObserverCreateFailed")
         }
 
@@ -136,6 +136,23 @@ extension AppAXContext {
         }
 
         return (observer, focusObserver)
+    }
+
+    nonisolated static func setTitleNotifications(
+        _ enabled: Bool,
+        app: ThreadGuardedValue<AXUIElement>,
+        observer: ThreadGuardedValue<AXObserver?>
+    ) {
+        guard let observer = observer.valueIfExists.flatMap({ $0 }), let app = app.valueIfExists else { return }
+        let notification = kAXTitleChangedNotification as CFString
+        guard enabled else {
+            _ = AXObserverRemoveNotification(observer, app, notification)
+            return
+        }
+        let result = AXObserverAddNotification(observer, app, notification, nil)
+        if result != .success, result != .notificationUnsupported {
+            FallbackFiringRecorder.shared.note(.ax, "titleChangedSubscribeFailed")
+        }
     }
 
     private static func completeContextCreation(

@@ -28,17 +28,23 @@ final class WorkspaceBarInstanceTests: XCTestCase {
         let snapshot = instance.model.snapshot
         defer { instance.primary.panel.close() }
 
-        XCTAssertEqual(instance.measuredLength(for: snapshot, slice: .all, showsSystemStatsButton: false), 120)
+        XCTAssertEqual(instance.measuredLength(for: snapshot, slice: .all), 120)
         XCTAssertEqual(fixture.measurementView.measurementCount, 1)
         instance.updateSnapshot(snapshot)
-        XCTAssertEqual(instance.measuredLength(for: snapshot, slice: .all, showsSystemStatsButton: false), 120)
+        XCTAssertEqual(instance.measuredLength(for: snapshot, slice: .all), 120)
         XCTAssertEqual(fixture.measurementView.measurementCount, 1)
 
-        let changed = snapshot.replacingScratchpads([
-            WorkspaceBarScratchpadItem(index: 1, label: "Terminal", windows: [], isVisible: false)
-        ])
+        let changed = WorkspaceBarSnapshot(
+            projection: WorkspaceBarProjection(items: snapshot.items, scratchpads: [
+                WorkspaceBarScratchpadItem(index: 1, label: "Terminal", windows: [], isVisible: false)
+            ]),
+            backgroundOpacity: snapshot.backgroundOpacity,
+            barHeight: snapshot.barHeight,
+            secureInputActive: true
+        )
+        XCTAssertEqual(changed.replacingShellWidgets([]), changed)
         instance.updateSnapshot(changed)
-        XCTAssertEqual(instance.measuredLength(for: changed, slice: .all, showsSystemStatsButton: false), 120)
+        XCTAssertEqual(instance.measuredLength(for: changed, slice: .all), 120)
         XCTAssertEqual(fixture.measurementView.measurementCount, 2)
         XCTAssertEqual(instance.model.snapshot, changed)
     }
@@ -110,36 +116,39 @@ final class WorkspaceBarInstanceTests: XCTestCase {
     }
 
     func testFillModeCompactsAgainstPanelWidthAndRecalculatesAfterModeAndMonitorChanges() {
-        let fixture = makeFixture(barHeight: 28)
-        let instance = fixture.instance
-        defer { instance.primary.panel.close() }
         let monitor = makeMonitor(width: 1512, notchRange: 656 ... 856)
         let resolved = makeResolved(notchMode: .fillLeftOfNotch)
-        let snapshot = instance.model.snapshot.replacingScratchpads((1 ... 5).map {
-            WorkspaceBarScratchpadItem(index: $0, label: "Scratchpad number \($0)", windows: [], isVisible: false)
-        })
+        let snapshot = WorkspaceBarSnapshot(
+            projection: WorkspaceBarProjection(items: [], scratchpads: (1 ... 5).map {
+                WorkspaceBarScratchpadItem(index: $0, label: "Scratchpad number \($0)", windows: [], isVisible: false)
+            }),
+            backgroundOpacity: 0.1,
+            barHeight: 28
+        )
+        let compacted = { (monitor: Monitor, resolved: ResolvedBarSettings) in
+            WorkspaceBarManager.compactScratchpads(
+                snapshot,
+                beside: [],
+                availableWidth: WorkspaceBarInstance.scratchpadWidth(
+                    on: .all,
+                    geometry: WorkspaceBarGeometry.resolve(monitor: monitor, resolved: resolved, isVisible: true),
+                    monitor: monitor,
+                    resolved: resolved
+                )
+            )
+        }
         let frame = WorkspaceBarGeometry.resolve(monitor: monitor, resolved: resolved, isVisible: true)
             .frame(fittingLength: 0, monitor: monitor, resolved: resolved)
-        let expandedWidth = 120 + WorkspaceBarScratchpadLayout.estimatedWidth(
+        let expandedWidth = 8 + WorkspaceBarScratchpadLayout.estimatedWidth(
             of: snapshot.scratchpads,
             barHeight: snapshot.barHeight
         )
         XCTAssertGreaterThan(expandedWidth, frame.width)
         XCTAssertLessThan(expandedWidth, monitor.frame.width)
 
-        let compacted = instance.scratchpadCompactedSnapshot(snapshot, monitor: monitor, resolved: resolved)
-        XCTAssertTrue(compacted.scratchpads.allSatisfy { $0.presentation == .compact })
-        let view = NSHostingView(rootView: WorkspaceBarMeasurementView(snapshot: compacted))
-        view.layoutSubtreeIfNeeded()
-        XCTAssertLessThanOrEqual(view.fittingSize.width, frame.width)
-
-        let ordinary = instance.scratchpadCompactedSnapshot(snapshot, monitor: monitor, resolved: makeResolved())
-        XCTAssertTrue(ordinary.scratchpads.allSatisfy { $0.presentation == .expanded })
-        XCTAssertEqual(instance.scratchpadCompactedSnapshot(snapshot, monitor: monitor, resolved: resolved), compacted)
-
-        let widerMonitor = makeMonitor(width: 3000, origin: CGPoint(x: 500, y: 100))
-        let widened = instance.scratchpadCompactedSnapshot(snapshot, monitor: widerMonitor, resolved: resolved)
-        XCTAssertTrue(widened.scratchpads.allSatisfy { $0.presentation == .expanded })
+        XCTAssertEqual(compacted(monitor, resolved), Set(1 ... 5))
+        XCTAssertEqual(compacted(monitor, makeResolved()), [])
+        XCTAssertEqual(compacted(makeMonitor(width: 3000, origin: CGPoint(x: 500, y: 100)), resolved), [])
     }
 
     func testPanelSettingsApplyToBothExistingIslands() {
@@ -165,49 +174,11 @@ final class WorkspaceBarInstanceTests: XCTestCase {
         }
     }
 
-    func testAppearanceRefreshPreservesConfiguredAppearanceControls() {
-        let fixture = makeFixture()
-        let instance = fixture.instance
-        defer { instance.primary.panel.close() }
-        let snapshot = WorkspaceBarSnapshot(
-            projection: instance.model.snapshot.projection,
-            showLabels: true,
-            showSystemStatsButton: false,
-            backgroundOpacity: 0.1,
-            inactiveIconOpacity: 0.7,
-            transparentBackground: true,
-            solidBlackBackground: true,
-            showItemBackgrounds: false,
-            showAccentHighlights: false,
-            barHeight: 24,
-            accentColor: nil,
-            textColor: nil,
-            secureInputActive: true
-        )
-        XCTAssertTrue(snapshot.replacingScratchpads([]).secureInputActive)
-        instance.updateSnapshot(snapshot)
-        let accentColor = SettingsColor(red: 0.2, green: 0.3, blue: 0.4, alpha: 1)
-
-        instance.refreshAppearance(resolved: makeResolved(accentColor: accentColor))
-
-        XCTAssertEqual(instance.model.snapshot.accentColor, accentColor)
-        XCTAssertEqual(instance.model.snapshot.inactiveIconOpacity, 0.7)
-        XCTAssertTrue(instance.model.snapshot.transparentBackground)
-        XCTAssertTrue(instance.model.snapshot.solidBlackBackground)
-        XCTAssertFalse(instance.model.snapshot.showItemBackgrounds)
-        XCTAssertFalse(instance.model.snapshot.showAccentHighlights)
-        XCTAssertTrue(instance.model.snapshot.secureInputActive)
-    }
-
     private func makeFixture(screenDisplayId: CGDirectDisplayID? = nil, barHeight: CGFloat = 24) -> Fixture {
         let snapshot = WorkspaceBarSnapshot(
             projection: WorkspaceBarProjection(items: [], scratchpads: []),
-            showLabels: true,
-            showSystemStatsButton: false,
             backgroundOpacity: 0.1,
-            barHeight: barHeight,
-            accentColor: nil,
-            textColor: nil
+            barHeight: barHeight
         )
         let model = WorkspaceBarModel(snapshot: snapshot)
         let measurementView = MeasurementView(rootView: WorkspaceBarMeasurementView(snapshot: snapshot))
@@ -215,12 +186,10 @@ final class WorkspaceBarInstanceTests: XCTestCase {
             panel: WorkspaceBarPanel.defaultPanel(),
             rootView: WorkspaceBarView(
                 model: model,
-                motionPolicy: MotionPolicy(animationsEnabled: false),
-                onFocusWorkspace: { _ in },
-                onFocusWindow: { _ in },
-                onActivateScratchpad: { _ in }
+                motionPolicy: MotionPolicy(animationsEnabled: false)
             ),
-            resolved: makeResolved()
+            resolved: makeResolved(),
+            monitor: makeMonitor()
         )
         return Fixture(
             instance: WorkspaceBarInstance(

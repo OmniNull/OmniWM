@@ -36,6 +36,64 @@ final class ObservedSizePackingHintTests: XCTestCase {
             .contains("move ws=\(fixture.workspaceId.uuidString) left win=709202 outcome=movedWithinWorkspace"))
     }
 
+    func testDirectionalMoveSwapsColumnsWhenStackingDisabled() throws {
+        let fixture = try makeFixture()
+        defer { cleanup(fixture) }
+        fixture.controller.settings.niri.moveWindowStacksIntoColumn = false
+        let engine = try XCTUnwrap(fixture.controller.niriEngine)
+
+        XCTAssertEqual(fixture.controller.niriLayoutHandler.moveWindow(direction: .left), .movedWithinWorkspace)
+        XCTAssertEqual(
+            engine.columns(in: fixture.workspaceId).map { $0.windowNodes.map(\.token) },
+            [[fixture.tokens[1]], [fixture.tokens[0]]]
+        )
+        XCTAssertEqual(fixture.controller.niriLayoutHandler.moveWindow(direction: .left), .atWorkspaceEdge)
+    }
+
+    func testDirectionalMoveKeepsHiddenSiblingInMovedColumnWhenStackingDisabled() throws {
+        let fixture = try makeFixture()
+        defer { cleanup(fixture) }
+        let controller = fixture.controller
+        let manager = controller.workspaceManager
+        let engine = try XCTUnwrap(controller.niriEngine)
+        let hiddenToken = fixture.tokens[0]
+        let selectedToken = fixture.tokens[1]
+        let selectedHandle = try XCTUnwrap(manager.handle(for: selectedToken))
+        XCTAssertEqual(controller.niriLayoutHandler.moveWindow(direction: .left), .movedWithinWorkspace)
+        let selectedNode = try XCTUnwrap(engine.findNode(for: selectedToken, in: fixture.workspaceId))
+        let column = try XCTUnwrap(engine.findColumn(containing: selectedNode, in: fixture.workspaceId))
+        XCTAssertEqual(Set(column.windowNodes.map(\.token)), Set(fixture.tokens))
+
+        let neighborToken = WindowToken(pid: 709_103, windowId: 709_203)
+        _ = WindowAdmissionTestSupport.track(neighborToken, in: fixture.workspaceId, controller: controller)
+        _ = try rebuild(fixture)
+        let neighborNode = try XCTUnwrap(engine.findNode(for: neighborToken, in: fixture.workspaceId))
+        let neighborColumn = try XCTUnwrap(engine.findColumn(containing: neighborNode, in: fixture.workspaceId))
+        XCTAssertEqual(engine.columns(in: fixture.workspaceId).map(\.id), [column.id, neighborColumn.id])
+
+        manager.setAppHidden(true, pid: hiddenToken.pid, source: .service)
+        _ = try rebuild(fixture)
+        XCTAssertTrue(engine.isExcludedFromProjection(hiddenToken, in: fixture.workspaceId))
+        controller.settings.niri.moveWindowStacksIntoColumn = false
+
+        let mutation = try XCTUnwrap(controller.niriLayoutHandler.moveWindow(
+            handle: selectedHandle,
+            direction: .right
+        ).mutation)
+        XCTAssertEqual(engine.columns(in: fixture.workspaceId).map(\.id), [neighborColumn.id, column.id])
+        XCTAssertTrue(mutation.selectedHandle === selectedHandle)
+        XCTAssertTrue(engine.isExcludedFromProjection(hiddenToken, in: fixture.workspaceId))
+
+        manager.setAppHidden(false, pid: hiddenToken.pid, source: .service)
+        _ = try rebuild(fixture)
+        XCTAssertFalse(engine.isExcludedFromProjection(hiddenToken, in: fixture.workspaceId))
+        XCTAssertEqual(engine.columns(in: fixture.workspaceId).map(\.id), [neighborColumn.id, column.id])
+        XCTAssertEqual(
+            Set(engine.projectedWindows(in: column, workspaceId: fixture.workspaceId).map(\.token)),
+            Set(fixture.tokens)
+        )
+    }
+
     func testBoundedHeightGrowthBecomesHintAndKeepsStackedMoveFeasible() throws {
         for learnedCount in 1 ... 2 {
             let fixture = try makeFixture()

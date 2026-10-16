@@ -53,7 +53,13 @@ if command -v plutil >/dev/null 2>&1; then
   fi
 fi
 cp "$ROOT_DIR/Resources/AppIcon.icns" "$APP_DIR/Contents/Resources/AppIcon.icns"
+mkdir -p "$APP_DIR/Contents/Resources/Licenses"
+cp "$ROOT_DIR/Sources/OmniWMLuau/LICENSE.txt" "$APP_DIR/Contents/Resources/Licenses/Luau-LICENSE.txt"
+cp "$ROOT_DIR/Sources/OmniWMLuau/lua_LICENSE.txt" "$APP_DIR/Contents/Resources/Licenses/Lua-LICENSE.txt"
+cp "$ROOT_DIR/Resources/Licenses/"*.txt "$APP_DIR/Contents/Resources/Licenses/"
 cp -R "$BUILD_DIR/OmniWM_OmniWM.bundle" "$APP_DIR/Contents/Resources/"
+mkdir -p "$APP_DIR/Contents/Frameworks"
+cp "$BUILD_DIR/libOmniWMNowPlaying.dylib" "$APP_DIR/Contents/Frameworks/libOmniWMNowPlaying.dylib"
 python3 "$ROOT_DIR/Scripts/localization.py" package \
   --bundle "$BUILD_DIR/OmniWM_OmniWM.bundle" --app "$APP_DIR"
 
@@ -63,6 +69,7 @@ fi
 
 if [ "$SIGN_AND_NOTARIZE" = "true" ]; then
   echo "Signing $APP_DIR with hardened runtime..."
+  codesign --force --options runtime --sign "$SIGNING_IDENTITY" --timestamp "$APP_DIR/Contents/Frameworks/libOmniWMNowPlaying.dylib"
   codesign --force --options runtime --sign "$SIGNING_IDENTITY" --timestamp "$APP_DIR/Contents/MacOS/omniwmctl"
   codesign --force --options runtime --entitlements "$ENTITLEMENTS" --sign "$SIGNING_IDENTITY" --timestamp "$APP_DIR/Contents/MacOS/OmniWM"
   codesign --force --options runtime --entitlements "$ENTITLEMENTS" --sign "$SIGNING_IDENTITY" --timestamp "$APP_DIR"
@@ -97,6 +104,7 @@ elif [ "$SIGN_AND_NOTARIZE" = "dev" ]; then
     echo "No '$SIGNING_IDENTITY' certificate found; using ad-hoc signing. macOS may request permissions again after rebuilding. See CONTRIBUTING.md for certificate setup." >&2
   fi
   echo "Signing $APP_DIR for development (identity: $IDENTITY)..."
+  codesign --force --sign "$IDENTITY" "$APP_DIR/Contents/Frameworks/libOmniWMNowPlaying.dylib"
   codesign --force --sign "$IDENTITY" "$APP_DIR/Contents/MacOS/omniwmctl"
   codesign --force --entitlements "$ENTITLEMENTS" --sign "$IDENTITY" "$APP_DIR/Contents/MacOS/OmniWM"
   codesign --force --entitlements "$ENTITLEMENTS" --sign "$IDENTITY" "$APP_DIR"

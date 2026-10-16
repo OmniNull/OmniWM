@@ -1,0 +1,140 @@
+---
+title: Resources and desktop services
+description: Qualified assets, file resources, drop and drag, picking, Quick Look, sharing, clipboard, and resource persistence.
+sidebar:
+  order: 7
+---
+
+import LuauDeclaration from '../../../../components/docs/LuauDeclaration.astro';
+
+:::note[Unreleased]
+OmniShell and this API are available when building from `main`.
+:::
+
+Resources are host-issued handles, scoped to their owner. Paths and IDs cannot manufacture file authority. Use these APIs from component lifecycle/input/async callbacks with declared capabilities, or root/bar callbacks under their existing unrestricted API policy.
+
+## Qualified package assets
+
+Capture package-local assets with `omniwm.asset("@self/icon.png")` or `omniwm.asset("@self/bars.metal")`, then pass the result to `ui.image.image` or `ui.shader.source`. References retain their originating package even when a custom component inherits the stock view. Identical filenames in different packages do not collide, and paths cannot escape the source package. Qualified image decoding and shader preparation run off the main thread; asset changes replace affected bindings. Plain strings retain ordinary widget folder lookup.
+
+<LuauDeclaration name="omniwm.asset" />
+
+<LuauDeclaration name="Asset" />
+
+## Files and desktop services
+
+A component declares `capabilities = { files = true, clipboard = true }` for these APIs. File and clipboard permission are separate; copying a Resource needs both. User configuration can grant capabilities, but a widget cannot grant them to itself through the configuration API. Root scripts retain their existing unrestricted API policy. Native macOS privacy rules still apply.
+
+Accept drops on an element with a real handler:
+
+```lua
+ui.box {
+    key = "shelf", w = 400, h = 180,
+    accepts = { "file", "url", "text", "image" },
+    onDrop = function(ctx, event)
+        ctx.instance.state.items = event.items
+    end,
+    onDropHover = function(ctx, event)
+        ctx.state.over = event.phase == "entered"
+    end,
+}
+```
+
+`event.items` contains host-issued Resource userdata. A Resource exposes immutable `id`, `name`, `kind`, `uti`, `state`, optional `size` and `error`. States are `pending`, `ready` and `failed`. Promised files can reach the handler while pending; their state changes invalidate only views that read them. The batch admits at most 32 items atomically. Each owner has at most 512 live Resource handles. A handle belongs to its configured instance and cannot be manufactured from an ID or passed to another owner's services. Removing or reloading the owner releases its live handles.
+
+Use `ui.image{ image = resource, thumbnail = 128, w = 48, h = 48 }` for a thumbnail. `thumbnail` is a pixel request between 1 and 2048, default 128. Thumbnails prepare off the UI thread and use a shared 64 MiB image cache. A failed or pending image does not block the widget's other content.
+
+Declare `dragItems = {resource}` with 1–32 unique ready Resources to drag their contents out. `onDragOut(ctx, event)` receives actual `began` and `ended`, with operation `copy` or `none`. File backing remains retained until the native drag session ends, even when its panel closes. Preparation never starts a drag after the mouse button has been released. A drag declaration cannot share a node with a mask, native input, slider, logical gesture, or window-manager drag/drop/target. Put competing controls on separate or nested nodes.
+
+`ctx.data.island.drag` supplies `{active, types}` for profile policy. Monitoring is enabled only while a visible island tree declares drop acceptance. Your Luau root decides whether to expand and which component to show; OmniWM does not select a shelf or impose a visual mode. A collapsed profile must keep a drop declaration in its tree to request this discovery.
+
+Desktop calls return a cancellable handle or `nil, error`. Optional callbacks receive `{ok, error?}`; picker and clipboard-read callbacks also receive `items`:
+
+```lua
+omniwm.pick({files = true, multiple = true}, function(result)
+    if result.ok then instance.state.items = result.items end
+end)
+omniwm.open(resource)
+omniwm.reveal(resource)
+omniwm.quicklook({resource}, 1)
+omniwm.share({resource}, "item-actions")
+omniwm.share({resource}, "item-actions", "airdrop")
+omniwm.clipboard.copy("A note")
+omniwm.clipboard.read(function(result)
+    if result.ok then instance.state.items = result.items end
+end)
+```
+
+Quick Look requires ready file-backed Resources. Sharing also accepts URL and text Resources. The share anchor is the key of a currently published element belonging to the calling component/view; use an inner keyed element rather than the component's replaced root key. It is revalidated after file preparation. Picker, Quick Look and sharing need a live source surface. They use the existing shell focus lease and restore focus only while that restoration remains appropriate. Selecting an external sharing service avoids taking focus back from it. Generic sharing opens a native Share menu, followed by the system picker from the user's selection.
+
+`omniwm.open` also accepts a non-file URL. Arbitrary file-path strings are not Resource authority. Clipboard text arguments are limited to 1 MiB. Copying a Resource materializes up to 16 MiB of text, URL or file/image content by value under its UTI; it does not copy a temporary file URL. Use drag-out or reveal for Finder file workflows. Reading supports file URLs, URLs, text, PNG and TIFF, subject to macOS clipboard access. Empty clipboard reads succeed with an empty list.
+
+Persist Resource references alongside your own state:
+
+```lua
+local token, err = omniwm.resources.persist(resource, function(result)
+    if not result.ok then instance.state.error = result.error end
+end)
+if token then
+    local saved, saveError = omniwm.store.set("saved-item", token)
+    if not saved then instance.state.error = saveError end
+else
+    instance.state.error = err
+end
+```
+
+Persistence returns a host token at admission. Check `resource.persistence.state` (`pending`, `durable`, `failed`) or its callback before claiming it is saved. Pending promised Resources may be submitted for persistence; they finish only after the underlying data resolves. `omniwm.resources.restore(token)` returns a pending Resource or `nil, error`; only tokens previously issued to that owner can restore. The host orders resource persistence before the final owner-store flush. Token and store failure remain explicit. There is no arbitrary file operations API, and deleting a shelf row does not delete the original file.
+
+The bundled **Shelf** component keeps up to 32 items, shows four rows per page, and supports drop, paste, file picking, label editing, thumbnails, preview, sharing and drag-out. **Image converter** uses the same shelf for its outputs and offers PNG, JPEG and TIFF conversion after explicit provider opt-in. Their logic lives in `lib/lake/services/shelf.luau` and `lib/lake/services/convert.luau`; their views can be replaced independently. Removing a row removes its saved reference. Live Resources remain owned until the component retires; durable tokens remain subject to the namespace limit.
+
+## Resource and input contracts
+
+Resource properties are immutable snapshots; handle state can progress from pending to ready/failed. Reading state invalidates dependent views when it changes. Resource lists used for drag-out or services must belong to the same configured owner.
+
+<LuauDeclaration name="ResourceKind" />
+
+<LuauDeclaration name="Resource" />
+
+<LuauDeclaration name="DropEvent" />
+
+<LuauDeclaration name="DropHoverEvent" />
+
+<LuauDeclaration name="DragOutEvent" />
+
+<LuauDeclaration name="DesktopResult" />
+
+<LuauDeclaration name="DesktopCallback" />
+
+## Picking, opening, previewing, and sharing
+
+`pick` requires `files = true`; `multiple` defaults to false. `open` accepts a Resource or non-file URL. `reveal` targets a Resource. `quicklook` can omit its selected index, or use a one-based index, and can take its callback as the second argument. `share` uses a published inner element’s key for the anchor and optionally requests `"airdrop"`; its callback can occupy the third argument when no service is specified. Native admission errors are returned synchronously; completion failures appear in the callback.
+
+<LuauDeclaration name="omniwm.pick" />
+
+<LuauDeclaration name="omniwm.open" />
+
+<LuauDeclaration name="omniwm.reveal" />
+
+<LuauDeclaration name="omniwm.quicklook" />
+
+<LuauDeclaration name="omniwm.share" />
+
+## Clipboard
+
+File and clipboard grants are separate. Reading yields Resources; copying a plain string needs clipboard access, while copying a Resource needs both file and clipboard grants. These calls follow the owner-scoped cancellation contract in [services](/omnishell/reference/services/).
+
+<LuauDeclaration name="omniwm.clipboard.copy" />
+
+<LuauDeclaration name="omniwm.clipboard.read" />
+
+<LuauDeclaration name="omniwm.clipboard" />
+
+## Persistent resource tokens
+
+A returned token records admission, not completed persistence. Check the callback or `resource.persistence.state` before telling the user an item is saved. Store that token with your component’s durable data; `restore` accepts only its owner’s issued tokens.
+
+<LuauDeclaration name="omniwm.resources.persist" />
+
+<LuauDeclaration name="omniwm.resources.restore" />
+
+<LuauDeclaration name="omniwm.resources" />

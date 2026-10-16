@@ -253,6 +253,65 @@ final class NativeMenuBarHiderTests: XCTestCase {
         XCTAssertEqual(try fixture.recovery(), [:])
     }
 
+    @MainActor
+    private final class DrawerProbe {
+        var active = false
+        var open = false
+        var shown: [Monitor.ID?] = []
+        var closes: [Bool] = []
+    }
+
+    func testTheDrawerTogglesOnlyWhileItIsActiveAndAllowed() throws {
+        let fixture = try fixture()
+        let settings = WindowAdmissionTestSupport.controller(prefix: "HiddenBarShellDrawer").settings
+        settings.hiddenBar.enabled = true
+        let controller = HiddenBarController(settings: settings, hider: fixture.hider())
+        let monitor = Monitor.ID(displayId: 3)
+        let placement = HiddenBarPanelPlacement(
+            attachment: PopupAttachment(anchor: CGPoint(x: 400, y: 600)),
+            visibleFrame: CGRect(x: 0, y: 0, width: 800, height: 600)
+        )
+        let probe = DrawerProbe()
+        controller.toggleDrawer(on: monitor, placement: placement)
+        controller.shellDrawer = HiddenBarShellDrawer(
+            isActive: { probe.active },
+            isOpen: { probe.open },
+            show: { _, monitor, shown in
+                XCTAssertEqual(shown, placement)
+                probe.shown.append(monitor)
+                probe.open = true
+            },
+            refresh: { _ in },
+            close: { animated in
+                probe.closes.append(animated)
+                probe.open = false
+            }
+        )
+        controller.toggleDrawer(on: monitor, placement: placement)
+        XCTAssertEqual(probe.shown, [])
+
+        probe.active = true
+        controller.toggleDrawer(on: monitor, placement: nil)
+        XCTAssertEqual(probe.shown, [])
+        controller.toggleDrawer(on: monitor, placement: placement)
+        XCTAssertEqual(probe.shown, [monitor])
+        controller.dismissPanel()
+        XCTAssertEqual(probe.closes, [false])
+        controller.dismissPanel()
+        XCTAssertEqual(probe.closes, [false])
+        controller.toggleDrawer(on: nil, placement: placement)
+        controller.toggleDrawer(on: nil, placement: placement)
+        XCTAssertEqual(probe.shown, [monitor, nil])
+        XCTAssertEqual(probe.closes, [false, true])
+
+        controller.toggleDrawer(on: monitor, placement: placement)
+        settings.hiddenBar.enabled = false
+        controller.applySettings()
+        XCTAssertEqual(probe.closes, [false, true, false])
+        controller.toggleDrawer(on: monitor, placement: placement)
+        XCTAssertEqual(probe.shown, [monitor, nil, monitor])
+    }
+
     func testDisabledControllerRecoversInterruptedSessionOnSetup() throws {
         let fixture = try fixture()
         XCTAssertTrue(fixture.hider().apply(configuredBundleIDs: ["a"], hiddenBundleIDs: ["a"]))

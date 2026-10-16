@@ -19,6 +19,7 @@ extension SettingsStore {
             systemHyperTrigger: systemHyperTrigger,
             hyperKeyModifiers: hyperKeyModifiers,
             workspaceBar: workspaceBar.export(),
+            island: island.export(),
             scratchpads: SettingsExport.Scratchpads(labels: scratchpadLabels),
             monitorBarSettings: workspaceBar.monitorOverrides,
             appRules: appRules,

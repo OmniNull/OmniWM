@@ -11,6 +11,7 @@ enum AppAXContextRegistry {
     static let workerLifetime = AppAXWorkerLifetime()
     private(set) static var contexts: [pid_t: AppAXContext] = [:]
     private static var macOSHiddenPIDs: Set<pid_t> = []
+    private static var windowTitleNotifications = false
     private(set) static var nativeSuppressedWindowTokens: Set<WindowToken> = []
     private static var inFlightCreations: [pid_t: (
         generation: UInt64,
@@ -52,6 +53,9 @@ enum AppAXContextRegistry {
                 for token in nativeSuppressedWindowTokens where token.pid == pid {
                     context.setWindowNativeSuppressed(true, for: token.windowId)
                 }
+                if windowTitleNotifications {
+                    context.setWindowTitleNotifications(true)
+                }
                 contexts[pid] = context
             }
             return context
@@ -82,6 +86,15 @@ enum AppAXContextRegistry {
             macOSHiddenPIDs.remove(pid)
         }
         contexts[pid]?.setMacOSAppHidden(hidden, for: windowIds)
+    }
+
+    @MainActor
+    static func setWindowTitleNotifications(_ enabled: Bool) {
+        guard enabled != windowTitleNotifications else { return }
+        windowTitleNotifications = enabled
+        for context in contexts.values {
+            context.setWindowTitleNotifications(enabled)
+        }
     }
 
     @MainActor

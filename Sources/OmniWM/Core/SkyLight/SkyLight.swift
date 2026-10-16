@@ -146,23 +146,32 @@ final class SkyLight {
         return result
     }
 
-    private var scopedTransaction: CFTypeRef?
+    private var isTransactionScopeActive = false
+    private(set) var scopedTransaction: CFTypeRef?
 
     func withTransactionScope(_ body: () -> Void) {
-        guard scopedTransaction == nil,
-              let transaction = transactions.transactionCreate(getMainConnectionID())?.takeRetainedValue()
-        else {
+        guard !isTransactionScopeActive else {
             body()
             return
         }
-        scopedTransaction = transaction
+        isTransactionScopeActive = true
         body()
+        isTransactionScopeActive = false
+        guard let transaction = scopedTransaction else { return }
         scopedTransaction = nil
         commit(transaction)
     }
 
+    private func activeScopedTransaction() -> CFTypeRef? {
+        guard isTransactionScopeActive else { return nil }
+        if scopedTransaction == nil {
+            scopedTransaction = transactions.transactionCreate(getMainConnectionID())?.takeRetainedValue()
+        }
+        return scopedTransaction
+    }
+
     func withTransaction(_ ops: (CFTypeRef) -> Void) {
-        if let transaction = scopedTransaction {
+        if let transaction = activeScopedTransaction() {
             ops(transaction)
             return
         }
@@ -185,7 +194,7 @@ final class SkyLight {
         _ positions: [(windowId: UInt32, origin: CGPoint)]
     ) -> TransactionSubmissionResult {
         guard !positions.isEmpty else { return .submitted }
-        if let transaction = scopedTransaction {
+        if let transaction = activeScopedTransaction() {
             for position in positions {
                 transactions.transactionMoveWindowWithGroup(
                     transaction,

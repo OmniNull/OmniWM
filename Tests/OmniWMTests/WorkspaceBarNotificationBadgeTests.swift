@@ -3,97 +3,72 @@
 
 import AppKit
 @testable import OmniWM
-import SwiftUI
 import XCTest
 
 @MainActor
 final class WorkspaceBarNotificationBadgeTests: XCTestCase {
-    func testBadgesPreserveBarGeometryAcrossOrientationsAndScratchpadPresentations() async {
-        let service = await makeService()
-        defer { service.stop() }
-        let window = makeWindow()
-        for orientation in [WorkspaceBarOrientation.horizontal, .vertical] {
-            for presentation in [WorkspaceBarScratchpadPresentation.compact, .expanded] {
-                for barHeight in [CGFloat(20), 28, 40] {
-                    let snapshot = WorkspaceBarSnapshot(
-                        projection: WorkspaceBarProjection(
-                            items: [WorkspaceBarItem(
-                                id: UUID(), name: "1", rawName: "1", isFocused: true,
-                                tiledWindows: [window], floatingWindows: []
-                            )],
-                            scratchpads: [WorkspaceBarScratchpadItem(
-                                index: 1, label: "Mail", windows: [window], isVisible: false,
-                                presentation: presentation
-                            )]
-                        ),
-                        showLabels: true, showSystemStatsButton: false, backgroundOpacity: 0.1,
-                        barHeight: barHeight, accentColor: nil, textColor: nil, orientation: orientation
-                    )
-                    let plain = NSHostingView(rootView: bar(snapshot: snapshot, service: nil))
-                    plain.layoutSubtreeIfNeeded()
-                    for mode in [WorkspaceBarNotificationBadgeMode.dot, .text] {
-                        service.configure(mode: mode, interval: 5, bundleIDs: ["com.example.mail"])
-                        let badged = NSHostingView(rootView: bar(snapshot: snapshot, service: service))
-                        badged.layoutSubtreeIfNeeded()
-                        XCTAssertEqual(badged.fittingSize, plain.fittingSize)
+    private func item(badge: String) -> ShellBarItem {
+        let window = ShellBarWindow(id: "ow_1", title: "Mail", focused: false, hidden: false)
+        return ShellBarItem(
+            id: "ow_1", bundle: "com.example.mail", name: "Mail", focused: false, count: 3, hidden: 1,
+            badge: badge, windows: [window, window, window]
+        )
+    }
+
+    private func bar(height: Double, vertical: Bool = false, compact: Bool = false, badge: String) -> ShellBarData {
+        var bar = ShellBarData()
+        bar.style.height = height
+        bar.style.vertical = vertical
+        bar.workspaces = [ShellBarWorkspace(id: "1", name: "1", focused: true, windows: [item(badge: badge)])]
+        bar.scratchpads = [ShellBarScratchpad(
+            id: 1, name: "Mail", focused: false, revealed: false, visible: false,
+            windows: [item(badge: badge)], compact: compact
+        )]
+        return bar
+    }
+
+    func testBadgesKeepTheBarGeometryAcrossOrientationsAndScratchpadPresentations() throws {
+        let widgets = try ["workspaces", "scratchpads"].map(ShellRenderedWidget.init)
+        for vertical in [false, true] {
+            for compact in [true, false] {
+                for height in [20.0, 28, 40] {
+                    var data = bar(height: height, vertical: vertical, compact: compact, badge: "123456789 unread")
+                    let sizes = ["off", "dot", "text"].map { mode in
+                        data.badges = mode
+                        return widgets.map { widget in
+                            widget.render(data)
+                            return widget.surface.size
+                        }
                     }
+                    XCTAssertEqual(sizes[1], sizes[0], "dot \(vertical) \(compact) \(height)")
+                    XCTAssertEqual(sizes[2], sizes[0], "text \(vertical) \(compact) \(height)")
                 }
             }
         }
     }
 
-    func testShortAndOverflowingTextFitsReservedBadgeSpace() async {
-        let sizes: [(CGFloat, CGFloat)] = [(12, 6), (18, 12), (30, 24)]
-        for label in ["7", "42", "999+", "123456789 unread messages"] {
-            let service = await makeService(label: label)
-            defer { service.stop() }
-            for (iconSize, maximumWidth) in sizes {
-                let host = NSHostingView(rootView: WorkspaceBarNotificationBadge(
-                    bundleId: "com.example.mail", iconSize: iconSize
-                ).environment(service))
-                host.layoutSubtreeIfNeeded()
-                XCTAssertGreaterThan(host.fittingSize.width, 0)
-                XCTAssertLessThanOrEqual(host.fittingSize.width, maximumWidth)
-                XCTAssertLessThanOrEqual(host.fittingSize.height, iconSize)
+    func testBadgesFitTheIconSlotAndGiveTwoDigitsRoom() throws {
+        let widget = try ShellRenderedWidget("workspaces")
+        for (height, icon) in [(20.0, 12.0), (28, 18), (40, 30)] {
+            var widths: [String: CGFloat] = [:]
+            for label in ["7", "42", "999+", "123456789 unread messages"] {
+                var data = bar(height: height, badge: label)
+                data.badges = "text"
+                widget.render(data)
+                let badgeHeight = max(9, icon * 0.55)
+                let badges = widget.layers().filter {
+                    $0.backgroundColor != nil && $0.borderWidth == 0 && abs($0.bounds.height - badgeHeight) < 0.5
+                        && abs($0.cornerRadius - badgeHeight / 2) < 0.5
+                }
+                XCTAssertEqual(badges.count, 1, "\(label) \(height)")
+                for badge in badges {
+                    XCTAssertGreaterThan(badge.bounds.width, 0)
+                    XCTAssertLessThanOrEqual(badge.bounds.width, max(16, icon + 4), "\(label) \(height)")
+                    XCTAssertLessThanOrEqual(badge.bounds.height, icon)
+                    widths[label] = badge.bounds.width
+                }
             }
+            XCTAssertGreaterThan(widths["42"] ?? 0, widths["7"] ?? .infinity, "\(height)")
         }
-    }
-
-    private func makeService(label: String = "123456789 unread messages") async -> WorkspaceBarBadgeService {
-        let refreshed = expectation(description: "Initial badge read published")
-        let service = WorkspaceBarBadgeService(
-            notificationCenter: NotificationCenter(),
-            read: { _, _ in
-                DockBadgeReadResult(labels: ["com.example.mail": label], dockPID: 42)
-            },
-            sleep: { _ in
-                refreshed.fulfill()
-                throw CancellationError()
-            }
-        )
-        service.configure(mode: .text, interval: 5, bundleIDs: ["com.example.mail"])
-        await fulfillment(of: [refreshed], timeout: 2)
-        XCTAssertEqual(service.label(for: "com.example.mail"), label)
-        return service
-    }
-
-    private func bar(snapshot: WorkspaceBarSnapshot, service: WorkspaceBarBadgeService?) -> WorkspaceBarView {
-        WorkspaceBarView(
-            model: WorkspaceBarModel(snapshot: snapshot),
-            motionPolicy: MotionPolicy(animationsEnabled: false),
-            onFocusWorkspace: { _ in },
-            onFocusWindow: { _ in },
-            onActivateScratchpad: { _ in },
-            notificationBadges: service
-        )
-    }
-
-    private func makeWindow() -> WorkspaceBarWindowItem {
-        let token = WindowToken(pid: 42, windowId: 1)
-        return WorkspaceBarWindowItem(
-            id: token, handle: WindowHandle(id: token), windowId: 1, appName: "Mail",
-            bundleId: "com.example.mail", icon: nil, isFocused: false, windowCount: 3,
-            hiddenWindowCount: 1, allWindows: []
-        )
     }
 }

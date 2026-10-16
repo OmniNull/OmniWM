@@ -528,7 +528,6 @@ final class WorkspaceBarDataSourceTests: XCTestCase {
         XCTAssertEqual(item.windowCount, 2)
         XCTAssertEqual(item.hiddenWindowCount, 1)
         XCTAssertFalse(item.isAppHidden)
-        XCTAssertTrue(item.hasHiddenWindows)
         XCTAssertEqual(item.allWindows.map(\.id), [visible, hidden])
         XCTAssertEqual(item.allWindows.map(\.isAppHidden), [false, true])
         XCTAssertEqual(item.allWindows.map(\.id.pid), [visible.pid, hidden.pid])

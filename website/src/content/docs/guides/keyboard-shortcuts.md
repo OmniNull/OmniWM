@@ -7,15 +7,15 @@ sidebar:
 
 ## Customization and the Hyper modifier
 
-All global shortcuts are customizable in **Settings > Hotkeys**. A shortcut can also be an extra mouse button, alone or with modifiers: click the shortcut, then press the button over it. OmniWM consumes a bound press, so the app under the pointer does not also receive it, and a button used by the System Hyper Trigger or Overview must be unassigned there first. `Hyper` is the literal `Control + Option + Shift + Command` chord by default; which modifiers make up `Hyper` is configurable in Settings > Hotkeys (for example, exclude `Shift` to keep `Hyper + Shift + …` free for extra bindings). Changing the combination retargets every shortcut that currently resolves to `Hyper` onto the new one, so the shortcut list updates in place as you toggle the modifiers.
+All global shortcuts are customizable in **Settings > Keyboard Shortcuts**. A shortcut can also be an extra mouse button, alone or with modifiers: click the shortcut, then press the button over it. OmniWM consumes a bound press, so the app under the pointer does not also receive it, and a button used by the System Hyper Trigger or Overview must be unassigned there first. `Hyper` is the literal `Control + Option + Shift + Command` chord by default; which modifiers make up `Hyper` is configurable in Settings > Keyboard Shortcuts (for example, exclude `Shift` to keep `Hyper + Shift + …` free for extra bindings). Changing the combination retargets every shortcut that currently resolves to `Hyper` onto the new one, so the shortcut list updates in place as you toggle the modifiers.
 
 Optionally pick a **System Hyper Trigger** — a single key (Caps Lock, F13–F20, or a left- or right-side modifier) or an extra mouse button that acts as `Hyper` while held (this needs the Input Monitoring permission). Leave the trigger as `None` if you already produce `Hyper` another way, such as a Karabiner Elements remap.
 
-Settings > Hotkeys lists all actions that can be assigned a shortcut, including advanced actions.
+Settings > Keyboard Shortcuts lists all actions that can be assigned a shortcut, including advanced actions.
 
 ## When a shortcut does not fire
 
-Confirm the binding and any registration warning in **Settings > Hotkeys**, then check **Settings > Troubleshooting** for related diagnostics. If skhd, Raycast, or another shortcut utility is still running with the same binding, stop it or reassign the conflicting shortcut before editing `settings.toml`.
+Confirm the binding and any registration warning in **Settings > Keyboard Shortcuts**, then check **Settings > Troubleshooting** for related diagnostics. If skhd, Raycast, or another shortcut utility is still running with the same binding, stop it or reassign the conflicting shortcut before editing `settings.toml`.
 
 [HotkeyClash](https://github.com/Wunderlandmedia/HotkeyClash) can inspect shortcuts across supported apps, config files, and macOS. It does not parse Raycast settings.
 
@@ -42,7 +42,7 @@ Confirm the binding and any registration warning in **Settings > Hotkeys**, then
 | Move Focused Column to Workspace Up | `Control + Option + Shift + Page Up` | `Niri` |
 | Move Focused Column to Workspace Down | `Control + Option + Shift + Page Down` | `Niri` |
 
-Creating workspace 10 or higher adds its Switch, Move, and Move Column actions to **Settings > Hotkeys** as `Unassigned`. The rows disappear when the workspace is removed.
+Creating workspace 10 or higher adds its Switch, Move, and Move Column actions to **Settings > Keyboard Shortcuts** as `Unassigned`. The rows disappear when the workspace is removed.
 
 ## Focus
 
@@ -69,6 +69,15 @@ Creating workspace 10 or higher adds its Switch, Move, and Move Column actions t
 | Toggle Quake Terminal | `` Option + ` `` | `Shared` |
 | Toggle Overview | `Option + Shift + O` | `Shared` |
 | Toggle System Stats | `Unassigned` | `Shared` |
+| Volume Up | `Unassigned` | `Shared` |
+| Volume Down | `Unassigned` | `Shared` |
+| Mute or Unmute Volume | `Unassigned` | `Shared` |
+| Play or Pause Media | `Unassigned` | `Shared` |
+| Next Track | `Unassigned` | `Shared` |
+| Previous Track | `Unassigned` | `Shared` |
+| Toggle `<drawer or widget>` | `Unassigned` | `Shared` |
+
+Settings > Keyboard Shortcuts lists a Toggle action for every shell drawer and every shell widget with a popout. A bound Toggle stays in the list even while its drawer or widget is missing. The volume, media and Toggle actions are Unreleased: available when building from `main`.
 
 The Set Mark and Remove Mark global actions and the Command Palette mark shortcuts below are available.
 
@@ -81,7 +90,7 @@ These shortcuts are available while the Command Palette is open in **Windows** m
 | Mark selected window | `Control + Option + Shift + M` |
 | Remove a mark from the selected window | `Control + Option + Shift + R` |
 
-These shortcuts are local to the open Palette and yield to conflicting enabled global shortcuts; the affected Palette action remains available as a button. **Set Mark on Focused Window** and **Remove Mark from Focused Window** are also available as separate, unassigned actions in **Settings > Hotkeys** for configurable global shortcuts. Outside the Palette, key combinations retain their configured global behavior.
+These shortcuts are local to the open Palette and yield to conflicting enabled global shortcuts; the affected Palette action remains available as a button. **Set Mark on Focused Window** and **Remove Mark from Focused Window** are also available as separate, unassigned actions in **Settings > Keyboard Shortcuts** for configurable global shortcuts. Outside the Palette, key combinations retain their configured global behavior.
 
 ## Move Window
 
@@ -156,7 +165,7 @@ The window-to-monitor actions send the focused window directly to the current wo
 
 Niri grow/shrink actions use a configurable increment, defaulting to 5% instead of 10%. Change **Resize Increment** in Niri settings or `[niri].resizeStepPercent` in TOML (1–100). Explicit `omniwmctl` size arguments keep their specified amounts.
 
-`Consume or Expel Window Left / Right` exist as automation-only actions. They are reachable from `omniwmctl` but never appear in Settings > Hotkeys, because they intentionally cannot be bound to a shortcut.
+`Consume or Expel Window Left / Right` exist as automation-only actions. They are reachable from `omniwmctl` but never appear in Settings > Keyboard Shortcuts, because they intentionally cannot be bound to a shortcut.
 
 The daily `Focus` and `Move` shortcuts adapt to the active layout and Niri orientation. In horizontal Niri orientation, `Move Left / Right` consumes or expels across columns while `Move Up / Down` reorders within a column. Vertical orientation rotates those roles: `Move Up / Down` consumes or expels across rows while `Move Left / Right` reorders within a row.
 
@@ -175,7 +184,7 @@ Dwindle groups use the existing Focus and Move bindings, so there are no separat
 
 Moving a tab directly from one existing group into another is intentionally a two-step operation: extract it first, then move the resulting singleton toward the destination group. A singleton at a genuine workspace edge can still use the normal cross-monitor Move behavior; a rejected group mutation does not fall through to tile swapping or monitor movement.
 
-The unassigned advanced actions are available in Settings > Hotkeys. `Focus Next / Previous Window (Wrap)` always wraps within the active Niri column or Dwindle group. `Move Window to Previous / Next Position` changes the active member's position by one without wrapping. `Move Container` is the whole-structure escape hatch and never transfers to another monitor at a workspace edge. Dwindle join/extract and Move Container operations are intentionally unavailable while Overview is open; leave Overview before changing a Dwindle tree.
+The unassigned advanced actions are available in Settings > Keyboard Shortcuts. `Focus Next / Previous Window (Wrap)` always wraps within the active Niri column or Dwindle group. `Move Window to Previous / Next Position` changes the active member's position by one without wrapping. `Move Container` is the whole-structure escape hatch and never transfers to another monitor at a workspace edge. Dwindle join/extract and Move Container operations are intentionally unavailable while Overview is open; leave Overview before changing a Dwindle tree.
 
 ## Quake Terminal (Inside Terminal)
 

@@ -13,7 +13,7 @@ sidebar:
 {
   "version": 21,
   "id": "<uuid>",
-  "kind": "<ping|version|command|capture|query|rule|workspace|window|window-mark|window-gather|subscribe>",
+  "kind": "<ping|version|command|capture|query|rule|workspace|window|window-mark|window-gather|shell|subscribe>",
   "authorizationToken": "<token>",
   "payload": { ... }
 }
@@ -149,7 +149,18 @@ Workspace requests use this flat wire shape. For `move-to-monitor`, `force` is o
 }
 ```
 
-`workspaceTarget` is required by `move-to-workspace` and rejected by every other window action.
+Each window action accepts at most one argument field, and requires exactly the one it uses; every other argument field is rejected:
+
+| Field | Type | Required by |
+|-------|------|-------------|
+| `workspaceTarget` | workspace target object | `move-to-workspace` |
+| `columnIndex` | integer, one-based (>= 1) | `move-column-to-index` |
+| `direction` | `left` \| `right` \| `up` \| `down` | `move-column` |
+| `change` | size-change object | `set-container-primary-span`, `set-window-primary-span`, `set-window-secondary-span` |
+| `cycle` | `forward` \| `backward` | `cycle-window-primary-span`, `cycle-window-secondary-span` |
+| `scratchpadIndex` | integer, 1-10 | `assign-to-scratchpad` |
+
+All other window actions take no argument field.
 
 **Window marks:**
 
@@ -218,6 +229,18 @@ python3 Scripts/gather-windows.py --workspace 3 --mark editor --mark chat
 
 Repeat `--mark NAME` in column order, or supply positional window IDs; do not mix the modes. `--workspace` is required. A positive whole number names a workspace ID, as in `omniwmctl`; any other value is a display name. The script prints the response, never queries marks or sends follow-up focus/move commands, and exits like `omniwmctl`: 0 gathered, 1 rejected (including `no_change`), 2 transport failure, 3 invalid CLI arguments, 4 internal or malformed-response error. `--dry-run` prints the request without the authorization token and contacts nothing.
 
+**Shell widget values:**
+
+```json
+{
+  "name": "set",
+  "key": "weather",
+  "value": "12° sunny"
+}
+```
+
+`unset` sends only `name` and `key`; a `value` field on `unset` is rejected. `toggle` sends `name` and `widget`. All three return `status: "executed"` without a result payload. `eject` and `init` also send `name` and `widget`, `profile` and `theme` send the profile or theme name as `key`, and `trigger` sends `widget`, the event name as `key` and an optional `value`; their statuses are listed under [Shell Widgets](/reference/cli/actions/#shell-widgets). Unreleased: available when building from `main`.
+
 ### Response Format
 
 ```json
@@ -225,10 +248,10 @@ Repeat `--mark NAME` in column order, or supply positional window IDs; do not mi
   "version": 21,
   "id": "<request-id>",
   "ok": true,
-  "kind": "<ping|version|command|capture|query|rule|workspace|window|window-mark|window-gather|subscribe>",
+  "kind": "<ping|version|command|capture|query|rule|workspace|window|window-mark|window-gather|shell|subscribe>",
   "status": "<success|executed|ignored|error|subscribed>",
   "result": {
-    "kind": "<pong|version|capture|workspace-bar|active-workspace|focused-monitor|apps|metrics|focused-window|windows|workspaces|displays|rules|rule-actions|queries|commands|subscriptions|capabilities|subscribed|window-marks|window-gather>",
+    "kind": "<pong|version|capture|workspace-bar|active-workspace|focused-monitor|apps|metrics|focused-window|windows|workspaces|displays|rules|rule-actions|queries|commands|subscriptions|capabilities|subscribed|window-marks|window-gather|shell-widgets>",
     "payload": { ... }
   }
 }

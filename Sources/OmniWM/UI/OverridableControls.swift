@@ -125,9 +125,9 @@ struct MonitorScopeSection: View {
     let reset: (Monitor) -> Void
 
     var body: some View {
-        Section("Configuration Scope") {
+        Section("Display") {
             Picker("Configure", selection: $selectedMonitor) {
-                Text("Global Defaults").tag(nil as Monitor.ID?)
+                Text("All Displays").tag(nil as Monitor.ID?)
                 if !monitors.isEmpty {
                     Divider()
                     ForEach(monitors, id: \.id) { monitor in
@@ -151,7 +151,7 @@ struct MonitorScopeSection: View {
                         Text(hasOverrides(monitor) ? String(localized: "Custom") :
                             String(localized: "Using global defaults"))
                             .foregroundStyle(.secondary)
-                        Button("Reset to Global") {
+                        Button("Reset Display Overrides") {
                             reset(monitor)
                         }
                         .disabled(!hasOverrides(monitor))

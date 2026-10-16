@@ -102,6 +102,7 @@ enum EventIntakeTrace {
         case let .windowDestroyed(pid, ref, _): Identity(kind: "ax.destroyed", pid: pid, windowId: ref.windowId)
         case let .windowMiniaturized(pid, ref, _): Identity(kind: "ax.minimized", pid: pid, windowId: ref.windowId)
         case let .windowDeminiaturized(pid, ref, _): Identity(kind: "ax.restored", pid: pid, windowId: ref.windowId)
+        case let .titleChanged(pid, windowId, _): Identity(kind: "ax.title", pid: pid, windowId: Int(windowId))
         }
     }
 

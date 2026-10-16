@@ -126,13 +126,18 @@ func axWindowNotificationCallback(
     }
 }
 
-func axFocusedWindowChangedCallback(
+func axApplicationNotificationCallback(
     _ observer: AXObserver,
     _ element: AXUIElement,
     _ notification: CFString,
     _: UnsafeMutableRawPointer?
 ) {
-    guard (notification as String) == (kAXFocusedWindowChangedNotification as String) else { return }
+    let name = notification as String
+    if name == (kAXTitleChangedNotification as String) {
+        axTitleChangedCallback(observer, element)
+        return
+    }
+    guard name == (kAXFocusedWindowChangedNotification as String) else { return }
 
     var pid: pid_t = 0
     guard AXUIElementGetPid(element, &pid) == .success else { return }
@@ -153,6 +158,24 @@ func axFocusedWindowChangedCallback(
                 pid: pid,
                 callbackGeneration: callbackGeneration
             ))
+        )
+    }
+}
+
+private func axTitleChangedCallback(_ observer: AXObserver, _ element: AXUIElement) {
+    var pid: pid_t = 0
+    var windowId: CGWindowID = 0
+    guard AXUIElementGetPid(element, &pid) == .success,
+          _AXUIElementGetWindow(element, &windowId) == .success,
+          windowId != 0
+    else {
+        return
+    }
+    let observerKey = axCallbackObserverKey(observer)
+    let callbackGeneration = appAXCallbackGenerationRegistry.generation(observerKey: observerKey)
+    appAXCallbackGenerationRegistry.performIfCurrent(observerKey: observerKey) {
+        EventIntake.post(
+            .axWindow(.titleChanged(pid: pid, windowId: windowId, callbackGeneration: callbackGeneration))
         )
     }
 }
