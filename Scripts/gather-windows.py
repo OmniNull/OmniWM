@@ -1,8 +1,9 @@
 #!/usr/bin/env python3
-"""Gather explicit windows into one Niri column with a single window-gather request.
+"""Gather windows by ID or runtime mark with a single atomic window-gather request.
 
 Usage:
   gather-windows.py --workspace WORKSPACE [--dry-run] WINDOW_ID [WINDOW_ID ...]
+  gather-windows.py --workspace WORKSPACE [--dry-run] --mark NAME [--mark NAME ...]
 
 The windows become, in the given order, the only windows of the leading column
 of the existing WORKSPACE. OmniWM validates the whole request before anything
@@ -11,8 +12,11 @@ script sends exactly one request and never falls back to focus or move
 commands. A positive whole number names a workspace ID; any other value is a
 workspace display name, as in omniwmctl.
 
-Window IDs are the opaque IDs reported by `omniwmctl query windows`. The
-response is printed as JSON. `--dry-run` prints the request instead, without
+Window IDs are the opaque IDs reported by `omniwmctl query windows`. Alternatively,
+repeat --mark for runtime mark names in column order; the server resolves them
+without navigation. Do not mix IDs and marks. Missing/stale marks or duplicate
+resolved windows refuse the whole request. The response is printed as JSON.
+`--dry-run` prints the request instead, without
 the authorization token, and contacts nothing.
 
 Exit codes follow omniwmctl: 0 gathered, 1 rejected (including unchanged),
@@ -27,7 +31,7 @@ import sys
 import uuid
 from pathlib import Path
 
-PROTOCOL_VERSION = 20
+PROTOCOL_VERSION = 21
 TIMEOUT_SECONDS = 10
 
 EXIT_SUCCESS = 0
@@ -49,13 +53,18 @@ class ArgumentParser(argparse.ArgumentParser):
 
 
 def parse_args(argv):
-    parser = ArgumentParser(description="Gather explicit windows into one Niri column.")
+    parser = ArgumentParser(description="Gather windows by ID or runtime mark into one Niri column.")
     parser.add_argument("--workspace", required=True, help="existing destination workspace ID or name")
     parser.add_argument("--dry-run", action="store_true", help="print the request without sending it")
-    parser.add_argument("window_ids", nargs="+", metavar="WINDOW_ID", help="window IDs in column order")
+    parser.add_argument("--mark", action="append", metavar="NAME", help="runtime mark in column order (repeatable)")
+    parser.add_argument("window_ids", nargs="*", metavar="WINDOW_ID", help="window IDs in column order")
     args = parser.parse_args(argv)
     if not args.workspace:
         parser.error("--workspace must not be empty")
+    if args.window_ids and args.mark is not None:
+        parser.error("cannot mix window IDs and --mark")
+    if not args.window_ids and args.mark is None:
+        parser.error("provide window IDs or at least one --mark")
     return args
 
 
@@ -81,12 +90,15 @@ def authorization_token(path):
     return token or None
 
 
-def build_request(window_ids, workspace):
+def build_request(window_ids, workspace, mark_names=None):
     return {
         "version": PROTOCOL_VERSION,
         "id": str(uuid.uuid4()),
         "kind": "window-gather",
-        "payload": {"windowIds": window_ids, "workspaceTarget": workspace_target(workspace)},
+        "payload": {
+            **({"markNames": mark_names} if mark_names is not None else {"windowIds": window_ids}),
+            "workspaceTarget": workspace_target(workspace),
+        },
     }
 
 
@@ -117,7 +129,7 @@ def exit_code(response):
 
 def main(argv=None):
     args = parse_args(sys.argv[1:] if argv is None else argv)
-    request = build_request(args.window_ids, args.workspace)
+    request = build_request(args.window_ids, args.workspace, args.mark)
     if args.dry_run:
         print(json.dumps(request, indent=2, sort_keys=True))
         return EXIT_SUCCESS

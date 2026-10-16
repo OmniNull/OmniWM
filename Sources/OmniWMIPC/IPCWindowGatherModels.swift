@@ -5,11 +5,51 @@ import Foundation
 
 public struct IPCWindowGatherRequest: Codable, Equatable, Sendable {
     public let windowIds: [String]
+    public let markNames: [String]?
     public let workspaceTarget: WorkspaceTarget
 
     public init(windowIds: [String], workspaceTarget: WorkspaceTarget) {
         self.windowIds = windowIds
+        markNames = nil
         self.workspaceTarget = workspaceTarget
+    }
+
+    public init(markNames: [String], workspaceTarget: WorkspaceTarget) {
+        windowIds = []
+        self.markNames = markNames
+        self.workspaceTarget = workspaceTarget
+    }
+
+    private enum CodingKeys: String, CodingKey {
+        case windowIds, markNames, workspaceTarget
+    }
+
+    public init(from decoder: Decoder) throws {
+        let container = try decoder.container(keyedBy: CodingKeys.self)
+        guard container.contains(.windowIds) != container.contains(.markNames) else {
+            throw DecodingError.dataCorrupted(.init(
+                codingPath: decoder.codingPath,
+                debugDescription: "Provide exactly one of windowIds or markNames"
+            ))
+        }
+        workspaceTarget = try container.decode(WorkspaceTarget.self, forKey: .workspaceTarget)
+        if container.contains(.markNames) {
+            markNames = try container.decode([String].self, forKey: .markNames)
+            windowIds = []
+        } else {
+            windowIds = try container.decode([String].self, forKey: .windowIds)
+            markNames = nil
+        }
+    }
+
+    public func encode(to encoder: Encoder) throws {
+        var container = encoder.container(keyedBy: CodingKeys.self)
+        try container.encode(workspaceTarget, forKey: .workspaceTarget)
+        if let markNames {
+            try container.encode(markNames, forKey: .markNames)
+        } else {
+            try container.encode(windowIds, forKey: .windowIds)
+        }
     }
 }
 
@@ -30,6 +70,9 @@ public enum IPCWindowGatherWindowStatus: String, Codable, Equatable, Sendable {
 public enum IPCWindowGatherReason: String, Codable, Equatable, Sendable {
     case invalidWindowId = "invalid_window_id"
     case staleWindowId = "stale_window_id"
+    case invalidMark = "invalid_mark"
+    case unknownMark = "unknown_mark"
+    case staleMark = "stale_mark"
     case duplicateWindow = "duplicate_window"
     case notFound = "not_found"
     case scratchpad
@@ -50,12 +93,19 @@ public enum IPCWindowGatherReason: String, Codable, Equatable, Sendable {
 }
 
 public struct IPCWindowGatherWindowResult: Codable, Equatable, Sendable {
-    public let windowId: String
+    public let windowId: String?
+    public let markName: String?
     public let status: IPCWindowGatherWindowStatus
     public let reason: IPCWindowGatherReason?
 
-    public init(windowId: String, status: IPCWindowGatherWindowStatus, reason: IPCWindowGatherReason? = nil) {
+    public init(
+        windowId: String?,
+        markName: String? = nil,
+        status: IPCWindowGatherWindowStatus,
+        reason: IPCWindowGatherReason? = nil
+    ) {
         self.windowId = windowId
+        self.markName = markName
         self.status = status
         self.reason = reason
     }

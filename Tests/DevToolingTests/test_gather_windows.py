@@ -153,6 +153,55 @@ class GatherWindowsScriptTests(unittest.TestCase):
         self.assertNotIn(SECRET, result.stdout)
         self.assertNotIn(SECRET, result.stderr)
 
+    def test_marks_send_one_ordered_request_without_querying(self):
+        server = self.serve()
+        result = self.run_script("--workspace", "2", "--mark", "chat", "--mark", " editor ")
+        self.assertEqual(result.returncode, 0, result.stderr)
+        self.assertEqual(server.connections, 1)
+        self.assertEqual(len(server.requests), 1)
+        self.assertEqual(server.requests[0]["payload"], {
+            "markNames": ["chat", " editor "],
+            "workspaceTarget": {"kind": "raw-id", "value": "2"},
+        })
+        self.assert_secret_hidden(result)
+
+    def test_mark_dry_run_contacts_nothing_and_omits_secret(self):
+        server = self.serve()
+        result = self.run_script("--workspace", "named", "--mark", "editor", "--dry-run")
+        self.assertEqual(result.returncode, 0, result.stderr)
+        request = json.loads(result.stdout)
+        self.assertEqual(request["version"], PROTOCOL_VERSION)
+        self.assertEqual(request["payload"], {
+            "markNames": ["editor"],
+            "workspaceTarget": {"kind": "display-name", "value": "named"},
+        })
+        self.assertNotIn("authorizationToken", request)
+        self.assertEqual(server.connections, 0)
+        self.assert_secret_hidden(result)
+
+    def test_id_and_mark_mixing_is_a_clear_usage_error(self):
+        server = self.serve()
+        result = self.run_script("--workspace", "2", "ow_a", "--mark", "editor")
+        self.assertEqual(result.returncode, 3)
+        self.assertIn("cannot mix", result.stderr)
+        self.assertEqual(server.connections, 0)
+
+    def test_mark_refusals_preserve_typed_per_input_diagnostics(self):
+        for code in ("unknown_mark", "invalid_mark", "stale_mark", "invalid_arguments", "no_change", "internal_error"):
+            with self.subTest(code=code):
+                reply = response(False, "error", gather_result("refused", [
+                    {"markName": "missing", "status": "unresolved", "reason": code},
+                ], reason="window_refused"), code=code)
+                server = self.serve(reply)
+                result = self.run_script("--workspace", "2", "--mark", "missing")
+                self.assertEqual(result.returncode, 4 if code == "internal_error" else 1, result.stderr)
+                self.assertEqual(json.loads(result.stdout)["code"], code)
+                self.assertEqual(json.loads(result.stdout)["result"], reply["result"])
+                self.assertEqual(server.connections, 1)
+                server.close()
+                self.servers.remove(server)
+                os.unlink(server.path)
+
     def test_sends_one_ordered_window_gather_request(self):
         server = self.serve()
 
@@ -231,6 +280,17 @@ class GatherWindowsScriptTests(unittest.TestCase):
         self.assertEqual(result.returncode, 1, result.stderr)
         self.assertEqual(json.loads(result.stdout), dict(reply, id=server.requests[0]["id"]))
         self.assertEqual(server.connections, 1)
+        self.assert_secret_hidden(result)
+
+    def test_mark_mode_preserves_protocol_mismatch_from_v20_server(self):
+        reply = dict(response(False, "error", code="protocol_mismatch"),
+                     version=20, result={"kind": "version", "payload": {"protocolVersion": 20}})
+        server = self.serve(reply=reply)
+        result = self.run_script("--workspace", "2", "--mark", "editor")
+        self.assertEqual(result.returncode, 1, result.stderr)
+        self.assertEqual(json.loads(result.stdout), dict(reply, id=server.requests[0]["id"]))
+        self.assertEqual(server.connections, 1)
+        self.assertEqual(server.requests[0]["version"], 21)
         self.assert_secret_hidden(result)
 
     def test_incomplete_response_objects_exit_four(self):

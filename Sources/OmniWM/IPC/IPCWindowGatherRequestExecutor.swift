@@ -12,7 +12,8 @@ struct IPCWindowGatherRequestExecutor {
     }
 
     private struct Input {
-        let windowId: String
+        let windowId: String?
+        var markName: String?
         var token: WindowToken?
         var reason: IPCWindowGatherReason?
     }
@@ -35,7 +36,7 @@ struct IPCWindowGatherRequestExecutor {
             break
         }
 
-        var inputs = resolveInputs(request.windowIds)
+        var inputs = request.markNames.map(resolveMarks) ?? resolveInputs(request.windowIds)
         let destinationId: WorkspaceDescriptor.ID
         switch resolveDestination(request.workspaceTarget) {
         case let .refused(reason):
@@ -80,9 +81,13 @@ struct IPCWindowGatherRequestExecutor {
             outcome: .gathered,
             workspace: workspace,
             windows: inputs.map {
-                IPCWindowGatherWindowResult(windowId: $0.windowId, status: isMoved($0) ? .moved : .unchanged)
+                IPCWindowGatherWindowResult(
+                    windowId: $0.windowId,
+                    markName: $0.markName,
+                    status: isMoved($0) ? .moved : .unchanged
+                )
             },
-            moved: inputs.filter(isMoved).map(\.windowId),
+            moved: inputs.filter(isMoved).compactMap(\.windowId),
             relayoutWorkspaces: plan.affectedWorkspaceIds.compactMap(workspaceRef)
         )
         return .success(id: id, kind: .windowGather, status: .executed, result: IPCResult(windowGather: result))
@@ -92,7 +97,9 @@ struct IPCWindowGatherRequestExecutor {
         let result = IPCWindowGatherResult(
             outcome: .unchanged,
             workspace: workspace,
-            windows: inputs.map { IPCWindowGatherWindowResult(windowId: $0.windowId, status: .unchanged) }
+            windows: inputs.map {
+                IPCWindowGatherWindowResult(windowId: $0.windowId, markName: $0.markName, status: .unchanged)
+            }
         )
         return .failure(
             id: id,
@@ -117,6 +124,36 @@ struct IPCWindowGatherRequestExecutor {
                     return Input(windowId: windowId, token: token, reason: .duplicateWindow)
                 }
                 return Input(windowId: windowId, token: token)
+            }
+        }
+    }
+
+    private func resolveMarks(_ names: [String]) -> [Input] {
+        var seenTokens = Set<WindowToken>()
+        return names.map { name in
+            // Lookup is deliberately read-only: list/focus/summon prune stale marks or navigate.
+            switch controller.windowMarkRegistry.lookup(name) {
+            case .invalidName:
+                return Input(windowId: nil, markName: name, reason: .invalidMark)
+            case .unknown:
+                return Input(windowId: nil, markName: name, reason: .unknownMark)
+            case let .found(token):
+                guard controller.workspaceManager.entry(for: token) != nil,
+                      controller.workspaceManager.handle(for: token) != nil
+                else {
+                    return Input(windowId: nil, markName: name, reason: .staleMark)
+                }
+                let windowId = IPCWindowOpaqueID.encode(
+                    pid: token.pid,
+                    windowId: token.windowId,
+                    sessionToken: sessionToken
+                )
+                return Input(
+                    windowId: windowId,
+                    markName: name,
+                    token: token,
+                    reason: seenTokens.insert(token).inserted ? nil : .duplicateWindow
+                )
             }
         }
     }
@@ -159,6 +196,7 @@ struct IPCWindowGatherRequestExecutor {
             windows: inputs.map { input in
                 IPCWindowGatherWindowResult(
                     windowId: input.windowId,
+                    markName: input.markName,
                     status: input.reason.map(Self.status(for:)) ?? .blocked,
                     reason: input.reason
                 )
@@ -206,6 +244,9 @@ struct IPCWindowGatherRequestExecutor {
         switch reason {
         case .invalidWindowId,
              .staleWindowId,
+             .invalidMark,
+             .unknownMark,
+             .staleMark,
              .notFound:
             .unresolved
         default:
@@ -223,6 +264,12 @@ struct IPCWindowGatherRequestExecutor {
             .invalidArguments
         case .staleWindowId:
             .staleWindowId
+        case .invalidMark:
+            .invalidMark
+        case .unknownMark:
+            .unknownMark
+        case .staleMark:
+            .staleMark
         case .notFound,
              .destinationNotFound:
             .notFound

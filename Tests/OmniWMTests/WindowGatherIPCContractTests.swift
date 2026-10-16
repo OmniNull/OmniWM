@@ -43,7 +43,7 @@ final class WindowGatherIPCContractTests: XCTestCase {
         XCTAssertEqual(IPCAutomationManifest.windowGatherActionDescriptors.map(\.path), ["window-gather"])
         XCTAssertEqual(
             IPCAutomationManifest.windowGatherActionDescriptors.first?.arguments,
-            ["windowIds", "workspaceTarget"]
+            ["windowIds", "markNames", "workspaceTarget"]
         )
     }
 

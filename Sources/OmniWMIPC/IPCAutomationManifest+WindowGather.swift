@@ -7,8 +7,8 @@ extension IPCAutomationManifest {
     public static let windowGatherActionDescriptors: [IPCWindowGatherActionDescriptor] = [
         .init(
             path: "window-gather",
-            summary: "Atomically gather explicit managed windows into one leading Niri column of an existing workspace.",
-            arguments: ["windowIds", "workspaceTarget"]
+            summary: "Atomically gather managed windows by windowIds or markNames (not both) into one leading Niri column.",
+            arguments: ["windowIds", "markNames", "workspaceTarget"]
         )
     ]
 }

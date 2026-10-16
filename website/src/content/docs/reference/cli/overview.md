@@ -121,7 +121,9 @@ Turning **Enable IPC** on starts the server immediately and creates the Unix soc
 
 ## IPC Protocol
 
-**Protocol version:** 20
+**Protocol version:** 21
+
+Protocol 21 adds atomic gathering by runtime marks, alongside explicit window IDs; see [window gather payloads](/reference/cli/protocol/#request-format).
 
 The client and server versions must match exactly. A mismatched client can still call `version`, but every other remote request returns `protocol_mismatch`; there is no cross-version compatibility path.
 
