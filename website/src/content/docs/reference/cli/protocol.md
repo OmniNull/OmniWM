@@ -194,6 +194,8 @@ The request is also refused, with nothing moved, when:
 
 Windows on inactive workspaces, inactive tabs, or scrolled out of view are eligible.
 
+The repository's `Scripts/gather-windows.py` sends one such request: `gather-windows.py --workspace 3 ow_... ow_...`. A positive whole number names a workspace ID, as in `omniwmctl`; any other value is a display name. It prints the response, never sends follow-up focus or move commands, and exits like `omniwmctl` (`no_change` exits 1). `--dry-run` prints the request without the authorization token and contacts nothing.
+
 ### Response Format
 
 ```json
