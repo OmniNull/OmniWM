@@ -59,7 +59,8 @@ class FakeOmniWM:
                 if isinstance(self.response, bytes):
                     connection.sendall(self.response)
                 elif self.response is not None:
-                    reply = dict(self.response, id=request["id"])
+                    reply = (self.response(request) if callable(self.response)
+                             else dict(self.response, id=request["id"]))
                     connection.sendall(json.dumps(reply).encode() + b"\n")
 
     def close(self):
@@ -202,6 +203,8 @@ class GatherWindowsScriptTests(unittest.TestCase):
             (UNCHANGED, 1),
             (REFUSED, 1),
             (response(False, "error", code="unauthorized"), 1),
+            (response(False, "ignored", code="ignored_disabled"), 1),
+            (response(False, "ignored", code="ignored_overview"), 1),
             (response(False, "error", code="protocol_mismatch"), 1),
             (response(False, "error", code="internal_error"), 4),
         )
@@ -216,6 +219,58 @@ class GatherWindowsScriptTests(unittest.TestCase):
                 self.assertEqual(json.loads(result.stdout).get("result"), reply.get("result"))
                 self.assert_secret_hidden(result)
         self.assertEqual(server.connections, len(cases))
+
+    def test_protocol_mismatch_from_another_server_version_is_preserved(self):
+        reply = dict(response(False, "error", code="protocol_mismatch"),
+                     version=PROTOCOL_VERSION + 1,
+                     result={"kind": "version", "payload": {"protocolVersion": PROTOCOL_VERSION + 1}})
+        server = self.serve(reply=reply)
+
+        result = self.run_script("--workspace", "2", "ow_a")
+
+        self.assertEqual(result.returncode, 1, result.stderr)
+        self.assertEqual(json.loads(result.stdout), dict(reply, id=server.requests[0]["id"]))
+        self.assertEqual(server.connections, 1)
+        self.assert_secret_hidden(result)
+
+    def test_incomplete_response_objects_exit_four(self):
+        server = self.serve()
+        cases = [("empty", lambda request: {}), ("ok_only", lambda request: {"ok": True})]
+        for field in ("version", "id", "kind", "ok", "status"):
+            cases.append((field, lambda request, field=field: {
+                key: value for key, value in dict(GATHERED, id=request["id"]).items()
+                if key != field
+            }))
+        for name, reply in cases:
+            with self.subTest(missing=name):
+                server.response = reply
+                result = self.run_script("--workspace", "2", "ow_a")
+                self.assertEqual(result.returncode, 4, result.stderr)
+                self.assertEqual(result.stdout, "")
+                self.assertIn("gather-windows:", result.stderr)
+                self.assert_secret_hidden(result)
+        self.assertEqual(server.connections, len(cases))
+
+    def test_wrong_response_types_or_correlation_exit_four(self):
+        server = self.serve()
+        cases = {
+            "version": (None, True, "20", 20.5, [], {}),
+            "id": (None, 1, True, [], {}, "another-request"),
+            "kind": (None, 1, True, [], {}, "query", "error"),
+            "ok": (None, 1, "true", [], {}),
+            "status": (None, 1, True, [], {}, "unknown"),
+        }
+        for field, values in cases.items():
+            for value in values:
+                with self.subTest(field=field, value=value):
+                    server.response = lambda request: dict(
+                        GATHERED, **{"id": request["id"], field: value})
+                    result = self.run_script("--workspace", "2", "ow_a")
+                    self.assertEqual(result.returncode, 4, result.stderr)
+                    self.assertEqual(result.stdout, "")
+                    self.assertIn("gather-windows:", result.stderr)
+                    self.assert_secret_hidden(result)
+        self.assertEqual(server.connections, sum(len(values) for values in cases.values()))
 
     def test_dry_run_prints_the_request_without_connecting(self):
         server = self.serve()

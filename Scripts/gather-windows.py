@@ -134,7 +134,16 @@ def main(argv=None):
         response = json.loads(line)
     except ValueError:
         fail("OmniWM returned an invalid response", EXIT_INTERNAL_ERROR)
-    if not isinstance(response, dict):
+    # Validate the required IPCResponse envelope, not its command-specific result.
+    # A different integer version is valid for protocol_mismatch diagnostics.
+    if not (
+        isinstance(response, dict)
+        and type(response.get("version")) is int
+        and response.get("id") == request["id"]
+        and response.get("kind") == request["kind"]
+        and type(response.get("ok")) is bool
+        and response.get("status") in ("success", "executed", "ignored", "error", "subscribed")
+    ):
         fail("OmniWM returned an invalid response", EXIT_INTERNAL_ERROR)
     print(json.dumps(response, indent=2, sort_keys=True))
     return exit_code(response)
