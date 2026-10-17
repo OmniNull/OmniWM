@@ -118,6 +118,7 @@ final class OverviewViewportProjection {
         }
     }
 
+    /// Projects a monitor's workspaces into local coordinates while reserving its notch height.
     private func projectedLayout(
         for monitor: Monitor,
         niriSnapshotsByWorkspace: [WorkspaceDescriptor.ID: NiriOverviewWorkspaceSnapshot],
@@ -146,7 +147,8 @@ final class OverviewViewportProjection {
         let viewportFrame = OverviewLayoutCalculator.viewportFrame(for: monitor.frame)
         let layout = OverviewLayoutCalculator(
             screenFrame: viewportFrame,
-            scale: scale
+            scale: scale,
+            topSafeAreaInset: monitor.notchHeight
         ).calculateLayout(
             workspaces: workspaces,
             windows: localizedWindowData,

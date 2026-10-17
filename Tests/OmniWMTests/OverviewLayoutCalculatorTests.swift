@@ -7,6 +7,74 @@ import XCTest
 
 @MainActor
 final class OverviewLayoutCalculatorTests: XCTestCase {
+    /// Checks fixed notch clearance and content spacing for empty and typed searches at each zoom limit and default.
+    func testNotchedDisplayKeepsSearchAndContentBelowSafeAreaAtEveryZoom() throws {
+        let viewport = CGRect(x: 0, y: 0, width: 1512, height: 982)
+        let safeAreaInset: CGFloat = 32
+        let workspace = OverviewWorkspaceLayoutItem(id: UUID(), name: "Main", isActive: true)
+
+        for scale: CGFloat in [0.5, 1, 1.5] {
+            for query in ["", "Safari"] {
+                let layout = OverviewLayoutCalculator(
+                    screenFrame: viewport,
+                    scale: scale,
+                    topSafeAreaInset: safeAreaInset
+                ).calculateLayout(workspaces: [workspace], windows: [:], searchQuery: query)
+                let section = try XCTUnwrap(layout.workspaceSections.first)
+
+                XCTAssertEqual(
+                    layout.searchBarFrame.maxY,
+                    viewport.maxY - safeAreaInset - OverviewLayoutMetrics.searchBarPadding * scale
+                )
+                XCTAssertLessThan(section.labelFrame.maxY, layout.searchBarFrame.minY)
+                XCTAssertEqual(layout.viewportFrame, viewport)
+                XCTAssertEqual(
+                    OverviewLayoutCalculator.visibleContentFrame(layout: layout, screenFrame: viewport).maxY,
+                    layout.searchBarFrame.minY - OverviewLayoutMetrics.contentTopPadding * scale
+                )
+            }
+        }
+    }
+
+    /// Checks that projection forwards each monitor's notch height without scaling it or using the global origin.
+    func testProjectionUsesEachMonitorsNotchHeightForSearchPosition() throws {
+        let directory = FileManager.default.temporaryDirectory.appendingPathComponent(UUID().uuidString)
+        defer { try? FileManager.default.removeItem(at: directory) }
+        let settings = SettingsStore(
+            persistence: SettingsFilePersistence(
+                directory: directory.appendingPathComponent("config"), startWatching: false, deferSaves: false
+            ),
+            runtimeState: RuntimeStateStore(directory: directory.appendingPathComponent("state"), deferSaves: false),
+            autosaveEnabled: false
+        )
+        let controller = WMController(settings: settings)
+        let monitors = [CGFloat(0), 32].enumerated().map { index, notchHeight in
+            let displayId = CGDirectDisplayID(93_001 + index)
+            let frame = CGRect(x: index * 1512, y: 200, width: 1512, height: 982)
+            return Monitor(
+                id: .init(displayId: displayId), displayId: displayId, frame: frame, visibleFrame: frame,
+                hasNotch: notchHeight > 0, notchHeight: notchHeight, name: "Projection Test \(index)"
+            )
+        }
+        controller.workspaceManager.applyMonitorConfigurationChange(monitors)
+        let snapshot = OverviewSnapshot(
+            wmController: controller,
+            facts: OverviewWindowFacts(wmController: controller, environment: OverviewEnvironment())
+        )
+        let scale: CGFloat = 1.25
+        let projection = OverviewViewportProjection(wmController: controller, snapshot: snapshot, scale: scale)
+
+        projection.rebuildProjectedLayouts()
+
+        for monitor in monitors {
+            let layout = try XCTUnwrap(projection.layoutsByMonitor[monitor.id])
+            XCTAssertEqual(
+                layout.searchBarFrame.maxY,
+                monitor.frame.height - monitor.notchHeight - OverviewLayoutMetrics.searchBarPadding * scale
+            )
+        }
+    }
+
     func testGenericFallbackProjectsMonitorLocalFramesAtUniformStripScale() throws {
         let (layout, handles) = makeMixedLayout()
         let section = try XCTUnwrap(layout.workspaceSections.first)
