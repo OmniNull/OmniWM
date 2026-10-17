@@ -203,6 +203,8 @@ extension NiriLayoutEngine {
         let index: Int
         let position: CGFloat
         let nextPosition: CGFloat
+        let activeIndex: Int
+        let activePosition: CGFloat
         let geometry: NiriProjectedGeometrySnapshot?
         let projectedAnchor: NiriProjectedViewportAnchor?
     }
@@ -254,8 +256,16 @@ extension NiriLayoutEngine {
                     / CGFloat(effectiveVisibleContainerCount(in: context.workspaceId))
             ) + context.gaps
 
+        let activePosition = state.containerPosition(
+            at: state.activeColumnIndex,
+            containers: cols,
+            gap: context.gaps,
+            sizeKeyPath: sizeKeyPath
+        )
+
         return ColumnReorderSnapshot(
             index: currentIdx, position: currentPosition, nextPosition: nextPosition,
+            activeIndex: state.activeColumnIndex, activePosition: activePosition,
             geometry: previousGeometry, projectedAnchor: previousProjectedAnchor
         )
     }
@@ -290,10 +300,10 @@ extension NiriLayoutEngine {
     ) {
         let newCols = columns(in: context.workspaceId)
         let sizeKeyPath = primarySizeKeyPath(for: context.orientation)
-        let positionAtOldIndex = state.containerPosition(
-            at: snapshot.index, containers: newCols, gap: context.gaps, sizeKeyPath: sizeKeyPath
+        let positionAtActiveIndex = state.containerPosition(
+            at: snapshot.activeIndex, containers: newCols, gap: context.gaps, sizeKeyPath: sizeKeyPath
         )
-        state.offsetViewport(by: snapshot.position - positionAtOldIndex)
+        state.offsetViewport(by: snapshot.activePosition - positionAtActiveIndex)
         let newPosition = state.containerPosition(
             at: targetIdx, containers: newCols, gap: context.gaps, sizeKeyPath: sizeKeyPath
         )
