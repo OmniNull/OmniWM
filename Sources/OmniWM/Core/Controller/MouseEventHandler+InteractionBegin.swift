@@ -109,14 +109,13 @@ extension MouseEventHandler {
         engine: DwindleLayoutEngine,
         wsId: WorkspaceDescriptor.ID,
         at location: CGPoint,
-        isInsertMode: Bool = false,
         source: MouseInputState.InteractionSource
     ) -> Bool {
         guard let controller else { return false }
         let now = controller.animationClock.now()
         guard let frame = engine.presentedFrame(for: token, in: wsId, at: now),
               engine.interactiveMoveBegin(
-                  token: token, startLocation: location, isInsertMode: isInsertMode, in: wsId
+                  token: token, startLocation: location, allowsInsertion: source.mouseButton != nil, in: wsId
               )
         else { return false }
 

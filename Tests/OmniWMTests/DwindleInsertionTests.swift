@@ -170,6 +170,36 @@ final class DwindleInsertionTests: XCTestCase {
         }
     }
 
+    func testDropZonesUseTileDimensionsAndKeepTheCenterForSwapping() throws {
+        let zones: [(CGFloat, CGFloat, Direction?)] = [
+            (0.5, 0.5, nil), (0.3, 0.5, nil), (0.7, 0.5, nil),
+            (0.5, 0.3, nil), (0.5, 0.7, nil), (0.3, 0.3, nil), (0.7, 0.7, nil),
+            (0.299, 0.5, .left), (0.701, 0.5, .right),
+            (0.5, 0.299, .down), (0.5, 0.701, .up),
+            (0.1, 0.2, .left), (0.8, 0.9, .up),
+            (0.1, 0.1, .down), (0.9, 0.9, .up)
+        ]
+        for screen in [CGRect(x: 0, y: 0, width: 1600, height: 800), CGRect(x: 0, y: 0, width: 800, height: 1600)] {
+            let fixture = makeFixture(count: 2)
+            let engine = fixture.engine
+            let before = engine.calculateLayout(for: fixture.workspaceId, screen: screen)
+            let target = fixture.tokens[1]
+            let frame = try XCTUnwrap(before[target])
+            XCTAssertTrue(engine.interactiveMoveBegin(
+                token: fixture.tokens[0], startLocation: .zero, allowsInsertion: true, in: fixture.workspaceId
+            ))
+            for (x, y, direction) in zones {
+                let point = CGPoint(x: frame.minX + x * frame.width, y: frame.minY + y * frame.height)
+                XCTAssertEqual(engine.interactiveMoveUpdate(currentLocation: point, at: 0), target)
+                XCTAssertEqual(engine.interactiveMove?.targetDirection, direction, "Drop zone at \(x), \(y)")
+                XCTAssertEqual(engine.interactiveMove?.isInsertion, direction != nil)
+                let preview = try XCTUnwrap(engine.interactiveMoveTargetFrame(at: 0))
+                XCTAssertEqual(preview.width * preview.height, frame.width * frame.height / (direction == nil ? 1 : 2))
+                XCTAssertEqual(engine.calculateLayout(for: fixture.workspaceId, screen: screen), before)
+            }
+        }
+    }
+
     func testHoverPreviewsOnlyTheChosenHalfWithoutMutatingTheTree() throws {
         let fixture = makeFixture(count: 2)
         let engine = fixture.engine
@@ -180,7 +210,7 @@ final class DwindleInsertionTests: XCTestCase {
         XCTAssertTrue(engine.interactiveMoveBegin(
             token: source,
             startLocation: .zero,
-            isInsertMode: true,
+            allowsInsertion: true,
             in: fixture.workspaceId
         ))
         for direction in directions {
@@ -310,7 +340,7 @@ final class DwindleInsertionTests: XCTestCase {
     private func hover(_ source: WindowToken, over target: WindowToken, direction: Direction, fixture: Fixture) throws {
         let frame = try XCTUnwrap(fixture.engine.presentedFrame(for: target, in: fixture.workspaceId, at: 0))
         XCTAssertTrue(fixture.engine.interactiveMoveBegin(
-            token: source, startLocation: .zero, isInsertMode: true, in: fixture.workspaceId
+            token: source, startLocation: .zero, allowsInsertion: true, in: fixture.workspaceId
         ))
         XCTAssertEqual(
             fixture.engine.interactiveMoveUpdate(currentLocation: point(direction, in: frame), at: 0),

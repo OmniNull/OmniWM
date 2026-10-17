@@ -6,13 +6,19 @@ import Foundation
 
 extension MouseEventHandler {
     private func handleDwindleMoveDrag(at location: CGPoint) {
-        guard let controller, let engine = controller.dwindleEngine, engine.interactiveMove != nil else {
+        guard let controller, let engine = controller.dwindleEngine,
+              let move = engine.interactiveMove,
+              let monitor = controller.workspaceManager.monitor(for: move.workspaceId)
+        else {
             cancelActiveMouseInteraction()
             return
         }
         let now = controller.animationClock.now()
         state.dragGhostController?.updatePosition(cursorLocation: location)
-        _ = engine.interactiveMoveUpdate(currentLocation: location, at: now)
+        _ = engine.interactiveMoveUpdate(
+            currentLocation: location, at: now,
+            workspaceFrame: controller.insetWorkingFrame(for: monitor)
+        )
         guard engine.interactiveMove != nil else {
             cancelActiveMouseInteraction()
             return
@@ -25,22 +31,31 @@ extension MouseEventHandler {
     }
 
     func finishDwindleMove(at location: CGPoint) {
-        guard let controller, let engine = controller.dwindleEngine, let move = engine.interactiveMove else { return }
-        guard engine.interactiveMoveUpdate(currentLocation: location, at: controller.animationClock.now()) != nil else {
+        guard let controller, let engine = controller.dwindleEngine,
+              let wsId = engine.interactiveMove?.workspaceId
+        else { return }
+        guard let monitor = controller.workspaceManager.monitor(for: wsId) else {
             engine.interactiveMoveCancel()
             return
         }
-        let wsId = move.workspaceId
+        _ = engine.interactiveMoveUpdate(
+            currentLocation: location, at: controller.animationClock.now(),
+            workspaceFrame: controller.insetWorkingFrame(for: monitor)
+        )
+        guard let move = engine.interactiveMove, move.target != nil else {
+            engine.interactiveMoveCancel()
+            return
+        }
         let changed = controller.workspaceManager.withEngineMutationScope(
             in: wsId,
-            label: move.isInsertMode ? "dwindle_mouse_insert" : "dwindle_mouse_swap",
+            label: move.isInsertion ? "dwindle_mouse_insert" : "dwindle_mouse_swap",
             source: .mouse
         ) {
             engine.interactiveMoveEnd() != nil
         }
         guard changed else { return }
         controller.workspaceManager.recordLayoutOperation(
-            move.isInsertMode ? .interactiveMoveEnded(token: move.token) : .windowsSwapped,
+            move.isInsertion ? .interactiveMoveEnded(token: move.token) : .windowsSwapped,
             in: wsId,
             source: .mouse
         )

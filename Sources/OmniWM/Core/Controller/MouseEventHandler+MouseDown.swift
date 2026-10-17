@@ -118,10 +118,10 @@ extension MouseEventHandler {
     ) -> Bool {
         guard let controller, let engine = controller.dwindleEngine else { return false }
         if button == .left {
-            guard let mode = Self.mouseMoveMode(
+            guard Self.mouseMoveMode(
                 modifiers: modifiers,
                 required: controller.settings.gestures.mouseMoveModifierKey.cgEventFlags
-            ),
+            ) != nil,
                 let token = engine.hitTestFocusableWindow(
                     point: location,
                     in: wsId,
@@ -130,7 +130,7 @@ extension MouseEventHandler {
             else { return false }
             _ = beginDwindleMove(
                 token: token, engine: engine, wsId: wsId, at: location,
-                isInsertMode: mode == .insert, source: .mouse(button)
+                source: .mouse(button)
             )
             return false
         }

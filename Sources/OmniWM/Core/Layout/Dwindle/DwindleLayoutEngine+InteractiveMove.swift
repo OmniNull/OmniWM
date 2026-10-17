@@ -4,20 +4,41 @@
 import CoreGraphics
 import Foundation
 
+enum DwindleMoveTarget: Equatable {
+    case tile(WindowToken, direction: Direction?)
+    case workspaceEdge(Direction, frame: CGRect)
+}
+
 struct DwindleInteractiveMove {
     let token: WindowToken
     let workspaceId: WorkspaceDescriptor.ID
     let startLocation: CGPoint
-    let isInsertMode: Bool
-    var targetToken: WindowToken?
-    var targetDirection: Direction?
+    let allowsInsertion: Bool
+    var target: DwindleMoveTarget?
+
+    var targetToken: WindowToken? {
+        guard case let .tile(token, _) = target else { return nil }
+        return token
+    }
+
+    var targetDirection: Direction? {
+        switch target {
+        case let .tile(_, direction): direction
+        case let .workspaceEdge(direction, _): direction
+        case nil: nil
+        }
+    }
+
+    var isInsertion: Bool {
+        targetDirection != nil
+    }
 }
 
 extension DwindleLayoutEngine {
     func interactiveMoveBegin(
         token: WindowToken,
         startLocation: CGPoint,
-        isInsertMode: Bool = false,
+        allowsInsertion: Bool = false,
         in workspaceId: WorkspaceDescriptor.ID
     ) -> Bool {
         guard interactiveResize == nil,
@@ -28,12 +49,16 @@ extension DwindleLayoutEngine {
               !isWindowFullscreen(token, in: workspaceId)
         else { return false }
         interactiveMove = DwindleInteractiveMove(
-            token: token, workspaceId: workspaceId, startLocation: startLocation, isInsertMode: isInsertMode
+            token: token, workspaceId: workspaceId, startLocation: startLocation, allowsInsertion: allowsInsertion
         )
         return true
     }
 
-    func interactiveMoveUpdate(currentLocation: CGPoint, at time: TimeInterval) -> WindowToken? {
+    func interactiveMoveUpdate(
+        currentLocation: CGPoint,
+        at time: TimeInterval,
+        workspaceFrame: CGRect? = nil
+    ) -> WindowToken? {
         guard let move = interactiveMove else { return nil }
         guard let source = findNode(for: move.token, in: move.workspaceId),
               !excludedTokens(in: move.workspaceId).contains(move.token),
@@ -42,12 +67,19 @@ extension DwindleLayoutEngine {
             interactiveMoveCancel()
             return nil
         }
-        if let target = move.targetToken,
-           findNode(for: target, in: move.workspaceId) == nil
-           || excludedTokens(in: move.workspaceId).contains(target)
-           || isWindowFullscreen(target, in: move.workspaceId)
-        {
+        guard isInteractiveMoveTargetValid(move) else {
             interactiveMoveCancel()
+            return nil
+        }
+        if let workspaceFrame, !workspaceFrame.contains(currentLocation) {
+            interactiveMove?.target = nil
+            return nil
+        }
+        if move.allowsInsertion, let workspaceFrame,
+           let direction = workspaceEdgeDirection(at: currentLocation, in: workspaceFrame, from: move.startLocation),
+           canInsertAtWorkspaceEdge(token: move.token, in: move.workspaceId)
+        {
+            interactiveMove?.target = .workspaceEdge(direction, frame: workspaceFrame)
             return nil
         }
         let target = hitTestFocusableWindow(point: currentLocation, in: move.workspaceId, at: time)
@@ -58,26 +90,27 @@ extension DwindleLayoutEngine {
                 else { return nil }
                 return candidate
             }
-        interactiveMove?.targetToken = target
-        interactiveMove?.targetDirection = nil
-        if move.isInsertMode, let target,
+        var direction: Direction?
+        if move.allowsInsertion, let target,
            let frame = presentedFrame(for: target, in: move.workspaceId, at: time),
            frame.width > 0, frame.height > 0
         {
-            let horizontal = (currentLocation.x - frame.midX) / frame.width
-            let vertical = (currentLocation.y - frame.midY) / frame.height
-            interactiveMove?.targetDirection = abs(horizontal) > abs(vertical)
-                ? (horizontal < 0 ? .left : .right)
-                : (vertical < 0 ? .down : .up)
+            direction = tileInsertionDirection(at: currentLocation, in: frame)
         }
+        interactiveMove?.target = target.map { .tile($0, direction: direction) }
         return target
     }
 
     func interactiveMoveTargetFrame(at time: TimeInterval) -> CGRect? {
-        guard let move = interactiveMove, let target = move.targetToken,
-              let frame = presentedFrame(for: target, in: move.workspaceId, at: time)
-        else { return nil }
-        guard move.isInsertMode else { return frame }
+        guard let move = interactiveMove, let target = move.target else { return nil }
+        let frame: CGRect
+        switch target {
+        case let .tile(token, _):
+            guard let presented = presentedFrame(for: token, in: move.workspaceId, at: time) else { return nil }
+            frame = presented
+        case let .workspaceEdge(_, workspaceFrame):
+            frame = workspaceFrame
+        }
         switch move.targetDirection {
         case .left:
             return frame.divided(atDistance: frame.width / 2, from: .minXEdge).slice
@@ -88,7 +121,7 @@ extension DwindleLayoutEngine {
         case .down:
             return frame.divided(atDistance: frame.height / 2, from: .minYEdge).slice
         case nil:
-            return nil
+            return frame
         }
     }
 
@@ -96,6 +129,9 @@ extension DwindleLayoutEngine {
     func interactiveMoveEnd() -> WindowToken? {
         guard let move = interactiveMove else { return nil }
         interactiveMove = nil
+        if case let .workspaceEdge(direction, _) = move.target {
+            return insertLeafTile(of: move.token, atWorkspaceEdge: direction, in: move.workspaceId) ? move.token : nil
+        }
         guard let targetToken = move.targetToken,
               !excludedTokens(in: move.workspaceId).contains(move.token),
               !excludedTokens(in: move.workspaceId).contains(targetToken),
@@ -103,8 +139,7 @@ extension DwindleLayoutEngine {
               !isWindowFullscreen(targetToken, in: move.workspaceId)
         else { return nil }
         let changed: Bool
-        if move.isInsertMode {
-            guard let direction = move.targetDirection else { return nil }
+        if let direction = move.targetDirection {
             changed = insertLeafTile(of: move.token, beside: targetToken, direction: direction, in: move.workspaceId)
         } else {
             changed = swapLeafTiles(of: move.token, and: targetToken, in: move.workspaceId)
@@ -115,5 +150,38 @@ extension DwindleLayoutEngine {
 
     func interactiveMoveCancel() {
         interactiveMove = nil
+    }
+
+    private func isInteractiveMoveTargetValid(_ move: DwindleInteractiveMove) -> Bool {
+        switch move.target {
+        case let .tile(token, _):
+            findNode(for: token, in: move.workspaceId) != nil
+                && !excludedTokens(in: move.workspaceId).contains(token)
+                && !isWindowFullscreen(token, in: move.workspaceId)
+        case .workspaceEdge:
+            canInsertAtWorkspaceEdge(token: move.token, in: move.workspaceId)
+        case nil:
+            true
+        }
+    }
+
+    private func tileInsertionDirection(at point: CGPoint, in frame: CGRect) -> Direction? {
+        let horizontal = (point.x - frame.midX) / frame.width
+        let vertical = (point.y - frame.midY) / frame.height
+        guard max(abs(horizontal), abs(vertical)) > 0.2 else { return nil }
+        return abs(horizontal) > abs(vertical)
+            ? (horizontal < 0 ? .left : .right)
+            : (vertical < 0 ? .down : .up)
+    }
+
+    private func workspaceEdgeDirection(at point: CGPoint, in frame: CGRect, from start: CGPoint) -> Direction? {
+        guard hypot(point.x - start.x, point.y - start.y) >= 10 else { return nil }
+        let horizontal = min(point.x - frame.minX, frame.maxX - point.x)
+        let vertical = min(point.y - frame.minY, frame.maxY - point.y)
+        let threshold = min(24, min(frame.width, frame.height) / 10)
+        guard min(horizontal, vertical) <= threshold else { return nil }
+        return horizontal <= vertical
+            ? (point.x < frame.midX ? .left : .right)
+            : (point.y < frame.midY ? .down : .up)
     }
 }

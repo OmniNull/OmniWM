@@ -417,7 +417,7 @@ final class TrackpadWindowGestureTests: XCTestCase {
     func testFourFingerDragSwapsDwindleTilesOnRelease() throws {
         let fixture = try makeDwindleFixture(pid: 9_201)
         let handler = fixture.handler
-        let travel = (fixture.secondFrame.center.x - fixture.firstFrame.center.x) / fixture.screen.width
+        let travel = (fixture.secondFrame.minX + 32 - fixture.firstFrame.center.x) / fixture.screen.width
 
         var gesture = fixture.driver(at: fixture.firstFrame.center)
         gesture.begin(fingers: 4, x: 0.2)
@@ -427,6 +427,8 @@ final class TrackpadWindowGestureTests: XCTestCase {
         XCTAssertEqual(handler.state.moveLayout, .dwindle)
         XCTAssertEqual(fixture.engine.interactiveMove?.token, fixture.first)
         XCTAssertEqual(fixture.engine.interactiveMove?.targetToken, fixture.second)
+        XCTAssertNil(fixture.engine.interactiveMove?.targetDirection)
+        XCTAssertEqual(fixture.engine.interactiveMoveTargetFrame(at: 0), fixture.secondFrame)
 
         gesture.end()
 
