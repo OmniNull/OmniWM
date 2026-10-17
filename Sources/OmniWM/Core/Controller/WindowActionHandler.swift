@@ -15,6 +15,7 @@ final class WindowActionHandler {
     weak var controller: WMController?
     private let floatingWindows: FloatingWindowRaiser
     private let appReveal: AppRevealActions
+    private let unminimizeWindow: (AXWindowRef) -> Bool
 
     @ObservationIgnored
     private var overviewControllerStorage: OverviewController?
@@ -56,9 +57,14 @@ final class WindowActionHandler {
                 return .applicationUnavailable
             }
             return app.unhide() ? .requestReportedSent : .requestReportedNotSent
+        },
+        unminimizeWindow: @escaping (AXWindowRef) -> Bool = { window in
+            AXUIElementSetAttributeValue(window.element, kAXMinimizedAttribute as CFString, kCFBooleanFalse) ==
+                .success
         }
     ) {
         self.controller = controller
+        self.unminimizeWindow = unminimizeWindow
         floatingWindows = FloatingWindowRaiser(
             controller: controller,
             visibleOwnedWindowsProvider: visibleOwnedWindowsProvider,
@@ -304,6 +310,7 @@ final class WindowActionHandler {
         handle: WindowHandle,
         focusOrigin: ManagedFocusOrigin = .keyboardOrProgrammatic
     ) -> Bool {
+        guard restoreMinimizedWindowIfNeeded(handle) else { return false }
         let navigated = navigateToExplicitlySelectedWindow(handle: handle, focusOrigin: focusOrigin)
         if navigated,
            let controller,
@@ -315,6 +322,17 @@ final class WindowActionHandler {
             controller.activateNativeFullscreenPlaceholder(originalToken)
         }
         return navigated
+    }
+
+    /// Focus and raise are ignored for minimized windows, so a bar click has to restore the window first.
+    private func restoreMinimizedWindowIfNeeded(_ handle: WindowHandle) -> Bool {
+        guard let controller,
+              let entry = controller.workspaceManager.entry(for: handle),
+              entry.observedState.isMinimized
+        else { return true }
+        guard unminimizeWindow(entry.axRef) else { return false }
+        controller.axEventHandler.updateWindowMinimizedState(false, token: entry.token)
+        return true
     }
 
     func runningAppsWithWindows() -> [RunningAppInfo] {

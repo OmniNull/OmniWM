@@ -144,6 +144,57 @@ final class AppRevealFocusTests: XCTestCase {
         )
     }
 
+    func testBarSelectionRestoresMinimizedWindowBeforeFocusing() throws {
+        let fixture = try makeFixture(pid: 91_030, windowId: 91_130)
+        var unminimizedWindowIds: [Int] = []
+        let handler = makeHandler(
+            controller: fixture.controller,
+            unminimizeWindow: { window in
+                unminimizedWindowIds.append(window.windowId)
+                return true
+            },
+            unhideApplication: { _ in true }
+        )
+        fixture.controller.axEventHandler.updateWindowMinimizedState(true, token: fixture.token, requestRefresh: false)
+        XCTAssertFalse(fixture.controller.canFocusWindow(pid: fixture.token.pid, windowId: fixture.token.windowId))
+
+        XCTAssertTrue(handler.focusWindowFromBar(handle: fixture.handle, focusOrigin: .pointerSelection))
+
+        XCTAssertEqual(unminimizedWindowIds, [fixture.token.windowId])
+        XCTAssertEqual(fixture.controller.workspaceManager.entry(for: fixture.token)?.observedState.isMinimized, false)
+    }
+
+    func testBarSelectionLeavesWindowMinimizedWhenRestoreIsRefused() throws {
+        let fixture = try makeFixture(pid: 91_031, windowId: 91_131)
+        let handler = makeHandler(
+            controller: fixture.controller,
+            unminimizeWindow: { _ in false },
+            unhideApplication: { _ in true }
+        )
+        fixture.controller.axEventHandler.updateWindowMinimizedState(true, token: fixture.token, requestRefresh: false)
+
+        XCTAssertFalse(handler.focusWindowFromBar(handle: fixture.handle, focusOrigin: .pointerSelection))
+
+        XCTAssertEqual(fixture.controller.workspaceManager.entry(for: fixture.token)?.observedState.isMinimized, true)
+    }
+
+    func testBarSelectionDoesNotRestoreWindowThatIsNotMinimized() throws {
+        let fixture = try makeFixture(pid: 91_032, windowId: 91_132)
+        var unminimizeCount = 0
+        let handler = makeHandler(
+            controller: fixture.controller,
+            unminimizeWindow: { _ in
+                unminimizeCount += 1
+                return true
+            },
+            unhideApplication: { _ in true }
+        )
+
+        _ = handler.focusWindowFromBar(handle: fixture.handle, focusOrigin: .pointerSelection)
+
+        XCTAssertEqual(unminimizeCount, 0)
+    }
+
     func testPendingRevealCancelsWhenApplicationTerminates() throws {
         let fixture = try makeFixture(pid: 91_018, windowId: 91_118)
         let handler = makeHandler(controller: fixture.controller) { _ in false }
@@ -818,6 +869,7 @@ final class AppRevealFocusTests: XCTestCase {
 
     private func makeHandler(
         controller: WMController,
+        unminimizeWindow: @escaping (AXWindowRef) -> Bool = { _ in true },
         unhideApplication: @escaping (pid_t) -> Bool
     ) -> WindowActionHandler {
         WindowActionHandler(
@@ -826,7 +878,8 @@ final class AppRevealFocusTests: XCTestCase {
             frontOwnedWindow: { _ in },
             requestApplicationUnhide: { pid in
                 unhideApplication(pid) ? .requestReportedSent : .requestReportedNotSent
-            }
+            },
+            unminimizeWindow: unminimizeWindow
         )
     }
 
