@@ -107,12 +107,14 @@ extension IPCWindowMarkRequest: Codable {
 
 public struct IPCWindowMarkEntry: Codable, Equatable, Sendable {
     public let name: String
+    public let id: String
     public let workspace: IPCWorkspaceRef
     public let app: IPCAppRef
     public let title: String?
 
-    public init(name: String, workspace: IPCWorkspaceRef, app: IPCAppRef, title: String?) {
+    public init(name: String, id: String, workspace: IPCWorkspaceRef, app: IPCAppRef, title: String?) {
         self.name = name
+        self.id = id
         self.workspace = workspace
         self.app = app
         self.title = title

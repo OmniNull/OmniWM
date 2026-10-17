@@ -69,6 +69,10 @@ extension IPCJSONWriter {
         end(125)
     }
 
+    mutating func value(_ value: borrowing IPCColumnDisplayMode) throws {
+        try self.value(value.rawValue)
+    }
+
     mutating func value(_ value: borrowing IPCColumnViewport) throws {
         try self.value(value.rawValue)
     }
@@ -78,6 +82,8 @@ extension IPCJSONWriter {
         var first = true
         self.key("index", &first)
         try self.value(value.index)
+        self.key("mode", &first)
+        try self.value(value.mode)
         self.key("viewport", &first)
         try self.value(value.viewport)
         end(125)

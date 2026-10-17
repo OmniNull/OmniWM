@@ -114,6 +114,17 @@ extension IPCColumnViewport {
     }
 }
 
+extension IPCColumnDisplayMode {
+    init(displayMode: ColumnDisplay) {
+        switch displayMode {
+        case .normal:
+            self = .normal
+        case .tabbed:
+            self = .tabbed
+        }
+    }
+}
+
 extension IPCWorkspaceLayout {
     init(layout: LayoutType) {
         switch layout {

@@ -8,9 +8,11 @@ import OmniWMIPC
 @MainActor
 struct IPCWindowMarkRequestExecutor {
     private let controller: WMController
+    private let sessionToken: String
 
-    init(controller: WMController) {
+    init(controller: WMController, sessionToken: String = "") {
         self.controller = controller
+        self.sessionToken = sessionToken
     }
 
     func response(for request: IPCWindowMarkRequest, id: String) -> IPCResponse {
@@ -90,9 +92,11 @@ struct IPCWindowMarkRequestExecutor {
                 bundleId: appInfo?.bundleId
             )
             let title = AXWindowService.titlePreferFast(windowId: UInt32(entry.windowId))
+            let id = IPCWindowOpaqueID.encode(token: entry.token, sessionToken: sessionToken)
             entries.append(
                 IPCWindowMarkEntry(
                     name: mark.name,
+                    id: id,
                     workspace: IPCWorkspaceRef(descriptor: descriptor, settings: controller.settings),
                     app: app,
                     title: title?.isEmpty == false ? title : nil

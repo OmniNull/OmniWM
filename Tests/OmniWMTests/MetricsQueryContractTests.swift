@@ -87,7 +87,7 @@ final class MetricsQueryContractTests: XCTestCase {
         let object = try XCTUnwrap(
             JSONSerialization.jsonObject(with: encoded) as? [String: Any]
         )
-        XCTAssertEqual(object["version"] as? Int, 20)
+        XCTAssertEqual(object["version"] as? Int, 21)
         let resultObject = try XCTUnwrap(object["result"] as? [String: Any])
         XCTAssertEqual(resultObject["kind"] as? String, "metrics")
 

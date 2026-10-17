@@ -348,13 +348,14 @@ extension CLIRenderer {
         let rows = payload.marks.map { mark in
             [
                 mark.name,
+                dashIfEmpty(mark.id),
                 mark.workspace.displayName,
                 mark.app.name,
                 dashIfEmpty(mark.title ?? "")
             ]
         }
         return CLITableRenderer.formatRows(
-            headers: ["MARK", "WORKSPACE", "APP", "TITLE"],
+            headers: ["MARK", "ID", "WORKSPACE", "APP", "TITLE"],
             rows: rows,
             format: format
         )

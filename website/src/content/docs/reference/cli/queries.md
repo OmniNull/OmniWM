@@ -69,7 +69,7 @@ Workspace and scratchpad hiding retain their reasons. For other layout hiding, a
 
 The three workspace flags answer different questions. `is-focused` marks the workspace that holds the natively focused managed window, `is-current` marks the active workspace on the interaction monitor (the one `--current` selects), and `is-visible` marks every workspace that is active on some monitor. With two monitors, two workspaces are visible, one is current, and at most one is focused.
 
-`columns` lists a Niri workspace's columns in order as `{"index": 1, "viewport": "before"}` entries. `viewport` is `before` or `after` for a column entirely outside the viewport on that side and `intersecting` for a column that is at least partly visible. It describes the viewport's destination: a scroll animation reports its target immediately, and a trackpad drag keeps the previous value until release. Dwindle workspaces omit `columns`.
+`columns` lists a Niri workspace's columns in order as `{"index": 1, "mode": "normal", "viewport": "before"}` entries. `mode` is `normal` or `tabbed`. `viewport` is `before` or `after` for a column entirely outside the viewport on that side and `intersecting` for a column that is at least partly visible. It describes the viewport's destination: a scroll animation reports its target immediately, and a trackpad drag keeps the previous value until release. Dwindle workspaces omit `columns`.
 
 **Display fields:** `id`, `name`, `is-main`, `is-current`, `frame`, `visible-frame`, `has-notch`, `orientation`, `inner-gap`, `outer-gap-left`, `outer-gap-right`, `outer-gap-top`, `outer-gap-bottom`, `fullscreen-uses-outer-gaps`, `active-workspace`, `uuid`, `notch`, `menu-bar-height`, `bar-frames`, `reserved-insets`
 

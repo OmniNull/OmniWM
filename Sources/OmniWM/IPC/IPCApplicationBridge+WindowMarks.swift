@@ -9,8 +9,9 @@ extension IPCApplicationBridge {
     static func windowMarkResponse(
         for request: IPCWindowMarkRequest,
         id: String,
-        controller: WMController
+        controller: WMController,
+        sessionToken: String = ""
     ) -> IPCResponse {
-        IPCWindowMarkRequestExecutor(controller: controller).response(for: request, id: id)
+        IPCWindowMarkRequestExecutor(controller: controller, sessionToken: sessionToken).response(for: request, id: id)
     }
 }

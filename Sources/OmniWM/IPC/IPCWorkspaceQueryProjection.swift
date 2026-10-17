@@ -77,12 +77,28 @@ struct IPCWorkspaceQueryProjection {
                 .include("is-current", in: fields) ? (currentWorkspaceId == descriptor.id) : nil,
             counts: IPCQuerySelection.include("window-counts", in: fields) ? counts : nil,
             focusedWindowId: IPCQuerySelection.include("focused-window-id", in: fields) ? focusedWindowId : nil,
-            columns: IPCQuerySelection.include("columns", in: fields)
-                ? controller.niriLayoutHandler.columnSummary(for: descriptor.id)?.viewport?.enumerated().map {
-                    IPCWorkspaceColumn(index: $0.offset + 1, viewport: IPCColumnViewport(relation: $0.element))
-                }
-                : nil
+            columns: columns(for: descriptor)
         )
+    }
+
+    private func columns(for descriptor: WorkspaceDescriptor) -> [IPCWorkspaceColumn]? {
+        guard IPCQuerySelection.include("columns", in: fields),
+              let summary = controller.niriLayoutHandler.columnSummary(for: descriptor.id),
+              let viewport = summary.viewport
+        else { return nil }
+        return viewport.enumerated().map { item in
+            let mode: IPCColumnDisplayMode
+            if let displayModes = summary.displayModes, item.offset < displayModes.count {
+                mode = IPCColumnDisplayMode(displayMode: displayModes[item.offset])
+            } else {
+                mode = .normal
+            }
+            return IPCWorkspaceColumn(
+                index: item.offset + 1,
+                mode: mode,
+                viewport: IPCColumnViewport(relation: item.element)
+            )
+        }
     }
 
     private func matchesWorkspaceQuery(_ descriptor: WorkspaceDescriptor) -> Bool {

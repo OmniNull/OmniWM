@@ -189,6 +189,29 @@ final class NiriColumnIPCTests: XCTestCase {
         XCTAssertTrue(IPCAutomationManifest.workspaceFieldCatalog.contains("columns"))
     }
 
+    func testWorkspaceColumnsReportDisplayMode() throws {
+        let fixture = try makeFixture()
+        let secondColumn = try XCTUnwrap(fixture.engine.column(of: fixture.windows[1]))
+        XCTAssertTrue(fixture.controller.workspaceManager.withEngineMutationScope {
+            fixture.engine.setColumnDisplay(
+                .tabbed,
+                for: secondColumn,
+                in: fixture.workspaceId,
+                motion: .disabled,
+                orientation: .horizontal
+            )
+        })
+
+        let workspaces = fixture.router.workspacesResult(
+            IPCQueryRequest(name: .workspaces, fields: ["raw-name", "columns"])
+        ).workspaces
+        let columns = try XCTUnwrap(workspaces.first { $0.rawName == "86" }?.columns)
+        XCTAssertEqual(columns.map(\.index), [1, 2, 3])
+        let data = try IPCWire.makeEncoder().encode(columns[1])
+        let json = try XCTUnwrap(JSONSerialization.jsonObject(with: data) as? [String: Any])
+        XCTAssertEqual(json["mode"] as? String, "tabbed")
+    }
+
     func testColumnChangesWithoutBarChangesDeliverCurrentPayloads() async throws {
         let fixture = try makeFixture()
         let manager = fixture.controller.workspaceManager

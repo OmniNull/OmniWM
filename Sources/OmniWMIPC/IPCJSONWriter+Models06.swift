@@ -210,6 +210,8 @@ extension IPCJSONWriter {
         var first = true
         self.key("app", &first)
         try self.value(value.app)
+        self.key("id", &first)
+        try self.value(value.id)
         self.key("name", &first)
         try self.value(value.name)
         if let fieldValue = value.title {

@@ -278,10 +278,12 @@ public struct IPCWindowsQueryResult: Codable, Equatable, Sendable {
 
 public struct IPCWorkspaceColumn: Codable, Equatable, Sendable {
     public let index: Int
+    public let mode: IPCColumnDisplayMode
     public let viewport: IPCColumnViewport
 
-    public init(index: Int, viewport: IPCColumnViewport) {
+    public init(index: Int, mode: IPCColumnDisplayMode = .normal, viewport: IPCColumnViewport) {
         self.index = index
+        self.mode = mode
         self.viewport = viewport
     }
 }

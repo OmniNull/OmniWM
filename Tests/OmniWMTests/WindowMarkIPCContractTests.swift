@@ -115,7 +115,13 @@ final class WindowMarkIPCContractTests: XCTestCase {
         let workspace = IPCWorkspaceRef(id: "workspace-1", rawName: "1", displayName: "Code", number: 1)
         let app = IPCAppRef(name: "Editor", bundleId: "com.example.editor")
         let marks = IPCWindowMarksResult(
-            marks: [IPCWindowMarkEntry(name: "editor", workspace: workspace, app: app, title: "Project.swift")]
+            marks: [IPCWindowMarkEntry(
+                name: "editor",
+                id: "win-1",
+                workspace: workspace,
+                app: app,
+                title: "Project.swift"
+            )]
         )
         let response = IPCResponse.success(
             id: "list",

@@ -219,7 +219,7 @@ final class IPCProtocolEnvelopeTests: XCTestCase {
             XCTAssertEqual(response.kind, kind == "query" ? .query : .version)
             XCTAssertEqual(response.ok, kind == "version")
             XCTAssertEqual(response.code, kind == "query" ? .protocolMismatch : nil)
-            XCTAssertEqual(protocolVersion(in: response), 20)
+            XCTAssertEqual(protocolVersion(in: response), OmniWMIPCProtocol.version)
         }
 
         await connection.stop()

@@ -86,7 +86,12 @@ actor IPCApplicationBridge {
             let result = await commandResult { $0.handle(window) }
             return Self.response(for: result, id: request.id, kind: .window)
         case let .windowMark(windowMark):
-            return await Self.windowMarkResponse(for: windowMark, id: request.id, controller: controller)
+            return await Self.windowMarkResponse(
+                for: windowMark,
+                id: request.id,
+                controller: controller,
+                sessionToken: sessionToken
+            )
         case let .shell(shell):
             return await Self.shellResponse(for: shell, id: request.id, controller: controller)
         case let .subscribe(subscribe):
