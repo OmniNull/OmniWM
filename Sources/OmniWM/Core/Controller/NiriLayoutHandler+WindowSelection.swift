@@ -17,7 +17,8 @@ extension NiriLayoutHandler {
             in: pass.wsId,
             selectedNodeId: selectedNodeId,
             focusedToken: preferredFocusToken,
-            containerSizingStates: containerSizingStates
+            containerSizingStates: containerSizingStates,
+            windowSizingStates: windowSizingStatesForUnpositionedWindows(pass: pass)
         )
         for window in pass.windows {
             pass.engine.updateWindowConstraints(
@@ -53,6 +54,24 @@ extension NiriLayoutHandler {
                 states = [:]
             }
             states?[token] = state
+        }
+        return states
+    }
+
+    private func windowSizingStatesForUnpositionedWindows(
+        pass: NiriLayoutPass
+    ) -> [WindowToken: PersistedNiriWindowState]? {
+        guard let controller else { return nil }
+
+        var states: [WindowToken: PersistedNiriWindowState]?
+        for token in pass.windowTokens where pass.engine.findNode(for: token, in: pass.wsId) == nil {
+            guard let placement = controller.workspaceManager.restoreIntent(for: token)?.niriPlacement,
+                  !placement.hasColumnPosition
+            else { continue }
+            if states == nil {
+                states = [:]
+            }
+            states?[token] = placement.window
         }
         return states
     }

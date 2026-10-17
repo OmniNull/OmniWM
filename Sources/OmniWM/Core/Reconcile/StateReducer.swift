@@ -58,9 +58,13 @@ enum StateReducer {
         }
         let floatingState = entry.floatingState
         let hasDetachedNiriPlacement = entry.restoreIntent?.detachedNiriContainerSizingState != nil
-        let keepsTilingPlacement = entry.mode == .tiling && entry.restoreIntent?.workspaceId == entry.workspaceId
+        let staysOnRestoreWorkspace = entry.restoreIntent?.workspaceId == entry.workspaceId
+        let keepsTilingPlacement = entry.mode == .tiling && staysOnRestoreWorkspace
         let preservesNiriPlacement = hasDetachedNiriPlacement || keepsTilingPlacement
-        let niriPlacement = preservesNiriPlacement ? entry.restoreIntent?.niriPlacement : nil
+        let preservedNiriPlacement = preservesNiriPlacement ? entry.restoreIntent?.niriPlacement : nil
+        let niriPlacement = staysOnRestoreWorkspace
+            ? preservedNiriPlacement
+            : preservedNiriPlacement?.withoutColumnPosition
         return RestoreIntent(
             topologyProfile: TopologyProfile(monitors: monitors),
             workspaceId: entry.workspaceId,

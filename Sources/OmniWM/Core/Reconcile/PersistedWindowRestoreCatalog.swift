@@ -90,6 +90,14 @@ struct PersistedNiriPlacement: Codable, Equatable, Sendable {
     let tileIndex: Int
     let column: PersistedNiriColumnState
     let window: PersistedNiriWindowState
+
+    var hasColumnPosition: Bool {
+        columnIndex >= 0 && tileIndex >= 0
+    }
+
+    var withoutColumnPosition: PersistedNiriPlacement {
+        PersistedNiriPlacement(columnIndex: -1, tileIndex: -1, column: column, window: window)
+    }
 }
 
 struct PersistedDwindleSplitStep: Codable, Equatable, Sendable {

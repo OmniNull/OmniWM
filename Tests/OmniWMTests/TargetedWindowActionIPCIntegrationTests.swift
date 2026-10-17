@@ -355,6 +355,111 @@ final class TargetedWindowActionIPCIntegrationTests: XCTestCase {
         XCTAssertEqual(fixture.frame(of: fixture.focused), before)
     }
 
+    func testUnassigningAScratchpadWindowFromAnotherWorkspaceAddsItsOwnColumn() async throws {
+        let fixture = try await makeFlushLeftFixture()
+        let manager = fixture.controller.workspaceManager
+        for windowId in [513_202, 513_203] {
+            _ = try addWindow(
+                pid: 513_200, windowId: windowId, to: fixture.otherNiriWorkspaceId, controller: fixture.controller
+            )
+        }
+        let released = try addWindow(
+            pid: 513_200, windowId: 513_201, to: fixture.otherNiriWorkspaceId, controller: fixture.controller
+        )
+        fixture.controller.layoutRefreshController.requestLayoutCommandRelayout(
+            affectedWorkspaceIds: [fixture.otherNiriWorkspaceId]
+        )
+        await WindowAdmissionTestSupport.drainLayoutRefreshes(fixture.controller)
+        let savedWindowWidth = WeightedSize.fixed(485)
+        let savedWindowHeight = WeightedSize.auto(weight: 2)
+        manager.withEngineMutationScope {
+            guard let node = fixture.engine.findNode(for: released.id, in: fixture.otherNiriWorkspaceId) else {
+                XCTFail("Expected Niri node")
+                return
+            }
+            node.windowWidth = savedWindowWidth
+            node.savedHeight = savedWindowHeight
+        }
+        let focusedColumnIndex = try XCTUnwrap(
+            fixture.engine.persistedPlacement(for: fixture.focused.id, in: fixture.niriWorkspaceId)?.columnIndex
+        )
+        XCTAssertEqual(manager.restoreIntent(for: released.id)?.niriPlacement?.columnIndex, focusedColumnIndex)
+        fixture.controller.axManager.confirmFrameWrite(
+            for: released.id.windowId,
+            frame: CGRect(x: 100, y: 100, width: 600, height: 400)
+        )
+        XCTAssertEqual(
+            fixture.router.handle(
+                IPCWindowRequest(name: .assignToScratchpad, windowId: opaqueId(released), scratchpadIndex: 2)
+            ),
+            .executed
+        )
+        await WindowAdmissionTestSupport.drainLayoutRefreshes(fixture.controller)
+        XCTAssertEqual(manager.hiddenState(for: released.id)?.isScratchpad, true)
+
+        XCTAssertEqual(fixture.controller.unassignScratchpadWindows([released.id], on: fixture.monitor.id), .executed)
+        try completeReveal(released.id, fixture)
+        await WindowAdmissionTestSupport.drainLayoutRefreshes(fixture.controller)
+        XCTAssertEqual(manager.workspace(for: released.id), fixture.niriWorkspaceId)
+        retile(released.id, quietly: false, fixture)
+        await WindowAdmissionTestSupport.drainLayoutRefreshes(fixture.controller)
+
+        let columns = fixture.engine.columns(in: fixture.niriWorkspaceId)
+        XCTAssertEqual(columns.count, fixture.windows.count + 1)
+        let focusedColumn = try XCTUnwrap(
+            columns.first { column in column.windowNodes.contains { $0.token == fixture.focused.id } }
+        )
+        XCTAssertEqual(focusedColumn.windowNodes.map(\.token), [fixture.focused.id])
+        let releasedColumn = try XCTUnwrap(
+            columns.first { column in column.windowNodes.contains { $0.token == released.id } }
+        )
+        XCTAssertEqual(releasedColumn.windowNodes.map(\.token), [released.id])
+        let releasedNode = try XCTUnwrap(fixture.engine.findNode(for: released.id, in: fixture.niriWorkspaceId))
+        XCTAssertEqual(releasedNode.windowWidth, savedWindowWidth)
+        XCTAssertEqual(releasedNode.savedHeight, savedWindowHeight)
+    }
+
+    func testUnassigningAScratchpadWindowOnItsOwnWorkspaceRestoresItsColumn() async throws {
+        let fixture = try await makeFlushLeftFixture()
+        let manager = fixture.controller.workspaceManager
+        let anchor = fixture.windows[4]
+        let released = try addWindow(
+            pid: 513_300, windowId: 513_301, to: fixture.niriWorkspaceId, controller: fixture.controller
+        )
+        try stack(released, under: anchor, fixture)
+        fixture.controller.layoutRefreshController.requestLayoutCommandRelayout(
+            affectedWorkspaceIds: [fixture.niriWorkspaceId]
+        )
+        await WindowAdmissionTestSupport.drainLayoutRefreshes(fixture.controller)
+        let anchorColumnIndex = try XCTUnwrap(
+            fixture.engine.persistedPlacement(for: anchor.id, in: fixture.niriWorkspaceId)?.columnIndex
+        )
+        XCTAssertEqual(manager.restoreIntent(for: released.id)?.niriPlacement?.columnIndex, anchorColumnIndex)
+        fixture.controller.axManager.confirmFrameWrite(
+            for: released.id.windowId,
+            frame: CGRect(x: 100, y: 100, width: 600, height: 400)
+        )
+        XCTAssertEqual(
+            fixture.router.handle(
+                IPCWindowRequest(name: .assignToScratchpad, windowId: opaqueId(released), scratchpadIndex: 2)
+            ),
+            .executed
+        )
+        await WindowAdmissionTestSupport.drainLayoutRefreshes(fixture.controller)
+        XCTAssertEqual(manager.hiddenState(for: released.id)?.isScratchpad, true)
+
+        XCTAssertEqual(fixture.controller.unassignScratchpadWindows([released.id], on: fixture.monitor.id), .executed)
+        try completeReveal(released.id, fixture)
+        await WindowAdmissionTestSupport.drainLayoutRefreshes(fixture.controller)
+        XCTAssertEqual(manager.workspace(for: released.id), fixture.niriWorkspaceId)
+        retile(released.id, quietly: false, fixture)
+        await WindowAdmissionTestSupport.drainLayoutRefreshes(fixture.controller)
+
+        let columns = fixture.engine.columns(in: fixture.niriWorkspaceId)
+        XCTAssertEqual(columns.count, fixture.windows.count)
+        XCTAssertEqual(columns[anchorColumnIndex].windowNodes.map(\.token), [anchor.id, released.id])
+    }
+
     func testQuietRetileIgnoresAStaleRestoredPlacementInTheFocusedColumn() async throws {
         let fixture = try await makeFlushLeftFixture()
         let manager = fixture.controller.workspaceManager
@@ -733,6 +838,31 @@ final class TargetedWindowActionIPCIntegrationTests: XCTestCase {
         )
         manager.setNiriRestorePlacements(placements)
         XCTAssertEqual(manager.restoreIntent(for: token)?.niriPlacement?.columnIndex, anchorPlacement.columnIndex)
+    }
+
+    private func stack(_ handle: WindowHandle, under anchor: WindowHandle, _ fixture: Fixture) throws {
+        let node = try XCTUnwrap(fixture.engine.findNode(for: handle, in: fixture.niriWorkspaceId))
+        let anchorNode = try XCTUnwrap(fixture.engine.findNode(for: anchor, in: fixture.niriWorkspaceId))
+        let anchorColumn = try XCTUnwrap(fixture.engine.column(of: anchorNode))
+        let context = NiriInteractionContext(
+            workspaceId: fixture.niriWorkspaceId,
+            motion: .disabled,
+            workingFrame: fixture.controller.niriWorkingFrame(for: fixture.monitor),
+            gaps: fixture.controller.innerGap(for: fixture.monitor),
+            orientation: .horizontal
+        )
+        var consumed = false
+        fixture.controller.workspaceManager.withNiriViewportState(for: fixture.niriWorkspaceId) { state in
+            consumed = fixture.engine.consumeWindow(
+                node,
+                into: anchorColumn,
+                enteringFrom: .down,
+                context: context,
+                state: &state
+            )
+        }
+        XCTAssertTrue(consumed)
+        XCTAssertEqual(anchorColumn.windowNodes.map(\.token), [anchor.id, handle.id])
     }
 
     private func assertOwnColumnRightAfterFocus(
