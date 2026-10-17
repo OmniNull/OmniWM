@@ -217,6 +217,8 @@ final class WMController {
     @ObservationIgnored
     var currentMouseLocation: () -> CGPoint = { NSEvent.mouseLocation }
     @ObservationIgnored
+    var windowDispositionEvaluationForTests: ((WindowToken) -> WindowDecisionEvaluation?)?
+    @ObservationIgnored
     weak var ipcApplicationBridge: IPCApplicationBridge?
 
     let animationClock = AnimationClock()

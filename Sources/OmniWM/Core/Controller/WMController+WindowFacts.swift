@@ -30,6 +30,9 @@ extension WMController {
         if pid == ProcessInfo.processInfo.processIdentifier || isOwnedWindow(windowNumber: axRef.windowId) {
             return Self.ownedWindowDispositionEvaluation(token: token)
         }
+        if let evaluation = windowDispositionEvaluationForTests?(token) {
+            return evaluation
+        }
         let baseFacts = collectDispositionRuleFacts(for: token, axRef: axRef, admissionGeometry: admissionGeometry)
         let fullscreen = appFullscreen ?? AXWindowService.isFullscreen(axRef)
         let lookupAttempted = windowServerLookupAttempted || windowInfo != nil

@@ -238,6 +238,135 @@ final class TargetedWindowActionIPCIntegrationTests: XCTestCase {
         }
     }
 
+    func testBarUnfloatOfABackgroundWindowTilesItAfterFocusWithoutTakingFocus() async throws {
+        let fixture = try await makeFlushLeftFixture()
+        let manager = fixture.controller.workspaceManager
+        let before = try XCTUnwrap(fixture.frame(of: fixture.focused))
+        let viewOffset = fixture.viewport.viewOffset
+        let token = manager.addWindow(
+            AXWindowRef(element: AXUIElementCreateApplication(512_500), windowId: 512_501),
+            pid: 512_500,
+            windowId: 512_501,
+            to: fixture.niriWorkspaceId,
+            mode: .floating
+        )
+        makeTileable([token], fixture)
+
+        fixture.controller.performWorkspaceBarMenuAction(.toggleFloating(token), barMonitorId: fixture.monitor.id)
+        await WindowAdmissionTestSupport.drainLayoutRefreshes(fixture.controller)
+
+        XCTAssertEqual(manager.entry(for: token)?.mode, .tiling)
+        try assertOwnColumnRightAfterFocus(token, fixture)
+        assertFocusUnchanged(fixture)
+        XCTAssertEqual(fixture.viewport.viewOffset, viewOffset, accuracy: 0.5)
+        XCTAssertEqual(fixture.frame(of: fixture.focused), before)
+    }
+
+    func testBarUnassignOfABackgroundScratchpadWindowTilesItAfterFocusWithoutTakingFocus() async throws {
+        let fixture = try await makeFlushLeftFixture()
+        let manager = fixture.controller.workspaceManager
+        let before = try XCTUnwrap(fixture.frame(of: fixture.focused))
+        let viewOffset = fixture.viewport.viewOffset
+        let member = fixture.windows[3]
+        fixture.controller.axManager.confirmFrameWrite(
+            for: member.id.windowId,
+            frame: CGRect(x: 100, y: 100, width: 600, height: 400)
+        )
+        makeTileable([member.id], fixture)
+
+        fixture.controller.performWorkspaceBarMenuAction(
+            .assignToScratchpad(member.id, try XCTUnwrap(ScratchpadIndex(2))),
+            barMonitorId: fixture.monitor.id
+        )
+        await WindowAdmissionTestSupport.drainLayoutRefreshes(fixture.controller)
+        XCTAssertEqual(manager.hiddenState(for: member.id)?.isScratchpad, true)
+        assertFocusUnchanged(fixture)
+
+        fixture.controller.performWorkspaceBarMenuAction(
+            .unassignScratchpadWindows([member.id]),
+            barMonitorId: fixture.monitor.id
+        )
+        try completeReveal(member.id, fixture)
+        await WindowAdmissionTestSupport.drainLayoutRefreshes(fixture.controller)
+
+        XCTAssertNil(manager.scratchpadIndex(for: member.id))
+        XCTAssertEqual(manager.entry(for: member.id)?.mode, .tiling)
+        try assertOwnColumnRightAfterFocus(member.id, fixture)
+        assertFocusUnchanged(fixture)
+        XCTAssertEqual(fixture.viewport.viewOffset, viewOffset, accuracy: 0.5)
+        XCTAssertEqual(fixture.frame(of: fixture.focused), before)
+    }
+
+    func testBarUnassignAllWithTheFocusedMemberKeepsTheOtherMembersQuiet() async throws {
+        let fixture = try await makeFlushLeftFixture()
+        let manager = fixture.controller.workspaceManager
+        let before = try XCTUnwrap(fixture.frame(of: fixture.focused))
+        let viewOffset = fixture.viewport.viewOffset
+        let index = try XCTUnwrap(ScratchpadIndex(2))
+        let hidden = fixture.windows[3]
+        fixture.controller.axManager.confirmFrameWrite(
+            for: hidden.id.windowId,
+            frame: CGRect(x: 100, y: 100, width: 600, height: 400)
+        )
+        makeTileable([fixture.focused.id, hidden.id], fixture)
+
+        fixture.controller.performWorkspaceBarMenuAction(
+            .assignToScratchpad(hidden.id, index),
+            barMonitorId: fixture.monitor.id
+        )
+        await WindowAdmissionTestSupport.drainLayoutRefreshes(fixture.controller)
+        XCTAssertEqual(manager.hiddenState(for: hidden.id)?.isScratchpad, true)
+        XCTAssertTrue(manager.setScratchpadMembership(fixture.focused.id, to: index))
+        XCTAssertTrue(manager.setRevealedScratchpad(index))
+        assertFocusUnchanged(fixture)
+
+        fixture.controller.performWorkspaceBarMenuAction(
+            .unassignScratchpadWindows([fixture.focused.id, hidden.id]),
+            barMonitorId: fixture.monitor.id
+        )
+        try completeReveal(hidden.id, fixture)
+        await WindowAdmissionTestSupport.drainLayoutRefreshes(fixture.controller)
+
+        XCTAssertNil(manager.scratchpadIndex(for: fixture.focused.id))
+        XCTAssertNil(manager.scratchpadIndex(for: hidden.id))
+        XCTAssertEqual(manager.entry(for: hidden.id)?.mode, .tiling)
+        try assertOwnColumnRightAfterFocus(hidden.id, fixture)
+        assertFocusUnchanged(fixture)
+        XCTAssertEqual(fixture.viewport.viewOffset, viewOffset, accuracy: 0.5)
+        XCTAssertEqual(fixture.frame(of: fixture.focused), before)
+    }
+
+    func testBarAssignOfAVisibleBackgroundMemberToItsOwnSlotTilesItAfterFocusWithoutTakingFocus() async throws {
+        let fixture = try await makeFlushLeftFixture()
+        let manager = fixture.controller.workspaceManager
+        let before = try XCTUnwrap(fixture.frame(of: fixture.focused))
+        let viewOffset = fixture.viewport.viewOffset
+        let index = try XCTUnwrap(ScratchpadIndex(2))
+        let member = manager.addWindow(
+            AXWindowRef(element: AXUIElementCreateApplication(512_510), windowId: 512_511),
+            pid: 512_510,
+            windowId: 512_511,
+            to: fixture.niriWorkspaceId,
+            mode: .floating
+        )
+        XCTAssertTrue(manager.setScratchpadMembership(member, to: index))
+        XCTAssertTrue(manager.setRevealedScratchpad(index))
+        makeTileable([member], fixture)
+
+        fixture.controller.performWorkspaceBarMenuAction(
+            .assignToScratchpad(member, index),
+            barMonitorId: fixture.monitor.id
+        )
+        await WindowAdmissionTestSupport.drainLayoutRefreshes(fixture.controller)
+
+        XCTAssertNil(manager.scratchpadIndex(for: member))
+        XCTAssertEqual(manager.entry(for: member)?.mode, .tiling)
+        try assertOwnColumnRightAfterFocus(member, fixture)
+        assertFocusUnchanged(fixture)
+        XCTAssertEqual(fixture.viewport.viewOffset, viewOffset, accuracy: 0.5)
+        XCTAssertEqual(fixture.frame(of: fixture.focused), before)
+    }
+
     func testQuietRetileOfAHiddenAppWindowJoinsTheLayoutWhenTheAppUnhides() async throws {
         let fixture = try await makeFlushLeftFixture()
         let manager = fixture.controller.workspaceManager
@@ -697,6 +826,42 @@ final class TargetedWindowActionIPCIntegrationTests: XCTestCase {
 
         assertFocusUnchanged(fixture)
         XCTAssertEqual(fixture.frame(of: fixture.focused), single.frame(of: single.focused))
+    }
+
+    private func makeTileable(_ tokens: [WindowToken], _ fixture: Fixture) {
+        fixture.controller.windowDispositionEvaluationForTests = { [weak controller = fixture.controller] candidate in
+            guard tokens.contains(candidate) else { return nil }
+            return controller?.evaluateWindowDisposition(
+                token: candidate,
+                evidence: AXWindowDecisionEvidence(
+                    facts: AXWindowFacts(
+                        role: kAXWindowRole as String,
+                        subrole: kAXStandardWindowSubrole as String,
+                        title: "Tileable",
+                        hasCloseButton: true,
+                        hasFullscreenButton: true,
+                        fullscreenButtonEnabled: true,
+                        hasZoomButton: true,
+                        hasMinimizeButton: true,
+                        appPolicy: .regular,
+                        bundleId: "com.example.tileable",
+                        attributeFetchSucceeded: true
+                    ),
+                    sizeConstraints: .unconstrained
+                ),
+                appFullscreen: false,
+                windowInfo: WindowServerInfo(
+                    id: UInt32(candidate.windowId),
+                    pid: candidate.pid,
+                    level: 0,
+                    frame: CGRect(x: 100, y: 100, width: 800, height: 600)
+                ),
+                admissionGeometry: WindowAdmissionGeometryEvidence(
+                    isSizeSettable: true,
+                    frame: CGRect(x: 100, y: 100, width: 800, height: 600)
+                )
+            )
+        }
     }
 
     private func assertFocusUnchanged(
