@@ -10,11 +10,20 @@ final class OverviewDragAutoScroll: NSObject {
     private(set) var monitorId: Monitor.ID?
     var pointer: CGPoint = .zero
     var velocity: CGFloat = 0
+    var horizontalVelocity: CGFloat = 0
+    var stripWorkspaceId: WorkspaceDescriptor.ID?
     var onTick: ((Monitor.ID, CGFloat) -> Void)?
+    var onStripTick: ((Monitor.ID, WorkspaceDescriptor.ID, CGFloat) -> Void)?
 
-    func update(monitorId: Monitor.ID, pointer: CGPoint, velocity: CGFloat) {
+    func update(
+        monitorId: Monitor.ID,
+        pointer: CGPoint,
+        velocity: CGFloat,
+        horizontalVelocity: CGFloat = 0,
+        stripWorkspaceId: WorkspaceDescriptor.ID? = nil
+    ) {
         self.pointer = pointer
-        guard velocity != 0 else {
+        guard velocity != 0 || horizontalVelocity != 0 else {
             stop()
             return
         }
@@ -27,6 +36,8 @@ final class OverviewDragAutoScroll: NSObject {
             self.monitorId = monitorId
         }
         self.velocity = velocity
+        self.horizontalVelocity = horizontalVelocity
+        self.stripWorkspaceId = stripWorkspaceId
     }
 
     func stop() {
@@ -34,6 +45,8 @@ final class OverviewDragAutoScroll: NSObject {
         link = nil
         monitorId = nil
         velocity = 0
+        horizontalVelocity = 0
+        stripWorkspaceId = nil
     }
 
     @objc private func tick(_ link: CADisplayLink) {
@@ -41,8 +54,13 @@ final class OverviewDragAutoScroll: NSObject {
     }
 
     func advance(by duration: CFTimeInterval) {
-        guard let monitorId, velocity != 0 else { return }
-        onTick?(monitorId, velocity * CGFloat(duration))
+        guard let monitorId, velocity != 0 || horizontalVelocity != 0 else { return }
+        if velocity != 0 {
+            onTick?(monitorId, velocity * CGFloat(duration))
+        }
+        if let stripWorkspaceId, horizontalVelocity != 0 {
+            onStripTick?(monitorId, stripWorkspaceId, horizontalVelocity * CGFloat(duration))
+        }
     }
 }
 
@@ -55,7 +73,7 @@ final class OverviewDragSession {
     private let structuralActions: OverviewStructuralActions
     private let mutationSession: OverviewMutationSession
     private var dragSession: OverviewStructuralActions.DragSession?
-    private let autoScroll = OverviewDragAutoScroll()
+    let autoScroll = OverviewDragAutoScroll()
 
     private var state: OverviewState {
         overview?.state ?? .closed
@@ -92,6 +110,9 @@ final class OverviewDragSession {
         autoScroll.onTick = { [weak self] monitorId, delta in
             self?.autoScrollStep(on: monitorId, by: delta)
         }
+        autoScroll.onStripTick = { [weak self] monitorId, workspaceId, delta in
+            self?.autoScrollStripStep(on: monitorId, workspaceId: workspaceId, by: delta)
+        }
     }
 
     func reset() {
@@ -110,9 +131,39 @@ final class OverviewDragSession {
         }
         projection.adjustScrollOffset(by: delta, on: monitorId)
         guard projection.layoutsByMonitor[monitorId]?.scrollOffset != before else {
+            autoScroll.velocity = 0
+            if autoScroll.horizontalVelocity == 0 {
+                autoScroll.stop()
+            }
+            return
+        }
+        updateAutoScrollDragResolution(on: monitorId)
+    }
+
+    private func autoScrollStripStep(
+        on monitorId: Monitor.ID,
+        workspaceId: WorkspaceDescriptor.ID,
+        by delta: CGFloat
+    ) {
+        guard dragSession != nil, case .open = state else {
             autoScroll.stop()
             return
         }
+        let panned = projection.panStrip(workspaceId, by: -delta, on: monitorId)
+        guard panned else {
+            autoScroll.horizontalVelocity = 0
+            if autoScroll.velocity == 0 {
+                autoScroll.stop()
+            }
+            return
+        }
+        updateAutoScrollDragResolution(on: monitorId)
+    }
+
+    private func updateAutoScrollDragResolution(on monitorId: Monitor.ID) {
+        let stripScroll = stripAutoScrollParameters(at: autoScroll.pointer, on: monitorId)
+        autoScroll.horizontalVelocity = stripScroll.velocity
+        autoScroll.stripWorkspaceId = stripScroll.workspaceId
         let resolution = resolveDragTarget(at: autoScroll.pointer, on: monitorId)
         projection.setDragTarget(resolution.target, for: monitorId)
         updateFeedback(resolution)
@@ -152,6 +203,22 @@ final class OverviewDragSession {
         updateDrag(on: monitorId, at: startPoint)
     }
 
+    private func stripAutoScrollParameters(
+        at point: CGPoint,
+        on monitorId: Monitor.ID
+    ) -> (velocity: CGFloat, workspaceId: WorkspaceDescriptor.ID?) {
+        guard let layout = projection.layoutsByMonitor[monitorId],
+              let stripSection = layout.workspaceSection(at: point),
+              !stripSection.ribbonFrame.isEmpty
+        else { return (0, nil) }
+        let velocity = OverviewLayoutCalculator.dragStripAutoScrollVelocity(
+            pointer: point,
+            stripFrame: stripSection.ribbonFrame,
+            orientation: stripSection.orientation
+        )
+        return (velocity, stripSection.workspaceId)
+    }
+
     func updateDrag(on originMonitorId: Monitor.ID, at originPoint: CGPoint) {
         guard case .open = state else {
             cancelDrag()
@@ -170,6 +237,7 @@ final class OverviewDragSession {
             projection.setDragTarget(resolution.target, for: monitorId)
             updateWindowDisplays()
         }
+        let stripScroll = stripAutoScrollParameters(at: point, on: monitorId)
         autoScroll.update(
             monitorId: monitorId,
             pointer: point,
@@ -177,7 +245,9 @@ final class OverviewDragSession {
                 pointerY: point.y,
                 viewportFrame: projection.viewportFrame(for: monitorId),
                 scale: projection.layoutsByMonitor[monitorId]?.scale ?? 1
-            )
+            ),
+            horizontalVelocity: stripScroll.velocity,
+            stripWorkspaceId: stripScroll.workspaceId
         )
     }
 
