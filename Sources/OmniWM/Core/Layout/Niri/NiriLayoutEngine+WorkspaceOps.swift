@@ -61,7 +61,14 @@ extension NiriLayoutEngine {
         targetColumn.appendChild(window)
         targetWorkspaceState.index(window)
 
+        let sourceColumnIndex = columnIndex(of: sourceColumn, in: sourceWorkspaceId)
         cleanupEmptyColumn(sourceColumn, in: sourceWorkspaceId, state: &sourceState)
+        if let sourceColumnIndex,
+           sourceColumn.parent == nil,
+           sourceColumnIndex < sourceState.activeColumnIndex
+        {
+            sourceState.activeColumnIndex -= 1
+        }
         clearManualSpanOverridesOnSingleWindowEntry(in: sourceWorkspaceId, wasSingleWindow: wasSingleWindow)
 
         sourceState.selectedNodeId = fallbackSelection
@@ -105,8 +112,9 @@ extension NiriLayoutEngine {
         removeEmptyColumnsIfWorkspaceEmpty(in: targetRoot)
 
         let allCols = columns(in: sourceWorkspaceId)
+        let sourceColumnIndex = columnIndex(of: column, in: sourceWorkspaceId)
         var fallbackSelection: NodeId?
-        if let colIdx = columnIndex(of: column, in: sourceWorkspaceId) {
+        if let colIdx = sourceColumnIndex {
             if colIdx > 0 {
                 fallbackSelection = allCols[colIdx - 1].firstChild()?.id
             } else if allCols.count > 1 {
@@ -117,6 +125,9 @@ extension NiriLayoutEngine {
         cancelInteractions(for: Set(movedWindows.map(\.id)), in: sourceWorkspaceId)
 
         column.detach()
+        if let sourceColumnIndex, sourceColumnIndex < sourceState.activeColumnIndex {
+            sourceState.activeColumnIndex -= 1
+        }
         targetRoot.appendChild(column)
         column.invalidateCachedPrimarySpan(orientation: destination.orientation)
 

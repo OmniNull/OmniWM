@@ -300,9 +300,14 @@ extension WorkspaceNavigationHandler {
                     )
                 }
 
-                if targetIsDwindle, engine.findNode(for: token, in: sourceWsId) != nil {
+                if targetIsDwindle, let currentNode = engine.findNode(for: token, in: sourceWsId) {
+                    let removedColumnIndex = engine.column(of: currentNode)
+                        .flatMap { $0.windowNodes.count == 1 ? engine.columnIndex(of: $0, in: sourceWsId) : nil }
                     controller.workspaceManager.captureDetachedNiriPlacement(for: token, in: sourceWsId)
                     engine.removeWindow(token: token, in: sourceWsId)
+                    if let removedColumnIndex, removedColumnIndex < sourceState.activeColumnIndex {
+                        sourceState.activeColumnIndex -= 1
+                    }
                 }
 
                 if let selectedId = sourceState.selectedNodeId,
