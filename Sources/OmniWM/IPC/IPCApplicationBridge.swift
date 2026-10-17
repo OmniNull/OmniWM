@@ -87,6 +87,13 @@ actor IPCApplicationBridge {
             return Self.response(for: result, id: request.id, kind: .window)
         case let .windowMark(windowMark):
             return await Self.windowMarkResponse(for: windowMark, id: request.id, controller: controller)
+        case let .windowGather(windowGather):
+            return await Self.gatherResponse(
+                windowGather,
+                id: request.id,
+                controller: controller,
+                session: sessionToken
+            )
         case let .shell(shell):
             return await Self.shellResponse(for: shell, id: request.id, controller: controller)
         case let .subscribe(subscribe):
@@ -133,6 +140,7 @@ actor IPCApplicationBridge {
              .workspace,
              .window,
              .windowMark,
+             .windowGather,
              .shell,
              .subscribe:
             return IPCResponse(failing: request, code: .invalidRequest)

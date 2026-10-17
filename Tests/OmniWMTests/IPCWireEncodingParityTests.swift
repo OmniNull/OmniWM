@@ -71,6 +71,80 @@ final class IPCWireEncodingParityTests: XCTestCase {
         }
     }
 
+    func testWindowGatherRequestsMatchReference() throws {
+        let payloads: [IPCWindowGatherRequest] = [
+            .init(windowIds: ["ow_first", "ow_second"], workspaceTarget: .rawID("3")),
+            .init(windowIds: [], workspaceTarget: .displayName("Work / 表")),
+            .init(markNames: ["editor / \"表\"", "chat"], workspaceTarget: .rawID("3")),
+            .init(markNames: [], workspaceTarget: .displayName("Work / 表"))
+        ]
+        for payload in payloads {
+            for token in ["secret", nil] {
+                let request = IPCRequest(id: "gather-parity", windowGather: payload, authorizationToken: token)
+                let data = try IPCWire.encodeRequestLine(request)
+                XCTAssertEqual(data, try reference(request))
+                XCTAssertEqual(try IPCWire.decodeRequest(from: data), request)
+            }
+        }
+    }
+
+    func testWindowGatherResponsesMatchReference() throws {
+        let workspace = IPCWorkspaceRef(id: "workspace", rawName: "3", displayName: "Work / 表", number: 3)
+        let windows: [IPCWindowGatherWindowResult] = [
+            .init(windowId: "ow_first", status: .moved),
+            .init(windowId: "ow_second", markName: "editor / \"表\"", status: .unchanged),
+            .init(windowId: "ow_third", markName: "alias", status: .refused, reason: .duplicateWindow),
+            .init(windowId: nil, markName: "missing", status: .unresolved, reason: .unknownMark),
+            .init(windowId: "ow_fourth", status: .blocked, reason: .windowRefused)
+        ]
+        for outcome in [IPCWindowGatherOutcome.gathered, .unchanged, .refused] {
+            for destination in [workspace, nil] {
+                let payload = IPCWindowGatherResult(
+                    outcome: outcome,
+                    workspace: destination,
+                    reason: outcome == .refused ? .unknownMark : nil,
+                    windows: windows,
+                    moved: outcome == .gathered ? ["ow_first", "ow_second"] : [],
+                    relayoutWorkspaces: destination.map { [$0] } ?? []
+                )
+                let response = IPCResponse.success(
+                    id: "gather-parity", kind: .windowGather, result: IPCResult(windowGather: payload)
+                )
+                for pretty in [false, true] {
+                    let data = try IPCWire.encodeResponseLine(response, prettyPrinted: pretty)
+                    XCTAssertEqual(data, try reference(response, prettyPrinted: pretty))
+                    XCTAssertEqual(try IPCWire.decodeResponse(from: data), response)
+                }
+            }
+        }
+    }
+
+    func testCapabilitiesKeepGatherAndShellActionsInCustomWriter() throws {
+        let payload = IPCCapabilitiesQueryResult(
+            appVersion: "test",
+            authorizationRequired: true,
+            windowIdScope: "session",
+            queries: [],
+            commands: [],
+            captureActions: [],
+            ruleActions: [],
+            workspaceActions: [],
+            windowActions: [],
+            windowMarkActions: [],
+            windowGatherActions: IPCAutomationManifest.windowGatherActionDescriptors,
+            shellActions: IPCAutomationManifest.shellActionDescriptors,
+            subscriptions: []
+        )
+        let response = IPCResponse.success(
+            id: "capabilities-parity", kind: .query, result: IPCResult(capabilities: payload)
+        )
+        for pretty in [false, true] {
+            let data = try IPCWire.encodeResponseLine(response, prettyPrinted: pretty)
+            XCTAssertEqual(data, try reference(response, prettyPrinted: pretty))
+            XCTAssertEqual(try IPCWire.decodeResponse(from: data), response)
+        }
+    }
+
     private func numericResponse(_ value: Double) -> IPCResponse {
         .success(
             id: "numeric-parity",

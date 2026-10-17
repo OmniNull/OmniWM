@@ -74,6 +74,8 @@ enum CLIRenderer {
              .unsupportedLayout,
              .duplicateMark,
              .invalidMark,
+             .ineligibleWindow,
+             .doesNotFit,
              .invalidArguments,
              .invalidRequest,
              .none:
@@ -208,6 +210,8 @@ enum CLIRenderer {
             return CLIDiagnosticsRenderer.formattedMetrics(payload, format: format)
         case let .windowMarks(payload):
             return formattedWindowMarks(payload, format: format)
+        case let .windowGather(payload):
+            return "window-gather \(payload.outcome.rawValue): moved \(payload.moved.count)"
         case let .shellWidgets(payload):
             return formattedShellWidgets(payload, format: format)
         }
@@ -334,6 +338,7 @@ extension CLIRenderer {
             ["workspace-actions", String(payload.workspaceActions.count)],
             ["window-actions", String(payload.windowActions.count)],
             ["window-mark-actions", String(payload.windowMarkActions.count)],
+            ["window-gather-actions", String(payload.windowGatherActions.count)],
             ["shell-actions", String(payload.shellActions.count)],
             ["subscriptions", String(payload.subscriptions.count)]
         ]

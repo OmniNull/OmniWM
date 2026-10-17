@@ -229,6 +229,8 @@ extension IPCJSONWriter {
             try self.value(payload)
         case let .windowMarks(payload):
             try self.value(payload)
+        case let .windowGather(payload):
+            try self.value(payload)
         case let .metrics(payload):
             try self.value(payload)
         case let .shellWidgets(payload):

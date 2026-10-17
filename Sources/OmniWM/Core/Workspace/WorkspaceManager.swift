@@ -409,6 +409,10 @@ extension WorkspaceManager {
         world.niriEngine?.moveWorkspace(move.workspaceId, to: move.targetMonitor.id, monitor: move.targetMonitor)
     }
 
+    func applyNiriGather(_ plan: NiriGatherPlan, assignments: StateReducer.GatherAssignmentPlan) {
+        world.applyNiriGather(plan, assignments: assignments, monitors: monitors)
+    }
+
     var niriEngine: NiriLayoutEngine? {
         get { world.niriEngine }
         set {

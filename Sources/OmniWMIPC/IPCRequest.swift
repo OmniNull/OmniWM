@@ -20,6 +20,7 @@ public struct IPCRequest: Codable, Equatable, Sendable {
         case workspace(IPCWorkspaceRequest)
         case window(IPCWindowRequest)
         case windowMark(IPCWindowMarkRequest)
+        case windowGather(IPCWindowGatherRequest)
         case shell(IPCShellRequest)
         case subscribe(IPCSubscribeRequest)
     }
@@ -70,6 +71,15 @@ public struct IPCRequest: Codable, Equatable, Sendable {
 
     public init(id: String, windowMark: IPCWindowMarkRequest, authorizationToken: String? = nil) {
         self.init(id: id, kind: .windowMark, authorizationToken: authorizationToken, payload: .windowMark(windowMark))
+    }
+
+    public init(id: String, windowGather: IPCWindowGatherRequest, authorizationToken: String? = nil) {
+        self.init(
+            id: id,
+            kind: .windowGather,
+            authorizationToken: authorizationToken,
+            payload: .windowGather(windowGather)
+        )
     }
 
     public init(id: String, shell: IPCShellRequest, authorizationToken: String? = nil) {
@@ -127,6 +137,8 @@ public struct IPCRequest: Codable, Equatable, Sendable {
             payload = .window(try container.decode(IPCWindowRequest.self, forKey: .payload))
         case .windowMark:
             payload = .windowMark(try container.decode(IPCWindowMarkRequest.self, forKey: .payload))
+        case .windowGather:
+            payload = .windowGather(try container.decode(IPCWindowGatherRequest.self, forKey: .payload))
         case .shell:
             payload = .shell(try container.decode(IPCShellRequest.self, forKey: .payload))
         case .subscribe:
@@ -157,6 +169,8 @@ public struct IPCRequest: Codable, Equatable, Sendable {
         case let .window(payload):
             try container.encode(payload, forKey: .payload)
         case let .windowMark(payload):
+            try container.encode(payload, forKey: .payload)
+        case let .windowGather(payload):
             try container.encode(payload, forKey: .payload)
         case let .shell(payload):
             try container.encode(payload, forKey: .payload)

@@ -23,6 +23,7 @@ public enum IPCResultKind: String, Codable, Equatable, Sendable {
     case capabilities
     case subscribed
     case windowMarks = "window-marks"
+    case windowGather = "window-gather"
     case metrics
     case shellWidgets = "shell-widgets"
 }
@@ -78,6 +79,7 @@ public struct IPCResult: Codable, Equatable, Sendable {
         case capabilities(IPCCapabilitiesQueryResult)
         case subscribed(IPCSubscribeResult)
         case windowMarks(IPCWindowMarksResult)
+        case windowGather(IPCWindowGatherResult)
         case metrics(IPCMetricsQueryResult)
         case shellWidgets(IPCShellWidgetsQueryResult)
     }
@@ -170,6 +172,10 @@ public struct IPCResult: Codable, Equatable, Sendable {
         self.init(kind: .windowMarks, payload: .windowMarks(windowMarks))
     }
 
+    public init(windowGather: IPCWindowGatherResult) {
+        self.init(kind: .windowGather, payload: .windowGather(windowGather))
+    }
+
     public init(metrics: IPCMetricsQueryResult) {
         self.init(kind: .metrics, payload: .metrics(metrics))
     }
@@ -224,6 +230,8 @@ public struct IPCResult: Codable, Equatable, Sendable {
             payload = .subscribed(try container.decode(IPCSubscribeResult.self, forKey: .payload))
         case .windowMarks:
             payload = .windowMarks(try container.decode(IPCWindowMarksResult.self, forKey: .payload))
+        case .windowGather:
+            payload = .windowGather(try container.decode(IPCWindowGatherResult.self, forKey: .payload))
         case .metrics:
             payload = .metrics(try container.decode(IPCMetricsQueryResult.self, forKey: .payload))
         }
@@ -273,6 +281,8 @@ public struct IPCResult: Codable, Equatable, Sendable {
         case let .subscribed(payload):
             try container.encode(payload, forKey: .payload)
         case let .windowMarks(payload):
+            try container.encode(payload, forKey: .payload)
+        case let .windowGather(payload):
             try container.encode(payload, forKey: .payload)
         case let .metrics(payload):
             try container.encode(payload, forKey: .payload)

@@ -175,6 +175,8 @@ extension IPCJSONWriter {
         try self.value(value.subscriptions)
         self.key("windowActions", &first)
         try self.value(value.windowActions)
+        self.key("windowGatherActions", &first)
+        try self.value(value.windowGatherActions)
         self.key("windowIdScope", &first)
         try self.value(value.windowIdScope)
         self.key("windowMarkActions", &first)
