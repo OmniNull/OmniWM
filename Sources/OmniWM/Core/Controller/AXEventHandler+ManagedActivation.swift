@@ -272,12 +272,13 @@ extension AXEventHandler {
             token: entry.token,
             workspaceId: wsId
         )
+        let defersClickScroll = controller.mouseEventHandler.deferClickScrollIfPressed(on: entry.token)
         controller.niriLayoutHandler.activateNode(
             node, in: wsId, state: &state,
             options: managedActivationOptions(
                 isWorkspaceActive: observation.isWorkspaceActive,
                 preserveViewport: preserveViewport,
-                preserveReplacementViewport: preserveReplacementViewport,
+                preserveReplacementViewport: preserveReplacementViewport || defersClickScroll,
                 clickFocusWithoutScrolling: clickFocusWithoutScrolling
             )
         )

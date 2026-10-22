@@ -98,6 +98,7 @@ extension NiriLayoutHandler {
                 activeWorkspaceIds: activeWorkspaceIds(controller: controller)
             )
             controller.layoutRefreshController.stopScrollAnimation(for: displayId)
+            controller.mouseEventHandler.handleNiriAnimationsSettled(in: wsId)
         }
     }
 

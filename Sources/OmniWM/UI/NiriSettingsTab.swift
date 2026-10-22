@@ -48,6 +48,7 @@ struct NiriSettingsTab: View {
 private struct GlobalNiriSettingsSection: View {
     @Bindable var settings: SettingsStore
     @Bindable var controller: WMController
+    @State private var windowTilingSettingsProbe = WindowTilingSettingsProbe()
 
     var body: some View {
         let spanMode = Binding<NiriDefaultSpanSettingsSection.Mode>(
@@ -188,6 +189,21 @@ private struct GlobalNiriSettingsSection: View {
                         .foregroundStyle(.secondary)
                 }
             }
+
+            Toggle("Natural Window Drag & Drop", isOn: Bindable(settings.niri).naturalWindowDrag)
+                .id("Natural Window Drag & Drop")
+                .onAppear(perform: windowTilingSettingsProbe.refresh)
+                .onReceive(NotificationCenter.default.publisher(for: NSApplication.didBecomeActiveNotification)) { _ in
+                    windowTilingSettingsProbe.refresh()
+                }
+
+            SettingsCaption(
+                localized: "Drag a tiled window by its title bar to move its Niri column. Rest on another window and the windows slide over to make room; near a screen edge, a narrow gap shows where it will land, and holding the pointer at the edge scrolls. Release to drop it, or press Esc to cancel. Off: title-bar drags snap back."
+            )
+
+            if settings.niri.naturalWindowDrag, !windowTilingSettingsProbe.enabledSettings.isEmpty {
+                windowTilingNote
+            }
         }
         .id("Niri Layout")
 
@@ -254,6 +270,26 @@ private struct GlobalNiriSettingsSection: View {
             SettingsCaption(localized: "Span-cycling commands use these presets in order. Duplicates are allowed.")
         }
         .id(settings.niri.containerPrimarySpanPresets.count)
+    }
+}
+
+private extension GlobalNiriSettingsSection {
+    var windowTilingNote: some View {
+        VStack(alignment: .leading, spacing: 6) {
+            Label(
+                "macOS window tiling interferes with dragging. Turn off these settings in Desktop & Dock:",
+                systemImage: "exclamationmark.triangle.fill"
+            )
+            .font(.caption)
+            .foregroundStyle(.secondary)
+            ForEach(windowTilingSettingsProbe.enabledSettings, id: \.preferenceKey) { setting in
+                Text(verbatim: "• \(setting.localizedName)")
+                    .font(.caption)
+                    .foregroundStyle(.secondary)
+            }
+            Button("Open Desktop & Dock Settings", action: windowTilingSettingsProbe.openDesktopAndDockSettings)
+                .accessibilityHint("Opens macOS Desktop & Dock settings, where window tiling can be turned off.")
+        }
     }
 }
 

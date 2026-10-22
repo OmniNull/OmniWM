@@ -126,7 +126,7 @@ extension SettingsExport.Niri {
             allowOverscroll: false,
             overscrollVisibleStripPercent: 5,
             shrinkToFit: false
-        )
+        ).withNaturalWindowDragDefaults()
     }
 }
 

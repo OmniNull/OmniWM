@@ -104,7 +104,11 @@ extension NiriLayoutHandler {
                 )
                 continue
             }
-            if context.excludedTokens.contains(token) { continue }
+            if context.excludedTokens.contains(token)
+                || context.engine.isLiveDraggedWindow(token, in: context.workspaceId)
+            {
+                continue
+            }
             let previousOffscreenSide = window.hiddenState?.offscreenSide
             if let side = hiddenHandles[token] {
                 if previousOffscreenSide != side || context.reassertHidden

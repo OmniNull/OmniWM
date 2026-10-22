@@ -664,6 +664,750 @@
         }
       }
     },
+    "Drag a tiled window by its title bar to move its Niri column. Rest on another window and the windows slide over to make room; near a screen edge, a narrow gap shows where it will land, and holding the pointer at the edge scrolls. Release to drop it, or press Esc to cancel. Off: title-bar drags snap back." : {
+      "localizations" : {
+        "ar" : {
+          "stringUnit" : {
+            "state" : "translated",
+            "value" : "اسحب نافذة مُبلّطة من شريط العنوان لنقل عمود Niri الخاص بها. توقّف فوق نافذة أخرى فتنزلق النوافذ لإفساح المجال؛ وقرب حافة الشاشة تُظهر فجوة ضيقة مكان إفلاتها، ويؤدي إبقاء المؤشر عند الحافة إلى التمرير. أفلِت لوضعها، أو اضغط على Esc للإلغاء. عند الإيقاف: تعود النوافذ المسحوبة من شريط العنوان إلى مكانها."
+          }
+        },
+        "da" : {
+          "stringUnit" : {
+            "state" : "translated",
+            "value" : "Træk et fliselagt vindue i titellinjen for at flytte dets Niri-kolonne. Hold over et andet vindue, så glider vinduerne til side og giver plads; nær en skærmkant viser et smalt mellemrum, hvor det lander, og holder du markøren ved kanten, rulles der. Slip for at placere det, eller tryk på Esc for at annullere. Fra: træk i titellinjen springer tilbage."
+          }
+        },
+        "de" : {
+          "stringUnit" : {
+            "state" : "translated",
+            "value" : "Ziehen Sie ein gekacheltes Fenster an der Titelleiste, um seine Niri-Spalte zu verschieben. Verweilen Sie über einem anderen Fenster, rücken die Fenster beiseite und machen Platz; nahe einem Bildschirmrand zeigt eine schmale Lücke, wo es landet, und wenn Sie den Zeiger am Rand halten, wird gescrollt. Loslassen legt es ab, Esc bricht ab. Aus: Ziehen an der Titelleiste springt zurück."
+          }
+        },
+        "el" : {
+          "stringUnit" : {
+            "state" : "translated",
+            "value" : "Σύρετε ένα παράθυρο σε παράθεση από τη γραμμή τίτλου για να μετακινήσετε τη στήλη Niri του. Σταθείτε πάνω από άλλο παράθυρο και τα παράθυρα μετακινούνται για να κάνουν χώρο· κοντά σε μια άκρη της οθόνης, ένα στενό κενό δείχνει πού θα τοποθετηθεί, και κρατώντας τον δείκτη στην άκρη γίνεται κύλιση. Αφήστε το για να το αποθέσετε ή πατήστε Esc για ακύρωση. Ανενεργό: η μεταφορά από τη γραμμή τίτλου επαναφέρει το παράθυρο."
+          }
+        },
+        "es" : {
+          "stringUnit" : {
+            "state" : "translated",
+            "value" : "Arrastra una ventana en mosaico por su barra de título para mover su columna de Niri. Detente sobre otra ventana y las ventanas se desplazan para dejar sitio; cerca de un borde de la pantalla, un hueco estrecho muestra dónde caerá, y mantener el puntero en el borde desplaza la tira. Suelta para colocarla o pulsa Esc para cancelar. Desactivado: al arrastrar por la barra de título, la ventana vuelve a su sitio."
+          }
+        },
+        "fi" : {
+          "stringUnit" : {
+            "state" : "translated",
+            "value" : "Vedä ruudutettua ikkunaa otsikkopalkista siirtääksesi sen Niri-saraketta. Pysähdy toisen ikkunan päälle, niin ikkunat siirtyvät tehden tilaa; näytön reunan lähellä kapea rako näyttää, mihin ikkuna päätyy, ja osoittimen pitäminen reunalla vierittää. Päästä irti pudottaaksesi tai peruuta painamalla Esc. Pois: otsikkopalkista vedetty ikkuna palaa paikalleen."
+          }
+        },
+        "fr" : {
+          "stringUnit" : {
+            "state" : "translated",
+            "value" : "Faites glisser une fenêtre en mosaïque par sa barre de titre pour déplacer sa colonne Niri. Marquez une pause sur une autre fenêtre : les fenêtres glissent pour faire de la place ; près d’un bord de l’écran, un espace étroit indique où elle se posera, et maintenir le pointeur au bord fait défiler. Relâchez pour la déposer, ou appuyez sur Échap pour annuler. Désactivé : les glissements par la barre de titre reviennent en place."
+          }
+        },
+        "he" : {
+          "stringUnit" : {
+            "state" : "translated",
+            "value" : "גררו חלון בפריסת אריחים בשורת הכותרת כדי להזיז את עמודת ה-Niri שלו. עצרו מעל חלון אחר והחלונות יחליקו כדי לפנות מקום; ליד קצה המסך, רווח צר מראה היכן החלון ינחת, והחזקת המצביע בקצה גוללת. שחררו כדי להניח אותו, או הקישו Esc לביטול. כבוי: גרירה בשורת הכותרת מחזירה את החלון למקומו."
+          }
+        },
+        "hi" : {
+          "stringUnit" : {
+            "state" : "translated",
+            "value" : "किसी टाइल्ड विंडो को उसके टाइटल बार से खींचकर उसका Niri कॉलम खिसकाएँ। किसी दूसरी विंडो पर रुकें, तो विंडो खिसककर जगह बना देती हैं; स्क्रीन के किनारे के पास एक संकरी जगह दिखाती है कि विंडो कहाँ आएगी, और पॉइंटर को किनारे पर रोके रखने से स्क्रॉल होता है। रखने के लिए छोड़ें, या रद्द करने के लिए Esc दबाएँ। बंद होने पर: टाइटल बार से खींची गई विंडो वापस अपनी जगह पर आ जाती है।"
+          }
+        },
+        "it" : {
+          "stringUnit" : {
+            "state" : "translated",
+            "value" : "Trascina una finestra affiancata dalla barra del titolo per spostarne la colonna Niri. Fermati su un’altra finestra e le finestre scorrono per fare spazio; vicino a un bordo dello schermo, uno spazio stretto mostra dove verrà rilasciata, e tenere il puntatore sul bordo fa scorrere. Rilascia per posizionarla oppure premi Esc per annullare. Disattivato: i trascinamenti dalla barra del titolo tornano al loro posto."
+          }
+        },
+        "ja" : {
+          "stringUnit" : {
+            "state" : "translated",
+            "value" : "タイル表示のウインドウをタイトルバーでドラッグして、その Niri 列を移動します。ほかのウインドウの上で少し止まると、ウインドウがずれて場所を空けます。画面の端の近くでは、細いすき間が置かれる位置を示し、ポインタを端に置いたままにするとスクロールします。離すとそこに置かれ、Esc キーでキャンセルします。オフ：タイトルバーでドラッグしたウインドウは元の位置に戻ります。"
+          }
+        },
+        "ko" : {
+          "stringUnit" : {
+            "state" : "translated",
+            "value" : "타일 윈도우의 제목 막대를 드래그하여 해당 Niri 열을 이동합니다. 다른 윈도우 위에서 잠시 멈추면 윈도우들이 밀려나 자리를 만듭니다. 화면 가장자리 근처에서는 좁은 틈이 놓일 위치를 보여 주고, 포인터를 가장자리에 두면 스크롤됩니다. 놓으면 그 자리에 놓이고, Esc 키를 누르면 취소됩니다. 끔: 제목 막대로 드래그한 윈도우는 원래 자리로 돌아갑니다."
+          }
+        },
+        "nb" : {
+          "stringUnit" : {
+            "state" : "translated",
+            "value" : "Dra et flislagt vindu etter tittellinjen for å flytte Niri-kolonnen. Hold over et annet vindu, så glir vinduene til side og gir plass; nær en skjermkant viser en smal åpning hvor det havner, og holder du pekeren ved kanten, rulles det. Slipp for å plassere det, eller trykk Esc for å avbryte. Av: drag i tittellinjen går tilbake."
+          }
+        },
+        "nl" : {
+          "stringUnit" : {
+            "state" : "translated",
+            "value" : "Sleep een getegeld venster aan de titelbalk om zijn Niri-kolom te verplaatsen. Blijf boven een ander venster en de vensters schuiven op om ruimte te maken; bij een schermrand toont een smalle opening waar het terechtkomt, en de aanwijzer aan de rand houden scrolt. Laat los om het neer te zetten, of druk op Esc om te annuleren. Uit: slepen aan de titelbalk springt terug."
+          }
+        },
+        "pl" : {
+          "stringUnit" : {
+            "state" : "translated",
+            "value" : "Przeciągnij okno w układzie kafelkowym za pasek tytułu, aby przenieść jego kolumnę Niri. Zatrzymaj się nad innym oknem, a okna rozsuną się, robiąc miejsce; przy krawędzi ekranu wąska przerwa pokazuje, gdzie okno trafi, a przytrzymanie wskaźnika przy krawędzi przewija pasek. Puść, aby je upuścić, lub naciśnij Esc, aby anulować. Wyłączone: okna przeciągane za pasek tytułu wracają na miejsce."
+          }
+        },
+        "ru" : {
+          "stringUnit" : {
+            "state" : "translated",
+            "value" : "Перетащите окно в мозаике за заголовок, чтобы переместить его столбец Niri. Задержитесь над другим окном, и окна сдвинутся, освобождая место; у края экрана узкий промежуток покажет, куда окно встанет, а если удерживать указатель у края, лента прокручивается. Отпустите, чтобы поставить окно, или нажмите Esc для отмены. Выкл.: окна, перетаскиваемые за заголовок, возвращаются на место."
+          }
+        },
+        "sr-Latn" : {
+          "stringUnit" : {
+            "state" : "translated",
+            "value" : "Prevucite prozor u mozaiku preko naslovne trake da biste pomerili njegovu Niri kolonu. Zadržite se iznad drugog prozora i prozori će se pomeriti da naprave mesto; blizu ivice ekrana uzan razmak pokazuje gde će prozor pasti, a držanje pokazivača na ivici pomera prikaz. Otpustite da biste ga spustili ili pritisnite Esc da otkažete. Isključeno: prozori prevučeni preko naslovne trake vraćaju se na mesto."
+          }
+        },
+        "sv" : {
+          "stringUnit" : {
+            "state" : "translated",
+            "value" : "Dra ett fönster sida vid sida i namnlisten för att flytta dess Niri-kolumn. Stanna över ett annat fönster så glider fönstren undan och gör plats; nära en skärmkant visar en smal lucka var det hamnar, och håller du pekaren vid kanten rullas det. Släpp för att placera det, eller tryck på Esc för att avbryta. Av: fönster som dras i namnlisten återgår."
+          }
+        },
+        "uk" : {
+          "stringUnit" : {
+            "state" : "translated",
+            "value" : "Перетягніть вікно в мозаїці за заголовок, щоб перемістити його стовпець Niri. Затримайтеся над іншим вікном, і вікна зсунуться, звільняючи місце; біля краю екрана вузький проміжок покаже, куди стане вікно, а якщо втримувати вказівник біля краю, стрічка прокручується. Відпустіть, щоб поставити вікно, або натисніть Esc для скасування. Вимк.: вікна, перетягнуті за заголовок, повертаються на місце."
+          }
+        },
+        "zh-Hans" : {
+          "stringUnit" : {
+            "state" : "translated",
+            "value" : "拖动平铺窗口的标题栏即可移动其 Niri 列。在另一个窗口上停留片刻，窗口会滑开腾出位置；在屏幕边缘附近，一条窄缝会显示窗口将放置的位置，将指针停在边缘则会滚动。松开即可放下，按 Esc 键取消。关闭时：通过标题栏拖动的窗口会弹回原位。"
+          }
+        }
+      }
+    },
+    "Drag windows to menu bar to fill screen" : {
+      "localizations" : {
+        "ar" : {
+          "stringUnit" : {
+            "state" : "translated",
+            "value" : "اسحب النوافذ إلى شريط القوائم لملء الشاشة"
+          }
+        },
+        "da" : {
+          "stringUnit" : {
+            "state" : "translated",
+            "value" : "Træk vinduer til menulinjen for at udfylde skærmen"
+          }
+        },
+        "de" : {
+          "stringUnit" : {
+            "state" : "translated",
+            "value" : "Fenster in die Menüleiste ziehen, um den Bildschirm zu füllen"
+          }
+        },
+        "el" : {
+          "stringUnit" : {
+            "state" : "translated",
+            "value" : "Σύρετε παράθυρα στη γραμμή μενού για γέμισμα της οθόνης"
+          }
+        },
+        "es" : {
+          "stringUnit" : {
+            "state" : "translated",
+            "value" : "Arrastrar ventanas a la barra de menús para llenar la pantalla"
+          }
+        },
+        "fi" : {
+          "stringUnit" : {
+            "state" : "translated",
+            "value" : "Vedä ikkunat valikkoriville täyttääksesi näytön"
+          }
+        },
+        "fr" : {
+          "stringUnit" : {
+            "state" : "translated",
+            "value" : "Faire glisser les fenêtres vers la barre des menus pour remplir l’écran"
+          }
+        },
+        "he" : {
+          "stringUnit" : {
+            "state" : "translated",
+            "value" : "גרירת חלונות לשורת התפריטים כדי למלא את המסך"
+          }
+        },
+        "hi" : {
+          "stringUnit" : {
+            "state" : "translated",
+            "value" : "स्क्रीन भरने के लिए विंडो को मेनू बार पर खींचें"
+          }
+        },
+        "it" : {
+          "stringUnit" : {
+            "state" : "translated",
+            "value" : "Trascina le finestre sulla barra dei menu per riempire lo schermo"
+          }
+        },
+        "ja" : {
+          "stringUnit" : {
+            "state" : "translated",
+            "value" : "ウインドウをメニューバーにドラッグして画面いっぱいに表示"
+          }
+        },
+        "ko" : {
+          "stringUnit" : {
+            "state" : "translated",
+            "value" : "윈도우를 메뉴 막대로 드래그하여 화면 채우기"
+          }
+        },
+        "nb" : {
+          "stringUnit" : {
+            "state" : "translated",
+            "value" : "Dra vinduer til menylinjen for å fylle skjermen"
+          }
+        },
+        "nl" : {
+          "stringUnit" : {
+            "state" : "translated",
+            "value" : "Sleep vensters naar de menubalk om het scherm te vullen"
+          }
+        },
+        "pl" : {
+          "stringUnit" : {
+            "state" : "translated",
+            "value" : "Przeciągaj okna na pasek menu, aby wypełnić ekran"
+          }
+        },
+        "ru" : {
+          "stringUnit" : {
+            "state" : "translated",
+            "value" : "Перетаскивать окна в строку меню для заполнения экрана"
+          }
+        },
+        "sr-Latn" : {
+          "stringUnit" : {
+            "state" : "translated",
+            "value" : "Prevucite prozore na traku menija da popune ekran"
+          }
+        },
+        "sv" : {
+          "stringUnit" : {
+            "state" : "translated",
+            "value" : "Dra fönster till menyraden för att fylla skärmen"
+          }
+        },
+        "uk" : {
+          "stringUnit" : {
+            "state" : "translated",
+            "value" : "Перетягувати вікна на смугу меню, щоб заповнити екран"
+          }
+        },
+        "zh-Hans" : {
+          "stringUnit" : {
+            "state" : "translated",
+            "value" : "将窗口拖移到菜单栏以填充屏幕"
+          }
+        }
+      }
+    },
+    "Drag windows to screen edges to tile" : {
+      "localizations" : {
+        "ar" : {
+          "stringUnit" : {
+            "state" : "translated",
+            "value" : "اسحب النوافذ إلى حواف الشاشة لتبليطها"
+          }
+        },
+        "da" : {
+          "stringUnit" : {
+            "state" : "translated",
+            "value" : "Træk vinduer til skærmens kanter for at flisebelægge"
+          }
+        },
+        "de" : {
+          "stringUnit" : {
+            "state" : "translated",
+            "value" : "Fenster an Bildschirmränder ziehen, um sie anzuordnen"
+          }
+        },
+        "el" : {
+          "stringUnit" : {
+            "state" : "translated",
+            "value" : "Σύρετε παράθυρα στις άκρες της οθόνης για παράθεση"
+          }
+        },
+        "es" : {
+          "stringUnit" : {
+            "state" : "translated",
+            "value" : "Arrastrar ventanas a los bordes de la pantalla para organizarlas en mosaico"
+          }
+        },
+        "fi" : {
+          "stringUnit" : {
+            "state" : "translated",
+            "value" : "Vedä ikkunat näytön reunoille ruudutettaviksi"
+          }
+        },
+        "fr" : {
+          "stringUnit" : {
+            "state" : "translated",
+            "value" : "Faire glisser les fenêtres vers les bords de l’écran pour les disposer en mosaïque"
+          }
+        },
+        "he" : {
+          "stringUnit" : {
+            "state" : "translated",
+            "value" : "גרירת חלונות לקצוות המסך כדי לסדר אותם באריחים"
+          }
+        },
+        "hi" : {
+          "stringUnit" : {
+            "state" : "translated",
+            "value" : "टाइल करने के लिए विंडो को स्क्रीन के किनारों पर खींचें"
+          }
+        },
+        "it" : {
+          "stringUnit" : {
+            "state" : "translated",
+            "value" : "Trascina le finestre sui bordi dello schermo per affiancarle"
+          }
+        },
+        "ja" : {
+          "stringUnit" : {
+            "state" : "translated",
+            "value" : "ウインドウを画面の端にドラッグしてタイル表示"
+          }
+        },
+        "ko" : {
+          "stringUnit" : {
+            "state" : "translated",
+            "value" : "윈도우를 화면 가장자리로 드래그하여 타일 배치"
+          }
+        },
+        "nb" : {
+          "stringUnit" : {
+            "state" : "translated",
+            "value" : "Dra vinduer til skjermkantene for å flislegge"
+          }
+        },
+        "nl" : {
+          "stringUnit" : {
+            "state" : "translated",
+            "value" : "Sleep vensters naar de schermranden om te tegelen"
+          }
+        },
+        "pl" : {
+          "stringUnit" : {
+            "state" : "translated",
+            "value" : "Przeciągaj okna do krawędzi ekranu, aby je rozmieścić"
+          }
+        },
+        "ru" : {
+          "stringUnit" : {
+            "state" : "translated",
+            "value" : "Перетаскивать окна к краям экрана для размещения мозаикой"
+          }
+        },
+        "sr-Latn" : {
+          "stringUnit" : {
+            "state" : "translated",
+            "value" : "Prevucite prozore na ivice ekrana da ih rasporedite u mozaik"
+          }
+        },
+        "sv" : {
+          "stringUnit" : {
+            "state" : "translated",
+            "value" : "Dra fönster till skärmkanterna för att ordna dem sida vid sida"
+          }
+        },
+        "uk" : {
+          "stringUnit" : {
+            "state" : "translated",
+            "value" : "Перетягувати вікна до країв екрана для розміщення мозаїкою"
+          }
+        },
+        "zh-Hans" : {
+          "stringUnit" : {
+            "state" : "translated",
+            "value" : "将窗口拖移到屏幕边缘以平铺"
+          }
+        }
+      }
+    },
+    "Hold ⌥ key while dragging windows to tile" : {
+      "localizations" : {
+        "ar" : {
+          "stringUnit" : {
+            "state" : "translated",
+            "value" : "اضغط مع الاستمرار على مفتاح ⌥ أثناء سحب النوافذ لتبليطها"
+          }
+        },
+        "da" : {
+          "stringUnit" : {
+            "state" : "translated",
+            "value" : "Hold ⌥-tasten nede, mens du trækker vinduer, for at flisebelægge"
+          }
+        },
+        "de" : {
+          "stringUnit" : {
+            "state" : "translated",
+            "value" : "⌥-Taste beim Ziehen von Fenstern gedrückt halten, um sie anzuordnen"
+          }
+        },
+        "el" : {
+          "stringUnit" : {
+            "state" : "translated",
+            "value" : "Κρατήστε πατημένο το πλήκτρο ⌥ ενώ σύρετε παράθυρα για παράθεση"
+          }
+        },
+        "es" : {
+          "stringUnit" : {
+            "state" : "translated",
+            "value" : "Mantener pulsada la tecla ⌥ al arrastrar ventanas para organizarlas en mosaico"
+          }
+        },
+        "fi" : {
+          "stringUnit" : {
+            "state" : "translated",
+            "value" : "Pidä ⌥-näppäintä painettuna ikkunoita vetäessäsi ruudutusta varten"
+          }
+        },
+        "fr" : {
+          "stringUnit" : {
+            "state" : "translated",
+            "value" : "Maintenir la touche ⌥ enfoncée en faisant glisser les fenêtres pour les disposer en mosaïque"
+          }
+        },
+        "he" : {
+          "stringUnit" : {
+            "state" : "translated",
+            "value" : "החזקת מקש ⌥ בזמן גרירת חלונות כדי לסדר אותם באריחים"
+          }
+        },
+        "hi" : {
+          "stringUnit" : {
+            "state" : "translated",
+            "value" : "टाइल करने के लिए विंडो खींचते समय ⌥ कुंजी दबाए रखें"
+          }
+        },
+        "it" : {
+          "stringUnit" : {
+            "state" : "translated",
+            "value" : "Tieni premuto il tasto ⌥ mentre trascini le finestre per affiancarle"
+          }
+        },
+        "ja" : {
+          "stringUnit" : {
+            "state" : "translated",
+            "value" : "ウインドウをドラッグ中に ⌥ キーを押したままにしてタイル表示"
+          }
+        },
+        "ko" : {
+          "stringUnit" : {
+            "state" : "translated",
+            "value" : "윈도우를 드래그하는 동안 ⌥ 키를 눌러 타일 배치"
+          }
+        },
+        "nb" : {
+          "stringUnit" : {
+            "state" : "translated",
+            "value" : "Hold inne ⌥-tasten mens du drar vinduer for å flislegge"
+          }
+        },
+        "nl" : {
+          "stringUnit" : {
+            "state" : "translated",
+            "value" : "Houd de ⌥-toets ingedrukt tijdens het slepen van vensters om te tegelen"
+          }
+        },
+        "pl" : {
+          "stringUnit" : {
+            "state" : "translated",
+            "value" : "Przytrzymaj klawisz ⌥ podczas przeciągania okien, aby je rozmieścić"
+          }
+        },
+        "ru" : {
+          "stringUnit" : {
+            "state" : "translated",
+            "value" : "Удерживать клавишу ⌥ при перетаскивании окон для размещения мозаикой"
+          }
+        },
+        "sr-Latn" : {
+          "stringUnit" : {
+            "state" : "translated",
+            "value" : "Držite taster ⌥ dok prevlačite prozore da ih rasporedite u mozaik"
+          }
+        },
+        "sv" : {
+          "stringUnit" : {
+            "state" : "translated",
+            "value" : "Håll ned ⌥-tangenten medan du drar fönster för att ordna dem sida vid sida"
+          }
+        },
+        "uk" : {
+          "stringUnit" : {
+            "state" : "translated",
+            "value" : "Утримувати клавішу ⌥ під час перетягування вікон для розміщення мозаїкою"
+          }
+        },
+        "zh-Hans" : {
+          "stringUnit" : {
+            "state" : "translated",
+            "value" : "拖移窗口时按住 ⌥ 键以平铺"
+          }
+        }
+      }
+    },
+    "Natural Window Drag & Drop" : {
+      "localizations" : {
+        "ar" : {
+          "stringUnit" : {
+            "state" : "translated",
+            "value" : "سحب النوافذ وإفلاتها بشكل طبيعي"
+          }
+        },
+        "da" : {
+          "stringUnit" : {
+            "state" : "translated",
+            "value" : "Naturlig træk og slip af vinduer"
+          }
+        },
+        "de" : {
+          "stringUnit" : {
+            "state" : "translated",
+            "value" : "Natürliches Drag & Drop für Fenster"
+          }
+        },
+        "el" : {
+          "stringUnit" : {
+            "state" : "translated",
+            "value" : "Φυσική μεταφορά και απόθεση παραθύρων"
+          }
+        },
+        "es" : {
+          "stringUnit" : {
+            "state" : "translated",
+            "value" : "Arrastrar y soltar ventanas de forma natural"
+          }
+        },
+        "fi" : {
+          "stringUnit" : {
+            "state" : "translated",
+            "value" : "Luonteva ikkunoiden vedä ja pudota"
+          }
+        },
+        "fr" : {
+          "stringUnit" : {
+            "state" : "translated",
+            "value" : "Glisser-déposer naturel des fenêtres"
+          }
+        },
+        "he" : {
+          "stringUnit" : {
+            "state" : "translated",
+            "value" : "גרירה ושחרור טבעיים של חלונות"
+          }
+        },
+        "hi" : {
+          "stringUnit" : {
+            "state" : "translated",
+            "value" : "स्वाभाविक विंडो ड्रैग और ड्रॉप"
+          }
+        },
+        "it" : {
+          "stringUnit" : {
+            "state" : "translated",
+            "value" : "Trascinamento naturale delle finestre"
+          }
+        },
+        "ja" : {
+          "stringUnit" : {
+            "state" : "translated",
+            "value" : "自然なウインドウのドラッグ＆ドロップ"
+          }
+        },
+        "ko" : {
+          "stringUnit" : {
+            "state" : "translated",
+            "value" : "자연스러운 윈도우 드래그 앤 드롭"
+          }
+        },
+        "nb" : {
+          "stringUnit" : {
+            "state" : "translated",
+            "value" : "Naturlig dra og slipp for vinduer"
+          }
+        },
+        "nl" : {
+          "stringUnit" : {
+            "state" : "translated",
+            "value" : "Natuurlijk slepen en neerzetten van vensters"
+          }
+        },
+        "pl" : {
+          "stringUnit" : {
+            "state" : "translated",
+            "value" : "Naturalne przeciąganie i upuszczanie okien"
+          }
+        },
+        "ru" : {
+          "stringUnit" : {
+            "state" : "translated",
+            "value" : "Естественное перетаскивание окон"
+          }
+        },
+        "sr-Latn" : {
+          "stringUnit" : {
+            "state" : "translated",
+            "value" : "Prirodno prevlačenje i otpuštanje prozora"
+          }
+        },
+        "sv" : {
+          "stringUnit" : {
+            "state" : "translated",
+            "value" : "Naturlig dra och släpp för fönster"
+          }
+        },
+        "uk" : {
+          "stringUnit" : {
+            "state" : "translated",
+            "value" : "Природне перетягування вікон"
+          }
+        },
+        "zh-Hans" : {
+          "stringUnit" : {
+            "state" : "translated",
+            "value" : "自然的窗口拖放"
+          }
+        }
+      }
+    },
+    "Open Desktop & Dock Settings" : {
+      "localizations" : {
+        "ar" : {
+          "stringUnit" : {
+            "state" : "translated",
+            "value" : "فتح إعدادات سطح المكتب وشريط الأيقونات"
+          }
+        },
+        "da" : {
+          "stringUnit" : {
+            "state" : "translated",
+            "value" : "Åbn indstillinger for Skrivebord og Dock"
+          }
+        },
+        "de" : {
+          "stringUnit" : {
+            "state" : "translated",
+            "value" : "Einstellungen für „Schreibtisch & Dock“ öffnen"
+          }
+        },
+        "el" : {
+          "stringUnit" : {
+            "state" : "translated",
+            "value" : "Άνοιγμα ρυθμίσεων «Γραφείο εργασίας και Dock»"
+          }
+        },
+        "es" : {
+          "stringUnit" : {
+            "state" : "translated",
+            "value" : "Abrir los ajustes de Escritorio y Dock"
+          }
+        },
+        "fi" : {
+          "stringUnit" : {
+            "state" : "translated",
+            "value" : "Avaa Työpöytä ja Dock -asetukset"
+          }
+        },
+        "fr" : {
+          "stringUnit" : {
+            "state" : "translated",
+            "value" : "Ouvrir les réglages Bureau et Dock"
+          }
+        },
+        "he" : {
+          "stringUnit" : {
+            "state" : "translated",
+            "value" : "פתיחת ההגדרות של שולחן העבודה ו-Dock"
+          }
+        },
+        "hi" : {
+          "stringUnit" : {
+            "state" : "translated",
+            "value" : "डेस्कटॉप और Dock सेटिंग्ज़ खोलें"
+          }
+        },
+        "it" : {
+          "stringUnit" : {
+            "state" : "translated",
+            "value" : "Apri le impostazioni Scrivania e Dock"
+          }
+        },
+        "ja" : {
+          "stringUnit" : {
+            "state" : "translated",
+            "value" : "「デスクトップとDock」設定を開く"
+          }
+        },
+        "ko" : {
+          "stringUnit" : {
+            "state" : "translated",
+            "value" : "데스크탑 및 Dock 설정 열기"
+          }
+        },
+        "nb" : {
+          "stringUnit" : {
+            "state" : "translated",
+            "value" : "Åpne innstillinger for Skrivebord og Dock"
+          }
+        },
+        "nl" : {
+          "stringUnit" : {
+            "state" : "translated",
+            "value" : "Open instellingen voor Bureaublad en Dock"
+          }
+        },
+        "pl" : {
+          "stringUnit" : {
+            "state" : "translated",
+            "value" : "Otwórz ustawienia Biurka i Docka"
+          }
+        },
+        "ru" : {
+          "stringUnit" : {
+            "state" : "translated",
+            "value" : "Открыть настройки «Рабочий стол и Dock»"
+          }
+        },
+        "sr-Latn" : {
+          "stringUnit" : {
+            "state" : "translated",
+            "value" : "Otvori podešavanja za Radnu površinu i Dock"
+          }
+        },
+        "sv" : {
+          "stringUnit" : {
+            "state" : "translated",
+            "value" : "Öppna inställningar för Skrivbord och Dock"
+          }
+        },
+        "uk" : {
+          "stringUnit" : {
+            "state" : "translated",
+            "value" : "Відкрити параметри «Робочий стіл і Dock»"
+          }
+        },
+        "zh-Hans" : {
+          "stringUnit" : {
+            "state" : "translated",
+            "value" : "打开“桌面与程序坞”设置"
+          }
+        }
+      }
+    },
     "Open One Empty Workspace" : {
       "localizations" : {
         "ar" : {
@@ -784,6 +1528,130 @@
           "stringUnit" : {
             "state" : "translated",
             "value" : "打开一个空工作区"
+          }
+        }
+      }
+    },
+    "Opens macOS Desktop & Dock settings, where window tiling can be turned off." : {
+      "localizations" : {
+        "ar" : {
+          "stringUnit" : {
+            "state" : "translated",
+            "value" : "يفتح إعدادات سطح المكتب وشريط الأيقونات في macOS، حيث يمكن إيقاف تبليط النوافذ."
+          }
+        },
+        "da" : {
+          "stringUnit" : {
+            "state" : "translated",
+            "value" : "Åbner macOS-indstillingerne for Skrivebord og Dock, hvor vinduesfliser kan slås fra."
+          }
+        },
+        "de" : {
+          "stringUnit" : {
+            "state" : "translated",
+            "value" : "Öffnet die macOS-Einstellungen für „Schreibtisch & Dock“, in denen sich das Anordnen von Fenstern ausschalten lässt."
+          }
+        },
+        "el" : {
+          "stringUnit" : {
+            "state" : "translated",
+            "value" : "Ανοίγει τις ρυθμίσεις «Γραφείο εργασίας και Dock» του macOS, όπου μπορεί να απενεργοποιηθεί η παράθεση παραθύρων."
+          }
+        },
+        "es" : {
+          "stringUnit" : {
+            "state" : "translated",
+            "value" : "Abre los ajustes de Escritorio y Dock de macOS, donde se puede desactivar el mosaico de ventanas."
+          }
+        },
+        "fi" : {
+          "stringUnit" : {
+            "state" : "translated",
+            "value" : "Avaa macOS:n Työpöytä ja Dock -asetukset, joissa ikkunoiden ruudutuksen voi laittaa pois päältä."
+          }
+        },
+        "fr" : {
+          "stringUnit" : {
+            "state" : "translated",
+            "value" : "Ouvre les réglages Bureau et Dock de macOS, où la mise en mosaïque des fenêtres peut être désactivée."
+          }
+        },
+        "he" : {
+          "stringUnit" : {
+            "state" : "translated",
+            "value" : "פותח את ההגדרות של שולחן העבודה ו-Dock ב-macOS, שבהן אפשר לכבות את סידור החלונות באריחים."
+          }
+        },
+        "hi" : {
+          "stringUnit" : {
+            "state" : "translated",
+            "value" : "macOS की डेस्कटॉप और Dock सेटिंग्ज़ खोलता है, जहाँ विंडो टाइलिंग बंद की जा सकती है।"
+          }
+        },
+        "it" : {
+          "stringUnit" : {
+            "state" : "translated",
+            "value" : "Apre le impostazioni Scrivania e Dock di macOS, dove si può disattivare l’affiancamento delle finestre."
+          }
+        },
+        "ja" : {
+          "stringUnit" : {
+            "state" : "translated",
+            "value" : "macOS の「デスクトップとDock」設定を開きます。ここでウインドウのタイル表示をオフにできます。"
+          }
+        },
+        "ko" : {
+          "stringUnit" : {
+            "state" : "translated",
+            "value" : "macOS의 데스크탑 및 Dock 설정을 엽니다. 여기에서 윈도우 타일 배치를 끌 수 있습니다."
+          }
+        },
+        "nb" : {
+          "stringUnit" : {
+            "state" : "translated",
+            "value" : "Åpner macOS-innstillingene for Skrivebord og Dock, der flislegging av vinduer kan slås av."
+          }
+        },
+        "nl" : {
+          "stringUnit" : {
+            "state" : "translated",
+            "value" : "Opent de macOS-instellingen voor Bureaublad en Dock, waar het tegelen van vensters kan worden uitgeschakeld."
+          }
+        },
+        "pl" : {
+          "stringUnit" : {
+            "state" : "translated",
+            "value" : "Otwiera ustawienia Biurka i Docka w macOS, gdzie można wyłączyć kafelkowanie okien."
+          }
+        },
+        "ru" : {
+          "stringUnit" : {
+            "state" : "translated",
+            "value" : "Открывает настройки macOS «Рабочий стол и Dock», где можно отключить размещение окон мозаикой."
+          }
+        },
+        "sr-Latn" : {
+          "stringUnit" : {
+            "state" : "translated",
+            "value" : "Otvara macOS podešavanja za Radnu površinu i Dock, gde se raspoređivanje prozora u mozaik može isključiti."
+          }
+        },
+        "sv" : {
+          "stringUnit" : {
+            "state" : "translated",
+            "value" : "Öppnar macOS-inställningarna för Skrivbord och Dock, där fönsterplacering sida vid sida kan stängas av."
+          }
+        },
+        "uk" : {
+          "stringUnit" : {
+            "state" : "translated",
+            "value" : "Відкриває параметри macOS «Робочий стіл і Dock», де можна вимкнути розміщення вікон мозаїкою."
+          }
+        },
+        "zh-Hans" : {
+          "stringUnit" : {
+            "state" : "translated",
+            "value" : "打开 macOS 的“桌面与程序坞”设置，可在其中关闭窗口平铺。"
           }
         }
       }
@@ -4175,6 +5043,130 @@
           "stringUnit" : {
             "state" : "translated",
             "value" : "你的小组件"
+          }
+        }
+      }
+    },
+    "macOS window tiling interferes with dragging. Turn off these settings in Desktop & Dock:" : {
+      "localizations" : {
+        "ar" : {
+          "stringUnit" : {
+            "state" : "translated",
+            "value" : "يتعارض تبليط النوافذ في macOS مع السحب. أوقف هذه الإعدادات في سطح المكتب وشريط الأيقونات:"
+          }
+        },
+        "da" : {
+          "stringUnit" : {
+            "state" : "translated",
+            "value" : "macOS' vinduesfliser forstyrrer trækning. Slå disse indstillinger fra i Skrivebord og Dock:"
+          }
+        },
+        "de" : {
+          "stringUnit" : {
+            "state" : "translated",
+            "value" : "Das Anordnen von Fenstern in macOS stört das Ziehen. Schalten Sie diese Einstellungen unter „Schreibtisch & Dock“ aus:"
+          }
+        },
+        "el" : {
+          "stringUnit" : {
+            "state" : "translated",
+            "value" : "Η παράθεση παραθύρων του macOS παρεμβαίνει στη μεταφορά. Απενεργοποιήστε αυτές τις ρυθμίσεις στο «Γραφείο εργασίας και Dock»:"
+          }
+        },
+        "es" : {
+          "stringUnit" : {
+            "state" : "translated",
+            "value" : "El mosaico de ventanas de macOS interfiere con el arrastre. Desactiva estos ajustes en Escritorio y Dock:"
+          }
+        },
+        "fi" : {
+          "stringUnit" : {
+            "state" : "translated",
+            "value" : "macOS:n ikkunoiden ruudutus häiritsee vetämistä. Laita nämä asetukset pois päältä kohdassa Työpöytä ja Dock:"
+          }
+        },
+        "fr" : {
+          "stringUnit" : {
+            "state" : "translated",
+            "value" : "La mise en mosaïque des fenêtres de macOS gêne le glissement. Désactivez ces réglages dans Bureau et Dock :"
+          }
+        },
+        "he" : {
+          "stringUnit" : {
+            "state" : "translated",
+            "value" : "סידור החלונות באריחים של macOS מפריע לגרירה. כבו את ההגדרות האלה בשולחן העבודה ו-Dock:"
+          }
+        },
+        "hi" : {
+          "stringUnit" : {
+            "state" : "translated",
+            "value" : "macOS की विंडो टाइलिंग खींचने में बाधा डालती है। डेस्कटॉप और Dock में ये सेटिंग्ज़ बंद करें:"
+          }
+        },
+        "it" : {
+          "stringUnit" : {
+            "state" : "translated",
+            "value" : "L’affiancamento delle finestre di macOS interferisce con il trascinamento. Disattiva queste impostazioni in Scrivania e Dock:"
+          }
+        },
+        "ja" : {
+          "stringUnit" : {
+            "state" : "translated",
+            "value" : "macOS のウインドウのタイル表示はドラッグを妨げます。「デスクトップとDock」で次の設定をオフにしてください："
+          }
+        },
+        "ko" : {
+          "stringUnit" : {
+            "state" : "translated",
+            "value" : "macOS의 윈도우 타일 배치가 드래그를 방해합니다. 데스크탑 및 Dock에서 다음 설정을 끄십시오:"
+          }
+        },
+        "nb" : {
+          "stringUnit" : {
+            "state" : "translated",
+            "value" : "Flislegging av vinduer i macOS forstyrrer draing. Slå av disse innstillingene i Skrivebord og Dock:"
+          }
+        },
+        "nl" : {
+          "stringUnit" : {
+            "state" : "translated",
+            "value" : "Het tegelen van vensters in macOS hindert het slepen. Schakel deze instellingen uit in Bureaublad en Dock:"
+          }
+        },
+        "pl" : {
+          "stringUnit" : {
+            "state" : "translated",
+            "value" : "Kafelkowanie okien w macOS przeszkadza w przeciąganiu. Wyłącz te ustawienia w sekcji Biurko i Dock:"
+          }
+        },
+        "ru" : {
+          "stringUnit" : {
+            "state" : "translated",
+            "value" : "Размещение окон мозаикой в macOS мешает перетаскиванию. Отключите эти настройки в разделе «Рабочий стол и Dock»:"
+          }
+        },
+        "sr-Latn" : {
+          "stringUnit" : {
+            "state" : "translated",
+            "value" : "Raspoređivanje prozora u mozaik u macOS-u ometa prevlačenje. Isključite ova podešavanja u Radnoj površini i Docku:"
+          }
+        },
+        "sv" : {
+          "stringUnit" : {
+            "state" : "translated",
+            "value" : "Fönsterplacering sida vid sida i macOS stör dragningen. Stäng av de här inställningarna i Skrivbord och Dock:"
+          }
+        },
+        "uk" : {
+          "stringUnit" : {
+            "state" : "translated",
+            "value" : "Розміщення вікон мозаїкою в macOS заважає перетягуванню. Вимкніть ці параметри в розділі «Робочий стіл і Dock»:"
+          }
+        },
+        "zh-Hans" : {
+          "stringUnit" : {
+            "state" : "translated",
+            "value" : "macOS 的窗口平铺会干扰拖动。请在“桌面与程序坞”中关闭以下设置："
           }
         }
       }

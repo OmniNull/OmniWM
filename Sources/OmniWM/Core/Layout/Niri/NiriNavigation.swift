@@ -206,6 +206,7 @@ extension NiriLayoutEngine {
         previousProjectedAnchor: NiriProjectedViewportAnchor? = nil
     ) {
         assertSanctionedMutation()
+        guard !isLiveColumnMoveActive(in: context.workspaceId) else { return }
         if !projectionExclusions(in: context.workspaceId).isEmpty {
             ensureProjectedSelectionVisible(
                 node: node,

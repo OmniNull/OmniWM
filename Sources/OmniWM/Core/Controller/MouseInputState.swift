@@ -53,6 +53,13 @@ struct MouseInputState {
         var terminalFailureRetryRequestId: AXFrameRequestId?
         var adoptionStartFrame: CGRect?
         var dwindleResizeWorkspaceId: WorkspaceDescriptor.ID?
+        var liveDrag = false
+        var liveDragDeclined = false
+    }
+
+    struct LiveDropScroll {
+        let token: WindowToken
+        let workspaceId: WorkspaceDescriptor.ID
     }
 
     struct NativeResizeStart {
@@ -93,6 +100,10 @@ struct MouseInputState {
     var currentHoveredEdges: ResizeEdge = []
     var isResizing: Bool = false
     var isMoving: Bool = false
+    var liveDragLocation: CGPoint?
+    var liveDropScroll: LiveDropScroll?
+    var liveHoverTimer: Timer?
+    var deferredClickScroll: WindowToken?
     var activeInteractionSource: InteractionSource?
     var activeInteractionButton: MouseEventHandler.MouseButton? {
         get { activeInteractionSource?.mouseButton }

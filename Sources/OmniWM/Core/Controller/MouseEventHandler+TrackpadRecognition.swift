@@ -158,7 +158,7 @@ extension MouseEventHandler {
             abortActiveGestureIfNeeded()
             return false
         }
-        if state.isResizing || state.isMoving, !state.gestureOwnsWindowInteraction {
+        if isLiveColumnDragActive || state.isResizing || state.isMoving, !state.gestureOwnsWindowInteraction {
             abortActiveGestureIfNeeded()
             return false
         }

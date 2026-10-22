@@ -30,7 +30,8 @@ final class LayoutSectionsSettingsExportTests: XCTestCase {
             "moveWindowStacksIntoColumn": .boolean(true),
             "allowOverscroll": .boolean(false),
             "overscrollVisibleStripPercent": .integer(5),
-            "shrinkToFit": .boolean(false)
+            "shrinkToFit": .boolean(false),
+            "naturalWindowDrag": .boolean(false)
         ]))
         XCTAssertEqual(tree["dwindle"], .table([
             "smartSplit": .boolean(false),
@@ -136,6 +137,33 @@ final class LayoutSectionsSettingsExportTests: XCTestCase {
         XCTAssertEqual(restored.resizeStepPercent, 7)
         XCTAssertEqual(decoded.hotkeyBindings, export.hotkeyBindings)
         XCTAssertEqual(decoded.hotkeyBindings.filter { ids.contains($0.id) }.count, 6)
+    }
+
+    @MainActor
+    func testNaturalWindowDragDefaultsOffRoundTripsAndLoadsWhenOmitted() throws {
+        XCTAssertEqual(SettingsExport.defaults().niri.naturalWindowDrag, false)
+        XCTAssertFalse(NiriSettings().naturalWindowDrag)
+        for enabled in [false, true] {
+            var export = SettingsExport.defaults()
+            export.niri.naturalWindowDrag = enabled
+            let encoded = try SettingsTOMLCodec.encode(export)
+            XCTAssertTrue(String(decoding: encoded, as: UTF8.self).contains("naturalWindowDrag = \(enabled)"))
+            XCTAssertEqual(try SettingsTOMLCodec.decode(encoded), export)
+            XCTAssertTrue(SettingsTOMLCodec.unknownKeyPaths(in: encoded).isEmpty)
+        }
+
+        let source = String(decoding: try SettingsTOMLCodec.encode(.defaults()), as: UTF8.self)
+        let omitted = try removing(key: "naturalWindowDrag", from: "niri", in: source)
+        let result = try SettingsTOMLCodec.decodeForLoad(Data(omitted.utf8))
+        XCTAssertNil(result.migration)
+        XCTAssertEqual(result.export.niri.naturalWindowDrag, false)
+
+        let settings = NiriSettings()
+        var enabled = SettingsExport.Niri.defaults()
+        enabled.naturalWindowDrag = true
+        settings.apply(enabled, baseline: .defaults())
+        XCTAssertTrue(settings.naturalWindowDrag)
+        XCTAssertEqual(settings.export().naturalWindowDrag, true)
     }
 
     private func removing(key: String, from section: String, in source: String) throws -> String {

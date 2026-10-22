@@ -85,7 +85,7 @@ extension CanonicalTOMLConfig {
         routing = try container.decode(SettingsExport.Routing.self, forKey: .routing)
         monitors = try container.decodeIfPresent(Monitors.self, forKey: .monitors)
         gaps = try container.decode(SettingsExport.Gaps.self, forKey: .gaps)
-        niri = try container.decode(SettingsExport.Niri.self, forKey: .niri)
+        niri = try container.decode(SettingsExport.Niri.self, forKey: .niri).withNaturalWindowDragDefaults()
         niri.edgeGaps = niri.edgeGaps ?? true
         niri.moveWindowStacksIntoColumn = niri.moveWindowStacksIntoColumn ?? true
         dwindle = try container.decode(SettingsExport.Dwindle.self, forKey: .dwindle)

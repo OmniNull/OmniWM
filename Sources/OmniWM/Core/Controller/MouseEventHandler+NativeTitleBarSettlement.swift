@@ -32,6 +32,10 @@ extension MouseEventHandler {
         case .armed:
             return false
         case .dragging:
+            drag.receivedFrameChange = true
+            if handleLiveColumnDragFrameChange(&drag, entry: entry) {
+                return true
+            }
             return updateNativeTitleBarDraggingFrame(entry, drag: &drag)
         case .awaitingFrameChange:
             return settleAwaitedNativeTitleBarFrame(entry, drag: drag)

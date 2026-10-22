@@ -121,6 +121,7 @@ struct SettingsExport: Equatable {
         var allowOverscroll: Bool?
         var overscrollVisibleStripPercent: Int?
         var shrinkToFit: Bool?
+        var naturalWindowDrag: Bool?
     }
 
     struct Dwindle: Codable, Equatable {

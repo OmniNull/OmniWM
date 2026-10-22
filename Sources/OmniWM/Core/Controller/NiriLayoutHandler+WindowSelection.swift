@@ -95,9 +95,12 @@ extension NiriLayoutHandler {
             resetViewportForSingleWindowFit(state: &state)
         }
 
-        let viewportNeedsRecalc = reconcileSelectionVisibility(
-            pass: pass, state: &state, removal: removal, snapshot: snapshot, usesSingleWindowFit: usesSingleWindowFit
-        )
+        let viewportNeedsRecalc = controller?.mouseEventHandler.holdsSelectionScroll(in: pass.wsId) == true
+            ? removal.removalResult.viewportNeedsRecalc
+            : reconcileSelectionVisibility(
+                pass: pass, state: &state, removal: removal, snapshot: snapshot,
+                usesSingleWindowFit: usesSingleWindowFit
+            )
 
         let rememberedFocusToken: WindowToken?
         if let selectedId = state.selectedNodeId,

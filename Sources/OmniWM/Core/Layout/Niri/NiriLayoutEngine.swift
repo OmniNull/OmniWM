@@ -47,6 +47,14 @@ final class NiriLayoutEngine {
 
     var interactiveResize: InteractiveResize?
     var interactiveMove: InteractiveMove?
+    var liveColumnMove: LiveColumnMove? {
+        didSet {
+            guard let previous = oldValue, let dropSpaceId = previous.dropSpaceId,
+                  liveColumnMove?.dropSpaceId != dropSpaceId
+            else { return }
+            columns(in: previous.workspaceId).first { $0.id == dropSpaceId }?.remove()
+        }
+    }
 
     var resizeConfiguration = ResizeConfiguration.default
     var moveConfiguration = MoveConfiguration.default
@@ -69,6 +77,9 @@ final class NiriLayoutEngine {
         if interactiveResize?.workspaceId == workspaceId {
             clearInteractiveResize()
         }
+        if liveColumnMove?.workspaceId == workspaceId {
+            liveColumnMove = nil
+        }
     }
 
     func cancelInteractions(for windowIds: Set<NodeId>, in workspaceId: WorkspaceDescriptor.ID) {
@@ -83,6 +94,12 @@ final class NiriLayoutEngine {
            windowIds.contains(resize.windowId)
         {
             clearInteractiveResize()
+        }
+        if let live = liveColumnMove,
+           live.workspaceId == workspaceId,
+           windowIds.contains(live.windowId)
+        {
+            liveColumnMove = nil
         }
     }
 

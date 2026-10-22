@@ -86,7 +86,7 @@ extension NiriLayoutEngine {
         projected.reserveCapacity(columns.count)
         for (durableIndex, column) in columns.enumerated() {
             let windows = column.windowNodes.filter { !excludedTokens.contains($0.token) }
-            if !windows.isEmpty {
+            if !windows.isEmpty || column.isLiveDropSpace {
                 projected.append(
                     NiriProjectedColumn(column: column, windows: windows, durableIndex: durableIndex)
                 )
@@ -275,7 +275,8 @@ extension NiriLayoutEngine {
         previousProjectedAnchor: NiriProjectedViewportAnchor? = nil
     ) {
         let projectedColumns = projectedColumns(in: context.workspaceId)
-        guard !projectedColumns.isEmpty,
+        guard !isLiveColumnMoveActive(in: context.workspaceId),
+              !projectedColumns.isEmpty,
               let targetColumn = column(of: node),
               let targetProjectedIndex = projectedColumns.firstIndex(where: { $0.column === targetColumn })
         else {

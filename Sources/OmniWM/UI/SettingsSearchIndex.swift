@@ -110,6 +110,12 @@ enum SettingsSearchIndex {
         setting("Single Window", section: .layouts, tab: "niri", anchor: "Niri Layout"),
         setting("Resize Increment", section: .layouts, tab: "niri", anchor: "Resize Increment"),
         setting(
+            "Natural Window Drag & Drop",
+            section: .layouts,
+            tab: "niri",
+            anchor: "Natural Window Drag & Drop"
+        ),
+        setting(
             "Default New Container Primary Span",
             section: .layouts,
             tab: "niri",

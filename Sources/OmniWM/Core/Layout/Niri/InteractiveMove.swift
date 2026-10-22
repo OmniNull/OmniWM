@@ -29,6 +29,9 @@ enum InsertPosition: Equatable {
 
 struct MoveConfiguration {
     var dragThreshold: CGFloat = 10.0
+    var liveHoverDelay: TimeInterval = 0.2
+    var liveDropSpaceShare: CGFloat = 0.05
+    var liveDropSpaceMaximumWidth: CGFloat = 200.0
 
     static let `default` = MoveConfiguration()
 }

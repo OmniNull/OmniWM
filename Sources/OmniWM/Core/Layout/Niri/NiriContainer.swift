@@ -21,6 +21,7 @@ class NiriContainer: NiriNode {
     var savedWidth: ProportionalSize?
 
     var hasManualSingleWindowWidthOverride: Bool = false
+    var isLiveDropSpace = false
 
     var height: ProportionalSize = .default
 
