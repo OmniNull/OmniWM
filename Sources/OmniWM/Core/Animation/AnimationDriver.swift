@@ -22,6 +22,15 @@ final class AnimationDriver {
         return false
     }
 
+    func hasEdgeScroll(in workspaceId: WorkspaceDescriptor.ID) -> Bool {
+        edgeScroll(in: workspaceId) != nil
+    }
+
+    func edgeScroll(in workspaceId: WorkspaceDescriptor.ID) -> EdgeScrollAnimation? {
+        guard case let .edgeScroll(animation) = motions[workspaceId] else { return nil }
+        return animation
+    }
+
     func trackpadGestureActive(in workspaceId: WorkspaceDescriptor.ID) -> Bool {
         if case let .gesture(gesture) = motions[workspaceId] { return gesture.isTrackpad }
         return false
@@ -47,6 +56,8 @@ final class AnimationDriver {
             (CGFloat(animation.value(at: time)), semanticOffset)
         case let .deceleration(animation):
             (CGFloat(animation.value(at: time)), semanticOffset)
+        case let .edgeScroll(animation):
+            (CGFloat(animation.value(at: time)), semanticOffset)
         case nil:
             (nil, nil)
         }
@@ -58,7 +69,8 @@ final class AnimationDriver {
     ) -> CGFloat? {
         switch motions[workspaceId] {
         case .spring,
-             .deceleration:
+             .deceleration,
+             .edgeScroll:
             semanticOffset
         case .gesture,
              nil:
@@ -75,7 +87,8 @@ final class AnimationDriver {
         let transition = localState.offsetTransition
         switch transition.kind {
         case .spring,
-             .deceleration:
+             .deceleration,
+             .edgeScroll:
             let base = liveViewOffset(in: workspaceId, semanticOffset: storeOffset, at: time) ?? storeOffset
             return base + transition.rebaseDelta
         case .jump:
@@ -88,6 +101,8 @@ final class AnimationDriver {
             case let .spring(animation):
                 return CGFloat(animation.value(at: time)) + transition.rebaseDelta
             case let .deceleration(animation):
+                return CGFloat(animation.value(at: time)) + transition.rebaseDelta
+            case let .edgeScroll(animation):
                 return CGFloat(animation.value(at: time)) + transition.rebaseDelta
             case nil:
                 return localState.viewOffset
@@ -178,6 +193,8 @@ final class AnimationDriver {
                 animation.offsetBy(rebaseDelta)
             case let .deceleration(animation):
                 animation.offsetBy(rebaseDelta)
+            case let .edgeScroll(animation):
+                animation.offsetBy(rebaseDelta)
             default:
                 break
             }
@@ -218,6 +235,16 @@ final class AnimationDriver {
                     startTime: time
                 )
             )
+
+        case let .edgeScroll(speed):
+            motions[workspaceId] = .edgeScroll(
+                EdgeScrollAnimation(
+                    from: origin.from,
+                    to: Double(next.viewOffset),
+                    speed: Double(speed),
+                    startTime: time
+                )
+            )
         }
     }
 
@@ -232,6 +259,7 @@ final class AnimationDriver {
         case .jump: "jump"
         case .spring: "spring"
         case .deceleration: "decelerate"
+        case .edgeScroll: "edge-scroll"
         case nil: "rebase"
         }
         NiriLayoutTrace.record(
@@ -254,6 +282,8 @@ final class AnimationDriver {
         case let .spring(animation):
             (animation.value(at: time), animation.velocity(at: time))
         case let .deceleration(animation):
+            (animation.value(at: time), animation.velocity(at: time))
+        case let .edgeScroll(animation):
             (animation.value(at: time), animation.velocity(at: time))
         case nil:
             (Double(previous?.viewOffset ?? next.viewOffset) + rebaseDelta, 0)
@@ -282,6 +312,12 @@ final class AnimationDriver {
             }
             return .running
         case let .deceleration(animation):
+            if animation.isComplete(at: time) {
+                motions.removeValue(forKey: workspaceId)
+                return .inactive
+            }
+            return .running
+        case let .edgeScroll(animation):
             if animation.isComplete(at: time) {
                 motions.removeValue(forKey: workspaceId)
                 return .inactive
@@ -367,6 +403,7 @@ extension AnimationDriver {
         case gesture(ViewportGesture)
         case spring(SpringAnimation)
         case deceleration(DecelerationAnimation)
+        case edgeScroll(EdgeScrollAnimation)
     }
 
     enum TickResult: Equatable {

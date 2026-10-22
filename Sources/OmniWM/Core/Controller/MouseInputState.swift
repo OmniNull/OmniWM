@@ -57,6 +57,19 @@ struct MouseInputState {
         var liveDragDeclined = false
     }
 
+    struct LiveEdgeScroll {
+        enum Edge: Equatable {
+            case leading
+            case trailing
+        }
+
+        let edge: Edge
+        let enteredAt: TimeInterval
+        var delayTimer: Timer?
+        var isScrolling = false
+        var strip: (columns: [LiveColumnMove.StripColumn], viewOffset: CGFloat)?
+    }
+
     struct LiveDropScroll {
         let token: WindowToken
         let workspaceId: WorkspaceDescriptor.ID
@@ -103,6 +116,7 @@ struct MouseInputState {
     var liveDragLocation: CGPoint?
     var liveDropScroll: LiveDropScroll?
     var liveHoverTimer: Timer?
+    var liveEdgeScroll: LiveEdgeScroll?
     var deferredClickScroll: WindowToken?
     var activeInteractionSource: InteractionSource?
     var activeInteractionButton: MouseEventHandler.MouseButton? {

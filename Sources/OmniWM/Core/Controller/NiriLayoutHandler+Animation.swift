@@ -65,6 +65,7 @@ extension NiriLayoutHandler {
         let columnAnimationsRunning = engine.tickAllColumnAnimations(in: wsId, at: targetTime)
         let viewportTick = controller.workspaceManager.animationDriver.tickResult(in: wsId, at: targetTime)
         applyExpiredViewportGesture(viewportTick, workspaceId: wsId, controller: controller)
+        controller.mouseEventHandler.handleLiveEdgeScrollTick(in: wsId, at: targetTime)
         let viewportMotionRunning = viewportTick.isRunning
         let animsMs = scrollTrace ? (CACurrentMediaTime() - animsStart) * 1000 : 0
         let state = controller.workspaceManager.niriViewportState(for: wsId)

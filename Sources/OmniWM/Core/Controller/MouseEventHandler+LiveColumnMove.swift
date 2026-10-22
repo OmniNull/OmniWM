@@ -106,7 +106,7 @@ extension MouseEventHandler {
         return keptSize && moved
     }
 
-    func updateLiveColumnDrag(at location: CGPoint) {
+    func updateLiveColumnDrag(at location: CGPoint, immediate: Bool = false) {
         guard isLiveColumnDragActive,
               let controller,
               let engine = controller.niriEngine,
@@ -123,6 +123,18 @@ extension MouseEventHandler {
             cancelLiveColumnDrag()
             return
         }
+        trackLiveEdgeZone(at: location, monitorFrame: monitor.frame)
+        var immediate = immediate
+        if isLiveEdgeScrolling {
+            guard liveEdgeScrollReachesColumn(
+                at: location,
+                time: CACurrentMediaTime(),
+                engine: engine,
+                workspaceId: workspaceId
+            ) else { return }
+            stopLiveEdgeScroll()
+            immediate = true
+        }
         if move.phase == .settling, !hasPendingLiveColumnAnimation(in: workspaceId, engine: engine) {
             engine.liveColumnMoveSettled()
         }
@@ -132,14 +144,25 @@ extension MouseEventHandler {
         let step = controller.workspaceManager.withNiriViewportState(
             for: workspaceId,
             committingIf: { $0 == .changed },
-            { engine.liveColumnMoveUpdate(cursor: location, at: now, context: context, state: &$0) }
+            {
+                engine.liveColumnMoveUpdate(
+                    cursor: location,
+                    at: now,
+                    immediate: immediate,
+                    context: context,
+                    state: &$0
+                )
+            }
         )
         if case let .hovering(until) = step {
             scheduleLiveHoverCheck(after: until - now)
             return
         }
         cancelLiveHoverCheck()
-        guard step == .changed else { return }
+        guard step == .changed else {
+            startLiveEdgeScrollIfDue()
+            return
+        }
         refreshLiveColumnLayout(in: workspaceId, engine: engine)
         if !hasPendingLiveColumnAnimation(in: workspaceId, engine: engine) {
             engine.liveColumnMoveSettled()
@@ -149,15 +172,14 @@ extension MouseEventHandler {
 
     func handleNiriAnimationsSettled(in workspaceId: WorkspaceDescriptor.ID) {
         guard let engine = controller?.niriEngine else { return }
-        if isLiveColumnDragActive,
-           let move = engine.liveColumnMove,
-           move.workspaceId == workspaceId,
-           move.phase == .settling
-        {
-            engine.liveColumnMoveSettled()
-            if let location = state.liveDragLocation {
-                updateLiveColumnDrag(at: location)
+        if isLiveColumnDragActive, let move = engine.liveColumnMove, move.workspaceId == workspaceId {
+            if move.phase == .settling {
+                engine.liveColumnMoveSettled()
+                if let location = state.liveDragLocation {
+                    updateLiveColumnDrag(at: location)
+                }
             }
+            startLiveEdgeScrollIfDue()
         }
         if state.liveDropScroll?.workspaceId == workspaceId {
             runLiveDropScroll()
@@ -254,6 +276,7 @@ extension MouseEventHandler {
     }
 
     private func endLiveColumnDragTracking() {
+        endLiveEdgeScroll()
         cancelLiveHoverCheck()
         state.nativeTitleBarDrag?.liveDrag = false
     }

@@ -663,6 +663,392 @@ final class LiveTitleBarDragTests: NiriInteractionTestCase {
         XCTAssertNil(fixture.handler.state.liveDropScroll)
     }
 
+    func testHoldingAtTheRightEdgeScrollsOnlyAfterTheDelay() throws {
+        let fixture = try makeFixture(pid: 938_020, windowCount: 6)
+        let clock = edgeClock(fixture)
+        try fixture.startLiveDrag(fixture.tokens[1])
+
+        fixture.drag(to: edgePoint(.trailing, fixture))
+        XCTAssertEqual(fixture.handler.state.liveEdgeScroll?.edge, .trailing)
+        clock.now += 0.29
+        fixture.handler.startLiveEdgeScrollIfDue()
+        XCTAssertFalse(fixture.handler.isLiveEdgeScrolling)
+        XCTAssertFalse(fixture.manager.animationDriver.hasEdgeScroll(in: fixture.workspaceId))
+
+        clock.now += 0.01
+        fixture.handler.startLiveEdgeScrollIfDue()
+
+        XCTAssertTrue(fixture.handler.isLiveEdgeScrolling)
+        let motion = try XCTUnwrap(fixture.manager.animationDriver.edgeScroll(in: fixture.workspaceId))
+        XCTAssertGreaterThan(motion.to, motion.from)
+        XCTAssertEqual(motion.speed, 1000)
+    }
+
+    func testColumnsPassingUnderAStillCursorAtTheRightEdgeMoveTheDropSpaceOnceEachUntilTheStripEnd() throws {
+        let fixture = try makeFixture(pid: 938_021, windowCount: 6)
+        let dragged = fixture.tokens[1]
+        try startEdgeScroll(.trailing, dragging: dragged, in: fixture)
+        let startIndex = try XCTUnwrap(fixture.landingOrder().firstIndex(of: dragged))
+        let startSwaps = fixture.engine.liveColumnMove?.swapCount ?? 0
+
+        var indices = [startIndex]
+        tickEdgeScroll(fixture) {
+            if let index = fixture.landingOrder().firstIndex(of: dragged), index != indices.last {
+                indices.append(index)
+            }
+            return false
+        }
+
+        let afterFirstMove = Array(indices.dropFirst())
+        XCTAssertGreaterThan(try XCTUnwrap(afterFirstMove.first), startIndex)
+        XCTAssertEqual(afterFirstMove, Array(try XCTUnwrap(afterFirstMove.first) ... 5))
+        XCTAssertEqual(fixture.engine.liveColumnMove?.swapCount, startSwaps + afterFirstMove.count)
+        XCTAssertFalse(fixture.handler.isLiveEdgeScrolling)
+        XCTAssertFalse(fixture.manager.animationDriver.hasMotion(in: fixture.workspaceId))
+        let workingFrame = fixture.controller.insetWorkingFrame(for: fixture.monitor)
+        let gap = fixture.controller.innerGap(for: fixture.monitor)
+        let last = try XCTUnwrap(liveStrip(fixture).last)
+        XCTAssertTrue(last.column.isLiveDropSpace)
+        XCTAssertEqual(last.maxX, workingFrame.maxX - gap, accuracy: 1)
+    }
+
+    func testTheEdgeScrollBuildsTheStripOnceAndShiftsItToMatchAFreshOne() throws {
+        let fixture = try makeFixture(pid: 938_040, windowCount: 6)
+        try startEdgeScroll(.trailing, dragging: fixture.tokens[1], in: fixture)
+        let motion = try XCTUnwrap(fixture.manager.animationDriver.edgeScroll(in: fixture.workspaceId))
+        let location = CGPoint(x: -10_000, y: 0)
+        XCTAssertNil(fixture.handler.state.liveEdgeScroll?.strip)
+
+        _ = fixture.handler.liveEdgeScrollReachesColumn(
+            at: location, time: motion.startTime, engine: fixture.engine, workspaceId: fixture.workspaceId
+        )
+        let cached = try XCTUnwrap(fixture.handler.state.liveEdgeScroll?.strip)
+        let later = motion.startTime + 0.1
+        _ = fixture.handler.liveEdgeScrollReachesColumn(
+            at: location, time: later, engine: fixture.engine, workspaceId: fixture.workspaceId
+        )
+
+        XCTAssertEqual(fixture.handler.state.liveEdgeScroll?.strip?.viewOffset, cached.viewOffset)
+        var probe = fixture.manager.niriViewportState(for: fixture.workspaceId)
+        probe.viewOffset = fixture.manager.animationDriver.liveViewOffset(
+            in: fixture.workspaceId, semanticOffset: probe.viewOffset, at: later
+        ) ?? probe.viewOffset
+        XCTAssertNotEqual(probe.viewOffset, cached.viewOffset, accuracy: 1)
+        let context = try XCTUnwrap(fixture.handler.liveColumnContext(for: fixture.workspaceId))
+        let fresh = fixture.engine.liveColumnStrip(context: context, state: probe)
+        let shift = cached.viewOffset - probe.viewOffset
+        XCTAssertEqual(fresh.count, cached.columns.count)
+        for (fresh, cached) in zip(fresh, cached.columns) {
+            XCTAssertTrue(fresh.column === cached.column)
+            XCTAssertEqual(fresh.minX, cached.minX + shift, accuracy: 0.5)
+            XCTAssertEqual(fresh.maxX, cached.maxX + shift, accuracy: 0.5)
+        }
+    }
+
+    func testColumnsReachingThePointerDuringAnEdgeScrollSkipTheHoverDelay() throws {
+        let fixture = try makeFixture(pid: 938_032, windowCount: 6, hoverDelay: 0.12)
+        fixture.handler.liveDragClock = { 1_000 }
+        let dragged = fixture.tokens[1]
+        try startEdgeScroll(.trailing, dragging: dragged, in: fixture)
+        let startIndex = try XCTUnwrap(fixture.landingOrder().firstIndex(of: dragged))
+
+        var indices = [startIndex]
+        tickEdgeScroll(fixture) {
+            if let index = fixture.landingOrder().firstIndex(of: dragged), index != indices.last {
+                indices.append(index)
+            }
+            return false
+        }
+
+        let afterFirstMove = Array(indices.dropFirst())
+        XCTAssertGreaterThan(try XCTUnwrap(afterFirstMove.first), startIndex)
+        XCTAssertEqual(afterFirstMove, Array(try XCTUnwrap(afterFirstMove.first) ... 5))
+        XCTAssertNil(fixture.handler.state.liveHoverTimer)
+    }
+
+    func testColumnsPassingUnderAStillCursorAtTheLeftEdgeMoveTheDropSpaceOnceEachUntilTheStripStart() throws {
+        let fixture = try makeFixture(pid: 938_022, windowCount: 6)
+        let workingFrame = fixture.controller.insetWorkingFrame(for: fixture.monitor)
+        let gap = fixture.controller.innerGap(for: fixture.monitor)
+        let context = try XCTUnwrap(fixture.handler.liveColumnContext(for: fixture.workspaceId))
+        let strip = fixture.engine.liveColumnStrip(
+            context: context,
+            state: fixture.manager.niriViewportState(for: fixture.workspaceId)
+        )
+        let overhang = try XCTUnwrap(strip.last).maxX - (workingFrame.maxX - gap)
+        fixture.manager.withNiriViewportState(for: fixture.workspaceId) { state in
+            state.jumpOffset(to: state.viewOffset + overhang)
+        }
+        try fixture.confirmLayout()
+        let dragged = fixture.tokens[4]
+        try startEdgeScroll(.leading, dragging: dragged, in: fixture)
+        let startIndex = try XCTUnwrap(fixture.landingOrder().firstIndex(of: dragged))
+
+        var indices = [startIndex]
+        tickEdgeScroll(fixture) {
+            if let index = fixture.landingOrder().firstIndex(of: dragged), index != indices.last {
+                indices.append(index)
+            }
+            return false
+        }
+
+        let afterFirstMove = Array(indices.dropFirst())
+        XCTAssertLessThan(try XCTUnwrap(afterFirstMove.first), startIndex)
+        XCTAssertEqual(afterFirstMove, Array((0 ... (try XCTUnwrap(afterFirstMove.first))).reversed()))
+        XCTAssertFalse(fixture.handler.isLiveEdgeScrolling)
+        let first = try XCTUnwrap(liveStrip(fixture).first)
+        XCTAssertTrue(first.column.isLiveDropSpace)
+        XCTAssertEqual(first.minX, workingFrame.minX + gap, accuracy: 1)
+    }
+
+    func testTheEdgeScrollPausesWhileTheDropSpaceSettlesAndResumesAfter() throws {
+        let fixture = try makeFixture(pid: 938_023, windowCount: 6, animated: true)
+        let dragged = fixture.tokens[1]
+        try startEdgeScroll(.trailing, dragging: dragged, in: fixture)
+        let swaps = fixture.engine.liveColumnMove?.swapCount ?? 0
+
+        tickEdgeScroll(fixture) { fixture.engine.liveColumnMove?.swapCount != swaps }
+
+        XCTAssertEqual(fixture.engine.liveColumnMove?.swapCount, swaps + 1)
+        XCTAssertEqual(fixture.engine.liveColumnMove?.phase, .settling)
+        XCTAssertFalse(fixture.handler.isLiveEdgeScrolling)
+        XCTAssertFalse(fixture.manager.animationDriver.hasEdgeScroll(in: fixture.workspaceId))
+        let settlingOffset = fixture.manager.niriViewportState(for: fixture.workspaceId).viewOffset
+        fixture.handler.handleLiveEdgeScrollTick(in: fixture.workspaceId, at: CACurrentMediaTime() + 0.1)
+        XCTAssertEqual(fixture.manager.niriViewportState(for: fixture.workspaceId).viewOffset, settlingOffset)
+
+        fixture.manager.animationDriver.removeMotions(for: [fixture.workspaceId])
+        _ = fixture.engine.cancelAnimations(in: fixture.workspaceId)
+        fixture.handler.handleNiriAnimationsSettled(in: fixture.workspaceId)
+
+        XCTAssertEqual(fixture.engine.liveColumnMove?.phase, .dragging)
+        XCTAssertTrue(fixture.handler.isLiveEdgeScrolling)
+        let resumed = try XCTUnwrap(fixture.manager.animationDriver.edgeScroll(in: fixture.workspaceId))
+        XCTAssertEqual(resumed.from, Double(settlingOffset), accuracy: 0.5)
+        XCTAssertGreaterThan(resumed.to, resumed.from)
+    }
+
+    func testLeavingTheZoneStopsTheScrollWithoutSnappingBack() throws {
+        let fixture = try makeFixture(pid: 938_024, windowCount: 6)
+        try startEdgeScroll(.trailing, dragging: fixture.tokens[1], in: fixture)
+        let motion = try XCTUnwrap(fixture.manager.animationDriver.edgeScroll(in: fixture.workspaceId))
+        let (from, limit) = (motion.from, motion.to)
+        let order = fixture.order()
+
+        fixture.drag(to: CGPoint(x: fixture.monitor.frame.maxX - 60, y: fixture.monitor.frame.midY))
+
+        XCTAssertNil(fixture.handler.state.liveEdgeScroll)
+        XCTAssertFalse(fixture.manager.animationDriver.hasMotion(in: fixture.workspaceId))
+        let offset = fixture.manager.niriViewportState(for: fixture.workspaceId).viewOffset
+        XCTAssertGreaterThanOrEqual(Double(offset), from - 0.001)
+        XCTAssertLessThan(Double(offset), limit)
+        XCTAssertEqual(fixture.order(), order)
+    }
+
+    func testTheEdgeZoneIsThreePercentOfTheDisplayAndAtLeastFortyPoints() throws {
+        let configuration = MoveConfiguration()
+        XCTAssertEqual(configuration.liveEdgeZoneWidth(forDisplayWidth: 1_728), 51.84, accuracy: 0.01)
+        XCTAssertEqual(configuration.liveEdgeZoneWidth(forDisplayWidth: 2_560), 76.8, accuracy: 0.01)
+        XCTAssertEqual(configuration.liveEdgeZoneWidth(forDisplayWidth: 1_024), 40, accuracy: 0.01)
+
+        let fixture = try makeFixture(pid: 938_033, windowCount: 6)
+        let zone = configuration.liveEdgeZoneWidth(forDisplayWidth: fixture.monitor.frame.width)
+        try fixture.startLiveDrag(fixture.tokens[1])
+        fixture.drag(to: CGPoint(x: fixture.monitor.frame.maxX - zone - 2, y: fixture.monitor.frame.midY))
+        XCTAssertNil(fixture.handler.state.liveEdgeScroll)
+        fixture.drag(to: CGPoint(x: fixture.monitor.frame.maxX - zone + 2, y: fixture.monitor.frame.midY))
+        XCTAssertEqual(fixture.handler.state.liveEdgeScroll?.edge, .trailing)
+    }
+
+    func testLeavingTheZoneBeforeTheDelayStartsNoScroll() throws {
+        let fixture = try makeFixture(pid: 938_025, windowCount: 6)
+        let clock = edgeClock(fixture)
+        try fixture.startLiveDrag(fixture.tokens[1])
+        fixture.drag(to: edgePoint(.trailing, fixture))
+        fixture.drag(to: CGPoint(x: fixture.monitor.frame.maxX - 60, y: fixture.monitor.frame.midY))
+
+        clock.now += 1
+        fixture.handler.startLiveEdgeScrollIfDue()
+
+        XCTAssertNil(fixture.handler.state.liveEdgeScroll)
+        XCTAssertFalse(fixture.manager.animationDriver.hasEdgeScroll(in: fixture.workspaceId))
+    }
+
+    func testMovingWithinTheZoneKeepsTheDelayAndSwitchingEdgesRestartsIt() throws {
+        let fixture = try makeFixture(pid: 938_026, windowCount: 6)
+        let clock = edgeClock(fixture)
+        try fixture.startLiveDrag(fixture.tokens[1])
+        fixture.drag(to: edgePoint(.trailing, fixture))
+        let entered = try XCTUnwrap(fixture.handler.state.liveEdgeScroll?.enteredAt)
+
+        clock.now += 0.2
+        fixture.drag(to: CGPoint(x: fixture.monitor.frame.maxX - 25, y: fixture.monitor.frame.midY + 40))
+        XCTAssertEqual(fixture.handler.state.liveEdgeScroll?.enteredAt, entered)
+
+        clock.now += 0.05
+        fixture.drag(to: edgePoint(.leading, fixture))
+        XCTAssertEqual(fixture.handler.state.liveEdgeScroll?.edge, .leading)
+        XCTAssertEqual(fixture.handler.state.liveEdgeScroll?.enteredAt, clock.now)
+    }
+
+    func testNoEdgeScrollStartsWhereTheStripIsAlreadyAtItsEnd() throws {
+        let fixture = try makeFixture(pid: 938_027, windowCount: 6)
+        let clock = edgeClock(fixture)
+        try fixture.startLiveDrag(fixture.tokens[1])
+        fixture.drag(to: edgePoint(.leading, fixture))
+        clock.now += 0.3
+        fixture.handler.startLiveEdgeScrollIfDue()
+        tickEdgeScroll(fixture)
+
+        fixture.handler.startLiveEdgeScrollIfDue()
+
+        XCTAssertEqual(fixture.handler.state.liveEdgeScroll?.edge, .leading)
+        XCTAssertFalse(fixture.handler.isLiveEdgeScrolling)
+        XCTAssertFalse(fixture.manager.animationDriver.hasEdgeScroll(in: fixture.workspaceId))
+    }
+
+    func testCancellingDuringAnEdgeScrollRestoresTheLayout() throws {
+        for cancel in ["esc", "interaction", "pointer crosses to another display"] {
+            let pid: pid_t = switch cancel {
+            case "esc": 938_028
+            case "interaction": 938_029
+            default: 938_030
+            }
+            let fixture = try makeFixture(pid: pid, windowCount: 6)
+            let order = fixture.order()
+            let offset = fixture.manager.niriViewportState(for: fixture.workspaceId).viewOffset
+            try startEdgeScroll(.trailing, dragging: fixture.tokens[1], in: fixture)
+            let swaps = fixture.engine.liveColumnMove?.swapCount ?? 0
+            tickEdgeScroll(fixture) { fixture.engine.liveColumnMove?.swapCount != swaps }
+            XCTAssertNotEqual(fixture.landingOrder(), order, cancel)
+
+            switch cancel {
+            case "esc":
+                fixture.handler.cancelLiveColumnDrag()
+            case "interaction":
+                fixture.handler.cancelActiveMouseInteraction()
+            default:
+                fixture.drag(to: CGPoint(x: fixture.monitor.frame.maxX + 5, y: fixture.monitor.frame.midY))
+            }
+
+            XCTAssertEqual(fixture.order(), order, cancel)
+            XCTAssertEqual(
+                fixture.manager.niriViewportState(for: fixture.workspaceId).viewOffset,
+                offset,
+                accuracy: 0.001,
+                cancel
+            )
+            XCTAssertNil(fixture.handler.state.liveEdgeScroll, cancel)
+            XCTAssertFalse(fixture.manager.animationDriver.hasEdgeScroll(in: fixture.workspaceId), cancel)
+        }
+    }
+
+    func testReleaseDuringAnEdgeScrollDropsIntoTheDropSpace() throws {
+        let fixture = try makeFixture(pid: 938_031, windowCount: 6)
+        let dragged = fixture.tokens[1]
+        try startEdgeScroll(.trailing, dragging: dragged, in: fixture)
+        let swaps = fixture.engine.liveColumnMove?.swapCount ?? 0
+        tickEdgeScroll(fixture) { fixture.engine.liveColumnMove?.swapCount != swaps }
+        let order = fixture.landingOrder()
+
+        fixture.handler.dispatchMouseUp(at: edgePoint(.trailing, fixture))
+
+        XCTAssertNil(fixture.engine.liveColumnMove)
+        XCTAssertNil(fixture.handler.state.liveEdgeScroll)
+        XCTAssertFalse(fixture.manager.animationDriver.hasEdgeScroll(in: fixture.workspaceId))
+        XCTAssertEqual(fixture.order(), order)
+    }
+
+    func testReleaseAfterAnEdgeScrollLandsWhereTheDropSpaceWasWithoutScrollingBack() throws {
+        let fixture = try makeFixture(pid: 938_034, windowCount: 8)
+        let dragged = fixture.tokens[1]
+        try startEdgeScroll(.trailing, dragging: dragged, in: fixture)
+        let swaps = fixture.engine.liveColumnMove?.swapCount ?? 0
+        tickEdgeScroll(fixture) { (fixture.engine.liveColumnMove?.swapCount ?? 0) >= swaps + 2 }
+        fixture.handler.stopLiveEdgeScroll()
+        let dropSpace = try XCTUnwrap(liveStrip(fixture).first { $0.column.isLiveDropSpace })
+        let landing = fixture.landingOrder()
+
+        fixture.handler.dispatchMouseUp(at: edgePoint(.trailing, fixture))
+
+        XCTAssertEqual(fixture.order(), landing)
+        let draggedColumn = try XCTUnwrap(fixture.engine.columns(in: fixture.workspaceId).first {
+            $0.windowNodes.first?.token == dragged
+        })
+        let landed = try XCTUnwrap(liveStrip(fixture).first { $0.column === draggedColumn })
+        let screen = fixture.monitor.frame
+        XCTAssertGreaterThanOrEqual(landed.minX, screen.minX - 1)
+        XCTAssertLessThanOrEqual(landed.maxX, screen.maxX + 1)
+        XCTAssertLessThanOrEqual(abs(dropSpace.minX - landed.minX), landed.maxX - landed.minX)
+    }
+
+    private func liveStrip(_ fixture: Fixture) throws -> [LiveColumnMove.StripColumn] {
+        let context = try XCTUnwrap(fixture.handler.liveColumnContext(for: fixture.workspaceId))
+        return fixture.engine.liveColumnStrip(
+            context: context,
+            state: fixture.manager.niriViewportState(for: fixture.workspaceId)
+        )
+    }
+
+    private final class EdgeClock {
+        var now: TimeInterval = 1_000
+    }
+
+    private func edgeClock(_ fixture: Fixture) -> EdgeClock {
+        let clock = EdgeClock()
+        fixture.handler.liveDragClock = { clock.now }
+        return clock
+    }
+
+    private func edgePoint(_ edge: MouseInputState.LiveEdgeScroll.Edge, _ fixture: Fixture) -> CGPoint {
+        let frame = fixture.monitor.frame
+        return CGPoint(x: edge == .trailing ? frame.maxX - 10 : frame.minX + 10, y: frame.midY)
+    }
+
+    private func startEdgeScroll(
+        _ edge: MouseInputState.LiveEdgeScroll.Edge,
+        dragging token: WindowToken,
+        in fixture: Fixture
+    ) throws {
+        let clock = edgeClock(fixture)
+        fixture.engine.moveConfiguration.liveHoverDelay = 0.12
+        try fixture.startLiveDrag(token)
+        let start = try fixture.centre(of: token)
+        let end = edgePoint(edge, fixture)
+        let steps = max(1, Int(abs(end.x - start.x) / 40))
+        for step in 1 ... steps {
+            let x = start.x + (end.x - start.x) * CGFloat(step) / CGFloat(steps)
+            fixture.drag(to: CGPoint(x: x, y: end.y))
+            if fixture.engine.liveColumnMove?.phase == .settling {
+                fixture.manager.animationDriver.removeMotions(for: [fixture.workspaceId])
+                _ = fixture.engine.cancelAnimations(in: fixture.workspaceId)
+                fixture.handler.handleNiriAnimationsSettled(in: fixture.workspaceId)
+            }
+        }
+        clock.now += 0.3
+        fixture.handler.startLiveEdgeScrollIfDue()
+        XCTAssertTrue(fixture.handler.isLiveEdgeScrolling)
+    }
+
+    private func tickEdgeScroll(_ fixture: Fixture, until done: () -> Bool = { false }) {
+        let driver = fixture.manager.animationDriver
+        var motion: EdgeScrollAnimation?
+        var elapsed = 0.0
+        for _ in 0 ..< 5_000 {
+            guard let current = driver.edgeScroll(in: fixture.workspaceId) else { return }
+            if current !== motion {
+                motion = current
+                elapsed = 0
+            }
+            elapsed += 1.0 / 60
+            let time = current.startTime + elapsed
+            _ = driver.tickResult(in: fixture.workspaceId, at: time)
+            fixture.handler.handleLiveEdgeScrollTick(in: fixture.workspaceId, at: time)
+            if done() { return }
+        }
+        XCTFail("Edge scroll did not finish")
+    }
+
     private func scroll(_ fixture: Fixture, so token: WindowToken, isHalfOffTheRightEdge: Void) throws {
         let frame = try fixture.settledFrame(token)
         let edge = fixture.controller.insetWorkingFrame(for: fixture.monitor).maxX

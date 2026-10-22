@@ -249,6 +249,59 @@ extension NiriLayoutEngine {
         return columns(in: move.workspaceId).first { $0.id == dropSpaceId }
     }
 
+    func liveColumnMoveWouldChange(
+        cursor: CGPoint,
+        context: NiriInteractionContext,
+        state: ViewportState
+    ) -> Bool {
+        liveColumnMoveWouldChange(
+            cursor: cursor,
+            strip: liveColumnStrip(context: context, state: state),
+            in: context.workspaceId
+        )
+    }
+
+    func liveColumnMoveWouldChange(
+        cursor: CGPoint,
+        strip: [LiveColumnMove.StripColumn],
+        in workspaceId: WorkspaceDescriptor.ID
+    ) -> Bool {
+        guard let move = liveColumnMove,
+              move.workspaceId == workspaceId,
+              let dragged = liveDraggedColumn(for: move)
+        else { return false }
+        let dropSpace = liveDropSpace(for: move)
+        guard let underPointer = liveColumn(in: strip, at: cursor, ignoring: dropSpace) else { return false }
+        let children = underPointer.parent?.children ?? []
+        let targetIndex = children.firstIndex { $0 === underPointer } ?? 0
+        let homeIndex = children.firstIndex { $0 === dragged } ?? 0
+        let side: LiveColumnMove.Side = targetIndex > homeIndex ? .after : .before
+        guard let target = liveTarget(
+            underPointer,
+            side: side,
+            dragged: dragged,
+            dropSpace: dropSpace,
+            justPassed: move.passed?.columnId
+        ) else { return false }
+        return move.lockedTarget != .init(columnId: target.id, side: side)
+    }
+
+    func liveEdgeScrollLimit(
+        towardTrailingEdge: Bool,
+        context: NiriInteractionContext,
+        state: ViewportState
+    ) -> CGFloat? {
+        guard let move = liveColumnMove,
+              move.workspaceId == context.workspaceId
+        else { return nil }
+        let strip = liveColumnStrip(context: context, state: state)
+        guard let range = liveStripScrollRange(strip: strip, context: context) else { return nil }
+        let pixel = 1.0 / displayScale(in: context.workspaceId)
+        let shift = towardTrailingEdge ? range.upperBound : range.lowerBound
+        guard abs(shift) >= pixel else { return nil }
+        return state.viewOffset + shift
+    }
+
     func isLiveColumnMoveActive(in workspaceId: WorkspaceDescriptor.ID) -> Bool {
         liveColumnMove?.workspaceId == workspaceId
     }
@@ -411,11 +464,6 @@ extension NiriLayoutEngine {
         }
     }
 
-    func liveDraggedColumn(for move: LiveColumnMove) -> NiriContainer? {
-        guard let window = findNode(by: move.windowId, in: move.workspaceId) as? NiriWindow else { return nil }
-        return findColumn(containing: window, in: move.workspaceId)
-    }
-
     private func liveColumn(
         in strip: [LiveColumnMove.StripColumn],
         at cursor: CGPoint,
@@ -438,6 +486,11 @@ extension NiriLayoutEngine {
         case let neighbour? where neighbour === dragged: return dropSpace == nil ? nil : target
         default: return target
         }
+    }
+
+    func liveDraggedColumn(for move: LiveColumnMove) -> NiriContainer? {
+        guard let window = findNode(by: move.windowId, in: move.workspaceId) as? NiriWindow else { return nil }
+        return findColumn(containing: window, in: move.workspaceId)
     }
 
     func liveTargetSide(
@@ -608,8 +661,7 @@ extension NiriLayoutEngine {
     ) -> CGFloat {
         guard let landing = strip.first(where: { $0.column === column }),
               let target = strip.first(where: { $0.column === pointer.target }),
-              let first = strip.first,
-              let last = strip.last
+              let stripRange = liveStripScrollRange(strip: strip, context: context)
         else { return 0 }
         let leadingEdge = context.workingFrame.minX + context.gaps
         let trailingEdge = context.workingFrame.maxX - context.gaps
@@ -620,14 +672,18 @@ extension NiriLayoutEngine {
             ? (landing.midX - pointerX).clamped(to: fullyShown)
             : 0
         let underPointer = min(landing.minX, target.minX) ... max(landing.maxX, target.maxX)
-        let lowest = max(
-            min(0, first.minX - leadingEdge),
-            min(0, underPointer.lowerBound - pointerX)
-        )
-        let highest = min(
-            max(0, last.maxX - trailingEdge),
-            max(0, underPointer.upperBound - pointerX - 1)
-        )
+        let lowest = max(stripRange.lowerBound, min(0, underPointer.lowerBound - pointerX))
+        let highest = min(stripRange.upperBound, max(0, underPointer.upperBound - pointerX - 1))
         return wanted.clamped(to: lowest ... highest)
+    }
+
+    private func liveStripScrollRange(
+        strip: [LiveColumnMove.StripColumn],
+        context: NiriInteractionContext
+    ) -> ClosedRange<CGFloat>? {
+        guard let first = strip.first, let last = strip.last else { return nil }
+        let lowest = min(0, first.minX - (context.workingFrame.minX + context.gaps))
+        let highest = max(0, last.maxX - (context.workingFrame.maxX - context.gaps))
+        return lowest ... highest
     }
 }
