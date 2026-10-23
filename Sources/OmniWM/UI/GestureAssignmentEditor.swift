@@ -20,6 +20,16 @@ extension WorkspaceSwipeAxis {
     }
 }
 
+extension WorkspaceSwipeEdgeBehavior {
+    var localizedDisplayName: String {
+        switch self {
+        case .cycle: String(localized: "Wrap Around")
+        case .none: String(localized: "Stop")
+        case .onePast: String(localized: "Open One Empty Workspace")
+        }
+    }
+}
+
 enum GestureAssignmentAction: String, CaseIterable, Identifiable {
     case columns, workspaces, overview, move, resize
 

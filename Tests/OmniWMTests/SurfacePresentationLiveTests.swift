@@ -113,9 +113,9 @@ final class SurfacePresentationLiveTests: XCTestCase {
             throw XCTSkip("Screen Recording permission is required")
         }
         guard let screen = NSScreen.screens.max(by: {
-            $0.maximumFramesPerSecond < $1.maximumFramesPerSecond
-        }) ?? NSScreen.main,
-            let displayId = screen.displayId
+                  $0.maximumFramesPerSecond < $1.maximumFramesPerSecond
+              }) ?? NSScreen.main,
+              let displayId = screen.displayId
         else {
             throw XCTSkip("No measurable display is available")
         }
@@ -309,9 +309,9 @@ final class SurfacePresentationLiveTests: XCTestCase {
             throw XCTSkip("Screen Recording permission is required")
         }
         guard let screen = NSScreen.screens.max(by: {
-            $0.maximumFramesPerSecond < $1.maximumFramesPerSecond
-        }) ?? NSScreen.main,
-            let displayId = screen.displayId
+                  $0.maximumFramesPerSecond < $1.maximumFramesPerSecond
+              }) ?? NSScreen.main,
+              let displayId = screen.displayId
         else {
             throw XCTSkip("No measurable display is available")
         }
@@ -765,10 +765,10 @@ final class SurfacePresentationLiveTests: XCTestCase {
         var lastMismatches: [String] = []
         repeat {
             if let image = try? await SCScreenshotManager.captureImage(
-                contentFilter: filter,
-                configuration: configuration
-            ),
-                let bitmap = BorderPresentationBitmap(image: image)
+                   contentFilter: filter,
+                   configuration: configuration
+               ),
+               let bitmap = BorderPresentationBitmap(image: image)
             {
                 lastImage = image
                 let borderMismatches = borderSamples.compactMap { sample in
@@ -1033,12 +1033,12 @@ private final class RailCompositeCaptureOutput: NSObject, SCStreamOutput, @unche
         guard outputType == .screen else { return }
         lock.withLock { state.callbacks += 1 }
         guard let attachments = CMSampleBufferGetSampleAttachmentsArray(
-            sampleBuffer,
-            createIfNecessary: false
-        ) as? [[SCStreamFrameInfo: Any]],
-            let attachment = attachments.first,
-            let statusNumber = attachment[.status] as? NSNumber,
-            let status = SCFrameStatus(rawValue: statusNumber.intValue)
+                  sampleBuffer,
+                  createIfNecessary: false
+              ) as? [[SCStreamFrameInfo: Any]],
+              let attachment = attachments.first,
+              let statusNumber = attachment[.status] as? NSNumber,
+              let status = SCFrameStatus(rawValue: statusNumber.intValue)
         else { return }
         lock.withLock {
             state.frameStatusCounts[status.rawValue, default: 0] += 1

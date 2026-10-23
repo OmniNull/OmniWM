@@ -5,13 +5,14 @@ import Foundation
 import Synchronization
 
 enum ShellHTTPPolicy: Sendable {
-    case unrestricted
     case hosts(Set<String>)
+
+    static let loopbackHosts: Set<String> = ["localhost", "127.0.0.1", "::1"]
 
     static func resolve(
         component: String?, instances: some Sequence<ShellComponentInstance>, descriptors: [ShellComponentDescriptor]
     ) -> ShellHTTPPolicy {
-        guard let component, !component.isEmpty else { return .unrestricted }
+        guard let component, !component.isEmpty else { return .hosts([]) }
         guard let instance = instances.first(where: { $0.id == component && $0.enabled }),
               let descriptor = descriptors.first(where: { $0.widget == instance.widget })
         else { return .hosts([]) }
@@ -26,12 +27,13 @@ enum ShellHTTPPolicy: Sendable {
     }
 
     func allows(_ url: URL) -> Bool {
-        guard let scheme = url.scheme?.lowercased(), scheme == "https" || scheme == "http",
-              let host = url.host, !host.isEmpty, url.user == nil, url.password == nil
+        guard let scheme = url.scheme?.lowercased(), let host = url.host, !host.isEmpty,
+              url.user == nil, url.password == nil
         else { return false }
+        let canonical = Self.canonicalHost(host)
+        guard scheme == "https" || scheme == "http" && Self.loopbackHosts.contains(canonical) else { return false }
         switch self {
-        case .unrestricted: return true
-        case let .hosts(hosts): return hosts.contains(Self.canonicalHost(host))
+        case let .hosts(hosts): return hosts.contains(canonical)
         }
     }
 }

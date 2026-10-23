@@ -90,7 +90,7 @@ extension OverviewLayerRenderer {
                 guard frame.contains(local) else { continue }
                 if let mask = controlLayer.mask,
                    !OverviewLayerMotion.displayedFrame(of: mask)
-                   .offsetBy(dx: frame.minX, dy: frame.minY).contains(local)
+                       .offsetBy(dx: frame.minX, dy: frame.minY).contains(local)
                 {
                     continue
                 }

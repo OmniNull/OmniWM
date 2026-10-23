@@ -4,14 +4,15 @@ on:
   issues:
     types: [opened]
 
-permissions:
-  issues: write
+permissions: {}
 
 jobs:
   welcome:
     runs-on: ubuntu-latest
+    permissions:
+      issues: write
     steps:
-      - uses: actions/first-interaction@v3
+      - uses: actions/first-interaction@1c4688942c71f71d4f5502a26ea67c331730fa4d
         with:
           issue_message: |
             Thanks for opening your first OmniWM issue, and welcome.

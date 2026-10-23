@@ -102,7 +102,7 @@ extension ShellLayerScene {
         } else {
             let fading = animation != nil
             layer.backgroundColor = fill ?? (fading ? Self.clear : nil)
-            layer.borderColor = paint.border ?? (fading ? Self.clear : nil)
+            layer.borderColor = paint.border ?? Self.clear
             layer.borderWidth = paint.borderWidth
             layer.cornerRadius = paint.radius
         }

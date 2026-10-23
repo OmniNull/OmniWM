@@ -41,7 +41,25 @@ extension MouseEventHandler {
         return token
     }
 
+    func captureNativeCrossDisplayMove(for token: WindowToken?) {
+        guard let controller,
+              controller.settings.gestures.adoptNativeMoveAcrossDisplays,
+              let token,
+              let entry = controller.workspaceManager.entry(for: token),
+              entry.mode == .tiling,
+              !controller.axManager.isAwaitingFrameWrite(token.windowId),
+              let frame = controller.axManager.lastAppliedFrame(for: token.windowId)
+        else {
+            state.nativeCrossDisplayMove = nil
+            return
+        }
+        state.nativeCrossDisplayMove = .init(token: token, workspaceId: entry.workspaceId, startFrame: frame)
+    }
+
     func beginNativeTitleBarDragIfNeeded(button: MouseButton) {
+        if button == .left {
+            state.nativeCrossDisplayMove?.wasDragged = true
+        }
         guard button == .left,
               var drag = state.nativeTitleBarDrag,
               drag.phase == .armed,
@@ -67,7 +85,7 @@ extension MouseEventHandler {
         state.awaitsNativeTitleBarDragTarget = false
         state.nativeTitleBarDragFallbackToken = nil
         state.nativeTitleBarDragFallbackReleased = false
-        guard let drag = state.nativeTitleBarDrag else { return }
+        guard var drag = state.nativeTitleBarDrag else { return }
         switch drag.phase {
         case .armed,
              .dragging:
@@ -78,7 +96,7 @@ extension MouseEventHandler {
             return
         }
         guard let controller else {
-            state.nativeTitleBarDrag = nil
+            discardNativeTitleBarDragState()
             return
         }
         let excludedFrameWrite = controller.axManager.endNativeTitleBarDrag(for: drag.token)
@@ -91,6 +109,8 @@ extension MouseEventHandler {
             return
         }
 
+        drag.pendingExcludedCorrection = excludedFrameWrite
+        state.nativeTitleBarDrag = drag
         let observedFrame = terminalNativeWindowFrame(for: entry)
         let lastAppliedFrame = controller.axManager.lastAppliedFrame(for: entry.windowId)
         let observedDisplacement = Self.nativeTitleBarWasDisplaced(
@@ -112,6 +132,7 @@ extension MouseEventHandler {
         needsCorrection: Bool
     ) {
         var drag = drag
+        if settleNativeCrossDisplayMoveIfNeeded(entry, observedFrame: observedFrame) { return }
         guard needsCorrection || drag.dwindleResizeWorkspaceId != nil else {
             if drag.receivedFrameChange {
                 state.nativeTitleBarDrag = nil
@@ -129,6 +150,49 @@ extension MouseEventHandler {
         drag.phase = .awaitingCorrection
         state.nativeTitleBarDrag = drag
         requestNativeTitleBarDragCorrection(for: entry)
+    }
+
+    func settleNativeCrossDisplayMoveIfNeeded(_ entry: WindowState, observedFrame: CGRect?) -> Bool {
+        guard let controller,
+              controller.hasStartedServices,
+              controller.settings.gestures.adoptNativeMoveAcrossDisplays,
+              let move = state.nativeCrossDisplayMove,
+              move.wasDragged,
+              let point = move.releaseLocation,
+              move.token == entry.token,
+              move.workspaceId == entry.workspaceId,
+              entry.mode == .tiling,
+              state.nativeTitleBarDrag?.dwindleResizeWorkspaceId == nil,
+              case let .crossDisplay(drop) = classifyMoveLocation(
+                  point, sourceToken: move.token, sourceWorkspaceId: move.workspaceId
+              )
+        else {
+            state.nativeCrossDisplayMove = nil
+            return false
+        }
+        if observedFrame == nil || observedFrame?.approximatelyEqual(
+            to: move.startFrame, tolerance: FrameTolerance.screenMatch
+        ) == true {
+            var drag = state.nativeTitleBarDrag ?? .init(token: entry.token)
+            drag.phase = .awaitingFrameChange
+            state.nativeTitleBarDrag = drag
+            return true
+        }
+        guard let observedFrame,
+              abs(observedFrame.width - move.startFrame.width) <= FrameTolerance.screenMatch,
+              abs(observedFrame.height - move.startFrame.height) <= FrameTolerance.screenMatch,
+              !nativeWindowFrameMatchesManagedTarget(observedFrame, entry: entry),
+              let plan = controller.crossDisplayDropPlan(for: drop)
+        else {
+            state.nativeCrossDisplayMove = nil
+            return false
+        }
+        discardNativeTitleBarDragState()
+        controller.axManager.cancelPendingFrameJobs(
+            [(pid: entry.pid, windowId: entry.windowId)], reason: "native-cross-display-drop"
+        )
+        controller.performCrossDisplayDrop(plan)
+        return true
     }
 
     private static func nativeTitleBarWasDisplaced(
@@ -160,6 +224,7 @@ extension MouseEventHandler {
             return
         }
         if drag.phase == .awaitingFrameChange,
+           !drag.pendingExcludedCorrection,
            controller.axManager.pendingFrameWrite(for: entry.windowId) == nil,
            let lastAppliedFrame = controller.axManager.lastAppliedFrame(for: entry.windowId),
            let observedFrame = nativeWindowFrameProvider(entry.axRef),
@@ -194,6 +259,7 @@ extension MouseEventHandler {
     }
 
     func discardNativeTitleBarDragState() {
+        state.nativeCrossDisplayMove = nil
         state.awaitsNativeTitleBarDragTarget = false
         state.nativeTitleBarDragFallbackToken = nil
         state.nativeTitleBarDragFallbackReleased = false
@@ -227,6 +293,7 @@ extension MouseEventHandler {
     func discardNativeTitleBarDrag(for token: WindowToken) {
         guard state.nativeTitleBarDrag?.token == token
             || state.nativeTitleBarDragFallbackToken == token
+            || state.nativeCrossDisplayMove?.token == token
         else { return }
         discardNativeTitleBarDragState()
     }
@@ -240,7 +307,10 @@ extension MouseEventHandler {
         )
     }
 
-    func markNativeTitleBarDragFallbackReleased(button: MouseButton) {
+    func markNativeTitleBarDragFallbackReleased(button: MouseButton, at location: CGPoint? = nil) {
+        if button == .left, let location {
+            state.nativeCrossDisplayMove?.releaseLocation = location
+        }
         guard button == .left,
               state.nativeTitleBarDrag == nil,
               state.awaitsNativeTitleBarDragTarget,

@@ -7,6 +7,7 @@ import TOML
 struct ShellRootSettings: Equatable, Sendable {
     let widget: String
     let options: [String: ShellComponentOption]
+    let network: [String]
     let folder: URL
 
     static func load(_ widget: String, directories: [URL]) throws -> ShellRootSettings? {
@@ -16,12 +17,16 @@ struct ShellRootSettings: Equatable, Sendable {
         guard let folder = directories.lazy.map({ $0.appendingPathComponent("widgets/\(widget)") }).first(where: {
             FileManager.default.fileExists(atPath: $0.appendingPathComponent("settings.toml").path)
         }) else { return nil }
+        return try load(widget, folder: folder)
+    }
+
+    static func load(_ widget: String, folder: URL) throws -> ShellRootSettings {
         let data = try SettingsFileAccess.readContents(at: folder.appendingPathComponent("settings.toml")).data
         guard data.count <= 256 * 1024 else {
             throw ShellComponentCatalog.Failure("\(widget)/settings.toml is larger than 256 KiB")
         }
         let table = try TOMLDecoder().decode([String: TOMLNode].self, from: data)
-        if let key = table.keys.sorted().first(where: { $0 != "options" }) {
+        if let key = table.keys.sorted().first(where: { $0 != "options" && $0 != "capabilities" }) {
             throw ShellComponentCatalog.Failure("\(widget)/settings.toml: unknown key \(key)")
         }
         return try ShellRootSettings(
@@ -30,6 +35,7 @@ struct ShellRootSettings: Equatable, Sendable {
                 table["options"], place: widget,
                 reservedNames: ShellComponentCatalog.reservedOptions.subtracting(["network"])
             ),
+            network: ShellComponentCatalog.rootNetwork(table["capabilities"], place: widget),
             folder: folder
         )
     }

@@ -279,7 +279,7 @@ extension ShellLayerScene {
         guard let shape = layer as? CAShapeLayer, let current = shape.path, let spec = paths[slot],
               let morph = enter.path,
               let start = ShellLayerPath(path: morph, viewBox: spec.viewBox, evenOdd: spec.evenOdd)
-              .fitted(to: shape.bounds.size)
+                  .fitted(to: shape.bounds.size)
         else {
             return nil
         }

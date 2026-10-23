@@ -139,10 +139,10 @@ extension AppAXContext {
             scheduleOnMainRunLoop { [weak self] in
                 guard let self else { return }
                 if let nextDrain = frameDelivery.finishClosingFrames(
-                    batchId: batchId, drainId: drain.id,
-                    cancelledCount: cancelledCount
-                ),
-                    let nextThread = self.axThread
+                       batchId: batchId, drainId: drain.id,
+                       cancelledCount: cancelledCount
+                   ),
+                   let nextThread = self.axThread
                 {
                     scheduleClosingFrameDrain(nextDrain, on: nextThread)
                 }

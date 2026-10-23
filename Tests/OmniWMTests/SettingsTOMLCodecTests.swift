@@ -698,6 +698,23 @@ final class SettingsTOMLCodecTests: XCTestCase {
     }
 
     @MainActor
+    func testWorkspaceSwipeEdgeBehaviorRoundTripsAndDefaultsToCycleWhenOmitted() throws {
+        var export = SettingsExport.defaults()
+        XCTAssertEqual(export.gestures.workspaceSwipeEdgeBehavior, .cycle)
+        export.gestures.workspaceSwipeEdgeBehavior = .onePast
+        let data = try SettingsTOMLCodec.encode(export)
+        let encoded = String(decoding: data, as: UTF8.self)
+        XCTAssertTrue(encoded.contains("workspaceSwipeEdgeBehavior = \"onePast\""))
+        XCTAssertEqual(try SettingsTOMLCodec.decode(data).gestures.workspaceSwipeEdgeBehavior, .onePast)
+
+        let omitted = encoded.replacingOccurrences(of: "workspaceSwipeEdgeBehavior = \"onePast\"\n", with: "")
+        let decoded = try SettingsTOMLCodec.decode(Data(omitted.utf8))
+        let settings = makeSettingsStore()
+        settings.gestures.apply(decoded.gestures)
+        XCTAssertEqual(settings.gestures.workspaceSwipeEdgeBehavior, .cycle)
+    }
+
+    @MainActor
     func testHorizontalWorkspaceSwipeSelectionSurvivesFingerCountCollision() {
         var export = SettingsExport.defaults()
         export.gestures.scrollEnabled = true
@@ -906,6 +923,11 @@ final class SettingsTOMLCodecTests: XCTestCase {
                 "workspaceSwipeAxis = \"\(WorkspaceSwipeAxis.vertical.rawValue)\"",
                 "workspaceSwipeAxis = \"diagonal\"",
                 "gestures.workspaceSwipeAxis"
+            ),
+            (
+                "workspaceSwipeEdgeBehavior = \"\(WorkspaceSwipeEdgeBehavior.cycle.rawValue)\"",
+                "workspaceSwipeEdgeBehavior = \"bounce\"",
+                "gestures.workspaceSwipeEdgeBehavior"
             ),
             (
                 "position = \"\(QuakeTerminalPosition.center.rawValue)\"",

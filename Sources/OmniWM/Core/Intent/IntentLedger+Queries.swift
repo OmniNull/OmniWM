@@ -42,14 +42,14 @@ extension IntentLedger {
 
     func openAppRevealFocusIntent(pid: pid_t) -> (intent: Intent, payload: AppRevealFocusPayload)? {
         guard let intent = entries.last(where: { entry in
-            guard entry.phase == .pending,
-                  case let .appRevealFocus(payload) = entry.kind
-            else {
-                return false
-            }
-            return payload.pendingAppPIDs.contains(pid)
-        }),
-            case let .appRevealFocus(payload) = intent.kind
+                  guard entry.phase == .pending,
+                        case let .appRevealFocus(payload) = entry.kind
+                  else {
+                      return false
+                  }
+                  return payload.pendingAppPIDs.contains(pid)
+              }),
+              case let .appRevealFocus(payload) = intent.kind
         else {
             return nil
         }

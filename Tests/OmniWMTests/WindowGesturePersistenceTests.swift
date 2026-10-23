@@ -99,6 +99,31 @@ final class WindowGesturePersistenceTests: XCTestCase {
         XCTAssertThrowsError(try SettingsTOMLCodec.decode(replacingDefault("adoptNativeResize", with: "1")))
     }
 
+    @MainActor
+    func testNativeCrossDisplayMoveDefaultsOffAndRoundTrips() throws {
+        let settings = GestureSettings()
+        XCTAssertFalse(settings.adoptNativeMoveAcrossDisplays)
+        XCTAssertEqual(SettingsExport.defaults().gestures.adoptNativeMoveAcrossDisplays, false)
+        for enabled in [false, true] {
+            var export = SettingsExport.defaults()
+            export.gestures.adoptNativeMoveAcrossDisplays = enabled
+            let encoded = try SettingsTOMLCodec.encode(export)
+            XCTAssertEqual(try SettingsTOMLCodec.decode(encoded), export)
+            XCTAssertTrue(SettingsTOMLCodec.unknownKeyPaths(in: encoded).isEmpty)
+            settings.apply(export.gestures)
+            XCTAssertEqual(settings.adoptNativeMoveAcrossDisplays, enabled)
+            XCTAssertEqual(settings.export().adoptNativeMoveAcrossDisplays, enabled)
+        }
+        let canonical = String(decoding: try SettingsTOMLCodec.encode(.defaults()), as: UTF8.self)
+        let omitted = Data(canonical.components(separatedBy: "\n")
+            .filter { !$0.hasPrefix("adoptNativeMoveAcrossDisplays") }
+            .joined(separator: "\n").utf8)
+        let result = try SettingsTOMLCodec.decodeForLoad(omitted)
+        XCTAssertNil(result.migration)
+        XCTAssertEqual(result.export.gestures.adoptNativeMoveAcrossDisplays, false)
+        XCTAssertThrowsError(try SettingsTOMLCodec.decode(replacingDefault("adoptNativeMoveAcrossDisplays", with: "1")))
+    }
+
     func testMalformedWindowGestureValuesRejectDecode() throws {
         for (key, values) in [
             ("windowMoveEnabled", ["1", "\"true\""]),

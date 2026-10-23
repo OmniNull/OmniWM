@@ -190,7 +190,7 @@ struct WorkspaceBarWindowProjector {
         guard iconResolver.hasOverrides else { return appInfo?.icon }
         if let bundleId = normalizedBundleId(entry.managedReplacementMetadata?.bundleId)
             ?? normalizedBundleId(appInfo?.bundleId),
-            let override = iconResolver.image(for: bundleId)
+           let override = iconResolver.image(for: bundleId)
         {
             return override
         }

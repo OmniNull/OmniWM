@@ -69,7 +69,9 @@ A component declares exact network hosts in its manifest:
 capabilities = { network = ["api.github.com"] }
 ```
 
-Explicit user configuration may add component hosts. Declarations do not grant wildcard or subdomain access, and each redirect is checked. Root/bar scripts retain unrestricted HTTP(S) access. These rules constrain API use within the shared VM; they are not a process sandbox. Provider and other capability grants cannot be widened by the Luau configuration API.
+Root/bar scripts declare theirs with the same line at the top of the `settings.toml` beside their effective `init.luau`, above any `[options.*]` table; a replacement `init.luau` does not inherit the hosts of the one it replaces, and a `settings.toml` that fails to load grants no hosts. Requests to any other host fail with `network_denied`.
+
+Explicit user configuration may add component hosts. Declarations do not grant wildcard or subdomain access, and each redirect is checked. Requests must use HTTPS; plain HTTP is accepted only for `localhost`, `127.0.0.1` and `::1`, which still have to be declared. These rules constrain API use within the shared VM; they are not a process sandbox. Provider and other capability grants cannot be widened by the Luau configuration API.
 
 The installed **CI status** component is optional and is not enabled by default. Add it through lake's component catalog or configure an instance with `widget="ci-status"`, `options.repo="owner/name"` and an integer `options.interval` between 15 and 3600 seconds (default 60). It uses public repository workflows without credentials. It keeps the last five valid runs across restarts, polls with one request or timer at a time and displays **Retry polling** if timer admission fails. A failed HTTP admission waits for the next ordinary poll; Retry resumes only when the user selects it. Replacing the component views leaves its HTTP, polling, storage and activity behavior available to custom layouts.
 

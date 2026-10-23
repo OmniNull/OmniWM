@@ -84,7 +84,7 @@ struct IPCClient {
         let secretPath = IPCSocketPath.secretPath(forSocketPath: socketPath)
         guard let data = fileManager.contents(atPath: secretPath),
               let token = String(data: data, encoding: .utf8)?
-              .trimmingCharacters(in: .whitespacesAndNewlines),
+                  .trimmingCharacters(in: .whitespacesAndNewlines),
               !token.isEmpty
         else {
             return nil

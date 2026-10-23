@@ -110,11 +110,18 @@ struct MouseTrackpadSettingsTab: View {
 
             SettingsCaption(localized: "Hold this modifier combo + right mouse drag to resize tiled windows")
 
+            Toggle("Keep Native Moves Across Displays", isOn: Bindable(settings.gestures).adoptNativeMoveAcrossDisplays)
+                .id("Keep Native Moves Across Displays")
+
+            SettingsCaption(
+                localized: "Drag a tiled window by its title bar onto another display without a modifier. Drops use the same placement rules as modifier drags. Moving within one display still snaps the window back."
+            )
+
             Toggle("Keep Native Edge Resizes", isOn: Bindable(settings.gestures).adoptNativeResize)
                 .id("Keep Native Edge Resizes")
 
             SettingsCaption(
-                localized: "Drag a tiled window's edge or corner without a modifier. Dwindle resizes neighbouring windows while you drag; Niri refits them after you release. Moving a window by its title bar still snaps it back."
+                localized: "Drag a tiled window's edge or corner without a modifier. Dwindle resizes neighbouring windows while you drag; Niri refits them after you release."
             )
 
             Picker("Resize Preview", selection: Bindable(settings.gestures).resizePreviewStyle) {

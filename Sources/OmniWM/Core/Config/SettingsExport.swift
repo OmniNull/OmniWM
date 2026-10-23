@@ -175,6 +175,7 @@ struct SettingsExport: Equatable {
         var workspaceSwipeEnabled: Bool
         var workspaceSwipeFingerCount: GestureFingerCount
         var workspaceSwipeAxis: WorkspaceSwipeAxis
+        var workspaceSwipeEdgeBehavior: WorkspaceSwipeEdgeBehavior? = .cycle
         var overviewGestureEnabled: Bool? = false
         var overviewGestureFingerCount: ThreeOrFourFingerCount? = .four
         var windowMoveEnabled: Bool? = false
@@ -185,6 +186,7 @@ struct SettingsExport: Equatable {
         var resizePreviewStyle: ResizePreviewStyle? = .live
         var dwindleGroupDragAcrossDisplays: DwindleGroupDrag? = .group
         var adoptNativeResize: Bool? = false
+        var adoptNativeMoveAcrossDisplays: Bool? = false
     }
 
     struct StatusBar: Codable, Equatable {
@@ -458,7 +460,8 @@ extension SettingsExport.Gestures {
             workspaceSwipeAxis: .vertical,
             resizePreviewStyle: .live,
             dwindleGroupDragAcrossDisplays: .group,
-            adoptNativeResize: false
+            adoptNativeResize: false,
+            adoptNativeMoveAcrossDisplays: false
         )
     }
 }

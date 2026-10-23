@@ -103,7 +103,8 @@ final class ShellHTTPPackageTests: XCTestCase {
         _ script: String,
         hosts: [String] = [],
         userHosts: [String] = [],
-        root: String = ""
+        root: String = "",
+        rootHosts: [String] = []
     ) -> ShellWidgetSource {
         var instance = ShellComponentInstance(id: "child", widget: "child")
         if !userHosts.isEmpty { instance.capabilities = ShellComponentCapabilities(network: userHosts) }
@@ -133,7 +134,8 @@ final class ShellHTTPPackageTests: XCTestCase {
             modules: [.init(path: "look/widgets/child/component.luau", source: script)],
             moduleLimit: 512,
             components: [instance],
-            componentDescriptors: [descriptor]
+            componentDescriptors: [descriptor],
+            network: rootHosts
         )
     }
 
@@ -193,21 +195,20 @@ final class ShellHTTPPackageTests: XCTestCase {
         XCTAssertFalse(closed.created)
     }
 
-    func testRootHTTPIsUnrestrictedWhileUndeclaredComponentHostIsDenied() async throws {
+    func testRootHTTPReachesOnlyDeclaredHostsWhileUndeclaredComponentHostIsDenied() async throws {
         let directory = FileManager.default.temporaryDirectory.appendingPathComponent(UUID().uuidString)
         defer { try? FileManager.default.removeItem(at: directory) }
-        let url = "https://" + UUID().uuidString.lowercased() + ".example/root"
+        let host = UUID().uuidString.lowercased() + ".example"
+        let url = "https://" + host + "/root"
+        let undeclared = "https://undeclared." + host + "/root"
         let starts = Mutex(0)
         ProtocolStub.plans.withLock { $0[url] = .init(started: { starts.withLock { $0 += 1 } }) }
         defer { ProtocolStub.plans.withLock { $0[url] = nil } }
         let sink = Sink()
-        let callbacks = expectation(description: "root response and component denial delivered")
-        callbacks.expectedFulfillmentCount = 2
+        let callbacks = expectation(description: "root response, root denial and component denial delivered")
+        callbacks.expectedFulfillmentCount = 3
         sink.onCommand = { command in
-            if command.text == "switch-workspace 2" { XCTAssertEqual(command.owner?.owner, 0) }
-            else { XCTAssertEqual(command.text, "switch-workspace 3")
-                XCTAssertNotEqual(command.owner?.owner, 0)
-            }
+            XCTAssertEqual(command.owner?.owner == 0, command.text != "switch-workspace 3", command.text)
             callbacks.fulfill()
         }
         let package = ShellWidgetPackage(
@@ -226,14 +227,17 @@ final class ShellHTTPPackageTests: XCTestCase {
             end))
         end, views={compact=function() return ui.box{} end} }
         """, root: """
-        assert(omniwm.http({url='\(url)'},function(result)
-            assert(result.ok)
-            omniwm.run('switch-workspace 2')
-        end))
-        """)
+        for _, case in {{'\(url)', true, 2}, {'\(undeclared)', false, 4}} do
+            assert(omniwm.http({url=case[1]},function(result)
+                assert(result.ok == case[2] and (case[2] or result.error=='network_denied'))
+                omniwm.run('switch-workspace ' .. case[3])
+            end))
+        end
+        """, rootHosts: [host.uppercased() + "."])
         let failure = await package.load(source)
         XCTAssertNil(failure)
         await fulfillment(of: [callbacks], timeout: 10)
+        XCTAssertEqual(Set(sink.commands), ["switch-workspace 2", "switch-workspace 3", "switch-workspace 4"])
         XCTAssertEqual(starts.withLock { $0 }, 1)
         XCTAssertEqual(package.services.activeCount, 0)
         await package.close()

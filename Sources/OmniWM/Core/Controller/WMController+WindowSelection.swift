@@ -88,9 +88,9 @@ extension WMController {
 
     func focusedManagedWindowScreenForQuakeTerminal() -> NSScreen? {
         guard let token = focusedOrFrontmostWindowTokenForAutomation(
-            preferFrontmostWhenExternalOrOwnedFocusActive: true
-        ),
-            let entry = workspaceManager.entry(for: token)
+                  preferFrontmostWhenExternalOrOwnedFocusActive: true
+              ),
+              let entry = workspaceManager.entry(for: token)
         else {
             return nil
         }
@@ -98,7 +98,7 @@ extension WMController {
         if let monitorId = entry.observedState.monitorId
             ?? entry.desiredState.monitorId
             ?? workspaceManager.monitorId(for: entry.workspaceId),
-            let screen = screen(for: monitorId)
+           let screen = screen(for: monitorId)
         {
             return screen
         }
@@ -106,7 +106,7 @@ extension WMController {
         if let frame = entry.observedState.frame
             ?? entry.desiredState.floatingFrame
             ?? entry.floatingState?.lastFrame,
-            let monitor = frame.center.monitorApproximation(in: workspaceManager.monitors)
+           let monitor = frame.center.monitorApproximation(in: workspaceManager.monitors)
         {
             return screen(for: monitor.id)
         }

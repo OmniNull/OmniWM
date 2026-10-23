@@ -96,11 +96,11 @@ enum SurfaceDerivation {
             return nil
         }
         guard let frame = borderFrame(
-            for: entry,
-            world: world,
-            policy: framePolicy
-        ),
-            frame.width > 0, frame.height > 0
+                  for: entry,
+                  world: world,
+                  policy: framePolicy
+              ),
+              frame.width > 0, frame.height > 0
         else {
             return nil
         }

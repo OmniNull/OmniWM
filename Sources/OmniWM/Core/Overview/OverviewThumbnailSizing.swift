@@ -39,7 +39,7 @@ enum OverviewThumbnailSizing {
                     guard window.isDisplayed,
                           window.overviewFrame.size.hasFinitePositiveDimensions(),
                           section.clipFrame(for: window).isEmpty || section.clipFrame(for: window)
-                          .intersects(window.overviewFrame),
+                              .intersects(window.overviewFrame),
                           OverviewRenderGeometry.shouldRender(
                               frame: window.overviewFrame,
                               visibleContentRect: visibleContent

@@ -94,6 +94,27 @@ final class NativeTitleBarDragTests: NiriInteractionTestCase {
         )
     }
 
+    func testVerifiedExcludedFrameCorrectionRetiresWithoutAnotherRelayout() throws {
+        let fixture = try makeFixture(pid: 561_032)
+        fixture.handler.nativeWindowFrameProvider = { _ in fixture.frame }
+        let blocker = blockRefreshes(fixture)
+        defer { unblockRefreshes(fixture, blocker: blocker) }
+        beginPlainDrag(fixture)
+        XCTAssertTrue(fixture.controller.axManager.excludeFrameWriteForNativeTitleBarDrag(
+            pid: fixture.token.pid, windowId: fixture.token.windowId
+        ))
+        fixture.handler.dispatchMouseUp(at: fixture.frame.center)
+        XCTAssertNotNil(fixture.controller.layoutRefreshController.layoutState.pendingRefresh)
+        fixture.controller.layoutRefreshController.layoutState.pendingRefresh = nil
+
+        fixture.handler.handleNativeTitleBarDragFrameApplySucceeded(successfulFrameResult(fixture, requestId: 94))
+        fixture.handler.retireNativeTitleBarDragAtInputBoundary()
+
+        XCTAssertNil(fixture.handler.state.nativeTitleBarDrag)
+        XCTAssertNil(fixture.controller.layoutRefreshController.layoutState.pendingRefresh)
+        XCTAssertEqual(fixture.controller.axManager.lastAppliedFrame(for: fixture.token.windowId), fixture.frame)
+    }
+
     func testFinalFrameAfterMouseUpInvalidatesCachedTargetAndCannotDropWhileRefreshIsBusy() throws {
         let fixture = try makeFixture(pid: 561_003)
         fixture.handler.nativeWindowFrameProvider = { _ in fixture.frame }

@@ -31,13 +31,22 @@ enum MoveLocation: Equatable {
 
 extension MouseEventHandler {
     func classifyMoveLocation(_ point: CGPoint) -> MoveLocation {
-        guard let controller,
-              state.activeInteractionSource?.mouseButton != nil,
-              let source = activeMoveSource(),
-              let sourceMonitor = controller.workspaceManager.monitor(for: source.workspaceId)
+        guard state.activeInteractionSource?.mouseButton != nil,
+              let source = activeMoveSource()
         else {
             return .sourceDisplay
         }
+        return classifyMoveLocation(point, sourceToken: source.token, sourceWorkspaceId: source.workspaceId)
+    }
+
+    func classifyMoveLocation(
+        _ point: CGPoint,
+        sourceToken: WindowToken,
+        sourceWorkspaceId: WorkspaceDescriptor.ID
+    ) -> MoveLocation {
+        guard let controller,
+              let sourceMonitor = controller.workspaceManager.monitor(for: sourceWorkspaceId)
+        else { return .sourceDisplay }
         let manager = controller.workspaceManager
         guard let monitor = manager.monitors.first(where: { $0.frame.contains(point) }),
               monitor.id != sourceMonitor.id
@@ -56,12 +65,12 @@ extension MouseEventHandler {
                 at: point,
                 in: workspaceId,
                 monitor: monitor,
-                movesGroup: controller.crossDisplayDragUnit(for: source.token, in: source.workspaceId).isGroup
+                movesGroup: controller.crossDisplayDragUnit(for: sourceToken, in: sourceWorkspaceId).isGroup
             )
         guard let resolved else { return .cancel }
         return .crossDisplay(CrossDisplayDrop(
-            sourceToken: source.token,
-            sourceWorkspaceId: source.workspaceId,
+            sourceToken: sourceToken,
+            sourceWorkspaceId: sourceWorkspaceId,
             workspaceId: workspaceId,
             monitor: monitor,
             placement: resolved.placement,
@@ -122,15 +131,15 @@ extension MouseEventHandler {
         let workingFrame = controller.niriInteractionGeometry(for: monitor).workingFrame
         guard workingFrame.contains(point) else { return nil }
         guard let hit = engine.hitTestMoveTarget(
-            point: point,
-            excludingWindowId: NodeId(),
-            allowsInsertion: true,
-            in: workspaceId
-        ),
-            let window = engine.findNode(by: hit.nodeId, in: workspaceId) as? NiriWindow,
-            let frame = window.renderedFrame ?? window.frame,
-            let column = engine.findColumn(containing: window, in: workspaceId),
-            let columnIndex = engine.columnIndex(of: column, in: workspaceId)
+                  point: point,
+                  excludingWindowId: NodeId(),
+                  allowsInsertion: true,
+                  in: workspaceId
+              ),
+              let window = engine.findNode(by: hit.nodeId, in: workspaceId) as? NiriWindow,
+              let frame = window.renderedFrame ?? window.frame,
+              let column = engine.findColumn(containing: window, in: workspaceId),
+              let columnIndex = engine.columnIndex(of: column, in: workspaceId)
         else {
             return (.workspace, workingFrame)
         }

@@ -726,6 +726,446 @@ final class CrossDisplayDragTests: XCTestCase {
         }
     }
 
+    func testNativeMoveDefaultsOffAndSameDisplayStillCorrects() throws {
+        for layout in [LayoutType.niri, .dwindle] {
+            for (enabled, across) in [(false, false), (false, true), (true, false)] {
+                let fixture = try makeNativeFixture([layout, layout], enabled: enabled)
+                let moved = addWindow(1, to: fixture.source, fixture)
+                let resident = addWindow(2, to: fixture.target, fixture)
+                let start = try beginNativeDrag(moved, fixture)
+                fixture.handler.nativeWindowFrameProvider = { _ in start.offsetBy(dx: across ? 1600 : 30, dy: 0) }
+                let point = across ? try XCTUnwrap(fixture.frame(resident)).center : start.center
+                let before = fixture.manager.worldSeq
+
+                fixture.handler.dispatchMouseUp(at: point)
+
+                XCTAssertEqual(fixture.manager.workspace(for: moved), fixture.source)
+                XCTAssertEqual(fixture.manager.worldSeq, before)
+                XCTAssertNil(fixture.handler.state.nativeCrossDisplayMove)
+                XCTAssertEqual(fixture.handler.state.nativeTitleBarDrag?.phase, .awaitingCorrection)
+            }
+        }
+    }
+
+    func testNativeMoveReusesCrossDisplayInsertionAndSwapsInEveryLayoutCombination() throws {
+        for source in [LayoutType.niri, .dwindle] {
+            for target in [LayoutType.niri, .dwindle] {
+                for swaps in [false, true] {
+                    let fixture = try makeNativeFixture([source, target])
+                    fixture.controller.settings.gestures.mouseMoveModifierKey = .off
+                    let moved = addWindow(1, to: fixture.source, fixture)
+                    let resident = addWindow(2, to: fixture.target, fixture)
+                    let start = try beginNativeDrag(moved, fixture)
+                    let frame = try XCTUnwrap(fixture.frame(resident))
+                    let point = swaps ? frame.center : dropPoint(in: frame, .right)
+                    fixture.handler.nativeWindowFrameProvider = { _ in start.offsetBy(dx: 1600, dy: 0) }
+
+                    fixture.handler.dispatchMouseUp(at: point)
+
+                    XCTAssertEqual(fixture.manager.workspace(for: moved), fixture.target)
+                    XCTAssertEqual(fixture.manager.workspace(for: resident), swaps ? fixture.source : fixture.target)
+                    XCTAssertNil(fixture.handler.state.nativeTitleBarDrag)
+                    XCTAssertNil(fixture.handler.state.nativeCrossDisplayMove)
+                    XCTAssertFalse(fixture.controller.axManager.isNativeTitleBarDragActive(for: moved))
+                    if target == .niri, !swaps {
+                        XCTAssertEqual(fixture.columns(fixture.target), [[resident], [moved]])
+                    }
+                }
+            }
+        }
+    }
+
+    func testNativeMoveWaitsForTheFinalFrameAndDoesNotCommitAgain() throws {
+        for missing in [false, true] {
+            let fixture = try makeNativeFixture([.niri, .dwindle])
+            let moved = addWindow(1, to: fixture.source, fixture)
+            let resident = addWindow(2, to: fixture.target, fixture)
+            let start = try beginNativeDrag(moved, fixture)
+            let point = try dropPoint(in: XCTUnwrap(fixture.frame(resident)), .right)
+            fixture.handler.nativeWindowFrameProvider = { _ in missing ? nil : start }
+            XCTAssertTrue(fixture.controller.axManager.excludeFrameWriteForNativeTitleBarDrag(
+                pid: moved.pid, windowId: moved.windowId
+            ))
+            let before = fixture.manager.worldSeq
+
+            fixture.handler.dispatchMouseUp(at: point)
+
+            XCTAssertEqual(fixture.manager.worldSeq, before)
+            XCTAssertEqual(fixture.handler.state.nativeTitleBarDrag?.phase, .awaitingFrameChange)
+            XCTAssertNil(fixture.controller.layoutRefreshController.layoutState.pendingRefresh)
+            fixture.handler.nativeWindowFrameProvider = { _ in start.offsetBy(dx: 1600, dy: 0) }
+            let entry = try XCTUnwrap(fixture.manager.entry(for: moved))
+            XCTAssertTrue(fixture.handler.handleNativeTitleBarDragFrameChanged(for: entry))
+            XCTAssertEqual(fixture.manager.workspace(for: moved), fixture.target)
+            let after = fixture.manager.worldSeq
+            XCTAssertFalse(fixture.handler.handleNativeTitleBarDragFrameChanged(for: entry))
+            XCTAssertEqual(fixture.manager.worldSeq, after)
+        }
+    }
+
+    func testNativeFallbackUsesTheReleasePointBeforeQueuedFramesDrain() throws {
+        let fixture = try makeNativeFixture([.niri, .niri])
+        let moved = addWindow(1, to: fixture.source, fixture)
+        let resident = addWindow(2, to: fixture.target, fixture)
+        let start = try beginNativeDrag(moved, fixture, exactTarget: false)
+        let point = try dropPoint(in: XCTUnwrap(fixture.frame(resident)), .right)
+        let observed = start.offsetBy(dx: 1600, dy: 0)
+        fixture.handler.nativeWindowFrameProvider = { _ in observed }
+        fixture.controller.axEventHandler.frameObservations.nativeDragQuery = { windowId in
+            WindowServerInfo(id: windowId, pid: moved.pid, level: 0, frame: observed)
+        }
+        fixture.controller.eventIntake.open(sink: fixture.controller.eventInterpreter)
+        defer { fixture.controller.eventIntake.close() }
+        XCTAssertTrue(fixture.controller.eventIntake.enqueue(.cgs(.frameChanged(windowId: UInt32(moved.windowId)))))
+
+        fixture.handler.receiveTapMouseUp(at: point)
+
+        XCTAssertEqual(fixture.columns(fixture.target), [[resident], [moved]])
+        XCTAssertNil(fixture.handler.state.nativeTitleBarDrag)
+        XCTAssertNil(fixture.handler.state.nativeCrossDisplayMove)
+        XCTAssertFalse(fixture.controller.eventIntake.hasPendingEvents)
+    }
+
+    func testDeferredNativeMoveCannotAdoptAHiddenParkedWindow() throws {
+        for layout in [LayoutType.niri, .dwindle] {
+            for exactTarget in [false, true] {
+                let fixture = try makeNativeFixture([layout, .niri])
+                let context = "\(layout), exactTarget: \(exactTarget)"
+                let moved = addWindow(1, to: fixture.source, fixture)
+                let resident = addWindow(2, to: fixture.target, fixture)
+                let start = try beginNativeDrag(moved, fixture, exactTarget: exactTarget)
+                fixture.handler.dispatchMouseUp(at: try XCTUnwrap(fixture.frame(resident)).center)
+                XCTAssertNotNil(fixture.handler.state.nativeCrossDisplayMove)
+                XCTAssertTrue(fixture.handler.tracksNativeTitleBarDrag(windowId: moved.windowId))
+
+                let nextWorkspace = try XCTUnwrap(fixture.manager.createDynamicWorkspace(
+                    named: "3",
+                    on: fixture.monitors[0].id
+                ))
+                XCTAssertTrue(fixture.manager.setActiveWorkspace(nextWorkspace.id, on: fixture.monitors[0].id))
+                let hidden = HiddenState(
+                    proportionalPosition: .zero,
+                    referenceMonitorId: fixture.monitors[0].id,
+                    reason: .workspaceInactive
+                )
+                fixture.manager.setHiddenState(hidden, for: moved)
+                fixture.controller.axManager.markWindowInactive(moved.windowId)
+                let entry = try XCTUnwrap(fixture.manager.entry(for: moved))
+                let parked = start.offsetBy(dx: fixture.monitors[0].frame.maxX - 1 - start.minX, dy: 0)
+                let request = try XCTUnwrap(fixture.controller.axManager.prepareParkFrameApplications([
+                    .init(pid: moved.pid, window: entry.axRef, frame: parked)
+                ]).first)
+                XCTAssertTrue(fixture.controller.axManager.processParkFrameApplyResults([
+                    WindowAdmissionTestSupport.successfulFrameResult(request: request)
+                ]).isEmpty)
+                fixture.handler.nativeWindowFrameProvider = { _ in parked }
+                fixture.controller.axEventHandler.frameObservations.nativeDragQuery = { windowId in
+                    WindowServerInfo(
+                        id: windowId, pid: moved.pid, level: 0,
+                        frame: ScreenCoordinateSpace.toWindowServer(rect: parked)
+                    )
+                }
+                let before = fixture.manager.worldSeq
+
+                fixture.controller.axEventHandler.handleCGSEvent(.frameChanged(windowId: UInt32(moved.windowId)))
+
+                XCTAssertEqual(fixture.manager.workspace(for: moved), fixture.source, context)
+                XCTAssertEqual(fixture.manager.workspace(for: resident), fixture.target, context)
+                XCTAssertEqual(fixture.manager.hiddenState(for: moved), hidden)
+                XCTAssertEqual(fixture.manager.worldSeq, before, context)
+                XCTAssertEqual(fixture.controller.axManager.verifiedParkFrame(for: moved.windowId), parked)
+                XCTAssertNil(fixture.handler.state.nativeCrossDisplayMove)
+                XCTAssertNil(fixture.handler.state.nativeTitleBarDrag)
+                XCTAssertNil(fixture.handler.state.nativeTitleBarDragFallbackToken)
+            }
+        }
+    }
+
+    func testNativeMoveCanEnterAnEmptyWorkspace() throws {
+        for target in [LayoutType.niri, .dwindle] {
+            let fixture = try makeNativeFixture([.niri, target])
+            let moved = addWindow(1, to: fixture.source, fixture)
+            let start = try beginNativeDrag(moved, fixture)
+            fixture.handler.nativeWindowFrameProvider = { _ in start.offsetBy(dx: 1600, dy: 0) }
+
+            fixture.handler.dispatchMouseUp(at: fixture.monitors[1].frame.center)
+
+            XCTAssertEqual(fixture.manager.workspace(for: moved), fixture.target)
+            XCTAssertNil(fixture.handler.state.nativeTitleBarDrag)
+        }
+    }
+
+    func testFallbackFrameChangeAfterAClickIsNotAdoptedAsADrag() throws {
+        let fixture = try makeNativeFixture([.niri, .niri])
+        let moved = addWindow(1, to: fixture.source, fixture)
+        let resident = addWindow(2, to: fixture.target, fixture)
+        fixture.layout()
+        let start = try XCTUnwrap(fixture.frame(moved))
+        fixture.controller.axManager.confirmFrameWrite(for: moved.windowId, frame: start)
+        fixture.controller.hasStartedServices = true
+        let observed = start.offsetBy(dx: 1600, dy: 0)
+        fixture.handler.nativeWindowFrameProvider = { _ in observed }
+        fixture.controller.axEventHandler.frameObservations.nativeDragQuery = { windowId in
+            WindowServerInfo(id: windowId, pid: moved.pid, level: 0, frame: observed)
+        }
+        fixture.controller.eventIntake.open(sink: fixture.controller.eventInterpreter)
+        defer { fixture.controller.eventIntake.close() }
+        XCTAssertFalse(fixture.handler.dispatchMouseDown(at: start.center, modifiers: []))
+        XCTAssertTrue(fixture.controller.eventIntake.enqueue(.cgs(.frameChanged(windowId: UInt32(moved.windowId)))))
+        let before = fixture.manager.worldSeq
+
+        fixture.handler.receiveTapMouseUp(at: try XCTUnwrap(fixture.frame(resident)).center)
+
+        XCTAssertEqual(fixture.manager.workspace(for: moved), fixture.source)
+        XCTAssertEqual(fixture.manager.worldSeq, before)
+        XCTAssertNil(fixture.handler.state.nativeCrossDisplayMove)
+    }
+
+    func testNativeMovePreservesFocusPolicy() throws {
+        for follows in [false, true] {
+            let fixture = try makeNativeFixture([.niri, .dwindle])
+            fixture.controller.settings.focus.followsWindowToMonitor = follows
+            let moved = addWindow(1, to: fixture.source, fixture)
+            _ = addWindow(2, to: fixture.source, fixture)
+            let resident = addWindow(3, to: fixture.target, fixture)
+            let start = try beginNativeDrag(moved, fixture)
+            fixture.handler.nativeWindowFrameProvider = { _ in start.offsetBy(dx: 1600, dy: 0) }
+
+            fixture.handler.dispatchMouseUp(at: try dropPoint(in: XCTUnwrap(fixture.frame(resident)), .right))
+
+            XCTAssertEqual(fixture.manager.workspace(for: moved), fixture.target)
+            XCTAssertEqual(fixture.controller.activeWorkspace()?.id, follows ? fixture.target : fixture.source)
+        }
+    }
+
+    func testNativeMoveUsesTheExistingDwindleGroupPolicy() throws {
+        for mode in DwindleGroupDrag.allCases {
+            let fixture = try makeNativeFixture([.dwindle, .niri])
+            fixture.controller.settings.gestures.dwindleGroupDragAcrossDisplays = mode
+            let first = addWindow(1, to: fixture.source, fixture)
+            let moved = addWindow(2, to: fixture.source, fixture)
+            group(moved, into: first, in: fixture.source, fixture)
+            let resident = addWindow(3, to: fixture.target, fixture)
+            let start = try beginNativeDrag(moved, fixture)
+            fixture.handler.nativeWindowFrameProvider = { _ in start.offsetBy(dx: 1600, dy: 0) }
+
+            fixture.handler.dispatchMouseUp(at: try dropPoint(in: XCTUnwrap(fixture.frame(resident)), .right))
+
+            XCTAssertEqual(fixture.manager.workspace(for: moved), fixture.target)
+            XCTAssertEqual(fixture.manager.workspace(for: first), mode == .group ? fixture.target : fixture.source)
+            let arrived = try XCTUnwrap(fixture.niri.columns(in: fixture.target).last)
+            XCTAssertEqual(Set(arrived.windowNodes.map(\.token)), mode == .group ? [first, moved] : [moved])
+        }
+    }
+
+    func testNativeMoveRefusesFullscreenTargetsAndSlotsThatCannotFit() throws {
+        for targetLayout in [LayoutType.niri, .dwindle] {
+            let fixture = try makeNativeFixture([.niri, targetLayout])
+            let moved = addWindow(1, to: fixture.source, fixture)
+            let resident = addWindow(2, to: fixture.target, fixture)
+            if targetLayout == .niri {
+                let sibling = addWindow(3, to: fixture.source, fixture)
+                try stack(sibling, onto: moved, in: fixture.source, fixture)
+                fixture.manager.setCachedConstraints(constraints(minHeight: 2_000), for: resident)
+            } else {
+                fixture.manager.withEngineMutationScope(in: fixture.target) {
+                    XCTAssertEqual(fixture.dwindle.toggleFullscreen(in: fixture.target), resident)
+                }
+            }
+            let start = try beginNativeDrag(moved, fixture)
+            fixture.handler.nativeWindowFrameProvider = { _ in start.offsetBy(dx: 1600, dy: 0) }
+            let before = fixture.manager.worldSeq
+
+            fixture.handler.dispatchMouseUp(at: try XCTUnwrap(fixture.frame(resident)).center)
+
+            XCTAssertEqual(fixture.manager.workspace(for: moved), fixture.source)
+            XCTAssertEqual(fixture.manager.worldSeq, before)
+            XCTAssertNil(fixture.handler.state.nativeCrossDisplayMove)
+            XCTAssertEqual(fixture.handler.state.nativeTitleBarDrag?.phase, .awaitingCorrection)
+        }
+    }
+
+    func testNativeResizeWithACrossDisplayPointerStaysInItsWorkspace() throws {
+        for layout in [LayoutType.niri, .dwindle] {
+            for resizeEnabled in [false, true] {
+                let fixture = try makeNativeFixture([layout, .niri])
+                fixture.controller.settings.gestures.adoptNativeResize = resizeEnabled
+                let moved = addWindow(1, to: fixture.source, fixture)
+                let resident = addWindow(2, to: fixture.target, fixture)
+                let start = try beginNativeDrag(moved, fixture)
+                fixture.handler.nativeWindowFrameProvider = { _ in
+                    CGRect(x: start.minX, y: start.minY, width: start.width + 100, height: start.height)
+                }
+
+                fixture.handler.dispatchMouseUp(at: try XCTUnwrap(fixture.frame(resident)).center)
+
+                XCTAssertEqual(fixture.manager.workspace(for: moved), fixture.source)
+                XCTAssertNil(fixture.handler.state.nativeCrossDisplayMove)
+            }
+        }
+    }
+
+    func testContentDragWithoutWindowDisplacementDoesNotMoveOrCaptureTheWindow() throws {
+        let fixture = try makeNativeFixture([.niri, .niri])
+        let moved = addWindow(1, to: fixture.source, fixture)
+        let resident = addWindow(2, to: fixture.target, fixture)
+        _ = try beginNativeDrag(moved, fixture)
+        let before = fixture.manager.worldSeq
+
+        fixture.handler.dispatchMouseUp(at: try XCTUnwrap(fixture.frame(resident)).center)
+
+        XCTAssertEqual(fixture.manager.worldSeq, before)
+        XCTAssertEqual(fixture.manager.workspace(for: moved), fixture.source)
+        XCTAssertNil(fixture.handler.state.capturedInteractionButton)
+        fixture.handler.retireNativeTitleBarDragAtInputBoundary()
+        XCTAssertNil(fixture.handler.state.nativeCrossDisplayMove)
+        XCTAssertNil(fixture.handler.state.nativeTitleBarDrag)
+    }
+
+    func testDeferredNativeMoveRetainsExcludedFrameCorrectionAtNextInput() throws {
+        for layout in [LayoutType.niri, .dwindle] {
+            for (unreadable, receivesFrameEvent) in [(false, false), (false, true), (true, false), (true, true)] {
+                for excluded in [false, true] {
+                    let fixture = try makeNativeFixture([layout, .niri])
+                    let moved = addWindow(1, to: fixture.source, fixture)
+                    let resident = addWindow(2, to: fixture.target, fixture)
+                    let start = try beginNativeDrag(moved, fixture)
+                    let entry = try XCTUnwrap(fixture.manager.entry(for: moved))
+                    let refresh = fixture.controller.layoutRefreshController
+                    refresh.layoutState.activeRefresh = .init(
+                        kind: .immediateRelayout, reason: .layoutCommand, affectedWorkspaceIds: [fixture.source]
+                    )
+                    defer { refresh.resetState() }
+                    if excluded {
+                        fixture.controller.axManager.applyFramesParallel([.init(
+                            pid: moved.pid, window: entry.axRef, frame: start.offsetBy(dx: 30, dy: 0)
+                        )])
+                    }
+                    XCTAssertNil(fixture.controller.axManager.pendingFrameWrite(for: moved.windowId))
+                    XCTAssertEqual(fixture.controller.axManager.lastAppliedFrame(for: moved.windowId), start)
+                    if unreadable {
+                        fixture.handler.nativeWindowFrameProvider = { _ in nil }
+                    }
+
+                    fixture.handler.dispatchMouseUp(at: try XCTUnwrap(fixture.frame(resident)).center)
+
+                    XCTAssertEqual(fixture.handler.state.nativeTitleBarDrag?.phase, .awaitingFrameChange)
+                    XCTAssertNil(refresh.layoutState.pendingRefresh)
+                    fixture.handler.nativeWindowFrameProvider = { _ in start }
+                    if receivesFrameEvent {
+                        XCTAssertTrue(fixture.handler.handleNativeTitleBarDragFrameChanged(for: entry))
+                    }
+                    fixture.handler.retireNativeTitleBarDragAtInputBoundary()
+
+                    if excluded {
+                        XCTAssertEqual(refresh.layoutState.pendingRefresh?.kind, .immediateRelayout)
+                        XCTAssertEqual(refresh.layoutState.pendingRefresh?.reason, .interactiveGesture)
+                        XCTAssertEqual(refresh.layoutState.pendingRefresh?.affectedWorkspaceIds, [fixture.source])
+                        XCTAssertNil(fixture.controller.axManager.lastAppliedFrame(for: moved.windowId))
+                    } else {
+                        XCTAssertNil(refresh.layoutState.pendingRefresh)
+                        XCTAssertEqual(fixture.controller.axManager.lastAppliedFrame(for: moved.windowId), start)
+                    }
+                    XCTAssertEqual(fixture.manager.workspace(for: moved), fixture.source)
+                    XCTAssertEqual(fixture.manager.workspace(for: resident), fixture.target)
+                    XCTAssertNil(fixture.handler.state.nativeTitleBarDrag)
+                    XCTAssertNil(fixture.handler.state.nativeCrossDisplayMove)
+                }
+            }
+        }
+    }
+
+    func testContentDragDoesNotAdoptManagedFramesAcrossDisplays() throws {
+        for layout in [LayoutType.niri, .dwindle] {
+            for delayed in [false, true] {
+                for pending in [false, true] {
+                    let fixture = try makeNativeFixture([layout, .niri])
+                    let moved = addWindow(1, to: fixture.source, fixture)
+                    let resident = addWindow(2, to: fixture.target, fixture)
+                    let start = try beginNativeDrag(moved, fixture)
+                    let point = try XCTUnwrap(fixture.frame(resident)).center
+                    let entry = try XCTUnwrap(fixture.manager.entry(for: moved))
+                    if delayed {
+                        fixture.handler.dispatchMouseUp(at: point)
+                        XCTAssertEqual(fixture.handler.state.nativeTitleBarDrag?.phase, .awaitingFrameChange)
+                    }
+                    let managedFrame = start.offsetBy(dx: 30, dy: 0)
+                    if pending {
+                        XCTAssertNotNil(fixture.controller.axManager.stageFrameWrite(for: .init(
+                            pid: moved.pid, window: entry.axRef, frame: managedFrame
+                        )))
+                    } else {
+                        fixture.controller.axManager.confirmFrameWrite(for: moved.windowId, frame: managedFrame)
+                    }
+                    fixture.handler.nativeWindowFrameProvider = { _ in managedFrame }
+                    let before = fixture.manager.worldSeq
+
+                    if delayed {
+                        XCTAssertTrue(fixture.handler.handleNativeTitleBarDragFrameChanged(for: entry))
+                    } else {
+                        fixture.handler.dispatchMouseUp(at: point)
+                    }
+
+                    XCTAssertEqual(fixture.manager.workspace(for: moved), fixture.source)
+                    XCTAssertEqual(fixture.manager.workspace(for: resident), fixture.target)
+                    XCTAssertEqual(fixture.manager.worldSeq, before)
+                    XCTAssertNil(fixture.handler.state.nativeCrossDisplayMove)
+                }
+            }
+        }
+    }
+
+    func testNativeMoveCannotSurviveSuppressionOrDisablingTheSetting() throws {
+        for suppresses in [false, true] {
+            let fixture = try makeNativeFixture([.niri, .niri])
+            let moved = addWindow(1, to: fixture.source, fixture)
+            let resident = addWindow(2, to: fixture.target, fixture)
+            let start = try beginNativeDrag(moved, fixture)
+            if suppresses {
+                fixture.handler.handleInputSuppressionBegan()
+            } else {
+                fixture.controller.settings.gestures.adoptNativeMoveAcrossDisplays = false
+            }
+            fixture.handler.nativeWindowFrameProvider = { _ in start.offsetBy(dx: 1600, dy: 0) }
+            let before = fixture.manager.worldSeq
+
+            fixture.handler.dispatchMouseUp(at: try XCTUnwrap(fixture.frame(resident)).center)
+
+            XCTAssertEqual(fixture.manager.worldSeq, before)
+            XCTAssertEqual(fixture.manager.workspace(for: moved), fixture.source)
+            XCTAssertNil(fixture.handler.state.nativeCrossDisplayMove)
+        }
+    }
+
+    private func makeNativeFixture(_ layouts: [LayoutType], enabled: Bool = true) throws -> Fixture {
+        let fixture = try makeFixture(layouts)
+        fixture.controller.settings.gestures.adoptNativeMoveAcrossDisplays = enabled
+        addTeardownBlock { @MainActor [controller = fixture.controller] in
+            controller.hasStartedServices = false
+            controller.layoutRefreshController.resetState()
+            controller.mouseEventHandler.cleanup()
+            controller.surfaceReconciler.cleanup()
+            controller.axManager.cleanup()
+        }
+        return fixture
+    }
+
+    private func beginNativeDrag(_ token: WindowToken, _ fixture: Fixture, exactTarget: Bool = true) throws -> CGRect {
+        fixture.layout()
+        let frame = try XCTUnwrap(fixture.frame(token))
+        fixture.controller.axManager.confirmFrameWrite(for: token.windowId, frame: frame)
+        fixture.controller.hasStartedServices = true
+        fixture.handler.nativeWindowFrameProvider = { _ in frame }
+        fixture.handler.nativeWindowFrameFallbackProvider = { _ in nil }
+        XCTAssertFalse(fixture.handler.dispatchMouseDown(
+            at: frame.center, modifiers: [], windowIdUnderPointer: exactTarget ? token.windowId : nil
+        ))
+        fixture.handler.dispatchMouseDragged(at: frame.center)
+        XCTAssertFalse(fixture.handler.state.isMoving)
+        XCTAssertNil(fixture.handler.state.capturedInteractionButton)
+        return frame
+    }
+
     private func makeFixture(_ layouts: [LayoutType]) throws -> Fixture {
         let root = FileManager.default.temporaryDirectory
             .appendingPathComponent("CrossDisplayDragTests-\(UUID().uuidString)", isDirectory: true)

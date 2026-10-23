@@ -79,7 +79,7 @@ enum ShellProviderResourceProtocol {
                   !name.isEmpty, name.utf8.count <= 1024, !name.contains("\0"),
                   !path.isEmpty, path.utf8.count <= 4096, !path.contains("\0"), !path.hasPrefix("/"),
                   path.split(separator: "/", omittingEmptySubsequences: false)
-                  .allSatisfy({ !$0.isEmpty && $0 != "." && $0 != ".." })
+                      .allSatisfy({ !$0.isEmpty && $0 != "." && $0 != ".." })
             else { throw ShellResourceFailure("invalid_response") }
             files.append(ShellResourceOutput(name: name, path: path))
             let suffix = (name as NSString).pathExtension

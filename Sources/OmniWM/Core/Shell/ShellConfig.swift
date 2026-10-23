@@ -417,7 +417,7 @@ extension ShellConfig {
         } else if key == "accentColor" || key == "textColor",
                   let color = try? ShellTOMLText.decode(SettingsColor.self, from: node),
                   [color.red, color.green, color.blue, color.alpha]
-                  .allSatisfy({ $0.isFinite && (0 ... 1).contains($0) })
+                      .allSatisfy({ $0.isFinite && (0 ... 1).contains($0) })
         {
             if key == "accentColor" { bar.accentColor = color } else { bar.textColor = color }
         } else if key == "notificationBadges", case let .string(raw) = node,

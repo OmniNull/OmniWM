@@ -229,6 +229,7 @@ extension CanonicalTOMLConfig {
 
     private func gesturesForExport() -> SettingsExport.Gestures {
         var gestures = gestures
+        gestures.workspaceSwipeEdgeBehavior = gestures.workspaceSwipeEdgeBehavior ?? .cycle
         gestures.overviewGestureEnabled = gestures.overviewGestureEnabled ?? false
         gestures.overviewGestureFingerCount = gestures.overviewGestureFingerCount ?? .four
         gestures.windowMoveEnabled = gestures.windowMoveEnabled ?? false
@@ -239,6 +240,7 @@ extension CanonicalTOMLConfig {
         gestures.resizePreviewStyle = gestures.resizePreviewStyle ?? .live
         gestures.dwindleGroupDragAcrossDisplays = gestures.dwindleGroupDragAcrossDisplays ?? .group
         gestures.adoptNativeResize = gestures.adoptNativeResize ?? false
+        gestures.adoptNativeMoveAcrossDisplays = gestures.adoptNativeMoveAcrossDisplays ?? false
         return gestures
     }
 }

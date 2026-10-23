@@ -97,7 +97,7 @@ struct ShellDropSnapshot {
             promises.append(receiver)
         } else if let url, url.isFileURL,
                   accepts.contains(.file) || accepts
-                  .contains(.image) && UTType(filenameExtension: url.pathExtension)?.conforms(to: .image) == true
+                      .contains(.image) && UTType(filenameExtension: url.pathExtension)?.conforms(to: .image) == true
         {
             let type = UTType(filenameExtension: url.pathExtension)
             items.append(ShellDropItem(

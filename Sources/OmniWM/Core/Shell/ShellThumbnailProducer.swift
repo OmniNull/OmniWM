@@ -17,15 +17,15 @@ actor ShellThumbnailProducer {
     func produce(_ source: ShellResourceStore.ThumbnailSource, request: ShellThumbnailRequest) async throws -> CGImage {
         try Task.checkCancellation()
         if let source = CGImageSourceCreateWithURL(
-            source.file as CFURL,
-            [kCGImageSourceShouldCache: false] as CFDictionary
-        ),
-            let image = CGImageSourceCreateThumbnailAtIndex(source, 0, [
-                kCGImageSourceCreateThumbnailFromImageAlways: true,
-                kCGImageSourceCreateThumbnailWithTransform: true,
-                kCGImageSourceShouldCacheImmediately: true,
-                kCGImageSourceThumbnailMaxPixelSize: request.pixels
-            ] as CFDictionary)
+               source.file as CFURL,
+               [kCGImageSourceShouldCache: false] as CFDictionary
+           ),
+           let image = CGImageSourceCreateThumbnailAtIndex(source, 0, [
+               kCGImageSourceCreateThumbnailFromImageAlways: true,
+               kCGImageSourceCreateThumbnailWithTransform: true,
+               kCGImageSourceShouldCacheImmediately: true,
+               kCGImageSourceThumbnailMaxPixelSize: request.pixels
+           ] as CFDictionary)
         {
             try Task.checkCancellation()
             return image

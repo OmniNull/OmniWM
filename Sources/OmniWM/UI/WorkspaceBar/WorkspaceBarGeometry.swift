@@ -50,13 +50,15 @@ struct WorkspaceBarGeometry: Equatable {
             resolved: resolved
         )
         let barHeight = isFill ? resolvedMenuBarHeight : max(0, CGFloat(resolved.height))
-        let reservedInset = isFill || resolved.autoHide ? 0 : (isVisible && resolved.reserveLayoutSpace ? barHeight : 0)
+        let reservedInset = resolved.autoHide ? 0 : (isVisible && resolved.reserveLayoutSpace ? barHeight : 0)
 
         var insets = Struts.zero
         switch effectivePosition {
         case .overlappingMenuBar:
             if reservedInset > 0 {
-                let y = overMenuBarOriginY(monitor: monitor, resolved: resolved, barHeight: barHeight)
+                let y = isFill
+                    ? monitor.frame.maxY - barHeight
+                    : overMenuBarOriginY(monitor: monitor, resolved: resolved, barHeight: barHeight)
                 insets.top = max(0, monitor.visibleFrame.maxY - y)
             }
         case .belowMenuBar: insets.top = reservedInset

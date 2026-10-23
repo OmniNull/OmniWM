@@ -210,12 +210,12 @@ extension DwindleLayoutEngine {
         workspaceId: WorkspaceDescriptor.ID
     ) -> DwindleInteractiveResize.Axis? {
         guard let match = controllingSplit(
-            from: leaf,
-            orientation: axis,
-            wantFirstChild: wantFirstChild,
-            workspaceId: workspaceId
-        ),
-            let frame = match.split.cachedFrame
+                  from: leaf,
+                  orientation: axis,
+                  wantFirstChild: wantFirstChild,
+                  workspaceId: workspaceId
+              ),
+              let frame = match.split.cachedFrame
         else {
             return nil
         }

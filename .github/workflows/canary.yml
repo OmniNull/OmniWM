@@ -104,15 +104,8 @@ jobs:
         env:
           GH_TOKEN: ${{ github.token }}
         run: python3 Scripts/canary_release.py verify-ci
-      - uses: actions/cache@55cc8345863c7cc4c66a329aec7e433d2d1c52a9
-        with:
-          path: |
-            ~/.swiftly
-            ~/Library/Developer/Toolchains
-          key: swift-toolchain-${{ runner.os }}-${{ runner.arch }}-${{ hashFiles('.swift-version') }}
-      - name: Install the pinned Swift toolchain
+      - uses: ./.github/actions/setup-swift
         if: steps.check.outputs.should_skip != 'true'
-        run: ./Scripts/swift-toolchain.sh
       - uses: ./.github/actions/setup-lix
         if: steps.check.outputs.should_skip != 'true'
         with:

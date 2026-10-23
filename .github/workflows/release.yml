@@ -197,14 +197,7 @@ jobs:
             echo '::error::main moved since dispatch; re-run prepare.'
             exit 1
           fi
-      - uses: actions/cache@55cc8345863c7cc4c66a329aec7e433d2d1c52a9
-        with:
-          path: |
-            ~/.swiftly
-            ~/Library/Developer/Toolchains
-          key: swift-toolchain-${{ runner.os }}-${{ runner.arch }}-${{ hashFiles('.swift-version') }}
-      - name: Install the pinned Swift toolchain
-        run: ./Scripts/swift-toolchain.sh
+      - uses: ./.github/actions/setup-swift
       - uses: ./.github/actions/setup-lix
         with:
           make-target: setup-tools
@@ -379,19 +372,12 @@ jobs:
           if manager.git(manager.main, 'rev-parse', 'HEAD') != manifest['release_commit']:
               raise SystemExit('Restored main HEAD differs from the manifest release commit')
           PY
-      - uses: actions/cache@55cc8345863c7cc4c66a329aec7e433d2d1c52a9
-        with:
-          path: |
-            ~/.swiftly
-            ~/Library/Developer/Toolchains
-          key: swift-toolchain-${{ runner.os }}-${{ runner.arch }}-${{ hashFiles('.swift-version') }}
       - name: Restore the frozen GhosttyKit dependency
         run: |
           mkdir -p Frameworks
           ditto -x -k "dist/GhosttyKit.xcframework-v$VERSION.zip" Frameworks
           ./Scripts/ghostty-preflight.sh verify
-      - name: Install the pinned Swift toolchain
-        run: ./Scripts/swift-toolchain.sh
+      - uses: ./.github/actions/setup-swift
       - uses: ./.github/actions/setup-lix
         with:
           make-target: setup

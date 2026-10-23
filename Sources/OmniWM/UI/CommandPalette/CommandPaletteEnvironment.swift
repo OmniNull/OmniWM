@@ -373,12 +373,12 @@ struct CommandPaletteEnvironment {
         let system = AXUIElementCreateSystemWide()
         var value: AnyObject?
         guard AXUIElementCopyAttributeValue(
-            system,
-            kAXFocusedUIElementAttribute as CFString,
-            &value
-        ) == .success,
-            let value,
-            CFGetTypeID(value) == AXUIElementGetTypeID()
+                  system,
+                  kAXFocusedUIElementAttribute as CFString,
+                  &value
+              ) == .success,
+              let value,
+              CFGetTypeID(value) == AXUIElementGetTypeID()
         else {
             return nil
         }
@@ -397,12 +397,12 @@ struct CommandPaletteEnvironment {
         let appElement = AXUIElementCreateApplication(pid)
         var windowValue: AnyObject?
         guard AXUIElementCopyAttributeValue(
-            appElement,
-            kAXFocusedWindowAttribute as CFString,
-            &windowValue
-        ) == .success,
-            let windowValue,
-            CFGetTypeID(windowValue) == AXUIElementGetTypeID()
+                  appElement,
+                  kAXFocusedWindowAttribute as CFString,
+                  &windowValue
+              ) == .success,
+              let windowValue,
+              CFGetTypeID(windowValue) == AXUIElementGetTypeID()
         else {
             return nil
         }

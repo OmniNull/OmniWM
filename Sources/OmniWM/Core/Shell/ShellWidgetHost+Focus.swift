@@ -105,12 +105,12 @@ extension ShellWidgetHost {
         }
         focusPolicyEngine?.endLease(owner: .shellIsland)
         if restore, Self.shouldRestoreShellFocus(
-            previous: previousWindow,
-            current: NSApp.keyWindow,
-            source: window,
-            appActive: NSApp.isActive
-        ),
-            let previousWindow
+               previous: previousWindow,
+               current: NSApp.keyWindow,
+               source: window,
+               appActive: NSApp.isActive
+           ),
+           let previousWindow
         {
             previousWindow.makeKey()
             if let previousResponder { previousWindow.makeFirstResponder(previousResponder) }

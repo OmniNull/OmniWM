@@ -169,7 +169,7 @@ struct WorldView {
                 let targetIndex = activeIndex + side.step
                 let navigation: ParkingEdgeNavigation? = if columns.indices.contains(targetIndex),
                                                             let window = engine
-                                                            .projectedActiveWindow(in: columns[targetIndex])
+                                                                .projectedActiveWindow(in: columns[targetIndex])
                 {
                     ParkingEdgeNavigation(
                         workspaceId: workspace.id,

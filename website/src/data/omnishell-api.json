@@ -496,6 +496,83 @@
       ]
     },
     {
+      "name": "NotificationAction",
+      "kind": "type",
+      "topic": "context-data",
+      "anchor": "api-notificationaction",
+      "declaration": "export type NotificationAction = {\n    id: string,\n    title: string,\n    options: number,\n    textInputButtonTitle: string?,\n    textInputPlaceholder: string?,\n    metadata: any,\n}",
+      "fields": [
+        "id",
+        "title",
+        "options",
+        "textInputButtonTitle",
+        "textInputPlaceholder",
+        "metadata"
+      ],
+      "related": []
+    },
+    {
+      "name": "NotificationAttachment",
+      "kind": "type",
+      "topic": "context-data",
+      "anchor": "api-notificationattachment",
+      "declaration": "export type NotificationAttachment = {\n    id: string,\n    type: string,\n    path: string?,\n    available: boolean,\n    image: string?,\n    metadata: any,\n}",
+      "fields": [
+        "id",
+        "type",
+        "path",
+        "available",
+        "image",
+        "metadata"
+      ],
+      "related": []
+    },
+    {
+      "name": "NotificationItem",
+      "kind": "type",
+      "topic": "context-data",
+      "anchor": "api-notificationitem",
+      "declaration": "export type NotificationItem = {\n    id: string,\n    bundle: string,\n    title: string,\n    subtitle: string,\n    body: string,\n    date: number?,\n    requestId: string?,\n    thread: string?,\n    category: string?,\n    attachments: { NotificationAttachment },\n    actions: { NotificationAction },\n    userInfo: any,\n    communication: any,\n    metadata: any,\n}",
+      "fields": [
+        "id",
+        "bundle",
+        "title",
+        "subtitle",
+        "body",
+        "date",
+        "requestId",
+        "thread",
+        "category",
+        "attachments",
+        "actions",
+        "userInfo",
+        "communication",
+        "metadata"
+      ],
+      "related": [
+        "NotificationAttachment",
+        "NotificationAction"
+      ]
+    },
+    {
+      "name": "Notifications",
+      "kind": "type",
+      "topic": "context-data",
+      "anchor": "api-notifications",
+      "declaration": "export type Notifications = {\n    state: \"loading\" | \"ready\" | \"empty\" | \"accessDenied\" | \"unavailable\" | \"queryError\" | \"malformed\" | \"incomplete\",\n    complete: boolean,\n    items: { NotificationItem },\n    apps: { {\n        bundle: string,\n        name: string?,\n        columns: any,\n        categories: any,\n        categoryMetadata: any,\n        delivered: any,\n        displayed: any,\n        requests: any,\n    } },\n    error: string?,\n    action: {\n        id: string,\n        bundle: string,\n        kind: \"reply\" | \"dismiss\",\n        state: string,\n    }?,\n}",
+      "fields": [
+        "state",
+        "complete",
+        "items",
+        "apps",
+        "error",
+        "action"
+      ],
+      "related": [
+        "NotificationItem"
+      ]
+    },
+    {
       "name": "Reminder",
       "kind": "type",
       "topic": "context-data",
@@ -770,7 +847,7 @@
       "kind": "type",
       "topic": "context-data",
       "anchor": "api-data",
-      "declaration": "export type Data = {\n    clock: string,\n    date: string,\n    seconds: number,\n    cpu: number?,\n    memory: number,\n    battery: number?,\n    charging: boolean,\n    gpu: number?,\n    disk: number?,\n    network: { down: number, up: number }?,\n    volume: number?,\n    muted: boolean?,\n    vars: { [string]: string },\n    weather: Weather?,\n    workspace: string,\n    app: string,\n    bundle: string,\n    title: string,\n    workspaces: { Workspace },\n    bar: Bar,\n    settings: { [string]: any }?,\n    hiddenBar: HiddenBar,\n    system: System?,\n    outputs: { AudioOutput }?,\n    audioApps: AudioApps?,\n    media: Media?,\n    calendar: Calendar?,\n    power: Power?,\n    inputSource: InputSource?,\n    privacy: { microphone: boolean, camera: boolean }?,\n    wifi: WiFi?,\n    bluetooth: Bluetooth?,\n    user: { name: string, account: string, avatar: string? }?,\n    thermal: { cpu: number?, gpu: number?, gpuName: string? }?,\n    networkHistory: { down: { number }, up: { number }, received: number, sent: number }?,\n    appearance: (\"light\" | \"dark\")?,\n    lyrics: { status: \"loading\" | \"synced\" | \"none\", lines: { { time: number, text: string } } }?,\n    spectrum: { access: \"unknown\" | \"granted\" | \"denied\", bars: { number }, bpm: number? }?,\n    tempo: number?,\n    island: Island?,\n    components: { ComponentInfo }?,\n    catalog: { ComponentCatalogEntry }?,\n    settingsSchema: { [string]: ComponentOption }?,\n    reminders: Reminders?,\n    badges: { [string]: string },\n    menuApp: { pid: number, name: string, bundle: string }?,\n}",
+      "declaration": "export type Data = {\n    clock: string,\n    date: string,\n    seconds: number,\n    cpu: number?,\n    memory: number,\n    battery: number?,\n    charging: boolean,\n    gpu: number?,\n    disk: number?,\n    network: { down: number, up: number }?,\n    volume: number?,\n    muted: boolean?,\n    vars: { [string]: string },\n    weather: Weather?,\n    workspace: string,\n    app: string,\n    bundle: string,\n    title: string,\n    workspaces: { Workspace },\n    bar: Bar,\n    settings: { [string]: any }?,\n    hiddenBar: HiddenBar,\n    system: System?,\n    outputs: { AudioOutput }?,\n    audioApps: AudioApps?,\n    media: Media?,\n    calendar: Calendar?,\n    power: Power?,\n    inputSource: InputSource?,\n    privacy: { microphone: boolean, camera: boolean }?,\n    wifi: WiFi?,\n    bluetooth: Bluetooth?,\n    user: { name: string, account: string, avatar: string? }?,\n    thermal: { cpu: number?, gpu: number?, gpuName: string? }?,\n    networkHistory: { down: { number }, up: { number }, received: number, sent: number }?,\n    appearance: (\"light\" | \"dark\")?,\n    lyrics: { status: \"loading\" | \"synced\" | \"none\", lines: { { time: number, text: string } } }?,\n    spectrum: { access: \"unknown\" | \"granted\" | \"denied\", bars: { number }, bpm: number? }?,\n    tempo: number?,\n    island: Island?,\n    components: { ComponentInfo }?,\n    catalog: { ComponentCatalogEntry }?,\n    settingsSchema: { [string]: ComponentOption }?,\n    reminders: Reminders?,\n    badges: { [string]: string },\n    menuApp: { pid: number, name: string, bundle: string }?,\n    notifications: Notifications?,\n}",
       "fields": [
         "clock",
         "date",
@@ -817,7 +894,8 @@
         "settingsSchema",
         "reminders",
         "badges",
-        "menuApp"
+        "menuApp",
+        "notifications"
       ],
       "related": [
         "Weather",
@@ -837,7 +915,8 @@
         "ComponentInfo",
         "ComponentCatalogEntry",
         "ComponentOption",
-        "Reminders"
+        "Reminders",
+        "Notifications"
       ]
     },
     {

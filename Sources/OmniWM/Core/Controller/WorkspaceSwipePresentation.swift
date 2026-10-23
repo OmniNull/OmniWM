@@ -183,7 +183,8 @@ final class WorkspaceSwipePresentation {
               let isNext = TrackpadGestureIntent.isNextWorkspace(
                   axis: axis, displacement: cumulative, naturalDirection: controller.settings.gestures.invertDirection
               ),
-              let destination = isNext ? preparation.next : preparation.previous,
+              let destination = (isNext ? preparation.next : preparation.previous)
+              ?? createdDestination(isNext: isNext, from: preparation),
               destination.id != preparation.source.id
         else { return }
         if let predecessor, !retire(predecessor) { return }
@@ -252,6 +253,15 @@ final class WorkspaceSwipePresentation {
         }
         link.add(to: .main, forMode: .common)
         return true
+    }
+
+    private func createdDestination(isNext: Bool, from preparation: Preparation) -> Workspace? {
+        guard let controller, isNext,
+              let created = controller.workspaceNavigationHandler.swipeTargetWorkspace(
+                  isNext: true, from: preparation.source.id, on: preparation.monitor.id, createIfNeeded: true
+              )
+        else { return nil }
+        return makeWorkspace(created.id, monitor: preparation.monitor, active: false)
     }
 
     private func retire(_ predecessor: Flight) -> Bool {

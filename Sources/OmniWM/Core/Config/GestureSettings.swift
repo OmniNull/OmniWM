@@ -81,6 +81,10 @@ final class GestureSettings {
         didSet { notifyChange() }
     }
 
+    var workspaceSwipeEdgeBehavior = GestureSettings.defaults.workspaceSwipeEdgeBehavior ?? .cycle {
+        didSet { notifyChange() }
+    }
+
     var overviewGestureEnabled = GestureSettings.defaults.overviewGestureEnabled ?? false {
         didSet {
             guard oldValue != overviewGestureEnabled else { return }
@@ -143,6 +147,13 @@ final class GestureSettings {
         }
     }
 
+    var adoptNativeMoveAcrossDisplays = GestureSettings.defaults.adoptNativeMoveAcrossDisplays ?? false {
+        didSet {
+            guard oldValue != adoptNativeMoveAcrossDisplays else { return }
+            notifyChange()
+        }
+    }
+
     var workspaceSwipeAxisLockedToVertical: Bool {
         scrollEnabled && workspaceSwipeFingerCount.rawValue == fingerCount.rawValue
     }
@@ -164,6 +175,7 @@ final class GestureSettings {
             workspaceSwipeEnabled: workspaceSwipeEnabled,
             workspaceSwipeFingerCount: workspaceSwipeFingerCount,
             workspaceSwipeAxis: workspaceSwipeAxis,
+            workspaceSwipeEdgeBehavior: workspaceSwipeEdgeBehavior,
             overviewGestureEnabled: overviewGestureEnabled,
             overviewGestureFingerCount: overviewGestureFingerCount,
             windowMoveEnabled: windowMoveEnabled,
@@ -173,7 +185,8 @@ final class GestureSettings {
             windowGestureSensitivity: windowGestureSensitivity,
             resizePreviewStyle: resizePreviewStyle,
             dwindleGroupDragAcrossDisplays: dwindleGroupDragAcrossDisplays,
-            adoptNativeResize: adoptNativeResize
+            adoptNativeResize: adoptNativeResize,
+            adoptNativeMoveAcrossDisplays: adoptNativeMoveAcrossDisplays
         )
     }
 
@@ -196,6 +209,7 @@ final class GestureSettings {
         workspaceSwipeEnabled = gestures.workspaceSwipeEnabled
         workspaceSwipeFingerCount = gestures.workspaceSwipeFingerCount
         workspaceSwipeAxis = gestures.workspaceSwipeAxis
+        workspaceSwipeEdgeBehavior = gestures.workspaceSwipeEdgeBehavior ?? .cycle
         overviewGestureEnabled = gestures.overviewGestureEnabled ?? false
         overviewGestureFingerCount = gestures.overviewGestureFingerCount ?? .four
         windowMoveEnabled = gestures.windowMoveEnabled ?? false
@@ -206,6 +220,7 @@ final class GestureSettings {
         resizePreviewStyle = gestures.resizePreviewStyle ?? .live
         dwindleGroupDragAcrossDisplays = gestures.dwindleGroupDragAcrossDisplays ?? .group
         adoptNativeResize = gestures.adoptNativeResize ?? false
+        adoptNativeMoveAcrossDisplays = gestures.adoptNativeMoveAcrossDisplays ?? false
         isApplying = false
         if export() != previous {
             notifyChange()

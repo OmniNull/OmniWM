@@ -140,11 +140,11 @@ struct PointerEdgeRecognizer: Sendable {
         }
         let warpSource = current ?? source
         guard !coolingDown, let zone = MouseWarpGeometry.crossing(
-            location: location,
-            frame: warpSource.frame,
-            margin: topology.margin
-        ),
-            let target = topology.edges[.init(monitorId: warpSource.id, direction: zone.direction)]?.target
+                  location: location,
+                  frame: warpSource.frame,
+                  margin: topology.margin
+              ),
+              let target = topology.edges[.init(monitorId: warpSource.id, direction: zone.direction)]?.target
         else { return .pass }
         return .cross(Crossing(
             source: warpSource.id,
@@ -380,14 +380,14 @@ final class PointerEdgeBarrier: Sendable {
             return Unmanaged<PointerEdgeBarrier>.fromOpaque(info).takeUnretainedValue().handleTapEvent(type, event)
         }
         guard let port = CGEvent.tapCreate(
-            tap: .cghidEventTap,
-            place: .headInsertEventTap,
-            options: .defaultTap,
-            eventsOfInterest: 1 << CGEventType.mouseMoved.rawValue,
-            callback: callback,
-            userInfo: Unmanaged.passUnretained(self).toOpaque()
-        ),
-            let source = CFMachPortCreateRunLoopSource(kCFAllocatorDefault, port, 0)
+                  tap: .cghidEventTap,
+                  place: .headInsertEventTap,
+                  options: .defaultTap,
+                  eventsOfInterest: 1 << CGEventType.mouseMoved.rawValue,
+                  callback: callback,
+                  userInfo: Unmanaged.passUnretained(self).toOpaque()
+              ),
+              let source = CFMachPortCreateRunLoopSource(kCFAllocatorDefault, port, 0)
         else {
             MouseTrace.record("pointer-edge tap unavailable")
             tapState.withLock { $0 = TapState() }

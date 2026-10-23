@@ -178,7 +178,7 @@ final class ShellFilePromiseBatch: Sendable {
         let wake = state.withLock { state -> (@Sendable () -> Void)? in
             if state.activated, state.configured,
                Self.deliverableIndex(state) != nil || Self.finished(state) && !state
-               .terminalDelivered { return state.wake }
+                   .terminalDelivered { return state.wake }
             state.waking = false
             return nil
         }

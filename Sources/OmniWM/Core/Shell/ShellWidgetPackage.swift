@@ -174,6 +174,7 @@ actor ShellWidgetPackage {
     var loadedChunk = ""
     var loadedMain = ""
     var componentDescriptors: [ShellComponentDescriptor] = []
+    var rootNetwork: Set<String> = []
     var hasComponents = false
     var reloadRequested = false
     var states: [ShellBarKey: InstanceState] = [:]
@@ -237,6 +238,7 @@ actor ShellWidgetPackage {
         let loaded = ShellScript(vm: vm)
         script = loaded
         storeProfile = source.profile
+        rootNetwork = Set(source.network.map(ShellHTTPPolicy.canonicalHost))
         guard omni_vm_set_service_generation(vm, services.generation) == OMNI_OK else {
             script = nil
             return ShellScriptFailure(kind: .internalError, message: "service generation could not be initialized")

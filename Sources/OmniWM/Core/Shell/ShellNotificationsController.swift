@@ -118,11 +118,11 @@ final class ShellNotificationsController {
         let accessibility = ShellNotificationAccessibility()
         performAction = perform ?? { request in
             guard let notificationPID = NSRunningApplication.runningApplications(
-                withBundleIdentifier: "com.apple.notificationcenterui"
-            ).first?.processIdentifier,
-                let menuPID = NSRunningApplication.runningApplications(
-                    withBundleIdentifier: "com.apple.MenuBarAgent"
-                ).first?.processIdentifier
+                      withBundleIdentifier: "com.apple.notificationcenterui"
+                  ).first?.processIdentifier,
+                  let menuPID = NSRunningApplication.runningApplications(
+                      withBundleIdentifier: "com.apple.MenuBarAgent"
+                  ).first?.processIdentifier
             else {
                 ShellNotificationTrace.record("native.processes.missing", target: request.id)
                 return .unavailable

@@ -43,10 +43,10 @@ extension WorkspaceNavigationHandler {
         }
 
         guard let targetWorkspaceId = controller.workspaceManager.workspaceId(
-            for: rawWorkspaceID,
-            createIfMissing: false
-        ),
-            controller.workspaceManager.monitorForWorkspace(targetWorkspaceId) != nil
+                  for: rawWorkspaceID,
+                  createIfMissing: false
+              ),
+              controller.workspaceManager.monitorForWorkspace(targetWorkspaceId) != nil
         else {
             return false
         }
@@ -94,6 +94,49 @@ extension WorkspaceNavigationHandler {
 
         guard let targetWorkspace else { return }
         activateWorkspaceInOrder(targetWorkspace, from: currentWorkspace.id, on: currentMonitorId)
+    }
+
+    func switchWorkspaceBySwipe(isNext: Bool, monitorId: Monitor.ID) {
+        guard let controller,
+              let currentWorkspace = controller.workspaceManager.activeWorkspaceOrFirst(on: monitorId),
+              let targetWorkspace = swipeTargetWorkspace(
+                  isNext: isNext, from: currentWorkspace.id, on: monitorId, createIfNeeded: true
+              )
+        else { return }
+        activateWorkspaceInOrder(targetWorkspace, from: currentWorkspace.id, on: monitorId)
+    }
+
+    func swipeTargetWorkspace(
+        isNext: Bool,
+        from workspaceId: WorkspaceDescriptor.ID,
+        on monitorId: Monitor.ID,
+        createIfNeeded: Bool
+    ) -> WorkspaceDescriptor? {
+        guard let controller else { return nil }
+        let manager = controller.workspaceManager
+        let edgeBehavior = controller.settings.gestures.workspaceSwipeEdgeBehavior
+        let skipEmpty = skipsEmptyWorkspaces(on: monitorId)
+        let wrapAround = edgeBehavior == .cycle
+        let adjacent = isNext
+            ? manager.nextWorkspaceInOrder(
+                on: monitorId,
+                from: workspaceId,
+                wrapAround: wrapAround,
+                skipEmpty: skipEmpty
+            )
+            : manager.previousWorkspaceInOrder(
+                on: monitorId, from: workspaceId, wrapAround: wrapAround, skipEmpty: skipEmpty
+            )
+        guard adjacent == nil, edgeBehavior == .onePast, isNext, manager.isOccupied(workspaceId) else {
+            return adjacent
+        }
+        let ordered = manager.workspaces(on: monitorId)
+        if let index = ordered.firstIndex(where: { $0.id == workspaceId }),
+           let empty = ordered[(index + 1)...].first(where: { !manager.isOccupied($0.id) })
+        {
+            return empty
+        }
+        return createIfNeeded ? createOverviewWorkspace(on: monitorId) : nil
     }
 
     func skipsEmptyWorkspaces(on monitorId: Monitor.ID) -> Bool {

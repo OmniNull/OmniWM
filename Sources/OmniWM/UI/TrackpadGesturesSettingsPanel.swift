@@ -172,6 +172,14 @@ struct TrackpadGesturesSettingsPanel: View {
             SettingsCaption(
                 localized: "When sharing fingers with column scrolling in Niri, workspace swipes use the perpendicular direction on each display. The selected axis applies without column scrolling."
             )
+            Picker("At the ends", selection: Bindable(settings.gestures).workspaceSwipeEdgeBehavior) {
+                ForEach(WorkspaceSwipeEdgeBehavior.allCases) { behavior in
+                    Text(behavior.localizedDisplayName).tag(behavior)
+                }
+            }
+            SettingsCaption(
+                localized: "Wrap Around moves between the last and first workspace. Stop ignores swipes past either end. Open One Empty Workspace moves from the last occupied workspace to an empty one, creating it if needed, and ignores swipes past an empty last workspace or before the first."
+            )
         case .overview:
             SettingsCaption(
                 localized: "Swipe up to open and down to close. Thumbnails follow your fingers; move past halfway or flick to commit. Lift all fingers between gestures."

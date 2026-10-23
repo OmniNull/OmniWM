@@ -126,7 +126,7 @@ final class ShellHTTPServiceTests: XCTestCase {
 
     private func run(
         _ plan: ProtocolStub.Plan, response: ShellHTTPRequest.Response = .text, maxBytes: Int = 1 << 20,
-        timeout: Double = 30, policy: ShellHTTPPolicy = .unrestricted,
+        timeout: Double = 30, policy: ShellHTTPPolicy = .hosts(["api.example"]),
         decodeJSON: @escaping @Sendable (Data) throws -> [UInt8] = ShellHTTPResponse.json
     ) async throws -> Value {
         let url = url()
@@ -226,6 +226,19 @@ final class ShellHTTPServiceTests: XCTestCase {
         XCTAssertFalse(policy.allows(try XCTUnwrap(URL(string: "file://api.example/path"))))
     }
 
+    func testPlainHTTPIsAllowedOnlyForDeclaredLoopbackHosts() throws {
+        let policy = ShellHTTPPolicy.hosts(["api.example", "localhost", "127.0.0.1", "::1", "127.0.0.1.example"])
+        let cases = [
+            "https://api.example/path": true, "http://api.example/path": false,
+            "http://localhost:8080/path": true, "http://LOCALHOST./path": true, "http://127.0.0.1/path": true,
+            "http://[::1]:8080/path": true, "http://127.0.0.1.example/path": false, "https://localhost/path": true
+        ]
+        for (url, allowed) in cases {
+            XCTAssertEqual(policy.allows(try XCTUnwrap(URL(string: url))), allowed, url)
+        }
+        XCTAssertFalse(ShellHTTPPolicy.hosts(["api.example"]).allows(try XCTUnwrap(URL(string: "http://localhost/"))))
+    }
+
     func testRedirectToUndeclaredHostIsRejected() async throws {
         let target = try XCTUnwrap(URL(string: url(host: "unlisted.example")))
         let targetStarted = Mutex(false)
@@ -256,7 +269,7 @@ final class ShellHTTPServiceTests: XCTestCase {
             .allows(try XCTUnwrap(URL(string: "https://api.example/path"))))
         XCTAssertFalse(ShellHTTPPolicy.resolve(component: "missing", instances: [instance], descriptors: [descriptor])
             .allows(try XCTUnwrap(URL(string: "https://api.example/path"))))
-        XCTAssertTrue(ShellHTTPPolicy.resolve(component: nil, instances: [], descriptors: [])
+        XCTAssertFalse(ShellHTTPPolicy.resolve(component: nil, instances: [], descriptors: [])
             .allows(try XCTUnwrap(URL(string: "https://other.example/path"))))
     }
 
@@ -276,8 +289,8 @@ final class ShellHTTPServiceTests: XCTestCase {
         defer { ledger.close()
             ProtocolStub.plans.withLock { plans in for url in urls { plans.removeValue(forKey: url) } }
         }
-        XCTAssertTrue(service.start(id(1, owner: 1), request: .init(url: urls[0]), policy: .unrestricted))
-        XCTAssertTrue(service.start(id(2, owner: 2), request: .init(url: urls[1]), policy: .unrestricted))
+        XCTAssertTrue(service.start(id(1, owner: 1), request: .init(url: urls[0]), policy: .hosts(["api.example"])))
+        XCTAssertTrue(service.start(id(2, owner: 2), request: .init(url: urls[1]), policy: .hosts(["api.example"])))
         await fulfillment(of: [started], timeout: 5)
         ledger.cancel(id(1, owner: 1))
         XCTAssertEqual(ledger.activeCount, 1)
@@ -308,7 +321,11 @@ final class ShellHTTPServiceTests: XCTestCase {
         }
         for (index, url) in urls.enumerated() {
             ProtocolStub.plans.withLock { $0[url] = .init(stall: true, started: { _ in started.fulfill() }) }
-            XCTAssertTrue(service.start(id(UInt64(index + 1)), request: .init(url: url), policy: .unrestricted))
+            XCTAssertTrue(service.start(
+                id(UInt64(index + 1)),
+                request: .init(url: url),
+                policy: .hosts(["api.example"])
+            ))
         }
         await fulfillment(of: [started, overloaded], timeout: 5)
         XCTAssertEqual(service.activeCount, 6)

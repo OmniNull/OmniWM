@@ -334,7 +334,7 @@ extension NiriLayoutEngine {
             var floor = max(NiriAxisSolver.minimumRenderableSpan, input.minConstraint)
             if let hinted = windows[index].packingHints.secondary(for: axis.orientation)?
                 .floor(for: hardOutputs[index].value, limit: usableSpace),
-                hinted > floor
+               hinted > floor
             {
                 floor = hinted
                 packed = true

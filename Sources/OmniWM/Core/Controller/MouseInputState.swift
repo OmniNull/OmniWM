@@ -47,10 +47,19 @@ struct MouseInputState {
         let token: WindowToken
         var phase: NativeTitleBarDragPhase = .armed
         var receivedFrameChange = false
+        var pendingExcludedCorrection = false
         var issuedUnreadableCorrection = false
         var terminalFailureRetryRequestId: AXFrameRequestId?
         var adoptionStartFrame: CGRect?
         var dwindleResizeWorkspaceId: WorkspaceDescriptor.ID?
+    }
+
+    struct NativeCrossDisplayMove {
+        let token: WindowToken
+        let workspaceId: WorkspaceDescriptor.ID
+        let startFrame: CGRect
+        var wasDragged = false
+        var releaseLocation: CGPoint?
     }
 
     struct FocusFollowsMouseSample {
@@ -87,6 +96,7 @@ struct MouseInputState {
     var nativeTitleBarDragFallbackToken: WindowToken?
     var nativeTitleBarDragFallbackReleased = false
     var nativeTitleBarDrag: NativeTitleBarDrag?
+    var nativeCrossDisplayMove: NativeCrossDisplayMove?
 
     var lastFocusFollowsMouseTime: Date = .distantPast
     var latestFocusFollowsMouseSample: FocusFollowsMouseSample?

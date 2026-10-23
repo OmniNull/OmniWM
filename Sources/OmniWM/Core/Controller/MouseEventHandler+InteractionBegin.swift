@@ -147,14 +147,14 @@ extension MouseEventHandler {
         controller.dwindleLayoutHandler.refreshEngineConstraints(workspaceId: wsId, monitor: monitor)
         let innerGap = controller.resolvedDwindleSettings(for: monitor).innerGap
         guard engine.interactiveResizeBegin(
-            token: token,
-            edges: resizeEdges(for: location, in: frame),
-            startLocation: location,
-            in: wsId,
-            innerGap: innerGap,
-            edgePolicy: edgePolicy
-        ),
-            let edges = engine.interactiveResize?.edges
+                  token: token,
+                  edges: resizeEdges(for: location, in: frame),
+                  startLocation: location,
+                  in: wsId,
+                  innerGap: innerGap,
+                  edgePolicy: edgePolicy
+              ),
+              let edges = engine.interactiveResize?.edges
         else {
             return false
         }

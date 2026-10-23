@@ -31,17 +31,10 @@ jobs:
     runs-on: xcode-27
     timeout-minutes: 60
     steps:
-      - uses: actions/checkout@v7
+      - uses: actions/checkout@3d3c42e5aac5ba805825da76410c181273ba90b1
         with:
           persist-credentials: false
-      - uses: actions/cache@v6.1.0
-        with:
-          path: |
-            ~/.swiftly
-            ~/Library/Developer/Toolchains
-          key: swift-toolchain-${{ runner.os }}-${{ runner.arch }}-${{ hashFiles('.swift-version') }}
-      - name: Install the pinned Swift toolchain
-        run: ./Scripts/swift-toolchain.sh
+      - uses: ./.github/actions/setup-swift
   tooling:
     name: Tooling
     runs-on: xcode-27
@@ -55,7 +48,7 @@ jobs:
             echo "::error::pr_number must be a positive integer."
             exit 1
           fi
-      - uses: actions/checkout@v7
+      - uses: actions/checkout@3d3c42e5aac5ba805825da76410c181273ba90b1
         with:
           ref: ${{ inputs.pr_number != '' && format('refs/pull/{0}/merge', inputs.pr_number) || github.ref }}
           persist-credentials: false
@@ -89,18 +82,11 @@ jobs:
             echo "::error::pr_number must be a positive integer."
             exit 1
           fi
-      - uses: actions/checkout@v7
+      - uses: actions/checkout@3d3c42e5aac5ba805825da76410c181273ba90b1
         with:
           ref: ${{ inputs.pr_number != '' && format('refs/pull/{0}/merge', inputs.pr_number) || github.ref }}
           persist-credentials: false
-      - uses: actions/cache@v6.1.0
-        with:
-          path: |
-            ~/.swiftly
-            ~/Library/Developer/Toolchains
-          key: swift-toolchain-${{ runner.os }}-${{ runner.arch }}-${{ hashFiles('.swift-version') }}
-      - name: Install the pinned Swift toolchain
-        run: ./Scripts/swift-toolchain.sh
+      - uses: ./.github/actions/setup-swift
       - uses: ./.github/actions/setup-lix
         with:
           make-target: setup
@@ -123,18 +109,11 @@ jobs:
             echo "::error::pr_number must be a positive integer."
             exit 1
           fi
-      - uses: actions/checkout@v7
+      - uses: actions/checkout@3d3c42e5aac5ba805825da76410c181273ba90b1
         with:
           ref: ${{ inputs.pr_number != '' && format('refs/pull/{0}/merge', inputs.pr_number) || github.ref }}
           persist-credentials: false
-      - uses: actions/cache@v6.1.0
-        with:
-          path: |
-            ~/.swiftly
-            ~/Library/Developer/Toolchains
-          key: swift-toolchain-${{ runner.os }}-${{ runner.arch }}-${{ hashFiles('.swift-version') }}
-      - name: Install the pinned Swift toolchain
-        run: ./Scripts/swift-toolchain.sh
+      - uses: ./.github/actions/setup-swift
       - uses: ./.github/actions/setup-lix
         with:
           make-target: setup

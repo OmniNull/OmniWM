@@ -6,6 +6,11 @@ import Foundation
 extension WMController {
     func performCrossDisplayDrop(_ drop: CrossDisplayDrop) {
         guard let plan = crossDisplayDropPlan(for: drop) else { return }
+        performCrossDisplayDrop(plan)
+    }
+
+    func performCrossDisplayDrop(_ plan: CrossDisplayDropPlan) {
+        let drop = plan.drop
         let heldSelection = workspaceManager.selectedManagedToken.map(plan.unit.tokens.contains) == true
         workspaceManager.withBatchedCrossWorkspaceDrop(
             into: drop.workspaceId,

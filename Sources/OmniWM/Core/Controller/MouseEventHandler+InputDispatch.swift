@@ -127,7 +127,7 @@ extension MouseEventHandler {
             handleInputSuppressionBegan()
             return
         }
-        markNativeTitleBarDragFallbackReleased(button: button)
+        markNativeTitleBarDragFallbackReleased(button: button, at: location)
         finishNativeTitleBarDragIfNeeded(button: button)
         if !isCapturedInteraction(button), shouldBlockOwnWindowInput(at: location) {
             cancelActiveMouseInteraction()
@@ -243,6 +243,7 @@ extension MouseEventHandler {
                 state.awaitsNativeTitleBarDragTarget = false
                 state.nativeTitleBarDragFallbackToken = nil
                 state.nativeTitleBarDragFallbackReleased = false
+                state.nativeCrossDisplayMove = nil
             }
             return
         }
@@ -250,11 +251,14 @@ extension MouseEventHandler {
         state.nativeTitleBarDragFallbackToken = nil
         state.nativeTitleBarDragFallbackReleased = false
         state.nativeTitleBarDrag = .init(token: entry.token)
+        if state.nativeCrossDisplayMove?.token != entry.token {
+            captureNativeCrossDisplayMove(for: entry.token)
+        }
         beginNativeTitleBarDragIfNeeded(button: .left)
     }
 
     func receiveTapMouseUp(at location: CGPoint, button: MouseButton = .left) {
-        markNativeTitleBarDragFallbackReleased(button: button)
+        markNativeTitleBarDragFallbackReleased(button: button, at: location)
         defer {
             if state.capturedInteractionButton == button {
                 state.capturedInteractionButton = nil

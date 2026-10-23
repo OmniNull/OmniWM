@@ -257,6 +257,29 @@ final class WorkspaceSwipePresentationTests: XCTestCase {
         XCTAssertFalse(swipe.hasPresentation)
     }
 
+    func testOnePastSwipeCreatesItsDestinationOnlyOnceRecognized() throws {
+        let (controller, swipe, monitor, _) = try fixture()
+        let manager = controller.workspaceManager
+        controller.settings.workspaces.configurations = ["1", "2"].map { WorkspaceConfiguration(name: $0) }
+        manager.applySettings()
+        let last = try XCTUnwrap(manager.workspaceId(for: "2", createIfMissing: true))
+        _ = WindowAdmissionTestSupport.track(
+            WindowToken(pid: 982_001, windowId: 982_002), in: last, controller: controller
+        )
+        XCTAssertTrue(manager.setActiveWorkspace(last, on: monitor.id))
+        controller.settings.gestures.workspaceSwipeEdgeBehavior = .onePast
+
+        _ = swipe.prepare(monitorId: monitor.id, timestamp: 1)
+        XCTAssertNil(swipe.preparation?.next)
+        XCTAssertNil(manager.workspaceId(named: "3"))
+
+        swipe.begin(axis: .horizontal, cumulative: -20, timestamp: 1.01)
+
+        let created = try XCTUnwrap(manager.workspaceId(named: "3"))
+        XCTAssertEqual(try XCTUnwrap(swipe.flight).destination.id, created)
+        swipe.cancel(reason: "test-complete")
+    }
+
     func testTouchDuringCommittingSettleLeavesTheSwitchRunning() throws {
         var mediaTime = 1.06
         let (controller, swipe, monitor, _) = try fixture(mediaTimeProvider: { mediaTime })

@@ -2,7 +2,7 @@
 
 OmniWM is a free, open-source, Developer ID-signed and Apple-notarized tiling window manager for Apple Silicon Macs running macOS 26 or later. It combines Niri-style orientation-aware scrolling containers and Hyprland-style Dwindle BSP layouts, selectable per workspace, with multi-monitor routing and optional local CLI/IPC automation.
 
-**[Website](https://omniwm.app)** · **[Documentation](https://omniwm.app/guides/quick-start/)** · **[Install](https://omniwm.app/guides/install/)** · **[Compatibility](https://omniwm.app/help/known-limitations/)**
+**[Website](https://omniwm.app)** · **[Documentation](https://omniwm.app/guides/quick-start/)** · **[Install](https://omniwm.app/guides/install/)** · **[Compatibility](https://omniwm.app/help/known-limitations/)** · **[Fluxer](https://fluxer.gg/EzdHp3aE)**
 
 <p align="center">
   <a href="https://omniwm.app">
@@ -1246,8 +1246,8 @@ Follow the [contributor quick start](CONTRIBUTING.md#quick-start) for Xcode requ
 - **[choru-k/OmniWM](https://github.com/choru-k/OmniWM)** is an interesting personal OmniWM fork experimenting with opt-in workflow layers on top of upstream OmniWM, including zone anchors for the Niri strip, a configurable F13-F20 leader-key chord menu, tabbed-column keyboard cycling, and trackpad-friendly modifier resizing. It is best read as a power-user workflow branch rather than a replacement for the main OmniWM release.
 
 ## Community
-
-Questions, setup help, and config sharing happen on the [OmniWM Discord](https://discord.gg/NFrJKNmmrT). Confirmed bugs still belong on GitHub — see [Reporting Bugs](#reporting-bugs). Community integrations and related forks are listed above and on the [Community & Support](https://omniwm.app/help/community/) page.
+ 
+Questions, setup help, and config sharing happen on the [OmniWM Fluxer](https://fluxer.gg/EzdHp3aE) and [OmniWM Discord](https://discord.gg/NFrJKNmmrT). Confirmed bugs still belong on GitHub — see [Reporting Bugs](#reporting-bugs). Community integrations and related forks are listed above and on the [Community & Support](https://omniwm.app/help/community/) page.
 
 ## Support
 

@@ -9,6 +9,7 @@ import XCTest
 
 @MainActor
 func until(
+    _ description: @autoclosure () -> String = "",
     timeout: Duration = .seconds(20),
     file: StaticString = #filePath,
     line: UInt = #line,
@@ -17,7 +18,12 @@ func until(
     let deadline = ContinuousClock.now + timeout
     while !condition() {
         guard ContinuousClock.now < deadline else {
-            XCTFail("The condition did not hold within \(timeout)", file: file, line: line)
+            let detail = description()
+            XCTFail(
+                "The condition did not hold within \(timeout)\(detail.isEmpty ? "" : ": \(detail)")",
+                file: file,
+                line: line
+            )
             return
         }
         await Task.yield()

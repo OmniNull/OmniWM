@@ -62,7 +62,7 @@ final class OverviewFocusSession {
         let handoff: PostCloseHandoff?
         if dismissReason.shouldRestorePreviousApplication
             || dismissReason == .selection && resolvedTargetWindow == nil,
-            let previousFrontmostApplicationPID
+           let previousFrontmostApplicationPID
         {
             handoff = .activateApplication(previousFrontmostApplicationPID)
         } else if dismissReason == .selection,

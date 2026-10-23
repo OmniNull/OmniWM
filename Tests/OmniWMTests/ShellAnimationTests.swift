@@ -124,6 +124,31 @@ final class ShellAnimationTests: XCTestCase {
         XCTAssertEqual(state.3, 1)
     }
 
+    func testABorderWidthWithoutABorderColorDrawsNoBorder() {
+        let container = CALayer()
+        let scene = ShellLayerScene(container: container, scale: 2)
+        scene.submit([
+            .insert(slot: 0, parent: -1, kind: .image, after: -1),
+            .frame(slot: 0, rect: CGRect(x: 0, y: 0, width: 20, height: 20), animation: nil),
+            .paint(
+                slot: 0,
+                ShellLayerPaint(
+                    fill: nil,
+                    border: nil,
+                    borderWidth: 1,
+                    radius: 4,
+                    opacity: 1,
+                    scale: 1,
+                    shadow: nil,
+                    shadowRadius: 0
+                ),
+                animation: nil
+            )
+        ], animated: false)
+        let border = ShellLayerScene.engineQueue.sync { container.sublayers?.first?.borderColor }
+        XCTAssertEqual(border?.alpha, 0)
+    }
+
     private func paint(
         rotation: CGFloat = 0,
         quarter: Bool = false,

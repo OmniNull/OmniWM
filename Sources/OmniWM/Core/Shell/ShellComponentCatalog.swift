@@ -368,6 +368,13 @@ enum ShellComponentCatalog {
         return result
     }
 
+    static func rootNetwork(_ node: TOMLNode?, place: String) throws -> [String] {
+        guard let node else { return [] }
+        guard case let .table(table) = node else { throw Failure("\(place) capabilities must be a table") }
+        try checkKeys(table, allowed: ["network"], place: place)
+        return try strings(table["network"], fallback: [], place: "\(place) network")
+    }
+
     private static func checkKeys(_ table: [String: TOMLNode], allowed: Set<String>, place: String) throws {
         if let key = table.keys.sorted().first(where: { !allowed.contains($0) }) {
             throw Failure("\(place): unknown key \(key)")

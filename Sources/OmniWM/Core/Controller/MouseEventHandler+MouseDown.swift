@@ -90,6 +90,7 @@ extension MouseEventHandler {
         let focusIntentToken = exactToken ?? (windowIdUnderPointer == nil
             ? geometricFocusIntentCandidate(at: location, workspaceId: wsId)
             : nil)
+        captureNativeCrossDisplayMove(for: focusIntentToken)
         if let token = focusIntentToken {
             controller.axEventHandler.noteMouseFocusIntent(token: token)
         } else {
@@ -112,14 +113,14 @@ extension MouseEventHandler {
         guard let controller, let engine = controller.dwindleEngine else { return false }
         if button == .left {
             guard Self.mouseMoveModifiersMatch(
-                modifiers,
-                required: controller.settings.gestures.mouseMoveModifierKey.cgEventFlags
-            ),
-                let token = engine.hitTestFocusableWindow(
-                    point: location,
-                    in: wsId,
-                    at: controller.animationClock.now()
-                )
+                      modifiers,
+                      required: controller.settings.gestures.mouseMoveModifierKey.cgEventFlags
+                  ),
+                  let token = engine.hitTestFocusableWindow(
+                      point: location,
+                      in: wsId,
+                      at: controller.animationClock.now()
+                  )
             else { return false }
             _ = beginDwindleMove(
                 token: token, engine: engine, wsId: wsId, at: location,

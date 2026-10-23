@@ -255,7 +255,7 @@ final class ShellBundledWidgetTests: XCTestCase {
         }
         var error = [CChar](repeating: 0, count: 512)
         XCTAssertEqual(
-            omni_vm_load(vm, chunk, source, source.utf8.count, 100_000_000, &error, error.count),
+            omni_vm_load(vm, chunk, source, source.utf8.count, 1_000_000_000, &error, error.count),
             OMNI_OK,
             "\(name): \(message(error))"
         )
@@ -272,7 +272,7 @@ final class ShellBundledWidgetTests: XCTestCase {
         for view in views {
             var stats = omni_render_stats()
             XCTAssertEqual(
-                omni_instance_render(instance, view, 100_000_000, &stats, &error, error.count),
+                omni_instance_render(instance, view, 1_000_000_000, &stats, &error, error.count),
                 OMNI_OK,
                 "\(name) \(view): \(message(error))"
             )

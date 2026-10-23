@@ -5,9 +5,9 @@ sidebar:
   order: 2
 ---
 
-## Discord
+## Community chat
 
-Join the [OmniWM Discord](https://discord.gg/yzkXFKPYhR) for setup help, configuration questions, and sharing your setup. Confirmed bugs still belong on GitHub — see [Reporting bugs](#reporting-bugs).
+Join the [OmniWM Fluxer](https://fluxer.gg/EzdHp3aE) or [OmniWM Discord](https://discord.gg/yzkXFKPYhR) for setup help, configuration questions, and sharing your setup. Confirmed bugs still belong on GitHub — see [Reporting bugs](#reporting-bugs).
 
 ## Community integrations
 

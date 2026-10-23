@@ -51,7 +51,7 @@ extension LayoutRefreshController {
         let hiddenState = entry.hiddenState
         let nativeFullscreenOriginalToken: WindowToken? = if layoutReason == .nativeFullscreen,
                                                              let record = controller.workspaceManager
-                                                             .nativeFullscreenRecord(for: entry.token),
+                                                                 .nativeFullscreenRecord(for: entry.token),
                                                              record.currentToken == entry.token
         {
             record.originalToken

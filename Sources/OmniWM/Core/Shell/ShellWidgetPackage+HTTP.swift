@@ -9,9 +9,10 @@ extension ShellHTTPRequest {
         guard let fields = try ShellServiceValue.decode(bytes, byteLimit: (4 << 20) + (128 << 10)).fields,
               let url = fields["url"]?.string,
               fields.keys
-              .allSatisfy({
-                  ["url", "method", "headers", "body", "bodyResource", "response", "maxBytes", "timeout"].contains($0)
-              })
+                  .allSatisfy({
+                      ["url", "method", "headers", "body", "bodyResource", "response", "maxBytes", "timeout"]
+                          .contains($0)
+                  })
         else { throw ShellHTTPFailure("invalid_request") }
         self.init(url: url)
         if let value = fields["method"] {
@@ -72,7 +73,7 @@ extension ShellWidgetPackage {
             else { throw ShellHTTPFailure("configuration_failed") }
             let request = try ShellHTTPRequest(bytes: value)
             let policy: ShellHTTPPolicy
-            if id.owner.owner == 0 { policy = .unrestricted }
+            if id.owner.owner == 0 { policy = .hosts(rootNetwork) }
             else if let component, !component.isEmpty {
                 policy = .resolve(
                     component: component,

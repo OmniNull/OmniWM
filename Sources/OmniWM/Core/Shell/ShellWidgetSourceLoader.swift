@@ -78,6 +78,8 @@ actor ShellWidgetSourceLoader {
         source.assetPackages = Dictionary(uniqueKeysWithValues: descriptors.map { ($0.widget, $0.folder) })
         source.assetPackages[input.name] = input.sourceURL.deletingLastPathComponent()
         source.profile = input.profile
+        source.network = (try? ShellRootSettings.load(input.name, folder: input.sourceURL.deletingLastPathComponent()))?
+            .network ?? []
         return source
     }
 
@@ -123,6 +125,10 @@ actor ShellWidgetSourceLoader {
         var result: [String: SettingsFileAccess.Fingerprint] = [:]
         for file in packageFiles(input, components: components) {
             result[file.path] = SettingsFileAccess.currentFingerprint(at: file.url)
+        }
+        if input.contained {
+            let url = input.sourceURL.deletingLastPathComponent().appendingPathComponent("settings.toml")
+            result[url.path] = SettingsFileAccess.currentFingerprint(at: url)
         }
         if let instances = input.components {
             let names = Set(instances.map(\.widget) + components.map(\.widget))

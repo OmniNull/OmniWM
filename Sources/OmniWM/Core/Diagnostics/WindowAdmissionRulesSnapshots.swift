@@ -49,9 +49,9 @@ struct WindowAdmissionRulesSnapshots {
         var storedBytes = rulesSnapshots.values.reduce(0) { $0 + $1.estimatedBytes }
         while storedBytes > RuntimeTraceLimits.cumulativeRulesSnapshotBytes {
             guard let oldestRevision = rulesSnapshotStorageOrder.first(where: {
-                rulesSnapshots[$0] != nil
-            }),
-                let removed = rulesSnapshots.removeValue(forKey: oldestRevision)
+                      rulesSnapshots[$0] != nil
+                  }),
+                  let removed = rulesSnapshots.removeValue(forKey: oldestRevision)
             else { return }
             storedBytes -= removed.estimatedBytes
             rulesSnapshotStorageOrder.removeAll { $0 == oldestRevision }

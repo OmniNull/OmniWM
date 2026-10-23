@@ -739,14 +739,14 @@ final class EventIntakeReplayTests: XCTestCase {
             IPCCommandIntake(
                 perform: { controller in
                     guard controller.workspaceManager.rekeyWindow(
-                        from: originalToken,
-                        to: replacementToken,
-                        newAXRef: WindowAdmissionTestSupport.axRef(for: replacementToken)
-                    ) != nil,
-                        controller.workspaceManager.markNativeFullscreenSuspended(
-                            replacementToken,
-                            ownsNativeFocus: false
-                        )
+                              from: originalToken,
+                              to: replacementToken,
+                              newAXRef: WindowAdmissionTestSupport.axRef(for: replacementToken)
+                          ) != nil,
+                          controller.workspaceManager.markNativeFullscreenSuspended(
+                              replacementToken,
+                              ownsNativeFocus: false
+                          )
                     else {
                         return .notFound
                     }

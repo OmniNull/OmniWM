@@ -202,6 +202,25 @@ final class ShellWidgetSourceLoaderTests: XCTestCase {
         )
     }
 
+    func testRootNetworkComesOnlyFromTheSettingsBesideTheEffectiveSource() throws {
+        let shell = temporaryShell()
+        defer { try? FileManager.default.removeItem(at: shell.deletingLastPathComponent()) }
+        try write("root", shell, "look/widgets/lake/init.luau")
+        try write("capabilities = { network = [\"inherited.example\"] }", shell, "default/widgets/lake/settings.toml")
+        XCTAssertEqual(try ShellWidgetSourceLoader.build(input(shell)).network, [])
+        try write("capabilities = { network = [\"API.example\"] }", shell, "look/widgets/lake/settings.toml")
+        XCTAssertEqual(try ShellWidgetSourceLoader.build(input(shell)).network, ["API.example"])
+        let settings = shell.appendingPathComponent("look/widgets/lake/settings.toml").path
+        XCTAssertNotNil(ShellWidgetSourceLoader.fingerprint(input(shell))[settings])
+        try write(
+            "capabilities = { network = [\"api.example\"], files = true }",
+            shell,
+            "look/widgets/lake/settings.toml"
+        )
+        XCTAssertThrowsError(try ShellRootSettings.load("lake", directories: [shell.appendingPathComponent("look")]))
+        XCTAssertEqual(try ShellWidgetSourceLoader.build(input(shell)).network, [])
+    }
+
     private func temporaryShell() -> URL {
         FileManager.default.temporaryDirectory.appendingPathComponent(UUID().uuidString).appendingPathComponent("shell")
     }

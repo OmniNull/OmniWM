@@ -56,14 +56,14 @@ extension IPCCommandRouter {
         }
 
         guard let workspaceId = controller.workspaceManager.workspaceId(
-            for: rawWorkspaceID,
-            createIfMissing: false
-        ),
-            let outcome = controller.workspaceNavigationHandler.moveWorkspaceToMonitor(
-                workspaceId,
-                direction: direction,
-                force: force
-            )
+                  for: rawWorkspaceID,
+                  createIfMissing: false
+              ),
+              let outcome = controller.workspaceNavigationHandler.moveWorkspaceToMonitor(
+                  workspaceId,
+                  direction: direction,
+                  force: force
+              )
         else {
             return .notFound
         }

@@ -1,0 +1,19 @@
+name: Set up Swift
+description: Restore the cached pinned Swift toolchain, or install it from scratch when the cache did not restore cleanly.
+runs:
+  using: composite
+  steps:
+    - uses: actions/cache@55cc8345863c7cc4c66a329aec7e433d2d1c52a9
+      id: toolchain-cache
+      with:
+        path: |
+          ~/.swiftly
+          ~/Library/Developer/Toolchains
+        key: swift-toolchain-${{ runner.os }}-${{ runner.arch }}-${{ hashFiles('.swift-version') }}
+    - name: Discard a partly restored toolchain
+      if: steps.toolchain-cache.outputs.cache-hit != 'true'
+      shell: bash
+      run: rm -rf ~/.swiftly ~/Library/Developer/Toolchains
+    - name: Install the pinned Swift toolchain
+      shell: bash
+      run: ./Scripts/swift-toolchain.sh

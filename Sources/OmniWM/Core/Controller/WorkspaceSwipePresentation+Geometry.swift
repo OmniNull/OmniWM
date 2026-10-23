@@ -42,16 +42,12 @@ extension WorkspaceSwipePresentation {
               ?? controller.workspaceManager.activeWorkspaceOrFirst(on: monitorId),
               let source = chainedSource ?? makeWorkspace(current.id, monitor: monitor, active: true)
         else { return nil }
-        let wm = controller.workspaceManager
-        let skipEmpty = controller.workspaceNavigationHandler.skipsEmptyWorkspaces(on: monitorId)
-        let previous = wm.previousWorkspaceInOrder(
-            on: monitorId,
-            from: current.id,
-            wrapAround: true,
-            skipEmpty: skipEmpty
+        let navigation = controller.workspaceNavigationHandler
+        let previous = navigation.swipeTargetWorkspace(
+            isNext: false, from: current.id, on: monitorId, createIfNeeded: false
         )
         .flatMap { makeWorkspace($0.id, monitor: monitor, active: false) }
-        let next = wm.nextWorkspaceInOrder(on: monitorId, from: current.id, wrapAround: true, skipEmpty: skipEmpty)
+        let next = navigation.swipeTargetWorkspace(isNext: true, from: current.id, on: monitorId, createIfNeeded: false)
             .flatMap { makeWorkspace($0.id, monitor: monitor, active: false) }
         return Preparation(
             monitor: monitor,
@@ -62,7 +58,7 @@ extension WorkspaceSwipePresentation {
         )
     }
 
-    private func makeWorkspace(_ id: WorkspaceDescriptor.ID, monitor: Monitor, active: Bool) -> Workspace? {
+    func makeWorkspace(_ id: WorkspaceDescriptor.ID, monitor: Monitor, active: Bool) -> Workspace? {
         guard let controller, let refreshController else { return nil }
         let entries = controller.workspaceManager.entries(in: id).filter {
             !controller.workspaceManager.isWindowSuppressedByMacOS($0.token)

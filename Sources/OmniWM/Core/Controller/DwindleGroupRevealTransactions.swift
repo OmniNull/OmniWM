@@ -103,16 +103,16 @@ final class DwindleGroupRevealTransactions {
         transactionId: UInt64
     ) {
         guard let transactionKey = pendingGroupRevealTransactionKey(
-            for: result.windowId,
-            transactionId: transactionId
-        ),
-            let transaction = pendingGroupRevealTransactionsByWindowId.removeValue(
-                forKey: transactionKey
-            ),
-            transaction.targetFrame.approximatelyEqual(
-                to: result.targetFrame,
-                tolerance: FrameTolerance.frameWrite
-            )
+                  for: result.windowId,
+                  transactionId: transactionId
+              ),
+              let transaction = pendingGroupRevealTransactionsByWindowId.removeValue(
+                  forKey: transactionKey
+              ),
+              transaction.targetFrame.approximatelyEqual(
+                  to: result.targetFrame,
+                  tolerance: FrameTolerance.frameWrite
+              )
         else {
             return
         }

@@ -408,10 +408,10 @@ extension NiriLayoutEngine {
         guard settings.centerFocusedColumn != .always else { return false }
 
         guard singleWindowLayoutContext(
-            in: context.workspaceId,
-            excluding: projectionExclusions(in: context.workspaceId)
-        ) == nil,
-            let sourceMonitor = monitorForWorkspace(context.workspaceId)
+                  in: context.workspaceId,
+                  excluding: projectionExclusions(in: context.workspaceId)
+              ) == nil,
+              let sourceMonitor = monitorForWorkspace(context.workspaceId)
         else {
             return false
         }

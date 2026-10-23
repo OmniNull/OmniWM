@@ -99,6 +99,7 @@ ui.text{ text = ctx.format.bytes(ctx.data.system and ctx.data.system.memory.used
 | `spectrum` | 60 bars of what the Mac is playing, from 50 Hz to 10 kHz, and its tempo, about four times a second; needs System Audio Recording, like per-app volume |
 | `tempo` | Just the `spectrum` tempo in beats per minute, which changes far less often than the bars |
 | `calendar` | Upcoming events and a month to draw |
+| `notifications` | Retained notifications, app metadata, loading/error state, and native action status |
 | `reminders` | Access state, incomplete reminders, total count and read/action errors |
 | `badges` | Dock badge labels keyed by lowercase bundle ID for apps with managed windows; available to bars, islands and popouts |
 | `weather` | Current conditions with humidity, sunrise and sunset, 24 hours and 7 days |
@@ -215,6 +216,16 @@ Read access before rendering protected contents. Timestamps are Unix seconds. Ca
 <LuauDeclaration name="Reminders" />
 
 <LuauDeclaration name="Reminder" />
+
+## Notification snapshots
+
+<LuauDeclaration name="Notifications" />
+
+<LuauDeclaration name="NotificationItem" />
+
+<LuauDeclaration name="NotificationAttachment" />
+
+<LuauDeclaration name="NotificationAction" />
 
 ## Weather and system snapshots
 

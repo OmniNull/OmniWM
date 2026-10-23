@@ -78,7 +78,7 @@ extension ShellProvider {
         guard let executable = configuration.command.first, !executable.isEmpty,
               !executable.hasPrefix("/"), !executable.hasPrefix("~"), !executable.contains("\0"),
               !executable.split(separator: "/", omittingEmptySubsequences: false)
-              .contains(where: { $0.isEmpty || $0 == "." || $0 == ".." }),
+                  .contains(where: { $0.isEmpty || $0 == "." || $0 == ".." }),
               configuration.command.allSatisfy({ !$0.contains("\0") }),
               configuration.options.count <= 256 * 1024,
               let options = String(data: configuration.options, encoding: .utf8)

@@ -81,9 +81,9 @@ extension NiriLayoutHandler {
             )
             recovered = true
         } else if let firstEntry = controller.workspaceManager.tiledEntries(in: wsId).first(where: {
-            !controller.isManagedWindowSuppressedByMacOS($0.token)
-        }),
-            let firstNode = engine.findNode(for: firstEntry.token, in: wsId)
+                      !controller.isManagedWindowSuppressedByMacOS($0.token)
+                  }),
+                  let firstNode = engine.findNode(for: firstEntry.token, in: wsId)
         {
             activateNode(
                 firstNode, in: wsId, state: &state,

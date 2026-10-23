@@ -115,11 +115,11 @@ extension WorkspaceManager {
 
     func rememberedTiledFocusToken(in workspaceId: WorkspaceDescriptor.ID) -> WindowToken? {
         if let pendingToken = eligibleFocusCandidate(
-            focusSessionSnapshot.pendingManagedFocus.token,
-            in: workspaceId,
-            mode: .tiling
-        ),
-            focusSessionSnapshot.pendingManagedFocus.workspaceId == workspaceId
+               focusSessionSnapshot.pendingManagedFocus.token,
+               in: workspaceId,
+               mode: .tiling
+           ),
+           focusSessionSnapshot.pendingManagedFocus.workspaceId == workspaceId
         {
             return pendingToken
         }

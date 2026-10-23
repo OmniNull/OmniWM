@@ -136,7 +136,18 @@ max = 640
 step = 20
 ```
 
-The option types and validation rules are the same as component options. The host publishes effective values in `ctx.data.settings` and schema metadata in `ctx.data.settingsSchema`; they update together on configuration or source changes. A missing root schema means there are no declared root settings to write. A replacement profile can render these controls however it chooses while retaining the same component integrations and configuration APIs. Native Settings still provides the Island toggle, profile selection and shell folder access if a custom root cannot render.
+The option types and validation rules are the same as component options. The host publishes effective values in `ctx.data.settings` and schema metadata in `ctx.data.settingsSchema`; they update together on configuration or source changes. A missing root schema means there are no declared root settings to write. Besides `[options.*]`, the file may hold one more top-level key listing the exact hosts the root's own `omniwm.http` calls may reach (see [Services](/omnishell/reference/services/)). Put it above the first `[options.*]` table, since TOML would otherwise read it as part of that option:
+
+```toml
+capabilities = { network = ["api.github.com"] }
+
+[options.hoverPreview]
+type = "boolean"
+title = "Hover preview"
+default = true
+```
+
+A replacement profile can render these controls however it chooses while retaining the same component integrations and configuration APIs. Native Settings still provides the Island toggle, profile selection and shell folder access if a custom root cannot render.
 
 A component view receives `ctx.view.name`, explicit parent size offers `ctx.view.w/h`, and value-only `ctx.view.props` (acyclic, depth at most 64, encoded size at most 64 KiB). Invalid props and ordinary component errors fail that component boundary.
 

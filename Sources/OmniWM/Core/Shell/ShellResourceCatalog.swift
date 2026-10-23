@@ -146,8 +146,8 @@ final class ShellResourceCatalog: Sendable {
         let update = { self.state.withLock { state -> (Bool, (@Sendable (ShellServiceOwner) -> Void)?) in
             guard state.owners[owner]?.active == true, !updates.isEmpty,
                   updates
-                  .allSatisfy({
-                      state.resources[$0.0]?.owner == owner && state.resources[$0.0]?.metadata.state == .pending })
+                      .allSatisfy({
+                          state.resources[$0.0]?.owner == owner && state.resources[$0.0]?.metadata.state == .pending })
             else { return (false, nil) }
             for (id, size) in updates {
                 state.resources[id]?.metadata.state = .ready

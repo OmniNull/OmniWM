@@ -1,6 +1,626 @@
 {
   "sourceLanguage" : "en",
   "strings" : {
+    "At the ends" : {
+      "localizations" : {
+        "ar" : {
+          "stringUnit" : {
+            "state" : "translated",
+            "value" : "عند الأطراف"
+          }
+        },
+        "da" : {
+          "stringUnit" : {
+            "state" : "translated",
+            "value" : "Ved enderne"
+          }
+        },
+        "de" : {
+          "stringUnit" : {
+            "state" : "translated",
+            "value" : "An den Enden"
+          }
+        },
+        "el" : {
+          "stringUnit" : {
+            "state" : "translated",
+            "value" : "Στα άκρα"
+          }
+        },
+        "es" : {
+          "stringUnit" : {
+            "state" : "translated",
+            "value" : "En los extremos"
+          }
+        },
+        "fi" : {
+          "stringUnit" : {
+            "state" : "translated",
+            "value" : "Päissä"
+          }
+        },
+        "fr" : {
+          "stringUnit" : {
+            "state" : "translated",
+            "value" : "Aux extrémités"
+          }
+        },
+        "he" : {
+          "stringUnit" : {
+            "state" : "translated",
+            "value" : "בקצוות"
+          }
+        },
+        "hi" : {
+          "stringUnit" : {
+            "state" : "translated",
+            "value" : "छोरों पर"
+          }
+        },
+        "it" : {
+          "stringUnit" : {
+            "state" : "translated",
+            "value" : "Alle estremità"
+          }
+        },
+        "ja" : {
+          "stringUnit" : {
+            "state" : "translated",
+            "value" : "両端で"
+          }
+        },
+        "ko" : {
+          "stringUnit" : {
+            "state" : "translated",
+            "value" : "양 끝에서"
+          }
+        },
+        "nb" : {
+          "stringUnit" : {
+            "state" : "translated",
+            "value" : "Ved endene"
+          }
+        },
+        "nl" : {
+          "stringUnit" : {
+            "state" : "translated",
+            "value" : "Aan de uiteinden"
+          }
+        },
+        "pl" : {
+          "stringUnit" : {
+            "state" : "translated",
+            "value" : "Na końcach"
+          }
+        },
+        "ru" : {
+          "stringUnit" : {
+            "state" : "translated",
+            "value" : "На краях"
+          }
+        },
+        "sr-Latn" : {
+          "stringUnit" : {
+            "state" : "translated",
+            "value" : "Na krajevima"
+          }
+        },
+        "sv" : {
+          "stringUnit" : {
+            "state" : "translated",
+            "value" : "Vid ändarna"
+          }
+        },
+        "uk" : {
+          "stringUnit" : {
+            "state" : "translated",
+            "value" : "На краях"
+          }
+        },
+        "zh-Hans" : {
+          "stringUnit" : {
+            "state" : "translated",
+            "value" : "在两端"
+          }
+        }
+      }
+    },
+    "Open One Empty Workspace" : {
+      "localizations" : {
+        "ar" : {
+          "stringUnit" : {
+            "state" : "translated",
+            "value" : "فتح مساحة عمل فارغة واحدة"
+          }
+        },
+        "da" : {
+          "stringUnit" : {
+            "state" : "translated",
+            "value" : "Åbn ét tomt arbejdsområde"
+          }
+        },
+        "de" : {
+          "stringUnit" : {
+            "state" : "translated",
+            "value" : "Einen leeren Arbeitsbereich öffnen"
+          }
+        },
+        "el" : {
+          "stringUnit" : {
+            "state" : "translated",
+            "value" : "Άνοιγμα ενός κενού χώρου εργασίας"
+          }
+        },
+        "es" : {
+          "stringUnit" : {
+            "state" : "translated",
+            "value" : "Abrir un espacio de trabajo vacío"
+          }
+        },
+        "fi" : {
+          "stringUnit" : {
+            "state" : "translated",
+            "value" : "Avaa yksi tyhjä työtila"
+          }
+        },
+        "fr" : {
+          "stringUnit" : {
+            "state" : "translated",
+            "value" : "Ouvrir un espace de travail vide"
+          }
+        },
+        "he" : {
+          "stringUnit" : {
+            "state" : "translated",
+            "value" : "פתיחת מרחב עבודה ריק אחד"
+          }
+        },
+        "hi" : {
+          "stringUnit" : {
+            "state" : "translated",
+            "value" : "एक खाली कार्यस्थल खोलें"
+          }
+        },
+        "it" : {
+          "stringUnit" : {
+            "state" : "translated",
+            "value" : "Apri uno spazio di lavoro vuoto"
+          }
+        },
+        "ja" : {
+          "stringUnit" : {
+            "state" : "translated",
+            "value" : "空のワークスペースを1つ開く"
+          }
+        },
+        "ko" : {
+          "stringUnit" : {
+            "state" : "translated",
+            "value" : "빈 작업 공간 하나 열기"
+          }
+        },
+        "nb" : {
+          "stringUnit" : {
+            "state" : "translated",
+            "value" : "Åpne ett tomt arbeidsområde"
+          }
+        },
+        "nl" : {
+          "stringUnit" : {
+            "state" : "translated",
+            "value" : "Eén lege werkruimte openen"
+          }
+        },
+        "pl" : {
+          "stringUnit" : {
+            "state" : "translated",
+            "value" : "Otwórz jedną pustą przestrzeń roboczą"
+          }
+        },
+        "ru" : {
+          "stringUnit" : {
+            "state" : "translated",
+            "value" : "Открыть одно пустое рабочее пространство"
+          }
+        },
+        "sr-Latn" : {
+          "stringUnit" : {
+            "state" : "translated",
+            "value" : "Otvori jedan prazan radni prostor"
+          }
+        },
+        "sv" : {
+          "stringUnit" : {
+            "state" : "translated",
+            "value" : "Öppna en tom arbetsyta"
+          }
+        },
+        "uk" : {
+          "stringUnit" : {
+            "state" : "translated",
+            "value" : "Відкрити один порожній робочий простір"
+          }
+        },
+        "zh-Hans" : {
+          "stringUnit" : {
+            "state" : "translated",
+            "value" : "打开一个空工作区"
+          }
+        }
+      }
+    },
+    "Stop" : {
+      "localizations" : {
+        "ar" : {
+          "stringUnit" : {
+            "state" : "translated",
+            "value" : "توقف"
+          }
+        },
+        "da" : {
+          "stringUnit" : {
+            "state" : "translated",
+            "value" : "Stop"
+          }
+        },
+        "de" : {
+          "stringUnit" : {
+            "state" : "translated",
+            "value" : "Anhalten"
+          }
+        },
+        "el" : {
+          "stringUnit" : {
+            "state" : "translated",
+            "value" : "Σταμάτημα"
+          }
+        },
+        "es" : {
+          "stringUnit" : {
+            "state" : "translated",
+            "value" : "Detener"
+          }
+        },
+        "fi" : {
+          "stringUnit" : {
+            "state" : "translated",
+            "value" : "Pysähdy"
+          }
+        },
+        "fr" : {
+          "stringUnit" : {
+            "state" : "translated",
+            "value" : "S’arrêter"
+          }
+        },
+        "he" : {
+          "stringUnit" : {
+            "state" : "translated",
+            "value" : "עצירה"
+          }
+        },
+        "hi" : {
+          "stringUnit" : {
+            "state" : "translated",
+            "value" : "रुकें"
+          }
+        },
+        "it" : {
+          "stringUnit" : {
+            "state" : "translated",
+            "value" : "Fermarsi"
+          }
+        },
+        "ja" : {
+          "stringUnit" : {
+            "state" : "translated",
+            "value" : "停止"
+          }
+        },
+        "ko" : {
+          "stringUnit" : {
+            "state" : "translated",
+            "value" : "멈춤"
+          }
+        },
+        "nb" : {
+          "stringUnit" : {
+            "state" : "translated",
+            "value" : "Stopp"
+          }
+        },
+        "nl" : {
+          "stringUnit" : {
+            "state" : "translated",
+            "value" : "Stoppen"
+          }
+        },
+        "pl" : {
+          "stringUnit" : {
+            "state" : "translated",
+            "value" : "Zatrzymaj"
+          }
+        },
+        "ru" : {
+          "stringUnit" : {
+            "state" : "translated",
+            "value" : "Останавливаться"
+          }
+        },
+        "sr-Latn" : {
+          "stringUnit" : {
+            "state" : "translated",
+            "value" : "Zaustavi"
+          }
+        },
+        "sv" : {
+          "stringUnit" : {
+            "state" : "translated",
+            "value" : "Stanna"
+          }
+        },
+        "uk" : {
+          "stringUnit" : {
+            "state" : "translated",
+            "value" : "Зупинятися"
+          }
+        },
+        "zh-Hans" : {
+          "stringUnit" : {
+            "state" : "translated",
+            "value" : "停止"
+          }
+        }
+      }
+    },
+    "Wrap Around" : {
+      "localizations" : {
+        "ar" : {
+          "stringUnit" : {
+            "state" : "translated",
+            "value" : "الالتفاف"
+          }
+        },
+        "da" : {
+          "stringUnit" : {
+            "state" : "translated",
+            "value" : "Start forfra"
+          }
+        },
+        "de" : {
+          "stringUnit" : {
+            "state" : "translated",
+            "value" : "Umlaufend"
+          }
+        },
+        "el" : {
+          "stringUnit" : {
+            "state" : "translated",
+            "value" : "Κυκλικά"
+          }
+        },
+        "es" : {
+          "stringUnit" : {
+            "state" : "translated",
+            "value" : "Dar la vuelta"
+          }
+        },
+        "fi" : {
+          "stringUnit" : {
+            "state" : "translated",
+            "value" : "Kierrä alkuun"
+          }
+        },
+        "fr" : {
+          "stringUnit" : {
+            "state" : "translated",
+            "value" : "Boucler"
+          }
+        },
+        "he" : {
+          "stringUnit" : {
+            "state" : "translated",
+            "value" : "מעבר מעגלי"
+          }
+        },
+        "hi" : {
+          "stringUnit" : {
+            "state" : "translated",
+            "value" : "घुमाकर शुरू से"
+          }
+        },
+        "it" : {
+          "stringUnit" : {
+            "state" : "translated",
+            "value" : "Ciclico"
+          }
+        },
+        "ja" : {
+          "stringUnit" : {
+            "state" : "translated",
+            "value" : "ループ"
+          }
+        },
+        "ko" : {
+          "stringUnit" : {
+            "state" : "translated",
+            "value" : "순환"
+          }
+        },
+        "nb" : {
+          "stringUnit" : {
+            "state" : "translated",
+            "value" : "Gå i ring"
+          }
+        },
+        "nl" : {
+          "stringUnit" : {
+            "state" : "translated",
+            "value" : "Rondgaan"
+          }
+        },
+        "pl" : {
+          "stringUnit" : {
+            "state" : "translated",
+            "value" : "Zawijaj"
+          }
+        },
+        "ru" : {
+          "stringUnit" : {
+            "state" : "translated",
+            "value" : "По кругу"
+          }
+        },
+        "sr-Latn" : {
+          "stringUnit" : {
+            "state" : "translated",
+            "value" : "U krug"
+          }
+        },
+        "sv" : {
+          "stringUnit" : {
+            "state" : "translated",
+            "value" : "Börja om"
+          }
+        },
+        "uk" : {
+          "stringUnit" : {
+            "state" : "translated",
+            "value" : "По колу"
+          }
+        },
+        "zh-Hans" : {
+          "stringUnit" : {
+            "state" : "translated",
+            "value" : "循环"
+          }
+        }
+      }
+    },
+    "Wrap Around moves between the last and first workspace. Stop ignores swipes past either end. Open One Empty Workspace moves from the last occupied workspace to an empty one, creating it if needed, and ignores swipes past an empty last workspace or before the first." : {
+      "localizations" : {
+        "ar" : {
+          "stringUnit" : {
+            "state" : "translated",
+            "value" : "ينتقل «الالتفاف» بين مساحة العمل الأخيرة والأولى. يتجاهل «توقف» التمرير بعد أيٍّ من الطرفين. ينتقل «فتح مساحة عمل فارغة واحدة» من آخر مساحة عمل مشغولة إلى مساحة فارغة، وينشئها عند الحاجة، ويتجاهل التمرير بعد مساحة عمل أخيرة فارغة أو قبل الأولى."
+          }
+        },
+        "da" : {
+          "stringUnit" : {
+            "state" : "translated",
+            "value" : "“Start forfra” skifter mellem det sidste og det første arbejdsområde. “Stop” ignorerer swipes forbi en af enderne. “Åbn ét tomt arbejdsområde” går fra det sidste optagne arbejdsområde til et tomt og opretter det om nødvendigt, og ignorerer swipes forbi et tomt sidste arbejdsområde eller før det første."
+          }
+        },
+        "de" : {
+          "stringUnit" : {
+            "state" : "translated",
+            "value" : "„Umlaufend“ wechselt zwischen dem letzten und dem ersten Arbeitsbereich. „Anhalten“ ignoriert Wischbewegungen über eines der Enden hinaus. „Einen leeren Arbeitsbereich öffnen“ wechselt vom letzten belegten Arbeitsbereich zu einem leeren und erstellt ihn bei Bedarf. Wischbewegungen über einen leeren letzten Arbeitsbereich hinaus oder vor den ersten werden ignoriert."
+          }
+        },
+        "el" : {
+          "stringUnit" : {
+            "state" : "translated",
+            "value" : "Το «Κυκλικά» μετακινεί μεταξύ του τελευταίου και του πρώτου χώρου εργασίας. Το «Σταμάτημα» αγνοεί τις σαρώσεις πέρα από οποιοδήποτε άκρο. Το «Άνοιγμα ενός κενού χώρου εργασίας» μετακινεί από τον τελευταίο κατειλημμένο χώρο εργασίας σε έναν κενό, δημιουργώντας τον αν χρειάζεται, και αγνοεί τις σαρώσεις πέρα από έναν κενό τελευταίο χώρο εργασίας ή πριν από τον πρώτο."
+          }
+        },
+        "es" : {
+          "stringUnit" : {
+            "state" : "translated",
+            "value" : "«Dar la vuelta» pasa entre el último y el primer espacio de trabajo. «Detener» ignora los deslizamientos más allá de cualquiera de los extremos. «Abrir un espacio de trabajo vacío» pasa del último espacio de trabajo ocupado a uno vacío, creándolo si hace falta, e ignora los deslizamientos más allá de un último espacio vacío o antes del primero."
+          }
+        },
+        "fi" : {
+          "stringUnit" : {
+            "state" : "translated",
+            "value" : "”Kierrä alkuun” siirtyy viimeisen ja ensimmäisen työtilan välillä. ”Pysähdy” ohittaa pyyhkäisyt kummankin pään yli. ”Avaa yksi tyhjä työtila” siirtyy viimeisestä käytössä olevasta työtilasta tyhjään ja luo sen tarvittaessa, ja ohittaa pyyhkäisyt tyhjän viimeisen työtilan yli tai ensimmäisen eteen."
+          }
+        },
+        "fr" : {
+          "stringUnit" : {
+            "state" : "translated",
+            "value" : "« Boucler » permet de passer du dernier au premier espace de travail et inversement. « S’arrêter » ignore les balayages au-delà de l’une ou l’autre extrémité. « Ouvrir un espace de travail vide » passe du dernier espace de travail occupé à un espace vide, en le créant si nécessaire, et ignore les balayages au-delà d’un dernier espace vide ou avant le premier."
+          }
+        },
+        "he" : {
+          "stringUnit" : {
+            "state" : "translated",
+            "value" : "„מעבר מעגלי” עובר בין מרחב העבודה האחרון לראשון. „עצירה” מתעלמת מהחלקות מעבר לאחד הקצוות. „פתיחת מרחב עבודה ריק אחד” עוברת ממרחב העבודה התפוס האחרון למרחב ריק, יוצרת אותו בעת הצורך, ומתעלמת מהחלקות מעבר למרחב עבודה אחרון ריק או לפני הראשון."
+          }
+        },
+        "hi" : {
+          "stringUnit" : {
+            "state" : "translated",
+            "value" : "“घुमाकर शुरू से” अंतिम और पहले कार्यस्थल के बीच ले जाता है। “रुकें” किसी भी छोर से आगे के स्वाइप को अनदेखा करता है। “एक खाली कार्यस्थल खोलें” अंतिम भरे हुए कार्यस्थल से एक खाली कार्यस्थल पर ले जाता है, ज़रूरत पड़ने पर उसे बनाता है, और खाली अंतिम कार्यस्थल से आगे या पहले से पहले के स्वाइप को अनदेखा करता है।"
+          }
+        },
+        "it" : {
+          "stringUnit" : {
+            "state" : "translated",
+            "value" : "«Ciclico» consente di passare dall’ultimo al primo spazio di lavoro e viceversa. «Fermarsi» ignora gli scorrimenti oltre le estremità. «Apri uno spazio di lavoro vuoto» passa dall’ultimo spazio di lavoro occupato a uno vuoto, creandolo se serve, e ignora gli scorrimenti oltre un ultimo spazio vuoto o prima del primo."
+          }
+        },
+        "ja" : {
+          "stringUnit" : {
+            "state" : "translated",
+            "value" : "「ループ」は最後と最初のワークスペースの間を移動します。「停止」は両端を越えるスワイプを無視します。「空のワークスペースを1つ開く」は、最後の使用中のワークスペースから空のワークスペースへ移動し、必要に応じて作成します。空の最後のワークスペースより先、または最初より前へのスワイプは無視します。"
+          }
+        },
+        "ko" : {
+          "stringUnit" : {
+            "state" : "translated",
+            "value" : "‘순환’은 마지막 작업 공간과 첫 번째 작업 공간 사이를 이동합니다. ‘멈춤’은 양 끝을 넘는 스와이프를 무시합니다. ‘빈 작업 공간 하나 열기’는 창이 있는 마지막 작업 공간에서 빈 작업 공간으로 이동하고 필요하면 새로 만들며, 비어 있는 마지막 작업 공간 너머나 첫 번째 작업 공간 앞으로의 스와이프는 무시합니다."
+          }
+        },
+        "nb" : {
+          "stringUnit" : {
+            "state" : "translated",
+            "value" : "«Gå i ring» bytter mellom det siste og det første arbeidsområdet. «Stopp» ignorerer sveip forbi en av endene. «Åpne ett tomt arbeidsområde» går fra det siste arbeidsområdet med vinduer til et tomt og oppretter det ved behov, og ignorerer sveip forbi et tomt siste arbeidsområde eller før det første."
+          }
+        },
+        "nl" : {
+          "stringUnit" : {
+            "state" : "translated",
+            "value" : "‘Rondgaan’ wisselt tussen de laatste en de eerste werkruimte. ‘Stoppen’ negeert vegen voorbij een van beide uiteinden. ‘Eén lege werkruimte openen’ gaat van de laatste bezette werkruimte naar een lege, maakt die zo nodig aan en negeert vegen voorbij een lege laatste werkruimte of vóór de eerste."
+          }
+        },
+        "pl" : {
+          "stringUnit" : {
+            "state" : "translated",
+            "value" : "„Zawijaj” przechodzi między ostatnią a pierwszą przestrzenią roboczą. „Zatrzymaj” ignoruje przesunięcia poza którykolwiek koniec. „Otwórz jedną pustą przestrzeń roboczą” przechodzi z ostatniej zajętej przestrzeni roboczej do pustej, tworząc ją w razie potrzeby, i ignoruje przesunięcia poza pustą ostatnią przestrzeń roboczą lub przed pierwszą."
+          }
+        },
+        "ru" : {
+          "stringUnit" : {
+            "state" : "translated",
+            "value" : "«По кругу» переключает между последним и первым рабочим пространством. «Останавливаться» игнорирует смахивания за пределы любого края. «Открыть одно пустое рабочее пространство» переходит от последнего занятого рабочего пространства к пустому, создавая его при необходимости, и игнорирует смахивания за пустое последнее рабочее пространство или перед первым."
+          }
+        },
+        "sr-Latn" : {
+          "stringUnit" : {
+            "state" : "translated",
+            "value" : "„U krug“ prelazi između poslednjeg i prvog radnog prostora. „Zaustavi“ zanemaruje prevlačenja preko bilo kog kraja. „Otvori jedan prazan radni prostor“ prelazi sa poslednjeg zauzetog radnog prostora na prazan, pravi ga ako je potrebno, i zanemaruje prevlačenja preko praznog poslednjeg radnog prostora ili pre prvog."
+          }
+        },
+        "sv" : {
+          "stringUnit" : {
+            "state" : "translated",
+            "value" : "”Börja om” växlar mellan den sista och den första arbetsytan. ”Stanna” ignorerar svep förbi någon av ändarna. ”Öppna en tom arbetsyta” går från den sista arbetsytan med fönster till en tom och skapar den vid behov, och ignorerar svep förbi en tom sista arbetsyta eller före den första."
+          }
+        },
+        "uk" : {
+          "stringUnit" : {
+            "state" : "translated",
+            "value" : "«По колу» перемикає між останнім і першим робочим простором. «Зупинятися» ігнорує проведення за межі будь-якого краю. «Відкрити один порожній робочий простір» переходить від останнього зайнятого робочого простору до порожнього, за потреби створюючи його, і ігнорує проведення за порожній останній робочий простір або перед першим."
+          }
+        },
+        "zh-Hans" : {
+          "stringUnit" : {
+            "state" : "translated",
+            "value" : "“循环”在最后一个和第一个工作区之间切换。“停止”会忽略超出任一端的滑动。“打开一个空工作区”会从最后一个已占用的工作区移到一个空工作区，必要时创建它，并忽略超出空的最后一个工作区或第一个工作区之前的滑动。"
+          }
+        }
+      }
+    },
     "Applies to modifier-based mouse resizing, trackpad resize gestures, and Niri keyboard resizing. Native edge or corner drags bypass previews; Dwindle neighbours always resize live. Window Snapshot stretches a still image and needs Screen Recording. Glass Placeholder shows app icons without capture. With either preview, windows get their final size when resizing ends." : {
       "localizations" : {
         "zh-Hans" : {
@@ -171488,6 +172108,7 @@
       }
     },
     "Drag a tiled window's edge or corner without a modifier. Dwindle resizes neighbouring windows while you drag; Niri refits them after you release. Moving a window by its title bar still snaps it back." : {
+      "extractionState" : "stale",
       "localizations" : {
         "zh-Hans" : {
           "stringUnit" : {
@@ -171618,6 +172239,378 @@
           "stringUnit" : {
             "state" : "translated",
             "value" : "无需按修饰键，直接拖动平铺窗口的边缘或角落。松开后，布局会保留新的大小，并调整周围的其他窗口。通过标题栏移动窗口时，窗口仍会弹回原位。"
+          }
+        }
+      }
+    },
+    "Drag a tiled window by its title bar onto another display without a modifier. Drops use the same placement rules as modifier drags. Moving within one display still snaps the window back." : {
+      "localizations" : {
+        "ar" : {
+          "stringUnit" : {
+            "state" : "translated",
+            "value" : "اسحب نافذة مُبلّطة من شريط العنوان إلى شاشة أخرى دون مفتاح تعديل. يتبع الإفلات قواعد الوضع نفسها المتبعة في السحب بمفتاح التعديل. يظل النقل داخل الشاشة نفسها يعيد النافذة إلى مكانها."
+          }
+        },
+        "da" : {
+          "stringUnit" : {
+            "state" : "translated",
+            "value" : "Træk et fliselagt vindue i titellinjen over på en anden skærm uden en modifikatortast. Slip bruger de samme placeringsregler som træk med modifikatortast. Flytter du det inden for én skærm, springer vinduet stadig tilbage."
+          }
+        },
+        "de" : {
+          "stringUnit" : {
+            "state" : "translated",
+            "value" : "Ziehen Sie ein gekacheltes Fenster ohne Sondertaste an der Titelleiste auf ein anderes Display. Beim Ablegen gelten dieselben Platzierungsregeln wie beim Ziehen mit Sondertaste. Innerhalb eines Displays springt das Fenster weiterhin zurück."
+          }
+        },
+        "el" : {
+          "stringUnit" : {
+            "state" : "translated",
+            "value" : "Σύρετε ένα παράθυρο σε παράθεση από τη γραμμή τίτλου σε άλλη οθόνη χωρίς πλήκτρο τροποποίησης. Η απόθεση ακολουθεί τους ίδιους κανόνες τοποθέτησης με τις μεταφορές με πλήκτρο τροποποίησης. Η μετακίνηση μέσα στην ίδια οθόνη εξακολουθεί να επαναφέρει το παράθυρο."
+          }
+        },
+        "es" : {
+          "stringUnit" : {
+            "state" : "translated",
+            "value" : "Arrastra una ventana en mosaico por su barra de título a otra pantalla sin tecla modificadora. Al soltarla se aplican las mismas reglas de colocación que al arrastrar con tecla modificadora. Moverla dentro de una misma pantalla sigue devolviéndola a su sitio."
+          }
+        },
+        "fi" : {
+          "stringUnit" : {
+            "state" : "translated",
+            "value" : "Vedä ruudutettu ikkuna otsikkopalkista toiselle näytölle ilman muokkausnäppäintä. Pudotuksessa noudatetaan samoja sijoitussääntöjä kuin muokkausnäppäimellä vedettäessä. Siirto saman näytön sisällä palauttaa ikkunan edelleen paikalleen."
+          }
+        },
+        "fr" : {
+          "stringUnit" : {
+            "state" : "translated",
+            "value" : "Faites glisser une fenêtre en mosaïque par sa barre de titre vers un autre écran sans touche de modification. Le dépôt suit les mêmes règles de placement que les glisser-déposer avec touche de modification. Un déplacement au sein d’un même écran remet toujours la fenêtre en place."
+          }
+        },
+        "he" : {
+          "stringUnit" : {
+            "state" : "translated",
+            "value" : "גררו חלון בפריסת אריחים בשורת הכותרת אל מסך אחר בלי מקש שינוי. השחרור פועל לפי אותם כללי מיקום כמו גרירה עם מקש שינוי. הזזה בתוך אותו מסך עדיין מחזירה את החלון למקומו."
+          }
+        },
+        "hi" : {
+          "stringUnit" : {
+            "state" : "translated",
+            "value" : "किसी टाइल्ड विंडो को उसके टाइटल बार से मॉडिफ़ायर के बिना दूसरे डिस्प्ले पर खींचें। छोड़ने पर वही प्लेसमेंट नियम लागू होते हैं जो मॉडिफ़ायर के साथ खींचने पर होते हैं। एक ही डिस्प्ले के भीतर खिसकाने पर विंडो अब भी वापस अपनी जगह पर आ जाती है।"
+          }
+        },
+        "it" : {
+          "stringUnit" : {
+            "state" : "translated",
+            "value" : "Trascina una finestra affiancata dalla barra del titolo su un altro display senza tasti modificatori. Il rilascio segue le stesse regole di posizionamento del trascinamento con tasto modificatore. Spostarla all’interno dello stesso display la riporta comunque al suo posto."
+          }
+        },
+        "ja" : {
+          "stringUnit" : {
+            "state" : "translated",
+            "value" : "修飾キーを押さずに、タイル表示のウインドウをタイトルバーで別のディスプレイへドラッグします。ドロップには修飾キーを使ったドラッグと同じ配置ルールが適用されます。同じディスプレイ内で移動した場合は、引き続き元の位置に戻ります。"
+          }
+        },
+        "ko" : {
+          "stringUnit" : {
+            "state" : "translated",
+            "value" : "보조 키 없이 타일 윈도우의 제목 막대를 드래그해 다른 디스플레이로 옮깁니다. 놓을 때는 보조 키 드래그와 같은 배치 규칙이 적용됩니다. 같은 디스플레이 안에서 이동하면 여전히 원래 자리로 돌아갑니다."
+          }
+        },
+        "nb" : {
+          "stringUnit" : {
+            "state" : "translated",
+            "value" : "Dra et flislagt vindu etter tittellinjen over på en annen skjerm uten endringstast. Slipp følger de samme plasseringsreglene som dra med endringstast. Flytter du det innenfor én skjerm, går vinduet fortsatt tilbake."
+          }
+        },
+        "nl" : {
+          "stringUnit" : {
+            "state" : "translated",
+            "value" : "Sleep een getegeld venster zonder speciale toets via de titelbalk naar een ander beeldscherm. Bij loslaten gelden dezelfde plaatsingsregels als bij slepen met een speciale toets. Verplaatsen binnen één beeldscherm zet het venster nog steeds terug."
+          }
+        },
+        "pl" : {
+          "stringUnit" : {
+            "state" : "translated",
+            "value" : "Przeciągnij okno w układzie kafelkowym za pasek tytułu na inny ekran bez klawisza modyfikującego. Upuszczenie podlega tym samym zasadom rozmieszczania co przeciąganie z klawiszem modyfikującym. Przeniesienie w obrębie jednego ekranu nadal przywraca okno na miejsce."
+          }
+        },
+        "ru" : {
+          "stringUnit" : {
+            "state" : "translated",
+            "value" : "Перетащите окно в мозаике за заголовок на другой дисплей без клавиши-модификатора. При отпускании действуют те же правила размещения, что и при перетаскивании с модификатором. Перемещённое в пределах одного дисплея окно по-прежнему возвращается на место."
+          }
+        },
+        "sr-Latn" : {
+          "stringUnit" : {
+            "state" : "translated",
+            "value" : "Prevucite prozor u mozaiku preko naslovne trake na drugi ekran bez modifikatorskog tastera. Spuštanje prati ista pravila postavljanja kao prevlačenje sa modifikatorskim tasterom. Prozor pomeren unutar istog ekrana i dalje se vraća na mesto."
+          }
+        },
+        "sv" : {
+          "stringUnit" : {
+            "state" : "translated",
+            "value" : "Dra ett fönster sida vid sida via namnlisten till en annan skärm utan kombinationstangent. När du släpper gäller samma placeringsregler som när du drar med kombinationstangent. Ett fönster som flyttas inom samma skärm återgår fortfarande."
+          }
+        },
+        "uk" : {
+          "stringUnit" : {
+            "state" : "translated",
+            "value" : "Перетягніть вікно в мозаїці за заголовок на інший дисплей без клавіші-модифікатора. Під час відпускання діють ті самі правила розміщення, що й під час перетягування з модифікатором. Переміщене в межах одного дисплея вікно, як і раніше, повертається на місце."
+          }
+        },
+        "zh-Hans" : {
+          "stringUnit" : {
+            "state" : "translated",
+            "value" : "无需按修饰键，即可通过标题栏将平铺窗口拖到另一台显示器上。放下时使用与修饰键拖动相同的放置规则。在同一显示器内移动时，窗口仍会弹回原位。"
+          }
+        }
+      }
+    },
+    "Drag a tiled window's edge or corner without a modifier. Dwindle resizes neighbouring windows while you drag; Niri refits them after you release." : {
+      "localizations" : {
+        "ar" : {
+          "stringUnit" : {
+            "state" : "translated",
+            "value" : "اسحب حافة نافذة مُبلّطة أو زاويتها دون مفتاح تعديل. يغيّر Dwindle حجم النوافذ المجاورة أثناء السحب، بينما يعيد Niri ملاءمتها بعد الإفلات."
+          }
+        },
+        "da" : {
+          "stringUnit" : {
+            "state" : "translated",
+            "value" : "Træk i kanten eller hjørnet af et fliselagt vindue uden en modifikatortast. Dwindle ændrer størrelsen på nabovinduerne, mens du trækker; Niri tilpasser dem, når du slipper."
+          }
+        },
+        "de" : {
+          "stringUnit" : {
+            "state" : "translated",
+            "value" : "Ziehen Sie ohne Sondertaste am Rand oder an der Ecke eines gekachelten Fensters. Dwindle passt die Größe benachbarter Fenster während des Ziehens an; Niri richtet sie nach dem Loslassen neu aus."
+          }
+        },
+        "el" : {
+          "stringUnit" : {
+            "state" : "translated",
+            "value" : "Σύρετε την άκρη ή τη γωνία ενός παραθύρου σε παράθεση χωρίς πλήκτρο τροποποίησης. Το Dwindle αλλάζει το μέγεθος των γειτονικών παραθύρων ενώ σύρετε· το Niri τα προσαρμόζει ξανά όταν αφήσετε."
+          }
+        },
+        "es" : {
+          "stringUnit" : {
+            "state" : "translated",
+            "value" : "Arrastra el borde o la esquina de una ventana en mosaico sin tecla modificadora. Dwindle cambia el tamaño de las ventanas vecinas mientras arrastras; Niri las reajusta al soltar."
+          }
+        },
+        "fi" : {
+          "stringUnit" : {
+            "state" : "translated",
+            "value" : "Vedä ruudutetun ikkunan reunaa tai kulmaa ilman muokkausnäppäintä. Dwindle muuttaa viereisten ikkunoiden kokoa vetämisen aikana; Niri sovittaa ne uudelleen, kun päästät irti."
+          }
+        },
+        "fr" : {
+          "stringUnit" : {
+            "state" : "translated",
+            "value" : "Faites glisser le bord ou le coin d’une fenêtre en mosaïque sans touche de modification. Dwindle redimensionne les fenêtres voisines pendant le glissement ; Niri les réajuste quand vous relâchez."
+          }
+        },
+        "he" : {
+          "stringUnit" : {
+            "state" : "translated",
+            "value" : "גררו את הקצה או את הפינה של חלון בפריסת אריחים בלי מקש שינוי. Dwindle משנה את גודל החלונות הסמוכים בזמן הגרירה; Niri מתאים אותם מחדש אחרי השחרור."
+          }
+        },
+        "hi" : {
+          "stringUnit" : {
+            "state" : "translated",
+            "value" : "किसी टाइल्ड विंडो के किनारे या कोने को मॉडिफ़ायर के बिना खींचें। Dwindle खींचते समय पास की विंडो का आकार बदलता है; Niri छोड़ने के बाद उन्हें फिर से फ़िट करता है।"
+          }
+        },
+        "it" : {
+          "stringUnit" : {
+            "state" : "translated",
+            "value" : "Trascina il bordo o l’angolo di una finestra affiancata senza tasti modificatori. Dwindle ridimensiona le finestre vicine durante il trascinamento; Niri le riadatta quando rilasci."
+          }
+        },
+        "ja" : {
+          "stringUnit" : {
+            "state" : "translated",
+            "value" : "修飾キーを押さずにタイル表示のウインドウの端または角をドラッグします。Dwindleはドラッグ中に隣接するウインドウのサイズを変更し、Niriは離した後にそれらを再配置します。"
+          }
+        },
+        "ko" : {
+          "stringUnit" : {
+            "state" : "translated",
+            "value" : "보조 키 없이 타일 윈도우의 가장자리나 모서리를 드래그합니다. Dwindle은 드래그하는 동안 인접한 윈도우의 크기를 조정하고, Niri는 놓은 후에 다시 맞춥니다."
+          }
+        },
+        "nb" : {
+          "stringUnit" : {
+            "state" : "translated",
+            "value" : "Dra i kanten eller hjørnet av et flislagt vindu uten endringstast. Dwindle endrer størrelsen på nabovinduene mens du drar; Niri tilpasser dem når du slipper."
+          }
+        },
+        "nl" : {
+          "stringUnit" : {
+            "state" : "translated",
+            "value" : "Sleep zonder speciale toets aan de rand of hoek van een getegeld venster. Dwindle past het formaat van aangrenzende vensters aan tijdens het slepen; Niri past ze opnieuw in nadat je loslaat."
+          }
+        },
+        "pl" : {
+          "stringUnit" : {
+            "state" : "translated",
+            "value" : "Przeciągnij krawędź lub róg okna w układzie kafelkowym bez klawisza modyfikującego. Dwindle zmienia rozmiar sąsiednich okien podczas przeciągania; Niri dopasowuje je ponownie po puszczeniu."
+          }
+        },
+        "ru" : {
+          "stringUnit" : {
+            "state" : "translated",
+            "value" : "Перетащите край или угол окна в мозаике без клавиши-модификатора. Dwindle меняет размер соседних окон во время перетаскивания; Niri подстраивает их после того, как вы отпустите."
+          }
+        },
+        "sr-Latn" : {
+          "stringUnit" : {
+            "state" : "translated",
+            "value" : "Prevucite ivicu ili ugao prozora u mozaiku bez modifikatorskog tastera. Dwindle menja veličinu susednih prozora dok prevlačite; Niri ih ponovo prilagođava kada otpustite."
+          }
+        },
+        "sv" : {
+          "stringUnit" : {
+            "state" : "translated",
+            "value" : "Dra i kanten eller hörnet på ett fönster sida vid sida utan kombinationstangent. Dwindle ändrar storlek på intilliggande fönster medan du drar; Niri anpassar dem igen när du släpper."
+          }
+        },
+        "uk" : {
+          "stringUnit" : {
+            "state" : "translated",
+            "value" : "Перетягніть край або кут вікна в мозаїці без клавіші-модифікатора. Dwindle змінює розмір сусідніх вікон під час перетягування; Niri підлаштовує їх після того, як ви відпустите."
+          }
+        },
+        "zh-Hans" : {
+          "stringUnit" : {
+            "state" : "translated",
+            "value" : "无需按修饰键，直接拖动平铺窗口的边缘或角落。Dwindle 会在拖动时调整相邻窗口的大小；Niri 会在松开后重新调整它们。"
+          }
+        }
+      }
+    },
+    "Keep Native Moves Across Displays" : {
+      "localizations" : {
+        "ar" : {
+          "stringUnit" : {
+            "state" : "translated",
+            "value" : "الاحتفاظ بالنقل الأصلي عبر الشاشات"
+          }
+        },
+        "da" : {
+          "stringUnit" : {
+            "state" : "translated",
+            "value" : "Bevar indbyggede flytninger på tværs af skærme"
+          }
+        },
+        "de" : {
+          "stringUnit" : {
+            "state" : "translated",
+            "value" : "Native Verschiebungen zwischen Bildschirmen beibehalten"
+          }
+        },
+        "el" : {
+          "stringUnit" : {
+            "state" : "translated",
+            "value" : "Διατήρηση εγγενών μετακινήσεων μεταξύ οθονών"
+          }
+        },
+        "es" : {
+          "stringUnit" : {
+            "state" : "translated",
+            "value" : "Conservar movimientos nativos entre pantallas"
+          }
+        },
+        "fi" : {
+          "stringUnit" : {
+            "state" : "translated",
+            "value" : "Säilytä natiivit siirrot näyttöjen välillä"
+          }
+        },
+        "fr" : {
+          "stringUnit" : {
+            "state" : "translated",
+            "value" : "Conserver les déplacements natifs entre écrans"
+          }
+        },
+        "he" : {
+          "stringUnit" : {
+            "state" : "translated",
+            "value" : "שמירה על הזזות מקוריות בין מסכים"
+          }
+        },
+        "hi" : {
+          "stringUnit" : {
+            "state" : "translated",
+            "value" : "डिस्प्ले के बीच नेटिव मूव बनाए रखें"
+          }
+        },
+        "it" : {
+          "stringUnit" : {
+            "state" : "translated",
+            "value" : "Mantieni gli spostamenti nativi tra display"
+          }
+        },
+        "ja" : {
+          "stringUnit" : {
+            "state" : "translated",
+            "value" : "ディスプレイ間のネイティブ移動を維持"
+          }
+        },
+        "ko" : {
+          "stringUnit" : {
+            "state" : "translated",
+            "value" : "디스플레이 간 기본 이동 유지"
+          }
+        },
+        "nb" : {
+          "stringUnit" : {
+            "state" : "translated",
+            "value" : "Behold innebygde flyttinger mellom skjermer"
+          }
+        },
+        "nl" : {
+          "stringUnit" : {
+            "state" : "translated",
+            "value" : "Native verplaatsingen tussen beeldschermen behouden"
+          }
+        },
+        "pl" : {
+          "stringUnit" : {
+            "state" : "translated",
+            "value" : "Zachowuj natywne przenoszenie między ekranami"
+          }
+        },
+        "ru" : {
+          "stringUnit" : {
+            "state" : "translated",
+            "value" : "Сохранять системное перемещение между дисплеями"
+          }
+        },
+        "sr-Latn" : {
+          "stringUnit" : {
+            "state" : "translated",
+            "value" : "Zadrži izvorna pomeranja između ekrana"
+          }
+        },
+        "sv" : {
+          "stringUnit" : {
+            "state" : "translated",
+            "value" : "Behåll inbyggda flyttar mellan skärmar"
+          }
+        },
+        "uk" : {
+          "stringUnit" : {
+            "state" : "translated",
+            "value" : "Зберігати системне переміщення між дисплеями"
+          }
+        },
+        "zh-Hans" : {
+          "stringUnit" : {
+            "state" : "translated",
+            "value" : "保留跨显示器的原生移动"
           }
         }
       }

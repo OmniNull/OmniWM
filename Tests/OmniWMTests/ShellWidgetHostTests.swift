@@ -895,10 +895,10 @@ final class ShellWidgetBarLifecycleTests: XCTestCase {
         count: Int,
         loaded widget: String? = nil
     ) async {
-        await until {
+        let widgets = { manager.barsByMonitor[monitor.id]?.model.snapshot.shellWidgets.count }
+        await until("\(count) shell widgets on \(monitor.name), have \(String(describing: widgets()))") {
             if let widget, manager.shellHost?.widgets[widget]?.package == nil { return false }
-            guard let model = manager.barsByMonitor[monitor.id]?.model else { return true }
-            return model.snapshot.shellWidgets.count >= count
+            return (widgets() ?? 0) >= count
         }
     }
 
@@ -1378,10 +1378,14 @@ final class ShellWidgetClickTests: XCTestCase {
         let surface = try harness.barSurface()
         var event = ShellEvent(button: .none)
         event.dy = 1
-        for _ in 0 ..< 30 {
-            XCTAssertTrue(surface.scroll(at: CGPoint(x: 5, y: 5), event: event))
+        for batch in 1 ... 10 {
+            for _ in 0 ..< 3 {
+                XCTAssertTrue(surface.scroll(at: CGPoint(x: 5, y: 5), event: event))
+            }
+            while harness.slot?.size.width != CGFloat(10 + 3 * batch) {
+                try await layoutChanges.change()
+            }
         }
-        while harness.slot?.size.width != 40, await layoutChanges.next() != nil {}
         XCTAssertEqual(harness.slot?.size.width, 40)
     }
 

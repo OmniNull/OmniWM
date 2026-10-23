@@ -17,10 +17,15 @@ final class HiddenBarAppRowTests: XCTestCase {
             applicationURL: { urls[$0] }
         )
 
-        XCTAssertEqual(rows.map(\.bundleID), ["calc", "chess", "kept"])
-        XCTAssertEqual(rows.map(\.name), ["Calculator", "Chess", "kept"])
-        XCTAssertEqual(rows.map(\.isOffInSystemSettings), [false, true, false])
-        XCTAssertNotNil(rows[0].icon)
-        XCTAssertNil(rows[2].icon)
+        let expected = [
+            ("calc", FileManager.default.displayName(atPath: urls["calc"]!.path), false, true),
+            ("chess", FileManager.default.displayName(atPath: urls["chess"]!.path), true, true),
+            ("kept", "kept", false, false)
+        ].sorted { $0.1.localizedCaseInsensitiveCompare($1.1) == .orderedAscending }
+
+        XCTAssertEqual(rows.map(\.bundleID), expected.map(\.0))
+        XCTAssertEqual(rows.map(\.name), expected.map(\.1))
+        XCTAssertEqual(rows.map(\.isOffInSystemSettings), expected.map(\.2))
+        XCTAssertEqual(rows.map { $0.icon != nil }, expected.map(\.3))
     }
 }
