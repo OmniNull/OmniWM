@@ -192,8 +192,12 @@ final class WorkspaceSwipePresentation {
             if predecessor != nil { trace("chain-refused") }
             return predecessor != nil
         }
-        if let predecessor, !retire(predecessor) { return false }
         let preview = previewSurface(controller, for: preparation.monitor.id)
+        if let predecessor,
+           let handled = handOff(from: predecessor, into: preparation, toward: destination, using: preview)
+        {
+            return handled
+        }
         if self.preparation == nil {
             self.preparation = preparation
             preview.warm(
@@ -211,10 +215,11 @@ final class WorkspaceSwipePresentation {
             recognitionMovement: recognitionMovement
         )
         guard participantsAreCurrent(flight) else {
+            if predecessor != nil { preview.stop() }
             trace("fallback-participants")
             return false
         }
-        guard show(preview, for: flight) else {
+        guard predecessor != nil || show(preview, for: flight) else {
             trace("fallback-preview-unavailable")
             return false
         }
@@ -247,7 +252,11 @@ final class WorkspaceSwipePresentation {
             return true
         }
         flight.phase = .settling
-        if !activateDisplayLink(for: flight) { cancel(flight, reason: "display-link-unavailable") }
+        if !activateDisplayLink(for: flight) {
+            cancel(flight, reason: "display-link-unavailable")
+            return true
+        }
+        prefetchChainTargets(after: flight)
         return true
     }
 
@@ -258,22 +267,6 @@ final class WorkspaceSwipePresentation {
             return false
         }
         link.add(to: .main, forMode: .common)
-        return true
-    }
-
-    private func createdDestination(isNext: Bool, from preparation: Preparation) -> Workspace? {
-        guard let controller, isNext,
-              let created = controller.workspaceNavigationHandler.swipeTargetWorkspace(
-                  isNext: true, from: preparation.source.id, on: preparation.monitor.id, createIfNeeded: true
-              )
-        else { return nil }
-        return makeWorkspace(created.id, monitor: preparation.monitor, active: false)
-    }
-
-    private func retire(_ predecessor: Flight) -> Bool {
-        if !predecessor.committing { commit(predecessor) }
-        guard isCurrent(predecessor), predecessor.committing else { return false }
-        cancel(predecessor, reason: "chained")
         return true
     }
 
@@ -381,14 +374,14 @@ extension WorkspaceSwipePresentation {
         }
     }
 
-    func cancel(_ flight: Flight, reason: String) {
+    func cancel(_ flight: Flight, reason: String, keepingPreview: Bool = false) {
         let monitorId = flight.preparation.monitor.id
         guard flights[monitorId] === flight else { return }
         flights[monitorId] = nil
         flight.handoff?.cancel()
         flight.settlement?.onChange = nil
         controller?.axManager.workspaceFrameSettlements.removeAll { $0 === flight.settlement }
-        previews[monitorId]?.stop()
+        if !keepingPreview { previews[monitorId]?.stop() }
         if preparation?.monitor.id == monitorId { preparation = nil }
         trace(reason, progress: flight.progress)
         controller?.surfaceReconciler.noteWorldChanged()
@@ -422,7 +415,7 @@ extension WorkspaceSwipePresentation {
         flight.settlement?.seal()
     }
 
-    private func commit(_ flight: Flight) {
+    func commit(_ flight: Flight) {
         let monitor = flight.preparation.monitor
         guard let controller, let refreshController,
               controller.workspaceManager.activeWorkspaceOrFirst(on: monitor.id)?.id

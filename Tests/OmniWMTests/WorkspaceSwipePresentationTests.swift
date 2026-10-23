@@ -539,6 +539,105 @@ final class WorkspaceSwipePresentationTests: XCTestCase {
         return (controller, swipe, monitor, ids)
     }
 
+    func testChainKeepsTheOverlayAndWallpaperWithoutRecapturing() throws {
+        var captures = 0
+        let image = try makeWallpaperImage()
+        let wallpaper = OverviewWallpaperCache()
+        wallpaper.desktopImageURL = { _ in nil }
+        wallpaper.captureWallpaper = { _ in
+            captures += 1
+            return image
+        }
+        let preview = WorkspaceSwipePreview(
+            ownedWindowRegistry: OwnedWindowRegistry(),
+            backdrop: WorkspaceSwipeBackdrop(wallpaperCache: wallpaper),
+            hasCaptureAccess: { true }
+        )
+        let overlayCloses = OverlayCloseCounter()
+        let observer = NotificationCenter.default.addObserver(
+            forName: NSWindow.willCloseNotification, object: nil, queue: nil
+        ) { note in
+            if let window = note.object as? NSWindow,
+               String(describing: type(of: window)).contains("WorkspaceSwipePreviewPanel")
+            {
+                overlayCloses.increment()
+            }
+        }
+        defer { NotificationCenter.default.removeObserver(observer) }
+        var mediaTime = 1.06
+        let (controller, swipe, monitor, _) = try fixture(previewSurface: preview, mediaTimeProvider: { mediaTime })
+        let third = try XCTUnwrap(controller.workspaceManager.workspaceId(for: "3", createIfMissing: true))
+        controller.workspaceManager.assignWorkspaceToMonitor(third, monitorId: monitor.id)
+        _ = try settleForwardSwipe(swipe, on: monitor)
+        XCTAssertTrue(preview.isVisible)
+        let capturesBeforeChain = captures
+        mediaTime = 1.1
+        XCTAssertFalse(swipe.prepare(monitorId: monitor.id, timestamp: 1.1))
+
+        XCTAssertTrue(swipe.begin(axis: .horizontal, cumulative: -20, timestamp: 1.12))
+
+        XCTAssertNotNil(swipe.flight)
+        XCTAssertTrue(preview.isVisible)
+        XCTAssertEqual(captures, capturesBeforeChain, "chaining re-captured the wallpaper on the main thread")
+        XCTAssertEqual(overlayCloses.value, 0, "chaining closed the overlay window and opened a new one")
+        swipe.cancelAll(reason: "test-complete")
+    }
+
+    private func makeWallpaperImage() throws -> CGImage {
+        let context = try XCTUnwrap(CGContext(
+            data: nil, width: 1600, height: 900, bitsPerComponent: 8, bytesPerRow: 1600 * 4,
+            space: CGColorSpaceCreateDeviceRGB(), bitmapInfo: CGImageAlphaInfo.premultipliedLast.rawValue
+        ))
+        context.setFillColor(CGColor(red: 0.2, green: 0.3, blue: 0.4, alpha: 1))
+        context.fill(CGRect(x: 0, y: 0, width: 1600, height: 900))
+        return try XCTUnwrap(context.makeImage())
+    }
+
+    func testOverlayReplaceRefusesUncapturedWindowsAndKeepsItsWindow() async throws {
+        let fixture = try previewFixture()
+        let preview = fixture.preview
+        let monitor = fixture.monitor
+        let item = WorkspaceSwipePreview.Item(
+            handle: fixture.handle,
+            frame: CGRect(x: 50, y: 50, width: 600, height: 500)
+        )
+        XCTAssertTrue(preview.begin(source: [], destination: [], monitor: monitor))
+
+        XCTAssertFalse(preview.replace(source: [], destination: [item], monitor: monitor))
+
+        XCTAssertTrue(preview.isVisible)
+        preview.stop()
+        try await cachePreviewThroughContact(fixture)
+        XCTAssertTrue(preview.begin(source: [], destination: [], monitor: monitor))
+
+        XCTAssertTrue(preview.replace(source: [], destination: [item], monitor: monitor))
+
+        XCTAssertTrue(preview.isVisible)
+    }
+
+    func testOverlayPrefetchCapturesUpcomingWindowsSoAChainCanUseThem() async throws {
+        let fixture = try previewFixture()
+        let preview = fixture.preview
+        let monitor = fixture.monitor
+        let item = WorkspaceSwipePreview.Item(
+            handle: fixture.handle,
+            frame: CGRect(x: 50, y: 50, width: 600, height: 500)
+        )
+        XCTAssertTrue(preview.begin(source: [], destination: [], monitor: monitor))
+        XCTAssertFalse(preview.replace(source: [], destination: [item], monitor: monitor))
+
+        preview.prefetch(shown: [], upcoming: [item], monitor: monitor)
+
+        XCTAssertTrue(preview.isWarming)
+        try await fixture.driver.waitForStarts(1)
+        fixture.driver.completeAllStarts()
+        try await publish(try makeOverviewPreviewFrame(), through: fixture.driver.streams[0], into: fixture.capture)
+        try await fixture.driver.waitForStops(1)
+        XCTAssertNotNil(fixture.capture.preview(for: fixture.handle))
+        XCTAssertTrue(preview.isVisible)
+        XCTAssertTrue(preview.replace(source: [], destination: [item], monitor: monitor))
+    }
+
     func testPreviousWorkspaceWrapsAsOneVisualStep() throws {
         let (controller, swipe, monitor, source) = try fixture()
         let last = controller.workspaceManager.workspaces(on: monitor.id).last?.id
@@ -956,5 +1055,18 @@ final class WorkspaceSwipePresentationTests: XCTestCase {
         wallpaper.desktopImageURL = { _ in nil }
         wallpaper.captureWallpaper = { _ in image }
         return WorkspaceSwipeBackdrop(wallpaperCache: wallpaper)
+    }
+}
+
+private final class OverlayCloseCounter: @unchecked Sendable {
+    private let lock = NSLock()
+    private var count = 0
+
+    var value: Int {
+        lock.withLock { count }
+    }
+
+    func increment() {
+        lock.withLock { count += 1 }
     }
 }
