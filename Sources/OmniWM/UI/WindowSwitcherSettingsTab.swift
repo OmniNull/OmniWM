@@ -22,6 +22,10 @@ struct WindowSwitcherSettingsTab: View {
                     SettingsCaption(
                         localized: "Each shortcut opens its assigned workspace scope. Last Used Scope remembers your choice."
                     )
+                    Picker("Window Order", selection: Bindable(settings.windowSwitcher).order) {
+                        Text("Omni Layout").tag(WindowSwitcherOrder.omniLayout)
+                        Text("Last Used").tag(WindowSwitcherOrder.lastUsed)
+                    }
                     Toggle("Show Switcher Footer", isOn: Bindable(settings.windowSwitcher).showFooter)
                     SettingsCaption(
                         localized: "The footer shows the scope button and window count. S changes scope; W closes the selected window."

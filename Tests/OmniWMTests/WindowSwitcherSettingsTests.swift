@@ -13,6 +13,7 @@ final class WindowSwitcherSettingsTests: XCTestCase {
         settings.windowSwitcher.commandTab = .remembered
         settings.windowSwitcher.optionTab = .disabled
         settings.windowSwitcher.showFooter = false
+        settings.windowSwitcher.order = .lastUsed
         let data = try SettingsTOMLCodec.encode(settings)
         XCTAssertEqual(try SettingsTOMLCodec.decode(data).windowSwitcher, settings.windowSwitcher)
     }
@@ -22,6 +23,19 @@ final class WindowSwitcherSettingsTests: XCTestCase {
         XCTAssertEqual(settings.commandTab, .activeWorkspace)
         XCTAssertEqual(settings.optionTab, .allWorkspaces)
         XCTAssertTrue(settings.showFooter)
+        XCTAssertEqual(settings.order, .omniLayout)
+    }
+
+    func testExistingSwitcherConfigurationDefaultsToLayoutOrder() throws {
+        var settings = SettingsExport.defaults()
+        settings.windowSwitcher.enabled = true
+        settings.windowSwitcher.commandTab = .remembered
+        let encoded = try SettingsTOMLCodec.encode(settings)
+        let legacy = String(decoding: encoded, as: UTF8.self)
+            .replacingOccurrences(of: "order = \"omniLayout\"\n", with: "")
+        XCTAssertNotEqual(legacy, String(decoding: encoded, as: UTF8.self))
+        let decoded = try SettingsTOMLCodec.decode(Data(legacy.utf8))
+        XCTAssertEqual(decoded.windowSwitcher, settings.windowSwitcher)
     }
 
     func testExistingConfigurationDoesNotOptIntoReplacingCommandTab() throws {
@@ -54,6 +68,7 @@ final class WindowSwitcherSettingsTests: XCTestCase {
         export.windowSwitcher.commandTab = .disabled
         export.windowSwitcher.optionTab = .remembered
         export.windowSwitcher.showFooter = false
+        export.windowSwitcher.order = .lastUsed
         settings.applyExport(export)
         XCTAssertEqual(settings.windowSwitcher.export(), export.windowSwitcher)
     }

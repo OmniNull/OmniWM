@@ -7,6 +7,35 @@ import XCTest
 
 @MainActor
 final class WindowSwitcherPanelTests: XCTestCase {
+    func testSingleWindowPanelFitsCardAndOptionalFooter() throws {
+        let panel = WindowSwitcherPanel(ownedWindowRegistry: OwnedWindowRegistry())
+        defer { panel.close() }
+        let item = makeItem(1)
+        let screenFrame = CGRect(x: 0, y: 0, width: 1600, height: 900)
+        for showsFooter in [false, true] {
+            panel.updateContent(
+                .init(
+                    items: [item], selected: item.handle.id, scope: .activeWorkspace,
+                    hasCaptureAccess: true, showsFooter: showsFooter
+                ),
+                screenFrame: screenFrame
+            )
+            let content = try XCTUnwrap(panel.contentView)
+            let tile = try XCTUnwrap(tiles(in: content).first)
+            XCTAssertEqual(panel.frame.width, tile.frame.width + 32)
+            XCTAssertEqual(panel.frame.height, tile.frame.height + 32 + (showsFooter ? 28 : 0))
+            XCTAssertEqual(panel.frame.midX, screenFrame.midX)
+            XCTAssertEqual(panel.frame.midY, screenFrame.midY)
+            if showsFooter {
+                let button = try XCTUnwrap(content.subviews.compactMap { $0 as? NSButton }.first)
+                let count = try XCTUnwrap(content.subviews.compactMap { $0 as? NSTextField }.first)
+                XCTAssertLessThanOrEqual(button.frame.maxX + 12, count.frame.minX)
+                XCTAssertGreaterThanOrEqual(count.frame.width, count.intrinsicContentSize.width)
+                XCTAssertLessThanOrEqual(count.frame.maxX, content.bounds.width - 16)
+            }
+        }
+    }
+
     func testPreparingPanelRequestsViewportPreviewsWithoutShowingLoadingCards() {
         let panel = WindowSwitcherPanel(ownedWindowRegistry: OwnedWindowRegistry())
         defer {
