@@ -34,6 +34,14 @@ extension NiriLayoutHandler {
         let columnSpan = columns.span
         for index in columnSpan.indices where columnSpan[index].isTabbed {
             let column = columnSpan[index]
+            guard !engine.isLiveDraggedColumn(column) else {
+                commands.append(TabRailGeometryCommand(
+                    key: TabRailKey(workspaceId: workspaceId, owner: .niriColumn(column.id)),
+                    tileFrame: .zero,
+                    visibleTileFrame: .null
+                ))
+                continue
+            }
             let picture = monitor.orientation == .vertical
                 ? engine.projectedActiveWindow(in: column, workspaceId: workspaceId).flatMap {
                     controller?.niriEdgePictures.presentation(for: $0.token)
@@ -52,7 +60,7 @@ extension NiriLayoutHandler {
     ) -> [TabRailInfo] {
         guard let controller else { return [] }
         var infos: [TabRailInfo] = []
-        for column in engine.columns(in: workspaceId) where column.isTabbed {
+        for column in engine.columns(in: workspaceId) where column.isTabbed && !engine.isLiveDraggedColumn(column) {
             let windows = engine.projectedWindows(in: column, workspaceId: workspaceId)
             guard windows.count > 1 else { continue }
 

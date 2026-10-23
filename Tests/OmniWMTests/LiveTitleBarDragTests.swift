@@ -1243,6 +1243,7 @@ final class LiveTitleBarDragTests: NiriInteractionTestCase {
         pid: pid_t,
         windowCount: Int = 4,
         stackFirstTwo: Bool = false,
+        tabbedRuns: [ClosedRange<Int>] = [],
         animated: Bool = false,
         hoverDelay: TimeInterval = 0,
         layout: LayoutType = .niri
@@ -1292,20 +1293,35 @@ final class LiveTitleBarDragTests: NiriInteractionTestCase {
         let engine = try XCTUnwrap(controller.niriEngine)
         engine.moveConfiguration.liveHoverDelay = hoverDelay
         var previous: NiriWindow?
+        var stackTop: NiriWindow?
         for (index, token) in tokens.enumerated() {
-            if stackFirstTwo, index == 1, let first = previous {
+            let joinsStack = (stackFirstTwo && index == 1)
+                || tabbedRuns.contains { $0.contains(index) && $0.lowerBound != index }
+            if joinsStack, let top = stackTop {
+                let window = NiriWindow(token: token)
                 controller.workspaceManager.withNiriViewportState(for: workspaceId) { state in
                     engine.attachTransferredWindow(
-                        NiriWindow(token: token),
-                        stackedWith: first,
+                        window,
+                        stackedWith: top,
                         after: true,
                         in: workspaceId,
                         state: &state
                     )
                 }
+                stackTop = window
                 continue
             }
             previous = engine.addWindow(token: token, to: workspaceId, afterSelection: previous?.id)
+            stackTop = previous
+        }
+        for run in tabbedRuns {
+            let head = try XCTUnwrap(engine.findNode(for: tokens[run.lowerBound], in: workspaceId))
+            let column = try XCTUnwrap(engine.findColumn(containing: head, in: workspaceId))
+            controller.workspaceManager.withEngineMutationScope(in: workspaceId) {
+                column.displayMode = .tabbed
+                column.setActiveTileIdx(1)
+                engine.updateTabbedColumnVisibility(column: column)
+            }
         }
         for column in engine.columns(in: workspaceId) {
             column.width = .proportion(1.0 / 3.0)
@@ -1352,5 +1368,110 @@ final class LiveTitleBarDragTests: NiriInteractionTestCase {
         controller.layoutRefreshController.displayLinkActivationForTests = { _ in true }
         controller.hasStartedServices = true
         return fixture
+    }
+
+    private func column(holding token: WindowToken, in fixture: Fixture) throws -> NiriContainer {
+        let window = try XCTUnwrap(fixture.engine.findNode(for: token, in: fixture.workspaceId))
+        return try XCTUnwrap(fixture.engine.findColumn(containing: window, in: fixture.workspaceId))
+    }
+
+    private func railCommand(
+        for column: NiriContainer,
+        in fixture: Fixture
+    ) throws -> TabRailGeometryCommand {
+        let commands = fixture.controller.niriLayoutHandler.niriTabRailGeometryCommands(
+            engine: fixture.engine,
+            workspaceId: fixture.workspaceId,
+            monitor: fixture.controller.layoutRefreshController.buildMonitorSnapshot(for: fixture.monitor)
+        )
+        return try XCTUnwrap(commands.first { $0.key.owner == .niriColumn(column.id) })
+    }
+
+    private func railOwners(_ fixture: Fixture) -> [TabRailOwner] {
+        fixture.controller.niriLayoutHandler.desiredTabRailInfos().map(\.owner)
+    }
+
+    func testDraggingATabbedColumnsVisibleWindowMovesTheWholeColumnAndKeepsItsTabs() throws {
+        let fixture = try makeFixture(pid: 938_060, windowCount: 6, tabbedRuns: [0 ... 2])
+        let (head, dragged, neighbour) = (fixture.tokens[0], fixture.tokens[1], fixture.tokens[3])
+        let column = try column(holding: dragged, in: fixture)
+        let windows = column.windowNodes.map(\.token)
+        let sizing = fixture.engine.containerSizingState(for: column)
+        XCTAssertTrue(column.isTabbed)
+        XCTAssertEqual(column.activeTileIdx, 1)
+
+        try fixture.startLiveDrag(dragged)
+
+        XCTAssertNotNil(fixture.engine.liveColumnMove)
+        XCTAssertTrue(fixture.handler.isLiveColumnDragActive)
+        XCTAssertTrue(fixture.engine.isLiveDraggedColumn(column))
+        let drop = try fixture.centre(of: neighbour)
+        fixture.drag(to: drop)
+        fixture.handler.dispatchMouseUp(at: drop)
+
+        XCTAssertNil(fixture.engine.liveColumnMove)
+        XCTAssertEqual(fixture.order(), [neighbour, head, fixture.tokens[4], fixture.tokens[5]])
+        XCTAssertEqual(column.windowNodes.map(\.token), windows)
+        XCTAssertEqual(column.activeTileIdx, 1)
+        XCTAssertEqual(column.displayMode, .tabbed)
+        XCTAssertEqual(fixture.engine.containerSizingState(for: column), sizing)
+        XCTAssertEqual(
+            fixture.manager.niriViewportState(for: fixture.workspaceId).selectedNodeId,
+            fixture.engine.findNode(for: dragged, in: fixture.workspaceId)?.id
+        )
+    }
+
+    func testTheDraggedTabbedColumnsRailHidesDuringTheDragAndReturnsAtItsNewPlace() throws {
+        let fixture = try makeFixture(pid: 938_061, windowCount: 6, tabbedRuns: [0 ... 2, 4 ... 5])
+        let dragged = try column(holding: fixture.tokens[1], in: fixture)
+        let other = try column(holding: fixture.tokens[4], in: fixture)
+        XCTAssertNotEqual(try railCommand(for: dragged, in: fixture).visibleTileFrame, .null)
+        XCTAssertEqual(Set(railOwners(fixture)), [.niriColumn(dragged.id), .niriColumn(other.id)])
+
+        try fixture.startLiveDrag(fixture.tokens[1])
+        _ = try fixture.frames()
+
+        XCTAssertEqual(try railCommand(for: dragged, in: fixture).visibleTileFrame, .null)
+        XCTAssertEqual(try railCommand(for: dragged, in: fixture).tileFrame, .zero)
+        XCTAssertNotEqual(try railCommand(for: other, in: fixture).visibleTileFrame, .null)
+        XCTAssertEqual(railOwners(fixture), [.niriColumn(other.id)])
+
+        let drop = try fixture.centre(of: fixture.tokens[3])
+        fixture.drag(to: drop)
+        fixture.handler.dispatchMouseUp(at: drop)
+        _ = try fixture.frames(animationTime: CACurrentMediaTime() + 60)
+
+        let returned = try railCommand(for: dragged, in: fixture)
+        XCTAssertEqual(returned.tileFrame, dragged.renderedFrame)
+        XCTAssertNotEqual(returned.visibleTileFrame, .null)
+        XCTAssertEqual(Set(railOwners(fixture)), [.niriColumn(dragged.id), .niriColumn(other.id)])
+    }
+
+    func testAnEdgeScrollWithATabbedColumnMovesTheDropSpaceOnceEachUntilTheStripEnd() throws {
+        let fixture = try makeFixture(pid: 938_062, windowCount: 8, tabbedRuns: [1 ... 3])
+        let dragged = try column(holding: fixture.tokens[2], in: fixture)
+        let landingIndex = { () -> Int? in
+            let columns = fixture.engine.columns(in: fixture.workspaceId)
+            return columns.filter { $0 !== dragged }.firstIndex { $0.isLiveDropSpace }
+                ?? columns.firstIndex { $0 === dragged }
+        }
+        try startEdgeScroll(.trailing, dragging: fixture.tokens[2], in: fixture)
+        let startIndex = try XCTUnwrap(landingIndex())
+        let startSwaps = fixture.engine.liveColumnMove?.swapCount ?? 0
+
+        var indices = [startIndex]
+        tickEdgeScroll(fixture) {
+            if let index = landingIndex(), index != indices.last {
+                indices.append(index)
+            }
+            return false
+        }
+
+        let afterFirstMove = Array(indices.dropFirst())
+        XCTAssertGreaterThan(try XCTUnwrap(afterFirstMove.first), startIndex)
+        XCTAssertEqual(afterFirstMove, Array(try XCTUnwrap(afterFirstMove.first) ... 5))
+        XCTAssertEqual(fixture.engine.liveColumnMove?.swapCount, startSwaps + afterFirstMove.count)
+        XCTAssertEqual(dragged.windowNodes.count, 3)
+        XCTAssertTrue(dragged.isTabbed)
     }
 }

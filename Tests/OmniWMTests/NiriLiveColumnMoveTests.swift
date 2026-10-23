@@ -115,6 +115,34 @@ final class NiriLiveColumnMoveTests: XCTestCase {
             return step
         }
 
+        mutating func makeTabbed(_ index: Int, tabCount: Int = 3, activeTab: Int = 1) -> NiriContainer {
+            var last = window(index)
+            for tab in 1 ..< tabCount {
+                let tabWindow = NiriWindow(token: WindowToken(pid: 932, windowId: index * 10 + tab))
+                engine.attachTransferredWindow(
+                    tabWindow,
+                    stackedWith: last,
+                    after: true,
+                    in: workspaceId,
+                    state: &state
+                )
+                last = tabWindow
+            }
+            let column = column(index)
+            column.displayMode = .tabbed
+            column.setActiveTileIdx(activeTab)
+            engine.updateTabbedColumnVisibility(column: column)
+            engine.renderStyle.tabIndicatorWidth = 24
+            column.cachedWidth = 0
+            engine.resolvePrimaryContainerSpans(
+                in: workspaceId,
+                workingFrame: frame,
+                gaps: gap,
+                orientation: .horizontal
+            )
+            return column
+        }
+
         mutating func scrollSoThat(_ index: Int, startsAt x: CGFloat) {
             let current = stripColumn(holding: index).minX
             state.jumpOffset(to: state.viewOffset + current - x)
@@ -1847,5 +1875,166 @@ final class NiriLiveColumnMoveTests: XCTestCase {
             strip: fixture.strip(),
             context: fixture.context
         ))
+    }
+
+    private struct TabbedSnapshot: Equatable {
+        let windows: [WindowToken]
+        let activeTab: Int
+        let displayMode: ColumnDisplay
+        let sizing: NiriContainerSizingState
+    }
+
+    private func tabbedSnapshot(_ column: NiriContainer, in fixture: Fixture) -> TabbedSnapshot {
+        TabbedSnapshot(
+            windows: column.windowNodes.map(\.token),
+            activeTab: column.activeTileIdx,
+            displayMode: column.displayMode,
+            sizing: fixture.engine.containerSizingState(for: column)
+        )
+    }
+
+    func testBeginAcceptsATabbedColumnAndStillRefusesAStack() {
+        var tabbed = makeFixture()
+        let column = tabbed.makeTabbed(1)
+        XCTAssertEqual(column.windowNodes.count, 3)
+        XCTAssertTrue(tabbed.begin(1))
+        XCTAssertEqual(tabbed.state.activeColumnIndex, 1)
+
+        var stacked = makeFixture()
+        stacked.engine.attachTransferredWindow(
+            NiriWindow(token: WindowToken(pid: 931, windowId: 99)),
+            stackedWith: stacked.window(1),
+            after: true,
+            in: stacked.workspaceId,
+            state: &stacked.state
+        )
+        XCTAssertFalse(stacked.column(1).isTabbed)
+        XCTAssertFalse(stacked.begin(1))
+        XCTAssertNil(stacked.engine.liveColumnMove)
+    }
+
+    func testATabbedColumnLandsPastAVisibleNeighbourAndKeepsItsTabsOnRelease() {
+        for (dragged, target) in [(2, 3), (3, 2)] {
+            var fixture = makeFixture()
+            let column = fixture.makeTabbed(dragged)
+            let tabs = tabbedSnapshot(column, in: fixture)
+            XCTAssertTrue(fixture.begin(dragged))
+
+            XCTAssertEqual(
+                fixture.moveAndSettle(to: fixture.farHalf(of: target)),
+                .changed,
+                "\(dragged)"
+            )
+            XCTAssertEqual(
+                fixture.engine.columns(in: fixture.workspaceId).firstIndex { $0.isLiveDropSpace },
+                dragged < target ? 4 : 2,
+                "\(dragged)"
+            )
+
+            XCTAssertTrue(fixture.engine.liveColumnMoveEnd(context: fixture.context, state: &fixture.state))
+
+            XCTAssertEqual(fixture.order(), [0, 1, 3, 2, 4].map { fixture.tokens[$0] }, "\(dragged)")
+            XCTAssertEqual(fixture.engine.columnIndex(of: column, in: fixture.workspaceId), target, "\(dragged)")
+            XCTAssertEqual(tabbedSnapshot(column, in: fixture), tabs, "\(dragged)")
+            XCTAssertFalse(fixture.engine.columns(in: fixture.workspaceId).contains { $0.isLiveDropSpace })
+        }
+    }
+
+    func testATabbedColumnOpensADropSpaceBesideAPartlyHiddenTarget() {
+        var fixture = makeFixture(widths: Array(repeating: 1.0 / 3.0, count: 7))
+        let column = fixture.makeTabbed(2)
+        let tabs = tabbedSnapshot(column, in: fixture)
+        let span = fixture.stripColumn(holding: 3).maxX - fixture.stripColumn(holding: 3).minX
+        fixture.scrollSoThat(3, startsAt: fixture.frame.maxX - span / 2)
+        XCTAssertTrue(fixture.begin(2))
+
+        XCTAssertEqual(
+            fixture.moveAndSettle(to: CGPoint(x: fixture.frame.maxX - span / 4, y: fixture.midY)),
+            .changed
+        )
+
+        XCTAssertNotNil(fixture.dropSpace())
+        XCTAssertEqual(fixture.landingOrder(), [0, 1, 3, 2, 4, 5, 6].map { fixture.tokens[$0] })
+        XCTAssertTrue(fixture.engine.liveColumnMoveEnd(context: fixture.context, state: &fixture.state))
+        XCTAssertEqual(fixture.order(), [0, 1, 3, 2, 4, 5, 6].map { fixture.tokens[$0] })
+        XCTAssertEqual(tabbedSnapshot(column, in: fixture), tabs)
+    }
+
+    func testADroppedTabbedColumnGlidesFromTheReleasedWindowLessTheTabRail() {
+        var fixture = makeFixture(widths: Array(repeating: 1.0 / 3.0, count: 7), activeIndex: 2)
+        let dragged = fixture.makeTabbed(2)
+        let railWidth = fixture.engine.renderStyle.tabIndicatorWidth
+        XCTAssertGreaterThan(railWidth, 0)
+        XCTAssertTrue(fixture.begin(2))
+        XCTAssertEqual(
+            fixture.moveAndSettle(to: fixture.farHalf(of: 3)),
+            .changed
+        )
+        let animated = NiriInteractionContext(
+            workspaceId: fixture.workspaceId,
+            motion: .enabled,
+            workingFrame: fixture.frame,
+            gaps: fixture.gap,
+            orientation: .horizontal
+        )
+        let homePosition = fixture.engine.primaryPositions(context: animated, state: fixture.state)[dragged.id] ?? 0
+        let viewBefore = homePosition + fixture.state.viewOffset
+        let releasedWindowX = fixture.stripColumn(holding: 3).maxX - 150
+
+        XCTAssertTrue(fixture.engine.liveColumnMoveEnd(
+            releasedAtScreenX: releasedWindowX,
+            context: animated,
+            state: &fixture.state
+        ))
+
+        let landedPosition = fixture.engine.primaryPositions(context: animated, state: fixture.state)[dragged.id] ?? 0
+        let releasedColumnPosition = releasedWindowX - railWidth - fixture.frame.minX + viewBefore
+        XCTAssertEqual(
+            dragged.moveAnimation?.fromOffset ?? 0,
+            releasedColumnPosition - landedPosition,
+            accuracy: 0.5
+        )
+    }
+
+    func testCancellingATabbedColumnDragRestoresTheLayoutAndLeavesTheTabsAlone() {
+        var fixture = makeFixture(activeIndex: 4)
+        let column = fixture.makeTabbed(2)
+        fixture.state.jumpOffset(to: 40)
+        let original = fixture.state
+        let order = fixture.order()
+        let tabs = tabbedSnapshot(column, in: fixture)
+        let widths = fixture.engine.columns(in: fixture.workspaceId)
+            .map { fixture.engine.containerSizingState(for: $0) }
+        XCTAssertTrue(fixture.begin(2))
+        XCTAssertEqual(
+            fixture.moveAndSettle(to: fixture.farHalf(of: 3)),
+            .changed
+        )
+
+        XCTAssertTrue(fixture.engine.liveColumnMoveCancel(context: fixture.context, state: &fixture.state))
+
+        XCTAssertEqual(fixture.order(), order)
+        XCTAssertEqual(
+            fixture.engine.columns(in: fixture.workspaceId).map { fixture.engine.containerSizingState(for: $0) },
+            widths
+        )
+        XCTAssertEqual(fixture.state.viewOffset, original.viewOffset, accuracy: 0.001)
+        XCTAssertEqual(fixture.state.activeColumnIndex, original.activeColumnIndex)
+        XCTAssertEqual(fixture.state.selectedNodeId, original.selectedNodeId)
+        XCTAssertEqual(tabbedSnapshot(column, in: fixture), tabs)
+    }
+
+    func testIsLiveDraggedColumnNamesOnlyTheDraggedColumnWhileTheDragLasts() {
+        var fixture = makeFixture()
+        let dragged = fixture.makeTabbed(2)
+        let other = fixture.makeTabbed(4, tabCount: 2, activeTab: 0)
+        XCTAssertFalse(fixture.engine.isLiveDraggedColumn(dragged))
+
+        XCTAssertTrue(fixture.begin(2))
+        XCTAssertTrue(fixture.engine.isLiveDraggedColumn(dragged))
+        XCTAssertFalse(fixture.engine.isLiveDraggedColumn(other))
+
+        XCTAssertTrue(fixture.engine.liveColumnMoveEnd(context: fixture.context, state: &fixture.state))
+        XCTAssertFalse(fixture.engine.isLiveDraggedColumn(dragged))
     }
 }
