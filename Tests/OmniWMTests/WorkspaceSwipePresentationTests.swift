@@ -290,7 +290,8 @@ final class WorkspaceSwipePresentationTests: XCTestCase {
         let destination = try XCTUnwrap(swipe.flight).destination.id
         mediaTime = 1.07
         XCTAssertFalse(swipe.prepare(monitorId: monitor.id, timestamp: 1.07))
-        XCTAssertEqual(swipe.flight?.motion.target, 1)
+        XCTAssertNil(swipe.flight)
+        XCTAssertEqual(swipe.flights[monitor.id]?.motion.target, 1)
         swipe.stopPreparing(warm: true)
         swipe.tick(displayId: monitor.displayId, timestamp: 3)
         XCTAssertEqual(controller.workspaceManager.activeWorkspace(on: monitor.id)?.id, destination)
@@ -428,6 +429,114 @@ final class WorkspaceSwipePresentationTests: XCTestCase {
         XCTAssertTrue(manager.setActiveWorkspace(otherSource, on: other.id))
         XCTAssertTrue(manager.setActiveWorkspace(source, on: monitor.id))
         return (controller, swipe, monitor, other, source, otherSource)
+    }
+
+    func testRefusedChainDetachesTheGestureAndLetsTheFirstSwitchFinish() throws {
+        var mediaTime = 1.06
+        let (controller, swipe, monitor, _) = try fixture(mediaTimeProvider: { mediaTime })
+        let manager = controller.workspaceManager
+        controller.settings.workspaces.configurations = ["1", "2"].map { WorkspaceConfiguration(name: $0) }
+        controller.settings.workspaceBar.hideEmptyWorkspaces = true
+        manager.applySettings()
+        let empty = try XCTUnwrap(manager.workspaceId(for: "1", createIfMissing: true))
+        let occupied = try XCTUnwrap(manager.workspaceId(for: "2", createIfMissing: true))
+        _ = WindowAdmissionTestSupport.track(
+            WindowToken(pid: 983_001, windowId: 983_002), in: occupied, controller: controller
+        )
+        XCTAssertTrue(manager.setActiveWorkspace(empty, on: monitor.id))
+        let first = try settleForwardSwipe(swipe, on: monitor)
+        XCTAssertEqual(first.destination.id, occupied)
+        mediaTime = 1.1
+        XCTAssertFalse(swipe.prepare(monitorId: monitor.id, timestamp: 1.1))
+
+        XCTAssertTrue(swipe.begin(axis: .horizontal, cumulative: -20, timestamp: 1.12))
+
+        XCTAssertNil(swipe.flight)
+        XCTAssertFalse(swipe.release(timestamp: 1.15, allowFlick: true))
+        XCTAssertTrue(swipe.flights[monitor.id] === first)
+        XCTAssertEqual(first.motion.target, 1)
+        swipe.tick(displayId: monitor.displayId, timestamp: 3)
+        XCTAssertEqual(manager.activeWorkspace(on: monitor.id)?.id, occupied)
+        XCTAssertEqual(first.phase, .waitingForPlacement)
+        swipe.cancelAll(reason: "test-complete")
+    }
+
+    func testChainPastANoneEdgeDetachesAndKeepsTheFirstSwitch() throws {
+        var mediaTime = 1.06
+        let (controller, swipe, monitor, ids) = try edgeFixture(.none, active: "1") { mediaTime }
+        let first = try settleForwardSwipe(swipe, on: monitor)
+        XCTAssertEqual(first.destination.id, ids["2"])
+        mediaTime = 1.1
+        XCTAssertFalse(swipe.prepare(monitorId: monitor.id, timestamp: 1.1))
+
+        XCTAssertTrue(swipe.begin(axis: .horizontal, cumulative: -20, timestamp: 1.12))
+
+        XCTAssertNil(swipe.flight)
+        XCTAssertFalse(swipe.release(timestamp: 1.15, allowFlick: true))
+        swipe.tick(displayId: monitor.displayId, timestamp: 3)
+        XCTAssertEqual(controller.workspaceManager.activeWorkspace(on: monitor.id)?.id, ids["2"])
+        swipe.cancelAll(reason: "test-complete")
+    }
+
+    func testChainFromOnePastsCreatedWorkspaceDetachesAndKeepsTheFirstSwitch() throws {
+        var mediaTime = 1.06
+        let (controller, swipe, monitor, _) = try edgeFixture(.onePast, active: "2") { mediaTime }
+        let manager = controller.workspaceManager
+        let first = try settleForwardSwipe(swipe, on: monitor)
+        let created = try XCTUnwrap(manager.workspaceId(named: "3"))
+        XCTAssertEqual(first.destination.id, created)
+        mediaTime = 1.1
+        XCTAssertFalse(swipe.prepare(monitorId: monitor.id, timestamp: 1.1))
+
+        XCTAssertTrue(swipe.begin(axis: .horizontal, cumulative: -20, timestamp: 1.12))
+
+        XCTAssertNil(swipe.flight)
+        XCTAssertNil(manager.workspaceId(named: "4"))
+        XCTAssertFalse(swipe.release(timestamp: 1.15, allowFlick: true))
+        swipe.tick(displayId: monitor.displayId, timestamp: 3)
+        XCTAssertEqual(manager.activeWorkspace(on: monitor.id)?.id, created)
+        swipe.cancelAll(reason: "test-complete")
+    }
+
+    func testChainIntoOnePastsCreatedWorkspaceAnimatesFromTheLastOccupied() throws {
+        var mediaTime = 1.06
+        let (controller, swipe, monitor, ids) = try edgeFixture(.onePast, active: "1") { mediaTime }
+        let manager = controller.workspaceManager
+        let first = try settleForwardSwipe(swipe, on: monitor)
+        XCTAssertEqual(first.destination.id, ids["2"])
+        mediaTime = 1.1
+        XCTAssertFalse(swipe.prepare(monitorId: monitor.id, timestamp: 1.1))
+
+        XCTAssertTrue(swipe.begin(axis: .horizontal, cumulative: -20, timestamp: 1.12))
+
+        let second = try XCTUnwrap(swipe.flight)
+        let created = try XCTUnwrap(manager.workspaceId(named: "3"))
+        XCTAssertEqual(manager.activeWorkspace(on: monitor.id)?.id, ids["2"])
+        XCTAssertEqual(second.preparation.source.id, ids["2"])
+        XCTAssertEqual(second.destination.id, created)
+        swipe.cancelAll(reason: "test-complete")
+    }
+
+    private func edgeFixture(
+        _ behavior: WorkspaceSwipeEdgeBehavior,
+        active: String,
+        mediaTimeProvider: @escaping () -> TimeInterval
+    ) throws -> (WMController, WorkspaceSwipePresentation, Monitor, [String: WorkspaceDescriptor.ID]) {
+        let (controller, swipe, monitor, _) = try fixture(mediaTimeProvider: mediaTimeProvider)
+        let manager = controller.workspaceManager
+        controller.settings.workspaces.configurations = ["1", "2"].map { WorkspaceConfiguration(name: $0) }
+        controller.settings.gestures.workspaceSwipeEdgeBehavior = behavior
+        manager.applySettings()
+        var ids: [String: WorkspaceDescriptor.ID] = [:]
+        for (index, name) in ["1", "2"].enumerated() {
+            let id = try XCTUnwrap(manager.workspaceId(for: name, createIfMissing: true))
+            ids[name] = id
+            _ = WindowAdmissionTestSupport.track(
+                WindowToken(pid: 984_001, windowId: 984_100 + index), in: id, controller: controller
+            )
+        }
+        XCTAssertTrue(manager.setActiveWorkspace(try XCTUnwrap(ids[active]), on: monitor.id))
+        return (controller, swipe, monitor, ids)
     }
 
     func testPreviousWorkspaceWrapsAsOneVisualStep() throws {

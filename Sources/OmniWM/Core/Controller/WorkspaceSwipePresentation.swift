@@ -90,7 +90,7 @@ final class WorkspaceSwipePresentation {
     weak var refreshController: LayoutRefreshController?
     var preparation: Preparation?
     private(set) var flights: [Monitor.ID: Flight] = [:]
-    private var gestureMonitorId: Monitor.ID?
+    private weak var gestureFlight: Flight?
     private var chainMonitorId: Monitor.ID?
     private var latestSerial = 0
     private var focusOwed = false
@@ -121,7 +121,7 @@ final class WorkspaceSwipePresentation {
     }
 
     var flight: Flight? {
-        gestureMonitorId.flatMap { flights[$0] }
+        gestureFlight.flatMap { isCurrent($0) ? $0 : nil }
     }
 
     var hasPresentation: Bool {
@@ -138,8 +138,8 @@ final class WorkspaceSwipePresentation {
     }
 
     func prepare(monitorId: Monitor.ID, timestamp: TimeInterval) -> Bool {
+        gestureFlight = nil
         guard let controller, controller.motionPolicy.animationsEnabled else { return false }
-        gestureMonitorId = monitorId
         let mediaTime = mediaTimeProvider()
         let existing = flights[monitorId]
         if let existing, existing.committing || existing.motion.target == 1 {
@@ -154,6 +154,7 @@ final class WorkspaceSwipePresentation {
         {
             existing.progress = existing.motion.progress(at: mediaTime)
             existing.phase = .tracking
+            gestureFlight = existing
             trace("caught", progress: existing.progress)
             return true
         }
@@ -173,11 +174,12 @@ final class WorkspaceSwipePresentation {
         return false
     }
 
+    @discardableResult
     func begin(
         axis: WorkspaceSwipeAxis, cumulative: Double, timestamp: TimeInterval,
         recognitionMovement: SwipeEvent? = nil
-    ) {
-        guard let controller, controller.motionPolicy.animationsEnabled else { return }
+    ) -> Bool {
+        guard let controller, controller.motionPolicy.animationsEnabled else { return false }
         let (preparation, predecessor) = beginPreparation()
         guard let preparation,
               let isNext = TrackpadGestureIntent.isNextWorkspace(
@@ -186,8 +188,11 @@ final class WorkspaceSwipePresentation {
               let destination = (isNext ? preparation.next : preparation.previous)
               ?? createdDestination(isNext: isNext, from: preparation),
               destination.id != preparation.source.id
-        else { return }
-        if let predecessor, !retire(predecessor) { return }
+        else {
+            if predecessor != nil { trace("chain-refused") }
+            return predecessor != nil
+        }
+        if let predecessor, !retire(predecessor) { return false }
         let preview = previewSurface(controller, for: preparation.monitor.id)
         if self.preparation == nil {
             self.preparation = preparation
@@ -207,15 +212,16 @@ final class WorkspaceSwipePresentation {
         )
         guard participantsAreCurrent(flight) else {
             trace("fallback-participants")
-            return
+            return false
         }
         guard show(preview, for: flight) else {
             trace("fallback-preview-unavailable")
-            return
+            return false
         }
         install(flight, after: predecessor)
         controller.surfaceReconciler.reconcileNow()
         present(flight, at: mediaTimeProvider())
+        return true
     }
 
     @discardableResult
@@ -349,7 +355,7 @@ extension WorkspaceSwipePresentation {
         latestSerial += 1
         flight.serial = latestSerial
         flights[monitor.id] = flight
-        gestureMonitorId = monitor.id
+        gestureFlight = flight
         trace(predecessor == nil ? "began" : "chained")
     }
 
