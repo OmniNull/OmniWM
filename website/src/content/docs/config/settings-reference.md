@@ -241,6 +241,7 @@ The [window switcher](/features/window-switcher/). The table is optional; when a
 | `optionTab` | string | `"allWorkspaces"` | Scope Option-Tab opens. Same values as `commandTab`. |
 | `scope` | string | `"allWorkspaces"` | The remembered scope, saved when you press S or click the scope button: `allWorkspaces` or `activeWorkspace`. |
 | `showFooter` | boolean | `true` | Shows the scope button and window count. |
+| `order` | string | `"omniLayout"` | Window order: `omniLayout` follows the workspace layout; `lastUsed` sorts by focus recency across the selected scope, followed by windows without focus history in layout order. |
 
 ## keyboardModes
 
