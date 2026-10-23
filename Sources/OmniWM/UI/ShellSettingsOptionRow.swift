@@ -8,6 +8,14 @@ struct ShellSettingsOptionRow: View {
     let option: ShellComponentOption
     let value: ShellComponentValue?
     let write: (ShellComponentValue) -> Void
+    @Environment(\.locale) private var locale
+
+    private var title: String {
+        String(localized: LocalizedStringResource(
+            String.LocalizationValue(option.title), table: ShellLocalizer.table,
+            locale: locale, bundle: .atURL(Bundle.module.bundleURL)
+        ))
+    }
 
     private var resolved: ShellComponentValue? {
         value ?? option.defaultValue
@@ -16,12 +24,12 @@ struct ShellSettingsOptionRow: View {
     var body: some View {
         switch option.kind {
         case .boolean:
-            Toggle(option.title, isOn: Binding(
+            Toggle(title, isOn: Binding(
                 get: { if case let .bool(value)? = resolved { value } else { false } },
                 set: { write(.bool($0)) }
             ))
         case .choice:
-            Picker(option.title, selection: Binding(
+            Picker(title, selection: Binding(
                 get: { if case let .string(value)? = resolved { value } else { "" } },
                 set: { write(.string($0)) }
             )) {
@@ -36,13 +44,13 @@ struct ShellSettingsOptionRow: View {
                 colorRow
             } else {
                 ShellTextOptionRow(
-                    title: option.title, value: stringValue, maximum: option.maxLength,
+                    title: title, value: stringValue, maximum: option.maxLength,
                     write: { write(.string($0)) }
                 )
             }
         case .strings:
             ShellTextOptionRow(
-                title: option.title,
+                title: title,
                 value: { if case let .strings(values)? = resolved { values.joined(separator: "\n") } else { "" } }(),
                 maximum: option.maxLength * 256, multiline: true,
                 write: { write(.strings($0.split(separator: "\n").map(String.init))) }
@@ -61,14 +69,14 @@ struct ShellSettingsOptionRow: View {
     @ViewBuilder private var numberRow: some View {
         if let minimum = option.minimum, let maximum = option.maximum, minimum < maximum {
             SettingsSliderRow(
-                label: option.title,
+                label: title,
                 value: Binding(get: { numberValue }, set: { write(.number($0)) }),
                 range: minimum ... maximum, step: option.step ?? 1,
                 valueText: numberValue.formatted(.number.precision(.fractionLength(0 ... 2)))
             )
         } else {
-            LabeledContent(option.title) {
-                TextField(option.title, value: Binding(
+            LabeledContent(title) {
+                TextField(title, value: Binding(
                     get: { numberValue }, set: { if option.accepts(.number($0)) { write(.number($0)) } }
                 ), format: .number)
                     .frame(width: 100)
@@ -78,7 +86,7 @@ struct ShellSettingsOptionRow: View {
     }
 
     private var colorRow: some View {
-        ColorPicker(option.title, selection: Binding(
+        ColorPicker(title, selection: Binding(
             get: {
                 guard let color = ShellWidgetSettingsModel.rgba(stringValue) else { return .black }
                 return Color(red: color.x, green: color.y, blue: color.z, opacity: color.w)

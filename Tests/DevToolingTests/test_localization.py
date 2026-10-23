@@ -262,6 +262,23 @@ class LocalizationTests(unittest.TestCase):
             with self.assertRaisesRegex(ValueError, "plural variations"):
                 localization.validate_shell_usage({"Wind %@": {"localizations": {"en": plural}}}, (widgets,))
 
+    def test_shell_catalog_tracks_titles_from_both_widget_manifests(self):
+        with tempfile.TemporaryDirectory() as temporary:
+            widgets = Path(temporary)
+            (widgets / "settings.toml").write_text(
+                '[options.date]\ntype = "boolean"\ntitle = "Show date"\n[options.label]\ntype = "string"\n'
+            )
+            (widgets / "component.toml").write_text(
+                '[options.width]\ntype = "number"\ntitle = "展开宽度"\n', encoding="utf-8"
+            )
+            titles = ("Show date", "展开宽度", "label")
+            for missing in titles:
+                with self.subTest(missing=missing):
+                    strings = {key: {} for key in titles if key != missing}
+                    with self.assertRaisesRegex(ValueError, missing):
+                        localization.validate_shell_usage(strings, (widgets,))
+            localization.validate_shell_usage(dict.fromkeys(titles, {}), (widgets,))
+
     def test_packaging_places_locales_in_main_app_bundle(self):
         with tempfile.TemporaryDirectory() as temporary:
             root = Path(temporary)
