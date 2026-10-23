@@ -92,7 +92,7 @@ final class WorkspaceSwipePresentation {
     private(set) var flights: [Monitor.ID: Flight] = [:]
     private weak var gestureFlight: Flight?
     private var chainMonitorId: Monitor.ID?
-    private var latestSerial = 0
+    var latestSerial = 0
     private var focusOwed = false
     var previews: [Monitor.ID: WorkspaceSwipePreview] = [:]
     var unclaimedPreview: WorkspaceSwipePreview?
@@ -455,7 +455,7 @@ extension WorkspaceSwipePresentation {
                 placementSubmitted: placementSubmitted, placementInvalidated: placementInvalidated
             )
         } else {
-            focusOwed = true
+            focusOwed = flights.values.contains { $0.serial > flight.serial }
             refreshController.stopScrollAnimation(for: monitor.displayId)
             refreshController.commitWorkspaceTransition(
                 postLayout: placementSubmitted, postLayoutInvalidated: placementInvalidated

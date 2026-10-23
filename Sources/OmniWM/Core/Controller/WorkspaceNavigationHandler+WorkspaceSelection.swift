@@ -103,6 +103,7 @@ extension WorkspaceNavigationHandler {
                   isNext: isNext, from: currentWorkspace.id, on: monitorId, createIfNeeded: true
               )
         else { return }
+        controller.layoutRefreshController.workspaceSwipe.noteSwitchWithoutPresentation()
         activateWorkspaceInOrder(targetWorkspace, from: currentWorkspace.id, on: monitorId)
     }
 

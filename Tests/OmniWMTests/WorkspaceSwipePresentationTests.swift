@@ -397,6 +397,38 @@ final class WorkspaceSwipePresentationTests: XCTestCase {
         swipe.cancelAll(reason: "test-complete")
     }
 
+    func testInstantSwitchOnAnotherDisplayKeepsFocusFromTheSettlingSwitch() throws {
+        var mediaTime = 1.06
+        let (controller, swipe, monitor, other, _, otherSource) = try twoMonitorFixture { mediaTime }
+        let manager = controller.workspaceManager
+        let first = try settleForwardSwipe(swipe, on: monitor)
+        mediaTime = 1.1
+
+        controller.workspaceNavigationHandler.switchWorkspaceBySwipe(isNext: true, monitorId: other.id)
+
+        XCTAssertNotEqual(manager.activeWorkspace(on: other.id)?.id, otherSource)
+        XCTAssertEqual(manager.interactionMonitorId, other.id)
+        swipe.tick(displayId: monitor.displayId, timestamp: 3)
+        XCTAssertEqual(manager.activeWorkspace(on: monitor.id)?.id, first.destination.id)
+        XCTAssertEqual(manager.interactionMonitorId, other.id)
+        swipe.cancelAll(reason: "test-complete")
+    }
+
+    func testSettlingSwitchStillTakesFocusWhenNothingNewerSwitched() throws {
+        var mediaTime = 1.06
+        let (controller, swipe, monitor, other, _, _) = try twoMonitorFixture { mediaTime }
+        let manager = controller.workspaceManager
+        let first = try settleForwardSwipe(swipe, on: monitor)
+        mediaTime = 1.1
+        XCTAssertTrue(manager.setInteractionMonitor(other.id))
+
+        swipe.tick(displayId: monitor.displayId, timestamp: 3)
+
+        XCTAssertEqual(manager.activeWorkspace(on: monitor.id)?.id, first.destination.id)
+        XCTAssertEqual(manager.interactionMonitorId, monitor.id)
+        swipe.cancelAll(reason: "test-complete")
+    }
+
     private func settleForwardSwipe(
         _ swipe: WorkspaceSwipePresentation, on monitor: Monitor
     ) throws -> WorkspaceSwipePresentation.Flight {
