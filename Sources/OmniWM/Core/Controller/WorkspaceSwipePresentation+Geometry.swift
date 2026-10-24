@@ -5,14 +5,15 @@ import AppKit
 
 extension WorkspaceSwipePresentation {
     func warmPreviews() {
-        guard flight == nil, preparation == nil,
+        guard preparation == nil,
               let controller, controller.hasStartedServices,
               controller.motionPolicy.animationsEnabled, controller.settings.gestures.workspaceSwipeEnabled,
               !controller.isOverviewOpen(),
               let monitor = controller.monitorForInteraction(),
+              flights[monitor.id] == nil,
               let preparation = makePreparation(monitorId: monitor.id)
         else { return }
-        previewSurface(controller).warm(
+        previewSurface(controller, for: monitor.id).warm(
             source: preparation.source.items,
             destination: (preparation.previous?.items ?? []) + (preparation.next?.items ?? []),
             monitor: preparation.monitor,
@@ -21,21 +22,25 @@ extension WorkspaceSwipePresentation {
     }
 
     func handleInvalidation(workspaceId: WorkspaceDescriptor.ID?, domains: InvalidationDomain) {
-        guard let flight else { return }
-        if flight.committing {
-            if !participantsAreCurrent(flight) { cancel(reason: "commit-superseded") }
-        } else if !domains.isDisjoint(with: .layoutCommit),
-                  workspaceId == nil || workspaceId == flight.preparation.source.id || workspaceId == flight.destination
-                      .id
-        {
-            cancel(reason: "world-invalidated")
+        for flight in Array(flights.values) {
+            if flight.committing {
+                if !participantsAreCurrent(flight) { cancel(flight, reason: "commit-superseded") }
+            } else if flight.chained {
+                if !participantsAreCurrent(flight) { cancel(flight, reason: "world-invalidated") }
+            } else if !domains.isDisjoint(with: .layoutCommit),
+                      workspaceId == nil || workspaceId == flight.preparation.source.id
+                      || workspaceId == flight.destination.id
+            {
+                cancel(flight, reason: "world-invalidated")
+            }
         }
     }
 
-    func makePreparation(monitorId: Monitor.ID) -> Preparation? {
+    func makePreparation(monitorId: Monitor.ID, chainedSource: Workspace? = nil) -> Preparation? {
         guard let controller, let monitor = controller.workspaceManager.monitor(byId: monitorId),
-              let current = controller.workspaceManager.activeWorkspaceOrFirst(on: monitorId),
-              let source = makeWorkspace(current.id, monitor: monitor, active: true)
+              let current = chainedSource.flatMap({ controller.workspaceManager.descriptor(for: $0.id) })
+              ?? controller.workspaceManager.activeWorkspaceOrFirst(on: monitorId),
+              let source = chainedSource ?? makeWorkspace(current.id, monitor: monitor, active: true)
         else { return nil }
         let navigation = controller.workspaceNavigationHandler
         let previous = navigation.swipeTargetWorkspace(

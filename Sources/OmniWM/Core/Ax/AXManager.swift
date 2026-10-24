@@ -40,7 +40,7 @@ final class AXManager {
     let frameBatchBuffer = AXFrameBatchBuffer()
     let managedWindowBindings = AXManagedWindowBindings()
     let frameLedger = AXFrameApplicationLedger()
-    var workspaceFrameSettlement: AXFrameSettlement?
+    var workspaceFrameSettlements: [AXFrameSettlement] = []
     var deferredParkRequests: [AXFrameApplicationRequest] = []
     var deferredParkAwaitedWindowIds: Set<Int> = []
     var deferredParkTimeout: Task<Void, Never>?

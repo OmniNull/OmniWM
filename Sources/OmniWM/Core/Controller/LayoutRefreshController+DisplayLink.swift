@@ -52,16 +52,14 @@ extension LayoutRefreshController {
     }
 
     private func handleScreenParametersChanged() {
-        workspaceSwipe.cancel(reason: "display-change")
+        workspaceSwipe.cancelAll(reason: "display-change")
         detectRefreshRates()
         controller?.syncMonitorsToNiriEngine()
         controller?.surfaceReconciler.noteWorldChanged()
     }
 
     func cleanupForMonitorDisconnect(displayId: CGDirectDisplayID, migrateAnimations: Bool) {
-        if workspaceSwipe.flight?.preparation.monitor.displayId == displayId {
-            workspaceSwipe.cancel(reason: "display-disconnected")
-        }
+        workspaceSwipe.cancelFlights(onDisplay: displayId, reason: "display-disconnected")
         if let workspaceId = niriHandler.scrollAnimationByDisplay[displayId] {
             niriHandler.terminateViewportGesture(
                 for: workspaceId,
