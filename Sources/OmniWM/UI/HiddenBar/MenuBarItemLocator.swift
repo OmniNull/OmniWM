@@ -96,7 +96,7 @@ enum MenuBarItemLocator {
                 let normalized = value.trimmingCharacters(in: .whitespacesAndNewlines)
                 if !normalized.isEmpty { strings[name] = normalized }
             }
-            let identity = semanticIdentity { strings[$0] }
+            let identity = semanticIdentity(includesHelp: children.count > 1) { strings[$0] }
             freshItems.append(ResolvedMenuBarItem(
                 key: MenuBarItemKey(bundleID: target.key.bundleID, ordinal: index),
                 pid: target.pid, bounds: .zero, semanticIdentity: identity
@@ -181,7 +181,7 @@ enum MenuBarItemLocator {
                 key: MenuBarItemKey(bundleID: bundleID, ordinal: ordinal),
                 pid: sample.pid,
                 bounds: item.frame,
-                semanticIdentity: semanticIdentity(of: item.element)
+                semanticIdentity: semanticIdentity(of: item.element, includesHelp: sample.items.count > 1)
             )
         }
     }
@@ -214,7 +214,9 @@ enum MenuBarItemLocator {
                 }
                 if item.frame == previousFrames[candidate.pid] {
                     try job.checkCancellation()
-                    guard semanticIdentity(of: item.element) == target.semanticIdentity else { return .unavailable }
+                    guard semanticIdentity(of: item.element, includesHelp: elements.count > 1) == target
+                        .semanticIdentity
+                    else { return .unavailable }
                     if candidate.useAXPress {
                         if performAXAction(
                             item.element,
@@ -287,11 +289,17 @@ enum MenuBarItemLocator {
         return items.sorted { $0.frame.minX < $1.frame.minX }
     }
 
-    private static func semanticIdentity(of element: AXUIElement) -> MenuBarItemSemanticIdentity? {
-        semanticIdentity { stringAttribute($0, of: element) }
+    private static func semanticIdentity(
+        of element: AXUIElement,
+        includesHelp: Bool
+    ) -> MenuBarItemSemanticIdentity? {
+        semanticIdentity(includesHelp: includesHelp) { stringAttribute($0, of: element) }
     }
 
-    private static func semanticIdentity(read: (String) -> String?) -> MenuBarItemSemanticIdentity? {
+    private static func semanticIdentity(
+        includesHelp: Bool,
+        read: (String) -> String?
+    ) -> MenuBarItemSemanticIdentity? {
         if let identifier = read("AXIdentifier") {
             return MenuBarItemSemanticIdentity(
                 identifier: identifier,
@@ -304,7 +312,7 @@ enum MenuBarItemLocator {
             identifier: nil,
             title: read(kAXTitleAttribute),
             accessibilityDescription: read(kAXDescriptionAttribute),
-            help: read(kAXHelpAttribute)
+            help: includesHelp ? read(kAXHelpAttribute) : nil
         )
         guard identity.identifier != nil || identity.title != nil
             || identity.accessibilityDescription != nil || identity.help != nil
