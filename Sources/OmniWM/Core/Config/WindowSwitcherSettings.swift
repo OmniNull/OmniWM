@@ -10,10 +10,23 @@ extension SettingsExport {
         var commandTab = WindowSwitcherShortcuts().commandTab
         var optionTab = WindowSwitcherShortcuts().optionTab
         var showFooter = true
+        var order = WindowSwitcherOrder.omniLayout
 
         var shortcuts: WindowSwitcherShortcuts {
             WindowSwitcherShortcuts(commandTab: commandTab, optionTab: optionTab)
         }
+    }
+}
+
+extension SettingsExport.WindowSwitcher {
+    init(from decoder: Decoder) throws {
+        let container = try decoder.container(keyedBy: CodingKeys.self)
+        enabled = try container.decode(Bool.self, forKey: .enabled)
+        scope = try container.decode(WindowSwitcherScope.self, forKey: .scope)
+        commandTab = try container.decode(WindowSwitcherShortcutScope.self, forKey: .commandTab)
+        optionTab = try container.decode(WindowSwitcherShortcutScope.self, forKey: .optionTab)
+        showFooter = try container.decode(Bool.self, forKey: .showFooter)
+        order = try container.decodeIfPresent(WindowSwitcherOrder.self, forKey: .order) ?? .omniLayout
     }
 }
 
@@ -42,9 +55,14 @@ final class WindowSwitcherSettings {
         didSet { onChange?() }
     }
 
+    var order = WindowSwitcherSettings.defaults.order {
+        didSet { onChange?() }
+    }
+
     func export() -> SettingsExport.WindowSwitcher {
         SettingsExport.WindowSwitcher(
-            enabled: enabled, scope: scope, commandTab: commandTab, optionTab: optionTab, showFooter: showFooter
+            enabled: enabled, scope: scope, commandTab: commandTab, optionTab: optionTab,
+            showFooter: showFooter, order: order
         )
     }
 
@@ -54,5 +72,6 @@ final class WindowSwitcherSettings {
         commandTab = values.commandTab
         optionTab = values.optionTab
         showFooter = values.showFooter
+        order = values.order
     }
 }
