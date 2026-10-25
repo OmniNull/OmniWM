@@ -43,13 +43,13 @@ final class WindowSwitcherSelectionTests: XCTestCase {
         XCTAssertNil(selection.directSwitchTarget(totalWindowCount: 0))
     }
 
-    func testSingleWindowInScopeBypassesOverlayEvenWithOtherWorkspaceWindows() {
+    func testSingleWindowInScopeKeepsOverlayEvenWithOtherWorkspaceWindows() {
         for current: WindowToken? in [first, third, nil] {
             for reverse in [false, true] {
                 var selection = WindowSwitcherSelection()
                 selection.begin(tokens: [first], current: current, reverse: reverse, recent: [third, first])
                 for totalWindowCount in [1, 2, 3] {
-                    XCTAssertEqual(selection.directSwitchTarget(totalWindowCount: totalWindowCount), first)
+                    XCTAssertNil(selection.directSwitchTarget(totalWindowCount: totalWindowCount))
                 }
             }
         }

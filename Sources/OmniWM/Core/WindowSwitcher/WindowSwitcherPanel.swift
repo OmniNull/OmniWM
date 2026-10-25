@@ -111,7 +111,7 @@ final class WindowSwitcherPanel: NSPanel {
         columns = max(1, min(content.items.count, Int((maximumWidth - 20) / (tileWidth + 12))))
         let selectedIndex = content.selected
             .flatMap { token in content.items.firstIndex { $0.handle.id == token } } ?? 0
-        let width = max(min(360, maximumWidth), 20 + CGFloat(columns) * (tileWidth + 12))
+        let width = content.items.isEmpty ? min(360, maximumWidth) : 20 + CGFloat(columns) * (tileWidth + 12)
         let footerHeight: CGFloat = content.showsFooter ? 28 : 0
         let tileHeight: CGFloat = 207
         let rows = max(1, (content.items.count + columns - 1) / columns)
@@ -210,7 +210,6 @@ final class WindowSwitcherPanel: NSPanel {
             action: #selector(toggleScope)
         )
         scopeButton.bezelStyle = .rounded
-        scopeButton.frame = CGRect(x: 16, y: 10, width: 170, height: 26)
         scopeButton.toolTip = String(localized: "Press S to toggle workspace scope")
         effectView.addSubview(scopeButton)
         let count = NSTextField(labelWithString: content.items.isEmpty
@@ -219,7 +218,10 @@ final class WindowSwitcherPanel: NSPanel {
         count.alignment = .right
         count.font = .systemFont(ofSize: 11)
         count.textColor = .secondaryLabelColor
-        count.frame = CGRect(x: 192, y: 15, width: width - 208, height: 16)
+        count.sizeToFit()
+        let scopeWidth = min(170, max(100, width - 44 - count.frame.width))
+        scopeButton.frame = CGRect(x: 16, y: 10, width: scopeWidth, height: 26)
+        count.frame = CGRect(x: scopeWidth + 28, y: 15, width: width - scopeWidth - 44, height: 16)
         effectView.addSubview(count)
     }
 

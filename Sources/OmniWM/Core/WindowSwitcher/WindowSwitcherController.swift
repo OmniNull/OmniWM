@@ -147,7 +147,7 @@ final class WindowSwitcherController {
         guard let controller else { return [] }
         let manager = controller.workspaceManager
         let byToken = Dictionary(uniqueKeysWithValues: items.map { ($0.handle.id, $0) })
-        return manager.workspaces.filter { scope == .allWorkspaces || $0.id == workspaceId }.flatMap { workspace in
+        let scoped = manager.workspaces.filter { scope == .allWorkspaces || $0.id == workspaceId }.flatMap { workspace in
             orderedEntries(in: workspace.id, manager: manager).compactMap { entry -> WindowSwitcherItem? in
                 guard !entry.observedState.isNativeWithdrawn,
                       var item = byToken[entry.token],
@@ -158,6 +158,7 @@ final class WindowSwitcherController {
                 return item
             }
         }
+        return controller.settings.windowSwitcher.order.orderedItems(scoped, recent: manager.windowFocusRecencyOrder)
     }
 
     private func orderedEntries(in workspaceId: WorkspaceDescriptor.ID, manager: WorkspaceManager) -> [WindowState] {

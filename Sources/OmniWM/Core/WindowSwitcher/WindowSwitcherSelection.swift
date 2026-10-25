@@ -23,7 +23,6 @@ struct WindowSwitcherSelection {
     }
 
     func directSwitchTarget(totalWindowCount: Int) -> WindowToken? {
-        if tokens.count == 1 { return selected }
         return totalWindowCount == 2 && tokens.count == 2 ? selected : nil
     }
 
