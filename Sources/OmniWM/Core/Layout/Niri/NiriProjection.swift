@@ -378,7 +378,8 @@ extension NiriLayoutEngine {
             )
 
             projectedState.rebaseOffset(by: -singleOriginOffset)
-            projectedState.preservesGestureOffset = effectiveSettings(in: context.workspaceId).edgeOverscroll != .disabled
+            projectedState.preservesGestureOffset = effectiveSettings(in: context.workspaceId)
+                .edgeOverscroll != .disabled
             let projectedIndex = projectedState.activeColumnIndex
                 .clamped(to: 0 ... projectedColumns.count - 1)
             let activeColumn = projectedColumns[projectedIndex]

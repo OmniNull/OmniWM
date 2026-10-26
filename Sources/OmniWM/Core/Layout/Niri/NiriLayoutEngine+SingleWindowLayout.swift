@@ -16,6 +16,26 @@ extension NiriLayoutEngine {
         )
     }
 
+    @discardableResult
+    func correctSingleWindowGestureOffset(context: NiriInteractionContext, state: inout ViewportState) -> Bool {
+        guard state.preservesGestureOffset,
+              let rect = singleWindowScrollRect(in: context.workspaceId, workingFrame: context.workingFrame)
+        else { return false }
+        let span = context.orientation == .horizontal ? rect.width : rect.height
+        let viewportSpan = context.orientation == .horizontal
+            ? context.workingFrame.width : context.workingFrame.height
+        let originOffset = context.orientation == .horizontal
+            ? context.workingFrame.minX - rect.minX : context.workingFrame.minY - rect.minY
+        guard let bounds = effectiveSettings(in: context.workspaceId).edgeOverscroll.bounds(
+            firstSpan: span, lastSpan: span, totalSpan: span, viewportSpan: viewportSpan, gap: context.gaps
+        ) else { return false }
+        let viewStart = state.viewOffset + originOffset
+        let bounded = viewStart.clamped(to: bounds)
+        guard abs(bounded - viewStart) > 0.5 else { return false }
+        state.animateToOffset(bounded - originOffset, motion: context.motion)
+        return true
+    }
+
     private func centeredSingleWindowRect(
         in workingFrame: CGRect,
         size: CGSize,

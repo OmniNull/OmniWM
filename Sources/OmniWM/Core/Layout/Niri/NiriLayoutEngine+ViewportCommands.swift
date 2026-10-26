@@ -7,7 +7,6 @@ extension NiriLayoutEngine {
     @discardableResult
     func centerColumn(context: NiriInteractionContext, state: inout ViewportState) -> Bool {
         assertSanctionedMutation()
-        state.preservesGestureOffset = false
         resolvePrimaryContainerSpans(
             in: context.workspaceId,
             workingFrame: context.workingFrame,
@@ -30,6 +29,7 @@ extension NiriLayoutEngine {
                 viewFrame: viewFrame,
                 scale: scale
             )
+            projectedState.preservesGestureOffset = false
             projectedState.animateToOffset(
                 targetOffset,
                 motion: context.motion,
@@ -42,7 +42,6 @@ extension NiriLayoutEngine {
     @discardableResult
     func centerVisibleColumns(context: NiriInteractionContext, state: inout ViewportState) -> Bool {
         assertSanctionedMutation()
-        state.preservesGestureOffset = false
         let settings = effectiveSettings(in: context.workspaceId)
         resolvePrimaryContainerSpans(
             in: context.workspaceId,
@@ -61,8 +60,9 @@ extension NiriLayoutEngine {
             state: &state,
             context: context
         ) { columns, projectedState in
-            guard settings.centerFocusedColumn != .always,
-                  !settings.alwaysCenterSingleColumn || columns.count > 1
+            guard projectedState.preservesGestureOffset
+                || (settings.centerFocusedColumn != .always
+                    && (!settings.alwaysCenterSingleColumn || columns.count > 1))
             else {
                 return false
             }
@@ -80,7 +80,13 @@ extension NiriLayoutEngine {
                     viewFrame: viewFrame,
                     scale: scale
                 )
-            ) else { return false }
+            ) ?? (projectedState.preservesGestureOffset ? projectedState.computeCenteredOffset(
+                containerIndex: activeIndex,
+                containers: columns,
+                context: context,
+                viewFrame: viewFrame,
+                scale: scale
+            ) : nil) else { return false }
             cancelInteractiveResize(for: columns[activeIndex], in: context.workspaceId)
 
             projectedState.animateToOffset(targetOffset, motion: context.motion, scale: scale)

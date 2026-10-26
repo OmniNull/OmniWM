@@ -90,7 +90,7 @@ extension NiriLayoutHandler {
         ) != nil
         if usesSingleWindowFit,
            !state.preservesGestureOffset || removal.removedColumn
-            || pass.engine.effectiveSettings(in: pass.wsId).edgeOverscroll == .disabled
+           || pass.engine.effectiveSettings(in: pass.wsId).edgeOverscroll == .disabled
         {
             resetViewportForSingleWindowFit(state: &state)
         }
@@ -391,6 +391,12 @@ extension NiriLayoutHandler {
             if abs(liveOffsetDelta) > 1 {
                 viewportNeedsRecalc = true
             }
+        }
+
+        if usesSingleWindowFit,
+           pass.engine.correctSingleWindowGestureOffset(context: pass.interactionContext, state: &state)
+        {
+            viewportNeedsRecalc = true
         }
 
         if !usesSingleWindowFit,
