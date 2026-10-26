@@ -112,14 +112,17 @@ final class WorkspaceSwipePreview {
 
     func prefetch(shown: [Item], upcoming: [Item], monitor: Monitor, workingFrame: CGRect? = nil) {
         let frame = workingFrame ?? monitor.visibleFrame
-        guard panel != nil, upcoming.contains(where: {
-            $0.frame.intersects(frame) && capture.preview(for: $0.handle) == nil
-        }) else { return }
-        reconcile(source: shown, destination: upcoming, monitor: monitor, workingFrame: frame, warming: true)
+        let missing = upcoming.filter { $0.frame.intersects(frame) && capture.preview(for: $0.handle) == nil }
+        guard panel != nil, !missing.isEmpty else { return }
+        reconcile(
+            source: shown, destination: missing, monitor: monitor, workingFrame: frame, warming: false,
+            firstFrameHandles: Set(missing.map(\.handle))
+        )
     }
 
     private func reconcile(
-        source: [Item], destination: [Item], monitor: Monitor, workingFrame: CGRect?, warming: Bool
+        source: [Item], destination: [Item], monitor: Monitor, workingFrame: CGRect?, warming: Bool,
+        firstFrameHandles: Set<WindowHandle> = []
     ) {
         isWarming = false
         let frame = workingFrame ?? monitor.visibleFrame
@@ -137,7 +140,8 @@ final class WorkspaceSwipePreview {
             represented: represented,
             visible: requested.map { $0.captureRequest(backingScale: scale) },
             retainingUnrepresentedPreviews: true,
-            firstFrameOnly: warming
+            firstFrameOnly: warming,
+            firstFrameHandles: firstFrameHandles
         )
     }
 

@@ -832,27 +832,42 @@ final class WorkspaceSwipePresentationTests: XCTestCase {
         XCTAssertTrue(preview.isVisible)
     }
 
-    func testOverlayPrefetchCapturesUpcomingWindowsSoAChainCanUseThem() async throws {
+    func testOverlayPrefetchKeepsLiveCapturesWhileFetchingUpcomingWindows() async throws {
         let fixture = try previewFixture()
         let preview = fixture.preview
         let monitor = fixture.monitor
-        let item = WorkspaceSwipePreview.Item(
-            handle: fixture.handle,
-            frame: CGRect(x: 50, y: 50, width: 600, height: 500)
-        )
-        XCTAssertTrue(preview.begin(source: [], destination: [], monitor: monitor))
-        XCTAssertFalse(preview.replace(source: [], destination: [item], monitor: monitor))
-
-        preview.prefetch(shown: [], upcoming: [item], monitor: monitor)
-
-        XCTAssertTrue(preview.isWarming)
-        try await fixture.driver.waitForStarts(1)
+        let manager = fixture.controller.workspaceManager
+        let neighbor = try XCTUnwrap(manager.workspaceId(for: "2", createIfMissing: true))
+        let upcomingToken = WindowToken(pid: 987_001, windowId: 987_002)
+        _ = WindowAdmissionTestSupport.track(upcomingToken, in: neighbor, controller: fixture.controller)
+        let upcomingHandle = try XCTUnwrap(manager.handle(for: upcomingToken))
+        let frame = CGRect(x: 50, y: 50, width: 600, height: 500)
+        let shown = WorkspaceSwipePreview.Item(handle: fixture.handle, frame: frame)
+        let upcoming = WorkspaceSwipePreview.Item(handle: upcomingHandle, frame: frame)
+        try await cachePreviewThroughContact(fixture)
+        XCTAssertTrue(preview.begin(source: [shown], destination: [], monitor: monitor))
+        preview.prepare(source: [shown], destination: [], monitor: monitor)
+        try await fixture.driver.waitForStarts(2)
         fixture.driver.completeAllStarts()
-        try await publish(try makeOverviewPreviewFrame(), through: fixture.driver.streams[0], into: fixture.capture)
-        try await fixture.driver.waitForStops(1)
-        XCTAssertNotNil(fixture.capture.preview(for: fixture.handle))
+        let live = fixture.driver.streams[1]
+        try await publish(try makeOverviewPreviewFrame(), through: live, into: fixture.capture)
+        XCTAssertFalse(preview.replace(source: [shown], destination: [upcoming], monitor: monitor))
+
+        preview.prefetch(shown: [shown], upcoming: [upcoming], monitor: monitor)
+
+        XCTAssertFalse(preview.isWarming)
+        try await fixture.driver.waitForStarts(3)
+        fixture.driver.completeAllStarts()
+        let oneShot = fixture.driver.streams[2]
+        XCTAssertEqual(oneShot.request.handle, upcomingHandle)
+        try await publish(try makeOverviewPreviewFrame(), through: oneShot, into: fixture.capture)
+        try await fixture.driver.waitForStops(2)
+        XCTAssertEqual(live.stopCount, 0)
+        XCTAssertTrue(fixture.capture.isPresenting)
+        XCTAssertNotNil(fixture.capture.preview(for: upcomingHandle))
         XCTAssertTrue(preview.isVisible)
-        XCTAssertTrue(preview.replace(source: [], destination: [item], monitor: monitor))
+        XCTAssertTrue(preview.replace(source: [shown], destination: [upcoming], monitor: monitor))
+        XCTAssertEqual(live.stopCount, 0)
     }
 
     func testPreviousWorkspaceWrapsAsOneVisualStep() throws {
@@ -1261,13 +1276,7 @@ final class WorkspaceSwipePresentationTests: XCTestCase {
     }
 
     private func makeBackdrop() throws -> WorkspaceSwipeBackdrop {
-        let context = try XCTUnwrap(CGContext(
-            data: nil, width: 1600, height: 900, bitsPerComponent: 8, bytesPerRow: 1600 * 4,
-            space: CGColorSpaceCreateDeviceRGB(), bitmapInfo: CGImageAlphaInfo.premultipliedLast.rawValue
-        ))
-        context.setFillColor(CGColor(red: 0.2, green: 0.3, blue: 0.4, alpha: 1))
-        context.fill(CGRect(x: 0, y: 0, width: 1600, height: 900))
-        let image = try XCTUnwrap(context.makeImage())
+        let image = try makeWallpaperImage()
         let wallpaper = OverviewWallpaperCache()
         wallpaper.desktopImageURL = { _ in nil }
         wallpaper.captureWallpaper = { _ in image }
