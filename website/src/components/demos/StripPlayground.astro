@@ -1,0 +1,405 @@
+---
+import MockDesktop from './MockDesktop.astro';
+import MockWindow from './MockWindow.astro';
+import Keycap from './Keycap.astro';
+
+const kinds = [
+  { kind: 'editor', title: 'Zed' },
+  { kind: 'terminal', title: 'Ghostty' },
+  { kind: 'browser', title: 'Safari' },
+  { kind: 'notes', title: 'Notes' },
+  { kind: 'plain', title: 'Messages' },
+] as const;
+
+const keys = [
+  { action: 'focusCol', arg: '-1', keys: ['⌥', '←'], label: 'Focus left' },
+  { action: 'focusCol', arg: '1', keys: ['⌥', '→'], label: 'Focus right' },
+  { action: 'moveWindow', arg: '-1', keys: ['⌥', '⇧', '←'], label: 'Move left' },
+  { action: 'moveWindow', arg: '1', keys: ['⌥', '⇧', '→'], label: 'Move right' },
+  { action: 'toggleTabbed', keys: ['⌥', 'T'], label: 'Tabs' },
+  { action: 'toggleFull', keys: ['⌥', '⇧', 'F'], label: 'Full width' },
+  { action: 'cycleWidth', keys: ['.'], label: 'Cycle width' },
+  { action: 'open', keys: ['N'], label: 'New window' },
+  { action: 'close', keys: ['W'], label: 'Close' },
+];
+---
+
+<section class="section playground-section" id="try">
+  <div class="container">
+    <div class="section-head">
+      <h2>Try the strip</h2>
+      <p>
+        A simulation of the Niri layout with default settings. Click it, then use the keys below, or swipe sideways on
+        a trackpad to scroll the strip.
+      </p>
+    </div>
+    <div
+      class="demo"
+      data-playground
+      tabindex="0"
+      aria-label="Interactive Niri layout simulation. Option and arrow keys move focus, Option Shift and arrow keys move the window."
+      aria-describedby="pg-hint"
+    >
+      <MockDesktop label="Simulated macOS desktop with a scrolling strip of windows">
+        <div class="pg-strip"></div>
+        <p class="pg-empty">No windows. Press N to open one.</p>
+        <span class="pg-try" aria-hidden="true">Click to try</span>
+      </MockDesktop>
+      <template class="pg-pool">
+        {kinds.map(({ kind, title }) => <MockWindow class={`pg-k-${kind}`} title={title} variant={kind} />)}
+      </template>
+      <div class="keys">
+        {
+          keys.map(({ action, arg, keys, label }) => (
+            <button type="button" class="pg-key" tabindex="-1" data-action={action} data-arg={arg}>
+              <Keycap keys={keys} label={label} />
+            </button>
+          ))
+        }
+      </div>
+      <p class="caption" id="pg-hint">
+        ⌥↑↓ focus inside a column, ⌥⇧↑↓ swaps, ⌃⌥⇧←→ moves the whole column. Plain arrows and hjkl work too, in case
+        OmniWM is already catching ⌥ on your Mac. Cycle width, new and close are unassigned by default; bind them in
+        Settings › Keyboard Shortcuts.
+      </p>
+      <p class="visually-hidden" role="status" aria-live="polite"></p>
+    </div>
+  </div>
+</section>
+
+<style is:global>
+  [data-playground] {
+    outline: none;
+
+    .frame {
+      transition: box-shadow var(--dur-ui) var(--ease-ui);
+    }
+
+    &:focus-visible .frame {
+      box-shadow: 0 0 0 3px var(--page-accent);
+    }
+
+    .desktop {
+      overscroll-behavior-x: contain;
+    }
+
+    .pg-strip {
+      position: absolute;
+      inset: 0;
+      transform: translateX(calc(var(--pan, 0) * -100cqw));
+      transition: transform 450ms var(--ease-settle);
+    }
+
+    &.is-panning .pg-strip {
+      transition: none;
+    }
+
+    .pg-strip .mock-win {
+      cursor: pointer;
+      transition:
+        left 450ms var(--ease-settle),
+        top 450ms var(--ease-settle),
+        width 450ms var(--ease-settle),
+        height 450ms var(--ease-settle),
+        opacity 250ms var(--ease-ui),
+        transform 250ms var(--ease-settle),
+        box-shadow var(--dur-ui) var(--ease-ui);
+    }
+
+    .pg-strip .mock-win.is-hidden-tab {
+      opacity: 0;
+      pointer-events: none;
+    }
+
+    .pg-tabs {
+      position: absolute;
+      display: flex;
+      gap: 0.6cqw;
+      height: 4cqh;
+      transition:
+        left 450ms var(--ease-settle),
+        width 450ms var(--ease-settle);
+    }
+
+    .pg-tab {
+      flex: 1 1 0;
+      min-width: 0;
+      padding: 0 0.8cqw;
+      border: 1px solid var(--demo-win-border);
+      border-radius: 0.8cqw;
+      background: var(--demo-glass);
+      color: rgba(255, 255, 255, 0.55);
+      font: inherit;
+      font-size: clamp(6px, 1.4cqw, 10px);
+      white-space: nowrap;
+      overflow: hidden;
+      text-overflow: ellipsis;
+      cursor: pointer;
+    }
+
+    .pg-tab.is-active {
+      color: #fff;
+      border-color: var(--demo-accent);
+    }
+
+    .pg-empty,
+    .pg-try {
+      position: absolute;
+      left: 50%;
+      top: 52%;
+      transform: translate(-50%, -50%);
+      margin: 0;
+      color: rgba(255, 255, 255, 0.6);
+      font-size: clamp(10px, 2cqw, 15px);
+      pointer-events: none;
+    }
+
+    .pg-empty {
+      display: none;
+    }
+
+    &.is-empty .pg-empty {
+      display: block;
+    }
+
+    .pg-try {
+      top: auto;
+      bottom: 6cqh;
+      padding: 0.6em 1.2em;
+      border-radius: var(--r-pill);
+      background: var(--demo-glass);
+      color: #fff;
+      transition: opacity var(--dur-ui) var(--ease-ui);
+      z-index: 9;
+    }
+
+    &:focus-within .pg-try {
+      opacity: 0;
+    }
+
+    .pg-key {
+      padding: 0;
+      border: 0;
+      background: none;
+      color: inherit;
+      font: inherit;
+      cursor: pointer;
+    }
+  }
+
+  @starting-style {
+    [data-playground] .pg-strip .mock-win {
+      opacity: 0;
+      transform: scale(0.94);
+    }
+  }
+
+  @media (prefers-reduced-motion: reduce) {
+    [data-playground] .pg-strip,
+    [data-playground] .pg-strip .mock-win,
+    [data-playground] .pg-tabs {
+      transition: none;
+    }
+  }
+</style>
+
+<script>
+  import * as m from '../../scripts/strip-model.js';
+
+  const TOP = 7.5;
+  const BOTTOM = 3.5;
+  const TABS = 5;
+  const KINDS = ['editor', 'terminal', 'browser', 'notes', 'plain'];
+
+  interface Column {
+    windows: string[];
+    width: number;
+    full?: boolean;
+    tabbed?: boolean;
+  }
+
+  interface State {
+    columns: Column[];
+    col: number;
+    win: number;
+    offset: number;
+    nextId: number;
+  }
+
+  function mount(root: HTMLElement) {
+    const frame = root.querySelector<HTMLElement>('.frame')!;
+    const strip = root.querySelector<HTMLElement>('.pg-strip')!;
+    const pool = root.querySelector<HTMLTemplateElement>('.pg-pool')!.content;
+    const status = root.querySelector<HTMLElement>('[role=status]')!;
+    const nodes = new Map<string, HTMLElement>();
+    let state: State = m.create([
+      { windows: ['editor-1', 'notes-2'], width: 0.5 },
+      { windows: ['terminal-3'], width: 1 / 3 },
+      { windows: ['browser-4'], width: 0.5 },
+      { windows: ['plain-5'], width: 1 / 3 },
+    ]);
+    let opened = 0;
+    let idle = 0;
+
+    const node = (id: string) => {
+      let el = nodes.get(id);
+      if (!el) {
+        const kind = id.split('-')[0];
+        el = pool.querySelector<HTMLElement>(`.pg-k-${kind}`)!.cloneNode(true) as HTMLElement;
+        el.dataset.id = id;
+        nodes.set(id, el);
+        strip.append(el);
+      }
+      return el;
+    };
+    const title = (id: string) => node(id).querySelector('.win-title')?.textContent ?? 'Window';
+
+    function render() {
+      const { xs } = m.layout(state);
+      const seen = new Set<string>();
+      strip.querySelectorAll('.pg-tabs').forEach((t) => t.remove());
+      state.columns.forEach((column, c) => {
+        const left = `${xs[c] * 100}cqw`;
+        const w = `${m.width(column) * 100}cqw`;
+        const top = column.tabbed ? TOP + TABS : TOP;
+        const n = column.tabbed ? 1 : column.windows.length;
+        const h = (100 - top - BOTTOM - (n - 1) * 2) / n;
+        if (column.tabbed) {
+          const tabs = document.createElement('div');
+          tabs.className = 'pg-tabs';
+          Object.assign(tabs.style, { left, width: w, top: `${TOP}cqh` });
+          column.windows.forEach((id, i) => {
+            const tab = document.createElement('button');
+            tab.type = 'button';
+            tab.tabIndex = -1;
+            tab.className = 'pg-tab';
+            tab.textContent = title(id);
+            tab.dataset.col = String(c);
+            tab.dataset.win = String(i);
+            const active = c === state.col ? i === state.win : i === 0;
+            tab.classList.toggle('is-active', active);
+            tabs.append(tab);
+          });
+          strip.append(tabs);
+        }
+        const shown = c === state.col ? state.win : 0;
+        column.windows.forEach((id, i) => {
+          seen.add(id);
+          const el = node(id);
+          el.dataset.col = String(c);
+          el.dataset.win = String(i);
+          const row = column.tabbed ? 0 : i;
+          Object.assign(el.style, { left, width: w, top: `${top + row * (h + 2)}cqh`, height: `${h}cqh` });
+          el.classList.toggle('is-hidden-tab', !!column.tabbed && i !== shown);
+          el.classList.toggle('is-focused', c === state.col && i === state.win);
+        });
+      });
+      for (const [id, el] of nodes) {
+        if (!seen.has(id)) {
+          el.remove();
+          nodes.delete(id);
+        }
+      }
+      strip.style.setProperty('--pan', String(state.offset));
+      root.classList.toggle('is-empty', state.columns.length === 0);
+    }
+
+    function announce() {
+      const id = state.columns[state.col]?.windows[state.win];
+      status.textContent = id ? `${title(id)} focused, column ${state.col + 1} of ${state.columns.length}` : 'No windows';
+    }
+
+    function run(action: string, arg?: string) {
+      const d = Number(arg);
+      const next: Record<string, () => State> = {
+        focusCol: () => m.focusCol(state, d),
+        focusWin: () => m.focusWin(state, d),
+        moveWindow: () => m.moveWindow(state, d),
+        swapWindow: () => m.swapWindow(state, d),
+        moveColumn: () => m.moveColumn(state, d),
+        cycleWidth: () => m.cycleWidth(state),
+        toggleFull: () => m.toggleFull(state),
+        toggleTabbed: () => m.toggleTabbed(state),
+        open: () => m.open(state, KINDS[opened++ % KINDS.length]),
+        close: () => m.close(state),
+      };
+      if (!next[action]) return;
+      state = next[action]();
+      render();
+      announce();
+      const key = root.querySelector(`.pg-key[data-action='${action}']${arg ? `[data-arg='${arg}']` : ''} .keycap`);
+      key?.classList.add('is-pressed');
+      setTimeout(() => key?.classList.remove('is-pressed'), 150);
+    }
+
+    const dirs: Record<string, [string, number]> = {
+      ArrowLeft: ['h', -1],
+      ArrowRight: ['h', 1],
+      ArrowUp: ['v', -1],
+      ArrowDown: ['v', 1],
+      KeyH: ['h', -1],
+      KeyL: ['h', 1],
+      KeyK: ['v', -1],
+      KeyJ: ['v', 1],
+    };
+
+    root.addEventListener('keydown', (e) => {
+      if (e.metaKey) return;
+      const dir = dirs[e.code];
+      let action = '';
+      let arg: string | undefined;
+      if (dir) {
+        const [axis, d] = dir;
+        arg = String(d);
+        if (e.shiftKey && e.ctrlKey) action = axis === 'h' ? 'moveColumn' : '';
+        else if (e.shiftKey) action = axis === 'h' ? 'moveWindow' : 'swapWindow';
+        else if (!e.ctrlKey) action = axis === 'h' ? 'focusCol' : 'focusWin';
+      } else if (!e.ctrlKey) {
+        arg = undefined;
+        action =
+          { KeyT: 'toggleTabbed', KeyF: 'toggleFull', Period: 'cycleWidth', KeyN: 'open', KeyW: 'close', KeyX: 'close' }[
+            e.code
+          ] ?? '';
+      }
+      if (!action) return;
+      e.preventDefault();
+      run(action, arg);
+    });
+
+    root.addEventListener('click', (e) => {
+      const target = e.target as HTMLElement;
+      const key = target.closest<HTMLElement>('.pg-key');
+      const hit = target.closest<HTMLElement>('.pg-tab, .mock-win[data-col]');
+      if (key) run(key.dataset.action!, key.dataset.arg);
+      else if (hit) {
+        state = m.focusAt(state, Number(hit.dataset.col), Number(hit.dataset.win));
+        render();
+        announce();
+      }
+      root.focus({ preventScroll: true });
+    });
+
+    frame.addEventListener(
+      'wheel',
+      (e) => {
+        if (!frame.clientWidth || Math.abs(e.deltaX) <= Math.abs(e.deltaY)) return;
+        e.preventDefault();
+        root.classList.add('is-panning');
+        state = m.pan(state, state.offset + e.deltaX / frame.clientWidth);
+        strip.style.setProperty('--pan', String(state.offset));
+        clearTimeout(idle);
+        idle = window.setTimeout(() => {
+          root.classList.remove('is-panning');
+          state = m.settle(state);
+          render();
+          announce();
+        }, 140);
+      },
+      { passive: false }
+    );
+
+    render();
+  }
+
+  for (const root of document.querySelectorAll<HTMLElement>('[data-playground]')) mount(root);
+</script>

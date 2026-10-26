@@ -13,6 +13,7 @@
     "build": "astro build",
     "preview": "astro preview",
     "check": "astro check",
+    "test": "node --test src/scripts/*.test.js",
     "astro": "astro"
   },
   "dependencies": {
