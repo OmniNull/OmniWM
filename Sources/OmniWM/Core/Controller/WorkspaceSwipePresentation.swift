@@ -386,7 +386,9 @@ extension WorkspaceSwipePresentation {
         trace(reason, progress: flight.progress)
         controller?.surfaceReconciler.noteWorldChanged()
         refreshController?.stopDisplayLinkIfIdle(for: flight.preparation.monitor.displayId)
-        if focusOwed, flight.serial == latestSerial, !flight.committing, reason != "chained" {
+        if flight.serial == latestSerial, !flight.committing, reason != "chained",
+           focusOwed || flights.values.contains(where: { $0.preparation.monitor.id != monitorId })
+        {
             settleOwedFocus(on: flight.preparation.monitor)
         }
         if ["completed", "placement-failed", "handoff-unconfirmed", "cancelled"].contains(reason) {

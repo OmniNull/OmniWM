@@ -429,6 +429,31 @@ final class WorkspaceSwipePresentationTests: XCTestCase {
         swipe.cancelAll(reason: "test-complete")
     }
 
+    func testNewerSwipeCancellingBeforeTheOlderCommitTakesFocus() throws {
+        var mediaTime = 1.06
+        let (controller, swipe, monitor, other, _, otherSource) = try twoMonitorFixture { mediaTime }
+        let manager = controller.workspaceManager
+        let first = try settleForwardSwipe(swipe, on: monitor)
+        mediaTime = 1.1
+        XCTAssertFalse(swipe.prepare(monitorId: other.id, timestamp: 1.1))
+        XCTAssertTrue(swipe.begin(axis: .horizontal, cumulative: -20, timestamp: 1.12))
+        swipe.update(cumulative: -30, timestamp: 1.5)
+        mediaTime = 2
+        XCTAssertTrue(swipe.release(timestamp: 2, allowFlick: true))
+        XCTAssertEqual(swipe.flight?.motion.target, 0)
+
+        swipe.tick(displayId: other.displayId, timestamp: 4)
+
+        XCTAssertNil(swipe.flights[other.id])
+        XCTAssertEqual(manager.activeWorkspace(on: other.id)?.id, otherSource)
+        XCTAssertEqual(manager.interactionMonitorId, other.id)
+        XCTAssertTrue(swipe.flights[monitor.id] === first)
+        swipe.tick(displayId: monitor.displayId, timestamp: 4)
+        XCTAssertEqual(manager.activeWorkspace(on: monitor.id)?.id, first.destination.id)
+        XCTAssertEqual(manager.interactionMonitorId, other.id)
+        swipe.cancelAll(reason: "test-complete")
+    }
+
     private func settleForwardSwipe(
         _ swipe: WorkspaceSwipePresentation, on monitor: Monitor
     ) throws -> WorkspaceSwipePresentation.Flight {
