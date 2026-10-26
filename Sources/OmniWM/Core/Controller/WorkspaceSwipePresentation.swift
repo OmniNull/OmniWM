@@ -271,10 +271,6 @@ final class WorkspaceSwipePresentation {
         return true
     }
 
-    func isCurrent(_ flight: Flight) -> Bool {
-        flights[flight.preparation.monitor.id] === flight
-    }
-
     func otherGestureRecognized(on monitorId: Monitor.ID) {
         noteNewestGesture(on: monitorId)
         guard chainMonitorId == nil else {
@@ -286,6 +282,13 @@ final class WorkspaceSwipePresentation {
 
     func noteSwitchWithoutPresentation(on monitorId: Monitor.ID) {
         noteNewestGesture(on: monitorId)
+    }
+
+    func forgetNewestGesture(onDisplay displayId: CGDirectDisplayID) {
+        guard latestGestureMonitorId?.displayId == displayId else { return }
+        let survivor = flights.values.max { $0.serial < $1.serial }
+        latestGestureMonitorId = survivor?.preparation.monitor.id
+        if let survivor { latestSerial = survivor.serial }
     }
 
     private func noteNewestGesture(on monitorId: Monitor.ID) {
@@ -374,12 +377,12 @@ extension WorkspaceSwipePresentation {
     func cancelAll(reason: String) {
         focusOwed = false
         for flight in Array(flights.values) {
-            cancel(flight, reason: reason)
+            cancel(flight, reason: reason, settlingFocus: false)
         }
         stopPreparing()
     }
 
-    func cancel(_ flight: Flight, reason: String, keepingPreview: Bool = false) {
+    func cancel(_ flight: Flight, reason: String, keepingPreview: Bool = false, settlingFocus: Bool = true) {
         let monitorId = flight.preparation.monitor.id
         guard flights[monitorId] === flight else { return }
         flights[monitorId] = nil
@@ -391,7 +394,7 @@ extension WorkspaceSwipePresentation {
         trace(reason, progress: flight.progress)
         controller?.surfaceReconciler.noteWorldChanged()
         refreshController?.stopDisplayLinkIfIdle(for: flight.preparation.monitor.displayId)
-        if flight.serial == latestSerial, !flight.committing, reason != "chained",
+        if settlingFocus, flight.serial == latestSerial, !flight.committing, reason != "chained",
            focusOwed || flights.values.contains(where: { $0.preparation.monitor.id != monitorId })
         {
             settleOwedFocus(on: flight.preparation.monitor)

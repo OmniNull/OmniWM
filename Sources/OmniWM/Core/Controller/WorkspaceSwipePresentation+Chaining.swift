@@ -4,6 +4,10 @@
 import AppKit
 
 extension WorkspaceSwipePresentation {
+    func isCurrent(_ flight: Flight) -> Bool {
+        flights[flight.preparation.monitor.id] === flight
+    }
+
     func handOff(
         from predecessor: Flight, into preparation: Preparation, toward destination: Workspace,
         using preview: WorkspaceSwipePreview

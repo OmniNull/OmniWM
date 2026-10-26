@@ -614,6 +614,42 @@ final class WorkspaceSwipePresentationTests: XCTestCase {
         return (controller, swipe, monitor, ids)
     }
 
+    func testCancellingEverySwipeLeavesFocusAlone() throws {
+        var mediaTime = 1.06
+        let (controller, swipe, monitor, other, _, _) = try twoMonitorFixture { mediaTime }
+        let manager = controller.workspaceManager
+        _ = try settleForwardSwipe(swipe, on: monitor)
+        mediaTime = 1.1
+        XCTAssertFalse(swipe.prepare(monitorId: other.id, timestamp: 1.1))
+        XCTAssertTrue(swipe.begin(axis: .horizontal, cumulative: -20, timestamp: 1.12))
+        XCTAssertEqual(manager.interactionMonitorId, monitor.id)
+
+        swipe.cancelAll(reason: "overview")
+
+        XCTAssertFalse(swipe.hasPresentation)
+        XCTAssertEqual(manager.interactionMonitorId, monitor.id)
+    }
+
+    func testDisconnectingTheNewestSwipesDisplayLeavesFocusWithTheSurvivingSwitch() throws {
+        var mediaTime = 1.06
+        let (controller, swipe, monitor, other, _, _) = try twoMonitorFixture { mediaTime }
+        let manager = controller.workspaceManager
+        let first = try settleForwardSwipe(swipe, on: monitor)
+        mediaTime = 1.1
+        XCTAssertFalse(swipe.prepare(monitorId: other.id, timestamp: 1.1))
+        XCTAssertTrue(swipe.begin(axis: .horizontal, cumulative: -20, timestamp: 1.12))
+
+        swipe.cancelFlights(onDisplay: other.displayId, reason: "display-disconnected")
+
+        XCTAssertNil(swipe.flights[other.id])
+        XCTAssertEqual(manager.interactionMonitorId, monitor.id)
+        XCTAssertTrue(manager.setInteractionMonitor(other.id))
+        swipe.tick(displayId: monitor.displayId, timestamp: 3)
+        XCTAssertEqual(manager.activeWorkspace(on: monitor.id)?.id, first.destination.id)
+        XCTAssertEqual(manager.interactionMonitorId, monitor.id)
+        swipe.cancelAll(reason: "test-complete")
+    }
+
     private func settleForwardSwipe(
         _ swipe: WorkspaceSwipePresentation, on monitor: Monitor
     ) throws -> WorkspaceSwipePresentation.Flight {
