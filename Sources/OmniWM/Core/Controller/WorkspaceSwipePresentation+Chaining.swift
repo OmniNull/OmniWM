@@ -37,10 +37,6 @@ extension WorkspaceSwipePresentation {
         )
     }
 
-    func noteSwitchWithoutPresentation() {
-        latestSerial += 1
-    }
-
     func createdDestination(isNext: Bool, from preparation: Preparation) -> Workspace? {
         guard let controller, isNext,
               let created = controller.workspaceNavigationHandler.swipeTargetWorkspace(

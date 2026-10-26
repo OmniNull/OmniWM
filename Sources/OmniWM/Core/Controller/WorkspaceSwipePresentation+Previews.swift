@@ -8,6 +8,15 @@ extension WorkspaceSwipePresentation {
         Array(previews.values) + (unclaimedPreview.map { [$0] } ?? [])
     }
 
+    func cancelFlights(onDisplay displayId: CGDirectDisplayID, reason: String) {
+        for flight in Array(flights.values) where flight.preparation.monitor.displayId == displayId {
+            cancel(flight, reason: reason)
+        }
+        for monitorId in previews.keys where monitorId.displayId == displayId {
+            previews.removeValue(forKey: monitorId)?.release()
+        }
+    }
+
     func windowRemoved(_ token: WindowToken) {
         for preview in allPreviews {
             preview.remove(token: token)

@@ -92,7 +92,8 @@ final class WorkspaceSwipePresentation {
     private(set) var flights: [Monitor.ID: Flight] = [:]
     private weak var gestureFlight: Flight?
     private var chainMonitorId: Monitor.ID?
-    var latestSerial = 0
+    private var latestSerial = 0
+    private var latestGestureMonitorId: Monitor.ID?
     private var focusOwed = false
     var previews: [Monitor.ID: WorkspaceSwipePreview] = [:]
     var unclaimedPreview: WorkspaceSwipePreview?
@@ -274,12 +275,22 @@ final class WorkspaceSwipePresentation {
         flights[flight.preparation.monitor.id] === flight
     }
 
-    func otherGestureRecognized() {
+    func otherGestureRecognized(on monitorId: Monitor.ID) {
+        noteNewestGesture(on: monitorId)
         guard chainMonitorId == nil else {
             chainMonitorId = nil
             return
         }
         cancel(reason: "other-gesture")
+    }
+
+    func noteSwitchWithoutPresentation(on monitorId: Monitor.ID) {
+        noteNewestGesture(on: monitorId)
+    }
+
+    private func noteNewestGesture(on monitorId: Monitor.ID) {
+        latestSerial += 1
+        latestGestureMonitorId = monitorId
     }
 
     func tick(displayId: CGDirectDisplayID, timestamp: TimeInterval) {
@@ -345,7 +356,7 @@ extension WorkspaceSwipePresentation {
             flight.carry = { predecessor.residual(at: $0) }
             _ = activateDisplayLink(for: flight)
         }
-        latestSerial += 1
+        noteNewestGesture(on: monitor.id)
         flight.serial = latestSerial
         flights[monitor.id] = flight
         gestureFlight = flight
@@ -366,15 +377,6 @@ extension WorkspaceSwipePresentation {
             cancel(flight, reason: reason)
         }
         stopPreparing()
-    }
-
-    func cancelFlights(onDisplay displayId: CGDirectDisplayID, reason: String) {
-        for flight in Array(flights.values) where flight.preparation.monitor.displayId == displayId {
-            cancel(flight, reason: reason)
-        }
-        for monitorId in previews.keys where monitorId.displayId == displayId {
-            previews.removeValue(forKey: monitorId)?.release()
-        }
     }
 
     func cancel(_ flight: Flight, reason: String, keepingPreview: Bool = false) {
@@ -429,7 +431,7 @@ extension WorkspaceSwipePresentation {
             cancel(flight, reason: "superseded")
             return
         }
-        let takesFocus = flight.serial == latestSerial
+        let takesFocus = flight.serial == latestSerial || latestGestureMonitorId == monitor.id
         flight.phase = .committing
         let settlement =
             AXFrameSettlement(tokens: Set(controller.workspaceManager.entries(in: flight.destination.id).map(\.token)))
@@ -465,9 +467,19 @@ extension WorkspaceSwipePresentation {
             refreshController.commitWorkspaceTransition(
                 postLayout: placementSubmitted, postLayoutInvalidated: placementInvalidated
             )
+            if !focusOwed { keepFocusOffHiddenWorkspace(flight.preparation.source.id) }
         }
         flight.phase = .waitingForPlacement
         refreshController.stopDisplayLinkIfIdle(for: monitor.displayId)
+    }
+
+    private func keepFocusOffHiddenWorkspace(_ workspaceId: WorkspaceDescriptor.ID) {
+        guard let controller, let monitorId = latestGestureMonitorId,
+              let monitor = controller.workspaceManager.monitor(byId: monitorId),
+              let token = controller.workspaceManager.nativeManagedFocusToken,
+              controller.workspaceManager.entry(for: token)?.workspaceId == workspaceId
+        else { return }
+        settleOwedFocus(on: monitor)
     }
 
     private func settleOwedFocus(on monitor: Monitor) {

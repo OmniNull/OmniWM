@@ -472,6 +472,68 @@ final class WorkspaceSwipePresentationTests: XCTestCase {
         withExtendedLifetime(controller) { swipe.cancelAll(reason: "test-complete") }
     }
 
+    func testOtherGestureOnAnotherDisplayKeepsFocusFromTheSettlingSwitch() throws {
+        var mediaTime = 1.06
+        let (controller, swipe, monitor, other, _, _) = try twoMonitorFixture { mediaTime }
+        let manager = controller.workspaceManager
+        let first = try settleForwardSwipe(swipe, on: monitor)
+        mediaTime = 1.1
+        XCTAssertFalse(swipe.prepare(monitorId: other.id, timestamp: 1.1))
+
+        swipe.otherGestureRecognized(on: other.id)
+        XCTAssertTrue(manager.setInteractionMonitor(other.id))
+
+        XCTAssertTrue(swipe.flights[monitor.id] === first)
+        swipe.tick(displayId: monitor.displayId, timestamp: 3)
+        XCTAssertEqual(manager.activeWorkspace(on: monitor.id)?.id, first.destination.id)
+        XCTAssertEqual(manager.interactionMonitorId, other.id)
+        swipe.cancelAll(reason: "test-complete")
+    }
+
+    func testOtherGestureLeavingFocusOnTheHiddenWorkspaceMovesFocusToItsDisplay() throws {
+        var mediaTime = 1.06
+        let (controller, swipe, monitor, other, source, _) = try twoMonitorFixture { mediaTime }
+        let manager = controller.workspaceManager
+        let token = WindowToken(pid: 985_001, windowId: 985_002)
+        _ = WindowAdmissionTestSupport.track(token, in: source, controller: controller)
+        XCTAssertTrue(manager.confirmManagedFocus(token, in: source, activateWorkspaceOnMonitor: false))
+        XCTAssertEqual(manager.nativeManagedFocusToken, token)
+        let first = try settleForwardSwipe(swipe, on: monitor)
+        mediaTime = 1.1
+        XCTAssertFalse(swipe.prepare(monitorId: other.id, timestamp: 1.1))
+
+        swipe.otherGestureRecognized(on: other.id)
+
+        XCTAssertEqual(manager.interactionMonitorId, monitor.id)
+        swipe.tick(displayId: monitor.displayId, timestamp: 3)
+        XCTAssertEqual(manager.activeWorkspace(on: monitor.id)?.id, first.destination.id)
+        XCTAssertEqual(manager.interactionMonitorId, other.id)
+        swipe.cancelAll(reason: "test-complete")
+    }
+
+    func testZeroProgressReleaseOnAnotherDisplayTakesFocusBeforeTheOlderCommit() throws {
+        var mediaTime = 1.06
+        let (controller, swipe, monitor, other, _, otherSource) = try twoMonitorFixture { mediaTime }
+        let manager = controller.workspaceManager
+        let first = try settleForwardSwipe(swipe, on: monitor)
+        mediaTime = 1.1
+        XCTAssertFalse(swipe.prepare(monitorId: other.id, timestamp: 1.1))
+        XCTAssertTrue(swipe.begin(axis: .horizontal, cumulative: -20, timestamp: 1.12))
+
+        XCTAssertTrue(swipe.release(timestamp: 1.12, allowFlick: true))
+        XCTAssertEqual(swipe.flight?.motion.target, 0)
+        swipe.tick(displayId: other.displayId, timestamp: 1.1)
+
+        XCTAssertNil(swipe.flights[other.id])
+        XCTAssertEqual(manager.activeWorkspace(on: other.id)?.id, otherSource)
+        XCTAssertEqual(manager.interactionMonitorId, other.id)
+        XCTAssertTrue(swipe.flights[monitor.id] === first)
+        swipe.tick(displayId: monitor.displayId, timestamp: 3)
+        XCTAssertEqual(manager.activeWorkspace(on: monitor.id)?.id, first.destination.id)
+        XCTAssertEqual(manager.interactionMonitorId, other.id)
+        swipe.cancelAll(reason: "test-complete")
+    }
+
     private func settleForwardSwipe(
         _ swipe: WorkspaceSwipePresentation, on monitor: Monitor
     ) throws -> WorkspaceSwipePresentation.Flight {

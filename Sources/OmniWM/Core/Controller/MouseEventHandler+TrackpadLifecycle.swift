@@ -56,7 +56,7 @@ extension MouseEventHandler {
                 )
             ) { state.workspaceSwipeFired = true }
         } else {
-            controller.layoutRefreshController.workspaceSwipe.otherGestureRecognized()
+            controller.layoutRefreshController.workspaceSwipe.otherGestureRecognized(on: lockedContext.monitorId)
         }
         return true
     }
