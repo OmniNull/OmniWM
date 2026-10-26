@@ -161,6 +161,8 @@ Options for the scrolling (Niri) layout.
 | `infiniteLoop` | boolean | `false` | Treats the column strip as a loop instead of a bounded row. |
 | `centerFocusedColumn` | string | `"never"` | When to center the focused column: `never`, `always`, `onOverflow`. |
 | `alwaysCenterSingleColumn` | boolean | `false` | Centers the column when a workspace holds only one. |
+| `allowOverscroll` *(optional)* | boolean | `false` | Allows trackpad scrolling past the first or last container to leave the desktop exposed after release. Applies to both snap and continuous scrolling, including single-window workspaces. Explicit focus navigation reveals the target normally. |
+| `overscrollVisibleStripPercent` *(optional)* | integer | `5` | Minimum visible strip at either overscroll limit, as a percentage of the edge container's primary span capped at the viewport span. Clamped to 1–100; used only when `allowOverscroll` is enabled. |
 | `singleWindowFit` | string | `"fill"` | Size of a lone window: `fill` (the "Full Screen" fit, which uses the fullscreen layout frame and honors `fullscreenUsesOuterGaps`), `container_primary_span`, or `WIDTHxHEIGHT`. |
 | `containerPrimarySpanPresets` *(optional)* | float array | `[1/3, 1/2, 2/3]` | Span fractions the span-cycling actions step through. |
 | `defaultContainerPrimarySpan` *(optional)* | float | `0.5` | Primary-axis span fraction for new containers. |
@@ -541,7 +543,7 @@ When `workspaceBar.enabled = false`, no monitor can show its bar. Saved `monitor
 | --- | --- |
 | `monitorBarOverrides` | `enabled`, `showLabels`, `showFloatingWindows`, `deduplicateAppIcons`, `hideEmptyWorkspaces`, `reserveLayoutSpace`, `autoHide`, `notchMode`, `notchActiveZoneWidth`, `fullWidth`, `fullWidthNotchMode`, `position`, `windowLevel`, `height`, `backgroundOpacity`, `inactiveIconOpacity`, `transparentBackground`, `solidBlackBackground`, `showItemBackgrounds`, `showAccentHighlights`, `xOffset`, `yOffset` — see [`workspaceBar`](#workspacebar). `fullWidth` and `fullWidthNotchMode` are Unreleased: available when building from `main`. |
 | `monitorOrientationOverrides` | `orientation`: `horizontal` or `vertical` layout orientation for that monitor |
-| `monitorNiriOverrides` | `visibleContainerCount`, `defaultContainerPrimarySpan`, `centerFocusedColumn`, `alwaysCenterSingleColumn`, `singleWindowFit`, `infiniteLoop` — see [`niri`](#niri) |
+| `monitorNiriOverrides` | `visibleContainerCount`, `defaultContainerPrimarySpan`, `centerFocusedColumn`, `alwaysCenterSingleColumn`, `singleWindowFit`, `infiniteLoop`, `allowOverscroll`, `overscrollVisibleStripPercent` — see [`niri`](#niri) |
 | `monitorDwindleOverrides` | `smartSplit`, `defaultSplitRatio`, `splitWidthMultiplier`, `singleWindowFit`, `useGlobalGaps`, `innerGap` — see [`dwindle`](#dwindle) |
 | `monitorGapOverrides` | `innerGap`, `outerGapLeft`, `outerGapRight`, `outerGapTop`, `outerGapBottom`, `fullscreenUsesOuterGaps` — see [`gaps`](#gaps) |
 
