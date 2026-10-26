@@ -154,7 +154,12 @@ final class NiriOverscrollLayoutTests: XCTestCase {
                 state: state, workspaceId: workspaceId, monitorFrame: frame,
                 gaps: (horizontal: 10, vertical: 10), orientation: orientation
             )[token])
-            XCTAssertEqual(rendered.intersection(frame).size, CGSize(width: 100, height: 100))
+            XCTAssertEqual(rendered.size, CGSize(width: 100, height: 100))
+            let visible = rendered.intersection(frame)
+            let visibleSpan = orientation == .horizontal ? visible.width : visible.height
+            // Trailing boundary keeps only the strip visible: 5% of the 100-point
+            // span plus the gap padding.
+            XCTAssertEqual(visibleSpan, 15, accuracy: 0.5)
         }
     }
 
