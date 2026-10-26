@@ -454,6 +454,24 @@ final class WorkspaceSwipePresentationTests: XCTestCase {
         swipe.cancelAll(reason: "test-complete")
     }
 
+    func testDisconnectedDisplayReleasesItsOverlay() throws {
+        var mediaTime = 1.06
+        let (controller, swipe, monitor, other, _, _) = try twoMonitorFixture { mediaTime }
+        _ = try settleForwardSwipe(swipe, on: monitor)
+        mediaTime = 1.1
+        XCTAssertFalse(swipe.prepare(monitorId: other.id, timestamp: 1.1))
+        XCTAssertTrue(swipe.begin(axis: .horizontal, cumulative: -20, timestamp: 1.12))
+        XCTAssertNotNil(swipe.previews[other.id])
+
+        swipe.cancelFlights(onDisplay: other.displayId, reason: "display-disconnected")
+
+        XCTAssertNil(swipe.flights[other.id])
+        XCTAssertNil(swipe.previews[other.id])
+        XCTAssertNotNil(swipe.flights[monitor.id])
+        XCTAssertNotNil(swipe.previews[monitor.id])
+        withExtendedLifetime(controller) { swipe.cancelAll(reason: "test-complete") }
+    }
+
     private func settleForwardSwipe(
         _ swipe: WorkspaceSwipePresentation, on monitor: Monitor
     ) throws -> WorkspaceSwipePresentation.Flight {

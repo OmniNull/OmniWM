@@ -372,6 +372,9 @@ extension WorkspaceSwipePresentation {
         for flight in Array(flights.values) where flight.preparation.monitor.displayId == displayId {
             cancel(flight, reason: reason)
         }
+        for monitorId in previews.keys where monitorId.displayId == displayId {
+            previews.removeValue(forKey: monitorId)?.release()
+        }
     }
 
     func cancel(_ flight: Flight, reason: String, keepingPreview: Bool = false) {
