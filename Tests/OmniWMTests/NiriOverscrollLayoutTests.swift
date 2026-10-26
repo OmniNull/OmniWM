@@ -37,6 +37,9 @@ final class NiriOverscrollLayoutTests: XCTestCase {
                             state: state, workspaceId: workspaceId, monitorFrame: frame,
                             gaps: (horizontal: 10, vertical: 10), orientation: orientation
                         )[token])
+                        engine.resolvePrimaryContainerSpans(
+                            in: workspaceId, workingFrame: frame, gaps: 10, orientation: orientation
+                        )
                         let column = try XCTUnwrap(engine.columns(in: workspaceId).first)
                         let cachedWidth = column.cachedWidth
                         let context = NiriInteractionContext(

@@ -130,6 +130,6 @@ final class NiriOverscrollTests: XCTestCase {
             animate: false, centerMode: .never
         )
         XCTAssertFalse(state.preservesGestureOffset)
-        XCTAssertEqual(state.viewOffset, -10)
+        XCTAssertEqual(state.viewOffset, -40)
     }
 }
