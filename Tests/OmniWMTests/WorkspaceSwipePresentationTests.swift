@@ -534,6 +534,86 @@ final class WorkspaceSwipePresentationTests: XCTestCase {
         swipe.cancelAll(reason: "test-complete")
     }
 
+    func testChainTowardUncapturedWindowsCommitsAndFallsBackToAnInstantSwitch() throws {
+        var mediaTime = 1.06
+        let (controller, swipe, monitor, ids) = try chainFallbackFixture(targetLayout: .dwindle) { mediaTime }
+        let first = try settleForwardSwipe(swipe, on: monitor)
+        XCTAssertEqual(first.destination.id, ids["2"])
+        let chained = try XCTUnwrap(swipe.makePreparation(monitorId: monitor.id, chainedSource: first.destination))
+        XCTAssertEqual(chained.next?.id, ids["3"])
+        XCTAssertFalse(try XCTUnwrap(chained.next).items.isEmpty)
+        mediaTime = 1.1
+        XCTAssertFalse(swipe.prepare(monitorId: monitor.id, timestamp: 1.1))
+
+        XCTAssertFalse(swipe.begin(axis: .horizontal, cumulative: -20, timestamp: 1.12))
+
+        assertChainFellBack(controller, swipe, monitor, from: first, to: try XCTUnwrap(ids["3"]))
+    }
+
+    func testChainTowardAWorkspaceThatCannotBeBuiltCommitsAndFallsBack() throws {
+        var mediaTime = 1.06
+        let (controller, swipe, monitor, ids) = try chainFallbackFixture(targetLayout: nil) { mediaTime }
+        let manager = controller.workspaceManager
+        let target = try XCTUnwrap(ids["3"])
+        let token = try XCTUnwrap(manager.entries(in: target).first?.token)
+        manager.setLayoutReason(.nativeFullscreen, for: token)
+        let first = try settleForwardSwipe(swipe, on: monitor)
+        XCTAssertNil(swipe.makePreparation(monitorId: monitor.id, chainedSource: first.destination)?.next)
+        mediaTime = 1.1
+        XCTAssertFalse(swipe.prepare(monitorId: monitor.id, timestamp: 1.1))
+
+        XCTAssertFalse(swipe.begin(axis: .horizontal, cumulative: -20, timestamp: 1.12))
+
+        assertChainFellBack(controller, swipe, monitor, from: first, to: target)
+    }
+
+    private func assertChainFellBack(
+        _ controller: WMController,
+        _ swipe: WorkspaceSwipePresentation,
+        _ monitor: Monitor,
+        from first: WorkspaceSwipePresentation.Flight,
+        to target: WorkspaceDescriptor.ID,
+        file: StaticString = #filePath,
+        line: UInt = #line
+    ) {
+        let manager = controller.workspaceManager
+        XCTAssertNil(swipe.flight, file: file, line: line)
+        XCTAssertNil(swipe.flights[monitor.id], file: file, line: line)
+        XCTAssertEqual(manager.activeWorkspace(on: monitor.id)?.id, first.destination.id, file: file, line: line)
+        XCTAssertNotEqual(swipe.previews[monitor.id]?.isVisible, true, file: file, line: line)
+        controller.workspaceNavigationHandler.switchWorkspaceBySwipe(isNext: true, monitorId: monitor.id)
+        XCTAssertEqual(manager.activeWorkspace(on: monitor.id)?.id, target, file: file, line: line)
+    }
+
+    private func chainFallbackFixture(
+        targetLayout: LayoutType?,
+        mediaTimeProvider: @escaping () -> TimeInterval
+    ) throws -> (WMController, WorkspaceSwipePresentation, Monitor, [String: WorkspaceDescriptor.ID]) {
+        let (controller, swipe, monitor, _) = try fixture(mediaTimeProvider: mediaTimeProvider)
+        let manager = controller.workspaceManager
+        let dwindle = DwindleLayoutEngine()
+        dwindle.animationClock = controller.animationClock
+        controller.dwindleEngine = dwindle
+        controller.settings.workspaces.configurations = [
+            WorkspaceConfiguration(name: "1"),
+            WorkspaceConfiguration(name: "2"),
+            targetLayout.map { WorkspaceConfiguration(name: "3", layoutType: $0) } ?? WorkspaceConfiguration(name: "3")
+        ]
+        manager.applySettings()
+        var ids: [String: WorkspaceDescriptor.ID] = [:]
+        for name in ["1", "2", "3"] {
+            ids[name] = try XCTUnwrap(manager.workspaceId(for: name, createIfMissing: true))
+        }
+        let token = WindowToken(pid: 986_001, windowId: 986_002)
+        let target = try XCTUnwrap(ids["3"])
+        _ = WindowAdmissionTestSupport.track(token, in: target, controller: controller)
+        if targetLayout == .dwindle {
+            _ = dwindle.addWindow(token: token, to: target, activeWindowFrame: nil)
+        }
+        XCTAssertTrue(manager.setActiveWorkspace(try XCTUnwrap(ids["1"]), on: monitor.id))
+        return (controller, swipe, monitor, ids)
+    }
+
     private func settleForwardSwipe(
         _ swipe: WorkspaceSwipePresentation, on monitor: Monitor
     ) throws -> WorkspaceSwipePresentation.Flight {

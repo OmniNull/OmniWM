@@ -190,8 +190,8 @@ final class WorkspaceSwipePresentation {
               ?? createdDestination(isNext: isNext, from: preparation),
               destination.id != preparation.source.id
         else {
-            if predecessor != nil { trace("chain-refused") }
-            return predecessor != nil
+            guard let predecessor else { return false }
+            return refuseOrFallBack(from: predecessor, axis: axis, cumulative: cumulative)
         }
         let preview = previewSurface(controller, for: preparation.monitor.id)
         if let predecessor,

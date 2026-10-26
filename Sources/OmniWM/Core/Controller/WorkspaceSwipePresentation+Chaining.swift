@@ -14,8 +14,7 @@ extension WorkspaceSwipePresentation {
             monitor: preparation.monitor,
             workingFrame: preparation.frame
         ) else {
-            trace("chain-refused-preview")
-            return true
+            return fallBackWithoutAnimation(from: predecessor)
         }
         if !predecessor.committing { commit(predecessor) }
         guard isCurrent(predecessor), predecessor.committing else { return false }
@@ -35,6 +34,31 @@ extension WorkspaceSwipePresentation {
             monitor: preparation.monitor,
             workingFrame: preparation.frame
         )
+    }
+
+    func refuseOrFallBack(from predecessor: Flight, axis: WorkspaceSwipeAxis, cumulative: Double) -> Bool {
+        guard let controller,
+              let isNext = TrackpadGestureIntent.isNextWorkspace(
+                  axis: axis, displacement: cumulative, naturalDirection: controller.settings.gestures.invertDirection
+              ),
+              let target = controller.workspaceNavigationHandler.swipeTargetWorkspace(
+                  isNext: isNext,
+                  from: predecessor.destination.id,
+                  on: predecessor.preparation.monitor.id,
+                  createIfNeeded: false
+              ),
+              target.id != predecessor.destination.id
+        else {
+            trace("chain-refused")
+            return true
+        }
+        return fallBackWithoutAnimation(from: predecessor)
+    }
+
+    func fallBackWithoutAnimation(from predecessor: Flight) -> Bool {
+        if !predecessor.committing { commit(predecessor) }
+        if isCurrent(predecessor), predecessor.committing { cancel(predecessor, reason: "chain-fallback") }
+        return false
     }
 
     func createdDestination(isNext: Bool, from preparation: Preparation) -> Workspace? {
