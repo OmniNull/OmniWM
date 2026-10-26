@@ -7,6 +7,7 @@ extension NiriLayoutEngine {
     @discardableResult
     func centerColumn(context: NiriInteractionContext, state: inout ViewportState) -> Bool {
         assertSanctionedMutation()
+        state.preservesGestureOffset = false
         resolvePrimaryContainerSpans(
             in: context.workspaceId,
             workingFrame: context.workingFrame,
@@ -41,6 +42,7 @@ extension NiriLayoutEngine {
     @discardableResult
     func centerVisibleColumns(context: NiriInteractionContext, state: inout ViewportState) -> Bool {
         assertSanctionedMutation()
+        state.preservesGestureOffset = false
         let settings = effectiveSettings(in: context.workspaceId)
         resolvePrimaryContainerSpans(
             in: context.workspaceId,

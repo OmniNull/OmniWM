@@ -351,9 +351,16 @@ extension NiriLayoutEngine {
             case .horizontal: context.workingFrame.width
             case .vertical: context.workingFrame.height
             }
+            let singleRect = singleWindowScrollRect(in: context.workspaceId, workingFrame: context.workingFrame)
+            let singleOriginOffset: CGFloat = singleRect.map {
+                context.orientation == .horizontal
+                    ? context.workingFrame.minX - $0.minX
+                    : context.workingFrame.minY - $0.minY
+            } ?? 0
+            projectedState.rebaseOffset(by: singleOriginOffset)
             projectedState.endGesture(
-                currentOffset: currentOffset,
-                projectedOffset: projectedOffset,
+                currentOffset: currentOffset + Double(singleOriginOffset),
+                projectedOffset: projectedOffset + Double(singleOriginOffset),
                 columns: projectedColumns.map(\.column),
                 geometry: NiriViewportGeometry(
                     gap: context.gaps,
@@ -361,7 +368,8 @@ extension NiriLayoutEngine {
                     orientation: context.orientation,
                     workingArea: context.workingFrame,
                     viewFrame: viewFrame,
-                    scale: scale
+                    scale: scale,
+                    edgeOverscroll: effectiveSettings(in: context.workspaceId).edgeOverscroll
                 ),
                 motion: context.motion,
                 snapToColumn: snapToColumn,
@@ -369,6 +377,8 @@ extension NiriLayoutEngine {
                 alwaysCenterSingleColumn: alwaysCenterSingleColumn
             )
 
+            projectedState.rebaseOffset(by: -singleOriginOffset)
+            projectedState.preservesGestureOffset = effectiveSettings(in: context.workspaceId).edgeOverscroll != .disabled
             let projectedIndex = projectedState.activeColumnIndex
                 .clamped(to: 0 ... projectedColumns.count - 1)
             let activeColumn = projectedColumns[projectedIndex]
@@ -396,12 +406,14 @@ extension NiriLayoutEngine {
             context.orientation == .horizontal ? $0.column.cachedWidth : $0.column.cachedHeight
         }
         for projectedColumn in projectedColumns {
-            let span = projectedPrimarySpan(
-                for: projectedColumn,
-                workingFrame: context.workingFrame,
-                gap: context.gaps,
-                orientation: context.orientation
-            )
+            let span = singleWindowScrollRect(in: context.workspaceId, workingFrame: context.workingFrame)
+                .map { context.orientation == .horizontal ? $0.width : $0.height }
+                ?? projectedPrimarySpan(
+                    for: projectedColumn,
+                    workingFrame: context.workingFrame,
+                    gap: context.gaps,
+                    orientation: context.orientation
+                )
             switch context.orientation {
             case .horizontal:
                 projectedColumn.column.cachedWidth = span

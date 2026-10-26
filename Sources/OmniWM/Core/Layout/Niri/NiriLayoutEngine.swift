@@ -37,6 +37,8 @@ final class NiriLayoutEngine {
 
     var singleWindowFit: SingleWindowFit = .fullScreen
 
+    var edgeOverscroll: NiriEdgeOverscroll = .disabled
+
     var renderStyle: NiriRenderStyle = .default
 
     var interactiveResize: InteractiveResize?
@@ -250,6 +252,7 @@ final class NiriLayoutEngine {
         centerFocusedColumn: CenterFocusedColumn? = nil,
         alwaysCenterSingleColumn: Bool? = nil,
         singleWindowFit: SingleWindowFit? = nil,
+        edgeOverscroll: NiriEdgeOverscroll? = nil,
         presetContainerPrimarySpans: [PresetSize]? = nil,
         defaultContainerPrimarySpan: CGFloat?? = nil
     ) {
@@ -265,6 +268,9 @@ final class NiriLayoutEngine {
         }
         if let centerSingle = alwaysCenterSingleColumn {
             self.alwaysCenterSingleColumn = centerSingle
+        }
+        if let edgeOverscroll {
+            self.edgeOverscroll = edgeOverscroll
         }
         if let singleWindowFit {
             self.singleWindowFit = singleWindowFit

@@ -5,6 +5,17 @@ import CoreGraphics
 import Foundation
 
 extension NiriLayoutEngine {
+    func singleWindowScrollRect(in workspaceId: WorkspaceDescriptor.ID, workingFrame: CGRect) -> CGRect? {
+        guard effectiveSettings(in: workspaceId).edgeOverscroll != .disabled,
+              let single = singleWindowLayoutContext(in: workspaceId)
+        else { return nil }
+        return single.container.frame ?? resolvedSingleWindowRect(
+            for: single, in: workingFrame, scale: displayScale(in: workspaceId),
+            gaps: .init(horizontal: 0, vertical: 0),
+            orientation: monitorForWorkspace(workspaceId)?.orientation ?? .horizontal
+        )
+    }
+
     private func centeredSingleWindowRect(
         in workingFrame: CGRect,
         size: CGSize,
@@ -122,11 +133,15 @@ extension NiriLayoutEngine.SingleWindowLayoutContext {
         workspaceOffset: CGFloat,
         scale: CGFloat,
         time: TimeInterval,
-        orientation: Monitor.Orientation
+        orientation: Monitor.Orientation,
+        viewportOffset: CGFloat = 0
     ) -> NiriContainerPlacement {
         let renderOffset = container.renderOffset(at: time)
         let renderedRect = canonicalRect
-            .offsetBy(dx: workspaceOffset + renderOffset.x, dy: renderOffset.y)
+            .offsetBy(
+                dx: workspaceOffset + renderOffset.x - (orientation == .horizontal ? viewportOffset : 0),
+                dy: renderOffset.y - (orientation == .vertical ? viewportOffset : 0)
+            )
             .roundedToPhysicalPixels(scale: scale)
         let tabOffset: CGFloat = 0
         let secondarySpanOverride: CGFloat? = if orientation == .vertical,

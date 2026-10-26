@@ -78,6 +78,7 @@ extension NiriLayoutHandler {
         centerFocusedColumn: CenterFocusedColumn? = nil,
         alwaysCenterSingleColumn: Bool? = nil,
         singleWindowFit: SingleWindowFit? = nil,
+        edgeOverscroll: NiriEdgeOverscroll? = nil,
         containerPrimarySpanPresets: [Double]? = nil,
         defaultContainerPrimarySpan: Double?? = nil
     ) {
@@ -89,6 +90,7 @@ extension NiriLayoutHandler {
                 centerFocusedColumn: centerFocusedColumn,
                 alwaysCenterSingleColumn: alwaysCenterSingleColumn,
                 singleWindowFit: singleWindowFit,
+                edgeOverscroll: edgeOverscroll,
                 presetContainerPrimarySpans: containerPrimarySpanPresets?.map { .proportion($0) },
                 defaultContainerPrimarySpan: defaultContainerPrimarySpan.map { $0.map { CGFloat($0) } }
             )
