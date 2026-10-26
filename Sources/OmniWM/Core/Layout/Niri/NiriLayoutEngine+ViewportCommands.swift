@@ -19,6 +19,9 @@ extension NiriLayoutEngine {
             state: &state,
             context: context
         ) { columns, projectedState in
+            let singleOrigin = singleWindowGestureOrigin(context: context)
+            projectedState.rebaseOffset(by: singleOrigin)
+            defer { projectedState.rebaseOffset(by: -singleOrigin) }
             let activeIndex = projectedState.activeColumnIndex.clamped(to: 0 ... columns.count - 1)
             projectedState.activeColumnIndex = activeIndex
             cancelInteractiveResize(for: columns[activeIndex], in: context.workspaceId)
@@ -60,6 +63,9 @@ extension NiriLayoutEngine {
             state: &state,
             context: context
         ) { columns, projectedState in
+            let singleOrigin = singleWindowGestureOrigin(context: context)
+            projectedState.rebaseOffset(by: singleOrigin)
+            defer { projectedState.rebaseOffset(by: -singleOrigin) }
             guard projectedState.preservesGestureOffset
                 || (settings.centerFocusedColumn != .always
                     && (!settings.alwaysCenterSingleColumn || columns.count > 1))

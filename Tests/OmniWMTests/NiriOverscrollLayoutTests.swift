@@ -124,6 +124,89 @@ final class NiriOverscrollLayoutTests: XCTestCase {
         }
     }
 
+    func testFitChangeReclampsPreservedLoneWindowAgainstNewSpanOnBothAxes() throws {
+        for orientation in [Monitor.Orientation.horizontal, .vertical] {
+            let (engine, workspaceId) = engine(orientation: orientation)
+            engine.singleWindowFit = SingleWindowFit(mode: .custom, width: 700, height: 500)
+            let token = WindowToken(pid: 1, windowId: 1)
+            _ = engine.addWindow(token: token, to: workspaceId, afterSelection: nil)
+            var state = ViewportState()
+            _ = engine.calculateLayout(
+                state: state, workspaceId: workspaceId, monitorFrame: frame,
+                gaps: (horizontal: 10, vertical: 10), orientation: orientation
+            )
+            engine.resolvePrimaryContainerSpans(
+                in: workspaceId, workingFrame: frame, gaps: 10, orientation: orientation
+            )
+            let context = NiriInteractionContext(
+                workspaceId: workspaceId, motion: .disabled, workingFrame: frame,
+                gaps: 10, orientation: orientation
+            )
+            XCTAssertNotNil(engine.endProjectedGesture(
+                state: &state, context: context, currentOffset: 0, projectedOffset: 10_000
+            ))
+            let overscrolled = state.viewOffset
+            engine.singleWindowFit = SingleWindowFit(mode: .custom, width: 100, height: 100)
+            XCTAssertTrue(engine.correctSingleWindowGestureOffset(context: context, state: &state))
+            XCTAssertNotEqual(state.viewOffset, overscrolled)
+            XCTAssertTrue(state.preservesGestureOffset)
+            let rendered = try XCTUnwrap(engine.calculateLayout(
+                state: state, workspaceId: workspaceId, monitorFrame: frame,
+                gaps: (horizontal: 10, vertical: 10), orientation: orientation
+            )[token])
+            XCTAssertEqual(rendered.intersection(frame).size, CGSize(width: 100, height: 100))
+        }
+    }
+
+    private func assertCenteringCentersLoneWindow(
+        _ command: (NiriLayoutEngine, NiriInteractionContext, inout ViewportState) -> Bool,
+        orientation: Monitor.Orientation
+    ) throws {
+        let (engine, workspaceId) = engine(orientation: orientation)
+        engine.singleWindowFit = SingleWindowFit(mode: .custom, width: 400, height: 300)
+        let token = WindowToken(pid: 1, windowId: 1)
+        _ = engine.addWindow(token: token, to: workspaceId, afterSelection: nil)
+        var state = ViewportState()
+        let original = try XCTUnwrap(engine.calculateLayout(
+            state: state, workspaceId: workspaceId, monitorFrame: frame,
+            gaps: (horizontal: 10, vertical: 10), orientation: orientation
+        )[token])
+        engine.resolvePrimaryContainerSpans(
+            in: workspaceId, workingFrame: frame, gaps: 10, orientation: orientation
+        )
+        let context = NiriInteractionContext(
+            workspaceId: workspaceId, motion: .disabled, workingFrame: frame,
+            gaps: 10, orientation: orientation
+        )
+        XCTAssertNotNil(engine.endProjectedGesture(
+            state: &state, context: context, currentOffset: 0, projectedOffset: -10_000
+        ))
+        XCTAssertTrue(command(engine, context, &state))
+        let rendered = try XCTUnwrap(engine.calculateLayout(
+            state: state, workspaceId: workspaceId, monitorFrame: frame,
+            gaps: (horizontal: 10, vertical: 10), orientation: orientation
+        )[token])
+        XCTAssertEqual(rendered, original)
+    }
+
+    func testCenterColumnCentersLoneWindowOnBothAxes() throws {
+        for orientation in [Monitor.Orientation.horizontal, .vertical] {
+            try assertCenteringCentersLoneWindow(
+                { engine, context, state in engine.centerColumn(context: context, state: &state) },
+                orientation: orientation
+            )
+        }
+    }
+
+    func testCenterVisibleColumnsCentersLoneWindowOnBothAxes() throws {
+        for orientation in [Monitor.Orientation.horizontal, .vertical] {
+            try assertCenteringCentersLoneWindow(
+                { engine, context, state in engine.centerVisibleColumns(context: context, state: &state) },
+                orientation: orientation
+            )
+        }
+    }
+
     func testCenterVisibleColumnsFallsBackWhenOverscrollHidesTheBlock() throws {
         for orientation in [Monitor.Orientation.horizontal, .vertical] {
             for centerMode in [CenterFocusedColumn.never, .always] {

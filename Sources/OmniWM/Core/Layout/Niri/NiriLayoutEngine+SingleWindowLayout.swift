@@ -5,21 +5,52 @@ import CoreGraphics
 import Foundation
 
 extension NiriLayoutEngine {
-    func singleWindowScrollRect(in workspaceId: WorkspaceDescriptor.ID, workingFrame: CGRect) -> CGRect? {
+    func singleWindowScrollRect(
+        in workspaceId: WorkspaceDescriptor.ID,
+        workingFrame: CGRect,
+        gaps: LayoutGaps
+    ) -> CGRect? {
         guard effectiveSettings(in: workspaceId).edgeOverscroll != .disabled,
               let single = singleWindowLayoutContext(in: workspaceId)
         else { return nil }
+        let orientation = monitorForWorkspace(workspaceId)?.orientation ?? .horizontal
+        // The stored frame lags the pending layout when the fit changed after
+        // the previous pass, so non-fullscreen fits resolve from current
+        // settings. Fullscreen fills depend on layout-area frames this call
+        // cannot see; the stored frame is the only authoritative rect there.
+        if !single.fit.usesFullscreenLayoutFrame {
+            return resolvedSingleWindowRect(
+                for: single, in: workingFrame, scale: displayScale(in: workspaceId),
+                gaps: gaps, orientation: orientation
+            )
+        }
         return single.container.frame ?? resolvedSingleWindowRect(
             for: single, in: workingFrame, scale: displayScale(in: workspaceId),
-            gaps: .init(horizontal: 0, vertical: 0),
-            orientation: monitorForWorkspace(workspaceId)?.orientation ?? .horizontal
+            gaps: gaps, orientation: orientation
         )
+    }
+
+    /// Converts rect-relative gesture offsets to working-area coordinates and
+    /// back; 0 outside single-window layouts.
+    func singleWindowGestureOrigin(context: NiriInteractionContext) -> CGFloat {
+        guard let rect = singleWindowScrollRect(
+            in: context.workspaceId, workingFrame: context.workingFrame, gaps: LayoutGaps(
+                horizontal: context.gaps,
+                vertical: context.gaps
+            )
+        ) else { return 0 }
+        return context.orientation == .horizontal
+            ? context.workingFrame.minX - rect.minX
+            : context.workingFrame.minY - rect.minY
     }
 
     @discardableResult
     func correctSingleWindowGestureOffset(context: NiriInteractionContext, state: inout ViewportState) -> Bool {
         guard state.preservesGestureOffset,
-              let rect = singleWindowScrollRect(in: context.workspaceId, workingFrame: context.workingFrame)
+              let rect = singleWindowScrollRect(
+                  in: context.workspaceId, workingFrame: context.workingFrame,
+                  gaps: LayoutGaps(horizontal: context.gaps, vertical: context.gaps)
+              )
         else { return false }
         let span = context.orientation == .horizontal ? rect.width : rect.height
         let viewportSpan = context.orientation == .horizontal
