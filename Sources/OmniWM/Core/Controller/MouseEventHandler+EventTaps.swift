@@ -228,13 +228,14 @@ extension MouseEventHandler {
         location: CGPoint,
         modifiers: CGEventFlags,
         buttonNumber: Int64,
-        scrollPayload: (payload: MouseScrollIntake, traceMetadata: TrackpadScrollTrace.ScrollMetadata?)?
+        scrollPayload: (payload: MouseScrollIntake, traceMetadata: TrackpadScrollTrace.ScrollMetadata?)?,
+        clickCount: Int64 = 1
     ) -> Bool {
         if isCapturingPerformance { recordCGEvent(type) }
 
         switch type {
         case .leftMouseDown:
-            return receiveTapMouseDown(at: location, modifiers: modifiers, button: .left)
+            return receiveTapMouseDown(at: location, modifiers: modifiers, button: .left, clickCount: clickCount)
         case .leftMouseDragged:
             let suppress = isCapturedInteraction(.left)
             receiveTapMouseDragged(at: location, button: .left)

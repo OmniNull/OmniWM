@@ -43,6 +43,10 @@ final class MouseEventHandler {
         try? AXWindowService.frame($0)
     }
 
+    var titleBarHitProvider: @MainActor (pid_t, CGPoint) -> TitleBarHit? = {
+        TitleBarHitTest.hit(pid: $0, at: $1)
+    }
+
     init(controller: WMController) {
         self.controller = controller
         eventIntake = controller.eventIntake

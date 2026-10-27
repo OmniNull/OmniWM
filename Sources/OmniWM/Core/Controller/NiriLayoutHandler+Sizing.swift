@@ -267,7 +267,7 @@ extension NiriLayoutHandler {
     }
 
     @discardableResult
-    private func performWindowSizing(
+    func performWindowSizing(
         on target: WindowTarget,
         focusesWindowAfterLayout: Bool = false,
         _ operation: (NiriLayoutEngine, NiriWindow, NiriInteractionContext, inout ViewportState) -> LayoutOperation?
