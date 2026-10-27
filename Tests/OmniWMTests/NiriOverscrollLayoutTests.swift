@@ -216,6 +216,43 @@ final class NiriOverscrollLayoutTests: XCTestCase {
         }
     }
 
+    func testLoneWindowGestureUsesRenderedFrameWhenInteractionFrameDiffersOnBothAxes() throws {
+        // edgeGaps off: the interaction frame extends past the single-window frame by the gap.
+        let interactionFrame = frame.insetBy(dx: -10, dy: -10)
+        let area = WorkingAreaContext(
+            workingFrame: interactionFrame, singleWindowFrame: frame, viewFrame: frame, scale: 2
+        )
+        for orientation in [Monitor.Orientation.horizontal, .vertical] {
+            for projected in [-10_000.0, 10_000.0] {
+                let (engine, workspaceId) = engine(orientation: orientation)
+                engine.singleWindowFit = SingleWindowFit(mode: .custom, width: 2_000, height: 2_000)
+                let token = WindowToken(pid: 1, windowId: 1)
+                _ = engine.addWindow(token: token, to: workspaceId, afterSelection: nil)
+                var state = ViewportState()
+                let original = try XCTUnwrap(engine.calculateLayout(
+                    state: state, workspaceId: workspaceId, monitorFrame: frame,
+                    gaps: (horizontal: 10, vertical: 10), workingArea: area, orientation: orientation
+                )[token])
+                XCTAssertEqual(original, frame)
+                let context = NiriInteractionContext(
+                    workspaceId: workspaceId, motion: .disabled, workingFrame: interactionFrame,
+                    gaps: 10, orientation: orientation
+                )
+                XCTAssertNotNil(engine.endProjectedGesture(
+                    state: &state, context: context, currentOffset: 0, projectedOffset: projected
+                ))
+                let rendered = try XCTUnwrap(engine.calculateLayout(
+                    state: state, workspaceId: workspaceId, monitorFrame: frame,
+                    gaps: (horizontal: 10, vertical: 10), workingArea: area, orientation: orientation
+                )[token])
+                let visible = rendered.intersection(interactionFrame)
+                let actualSpan = orientation == .horizontal ? original.width : original.height
+                let visibleSpan = orientation == .horizontal ? visible.width : visible.height
+                XCTAssertEqual(visibleSpan, actualSpan * 0.05 + 10, accuracy: 0.5)
+            }
+        }
+    }
+
     private func assertCenteringCentersLoneWindow(
         _ command: (NiriLayoutEngine, NiriInteractionContext, inout ViewportState) -> Bool,
         orientation: Monitor.Orientation

@@ -13,20 +13,11 @@ extension NiriLayoutEngine {
         guard effectiveSettings(in: workspaceId).edgeOverscroll != .disabled,
               let single = singleWindowLayoutContext(in: workspaceId)
         else { return nil }
-        let orientation = monitorForWorkspace(workspaceId)?.orientation ?? .horizontal
-        // The stored frame lags the pending layout when the fit changed after
-        // the previous pass, so non-fullscreen fits resolve from current
-        // settings. Fullscreen fills depend on layout-area frames this call
-        // cannot see; the stored frame is the only authoritative rect there.
-        if !single.fit.usesFullscreenLayoutFrame {
-            return resolvedSingleWindowRect(
-                for: single, in: workingFrame, scale: displayScale(in: workspaceId),
-                gaps: gaps, orientation: orientation
-            )
-        }
+        // The stored frame is the rendered rect, placed in layout-area frames
+        // that can differ from the interaction working frame (edgeGaps off).
         return single.container.frame ?? resolvedSingleWindowRect(
             for: single, in: workingFrame, scale: displayScale(in: workspaceId),
-            gaps: gaps, orientation: orientation
+            gaps: gaps, orientation: monitorForWorkspace(workspaceId)?.orientation ?? .horizontal
         )
     }
 
