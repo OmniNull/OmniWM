@@ -1,6 +1,21 @@
 {
   "sourceLanguage" : "en",
   "strings" : {
+    "OmniWM could not find a window for Warp." : {
+
+    },
+    "OmniWM could not start Warp." : {
+
+    },
+    "Warp Quake Terminal Unavailable" : {
+
+    },
+    "Warp is not installed. Install Warp from warp.dev, or choose Ghostty or Kitty." : {
+
+    },
+    "Warp uses its own application window with OmniWM's position and size settings." : {
+
+    },
     "At the ends" : {
       "localizations" : {
         "ar" : {
