@@ -85,12 +85,15 @@ extension WMController {
         if previous == .kitty, selection != .kitty {
             kittyQuickAccessTerminal.hide()
         }
+        if previous == .warp, selection != .warp {
+            warpQuakeTerminal.hide()
+        }
         switch selection {
         case nil:
             quakeTerminalController.cleanup()
         case .ghostty:
             quakeTerminalController.setup()
-            if previous == .kitty {
+            if previous == .kitty || previous == .warp {
                 reloadQuakeTerminalAppearance()
             }
         case .kitty:
@@ -98,6 +101,10 @@ extension WMController {
             quakeTerminalController.hideForProviderSwitch()
             kittyQuickAccessTerminal.activate()
             applyKittyQuakeSettings()
+        case .warp:
+            guard previous != .warp else { return }
+            quakeTerminalController.hideForProviderSwitch()
+            warpQuakeTerminal.activate()
         }
     }
 
@@ -107,6 +114,8 @@ extension WMController {
             quakeTerminalController.toggle()
         case .kitty:
             kittyQuickAccessTerminal.toggle()
+        case .warp:
+            warpQuakeTerminal.toggle()
         case nil:
             return
         }
@@ -151,6 +160,17 @@ extension WMController {
             let alert = NSAlert()
             alert.alertStyle = .warning
             alert.messageText = String(localized: "Kitty Quake Terminal Unavailable")
+            alert.informativeText = problem.message
+            alert.addButton(withTitle: String(localized: "OK"))
+            _ = alert.runModal()
+        }
+    }
+
+    func presentWarpQuakeFailure(_ problem: WarpQuakeTerminal.Problem) {
+        Task { @MainActor in
+            let alert = NSAlert()
+            alert.alertStyle = .warning
+            alert.messageText = String(localized: "Warp Quake Terminal Unavailable")
             alert.informativeText = problem.message
             alert.addButton(withTitle: String(localized: "OK"))
             _ = alert.runModal()

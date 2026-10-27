@@ -394,7 +394,7 @@ The drop-down (Quake) terminal. `enabled` and `provider` apply to either provide
 | `backgroundEffect` | string | `"standardBlur"` | Background material: `standardBlur`, `glassRegular`, `glassClear`. |
 | `backgroundBlurRadius` *(optional)* | integer | `0` | Background blur radius; `0` disables the extra blur. |
 | `monitorMode` *(optional)* | string | `"focusedWindow"` | Which monitor it appears on: `mouseCursor`, `focusedWindow`, `mainMonitor`. |
-| `provider` *(optional)* | string | `"ghostty"` | Terminal that provides the Quake terminal: `ghostty` (embedded) or `kitty` (Kitty's quick-access terminal, configured in Kitty's `quick-access-terminal.conf`). Unreleased: available when building from `main`. |
+| `provider` *(optional)* | string | `"ghostty"` | Terminal that provides the Quake terminal: `ghostty` (embedded), `kitty` (Kitty's quick-access terminal, configured in Kitty's `quick-access-terminal.conf`), or `warp` (Warp terminal window). Unreleased: available when building from `main`. |
 
 ### quakeTerminal.kitty
 

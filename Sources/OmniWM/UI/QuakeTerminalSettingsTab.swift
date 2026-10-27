@@ -45,6 +45,15 @@ struct QuakeTerminalSettingsTab: View {
                         SettingsCaption(problem.message)
                     }
                 }
+
+                if settings.quakeTerminal.provider == .warp {
+                    SettingsCaption(
+                        localized: "Warp uses its own application window with OmniWM's position and size settings."
+                    )
+                    if let problem = controller.warpQuakeTerminal.problem {
+                        SettingsCaption(problem.message)
+                    }
+                }
             }
             .id("Quake Terminal")
 
@@ -52,7 +61,9 @@ struct QuakeTerminalSettingsTab: View {
                 KittyQuakeSettingsSections(quake: settings.quakeTerminal, controller: controller)
             }
 
-            if settings.quakeTerminal.enabled, settings.quakeTerminal.provider == .ghostty {
+            if settings.quakeTerminal.enabled,
+               settings.quakeTerminal.provider == .ghostty || settings.quakeTerminal.provider == .warp
+            {
                 Section("Position & Size") {
                     Picker("Position", selection: Bindable(settings.quakeTerminal).position) {
                         ForEach(QuakeTerminalPosition.allCases, id: \.self) { position in
@@ -94,7 +105,9 @@ struct QuakeTerminalSettingsTab: View {
                     }
                 }
                 .id("Position & Size")
+            }
 
+            if settings.quakeTerminal.enabled, settings.quakeTerminal.provider == .ghostty {
                 Section("Appearance") {
                     Picker("Background Effect", selection: Bindable(settings.quakeTerminal).backgroundEffect) {
                         ForEach(QuakeTerminalBackgroundEffect.allCases, id: \.self) { effect in
@@ -149,7 +162,11 @@ struct QuakeTerminalSettingsTab: View {
                     }
                 }
                 .id("Appearance")
+            }
 
+            if settings.quakeTerminal.enabled,
+               settings.quakeTerminal.provider == .ghostty || settings.quakeTerminal.provider == .warp
+            {
                 Section("Behavior") {
                     SettingsSliderRow(
                         label: String(localized: "Animation Duration"),

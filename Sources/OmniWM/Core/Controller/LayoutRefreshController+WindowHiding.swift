@@ -129,6 +129,10 @@ extension LayoutRefreshController {
             return .scratchpad
         }
 
+        if existingState?.reason == .quake {
+            return .quake
+        }
+
         if policy.preserveWorkspaceInactive,
            existingState?.workspaceInactive == true,
            policy.reason == .layoutTransient
@@ -143,6 +147,8 @@ extension LayoutRefreshController {
             return .layoutTransient(policy.side)
         case .scratchpad:
             return .scratchpad
+        case .quake:
+            return .quake
         }
     }
 
@@ -270,7 +276,8 @@ extension LayoutRefreshController {
 
         switch reason {
         case .workspaceInactive,
-             .scratchpad:
+             .scratchpad,
+             .quake:
             return HiddenWindowPlacementResolver(
                 monitor: hiddenPlacementMonitor,
                 monitors: resolvedHiddenPlacementMonitors

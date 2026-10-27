@@ -172,6 +172,15 @@ final class WMController {
     }()
 
     @ObservationIgnored
+    lazy var warpQuakeTerminal: WarpQuakeTerminal = {
+        let terminal = WarpQuakeTerminal(controller: self)
+        terminal.onToggleFailure = { [weak self] problem in
+            self?.presentWarpQuakeFailure(problem)
+        }
+        return terminal
+    }()
+
+    @ObservationIgnored
     private(set) lazy var commandPaletteController: CommandPaletteController = .init(motionPolicy: motionPolicy)
     @ObservationIgnored var windowSwitcherControllerStorage: WindowSwitcherController?
     var windowSwitcherController: WindowSwitcherController {

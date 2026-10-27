@@ -181,6 +181,8 @@ extension LayoutRefreshController {
             .layoutTransient
         case .scratchpad:
             .scratchpad
+        case .quake:
+            .quake
         }
     }
 

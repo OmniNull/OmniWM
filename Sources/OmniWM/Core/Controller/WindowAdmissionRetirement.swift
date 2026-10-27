@@ -57,6 +57,7 @@ extension AXEventHandler {
         if removesScratchpadResources {
             controller.cleanupScratchpadWindowResources(for: token)
         }
+        controller.warpQuakeTerminal.noteWindowRemoved(token)
         controller.clearManualWindowOverride(for: token)
         if policy.removesIdentityAliases {
             identityAliasesByWindowId.removeValue(forKey: token.windowId)

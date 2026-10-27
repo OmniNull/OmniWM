@@ -49,6 +49,7 @@ enum HiddenReason: Equatable {
     case workspaceInactive
     case layoutTransient(HideSide)
     case scratchpad
+    case quake
 }
 
 struct HiddenState: Equatable {
@@ -80,7 +81,8 @@ struct HiddenState: Equatable {
     var restoresViaFloatingState: Bool {
         switch reason {
         case .workspaceInactive,
-             .scratchpad:
+             .scratchpad,
+             .quake:
             true
         case .layoutTransient:
             false

@@ -28,11 +28,15 @@ struct QuakeTerminalPlacement {
 
     func setFinal(in window: NSWindow) {
         window.alphaValue = 1
+        window.setFrame(finalFrame(), display: true)
+    }
+
+    func finalFrame() -> CGRect {
         let size = configuredFrameSize()
-        window.setFrame(.init(
+        return CGRect(
             origin: position.finalOrigin(visibleFrame: screen.visibleFrame, windowSize: size),
             size: size
-        ), display: true)
+        )
     }
 
     static func targetScreen(

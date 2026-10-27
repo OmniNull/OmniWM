@@ -34,6 +34,7 @@ import QuartzCore
         case workspaceInactive
         case layoutTransient
         case scratchpad
+        case quake
     }
 
     enum HiddenRevealTerminalOutcome {

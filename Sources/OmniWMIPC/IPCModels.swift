@@ -144,6 +144,7 @@ public enum IPCHiddenReason: String, Codable, Equatable, Sendable {
     case tabInactive = "tab-inactive"
     case layoutTransient = "layout-transient"
     case scratchpad
+    case quake
 }
 
 public enum IPCColumnViewport: String, Codable, CaseIterable, Equatable, Sendable {

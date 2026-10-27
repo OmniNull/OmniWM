@@ -108,6 +108,7 @@ extension AXEventHandler {
             if scratchpadTokens.contains(entry.token) {
                 controller.cleanupScratchpadWindowResources(for: entry.token)
             }
+            controller.warpQuakeTerminal.noteWindowRemoved(entry.token)
         }
     }
 

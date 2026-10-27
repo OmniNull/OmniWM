@@ -97,6 +97,8 @@ extension IPCHiddenReason {
             self = isInactiveTabMember ? .tabInactive : .layoutTransient
         case .scratchpad:
             self = .scratchpad
+        case .quake:
+            self = .quake
         }
     }
 }

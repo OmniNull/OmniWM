@@ -4,11 +4,13 @@
 enum QuakeTerminalProvider: String, CaseIterable, Codable {
     case ghostty
     case kitty
+    case warp
 
     var displayName: String {
         switch self {
         case .ghostty: "Ghostty"
         case .kitty: "Kitty"
+        case .warp: "Warp"
         }
     }
 }

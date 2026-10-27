@@ -25,7 +25,7 @@ extension LayoutRefreshController {
             }
             return true
         }
-        guard hiddenState.workspaceInactive else { return false }
+        guard hiddenState.workspaceInactive || hiddenState.reason == .quake else { return false }
 
         return executeHiddenReveal(
             entry,
@@ -75,7 +75,7 @@ extension LayoutRefreshController {
         )
         switch restoreWindowFromHiddenState(entry, monitor: monitor, hiddenState: hiddenState) {
         case .none:
-            guard hiddenState.workspaceInactive else {
+            guard hiddenState.workspaceInactive || hiddenState.reason == .quake else {
                 controller.axManager.suppressFrameWrites(reveal.frameEntry)
                 return false
             }

@@ -137,6 +137,8 @@ enum RuntimeDiagnosticsReport {
             "layout-transient-\(side)"
         case .scratchpad:
             "scratchpad"
+        case .quake:
+            "quake"
         }
         let nativeFullscreen = switch window.nativeFullscreenTransition {
         case .none:
@@ -196,6 +198,7 @@ enum RuntimeDiagnosticsReport {
             case let .layoutTransient(side): "side=\(side)"
             case .workspaceInactive: "inactive"
             case .scratchpad: "scratchpad"
+            case .quake: "quake"
             }
             guard let windowId = UInt32(exactly: entry.windowId),
                   let bounds = SkyLight.shared.getWindowBounds(windowId)
