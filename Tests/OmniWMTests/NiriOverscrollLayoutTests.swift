@@ -9,6 +9,10 @@ import XCTest
 final class NiriOverscrollLayoutTests: XCTestCase {
     private let frame = CGRect(x: 0, y: 0, width: 1_000, height: 800)
 
+    private var workingArea: WorkingAreaContext {
+        WorkingAreaContext(workingFrame: frame, viewFrame: frame, scale: 2)
+    }
+
     private func engine(orientation: Monitor.Orientation) -> (NiriLayoutEngine, WorkspaceDescriptor.ID) {
         let engine = NiriLayoutEngine()
         engine.edgeOverscroll = .enabled(visibleFraction: 0.05)
@@ -110,14 +114,22 @@ final class NiriOverscrollLayoutTests: XCTestCase {
                     ))
                     let overscrolled = state.viewOffset
                     engine.edgeOverscroll = .enabled(visibleFraction: 1)
-                    XCTAssertTrue(engine.correctSingleWindowGestureOffset(context: context, state: &state))
+                    XCTAssertTrue(engine.correctSingleWindowGestureOffset(
+                        context: context,
+                        state: &state,
+                        workingArea: workingArea
+                    ))
                     XCTAssertNotEqual(state.viewOffset, overscrolled)
                     let rendered = try XCTUnwrap(engine.calculateLayout(
                         state: state, workspaceId: workspaceId, monitorFrame: frame,
                         gaps: (horizontal: 10, vertical: 10), orientation: orientation
                     )[token])
                     XCTAssertEqual(rendered.intersection(frame).size, original.size)
-                    XCTAssertFalse(engine.correctSingleWindowGestureOffset(context: context, state: &state))
+                    XCTAssertFalse(engine.correctSingleWindowGestureOffset(
+                        context: context,
+                        state: &state,
+                        workingArea: workingArea
+                    ))
                     XCTAssertTrue(state.preservesGestureOffset)
                 }
             }
@@ -147,7 +159,11 @@ final class NiriOverscrollLayoutTests: XCTestCase {
             ))
             let overscrolled = state.viewOffset
             engine.singleWindowFit = SingleWindowFit(mode: .custom, width: 100, height: 100)
-            XCTAssertTrue(engine.correctSingleWindowGestureOffset(context: context, state: &state))
+            XCTAssertTrue(engine.correctSingleWindowGestureOffset(
+                context: context,
+                state: &state,
+                workingArea: workingArea
+            ))
             XCTAssertNotEqual(state.viewOffset, overscrolled)
             XCTAssertTrue(state.preservesGestureOffset)
             let rendered = try XCTUnwrap(engine.calculateLayout(
@@ -160,6 +176,43 @@ final class NiriOverscrollLayoutTests: XCTestCase {
             // Trailing boundary keeps only the strip visible: 5% of the 100-point
             // span plus the gap padding.
             XCTAssertEqual(visibleSpan, 15, accuracy: 0.5)
+        }
+    }
+
+    func testCustomToFillReclampsAgainstPendingFillFrameOnBothAxes() throws {
+        for orientation in [Monitor.Orientation.horizontal, .vertical] {
+            for projected in [-10_000.0, 10_000.0] {
+                let (engine, workspaceId) = engine(orientation: orientation)
+                engine.singleWindowFit = SingleWindowFit(mode: .custom, width: 100, height: 100)
+                engine.edgeOverscroll = .enabled(visibleFraction: 1)
+                let token = WindowToken(pid: 1, windowId: 1)
+                _ = engine.addWindow(token: token, to: workspaceId, afterSelection: nil)
+                var state = ViewportState()
+                let custom = try XCTUnwrap(engine.calculateLayout(
+                    state: state, workspaceId: workspaceId, monitorFrame: frame,
+                    gaps: (horizontal: 10, vertical: 10), orientation: orientation
+                )[token])
+                let context = NiriInteractionContext(
+                    workspaceId: workspaceId, motion: .disabled, workingFrame: frame,
+                    gaps: 10, orientation: orientation
+                )
+                XCTAssertNotNil(engine.endProjectedGesture(
+                    state: &state, context: context, currentOffset: 0, projectedOffset: projected
+                ))
+                engine.singleWindowFit = .fullScreen
+                let column = try XCTUnwrap(engine.columns(in: workspaceId).first)
+                XCTAssertEqual(column.frame, custom)
+                XCTAssertTrue(engine.correctSingleWindowGestureOffset(
+                    context: context, state: &state, workingArea: workingArea
+                ))
+                XCTAssertEqual(state.viewOffset, 0, accuracy: 0.5)
+                XCTAssertTrue(state.preservesGestureOffset)
+                let rendered = try XCTUnwrap(engine.calculateLayout(
+                    state: state, workspaceId: workspaceId, monitorFrame: frame,
+                    gaps: (horizontal: 10, vertical: 10), workingArea: workingArea, orientation: orientation
+                )[token])
+                XCTAssertEqual(rendered, frame)
+            }
         }
     }
 

@@ -394,7 +394,18 @@ extension NiriLayoutHandler {
         }
 
         if usesSingleWindowFit,
-           pass.engine.correctSingleWindowGestureOffset(context: pass.interactionContext, state: &state)
+           pass.engine.correctSingleWindowGestureOffset(
+               context: pass.interactionContext,
+               state: &state,
+               workingArea: WorkingAreaContext(
+                   workingFrame: pass.insetFrame,
+                   singleWindowFrame: snapshot.monitor.workingFrame,
+                   borderSafeFillFrame: snapshot.monitor.borderSafeFillFrame,
+                   fullscreenLayoutFrame: snapshot.fullscreenLayoutFrame,
+                   viewFrame: snapshot.monitor.frame,
+                   scale: snapshot.monitor.scale
+               )
+           )
         {
             viewportNeedsRecalc = true
         }

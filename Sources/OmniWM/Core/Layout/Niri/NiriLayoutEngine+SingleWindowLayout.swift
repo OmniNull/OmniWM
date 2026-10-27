@@ -45,13 +45,23 @@ extension NiriLayoutEngine {
     }
 
     @discardableResult
-    func correctSingleWindowGestureOffset(context: NiriInteractionContext, state: inout ViewportState) -> Bool {
+    func correctSingleWindowGestureOffset(
+        context: NiriInteractionContext,
+        state: inout ViewportState,
+        workingArea: WorkingAreaContext
+    ) -> Bool {
         guard state.preservesGestureOffset,
-              let rect = singleWindowScrollRect(
-                  in: context.workspaceId, workingFrame: context.workingFrame,
-                  gaps: LayoutGaps(horizontal: context.gaps, vertical: context.gaps)
-              )
+              let single = singleWindowLayoutContext(in: context.workspaceId)
         else { return false }
+        let rect = resolvedSingleWindowRect(
+            for: single,
+            in: workingArea.singleWindowFrame,
+            borderSafeFillFrame: workingArea.borderSafeFillFrame,
+            fullscreenLayoutFrame: workingArea.fullscreenLayoutFrame,
+            scale: workingArea.scale,
+            gaps: LayoutGaps(horizontal: context.gaps, vertical: context.gaps),
+            orientation: context.orientation
+        )
         let span = context.orientation == .horizontal ? rect.width : rect.height
         let viewportSpan = context.orientation == .horizontal
             ? context.workingFrame.width : context.workingFrame.height
