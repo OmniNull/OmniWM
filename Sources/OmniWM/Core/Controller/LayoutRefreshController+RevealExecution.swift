@@ -25,7 +25,7 @@ extension LayoutRefreshController {
             }
             return true
         }
-        guard hiddenState.workspaceInactive || hiddenState.reason == .quake else { return false }
+        guard hiddenState.workspaceInactive else { return false }
 
         return executeHiddenReveal(
             entry,
@@ -34,6 +34,17 @@ extension LayoutRefreshController {
             onSuccess: onSuccess,
             revealGroupId: revealGroupId
         )
+    }
+
+    @discardableResult
+    func restoreQuakeWindow(_ entry: WindowState, monitor: Monitor) -> Bool {
+        guard let controller,
+              let hiddenState = controller.workspaceManager.hiddenState(for: entry.token),
+              hiddenState.reason == .quake
+        else {
+            return false
+        }
+        return executeHiddenReveal(entry, monitor: monitor, hiddenState: hiddenState)
     }
 
     @discardableResult

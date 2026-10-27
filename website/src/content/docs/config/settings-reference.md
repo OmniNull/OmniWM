@@ -380,7 +380,7 @@ Clipboard history limits. History content itself is stored in the state director
 
 ## quakeTerminal
 
-The drop-down (Quake) terminal. `enabled` and `provider` apply to either provider; the position, size, animation, auto-hide and appearance keys below configure Ghostty. Kitty uses its own configuration and the optional [Kitty overrides](#quaketerminalkitty).
+The drop-down (Quake) terminal. `enabled` and `provider` apply to either provider; the position, size, animation, auto-hide and appearance keys below configure Ghostty, and Warp uses `position`, `widthPercent`, `heightPercent` and `monitorMode`. Kitty uses its own configuration and the optional [Kitty overrides](#quaketerminalkitty).
 
 | Key | Type | Default | Description |
 | --- | --- | --- | --- |

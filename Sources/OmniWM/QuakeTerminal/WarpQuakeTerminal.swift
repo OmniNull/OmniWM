@@ -126,13 +126,16 @@ final class WarpQuakeTerminal {
 
     private func toggleExistingWindow(entry: WindowState, token: WindowToken, controller: WMController) {
         if controller.workspaceManager.hiddenState(for: token) != nil {
-            guard let target = controller.scratchpadTarget() else { return }
-            if entry.workspaceId != target.workspaceId {
-                controller.reassignManagedWindow(token, to: target.workspaceId)
+            let monitor = placementMonitor(controller: controller)
+            guard let workspaceId = controller.workspaceManager.activeWorkspaceOrFirst(on: monitor.id)?.id
+            else { return }
+            if entry.workspaceId != workspaceId {
+                controller.reassignManagedWindow(token, to: workspaceId)
             }
             let entry = controller.workspaceManager.entry(for: token) ?? entry
+            storePlacement(for: token, on: monitor, controller: controller)
             controller.axManager.markWindowActive(entry.windowId)
-            controller.layoutRefreshController.unhideWindow(entry, monitor: target.monitor)
+            controller.layoutRefreshController.restoreQuakeWindow(entry, monitor: monitor)
             controller.focusWindow(token)
         } else {
             let monitor = controller.workspaceManager.monitor(for: entry.workspaceId)
@@ -150,6 +153,7 @@ final class WarpQuakeTerminal {
             return
         }
 
+        let existingTokens = Set(controller.workspaceManager.allEntries().map(\.token))
         let runningApp: NSRunningApplication
         do {
             let config = NSWorkspace.OpenConfiguration()
@@ -159,9 +163,7 @@ final class WarpQuakeTerminal {
             return
         }
 
-        let pid = runningApp.processIdentifier
-        let existingTokens = Set(controller.workspaceManager.entries(forPid: pid).map(\.token))
-        guard let entry = await waitForWindow(pid: pid, existingTokens: existingTokens) else {
+        guard let entry = await waitForWindow(pid: runningApp.processIdentifier, existingTokens: existingTokens) else {
             report(.windowNotFound)
             return
         }
@@ -173,19 +175,8 @@ final class WarpQuakeTerminal {
         let newToken = entry.token
         token = newToken
         controller.applyManagedWindowOverride(.forceFloat, for: newToken, entry: entry)
-        let screen = targetScreen()
-        let placement = QuakeTerminalPlacement(
-            position: controller.settings.quakeTerminal.position,
-            on: screen,
-            widthPercent: controller.settings.quakeTerminal.widthPercent,
-            heightPercent: controller.settings.quakeTerminal.heightPercent
-        )
-        let targetFrame = placement.finalFrame()
-        _ = AXWindowService.setFrame(entry.axRef, frame: targetFrame)
-        let monitor = controller.workspaceManager.monitors.first(where: { $0.displayId == screen.displayId })
-            ?? controller.workspaceManager.monitors.first
-            ?? Monitor.fallback()
-        controller.workspaceManager.updateFloatingGeometry(frame: targetFrame, for: newToken, referenceMonitor: monitor)
+        let frame = storePlacement(for: newToken, on: placementMonitor(controller: controller), controller: controller)
+        _ = AXWindowService.setFrame(entry.axRef, frame: frame)
         controller.focusWindow(newToken)
         problem = nil
     }
@@ -217,6 +208,29 @@ final class WarpQuakeTerminal {
             try? await Task.sleep(for: windowWaitPollInterval)
         }
         return nil
+    }
+
+    @discardableResult
+    private func storePlacement(for token: WindowToken, on monitor: Monitor, controller: WMController) -> CGRect {
+        let quake = controller.settings.quakeTerminal
+        let size = QuakeTerminalGeometryPolicy.configuredFrameSize(
+            visibleFrame: monitor.visibleFrame,
+            widthPercent: quake.widthPercent,
+            heightPercent: quake.heightPercent
+        )
+        let frame = CGRect(
+            origin: quake.position.finalOrigin(visibleFrame: monitor.visibleFrame, windowSize: size),
+            size: size
+        )
+        controller.workspaceManager.updateFloatingGeometry(frame: frame, for: token, referenceMonitor: monitor)
+        return frame
+    }
+
+    private func placementMonitor(controller: WMController) -> Monitor {
+        let screen = targetScreen()
+        return controller.workspaceManager.monitors.first(where: { $0.displayId == screen.displayId })
+            ?? controller.workspaceManager.monitors.first
+            ?? Monitor.fallback()
     }
 
     private func targetScreen() -> NSScreen {

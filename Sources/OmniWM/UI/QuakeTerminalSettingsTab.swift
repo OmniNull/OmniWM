@@ -162,11 +162,7 @@ struct QuakeTerminalSettingsTab: View {
                     }
                 }
                 .id("Appearance")
-            }
 
-            if settings.quakeTerminal.enabled,
-               settings.quakeTerminal.provider == .ghostty || settings.quakeTerminal.provider == .warp
-            {
                 Section("Behavior") {
                     SettingsSliderRow(
                         label: String(localized: "Animation Duration"),

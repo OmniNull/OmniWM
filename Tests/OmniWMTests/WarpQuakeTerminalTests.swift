@@ -119,6 +119,93 @@ final class WarpQuakeTerminalTests: XCTestCase {
         XCTAssertFalse(controller.axManager.inactiveWorkspaceWindowIds.contains(token.windowId))
     }
 
+    func testScratchpadRevealPathLeavesQuakeWindowParked() throws {
+        let controller = WindowAdmissionTestSupport.controller()
+        let workspaceId = try XCTUnwrap(controller.workspaceManager.workspaceId(for: "1", createIfMissing: true))
+        let pid: pid_t = 73_301
+        let token = controller.workspaceManager.addWindow(
+            AXWindowRef(element: AXUIElementCreateApplication(pid), windowId: 73_302),
+            pid: pid,
+            windowId: 73_302,
+            to: workspaceId,
+            mode: .floating
+        )
+        let quakeState = HiddenState(proportionalPosition: .zero, referenceMonitorId: nil, reason: .quake)
+        controller.workspaceManager.setHiddenState(quakeState, for: token)
+        let entry = try XCTUnwrap(controller.workspaceManager.entry(for: token))
+        let monitor = controller.workspaceManager.monitors.first ?? Monitor.fallback()
+        XCTAssertFalse(controller.layoutRefreshController.unhideWindow(entry, monitor: monitor))
+        XCTAssertEqual(controller.workspaceManager.hiddenState(for: token), quakeState)
+    }
+
+    func testRevealPlacesWindowFromCurrentQuakeSettings() async throws {
+        let controller = WindowAdmissionTestSupport.controller()
+        let frame = CGRect(x: 0, y: 0, width: 1600, height: 900)
+        let monitor = Monitor(
+            id: .init(displayId: 73_400),
+            displayId: 73_400,
+            frame: frame,
+            visibleFrame: frame,
+            hasNotch: false,
+            name: "Warp test"
+        )
+        controller.workspaceManager.applyMonitorConfigurationChange([monitor])
+        let workspaceId = try XCTUnwrap(controller.workspaceManager.workspaceId(for: "1", createIfMissing: true))
+        XCTAssertTrue(controller.workspaceManager.setActiveWorkspace(workspaceId, on: monitor.id))
+        let pid: pid_t = 73_401
+        let token = controller.workspaceManager.addWindow(
+            AXWindowRef(element: AXUIElementCreateApplication(pid), windowId: 73_402),
+            pid: pid,
+            windowId: 73_402,
+            to: workspaceId,
+            mode: .floating
+        )
+        controller.workspaceManager.updateFloatingGeometry(
+            frame: CGRect(x: 400, y: 225, width: 800, height: 450),
+            for: token,
+            referenceMonitor: monitor
+        )
+        controller.workspaceManager.setHiddenState(
+            HiddenState(proportionalPosition: .zero, referenceMonitorId: nil, reason: .quake),
+            for: token
+        )
+        controller.settings.quakeTerminal.monitorMode = .mainMonitor
+        controller.settings.quakeTerminal.position = .top
+        controller.settings.quakeTerminal.widthPercent = 100
+        controller.settings.quakeTerminal.heightPercent = 40
+        let terminal = WarpQuakeTerminal(controller: controller)
+        terminal.setTokenForTests(token)
+        await terminal.toggle().value
+        XCTAssertEqual(
+            controller.workspaceManager.floatingState(for: token)?.lastFrame,
+            CGRect(x: 0, y: 540, width: 1600, height: 360)
+        )
+    }
+
+    func testLaunchAdoptsWindowAdmittedWhileOpenRuns() async throws {
+        let controller = WindowAdmissionTestSupport.controller()
+        let workspaceId = try XCTUnwrap(controller.workspaceManager.workspaceId(for: "1", createIfMissing: true))
+        let pid = ProcessInfo.processInfo.processIdentifier
+        let terminal = WarpQuakeTerminal(controller: controller)
+        terminal.windowWaitTimeout = .milliseconds(200)
+        terminal.newWindowURLProvider = { URL(string: "warp://action/new_window?path=/") }
+        var admitted: WindowToken?
+        terminal.urlOpener = { _, _ in
+            admitted = controller.workspaceManager.addWindow(
+                AXWindowRef(element: AXUIElementCreateApplication(pid), windowId: 73_502),
+                pid: pid,
+                windowId: 73_502,
+                to: workspaceId,
+                mode: .tiling
+            )
+            return NSRunningApplication.current
+        }
+        await terminal.toggle().value
+        XCTAssertNotNil(admitted)
+        XCTAssertEqual(terminal.token, admitted)
+        XCTAssertNotEqual(terminal.problem, .windowNotFound)
+    }
+
     func testNoteWindowRemovedClearsToken() {
         let (controller, _) = makeController()
         let terminal = WarpQuakeTerminal(controller: controller)
