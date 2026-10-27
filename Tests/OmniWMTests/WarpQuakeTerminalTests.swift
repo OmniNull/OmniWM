@@ -97,6 +97,28 @@ final class WarpQuakeTerminalTests: XCTestCase {
         XCTAssertEqual(controller.workspaceManager.hiddenState(for: token)?.reason, .quake)
     }
 
+    func testRevealAfterWorkspaceSwitchClearsInactiveFrameGate() async throws {
+        let controller = WindowAdmissionTestSupport.controller()
+        let workspaceId = try XCTUnwrap(controller.workspaceManager.workspaceId(for: "1", createIfMissing: true))
+        let pid: pid_t = 73_201
+        let token = controller.workspaceManager.addWindow(
+            AXWindowRef(element: AXUIElementCreateApplication(pid), windowId: 73_202),
+            pid: pid,
+            windowId: 73_202,
+            to: workspaceId,
+            mode: .floating
+        )
+        controller.workspaceManager.setHiddenState(
+            HiddenState(proportionalPosition: .zero, referenceMonitorId: nil, reason: .quake),
+            for: token
+        )
+        controller.axManager.markWindowInactive(token.windowId)
+        let terminal = WarpQuakeTerminal(controller: controller)
+        terminal.setTokenForTests(token)
+        await terminal.toggle().value
+        XCTAssertFalse(controller.axManager.inactiveWorkspaceWindowIds.contains(token.windowId))
+    }
+
     func testNoteWindowRemovedClearsToken() {
         let (controller, _) = makeController()
         let terminal = WarpQuakeTerminal(controller: controller)

@@ -131,6 +131,7 @@ final class WarpQuakeTerminal {
                 controller.reassignManagedWindow(token, to: target.workspaceId)
             }
             let entry = controller.workspaceManager.entry(for: token) ?? entry
+            controller.axManager.markWindowActive(entry.windowId)
             controller.layoutRefreshController.unhideWindow(entry, monitor: target.monitor)
             controller.focusWindow(token)
         } else {
