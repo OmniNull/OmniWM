@@ -533,6 +533,71 @@ final class NaturalDoubleClickTests: NiriInteractionTestCase {
         XCTAssertEqual(column.width, widths[0])
     }
 
+    func testATitleBarDoubleClickResizesTheWindowAroundItsCentre() throws {
+        let fixture = try makeFixture(pid: 941_040)
+        let token = fixture.tokens[1]
+        let sides = fixture.screenSides
+        let presets = fixture.engine.presetContainerPrimarySpans.count
+
+        for step in 0 ..< presets {
+            let before = try fixture.frame(token)
+            XCTAssertTrue(fixture.doubleClick(at: try fixture.titleBar(token)))
+            let after = try fixture.frame(token)
+
+            XCTAssertNotEqual(after.width, before.width, accuracy: 1, "\(step)")
+            let leading = try after.minX - fixture.frame(fixture.tokens[0]).minX
+            let trailing = try fixture.frame(fixture.tokens[2]).maxX - after.minX
+            var expected = min(max(before.midX - after.width / 2, sides.left), sides.right - after.width)
+            if leading + trailing >= sides.right - sides.left - 1 {
+                expected = min(max(expected, sides.right - trailing), sides.left + leading)
+            }
+            XCTAssertEqual(after.minX, expected, accuracy: 1, "\(step)")
+            XCTAssertGreaterThanOrEqual(after.minX, sides.left - 1, "\(step)")
+            XCTAssertLessThanOrEqual(after.maxX, sides.right + 1, "\(step)")
+        }
+    }
+
+    func testATitleBarDoubleClickOnTheLastColumnLeavesNoEmptyScreenBesideIt() throws {
+        let fixture = try makeFixture(pid: 941_041)
+        let (first, last) = (fixture.tokens[0], fixture.tokens[2])
+        let sides = fixture.screenSides
+
+        for step in 0 ..< fixture.engine.presetContainerPrimarySpans.count {
+            XCTAssertTrue(fixture.doubleClick(at: try fixture.titleBar(last)))
+            let hidesTheStart = try fixture.frame(first).minX < sides.left - 1
+            let leavesEmptyScreen = try fixture.frame(last).maxX < sides.right - 1
+            XCTAssertFalse(hidesTheStart && leavesEmptyScreen, "\(step)")
+        }
+    }
+
+    func testATitleBarDoubleClickKeepsAnAlwaysCentredColumnCentred() throws {
+        let fixture = try makeFixture(pid: 941_042)
+        let current = fixture.engine.effectiveSettings(in: fixture.workspaceId)
+        fixture.controller.workspaceManager.withEngineMutationScope(in: fixture.workspaceId) {
+            fixture.engine.updateMonitorSettings(
+                ResolvedNiriSettings(
+                    visibleContainerCount: current.visibleContainerCount,
+                    defaultContainerPrimarySpan: current.defaultContainerPrimarySpan,
+                    centerFocusedColumn: .always,
+                    alwaysCenterSingleColumn: current.alwaysCenterSingleColumn,
+                    singleWindowFit: current.singleWindowFit,
+                    infiniteLoop: current.infiniteLoop
+                ),
+                for: fixture.monitor.id
+            )
+        }
+        let state = fixture.controller.workspaceManager.niriViewportState(for: fixture.workspaceId)
+        let token = try XCTUnwrap(fixture.tokens.first { token in
+            (try? fixture.engine.isViewportAnchor(fixture.column(token), in: fixture.workspaceId, state: state)) == true
+        })
+        let middle = (fixture.screenSides.left + fixture.screenSides.right) / 2
+
+        for step in 0 ..< fixture.engine.presetContainerPrimarySpans.count {
+            XCTAssertTrue(fixture.doubleClick(at: try fixture.titleBar(token)))
+            XCTAssertEqual(try fixture.frame(token).midX, middle, accuracy: 1, "\(step)")
+        }
+    }
+
     func testATitleBarDoubleClickOnAControlIsLeftToTheApp() throws {
         let fixture = try makeFixture(pid: 941_008)
         let column = try fixture.column(fixture.tokens[1])

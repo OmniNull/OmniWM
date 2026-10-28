@@ -17,7 +17,129 @@ struct NaturalEdgeResizeSlide {
     let observed: CGRect
 }
 
+struct CentredPrimaryResize {
+    let edges: ResizeEdge
+    let observed: CGRect
+    let centre: CGFloat?
+}
+
 extension MouseEventHandler {
+    static func isCentredResize(_ start: ClosedRange<CGFloat>, _ observed: ClosedRange<CGFloat>) -> Bool {
+        let low = observed.lowerBound - start.lowerBound
+        let high = observed.upperBound - start.upperBound
+        return low * high < 0 && min(abs(low), abs(high)) > FrameTolerance.screenMatch
+    }
+
+    func centredPrimaryResize(_ edges: ResizeEdge, from start: CGRect, to observed: CGRect) -> CentredPrimaryResize {
+        guard edges == [.left, .right] else {
+            return CentredPrimaryResize(edges: edges, observed: observed, centre: nil)
+        }
+        return CentredPrimaryResize(
+            edges: .right,
+            observed: CGRect(x: start.minX, y: observed.minY, width: observed.width, height: observed.height),
+            centre: observed.midX
+        )
+    }
+
+    func keepCentredResizeInPlace(
+        _ window: NiriWindow,
+        _ primary: CentredPrimaryResize,
+        context: NiriInteractionContext,
+        state: inout ViewportState
+    ) {
+        guard let centre = primary.centre,
+              let engine = controller?.niriEngine,
+              let column = engine.findColumn(containing: window, in: context.workspaceId)
+        else { return }
+        engine.centreColumn(column, on: centre, animated: false, context: context, state: &state)
+    }
+
+    func adoptedSecondarySpan(
+        _ edges: ResizeEdge,
+        of window: NiriWindow,
+        in workspaceId: WorkspaceDescriptor.ID,
+        from start: CGRect,
+        to observed: CGRect
+    ) -> CGFloat? {
+        guard !edges.isEmpty, let engine = controller?.niriEngine else { return nil }
+        let vertical = !edges.isDisjoint(with: [.top, .bottom])
+        guard !vertical || engine.singleWindowLayoutContext(in: workspaceId) == nil else { return nil }
+        guard edges == [.top, .bottom] else {
+            guard !isColumnEndEdge(edges, of: window, in: workspaceId) else { return nil }
+            return vertical ? observed.height : observed.width
+        }
+        guard let column = engine.findColumn(containing: window, in: workspaceId),
+              !column.isTabbed
+        else { return nil }
+        switch engine.stackPlace(of: window, frame: start, in: column, workspaceId: workspaceId) {
+        case .top: return start.height + start.minY - observed.minY
+        case .bottom: return start.height + observed.maxY - start.maxY
+        case .alone,
+             .middle: return observed.height
+        }
+    }
+
+    func neighboursGiveWay(
+        to window: NiriWindow,
+        from start: CGRect,
+        to observed: CGRect,
+        context: NiriInteractionContext
+    ) -> Bool {
+        guard let engine = controller?.niriEngine,
+              let column = engine.findColumn(containing: window, in: context.workspaceId),
+              !column.isTabbed,
+              case let .fixed(height) = window.height
+        else { return true }
+        let others = engine.projectedWindows(in: column, workspaceId: context.workspaceId)
+            .filter { $0 !== window }
+            .compactMap { other in (other.renderedFrame ?? other.frame).map { (window: other, frame: $0) } }
+        let above = others.filter { $0.frame.minY >= start.maxY - FrameTolerance.screenMatch }
+            .min { $0.frame.minY < $1.frame.minY }
+        let below = others.filter { $0.frame.maxY <= start.minY + FrameTolerance.screenMatch }
+            .max { $0.frame.maxY < $1.frame.maxY }
+        let (up, down) = heightChangeSides(
+            height - start.height,
+            from: start,
+            to: observed,
+            hasAbove: above != nil,
+            hasBelow: below != nil
+        )
+        var heights = Dictionary(uniqueKeysWithValues: others.map { (ObjectIdentifier($0.window), $0.frame.height) })
+        for (neighbour, change) in [(above, up), (below, down)] {
+            guard let neighbour else { continue }
+            let shrunk = neighbour.frame.height - change
+            guard shrunk >= max(1, neighbour.window.constraints.minSize.height) else { return false }
+            heights[ObjectIdentifier(neighbour.window)] = shrunk
+            if !neighbour.window.height.isAuto {
+                neighbour.window.height = .fixed(shrunk)
+            }
+        }
+        let flexible = others.filter(\.window.height.isAuto)
+        let median = flexible.compactMap { heights[ObjectIdentifier($0.window)] }.sorted().dropFirst(flexible.count / 2)
+            .first
+        for other in flexible {
+            guard let median, let pixels = heights[ObjectIdentifier(other.window)] else { continue }
+            other.window.height = .auto(weight: pixels / max(1, median))
+        }
+        return true
+    }
+
+    private func heightChangeSides(
+        _ growth: CGFloat,
+        from start: CGRect,
+        to observed: CGRect,
+        hasAbove: Bool,
+        hasBelow: Bool
+    ) -> (up: CGFloat, down: CGFloat) {
+        let raisedTop = observed.maxY - start.maxY
+        let loweredBottom = start.minY - observed.minY
+        let moved = raisedTop + loweredBottom
+        var up = abs(moved) > FrameTolerance.screenMatch ? growth * raisedTop / moved : 0
+        if !hasBelow { up = growth }
+        if !hasAbove { up = 0 }
+        return (up, growth - up)
+    }
+
     func naturalEdgeResizeSlide(
         around window: NiriWindow,
         in workspaceId: WorkspaceDescriptor.ID,
@@ -50,7 +172,10 @@ extension MouseEventHandler {
     ) {
         guard let controller, let engine = controller.niriEngine else { return }
         let workspaceId = context.workspaceId
-        if let column = loneColumn(of: window, in: workspaceId, context: context) {
+        if !window.height.isAuto,
+           let column = engine.findColumn(containing: window, in: workspaceId),
+           engine.loneWindow(in: column, workspaceId: workspaceId, orientation: context.orientation) === window
+        {
             window.rest(atTop: endAfterResize(slide, context: context), in: column)
         }
         let state = controller.workspaceManager.niriViewportState(for: workspaceId)
@@ -64,7 +189,10 @@ extension MouseEventHandler {
             orientation: context.orientation,
             workingFrame: context.workingFrame,
             gaps: context.gaps
-        ).preparePredictedAnimation(state: state, oldFrames: slide.neighbourFrames)
+        ).preparePredictedAnimation(
+            state: state,
+            oldFrames: slide.neighbourFrames.merging([window.token: slide.observed]) { $1 }
+        )
         for mate in slide.stackMates {
             guard let settled = mate.window.frame else { continue }
             let verticalOnly = CGRect(
@@ -77,21 +205,6 @@ extension MouseEventHandler {
         }
         settleNiriResize(window.token, in: workspaceId)
         controller.niriLayoutHandler.startScrollAnimationIfNeeded(for: workspaceId, state: state, engine: engine)
-    }
-
-    private func loneColumn(
-        of window: NiriWindow,
-        in workspaceId: WorkspaceDescriptor.ID,
-        context: NiriInteractionContext
-    ) -> NiriContainer? {
-        guard context.orientation == .horizontal,
-              !window.height.isAuto,
-              let engine = controller?.niriEngine,
-              engine.singleWindowLayoutContext(in: workspaceId) == nil,
-              let column = engine.findColumn(containing: window, in: workspaceId),
-              engine.projectedWindows(in: column, workspaceId: workspaceId).count == 1
-        else { return nil }
-        return column
     }
 
     private func endAfterResize(_ slide: NaturalEdgeResizeSlide, context: NiriInteractionContext) -> Bool {
@@ -117,18 +230,12 @@ extension MouseEventHandler {
         if column.isTabbed {
             return !edges.isDisjoint(with: [.top, .bottom])
         }
-        let stack = engine.projectedWindows(in: column, workspaceId: workspaceId)
-        if stack.count == 1 {
-            return isLoneWindowEndEdge(edges, of: window, frame: frame, in: column, workspaceId: workspaceId)
+        switch engine.stackPlace(of: window, frame: frame, in: column, workspaceId: workspaceId) {
+        case .alone: return isLoneWindowEndEdge(edges, of: window, frame: frame, in: column, workspaceId: workspaceId)
+        case .top: return edges.contains(.top)
+        case .bottom: return edges.contains(.bottom)
+        case .middle: return false
         }
-        let others = stack.filter { $0 !== window }.compactMap { $0.renderedFrame ?? $0.frame }
-        if edges.contains(.top) {
-            return others.allSatisfy { $0.maxY < frame.maxY }
-        }
-        if edges.contains(.bottom) {
-            return others.allSatisfy { $0.minY > frame.minY }
-        }
-        return false
     }
 
     private func isLoneWindowEndEdge(
@@ -139,9 +246,8 @@ extension MouseEventHandler {
         workspaceId: WorkspaceDescriptor.ID
     ) -> Bool {
         guard let engine = controller?.niriEngine,
-              engine.singleWindowLayoutContext(in: workspaceId) == nil,
               let context = liveColumnContext(for: workspaceId),
-              context.orientation == .horizontal,
+              engine.loneWindow(in: column, workspaceId: workspaceId, orientation: context.orientation) === window,
               frame.height < context.workingFrame.height - 2 * context.gaps - FrameTolerance.screenMatch
         else { return false }
         return edges.contains(window.restsAtTop(of: column) ? .top : .bottom)

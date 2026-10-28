@@ -307,6 +307,7 @@ extension ViewportState {
         centerMode: CenterFocusedColumn,
         alwaysCenterSingleColumn: Bool = false,
         fromContainerIndex: Int? = nil,
+        keepsStripEndsOnScreen: Bool = false,
         scale: CGFloat = 2.0,
         viewFrame: CGRect? = nil
     ) -> CGFloat {
@@ -350,10 +351,32 @@ extension ViewportState {
                 areas: areas
             )
         }
-        if shouldCenter {
-            return areas.centeredOffset(currentViewStart: currentViewStart, target: target, gap: context.gaps)
+        let offset = shouldCenter
+            ? areas.centeredOffset(currentViewStart: currentViewStart, target: target, gap: context.gaps)
+            : areas.fitOffset(currentViewStart: currentViewStart, target: target, gap: context.gaps)
+        guard keepsStripEndsOnScreen, target.mode == .normal else { return offset }
+        return offsetKeepingStripEndsOnScreen(offset, target: target, containers: containers, context: context)
+    }
+
+    private func offsetKeepingStripEndsOnScreen(
+        _ offset: CGFloat,
+        target: ViewportColumnTarget,
+        containers: [NiriContainer],
+        context: NiriInteractionContext
+    ) -> CGFloat {
+        let stripEnd = totalSpan(
+            containers: containers,
+            gap: context.gaps,
+            sizeKeyPath: context.orientation.settledSpanKeyPath
+        )
+        let viewportSpan = switch context.orientation {
+        case .horizontal: context.workingFrame.width
+        case .vertical: context.workingFrame.height
         }
-        return areas.fitOffset(currentViewStart: currentViewStart, target: target, gap: context.gaps)
+        let earliest = -context.gaps
+        let latest = stripEnd + context.gaps - viewportSpan
+        guard latest >= earliest else { return offset }
+        return (target.position + offset).clamped(to: earliest ... latest) - target.position
     }
 
     private func shouldCenterAdjacentPair(

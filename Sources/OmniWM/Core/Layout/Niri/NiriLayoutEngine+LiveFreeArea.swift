@@ -62,7 +62,17 @@ extension NiriLayoutEngine {
         return needed <= placed.maxX - placed.minX + FrameTolerance.screenMatch
     }
 
-    func liveColumnPastStripEnd(
+    func liveColumnOrStripEnd(
+        in strip: [LiveColumnMove.StripColumn],
+        at cursor: CGPoint,
+        ignoring dropSpace: NiriContainer?,
+        context: NiriInteractionContext
+    ) -> NiriContainer? {
+        liveColumn(in: strip, at: cursor, ignoring: dropSpace)
+            ?? liveColumnPastStripEnd(in: strip, at: cursor, ignoring: dropSpace, context: context)
+    }
+
+    private func liveColumnPastStripEnd(
         in strip: [LiveColumnMove.StripColumn],
         at cursor: CGPoint,
         ignoring dropSpace: NiriContainer?,
@@ -83,17 +93,31 @@ extension NiriLayoutEngine {
         context: NiriInteractionContext,
         state: inout ViewportState
     ) {
-        let strip = liveColumnStrip(context: context, state: state)
-        let dropSpace = liveDropSpace(for: move)
-        guard liveColumn(in: strip, at: cursor, ignoring: dropSpace) == nil,
-              liveColumnPastStripEnd(in: strip, at: cursor, ignoring: dropSpace, context: context) != nil
-        else { return }
+        guard liveColumnPastStripEnd(
+            in: liveColumnStrip(context: context, state: state),
+            at: cursor,
+            ignoring: liveDropSpace(for: move),
+            context: context
+        ) != nil else { return }
         move.stackMode = false
         move.awaitsPointerMoveFrom = nil
-        for _ in 0 ..< 2 {
-            liveColumnMove = move
-            _ = liveColumnMoveUpdate(cursor: cursor, at: 0, immediate: true, context: context, state: &state)
-            guard let updated = liveColumnMove else { return }
+        if move.inStack {
+            stepLiveColumnMove(to: cursor, move: &move, context: context, state: &state)
+        }
+        if !move.inStack {
+            stepLiveColumnMove(to: cursor, move: &move, context: context, state: &state)
+        }
+    }
+
+    private func stepLiveColumnMove(
+        to cursor: CGPoint,
+        move: inout LiveColumnMove,
+        context: NiriInteractionContext,
+        state: inout ViewportState
+    ) {
+        liveColumnMove = move
+        _ = liveColumnMoveUpdate(cursor: cursor, at: 0, immediate: true, context: context, state: &state)
+        if let updated = liveColumnMove {
             move = updated
         }
     }

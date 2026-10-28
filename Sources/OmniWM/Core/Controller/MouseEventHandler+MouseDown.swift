@@ -47,7 +47,8 @@ extension MouseEventHandler {
            Self.mouseMoveModifiersMatch(
                modifiers,
                required: controller.settings.gestures.mouseMoveModifierKey.cgEventFlags
-           )
+           ),
+           !leavesCentredResizeToMacOS(at: location, modifiers: modifiers, engine: engine, workspaceId: wsId)
         {
             beginNiriMouseMove(at: location, engine: engine, workspaceId: wsId, button: button)
             return false
@@ -72,6 +73,25 @@ extension MouseEventHandler {
             modifiers,
             required: controller.settings.niri.naturalWindowDragModifier.cgEventFlags
         )
+    }
+
+    private func leavesCentredResizeToMacOS(
+        at location: CGPoint,
+        modifiers: CGEventFlags,
+        engine: NiriLayoutEngine,
+        workspaceId: WorkspaceDescriptor.ID
+    ) -> Bool {
+        guard controller?.settings.niri.naturalWindowDrag == true,
+              modifiers.contains(.maskAlternate),
+              let frame = engine.hitTestTiled(point: location, in: workspaceId)
+                  .flatMap({ $0.renderedFrame ?? $0.frame })
+        else { return false }
+        return Self.isOnResizeEdge(location, of: frame)
+    }
+
+    static func isOnResizeEdge(_ location: CGPoint, of frame: CGRect) -> Bool {
+        let threshold = ResizeConfiguration.default.edgeThreshold
+        return frame.contains(location) && !frame.insetBy(dx: threshold, dy: threshold).contains(location)
     }
 
     private func beginNiriMouseMove(

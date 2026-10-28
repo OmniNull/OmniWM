@@ -46,11 +46,15 @@ extension MouseEventHandler {
             finishNativeDwindleResize(&drag)
             requestNativeTitleBarDragCorrection(for: entry)
         } else {
-            let adopts = controller.settings.gestures.adoptNativeResize || controller.settings.niri.naturalWindowDrag
-            guard let start = nativeResizeStartFrame(drag, entry: entry, adopts: adopts),
+            guard controller.settings.gestures.adoptNativeResize || controller.settings.niri.naturalWindowDrag,
+                  let start = nativeResizeStartFrame(drag, entry: entry),
                   let observedFrame
             else { return false }
-            let edges = Self.nativeResizeEdges(from: start, to: observedFrame)
+            let edges = Self.nativeResizeEdges(
+                from: start,
+                to: observedFrame,
+                allowsCentred: controller.settings.niri.naturalWindowDrag
+            )
             guard !edges.isEmpty,
                   adoptNiriNativeResize(entry, edges: edges, from: start, to: observedFrame)
             else { return false }
@@ -81,11 +85,9 @@ extension MouseEventHandler {
 
     private func nativeResizeStartFrame(
         _ drag: MouseInputState.NativeTitleBarDrag,
-        entry: WindowState,
-        adopts: Bool? = nil
+        entry: WindowState
     ) -> CGRect? {
         guard let controller,
-              adopts ?? controller.settings.gestures.adoptNativeResize,
               let start = drag.adoptionStartFrame,
               entry.layoutReason == .standard else { return nil }
         if entry.target.hostedMetadata != nil { return start }
@@ -100,7 +102,7 @@ extension MouseEventHandler {
         return start
     }
 
-    static func nativeResizeEdges(from start: CGRect, to observed: CGRect) -> ResizeEdge {
+    static func nativeResizeEdges(from start: CGRect, to observed: CGRect, allowsCentred: Bool = false) -> ResizeEdge {
         func moved(_ before: CGFloat, _ after: CGFloat) -> Bool {
             abs(after - before) > FrameTolerance.screenMatch
         }
@@ -108,7 +110,9 @@ extension MouseEventHandler {
         let right = moved(start.maxX, observed.maxX)
         let bottom = moved(start.minY, observed.minY)
         let top = moved(start.maxY, observed.maxY)
-        guard !(left && right), !(bottom && top) else { return [] }
+        let centredX = allowsCentred && isCentredResize(start.minX ... start.maxX, observed.minX ... observed.maxX)
+        let centredY = allowsCentred && isCentredResize(start.minY ... start.maxY, observed.minY ... observed.maxY)
+        guard !(left && right) || centredX, !(bottom && top) || centredY else { return [] }
         var edges: ResizeEdge = []
         if left { edges.insert(.left) }
         if right { edges.insert(.right) }
@@ -158,31 +162,32 @@ extension MouseEventHandler {
         let context = nativeResizeContext(controller, engine: engine, workspaceId: workspaceId, monitor: monitor)
         let horizontal = context.orientation == .horizontal
         let primaryEdges = edges.intersection(horizontal ? [.left, .right] : [.top, .bottom])
-        let adoptsSecondary = !edges.subtracting(primaryEdges).isEmpty
-            && !(horizontal && engine.singleWindowLayoutContext(in: workspaceId) != nil)
-            && !isColumnEndEdge(edges.subtracting(primaryEdges), of: window, in: workspaceId)
-        guard !primaryEdges.isEmpty || adoptsSecondary else { return false }
+        let secondary = edges.subtracting(primaryEdges)
+        let secondarySpan = adoptedSecondarySpan(secondary, of: window, in: workspaceId, from: start, to: observed)
+        guard !primaryEdges.isEmpty || secondarySpan != nil else { return false }
+        let primary = centredPrimaryResize(primaryEdges, from: start, to: observed)
 
         let slide = naturalEdgeResizeSlide(around: window, in: workspaceId, resizedFrom: start, to: observed)
         var changed = false
         controller.workspaceManager.withNiriViewportState(for: workspaceId) { viewportState in
-            if adoptsSecondary {
+            if let secondarySpan {
                 changed = adoptNiriSecondarySpan(
                     window,
-                    span: horizontal ? observed.height : observed.width,
-                    renderedSpan: horizontal ? start.height : start.width,
+                    span: secondarySpan,
+                    frames: (start, observed),
                     context: context
                 )
             }
             if !primaryEdges.isEmpty,
                resizeNiriPrimarySpan(
                    window,
-                   edges: primaryEdges,
-                   frames: (start, observed),
+                   edges: primary.edges,
+                   frames: (start, primary.observed),
                    context: context,
                    state: &viewportState
                )
             {
+                keepCentredResizeInPlace(window, primary, context: context, state: &viewportState)
                 changed = true
             }
         }
@@ -199,7 +204,7 @@ extension MouseEventHandler {
     private func adoptNiriSecondarySpan(
         _ window: NiriWindow,
         span: CGFloat,
-        renderedSpan: CGFloat,
+        frames: (start: CGRect, observed: CGRect),
         context: NiriInteractionContext
     ) -> Bool {
         guard let engine = controller?.niriEngine,
@@ -217,8 +222,13 @@ extension MouseEventHandler {
             in: context.workspaceId,
             geometry: context.sizingGeometry
         )
-        let applied = context.orientation == .horizontal ? window.height : window.windowWidth
-        guard case let .fixed(value) = applied, abs(value - renderedSpan) <= FrameTolerance.frameWrite else {
+        let horizontal = context.orientation == .horizontal
+        let renderedSpan = horizontal ? frames.start.height : frames.start.width
+        let applied = horizontal ? window.height : window.windowWidth
+        if case let .fixed(value) = applied, abs(value - renderedSpan) > FrameTolerance.frameWrite,
+           !horizontal || controller?.settings.niri.naturalWindowDrag != true
+           || neighboursGiveWay(to: window, from: frames.start, to: frames.observed, context: context)
+        {
             return true
         }
         for sibling in siblings {
@@ -299,6 +309,7 @@ extension MouseEventHandler {
               controller.workspaceManager.activeLayoutKind(for: workspaceId) == .dwindle,
               drag.dwindleResizeWorkspaceId == nil || drag.dwindleResizeWorkspaceId == workspaceId,
               let monitor = controller.workspaceManager.monitor(for: workspaceId),
+              controller.settings.gestures.adoptNativeResize,
               let start = nativeResizeStartFrame(drag, entry: entry)
         else {
             finishNativeDwindleResize(&drag)

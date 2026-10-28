@@ -84,4 +84,67 @@ extension NiriLayoutEngine {
             )
         }
     }
+
+    func cycleColumnWidthAroundCentre(
+        _ column: NiriContainer,
+        context: NiriInteractionContext,
+        state: inout ViewportState
+    ) {
+        let before = columnScreenSpan(column, context: context, state: state)
+        toggleContainerPrimarySpan(column, forwards: true, context: context, state: &state)
+        guard context.orientation == .horizontal,
+              let before,
+              !(isViewportAnchor(column, in: context.workspaceId, state: state)
+                  && centresFocusedColumn(in: context.workspaceId))
+        else { return }
+        centreColumn(
+            column,
+            on: (before.lowerBound + before.upperBound) / 2,
+            animated: true,
+            context: context,
+            state: &state
+        )
+    }
+
+    func centreColumn(
+        _ column: NiriContainer,
+        on centre: CGFloat,
+        animated: Bool,
+        context: NiriInteractionContext,
+        state: inout ViewportState
+    ) {
+        let width = column.settledWidth
+        let startWidth = column.cachedWidth
+        column.cachedWidth = width
+        let strip = liveColumnStrip(context: context, state: state)
+        column.cachedWidth = startWidth
+        guard let after = strip.first(where: { $0.column === column }),
+              let first = strip.first,
+              let last = strip.last
+        else { return }
+        let lowest = context.workingFrame.minX + context.gaps
+        let screenEnd = context.workingFrame.maxX - context.gaps
+        let highest = max(lowest, screenEnd - width)
+        var drift = after.minX - min(max(centre - width / 2, lowest), highest)
+        if last.maxX - first.minX >= screenEnd - lowest - FrameTolerance.screenMatch {
+            drift = min(max(drift, first.minX - lowest), last.maxX - screenEnd)
+        }
+        guard abs(drift) > 0.5 else { return }
+        if animated {
+            state.animateToOffset(
+                state.viewOffset + drift,
+                motion: context.motion,
+                config: windowMovementAnimationConfig,
+                scale: displayScale(in: context.workspaceId)
+            )
+        } else {
+            state.jumpOffset(to: state.viewOffset + drift)
+        }
+    }
+
+    private func centresFocusedColumn(in workspaceId: WorkspaceDescriptor.ID) -> Bool {
+        let settings = effectiveSettings(in: workspaceId)
+        return settings.centerFocusedColumn == .always
+            || (settings.alwaysCenterSingleColumn && columns(in: workspaceId).count == 1)
+    }
 }

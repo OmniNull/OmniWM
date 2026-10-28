@@ -107,7 +107,11 @@ extension MouseEventHandler {
         let layout = controller.niriLayoutHandler
         switch target.zone {
         case .titleBar:
-            layout.cycleContainerPrimarySpan(forward: true, target: .window(target.handle))
+            layout.performWindowSizing(on: .window(target.handle)) { engine, window, context, viewport in
+                guard let column = engine.findColumn(containing: window, in: context.workspaceId) else { return nil }
+                engine.cycleColumnWidthAroundCentre(column, context: context, state: &viewport)
+                return .containerPrimarySpanChanged
+            }
         case .edge(.left):
             stretchColumnFromDoubleClick(target, rightSide: false)
         case .edge(.right):

@@ -9,6 +9,13 @@ struct NiriTopRest {
     let heightRevision: Int
 }
 
+enum NiriStackPlace {
+    case alone
+    case top
+    case middle
+    case bottom
+}
+
 extension NiriWindow {
     func restsAtTop(of column: NiriContainer?) -> Bool {
         guard sizingMode == .normal, let rest = topRest, let column else { return false }
@@ -38,6 +45,34 @@ extension NiriContainerLayoutFrames {
 }
 
 extension NiriLayoutEngine {
+    func loneWindow(
+        in column: NiriContainer,
+        workspaceId: WorkspaceDescriptor.ID,
+        orientation: Monitor.Orientation
+    ) -> NiriWindow? {
+        let windows = projectedWindows(in: column, workspaceId: workspaceId)
+        guard orientation == .horizontal,
+              windows.count == 1,
+              singleWindowLayoutContext(in: workspaceId) == nil
+        else { return nil }
+        return windows.first
+    }
+
+    func stackPlace(
+        of window: NiriWindow,
+        frame: CGRect,
+        in column: NiriContainer,
+        workspaceId: WorkspaceDescriptor.ID
+    ) -> NiriStackPlace {
+        let others = projectedWindows(in: column, workspaceId: workspaceId)
+            .filter { $0 !== window }
+            .compactMap { $0.renderedFrame ?? $0.frame }
+        if others.isEmpty { return .alone }
+        if others.allSatisfy({ $0.maxY < frame.maxY }) { return .top }
+        if others.allSatisfy({ $0.minY > frame.minY }) { return .bottom }
+        return .middle
+    }
+
     func loneRestingOffset(
         of windows: [NiriWindow],
         in column: NiriContainer,
@@ -55,12 +90,8 @@ extension NiriLayoutEngine {
         context: NiriInteractionContext,
         state: ViewportState
     ) {
-        let windows = projectedWindows(in: column, workspaceId: context.workspaceId)
-        guard context.orientation == .horizontal,
-              windows.count == 1,
-              let window = windows.first,
+        guard let window = loneWindow(in: column, workspaceId: context.workspaceId, orientation: context.orientation),
               !window.height.isAuto,
-              singleWindowLayoutContext(in: context.workspaceId) == nil,
               let placed = liveColumnStrip(context: context, state: state).first(where: { $0.column === column }),
               (placed.minX ... placed.maxX).contains(cursor.x),
               let span = liveWindowSpans(in: column, context: context).first

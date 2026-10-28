@@ -251,11 +251,11 @@ extension NiriLayoutEngine {
             containerIndex: targetIdx,
             containers: containers,
             context: context,
-            animate: true,
             centerMode: settings.centerFocusedColumn,
             alwaysCenterSingleColumn: settings.alwaysCenterSingleColumn,
             animationConfig: animationConfig,
             fromContainerIndex: prevIdx,
+            keepsStripEndsOnScreen: keepsStripEndsOnScreen,
             scale: scale,
             viewFrame: viewFrame
         )

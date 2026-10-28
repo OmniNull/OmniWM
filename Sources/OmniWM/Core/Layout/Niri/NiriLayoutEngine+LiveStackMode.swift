@@ -602,5 +602,6 @@ struct NaturalWindowDragConfiguration: Equatable {
 extension NiriLayoutEngine {
     func applyNaturalWindowDrag(_ configuration: NaturalWindowDragConfiguration) {
         tabbedColumnsFillHeight = configuration.enabled
+        keepsStripEndsOnScreen = configuration.enabled
     }
 }

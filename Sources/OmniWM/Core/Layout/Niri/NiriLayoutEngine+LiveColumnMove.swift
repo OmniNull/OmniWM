@@ -113,8 +113,7 @@ extension NiriLayoutEngine {
         if liveFreeArea(at: cursor, strip: strip, move: move, context: context) != nil {
             return .unchanged
         }
-        let underPointer = liveColumn(in: strip, at: cursor, ignoring: dropSpace)
-            ?? liveColumnPastStripEnd(in: strip, at: cursor, ignoring: dropSpace, context: context)
+        let underPointer = liveColumnOrStripEnd(in: strip, at: cursor, ignoring: dropSpace, context: context)
         let overDropSpace = strip.contains { $0.column === dropSpace && $0.contains(x: cursor.x) }
         move.passed = move.passed.map { $0.extended(to: cursor.x) }.flatMap { passed in
             !passed.hasComeBack(at: cursor.x) && (overDropSpace || underPointer?.id == passed.columnId)
@@ -326,8 +325,7 @@ extension NiriLayoutEngine {
             return false
         }
         let dropSpace = liveDropSpace(for: move)
-        guard let underPointer = liveColumn(in: strip, at: cursor, ignoring: dropSpace)
-            ?? liveColumnPastStripEnd(in: strip, at: cursor, ignoring: dropSpace, context: context)
+        guard let underPointer = liveColumnOrStripEnd(in: strip, at: cursor, ignoring: dropSpace, context: context)
         else { return false }
         let side = liveTargetSide(
             underPointer,
