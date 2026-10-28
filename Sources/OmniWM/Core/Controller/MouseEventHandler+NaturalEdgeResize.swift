@@ -12,12 +12,17 @@ struct NaturalEdgeResizeSlide {
 
     let neighbourFrames: [WindowToken: CGRect]
     let stackMates: [StackMate]
+    let restingOffset: CGFloat
+    let start: CGRect
+    let observed: CGRect
 }
 
 extension MouseEventHandler {
     func naturalEdgeResizeSlide(
         around window: NiriWindow,
-        in workspaceId: WorkspaceDescriptor.ID
+        in workspaceId: WorkspaceDescriptor.ID,
+        resizedFrom start: CGRect,
+        to observed: CGRect
     ) -> NaturalEdgeResizeSlide? {
         guard let controller,
               controller.settings.niri.naturalWindowDrag,
@@ -30,7 +35,10 @@ extension MouseEventHandler {
             stackMates: stack.compactMap { mate in
                 guard mate !== window, let frame = mate.renderedFrame ?? mate.frame else { return nil }
                 return NaturalEdgeResizeSlide.StackMate(window: mate, frame: frame)
-            }
+            },
+            restingOffset: window.restingOffset(in: column),
+            start: start,
+            observed: observed
         )
     }
 
@@ -42,6 +50,9 @@ extension MouseEventHandler {
     ) {
         guard let controller, let engine = controller.niriEngine else { return }
         let workspaceId = context.workspaceId
+        if let column = loneColumn(of: window, in: workspaceId, context: context) {
+            window.rest(at: max(0, slide.restingOffset + slide.observed.minY - slide.start.minY), in: column)
+        }
         let state = controller.workspaceManager.niriViewportState(for: workspaceId)
         NiriOperationContext(
             controller: controller,
@@ -66,5 +77,43 @@ extension MouseEventHandler {
         }
         settleNiriResize(window.token, in: workspaceId)
         controller.niriLayoutHandler.startScrollAnimationIfNeeded(for: workspaceId, state: state, engine: engine)
+    }
+
+    private func loneColumn(
+        of window: NiriWindow,
+        in workspaceId: WorkspaceDescriptor.ID,
+        context: NiriInteractionContext
+    ) -> NiriContainer? {
+        guard context.orientation == .horizontal,
+              !window.height.isAuto,
+              let engine = controller?.niriEngine,
+              engine.singleWindowLayoutContext(in: workspaceId) == nil,
+              let column = engine.findColumn(containing: window, in: workspaceId),
+              engine.projectedWindows(in: column, workspaceId: workspaceId).count == 1
+        else { return nil }
+        return column
+    }
+
+    func isOuterStackEdge(
+        _ edges: ResizeEdge,
+        of window: NiriWindow,
+        in workspaceId: WorkspaceDescriptor.ID
+    ) -> Bool {
+        guard let controller,
+              controller.settings.niri.naturalWindowDrag,
+              let engine = controller.niriEngine,
+              let column = engine.findColumn(containing: window, in: workspaceId),
+              !column.isTabbed
+        else { return false }
+        let stack = engine.projectedWindows(in: column, workspaceId: workspaceId)
+        guard stack.count > 1, let frame = window.renderedFrame ?? window.frame else { return false }
+        let others = stack.filter { $0 !== window }.compactMap { $0.renderedFrame ?? $0.frame }
+        if edges.contains(.top) {
+            return others.allSatisfy { $0.maxY < frame.maxY }
+        }
+        if edges.contains(.bottom) {
+            return others.allSatisfy { $0.minY > frame.minY }
+        }
+        return false
     }
 }

@@ -106,6 +106,9 @@ extension NiriLayoutEngine {
         var offsets: [CGFloat] = []
         offsets.reserveCapacity(windows.count)
         var position = gaps
+        if windows.count == 1, orientation == .horizontal {
+            position += windows[0].restingOffset(in: column(of: windows[0]))
+        }
         for window in windows {
             offsets.append(position)
             let span = switch orientation {

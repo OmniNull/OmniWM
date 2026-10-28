@@ -138,6 +138,7 @@ extension NiriLayoutEngine {
             secondarySpanOverride: nil
         )
         var position = context.workingFrame.minY + context.gaps
+            + loneRestingOffset(of: windows, in: column, spans: spans, context: context)
         var result: [LiveColumnMove.WindowSpan] = []
         for (window, span) in zip(windows, spans) {
             result.append(.init(window: window, minY: position, maxY: position + span.value))

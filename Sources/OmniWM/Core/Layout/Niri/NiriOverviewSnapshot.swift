@@ -133,7 +133,7 @@ extension NiriLayoutEngine {
             ),
             secondarySpanOverride: placement.secondarySpanOverride
         )
-        var position = frames.secondaryStart(gap: secondaryGap)
+        var position = frames.restingStart(of: column.windows, in: column.column, spans: spans, gap: secondaryGap)
         let tiles = column.windows.enumerated().map { index, window in
             let layout = frames.windowLayout(
                 for: window.sizingMode, position: position, span: spans[index].value, layoutFrames: context.frames
