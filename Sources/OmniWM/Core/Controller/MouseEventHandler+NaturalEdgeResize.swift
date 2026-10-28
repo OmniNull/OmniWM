@@ -112,9 +112,11 @@ extension MouseEventHandler {
               controller.settings.niri.naturalWindowDrag,
               let engine = controller.niriEngine,
               let column = engine.findColumn(containing: window, in: workspaceId),
-              !column.isTabbed,
               let frame = window.renderedFrame ?? window.frame
         else { return false }
+        if column.isTabbed {
+            return !edges.isDisjoint(with: [.top, .bottom])
+        }
         let stack = engine.projectedWindows(in: column, workspaceId: workspaceId)
         if stack.count == 1 {
             return isLoneWindowEndEdge(edges, of: window, frame: frame, in: column, workspaceId: workspaceId)

@@ -376,6 +376,62 @@ final class NiriNaturalEdgeResizeTests: NiriInteractionTestCase {
         XCTAssertEqual(try fixture.settledFrame(lower).height, lowerStart.height, accuracy: 1)
     }
 
+    func testAnInnerCornerOfAStackChangesTheWidthAndTheHeight() throws {
+        let fixture = try makeFixture(stacked: true, pid: 871_033)
+        let blocker = blockRefreshes(fixture)
+        defer { unblockRefreshes(fixture, blocker: blocker) }
+        let (upper, lower) = try upperAndLower(fixture)
+        let upperStart = try fixture.frame(upper)
+        let lowerStart = try fixture.frame(lower)
+
+        try fixture.resize(lower, to: grown(lowerStart, right: 80, top: 100))
+
+        let frame = try fixture.settledFrame(lower)
+        XCTAssertEqual(frame.width, lowerStart.width + 80, accuracy: 1)
+        XCTAssertEqual(frame.height, lowerStart.height + 100, accuracy: 1)
+        XCTAssertEqual(frame.minY, lowerStart.minY, accuracy: 1)
+        let mate = try fixture.settledFrame(upper)
+        XCTAssertEqual(mate.width, upperStart.width + 80, accuracy: 1)
+        XCTAssertEqual(mate.height, upperStart.height - 100, accuracy: 1)
+        XCTAssertEqual(mate.maxY, upperStart.maxY, accuracy: 1)
+    }
+
+    func testATabbedColumnsTopEdgeGoesBackToTheFullHeight() throws {
+        let fixture = try makeFixture(stacked: true, pid: 871_034)
+        let blocker = blockRefreshes(fixture)
+        defer { unblockRefreshes(fixture, blocker: blocker) }
+        let (shown, right) = (fixture.tokens[0], fixture.tokens[2])
+        try makeTabbed(fixture, showing: shown)
+        let start = try fixture.frame(shown)
+        let rightStart = try fixture.frame(right)
+
+        try fixture.resize(shown, to: grown(start, top: -150))
+
+        XCTAssertEqual(try fixture.settledFrame(shown), start)
+        XCTAssertEqual(try fixture.settledFrame(right), rightStart)
+        XCTAssertTrue(try fixture.node(shown).height.isAuto)
+    }
+
+    func testATabbedColumnsSideEdgeWidensEveryTab() throws {
+        let fixture = try makeFixture(stacked: true, pid: 871_035)
+        let blocker = blockRefreshes(fixture)
+        defer { unblockRefreshes(fixture, blocker: blocker) }
+        let (shown, hidden, right) = (fixture.tokens[0], fixture.tokens[1], fixture.tokens[2])
+        let column = try makeTabbed(fixture, showing: shown)
+        let start = try fixture.frame(shown)
+        let rightStart = try fixture.frame(right)
+        let widthStart = column.cachedWidth
+
+        try fixture.resize(shown, to: grown(start, right: 100))
+
+        let widened = try fixture.settledFrame(shown)
+        XCTAssertEqual(widened.width, start.width + 100, accuracy: 1)
+        XCTAssertEqual(widened.height, start.height, accuracy: 1)
+        XCTAssertEqual(column.cachedWidth, widthStart + 100, accuracy: 1)
+        XCTAssertTrue(try fixture.column(hidden) === column)
+        XCTAssertEqual(try fixture.settledFrame(right).minX, rightStart.minX + 100, accuracy: 1)
+    }
+
     func testALoneWindowShortenedFromTheTopSitsAtTheBottom() throws {
         let fixture = try makeFixture(pid: 871_008)
         let blocker = blockRefreshes(fixture)
@@ -655,6 +711,21 @@ final class NiriNaturalEdgeResizeTests: NiriInteractionTestCase {
 
         XCTAssertEqual(try fixture.frame(resized), start)
         XCTAssertEqual(try fixture.frame(right), rightStart)
+    }
+
+    @discardableResult
+    private func makeTabbed(_ fixture: Fixture, showing shown: WindowToken) throws -> NiriContainer {
+        let column = try fixture.column(shown)
+        fixture.engine.tabbedColumnsFillHeight = true
+        fixture.manager.withNiriViewportState(for: fixture.workspaceId) { _ in
+            column.displayMode = .tabbed
+            column.setActiveTileIdx(0)
+            fixture.engine.updateTabbedColumnVisibility(column: column)
+            column.cachedWidth = 0
+        }
+        _ = fixture.frames()
+        fixture.applyPendingFrames()
+        return column
     }
 
     private func upperAndLower(_ fixture: Fixture) throws -> (WindowToken, WindowToken) {
