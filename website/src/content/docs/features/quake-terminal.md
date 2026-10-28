@@ -35,7 +35,7 @@ Configure Ghostty's embedded terminal in **Settings → Quake Terminal**:
 - **Show On** — which monitor the terminal appears on: `Mouse Cursor's Monitor`, `Focused Window's Monitor` (the default), or `Main Monitor`. `Main Monitor` follows the **Monitor Roles** ranking in **Settings → Displays** when one is set, so you can pin the terminal to a preferred display with a fallback when it is disconnected; without a ranking it is the display with the macOS menu bar. See [Multi-Monitor Setup](/guides/multi-monitor/#monitor-roles).
 - **Width / Height** — each 10–100% of the monitor's available screen area in 5% steps; both default to 50%.
 
-You can also adjust the terminal directly with the mouse: drag its edges to resize, and hold `Option` and drag to move it. OmniWM remembers one custom size and position. It reuses that frame when it fits the selected monitor; otherwise it uses the configured position and percentages. A **Reset to Default Position** button appears in Settings once a custom frame is in use.
+You can also adjust the terminal directly with the mouse: drag its edges to resize, hold `Command`+`Option` and drag to move it, and hold `Option` and drag to select a rectangular block of text. OmniWM remembers one custom size and position. It reuses that frame when it fits the selected monitor; otherwise it uses the configured position and percentages. A **Reset to Default Position** button appears in Settings once a custom frame is in use.
 
 ## Appearance
 
