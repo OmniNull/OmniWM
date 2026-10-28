@@ -5,6 +5,10 @@ sidebar:
   hidden: true
 ---
 
+:::note[Unreleased]
+OmniShell is available when building from `main` and is not included in v0.7.6. See [Building from Source](/developers/building/) for the separate Dev app.
+:::
+
 OmniShell is OmniWM’s editable Luau desktop shell. It draws the [workspace bar](/features/workspace-bar/), [Hidden Bar](/features/hidden-bar/) panels, popouts, edge drawers and Dynamic Islands. OmniWM supplies desktop data and native controls; your Luau code builds a tree with the `ui` DSL and decides how it looks and responds.
 
 | Part | What it provides |

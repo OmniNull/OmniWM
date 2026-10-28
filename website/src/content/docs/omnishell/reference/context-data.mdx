@@ -160,6 +160,9 @@ Use `reminders authorize` to request access, `reminders settings` to open Remind
 | `session lock`, `session sleep`, `session logout`, `session restart`, `session shutdown` | Lock the screen, sleep, or ask macOS to log out, restart or shut down; macOS shows its usual confirmation for the last three, and asks once for permission to control loginwindow |
 | `calendar authorize`, `calendar settings`, `calendar open [event]`, `calendar month next\|previous\|today` | Calendar; `settings` opens the Calendars privacy settings |
 | `reminders authorize`, `reminders settings`, `reminders complete <id>` | Request Reminders access, open its privacy settings, or complete a selected writable reminder; failures appear in `ctx.data.reminders.error` |
+| `notifications refresh`, `notifications settings`, `notifications open <bundle>` | Refresh retained notifications, open Full Disk Access settings, or open the source application |
+| `notifications dismiss <bundle> <id>`, `notifications dismiss-all`, `notifications cancel-dismiss-all` | Request native dismissal, process the retained snapshot, or stop after the current action |
+| `notifications reply <bundle> <id> <hex>` | Submit a supported native text reply; `<hex>` is the UTF-8 text encoded as hexadecimal bytes |
 | `battery settings` | Open the Battery settings |
 | `input-source select <id>`, `input-source settings` | Switch the keyboard input source; open the Keyboard settings |
 | `wifi authorize`, `wifi settings` | Ask for Location access, or open its privacy settings once asked; open the Wi-Fi settings |
@@ -232,6 +235,24 @@ Read access before rendering protected contents. Timestamps are Unix seconds. Ca
 <LuauDeclaration name="Reminder" />
 
 ## Notification snapshots
+
+**Unreleased: available when building from `main`.** `ctx.data.notifications` reads retained Notification Center data through a read-only database connection. Full Disk Access is required; reading the feed does not request it. `notifications settings` opens the Full Disk Access pane. The feed follows database changes while demanded, but native persistence can delay updates by several seconds. Check `state`, `complete` and `error` before treating the snapshot as authoritative.
+
+The bundled [Notifications widget](/features/workspace-bar/#notifications) provides Details, Reply, dismissal and Clear All. Custom widgets issue the commands in [Actions](#actions) through `omniwm.run`; they are shell commands, not additional `omniwmctl command` paths. Use an item's current `bundle` and UUID `id`, rather than a title or row index.
+
+Replies and dismissal require Accessibility and a complete, ready snapshot. The host revalidates the retained target and the native Notification Center controls. A reply needs exactly one text-input action with unique title and send-button metadata. Unsupported, ambiguous, missing or inaccessible targets report an outcome instead of guessing an action. The database is never edited to dismiss a notification.
+
+`notifications reply <bundle> <id> <hex>` accepts a nonblank UTF-8 message of at most 4096 bytes, encoded as two hexadecimal characters per byte, without a NUL character. For example, `"4f4b"` represents `"OK"`:
+
+```luau
+omniwm.run("notifications reply " .. item.bundle .. " " .. item.id .. " 4f4b")
+```
+
+`notifications.action` reports the last reply/dismiss target, `kind` and `state`. `pending` means work is in flight; `dispatched` means the native action was submitted, not that a recipient received the message. `dispatchedPanelOpen` asks the user to close Notification Center. Other outcomes include `denied`, `unsupported`, `ambiguous`, `notFound`, `historyClosed`, `unavailable`, `failed`, `failedPanelOpen`, `cancelled` and `timeout`.
+
+While another notification action is in progress, the host rejects a new reply or dismissal without changing `notifications.action`; its status may still describe the earlier action. Custom widgets should serialize reply and dismissal requests, including while `dismissAll.active` is true, and match the reported `id`, `bundle` and `kind` to their target before displaying an outcome.
+
+`notifications.dismissAll` reports batch progress and its latest outcome. Cancelling stops after the current action and does not undo earlier dispatches. `dispatched` lists notification IDs whose native actions were submitted; the bundled widget hides those rows while waiting for storage to catch up. A later database observation can show notifications that macOS kept, reflected by `kept`.
 
 <LuauDeclaration name="Notifications" />
 

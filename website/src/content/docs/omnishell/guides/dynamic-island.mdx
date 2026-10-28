@@ -9,6 +9,8 @@ import ExampleFile from '../../../../components/docs/ExampleFile.astro';
 
 Build a **tutorial-island** profile with a black capsule that expands on click and collapses on an outside press or Escape. Its **demo-clock** component can also be added to Lake. You need OmniWM running, `omniwmctl` on your `PATH`, and a text editor. This guide assumes the UI tables and callbacks introduced in the [widget](/omnishell/guides/first-widget/) and [menu](/omnishell/guides/menus/) guides.
 
+**Unreleased: OmniShell is available when building from `main`.** Before running the commands below, turn on **Settings > Advanced > Enable IPC**; IPC is off by default. See [CLI setup](/reference/cli/overview/#installation) if `omniwmctl` is not on your `PATH`.
+
 An island has two parts: a **root widget** owns its shape and interactions, and **components** supply reusable views and their own options. The root chooses which component view to mount.
 
 ## 1. Create separate folders

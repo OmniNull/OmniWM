@@ -27,6 +27,16 @@ Open **Settings > Styles & Widgets > Bar** to arrange widgets, select a widget f
 
 Optionally show a System Stats button that opens a CPU, memory, GPU, disk, and uptime popup. The `Toggle System Stats` hotkey and `omniwmctl command toggle-system-stats` drive the same popup, and both do nothing unless a monitor currently shows that workspace-bar button. See the [CLI reference](/reference/cli/overview/). The button is the shell's `system-stats` widget, so it must stay in one of the bar's groups (`trailing` by default).
 
+## Notifications
+
+**Unreleased: available when building from `main`.** The `notifications` widget shows retained macOS notifications. If your style does not already show it, use **Settings > Styles & Widgets > Bar > Add Widget…** to add **Notifications**. This is separate from the Dock badges described below.
+
+Grant OmniWM **Full Disk Access** in **System Settings > Privacy & Security**, then quit and reopen it. The widget's **Settings** button opens that pane. The feed reads Notification Center's database when it changes; native persistence can delay updates by several seconds. Storage errors and incomplete snapshots appear in the widget. **Details** shows participants, attachments, action definitions and native metadata.
+
+Use a notification's close button to request dismissal, or **Clear All** to process the retained snapshot. **Cancel** stops Clear All after the current action; it cannot undo requests already dispatched. A **Reply** control appears only when the notification declares one uniquely identifiable text-input action with send-button metadata. Replies and dismissal require **Accessibility** and matching controls in Notification Center. Unsupported or ambiguous actions report their outcome; macOS may keep some notifications.
+
+“Reply submitted to Notification Center” confirms dispatch of the native action, not delivery to the recipient. If Notification Center remains open after an action, the widget asks you to close it. Custom widgets can use the same [notification data and commands](/omnishell/reference/context-data/#notification-snapshots).
+
 ## Notification badges
 
 With **All Displays** selected, set **Notification Badges** under **Workspace Bar Behavior** to **Dot** or **Text** to show each app's Dock badge at the upper-left of its existing icons. **Text** shows the Dock's count or symbol, using an ellipsis when it cannot fit. Badges are off by default.
