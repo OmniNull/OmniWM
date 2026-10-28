@@ -2082,4 +2082,100 @@ final class NiriLiveColumnMoveTests: XCTestCase {
         XCTAssertTrue(fixture.engine.liveColumnMoveEnd(context: fixture.context, state: &fixture.state))
         XCTAssertFalse(fixture.engine.isLiveDraggedColumn(dragged))
     }
+
+    func testRestingOnFreeScreenPastTheLastColumnMovesTheWindowToTheEnd() {
+        var fixture = makeFixture(widths: [0.25, 0.25, 0.25], activeIndex: 0)
+        let freeScreen = CGPoint(x: fixture.stripColumn(holding: 2).maxX + 100, y: fixture.midY)
+        XCTAssertLessThan(freeScreen.x, fixture.frame.maxX)
+        XCTAssertTrue(fixture.begin(0))
+
+        XCTAssertTrue(fixture.engine.liveColumnMoveWouldChange(
+            cursor: freeScreen,
+            strip: fixture.strip(),
+            context: fixture.context
+        ))
+        XCTAssertEqual(fixture.moveAndSettle(to: freeScreen), .changed)
+        XCTAssertEqual(fixture.landingOrder(), [fixture.tokens[1], fixture.tokens[2], fixture.tokens[0]])
+        XCTAssertEqual(fixture.move(to: CGPoint(x: freeScreen.x + 20, y: freeScreen.y)), .unchanged)
+
+        XCTAssertTrue(fixture.engine.liveColumnMoveEnd(
+            releasedAt: freeScreen,
+            context: fixture.context,
+            state: &fixture.state
+        ))
+        XCTAssertEqual(fixture.order(), [fixture.tokens[1], fixture.tokens[2], fixture.tokens[0]])
+    }
+
+    func testRestingOnFreeScreenBeforeTheFirstColumnMovesTheWindowToTheStart() {
+        var fixture = makeFixture(widths: [0.25, 0.25], activeIndex: 0)
+        fixture.scrollSoThat(0, startsAt: 600)
+        XCTAssertTrue(fixture.begin(1))
+
+        XCTAssertEqual(fixture.moveAndSettle(to: CGPoint(x: 300, y: fixture.midY)), .changed)
+
+        XCTAssertTrue(fixture.engine.liveColumnMoveEnd(context: fixture.context, state: &fixture.state))
+        XCTAssertEqual(fixture.order(), [fixture.tokens[1], fixture.tokens[0]])
+    }
+
+    func testAWindowDraggedOutOfAStackOntoFreeScreenBecomesTheLastColumn() {
+        var fixture = makeFixture(widths: [0.25, 0.25], activeIndex: 0)
+        let extra = WindowToken(pid: 931, windowId: 98)
+        let window = NiriWindow(token: extra)
+        fixture.engine.attachTransferredWindow(
+            window,
+            stackedWith: fixture.window(0),
+            after: true,
+            in: fixture.workspaceId,
+            state: &fixture.state
+        )
+        let freeScreen = CGPoint(x: fixture.stripColumn(holding: 1).maxX + 200, y: fixture.midY)
+        XCTAssertTrue(fixture.engine.liveColumnMoveBegin(
+            windowId: window.id,
+            windowToken: extra,
+            context: fixture.context,
+            state: &fixture.state
+        ))
+
+        XCTAssertEqual(fixture.move(to: freeScreen), .changed)
+        XCTAssertEqual(fixture.engine.liveColumnMove?.inStack, false)
+        XCTAssertEqual(fixture.order(), [fixture.tokens[0], extra, fixture.tokens[1]])
+        fixture.engine.liveColumnMoveSettled()
+        XCTAssertEqual(fixture.move(to: CGPoint(x: freeScreen.x + 10, y: freeScreen.y)), .changed)
+
+        XCTAssertTrue(fixture.engine.liveColumnMoveEnd(context: fixture.context, state: &fixture.state))
+        XCTAssertEqual(fixture.order(), [fixture.tokens[0], fixture.tokens[1], extra])
+        XCTAssertEqual(fixture.column(0).windowNodes.map(\.token), [fixture.tokens[0]])
+    }
+
+    func testReleasingWithTheStackModifierOverFreeScreenMovesTheWindowToTheEnd() {
+        var fixture = makeFixture(widths: [0.25, 0.25, 0.25], activeIndex: 0)
+        let freeScreen = CGPoint(x: fixture.stripColumn(holding: 2).maxX + 100, y: fixture.midY)
+        XCTAssertTrue(fixture.begin(0))
+        _ = fixture.engine.liveColumnMoveStackModeChanged(
+            held: true,
+            cursor: fixture.point(on: 0, half: .before),
+            context: fixture.context,
+            state: &fixture.state
+        )
+        XCTAssertEqual(fixture.move(to: freeScreen), .unchanged)
+        XCTAssertEqual(fixture.order(), [fixture.tokens[0], fixture.tokens[1], fixture.tokens[2]])
+
+        XCTAssertTrue(fixture.engine.liveColumnMoveEnd(
+            releasedAt: freeScreen,
+            stacking: true,
+            context: fixture.context,
+            state: &fixture.state
+        ))
+        XCTAssertEqual(fixture.order(), [fixture.tokens[1], fixture.tokens[2], fixture.tokens[0]])
+    }
+
+    func testAPointerOffTheStripsDisplayIsNotFreeScreen() {
+        var fixture = makeFixture(widths: [0.25, 0.25, 0.25], activeIndex: 0)
+        XCTAssertTrue(fixture.begin(0))
+
+        XCTAssertEqual(fixture.move(to: CGPoint(x: fixture.frame.maxX + 50, y: fixture.midY)), .unchanged)
+
+        XCTAssertTrue(fixture.engine.liveColumnMoveEnd(context: fixture.context, state: &fixture.state))
+        XCTAssertEqual(fixture.order(), [fixture.tokens[0], fixture.tokens[1], fixture.tokens[2]])
+    }
 }

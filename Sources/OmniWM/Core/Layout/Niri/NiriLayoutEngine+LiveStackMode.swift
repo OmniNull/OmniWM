@@ -433,6 +433,7 @@ extension NiriLayoutEngine {
         guard let column = liveColumn(in: strip, at: cursor, ignoring: liveDropSpace(for: move)),
               column.id != move.homeColumnId || move.inStack,
               projectedWindows(in: column, workspaceId: move.workspaceId).contains(where: { $0 !== window }),
+              liveColumn(column, fitsWidthOf: window, strip: strip),
               columnCanAcceptTransfer(
                   column,
                   adding: window,

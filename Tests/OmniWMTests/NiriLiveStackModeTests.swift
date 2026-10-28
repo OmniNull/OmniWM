@@ -855,6 +855,82 @@ final class NiriLiveStackModeTests: XCTestCase {
         assertStackedIntoTheFreeArea(fixture, resizedFrame: resizedFrame, columnCount: columnCount)
     }
 
+    func testReleasingBelowAWindowAtTheTopStacksIntoTheRoomBelow() throws {
+        var fixture = makeFixture()
+        fixture.window(2).height = .fixed(400)
+        fixture.window(2).rest(atTop: true, in: fixture.column(2))
+        let resizedFrame = try XCTUnwrap(fixture.frames()[fixture.tokens[2]])
+        XCTAssertEqual(resizedFrame.maxY, fixture.frame.maxY - fixture.gap, accuracy: 1)
+        let columnCount = fixture.columnOrder().count
+        XCTAssertTrue(fixture.begin(1))
+        let release = fixture.point(inColumnOf: 2, y: resizedFrame.minY - 100)
+        XCTAssertEqual(fixture.move(to: release, at: 1), .unchanged)
+
+        XCTAssertTrue(fixture.engine.liveColumnMoveEnd(
+            releasedAt: release,
+            context: fixture.context,
+            state: &fixture.state
+        ))
+        XCTAssertTrue(fixture.finishStackDrop())
+
+        XCTAssertEqual(fixture.storage(fixture.column(2)), [fixture.tokens[1], fixture.tokens[2]])
+        XCTAssertEqual(fixture.columnOrder().count, columnCount - 1)
+        let frames = fixture.frames()
+        XCTAssertEqual(frames[fixture.tokens[2]]?.maxY ?? .nan, resizedFrame.maxY, accuracy: 1)
+        XCTAssertEqual(frames[fixture.tokens[2]]?.height ?? .nan, 400, accuracy: 1)
+        let dropped = try XCTUnwrap(frames[fixture.tokens[1]])
+        XCTAssertEqual(dropped.height, freeAreaHeight(fixture, below: 400), accuracy: 1)
+        XCTAssertEqual(dropped.minY, fixture.frame.minY + fixture.gap, accuracy: 1)
+    }
+
+    func testAFreeAreaInAColumnNarrowerThanTheWindowIsNotATarget() throws {
+        var fixture = makeFixture()
+        fixture.window(2).height = .fixed(400)
+        let narrow = try XCTUnwrap(fixture.frames()[fixture.tokens[2]])
+        fixture.window(1).constraints = WindowSizeConstraints(
+            minSize: CGSize(width: narrow.width + 150, height: 1),
+            maxSize: .zero,
+            isFixed: false
+        )
+        XCTAssertTrue(fixture.begin(1))
+        let release = fixture.point(inColumnOf: 2, y: 700)
+        let move = try XCTUnwrap(fixture.engine.liveColumnMove)
+
+        XCTAssertNil(fixture.engine.liveFreeArea(
+            at: release,
+            strip: fixture.strip(),
+            move: move,
+            context: fixture.context
+        ))
+        XCTAssertTrue(fixture.engine.liveColumnMoveEnd(
+            releasedAt: release,
+            context: fixture.context,
+            state: &fixture.state
+        ))
+
+        XCTAssertFalse(fixture.engine.isLiveStackDropPending(in: fixture.workspaceId))
+        XCTAssertEqual(fixture.storage(fixture.column(2)), [fixture.tokens[2]])
+        XCTAssertEqual(fixture.frames()[fixture.tokens[2]]?.width ?? .nan, narrow.width, accuracy: 0.5)
+    }
+
+    func testAColumnNarrowerThanTheWindowOpensNoGapWithTheStackModifier() throws {
+        var fixture = makeFixture()
+        let narrow = try XCTUnwrap(fixture.frames()[fixture.tokens[2]])
+        fixture.window(1).constraints = WindowSizeConstraints(
+            minSize: CGSize(width: narrow.width + 150, height: 1),
+            maxSize: .zero,
+            isFixed: false
+        )
+        XCTAssertTrue(fixture.begin(1))
+
+        XCTAssertEqual(fixture.setStackMode(true, at: fixture.lowerHalf(of: 2)), .unchanged)
+        XCTAssertTrue(fixture.window(1).parent === fixture.column(1))
+
+        XCTAssertTrue(fixture.endStacking())
+        XCTAssertFalse(fixture.engine.isLiveStackDropPending(in: fixture.workspaceId))
+        XCTAssertEqual(fixture.columnOrder(), (0 ..< 5).map { [fixture.tokens[$0]] })
+    }
+
     func testCancellingAfterHoveringAFreeAreaRestoresTheLayout() {
         var fixture = makeFixture()
         fixture.window(2).height = .fixed(400)

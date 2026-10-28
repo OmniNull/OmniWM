@@ -17,7 +17,9 @@ extension NiriLayoutEngine {
               !column.isTabbed,
               !column.isLiveDropSpace,
               !column.isLiveHomeSpot,
-              !column.windowNodes.contains(where: { $0.id == move.windowId })
+              !column.windowNodes.contains(where: { $0.id == move.windowId }),
+              let window = findNode(by: move.windowId, in: move.workspaceId) as? NiriWindow,
+              liveColumn(column, fitsWidthOf: window, strip: strip)
         else { return nil }
         let spans = liveWindowSpans(in: column, context: context)
         guard let lowest = spans.first, let highest = spans.last else { return nil }
@@ -48,5 +50,51 @@ extension NiriLayoutEngine {
         let strip = liveColumnStrip(context: context, state: state)
         guard let area = liveFreeArea(at: cursor, strip: strip, move: move, context: context) else { return false }
         return placeLiveLanding(area.landing, height: area.height, move: &move, context: context, state: &state)
+    }
+
+    func liveColumn(
+        _ column: NiriContainer,
+        fitsWidthOf window: NiriWindow,
+        strip: [LiveColumnMove.StripColumn]
+    ) -> Bool {
+        guard let placed = strip.first(where: { $0.column === column }) else { return false }
+        let needed = window.constraints.normalized().minSize.width + tabContentInset(for: column)
+        return needed <= placed.maxX - placed.minX + FrameTolerance.screenMatch
+    }
+
+    func liveColumnPastStripEnd(
+        in strip: [LiveColumnMove.StripColumn],
+        at cursor: CGPoint,
+        ignoring dropSpace: NiriContainer?,
+        context: NiriInteractionContext
+    ) -> NiriContainer? {
+        let placed = strip.filter { $0.column !== dropSpace }
+        guard let first = placed.first, let last = placed.last,
+              cursor.x >= context.workingFrame.minX, cursor.x <= context.workingFrame.maxX
+        else { return nil }
+        if cursor.x >= last.maxX { return last.column }
+        if cursor.x < first.minX { return first.column }
+        return nil
+    }
+
+    func liveColumnMoveToStripEnd(
+        at cursor: CGPoint,
+        move: inout LiveColumnMove,
+        context: NiriInteractionContext,
+        state: inout ViewportState
+    ) {
+        let strip = liveColumnStrip(context: context, state: state)
+        let dropSpace = liveDropSpace(for: move)
+        guard liveColumn(in: strip, at: cursor, ignoring: dropSpace) == nil,
+              liveColumnPastStripEnd(in: strip, at: cursor, ignoring: dropSpace, context: context) != nil
+        else { return }
+        move.stackMode = false
+        move.awaitsPointerMoveFrom = nil
+        for _ in 0 ..< 2 {
+            liveColumnMove = move
+            _ = liveColumnMoveUpdate(cursor: cursor, at: 0, immediate: true, context: context, state: &state)
+            guard let updated = liveColumnMove else { return }
+            move = updated
+        }
     }
 }
