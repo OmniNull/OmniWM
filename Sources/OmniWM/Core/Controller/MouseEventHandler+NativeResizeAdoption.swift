@@ -46,7 +46,10 @@ extension MouseEventHandler {
             finishNativeDwindleResize(&drag)
             requestNativeTitleBarDragCorrection(for: entry)
         } else {
-            guard let start = nativeResizeStartFrame(drag, entry: entry), let observedFrame else { return false }
+            let adopts = controller.settings.gestures.adoptNativeResize || controller.settings.niri.naturalWindowDrag
+            guard let start = nativeResizeStartFrame(drag, entry: entry, adopts: adopts),
+                  let observedFrame
+            else { return false }
             let edges = Self.nativeResizeEdges(from: start, to: observedFrame)
             guard !edges.isEmpty,
                   adoptNiriNativeResize(entry, edges: edges, from: start, to: observedFrame)
@@ -78,10 +81,11 @@ extension MouseEventHandler {
 
     private func nativeResizeStartFrame(
         _ drag: MouseInputState.NativeTitleBarDrag,
-        entry: WindowState
+        entry: WindowState,
+        adopts: Bool? = nil
     ) -> CGRect? {
         guard let controller,
-              controller.settings.gestures.adoptNativeResize,
+              adopts ?? controller.settings.gestures.adoptNativeResize,
               let start = drag.adoptionStartFrame,
               entry.layoutReason == .standard else { return nil }
         if entry.target.hostedMetadata != nil { return start }
@@ -158,6 +162,7 @@ extension MouseEventHandler {
             && !(horizontal && engine.singleWindowLayoutContext(in: workspaceId) != nil)
         guard !primaryEdges.isEmpty || adoptsSecondary else { return false }
 
+        let slide = naturalEdgeResizeSlide(around: window, in: workspaceId)
         var changed = false
         controller.workspaceManager.withNiriViewportState(for: workspaceId) { viewportState in
             if adoptsSecondary {
@@ -182,7 +187,11 @@ extension MouseEventHandler {
         }
         guard changed else { return false }
         if entry.axRef != nil { controller.axManager.forceApplyNextFrame(for: entry.windowId) }
-        settleNiriResize(entry.token, in: workspaceId)
+        if let slide {
+            settleNaturalEdgeResize(window, sliding: slide, monitor: monitor, context: context)
+        } else {
+            settleNiriResize(entry.token, in: workspaceId)
+        }
         return true
     }
 
@@ -264,12 +273,16 @@ extension MouseEventHandler {
             engine.clearInteractiveResize()
             return false
         }
-        engine.interactiveResizeEnd(
-            motion: context.motion,
-            state: &state,
-            workingFrame: context.workingFrame,
-            gaps: context.gaps
-        )
+        if controller?.settings.niri.naturalWindowDrag == true {
+            engine.clearInteractiveResize()
+        } else {
+            engine.interactiveResizeEnd(
+                motion: context.motion,
+                state: &state,
+                workingFrame: context.workingFrame,
+                gaps: context.gaps
+            )
+        }
         return true
     }
 
