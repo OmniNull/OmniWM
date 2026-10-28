@@ -8,6 +8,12 @@ import XCTest
 
 @MainActor
 final class ShellPermissionPromptPanelTests: XCTestCase {
+    private static let application: NSApplication = {
+        let application = NSApplication.shared
+        if !application.isRunning { application.finishLaunching() }
+        return application
+    }()
+
     private func network(hostCount: Int, purpose: String? = nil, source: String = "/shell/widgets/test")
         -> ShellPermissionPrompts.Request
     {
@@ -24,7 +30,7 @@ final class ShellPermissionPromptPanelTests: XCTestCase {
         _ request: ShellPermissionPrompts.Request,
         check: (NSPanel, NSView, CGRect) throws -> Void
     ) async throws {
-        _ = NSApplication.shared
+        _ = Self.application
         let screen = try XCTUnwrap(NSScreen.main)
         let existing = Set(NSApp.windows.map(\.windowNumber))
         let dismiss = ShellPermissionPromptPanel.present(request, title: "Test widget") { _ in }
@@ -42,6 +48,54 @@ final class ShellPermissionPromptPanelTests: XCTestCase {
         ((view as? NSScrollView).map { [$0] } ?? []) + view.subviews.flatMap { scrollViews(in: $0) }
     }
 
+    private func decisionButtonFrames(
+        in content: NSView,
+        file: StaticString = #filePath,
+        line: UInt = #line
+    ) throws -> [String: CGRect] {
+        let identifiers: Set<String> = ["shell-permission-allow", "shell-permission-deny"]
+        var frames: [String: CGRect] = [:]
+        var pending: [AnyObject] = [content]
+        var visited: Set<ObjectIdentifier> = []
+        while let object = pending.popLast() {
+            guard visited.insert(ObjectIdentifier(object)).inserted, let element = object as? NSObject else { continue }
+            if element.responds(to: NSSelectorFromString("accessibilityIdentifier")),
+               element.responds(to: NSSelectorFromString("accessibilityFrame")),
+               let identifier = element.value(forKey: "accessibilityIdentifier") as? String,
+               identifiers.contains(identifier),
+               let frame = element.value(forKey: "accessibilityFrame") as? NSValue
+            {
+                frames[identifier] = frame.rectValue
+            }
+            if element.responds(to: NSSelectorFromString("accessibilityChildren")),
+               let children = element.value(forKey: "accessibilityChildren") as? [AnyObject]
+            {
+                pending.append(contentsOf: children)
+            }
+            if let view = element as? NSView { pending.append(contentsOf: view.subviews) }
+        }
+        XCTAssertEqual(Set(frames.keys), identifiers, file: file, line: line)
+        let window = try XCTUnwrap(content.window, file: file, line: line)
+        let screen = try XCTUnwrap(window.screen, file: file, line: line)
+        let visibleContent = window.convertToScreen(content.convert(content.visibleRect, to: nil))
+        for (identifier, frame) in frames {
+            XCTAssertFalse(frame.isEmpty, identifier, file: file, line: line)
+            XCTAssertTrue(
+                visibleContent.contains(frame),
+                "\(identifier) must be visible in the panel",
+                file: file,
+                line: line
+            )
+            XCTAssertTrue(
+                screen.visibleFrame.contains(frame),
+                "\(identifier) must be on screen",
+                file: file,
+                line: line
+            )
+        }
+        return frames
+    }
+
     private func assertScrollableDetails(
         in content: NSView,
         file: StaticString = #filePath,
@@ -50,12 +104,21 @@ final class ShellPermissionPromptPanelTests: XCTestCase {
         let scroll = try XCTUnwrap(scrollViews(in: content).first, file: file, line: line)
         let document = try XCTUnwrap(scroll.documentView, file: file, line: line)
         let clip = scroll.contentView
+        let buttonsBefore = try decisionButtonFrames(in: content, file: file, line: line)
         XCTAssertGreaterThan(document.bounds.height, clip.bounds.height, file: file, line: line)
         let original = clip.bounds.origin
         let bottom = document.isFlipped ? document.bounds.height - clip.bounds.height : 0
         clip.scroll(to: CGPoint(x: original.x, y: bottom))
         scroll.reflectScrolledClipView(clip)
+        content.layoutSubtreeIfNeeded()
         XCTAssertNotEqual(clip.bounds.origin, original, file: file, line: line)
+        XCTAssertEqual(
+            try decisionButtonFrames(in: content, file: file, line: line),
+            buttonsBefore,
+            "Both decision buttons must stay fixed while the details scroll",
+            file: file,
+            line: line
+        )
         let scrollFrame = scroll.convert(scroll.bounds, to: content)
         XCTAssertTrue(content.bounds.contains(scrollFrame), file: file, line: line)
         let footerSpace = content.isFlipped ? content.bounds.maxY - scrollFrame.maxY : scrollFrame.minY
@@ -108,7 +171,7 @@ final class ShellPermissionPromptPanelTests: XCTestCase {
     }
 
     func testLongPromptFitsASmallerContentHeight() async throws {
-        _ = NSApplication.shared
+        _ = Self.application
         let content = NSHostingView(rootView: ShellPermissionPromptView(
             request: network(hostCount: 60), name: "Test widget", maximumHeight: 320, answer: { _ in }
         ))

@@ -81,7 +81,9 @@ struct ShellPermissionPromptView: View {
             HStack {
                 Spacer()
                 Button("Allow") { answer(true) }
+                    .accessibilityIdentifier("shell-permission-allow")
                 Button("Deny") { answer(false) }
+                    .accessibilityIdentifier("shell-permission-deny")
                     .keyboardShortcut(.defaultAction)
             }
         }
