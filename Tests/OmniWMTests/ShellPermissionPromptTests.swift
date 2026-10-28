@@ -199,6 +199,7 @@ final class ShellPermissionPromptTests: XCTestCase {
             capabilities: ShellComponentCapabilities(network: ["api.github.com", "uploads.github.com"]),
             providerCommand: nil, folder: URL(fileURLWithPath: ci.source)
         )]
+        host.config.island = ShellIslandConfig(components: [ShellComponentInstance(id: "ci", widget: ci.name)])
         host.widgets["lake"] = island
         host.setDeclarations(source, of: island)
         settings.onDecisionsChange = { [weak host, weak settings] in

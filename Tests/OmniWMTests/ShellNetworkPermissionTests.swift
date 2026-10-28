@@ -419,6 +419,7 @@ final class ShellNetworkPermissionTests: XCTestCase {
         )]
         var clockSource = ShellWidgetSource(chunk: "", main: "", modules: [])
         clockSource.network = ["a.example"]
+        host.config.island = ShellIslandConfig(components: [ShellComponentInstance(id: "ci", widget: principal.name)])
         host.widgets = ["lake": island, other.name: clockWidget]
         host.setDeclarations(islandSource, of: island)
         host.setDeclarations(clockSource, of: clockWidget)
