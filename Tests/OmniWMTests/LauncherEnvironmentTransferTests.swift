@@ -98,6 +98,58 @@ final class LauncherEnvironmentTransferTests: XCTestCase {
         XCTAssertNil(environment(in: terminal.output)["BASH_ENV"])
     }
 
+    func testReusedTerminalRunsExecutableContainingEqualsWithoutLeakingEnvironment() async throws {
+        let directory = FileManager.default.temporaryDirectory.appendingPathComponent("launcher = ' 雪 \(UUID())")
+        try FileManager.default.createDirectory(at: directory, withIntermediateDirectories: true)
+        defer { try? FileManager.default.removeItem(at: directory) }
+        let executable = directory.appendingPathComponent("command=fixture")
+        let environmentFile = directory.appendingPathComponent("environment")
+        let script = """
+        #!/bin/sh
+        /usr/bin/printf '%s\\0' "$OMNIWM_CAPTURED_SECRET" "${OMNIWM_EMPTY_TEST+set}" "$OMNIWM_EMPTY_TEST" "$TERM" > \(LauncherLaunchRequest.quote(environmentFile.path))
+        /usr/bin/printf 'executed\\n'
+        if [ "$#" -gt 0 ]; then /usr/bin/printf '%s\\0' "$@"; fi
+        exit 7
+
+        """
+        try Data(script.utf8).write(to: executable)
+        try FileManager.default.setAttributes([.posixPermissions: 0o700], ofItemAtPath: executable.path)
+        let captured = "fixture-secret-must-not-appear-on-stdout"
+        let argumentSets: [[String]] = [
+            [],
+            ["/usr/bin/printf", "unexpected-argument-execution", "a b", "x'y", "", "雪", "line\nbreak", "A=B"]
+        ]
+        for arguments in argumentSets {
+            let request = LauncherLaunchRequest(
+                executable: executable.path, arguments: arguments, directory: directory.path,
+                environment: [
+                    "PATH": "/usr/bin:/bin", "OMNIWM_CAPTURED_SECRET": captured,
+                    "OMNIWM_EMPTY_TEST": "", "TERM": "dumb"
+                ]
+            )
+            let background = try await LauncherProcess.run(
+                executable: request.executable, arguments: request.arguments,
+                environment: request.environment, directory: request.directory
+            )
+            var expectedOutput = Data("executed\n".utf8)
+            for argument in arguments { expectedOutput.append(Data((argument + "\0").utf8)) }
+            XCTAssertEqual(background.status, 7)
+            XCTAssertEqual(background.output, expectedOutput)
+            XCTAssertEqual(try Data(contentsOf: environmentFile), Data((captured + "\0set\0\0dumb\0").utf8))
+            try FileManager.default.removeItem(at: environmentFile)
+            let terminal = try await runTransfer(request, inheriting: [
+                "OMNIWM_CAPTURED_SECRET": "stale", "TERM": "xterm-256color"
+            ])
+            XCTAssertEqual(terminal.status, background.status)
+            XCTAssertTrue(terminal.output.starts(with: expectedOutput))
+            XCTAssertFalse(String(decoding: terminal.output, as: UTF8.self).contains(captured))
+            XCTAssertEqual(
+                try? Data(contentsOf: environmentFile),
+                Data((captured + "\0set\0\0xterm-256color\0").utf8)
+            )
+        }
+    }
+
     private func runTransfer(
         _ request: LauncherLaunchRequest, inheriting environment: [String: String]
     ) async throws -> LauncherProcessResult {
