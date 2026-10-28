@@ -54,7 +54,9 @@ actor ShellWidgetSourceLoader {
 
         var libraries: [URL] {
             libraryDirectories.map { $0.appendingPathComponent("lib", isDirectory: true) }
-                .filter { (try? $0.resourceValues(forKeys: [.isDirectoryKey]).isDirectory) == true }
+                .filter {
+                    (try? $0.resolvingSymlinksInPath().resourceValues(forKeys: [.isDirectoryKey]).isDirectory) == true
+                }
         }
     }
 
