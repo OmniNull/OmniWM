@@ -155,6 +155,29 @@ final class ShellWidgetSourceLoaderSymlinkTests: XCTestCase {
         XCTAssertNotEqual(ShellWidgetSourceLoader.fingerprint(captured), fallback)
     }
 
+    func testUnavailableLibraryPathsRemainWatchedWhileLoadingFallsBack() throws {
+        let root = temporaryRoot()
+        defer { try? FileManager.default.removeItem(at: root) }
+        try write("root", root, "shell/look/widgets/lake/init.luau")
+        try write("fallback", root, "shell/default/lib/policy.luau")
+        try write("not a directory", root, "file")
+        let shell = root.appendingPathComponent("shell", isDirectory: true)
+        let link = shell.appendingPathComponent("lib", isDirectory: true)
+        let captured = input(shell)
+        let fallback = ShellWidgetSourceLoader.fingerprint(captured)
+        for destination in ["../missing", "../file", "lib"] {
+            try FileManager.default.createSymbolicLink(atPath: link.path, withDestinationPath: destination)
+            XCTAssertEqual(captured.libraries, [shell.appendingPathComponent("default/lib", isDirectory: true)])
+            XCTAssertEqual(try ShellWidgetSourceLoader.build(captured).modules.first?.source, "fallback")
+            XCTAssertEqual(ShellWidgetSourceLoader.fingerprint(captured), fallback)
+            let watched = Set(ShellWidgetSourceLoader.packageDirectories(captured))
+            for library in ["lib", "look/lib", "default/lib"] {
+                XCTAssertTrue(watched.contains(shell.appendingPathComponent(library, isDirectory: true)), library)
+            }
+            try FileManager.default.removeItem(at: link)
+        }
+    }
+
     private func temporaryRoot() -> URL {
         FileManager.default.temporaryDirectory.appendingPathComponent(UUID().uuidString, isDirectory: true)
     }
