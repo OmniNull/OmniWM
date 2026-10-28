@@ -49,7 +49,7 @@ final class QuakeWindowInteractionTests: XCTestCase {
     func testDetachedEventsRemainTerminalEvents() throws {
         let interaction = QuakeWindowInteraction()
         let view = NSView(frame: CGRect(x: 0, y: 0, width: 400, height: 200))
-        let event = try mouseEvent(.leftMouseDown, at: .zero, modifiers: .option)
+        let event = try mouseEvent(.leftMouseDown, at: .zero, modifiers: [.command, .option])
 
         XCTAssertFalse(interaction.handleMouseDown(event, in: view))
         XCTAssertFalse(interaction.handleMouseDrag(in: view))
@@ -71,9 +71,22 @@ final class QuakeWindowInteractionTests: XCTestCase {
         XCTAssertFalse(window.isVisible)
     }
 
-    func testPerimeterResizeTakesPriorityOverOptionAndReportsBeforeReset() throws {
+    func testInteriorOptionEventsRemainTerminalEvents() throws {
         let (window, view) = makeSurface()
-        let down = try mouseEvent(.leftMouseDown, at: CGPoint(x: 1, y: 100), modifiers: .option, in: window)
+        let interaction = QuakeWindowInteraction()
+        let event = try mouseEvent(.leftMouseDown, at: CGPoint(x: 200, y: 100), modifiers: .option, in: window)
+
+        XCTAssertFalse(interaction.handleMouseDown(event, in: view))
+        XCTAssertFalse(interaction.handleMouseDrag(in: view))
+        XCTAssertFalse(interaction.handleMouseUp(in: view, onFrameChanged: nil))
+        interaction.finishMouseUp()
+        XCTAssertFalse(interaction.isInteracting)
+        XCTAssertFalse(window.isVisible)
+    }
+
+    func testPerimeterResizeTakesPriorityOverMoveAndReportsBeforeReset() throws {
+        let (window, view) = makeSurface()
+        let down = try mouseEvent(.leftMouseDown, at: CGPoint(x: 1, y: 100), modifiers: [.command, .option], in: window)
         let up = try mouseEvent(.leftMouseUp, at: CGPoint(x: 1, y: 100), in: window)
         var deliveredFrames: [CGRect] = []
         var interactionDuringCallback: [Bool] = []
@@ -96,9 +109,14 @@ final class QuakeWindowInteractionTests: XCTestCase {
         XCTAssertFalse(window.isVisible)
     }
 
-    func testOptionMoveIgnoresSizeOnlyChanges() throws {
+    func testCommandOptionMoveIgnoresSizeOnlyChanges() throws {
         let (window, view) = makeSurface()
-        let down = try mouseEvent(.leftMouseDown, at: CGPoint(x: 200, y: 100), modifiers: .option, in: window)
+        let down = try mouseEvent(
+            .leftMouseDown,
+            at: CGPoint(x: 200, y: 100),
+            modifiers: [.command, .option],
+            in: window
+        )
         let up = try mouseEvent(.leftMouseUp, at: CGPoint(x: 200, y: 100), in: window)
         view.onFrameChanged = { _ in XCTFail("Size-only change must not count as a move") }
         defer { view.onFrameChanged = nil }
@@ -116,7 +134,12 @@ final class QuakeWindowInteractionTests: XCTestCase {
 
     func testMoveCallbackCanReenterAndFinalResetStillCompletes() throws {
         let (window, view) = makeSurface()
-        let down = try mouseEvent(.leftMouseDown, at: CGPoint(x: 200, y: 100), modifiers: .option, in: window)
+        let down = try mouseEvent(
+            .leftMouseDown,
+            at: CGPoint(x: 200, y: 100),
+            modifiers: [.command, .option],
+            in: window
+        )
         let up = try mouseEvent(.leftMouseUp, at: CGPoint(x: 200, y: 100), in: window)
         var deliveredFrames: [CGRect] = []
         view.onFrameChanged = { [weak view] frame in
