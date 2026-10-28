@@ -25,11 +25,7 @@ final class LauncherEnvironmentTransfer: Sendable {
     init(request: LauncherLaunchRequest) throws {
         folder = URL(fileURLWithPath: "/private/tmp/omniwm-env-" + UUID().uuidString, isDirectory: true)
         endpoint = folder.appendingPathComponent("environment.sock").path
-        let environment = request.terminalEnvironment
-        let command = (["/usr/bin/env"] + environment.keys.sorted().map {
-            $0 + "=" + environment[$0, default: ""]
-        } + [request.executable] + request.arguments).map(LauncherLaunchRequest.quote).joined(separator: " ")
-        payload = Data((command + "\n" + marker).utf8)
+        payload = Data((request.terminalShellCommand + "\n" + marker).utf8)
         descriptor = socket(AF_UNIX, SOCK_STREAM, 0)
         let listener = descriptor
         guard descriptor >= 0
