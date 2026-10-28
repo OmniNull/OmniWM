@@ -475,6 +475,15 @@ extension NiriLayoutEngine {
                 scale: displayScale(in: context.workspaceId)
             )
         }
+        if let cursor, let releasedFrame {
+            moveLoneWindowIntoItsSpace(
+                dragged,
+                cursor: cursor,
+                releasedFrame: releasedFrame,
+                context: context,
+                state: state
+            )
+        }
         state.selectedNodeId = move.windowId
         return true
     }

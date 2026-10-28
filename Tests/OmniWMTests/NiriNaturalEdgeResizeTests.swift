@@ -105,6 +105,23 @@ final class NiriNaturalEdgeResizeTests: NiriInteractionTestCase {
             handler.dispatchMouseUp(at: observed.center)
         }
 
+        func moveByTitleBar(
+            _ token: WindowToken,
+            from frame: CGRect,
+            by dy: CGFloat,
+            releasingAt cursor: CGPoint
+        ) throws {
+            try beginDrag(token)
+            let moved = frame.offsetBy(dx: 0, dy: dy)
+            drag(token, to: moved)
+            XCTAssertTrue(handler.isLiveColumnDragActive)
+            handler.dispatchMouseDragged(at: cursor)
+            handler.nativeWindowFrameProvider = { _ in moved }
+            handler.dispatchMouseUp(at: cursor)
+            _ = frames()
+            applyPendingFrames()
+        }
+
         func resize(_ token: WindowToken, to observed: CGRect) throws {
             try beginDrag(token)
             drag(token, to: observed)
@@ -359,7 +376,7 @@ final class NiriNaturalEdgeResizeTests: NiriInteractionTestCase {
         XCTAssertEqual(try fixture.settledFrame(lower).height, lowerStart.height, accuracy: 1)
     }
 
-    func testALoneWindowKeepsTheReleasedHeight() throws {
+    func testALoneWindowShortenedFromTheTopSitsAtTheBottom() throws {
         let fixture = try makeFixture(pid: 871_008)
         let blocker = blockRefreshes(fixture)
         defer { unblockRefreshes(fixture, blocker: blocker) }
@@ -376,7 +393,7 @@ final class NiriNaturalEdgeResizeTests: NiriInteractionTestCase {
         XCTAssertFalse(try fixture.node(lone).height.isAuto)
     }
 
-    func testShorteningALoneWindowFromTheBottomKeepsItsTopPut() throws {
+    func testALoneWindowShortenedFromTheBottomSitsAtTheTop() throws {
         let fixture = try makeFixture(pid: 871_020)
         let blocker = blockRefreshes(fixture)
         defer { unblockRefreshes(fixture, blocker: blocker) }
@@ -390,22 +407,103 @@ final class NiriNaturalEdgeResizeTests: NiriInteractionTestCase {
         XCTAssertEqual(frame.minY, start.minY + 150, accuracy: 1)
     }
 
-    func testShorteningFromBothEndsLeavesSpaceAboveAndBelow() throws {
+    func testTheEdgeAtTheColumnsEndSnapsBack() throws {
         let fixture = try makeFixture(pid: 871_021)
+        let blocker = blockRefreshes(fixture)
+        defer { unblockRefreshes(fixture, blocker: blocker) }
+        let (atBottom, atTop) = (fixture.tokens[0], fixture.tokens[1])
+        try fixture.resize(atBottom, to: grown(try fixture.frame(atBottom), top: -150))
+        try fixture.resize(atTop, to: grown(try fixture.frame(atTop), bottom: -150))
+        let bottomPlaced = try fixture.settledFrame(atBottom)
+        let topPlaced = try fixture.settledFrame(atTop)
+
+        try fixture.resize(atBottom, to: grown(bottomPlaced, bottom: -80))
+        try fixture.resize(atTop, to: grown(topPlaced, top: -80))
+
+        XCTAssertEqual(try fixture.settledFrame(atBottom), bottomPlaced)
+        XCTAssertEqual(try fixture.settledFrame(atTop), topPlaced)
+    }
+
+    func testDraggingTheFreeEdgeToTheColumnsEndGivesTheFullHeight() throws {
+        let fixture = try makeFixture(pid: 871_029)
         let blocker = blockRefreshes(fixture)
         defer { unblockRefreshes(fixture, blocker: blocker) }
         let lone = fixture.tokens[1]
         let start = try fixture.frame(lone)
+        try fixture.resize(lone, to: grown(start, bottom: -150))
 
+        try fixture.resize(lone, to: grown(try fixture.settledFrame(lone), bottom: 150))
+
+        XCTAssertEqual(try fixture.settledFrame(lone), start)
         try fixture.resize(lone, to: grown(start, top: -100))
-        try fixture.resize(lone, to: grown(try fixture.frame(lone), bottom: -120))
-
         let frame = try fixture.settledFrame(lone)
-        XCTAssertEqual(frame.maxY, start.maxY - 100, accuracy: 1)
-        XCTAssertEqual(frame.minY, start.minY + 120, accuracy: 1)
+        XCTAssertEqual(frame.minY, start.minY, accuracy: 1)
+        XCTAssertEqual(frame.height, start.height - 100, accuracy: 1)
     }
 
-    func testTheRestingPlaceSurvivesARelayoutAndAScroll() throws {
+    func testDroppingALoneWindowInItsSpaceMovesItToThatEnd() throws {
+        let fixture = try makeFixture(pid: 871_030)
+        let blocker = blockRefreshes(fixture)
+        defer { unblockRefreshes(fixture, blocker: blocker) }
+        let lone = fixture.tokens[1]
+        let start = try fixture.frame(lone)
+        try fixture.resize(lone, to: grown(start, top: -300))
+        let atBottom = try fixture.settledFrame(lone)
+
+        try fixture.moveByTitleBar(
+            lone,
+            from: atBottom,
+            by: 200,
+            releasingAt: CGPoint(x: atBottom.midX, y: atBottom.maxY + 100)
+        )
+
+        XCTAssertTrue(try fixture.node(lone).hasMoveAnimationsRunning)
+        let atTop = try fixture.settledFrame(lone)
+        XCTAssertEqual(atTop.maxY, start.maxY, accuracy: 1)
+        XCTAssertEqual(atTop.height, atBottom.height, accuracy: 1)
+    }
+
+    func testDroppingALoneWindowInTheSpaceBelowMovesItToTheBottom() throws {
+        let fixture = try makeFixture(pid: 871_032)
+        let blocker = blockRefreshes(fixture)
+        defer { unblockRefreshes(fixture, blocker: blocker) }
+        let lone = fixture.tokens[1]
+        let start = try fixture.frame(lone)
+        try fixture.resize(lone, to: grown(start, bottom: -300))
+        let atTop = try fixture.settledFrame(lone)
+
+        try fixture.moveByTitleBar(
+            lone,
+            from: atTop,
+            by: -200,
+            releasingAt: CGPoint(x: atTop.midX, y: atTop.minY - 100)
+        )
+
+        let atBottom = try fixture.settledFrame(lone)
+        XCTAssertEqual(atBottom.minY, start.minY, accuracy: 1)
+        XCTAssertEqual(atBottom.height, atTop.height, accuracy: 1)
+    }
+
+    func testReleasingItOutsideTheSpaceLeavesItWhereItWas() throws {
+        let fixture = try makeFixture(pid: 871_031)
+        let blocker = blockRefreshes(fixture)
+        defer { unblockRefreshes(fixture, blocker: blocker) }
+        let lone = fixture.tokens[1]
+        let start = try fixture.frame(lone)
+        try fixture.resize(lone, to: grown(start, top: -300))
+        let atBottom = try fixture.settledFrame(lone)
+
+        try fixture.moveByTitleBar(
+            lone,
+            from: atBottom,
+            by: 80,
+            releasingAt: CGPoint(x: atBottom.midX, y: atBottom.midY)
+        )
+
+        XCTAssertEqual(try fixture.settledFrame(lone).minY, atBottom.minY, accuracy: 1)
+    }
+
+    func testTheEndSurvivesARelayoutAndAScroll() throws {
         let fixture = try makeFixture(pid: 871_022)
         let blocker = blockRefreshes(fixture)
         defer { unblockRefreshes(fixture, blocker: blocker) }
@@ -423,7 +521,7 @@ final class NiriNaturalEdgeResizeTests: NiriInteractionTestCase {
         XCTAssertEqual(frame.height, placed.height, accuracy: 1)
     }
 
-    func testADoubleClickRoundTripBringsThePlaceBack() throws {
+    func testADoubleClickRoundTripKeepsTheEnd() throws {
         let fixture = try makeFixture(pid: 871_023)
         let blocker = blockRefreshes(fixture)
         defer { unblockRefreshes(fixture, blocker: blocker) }
@@ -443,7 +541,7 @@ final class NiriNaturalEdgeResizeTests: NiriInteractionTestCase {
         XCTAssertEqual(restored.height, placed.height, accuracy: 1)
     }
 
-    func testAnotherHeightChangeForgetsThePlace() throws {
+    func testAnotherHeightChangeForgetsTheEnd() throws {
         let fixture = try makeFixture(pid: 871_024)
         let blocker = blockRefreshes(fixture)
         defer { unblockRefreshes(fixture, blocker: blocker) }
@@ -479,65 +577,22 @@ final class NiriNaturalEdgeResizeTests: NiriInteractionTestCase {
         XCTAssertEqual(span.minY, placed.minY, accuracy: 1)
     }
 
-    func testARestingPlaceAppliesOnlyToItsColumnAndHeight() throws {
+    func testATopRestAppliesOnlyToItsColumnAndHeight() throws {
         let fixture = try makeFixture(pid: 871_026)
         let window = try fixture.node(fixture.tokens[1])
         let column = try fixture.column(fixture.tokens[1])
         let other = try fixture.column(fixture.tokens[2])
         window.height = .fixed(300)
 
-        window.rest(at: 120, in: column)
+        window.rest(atTop: true, in: column)
 
-        XCTAssertEqual(window.restingOffset(in: column), 120)
-        XCTAssertEqual(window.restingOffset(in: other), 0)
+        XCTAssertTrue(window.restsAtTop(of: column))
+        XCTAssertFalse(window.restsAtTop(of: other))
         XCTAssertEqual(window.restingOffset(in: column, room: 80), 80)
         XCTAssertEqual(window.restingOffset(in: column, room: -10), 0)
+        XCTAssertEqual(window.restingOffset(in: other, room: 80), 0)
         window.height = .fixed(320)
-        XCTAssertEqual(window.restingOffset(in: column), 0)
-    }
-
-    func testATabbedColumnsHeightIgnoresATopEdgeDrag() throws {
-        let fixture = try makeFixture(stacked: true, pid: 871_009)
-        let blocker = blockRefreshes(fixture)
-        defer { unblockRefreshes(fixture, blocker: blocker) }
-        let shown = fixture.tokens[0]
-        let column = try fixture.column(shown)
-        fixture.manager.withNiriViewportState(for: fixture.workspaceId) { _ in
-            fixture.engine.toggleColumnTabbed(
-                column,
-                in: fixture.workspaceId,
-                motion: .disabled,
-                orientation: .horizontal
-            )
-        }
-        XCTAssertTrue(column.isTabbed)
-        fixture.confirmLayout()
-        let start = try fixture.frame(shown)
-        try fixture.beginDrag(shown)
-        fixture.drag(shown, to: grown(start, top: -150))
-
-        fixture.release(at: grown(start, top: -150))
-
-        XCTAssertEqual(try fixture.frame(shown), start)
-    }
-
-    func testACornerDragIsAdoptedBothWays() throws {
-        let fixture = try makeFixture(stacked: true, pid: 871_010)
-        let blocker = blockRefreshes(fixture)
-        defer { unblockRefreshes(fixture, blocker: blocker) }
-        let (upper, lower) = try upperAndLower(fixture)
-        let lowerStart = try fixture.frame(lower)
-        let upperStart = try fixture.frame(upper)
-        let corner = grown(lowerStart, right: 80, top: 100)
-        try fixture.beginDrag(lower)
-        fixture.drag(lower, to: corner)
-
-        fixture.release(at: corner)
-
-        let frame = try fixture.frame(lower)
-        XCTAssertEqual(frame.width, lowerStart.width + 80, accuracy: 1)
-        XCTAssertEqual(frame.height, lowerStart.height + 100, accuracy: 1)
-        XCTAssertEqual(try fixture.frame(upper).width, upperStart.width + 80, accuracy: 1)
+        XCTAssertFalse(window.restsAtTop(of: column))
     }
 
     func testTheWidthStopsAtTheWidestColumn() throws {

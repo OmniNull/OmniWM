@@ -181,12 +181,12 @@ extension MouseEventHandler {
         let layout = controller.niriLayoutHandler
         if !target.window.height.isAuto {
             let height = target.window.height
-            let restingOffset = target.window.restingOffset(in: target.column)
+            let restsAtTop = target.window.restsAtTop(of: target.column)
             guard layout.resetWindowSecondarySpan(target: .window(target.handle)) else { return }
             state.naturalDoubleClickHeights[token] = NaturalDoubleClickHeight(
                 height: height,
                 revision: target.window.heightRevision,
-                restingOffset: restingOffset
+                restsAtTop: restsAtTop
             )
             return
         }
@@ -195,7 +195,7 @@ extension MouseEventHandler {
         else { return }
         layout.performWindowSizing(on: .window(target.handle)) { _, window, _, _ in
             window.height = remembered.height
-            window.rest(at: remembered.restingOffset, in: target.column)
+            window.rest(atTop: remembered.restsAtTop, in: target.column)
             return .windowSizeChanged(token: window.token)
         }
     }
@@ -214,7 +214,7 @@ extension MouseEventHandler {
 struct NaturalDoubleClickHeight {
     let height: WeightedSize
     let revision: Int
-    let restingOffset: CGFloat
+    let restsAtTop: Bool
 }
 
 struct NaturalDoubleClickWidth {

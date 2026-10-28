@@ -160,7 +160,7 @@ extension MouseEventHandler {
         let primaryEdges = edges.intersection(horizontal ? [.left, .right] : [.top, .bottom])
         let adoptsSecondary = !edges.subtracting(primaryEdges).isEmpty
             && !(horizontal && engine.singleWindowLayoutContext(in: workspaceId) != nil)
-            && !isOuterStackEdge(edges.subtracting(primaryEdges), of: window, in: workspaceId)
+            && !isColumnEndEdge(edges.subtracting(primaryEdges), of: window, in: workspaceId)
         guard !primaryEdges.isEmpty || adoptsSecondary else { return false }
 
         let slide = naturalEdgeResizeSlide(around: window, in: workspaceId, resizedFrom: start, to: observed)

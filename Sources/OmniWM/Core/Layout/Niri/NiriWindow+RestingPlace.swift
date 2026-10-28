@@ -4,28 +4,23 @@
 import CoreGraphics
 import Foundation
 
-struct NiriRestingPlace {
-    let offset: CGFloat
+struct NiriTopRest {
     weak var column: NiriContainer?
     let heightRevision: Int
 }
 
 extension NiriWindow {
-    func restingOffset(in column: NiriContainer?, room: CGFloat? = nil) -> CGFloat {
-        guard sizingMode == .normal,
-              let place = restingPlace,
-              let column,
-              place.column === column,
-              place.heightRevision == heightRevision
-        else { return 0 }
-        guard let room else { return place.offset }
-        return min(place.offset, max(0, room))
+    func restsAtTop(of column: NiriContainer?) -> Bool {
+        guard sizingMode == .normal, let rest = topRest, let column else { return false }
+        return rest.column === column && rest.heightRevision == heightRevision
     }
 
-    func rest(at offset: CGFloat, in column: NiriContainer) {
-        restingPlace = offset > 0.5
-            ? NiriRestingPlace(offset: offset, column: column, heightRevision: heightRevision)
-            : nil
+    func restingOffset(in column: NiriContainer?, room: CGFloat) -> CGFloat {
+        restsAtTop(of: column) ? max(0, room) : 0
+    }
+
+    func rest(atTop: Bool, in column: NiriContainer) {
+        topRest = atTop ? NiriTopRest(column: column, heightRevision: heightRevision) : nil
     }
 }
 
@@ -51,5 +46,40 @@ extension NiriLayoutEngine {
     ) -> CGFloat {
         guard windows.count == 1, let span = spans.first?.value else { return 0 }
         return windows[0].restingOffset(in: column, room: context.workingFrame.height - 2 * context.gaps - span)
+    }
+
+    func moveLoneWindowIntoItsSpace(
+        _ column: NiriContainer,
+        cursor: CGPoint,
+        releasedFrame: CGRect,
+        context: NiriInteractionContext,
+        state: ViewportState
+    ) {
+        let windows = projectedWindows(in: column, workspaceId: context.workspaceId)
+        guard context.orientation == .horizontal,
+              windows.count == 1,
+              let window = windows.first,
+              !window.height.isAuto,
+              singleWindowLayoutContext(in: context.workspaceId) == nil,
+              let placed = liveColumnStrip(context: context, state: state).first(where: { $0.column === column }),
+              (placed.minX ... placed.maxX).contains(cursor.x),
+              let span = liveWindowSpans(in: column, context: context).first
+        else { return }
+        let top = context.workingFrame.maxY - context.gaps
+        let bottom = context.workingFrame.minY + context.gaps
+        let atTop = window.restsAtTop(of: column)
+        let inSpace = atTop
+            ? cursor.y >= bottom && cursor.y < span.minY
+            : cursor.y > span.maxY && cursor.y <= top
+        guard inSpace else { return }
+        window.rest(atTop: !atTop, in: column)
+        guard let moved = liveWindowSpans(in: column, context: context).first else { return }
+        window.animateMoveFrom(
+            displacement: CGPoint(x: 0, y: releasedFrame.minY - moved.minY),
+            clock: animationClock,
+            config: context.motion.scaled(windowMovementAnimationConfig),
+            displayRefreshRate: displayRefreshRate(in: context.workspaceId),
+            animated: context.motion.animationsEnabled
+        )
     }
 }
