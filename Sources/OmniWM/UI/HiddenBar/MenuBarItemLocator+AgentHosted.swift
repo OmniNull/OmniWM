@@ -31,8 +31,7 @@ extension MenuBarItemLocator {
         }
 
         convenience init() {
-            let deadline = ContinuousClock.now.advanced(by: hostedWalkBudget)
-            self.init(expired: { ContinuousClock.now >= deadline })
+            self.init(expired: expiry(after: hostedWalkBudget))
         }
 
         func items(for pid: pid_t) -> [MenuBarItemElement]? {
@@ -50,6 +49,19 @@ extension MenuBarItemLocator {
     }
 
     private static let hostedWalkBudget: Duration = .milliseconds(250)
+
+    static func expiry(
+        after budget: Duration,
+        now: @escaping () -> ContinuousClock.Instant = { ContinuousClock.now }
+    ) -> () -> Bool {
+        var deadline: ContinuousClock.Instant?
+        return {
+            let current = now()
+            let end = deadline ?? current.advanced(by: budget)
+            deadline = end
+            return current >= end
+        }
+    }
 
     static func hostedItems<Element>(_ entries: [HostedItemEntry<Element>], pid: pid_t) -> [HostedItemEntry<Element>] {
         entries.filter { $0.pid == pid && !$0.frame.isEmpty }.sorted { $0.frame.minX < $1.frame.minX }

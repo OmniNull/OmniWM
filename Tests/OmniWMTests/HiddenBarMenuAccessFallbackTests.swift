@@ -228,6 +228,17 @@ final class HiddenBarMenuAccessFallbackTests: XCTestCase {
         XCTAssertEqual(walks, 1)
     }
 
+    func testTheAgentWalkBudgetStartsAtTheWalkNotAtThePass() {
+        var now = ContinuousClock.now
+        let expired = MenuBarItemLocator.expiry(after: .milliseconds(250), now: { now })
+        now = now.advanced(by: .seconds(1))
+        XCTAssertFalse(expired())
+        now = now.advanced(by: .milliseconds(200))
+        XCTAssertFalse(expired())
+        now = now.advanced(by: .milliseconds(100))
+        XCTAssertTrue(expired())
+    }
+
     private func agentTree(_ children: [String: [String]]) -> MenuBarItemLocator.HostedTree<String> {
         MenuBarItemLocator.HostedTree(
             windows: { ["window"] },
