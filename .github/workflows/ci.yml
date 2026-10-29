@@ -52,6 +52,8 @@ jobs:
         with:
           ref: ${{ inputs.pr_number != '' && format('refs/pull/{0}/merge', inputs.pr_number) || github.ref }}
           persist-credentials: false
+      - name: Check pinned downloads
+        run: make check-pins
       - uses: ./.github/actions/setup-lix
         with:
           make-target: setup-tools
