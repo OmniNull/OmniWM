@@ -1,0 +1,35 @@
+#!/bin/sh
+set -u
+
+root="$(git rev-parse --show-toplevel)"
+tools="$root/.cache/flake-tools/bin"
+status=0
+swift="$(git diff --cached --name-only --diff-filter=ACMR -- '*.swift')"
+
+if [ -n "$swift" ]; then
+  if [ -x "$tools/swiftformat" ] && [ -x "$tools/swiftlint" ]; then
+    snapshot="$(mktemp -d)"
+    trap 'rm -rf "$snapshot"' EXIT
+    printf '%s\n' "$swift" .swiftformat .swiftlint.yml .swift-version | git checkout-index --prefix="$snapshot/" --stdin
+    sources="$(printf '%s\n' "$swift" | grep '^Sources/' || true)"
+    (
+      cd "$snapshot" || exit 1
+      printf '%s\n' "$swift" | tr '\n' '\0' | xargs -0 "$tools/swiftformat" --lint --quiet || exit 1
+      if [ -n "$sources" ]; then
+        printf '%s\n' "$sources" | tr '\n' '\0' | xargs -0 "$tools/swiftlint" lint --quiet --force-exclude || exit 1
+      fi
+    ) || status=1
+  else
+    echo "pre-commit: skipping SwiftFormat and SwiftLint, run make setup-tools to enable them" >&2
+  fi
+fi
+
+if ! git diff --cached --quiet -- Scripts/dev-tools.env; then
+  pins="$(mktemp)"
+  git show :Scripts/dev-tools.env > "$pins"
+  python3 "$root/Scripts/check-pinned-downloads.py" "$pins" ||
+    echo "pre-commit: warning, ci and make setup will fail until the pinned download above is public" >&2
+  rm -f "$pins"
+fi
+
+exit "$status"
