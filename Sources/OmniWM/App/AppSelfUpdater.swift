@@ -29,7 +29,7 @@ struct ReleaseArchive: Equatable {
 protocol AppUpdateInstalling: AnyObject {
     var canInstall: Bool { get }
     func install(_ release: GitHubRelease) async throws
-    func relaunch()
+    func relaunch() throws
 }
 
 enum AppSelfUpdateError: LocalizedError {
@@ -70,15 +70,25 @@ final class AppSelfUpdater: AppUpdateInstalling {
     private let bundleURL: URL
     private let session: URLSession
     private let requirement: () throws -> String
+    private let processIdentifier: Int32
+    private let opener: URL
+    private let terminate: () -> Void
+    private(set) var relaunchSignal: FileHandle?
 
     init(
         bundleURL: URL = Bundle.main.bundleURL,
         session: URLSession = .shared,
-        requirement: @escaping () throws -> String = AppSelfUpdater.runningAppRequirement
+        requirement: @escaping () throws -> String = AppSelfUpdater.runningAppRequirement,
+        processIdentifier: Int32 = ProcessInfo.processInfo.processIdentifier,
+        opener: URL = URL(fileURLWithPath: "/usr/bin/open"),
+        terminate: @escaping () -> Void = { NSApplication.shared.terminate(nil) }
     ) {
         self.bundleURL = bundleURL
         self.session = session
         self.requirement = requirement
+        self.processIdentifier = processIdentifier
+        self.opener = opener
+        self.terminate = terminate
     }
 
     var canInstall: Bool {
@@ -97,24 +107,35 @@ final class AppSelfUpdater: AppUpdateInstalling {
         let zip = try await download(archive, into: staging)
         let app = try await Self.extract(zip, into: staging)
         try Self.verify(app, matches: release, requirement: requirementText)
+        try Task.checkCancellation()
         _ = try FileManager.default.replaceItemAt(bundleURL, withItemAt: app)
     }
 
-    func relaunch() {
-        let script = """
-        i=0
-        while kill -0 "$1" 2>/dev/null && [ "$i" -lt 600 ]; do sleep 0.1; i=$((i + 1)); done
-        kill -0 "$1" 2>/dev/null || exec /usr/bin/open "$2"
-        """
-        let process = Process()
-        process.executableURL = URL(fileURLWithPath: "/bin/sh")
-        process.arguments = ["-c", script, "sh", String(ProcessInfo.processInfo.processIdentifier), bundleURL.path]
-        do {
+    func relaunch() throws {
+        if relaunchSignal == nil {
+            let script = """
+            read -r _ || exit 0
+            while kill -0 "$1" 2>/dev/null; do sleep 0.1; done
+            exec "$3" "$2"
+            """
+            let input = Pipe()
+            let process = Process()
+            process.executableURL = URL(fileURLWithPath: "/bin/sh")
+            process.arguments = ["-c", script, "sh", String(processIdentifier), bundleURL.path, opener.path]
+            process.standardInput = input
             try process.run()
-        } catch {
-            return
+            relaunchSignal = input.fileHandleForWriting
+            NotificationCenter.default.addObserver(
+                forName: NSApplication.willTerminateNotification, object: nil, queue: .main
+            ) { [weak self] _ in
+                MainActor.assumeIsolated { self?.confirmRelaunch() }
+            }
         }
-        NSApplication.shared.terminate(nil)
+        terminate()
+    }
+
+    func confirmRelaunch() {
+        try? relaunchSignal?.write(contentsOf: Data("\n".utf8))
     }
 
     private func download(_ archive: ReleaseArchive, into staging: URL) async throws -> URL {
@@ -187,6 +208,10 @@ final class AppSelfUpdater: AppUpdateInstalling {
         }
         if status == errSecSuccess, let designated { status = SecRequirementCopyString(designated, [], &text) }
         guard status == errSecSuccess, let text else { throw AppSelfUpdateError.untrustedSignature(status) }
-        return "(\(text as String)) and notarized"
+        return notarized(text as String)
+    }
+
+    nonisolated static func notarized(_ designatedRequirement: String) -> String {
+        "(\(designatedRequirement)) and notarized"
     }
 }

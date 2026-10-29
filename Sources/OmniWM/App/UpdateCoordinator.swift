@@ -169,7 +169,8 @@ final class UpdateCoordinator: AppUpdateCoordinating {
     private let installer: any AppUpdateInstalling
 
     private var automaticChecksStarted = false
-    private var installInProgress = false
+    private var installTask: Task<Void, Never>?
+    private var installedRelease: GitHubRelease?
     private var knownAvailableRelease: GitHubRelease?
 
     init(
@@ -349,16 +350,20 @@ final class UpdateCoordinator: AppUpdateCoordinating {
     }
 
     private func handleInstall(_ release: GitHubRelease) {
-        guard !installInProgress else { return }
-        installInProgress = true
-        Task { @MainActor [weak self] in
+        guard installTask == nil else { return }
+        installTask = Task { @MainActor [weak self] in
             guard let self else { return }
+            defer { installTask = nil }
             do {
-                try await installer.install(release)
+                if installedRelease != release {
+                    try await installer.install(release)
+                    installedRelease = release
+                }
+                guard !Task.isCancelled else { return }
                 windowController.close(markingActionHandled: true)
-                installer.relaunch()
+                try installer.relaunch()
             } catch {
-                installInProgress = false
+                guard !Task.isCancelled else { return }
                 windowController.close(markingActionHandled: true)
                 infoAlertPresenter(String(localized: "Could Not Install Update"), error.localizedDescription)
             }
@@ -371,6 +376,7 @@ final class UpdateCoordinator: AppUpdateCoordinating {
     }
 
     private func handleSkipThisVersion(for release: GitHubRelease) {
+        installTask?.cancel()
         runtimeState.updaterSkippedReleaseTag = release.skipKey
         windowController.close(markingActionHandled: true)
     }
@@ -387,6 +393,7 @@ final class UpdateCoordinator: AppUpdateCoordinating {
         for release: GitHubRelease,
         source: AutomaticCheckSource
     ) {
+        installTask?.cancel()
         guard source == .automatic else { return }
         runtimeState.updaterSkippedReleaseTag = release.skipKey
     }

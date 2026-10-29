@@ -13,6 +13,7 @@ private let newTag = "canary-20261025-0437-40161156174-1"
 final class AppSelfUpdaterTests: XCTestCase {
     private final class ZipProtocol: URLProtocol {
         static let body = Mutex(Data())
+        static let status = Mutex(200)
 
         override static func canInit(with request: URLRequest) -> Bool {
             true
@@ -23,7 +24,8 @@ final class AppSelfUpdaterTests: XCTestCase {
         }
 
         override func startLoading() {
-            let response = HTTPURLResponse(url: request.url!, statusCode: 200, httpVersion: nil, headerFields: nil)!
+            let status = Self.status.withLock { $0 }
+            let response = HTTPURLResponse(url: request.url!, statusCode: status, httpVersion: nil, headerFields: nil)!
             client?.urlProtocol(self, didReceive: response, cacheStoragePolicy: .notAllowed)
             client?.urlProtocol(self, didLoad: Self.body.withLock { $0 })
             client?.urlProtocolDidFinishLoading(self)
@@ -100,20 +102,82 @@ final class AppSelfUpdaterTests: XCTestCase {
             releasePageURL: release.releasePageURL, publishedAt: Date(), isPrerelease: true, archive: release.archive
         )
 
+        let ours = "identifier \"\(identifier)\""
         let cases: [String: (GitHubRelease, String)] = [
-            "digest": (wrongDigest, "identifier \"\(identifier)\""),
-            "version": (wrongVersion, "identifier \"\(identifier)\""),
-            "signer": (release, "identifier \"someone.else\""),
-            "notarization": (release, "identifier \"\(identifier)\" and notarized")
+            "digestMismatch": (wrongDigest, ours),
+            "versionMismatch": (wrongVersion, ours),
+            "badStatus": (release, ours),
+            "untrustedSignature": (release, "identifier \"someone.else\""),
+            "notarization": (release, ours + " and notarized")
         ]
         for (name, (offered, requirement)) in cases {
+            ZipProtocol.status.withLock { $0 = name == "badStatus" ? 404 : 200 }
+            defer { ZipProtocol.status.withLock { $0 = 200 } }
             let updater = AppSelfUpdater(bundleURL: installed, session: session) { requirement }
             do {
                 try await updater.install(offered)
                 XCTFail("\(name) mismatch installed the update")
-            } catch {}
+            } catch let error as AppSelfUpdateError {
+                let expected = name == "notarization" ? "untrustedSignature" : name
+                XCTAssertTrue(String(describing: error).hasPrefix(expected), "\(name): \(error)")
+            } catch {
+                XCTFail("\(name): unexpected \(error)")
+            }
             XCTAssertEqual(tag(of: installed), oldTag, name)
         }
+    }
+
+    func testRequirementAlwaysDemandsNotarization() throws {
+        XCTAssertEqual(AppSelfUpdater.notarized("anchor apple"), "(anchor apple) and notarized")
+        XCTAssertTrue(try AppSelfUpdater.runningAppRequirement().hasSuffix(") and notarized"))
+    }
+
+    func testRelaunchOpensOnlyAfterTerminationIsConfirmedAndTheOldProcessExits() async throws {
+        let opener = root.appendingPathComponent("open.sh")
+        let opened = root.appendingPathComponent("opened")
+        try "#!/bin/sh\necho \"$1\" > \"\(opened.path)\"\n".write(to: opener, atomically: true, encoding: .utf8)
+        try FileManager.default.setAttributes([.posixPermissions: 0o755], ofItemAtPath: opener.path)
+        let app = root.appendingPathComponent("OmniWM.app")
+
+        for confirmed in [false, true] {
+            let target = Process()
+            target.executableURL = URL(fileURLWithPath: "/bin/sleep")
+            target.arguments = ["30"]
+            try target.run()
+            let terminations = Counter()
+            let updater = AppSelfUpdater(
+                bundleURL: app, processIdentifier: target.processIdentifier, opener: opener,
+                terminate: { terminations.value += 1 }
+            )
+            try updater.relaunch()
+            try updater.relaunch()
+            XCTAssertEqual(terminations.value, 2)
+
+            if confirmed {
+                updater.confirmRelaunch()
+            }
+            target.terminate()
+            target.waitUntilExit()
+            if !confirmed {
+                try updater.relaunchSignal?.close()
+            }
+            let didOpen = await waitForFile(opened, seconds: confirmed ? 5 : 1)
+            XCTAssertEqual(didOpen, confirmed)
+        }
+        XCTAssertEqual(try String(contentsOf: opened, encoding: .utf8), app.path + "\n")
+    }
+
+    private final class Counter {
+        var value = 0
+    }
+
+    private func waitForFile(_ url: URL, seconds: Double) async -> Bool {
+        let deadline = Date().addingTimeInterval(seconds)
+        while Date() < deadline {
+            if FileManager.default.fileExists(atPath: url.path) { return true }
+            try? await Task.sleep(for: .milliseconds(50))
+        }
+        return FileManager.default.fileExists(atPath: url.path)
     }
 
     private func tag(of app: URL) -> String? {

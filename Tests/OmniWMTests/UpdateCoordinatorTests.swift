@@ -93,6 +93,8 @@ final class UpdateCoordinatorTests: XCTestCase {
         }
     }
 
+    private var retainedCoordinators: [UpdateCoordinator] = []
+
     private final class WindowStub: UpdateWindowControlling {
         var onWindowClosedWithoutAction: (() -> Void)?
         var configuration: UpdatePopupConfiguration?
@@ -110,18 +112,28 @@ final class UpdateCoordinatorTests: XCTestCase {
     private final class InstallerStub: AppUpdateInstalling {
         var canInstall = true
         var failure: Error?
+        var relaunchFailure: Error?
+        var suspends = false
         var events: [String] = []
+        var onInstall: (() -> Void)?
         var onRelaunch: (() -> Void)?
+        var gate: CheckedContinuation<Void, Never>?
 
         func install(_ release: GitHubRelease) async throws {
-            events.append("install \(release.tagName)")
-            await Task.yield()
+            events.append("install")
+            onInstall?()
+            if suspends {
+                await withCheckedContinuation { gate = $0 }
+            } else {
+                await Task.yield()
+            }
             if let failure { throw failure }
         }
 
-        func relaunch() {
+        func relaunch() throws {
             events.append("relaunch")
             onRelaunch?()
+            if let relaunchFailure { throw relaunchFailure }
         }
     }
 
@@ -145,29 +157,80 @@ final class UpdateCoordinatorTests: XCTestCase {
         }
     }
 
-    func testInstallRelaunchesOnlyAfterSuccessAndReportsFailure() async throws {
-        let archive = canaryArchive()
-        for failing in [false, true] {
+    func testInstallRelaunchesOnlyAfterSuccessReportsFailuresAndCanBeRetried() async throws {
+        let modes: [String: ([String], [String])] = [
+            "install fails": (["install"], ["install", "install"]),
+            "relaunch fails": (["install", "relaunch"], ["install", "relaunch", "relaunch"]),
+            "quit cancelled": (["install", "relaunch"], ["install", "relaunch", "relaunch"])
+        ]
+        for (mode, (first, retried)) in modes {
             let window = WindowStub()
-            let shown = expectation(description: "shown")
-            window.onEvent = { shown.fulfill() }
             let installer = InstallerStub()
-            installer.failure = failing ? AppSelfUpdateError.digestMismatch : nil
-            let (coordinator, _) = makeCoordinator(window: window, canary: true, archive: archive, installer: installer)
-            coordinator.checkForUpdatesManually()
-            await fulfillment(of: [shown], timeout: 2)
+            installer.failure = mode == "install fails" ? AppSelfUpdateError.digestMismatch : nil
+            installer.relaunchFailure = mode == "relaunch fails" ? AppSelfUpdateError.missingApp : nil
+            let install = try await showInstall(window: window, installer: installer)
+            let signals = mode == "relaunch fails" ? 2 : 1
 
-            let finished = expectation(description: "finished")
-            window.onEvent = { finished.fulfill() }
-            installer.onRelaunch = { finished.fulfill() }
-            let install = try XCTUnwrap(window.configuration?.installUpdate)
-            install()
-            install()
-            await fulfillment(of: [finished], timeout: 2)
-
-            XCTAssertEqual(installer.events, ["install \(nextCanaryTag)"] + (failing ? [] : ["relaunch"]))
-            XCTAssertEqual(window.alertTitle, failing ? "Could Not Install Update" : nil)
+            for expectedEvents in [first, retried] {
+                window.alertTitle = nil
+                let finished = expectation(description: mode)
+                finished.expectedFulfillmentCount = signals
+                window.onEvent = { finished.fulfill() }
+                installer.onRelaunch = { finished.fulfill() }
+                install()
+                install()
+                await fulfillment(of: [finished], timeout: 2)
+                XCTAssertEqual(installer.events, expectedEvents, mode)
+                XCTAssertEqual(window.alertTitle, mode == "quit cancelled" ? nil : "Could Not Install Update", mode)
+            }
         }
+    }
+
+    func testDecliningDuringInstallCancelsTheRelaunch() async throws {
+        for action in ["not now", "skip", "close"] {
+            let window = WindowStub()
+            let installer = InstallerStub()
+            installer.suspends = true
+            let install = try await showInstall(window: window, installer: installer)
+            let configuration = try XCTUnwrap(window.configuration)
+
+            let started = expectation(description: "\(action) started")
+            installer.onInstall = { started.fulfill() }
+            install()
+            await fulfillment(of: [started], timeout: 2)
+            switch action {
+            case "not now": configuration.notNow()
+            case "skip": configuration.skipThisVersion()
+            default: window.onWindowClosedWithoutAction?()
+            }
+
+            let nothing = expectation(description: "\(action) relaunched")
+            nothing.isInverted = true
+            installer.onRelaunch = { nothing.fulfill() }
+            window.onEvent = { nothing.fulfill() }
+            installer.gate?.resume()
+            await fulfillment(of: [nothing], timeout: 0.3)
+            XCTAssertEqual(installer.events, ["install"], action)
+
+            let relaunched = expectation(description: "\(action) retried")
+            installer.onRelaunch = { relaunched.fulfill() }
+            window.onEvent = nil
+            install()
+            await fulfillment(of: [relaunched], timeout: 2)
+            XCTAssertEqual(installer.events, ["install", "relaunch"], action)
+        }
+    }
+
+    private func showInstall(window: WindowStub, installer: InstallerStub) async throws -> () -> Void {
+        let shown = expectation(description: "shown")
+        window.onEvent = { shown.fulfill() }
+        let (coordinator, _) = makeCoordinator(
+            window: window, canary: true, archive: canaryArchive(), installer: installer
+        )
+        coordinator.checkForUpdatesManually()
+        await fulfillment(of: [shown], timeout: 2)
+        retainedCoordinators.append(coordinator)
+        return try XCTUnwrap(window.configuration?.installUpdate)
     }
 
     func testCanaryPopupCopiesCanaryCommandAndSkipsOnlyItsExactRelease() async throws {
