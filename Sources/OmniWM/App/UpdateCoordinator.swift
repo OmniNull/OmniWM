@@ -170,7 +170,6 @@ final class UpdateCoordinator: AppUpdateCoordinating {
 
     private var automaticChecksStarted = false
     private var installTask: Task<Void, Never>?
-    private var installedRelease: GitHubRelease?
     private var knownAvailableRelease: GitHubRelease?
 
     init(
@@ -355,9 +354,8 @@ final class UpdateCoordinator: AppUpdateCoordinating {
             guard let self else { return }
             defer { installTask = nil }
             do {
-                if installedRelease != release {
+                if !installer.isInstalled(release) {
                     try await installer.install(release)
-                    installedRelease = release
                 }
                 guard !Task.isCancelled else { return }
                 windowController.close(markingActionHandled: true)
@@ -371,6 +369,7 @@ final class UpdateCoordinator: AppUpdateCoordinating {
     }
 
     private func handleOpenReleasePage(for release: GitHubRelease) {
+        installTask?.cancel()
         openURL(validatedReleasePageURL(for: release))
         windowController.close(markingActionHandled: true)
     }

@@ -28,6 +28,7 @@ struct ReleaseArchive: Equatable {
 @MainActor
 protocol AppUpdateInstalling: AnyObject {
     var canInstall: Bool { get }
+    func isInstalled(_ release: GitHubRelease) -> Bool
     func install(_ release: GitHubRelease) async throws
     func relaunch() throws
 }
@@ -96,6 +97,12 @@ final class AppSelfUpdater: AppUpdateInstalling {
             && FileManager.default.isWritableFile(atPath: bundleURL.path)
     }
 
+    func isInstalled(_ release: GitHubRelease) -> Bool {
+        let info = NSDictionary(contentsOf: bundleURL.appendingPathComponent("Contents/Info.plist"))
+        let version = info?["OMNIWMCanaryTag"] as? String ?? info?["CFBundleShortVersionString"] as? String
+        return version.map(release.matches(installedVersion:)) ?? false
+    }
+
     func install(_ release: GitHubRelease) async throws {
         guard let archive = release.archive else { throw AppSelfUpdateError.missingArchive }
         let requirementText = try requirement()
@@ -126,7 +133,7 @@ final class AppSelfUpdater: AppUpdateInstalling {
             try process.run()
             relaunchSignal = input.fileHandleForWriting
             NotificationCenter.default.addObserver(
-                forName: NSApplication.willTerminateNotification, object: nil, queue: .main
+                forName: NSApplication.willTerminateNotification, object: nil, queue: nil
             ) { [weak self] _ in
                 MainActor.assumeIsolated { self?.confirmRelaunch() }
             }

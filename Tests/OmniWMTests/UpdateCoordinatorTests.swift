@@ -114,10 +114,15 @@ final class UpdateCoordinatorTests: XCTestCase {
         var failure: Error?
         var relaunchFailure: Error?
         var suspends = false
+        var installed = false
         var events: [String] = []
         var onInstall: (() -> Void)?
         var onRelaunch: (() -> Void)?
         var gate: CheckedContinuation<Void, Never>?
+
+        func isInstalled(_ release: GitHubRelease) -> Bool {
+            installed
+        }
 
         func install(_ release: GitHubRelease) async throws {
             events.append("install")
@@ -127,7 +132,9 @@ final class UpdateCoordinatorTests: XCTestCase {
             } else {
                 await Task.yield()
             }
+            try Task.checkCancellation()
             if let failure { throw failure }
+            installed = true
         }
 
         func relaunch() throws {
@@ -187,7 +194,7 @@ final class UpdateCoordinatorTests: XCTestCase {
     }
 
     func testDecliningDuringInstallCancelsTheRelaunch() async throws {
-        for action in ["not now", "skip", "close"] {
+        for action in ["not now", "skip", "close", "release page"] {
             let window = WindowStub()
             let installer = InstallerStub()
             installer.suspends = true
@@ -201,6 +208,7 @@ final class UpdateCoordinatorTests: XCTestCase {
             switch action {
             case "not now": configuration.notNow()
             case "skip": configuration.skipThisVersion()
+            case "release page": configuration.openReleasePage()
             default: window.onWindowClosedWithoutAction?()
             }
 
@@ -214,10 +222,12 @@ final class UpdateCoordinatorTests: XCTestCase {
 
             let relaunched = expectation(description: "\(action) retried")
             installer.onRelaunch = { relaunched.fulfill() }
+            installer.suspends = false
+            installer.onInstall = nil
             window.onEvent = nil
             install()
             await fulfillment(of: [relaunched], timeout: 2)
-            XCTAssertEqual(installer.events, ["install", "relaunch"], action)
+            XCTAssertEqual(installer.events, ["install", "install", "relaunch"], action)
         }
     }
 

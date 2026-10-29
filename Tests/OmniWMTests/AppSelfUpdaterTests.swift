@@ -79,7 +79,9 @@ final class AppSelfUpdaterTests: XCTestCase {
 
         let updater = AppSelfUpdater(bundleURL: installed, session: session) { "identifier \"\(identifier)\"" }
         XCTAssertTrue(updater.canInstall)
+        XCTAssertFalse(updater.isInstalled(release))
         try await updater.install(release)
+        XCTAssertTrue(updater.isInstalled(release))
 
         XCTAssertEqual(tag(of: installed), newTag)
     }
