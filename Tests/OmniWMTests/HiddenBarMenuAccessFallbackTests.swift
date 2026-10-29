@@ -154,6 +154,40 @@ final class HiddenBarMenuAccessFallbackTests: XCTestCase {
         XCTAssertTrue(HiddenBarClickForwarder.activationCandidate(pid: 1, covered: false, electron: true).useAXPress)
     }
 
+    func testAnAgentHostedItemIsPressedAndNeverClicked() {
+        let uncovered = HiddenBarClickForwarder.activationCandidate(pid: 1, covered: false, electron: false)
+        XCTAssertTrue(MenuBarItemLocator.usesAXPress(for: uncovered, hosted: true))
+        XCTAssertFalse(MenuBarItemLocator.usesAXPress(for: uncovered, hosted: false))
+        guard case .unavailable = MenuBarItemLocator.fallback(for: uncovered, frame: .zero, hosted: true) else {
+            return XCTFail("an agent hosted item must not be clicked when its press fails")
+        }
+        guard case .clickFrame = MenuBarItemLocator.fallback(for: uncovered, frame: .zero, hosted: false) else {
+            return XCTFail("an item from the app's own extras bar is still clicked")
+        }
+    }
+
+    func testAgentHostedItemsKeepOnlyTheOwnerSortedByPosition() {
+        let entries = [
+            MenuBarItemLocator.HostedItemEntry(
+                pid: 7,
+                frame: CGRect(x: 300, y: 0, width: 20, height: 24),
+                element: "b"
+            ),
+            MenuBarItemLocator.HostedItemEntry(
+                pid: 9,
+                frame: CGRect(x: 100, y: 0, width: 20, height: 24),
+                element: "other"
+            ),
+            MenuBarItemLocator.HostedItemEntry(
+                pid: 7,
+                frame: CGRect(x: 200, y: 0, width: 20, height: 24),
+                element: "a"
+            ),
+            MenuBarItemLocator.HostedItemEntry(pid: 7, frame: .zero, element: "empty")
+        ]
+        XCTAssertEqual(MenuBarItemLocator.hostedItems(entries, pid: 7).map(\.element), ["a", "b"])
+    }
+
     private func settings() -> SettingsStore {
         SettingsStore(
             persistence: SettingsFilePersistence(directory: directory, startWatching: false, deferSaves: false),

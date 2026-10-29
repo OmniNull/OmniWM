@@ -58,7 +58,7 @@ enum MenuBarItemActivation: Sendable {
 }
 
 enum MenuBarItemLocator {
-    private static let messagingTimeoutSeconds: Float = 0.1
+    static let messagingTimeoutSeconds: Float = 0.1
     private static let settlePollInterval: TimeInterval = 0.05
     private static let locateDeadline: Duration = .seconds(2)
 
@@ -69,19 +69,7 @@ enum MenuBarItemLocator {
         environment: MenuExtractorEnvironment
     ) throws -> AXUIElement? {
         let deadline = MenuAXDeadline(start: environment.now(), timeout: 0.25)
-        let app = AXUIElementCreateApplication(target.pid)
-        let extrasValue = try environment.readAttribute(
-            app, "AXExtrasMenuBar" as CFString, deadline.remaining(at: environment.now())
-        )
-        guard let extrasValue, let extras = AXUIElement.from(extrasValue as CFTypeRef) else {
-            throw MenuExtractionError.invalidResponse
-        }
-        let childrenValue = try environment.readAttribute(
-            extras, kAXChildrenAttribute as CFString, deadline.remaining(at: environment.now())
-        )
-        guard let children = childrenValue as? [AXUIElement] else {
-            throw MenuExtractionError.invalidResponse
-        }
+        let children = try extrasChildren(pid: target.pid, environment: environment, deadline: deadline)
         let names = ["AXIdentifier", "AXTitle", "AXDescription", "AXHelp"]
         var freshItems: [ResolvedMenuBarItem] = []
         freshItems.reserveCapacity(children.count)
@@ -217,7 +205,7 @@ enum MenuBarItemLocator {
                     guard semanticIdentity(of: item.element, includesHelp: elements.count > 1) == target
                         .semanticIdentity
                     else { return .unavailable }
-                    if candidate.useAXPress {
+                    if usesAXPress(for: candidate, hosted: item.hosted) {
                         if performAXAction(
                             item.element,
                             "AXPress" as CFString,
@@ -226,7 +214,7 @@ enum MenuBarItemLocator {
                             return .axPressed
                         }
                     }
-                    return fallback(for: candidate, frame: item.frame)
+                    return fallback(for: candidate, frame: item.frame, hosted: item.hosted)
                 }
                 previousFrames[candidate.pid] = item.frame
             }
@@ -256,9 +244,10 @@ enum MenuBarItemLocator {
         return (emptyPID, [])
     }
 
-    private struct MenuBarItemElement {
+    struct MenuBarItemElement {
         let element: AXUIElement
         let frame: CGRect
+        var hosted = false
     }
 
     private static func itemElements(pid: pid_t) -> [MenuBarItemElement]? {
@@ -267,7 +256,9 @@ enum MenuBarItemLocator {
         defer { AXUIElementSetMessagingTimeout(appElement, 0) }
 
         var extrasRef: CFTypeRef?
-        guard AXUIElementCopyAttributeValue(appElement, "AXExtrasMenuBar" as CFString, &extrasRef) == .success,
+        let extrasResult = AXUIElementCopyAttributeValue(appElement, "AXExtrasMenuBar" as CFString, &extrasRef)
+        if extrasResult == .noValue { return hostedItemElements(pid: pid) }
+        guard extrasResult == .success,
               let extras = extrasRef, CFGetTypeID(extras) == AXUIElementGetTypeID()
         else { return nil }
 
