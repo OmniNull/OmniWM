@@ -3,7 +3,7 @@ name: OmniWM CI
 on:
   pull_request:
   push:
-    branches: [main]
+    branches: [main, '**-release']
   workflow_dispatch:
     inputs:
       pr_number:
