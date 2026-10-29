@@ -60,6 +60,7 @@ test('cycle width walks the presets and wraps', () => {
   let s = strip();
   for (let i = 0; i < 3; i++) widths.push((s = m.cycleWidth(s)).columns[0].width);
   assert.deepEqual(widths, [2 / 3, 1 / 3, 1 / 2]);
+  assert.deepEqual([m.cycleWidth(s, -1).columns[0].width, m.cycleWidth(m.cycleWidth(s, -1), -1).columns[0].width], [1 / 3, 2 / 3]);
   assert.equal(m.cycleWidth(m.toggleFull(strip())).columns[0].full, false);
 });
 

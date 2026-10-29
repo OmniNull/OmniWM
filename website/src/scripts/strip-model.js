@@ -92,11 +92,14 @@ export function moveColumn(state, dir) {
   return reveal({ ...s, col: to });
 }
 
-export function cycleWidth(state) {
+export function cycleWidth(state, dir = 1) {
   const s = clone(state);
   const column = s.columns[s.col];
   if (!column) return state;
-  const next = PRESETS.find((p) => p > column.width + 1e-6) ?? PRESETS[0];
+  const next =
+    dir > 0
+      ? (PRESETS.find((p) => p > column.width + 1e-6) ?? PRESETS[0])
+      : (PRESETS.findLast((p) => p < column.width - 1e-6) ?? PRESETS.at(-1));
   s.columns[s.col] = { ...column, width: next, full: false };
   return reveal(s);
 }

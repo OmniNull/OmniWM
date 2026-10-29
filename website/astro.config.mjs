@@ -37,7 +37,7 @@ export default defineConfig({
         },
       ],
       sidebar: [
-        { label: 'Getting Started', items: [{ autogenerate: { directory: 'guides' } }] },
+        { label: 'Getting Started', items: [{ autogenerate: { directory: 'guides' } }, { label: 'Learn the Keys', link: '/playground/' }] },
         { label: 'Features', items: [{ autogenerate: { directory: 'features' } }] },
         {
           label: 'OmniShell',
