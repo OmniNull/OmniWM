@@ -14,7 +14,8 @@ final class CommandPalettePanel {
     static let expandedHeight: CGFloat = 430
     static let collapsedHeight: CGFloat = 56
     static let expansionDuration: TimeInterval = 0.3
-    static let dismissalDuration: TimeInterval = 0.626
+    static let revealDuration: TimeInterval = 0.2
+    static let dismissalDuration: TimeInterval = revealDuration
 
     private(set) var panel: NSPanel?
     private let motionPolicy: MotionPolicy
@@ -110,7 +111,7 @@ final class CommandPalettePanel {
     func reveal(_ panel: NSPanel) {
         guard animatesPresentation else { return }
         NSAnimationContext.runAnimationGroup { context in
-            context.duration = 0.2
+            context.duration = Self.revealDuration
             context.timingFunction = CAMediaTimingFunction(name: .easeOut)
             panel.animator().alphaValue = 1
         }

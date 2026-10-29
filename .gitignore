@@ -1,5 +1,6 @@
 # Build artifacts
 .build/
+.direnv/
 __pycache__/
 
 # SwiftPM

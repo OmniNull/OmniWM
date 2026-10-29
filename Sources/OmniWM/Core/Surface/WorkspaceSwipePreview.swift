@@ -54,6 +54,10 @@ final class WorkspaceSwipePreview {
     private let capture: OverviewThumbnailCapture
     private let hasCaptureAccess: @MainActor () -> Bool
     private let backdrop: WorkspaceSwipeBackdrop
+    private let captureDisplay: @MainActor (Monitor, CGRect) async -> CGImage?
+    private var sourceSnapshot: CGImage?
+    private var sourceSnapshotLayer: CALayer?
+    private var sourceSnapshotTask: Task<Void, Never>?
     private var tokens: [WindowHandle: WindowToken] = [:]
     private var panel: WorkspaceSwipePreviewPanel?
     private var sourceLayer: CALayer?
@@ -65,15 +69,23 @@ final class WorkspaceSwipePreview {
         panel?.isVisible == true
     }
 
+    var presentedSourceSnapshot: Any? {
+        sourceSnapshotLayer?.contents
+    }
+
     init(
         ownedWindowRegistry: OwnedWindowRegistry,
         previewCapture: OverviewThumbnailCapture? = nil,
         backdrop: WorkspaceSwipeBackdrop = WorkspaceSwipeBackdrop(),
-        hasCaptureAccess: @escaping @MainActor () -> Bool = { ScreenCapturePermissionMonitor.shared.isGranted }
+        hasCaptureAccess: @escaping @MainActor () -> Bool = { ScreenCapturePermissionMonitor.shared.isGranted },
+        captureDisplay: (@MainActor (Monitor, CGRect) async -> CGImage?)? = nil
     ) {
         self.ownedWindowRegistry = ownedWindowRegistry
         self.hasCaptureAccess = hasCaptureAccess
         self.backdrop = backdrop
+        self.captureDisplay = captureDisplay ?? { [ownedWindowRegistry] monitor, frame in
+            await WorkspaceSwipeDisplaySnapshot.capture(monitor: monitor, frame: frame, registry: ownedWindowRegistry)
+        }
         capture = previewCapture ?? OverviewThumbnailCapture(
             consumer: .workspaceSwipe,
             hasCaptureAccess: hasCaptureAccess,
@@ -108,6 +120,33 @@ final class WorkspaceSwipePreview {
     func warm(source: [Item], destination: [Item], monitor: Monitor, workingFrame: CGRect? = nil) {
         guard panel == nil else { return }
         reconcile(source: source, destination: destination, monitor: monitor, workingFrame: workingFrame, warming: true)
+    }
+
+    func captureSource(monitor: Monitor, workingFrame: CGRect? = nil) {
+        dropSourceSnapshot()
+        guard panel == nil, hasCaptureAccess() else { return }
+        let frame = workingFrame ?? monitor.visibleFrame
+        sourceSnapshotTask = Task { [weak self, captureDisplay] in
+            let image = await captureDisplay(monitor, frame)
+            guard let self, !Task.isCancelled else { return }
+            sourceSnapshotTask = nil
+            sourceSnapshot = image
+            CATransaction.begin()
+            CATransaction.setDisableActions(true)
+            sourceSnapshotLayer?.contents = image
+            CATransaction.commit()
+        }
+    }
+
+    func freezeSource() {
+        sourceSnapshotTask?.cancel()
+        sourceSnapshotTask = nil
+    }
+
+    private func dropSourceSnapshot() {
+        freezeSource()
+        sourceSnapshot = nil
+        sourceSnapshotLayer = nil
     }
 
     private func reconcile(
@@ -172,6 +211,7 @@ final class WorkspaceSwipePreview {
             destination, monitor: monitor, frame: frame, scale: scale, image: wallpaperImage
         )
         destinationLayer.isHidden = true
+        sourceSnapshotLayer = makeSourceSnapshotLayer(in: sourceLayer)
         root.addSublayer(sourceLayer)
         root.addSublayer(destinationLayer)
         self.sourceLayer = sourceLayer
@@ -208,6 +248,7 @@ final class WorkspaceSwipePreview {
 
     func stop() {
         isWarming = false
+        dropSourceSnapshot()
         let previous = contents.values.flatMap { $0.map(\.preview) }
         CATransaction.begin()
         CATransaction.setDisableActions(true)
@@ -249,6 +290,15 @@ final class WorkspaceSwipePreview {
             contents[item.handle, default: []].append(content)
             layer.addSublayer(content.layer)
         }
+        return layer
+    }
+
+    private func makeSourceSnapshotLayer(in sourceLayer: CALayer) -> CALayer {
+        let layer = CALayer()
+        layer.frame = sourceLayer.bounds
+        layer.contentsGravity = .resize
+        layer.contents = sourceSnapshot
+        sourceLayer.addSublayer(layer)
         return layer
     }
 
