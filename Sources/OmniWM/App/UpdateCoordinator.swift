@@ -32,6 +32,7 @@ struct UpdatePopupConfiguration {
     let copyCommand: () -> Void
     let skipThisVersion: () -> Void
     let notNow: () -> Void
+    var installUpdate: (() -> Void)?
 }
 
 struct ReleaseVersion: Comparable, Equatable {
@@ -98,6 +99,7 @@ struct GitHubRelease: Equatable {
     let publishedAt: Date?
     var isPrerelease = false
     var isDraft = false
+    var archive: ReleaseArchive?
 
     var version: ReleaseVersion? {
         ReleaseVersion(tagName)
@@ -125,6 +127,13 @@ struct GitHubRelease: Equatable {
 
     var homebrewUpdateCommand: String {
         Self.isCanaryTag(tagName) ? "brew upgrade --cask omniwm@canary" : "brew upgrade omniwm"
+    }
+
+    func matches(installedVersion: String) -> Bool {
+        if Self.isCanaryTag(tagName) {
+            return installedVersion == tagName
+        }
+        return version != nil && ReleaseVersion(installedVersion) == version
     }
 
     func isNewer(than currentVersion: String) -> Bool {
@@ -157,8 +166,10 @@ final class UpdateCoordinator: AppUpdateCoordinating {
     private let infoAlertPresenter: (String, String) -> Void
     private let openURL: (URL) -> Void
     private let copyCommandToPasteboard: (String) -> Void
+    private let installer: any AppUpdateInstalling
 
     private var automaticChecksStarted = false
+    private var installInProgress = false
     private var knownAvailableRelease: GitHubRelease?
 
     init(
@@ -188,7 +199,8 @@ final class UpdateCoordinator: AppUpdateCoordinating {
             let pasteboard = NSPasteboard.general
             pasteboard.clearContents()
             pasteboard.setString(command, forType: .string)
-        }
+        },
+        installer: any AppUpdateInstalling = AppSelfUpdater()
     ) {
         self.settings = settings
         self.runtimeState = runtimeState
@@ -199,6 +211,7 @@ final class UpdateCoordinator: AppUpdateCoordinating {
         self.infoAlertPresenter = infoAlertPresenter
         self.openURL = openURL
         self.copyCommandToPasteboard = copyCommandToPasteboard
+        self.installer = installer
     }
 
     func startAutomaticChecks() {
@@ -300,6 +313,13 @@ final class UpdateCoordinator: AppUpdateCoordinating {
             ? String(localized: "No release notes were provided for this release.")
             : release.body
 
+        var installUpdate: (() -> Void)?
+        if release.archive != nil, installer.canInstall {
+            installUpdate = { [weak self] in
+                self?.handleInstall(release)
+            }
+        }
+
         windowController.onWindowClosedWithoutAction = { [weak self] in
             self?.handleNotNow(for: release, source: source)
         }
@@ -322,9 +342,27 @@ final class UpdateCoordinator: AppUpdateCoordinating {
                 },
                 notNow: { [weak self] in
                     self?.handleNotNowAndClose(for: release, source: source)
-                }
+                },
+                installUpdate: installUpdate
             )
         )
+    }
+
+    private func handleInstall(_ release: GitHubRelease) {
+        guard !installInProgress else { return }
+        installInProgress = true
+        Task { @MainActor [weak self] in
+            guard let self else { return }
+            do {
+                try await installer.install(release)
+                windowController.close(markingActionHandled: true)
+                installer.relaunch()
+            } catch {
+                installInProgress = false
+                windowController.close(markingActionHandled: true)
+                infoAlertPresenter(String(localized: "Could Not Install Update"), error.localizedDescription)
+            }
+        }
     }
 
     private func handleOpenReleasePage(for release: GitHubRelease) {

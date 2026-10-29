@@ -75,6 +75,7 @@ private struct GitHubReleasePayload: Decodable {
     let publishedAt: Date?
     let prerelease: Bool
     let draft: Bool
+    let assets: [GitHubReleaseAsset]?
 
     var release: GitHubRelease {
         GitHubRelease(
@@ -84,7 +85,10 @@ private struct GitHubReleasePayload: Decodable {
             releasePageURL: htmlURL,
             publishedAt: publishedAt,
             isPrerelease: prerelease,
-            isDraft: draft
+            isDraft: draft,
+            archive: assets?.lazy.compactMap { [tagName] asset in
+                ReleaseArchive(name: asset.name, url: asset.browserDownloadURL, digest: asset.digest, tag: tagName)
+            }.first
         )
     }
 
@@ -96,5 +100,18 @@ private struct GitHubReleasePayload: Decodable {
         case publishedAt = "published_at"
         case prerelease
         case draft
+        case assets
+    }
+}
+
+private struct GitHubReleaseAsset: Decodable {
+    let name: String
+    let browserDownloadURL: URL
+    let digest: String?
+
+    private enum CodingKeys: String, CodingKey {
+        case name
+        case browserDownloadURL = "browser_download_url"
+        case digest
     }
 }

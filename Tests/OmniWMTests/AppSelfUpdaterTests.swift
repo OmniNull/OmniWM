@@ -1,0 +1,164 @@
+// SPDX-License-Identifier: GPL-2.0-only
+// Copyright (C) 2026 OmniNull — https://github.com/OmniNull/OmniWM
+
+import Foundation
+@testable import OmniWM
+import Synchronization
+import XCTest
+
+private let identifier = "test.omniwm.selfupdate"
+private let newTag = "canary-20261025-0437-40161156174-1"
+
+@MainActor
+final class AppSelfUpdaterTests: XCTestCase {
+    private final class ZipProtocol: URLProtocol {
+        static let body = Mutex(Data())
+
+        override static func canInit(with request: URLRequest) -> Bool {
+            true
+        }
+
+        override static func canonicalRequest(for request: URLRequest) -> URLRequest {
+            request
+        }
+
+        override func startLoading() {
+            let response = HTTPURLResponse(url: request.url!, statusCode: 200, httpVersion: nil, headerFields: nil)!
+            client?.urlProtocol(self, didReceive: response, cacheStoragePolicy: .notAllowed)
+            client?.urlProtocol(self, didLoad: Self.body.withLock { $0 })
+            client?.urlProtocolDidFinishLoading(self)
+        }
+
+        override func stopLoading() {}
+    }
+
+    private var root: URL!
+
+    override func setUp() async throws {
+        root = FileManager.default.temporaryDirectory.appendingPathComponent(UUID().uuidString)
+        try FileManager.default.createDirectory(at: root, withIntermediateDirectories: true)
+    }
+
+    override func tearDown() async throws {
+        try? FileManager.default.removeItem(at: root)
+    }
+
+    func testArchiveAcceptsOnlyTheReleaseAppAssetWithASha256Digest() {
+        let digest = "sha256:" + String(repeating: "f", count: 64)
+        let canaryName = "OmniWM-canary-\(newTag).zip"
+        let canaryURL = URL(string: ReleaseArchive.downloadPrefix + "\(newTag)/\(canaryName)")!
+        XCTAssertNotNil(ReleaseArchive(name: canaryName, url: canaryURL, digest: digest, tag: newTag))
+
+        let name = "OmniWM-v0.7.7.zip"
+        let url = URL(string: ReleaseArchive.downloadPrefix + "v0.7.7/\(name)")!
+        XCTAssertNotNil(ReleaseArchive(name: name, url: url, digest: digest, tag: "v0.7.7"))
+        XCTAssertNil(ReleaseArchive(
+            name: name,
+            url: URL(string: "https://evil.example/\(name)")!,
+            digest: digest,
+            tag: "v0.7.7"
+        ))
+        XCTAssertNil(ReleaseArchive(name: "GhosttyKit.xcframework-v0.7.7.zip", url: url, digest: digest, tag: "v0.7.7"))
+        XCTAssertNil(ReleaseArchive(name: name, url: url, digest: digest, tag: "v0.7.6"))
+        XCTAssertNil(ReleaseArchive(name: name, url: url, digest: nil, tag: "v0.7.7"))
+        XCTAssertNil(ReleaseArchive(name: name, url: url, digest: "sha256:abc", tag: "v0.7.7"))
+        XCTAssertNil(ReleaseArchive(
+            name: name,
+            url: url,
+            digest: "md5:" + String(repeating: "f", count: 64),
+            tag: "v0.7.7"
+        ))
+    }
+
+    func testInstallReplacesBundleWithVerifiedDownload() async throws {
+        let installed = try makeApp(in: "installed", tag: "canary-20261024-0439-40061526227-1")
+        let (release, session) = try publish(makeApp(in: "build", tag: newTag))
+        defer { session.invalidateAndCancel() }
+
+        let updater = AppSelfUpdater(bundleURL: installed, session: session) { "identifier \"\(identifier)\"" }
+        XCTAssertTrue(updater.canInstall)
+        try await updater.install(release)
+
+        XCTAssertEqual(tag(of: installed), newTag)
+    }
+
+    func testInstallLeavesBundleAloneWhenDownloadFailsAnyCheck() async throws {
+        let oldTag = "canary-20261024-0439-40061526227-1"
+        let installed = try makeApp(in: "installed", tag: oldTag)
+        let (release, session) = try publish(makeApp(in: "build", tag: newTag))
+        defer { session.invalidateAndCancel() }
+        let otherDigest = "sha256:" + String(repeating: "0", count: 64)
+        var wrongDigest = release
+        wrongDigest.archive = ReleaseArchive(
+            name: "OmniWM-canary-\(newTag).zip",
+            url: release.archive!.url,
+            digest: otherDigest,
+            tag: newTag
+        )
+        let wrongVersion = GitHubRelease(
+            tagName: "canary-20261026-0437-40161156174-1", name: nil, body: "",
+            releasePageURL: release.releasePageURL, publishedAt: Date(), isPrerelease: true, archive: release.archive
+        )
+
+        let cases: [String: (GitHubRelease, String)] = [
+            "digest": (wrongDigest, "identifier \"\(identifier)\""),
+            "version": (wrongVersion, "identifier \"\(identifier)\""),
+            "signer": (release, "identifier \"someone.else\""),
+            "notarization": (release, "identifier \"\(identifier)\" and notarized")
+        ]
+        for (name, (offered, requirement)) in cases {
+            let updater = AppSelfUpdater(bundleURL: installed, session: session) { requirement }
+            do {
+                try await updater.install(offered)
+                XCTFail("\(name) mismatch installed the update")
+            } catch {}
+            XCTAssertEqual(tag(of: installed), oldTag, name)
+        }
+    }
+
+    private func tag(of app: URL) -> String? {
+        NSDictionary(contentsOf: app.appendingPathComponent("Contents/Info.plist"))?["OMNIWMCanaryTag"] as? String
+    }
+
+    private func makeApp(in directory: String, tag: String) throws -> URL {
+        let app = root.appendingPathComponent(directory).appendingPathComponent("OmniWM.app")
+        let macOS = app.appendingPathComponent("Contents/MacOS")
+        try FileManager.default.createDirectory(at: macOS, withIntermediateDirectories: true)
+        try FileManager.default.copyItem(atPath: "/usr/bin/true", toPath: macOS.appendingPathComponent("OmniWM").path)
+        let info: [String: String] = [
+            "CFBundleExecutable": "OmniWM", "CFBundleIdentifier": identifier,
+            "CFBundleShortVersionString": "0.7.7", "OMNIWMCanaryTag": tag
+        ]
+        try PropertyListSerialization.data(fromPropertyList: info, format: .xml, options: 0)
+            .write(to: app.appendingPathComponent("Contents/Info.plist"))
+        try run("/usr/bin/codesign", "--force", "--sign", "-", "--identifier", identifier, app.path)
+        return app
+    }
+
+    private func publish(_ app: URL) throws -> (GitHubRelease, URLSession) {
+        let zip = root.appendingPathComponent("update.zip")
+        try run("/usr/bin/ditto", "-c", "-k", "--keepParent", app.path, zip.path)
+        try ZipProtocol.body.withLock { $0 = try Data(contentsOf: zip) }
+        let name = "OmniWM-canary-\(newTag).zip"
+        let url = URL(string: ReleaseArchive.downloadPrefix + "\(newTag)/\(name)")!
+        var release = GitHubRelease(
+            tagName: newTag, name: newTag, body: "", releasePageURL: url, publishedAt: Date(), isPrerelease: true
+        )
+        release.archive = try ReleaseArchive(
+            name: name, url: url, digest: "sha256:" + AppSelfUpdater.sha256(of: zip), tag: newTag
+        )
+        let configuration = URLSessionConfiguration.ephemeral
+        configuration.protocolClasses = [ZipProtocol.self]
+        return (release, URLSession(configuration: configuration))
+    }
+
+    private func run(_ tool: String, _ arguments: String...) throws {
+        let process = Process()
+        process.executableURL = URL(fileURLWithPath: tool)
+        process.arguments = arguments
+        process.standardError = FileHandle.nullDevice
+        try process.run()
+        process.waitUntilExit()
+        XCTAssertEqual(process.terminationStatus, 0, tool)
+    }
+}

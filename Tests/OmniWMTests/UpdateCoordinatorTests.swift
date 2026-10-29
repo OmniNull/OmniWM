@@ -20,6 +20,13 @@ private func makeRelease(_ tag: String, published: Double, draft: Bool = false) 
     )
 }
 
+private func canaryArchive() -> ReleaseArchive? {
+    let url = URL(string: ReleaseArchive.downloadPrefix + "\(nextCanaryTag)/OmniWM-canary-\(nextCanaryTag).zip")!
+    return ReleaseArchive(
+        name: url.lastPathComponent, url: url, digest: "sha256:" + String(repeating: "a", count: 64), tag: nextCanaryTag
+    )
+}
+
 final class GitHubReleaseUpdateTests: XCTestCase {
     func testCanaryComparesEmbeddedTagWithoutInstalledReleaseRecord() {
         let newer = makeRelease(nextCanaryTag, published: 100)
@@ -100,6 +107,69 @@ final class UpdateCoordinatorTests: XCTestCase {
         func close(markingActionHandled: Bool) {}
     }
 
+    private final class InstallerStub: AppUpdateInstalling {
+        var canInstall = true
+        var failure: Error?
+        var events: [String] = []
+        var onRelaunch: (() -> Void)?
+
+        func install(_ release: GitHubRelease) async throws {
+            events.append("install \(release.tagName)")
+            await Task.yield()
+            if let failure { throw failure }
+        }
+
+        func relaunch() {
+            events.append("relaunch")
+            onRelaunch?()
+        }
+    }
+
+    func testInstallIsOfferedOnlyForWritableBundleWithVerifiedArchive() async throws {
+        let archive = canaryArchive()
+        let offers: [String: (ReleaseArchive?, Bool)] = [
+            "archive and writable": (archive, true),
+            "no archive": (nil, true),
+            "read-only bundle": (archive, false)
+        ]
+        for (name, (archive, writable)) in offers {
+            let window = WindowStub()
+            let shown = expectation(description: name)
+            window.onEvent = { shown.fulfill() }
+            let installer = InstallerStub()
+            installer.canInstall = writable
+            let (coordinator, _) = makeCoordinator(window: window, canary: true, archive: archive, installer: installer)
+            coordinator.checkForUpdatesManually()
+            await fulfillment(of: [shown], timeout: 2)
+            XCTAssertEqual(window.configuration?.installUpdate != nil, name == "archive and writable", name)
+        }
+    }
+
+    func testInstallRelaunchesOnlyAfterSuccessAndReportsFailure() async throws {
+        let archive = canaryArchive()
+        for failing in [false, true] {
+            let window = WindowStub()
+            let shown = expectation(description: "shown")
+            window.onEvent = { shown.fulfill() }
+            let installer = InstallerStub()
+            installer.failure = failing ? AppSelfUpdateError.digestMismatch : nil
+            let (coordinator, _) = makeCoordinator(window: window, canary: true, archive: archive, installer: installer)
+            coordinator.checkForUpdatesManually()
+            await fulfillment(of: [shown], timeout: 2)
+
+            let finished = expectation(description: "finished")
+            window.onEvent = { finished.fulfill() }
+            installer.onRelaunch = { finished.fulfill() }
+            let install = try XCTUnwrap(window.configuration?.installUpdate)
+            install()
+            install()
+            await fulfillment(of: [finished], timeout: 2)
+
+            XCTAssertEqual(installer.events, ["install \(nextCanaryTag)"] + (failing ? [] : ["relaunch"]))
+            XCTAssertEqual(window.alertTitle, failing ? "Could Not Install Update" : nil)
+        }
+    }
+
     func testCanaryPopupCopiesCanaryCommandAndSkipsOnlyItsExactRelease() async throws {
         let window = WindowStub()
         let shown = expectation(description: "Canary update shown")
@@ -174,7 +244,8 @@ final class UpdateCoordinatorTests: XCTestCase {
 
     private func makeCoordinator(
         window: WindowStub, canary: Bool, noRelease: Bool = false,
-        currentVersion: (() -> String?)? = nil, copiedCommand: @escaping (String) -> Void = { _ in }
+        currentVersion: (() -> String?)? = nil, copiedCommand: @escaping (String) -> Void = { _ in },
+        archive: ReleaseArchive? = nil, installer: InstallerStub = InstallerStub()
     ) -> (UpdateCoordinator, RuntimeStateStore) {
         let directory = FileManager.default.temporaryDirectory.appendingPathComponent(UUID().uuidString)
         addTeardownBlock { try? FileManager.default.removeItem(at: directory) }
@@ -183,10 +254,9 @@ final class UpdateCoordinatorTests: XCTestCase {
             persistence: SettingsFilePersistence(directory: directory, startWatching: false, deferSaves: false),
             runtimeState: runtime, autosaveEnabled: false
         )
-        let service = ReleaseStub(
-            noRelease ? nil : makeRelease(canary ? nextCanaryTag : "v0.7.7", published: 200),
-            expectedCanary: canary
-        )
+        var release = makeRelease(canary ? nextCanaryTag : "v0.7.7", published: 200)
+        release.archive = archive
+        let service = ReleaseStub(noRelease ? nil : release, expectedCanary: canary)
         return (UpdateCoordinator(
             settings: settings, runtimeState: runtime, releaseService: service,
             currentVersionProvider: currentVersion ?? { canary ? installedCanaryTag : "0.7.6" },
@@ -194,7 +264,7 @@ final class UpdateCoordinatorTests: XCTestCase {
             infoAlertPresenter: { title, _ in window.alertTitle = title
                 window.onEvent?()
             },
-            openURL: { _ in }, copyCommandToPasteboard: copiedCommand
+            openURL: { _ in }, copyCommandToPasteboard: copiedCommand, installer: installer
         ), runtime)
     }
 }
