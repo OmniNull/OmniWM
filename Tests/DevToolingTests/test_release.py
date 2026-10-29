@@ -196,7 +196,7 @@ class ReleaseTests(unittest.TestCase):
         provenance = {
             "source_repository": "https://github.com/ghostty-org/ghostty.git",
             "source_revision": "c" * 40,
-            "zig_version": "0.17.0",
+            "zig_version": "0.16.0",
             "zip_sha256": self.zip_sha,
             "framework_files": self.manager.framework_hashes(self.framework),
         }
@@ -211,7 +211,7 @@ class ReleaseTests(unittest.TestCase):
             self.manager.install_ghostty_build(self.version, directory)
         pins = self.manager.ghostty_pins()
         self.assertEqual(pins["OMNIWM_GHOSTTY_SOURCE_COMMIT"], "c" * 40)
-        self.assertEqual(pins["OMNIWM_GHOSTTY_ZIG_VERSION"], "0.17.0")
+        self.assertEqual(pins["OMNIWM_GHOSTTY_ZIG_VERSION"], "0.16.0")
         self.assertEqual(pins["OMNIWM_GHOSTTY_ZIP_SHA256"], self.zip_sha)
         self.assertEqual(pins["OMNIWM_GHOSTTY_DOWNLOAD_URL"], self.manager.ghostty_release_url(self.version))
         self.assertEqual((self.framework / "macos-arm64/libghostty-internal.a").read_bytes(), b"library")
