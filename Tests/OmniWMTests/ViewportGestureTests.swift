@@ -97,6 +97,60 @@ final class ViewportGestureTests: XCTestCase {
         XCTAssertEqual(220 + state.viewOffset, 170)
     }
 
+    func testWithNaturalWindowDragAFlingPastTheEndRestsAGapBeyondTheLastColumn() {
+        var state = makeState()
+        state.endGesture(
+            currentOffset: 30,
+            projectedOffset: 500,
+            columns: columns([100, 100, 100]),
+            geometry: NiriViewportGeometry(gap: 10, viewportSpan: 150, orientation: .horizontal),
+            motion: .disabled,
+            snapToColumn: false,
+            keepsStripEndsOnScreen: true
+        )
+
+        let viewStart = 220 + state.viewOffset
+        XCTAssertEqual(state.activeColumnIndex, 2)
+        XCTAssertEqual(viewStart, 180)
+    }
+
+    func testWithAllowOverscrollOnAFlingPastTheEndRestsAtTheOverscrollBoundInsteadOfTheGap() {
+        var state = makeState()
+        state.endGesture(
+            currentOffset: 30,
+            projectedOffset: 500,
+            columns: columns([100, 100, 100]),
+            geometry: NiriViewportGeometry(
+                gap: 10,
+                viewportSpan: 150,
+                orientation: .horizontal,
+                edgeOverscroll: .enabled(visibleFraction: 0.5)
+            ),
+            motion: .disabled,
+            snapToColumn: false,
+            keepsStripEndsOnScreen: true
+        )
+
+        XCTAssertEqual(state.activeColumnIndex, 2)
+        XCTAssertEqual(220 + state.viewOffset, 260)
+    }
+
+    func testWithNaturalWindowDragAFlingPastTheStartRestsAGapBeforeTheFirstColumn() {
+        var state = makeState(activeColumnIndex: 1, viewOffset: 0)
+        state.endGesture(
+            currentOffset: -30,
+            projectedOffset: -500,
+            columns: columns([100, 100, 100]),
+            geometry: NiriViewportGeometry(gap: 10, viewportSpan: 150, orientation: .horizontal),
+            motion: .disabled,
+            snapToColumn: false,
+            keepsStripEndsOnScreen: true
+        )
+
+        XCTAssertEqual(state.activeColumnIndex, 0)
+        XCTAssertEqual(state.viewOffset, -10)
+    }
+
     func testDisabledAnimationsJumpToClampedLandingWithoutDeceleration() {
         var state = makeState()
         state.endGesture(

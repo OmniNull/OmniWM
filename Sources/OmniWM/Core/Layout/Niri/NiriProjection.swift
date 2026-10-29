@@ -377,7 +377,8 @@ extension NiriLayoutEngine {
                 motion: context.motion,
                 snapToColumn: snapToColumn,
                 centerMode: centerMode,
-                alwaysCenterSingleColumn: alwaysCenterSingleColumn
+                alwaysCenterSingleColumn: alwaysCenterSingleColumn,
+                keepsStripEndsOnScreen: keepsStripEndsOnScreen
             )
 
             projectedState.rebaseOffset(by: -singleOriginOffset)

@@ -13,7 +13,8 @@ extension ViewportState {
         motion: MotionSnapshot,
         snapToColumn: Bool = true,
         centerMode: CenterFocusedColumn = .never,
-        alwaysCenterSingleColumn: Bool = false
+        alwaysCenterSingleColumn: Bool = false,
+        keepsStripEndsOnScreen: Bool = false
     ) {
         guard !columns.isEmpty else {
             endGestureWithoutSnap(currentOffset: currentOffset)
@@ -33,6 +34,7 @@ extension ViewportState {
                 columns: columns,
                 geometry: geometry,
                 totalContentSpan: totalContentSpan,
+                padding: keepsStripEndsOnScreen ? Double(geometry.gap) : 0,
                 motion: motion
             )
             return
@@ -294,6 +296,7 @@ extension ViewportState {
         columns: [NiriContainer],
         geometry: NiriViewportGeometry,
         totalContentSpan: Double,
+        padding: Double,
         motion: MotionSnapshot
     ) {
         let sizeKeyPath = geometry.orientation.renderedSpanKeyPath
@@ -304,15 +307,17 @@ extension ViewportState {
             sizeKeyPath: sizeKeyPath
         )
 
+        let viewStartBounds = geometry.overscrollBounds(columns: columns).map {
+            Double($0.lowerBound) ... Double($0.upperBound)
+        } ?? (-padding ... max(-padding, totalContentSpan - Double(geometry.viewportSpan) + padding))
+
         guard let preserved = NiriGestureMomentumPlan(
             columns: columns,
             gap: geometry.gap,
             viewportSpan: Double(geometry.viewportSpan),
             totalContentSpan: totalContentSpan,
             sizeKeyPath: sizeKeyPath,
-            viewStartBounds: geometry.overscrollBounds(columns: columns).map {
-                Double($0.lowerBound) ... Double($0.upperBound)
-            }
+            viewStartBounds: viewStartBounds
         )?.landing(
             columns: columns,
             activeIndex: activeColumnIndex,
@@ -336,11 +341,7 @@ extension ViewportState {
         }
         activeColumnIndex = preserved.normalizedActiveColumn
 
-        let maxViewStart = max(0, totalContentSpan - Double(geometry.viewportSpan))
-        let bounds = geometry.overscrollBounds(columns: columns).map {
-            Double($0.lowerBound) ... Double($0.upperBound)
-        } ?? (0 ... maxViewStart)
-        let overscrolled = !bounds.contains(Double(oldActivePosition) + projectedOffset)
+        let overscrolled = !viewStartBounds.contains(Double(oldActivePosition) + projectedOffset)
 
         applyMomentumLanding(
             finalOffset: preserved.finalOffset, offsetDelta: offsetDelta, overscrolled: overscrolled, motion: motion
