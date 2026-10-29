@@ -490,6 +490,26 @@ final class MenuBarAutohideHoldTests: XCTestCase {
         }
     }
 
+    func testABarFillingLeftOfTheNotchCoversTheAppMenusButKeepsTheMenuBar() {
+        let notched = Monitor(
+            id: .init(displayId: 9),
+            displayId: 9,
+            frame: CGRect(x: 0, y: 0, width: 1512, height: 982),
+            visibleFrame: CGRect(x: 0, y: 0, width: 1512, height: 950),
+            hasNotch: true,
+            notchRange: 656 ... 856,
+            name: "Notched"
+        )
+        let settings = WorkspaceBarSettings()
+        settings.notchMode = .fillLeftOfNotch
+        XCTAssertFalse(WorkspaceBarManager.hidesMenuBar(settings.resolved(for: notched)))
+        XCTAssertTrue(WorkspaceBarManager.coversAppMenus(settings.resolved(for: notched)))
+        settings.notchMode = .rightOfNotch
+        XCTAssertFalse(WorkspaceBarManager.coversAppMenus(settings.resolved(for: notched)))
+        settings.fullWidth = true
+        XCTAssertTrue(WorkspaceBarManager.coversAppMenus(settings.resolved(for: notched)))
+    }
+
     func testAFullWidthBarOverTheMenuBarStaysAboveNativeMenus() {
         let monitor = Monitor(
             id: .init(displayId: 7),
