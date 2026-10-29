@@ -947,6 +947,66 @@ final class NiriNaturalEdgeResizeTests: NiriInteractionTestCase {
         XCTAssertTrue(try fixture.node(middle).height.isAuto)
     }
 
+    func testAMiddleWindowsEdgeSnapsBackWhenTheWindowAboveCantGrowThatFar() throws {
+        let fixture = try makeFixture(stackedThree: true, pid: 871_052)
+        let blocker = blockRefreshes(fixture)
+        defer { unblockRefreshes(fixture, blocker: blocker) }
+        let (upper, middle, lower) = try topToBottom(fixture)
+        let upperStart = try fixture.frame(upper)
+        let middleStart = try fixture.frame(middle)
+        let lowerStart = try fixture.frame(lower)
+        try fixture.node(upper).constraints = WindowSizeConstraints(
+            minSize: CGSize(width: 1, height: 1),
+            maxSize: CGSize(width: 0, height: upperStart.height + 10),
+            isFixed: false
+        )
+
+        try fixture.resize(middle, to: grown(middleStart, top: -40))
+
+        XCTAssertEqual(try fixture.settledFrame(middle), middleStart)
+        XCTAssertEqual(try fixture.settledFrame(upper), upperStart)
+        XCTAssertEqual(try fixture.settledFrame(lower), lowerStart)
+    }
+
+    func testAFixedHeightNeighbourKeepsAFixedHeightWhenItGivesWay() throws {
+        let fixture = try makeFixture(stackedThree: true, pid: 871_053)
+        let blocker = blockRefreshes(fixture)
+        defer { unblockRefreshes(fixture, blocker: blocker) }
+        let (upper, middle, lower) = try topToBottom(fixture)
+        let upperStart = try fixture.frame(upper)
+        let middleStart = try fixture.frame(middle)
+        let lowerStart = try fixture.frame(lower)
+        fixture.manager.withNiriViewportState(for: fixture.workspaceId) { _ in
+            try? fixture.node(upper).height = .fixed(upperStart.height)
+            try? fixture.node(middle).height = .fixed(middleStart.height)
+        }
+
+        try fixture.resize(middle, to: grown(middleStart, top: 50))
+
+        XCTAssertEqual(try fixture.node(upper).height, .fixed(upperStart.height - 50))
+        XCTAssertEqual(try fixture.settledFrame(upper).maxY, upperStart.maxY, accuracy: 1)
+        XCTAssertEqual(try fixture.settledFrame(middle).height, middleStart.height + 50, accuracy: 1)
+        XCTAssertEqual(try fixture.settledFrame(lower), lowerStart)
+    }
+
+    func testAnOptionPressOnAFixedSizeWindowsEdgeStillMovesIt() throws {
+        let fixture = try makeFixture(pid: 871_054)
+        fixture.controller.settings.niri.naturalWindowDragModifier = .control
+        fixture.controller.settings.gestures.mouseMoveModifierKey = .option
+        let pressed = fixture.tokens[1]
+        let frame = try fixture.frame(pressed)
+        let size = CGSize(width: frame.width, height: frame.height)
+        try fixture.node(pressed).constraints = WindowSizeConstraints(minSize: size, maxSize: size, isFixed: true)
+
+        _ = fixture.handler.dispatchMouseDown(
+            at: CGPoint(x: frame.maxX - 2, y: frame.midY),
+            modifiers: .maskAlternate,
+            windowIdUnderPointer: pressed.windowId
+        )
+
+        XCTAssertTrue(fixture.handler.state.isMoving)
+    }
+
     func testACentredWidthDragAtTheScreenEdgeGrowsAwayFromIt() throws {
         let fixture = try makeFixture(pid: 871_043)
         let blocker = blockRefreshes(fixture)

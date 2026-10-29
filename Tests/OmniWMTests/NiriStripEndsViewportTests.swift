@@ -66,6 +66,15 @@ final class NiriStripEndsViewportTests: XCTestCase {
         XCTAssertEqual((span.lowerBound + span.upperBound) / 2, fixture.frame.midX, accuracy: 0.5)
     }
 
+    func testWithNaturalWindowDragAnAlwaysCentredFirstColumnIsStillCentred() {
+        var fixture = makeFixture(keepsStripEndsOnScreen: true, centering: .always)
+
+        fixture.focus(0, from: 1)
+
+        let span = fixture.span(of: 0)
+        XCTAssertEqual((span.lowerBound + span.upperBound) / 2, fixture.frame.midX, accuracy: 0.5)
+    }
+
     func testWithoutNaturalWindowDragTheFirstColumnIsCentred() {
         var fixture = makeFixture(keepsStripEndsOnScreen: false)
 
@@ -89,10 +98,11 @@ final class NiriStripEndsViewportTests: XCTestCase {
 
     private func makeFixture(
         widths: [CGFloat] = [0.66, 0.42, 0.66, 0.42],
-        keepsStripEndsOnScreen: Bool
+        keepsStripEndsOnScreen: Bool,
+        centering: CenterFocusedColumn = .onOverflow
     ) -> Fixture {
         let engine = NiriLayoutEngine()
-        engine.centerFocusedColumn = .onOverflow
+        engine.centerFocusedColumn = centering
         engine.keepsStripEndsOnScreen = keepsStripEndsOnScreen
         let workspaceId = WorkspaceDescriptor.ID()
         let frame = CGRect(x: 0, y: 0, width: 1_500, height: 900)

@@ -251,6 +251,24 @@ final class NiriRemovalViewportTests: XCTestCase {
         XCTAssertEqual(viewOrigin(fixture), 550)
     }
 
+    func testWithNaturalWindowDragATrailingRemovalLeavesNoEmptyScreen() {
+        var fixture = makeFixture(
+            spans: [700, 700, 700],
+            orientation: .horizontal,
+            gap: 0,
+            viewportSpan: 1000,
+            crossSpan: 800,
+            centerMode: .onOverflow
+        )
+        fixture.engine.keepsStripEndsOnScreen = true
+        focusColumn(at: 1, in: &fixture)
+        XCTAssertEqual(viewOrigin(fixture), 550, accuracy: 0.5)
+
+        _ = removeToken(at: 2, from: &fixture)
+
+        XCTAssertEqual(viewOrigin(fixture), 400, accuracy: 0.5)
+    }
+
     func testOverflowCenteringUsesActivePairWithNarrowEdgeColumns() {
         var fixture = makeFixture(
             spans: [100, 600, 600, 100, 100],

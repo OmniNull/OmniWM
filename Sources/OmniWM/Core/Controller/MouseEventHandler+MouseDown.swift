@@ -83,8 +83,9 @@ extension MouseEventHandler {
     ) -> Bool {
         guard controller?.settings.niri.naturalWindowDrag == true,
               modifiers.contains(.maskAlternate),
-              let frame = engine.hitTestTiled(point: location, in: workspaceId)
-                  .flatMap({ $0.renderedFrame ?? $0.frame })
+              let window = engine.hitTestTiled(point: location, in: workspaceId),
+              !window.constraints.isFixed,
+              let frame = window.renderedFrame ?? window.frame
         else { return false }
         return Self.isOnResizeEdge(location, of: frame)
     }

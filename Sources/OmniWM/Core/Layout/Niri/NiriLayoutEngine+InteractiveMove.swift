@@ -50,6 +50,7 @@ extension NiriLayoutEngine {
             animate: false,
             centerMode: settings.centerFocusedColumn,
             alwaysCenterSingleColumn: settings.alwaysCenterSingleColumn,
+            keepsStripEndsOnScreen: keepsStripEndsOnScreen,
             scale: displayScale(in: context.workspaceId),
             viewFrame: monitorForWorkspace(context.workspaceId)?.frame
         )

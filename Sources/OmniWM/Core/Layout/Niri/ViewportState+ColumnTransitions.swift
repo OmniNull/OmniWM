@@ -13,6 +13,7 @@ extension ViewportState {
         centerMode: CenterFocusedColumn,
         alwaysCenterSingleColumn: Bool = false,
         fromColumnIndex: Int? = nil,
+        keepsStripEndsOnScreen: Bool = false,
         scale: CGFloat = 2.0,
         viewFrame: CGRect? = nil
     ) {
@@ -54,6 +55,7 @@ extension ViewportState {
             centerMode: centerMode,
             alwaysCenterSingleColumn: alwaysCenterSingleColumn,
             fromContainerIndex: fromColumnIndex ?? prevActiveColumn,
+            keepsStripEndsOnScreen: keepsStripEndsOnScreen,
             scale: scale,
             viewFrame: viewFrame
         )

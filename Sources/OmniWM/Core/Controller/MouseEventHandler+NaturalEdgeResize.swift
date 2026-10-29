@@ -90,12 +90,12 @@ extension MouseEventHandler {
               !column.isTabbed,
               case let .fixed(height) = window.height
         else { return true }
-        let others = engine.projectedWindows(in: column, workspaceId: context.workspaceId)
-            .filter { $0 !== window }
+        let others = engine.projectedWindows(in: column, workspaceId: context.workspaceId).filter { $0 !== window }
+        let placed = others
             .compactMap { other in (other.renderedFrame ?? other.frame).map { (window: other, frame: $0) } }
-        let above = others.filter { $0.frame.minY >= start.maxY - FrameTolerance.screenMatch }
+        let above = placed.filter { $0.frame.minY >= start.maxY - FrameTolerance.screenMatch }
             .min { $0.frame.minY < $1.frame.minY }
-        let below = others.filter { $0.frame.maxY <= start.minY + FrameTolerance.screenMatch }
+        let below = placed.filter { $0.frame.maxY <= start.minY + FrameTolerance.screenMatch }
             .max { $0.frame.maxY < $1.frame.maxY }
         let (up, down) = heightChangeSides(
             height - start.height,
@@ -104,22 +104,24 @@ extension MouseEventHandler {
             hasAbove: above != nil,
             hasBelow: below != nil
         )
-        var heights = Dictionary(uniqueKeysWithValues: others.map { (ObjectIdentifier($0.window), $0.frame.height) })
+        var heights = Dictionary(uniqueKeysWithValues: others
+            .map { (ObjectIdentifier($0), $0.currentHeightForSizing()) })
         for (neighbour, change) in [(above, up), (below, down)] {
             guard let neighbour else { continue }
-            let shrunk = neighbour.frame.height - change
-            guard shrunk >= max(1, neighbour.window.constraints.minSize.height) else { return false }
-            heights[ObjectIdentifier(neighbour.window)] = shrunk
+            let resized = neighbour.frame.height - change
+            guard resized >= 1,
+                  abs(neighbour.window.constraints.clampHeight(resized) - resized) <= FrameTolerance.screenMatch
+            else { return false }
+            heights[ObjectIdentifier(neighbour.window)] = resized
             if !neighbour.window.height.isAuto {
-                neighbour.window.height = .fixed(shrunk)
+                neighbour.window.height = .fixed(resized)
             }
         }
-        let flexible = others.filter(\.window.height.isAuto)
-        let median = flexible.compactMap { heights[ObjectIdentifier($0.window)] }.sorted().dropFirst(flexible.count / 2)
-            .first
+        let flexible = others.filter(\.height.isAuto)
+        let median = flexible.compactMap { heights[ObjectIdentifier($0)] }.sorted().dropFirst(flexible.count / 2).first
         for other in flexible {
-            guard let median, let pixels = heights[ObjectIdentifier(other.window)] else { continue }
-            other.window.height = .auto(weight: pixels / max(1, median))
+            guard let median, let pixels = heights[ObjectIdentifier(other)] else { continue }
+            other.height = .auto(weight: pixels / max(1, median))
         }
         return true
     }

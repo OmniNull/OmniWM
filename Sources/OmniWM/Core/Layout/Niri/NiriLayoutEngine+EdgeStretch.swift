@@ -118,16 +118,15 @@ extension NiriLayoutEngine {
         column.cachedWidth = width
         let strip = liveColumnStrip(context: context, state: state)
         column.cachedWidth = startWidth
-        guard let after = strip.first(where: { $0.column === column }),
-              let first = strip.first,
-              let last = strip.last
-        else { return }
+        guard let after = strip.first(where: { $0.column === column }) else { return }
         let lowest = context.workingFrame.minX + context.gaps
-        let screenEnd = context.workingFrame.maxX - context.gaps
-        let highest = max(lowest, screenEnd - width)
+        let highest = max(lowest, context.workingFrame.maxX - context.gaps - width)
         var drift = after.minX - min(max(centre - width / 2, lowest), highest)
-        if last.maxX - first.minX >= screenEnd - lowest - FrameTolerance.screenMatch {
-            drift = min(max(drift, first.minX - lowest), last.maxX - screenEnd)
+        if !centresFocusedColumn(in: context.workspaceId),
+           let ends = stripEndsDrift(strip: strip, context: context),
+           ends.lowest <= ends.highest + FrameTolerance.screenMatch
+        {
+            drift = min(max(drift, ends.lowest), ends.highest)
         }
         guard abs(drift) > 0.5 else { return }
         if animated {

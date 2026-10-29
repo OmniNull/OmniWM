@@ -354,7 +354,7 @@ extension ViewportState {
         let offset = shouldCenter
             ? areas.centeredOffset(currentViewStart: currentViewStart, target: target, gap: context.gaps)
             : areas.fitOffset(currentViewStart: currentViewStart, target: target, gap: context.gaps)
-        guard keepsStripEndsOnScreen, target.mode == .normal else { return offset }
+        guard keepsStripEndsOnScreen, target.mode == .normal, effectiveCenterMode != .always else { return offset }
         return offsetKeepingStripEndsOnScreen(offset, target: target, containers: containers, context: context)
     }
 

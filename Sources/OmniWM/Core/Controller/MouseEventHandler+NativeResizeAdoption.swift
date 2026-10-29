@@ -225,7 +225,8 @@ extension MouseEventHandler {
         let horizontal = context.orientation == .horizontal
         let renderedSpan = horizontal ? frames.start.height : frames.start.width
         let applied = horizontal ? window.height : window.windowWidth
-        if case let .fixed(value) = applied, abs(value - renderedSpan) > FrameTolerance.frameWrite,
+        guard case let .fixed(value) = applied else { return true }
+        if abs(value - renderedSpan) > FrameTolerance.frameWrite,
            !horizontal || controller?.settings.niri.naturalWindowDrag != true
            || neighboursGiveWay(to: window, from: frames.start, to: frames.observed, context: context)
         {
