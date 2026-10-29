@@ -39,8 +39,15 @@ final class ShellPermissionPromptPanelTests: XCTestCase {
         let panel = try XCTUnwrap(NSApp.windows.first {
             !existing.contains($0.windowNumber) && $0 is NSPanel && $0.isVisible
         } as? NSPanel)
-        let content = try XCTUnwrap(panel.contentView)
+        let hosting = try XCTUnwrap(panel.contentView as? NSHostingView<ShellPermissionPromptView>)
+        let originalFrame = panel.frame
+        let content = NSHostingView(rootView: hosting.rootView.environment(\.accessibilityEnabled, true))
+        content.sizingOptions = []
+        content.frame = hosting.frame
+        panel.contentView = content
+        try await Task.sleep(for: .milliseconds(100))
         content.layoutSubtreeIfNeeded()
+        XCTAssertEqual(panel.frame, originalFrame)
         try check(panel, content, panel.screen?.visibleFrame ?? screen.visibleFrame)
     }
 
@@ -174,7 +181,7 @@ final class ShellPermissionPromptPanelTests: XCTestCase {
         _ = Self.application
         let content = NSHostingView(rootView: ShellPermissionPromptView(
             request: network(hostCount: 60), name: "Test widget", maximumHeight: 320, answer: { _ in }
-        ))
+        ).environment(\.accessibilityEnabled, true))
         let panel = NSPanel(contentRect: .zero, styleMask: [.titled], backing: .buffered, defer: false)
         panel.isReleasedWhenClosed = false
         panel.contentView = content
