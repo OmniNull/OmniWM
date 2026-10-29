@@ -126,6 +126,7 @@ final class WorkspaceSwipePresentation {
             return false
         }
         self.preparation = preparation
+        previewSurface(controller).captureSource(monitor: preparation.monitor, workingFrame: preparation.frame)
         previewSurface(controller).warm(
             source: preparation.source.items,
             destination: (preparation.previous?.items ?? []) + (preparation.next?.items ?? []),
@@ -291,6 +292,7 @@ final class WorkspaceSwipePresentation {
             return
         }
         flight.phase = .committing
+        preview?.freezeSource()
         let settlement =
             AXFrameSettlement(tokens: Set(controller.workspaceManager.entries(in: flight.destination.id).map(\.token)))
         flight.settlement = settlement

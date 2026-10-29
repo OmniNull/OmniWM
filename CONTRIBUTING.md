@@ -43,7 +43,7 @@ The result must report the Swift 6.5 development snapshot named in `.swift-versi
 make setup
 ```
 
-Setup needs [Lix](https://lix.systems/install/) (or another Nix with flakes). It builds the repository's `flake.nix`: the pinned, prebuilt GhosttyKit is linked at `Frameworks/GhosttyKit.xcframework` and checked against its checksum, and the pinned SwiftFormat, SwiftLint, Python, Fish and Nushell are linked at `.cache/flake-tools`. **You do not need to compile GhosttyKit**, and no Homebrew installation is required. `nix develop` opens a shell with the same tools on `PATH`.
+Setup needs [Lix](https://lix.systems/install/) (or another Nix with flakes). It builds the repository's `flake.nix`: the pinned, prebuilt GhosttyKit is linked at `Frameworks/GhosttyKit.xcframework` and checked against its checksum, and the pinned SwiftFormat, SwiftLint, Python, Fish and Nushell are linked at `.cache/flake-tools`. **You do not need to compile GhosttyKit**, and no Homebrew installation is required. `nix develop` opens a shell with the same tools on `PATH`. With [direnv](https://direnv.net), `direnv allow` loads that shell whenever you enter the checkout.
 
 Tool versions and download checksums are recorded in [Scripts/dev-tools.env](Scripts/dev-tools.env), which the flake reads; other packages are pinned by `flake.lock`. Ghostty's internal archive pin remains in [Scripts/build-metadata.env](Scripts/build-metadata.env). Setup preserves an existing framework that does not match the pin and explains the mismatch instead of overwriting it. Setup does not launch OmniWM or change privacy permissions, login items, or CLI links.
 
@@ -84,6 +84,7 @@ Commit your change, push your branch to your fork, and open a pull request targe
 | --- | --- |
 | `make setup` | Check prerequisites and obtain the pinned dependencies. |
 | `make doctor` | Diagnose tools, dependencies, signing, and app paths without changing them. |
+| `make hooks` | Enable the pre-commit hook: SwiftFormat and SwiftLint on staged Swift files, and a warning when a pinned download in `Scripts/dev-tools.env` is not public yet. |
 | `make build` | Build the app without installing or launching it. |
 | `make run` | Build, sign, install, and switch to Dev; alias for `make dev-install`. |
 | `make use-dev` | Switch to the installed Dev app without rebuilding. |
