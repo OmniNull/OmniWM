@@ -277,6 +277,7 @@ final class WorkspaceBarManagerTests: XCTestCase {
 
     func testRevealAndFullscreenVisibilityLeaveTheMenuBarHoldAlone() throws {
         controller.settings.workspaceBar.fullWidth = true
+        controller.settings.workspaceBar.autoHide = true
         controller.settings.workspaceBar.revealModifier = .option
         controller.settings.workspaceBar.hideInNativeFullscreen = true
         let shell = ShellWidgetHost.shellDirectory(in: controller.settings.settingsFileURL.deletingLastPathComponent())
@@ -328,6 +329,56 @@ final class WorkspaceBarManagerTests: XCTestCase {
         XCTAssertFalse(controller.settings.workspaceBar.resolved(for: monitor).fullWidth)
         apply()
         XCTAssertEqual(menuBar.calls, [true, false, true, false])
+    }
+
+    func testAutoHideAndModifierRevealKeepOtherMonitorVisible() throws {
+        let external = Monitor(
+            id: .init(displayId: 92_201), displayId: 92_201,
+            frame: CGRect(x: 1920, y: 0, width: 1920, height: 1080),
+            visibleFrame: CGRect(x: 1920, y: 0, width: 1920, height: 1055),
+            hasNotch: false, name: "External"
+        )
+        controller.settings.workspaceBar.autoHide = false
+        controller.settings.workspaceBar.revealModifier = .controlShift
+        controller.settings.workspaceBar.update(
+            MonitorBarSettings(monitorName: monitor.name, autoHide: true), for: monitor
+        )
+        controller.workspaceManager.applyMonitorConfigurationChange([monitor, external])
+        var pointer = monitor.frame.center
+        controller.currentMouseLocation = { pointer }
+        let manager = controller.workspaceBarManager
+        manager.setup(controller: controller, settings: controller.settings)
+        manager.panelFactory = { WorkspaceBarPanel.defaultPanel() }
+        manager.frameApplier = { _, _ in }
+        defer { manager.cleanup() }
+        func apply() {
+            manager.apply(WorldView(controller: controller).barSurfaces())
+        }
+
+        apply()
+        let hiddenPanel = try XCTUnwrap(manager.barsByMonitor[monitor.id]?.primary.panel)
+        let visiblePanel = try XCTUnwrap(manager.barsByMonitor[external.id]?.primary.panel)
+        hiddenPanel.setFrame(CGRect(x: 100, y: monitor.frame.maxY - 24, width: 200, height: 24), display: false)
+        manager.rebuildAutoHideTargets()
+        XCTAssertFalse(hiddenPanel.isVisible)
+        XCTAssertTrue(visiblePanel.isVisible)
+        for held in [true, false] {
+            controller.setWorkspaceBarRevealHeld(held)
+            apply()
+            XCTAssertEqual(hiddenPanel.isVisible, held)
+            XCTAssertTrue(visiblePanel.isVisible)
+        }
+
+        pointer = CGPoint(x: hiddenPanel.frame.midX, y: monitor.frame.maxY - 0.5)
+        manager.handleAutoHideMouseMoved(at: pointer)
+        apply()
+        XCTAssertTrue(hiddenPanel.isVisible)
+        XCTAssertTrue(visiblePanel.isVisible)
+        pointer = monitor.frame.center
+        manager.handleAutoHideMouseMoved(at: pointer)
+        apply()
+        XCTAssertFalse(hiddenPanel.isVisible)
+        XCTAssertTrue(visiblePanel.isVisible)
     }
 
     func testAutoHideSuppressionAndMonitorRemovalClearReveal() throws {

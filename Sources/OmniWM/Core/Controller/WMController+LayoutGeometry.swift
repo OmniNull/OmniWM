@@ -177,7 +177,6 @@ extension WMController {
     }
 
     func workspaceBarReservedInsets(for monitor: Monitor) -> Struts {
-        guard settings.workspaceBar.resolvedRevealModifier == .off else { return .zero }
         let resolved = settings.workspaceBar.resolved(for: monitor)
         return WorkspaceBarGeometry.resolve(
             monitor: monitor,
