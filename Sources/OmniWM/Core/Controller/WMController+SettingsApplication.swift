@@ -134,8 +134,13 @@ extension WMController {
         }
     }
 
+    var edgePeekShare: CGFloat? {
+        guard settings.niri.naturalWindowDrag, settings.niri.edgePeek else { return nil }
+        return CGFloat(settings.niri.edgePeekPercent / 100)
+    }
+
     var naturalWindowDragConfiguration: NaturalWindowDragConfiguration {
-        NaturalWindowDragConfiguration(enabled: settings.niri.naturalWindowDrag)
+        NaturalWindowDragConfiguration(enabled: settings.niri.naturalWindowDrag, edgePeekShare: edgePeekShare)
     }
 
     func applyNaturalWindowDragSettings() {

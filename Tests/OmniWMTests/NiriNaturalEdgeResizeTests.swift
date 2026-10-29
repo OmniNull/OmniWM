@@ -700,6 +700,24 @@ final class NiriNaturalEdgeResizeTests: NiriInteractionTestCase {
         XCTAssertEqual(fixture.phase, .awaitingCorrection)
     }
 
+    func testAnEdgeDragReleasedPastThePeekStopsAtIt() throws {
+        let fixture = try makeFixture(pid: 871_190)
+        fixture.controller.settings.niri.edgePeek = true
+        fixture.controller.applyNaturalWindowDragSettings()
+        let blocker = blockRefreshes(fixture)
+        defer { unblockRefreshes(fixture, blocker: blocker) }
+        let resized = fixture.tokens[1]
+        let start = try fixture.frame(resized)
+        try fixture.beginDrag(resized)
+        fixture.drag(resized, to: grown(start, right: 5000))
+
+        fixture.release(at: grown(start, right: 5000))
+
+        let gap = fixture.controller.innerGap(for: fixture.monitor)
+        let cap = fixture.monitor.frame.width - 2 * ((fixture.monitor.frame.width * 0.03).rounded() + gap)
+        XCTAssertEqual(try fixture.frame(resized).width, cap, accuracy: 1)
+    }
+
     func testATitleBarDragStaysALiveColumnMove() throws {
         let fixture = try makeFixture(pid: 871_012)
         let blocker = blockRefreshes(fixture)

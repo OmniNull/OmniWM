@@ -121,6 +121,8 @@ enum SettingsSearchIndex {
             tab: "niri",
             anchor: "Left Mouse Natural Window Drag Modifier"
         ),
+        setting("Peek at Neighboring Windows", section: .layouts, tab: "niri", anchor: "Peek at Neighboring Windows"),
+        setting("Peek Width", section: .layouts, tab: "niri", anchor: "Peek Width"),
         setting(
             "Default New Container Primary Span",
             section: .layouts,

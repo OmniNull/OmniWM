@@ -32,7 +32,9 @@ final class LayoutSectionsSettingsExportTests: XCTestCase {
             "overscrollVisibleStripPercent": .integer(5),
             "shrinkToFit": .boolean(false),
             "naturalWindowDrag": .boolean(false),
-            "naturalWindowDragModifier": .string("option")
+            "naturalWindowDragModifier": .string("option"),
+            "edgePeek": .boolean(false),
+            "edgePeekPercent": .float(3.0)
         ]))
         XCTAssertEqual(tree["dwindle"], .table([
             "smartSplit": .boolean(false),
@@ -165,6 +167,56 @@ final class LayoutSectionsSettingsExportTests: XCTestCase {
         settings.apply(enabled, baseline: .defaults())
         XCTAssertTrue(settings.naturalWindowDrag)
         XCTAssertEqual(settings.export().naturalWindowDrag, true)
+    }
+
+    @MainActor
+    func testEdgePeekDefaultsOffRoundTripsAndLoadsWhenOmitted() throws {
+        XCTAssertEqual(SettingsExport.defaults().niri.edgePeek, false)
+        XCTAssertFalse(NiriSettings().edgePeek)
+        for enabled in [false, true] {
+            var export = SettingsExport.defaults()
+            export.niri.edgePeek = enabled
+            let encoded = try SettingsTOMLCodec.encode(export)
+            XCTAssertTrue(String(decoding: encoded, as: UTF8.self).contains("edgePeek = \(enabled)"))
+            XCTAssertEqual(try SettingsTOMLCodec.decode(encoded), export)
+            XCTAssertTrue(SettingsTOMLCodec.unknownKeyPaths(in: encoded).isEmpty)
+        }
+
+        let source = String(decoding: try SettingsTOMLCodec.encode(.defaults()), as: UTF8.self)
+        let omitted = try removing(key: "edgePeek", from: "niri", in: source)
+        let result = try SettingsTOMLCodec.decodeForLoad(Data(omitted.utf8))
+        XCTAssertNil(result.migration)
+        XCTAssertEqual(result.export.niri.edgePeek, false)
+
+        let settings = NiriSettings()
+        var enabled = SettingsExport.Niri.defaults()
+        enabled.edgePeek = true
+        settings.apply(enabled, baseline: .defaults())
+        XCTAssertTrue(settings.edgePeek)
+        XCTAssertEqual(settings.export().edgePeek, true)
+    }
+
+    @MainActor
+    func testEdgePeekPercentDefaultsToThreeRoundTripsAndIsClamped() throws {
+        XCTAssertEqual(SettingsExport.defaults().niri.edgePeekPercent, 3.0)
+        XCTAssertEqual(NiriSettings().edgePeekPercent, 3.0)
+        var export = SettingsExport.defaults()
+        export.niri.edgePeekPercent = 2.5
+        let encoded = try SettingsTOMLCodec.encode(export)
+        XCTAssertTrue(String(decoding: encoded, as: UTF8.self).contains("edgePeekPercent = 2.5"))
+        XCTAssertEqual(try SettingsTOMLCodec.decode(encoded), export)
+
+        let source = String(decoding: try SettingsTOMLCodec.encode(.defaults()), as: UTF8.self)
+        let omitted = try removing(key: "edgePeekPercent", from: "niri", in: source)
+        let decoded = try SettingsTOMLCodec.decodeForLoad(Data(omitted.utf8)).export
+        XCTAssertNil(decoded.niri.edgePeekPercent)
+        let settings = NiriSettings()
+        settings.apply(decoded.niri, baseline: .defaults())
+        XCTAssertEqual(settings.edgePeekPercent, 3.0)
+        settings.edgePeekPercent = 40
+        XCTAssertEqual(settings.edgePeekPercent, 10)
+        settings.edgePeekPercent = 0
+        XCTAssertEqual(settings.edgePeekPercent, 1)
     }
 
     @MainActor

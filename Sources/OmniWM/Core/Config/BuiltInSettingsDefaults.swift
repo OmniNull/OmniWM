@@ -5,6 +5,7 @@ import Foundation
 
 enum BuiltInSettingsDefaults {
     static let niriResizeStepPercent = 5
+    static let niriEdgePeekPercent = 3.0
 
     static let niriContainerPrimarySpanPresets: [Double] = [
         0.33333333333333331,

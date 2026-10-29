@@ -372,7 +372,8 @@ extension NiriLayoutEngine {
                     workingArea: context.workingFrame,
                     viewFrame: viewFrame,
                     scale: scale,
-                    edgeOverscroll: effectiveSettings(in: context.workspaceId).edgeOverscroll
+                    edgeOverscroll: effectiveSettings(in: context.workspaceId).edgeOverscroll,
+                    edgePeeks: edgePeekWidths(in: context.workspaceId)
                 ),
                 motion: context.motion,
                 snapToColumn: snapToColumn,

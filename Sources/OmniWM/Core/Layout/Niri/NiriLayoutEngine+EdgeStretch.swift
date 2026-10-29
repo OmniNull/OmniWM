@@ -27,9 +27,10 @@ extension NiriLayoutEngine {
         state: ViewportState
     ) -> ColumnStretch? {
         guard let span = columnScreenSpan(column, context: context, state: state) else { return nil }
+        let limits = edgePeekBounds(of: column, context: context)
         let reach = rightSide
-            ? context.workingFrame.maxX - context.gaps - span.lowerBound
-            : span.upperBound - (context.workingFrame.minX + context.gaps)
+            ? limits.upperBound - span.lowerBound
+            : span.upperBound - limits.lowerBound
         let bounds = projectedWidthBounds(for: column, workspaceId: context.workspaceId)
         let widest = min(context.workingFrame.width - 2 * context.gaps, bounds.max ?? .infinity)
         let requested = max(bounds.min, min(reach, widest))
@@ -95,8 +96,9 @@ extension NiriLayoutEngine {
         let strip = liveColumnStrip(context: context, state: state)
         column.cachedWidth = startWidth
         guard let after = strip.first(where: { $0.column === column }) else { return }
-        let lowest = context.workingFrame.minX + context.gaps
-        let highest = max(lowest, context.workingFrame.maxX - context.gaps - width)
+        let limits = edgePeekBounds(of: column, context: context)
+        let lowest = limits.lowerBound
+        let highest = max(lowest, limits.upperBound - width)
         var drift = after.minX - min(max(centre - width / 2, lowest), highest)
         if !centresFocusedColumn(in: context.workspaceId),
            let ends = keptStripEndsDrift(strip: strip, context: context)
@@ -119,7 +121,7 @@ extension NiriLayoutEngine {
 }
 
 extension NiriLayoutEngine {
-    func viewportEdgeRules(in _: WorkspaceDescriptor.ID) -> ViewportEdgeRules {
-        ViewportEdgeRules(keepsStripEndsOnScreen: keepsStripEndsOnScreen)
+    func viewportEdgeRules(in workspaceId: WorkspaceDescriptor.ID) -> ViewportEdgeRules {
+        ViewportEdgeRules(keepsStripEndsOnScreen: keepsStripEndsOnScreen, peeks: edgePeekWidths(in: workspaceId))
     }
 }

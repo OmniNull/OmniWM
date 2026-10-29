@@ -599,12 +599,14 @@ extension NiriLayoutEngine {
 
 struct NaturalWindowDragConfiguration: Equatable {
     var enabled: Bool
+    var edgePeekShare: CGFloat?
 }
 
 extension NiriLayoutEngine {
     func applyNaturalWindowDrag(_ configuration: NaturalWindowDragConfiguration) {
         tabbedColumnsFillHeight = configuration.enabled
         keepsStripEndsOnScreen = configuration.enabled
+        edgePeekShare = configuration.edgePeekShare
         if !configuration.enabled {
             forgetTopRests()
         }

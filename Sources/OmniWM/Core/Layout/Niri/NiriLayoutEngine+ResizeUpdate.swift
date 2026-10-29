@@ -130,7 +130,7 @@ extension NiriLayoutEngine {
         let bounds = horizontal
             ? projectedWidthBounds(for: column, workspaceId: resize.workspaceId)
             : projectedHeightBounds(for: column, workspaceId: resize.workspaceId)
-        let viewportMaxSpan = workingSpan - 2 * gap
+        let viewportMaxSpan = min(workingSpan - 2 * gap, horizontal ? column.edgePeekCap ?? .infinity : .infinity)
         let maximumSpan = max(bounds.min, min(viewportMaxSpan, bounds.max ?? viewportMaxSpan))
         let requestedSpan = originalSpan + (leadingEdge ? -delta : delta)
         let span = constrainedProjectedPrimarySpan(

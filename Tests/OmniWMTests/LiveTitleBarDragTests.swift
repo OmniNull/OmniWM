@@ -302,6 +302,37 @@ final class LiveTitleBarDragTests: NiriInteractionTestCase {
         XCTAssertFalse(fixture.engine.tabbedColumnsFillHeight)
     }
 
+    func testPeeksNeedNaturalWindowDrag() throws {
+        let fixture = try makeFixture(pid: 938_191)
+        let settings = fixture.controller.settings
+        settings.quakeTerminal.enabled = false
+        settings.niri.edgePeek = true
+
+        fixture.controller.applyPersistedSettings(settings, startServices: false)
+        XCTAssertEqual(fixture.engine.edgePeekShare, 0.03)
+
+        settings.niri.naturalWindowDrag = false
+        fixture.controller.applyPersistedSettings(settings, startServices: false)
+        XCTAssertNil(fixture.engine.edgePeekShare)
+    }
+
+    func testSettingChangesReachTheEngineAtOnce() throws {
+        let fixture = try makeFixture(pid: 938_192)
+        let settings = fixture.controller.settings
+
+        settings.niri.edgePeek = true
+        fixture.controller.applyNaturalWindowDragSettings()
+        XCTAssertEqual(fixture.engine.edgePeekShare, 0.03)
+
+        settings.niri.edgePeekPercent = 2.5
+        fixture.controller.applyNaturalWindowDragSettings()
+        XCTAssertEqual(fixture.engine.edgePeekShare, 0.025)
+
+        settings.niri.edgePeek = false
+        fixture.controller.applyNaturalWindowDragSettings()
+        XCTAssertNil(fixture.engine.edgePeekShare)
+    }
+
     func testDwindleTitleBarDragsStartNoLiveDragAndStillSnapBack() throws {
         let fixture = try makeFixture(pid: 938_050, windowCount: 3, layout: .dwindle)
         XCTAssertTrue(fixture.controller.settings.niri.naturalWindowDrag)
@@ -592,6 +623,35 @@ final class LiveTitleBarDragTests: NiriInteractionTestCase {
         XCTAssertNil(fixture.handler.state.deferredClickScroll)
         XCTAssertNotEqual(try fixture.settledFrame(target).minX, before.minX)
         XCTAssertLessThanOrEqual(try fixture.settledFrame(target).maxX, workingFrame.maxX + 1)
+    }
+
+    func testClickingAPeekFocusesItsColumnAndScrollsItIntoViewOnRelease() async throws {
+        let fixture = try makeFixture(pid: 938_190, windowCount: 5)
+        fixture.manager.withEngineMutationScope(in: fixture.workspaceId) {
+            fixture.engine.edgePeekShare = 0.03
+        }
+        let target = fixture.tokens[3]
+        try scroll(fixture, so: target, isHalfOffTheRightEdge: ())
+        let before = try fixture.settledFrame(target)
+
+        let press = try fixture.press(target, reportsWindowUnderPointer: true)
+        fixture.controller.axEventHandler.handleManagedAppActivation(
+            entry: try fixture.entry(target), isWorkspaceActive: true, appFullscreen: false
+        )
+        try await drainRefreshes(fixture)
+
+        XCTAssertEqual(try fixture.settledFrame(target).minX, before.minX, accuracy: 0.5)
+
+        fixture.handler.pressedMouseButtonsProvider = { 0 }
+        fixture.handler.dispatchMouseUp(at: press)
+        try await drainRefreshes(fixture)
+
+        let after = try fixture.settledFrame(target)
+        XCTAssertEqual(
+            fixture.manager.niriViewportState(for: fixture.workspaceId).selectedNodeId,
+            fixture.engine.findNode(for: target, in: fixture.workspaceId)?.id
+        )
+        XCTAssertLessThanOrEqual(after.maxX, workingFrame.maxX - (fixture.monitor.frame.width * 0.03).rounded() + 1)
     }
 
     func testALostMouseUpDoesNotKeepHoldingTheSelectionScroll() throws {

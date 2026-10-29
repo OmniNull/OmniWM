@@ -99,9 +99,16 @@ extension ViewportState {
             geometry: geometry
         )
         let pixel = 1.0 / Double(max(geometry.areas.scale, 1.0))
-        let targetOffset = abs(correctedTargetOffset - snapTargetOffset) < pixel
+        let snappedOffset = abs(correctedTargetOffset - snapTargetOffset) < pixel
             ? snapTargetOffset
             : correctedTargetOffset
+        let targetOffset = Double(viewStartRestoringEdgePeeks(
+            newContainerPosition + CGFloat(snappedOffset),
+            columns: columns,
+            areas: geometry.areas,
+            gap: geometry.gap,
+            sizeKeyPath: geometry.sizeKeyPath
+        ) - newContainerPosition)
 
         guard motion.animationsEnabled else {
             jumpOffset(to: CGFloat(targetOffset))
@@ -311,7 +318,7 @@ extension ViewportState {
             Double($0.lowerBound) ... Double($0.upperBound)
         } ?? (-padding ... max(-padding, totalContentSpan - Double(geometry.viewportSpan) + padding))
 
-        guard let preserved = NiriGestureMomentumPlan(
+        guard let landing = NiriGestureMomentumPlan(
             columns: columns,
             gap: geometry.gap,
             viewportSpan: Double(geometry.viewportSpan),
@@ -327,6 +334,7 @@ extension ViewportState {
             activatePrevColumnOnRemoval = nil
             return
         }
+        let preserved = edgePeekLanding(landing, columns, geometry: geometry)
 
         let newActivePosition = containerPosition(
             at: preserved.normalizedActiveColumn,

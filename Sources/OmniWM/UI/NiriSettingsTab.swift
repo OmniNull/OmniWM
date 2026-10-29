@@ -208,6 +208,31 @@ private struct GlobalNiriSettingsSection: View {
                 windowTilingNote
             }
 
+            Toggle("Peek at Neighboring Windows", isOn: Bindable(settings.niri).edgePeek)
+                .id("Peek at Neighboring Windows")
+                .disabled(!settings.niri.naturalWindowDrag)
+                .onChange(of: settings.niri.edgePeek) {
+                    controller.applyNaturalWindowDragSettings()
+                }
+
+            SettingsSliderRow(
+                label: String(localized: "Peek Width"),
+                value: Bindable(settings.niri).edgePeekPercent,
+                range: 1 ... 10,
+                step: 0.5,
+                valueText: settings.niri.edgePeekPercent.formatted(.number.precision(.fractionLength(0 ... 1))) + "%",
+                valueWidth: 56
+            )
+            .id("Peek Width")
+            .disabled(!settings.niri.naturalWindowDrag || !settings.niri.edgePeek)
+            .onChange(of: settings.niri.edgePeekPercent) {
+                controller.applyNaturalWindowDragSettings()
+            }
+
+            SettingsCaption(
+                localized: "Keeps part of the next window in view at each screen edge that has more windows, so columns and resizing never cover it. Peek Width is a share of each display’s width."
+            )
+
             Picker(
                 "Left Mouse Natural Window Drag Modifier",
                 selection: Bindable(settings.niri).naturalWindowDragModifier

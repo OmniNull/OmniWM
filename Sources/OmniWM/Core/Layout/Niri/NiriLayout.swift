@@ -125,6 +125,7 @@ extension NiriLayoutEngine {
         clearExcludedColumnFrames(
             in: workspaceId, excluding: excludedTokens, recordsPresentationGeometry: recordsPresentationGeometry
         )
+        applyEdgePeekCaps(in: workspaceId, workingFrame: context.area.workingFrame, gap: context.primaryGap)
         if animationTime == nil {
             reconcilePrimarySpanFit(
                 in: workspaceId,

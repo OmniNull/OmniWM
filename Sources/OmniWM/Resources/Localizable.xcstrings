@@ -788,6 +788,378 @@
         }
       }
     },
+    "Peek at Neighboring Windows" : {
+      "localizations" : {
+        "ar" : {
+          "stringUnit" : {
+            "state" : "translated",
+            "value" : "إلقاء نظرة على النوافذ المجاورة"
+          }
+        },
+        "da" : {
+          "stringUnit" : {
+            "state" : "translated",
+            "value" : "Kig ind på nabovinduer"
+          }
+        },
+        "de" : {
+          "stringUnit" : {
+            "state" : "translated",
+            "value" : "Benachbarte Fenster anzeigen"
+          }
+        },
+        "el" : {
+          "stringUnit" : {
+            "state" : "translated",
+            "value" : "Προεπισκόπηση γειτονικών παραθύρων"
+          }
+        },
+        "es" : {
+          "stringUnit" : {
+            "state" : "translated",
+            "value" : "Asomar las ventanas vecinas"
+          }
+        },
+        "fi" : {
+          "stringUnit" : {
+            "state" : "translated",
+            "value" : "Kurkista viereisiin ikkunoihin"
+          }
+        },
+        "fr" : {
+          "stringUnit" : {
+            "state" : "translated",
+            "value" : "Aperçu des fenêtres voisines"
+          }
+        },
+        "he" : {
+          "stringUnit" : {
+            "state" : "translated",
+            "value" : "הצצה לחלונות הסמוכים"
+          }
+        },
+        "hi" : {
+          "stringUnit" : {
+            "state" : "translated",
+            "value" : "पड़ोसी विंडो की झलक"
+          }
+        },
+        "it" : {
+          "stringUnit" : {
+            "state" : "translated",
+            "value" : "Mostra uno scorcio delle finestre vicine"
+          }
+        },
+        "ja" : {
+          "stringUnit" : {
+            "state" : "translated",
+            "value" : "隣のウィンドウをのぞかせる"
+          }
+        },
+        "ko" : {
+          "stringUnit" : {
+            "state" : "translated",
+            "value" : "이웃 창 살짝 보기"
+          }
+        },
+        "nb" : {
+          "stringUnit" : {
+            "state" : "translated",
+            "value" : "Kikk inn på nabovinduer"
+          }
+        },
+        "nl" : {
+          "stringUnit" : {
+            "state" : "translated",
+            "value" : "Aangrenzende vensters laten doorkijken"
+          }
+        },
+        "pl" : {
+          "stringUnit" : {
+            "state" : "translated",
+            "value" : "Podgląd sąsiednich okien"
+          }
+        },
+        "ru" : {
+          "stringUnit" : {
+            "state" : "translated",
+            "value" : "Выглядывание соседних окон"
+          }
+        },
+        "sr-Latn" : {
+          "stringUnit" : {
+            "state" : "translated",
+            "value" : "Proviri susedne prozore"
+          }
+        },
+        "sv" : {
+          "stringUnit" : {
+            "state" : "translated",
+            "value" : "Kika in på närliggande fönster"
+          }
+        },
+        "uk" : {
+          "stringUnit" : {
+            "state" : "translated",
+            "value" : "Визирання сусідніх вікон"
+          }
+        },
+        "zh-Hans" : {
+          "stringUnit" : {
+            "state" : "translated",
+            "value" : "露出相邻窗口"
+          }
+        }
+      }
+    },
+    "Peek Width" : {
+      "localizations" : {
+        "ar" : {
+          "stringUnit" : {
+            "state" : "translated",
+            "value" : "عرض النظرة"
+          }
+        },
+        "da" : {
+          "stringUnit" : {
+            "state" : "translated",
+            "value" : "Kigbredde"
+          }
+        },
+        "de" : {
+          "stringUnit" : {
+            "state" : "translated",
+            "value" : "Breite des Ausschnitts"
+          }
+        },
+        "el" : {
+          "stringUnit" : {
+            "state" : "translated",
+            "value" : "Πλάτος προεπισκόπησης"
+          }
+        },
+        "es" : {
+          "stringUnit" : {
+            "state" : "translated",
+            "value" : "Ancho visible"
+          }
+        },
+        "fi" : {
+          "stringUnit" : {
+            "state" : "translated",
+            "value" : "Kurkistuksen leveys"
+          }
+        },
+        "fr" : {
+          "stringUnit" : {
+            "state" : "translated",
+            "value" : "Largeur de l’aperçu"
+          }
+        },
+        "he" : {
+          "stringUnit" : {
+            "state" : "translated",
+            "value" : "רוחב ההצצה"
+          }
+        },
+        "hi" : {
+          "stringUnit" : {
+            "state" : "translated",
+            "value" : "झलक की चौड़ाई"
+          }
+        },
+        "it" : {
+          "stringUnit" : {
+            "state" : "translated",
+            "value" : "Larghezza dello scorcio"
+          }
+        },
+        "ja" : {
+          "stringUnit" : {
+            "state" : "translated",
+            "value" : "のぞかせる幅"
+          }
+        },
+        "ko" : {
+          "stringUnit" : {
+            "state" : "translated",
+            "value" : "보이는 너비"
+          }
+        },
+        "nb" : {
+          "stringUnit" : {
+            "state" : "translated",
+            "value" : "Kikkbredde"
+          }
+        },
+        "nl" : {
+          "stringUnit" : {
+            "state" : "translated",
+            "value" : "Doorkijkbreedte"
+          }
+        },
+        "pl" : {
+          "stringUnit" : {
+            "state" : "translated",
+            "value" : "Szerokość podglądu"
+          }
+        },
+        "ru" : {
+          "stringUnit" : {
+            "state" : "translated",
+            "value" : "Ширина выглядывания"
+          }
+        },
+        "sr-Latn" : {
+          "stringUnit" : {
+            "state" : "translated",
+            "value" : "Širina provirivanja"
+          }
+        },
+        "sv" : {
+          "stringUnit" : {
+            "state" : "translated",
+            "value" : "Kikbredd"
+          }
+        },
+        "uk" : {
+          "stringUnit" : {
+            "state" : "translated",
+            "value" : "Ширина визирання"
+          }
+        },
+        "zh-Hans" : {
+          "stringUnit" : {
+            "state" : "translated",
+            "value" : "露出宽度"
+          }
+        }
+      }
+    },
+    "Keeps part of the next window in view at each screen edge that has more windows, so columns and resizing never cover it. Peek Width is a share of each display’s width." : {
+      "localizations" : {
+        "ar" : {
+          "stringUnit" : {
+            "state" : "translated",
+            "value" : "يُبقي جزءًا من النافذة التالية ظاهرًا عند كل حافة شاشة توجد خلفها نوافذ أخرى، فلا تغطيه الأعمدة ولا تغيير الحجم. عرض النظرة نسبة من عرض كل شاشة."
+          }
+        },
+        "da" : {
+          "stringUnit" : {
+            "state" : "translated",
+            "value" : "Holder en del af det næste vindue synlig ved hver skærmkant, der har flere vinduer, så kolonner og størrelsesændringer aldrig dækker den. Kigbredden er en andel af hver skærms bredde."
+          }
+        },
+        "de" : {
+          "stringUnit" : {
+            "state" : "translated",
+            "value" : "Hält an jedem Bildschirmrand, hinter dem weitere Fenster liegen, einen Teil des nächsten Fensters sichtbar, sodass Spalten und Größenänderungen ihn nie verdecken. Die Breite ist ein Anteil an der Breite des jeweiligen Displays."
+          }
+        },
+        "el" : {
+          "stringUnit" : {
+            "state" : "translated",
+            "value" : "Διατηρεί ορατό ένα μέρος του επόμενου παραθύρου σε κάθε άκρη της οθόνης που έχει κι άλλα παράθυρα, ώστε οι στήλες και οι αλλαγές μεγέθους να μην το καλύπτουν ποτέ. Το πλάτος είναι ποσοστό του πλάτους κάθε οθόνης."
+          }
+        },
+        "es" : {
+          "stringUnit" : {
+            "state" : "translated",
+            "value" : "Mantiene visible parte de la siguiente ventana en cada borde de la pantalla que tenga más ventanas, para que las columnas y los cambios de tamaño nunca la tapen. El ancho visible es una proporción del ancho de cada pantalla."
+          }
+        },
+        "fi" : {
+          "stringUnit" : {
+            "state" : "translated",
+            "value" : "Pitää osan seuraavasta ikkunasta näkyvissä jokaisella näytön reunalla, jonka takana on lisää ikkunoita, jotta sarakkeet ja koon muutokset eivät koskaan peitä sitä. Leveys on osuus kunkin näytön leveydestä."
+          }
+        },
+        "fr" : {
+          "stringUnit" : {
+            "state" : "translated",
+            "value" : "Garde une partie de la fenêtre suivante visible à chaque bord de l’écran qui a d’autres fenêtres, pour que les colonnes et les redimensionnements ne la couvrent jamais. La largeur est une part de la largeur de chaque écran."
+          }
+        },
+        "he" : {
+          "stringUnit" : {
+            "state" : "translated",
+            "value" : "שומר חלק מהחלון הבא גלוי בכל קצה מסך שיש מעבר לו חלונות נוספים, כך שעמודות ושינויי גודל לעולם לא יכסו אותו. רוחב ההצצה הוא חלק מרוחב כל מסך."
+          }
+        },
+        "hi" : {
+          "stringUnit" : {
+            "state" : "translated",
+            "value" : "जिस स्क्रीन किनारे के आगे और विंडो हैं, वहाँ अगली विंडो का एक हिस्सा दिखाई देता रहता है, ताकि कॉलम और आकार बदलना उसे कभी न ढकें। झलक की चौड़ाई हर डिस्प्ले की चौड़ाई का हिस्सा है।"
+          }
+        },
+        "it" : {
+          "stringUnit" : {
+            "state" : "translated",
+            "value" : "Mantiene visibile una parte della finestra successiva su ogni bordo dello schermo oltre il quale ci sono altre finestre, così colonne e ridimensionamenti non la coprono mai. La larghezza è una quota della larghezza di ciascuno schermo."
+          }
+        },
+        "ja" : {
+          "stringUnit" : {
+            "state" : "translated",
+            "value" : "ほかのウィンドウが続く画面の端では、次のウィンドウの一部を常に表示し、列やサイズ変更で隠れないようにします。幅は各ディスプレイの幅に対する割合です。"
+          }
+        },
+        "ko" : {
+          "stringUnit" : {
+            "state" : "translated",
+            "value" : "창이 더 있는 화면 가장자리마다 다음 창의 일부를 계속 표시하여 열이나 크기 조정이 이를 가리지 않도록 합니다. 너비는 각 디스플레이 너비에 대한 비율입니다."
+          }
+        },
+        "nb" : {
+          "stringUnit" : {
+            "state" : "translated",
+            "value" : "Holder en del av neste vindu synlig ved hver skjermkant som har flere vinduer, slik at kolonner og størrelsesendringer aldri dekker den. Kikkbredden er en andel av hver skjerms bredde."
+          }
+        },
+        "nl" : {
+          "stringUnit" : {
+            "state" : "translated",
+            "value" : "Houdt aan elke schermrand met meer vensters een deel van het volgende venster zichtbaar, zodat kolommen en formaatwijzigingen het nooit bedekken. De breedte is een deel van de breedte van elk scherm."
+          }
+        },
+        "pl" : {
+          "stringUnit" : {
+            "state" : "translated",
+            "value" : "Pozostawia widoczną część następnego okna przy każdej krawędzi ekranu, za którą są kolejne okna, aby kolumny i zmiany rozmiaru nigdy jej nie zasłaniały. Szerokość to część szerokości każdego ekranu."
+          }
+        },
+        "ru" : {
+          "stringUnit" : {
+            "state" : "translated",
+            "value" : "Оставляет видимой часть следующего окна у каждого края экрана, за которым есть другие окна, чтобы столбцы и изменение размера никогда её не закрывали. Ширина — доля ширины каждого дисплея."
+          }
+        },
+        "sr-Latn" : {
+          "stringUnit" : {
+            "state" : "translated",
+            "value" : "Drži vidljiv deo sledećeg prozora na svakoj ivici ekrana iza koje ima još prozora, tako da ga kolone i promena veličine nikada ne prekrivaju. Širina je deo širine svakog ekrana."
+          }
+        },
+        "sv" : {
+          "stringUnit" : {
+            "state" : "translated",
+            "value" : "Håller en del av nästa fönster synlig vid varje skärmkant som har fler fönster, så att kolumner och storleksändringar aldrig täcker den. Bredden är en andel av varje skärms bredd."
+          }
+        },
+        "uk" : {
+          "stringUnit" : {
+            "state" : "translated",
+            "value" : "Залишає видимою частину наступного вікна біля кожного краю екрана, за яким є інші вікна, щоб стовпці та зміна розміру ніколи її не закривали. Ширина — частка ширини кожного дисплея."
+          }
+        },
+        "zh-Hans" : {
+          "stringUnit" : {
+            "state" : "translated",
+            "value" : "在后面还有窗口的每个屏幕边缘保留下一个窗口的一部分可见，列和调整大小都不会遮住它。宽度是每个显示器宽度的一定比例。"
+          }
+        }
+      }
+    },
     "Drag windows to menu bar to fill screen" : {
       "localizations" : {
         "ar" : {

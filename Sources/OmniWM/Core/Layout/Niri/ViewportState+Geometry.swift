@@ -9,6 +9,7 @@ struct ViewportColumnTarget {
     let position: CGFloat
     let span: CGFloat
     let mode: SizingMode
+    var columnCount = 0
 }
 
 struct ViewportFittingAreas {
@@ -16,6 +17,7 @@ struct ViewportFittingAreas {
     let parent: CGRect
     let orientation: Monitor.Orientation
     let scale: CGFloat
+    var edgePeeks: EdgePeekWidths?
 
     var viewSpan: CGFloat {
         span(of: parent)
@@ -95,6 +97,7 @@ extension ViewportFittingAreas {
             orientation: orientation,
             scale: geometry.scale
         )
+        edgePeeks = geometry.edgePeeks
     }
 
     private func computeFitOffset(
@@ -140,7 +143,7 @@ extension ViewportFittingAreas {
             return 0
         }
 
-        let area = self.area(for: target.mode)
+        let area = fittingArea(for: target)
         let areaStart = origin(of: area)
         let padding = target.mode.isMaximized ? 0 : gap
         let newOffset = computeFitOffset(
@@ -289,7 +292,8 @@ extension ViewportState {
                 sizeKeyPath: sizeKeyPath
             ),
             span: containers[containerIndex][keyPath: sizeKeyPath],
-            mode: containers[containerIndex].effectiveSizingMode
+            mode: containers[containerIndex].effectiveSizingMode,
+            columnCount: containers.count
         )
 
         return areas.centeredOffset(
@@ -324,7 +328,8 @@ extension ViewportState {
             orientation: context.orientation,
             workingArea: context.workingFrame,
             viewFrame: viewFrame,
-            scale: scale
+            scale: scale,
+            edgePeeks: edges.peeks
         ))
         let effectiveCenterMode = (containers.count == 1 && alwaysCenterSingleColumn) ? .always : centerMode
         let target = ViewportColumnTarget(
@@ -336,7 +341,8 @@ extension ViewportState {
                 sizeKeyPath: sizeKeyPath
             ),
             span: containers[containerIndex][keyPath: sizeKeyPath],
-            mode: containers[containerIndex].effectiveSizingMode
+            mode: containers[containerIndex].effectiveSizingMode,
+            columnCount: containers.count
         )
 
         let shouldCenter = switch effectiveCenterMode {
@@ -354,9 +360,11 @@ extension ViewportState {
         let offset = shouldCenter
             ? areas.centeredOffset(currentViewStart: currentViewStart, target: target, gap: context.gaps)
             : areas.fitOffset(currentViewStart: currentViewStart, target: target, gap: context.gaps)
-        guard edges.keepsStripEndsOnScreen, target.mode == .normal,
-              effectiveCenterMode != .always else { return offset }
-        return offsetKeepingStripEndsOnScreen(offset, target: target, containers: containers, context: context)
+        guard edges.keepsStripEndsOnScreen, target.mode == .normal, effectiveCenterMode != .always else {
+            return areas.offsetShowingEdgePeeks(offset, target: target, containers: containers, gap: context.gaps)
+        }
+        let clamped = offsetKeepingStripEndsOnScreen(offset, target: target, containers: containers, context: context)
+        return areas.offsetShowingEdgePeeks(clamped, target: target, containers: containers, gap: context.gaps)
     }
 
     private func offsetKeepingStripEndsOnScreen(
@@ -419,4 +427,5 @@ extension ViewportState {
 
 struct ViewportEdgeRules: Equatable {
     var keepsStripEndsOnScreen = false
+    var peeks: EdgePeekWidths?
 }
