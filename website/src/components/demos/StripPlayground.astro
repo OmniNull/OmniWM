@@ -567,7 +567,7 @@ const keys = [
         if (!frame.clientWidth || Math.abs(e.deltaX) <= Math.abs(e.deltaY)) return;
         e.preventDefault();
         root.classList.add('is-panning');
-        state = m.pan(state, state.offset + e.deltaX / frame.clientWidth);
+        state = m.pan(state, state.offset + (e.deltaX * [1, 40, frame.clientWidth][e.deltaMode]) / frame.clientWidth);
         strip.style.setProperty('--pan', String(state.offset));
         clearTimeout(idle);
         idle = window.setTimeout(() => {

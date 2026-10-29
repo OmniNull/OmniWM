@@ -41,7 +41,7 @@ export const lessons = [
     keys: ['moveWindow:-1', 'moveWindow:1'],
     columns: stacked,
     win: 1,
-    done: (s) => columnOf(s, 'notes-2')?.windows.length === 1,
+    done: (s) => indexOf(s, 'notes-2') > 0 && columnOf(s, 'notes-2')?.windows.length === 1,
   },
   {
     title: 'Join a column',

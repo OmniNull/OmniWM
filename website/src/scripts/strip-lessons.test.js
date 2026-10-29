@@ -30,6 +30,7 @@ test('every lesson starts unsolved and the keys it shows solve it', () => {
 });
 
 test('the wrong direction does not pass a lesson', () => {
+  assert.equal(lessons[2].done(m.moveWindow(start(lessons[2]), -1)), false);
   assert.equal(lessons[5].done(m.moveColumn(start(lessons[5]), -1)), false);
   assert.equal(lessons[4].done(m.swapWindow(start(lessons[4]), -1)), false);
 });
