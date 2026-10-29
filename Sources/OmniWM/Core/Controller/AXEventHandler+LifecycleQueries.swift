@@ -1,6 +1,7 @@
 // SPDX-License-Identifier: GPL-2.0-only
 // Copyright (C) 2026 OmniNull — https://github.com/OmniNull/OmniWM
 
+import ApplicationServices
 import Foundation
 
 extension AXEventHandler {
@@ -50,6 +51,16 @@ extension AXEventHandler {
                 throw LifecycleQueryError.unavailable
             }
             return result[$0]
+        }
+
+        /// Whether the tracked AX element is gone (`kAXErrorInvalidUIElement`). Runs off the main
+        /// thread so an unresponsive app cannot stall it; any other AX outcome reads as alive.
+        var isAXElementInvalid: @MainActor (AXWindowRef) async -> Bool = { axRef in
+            await Task.detached(priority: .userInitiated) {
+                var role: CFTypeRef?
+                return AXUIElementCopyAttributeValue(axRef.element, kAXRoleAttribute as CFString, &role)
+                    == .invalidUIElement
+            }.value
         }
 
         var pending: [LifecycleQuery] = []
@@ -176,13 +187,26 @@ extension AXEventHandler {
         }
         guard !Task.isCancelled, lifecycleQueries.active?.sequence == request.sequence else { return }
         guard isCurrentLifecycleCreate(request) else { return }
-        let appliedIdentity = lifecycleQueries.active?.destructionIdentity ?? identity
+        var appliedIdentity = lifecycleQueries.active?.destructionIdentity ?? identity
+        // Some apps (WhatsApp) keep a closed window alive, ordered out, in the WindowServer and
+        // post `closed` only on next activation. A dead AX element is the authoritative signal.
+        var closedButRetained = false
+        if case .spaceDestroyed = request.kind, info?.isOrderedIn == false, let axRef = appliedIdentity.axRef {
+            let invalid = await lifecycleQueries.isAXElementInvalid(axRef)
+            guard !Task.isCancelled, lifecycleQueries.active?.sequence == request.sequence else { return }
+            appliedIdentity = lifecycleQueries.active?.destructionIdentity ?? identity
+            closedButRetained = invalid && CFEqual(appliedIdentity.axRef?.element, axRef.element)
+        }
         lifecycleQueries.active = nil
-        applyLifecycleObservation(request, identity: appliedIdentity, observedAtSeq: observedAtSeq, windowInfo: info)
+        applyLifecycleObservation(
+            request, identity: appliedIdentity, observedAtSeq: observedAtSeq,
+            windowInfo: info, closedButRetained: closedButRetained
+        )
     }
 
     private func applyLifecycleObservation(
-        _ request: LifecycleQuery, identity: LifecycleIdentity, observedAtSeq: UInt64, windowInfo: WindowServerInfo?
+        _ request: LifecycleQuery, identity: LifecycleIdentity, observedAtSeq: UInt64,
+        windowInfo: WindowServerInfo?, closedButRetained: Bool = false
     ) {
         guard let controller, !controller.isOwnedWindow(windowNumber: Int(request.windowId)) else { return }
         let current = controller.workspaceManager.entry(forWindowId: Int(request.windowId))
@@ -204,7 +228,7 @@ extension AXEventHandler {
             else { return }
             if case .spaceDestroyed = request.kind {
                 guard current?.hiddenState == identity.hiddenState else { return }
-                guard windowInfo == nil else { return }
+                guard windowInfo == nil || closedButRetained else { return }
                 cancelFrameObservation(windowId: request.windowId)
                 guard current?.hiddenState == nil else { return }
             }
