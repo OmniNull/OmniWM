@@ -188,6 +188,55 @@ final class HiddenBarMenuAccessFallbackTests: XCTestCase {
         XCTAssertEqual(MenuBarItemLocator.hostedItems(entries, pid: 7).map(\.element), ["a", "b"])
     }
 
+    func testTheAgentWalkReadsEveryItemAndSkipsItemsWithoutAFrame() {
+        let tree = agentTree([
+            "window": ["group-a", "group-b"],
+            "group-a": ["a"],
+            "group-b": ["b", "frameless"]
+        ])
+        let entries = MenuBarItemLocator.hostedEntries(tree, expired: { false })
+        XCTAssertEqual(entries?.map(\.element), ["a", "b"])
+        XCTAssertEqual(entries?.map(\.pid), [7, 7])
+    }
+
+    func testTheAgentWalkStopsOnceItsDeadlinePasses() {
+        let tree = agentTree(["window": ["group"], "group": ["a", "b"]])
+        var checks = 0
+        let entries = MenuBarItemLocator.hostedEntries(tree, expired: {
+            checks += 1
+            return checks > 3
+        })
+        XCTAssertNil(entries)
+        XCTAssertEqual(checks, 4)
+    }
+
+    func testAHostedItemIndexWalksTheAgentOncePerPass() {
+        var walks = 0
+        let element = AXUIElementCreateApplication(1)
+        let index = MenuBarItemLocator.HostedItemIndex {
+            walks += 1
+            return [
+                .init(pid: 7, frame: CGRect(x: 40, y: 0, width: 20, height: 24), element: element),
+                .init(pid: 9, frame: CGRect(x: 10, y: 0, width: 20, height: 24), element: element),
+                .init(pid: 7, frame: CGRect(x: 10, y: 0, width: 20, height: 24), element: element)
+            ]
+        }
+        XCTAssertEqual(index.items(for: 7)?.map(\.frame.minX), [10, 40])
+        XCTAssertEqual(index.items(for: 9)?.count, 1)
+        XCTAssertNil(index.items(for: 3))
+        XCTAssertEqual(index.items(for: 7)?.allSatisfy(\.hosted), true)
+        XCTAssertEqual(walks, 1)
+    }
+
+    private func agentTree(_ children: [String: [String]]) -> MenuBarItemLocator.HostedTree<String> {
+        MenuBarItemLocator.HostedTree(
+            windows: { ["window"] },
+            children: { children[$0] ?? [] },
+            owner: { _ in 7 },
+            frame: { $0 == "frameless" ? nil : CGRect(x: $0 == "a" ? 10 : 20, y: 0, width: 20, height: 24) }
+        )
+    }
+
     private func settings() -> SettingsStore {
         SettingsStore(
             persistence: SettingsFilePersistence(directory: directory, startWatching: false, deferSaves: false),

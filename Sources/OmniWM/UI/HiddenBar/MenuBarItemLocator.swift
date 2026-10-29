@@ -111,15 +111,18 @@ enum MenuBarItemLocator {
         while resolved.count < bundleIDs.count {
             guard tracker.shouldContinue(at: clock.now) else { break }
             try job.checkCancellation()
+            let agent = HostedItemIndex()
             for bundleID in bundleIDs where resolved[bundleID] == nil {
                 try job.checkCancellation()
-                if let items = try resolveStableItems(
-                    candidates: candidates,
-                    bundleID: bundleID,
-                    allowEmptyBundleIDs: allowEmptyBundleIDs,
-                    job: job,
-                    tracker: &tracker
-                ) {
+                if let items = try resolveStableItems(bundleID: bundleID, tracker: &tracker, sample: {
+                    try itemSample(
+                        candidates: candidates,
+                        bundleID: bundleID,
+                        allowEmpty: allowEmptyBundleIDs.contains(bundleID),
+                        agent: agent,
+                        job: job
+                    )
+                }) {
                     resolved[bundleID] = items
                 }
             }
@@ -127,6 +130,7 @@ enum MenuBarItemLocator {
                 Thread.sleep(forTimeInterval: settlePollInterval)
             }
         }
+        let agent = HostedItemIndex()
         for bundleID in allowEmptyBundleIDs where resolved[bundleID] == nil {
             try job.checkCancellation()
             guard let pid = tracker.authoritativeEmptyPID(for: bundleID),
@@ -134,6 +138,7 @@ enum MenuBarItemLocator {
                       candidates: candidates,
                       bundleID: bundleID,
                       allowEmpty: true,
+                      agent: agent,
                       job: job
                   ),
                   sample.pid == pid, sample.items.isEmpty
@@ -144,19 +149,12 @@ enum MenuBarItemLocator {
     }
 
     private static func resolveStableItems(
-        candidates: [MenuBarAppCandidate],
         bundleID: String,
-        allowEmptyBundleIDs: Set<String>,
-        job: RunLoopJob,
-        tracker: inout MenuBarItemSampleTracker
+        tracker: inout MenuBarItemSampleTracker,
+        sample takeSample: () throws -> (pid: pid_t, items: [MenuBarItemElement])?
     ) throws -> [ResolvedMenuBarItem]? {
         let attempt = tracker.beginAttempt(for: bundleID)
-        guard let sample = try itemSample(
-            candidates: candidates,
-            bundleID: bundleID,
-            allowEmpty: allowEmptyBundleIDs.contains(bundleID),
-            job: job
-        ) else {
+        guard let sample = try takeSample() else {
             tracker.discardSample(for: bundleID)
             return nil
         }
@@ -189,9 +187,12 @@ enum MenuBarItemLocator {
 
         while clock.now < deadline {
             try job.checkCancellation()
+            let agent = HostedItemIndex()
             for candidate in candidates where candidate.pid == target.pid {
                 try job.checkCancellation()
-                guard let elements = itemElements(pid: candidate.pid), target.key.ordinal < elements.count else {
+                guard let elements = itemElements(pid: candidate.pid, agent: agent),
+                      target.key.ordinal < elements.count
+                else {
                     previousFrames.removeValue(forKey: candidate.pid)
                     continue
                 }
@@ -227,12 +228,13 @@ enum MenuBarItemLocator {
         candidates: [MenuBarAppCandidate],
         bundleID: String,
         allowEmpty: Bool,
+        agent: HostedItemIndex,
         job: RunLoopJob
     ) throws -> (pid: pid_t, items: [MenuBarItemElement])? {
         var emptyPID: pid_t?
         for candidate in candidates where candidate.bundleID == bundleID {
             try job.checkCancellation()
-            guard let items = itemElements(pid: candidate.pid) else { continue }
+            guard let items = itemElements(pid: candidate.pid, agent: agent) else { continue }
             if !items.isEmpty {
                 return (candidate.pid, items)
             }
@@ -250,14 +252,14 @@ enum MenuBarItemLocator {
         var hosted = false
     }
 
-    private static func itemElements(pid: pid_t) -> [MenuBarItemElement]? {
+    private static func itemElements(pid: pid_t, agent: HostedItemIndex) -> [MenuBarItemElement]? {
         let appElement = AXUIElementCreateApplication(pid)
         AXUIElementSetMessagingTimeout(appElement, messagingTimeoutSeconds)
         defer { AXUIElementSetMessagingTimeout(appElement, 0) }
 
         var extrasRef: CFTypeRef?
         let extrasResult = AXUIElementCopyAttributeValue(appElement, "AXExtrasMenuBar" as CFString, &extrasRef)
-        if extrasResult == .noValue { return hostedItemElements(pid: pid) }
+        if extrasResult == .noValue { return agent.items(for: pid) }
         guard extrasResult == .success,
               let extras = extrasRef, CFGetTypeID(extras) == AXUIElementGetTypeID()
         else { return nil }
