@@ -9,6 +9,7 @@ extension NiriLayoutEngine {
         windowId: NodeId,
         windowToken: WindowToken,
         pullsTab: Bool = false,
+        canCarry: Bool = false,
         context: NiriInteractionContext,
         state: inout ViewportState
     ) -> Bool {
@@ -33,7 +34,7 @@ extension NiriLayoutEngine {
         }
         let isWholeColumn = column.isTabbed && !pullsTab
         let inStack = projectedWindows(in: column, workspaceId: context.workspaceId).count > 1 && !isWholeColumn
-        guard inStack || projectedColumns(in: context.workspaceId).count > 1 else {
+        guard inStack || canCarry || projectedColumns(in: context.workspaceId).count > 1 else {
             MouseTrace.record("live-drag begin refused lone-column")
             return false
         }

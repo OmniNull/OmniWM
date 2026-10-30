@@ -255,9 +255,16 @@ final class NiriLiveColumnMoveTests: XCTestCase {
         XCTAssertEqual(fixture.state.activeColumnIndex, 1)
     }
 
-    func testBeginRefusesSingleColumnsAndVerticalStrips() {
+    func testBeginRefusesSingleColumnsThatCantBeCarriedAndVerticalStrips() {
         var single = makeFixture(widths: [0.5], activeIndex: 0)
         XCTAssertFalse(single.begin(0))
+        XCTAssertTrue(single.engine.liveColumnMoveBegin(
+            windowId: single.window(0).id,
+            windowToken: single.tokens[0],
+            canCarry: true,
+            context: single.context,
+            state: &single.state
+        ))
 
         var vertical = makeFixture()
         let context = vertical.context.oriented(.vertical)

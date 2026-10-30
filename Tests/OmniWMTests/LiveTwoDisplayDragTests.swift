@@ -515,6 +515,94 @@ extension CrossDisplayDragTests {
         XCTAssertEqual(fixture.niri.columns(in: fixture.target).count, 2)
     }
 
+    func testAWindowAloneOnItsDisplayCarriesALiveDragOntoTheOtherDisplay() throws {
+        let fixture = try makeLiveFixture([.niri, .niri])
+        let moved = addWindow(2, to: fixture.source, fixture)
+        let resident = addWindow(10, to: fixture.target, fixture)
+        try startLiveDrag(moved, fixture)
+        XCTAssertTrue(fixture.handler.isLiveColumnDragActive)
+
+        let point = try dragOnto(resident, .right, fixture)
+
+        XCTAssertEqual(fixture.manager.workspace(for: moved), fixture.target)
+        XCTAssertEqual(fixture.columns(fixture.source), [])
+        XCTAssertEqual(fixture.columns(fixture.target), [[resident], [moved]])
+
+        fixture.handler.dispatchMouseUp(at: point)
+
+        XCTAssertFalse(fixture.handler.isLiveColumnDragActive)
+        XCTAssertEqual(fixture.manager.workspace(for: moved), fixture.target)
+        XCTAssertEqual(fixture.columns(fixture.target), [[resident], [moved]])
+    }
+
+    func testCancellingAfterAWindowAloneOnItsDisplayCrossesPutsItBack() throws {
+        let fixture = try makeLiveFixture([.niri, .niri])
+        let moved = addWindow(2, to: fixture.source, fixture)
+        let resident = addWindow(10, to: fixture.target, fixture)
+        try startLiveDrag(moved, fixture)
+        try dragOnto(resident, .right, fixture)
+        XCTAssertEqual(fixture.manager.workspace(for: moved), fixture.target)
+
+        fixture.handler.cancelLiveColumnDrag()
+
+        XCTAssertNil(fixture.niri.liveColumnMove)
+        XCTAssertEqual(fixture.manager.workspace(for: moved), fixture.source)
+        XCTAssertEqual(fixture.columns(fixture.source), [[moved]])
+        XCTAssertEqual(fixture.columns(fixture.target), [[resident]])
+    }
+
+    func testAWindowAloneOnItsDisplayReleasedAtHomeStaysAsItWas() throws {
+        let fixture = try makeLiveFixture([.niri, .niri])
+        let moved = addWindow(2, to: fixture.source, fixture)
+        _ = addWindow(10, to: fixture.target, fixture)
+        let column = try XCTUnwrap(fixture.niri.columns(in: fixture.source).first)
+        let width = column.width
+        let start = try startLiveDrag(moved, fixture)
+        XCTAssertTrue(fixture.handler.isLiveColumnDragActive)
+
+        fixture.handler.dispatchMouseUp(at: start.center)
+
+        XCTAssertFalse(fixture.handler.isLiveColumnDragActive)
+        XCTAssertNil(fixture.niri.liveColumnMove)
+        XCTAssertEqual(fixture.columns(fixture.source), [[moved]])
+        let home = try XCTUnwrap(fixture.niri.columns(in: fixture.source).first)
+        XCTAssertFalse(home.isLiveHomeSpot)
+        XCTAssertEqual(home.width, width)
+        XCTAssertFalse(home.hasManualSingleWindowWidthOverride)
+    }
+
+    func testAWindowAloneOnTheOnlyNiriStripGetsNoLiveDrag() throws {
+        for layouts: [LayoutType] in [[.niri], [.niri, .dwindle]] {
+            let fixture = try makeLiveFixture(layouts)
+            let moved = addWindow(2, to: fixture.source, fixture)
+            if layouts.count > 1 {
+                _ = addWindow(10, to: fixture.target, fixture)
+            }
+
+            try startLiveDrag(moved, fixture)
+
+            XCTAssertFalse(fixture.handler.isLiveColumnDragActive)
+            XCTAssertNil(fixture.niri.liveColumnMove)
+        }
+    }
+
+    private func makeLiveFixture(_ layouts: [LayoutType]) throws -> Fixture {
+        let fixture = try makeNativeFixture(layouts)
+        fixture.controller.settings.niri.naturalWindowDrag = true
+        fixture.handler.liveDragModifierCapture.installsEventTap = false
+        fixture.niri.moveConfiguration.liveHoverDelay = 0
+        return fixture
+    }
+
+    @discardableResult
+    private func startLiveDrag(_ token: WindowToken, _ fixture: Fixture) throws -> CGRect {
+        let start = try beginNativeDrag(token, fixture)
+        let dragged = start.offsetBy(dx: 30, dy: 0)
+        fixture.handler.nativeWindowFrameProvider = { _ in dragged }
+        _ = fixture.handler.handleNativeTitleBarDragFrameChanged(for: try XCTUnwrap(fixture.manager.entry(for: token)))
+        return start
+    }
+
     private func settleStackDrop(in workspaceId: WorkspaceDescriptor.ID, _ fixture: Fixture) {
         fixture.manager.animationDriver.removeMotions(for: [workspaceId])
         _ = fixture.niri.cancelAnimations(in: workspaceId)

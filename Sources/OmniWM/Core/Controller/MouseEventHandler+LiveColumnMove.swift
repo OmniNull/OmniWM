@@ -80,7 +80,9 @@ extension MouseEventHandler {
         _ drag: inout MouseInputState.NativeTitleBarDrag,
         entry: WindowState
     ) -> Bool {
-        if MouseTrace.shared.isActive, !drag.liveDrag {
+        if MouseTrace.shared.isActive, !drag.liveDrag, drag.liveDragDeclined {
+            traceLiveDragDecline("check token=\(TraceFormat.token(entry.token)) declined=true")
+        } else if MouseTrace.shared.isActive, !drag.liveDrag {
             let start = drag.adoptionStartFrame ?? drag.liveStartFrame
             let observed = entry.axRef.flatMap(nativeWindowFrameProvider)
             traceLiveDragDecline(
@@ -109,6 +111,7 @@ extension MouseEventHandler {
             engine.liveColumnMoveBegin(
                 windowId: window.id,
                 windowToken: entry.token,
+                canCarry: hasOtherLiveStrip(than: entry.workspaceId),
                 context: context,
                 state: &viewportState
             )

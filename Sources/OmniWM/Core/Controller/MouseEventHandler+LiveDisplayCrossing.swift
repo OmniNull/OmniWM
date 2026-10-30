@@ -126,6 +126,17 @@ extension MouseEventHandler {
         }
     }
 
+    func hasOtherLiveStrip(than workspaceId: WorkspaceDescriptor.ID) -> Bool {
+        guard let manager = controller?.workspaceManager else { return false }
+        return manager.monitors.contains { monitor in
+            guard let other = manager.activeWorkspaceOrFirst(on: monitor.id)?.id,
+                  other != workspaceId,
+                  manager.activeLayoutKind(for: other) == .niri
+            else { return false }
+            return liveColumnContext(for: other)?.orientation == .horizontal
+        }
+    }
+
     private func liveCarryTarget(
         at location: CGPoint,
         leaving sourceWorkspaceId: WorkspaceDescriptor.ID
