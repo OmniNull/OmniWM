@@ -1391,6 +1391,25 @@ final class LiveTitleBarDragTests: NiriInteractionTestCase {
         fixture.controller.niriLayoutHandler.desiredTabRailInfos().map(\.owner)
     }
 
+    func testTheDraggedTabbedColumnsRailHidesAsSoonAsTheDragStarts() throws {
+        let fixture = try makeFixture(pid: 938_309, windowCount: 6, tabbedRuns: [0 ... 2, 4 ... 5])
+        let dragged = try column(holding: fixture.tokens[1], in: fixture)
+        let reconciler = fixture.controller.surfaceReconciler
+        addTeardownBlock { @MainActor [controller = fixture.controller] in
+            controller.tabRailManager.removeAll()
+        }
+        try fixture.beginDrag(fixture.tokens[1])
+        reconciler.reconcileNow()
+        XCTAssertTrue(reconciler.appliedScene.tabRails.contains { $0.owner == .niriColumn(dragged.id) })
+
+        try fixture.macOSMoves(fixture.tokens[1], to: try fixture.frame(fixture.tokens[1]).offsetBy(dx: 30, dy: 0))
+        XCTAssertTrue(fixture.handler.isLiveColumnDragActive)
+
+        XCTAssertEqual(reconciler.pendingReconcileScope, .fullScene)
+        reconciler.reconcileNow()
+        XCTAssertFalse(reconciler.appliedScene.tabRails.contains { $0.owner == .niriColumn(dragged.id) })
+    }
+
     func testDraggingATabbedColumnsVisibleWindowMovesTheWholeColumnAndKeepsItsTabs() throws {
         let fixture = try makeFixture(pid: 938_060, windowCount: 6, tabbedRuns: [0 ... 2])
         let (head, dragged, neighbour) = (fixture.tokens[0], fixture.tokens[1], fixture.tokens[3])
