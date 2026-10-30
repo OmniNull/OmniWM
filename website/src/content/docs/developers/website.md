@@ -18,13 +18,14 @@ npm run dev       # local dev server at localhost:4321
 npm run build     # static build into dist/
 npm run preview   # serve the built site
 npm run check     # type-check content and components
+npm test          # run demo and interaction tests
 ```
 
 Node 24 LTS required.
 
 ## Adding or editing a knowledge-base page
 
-Every docs page is a Markdown file under `src/content/docs/`, grouped by directory:
+Every docs page is a Markdown (`.md`) or MDX (`.mdx`) file under `src/content/docs/`, grouped by directory:
 
 | Directory | Sidebar group |
 |---|---|
