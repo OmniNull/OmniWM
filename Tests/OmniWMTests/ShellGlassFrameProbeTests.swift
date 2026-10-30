@@ -155,13 +155,13 @@ final class ShellGlassFrameProbeTests: XCTestCase {
         body.setValue(2 * frame.blend, forKey: "smoothness")
         if let merge {
             guard type(of: body).instancesRespond(to: NSSelectorFromString("setMergeElements:")) else {
-                throw ShellScriptFailure(kind: .runtime, message: "CASDFLayer.mergeElements is unavailable")
+                throw XCTSkip("CASDFLayer.mergeElements is unavailable")
             }
             body.setValue(merge, forKey: "mergeElements")
         }
         if let culling {
             guard type(of: body).instancesRespond(to: NSSelectorFromString("setExperimentalCulling:")) else {
-                throw ShellScriptFailure(kind: .runtime, message: "CASDFLayer.experimentalCulling is unavailable")
+                throw XCTSkip("CASDFLayer.experimentalCulling is unavailable")
             }
             body.setValue(culling, forKey: "experimentalCulling")
         }
