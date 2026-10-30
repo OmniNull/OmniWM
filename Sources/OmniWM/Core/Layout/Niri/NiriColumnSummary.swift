@@ -92,7 +92,8 @@ extension NiriLayoutEngine {
                 viewportFrame: frame,
                 orientation: geometry.orientation,
                 hiddenPlacementMonitor: placementMonitor,
-                hiddenPlacementMonitors: placementMonitors
+                hiddenPlacementMonitors: placementMonitors,
+                clipsToDisplay: clipsOverflowToDisplay
             ) {
             case .minimum: return .before
             case .maximum: return .after
