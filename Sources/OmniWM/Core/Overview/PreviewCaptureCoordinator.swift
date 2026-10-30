@@ -38,6 +38,7 @@ final class PreviewCaptureCoordinator {
     private var windowsByToken: [WindowToken: SCWindow] = [:]
     private var discoveryTask: Task<Int?, Never>?
     private var discoveryStartedAt: ContinuousClock.Instant?
+    private var discoveryGeneration: UInt64 = 0
     private var clock: UInt64 = 0
 
     init(
@@ -76,10 +77,13 @@ final class PreviewCaptureCoordinator {
             _ = await discoveryTask.value
             return (windowsByToken[token], nil)
         }
+        discoveryGeneration &+= 1
+        let generation = discoveryGeneration
         let task = Task { @MainActor [weak self] () -> Int? in
             guard let self else { return nil }
             do {
                 let windows = try await discoverWindows()
+                guard generation == discoveryGeneration else { return nil }
                 windowsByToken = Dictionary(uniqueKeysWithValues: windows.compactMap { window in
                     guard let app = window.owningApplication,
                           ownedWindowRegistry.isCaptureEligible(windowNumber: Int(window.windowID))

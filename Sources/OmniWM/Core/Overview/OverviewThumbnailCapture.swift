@@ -232,6 +232,7 @@ final class OverviewThumbnailCapture {
                 start.cancel()
                 FallbackFiringRecorder.shared.note(.capture, "overviewStreamStartTimeout")
                 finishStarting(source, failed: true)
+                if sources[key] === source { sources.removeValue(forKey: key) }
             }
         }
     }

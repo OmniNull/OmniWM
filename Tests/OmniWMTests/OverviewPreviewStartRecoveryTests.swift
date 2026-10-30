@@ -29,29 +29,37 @@ final class OverviewPreviewStartRecoveryTests: XCTestCase {
         WindowHandle(id: WindowToken(pid: 123, windowId: id))
     }
 
-    private func waitUntil(_ condition: () -> Bool) async throws {
+    private struct ConditionTimedOut: Error {}
+
+    private func waitUntil(
+        _ condition: () -> Bool,
+        file: StaticString = #filePath,
+        line: UInt = #line
+    ) async throws {
         let deadline = ContinuousClock.now + .seconds(1)
-        while !condition(), ContinuousClock.now < deadline {
+        while !condition() {
+            guard ContinuousClock.now < deadline else {
+                XCTFail("Condition not met within one second", file: file, line: line)
+                throw ConditionTimedOut()
+            }
             try await Task.sleep(for: .milliseconds(5))
         }
     }
 
-    func testUnansweredStartsReleaseTheirSlotsForQueuedPreviews() async throws {
+    func testUnansweredStartsReleaseTheirSlotsAndAreRequestedAgain() async throws {
         let driver = OverviewPreviewTestDriver()
         defer { driver.finish() }
         let capture = driver.makeCapture(startTimeout: .milliseconds(50))
         let handles = (1 ... 5).map(handle)
-        capture.reconcile(
-            represented: Set(handles),
-            visible: handles.map { OverviewPreviewRequest(handle: $0, pixelWidth: 80, pixelHeight: 60) }
-        )
-
-        try await driver.waitForStarts(4)
-        XCTAssertEqual(driver.streams.count, 4)
+        let requests = handles.map { OverviewPreviewRequest(handle: $0, pixelWidth: 80, pixelHeight: 60) }
+        capture.reconcile(represented: Set(handles), visible: requests)
 
         try await driver.waitForStarts(5)
-        try await driver.waitForStops(4)
-        XCTAssertEqual(driver.streams.count, 5)
+        try await driver.waitForStops(5)
+        XCTAssertFalse(capture.hasPendingFirstFrames)
+
+        capture.reconcile(represented: Set(handles), visible: requests)
+        try await driver.waitForStarts(10)
 
         driver.streams[0].completeStart()
         try await Task.sleep(for: .milliseconds(50))
@@ -81,7 +89,8 @@ final class OverviewPreviewStartRecoveryTests: XCTestCase {
         let replaced = await replacement.value
         XCTAssertFalse(replaced.found)
         XCTAssertEqual(replaced.discoveredCount, 0)
-        _ = await hung.value
+        let superseded = await hung.value
+        XCTAssertNil(superseded)
     }
 
     func testDiscoveryInFlightIsSharedUntilItsTimeout() async throws {
