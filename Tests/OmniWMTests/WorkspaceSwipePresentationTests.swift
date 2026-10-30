@@ -1111,6 +1111,27 @@ final class WorkspaceSwipePresentationTests: XCTestCase {
         XCTAssertFalse(fixture.swipe.hasPresentation)
     }
 
+    func testWarmingPreviewsUsesSettledFramesWithoutCommittingWorldEvents() async throws {
+        let fixture = try previewFixture()
+        fixture.controller.hasStartedServices = true
+        fixture.controller.settings.gestures.workspaceSwipeEnabled = true
+        let liveWidth = try XCTUnwrap(
+            fixture.swipe.makePreparation(monitorId: fixture.monitor.id)?.source.items.first?.frame.width
+        )
+        let settledWidth = try XCTUnwrap(
+            fixture.swipe.makePreparation(monitorId: fixture.monitor.id, liveFrames: false)?.source.items.first?
+                .frame.width
+        )
+        XCTAssertEqual(liveWidth, Self.sourceFrame.width)
+        XCTAssertNotEqual(settledWidth, liveWidth)
+
+        let seq = fixture.controller.workspaceManager.worldSeq
+        fixture.swipe.warmPreviews()
+        XCTAssertEqual(fixture.controller.workspaceManager.worldSeq, seq)
+        try await fixture.driver.waitForStarts(1)
+        XCTAssertEqual(fixture.driver.streams[0].request.pixelWidth, Int(ceil(settledWidth)))
+    }
+
     func testTurningSwipeOrAnimationsOffReleasesThePreviewAndItsCache() async throws {
         let disablers: [@MainActor (WMController) -> Void] = [
             { $0.settings.gestures.workspaceSwipeEnabled = false },
