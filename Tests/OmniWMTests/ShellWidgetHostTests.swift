@@ -1521,6 +1521,98 @@ final class ShellWidgetClickTests: XCTestCase {
         XCTAssertFalse(ShellProfiles.names(in: harness.root.appendingPathComponent("shell")).contains("lib"))
     }
 
+    func testLinkedSharedLibraryEditsAndRetargetingReloadTheWidgetThroughNativeObservation() async throws {
+        let harness = try harness(
+            "function render(ctx) return ui.box{ w = require(\"../lib/size\"), h = 10 } end",
+            files: [
+                "shell.toml": "profile = \"look\"\nprofiles.look.trailing = [\"test\"]\n",
+                "look/lib/size.luau": "return 12"
+            ]
+        )
+        defer { harness.close() }
+        var layoutChanges = harness.layoutChanges.makeAsyncIterator()
+        while harness.slot?.size.width != 12 {
+            try await layoutChanges.change()
+        }
+        let first = harness.root.appendingPathComponent("first", isDirectory: true)
+        let second = harness.root.appendingPathComponent("second", isDirectory: true)
+        for folder in [first, second] {
+            try FileManager.default.createDirectory(at: folder, withIntermediateDirectories: true)
+        }
+        try Data("return 34".utf8).write(to: first.appendingPathComponent("size.luau"))
+        try Data("return 67".utf8).write(to: second.appendingPathComponent("size.luau"))
+        let link = harness.root.appendingPathComponent("shell/lib", isDirectory: true)
+        for (index, width) in [34, 45, 56, 67, 78].enumerated() {
+            switch index {
+            case 0:
+                try FileManager.default.createSymbolicLink(at: link, withDestinationURL: first)
+                harness.host.rescan()
+            case 1,
+                 2:
+                try Data("return \(width)".utf8).write(
+                    to: first.appendingPathComponent("size.luau"), options: index == 2 ? .atomic : []
+                )
+            case 3:
+                try FileManager.default.removeItem(at: link)
+                try FileManager.default.createSymbolicLink(at: link, withDestinationURL: second)
+            default:
+                try Data("return \(width)".utf8).write(to: second.appendingPathComponent("size.luau"))
+            }
+            let deadline = ContinuousClock.now + .seconds(10)
+            while harness.slot?.size.width != CGFloat(width), ContinuousClock.now < deadline {
+                try await Task.sleep(for: .milliseconds(20))
+            }
+            XCTAssertEqual(harness.slot?.size.width, CGFloat(width))
+            guard harness.slot?.size.width == CGFloat(width) else { return }
+            XCTAssertTrue(harness.host.observation?.isUsingNativeObservation == true)
+        }
+    }
+
+    func testMissingLinkedLibraryTargetsRecoverAndReloadThroughNativeObservation() async throws {
+        for relative in [false, true] {
+            let harness = try harness(
+                "function render(ctx) return ui.box{ w = require(\"../lib/size\"), h = 10 } end",
+                files: [
+                    "shell.toml": "profile = \"look\"\nprofiles.look.trailing = [\"test\"]\n",
+                    "look/lib/size.luau": "return 12"
+                ]
+            )
+            let external = FileManager.default.temporaryDirectory.appendingPathComponent(UUID().uuidString)
+            defer {
+                harness.close()
+                try? FileManager.default.removeItem(at: external)
+            }
+            try FileManager.default.createDirectory(at: external, withIntermediateDirectories: true)
+            var layoutChanges = harness.layoutChanges.makeAsyncIterator()
+            while harness.slot?.size.width != 12 {
+                try await layoutChanges.change()
+            }
+            let target = external.appendingPathComponent("missing/lib", isDirectory: true)
+            let link = harness.root.appendingPathComponent("shell/lib", isDirectory: true)
+            let destination = relative ? "../../\(external.lastPathComponent)/missing/lib" : target.path
+            try FileManager.default.createSymbolicLink(atPath: link.path, withDestinationPath: destination)
+            harness.host.rescan()
+            XCTAssertTrue(harness.host.watchedPaths.contains(link))
+            for (index, width) in [34, 45, 12, 56, 78].enumerated() {
+                if index == 2 {
+                    try FileManager.default.removeItem(at: target)
+                } else {
+                    try FileManager.default.createDirectory(at: target, withIntermediateDirectories: true)
+                    try Data("return \(width)".utf8).write(
+                        to: target.appendingPathComponent("size.luau"), options: index == 4 ? .atomic : []
+                    )
+                }
+                let deadline = ContinuousClock.now + .seconds(10)
+                while harness.slot?.size.width != CGFloat(width), ContinuousClock.now < deadline {
+                    try await Task.sleep(for: .milliseconds(20))
+                }
+                XCTAssertEqual(harness.slot?.size.width, CGFloat(width), "relative link: \(relative), step: \(index)")
+                guard harness.slot?.size.width == CGFloat(width) else { break }
+                XCTAssertTrue(harness.host.observation?.isUsingNativeObservation == true)
+            }
+        }
+    }
+
     func testScrollsReachHandlersWithoutLosingDeltas() async throws {
         executionTimeAllowance = 60
         let harness = try harness("""

@@ -10,7 +10,7 @@ on:
   workflow_dispatch:
     inputs:
       force:
-        description: Build even when main has no commits after the newest canary or release tag
+        description: Build even when main has no app commits after the newest canary or release tag
         type: boolean
         default: false
 

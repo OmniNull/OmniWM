@@ -35,6 +35,7 @@ extension ViewportState {
     }
 
     mutating func reset() {
+        preservesGestureOffset = false
         activeColumnIndex = 0
         jumpOffset(to: 0.0)
         selectedNodeId = nil

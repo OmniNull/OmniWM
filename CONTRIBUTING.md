@@ -193,7 +193,7 @@ Start with `make doctor` and the first error reported by the failing command.
 - Create your change branch from `main` and target `main`. There is no permanent `develop` branch.
 - Contributor PRs are normally integrated with merge commits so their commit history and authorship remain intact. You do not need to squash or perfect your history before asking for review.
 
-Reviewed development lands on `main`; published releases come from version tags. Merging a PR does not itself update users' installed apps.
+Reviewed development lands on `main`; published releases come from version tags. Merging a PR does not itself update users' installed apps. Work that merges to `main` outside a PR, such as a release branch, needs a name ending in `-release` so the same CI runs on every push to it.
 
 ### Releases
 

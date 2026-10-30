@@ -123,7 +123,11 @@ extension NiriLayoutEngine {
             )
         }
         if let single = singleWindowLayoutContext(in: workspaceId, excluding: excludedTokens) {
-            layoutSingleWindow(single, context: context, result: &result)
+            layoutSingleWindow(
+                single, context: context, result: &result,
+                viewportOffset: effectiveSettings(in: workspaceId).edgeOverscroll == .disabled
+                    ? 0 : viewOffsetOverride ?? state.viewOffset
+            )
             return
         }
         let prepared = prepareLayoutColumns(

@@ -9,6 +9,8 @@ import ExampleFile from '../../../../components/docs/ExampleFile.astro';
 
 Build **quick-menu**, a bar button with an Audio submenu, volume controls, and an entry to OmniWM's menu. You need OmniWM running, `omniwmctl` on your `PATH`, and a text editor. Enable the Workspace Bar to try the bar button. The [first widget guide](/omnishell/guides/first-widget/) explains UI tables and child elements.
 
+**Unreleased: OmniShell is available when building from `main`.** Before running the commands below, turn on **Settings > Advanced > Enable IPC**; IPC is off by default. See [CLI setup](/reference/cli/overview/#installation) if `omniwmctl` is not on your `PATH`.
+
 ## 1. Create the menu widget
 
 For `<profile>`, use the selected style's profile folder, such as `default` or `lake`. Before creating `quick-menu`, check both `~/.config/omniwm/shell/<profile>/widgets/quick-menu/` and `~/.config/omniwm/shell/widgets/quick-menu/`.

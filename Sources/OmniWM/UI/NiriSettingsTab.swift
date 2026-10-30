@@ -109,6 +109,32 @@ private struct GlobalNiriSettingsSection: View {
                     controller.updateNiriConfig(alwaysCenterSingleColumn: newValue)
                 }
 
+            Toggle("Allow Overscroll", isOn: Bindable(settings.niri).allowOverscroll)
+                .id("Allow Overscroll")
+                .onChange(of: settings.niri.allowOverscroll) { _, _ in
+                    controller.updateNiriConfig(edgeOverscroll: settings.niri.edgeOverscroll)
+                }
+
+            SettingsSliderRow(
+                label: String(localized: "Overscroll Visible Strip"),
+                value: Binding(
+                    get: { Double(settings.niri.overscrollVisibleStripPercent) },
+                    set: { settings.niri.overscrollVisibleStripPercent = Int($0) }
+                ),
+                range: 1 ... 100,
+                step: 1,
+                valueText: "\(settings.niri.overscrollVisibleStripPercent)%",
+                valueWidth: 48
+            )
+            .id("Overscroll Visible Strip")
+            .disabled(!settings.niri.allowOverscroll)
+            .onChange(of: settings.niri.overscrollVisibleStripPercent) { _, _ in
+                controller.updateNiriConfig(edgeOverscroll: settings.niri.edgeOverscroll)
+            }
+            SettingsCaption(
+                localized: "Scroll past the first or last container to expose the desktop. The visible strip is a percentage of the edge container's primary span, capped at the viewport span."
+            )
+
             Toggle("Gaps at Screen Edges", isOn: Bindable(settings.niri).edgeGaps)
                 .id("Gaps at Screen Edges")
                 .onChange(of: settings.niri.edgeGaps) { _, _ in
@@ -303,6 +329,26 @@ private struct MonitorNiriSettingsSection: View {
                 onChange: { newValue in updateSetting { $0.alwaysCenterSingleColumn = newValue } },
                 onReset: { updateSetting { $0.alwaysCenterSingleColumn = nil } }
             )
+
+            OverridableToggle(
+                label: String(localized: "Allow Overscroll"),
+                value: ms.allowOverscroll,
+                globalValue: settings.niri.allowOverscroll,
+                onChange: { newValue in updateSetting { $0.allowOverscroll = newValue } },
+                onReset: { updateSetting { $0.allowOverscroll = nil } }
+            )
+
+            OverridableSlider(
+                label: String(localized: "Overscroll Visible Strip"),
+                value: ms.overscrollVisibleStripPercent.map(Double.init),
+                globalValue: Double(settings.niri.overscrollVisibleStripPercent),
+                range: 1 ... 100,
+                step: 1,
+                formatter: { "\(Int($0))%" },
+                onChange: { newValue in updateSetting { $0.overscrollVisibleStripPercent = Int(newValue) } },
+                onReset: { updateSetting { $0.overscrollVisibleStripPercent = nil } }
+            )
+            .disabled(!(ms.allowOverscroll ?? settings.niri.allowOverscroll))
 
             SingleWindowFitControls(
                 label: String(localized: "Single Window"),

@@ -91,7 +91,7 @@ extension ViewportState {
         }
 
         let snapTargetOffset = result.viewPos - Double(newContainerPosition)
-        let correctedTargetOffset = correctedGestureTargetOffset(
+        let correctedTargetOffset = result.isOverscrollBoundary ? snapTargetOffset : correctedGestureTargetOffset(
             result: result,
             columns: columns,
             geometry: geometry
@@ -128,10 +128,14 @@ extension ViewportState {
             let bounds = gestureSnapBounds(columns: columns, plan: &plan)
             plan.appendBoundedPoints(in: columns, bounds: bounds)
         }
+        if let bounds = plan.geometry.viewport.overscrollBounds(columns: columns) {
+            plan.appendPoint(Double(bounds.lowerBound), columnIndex: 0, isOverscrollBoundary: true)
+            plan.appendPoint(Double(bounds.upperBound), columnIndex: columns.count - 1, isOverscrollBoundary: true)
+        }
         guard let closest = plan.closestPoint(to: projectedViewPos) else {
             return NiriGestureSnapPlan.Point(viewPos: 0, columnIndex: 0)
         }
-        guard !plan.geometry.isCentering else { return closest }
+        guard !plan.geometry.isCentering, !closest.isOverscrollBoundary else { return closest }
         let columnIndex = if projectedOffset >= currentOffset {
             forwardGestureSnapColumn(closest: closest, columns: columns, geometry: plan.geometry)
         } else {
@@ -305,7 +309,10 @@ extension ViewportState {
             gap: geometry.gap,
             viewportSpan: Double(geometry.viewportSpan),
             totalContentSpan: totalContentSpan,
-            sizeKeyPath: sizeKeyPath
+            sizeKeyPath: sizeKeyPath,
+            viewStartBounds: geometry.overscrollBounds(columns: columns).map {
+                Double($0.lowerBound) ... Double($0.upperBound)
+            }
         )?.landing(
             columns: columns,
             activeIndex: activeColumnIndex,
@@ -330,8 +337,10 @@ extension ViewportState {
         activeColumnIndex = preserved.normalizedActiveColumn
 
         let maxViewStart = max(0, totalContentSpan - Double(geometry.viewportSpan))
-        let overscrolled = Double(oldActivePosition) + projectedOffset < 0
-            || Double(oldActivePosition) + projectedOffset > maxViewStart
+        let bounds = geometry.overscrollBounds(columns: columns).map {
+            Double($0.lowerBound) ... Double($0.upperBound)
+        } ?? (0 ... maxViewStart)
+        let overscrolled = !bounds.contains(Double(oldActivePosition) + projectedOffset)
 
         guard motion.animationsEnabled else {
             jumpOffset(to: CGFloat(preserved.finalOffset))

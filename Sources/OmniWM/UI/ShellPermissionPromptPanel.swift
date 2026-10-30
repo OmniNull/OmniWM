@@ -27,7 +27,15 @@ final class ShellPermissionPromptPanel {
     ) {
         panel = NSPanel(contentRect: .zero, styleMask: [.titled, .nonactivatingPanel], backing: .buffered, defer: false)
         self.registry = registry
-        let view = ShellPermissionPromptView(request: request, name: title) { [weak self] allowed in
+        let availableHeight = (panel.screen ?? NSScreen.main).map {
+            panel.contentRect(forFrameRect: $0.visibleFrame).height
+        } ?? 600
+        let maximumHeight = min(600, availableHeight)
+        let view = ShellPermissionPromptView(
+            request: request,
+            name: title,
+            maximumHeight: maximumHeight
+        ) { [weak self] allowed in
             guard let self, !closed else { return }
             close()
             answer(allowed)
@@ -56,9 +64,36 @@ final class ShellPermissionPromptPanel {
 struct ShellPermissionPromptView: View {
     let request: ShellPermissionPrompts.Request
     let name: String
+    let maximumHeight: CGFloat
     let answer: @MainActor (Bool) -> Void
 
     var body: some View {
+        VStack(alignment: .leading, spacing: 14) {
+            ViewThatFits(in: .vertical) {
+                information.fixedSize(horizontal: false, vertical: true)
+                ScrollView {
+                    information
+                }
+            }
+            SettingsCaption(
+                localized: "OmniWM remembers your choice. You can change it in Settings › Network & Permissions."
+            )
+            HStack {
+                Spacer()
+                Button("Allow") { answer(true) }
+                    .accessibilityIdentifier("shell-permission-allow")
+                Button("Deny") { answer(false) }
+                    .accessibilityIdentifier("shell-permission-deny")
+                    .keyboardShortcut(.defaultAction)
+            }
+        }
+        .padding(20)
+        .frame(width: 440)
+        .frame(maxHeight: maximumHeight)
+        .fixedSize(horizontal: false, vertical: true)
+    }
+
+    private var information: some View {
         VStack(alignment: .leading, spacing: 14) {
             HStack(alignment: .top, spacing: 12) {
                 Image(systemName: symbol)
@@ -77,18 +112,8 @@ struct ShellPermissionPromptView: View {
                     .textSelection(.enabled)
                     .fixedSize(horizontal: false, vertical: true)
             }
-            SettingsCaption(
-                localized: "OmniWM remembers your choice. You can change it in Settings › Network & Permissions."
-            )
-            HStack {
-                Spacer()
-                Button("Allow") { answer(true) }
-                Button("Deny") { answer(false) }
-                    .keyboardShortcut(.defaultAction)
-            }
         }
-        .padding(20)
-        .frame(width: 440)
+        .frame(maxWidth: .infinity, alignment: .leading)
     }
 
     private var symbol: String {

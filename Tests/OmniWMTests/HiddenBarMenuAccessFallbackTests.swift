@@ -154,6 +154,100 @@ final class HiddenBarMenuAccessFallbackTests: XCTestCase {
         XCTAssertTrue(HiddenBarClickForwarder.activationCandidate(pid: 1, covered: false, electron: true).useAXPress)
     }
 
+    func testAnAgentHostedItemIsPressedAndNeverClicked() {
+        let uncovered = HiddenBarClickForwarder.activationCandidate(pid: 1, covered: false, electron: false)
+        XCTAssertTrue(MenuBarItemLocator.usesAXPress(for: uncovered, hosted: true))
+        XCTAssertFalse(MenuBarItemLocator.usesAXPress(for: uncovered, hosted: false))
+        guard case .unavailable = MenuBarItemLocator.fallback(for: uncovered, frame: .zero, hosted: true) else {
+            return XCTFail("an agent hosted item must not be clicked when its press fails")
+        }
+        guard case .clickFrame = MenuBarItemLocator.fallback(for: uncovered, frame: .zero, hosted: false) else {
+            return XCTFail("an item from the app's own extras bar is still clicked")
+        }
+    }
+
+    func testAgentHostedItemsKeepOnlyTheOwnerSortedByPosition() {
+        let entries = [
+            MenuBarItemLocator.HostedItemEntry(
+                pid: 7,
+                frame: CGRect(x: 300, y: 0, width: 20, height: 24),
+                element: "b"
+            ),
+            MenuBarItemLocator.HostedItemEntry(
+                pid: 9,
+                frame: CGRect(x: 100, y: 0, width: 20, height: 24),
+                element: "other"
+            ),
+            MenuBarItemLocator.HostedItemEntry(
+                pid: 7,
+                frame: CGRect(x: 200, y: 0, width: 20, height: 24),
+                element: "a"
+            ),
+            MenuBarItemLocator.HostedItemEntry(pid: 7, frame: .zero, element: "empty")
+        ]
+        XCTAssertEqual(MenuBarItemLocator.hostedItems(entries, pid: 7).map(\.element), ["a", "b"])
+    }
+
+    func testTheAgentWalkReadsEveryItemAndSkipsItemsWithoutAFrame() {
+        let tree = agentTree([
+            "window": ["group-a", "group-b"],
+            "group-a": ["a"],
+            "group-b": ["b", "frameless"]
+        ])
+        let entries = MenuBarItemLocator.hostedEntries(tree, expired: { false })
+        XCTAssertEqual(entries?.map(\.element), ["a", "b"])
+        XCTAssertEqual(entries?.map(\.pid), [7, 7])
+    }
+
+    func testTheAgentWalkStopsOnceItsDeadlinePasses() {
+        let tree = agentTree(["window": ["group"], "group": ["a", "b"]])
+        var checks = 0
+        let entries = MenuBarItemLocator.hostedEntries(tree, expired: {
+            checks += 1
+            return checks > 3
+        })
+        XCTAssertNil(entries)
+        XCTAssertEqual(checks, 4)
+    }
+
+    func testAHostedItemIndexWalksTheAgentOncePerPass() {
+        var walks = 0
+        let element = AXUIElementCreateApplication(1)
+        let index = MenuBarItemLocator.HostedItemIndex {
+            walks += 1
+            return [
+                .init(pid: 7, frame: CGRect(x: 40, y: 0, width: 20, height: 24), element: element),
+                .init(pid: 9, frame: CGRect(x: 10, y: 0, width: 20, height: 24), element: element),
+                .init(pid: 7, frame: CGRect(x: 10, y: 0, width: 20, height: 24), element: element)
+            ]
+        }
+        XCTAssertEqual(index.items(for: 7)?.map(\.frame.minX), [10, 40])
+        XCTAssertEqual(index.items(for: 9)?.count, 1)
+        XCTAssertNil(index.items(for: 3))
+        XCTAssertEqual(index.items(for: 7)?.allSatisfy(\.hosted), true)
+        XCTAssertEqual(walks, 1)
+    }
+
+    func testTheAgentWalkBudgetStartsAtTheWalkNotAtThePass() {
+        var now = ContinuousClock.now
+        let expired = MenuBarItemLocator.expiry(after: .milliseconds(250), now: { now })
+        now = now.advanced(by: .seconds(1))
+        XCTAssertFalse(expired())
+        now = now.advanced(by: .milliseconds(200))
+        XCTAssertFalse(expired())
+        now = now.advanced(by: .milliseconds(100))
+        XCTAssertTrue(expired())
+    }
+
+    private func agentTree(_ children: [String: [String]]) -> MenuBarItemLocator.HostedTree<String> {
+        MenuBarItemLocator.HostedTree(
+            windows: { ["window"] },
+            children: { children[$0] ?? [] },
+            owner: { _ in 7 },
+            frame: { $0 == "frameless" ? nil : CGRect(x: $0 == "a" ? 10 : 20, y: 0, width: 20, height: 24) }
+        )
+    }
+
     private func settings() -> SettingsStore {
         SettingsStore(
             persistence: SettingsFilePersistence(directory: directory, startWatching: false, deferSaves: false),

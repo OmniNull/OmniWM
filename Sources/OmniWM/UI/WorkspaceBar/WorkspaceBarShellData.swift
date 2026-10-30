@@ -69,7 +69,7 @@ extension ShellBarStyle {
             keyboardMode: snapshot.keyboardMode.rawValue,
             previews: settings.resolvedHoverPreviewsEnabled,
             hideInFullscreen: settings.resolvedHideInNativeFullscreen,
-            hidesMenuBar: WorkspaceBarManager.hidesMenuBar(resolved)
+            hidesMenuBar: WorkspaceBarManager.coversAppMenus(resolved)
         )
     }
 }

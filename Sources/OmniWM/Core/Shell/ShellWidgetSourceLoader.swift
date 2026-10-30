@@ -52,9 +52,14 @@ actor ShellWidgetSourceLoader {
             )
         }
 
-        var libraries: [URL] {
+        var libraryPaths: [URL] {
             libraryDirectories.map { $0.appendingPathComponent("lib", isDirectory: true) }
-                .filter { (try? $0.resourceValues(forKeys: [.isDirectoryKey]).isDirectory) == true }
+        }
+
+        var libraries: [URL] {
+            libraryPaths.filter {
+                (try? $0.resolvingSymlinksInPath().resourceValues(forKeys: [.isDirectoryKey]).isDirectory) == true
+            }
         }
     }
 
@@ -144,7 +149,7 @@ actor ShellWidgetSourceLoader {
     static func packageDirectories(_ input: Input, components: [ShellComponentDescriptor] = []) -> [URL] {
         guard input.contained else { return [] }
         return entries(in: input.sourceURL.deletingLastPathComponent(), directories: true)
-            + input.libraries.flatMap { [$0] + entries(in: $0, directories: true) }
+            + input.libraryPaths.flatMap { [$0] + entries(in: $0, directories: true) }
             + components.flatMap { [$0.folder] + entries(in: $0.folder, directories: true) }
     }
 

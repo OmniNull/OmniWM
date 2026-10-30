@@ -85,6 +85,7 @@ The full schema is documented key by key in the [Settings Reference](/config/set
 | [`[statusBar]`](/config/settings-reference/#statusbar) | Menu bar icon extras |
 | [`[hiddenBar]`](/config/settings-reference/#hiddenbar) | Menu bar icon concealment |
 | [`[clipboard]`](/config/settings-reference/#clipboard) | Clipboard history limits |
+| [`[launcher]`](/config/settings-reference/#launcher) | Saved applications, commands, scripts and CLI launches; execution defaults and discovery folders |
 | [`[quakeTerminal]`](/config/settings-reference/#quaketerminal) | Drop-down terminal |
 | [`[scratchpads]`](/config/settings-reference/#scratchpads) | Scratchpad slot labels |
 | [`[appearance]`](/config/settings-reference/#appearance) | Light/dark appearance of OmniWM's own UI |

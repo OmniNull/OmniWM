@@ -685,7 +685,7 @@ OmniWM is built for high responsiveness and smooth, crisp animations.
 - **SIP stays enabled** — Official OmniWM releases do not require disabling System Integrity Protection.
 - **Signed and notarized releases** — Official release builds are Developer ID signed and Apple-notarized.
 - **Free and open source** — OmniWM has no subscriptions, feature paywalls, trial limits, or usage caps and is licensed GPL-2.0-only.
-- **OmniShell network consent** — Widgets need declared hosts and user consent or organization preapproval; native programs need trust tied to their executable and command. **Settings > Network & Permissions** manages those decisions and the built-in Weather and Lyrics switches, both on by default. Organization policies can block them. See [network permissions](https://omniwm.app/omnishell/reference/services/#consent-and-policy) and [managed preferences](https://omniwm.app/config/managed-preferences/).
+- **OmniShell network consent (Unreleased: available when building from `main`)** — Widgets need declared hosts and user consent or organization preapproval; native programs need trust tied to their executable and command. **Settings > Network & Permissions** manages those decisions and the built-in Weather and Lyrics switches, both on by default. Organization policies can block them. See [network permissions](https://omniwm.app/omnishell/reference/services/#consent-and-policy) and [managed preferences](https://omniwm.app/config/managed-preferences/).
 
 ## Requirements
 
@@ -693,7 +693,7 @@ OmniWM is built for high responsiveness and smooth, crisp animations.
 - Hidden Bar concealment and optional issue-report rewriting require macOS 27 or later; rewriting also requires enabled Apple Intelligence and an available local model
 - Accessibility and Input Monitoring permissions (required at launch)
 - Screen Recording permission for Overview thumbnails, drag previews, and captured Hidden Bar glyphs (optional)
-- Full Disk Access permission for Hidden Bar concealment (optional)
+- Full Disk Access permission for Hidden Bar concealment and the OmniShell Notifications widget (optional); notification replies and dismissal also use Accessibility
 - System Audio Recording permission for per-app volume, Calendars access for the calendar widget, Location for the Wi-Fi widget's network name and Bluetooth for the Bluetooth widget in the Luau shell (optional)
 - Displays have separate spaces **ON** (the macOS default; OmniWM pauses window management until it is enabled)
 
@@ -1068,7 +1068,7 @@ Quake Terminal loads Ghostty's normal configuration files and their included fil
 
 Select **Kitty** under **Settings → Quake Terminal → Terminal** to use Kitty's quick-access terminal. Install Kitty separately. It uses `quick-access-terminal.conf`, with optional placement, auto-hide, and opacity overrides in OmniWM. The Ghostty settings and shortcuts above apply to the embedded provider. See the [Kitty provider guide](https://omniwm.app/features/quake-terminal/#kitty-provider).
 
-Select **foot** to use the Quake terminal of [foot for macOS](https://github.com/gobijan/foot-macos) 1.28.0-macos.8 or newer, installed separately. OmniWM runs a dedicated foot server that it keeps for reuse. It uses `foot.ini`, with optional placement, auto-hide, opacity and dim overrides that apply the next time the panel is shown; dimming is off by default. foot has no tabs or splits, and the regular foot app's own `` Option + ` `` hotkey can clash with OmniWM's shortcut. See the [foot provider guide](https://omniwm.app/features/quake-terminal/#foot-provider).
+**Unreleased: available when building from `main`.** Select **foot** to use the Quake terminal of [foot for macOS](https://github.com/gobijan/foot-macos) 1.28.0-macos.8 or newer, installed separately. OmniWM runs a dedicated foot server that it keeps for reuse. It uses `foot.ini`, with optional placement, auto-hide, opacity and dim overrides that apply the next time the panel is shown; dimming is off by default. foot has no tabs or splits, and the regular foot app's own `` Option + ` `` hotkey can clash with OmniWM's shortcut. See the [foot provider guide](https://omniwm.app/features/quake-terminal/#foot-provider).
 
 #### Command Palette
 
@@ -1090,6 +1090,8 @@ Quickly search windows, app menus, clipboard history, OmniWM commands, applicati
 - Launcher and Files open in a browse grid; switch either mode to a list from the view menu
 - Files shows recent documents before typing, supports type filters, and can reveal a selection in Finder with `Cmd + Enter`
 - `Escape` dismisses the palette
+
+**Unreleased: available when building from `main`.** Launcher adds saved commands, scripts and CLI tool discovery to the former Applications mode. Configure entries in **Settings > Launcher**; see the [Launcher guide](https://omniwm.app/features/command-palette/#launcher) and [TOML reference](https://omniwm.app/config/settings-reference/#launcher).
 
 Clipboard history starts disabled. Open Clipboard mode (`Cmd + 3`) and click **Enable**, or set `clipboard.historyEnabled = true` in `settings.toml`. History retains text, rich text, HTML, images, file references, and safe native formats within the configured limits; concealed, transient, and recognized password-manager content is skipped. A selected item has a preview, each row can be pasted or pinned, and Clear removes unpinned history. See the [command palette guide](https://omniwm.app/features/command-palette/#clipboard-history) for storage details.
 
@@ -1131,7 +1133,7 @@ A visual indicator showing your workspaces:
 - Optionally hide the bar on a monitor while that monitor shows a macOS native fullscreen window, and bring it back on exit (`Hide in Native Fullscreen`); reserved tiled layout space is left untouched so windows do not shuffle around the fullscreen session
 - Exclude individual apps or choose alternate app icons across all monitors in Settings
 - The bar is drawn by Luau widgets in `~/.config/omniwm/shell/` that you can restyle or replace, with bundled styles and colour themes; see [OmniShell](https://omniwm.app/features/luau-shell/)
-- Add **Notifications** from **Settings → Styles & Widgets → Bar → Add Widget…** to browse retained macOS notifications. Its Details view includes participants, attachments, action definitions and native metadata, also available to widgets through `ctx.data.notifications`. The feed reads Notification Center's database on changes; native persistence can delay updates by several seconds. The widget shows storage-access errors and links to Full Disk Access settings. Reply and dismiss definitions are metadata; the widget does not execute those native actions.
+- **Notifications (Unreleased: available when building from `main`)** browses retained macOS notifications. If absent from your bar, add it under **Settings → Styles & Widgets → Bar → Add Widget…**. It needs Full Disk Access to read Notification Center's database; native persistence can delay updates by several seconds. Dismiss, Clear All and supported replies use Notification Center through Accessibility. A submitted reply confirms the native action was dispatched, not delivery to its recipient. Details and `ctx.data.notifications` expose participants, attachments, action definitions and native metadata. See [Notifications](https://omniwm.app/features/workspace-bar/#notifications) for setup and action limits.
 - The editable effects library includes native motion presets, Metal lighting and reveal masks. Add `effects-lab` to a bar lane in `shell.toml` to explore them with blur and glass materials; see [Effects library](https://omniwm.app/omnishell/reference/effects-shaders/).
 
 Workspace-bar appearance controls are optional and also support per-monitor overrides:
@@ -1187,7 +1189,7 @@ If you need more features for hiding status bar icons, I recommend [Thaw](https:
 - **Mouse** - Hold the configured mouse-move modifier and drag tiled windows. Drop at another tile's center to swap or near one of its edges to insert on that side; in Niri the edges facing neighboring columns open a new column, and Dwindle also inserts between existing splits or at the workspace's outer edges. Dwindle moves whole tiles, including their tab groups. Drops on another display work the same way, between Niri and Dwindle too. The modifier defaults to `Option` and can be changed or disabled in **Settings → Mouse & Trackpad**. In Overview, dragging a thumbnail needs no modifier and targets a workspace, window position, or Niri column gap
 - **Mouse Resize** - Hold the configured right-mouse resize modifier (`Option` by default) and right-drag a tiled window to resize it in either layout
 - **Scroll Gestures (Mouse)** - Hold `Option + Shift + Mouse Scroll Wheel` (default, configurable) to scroll along the active Niri primary axis: left/right in horizontal orientation or up/down in vertical orientation
-- **Trackpad Gestures** - Use 2/3/4-finger gestures (configurable) along the active Niri primary axis; direction can be inverted
+- **Trackpad Gestures** - Use 3- or 4-finger gestures (configurable) to scroll along the active Niri primary axis; direction can be inverted. Workspace switching and window move/resize also support two fingers
 - **Window Move & Resize (Trackpad)** - Opt-in in Settings → Mouse & Trackpad: drag without clicking to move or resize the tiled window under the cursor in either layout; lift your fingers to drop. Defaults are four fingers to move and three to resize. Column scrolling is on by default with three fingers, so the Resize row first offers **Set Up…**; pick another finger count (two fingers can intercept normal scrolling in apps) or turn off **Scroll columns**. Choose finger counts unused by other enabled gestures; **Set Up…** previews conflicts and lets you choose which gestures to turn off before applying the assignment. Turn off matching macOS gestures in System Settings → Trackpad → More Gestures to prevent them firing alongside window gestures.
 - **Workspace Swipe (Trackpad)** - Opt-in in Settings → Mouse & Trackpad: swipe with a configurable finger count (2/3/4) and axis (horizontal/vertical) to switch to the next/previous workspace on the monitor under the cursor, one switch per swipe; when sharing fingers with enabled column scrolling in Niri, workspace swipes use the perpendicular axis on each display; otherwise they use the selected axis. For vertical swipes with three or four fingers, first turn off Mission Control in  → System Settings → Trackpad → More Gestures so macOS does not intercept the gesture.
 

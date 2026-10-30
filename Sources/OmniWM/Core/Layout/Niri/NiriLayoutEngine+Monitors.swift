@@ -62,7 +62,8 @@ extension NiriLayoutEngine {
             centerFocusedColumn: centerFocusedColumn,
             alwaysCenterSingleColumn: alwaysCenterSingleColumn,
             singleWindowFit: singleWindowFit,
-            infiniteLoop: infiniteLoop
+            infiniteLoop: infiniteLoop,
+            edgeOverscroll: edgeOverscroll
         )
     }
 
