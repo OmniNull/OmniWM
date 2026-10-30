@@ -354,12 +354,7 @@ extension NiriLayoutEngine {
     }
 
     private func liveNeighbour(of column: NiriContainer, on side: LiveColumnMove.Side) -> NiriContainer? {
-        guard let children = column.parent?.children,
-              let index = children.firstIndex(where: { $0 === column })
-        else { return nil }
-        let neighbourIndex = side == .before ? index - 1 : index + 1
-        guard children.indices.contains(neighbourIndex) else { return nil }
-        return children[neighbourIndex] as? NiriContainer
+        (side == .before ? column.prevSibling() : column.nextSibling()) as? NiriContainer
     }
 
     private func openLiveDropSpace(
@@ -510,11 +505,11 @@ extension NiriLayoutEngine {
             : 0
         let underPointer = min(landing.minX, target.minX) ... max(landing.maxX, target.maxX)
         let lowest = max(
-            min(0, first.minX - (context.workingFrame.minX + context.gaps)),
+            min(0, first.minX - leadingEdge),
             min(0, underPointer.lowerBound - pointerX)
         )
         let highest = min(
-            max(0, last.maxX - (context.workingFrame.maxX - context.gaps)),
+            max(0, last.maxX - trailingEdge),
             max(0, underPointer.upperBound - pointerX - 1)
         )
         return wanted.clamped(to: lowest ... highest)

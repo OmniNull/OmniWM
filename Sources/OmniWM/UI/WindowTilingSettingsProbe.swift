@@ -7,7 +7,7 @@ import Observation
 @MainActor
 @Observable
 final class WindowTilingSettingsProbe {
-    enum Setting: CaseIterable, Equatable {
+    enum Setting: CaseIterable {
         case screenEdges
         case menuBar
         case optionKey
@@ -52,17 +52,12 @@ final class WindowTilingSettingsProbe {
     func refresh() {
         domainSynchronizer(Self.windowManagerDomain)
         enabledSettings = Setting.allCases.filter { setting in
-            Self.booleanValue(preferenceReader(setting.preferenceKey, Self.windowManagerDomain)) ?? true
+            (preferenceReader(setting.preferenceKey, Self.windowManagerDomain) as? NSNumber)?.boolValue ?? true
         }
     }
 
     func openDesktopAndDockSettings() {
         guard let url = URL(string: Self.desktopAndDockSettingsURLString) else { return }
         urlOpener(url)
-    }
-
-    private static func booleanValue(_ value: Any?) -> Bool? {
-        guard let number = value as? NSNumber else { return nil }
-        return number.boolValue
     }
 }

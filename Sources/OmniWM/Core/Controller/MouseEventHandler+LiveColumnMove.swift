@@ -35,15 +35,9 @@ extension MouseEventHandler {
               let engine = controller.niriEngine,
               let entry = controller.workspaceManager.entry(for: token),
               controller.workspaceManager.activeLayoutKind(for: entry.workspaceId) == .niri,
-              !engine.isLiveColumnMoveActive(in: entry.workspaceId),
-              let window = engine.findNode(for: token, in: entry.workspaceId),
-              controller.workspaceManager.niriViewportState(for: entry.workspaceId).selectedNodeId == window.id,
-              let context = liveColumnContext(for: entry.workspaceId)
+              !engine.isLiveColumnMoveActive(in: entry.workspaceId)
         else { return }
-        controller.workspaceManager.withNiriViewportState(for: entry.workspaceId) { viewportState in
-            engine.ensureSelectionVisible(node: window, context: context, state: &viewportState)
-        }
-        refreshLiveColumnLayout(in: entry.workspaceId, engine: engine)
+        scrollSelectionIntoView(token, in: entry.workspaceId, engine: engine)
     }
 
     func trackLiveColumnDrag(at location: CGPoint, button: MouseButton) -> Bool {
@@ -137,10 +131,9 @@ extension MouseEventHandler {
         let now = liveDragClock()
         let step = controller.workspaceManager.withNiriViewportState(
             for: workspaceId,
-            committingIf: { $0 == .changed }
-        ) { viewportState in
-            engine.liveColumnMoveUpdate(cursor: location, at: now, context: context, state: &viewportState)
-        }
+            committingIf: { $0 == .changed },
+            { engine.liveColumnMoveUpdate(cursor: location, at: now, context: context, state: &$0) }
+        )
         if case let .hovering(until) = step {
             scheduleLiveHoverCheck(after: until - now)
             return
@@ -263,17 +256,24 @@ extension MouseEventHandler {
     private func runLiveDropScroll() {
         guard let pending = state.liveDropScroll else { return }
         state.liveDropScroll = nil
+        guard let engine = controller?.niriEngine, engine.liveColumnMove == nil else { return }
+        scrollSelectionIntoView(pending.token, in: pending.workspaceId, engine: engine)
+    }
+
+    private func scrollSelectionIntoView(
+        _ token: WindowToken,
+        in workspaceId: WorkspaceDescriptor.ID,
+        engine: NiriLayoutEngine
+    ) {
         guard let controller,
-              let engine = controller.niriEngine,
-              engine.liveColumnMove == nil,
-              let window = engine.findNode(for: pending.token, in: pending.workspaceId),
-              controller.workspaceManager.niriViewportState(for: pending.workspaceId).selectedNodeId == window.id,
-              let context = liveColumnContext(for: pending.workspaceId)
+              let window = engine.findNode(for: token, in: workspaceId),
+              controller.workspaceManager.niriViewportState(for: workspaceId).selectedNodeId == window.id,
+              let context = liveColumnContext(for: workspaceId)
         else { return }
-        controller.workspaceManager.withNiriViewportState(for: pending.workspaceId) { viewportState in
+        controller.workspaceManager.withNiriViewportState(for: workspaceId) { viewportState in
             engine.ensureSelectionVisible(node: window, context: context, state: &viewportState)
         }
-        refreshLiveColumnLayout(in: pending.workspaceId, engine: engine)
+        refreshLiveColumnLayout(in: workspaceId, engine: engine)
     }
 
     private func refreshLiveColumnLayout(in workspaceId: WorkspaceDescriptor.ID, engine: NiriLayoutEngine) {
