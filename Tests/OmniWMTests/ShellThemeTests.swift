@@ -133,23 +133,24 @@ final class ShellThemeTests: XCTestCase {
     func testEveryThemeGetsReadableContainersAndAccents() throws {
         let root = FileManager.default.temporaryDirectory.appendingPathComponent(UUID().uuidString, isDirectory: true)
         defer { try? FileManager.default.removeItem(at: root) }
-        try FileManager.default.createDirectory(at: root, withIntermediateDirectories: true)
-        let names = try FileManager.default.contentsOfDirectory(
-            at: XCTUnwrap(ShellDefaults.bundledFile("themes")),
-            includingPropertiesForKeys: nil
-        ).map { $0.deletingPathExtension().lastPathComponent }.sorted()
-        XCTAssertEqual(names.count, 15)
+        XCTAssertEqual(try ShellStyleFixture.prepare(into: root), [])
+        let sources = try ShellStyleFixture.themes()
+        XCTAssertFalse(sources.isEmpty)
         var themes = [("native", ShellTheme.native)]
-        for name in names {
-            try Data("profiles.default.theme = \"\(name)\"\n".utf8).write(to: root.appendingPathComponent("shell.toml"))
-            themes.append((name, try XCTUnwrap(ShellConfig.load(shellDirectory: root), name).theme))
+        for (profile, source) in sources {
+            let name = source.deletingPathExtension().lastPathComponent
+            try Data("profile = \"\(profile)\"\nprofiles.\(profile).theme = \"\(name)\"\n".utf8)
+                .write(to: root.appendingPathComponent("shell.toml"))
+            let config = try XCTUnwrap(ShellConfig.load(shellDirectory: root), name)
+            XCTAssertEqual(config.themeName, name)
+            themes.append((name, config.theme))
         }
         let wallpaper = root.appendingPathComponent("themes/\(ShellWallpaperPalette.themeName).toml")
         for image in ShellWallpaperPaletteTests.wallpapers {
             for scheme in ShellWallpaperScheme.allCases {
                 let text = ShellWallpaperPalette.theme(pixels: image.pixels, scheme: scheme)
                 _ = try ShellWallpaperPalette.write(text, to: wallpaper)
-                try Data("profiles.default.theme = \"wallpaper\"\n".utf8)
+                try Data("profile = \"default\"\nprofiles.default.theme = \"wallpaper\"\n".utf8)
                     .write(to: root.appendingPathComponent("shell.toml"))
                 let label = "wallpaper \(image.name) \(scheme)"
                 themes.append((label, try XCTUnwrap(ShellConfig.load(shellDirectory: root), label).theme))
@@ -226,14 +227,16 @@ final class ShellThemeTests: XCTestCase {
         XCTAssertEqual(ShellRGBA(derived.cgColor).red, ShellRGBA(painted).red, accuracy: 0.002)
     }
 
-    func testBundledThemesLoadUnlessAUserThemeSharesTheirName() throws {
+    func testRepositoryThemesLoadUnlessAUserThemeSharesTheirName() throws {
         let root = FileManager.default.temporaryDirectory.appendingPathComponent(UUID().uuidString, isDirectory: true)
         defer { try? FileManager.default.removeItem(at: root) }
-        let themes = root.appendingPathComponent("themes", isDirectory: true)
-        try FileManager.default.createDirectory(at: themes, withIntermediateDirectories: true)
-        for name in ["wayline", "nocturne", "monolith", "celestial"] {
-            try Data("profiles.default.theme = \"\(name)\"\n".utf8).write(to: root.appendingPathComponent("shell.toml"))
+        XCTAssertEqual(try ShellStyleFixture.prepare(into: root), [])
+        for (profile, source) in try ShellStyleFixture.themes() {
+            let name = source.deletingPathExtension().lastPathComponent
+            try Data("profile = \"\(profile)\"\nprofiles.\(profile).theme = \"\(name)\"\n".utf8)
+                .write(to: root.appendingPathComponent("shell.toml"))
             let config = try XCTUnwrap(ShellConfig.load(shellDirectory: root), name)
+            XCTAssertEqual(config.themeName, name)
             XCTAssertNotEqual(
                 config.theme.dark[ShellRole.accent.rawValue],
                 ShellTheme.native.dark[ShellRole.accent.rawValue]
@@ -243,14 +246,23 @@ final class ShellThemeTests: XCTestCase {
                 ShellTheme.native.light[ShellRole.background.rawValue]
             )
         }
-        try Data("profiles.default.theme = \"nocturne\"\n".utf8).write(to: root.appendingPathComponent("shell.toml"))
-        XCTAssertEqual(
-            try XCTUnwrap(ShellConfig.load(shellDirectory: root)).theme.dark[ShellRole.accent.rawValue],
-            NSColor(shellHex: "#FFF59B")
+        let source = try XCTUnwrap(ShellStyleFixture.themeFiles(in: ShellStyleFixture.defaults).first)
+        let name = source.deletingPathExtension().lastPathComponent
+        try Data("profile = \"default\"\nprofiles.default.theme = \"\(name)\"\n".utf8)
+            .write(to: root.appendingPathComponent("shell.toml"))
+        var problems: [String] = []
+        let original = try ShellTheme(
+            toml: TOMLDecoder().decode([String: TOMLNode].self, from: Data(contentsOf: source)),
+            name: name, problems: &problems
         )
-        try Data("[dark]\naccent = \"#112233\"\n".utf8).write(to: themes.appendingPathComponent("nocturne.toml"))
+        XCTAssertEqual(problems, [])
+        XCTAssertEqual(try XCTUnwrap(ShellConfig.load(shellDirectory: root)).theme, original)
+        let accent = "#112233"
+        let themes = root.appendingPathComponent("themes", isDirectory: true)
+        try FileManager.default.createDirectory(at: themes, withIntermediateDirectories: true)
+        try Data("[dark]\naccent = \"\(accent)\"\n".utf8).write(to: themes.appendingPathComponent("\(name).toml"))
         let override = try XCTUnwrap(ShellConfig.load(shellDirectory: root))
-        XCTAssertEqual(override.theme.dark[ShellRole.accent.rawValue], NSColor(shellHex: "#112233"))
+        XCTAssertEqual(override.theme.dark[ShellRole.accent.rawValue], NSColor(shellHex: accent))
         XCTAssertEqual(override.theme.light, ShellTheme.native.light)
     }
 

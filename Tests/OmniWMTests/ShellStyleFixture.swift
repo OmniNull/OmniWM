@@ -9,6 +9,24 @@ enum ShellStyleFixture {
         .deletingLastPathComponent().deletingLastPathComponent().deletingLastPathComponent()
         .appendingPathComponent("styles", isDirectory: true)
 
+    static let defaults = directory.deletingLastPathComponent()
+        .appendingPathComponent("Sources/OmniWM/ShellDefault", isDirectory: true)
+
+    static func themeFiles(in layer: URL) throws -> [URL] {
+        let folder = layer.appendingPathComponent("themes", isDirectory: true)
+        guard FileManager.default.fileExists(atPath: folder.path) else { return [] }
+        return try FileManager.default.contentsOfDirectory(
+            at: folder, includingPropertiesForKeys: nil, options: [.skipsHiddenFiles]
+        ).filter { $0.pathExtension == "toml" }.sorted { $0.lastPathComponent < $1.lastPathComponent }
+    }
+
+    static func themes() throws -> [(profile: String, source: URL)] {
+        let layers = [(ShellDefaults.profile, defaults)] + (try names().map { ($0, try source($0)) })
+        return try layers.flatMap { profile, layer in
+            try themeFiles(in: layer).map { (profile, $0) }
+        }
+    }
+
     static func names(in directory: URL = directory) throws -> [String] {
         try FileManager.default.contentsOfDirectory(
             at: directory, includingPropertiesForKeys: [.isDirectoryKey], options: [.skipsHiddenFiles]

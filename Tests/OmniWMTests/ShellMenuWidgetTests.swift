@@ -38,12 +38,12 @@ final class ShellMenuWidgetTests: XCTestCase {
         }
     }
 
-    func testMenuWidgetsInheritEveryBundledPalette() throws {
-        let themes = shell.appendingPathComponent("default/themes", isDirectory: true)
-        let names = try FileManager.default.contentsOfDirectory(atPath: themes.path)
-            .filter { $0.hasSuffix(".toml") }.map { String($0.dropLast(5)) }.sorted()
-        XCTAssertEqual(names.count, 15)
-        for theme in names {
+    func testMenuWidgetsInheritEveryRepositoryPalette() throws {
+        let themes = try ShellStyleFixture.themes()
+        XCTAssertFalse(themes.isEmpty)
+        for (profile, source) in themes {
+            let theme = source.deletingPathExtension().lastPathComponent
+            _ = try ShellProfiles.select(profile, in: shell)
             _ = try ShellProfiles.selectTheme(theme, in: shell)
             var problems: [String] = []
             let config = try XCTUnwrap(ShellConfig.load(shellDirectory: shell, problems: &problems))

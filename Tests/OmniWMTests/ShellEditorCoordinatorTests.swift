@@ -62,9 +62,11 @@ final class ShellEditorCoordinatorTests: XCTestCase {
         let original = try document(fixture.shell)
         let active = configuration.config
         let lake = try await configuration.previewConfig(profile: "lake")
-        let changed = try await configuration.selectTheme("nocturne", profile: "lake")
+        let theme = try XCTUnwrap(ShellStyleFixture.themeFiles(in: ShellStyleFixture.defaults).first)
+            .deletingPathExtension().lastPathComponent
+        let changed = try await configuration.selectTheme(theme, profile: "lake")
         XCTAssertTrue(changed)
-        XCTAssertEqual(try node(["profiles", "lake", "theme"], in: fixture.shell), .string("nocturne"))
+        XCTAssertEqual(try node(["profiles", "lake", "theme"], in: fixture.shell), .string(theme))
         try assertUnchangedOutside("lake", original: original, fixture: fixture, active: active)
         let reset = try await configuration.selectTheme(lake.styleThemeName, profile: "lake")
         XCTAssertTrue(reset)
@@ -176,8 +178,10 @@ final class ShellEditorCoordinatorTests: XCTestCase {
         XCTAssertEqual(configuration.config.barOverride?.monitorOverrides.first?.height, 72)
         try await configuration.updateMonitor(monitor(), change: nil)
         XCTAssertTrue(configuration.config.barOverride?.monitorOverrides.isEmpty == true)
-        _ = try await configuration.selectTheme("nocturne")
-        XCTAssertEqual(configuration.config.themeName, "nocturne")
+        let theme = try XCTUnwrap(ShellStyleFixture.themeFiles(in: ShellStyleFixture.defaults).first)
+            .deletingPathExtension().lastPathComponent
+        _ = try await configuration.selectTheme(theme)
+        XCTAssertEqual(configuration.config.themeName, theme)
         _ = try await configuration.selectScheme(.vibrant)
         XCTAssertEqual(configuration.config.wallpaperScheme, .vibrant)
         try await configuration.setSystemStatsEnabled(false)

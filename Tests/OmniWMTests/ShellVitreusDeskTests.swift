@@ -94,7 +94,7 @@ final class ShellVitreusDeskTests: XCTestCase {
         end
         """)
         XCTAssertEqual(strings, ["foreground/1.000", "accent/0.000", "secondaryContainer/0.360", "error/0.000"])
-        let url = try XCTUnwrap(ShellDefaults.bundled).appendingPathComponent("themes/vitreus.toml")
+        let url = try ShellStyleFixture.source("vitreus").appendingPathComponent("themes/vitreus.toml")
         var problems: [String] = []
         let theme = try ShellTheme(
             toml: TOMLDecoder().decode([String: TOMLNode].self, from: Data(contentsOf: url)),

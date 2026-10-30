@@ -931,7 +931,9 @@ final class ShellConfigurationCoordinatorTests: XCTestCase {
         try await coordinator.refresh()
         let selected = try await coordinator.selectProfile("default")
         XCTAssertTrue(selected)
-        let selectedTheme = try await coordinator.selectTheme("nocturne")
+        let theme = try XCTUnwrap(ShellStyleFixture.themeFiles(in: ShellStyleFixture.defaults).first)
+            .deletingPathExtension().lastPathComponent
+        let selectedTheme = try await coordinator.selectTheme(theme)
         XCTAssertTrue(selectedTheme)
         try await coordinator.editBar { $0.leading = ["workspaces"] }
         XCTAssertEqual(coordinator.config.leading, ["workspaces"])
@@ -949,7 +951,7 @@ final class ShellConfigurationCoordinatorTests: XCTestCase {
         XCTAssertNil(profile["leading"])
         XCTAssertNil(profile["center"])
         XCTAssertNil(profile["trailing"])
-        XCTAssertEqual(profile["theme"], .string("nocturne"))
+        XCTAssertEqual(profile["theme"], .string(theme))
     }
 
     private func barFixture() throws -> URL {

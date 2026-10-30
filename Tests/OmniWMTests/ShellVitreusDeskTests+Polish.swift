@@ -79,7 +79,7 @@ extension ShellVitreusDeskTests {
 
     func testTheVitreusThemeResolvesEveryRoleToTheStockVitreusPalette() throws {
         let roles = try vitreusRoles()
-        let url = try XCTUnwrap(ShellDefaults.bundled).appendingPathComponent("themes/vitreus.toml")
+        let url = try ShellStyleFixture.source("vitreus").appendingPathComponent("themes/vitreus.toml")
         let theme = try Self.theme(String(contentsOf: url, encoding: .utf8), name: "vitreus")
         for (name, stock) in Self.stock where name != "mintlo" {
             XCTAssertEqual(Self.hex(try Self.color(roles[name], in: theme)), stock, name)

@@ -27,13 +27,7 @@ Fonts in top-level `fonts/` and in `<profile>/fonts/` are available to that prof
 
 A profile is any other folder in the shell folder. Choose it in **Settings > Styles & Widgets** with **Use Style**, with `profile = "<name>"` in `shell.toml`, or with `omniwmctl shell profile <name>`. The **Palette** picker recolors the selected style and `omniwmctl shell theme <name>` the active profile, and that profile keeps the choice. Anything a profile does not contain comes from `default/`.
 
-The optional styles in the repository’s `styles/` folder are profiles that restyle the whole bar and its popouts, on the same data and commands as the default widgets. **wayline** has a 40 pt bar with coloured icon blocks, **nocturne** has 40 pt capsules and panels that hang from the bar, and **celestial** follows Caelestia: a 60 pt bar with shaped workspaces and a status pill, and a dashboard that drops from the top centre on hover with Dashboard, Media, Performance and Weather tabs. Celestial starts on the left; all styles support top, bottom, left and right placement, and their bar contents scale with the thickness setting.
-
-**matrix** is Rain Terminal: a dark green, monospace style with a continuous falling-code shader behind the full-width bar, compact numbered workspaces and matching square popouts. Choose **Matrix** in **Settings > Styles & Widgets**, then **Use Style** or run `omniwmctl shell profile matrix`. Its palette stays dark in both system appearances. Widgets retain their ordinary controls, including media transport, volume, calendar, weather and system details.
-
-**sakura** is Sakura Glass: warm ivory, rose accents, rounded cards and gently falling cherry-blossom petals. The shader stays inside the bar and matching popouts, leaving the desktop and app windows clear. Choose **Sakura** in **Settings > Styles & Widgets**, then **Use Style** or run `omniwmctl shell profile sakura`. Its palette stays light in both system appearances, and its widgets keep the usual media, audio, calendar, weather and system controls.
-
-**vitreus** is liquid glass with a Desk on the right of each display, with Pad and Focus pages. Open it from the button at the end of the bar or with `omniwmctl shell trigger vitreus desk <display-id>`, using the `id` from `omniwmctl query displays` (for example `display:1`). Desk triggers accept display IDs, so displays with the same name remain separate; `desk-close` without an ID closes it everywhere. Drag the grip along its top to move the Desk, or a corner to shrink it to as little as half size. Drop it near its place, or click the grip there, and it springs back at full size; closing it does the same. The Desk needs **Settings > Styles & Widgets > Island > Show Dynamic Island**. Its palette stays dark. **Wallpaper Colors** in the **Palette** picker tints the glass with the wallpaper's colour, as Vitreus does, and its text and accent follow.
+Each optional style describes its appearance, controls and credits in its [README](https://github.com/OmniNull/OmniWM/tree/main/styles). Each style brings its own palette when it needs one.
 
 ## Installing styles
 
@@ -47,7 +41,7 @@ A style's `style.toml` gives, in English, its title, summary, version (such as `
 
 ```toml
 profile = "default"
-profiles.default.theme = "nocturne"          # a bundled theme or themes/<name>.toml
+profiles.default.theme = "nord"              # a generic palette or themes/<name>.toml
 profiles.default.leading = ["omniwm", "workspaces", "scratchpads"]
 profiles.default.center = ["clock"]
 profiles.default.trailing = ["volume", "system-stats"]
@@ -79,7 +73,7 @@ The bar lane, widget and drawer keys are described in [Bars, popouts, and drawer
 
 ## Palettes and wallpaper colors
 
-OmniWM bundles the themes catppuccin, celestial, dracula, everforest, gruvbox, kanagawa, matrix, monolith, nocturne, nord, rose-pine, sakura, tokyo-night, vitreus and wayline, each with light and dark colours.
+Default includes the generic palettes Catppuccin, Dracula, Everforest, Gruvbox, Kanagawa, Monolith, Nord, Rosé Pine and Tokyo Night. A style’s own palettes are offered while that style is selected or previewed.
 
 A theme in `themes/<name>.toml` sets palette roles under `[light]` and `[dark]` (for example `accent = "#FF9500"`) and may set the bar's look under its own `[workspaceBar]`.
 
@@ -95,7 +89,7 @@ Besides the base roles, the palette has Material 3 style `highestSurface`, `acce
 
 **Custom Accent Color** and **Custom Text Color** work with every palette. Resetting a color restores the palette value. The native material and motion appear on the live desktop; Settings previews use the actual widget sources with sample data.
 
-Matrix Rain and Sakura Petals expose named effect controls under **Styles & Widgets > Bar**. To make your own effects, see [Effects and shaders](/omnishell/reference/effects-shaders/).
+Styles that declare an effect expose its controls under **Styles & Widgets > Bar**. To make your own effects, see [Effects and shaders](/omnishell/reference/effects-shaders/).
 
 Use [development diagnostics](/omnishell/configuration/development/#diagnostics) to find unknown keys, invalid values and theme errors.
 
