@@ -1,6 +1,12 @@
 {
   "sourceLanguage" : "en",
   "strings" : {
+    "Only Focus Fully Visible Niri Windows" : {
+
+    },
+    "Ignore partially offscreen Niri windows and disable hover navigation at screen edges. Click or use the keyboard to reveal them." : {
+
+    },
     "Allow Overscroll" : {
 
     },
