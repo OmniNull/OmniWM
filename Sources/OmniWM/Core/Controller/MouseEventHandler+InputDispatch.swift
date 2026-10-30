@@ -229,6 +229,7 @@ extension MouseEventHandler {
         } else {
             if queuedLeftPress == nil { flushQueuedTapEventsBeforeImmediateDispatch() }
             if button == .left, !isInputSuppressed {
+                state.liveDropScroll = nil
                 retireNativeTitleBarDragAtInputBoundary()
             }
         }

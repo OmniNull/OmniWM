@@ -40,7 +40,7 @@ extension MouseEventHandler {
               controller.workspaceManager.niriViewportState(for: entry.workspaceId).selectedNodeId == window.id,
               let context = liveColumnContext(for: entry.workspaceId)
         else { return }
-        withLiveViewport(in: entry.workspaceId) { viewportState in
+        controller.workspaceManager.withNiriViewportState(for: entry.workspaceId) { viewportState in
             engine.ensureSelectionVisible(node: window, context: context, state: &viewportState)
         }
         refreshLiveColumnLayout(in: entry.workspaceId, engine: engine)
@@ -87,7 +87,7 @@ extension MouseEventHandler {
               let window = engine.findNode(for: entry.token, in: entry.workspaceId)
         else { return false }
 
-        let began = withLiveViewport(in: entry.workspaceId) { viewportState in
+        let began = controller.workspaceManager.withNiriViewportState(for: entry.workspaceId) { viewportState in
             engine.liveColumnMoveBegin(
                 windowId: window.id,
                 windowToken: entry.token,
@@ -101,9 +101,6 @@ extension MouseEventHandler {
         }
         drag.liveDrag = true
         state.deferredClickScroll = nil
-        liveDragEscapeCapture.start { [weak self] in
-            self?.cancelLiveColumnDrag()
-        }
         return true
     }
 
@@ -138,7 +135,10 @@ extension MouseEventHandler {
         guard let context = liveColumnContext(for: workspaceId) else { return }
 
         let now = liveDragClock()
-        let step = withLiveViewport(in: workspaceId, committingIf: { $0 == .changed }) { viewportState in
+        let step = controller.workspaceManager.withNiriViewportState(
+            for: workspaceId,
+            committingIf: { $0 == .changed }
+        ) { viewportState in
             engine.liveColumnMoveUpdate(cursor: location, at: now, context: context, state: &viewportState)
         }
         if case let .hovering(until) = step {
@@ -184,7 +184,7 @@ extension MouseEventHandler {
         let releaseX = controller.workspaceManager.entry(for: token)
             .flatMap { $0.axRef.flatMap(nativeWindowFrameProvider) }?
             .minX
-        let ended = withLiveViewport(in: workspaceId) { viewportState in
+        let ended = controller.workspaceManager.withNiriViewportState(for: workspaceId) { viewportState in
             engine.liveColumnMoveEnd(releasedAtScreenX: releaseX, context: context, state: &viewportState)
         }
         guard ended else { return false }
@@ -213,7 +213,7 @@ extension MouseEventHandler {
             controller?.niriEngine?.liveColumnMove = nil
             return
         }
-        let cancelled = withLiveViewport(in: move.workspaceId) { viewportState in
+        let cancelled = controller.workspaceManager.withNiriViewportState(for: move.workspaceId) { viewportState in
             engine.liveColumnMoveCancel(context: context, state: &viewportState)
         }
         if cancelled {
@@ -242,26 +242,6 @@ extension MouseEventHandler {
         return timer
     }
 
-    @discardableResult
-    func withLiveViewport<Result>(
-        in workspaceId: WorkspaceDescriptor.ID,
-        committingIf shouldCommit: (Result) -> Bool = { _ in true },
-        _ body: (inout ViewportState) -> Result
-    ) -> Result {
-        guard let manager = controller?.workspaceManager else {
-            var detached = ViewportState()
-            return body(&detached)
-        }
-        var viewportState = manager.niriViewportState(for: workspaceId)
-        let result = manager.withEngineMutationScope(in: workspaceId, label: "viewport_mutation") {
-            body(&viewportState)
-        }
-        if shouldCommit(result) {
-            manager.updateNiriViewportState(viewportState, for: workspaceId)
-        }
-        return result
-    }
-
     func cancelLiveHoverCheck() {
         state.liveHoverTimer?.invalidate()
         state.liveHoverTimer = nil
@@ -278,7 +258,6 @@ extension MouseEventHandler {
     private func endLiveColumnDragTracking() {
         cancelLiveHoverCheck()
         state.nativeTitleBarDrag?.liveDrag = false
-        liveDragEscapeCapture.stop()
     }
 
     private func runLiveDropScroll() {
@@ -288,9 +267,10 @@ extension MouseEventHandler {
               let engine = controller.niriEngine,
               engine.liveColumnMove == nil,
               let window = engine.findNode(for: pending.token, in: pending.workspaceId),
+              controller.workspaceManager.niriViewportState(for: pending.workspaceId).selectedNodeId == window.id,
               let context = liveColumnContext(for: pending.workspaceId)
         else { return }
-        withLiveViewport(in: pending.workspaceId) { viewportState in
+        controller.workspaceManager.withNiriViewportState(for: pending.workspaceId) { viewportState in
             engine.ensureSelectionVisible(node: window, context: context, state: &viewportState)
         }
         refreshLiveColumnLayout(in: pending.workspaceId, engine: engine)

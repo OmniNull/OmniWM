@@ -198,7 +198,7 @@ private struct GlobalNiriSettingsSection: View {
                 }
 
             SettingsCaption(
-                localized: "Drag a tiled window by its title bar to move its Niri column. Rest on another window and the windows slide over to make room; near a screen edge, a narrow gap shows where it will land, and holding the pointer at the edge scrolls. Release to drop it, or press Esc to cancel. Off: title-bar drags snap back."
+                localized: "Drag a tiled window by its title bar to move its Niri column. Rest on another window and the windows slide over to make room; near a screen edge, a narrow gap shows where it will land, and holding the pointer at the edge scrolls. Release to drop it. Off: title-bar drags snap back."
             )
 
             if settings.niri.naturalWindowDrag, !windowTilingSettingsProbe.enabledSettings.isEmpty {

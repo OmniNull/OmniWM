@@ -778,7 +778,6 @@ final class CrossDisplayDragTests: XCTestCase {
     func testALiveNaturalDragHandsOverToTheNativeMoveOnAnotherDisplay() throws {
         let fixture = try makeNativeFixture([.niri, .niri])
         fixture.controller.settings.niri.naturalWindowDrag = true
-        fixture.handler.liveDragEscapeCapture.installsEventTap = false
         let moved = addWindow(1, to: fixture.source, fixture)
         let neighbour = addWindow(2, to: fixture.source, fixture)
         let resident = addWindow(3, to: fixture.target, fixture)
@@ -804,7 +803,28 @@ final class CrossDisplayDragTests: XCTestCase {
         XCTAssertEqual(fixture.manager.workspace(for: neighbour), fixture.source)
         XCTAssertEqual(fixture.columns(fixture.target), [[resident], [moved]])
         XCTAssertNil(fixture.handler.state.nativeTitleBarDrag)
-        XCTAssertFalse(fixture.handler.liveDragEscapeCapture.isActive)
+    }
+
+    func testALiveDragReleasedOnAnotherDisplayBeforeADragEventThereDoesNotStayLive() throws {
+        let fixture = try makeNativeFixture([.niri, .niri])
+        fixture.controller.settings.niri.naturalWindowDrag = true
+        let moved = addWindow(1, to: fixture.source, fixture)
+        _ = addWindow(2, to: fixture.source, fixture)
+        let resident = addWindow(3, to: fixture.target, fixture)
+        let start = try beginNativeDrag(moved, fixture)
+        fixture.handler.nativeWindowFrameProvider = { _ in start.offsetBy(dx: 30, dy: 0) }
+        XCTAssertTrue(fixture.handler.handleNativeTitleBarDragFrameChanged(
+            for: try XCTUnwrap(fixture.manager.entry(for: moved))
+        ))
+        XCTAssertTrue(fixture.handler.isLiveColumnDragActive)
+        let point = try dropPoint(in: XCTUnwrap(fixture.frame(resident)), .right)
+        fixture.handler.nativeWindowFrameProvider = { _ in nil }
+
+        fixture.handler.dispatchMouseUp(at: point)
+
+        XCTAssertNil(fixture.niri.liveColumnMove)
+        XCTAssertFalse(fixture.handler.isLiveColumnDragActive)
+        XCTAssertNotEqual(fixture.handler.state.nativeTitleBarDrag?.liveDrag, true)
     }
 
     func testNativeMoveWaitsForTheFinalFrameAndDoesNotCommitAgain() throws {

@@ -1,7 +1,6 @@
 // SPDX-License-Identifier: GPL-2.0-only
 // Copyright (C) 2026 OmniNull — https://github.com/OmniNull/OmniWM
 
-import Carbon
 import CoreGraphics
 @testable import OmniWM
 import QuartzCore
@@ -178,7 +177,6 @@ final class LiveTitleBarDragTests: NiriInteractionTestCase {
         XCTAssertNil(fixture.engine.liveColumnMove)
         XCTAssertEqual(fixture.order(), order)
         XCTAssertEqual(fixture.phase, .awaitingCorrection)
-        XCTAssertFalse(fixture.handler.liveDragEscapeCapture.isActive)
     }
 
     func testDwindleTitleBarDragsStartNoLiveDragAndStillSnapBack() throws {
@@ -194,14 +192,12 @@ final class LiveTitleBarDragTests: NiriInteractionTestCase {
 
         XCTAssertFalse(fixture.handler.isLiveColumnDragActive)
         XCTAssertNil(fixture.controller.niriEngine?.liveColumnMove)
-        XCTAssertFalse(fixture.handler.liveDragEscapeCapture.isActive)
         XCTAssertNil(fixture.handler.state.deferredClickScroll)
 
         fixture.handler.dispatchMouseUp(at: try fixture.centre(of: other))
 
         XCTAssertEqual(fixture.phase, .awaitingCorrection)
         XCTAssertEqual(try fixture.frames(), frames)
-        XCTAssertFalse(fixture.handler.liveDragEscapeCapture.isActive)
     }
 
     func testMacOSMovingTheWindowStartsALiveDragThatSwapsColumns() throws {
@@ -211,7 +207,6 @@ final class LiveTitleBarDragTests: NiriInteractionTestCase {
         try fixture.startLiveDrag(dragged)
 
         XCTAssertTrue(fixture.handler.isLiveColumnDragActive)
-        XCTAssertTrue(fixture.handler.liveDragEscapeCapture.isActive)
         XCTAssertNotNil(fixture.engine.liveColumnMove)
 
         fixture.drag(to: try fixture.farHalf(of: neighbour))
@@ -263,7 +258,6 @@ final class LiveTitleBarDragTests: NiriInteractionTestCase {
 
         XCTAssertNil(fixture.engine.liveColumnMove)
         XCTAssertFalse(fixture.handler.isLiveColumnDragActive)
-        XCTAssertFalse(fixture.handler.liveDragEscapeCapture.isActive)
         XCTAssertNil(fixture.handler.state.liveDropScroll)
         XCTAssertEqual(fixture.order(), order)
         XCTAssertEqual(fixture.phase, .awaitingCorrection)
@@ -275,42 +269,6 @@ final class LiveTitleBarDragTests: NiriInteractionTestCase {
             fixture.manager.niriViewportState(for: fixture.workspaceId).selectedNodeId,
             fixture.engine.findNode(for: dragged, in: fixture.workspaceId)?.id
         )
-    }
-
-    func testEscRestoresTheLayoutAndIsNotPassedOn() throws {
-        let fixture = try makeFixture(pid: 938_006)
-        let (dragged, neighbour) = (fixture.tokens[1], fixture.tokens[2])
-        let order = fixture.order()
-        let offset = fixture.manager.niriViewportState(for: fixture.workspaceId).viewOffset
-        try fixture.startLiveDrag(dragged)
-        fixture.drag(to: try fixture.farHalf(of: neighbour))
-        XCTAssertNotEqual(fixture.landingOrder(), order)
-
-        let capture = fixture.handler.liveDragEscapeCapture
-        XCTAssertFalse(capture.consumesKeyEvent(type: .keyDown, keyCode: Int64(kVK_ANSI_A)))
-        XCTAssertTrue(capture.consumesKeyEvent(type: .keyDown, keyCode: Int64(kVK_Escape)))
-        let drained = expectation(description: "Escape handled")
-        DispatchQueue.main.async { drained.fulfill() }
-        wait(for: [drained], timeout: 1)
-
-        XCTAssertEqual(fixture.order(), order)
-        XCTAssertEqual(
-            fixture.manager.niriViewportState(for: fixture.workspaceId).viewOffset,
-            offset,
-            accuracy: 0.001
-        )
-        XCTAssertFalse(fixture.handler.isLiveColumnDragActive)
-        XCTAssertFalse(capture.isActive)
-        XCTAssertTrue(capture.consumesKeyEvent(type: .keyUp, keyCode: Int64(kVK_Escape)))
-        XCTAssertFalse(capture.consumesKeyEvent(type: .keyUp, keyCode: Int64(kVK_Escape)))
-        XCTAssertFalse(capture.consumesKeyEvent(type: .keyDown, keyCode: Int64(kVK_Escape)))
-
-        try fixture.macOSMoves(dragged, to: try fixture.frame(dragged).offsetBy(dx: 60, dy: 0))
-        fixture.drag(to: try fixture.farHalf(of: neighbour))
-        XCTAssertNil(fixture.engine.liveColumnMove)
-        fixture.handler.dispatchMouseUp(at: try fixture.centre(of: neighbour))
-        XCTAssertEqual(fixture.order(), order)
-        XCTAssertEqual(fixture.phase, .awaitingCorrection)
     }
 
     func testOtherCancelsRestoreTheLayout() throws {
@@ -330,8 +288,25 @@ final class LiveTitleBarDragTests: NiriInteractionTestCase {
             XCTAssertEqual(fixture.order(), order, cancel)
             XCTAssertNil(fixture.engine.liveColumnMove, cancel)
             XCTAssertFalse(fixture.handler.isLiveColumnDragActive, cancel)
-            XCTAssertFalse(fixture.handler.liveDragEscapeCapture.isActive, cancel)
         }
+    }
+
+    func testCancellingAfterTheDisplayIsGoneLeavesNoDropSpaceOrMovedHomeSpot() throws {
+        let fixture = try makeFixture(pid: 938_302, windowCount: 6)
+        let order = fixture.order()
+        try fixture.startLiveDrag(fixture.tokens[1])
+        fixture.drag(to: try fixture.farHalf(of: fixture.tokens[2]))
+        XCTAssertNotEqual(fixture.landingOrder(), order)
+
+        fixture.manager.applyMonitorConfigurationChange([])
+        XCTAssertNotNil(fixture.manager.monitor(for: fixture.workspaceId))
+        XCTAssertNotNil(fixture.engine.liveColumnMove)
+        fixture.handler.cancelActiveMouseInteraction()
+
+        XCTAssertNil(fixture.engine.liveColumnMove)
+        XCTAssertFalse(fixture.handler.isLiveColumnDragActive)
+        XCTAssertFalse(fixture.engine.columns(in: fixture.workspaceId).contains { $0.isLiveDropSpace })
+        XCTAssertEqual(fixture.order(), order)
     }
 
     func testThePointerOnTheDisplaysOwnEdgesKeepsTheDrag() throws {
@@ -398,7 +373,7 @@ final class LiveTitleBarDragTests: NiriInteractionTestCase {
         XCTAssertEqual(fixture.order(), order)
         XCTAssertNotNil(fixture.handler.state.liveHoverTimer)
         clock.now += 0.12
-        fixture.handler.updateLiveColumnDrag(at: target)
+        fixture.handler.state.liveHoverTimer?.fire()
         XCTAssertEqual(fixture.landingOrder(), [0, 2, 1, 3].map { fixture.tokens[$0] })
         XCTAssertNil(fixture.handler.state.liveHoverTimer)
     }
@@ -638,6 +613,46 @@ final class LiveTitleBarDragTests: NiriInteractionTestCase {
         XCTAssertEqual(dropped.midX, workingFrame.midX, accuracy: 2)
     }
 
+    func testAFocusChangeBeforeTheDropSettlesKeepsTheStripOffTheDroppedWindow() throws {
+        let fixture = try makeFixture(pid: 938_300, animated: true)
+        centreColumns(.always, in: fixture)
+        let (dragged, neighbour) = (fixture.tokens[1], fixture.tokens[2])
+        try fixture.startLiveDrag(dragged)
+        let drop = try fixture.centre(of: neighbour)
+        fixture.drag(to: drop)
+        fixture.handler.handleNiriAnimationsSettled(in: fixture.workspaceId)
+        fixture.handler.dispatchMouseUp(at: drop)
+        XCTAssertNotNil(fixture.handler.state.liveDropScroll)
+        let other = try XCTUnwrap(fixture.engine.findNode(for: fixture.tokens[3], in: fixture.workspaceId))
+        fixture.manager.withNiriViewportState(for: fixture.workspaceId) { $0.selectedNodeId = other.id }
+        let offsetAtFocusChange = fixture.manager.niriViewportState(for: fixture.workspaceId).viewOffset
+
+        fixture.handler.handleNiriAnimationsSettled(in: fixture.workspaceId)
+
+        XCTAssertNil(fixture.handler.state.liveDropScroll)
+        XCTAssertEqual(
+            fixture.manager.niriViewportState(for: fixture.workspaceId).viewOffset,
+            offsetAtFocusChange
+        )
+        XCTAssertEqual(fixture.manager.niriViewportState(for: fixture.workspaceId).selectedNodeId, other.id)
+    }
+
+    func testANewPressDropsAPendingDropScroll() throws {
+        let fixture = try makeFixture(pid: 938_301, animated: true)
+        centreColumns(.always, in: fixture)
+        let (dragged, neighbour) = (fixture.tokens[1], fixture.tokens[2])
+        try fixture.startLiveDrag(dragged)
+        let drop = try fixture.centre(of: neighbour)
+        fixture.drag(to: drop)
+        fixture.handler.handleNiriAnimationsSettled(in: fixture.workspaceId)
+        fixture.handler.dispatchMouseUp(at: drop)
+        XCTAssertNotNil(fixture.handler.state.liveDropScroll)
+
+        fixture.handler.receiveTapMouseDown(at: try fixture.centre(of: fixture.tokens[3]), modifiers: [])
+
+        XCTAssertNil(fixture.handler.state.liveDropScroll)
+    }
+
     private func scroll(_ fixture: Fixture, so token: WindowToken, isHalfOffTheRightEdge: Void) throws {
         let frame = try fixture.settledFrame(token)
         let edge = fixture.controller.insetWorkingFrame(for: fixture.monitor).maxX
@@ -696,7 +711,6 @@ final class LiveTitleBarDragTests: NiriInteractionTestCase {
             controller.axManager.cleanup()
         }
         controller.motionPolicy.animationsEnabled = animated
-        controller.mouseEventHandler.liveDragEscapeCapture.installsEventTap = false
         let monitor = Monitor(
             id: .init(displayId: 93_801),
             displayId: 93_801,

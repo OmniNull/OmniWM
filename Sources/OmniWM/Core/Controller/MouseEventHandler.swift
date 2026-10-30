@@ -11,7 +11,6 @@ final class MouseEventHandler {
     weak var controller: WMController?
     let eventIntake: EventIntake
     let inputTapThread = InputTapThread()
-    let liveDragEscapeCapture = LiveDragEscapeCapture()
     var state = MouseInputState() {
         didSet {
             if oldValue.capturedInteractionButton != state.capturedInteractionButton

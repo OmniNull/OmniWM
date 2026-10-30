@@ -835,6 +835,34 @@ final class NiriLiveColumnMoveTests: XCTestCase {
         XCTAssertEqual(fixture.state.selectedNodeId, original.selectedNodeId)
     }
 
+    func testAWidthAnimationRunningWhenTheDragStartsKeepsRunningAfterTheDropOrACancel() {
+        for cancels in [false, true] {
+            var fixture = makeFixture()
+            let column = fixture.column(2)
+            let target = column.cachedWidth + 100
+            let animation = SpringAnimation(
+                from: Double(column.cachedWidth),
+                to: Double(target),
+                startTime: 0,
+                config: .niriWindowMovement,
+                displayRefreshRate: 60
+            )
+            column.widthAnimation = animation
+            column.targetWidth = target
+            XCTAssertTrue(fixture.begin(2))
+            XCTAssertEqual(fixture.moveAndSettle(to: fixture.farHalf(of: 3)), .changed)
+
+            if cancels {
+                XCTAssertTrue(fixture.engine.liveColumnMoveCancel(context: fixture.context, state: &fixture.state))
+            } else {
+                XCTAssertTrue(fixture.engine.liveColumnMoveEnd(context: fixture.context, state: &fixture.state))
+            }
+
+            XCTAssertTrue(column.widthAnimation === animation, "cancels: \(cancels)")
+            XCTAssertEqual(column.targetWidth, target, "cancels: \(cancels)")
+        }
+    }
+
     func testCancelRestoresTheActiveColumnEvenIfAColumnClosedDuringTheDrag() {
         var fixture = makeFixture(activeIndex: 3)
         let originalActive = fixture.column(3)

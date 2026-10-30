@@ -49,7 +49,6 @@ struct LiveColumnMove {
     let windowId: NodeId
     let windowToken: WindowToken
     let workspaceId: WorkspaceDescriptor.ID
-    let ownSizing: NiriContainerSizingState
     let originalColumnOrder: [NodeId]
     let originalViewport: ViewportState
     let originalActiveColumnId: NodeId

@@ -1,8 +1,6 @@
 // SPDX-License-Identifier: GPL-2.0-only
 // Copyright (C) 2026 OmniNull — https://github.com/OmniNull/OmniWM
 
-import AppKit
-import CoreFoundation
 import Foundation
 import Observation
 
@@ -42,18 +40,9 @@ final class WindowTilingSettingsProbe {
     private let urlOpener: @MainActor (URL) -> Void
 
     init(
-        preferenceReader: @MainActor @escaping (String, String) -> Any? = { key, domain in
-            let preferenceKey: CFString = key as NSString
-            let applicationID: CFString = domain as NSString
-            return CFPreferencesCopyAppValue(preferenceKey, applicationID)
-        },
-        domainSynchronizer: @MainActor @escaping (String) -> Void = { domain in
-            let applicationID: CFString = domain as NSString
-            CFPreferencesAppSynchronize(applicationID)
-        },
-        urlOpener: @MainActor @escaping (URL) -> Void = { url in
-            NSWorkspace.shared.open(url)
-        }
+        preferenceReader: @MainActor @escaping (String, String) -> Any? = MissionControlGestureProbe.readPreference,
+        domainSynchronizer: @MainActor @escaping (String) -> Void = MissionControlGestureProbe.synchronizePreferences,
+        urlOpener: @MainActor @escaping (URL) -> Void = MissionControlGestureProbe.openURL
     ) {
         self.preferenceReader = preferenceReader
         self.domainSynchronizer = domainSynchronizer

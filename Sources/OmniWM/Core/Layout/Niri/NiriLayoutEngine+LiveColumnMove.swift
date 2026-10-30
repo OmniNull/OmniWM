@@ -29,7 +29,6 @@ extension NiriLayoutEngine {
             windowId: windowId,
             windowToken: windowToken,
             workspaceId: context.workspaceId,
-            ownSizing: containerSizingState(for: column),
             originalColumnOrder: columns.map(\.id),
             originalViewport: state,
             originalActiveColumnId: activeColumn.id,
@@ -183,7 +182,6 @@ extension NiriLayoutEngine {
             root.insertChild(dragged, at: landingIndex)
         }
         liveColumnMove = nil
-        restoreLiveSizing(move.ownSizing, to: dragged)
         let releasedAt = viewBefore.flatMap { view in releaseX.map { $0 - context.workingFrame.minX + view } }
         animateLiveColumnChange(
             from: before,
@@ -211,17 +209,6 @@ extension NiriLayoutEngine {
         }
         state.selectedNodeId = move.windowId
         return true
-    }
-
-    private func restoreLiveSizing(_ sizing: NiriContainerSizingState, to column: NiriContainer) {
-        column.width = sizing.width
-        column.presetWidthIdx = sizing.presetWidthIndex
-        column.isFullWidth = sizing.isFullWidth
-        column.savedWidth = sizing.savedWidth
-        column.hasManualSingleWindowWidthOverride = sizing.hasManualSingleWindowWidthOverride
-        column.cachedWidth = 0
-        column.widthAnimation = nil
-        column.targetWidth = nil
     }
 
     private func liveViewPosition(
@@ -269,7 +256,6 @@ extension NiriLayoutEngine {
         for (index, column) in restoredOrder.enumerated() {
             root.insertChild(column, at: index)
         }
-        restoreLiveSizing(move.ownSizing, to: dragged)
         animateLiveColumnChange(from: before, anchoredOn: dragged, context: context, state: &state)
 
         let original = move.originalViewport

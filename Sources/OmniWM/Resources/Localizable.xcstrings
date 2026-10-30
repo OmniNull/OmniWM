@@ -664,126 +664,126 @@
         }
       }
     },
-    "Drag a tiled window by its title bar to move its Niri column. Rest on another window and the windows slide over to make room; near a screen edge, a narrow gap shows where it will land, and holding the pointer at the edge scrolls. Release to drop it, or press Esc to cancel. Off: title-bar drags snap back." : {
+    "Drag a tiled window by its title bar to move its Niri column. Rest on another window and the windows slide over to make room; near a screen edge, a narrow gap shows where it will land, and holding the pointer at the edge scrolls. Release to drop it. Off: title-bar drags snap back." : {
       "localizations" : {
         "ar" : {
           "stringUnit" : {
             "state" : "translated",
-            "value" : "اسحب نافذة مُبلّطة من شريط العنوان لنقل عمود Niri الخاص بها. توقّف فوق نافذة أخرى فتنزلق النوافذ لإفساح المجال؛ وقرب حافة الشاشة تُظهر فجوة ضيقة مكان إفلاتها، ويؤدي إبقاء المؤشر عند الحافة إلى التمرير. أفلِت لوضعها، أو اضغط على Esc للإلغاء. عند الإيقاف: تعود النوافذ المسحوبة من شريط العنوان إلى مكانها."
+            "value" : "اسحب نافذة مُبلّطة من شريط العنوان لنقل عمود Niri الخاص بها. توقّف فوق نافذة أخرى فتنزلق النوافذ لإفساح المجال؛ وقرب حافة الشاشة تُظهر فجوة ضيقة مكان إفلاتها، ويؤدي إبقاء المؤشر عند الحافة إلى التمرير. أفلِت لوضعها. عند الإيقاف: تعود النوافذ المسحوبة من شريط العنوان إلى مكانها."
           }
         },
         "da" : {
           "stringUnit" : {
             "state" : "translated",
-            "value" : "Træk et fliselagt vindue i titellinjen for at flytte dets Niri-kolonne. Hold over et andet vindue, så glider vinduerne til side og giver plads; nær en skærmkant viser et smalt mellemrum, hvor det lander, og holder du markøren ved kanten, rulles der. Slip for at placere det, eller tryk på Esc for at annullere. Fra: træk i titellinjen springer tilbage."
+            "value" : "Træk et fliselagt vindue i titellinjen for at flytte dets Niri-kolonne. Hold over et andet vindue, så glider vinduerne til side og giver plads; nær en skærmkant viser et smalt mellemrum, hvor det lander, og holder du markøren ved kanten, rulles der. Slip for at placere det. Fra: træk i titellinjen springer tilbage."
           }
         },
         "de" : {
           "stringUnit" : {
             "state" : "translated",
-            "value" : "Ziehen Sie ein gekacheltes Fenster an der Titelleiste, um seine Niri-Spalte zu verschieben. Verweilen Sie über einem anderen Fenster, rücken die Fenster beiseite und machen Platz; nahe einem Bildschirmrand zeigt eine schmale Lücke, wo es landet, und wenn Sie den Zeiger am Rand halten, wird gescrollt. Loslassen legt es ab, Esc bricht ab. Aus: Ziehen an der Titelleiste springt zurück."
+            "value" : "Ziehen Sie ein gekacheltes Fenster an der Titelleiste, um seine Niri-Spalte zu verschieben. Verweilen Sie über einem anderen Fenster, rücken die Fenster beiseite und machen Platz; nahe einem Bildschirmrand zeigt eine schmale Lücke, wo es landet, und wenn Sie den Zeiger am Rand halten, wird gescrollt. Loslassen legt es ab. Aus: Ziehen an der Titelleiste springt zurück."
           }
         },
         "el" : {
           "stringUnit" : {
             "state" : "translated",
-            "value" : "Σύρετε ένα παράθυρο σε παράθεση από τη γραμμή τίτλου για να μετακινήσετε τη στήλη Niri του. Σταθείτε πάνω από άλλο παράθυρο και τα παράθυρα μετακινούνται για να κάνουν χώρο· κοντά σε μια άκρη της οθόνης, ένα στενό κενό δείχνει πού θα τοποθετηθεί, και κρατώντας τον δείκτη στην άκρη γίνεται κύλιση. Αφήστε το για να το αποθέσετε ή πατήστε Esc για ακύρωση. Ανενεργό: η μεταφορά από τη γραμμή τίτλου επαναφέρει το παράθυρο."
+            "value" : "Σύρετε ένα παράθυρο σε παράθεση από τη γραμμή τίτλου για να μετακινήσετε τη στήλη Niri του. Σταθείτε πάνω από άλλο παράθυρο και τα παράθυρα μετακινούνται για να κάνουν χώρο· κοντά σε μια άκρη της οθόνης, ένα στενό κενό δείχνει πού θα τοποθετηθεί, και κρατώντας τον δείκτη στην άκρη γίνεται κύλιση. Αφήστε το για να το αποθέσετε. Ανενεργό: η μεταφορά από τη γραμμή τίτλου επαναφέρει το παράθυρο."
           }
         },
         "es" : {
           "stringUnit" : {
             "state" : "translated",
-            "value" : "Arrastra una ventana en mosaico por su barra de título para mover su columna de Niri. Detente sobre otra ventana y las ventanas se desplazan para dejar sitio; cerca de un borde de la pantalla, un hueco estrecho muestra dónde caerá, y mantener el puntero en el borde desplaza la tira. Suelta para colocarla o pulsa Esc para cancelar. Desactivado: al arrastrar por la barra de título, la ventana vuelve a su sitio."
+            "value" : "Arrastra una ventana en mosaico por su barra de título para mover su columna de Niri. Detente sobre otra ventana y las ventanas se desplazan para dejar sitio; cerca de un borde de la pantalla, un hueco estrecho muestra dónde caerá, y mantener el puntero en el borde desplaza la tira. Suelta para colocarla. Desactivado: al arrastrar por la barra de título, la ventana vuelve a su sitio."
           }
         },
         "fi" : {
           "stringUnit" : {
             "state" : "translated",
-            "value" : "Vedä ruudutettua ikkunaa otsikkopalkista siirtääksesi sen Niri-saraketta. Pysähdy toisen ikkunan päälle, niin ikkunat siirtyvät tehden tilaa; näytön reunan lähellä kapea rako näyttää, mihin ikkuna päätyy, ja osoittimen pitäminen reunalla vierittää. Päästä irti pudottaaksesi tai peruuta painamalla Esc. Pois: otsikkopalkista vedetty ikkuna palaa paikalleen."
+            "value" : "Vedä ruudutettua ikkunaa otsikkopalkista siirtääksesi sen Niri-saraketta. Pysähdy toisen ikkunan päälle, niin ikkunat siirtyvät tehden tilaa; näytön reunan lähellä kapea rako näyttää, mihin ikkuna päätyy, ja osoittimen pitäminen reunalla vierittää. Päästä irti pudottaaksesi. Pois: otsikkopalkista vedetty ikkuna palaa paikalleen."
           }
         },
         "fr" : {
           "stringUnit" : {
             "state" : "translated",
-            "value" : "Faites glisser une fenêtre en mosaïque par sa barre de titre pour déplacer sa colonne Niri. Marquez une pause sur une autre fenêtre : les fenêtres glissent pour faire de la place ; près d’un bord de l’écran, un espace étroit indique où elle se posera, et maintenir le pointeur au bord fait défiler. Relâchez pour la déposer, ou appuyez sur Échap pour annuler. Désactivé : les glissements par la barre de titre reviennent en place."
+            "value" : "Faites glisser une fenêtre en mosaïque par sa barre de titre pour déplacer sa colonne Niri. Marquez une pause sur une autre fenêtre : les fenêtres glissent pour faire de la place ; près d’un bord de l’écran, un espace étroit indique où elle se posera, et maintenir le pointeur au bord fait défiler. Relâchez pour la déposer. Désactivé : les glissements par la barre de titre reviennent en place."
           }
         },
         "he" : {
           "stringUnit" : {
             "state" : "translated",
-            "value" : "גררו חלון בפריסת אריחים בשורת הכותרת כדי להזיז את עמודת ה-Niri שלו. עצרו מעל חלון אחר והחלונות יחליקו כדי לפנות מקום; ליד קצה המסך, רווח צר מראה היכן החלון ינחת, והחזקת המצביע בקצה גוללת. שחררו כדי להניח אותו, או הקישו Esc לביטול. כבוי: גרירה בשורת הכותרת מחזירה את החלון למקומו."
+            "value" : "גררו חלון בפריסת אריחים בשורת הכותרת כדי להזיז את עמודת ה-Niri שלו. עצרו מעל חלון אחר והחלונות יחליקו כדי לפנות מקום; ליד קצה המסך, רווח צר מראה היכן החלון ינחת, והחזקת המצביע בקצה גוללת. שחררו כדי להניח אותו. כבוי: גרירה בשורת הכותרת מחזירה את החלון למקומו."
           }
         },
         "hi" : {
           "stringUnit" : {
             "state" : "translated",
-            "value" : "किसी टाइल्ड विंडो को उसके टाइटल बार से खींचकर उसका Niri कॉलम खिसकाएँ। किसी दूसरी विंडो पर रुकें, तो विंडो खिसककर जगह बना देती हैं; स्क्रीन के किनारे के पास एक संकरी जगह दिखाती है कि विंडो कहाँ आएगी, और पॉइंटर को किनारे पर रोके रखने से स्क्रॉल होता है। रखने के लिए छोड़ें, या रद्द करने के लिए Esc दबाएँ। बंद होने पर: टाइटल बार से खींची गई विंडो वापस अपनी जगह पर आ जाती है।"
+            "value" : "किसी टाइल्ड विंडो को उसके टाइटल बार से खींचकर उसका Niri कॉलम खिसकाएँ। किसी दूसरी विंडो पर रुकें, तो विंडो खिसककर जगह बना देती हैं; स्क्रीन के किनारे के पास एक संकरी जगह दिखाती है कि विंडो कहाँ आएगी, और पॉइंटर को किनारे पर रोके रखने से स्क्रॉल होता है। रखने के लिए छोड़ें। बंद होने पर: टाइटल बार से खींची गई विंडो वापस अपनी जगह पर आ जाती है।"
           }
         },
         "it" : {
           "stringUnit" : {
             "state" : "translated",
-            "value" : "Trascina una finestra affiancata dalla barra del titolo per spostarne la colonna Niri. Fermati su un’altra finestra e le finestre scorrono per fare spazio; vicino a un bordo dello schermo, uno spazio stretto mostra dove verrà rilasciata, e tenere il puntatore sul bordo fa scorrere. Rilascia per posizionarla oppure premi Esc per annullare. Disattivato: i trascinamenti dalla barra del titolo tornano al loro posto."
+            "value" : "Trascina una finestra affiancata dalla barra del titolo per spostarne la colonna Niri. Fermati su un’altra finestra e le finestre scorrono per fare spazio; vicino a un bordo dello schermo, uno spazio stretto mostra dove verrà rilasciata, e tenere il puntatore sul bordo fa scorrere. Rilascia per posizionarla. Disattivato: i trascinamenti dalla barra del titolo tornano al loro posto."
           }
         },
         "ja" : {
           "stringUnit" : {
             "state" : "translated",
-            "value" : "タイル表示のウインドウをタイトルバーでドラッグして、その Niri 列を移動します。ほかのウインドウの上で少し止まると、ウインドウがずれて場所を空けます。画面の端の近くでは、細いすき間が置かれる位置を示し、ポインタを端に置いたままにするとスクロールします。離すとそこに置かれ、Esc キーでキャンセルします。オフ：タイトルバーでドラッグしたウインドウは元の位置に戻ります。"
+            "value" : "タイル表示のウインドウをタイトルバーでドラッグして、その Niri 列を移動します。ほかのウインドウの上で少し止まると、ウインドウがずれて場所を空けます。画面の端の近くでは、細いすき間が置かれる位置を示し、ポインタを端に置いたままにするとスクロールします。離すとそこに置かれます。オフ：タイトルバーでドラッグしたウインドウは元の位置に戻ります。"
           }
         },
         "ko" : {
           "stringUnit" : {
             "state" : "translated",
-            "value" : "타일 윈도우의 제목 막대를 드래그하여 해당 Niri 열을 이동합니다. 다른 윈도우 위에서 잠시 멈추면 윈도우들이 밀려나 자리를 만듭니다. 화면 가장자리 근처에서는 좁은 틈이 놓일 위치를 보여 주고, 포인터를 가장자리에 두면 스크롤됩니다. 놓으면 그 자리에 놓이고, Esc 키를 누르면 취소됩니다. 끔: 제목 막대로 드래그한 윈도우는 원래 자리로 돌아갑니다."
+            "value" : "타일 윈도우의 제목 막대를 드래그하여 해당 Niri 열을 이동합니다. 다른 윈도우 위에서 잠시 멈추면 윈도우들이 밀려나 자리를 만듭니다. 화면 가장자리 근처에서는 좁은 틈이 놓일 위치를 보여 주고, 포인터를 가장자리에 두면 스크롤됩니다. 놓으면 그 자리에 놓입니다. 끔: 제목 막대로 드래그한 윈도우는 원래 자리로 돌아갑니다."
           }
         },
         "nb" : {
           "stringUnit" : {
             "state" : "translated",
-            "value" : "Dra et flislagt vindu etter tittellinjen for å flytte Niri-kolonnen. Hold over et annet vindu, så glir vinduene til side og gir plass; nær en skjermkant viser en smal åpning hvor det havner, og holder du pekeren ved kanten, rulles det. Slipp for å plassere det, eller trykk Esc for å avbryte. Av: drag i tittellinjen går tilbake."
+            "value" : "Dra et flislagt vindu etter tittellinjen for å flytte Niri-kolonnen. Hold over et annet vindu, så glir vinduene til side og gir plass; nær en skjermkant viser en smal åpning hvor det havner, og holder du pekeren ved kanten, rulles det. Slipp for å plassere det. Av: drag i tittellinjen går tilbake."
           }
         },
         "nl" : {
           "stringUnit" : {
             "state" : "translated",
-            "value" : "Sleep een getegeld venster aan de titelbalk om zijn Niri-kolom te verplaatsen. Blijf boven een ander venster en de vensters schuiven op om ruimte te maken; bij een schermrand toont een smalle opening waar het terechtkomt, en de aanwijzer aan de rand houden scrolt. Laat los om het neer te zetten, of druk op Esc om te annuleren. Uit: slepen aan de titelbalk springt terug."
+            "value" : "Sleep een getegeld venster aan de titelbalk om zijn Niri-kolom te verplaatsen. Blijf boven een ander venster en de vensters schuiven op om ruimte te maken; bij een schermrand toont een smalle opening waar het terechtkomt, en de aanwijzer aan de rand houden scrolt. Laat los om het neer te zetten. Uit: slepen aan de titelbalk springt terug."
           }
         },
         "pl" : {
           "stringUnit" : {
             "state" : "translated",
-            "value" : "Przeciągnij okno w układzie kafelkowym za pasek tytułu, aby przenieść jego kolumnę Niri. Zatrzymaj się nad innym oknem, a okna rozsuną się, robiąc miejsce; przy krawędzi ekranu wąska przerwa pokazuje, gdzie okno trafi, a przytrzymanie wskaźnika przy krawędzi przewija pasek. Puść, aby je upuścić, lub naciśnij Esc, aby anulować. Wyłączone: okna przeciągane za pasek tytułu wracają na miejsce."
+            "value" : "Przeciągnij okno w układzie kafelkowym za pasek tytułu, aby przenieść jego kolumnę Niri. Zatrzymaj się nad innym oknem, a okna rozsuną się, robiąc miejsce; przy krawędzi ekranu wąska przerwa pokazuje, gdzie okno trafi, a przytrzymanie wskaźnika przy krawędzi przewija pasek. Puść, aby je upuścić. Wyłączone: okna przeciągane za pasek tytułu wracają na miejsce."
           }
         },
         "ru" : {
           "stringUnit" : {
             "state" : "translated",
-            "value" : "Перетащите окно в мозаике за заголовок, чтобы переместить его столбец Niri. Задержитесь над другим окном, и окна сдвинутся, освобождая место; у края экрана узкий промежуток покажет, куда окно встанет, а если удерживать указатель у края, лента прокручивается. Отпустите, чтобы поставить окно, или нажмите Esc для отмены. Выкл.: окна, перетаскиваемые за заголовок, возвращаются на место."
+            "value" : "Перетащите окно в мозаике за заголовок, чтобы переместить его столбец Niri. Задержитесь над другим окном, и окна сдвинутся, освобождая место; у края экрана узкий промежуток покажет, куда окно встанет, а если удерживать указатель у края, лента прокручивается. Отпустите, чтобы поставить окно. Выкл.: окна, перетаскиваемые за заголовок, возвращаются на место."
           }
         },
         "sr-Latn" : {
           "stringUnit" : {
             "state" : "translated",
-            "value" : "Prevucite prozor u mozaiku preko naslovne trake da biste pomerili njegovu Niri kolonu. Zadržite se iznad drugog prozora i prozori će se pomeriti da naprave mesto; blizu ivice ekrana uzan razmak pokazuje gde će prozor pasti, a držanje pokazivača na ivici pomera prikaz. Otpustite da biste ga spustili ili pritisnite Esc da otkažete. Isključeno: prozori prevučeni preko naslovne trake vraćaju se na mesto."
+            "value" : "Prevucite prozor u mozaiku preko naslovne trake da biste pomerili njegovu Niri kolonu. Zadržite se iznad drugog prozora i prozori će se pomeriti da naprave mesto; blizu ivice ekrana uzan razmak pokazuje gde će prozor pasti, a držanje pokazivača na ivici pomera prikaz. Otpustite da biste ga spustili. Isključeno: prozori prevučeni preko naslovne trake vraćaju se na mesto."
           }
         },
         "sv" : {
           "stringUnit" : {
             "state" : "translated",
-            "value" : "Dra ett fönster sida vid sida i namnlisten för att flytta dess Niri-kolumn. Stanna över ett annat fönster så glider fönstren undan och gör plats; nära en skärmkant visar en smal lucka var det hamnar, och håller du pekaren vid kanten rullas det. Släpp för att placera det, eller tryck på Esc för att avbryta. Av: fönster som dras i namnlisten återgår."
+            "value" : "Dra ett fönster sida vid sida i namnlisten för att flytta dess Niri-kolumn. Stanna över ett annat fönster så glider fönstren undan och gör plats; nära en skärmkant visar en smal lucka var det hamnar, och håller du pekaren vid kanten rullas det. Släpp för att placera det. Av: fönster som dras i namnlisten återgår."
           }
         },
         "uk" : {
           "stringUnit" : {
             "state" : "translated",
-            "value" : "Перетягніть вікно в мозаїці за заголовок, щоб перемістити його стовпець Niri. Затримайтеся над іншим вікном, і вікна зсунуться, звільняючи місце; біля краю екрана вузький проміжок покаже, куди стане вікно, а якщо втримувати вказівник біля краю, стрічка прокручується. Відпустіть, щоб поставити вікно, або натисніть Esc для скасування. Вимк.: вікна, перетягнуті за заголовок, повертаються на місце."
+            "value" : "Перетягніть вікно в мозаїці за заголовок, щоб перемістити його стовпець Niri. Затримайтеся над іншим вікном, і вікна зсунуться, звільняючи місце; біля краю екрана вузький проміжок покаже, куди стане вікно, а якщо втримувати вказівник біля краю, стрічка прокручується. Відпустіть, щоб поставити вікно. Вимк.: вікна, перетягнуті за заголовок, повертаються на місце."
           }
         },
         "zh-Hans" : {
           "stringUnit" : {
             "state" : "translated",
-            "value" : "拖动平铺窗口的标题栏即可移动其 Niri 列。在另一个窗口上停留片刻，窗口会滑开腾出位置；在屏幕边缘附近，一条窄缝会显示窗口将放置的位置，将指针停在边缘则会滚动。松开即可放下，按 Esc 键取消。关闭时：通过标题栏拖动的窗口会弹回原位。"
+            "value" : "拖动平铺窗口的标题栏即可移动其 Niri 列。在另一个窗口上停留片刻，窗口会滑开腾出位置；在屏幕边缘附近，一条窄缝会显示窗口将放置的位置，将指针停在边缘则会滚动。松开即可放下。关闭时：通过标题栏拖动的窗口会弹回原位。"
           }
         }
       }

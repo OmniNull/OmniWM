@@ -259,9 +259,7 @@ extension MouseEventHandler {
             return
         }
         let finishedLiveDrag = drag.liveDrag && finishLiveColumnDrag(token: drag.token)
-        var releasedDrag = drag
-        releasedDrag.liveDrag = false
-
+        drag.liveDrag = false
         drag.pendingExcludedCorrection = excludedFrameWrite
         state.nativeTitleBarDrag = drag
         let observedFrame = terminalNativeWindowFrame(for: entry)
@@ -271,7 +269,7 @@ extension MouseEventHandler {
             receivedFrameChange: drag.receivedFrameChange
         )
         settleReleasedNativeTitleBarDrag(
-            releasedDrag,
+            drag,
             entry: entry,
             observedFrame: observedFrame,
             needsCorrection: finishedLiveDrag || excludedFrameWrite || observedDisplacement
