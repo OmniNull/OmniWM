@@ -28,6 +28,12 @@ enum ShellStyleInstaller {
     static let backupsFolder = ".backups"
     private static let stagingPrefix = ".install-"
 
+    static func hasChanges(in folder: URL, from receipt: Receipt) throws -> Bool {
+        let files = try ShellStyleRepository(folder: folder.deletingLastPathComponent())
+            .files(of: folder.lastPathComponent)
+        return Dictionary(uniqueKeysWithValues: files.map { ($0.path, digest($0.data)) }) != receipt.files
+    }
+
     static func receipt(in folder: URL) throws -> Receipt? {
         guard let data = try SettingsFileAccess.existingData(at: folder.appendingPathComponent(receiptName)) else {
             return nil
@@ -113,7 +119,7 @@ enum ShellStyleInstaller {
             try FileManager.default.setAttributes(
                 [.posixPermissions: file.executable ? 0o755 : 0o644], ofItemAtPath: url.path
             )
-            hashes[file.path] = SHA256.hash(data: file.data).map { String(format: "%02x", $0) }.joined()
+            hashes[file.path] = digest(file.data)
         }
         let encoder = JSONEncoder()
         encoder.outputFormatting = [.prettyPrinted, .sortedKeys]
@@ -135,6 +141,10 @@ enum ShellStyleInstaller {
             target = backups.appendingPathComponent("\(name)-\(day)-\(copy)", isDirectory: true)
         }
         return target
+    }
+
+    private static func digest(_ data: Data) -> String {
+        SHA256.hash(data: data).map { String(format: "%02x", $0) }.joined()
     }
 
     private static func rename(_ source: URL, to target: URL, flags: Int32) throws {

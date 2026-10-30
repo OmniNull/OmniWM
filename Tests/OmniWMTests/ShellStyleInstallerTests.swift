@@ -226,6 +226,42 @@ final class ShellStyleInstallerTests: XCTestCase {
         )
     }
 
+    func testAnInstalledStyleNoticesChangedAddedAndRemovedFiles() throws {
+        let listing = try XCTUnwrap(repository.styles().first)
+        try ShellStyleInstaller.install(repository.payload(for: listing), into: shell, replacing: false, day: day)
+        let folder = shell.appendingPathComponent(listing.name, isDirectory: true)
+        let receipt = try XCTUnwrap(ShellStyleInstaller.receipt(in: folder))
+        let manifest = folder.appendingPathComponent(ShellStyleManifest.fileName)
+        let original = try Data(contentsOf: manifest)
+        let added = folder.appendingPathComponent("added.luau")
+        XCTAssertFalse(try ShellStyleInstaller.hasChanges(in: folder, from: receipt))
+        try (original + Data("\n".utf8)).write(to: manifest)
+        XCTAssertTrue(try ShellStyleInstaller.hasChanges(in: folder, from: receipt))
+        try original.write(to: manifest)
+        try Data().write(to: added)
+        XCTAssertTrue(try ShellStyleInstaller.hasChanges(in: folder, from: receipt))
+        try FileManager.default.removeItem(at: added)
+        XCTAssertFalse(try ShellStyleInstaller.hasChanges(in: folder, from: receipt))
+        try FileManager.default.removeItem(at: manifest)
+        XCTAssertTrue(try ShellStyleInstaller.hasChanges(in: folder, from: receipt))
+    }
+
+    func testListingPreviewsPointAtTheStylesPreviewPictures() throws {
+        let checkout = root.appendingPathComponent("checkout", isDirectory: true)
+        let previews = checkout.appendingPathComponent(
+            "probe/\(ShellStyleRepository.previewsFolder)",
+            isDirectory: true
+        )
+        let picture = "bar.png"
+        try FileManager.default.createDirectory(at: previews, withIntermediateDirectories: true)
+        try probeManifest(["previews": "[\"\(picture)\"]"]).data
+            .write(to: previews.deletingLastPathComponent().appendingPathComponent(ShellStyleManifest.fileName))
+        try Data().write(to: previews.appendingPathComponent(picture))
+        let listing = try XCTUnwrap(ShellStyleRepository(folder: checkout).styles().first)
+        XCTAssertEqual(listing.previews.map(\.lastPathComponent), [picture])
+        XCTAssertTrue(listing.previews.allSatisfy { FileManager.default.fileExists(atPath: $0.path) })
+    }
+
     private func probeManifest(version: String = "1.0.0", _ changes: [String: String] = [:]) -> ShellStyleFile {
         let entries = [
             "format": "\(ShellStyleManifest.format)", "name": "\"probe\"", "version": "\"\(version)\"",

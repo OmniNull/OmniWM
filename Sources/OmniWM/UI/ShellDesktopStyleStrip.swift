@@ -8,6 +8,23 @@ struct ShellDesktopStyleStrip: View {
     @State private var gallery: ShellStyleGallery?
 
     var body: some View {
+        VStack(alignment: .leading, spacing: 6) {
+            HStack {
+                Text("Style").font(.headline)
+                Spacer()
+                if let source = ShellStyleGallery.source {
+                    Button { gallery = ShellStyleGallery(editor: editor, source: source) } label: {
+                        Label("Get Styles", systemImage: "square.and.arrow.down")
+                    }
+                    .sheet(item: $gallery) { ShellStyleGalleryView(gallery: $0) }
+                }
+            }
+            .padding(.horizontal, 20)
+            cards
+        }
+    }
+
+    private var cards: some View {
         ScrollView(.horizontal) {
             HStack(spacing: 8) {
                 ForEach(editor.cards) { card in
@@ -36,15 +53,6 @@ struct ShellDesktopStyleStrip: View {
                         }
                     }
                     .buttonStyle(.plain).help(card.summary)
-                }
-                if let source = ShellStyleGallery.source {
-                    Button { gallery = ShellStyleGallery(editor: editor, source: source) } label: {
-                        Label("Get Styles", systemImage: "plus.circle").font(.caption.weight(.medium))
-                            .frame(width: 132, height: 60)
-                            .background(.background.secondary, in: .rect(cornerRadius: 10))
-                    }
-                    .buttonStyle(.plain)
-                    .sheet(item: $gallery) { ShellStyleGalleryView(gallery: $0) }
                 }
             }
             .padding(.horizontal, 20)

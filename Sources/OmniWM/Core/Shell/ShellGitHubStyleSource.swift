@@ -49,9 +49,10 @@ struct ShellGitHubStyleSource: ShellStyleSource {
         )
         var listings: [ShellStyleListing] = []
         for entry in entries where entry.type == "dir" && ShellProfiles.isStyleName(entry.name) {
-            let manifest = try await fetch(raw(entry.name, ShellStyleManifest.fileName))
+            let folder = folder(of: entry.name)
+            let manifest = try await fetch(folder.appending(path: ShellStyleManifest.fileName))
             listings.append(try ShellStyleListing(
-                name: entry.name, manifest: ShellStyleManifest.parse(manifest), revision: entry.sha
+                name: entry.name, manifest: ShellStyleManifest.parse(manifest), folder: folder, revision: entry.sha
             ))
         }
         return listings.sorted { $0.name.localizedStandardCompare($1.name) == .orderedAscending }
@@ -64,7 +65,7 @@ struct ShellGitHubStyleSource: ShellStyleSource {
         guard !tree.truncated else { throw ShellStyleInstaller.Failure("GitHub listed only part of \(listing.name)") }
         var files: [ShellStyleFile] = []
         for item in tree.tree where item.type == "blob" && Self.installs(item.path) {
-            let data = try await fetch(raw(listing.name, item.path))
+            let data = try await fetch(folder(of: listing.name).appending(path: item.path))
             files.append(ShellStyleFile(path: item.path, data: data, executable: item.mode == "100755"))
         }
         return ShellStylePayload(name: listing.name, source: source, files: files.sorted { $0.path < $1.path })
@@ -82,9 +83,9 @@ struct ShellGitHubStyleSource: ShellStyleSource {
             .appending(queryItems: [query])
     }
 
-    private func raw(_ style: String, _ path: String) -> URL {
+    private func folder(of style: String) -> URL {
         URL(string: "https://raw.githubusercontent.com/\(owner)/\(repository)/\(ref)/\(Self.folder)")!
-            .appending(path: "\(style)/\(path)")
+            .appending(path: style)
     }
 
     private func decode<Value: Decodable>(_ type: Value.Type, from url: URL) async throws -> Value {

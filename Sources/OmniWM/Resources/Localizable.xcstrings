@@ -173521,6 +173521,24 @@
     },
     "Your previous copy is in %@." : {
 
+    },
+    "Installed" : {
+
+    },
+    "Update" : {
+
+    },
+    "Your Copy" : {
+
+    },
+    "Back Up and Update" : {
+
+    },
+    "Update %@? You changed its files." : {
+
+    },
+    "Styles change how the bar, island and drawers look." : {
+
     }
   },
   "version" : "1.0"

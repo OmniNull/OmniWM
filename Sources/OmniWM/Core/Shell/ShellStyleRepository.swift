@@ -19,14 +19,16 @@ struct ShellStyleListing: Equatable, Sendable, Identifiable {
     let name: String
     let manifest: ShellStyleManifest
     let revision: String?
+    let previews: [URL]
 
-    init(name: String, manifest: ShellStyleManifest, revision: String? = nil) throws {
+    init(name: String, manifest: ShellStyleManifest, folder: URL, revision: String? = nil) throws {
         guard manifest.name == name else {
             throw ShellStyleInstaller.Failure("\(name): the manifest name must match its folder")
         }
         self.name = name
         self.manifest = manifest
         self.revision = revision
+        previews = manifest.previews.map { folder.appending(path: "\(ShellStyleRepository.previewsFolder)/\($0)") }
     }
 
     var id: String {
@@ -69,7 +71,7 @@ struct ShellStyleRepository: Equatable, ShellStyleSource {
             guard let manifest = try ShellStyleManifest.load(in: style) else {
                 throw ShellStyleInstaller.Failure("\(style.lastPathComponent) has no \(ShellStyleManifest.fileName)")
             }
-            return try ShellStyleListing(name: style.lastPathComponent, manifest: manifest)
+            return try ShellStyleListing(name: style.lastPathComponent, manifest: manifest, folder: style)
         }
     }
 
