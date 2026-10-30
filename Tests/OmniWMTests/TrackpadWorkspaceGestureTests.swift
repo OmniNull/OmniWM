@@ -1415,7 +1415,9 @@ final class TrackpadWorkspaceGestureTests: XCTestCase {
                 )
                 let rendered = try XCTUnwrap(frames[selected.token])
                 XCTAssertTrue(state.preservesGestureOffset)
-                XCTAssertEqual(rendered.midX, geometry.workingFrame.midX, accuracy: 0.5, "\(columnCount) columns")
+                XCTAssertEqual(
+                    rendered.midX, geometry.workingFrame.midX, accuracy: 1 / geometry.scale, "\(columnCount) columns"
+                )
             }
         }
     }
