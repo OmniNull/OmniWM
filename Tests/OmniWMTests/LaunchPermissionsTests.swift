@@ -45,8 +45,10 @@ final class LaunchPermissionsTests: XCTestCase {
             [true, true, false, false]: true,
             [true, true, false, true]: false,
             [true, true, true, false]: false,
+            [true, true, true, true]: false,
             [false, true, false, true]: true,
-            [true, false, true, true]: true
+            [true, false, true, true]: true,
+            [false, false, false, true]: true
         ]
         for (flags, expected) in expectations {
             let snapshot = LaunchPermissionSnapshot(
@@ -60,7 +62,7 @@ final class LaunchPermissionsTests: XCTestCase {
 
     func testRequestRoutesToSelectedPermissionAndRefreshes() {
         let state = State()
-        let model = LaunchPermissionsModel(environment: environment(state))
+        let model = LaunchPermissionsModel(environment: environment(state), runtimeState: runtimeState())
 
         model.request(.inputMonitoring)
         XCTAssertEqual(state.requested, [.inputMonitoring])
@@ -75,13 +77,44 @@ final class LaunchPermissionsTests: XCTestCase {
         let state = State()
         state.accessibilityGranted = true
         state.inputMonitoringGranted = true
-        let model = LaunchPermissionsModel(environment: environment(state))
+        let model = LaunchPermissionsModel(environment: environment(state), runtimeState: runtimeState())
 
         XCTAssertEqual(model.primaryActionTitle, "Continue Without Screen Recording")
 
         state.screenRecordingGranted = true
         model.refresh()
         XCTAssertEqual(model.primaryActionTitle, "Start OmniWM")
+    }
+
+    func testConfirmStartPersistsDeclineOnlyOnceRequiredPermissionsAreGranted() {
+        let state = State()
+        state.accessibilityGranted = true
+        let directory = temporaryDirectory()
+        let model = LaunchPermissionsModel(
+            environment: environment(state),
+            runtimeState: RuntimeStateStore(directory: directory, deferSaves: false)
+        )
+        model.screenRecordingDeclined = true
+
+        XCTAssertFalse(model.confirmStart())
+        XCTAssertFalse(RuntimeStateStore(directory: directory, deferSaves: false).screenRecordingPromptDeclined)
+
+        state.inputMonitoringGranted = true
+        XCTAssertTrue(model.confirmStart())
+        let reopened = RuntimeStateStore(directory: directory, deferSaves: false)
+        XCTAssertTrue(reopened.screenRecordingPromptDeclined)
+        XCTAssertFalse(LaunchPermissionsModel(environment: environment(state), runtimeState: reopened).needsPrompt)
+    }
+
+    private func temporaryDirectory() -> URL {
+        let directory = FileManager.default.temporaryDirectory
+            .appendingPathComponent("LaunchPermissionsTests-\(UUID().uuidString)")
+        addTeardownBlock { try? FileManager.default.removeItem(at: directory) }
+        return directory
+    }
+
+    private func runtimeState() -> RuntimeStateStore {
+        RuntimeStateStore(directory: temporaryDirectory(), deferSaves: false)
     }
 
     private func environment(_ state: State) -> LaunchPermissionEnvironment {

@@ -127,11 +127,17 @@ final class LaunchPermissionsModel {
     private(set) var snapshot: LaunchPermissionSnapshot
     var screenRecordingDeclined: Bool
     @ObservationIgnored private let environment: LaunchPermissionEnvironment
+    @ObservationIgnored private let runtimeState: RuntimeStateStore
 
-    init(environment: LaunchPermissionEnvironment = .live, screenRecordingDeclined: Bool = false) {
+    init(environment: LaunchPermissionEnvironment = .live, runtimeState: RuntimeStateStore) {
         self.environment = environment
-        self.screenRecordingDeclined = screenRecordingDeclined
+        self.runtimeState = runtimeState
+        screenRecordingDeclined = runtimeState.screenRecordingPromptDeclined
         snapshot = environment.snapshot()
+    }
+
+    var needsPrompt: Bool {
+        snapshot.needsPrompt(screenRecordingDeclined: runtimeState.screenRecordingPromptDeclined)
     }
 
     var primaryActionTitle: String {
@@ -152,13 +158,19 @@ final class LaunchPermissionsModel {
         }
         refresh()
     }
+
+    func confirmStart() -> Bool {
+        refresh()
+        guard snapshot.requiredGranted else { return false }
+        runtimeState.screenRecordingPromptDeclined = screenRecordingDeclined
+        return true
+    }
 }
 
 @MainActor
 final class LaunchPermissionsWindowController {
     private let presenter: HostedWindowPresenter
     private let model: LaunchPermissionsModel
-    private let runtimeState: RuntimeStateStore
     private var startAction: (@MainActor () -> Void)?
     private var quitAction: (@MainActor () -> Void)?
 
@@ -168,15 +180,11 @@ final class LaunchPermissionsWindowController {
         runtimeState: RuntimeStateStore
     ) {
         presenter = HostedWindowPresenter(ownedWindowRegistry: ownedWindowRegistry)
-        model = LaunchPermissionsModel(
-            environment: environment,
-            screenRecordingDeclined: runtimeState.screenRecordingPromptDeclined
-        )
-        self.runtimeState = runtimeState
+        model = LaunchPermissionsModel(environment: environment, runtimeState: runtimeState)
     }
 
     var needsPrompt: Bool {
-        model.snapshot.needsPrompt(screenRecordingDeclined: runtimeState.screenRecordingPromptDeclined)
+        model.needsPrompt
     }
 
     func show(
@@ -208,9 +216,7 @@ final class LaunchPermissionsWindowController {
     }
 
     private func start() {
-        model.refresh()
-        guard model.snapshot.requiredGranted, let startAction else { return }
-        runtimeState.screenRecordingPromptDeclined = model.screenRecordingDeclined
+        guard let startAction, model.confirmStart() else { return }
         clearActions()
         presenter.close()
         startAction()
