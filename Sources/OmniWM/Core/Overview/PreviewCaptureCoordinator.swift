@@ -21,6 +21,19 @@ final class PreviewCaptureCoordinator {
         }
     }
 
+    @MainActor
+    private final class DiscoveryRace {
+        var continuation: CheckedContinuation<Void, Never>?
+        var outcome: Result<[SCWindow], any Error>?
+
+        func finish(_ outcome: Result<[SCWindow], any Error>?) {
+            guard let continuation else { return }
+            self.outcome = outcome
+            self.continuation = nil
+            continuation.resume()
+        }
+    }
+
     private struct RetainedFrame {
         let bytes: Int
         var lastUse: UInt64 = 0
@@ -37,8 +50,6 @@ final class PreviewCaptureCoordinator {
     private var captures: [WeakCapture] = []
     private var windowsByToken: [WindowToken: SCWindow] = [:]
     private var discoveryTask: Task<Int?, Never>?
-    private var discoveryStartedAt: ContinuousClock.Instant?
-    private var discoveryGeneration: UInt64 = 0
     private var clock: UInt64 = 0
 
     init(
@@ -73,17 +84,17 @@ final class PreviewCaptureCoordinator {
 
     func window(for token: WindowToken) async -> (window: SCWindow?, discoveredCount: Int?) {
         if let window = windowsByToken[token] { return (window, nil) }
-        if let discoveryTask, let discoveryStartedAt, discoveryStartedAt.duration(to: .now) < discoveryTimeout {
+        if let discoveryTask {
             _ = await discoveryTask.value
             return (windowsByToken[token], nil)
         }
-        discoveryGeneration &+= 1
-        let generation = discoveryGeneration
         let task = Task { @MainActor [weak self] () -> Int? in
             guard let self else { return nil }
             do {
-                let windows = try await discoverWindows()
-                guard generation == discoveryGeneration else { return nil }
+                guard let windows = try await discoverWindowsWithinTimeout() else {
+                    FallbackFiringRecorder.shared.note(.capture, "overviewContentTimeout")
+                    return nil
+                }
                 windowsByToken = Dictionary(uniqueKeysWithValues: windows.compactMap { window in
                     guard let app = window.owningApplication,
                           ownedWindowRegistry.isCaptureEligible(windowNumber: Int(window.windowID))
@@ -98,13 +109,30 @@ final class PreviewCaptureCoordinator {
             }
         }
         discoveryTask = task
-        discoveryStartedAt = .now
         let discoveredCount = await task.value
-        if discoveryTask == task {
-            discoveryTask = nil
-            discoveryStartedAt = nil
-        }
+        discoveryTask = nil
         return (windowsByToken[token], discoveredCount)
+    }
+
+    private func discoverWindowsWithinTimeout() async throws -> [SCWindow]? {
+        let race = DiscoveryRace()
+        await withCheckedContinuation { continuation in
+            race.continuation = continuation
+            let timeout = Task { @MainActor [discoveryTimeout] in
+                try? await Task.sleep(for: discoveryTimeout)
+                race.finish(nil)
+            }
+            Task { @MainActor [discoverWindows] in
+                do {
+                    let windows = try await discoverWindows()
+                    race.finish(.success(windows))
+                } catch {
+                    race.finish(.failure(error))
+                }
+                timeout.cancel()
+            }
+        }
+        return try race.outcome?.get()
     }
 
     func sharedPreview(

@@ -66,7 +66,7 @@ final class OverviewPreviewStartRecoveryTests: XCTestCase {
         XCTAssertEqual(driver.streams[0].stopCount, 1)
     }
 
-    func testHungWindowDiscoveryIsReplacedAfterItsTimeout() async throws {
+    func testHungWindowDiscoveryReleasesItsCallersAndIsRequestedAgain() async throws {
         let probe = DiscoveryProbe()
         let coordinator = PreviewCaptureCoordinator(
             ownedWindowRegistry: OwnedWindowRegistry(),
@@ -74,23 +74,30 @@ final class OverviewPreviewStartRecoveryTests: XCTestCase {
             discoverWindows: { await probe.discover() }
         )
         let token = WindowToken(pid: 123, windowId: 1)
-        let hung = Task { await coordinator.window(for: token).discoveredCount }
-        try await waitUntil { probe.calls == 1 }
-        try await Task.sleep(for: .milliseconds(100))
-
-        let replacement = Task {
+        var released = 0
+        let first = Task {
             let result = await coordinator.window(for: token)
-            return (found: result.window != nil, discoveredCount: result.discoveredCount)
+            released += 1
+            return result.discoveredCount
         }
-        try await waitUntil { probe.calls == 2 }
-        XCTAssertEqual(probe.calls, 2)
-        probe.answerAll()
+        try await waitUntil { probe.calls == 1 }
+        let second = Task {
+            let result = await coordinator.window(for: token)
+            released += 1
+            return result.discoveredCount
+        }
+        try await waitUntil { released == 2 }
+        let firstCount = await first.value
+        let secondCount = await second.value
+        XCTAssertNil(firstCount)
+        XCTAssertNil(secondCount)
+        XCTAssertEqual(probe.calls, 1)
 
-        let replaced = await replacement.value
-        XCTAssertFalse(replaced.found)
-        XCTAssertEqual(replaced.discoveredCount, 0)
-        let superseded = await hung.value
-        XCTAssertNil(superseded)
+        let retry = Task { await coordinator.window(for: token).discoveredCount }
+        try await waitUntil { probe.calls == 2 }
+        probe.answerAll()
+        let retryCount = await retry.value
+        XCTAssertEqual(retryCount, 0)
     }
 
     func testDiscoveryInFlightIsSharedUntilItsTimeout() async throws {
