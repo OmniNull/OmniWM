@@ -140,6 +140,32 @@ final class AppSelfUpdaterTests: XCTestCase {
             .canInstall)
     }
 
+    func testCancellingStopsExtractionBeforeAndAfterTheToolStarts() async throws {
+        let fifo = root.appendingPathComponent("started")
+        try run("/usr/bin/mkfifo", fifo.path)
+        let zip = root.appendingPathComponent("update.zip")
+        let scripts = [(false, "exec /bin/sleep 3"), (true, "echo started > \"\(fifo.path)\"\nexec /bin/sleep 30")]
+        for (launched, script) in scripts {
+            let tool = root.appendingPathComponent("ditto-\(launched).sh")
+            try "#!/bin/sh\n\(script)\n".write(to: tool, atomically: true, encoding: .utf8)
+            try FileManager.default.setAttributes([.posixPermissions: 0o755], ofItemAtPath: tool.path)
+            let begin = ContinuousClock.now
+            let extraction = Task { try await AppSelfUpdater.extract(zip, into: root, using: tool) }
+            if launched {
+                _ = try await Task.detached { try FileHandle(forReadingFrom: fifo).readToEnd() }.value
+            }
+            extraction.cancel()
+            do {
+                _ = try await extraction.value
+                XCTFail("launched \(launched): extraction finished")
+            } catch is CancellationError {
+            } catch {
+                XCTFail("launched \(launched): unexpected \(error)")
+            }
+            XCTAssertLessThan(ContinuousClock.now - begin, .seconds(2), "launched \(launched)")
+        }
+    }
+
     func testRequirementAlwaysDemandsNotarization() throws {
         XCTAssertEqual(AppSelfUpdater.notarized("anchor apple"), "(anchor apple) and notarized")
         XCTAssertTrue(try AppSelfUpdater.runningAppRequirement().hasSuffix(") and notarized"))

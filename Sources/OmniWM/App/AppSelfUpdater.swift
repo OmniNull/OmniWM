@@ -5,6 +5,7 @@ import AppKit
 import CryptoKit
 import Foundation
 import Security
+import Synchronization
 
 struct ReleaseArchive: Equatable {
     static let downloadPrefix = "https://github.com/OmniNull/OmniWM/releases/download/"
@@ -171,20 +172,35 @@ final class AppSelfUpdater: AppUpdateInstalling {
     }
 
     @concurrent
-    private nonisolated static func extract(_ zip: URL, into staging: URL) async throws -> URL {
+    nonisolated static func extract(
+        _ zip: URL,
+        into staging: URL,
+        using ditto: URL = URL(fileURLWithPath: "/usr/bin/ditto")
+    ) async throws -> URL {
         let destination = staging.appendingPathComponent("extracted")
         let process = Process()
-        process.executableURL = URL(fileURLWithPath: "/usr/bin/ditto")
+        process.executableURL = ditto
         process.arguments = ["-x", "-k", zip.path, destination.path]
-        let status: Int32 = try await withCheckedThrowingContinuation { continuation in
-            process.terminationHandler = { continuation.resume(returning: $0.terminationStatus) }
-            do {
-                try process.run()
-            } catch {
-                process.terminationHandler = nil
-                continuation.resume(throwing: error)
+        let pending = Mutex<Process?>(process)
+        let status: Int32 = try await withTaskCancellationHandler {
+            try await withCheckedThrowingContinuation { continuation in
+                do {
+                    try pending.withLock { process in
+                        guard let process else { throw CancellationError() }
+                        process.terminationHandler = { continuation.resume(returning: $0.terminationStatus) }
+                        try process.run()
+                    }
+                } catch {
+                    continuation.resume(throwing: error)
+                }
+            }
+        } onCancel: {
+            pending.withLock { process in
+                if process?.isRunning == true { process?.terminate() }
+                process = nil
             }
         }
+        try Task.checkCancellation()
         guard status == 0 else { throw AppSelfUpdateError.extractionFailed(status) }
         let app = destination.appendingPathComponent("OmniWM.app")
         guard FileManager.default.fileExists(atPath: app.appendingPathComponent("Contents/Info.plist").path) else {

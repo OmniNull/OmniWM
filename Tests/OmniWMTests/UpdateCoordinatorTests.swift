@@ -119,7 +119,7 @@ final class UpdateCoordinatorTests: XCTestCase {
         var onInstall: (() -> Void)?
         var onRelaunch: (() -> Void)?
         var onFinish: (() -> Void)?
-        var gate: CheckedContinuation<Void, Never>?
+        var gates: [CheckedContinuation<Void, Never>] = []
 
         func isInstalled(_ release: GitHubRelease) -> Bool {
             installed
@@ -130,7 +130,7 @@ final class UpdateCoordinatorTests: XCTestCase {
             defer { onFinish?() }
             onInstall?()
             if suspends {
-                await withCheckedContinuation { gate = $0 }
+                await withCheckedContinuation { gates.append($0) }
             } else {
                 await Task.yield()
             }
@@ -217,7 +217,7 @@ final class UpdateCoordinatorTests: XCTestCase {
             let finished = expectation(description: "\(action) finished")
             installer.onFinish = { finished.fulfill() }
             window.onEvent = nil
-            installer.gate?.resume()
+            installer.gates.removeFirst().resume()
             await fulfillment(of: [finished], timeout: 2)
             installer.onFinish = nil
             XCTAssertEqual(installer.events, ["install"], action)
@@ -232,6 +232,39 @@ final class UpdateCoordinatorTests: XCTestCase {
             await fulfillment(of: [relaunched], timeout: 2)
             XCTAssertEqual(installer.events, ["install", "install", "relaunch"], action)
         }
+    }
+
+    func testInstallAfterADeclineStartsWhileTheDeclinedOneIsStillFinishing() async throws {
+        let window = WindowStub()
+        let installer = InstallerStub()
+        installer.suspends = true
+        let install = try await showInstall(window: window, installer: installer)
+        let configuration = try XCTUnwrap(window.configuration)
+        window.onEvent = nil
+
+        for name in ["declined", "retried"] {
+            let started = expectation(description: "\(name) started")
+            installer.onInstall = { started.fulfill() }
+            install()
+            await fulfillment(of: [started], timeout: 2)
+            if name == "declined" { configuration.notNow() }
+        }
+        installer.onInstall = nil
+
+        let declinedFinished = expectation(description: "declined finished")
+        installer.onFinish = { declinedFinished.fulfill() }
+        installer.gates.removeFirst().resume()
+        await fulfillment(of: [declinedFinished], timeout: 2)
+        installer.onFinish = nil
+        install()
+        XCTAssertEqual(installer.events, ["install", "install"])
+
+        let relaunched = expectation(description: "relaunched")
+        installer.onRelaunch = { relaunched.fulfill() }
+        installer.gates.removeFirst().resume()
+        await fulfillment(of: [relaunched], timeout: 2)
+        XCTAssertEqual(installer.events, ["install", "install", "relaunch"])
+        XCTAssertNil(window.alertTitle)
     }
 
     private func showInstall(window: WindowStub, installer: InstallerStub) async throws -> () -> Void {

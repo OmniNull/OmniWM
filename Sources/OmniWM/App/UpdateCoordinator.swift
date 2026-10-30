@@ -349,10 +349,10 @@ final class UpdateCoordinator: AppUpdateCoordinating {
     }
 
     private func handleInstall(_ release: GitHubRelease) {
-        guard installTask == nil else { return }
+        if let installTask, !installTask.isCancelled { return }
         installTask = Task { @MainActor [weak self] in
             guard let self else { return }
-            defer { installTask = nil }
+            defer { if !Task.isCancelled { installTask = nil } }
             do {
                 if !installer.isInstalled(release) {
                     try await installer.install(release)
