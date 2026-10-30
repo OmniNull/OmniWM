@@ -173503,6 +173503,24 @@
     },
     "Working Folder" : {
 
+    },
+    "Get Styles" : {
+
+    },
+    "In Use" : {
+
+    },
+    "Replace your copy of %@?" : {
+
+    },
+    "Your current copy moves to the .backups folder in your shell folder." : {
+
+    },
+    "Save or discard your changes to this style first." : {
+
+    },
+    "Your previous copy is in %@." : {
+
     }
   },
   "version" : "1.0"

@@ -31,6 +31,16 @@ struct ShellStyleManifest: Equatable, Sendable {
             .map { try Self($0, appVersion: appVersion) }
     }
 
+    static func parse(_ data: Data, appVersion: ReleaseVersion? = Bundle.main.releaseVersion) throws -> Self {
+        let table: [String: TOMLNode]
+        do {
+            table = try TOMLDecoder().decode([String: TOMLNode].self, from: data)
+        } catch {
+            throw failure(error.localizedDescription)
+        }
+        return try Self(table, appVersion: appVersion)
+    }
+
     static func problem(in folder: URL) -> String? {
         do {
             _ = try load(in: folder)
@@ -156,6 +166,7 @@ struct ShellStyle: Equatable, Sendable {
     let name: String
     var manifest: ShellStyleManifest?
     var strings = ShellStrings.empty
+    var receipt: ShellStyleInstaller.Receipt?
     var problem: String?
 
     static func styles(in shellDirectory: URL) -> [Self] {
@@ -164,8 +175,10 @@ struct ShellStyle: Equatable, Sendable {
 
     static func load(_ profile: String, in shellDirectory: URL) -> Self {
         var style = Self(name: profile)
+        let folder = shellDirectory.appendingPathComponent(profile, isDirectory: true)
         do {
-            style.manifest = try ShellStyleManifest.load(in: shellDirectory.appendingPathComponent(profile))
+            style.receipt = try ShellStyleInstaller.receipt(in: folder)
+            style.manifest = try ShellStyleManifest.load(in: folder)
             style.strings = try ShellStrings.load(ShellConfig.directories(for: profile, in: shellDirectory))
         } catch {
             style.problem = error.localizedDescription

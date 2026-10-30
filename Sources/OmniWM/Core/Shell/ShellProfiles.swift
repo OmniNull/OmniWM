@@ -25,6 +25,10 @@ enum ShellProfiles {
         return [ShellDefaults.profile] + profiles
     }
 
+    static func isStyleName(_ name: String) -> Bool {
+        ShellConfig.isName(name) && !reserved.contains(name) && name != ShellDefaults.profile
+    }
+
     static func problem(selecting name: String, in shellDirectory: URL) -> String? {
         let folder = shellDirectory.appendingPathComponent(name)
         guard ShellConfig.isName(name), FileManager.default.fileExists(atPath: folder.path) else {

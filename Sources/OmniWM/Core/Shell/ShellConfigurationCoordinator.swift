@@ -306,18 +306,6 @@ final class ShellConfigurationCoordinator {
         }
     }
 
-    func editFile(
-        refreshMetadata: Bool = true,
-        scansSources: Bool = true,
-        _ operation: @escaping @Sendable (URL) throws -> Bool
-    ) async throws -> Bool {
-        try await ordered { [self] in
-            let changed = try await persistence().perform(operation)
-            if changed { try await saved(refreshMetadata: refreshMetadata, scanInputs: scansSources) }
-            return changed
-        }
-    }
-
     func flush() async {
         await tail?.value
         await writer?.flush()
@@ -336,6 +324,29 @@ final class ShellConfigurationCoordinator {
 }
 
 extension ShellConfigurationCoordinator {
+    func editFile(
+        refreshMetadata: Bool = true,
+        scansSources: Bool = true,
+        _ operation: @escaping @Sendable (URL) throws -> Bool
+    ) async throws -> Bool {
+        try await edit(refreshMetadata: refreshMetadata, scansSources: scansSources) { directory in
+            let changed = try operation(directory)
+            return (changed, changed)
+        }
+    }
+
+    func edit<Value: Sendable>(
+        refreshMetadata: Bool = true,
+        scansSources: Bool = true,
+        _ operation: @escaping @Sendable (URL) throws -> (changed: Bool, value: Value)
+    ) async throws -> Value {
+        try await ordered { [self] in
+            let result = try await persistence().perform(operation)
+            if result.changed { try await saved(refreshMetadata: refreshMetadata, scanInputs: scansSources) }
+            return result.value
+        }
+    }
+
     func sharedWeather() async throws -> ShellWeatherLocation? {
         try await persistence().perform { try ShellProfiles.sharedWeather(in: $0) }
     }

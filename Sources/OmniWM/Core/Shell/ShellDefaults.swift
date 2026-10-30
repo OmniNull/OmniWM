@@ -79,7 +79,7 @@ enum ShellDefaults {
         }
     }
 
-    private static var today: String {
+    static var today: String {
         Date.now.formatted(.iso8601.year().month().day())
     }
 

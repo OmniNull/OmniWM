@@ -5,6 +5,7 @@ import SwiftUI
 
 struct ShellDesktopStyleStrip: View {
     let editor: ShellDesktopEditor
+    @State private var gallery: ShellStyleGallery?
 
     var body: some View {
         ScrollView(.horizontal) {
@@ -35,6 +36,15 @@ struct ShellDesktopStyleStrip: View {
                         }
                     }
                     .buttonStyle(.plain).help(card.summary)
+                }
+                if let repository = ShellStyleRepository.current {
+                    Button { gallery = ShellStyleGallery(editor: editor, repository: repository) } label: {
+                        Label("Get Styles", systemImage: "plus.circle").font(.caption.weight(.medium))
+                            .frame(width: 132, height: 60)
+                            .background(.background.secondary, in: .rect(cornerRadius: 10))
+                    }
+                    .buttonStyle(.plain)
+                    .sheet(item: $gallery) { ShellStyleGalleryView(gallery: $0) }
                 }
             }
             .padding(.horizontal, 20)
