@@ -161,6 +161,8 @@ Options for the scrolling (Niri) layout.
 | `infiniteLoop` | boolean | `false` | Treats the column strip as a loop instead of a bounded row. |
 | `centerFocusedColumn` | string | `"never"` | When to center the focused column: `never`, `always`, `onOverflow`. |
 | `alwaysCenterSingleColumn` | boolean | `false` | Centers the column when a workspace holds only one. |
+| `allowOverscroll` *(optional)* | boolean | `false` | Allows trackpad scrolling past the first or last container to leave the desktop exposed after release. Applies to both snap and continuous scrolling, including single-window workspaces. Explicit focus navigation reveals the target normally. |
+| `overscrollVisibleStripPercent` *(optional)* | integer | `5` | Minimum visible strip at either overscroll limit, as a percentage of the edge container's primary span capped at the viewport span. Clamped to 1–100; used only when `allowOverscroll` is enabled. |
 | `singleWindowFit` | string | `"fill"` | Size of a lone window: `fill` (the "Full Screen" fit, which uses the fullscreen layout frame and honors `fullscreenUsesOuterGaps`), `container_primary_span`, or `WIDTHxHEIGHT`. |
 | `containerPrimarySpanPresets` *(optional)* | float array | `[1/3, 1/2, 2/3]` | Span fractions the span-cycling actions step through. |
 | `defaultContainerPrimarySpan` *(optional)* | float | `0.5` | Primary-axis span fraction for new containers. |
@@ -380,7 +382,7 @@ Clipboard history limits. History content itself is stored in the state director
 
 ## launcher
 
-Configure these values in **Settings > Launcher**. **Execution Defaults** groups the shell and terminal used by saved entries and CLI tools. Extra app/CLI folders and the custom shell executable are under **Discovery and Advanced Options**. Saved entries are stored in `launcher.entries` and edited through its shared Add/Edit form.
+**Unreleased: available when building from `main`.** The table and all of its keys are optional; omitted keys take the defaults below. Configure these values in **Settings > Launcher**. **Execution Defaults** groups the shell and terminal used by saved entries and CLI tools. Extra app/CLI folders and the custom shell executable are under **Discovery and Advanced Options**. Saved entries are stored in `launcher.entries` and edited through its shared Add/Edit form.
 
 | Key | Type | Default | Description |
 | --- | --- | --- | --- |
@@ -392,6 +394,50 @@ Configure these values in **Settings > Launcher**. **Execution Defaults** groups
 | `entries` | table array | `[]` | Named applications, commands, scripts, and saved CLI launches. |
 
 Commands and scripts can override the default shell and terminal, including Background execution. Use Refresh Launcher after changing shell startup configuration.
+
+### launcher.entries
+
+Each `[[launcher.entries]]` table describes one saved entry. All fields are optional when decoding, but running a command requires nonblank `command` text, and running an application, script or executable requires a suitable `path`. Give entries a `name` so you can recognize them in Launcher.
+
+| Key | Type | Default | Description |
+| --- | --- | --- | --- |
+| `id` | UUID string | generated | Stable entry identity. Keep an existing ID when editing and use a different ID for each entry. |
+| `name` | string | `""` | Display name. |
+| `kind` | string | `"command"` | `application`, `command`, `script`, or `executable`. |
+| `path` | string | `""` | App bundle, script or executable path for the corresponding kind; use an absolute path or `~/…`. |
+| `command` | string | `""` | Command text, interpreted using the selected shell's syntax for `kind = "command"`. |
+| `arguments` | string array | `[]` | Arguments for scripts and executables, each passed separately. For commands, put arguments in `command` using the shell's syntax. |
+| `keywords` | string | `""` | Additional searchable text. |
+| `workingDirectory` | string | `""` | Working folder for commands, scripts and executables. Empty uses your home folder; `~` expands. |
+| `shell` | string | `"defaultShell"` | Inherit the configured shell, or choose `system`, `nushell`, `fish`, `zsh`, or `bash`. |
+| `shellExecutable` | string | `""` | Explicit shell executable; when no entry override is supplied, the configured default applies. A supplied executable must match a supported shell. |
+| `interpreter` | string | `""` | Interpreter executable for a script or executable entry. Empty launches the file directly, requiring execute permission and a valid shebang for a script. |
+| `terminal` | string | `"defaultTerminal"` | Inherit the configured terminal, or choose `builtIn`, `terminal`, `ghostty`, `iterm`, `kitty`, or `background`. |
+
+Merge this fragment into your existing settings and replace the example paths. If `[launcher]` already has an `entries` value, replace it with the array-of-table entries rather than declaring both forms:
+
+```toml
+[launcher]
+shell = "zsh"
+terminal = "terminal"
+
+[[launcher.entries]]
+id = "9B839481-B222-4A1F-B74E-B86C63A2FD19"
+name = "Project status"
+kind = "command"
+command = "git status --short"
+workingDirectory = "~/Projects/example"
+keywords = "git status"
+
+[[launcher.entries]]
+id = "DB1789D1-7C71-461E-A65B-719E789D4C2E"
+name = "Weekly report"
+kind = "script"
+path = "~/Scripts/report.py"
+interpreter = "/usr/bin/python3"
+arguments = ["--title", "Weekly report"]
+terminal = "background"
+```
 
 ## quakeTerminal
 
@@ -433,6 +479,8 @@ Optional. When present, OmniWM positions and sizes the Kitty panel below the Omn
 | `heightPercent` | float | `50.0` | Height as a percentage of the monitor's available screen area (`10`–`100`). |
 
 ### quakeTerminal.foot
+
+**Unreleased: available when building from `main`.** The `foot` provider and these overrides are not included in v0.7.6.
 
 Optional overrides for OmniWM's foot Quake panel, sent each time OmniWM shows or hides it; changes apply the next time it is shown. Omitted optional keys use `foot.ini` as loaded when OmniWM started its dedicated foot server. OmniWM always sends `dim`, the `animationDuration` above (`0` while global animations are disabled), and the panel's area: the visible screen area of the monitor under the pointer, below the OmniShell top bar. Ghostty's and Kitty's values above are not used for foot.
 
@@ -564,6 +612,8 @@ minWidth = 574.0
 
 ## shellPermissions
 
+**Unreleased: available when building from `main`.** These OmniShell consent and trust decisions are not included in v0.7.6.
+
 **Settings > Network & Permissions** writes these decisions to the app’s `settings.toml`. They are separate from widget `settings.toml` declarations and `shell.toml` layout/options. External edits are live-reloaded. The section is optional: missing widget/program lists are empty, and missing service switches default to on.
 
 | Key | Type | Default | Description |
@@ -625,7 +675,7 @@ When `workspaceBar.enabled = false`, no monitor can show its bar. Saved `monitor
 | --- | --- |
 | `monitorBarOverrides` | `enabled`, `showLabels`, `showFloatingWindows`, `deduplicateAppIcons`, `hideEmptyWorkspaces`, `reserveLayoutSpace`, `autoHide`, `notchMode`, `notchActiveZoneWidth`, `fullWidth`, `fullWidthNotchMode`, `position`, `windowLevel`, `height`, `backgroundOpacity`, `inactiveIconOpacity`, `transparentBackground`, `solidBlackBackground`, `showItemBackgrounds`, `showAccentHighlights`, `xOffset`, `yOffset` — see [`workspaceBar`](#workspacebar). |
 | `monitorOrientationOverrides` | `orientation`: `horizontal` or `vertical` layout orientation for that monitor |
-| `monitorNiriOverrides` | `visibleContainerCount`, `defaultContainerPrimarySpan`, `centerFocusedColumn`, `alwaysCenterSingleColumn`, `singleWindowFit`, `infiniteLoop` — see [`niri`](#niri) |
+| `monitorNiriOverrides` | `visibleContainerCount`, `defaultContainerPrimarySpan`, `centerFocusedColumn`, `alwaysCenterSingleColumn`, `singleWindowFit`, `infiniteLoop`, `allowOverscroll`, `overscrollVisibleStripPercent` — see [`niri`](#niri) |
 | `monitorDwindleOverrides` | `smartSplit`, `defaultSplitRatio`, `splitWidthMultiplier`, `singleWindowFit`, `useGlobalGaps`, `innerGap` — see [`dwindle`](#dwindle) |
 | `monitorGapOverrides` | `innerGap`, `outerGapLeft`, `outerGapRight`, `outerGapTop`, `outerGapBottom`, `fullscreenUsesOuterGaps` — see [`gaps`](#gaps) |
 

@@ -5,7 +5,7 @@ sidebar:
   order: 3
 ---
 
-Press `Option + Shift + O` and all of your workspaces' windows fly into a scrollable overview of thumbnails. Workspaces with no windows are hidden. Configure the 50–150% zoom, scrolling controls, and backdrop and window-border colors in **Settings → Overview**.
+Press `Option + Shift + O` and all of your workspaces' windows fly into a scrollable overview of thumbnails. Empty workspaces remain visible by default. The workspace bar's **Hide empty workspaces** setting also applies to Overview on that display; when enabled, it hides inactive empty workspaces and keeps the active workspace visible. Configure the 50–150% zoom, scrolling controls, and backdrop and window-border colors in **Settings → Overview**.
 
 Turn Overview off in Settings. Its shortcut, mouse button, gesture, and commands then stop opening it; saved input assignments return when it is re-enabled.
 

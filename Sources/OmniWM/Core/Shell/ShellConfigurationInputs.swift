@@ -22,13 +22,11 @@ struct ShellConfigurationInputs: Sendable {
     }
 
     init(directory: URL, config: ShellConfig) throws {
-        var recursivePaths = Set([directory] + config.directories)
+        let recursivePaths = Set([directory] + config.directories)
         var paths = SettingsFileObservationDirectories.paths(for: directory)
         paths.insert(directory)
         let directory = try SettingsFileAccess.canonicalURL(for: directory)
-        var files: [String: SettingsFileAccess.Fingerprint] = [:]
         paths.formUnion([directory, directory.deletingLastPathComponent()])
-        var widgets: Set<String> = []
         let prefix = directory.standardizedFileURL.path + "/"
         let directories = try config.directories.compactMap { url -> URL? in
             paths.formUnion(SettingsFileObservationDirectories.paths(for: url))
@@ -36,39 +34,59 @@ struct ShellConfigurationInputs: Sendable {
             catch let error as POSIXError where error.code == .ENOENT { return nil }
         }
         let roots = Set([directory] + directories.filter { !$0.path.hasPrefix(prefix) })
-        for root in roots {
-            paths.insert(root)
-            let entries = FileManager.default.enumerator(
-                at: root, includingPropertiesForKeys: [.isDirectoryKey, .isSymbolicLinkKey],
+        var scan = DirectoryScan(paths: paths, recursivePaths: recursivePaths)
+        for root in roots { scan.include(root) }
+        self.directory = directory
+        files = scan.files
+        metadata = scan.files.filter {
+            let name = URL(fileURLWithPath: $0.key).lastPathComponent
+            return name == "settings.toml" || name == "component.toml" || name == "init.luau"
+                || name == "component.luau"
+        }
+        self.paths = scan.paths.sorted { $0.path < $1.path }
+        self.recursivePaths = scan.recursivePaths.sorted { $0.path < $1.path }
+        widgets = scan.widgets.sorted()
+    }
+
+    private struct DirectoryScan {
+        var paths: Set<URL>
+        var recursivePaths: Set<URL>
+        var files: [String: SettingsFileAccess.Fingerprint] = [:]
+        var widgets: Set<String> = []
+
+        mutating func include(_ directory: URL, ancestors: Set<URL> = []) {
+            guard let target = try? SettingsFileAccess.canonicalURL(for: directory),
+                  !ancestors.contains(target)
+            else { return }
+            paths.insert(directory)
+            let ancestors = ancestors.union([target])
+            let entries = (try? FileManager.default.contentsOfDirectory(
+                at: target, includingPropertiesForKeys: [.isDirectoryKey, .isSymbolicLinkKey],
                 options: [.skipsHiddenFiles]
-            )
-            while let file = entries?.nextObject() as? URL {
-                guard let values = try? file.resourceValues(forKeys: [.isDirectoryKey, .isSymbolicLinkKey])
+            )) ?? []
+            for entry in entries {
+                let file = directory.appendingPathComponent(entry.lastPathComponent)
+                guard var values = try? entry.resourceValues(forKeys: [.isDirectoryKey, .isSymbolicLinkKey])
                 else { continue }
                 paths.insert(file)
                 if values.isSymbolicLink == true {
                     recursivePaths.insert(file)
                     paths.formUnion(SettingsFileObservationDirectories.paths(for: file))
+                    guard let resolved = try? SettingsFileAccess.canonicalURL(for: file),
+                          let targetValues = try? resolved.resourceValues(forKeys: [.isDirectoryKey])
+                    else { continue }
+                    values = targetValues
                 }
                 if values.isDirectory == true {
                     if file.deletingLastPathComponent().lastPathComponent == "widgets" {
                         widgets.insert(file.lastPathComponent)
                     }
+                    include(file, ancestors: ancestors)
                 } else {
                     files[file.path] = SettingsFileAccess.currentFingerprint(at: file)
                 }
             }
         }
-        self.directory = directory
-        self.files = files
-        metadata = files.filter {
-            let name = URL(fileURLWithPath: $0.key).lastPathComponent
-            return name == "settings.toml" || name == "component.toml" || name == "init.luau"
-                || name == "component.luau"
-        }
-        self.paths = paths.sorted { $0.path < $1.path }
-        self.recursivePaths = recursivePaths.sorted { $0.path < $1.path }
-        self.widgets = widgets.sorted()
     }
 
     func updatingConfiguration() -> Self {

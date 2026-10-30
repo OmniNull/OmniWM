@@ -19,6 +19,10 @@ Opacity changes apply live. If the panel was created without transparency suppor
 
 ## foot provider
 
+:::note[Unreleased]
+The foot provider is available when building from `main` and is not included in v0.7.6.
+:::
+
 Install [foot for macOS](https://github.com/gobijan/foot-macos) 1.28.0-macos.8 or newer, then choose **foot** in **Settings → Quake Terminal → Terminal**. OmniWM uses the `foot` and `footclient` inside the app, not copies on your `PATH`. The same global shortcut toggles foot's Quake terminal on a dedicated foot server that OmniWM starts with its own private socket; your regular foot app and its default socket are left alone. The server and its shell keep running when you hide the panel, switch providers or quit OmniWM, and OmniWM reuses them next time.
 
 `foot.ini` supplies fonts, colors and everything not overridden, as loaded when that server started; foot has no tabs or splits. In OmniWM's Settings you can override the panel's placement, auto-hide on focus loss, background opacity and screen dimming, and the shared **Animation Duration** sets foot's slide-in speed. OmniWM places the panel on the monitor under the pointer, below the OmniShell top bar. Dimming defaults to off, unlike foot's own `0.6`. Changes apply the next time foot is shown; turning an override off returns that setting to the server's `foot.ini`. See the [foot settings reference](/config/settings-reference/#quaketerminalfoot) for TOML keys.

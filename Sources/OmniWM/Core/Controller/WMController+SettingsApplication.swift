@@ -147,6 +147,7 @@ extension WMController {
             centerFocusedColumn: settings.niri.centerFocusedColumn,
             alwaysCenterSingleColumn: settings.niri.alwaysCenterSingleColumn,
             singleWindowFit: settings.niri.singleWindowFit,
+            edgeOverscroll: settings.niri.edgeOverscroll,
             containerPrimarySpanPresets: settings.niri.containerPrimarySpanPresets,
             defaultContainerPrimarySpan: settings.niri.defaultContainerPrimarySpan
         )

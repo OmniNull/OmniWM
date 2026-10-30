@@ -1,0 +1,586 @@
+---
+import MockDesktop from './MockDesktop.astro';
+import MockWindow from './MockWindow.astro';
+import Keycap from './Keycap.astro';
+import { lessons as lessonList } from '../../scripts/strip-lessons.js';
+
+interface Props {
+  lessons?: boolean;
+}
+
+const { lessons = false } = Astro.props;
+const Heading = lessons ? 'h1' : 'h2';
+
+const kinds = [
+  { kind: 'editor', title: 'Zed' },
+  { kind: 'terminal', title: 'Ghostty' },
+  { kind: 'browser', title: 'Safari' },
+  { kind: 'notes', title: 'Notes' },
+  { kind: 'plain', title: 'Messages' },
+] as const;
+
+const keys = [
+  { action: 'focusCol', arg: '-1', keys: ['⌥', '←'], label: 'Focus left', landing: true },
+  { action: 'focusCol', arg: '1', keys: ['⌥', '→'], label: 'Focus right', landing: true },
+  { action: 'focusWin', arg: '-1', keys: ['⌥', '↑'], label: 'Focus up' },
+  { action: 'focusWin', arg: '1', keys: ['⌥', '↓'], label: 'Focus down' },
+  { action: 'moveWindow', arg: '-1', keys: ['⌥', '⇧', '←'], label: 'Move left', landing: true },
+  { action: 'moveWindow', arg: '1', keys: ['⌥', '⇧', '→'], label: 'Move right', landing: true },
+  { action: 'swapWindow', arg: '-1', keys: ['⌥', '⇧', '↑'], label: 'Move up' },
+  { action: 'swapWindow', arg: '1', keys: ['⌥', '⇧', '↓'], label: 'Move down' },
+  { action: 'moveColumn', arg: '-1', keys: ['⌃', '⌥', '⇧', '←'], label: 'Column left' },
+  { action: 'moveColumn', arg: '1', keys: ['⌃', '⌥', '⇧', '→'], label: 'Column right' },
+  { action: 'cycleWidth', arg: '-1', keys: ['⌥', ','], label: 'Previous width' },
+  { action: 'cycleWidth', arg: '1', keys: ['⌥', '.'], label: 'Next width', landing: true },
+  { action: 'toggleTabbed', keys: ['⌥', 'T'], label: 'Tabs', landing: true },
+  { action: 'toggleFull', keys: ['⌥', '⇧', 'F'], label: 'Full width', landing: true },
+  { action: 'open', keys: ['N'], label: 'New window', landing: true },
+  { action: 'close', keys: ['W'], label: 'Close', landing: true },
+].filter((key) => lessons || key.landing);
+---
+
+<section class="section playground-section" id="try">
+  <div class="container">
+    <div class="section-head">
+      <Heading>{lessons ? 'Learn the keys' : 'Try the strip'}</Heading>
+      {
+        lessons ? (
+          <p>
+            Short lessons on the default Niri shortcuts, in a simulated strip that behaves like the real one. Click the
+            desktop and follow along on your keyboard, or tap the keys under it.
+          </p>
+        ) : (
+          <p>
+            A simulation of the Niri layout with default settings. Click it, then use the keys below, or swipe sideways
+            on a trackpad to scroll the strip. <a href="/playground/">New to the keys? Learn them step by step.</a>
+          </p>
+        )
+      }
+    </div>
+    <div
+      class="demo"
+      data-playground
+      tabindex="0"
+      aria-label="Interactive Niri layout simulation. Option and arrow keys move focus, Option Shift and arrow keys move the window."
+      aria-describedby="pg-hint"
+    >
+      {
+        lessons && (
+          <div class="pg-lessons">
+            <ol class="pg-steps">
+              {lessonList.map(({ title }, i) => (
+                <li>
+                  <button type="button" class="pg-step" data-go={i} aria-label={`Lesson ${i + 1}: ${title}`}>
+                    {i + 1}
+                  </button>
+                </li>
+              ))}
+            </ol>
+            {lessonList.map(({ title, text }, i) => (
+              <div class="pg-lesson" hidden={i > 0}>
+                <h2>{title}</h2>
+                <p>{text}</p>
+              </div>
+            ))}
+            <div class="pg-nav">
+              <p class="pg-done">Done. Press Return for the next one.</p>
+              <button type="button" class="btn btn-ghost" data-go="back">
+                Back
+              </button>
+              <button type="button" class="btn btn-ghost" data-go="reset">
+                Start over
+              </button>
+              <button type="button" class="btn btn-primary" data-go="next">
+                Next
+              </button>
+            </div>
+          </div>
+        )
+      }
+      <MockDesktop label="Simulated macOS desktop with a scrolling strip of windows">
+        <div class="pg-strip"></div>
+        <p class="pg-empty">No windows. Press N to open one.</p>
+        <span class="pg-try" aria-hidden="true">Click to try</span>
+      </MockDesktop>
+      <template class="pg-pool">
+        {kinds.map(({ kind, title }) => <MockWindow class={`pg-k-${kind}`} title={title} variant={kind} />)}
+      </template>
+      <div class="keys">
+        {
+          keys.map(({ action, arg, keys, label }) => (
+            <button type="button" class="pg-key" tabindex="-1" data-action={action} data-arg={arg}>
+              <Keycap keys={keys} label={label} />
+            </button>
+          ))
+        }
+      </div>
+      <p class="caption" id="pg-hint">
+        {
+          lessons
+            ? 'Plain arrows and hjkl work too, in case OmniWM is already catching ⌥ on your Mac.'
+            : '⌥↑↓ focus inside a column, ⌥⇧↑↓ swaps, ⌃⌥⇧←→ moves the whole column. Plain arrows and hjkl work too, in case OmniWM is already catching ⌥ on your Mac. N and W open and close windows here only; OmniWM leaves close unassigned.'
+        }
+      </p>
+      <p class="visually-hidden" role="status" aria-live="polite"></p>
+    </div>
+  </div>
+</section>
+
+<style is:global>
+  [data-playground] {
+    outline: none;
+
+    .frame {
+      transition: box-shadow var(--dur-ui) var(--ease-ui);
+    }
+
+    &:focus-visible .frame {
+      box-shadow: 0 0 0 3px var(--page-accent);
+    }
+
+    .desktop {
+      overscroll-behavior-x: contain;
+    }
+
+    .pg-strip {
+      position: absolute;
+      inset: 0;
+      transform: translateX(calc(var(--pan, 0) * -100cqw));
+      transition: transform 450ms var(--ease-settle);
+    }
+
+    &.is-panning .pg-strip {
+      transition: none;
+    }
+
+    .pg-strip .mock-win {
+      cursor: pointer;
+      transition:
+        left 450ms var(--ease-settle),
+        top 450ms var(--ease-settle),
+        width 450ms var(--ease-settle),
+        height 450ms var(--ease-settle),
+        opacity 250ms var(--ease-ui),
+        transform 250ms var(--ease-settle),
+        box-shadow var(--dur-ui) var(--ease-ui);
+    }
+
+    .pg-strip .mock-win.is-hidden-tab {
+      opacity: 0;
+      pointer-events: none;
+    }
+
+    .pg-tabs {
+      position: absolute;
+      display: flex;
+      gap: 0.6cqw;
+      height: 4cqh;
+      transition:
+        left 450ms var(--ease-settle),
+        width 450ms var(--ease-settle);
+    }
+
+    .pg-tab {
+      flex: 1 1 0;
+      min-width: 0;
+      padding: 0 0.8cqw;
+      border: 1px solid var(--demo-win-border);
+      border-radius: 0.8cqw;
+      background: var(--demo-glass);
+      color: rgba(255, 255, 255, 0.55);
+      font: inherit;
+      font-size: clamp(6px, 1.4cqw, 10px);
+      white-space: nowrap;
+      overflow: hidden;
+      text-overflow: ellipsis;
+      cursor: pointer;
+    }
+
+    .pg-tab.is-active {
+      color: #fff;
+      border-color: var(--demo-accent);
+    }
+
+    .pg-empty,
+    .pg-try {
+      position: absolute;
+      left: 50%;
+      top: 52%;
+      transform: translate(-50%, -50%);
+      margin: 0;
+      color: rgba(255, 255, 255, 0.6);
+      font-size: clamp(10px, 2cqw, 15px);
+      pointer-events: none;
+    }
+
+    .pg-empty {
+      display: none;
+    }
+
+    &.is-empty .pg-empty {
+      display: block;
+    }
+
+    .pg-try {
+      top: auto;
+      bottom: 6cqh;
+      padding: 0.6em 1.2em;
+      border-radius: var(--r-pill);
+      background: var(--demo-glass);
+      color: #fff;
+      transition: opacity var(--dur-ui) var(--ease-ui);
+      z-index: 9;
+    }
+
+    &:focus-within .pg-try {
+      opacity: 0;
+    }
+
+    .pg-key {
+      padding: 0;
+      border: 0;
+      background: none;
+      color: inherit;
+      font: inherit;
+      cursor: pointer;
+    }
+
+    .pg-lessons {
+      padding: 18px 22px;
+      border: 1px solid var(--page-frame-border);
+      border-radius: 14px;
+      background: var(--page-surface);
+    }
+
+    .pg-steps {
+      display: flex;
+      flex-wrap: wrap;
+      gap: 6px;
+      margin: 0 0 14px;
+      padding: 0;
+      list-style: none;
+    }
+
+    .pg-step {
+      width: 28px;
+      height: 28px;
+      border: 1px solid var(--page-frame-border);
+      border-radius: var(--r-pill);
+      background: none;
+      color: var(--page-muted);
+      font: inherit;
+      font-size: 12px;
+      cursor: pointer;
+    }
+
+    .pg-step.is-done {
+      background: var(--page-accent-soft);
+      color: var(--page-fg);
+    }
+
+    .pg-step.is-current {
+      border-color: var(--page-accent);
+      color: var(--page-fg);
+    }
+
+    .pg-lesson h2 {
+      margin: 0 0 6px;
+      font-size: 20px;
+    }
+
+    .pg-lesson p {
+      margin: 0;
+      color: var(--page-muted);
+    }
+
+    .pg-nav {
+      display: flex;
+      flex-wrap: wrap;
+      align-items: center;
+      justify-content: flex-end;
+      gap: 8px;
+      margin-top: 16px;
+
+      .btn {
+        padding: 7px 16px;
+        font: inherit;
+        font-size: 14px;
+        font-weight: 600;
+        cursor: pointer;
+      }
+
+      .btn:disabled {
+        opacity: 0.4;
+        cursor: default;
+        transform: none;
+      }
+    }
+
+    .pg-done {
+      margin: 0 auto 0 0;
+      color: var(--page-accent);
+      font-weight: 600;
+      visibility: hidden;
+    }
+
+    &.is-done .pg-done {
+      visibility: visible;
+    }
+  }
+
+  @starting-style {
+    [data-playground] .pg-strip .mock-win {
+      opacity: 0;
+      transform: scale(0.94);
+    }
+  }
+
+  @media (prefers-reduced-motion: reduce) {
+    [data-playground] .pg-strip,
+    [data-playground] .pg-strip .mock-win,
+    [data-playground] .pg-tabs {
+      transition: none;
+    }
+  }
+</style>
+
+<script>
+  import * as m from '../../scripts/strip-model.js';
+  import { lessons, start } from '../../scripts/strip-lessons.js';
+
+  const TOP = 7.5;
+  const BOTTOM = 3.5;
+  const TABS = 5;
+  const KINDS = ['editor', 'terminal', 'browser', 'notes', 'plain'];
+
+  interface Column {
+    windows: string[];
+    width: number;
+    full?: boolean;
+    tabbed?: boolean;
+  }
+
+  interface State {
+    columns: Column[];
+    col: number;
+    win: number;
+    offset: number;
+    nextId: number;
+  }
+
+  interface Lesson {
+    title: string;
+    keys: string[] | null;
+    done: ((s: State) => boolean) | null;
+  }
+
+  const list = lessons as Lesson[];
+
+  function mount(root: HTMLElement) {
+    const frame = root.querySelector<HTMLElement>('.frame')!;
+    const strip = root.querySelector<HTMLElement>('.pg-strip')!;
+    const pool = root.querySelector<HTMLTemplateElement>('.pg-pool')!.content;
+    const status = root.querySelector<HTMLElement>('[role=status]')!;
+    const nodes = new Map<string, HTMLElement>();
+    const lessonEls = [...root.querySelectorAll<HTMLElement>('.pg-lesson')];
+    const steps = [...root.querySelectorAll<HTMLElement>('.pg-step')];
+    const keyEls = [...root.querySelectorAll<HTMLElement>('.pg-key')];
+    const nav = (go: string) => root.querySelector<HTMLButtonElement>(`[data-go='${go}']`);
+    const solved = new Set<number>();
+    let state: State = start(list[list.length - 1]);
+    let at = -1;
+    let opened = 0;
+    let idle = 0;
+
+    const node = (id: string) => {
+      let el = nodes.get(id);
+      if (!el) {
+        const kind = id.split('-')[0];
+        el = pool.querySelector<HTMLElement>(`.pg-k-${kind}`)!.cloneNode(true) as HTMLElement;
+        el.dataset.id = id;
+        nodes.set(id, el);
+        strip.append(el);
+      }
+      return el;
+    };
+    const title = (id: string) => node(id).querySelector('.win-title')?.textContent ?? 'Window';
+
+    function render() {
+      const { xs } = m.layout(state);
+      const seen = new Set<string>();
+      strip.querySelectorAll('.pg-tabs').forEach((t) => t.remove());
+      state.columns.forEach((column, c) => {
+        const left = `${xs[c] * 100}cqw`;
+        const w = `${m.width(column) * 100}cqw`;
+        const top = column.tabbed ? TOP + TABS : TOP;
+        const n = column.tabbed ? 1 : column.windows.length;
+        const h = (100 - top - BOTTOM - (n - 1) * 2) / n;
+        if (column.tabbed) {
+          const tabs = document.createElement('div');
+          tabs.className = 'pg-tabs';
+          Object.assign(tabs.style, { left, width: w, top: `${TOP}cqh` });
+          column.windows.forEach((id, i) => {
+            const tab = document.createElement('button');
+            tab.type = 'button';
+            tab.tabIndex = -1;
+            tab.className = 'pg-tab';
+            tab.textContent = title(id);
+            tab.dataset.col = String(c);
+            tab.dataset.win = String(i);
+            const active = c === state.col ? i === state.win : i === 0;
+            tab.classList.toggle('is-active', active);
+            tabs.append(tab);
+          });
+          strip.append(tabs);
+        }
+        const shown = c === state.col ? state.win : 0;
+        column.windows.forEach((id, i) => {
+          seen.add(id);
+          const el = node(id);
+          el.dataset.col = String(c);
+          el.dataset.win = String(i);
+          const row = column.tabbed ? 0 : i;
+          Object.assign(el.style, { left, width: w, top: `${top + row * (h + 2)}cqh`, height: `${h}cqh` });
+          el.classList.toggle('is-hidden-tab', !!column.tabbed && i !== shown);
+          el.classList.toggle('is-focused', c === state.col && i === state.win);
+        });
+      });
+      for (const [id, el] of nodes) {
+        if (!seen.has(id)) {
+          el.remove();
+          nodes.delete(id);
+        }
+      }
+      strip.style.setProperty('--pan', String(state.offset));
+      root.classList.toggle('is-empty', state.columns.length === 0);
+    }
+
+    function announce() {
+      const id = state.columns[state.col]?.windows[state.win];
+      status.textContent = id ? `${title(id)} focused, column ${state.col + 1} of ${state.columns.length}` : 'No windows';
+    }
+
+    function commit(next: State) {
+      state = next;
+      render();
+      announce();
+      const lesson = list[at];
+      if (!lesson?.done || root.classList.contains('is-done') || !lesson.done(state)) return;
+      solved.add(at);
+      steps[at].classList.add('is-done');
+      root.classList.add('is-done');
+      status.textContent = 'Lesson done. Press Return for the next one.';
+    }
+
+    function load(i: number) {
+      at = Math.min(Math.max(i, 0), list.length - 1);
+      const { title, keys } = list[at];
+      lessonEls.forEach((el, n) => (el.hidden = n !== at));
+      steps.forEach((el, n) => el.classList.toggle('is-current', n === at));
+      keyEls.forEach((el) => (el.hidden = !!keys && !keys.includes(`${el.dataset.action}:${el.dataset.arg ?? ''}`)));
+      nav('back')!.disabled = at === 0;
+      nav('next')!.disabled = at === list.length - 1;
+      root.classList.remove('is-done');
+      commit(start(list[at]));
+      status.textContent = `Lesson ${at + 1}: ${title}`;
+    }
+
+    function run(action: string, arg?: string) {
+      const d = Number(arg);
+      const next: Record<string, () => State> = {
+        focusCol: () => m.focusCol(state, d),
+        focusWin: () => m.focusWin(state, d),
+        moveWindow: () => m.moveWindow(state, d),
+        swapWindow: () => m.swapWindow(state, d),
+        moveColumn: () => m.moveColumn(state, d),
+        cycleWidth: () => m.cycleWidth(state, d),
+        toggleFull: () => m.toggleFull(state),
+        toggleTabbed: () => m.toggleTabbed(state),
+        open: () => m.open(state, KINDS[opened++ % KINDS.length]),
+        close: () => m.close(state),
+      };
+      if (!next[action]) return;
+      commit(next[action]());
+      const key = root.querySelector(`.pg-key[data-action='${action}']${arg ? `[data-arg='${arg}']` : ''} .keycap`);
+      key?.classList.add('is-pressed');
+      setTimeout(() => key?.classList.remove('is-pressed'), 150);
+    }
+
+    const dirs: Record<string, [string, number]> = {
+      ArrowLeft: ['h', -1],
+      ArrowRight: ['h', 1],
+      ArrowUp: ['v', -1],
+      ArrowDown: ['v', 1],
+      KeyH: ['h', -1],
+      KeyL: ['h', 1],
+      KeyK: ['v', -1],
+      KeyJ: ['v', 1],
+    };
+
+    root.addEventListener('keydown', (e) => {
+      if (e.metaKey) return;
+      if (e.code === 'Enter' && e.target === root && root.classList.contains('is-done')) {
+        e.preventDefault();
+        load(at + 1);
+        return;
+      }
+      const dir = dirs[e.code];
+      let action = '';
+      let arg: string | undefined;
+      if (dir) {
+        const [axis, d] = dir;
+        arg = String(d);
+        if (e.shiftKey && e.ctrlKey) action = axis === 'h' ? 'moveColumn' : '';
+        else if (e.shiftKey) action = axis === 'h' ? 'moveWindow' : 'swapWindow';
+        else if (!e.ctrlKey) action = axis === 'h' ? 'focusCol' : 'focusWin';
+      } else if (!e.ctrlKey) {
+        const plain: Record<string, [string, string?]> = {
+          KeyT: ['toggleTabbed'],
+          KeyF: ['toggleFull'],
+          Period: ['cycleWidth', '1'],
+          Comma: ['cycleWidth', '-1'],
+          KeyN: ['open'],
+          KeyW: ['close'],
+          KeyX: ['close'],
+        };
+        [action, arg] = plain[e.code] ?? [''];
+      }
+      if (!action) return;
+      e.preventDefault();
+      run(action, arg);
+    });
+
+    root.addEventListener('click', (e) => {
+      const target = e.target as HTMLElement;
+      const key = target.closest<HTMLElement>('.pg-key');
+      const hit = target.closest<HTMLElement>('.pg-tab, .mock-win[data-col]');
+      const go = target.closest<HTMLElement>('[data-go]')?.dataset.go;
+      if (key) run(key.dataset.action!, key.dataset.arg);
+      else if (hit) commit(m.focusAt(state, Number(hit.dataset.col), Number(hit.dataset.win)));
+      else if (go) load({ back: at - 1, reset: at, next: at + 1 }[go] ?? Number(go));
+      root.focus({ preventScroll: true });
+    });
+
+    frame.addEventListener(
+      'wheel',
+      (e) => {
+        if (!frame.clientWidth || Math.abs(e.deltaX) <= Math.abs(e.deltaY)) return;
+        e.preventDefault();
+        root.classList.add('is-panning');
+        state = m.pan(state, state.offset + (e.deltaX * [1, 40, frame.clientWidth][e.deltaMode]) / frame.clientWidth);
+        strip.style.setProperty('--pan', String(state.offset));
+        clearTimeout(idle);
+        idle = window.setTimeout(() => {
+          root.classList.remove('is-panning');
+          commit(m.settle(state));
+        }, 140);
+      },
+      { passive: false }
+    );
+
+    if (lessonEls.length) load(0);
+    else render();
+  }
+
+  for (const root of document.querySelectorAll<HTMLElement>('[data-playground]')) mount(root);
+</script>

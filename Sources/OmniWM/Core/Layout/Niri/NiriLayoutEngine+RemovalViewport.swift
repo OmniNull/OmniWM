@@ -38,6 +38,15 @@ extension NiriLayoutEngine {
         )
         let viewStart = activePosition + state.viewOffset
         let settings = effectiveSettings(in: context.workspaceId)
+        if state.preservesGestureOffset, let bounds = NiriViewportGeometry(
+            gap: context.gaps, viewportSpan: viewportSpan, orientation: context.orientation,
+            edgeOverscroll: settings.edgeOverscroll
+        ).overscrollBounds(columns: cols) {
+            let bounded = viewStart.clamped(to: bounds)
+            guard abs(bounded - viewStart) > 0.5 else { return false }
+            state.animateToOffset(bounded - activePosition, motion: context.motion)
+            return true
+        }
         let scale = displayScale(in: context.workspaceId)
         let viewport = RemovalViewport(
             columns: cols, activeIndex: activeIdx, activePosition: activePosition,

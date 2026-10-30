@@ -7,6 +7,8 @@ sidebar:
 
 OmniShell scripts are ordinary files under `~/.config/omniwm/shell/`. Edit them in your own editor. The host watches source and configuration changes and reloads affected packages; you do not need to restart the window manager for each edit.
 
+Before using the CLI below, turn on **Settings > Advanced > Enable IPC**; it is off by default. See [CLI setup](/reference/cli/overview/#installation) for installation and the status-menu alternative.
+
 ## Create or eject a widget
 
 Create a new widget in the selected profile:
@@ -78,6 +80,8 @@ The query shows widget state and errors, plus mistakes in `shell.toml` and theme
 | Per-app volume | System Audio Recording, asked the first time an app is turned down |
 | Calendar | Calendar full access, asked from the calendar widget |
 | Reminders | Reminders full access, requested only by `reminders authorize`; independent of Calendar access |
+| Notification data | Full Disk Access to read Notification Center's database; `notifications settings` opens that privacy pane |
+| Notification replies and dismissal | Accessibility, plus a complete notification snapshot and a uniquely matched native action; see [notification actions](/omnishell/reference/context-data/#notification-snapshots) |
 | Wi-Fi network name | Location, asked from the Wi-Fi widget; signal, band and security need none |
 | Bluetooth | Bluetooth, asked from the Bluetooth widget |
 | Audio spectrum | System Audio Recording, like per-app volume |

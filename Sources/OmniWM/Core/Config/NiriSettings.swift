@@ -70,6 +70,29 @@ final class NiriSettings {
         didSet { onChange?() }
     }
 
+    var allowOverscroll = NiriSettings.defaults.allowOverscroll ?? false {
+        didSet { onChange?() }
+    }
+
+    var overscrollVisibleStripPercent = NiriSettings.defaults.overscrollVisibleStripPercent ?? 5 {
+        didSet {
+            let validated = Self.validatedOverscrollVisibleStripPercent(overscrollVisibleStripPercent)
+            if validated != overscrollVisibleStripPercent {
+                overscrollVisibleStripPercent = validated
+                return
+            }
+            onChange?()
+        }
+    }
+
+    var edgeOverscroll: NiriEdgeOverscroll {
+        NiriEdgeOverscroll(allowed: allowOverscroll, visibleStripPercent: overscrollVisibleStripPercent)
+    }
+
+    nonisolated static func validatedOverscrollVisibleStripPercent(_ percent: Int) -> Int {
+        min(100, max(1, percent))
+    }
+
     var monitorOverrides: [MonitorNiriSettings] = [] {
         didSet { onChange?() }
     }
@@ -85,7 +108,9 @@ final class NiriSettings {
             defaultContainerPrimarySpan: defaultContainerPrimarySpan,
             edgeGaps: edgeGaps,
             resizeStepPercent: resizeStepPercent,
-            moveWindowStacksIntoColumn: moveWindowStacksIntoColumn
+            moveWindowStacksIntoColumn: moveWindowStacksIntoColumn,
+            allowOverscroll: allowOverscroll,
+            overscrollVisibleStripPercent: overscrollVisibleStripPercent
         )
     }
 
@@ -95,6 +120,9 @@ final class NiriSettings {
         centerFocusedColumn = niri.centerFocusedColumn
         alwaysCenterSingleColumn = niri.alwaysCenterSingleColumn
         singleWindowFit = niri.singleWindowFit
+        allowOverscroll = niri.allowOverscroll ?? baseline.allowOverscroll ?? false
+        overscrollVisibleStripPercent = niri.overscrollVisibleStripPercent
+            ?? baseline.overscrollVisibleStripPercent ?? 5
         edgeGaps = niri.edgeGaps ?? baseline.edgeGaps ?? true
         moveWindowStacksIntoColumn = niri.moveWindowStacksIntoColumn ?? baseline.moveWindowStacksIntoColumn ?? true
         resizeStepPercent = niri.resizeStepPercent ?? baseline.resizeStepPercent ?? BuiltInSettingsDefaults
@@ -135,7 +163,11 @@ final class NiriSettings {
             centerFocusedColumn: override?.centerFocusedColumn ?? centerFocusedColumn,
             alwaysCenterSingleColumn: override?.alwaysCenterSingleColumn ?? alwaysCenterSingleColumn,
             singleWindowFit: override?.singleWindowFit ?? singleWindowFit,
-            infiniteLoop: override?.infiniteLoop ?? infiniteLoop
+            infiniteLoop: override?.infiniteLoop ?? infiniteLoop,
+            edgeOverscroll: NiriEdgeOverscroll(
+                allowed: override?.allowOverscroll ?? allowOverscroll,
+                visibleStripPercent: override?.overscrollVisibleStripPercent ?? overscrollVisibleStripPercent
+            )
         )
     }
 

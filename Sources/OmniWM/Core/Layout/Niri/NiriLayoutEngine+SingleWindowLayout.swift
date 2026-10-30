@@ -5,6 +5,69 @@ import CoreGraphics
 import Foundation
 
 extension NiriLayoutEngine {
+    func singleWindowScrollRect(
+        in workspaceId: WorkspaceDescriptor.ID,
+        workingFrame: CGRect,
+        gaps: LayoutGaps
+    ) -> CGRect? {
+        guard effectiveSettings(in: workspaceId).edgeOverscroll != .disabled,
+              let single = singleWindowLayoutContext(in: workspaceId)
+        else { return nil }
+        // The stored frame is the rendered rect, placed in layout-area frames
+        // that can differ from the interaction working frame (edgeGaps off).
+        return single.container.frame ?? resolvedSingleWindowRect(
+            for: single, in: workingFrame, scale: displayScale(in: workspaceId),
+            gaps: gaps, orientation: monitorForWorkspace(workspaceId)?.orientation ?? .horizontal
+        )
+    }
+
+    /// Converts rect-relative gesture offsets to working-area coordinates and
+    /// back; 0 outside single-window layouts.
+    func singleWindowGestureOrigin(context: NiriInteractionContext) -> CGFloat {
+        guard let rect = singleWindowScrollRect(
+            in: context.workspaceId, workingFrame: context.workingFrame, gaps: LayoutGaps(
+                horizontal: context.gaps,
+                vertical: context.gaps
+            )
+        ) else { return 0 }
+        return context.orientation == .horizontal
+            ? context.workingFrame.minX - rect.minX
+            : context.workingFrame.minY - rect.minY
+    }
+
+    @discardableResult
+    func correctSingleWindowGestureOffset(
+        context: NiriInteractionContext,
+        state: inout ViewportState,
+        workingArea: WorkingAreaContext
+    ) -> Bool {
+        guard state.preservesGestureOffset,
+              let single = singleWindowLayoutContext(in: context.workspaceId)
+        else { return false }
+        let rect = resolvedSingleWindowRect(
+            for: single,
+            in: workingArea.singleWindowFrame,
+            borderSafeFillFrame: workingArea.borderSafeFillFrame,
+            fullscreenLayoutFrame: workingArea.fullscreenLayoutFrame,
+            scale: workingArea.scale,
+            gaps: LayoutGaps(horizontal: context.gaps, vertical: context.gaps),
+            orientation: context.orientation
+        )
+        let span = context.orientation == .horizontal ? rect.width : rect.height
+        let viewportSpan = context.orientation == .horizontal
+            ? context.workingFrame.width : context.workingFrame.height
+        let originOffset = context.orientation == .horizontal
+            ? context.workingFrame.minX - rect.minX : context.workingFrame.minY - rect.minY
+        guard let bounds = effectiveSettings(in: context.workspaceId).edgeOverscroll.bounds(
+            firstSpan: span, lastSpan: span, totalSpan: span, viewportSpan: viewportSpan, gap: context.gaps
+        ) else { return false }
+        let viewStart = state.viewOffset + originOffset
+        let bounded = viewStart.clamped(to: bounds)
+        guard abs(bounded - viewStart) > 0.5 else { return false }
+        state.animateToOffset(bounded - originOffset, motion: context.motion)
+        return true
+    }
+
     private func centeredSingleWindowRect(
         in workingFrame: CGRect,
         size: CGSize,
@@ -122,11 +185,15 @@ extension NiriLayoutEngine.SingleWindowLayoutContext {
         workspaceOffset: CGFloat,
         scale: CGFloat,
         time: TimeInterval,
-        orientation: Monitor.Orientation
+        orientation: Monitor.Orientation,
+        viewportOffset: CGFloat = 0
     ) -> NiriContainerPlacement {
         let renderOffset = container.renderOffset(at: time)
         let renderedRect = canonicalRect
-            .offsetBy(dx: workspaceOffset + renderOffset.x, dy: renderOffset.y)
+            .offsetBy(
+                dx: workspaceOffset + renderOffset.x - (orientation == .horizontal ? viewportOffset : 0),
+                dy: renderOffset.y - (orientation == .vertical ? viewportOffset : 0)
+            )
             .roundedToPhysicalPixels(scale: scale)
         let tabOffset: CGFloat = 0
         let secondarySpanOverride: CGFloat? = if orientation == .vertical,

@@ -116,6 +116,8 @@ struct SettingsExport: Equatable {
         var edgeGaps: Bool?
         var resizeStepPercent: Int?
         var moveWindowStacksIntoColumn: Bool?
+        var allowOverscroll: Bool?
+        var overscrollVisibleStripPercent: Int?
     }
 
     struct Dwindle: Codable, Equatable {
@@ -379,7 +381,9 @@ extension SettingsExport.Niri {
             defaultContainerPrimarySpan: 0.5,
             edgeGaps: true,
             resizeStepPercent: BuiltInSettingsDefaults.niriResizeStepPercent,
-            moveWindowStacksIntoColumn: true
+            moveWindowStacksIntoColumn: true,
+            allowOverscroll: false,
+            overscrollVisibleStripPercent: 5
         )
     }
 }

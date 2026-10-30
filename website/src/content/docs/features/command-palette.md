@@ -22,11 +22,13 @@ The palette has six modes:
 
 ## Navigating results
 
-- `Up` / `Down` move the selection.
+- `Up` / `Down` move the selection. In Launcher and Files grids they move between rows; once results are focused, `Left` / `Right` move within a row.
 - `Enter` activates the selected result.
 - In Windows mode, `Shift + Enter` summons the selected window to the right of the focused one when available, or moves it into an empty current workspace, including floating windows. Floating windows cannot be summoned right.
-- In Launcher and Files, `Cmd + Enter` reveals an app or file target in Finder.
-- `Escape` dismisses the palette.
+- In Launcher and Files, `Cmd + Enter` or `Cmd + R` reveals an app or file target in Finder.
+- When category chips are available, type `/`, choose one with `Left` / `Right`, and press `Tab` or `Enter`. With an empty query, `Backspace` clears the selected category.
+- In Files, `Cmd + Y` toggles the selected file's preview. `Space` does the same once results are focused, for example after pressing `Down`.
+- `Escape` closes an open file preview first, or dismisses the palette when no preview is open.
 
 Windows from macOS-hidden apps remain searchable and carry a **Hidden** badge; selecting one unhides its app and focuses that exact window. In Menu mode, results always show keyboard shortcuts when available.
 
@@ -42,6 +44,10 @@ Select a compatible command and press `Enter` to run it. Commands that require a
 
 ## Launcher
 
+:::note[Unreleased]
+Saved commands, scripts and CLI tool discovery are available when building from `main`. In v0.7.6, this mode is named Applications and searches applications.
+:::
+
 Launcher combines applications and saved commands or scripts. Its filters are **All**, **Apps**, **Saved**, and **CLI Tools**. All searches apps and saved entries together; automatically discovered CLI tools appear only in CLI Tools. Apps has the existing grid/list view and category filters.
 
 Use the **Add** menu to add an Application, Command, or Script, or open **Settings > Launcher** to manage entries. Give an entry a name, then choose its working folder, terminal, and shell. **Advanced Options** contains search keywords, entry type, and a custom shell executable. Commands support Nushell, fish, zsh, and Bash; command text uses the selected shell's syntax. Scripts can use their shebang or an explicit interpreter. Add arguments individually to preserve spaces and quotation marks, and choose a working directory when needed.
@@ -55,6 +61,8 @@ CLI discovers executable files from the selected shell's PATH, with standard Hom
 App discovery combines macOS's registered app catalog with standard app folders, active Nix profile application directories, and folders added in Launcher settings. Default Homebrew cask, nix-darwin, and Home Manager app folders are covered, including symlinks and Finder aliases. Homebrew formula apps kept only inside a keg need an added app folder or saved app entry. OmniWM scans these selected locations rather than traversing the Nix store or Homebrew Cellar.
 
 `Enter` opens an app or runs a saved entry. A running app focuses its recent managed window. Saved entries offer Edit and Remove in their context menu. The existing `applications` IPC mode name still opens Launcher.
+
+For declarative entries and execution defaults, see the [Launcher settings reference](/config/settings-reference/#launcher).
 
 ## Files
 
