@@ -421,6 +421,22 @@ final class FullyVisibleHoverFocusTests: XCTestCase {
         }
     }
 
+    func testHoveringTheFocusedExactWindowSkipsTheBoundsQuery() throws {
+        try withFixture { fixture in
+            let focused = try XCTUnwrap(fixture.controller.workspaceManager.nativeManagedFocusToken)
+            var queries = 0
+            fixture.controller.mouseEventHandler.nativeWindowFrameProvider = { _ in
+                queries += 1
+                return nil
+            }
+            fixture.controller.mouseEventHandler.dispatchMouseMoved(
+                at: fixture.monitor.frame.center, windowIdUnderPointer: focused.windowId
+            )
+            XCTAssertEqual(queries, 0)
+            XCTAssertTrue(fixture.recorder.tokens.isEmpty)
+        }
+    }
+
     private func withFixture(
         origin: CGPoint = .zero,
         _ body: (Fixture) throws -> Void

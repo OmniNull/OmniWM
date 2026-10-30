@@ -115,6 +115,11 @@ extension MouseEventHandler {
         guard now.timeIntervalSince(state.lastFocusFollowsMouseTime) >= state.focusFollowsMouseDebounce else {
             return
         }
+        if controller.settings.focus.followsMouseOnlyFullyVisible, let windowIdUnderPointer, windowIdUnderPointer > 0,
+           controller.workspaceManager.nativeManagedFocusToken?.windowId == windowIdUnderPointer
+        {
+            return
+        }
 
         guard let target = resolveFocusFollowsMouseTarget(
             at: location,
