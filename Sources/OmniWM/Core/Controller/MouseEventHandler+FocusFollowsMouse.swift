@@ -157,7 +157,7 @@ extension MouseEventHandler {
         guard let controller else { return nil }
 
         if let windowIdUnderPointer, windowIdUnderPointer != 0 {
-            return routedFocusFollowsMouseTarget(windowIdUnderPointer, controller: controller)
+            return routedFocusFollowsMouseTarget(windowIdUnderPointer, at: location, controller: controller)
         }
 
         guard let workspaceId = workspaceIdForPointer(at: location),
@@ -169,12 +169,15 @@ extension MouseEventHandler {
         switch controller.settings.workspaces.layoutType(for: workspace.name) {
         case .niri,
              .defaultLayout:
-            guard let engine = controller.niriEngine,
-                  let window = engine.hitTestFocusableWindow(point: location, in: workspaceId)
+            guard let engine = controller.niriEngine else { return nil }
+            if controller.settings.focus.followsMouseOnlyFullyVisible {
+                return fullyVisibleNiriHoverTarget(at: location, in: workspaceId, engine: engine)
+            }
+            guard let window = engine.hitTestFocusableWindow(point: location, in: workspaceId)
             else {
                 return nil
             }
-            return niriFocusFollowsMouseTarget(window, in: workspaceId)
+            return niriFocusFollowsMouseTarget(window, in: workspaceId, at: location)
 
         case .dwindle:
             guard let engine = controller.dwindleEngine else { return nil }
@@ -191,7 +194,7 @@ extension MouseEventHandler {
     }
 
     private func routedFocusFollowsMouseTarget(
-        _ windowIdUnderPointer: Int, controller: WMController
+        _ windowIdUnderPointer: Int, at location: CGPoint, controller: WMController
     ) -> FocusFollowsMouseTarget? {
         guard windowIdUnderPointer > 0,
               let entry = controller.workspaceManager.entry(
@@ -221,7 +224,7 @@ extension MouseEventHandler {
                 ) == true else {
                     return nil
                 }
-                return niriFocusFollowsMouseTarget(window, in: entry.workspaceId)
+                return niriFocusFollowsMouseTarget(window, in: entry.workspaceId, at: location)
 
             case .dwindle:
                 guard controller.dwindleEngine?.findNode(
@@ -237,17 +240,38 @@ extension MouseEventHandler {
 
     private func niriFocusFollowsMouseTarget(
         _ window: NiriWindow,
-        in workspaceId: WorkspaceDescriptor.ID
+        in workspaceId: WorkspaceDescriptor.ID,
+        at location: CGPoint
     ) -> FocusFollowsMouseTarget? {
         guard let controller else { return nil }
         if controller.settings.focus.followsMouseOnlyFullyVisible {
             guard let monitor = controller.workspaceManager.monitor(for: workspaceId),
-                  let frame = window.renderedFrame ?? window.frame,
+                  let entry = controller.workspaceManager.entry(for: window.token),
+                  let frame = nativeWindowFrameProvider(entry.axRef),
                   !frame.isEmpty,
-                  monitor.frame.contains(frame)
+                  monitor.frame.contains(frame),
+                  frame.contains(location)
             else { return nil }
         }
         return .niri(workspaceId: workspaceId, window: window)
+    }
+
+    private func fullyVisibleNiriHoverTarget(
+        at location: CGPoint,
+        in workspaceId: WorkspaceDescriptor.ID,
+        engine: NiriLayoutEngine
+    ) -> FocusFollowsMouseTarget? {
+        var firstMatch: FocusFollowsMouseTarget?
+        for column in engine.projectedColumns(in: workspaceId) {
+            for window in column.windows {
+                guard engine.isProjectedFocusableWindow(window, in: workspaceId),
+                      let target = niriFocusFollowsMouseTarget(window, in: workspaceId, at: location)
+                else { continue }
+                if window.isFullscreen { return target }
+                if firstMatch == nil { firstMatch = target }
+            }
+        }
+        return firstMatch
     }
 
     private func focusFollowsMouseToken(for target: FocusFollowsMouseTarget) -> WindowToken {
