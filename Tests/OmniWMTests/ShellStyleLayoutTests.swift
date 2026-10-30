@@ -15,6 +15,22 @@ final class ShellStyleLayoutTests: XCTestCase {
     private let applications = ["com.apple.Safari", "com.apple.Terminal", "com.apple.finder", "com.apple.Notes"]
     private let profiles = ["default", "wayline", "nocturne", "celestial", "lake", "sakura"]
 
+    private func barHostingProfiles(in shell: URL) throws -> [String] {
+        var hosting: [String] = []
+        var laneless: [String] = []
+        for profile in Set(ShellProfiles.names(in: shell) + ["default"]).sorted() {
+            XCTAssertTrue(try ShellProfiles.select(profile, in: shell))
+            let config = ShellConfig.resolve(shellDirectory: shell)
+            if config.leading.isEmpty, config.center.isEmpty, config.trailing.isEmpty {
+                laneless.append(profile)
+            } else {
+                hosting.append(profile)
+            }
+        }
+        XCTAssertEqual(laneless, ["vitreus"])
+        return hosting
+    }
+
     func testManagedProfileEjectCreatesPersistentUserOverrides() throws {
         let shell = FileManager.default.temporaryDirectory.appendingPathComponent(UUID().uuidString)
         defer { try? FileManager.default.removeItem(at: shell) }
@@ -616,7 +632,7 @@ final class ShellStyleLayoutTests: XCTestCase {
     func testSharedStatusWidgetsKeepScaledHooksStatesHelpAndFreshActions() throws {
         let shell = try sharedLibraryShell("stats")
         defer { try? FileManager.default.removeItem(at: shell) }
-        for profile in Set(ShellProfiles.names(in: shell) + ["default"]).sorted() {
+        for profile in try barHostingProfiles(in: shell) {
             _ = try ShellProfiles.select(profile, in: shell)
             let config = ShellConfig.resolve(shellDirectory: shell)
             for name in ["input-source", "launcher", "privacy", "world-clock", "stats"] {
@@ -1547,7 +1563,7 @@ final class ShellStyleLayoutTests: XCTestCase {
         defer { try? FileManager.default.removeItem(at: shell) }
         XCTAssertEqual(ShellDefaults.sync(into: shell), [])
         let hooked = ["wayline", "nocturne", "celestial"]
-        for profile in Set(ShellProfiles.names(in: shell) + ["default"]).sorted() {
+        for profile in try barHostingProfiles(in: shell) {
             XCTAssertTrue(try ShellProfiles.select(profile, in: shell))
             let config = ShellConfig.resolve(shellDirectory: shell)
             let base = config.barOverride?.settings.height ?? 32
@@ -1826,7 +1842,7 @@ final class ShellStyleLayoutTests: XCTestCase {
         let shell = FileManager.default.temporaryDirectory.appendingPathComponent(UUID().uuidString)
         defer { try? FileManager.default.removeItem(at: shell) }
         XCTAssertEqual(ShellDefaults.sync(into: shell), [])
-        for profile in Set(ShellProfiles.names(in: shell) + ["default"]).sorted() {
+        for profile in try barHostingProfiles(in: shell) {
             XCTAssertTrue(try ShellProfiles.select(profile, in: shell))
             let config = ShellConfig.resolve(shellDirectory: shell)
             let height = config.barOverride?.settings.height ?? 32
@@ -2774,7 +2790,7 @@ final class ShellStyleLayoutTests: XCTestCase {
     func testSharedMediaBarsKeepSelectionsAndInputThroughEverySkin() throws {
         let shell = try sharedLibraryShell("media")
         defer { try? FileManager.default.removeItem(at: shell) }
-        for profile in Set(ShellProfiles.names(in: shell) + ["default"]).sorted() {
+        for profile in try barHostingProfiles(in: shell) {
             XCTAssertTrue(try ShellProfiles.select(profile, in: shell))
             let config = ShellConfig.resolve(shellDirectory: shell)
             let height = config.barOverride?.settings.height ?? 32
@@ -3375,7 +3391,7 @@ final class ShellStyleLayoutTests: XCTestCase {
     func testSharedVolumeBarsKeepInputAndAvoidOutputAndAppDemand() throws {
         let shell = try sharedAudioShell()
         defer { try? FileManager.default.removeItem(at: shell) }
-        for profile in Set(ShellProfiles.names(in: shell) + ["default"]).sorted() {
+        for profile in try barHostingProfiles(in: shell) {
             XCTAssertTrue(try ShellProfiles.select(profile, in: shell))
             let config = ShellConfig.resolve(shellDirectory: shell)
             let height = config.barOverride?.settings.height ?? 32
@@ -3995,7 +4011,7 @@ final class ShellStyleLayoutTests: XCTestCase {
         let shell = FileManager.default.temporaryDirectory.appendingPathComponent(UUID().uuidString)
         defer { try? FileManager.default.removeItem(at: shell) }
         XCTAssertEqual(ShellDefaults.sync(into: shell), [])
-        for profile in Set(ShellProfiles.names(in: shell) + ["default"]).sorted() {
+        for profile in try barHostingProfiles(in: shell) {
             XCTAssertTrue(try ShellProfiles.select(profile, in: shell))
             let config = ShellConfig.resolve(shellDirectory: shell)
             for vertical in [false, true] {
@@ -4134,7 +4150,7 @@ final class ShellStyleLayoutTests: XCTestCase {
         let shell = FileManager.default.temporaryDirectory.appendingPathComponent(UUID().uuidString)
         defer { try? FileManager.default.removeItem(at: shell) }
         XCTAssertEqual(ShellDefaults.sync(into: shell), [])
-        for profile in Set(ShellProfiles.names(in: shell) + ["default"]).sorted() {
+        for profile in try barHostingProfiles(in: shell) {
             XCTAssertTrue(try ShellProfiles.select(profile, in: shell))
             let config = ShellConfig.resolve(shellDirectory: shell)
             let base = config.barOverride?.settings.height ?? 32
@@ -4287,7 +4303,7 @@ final class ShellStyleLayoutTests: XCTestCase {
             (false, true, .normal), (true, true, .normal),
             (false, false, .prefix), (true, true, .paused), (false, true, .window)
         ]
-        for profile in Set(ShellProfiles.names(in: shell) + ["default"]).sorted() {
+        for profile in try barHostingProfiles(in: shell) {
             XCTAssertTrue(try ShellProfiles.select(profile, in: shell))
             let config = ShellConfig.resolve(shellDirectory: shell)
             let base = config.barOverride?.settings.height ?? 32

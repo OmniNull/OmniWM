@@ -126,12 +126,14 @@ struct ShellIslandPlacementInspector: View {
                     Text("Hide Island").tag("hide")
                     Text("Show Island").tag("show")
                 }
-                DisclosureGroup("Advanced Surface Size") {
-                    envelope("Maximum Width", key: "width", value: island.width)
-                    envelope("Maximum Height", key: "height", value: island.height)
-                    SettingsCaption(
-                        localized: "The style lays out its content inside this surface. These limits do not change the notch."
-                    )
+                if island.sizing == .fixed {
+                    DisclosureGroup("Advanced Surface Size") {
+                        envelope("Maximum Width", key: "width", value: island.width)
+                        envelope("Maximum Height", key: "height", value: island.height)
+                        SettingsCaption(
+                            localized: "The style lays out its content inside this surface. These limits do not change the notch."
+                        )
+                    }
                 }
             }
         }

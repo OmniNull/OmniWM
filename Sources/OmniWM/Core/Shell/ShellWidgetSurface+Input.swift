@@ -7,7 +7,44 @@ import OmniWMScriptHost
 import OmniWMShellCore
 import QuartzCore
 
+@MainActor
+struct ShellCursorState {
+    var manipulating = false
+    private(set) var current: NSCursor?
+
+    mutating func update(_ hovered: ElementCursor) -> Bool {
+        let next: NSCursor?
+        if manipulating {
+            next = .closedHand
+        } else {
+            switch hovered {
+            case .none: next = nil
+            case .grab: next = .openHand
+            case .pointer: next = .pointingHand
+            }
+        }
+        guard current !== next else { return false }
+        current = next
+        (next ?? .arrow).set()
+        return true
+    }
+}
+
 extension ShellWidgetSurface {
+    @discardableResult
+    func setManipulationCursor(_ active: Bool, at point: CGPoint?) -> Bool {
+        pointer = point
+        view.cursorState.manipulating = active
+        return updateCursor()
+    }
+
+    @discardableResult
+    func updateCursor() -> Bool {
+        let target = view.cursorState.manipulating ? .none : element(at: pointer) { $0.cursor != .none }
+        let hovered = target.slot >= 0 ? layout.core.content(of: target).cursor : .none
+        return view.cursorState.update(hovered)
+    }
+
     func command(at point: CGPoint) -> String? {
         let target = element(at: point) { $0.action != 0 }
         guard target.slot >= 0, let text else { return nil }
@@ -28,12 +65,7 @@ extension ShellWidgetSurface {
         gesturePointer = point
         if updateGesture(at: point, timestamp: timestamp, event: pressCapture?.event ?? ShellEvent()) { return }
         if let capture = pressCapture, capture.content.hasPressEffect, layout.core.contains(capture.handle) {
-            let frame = CGRect(layout.core.absoluteFrame(of: capture.handle))
-            let inside = frame.contains(point) && clips(
-                capture.handle,
-                Float(point.x - frame.minX),
-                Float(point.y - frame.minY)
-            )
+            let inside = pressContains(capture.handle, point)
             if inside != pressInside { setPressed(capture.handle, inside: inside) }
         }
         guard let start = dragStart, layout.core.contains(start.handle) else { return }
@@ -111,6 +143,8 @@ extension ShellWidgetSurface {
         resourceDragTracker?.cancel()
         hideTooltip()
         let event = event ?? ShellEvent(button: button)
+        if manipulation?.holding == true { cancelManipulation(reason: "superseded") }
+        selectManipulation(at: point)
         finishPress(at: point, event: event, cancelled: true)
         _ = finishGesture(at: gesturePosition, timestamp: timestamp, cancelled: true)
         let target = element(at: point) {
@@ -175,13 +209,15 @@ extension ShellWidgetSurface {
             sliding = .none
             return
         }
-        let frame = layout.core.absoluteFrame(of: handle)
+        let presentation = presentation
+        let frame = presentedFrame(of: handle, in: presentation)
+        let local = layoutPoint(point, in: handle, presentation: presentation)
         let knob = CGFloat(frame.height)
         let track = max(CGFloat(frame.width) - knob, 1)
         var event = ShellEvent(button: .left)
         event.kind = .slider
-        event.x = Double(point.x - CGFloat(frame.x))
-        event.y = Double(point.y - CGFloat(frame.y))
+        event.x = Double(local.x)
+        event.y = Double(local.y)
         event.value = Double(min(max((point.x - CGFloat(frame.x) - knob / 2) / track, 0), 1))
         event.phase = phase
         pressCapture?.event = event
@@ -220,19 +256,15 @@ extension ShellWidgetSurface {
         }
         let target = element(at: point) { event.acts(on: $0) }
         let capture = pressCapture
-        let inside = capture.map {
-            guard layout.core.contains($0.handle) else { return false }
-            let frame = CGRect(layout.core.absoluteFrame(of: $0.handle))
-            return frame.contains(point) && clips($0.handle, Float(point.x - frame.minX), Float(point.y - frame.minY))
-        } ?? false
+        let inside = capture.map { layout.core.contains($0.handle) && pressContains($0.handle, point) } ?? false
         let wasPressed = pressed
         finishPress(at: point, event: event, cancelled: !inside || pressedButton != event.button)
         guard target.slot >= 0, target == wasPressed, pressedButton == event.button else { return }
         let content = layout.core.content(of: target)
-        let frame = layout.core.absoluteFrame(of: target)
+        let local = layoutPoint(point, in: target, presentation: presentation)
         var event = event
-        event.x = Double(point.x - CGFloat(frame.x))
-        event.y = Double(point.y - CGFloat(frame.y))
+        event.x = Double(local.x)
+        event.y = Double(local.y)
         onAction?(ShellClick(
             action: event.action(of: content),
             opensPopout: event.button == .left && content.opensPopout,
@@ -241,6 +273,13 @@ extension ShellWidgetSurface {
             target: content.target,
             source: target
         ))
+    }
+
+    private func pressContains(_ handle: ElementHandle, _ point: CGPoint) -> Bool {
+        let presentation = presentation
+        let local = layoutPoint(point, in: handle, presentation: presentation)
+        return CGRect(presentedFrame(of: handle, in: presentation)).contains(point)
+            && clips(handle, Float(local.x), Float(local.y))
     }
 
     var screenAnchor: ShellAnchor? {
@@ -258,7 +297,7 @@ extension ShellWidgetSurface {
     }
 
     func anchor(of handle: ElementHandle) -> ShellAnchor {
-        let frame = view.convert(CGRect(layout.core.absoluteFrame(of: handle)), to: nil)
+        let frame = view.convert(CGRect(presentedFrame(of: handle)), to: nil)
         guard let window = view.window else { return ShellAnchor(frame: frame, level: .popUpMenu) }
         return ShellAnchor(frame: window.convertToScreen(frame), level: window.level, container: window.frame)
     }
@@ -275,7 +314,7 @@ extension ShellWidgetSurface {
 
     func updatePreview() {
         let target = element(at: pointer) { $0.preview && $0.target != 0 }
-        let frame = target.slot >= 0 ? layout.core.absoluteFrame(of: target) : nil
+        let frame = target.slot >= 0 ? presentedFrame(of: target) : nil
         guard target != previewed || frame != previewFrame else { return }
         previewed = target
         previewFrame = frame
@@ -322,10 +361,17 @@ extension ShellWidgetSurface {
 
     func element(at point: CGPoint?, matching predicate: (Content) -> Bool) -> ElementHandle {
         guard let point else { return .none }
-        return layout.core.hitTest(x: Float(point.x), y: Float(point.y), matching: predicate, clip: clips)
+        return layout.core.hitTest(
+            x: Float(point.x),
+            y: Float(point.y),
+            presentation: presentation,
+            matching: predicate,
+            clip: clips
+        )
     }
 
     func updateHover(into commands: inout [ShellLayerCommand], reapply: Bool) {
+        updateCursor()
         var targets = hoverScratch
         hoverScratch = []
         targets.removeAll(keepingCapacity: true)
@@ -333,6 +379,7 @@ extension ShellWidgetSurface {
             layout.core.hitPath(
                 x: Float(pointer.x),
                 y: Float(pointer.y),
+                presentation: presentation,
                 matching: { $0.hasHoverEffect },
                 clip: clips,
                 into: &targets

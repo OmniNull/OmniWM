@@ -27,6 +27,45 @@ fullscreen = "hide"
 
 In the user shell file, use `[profiles.<profile>.island]` instead. An absent island table places no island. `root` defaults to `lake`; that widget must exist in a configured widgets folder. `displays` accepts `notch`, `main`, or `all`. `fullscreen` accepts `hide` (default) or `show`. Width and height are the fixed panel envelope in points, from 1 to 8192, clamped to each display. Change the Luau tree's size to expand or collapse its contents; the window does not resize with those transitions.
 
+## Reserve space for authored islands
+
+A profile can reserve window-layout space for an island through `[island.room]`. The reservation applies only while the island and Workspace Bar are enabled on a display included by the island's `displays` selector. Selecting a profile does not change those enable switches.
+
+```toml
+[widgets.my-island]
+layout = "island"
+barSize = 1
+pins = []
+dockOverlap = false
+
+[island.room]
+setting = "layout"
+size = "barSize"
+
+[island.room.variants.island]
+top = { base = 8, scaled = 54, mode = "add" }
+dock = "bottom"
+
+[island.room.variants.frame]
+top = { base = 24, mode = "total", clear = "notch" }
+left = { base = 14, scaled = 62.1, mode = "total" }
+right = { base = 24, mode = "total" }
+bottom = { base = 24, mode = "total" }
+dock = "right"
+
+[island.room.dock]
+base = 23.8
+scaled = 45.9
+when = ["pins"]
+unless = "dockOverlap"
+```
+
+`setting` names a string setting on the configured island root; its value selects a named variant. `size` optionally names a numeric root setting, defaulting to 1 when absent. Each edge resolves to `floor(base + scaled * size + 0.5)` points; `base` and `scaled` default to zero. Values must resolve to finite nonnegative sizes. Unknown fields, invalid declarations and missing variants report a configuration problem and reserve no room.
+
+An edge's `mode` is `add`, to add space to the usual gap and bar reservation, or `total`, to replace the outer gap with the requested window-edge distance. Top distances start at the display's top edge; the other edges start at its visible bounds. Top alone accepts `clear = "none"`, `"notch"` or `"menuBar"` to add that display's corresponding height. Niri and Dwindle tiles both meet a `total` edge exactly, whether or not Niri's screen-edge gaps are on.
+
+The optional dock reservation raises its variant's `dock` edge to at least its resolved distance when any setting in `when` is `true` or a nonempty list, unless the `unless` setting is `true`. Reservations also bound `island.usableRect`, IPC reserved-inset queries and fullscreen layouts that omit user outer gaps. Changing the selected variant, size or display selector uses the normal profile-override relayout path.
+
 ## Root geometry and display data
 
 The root's `render(ctx)` receives `ctx.data.island`. It is `nil` in ordinary bar instances. It contains `display`, `size = {w, h}`, optional `notch = {x, w, h}`, `menuBar`, `scale`, `main`, `visible`, `fullscreen`, and `focused`. Coordinates start at the envelope's top left. `focused` reflects the island’s native keyboard focus lease. A focusable element can acquire it by clicking, and blur, a declared Escape key or an outside press releases it. A root can also appear in a bar lane, using a separate `ctx.state` for each placement and display.
@@ -103,3 +142,44 @@ Integrations live in `lib/lake/services/`. Keep a component's lifecycle and serv
 Unavailable data and denied permissions have explicit UI states. Notification replies, call control and camera capture are outside these integrations; microphone/camera indicators report activity only.
 
 See [Components and configuration](/omnishell/reference/components-configuration/) for extending a stock component while retaining its services. See [Providers](/omnishell/reference/providers/) before enabling a native integration process.
+
+## Detachable widgets
+
+For authored roots, `[island] sizing = "display"` fits the island to its display. `ctx.data.island.usableRect` supplies local safe bounds outside the menu bar, notch and reserved workspace-bar band. The native preview uses representative display bounds, and fixed surface-size controls are hidden for display sizing. Use a fixed `ui.stack` with stable keyed child wrappers and the existing `dx`/`dy` layout offsets. Keep each component under the same wrapper and parent while changing placement.
+
+A handle can declare `gesture.track.mode = "move"` or `"resize"`, a strict ancestor `target` key, `bounds`, `min`, and `max`. Resize also declares `edge` (`n`, `ne`, `e`, `se`, `s`, `sw`, `w`, or `nw`). Samples stay native. The handler receives `selected`, `began`, release `ended`, and `applied` or `cancelled` boundary events. On release, render `event.rect` on the target and set `manipulationCommit = event.transaction`. Persist only after the matching `applied` receipt. A callback acknowledgement alone does not confirm placement.
+
+### Move and scale
+
+`gesture.track.mode = "scale"` scales proportionally from a corner. It requires `edge = "nw"`, `"ne"`, `"sw"` or `"se"`; single-edge scale handles are rejected. Move and scale also accept `inset = { x = ..., y = ... }`, with each fraction in 0–0.5, excluding 0.5. Insets describe the content inside the target envelope, so scaling fixes the opposite content corner and uses the content dimensions for drag gain. Insets are rejected for resize.
+
+Declare `manipulationFollow = { response = 0.363, bounce = 0.42 }` on the keyed target, not on its handles. Response accepts 0.05–2.5 seconds; bounce accepts 0–0.95 and defaults to zero. A widget tree accepts up to 24 follow targets, and each one moves and settles on its own. Put the property on a component view's visible returned element, not on `ui.component`, which rejects it.
+
+```lua
+ui.stack {
+    key = "card", w = 440, h = 570,
+    manipulationFollow = { response = 0.363, bounce = 0.42 },
+    ui.box {
+        w = 24, h = 24, align = "bottomTrailing",
+        gesture = {
+            axis = "free", source = "pointer", threshold = 1,
+            track = {
+                mode = "scale", target = "card", edge = "se",
+                inset = { x = 6.5 / 353, y = 0 },
+            },
+        },
+    },
+}
+```
+
+The release handler may render `event.rect` or any other rectangle, such as the card's home placement, with `manipulationCommit = event.transaction`. The target settles to that rendered rectangle, and the matching `applied` receipt reports it. Persistence still waits for `applied`. Outside an active manipulation, changing placement settles only in a render where `manipulationCommit` changes. This is separate from the existing release-rectangle acknowledgment described above.
+
+### Decorative geometry and effects
+
+Set `decorative = true` on liquid connectors, frames and preview geometry. Decorative subtrees cannot contain input or handlers and do not register pointer regions. Transparent canvas holes remain available to other applications while an already captured drag continues across them.
+
+A stack's `effect = { source = "wave.metal", values = { 2 }, fps = 30, bleed = 8 }` processes its owned text, images, paths, masks and nested shader output with the existing Metal texture shader contract. Keep live material on an ancestor outside the effect stack. Nested group effects and backdrop materials within an effect are rejected. Native editing stays undistorted; Reduce Motion disables nonlinear effects. Effects follow the widget's geometric interaction bounds, rather than providing an inverse hit map for arbitrary shader code.
+
+### Shared glass shapes
+
+`ui.shape{ follow = "card" }` binds a decorative shape in a shared body to a keyed manipulation-follow target. While the target is dragged, scaled or settling, the shape is drawn, hit-tested and counted in island regions at the target's presented position and scale. The body itself is not scaled, so the shape's shadow, rim and blur keep their size. The corner radius scales with the shape by default (`followRadius = "scaled"`); `followRadius = "fixed"` keeps it in body units. Set `hit = false` on liquid details that should let the pointer through: the shape then adds no input coverage or island region. References resolve against the final expanded tree, so a shape may precede its target. [Shape tracks](/omnishell/reference/effects-shaders/#shape-track-wire-contract) cover shape reveal, edge springs, impulses and bound sources.

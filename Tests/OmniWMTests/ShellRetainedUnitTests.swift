@@ -715,6 +715,131 @@ final class ShellRetainedUnitTests: XCTestCase {
         XCTAssertEqual(try fixture.captions(), ["2", "1"])
     }
 
+    func testPresentationValidationIncludesMountedComponentDescendants() throws {
+        for (properties, child, message) in [
+            ("decorative=true", "ui.box{onClick=function() end}", "decorative"),
+            ("effect={source='wave.metal'}", "ui.box{material='regular'}", "materials"),
+            ("effect={source='wave.metal'}", "ui.stack{effect={source='pixel.metal'}}", "nested effects")
+        ] {
+            let fixture = try Fixture("""
+            function render(ctx) return ui.stack{\(properties),ui.component{id='clock'}} end
+            """, modules: ["clock": "return {views={compact=function(ctx) return \(child) end}}"])
+            var stats = omni_render_stats()
+            XCTAssertEqual(omni_instance_render(
+                fixture.instance, OMNI_VIEW_BAR, 100_000_000, &stats, &fixture.error, fixture.error.count
+            ), OMNI_ERR_RUNTIME, properties)
+            XCTAssertTrue(fixture.message.contains(message), fixture.message)
+        }
+    }
+
+    func testMountedComponentsInheritDecorationAndResolveOuterManipulationTargets() throws {
+        let decorative = try Fixture("""
+        function render(ctx) return ui.stack{decorative=true,ui.component{id='clock'}} end
+        """, modules: ["clock": """
+        return {views={compact=function(ctx) return ui.box{ui.text{text='ornament'}} end}}
+        """])
+        _ = decorative.update()
+        let nodes = try decorative.nodes()
+        XCTAssertEqual(nodes.count, 4)
+        XCTAssertTrue(nodes.allSatisfy { $0.behavior_flags == UInt32(OMNI_NODE_BEHAVIOR_DECORATIVE) })
+        let manipulation = try Fixture("""
+        function render(ctx) return ui.stack{key='widget',ui.component{id='clock'}} end
+        """, modules: ["clock": """
+        return {views={compact=function(ctx)
+            return ui.box{gesture={track={mode='move',target='widget',bounds={w=800,h=600},
+                min={w=80,h=60},max={w=700,h=500}}}}
+        end}}
+        """])
+        _ = manipulation.update()
+        let mounted = try manipulation.nodes()
+        XCTAssertEqual(mounted.count, 3)
+        XCTAssertNotEqual(try XCTUnwrap(mounted.last).gesture_track, 0)
+    }
+
+    func testRejectedPresentationKeepsMountedAndRootActionsUntilAnAcceptedRetirement() throws {
+        let fixture = try Fixture("""
+        function render(ctx)
+            local mode=ctx.data.cpu
+            local child=if mode>0 then ui.stack{decorative=true,ui.input{key='invalid'}}
+                elseif mode<0 then ui.text{text='removed'} else ui.component{id='clock'}
+            return ui.stack{key=tostring(mode),onClick=function(next)
+                next.state.clicks=(next.state.clicks or 0)+1
+            end,ui.text{text='root:'..(ctx.state.clicks or 0)},child}
+        end
+        """, modules: ["clock": """
+        return {views={compact=function(ctx)
+            return ui.text{text='child:'..(ctx.instance.state.clicks or 0),onClick=function(next)
+                next.instance.state.clicks=(next.instance.state.clicks or 0)+1
+            end}
+        end}}
+        """])
+        fixture.number(.cpu, 0)
+        _ = fixture.update()
+        let accepted = try fixture.nodes()
+        let rootAction = try XCTUnwrap(accepted.first).action
+        let childAction = try XCTUnwrap(accepted.last).action
+        XCTAssertEqual(try fixture.captions(), ["root:0", "child:0"])
+        for rejection in 1 ... 8 {
+            fixture.number(.cpu, Double(rejection))
+            var stats = omni_render_stats()
+            XCTAssertEqual(omni_instance_render(
+                fixture.instance, OMNI_VIEW_BAR, 100_000_000, &stats, &fixture.error, fixture.error.count
+            ), OMNI_ERR_RUNTIME)
+            XCTAssertTrue(fixture.message.contains("decorative"), fixture.message)
+            XCTAssertEqual(try fixture.captions(), ["root:0", "child:0"])
+            fixture.invoke(rootAction)
+            fixture.invoke(childAction)
+        }
+        fixture.number(.cpu, 0)
+        let recovered = fixture.update()
+        XCTAssertEqual(recovered.last?.render.changed, 1)
+        XCTAssertEqual(try fixture.captions(), ["root:8", "child:8"])
+        fixture.number(.cpu, -1)
+        _ = fixture.update()
+        XCTAssertEqual(try fixture.captions(), ["root:8", "removed"])
+        XCTAssertEqual(omni_instance_invoke(
+            fixture.instance, OMNI_VIEW_BAR, childAction, 0, nil, 0, 100_000_000, &fixture.error, fixture.error.count
+        ), OMNI_ERR_STALE_ACTION)
+    }
+
+    func testPresentationRecoveryRepublishesByteIdenticalAcceptedOutput() throws {
+        let fixture = try Fixture("""
+        function render(ctx)
+            return ui.stack{decorative=ctx.data.cpu>0,ui.component{id='clock'}}
+        end
+        """, modules: ["clock": """
+        return {views={compact=function(ctx) return ui.text{text='child',onClick=function() end} end}}
+        """])
+        func output() throws -> [UInt8] {
+            var length = 0
+            let pointer = try XCTUnwrap(omni_instance_output(fixture.instance, OMNI_VIEW_BAR, &length))
+            return Array(UnsafeBufferPointer(start: pointer, count: length))
+        }
+        fixture.number(.cpu, 0)
+        _ = fixture.update()
+        XCTAssertEqual(try fixture.captions(), ["child"])
+        let action = try XCTUnwrap(fixture.nodes().last).action
+        omni_instance_discard_output(fixture.instance, OMNI_VIEW_BAR)
+        _ = fixture.update(0)
+        let accepted = try output()
+        for rejection in 1 ... 8 {
+            fixture.number(.cpu, Double(rejection))
+            var stats = omni_render_stats()
+            XCTAssertEqual(omni_instance_render(
+                fixture.instance, OMNI_VIEW_BAR, 100_000_000, &stats, &fixture.error, fixture.error.count
+            ), OMNI_ERR_RUNTIME)
+            XCTAssertTrue(fixture.message.contains("decorative"), fixture.message)
+            XCTAssertEqual(try output(), accepted)
+            fixture.invoke(action)
+        }
+        fixture.number(.cpu, 0)
+        let recovered = fixture.update(ShellDataKey.cpu.bit)
+        XCTAssertEqual(recovered.last?.render.changed, 1)
+        XCTAssertEqual(try output(), accepted)
+        XCTAssertFalse(omni_instance_needs_render(fixture.instance, OMNI_VIEW_BAR, 0))
+        fixture.invoke(action)
+    }
+
     func testRootRecoveryRepublishesEqualOutputAndKeepsComponentCache() throws {
         let fixture = try Fixture("""
         function render(ctx)

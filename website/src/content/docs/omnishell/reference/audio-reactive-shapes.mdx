@@ -1,0 +1,23 @@
+---
+title: Audio-reactive glass shapes
+description: Drive decorative glass columns from the shared system-audio spectrum without rerendering Luau.
+---
+
+A rectangular `ui.shape` can bind its height to the shared audio spectrum:
+
+```lua
+ui.glass{ w = 400, h = 240,
+    ui.shape{ key = "column", w = 20, h = 160, dx = 40, dy = 40,
+        align = "topLeading", radius = 9, hit = false,
+        spectrum = { band = 0.5, inset = 4, response = 0.276, bounce = 0.43 },
+    },
+}
+```
+
+`band` ranges from 0 (low frequencies) to 1 (high frequencies). The existing 60-band analyzer is area-resampled into 24 bands, then interpolated at that position. The height fraction is `min(1, level^1.4 * gain) * taper`. `gain` defaults to 1 and accepts 0–10; `taper` defaults to 1 and accepts 0–1.
+
+The explicit `h` is the maximum envelope, including `inset`. The inset defaults to 0 and accepts 0–256 points. Growth preserves the bottom edge of the unrotated rectangle; `rotate` turns that growth direction with the rectangle. `threshold` defaults to 0 and accepts 0–256 points; smaller levels are hidden. Width must be positive and height greater than the inset.
+
+Spectrum geometry has one native owner. These rectangles require `hit = false` and cannot also use `animate`, `morph`, `reveal` or `follow`. Their spring defaults to response 0.276 and bounce 0.43, with the usual 0.05–2.5 response and 0–0.95 bounce ranges. Reduce Motion disables interpolation while levels continue to update.
+
+Only mounted bindings request system audio. Removing them removes that demand; the native driver stops when its surface is hidden. Enabling audio for the first time can show macOS's system-audio recording permission prompt. Vitreus leaves the visualiser off by default. Do not read `ctx.data.spectrum` just to drive these shapes: the engine uses the shared 30 Hz bands without per-update Luau rendering.

@@ -5,7 +5,7 @@ import AppKit
 import TOML
 
 enum ShellProfiles {
-    private static let reserved: Set<String> = ["widgets", "themes", "shaders", "lib"]
+    private static let reserved: Set<String> = ["widgets", "themes", "shaders", "lib", "fonts"]
 
     static func names(in shellDirectory: URL) -> [String] {
         let entries = (try? FileManager.default.contentsOfDirectory(

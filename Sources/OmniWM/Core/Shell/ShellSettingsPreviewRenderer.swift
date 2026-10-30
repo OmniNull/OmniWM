@@ -35,10 +35,13 @@ actor ShellSettingsPreviewRenderer {
         popout: Bool = false
     ) throws -> [Tree] {
         let view = popout ? OMNI_VIEW_POPOUT : OMNI_VIEW_BAR
+        var fontSets: [[URL]: ShellFontSet] = [:]
         return try inputs.compactMap { input in
             try Task.checkCancellation()
             let source = try ShellWidgetSourceLoader.build(input)
-            guard let vm = ShellVM.make(memoryLimit: ShellWidgetPackage.memoryLimit) else {
+            let fonts = fontSets[source.fontFolders] ?? ShellFontLibrary.shared.fonts(in: source.fontFolders)
+            fontSets[source.fontFolders] = fonts
+            guard let vm = ShellVM.make(memoryLimit: ShellWidgetPackage.memoryLimit, fonts: fonts) else {
                 throw ShellScriptFailure(kind: .memory, message: "The preview could not create a script VM.")
             }
             defer { _ = omni_vm_destroy(vm) }

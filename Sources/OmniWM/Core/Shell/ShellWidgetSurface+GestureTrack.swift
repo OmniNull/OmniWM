@@ -6,6 +6,7 @@ import OmniWMShellCore
 struct ShellGestureTrackRecipe {
     let source: String
     let track: ShellGestureTrack?
+    let manipulation: ShellManipulationRecipe?
 }
 
 struct ShellTrackedGesture {
@@ -28,6 +29,7 @@ extension ShellWidgetSurface {
                 gestureTracking = nil
             }
             if let capture = gestureCapture, let track = gestureTrackRecipes[capture.content.gestureTrack]?.track {
+                finishSettle { $0 == capture.handle }
                 gestureTracking = ShellTrackedGesture(
                     handle: capture.handle,
                     token: ShellInvocation.next(),
@@ -78,6 +80,11 @@ extension ShellWidgetSurface {
     }
 
     func bindGestureInvocation(trackToken: UInt64, invocationID: UInt64) {
+        if var current = manipulation, current.holding, current.token == trackToken {
+            current.invocationID = invocationID
+            manipulation = current
+            return
+        }
         guard var tracking = gestureTracking, tracking.holding, tracking.token == trackToken else { return }
         tracking.invocationID = invocationID
         gestureTracking = tracking
@@ -91,12 +98,16 @@ extension ShellWidgetSurface {
     }
 
     func acknowledgeGesture(through: UInt64) {
+        if let current = manipulation, current.holding, let invocation = current.invocationID, invocation <= through {
+            cancelManipulation(reason: "delivery")
+        }
         var commands: [ShellLayerCommand] = []
         appendGestureAcknowledgement(through, into: &commands)
         scene.submit(commands, animated: false)
     }
 
     func cancelHeldGestureTrack() {
+        if manipulation?.holding == true { cancelManipulation(reason: "cancelled") }
         guard let tracking = gestureTracking, tracking.holding else { return }
         gestureTracking = nil
         scene.submit(

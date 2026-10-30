@@ -12,6 +12,7 @@ extension ShellWidgetPackage {
         updateClock(instance, current, changed)
         updateDevices(instance, current, changed)
         updateAudio(instance, current, changed)
+        updateControls(instance, current, changed)
         updateServices(instance, current, changed)
         updateDeviceSources(instance, current, changed)
         update(instance, world: current.world, changed: changed)
@@ -119,6 +120,28 @@ extension ShellWidgetPackage {
         }
         if changed & ShellDataKey.tempo.bit != 0 {
             setValue(instance, .tempo) { writer in next.spectrum?.bpm.map { writer.number($0) } ?? writer.null() }
+        }
+    }
+
+    private func updateControls(
+        _ instance: OpaquePointer,
+        _ next: borrowing ShellWidgetData,
+        _ changed: UInt64
+    ) {
+        if changed & ShellDataKey.brightness.bit != 0 {
+            setValue(instance, .brightness) { writer in
+                next.brightness.map { $0.write(into: &writer) } ?? writer.null()
+            }
+        }
+        if changed & ShellDataKey.awake.bit != 0 {
+            setValue(instance, .awake) { writer in
+                next.awake.map { $0.write(into: &writer) } ?? writer.null()
+            }
+        }
+        if changed & ShellDataKey.microphone.bit != 0 {
+            setValue(instance, .microphone) { writer in
+                next.microphone.map { $0.write(into: &writer) } ?? writer.null()
+            }
         }
     }
 

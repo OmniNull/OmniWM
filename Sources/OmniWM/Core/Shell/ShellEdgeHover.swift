@@ -12,6 +12,7 @@ struct ShellEdgeHover {
     struct Open {
         let drawer: ShellDrawerConfig
         let region: CGRect?
+        var islandRegions: [CGRect]?
     }
 
     private var armed = true
@@ -22,12 +23,13 @@ struct ShellEdgeHover {
         drawers: [ShellDrawerConfig],
         monitors: [Monitor],
         buttonsDown: Bool,
-        open: Open?
+        open: Open?,
+        islandDragging: Bool = false
     ) -> Action? {
         let frames = monitors.map(\.frame)
         if let open, open.drawer.closesOnLeave {
-            guard let region = open.region else { return nil }
-            let inside = region.contains(pointer) || open.drawer.hover && monitors.contains {
+            guard let regions = open.islandRegions ?? open.region.map({ [$0] }) else { return nil }
+            let inside = regions.contains { $0.contains(pointer) } || open.drawer.hover && monitors.contains {
                 $0.frame.insetBy(dx: -1, dy: -1).contains(pointer) && Self.touches(
                     pointer,
                     open.drawer,
@@ -56,7 +58,7 @@ struct ShellEdgeHover {
         }
         guard armed else { return nil }
         armed = false
-        guard !buttonsDown, open?.drawer.id != drawer.id else { return nil }
+        guard !buttonsDown || islandDragging && drawer.island, open?.drawer.id != drawer.id else { return nil }
         held = (drawer.id, true)
         return .open(drawer: drawer.id, monitor: monitor.id)
     }

@@ -381,4 +381,17 @@ final class ShellLakePolicyTests: XCTestCase {
         XCTAssertTrue(fixture.captions.contains("clipboard_denied"))
         XCTAssertEqual(fixture.deps & ShellDataKey.seconds.bit, 0)
     }
+
+    func testQuickNoteRerenderKeepsTheUnsavedDraftInItsInput() throws {
+        let fixture = try Fixture(note: true)
+        try fixture.render()
+        let note = try XCTUnwrap(fixture.nodes.first { $0.kind == 10 })
+        var change = ShellEvent(kind: .textChange)
+        change.text = "Draft remains mounted"
+        fixture.invoke(note.action, event: change)
+        try fixture.render()
+        let retained = try XCTUnwrap(fixture.nodes.first { $0.key == note.key })
+        XCTAssertEqual(fixture.text.string(retained.text), "Draft remains mounted")
+        XCTAssertTrue(fixture.captions.contains("Unsaved changes"))
+    }
 }

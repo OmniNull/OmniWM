@@ -23,7 +23,7 @@ extension ShellWidgetSurface {
             return false
         }
         guard let prepared = tracker.take(at: point, threshold: Self.dragThreshold) else { return true }
-        let frame = CGRect(layout.core.absoluteFrame(of: authority.handle)).intersection(view.bounds)
+        let frame = CGRect(presentedFrame(of: authority.handle)).intersection(view.bounds)
         guard !frame.isEmpty, !frame.isNull, let image = dragOutImage(prepared) else {
             Task { await prepared.finish(false, false) }
             return true

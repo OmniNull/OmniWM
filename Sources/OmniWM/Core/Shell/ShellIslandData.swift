@@ -6,6 +6,7 @@ import OmniWMIPC
 
 struct ShellIslandData: Equatable, Sendable {
     let display: String
+    let usableRect: CGRect
     let size: CGSize
     let notch: CGRect?
     let menuBar: CGFloat
@@ -16,6 +17,7 @@ struct ShellIslandData: Equatable, Sendable {
     var focused: Bool
     var drag: ShellIslandDragState
     let navigation: IslandNavigationSnapshot?
+    let drawer: String?
     private let sessionToken: String
 
     init(
@@ -23,12 +25,32 @@ struct ShellIslandData: Equatable, Sendable {
         geometry: ShellIslandGeometry,
         visible: Bool,
         fullscreen: Bool,
+        reservedInsets: Struts = .zero,
         focused: Bool = false,
         drag: ShellIslandDragState = .init(),
         navigation: IslandNavigationSnapshot? = nil,
-        sessionToken: String = ""
+        sessionToken: String = "",
+        drawer: String? = nil
     ) {
         display = monitor.name
+        let working = computeWorkingArea(
+            parentArea: monitor.visibleFrame,
+            scale: monitor.backingScale,
+            struts: reservedInsets
+        )
+        let intersection = working.intersection(geometry.frame)
+        let safe = intersection
+            .isNull ? CGRect(x: geometry.frame.minX, y: geometry.frame.minY, width: 0, height: 0) : intersection
+        let top = max(geometry.frame.maxY - safe.maxY, geometry.notch?.height ?? 0)
+        usableRect = CGRect(
+            x: max(0, safe.minX - geometry.frame.minX),
+            y: top,
+            width: max(0, safe.width),
+            height: max(
+                0,
+                geometry.frame.height - top - max(0, safe.minY - geometry.frame.minY)
+            )
+        )
         size = geometry.frame.size
         notch = geometry.notch
         menuBar = max(0, monitor.frame.maxY - monitor.visibleFrame.maxY)
@@ -39,13 +61,24 @@ struct ShellIslandData: Equatable, Sendable {
         self.focused = focused
         self.drag = drag
         self.navigation = navigation
+        self.drawer = drawer
         self.sessionToken = sessionToken
     }
 
     func write(to writer: inout ShellValueWriter) {
-        writer.map(11)
+        writer.map(13)
         writer.key("display")
         writer.string(display)
+        writer.key("usableRect")
+        writer.map(4)
+        writer.key("x")
+        writer.number(usableRect.minX)
+        writer.key("y")
+        writer.number(usableRect.minY)
+        writer.key("w")
+        writer.number(usableRect.width)
+        writer.key("h")
+        writer.number(usableRect.height)
         writer.key("size")
         writer.map(2)
         writer.key("w")
@@ -80,6 +113,16 @@ struct ShellIslandData: Equatable, Sendable {
         drag.write(to: &writer)
         writer.key("navigation")
         writeNavigation(to: &writer)
+        writer.key("drawer")
+        writeDrawer(to: &writer)
+    }
+
+    private func writeDrawer(to writer: inout ShellValueWriter) {
+        guard let drawer else {
+            writer.null()
+            return
+        }
+        writer.string(drawer)
     }
 
     private func writeNavigation(to writer: inout ShellValueWriter) {

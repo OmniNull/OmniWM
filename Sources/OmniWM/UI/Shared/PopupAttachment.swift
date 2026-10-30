@@ -6,6 +6,14 @@ import CoreGraphics
 struct PopupAttachment: Equatable {
     enum Edge: Equatable {
         case above, below, left, right
+
+        static func away(from frame: CGRect, in screen: CGRect) -> Edge {
+            let gaps: [(gap: CGFloat, edge: Edge)] = [
+                (screen.maxY - frame.maxY, .below), (frame.minY - screen.minY, .above),
+                (frame.minX - screen.minX, .right), (screen.maxX - frame.maxX, .left)
+            ]
+            return gaps.min { $0.gap < $1.gap }?.edge ?? .below
+        }
     }
 
     static let gap: CGFloat = 4

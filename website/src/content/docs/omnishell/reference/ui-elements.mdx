@@ -42,7 +42,7 @@ ui.row{ gap = 8, pad = 10, radius = 12, fill = "surface",
 | Constructor / property | Behavior |
 |---|---|
 | `ui.text.text` | Displayed string. `style` selects body, bold, mono, small, caption, or rounded presentation. |
-| `font` | `system`, `sans` (Google Sans Flex), `rubik`, or `symbols`; custom fonts are bundled. With `symbols`, `text` is a Material Symbols icon name and `filled = true` selects its filled style. |
+| `font` | `system`, `sans` (Google Sans Flex), `rubik`, or `symbols`, or the family name of a font in a `fonts/` folder of the style, for example `"Space Grotesk"`; unknown names use the system font and are logged once. With `symbols`, `text` is a Material Symbols icon name and `filled = true` selects its filled style. |
 | `size`, `weight`, `color` | Explicit font size in points, font weight, and [color](/omnishell/reference/layout-styling/#api-color). |
 | `maxWidth`, `lines` | Bound text width and line count; without explicit limits text uses its measured size. |
 | `reserve` | Measure a stable placeholder string instead of the displayed text, for example `reserve = "00:00:00"` for a clock. |
@@ -53,6 +53,8 @@ ui.row{ gap = 8, pad = 10, radius = 12, fill = "surface",
 ui.text{ font = "symbols", text = "dashboard", filled = true, size = 22 }
 ui.icon{ app = "com.apple.finder", placeholder = "app", w = 20, h = 20 }
 ```
+
+A style ships its own fonts in `fonts/` next to its `shell.toml`; `fonts/` in the shell folder serves every profile. Each folder takes up to 16 `.ttf` or `.otf` files of at most 16 MiB. When two different files ship the same family, the first one loaded is used, and a changed font file takes effect after OmniWM restarts. The bundled families are reached only through their aliases.
 
 <LuauDeclaration name="ui.text" />
 

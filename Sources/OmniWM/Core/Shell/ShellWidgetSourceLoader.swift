@@ -82,6 +82,7 @@ actor ShellWidgetSourceLoader {
             source.isIslandRoot = input.components != nil
             source.profile = input.profile
             source.principal = input.principal
+            source.fontFolders = ShellFontLibrary.folders(input.directories)
             return source
         }
         let resolution = try input.components
@@ -107,6 +108,7 @@ actor ShellWidgetSourceLoader {
         source.assetPackages[input.name] = input.sourceURL.deletingLastPathComponent()
         source.profile = input.profile
         source.principal = input.principal
+        source.fontFolders = ShellFontLibrary.folders(input.directories)
         let settings = try? ShellRootSettings.load(input.name, folder: input.sourceURL.deletingLastPathComponent())
         source.network = settings?.network ?? []
         source.purpose = settings?.purpose
@@ -158,6 +160,9 @@ actor ShellWidgetSourceLoader {
         }
         if input.contained {
             let url = input.sourceURL.deletingLastPathComponent().appendingPathComponent("settings.toml")
+            result[url.path] = SettingsFileAccess.currentFingerprint(at: url)
+        }
+        for url in ShellFontLibrary.folders(input.directories).flatMap(ShellFontLibrary.files(in:)) {
             result[url.path] = SettingsFileAccess.currentFingerprint(at: url)
         }
         if let instances = input.components {

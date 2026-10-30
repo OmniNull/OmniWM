@@ -14,16 +14,6 @@ final class ShellShaderDrawer {
     static let timeWrap: CFTimeInterval = 86400
     static let transitionRate = 60
 
-    struct Frame: Sendable {
-        let slot: Int32
-        let token: Int
-        let index: Int
-        let program: ShellShaderProgram
-        let revision: Int
-        let failure: String?
-        let duration: Double
-    }
-
     typealias Completion = @Sendable (Frame) -> Void
 
     private final class Target {
@@ -46,6 +36,7 @@ final class ShellShaderDrawer {
         var overruns = 0
         var mask: ShellLayerMask?
         var displayed: Int?
+        var group: ShellGroupEffect?
 
         init(layer: CALayer, token: Int, input: ShellShaderInput) {
             self.layer = layer
@@ -59,6 +50,7 @@ final class ShellShaderDrawer {
     private let container: CALayer
     private let queue: DispatchSerialQueue
     private let completion: Completion
+    private let published: ((Int32) -> Void)?
     private let bands: ShellSpectrumBands
     private var targets: [Int32: Target] = [:]
     private var tokens = 0
@@ -66,13 +58,14 @@ final class ShellShaderDrawer {
     private var transition = ShellShaderTransition.settled
     private var stage: ShellShaderStage?
     private var timer: (any DispatchSourceTimer)?
-    private var timerRate = 0
+    private(set) var timerRate = 0
 
     init(
         scale: CGFloat,
         container: CALayer,
         queue: DispatchSerialQueue,
         bands: ShellSpectrumBands = .live,
+        published: ((Int32) -> Void)? = nil,
         completion: @escaping Completion
     ) {
         self.scale = scale
@@ -80,6 +73,7 @@ final class ShellShaderDrawer {
         self.queue = queue
         self.bands = bands
         self.completion = completion
+        self.published = published
     }
 
     deinit {
@@ -116,6 +110,33 @@ final class ShellShaderDrawer {
             clear(target)
         }
         draw(slot, target)
+        updateTimer()
+    }
+
+    func updateGroup(_ slot: Int32, group: ShellGroupEffect) {
+        let target: Target
+        if let existing = targets[slot] {
+            target = existing
+        } else {
+            tokens += 1
+            target = Target(layer: group.output, token: tokens, input: group.input.shader)
+            targets[slot] = target
+        }
+        if target.program !== group.input.program { target.overruns = 0 }
+        target.revision += 1
+        target.program = group.input.program
+        target.input = group.input.shader
+        target.group = group
+        target.pending = true
+    }
+
+    func redrawGroups() {
+        let now = CACurrentMediaTime()
+        for (slot, target) in targets where target.group != nil
+            && (target.pending || target.group?.needsSource(at: now) == true)
+        {
+            draw(slot, target)
+        }
         updateTimer()
     }
 
@@ -156,19 +177,20 @@ final class ShellShaderDrawer {
     func setTransition(_ next: ShellShaderTransition) {
         guard transition != next else { return }
         transition = next
-        redrawAll()
+        redrawAll(deferGroups: true)
         updateTimer()
     }
 
     func setStage(_ next: ShellShaderStage?) {
         guard stage != next else { return }
         stage = next
-        redrawAll()
+        redrawAll(deferGroups: true)
     }
 
-    private func redrawAll() {
+    private func redrawAll(deferGroups: Bool = false) {
         for (slot, target) in targets {
-            draw(slot, target)
+            if deferGroups, target.group != nil { target.pending = true }
+            else { draw(slot, target) }
         }
     }
 
@@ -177,7 +199,8 @@ final class ShellShaderDrawer {
         visible = isVisible
         if isVisible {
             for (slot, target) in targets {
-                draw(slot, target)
+                if target.group != nil { target.pending = true }
+                else { draw(slot, target) }
             }
         }
         updateTimer()
@@ -188,6 +211,7 @@ final class ShellShaderDrawer {
         let index = frame.index
         guard let target = targets[frame.slot], target.token == frame.token else { return }
         target.inFlight = false
+        target.group?.finishFrame(sourceGPU: frame.sourceDuration, totalGPU: frame.totalDuration)
         let current = target.program === program
         if handleFailure(frame, target: target, current: current) { return }
         guard acceptFrameBudget(frame, target: target, current: current) else { return }
@@ -199,6 +223,7 @@ final class ShellShaderDrawer {
         CATransaction.begin()
         CATransaction.setDisableActions(true)
         target.layer.contents = target.surfaces[index]
+        target.layer.setValue(frame.lease, forKey: ShellGroupEffect.leaseKey)
         target.displayed = index
         if let mask = target.mask {
             mask.layer.contents = target.surfaces[index]
@@ -207,6 +232,7 @@ final class ShellShaderDrawer {
             }
         }
         CATransaction.commit()
+        published?(frame.slot)
         target.next = 1 - index
         if target.pending {
             draw(frame.slot, target)
@@ -243,10 +269,20 @@ final class ShellShaderDrawer {
     }
 
     private func clear(_ target: Target) {
+        if let group = target.group {
+            group.restore()
+            target.surfaces.removeAll()
+            target.textures.removeAll()
+            target.source = nil
+            target.displayed = nil
+            target.pending = false
+            return
+        }
         CATransaction.begin()
         CATransaction.setDisableActions(true)
         target.layer.contents = nil
         target.displayed = nil
+        target.layer.setValue(nil, forKey: ShellGroupEffect.leaseKey)
         if let mask = target.mask {
             Self.unmask(mask)
         }
@@ -259,24 +295,50 @@ final class ShellShaderDrawer {
             mask.host.mask = nil
         }
     }
+}
 
+extension ShellShaderDrawer {
     private func draw(_ slot: Int32, _ target: Target) {
         guard visible,
               let program = target.program,
-              let pipeline = program.pipeline,
+              let authoredPipeline = program.pipeline,
               let device = ShellShaderGPU.device,
               let queue = ShellShaderGPU.queue
         else {
             return
         }
         guard ready(target, device: device) else { return }
+        let pipeline = target.group?.neutral == true ? target.group?.identityPipeline : authoredPipeline
+        guard let pipeline else { return }
         let index = target.next
         guard let buffer = queue.makeCommandBuffer(),
               let encoder = buffer.makeRenderCommandEncoder(descriptor: Self.pass(into: target.textures[index]))
         else {
+            target.group?.disable("output pass could not be encoded")
             return
         }
         let now = CACurrentMediaTime()
+        encode(target, pipeline: pipeline, encoder: encoder, at: now)
+        target.inFlight = true
+        target.group?.beginFrame()
+        target.pending = false
+        target.lastDraw = now
+        let completion = completion
+        let submitted = Frame(
+            slot: slot, token: target.token, index: index, program: program, revision: target.revision,
+            failure: nil, duration: 0, lease: target.group?.lease
+        )
+        let timing = target.group?.timing
+        buffer.addCompletedHandler { buffer in
+            Self.complete(buffer, submitted: submitted, timing: timing, completion: completion)
+        }
+        buffer.commit()
+    }
+
+    private func encode(
+        _ target: Target, pipeline: any MTLRenderPipelineState,
+        encoder: any MTLRenderCommandEncoder, at now: CFTimeInterval
+    ) {
         var uniforms = target.input.uniforms(
             size: target.layer.bounds.size,
             scale: scale,
@@ -291,31 +353,29 @@ final class ShellShaderDrawer {
         encoder.setFragmentBytes(&uniforms, length: MemoryLayout<ShellShaderUniforms>.stride, index: 0)
         encoder.drawPrimitives(type: .triangle, vertexStart: 0, vertexCount: 3)
         encoder.endEncoding()
-        target.inFlight = true
-        target.pending = false
-        target.lastDraw = now
-        let completion = completion
-        let token = target.token
-        let revision = target.revision
-        buffer.addCompletedHandler { buffer in
-            let failure = buffer.status == .error ? buffer.error?
-                .localizedDescription ?? "the GPU reported an error" : nil
-            completion(Frame(
-                slot: slot,
-                token: token,
-                index: index,
-                program: program,
-                revision: revision,
-                failure: failure,
-                duration: buffer.gpuEndTime - buffer.gpuStartTime
-            ))
-        }
-        buffer.commit()
     }
-}
 
-extension ShellShaderDrawer {
     private func ready(_ target: Target, device: any MTLDevice) -> Bool {
+        if let group = target.group {
+            guard !target.inFlight else {
+                target.pending = true
+                return false
+            }
+            guard group.prepare(at: CACurrentMediaTime()), let resources = group.resources else {
+                clear(target)
+                return false
+            }
+            if target.textures.first !== resources.outputs.first {
+                target.surfaces = resources.surfaces
+                target.textures = resources.outputs
+                target.width = resources.source.width
+                target.height = resources.source.height
+                target.displayed = nil
+                target.next = 0
+            }
+            target.source = resources.mapped
+            return true
+        }
         let (width, height) = pixels(of: target.layer)
         guard width > 0, height > 0, width <= Self.maximumPixels, height <= Self.maximumPixels else { return false }
         guard !target.inFlight else {
@@ -326,15 +386,6 @@ extension ShellShaderDrawer {
             return allocate(target, width: width, height: height, device: device)
         }
         return true
-    }
-
-    private static func pass(into texture: any MTLTexture) -> MTLRenderPassDescriptor {
-        let pass = MTLRenderPassDescriptor()
-        pass.colorAttachments[0].texture = texture
-        pass.colorAttachments[0].loadAction = .clear
-        pass.colorAttachments[0].clearColor = MTLClearColor(red: 0, green: 0, blue: 0, alpha: 0)
-        pass.colorAttachments[0].storeAction = .store
-        return pass
     }
 
     private func stage(in layer: CALayer) -> ShellShaderStage? {
@@ -386,7 +437,13 @@ extension ShellShaderDrawer {
     }
 
     private var shaderRate: Int {
-        targets.values.lazy.filter { $0.program?.pipeline != nil }.map(\.input.rate).max() ?? 0
+        targets.values.lazy.filter { $0.program?.pipeline != nil && $0.group?.failed != true }.map {
+            Self.rate(
+                input: $0.input,
+                neutral: $0.group?.neutral == true,
+                sourceRate: $0.group?.sourceRate ?? 0
+            )
+        }.max() ?? 0
     }
 
     private func updateTimer() {
@@ -418,43 +475,15 @@ extension ShellShaderDrawer {
             updateTimer()
             return
         }
-        for (slot, target) in targets where target.input.rate > 0 {
-            guard now - target.lastDraw >= 1 / Double(target.input.rate) - 0.002 else { continue }
+        for (slot, target) in targets {
+            let rate = Self.rate(
+                input: target.input,
+                neutral: target.group?.neutral == true,
+                sourceRate: target.group?.sourceRate ?? 0
+            )
+            guard rate > 0, now - target.lastDraw >= 1 / Double(rate) - 0.002 else { continue }
             draw(slot, target)
         }
-    }
-}
-
-extension ShellShaderInput {
-    func uniforms(
-        size: CGSize,
-        scale: CGFloat,
-        elapsed: CFTimeInterval,
-        now: CFTimeInterval,
-        transition: ShellShaderTransition,
-        stage: ShellShaderStage? = nil,
-        audio: ShellSpectrumBands.Bars = .init(repeating: 0)
-    ) -> ShellShaderUniforms {
-        let animates = rate > 0
-        let stage = stage ?? ShellShaderStage(
-            anchor: CGPoint(x: size.width / 2, y: size.height / 2),
-            content: CGRect(origin: .zero, size: size)
-        )
-        return ShellShaderUniforms(
-            size: SIMD2(Float(size.width), Float(size.height)),
-            scale: Float(scale),
-            time: animates ? Float(elapsed.truncatingRemainder(dividingBy: ShellShaderDrawer.timeWrap)) : 0,
-            values: values,
-            colors: colors,
-            progress: animates || transition.forced ? transition.progress(at: now) : transition.to,
-            anchor: SIMD2(Float(stage.anchor.x), Float(stage.anchor.y)),
-            content: SIMD4(
-                Float(stage.content.minX),
-                Float(stage.content.minY),
-                Float(stage.content.width),
-                Float(stage.content.height)
-            ),
-            audio: audio
-        )
+        updateTimer()
     }
 }

@@ -16,7 +16,7 @@ final class ShellMotionWireTests: XCTestCase {
                 .Script("function render(ctx) return ui.box{ animate = { \(properties) } } end")
             XCTAssertEqual(script.render().status, OMNI_OK, script.message)
             let (node, strings) = try first(script)
-            XCTAssertEqual(MemoryLayout<omni_wire_node>.stride, 392)
+            XCTAssertEqual(MemoryLayout<omni_wire_node>.stride, 448)
             XCTAssertNotEqual(node.motion, 0)
             XCTAssertEqual(node.motion_curve, UInt8(OMNI_CURVE_CUSTOM))
             XCTAssertEqual(strings.string(node.motion_curve_ref), expected)
@@ -36,12 +36,12 @@ final class ShellMotionWireTests: XCTestCase {
         XCTAssertEqual(script.render().status, OMNI_OK, script.message)
         let (node, strings) = try first(script)
         XCTAssertEqual(node.enter_opacity, 0.2, accuracy: 0.0001)
-        XCTAssertEqual(strings.string(node.appear), "life:0:0.88:0:-8:1:255:spring:0.31:0.22")
-        XCTAssertEqual(strings.string(node.exit), "life:0:1:0:0:0:0:")
+        XCTAssertEqual(strings.string(node.appear), "life:0:0.88:0:-8:0.5:0.5:0:1:255:spring:0.31:0.22")
+        XCTAssertEqual(strings.string(node.exit), "life:0:1:0:0:0.5:0.5:0:0:0:")
         let inherited = try ShellScriptHostTests.Script("function render(ctx) return ui.box{ appear = {} } end")
         XCTAssertEqual(inherited.render().status, OMNI_OK, inherited.message)
         let (inheritedNode, inheritedStrings) = try first(inherited)
-        XCTAssertEqual(inheritedStrings.string(inheritedNode.appear), "life:1:1:0:0:inherit")
+        XCTAssertEqual(inheritedStrings.string(inheritedNode.appear), "life:1:1:0:0:0.5:0.5:0:inherit")
         XCTAssertEqual(inheritedNode.exit, 0)
     }
 
@@ -94,6 +94,36 @@ final class ShellMotionWireTests: XCTestCase {
             let script = try ShellScriptHostTests.Script("function render(ctx) return ui.box{ \(properties) } end")
             XCTAssertEqual(script.render().status, OMNI_ERR_RUNTIME, properties)
             XCTAssertFalse(script.message.isEmpty)
+        }
+    }
+
+    @MainActor
+    func testPresenceAnchorAndDelayRoundTripWithoutSceneBehavior() throws {
+        let script = try ShellScriptHostTests.Script("""
+        function render(ctx) return ui.box{appear={opacity=0,dy=12,anchor={x=1,y=0.5},delay=0.2,
+            animate={response=0.36,bounce=0}}} end
+        """)
+        XCTAssertEqual(script.render().status, OMNI_OK, script.message)
+        let (node, strings) = try first(script)
+        let recipe = try XCTUnwrap(ShellPresenceRecipe(strings.string(node.appear)))
+        XCTAssertEqual(recipe.anchor, CGPoint(x: 1, y: 0.5))
+        XCTAssertEqual(recipe.delay, 0.2)
+        XCTAssertEqual(recipe.offset, CGPoint(x: 0, y: 12))
+        XCTAssertFalse(recipe.inherited)
+    }
+
+    func testPresenceRejectsInvalidAnchorAndDelay() throws {
+        for fields in [
+            "anchor={x=1.2,y=0}",
+            "anchor={x=0,y=-0.1}",
+            "anchor={x=1}",
+            "anchor={x=0,y=0,z=0}",
+            "delay=3",
+            "delay=-0.1",
+            "delay=0/0"
+        ] {
+            let script = try ShellScriptHostTests.Script("function render(ctx) return ui.box{appear={\(fields)}} end")
+            XCTAssertEqual(script.render().status, OMNI_ERR_RUNTIME, fields)
         }
     }
 

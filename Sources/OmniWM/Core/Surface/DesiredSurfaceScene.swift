@@ -29,6 +29,7 @@ struct DesiredIslandSurface: Equatable {
     var monitor: Monitor
     var fullscreen: Bool
     var navigation: IslandNavigationSnapshot?
+    var reservedInsets = Struts.zero
 }
 
 struct ParkingEdgeMaskKey: Hashable {

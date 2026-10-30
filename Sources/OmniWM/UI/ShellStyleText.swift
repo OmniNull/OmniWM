@@ -27,6 +27,7 @@ enum ShellStyleText {
         case "wayline": String(localized: "A structured bar with labeled workspaces and quick status controls.")
         case "matrix": String(localized: "A terminal-inspired bar with green accents and a rain shader.")
         case "sakura": String(localized: "A light bar with soft pink accents and a drifting-petal shader.")
+        case "vitreus": String(localized: "Liquid glass with a Desk for focus sessions and tasks.")
         default: String(localized: "A custom style you added.")
         }
     }

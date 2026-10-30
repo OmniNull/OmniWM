@@ -16,18 +16,19 @@ extension ShellWidgetSurface {
         role: UInt16(ShellRole.foreground.rawValue + 1) | UInt16(51) << 8
     )
 
-    func commands(text: ShellTextStore) -> [ShellLayerCommand] {
-        var commands: [ShellLayerCommand] = []
+    func patchCommands(text: ShellTextStore) -> [ShellLayerCommand] {
+        let revealTime = clock()
+        var commands = closingReveals(at: revealTime)
         let count = layout.patches.count
         commands.reserveCapacity(count)
         for index in 0 ..< count {
             switch layout.patches.op(at: index) {
             case let .insert(handle, parent, kind, after):
                 if kind == .input { insertTextInput(handle) }
-                let key = layout.core.key(of: handle)
+                if kind == .shape { glassShapeHandles.append(handle) }
                 commands.append(.insert(
                     slot: handle.slot, parent: parent.slot, kind: kind, after: after.slot,
-                    identity: key == 0 ? nil : ShellLayerIdentity(parent: parent, key: key, kind: kind)
+                    identity: layerIdentity(handle, parent: parent, kind: kind)
                 ))
             case let .remove(handle):
                 forget(handle)
@@ -35,7 +36,7 @@ extension ShellWidgetSurface {
             case let .move(handle, _, after):
                 commands.append(.move(slot: handle.slot, after: after.slot))
             case let .setFrame(handle, rect):
-                commands.append(.frame(slot: handle.slot, rect: CGRect(rect), animation: animation(for: handle)))
+                commands.append(frameCommand(handle, rect))
             case let .setPaint(handle, paint):
                 trackMask(handle, masks: paint.masks)
                 commands.append(paintCommand(handle, paint))
@@ -52,20 +53,30 @@ extension ShellWidgetSurface {
                 commands.append(pathCommand(handle, text: text))
             case let .setShader(handle):
                 commands.append(shaderCommand(handle, text: text))
+            case let .setGlass(handle):
+                commands.append(glassCommand(handle, text: text))
             case let .setValue(handle, value, color):
-                commands.append(.value(
-                    slot: handle.slot,
-                    fraction: CGFloat(value) / 1000,
-                    color: palette.color(color, default: .accent),
-                    track: palette.color(Self.sliderTrack),
-                    animation: animation(for: handle)
-                ))
+                commands.append(valueCommand(handle, value: value, color: color))
             }
         }
         if shaders.contains(where: { !layout.core.contains($0.value.handle) }) {
             shaders = shaders.filter { layout.core.contains($0.value.handle) }
         }
+        commands += revealCommands(at: revealTime)
+        commands += ownedContentCommands(text: text)
+        return commands
+    }
+
+    func layerIdentity(_ handle: ElementHandle, parent: ElementHandle, kind: ElementKind) -> ShellLayerIdentity? {
+        let key = layout.core.key(of: handle)
+        return key == 0 ? nil : ShellLayerIdentity(parent: parent, key: key, kind: kind)
+    }
+
+    private func ownedContentCommands(text: ShellTextStore) -> [ShellLayerCommand] {
         updateTextInputs()
+        var commands = ownedInputCommands()
+        commands += effectCommands(text: text)
+        commands += effectNeutralCommands()
         return commands
     }
 
@@ -91,6 +102,7 @@ extension ShellWidgetSurface {
     }
 
     private func forget(_ handle: ElementHandle) {
+        glassShapeHandles.removeAll { !layout.core.contains($0) }
         forgetResourceImage(handle)
         removeTextInput(handle)
         shaders.removeValue(forKey: handle.slot)
@@ -121,6 +133,43 @@ extension ShellWidgetSurface {
         return .shader(slot: handle.slot, program: program, input: shaderInput(content))
     }
 
+    private func glassCommand(_ handle: ElementHandle, text: ShellTextStore) -> ShellLayerCommand {
+        let content = layout.core.content(of: handle)
+        return .glass(
+            slot: handle.slot,
+            ShellGlassContent(
+                kind: layout.core.kind(of: handle),
+                recipe: text.string(content.text),
+                shape: content.glassShape,
+                paint: layerPaint(handle, layout.core.paint(of: handle)),
+                params: content.params,
+                follow: content.glassFollow == 0 ? nil : content.glassFollowFixedRadius ? .fixed : .scaled,
+                spectrumMotion: motionPolicy.snapshot()
+            ),
+            animation: geometryAnimation(for: handle)
+        )
+    }
+
+    private func frameCommand(_ handle: ElementHandle, _ rect: OmniWMShellCore.Rect) -> ShellLayerCommand {
+        .frame(slot: handle.slot, rect: CGRect(rect), animation: geometryAnimation(for: handle))
+    }
+
+    private func valueCommand(_ handle: ElementHandle, value: UInt32, color: Color) -> ShellLayerCommand {
+        .value(
+            slot: handle.slot,
+            fraction: CGFloat(value) / 1000,
+            color: palette.color(color, default: .accent),
+            track: palette.color(Self.sliderTrack),
+            animation: animation(for: handle)
+        )
+    }
+
+    private func geometryAnimation(for handle: ElementHandle) -> ShellAnimation? {
+        let inherits = layout.core.kind(of: handle) == .shape && layout.core.content(of: handle).motion == 0
+        let owner = reflowedTarget(of: handle) ?? (inherits ? layout.core.parent(of: handle) : handle)
+        return layout.core.contains(owner) && !followSuppressesAnimation(of: handle) ? animation(for: owner) : nil
+    }
+
     private func textureURL(_ content: Content) -> URL? {
         guard content.textureRef != 0, let source = text?.string(content.textureRef) else { return nil }
         return assetURL(source) ?? ShellImageLibrary.resolve(source, in: directories)
@@ -132,6 +181,7 @@ extension ShellWidgetSurface {
 
     func refreshAssets(at url: URL? = nil) {
         var commands: [ShellLayerCommand] = []
+        if let text, !effects.isEmpty { commands += effectCommands(text: text, refresh: true) }
         for (slot, binding) in shaders where layout.core.contains(binding.handle)
             && (url == nil || binding.assetURL == url || binding.textureURL == url)
         {
@@ -229,6 +279,7 @@ extension ShellWidgetSurface {
     }
 
     func animation(for handle: ElementHandle, hover: Bool = false, press: Bool = false) -> ShellAnimation? {
+        if manipulation?.target == handle || followSuppressesAnimation(of: handle) { return nil }
         let content = layout.core.content(of: handle)
         let pressed = press && content.pressMotion != 0
         let hovered = !pressed && hover && content.hoverMotion != 0
@@ -261,6 +312,14 @@ extension ShellWidgetSurface {
         hover: Bool = false,
         press: Bool = false
     ) -> ShellLayerCommand {
+        .paint(
+            slot: handle.slot,
+            layerPaint(handle, paint),
+            animation: animation(for: handle, hover: hover, press: press)
+        )
+    }
+
+    private func layerPaint(_ handle: ElementHandle, _ paint: Paint) -> ShellLayerPaint {
         var paint = handle == pressed && pressInside ? Self
             .pressedPaint(paint, by: layout.core.content(of: handle)) : paint
         if paint.material >= OMNI_MATERIAL_POPOVER,
@@ -269,39 +328,40 @@ extension ShellWidgetSurface {
             paint.material = 0
         }
         let opaque = paint.material > 0 && NSWorkspace.shared.accessibilityDisplayShouldReduceTransparency
-        return .paint(
-            slot: handle.slot,
-            ShellLayerPaint(
-                fill: opaque ? palette.color(paint.fill, default: .surface) : palette.color(paint.fill),
-                border: palette.color(paint.stroke),
-                borderWidth: CGFloat(paint.strokeWidth),
-                radius: CGFloat(paint.cornerRadius),
-                opacity: paint.opacity,
-                scale: CGFloat(paint.scale),
-                shadow: palette.color(paint.shadow),
-                shadowRadius: CGFloat(paint.shadowRadius),
-                material: opaque ? 0 : paint.material,
-                blurRadius: CGFloat(paint.blurRadius),
-                saturation: CGFloat(paint.saturation),
-                enter: ShellEnter(
-                    paint.enter,
-                    path: text.flatMap { parsedPath(paint.enter.path, text: $0) },
-                    curve: paint.enter.curveRef == 0 ? nil : text?.string(paint.enter.curveRef)
-                ),
-                masks: paint.masks,
-                rotation: CGFloat(paint.rotate) * .pi / 180,
-                quarter: layout.core.content(of: handle).style & OMNI_STYLE_QUARTER != 0,
-                loop: loops && !paint.loopPaused && paint.loop != 0 ? text
-                    .flatMap { ShellLoop($0.string(paint.loop)) } : nil,
-                playback: loops ? ShellPlayback(speed: Double(paint.speed), paused: paint.loopPaused) : nil,
-                appear: presence(paint.appear, for: handle),
-                exit: presence(paint.exit, for: handle),
-                frameSize: CGSize(
-                    width: CGFloat(layout.core.layoutFrame(of: handle).width),
-                    height: CGFloat(layout.core.layoutFrame(of: handle).height)
-                )
+        let glass = layout.core.kind(of: handle) == .glass
+        return ShellLayerPaint(
+            fill: opaque ? palette.color(paint.fill, default: .surface) : palette.color(paint.fill)
+                ?? (glass ? ShellLayerScene.clear : nil),
+            border: palette.color(paint.stroke),
+            borderWidth: CGFloat(paint.strokeWidth),
+            radius: CGFloat(paint.cornerRadius),
+            opacity: paint.opacity,
+            scale: CGFloat(paint.scale),
+            shadow: palette.color(paint.shadow) ?? (glass ? ShellLayerScene.clear : nil),
+            shadowRadius: CGFloat(paint.shadowRadius),
+            material: opaque ? 0 : paint.material,
+            blurRadius: CGFloat(paint.blurRadius),
+            saturation: CGFloat(paint.saturation),
+            enter: ShellEnter(
+                paint.enter,
+                path: text.flatMap { parsedPath(paint.enter.path, text: $0) },
+                curve: paint.enter.curveRef == 0 ? nil : text?.string(paint.enter.curveRef)
             ),
-            animation: animation(for: handle, hover: hover, press: press)
+            masks: paint.masks,
+            rotation: CGFloat(paint.rotate) * .pi / 180,
+            quarter: layout.core.content(of: handle).style & OMNI_STYLE_QUARTER != 0,
+            loop: loops && !paint.loopPaused && paint.loop != 0 ? text
+                .flatMap { ShellLoop($0.string(paint.loop)) } : nil,
+            playback: loops ? ShellPlayback(speed: Double(paint.speed), paused: paint.loopPaused) : nil,
+            appear: presence(paint.appear, for: handle),
+            exit: presence(paint.exit, for: handle),
+            reveal: reveal(paint.reveal),
+            morph: morph(paint.morph),
+            frameSize: CGRect(layout.core.layoutFrame(of: handle)).size,
+            pulse: paint.pulse == 0 ? nil : text.flatMap { ShellPulseRecipe($0.string(paint.pulse)) },
+            shadowOffset: CGSize(width: CGFloat(paint.shadowOffsetX), height: CGFloat(paint.shadowOffsetY)),
+            gradient: paint.gradientSpecified
+                ? [paint.gradientFrom, paint.gradientTo].map { palette.color($0) ?? $0.cgColor } : nil
         )
     }
 

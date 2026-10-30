@@ -216,6 +216,20 @@ final class ShellWidgetBarLifecycleTests: XCTestCase {
         manager.cleanup()
     }
 
+    func testTheHostWatchesTheFontsFolderOfEveryLayer() async throws {
+        executionTimeAllowance = 60
+        let manager = makeManager()
+        defer { manager.cleanup() }
+        manager.apply([barSurface()])
+        await waitForShellWidgets(manager)
+        let host = try XCTUnwrap(manager.shellHost)
+        XCTAssertFalse(host.config.directories.isEmpty)
+        let watched = Set(host.watchedPaths)
+        for folder in ShellFontLibrary.folders(host.config.directories) {
+            XCTAssertTrue(watched.contains(folder), folder.path)
+        }
+    }
+
     func testABarSlotOpensTheHiddenBarMenuWithoutAPopout() async throws {
         executionTimeAllowance = 60
         let screen = try XCTUnwrap(NSScreen.screens.first)
@@ -3108,6 +3122,59 @@ final class ShellWidgetClickTests: XCTestCase {
         XCTAssertNil(ShellAction("volume up loud"))
         XCTAssertEqual(ShellAction("shell toggle control"), .toggle(widget: "control"))
         XCTAssertNil(ShellAction("shell toggle"))
+        XCTAssertEqual(
+            ShellAction("shell trigger vitreus desk-open Built-in Retina Display"),
+            .trigger(widget: "vitreus", name: "desk-open", value: "Built-in Retina Display")
+        )
+        XCTAssertEqual(ShellAction("shell trigger vitreus desk"), .trigger(widget: "vitreus", name: "desk", value: nil))
+        XCTAssertNil(ShellAction("shell trigger vitreus"))
+        XCTAssertNil(ShellAction("shell trigger .x desk"))
+        XCTAssertNil(ShellAction("shell trigger a/b desk"))
+        XCTAssertNil(ShellAction("shell trigger vitreus desk!"))
+        XCTAssertNil(ShellAction("shell trigger vitreus desk " + String(repeating: "x", count: 4097)))
+        XCTAssertNotNil(ShellAction("shell trigger vitreus desk " + String(repeating: "x", count: 4096)))
+    }
+
+    func testOnClickShellTriggerReachesAnotherWidgetsTriggerAndReportsAMissingHook() async throws {
+        executionTimeAllowance = 60
+        let harness = try harness("""
+        function render(ctx)
+            return ui.row{
+                ui.box{ w = 20, h = 10, onClick = "shell trigger target width 17" },
+                ui.box{ w = 20, h = 10, onClick = "shell trigger test width 3" },
+            }
+        end
+        """, files: [
+            "shell.toml": "profiles.default.trailing = [\"test\", \"target\"]\n",
+            "widgets/target/init.luau": """
+            function render(ctx) return ui.box{ w = ctx.state.width or 5, h = 10 } end
+            function trigger(ctx, event)
+                if event.name == "width" then ctx.state.width = tonumber(event.value) end
+            end
+            """
+        ])
+        defer { harness.close() }
+        var layoutChanges = harness.layoutChanges.makeAsyncIterator()
+        while harness.host.slots(for: Harness.monitor).count < 2 {
+            try await layoutChanges.change()
+        }
+        let target = { harness.host.slots(for: Harness.monitor).first { $0.id == "target" } }
+        XCTAssertEqual(target()?.size.width, 5)
+        let surface = try harness.barSurface()
+        click(surface, at: CGPoint(x: 5, y: 5))
+        while target()?.size.width != 17 {
+            try await layoutChanges.change()
+        }
+        XCTAssertNil(harness.slot?.failure)
+        click(surface, at: CGPoint(x: 25, y: 5))
+        while harness.slot?.failure == nil {
+            try await layoutChanges.change()
+        }
+        XCTAssertTrue(
+            harness.slot?.failure?.message
+                .contains("shell trigger: no widget named \"test\" with a trigger hook") == true
+        )
+        XCTAssertTrue(harness.sink.commands.isEmpty)
     }
 
     func testToggleOpensAWidgetPopoutAtTheScreenEdgeWithoutABarSlot() async throws {

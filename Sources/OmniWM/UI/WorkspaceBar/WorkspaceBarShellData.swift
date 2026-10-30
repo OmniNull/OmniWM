@@ -52,6 +52,7 @@ extension ShellBarStyle {
             inactive: resolved.inactiveIconOpacity ?? -1,
             position: resolved.position.rawValue,
             vertical: resolved.position.isVertical,
+            fullWidth: resolved.fullWidth,
             notch: resolved.notchMode.rawValue,
             notchWidth: resolved.notchActiveZoneWidth,
             level: resolved.windowLevel.rawValue,
@@ -86,6 +87,7 @@ extension ShellBarData {
     ) {
         let projection = snapshot.projection
         self.monitor = monitor.name
+        self.monitorId = IPCDisplayRef.identifier(monitor.id)
         self.badges = badges.mode.rawValue
         self.style = style
         var resolved: [String: NSImage] = [:]

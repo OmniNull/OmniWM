@@ -84,6 +84,9 @@ enum ShellWireDecoder {
             dx: wire.dx,
             dy: wire.dy
         )
+        if kind == .glass {
+            layout.axis = .overlay
+        }
         if kind == .symbol || kind == .image || kind == .bitmap {
             let size = kind == .symbol ? ShellTextStyle.symbolSize(for: textStyle(wire)) : iconSize
             layout.width = layout.width >= 0 ? layout.width : size
@@ -132,7 +135,15 @@ enum ShellWireDecoder {
             loopPaused: UInt32(wire.options) & OMNI_NODE_OPTION_LOOP_PAUSED != 0,
             speed: wire.speed > 0 ? wire.speed : 1,
             appear: wire.appear,
-            exit: wire.exit
+            exit: wire.exit,
+            reveal: wire.reveal,
+            morph: wire.morph,
+            pulse: wire.pulse,
+            gradientFrom: Color(packed: wire.gradient_from, role: wire.gradient_from_role),
+            gradientTo: Color(packed: wire.gradient_to, role: wire.gradient_to_role),
+            gradientSpecified: wire.behavior_flags & UInt32(OMNI_NODE_BEHAVIOR_GLASS_GRADIENT) != 0,
+            shadowOffsetX: wire.shadow_offset_x,
+            shadowOffsetY: wire.shadow_offset_y
         )
     }
 
@@ -186,6 +197,15 @@ enum ShellWireDecoder {
     }
 
     @inline(__always) private static func applyInteraction(_ wire: omni_wire_node, to content: inout Content) {
+        content.manipulationCommit = wire.manipulation_commit
+        content.manipulationFollow = wire.manipulation_follow
+        content.effect = wire.effect_ref
+        content.decorative = wire.behavior_flags & UInt32(OMNI_NODE_BEHAVIOR_DECORATIVE) != 0
+        content.glassShape = UInt8((wire.behavior_flags >> 1) & 3)
+        content.glassFollow = wire.shape_follow
+        content.glassHit = wire.behavior_flags & UInt32(OMNI_NODE_BEHAVIOR_GLASS_HIT_DISABLED) == 0
+        content.glassFollowFixedRadius = wire.behavior_flags & UInt32(OMNI_NODE_BEHAVIOR_GLASS_FIXED_RADIUS) != 0
+        content.cursor = ElementCursor(rawValue: UInt8((wire.behavior_flags >> 3) & 3)) ?? .none
         content.hoverAction = wire.hover_action
         content.pressAction = wire.press_action
         content.gestureAction = wire.gesture_action

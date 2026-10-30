@@ -5,7 +5,7 @@ import Foundation
 import TOML
 
 extension ShellConfig {
-    private static let drawerKeys: Set = ["edge", "widgets", "hover", "reach", "width", "close", "chrome"]
+    private static let drawerKeys: Set = ["edge", "widgets", "hover", "reach", "width", "close", "chrome", "present"]
 
     private static let weatherKeys: Set = ["city", "latitude", "longitude", "units", "refresh"]
 
@@ -41,7 +41,7 @@ extension ShellConfig {
         }
         unknownKeys(
             in: table,
-            known: ["root", "displays", "width", "height", "fullscreen", "components"],
+            known: ["root", "displays", "width", "height", "fullscreen", "components", "sizing", "room"],
             of: "shell.toml: [island]",
             &problems
         )
@@ -80,6 +80,13 @@ extension ShellConfig {
     private static func applyIslandSize(
         _ table: [String: TOMLNode], to island: inout ShellIslandConfig, _ problems: inout [String]
     ) -> Bool {
+        if let sizing = table["sizing"] {
+            guard case let .string(name) = sizing, let value = ShellIslandConfig.Sizing(rawValue: name) else {
+                report("shell.toml: [island] sizing must be fixed or display", &problems)
+                return false
+            }
+            island.sizing = value
+        }
         for key in ["width", "height"] where table[key] != nil {
             guard let value = number(table[key]), value.isFinite, (1 ... 8192).contains(value) else {
                 report("shell.toml: [island] \(key) must be a finite number between 1 and 8192", &problems)
@@ -122,12 +129,22 @@ extension ShellConfig {
             }
             edge = parsed
         }
+        let island: Bool
+        switch table["present"] {
+        case nil,
+             .string("panel")?: island = false
+        case .string("island")?: island = true
+        default:
+            report("shell.toml: [drawer.\(id)] present must be \"panel\" or \"island\"", &problems)
+            return nil
+        }
         let widgets = names(table["widgets"], key: "[drawer.\(id)] widgets", &problems).filter(isName)
-        guard !widgets.isEmpty else {
+        guard island || !widgets.isEmpty else {
             report("shell.toml: [drawer.\(id)] needs at least one widget", &problems)
             return nil
         }
         var drawer = ShellDrawerConfig(id: id, edge: edge, widgets: widgets, hover: table["hover"] == .boolean(true))
+        drawer.island = island
         if let reach = number(table["reach"]) {
             drawer.reach = CGFloat(min(max(reach, 1), 100))
         }

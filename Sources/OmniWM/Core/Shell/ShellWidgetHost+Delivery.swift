@@ -94,6 +94,7 @@ extension ShellWidgetHost {
         let next = barData()
         guard next != bars else { return }
         bars = next
+        refreshIslandData()
         if let popout, popout.key.placement == .bar, headless == nil, next[popout.key] == nil {
             closePopout()
         }

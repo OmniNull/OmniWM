@@ -89,22 +89,12 @@ struct ShellLayerPaint: Sendable {
     var playback: ShellPlayback?
     var appear: ShellPresence?
     var exit: ShellPresence?
+    var reveal: ShellRevealRecipe?
+    var morph: ShellMorphRecipe?
     var frameSize: CGSize?
-}
-
-struct ShellLayerMask {
-    let layer: CALayer
-    let host: CALayer
-}
-
-struct ShellLayerPath: Equatable, Sendable {
-    let path: ShellPathData?
-    let viewBox: CGRect?
-    let evenOdd: Bool
-
-    func fitted(to size: CGSize) -> CGPath? {
-        path?.path(fitting: viewBox, into: size)
-    }
+    var pulse: ShellPulseRecipe?
+    var shadowOffset: CGSize = .zero
+    var gradient: [CGColor]?
 }
 
 enum ShellLayerCommand: Sendable {
@@ -126,13 +116,27 @@ enum ShellLayerCommand: Sendable {
     case value(slot: Int32, fraction: CGFloat, color: CGColor, track: CGColor?, animation: ShellAnimation?)
     case scroll(slot: Int32, origin: CGPoint)
     case shader(slot: Int32, program: ShellShaderProgram?, input: ShellShaderInput)
+    case effect(slot: Int32, input: ShellGroupEffectInput?)
+    case effectNeutral(slot: Int32, Bool)
     case path(slot: Int32, ShellLayerPath, animation: ShellAnimation?)
+    case glass(slot: Int32, ShellGlassContent, animation: ShellAnimation?)
     case transition(ShellShaderTransition)
+    case spectrumMotion(MotionSnapshot)
     case stage(ShellShaderStage?)
     case clearExits
     case visibility(Bool)
     case gesture(slot: Int32, token: UInt64, value: ShellGestureTransform)
     case settleGesture(slot: Int32, token: UInt64, velocity: ShellGestureTransform, animation: ShellAnimation?)
+    case manipulation(slot: Int32, token: UInt64, presentation: ShellManipulationPresentation, active: Bool)
+    case shapeFollow(slot: Int32, binding: ShellShapeFollowBinding, presentation: ShellManipulationPresentation)
+    case retainedFollowers(
+        target: Int32, frame: CGRect, presentation: ShellManipulationPresentation,
+        time: CFTimeInterval
+    )
+    case followExit(target: Int32, followers: [ShellFollowExitBinding])
+    case boundTrack(slot: Int32, ShellBoundInput)
+    case raise(slot: Int32, Bool)
+    case reveal(slot: Int32, token: UInt64, ShellReveal)
 }
 
 final class ShellLayerScene: @unchecked Sendable {
@@ -149,7 +153,8 @@ final class ShellLayerScene: @unchecked Sendable {
     let scale: CGFloat
     var layers: [Int32: CALayer] = [:]
     var gestureLayers: [Int32: ShellGestureLayer] = [:]
-    private var children: [Int32: Set<Int32>] = [:]
+    var onManipulationSettled: (@MainActor @Sendable (Int32, UInt64, UInt64) -> Void)?
+    private(set) var children: [Int32: Set<Int32>] = [:]
     var parents: [Int32: Int32] = [:]
     var progress: [Int32: Progress] = [:]
     var fonts: [UInt32: CTFont] = [:]
@@ -160,12 +165,23 @@ final class ShellLayerScene: @unchecked Sendable {
     var rotations: [Int32: CGFloat] = [:]
     var quarters: Set<Int32> = []
     var loops: [Int32: (loop: ShellLoop, size: CGSize)] = [:]
+    var pulseKeys: [Int32: UInt64] = [:]
     var imageFrames: [Int32: ShellImageFrames] = [:]
     var playbackSettings: [Int32: ShellPlayback] = [:]
     var playbacks: [Int32: ShellPlaybackState] = [:]
     var scrollOrigins: [Int32: CGPoint] = [:]
     var backdrops: [Int32: (backdrop: CALayer, tint: CALayer)] = [:]
+    var glassBodies: [Int32: ShellGlassBody] = [:]
+    var glassShapes: [Int32: ShellGlassShape] = [:]
+    var glassStyles: [Int32: (recipe: ShellGlassRecipe, paint: ShellLayerPaint)] = [:]
+    var glassShapeSlots: [ObjectIdentifier: Int32] = [:]
+    var dirtyGlass: Set<Int32> = []
+    var glassAnimations: [Int32: ShellAnimation] = [:]
+    var rasterCompletions: [UUID: (ShellScriptFailure?) -> Void] = [:]
+    let glassNativeEnabled: Bool
     let presence = ShellPresenceState()
+    let spectrum = ShellSpectrumShapeStore()
+    let shapeTracks = ShellShapeTrackStore()
     var enters: [Int32: ShellEnter] = [:]
     var masks: [Int32: ShellLayerMask] = [:]
     var paths: [Int32: ShellLayerPath] = [:]
@@ -174,16 +190,17 @@ final class ShellLayerScene: @unchecked Sendable {
     var bitmaps: Set<Int32> = []
     static let enterOpacityKey = "omni.enter.opacity"
     static let enterTransformKey = "omni.enter.transform"
-    static let framesKey = "omni.image.frames"
     var shaders: ShellShaderDrawer?
+    var effects: [Int32: ShellGroupEffect] = [:]
     var transition = ShellShaderTransition.settled
     private var stage: ShellShaderStage?
     private var visible = true
     static let clear = CGColor(gray: 0, alpha: 0)
 
-    init(container: CALayer, scale: CGFloat) {
+    init(container: CALayer, scale: CGFloat, glassNativeEnabled: Bool = true) {
         self.container = container
         self.scale = scale
+        self.glassNativeEnabled = glassNativeEnabled
     }
 
     func sampleAlpha(_ slot: Int32, at point: CGPoint, reply: @escaping @Sendable (Float?) -> Void) {
@@ -192,8 +209,8 @@ final class ShellLayerScene: @unchecked Sendable {
         }
     }
 
-    func submit(_ commands: [ShellLayerCommand], animated: Bool) {
-        guard !commands.isEmpty else { return }
+    func submit(_ commands: [ShellLayerCommand], animated: Bool, completion: (@Sendable () -> Void)? = nil) {
+        guard !commands.isEmpty || completion != nil else { return }
         let trace = ShellFrameTrace.current
         ShellFrameTrace.shared.record(.engineSubmit, context: trace)
         Self.engineQueue.async { [self] in
@@ -202,7 +219,12 @@ final class ShellLayerScene: @unchecked Sendable {
             for command in commands {
                 apply(command, animated: animated)
             }
+            flushGlass(animated: animated)
+            flushReveals(animated: animated)
+            flushPulses()
             CATransaction.commit()
+            if !effects.isEmpty { shaders?.redrawGroups() }
+            completion?()
             if trace != nil {
                 ShellFrameTrace.shared.commit(trace, time: CACurrentMediaTime())
             }
@@ -210,55 +232,56 @@ final class ShellLayerScene: @unchecked Sendable {
     }
 
     private func apply(_ command: ShellLayerCommand, animated: Bool) {
+        if applyFollowCommand(command) || applyShaderCommand(command) { return }
         switch command {
         case let .insert(slot, parent, kind, after, identity):
             insert(slot: slot, parent: parent, kind: kind, after: after, identity: identity)
         case let .remove(slot):
-            remove(slot, animated: animated)
+            invalidateContainingEffect(slot)
+            remove(slot, animated: animated && visible)
         case let .move(slot, after):
-            guard let layer = displayedLayer(slot), let host = layer.superlayer else { return }
-            layer.removeFromSuperlayer()
-            place(layer, in: host, after: after)
+            guard move(slot, after: after) else { return }
         case let .frame(slot, rect, preset):
             applyFrame(slot, rect, preset: preset, animated: animated)
         case let .paint(slot, paint, preset):
             applyPaint(slot, paint, preset: preset, animated: animated)
         case let .text(slot, text, style, color, maxWidth, lines, preset):
-            replaceContents(
-                slot,
-                rasterize(text, style: style, color: color, maxWidth: maxWidth, lines: lines),
-                preset: preset,
-                animated: animated
-            )
+            let image = rasterize(text, style: style, color: color, maxWidth: maxWidth, lines: lines)
+            replaceContents(slot, image, preset: preset, animated: animated)
         case let .image(slot, image, preset, frames):
             applyImage(slot, image, frames: frames, preset: preset, animated: animated)
         case let .value(slot, fraction, color, track, preset):
             exitAnimations[slot] = preset
             applyValue(slot, fraction, color: color, track: track, animation: framedAnimation(preset, slot, animated))
-        case let .shader(slot, program, input):
-            guard let layer = layers[slot] else { return }
-            shaderDrawer().update(slot, layer: layer, program: program, input: input, mask: masks[slot])
         case let .path(slot, path, preset):
             exitAnimations[slot] = preset
             applyPath(slot, path, animation: framedAnimation(preset, slot, animated))
+        case let .glass(slot, content, preset):
+            applyGlass(slot, content, preset: preset, animated: animated)
         case let .scroll(slot, origin):
             applyScroll(slot, origin: origin)
-        case let .transition(next):
-            applyTransition(next)
-        case let .stage(next):
-            stage = next
-            shaders?.setStage(next)
         case let .gesture(slot, token, value):
             applyGesture(slot, token: token, value: value)
         case let .settleGesture(slot, token, velocity, animation):
             settleGesture(slot, token: token, velocity: velocity, animation: animation)
-        case .clearExits:
-            finishAllPresenceExits()
-        case let .visibility(isVisible):
-            visible = isVisible
-            if !isVisible { finishAllPresenceExits() }
-            shaders?.setVisible(isVisible)
+        case .shader,
+             .effect,
+             .effectNeutral,
+             .transition,
+             .spectrumMotion,
+             .stage,
+             .visibility,
+             .clearExits,
+             .manipulation,
+             .raise,
+             .shapeFollow,
+             .retainedFollowers,
+             .followExit,
+             .boundTrack,
+             .reveal:
+            break
         }
+        invalidateEffect(for: command)
     }
 
     private func applyImage(
@@ -280,32 +303,24 @@ final class ShellLayerScene: @unchecked Sendable {
         animated && framed.contains(slot) ? preset : nil
     }
 
-    private func remove(_ slot: Int32, animated: Bool) {
-        if let mask = masks[slot], mask.host.mask === mask.layer {
-            mask.host.mask = nil
-        }
-        if let layer = displayedLayer(slot) {
-            retirePresence(slot, subtree: layer, animated: animated && visible)
-        }
-        if let parent = parents[slot] {
-            children[parent]?.remove(slot)
-        }
-        forget(slot)
-    }
-
-    private func shaderDrawer() -> ShellShaderDrawer {
+    func shaderDrawer() -> ShellShaderDrawer {
         if let shaders {
             return shaders
         }
         let drawer = ShellShaderDrawer(
             scale: scale,
             container: container,
-            queue: Self.engineQueue
-        ) { [weak self] frame in
-            Self.engineQueue.async { [weak self] in
-                self?.shaders?.finish(frame)
+            queue: Self.engineQueue,
+            published: { [weak self] slot in
+                guard let self, effects[slot] == nil, invalidateContainingEffect(slot) else { return }
+                Self.engineQueue.async { [weak self] in self?.shaders?.redrawGroups() }
+            },
+            completion: { [weak self] frame in
+                Self.engineQueue.async { [weak self] in
+                    self?.shaders?.finish(frame)
+                }
             }
-        }
+        )
         drawer.setVisible(visible)
         drawer.setTransition(transition)
         drawer.setStage(stage)
@@ -345,10 +360,15 @@ final class ShellLayerScene: @unchecked Sendable {
             insertSlider(in: layer, slot: slot)
         case .path:
             maskable.insert(slot)
+        case .input:
+            layer.contentsGravity = .topLeft
+            layer.masksToBounds = true
         case .group,
-             .box,
-             .input:
+             .box:
             break
+        case .glass,
+             .shape:
+            insertGlass(slot, kind: kind, layer: layer)
         }
         layers[slot] = layer
         if kind == .bitmap { bitmaps.insert(slot) }
@@ -376,6 +396,14 @@ final class ShellLayerScene: @unchecked Sendable {
         progress[slot] = Progress(fill: parts[1], track: parts[0], knob: parts[2])
     }
 
+    private func move(_ slot: Int32, after: Int32) -> Bool {
+        guard let layer = displayedLayer(slot), let host = layer.superlayer else { return false }
+        layer.removeFromSuperlayer()
+        place(layer, in: host, after: after)
+        markGlassDirty(slot)
+        return true
+    }
+
     private func place(_ layer: CALayer, in host: CALayer, after: Int32) {
         if after >= 0, let previous = displayedLayer(after), previous.superlayer === host {
             host.insertSublayer(layer, above: previous)
@@ -384,10 +412,14 @@ final class ShellLayerScene: @unchecked Sendable {
         }
     }
 
-    private func forget(_ slot: Int32) {
+    func forget(_ slot: Int32) {
+        if let parent = parents[slot] { children[parent]?.remove(slot) }
+        forgetPulse(slot)
+        forgetGlass(slot)
         forgetPresence(slot)
         gestureLayers.removeValue(forKey: slot)
         shaders?.remove(slot)
+        effects.removeValue(forKey: slot)
         enters.removeValue(forKey: slot)
         masks.removeValue(forKey: slot)
         maskable.remove(slot)
@@ -410,5 +442,52 @@ final class ShellLayerScene: @unchecked Sendable {
         for child in children.removeValue(forKey: slot) ?? [] {
             forget(child)
         }
+    }
+}
+
+extension ShellLayerScene {
+    private func applyShaderCommand(_ command: ShellLayerCommand) -> Bool {
+        switch command {
+        case let .shader(slot, program, input):
+            if let layer = layers[slot] {
+                shaderDrawer().update(slot, layer: layer, program: program, input: input, mask: masks[slot])
+            }
+        case let .effect(slot, input):
+            applyEffect(slot, input: input)
+        case let .effectNeutral(slot, value):
+            if let effect = effects[slot], effect.neutral != value {
+                effect.setNeutral(value)
+                shaderDrawer().updateGroup(slot, group: effect)
+            }
+        case let .spectrumMotion(motion):
+            setSpectrumMotion(motion)
+        case let .followExit(target, followers):
+            shapeTracks.departures[target] = followers
+        case let .boundTrack(slot, input):
+            shapeTracks.pendingBounds[slot] = input
+        case let .transition(next):
+            applyTransition(next)
+        case let .stage(next):
+            stage = next
+            shaders?.setStage(next)
+        case let .visibility(isVisible):
+            visible = isVisible
+            setSpectrumVisible(isVisible)
+            if !isVisible {
+                finishAllPresenceExits()
+                finishShapeTracks()
+            }
+            shaders?.setVisible(isVisible)
+        case .clearExits:
+            finishAllPresenceExits()
+            finishShapeTracks()
+        case let .reveal(slot, token, plan):
+            presence.revealPlans[slot] = (plan, token)
+            if plan.target != 0 { presence.dirtyReveals.insert(slot) }
+        default:
+            return false
+        }
+        invalidateEffect(for: command)
+        return true
     }
 }

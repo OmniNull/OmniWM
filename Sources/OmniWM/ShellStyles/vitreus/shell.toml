@@ -1,0 +1,93 @@
+# SPDX-License-Identifier: GPL-2.0-only
+# Copyright (C) 2026 OmniNull — https://github.com/OmniNull/OmniWM
+
+theme = "vitreus"
+leading = []
+center = []
+trailing = []
+
+[workspaceBar]
+position = "overlappingMenuBar"
+height = 1
+fullWidth = true
+reserveLayoutSpace = false
+hideEmptyWorkspaces = false
+transparentBackground = true
+backgroundOpacity = 0
+
+[widgets.vitreus]
+layout = "island"
+size = 1
+pins = []
+addons = []
+dockOverlap = false
+
+[island]
+root = "vitreus"
+displays = "all"
+sizing = "display"
+fullscreen = "hide"
+
+[island.room]
+setting = "layout"
+size = "size"
+
+[island.room.variants.island]
+top = { base = 8, scaled = 54, mode = "add", clear = "notch" }
+dock = "bottom"
+
+[island.room.variants.left]
+top = { base = 24, mode = "total" }
+left = { base = 14, scaled = 62.1, mode = "total" }
+right = { base = 24, mode = "total" }
+bottom = { base = 24, mode = "total" }
+dock = "right"
+
+[island.room.variants.right]
+top = { base = 24, mode = "total" }
+left = { base = 24, mode = "total" }
+right = { base = 14, scaled = 62.1, mode = "total" }
+bottom = { base = 24, mode = "total" }
+dock = "left"
+
+[island.room.variants.ftop]
+top = { base = 14, scaled = 62.1, mode = "total" }
+left = { base = 24, mode = "total" }
+right = { base = 24, mode = "total" }
+bottom = { base = 24, mode = "total" }
+dock = "bottom"
+
+[island.room.variants.fbottom]
+top = { base = 24, mode = "total" }
+left = { base = 24, mode = "total" }
+right = { base = 24, mode = "total" }
+bottom = { base = 14, scaled = 62.1, mode = "total" }
+dock = "top"
+
+[island.room.variants.seg]
+top = { base = 10, scaled = 48.6, mode = "total", clear = "notch" }
+left = { base = 24, mode = "total" }
+right = { base = 24, mode = "total" }
+bottom = { base = 24, mode = "total" }
+dock = "bottom"
+
+[island.room.dock]
+base = 23.8
+scaled = 45.9
+when = ["pins", "addons"]
+unless = "dockOverlap"
+
+[[island.components]]
+id = "pad"
+widget = "desk-pad"
+
+[[island.components]]
+id = "focus"
+widget = "desk-focus"
+
+[drawer.shelf]
+edge = "top"
+present = "island"
+hover = true
+close = "leave"
+width = 900

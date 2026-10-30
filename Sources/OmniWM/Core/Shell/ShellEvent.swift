@@ -14,7 +14,7 @@ struct ShellEvent: Equatable, Sendable {
     }
 
     enum Phase: String, Sendable {
-        case began, changed, ended, cancelled, down, up, cancel, entered, exited
+        case began, changed, ended, cancelled, down, up, cancel, entered, exited, selected, applied
     }
 
     enum Momentum: String, Sendable {
@@ -46,9 +46,13 @@ struct ShellEvent: Equatable, Sendable {
     var sourceID: UInt64 = 0
     var invocationID: UInt64?
     var trackingToken: UInt64?
+    var transaction: String?
+    var placement: ShellManipulationProposal?
+    var reason: String?
     var dropTypes: UInt8?
     var text: String?
     var focused: Bool?
+    var claimed: Bool?
     var coalescingTarget: UInt64 = 0
 
     var hasModifiers: Bool {
@@ -67,7 +71,9 @@ struct ShellEvent: Equatable, Sendable {
 
     var bytes: [UInt8] {
         var writer = ShellValueWriter()
-        writer.map(20 + (text == nil ? 0 : 1) + (focused == nil ? 0 : 1) + (dropTypes == nil ? 0 : 1))
+        writer.map(20 + (text == nil ? 0 : 1) + (focused == nil ? 0 : 1) + (claimed == nil ? 0 : 1)
+            + (dropTypes == nil ? 0 : 1) + (transaction == nil ? 0 : 1) + (placement == nil ? 0 : 1)
+            + (reason == nil ? 0 : 1))
         writer.key("button")
         writer.string(button.rawValue)
         writer.key("shift")
@@ -116,11 +122,35 @@ struct ShellEvent: Equatable, Sendable {
             writer.key("focused")
             writer.bool(focused)
         }
+        if let claimed {
+            writer.key("claimed")
+            writer.bool(claimed)
+        }
         if let dropTypes {
             let names = [(UInt8(1), "file"), (2, "url"), (4, "text"), (8, "image")].filter { dropTypes & $0.0 != 0 }
             writer.key("types")
             writer.array(names.count)
             for (_, name) in names { writer.string(name) }
+        }
+        if let transaction {
+            writer.key("transaction")
+            writer.string(transaction)
+        }
+        if let placement {
+            writer.key("rect")
+            writer.map(4)
+            writer.key("x")
+            writer.number(placement.rect.minX)
+            writer.key("y")
+            writer.number(placement.rect.minY)
+            writer.key("w")
+            writer.number(placement.rect.width)
+            writer.key("h")
+            writer.number(placement.rect.height)
+        }
+        if let reason {
+            writer.key("reason")
+            writer.string(reason)
         }
         return writer.bytes
     }

@@ -6,6 +6,10 @@ import OmniWMShellCore
 
 @MainActor
 final class ShellTextInput: NSObject, NSTextFieldDelegate, NSTextViewDelegate {
+    private enum FocusState {
+        case idle, acquiring, editing
+    }
+
     let handle: ElementHandle
     let view = ShellInputClipView()
     let field: ShellInputField?
@@ -13,12 +17,18 @@ final class ShellTextInput: NSObject, NSTextFieldDelegate, NSTextViewDelegate {
     private let scroll: NSScrollView?
     weak var surface: ShellWidgetSurface?
     var capture: ShellPointerCapture
-    private(set) var editing = false
+    private var focusState = FocusState.idle
+    var editing: Bool {
+        focusState == .editing
+    }
+
     private(set) var pendingFocus = false
+    private(set) var onScreen = false
     private var focusDeclaration: Int8 = -1
     private var maximum = 65536
     private var lastChange: String?
     private var style: UInt32?
+    private(set) var presentsTransiently = false
 
     init(handle: ElementHandle, surface: ShellWidgetSurface, multiline: Bool) {
         self.handle = handle
@@ -110,12 +120,20 @@ final class ShellTextInput: NSObject, NSTextFieldDelegate, NSTextViewDelegate {
         }
     }
 
-    func layout(frame: CGRect, clip: CGRect, opacity: CGFloat) {
+    @discardableResult
+    func measure(frame: CGRect, clip: CGRect, opacity: CGFloat) -> CGRect {
         let visible = frame.intersection(clip)
-        view.isHidden = visible.isNull || visible.isEmpty || opacity <= 0
+        onScreen = !visible.isNull && !visible.isEmpty && opacity > 0
+        return visible
+    }
+
+    func layout(frame: CGRect, clip: CGRect, opacity: CGFloat, preservingFocus: Bool = false) {
+        guard !presentsTransiently else { return }
+        let visible = measure(frame: frame, clip: clip, opacity: opacity)
+        view.isHidden = !onScreen
         view.alphaValue = opacity
         guard !view.isHidden else {
-            if surface?.focused == handle { surface?.blurDeclaredFocus() }
+            if !preservingFocus, surface?.focused == handle { surface?.blurDeclaredFocus() }
             return
         }
         view.frame = visible
@@ -132,6 +150,17 @@ final class ShellTextInput: NSObject, NSTextFieldDelegate, NSTextViewDelegate {
         }
     }
 
+    @discardableResult
+    func setPresentsTransiently(_ transient: Bool) -> Bool {
+        guard presentsTransiently != transient else { return false }
+        presentsTransiently = transient
+        if transient {
+            view.isHidden = false
+            view.alphaValue = 0
+        }
+        return true
+    }
+
     func requestFocus() {
         surface?.focusTextInput(self)
     }
@@ -140,19 +169,29 @@ final class ShellTextInput: NSObject, NSTextFieldDelegate, NSTextViewDelegate {
         pendingFocus = false
     }
 
+    func focus(in window: NSWindow) {
+        guard focusState == .idle else {
+            if editing { focusApplied() }
+            return
+        }
+        focusState = .acquiring
+        defer { if focusState == .acquiring { focusState = .idle } }
+        if window.makeFirstResponder(responder) { focusApplied() }
+    }
+
     func beganEditing() {
         guard !editing else { return }
-        editing = true
+        focusState = .editing
         pendingFocus = false
         lastChange = text
-        if surface?.focused != handle || surface?.declaredFocus != true { surface?.focusDeclared(handle) }
+        surface?.recordDeclaredFocus(handle)
         emit(capture.content.inputFocusAction, kind: .textFocus, focused: true)
     }
 
     func endedEditing() {
         guard editing else { return }
         changed()
-        editing = false
+        focusState = .idle
         emit(capture.content.inputFocusAction, kind: .textFocus, focused: false)
         if surface?.focused == handle { surface?.blurDeclaredFocus() }
     }

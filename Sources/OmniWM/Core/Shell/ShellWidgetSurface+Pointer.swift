@@ -16,7 +16,7 @@ struct ShellPointerCapture {
 
 extension ShellWidgetSurface {
     func capture(_ handle: ElementHandle, event: ShellEvent = ShellEvent()) -> ShellPointerCapture {
-        let frame = layout.core.absoluteFrame(of: handle)
+        let frame = presentedFrame(of: handle)
         return ShellPointerCapture(
             handle: handle,
             content: layout.core.content(of: handle),
@@ -30,10 +30,11 @@ extension ShellWidgetSurface {
     func emit(_ action: UInt32, capture: ShellPointerCapture, point: CGPoint, event: ShellEvent) {
         guard action != 0 else { return }
         var event = event
-        let origin = layout.core.contains(capture.handle)
-            ? CGRect(layout.core.absoluteFrame(of: capture.handle)).origin : capture.origin
-        event.x = Double(point.x - origin.x)
-        event.y = Double(point.y - origin.y)
+        let local = layout.core.contains(capture.handle)
+            ? layoutPoint(point, in: capture.handle, presentation: presentation)
+            : CGPoint(x: point.x - capture.origin.x, y: point.y - capture.origin.y)
+        event.x = Double(local.x)
+        event.y = Double(local.y)
         onAction?(ShellClick(
             action: action,
             opensPopout: false,
@@ -99,6 +100,7 @@ extension ShellWidgetSurface {
     func reconcileInput() {
         reconcileResourceDrag()
         reconcileGestureTrack()
+        reconcileManipulation()
         if let captured = pressCapture {
             if !layout.core.contains(captured.handle) || !layout.core.content(of: captured.handle).acceptsPointer
                 || captured.content.pressAction != 0 && layout.core.content(of: captured.handle).pressAction == 0
@@ -158,10 +160,24 @@ extension ShellWidgetSurface {
                 let source = text.string(content.gestureTrack)
                 let existing = gestureTrackRecipes[content.gestureTrack]
                 recipes[content.gestureTrack] = existing?.source == source ? existing
-                    : ShellGestureTrackRecipe(source: source, track: ShellGestureTrack(source))
+                    : ShellGestureTrackRecipe(
+                        source: source,
+                        track: ShellGestureTrack(source),
+                        manipulation: ShellManipulationRecipe(source)
+                    )
             }
         }
         gestureTrackRecipes = recipes
+        manipulationTargets.removeAll(keepingCapacity: true)
+        for source in layout.core.elements(matching: { $0.gestureTrack != 0 }) {
+            let reference = layout.core.content(of: source).gestureTrack
+            if let recipe = recipes[reference]?.manipulation, let target = manipulationTarget(
+                from: source,
+                key: recipe.target
+            ) {
+                manipulationTargets[target] = source
+            }
+        }
         updateResourceDropRegistration(resourceDrops)
     }
 

@@ -9,6 +9,14 @@ import LuauDeclaration from '../../../../components/docs/LuauDeclaration.astro';
 
 Declare native feedback and tracking so a widget can animate without rerendering Luau on each pointer sample. Add callbacks only for the state changes your interaction needs. See [the island guide](/omnishell/guides/dynamic-island/) for expansion and outside dismissal.
 
+## Measuring text
+
+`ctx.format.measure(text, style)` returns width and height in points using the same font and rounding as `ui.text`. The optional style accepts `font`, `size`, `weight`, `maxWidth`, `lines` and `quarter`. Style-local font families work here too. Text wraps only when `lines > 1` and `maxWidth > 0`; a single line keeps its full width. Set `quarter = true` to swap width and height for text rotated by 90 degrees. Measurement runs inside the render budget.
+
+```lua
+local width, height = ctx.format.measure("12", { font = "Space Grotesk", size = 40, weight = "bold" })
+```
+
 ## Native input and intent
 
 Press feedback is native: add `pressScale`, `pressOpacity`, `pressFill` and `pressAnimate` to an element. It starts on mouse-down and restores on release or cancellation, without calling Luau. `pressAnimate` uses the same presets, duration or custom curve as `animate`. A transparent `pressFill = 0` explicitly overrides the base fill. Add `onPress(ctx, event)` only when behavior needs the `down`, `up` and `cancel` boundaries.
@@ -30,6 +38,12 @@ end
 ```
 
 The five new handlers—`onPress`, `onHover`, `onGesture`, `onKey` and `onOutsidePress`—accept callback functions only. Existing `onClick`, `onRightClick` and `onScroll` retain their command-string form. Pointer events expose element-local `x` and `y` in points, with the origin at the top left; press events also include `button` and `clicks`.
+
+#### Zone cursors
+
+Set `cursor = "grab"` on a grip or corner zone to show an open hand, or `cursor = "pointer"` on a button or tab to show a pointing hand. The topmost hit element with a cursor declaration wins. Elements without a cursor do not claim it; leaving the declared zones or the surface restores the arrow. Decorative subtrees, `ui.glass` and `ui.shape` do not accept cursor declarations. On a component, put `cursor` on the view's returned visible root rather than the `ui.component` mount.
+
+The surface changes the native cursor only when the resolved hover cursor changes. Manipulation begin/end integration selects a closed hand during a drag and restores the hovered cursor on release; it does not set the cursor on every pointer sample.
 
 #### Captured gestures
 
@@ -56,7 +70,7 @@ Events use `began`, `ended` and `cancelled`. Set `gestureEvents = "all"` to also
 
 An expanded island can use `focusable = true`, `keys = {"left", "right", "escape"}` and `onKey(ctx, event)`. Declared keys are consumed synchronously by the focused native element; Luau receives `key`, optional `characters`, `event["repeat"]` and the existing modifier flags. Key names are lowercase; declarations normalize ASCII case and remove duplicates. There are at most 64 names, each 1–32 bytes. Standard names include `escape`, `return`, `left`, `right`, `up`, `down`, `space` and `tab`. Undeclared keys retain the existing native fallback. Set `focusRing = false` on a focusable presentation container to hide its native focus outline while keeping keyboard handling and focus ownership. Rings stay enabled by default; a child control that takes focus keeps its own ring.
 
-`onOutsidePress(ctx, event)` works on elements in an island tree. Declare it on the visible capsule or expanded container rather than the fixed panel envelope. The handler receives the mouse button and local coordinates of an outside press; the original click continues to its destination. Native monitoring exists only while a visible island needs outside handling or owns keyboard focus. Escape releases the island’s keyboard focus when declared.
+`onOutsidePress(ctx, event)` works on elements in an island tree. Declare it on the visible capsule or expanded container rather than the fixed panel envelope. The handler receives the mouse button and local coordinates of an outside press; the original click continues to its destination. `event.claimed` is true when another element of the same island that accepts pointer input takes the press. Native monitoring exists only while a visible island needs outside handling or owns keyboard focus. Escape releases the island’s keyboard focus when declared.
 
 ## Root triggers
 
@@ -105,6 +119,65 @@ The editable `lake` profile keeps transition recipes in `lib/lake/motion.luau`. 
 
 `enter` is for popout/drawer opening; `appear`/`exit` are for keyed element insertion/removal. `enter.from/to` are fractions of opening progress. `stretch` adds native squash along a slide; `d` can start a path morph, whose endpoints need compatible commands. See [effects and shader timing](/omnishell/reference/effects-shaders/) for custom curves and masks.
 
+## Follow, scale and reveal
+
+### Follow and proportional scale
+
+Set `manipulationFollow = { response = 0.363, bounce = 0.42 }` on the stable keyed target, next to `manipulationCommit`, rather than on its handle. Response accepts 0.05–2.5 seconds and bounce accepts 0–0.95, defaulting to zero. A widget tree accepts up to 24 follow targets, and each one moves and settles on its own. See [detachable widgets](/omnishell/configuration/islands-components/#detachable-widgets) for the move, resize and scale declarations and placement receipts.
+
+`manipulationFollow`, `reveal` and `morph` are rejected on a `ui.component` mount. Declare them on the component view's returned visible root instead; the mount does not forward these properties.
+
+### Presence anchor and delay
+
+`appear` and `exit` gain `anchor = { x = 1, y = 0.5 }`, the scale pivot in normalized element coordinates. Both components are required when an anchor is supplied, and each accepts 0–1; omission uses the centre `{ x = 0.5, y = 0.5 }`. `delay` accepts 0–2 seconds and defaults to zero. The planned presence behavior holds the transition's starting appearance during the delay; animation speed scales both the delay and the transition.
+
+```lua
+appear = {
+    opacity = 0, scale = 0.05, anchor = { x = 1, y = 0.5 },
+    delay = 0.2, animate = { response = 0.36, bounce = 0 },
+},
+```
+
+### Reveal and element morphs
+
+Declare `reveal = { response = 0.36, bounce = 0.42 }` on a `ui.stack` to provide opening/closing progress to its descendants. It uses the same response and bounce bounds as follow. `reveal` has no delay field. On a descendant ordinary element, including `ui.glass`, `morph` maps that progress through stops:
+
+```lua
+ui.stack {
+    key = "panel", reveal = { response = 0.36, bounce = 0.42 },
+    ui.column {
+        key = "contents",
+        morph = {
+            anchor = { x = 1, y = 0.5 },
+            stops = {
+                { at = 0, scale = 0.05, opacity = 0 },
+                { at = 0.25, scale = 0.4, opacity = 1 },
+                { at = 1, scale = 1, opacity = 1 },
+            },
+        },
+        ui.text { text = "Panel contents" },
+    },
+}
+```
+
+Use 2–16 stops with strictly increasing `at` values in −0.5–1.5, allowing an authored overshoot range. Element and group stops accept `at`, `scale`, `opacity`, `dx` and `dy`; omitted scale and opacity are 1, and offsets default to zero. A morph anchor has the same bounds and centre default as a presence anchor. A morph requires a reveal ancestor and cannot share its element with `appear` or `exit`. [Glass-shape tracks](/omnishell/reference/effects-shaders/#shape-track-wire-contract) use a separate set of stop fields and optional additive stretch.
+
+A native editor without a manipulation owner is alpha-hidden while its reveal group is invisible, keeping its text, selection and first responder. It resumes sampled native layout when the group becomes visible. Editors owned by a manipulation target retain the full motion suppression and text-raster path.
+
+Removing a reveal stack retains its subtree until the qualifying exits complete: the root's own exit and each descendant exit with no exiting element between it and the root. An exiting section therefore owns its rows' departure rather than also running every row exit. Removal outside a reveal root keeps the existing root-only behavior.
+
+A decorative, unmasked `ui.path` can instead declare `morph = { track = "shape-key" }`. The key must name a unique rectangular `ui.shape` with a morph or reveal on the same surface. Author the path at the shape's final geometry. Its path points then follow that shape's sampled position, size, radius and rotation, using a rounded-box cage that preserves the authored path at rest. The native path and shape share one animation clock; no script callback runs per frame. Keep their ancestor transforms static or shared: independently moving wrappers still transform their own children. Track morphs take no stops or other morph fields. Reduce Motion places both directly at the final geometry.
+
+### One-shot pulses
+
+`pulse = { key = "arrival-1", duration = 0.4, rotate = { 0, -12, 0 } }` plays once when its key changes on an ordinary element or whole glass body. The stable key is a string or integer; duration is greater than zero and at most 30 seconds. Supply at least one of `rotate`, `scale`, `dx`, `dy`, each a dense list of 2–256 finite samples in −1,000,000–1,000,000. Samples are evenly spaced over the duration. Every channel must end at zero so the element returns to its model value without a jump. Consecutive rotation samples must differ by less than 180 degrees; subdivide larger turns. The encoded recipe is capped at 16 KiB.
+
+Rotation samples are degrees about the element centre. Scale samples are additive fractional offsets about the same centre (`0` keeps the model scale, `0.1` enlarges it by 10%). Translation samples are point offsets in the parent coordinate space. Pulses compose with the element's model scale and rotation. Re-rendering with the same key does not restart it; changing the key replaces the previous pulse. Removing the element or pulse cancels playback, including on a retained exit layer. Reduce Motion consumes the key without playback; a later key change can play when animations are enabled. Glass shapes reject `pulse`; use their shape morph and impulse contract instead.
+
+`shadowOffset = { x = 0, y = 7 }` is now accepted on every element. Both components are required and bounded to −256–256 points. It sets the native layer shadow offset on ordinary elements, including text, and the glass recipe's offset on native glass. `gesture.track.outline = false` or a `Color` is accepted only with move, resize or scale mode. It replaces the translucent white outline drawn around a resize preview: `false` draws none, and a `Color` draws that color.
+
+<LuauDeclaration name="Pulse" />
+
 <LuauDeclaration name="Motion" />
 
 <LuauDeclaration name="Curve" />
@@ -112,6 +185,16 @@ The editable `lake` profile keeps transition recipes in `lib/lake/motion.luau`. 
 <LuauDeclaration name="Animate" />
 
 <LuauDeclaration name="Presence" />
+
+`reveal = { response, bounce, delay, hold }` plans an opening spring after `delay` seconds and a closing spring after `hold` seconds. Both waits default to zero and accept 0–2 seconds. The presented frame and input visibility share that plan. A group whose morph has zero opacity through progress 0.02 has no interactive content during that part of the plan. A keyed group reopened during its retained close continues from that close state immediately, without restarting the entry delay. Reduce Motion presents the final layout immediately. `Spring` is the response/bounce pair used by impulses and edge springs; those contracts do not take reveal timing fields.
+
+<LuauDeclaration name="Spring" />
+
+<LuauDeclaration name="Reveal" />
+
+<LuauDeclaration name="MorphStop" />
+
+<LuauDeclaration name="Morph" />
 
 <LuauDeclaration name="Enter" />
 

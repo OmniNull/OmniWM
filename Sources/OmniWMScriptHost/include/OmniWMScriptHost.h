@@ -57,16 +57,22 @@ typedef enum omni_status {
 #define OMNI_NODE_OPTION_TRAIL 0x20u
 #define OMNI_NODE_OPTION_AUDIO 0x40u
 #define OMNI_NODE_OPTION_NO_FOCUS_RING 0x80u
+#define OMNI_NODE_BEHAVIOR_DECORATIVE 0x1u
+#define OMNI_NODE_BEHAVIOR_GLASS_HIT_DISABLED 0x20u
+#define OMNI_NODE_BEHAVIOR_GLASS_GRADIENT 0x40u
+#define OMNI_NODE_BEHAVIOR_GLASS_FIXED_RADIUS 0x80u
 #define OMNI_NODE_ALIGN_SHIFT 4u
 #define OMNI_NODE_ALIGN_MASK 0xF0u
 #define OMNI_ACTION_HISTORY 4u
-#define OMNI_STYLE_BASE_MASK 0xFu
-#define OMNI_STYLE_WEIGHT_SHIFT 4u
-#define OMNI_STYLE_WEIGHT_MASK 0xF0u
-#define OMNI_STYLE_FONT_SHIFT 8u
-#define OMNI_STYLE_FONT_MASK 0xF00u
-#define OMNI_STYLE_FILLED 0x1000u
-#define OMNI_STYLE_QUARTER 0x2000u
+#define OMNI_STYLE_BASE_MASK 0x7u
+#define OMNI_STYLE_WEIGHT_SHIFT 3u
+#define OMNI_STYLE_WEIGHT_MASK 0x78u
+#define OMNI_STYLE_FILLED 0x80u
+#define OMNI_STYLE_QUARTER 0x100u
+#define OMNI_STYLE_FONT_SHIFT 9u
+#define OMNI_STYLE_FONT_MASK 0xFE00u
+#define OMNI_STYLE_FONT_CUSTOM 4u
+#define OMNI_FONT_NAME_LIMIT 255u
 #define OMNI_STYLE_SIZE_SHIFT 16u
 
 typedef enum omni_value_tag {
@@ -221,6 +227,20 @@ typedef struct omni_wire_node {
     uint32_t resource_drag_action;
     float blur_radius;
     float saturation;
+    uint32_t manipulation_commit;
+    uint32_t effect_ref;
+    uint32_t behavior_flags;
+    uint32_t manipulation_follow;
+    uint32_t reveal;
+    uint32_t morph;
+    uint64_t shape_follow;
+    uint32_t pulse;
+    uint32_t gradient_from;
+    uint32_t gradient_to;
+    uint16_t gradient_from_role;
+    uint16_t gradient_to_role;
+    float shadow_offset_x;
+    float shadow_offset_y;
 } omni_wire_node;
 
 #define OMNI_RESOURCE_ACCEPT_FILE 0x1u
@@ -257,6 +277,8 @@ typedef size_t (*omni_localizer)(void *context, const char *key, size_t key_leng
 
 typedef size_t (*omni_formatter)(void *context, uint8_t kind, double value, int32_t digits, const char *pattern, size_t pattern_length, const char *zone, size_t zone_length, char *out, size_t capacity);
 
+typedef void (*omni_measurer)(void *context, const char *text, size_t length, uint32_t style, float max_width, uint8_t lines, float *width, float *height);
+
 typedef struct omni_wire_string {
     uint32_t id;
     uint32_t length;
@@ -276,6 +298,14 @@ omni_status omni_vm_load(omni_vm *vm, const char *chunk_name, const char *source
 void omni_vm_collect(omni_vm *vm) OMNI_NOEXCEPT;
 void omni_vm_set_localizer(omni_vm *vm, omni_localizer localizer, void *context) OMNI_NOEXCEPT;
 void omni_vm_set_formatter(omni_vm *vm, omni_formatter formatter, void *context) OMNI_NOEXCEPT;
+void omni_vm_set_measurer(omni_vm *vm, omni_measurer measurer, void *context) OMNI_NOEXCEPT;
+typedef struct omni_font_family {
+    const char *name;
+    size_t length;
+    uint8_t id;
+} omni_font_family;
+
+omni_status omni_vm_set_fonts(omni_vm *vm, const omni_font_family *families, size_t count) OMNI_NOEXCEPT;
 omni_status omni_vm_global_number(omni_vm *vm, const char *name, double *out) OMNI_NOEXCEPT;
 omni_status omni_vm_global_boolean(omni_vm *vm, const char *name, bool *out) OMNI_NOEXCEPT;
 omni_status omni_vm_global_function(omni_vm *vm, const char *name) OMNI_NOEXCEPT;

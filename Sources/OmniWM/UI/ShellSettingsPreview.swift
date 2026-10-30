@@ -5,6 +5,15 @@ import AppKit
 import SwiftUI
 
 enum ShellSettingsPreview {
+    private static var sampleMonitor: Monitor {
+        Monitor(
+            id: .init(displayId: 0), displayId: 0,
+            frame: CGRect(x: 0, y: 0, width: 1440, height: 900),
+            visibleFrame: CGRect(x: 0, y: 0, width: 1440, height: 876),
+            hasNotch: false, name: "Sample display"
+        )
+    }
+
     enum Surface: Equatable, Sendable {
         case bar
         case island(expanded: Bool)
@@ -34,14 +43,7 @@ enum ShellSettingsPreview {
     @MainActor
     static func style(settings: WorkspaceBarSettings, config: ShellConfig, monitor: Monitor? = nil) -> ShellBarStyle {
         let isolated = settings.isolated(profileOverride: config.barOverride)
-        let previewMonitor = monitor ?? Monitor(
-            id: .init(displayId: 0),
-            displayId: 0,
-            frame: CGRect(x: 0, y: 0, width: 1440, height: 900),
-            visibleFrame: CGRect(x: 0, y: 0, width: 1440, height: 876),
-            hasNotch: false,
-            name: "Sample display"
-        )
+        let previewMonitor = monitor ?? sampleMonitor
         let resolved = isolated.resolved(for: previewMonitor)
         let height = monitor.map {
             WorkspaceBarGeometry.resolve(monitor: $0, resolved: resolved, isVisible: true).barHeight
@@ -69,22 +71,44 @@ enum ShellSettingsPreview {
     }
 
     @MainActor
+    static func islandData(for request: Request, config: ShellIslandConfig) -> ShellIslandData {
+        let monitor = request.display?.monitor ?? sampleMonitor
+        let resolved = request.display?.resolved
+            ?? WorkspaceBarSettings().isolated(profileOverride: request.config.barOverride).resolved(for: monitor)
+        let reserved = WorkspaceBarGeometry.resolve(monitor: monitor, resolved: resolved, isVisible: resolved.enabled)
+            .reservedInsets
+        return ShellIslandData(
+            monitor: monitor, geometry: ShellIslandGeometry(monitor: monitor, size: config.size(on: monitor)),
+            visible: true, fullscreen: false, reservedInsets: reserved
+        )
+    }
+
+    @MainActor
     static func render(_ request: Request) async throws -> CGImage {
         let config = request.config
         let names: [String]
         let islandSize: CGSize?
+        let islandData: ShellIslandData?
         let expanded: Bool?
         switch request.surface {
         case .bar:
             names = config.leading + config.center + config.trailing
             islandSize = nil
+            islandData = nil
             expanded = nil
         case let .island(value):
             guard let island = config.island else {
                 throw ShellScriptFailure(kind: .runtime, message: "This style does not include an island.")
             }
             names = [island.root]
-            islandSize = island.size
+            if island.sizing == .display {
+                let data = self.islandData(for: request, config: island)
+                islandData = data
+                islandSize = data.size
+            } else {
+                islandData = nil
+                islandSize = island.size
+            }
             expanded = value
         case let .drawer(id):
             return try await drawerImage(id, request: request)
@@ -99,7 +123,8 @@ enum ShellSettingsPreview {
         }
         let trees = try await ShellSettingsPreviewRenderer.shared.render(
             inputs: inputs, values: ShellSettingsPreviewSamples.values(
-                style: request.style, islandSize: islandSize, dark: request.dark, scale: request.scale
+                style: request.style, islandSize: islandSize, dark: request.dark, scale: request.scale,
+                surface: islandData
             ), settings: config.widgetSettings, expanded: expanded
         )
         let images = try await ShellSettingsPreviewRaster.render(

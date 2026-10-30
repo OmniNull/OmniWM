@@ -83,6 +83,8 @@ extension ShellDataFeed {
             sampleSystem()
         }
         updateAudio()
+        listenToAwake(started && !paused && demands(.awake))
+        listenToMicrophone(started && !paused && demands(.microphone))
         listAudioApps(!paused && demands(.audioApps))
         listenToMedia(!paused && (demands(.media) || demands(.lyrics)))
         showLyrics(!paused && demands(.lyrics))

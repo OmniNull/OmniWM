@@ -6,16 +6,26 @@ import QuartzCore
 extension ShellLayerScene {
     func applyFrame(_ slot: Int32, _ rect: CGRect, preset: ShellAnimation?, animated: Bool) {
         guard let layer = layers[slot] else { return }
-        exitAnimations[slot] = preset
+        let shape = glassShapes[slot] != nil
+        if !shape { exitAnimations[slot] = preset }
         let entering = framed.insert(slot).inserted
         let animation = animated ? preset : nil
         let bounds = CGRect(
             origin: scrollOrigins[slot] ?? .zero,
             size: quarters.contains(slot) ? CGSize(width: rect.height, height: rect.width) : rect.size
         )
-        if !entering { animateFrame(of: layer, to: rect, bounds: bounds, animation: animation) }
+        if !entering {
+            if shape || (glassBodies[slot] != nil && animation == nil) {
+                removeScalarFrameAnimations(from: layer)
+                layer.removeAnimation(forKey: "position")
+                layer.removeAnimation(forKey: "bounds")
+            } else {
+                animateFrame(of: layer, to: rect, bounds: bounds, animation: animation)
+            }
+        }
         layer.position = rect.origin
         layer.bounds = bounds
+        updateGlassFrame(slot, rect: rect, animation: animation, entering: entering)
         updateGestureCenter(slot)
         applyLoop(slot, loops[slot]?.loop, to: layer)
         layoutProgress(slot, animation: entering ? nil : animation)
@@ -25,7 +35,7 @@ extension ShellLayerScene {
         if paths[slot] != nil { layoutPath(slot, animation: entering ? nil : animation) }
         if let mask = masks[slot] { Self.align(mask.layer, with: layer) }
         if enters[slot] != nil { applyEnter(slot, to: layer) }
-        if entering { applyAppearance(slot, to: layer, preset: preset, animated: animated) }
+        if entering, !shape { applyAppearance(slot, to: layer, preset: preset, animated: animated) }
     }
 
     private func animateFrame(of layer: CALayer, to rect: CGRect, bounds: CGRect, animation: ShellAnimation?) {

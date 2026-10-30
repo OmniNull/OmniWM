@@ -5,6 +5,7 @@ import AppKit
 import CoreText
 import OmniWMScriptHost
 import OmniWMShellCore
+import Synchronization
 
 enum ShellTextStyle {
     private static let weights: [NSFont.Weight] = [
@@ -20,9 +21,16 @@ enum ShellTextStyle {
         default: .regular
         }
         let size = self.size(of: style).map { CGFloat($0) } ?? defaultSize
+        let index = weightIndex(of: style) ?? weights.firstIndex(of: defaultWeight) ?? 3
+        let filled = style & OMNI_STYLE_FILLED != 0
         if let family = ShellFontFamily(style: style) {
-            let index = weightIndex(of: style) ?? weights.firstIndex(of: defaultWeight) ?? 3
-            return family.font(size: size, weight: CGFloat(index + 1) * 100, filled: style & OMNI_STYLE_FILLED != 0)
+            return family.font(size: size, weight: CGFloat(index + 1) * 100, filled: filled)
+        }
+        if let family = ShellFontLibrary.shared.family(of: style) {
+            var axes = [tag("wght"): CGFloat(index + 1) * 100, tag("opsz"): size]
+            if filled { axes[tag("FILL")] = 1 }
+            let custom = font(family: family, size: size, axes: axes, weight: weights[index])
+            if CTFontCopyFamilyName(custom) as String == family { return custom }
         }
         let weight = self.weight(of: style) ?? defaultWeight
         let font: NSFont = switch base {
@@ -32,6 +40,20 @@ enum ShellTextStyle {
         default: .systemFont(ofSize: size, weight: weight)
         }
         return font as CTFont
+    }
+
+    static func font(family: String, size: CGFloat, axes: [UInt32: CGFloat], weight: NSFont.Weight? = nil) -> CTFont {
+        var attributes: [CFString: Any] = [kCTFontFamilyNameAttribute: family, kCTFontVariationAttribute: axes]
+        if let weight { attributes[kCTFontTraitsAttribute] = [kCTFontWeightTrait: weight.rawValue] }
+        return CTFontCreateWithFontDescriptor(
+            CTFontDescriptorCreateWithAttributes(attributes as CFDictionary),
+            size,
+            nil
+        )
+    }
+
+    static func tag(_ text: String) -> UInt32 {
+        text.utf8.reduce(0) { $0 << 8 | UInt32($1) }
     }
 
     private static func rounded(_ font: NSFont) -> NSFont {
@@ -73,6 +95,26 @@ enum ShellTextStyle {
         return CGSize(width: width.rounded(.up), height: height.rounded(.up))
     }
 
+    static func measure(_ string: String, font: CTFont, style: UInt32, width: Float = 0, lines: UInt8 = 1) -> Size2 {
+        let text = NSAttributedString(
+            string: string,
+            attributes: [NSAttributedString.Key(kCTFontAttributeName as String): font]
+        )
+        let size: Size2
+        if lines > 1, width > 0 {
+            let laid = wrappedLines(text, width: CGFloat(width), limit: Int(lines))
+            let measured = wrappedSize(of: laid, font: font)
+            size = Size2(width: Float(measured.width), height: Float(measured.height))
+        } else {
+            let line = CTLineCreateWithAttributedString(text)
+            var ascent: CGFloat = 0
+            var descent: CGFloat = 0
+            let measured = CTLineGetTypographicBounds(line, &ascent, &descent, nil)
+            size = Size2(width: Float(measured.rounded(.up)), height: Float((ascent + descent).rounded(.up)))
+        }
+        return style & OMNI_STYLE_QUARTER == 0 ? size : Size2(width: size.height, height: size.width)
+    }
+
     static func symbolSize(for style: UInt32) -> Float {
         size(of: style) ?? ShellWireDecoder.symbolSize
     }
@@ -96,10 +138,34 @@ enum ShellTextStyle {
     }
 }
 
-enum ShellFontFamily: UInt32 {
+enum ShellTextMeasurer {
+    private static let fonts = Mutex<[UInt32: CTFont]>([:])
+
+    static let callback: omni_measurer = { _, text, length, style, maxWidth, lines, width, height in
+        guard let text, let width, let height else { return }
+        let string = String(decoding: UnsafeRawBufferPointer(start: text, count: length), as: UTF8.self)
+        let measured = measure(string, style: style, width: maxWidth, lines: lines)
+        width.pointee = measured.width
+        height.pointee = measured.height
+    }
+
+    static func measure(_ string: String, style: UInt32, width: Float = 0, lines: UInt8 = 1) -> Size2 {
+        fonts.withLock { cache in
+            if cache[style] == nil {
+                if cache.count >= 256 { cache.removeAll(keepingCapacity: true) }
+                cache[style] = ShellTextStyle.font(for: style)
+            }
+            return ShellTextStyle.measure(string, font: cache[style]!, style: style, width: width, lines: lines)
+        }
+    }
+}
+
+enum ShellFontFamily: UInt32, CaseIterable {
     case sans = 1
     case rubik
     case symbols
+
+    static let bundledFamilies = Set(allCases.map(\.familyName))
 
     private static let registered: Void = {
         for url in Bundle.module.urls(forResourcesWithExtension: nil, subdirectory: "Fonts") ?? [] {
@@ -116,17 +182,13 @@ enum ShellFontFamily: UInt32 {
 
     func font(size: CGFloat, weight: CGFloat, filled: Bool) -> CTFont {
         _ = Self.registered
-        var axes = [Self.tag("wght"): weight, Self.tag("opsz"): size]
+        var axes = [ShellTextStyle.tag("wght"): weight, ShellTextStyle.tag("opsz"): size]
         switch self {
-        case .sans: axes[Self.tag("ROND")] = 25
+        case .sans: axes[ShellTextStyle.tag("ROND")] = 25
         case .rubik: break
-        case .symbols: axes[Self.tag("FILL")] = filled ? 1 : 0
+        case .symbols: axes[ShellTextStyle.tag("FILL")] = filled ? 1 : 0
         }
-        let descriptor = CTFontDescriptorCreateWithAttributes([
-            kCTFontFamilyNameAttribute: familyName,
-            kCTFontVariationAttribute: axes
-        ] as CFDictionary)
-        return CTFontCreateWithFontDescriptor(descriptor, size, nil)
+        return ShellTextStyle.font(family: familyName, size: size, axes: axes)
     }
 
     private var familyName: String {
@@ -135,10 +197,6 @@ enum ShellFontFamily: UInt32 {
         case .rubik: "Rubik"
         case .symbols: "Material Symbols Rounded"
         }
-    }
-
-    private static func tag(_ text: String) -> UInt32 {
-        text.utf8.reduce(0) { $0 << 8 | UInt32($1) }
     }
 }
 
@@ -200,23 +258,15 @@ final class ShellTextStore {
         }
     }
 
-    func measureMiss(_ id: UInt32, style: UInt32) -> Size2 {
-        let font = fonts[style] ?? ShellTextStyle.font(for: style)
+    func font(_ style: UInt32) -> CTFont {
+        if let font = fonts[style] { return font }
+        let font = ShellTextStyle.font(for: style)
         fonts[style] = font
-        let line = CTLineCreateWithAttributedString(
-            NSAttributedString(
-                string: string(id),
-                attributes: [NSAttributedString.Key(kCTFontAttributeName as String): font]
-            )
-        )
-        var ascent: CGFloat = 0
-        var descent: CGFloat = 0
-        var leading: CGFloat = 0
-        let width = CTLineGetTypographicBounds(line, &ascent, &descent, &leading)
-        let size = Self.turned(
-            Size2(width: Float(width.rounded(.up)), height: Float((ascent + descent).rounded(.up))),
-            style: style
-        )
+        return font
+    }
+
+    func measureMiss(_ id: UInt32, style: UInt32) -> Size2 {
+        let size = ShellTextStyle.measure(string(id), font: font(style), style: style)
         insert(key: Self.key(id, style), size: size)
         return size
     }
@@ -226,21 +276,9 @@ final class ShellTextStore {
         if let size = wrapped[key] {
             return size
         }
-        let font = fonts[style] ?? ShellTextStyle.font(for: style)
-        fonts[style] = font
-        let text = NSAttributedString(
-            string: string(id),
-            attributes: [NSAttributedString.Key(kCTFontAttributeName as String): font]
-        )
-        let laid = ShellTextStyle.wrappedLines(text, width: CGFloat(width), limit: Int(lines))
-        let measured = ShellTextStyle.wrappedSize(of: laid, font: font)
-        let size = Self.turned(Size2(width: Float(measured.width), height: Float(measured.height)), style: style)
+        let size = ShellTextStyle.measure(string(id), font: font(style), style: style, width: width, lines: lines)
         wrapped[key] = size
         return size
-    }
-
-    private static func turned(_ size: Size2, style: UInt32) -> Size2 {
-        style & OMNI_STYLE_QUARTER == 0 ? size : Size2(width: size.height, height: size.width)
     }
 
     static func key(_ id: UInt32, _ style: UInt32) -> UInt64 {

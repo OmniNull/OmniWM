@@ -240,7 +240,7 @@ final class ShellResourceVMTests: XCTestCase {
         let fixture = try Fixture()
         fixture.update()
         let targets = try fixture.nodes().filter { $0.resource_accepts != 0 }
-        XCTAssertEqual(MemoryLayout<omni_wire_node>.stride, 392)
+        XCTAssertEqual(MemoryLayout<omni_wire_node>.stride, 448)
         XCTAssertEqual(targets.count, 2)
         XCTAssertEqual(Set(targets.map(\.resource_drop_action)).count, 2)
         for target in targets {

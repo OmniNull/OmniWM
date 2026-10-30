@@ -115,6 +115,15 @@ extension ShellDesktopEditorTests {
         XCTAssertEqual(fixture.editor.island?.root, "lake")
         XCTAssertTrue(fixture.editor.islandEntries.contains { $0.widget == "world-clock" && $0.descriptor != nil })
         XCTAssertEqual(fixture.editor.islandEntries, fixture.editor.snapshot?.island?.entries)
+        let vitreus = await fixture.editor.selectStyle("vitreus")
+        XCTAssertTrue(vitreus)
+        await fixture.editor.reload()
+        XCTAssertEqual(fixture.editor.islandKind, .composed)
+        XCTAssertEqual(fixture.editor.island?.root, "vitreus")
+        XCTAssertEqual(fixture.editor.islandRootOptions["layout"]?.defaultValue, .string("island"))
+        for widget in ["desk-focus", "desk-pad"] {
+            XCTAssertTrue(fixture.editor.islandEntries.contains { $0.widget == widget && $0.descriptor != nil }, widget)
+        }
         XCTAssertTrue(fixture.configuration.catalog?.entries.isEmpty == true)
         XCTAssertEqual(fixture.configuration.config.profile, "default")
     }

@@ -108,6 +108,94 @@ final class ShellSpringDynamicsTests: XCTestCase {
         }
     }
 
+    func testPositionClosedFormsCoverEveryDampingRegime() {
+        for time in [0.0, 0.1, 0.5, 1.0, 2.0] {
+            let undamped = ShellSpringDynamics.position(
+                at: time, displacement: -3, initialVelocity: 4, spring: .init(mass: 2, stiffness: 8, damping: 0)
+            )
+            XCTAssertEqual(undamped, -3 * cos(2 * time) + 2 * sin(2 * time), accuracy: 1e-12)
+            let critical = ShellSpringDynamics.position(
+                at: time, displacement: -3, initialVelocity: 4, spring: .init(mass: 2, stiffness: 8, damping: 8)
+            )
+            XCTAssertEqual(critical, exp(-2 * time) * (-3 - 2 * time), accuracy: 1e-12)
+            let overdamped = ShellSpringDynamics.position(
+                at: time, displacement: -3, initialVelocity: 4, spring: .init(mass: 2, stiffness: 12, damping: 10)
+            )
+            XCTAssertEqual(overdamped, -5 * exp(-2 * time) + 2 * exp(-3 * time), accuracy: 1e-12)
+        }
+    }
+
+    func testPositionMatchesPleamarSemiImplicitEulerForDeskDripAndFollowSprings() {
+        let step = 0.0005
+        for (stiffness, damping) in [(300.0, 20.0), (170.0, 18.0), (304.6, 34.9)] {
+            let spring = ShellSpringDynamics.Parameters(mass: 1, stiffness: stiffness, damping: damping)
+            var value = 0.0
+            var speed = 0.0
+            var worst = 0.0
+            for index in 1 ... 3000 {
+                speed += (-stiffness * (value - 1) - damping * speed) * step
+                value += speed * step
+                let exact = 1 + ShellSpringDynamics.position(
+                    at: Double(index) * step, displacement: -1, initialVelocity: 0, spring: spring
+                )
+                worst = max(worst, abs(exact - value))
+            }
+            XCTAssertLessThan(worst, 0.005, "\(stiffness):\(damping)")
+        }
+    }
+
+    func testDripStepPeaksAtVitreusOvershoot() {
+        let spring = ShellSpringDynamics.Parameters(mass: 1, stiffness: 170, damping: 18)
+        var peak = (time: 0.0, value: 0.0)
+        for index in 0 ... 6000 {
+            let time = Double(index) * 0.0001
+            let value = 1 + ShellSpringDynamics.position(at: time, displacement: -1, initialVelocity: 0, spring: spring)
+            if value > peak.value { peak = (time, value) }
+        }
+        XCTAssertEqual(peak.value, 1.04993, accuracy: 0.0002)
+        XCTAssertEqual(peak.time, 0.3330, accuracy: 0.0005)
+    }
+
+    func testPositionDerivativeMatchesVelocityInEveryDampingRegime() {
+        let delta = 1e-6
+        for (stiffness, damping) in [(300.0, 20.0), (304.6, 34.9), (100.0, 20.0), (100.0, 50.0)] {
+            let spring = ShellSpringDynamics.Parameters(mass: 1, stiffness: stiffness, damping: damping)
+            for time in [0.01, 0.05, 0.12, 0.3, 0.7] {
+                let ahead = ShellSpringDynamics.position(
+                    at: time + delta, displacement: -1, initialVelocity: 3, spring: spring
+                )
+                let behind = ShellSpringDynamics.position(
+                    at: time - delta, displacement: -1, initialVelocity: 3, spring: spring
+                )
+                let velocity = ShellSpringDynamics.velocity(
+                    at: time, displacement: -1, initialVelocity: 3, spring: spring
+                )
+                XCTAssertEqual((ahead - behind) / (2 * delta), velocity, accuracy: 1e-6, "\(stiffness):\(damping)")
+            }
+        }
+    }
+
+    func testNativeSpringMappingMatchesVitreusParameters() throws {
+        func native(_ response: Double, _ bounce: Double) throws -> ShellSpringDynamics.Parameters {
+            try XCTUnwrap(ShellSpringDynamics.Parameters(
+                ShellAnimation(motion: .spring(response: response, bounce: bounce), speed: 1)
+            ))
+        }
+        let desk = try native(0.363, 0.42)
+        XCTAssertEqual(desk.mass, 1, accuracy: 1e-12)
+        XCTAssertEqual(desk.stiffness, 300, accuracy: 1.5)
+        XCTAssertEqual(desk.damping, 20, accuracy: 0.2)
+        let drip = try native(0.482, 0.31)
+        XCTAssertEqual(drip.mass, 1, accuracy: 1e-12)
+        XCTAssertEqual(drip.stiffness, 170, accuracy: 1.5)
+        XCTAssertEqual(drip.damping, 18, accuracy: 0.2)
+        let follow = try native(0.360, 0)
+        XCTAssertEqual(follow.mass, 1, accuracy: 1e-12)
+        XCTAssertEqual(follow.stiffness, 305, accuracy: 3)
+        XCTAssertEqual(follow.damping, 34.9, accuracy: 0.4)
+        XCTAssertNil(ShellSpringDynamics.Parameters(ShellAnimation(motion: .ease, speed: 1)))
+    }
+
     private func integrate(
         duration: Double,
         displacement: Double,

@@ -657,7 +657,7 @@ final class ShellBundledWidgetTests: XCTestCase {
 
     func testHiddenBarStripLeavesItsSurfaceToTheNativeDrawer() throws {
         let data = try fullData { $0.style.height = 32 }
-        for style in ["default", "celestial", "lake", "matrix", "nocturne", "sakura", "wayline"] {
+        for style in ["default", "celestial", "lake", "matrix", "nocturne", "sakura", "vitreus", "wayline"] {
             try renderStyle(style, widget: "hidden-bar", data: data, inspect: { view, nodes, _ in
                 guard view == OMNI_VIEW_POPOUT else { return }
                 let root = try XCTUnwrap(nodes.first, style)

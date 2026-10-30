@@ -180,6 +180,6 @@ final class ShellWidgetSettingsModelTests: XCTestCase {
                 checked += 1
             }
         }
-        XCTAssertEqual(checked, 16)
+        XCTAssertEqual(checked, 17)
     }
 }

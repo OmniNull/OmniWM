@@ -8,7 +8,7 @@ local function expanded(ctx)
     return ui.column{ gap = 10, align = "top", dy = (ctx.view.props or {}).top or 0,
         ui.text{ text = "Quick note", size = 17, color = view.foreground },
         ui.input{ key = ctx.state.reset and "note-b" or "note-a", w = math.max(120, (ctx.view.w or 400) - 40), h = 110,
-            text = instance.state.text or "", placeholder = "Write a note…", multiline = true,
+            text = text, placeholder = "Write a note…", multiline = true,
             maxLength = 16384, size = 13, color = view.foreground,
             onChange = function(next, event) next.state.draft = event.text end,
             onCommit = function(next, event) note.save(next.instance, event.text); next.state.draft = nil end,

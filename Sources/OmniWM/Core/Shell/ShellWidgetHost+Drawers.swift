@@ -61,7 +61,20 @@ extension ShellWidgetHost {
         return true
     }
 
+    var islandDragging: Bool {
+        islandWindows.values.contains { $0.surface.manipulation != nil }
+    }
+
     var openDrawer: ShellEdgeHover.Open? {
+        if let open = islandDrawer, let spec = config.drawers.first(where: { $0.id == open.id }) {
+            let island = islandWindows[open.monitor]
+            let regions = island.map { $0.panel.isVisible ? $0.regions : [] } ?? []
+            return ShellEdgeHover.Open(
+                drawer: spec,
+                region: nil,
+                islandRegions: regions.map { $0.insetBy(dx: -ShellEdgeDrawer.slop, dy: -ShellEdgeDrawer.slop) }
+            )
+        }
         guard let drawer, let spec = config.drawers.first(where: { $0.id == drawer.id }) else { return nil }
         return ShellEdgeHover.Open(drawer: spec, region: drawer.holdRegion)
     }
@@ -72,12 +85,13 @@ extension ShellWidgetHost {
 
     func toggleDrawer(_ id: String, on monitor: Monitor.ID) -> Bool {
         guard let spec = config.drawers.first(where: { $0.id == id }) else { return false }
-        if drawer?.id == id {
+        if drawer?.id == id || islandDrawer?.id == id {
             closeDrawer()
             return true
         }
         closePopout()
         closeDrawer()
+        if spec.island { return openIslandDrawer(id, on: monitor) }
         let members = spec.widgets.compactMap { name -> (state: WidgetState, key: ShellBarKey)? in
             guard let state = widgets[name], state.package != nil else { return nil }
             let key = state.instances.keys.first { $0.monitor == monitor && bars[$0] != nil } ?? ShellBarKey(
@@ -140,7 +154,25 @@ extension ShellWidgetHost {
         }
     }
 
+    private func openIslandDrawer(_ id: String, on monitor: Monitor.ID) -> Bool {
+        guard islandData[ShellBarKey(monitor: monitor, placement: .island)] != nil else { return false }
+        islandDrawer = (id, monitor)
+        placeIslandRoot()
+        onPopoutChange()
+        return true
+    }
+
+    private func placeIslandRoot() {
+        guard refreshIslandData(), let root = config.island?.root, let state = widgets[root] else { return }
+        place(state)
+    }
+
     func closeDrawer(animated: Bool = true) {
+        if islandDrawer != nil {
+            islandDrawer = nil
+            placeIslandRoot()
+            onPopoutChange()
+        }
         guard let drawer else { return }
         for section in drawer.sections { releaseShellFocus(from: section.surface, restore: true) }
         self.drawer = nil

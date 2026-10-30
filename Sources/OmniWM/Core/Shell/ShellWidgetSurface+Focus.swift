@@ -10,10 +10,14 @@ import QuartzCore
 extension ShellWidgetSurface {
     func focusPath() -> [ElementHandle] {
         guard focusAxis != nil || declaredFocus, layout.core.contains(focused) else { return [] }
-        let frame = layout.core.absoluteFrame(of: focused)
-        return layout.core.hitPath(x: frame.x + frame.width / 2, y: frame.y + frame.height / 2) { $0.hasHoverEffect }
+        let frame = presentedFrame(of: focused)
+        return layout.core.hitPath(
+            x: frame.x + frame.width / 2,
+            y: frame.y + frame.height / 2,
+            presentation: presentation
+        ) { $0.hasHoverEffect }
             .filter {
-                let inner = layout.core.absoluteFrame(of: $0)
+                let inner = presentedFrame(of: $0)
                 return inner.x >= frame.x && inner.y >= frame.y
                     && inner.x + inner.width <= frame.x + frame.width && inner.y + inner.height <= frame.y + frame
                     .height
@@ -31,7 +35,7 @@ extension ShellWidgetSurface {
         let vertical = focusAxis == .vertical
         var entries: [FocusEntry] = []
         for handle in layout.core.elements(matching: Self.isAction) where layout.core.kind(of: handle) != .slider {
-            entries.append((handle, layout.core.absoluteFrame(of: handle)))
+            entries.append((handle, presentedFrame(of: handle)))
         }
         entries.sort(by: vertical ? Self.columnsFirst : Self.rowsFirst)
         var items: [ElementHandle] = []
@@ -101,6 +105,7 @@ extension ShellWidgetSurface {
         var commands: [ShellLayerCommand] = []
         updateHover(into: &commands, reapply: false)
         scene.submit(commands, animated: animates && motionPolicy.animationsEnabled)
+        refreshOwnedInputs()
     }
 
     private func activateFocus() {
@@ -156,14 +161,24 @@ extension ShellWidgetSurface {
 
 extension ShellWidgetSurface {
     func focusDeclared(_ handle: ElementHandle) {
+        recordDeclaredFocus(handle)
+        guard declaredFocus, focused == handle else { return }
+        if let input = textInputs[handle] {
+            focusTextInput(input)
+        } else {
+            view.window?.makeFirstResponder(preferredFirstResponder)
+        }
+    }
+
+    func recordDeclaredFocus(_ handle: ElementHandle) {
         guard layout.core.contains(handle), layout.core.content(of: handle).focusable else { return }
+        guard focused != handle || !declaredFocus else { return }
         focused = handle
         let changed = !declaredFocus
         declaredFocus = true
         updateDeclaredKeys()
         refreshFocus()
         if changed { onFocusChange?(true) }
-        view.window?.makeFirstResponder(preferredFirstResponder)
     }
 
     func blurDeclaredFocus() {

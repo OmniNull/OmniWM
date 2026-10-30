@@ -1,6 +1,6 @@
 ---
 title: Effects and shaders
-description: Editable motion presets, Metal shaders, texture effects, shaped materials, masks, and explicit opening timing.
+description: Editable motion presets, Metal shaders, native glass bodies, shaped materials, masks, and explicit opening timing.
 sidebar:
   order: 9
 ---
@@ -68,6 +68,127 @@ The element shader `fps` property is bounded to 0–120; profile-wide `[barShade
 <LuauDeclaration name="ui.shader" />
 
 <LuauDeclaration name="ShaderProps" />
+
+## Native glass bodies
+
+`ui.glass` draws one native glass body from a union of `ui.shape` elements. It applies backdrop blur, tint, directional rim light and an outside shadow to that body. Use an ordinary stack to place text and controls above it:
+
+```lua
+function popout(ctx)
+    return ui.stack{ w = 360, h = 220, material = "clear",
+        ui.glass{ key = "body", blend = 26,
+            ui.shape{ key = "card", w = 280, h = 180, dx = -20, radius = 24 },
+            ui.shape{ key = "orb", shape = "ellipse", w = 64, h = 64, dx = 110 },
+        },
+        ui.column{ pad = 24,
+            ui.text{ text = "One joined glass body", size = 18 },
+        },
+    }
+end
+```
+
+A body accepts only direct `ui.shape` children, with at most 64 shapes. Shapes cannot have children, ordinary paint or input handlers of their own. Shapes can also animate on their own and follow tracks, as described below. Both constructors are always decorative; `decorative` is not a configurable property. Put interactive content in sibling elements or an enclosing ordinary container. A body cannot sit inside an `effect` subtree or contain an effect. Whole-body `animate`, `appear`, `exit`, opacity and transforms remain available through `GlassProps`.
+
+Shapes use the body's overlay layout. Omitted width and height fill the body; `align`, `dx` and `dy` place smaller shapes. `shape` is `"rect"` by default, `"ellipse"` for an ellipse, or `"frame"` for an outer rounded rectangle with an inset opening. `radius` belongs on the shape. A frame must be the first shape, and a body can contain only one frame. Frame `thickness` defaults to 8 points, must be positive and at most 256, and must leave a positive opening after layout.
+
+Inset frames and rounded outer edges are supported as base geometry. A large frame padded well past the body gets the full native rim, fillets and shadow: it needs `blend >= 8` and an outer rounded rectangle that still contains the whole body canvas after an inward inset of `2 * blend` points. Otherwise, as with a thin inset rounded ring or a lower blend, the whole body renders as frosted blur and tint with a clear opening and no native rim, fillets or shadow. Invalid resolved geometry is separate: it hides the whole body until valid geometry arrives, rather than filling the frame's opening with glass.
+
+The native union uses one blend width for the whole body. Independent per-shape blend widths are not supported. Backdrop blur covers the base shapes, including a frame's ring, rather than the extra fillets created by smoothing.
+
+| Glass property | Default and bounds |
+| --- | --- |
+| `blend` | 26 points; finite 0–256 |
+| `light` | `{ x = -1, y = 0 }`; both components required when supplied, each −1–1, and the vector must be nonzero |
+| `fill` | `"#3F47685C"`; explicit transparent color removes the tint |
+| `blurRadius` | 6 points; 0–64, with 0 removing blur |
+| `saturation` | 1, neutral; 0–3 |
+| `shadow` | `"#0B0E1114"`; explicit transparent color removes the shadow |
+| `shadowRadius` | 6 points; 0–64 |
+| `shadowOffset` | `{ x = 0, y = 1 }`; both components required when supplied, each −256–256 points |
+
+`ui.glass` is separate from `material = "glass"`. The material setting selects the system material for an ordinary element or panel with its usual rounded rectangular bounds. The glass constructor owns a compound native silhouette and accepts only the properties in `GlassProps`; it does not accept `material`, `radius`, `border`, `mask`, `effect` or handlers on the body itself.
+
+The native glass path uses private Core Animation capabilities and has been verified on macOS 27.2. Class availability alone does not guarantee that every required property or effect exists on another OS build. When the complete native capability is unavailable, valid base shapes fall back to blur plus tint, or tint alone if backdrop filtering is unavailable, without the native fillets, rim or shadow. Capability misses are recorded in OmniWM's private API capability diagnostics. This fallback does not promise an identical appearance on older or incomplete implementations.
+
+<LuauDeclaration name="ui.glass" />
+
+<LuauDeclaration name="GlassProps" />
+
+<LuauDeclaration name="ui.shape" />
+
+<LuauDeclaration name="ShapeProps" />
+
+### Shape track wire contract
+
+Rectangles, ellipses and frames can carry shape tracks. A shape under a [reveal stack](/omnishell/reference/input-motion/#reveal-and-element-morphs) can declare:
+
+```lua
+ui.shape {
+    key = "card-shape", w = 360, h = 240, radius = 26,
+    morph = {
+        anchor = { x = 1, y = 0.5 },
+        stops = {
+            { at = 0, scale = 0.05, w = 1, h = 1, round = 1 },
+            { at = 0.5, scale = 1, w = 0.93, h = 1, round = 1 },
+            { at = 1, scale = 1, w = 1, h = 1, round = 1 },
+        },
+        stretch = { gain = 0.02, max = 0.4, w = 1, h = -0.5 },
+    },
+}
+```
+
+Shape stops accept `at`, `scale`, `w`, `h`, `round`, `dx` and `dy`; frames also accept `thickness`. Size, radius and thickness are multipliers, defaulting to 1; offsets are points, defaulting to zero. Shape stops do not accept opacity. Use 2–16 stops with strictly increasing `at` values in −0.5–1.5. The optional anchor requires both components in 0–1 and defaults to the centre.
+
+`stretch` is a shape-only property, including when the supplied table is empty. Its optional `gain`, `max`, `w` and `h` fields each default to zero. For reveal velocity `v`, let `sigma = clamp(gain * v, 0, max)`. Stretch adds to the sampled width and height factors:
+
+```text
+width  = baseWidth  * (w(progress) + stretch.w * sigma)
+height = baseHeight * (h(progress) + stretch.h * sigma)
+```
+
+The shared scale is applied about the anchor. The stretched shape is then resized about its centre, so a nonzero stretch can move its edge past the unstretched anchor. `round` scales the base corner radius, clamped to the resulting shape's half-size. An ordinary element or the whole `ui.glass` uses the element/group `Morph` contract (`at`, `scale`, `opacity`, `dx`, `dy`) instead; it cannot declare shape stretch. Ordinary morphs require a reveal ancestor. A shape can instead declare its own `reveal`, `edges`, `source` or `trigger`. Morph cannot share an element with ordinary `appear` or `exit`. `morph` and `reveal` are rejected on `ui.component` mounts; declare them on the component view's returned visible elements.
+
+`ui.shape` also accepts `animate`, `rotate` (rectangles and ellipses only; frames reject it), `follow`, `followRadius`, `hit` and shape-specific `reveal`. Shape reveal takes the normal spring plus `delay` and `hold` (0–2 seconds, default zero) and `exit` (default true). Group reveal still accepts only its spring. `follow` names a keyed manipulation-follow target anywhere in the final expanded tree; the shape is then drawn and hit-tested at that target's presented position and scale. `followRadius` is `"scaled"` by default; `"fixed"` keeps the corner radius in body units while the shape scales. `hit = false` leaves the shape out of glass input coverage and island regions; it does not add handlers to decorative shapes.
+
+A shape with its own `reveal` runs from progress 0 to 1 after `delay`. On removal, it holds its current progress and velocity for `hold`, then closes toward 0; `exit = false` removes it immediately. A keyed reinsertion resumes the retained state without repeating the entry delay. Independent shape clocks take precedence over an ancestor reveal. Ordinary sibling content and shape tracks inserted together share the commit clock.
+
+Shape stops also accept `dx`, `dy` in body-space points and a `thickness` multiplier for frame insets; the shared scale also scales the inset. Rotation and non-uniform ellipse scale are composed with the sampled geometry. Moving a shape with `edges` springs its leading and trailing edges independently along the longer axis, with the leading edge chosen by the direction of movement. Retargeting carries the presented edge velocities.
+
+An impulse starts at each qualifying progress crossing, including overshoot recrossings, or at its `after` time from the commit. `on = "close"` prevents a closing impulse from firing during an opening reversal that briefly keeps moving inward. Active impulses carry their displacement and speed when a track is interrupted. A triggered shape waits at progress 0 until its source reaches the declared crossing; chained triggers use the shifted source clock. Removing a body, hiding the surface or disabling animations finishes the associated transient state. Frame bodies keep the one-frame invariant during replacement: a newly keyed frame ends an outgoing frame immediately; other outgoing shapes finish their own exits.
+
+Additional shape morph fields are:
+
+- `impulses`: up to eight entries with exactly one of `at` (−0.5–1.5) and `after` (0–30 seconds), a required `spring`, optional `rising` (true), `on` (`"open"` or `"close"`; omitted means both directions), `velocity`, `w`, `h` (zero), and `pivot` (`"anchor"` or `"centre"`, default anchor).
+- `edges`: required `lead` and `trail` springs and positive `unit`; optional `thin` is 0–1. Edges replace explicit stops, so the two cannot be combined.
+- `source`: a keyed move or scale target, `edge` (`"top"`, `"left"`, `"right"`, `"bottom"`), positive `span`, optional `from` (zero), optional `pads` with point-valued `left`, `right`, `top`, `bottom`, and optional `adhere` mapping extra attaching sides to their own `from` values. The source edge cannot also appear in `adhere`; every side shares `span`. Optional `contact = true` translates a decorative source along the edge’s tangent with its target; it cannot be combined with `pads`.
+- `trigger`: a shape key, threshold `at` (−0.5–1.5), optional `rising` (true), and optional `contact` (false). A contact trigger requires a source with `source.contact = true`; each pulse keeps the tangent position captured at its crossing while the target moves on.
+
+Target and shape references must resolve in the final expanded tree, including component views. Unresolved or wrong-kind references reject publication. Morph recipes are capped at 1536 bytes including their extensions.
+
+A `source` uses the target's spring-presented rectangle. Its progress is `clamp((gap - from) / span, 0, 1)`, where `gap` measures from the chosen target edge to that side of the glass body's frame. This source progress drives the morph stops, impulses and triggers. With `pads`, the source edge interpolates from its authored attachment to the presented target edge plus its pad multiplied by the target scale. Each side named in `adhere` does the same using its own side's gap and `from`. Every other side follows its presented target edge plus its scaled pad directly. Attachments themselves are never scaled. Bound hit coverage uses this same projected geometry. Moving targets reserve their trajectory while exact hit testing uses the current shape. For a contact source, left/right edges translate along y and top/bottom edges along x; the normal-axis position stays authored, and the source progress still drives its stops. A source-driven shape cannot also declare `follow` or `trigger`, and cannot bind a target with a resize handle; use move or proportional scale handles.
+
+Source impulses and triggered shapes are planned at every matching analytic crossing, including spring overshoot and recrossing, without calling Luau on animation frames. A retarget or changed trigger declaration replaces obsolete future events while preserving an active pulse. On removal, a retained source or active pulse keeps its geometry owner until the retained exit deadline; a second reveal geometry track is not layered over it. Use `hit = false` for decorative necks, bulges, crests and drops.
+
+
+`ui.glass` accepts `rim` (0–1, default 0.1). With `backdrop = false`, it draws a flat body with tint or gradient, rim and shadow, without backdrop blur. A flat body cannot also declare `blurRadius` or `saturation`.
+
+`gradient = { from = Color, to = Color, angle = 90 }` accepts palette roles or colours for its two endpoints. The angle is in degrees: 0 runs left to right, 90 runs top to bottom, and diagonals run corner to corner. A gradient replaces the tint and backdrop blur and spans the body box.
+
+<LuauDeclaration name="ShapeReveal" />
+
+<LuauDeclaration name="ShapeImpulse" />
+
+<LuauDeclaration name="ShapeEdges" />
+
+<LuauDeclaration name="ShapeSource" />
+
+<LuauDeclaration name="ShapeTrigger" />
+
+<LuauDeclaration name="ShapeMorphStop" />
+
+<LuauDeclaration name="ShapeStretch" />
+
+<LuauDeclaration name="ShapeMorph" />
 
 ## Editable effects library
 
@@ -188,4 +309,4 @@ function popout(ctx)
 end
 ```
 
-The library draws procedural color and alpha. Aurora and sheen are decorative adaptations; they do not refract the desktop. Masks shape their parent, including its material and children, but do not distort the children's pixels. The native Liquid Glass panel remains rectangular with rounded corners; use a `clear` root and a masked inner material for shaped panels. Existing shader visibility, Low Power Mode and GPU-budget controls apply. No screen capture, extra animation loop or provider is needed.
+The library draws procedural color and alpha. Aurora and sheen are decorative adaptations; they do not refract the desktop. Masks shape their parent, including its material and children, but do not distort the children's pixels. The system `material = "glass"` panel remains rectangular with rounded corners. Use a `clear` root with a masked inner material for shader-defined panels, or a [native glass body](#native-glass-bodies) for joined rect, ellipse and frame shapes. Existing shader visibility, Low Power Mode and GPU-budget controls apply to shaders. No screen capture or additional provider is needed for these effects.

@@ -171,6 +171,19 @@ final class WorkspaceBarManagerTests: XCTestCase {
         }
     }
 
+    func testIslandMenusOpenAwayFromTheNearestScreenEdge() {
+        let screen = CGRect(x: 0, y: 0, width: 1920, height: 1080)
+        let cases: [(CGRect, PopupAttachment.Edge)] = [
+            (CGRect(x: 24, y: 1018, width: 32, height: 54), .below),
+            (CGRect(x: 900, y: 8, width: 40, height: 40), .above),
+            (CGRect(x: 4, y: 500, width: 54, height: 32), .right),
+            (CGRect(x: 1862, y: 500, width: 54, height: 32), .left)
+        ]
+        for (frame, edge) in cases {
+            XCTAssertEqual(PopupAttachment.Edge.away(from: frame, in: screen), edge, "\(frame)")
+        }
+    }
+
     func testAutoHideReusesHiddenPanelsAndRetainsPopupAndDragInteractions() throws {
         controller.settings.workspaceBar.autoHide = true
         let manager = makeManager()

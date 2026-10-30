@@ -24,9 +24,14 @@ final class ShellDevices {
     let user = UserMonitor()
     let thermal = ThermalMonitor()
     let appearance = AppearanceMonitor()
+    let brightness: ShellDisplayBrightness
     let spectrum: AudioSpectrumMonitor
 
-    init(spectrum: AudioSpectrumMonitor = AudioSpectrumMonitor()) {
+    init(
+        brightness: ShellDisplayBrightness = ShellDisplayBrightness(),
+        spectrum: AudioSpectrumMonitor = AudioSpectrumMonitor()
+    ) {
+        self.brightness = brightness
         self.spectrum = spectrum
     }
 }
@@ -40,6 +45,7 @@ extension ShellDataFeed {
         listen(devices.user, !paused && demands(.user), into: \.user)
         listen(devices.thermal, !paused && demands(.thermal), into: \.thermal)
         listen(devices.appearance, !paused && demands(.appearance), into: \.appearance)
+        listen(devices.brightness, !paused && demands(.brightness), into: \.brightness)
         listen(devices.spectrum, !paused && (demands(.spectrum) || demands(.tempo)), into: \.spectrum)
     }
 
@@ -51,6 +57,7 @@ extension ShellDataFeed {
         listen(devices.user, false, into: \.user)
         listen(devices.thermal, false, into: \.thermal)
         listen(devices.appearance, false, into: \.appearance)
+        listen(devices.brightness, false, into: \.brightness)
         listen(devices.spectrum, false, into: \.spectrum)
     }
 

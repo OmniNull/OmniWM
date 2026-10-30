@@ -21,11 +21,32 @@ struct ShellPresence: Sendable {
     let scale: CGFloat
     let offset: CGPoint
     let animation: ShellAnimation?
+    let anchor: CGPoint
+    let delay: CFTimeInterval
+
+    init(
+        opacity: Float, scale: CGFloat, offset: CGPoint, animation: ShellAnimation?,
+        anchor: CGPoint = CGPoint(x: 0.5, y: 0.5), delay: CFTimeInterval = 0
+    ) {
+        self.opacity = opacity
+        self.scale = scale
+        self.offset = offset
+        self.animation = animation
+        self.anchor = anchor
+        self.delay = delay
+    }
 
     func transform(from base: CATransform3D, size: CGSize) -> CATransform3D {
-        var delta = CATransform3DMakeTranslation(size.width / 2 + offset.x, size.height / 2 + offset.y, 0)
+        Self.transform(from: base, size: size, anchor: anchor, scale: scale, offset: offset)
+    }
+
+    static func transform(
+        from base: CATransform3D, size: CGSize, anchor: CGPoint, scale: CGFloat, offset: CGPoint = .zero
+    ) -> CATransform3D {
+        let pivot = CGPoint(x: size.width * anchor.x, y: size.height * anchor.y)
+        var delta = CATransform3DMakeTranslation(pivot.x + offset.x, pivot.y + offset.y, 0)
         delta = CATransform3DScale(delta, scale, scale, 1)
-        delta = CATransform3DTranslate(delta, -size.width / 2, -size.height / 2, 0)
+        delta = CATransform3DTranslate(delta, -pivot.x, -pivot.y, 0)
         return CATransform3DConcat(base, delta)
     }
 
@@ -33,7 +54,8 @@ struct ShellPresence: Sendable {
         fromOpacity: Float,
         toOpacity: Float,
         fromTransform: CATransform3D,
-        toTransform: CATransform3D
+        toTransform: CATransform3D,
+        at time: CFTimeInterval = CACurrentMediaTime()
     ) -> CAAnimationGroup? {
         guard let animation else { return nil }
         var animations: [CAAnimation] = []
@@ -50,6 +72,8 @@ struct ShellPresence: Sendable {
         let group = CAAnimationGroup()
         group.animations = animations
         group.duration = animations.reduce(0) { max($0, $1.duration) }
+        group.beginTime = time + delay / animation.speed
+        group.fillMode = .backwards
         return group
     }
 
@@ -84,16 +108,39 @@ final class ShellPresenceCompletion: NSObject, CAAnimationDelegate, Sendable {
 }
 
 final class ShellPresenceState {
+    struct Departure {
+        let slot: Int32
+        let layer: CALayer
+        let key: String
+        let completion: ShellPresenceCompletion
+    }
+
+    struct Plan {
+        let slot: Int32
+        let layer: CALayer
+        let animation: CAAnimationGroup
+        let opacity: Float
+        let transform: CATransform3D
+        let fromTransform: CATransform3D
+        let departure: ShellPresence
+    }
+
     struct Retained {
         let subtree: CALayer
-        let animatedLayer: CALayer
         let identity: ShellLayerIdentity?
-        let completion: ShellPresenceCompletion
+        var animations: [UInt64: Departure] = [:]
+        var pending: Set<UInt64> = []
+        var nextCompletion: UInt64 = 0
     }
 
     var appearances: [Int32: ShellPresence] = [:]
     var departures: [Int32: ShellPresence] = [:]
     var identities: [Int32: ShellLayerIdentity] = [:]
+    var reveals: [Int32: ShellRevealRecipe] = [:]
+    var revealPlans: [Int32: (plan: ShellReveal, token: UInt64)] = [:]
+    var morphs: [Int32: ShellMorphRecipe] = [:]
+    var dirtyReveals: Set<Int32> = []
+    var onRevealSettled: (@MainActor @Sendable (Int32, UInt64) -> Void)?
     var retained: [UInt64: Retained] = [:]
     var retainedByIdentity: [ShellLayerIdentity: UInt64] = [:]
     var nextToken: UInt64 = 0
@@ -110,9 +157,21 @@ extension ShellLayerScene {
         presence.identities[slot] = identity
     }
 
-    func setPresence(_ slot: Int32, appear: ShellPresence?, exit: ShellPresence?) {
+    func setPresence(
+        _ slot: Int32,
+        appear: ShellPresence?,
+        exit: ShellPresence?,
+        reveal: ShellRevealRecipe? = nil,
+        morph: ShellMorphRecipe? = nil
+    ) {
         presence.appearances[slot] = appear
         presence.departures[slot] = exit
+        presence.reveals[slot] = reveal
+        presence.morphs[slot] = morph
+    }
+
+    func presentedContent(_ slot: Int32) -> CALayer? {
+        effects[slot].flatMap { $0.output.superlayer == nil ? nil : $0.output } ?? layers[slot]
     }
 
     func applyAppearance(_ slot: Int32, to layer: CALayer, preset: ShellAnimation?, animated: Bool) {
@@ -124,46 +183,111 @@ extension ShellLayerScene {
                   fromOpacity: layer.opacity * appearance.opacity,
                   toOpacity: layer.opacity,
                   fromTransform: appearance.transform(from: layer.transform, size: layer.bounds.size),
-                  toTransform: layer.transform
+                  toTransform: layer.transform,
+                  at: layer.convertTime(CACurrentMediaTime(), from: nil)
               )
         else { return }
         layer.add(group, forKey: Self.appearanceKey)
     }
 
-    func retirePresence(_ slot: Int32, subtree: CALayer, animated: Bool) {
-        guard let layer = layers[slot], animated,
-              let departure = presence.departures[slot] ?? exitAnimations[slot].map(ShellPresence.fade)
-        else {
+    func retirePresence(
+        _ slot: Int32, subtree: CALayer, animated: Bool, children: [Int32: Set<Int32>] = [:]
+    ) {
+        guard animated else {
             subtree.removeFromSuperlayer()
             return
         }
-        let shown = layer.presentation() ?? layer
-        let targetOpacity = layer.opacity * departure.opacity
-        let targetTransform = departure.transform(from: layer.transform, size: layer.bounds.size)
-        guard let group = departure.group(
-            fromOpacity: shown.opacity,
-            toOpacity: targetOpacity,
-            fromTransform: shown.transform,
-            toTransform: targetTransform
-        ) else {
+        let now = CACurrentMediaTime()
+        let descendants = presence.reveals[slot] == nil ? [] : presenceDescendants(slot, children: children)
+        let plans = ([slot] + descendants).compactMap { presencePlan($0, root: slot, at: now) }
+        let closing = presence.revealPlans[slot].flatMap { $0.plan.target == 0 ? $0.plan : nil }
+        let reveal = closing.map { revealAnimations(slot, plan: $0, children: children, closing: true) } ?? []
+        guard !plans.isEmpty || !reveal.isEmpty else {
             subtree.removeFromSuperlayer()
             return
         }
         presence.nextToken += 1
         let token = presence.nextToken
         let identity = presence.identities[slot]
-        let completion = ShellPresenceCompletion { [self] in
-            Self.engineQueue.async { [self] in finishPresenceExit(token) }
-        }
-        presence.retained[token] = ShellPresenceState.Retained(
-            subtree: subtree, animatedLayer: layer, identity: identity, completion: completion
-        )
+        presence.retained[token] = ShellPresenceState.Retained(subtree: subtree, identity: identity)
         if let identity { presence.retainedByIdentity[identity] = token }
-        group.delegate = completion
-        layer.removeAnimation(forKey: Self.appearanceKey)
-        layer.opacity = targetOpacity
-        layer.transform = targetTransform
-        layer.add(group, forKey: Self.departureKey)
+        for plan in plans {
+            departShapeFollowers(with: plan)
+            plan.animation.delegate = addPresenceCompletion(
+                token,
+                slot: plan.slot,
+                layer: plan.layer,
+                key: Self.departureKey
+            )
+            plan.layer.removeAnimation(forKey: Self.appearanceKey)
+            plan.layer.opacity = plan.opacity
+            plan.layer.transform = plan.transform
+            plan.layer.add(plan.animation, forKey: Self.departureKey)
+        }
+        if let first = reveal.first {
+            first.animation.delegate = addPresenceCompletion(token, slot: slot, layer: first.layer, key: first.key)
+        }
+        for item in reveal {
+            item.layer.add(item.animation, forKey: item.key)
+        }
+    }
+
+    private func presenceDescendants(_ slot: Int32, children: [Int32: Set<Int32>]) -> [Int32] {
+        var result: [Int32] = []
+        func collect(_ parent: Int32) {
+            for child in children[parent] ?? [] {
+                if presence.departures[child] != nil {
+                    result.append(child)
+                } else {
+                    collect(child)
+                }
+            }
+        }
+        collect(slot)
+        return result
+    }
+
+    private func presencePlan(_ slot: Int32, root: Int32, at time: CFTimeInterval) -> ShellPresenceState.Plan? {
+        guard let layer = presentedContent(slot),
+              let departure = presence.departures[slot]
+              ?? (slot == root ? exitAnimations[slot].map(ShellPresence.fade) : nil)
+        else { return nil }
+        let shown = layer.presentation() ?? layer
+        let opacity = layer.opacity * departure.opacity
+        let transform = departure.transform(from: layer.transform, size: layer.bounds.size)
+        guard let group = departure.group(
+            fromOpacity: shown.opacity, toOpacity: opacity, fromTransform: shown.transform, toTransform: transform,
+            at: layer.convertTime(time, from: nil)
+        ) else { return nil }
+        return ShellPresenceState.Plan(
+            slot: slot,
+            layer: layer,
+            animation: group,
+            opacity: opacity,
+            transform: transform,
+            fromTransform: shown.transform,
+            departure: departure
+        )
+    }
+
+    func addPresenceCompletion(
+        _ token: UInt64, slot: Int32, layer: CALayer, key: String
+    ) -> ShellPresenceCompletion? {
+        guard let identifier = presence.retained[token]?.nextCompletion else { return nil }
+        let completion = ShellPresenceCompletion { [self] in
+            Self.engineQueue.async { [self] in completePresenceAnimation(token, identifier: identifier) }
+        }
+        presence.retained[token]?.nextCompletion += 1
+        presence.retained[token]?.pending.insert(identifier)
+        presence.retained[token]?.animations[identifier] = ShellPresenceState.Departure(
+            slot: slot, layer: layer, key: key, completion: completion
+        )
+        return completion
+    }
+
+    func completePresenceAnimation(_ token: UInt64, identifier: UInt64) {
+        guard presence.retained[token]?.pending.remove(identifier) != nil else { return }
+        if presence.retained[token]?.pending.isEmpty == true { finishPresenceExit(token) }
     }
 
     func finishPresenceExit(_ token: UInt64) {
@@ -173,7 +297,7 @@ extension ShellLayerScene {
         }
         CATransaction.begin()
         CATransaction.setDisableActions(true)
-        retained.animatedLayer.removeAnimation(forKey: Self.departureKey)
+        for departure in retained.animations.values { departure.layer.removeAnimation(forKey: departure.key) }
         retained.subtree.removeFromSuperlayer()
         CATransaction.commit()
     }
@@ -185,8 +309,13 @@ extension ShellLayerScene {
     }
 
     func forgetPresence(_ slot: Int32) {
+        shapeTracks.departures.removeValue(forKey: slot)
         presence.appearances.removeValue(forKey: slot)
         presence.departures.removeValue(forKey: slot)
         presence.identities.removeValue(forKey: slot)
+        presence.reveals.removeValue(forKey: slot)
+        presence.revealPlans.removeValue(forKey: slot)
+        presence.morphs.removeValue(forKey: slot)
+        presence.dirtyReveals.remove(slot)
     }
 }

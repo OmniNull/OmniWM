@@ -9,12 +9,14 @@ extension SurfaceCore {
         if flags[slotIndex] & flagMeasureDirty == 0 {
             return measured[slotIndex]
         }
-        let style = layout[slotIndex]
+        var style = layout[slotIndex]
+        if kind[slotIndex] == .glass { style.axis = .overlay }
         var size = switch kind[slotIndex] {
         case .label:
             measureText(slotIndex)
         case .group,
-             .box:
+             .box,
+             .glass:
             measureChildren(of: slotIndex, style: style)
         case .shader:
             Size2(width: Self.autoShaderSize, height: Self.autoShaderSize)
@@ -28,6 +30,7 @@ extension SurfaceCore {
              .bitmap,
              .progress,
              .slider,
+             .shape,
              .input:
             Size2(width: 0, height: 0)
         }
@@ -104,7 +107,7 @@ extension SurfaceCore {
         guard resized || flags[slotIndex] & flagLayoutDirty != 0 else { return }
         flags[slotIndex] &= ~flagLayoutDirty
         guard firstChild[slotIndex] >= 0 else { return }
-        if layout[slotIndex].axis == .overlay {
+        if layout[slotIndex].axis == .overlay || kind[slotIndex] == .glass {
             arrangeOverlay(slotIndex, in: newFrame, patches: &patches)
         } else {
             arrangeLinear(slotIndex, in: newFrame, patches: &patches)
@@ -142,7 +145,8 @@ extension SurfaceCore {
     }
 
     func fills(_ slotIndex: Int, across horizontal: Bool) -> Bool {
-        (kind[slotIndex] == .shader || kind[slotIndex] == .path)
+        (kind[slotIndex] == .shader || kind[slotIndex] == .path || kind[slotIndex] == .glass
+            || kind[slotIndex] == .shape)
             && (horizontal ? layout[slotIndex].width : layout[slotIndex].height) < 0
     }
 

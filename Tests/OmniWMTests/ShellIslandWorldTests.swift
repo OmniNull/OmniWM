@@ -71,6 +71,23 @@ final class ShellIslandWorldTests: XCTestCase {
         XCTAssertTrue(manager.lastIslands.isEmpty)
     }
 
+    func testIslandProjectionUsesTheAuthoritativeWorkspaceBarReservation() {
+        let root = FileManager.default.temporaryDirectory.appendingPathComponent(UUID().uuidString)
+        defer { try? FileManager.default.removeItem(at: root) }
+        let settings = makeSettings(root)
+        settings.island.enabled = true
+        settings.workspaceBar.enabled = true
+        settings.workspaceBar.position = .bottom
+        settings.workspaceBar.height = 47
+        settings.workspaceBar.reserveLayoutSpace = true
+        let controller = WMController(settings: settings)
+        let monitor = makeMonitor(8101)
+        controller.workspaceManager.applyMonitorConfigurationChange([monitor])
+        let projected = WorldView(controller: controller).islandSurfaces()
+        XCTAssertEqual(projected.first?.reservedInsets, controller.workspaceBarReservedInsets(for: monitor))
+        XCTAssertEqual(projected.first?.reservedInsets.bottom, 47)
+    }
+
     private func makeMonitor(_ displayId: UInt32) -> Monitor {
         Monitor(
             id: .init(displayId: displayId),

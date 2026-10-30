@@ -2,7 +2,9 @@
 // Copyright (C) 2026 OmniNull — https://github.com/OmniNull/OmniWM
 
 import AppKit
+import CoreText
 @testable import OmniWM
+import OmniWMScriptHost
 import QuartzCore
 import XCTest
 
@@ -125,6 +127,52 @@ final class ShellTextRasterTests: XCTestCase {
             XCTAssertFalse(scene.textContext === cached)
             XCTAssertEqual(try pixels(image), bytes)
         }
+    }
+
+    func testStyleFamilyMeasuresAndRastersWithTheSameFaceAt400And700() throws {
+        let family = UInt32(try ShellFontFixture.id()) << OMNI_STYLE_FONT_SHIFT
+        let text = "Grotesk 42 wide glyphs"
+        let store = ShellFontFixture.store(text)
+        var widths: [Float] = []
+        for weight: UInt32 in [4, 7] {
+            let style = family | weight << OMNI_STYLE_WEIGHT_SHIFT | 1400 << OMNI_STYLE_SIZE_SHIFT
+            let measured = store.measureMiss(1, style: style)
+            let wrapped = store.measureWrapped(1, style: style, width: 60, lines: 2)
+            let font = store.font(style)
+            XCTAssertEqual(CTFontCopyFamilyName(font) as String, ShellFontFixture.family)
+            XCTAssertEqual(ShellFontFixture.variation(font)[ShellTextStyle.tag("wght")], Double(weight * 100))
+            try ShellLayerScene.engineQueue.sync {
+                let scene = ShellLayerScene(container: CALayer(), scale: 1)
+                let color = CGColor(srgbRed: 1, green: 1, blue: 1, alpha: 1)
+                let line = try XCTUnwrap(scene.rasterize(text, style: style, color: color, maxWidth: 0, lines: 1))
+                XCTAssertEqual(Float(line.width), measured.width)
+                XCTAssertEqual(Float(line.height), measured.height)
+                let raster = try XCTUnwrap(scene.fonts[style])
+                XCTAssertEqual(CTFontCopyPostScriptName(raster) as String, CTFontCopyPostScriptName(font) as String)
+                XCTAssertEqual(ShellFontFixture.variation(raster), ShellFontFixture.variation(font))
+                let lines = try XCTUnwrap(scene.rasterize(text, style: style, color: color, maxWidth: 60, lines: 2))
+                XCTAssertEqual(Float(lines.width), wrapped.width)
+                XCTAssertEqual(Float(lines.height), wrapped.height)
+            }
+            widths.append(measured.width)
+        }
+        XCTAssertGreaterThan(widths[1], widths[0])
+    }
+
+    func testStyleFamilyKeepsTheStyleBaseDefaultSizeAndWeight() throws {
+        let family = UInt32(try ShellFontFixture.id()) << OMNI_STYLE_FONT_SHIFT
+        let small = ShellTextStyle.font(for: family | 3)
+        XCTAssertEqual(CTFontGetSize(small), 10)
+        XCTAssertEqual(ShellFontFixture.variation(small)[ShellTextStyle.tag("wght")], 400)
+        let bold = ShellTextStyle.font(for: family | 1)
+        XCTAssertEqual(CTFontGetSize(bold), 12)
+        XCTAssertEqual(ShellFontFixture.variation(bold)[ShellTextStyle.tag("wght")], 700)
+        XCTAssertEqual(CTFontCopyFamilyName(bold) as String, ShellFontFixture.family)
+        let unpublished = ShellTextStyle.font(for: UInt32(127) << OMNI_STYLE_FONT_SHIFT)
+        XCTAssertEqual(
+            CTFontCopyPostScriptName(unpublished) as String,
+            CTFontCopyPostScriptName(ShellTextStyle.font(for: 0)) as String
+        )
     }
 
     private func pixels(_ image: CGImage) throws -> [UInt8] {

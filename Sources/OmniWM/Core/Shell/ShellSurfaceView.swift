@@ -7,6 +7,7 @@ import OmniWMShellCore
 
 final class ShellSurfaceView: NSView {
     weak var surface: ShellWidgetSurface?
+    var cursorState = ShellCursorState()
 
     override var isFlipped: Bool {
         true
@@ -21,7 +22,7 @@ final class ShellSurfaceView: NSView {
         wantsLayer = true
         addTrackingArea(NSTrackingArea(
             rect: .zero,
-            options: [.mouseEnteredAndExited, .mouseMoved, .activeAlways, .inVisibleRect],
+            options: [.mouseEnteredAndExited, .mouseMoved, .cursorUpdate, .activeAlways, .inVisibleRect],
             owner: self
         ))
     }
@@ -63,6 +64,7 @@ final class ShellSurfaceView: NSView {
 
     @objc private func occlusionChanged() {
         surface?.setVisible(window?.occlusionState.contains(.visible) == true)
+        if window?.occlusionState.contains(.visible) != true { surface?.setManipulationCursor(false, at: nil) }
     }
 
     override func layout() {
@@ -76,7 +78,8 @@ final class ShellSurfaceView: NSView {
     }
 
     override func hitTest(_ point: NSPoint) -> NSView? {
-        if let hit = super.hitTest(point), hit !== self { return hit }
+        if let hit = super.hitTest(point), hit !== self,
+           surface?.allowsNativeHit(hit, at: convert(point, from: superview)) != false { return hit }
         return surface?.hasAction(at: convert(point, from: superview)) == true ? self : nil
     }
 
@@ -113,6 +116,7 @@ final class ShellSurfaceView: NSView {
                 return
             }
             surface?.press(at: location(of: event), event: inputEvent(event, button: .left), timestamp: event.timestamp)
+            if surface?.routeNativeInput(event, at: location(of: event)) == true { return }
             surface?.prepareResourceDrag(at: location(of: event))
         }
     }
@@ -281,6 +285,10 @@ final class ShellSurfaceView: NSView {
 
     override func mouseMoved(with event: NSEvent) {
         traceInput(event) { surface?.hover(at: location(of: event)) }
+    }
+
+    override func cursorUpdate(with event: NSEvent) {
+        surface?.hover(at: location(of: event))
     }
 
     override func mouseExited(with event: NSEvent) {

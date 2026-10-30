@@ -814,12 +814,16 @@ final class ShellNotificationWidgetTests: XCTestCase {
         defer { try? FileManager.default.removeItem(at: shell) }
         XCTAssertEqual(ShellDefaults.sync(into: shell), [])
         let profiles = ShellProfiles.names(in: shell)
-        XCTAssertEqual(profiles.count, 7)
+        XCTAssertEqual(profiles.count, 8)
         let counts = (0 ..< 256).map { item("item-\($0)") }
         for profile in profiles {
             var problems: [String] = []
             let config = try XCTUnwrap(ShellConfig.load(profile: profile, shellDirectory: shell, problems: &problems))
             XCTAssertEqual(problems, [], profile)
+            guard (config.leading + config.center + config.trailing).contains("notifications") else {
+                XCTAssertEqual(profile, "vitreus")
+                continue
+            }
             let base = config.barOverride?.settings.height ?? 24
             for dark in [false, true] {
                 for scale in [CGFloat(1), 2] {

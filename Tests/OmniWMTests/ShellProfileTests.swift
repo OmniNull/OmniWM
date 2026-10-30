@@ -111,7 +111,7 @@ final class ShellDefaultsTests: XCTestCase {
         XCTAssertEqual(ShellDefaults.sync(into: shell), [])
         XCTAssertEqual(
             ShellProfiles.names(in: shell),
-            ["default", "celestial", "lake", "matrix", "nocturne", "sakura", "wayline"]
+            ["default", "celestial", "lake", "matrix", "nocturne", "sakura", "vitreus", "wayline"]
         )
         for style in ["celestial", "nocturne", "wayline"] {
             try write("profile = \"\(style)\"\n", to: "shell.toml", in: shell)
@@ -135,6 +135,37 @@ final class ShellDefaultsTests: XCTestCase {
                 XCTAssertNotNil(config.widget(widget), "\(style) \(widget)")
             }
         }
+        try write("profile = \"vitreus\"\n", to: "shell.toml", in: shell)
+        var problems: [String] = []
+        let vitreus = try XCTUnwrap(ShellConfig.load(shellDirectory: shell, problems: &problems))
+        XCTAssertEqual(problems, [])
+        XCTAssertEqual(vitreus.themeName, "vitreus")
+        let island = try XCTUnwrap(vitreus.island)
+        XCTAssertEqual(island.root, "vitreus")
+        XCTAssertEqual(island.sizing, .display)
+        XCTAssertEqual(island.displays, .all)
+        XCTAssertEqual(island.components.map(\.id), ["pad", "focus"])
+        XCTAssertEqual(island.components.map(\.widget), ["desk-pad", "desk-focus"])
+        XCTAssertEqual(vitreus.leading + vitreus.center + vitreus.trailing, [])
+        XCTAssertEqual(vitreus.barOverride?.settings.transparentBackground, true)
+        XCTAssertEqual(vitreus.barOverride?.settings.reserveLayoutSpace, false)
+    }
+
+    func testVitreusThemeKeepsTheStockVitreusPaletteInBothAppearances() throws {
+        let url = try XCTUnwrap(ShellDefaults.bundled).appendingPathComponent("themes/vitreus.toml")
+        let toml = try TOMLDecoder().decode([String: TOMLNode].self, from: Data(contentsOf: url))
+        guard case let .table(light)? = toml["light"], case let .table(dark)? = toml["dark"] else {
+            return XCTFail("vitreus needs [light] and [dark]")
+        }
+        XCTAssertEqual(light, dark)
+        let stock = [
+            "background": "#1B2127", "surface": "#161A1F", "foreground": "#F5F7F5", "secondaryForeground": "#C2C7CC",
+            "accent": "#9ED6BD", "accentForeground": "#10161A", "shadow": "#0B0E11", "border": "#3A4048",
+            "error": "#EF4444"
+        ]
+        for (role, hex) in stock {
+            XCTAssertEqual(light[role], .string(hex), role)
+        }
     }
 
     func testBundledProfilesStartWithTheSharedAppleAndAppMenus() throws {
@@ -147,6 +178,10 @@ final class ShellDefaultsTests: XCTestCase {
             XCTAssertEqual(problems, [], profile)
             let layout = ShellBarLayout(config: config, shellDirectory: shell)
             XCTAssertFalse(layout.widgets.contains { $0.name == "focus-ribbon" }, profile)
+            if profile == "vitreus" {
+                XCTAssertEqual(config.leading + config.center + config.trailing, [], profile)
+                continue
+            }
             XCTAssertEqual(Array(config.leading.prefix(3)), ["apple-menu", "app-menu", "omniwm"], profile)
             for name in ["apple-menu", "app-menu"] {
                 XCTAssertEqual(config.widget(name), shell.appendingPathComponent("default/widgets/\(name)/init.luau"))
@@ -791,7 +826,7 @@ final class ShellProfileTests: XCTestCase {
         let bundledThemes = try FileManager.default.contentsOfDirectory(
             atPath: XCTUnwrap(ShellDefaults.bundled).appendingPathComponent("themes").path
         )
-        XCTAssertEqual(bundledThemes.count, 14)
+        XCTAssertEqual(bundledThemes.count, 15)
         for theme in bundledThemes.map({ String($0.dropLast(5)) }) {
             try write("profiles.default.theme = \"\(theme)\"\n", to: "shell.toml")
             problems = []
@@ -804,7 +839,7 @@ final class ShellProfileTests: XCTestCase {
         let themes = try XCTUnwrap(ShellDefaults.bundled).appendingPathComponent("themes")
         let names = [
             "catppuccin", "celestial", "dracula", "everforest", "gruvbox", "kanagawa", "nocturne", "nord", "rose-pine",
-            "tokyo-night", "wayline"
+            "tokyo-night", "vitreus", "wayline"
         ]
         for name in names {
             let toml = try TOMLDecoder().decode(
@@ -861,7 +896,7 @@ final class ShellProfileTests: XCTestCase {
     }
 
     func testProfilesAreTheShellFoldersOtherThanItsOwnContent() throws {
-        for folder in ["widgets", "themes", "shaders", ".git", "default", "noctalia", "Aqua"] {
+        for folder in ["widgets", "themes", "shaders", "fonts", ".git", "default", "noctalia", "Aqua"] {
             try FileManager.default.createDirectory(
                 at: root.appendingPathComponent(folder, isDirectory: true),
                 withIntermediateDirectories: true

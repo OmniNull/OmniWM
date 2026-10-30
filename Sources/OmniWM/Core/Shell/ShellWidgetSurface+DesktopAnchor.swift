@@ -11,12 +11,12 @@ extension ShellWidgetSurface {
         guard handle != .none else { return nil }
         let anchor = ShellDesktopAnchor(view: view) { [weak self] in
             guard let self, visible, sequence == resolution.sequence, layout.core.contains(handle) else { return nil }
-            var frame = CGRect(layout.core.absoluteFrame(of: handle)).intersection(view.bounds)
+            var frame = CGRect(presentedFrame(of: handle)).intersection(view.bounds)
             var ancestor = handle
             while layout.core.contains(ancestor) {
                 guard layout.core.paint(of: ancestor).opacity > 0 else { return nil }
                 if layout.core.content(of: ancestor).scrolls {
-                    frame = frame.intersection(CGRect(layout.core.absoluteFrame(of: ancestor)))
+                    frame = frame.intersection(CGRect(presentedFrame(of: ancestor)))
                 }
                 ancestor = layout.core.parent(of: ancestor)
             }

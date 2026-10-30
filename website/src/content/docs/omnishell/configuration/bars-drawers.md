@@ -66,6 +66,8 @@ hover = true
 
 In a profile folder’s `shell.toml`, use `[drawer.controls]`. A drawer widget supplies `popout(ctx)`, so the same custom menu can run as a bar popout and inside a drawer without a second implementation. Use distinct drawer and widget names: `shell toggle` resolves a matching drawer first.
 
+`present = "island"` hands the drawer to the island root instead of opening a panel, so the island can draw it in its own glass and let its pieces melt into it. It opens and closes on the same hover, toggle, shortcut and `close` rules. While it is open, `ctx.data.island.drawer` holds its id on that display, and `widgets` may be left out. With `close = "leave"`, it stays open while the pointer is over the island's own content and closes after the pointer leaves both the island and the edge, never while a button is held.
+
 ## Hidden Bar menus
 
 Hidden Bar app menus use the `hidden-bar-menu` widget, which opens beneath the clicked icon while the icon strip stays visible. Its `ctx.data.hiddenBar.menu` contains the current menu's `title`, optional `backID`, and `rows` with `id`, `title`, `enabled`, `mark`, `shortcut`, `submenu`, and `separator`. The widget sends `hidden-bar-menu <id>` to enter a submenu, go back, or execute a command. IDs are valid only for the displayed page. OmniWM temporarily exposes the selected native status item while acquiring and using its menu, then conceals it again when the menu ends. Like other widgets, its appearance can be customized in the selected profile’s `widgets/hidden-bar-menu/init.luau`.

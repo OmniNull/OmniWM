@@ -177,6 +177,7 @@ actor ShellWidgetPackage {
     var closeTask: Task<[ShellStoreFailure], Never>?
     var script: ShellScript?
     var loadedModules: Set<String> = []
+    var loadedFonts = ShellFontSet()
     var loadedChunk = ""
     var loadedMain = ""
     var componentDescriptors: [ShellComponentDescriptor] = []
@@ -240,7 +241,8 @@ actor ShellWidgetPackage {
 
     func load(_ source: ShellWidgetSource, validateOnly: Bool = false) async -> ShellScriptFailure? {
         guard !closing else { return ShellScriptFailure(kind: .internalError, message: "package is closed") }
-        guard let vm = ShellVM.make(memoryLimit: Self.memoryLimit) else {
+        let fonts = ShellFontLibrary.shared.fonts(in: source.fontFolders)
+        guard let vm = ShellVM.make(memoryLimit: Self.memoryLimit, fonts: fonts) else {
             return ShellScriptFailure(kind: .internalError, message: "the script VM could not be created")
         }
         let loaded = ShellScript(vm: vm)
@@ -279,12 +281,17 @@ actor ShellWidgetPackage {
             return ShellScriptFailure(kind: .compile, message: "the widget does not define a render function")
         }
         if validateOnly { return nil }
-        return await finishLoad(source, in: loaded)
+        return await finishLoad(source, fonts: fonts, in: loaded)
     }
 
-    private func finishLoad(_ source: ShellWidgetSource, in loaded: ShellScript) async -> ShellScriptFailure? {
+    private func finishLoad(
+        _ source: ShellWidgetSource,
+        fonts: ShellFontSet,
+        in loaded: ShellScript
+    ) async -> ShellScriptFailure? {
         let vm = loaded.vm
         loadedModules = Set(source.modules.map(\.path))
+        loadedFonts = fonts
         loadedChunk = source.chunk
         loadedMain = source.main
         await seedComponents(source, in: loaded)

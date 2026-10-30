@@ -76,24 +76,48 @@ enum ShellAudio {
         )
     }
 
+    static var defaultInputAddress: AudioObjectPropertyAddress {
+        AudioObjectPropertyAddress(
+            mSelector: kAudioHardwarePropertyDefaultInputDevice,
+            mScope: kAudioObjectPropertyScopeGlobal,
+            mElement: kAudioObjectPropertyElementMain
+        )
+    }
+
     static var volumeAddress: AudioObjectPropertyAddress {
+        volumeAddress(scope: kAudioDevicePropertyScopeOutput)
+    }
+
+    static func volumeAddress(scope: AudioObjectPropertyScope) -> AudioObjectPropertyAddress {
         AudioObjectPropertyAddress(
             mSelector: kAudioHardwareServiceDeviceProperty_VirtualMainVolume,
-            mScope: kAudioDevicePropertyScopeOutput,
+            mScope: scope,
             mElement: kAudioObjectPropertyElementMain
         )
     }
 
     static var muteAddress: AudioObjectPropertyAddress {
+        muteAddress(scope: kAudioDevicePropertyScopeOutput)
+    }
+
+    static func muteAddress(scope: AudioObjectPropertyScope) -> AudioObjectPropertyAddress {
         AudioObjectPropertyAddress(
             mSelector: kAudioDevicePropertyMute,
-            mScope: kAudioDevicePropertyScopeOutput,
+            mScope: scope,
             mElement: kAudioObjectPropertyElementMain
         )
     }
 
     static func defaultOutput() -> AudioObjectID? {
-        var address = defaultOutputAddress
+        defaultDevice(defaultOutputAddress)
+    }
+
+    static func defaultInput() -> AudioObjectID? {
+        defaultDevice(defaultInputAddress)
+    }
+
+    private static func defaultDevice(_ address: AudioObjectPropertyAddress) -> AudioObjectID? {
+        var address = address
         var device = AudioObjectID(kAudioObjectUnknown)
         var size = UInt32(MemoryLayout<AudioObjectID>.size)
         let status = AudioObjectGetPropertyData(
@@ -237,11 +261,19 @@ enum ShellAudio {
     }
 
     static func volume(of device: AudioObjectID) -> Double? {
-        scalarVolume(of: device).map { ($0 * 100).rounded() }
+        volume(of: device, scope: kAudioDevicePropertyScopeOutput)
+    }
+
+    static func volume(of device: AudioObjectID, scope: AudioObjectPropertyScope) -> Double? {
+        scalarVolume(of: device, scope: scope).map { ($0 * 100).rounded() }
     }
 
     private static func scalarVolume(of device: AudioObjectID) -> Double? {
-        var address = volumeAddress
+        scalarVolume(of: device, scope: kAudioDevicePropertyScopeOutput)
+    }
+
+    private static func scalarVolume(of device: AudioObjectID, scope: AudioObjectPropertyScope) -> Double? {
+        var address = volumeAddress(scope: scope)
         var value: Float32 = 0
         var size = UInt32(MemoryLayout<Float32>.size)
         guard AudioObjectHasProperty(device, &address),
@@ -253,7 +285,11 @@ enum ShellAudio {
     }
 
     static func muted(of device: AudioObjectID) -> Bool? {
-        var address = muteAddress
+        muted(of: device, scope: kAudioDevicePropertyScopeOutput)
+    }
+
+    static func muted(of device: AudioObjectID, scope: AudioObjectPropertyScope) -> Bool? {
+        var address = muteAddress(scope: scope)
         var value: UInt32 = 0
         var size = UInt32(MemoryLayout<UInt32>.size)
         guard AudioObjectHasProperty(device, &address),

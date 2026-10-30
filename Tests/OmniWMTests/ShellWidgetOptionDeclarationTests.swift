@@ -23,7 +23,12 @@ final class ShellWidgetOptionDeclarationTests: XCTestCase {
         "lib/lake/services/convert.luau": ["converter"],
         "lib/lake/services/devices.luau": ["devices"],
         "lib/lake/services/notice.luau": ["battery", "devices"],
-        "lib/lake/services/timer.luau": ["timer"]
+        "lib/lake/services/timer.luau": ["timer"],
+        "lib/vitreus/bar.luau": ["vitreus"],
+        "lib/vitreus/bar/marks.luau": ["vitreus"],
+        "lib/vitreus/frame.luau": ["vitreus"],
+        "lib/vitreus/media.luau": ["vitreus"],
+        "lib/vitreus/visualiser.luau": ["vitreus"]
     ]
     private static let literalAccessors = [
         "lib/lake/preferences.luau": ["value"],

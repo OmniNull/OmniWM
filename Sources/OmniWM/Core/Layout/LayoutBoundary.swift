@@ -41,6 +41,7 @@ struct LayoutMonitorSnapshot {
     let workingFrame: CGRect
     let borderSafeFillFrame: CGRect
     let fullscreenLayoutFrame: CGRect
+    let roomGapLimits: [WorkspaceBarRoom.Edge: CGFloat]
     let scale: CGFloat
     let orientation: Monitor.Orientation
 
@@ -52,6 +53,7 @@ struct LayoutMonitorSnapshot {
         workingFrame: CGRect,
         borderSafeFillFrame: CGRect? = nil,
         fullscreenLayoutFrame: CGRect,
+        roomGapLimits: [WorkspaceBarRoom.Edge: CGFloat] = [:],
         scale: CGFloat,
         orientation: Monitor.Orientation
     ) {
@@ -62,6 +64,7 @@ struct LayoutMonitorSnapshot {
         self.workingFrame = workingFrame
         self.borderSafeFillFrame = borderSafeFillFrame ?? fullscreenLayoutFrame
         self.fullscreenLayoutFrame = fullscreenLayoutFrame
+        self.roomGapLimits = roomGapLimits
         self.scale = scale
         self.orientation = orientation
     }

@@ -28,7 +28,7 @@ final class ShellSettingsPreviewTests: XCTestCase {
         defer { try? FileManager.default.removeItem(at: directory) }
         let original = try Data(contentsOf: directory.appendingPathComponent("shell.toml"))
         let settings = WorkspaceBarSettings()
-        for profile in ShellProfiles.names(in: directory) {
+        for profile in ShellProfiles.names(in: directory) where profile != "vitreus" {
             let config = try config(profile, in: directory)
             XCTAssertTrue(config.leading.contains("apple-menu"), profile)
             XCTAssertTrue(config.leading.contains("app-menu"), profile)
@@ -53,7 +53,7 @@ final class ShellSettingsPreviewTests: XCTestCase {
         let settings = WorkspaceBarSettings()
         let profiles = ShellProfiles.names(in: directory)
         XCTAssertEqual(ShellProfiles.names(in: linkedDirectory), profiles)
-        for profile in profiles {
+        for profile in profiles where profile != "vitreus" {
             let config = try config(profile, in: linkedDirectory)
             let request = ShellSettingsPreview.Request(
                 config: config, surface: .bar, style: ShellSettingsPreview.style(settings: settings, config: config),
@@ -132,6 +132,33 @@ final class ShellSettingsPreviewTests: XCTestCase {
                 try inspect(image, name: "settings-default-\(vertical ? "vertical" : "horizontal")-\(Int(scale))x")
             }
         }
+    }
+
+    func testDisplaySizedIslandPreviewUsesRepresentativeSafeGeometry() async throws {
+        let directory = try fixture()
+        defer { try? FileManager.default.removeItem(at: directory) }
+        var config = try config("lake", in: directory)
+        config.island?.sizing = .display
+        let island = try XCTUnwrap(config.island)
+        let request = ShellSettingsPreview.Request(
+            config: config, surface: .island(expanded: true), style: .init(),
+            scale: 1, dark: true, fullWidth: true, sourceGeneration: 0
+        )
+        let sample = ShellSettingsPreview.islandData(for: request, config: island)
+        XCTAssertEqual(sample.size, CGSize(width: 1440, height: 900))
+        XCTAssertEqual(sample.usableRect, CGRect(x: 0, y: 32, width: 1440, height: 868))
+        let values = ShellSettingsPreviewSamples.values(
+            style: .init(),
+            islandSize: sample.size,
+            dark: true,
+            scale: 1,
+            surface: sample
+        )
+        let exported = try ShellServiceValue.decode(XCTUnwrap(values["island"]))
+        XCTAssertEqual(exported.fields?["usableRect"]?.fields?["y"]?.number, 32)
+        let image = try await ShellSettingsPreview.render(request)
+        XCTAssertEqual(image.width, 1440)
+        XCTAssertEqual(image.height, 900)
     }
 
     func testOversizedIslandRetainsNativeGeometryAndSelectionWithinBitmapBounds() async throws {

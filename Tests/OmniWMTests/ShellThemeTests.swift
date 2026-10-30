@@ -138,7 +138,7 @@ final class ShellThemeTests: XCTestCase {
             at: XCTUnwrap(ShellDefaults.bundledFile("themes")),
             includingPropertiesForKeys: nil
         ).map { $0.deletingPathExtension().lastPathComponent }.sorted()
-        XCTAssertEqual(names.count, 14)
+        XCTAssertEqual(names.count, 15)
         var themes = [("native", ShellTheme.native)]
         for name in names {
             try Data("profiles.default.theme = \"\(name)\"\n".utf8).write(to: root.appendingPathComponent("shell.toml"))

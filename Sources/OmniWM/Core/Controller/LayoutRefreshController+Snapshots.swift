@@ -107,6 +107,7 @@ extension LayoutRefreshController {
             workingFrame: layoutFrames?.workingFrame ?? monitor.visibleFrame,
             borderSafeFillFrame: layoutFrames?.borderSafeFillFrame ?? monitor.visibleFrame,
             fullscreenLayoutFrame: layoutFrames?.fullscreenLayoutFrame ?? monitor.visibleFrame,
+            roomGapLimits: layoutFrames?.roomGapLimits ?? [:],
             scale: scale,
             orientation: orientation ?? monitor.autoOrientation
         )
