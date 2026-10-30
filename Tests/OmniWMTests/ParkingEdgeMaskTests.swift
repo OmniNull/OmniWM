@@ -244,8 +244,14 @@ final class ParkingEdgeMaskTests: XCTestCase {
             queue: nil
         ) { _ in MainActor.assumeIsolated { orderOuts += 1 } }
         defer { NotificationCenter.default.removeObserver(observer) }
+        let dwellArmed = {
+            fin.contentView?.layer?.sublayers?.contains { $0.animation(forKey: "parkingEdge.dwell") != nil } == true
+        }
 
+        fin.setProgress(duration: 1.5)
+        XCTAssertTrue(dwellArmed())
         fin.hide()
+        XCTAssertFalse(dwellArmed())
         XCTAssertEqual(orderOuts, 0)
 
         let mask = CGRect(x: 91_000, y: 92_000, width: 1, height: 800)
