@@ -300,6 +300,7 @@ extension MouseEventHandler {
         ) else { return }
 
         let baseOffset = Double(controller.workspaceManager.niriViewportState(for: wsId).viewOffset)
+        let settings = engine.effectiveSettings(in: wsId)
 
         var selectedWindow: NiriWindow?
         controller.workspaceManager.withNiriViewportState(for: wsId) { endState in
@@ -315,8 +316,8 @@ extension MouseEventHandler {
                 currentOffset: baseOffset + sample.relativeOffset,
                 projectedOffset: baseOffset + sample.relativeProjectedOffset,
                 snapToColumn: controller.settings.gestures.trackpadScrollStyle == .snap,
-                centerMode: engine.centerFocusedColumn,
-                alwaysCenterSingleColumn: engine.alwaysCenterSingleColumn,
+                centerMode: settings.centerFocusedColumn,
+                alwaysCenterSingleColumn: settings.alwaysCenterSingleColumn,
                 viewFrame: monitor.frame,
                 scale: geometry.scale
             )
