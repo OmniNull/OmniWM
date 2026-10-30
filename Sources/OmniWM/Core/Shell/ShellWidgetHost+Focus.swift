@@ -79,7 +79,7 @@ extension ShellWidgetHost {
             releaseShellFocus(from: surface, restore: true)
             return
         }
-        window.makeFirstResponder(surface.preferredFirstResponder)
+        surface.focusPreferredResponder()
         publishIslandFocus()
         updateIslandInputMonitoring()
     }

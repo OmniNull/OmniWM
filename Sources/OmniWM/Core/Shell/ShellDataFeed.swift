@@ -89,6 +89,9 @@ final class ShellDataFeed {
     let calendar: CalendarController?
     let devices: ShellDevices?
     let notifications: ShellNotificationsController?
+    let awakeManager: SleepPreventionManager
+    let microphone: ShellMicrophoneMonitor
+    var awakeSubscription: UUID?
 
     init(
         permissions: ShellNetworkPermissions = ShellNetworkPermissions(),
@@ -99,6 +102,8 @@ final class ShellDataFeed {
         calendar: CalendarController? = nil,
         devices: ShellDevices? = nil,
         notifications: ShellNotificationsController? = nil,
+        awakeManager: SleepPreventionManager = .shared,
+        microphone: ShellMicrophoneMonitor = ShellMicrophoneMonitor(),
         onBadgesDemandChange: @escaping @MainActor (Bool) -> Void = { _ in },
         deliver: @escaping @MainActor (ShellWidgetData) -> Void
     ) {
@@ -113,6 +118,8 @@ final class ShellDataFeed {
         self.calendar = calendar
         self.devices = devices
         self.notifications = notifications
+        self.awakeManager = awakeManager
+        self.microphone = microphone
         clockFormatter = DateFormatter()
         clockFormatter.timeStyle = .short
         clockFormatter.dateStyle = .none
@@ -166,6 +173,8 @@ final class ShellDataFeed {
     func start() {
         guard !started else { return }
         started = true
+        listenToAwake(!paused && demands(.awake))
+        listenToMicrophone(!paused && demands(.microphone))
         listenToBadges()
         listenToNotifications(!paused && demands(.notifications))
         sampleBattery()
@@ -179,6 +188,8 @@ final class ShellDataFeed {
         listenToBadges()
         cancelTimer()
         removeAudioListeners()
+        listenToAwake(false)
+        listenToMicrophone(false)
         listAudioApps(false)
         listenToMedia(false)
         showLyrics(false)

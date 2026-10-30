@@ -16,6 +16,7 @@ extension ViewportState {
         scale: CGFloat = 2.0,
         viewFrame: CGRect? = nil
     ) {
+        preservesGestureOffset = false
         guard !columns.isEmpty else { return }
         let clampedIndex = newIndex.clamped(to: 0 ... (columns.count - 1))
 
@@ -88,6 +89,7 @@ extension ViewportState {
         scale: CGFloat = 2.0,
         viewFrame: CGRect? = nil
     ) {
+        preservesGestureOffset = false
         guard !containers.isEmpty, containerIndex >= 0, containerIndex < containers.count else { return }
 
         let sizeKeyPath = context.orientation.settledSpanKeyPath

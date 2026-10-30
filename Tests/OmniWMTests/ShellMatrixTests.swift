@@ -17,7 +17,7 @@ final class ShellMatrixTests: XCTestCase {
 
     override func setUp() async throws {
         shell = FileManager.default.temporaryDirectory.appendingPathComponent(UUID().uuidString)
-        XCTAssertEqual(ShellDefaults.sync(into: shell), [])
+        XCTAssertEqual(try ShellStyleFixture.prepare(into: shell), [])
         XCTAssertTrue(try ShellProfiles.select("matrix", in: shell))
         var problems: [String] = []
         config = try XCTUnwrap(ShellConfig.load(shellDirectory: shell, problems: &problems))
@@ -384,7 +384,7 @@ final class ShellBarShaderConfigTests: XCTestCase {
     func testConfigurationLayersAndCanDisableTheProfileShader() throws {
         let shell = FileManager.default.temporaryDirectory.appendingPathComponent(UUID().uuidString)
         defer { try? FileManager.default.removeItem(at: shell) }
-        XCTAssertEqual(ShellDefaults.sync(into: shell), [])
+        XCTAssertEqual(try ShellStyleFixture.prepare(into: shell), [])
         try Data("profile = \"matrix\"\n[profiles.matrix.barShader]\nfps = 12\nvalues = [0.2, 0]\n".utf8)
             .write(to: shell.appendingPathComponent("shell.toml"))
         var problems: [String] = []

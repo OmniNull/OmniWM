@@ -134,7 +134,12 @@ final class ShellWallpaperPaletteTests: XCTestCase {
         try FileManager.default.createDirectory(at: root, withIntermediateDirectories: true)
         let config = ShellConfig.resolve(shellDirectory: root)
         XCTAssertEqual(config.wallpaperScheme, .tonalSpot)
-        XCTAssertEqual(Array(ShellProfiles.themes(of: config).prefix(2)), ["native", ShellWallpaperPalette.themeName])
+        let builtIn = ["native", ShellWallpaperPalette.themeName]
+        let generic = try ShellStyleFixture.themeFiles(in: ShellStyleFixture.defaults)
+            .map { $0.deletingPathExtension().lastPathComponent }
+        let themes = ShellProfiles.themes(of: config)
+        XCTAssertEqual(Array(themes.prefix(builtIn.count)), builtIn)
+        XCTAssertEqual(Set(themes), Set(builtIn + generic))
 
         XCTAssertTrue(try ShellProfiles.selectTheme(ShellWallpaperPalette.themeName, in: root))
         XCTAssertTrue(try ShellProfiles.selectScheme(.rainbow, in: root))

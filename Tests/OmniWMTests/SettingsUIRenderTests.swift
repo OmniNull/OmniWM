@@ -72,6 +72,7 @@ final class SettingsUIRenderTests: XCTestCase {
                 configuration.shellDirectory.standardizedFileURL.path,
                 directory.appendingPathComponent("config/shell", isDirectory: true).standardizedFileURL.path
             )
+            try ShellStyleFixture.installAll(into: configuration.shellDirectory)
             try await configuration.refresh()
             _ = try await configuration.selectProfile("lake")
             XCTAssertNil(controller.workspaceBarManager.shellHost)

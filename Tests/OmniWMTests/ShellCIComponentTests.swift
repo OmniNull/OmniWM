@@ -34,7 +34,7 @@ final class ShellCIComponentTests: XCTestCase {
         ) throws {
             let vm = try XCTUnwrap(ShellVM.make(memoryLimit: 32 << 20))
             self.vm = vm
-            let profile = try XCTUnwrap(ShellDefaults.bundledStyles).appendingPathComponent("lake")
+            let profile = ShellStyleFixture.directory.appendingPathComponent("lake")
             for path in ["lib/lake/view.luau", "lib/lake/motion.luau"] {
                 let source = try String(contentsOf: profile.appendingPathComponent(path), encoding: .utf8)
                 let virtual = "profile/" + path
@@ -426,7 +426,7 @@ final class ShellCIComponentTests: XCTestCase {
     func testInstalledManifestBoundsAndNoDefaultNetworkActivation() throws {
         let shell = FileManager.default.temporaryDirectory.appendingPathComponent(UUID().uuidString)
         defer { try? FileManager.default.removeItem(at: shell) }
-        XCTAssertTrue(ShellDefaults.sync(into: shell).isEmpty)
+        XCTAssertTrue(try ShellStyleFixture.prepare(into: shell).isEmpty)
         XCTAssertTrue(try ShellProfiles.select("lake", in: shell))
         var problems: [String] = []
         let config = ShellConfig.resolve(shellDirectory: shell, problems: &problems)

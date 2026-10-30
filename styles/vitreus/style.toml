@@ -1,0 +1,8 @@
+format = 1
+name = "vitreus"
+version = "1.0.0"
+api = 1
+author = "OmniNull"
+license = "GPL-2.0-only"
+title = "Vitreus"
+summary = "Liquid glass with a Desk for focus sessions and tasks."

@@ -336,7 +336,7 @@ enum ShellComponentCatalog {
         return options
     }
 
-    private static func option(_ node: TOMLNode, key: String, widget: String) throws -> ShellComponentOption {
+    static func option(_ node: TOMLNode, key: String, widget: String) throws -> ShellComponentOption {
         let place = "\(widget) option \(key)"
         guard case let .table(table) = node, case let .string(type)? = table["type"],
               let kind = ShellComponentOption.Kind(rawValue: type)

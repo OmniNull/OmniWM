@@ -19,6 +19,10 @@ Opacity changes apply live. If the panel was created without transparency suppor
 
 ## foot provider
 
+:::note[Unreleased]
+The foot provider is available when building from `main` and is not included in v0.7.6.
+:::
+
 Install [foot for macOS](https://github.com/gobijan/foot-macos) 1.28.0-macos.8 or newer, then choose **foot** in **Settings → Quake Terminal → Terminal**. OmniWM uses the `foot` and `footclient` inside the app, not copies on your `PATH`. The same global shortcut toggles foot's Quake terminal on a dedicated foot server that OmniWM starts with its own private socket; your regular foot app and its default socket are left alone. The server and its shell keep running when you hide the panel, switch providers or quit OmniWM, and OmniWM reuses them next time.
 
 `foot.ini` supplies fonts, colors and everything not overridden, as loaded when that server started; foot has no tabs or splits. In OmniWM's Settings you can override the panel's placement, auto-hide on focus loss, background opacity and screen dimming, and the shared **Animation Duration** sets foot's slide-in speed. OmniWM places the panel on the monitor under the pointer, below the OmniShell top bar. Dimming defaults to off, unlike foot's own `0.6`. Changes apply the next time foot is shown; turning an override off returns that setting to the server's `foot.ini`. See the [foot settings reference](/config/settings-reference/#quaketerminalfoot) for TOML keys.
@@ -35,7 +39,7 @@ Configure Ghostty's embedded terminal in **Settings → Quake Terminal**:
 - **Show On** — which monitor the terminal appears on: `Mouse Cursor's Monitor`, `Focused Window's Monitor` (the default), or `Main Monitor`. `Main Monitor` follows the **Monitor Roles** ranking in **Settings → Displays** when one is set, so you can pin the terminal to a preferred display with a fallback when it is disconnected; without a ranking it is the display with the macOS menu bar. See [Multi-Monitor Setup](/guides/multi-monitor/#monitor-roles).
 - **Width / Height** — each 10–100% of the monitor's available screen area in 5% steps; both default to 50%.
 
-You can also adjust the terminal directly with the mouse: drag its edges to resize, and hold `Option` and drag to move it. OmniWM remembers one custom size and position. It reuses that frame when it fits the selected monitor; otherwise it uses the configured position and percentages. A **Reset to Default Position** button appears in Settings once a custom frame is in use.
+You can also adjust the terminal directly with the mouse: drag its edges to resize, hold `Command`+`Option` and drag to move it, and hold `Option` and drag to select a rectangular block of text. Inside apps that capture the mouse, such as tmux or vim, add `Shift` (`Shift`+`Option`-drag) so the selection reaches the terminal instead of the app. OmniWM remembers one custom size and position. It reuses that frame when it fits the selected monitor; otherwise it uses the configured position and percentages. A **Reset to Default Position** button appears in Settings once a custom frame is in use.
 
 ## Appearance
 

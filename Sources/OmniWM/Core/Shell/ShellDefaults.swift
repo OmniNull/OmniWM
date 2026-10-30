@@ -7,15 +7,9 @@ import Foundation
 enum ShellDefaults {
     static let profile = "default"
     private static let manifestName = ".manifest.json"
-    private static let reserved: Set<String> = [profile, "widgets", "themes", "shaders", "lib"]
-    private static let retiredStyles = ["system"]
 
     static var bundled: URL? {
         Bundle.module.url(forResource: "ShellDefault", withExtension: nil)
-    }
-
-    static var bundledStyles: URL? {
-        Bundle.module.url(forResource: "ShellStyles", withExtension: nil)
     }
 
     static func bundledFile(_ path: String) -> URL? {
@@ -28,41 +22,11 @@ enum ShellDefaults {
     static func sync(
         into shellDirectory: URL,
         from source: URL? = bundled,
-        styles: URL? = bundledStyles,
         day: String = today
     ) -> [URL] {
-        var backups = source.map {
+        source.map {
             install($0, into: shellDirectory.appendingPathComponent(profile, isDirectory: true), day: day)
         } ?? []
-        guard let styles else { return backups }
-        let bundledNames = styleNames(in: styles)
-        for style in bundledNames {
-            let target = shellDirectory.appendingPathComponent(style, isDirectory: true)
-            guard !FileManager.default.fileExists(atPath: target.path)
-                || FileManager.default.fileExists(atPath: target.appendingPathComponent(manifestName).path)
-            else {
-                Log.shell.notice("Kept your shell folder \(style); the bundled \(style) style was not installed")
-                continue
-            }
-            backups += install(styles.appendingPathComponent(style), into: target, day: day)
-        }
-        for style in retiredStyles where !bundledNames.contains(style) {
-            retire(shellDirectory.appendingPathComponent(style, isDirectory: true))
-        }
-        return backups
-    }
-
-    private static func styleNames(in styles: URL) -> [String] {
-        let entries = (try? FileManager.default.contentsOfDirectory(
-            at: styles,
-            includingPropertiesForKeys: [.isDirectoryKey],
-            options: [.skipsHiddenFiles]
-        )) ?? []
-        return entries
-            .filter { (try? $0.resourceValues(forKeys: [.isDirectoryKey]).isDirectory) == true }
-            .map(\.lastPathComponent)
-            .filter { !reserved.contains($0) }
-            .sorted()
     }
 
     private static func install(_ source: URL, into target: URL, day: String) -> [URL] {
@@ -102,24 +66,6 @@ enum ShellDefaults {
         return backups
     }
 
-    private static func retire(_ target: URL) {
-        let target = target.resolvingSymlinksInPath().standardizedFileURL
-        let manifestURL = target.appendingPathComponent(manifestName)
-        guard let written = readManifest(at: manifestURL) else { return }
-        do {
-            try removeUnedited(written, in: target)
-            try FileManager.default.removeItem(at: manifestURL)
-        } catch {
-            Log.shell.error("Failed to retire the shell profile in \(target.path): \(error.localizedDescription)")
-            return
-        }
-        let entries = FileManager.default.enumerator(at: target, includingPropertiesForKeys: nil)?
-            .compactMap { $0 as? URL } ?? []
-        for directory in (entries + [target]).sorted(by: { $0.path.count > $1.path.count }) {
-            rmdir(directory.path)
-        }
-    }
-
     private static func readManifest(at url: URL) -> [String: String]? {
         try? JSONDecoder().decode([String: String].self, from: Data(contentsOf: url))
     }
@@ -133,7 +79,7 @@ enum ShellDefaults {
         }
     }
 
-    private static var today: String {
+    static var today: String {
         Date.now.formatted(.iso8601.year().month().day())
     }
 

@@ -12,8 +12,10 @@ final class ShellScriptHostTests: XCTestCase {
         let instance: OpaquePointer
         var error = [CChar](repeating: 0, count: 512)
 
-        init(_ source: String, file: StaticString = #filePath, line: UInt = #line) throws {
-            let vm = try XCTUnwrap(ShellVM.make(memoryLimit: 32 << 20), file: file, line: line)
+        init(
+            _ source: String, fonts: ShellFontSet = .init(), file: StaticString = #filePath, line: UInt = #line
+        ) throws {
+            let vm = try XCTUnwrap(ShellVM.make(memoryLimit: 32 << 20, fonts: fonts), file: file, line: line)
             let status = omni_vm_load(vm, "=test", source, source.utf8.count, 100_000_000, &error, error.count)
             guard status == OMNI_OK else {
                 _ = omni_vm_destroy(vm)
@@ -558,16 +560,171 @@ final class ShellScriptHostTests: XCTestCase {
         XCTAssertEqual(ShellTextStyle.symbolSize(for: expected), 15)
     }
 
-    func testBundledFontsUseUncompressedSFNT() throws {
+    func testBundledAndStyleFontsUseUncompressedSFNT() throws {
         let directory = try XCTUnwrap(ShellDefaults.bundled).deletingLastPathComponent()
             .appendingPathComponent("Fonts")
         let fonts = try FileManager.default.contentsOfDirectory(at: directory, includingPropertiesForKeys: nil)
         XCTAssertFalse(fonts.isEmpty)
+        let styles = try ShellStyleFixture.names().map { try ShellStyleFixture.source($0) }
+        let styleFonts = styles.flatMap { ShellFontLibrary.files(in: $0.appendingPathComponent("fonts")) }
         let signatures = [[0, 1, 0, 0], Array("true".utf8), Array("OTTO".utf8)]
-        for font in fonts {
+        for font in fonts + styleFonts {
             let signature = Array(try Data(contentsOf: font, options: .mappedIfSafe).prefix(4))
             XCTAssertTrue(signatures.contains(signature), font.lastPathComponent)
         }
+        for font in styleFonts {
+            let licence = font.deletingLastPathComponent().appendingPathComponent("OFL.txt")
+            XCTAssertTrue(FileManager.default.fileExists(atPath: licence.path), font.path)
+        }
+    }
+
+    func testStyleBitsKeepEveryFieldInItsOwnRange() throws {
+        let masks = [
+            OMNI_STYLE_BASE_MASK, OMNI_STYLE_WEIGHT_MASK, OMNI_STYLE_FILLED, OMNI_STYLE_QUARTER, OMNI_STYLE_FONT_MASK
+        ]
+        XCTAssertEqual(masks.reduce(0, |), 0xFFFF)
+        XCTAssertEqual(masks.map(\.nonzeroBitCount).reduce(0, +), 16)
+        XCTAssertEqual(OMNI_STYLE_FONT_CUSTOM, try XCTUnwrap(ShellFontFamily.allCases.map(\.rawValue).max()) + 1)
+        let script = try Script("""
+        function render(ctx)
+            return ui.row{
+                ui.text{ text = "a", style = "rounded", weight = "black", font = "symbols", filled = true, rotate = 90 },
+            }
+        end
+        """)
+        XCTAssertEqual(script.render().status, OMNI_OK, script.message)
+        let style = decode(script.output)[1].content.style
+        XCTAssertEqual(style & OMNI_STYLE_BASE_MASK, 5)
+        XCTAssertEqual((style & OMNI_STYLE_WEIGHT_MASK) >> OMNI_STYLE_WEIGHT_SHIFT, 9)
+        XCTAssertEqual((style & OMNI_STYLE_FONT_MASK) >> OMNI_STYLE_FONT_SHIFT, ShellFontFamily.symbols.rawValue)
+        XCTAssertNotEqual(style & OMNI_STYLE_FILLED, 0)
+        XCTAssertNotEqual(style & OMNI_STYLE_QUARTER, 0)
+        XCTAssertEqual(style >> OMNI_STYLE_SIZE_SHIFT, 0)
+    }
+
+    func testCelestialRendersItsOwnRubikFamilyBesideTheBuiltInSymbols() throws {
+        let fonts = ShellFontLibrary.shared
+            .fonts(in: [try ShellStyleFixture.source("celestial").appendingPathComponent("fonts")])
+        let family = "Rubik"
+        let id = UInt32(try XCTUnwrap(fonts.ids[family]))
+        XCTAssertGreaterThanOrEqual(id, OMNI_STYLE_FONT_CUSTOM)
+        XCTAssertFalse(ShellFontFamily.bundledFamilies.contains(family))
+        let script = try Script("""
+        function render(ctx)
+            return ui.row{
+                ui.text{ text = "12", font = "\(family)" },
+                ui.text{ text = "home", font = "symbols" },
+            }
+        end
+        """, fonts: fonts)
+        XCTAssertEqual(script.render().status, OMNI_OK, script.message)
+        let nodes = decode(script.output)
+        XCTAssertEqual(nodes[1].content.style, id << OMNI_STYLE_FONT_SHIFT)
+        XCTAssertEqual(nodes[2].content.style, ShellFontFamily.symbols.rawValue << OMNI_STYLE_FONT_SHIFT)
+        XCTAssertEqual(CTFontCopyFamilyName(ShellTextStyle.font(for: nodes[1].content.style)) as String, family)
+    }
+
+    func testStyleFamilyEncodesItsProcessIdAndAliasesStayFixed() throws {
+        let fonts = try ShellFontFixture.fonts()
+        let id = UInt32(try XCTUnwrap(fonts.ids[ShellFontFixture.family]))
+        XCTAssertGreaterThanOrEqual(id, OMNI_STYLE_FONT_CUSTOM)
+        let source = """
+        function render(ctx)
+            return ui.row{
+                ui.text{ text = "Hi", font = "Space Grotesk", weight = "bold", size = 14 },
+                ui.text{ text = "Hi", font = "system" },
+                ui.text{ text = "Hi", font = "symbols" },
+            }
+        end
+        """
+        let script = try Script(source, fonts: fonts)
+        XCTAssertEqual(script.render().status, OMNI_OK, script.message)
+        let nodes = decode(script.output)
+        let bold: UInt32 = 7 << OMNI_STYLE_WEIGHT_SHIFT | 1400 << OMNI_STYLE_SIZE_SHIFT
+        XCTAssertEqual(nodes[1].content.style, id << OMNI_STYLE_FONT_SHIFT | bold)
+        XCTAssertEqual(nodes[2].content.style, 0)
+        XCTAssertEqual(nodes[3].content.style, ShellFontFamily.symbols.rawValue << OMNI_STYLE_FONT_SHIFT)
+        XCTAssertEqual(ShellFontLibrary.shared.family(of: nodes[1].content.style), ShellFontFixture.family)
+        XCTAssertEqual(omni_instance_message_count(script.instance, OMNI_MESSAGE_LOG), 0)
+
+        let unaware = try Script(source)
+        XCTAssertEqual(unaware.render().status, OMNI_OK, unaware.message)
+        XCTAssertEqual(decode(unaware.output)[1].content.style, bold)
+        XCTAssertEqual(omni_instance_message_count(unaware.instance, OMNI_MESSAGE_LOG), 1)
+    }
+
+    func testUnknownFamilyFallsBackToSystemAndLogsOnce() throws {
+        let source = """
+        function render(ctx)
+            return ui.row{
+                ui.text{ text = "Hi", font = "Nowhere Sans" },
+                ui.text{ text = "Hi", font = "Nowhere Sans", style = "bold" },
+                ui.text{ text = "Hi", font = string.rep("x", 300) },
+                ui.text{ text = "Hi", font = string.rep("y", 300) },
+            }
+        end
+        """
+        let script = try Script(source, fonts: try ShellFontFixture.fonts())
+        XCTAssertEqual(script.render().status, OMNI_OK, script.message)
+        let nodes = decode(script.output)
+        XCTAssertEqual(nodes.dropFirst().map(\.content.style), [0, 1, 0, 0])
+        XCTAssertEqual(
+            CTFontCopyPostScriptName(ShellTextStyle.font(for: nodes[1].content.style)) as String,
+            CTFontCopyPostScriptName(ShellTextStyle.font(for: 0)) as String
+        )
+        let logs = (0 ..< omni_instance_message_count(script.instance, OMNI_MESSAGE_LOG)).map { index in
+            var length = 0
+            let text = omni_instance_message(script.instance, OMNI_MESSAGE_LOG, index, &length)
+            return String(decoding: UnsafeRawBufferPointer(start: text, count: length), as: UTF8.self)
+        }
+        XCTAssertEqual(logs.count, 2)
+        XCTAssertTrue(logs.first?.contains("\"Nowhere Sans\"") == true, "\(logs)")
+        XCTAssertTrue(logs.last?.contains("255 bytes") == true, "\(logs)")
+        XCTAssertTrue(logs.allSatisfy { $0.utf8.count < 128 })
+
+        omni_instance_clear_messages(script.instance)
+        let second = try XCTUnwrap(omni_instance_create(script.vm))
+        defer { omni_instance_destroy(second) }
+        var stats = omni_render_stats()
+        var error = [CChar](repeating: 0, count: 256)
+        XCTAssertEqual(omni_instance_render(second, OMNI_VIEW_BAR, 8_000_000, &stats, &error, error.count), OMNI_OK)
+        XCTAssertEqual(omni_instance_message_count(second, OMNI_MESSAGE_LOG), 0)
+        XCTAssertEqual(script.render().status, OMNI_OK, script.message)
+        XCTAssertEqual(omni_instance_message_count(script.instance, OMNI_MESSAGE_LOG), 0)
+
+        let fresh = try Script(source)
+        XCTAssertEqual(fresh.render().status, OMNI_OK, fresh.message)
+        XCTAssertEqual(omni_instance_message_count(fresh.instance, OMNI_MESSAGE_LOG), 2)
+    }
+
+    func testFontTablesAreSetBeforeTheFirstLoadAndValidated() throws {
+        func set(_ vm: OpaquePointer, _ name: String, _ id: UInt8) -> omni_status {
+            var bytes = Array(name.utf8).map { CChar(bitPattern: $0) }
+            return bytes.withUnsafeMutableBufferPointer { text in
+                var family = omni_font_family(name: text.baseAddress, length: text.count, id: id)
+                return omni_vm_set_fonts(vm, &family, 1)
+            }
+        }
+        let custom = UInt8(OMNI_STYLE_FONT_CUSTOM)
+        let maximum = UInt8(OMNI_STYLE_FONT_MASK >> OMNI_STYLE_FONT_SHIFT)
+        let vm = try XCTUnwrap(ShellVM.make(memoryLimit: ShellWidgetPackage.memoryLimit))
+        defer { _ = omni_vm_destroy(vm) }
+        for id in [0, custom - 1, maximum + 1] {
+            XCTAssertEqual(set(vm, "Space Grotesk", id), OMNI_ERR_RUNTIME, "\(id)")
+        }
+        XCTAssertEqual(set(vm, "", custom), OMNI_ERR_RUNTIME)
+        XCTAssertEqual(set(vm, "Space\u{0}Grotesk", custom), OMNI_ERR_RUNTIME)
+        XCTAssertEqual(set(vm, String(repeating: "x", count: Int(OMNI_FONT_NAME_LIMIT) + 1), custom), OMNI_ERR_RUNTIME)
+        XCTAssertEqual(omni_vm_set_fonts(vm, nil, Int(maximum - custom) + 2), OMNI_ERR_RUNTIME)
+        XCTAssertEqual(set(vm, "Space Grotesk", maximum), OMNI_OK)
+        XCTAssertEqual(omni_vm_set_fonts(vm, nil, 0), OMNI_OK)
+        let source = "function render(ctx) return ui.text{ text = 'a' } end"
+        var error = [CChar](repeating: 0, count: 256)
+        XCTAssertEqual(
+            omni_vm_load(vm, "=fonts", source, source.utf8.count, ShellWidgetPackage.loadBudget, &error, error.count),
+            OMNI_OK
+        )
+        XCTAssertEqual(set(vm, "Space Grotesk", custom), OMNI_ERR_RUNTIME)
     }
 
     func testTextChoosesABundledFontAndIconsAreLigatures() throws {
@@ -576,7 +733,6 @@ final class ShellScriptHostTests: XCTestCase {
             return ui.row{
                 ui.text{ text = "home", font = "symbols", filled = true, size = 18 },
                 ui.text{ text = "home", font = "symbols", size = 18 },
-                ui.text{ text = "12", font = "rubik", weight = "semibold" },
                 ui.text{ text = "Hi", font = "sans" },
                 ui.text{ text = "Hi", font = "nowhere" },
             }
@@ -586,12 +742,10 @@ final class ShellScriptHostTests: XCTestCase {
         let nodes = decode(script.output)
         let filled = nodes[1].content.style
         let outline = nodes[2].content.style
-        XCTAssertEqual(
-            filled,
-            UInt32(3 << OMNI_STYLE_FONT_SHIFT) | OMNI_STYLE_FILLED | UInt32(1800 << OMNI_STYLE_SIZE_SHIFT)
-        )
-        XCTAssertEqual(outline, UInt32(3 << OMNI_STYLE_FONT_SHIFT) | UInt32(1800 << OMNI_STYLE_SIZE_SHIFT))
-        XCTAssertEqual(nodes[5].content.style, 0)
+        let symbols = ShellFontFamily.symbols.rawValue << OMNI_STYLE_FONT_SHIFT
+        XCTAssertEqual(filled, symbols | OMNI_STYLE_FILLED | UInt32(1800 << OMNI_STYLE_SIZE_SHIFT))
+        XCTAssertEqual(outline, symbols | UInt32(1800 << OMNI_STYLE_SIZE_SHIFT))
+        XCTAssertEqual(nodes[4].content.style, 0)
 
         func glyphs(_ style: UInt32) -> [CGGlyph] {
             let font = ShellTextStyle.font(for: style)
@@ -612,9 +766,8 @@ final class ShellScriptHostTests: XCTestCase {
         }
         XCTAssertNotNil(paths[0])
         XCTAssertNotEqual(paths[0], paths[1])
-        XCTAssertEqual(CTFontCopyFamilyName(ShellTextStyle.font(for: nodes[3].content.style)) as String, "Rubik")
         XCTAssertEqual(
-            CTFontCopyFamilyName(ShellTextStyle.font(for: nodes[4].content.style)) as String,
+            CTFontCopyFamilyName(ShellTextStyle.font(for: nodes[3].content.style)) as String,
             "Google Sans Flex"
         )
     }

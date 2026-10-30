@@ -30,7 +30,7 @@ final class ShellLakePolicyTests: XCTestCase {
         init(count: Int = 3, peek: Bool = true, note: Bool = false, blocked: Int = 0) throws {
             vm = try XCTUnwrap(ShellVM.make(memoryLimit: 32 << 20))
             XCTAssertEqual(omni_vm_set_module_limit(vm, 512), OMNI_OK)
-            let profile = try XCTUnwrap(ShellDefaults.bundledStyles).appendingPathComponent("lake")
+            let profile = ShellStyleFixture.directory.appendingPathComponent("lake")
             for path in [
                 "motion",
                 "view",
@@ -380,5 +380,18 @@ final class ShellLakePolicyTests: XCTestCase {
         try fixture.render()
         XCTAssertTrue(fixture.captions.contains("clipboard_denied"))
         XCTAssertEqual(fixture.deps & ShellDataKey.seconds.bit, 0)
+    }
+
+    func testQuickNoteRerenderKeepsTheUnsavedDraftInItsInput() throws {
+        let fixture = try Fixture(note: true)
+        try fixture.render()
+        let note = try XCTUnwrap(fixture.nodes.first { $0.kind == 10 })
+        var change = ShellEvent(kind: .textChange)
+        change.text = "Draft remains mounted"
+        fixture.invoke(note.action, event: change)
+        try fixture.render()
+        let retained = try XCTUnwrap(fixture.nodes.first { $0.key == note.key })
+        XCTAssertEqual(fixture.text.string(retained.text), "Draft remains mounted")
+        XCTAssertTrue(fixture.captions.contains("Unsaved changes"))
     }
 }

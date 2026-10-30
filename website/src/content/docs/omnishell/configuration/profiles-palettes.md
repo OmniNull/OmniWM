@@ -14,33 +14,34 @@ A **profile** supplies the widgets, libraries, layout and appearance for a deskt
 ├── shell.toml          # chooses the profile, holds your settings for each one
 ├── omniwm.d.luau       # type definitions for your editor
 ├── widgets/            # your widgets, used before any profile's
+├── fonts/              # fonts for every profile
 ├── default/            # managed by OmniWM
-├── wayline/            # bundled styles, also managed by OmniWM
-├── nocturne/
-├── lake/
-├── celestial/
-├── matrix/
-├── sakura/
-└── <profile>/          # your own profiles
+└── <profile>/          # styles you install and your own profiles
 ```
 
 `default/` holds the bundled widgets and themes, and OmniWM updates it with each release. If you edit a managed file, the next update keeps your copy beside it as `<file>.edited-<date>`. **Settings > Advanced > Shell Development > Edit Widget Source…** or `omniwmctl shell eject <widget>` creates an editable copy before you customize an inherited widget. For an OmniWM-managed profile, the copy goes into top-level `widgets/`; for your own profile, it goes into `<profile>/widgets/`. Top-level user overrides take precedence over the selected profile; widgets in your own profiles are left alone.
 
 `omniwmctl shell init <widget>` creates `<profile>/widgets/<widget>/init.luau` in the selected profile, including `default/` when that profile is selected. It leaves an existing destination folder intact. To make a widget an override for every profile, place its folder in top-level `widgets/`.
 
+Fonts in top-level `fonts/` and in `<profile>/fonts/` are available to that profile's widgets by family name. Put shared fonts in `fonts/` and style-specific fonts in that profile’s `fonts/` folder.
+
 A profile is any other folder in the shell folder. Choose it in **Settings > Styles & Widgets** with **Use Style**, with `profile = "<name>"` in `shell.toml`, or with `omniwmctl shell profile <name>`. The **Palette** picker recolors the selected style and `omniwmctl shell theme <name>` the active profile, and that profile keeps the choice. Anything a profile does not contain comes from `default/`.
 
-The bundled styles are profiles that restyle the whole bar and its popouts, on the same data and commands as the default widgets. **wayline** has a 40 pt bar with coloured icon blocks, **nocturne** has 40 pt capsules and panels that hang from the bar, and **celestial** follows Caelestia: a 60 pt bar with shaped workspaces and a status pill, and a dashboard that drops from the top centre on hover with Dashboard, Media, Performance and Weather tabs. Celestial starts on the left; all styles support top, bottom, left and right placement, and their bar contents scale with the thickness setting. OmniWM updates them like `default/`. A folder you made under one of these names is left alone, and the style is not installed.
+Each optional style describes its appearance, controls and credits in its [README](https://github.com/OmniNull/OmniWM/tree/main/styles). Each style brings its own palette when it needs one.
 
-**matrix** is Rain Terminal: a dark green, monospace style with a continuous falling-code shader behind the full-width bar, compact numbered workspaces and matching square popouts. Choose **Matrix** in **Settings > Styles & Widgets**, then **Use Style** or run `omniwmctl shell profile matrix`. Its palette stays dark in both system appearances. Widgets retain their ordinary controls, including media transport, volume, calendar, weather and system details.
+## Installing styles
 
-**sakura** is Sakura Glass: warm ivory, rose accents, rounded cards and gently falling cherry-blossom petals. The shader stays inside the bar and matching popouts, leaving the desktop and app windows clear. Choose **Sakura** in **Settings > Styles & Widgets**, then **Use Style** or run `omniwmctl shell profile sakura`. Its palette stays light in both system appearances, and its widgets keep the usual media, audio, calendar, weather and system controls.
+Install, update and remove styles from the style gallery in **Settings > Styles & Widgets**, then choose **Use Style**. Style folders you already have keep working.
+
+## Writing a style
+
+A style's `style.toml` gives, in English, its title, summary, version (such as `1.0.0`) and the style API it was written for. OmniWM keeps Default when a style was written for another API or a newer OmniWM. Its `strings/<locale>.toml` files translate the text its widgets and options show; a missing translation falls back to the language, then English, then OmniWM's own strings.
 
 ## Profile settings
 
 ```toml
 profile = "default"
-profiles.default.theme = "nocturne"          # a bundled theme or themes/<name>.toml
+profiles.default.theme = "nord"              # a generic palette or themes/<name>.toml
 profiles.default.leading = ["omniwm", "workspaces", "scratchpads"]
 profiles.default.center = ["clock"]
 profiles.default.trailing = ["volume", "system-stats"]
@@ -72,7 +73,7 @@ The bar lane, widget and drawer keys are described in [Bars, popouts, and drawer
 
 ## Palettes and wallpaper colors
 
-OmniWM bundles the themes catppuccin, celestial, dracula, everforest, gruvbox, kanagawa, matrix, monolith, nocturne, nord, rose-pine, sakura, tokyo-night and wayline, each with light and dark colours.
+Default includes the generic palettes Catppuccin, Dracula, Everforest, Gruvbox, Kanagawa, Monolith, Nord, Rosé Pine and Tokyo Night. A style’s own palettes are offered while that style is selected or previewed.
 
 A theme in `themes/<name>.toml` sets palette roles under `[light]` and `[dark]` (for example `accent = "#FF9500"`) and may set the bar's look under its own `[workspaceBar]`.
 
@@ -88,6 +89,7 @@ Besides the base roles, the palette has Material 3 style `highestSurface`, `acce
 
 **Custom Accent Color** and **Custom Text Color** work with every palette. Resetting a color restores the palette value. The native material and motion appear on the live desktop; Settings previews use the actual widget sources with sample data.
 
-Matrix Rain and Sakura Petals expose named effect controls under **Styles & Widgets > Bar**. To make your own effects, see [Effects and shaders](/omnishell/reference/effects-shaders/).
+Styles that declare an effect expose its controls under **Styles & Widgets > Bar**. To make your own effects, see [Effects and shaders](/omnishell/reference/effects-shaders/).
 
 Use [development diagnostics](/omnishell/configuration/development/#diagnostics) to find unknown keys, invalid values and theme errors.
+

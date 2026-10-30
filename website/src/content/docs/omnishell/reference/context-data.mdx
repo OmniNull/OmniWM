@@ -30,7 +30,7 @@ end
 - `render(ctx)` draws the bar slot or configured island root; return `ui.box{ w = 0, h = 0 }` to draw nothing there.
 - `popout(ctx)` draws the popout, opened by `onClick = ui.popout`, `shell toggle <widget>`, or a drawer.
 - `interval` (seconds) sets how often timed data such as `seconds`, `cpu` and `network` updates this widget.
-- `trigger(ctx, event)` runs for `omniwmctl shell trigger <widget> <name> [value]` and [host lifecycle events](/omnishell/reference/input-motion/#root-triggers).
+- `trigger(ctx, event)` runs for `omniwmctl shell trigger <widget> <name> [value]`, the same `shell trigger` command from `onClick` or `omniwm.run`, and [host lifecycle events](/omnishell/reference/input-motion/#root-triggers). It runs on each of the widget's instances. A trigger hook must not run a trigger for its own widget unconditionally, because the event would queue itself again.
 - `require("./helpers")` and `require("@self/helpers")` load other files of the widget. `require("../lib/panel")` loads `lib/panel.luau` shared by every widget, from the shell folder, else the profile, else `default/`.
 - `ctx.state` keeps values between renders; `ctx.format` formats numbers, percentages and byte sizes for the user's locale. `ctx.format.date(seconds, template, zone)` formats a time from a date template such as `"jmm"` or `"EEEdMMM"`, following the user's 12- or 24-hour clock, and `ctx.format.offset(seconds, zone)` gives that zone's offset from UTC in seconds; `zone` is an identifier such as `"Asia/Tokyo"`, the local zone when omitted, and an unknown zone gives `nil`.
 - `onClick`, `onRightClick` and `onScroll` take a command string or a function `(ctx, event)`; `event` has the button, modifier keys, scroll `dx` and `dy`, and a slider's `value`.
@@ -38,6 +38,8 @@ end
 - `spanIslands = true` shows the widget on both islands of a bar split around the notch, instead of only its group's island.
 
 A widget only receives the data it reads, and OmniWM only gathers what some widget reads.
+
+`ctx.data.bar.monitorId` identifies the current display in both bar and island placements, using the same ID as `omniwmctl query displays` (for example `display:1`). Use it to target a display; `bar.monitor` and `island.display` are human-readable names and can be shared by multiple displays. `bar.style` is `nil` when the current display has no enabled native bar. Display IDs identify connected displays in the current session and can change after reconnecting them.
 
 Use `ctx.select("media", "title")` when a view needs one field of an object. The view updates when that field changes, so playback-position updates can leave a title-only widget alone. Paths can contain strings and integer array indices, for example `ctx.select("bluetooth", "devices", 1, "battery")`; a missing path returns `nil`. Bar and popout dependencies are tracked separately. Reading the same object through `ctx.data.media`, or selecting a table rather than a scalar, subscribes to the whole object. Event handlers still receive current data and rerender after changing widget state.
 
@@ -89,12 +91,15 @@ ui.text{ text = ctx.format.bytes(ctx.data.system and ctx.data.system.memory.used
 | `wifi` | Wi-Fi power, signal, band, channel and security, and the network name once Location access is allowed |
 | `bluetooth` | Bluetooth power and paired devices with their battery levels, once Bluetooth access is allowed |
 | `volume`, `muted`, `outputs` | Output volume and the audio outputs |
+| `brightness` | Main display brightness (0–100) and whether the control is available |
+| `microphone` | Default input device volume (0–100) and mute state; either control is absent when unsupported |
+| `awake` | OmniWM's Prevent Sleep state and its optional Unix expiry time |
 | `audioApps` | Apps with audio and their own volume |
 | `media` | What is playing, with artwork, shuffle and repeat |
 | `lyrics` | Synced lyrics for what is playing, from [LRCLIB](https://lrclib.net); the title, artist, album and track length are sent there while the service is allowed and a widget reads `lyrics` |
 | `spectrum` | 60 bars of what the Mac is playing, from 50 Hz to 10 kHz, and its tempo, about four times a second; needs System Audio Recording, like per-app volume |
 | `tempo` | Just the `spectrum` tempo in beats per minute, which changes far less often than the bars |
-| `calendar` | Upcoming events and a month to draw |
+| `calendar` | Upcoming events and a month to draw, or the selected day’s events and reminders |
 | `notifications` | Retained notifications, app metadata, loading/error state, and native action status |
 | `reminders` | Access state, incomplete reminders, total count and read/action errors |
 | `badges` | Dock badge labels keyed by lowercase bundle ID for apps with managed windows; available to bars, islands and popouts |
@@ -130,11 +135,35 @@ return ui.text{ text = weather and tostring(weather.temp) or "Unavailable" }
 
 <LuauDeclaration name="Lyrics" />
 
+## Brightness and system controls
+
+`brightness set <0-100>`, `brightness up` and `brightness down` target the main display. Up/down use 6.25 percentage point steps and clamp at the endpoints. `ctx.data.brightness` has a numeric `value` and `available`. An unavailable display reports `{value=0, available=false}`; hide brightness controls when unavailable. The getter and setter must both resolve and the getter must return a valid value before a write is attempted.
+
+Brightness refreshes when demand starts or resumes and after a brightness command. External brightness-key changes are not watched by this integration. `brightness settings` opens Displays settings. Wi-Fi and Bluetooth power switches use the existing `wifi settings` and `bluetooth settings` handoffs; their power commands are not enabled without evidence that they work without an administrator prompt. Reading these controls never requests access.
+
+<LuauDeclaration name="Brightness" />
+
+## Keep awake and microphone
+
+`session awake on` turns on OmniWM's **Prevent Sleep** until `session awake off`; `session awake <minutes>` keeps the Mac awake for more than zero and at most 1440 minutes. `ctx.data.awake.on` is that shared state, the same one the status menu switch shows, and `until` is the optional Unix expiry of a timed run. A timed run is not saved and expires even when no widget reads it.
+
+`microphone set <0-100>` and `microphone mute` control the default input device. The feed listens for device and control changes only while demanded. Unsupported volume or mute controls are `nil`; no audio is recorded and these commands do not request microphone recording access.
+
+<LuauDeclaration name="Awake" />
+
+<LuauDeclaration name="Microphone" />
+
+## Calendar day selection
+
+`calendar day <yyyy-mm-dd>` selects a local calendar day. `ctx.data.calendar.selectedDay` identifies it; `events` includes that day’s events, including past dates, and `reminders` independently loads incomplete reminders due that day. Before any selection, the existing upcoming agenda remains available. `calendar month today` returns to the current month and clears the day selection. Reading calendar or reminder data never requests permission.
+
 ## Reminders data
 
 `ctx.data.reminders` is a cached snapshot with `access`, `items`, `total`, `truncated` and optional `error`. Access is `"notDetermined"`, `"restricted"`, `"denied"`, `"writeOnly"` or `"full"`, independently of Calendar access. Reading this data does not request permission.
 
 With full access, `items` contains at most 100 incomplete reminders. Each `Reminder` has `id`, `title`, `list`, `color`, optional `due` (Unix seconds), `allDay`, `priority` and `canComplete`. Items are ordered by due date, then priority and identifier; undated items come last, and priority `0` means unset. `total` counts all fetched incomplete reminders; `truncated` is true when the snapshot contains fewer. Custom views can display any of the supplied items.
+
+Use `reminders add <text>` to add a reminder to the default writable list with existing Reminders access. A leading time, such as `3:30pm Call mom`, is applied to the selected calendar day (today when none is selected); text without a leading time creates an all-day reminder. Adding never requests access implicitly.
 
 Use `reminders authorize` to request access, `reminders settings` to open Reminders privacy settings, and `reminders complete <id>` to complete a selected item. Completion checks current access and whether its list is writable. These are commands, not callback-based service requests: read `ctx.data.reminders.error` for read or action failures. A successful authorization or completion clears the previous action error; a background refresh does not conceal it. Cached data updates on changes without a reminder polling timer.
 
@@ -153,25 +182,32 @@ Use `reminders authorize` to request access, `reminders settings` to open Remind
 | Command | Effect |
 |---|---|
 | `volume up [percent]`, `volume down [percent]`, `volume set <0-100>`, `volume mute` | Output volume |
+| `brightness set <0-100>`, `brightness up`, `brightness down`, `brightness settings` | Adjust a supported main display or open Displays settings |
+| `microphone set <0-100>`, `microphone mute` | Default input volume and mute, when supported |
+| `session awake on\|off\|<minutes>` | OmniWM's Prevent Sleep, on until off or for a number of minutes |
 | `volume output <id>` | Switch the output |
 | `volume app <bundle> set <0-100>`, `volume app <bundle> mute`, `volume app <bundle> reset` | One app's volume |
 | `volume permission` | Open the System Audio Recording privacy settings |
 | `media play`, `media pause`, `media toggle`, `media next`, `media previous`, `media seek <seconds>`, `media shuffle`, `media repeat`, `media open` | Playback; shuffle turns shuffle on or off and repeat steps through off, one and all, as `media.shuffle` and `media.repeatMode` show; when no widget reads `media`, play, pause and track changes send the media keys |
 | `session lock`, `session sleep`, `session logout`, `session restart`, `session shutdown` | Lock the screen, sleep, or ask macOS to log out, restart or shut down; macOS shows its usual confirmation for the last three, and asks once for permission to control loginwindow |
-| `calendar authorize`, `calendar settings`, `calendar open [event]`, `calendar month next\|previous\|today` | Calendar; `settings` opens the Calendars privacy settings |
-| `reminders authorize`, `reminders settings`, `reminders complete <id>` | Request Reminders access, open its privacy settings, or complete a selected writable reminder; failures appear in `ctx.data.reminders.error` |
-| `battery settings` | Open the Battery settings |
+| `calendar authorize`, `calendar settings`, `calendar open [event]`, `calendar month next\|previous\|today`, `calendar day <yyyy-mm-dd>` | Calendar; `settings` opens the Calendars privacy settings |
+| `reminders authorize`, `reminders settings`, `reminders complete <id>`, `reminders add <text>` | Request Reminders access, open its privacy settings, or complete a selected writable reminder; failures appear in `ctx.data.reminders.error` |
+| `notifications refresh`, `notifications settings`, `notifications open <bundle>` | Refresh retained notifications, open Full Disk Access settings, or open the source application |
+| `notifications dismiss <bundle> <id>`, `notifications dismiss-all`, `notifications cancel-dismiss-all` | Request native dismissal, process the retained snapshot, or stop after the current action |
+| `notifications reply <bundle> <id> <hex>` | Submit a supported native text reply; `<hex>` is the UTF-8 text encoded as hexadecimal bytes |
+| `battery settings`, `focus settings`, `screenshot settings` | Open Battery or Focus settings, or the Screenshot app |
 | `input-source select <id>`, `input-source settings` | Switch the keyboard input source; open the Keyboard settings |
 | `wifi authorize`, `wifi settings` | Ask for Location access, or open its privacy settings once asked; open the Wi-Fi settings |
 | `bluetooth authorize`, `bluetooth settings` | Ask for Bluetooth access, or open its privacy settings once asked; open the Bluetooth settings |
 | `shell toggle <name>` | Open or close a drawer or a widget's popout |
+| `shell trigger <widget> <name> [value]` | Call that widget's `trigger(ctx, event)` on each of its instances, as `omniwmctl shell trigger` does |
 | `shell menu` | Open the OmniWM menu at the widget |
 | `hidden-bar activate <id>` | Click a Hidden Bar item |
 | `window <action> <id>` | Any [`omniwmctl window`](/reference/cli/actions/) action on a window |
 
 ## Logging and localization
 
-`omniwm.log(...)` sends diagnostic values to the macOS unified log’s `shell` category. Use it from a handler or lifecycle hook when diagnosing a widget. `omniwm.l10n(key, ...)` uses OmniWM’s localization catalog and optional format arguments. It accepts up to eight formatting arguments. For your own widget text, provide the string directly unless it corresponds to an existing catalog key.
+`omniwm.log(...)` sends diagnostic values to the macOS unified log’s `shell` category. Use it from a handler or lifecycle hook when diagnosing a widget. `omniwm.l10n(key, ...)` looks the key up in the style’s `strings/<locale>.toml` tables, then in OmniWM’s catalog, and formats up to eight arguments. For your own widget text, add the key to your style’s `strings/en.toml` and put translations beside it.
 
 <LuauDeclaration name="omniwm.log" />
 
@@ -232,6 +268,24 @@ Read access before rendering protected contents. Timestamps are Unix seconds. Ca
 <LuauDeclaration name="Reminder" />
 
 ## Notification snapshots
+
+**Unreleased: available when building from `main`.** `ctx.data.notifications` reads retained Notification Center data through a read-only database connection. Full Disk Access is required; reading the feed does not request it. `notifications settings` opens the Full Disk Access pane. The feed follows database changes while demanded, but native persistence can delay updates by several seconds. Check `state`, `complete` and `error` before treating the snapshot as authoritative.
+
+The bundled [Notifications widget](/features/workspace-bar/#notifications) provides Details, Reply, dismissal and Clear All. Custom widgets issue the commands in [Actions](#actions) through `omniwm.run`; they are shell commands, not additional `omniwmctl command` paths. Use an item's current `bundle` and UUID `id`, rather than a title or row index.
+
+Replies and dismissal require Accessibility and a complete, ready snapshot. The host revalidates the retained target and the native Notification Center controls. A reply needs exactly one text-input action with unique title and send-button metadata. Unsupported, ambiguous, missing or inaccessible targets report an outcome instead of guessing an action. The database is never edited to dismiss a notification.
+
+`notifications reply <bundle> <id> <hex>` accepts a nonblank UTF-8 message of at most 4096 bytes, encoded as two hexadecimal characters per byte, without a NUL character. For example, `"4f4b"` represents `"OK"`:
+
+```luau
+omniwm.run("notifications reply " .. item.bundle .. " " .. item.id .. " 4f4b")
+```
+
+`notifications.action` reports the last reply/dismiss target, `kind` and `state`. `pending` means work is in flight; `dispatched` means the native action was submitted, not that a recipient received the message. `dispatchedPanelOpen` asks the user to close Notification Center. Other outcomes include `denied`, `unsupported`, `ambiguous`, `notFound`, `historyClosed`, `unavailable`, `failed`, `failedPanelOpen`, `cancelled` and `timeout`.
+
+While another notification action is in progress, the host rejects a new reply or dismissal without changing `notifications.action`; its status may still describe the earlier action. Custom widgets should serialize reply and dismissal requests, including while `dismissAll.active` is true, and match the reported `id`, `bundle` and `kind` to their target before displaying an outcome.
+
+`notifications.dismissAll` reports batch progress and its latest outcome. Cancelling stops after the current action and does not undo earlier dispatches. `dispatched` lists notification IDs whose native actions were submitted; the bundled widget hides those rows while waiting for storage to catch up. A later database observation can show notifications that macOS kept, reflected by `kept`.
 
 <LuauDeclaration name="Notifications" />
 

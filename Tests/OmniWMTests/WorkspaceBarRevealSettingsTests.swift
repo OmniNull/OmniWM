@@ -88,6 +88,51 @@ final class WorkspaceBarRevealSettingsTests: XCTestCase {
     }
 
     @MainActor
+    func testRevealModifierRespectsAutoHideOnEachMonitor() throws {
+        let builtIn = Monitor(
+            id: .init(displayId: 1), displayId: 1,
+            frame: CGRect(x: 0, y: 0, width: 1440, height: 900),
+            visibleFrame: CGRect(x: 0, y: 0, width: 1440, height: 860),
+            hasNotch: false, name: "Built-in Retina Display"
+        )
+        let external = Monitor(
+            id: .init(displayId: 2), displayId: 2,
+            frame: CGRect(x: 1440, y: 0, width: 1920, height: 1080),
+            visibleFrame: CGRect(x: 1440, y: 0, width: 1920, height: 1040),
+            hasNotch: false, name: "External"
+        )
+        for autoHide in [false, true] {
+            let settings = makeSettingsStore()
+            var export = SettingsExport.defaults()
+            export.workspaceBar.enabled = true
+            export.workspaceBar.autoHide = autoHide
+            export.workspaceBar.revealModifier = .controlShift
+            export.workspaceBar.reserveLayoutSpace = true
+            export.workspaceBar.position = .belowMenuBar
+            export.workspaceBar.height = 24
+            export.monitorBarSettings = [MonitorBarSettings(
+                monitorName: builtIn.name, monitorDisplayUUID: builtIn.displayUUID,
+                monitorDisplayId: builtIn.displayId, autoHide: !autoHide
+            )]
+            settings.applyExport(try SettingsTOMLCodec.decode(SettingsTOMLCodec.encode(export)))
+            XCTAssertEqual(settings.workspaceBar.resolved(for: builtIn).autoHide, !autoHide)
+            XCTAssertEqual(settings.workspaceBar.resolved(for: external).autoHide, autoHide)
+            let controller = WMController(settings: settings)
+            for held in [false, true, false] {
+                controller.setWorkspaceBarRevealHeld(held)
+                for monitor in [builtIn, external] {
+                    let hides = monitor.id == builtIn.id ? !autoHide : autoHide
+                    XCTAssertEqual(controller.isWorkspaceBarVisible(on: monitor), !hides || held, monitor.name)
+                    XCTAssertEqual(
+                        controller.workspaceBarReservedInsets(for: monitor), hides ? .zero : Struts(top: 24),
+                        monitor.name
+                    )
+                }
+            }
+        }
+    }
+
+    @MainActor
     func testApplyExportClampsDelay() {
         let settings = makeSettingsStore()
         var export = SettingsExport.defaults()
@@ -114,7 +159,7 @@ final class WorkspaceBarRevealSettingsTests: XCTestCase {
     }
 
     @MainActor
-    func testRevealModeIsOverlayOnlyAndOffModePreservesReservation() {
+    func testAutoHideIsOverlayOnlyAndAlwaysVisibleBarPreservesReservation() {
         let cases: [(
             customGaps: Bool,
             overlayWorking: CGRect,
@@ -151,7 +196,7 @@ final class WorkspaceBarRevealSettingsTests: XCTestCase {
             settings.workspaceBar.height = 24
             settings.workspaceBar.position = .belowMenuBar
             settings.workspaceBar.revealModifier = .option
-            settings.workspaceBar.autoHide = false
+            settings.workspaceBar.autoHide = true
             let controller = WMController(settings: settings)
             let monitor = Monitor(
                 id: .init(displayId: 1),
@@ -169,12 +214,15 @@ final class WorkspaceBarRevealSettingsTests: XCTestCase {
             XCTAssertEqual(controller.workspaceBarReservedInsets(for: monitor), .zero)
             XCTAssertEqual(controller.insetWorkingFrame(for: monitor), entry.overlayWorking)
             XCTAssertEqual(controller.fullscreenLayoutFrame(for: monitor), entry.overlayFullscreen)
-            settings.workspaceBar.revealModifier = .off
+            settings.workspaceBar.autoHide = false
             controller.setWorkspaceBarRevealHeld(false)
             XCTAssertTrue(controller.isWorkspaceBarVisible(on: monitor))
             XCTAssertEqual(controller.workspaceBarReservedInsets(for: monitor), Struts(top: 24))
             XCTAssertEqual(controller.insetWorkingFrame(for: monitor), entry.reservedWorking)
             XCTAssertEqual(controller.fullscreenLayoutFrame(for: monitor), entry.reservedFullscreen)
+            settings.workspaceBar.revealModifier = .off
+            XCTAssertTrue(controller.isWorkspaceBarVisible(on: monitor))
+            XCTAssertEqual(controller.workspaceBarReservedInsets(for: monitor), Struts(top: 24))
         }
     }
 

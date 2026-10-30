@@ -29,7 +29,7 @@ final class ShellConfigurationCoordinator {
     private(set) var widgetSchemas: [String: ShellRootSettings] = [:]
     private(set) var barLayout: ShellBarLayout?
 
-    private(set) var profiles: [String] = []
+    private(set) var styles: [ShellStyle] = []
     private(set) var themes: [String] = []
     private(set) var revision: UInt64 = 0
     private(set) var sourceGeneration: UInt64 = 0
@@ -306,18 +306,6 @@ final class ShellConfigurationCoordinator {
         }
     }
 
-    func editFile(
-        refreshMetadata: Bool = true,
-        scansSources: Bool = true,
-        _ operation: @escaping @Sendable (URL) throws -> Bool
-    ) async throws -> Bool {
-        try await ordered { [self] in
-            let changed = try await persistence().perform(operation)
-            if changed { try await saved(refreshMetadata: refreshMetadata, scanInputs: scansSources) }
-            return changed
-        }
-    }
-
     func flush() async {
         await tail?.value
         await writer?.flush()
@@ -336,6 +324,29 @@ final class ShellConfigurationCoordinator {
 }
 
 extension ShellConfigurationCoordinator {
+    func editFile(
+        refreshMetadata: Bool = true,
+        scansSources: Bool = true,
+        _ operation: @escaping @Sendable (URL) throws -> Bool
+    ) async throws -> Bool {
+        try await edit(refreshMetadata: refreshMetadata, scansSources: scansSources) { directory in
+            let changed = try operation(directory)
+            return (changed, changed)
+        }
+    }
+
+    func edit<Value: Sendable>(
+        refreshMetadata: Bool = true,
+        scansSources: Bool = true,
+        _ operation: @escaping @Sendable (URL) throws -> (changed: Bool, value: Value)
+    ) async throws -> Value {
+        try await ordered { [self] in
+            let result = try await persistence().perform(operation)
+            if result.changed { try await saved(refreshMetadata: refreshMetadata, scanInputs: scansSources) }
+            return result.value
+        }
+    }
+
     func sharedWeather() async throws -> ShellWeatherLocation? {
         try await persistence().perform { try ShellProfiles.sharedWeather(in: $0) }
     }
@@ -343,7 +354,10 @@ extension ShellConfigurationCoordinator {
     func editorSnapshot(profile: String) async throws -> ShellEditorSnapshot {
         let snapshot = try await previewConfig(profile: profile)
         if snapshot == config, let barLayout, metadataScope == MetadataScope(config) {
-            return .init(config: snapshot, layout: barLayout, schemas: widgetSchemas, themes: themes, island: catalog)
+            return .init(
+                config: snapshot, layout: barLayout, schemas: widgetSchemas, themes: themes, island: catalog,
+                style: style(profile)
+            )
         }
         return try await editorSnapshots.snapshot(
             for: snapshot, metadata: inputs?.metadata, generation: previewGeneration,
@@ -396,7 +410,7 @@ extension ShellConfigurationCoordinator {
         }
         let listing = try await persistence().perform { directory in
             (
-                ShellProfiles.names(in: directory), ShellProfiles.themes(of: snapshot),
+                ShellStyle.styles(in: directory), ShellProfiles.themes(of: snapshot),
                 ShellBarLayout(config: snapshot, shellDirectory: directory)
             )
         }
@@ -410,7 +424,7 @@ extension ShellConfigurationCoordinator {
         if previousInputs == nil || nextInputs?.sources != previousInputs?.sources { sourceGeneration += 1 }
         config = snapshot
         configProblems = loaded.problems
-        profiles = listing.0
+        styles = listing.0
         themes = listing.1
         barLayout = listing.2
         widgetSchemas = metadata.schemas

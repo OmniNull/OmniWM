@@ -156,6 +156,14 @@ struct MouseTrackpadSettingsTab: View {
                 .id("Raise Window When Focus Follows Mouse")
                 .disabled(!settings.focus.followsMouse)
 
+            Toggle("Only Focus Fully Visible Niri Windows", isOn: Bindable(settings.focus).followsMouseOnlyFullyVisible)
+                .id("Only Focus Fully Visible Niri Windows")
+                .disabled(!settings.focus.followsMouse)
+
+            SettingsCaption(
+                localized: "Ignore partially offscreen Niri windows and disable hover navigation at screen edges. Click or use the keyboard to reveal them."
+            )
+
             SettingsSliderRow(
                 label: String(localized: "Edge navigation interval"),
                 value: Bindable(settings.focus).edgeNavigationInterval,
@@ -166,7 +174,7 @@ struct MouseTrackpadSettingsTab: View {
                 )
             )
             .id("Edge navigation interval")
-            .disabled(!settings.focus.followsMouse)
+            .disabled(!settings.focus.followsMouse || settings.focus.followsMouseOnlyFullyVisible)
 
             SettingsCaption(
                 localized: "Hover at a Niri screen edge to move one column after this interval, then repeat while the pointer stays on the edge or preview. Move away to stop."

@@ -30,6 +30,21 @@ final class ShellIslandPanelTests: XCTestCase {
         XCTAssertNil(geometry.notch)
     }
 
+    func testDisplaySizingExportsSafeBounds() {
+        let display = monitor(notch: 500 ... 700, height: 32, scale: 2)
+        var config = ShellIslandConfig()
+        config.sizing = .display
+        XCTAssertEqual(config.size(on: display), display.frame.size)
+        let geometry = ShellIslandGeometry(monitor: display, size: config.size(on: display))
+        let data = ShellIslandData(monitor: display, geometry: geometry, visible: true, fullscreen: false)
+        XCTAssertEqual(data.usableRect, CGRect(x: 0, y: 32, width: 1200, height: 768))
+        let tiny = ShellIslandGeometry(monitor: display, size: CGSize(width: 1, height: 1))
+        let tinyData = ShellIslandData(monitor: display, geometry: tiny, visible: true, fullscreen: false)
+        XCTAssertTrue(tinyData.usableRect.minX.isFinite)
+        XCTAssertTrue(tinyData.usableRect.minY.isFinite)
+        XCTAssertEqual(tinyData.usableRect.height, 0)
+    }
+
     func testPanelDoesNotConstrainEnvelopeBelowMenuBar() {
         let panel = ShellIslandPanel(content: NSView())
         defer { panel.close() }
@@ -42,6 +57,48 @@ final class ShellIslandPanelTests: XCTestCase {
         XCTAssertFalse(panel.canBecomeMain)
         XCTAssertFalse(panel.ignoresMouseEvents)
         XCTAssertFalse(panel.isVisible)
+    }
+
+    func testDisplaySafeBoundsExcludeResolvedReservedChromeOnEveryEdge() {
+        let display = Monitor(
+            id: .init(displayId: 44), displayId: 44,
+            frame: CGRect(x: 0, y: 0, width: 1200, height: 800),
+            visibleFrame: CGRect(x: 0, y: 0, width: 1200, height: 776), hasNotch: false, name: "Safe bounds"
+        )
+        let settings = WorkspaceBarSettings()
+        settings.enabled = true
+        settings.reserveLayoutSpace = true
+        settings.height = 32
+        let cases: [(WorkspaceBarPosition, CGRect)] = [
+            (.belowMenuBar, CGRect(x: 0, y: 56, width: 1200, height: 744)),
+            (.bottom, CGRect(x: 0, y: 24, width: 1200, height: 744)),
+            (.left, CGRect(x: 32, y: 24, width: 1168, height: 776)),
+            (.right, CGRect(x: 0, y: 24, width: 1168, height: 776))
+        ]
+        for (position, expected) in cases {
+            settings.position = position
+            let geometry = WorkspaceBarGeometry.resolve(
+                monitor: display,
+                resolved: settings.resolved(for: display),
+                isVisible: true
+            )
+            let data = ShellIslandData(
+                monitor: display, geometry: ShellIslandGeometry(monitor: display, size: display.frame.size),
+                visible: true, fullscreen: false, reservedInsets: geometry.reservedInsets
+            )
+            XCTAssertEqual(data.usableRect, expected, position.rawValue)
+        }
+        settings.autoHide = true
+        let hidden = WorkspaceBarGeometry.resolve(
+            monitor: display,
+            resolved: settings.resolved(for: display),
+            isVisible: true
+        )
+        let data = ShellIslandData(
+            monitor: display, geometry: ShellIslandGeometry(monitor: display, size: display.frame.size),
+            visible: true, fullscreen: false, reservedInsets: hidden.reservedInsets
+        )
+        XCTAssertEqual(data.usableRect, CGRect(x: 0, y: 24, width: 1200, height: 776))
     }
 
     func testContentChangesPreserveEnvelopeAndRegistration() throws {

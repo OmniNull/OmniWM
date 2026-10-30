@@ -54,7 +54,7 @@ final class ShellConfigurationApplicationTests: XCTestCase {
         let directory = FileManager.default.temporaryDirectory.appendingPathComponent(UUID().uuidString)
         defer { try? FileManager.default.removeItem(at: directory) }
         let shell = directory.appendingPathComponent("shell")
-        _ = ShellDefaults.sync(into: shell)
+        _ = try ShellStyleFixture.prepare(into: shell)
         try Data("unexpected = 1\n".utf8).write(to: shell.appendingPathComponent("shell.toml"))
         let motion = MotionPolicy(animationsEnabled: false)
         let manager = WorkspaceBarManager(configDirectory: directory, motionPolicy: motion)

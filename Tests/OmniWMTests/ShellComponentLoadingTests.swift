@@ -20,7 +20,9 @@ final class ShellComponentLoadingTests: XCTestCase {
         try write("views = ['compact']", at: shell, path: "default/widgets/base/component.toml")
         let host = host(root)
         host.config.directories = [shell, shell.appendingPathComponent("look"), shell.appendingPathComponent("default")]
-        host.config.island = ShellIslandConfig(components: [ShellComponentInstance(id: "customized", widget: "custom")])
+        host.config.island = ShellIslandConfig(
+            root: "lake", components: [ShellComponentInstance(id: "customized", widget: "custom")]
+        )
         let state = ShellWidgetHost.WidgetState(
             name: "lake",
             sourceURL: shell.appendingPathComponent("look/widgets/lake/init.luau")
@@ -65,7 +67,7 @@ final class ShellComponentLoadingTests: XCTestCase {
         XCTAssertThrowsError(try host.widgetSource(of: state)) { error in
             XCTAssertTrue((error as? ShellScriptFailure)?.message.contains("limit is 64") == true)
         }
-        host.config.island = ShellIslandConfig()
+        host.config.island = ShellIslandConfig(root: state.name)
         XCTAssertEqual(try host.widgetSource(of: state).modules.count, 64)
         for index in 64 ..< 512 {
             try write("return 1", at: shell, path: "lib/\(index).luau")
@@ -128,7 +130,7 @@ final class ShellComponentLoadingTests: XCTestCase {
         let host = host(root)
         host.config.directories = [shell]
         host.config.leading = ["lake"]
-        host.config.island = ShellIslandConfig(components: [
+        host.config.island = ShellIslandConfig(root: "lake", components: [
             ShellComponentInstance(id: "first", widget: "box", options: ["width": .number(12)]),
             ShellComponentInstance(id: "second", widget: "box", options: ["width": .number(99)])
         ])

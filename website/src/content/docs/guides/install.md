@@ -10,7 +10,7 @@ sidebar:
 - macOS 26+ (Tahoe) on Apple Silicon
 - Accessibility and Input Monitoring permissions (required at launch)
 - Screen Recording permission for Overview thumbnails, rendered wallpaper previews, drag previews, and captured Hidden Bar glyphs (optional)
-- Full Disk Access permission for Hidden Bar concealment (optional)
+- Full Disk Access permission for Hidden Bar concealment and the OmniShell Notifications widget (optional); notification replies and dismissal also use Accessibility
 - `Displays have separate Spaces` **ON** (the macOS default; OmniWM pauses window management until it is enabled)
 
 ## Homebrew

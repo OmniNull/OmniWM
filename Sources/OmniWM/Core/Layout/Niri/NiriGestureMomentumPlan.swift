@@ -11,7 +11,7 @@ struct NiriGestureMomentumPlan {
 
     private let positions: [Double]
     private let viewportSpan: Double
-    private let totalContentSpan: Double
+    private let viewStartBounds: ClosedRange<Double>
     private let sizeKeyPath: KeyPath<NiriContainer, CGFloat>
 
     init?(
@@ -19,7 +19,8 @@ struct NiriGestureMomentumPlan {
         gap: CGFloat,
         viewportSpan: Double,
         totalContentSpan: Double,
-        sizeKeyPath: KeyPath<NiriContainer, CGFloat>
+        sizeKeyPath: KeyPath<NiriContainer, CGFloat>,
+        viewStartBounds: ClosedRange<Double>? = nil
     ) {
         guard !columns.isEmpty,
               totalContentSpan.isFinite,
@@ -40,7 +41,7 @@ struct NiriGestureMomentumPlan {
         }
         self.positions = positions
         self.viewportSpan = viewportSpan
-        self.totalContentSpan = totalContentSpan
+        self.viewStartBounds = viewStartBounds ?? (0 ... max(0, totalContentSpan - viewportSpan))
         self.sizeKeyPath = sizeKeyPath
     }
 
@@ -48,8 +49,7 @@ struct NiriGestureMomentumPlan {
         let previousActiveColumn = activeIndex.clamped(to: 0 ... columns.count - 1)
         let previousActivePosition = positions[previousActiveColumn]
         let rawViewStart = previousActivePosition + currentOffset
-        let maxViewStart = max(0, totalContentSpan - viewportSpan)
-        let viewStart = rawViewStart.clamped(to: 0 ... maxViewStart)
+        let viewStart = rawViewStart.clamped(to: viewStartBounds)
         let viewEnd = viewStart + viewportSpan
 
         let currentContainerSpan = max(0, Double(columns[previousActiveColumn][keyPath: sizeKeyPath]))

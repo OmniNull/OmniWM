@@ -27,6 +27,44 @@ enum ShellSessionCommand: String, CaseIterable, Sendable {
     }
 }
 
+enum ShellAwakeCommand: Equatable, Sendable {
+    static let maximumMinutes = 1440.0
+
+    case on
+    case off
+    case timed(minutes: Double)
+
+    init?(words: [String]) {
+        switch words {
+        case ["awake", "on"]: self = .on
+        case ["awake", "off"]: self = .off
+        case let words where words.count == 2 && words[0] == "awake":
+            guard let minutes = Double(words[1]), minutes.isFinite,
+                  minutes > 0, minutes <= Self.maximumMinutes
+            else { return nil }
+            self = .timed(minutes: minutes)
+        default: return nil
+        }
+    }
+}
+
+struct ShellAwake: Equatable, Sendable {
+    let on: Bool
+    let until: Double?
+
+    var indefinite: Bool {
+        on && until == nil
+    }
+
+    func write(into writer: inout ShellValueWriter) {
+        writer.map(2)
+        writer.key("on")
+        writer.bool(on)
+        writer.key("until")
+        until.map { writer.number($0) } ?? writer.null()
+    }
+}
+
 enum ShellSession {
     private typealias LockScreen = @convention(c) () -> Int32
 

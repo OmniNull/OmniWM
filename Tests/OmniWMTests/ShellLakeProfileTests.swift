@@ -666,11 +666,218 @@ final class ShellLakeProfileTests: XCTestCase {
         XCTAssertEqual(Set(clocks).count, 2)
     }
 
-    private func source(in root: URL, install: Bool = true) throws -> ShellWidgetSource {
+    func testHeldPlacementCancelsOnHideSurfaceResetAndDisplayBoundsChange() throws {
+        for boundary in ["fullscreen-hide", "surface-reset", "display-bounds"] {
+            let root = FileManager.default.temporaryDirectory.appendingPathComponent(UUID().uuidString)
+            defer { try? FileManager.default.removeItem(at: root) }
+            let source = try carrySource(in: root)
+            let fixture = try Fixture(source: source)
+            configureCarryIsland(fixture)
+            try fixture.render()
+            let surface = lakeSurface(source, scale: 1)
+            surface.setRootLimit(CGSize(width: 1400, height: 900))
+            var events: [ShellEvent.Phase] = []
+            surface.onAction = { click in
+                if let phase = click.event.phase { events.append(phase) }
+                fixture.invoke(click.action, event: click.event.bytes)
+            }
+            try applyLake(fixture, to: surface)
+            let move = try carryMove(in: fixture)
+            let handle = try XCTUnwrap(surface.layout.core.elements { $0.gestureAction == move.gesture_action }.first)
+            let frame = CGRect(surface.layout.core.absoluteFrame(of: handle))
+            let start = CGPoint(x: frame.midX, y: frame.maxY - 4)
+            let end = CGPoint(x: start.x + 90, y: start.y + 100)
+            surface.press(at: start, timestamp: 0)
+            surface.drag(to: end, screen: .zero, timestamp: 0.01)
+            XCTAssertNotNil(surface.manipulation, boundary)
+            surface.release(at: end, timestamp: 0.02)
+            XCTAssertEqual(surface.manipulation?.holding, true, boundary)
+            switch boundary {
+            case "fullscreen-hide": surface.setVisible(false)
+            case "surface-reset": surface.reset(text: fixture.text)
+            default: surface.setRootLimit(CGSize(width: 1200, height: 800))
+            }
+            XCTAssertNil(surface.manipulation, boundary)
+            XCTAssertTrue(events.contains(.cancelled), boundary)
+            try fixture.render()
+            let target = try carryTarget(in: fixture)
+            XCTAssertEqual(fixture.nodes.first { $0.key == target }?.manipulation_commit, 0, boundary)
+        }
+    }
+
+    func testHostScaleReplacementAndFullscreenHideCancelHeldPlacement() throws {
+        for scale: CGFloat in [1, 2] {
+            let boundary = scale == 2 ? "scale-replacement" : "fullscreen-hide"
+            let root = FileManager.default.temporaryDirectory.appendingPathComponent(UUID().uuidString)
+            defer { try? FileManager.default.removeItem(at: root) }
+            let source = try carrySource(in: root)
+            let fixture = try Fixture(source: source)
+            configureCarryIsland(fixture)
+            try fixture.render()
+            let surface = ShellWidgetSurface(
+                scale: 1, resources: ShellResources(motion: MotionPolicy(animationsEnabled: false)), directories: []
+            )
+            surface.assetFolders = source.assetPackages
+            try applyLake(fixture, to: surface)
+            let (host, state, instance) = try hiddenCarryHost(surface, fixture: fixture, source: source, root: root)
+            defer { host.closeIslands() }
+            surface.setVisible(true)
+            let key = ShellBarKey(monitor: carryHostMonitor(scale: 1).id, placement: .island)
+            let oldIsland = try XCTUnwrap(host.islandWindows[key.monitor])
+            var events: [ShellEvent.Phase] = []
+            surface.onAction = { [weak surface, weak instance] click in
+                if let phase = click.event.phase { events.append(phase) }
+                if click.event.phase == .cancelled {
+                    XCTAssertTrue(instance?.surface === surface, boundary)
+                }
+                fixture.invoke(click.action, event: click.event.bytes)
+            }
+            let move = try carryMove(in: fixture)
+            let handle = try XCTUnwrap(surface.layout.core.elements { $0.gestureAction == move.gesture_action }.first)
+            let frame = CGRect(surface.layout.core.absoluteFrame(of: handle))
+            let start = CGPoint(x: frame.midX, y: frame.maxY - 4)
+            let end = CGPoint(x: start.x + 90, y: start.y + 100)
+            surface.press(at: start, timestamp: 0)
+            surface.drag(to: end, screen: .zero, timestamp: 0.01)
+            XCTAssertNotNil(surface.manipulation, boundary)
+            surface.release(at: end, timestamp: 0.02)
+            XCTAssertEqual(surface.manipulation?.holding, true, boundary)
+            let desired = DesiredIslandSurface(
+                monitor: carryHostMonitor(scale: scale), fullscreen: true, reservedInsets: Struts(top: 32)
+            )
+            host.desiredIslands = [desired]
+            host.islandData = host.islandPlacements([desired])
+            host.reconcileIslandWindows()
+            XCTAssertNil(surface.manipulation, boundary)
+            XCTAssertTrue(events.contains(.cancelled), boundary)
+            XCTAssertFalse(events.contains(.applied), boundary)
+            XCTAssertTrue(state.instances[key] === instance)
+            let currentIsland = try XCTUnwrap(host.islandWindows[key.monitor])
+            XCTAssertFalse(oldIsland.panel.isVisible)
+            XCTAssertFalse(currentIsland.panel.isVisible)
+            XCTAssertEqual(currentIsland.surface.scale, scale)
+            XCTAssertEqual(currentIsland === oldIsland, scale == 1)
+            let data = try XCTUnwrap(host.islandData[key]?.surface)
+            XCTAssertFalse(data.visible)
+            XCTAssertTrue(data.fullscreen)
+            fixture.set("island") { data.write(to: &$0) }
+            try fixture.render()
+            let target = try carryTarget(in: fixture)
+            XCTAssertEqual(fixture.nodes.first { $0.key == target }?.manipulation_commit, 0)
+            XCTAssertNil(host.islandInputMonitors)
+            XCTAssertNil(host.islandDragMonitor)
+        }
+    }
+
+    private static let carryWidget = """
+    function render(ctx)
+        local island = ctx.data.island
+        local bounds = island.usableRect
+        local pending = ctx.state.pending
+        local rect = ctx.state.rect or { x = bounds.x + 40, y = bounds.y + 40, w = 300, h = 200 }
+        if pending then rect = pending.rect end
+        local function handle(next, event)
+            local held = next.state.pending
+            if event.phase == "ended" then
+                next.state.pending = { rect = event.rect, transaction = event.transaction }
+            elseif held and held.transaction == event.transaction then
+                if event.phase == "applied" then next.state.rect = held.rect end
+                next.state.pending = nil
+            end
+        end
+        return ui.stack{ w = island.size.w, h = island.size.h,
+            ui.stack{ key = "card", align = "topLeading", dx = rect.x, dy = rect.y, w = rect.w, h = rect.h,
+                manipulationCommit = pending and pending.transaction,
+                ui.box{ align = "topLeading", w = rect.w, h = 24, onGesture = handle,
+                    gesture = { axis = "free", track = { mode = "move", target = "card", bounds = bounds,
+                        min = { w = 100, h = 80 }, max = { w = 600, h = 500 } } } } } }
+    end
+    """
+
+    private func carrySource(in root: URL) throws -> ShellWidgetSource {
+        let style = root.appendingPathComponent("shell/carry")
+        let widget = style.appendingPathComponent("widgets/carry")
+        try FileManager.default.createDirectory(at: widget, withIntermediateDirectories: true)
+        try Data("""
+        [island]
+        root = "carry"
+        displays = "all"
+        sizing = "display"
+        fullscreen = "hide"
+        """.utf8).write(to: style.appendingPathComponent("shell.toml"))
+        try Data(Self.carryWidget.utf8).write(to: widget.appendingPathComponent("init.luau"))
+        return try source(in: root, style: "carry")
+    }
+
+    private func hiddenCarryHost(
+        _ surface: ShellWidgetSurface, fixture: Fixture, source: ShellWidgetSource, root: URL
+    ) throws -> (ShellWidgetHost, ShellWidgetHost.WidgetState, ShellWidgetHost.InstanceState) {
+        let host = ShellWidgetHost(
+            configDirectory: root, resources: surface.resources,
+            world: { ShellWorldData() }, vars: { [:] }, bars: { [:] }, onLayoutChange: {},
+            onCommand: { _, _ in }, onMenu: { _ in }, onPreview: { _ in }, onDrag: { _ in },
+            onPopoutChange: {}, onTitleDemandChange: { _ in }
+        )
+        var problems: [String] = []
+        host.config = ShellConfig.resolve(shellDirectory: root.appendingPathComponent("shell"), problems: &problems)
+        XCTAssertTrue(problems.isEmpty, problems.joined(separator: "\n"))
+        let state = ShellWidgetHost.WidgetState(
+            name: "carry", sourceURL: root.appendingPathComponent("shell/carry/widgets/carry/init.luau")
+        )
+        state.text = fixture.text
+        state.assetPackages = source.assetPackages
+        let instance = ShellWidgetHost.InstanceState()
+        var count = 0
+        let output = try XCTUnwrap(omni_instance_output(fixture.instance, OMNI_VIEW_BAR, &count))
+        instance.nodes = Array(UnsafeBufferPointer(start: output, count: count))
+        instance.surface = surface
+        let monitor = carryHostMonitor(scale: 1)
+        let key = ShellBarKey(monitor: monitor.id, placement: .island)
+        state.instances[key] = instance
+        host.widgets[state.name] = state
+        let desired = DesiredIslandSurface(monitor: monitor, fullscreen: false, reservedInsets: Struts(top: 32))
+        host.desiredIslands = [desired]
+        host.islandData = host.islandPlacements([desired])
+        let island = ShellIsland(surface: surface, monitor: monitor, size: monitor.frame.size)
+        host.islandWindows[monitor.id] = island
+        host.connectIslandInput(island, on: monitor.id)
+        XCTAssertFalse(island.panel.isVisible)
+        return (host, state, instance)
+    }
+
+    private func carryHostMonitor(scale: CGFloat) -> Monitor {
+        Monitor(
+            id: .init(displayId: 98117), displayId: 98117,
+            frame: CGRect(x: 0, y: 0, width: 1400, height: 900),
+            visibleFrame: CGRect(x: 0, y: 0, width: 1400, height: 876),
+            hasNotch: false, backingScale: scale, name: "Carry host fixture", isMain: false
+        )
+    }
+
+    private func carryTarget(in fixture: Fixture) throws -> UInt64 {
+        try XCTUnwrap(ShellManipulationRecipe(fixture.text.string(carryMove(in: fixture).gesture_track))).target
+    }
+
+    private func carryMove(in fixture: Fixture) throws -> omni_wire_node {
+        try XCTUnwrap(fixture.nodes.first {
+            $0.gesture_track != 0 && fixture.text.string($0.gesture_track).hasPrefix("manip:move:")
+        })
+    }
+
+    private func configureCarryIsland(_ fixture: Fixture) {
+        fixture.set("island") { writer in
+            ShellServiceValue.object([
+                "size": .object(["w": .number(1400), "h": .number(900)]),
+                "usableRect": .object(["x": .number(0), "y": .number(56), "w": .number(1400), "h": .number(844)])
+            ]).write(to: &writer)
+        }
+    }
+
+    private func source(in root: URL, install: Bool = true, style: String = "lake") throws -> ShellWidgetSource {
         let shell = root.appendingPathComponent("shell")
         if install {
-            XCTAssertTrue(ShellDefaults.sync(into: shell).isEmpty)
-            XCTAssertTrue(try ShellProfiles.select("lake", in: shell))
+            XCTAssertTrue(try ShellStyleFixture.prepare(into: shell).isEmpty)
+            XCTAssertTrue(try ShellProfiles.select(style, in: shell))
         }
         let host = ShellWidgetHost(
             configDirectory: root, resources: ShellResources(motion: MotionPolicy(animationsEnabled: false)),
@@ -682,8 +889,8 @@ final class ShellLakeProfileTests: XCTestCase {
         host.config = ShellConfig.resolve(shellDirectory: shell, problems: &problems)
         XCTAssertTrue(problems.isEmpty, problems.joined(separator: "\n"))
         return try host.widgetSource(of: ShellWidgetHost.WidgetState(
-            name: "lake",
-            sourceURL: XCTUnwrap(host.config.widget("lake"))
+            name: style,
+            sourceURL: XCTUnwrap(host.config.widget(style))
         ))
     }
 

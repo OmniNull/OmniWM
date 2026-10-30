@@ -58,7 +58,7 @@ final class NetworkPermissionsPageTests: XCTestCase {
 
     func testWidgetsListEveryDeclaringPrincipalWithItsHostStates() {
         var config = ShellConfig()
-        var island = ShellIslandConfig()
+        var island = ShellIslandConfig(root: "lake")
         var instance = ShellComponentInstance(id: "ci", widget: "ci-status")
         instance.capabilities = ShellComponentCapabilities(network: ["git.example.com"])
         island.components = [instance]

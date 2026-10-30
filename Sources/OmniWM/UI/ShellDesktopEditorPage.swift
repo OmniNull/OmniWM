@@ -98,8 +98,8 @@ struct ShellDesktopEditorPage: View {
                     Label("Active", systemImage: "checkmark.circle.fill")
                         .foregroundStyle(.secondary)
                 case .previewing:
-                    Text("Previewing \(ShellStyleText.title(editor.selectedStyle))").fontWeight(.semibold)
-                    Text("Active: \(ShellStyleText.title(editor.activeStyle))").foregroundStyle(.secondary)
+                    Text("Previewing \(editor.configuration.styleTitle(editor.selectedStyle))").fontWeight(.semibold)
+                    Text("Active: \(editor.configuration.styleTitle(editor.activeStyle))").foregroundStyle(.secondary)
                     Spacer(minLength: 4)
                     Button("Use Style") { Task { await editor.useStyle() } }
                         .buttonStyle(.borderedProminent)
@@ -128,7 +128,7 @@ struct ShellDesktopEditorPage: View {
                             }
                         }
                     }
-                    Text("Edits save to \(ShellStyleText.title(editor.selectedStyle))")
+                    Text("Edits save to \(editor.configuration.styleTitle(editor.selectedStyle))")
                         .font(.caption).foregroundStyle(.secondary)
                 }
             }

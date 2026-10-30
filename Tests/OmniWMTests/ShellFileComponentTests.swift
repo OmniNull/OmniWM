@@ -29,7 +29,7 @@ final class ShellFileComponentTests: XCTestCase {
         init(widget: String = "shelf", seed: ShellServiceValue? = nil, token: String? = nil) throws {
             self.widget = widget
             vm = try XCTUnwrap(ShellVM.make(memoryLimit: 32 << 20))
-            let profile = try XCTUnwrap(ShellDefaults.bundledStyles).appendingPathComponent("lake")
+            let profile = ShellStyleFixture.directory.appendingPathComponent("lake")
             func module(_ path: String, _ source: String) {
                 let name = "profile/" + path
                 XCTAssertEqual(omni_vm_add_module(vm, name, name.utf8.count, source, source.utf8.count), OMNI_OK)
@@ -614,7 +614,7 @@ final class ShellFileComponentTests: XCTestCase {
         XCTAssertFalse(fixture.drain().contains { $0.kind == OMNI_SERVICE_PROVIDER })
         try fixture.render()
         XCTAssertTrue(fixture.captions.contains("Only supported image files can be converted"))
-        let profile = try XCTUnwrap(ShellDefaults.bundledStyles).appendingPathComponent("lake")
+        let profile = ShellStyleFixture.directory.appendingPathComponent("lake")
         let descriptor = try ShellComponentCatalog.load("converter", directories: [profile])
         XCTAssertEqual(descriptor.providerCommand, ["provider.pl"])
         XCTAssertTrue(descriptor.capabilities.files)

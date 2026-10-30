@@ -51,6 +51,9 @@ enum ShellDataKey: String, CaseIterable, Sendable {
     case badges
     case menuApp
     case notifications
+    case awake
+    case microphone
+    case brightness
 
     private static let order = allCases
     static let table = order.map(\.rawValue).joined(separator: "\n")
@@ -61,12 +64,37 @@ enum ShellDataKey: String, CaseIterable, Sendable {
 }
 
 enum ShellVM {
-    static func make(memoryLimit: Int) -> OpaquePointer? {
+    static func make(
+        memoryLimit: Int, fonts: ShellFontSet = .init(), strings: ShellStrings = .empty
+    ) -> OpaquePointer? {
         let keys = ShellDataKey.table
         guard let vm = keys.withCString({ omni_vm_create(memoryLimit, $0, keys.utf8.count) }) else { return nil }
-        omni_vm_set_localizer(vm, ShellLocalizer.callback, nil)
+        omni_vm_set_localizer(
+            vm, ShellLocalizer.callback, Unmanaged.passRetained(strings).toOpaque(), ShellLocalizer.release
+        )
         omni_vm_set_formatter(vm, ShellFormatter.callback, nil)
+        omni_vm_set_measurer(vm, ShellTextMeasurer.callback, nil)
+        guard setFonts(fonts, in: vm) == OMNI_OK else {
+            _ = omni_vm_destroy(vm)
+            return nil
+        }
         return vm
+    }
+
+    private static func setFonts(_ fonts: ShellFontSet, in vm: OpaquePointer) -> omni_status {
+        let families = fonts.ids.sorted { $0.value < $1.value }
+        var storage: [CChar] = []
+        let spans = families.map { family in
+            let start = storage.count
+            storage.append(contentsOf: family.key.utf8.map { CChar(bitPattern: $0) })
+            return (start: start, length: storage.count - start, id: family.value)
+        }
+        return storage.withUnsafeBufferPointer { bytes in
+            let entries = spans.map { span in
+                omni_font_family(name: bytes.baseAddress?.advanced(by: span.start), length: span.length, id: span.id)
+            }
+            return entries.withUnsafeBufferPointer { omni_vm_set_fonts(vm, $0.baseAddress, $0.count) }
+        }
     }
 }
 
@@ -115,6 +143,9 @@ struct ShellWidgetData: Equatable, Sendable {
     var network: ShellNetworkRate?
     var volume: Double?
     var muted: Bool?
+    var awake: ShellAwake?
+    var microphone: ShellMicrophone?
+    var brightness: ShellBrightness?
     var outputs: [ShellAudioOutput]?
     var audioApps: ShellAudioApps?
     var media: ShellMedia?
@@ -154,6 +185,9 @@ extension ShellWidgetData {
             | Self.changed(.network, when: network != previous.network)
             | Self.changed(.volume, when: volume != previous.volume)
             | Self.changed(.muted, when: muted != previous.muted)
+            | Self.changed(.awake, when: awake != previous.awake)
+            | Self.changed(.microphone, when: microphone != previous.microphone)
+            | Self.changed(.brightness, when: brightness != previous.brightness)
             | Self.changed(.outputs, when: outputs != previous.outputs)
             | Self.changed(.audioApps, when: audioApps != previous.audioApps)
             | Self.changed(.media, when: media != previous.media)

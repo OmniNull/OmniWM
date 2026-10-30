@@ -37,7 +37,7 @@ Hold `Option + Shift + Mouse Scroll Wheel` (default, configurable) to scroll alo
 
 ## Trackpad gestures
 
-Use 2/3/4-finger gestures (configurable) along the active Niri primary axis; direction can be inverted.
+Use three or four fingers (configurable) to scroll along the active Niri primary axis; direction can be inverted. Workspace switching and window move/resize also support two fingers, but column scrolling does not.
 
 The **Trackpad scroll style** picker under **Settings → Mouse & Trackpad → Trackpad Gestures → Scroll columns** chooses how the strip responds:
 

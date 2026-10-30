@@ -112,7 +112,7 @@ final class ShellConfigurationHostTests: XCTestCase {
             host.config.profile = "look"
             host.config.directories = [shell]
             host.config.leading = ["lake"]
-            host.config.island = rootEnabled ? ShellIslandConfig(components: components) : nil
+            host.config.island = rootEnabled ? ShellIslandConfig(root: "lake", components: components) : nil
             host.widgets["lake"] = state
             host.bars = barData
             host.outbox = outbox

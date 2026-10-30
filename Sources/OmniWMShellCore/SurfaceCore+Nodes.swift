@@ -98,6 +98,12 @@ extension SurfaceCore {
     mutating func emitContent(slot: Int32, changes: ContentChanges, patches: inout PatchBuffer) {
         let slotIndex = Int(slot)
         let elementHandle = handle(slot)
+        if kind[slotIndex] == .glass || kind[slotIndex] == .shape {
+            if changes.paint || changes.text || changes.shader {
+                patches.ops.append(.setGlass(elementHandle))
+            }
+            return
+        }
         if changes.paint {
             patches.ops.append(.setPaint(elementHandle, paint[slotIndex]))
         }
@@ -169,7 +175,8 @@ extension SurfaceCore {
                 paint: paintChanged,
                 text: textChanged,
                 value: old.value != new.value || old.color != new.color,
-                shader: old.params != new.params || old.rate != new.rate
+                shader: old.params != new.params || old.rate != new.rate || old.glassShape != new.glassShape
+                    || old.glassFollow != new.glassFollow || old.glassFollowFixedRadius != new.glassFollowFixedRadius
             ),
             patches: &patches
         )

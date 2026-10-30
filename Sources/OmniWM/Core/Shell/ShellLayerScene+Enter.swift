@@ -5,6 +5,21 @@ import AppKit
 import OmniWMShellCore
 import QuartzCore
 
+struct ShellLayerMask {
+    let layer: CALayer
+    let host: CALayer
+}
+
+struct ShellLayerPath: Equatable, Sendable {
+    let path: ShellPathData?
+    let viewBox: CGRect?
+    let evenOdd: Bool
+
+    func fitted(to size: CGSize) -> CGPath? {
+        path?.path(fitting: viewBox, into: size)
+    }
+}
+
 struct ShellEnter: Equatable, Sendable {
     let opacity: Float
     let scale: CGFloat

@@ -28,10 +28,11 @@ final class ShellSettingsOptionRowTests: XCTestCase {
         }
     }
 
-    func testOptionTitlesRenderInChinese() throws {
+    func testOptionTitlesRenderInChineseFromTheAppAndTheStyleStrings() throws {
         let schema = try XCTUnwrap(ShellRootSettings.load(
             "workspaces", directories: [try XCTUnwrap(ShellDefaults.bundled)]
         ))
+        let lake = try ShellStrings.load([try ShellStyleFixture.source("lake")], localization: chinese.identifier)
         let cases: [(ShellComponentOption, String)] = [
             (.init(kind: .boolean, title: "Show date"), "显示日期"),
             (try XCTUnwrap(schema.options["indicator"]), "工作空间指示器"),
@@ -48,19 +49,21 @@ final class ShellSettingsOptionRowTests: XCTestCase {
             let key = option.title
             var expected = option
             expected.title = title
-            let actualPixels = try snapshot(option, key: key)
+            let actualPixels = try snapshot(option, key: key, strings: lake)
             let expectedPixels = try snapshot(expected, key: key)
             XCTAssertEqual(actualPixels, expectedPixels, key)
         }
     }
 
-    private func snapshot(_ option: ShellComponentOption, key: String) throws -> Data {
+    private let chinese = Locale(identifier: "zh-Hans")
+
+    private func snapshot(_ option: ShellComponentOption, key: String, strings: ShellStrings = .empty) throws -> Data {
         _ = NSApplication.shared
         let host = NSHostingView(rootView: Form {
-            ShellSettingsOptionRow(key: key, option: option, value: nil) { _ in }
+            ShellSettingsOptionRow(key: key, option: option, value: nil, strings: strings) { _ in }
         }
         .formStyle(.grouped)
-        .environment(\.locale, Locale(identifier: "zh-Hans"))
+        .environment(\.locale, chinese)
         .transaction { $0.animation = nil })
         let window = NSWindow(
             contentRect: CGRect(x: 0, y: 0, width: 600, height: 180),

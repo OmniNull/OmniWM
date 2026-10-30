@@ -195,7 +195,7 @@ final class ShellHiddenBarMenuTests: XCTestCase {
     private func source() throws -> ShellWidgetSource {
         let shell = FileManager.default.temporaryDirectory.appendingPathComponent(UUID().uuidString)
         defer { try? FileManager.default.removeItem(at: shell) }
-        XCTAssertEqual(ShellDefaults.sync(into: shell), [])
+        XCTAssertEqual(try ShellStyleFixture.prepare(into: shell), [])
         let folder = shell.appendingPathComponent(ShellDefaults.profile, isDirectory: true)
         return try ShellWidgetSourceLoader.build(.init(
             name: "hidden-bar-menu", shellDirectory: shell,

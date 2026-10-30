@@ -8,10 +8,16 @@ import QuartzCore
 extension ShellWidgetSurface {
     @discardableResult
     func beginGesture(at point: CGPoint, source: ShellGestureConfig.Source, timestamp: TimeInterval) -> Bool {
-        let candidates = layout.core.hitPath(x: Float(point.x), y: Float(point.y), matching: {
-            ($0.gestureAction != 0 || $0.gestureTrack != 0) && $0.gesture.axis != .none
-                && ($0.gesture.source == source || $0.gesture.source == .both)
-        }, clip: clips).map {
+        let candidates = layout.core.hitPath(
+            x: Float(point.x),
+            y: Float(point.y),
+            presentation: presentation,
+            matching: {
+                ($0.gestureAction != 0 || $0.gestureTrack != 0) && $0.gesture.axis != .none
+                    && ($0.gesture.source == source || $0.gesture.source == .both)
+            },
+            clip: clips
+        ).map {
             ShellPointerGesture.Candidate(handle: $0, configuration: layout.core.content(of: $0).gesture)
         }
         guard !candidates.isEmpty else { return false }
@@ -43,10 +49,12 @@ extension ShellWidgetSurface {
                 dragStart = nil
                 gestureCapture = capture(sample.handle, event: event)
             }
-            trackGesture(sample)
-            emitGesture(sample, event: event)
-        } else if gestureTracking != nil, let sample = gesture.trackingSample {
-            trackGesture(sample)
+            if !updateManipulation(sample) {
+                trackGesture(sample)
+                emitGesture(sample, event: event)
+            }
+        } else if gestureTracking != nil || manipulation != nil, let sample = gesture.trackingSample {
+            if !updateManipulation(sample) { trackGesture(sample) }
         }
         return gesture.selected != nil
     }
@@ -64,6 +72,7 @@ extension ShellWidgetSurface {
         gestureCapture = nil
         guard let gesture, let capture,
               let sample = gesture.end(at: point, timestamp: timestamp, cancelled: cancelled) else { return false }
+        if finishManipulation(sample) { return true }
         let token = finishGestureTrack(sample, invokesAction: capture.content.gestureAction != 0)
         emitGesture(sample, capture: capture, event: event ?? capture.event, trackingToken: token)
         return true

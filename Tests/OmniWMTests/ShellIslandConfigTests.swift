@@ -51,6 +51,17 @@ final class ShellIslandConfigTests: XCTestCase {
         XCTAssertTrue(problems.isEmpty)
     }
 
+    func testDisplaySizingIsOptInAndValidated() throws {
+        try write("[island]\nsizing = \"display\"\n", to: "look/shell.toml")
+        var problems: [String] = []
+        XCTAssertEqual(ShellConfig.load(shellDirectory: root, problems: &problems)?.island?.sizing, .display)
+        XCTAssertTrue(problems.isEmpty)
+        try write("[island]\nsizing = \"monitor-name\"\n", to: "look/shell.toml")
+        problems = []
+        XCTAssertNil(ShellConfig.load(shellDirectory: root, problems: &problems)?.island)
+        XCTAssertTrue(problems.contains { $0.contains("sizing") })
+    }
+
     func testInvalidIslandValuesFailClosedWithDiagnostics() throws {
         for value in [
             "island = 7", "[island]\nroot = \"../escape\"", "[island]\ndisplays = \"primary\"",

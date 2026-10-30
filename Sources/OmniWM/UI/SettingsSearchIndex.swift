@@ -113,6 +113,8 @@ enum SettingsSearchIndex {
         setting("Infinite Loop Navigation", section: .layouts, tab: "niri", anchor: "Infinite Loop Navigation"),
         setting("Center Focused Column", section: .layouts, tab: "niri", anchor: "Center Focused Column"),
         setting("Always Center Single Column", section: .layouts, tab: "niri", anchor: "Always Center Single Column"),
+        setting("Allow Overscroll", section: .layouts, tab: "niri", anchor: "Allow Overscroll"),
+        setting("Overscroll Visible Strip", section: .layouts, tab: "niri", anchor: "Overscroll Visible Strip"),
         setting("Gaps at Screen Edges", section: .layouts, tab: "niri", anchor: "Gaps at Screen Edges"),
         setting(
             "Stack Moved Window Into Adjacent Column",
@@ -237,6 +239,10 @@ enum SettingsSearchIndex {
             anchor: "Raise Window When Focus Follows Mouse"
         ),
         setting("Focus Lock Modifier", section: .mouseTrackpad, tab: "mouse", anchor: "Focus Lock Modifier"),
+        setting(
+            "Only Focus Fully Visible Niri Windows", section: .mouseTrackpad, tab: "mouse",
+            anchor: "Only Focus Fully Visible Niri Windows"
+        ),
         setting("Edge navigation interval", section: .mouseTrackpad, tab: "mouse", anchor: "Edge navigation interval"),
         setting("Quake Terminal", section: .quakeTerminal, anchor: "Quake Terminal"),
         setting("Enable Quake Terminal", section: .quakeTerminal, anchor: "Enable Quake Terminal"),
@@ -382,7 +388,6 @@ extension SettingsSearchIndex {
                 "volume",
                 "drawer",
                 "dynamic island",
-                "lake",
                 "focus ribbon",
                 "components"
             ]

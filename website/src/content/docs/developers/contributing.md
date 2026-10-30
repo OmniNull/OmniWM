@@ -165,9 +165,13 @@ For changes to setup, packaging, development installation, or related tooling, a
 
 CI also checks that the generated IPC wire encoders match their models. After changing IPC models or the generator, run `python3 Scripts/generate_ipc_wire.py --check`. If it reports stale files, run `python3 Scripts/generate_ipc_wire.py`, review the generated diff, and rerun the check.
 
+### Trying a Style
+
+The optional styles live in `styles/`, one folder per style. To try one from your checkout, run `python3 Scripts/styles.py install <name> --to ~/.config/omniwm/shell`, then choose it in **Settings > Styles & Widgets**. The script never replaces an existing folder.
+
 ### Translating the App
 
-Translations live in the [string catalogs](https://github.com/OmniNull/OmniWM/tree/main/Sources/OmniWM/Resources). `Localizable.xcstrings` contains interface text, `Commands.xcstrings` contains command names, categories, and scopes, `InfoPlist.xcstrings` contains the macOS permission descriptions, and `Shell.xcstrings` contains built-in OmniShell widget text. Add or edit your language's `localizations` entries in those files. Keep the English keys and source values intact, and translate the meaning in context. English is the fallback for strings without a translation.
+Translations live in the [string catalogs](https://github.com/OmniNull/OmniWM/tree/main/Sources/OmniWM/Resources). `Localizable.xcstrings` contains interface text, `Commands.xcstrings` contains command names, categories, and scopes, `InfoPlist.xcstrings` contains the macOS permission descriptions, and `Shell.xcstrings` contains the Default OmniShell widget text; add or edit your language's `localizations` entries in those catalogs. Each style in `styles/` keeps its own text in flat `strings/<locale>.toml` tables: `en.toml` lists the English text, and a language file maps the same English keys to translations. Keep the English keys and source values intact, and translate the meaning in context. English is the fallback for strings without a translation.
 
 Preserve each format argument's type when translating. You may reorder arguments with positional forms such as `%2$@` and `%1$lld`; a `%lld` count cannot become `%@`. Plural branches may omit a count when the wording does not need it. `make verify` checks format arguments, including plural forms, before a translation is accepted. To preview length and direction issues, use Xcode's localization pseudolanguages or change the app language in macOS settings.
 

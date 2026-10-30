@@ -5,15 +5,18 @@ import OmniWMScriptHost
 
 extension ShellWidgetPackage {
     func updateComponents(_ source: ShellWidgetSource, in script: ShellScript) async {
-        guard source.profile == storeProfile, let plan = ShellComponentReloadPlan.make(
-            source: source, loaded: .init(chunk: loadedChunk, main: loadedMain, modules: loadedModules),
-            previousDescriptors: componentDescriptors,
-            matches: { module in
-                omni_vm_module_matches(
-                    script.vm, module.path, module.path.utf8.count, module.source, module.source.utf8.count
-                )
-            }
-        ) else {
+        guard source.profile == storeProfile,
+              ShellFontLibrary.shared.fonts(in: source.fontFolders) == loadedFonts,
+              let plan = ShellComponentReloadPlan.make(
+                  source: source, loaded: .init(chunk: loadedChunk, main: loadedMain, modules: loadedModules),
+                  previousDescriptors: componentDescriptors,
+                  matches: { module in
+                      omni_vm_module_matches(
+                          script.vm, module.path, module.path.utf8.count, module.source, module.source.utf8.count
+                      )
+                  }
+              )
+        else {
             requestReload()
             return
         }

@@ -13,7 +13,68 @@ public struct ElementPathStep: Equatable, Sendable, BitwiseCopyable {
     }
 }
 
+public struct SurfacePresentation: Sendable {
+    public struct Group: Sendable {
+        public let frame: Rect
+        public let scale: Float
+        public let visible: Bool
+
+        public init(frame: Rect, scale: Float, visible: Bool) {
+            self.frame = frame
+            self.scale = scale
+            self.visible = visible
+        }
+    }
+
+    public let targets: [ElementHandle: Group]
+    public let groups: [ElementHandle: Group]
+
+    public init(targets: [ElementHandle: Group] = [:], groups: [ElementHandle: Group] = [:]) {
+        self.targets = targets
+        self.groups = groups
+    }
+
+    public func placement(of handle: ElementHandle) -> Group? {
+        if !groups.isEmpty, let group = groups[handle] { return group }
+        return targets.isEmpty ? nil : targets[handle]
+    }
+
+    public func raises(_ handle: ElementHandle) -> Bool {
+        !targets.isEmpty && targets[handle] != nil
+    }
+}
+
+struct SurfaceQueryPoint {
+    let x: Float
+    let y: Float
+    let width: Float
+    let height: Float
+    var hidden = false
+
+    var inside: Bool {
+        !hidden && x >= 0 && y >= 0 && x < width && y < height
+    }
+}
+
 extension SurfaceCore {
+    func enter(_ slot: Int32, x: Float, y: Float, _ presentation: SurfacePresentation?) -> SurfaceQueryPoint {
+        guard let placement = presentation?.placement(of: handle(slot)) else {
+            let rect = frame[Int(slot)]
+            return SurfaceQueryPoint(x: x - rect.x, y: y - rect.y, width: rect.width, height: rect.height)
+        }
+        guard placement.visible, placement.scale > 0 else {
+            return SurfaceQueryPoint(x: 0, y: 0, width: 0, height: 0, hidden: true)
+        }
+        let rect = placement.frame
+        let scale = placement.scale
+        return SurfaceQueryPoint(
+            x: (x - rect.x) / scale,
+            y: (y - rect.y) / scale,
+            width: rect.width / scale,
+            height: rect.height / scale
+        )
+    }
+
     public func resolve(path: [ElementPathStep]) -> ElementHandle {
         guard !path.isEmpty, path.count <= 65, path[0].child == 0, root >= 0 else { return .none }
         var slot = root
@@ -71,17 +132,19 @@ extension SurfaceCore {
     public func hitPath(
         x: Float,
         y: Float,
+        presentation: SurfacePresentation? = nil,
         matching predicate: (Content) -> Bool,
         clip: (ElementHandle, Float, Float) -> Bool = { _, _, _ in true }
     ) -> [ElementHandle] {
         var path: [ElementHandle] = []
-        hitPath(x: x, y: y, matching: predicate, clip: clip, into: &path)
+        hitPath(x: x, y: y, presentation: presentation, matching: predicate, clip: clip, into: &path)
         return path
     }
 
     public func hitPath(
         x: Float,
         y: Float,
+        presentation: SurfacePresentation? = nil,
         matching predicate: (Content) -> Bool,
         clip: (ElementHandle, Float, Float) -> Bool,
         into path: inout [ElementHandle]
@@ -90,28 +153,26 @@ extension SurfaceCore {
         var localX = x
         var localY = y
         while slot >= 0 {
-            let rect = frame[Int(slot)]
-            localX -= rect.x
-            localY -= rect.y
-            guard localX >= 0, localY >= 0, localX < rect.width, localY < rect.height,
-                  clip(handle(slot), localX, localY)
-            else {
+            let local = enter(slot, x: localX, y: localY, presentation)
+            guard !content[Int(slot)].decorative, local.inside, clip(handle(slot), local.x, local.y) else {
                 break
             }
             if predicate(content[Int(slot)]) {
                 path.append(handle(slot))
             }
             let shift = scrollShift(slot)
-            localX += shift.x
-            localY += shift.y
+            localX = local.x + shift.x
+            localY = local.y + shift.y
             var top: Int32 = -1
+            var raised = false
             var child = firstChild[Int(slot)]
             while child >= 0 {
-                let childRect = frame[Int(child)]
-                if localX >= childRect.x, localY >= childRect.y,
-                   localX < childRect.x + childRect.width, localY < childRect.y + childRect.height
-                {
-                    top = child
+                if !content[Int(child)].decorative, enter(child, x: localX, y: localY, presentation).inside {
+                    let lifted = presentation?.raises(handle(child)) == true
+                    if top < 0 || lifted || !raised {
+                        top = child
+                        raised = lifted
+                    }
                 }
                 child = nextSibling[Int(child)]
             }
@@ -122,30 +183,40 @@ extension SurfaceCore {
     public func covers(
         x: Float,
         y: Float,
+        presentation: SurfacePresentation? = nil,
         where predicate: (ElementHandle) -> Bool,
         clip: (ElementHandle, Float, Float) -> Bool = { _, _, _ in true }
     ) -> Bool {
-        root >= 0 && covers(root, x: x, y: y, where: predicate, clip: clip)
+        root >= 0 && covers(root, x: x, y: y, presentation: presentation, where: predicate, clip: clip)
     }
 
     func covers(
         _ slot: Int32,
         x: Float,
         y: Float,
+        presentation: SurfacePresentation? = nil,
         where predicate: (ElementHandle) -> Bool,
         clip: (ElementHandle, Float, Float) -> Bool
     ) -> Bool {
-        let rect = frame[Int(slot)]
-        guard clip(handle(slot), x - rect.x, y - rect.y) else { return false }
-        let inside = x - rect.x >= 0 && y - rect.y >= 0 && x - rect.x < rect.width && y - rect.y < rect.height
-        if inside, predicate(handle(slot)) {
+        let local = enter(slot, x: x, y: y, presentation)
+        guard !local.hidden, !content[Int(slot)].decorative, clip(handle(slot), local.x, local.y) else { return false }
+        if local.inside, predicate(handle(slot)) {
             return true
         }
-        guard inside || !content[Int(slot)].scrolls else { return false }
+        guard local.inside || (!content[Int(slot)].scrolls && presentation?.raises(handle(slot)) != true) else {
+            return false
+        }
         let shift = scrollShift(slot)
         var child = firstChild[Int(slot)]
         while child >= 0 {
-            if covers(child, x: x - rect.x + shift.x, y: y - rect.y + shift.y, where: predicate, clip: clip) {
+            if covers(
+                child,
+                x: local.x + shift.x,
+                y: local.y + shift.y,
+                presentation: presentation,
+                where: predicate,
+                clip: clip
+            ) {
                 return true
             }
             child = nextSibling[Int(child)]
@@ -156,34 +227,46 @@ extension SurfaceCore {
     public func hitTest(
         x: Float,
         y: Float,
+        presentation: SurfacePresentation? = nil,
         matching predicate: (Content) -> Bool,
         clip: (ElementHandle, Float, Float) -> Bool = { _, _, _ in true }
     ) -> ElementHandle {
-        root >= 0 ? hit(root, x: x, y: y, matching: predicate, clip: clip) : .none
+        root >= 0 ? hit(root, x: x, y: y, presentation: presentation, matching: predicate, clip: clip) : .none
     }
 
     func hit(
         _ slot: Int32,
         x: Float,
         y: Float,
+        presentation: SurfacePresentation? = nil,
         matching predicate: (Content) -> Bool,
         clip: (ElementHandle, Float, Float) -> Bool
     ) -> ElementHandle {
-        let rect = frame[Int(slot)]
-        let shift = scrollShift(slot)
-        guard x - rect.x >= 0, y - rect.y >= 0, x - rect.x < rect.width, y - rect.y < rect.height,
-              clip(handle(slot), x - rect.x, y - rect.y)
-        else {
+        let local = enter(slot, x: x, y: y, presentation)
+        guard !content[Int(slot)].decorative, local.inside, clip(handle(slot), local.x, local.y) else {
             return .none
         }
-        let localX = x - rect.x + shift.x
-        let localY = y - rect.y + shift.y
+        let shift = scrollShift(slot)
+        let localX = local.x + shift.x
+        let localY = local.y + shift.y
         var found = ElementHandle.none
+        var raised = false
         var child = firstChild[Int(slot)]
         while child >= 0 {
-            let candidate = hit(child, x: localX, y: localY, matching: predicate, clip: clip)
-            if candidate.slot >= 0 {
-                found = candidate
+            let lifted = presentation?.raises(handle(child)) == true
+            if lifted || !raised {
+                let candidate = hit(
+                    child,
+                    x: localX,
+                    y: localY,
+                    presentation: presentation,
+                    matching: predicate,
+                    clip: clip
+                )
+                if candidate.slot >= 0 {
+                    found = candidate
+                    raised = lifted
+                }
             }
             child = nextSibling[Int(child)]
         }

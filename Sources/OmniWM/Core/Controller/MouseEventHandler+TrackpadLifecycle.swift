@@ -47,17 +47,16 @@ extension MouseEventHandler {
         state.activeGestureMode = mode
         state.gesturePhase = .committed
         if case let .workspaceSwitch(axis) = mode {
-            controller.layoutRefreshController.workspaceSwipe.begin(
+            if controller.layoutRefreshController.workspaceSwipe.begin(
                 axis: axis, cumulative: axis == .horizontal ? metrics.cumulativeX : metrics.cumulativeY,
                 timestamp: timestamp,
                 recognitionMovement: SwipeEvent(
                     delta: Double(axis == .horizontal ? metrics.rawDeltaX : metrics.rawDeltaY),
                     timestamp: metrics.previousTimestamp
                 )
-            )
-            if controller.layoutRefreshController.workspaceSwipe.hasPresentation { state.workspaceSwipeFired = true }
+            ) { state.workspaceSwipeFired = true }
         } else {
-            controller.layoutRefreshController.workspaceSwipe.cancel(reason: "other-gesture")
+            controller.layoutRefreshController.workspaceSwipe.otherGestureRecognized(on: lockedContext.monitorId)
         }
         return true
     }
@@ -300,6 +299,7 @@ extension MouseEventHandler {
         ) else { return }
 
         let baseOffset = Double(controller.workspaceManager.niriViewportState(for: wsId).viewOffset)
+        let settings = engine.effectiveSettings(in: wsId)
 
         var selectedWindow: NiriWindow?
         controller.workspaceManager.withNiriViewportState(for: wsId) { endState in
@@ -315,8 +315,8 @@ extension MouseEventHandler {
                 currentOffset: baseOffset + sample.relativeOffset,
                 projectedOffset: baseOffset + sample.relativeProjectedOffset,
                 snapToColumn: controller.settings.gestures.trackpadScrollStyle == .snap,
-                centerMode: engine.centerFocusedColumn,
-                alwaysCenterSingleColumn: engine.alwaysCenterSingleColumn,
+                centerMode: settings.centerFocusedColumn,
+                alwaysCenterSingleColumn: settings.alwaysCenterSingleColumn,
                 viewFrame: monitor.frame,
                 scale: geometry.scale
             )

@@ -197,7 +197,7 @@ final class ShellWidgetInspectorTests: XCTestCase {
 
     private func fixture() async throws -> (URL, ShellConfigurationCoordinator) {
         let directory = FileManager.default.temporaryDirectory.appendingPathComponent(UUID().uuidString)
-        _ = ShellDefaults.sync(into: directory)
+        _ = try ShellStyleFixture.prepare(into: directory)
         _ = try ShellProfiles.select("nocturne", in: directory)
         let configuration = ShellConfigurationCoordinator(shellDirectory: directory)
         try await configuration.ensureLoaded()

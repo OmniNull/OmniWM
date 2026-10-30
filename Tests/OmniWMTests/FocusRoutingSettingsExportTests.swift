@@ -14,6 +14,7 @@ final class FocusRoutingSettingsExportTests: XCTestCase {
 
         XCTAssertEqual(tree["focus"], .table([
             "followsMouse": .boolean(false),
+            "followsMouseOnlyFullyVisible": .boolean(false),
             "edgeNavigationInterval": .float(1.5),
             "raiseOnMouseFocus": .boolean(false),
             "lockModifier": .string("off"),
@@ -45,6 +46,26 @@ final class FocusRoutingSettingsExportTests: XCTestCase {
             XCTAssertNil(result.migratedData)
             XCTAssertFalse(SettingsTOMLCodec.unknownKeyPaths(in: data).contains("focus.edgeNavigationInterval"))
         }
+    }
+
+    func testFullyVisibleHoverSettingRoundTripsAndDefaultsForExistingConfigurations() throws {
+        var export = SettingsExport.defaults()
+        export.focus.followsMouseOnlyFullyVisible = true
+        let data = try SettingsTOMLCodec.encode(export)
+        XCTAssertEqual(try SettingsTOMLCodec.decode(data), export)
+        XCTAssertFalse(SettingsTOMLCodec.unknownKeyPaths(in: data).contains("focus.followsMouseOnlyFullyVisible"))
+
+        let source = String(decoding: data, as: UTF8.self)
+        let missing = try removing(key: "followsMouseOnlyFullyVisible", from: "focus", in: source)
+        let result = try SettingsTOMLCodec.decodeForLoad(Data(missing.utf8))
+        XCTAssertFalse(result.export.focus.followsMouseOnlyFullyVisible)
+        XCTAssertNil(result.migration)
+        XCTAssertNil(result.migratedData)
+
+        let malformed = source.replacingOccurrences(
+            of: "followsMouseOnlyFullyVisible = true", with: "followsMouseOnlyFullyVisible = \"true\""
+        )
+        XCTAssertThrowsError(try SettingsTOMLCodec.decode(Data(malformed.utf8)))
     }
 
     func testEdgeNavigationIntervalNormalizesAtTOMLBoundary() throws {

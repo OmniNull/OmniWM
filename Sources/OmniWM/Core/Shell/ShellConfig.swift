@@ -26,6 +26,7 @@ struct ShellDrawerConfig: Equatable {
     var width: CGFloat?
     var closesOnLeave = false
     var chrome = true
+    var island = false
 }
 
 struct ShellConfig: Equatable {
@@ -232,12 +233,14 @@ extension ShellConfig {
         if case let .table(profileBar)? = table["workspaceBar"] {
             bar = merged(bar, profileBar)
         }
+        let room = room(in: table, island: config.island, problems: &problems)
         config.barOverride = barOverride(
             bar,
             profile: config.profile,
             theme: config.theme,
             &problems,
-            themeColors: true
+            themeColors: true,
+            room: room
         )
         if let monitors = table["monitorBarOverrides"] {
             do {
@@ -290,19 +293,18 @@ extension ShellConfig {
         _ problems: inout [String]
     ) {
         if case let .string(name)? = top["profile"] {
-            if isName(name), FileManager.default.fileExists(atPath: shellDirectory.appendingPathComponent(name).path) {
-                config.profile = name
+            if let problem = ShellProfiles.problem(selecting: name, in: shellDirectory) {
+                report("\(problem), using \(ShellDefaults.profile)", &problems)
             } else {
-                report("shell.toml: no profile folder named \(name), using \(ShellDefaults.profile)", &problems)
+                config.profile = name
             }
         }
-        config.directories = [shellDirectory]
-        for name in [config.profile, ShellDefaults.profile] {
-            let directory = shellDirectory.appendingPathComponent(name, isDirectory: true)
-            if !config.directories.contains(directory) {
-                config.directories.append(directory)
-            }
-        }
+        config.directories = directories(for: config.profile, in: shellDirectory)
+    }
+
+    static func directories(for profile: String, in shellDirectory: URL) -> [URL] {
+        let names = profile == ShellDefaults.profile ? [profile] : [profile, ShellDefaults.profile]
+        return [shellDirectory] + names.map { shellDirectory.appendingPathComponent($0, isDirectory: true) }
     }
 
     private static func applyWidgetSettings(
@@ -370,13 +372,15 @@ extension ShellConfig {
         profile: String,
         theme: ShellTheme,
         _ problems: inout [String],
-        themeColors: Bool
+        themeColors: Bool,
+        room: WorkspaceBarRoom? = nil
     ) -> WorkspaceBarProfileOverride? {
         var bar = WorkspaceBarProfileOverride(profile: profile, settings: MonitorBarSettings(
             id: barOverrideID,
             monitorName: ""
         ))
         bar.usesThemeColors = themeColors
+        bar.room = room
         for (key, node) in table.sorted(by: { $0.key < $1.key })
             where !applyDisplayKey(key, node, to: &bar.settings) && !applyGlobalKey(key, node, theme: theme, to: &bar)
         {

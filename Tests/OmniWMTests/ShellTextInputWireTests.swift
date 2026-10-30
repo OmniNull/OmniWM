@@ -16,7 +16,7 @@ final class ShellTextInputWireTests: XCTestCase {
         """)
         XCTAssertEqual(script.render().status, OMNI_OK, script.message)
         let node = try first(script)
-        XCTAssertEqual(MemoryLayout<omni_wire_node>.stride, 392)
+        XCTAssertEqual(MemoryLayout<omni_wire_node>.stride, 448)
         XCTAssertEqual(node.kind, 10)
         XCTAssertNotEqual(node.key, 0)
         XCTAssertEqual(node.input_max_length, 42)

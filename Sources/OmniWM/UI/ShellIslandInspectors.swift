@@ -73,7 +73,7 @@ struct ShellIslandInspector: View {
         Section("Actions") {
             ForEach(["clickTarget", "rightClickTarget", "swipeTarget"], id: \.self) { key in
                 if let option = editor.islandRootOptions[key] {
-                    Picker(option.title, selection: Binding(
+                    Picker(editor.strings.title(option.title), selection: Binding(
                         get: {
                             if case let .string(value)? = editor.islandRootValues[key] ?? option.defaultValue {
                                 value
@@ -126,12 +126,14 @@ struct ShellIslandPlacementInspector: View {
                     Text("Hide Island").tag("hide")
                     Text("Show Island").tag("show")
                 }
-                DisclosureGroup("Advanced Surface Size") {
-                    envelope("Maximum Width", key: "width", value: island.width)
-                    envelope("Maximum Height", key: "height", value: island.height)
-                    SettingsCaption(
-                        localized: "The style lays out its content inside this surface. These limits do not change the notch."
-                    )
+                if island.sizing == .fixed {
+                    DisclosureGroup("Advanced Surface Size") {
+                        envelope("Maximum Width", key: "width", value: island.width)
+                        envelope("Maximum Height", key: "height", value: island.height)
+                        SettingsCaption(
+                            localized: "The style lays out its content inside this surface. These limits do not change the notch."
+                        )
+                    }
                 }
             }
         }
@@ -167,7 +169,8 @@ private struct ShellIslandOptionRows: View {
                     let target = component.map { editor.componentTarget($0, key: key) } ?? editor.islandRootTarget(key)
                     ShellSettingsOptionRow(
                         key: key, option: option,
-                        value: editor.pending(target, as: ShellComponentValue.self) ?? values[key]
+                        value: editor.pending(target, as: ShellComponentValue.self) ?? values[key],
+                        strings: editor.strings
                     ) { value in
                         if let component {
                             editor.setComponentOption(
@@ -194,9 +197,6 @@ private struct ShellIslandOptionRows: View {
     }
 
     private func title(_ option: ShellComponentOption) -> String {
-        String(localized: LocalizedStringResource(
-            String.LocalizationValue(option.title), table: ShellLocalizer.table,
-            locale: locale, bundle: .atURL(Bundle.module.bundleURL)
-        ))
+        editor.strings.title(option.title, locale: locale)
     }
 }

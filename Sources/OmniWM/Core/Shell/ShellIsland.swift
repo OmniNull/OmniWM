@@ -150,14 +150,14 @@ final class ShellIsland {
     func acceptsFocus(at screenPoint: CGPoint) -> Bool {
         guard panel.isVisible else { return false }
         let point = geometry.localPoint(screenPoint)
-        return surface.layout.core.hitTest(
-            x: Float(point.x), y: Float(point.y), matching: { $0.focusable }, clip: surface.clips
-        ) != .none
+        return surface.element(at: point, matching: { $0.focusable }) != .none
     }
 
     func outsidePress(at screenPoint: CGPoint, event: ShellEvent) {
         guard panel.isVisible else { return }
         let point = geometry.localPoint(screenPoint)
+        var event = event
+        event.claimed = contains(screenPoint: screenPoint) && surface.hasAction(at: point)
         for press in outsidePresses where !press.rect.contains(point) {
             surface.emit(press.capture.content.outsidePressAction, capture: press.capture, point: point, event: event)
         }
@@ -197,14 +197,15 @@ final class ShellIsland {
     private func updateRegions() {
         regions = surface.islandRegions().map(geometry.screenRect)
         let hadOutsidePress = hasOutsidePress
+        let presentation = surface.presentation
         outsidePresses = surface.outsidePressTargets.compactMap { handle in
-            var rect = CGRect(surface.layout.core.absoluteFrame(of: handle)).intersection(surface.view.bounds)
+            var rect = CGRect(surface.presentedFrame(of: handle, in: presentation)).intersection(surface.view.bounds)
             var opacity: Float = 1
             var current = handle
             while surface.layout.core.contains(current) {
                 opacity *= surface.layout.core.paint(of: current).opacity
-                if surface.layout.core.content(of: current).scrolls {
-                    rect = rect.intersection(CGRect(surface.layout.core.absoluteFrame(of: current)))
+                if surface.layout.core.content(of: current).scrolls || surface.isManipulationClip(current) {
+                    rect = rect.intersection(CGRect(surface.presentedFrame(of: current, in: presentation)))
                 }
                 current = surface.layout.core.parent(of: current)
             }

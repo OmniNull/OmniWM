@@ -110,7 +110,7 @@ final class MaterialColorTests: XCTestCase {
     }
 
     func testCelestialIsCaelestiasDarkSchemeAndItsGeneratedLightOne() throws {
-        let url = try XCTUnwrap(ShellDefaults.bundledFile("themes/celestial.toml"))
+        let url = try ShellStyleFixture.source("celestial").appendingPathComponent("themes/celestial.toml")
         let toml = try TOMLDecoder().decode([String: TOMLNode].self, from: Data(contentsOf: url))
         let caelestiaOnly: [ShellRole: UInt32] = [.tertiaryContainer: 0xB58763, .tertiaryContainerForeground: 0x000000]
         for dark in [false, true] {

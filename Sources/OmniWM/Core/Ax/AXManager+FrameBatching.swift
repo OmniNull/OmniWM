@@ -47,6 +47,26 @@ extension AXManager {
         }
     }
 
+    func rejectInWorkspaceFrameSettlements(_ target: AXFrameApplicationTarget) {
+        for settlement in workspaceFrameSettlements {
+            settlement.reject(target)
+        }
+    }
+
+    private func workspaceFrameSettlementObserver(
+        for target: AXFrameApplicationTarget,
+        after observer: FrameApplicationTerminalObserver?
+    ) -> FrameApplicationTerminalObserver? {
+        let settlementObservers = workspaceFrameSettlements.compactMap { $0.observe(target) }
+        guard !settlementObservers.isEmpty else { return observer }
+        return { result in
+            observer?(result)
+            for settlementObserver in settlementObservers {
+                settlementObserver(result)
+            }
+        }
+    }
+
     private func enqueueFrameApplicationsUsingBuffer(
         _ frames: [AXFrameApplicationTarget],
         options: AXFrameBatchOptions,
@@ -65,19 +85,12 @@ extension AXManager {
             let pid = target.pid
             let windowId = target.windowId
             if inactiveWorkspaceWindowIds.contains(windowId) {
-                workspaceFrameSettlement?.reject(target)
+                rejectInWorkspaceFrameSettlements(target)
                 continue
             }
-            let settlementObserver = options.isRetry ? nil : workspaceFrameSettlement?.observe(target)
-            let terminalObserver: FrameApplicationTerminalObserver?
-            if let settlementObserver {
-                terminalObserver = { result in
-                    options.terminalObserver?(result)
-                    settlementObserver(result)
-                }
-            } else {
-                terminalObserver = options.terminalObserver
-            }
+            let terminalObserver = options.isRetry
+                ? options.terminalObserver
+                : workspaceFrameSettlementObserver(for: target, after: options.terminalObserver)
             let decision = frameLedger.prepareFrameApplication(
                 target,
                 isRetry: options.isRetry,

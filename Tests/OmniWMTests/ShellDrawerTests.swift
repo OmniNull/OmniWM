@@ -31,6 +31,69 @@ final class ShellDrawerTests: XCTestCase {
         ])
     }
 
+    func testIslandDrawersNeedNoWidgetsAndRejectUnknownPresentations() throws {
+        let root = FileManager.default.temporaryDirectory.appendingPathComponent(UUID().uuidString, isDirectory: true)
+        try FileManager.default.createDirectory(at: root, withIntermediateDirectories: true)
+        defer { try? FileManager.default.removeItem(at: root) }
+        try Data("""
+        [profiles.default.drawer.shelf]
+        edge = "top"
+        present = "island"
+        hover = true
+        close = "leave"
+        [profiles.default.drawer.odd]
+        widgets = ["dash"]
+        present = "window"
+        [profiles.default.drawer.bare]
+        present = "panel"
+        """.utf8).write(to: root.appendingPathComponent("shell.toml"))
+        var problems: [String] = []
+        let drawers = try XCTUnwrap(ShellConfig.load(shellDirectory: root, problems: &problems)).drawers
+        let shelf = try XCTUnwrap(drawers.first { $0.id == "shelf" })
+        XCTAssertTrue(shelf.island)
+        XCTAssertEqual(shelf.widgets, [])
+        XCTAssertEqual(shelf.edge, .top)
+        XCTAssertTrue(shelf.closesOnLeave)
+        XCTAssertEqual(drawers.map(\.id), ["shelf"])
+        XCTAssertTrue(problems.contains { $0.contains("present must be") }, "\(problems)")
+        XCTAssertTrue(problems.contains { $0.contains("[drawer.bare] needs at least one widget") }, "\(problems)")
+    }
+
+    func testIslandDrawersHoldWhileThePointerIsOverTheIslandAndCloseAfterLeaving() {
+        let screen = monitor(1, CGRect(x: 0, y: 0, width: 1000, height: 800))
+        var shelf = ShellDrawerConfig(id: "shelf", edge: .top, widgets: [], hover: true)
+        shelf.island = true
+        shelf.closesOnLeave = true
+        var hover = ShellEdgeHover()
+        let open = ShellEdgeHover.Open(
+            drawer: shelf, region: nil, islandRegions: [CGRect(x: 300, y: 500, width: 400, height: 300)]
+        )
+        let update = { (point: CGPoint, buttons: Bool, open: ShellEdgeHover.Open?) -> ShellEdgeHover.Action? in
+            hover.update(pointer: point, drawers: [shelf], monitors: [screen], buttonsDown: buttons, open: open)
+        }
+        XCTAssertEqual(update(CGPoint(x: 500, y: 800), false, nil), .open(drawer: "shelf", monitor: screen.id))
+        XCTAssertNil(update(CGPoint(x: 500, y: 600), false, open))
+        XCTAssertNil(update(CGPoint(x: 100, y: 100), true, open))
+        XCTAssertEqual(update(CGPoint(x: 100, y: 100), false, open), .close)
+    }
+
+    func testOnlyIslandDrawersOpenWhileAnIslandWindowIsBeingDragged() {
+        let screen = monitor(1, CGRect(x: 0, y: 0, width: 1000, height: 800))
+        var shelf = ShellDrawerConfig(id: "shelf", edge: .top, widgets: [], hover: true)
+        shelf.island = true
+        let panel = ShellDrawerConfig(id: "panel", edge: .top, widgets: ["dash"], hover: true)
+        func opens(_ drawer: ShellDrawerConfig, dragging: Bool) -> ShellEdgeHover.Action? {
+            var hover = ShellEdgeHover()
+            return hover.update(
+                pointer: CGPoint(x: 500, y: 800), drawers: [drawer], monitors: [screen], buttonsDown: true,
+                open: nil, islandDragging: dragging
+            )
+        }
+        XCTAssertEqual(opens(shelf, dragging: true), .open(drawer: "shelf", monitor: screen.id))
+        XCTAssertNil(opens(shelf, dragging: false))
+        XCTAssertNil(opens(panel, dragging: true))
+    }
+
     private func monitor(_ display: UInt32, _ frame: CGRect) -> Monitor {
         Monitor(
             id: .init(displayId: display),

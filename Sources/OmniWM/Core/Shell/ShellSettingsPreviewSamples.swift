@@ -4,7 +4,13 @@
 import CoreGraphics
 
 enum ShellSettingsPreviewSamples {
-    static func values(style: ShellBarStyle, islandSize: CGSize?, dark: Bool, scale: CGFloat) -> [String: [UInt8]] {
+    static func values(
+        style: ShellBarStyle,
+        islandSize: CGSize?,
+        dark: Bool,
+        scale: CGFloat,
+        surface: ShellIslandData? = nil
+    ) -> [String: [UInt8]] {
         var values: [String: ShellServiceValue] = [
             "clock": .text("16:42"), "date": .text("Tuesday, October 13"), "seconds": .number(1_791_924_120),
             "cpu": .number(18), "memory": .number(42), "gpu": .number(12), "disk": .number(34),
@@ -46,6 +52,11 @@ enum ShellSettingsPreviewSamples {
         var writer = ShellValueWriter()
         bar(style: style).write(to: &writer)
         encoded["bar"] = writer.bytes
+        if let surface {
+            var writer = ShellValueWriter()
+            surface.write(to: &writer)
+            encoded["island"] = writer.bytes
+        }
         return encoded
     }
 

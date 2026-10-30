@@ -132,7 +132,6 @@ let package = Package(
                 .process("Resources"),
                 .copy("Core/IssueReporter/Prompts"),
                 .copy("ShellDefault"),
-                .copy("ShellStyles"),
                 .copy("Fonts")
             ],
             swiftSettings: [

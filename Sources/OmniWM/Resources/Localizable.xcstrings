@@ -34,6 +34,15 @@
     "This release has no OmniWM download to install." : {
 
     },
+    "Only Focus Fully Visible Niri Windows" : {
+
+    },
+    "Ignore partially offscreen Niri windows and disable hover navigation at screen edges. Click or use the keyboard to reveal them." : {
+
+    },
+    "Allow Overscroll" : {
+
+    },
     "At the ends" : {
       "localizations" : {
         "ar" : {
@@ -281,6 +290,12 @@
           }
         }
       }
+    },
+    "Overscroll Visible Strip" : {
+
+    },
+    "Scroll past the first or last container to expose the desktop. The visible strip is a percentage of the edge container's primary span, capped at the viewport span." : {
+
     },
     "Stop" : {
       "localizations" : {
@@ -166658,24 +166673,6 @@
     "A custom style you added." : {
 
     },
-    "A light bar with soft pink accents and a drifting-petal shader." : {
-
-    },
-    "A minimal bar and a customizable island for media, calendar, and more." : {
-
-    },
-    "A rounded bar with rich status widgets and deep colors." : {
-
-    },
-    "A structured bar with labeled workspaces and quick status controls." : {
-
-    },
-    "A terminal-inspired bar with green accents and a rain shader." : {
-
-    },
-    "A vertical bar with spacious app and workspace tiles." : {
-
-    },
     "A widget from the selected style or your shell folder." : {
 
     },
@@ -166725,9 +166722,6 @@
 
     },
     "Allows local commands and scripts to control OmniWM." : {
-
-    },
-    "Animation Phase" : {
 
     },
     "Another file occupies %@." : {
@@ -166780,9 +166774,6 @@
 
     },
     "Celsius" : {
-
-    },
-    "Character Size" : {
 
     },
     "Check app health and record a problem or performance capture." : {
@@ -166926,9 +166917,6 @@
     "Focus Ribbon" : {
 
     },
-    "Focus Ribbon uses your existing workspaces and window navigation. It does not use Lake’s component catalog." : {
-
-    },
     "Follows macOS appearance or uses the selected light or dark appearance." : {
 
     },
@@ -167057,9 +167045,6 @@
     "Managed by Homebrew" : {
 
     },
-    "Matrix Rain" : {
-
-    },
     "Menu Bar" : {
 
     },
@@ -167133,9 +167118,6 @@
     "Palette" : {
 
     },
-    "Petal Size" : {
-
-    },
     "Placement" : {
 
     },
@@ -167170,9 +167152,6 @@
 
     },
     "Reset this style’s bar settings?" : {
-
-    },
-    "Sakura Petals" : {
 
     },
     "Screen Edge" : {
@@ -167227,9 +167206,6 @@
 
     },
     "Support" : {
-
-    },
-    "Sweep Glow" : {
 
     },
     "Temperature" : {
@@ -172721,16 +172697,10 @@
     "Failed" : {
 
     },
-    "Intensity" : {
-
-    },
     "Loaded" : {
 
     },
     "Loading" : {
-
-    },
-    "Motion Speed" : {
 
     },
     "Move to" : {
@@ -172835,9 +172805,6 @@
           }
         }
       }
-    },
-    "Default includes Focus Ribbon; Lake includes an island with customizable widgets." : {
-
     },
     "Hover and Swipe" : {
 
@@ -173574,6 +173541,42 @@
 
     },
     "Working Folder" : {
+
+    },
+    "Get Styles" : {
+
+    },
+    "In Use" : {
+
+    },
+    "Replace your copy of %@?" : {
+
+    },
+    "Your current copy moves to the .backups folder in your shell folder." : {
+
+    },
+    "Save or discard your changes to this style first." : {
+
+    },
+    "Your previous copy is in %@." : {
+
+    },
+    "Installed" : {
+
+    },
+    "Update" : {
+
+    },
+    "Your Copy" : {
+
+    },
+    "Back Up and Update" : {
+
+    },
+    "Update %@? You changed its files." : {
+
+    },
+    "Styles change how the bar, island and drawers look." : {
 
     }
   },

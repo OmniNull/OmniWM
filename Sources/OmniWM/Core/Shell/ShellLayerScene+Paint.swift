@@ -7,6 +7,8 @@ import OmniWMShellCore
 import QuartzCore
 
 extension ShellLayerScene {
+    static let framesKey = "omni.image.frames"
+
     func applyValue(
         _ slot: Int32,
         _ fraction: CGFloat,
@@ -33,9 +35,14 @@ extension ShellLayerScene {
 
     func applyPaint(_ slot: Int32, _ paint: ShellLayerPaint, preset: ShellAnimation?, animated: Bool) {
         guard let layer = layers[slot] else { return }
-        setPresence(slot, appear: paint.appear, exit: paint.exit)
-        applyMaterial(slot, paint, to: layer)
-        let fill = paint.material > 0 ? nil : paint.fill
+        setPresence(slot, appear: paint.appear, exit: paint.exit, reveal: paint.reveal, morph: paint.morph)
+        let glass = glassBodies[slot] != nil
+        if !glass { applyMaterial(slot, paint, to: layer) }
+        if glass, let previous = glassStyles[slot] {
+            glassStyles[slot] = (previous.recipe, paint)
+            dirtyGlass.insert(slot)
+        }
+        let fill = paint.material > 0 || glass ? nil : paint.fill
         exitAnimations[slot] = preset
         let animation = framedAnimation(preset, slot, animated)
         if let animation {
@@ -52,11 +59,14 @@ extension ShellLayerScene {
             layer.bounds.size = CGSize(width: layer.bounds.height, height: layer.bounds.width)
         }
         layer.shadowColor = paint.shadow
-        layer.shadowOpacity = paint.shadow == nil ? 0 : 1
+        layer.shadowOpacity = paint.shadow == nil || glass ? 0 : 1
         layer.shadowRadius = paint.shadowRadius
-        layer.shadowOffset = .zero
+        layer.shadowOffset = paint.shadowOffset
         applyScale(slot, to: layer)
         applyLoop(slot, paint.loop, to: layer)
+        let pulseSize = paint.frameSize.map { paint.quarter ? CGSize(width: $0.height, height: $0.width) : $0 }
+            ?? layer.bounds.size
+        applyPulse(slot, paint.pulse, to: layer, size: pulseSize, animated: animated)
         playbackSettings[slot] = paint.playback
         updatePlayback(slot, contentsReplaced: false)
         applyFill(fill, paint, to: layer, animation: animation)
@@ -138,8 +148,8 @@ extension ShellLayerScene {
             to: layer,
             "shadowOpacity",
             from: from.shadowOpacity,
-            to: paint.shadow == nil ? 0 : 1,
-            changed: layer.shadowOpacity != (paint.shadow == nil ? 0 : 1)
+            to: paint.shadow == nil || glassBodies[slot] != nil ? 0 : 1,
+            changed: layer.shadowOpacity != (paint.shadow == nil || glassBodies[slot] != nil ? 0 : 1)
         )
         let finalSize = paint.frameSize.map { paint.quarter ? CGSize(width: $0.height, height: $0.width) : $0 }
             ?? (paint.quarter == quarters.contains(slot) ? layer.bounds.size : CGSize(
@@ -189,9 +199,9 @@ extension ShellLayerScene {
         )
     }
 
-    private static let backdropClass = NSClassFromString("CABackdropLayer") as? CALayer.Type
+    static let backdropClass = NSClassFromString("CABackdropLayer") as? CALayer.Type
 
-    private static let filterClass = NSClassFromString("CAFilter") as? NSObject.Type
+    static let filterClass = NSClassFromString("CAFilter") as? NSObject.Type
 
     private static let blurRadii: [CGFloat] = [0, 8, 14, 20, 28, 36, 20]
     private static let filterInputsKey = "omniwmFilterInputs"
@@ -242,7 +252,7 @@ extension ShellLayerScene {
         }
     }
 
-    private static func filter(_ type: String, _ key: String, _ value: CGFloat) -> NSObject? {
+    static func filter(_ type: String, _ key: String, _ value: CGFloat) -> NSObject? {
         guard let filter = filterClass?
             .perform(NSSelectorFromString("filterWithType:"), with: type)?
             .takeUnretainedValue() as? NSObject

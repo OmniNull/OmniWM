@@ -79,7 +79,8 @@ struct ShellDesktopWidgetInspector: View {
             let target = editor.widgetTarget(widget, key: key)
             ShellSettingsOptionRow(
                 key: key, option: option,
-                value: editor.pending(target, as: ShellComponentValue.self) ?? editor.values(for: widget)[key]
+                value: editor.pending(target, as: ShellComponentValue.self) ?? editor.values(for: widget)[key],
+                strings: editor.strings
             ) {
                 editor.setWidget($0, widget: widget, key: key, continuous: option.kind == .number)
             }
@@ -103,16 +104,13 @@ struct ShellDesktopWidgetInspector: View {
     private var source: String {
         switch editor.layout?.source(of: widget) {
         case .builtIn: String(localized: "Built-in")
-        case let .profile(name): ShellStyleText.title(name)
+        case let .profile(name): editor.configuration.styleTitle(name)
         case .yours: String(localized: "Your shell folder")
         case nil: String(localized: "Unavailable")
         }
     }
 
     private func title(_ option: ShellComponentOption) -> String {
-        String(localized: LocalizedStringResource(
-            String.LocalizationValue(option.title), table: ShellLocalizer.table,
-            locale: locale, bundle: .atURL(Bundle.module.bundleURL)
-        ))
+        editor.strings.title(option.title, locale: locale)
     }
 }

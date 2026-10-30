@@ -29,7 +29,7 @@ These guides follow current `main`. Features newer than the latest [GitHub relea
 
 Your windows now tile automatically in orientation-aware Niri containers: monitors using horizontal orientation show columns that scroll left and right, while vertical orientation shows rows that scroll up and down.
 
-On first launch, the **Welcome to OmniWM** window introduces the bar menus, the Command Palette, the Quake Terminal and widget permissions; open it again any time from **Help & Links > Welcome to OmniWM** in the OmniWM menu.
+**Unreleased: available when building from `main`.** On first launch, the **Welcome to OmniWM** window introduces the bar menus, the Command Palette, the Quake Terminal and widget permissions; open it again any time from **Help & Links > Welcome to OmniWM** in the OmniWM menu.
 
 :::note[One Space per display]
 Keep one macOS Space per display and navigate with OmniWM workspaces instead. Extra native Spaces are tolerated — their windows are left to macOS, not tiled.

@@ -199,6 +199,49 @@ struct ResolvedBarSettings: Equatable {
     var barBorder: ShellThemeColor?
 }
 
+struct WorkspaceBarRoom: Equatable {
+    enum Edge: String, CaseIterable {
+        case top
+        case left
+        case right
+        case bottom
+    }
+
+    enum Mode: String {
+        case add
+        case total
+    }
+
+    enum Clearance: String {
+        case none
+        case notch
+        case menuBar
+    }
+
+    struct Reservation: Equatable {
+        let value: CGFloat
+        let mode: Mode
+        var clear = Clearance.none
+    }
+
+    struct Dock: Equatable {
+        let edge: Edge
+        let value: CGFloat
+    }
+
+    var edges: [Edge: Reservation] = [:]
+    var dock: Dock?
+    let displays: ShellIslandConfig.Displays
+
+    func includes(_ monitor: Monitor) -> Bool {
+        switch displays {
+        case .notch: monitor.hasNotch
+        case .main: monitor.isMain
+        case .all: true
+        }
+    }
+}
+
 struct WorkspaceBarProfileOverride: Equatable {
     var profile: String
     var settings: MonitorBarSettings
@@ -217,6 +260,7 @@ struct WorkspaceBarProfileOverride: Equatable {
     var barFill: ShellThemeColor?
     var barBorder: ShellThemeColor?
     var usesThemeColors = false
+    var room: WorkspaceBarRoom?
 
     static let colorKeys: [(
         key: String,
@@ -249,7 +293,8 @@ struct WorkspaceBarProfileOverride: Equatable {
             ("revealModifier", revealModifier != nil),
             ("accentColor", usesThemeColors || accentColor != nil),
             ("textColor", usesThemeColors || textColor != nil),
-            ("monitorBarOverrides", !monitorOverrides.isEmpty)
+            ("monitorBarOverrides", !monitorOverrides.isEmpty),
+            ("room", room != nil)
         ]
             where isSet
         {

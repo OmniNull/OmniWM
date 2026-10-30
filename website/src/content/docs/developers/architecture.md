@@ -100,6 +100,7 @@ Sources/
 │   │   ├── Multitouch/              Raw multitouch frame source + gesture bindings
 │   │   ├── Monitor/                 Display detection, OutputId, restore assignments
 │   │   ├── Overview/                Expose-style workspace overview
+│   │   ├── Launcher/                App/file discovery, shell environments and saved-entry execution
 │   │   ├── Clipboard/               Clipboard history service/store/models
 │   │   ├── Menu/                    Menu extraction for Menu Anywhere
 │   │   ├── Diagnostics/             Logging, bounded recorders, runtime trace capture, health reports
@@ -247,9 +248,12 @@ snapshot are outside scope.
 8. **`StatusBarController`** — menu-bar UI and manual update checks.
 9. **`IPCServer`** — started only if `ipcEnabled` is set.
 10. **Automatic update checks** — started after the rest of the core bootstrap succeeds.
-11. **Launch and monitor-setup presentation** — starts monitor-readiness observation, plays `LaunchOverlayController`
-    on the primary display the first time each version launches with animations enabled, then evaluates whether to
-    present the monitor setup guide once the overlay finishes or is skipped.
+11. **Launch, Welcome and monitor-setup presentation** — starts monitor-readiness observation and plays
+    `LaunchOverlayController` on the primary display the first time each version launches with animations enabled.
+    When the overlay finishes or is skipped, `presentWelcomeIfNeeded` shows the first-run Welcome window and sets
+    `RuntimeStateStore.welcomePresented`. Closing that first-run window schedules monitor-setup evaluation; later
+    launches evaluate setup directly. Settings links leave Welcome open, and **Help & Links > Welcome to OmniWM**
+    reopens it without restarting the first-run setup sequence.
 
 `FatalCapture` is not a process-wide Swift trap handler. Preconditions, force unwraps, Core Foundation ownership
 faults, and other raw traps bypass those explicit shims. GhosttyKit's embedded crash handler can instead write a
@@ -523,6 +527,12 @@ There is one deliberate exception to "all mutation goes through commit": **per-f
 - **The intake buffer.** `EventIntake` holds its buffer in a `nonisolated OSAllocatedUnfairLock`, so `EventIntake.post(...)` is callable from any transport thread; the drain re-enters the main actor via `CFRunLoopPerformBlock` + `MainActor.assumeIsolated`.
 - **IPC actors.** `IPCApplicationBridge`, `IPCConnection`, `IPCEventBroker`, and `IPCConnectionRegistry` are Swift actors; they hop to `@MainActor` for any window-management work.
 - **Clipboard store.** `ClipboardHistoryStore` is a Swift actor; pasteboard reads happen on a utility `DispatchQueue`.
+- **OmniShell.** Source/catalog loading, Luau packages, durable storage, resources and native providers have actor
+  owners with serial executors. `ShellLayerScene.engineQueue` handles retained layer-scene work; the main-actor
+  `ShellWidgetHost` owns AppKit surfaces and routes input. See [OmniShell](#416-omnishell) for the boundaries.
+- **Launcher.** `LauncherEnvironmentCache` shares asynchronous shell-environment resolution. `LauncherProcess`
+  collects bounded child output using dispatch sources; the main-actor `LauncherExecution` publishes outcomes
+  and opens the selected terminal. See [Launcher](#415-launcher).
 
 ---
 
@@ -940,7 +950,7 @@ The per-frame **display link** is owned by `LayoutRefreshController` (not by `An
 |---------|-----------|-------------|
 | **Overview** | `Core/Overview/OverviewController.swift`, `OverviewLayerRenderer.swift`, `OverviewThumbnailCapture.swift` | Expose-style workspace overview with retained Core Animation layers and per-window ScreenCaptureKit streams. Search, structural hotkeys, interactive gestures, and drag placement. |
 | **Quake Terminal** | `QuakeTerminal/QuakeTerminalController.swift`, `QuakeTerminal/KittyQuickAccessTerminal.swift`, `QuakeTerminal/FootQuickAccessTerminal.swift` | Selects embedded Ghostty, Kitty's quick-access terminal or foot's Quake terminal. Ghostty tabs are trees of split panes (`QuakeTerminalTab` → `QuakeSplitContainer`/`SplitNode`), each a `GhosttySurfaceView` (CAMetalLayer-backed); edge placements slide and fade, while Center and custom frames fade in place. Ghostty registers as a `.quake` surface. Kitty uses a dedicated quick-access instance. `KittyQuickAccessTerminal` manages panel overrides through the Kitty remote-control helper using `KittyQuakeControlRequest`. `FootQuickAccessTerminal` starts a dedicated `foot --server` on a private socket, waits for its PID line, and sends `footclient --quake` toggle, hide and status with per-call overrides. |
-| **Command Palette** | `UI/CommandPalette/CommandPaletteController.swift` | Substring search with tiered ranking over windows, application menus, and clipboard history. |
+| **Command Palette** | `UI/CommandPalette/CommandPaletteController.swift`, `Core/Launcher/` | Six modes: windows, application menus, clipboard, commands, Launcher and Files. The original four use substring search with tiered ranking; apps/files use Spotlight ranking, while saved entries match their own names, keywords, paths and command text. |
 | **Menu Anywhere** | `UI/MenuAnywhere/MenuAnywhereController.swift` | Pops the frontmost app's menu bar as a native `NSMenu` at the cursor, via `MenuExtractor` (ObjC runtime AX-tree walk). |
 | **Workspace Bar** | `UI/WorkspaceBar/WorkspaceBarManager.swift` | Per-monitor workspace bars — now **driven by `SurfaceReconciler`** via `apply([DesiredBarSurface])`, not self-polling. |
 | **Hidden Bar** | `UI/HiddenBar/HiddenBarController.swift` | Per-app concealment through macOS menu-bar visibility preferences, AX item discovery and icon capture, and a hidden-items panel. Original visibility choices are journaled before changes and restored when released or on recovery after an interrupted session. OmniWM keeps its native status item available. `HiddenBarDrawerView` reveals the panel from its attachment edge using a Core Animation clipping mask and the shared motion policy; icons and their hit regions stay fixed during the transition. Selection and teardown dismiss immediately before native item interaction. |
@@ -960,6 +970,67 @@ Overview ribbons and workspace-swipe backdrops each own an `OverviewWallpaperCac
 **Overview mutation ownership.** `NiriLayoutHandler` owns explicit-`WindowHandle` Niri reorder, consume/expel, column, and insertion mutations; `WorkspaceNavigationHandler` owns explicit-handle window workspace/monitor transfers and Niri whole-column workspace transfers. Their internal `StructuralMutationOutcome` reports the selected handle, moved tokens, destination, and affected workspaces. `OverviewController` uses that result to make `WorkspaceManager` activate the destination workspace and interaction monitor, commit remembered layout focus, request relayout only for affected workspaces, and keep the moved window selected. Overview mutations suppress client-window activation, so no AX focus is issued until an intentional dismissal focuses the current selection.
 
 Dragging a card continues to resolve an `OverviewDragTarget` for workspace-only, exact-card, or between-column placement. A cross-layout move into Niri first commits destination admission, then applies the exact target in a version-gated post-layout continuation; if the continuation is invalidated, the workspace transfer remains authoritative and the stale insertion is discarded. Projection refreshes reuse cached titles, frames, icons, and thumbnails while updating affected engine snapshots and active-workspace flags. Close completion is driven by `WorkspaceManager.onWindowRemoved`, not a speculative timer, so selection advances only after authoritative removal.
+
+### 4.15 Launcher
+
+**Directories:** `Core/Launcher/`, `UI/CommandPalette/`; configuration lives in `LauncherConfiguration.swift`.
+
+The palette's persisted/IPC mode ID remains `applications`, while its displayed name is Launcher.
+`ApplicationCatalogService` combines registered apps with selected application folders;
+`LauncherExecutableCatalog` discovers executable files from the selected shell's PATH and configured folders.
+Files use `FileSearchEngine` and the metadata index. `CommandPaletteController` owns filtering, selection and
+presentation; `CommandPaletteActionExecutor` opens apps/files or dispatches a saved entry.
+
+For commands, scripts and saved executables, the execution path is:
+
+```text
+LauncherExecution.run(entry)
+  → LauncherLaunchRequest.prepare
+      → LauncherEnvironmentCache → selected shell environment
+      → resolve executable, argument array and working directory
+  → Background: LauncherProcess.run → bounded output and exit status
+  → Built-in: QuakeTerminalController.launch → a fresh Ghostty command tab
+  → External: LauncherExternalTerminal.launch → a fresh terminal session
+```
+
+Command text uses the selected shell's syntax. Script/executable arguments remain separate array elements.
+The built-in route requires the Ghostty Quake provider; external Terminal/iTerm2 control may require Automation
+permission. These user-started native commands are outside OmniShell widget HTTP consent and provider trust.
+Saved entries/defaults belong to `[launcher]` in `settings.toml`; see the [settings reference](/config/settings-reference/#launcher).
+
+### 4.16 OmniShell
+
+**Directory:** `Core/Shell/`, with `OmniWMScriptHost` hosting Luau and `OmniWMShellCore` handling layout/diff data.
+
+`ShellConfigurationCoordinator` resolves the selected profile and overrides, observes source/configuration inputs,
+and publishes configuration and source generations. `ShellWidgetSourceLoader` loads effective package sources.
+The main-actor `ShellWidgetHost` owns bar, island and popout instances; each `ShellWidgetPackage` actor owns its
+Luau VM, component lifecycle and service ledger. A root's configured components share its VM while retaining
+separate service owners, stores and instance state. View data subscriptions determine which feeds and views update.
+
+```text
+configuration/source observation
+  → ShellConfigurationCoordinator / ShellWidgetSourceLoader
+  → ShellWidgetHost → ShellWidgetPackage (Luau and retained component views)
+  → widget tree → OmniWMShellCore layout/diff → ShellLayerScene
+
+input or service completion
+  → owning package callback → changed state/dependencies → affected views
+```
+
+Package work uses its serial executor; `ShellLayerScene.engineQueue` handles scene work separately from the
+main-actor AppKit host. Native animation and gesture tracking do not require a Luau render for every sample.
+Source replacement retires the affected package or component generation, cancels its services and rejects late
+completions. Durable data lives in `ShellStore` and `ShellResourceStore`, outside the editable configuration.
+
+Declarations and approval have separate owners. A root/bar `settings.toml` or component manifest declares hosts;
+`ShellNetworkPermissions` applies user decisions and managed policy to HTTP requests and redirects.
+`ShellWidgetHost+Permissions` collects package approval requests and prunes them against current declarations.
+`ShellPermissionPrompts` observes that host, queues native prompts and passes choices to `ShellPermissionSettings`
+for persistence in `shellPermissions`. `ShellProvider` supervises native component programs only after source/command/digest
+trust, independently of HTTP host consent. Weather/Lyrics have their own service switches under the same effective
+organization policy. See [HTTP consent](/omnishell/reference/services/#consent-and-policy),
+[providers](/omnishell/reference/providers/) and [managed preferences](/config/managed-preferences/).
 
 ---
 

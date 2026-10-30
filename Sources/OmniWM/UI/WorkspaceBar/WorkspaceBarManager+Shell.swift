@@ -108,7 +108,8 @@ extension WorkspaceBarManager {
             drawers: host.drawers,
             monitors: controller.workspaceManager.monitors,
             buttonsDown: NSEvent.pressedMouseButtons != 0,
-            open: host.openDrawer
+            open: host.openDrawer,
+            islandDragging: host.islandDragging
         ) {
         case let .open(drawer, monitor)?: _ = host.toggleDrawer(drawer, on: monitor)
         case .close?: host.closeDrawer()
@@ -188,7 +189,8 @@ extension WorkspaceBarManager {
             windowIcon: { [weak self] id in self?.shellItemIcons[id] },
             iconOverride: { [weak self] bundleId in
                 self?.controller?.workspaceBarIconResolver.image(for: bundleId)
-            }
+            },
+            keepAwake: { [weak self] command in self?.controller?.performKeepAwake(command) }
         )
     }
 

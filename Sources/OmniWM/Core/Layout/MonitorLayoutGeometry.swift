@@ -7,6 +7,7 @@ struct MonitorLayoutFrames {
     let workingFrame: CGRect
     let borderSafeFillFrame: CGRect
     let fullscreenLayoutFrame: CGRect
+    var roomGapLimits: [WorkspaceBarRoom.Edge: CGFloat] = [:]
 }
 
 struct NiriInteractionGeometry {

@@ -12,7 +12,7 @@ final class ShellMenuWidgetTests: XCTestCase {
 
     override func setUp() async throws {
         shell = FileManager.default.temporaryDirectory.appendingPathComponent(UUID().uuidString, isDirectory: true)
-        XCTAssertEqual(ShellDefaults.sync(into: shell), [])
+        XCTAssertEqual(try ShellStyleFixture.prepare(into: shell), [])
     }
 
     override func tearDown() async throws {
@@ -23,6 +23,10 @@ final class ShellMenuWidgetTests: XCTestCase {
         for profile in ShellProfiles.names(in: shell) {
             _ = try ShellProfiles.select(profile, in: shell)
             let config = ShellConfig.resolve(shellDirectory: shell)
+            guard config.leading.contains("apple-menu") else {
+                XCTAssertEqual(profile, "vitreus")
+                continue
+            }
             let height = config.barOverride?.settings.height ?? 24
             for vertical in [false, true] {
                 for scale in [CGFloat(1), 2] {
@@ -34,12 +38,12 @@ final class ShellMenuWidgetTests: XCTestCase {
         }
     }
 
-    func testMenuWidgetsInheritEveryBundledPalette() throws {
-        let themes = shell.appendingPathComponent("default/themes", isDirectory: true)
-        let names = try FileManager.default.contentsOfDirectory(atPath: themes.path)
-            .filter { $0.hasSuffix(".toml") }.map { String($0.dropLast(5)) }.sorted()
-        XCTAssertEqual(names.count, 14)
-        for theme in names {
+    func testMenuWidgetsInheritEveryRepositoryPalette() throws {
+        let themes = try ShellStyleFixture.themes()
+        XCTAssertFalse(themes.isEmpty)
+        for (profile, source) in themes {
+            let theme = source.deletingPathExtension().lastPathComponent
+            _ = try ShellProfiles.select(profile, in: shell)
             _ = try ShellProfiles.selectTheme(theme, in: shell)
             var problems: [String] = []
             let config = try XCTUnwrap(ShellConfig.load(shellDirectory: shell, problems: &problems))

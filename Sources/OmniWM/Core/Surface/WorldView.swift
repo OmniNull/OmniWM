@@ -191,19 +191,6 @@ struct WorldView {
         return masks
     }
 
-    func islandSurfaces() -> [DesiredIslandSurface] {
-        guard controller.settings.island.enabled else { return [] }
-        let topology = spaceTopology
-        return monitors.map { monitor in
-            DesiredIslandSurface(
-                monitor: monitor,
-                fullscreen: topology.isDisplayShowingFullscreenSpace(on: monitor) == true,
-                navigation: controller.workspaceBarManager.hasShellIsland(on: monitor)
-                    ? islandNavigation(on: monitor) : nil
-            )
-        }
-    }
-
     private func islandNavigation(on monitor: Monitor) -> IslandNavigationSnapshot? {
         let manager = controller.workspaceManager
         guard let workspace = manager.activeWorkspaceOrFirst(on: monitor.id) else { return nil }
@@ -350,5 +337,21 @@ struct WorldView {
             return nil
         }
         return ScreenCoordinateSpace.toAppKit(rect: bounds)
+    }
+}
+
+extension WorldView {
+    func islandSurfaces() -> [DesiredIslandSurface] {
+        guard controller.settings.island.enabled else { return [] }
+        let topology = spaceTopology
+        return monitors.map { monitor in
+            DesiredIslandSurface(
+                monitor: monitor,
+                fullscreen: topology.isDisplayShowingFullscreenSpace(on: monitor) == true,
+                navigation: controller.workspaceBarManager.hasShellIsland(on: monitor)
+                    ? islandNavigation(on: monitor) : nil,
+                reservedInsets: controller.workspaceBarReservedInsets(for: monitor)
+            )
+        }
     }
 }

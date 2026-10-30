@@ -25,6 +25,8 @@ public enum ElementKind: UInt8, Sendable, BitwiseCopyable {
     case slider
     case path
     case input
+    case glass
+    case shape
 }
 
 public struct Rect: Equatable, Sendable, BitwiseCopyable {
@@ -136,72 +138,6 @@ public struct Enter: Equatable, Sendable, BitwiseCopyable {
     public static let none = Enter()
 }
 
-public struct Paint: Equatable, Sendable, BitwiseCopyable {
-    public var fill: Color
-    public var stroke: Color
-    public var strokeWidth: Float
-    public var cornerRadius: Float
-    public var opacity: Float
-    public var scale: Float
-    public var shadow: Color
-    public var shadowRadius: Float
-    public var material: UInt8
-    public var blurRadius: Float
-    public var saturation: Float
-    public var enter: Enter
-    public var masks: Bool
-    public var rotate: Float
-    public var loop: UInt32
-    public var loopPaused: Bool
-    public var speed: Float
-    public var appear: UInt32
-    public var exit: UInt32
-
-    public init(
-        fill: Color = .clear,
-        stroke: Color = .clear,
-        strokeWidth: Float = 0,
-        cornerRadius: Float = 0,
-        opacity: Float = 1,
-        scale: Float = 1,
-        shadow: Color = .clear,
-        shadowRadius: Float = 0,
-        material: UInt8 = 0,
-        blurRadius: Float = -1,
-        saturation: Float = 1.8,
-        enter: Enter = .none,
-        masks: Bool = false,
-        rotate: Float = 0,
-        loop: UInt32 = 0,
-        loopPaused: Bool = false,
-        speed: Float = 1,
-        appear: UInt32 = 0,
-        exit: UInt32 = 0
-    ) {
-        self.fill = fill
-        self.stroke = stroke
-        self.strokeWidth = strokeWidth
-        self.cornerRadius = cornerRadius
-        self.opacity = opacity
-        self.scale = scale
-        self.shadow = shadow
-        self.shadowRadius = shadowRadius
-        self.material = material
-        self.blurRadius = blurRadius
-        self.saturation = saturation
-        self.enter = enter
-        self.masks = masks
-        self.rotate = rotate
-        self.loop = loop
-        self.loopPaused = loopPaused
-        self.speed = speed
-        self.appear = appear
-        self.exit = exit
-    }
-
-    public static let none = Paint()
-}
-
 public enum Axis: UInt8, Sendable, BitwiseCopyable {
     case row
     case column
@@ -249,6 +185,12 @@ public enum IconSource: UInt8, Sendable, BitwiseCopyable {
     case bundle
     case window
     case pid
+}
+
+public enum ElementCursor: UInt8, Sendable, BitwiseCopyable {
+    case none
+    case grab
+    case pointer
 }
 
 public struct Content: Equatable, Sendable, BitwiseCopyable {
@@ -324,6 +266,15 @@ public struct Content: Equatable, Sendable, BitwiseCopyable {
     public var dragItemsRef: UInt32 = 0
     public var dragOutAction: UInt32 = 0
     public var resourceAccepts: UInt32 = 0
+    public var manipulationCommit: UInt32 = 0
+    public var manipulationFollow: UInt32 = 0
+    public var effect: UInt32 = 0
+    public var decorative: Bool = false
+    public var glassShape: UInt8 = 0
+    public var glassFollow: UInt64 = 0
+    public var glassHit = true
+    public var glassFollowFixedRadius = false
+    public var cursor: ElementCursor = .none
     public var gesture: ShellGestureConfig = ShellGestureConfig()
 
     public var hasPressEffect: Bool {
@@ -331,9 +282,10 @@ public struct Content: Equatable, Sendable, BitwiseCopyable {
     }
 
     public var acceptsPointer: Bool {
-        action != 0 || secondaryAction != 0 || scrollAction != 0 || opensPopout || menu || drag || scrolls
-            || pressAction != 0 || hoverAction != 0 || gesture
-            .axis != .none || focusable || hasPressEffect || dragItemsRef != 0
+        !decorative &&
+            (action != 0 || secondaryAction != 0 || scrollAction != 0 || opensPopout || menu || drag || scrolls
+                || pressAction != 0 || hoverAction != 0 || gesture
+                .axis != .none || focusable || hasPressEffect || dragItemsRef != 0 || cursor != .none)
     }
 
     public var hasHoverEffect: Bool {
@@ -456,6 +408,7 @@ public enum PatchOp: Sendable, BitwiseCopyable {
     case setValue(ElementHandle, value: UInt32, color: Color)
     case setShader(ElementHandle)
     case setPath(ElementHandle)
+    case setGlass(ElementHandle)
     case setScroll(ElementHandle, offset: Float, vertical: Bool)
 }
 

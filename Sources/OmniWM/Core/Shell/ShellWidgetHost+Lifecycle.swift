@@ -315,6 +315,8 @@ extension ShellWidgetHost {
                 directory.appendingPathComponent("shell.toml"),
                 directory.appendingPathComponent("widgets", isDirectory: true),
                 directory.appendingPathComponent("shaders", isDirectory: true),
+                directory.appendingPathComponent("fonts", isDirectory: true),
+                directory.appendingPathComponent(ShellStrings.folder, isDirectory: true),
                 themes
             ] + files.filter { $0.pathExtension == "toml" }
         }

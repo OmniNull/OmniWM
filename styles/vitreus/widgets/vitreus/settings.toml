@@ -1,0 +1,88 @@
+# SPDX-License-Identifier: GPL-2.0-only
+# Copyright (C) 2026 OmniNull — https://github.com/OmniNull/OmniWM
+
+[options.layout]
+type = "choice"
+title = "Layout"
+default = "island"
+choices = ["island", "left", "right", "ftop", "fbottom", "seg"]
+
+[options.size]
+type = "number"
+title = "Bar size"
+default = 1
+min = 0.7
+max = 1
+step = 0.01
+
+[options.pieces]
+type = "strings"
+title = "Bar pieces"
+default = ["apple", "app", "workspaces", "title", "tray", "search", "gear", "controls", "clock"]
+maxLength = 16
+
+[options.pins]
+type = "strings"
+title = "Pinned apps"
+default = []
+maxLength = 255
+
+[options.addons]
+type = "strings"
+title = "Add-ons"
+default = []
+maxLength = 128
+
+[options.dockOverlap]
+type = "boolean"
+title = "Corner docks overlap windows"
+default = false
+
+[options.visualiser]
+type = "boolean"
+title = "Audio visualiser"
+default = false
+
+[options.cols]
+type = "number"
+title = "Visualiser columns"
+default = 24
+min = 6
+max = 47
+step = 1
+
+[options.sens]
+type = "number"
+title = "Visualiser sensitivity"
+default = 1
+min = 0.3
+max = 3
+step = 0.01
+
+[options.hgt]
+type = "number"
+title = "Visualiser height"
+default = 150
+min = 40
+max = 300
+step = 1
+
+[options.bl]
+type = "number"
+title = "Visualiser blend"
+default = 1
+min = 0
+max = 1
+step = 0.01
+
+[options.lay]
+type = "choice"
+title = "Visualiser placement"
+default = "bottom"
+choices = ["bottom", "corners", "top", "left", "right"]
+
+[options.mon]
+type = "string"
+title = "Visualiser display"
+default = ""
+maxLength = 256

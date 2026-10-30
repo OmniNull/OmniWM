@@ -2,19 +2,13 @@
 // Copyright (C) 2026 OmniNull — https://github.com/OmniNull/OmniWM
 
 import AppKit
+import OmniWMIPC
 
 extension ShellWidgetHost {
     func updateIslands(_ desired: [DesiredIslandSurface], level: NSWindow.Level) {
         desiredIslands = desired
         islandLevel = level
-        let next = islandPlacements(desired)
-        if next != islandData {
-            islandData = next
-            if let popout, popout.key.placement == .island,
-               next[popout.key]?.surface?.visible != true
-            {
-                closePopout()
-            }
+        if refreshIslandData() {
             for state in widgets.values {
                 place(state)
             }
@@ -23,23 +17,46 @@ extension ShellWidgetHost {
         reconcileIslandWindows()
     }
 
+    @discardableResult
+    func refreshIslandData() -> Bool {
+        let next = islandPlacements(desiredIslands)
+        guard next != islandData else { return false }
+        islandData = next
+        if let popout, popout.key.placement == .island, next[popout.key]?.surface?.visible != true {
+            closePopout()
+        }
+        return true
+    }
+
     func islandPlacements(_ desired: [DesiredIslandSurface]) -> [ShellBarKey: ShellBarData] {
         guard let island = config.island else { return [:] }
         var result: [ShellBarKey: ShellBarData] = [:]
         for target in desired where island.includes(target.monitor) {
             let key = ShellBarKey(monitor: target.monitor.id, placement: .island)
-            let geometry = ShellIslandGeometry(monitor: target.monitor, size: island.size)
+            let bar = bars[ShellBarKey(monitor: target.monitor.id)]
+                ?? bars[ShellBarKey(monitor: target.monitor.id, island: .active)]
+            let geometry = ShellIslandGeometry(monitor: target.monitor, size: island.size(on: target.monitor))
             let data = ShellIslandData(
                 monitor: target.monitor,
                 geometry: geometry,
                 visible: !target.fullscreen || island.fullscreen == .show,
                 fullscreen: target.fullscreen,
+                reservedInsets: target.reservedInsets,
                 focused: focusedIsland == target.monitor.id,
                 drag: islandDragMonitor?.state ?? .init(),
                 navigation: target.navigation,
-                sessionToken: sessionToken
+                sessionToken: sessionToken,
+                drawer: islandDrawer?.monitor == target.monitor.id ? islandDrawer?.id : nil
             )
-            result[key] = ShellBarData(monitor: target.monitor.name, surface: data)
+            result[key] = ShellBarData(
+                monitor: target.monitor.name,
+                monitorId: IPCDisplayRef.identifier(target.monitor.id),
+                style: bar?.style ?? ShellBarStyle(),
+                barEnabled: bar != nil,
+                workspaces: bar?.workspaces ?? [],
+                scratchpads: bar?.scratchpads ?? [],
+                surface: data
+            )
         }
         return result
     }
@@ -70,13 +87,13 @@ extension ShellWidgetHost {
             if islandWindows[monitor.id] == nil {
                 _ = surfaceView(widget: state.name, key: key, scale: monitor.backingScale)
                 guard let surface = instance.surface else { continue }
-                let island = ShellIsland(surface: surface, monitor: monitor, size: config.size)
+                let island = ShellIsland(surface: surface, monitor: monitor, size: config.size(on: monitor))
                 islandWindows[monitor.id] = island
                 connectIslandInput(island, on: monitor.id)
             }
             islandWindows[monitor.id]?.update(
                 monitor: monitor,
-                size: config.size,
+                size: config.size(on: monitor),
                 visible: data.visible,
                 level: islandLevel
             )

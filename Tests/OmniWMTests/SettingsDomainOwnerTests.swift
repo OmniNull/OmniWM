@@ -96,6 +96,24 @@ final class SettingsDomainOwnerTests: XCTestCase {
         XCTAssertEqual(try SettingsTOMLCodec.decode(Data(contentsOf: settings.settingsFileURL)), settings.toExport())
     }
 
+    func testFullyVisibleHoverSettingImportsAndPersistsEdits() throws {
+        let directory = FileManager.default.temporaryDirectory.appendingPathComponent(UUID().uuidString)
+        defer { try? FileManager.default.removeItem(at: directory) }
+        let settings = makeSettings(directory: directory)
+        let focus = settings.focus
+        var imported = settings.toExport()
+        imported.focus.followsMouseOnlyFullyVisible = true
+        settings.applyExport(imported)
+        XCTAssertTrue(settings.focus === focus)
+        XCTAssertTrue(focus.followsMouseOnlyFullyVisible)
+        focus.followsMouseOnlyFullyVisible = false
+        let saved = try SettingsTOMLCodec.decode(Data(contentsOf: settings.settingsFileURL))
+        XCTAssertFalse(saved.focus.followsMouseOnlyFullyVisible)
+        focus.followsMouseOnlyFullyVisible = true
+        XCTAssertTrue(try SettingsTOMLCodec.decode(Data(contentsOf: settings.settingsFileURL))
+            .focus.followsMouseOnlyFullyVisible)
+    }
+
     private func makeSettings(directory: URL) -> SettingsStore {
         SettingsStore(
             persistence: SettingsFilePersistence(directory: directory, startWatching: false, deferSaves: false),

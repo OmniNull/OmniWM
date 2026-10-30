@@ -91,10 +91,13 @@ extension NiriLayoutHandler {
             useScrollAnimationPath: useScrollAnimationPath,
             removalSeed: removalSeed,
             gap: gap,
-            niriWorkingFrame: controller.niriWorkingFrame(refreshInput.monitor.workingFrame, gap: gap),
+            niriWorkingFrame: controller.niriWorkingFrame(
+                refreshInput.monitor.workingFrame, roomGapLimits: refreshInput.monitor.roomGapLimits, gap: gap
+            ),
             fullscreenLayoutFrame: controller.niriFullscreenLayoutFrame(
                 refreshInput.monitor.fullscreenLayoutFrame,
                 workingFrame: refreshInput.monitor.workingFrame,
+                roomGapLimits: refreshInput.monitor.roomGapLimits,
                 monitor: monitor,
                 gap: gap
             ),

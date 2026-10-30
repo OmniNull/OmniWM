@@ -42,7 +42,7 @@
       "kind": "type",
       "topic": "ui-elements",
       "anchor": "api-font",
-      "declaration": "export type Font = \"system\" | \"sans\" | \"rubik\" | \"symbols\"",
+      "declaration": "export type Font = \"system\" | \"sans\" | \"rubik\" | \"symbols\" | string",
       "fields": [],
       "related": []
     },
@@ -106,17 +106,228 @@
       "kind": "type",
       "topic": "input-motion",
       "anchor": "api-presence",
-      "declaration": "export type Presence = { opacity: number?, scale: number?, dx: number?, dy: number?, animate: Animate? }",
+      "declaration": "export type Presence = {\n    opacity: number?, scale: number?, dx: number?, dy: number?, animate: Animate?,\n    anchor: { x: number, y: number }?, delay: number?,\n}",
       "fields": [
         "opacity",
         "scale",
         "dx",
         "dy",
-        "animate"
+        "animate",
+        "anchor",
+        "delay"
       ],
       "related": [
         "Animate"
       ]
+    },
+    {
+      "name": "Spring",
+      "kind": "type",
+      "topic": "input-motion",
+      "anchor": "api-spring",
+      "declaration": "export type Spring = { response: number, bounce: number? }",
+      "fields": [
+        "response",
+        "bounce"
+      ],
+      "related": []
+    },
+    {
+      "name": "Reveal",
+      "kind": "type",
+      "topic": "input-motion",
+      "anchor": "api-reveal",
+      "declaration": "export type Reveal = Spring & { delay: number?, hold: number? }",
+      "fields": [
+        "delay",
+        "hold"
+      ],
+      "related": [
+        "Spring"
+      ]
+    },
+    {
+      "name": "ShapeReveal",
+      "kind": "type",
+      "topic": "effects-shaders",
+      "anchor": "api-shapereveal",
+      "declaration": "export type ShapeReveal = Reveal & { exit: boolean? }",
+      "fields": [
+        "exit"
+      ],
+      "related": [
+        "Reveal"
+      ]
+    },
+    {
+      "name": "MorphStop",
+      "kind": "type",
+      "topic": "input-motion",
+      "anchor": "api-morphstop",
+      "declaration": "export type MorphStop = { at: number, scale: number?, opacity: number?, dx: number?, dy: number? }",
+      "fields": [
+        "at",
+        "scale",
+        "opacity",
+        "dx",
+        "dy"
+      ],
+      "related": []
+    },
+    {
+      "name": "Morph",
+      "kind": "type",
+      "topic": "input-motion",
+      "anchor": "api-morph",
+      "declaration": "export type Morph = { anchor: { x: number, y: number }?, stops: { MorphStop } } | { track: string }",
+      "fields": [
+        "anchor",
+        "stops",
+        "track"
+      ],
+      "related": [
+        "MorphStop"
+      ]
+    },
+    {
+      "name": "ShapeMorphStop",
+      "kind": "type",
+      "topic": "effects-shaders",
+      "anchor": "api-shapemorphstop",
+      "declaration": "export type ShapeMorphStop = {\n    at: number, scale: number?, w: number?, h: number?, round: number?,\n    dx: number?, dy: number?, thickness: number?,\n}",
+      "fields": [
+        "at",
+        "scale",
+        "w",
+        "h",
+        "round",
+        "dx",
+        "dy",
+        "thickness"
+      ],
+      "related": []
+    },
+    {
+      "name": "ShapeStretch",
+      "kind": "type",
+      "topic": "effects-shaders",
+      "anchor": "api-shapestretch",
+      "declaration": "export type ShapeStretch = { gain: number?, max: number?, w: number?, h: number? }",
+      "fields": [
+        "gain",
+        "max",
+        "w",
+        "h"
+      ],
+      "related": []
+    },
+    {
+      "name": "ShapeImpulse",
+      "kind": "type",
+      "topic": "effects-shaders",
+      "anchor": "api-shapeimpulse",
+      "declaration": "export type ShapeImpulse = {\n    at: number?, after: number?, rising: boolean?, on: (\"open\" | \"close\")?, spring: Spring,\n    velocity: number?, w: number?, h: number?, pivot: (\"anchor\" | \"centre\")?,\n}",
+      "fields": [
+        "at",
+        "after",
+        "rising",
+        "on",
+        "spring",
+        "velocity",
+        "w",
+        "h",
+        "pivot"
+      ],
+      "related": [
+        "Spring"
+      ]
+    },
+    {
+      "name": "ShapeEdges",
+      "kind": "type",
+      "topic": "effects-shaders",
+      "anchor": "api-shapeedges",
+      "declaration": "export type ShapeEdges = { lead: Spring, trail: Spring, thin: number?, unit: number }",
+      "fields": [
+        "lead",
+        "trail",
+        "thin",
+        "unit"
+      ],
+      "related": [
+        "Spring"
+      ]
+    },
+    {
+      "name": "ShapeSource",
+      "kind": "type",
+      "topic": "effects-shaders",
+      "anchor": "api-shapesource",
+      "declaration": "export type ShapeSource = {\n    target: string, edge: \"top\" | \"left\" | \"right\" | \"bottom\", from: number?, span: number, contact: boolean?,\n    pads: { left: number?, right: number?, top: number?, bottom: number? }?,\n    adhere: { left: number?, right: number?, top: number?, bottom: number? }?,\n}",
+      "fields": [
+        "target",
+        "edge",
+        "from",
+        "span",
+        "contact",
+        "pads",
+        "adhere"
+      ],
+      "related": []
+    },
+    {
+      "name": "ShapeTrigger",
+      "kind": "type",
+      "topic": "effects-shaders",
+      "anchor": "api-shapetrigger",
+      "declaration": "export type ShapeTrigger = { shape: string, at: number, rising: boolean?, contact: boolean? }",
+      "fields": [
+        "shape",
+        "at",
+        "rising",
+        "contact"
+      ],
+      "related": []
+    },
+    {
+      "name": "ShapeMorph",
+      "kind": "type",
+      "topic": "effects-shaders",
+      "anchor": "api-shapemorph",
+      "declaration": "export type ShapeMorph = {\n    anchor: { x: number, y: number }?, stops: { ShapeMorphStop }?, stretch: ShapeStretch?,\n    impulses: { ShapeImpulse }?, edges: ShapeEdges?, source: ShapeSource?, trigger: ShapeTrigger?,\n}",
+      "fields": [
+        "anchor",
+        "stops",
+        "stretch",
+        "impulses",
+        "edges",
+        "source",
+        "trigger"
+      ],
+      "related": [
+        "ShapeMorphStop",
+        "ShapeStretch",
+        "ShapeImpulse",
+        "ShapeEdges",
+        "ShapeSource",
+        "ShapeTrigger"
+      ]
+    },
+    {
+      "name": "Pulse",
+      "kind": "type",
+      "topic": "input-motion",
+      "anchor": "api-pulse",
+      "declaration": "export type Pulse = {\n    key: string | number, duration: number, rotate: { number }?, scale: { number }?, dx: { number }?, dy: { number }?,\n}",
+      "fields": [
+        "key",
+        "duration",
+        "rotate",
+        "scale",
+        "dx",
+        "dy"
+      ],
+      "related": []
     },
     {
       "name": "GestureRange",
@@ -225,7 +436,7 @@
       "kind": "type",
       "topic": "context-data",
       "anchor": "api-barstyle",
-      "declaration": "export type BarStyle = {\n    height: number,\n    labels: boolean,\n    backgrounds: boolean,\n    accents: boolean,\n    inactive: number,\n    position: \"overlappingMenuBar\" | \"belowMenuBar\" | \"bottom\" | \"left\" | \"right\" | \"top\",\n    vertical: boolean,\n    notch: string,\n    notchWidth: number,\n    level: string,\n    offsetX: number,\n    offsetY: number,\n    autoHide: boolean,\n    reveal: string,\n    opacity: number,\n    transparent: boolean,\n    solidBlack: boolean,\n    accentColor: string?,\n    textColor: string?,\n    statsButton: boolean,\n    secureInput: boolean,\n    keyboardMode: \"normal\" | \"paused\" | \"prefix\" | \"window\",\n    previews: boolean,\n    hideInFullscreen: boolean,\n    hidesMenuBar: boolean,\n}",
+      "declaration": "export type BarStyle = {\n    height: number,\n    labels: boolean,\n    backgrounds: boolean,\n    accents: boolean,\n    inactive: number,\n    position: \"overlappingMenuBar\" | \"belowMenuBar\" | \"bottom\" | \"left\" | \"right\" | \"top\",\n    vertical: boolean,\n    fullWidth: boolean,\n    notch: string,\n    notchWidth: number,\n    level: string,\n    offsetX: number,\n    offsetY: number,\n    autoHide: boolean,\n    reveal: string,\n    opacity: number,\n    transparent: boolean,\n    solidBlack: boolean,\n    accentColor: string?,\n    textColor: string?,\n    statsButton: boolean,\n    secureInput: boolean,\n    keyboardMode: \"normal\" | \"paused\" | \"prefix\" | \"window\",\n    previews: boolean,\n    hideInFullscreen: boolean,\n    hidesMenuBar: boolean,\n}",
       "fields": [
         "height",
         "labels",
@@ -234,6 +445,7 @@
         "inactive",
         "position",
         "vertical",
+        "fullWidth",
         "notch",
         "notchWidth",
         "level",
@@ -343,9 +555,10 @@
       "kind": "type",
       "topic": "context-data",
       "anchor": "api-bar",
-      "declaration": "export type Bar = {\n    monitor: string,\n    island: \"all\" | \"active\" | \"secondary\",\n    drag: BarDrag?,\n    badges: \"off\" | \"dot\" | \"text\",\n    style: BarStyle,\n    workspaces: { BarWorkspace },\n    scratchpads: { BarScratchpad },\n}",
+      "declaration": "export type Bar = {\n    monitor: string,\n    monitorId: string,\n    island: \"all\" | \"active\" | \"secondary\",\n    drag: BarDrag?,\n    badges: \"off\" | \"dot\" | \"text\",\n    style: BarStyle?,\n    workspaces: { BarWorkspace },\n    scratchpads: { BarScratchpad },\n}",
       "fields": [
         "monitor",
+        "monitorId",
         "island",
         "drag",
         "badges",
@@ -485,16 +698,55 @@
       "kind": "type",
       "topic": "context-data",
       "anchor": "api-calendar",
-      "declaration": "export type Calendar = {\n    access: \"full\" | \"writeOnly\" | \"denied\" | \"restricted\" | \"notDetermined\",\n    events: { CalendarEvent },\n    month: CalendarMonth?,\n}",
+      "declaration": "export type Calendar = {\n    access: \"full\" | \"writeOnly\" | \"denied\" | \"restricted\" | \"notDetermined\",\n    events: { CalendarEvent },\n    month: CalendarMonth?,\n    selectedDay: string?,\n    reminders: Reminders?,\n}",
       "fields": [
         "access",
         "events",
-        "month"
+        "month",
+        "selectedDay",
+        "reminders"
       ],
       "related": [
         "CalendarEvent",
-        "CalendarMonth"
+        "CalendarMonth",
+        "Reminders"
       ]
+    },
+    {
+      "name": "Awake",
+      "kind": "type",
+      "topic": "context-data",
+      "anchor": "api-awake",
+      "declaration": "export type Awake = {\n    on: boolean,\n    [\"until\"]: number?,\n}",
+      "fields": [
+        "on",
+        "until"
+      ],
+      "related": []
+    },
+    {
+      "name": "Microphone",
+      "kind": "type",
+      "topic": "context-data",
+      "anchor": "api-microphone",
+      "declaration": "export type Microphone = {\n    volume: number?,\n    muted: boolean?,\n}",
+      "fields": [
+        "volume",
+        "muted"
+      ],
+      "related": []
+    },
+    {
+      "name": "Brightness",
+      "kind": "type",
+      "topic": "context-data",
+      "anchor": "api-brightness",
+      "declaration": "export type Brightness = {\n    value: number,\n    available: boolean,\n}",
+      "fields": [
+        "value",
+        "available"
+      ],
+      "related": []
     },
     {
       "name": "NotificationAction",
@@ -854,9 +1106,10 @@
       "kind": "type",
       "topic": "context-data",
       "anchor": "api-island",
-      "declaration": "export type Island = {\n    display: string,\n    size: { w: number, h: number },\n    notch: { x: number, w: number, h: number }?,\n    menuBar: number,\n    scale: number,\n    main: boolean,\n    visible: boolean,\n    fullscreen: boolean,\n    focused: boolean,\n    drag: { active: boolean, types: { \"file\" | \"url\" | \"text\" | \"image\" } },\n    navigation: IslandNavigation?,\n}",
+      "declaration": "export type Island = {\n    display: string,\n    usableRect: { x: number, y: number, w: number, h: number },\n    size: { w: number, h: number },\n    notch: { x: number, w: number, h: number }?,\n    menuBar: number,\n    scale: number,\n    main: boolean,\n    visible: boolean,\n    fullscreen: boolean,\n    focused: boolean,\n    drag: { active: boolean, types: { \"file\" | \"url\" | \"text\" | \"image\" } },\n    navigation: IslandNavigation?,\n    drawer: string?,\n}",
       "fields": [
         "display",
+        "usableRect",
         "size",
         "notch",
         "menuBar",
@@ -866,7 +1119,8 @@
         "fullscreen",
         "focused",
         "drag",
-        "navigation"
+        "navigation",
+        "drawer"
       ],
       "related": [
         "IslandNavigation"
@@ -877,7 +1131,7 @@
       "kind": "type",
       "topic": "context-data",
       "anchor": "api-data",
-      "declaration": "export type Data = {\n    clock: string,\n    date: string,\n    seconds: number,\n    cpu: number?,\n    memory: number,\n    battery: number?,\n    charging: boolean,\n    gpu: number?,\n    disk: number?,\n    network: { down: number, up: number }?,\n    volume: number?,\n    muted: boolean?,\n    vars: { [string]: string },\n    weather: Weather?,\n    workspace: string,\n    app: string,\n    bundle: string,\n    title: string,\n    workspaces: { Workspace },\n    bar: Bar,\n    settings: { [string]: any }?,\n    hiddenBar: HiddenBar,\n    system: System?,\n    outputs: { AudioOutput }?,\n    audioApps: AudioApps?,\n    media: Media?,\n    calendar: Calendar?,\n    power: Power?,\n    inputSource: InputSource?,\n    privacy: { microphone: boolean, camera: boolean }?,\n    wifi: WiFi?,\n    bluetooth: Bluetooth?,\n    user: { name: string, account: string, avatar: string? }?,\n    thermal: { cpu: number?, gpu: number?, gpuName: string? }?,\n    networkHistory: { down: { number }, up: { number }, received: number, sent: number }?,\n    appearance: (\"light\" | \"dark\")?,\n    lyrics: Lyrics?,\n    spectrum: { access: \"unknown\" | \"granted\" | \"denied\", bars: { number }, bpm: number? }?,\n    tempo: number?,\n    island: Island?,\n    components: { ComponentInfo }?,\n    catalog: { ComponentCatalogEntry }?,\n    settingsSchema: { [string]: ComponentOption }?,\n    reminders: Reminders?,\n    badges: { [string]: string },\n    menuApp: { pid: number, name: string, bundle: string }?,\n    notifications: Notifications?,\n}",
+      "declaration": "export type Data = {\n    clock: string,\n    date: string,\n    seconds: number,\n    cpu: number?,\n    memory: number,\n    battery: number?,\n    charging: boolean,\n    gpu: number?,\n    disk: number?,\n    network: { down: number, up: number }?,\n    volume: number?,\n    muted: boolean?,\n    vars: { [string]: string },\n    weather: Weather?,\n    workspace: string,\n    app: string,\n    bundle: string,\n    title: string,\n    workspaces: { Workspace },\n    bar: Bar,\n    settings: { [string]: any }?,\n    hiddenBar: HiddenBar,\n    system: System?,\n    outputs: { AudioOutput }?,\n    audioApps: AudioApps?,\n    media: Media?,\n    calendar: Calendar?,\n    power: Power?,\n    inputSource: InputSource?,\n    privacy: { microphone: boolean, camera: boolean }?,\n    wifi: WiFi?,\n    bluetooth: Bluetooth?,\n    user: { name: string, account: string, avatar: string? }?,\n    thermal: { cpu: number?, gpu: number?, gpuName: string? }?,\n    networkHistory: { down: { number }, up: { number }, received: number, sent: number }?,\n    appearance: (\"light\" | \"dark\")?,\n    lyrics: Lyrics?,\n    spectrum: { access: \"unknown\" | \"granted\" | \"denied\", bars: { number }, bpm: number? }?,\n    tempo: number?,\n    island: Island?,\n    components: { ComponentInfo }?,\n    catalog: { ComponentCatalogEntry }?,\n    settingsSchema: { [string]: ComponentOption }?,\n    reminders: Reminders?,\n    badges: { [string]: string },\n    menuApp: { pid: number, name: string, bundle: string }?,\n    notifications: Notifications?,\n    awake: Awake?,\n    microphone: Microphone?,\n    brightness: Brightness?,\n}",
       "fields": [
         "clock",
         "date",
@@ -925,7 +1179,10 @@
         "reminders",
         "badges",
         "menuApp",
-        "notifications"
+        "notifications",
+        "awake",
+        "microphone",
+        "brightness"
       ],
       "related": [
         "Weather",
@@ -947,7 +1204,10 @@
         "ComponentCatalogEntry",
         "ComponentOption",
         "Reminders",
-        "Notifications"
+        "Notifications",
+        "Awake",
+        "Microphone",
+        "Brightness"
       ]
     },
     {
@@ -955,15 +1215,19 @@
       "kind": "type",
       "topic": "context-data",
       "anchor": "api-format",
-      "declaration": "export type Format = {\n    number: (value: number, digits: number?) -> string,\n    percent: (fraction: number, digits: number?) -> string,\n    bytes: (count: number, style: (\"memory\" | \"file\")?) -> string,\n    date: (seconds: number, template: string, zone: string?) -> string?,\n    offset: (seconds: number, zone: string?) -> number?,\n}",
+      "declaration": "export type Format = {\n    measure: (text: string, style: { font: Font?, size: number?, weight: Weight?, maxWidth: number?, lines: number?, quarter: boolean? }?) -> (number, number),\n    number: (value: number, digits: number?) -> string,\n    percent: (fraction: number, digits: number?) -> string,\n    bytes: (count: number, style: (\"memory\" | \"file\")?) -> string,\n    date: (seconds: number, template: string, zone: string?) -> string?,\n    offset: (seconds: number, zone: string?) -> number?,\n}",
       "fields": [
+        "measure",
         "number",
         "percent",
         "bytes",
         "date",
         "offset"
       ],
-      "related": []
+      "related": [
+        "Font",
+        "Weight"
+      ]
     },
     {
       "name": "ComponentInfo",
@@ -1263,8 +1527,11 @@
       "kind": "type",
       "topic": "input-motion",
       "anchor": "api-event",
-      "declaration": "export type Event = {\n    button: \"left\" | \"right\" | \"middle\" | \"none\",\n    shift: boolean,\n    option: boolean,\n    control: boolean,\n    command: boolean,\n    dx: number,\n    dy: number,\n    precise: boolean,\n    value: number?,\n    phase: (\"began\" | \"changed\" | \"ended\" | \"down\" | \"up\" | \"cancel\" | \"cancelled\")?,\n    x: number?,\n    y: number?,\n    clicks: number?,\n    vx: number?,\n    vy: number?,\n    committed: boolean?,\n    momentum: (\"none\" | \"began\" | \"changed\" | \"ended\")?,\n    key: string?,\n    characters: string?,\n    text: string?,\n    focused: boolean?,\n    [\"repeat\"]: boolean?,\n}",
+      "declaration": "export type Event = {\n    transaction: string?,\n    rect: { x: number, y: number, w: number, h: number }?,\n    reason: string?,\n    button: \"left\" | \"right\" | \"middle\" | \"none\",\n    shift: boolean,\n    option: boolean,\n    control: boolean,\n    command: boolean,\n    dx: number,\n    dy: number,\n    precise: boolean,\n    value: number?,\n    phase: (\"began\" | \"changed\" | \"ended\" | \"down\" | \"up\" | \"cancel\" | \"cancelled\" | \"selected\" | \"applied\")?,\n    x: number?,\n    y: number?,\n    clicks: number?,\n    vx: number?,\n    vy: number?,\n    committed: boolean?,\n    momentum: (\"none\" | \"began\" | \"changed\" | \"ended\")?,\n    key: string?,\n    characters: string?,\n    text: string?,\n    focused: boolean?,\n    claimed: boolean?,\n    [\"repeat\"]: boolean?,\n}",
       "fields": [
+        "transaction",
+        "rect",
+        "reason",
         "button",
         "shift",
         "option",
@@ -1286,6 +1553,7 @@
         "characters",
         "text",
         "focused",
+        "claimed",
         "repeat"
       ],
       "related": []
@@ -1331,7 +1599,7 @@
       "kind": "type",
       "topic": "input-motion",
       "anchor": "api-gesture",
-      "declaration": "export type Gesture = {\n    track: { dx: GestureRange?, dy: GestureRange?, scale: GestureRange?, opacity: GestureRange? }?,\n    axis: (\"x\" | \"y\" | \"free\" | \"auto\")?,\n    source: (\"pointer\" | \"scroll\" | \"both\")?,\n    threshold: number?,\n    lockDistance: number?,\n    dominance: number?,\n    commit: { distance: number?, velocity: number?, direction: (\"any\" | \"left\" | \"right\" | \"up\" | \"down\")? }?,\n}",
+      "declaration": "export type Gesture = {\n    track: {\n        dx: GestureRange?, dy: GestureRange?, scale: GestureRange?, opacity: GestureRange?,\n        mode: (\"move\" | \"resize\" | \"scale\")?, target: string?,\n        bounds: { x: number, y: number, w: number, h: number }?,\n        min: { w: number, h: number }?, max: { w: number, h: number }?,\n        edge: (\"n\" | \"s\" | \"e\" | \"w\" | \"nw\" | \"ne\" | \"sw\" | \"se\")?,\n        inset: { x: number, y: number }?,\n        outline: (false | Color)?,\n    }?,\n    axis: (\"x\" | \"y\" | \"free\" | \"auto\")?,\n    source: (\"pointer\" | \"scroll\" | \"both\")?,\n    threshold: number?,\n    lockDistance: number?,\n    dominance: number?,\n    commit: { distance: number?, velocity: number?, direction: (\"any\" | \"left\" | \"right\" | \"up\" | \"down\")? }?,\n}",
       "fields": [
         "track",
         "axis",
@@ -1342,7 +1610,8 @@
         "commit"
       ],
       "related": [
-        "GestureRange"
+        "GestureRange",
+        "Color"
       ]
     },
     {
@@ -1350,8 +1619,13 @@
       "kind": "type",
       "topic": "layout-styling",
       "anchor": "api-props",
-      "declaration": "export type Props = {\n    accepts: { ResourceKind }?,\n    onDrop: ((ctx: Context, event: DropEvent) -> ())?,\n    onDropHover: ((ctx: Context, event: DropHoverEvent) -> ())?,\n    dragItems: { Resource }?,\n    onDragOut: ((ctx: Context, event: DragOutEvent) -> ())?,\n    appear: Presence?,\n    exit: Presence?,\n    key: string?,\n    rotate: number?,\n    loop: { dx: { number }?, dy: { number }?, rotate: { number }?, paused: boolean? }?,\n    trail: boolean?,\n    w: number?,\n    h: number?,\n    grow: number?,\n    gap: number?,\n    pad: number?,\n    center: boolean?,\n    fill: Color?,\n    material: Material?,\n    blurRadius: number?,\n    saturation: number?,\n    bridge: boolean?,\n    attach: boolean?,\n    open: number?,\n    close: number?,\n    enter: Enter?,\n    mask: boolean?,\n    border: Color?,\n    borderWidth: number?,\n    radius: number?,\n    opacity: number?,\n    hover: Color?,\n    hoverScale: number?,\n    hoverOpacity: number?,\n    help: string?,\n    animate: Animate?,\n    hoverAnimate: (Motion | number)?,\n    hoverMaterial: Material?,\n    onClick: Click?,\n    onRightClick: Click?,\n    onScroll: Click?,\n    onPress: InputHandler?,\n    pressScale: number?,\n    pressOpacity: number?,\n    pressFill: Color?,\n    pressAnimate: Animate?,\n    onHover: InputHandler?,\n    hoverDelay: number?,\n    hoverGrace: number?,\n    gesture: Gesture?,\n    onGesture: InputHandler?,\n    gestureEvents: (\"boundary\" | \"all\")?,\n    scrollMomentum: (\"consume\" | \"deliver\")?,\n    focusable: boolean?,\n    focusRing: boolean?,\n    keys: { string }?,\n    onKey: InputHandler?,\n    onOutsidePress: InputHandler?,\n    popout: boolean?,\n    align: Align?,\n    dx: number?,\n    dy: number?,\n    scale: number?,\n    shadow: Color?,\n    shadowRadius: number?,\n    target: string?,\n    menu: boolean?,\n    preview: boolean?,\n    drag: boolean?,\n    drop: boolean?,\n    scroll: boolean?,\n    [number]: Element,\n}",
+      "declaration": "export type Props = {\n    cursor: (\"grab\" | \"pointer\")?,\n    decorative: boolean?,\n    manipulationCommit: string?,\n    manipulationFollow: { response: number, bounce: number? }?,\n    effect: { source: string, values: { number }?, fps: number?, bleed: number? }?,\n    accepts: { ResourceKind }?,\n    onDrop: ((ctx: Context, event: DropEvent) -> ())?,\n    onDropHover: ((ctx: Context, event: DropHoverEvent) -> ())?,\n    dragItems: { Resource }?,\n    onDragOut: ((ctx: Context, event: DragOutEvent) -> ())?,\n    appear: Presence?,\n    exit: Presence?,\n    reveal: Reveal?,\n    morph: Morph?,\n    key: string?,\n    rotate: number?,\n    loop: { dx: { number }?, dy: { number }?, rotate: { number }?, paused: boolean? }?,\n    trail: boolean?,\n    w: number?,\n    h: number?,\n    grow: number?,\n    gap: number?,\n    pad: number?,\n    center: boolean?,\n    fill: Color?,\n    material: Material?,\n    blurRadius: number?,\n    saturation: number?,\n    bridge: boolean?,\n    attach: boolean?,\n    open: number?,\n    close: number?,\n    enter: Enter?,\n    mask: boolean?,\n    border: Color?,\n    borderWidth: number?,\n    radius: number?,\n    opacity: number?,\n    hover: Color?,\n    hoverScale: number?,\n    hoverOpacity: number?,\n    help: string?,\n    animate: Animate?,\n    hoverAnimate: (Motion | number)?,\n    hoverMaterial: Material?,\n    onClick: Click?,\n    onRightClick: Click?,\n    onScroll: Click?,\n    onPress: InputHandler?,\n    pressScale: number?,\n    pressOpacity: number?,\n    pressFill: Color?,\n    pressAnimate: Animate?,\n    onHover: InputHandler?,\n    hoverDelay: number?,\n    hoverGrace: number?,\n    gesture: Gesture?,\n    onGesture: InputHandler?,\n    gestureEvents: (\"boundary\" | \"all\")?,\n    scrollMomentum: (\"consume\" | \"deliver\")?,\n    focusable: boolean?,\n    focusRing: boolean?,\n    keys: { string }?,\n    onKey: InputHandler?,\n    onOutsidePress: InputHandler?,\n    popout: boolean?,\n    align: Align?,\n    dx: number?,\n    dy: number?,\n    scale: number?,\n    shadow: Color?,\n    shadowRadius: number?,\n    shadowOffset: { x: number, y: number }?,\n    pulse: Pulse?,\n    target: string?,\n    menu: boolean?,\n    preview: boolean?,\n    drag: boolean?,\n    drop: boolean?,\n    scroll: boolean?,\n    [number]: Element,\n}",
       "fields": [
+        "cursor",
+        "decorative",
+        "manipulationCommit",
+        "manipulationFollow",
+        "effect",
         "accepts",
         "onDrop",
         "onDropHover",
@@ -1359,6 +1633,8 @@
         "onDragOut",
         "appear",
         "exit",
+        "reveal",
+        "morph",
         "key",
         "rotate",
         "loop",
@@ -1417,6 +1693,8 @@
         "scale",
         "shadow",
         "shadowRadius",
+        "shadowOffset",
+        "pulse",
         "target",
         "menu",
         "preview",
@@ -1432,6 +1710,8 @@
         "Resource",
         "DragOutEvent",
         "Presence",
+        "Reveal",
+        "Morph",
         "Color",
         "Material",
         "Enter",
@@ -1441,6 +1721,7 @@
         "InputHandler",
         "Gesture",
         "Align",
+        "Pulse",
         "Element"
       ]
     },
@@ -1617,6 +1898,91 @@
       ],
       "related": [
         "Props"
+      ]
+    },
+    {
+      "name": "GlassProps",
+      "kind": "type",
+      "topic": "effects-shaders",
+      "anchor": "api-glassprops",
+      "declaration": "export type GlassProps = {\n    key: string?,\n    w: number?,\n    h: number?,\n    grow: number?,\n    gap: number?,\n    pad: number?,\n    center: boolean?,\n    align: Align?,\n    dx: number?,\n    dy: number?,\n    scale: number?,\n    rotate: number?,\n    opacity: number?,\n    animate: Animate?,\n    open: number?,\n    close: number?,\n    enter: Enter?,\n    appear: Presence?,\n    exit: Presence?,\n    morph: Morph?,\n    fill: Color?,\n    blurRadius: number?,\n    saturation: number?,\n    shadow: Color?,\n    shadowRadius: number?,\n    blend: number?,\n    backdrop: boolean?,\n    rim: number?,\n    gradient: { from: Color, to: Color, angle: number? }?,\n    pulse: Pulse?,\n    light: { x: number, y: number }?,\n    shadowOffset: { x: number, y: number }?,\n    [number]: Element,\n}",
+      "fields": [
+        "key",
+        "w",
+        "h",
+        "grow",
+        "gap",
+        "pad",
+        "center",
+        "align",
+        "dx",
+        "dy",
+        "scale",
+        "rotate",
+        "opacity",
+        "animate",
+        "open",
+        "close",
+        "enter",
+        "appear",
+        "exit",
+        "morph",
+        "fill",
+        "blurRadius",
+        "saturation",
+        "shadow",
+        "shadowRadius",
+        "blend",
+        "backdrop",
+        "rim",
+        "gradient",
+        "pulse",
+        "light",
+        "shadowOffset"
+      ],
+      "related": [
+        "Align",
+        "Animate",
+        "Enter",
+        "Presence",
+        "Morph",
+        "Color",
+        "Pulse",
+        "Element"
+      ]
+    },
+    {
+      "name": "ShapeProps",
+      "kind": "type",
+      "topic": "effects-shaders",
+      "anchor": "api-shapeprops",
+      "declaration": "export type ShapeProps = {\n    key: string?,\n    w: number?,\n    h: number?,\n    grow: number?,\n    align: Align?,\n    dx: number?,\n    dy: number?,\n    radius: number?,\n    shape: (\"rect\" | \"ellipse\" | \"frame\")?,\n    thickness: number?,\n    animate: Animate?,\n    rotate: number?,\n    reveal: ShapeReveal?,\n    follow: string?,\n    followRadius: (\"scaled\" | \"fixed\")?,\n    hit: boolean?,\n    shadowOffset: { x: number, y: number }?,\n    morph: ShapeMorph?,\n    spectrum: { band: number, gain: number?, taper: number?, inset: number?, threshold: number?,\n        response: number?, bounce: number? }?,\n}",
+      "fields": [
+        "key",
+        "w",
+        "h",
+        "grow",
+        "align",
+        "dx",
+        "dy",
+        "radius",
+        "shape",
+        "thickness",
+        "animate",
+        "rotate",
+        "reveal",
+        "follow",
+        "followRadius",
+        "hit",
+        "shadowOffset",
+        "morph",
+        "spectrum"
+      ],
+      "related": [
+        "Align",
+        "Animate",
+        "ShapeReveal",
+        "ShapeMorph"
       ]
     },
     {
@@ -2144,7 +2510,7 @@
       "kind": "namespace",
       "topic": "ui-elements",
       "anchor": "api-ui",
-      "declaration": "declare ui: {\n    component: (props: ComponentProps) -> Element,\n    row: (props: Props) -> Element,\n    column: (props: Props) -> Element,\n    stack: (props: Props) -> Element,\n    box: (props: Props) -> Element,\n    text: (props: TextProps) -> Element,\n    input: (props: TextInputProps) -> Element,\n    symbol: (props: SymbolProps) -> Element,\n    icon: (props: IconProps) -> Element,\n    image: (props: ImageProps) -> Element,\n    progress: (props: ProgressProps) -> Element,\n    shader: (props: ShaderProps) -> Element,\n    path: (props: PathProps) -> Element,\n    slider: (props: SliderProps) -> Element,\n    popout: (ctx: Context) -> (),\n}",
+      "declaration": "declare ui: {\n    component: (props: ComponentProps) -> Element,\n    row: (props: Props) -> Element,\n    column: (props: Props) -> Element,\n    stack: (props: Props) -> Element,\n    box: (props: Props) -> Element,\n    text: (props: TextProps) -> Element,\n    input: (props: TextInputProps) -> Element,\n    symbol: (props: SymbolProps) -> Element,\n    icon: (props: IconProps) -> Element,\n    image: (props: ImageProps) -> Element,\n    progress: (props: ProgressProps) -> Element,\n    shader: (props: ShaderProps) -> Element,\n    glass: (props: GlassProps) -> Element,\n    shape: (props: ShapeProps) -> Element,\n    path: (props: PathProps) -> Element,\n    slider: (props: SliderProps) -> Element,\n    popout: (ctx: Context) -> (),\n}",
       "fields": [],
       "related": [
         "ComponentProps",
@@ -2157,6 +2523,8 @@
         "ImageProps",
         "ProgressProps",
         "ShaderProps",
+        "GlassProps",
+        "ShapeProps",
         "PathProps",
         "SliderProps",
         "Context"
@@ -2303,6 +2671,30 @@
       "fields": [],
       "related": [
         "ShaderProps",
+        "Element"
+      ]
+    },
+    {
+      "name": "ui.glass",
+      "kind": "member",
+      "topic": "effects-shaders",
+      "anchor": "api-ui-glass",
+      "declaration": "    glass: (props: GlassProps) -> Element,",
+      "fields": [],
+      "related": [
+        "GlassProps",
+        "Element"
+      ]
+    },
+    {
+      "name": "ui.shape",
+      "kind": "member",
+      "topic": "effects-shaders",
+      "anchor": "api-ui-shape",
+      "declaration": "    shape: (props: ShapeProps) -> Element,",
+      "fields": [],
+      "related": [
+        "ShapeProps",
         "Element"
       ]
     },

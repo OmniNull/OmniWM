@@ -34,7 +34,8 @@ extension ShellDesktopEditor {
         case .island:
             return islandEntries.map {
                 LibraryEntry(
-                    name: $0.widget, title: $0.descriptor?.title ?? ShellBarLayout.title(of: $0.widget),
+                    name: $0.widget, title: $0.descriptor.map { strings.title($0.title) }
+                        ?? ShellBarLayout.title(of: $0.widget),
                     icon: $0.descriptor?.icon ?? "exclamationmark.triangle",
                     summary: ShellWidgetSettingsModel.description($0.widget),
                     available: $0.descriptor != nil, problem: $0.error

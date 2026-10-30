@@ -52,6 +52,7 @@ extension ShellBarStyle {
             inactive: resolved.inactiveIconOpacity ?? -1,
             position: resolved.position.rawValue,
             vertical: resolved.position.isVertical,
+            fullWidth: resolved.fullWidth,
             notch: resolved.notchMode.rawValue,
             notchWidth: resolved.notchActiveZoneWidth,
             level: resolved.windowLevel.rawValue,
@@ -69,7 +70,7 @@ extension ShellBarStyle {
             keyboardMode: snapshot.keyboardMode.rawValue,
             previews: settings.resolvedHoverPreviewsEnabled,
             hideInFullscreen: settings.resolvedHideInNativeFullscreen,
-            hidesMenuBar: WorkspaceBarManager.hidesMenuBar(resolved)
+            hidesMenuBar: WorkspaceBarManager.coversAppMenus(resolved)
         )
     }
 }
@@ -86,6 +87,7 @@ extension ShellBarData {
     ) {
         let projection = snapshot.projection
         self.monitor = monitor.name
+        self.monitorId = IPCDisplayRef.identifier(monitor.id)
         self.badges = badges.mode.rawValue
         self.style = style
         var resolved: [String: NSImage] = [:]

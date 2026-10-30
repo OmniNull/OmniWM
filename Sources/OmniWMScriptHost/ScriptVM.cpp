@@ -45,6 +45,8 @@ ui.shader = element(7, nil)
 ui.slider = element(8, nil)
 ui.path = element(9, nil)
 ui.input = element(10, nil)
+ui.glass = element(11, 2)
+ui.shape = element(12, nil)
 omniwm = { components = {} }
 local componentHost = _omniComponentHost
 _omniComponentHost = nil
@@ -541,6 +543,7 @@ CallScope::CallScope(omni_vm *vm, uint64_t budget) : vm(vm) {
     vm->latched = false;
     vm->budget = budget == 0 ? unboundedBudget : budget;
     vm->callStartCPU = start;
+    vm->encodeSteps = 0;
     vm->inCall = true;
 }
 
@@ -721,14 +724,57 @@ bool omni_vm_module_matches(const omni_vm *vm, const char *path, size_t path_len
     }
 }
 
-void omni_vm_set_localizer(omni_vm *vm, omni_localizer localizer, void *context) noexcept {
+void omni_vm_set_localizer(omni_vm *vm, omni_localizer localizer, void *context, omni_release release) noexcept {
+    if (vm->localizerRelease != nullptr) {
+        vm->localizerRelease(vm->localizerContext);
+    }
     vm->localizer = localizer;
     vm->localizerContext = context;
+    vm->localizerRelease = release;
 }
 
 void omni_vm_set_formatter(omni_vm *vm, omni_formatter formatter, void *context) noexcept {
     vm->formatter = formatter;
     vm->formatterContext = context;
+}
+
+void omni_vm_set_measurer(omni_vm *vm, omni_measurer measurer, void *context) noexcept {
+    vm->measurer = measurer;
+    vm->measurerContext = context;
+}
+
+omni_status omni_vm_set_fonts(omni_vm *vm, const omni_font_family *families, size_t count) noexcept {
+    if (vm->inCall) {
+        return OMNI_ERR_REENTRANT;
+    }
+    constexpr size_t maximumId = OMNI_STYLE_FONT_MASK >> OMNI_STYLE_FONT_SHIFT;
+    if (vm->loads != 0 || count > maximumId + 1 - OMNI_STYLE_FONT_CUSTOM || (count > 0 && families == nullptr)) {
+        return OMNI_ERR_RUNTIME;
+    }
+    for (size_t i = 0; i < count; i++) {
+        const omni_font_family &family = families[i];
+        if (family.id < OMNI_STYLE_FONT_CUSTOM || family.id > maximumId || family.name == nullptr
+            || family.length == 0 || family.length > OMNI_FONT_NAME_LIMIT) {
+            return OMNI_ERR_RUNTIME;
+        }
+        for (size_t j = 0; j < family.length; j++) {
+            unsigned char byte = static_cast<unsigned char>(family.name[j]);
+            if (byte < 32 || byte == 127) {
+                return OMNI_ERR_RUNTIME;
+            }
+        }
+    }
+    try {
+        std::vector<std::pair<std::string, uint8_t>> fonts;
+        fonts.reserve(count);
+        for (size_t i = 0; i < count; i++) {
+            fonts.emplace_back(std::string(families[i].name, families[i].length), families[i].id);
+        }
+        vm->fonts = std::move(fonts);
+        return OMNI_OK;
+    } catch (...) {
+        return OMNI_ERR_MEMORY;
+    }
 }
 
 omni_status omni_vm_destroy(omni_vm *vm) noexcept {
@@ -746,6 +792,9 @@ omni_status omni_vm_destroy(omni_vm *vm) noexcept {
     } catch (...) {
     }
     destroyServices(vm);
+    if (vm->localizerRelease != nullptr) {
+        vm->localizerRelease(vm->localizerContext);
+    }
     delete vm;
     return OMNI_OK;
 }

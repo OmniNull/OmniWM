@@ -53,6 +53,19 @@ final class WorkspaceSwipeSourceSnapshotTests: XCTestCase {
         XCTAssertNil(preview.presentedSourceSnapshot)
     }
 
+    func testOriginalSourceSnapshotLandingAfterAChainedReplaceIsDropped() async throws {
+        let image = try makeImage()
+        let gate = SnapshotGate()
+        let preview = try makeSnapshotPreview(gate)
+        defer { preview.stop() }
+
+        preview.captureSource(monitor: monitor)
+        XCTAssertTrue(preview.begin(source: [], destination: [], monitor: monitor))
+        XCTAssertTrue(preview.replace(source: [], destination: [], monitor: monitor))
+        await gate.deliver(image)
+        XCTAssertNil(preview.presentedSourceSnapshot)
+    }
+
     func testSourceSnapshotNeedsCaptureAccess() async {
         let gate = SnapshotGate()
         let preview = WorkspaceSwipePreview(

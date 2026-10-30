@@ -84,8 +84,9 @@ extension WorkspaceSwipePresentation {
     }
 
     func windowFrameChanged(_ windowId: UInt32) {
-        guard let flight, flight.handoff?.windowIds.contains(windowId) == true else { return }
-        readHandoffGeometry(flight)
+        for flight in flights.values where flight.handoff?.windowIds.contains(windowId) == true {
+            readHandoffGeometry(flight)
+        }
     }
 
     private func readHandoffGeometry(_ flight: Flight) {
@@ -114,8 +115,8 @@ extension WorkspaceSwipePresentation {
     }
 
     private func finishHandoff(_ flight: Flight, confirmed: Bool) {
-        guard self.flight === flight else { return }
+        guard isCurrent(flight) else { return }
         let failed = flight.settlement?.failed == true
-        cancel(reason: failed ? "placement-failed" : confirmed ? "completed" : "handoff-unconfirmed")
+        cancel(flight, reason: failed ? "placement-failed" : confirmed ? "completed" : "handoff-unconfirmed")
     }
 }

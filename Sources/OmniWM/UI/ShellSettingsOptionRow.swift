@@ -7,14 +7,12 @@ struct ShellSettingsOptionRow: View {
     let key: String
     let option: ShellComponentOption
     let value: ShellComponentValue?
+    var strings = ShellStrings.empty
     let write: (ShellComponentValue) -> Void
     @Environment(\.locale) private var locale
 
     private var title: String {
-        String(localized: LocalizedStringResource(
-            String.LocalizationValue(option.title), table: ShellLocalizer.table,
-            locale: locale, bundle: .atURL(Bundle.module.bundleURL)
-        ))
+        strings.title(option.title, locale: locale)
     }
 
     private var resolved: ShellComponentValue? {
@@ -34,7 +32,7 @@ struct ShellSettingsOptionRow: View {
                 set: { write(.string($0)) }
             )) {
                 ForEach(option.choices, id: \.self) { choice in
-                    Text(ShellWidgetSettingsModel.title(choice, locale: locale)).tag(choice)
+                    Text(strings[choice] ?? ShellWidgetSettingsModel.title(choice, locale: locale)).tag(choice)
                 }
             }
         case .number:

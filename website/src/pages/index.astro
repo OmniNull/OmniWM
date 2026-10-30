@@ -22,6 +22,7 @@ import GesturesDemo from '../components/demos/GesturesDemo.astro';
 import MenuAnywhereDemo from '../components/demos/MenuAnywhereDemo.astro';
 import SystemStatsDemo from '../components/demos/SystemStatsDemo.astro';
 import HiddenBarDemo from '../components/demos/HiddenBarDemo.astro';
+import StripPlayground from '../components/demos/StripPlayground.astro';
 import { features } from '../data/features';
 
 const byId = Object.fromEntries(features.map((feature) => [feature.id, feature]));
@@ -39,6 +40,7 @@ const structuredData = {
   {structuredData}
 >
   <Hero />
+  <StripPlayground />
   <div id="features">
     <FeatureSection feature={byId.niri}><NiriDemo /></FeatureSection>
     <FeatureSection feature={byId.dwindle} flip><DwindleDemo /></FeatureSection>

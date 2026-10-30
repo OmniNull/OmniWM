@@ -319,6 +319,33 @@ final class ShellWidgetSourceLoaderTests: XCTestCase {
         XCTAssertEqual(try ShellWidgetSourceLoader.build(input(shell)).network, [])
     }
 
+    func testLayerFontsAreSourceFoldersAndPartOfTheFingerprint() throws {
+        let shell = temporaryShell()
+        defer { try? FileManager.default.removeItem(at: shell.deletingLastPathComponent()) }
+        try write("root", shell, "widgets/lake/init.luau")
+        func profile(_ name: String) -> ShellWidgetSourceLoader.Input {
+            ShellWidgetSourceLoader.Input(
+                name: "lake", shellDirectory: shell, sourceURL: shell.appendingPathComponent("widgets/lake/init.luau"),
+                directories: [shell, shell.appendingPathComponent(name), shell.appendingPathComponent("default")],
+                profile: name
+            )
+        }
+        let look = profile("look")
+        XCTAssertEqual(try ShellWidgetSourceLoader.build(look).fontFolders, ["", "look/", "default/"].map {
+            shell.appendingPathComponent("\($0)fonts", isDirectory: true)
+        })
+        let before = ShellWidgetSourceLoader.fingerprint(look)
+        try write("font", shell, "look/fonts/Face.ttf")
+        try write("notes", shell, "look/fonts/README.txt")
+        let added = ShellWidgetSourceLoader.fingerprint(look)
+        XCTAssertNotEqual(added, before)
+        let fonts = Set(added.keys).subtracting(before.keys)
+        XCTAssertEqual(fonts.count, 1)
+        XCTAssertTrue(fonts.allSatisfy { $0.hasSuffix("/shell/look/fonts/Face.ttf") }, "\(fonts)")
+        XCTAssertNotEqual(ShellWidgetSourceLoader.fingerprint(profile("plain")), added)
+        XCTAssertEqual(ShellWidgetSourceLoader.fingerprint(profile("plain")), before)
+    }
+
     private func temporaryShell() -> URL {
         FileManager.default.temporaryDirectory.appendingPathComponent(UUID().uuidString).appendingPathComponent("shell")
     }

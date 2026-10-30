@@ -8,7 +8,8 @@ import XCTest
 @MainActor
 final class ShellLakeReferenceMatrixTests: XCTestCase {
     func testEveryAdvertisedViewRendersUnavailableDataWithAndWithoutANotch() throws {
-        let profile = try XCTUnwrap(ShellDefaults.bundledStyles).appendingPathComponent("lake")
+        let profile = ShellStyleFixture.directory.appendingPathComponent("lake")
+            .resolvingSymlinksInPath().standardizedFileURL
         let widgets = try FileManager.default.contentsOfDirectory(
             at: profile.appendingPathComponent("widgets"), includingPropertiesForKeys: nil
         ).filter { FileManager.default.fileExists(atPath: $0.appendingPathComponent("component.toml").path) }
@@ -36,7 +37,8 @@ final class ShellLakeReferenceMatrixTests: XCTestCase {
         let enumerator = try XCTUnwrap(FileManager.default.enumerator(at: profile, includingPropertiesForKeys: nil))
         var modules: [(path: String, source: String)] = []
         for case let file as URL in enumerator where file.pathExtension == "luau" {
-            let relative = String(file.path.dropFirst(profile.path.count + 1))
+            let relative = String(file.resolvingSymlinksInPath().standardizedFileURL.path
+                .dropFirst(profile.path.count + 1))
             modules.append(("profile/" + relative, try String(contentsOf: file, encoding: .utf8)))
         }
         modules.sort { $0.path < $1.path }

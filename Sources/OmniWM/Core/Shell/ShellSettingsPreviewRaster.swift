@@ -218,9 +218,14 @@ enum ShellSettingsPreviewRaster {
     }
 
     static func raster(_ scene: ShellLayerScene, size: CGSize, scale: CGFloat) async throws -> CGImage {
+        try Task.checkCancellation()
         let scale = ShellSettingsPreviewResolution.scale(size: size, requested: scale)
-        return try await withCheckedThrowingContinuation { continuation in
+        let image: CGImage = try await withCheckedThrowingContinuation { continuation in
             ShellLayerScene.engineQueue.async {
+                if !scene.glassBodies.isEmpty {
+                    rasterNative(scene, size: size, scale: scale, continuation: continuation)
+                    return
+                }
                 guard let space = CGColorSpace(name: CGColorSpace.sRGB),
                       let context = CGContext(
                           data: nil, width: ShellSettingsPreviewResolution.width(size: size, scale: scale),
@@ -248,5 +253,73 @@ enum ShellSettingsPreviewRaster {
                 }
             }
         }
+        try Task.checkCancellation()
+        return image
+    }
+
+    private nonisolated static func rasterNative(
+        _ scene: ShellLayerScene, size: CGSize, scale: CGFloat,
+        continuation: CheckedContinuation<CGImage, any Error>
+    ) {
+        let width = ShellSettingsPreviewResolution.width(size: size, scale: scale)
+        let height = ShellSettingsPreviewResolution.height(size: size, scale: scale)
+        let layer = scene.container
+        let previous = layer.superlayer
+        let index = previous?.sublayers?.firstIndex(of: layer) ?? 0
+        let restore = {
+            CATransaction.begin()
+            CATransaction.setDisableActions(true)
+            layer.removeFromSuperlayer()
+            previous?.insertSublayer(layer, at: UInt32(index))
+            CATransaction.commit()
+        }
+        do {
+            let root = rasterRoot(layer, size: size, scale: scale)
+            let raster = try ShellLayerRaster(root: root, width: width, height: height)
+            let marker = try raster.encode()
+            let id = UUID()
+            scene.rasterCompletions[id] = { failure in
+                let result: Result<CGImage, any Error>
+                do {
+                    if let failure { throw failure }
+                    result = .success(try raster.image())
+                } catch {
+                    result = .failure(error)
+                }
+                restore()
+                continuation.resume(with: result)
+            }
+            marker.addCompletedHandler { completed in
+                let failure = completed.status == .completed ? nil : ShellScriptFailure(
+                    kind: .runtime, message: completed.error?.localizedDescription ?? "The preview GPU render failed."
+                )
+                ShellLayerScene.engineQueue.async {
+                    scene.rasterCompletions.removeValue(forKey: id)?(failure)
+                }
+            }
+            marker.commit()
+        } catch {
+            restore()
+            continuation.resume(throwing: error)
+        }
+    }
+
+    private nonisolated static func rasterRoot(_ layer: CALayer, size: CGSize, scale: CGFloat) -> CALayer {
+        CATransaction.begin()
+        CATransaction.setDisableActions(true)
+        defer { CATransaction.commit() }
+        let root = CALayer()
+        root.frame = CGRect(
+            x: 0, y: 0, width: ShellSettingsPreviewResolution.width(size: size, scale: scale),
+            height: ShellSettingsPreviewResolution.height(size: size, scale: scale)
+        )
+        root.isGeometryFlipped = true
+        let holder = CALayer()
+        holder.anchorPoint = .zero
+        holder.bounds = CGRect(origin: .zero, size: size)
+        holder.setAffineTransform(CGAffineTransform(scaleX: scale, y: scale))
+        root.addSublayer(holder)
+        holder.addSublayer(layer)
+        return root
     }
 }

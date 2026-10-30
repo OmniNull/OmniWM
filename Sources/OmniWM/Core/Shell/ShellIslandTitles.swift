@@ -5,9 +5,12 @@ import Foundation
 
 enum ShellIslandTitles {
     static func titles(
-        components: [ShellComponentInstance], descriptors: [String: ShellComponentDescriptor]
+        components: [ShellComponentInstance], descriptors: [String: ShellComponentDescriptor],
+        strings: ShellStrings = .empty
     ) -> [String: String] {
-        let base = components.map { descriptors[$0.widget]?.title ?? ShellBarLayout.title(of: $0.widget) }
+        let base = components.map {
+            descriptors[$0.widget].map { strings.title($0.title) } ?? ShellBarLayout.title(of: $0.widget)
+        }
         var ordinals: [String: Int] = [:]
         let labelled = zip(components, base).map { component, title in
             ordinals[title, default: 0] += 1

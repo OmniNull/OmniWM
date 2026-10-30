@@ -123,9 +123,19 @@ extension WorkspaceBarManager {
             for: app,
             content: content,
             anchor: anchor.frame,
-            edge: controller.settings.workspaceBar.resolved(for: monitor).position.popupEdge,
+            edge: popupEdge(for: origin, frame: anchor.frame, monitor: monitor, controller: controller),
             visibleFrame: monitor.visibleFrame
         )
+    }
+
+    private func popupEdge(
+        for origin: ShellCommandOrigin,
+        frame: CGRect,
+        monitor: Monitor,
+        controller: WMController
+    ) -> PopupAttachment.Edge {
+        origin.island ? .away(from: frame, in: monitor.frame)
+            : controller.settings.workspaceBar.resolved(for: monitor).position.popupEdge
     }
 
     private func openStatusMenu(from origin: ShellCommandOrigin, controller: WMController) {
@@ -140,7 +150,7 @@ extension WorkspaceBarManager {
             ),
             anchorFrame: frame,
             screen: NSScreen.screens.first { $0.frame.contains(CGPoint(x: frame.midX, y: frame.midY)) },
-            edge: controller.settings.workspaceBar.resolved(for: monitor).position.popupEdge,
+            edge: popupEdge(for: origin, frame: frame, monitor: monitor, controller: controller),
             monitorId: origin.monitor
         )
     }

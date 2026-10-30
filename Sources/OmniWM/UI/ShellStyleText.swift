@@ -19,15 +19,28 @@ enum ShellStyleText {
     }
 
     static func summary(_ profile: String) -> String {
-        switch profile {
-        case "default": String(localized: "Familiar Mac controls with Focus Ribbon for window navigation.")
-        case "lake": String(localized: "A minimal bar and a customizable island for media, calendar, and more.")
-        case "celestial": String(localized: "A vertical bar with spacious app and workspace tiles.")
-        case "nocturne": String(localized: "A rounded bar with rich status widgets and deep colors.")
-        case "wayline": String(localized: "A structured bar with labeled workspaces and quick status controls.")
-        case "matrix": String(localized: "A terminal-inspired bar with green accents and a rain shader.")
-        case "sakura": String(localized: "A light bar with soft pink accents and a drifting-petal shader.")
-        default: String(localized: "A custom style you added.")
-        }
+        profile == ShellDefaults.profile
+            ? String(localized: "Familiar Mac controls with Focus Ribbon for window navigation.")
+            : String(localized: "A custom style you added.")
+    }
+}
+
+extension ShellStyle {
+    var title: String {
+        manifest?.title ?? ShellStyleText.title(name)
+    }
+
+    var summary: String {
+        manifest?.summary ?? ShellStyleText.summary(name)
+    }
+}
+
+extension ShellConfigurationCoordinator {
+    func styleTitle(_ profile: String) -> String {
+        style(profile).title
+    }
+
+    func styleSummary(_ profile: String) -> String {
+        style(profile).summary
     }
 }

@@ -13,41 +13,60 @@ import XCTest
 @MainActor
 final class ShellStyleLayoutTests: XCTestCase {
     private let applications = ["com.apple.Safari", "com.apple.Terminal", "com.apple.finder", "com.apple.Notes"]
-    private let profiles = ["default", "wayline", "nocturne", "celestial", "lake", "sakura"]
 
-    func testManagedProfileEjectCreatesPersistentUserOverrides() throws {
+    private func barHostingProfiles(in shell: URL) throws -> [String] {
+        var hosting: [String] = []
+        var laneless: [String] = []
+        for profile in ([ShellDefaults.profile] + (try ShellStyleFixture.names())).sorted() {
+            XCTAssertTrue(try ShellProfiles.select(profile, in: shell))
+            let config = ShellConfig.resolve(shellDirectory: shell)
+            if config.leading.isEmpty, config.center.isEmpty, config.trailing.isEmpty {
+                laneless.append(profile)
+            } else {
+                hosting.append(profile)
+            }
+        }
+        XCTAssertEqual(laneless, ["vitreus"])
+        return hosting
+    }
+
+    func testStyleEjectsStayInTheirProfileAndDefaultEjectsBecomeUserOverrides() throws {
         let shell = FileManager.default.temporaryDirectory.appendingPathComponent(UUID().uuidString)
         defer { try? FileManager.default.removeItem(at: shell) }
-        XCTAssertEqual(ShellDefaults.sync(into: shell), [])
+        XCTAssertEqual(try ShellStyleFixture.prepare(into: shell), [])
         XCTAssertTrue(try ShellProfiles.select("celestial", in: shell))
         let celestial = ShellConfig.resolve(shellDirectory: shell)
+        let profile = shell.appendingPathComponent(celestial.profile, isDirectory: true)
         XCTAssertEqual(
             try ShellProfiles.eject("workspaces", config: celestial, shellDirectory: shell),
-            shell.appendingPathComponent("widgets/workspaces", isDirectory: true)
+            profile.appendingPathComponent("widgets/workspaces", isDirectory: true)
         )
         XCTAssertNil(try ShellProfiles.eject("workspaces", config: celestial, shellDirectory: shell))
         XCTAssertNotNil(celestial.file("lib/shapes.luau"))
         let copied = try XCTUnwrap(ShellProfiles.eject("privacy", config: celestial, shellDirectory: shell))
-        XCTAssertEqual(copied, shell.appendingPathComponent("widgets/privacy", isDirectory: true))
+        XCTAssertEqual(copied, profile.appendingPathComponent("widgets/privacy", isDirectory: true))
         XCTAssertTrue(try ShellProfiles.create("custom", in: shell))
         XCTAssertNotNil(ShellConfig.resolve(shellDirectory: shell).widget("custom"))
-        XCTAssertTrue(try ShellProfiles.select("default", in: shell))
+        XCTAssertTrue(try ShellProfiles.select(ShellDefaults.profile, in: shell))
         let original = ShellConfig.resolve(shellDirectory: shell)
-        XCTAssertEqual(
-            original.widget("workspaces"),
-            shell.appendingPathComponent("widgets/workspaces/init.luau")
-        )
-        XCTAssertEqual(original.widget("privacy"), shell.appendingPathComponent("widgets/privacy/init.luau"))
+        let defaults = shell.appendingPathComponent(ShellDefaults.profile, isDirectory: true)
+        XCTAssertEqual(original.widget("workspaces"), defaults.appendingPathComponent("widgets/workspaces/init.luau"))
+        XCTAssertEqual(original.widget("privacy"), defaults.appendingPathComponent("widgets/privacy/init.luau"))
         XCTAssertNil(original.widget("custom"))
         XCTAssertNil(original.file("lib/shapes.luau"))
+        XCTAssertEqual(
+            try ShellProfiles.eject("workspaces", config: original, shellDirectory: shell),
+            shell.appendingPathComponent("widgets/workspaces", isDirectory: true)
+        )
+        XCTAssertEqual(original.widget("workspaces"), shell.appendingPathComponent("widgets/workspaces/init.luau"))
     }
 
     func testStylesFitTheirThicknessAtBothBackingScalesAndOrientations() throws {
         let shell = FileManager.default.temporaryDirectory.appendingPathComponent(UUID().uuidString)
         defer { try? FileManager.default.removeItem(at: shell) }
-        XCTAssertEqual(ShellDefaults.sync(into: shell), [])
+        XCTAssertEqual(try ShellStyleFixture.prepare(into: shell), [])
         let appearances = ProcessInfo.processInfo.environment["OMNIWM_SHELL_SNAPSHOTS"] != nil ? [false, true] : [false]
-        for profile in profiles {
+        for profile in try barHostingProfiles(in: shell) {
             _ = try ShellProfiles.select(profile, in: shell)
             let config = ShellConfig.resolve(shellDirectory: shell)
             let base = config.barOverride?.settings.height ?? 24
@@ -78,14 +97,14 @@ final class ShellStyleLayoutTests: XCTestCase {
         let shared = ProcessInfo.processInfo.environment["OMNIWM_STEP_SHARED"] == "1"
         let tab = ProcessInfo.processInfo.environment["OMNIWM_STEP_TAB"] ?? "audio"
         let environment = ProcessInfo.processInfo.environment
-        let shell = stepShell(environment)
+        let shell = try stepShell(environment)
         defer { try? FileManager.default.removeItem(at: shell) }
         if !shared, let baseline = ProcessInfo.processInfo.environment["OMNIWM_STEP_BASE_SOURCE"] {
             try Data(contentsOf: URL(fileURLWithPath: baseline))
                 .write(to: shell.appendingPathComponent("default/widgets/\(name)/init.luau"))
         }
         try useSharedLibraries(ProcessInfo.processInfo.environment["OMNIWM_STEP_SHARED_LIBS"] ?? "", in: shell)
-        for profile in Set(ShellProfiles.names(in: shell) + ["default"]).sorted() {
+        for profile in ShellProfiles.names(in: shell).sorted() {
             XCTAssertTrue(try ShellProfiles.select(profile, in: shell))
             let config = ShellConfig.resolve(shellDirectory: shell)
             let height = config.barOverride?.settings.height ?? 32
@@ -616,7 +635,7 @@ final class ShellStyleLayoutTests: XCTestCase {
     func testSharedStatusWidgetsKeepScaledHooksStatesHelpAndFreshActions() throws {
         let shell = try sharedLibraryShell("stats")
         defer { try? FileManager.default.removeItem(at: shell) }
-        for profile in Set(ShellProfiles.names(in: shell) + ["default"]).sorted() {
+        for profile in try barHostingProfiles(in: shell) {
             _ = try ShellProfiles.select(profile, in: shell)
             let config = ShellConfig.resolve(shellDirectory: shell)
             for name in ["input-source", "launcher", "privacy", "world-clock", "stats"] {
@@ -859,7 +878,7 @@ final class ShellStyleLayoutTests: XCTestCase {
     func testSharedStatusPanelsKeepSelectionNilFeedbackAndSettingsActions() throws {
         let shell = try sharedLibraryShell("input-source")
         defer { try? FileManager.default.removeItem(at: shell) }
-        for profile in Set(ShellProfiles.names(in: shell) + ["default"]).sorted() {
+        for profile in ([ShellDefaults.profile] + (try ShellStyleFixture.names())).sorted() {
             _ = try ShellProfiles.select(profile, in: shell)
             let config = ShellConfig.resolve(shellDirectory: shell)
             let widget = try makeWidget(
@@ -1177,7 +1196,7 @@ final class ShellStyleLayoutTests: XCTestCase {
     func testSharedNetworkBarsKeepScaledHooksHelpFreshClicksAndDemand() throws {
         let shell = try sharedLibraryShell("wifi")
         defer { try? FileManager.default.removeItem(at: shell) }
-        for profile in Set(ShellProfiles.names(in: shell) + ["default"]).sorted() {
+        for profile in ([ShellDefaults.profile] + (try ShellStyleFixture.names())).sorted() {
             XCTAssertTrue(try ShellProfiles.select(profile, in: shell))
             let config = ShellConfig.resolve(shellDirectory: shell)
             let base = config.barOverride?.settings.height ?? 32
@@ -1284,7 +1303,7 @@ final class ShellStyleLayoutTests: XCTestCase {
     func testSharedNetworkPanelsKeepStateFeedbackAndDeliveredActions() throws {
         let shell = try sharedLibraryShell("wifi")
         defer { try? FileManager.default.removeItem(at: shell) }
-        for profile in Set(ShellProfiles.names(in: shell) + ["default"]).sorted() {
+        for profile in ([ShellDefaults.profile] + (try ShellStyleFixture.names())).sorted() {
             XCTAssertTrue(try ShellProfiles.select(profile, in: shell))
             let config = ShellConfig.resolve(shellDirectory: shell)
             for name in ["wifi", "bluetooth"] {
@@ -1439,7 +1458,7 @@ final class ShellStyleLayoutTests: XCTestCase {
     func testSharedBatteryModelKeepsThresholdsPercentModesAndPowerStates() throws {
         let shell = FileManager.default.temporaryDirectory.appendingPathComponent(UUID().uuidString)
         defer { try? FileManager.default.removeItem(at: shell) }
-        XCTAssertEqual(ShellDefaults.sync(into: shell), [])
+        XCTAssertEqual(try ShellStyleFixture.prepare(into: shell), [])
         let folder = shell.appendingPathComponent("default/widgets/battery-model-probe")
         try FileManager.default.createDirectory(at: folder, withIntermediateDirectories: true)
         try """
@@ -1545,9 +1564,9 @@ final class ShellStyleLayoutTests: XCTestCase {
     func testSharedBatteryBarsKeepModesScaledSkinsClicksAndDataDemand() throws {
         let shell = FileManager.default.temporaryDirectory.appendingPathComponent(UUID().uuidString)
         defer { try? FileManager.default.removeItem(at: shell) }
-        XCTAssertEqual(ShellDefaults.sync(into: shell), [])
+        XCTAssertEqual(try ShellStyleFixture.prepare(into: shell), [])
         let hooked = ["wayline", "nocturne", "celestial"]
-        for profile in Set(ShellProfiles.names(in: shell) + ["default"]).sorted() {
+        for profile in try barHostingProfiles(in: shell) {
             XCTAssertTrue(try ShellProfiles.select(profile, in: shell))
             let config = ShellConfig.resolve(shellDirectory: shell)
             let base = config.barOverride?.settings.height ?? 32
@@ -1667,9 +1686,9 @@ final class ShellStyleLayoutTests: XCTestCase {
     func testSharedBatteryPanelsKeepPowerFeedbackSettingsAndMissingData() throws {
         let shell = FileManager.default.temporaryDirectory.appendingPathComponent(UUID().uuidString)
         defer { try? FileManager.default.removeItem(at: shell) }
-        XCTAssertEqual(ShellDefaults.sync(into: shell), [])
+        XCTAssertEqual(try ShellStyleFixture.prepare(into: shell), [])
         let duration = ShellLocalizer.string("%lldh %lldm", [.number(4), .number(14)])
-        for profile in Set(ShellProfiles.names(in: shell) + ["default"]).sorted() {
+        for profile in ([ShellDefaults.profile] + (try ShellStyleFixture.names())).sorted() {
             XCTAssertTrue(try ShellProfiles.select(profile, in: shell))
             let config = ShellConfig.resolve(shellDirectory: shell)
             let widget = try makeWidget(
@@ -1751,7 +1770,7 @@ final class ShellStyleLayoutTests: XCTestCase {
     func testCelestialStatusBatteryUsesTheSharedPowerModel() throws {
         let shell = FileManager.default.temporaryDirectory.appendingPathComponent(UUID().uuidString)
         defer { try? FileManager.default.removeItem(at: shell) }
-        XCTAssertEqual(ShellDefaults.sync(into: shell), [])
+        XCTAssertEqual(try ShellStyleFixture.prepare(into: shell), [])
         XCTAssertTrue(try ShellProfiles.select("celestial", in: shell))
         let config = ShellConfig.resolve(shellDirectory: shell)
         let widget = try makeWidget("status", config: config, shell: shell)
@@ -1790,7 +1809,7 @@ final class ShellStyleLayoutTests: XCTestCase {
     func testSharedPanelsKeepDefaultCapsulesInEveryBackgroundSetting() throws {
         let shell = FileManager.default.temporaryDirectory.appendingPathComponent(UUID().uuidString)
         defer { try? FileManager.default.removeItem(at: shell) }
-        XCTAssertEqual(ShellDefaults.sync(into: shell), [])
+        XCTAssertEqual(try ShellStyleFixture.prepare(into: shell), [])
         let config = ShellConfig.resolve(shellDirectory: shell)
         XCTAssertEqual(config.profile, "default")
         let folder = shell.appendingPathComponent("default/widgets/panel-probe")
@@ -1825,8 +1844,8 @@ final class ShellStyleLayoutTests: XCTestCase {
     func testSharedActiveWindowHonoursDisplayModesPresetsAndDeliveredClicks() throws {
         let shell = FileManager.default.temporaryDirectory.appendingPathComponent(UUID().uuidString)
         defer { try? FileManager.default.removeItem(at: shell) }
-        XCTAssertEqual(ShellDefaults.sync(into: shell), [])
-        for profile in Set(ShellProfiles.names(in: shell) + ["default"]).sorted() {
+        XCTAssertEqual(try ShellStyleFixture.prepare(into: shell), [])
+        for profile in try barHostingProfiles(in: shell) {
             XCTAssertTrue(try ShellProfiles.select(profile, in: shell))
             let config = ShellConfig.resolve(shellDirectory: shell)
             let height = config.barOverride?.settings.height ?? 32
@@ -1895,7 +1914,7 @@ final class ShellStyleLayoutTests: XCTestCase {
     func testSharedActiveWindowKeepsEachCustomSkinAndTextOverride() throws {
         let shell = FileManager.default.temporaryDirectory.appendingPathComponent(UUID().uuidString)
         defer { try? FileManager.default.removeItem(at: shell) }
-        XCTAssertEqual(ShellDefaults.sync(into: shell), [])
+        XCTAssertEqual(try ShellStyleFixture.prepare(into: shell), [])
         for profile in ["matrix", "celestial", "wayline", "nocturne"] {
             XCTAssertTrue(try ShellProfiles.select(profile, in: shell))
             let config = ShellConfig.resolve(shellDirectory: shell)
@@ -1990,7 +2009,7 @@ final class ShellStyleLayoutTests: XCTestCase {
     func testSharedBarCapsulesKeepTheirPaintAndContentInsideTheButton() throws {
         let shell = FileManager.default.temporaryDirectory.appendingPathComponent(UUID().uuidString)
         defer { try? FileManager.default.removeItem(at: shell) }
-        XCTAssertEqual(ShellDefaults.sync(into: shell), [])
+        XCTAssertEqual(try ShellStyleFixture.prepare(into: shell), [])
         for profile in ["default", "lake"] {
             _ = try ShellProfiles.select(profile, in: shell)
             let config = ShellConfig.resolve(shellDirectory: shell)
@@ -2187,7 +2206,7 @@ final class ShellStyleLayoutTests: XCTestCase {
             ("symbol", .text("moon.stars")), ("temp", .number(24)), ("condition", .text("Rain")),
             ("code", .number(61)), ("day", .bool(false))
         ]
-        for profile in Set(ShellProfiles.names(in: shell) + ["default"]).sorted() {
+        for profile in ([ShellDefaults.profile] + (try ShellStyleFixture.names())).sorted() {
             XCTAssertTrue(try ShellProfiles.select(profile, in: shell))
             let config = ShellConfig.resolve(shellDirectory: shell)
             let height = config.barOverride?.settings.height ?? 32
@@ -2281,7 +2300,7 @@ final class ShellStyleLayoutTests: XCTestCase {
         defer { try? FileManager.default.removeItem(at: shell) }
         let hourLabels = (0 ..< 14).map { "Forecast hour \($0)" }
         let dayLabels = ["Today", "Sat", "Sun", "Mon", "Tue", "Wed", "Thu"]
-        for profile in Set(ShellProfiles.names(in: shell) + ["default"]).sorted() {
+        for profile in ([ShellDefaults.profile] + (try ShellStyleFixture.names())).sorted() {
             XCTAssertTrue(try ShellProfiles.select(profile, in: shell))
             let config = ShellConfig.resolve(shellDirectory: shell)
             for name in ["weather", "control-center"] {
@@ -2342,7 +2361,7 @@ final class ShellStyleLayoutTests: XCTestCase {
     func testSharedWeatherPanelsRemainNonzeroAndDemandWeatherWithoutData() throws {
         let shell = try sharedLibraryShell("weather")
         defer { try? FileManager.default.removeItem(at: shell) }
-        for profile in Set(ShellProfiles.names(in: shell) + ["default"]).sorted() {
+        for profile in ([ShellDefaults.profile] + (try ShellStyleFixture.names())).sorted() {
             XCTAssertTrue(try ShellProfiles.select(profile, in: shell))
             let config = ShellConfig.resolve(shellDirectory: shell)
             for name in ["weather", "control-center"] {
@@ -2469,7 +2488,7 @@ final class ShellStyleLayoutTests: XCTestCase {
     func testSharedClockBarsKeepOptionsTimeAndGesturesWithoutCalendarDemand() throws {
         let shell = try sharedLibraryShell("calendar")
         defer { try? FileManager.default.removeItem(at: shell) }
-        for profile in Set(ShellProfiles.names(in: shell) + ["default"]).sorted() {
+        for profile in ([ShellDefaults.profile] + (try ShellStyleFixture.names())).sorted() {
             XCTAssertTrue(try ShellProfiles.select(profile, in: shell))
             let config = ShellConfig.resolve(shellDirectory: shell)
             let height = config.barOverride?.settings.height ?? 32
@@ -2564,7 +2583,7 @@ final class ShellStyleLayoutTests: XCTestCase {
             ("19:04", ["19", "04"])
         ]
         let fallback = ["오후 4:05", "下午4:05", "4:05\u{202F}μμ", "٤:٠٥ م"]
-        for profile in Set(ShellProfiles.names(in: shell) + ["default"]).sorted() {
+        for profile in ([ShellDefaults.profile] + (try ShellStyleFixture.names())).sorted() {
             XCTAssertTrue(try ShellProfiles.select(profile, in: shell))
             let config = ShellConfig.resolve(shellDirectory: shell)
             let bar = fixture(config, height: config.barOverride?.settings.height ?? 32, vertical: true)
@@ -2596,7 +2615,7 @@ final class ShellStyleLayoutTests: XCTestCase {
     func testSharedClockAndControlCenterKeepLoadingCalendarPanelsOpenAndDemandCalendarData() throws {
         let shell = try sharedLibraryShell("calendar")
         defer { try? FileManager.default.removeItem(at: shell) }
-        for profile in Set(ShellProfiles.names(in: shell) + ["default"]).sorted() {
+        for profile in ([ShellDefaults.profile] + (try ShellStyleFixture.names())).sorted() {
             XCTAssertTrue(try ShellProfiles.select(profile, in: shell))
             let config = ShellConfig.resolve(shellDirectory: shell)
             for name in ["clock", "control-center"] {
@@ -2658,7 +2677,7 @@ final class ShellStyleLayoutTests: XCTestCase {
     func testSharedCalendarPanelsDeliverNavigationAgendaAccessAndPreciseScroll() throws {
         let shell = try sharedLibraryShell("calendar")
         defer { try? FileManager.default.removeItem(at: shell) }
-        for profile in Set(ShellProfiles.names(in: shell) + ["default"]).sorted() {
+        for profile in ([ShellDefaults.profile] + (try ShellStyleFixture.names())).sorted() {
             XCTAssertTrue(try ShellProfiles.select(profile, in: shell))
             let config = ShellConfig.resolve(shellDirectory: shell)
             for name in ["clock", "calendar", "control-center"] {
@@ -2744,7 +2763,7 @@ final class ShellStyleLayoutTests: XCTestCase {
     func testSharedCalendarAgendaLimitAndBarCountdownFollowTheModel() throws {
         let shell = try sharedLibraryShell("calendar")
         defer { try? FileManager.default.removeItem(at: shell) }
-        for profile in Set(ShellProfiles.names(in: shell) + ["default"]).sorted() {
+        for profile in ([ShellDefaults.profile] + (try ShellStyleFixture.names())).sorted() {
             XCTAssertTrue(try ShellProfiles.select(profile, in: shell))
             let config = ShellConfig.resolve(shellDirectory: shell)
             let widget = try makeWidget(
@@ -2774,7 +2793,7 @@ final class ShellStyleLayoutTests: XCTestCase {
     func testSharedMediaBarsKeepSelectionsAndInputThroughEverySkin() throws {
         let shell = try sharedLibraryShell("media")
         defer { try? FileManager.default.removeItem(at: shell) }
-        for profile in Set(ShellProfiles.names(in: shell) + ["default"]).sorted() {
+        for profile in try barHostingProfiles(in: shell) {
             XCTAssertTrue(try ShellProfiles.select(profile, in: shell))
             let config = ShellConfig.resolve(shellDirectory: shell)
             let height = config.barOverride?.settings.height ?? 32
@@ -2847,8 +2866,8 @@ final class ShellStyleLayoutTests: XCTestCase {
     func testSharedControlCenterDefaultsDemandAndNativeActionsAcrossProfiles() throws {
         let shell = FileManager.default.temporaryDirectory.appendingPathComponent(UUID().uuidString)
         defer { try? FileManager.default.removeItem(at: shell) }
-        XCTAssertEqual(ShellDefaults.sync(into: shell), [])
-        for profile in Set(ShellProfiles.names(in: shell) + ["default"]).sorted() {
+        XCTAssertEqual(try ShellStyleFixture.prepare(into: shell), [])
+        for profile in ([ShellDefaults.profile] + (try ShellStyleFixture.names())).sorted() {
             XCTAssertTrue(try ShellProfiles.select(profile, in: shell))
             let config = ShellConfig.resolve(shellDirectory: shell)
             for capsule in [false, true] {
@@ -2992,7 +3011,7 @@ final class ShellStyleLayoutTests: XCTestCase {
     }
 
     func testWaylineControlCenterCardsHaveContrastAndSpaceAcrossTabs() throws {
-        let shell = stepShell([:])
+        let shell = try stepShell([:])
         defer { try? FileManager.default.removeItem(at: shell) }
         XCTAssertTrue(try ShellProfiles.select("wayline", in: shell))
         let config = ShellConfig.resolve(shellDirectory: shell)
@@ -3051,7 +3070,7 @@ final class ShellStyleLayoutTests: XCTestCase {
     }
 
     func testCelestialControlCenterTabIconsDoNotChangeSharedAudioGlyphs() throws {
-        let shell = stepShell([:])
+        let shell = try stepShell([:])
         defer { try? FileManager.default.removeItem(at: shell) }
         XCTAssertTrue(try ShellProfiles.select("celestial", in: shell))
         let config = ShellConfig.resolve(shellDirectory: shell)
@@ -3109,7 +3128,7 @@ final class ShellStyleLayoutTests: XCTestCase {
     func testCelestialDashboardMediaCardUsesTheModelWithoutLyricsAndHasInertIdleControls() throws {
         let shell = FileManager.default.temporaryDirectory.appendingPathComponent(UUID().uuidString)
         defer { try? FileManager.default.removeItem(at: shell) }
-        XCTAssertEqual(ShellDefaults.sync(into: shell), [])
+        XCTAssertEqual(try ShellStyleFixture.prepare(into: shell), [])
         XCTAssertTrue(try ShellProfiles.select("celestial", in: shell))
         let config = ShellConfig.resolve(shellDirectory: shell)
         let widget = try makeWidget("dashboard", config: config, shell: shell)
@@ -3157,7 +3176,7 @@ final class ShellStyleLayoutTests: XCTestCase {
         guard let directory = environment["OMNIWM_STEP_DASHBOARD_RENDERS"] else {
             throw XCTSkip("Set OMNIWM_STEP_DASHBOARD_RENDERS to export Dashboard media states")
         }
-        let shell = stepShell(environment)
+        let shell = try stepShell(environment)
         defer { try? FileManager.default.removeItem(at: shell) }
         XCTAssertTrue(try ShellProfiles.select("celestial", in: shell))
         let config = ShellConfig.resolve(shellDirectory: shell)
@@ -3187,7 +3206,7 @@ final class ShellStyleLayoutTests: XCTestCase {
     func testSharedMediaPanelsDeliverControlsSeekAndLyricsThroughEverySkin() throws {
         let shell = try sharedLibraryShell("media")
         defer { try? FileManager.default.removeItem(at: shell) }
-        for profile in Set(ShellProfiles.names(in: shell) + ["default"]).sorted() {
+        for profile in ([ShellDefaults.profile] + (try ShellStyleFixture.names())).sorted() {
             XCTAssertTrue(try ShellProfiles.select(profile, in: shell))
             let config = ShellConfig.resolve(shellDirectory: shell)
             for name in profile == "celestial" ? ["media", "control-center", "dashboard"] :
@@ -3375,7 +3394,7 @@ final class ShellStyleLayoutTests: XCTestCase {
     func testSharedVolumeBarsKeepInputAndAvoidOutputAndAppDemand() throws {
         let shell = try sharedAudioShell()
         defer { try? FileManager.default.removeItem(at: shell) }
-        for profile in Set(ShellProfiles.names(in: shell) + ["default"]).sorted() {
+        for profile in try barHostingProfiles(in: shell) {
             XCTAssertTrue(try ShellProfiles.select(profile, in: shell))
             let config = ShellConfig.resolve(shellDirectory: shell)
             let height = config.barOverride?.settings.height ?? 32
@@ -3454,7 +3473,7 @@ final class ShellStyleLayoutTests: XCTestCase {
     func testSharedAudioPanelsDeliverSlidersMutesOutputsAndPermissionThroughEverySkin() throws {
         let shell = try sharedAudioShell()
         defer { try? FileManager.default.removeItem(at: shell) }
-        for profile in Set(ShellProfiles.names(in: shell) + ["default"]).sorted() {
+        for profile in ([ShellDefaults.profile] + (try ShellStyleFixture.names())).sorted() {
             XCTAssertTrue(try ShellProfiles.select(profile, in: shell))
             let config = ShellConfig.resolve(shellDirectory: shell)
             for name in profile == "celestial" ? ["volume", "control-center", "status"] : ["volume", "control-center"] {
@@ -3578,8 +3597,8 @@ final class ShellStyleLayoutTests: XCTestCase {
     func testSharedSystemStatsKeepsApprovedDataAndPartialLoadingThroughEverySkin() throws {
         let shell = FileManager.default.temporaryDirectory.appendingPathComponent(UUID().uuidString)
         defer { try? FileManager.default.removeItem(at: shell) }
-        XCTAssertEqual(ShellDefaults.sync(into: shell), [])
-        for profile in Set(ShellProfiles.names(in: shell) + ["default"]).sorted() {
+        XCTAssertEqual(try ShellStyleFixture.prepare(into: shell), [])
+        for profile in ([ShellDefaults.profile] + (try ShellStyleFixture.names())).sorted() {
             XCTAssertTrue(try ShellProfiles.select(profile, in: shell))
             let config = ShellConfig.resolve(shellDirectory: shell)
             let widget = try makeWidget(
@@ -3677,7 +3696,7 @@ final class ShellStyleLayoutTests: XCTestCase {
     func testSharedCelestialStatsButtonKeepsTheSurfacePillGeometry() throws {
         let shell = FileManager.default.temporaryDirectory.appendingPathComponent(UUID().uuidString)
         defer { try? FileManager.default.removeItem(at: shell) }
-        XCTAssertEqual(ShellDefaults.sync(into: shell), [])
+        XCTAssertEqual(try ShellStyleFixture.prepare(into: shell), [])
         XCTAssertTrue(try ShellProfiles.select("celestial", in: shell))
         let config = ShellConfig.resolve(shellDirectory: shell)
         let probe = shell.appendingPathComponent("celestial/widgets/stats-pill-reference/init.luau")
@@ -3711,7 +3730,7 @@ final class ShellStyleLayoutTests: XCTestCase {
     func testSharedStatsBatteryReflectsLevelAndChargingAndWaylineRingsAlign() throws {
         let shell = FileManager.default.temporaryDirectory.appendingPathComponent(UUID().uuidString)
         defer { try? FileManager.default.removeItem(at: shell) }
-        XCTAssertEqual(ShellDefaults.sync(into: shell), [])
+        XCTAssertEqual(try ShellStyleFixture.prepare(into: shell), [])
         for profile in ["default", "wayline", "nocturne"] {
             _ = try ShellProfiles.select(profile, in: shell)
             let config = ShellConfig.resolve(shellDirectory: shell)
@@ -3761,7 +3780,7 @@ final class ShellStyleLayoutTests: XCTestCase {
     func testSharedNocturneStatsKeepsUniformFrameInsets() throws {
         let shell = FileManager.default.temporaryDirectory.appendingPathComponent(UUID().uuidString)
         defer { try? FileManager.default.removeItem(at: shell) }
-        XCTAssertEqual(ShellDefaults.sync(into: shell), [])
+        XCTAssertEqual(try ShellStyleFixture.prepare(into: shell), [])
         XCTAssertTrue(try ShellProfiles.select("nocturne", in: shell))
         let config = ShellConfig.resolve(shellDirectory: shell)
         for position in ["top", "bottom", "left"] {
@@ -3808,8 +3827,8 @@ final class ShellStyleLayoutTests: XCTestCase {
     func testSharedSystemStatsKeepsItsFittedScrollingSurfaceThroughEverySkin() throws {
         let shell = FileManager.default.temporaryDirectory.appendingPathComponent(UUID().uuidString)
         defer { try? FileManager.default.removeItem(at: shell) }
-        XCTAssertEqual(ShellDefaults.sync(into: shell), [])
-        for profile in Set(ShellProfiles.names(in: shell) + ["default"]).sorted() {
+        XCTAssertEqual(try ShellStyleFixture.prepare(into: shell), [])
+        for profile in ([ShellDefaults.profile] + (try ShellStyleFixture.names())).sorted() {
             XCTAssertTrue(try ShellProfiles.select(profile, in: shell))
             let config = ShellConfig.resolve(shellDirectory: shell)
             for position in ["top", "bottom", "left"] {
@@ -3854,9 +3873,9 @@ final class ShellStyleLayoutTests: XCTestCase {
     func testEveryBundledProfileKeepsNativeWorkspaceContractsThroughItsEffectiveConfiguration() throws {
         let shell = FileManager.default.temporaryDirectory.appendingPathComponent(UUID().uuidString)
         defer { try? FileManager.default.removeItem(at: shell) }
-        XCTAssertEqual(ShellDefaults.sync(into: shell), [])
+        XCTAssertEqual(try ShellStyleFixture.prepare(into: shell), [])
         let installed = ShellProfiles.names(in: shell)
-        XCTAssertTrue(Set(profiles + ["matrix"]).isSubset(of: Set(installed + ["default"])), "\(installed)")
+        XCTAssertEqual(installed, [ShellDefaults.profile] + (try ShellStyleFixture.names()))
         for profile in Set(installed + ["default"]).sorted() {
             XCTAssertTrue(try ShellProfiles.select(profile, in: shell))
             let config = ShellConfig.resolve(shellDirectory: shell)
@@ -3903,7 +3922,7 @@ final class ShellStyleLayoutTests: XCTestCase {
     func testScratchpadIconCountMatchesTheResolvedConfiguration() throws {
         let shell = FileManager.default.temporaryDirectory.appendingPathComponent(UUID().uuidString)
         defer { try? FileManager.default.removeItem(at: shell) }
-        XCTAssertEqual(ShellDefaults.sync(into: shell), [])
+        XCTAssertEqual(try ShellStyleFixture.prepare(into: shell), [])
         let cases = [("nan", 0), ("\"4\"", 3), ("inf", 6), ("2.7", 2), ("9", 6), ("-1", 0), ("5", 5)]
         for (value, expected) in cases {
             try Data("[profiles.default.widgets.scratchpads]\nshownWindows = \(value)\n".utf8)
@@ -3938,7 +3957,7 @@ final class ShellStyleLayoutTests: XCTestCase {
     func testOmniWMButtonUsesAValidConfiguredIconColor() throws {
         let shell = FileManager.default.temporaryDirectory.appendingPathComponent(UUID().uuidString)
         defer { try? FileManager.default.removeItem(at: shell) }
-        XCTAssertEqual(ShellDefaults.sync(into: shell), [])
+        XCTAssertEqual(try ShellStyleFixture.prepare(into: shell), [])
         let terracotta: UInt32 = 0xB665_45FF
         let cases: [String: UInt32] = [
             "\"#1E90FF\"": 0x1E90_FFFF, "\"#1E90FF80\"": 0x1E90_FF80, "\"#1E90F\"": terracotta,
@@ -3960,7 +3979,7 @@ final class ShellStyleLayoutTests: XCTestCase {
     func testOccupiedHighlightReachesSkinnedWorkspacePills() throws {
         let shell = FileManager.default.temporaryDirectory.appendingPathComponent(UUID().uuidString)
         defer { try? FileManager.default.removeItem(at: shell) }
-        XCTAssertEqual(ShellDefaults.sync(into: shell), [])
+        XCTAssertEqual(try ShellStyleFixture.prepare(into: shell), [])
         for profile in ["wayline", "nocturne"] {
             XCTAssertTrue(try ShellProfiles.select(profile, in: shell))
             let config = ShellConfig.resolve(shellDirectory: shell)
@@ -3994,8 +4013,8 @@ final class ShellStyleLayoutTests: XCTestCase {
     func testSharedWorkspaceSkinsKeepInputFocusAndIndicatorContracts() throws {
         let shell = FileManager.default.temporaryDirectory.appendingPathComponent(UUID().uuidString)
         defer { try? FileManager.default.removeItem(at: shell) }
-        XCTAssertEqual(ShellDefaults.sync(into: shell), [])
-        for profile in Set(ShellProfiles.names(in: shell) + ["default"]).sorted() {
+        XCTAssertEqual(try ShellStyleFixture.prepare(into: shell), [])
+        for profile in try barHostingProfiles(in: shell) {
             XCTAssertTrue(try ShellProfiles.select(profile, in: shell))
             let config = ShellConfig.resolve(shellDirectory: shell)
             for vertical in [false, true] {
@@ -4133,8 +4152,8 @@ final class ShellStyleLayoutTests: XCTestCase {
     func testSharedScratchpadSkinsKeepToggleFocusLabelsAndBadges() throws {
         let shell = FileManager.default.temporaryDirectory.appendingPathComponent(UUID().uuidString)
         defer { try? FileManager.default.removeItem(at: shell) }
-        XCTAssertEqual(ShellDefaults.sync(into: shell), [])
-        for profile in Set(ShellProfiles.names(in: shell) + ["default"]).sorted() {
+        XCTAssertEqual(try ShellStyleFixture.prepare(into: shell), [])
+        for profile in try barHostingProfiles(in: shell) {
             XCTAssertTrue(try ShellProfiles.select(profile, in: shell))
             let config = ShellConfig.resolve(shellDirectory: shell)
             let base = config.barOverride?.settings.height ?? 32
@@ -4281,13 +4300,13 @@ final class ShellStyleLayoutTests: XCTestCase {
     func testSharedOmniWMButtonsKeepMenuSecureInputAndKeyboardModeContracts() throws {
         let shell = FileManager.default.temporaryDirectory.appendingPathComponent(UUID().uuidString)
         defer { try? FileManager.default.removeItem(at: shell) }
-        XCTAssertEqual(ShellDefaults.sync(into: shell), [])
+        XCTAssertEqual(try ShellStyleFixture.prepare(into: shell), [])
         let states: [(locked: Bool, backgrounds: Bool, mode: KeyboardModeKind)] = [
             (false, false, .normal), (true, false, .normal),
             (false, true, .normal), (true, true, .normal),
             (false, false, .prefix), (true, true, .paused), (false, true, .window)
         ]
-        for profile in Set(ShellProfiles.names(in: shell) + ["default"]).sorted() {
+        for profile in try barHostingProfiles(in: shell) {
             XCTAssertTrue(try ShellProfiles.select(profile, in: shell))
             let config = ShellConfig.resolve(shellDirectory: shell)
             let base = config.barOverride?.settings.height ?? 32
@@ -4410,8 +4429,8 @@ final class ShellStyleLayoutTests: XCTestCase {
     func testSharedHiddenBarsKeepNativeGeometryAndActivationAcrossSkins() throws {
         let shell = FileManager.default.temporaryDirectory.appendingPathComponent(UUID().uuidString)
         defer { try? FileManager.default.removeItem(at: shell) }
-        XCTAssertEqual(ShellDefaults.sync(into: shell), [])
-        for profile in Set(ShellProfiles.names(in: shell) + ["default"]).sorted() {
+        XCTAssertEqual(try ShellStyleFixture.prepare(into: shell), [])
+        for profile in ([ShellDefaults.profile] + (try ShellStyleFixture.names())).sorted() {
             XCTAssertTrue(try ShellProfiles.select(profile, in: shell))
             let config = ShellConfig.resolve(shellDirectory: shell)
             let widget = try makeWidget(
@@ -4480,8 +4499,8 @@ final class ShellStyleLayoutTests: XCTestCase {
     func testSharedHiddenMenusKeepContentDisabledRowsAndDeliveredActionsAcrossSkins() throws {
         let shell = FileManager.default.temporaryDirectory.appendingPathComponent(UUID().uuidString)
         defer { try? FileManager.default.removeItem(at: shell) }
-        XCTAssertEqual(ShellDefaults.sync(into: shell), [])
-        for profile in Set(ShellProfiles.names(in: shell) + ["default"]).sorted() {
+        XCTAssertEqual(try ShellStyleFixture.prepare(into: shell), [])
+        for profile in ([ShellDefaults.profile] + (try ShellStyleFixture.names())).sorted() {
             XCTAssertTrue(try ShellProfiles.select(profile, in: shell))
             let config = ShellConfig.resolve(shellDirectory: shell)
             let widget = try makeWidget(
@@ -4571,8 +4590,8 @@ final class ShellStyleLayoutTests: XCTestCase {
     func testSharedHiddenMenusScrollToTheLastActionWithinScreenBoundsAcrossSkins() throws {
         let shell = FileManager.default.temporaryDirectory.appendingPathComponent(UUID().uuidString)
         defer { try? FileManager.default.removeItem(at: shell) }
-        XCTAssertEqual(ShellDefaults.sync(into: shell), [])
-        for profile in Set(ShellProfiles.names(in: shell) + ["default"]).sorted() {
+        XCTAssertEqual(try ShellStyleFixture.prepare(into: shell), [])
+        for profile in ([ShellDefaults.profile] + (try ShellStyleFixture.names())).sorted() {
             XCTAssertTrue(try ShellProfiles.select(profile, in: shell))
             let config = ShellConfig.resolve(shellDirectory: shell)
             let widget = try makeWidget(
@@ -4606,7 +4625,7 @@ final class ShellStyleLayoutTests: XCTestCase {
     func testDefaultCompactWorkspacesKeepButtonsAndTargetsAcrossOrientations() throws {
         let shell = FileManager.default.temporaryDirectory.appendingPathComponent(UUID().uuidString)
         defer { try? FileManager.default.removeItem(at: shell) }
-        XCTAssertEqual(ShellDefaults.sync(into: shell), [])
+        XCTAssertEqual(try ShellStyleFixture.prepare(into: shell), [])
         let config = ShellConfig.resolve(shellDirectory: shell)
         XCTAssertEqual(config.profile, "default")
         XCTAssertNil(config.widgetSettings["workspaces"])
@@ -4654,8 +4673,8 @@ final class ShellStyleLayoutTests: XCTestCase {
     func testWorkspaceGroupsKeepTheirTargetsAndPickerAcrossProfilesAndOrientations() throws {
         let shell = FileManager.default.temporaryDirectory.appendingPathComponent(UUID().uuidString)
         defer { try? FileManager.default.removeItem(at: shell) }
-        XCTAssertEqual(ShellDefaults.sync(into: shell), [])
-        for profile in profiles {
+        XCTAssertEqual(try ShellStyleFixture.prepare(into: shell), [])
+        for profile in try barHostingProfiles(in: shell) {
             _ = try ShellProfiles.select(profile, in: shell)
             let config = ShellConfig.resolve(shellDirectory: shell)
             for vertical in [false, true] {
@@ -4932,7 +4951,7 @@ final class ShellStyleLayoutTests: XCTestCase {
 
     private func sharedLibraryShell(_ library: String) throws -> URL {
         let shell = FileManager.default.temporaryDirectory.appendingPathComponent(UUID().uuidString)
-        XCTAssertEqual(ShellDefaults.sync(into: shell), [])
+        XCTAssertEqual(try ShellStyleFixture.prepare(into: shell), [])
         for profile in ShellProfiles.names(in: shell) where profile != "default" {
             let audio = shell.appendingPathComponent("\(profile)/lib/\(library).luau")
             if FileManager.default.fileExists(atPath: audio.path) {
@@ -4977,7 +4996,7 @@ final class ShellStyleLayoutTests: XCTestCase {
     }
 
     private func assertCelestialPreloads(_ name: String, allModules: Bool) throws {
-        let shell = stepShell([:])
+        let shell = try stepShell([:])
         defer { try? FileManager.default.removeItem(at: shell) }
         XCTAssertTrue(try ShellProfiles.select("celestial", in: shell))
         let config = ShellConfig.resolve(shellDirectory: shell)
@@ -5576,12 +5595,12 @@ final class ShellStyleLayoutTests: XCTestCase {
         )
     }
 
-    private func stepShell(_ environment: [String: String]) -> URL {
+    private func stepShell(_ environment: [String: String]) throws -> URL {
         let shell = FileManager.default.temporaryDirectory.appendingPathComponent(UUID().uuidString)
-        XCTAssertEqual(ShellDefaults.sync(
+        XCTAssertEqual(try ShellStyleFixture.prepare(
             into: shell,
             from: environment["OMNIWM_STEP_FROM"].map { URL(fileURLWithPath: $0) } ?? ShellDefaults.bundled,
-            styles: environment["OMNIWM_STEP_STYLES"].map { URL(fileURLWithPath: $0) } ?? ShellDefaults.bundledStyles
+            styles: environment["OMNIWM_STEP_STYLES"].map { URL(fileURLWithPath: $0) } ?? ShellStyleFixture.directory
         ), [])
         return shell
     }

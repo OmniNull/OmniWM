@@ -136,6 +136,36 @@ final class ShellIslandInputTests: XCTestCase {
         XCTAssertEqual(fixture.events.first?.event.y, 30)
     }
 
+    func testOutsidePressIsClaimedOnlyByAnotherPointerElementInsideTheIslandRegions() throws {
+        let fixture = try Fixture("""
+        return ui.stack{w=300,h=150,align='topLeading',
+            ui.box{align='topLeading',w=40,h=20,onOutsidePress=function(c,e) c.state.claimed=e.claimed end},
+            ui.box{align='topLeading',dx=100,w=40,h=20,onClick='island-input-button'},
+            ui.box{align='topLeading',dx=200,w=40,h=20,fill='#336699'},
+            ui.text{align='topLeading',dx=200,dy=120,text=tostring(ctx.state.claimed)}}
+        """)
+        defer { fixture.island.close() }
+        fixture.show()
+        var event = ShellEvent()
+        event.kind = .outsidePress
+        let frame = fixture.island.geometry.frame
+        let presses = [
+            (fixture.screenPoint(CGPoint(x: 120, y: 10)), true),
+            (fixture.screenPoint(CGPoint(x: 220, y: 10)), false),
+            (fixture.screenPoint(CGPoint(x: 120, y: 80)), false),
+            (CGPoint(x: frame.minX - 40, y: frame.maxY - 10), false)
+        ]
+        for (index, (point, claimed)) in presses.enumerated() {
+            fixture.island.outsidePress(at: point, event: event)
+            XCTAssertEqual(fixture.events.count, index + 1, "\(point)")
+            let press = try XCTUnwrap(fixture.events.last)
+            XCTAssertEqual(press.event.claimed, claimed, "\(point)")
+            fixture.widget.invoke(press.action, event: press.event)
+            fixture.render(seconds: Double(index), sequence: index + 2)
+            XCTAssertEqual(fixture.widget.strings().last, String(claimed), "\(point)")
+        }
+    }
+
     func testMonitorDemandStopsAndRestartsAndIgnoresOldGenerationWithoutConsumingLocalClick() throws {
         let host = host(FocusPolicyEngine())
         let fixture = try Fixture("return ui.box{w=40,h=20,onOutsidePress=function() end}")

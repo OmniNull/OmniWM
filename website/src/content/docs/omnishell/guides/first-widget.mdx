@@ -9,6 +9,8 @@ import ExampleFile from '../../../../components/docs/ExampleFile.astro';
 
 This guide builds **hello-clock**, a bar widget that shows the local time and an optional date. You need OmniWM running, `omniwmctl` on your `PATH`, and a text editor. Enable the Workspace Bar in **Settings > Styles & Widgets** to see the result. Basic programming knowledge is enough; no Luau experience is required.
 
+**Unreleased: OmniShell is available when building from `main`.** Before running the commands below, turn on **Settings > Advanced > Enable IPC**; IPC is off by default. See [CLI setup](/reference/cli/overview/#installation) if `omniwmctl` is not on your `PATH`.
+
 ## 1. Create the widget
 
 For `<profile>` in the paths below, use the selected style's profile folder, such as `default` or `lake`. Before creating `hello-clock`, check both `~/.config/omniwm/shell/<profile>/widgets/hello-clock/` and `~/.config/omniwm/shell/widgets/hello-clock/`.

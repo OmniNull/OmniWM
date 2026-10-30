@@ -10,9 +10,11 @@
 #include <cstdio>
 #include <cstdlib>
 #include <cstring>
+#include <initializer_list>
 #include <memory>
 #include <map>
 #include <string>
+#include <string_view>
 #include <time.h>
 #include <utility>
 #include <unordered_set>
@@ -130,6 +132,21 @@ enum Atom : int16_t {
     AtomTexture,
     AtomBlurRadius,
     AtomSaturation,
+    AtomManipulationCommit,
+    AtomDecorative,
+    AtomEffect,
+    AtomManipulationFollow,
+    AtomReveal,
+    AtomMorph,
+    AtomCursor,
+    AtomShadowOffset,
+    AtomPulse,
+    AtomBackdrop,
+    AtomRim,
+    AtomGradient,
+    AtomFollow,
+    AtomHit,
+    AtomFollowRadius,
     AtomCount
 };
 
@@ -156,13 +173,29 @@ const Name atomNames[AtomCount] = {
     {"focusable", 9}, {"focusRing", 9}, {"keys", 4}, {"scrollMomentum", 14}, {"appear", 6}, {"exit", 4},
     {"onCommit", 8}, {"onCancel", 8}, {"onFocus", 7}, {"maxLength", 9}, {"multiline", 9}, {"focus", 5},
     {"thumbnail", 9}, {"accepts", 7}, {"onDrop", 6}, {"onDropHover", 11}, {"dragItems", 9}, {"onDragOut", 9}, {"texture", 7}, {"blurRadius", 10}, {"saturation", 10},
+    {"manipulationCommit", 18}, {"decorative", 10}, {"effect", 6},
+    {"manipulationFollow", 18}, {"reveal", 6}, {"morph", 5}, {"cursor", 6},
+    {"shadowOffset", 12}, {"pulse", 5}, {"backdrop", 8}, {"rim", 3}, {"gradient", 8},
+    {"follow", 6}, {"hit", 3}, {"followRadius", 12},
 };
 
-static_assert(sizeof(omni_wire_node) == 392);
+static_assert(sizeof(omni_wire_node) == 448);
 static_assert(offsetof(omni_wire_node, resource_drag_ref) == 376);
 static_assert(offsetof(omni_wire_node, resource_drag_action) == 380);
 static_assert(offsetof(omni_wire_node, resource_image_ref) == 352);
 static_assert(offsetof(omni_wire_node, texture_ref) == 372);
+static_assert(offsetof(omni_wire_node, manipulation_commit) == 392);
+static_assert(offsetof(omni_wire_node, effect_ref) == 396);
+static_assert(offsetof(omni_wire_node, behavior_flags) == 400);
+static_assert(offsetof(omni_wire_node, manipulation_follow) == 404);
+static_assert(offsetof(omni_wire_node, reveal) == 408);
+static_assert(offsetof(omni_wire_node, morph) == 412);
+static_assert(offsetof(omni_wire_node, shape_follow) == 416);
+static_assert(offsetof(omni_wire_node, pulse) == 424);
+static_assert(offsetof(omni_wire_node, shadow_offset_y) == 444);
+
+constexpr uint32_t bodyRecipeFields = 1u << 30;
+constexpr uint32_t shapeRecipeFields = 1u << 31;
 
 const Name axisNames[] = {{"row", 3}, {"column", 6}, {"stack", 5}};
 const Name roleNames[] = {
@@ -178,8 +211,11 @@ const Name roleNames[] = {
 constexpr size_t roleCount = sizeof roleNames / sizeof roleNames[0];
 const Name styleNames[] = {{"body", 4}, {"bold", 4}, {"mono", 4}, {"small", 5}, {"caption", 7}, {"rounded", 7}};
 constexpr size_t styleCount = sizeof styleNames / sizeof styleNames[0];
-const Name fontNames[] = {{"system", 6}, {"sans", 4}, {"rubik", 5}, {"symbols", 7}};
+const Name fontNames[] = {{"system", 6}, {"sans", 4}, {"symbols", 7}};
 constexpr size_t fontCount = sizeof fontNames / sizeof fontNames[0];
+static_assert(fontCount == OMNI_STYLE_FONT_CUSTOM);
+constexpr size_t maximumUnknownFonts = 16;
+constexpr size_t maximumFontReport = 128;
 const Name weightNames[] = {
     {"ultraLight", 10}, {"thin", 4}, {"light", 5}, {"regular", 7}, {"medium", 6},
     {"semibold", 8}, {"bold", 4}, {"heavy", 5}, {"black", 5},
@@ -208,6 +244,7 @@ const Name alignNames[] = {
 const uint16_t alignValues[] = {0, 1, 2, 4, 8, 5, 6, 9, 10};
 
 constexpr size_t maximumNodes = 4096;
+constexpr size_t maximumLogs = 32;
 constexpr double maximumExtent = 1.0e6;
 constexpr double maximumDuration = 30;
 constexpr int maximumDepth = 64;
@@ -340,7 +377,6 @@ struct omni_instance {
     int dataRef = LUA_NOREF;
     int stateRef = LUA_NOREF;
     uint64_t deps = 0;
-    uint32_t encodeSteps = 0;
     uint32_t actionCount = 0;
     int componentContextIndex = 0;
     ViewOutput views[viewCount];
@@ -355,6 +391,12 @@ struct omni_instance {
     bool handling = false;
     std::vector<std::string> messages[2];
 };
+
+namespace omni_detail {
+
+void storeMessage(lua_State *L, omni_instance *instance, omni_message_kind kind, const char *text, size_t length);
+
+}
 
 namespace {
 
@@ -458,9 +500,66 @@ uint8_t enumValue(lua_State *L, int index, const Name *names, size_t count) {
     return static_cast<uint8_t>(unsignedValue(L, index, static_cast<double>(count - 1)));
 }
 
+void reportFont(lua_State *L, omni_instance *instance, const char *name, size_t length) {
+    if (instance->messages[OMNI_MESSAGE_LOG].size() >= maximumLogs) {
+        return;
+    }
+    char text[maximumFontReport];
+    int written = name == nullptr
+        ? std::snprintf(text, sizeof text, "font names are limited to %u bytes; using the system font",
+              OMNI_FONT_NAME_LIMIT)
+        : std::snprintf(text, sizeof text, "font \"%.*s\" was not found; using the system font",
+              static_cast<int>(length), name);
+    storeMessage(L, instance, OMNI_MESSAGE_LOG, text, std::min(static_cast<size_t>(std::max(written, 0)), sizeof text - 1));
+}
+
+uint8_t fontValue(lua_State *L, int index, omni_instance *instance) {
+    if (lua_type(L, index) != LUA_TSTRING) {
+        return enumValue(L, index, fontNames, fontCount);
+    }
+    size_t length = 0;
+    const char *name = lua_tolstring(L, index, &length);
+    int alias = nameIndex(fontNames, fontCount, name, length);
+    if (alias >= 0) {
+        return static_cast<uint8_t>(alias);
+    }
+    omni_vm *vm = instance->vm;
+    if (length > OMNI_FONT_NAME_LIMIT) {
+        if (!vm->longFontReported) {
+            vm->longFontReported = true;
+            reportFont(L, instance, nullptr, 0);
+        }
+        return 0;
+    }
+    auto matches = [&](const std::string &family) {
+        return family.size() == length && std::memcmp(family.data(), name, length) == 0;
+    };
+    for (const auto &[family, id] : vm->fonts) {
+        if (matches(family)) {
+            return id;
+        }
+    }
+    if (vm->unknownFonts.size() >= maximumUnknownFonts
+        || std::any_of(vm->unknownFonts.begin(), vm->unknownFonts.end(), matches)) {
+        return 0;
+    }
+    bool stored = true;
+    try {
+        vm->unknownFonts.emplace_back(name, length);
+    } catch (...) {
+        stored = false;
+    }
+    if (!stored) {
+        luaL_error(L, "not enough memory");
+    }
+    reportFont(L, instance, name, length);
+    return 0;
+}
+
 void countSteps(lua_State *L, omni_instance *instance, size_t steps) {
-    instance->encodeSteps += static_cast<uint32_t>(std::min(steps, static_cast<size_t>(maximumEncodeSteps) + 1));
-    if (instance->encodeSteps > maximumEncodeSteps) {
+    uint32_t &count = instance->vm->encodeSteps;
+    count += static_cast<uint32_t>(std::min(steps, static_cast<size_t>(maximumEncodeSteps) + 1));
+    if (count > maximumEncodeSteps) {
         luaL_error(L, "tree encode exceeded %u steps", maximumEncodeSteps);
     }
 }
@@ -829,6 +928,393 @@ uint8_t inputEnum(lua_State *L, const char *name, const Name *names, size_t coun
     return static_cast<uint8_t>(found);
 }
 
+void recipeFields(lua_State *L, int table, std::initializer_list<const char *> fields,
+                  const char *name, omni_instance *instance) {
+    int iterator = 0;
+    while ((iterator = lua_rawiter(L, table, iterator)) >= 0) {
+        countSteps(L, instance, 1);
+        size_t length = 0;
+        const char *key = lua_type(L, -2) == LUA_TSTRING ? lua_tolstring(L, -2, &length) : nullptr;
+        bool valid = key != nullptr && std::any_of(fields.begin(), fields.end(), [&](const char *field) {
+            return std::strlen(field) == length && std::memcmp(field, key, length) == 0;
+        });
+        if (!valid) { luaL_error(L, "%s contains an unsupported field", name); }
+        lua_pop(L, 2);
+    }
+}
+
+void recipeAnchor(lua_State *L, float (&anchor)[2], omni_instance *instance) {
+    lua_rawgetfield(L, -1, "anchor");
+    if (lua_isnil(L, -1)) { lua_pop(L, 1); return; }
+    if (!lua_istable(L, -1)) { luaL_error(L, "anchor must contain x and y"); }
+    recipeFields(L, lua_gettop(L), {"x", "y"}, "anchor", instance);
+    for (int index = 0; index < 2; index++) {
+        lua_rawgetfield(L, -1, index == 0 ? "x" : "y");
+        anchor[index] = inputNumber(L, -1, "anchor", 0, 1);
+        lua_pop(L, 1);
+    }
+    lua_pop(L, 1);
+}
+
+uint32_t readSpringRecipe(lua_State *L, const char *prefix, omni_instance *instance) {
+    if (!lua_istable(L, -1)) { luaL_error(L, "%s must be a spring table", prefix); }
+    luaL_checkstack(L, 3, "spring recipe");
+    recipeFields(L, lua_gettop(L), {"response", "bounce"}, prefix, instance);
+    lua_rawgetfield(L, -1, "response");
+    float response = inputNumber(L, -1, "spring response", 0.05, 2.5);
+    lua_pop(L, 1);
+    float bounce = inputField(L, "bounce", 0, 0, 0.95);
+    std::string recipe(prefix);
+    recipe += ':';
+    appendNumber(L, recipe, response);
+    recipe += ':';
+    appendNumber(L, recipe, bounce);
+    return internString(L, recipe.data(), recipe.size(), instance);
+}
+
+int recipeList(lua_State *L, int table, int minimum, int maximum, const char *name, omni_instance *instance) {
+    if (!lua_istable(L, table)) { luaL_error(L, "%s must be a dense list", name); }
+    int count = lua_objlen(L, table);
+    if (count < minimum || count > maximum) { luaL_error(L, "%s requires %d to %d entries", name, minimum, maximum); }
+    int entries = 0;
+    int iterator = 0;
+    while ((iterator = lua_rawiter(L, table, iterator)) >= 0) {
+        countSteps(L, instance, 1);
+        double key = lua_tonumber(L, -2);
+        if (lua_type(L, -2) != LUA_TNUMBER || key < 1 || key > count || key != std::trunc(key)) {
+            luaL_error(L, "%s must be a dense list", name);
+        }
+        entries++;
+        lua_pop(L, 2);
+    }
+    if (entries != count) { luaL_error(L, "%s must be a dense list", name); }
+    return count;
+}
+
+uint64_t recipeKey(lua_State *L, int index, const char *name, omni_instance *instance, bool integer = false) {
+    if (lua_type(L, index) == LUA_TSTRING) {
+        size_t length = 0;
+        lua_tolstring(L, index, &length);
+        if (length == 0 || length > 256) { luaL_error(L, "%s requires a key of 1 to 256 bytes", name); }
+    } else if (!integer || lua_type(L, index) != LUA_TNUMBER || !std::isfinite(lua_tonumber(L, index))
+               || std::fabs(lua_tonumber(L, index)) > 4.0e18 || std::trunc(lua_tonumber(L, index)) != lua_tonumber(L, index)) {
+        luaL_error(L, "%s requires a stable key", name);
+    }
+    return keyValue(L, index, instance);
+}
+
+bool recipeBool(lua_State *L, const char *name, bool fallback) {
+    lua_rawgetfield(L, -1, name);
+    if (lua_isnil(L, -1)) { lua_pop(L, 1); return fallback; }
+    if (lua_type(L, -1) != LUA_TBOOLEAN) { luaL_error(L, "%s must be a boolean", name); }
+    bool value = lua_toboolean(L, -1);
+    lua_pop(L, 1);
+    return value;
+}
+
+std::array<float, 2> recipeSpring(lua_State *L, const char *name, omni_instance *instance) {
+    lua_rawgetfield(L, -1, name);
+    if (!lua_istable(L, -1)) { luaL_error(L, "%s must be a spring table", name); }
+    recipeFields(L, lua_gettop(L), {"response", "bounce"}, name, instance);
+    lua_rawgetfield(L, -1, "response");
+    float response = inputNumber(L, -1, "spring response", 0.05, 2.5);
+    lua_pop(L, 1);
+    float bounce = inputField(L, "bounce", 0, 0, 0.95);
+    lua_pop(L, 1);
+    return {response, bounce};
+}
+
+void recipeValues(lua_State *L, std::string &recipe, char separator, std::initializer_list<float> values) {
+    for (float value : values) { recipe += separator; appendNumber(L, recipe, value); }
+}
+
+uint32_t readRevealRecipe(lua_State *L, omni_instance *instance, bool shape) {
+    const char *name = shape ? "shape reveal" : "reveal";
+    if (!lua_istable(L, -1)) { luaL_error(L, "%s must be a spring table", name); }
+    if (shape) {
+        recipeFields(L, lua_gettop(L), {"response", "bounce", "delay", "hold", "exit"}, name, instance);
+    } else {
+        recipeFields(L, lua_gettop(L), {"response", "bounce", "delay", "hold"}, name, instance);
+    }
+    lua_rawgetfield(L, -1, "response");
+    float response = inputNumber(L, -1, "spring response", 0.05, 2.5);
+    lua_pop(L, 1);
+    float bounce = inputField(L, "bounce", 0, 0, 0.95);
+    float delay = inputField(L, "delay", 0, 0, 2);
+    float hold = inputField(L, "hold", 0, 0, 2);
+    bool exits = recipeBool(L, "exit", true);
+    std::string recipe = "reveal";
+    recipeValues(L, recipe, ':', {response, bounce});
+    if (delay != 0 || hold != 0 || !exits) {
+        recipe += "|shape";
+        recipeValues(L, recipe, ':', {delay, hold, exits ? 1.0f : 0.0f});
+    }
+    if (recipe.size() > 256) { luaL_error(L, "reveal recipe exceeds its size limit"); }
+    return internString(L, recipe.data(), recipe.size(), instance);
+}
+
+void readMorphImpulses(lua_State *L, std::string &recipe, omni_instance *instance) {
+    lua_rawgetfield(L, -1, "impulses");
+    if (!lua_isnil(L, -1)) {
+        int count = recipeList(L, lua_gettop(L), 1, 8, "morph.impulses", instance);
+        recipe += "|impulses:";
+        std::string phases;
+        bool scoped = false;
+        for (int index = 1; index <= count; index++) {
+            lua_rawgeti(L, -1, index);
+            if (!lua_istable(L, -1)) { luaL_error(L, "morph impulse must be a table"); }
+            recipeFields(L, lua_gettop(L), {"at", "after", "rising", "spring", "velocity", "w", "h", "pivot", "on"}, "morph impulse", instance);
+            lua_rawgetfield(L, -1, "at");
+            bool at = !lua_isnil(L, -1);
+            lua_pop(L, 1);
+            lua_rawgetfield(L, -1, "after");
+            bool after = !lua_isnil(L, -1);
+            lua_pop(L, 1);
+            if (at == after) { luaL_error(L, "morph impulse requires exactly one of at and after"); }
+            float time = inputField(L, at ? "at" : "after", 0, at ? -0.5 : 0, at ? 1.5 : maximumDuration);
+            auto spring = recipeSpring(L, "spring", instance);
+            bool rising = recipeBool(L, "rising", true);
+            const Name pivots[] = {{"anchor", 6}, {"centre", 6}};
+            lua_rawgetfield(L, -1, "pivot");
+            unsigned pivot = lua_isnil(L, -1) ? 0 : inputEnum(L, "morph impulse pivot", pivots, 2);
+            lua_pop(L, 1);
+            const Name directions[] = {{"open", 4}, {"close", 5}};
+            lua_rawgetfield(L, -1, "on");
+            unsigned phase = lua_isnil(L, -1) ? 0 : inputEnum(L, "morph impulse on", directions, 2) + 1;
+            lua_pop(L, 1);
+            scoped = scoped || phase != 0;
+            if (index > 1) { recipe += ';'; phases += ':'; }
+            phases += static_cast<char>('0' + phase);
+            appendNumber(L, recipe, at ? 0 : 1);
+            recipeValues(L, recipe, ',', {time, rising ? 1.0f : 0.0f, spring[0], spring[1],
+                inputField(L, "velocity", 0, -maximumExtent, maximumExtent),
+                inputField(L, "w", 0, -maximumExtent, maximumExtent),
+                inputField(L, "h", 0, -maximumExtent, maximumExtent), static_cast<float>(pivot)});
+            lua_pop(L, 1);
+        }
+        if (scoped) { recipe += "|impulsePhases:" + phases; }
+    }
+    lua_pop(L, 1);
+}
+
+void readMorphAdhesion(lua_State *L, std::string &recipe, unsigned sourceEdge, omni_instance *instance) {
+    lua_rawgetfield(L, -1, "adhere");
+    if (!lua_isnil(L, -1)) {
+        if (!lua_istable(L, -1)) { luaL_error(L, "morph.source.adhere must be a table"); }
+        recipeFields(L, lua_gettop(L), {"left", "right", "top", "bottom"}, "morph.source.adhere", instance);
+        const char *fields[] = {"top", "left", "right", "bottom"};
+        std::array<float, 8> values{};
+        bool any = false;
+        for (unsigned index = 0; index < 4; index++) {
+            lua_rawgetfield(L, -1, fields[index]);
+            bool present = !lua_isnil(L, -1);
+            if (present) {
+                if (index == sourceEdge) { luaL_error(L, "morph.source.adhere must name sides other than the source edge"); }
+                values[2 * index] = 1;
+                values[2 * index + 1] = inputNumber(L, -1, "morph.source.adhere side", -maximumExtent, maximumExtent);
+                any = true;
+            }
+            lua_pop(L, 1);
+        }
+        if (any) {
+            recipe += "|adhere";
+            for (float value : values) { recipeValues(L, recipe, ':', {value}); }
+        }
+    }
+    lua_pop(L, 1);
+}
+
+void readMorphBindings(lua_State *L, std::string &recipe, omni_instance *instance) {
+    lua_rawgetfield(L, -1, "source");
+    if (!lua_isnil(L, -1)) {
+        if (!lua_istable(L, -1)) { luaL_error(L, "morph.source must be a table"); }
+        recipeFields(L, lua_gettop(L), {"target", "edge", "from", "span", "pads", "adhere", "contact"}, "morph.source", instance);
+        lua_rawgetfield(L, -1, "target");
+        uint64_t target = recipeKey(L, -1, "morph.source.target", instance);
+        lua_pop(L, 1);
+        const Name edges[] = {{"top", 3}, {"left", 4}, {"right", 5}, {"bottom", 6}};
+        lua_rawgetfield(L, -1, "edge");
+        unsigned edge = inputEnum(L, "morph.source.edge", edges, 4);
+        lua_pop(L, 1);
+        float from = inputField(L, "from", 0, -maximumExtent, maximumExtent);
+        float span = inputField(L, "span", 0, 0, maximumExtent);
+        if (span <= 0) { luaL_error(L, "morph.source.span must be positive"); }
+        float pads[4]{};
+        lua_rawgetfield(L, -1, "pads");
+        bool hasPads = !lua_isnil(L, -1);
+        if (hasPads) {
+            if (!lua_istable(L, -1)) { luaL_error(L, "morph.source.pads must be a table"); }
+            recipeFields(L, lua_gettop(L), {"left", "right", "top", "bottom"}, "morph.source.pads", instance);
+            int index = 0;
+            for (const char *field : {"left", "right", "top", "bottom"}) {
+                pads[index++] = inputField(L, field, 0, -maximumExtent, maximumExtent);
+            }
+        }
+        lua_pop(L, 1);
+        bool contact = recipeBool(L, "contact", false);
+        if (contact && hasPads) { luaL_error(L, "morph.source.contact cannot be combined with pads"); }
+        if (contact) { recipe += "|sourceContact:1"; }
+        recipe += "|source:";
+        appendNumber(L, recipe, target);
+        recipeValues(L, recipe, ':', {static_cast<float>(edge), from, span, hasPads ? 1.0f : 0.0f, pads[0], pads[1], pads[2], pads[3]});
+        readMorphAdhesion(L, recipe, edge, instance);
+    }
+    lua_pop(L, 1);
+    lua_rawgetfield(L, -1, "trigger");
+    if (!lua_isnil(L, -1)) {
+        if (!lua_istable(L, -1)) { luaL_error(L, "morph.trigger must be a table"); }
+        recipeFields(L, lua_gettop(L), {"shape", "at", "rising", "contact"}, "morph.trigger", instance);
+        lua_rawgetfield(L, -1, "shape");
+        uint64_t shape = recipeKey(L, -1, "morph.trigger.shape", instance);
+        lua_pop(L, 1);
+        lua_rawgetfield(L, -1, "at");
+        float at = inputNumber(L, -1, "morph.trigger.at", -0.5, 1.5);
+        lua_pop(L, 1);
+        if (recipeBool(L, "contact", false)) { recipe += "|triggerContact:1"; }
+        recipe += "|trigger:";
+        appendNumber(L, recipe, shape);
+        recipeValues(L, recipe, ':', {at, recipeBool(L, "rising", true) ? 1.0f : 0.0f});
+    }
+    lua_pop(L, 1);
+}
+
+uint32_t readMorph(lua_State *L, bool shape, bool frame, omni_instance *instance) {
+    if (!lua_istable(L, -1)) { luaL_error(L, "morph must be a table"); }
+    luaL_checkstack(L, 8, "morph recipe");
+    recipeFields(L, lua_gettop(L), shape ? std::initializer_list<const char *>{"anchor", "stops", "stretch", "impulses", "edges", "source", "trigger"}
+                                            : std::initializer_list<const char *>{"anchor", "stops", "stretch", "track"}, "morph", instance);
+    lua_rawgetfield(L, -1, "track");
+    bool tracked = !lua_isnil(L, -1);
+    uint64_t track = tracked ? recipeKey(L, -1, "morph.track", instance) : 0;
+    lua_pop(L, 1);
+    if (tracked) {
+        recipeFields(L, lua_gettop(L), {"track"}, "path track morph", instance);
+        std::string recipe = "morph:0.5:0.5:0:0:0:0:0,1,1,1,1,1;1,1,1,1,1,1|track:";
+        appendNumber(L, recipe, track);
+        return internString(L, recipe.data(), recipe.size(), instance);
+    }
+    float anchor[2] = {0.5, 0.5};
+    recipeAnchor(L, anchor, instance);
+    float stretch[4]{};
+    lua_rawgetfield(L, -1, "stretch");
+    if (!lua_isnil(L, -1)) {
+        if (!shape) { luaL_error(L, "stretch is only supported on ui.shape morphs"); }
+        if (!lua_istable(L, -1)) { luaL_error(L, "morph.stretch must be a table"); }
+        recipeFields(L, lua_gettop(L), {"gain", "max", "w", "h"}, "morph.stretch", instance);
+        int index = 0;
+        for (const char *field : {"gain", "max", "w", "h"}) {
+            stretch[index] = inputField(L, field, 0, index < 2 ? 0 : -maximumExtent, maximumExtent);
+            index++;
+        }
+    }
+    lua_pop(L, 1);
+    std::string recipe = "morph";
+    recipe.reserve(1536);
+    recipeValues(L, recipe, ':', {anchor[0], anchor[1], stretch[0], stretch[1], stretch[2], stretch[3]});
+    recipe += ':';
+    lua_rawgetfield(L, -1, "edges");
+    bool edges = !lua_isnil(L, -1);
+    lua_pop(L, 1);
+    lua_rawgetfield(L, -1, "stops");
+    if (edges && !lua_isnil(L, -1)) { luaL_error(L, "morph.edges cannot be combined with stops"); }
+    std::string offsets;
+    bool hasOffsets = false;
+    if (!edges) {
+        int table = lua_gettop(L);
+        int count = recipeList(L, table, 2, 16, "morph.stops", instance);
+        float previous = -1;
+        for (int index = 1; index <= count; index++) {
+            lua_rawgeti(L, table, index);
+            if (!lua_istable(L, -1)) { luaL_error(L, "each morph stop must be a table"); }
+            recipeFields(L, lua_gettop(L), frame ? std::initializer_list<const char *>{"at", "scale", "w", "h", "round", "thickness", "dx", "dy"}
+                : shape ? std::initializer_list<const char *>{"at", "scale", "w", "h", "round", "dx", "dy"}
+                        : std::initializer_list<const char *>{"at", "scale", "opacity", "dx", "dy"}, "morph stop", instance);
+            lua_rawgetfield(L, -1, "at");
+            float at = inputNumber(L, -1, "morph stop at", -0.5, 1.5);
+            lua_pop(L, 1);
+            if (at <= previous) { luaL_error(L, "morph stop at values must be strictly increasing"); }
+            previous = at;
+            if (index > 1) { recipe += ';'; offsets += ';'; }
+            appendNumber(L, recipe, at);
+            for (const char *field : {"scale", "opacity", "w", "h", "round"}) {
+                bool unit = std::strcmp(field, "opacity") == 0 || std::strcmp(field, "round") == 0;
+                recipe += ',';
+                appendNumber(L, recipe, inputField(L, field, 1, 0, unit ? 1 : maximumExtent));
+            }
+            float dx = inputField(L, "dx", 0, -maximumExtent, maximumExtent);
+            float dy = inputField(L, "dy", 0, -maximumExtent, maximumExtent);
+            float thickness = inputField(L, "thickness", 1, 0, maximumExtent);
+            hasOffsets = hasOffsets || dx != 0 || dy != 0 || thickness != 1;
+            appendNumber(L, offsets, dx);
+            recipeValues(L, offsets, ',', {dy, thickness});
+            lua_pop(L, 1);
+        }
+    } else {
+        recipe += "0,1,1,1,1,1;1,1,1,1,1,1";
+    }
+    lua_pop(L, 1);
+    if (hasOffsets) { recipe += "|offsets:"; recipe += offsets; }
+    if (edges) {
+        if (!shape) { luaL_error(L, "morph.edges requires ui.shape"); }
+        lua_rawgetfield(L, -1, "edges");
+        if (!lua_istable(L, -1)) { luaL_error(L, "morph.edges must be a table"); }
+        recipeFields(L, lua_gettop(L), {"lead", "trail", "thin", "unit"}, "morph.edges", instance);
+        auto lead = recipeSpring(L, "lead", instance);
+        auto trail = recipeSpring(L, "trail", instance);
+        float thin = inputField(L, "thin", 0, 0, 1);
+        float unit = inputField(L, "unit", 0, 0, maximumExtent);
+        if (unit <= 0) { luaL_error(L, "morph.edges.unit must be positive"); }
+        recipe += "|edges";
+        recipeValues(L, recipe, ':', {lead[0], lead[1], trail[0], trail[1], thin, unit});
+        lua_pop(L, 1);
+    }
+    readMorphImpulses(L, recipe, instance);
+    readMorphBindings(L, recipe, instance);
+    if (recipe.size() > 1536) { luaL_error(L, "morph recipe exceeds its size limit"); }
+    return internString(L, recipe.data(), recipe.size(), instance);
+}
+
+uint32_t readPulse(lua_State *L, omni_instance *instance) {
+    if (!lua_istable(L, -1)) { luaL_error(L, "pulse must be a table"); }
+    luaL_checkstack(L, 5, "pulse");
+    recipeFields(L, lua_gettop(L), {"key", "duration", "rotate", "scale", "dx", "dy"}, "pulse", instance);
+    lua_rawgetfield(L, -1, "key");
+    uint64_t key = recipeKey(L, -1, "pulse.key", instance, true);
+    lua_pop(L, 1);
+    float duration = inputField(L, "duration", 0, 0, maximumDuration);
+    if (duration <= 0) { luaL_error(L, "pulse.duration must be positive"); }
+    std::string recipe = "pulse:";
+    appendNumber(L, recipe, key);
+    recipeValues(L, recipe, ':', {duration});
+    unsigned channels = 0;
+    for (const char *field : {"rotate", "scale", "dx", "dy"}) {
+        recipe += ':';
+        lua_rawgetfield(L, -1, field);
+        if (!lua_isnil(L, -1)) {
+            channels++;
+            int table = lua_gettop(L);
+            int count = recipeList(L, table, 2, 256, "pulse channel", instance);
+            float previous = 0;
+            for (int index = 1; index <= count; index++) {
+                lua_rawgeti(L, table, index);
+                float value = inputNumber(L, -1, "pulse sample", -maximumExtent, maximumExtent);
+                if (index > 1 && std::strcmp(field, "rotate") == 0 && std::fabs(value - previous) >= 180) {
+                    luaL_error(L, "adjacent pulse.rotate samples must differ by less than 180 degrees; add intermediate samples");
+                }
+                if (index == count && value != 0) { luaL_error(L, "pulse.%s must end at zero", field); }
+                if (index > 1) { recipe += ','; }
+                appendNumber(L, recipe, value);
+                previous = value;
+                lua_pop(L, 1);
+            }
+        }
+        lua_pop(L, 1);
+    }
+    if (channels == 0) { luaL_error(L, "pulse requires at least one channel"); }
+    if (recipe.size() > 16384) { luaL_error(L, "pulse recipe exceeds its size limit"); }
+    return internString(L, recipe.data(), recipe.size(), instance);
+}
+
 uint32_t readPresence(lua_State *L, omni_instance *instance) {
     if (!lua_istable(L, -1)) { luaL_error(L, "appear and exit must be tables"); }
     luaL_checkstack(L, 4, "lifecycle motion");
@@ -839,6 +1325,12 @@ uint32_t readPresence(lua_State *L, omni_instance *instance) {
         bool scale = std::strcmp(field, "scale") == 0;
         float value = inputField(L, field, opacity || scale ? 1 : 0,
             opacity || scale ? 0 : -maximumExtent, opacity ? 1 : maximumExtent);
+        recipe += ':';
+        appendNumber(L, recipe, value);
+    }
+    float anchor[2] = {0.5, 0.5};
+    recipeAnchor(L, anchor, instance);
+    for (float value : {anchor[0], anchor[1], inputField(L, "delay", 0, 0, 2)}) {
         recipe += ':';
         appendNumber(L, recipe, value);
     }
@@ -864,11 +1356,185 @@ uint32_t readPresence(lua_State *L, omni_instance *instance) {
     return internString(L, recipe.data(), recipe.size(), instance);
 }
 
+void readManipulationSize(lua_State *L, const char *name, float &width, float &height) {
+    lua_rawgetfield(L, -1, name);
+    if (!lua_istable(L, -1)) { luaL_error(L, "gesture.track.%s must contain w and h", name); }
+    width = inputField(L, "w", 0, 0, maximumExtent);
+    height = inputField(L, "h", 0, 0, maximumExtent);
+    if (width <= 0 || height <= 0) { luaL_error(L, "gesture.track.%s sizes must be positive", name); }
+    lua_pop(L, 1);
+}
+
+void readManipulation(lua_State *L, omni_wire_node &node, omni_instance *instance, uint8_t mode) {
+    luaL_checkstack(L, 4, "manipulation tracking");
+    if (node.gesture_source != 0 || (node.gesture_axis != 3 && node.gesture_axis != 4)) {
+        luaL_error(L, "manipulation tracking requires pointer source and free axis");
+    }
+    node.gesture_axis = 3;
+    lua_rawgetfield(L, -1, "target");
+    int type = lua_type(L, -1);
+    size_t length = 0;
+    if (type == LUA_TSTRING) {
+        lua_tolstring(L, -1, &length);
+        if (length == 0 || length > 256) { luaL_error(L, "gesture.track.target must contain 1 to 256 bytes"); }
+    } else if (type != LUA_TNUMBER || !std::isfinite(lua_tonumber(L, -1))
+               || std::fabs(lua_tonumber(L, -1)) > 4.0e18 || std::trunc(lua_tonumber(L, -1)) != lua_tonumber(L, -1)) {
+        luaL_error(L, "gesture.track.target must be a stable string or integer key");
+    }
+    uint64_t target = keyValue(L, -1, instance);
+    lua_pop(L, 1);
+    float values[8]{};
+    lua_rawgetfield(L, -1, "bounds");
+    if (!lua_istable(L, -1)) { luaL_error(L, "gesture.track.bounds must contain x, y, w and h"); }
+    values[0] = inputField(L, "x", 0, -maximumExtent, maximumExtent);
+    values[1] = inputField(L, "y", 0, -maximumExtent, maximumExtent);
+    values[2] = inputField(L, "w", 0, 0, maximumExtent);
+    values[3] = inputField(L, "h", 0, 0, maximumExtent);
+    lua_pop(L, 1);
+    if (values[2] <= 0 || values[3] <= 0) { luaL_error(L, "gesture.track.bounds sizes must be positive"); }
+    readManipulationSize(L, "min", values[4], values[5]);
+    readManipulationSize(L, "max", values[6], values[7]);
+    if (values[4] > values[6] || values[5] > values[7] || values[6] > values[2] || values[7] > values[3]) {
+        luaL_error(L, "gesture.track sizes require min <= max <= bounds");
+    }
+    lua_rawgetfield(L, -1, "edge");
+    uint8_t resize = 0;
+    if (mode == 1 || mode == 2) {
+        const Name names[] = {{"w", 1}, {"e", 1}, {"n", 1}, {"s", 1}, {"nw", 2}, {"ne", 2}, {"sw", 2}, {"se", 2}};
+        const uint8_t masks[] = {1, 2, 4, 8, 5, 6, 9, 10};
+        resize = masks[inputEnum(L, "gesture.track.edge", names, 8)];
+        if (mode == 2 && resize != 5 && resize != 6 && resize != 9 && resize != 10) {
+            luaL_error(L, "scale requires a corner edge");
+        }
+    } else if (!lua_isnil(L, -1)) {
+        luaL_error(L, "move tracking cannot declare a resize edge");
+    }
+    lua_pop(L, 1);
+    float inset[2]{};
+    lua_rawgetfield(L, -1, "inset");
+    if (!lua_isnil(L, -1)) {
+        if (mode == 1) { luaL_error(L, "inset requires move or scale"); }
+        if (!lua_istable(L, -1)) { luaL_error(L, "gesture.track.inset must contain x and y"); }
+        recipeFields(L, lua_gettop(L), {"x", "y"}, "gesture.track.inset", instance);
+        for (int index = 0; index < 2; index++) {
+            lua_rawgetfield(L, -1, index == 0 ? "x" : "y");
+            inset[index] = inputNumber(L, -1, "gesture.track.inset", 0, 0.5);
+            lua_pop(L, 1);
+            if (inset[index] >= 0.5) { luaL_error(L, "gesture.track.inset must be less than 0.5"); }
+        }
+    }
+    lua_pop(L, 1);
+    std::string recipe = mode == 0 ? "manip:move:" : mode == 1 ? "manip:resize:" : "manip:scale:";
+    recipe.reserve(512);
+    appendNumber(L, recipe, target);
+    for (float value : values) {
+        recipe += ':';
+        appendNumber(L, recipe, value);
+    }
+    recipe += ':';
+    appendNumber(L, recipe, static_cast<unsigned>(resize));
+    for (float value : inset) {
+        recipe += ':';
+        appendNumber(L, recipe, value);
+    }
+    lua_rawgetfield(L, -1, "outline");
+    if (!lua_isnil(L, -1)) {
+        uint32_t packed = 0;
+        uint16_t role = 0;
+        bool enabled = lua_type(L, -1) != LUA_TBOOLEAN;
+        if (!enabled && lua_toboolean(L, -1)) { luaL_error(L, "outline must be false or a colour"); }
+        if (enabled) {
+            if (lua_type(L, -1) != LUA_TSTRING && lua_type(L, -1) != LUA_TNUMBER) { luaL_error(L, "outline must be false or a colour"); }
+            colorValue(L, packed, role);
+        }
+        recipe += "|outline:";
+        appendNumber(L, recipe, enabled ? 1 : 0);
+        recipe += ':';
+        appendNumber(L, recipe, packed);
+        recipe += ':';
+        appendNumber(L, recipe, role);
+    }
+    lua_pop(L, 1);
+    if (recipe.size() > 512) { luaL_error(L, "manipulation recipe exceeds its size limit"); }
+    node.gesture_track = internString(L, recipe.data(), recipe.size(), instance);
+}
+
+uint32_t readEffect(lua_State *L, omni_instance *instance) {
+    luaL_checkstack(L, 3, "effect");
+    if (!lua_istable(L, -1)) { luaL_error(L, "effect must be a table"); }
+    lua_rawgetfield(L, -1, "fps");
+    float fps = lua_isnil(L, -1) ? 30 : inputNumber(L, -1, "effect.fps", 0, 120);
+    if (!lua_isnil(L, -1) && lua_tonumber(L, -1) != std::trunc(lua_tonumber(L, -1))) {
+        luaL_error(L, "effect.fps must be an integer");
+    }
+    lua_pop(L, 1);
+    float bleed = inputField(L, "bleed", 0, 0, 128);
+    float values[4]{};
+    lua_rawgetfield(L, -1, "values");
+    if (!lua_isnil(L, -1)) {
+        if (!lua_istable(L, -1) || lua_objlen(L, -1) > 4) { luaL_error(L, "effect.values must contain up to four numbers"); }
+        int table = lua_gettop(L);
+        int count = lua_objlen(L, table);
+        int entries = 0;
+        int iterator = 0;
+        while ((iterator = lua_rawiter(L, table, iterator)) >= 0) {
+            countSteps(L, instance, 1);
+            double key = lua_tonumber(L, -2);
+            if (lua_type(L, -2) != LUA_TNUMBER || key < 1 || key > count || key != std::trunc(key)) {
+                luaL_error(L, "effect.values must be a dense list");
+            }
+            values[static_cast<int>(key) - 1] = inputNumber(L, -1, "effect.values", -maximumExtent, maximumExtent);
+            entries++;
+            lua_pop(L, 2);
+        }
+        if (entries != count) { luaL_error(L, "effect.values must be a dense list"); }
+    }
+    lua_pop(L, 1);
+    lua_rawgetfield(L, -1, "source");
+    size_t length = 0;
+    const char *source = lua_type(L, -1) == LUA_TSTRING ? lua_tolstring(L, -1, &length) : nullptr;
+    bool asset = source != nullptr && length >= 12 && std::memcmp(source, "@omni-asset:", 12) == 0;
+    if (source == nullptr || length == 0 || length > 240 || (!asset && std::memchr(source, '/', length) != nullptr)
+        || (length == 1 && source[0] == '.') || (length == 2 && source[0] == '.' && source[1] == '.')) {
+        luaL_error(L, "effect.source must be a shader file name or asset reference of at most 240 bytes");
+    }
+    for (size_t index = 0; index < length; index++) {
+        unsigned char byte = static_cast<unsigned char>(source[index]);
+        if (byte < 32 || byte == 127) { luaL_error(L, "effect.source cannot contain control characters"); }
+    }
+    std::string recipe = "effect:";
+    recipe.reserve(512);
+    appendNumber(L, recipe, fps);
+    recipe += ':';
+    appendNumber(L, recipe, bleed);
+    for (float value : values) {
+        recipe += ':';
+        appendNumber(L, recipe, value);
+    }
+    recipe += ':';
+    recipe.append(source, length);
+    lua_pop(L, 1);
+    return internString(L, recipe.data(), recipe.size(), instance);
+}
+
 void readTrack(lua_State *L, omni_wire_node &node, omni_instance *instance) {
     luaL_checkstack(L, 3, "gesture track");
     lua_rawgetfield(L, -1, "track");
     if (lua_isnil(L, -1)) { lua_pop(L, 1); return; }
     if (!lua_istable(L, -1)) { luaL_error(L, "gesture.track must be a table"); }
+    lua_rawgetfield(L, -1, "mode");
+    if (!lua_isnil(L, -1)) {
+        const Name modes[] = {{"move", 4}, {"resize", 6}, {"scale", 5}};
+        uint8_t mode = inputEnum(L, "gesture.track.mode", modes, 3);
+        lua_pop(L, 1);
+        readManipulation(L, node, instance, mode);
+        lua_pop(L, 1);
+        return;
+    }
+    lua_pop(L, 1);
+    lua_rawgetfield(L, -1, "outline");
+    if (!lua_isnil(L, -1)) { luaL_error(L, "outline requires a manipulation mode"); }
+    lua_pop(L, 1);
     if (node.gesture_commit_distance <= 0) { luaL_error(L, "gesture.track requires a positive commit.distance"); }
     const char *channels[] = {"dx", "dy", "scale", "opacity"};
     float values[12] = {0, 0, 0, 0, 0, 0, 1, 1, 0, 1, 1, 0};
@@ -995,7 +1661,7 @@ void readField(lua_State *L, int atom, omni_wire_node &node, omni_instance *inst
         break;
     case AtomFont:
         node.style = static_cast<uint16_t>(
-            (node.style & ~OMNI_STYLE_FONT_MASK) | (enumValue(L, -1, fontNames, fontCount) << OMNI_STYLE_FONT_SHIFT)
+            (node.style & ~OMNI_STYLE_FONT_MASK) | (fontValue(L, -1, instance) << OMNI_STYLE_FONT_SHIFT)
         );
         break;
     case AtomFilled:
@@ -1050,6 +1716,46 @@ void readField(lua_State *L, int atom, omni_wire_node &node, omni_instance *inst
         break;
     case AtomBlurRadius: node.blur_radius = inputNumber(L, -1, "blurRadius", 0, 64); break;
     case AtomSaturation: node.saturation = inputNumber(L, -1, "saturation", 0, 3); break;
+    case AtomManipulationCommit: {
+        size_t length = 0;
+        const char *value = lua_type(L, -1) == LUA_TSTRING ? lua_tolstring(L, -1, &length) : nullptr;
+        if (value == nullptr || length == 0 || length > 96) {
+            luaL_error(L, "manipulationCommit must contain 1 to 96 bytes");
+        }
+        node.manipulation_commit = internString(L, value, length, instance);
+        break;
+    }
+    case AtomDecorative:
+        if (lua_type(L, -1) != LUA_TBOOLEAN) { luaL_error(L, "decorative must be a boolean"); }
+        if (lua_toboolean(L, -1)) { node.behavior_flags |= OMNI_NODE_BEHAVIOR_DECORATIVE; }
+        break;
+    case AtomEffect: node.effect_ref = readEffect(L, instance); break;
+    case AtomManipulationFollow: node.manipulation_follow = readSpringRecipe(L, "spring", instance); break;
+    case AtomReveal: node.reveal = 1; break;
+    case AtomPulse: node.pulse = readPulse(L, instance); break;
+    case AtomShadowOffset: {
+        if (!lua_istable(L, -1)) { luaL_error(L, "shadowOffset must contain x and y"); }
+        recipeFields(L, lua_gettop(L), {"x", "y"}, "shadowOffset", instance);
+        lua_rawgetfield(L, -1, "x");
+        node.shadow_offset_x = inputNumber(L, -1, "shadowOffset.x", -256, 256);
+        lua_pop(L, 1);
+        lua_rawgetfield(L, -1, "y");
+        node.shadow_offset_y = inputNumber(L, -1, "shadowOffset.y", -256, 256);
+        lua_pop(L, 1);
+        break;
+    }
+    case AtomBackdrop:
+    case AtomRim:
+    case AtomGradient: node.behavior_flags |= bodyRecipeFields; break;
+    case AtomFollow:
+    case AtomHit:
+    case AtomFollowRadius: node.behavior_flags |= shapeRecipeFields; break;
+    case AtomMorph: node.morph = 1; break;
+    case AtomCursor: {
+        const Name names[] = {{"grab", 4}, {"pointer", 7}};
+        node.behavior_flags |= (static_cast<uint32_t>(inputEnum(L, "cursor", names, 2)) + 1) << 3;
+        break;
+    }
     case AtomThumbnail: node.thumbnail = inputNumber(L, -1, "thumbnail", 1, 2048); break;
     case AtomDragItems:
         if (!lua_isnil(L, -1)) {
@@ -1305,6 +2011,11 @@ void encodeNode(lua_State *L, int index, omni_instance *instance, int depth) {
         uint64_t id = mount ? static_cast<uint64_t>(lua_tonumber(L, -1)) : 0;
         lua_pop(L, 1);
         if (mount) {
+            for (const char *field : {"manipulationFollow", "reveal", "morph", "cursor", "pulse", "shadowOffset", "follow", "hit", "followRadius", "gradient", "backdrop", "rim"}) {
+                lua_rawgetfield(L, index, field);
+                if (!lua_isnil(L, -1)) { luaL_error(L, "%s must be declared on the component's rendered root", field); }
+                lua_pop(L, 1);
+            }
             RetainedSurface &surface = *instance->retaining;
             auto found = surface.units.find(id);
             if (found == surface.units.end()) { luaL_error(L, "the retained component view is no longer available"); }
@@ -1357,6 +2068,189 @@ void encodeNode(lua_State *L, int index, omni_instance *instance, int depth) {
     lua_pop(L, 1);
 }
 
+void readGlassVector(lua_State *L, int index, const char *field, float (&values)[2], double limit,
+                     omni_instance *instance) {
+    lua_rawgetfield(L, index, field);
+    if (lua_isnil(L, -1)) { lua_pop(L, 1); return; }
+    if (!lua_istable(L, -1)) { luaL_error(L, "%s must contain x and y", field); }
+    int table = lua_gettop(L);
+    int iterator = 0;
+    int count = 0;
+    while ((iterator = lua_rawiter(L, table, iterator)) >= 0) {
+        countSteps(L, instance, 1);
+        size_t length = 0;
+        const char *key = lua_type(L, -2) == LUA_TSTRING ? lua_tolstring(L, -2, &length) : nullptr;
+        if (key == nullptr || length != 1 || (key[0] != 'x' && key[0] != 'y')) {
+            luaL_error(L, "%s supports only x and y", field);
+        }
+        values[key[0] == 'x' ? 0 : 1] = inputNumber(L, -1, field, -limit, limit);
+        count++;
+        lua_pop(L, 2);
+    }
+    if (count != 2) { luaL_error(L, "%s requires both x and y", field); }
+    lua_pop(L, 1);
+}
+
+uint32_t readSpectrumShape(lua_State *L, int index, omni_wire_node &node, omni_instance *instance) {
+    lua_rawgetfield(L, index, "spectrum");
+    if (lua_isnil(L, -1)) { lua_pop(L, 1); return 0; }
+    if (!lua_istable(L, -1)) { luaL_error(L, "ui.shape.spectrum must be a table"); }
+    if ((node.behavior_flags & 6) != 0 || (node.behavior_flags & OMNI_NODE_BEHAVIOR_GLASS_HIT_DISABLED) == 0) {
+        luaL_error(L, "spectrum requires a rectangular ui.shape with hit=false");
+    }
+    for (const char *field : {"animate", "morph", "reveal", "follow"}) {
+        lua_rawgetfield(L, index, field);
+        if (!lua_isnil(L, -1)) { luaL_error(L, "spectrum owns shape geometry and cannot combine with %s", field); }
+        lua_pop(L, 1);
+    }
+    recipeFields(L, lua_gettop(L), {"band", "gain", "taper", "inset", "threshold", "response", "bounce"},
+                 "shape spectrum", instance);
+    lua_rawgetfield(L, -1, "band");
+    const float band = inputNumber(L, -1, "spectrum band", 0, 1);
+    lua_pop(L, 1);
+    const float inset = inputField(L, "inset", 0, 0, 256);
+    if (node.width <= 0 || node.height <= inset) {
+        luaL_error(L, "spectrum requires positive explicit width and height greater than inset");
+    }
+    std::string recipe = "spectrum";
+    recipeValues(L, recipe, ':', {band, inputField(L, "gain", 1, 0, 10), inputField(L, "taper", 1, 0, 1),
+        inset, inputField(L, "threshold", 0, 0, 256),
+        inputField(L, "response", 0.276f, 0.05, 2.5), inputField(L, "bounce", 0.43f, 0, 0.95)});
+    lua_pop(L, 1);
+    node.options |= OMNI_NODE_OPTION_AUDIO;
+    return internString(L, recipe.data(), recipe.size(), instance);
+}
+
+void readGlassNode(lua_State *L, int index, omni_wire_node &node, omni_instance *instance) {
+    bool shape = node.kind == 12;
+    const char *bodyFields[] = {
+        "kind", "axis", "key", "w", "h", "grow", "gap", "pad", "center", "align", "dx", "dy", "scale", "rotate",
+        "opacity", "animate", "open", "close", "enter", "appear", "exit", "fill", "blurRadius", "saturation",
+        "shadow", "shadowRadius", "blend", "light", "shadowOffset", "morph", "backdrop", "rim", "gradient", "pulse"
+    };
+    const char *shapeFields[] = {"kind", "key", "w", "h", "grow", "align", "dx", "dy", "radius", "shape", "thickness", "morph",
+        "animate", "rotate", "reveal", "follow", "hit", "followRadius", "pulse", "shadowOffset", "spectrum"};
+    int count = lua_objlen(L, index);
+    int children = 0;
+    int iterator = 0;
+    while ((iterator = lua_rawiter(L, index, iterator)) >= 0) {
+        countSteps(L, instance, 1);
+        if (lua_type(L, -2) == LUA_TNUMBER) {
+            double key = lua_tonumber(L, -2);
+            if (shape || !lua_istable(L, -1) || key < 1 || key > count || key != std::trunc(key)) {
+                luaL_error(L, "ui.glass accepts a dense list of shapes and ui.shape accepts no children");
+            }
+            children++;
+        } else {
+            size_t length = 0;
+            const char *key = lua_type(L, -2) == LUA_TSTRING ? lua_tolstring(L, -2, &length) : nullptr;
+            auto allowed = [&](const char *field) { return key != nullptr && std::strlen(field) == length && std::memcmp(field, key, length) == 0; };
+            bool valid = shape ? std::any_of(std::begin(shapeFields), std::end(shapeFields), allowed)
+                               : std::any_of(std::begin(bodyFields), std::end(bodyFields), allowed);
+            if (!valid) { luaL_error(L, "%s contains an unsupported property", shape ? "ui.shape" : "ui.glass"); }
+        }
+        lua_pop(L, 2);
+    }
+    if (children != count) { luaL_error(L, "ui.glass children must form a dense list"); }
+    node.behavior_flags |= OMNI_NODE_BEHAVIOR_DECORATIVE;
+    lua_pushvalue(L, index);
+    if (shape) {
+        lua_rawgetfield(L, index, "pulse");
+        if (!lua_isnil(L, -1)) { luaL_error(L, "pulse is not supported on ui.shape"); }
+        lua_pop(L, 1);
+        const Name names[] = {{"rect", 4}, {"ellipse", 7}, {"frame", 5}};
+        lua_rawgetfield(L, index, "shape");
+        uint8_t variant = lua_isnil(L, -1) ? 0 : inputEnum(L, "ui.shape.shape", names, 3);
+        lua_pop(L, 1);
+        node.behavior_flags |= static_cast<uint32_t>(variant) << 1;
+        lua_rawgetfield(L, index, "rotate");
+        if (variant == 2 && !lua_isnil(L, -1)) { luaL_error(L, "rotate is not supported on frame shapes"); }
+        lua_pop(L, 1);
+        lua_rawgetfield(L, index, "thickness");
+        if (variant != 2 && !lua_isnil(L, -1)) { luaL_error(L, "thickness is only supported on frame shapes"); }
+        node.params[0] = variant == 2 ? (lua_isnil(L, -1) ? 8 : inputNumber(L, -1, "thickness", 0, 256)) : 0;
+        if (variant == 2 && node.params[0] <= 0) { luaL_error(L, "frame thickness must be positive"); }
+        lua_pop(L, 1);
+        node.width = inputField(L, "w", -1, 0, maximumExtent);
+        node.height = inputField(L, "h", -1, 0, maximumExtent);
+        node.grow = inputField(L, "grow", 0, 0, maximumExtent);
+        node.corner_radius = inputField(L, "radius", 0, 0, maximumExtent);
+        node.dx = inputField(L, "dx", 0, -maximumExtent, maximumExtent);
+        node.dy = inputField(L, "dy", 0, -maximumExtent, maximumExtent);
+        node.rotate = inputField(L, "rotate", 0, -maximumExtent, maximumExtent);
+        lua_rawgetfield(L, index, "follow");
+        if (!lua_isnil(L, -1)) { node.shape_follow = recipeKey(L, -1, "ui.shape.follow", instance); }
+        lua_pop(L, 1);
+        if (!recipeBool(L, "hit", true)) { node.behavior_flags |= OMNI_NODE_BEHAVIOR_GLASS_HIT_DISABLED; }
+        lua_rawgetfield(L, index, "followRadius");
+        if (!lua_isnil(L, -1)) {
+            if (node.shape_follow == 0) { luaL_error(L, "followRadius requires follow"); }
+            const Name radii[] = {{"scaled", 6}, {"fixed", 5}};
+            if (inputEnum(L, "followRadius", radii, 2) == 1) { node.behavior_flags |= OMNI_NODE_BEHAVIOR_GLASS_FIXED_RADIUS; }
+        }
+        lua_pop(L, 1);
+        node.text = readSpectrumShape(L, index, node, instance);
+    } else {
+        node.axis = 2;
+        lua_rawgetfield(L, index, "fill");
+        if (lua_isnil(L, -1)) { node.fill = 0x3F47685Cu; }
+        lua_pop(L, 1);
+        lua_rawgetfield(L, index, "shadow");
+        if (lua_isnil(L, -1)) { node.shadow = 0x0B0E1114u; }
+        lua_pop(L, 1);
+        node.blur_radius = inputField(L, "blurRadius", 6, 0, 64);
+        node.saturation = inputField(L, "saturation", 1, 0, 3);
+        node.shadow_radius = inputField(L, "shadowRadius", 6, 0, 64);
+        float blend = inputField(L, "blend", 26, 0, 256);
+        float light[2] = {-1, 0};
+        float shadow[2] = {0, 1};
+        readGlassVector(L, index, "light", light, 1, instance);
+        readGlassVector(L, index, "shadowOffset", shadow, 256, instance);
+        if (light[0] == 0 && light[1] == 0) { luaL_error(L, "light must be a nonzero vector"); }
+        std::string recipe = "glass";
+        recipe.reserve(192);
+        for (float value : {blend, light[0], light[1], shadow[0], shadow[1]}) {
+            recipe += ':';
+            appendNumber(L, recipe, value);
+        }
+        node.shadow_offset_x = shadow[0];
+        node.shadow_offset_y = shadow[1];
+        float rim = inputField(L, "rim", 0.10f, 0, 1);
+        bool backdrop = recipeBool(L, "backdrop", true);
+        if (!backdrop) {
+            for (const char *field : {"blurRadius", "saturation"}) {
+                lua_rawgetfield(L, index, field);
+                if (!lua_isnil(L, -1)) { luaL_error(L, "backdrop=false cannot declare blurRadius or saturation"); }
+                lua_pop(L, 1);
+            }
+        }
+        float angle = 90;
+        lua_rawgetfield(L, index, "gradient");
+        bool gradient = !lua_isnil(L, -1);
+        if (gradient) {
+            if (!lua_istable(L, -1)) { luaL_error(L, "gradient must contain from and to colours"); }
+            recipeFields(L, lua_gettop(L), {"from", "to", "angle"}, "gradient", instance);
+            for (const char *field : {"from", "to"}) {
+                lua_rawgetfield(L, -1, field);
+                if (lua_type(L, -1) != LUA_TSTRING && lua_type(L, -1) != LUA_TNUMBER) { luaL_error(L, "gradient colours are required"); }
+                if (field[0] == 'f') { colorValue(L, node.gradient_from, node.gradient_from_role); }
+                else { colorValue(L, node.gradient_to, node.gradient_to_role); }
+                lua_pop(L, 1);
+            }
+            angle = inputField(L, "angle", 90, -maximumExtent, maximumExtent);
+            node.behavior_flags |= OMNI_NODE_BEHAVIOR_GLASS_GRADIENT;
+        }
+        lua_pop(L, 1);
+        if (rim != 0.10f || !backdrop || gradient) {
+            recipe += "|optics";
+            recipeValues(L, recipe, ':', {rim, backdrop ? 0.0f : 1.0f, angle});
+        }
+        if (recipe.size() > 256) { luaL_error(L, "glass recipe exceeds its size limit"); }
+        node.text = internString(L, recipe.data(), recipe.size(), instance);
+    }
+    lua_pop(L, 1);
+}
+
 void encodeNodeContents(lua_State *L, int index, omni_instance *instance, int depth) {
     if (depth > maximumDepth) {
         luaL_error(L, "tree deeper than %d", maximumDepth);
@@ -1392,6 +2286,20 @@ void encodeNodeContents(lua_State *L, int index, omni_instance *instance, int de
             readField(L, atom, node, instance);
         }
         lua_pop(L, 2);
+    }
+    if ((node.behavior_flags & bodyRecipeFields) != 0 && node.kind != 11) { luaL_error(L, "backdrop, rim and gradient require ui.glass"); }
+    if ((node.behavior_flags & shapeRecipeFields) != 0 && node.kind != 12) { luaL_error(L, "follow, followRadius and hit require ui.shape"); }
+    node.behavior_flags &= ~(bodyRecipeFields | shapeRecipeFields);
+    if (node.reveal != 0) {
+        lua_rawgetfield(L, index, "reveal");
+        node.reveal = readRevealRecipe(L, instance, node.kind == 12);
+        lua_pop(L, 1);
+    }
+    if (node.kind == 11 || node.kind == 12) { readGlassNode(L, index, node, instance); }
+    if (node.morph != 0) {
+        lua_rawgetfield(L, index, "morph");
+        node.morph = readMorph(L, node.kind == 12, node.kind == 12 && (node.behavior_flags & 6) == 4, instance);
+        lua_pop(L, 1);
     }
     if (node.texture_ref != 0 && node.kind != 7) { luaL_error(L, "texture is only supported on ui.shader"); }
     if ((node.appear != 0 || node.exit != 0) && (node.options & OMNI_NODE_OPTION_MASK) != 0) {
@@ -2334,14 +3242,6 @@ omni_status evaluateUnit(omni_instance *instance, RetainedSurface &surface, Rend
         unit.actionChanged = unit.actionChanged || !equal;
         clearCache(L, unit.cache);
         std::swap(unit.cache, scratch);
-        for (auto entry = surface.units.begin(); entry != surface.units.end();) {
-            if (reachable.find(entry->first) == reachable.end()) {
-                clearUnit(L, *entry->second, &surface);
-                entry = surface.units.erase(entry);
-            } else {
-                ++entry;
-            }
-        }
         surface.assemble = true;
     } else {
         unit.failure = status;
@@ -2603,8 +3503,265 @@ void publishUnitActions(lua_State *L, RetainedSurface &surface, RenderUnit &unit
     unit.actionChanged = false;
 }
 
-bool assembleNodes(RetainedSurface &surface, RenderUnit &owner, const ViewOutput &cache, size_t start, size_t end,
-                   size_t depth, ViewOutput &output, uint64_t &deps) {
+template <typename Node>
+auto nodeActions(Node &node) {
+    return std::array{&node.action, &node.secondary_action, &node.scroll_action, &node.hover_action,
+            &node.press_action, &node.gesture_action, &node.key_action, &node.outside_press_action,
+            &node.input_commit_action, &node.input_cancel_action, &node.input_focus_action,
+            &node.resource_drop_action, &node.resource_hover_action, &node.resource_drag_ref, &node.resource_drag_action};
+}
+
+bool reserveUnitActions(lua_State *L, const RenderUnit &unit, uint64_t &required) {
+    uint32_t count = unit.actions.front().count;
+    if (unit.actionDirty) {
+        count = 0;
+        if (unit.cache.actionsRef != LUA_NOREF) {
+            lua_getref(L, unit.cache.actionsRef);
+            count = static_cast<uint32_t>(lua_objlen(L, -1));
+            lua_pop(L, 1);
+        }
+        if (unit.actionChanged || unit.actions.front().count != count) { required += count; }
+    }
+    for (const omni_wire_node &node : unit.cache.nodes) {
+        for (const uint32_t *action : nodeActions(node)) {
+            if ((*action & OMNI_ACTION_HANDLER) != 0 && ((*action & ~OMNI_ACTION_HANDLER) == 0 || (*action & ~OMNI_ACTION_HANDLER) > count)) {
+                return false;
+            }
+        }
+    }
+    return true;
+}
+
+const char *validatePresentation(omni_wire_node &node, const InternTable &strings,
+                                 const std::array<uint64_t, maximumDepth + 1> &ancestors, size_t depth,
+                                 bool decorative, bool effected) {
+    if (node.kind == 11 && effected) { return "effect subtrees cannot contain glass bodies"; }
+    decorative = decorative || (node.behavior_flags & OMNI_NODE_BEHAVIOR_DECORATIVE) != 0;
+    if (decorative) {
+        bool input = node.kind == 8 || node.kind == 10 || node.action != 0 || node.secondary_action != 0
+            || node.scroll_action != 0 || node.hover_action != 0 || node.press_action != 0 || node.gesture_action != 0
+            || node.key_action != 0 || node.outside_press_action != 0 || node.keys != 0 || node.gesture_axis != 0
+            || node.input_flags != 0 || node.input_commit_action != 0 || node.input_cancel_action != 0
+            || node.input_focus_action != 0 || node.resource_drop_action != 0 || node.resource_hover_action != 0
+            || node.resource_accepts != 0 || node.resource_drag_ref != 0 || node.resource_drag_action != 0
+            || node.target != 0 || node.help != 0 || node.hover != 0 || node.hover_role != 0
+            || node.hover_scale != 0 || node.hover_opacity >= 0 || node.hover_material != 0
+            || node.press_opacity >= 0 || node.manipulation_commit != 0 || node.manipulation_follow != 0
+            || (node.behavior_flags & 0x18u) != 0
+            || (node.flags & (OMNI_NODE_OPENS_POPOUT | OMNI_NODE_MENU | OMNI_NODE_PREVIEW
+                              | OMNI_NODE_DRAG | OMNI_NODE_DROP | OMNI_NODE_SCROLL)) != 0;
+        if (input) { return "decorative subtrees cannot contain handlers, inputs or interactive properties"; }
+        node.behavior_flags |= OMNI_NODE_BEHAVIOR_DECORATIVE;
+    }
+    if (node.manipulation_commit != 0 && node.key == 0) { return "manipulationCommit requires a stable target key"; }
+    if (node.manipulation_follow != 0 && node.key == 0) { return "manipulationFollow requires a stable target key"; }
+    if (node.effect_ref != 0) {
+        if (node.kind != 0 || node.axis != 2 || (node.options & OMNI_NODE_OPTION_MASK) != 0) {
+            return "effect is only supported on an unmasked ui.stack";
+        }
+        if (effected) { return "effect subtrees cannot contain nested effects"; }
+        effected = true;
+    }
+    if (effected && ((node.flags & OMNI_NODE_MATERIAL_MASK) != 0 || node.hover_material != 0)) {
+        return "effect subtrees cannot contain materials; place the material on an ancestor outside the effect";
+    }
+    uint32_t reference = node.gesture_track;
+    if (reference != 0) {
+        if (reference >= strings.offsets.size()) { return "invalid gesture.track reference"; }
+        const char *start = strings.arena.data() + strings.offsets[reference];
+        size_t length = strings.lengths[reference];
+        if (length >= 6 && std::memcmp(start, "manip:", 6) == 0) {
+            const char *end = start + length;
+            const char *modeEnd = static_cast<const char *>(std::memchr(start + 6, ':', length - 6));
+            if (modeEnd == nullptr) { return "invalid manipulation target reference"; }
+            const char *keyEnd = static_cast<const char *>(std::memchr(modeEnd + 1, ':', static_cast<size_t>(end - modeEnd - 1)));
+            uint64_t target = 0;
+            if (keyEnd == nullptr) { return "invalid manipulation target reference"; }
+            auto parsed = std::from_chars(modeEnd + 1, keyEnd, target);
+            if (parsed.ec != std::errc{} || parsed.ptr != keyEnd || target == 0) { return "invalid manipulation target reference"; }
+            bool found = false;
+            for (size_t ancestor = depth; ancestor > 0; ancestor--) {
+                if (ancestors[ancestor - 1] == target) { found = true; break; }
+            }
+            if (!found) { return "gesture.track.target must name a stable ancestor on the same surface"; }
+        }
+    }
+    return nullptr;
+}
+
+std::string_view recipeText(const InternTable &strings, uint32_t reference) {
+    if (reference == 0 || reference >= strings.lengths.size()) { return {}; }
+    return {strings.arena.data() + strings.offsets[reference], strings.lengths[reference]};
+}
+
+uint64_t recipeReference(std::string_view recipe, std::string_view marker) {
+    size_t position = recipe.find(marker);
+    if (position == std::string_view::npos) { return 0; }
+    position += marker.size();
+    uint64_t value = 0;
+    const char *first = recipe.data() + position;
+    const char *last = recipe.data() + recipe.size();
+    auto parsed = std::from_chars(first, last, value);
+    return parsed.ec == std::errc{} && parsed.ptr != first && (parsed.ptr == last || *parsed.ptr == ':' || *parsed.ptr == '|') ? value : 0;
+}
+
+const char *validateGlassBindings(const std::vector<omni_wire_node> &nodes, const InternTable &strings,
+                                 const std::vector<omni_wire_node> &previous) {
+    bool bound = std::any_of(nodes.begin(), nodes.end(), [&](const omni_wire_node &node) {
+        auto morph = recipeText(strings, node.morph);
+        return node.shape_follow != 0 || morph.find("|source:") != std::string_view::npos
+            || morph.find("|trigger:") != std::string_view::npos || morph.find("|track:") != std::string_view::npos;
+    });
+    if (!bound) { return nullptr; }
+    std::unordered_set<size_t> targetNodes;
+    std::unordered_set<uint64_t> resizeTargets;
+    std::array<size_t, maximumDepth + 1> ancestors{};
+    size_t depth = 0;
+    for (size_t index = 0; index < nodes.size(); index++) {
+        const auto &node = nodes[index];
+        while (depth > 0 && nodes[ancestors[depth - 1]].subtree_end <= static_cast<int32_t>(index)) { depth--; }
+        auto gesture = recipeText(strings, node.gesture_track);
+        if (gesture.substr(0, 6) == "manip:") {
+            size_t mode = gesture.find(':', 6);
+            if (mode != std::string_view::npos) {
+                uint64_t target = recipeReference(gesture.substr(mode + 1), "");
+                for (size_t level = depth; target != 0 && level > 0; level--) {
+                    size_t candidate = ancestors[level - 1];
+                    if (nodes[candidate].key == target) {
+                        if (level > 1 && nodes[ancestors[level - 2]].axis == 2
+                            && (nodes[candidate].behavior_flags & OMNI_NODE_BEHAVIOR_DECORATIVE) == 0
+                            && nodes[candidate].rotate == 0) {
+                            targetNodes.insert(candidate);
+                            if (gesture.substr(6, mode - 6) == "resize") { resizeTargets.insert(target); }
+                        }
+                        break;
+                    }
+                }
+            }
+        }
+        ancestors[depth++] = index;
+    }
+    std::unordered_map<uint64_t, size_t> targets;
+    for (size_t index : targetNodes) { targets[nodes[index].key]++; }
+    auto uniqueTarget = [&](uint64_t key) {
+        auto found = targets.find(key);
+        return found != targets.end() && found->second == 1;
+    };
+    auto uniqueNode = [&](uint64_t key, bool shape) {
+        return std::count_if(nodes.begin(), nodes.end(), [&](const omni_wire_node &node) {
+            return node.key == key && (!shape || node.kind == 12);
+        }) == 1;
+    };
+    for (const auto &node : nodes) {
+        if (node.shape_follow != 0 && !uniqueTarget(node.shape_follow)) {
+            return "ui.shape.follow must name a unique manipulation target";
+        }
+        auto morph = recipeText(strings, node.morph);
+        if (morph.find("|source:") != std::string_view::npos) {
+            if (node.shape_follow != 0) { return "morph.source cannot be combined with ui.shape.follow"; }
+            if (morph.find("|trigger:") != std::string_view::npos) {
+                return "morph.source cannot be combined with morph.trigger";
+            }
+            uint64_t target = recipeReference(morph, "|source:");
+            if (target == 0 || !uniqueTarget(target)) {
+                return "morph.source must name a unique manipulation target";
+            }
+            if (resizeTargets.find(target) != resizeTargets.end()) { return "morph.source cannot bind a resize target"; }
+        }
+        if (morph.find("|track:") != std::string_view::npos) {
+            uint64_t shape = recipeReference(morph, "|track:");
+            if (node.kind != 9 || (node.behavior_flags & OMNI_NODE_BEHAVIOR_DECORATIVE) == 0
+                || (node.options & OMNI_NODE_OPTION_MASK) != 0) {
+                return "morph.track requires a decorative unmasked ui.path";
+            }
+            if (shape == 0 || !uniqueNode(shape, true)) { return "morph.track must name a unique ui.shape"; }
+            const auto target = std::find_if(nodes.begin(), nodes.end(), [&](const omni_wire_node &candidate) {
+                return candidate.key == shape && candidate.kind == 12;
+            });
+            if ((target->behavior_flags & 6) != 0) { return "morph.track requires a rectangular ui.shape"; }
+            if (target->morph == 0 && target->reveal == 0) { return "morph.track requires a shape with morph or reveal"; }
+        }
+        if (morph.find("|trigger:") != std::string_view::npos) {
+            uint64_t shape = recipeReference(morph, "|trigger:");
+            const auto current = std::count_if(nodes.begin(), nodes.end(), [&](const omni_wire_node &value) {
+                return value.key == shape && value.kind == 12;
+            });
+            const bool outgoing = std::count_if(previous.begin(), previous.end(), [&](const omni_wire_node &value) {
+                return value.key == shape && value.kind == 12;
+            }) == 1;
+            const bool retained = node.key != 0 && uniqueNode(node.key, true)
+                && std::count_if(previous.begin(), previous.end(), [&](const omni_wire_node &value) {
+                    return value.key == node.key && value.kind == 12
+                        && recipeReference(recipeText(strings, value.morph), "|trigger:") == shape;
+                }) == 1;
+            if (shape == 0 || current > 1 || (current == 0 && !outgoing && !retained)) {
+                return "morph.trigger must name a unique ui.shape or retain its published binding";
+            }
+            if (node.key == shape) { return "morph.trigger cannot refer to itself"; }
+            if (morph.find("|triggerContact:1") != std::string_view::npos) {
+                const auto &candidates = current == 1 ? nodes : previous;
+                const auto source = std::find_if(candidates.begin(), candidates.end(), [&](const omni_wire_node &value) {
+                    return value.key == shape && value.kind == 12;
+                });
+                const bool publishedContact = retained && std::any_of(previous.begin(), previous.end(), [&](const omni_wire_node &value) {
+                    return value.key == node.key && value.kind == 12
+                        && recipeText(strings, value.morph).find("|triggerContact:1") != std::string_view::npos;
+                });
+                if (source == candidates.end() ? !publishedContact
+                    : recipeText(strings, source->morph).find("|sourceContact:1") == std::string_view::npos) {
+                    return "morph.trigger.contact requires a source shape with morph.source.contact";
+                }
+            }
+        }
+    }
+    return nullptr;
+}
+
+const char *validateTreeStructure(std::vector<omni_wire_node> &nodes, size_t start, size_t end,
+                                  size_t &followCount, const InternTable &strings, bool glassParent = false, bool revealed = false) {
+    size_t shapes = 0;
+    for (size_t index = start; index < end;) {
+        omni_wire_node &node = nodes[index];
+        size_t next = static_cast<size_t>(node.subtree_end);
+        if (node.manipulation_follow != 0 && ++followCount > 24) {
+            return "at most 24 manipulationFollow targets per widget tree";
+        }
+        if (node.reveal != 0 && node.kind != 12 && (node.kind != 0 || node.axis != 2 || (node.options & OMNI_NODE_OPTION_MASK) != 0)) {
+            return "reveal is only supported on an unmasked ui.stack or ui.shape";
+        }
+        if (node.morph != 0) {
+            auto recipe = recipeText(strings, node.morph);
+            bool independent = recipe.find("|track:") != std::string_view::npos ||
+                (node.kind == 12 && (node.reveal != 0 || recipe.find("|edges:") != std::string_view::npos
+                || recipe.find("|source:") != std::string_view::npos || recipe.find("|trigger:") != std::string_view::npos));
+            if (!revealed && !independent) { return "morph requires a reveal ancestor or a shape track source"; }
+            if (node.appear != 0 || node.exit != 0) { return "morph cannot be combined with appear or exit"; }
+        }
+        if (glassParent) {
+            if (node.kind != 12) { return "ui.glass accepts only direct ui.shape children"; }
+            if (++shapes > 64) { return "ui.glass supports at most 64 shapes"; }
+            if ((node.behavior_flags & 6) == 4 && shapes != 1) { return "a frame shape must be the first shape in its glass body"; }
+        }
+        if (node.kind == 12) {
+            if (!glassParent) { return "ui.shape must be a direct child of ui.glass"; }
+            if (next != index + 1) { return "ui.shape does not accept children"; }
+            if ((node.behavior_flags & 6) == 6) { return "invalid glass shape variant"; }
+            node.appear = 0;
+            node.exit = 0;
+        } else {
+            if (const char *failure = validateTreeStructure(nodes, index + 1, next, followCount, strings, node.kind == 11,
+                                                           revealed || node.reveal != 0)) { return failure; }
+        }
+        index = next;
+    }
+    return nullptr;
+}
+
+
+bool assembleNodes(RetainedSurface &surface, const ViewOutput &cache, size_t start, size_t end,
+                   size_t depth, ViewOutput &output, uint64_t &deps, const InternTable &strings,
+                   std::array<uint64_t, maximumDepth + 1> &ancestors, const char *&failure,
+                   bool decorative = false, bool effected = false) {
     if (start == end) { return true; }
     if (depth > maximumDepth) { return false; }
     deps |= cache.deps;
@@ -2618,7 +3775,8 @@ bool assembleNodes(RetainedSurface &surface, RenderUnit &owner, const ViewOutput
             if (!unit.live) { index++; continue; }
             unit.visited = surface.pass;
             size_t first = output.nodes.size();
-            if (!assembleNodes(surface, unit, unit.cache, 0, unit.cache.nodes.size(), depth, output, deps)) { return false; }
+            if (!assembleNodes(surface, unit.cache, 0, unit.cache.nodes.size(), depth, output, deps,
+                               strings, ancestors, failure, decorative, effected)) { return false; }
             if (first < output.nodes.size() && (output.nodes[first].options & OMNI_NODE_OPTION_MASK) == 0) {
                 if (output.nodes[first].appear == 0) { output.nodes[first].appear = cache.nodes[index].appear; }
                 if (output.nodes[first].exit == 0) { output.nodes[first].exit = cache.nodes[index].exit; }
@@ -2630,63 +3788,128 @@ bool assembleNodes(RetainedSurface &surface, RenderUnit &owner, const ViewOutput
         omni_wire_node node = cache.nodes[index];
         size_t next = static_cast<size_t>(node.subtree_end);
         if (next <= index || next > end) { return false; }
-        for (uint32_t *action : {&node.action, &node.secondary_action, &node.scroll_action, &node.hover_action,
-                                &node.press_action, &node.gesture_action, &node.key_action, &node.outside_press_action,
-                                &node.input_commit_action, &node.input_cancel_action, &node.input_focus_action,
-                                &node.resource_drop_action, &node.resource_hover_action, &node.resource_drag_ref, &node.resource_drag_action}) {
-            if ((*action & OMNI_ACTION_HANDLER) == 0) { continue; }
-            uint32_t local = *action & ~OMNI_ACTION_HANDLER;
-            if (local == 0 || local > owner.actions.front().count) { return false; }
-            *action = OMNI_ACTION_HANDLER | (owner.actions.front().first + local - 1);
-        }
+        failure = validatePresentation(node, strings, ancestors, depth, decorative, effected);
+        if (failure != nullptr) { return false; }
         size_t target = output.nodes.size();
         output.nodes.push_back(node);
-        if (!assembleNodes(surface, owner, cache, index + 1, next, depth + 1, output, deps)) { return false; }
+        ancestors[depth] = node.key;
+        if (!assembleNodes(surface, cache, index + 1, next, depth + 1, output, deps,
+                           strings, ancestors, failure,
+                           (node.behavior_flags & OMNI_NODE_BEHAVIOR_DECORATIVE) != 0,
+                           effected || node.effect_ref != 0)) { return false; }
         output.nodes[target].subtree_end = static_cast<int32_t>(output.nodes.size());
         index = next;
     }
     return true;
 }
 
+void bindAssembledActions(RetainedSurface &surface, const RenderUnit &owner, const ViewOutput &cache,
+                          size_t start, size_t end, std::vector<omni_wire_node> &nodes, size_t &offset) {
+    for (size_t index = start; index < end;) {
+        auto mount = std::lower_bound(cache.mounts.begin(), cache.mounts.end(), index,
+                                     [](const UnitMount &value, size_t location) { return value.offset < location; });
+        if (mount != cache.mounts.end() && mount->offset == index) {
+            const RenderUnit &unit = *surface.units.at(mount->unit);
+            if (unit.live) { bindAssembledActions(surface, unit, unit.cache, 0, unit.cache.nodes.size(), nodes, offset); }
+            index++;
+            continue;
+        }
+        for (uint32_t *action : nodeActions(nodes[offset++])) {
+            if ((*action & OMNI_ACTION_HANDLER) != 0) {
+                *action = OMNI_ACTION_HANDLER | (owner.actions.front().first + (*action & ~OMNI_ACTION_HANDLER) - 1);
+            }
+        }
+        size_t next = static_cast<size_t>(cache.nodes[index].subtree_end);
+        bindAssembledActions(surface, owner, cache, index + 1, next, nodes, offset);
+        index = next;
+    }
+}
+
+void markMountedUnits(RetainedSurface &surface, const ViewOutput &cache) {
+    for (const UnitMount &mount : cache.mounts) {
+        RenderUnit &unit = *surface.units.at(mount.unit);
+        if (unit.visited == surface.pass) { continue; }
+        unit.visited = surface.pass;
+        markMountedUnits(surface, unit.cache);
+    }
+}
+
 omni_status assembleSurface(omni_instance *instance, RetainedSurface &surface, omni_view view,
                             omni_render_step_stats *stats, char *error, size_t capacity) {
     lua_State *L = instance->thread;
     lua_settop(L, 0);
-    uint64_t required = 0;
-    auto reserve = [&](RenderUnit &unit) {
-        if (unit.actionDirty && unit.cache.actionsRef != LUA_NOREF) {
-            lua_getref(L, unit.cache.actionsRef);
-            uint32_t count = static_cast<uint32_t>(lua_objlen(L, -1));
-            lua_pop(L, 1);
-            if (unit.actionChanged || unit.actions.front().count != count) { required += count; }
-        }
-    };
-    reserve(surface.root);
-    for (auto &entry : surface.units) { reserve(*entry.second); }
-    if (uint64_t(instance->vm->package.nextAction) + required >= OMNI_ACTION_HANDLER) {
-        copyMessage("component action handle capacity exhausted", error, capacity);
-        return OMNI_ERR_RUNTIME;
-    }
     size_t expanded = 0;
     if (!measureExpanded(surface, surface.root.cache, 0, surface.root.cache.nodes.size(), 0, expanded)) {
+        surface.forcePublish = true;
         copyMessage("retained component composition exceeds the expanded surface tree bounds", error, capacity);
         return OMNI_ERR_RUNTIME;
     }
-    publishUnitActions(L, surface, surface.root, instance->vm->package);
-    for (auto &entry : surface.units) { publishUnitActions(L, surface, *entry.second, instance->vm->package); }
     ViewOutput &output = instance->views[view];
-    output.nodes.clear();
+    ViewOutput &candidate = surface.scratch;
+    clearCache(L, candidate);
+    candidate.nodes.reserve(expanded);
     uint64_t deps = 0;
-    if (!assembleNodes(surface, surface.root, surface.root.cache, 0, surface.root.cache.nodes.size(), 0, output, deps)) {
-        copyMessage("retained component composition exceeds the surface tree bounds or contains a cycle", error, capacity);
+    for (auto &entry : surface.units) { entry.second->visited = 0; }
+    std::array<uint64_t, maximumDepth + 1> ancestors{};
+    const char *failure = nullptr;
+    if (!assembleNodes(surface, surface.root.cache, 0, surface.root.cache.nodes.size(), 0, candidate, deps,
+                       instance->vm->package.strings, ancestors, failure)) {
+        surface.forcePublish = true;
+        copyMessage(failure != nullptr ? failure : "retained component composition exceeds the surface tree bounds or contains a cycle", error, capacity);
         return OMNI_ERR_RUNTIME;
     }
+    const InternTable &strings = instance->vm->package.strings;
+    size_t followCount = 0;
+    if (const char *bindingFailure = validateGlassBindings(candidate.nodes, strings, output.nodes)) {
+        surface.forcePublish = true;
+        copyMessage(bindingFailure, error, capacity);
+        return OMNI_ERR_RUNTIME;
+    }
+    if (const char *treeFailure = validateTreeStructure(candidate.nodes, 0, candidate.nodes.size(), followCount, strings)) {
+        surface.forcePublish = true;
+        copyMessage(treeFailure, error, capacity);
+        return OMNI_ERR_RUNTIME;
+    }
+    uint64_t required = 0;
+    bool validActions = reserveUnitActions(L, surface.root, required);
+    for (auto &entry : surface.units) {
+        if (entry.second->visited == surface.pass) {
+            validActions = reserveUnitActions(L, *entry.second, required) && validActions;
+        }
+    }
+    if (!validActions) {
+        surface.forcePublish = true;
+        copyMessage("retained component composition contains an invalid action reference", error, capacity);
+        return OMNI_ERR_RUNTIME;
+    }
+    if (uint64_t(instance->vm->package.nextAction) + required >= OMNI_ACTION_HANDLER) {
+        surface.forcePublish = true;
+        copyMessage("component action handle capacity exhausted", error, capacity);
+        return OMNI_ERR_RUNTIME;
+    }
+    publishUnitActions(L, surface, surface.root, instance->vm->package);
+    for (auto &entry : surface.units) {
+        if (entry.second->visited == surface.pass) { publishUnitActions(L, surface, *entry.second, instance->vm->package); }
+    }
+    size_t offset = 0;
+    bindAssembledActions(surface, surface.root, surface.root.cache, 0, surface.root.cache.nodes.size(), candidate.nodes, offset);
+    output.nodes.swap(candidate.nodes);
     instance->deps = deps;
     output.deps = deps;
     output.ready = true;
     stats->kind = OMNI_RENDER_ASSEMBLE;
     stats->render.deps = deps;
     publishOutput(instance, output, &stats->render, surface.forcePublish);
+    for (auto &entry : surface.units) { entry.second->visited = 0; }
+    markMountedUnits(surface, surface.root.cache);
+    for (auto entry = surface.units.begin(); entry != surface.units.end();) {
+        if (entry->second->visited != surface.pass) {
+            clearUnit(L, *entry->second, &surface);
+            entry = surface.units.erase(entry);
+        } else {
+            ++entry;
+        }
+    }
     surface.forcePublish = false;
     lua_settop(L, 0);
     surface.assemble = false;
@@ -3031,7 +4254,6 @@ int encodeEntry(lua_State *L) {
     ViewOutput &view = *instance->encoding;
     view.nodes.clear();
     view.mounts.clear();
-    instance->encodeSteps = 0;
     instance->actionCount = 0;
     if (!lua_istable(L, 1)) {
         luaL_error(L, "render must return a ui element");
@@ -3050,7 +4272,6 @@ int popoutAction(lua_State *) {
 }
 
 constexpr size_t maximumRequests = 16;
-constexpr size_t maximumLogs = 32;
 constexpr size_t maximumLogLength = 512;
 constexpr size_t maximumRequestLength = 16384;
 
@@ -3367,8 +4588,51 @@ int formatDate(lua_State *L) {
     return 1;
 }
 
+int measureText(lua_State *L) {
+    if (lua_type(L, 1) != LUA_TSTRING) { luaL_argerror(L, 1, "expected a string"); }
+    size_t length = 0;
+    const char *text = lua_tolstring(L, 1, &length);
+    omni_instance *instance = scriptInstance(L);
+    if (instance == nullptr || instance->vm->measurer == nullptr) {
+        luaL_error(L, "text measurement is unavailable");
+    }
+    countSteps(L, instance, 1 + (length >> 6));
+    omni_wire_node node{};
+    node.lines = 1;
+    if (!lua_isnoneornil(L, 2)) {
+        luaL_checktype(L, 2, LUA_TTABLE);
+        recipeFields(L, 2, {"font", "size", "weight", "maxWidth", "lines", "quarter"}, "format.measure", instance);
+        const std::pair<const char *, int> fields[] = {
+            {"font", AtomFont}, {"size", AtomSize}, {"weight", AtomWeight},
+            {"maxWidth", AtomMaxWidth}, {"lines", AtomLines},
+        };
+        for (const auto &[name, atom] : fields) {
+            lua_rawgetfield(L, 2, name);
+            if (!lua_isnil(L, -1)) { readField(L, atom, node, instance); }
+            lua_pop(L, 1);
+        }
+        lua_rawgetfield(L, 2, "quarter");
+        if (!lua_isnil(L, -1)) {
+            luaL_checktype(L, -1, LUA_TBOOLEAN);
+            if (lua_toboolean(L, -1)) { node.style |= OMNI_STYLE_QUARTER; }
+        }
+        lua_pop(L, 1);
+    }
+    float width = 0;
+    float height = 0;
+    omni_vm *vm = instance->vm;
+    uint32_t style = static_cast<uint32_t>(node.style)
+        | (static_cast<uint32_t>(node.text_size) << OMNI_STYLE_SIZE_SHIFT);
+    vm->measurer(vm->measurerContext, text, length, style, node.max_width, node.lines, &width, &height);
+    lua_pushnumber(L, width);
+    lua_pushnumber(L, height);
+    return 2;
+}
+
 void installFormat(lua_State *L, ShellPackage &package) {
-    lua_createtable(L, 0, 5);
+    lua_createtable(L, 0, 6);
+    lua_pushcfunction(L, measureText, "measure");
+    lua_setfield(L, -2, "measure");
     const std::pair<const char *, unsigned> functions[] = {
         {"number", OMNI_FORMAT_NUMBER}, {"percent", OMNI_FORMAT_PERCENT}, {"bytes", OMNI_FORMAT_MEMORY},
         {"date", OMNI_FORMAT_DATE}, {"offset", OMNI_FORMAT_OFFSET},

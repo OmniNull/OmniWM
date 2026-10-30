@@ -177,6 +177,10 @@ extension ShellCurve {
 
 extension ShellCurve {
     func value(at time: CGFloat) -> CGFloat {
+        state(at: time).value
+    }
+
+    func state(at time: CGFloat) -> (value: CGFloat, velocity: CGFloat) {
         var start = CGPoint.zero
         for segment in segments {
             defer { start = segment.end }
@@ -196,9 +200,12 @@ extension ShellCurve {
                 let next = parameter - x / slope
                 parameter = slope > .ulpOfOne && next >= low && next <= high ? next : (low + high) / 2
             }
-            return Self.cubic(parameter, start.y, segment.control1.y, segment.control2.y, segment.end.y)
+            let value = Self.cubic(parameter, start.y, segment.control1.y, segment.control2.y, segment.end.y)
+            let dx = Self.slope(parameter, 0, x1, x2, 1) * width
+            let dy = Self.slope(parameter, start.y, segment.control1.y, segment.control2.y, segment.end.y)
+            return (value, dx > .ulpOfOne ? dy / dx : 0)
         }
-        return 1
+        return (1, 0)
     }
 
     private static func cubic(_ at: CGFloat, _ p0: CGFloat, _ p1: CGFloat, _ p2: CGFloat, _ p3: CGFloat) -> CGFloat {

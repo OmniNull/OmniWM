@@ -17,6 +17,8 @@ struct ShellWidgetSource: Sendable {
     var components: [ShellComponentInstance] = []
     var componentDescriptors: [ShellComponentDescriptor] = []
     var assetPackages: [String: URL] = [:]
+    var fontFolders: [URL] = []
+    var strings = ShellStrings.empty
     var profile = ShellDefaults.profile
     var network: [String] = []
     var principal: ShellWidgetPrincipal?

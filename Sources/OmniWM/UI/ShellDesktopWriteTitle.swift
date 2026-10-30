@@ -7,7 +7,7 @@ enum ShellDesktopWriteTitle {
     @MainActor
     static func title(_ target: ShellSettingsWriteQueue.Target, editor: ShellDesktopEditor) -> String {
         let key = target.path.last ?? ""
-        var parts = [ShellStyleText.title(target.profile)]
+        var parts = [editor.configuration.styleTitle(target.profile)]
         if let monitor = editor.monitors.first(where: { $0.id == target.monitor }) {
             parts.append(monitor.name)
         }
@@ -15,20 +15,17 @@ enum ShellDesktopWriteTitle {
             let widget = target.path[1]
             parts.append(ShellBarLayout.title(of: widget))
             if let option = editor.schema(for: widget)?.options[key] {
-                parts.append(String(localized: LocalizedStringResource(
-                    String.LocalizationValue(option.title), table: ShellLocalizer.table,
-                    bundle: .atURL(Bundle.module.bundleURL)
-                )))
+                parts.append(editor.strings.title(option.title))
             } else {
                 parts.append(ShellWidgetSettingsModel.title(key))
             }
         } else if target.path.first == "island", target.path.count > 2 {
             let id = target.path[1]
             parts.append(editor.componentTitle(id))
-            parts.append(option(editor.componentDescriptor(id)?.options[key], fallback: key))
+            parts.append(option(editor.componentDescriptor(id)?.options[key], fallback: key, strings: editor.strings))
         } else if target.path.first == "island-root" {
             parts.append(String(localized: "Island"))
-            parts.append(option(editor.islandRootOptions[key], fallback: key))
+            parts.append(option(editor.islandRootOptions[key], fallback: key, strings: editor.strings))
         } else if target.path.first == "drawer", target.path.count > 2 {
             parts.append(ShellBarLayout.title(of: target.path[1]))
             parts.append(drawerSetting(key))
@@ -38,12 +35,8 @@ enum ShellDesktopWriteTitle {
         return parts.joined(separator: " · ")
     }
 
-    private static func option(_ option: ShellComponentOption?, fallback: String) -> String {
-        guard let option else { return ShellWidgetSettingsModel.title(fallback) }
-        return String(localized: LocalizedStringResource(
-            String.LocalizationValue(option.title), table: ShellLocalizer.table,
-            bundle: .atURL(Bundle.module.bundleURL)
-        ))
+    private static func option(_ option: ShellComponentOption?, fallback: String, strings: ShellStrings) -> String {
+        option.map { strings.title($0.title) } ?? ShellWidgetSettingsModel.title(fallback)
     }
 
     private static func setting(_ key: String) -> String {

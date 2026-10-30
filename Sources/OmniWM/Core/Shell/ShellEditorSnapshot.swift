@@ -12,10 +12,11 @@ struct ShellEditorSnapshot: Equatable, Sendable {
     let islandProblem: String?
     let descriptors: [String: ShellComponentDescriptor]
     let componentTitles: [String: String]
+    let style: ShellStyle
 
     init(
         config: ShellConfig, layout: ShellBarLayout, schemas: [String: ShellRootSettings], themes: [String],
-        island: ShellConfigurationCatalog?, islandProblem: String? = nil
+        island: ShellConfigurationCatalog?, islandProblem: String? = nil, style: ShellStyle? = nil
     ) {
         self.config = config
         self.layout = layout
@@ -23,10 +24,12 @@ struct ShellEditorSnapshot: Equatable, Sendable {
         self.themes = themes
         self.island = island
         self.islandProblem = islandProblem
+        self.style = style ?? ShellStyle(name: config.profile)
         descriptors = island?.descriptors ?? [:]
         componentTitles = ShellIslandTitles.titles(
             components: config.island?.components ?? [],
-            descriptors: descriptors
+            descriptors: descriptors,
+            strings: self.style.strings
         )
     }
 }
@@ -57,7 +60,10 @@ final class ShellEditorSnapshotCache {
             return previous
         }
         let listing = try await writer.perform { directory in
-            (ShellBarLayout(config: config, shellDirectory: directory), ShellProfiles.themes(of: config))
+            (
+                ShellBarLayout(config: config, shellDirectory: directory), ShellProfiles.themes(of: config),
+                ShellStyle.load(config.profile, in: directory)
+            )
         }
         let schemas = if let previous { previous.schemas } else {
             try await catalog.settings(
@@ -68,7 +74,7 @@ final class ShellEditorSnapshotCache {
         let island = await islandMetadata(for: config, reusing: previous, loader: catalog)
         let snapshot = ShellEditorSnapshot(
             config: config, layout: listing.0, schemas: schemas, themes: listing.1,
-            island: island.catalog, islandProblem: island.problem
+            island: island.catalog, islandProblem: island.problem, style: listing.2
         )
         entries[config.profile] = Entry(generation: generation, metadata: metadata, snapshot: snapshot)
         return snapshot

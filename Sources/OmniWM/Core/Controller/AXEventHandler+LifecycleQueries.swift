@@ -1,6 +1,7 @@
 // SPDX-License-Identifier: GPL-2.0-only
 // Copyright (C) 2026 OmniNull — https://github.com/OmniNull/OmniWM
 
+import ApplicationServices
 import Foundation
 
 extension AXEventHandler {
@@ -50,6 +51,32 @@ extension AXEventHandler {
                 throw LifecycleQueryError.unavailable
             }
             return result[$0]
+        }
+
+        var probe: @MainActor (AXWindowRef, Thread?) async -> Bool = {
+            await LifecycleQueries.probeAXElement($0, on: $1)
+        }
+
+        @MainActor
+        static func probeAXElement(
+            _ axRef: AXWindowRef,
+            on worker: Thread?,
+            setTimeout: @escaping @Sendable (AXWindowRef, Float) -> AXError = {
+                AXUIElementSetMessagingTimeout($0.element, $1)
+            },
+            readRole: @escaping @Sendable (AXWindowRef) -> AXError = { axRef in
+                var role: CFTypeRef?
+                return AXUIElementCopyAttributeValue(axRef.element, kAXRoleAttribute as CFString, &role)
+            }
+        ) async -> Bool {
+            guard let worker else { return false }
+            return (try? await worker.runInLoop(timeout: .seconds(AXManager.perAppTimeout)) { job in
+                let timeoutResult = setTimeout(axRef, Float(AXManager.perAppTimeout))
+                guard timeoutResult == .success else { return timeoutResult == .invalidUIElement }
+                defer { _ = setTimeout(axRef, 0) }
+                try job.checkCancellation()
+                return readRole(axRef) == .invalidUIElement
+            }) ?? false
         }
 
         var pending: [LifecycleQuery] = []
@@ -176,13 +203,28 @@ extension AXEventHandler {
         }
         guard !Task.isCancelled, lifecycleQueries.active?.sequence == request.sequence else { return }
         guard isCurrentLifecycleCreate(request) else { return }
-        let appliedIdentity = lifecycleQueries.active?.destructionIdentity ?? identity
+        var appliedIdentity = lifecycleQueries.active?.destructionIdentity ?? identity
+        // Some apps (WhatsApp) keep a closed window alive, ordered out, in the WindowServer and
+        // post `closed` only on next activation. A dead AX element is the authoritative signal.
+        var closedButRetained = false
+        if case .spaceDestroyed = request.kind, info?.isOrderedIn == false,
+           let axRef = appliedIdentity.axRef, let token = appliedIdentity.token
+        {
+            let invalid = await lifecycleQueries.probe(axRef, AppAXContextRegistry.contexts[token.pid]?.axThread)
+            guard !Task.isCancelled, lifecycleQueries.active?.sequence == request.sequence else { return }
+            appliedIdentity = lifecycleQueries.active?.destructionIdentity ?? identity
+            closedButRetained = invalid && CFEqual(appliedIdentity.axRef?.element, axRef.element)
+        }
         lifecycleQueries.active = nil
-        applyLifecycleObservation(request, identity: appliedIdentity, observedAtSeq: observedAtSeq, windowInfo: info)
+        applyLifecycleObservation(
+            request, identity: appliedIdentity, observedAtSeq: observedAtSeq,
+            windowInfo: info, closedButRetained: closedButRetained
+        )
     }
 
     private func applyLifecycleObservation(
-        _ request: LifecycleQuery, identity: LifecycleIdentity, observedAtSeq: UInt64, windowInfo: WindowServerInfo?
+        _ request: LifecycleQuery, identity: LifecycleIdentity, observedAtSeq: UInt64,
+        windowInfo: WindowServerInfo?, closedButRetained: Bool = false
     ) {
         guard let controller, !controller.isOwnedWindow(windowNumber: Int(request.windowId)) else { return }
         let current = controller.workspaceManager.entry(forWindowId: Int(request.windowId))
@@ -204,7 +246,7 @@ extension AXEventHandler {
             else { return }
             if case .spaceDestroyed = request.kind {
                 guard current?.hiddenState == identity.hiddenState else { return }
-                guard windowInfo == nil else { return }
+                guard windowInfo == nil || closedButRetained else { return }
                 cancelFrameObservation(windowId: request.windowId)
                 guard current?.hiddenState == nil else { return }
             }

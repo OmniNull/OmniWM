@@ -49,7 +49,7 @@ a {
   text-align: center;
 }
 
-.section-head h2 {
+.section-head :is(h1, h2) {
   font-size: clamp(26px, 4vw, 36px);
   line-height: 1.15;
   margin: 0 0 12px;

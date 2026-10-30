@@ -45,6 +45,7 @@ struct ShellBarStyle: Equatable, Sendable {
     var inactive: Double = -1
     var position = "top"
     var vertical = false
+    var fullWidth = false
     var notch = "moveBelowMenuBar"
     var notchWidth: Double = 0
     var level = "statusBar"
@@ -76,6 +77,7 @@ struct ShellBarStyle: Equatable, Sendable {
             ("inactive", { $0.number(inactive) }),
             ("position", { $0.string(position) }),
             ("vertical", { $0.bool(vertical) }),
+            ("fullWidth", { $0.bool(fullWidth) }),
             ("notch", { $0.string(notch) }),
             ("notchWidth", { $0.number(notchWidth) }),
             ("level", { $0.string(level) }),
@@ -137,16 +139,18 @@ struct ShellBarDrag: Equatable, Sendable {
 
 struct ShellBarData: Equatable, Sendable {
     var monitor = ""
+    var monitorId = ""
     var island = WorkspaceBarIslandSlice.all
     var badges = "off"
     var style = ShellBarStyle()
+    var barEnabled = true
     var workspaces: [ShellBarWorkspace] = []
     var scratchpads: [ShellBarScratchpad] = []
     var drag: ShellBarDrag?
     var surface: ShellIslandData?
 
     func write(to writer: inout ShellValueWriter) {
-        writer.map(7)
+        writer.map(8)
         writer.key("drag")
         if let drag {
             drag.write(to: &writer)
@@ -155,12 +159,14 @@ struct ShellBarData: Equatable, Sendable {
         }
         writer.key("monitor")
         writer.string(monitor)
+        writer.key("monitorId")
+        writer.string(monitorId)
         writer.key("island")
         writer.string(island.rawValue)
         writer.key("badges")
         writer.string(badges)
         writer.key("style")
-        style.write(to: &writer)
+        (barEnabled ? style : nil).map { $0.write(to: &writer) } ?? writer.null()
         writer.key("workspaces")
         writer.array(workspaces.count)
         for workspace in workspaces {
@@ -235,7 +241,7 @@ struct ShellBarData: Equatable, Sendable {
 extension ShellBarData {
     func displayChanged(from previous: ShellBarData?) -> Bool {
         guard let previous else { return true }
-        if monitor != previous.monitor || style.height != previous.style.height
+        if monitor != previous.monitor || monitorId != previous.monitorId || style.height != previous.style.height
             || style.vertical != previous.style.vertical || style.notchWidth != previous.style.notchWidth
         {
             return true

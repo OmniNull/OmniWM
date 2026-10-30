@@ -63,6 +63,7 @@ final class ShellWidgetSurface {
     let motionPolicy: MotionPolicy
     var animates = false
     var drawsRootMaterial = false
+    var glassShapeHandles: [ElementHandle] = []
     var symbolImages: [SymbolKey: CGImage] = [:]
     var iconImages: [IconKey: CGImage] = [:]
     var pointer: CGPoint?
@@ -94,12 +95,29 @@ final class ShellWidgetSurface {
     var presenceRecipes: [UInt32: ShellPresenceRecipe] = [:]
     var gestureTrackRecipes: [UInt32: ShellGestureTrackRecipe] = [:]
     var gestureTracking: ShellTrackedGesture?
+    var manipulation: ShellManipulationState? {
+        didSet { followChangeSnapshot = nil }
+    }
+
+    var manipulationTargets: [ElementHandle: ElementHandle] = [:]
+    var selectedManipulation = ElementHandle.none
+    var follows: [ElementHandle: ShellManipulationFollow] = [:] {
+        didSet { followChangeSnapshot = nil }
+    }
+
+    var followChangeSnapshot: [ShellFollowChange]?
+    var boundShapes: [ElementHandle: ShellBoundDeclaration] = [:]
+    var reveals: [ElementHandle: ShellRevealRoot] = [:]
+    var retiringReveals: [ShellLayerIdentity: ShellReveal] = [:]
+    var revealTokens: UInt64 = 0
+    var clock: () -> CFTimeInterval = CACurrentMediaTime
     var gesturePosition = CGPoint.zero
     var gesturePointer = CGPoint.zero
     var sliding = ElementHandle.none
     var dragStart: (handle: ElementHandle, point: CGPoint)?
     var dragging = false
     var textInputs: [ElementHandle: ShellTextInput] = [:]
+    var inputAppearances: [ElementHandle: ShellOwnedInputAppearance] = [:]
     weak var text: ShellTextStore?
 
     struct SymbolKey: Hashable {
@@ -133,6 +151,7 @@ final class ShellWidgetSurface {
     let directories: [URL]
     let shaderDirectories: [URL]
     var shaders: [Int32: ShaderBinding] = [:]
+    var effects: [Int32: EffectBinding] = [:]
     var assetImages: [Int32: AssetImageBinding] = [:]
     var assetFolders: [String: URL] = [:] {
         didSet {
@@ -167,6 +186,16 @@ final class ShellWidgetSurface {
         scene = ShellLayerScene(container: container, scale: scale)
         self.scale = scale
         view.surface = self
+        let settled: @MainActor @Sendable (Int32, UInt64, UInt64) -> Void = { [weak self] slot, token, _ in
+            self?.manipulationSettled(slot, token: token)
+        }
+        let revealed: @MainActor @Sendable (Int32, UInt64) -> Void = { [weak self] slot, token in
+            self?.revealSettled(slot, token: token)
+        }
+        ShellLayerScene.engineQueue.async { [scene] in
+            scene.onManipulationSettled = settled
+            scene.presence.onRevealSettled = revealed
+        }
     }
 
     isolated deinit {
@@ -200,6 +229,7 @@ extension ShellWidgetSurface {
 
     @discardableResult
     func apply(_ output: [UInt8], text: ShellTextStore, gestureAcknowledgement: UInt64 = 0) -> Bool {
+        let followerExits = followerExitBindings()
         guard layout.apply(output, text: text) else {
             acknowledgeGesture(through: gestureAcknowledgement)
             return false
@@ -216,11 +246,27 @@ extension ShellWidgetSurface {
         if focusAxis != nil, !layout.core.contains(focused) {
             focused = focusLines().items.first ?? .none
         }
-        var commands = commands(text: text)
+        var commands = followerExits.compactMap { target, followers -> ShellLayerCommand? in
+            let retiring = followers.filter { !layout.core.contains($0.shape) }
+            return layout.core.contains(target) || retiring.isEmpty ? nil
+                : .followExit(target: target.slot, followers: retiring)
+        }
+        if manipulation == nil, layout.core.contains(selectedManipulation) {
+            commands.append(.raise(slot: selectedManipulation.slot, false))
+            selectedManipulation = .none
+        }
+        reconcileOwnedEditorFocus()
+        commands += self.commands(text: text)
         reconcileResourceDrop()
         updateHover(into: &commands, reapply: true)
+        let receipt = finishManipulationLayout(through: gestureAcknowledgement, commands: &commands)
+        appendFollow(into: &commands)
         appendGestureAcknowledgement(gestureAcknowledgement, into: &commands)
-        scene.submit(commands, animated: animates && motionPolicy.animationsEnabled)
+        scene.submit(commands, animated: animates && motionPolicy.animationsEnabled) { [weak self] in
+            if let receipt {
+                DispatchQueue.main.async { [weak self] in self?.manipulationApplied(receipt) }
+            }
+        }
         animates = true
         onMove?()
         return true
@@ -228,10 +274,12 @@ extension ShellWidgetSurface {
 
     var failedShader: ShellShaderProgram? {
         shaders.values.lazy.map(\.program).first { $0.failure != nil }
+            ?? effects.values.lazy.map(\.program).first { $0.failure != nil }
     }
 
     func refreshShaders(includingAssets: Bool = true) {
-        guard !shaders.isEmpty else { return }
+        scene.submit([.spectrumMotion(motionPolicy.snapshot())], animated: false)
+        guard !shaders.isEmpty || !effects.isEmpty else { return }
         var commands: [ShellLayerCommand] = []
         for (slot, binding) in shaders where layout.core.contains(binding.handle)
             && (includingAssets || !binding.source.hasPrefix(ShellAsset.prefix))
@@ -249,6 +297,8 @@ extension ShellWidgetSurface {
                 input: shaderInput(layout.core.content(of: binding.handle))
             ))
         }
+        if let text { commands += effectCommands(text: text, refresh: true) }
+        commands += effectNeutralCommands()
         scene.submit(commands, animated: false)
     }
 
@@ -279,20 +329,26 @@ extension ShellWidgetSurface {
     func setRootBleed(_ bleed: Insets) {
         guard bleed != layout.core.rootBleed, let text else { return }
         layout.setRootBleed(bleed)
-        scene.submit(commands(text: text), animated: false)
+        var commands = commands(text: text)
+        appendFollow(into: &commands)
+        scene.submit(commands, animated: false)
     }
 
     func setRootLimit(_ limit: CGSize?) {
         let size = limit.map { Size2(width: Float($0.width), height: Float($0.height)) }
             ?? Size2(width: .infinity, height: .infinity)
         guard size != layout.core.rootLimit else { return }
+        cancelManipulation(reason: "display-changed", immediate: true)
+        finishSettle()
         layout.setRootLimit(size)
         guard let text else { return }
-        scene.submit(commands(text: text), animated: false)
+        var commands = commands(text: text)
+        appendFollow(into: &commands)
+        scene.submit(commands, animated: false)
     }
 
     var animatesShaders: Bool {
-        shaders.values.contains { binding in
+        effects.values.contains { $0.recipe.rate > 0 } || shaders.values.contains { binding in
             layout.core.contains(binding.handle) && shaderInput(layout.core.content(of: binding.handle)).rate > 0
         }
     }
@@ -311,6 +367,8 @@ extension ShellWidgetSurface {
             cancelResourceDrop()
             pointer = nil
             cancelInput()
+            finishSettle()
+            finishReveals()
             let hadDeclaredFocus = declaredFocus
             blurDeclaredFocus()
             if !hadDeclaredFocus { onFocusChange?(false) }
@@ -325,11 +383,18 @@ extension ShellWidgetSurface {
         updateResourceDropRegistration(false)
         clearResourceImages()
         cancelInput()
+        finishSettle()
+        follows.removeAll()
+        boundShapes.removeAll()
+        reveals.removeAll()
+        retiringReveals.removeAll()
         blurDeclaredFocus()
         for input in textInputs.values { input.remove() }
         textInputs.removeAll(keepingCapacity: true)
+        inputAppearances.removeAll(keepingCapacity: true)
         self.text = text
         layout.reset()
+        glassShapeHandles.removeAll(keepingCapacity: true)
         hasHoverHandlers = false
         gestureTrackRecipes.removeAll(keepingCapacity: true)
         presenceRecipes.removeAll(keepingCapacity: true)

@@ -216,6 +216,20 @@ final class ShellWidgetBarLifecycleTests: XCTestCase {
         manager.cleanup()
     }
 
+    func testTheHostWatchesTheFontsFolderOfEveryLayer() async throws {
+        executionTimeAllowance = 60
+        let manager = makeManager()
+        defer { manager.cleanup() }
+        manager.apply([barSurface()])
+        await waitForShellWidgets(manager)
+        let host = try XCTUnwrap(manager.shellHost)
+        XCTAssertFalse(host.config.directories.isEmpty)
+        let watched = Set(host.watchedPaths)
+        for folder in ShellFontLibrary.folders(host.config.directories) {
+            XCTAssertTrue(watched.contains(folder), folder.path)
+        }
+    }
+
     func testABarSlotOpensTheHiddenBarMenuWithoutAPopout() async throws {
         executionTimeAllowance = 60
         let screen = try XCTUnwrap(NSScreen.screens.first)
@@ -1521,6 +1535,98 @@ final class ShellWidgetClickTests: XCTestCase {
         XCTAssertFalse(ShellProfiles.names(in: harness.root.appendingPathComponent("shell")).contains("lib"))
     }
 
+    func testLinkedSharedLibraryEditsAndRetargetingReloadTheWidgetThroughNativeObservation() async throws {
+        let harness = try harness(
+            "function render(ctx) return ui.box{ w = require(\"../lib/size\"), h = 10 } end",
+            files: [
+                "shell.toml": "profile = \"look\"\nprofiles.look.trailing = [\"test\"]\n",
+                "look/lib/size.luau": "return 12"
+            ]
+        )
+        defer { harness.close() }
+        var layoutChanges = harness.layoutChanges.makeAsyncIterator()
+        while harness.slot?.size.width != 12 {
+            try await layoutChanges.change()
+        }
+        let first = harness.root.appendingPathComponent("first", isDirectory: true)
+        let second = harness.root.appendingPathComponent("second", isDirectory: true)
+        for folder in [first, second] {
+            try FileManager.default.createDirectory(at: folder, withIntermediateDirectories: true)
+        }
+        try Data("return 34".utf8).write(to: first.appendingPathComponent("size.luau"))
+        try Data("return 67".utf8).write(to: second.appendingPathComponent("size.luau"))
+        let link = harness.root.appendingPathComponent("shell/lib", isDirectory: true)
+        for (index, width) in [34, 45, 56, 67, 78].enumerated() {
+            switch index {
+            case 0:
+                try FileManager.default.createSymbolicLink(at: link, withDestinationURL: first)
+                harness.host.rescan()
+            case 1,
+                 2:
+                try Data("return \(width)".utf8).write(
+                    to: first.appendingPathComponent("size.luau"), options: index == 2 ? .atomic : []
+                )
+            case 3:
+                try FileManager.default.removeItem(at: link)
+                try FileManager.default.createSymbolicLink(at: link, withDestinationURL: second)
+            default:
+                try Data("return \(width)".utf8).write(to: second.appendingPathComponent("size.luau"))
+            }
+            let deadline = ContinuousClock.now + .seconds(10)
+            while harness.slot?.size.width != CGFloat(width), ContinuousClock.now < deadline {
+                try await Task.sleep(for: .milliseconds(20))
+            }
+            XCTAssertEqual(harness.slot?.size.width, CGFloat(width))
+            guard harness.slot?.size.width == CGFloat(width) else { return }
+            XCTAssertTrue(harness.host.observation?.isUsingNativeObservation == true)
+        }
+    }
+
+    func testMissingLinkedLibraryTargetsRecoverAndReloadThroughNativeObservation() async throws {
+        for relative in [false, true] {
+            let harness = try harness(
+                "function render(ctx) return ui.box{ w = require(\"../lib/size\"), h = 10 } end",
+                files: [
+                    "shell.toml": "profile = \"look\"\nprofiles.look.trailing = [\"test\"]\n",
+                    "look/lib/size.luau": "return 12"
+                ]
+            )
+            let external = FileManager.default.temporaryDirectory.appendingPathComponent(UUID().uuidString)
+            defer {
+                harness.close()
+                try? FileManager.default.removeItem(at: external)
+            }
+            try FileManager.default.createDirectory(at: external, withIntermediateDirectories: true)
+            var layoutChanges = harness.layoutChanges.makeAsyncIterator()
+            while harness.slot?.size.width != 12 {
+                try await layoutChanges.change()
+            }
+            let target = external.appendingPathComponent("missing/lib", isDirectory: true)
+            let link = harness.root.appendingPathComponent("shell/lib", isDirectory: true)
+            let destination = relative ? "../../\(external.lastPathComponent)/missing/lib" : target.path
+            try FileManager.default.createSymbolicLink(atPath: link.path, withDestinationPath: destination)
+            harness.host.rescan()
+            XCTAssertTrue(harness.host.watchedPaths.contains(link))
+            for (index, width) in [34, 45, 12, 56, 78].enumerated() {
+                if index == 2 {
+                    try FileManager.default.removeItem(at: target)
+                } else {
+                    try FileManager.default.createDirectory(at: target, withIntermediateDirectories: true)
+                    try Data("return \(width)".utf8).write(
+                        to: target.appendingPathComponent("size.luau"), options: index == 4 ? .atomic : []
+                    )
+                }
+                let deadline = ContinuousClock.now + .seconds(10)
+                while harness.slot?.size.width != CGFloat(width), ContinuousClock.now < deadline {
+                    try await Task.sleep(for: .milliseconds(20))
+                }
+                XCTAssertEqual(harness.slot?.size.width, CGFloat(width), "relative link: \(relative), step: \(index)")
+                guard harness.slot?.size.width == CGFloat(width) else { break }
+                XCTAssertTrue(harness.host.observation?.isUsingNativeObservation == true)
+            }
+        }
+    }
+
     func testScrollsReachHandlersWithoutLosingDeltas() async throws {
         executionTimeAllowance = 60
         let harness = try harness("""
@@ -1863,7 +1969,7 @@ final class ShellWidgetClickTests: XCTestCase {
         defer { harness.close() }
         try Data("profiles.default.trailing = [\"test\", \"clock\"]\n".utf8)
             .write(to: harness.root.appendingPathComponent("shell/shell.toml"))
-        XCTAssertEqual(ShellDefaults.sync(into: harness.root.appendingPathComponent("shell")), [])
+        XCTAssertEqual(try ShellStyleFixture.prepare(into: harness.root.appendingPathComponent("shell")), [])
         harness.host.rescan()
         var layoutChanges = harness.layoutChanges.makeAsyncIterator()
         let clock = { harness.host.slots(for: Harness.monitor).first { $0.id == "clock" } }
@@ -1898,7 +2004,7 @@ final class ShellWidgetClickTests: XCTestCase {
             let harness = try harness("function render(ctx) return ui.box{ w = 10, h = 10 } end")
             defer { harness.close() }
             let shell = harness.root.appendingPathComponent("shell")
-            XCTAssertEqual(ShellDefaults.sync(into: shell), [], context)
+            XCTAssertEqual(try ShellStyleFixture.prepare(into: shell), [], context)
             let library = shell.appendingPathComponent("lib/look.luau")
             try FileManager.default.createDirectory(
                 at: library.deletingLastPathComponent(), withIntermediateDirectories: true
@@ -2315,7 +2421,7 @@ final class ShellWidgetClickTests: XCTestCase {
         profiles.default.center = []
         profiles.default.trailing = []
         """.utf8).write(to: harness.root.appendingPathComponent("shell/shell.toml"))
-        XCTAssertEqual(ShellDefaults.sync(into: harness.root.appendingPathComponent("shell")), [])
+        XCTAssertEqual(try ShellStyleFixture.prepare(into: harness.root.appendingPathComponent("shell")), [])
         harness.host.rescan()
         var layoutChanges = harness.layoutChanges.makeAsyncIterator()
         while harness.host.slots(for: Harness.monitor).count < 2 {
@@ -2363,7 +2469,7 @@ final class ShellWidgetClickTests: XCTestCase {
         """.utf8).write(to: side.appendingPathComponent("init.luau"))
         try Data("profiles.default.leading = [\"workspaces\", \"test\"]\nprofiles.default.trailing = [\"side\"]\n".utf8)
             .write(to: harness.root.appendingPathComponent("shell/shell.toml"))
-        XCTAssertEqual(ShellDefaults.sync(into: harness.root.appendingPathComponent("shell")), [])
+        XCTAssertEqual(try ShellStyleFixture.prepare(into: harness.root.appendingPathComponent("shell")), [])
         harness.host.rescan()
         let placed = { (island: WorkspaceBarIslandSlice) in
             harness.host.slots(for: Harness.monitor).filter { $0.island == island }
@@ -2983,7 +3089,7 @@ final class ShellWidgetClickTests: XCTestCase {
         let clockWidth = { harness.host.slots(for: Harness.monitor).first { $0.id == "clock" }?.size.width ?? 0 }
         try Data("profiles.default.trailing = [\"test\", \"clock\"]\n".utf8)
             .write(to: harness.root.appendingPathComponent("shell/shell.toml"))
-        XCTAssertEqual(ShellDefaults.sync(into: harness.root.appendingPathComponent("shell")), [])
+        XCTAssertEqual(try ShellStyleFixture.prepare(into: harness.root.appendingPathComponent("shell")), [])
         harness.host.rescan()
         while clockWidth() == 0 {
             try await layoutChanges.change()
@@ -3108,6 +3214,59 @@ final class ShellWidgetClickTests: XCTestCase {
         XCTAssertNil(ShellAction("volume up loud"))
         XCTAssertEqual(ShellAction("shell toggle control"), .toggle(widget: "control"))
         XCTAssertNil(ShellAction("shell toggle"))
+        XCTAssertEqual(
+            ShellAction("shell trigger vitreus desk-open Built-in Retina Display"),
+            .trigger(widget: "vitreus", name: "desk-open", value: "Built-in Retina Display")
+        )
+        XCTAssertEqual(ShellAction("shell trigger vitreus desk"), .trigger(widget: "vitreus", name: "desk", value: nil))
+        XCTAssertNil(ShellAction("shell trigger vitreus"))
+        XCTAssertNil(ShellAction("shell trigger .x desk"))
+        XCTAssertNil(ShellAction("shell trigger a/b desk"))
+        XCTAssertNil(ShellAction("shell trigger vitreus desk!"))
+        XCTAssertNil(ShellAction("shell trigger vitreus desk " + String(repeating: "x", count: 4097)))
+        XCTAssertNotNil(ShellAction("shell trigger vitreus desk " + String(repeating: "x", count: 4096)))
+    }
+
+    func testOnClickShellTriggerReachesAnotherWidgetsTriggerAndReportsAMissingHook() async throws {
+        executionTimeAllowance = 60
+        let harness = try harness("""
+        function render(ctx)
+            return ui.row{
+                ui.box{ w = 20, h = 10, onClick = "shell trigger target width 17" },
+                ui.box{ w = 20, h = 10, onClick = "shell trigger test width 3" },
+            }
+        end
+        """, files: [
+            "shell.toml": "profiles.default.trailing = [\"test\", \"target\"]\n",
+            "widgets/target/init.luau": """
+            function render(ctx) return ui.box{ w = ctx.state.width or 5, h = 10 } end
+            function trigger(ctx, event)
+                if event.name == "width" then ctx.state.width = tonumber(event.value) end
+            end
+            """
+        ])
+        defer { harness.close() }
+        var layoutChanges = harness.layoutChanges.makeAsyncIterator()
+        while harness.host.slots(for: Harness.monitor).count < 2 {
+            try await layoutChanges.change()
+        }
+        let target = { harness.host.slots(for: Harness.monitor).first { $0.id == "target" } }
+        XCTAssertEqual(target()?.size.width, 5)
+        let surface = try harness.barSurface()
+        click(surface, at: CGPoint(x: 5, y: 5))
+        while target()?.size.width != 17 {
+            try await layoutChanges.change()
+        }
+        XCTAssertNil(harness.slot?.failure)
+        click(surface, at: CGPoint(x: 25, y: 5))
+        while harness.slot?.failure == nil {
+            try await layoutChanges.change()
+        }
+        XCTAssertTrue(
+            harness.slot?.failure?.message
+                .contains("shell trigger: no widget named \"test\" with a trigger hook") == true
+        )
+        XCTAssertTrue(harness.sink.commands.isEmpty)
     }
 
     func testToggleOpensAWidgetPopoutAtTheScreenEdgeWithoutABarSlot() async throws {
@@ -3596,7 +3755,7 @@ final class ShellWidgetClickTests: XCTestCase {
         )
         let harness = try harness(source, bars: [ShellBarKey(monitor: main): ShellBarData()])
         defer { harness.close() }
-        XCTAssertEqual(ShellDefaults.sync(into: harness.root.appendingPathComponent("shell")), [])
+        XCTAssertEqual(try ShellStyleFixture.prepare(into: harness.root.appendingPathComponent("shell")), [])
         harness.host.rescan()
         let items = (0 ..< 6).map {
             ShellHiddenBarItem(id: "com.example.\($0)#0", name: "\($0)", image: nil, width: 30, height: 16)

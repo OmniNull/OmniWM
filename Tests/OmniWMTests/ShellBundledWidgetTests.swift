@@ -16,7 +16,7 @@ final class ShellBundledWidgetTests: XCTestCase {
 
     override class func setUp() {
         super.setUp()
-        XCTAssertEqual(ShellDefaults.sync(into: styleShell), [])
+        XCTAssertEqual(try ShellStyleFixture.prepare(into: styleShell), [])
     }
 
     override class func tearDown() {
@@ -534,19 +534,36 @@ final class ShellBundledWidgetTests: XCTestCase {
     }
 
     func testStyleWidgetsRenderAndKeepTheirDefaultsBehaviour() throws {
-        let styles = try XCTUnwrap(ShellDefaults.bundledStyles)
         let variants = try [fullData(), fullData().filter { (Self.essentials + ["hiddenBar"]).contains($0.0) }]
             + [WorkspaceBarIslandSlice.active, .secondary].flatMap { island in
                 try [false, true].map { try fullData(island: island, vertical: $0) }
             }
-        for style in ["celestial", "nocturne", "wayline"] {
-            let widgets = styles.appendingPathComponent(style, isDirectory: true).appendingPathComponent("widgets")
+        for style in try ShellStyleFixture.names() {
+            let widgets = try ShellStyleFixture.source(style).appendingPathComponent("widgets")
             guard FileManager.default.fileExists(atPath: widgets.path) else { continue }
+            var problems: [String] = []
+            let config = try XCTUnwrap(ShellConfig.load(
+                profile: style,
+                shellDirectory: Self.styleShell,
+                problems: &problems
+            ))
+            XCTAssertEqual(problems, [], style)
             for name in try FileManager.default.contentsOfDirectory(atPath: widgets.path) {
-                let source = try String(
-                    contentsOf: widgets.appendingPathComponent("\(name)/init.luau"),
-                    encoding: .utf8
-                )
+                let folder = widgets.appendingPathComponent(name)
+                let entry = folder.appendingPathComponent("init.luau")
+                guard FileManager.default.fileExists(atPath: entry.path) else {
+                    XCTAssertTrue(FileManager.default
+                        .fileExists(atPath: folder.appendingPathComponent("component.luau").path))
+                    continue
+                }
+                let source = try String(contentsOf: entry, encoding: .utf8)
+                if config.island?.root == name {
+                    XCTAssertEqual(
+                        config.widget(name),
+                        Self.styleShell.appendingPathComponent("\(style)/widgets/\(name)/init.luau")
+                    )
+                    continue
+                }
                 for data in variants {
                     try renderStyle(style, widget: name, data: data)
                 }
@@ -657,7 +674,7 @@ final class ShellBundledWidgetTests: XCTestCase {
 
     func testHiddenBarStripLeavesItsSurfaceToTheNativeDrawer() throws {
         let data = try fullData { $0.style.height = 32 }
-        for style in ["default", "celestial", "lake", "matrix", "nocturne", "sakura", "wayline"] {
+        for style in [ShellDefaults.profile] + (try ShellStyleFixture.names()) {
             try renderStyle(style, widget: "hidden-bar", data: data, inspect: { view, nodes, _ in
                 guard view == OMNI_VIEW_POPOUT else { return }
                 let root = try XCTUnwrap(nodes.first, style)
@@ -781,7 +798,7 @@ final class ShellBundledWidgetTests: XCTestCase {
     }
 
     func testCelestialDashboardTabsRenderWithFullAndMissingData() throws {
-        let library = try XCTUnwrap(ShellDefaults.bundledStyles).appendingPathComponent("celestial/lib")
+        let library = ShellStyleFixture.directory.appendingPathComponent("celestial/lib")
         let defaults = try XCTUnwrap(ShellDefaults.bundled).appendingPathComponent("lib")
         var seen: Set<String> = []
         let modules = try [library, defaults].flatMap { directory in
@@ -819,7 +836,7 @@ final class ShellBundledWidgetTests: XCTestCase {
     }
 
     func testCelestialLibrariesBuildMorphableShapesAndGeometry() throws {
-        let library = try XCTUnwrap(ShellDefaults.bundledStyles).appendingPathComponent("celestial/lib")
+        let library = ShellStyleFixture.directory.appendingPathComponent("celestial/lib")
         let vm = try XCTUnwrap(ShellVM.make(memoryLimit: 8 << 20))
         defer { _ = omni_vm_destroy(vm) }
         for file in try FileManager.default.contentsOfDirectory(atPath: library.path) {

@@ -112,7 +112,8 @@ extension ShellWidgetHost {
                 anchor: click.anchor,
                 event: click.event,
                 widget: state.name,
-                command: command
+                command: command,
+                island: key.placement == .island
             ),
             for: state
         )
@@ -122,6 +123,9 @@ extension ShellWidgetHost {
         switch action {
         case let .wm(request): onCommand(request, origin)
         case let .volume(command): ShellAudio.perform(command, appVolumes: resources.appVolumes)
+        case let .microphone(command): ShellAudio.perform(command)
+        case let .brightness(command): resources.devices.brightness.perform(command)
+        case let .awake(command): resources.keepAwake(command)
         case let .media(command): resources.media?.perform(command)
         case let .calendar(command): resources.calendar?.perform(command)
         case let .reminders(command): resources.calendar?.perform(command)
@@ -157,15 +161,17 @@ extension ShellWidgetHost {
             }
         case let .toggle(widget):
             if !toggle(widget, on: origin.monitor) {
-                report(
-                    state,
-                    ShellScriptFailure(
-                        kind: .runtime,
-                        message: "shell toggle: no widget or drawer named \"\(widget)\""
-                    )
-                )
+                reportMissing("shell toggle: no widget or drawer named \"\(widget)\"", for: state)
+            }
+        case let .trigger(widget, name, value):
+            if !trigger(widget, name: name, value: value) {
+                reportMissing("shell trigger: no widget named \"\(widget)\" with a trigger hook", for: state)
             }
         }
+    }
+
+    private func reportMissing(_ message: String, for state: WidgetState) {
+        report(state, ShellScriptFailure(kind: .runtime, message: message))
     }
 
     var hiddenBarWidget: String? {

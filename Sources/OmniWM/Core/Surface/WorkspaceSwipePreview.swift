@@ -149,8 +149,19 @@ final class WorkspaceSwipePreview {
         sourceSnapshotLayer = nil
     }
 
+    func prefetch(shown: [Item], upcoming: [Item], monitor: Monitor, workingFrame: CGRect? = nil) {
+        let frame = workingFrame ?? monitor.visibleFrame
+        let missing = upcoming.filter { $0.frame.intersects(frame) && capture.preview(for: $0.handle) == nil }
+        guard panel != nil, !missing.isEmpty else { return }
+        reconcile(
+            source: shown, destination: missing, monitor: monitor, workingFrame: frame, warming: false,
+            firstFrameHandles: Set(missing.map(\.handle))
+        )
+    }
+
     private func reconcile(
-        source: [Item], destination: [Item], monitor: Monitor, workingFrame: CGRect?, warming: Bool
+        source: [Item], destination: [Item], monitor: Monitor, workingFrame: CGRect?, warming: Bool,
+        firstFrameHandles: Set<WindowHandle> = []
     ) {
         isWarming = false
         let frame = workingFrame ?? monitor.visibleFrame
@@ -168,7 +179,8 @@ final class WorkspaceSwipePreview {
             represented: represented,
             visible: requested.map { $0.captureRequest(backingScale: scale) },
             retainingUnrepresentedPreviews: true,
-            firstFrameOnly: warming
+            firstFrameOnly: warming,
+            firstFrameHandles: firstFrameHandles
         )
     }
 
@@ -230,6 +242,43 @@ final class WorkspaceSwipePreview {
             )
         )
         panel.orderFrontRegardless()
+        return true
+    }
+
+    func replace(source: [Item], destination: [Item], monitor: Monitor, workingFrame: CGRect? = nil) -> Bool {
+        guard let root = panel?.contentView?.layer, hasCaptureAccess(),
+              let wallpaperImage = backdrop.image(for: monitor)
+        else { return false }
+        let frame = workingFrame ?? monitor.visibleFrame
+        let source = source.filter { $0.frame.intersects(frame) }
+        let destination = destination.filter { $0.frame.intersects(frame) }
+        guard (source + destination).allSatisfy({ capture.preview(for: $0.handle) != nil }) else { return false }
+        reconcile(source: source, destination: destination, monitor: monitor, workingFrame: frame, warming: false)
+        guard (source + destination).allSatisfy({
+            tokens[$0.handle] == $0.handle.token && capture.preview(for: $0.handle) != nil
+        }) else { return false }
+
+        let previous = contents.values.flatMap { $0.map(\.preview) }
+        dropSourceSnapshot()
+        contents.removeAll()
+        CATransaction.begin()
+        CATransaction.setDisableActions(true)
+        CATransaction.setCompletionBlock { withExtendedLifetime(previous) {} }
+        let scale = Self.scale(for: monitor)
+        let sourceLayer = makeWorkspaceLayer(
+            source, monitor: monitor, frame: frame, scale: scale, image: wallpaperImage
+        )
+        let destinationLayer = makeWorkspaceLayer(
+            destination, monitor: monitor, frame: frame, scale: scale, image: wallpaperImage
+        )
+        destinationLayer.isHidden = true
+        self.sourceLayer?.removeFromSuperlayer()
+        self.destinationLayer?.removeFromSuperlayer()
+        root.addSublayer(sourceLayer)
+        root.addSublayer(destinationLayer)
+        self.sourceLayer = sourceLayer
+        self.destinationLayer = destinationLayer
+        CATransaction.commit()
         return true
     }
 

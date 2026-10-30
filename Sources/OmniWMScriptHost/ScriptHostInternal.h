@@ -12,6 +12,7 @@
 #include <memory>
 #include <string>
 #include <unordered_map>
+#include <utility>
 #include <vector>
 
 struct omni_instance;
@@ -78,14 +79,21 @@ struct omni_vm {
     uint64_t budget = 0;
     uint64_t callStartCPU = 0;
     uint64_t lastCallCPU = 0;
+    uint32_t encodeSteps = 0;
     bool inCall = false;
     bool latched = false;
     std::atomic<bool> pending{false};
     dispatch_source_t timer = nullptr;
     omni_localizer localizer = nullptr;
     void *localizerContext = nullptr;
+    omni_release localizerRelease = nullptr;
     omni_formatter formatter = nullptr;
     void *formatterContext = nullptr;
+    omni_measurer measurer = nullptr;
+    void *measurerContext = nullptr;
+    std::vector<std::pair<std::string, uint8_t>> fonts;
+    std::vector<std::string> unknownFonts;
+    bool longFontReported = false;
     omni_detail::ShellPackage package;
     omni_capture_stats capture{};
 };

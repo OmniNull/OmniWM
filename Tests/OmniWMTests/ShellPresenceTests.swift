@@ -61,12 +61,12 @@ final class ShellPresenceTests: XCTestCase {
             scene.layers.removeValue(forKey: 0)
             let retained = try XCTUnwrap(scene.presence.retained.values.first)
             XCTAssertTrue(retained.subtree === wrapper)
-            XCTAssertTrue(retained.animatedLayer === layer)
+            XCTAssertTrue(retained.animations.values.first?.layer === layer)
             XCTAssertTrue(child.superlayer === layer)
             XCTAssertTrue(wrapper.superlayer === container)
             XCTAssertEqual(layer.opacity, 0.3)
             XCTAssertNil(scene.layers[0])
-            return (retained.completion, wrapper)
+            return (try XCTUnwrap(retained.animations.values.first?.completion), wrapper)
         }
         state.0.animationDidStop(CAAnimation(), finished: true)
         let cleaned = ShellLayerScene.engineQueue.sync {
@@ -87,7 +87,7 @@ final class ShellPresenceTests: XCTestCase {
             scene.insertPresence(0, identity: identity(5))
             scene.setPresence(0, appear: nil, exit: recipe(opacity: 0))
             scene.retirePresence(0, subtree: old, animated: true)
-            let oldCompletion = try XCTUnwrap(scene.presence.retained.values.first?.completion)
+            let oldCompletion = try XCTUnwrap(scene.presence.retained.values.first?.animations.values.first?.completion)
             scene.forgetPresence(0)
             let replacement = CALayer()
             replacement.bounds.size = old.bounds.size
@@ -99,7 +99,7 @@ final class ShellPresenceTests: XCTestCase {
             scene.setPresence(0, appear: nil, exit: recipe(opacity: 0))
             scene.retirePresence(0, subtree: replacement, animated: true)
             let next = try XCTUnwrap(scene.presence.retained.values.first)
-            return (oldCompletion, next.completion, replacement)
+            return (oldCompletion, try XCTUnwrap(next.animations.values.first?.completion), replacement)
         }
         state.0.animationDidStop(CAAnimation(), finished: true)
         let survives = ShellLayerScene.engineQueue.sync {
@@ -203,7 +203,7 @@ final class ShellPresenceTests: XCTestCase {
                 scene.layers.removeValue(forKey: slot)
             }
             XCTAssertEqual(scene.presence.retained.count, 2)
-            return scene.presence.retained.values.map(\.completion)
+            return scene.presence.retained.values.flatMap { $0.animations.values.map(\.completion) }
         }
         scene.submit([.clearExits], animated: false)
         let cleared = ShellLayerScene.engineQueue.sync {
