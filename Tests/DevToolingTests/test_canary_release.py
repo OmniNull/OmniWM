@@ -230,6 +230,22 @@ class CanaryReleaseTests(unittest.TestCase):
         for skipped in ("readme only", "site only", "unicode docs", "side docs", "merge side docs"):
             self.assertNotRegex(text, rf"(?m)^- [0-9a-f]+ {skipped}$")
 
+    def test_ci_candidates_walk_back_over_docs_only_commits_to_the_app_commit(self):
+        self.repo.change("code", "Sources/a.swift")
+        code = self.repo.git("rev-parse", "HEAD")
+        self.repo.commit("empty")
+        self.repo.change("site", "website/a.md")
+        self.repo.git("switch", "-q", "-c", "side")
+        self.repo.change("readme", "README.md")
+        self.repo.git("switch", "-q", "main")
+        self.repo.git("merge", "-q", "--no-ff", "-m", "merge readme", "side")
+        log = self.repo.git("log", "--first-parent", "--format=%H").splitlines()
+        self.assertEqual(canary_release.ci_candidates(self.repo.path, log[0]), log[:log.index(code) + 1])
+        self.assertEqual(len(log[:log.index(code) + 1]), 4)
+        self.repo.change("more code", "Sources/b.swift")
+        head = self.repo.git("rev-parse", "HEAD")
+        self.assertEqual(canary_release.ci_candidates(self.repo.path, head), [head])
+
     def test_notes_without_any_tag_falls_back_to_recent_commits(self):
         self.repo.commit("first")
         text = canary_release.notes(str(self.repo.path))
@@ -321,6 +337,7 @@ class CanaryCITests(unittest.TestCase):
         }
         self.addCleanup(patch.stopall)
         self.git = patch.object(canary_release, "git", return_value=self.head).start()
+        patch.object(canary_release, "ci_candidates", return_value=[self.head]).start()
         self.api = patch.object(canary_release, "github_api", side_effect=lambda path: self.responses[path]).start()
 
     def test_uses_checked_out_head_instead_of_event_sha(self):
@@ -328,6 +345,17 @@ class CanaryCITests(unittest.TestCase):
             self.assertEqual(canary_release.verify_ci("checkout", self.repository), self.run)
         self.git.assert_called_once_with("checkout", "rev-parse", "HEAD")
         self.api.assert_any_call(self.runs_path)
+
+    def test_docs_only_head_uses_the_run_of_the_app_commit_under_it(self):
+        app = "b" * 40
+        app_path = self.runs_path.replace(self.head, app)
+        patch.object(canary_release, "ci_candidates", return_value=[self.head, app]).start()
+        self.responses[self.runs_path] = [{"workflow_runs": []}]
+        self.responses[app_path] = [{"workflow_runs": [{**self.run, "head_sha": app}]}]
+        self.assertEqual(canary_release.verify_ci("checkout", self.repository)["head_sha"], app)
+        self.responses[self.runs_path] = [{"workflow_runs": [{**self.run, "conclusion": "failure"}]}]
+        with self.assertRaisesRegex(canary_release.CanaryError, "has not succeeded"):
+            canary_release.verify_ci("checkout", self.repository)
 
     def test_missing_ci_is_rejected(self):
         self.responses[self.runs_path] = [{"workflow_runs": []}]
