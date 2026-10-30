@@ -166634,24 +166634,6 @@
     "A custom style you added." : {
 
     },
-    "A light bar with soft pink accents and a drifting-petal shader." : {
-
-    },
-    "A minimal bar and a customizable island for media, calendar, and more." : {
-
-    },
-    "A rounded bar with rich status widgets and deep colors." : {
-
-    },
-    "A structured bar with labeled workspaces and quick status controls." : {
-
-    },
-    "A terminal-inspired bar with green accents and a rain shader." : {
-
-    },
-    "A vertical bar with spacious app and workspace tiles." : {
-
-    },
     "A widget from the selected style or your shell folder." : {
 
     },
@@ -166701,9 +166683,6 @@
 
     },
     "Allows local commands and scripts to control OmniWM." : {
-
-    },
-    "Animation Phase" : {
 
     },
     "Another file occupies %@." : {
@@ -166756,9 +166735,6 @@
 
     },
     "Celsius" : {
-
-    },
-    "Character Size" : {
 
     },
     "Check app health and record a problem or performance capture." : {
@@ -166902,9 +166878,6 @@
     "Focus Ribbon" : {
 
     },
-    "Focus Ribbon uses your existing workspaces and window navigation. It does not use Lake’s component catalog." : {
-
-    },
     "Follows macOS appearance or uses the selected light or dark appearance." : {
 
     },
@@ -167012,9 +166985,6 @@
     "Latitude −90 to 90; longitude −180 to 180." : {
 
     },
-    "Liquid glass with a Desk for focus sessions and tasks." : {
-
-    },
     "Local time and an optional date." : {
 
     },
@@ -167034,9 +167004,6 @@
 
     },
     "Managed by Homebrew" : {
-
-    },
-    "Matrix Rain" : {
 
     },
     "Menu Bar" : {
@@ -167112,9 +167079,6 @@
     "Palette" : {
 
     },
-    "Petal Size" : {
-
-    },
     "Placement" : {
 
     },
@@ -167149,9 +167113,6 @@
 
     },
     "Reset this style’s bar settings?" : {
-
-    },
-    "Sakura Petals" : {
 
     },
     "Screen Edge" : {
@@ -167206,9 +167167,6 @@
 
     },
     "Support" : {
-
-    },
-    "Sweep Glow" : {
 
     },
     "Temperature" : {
@@ -172700,16 +172658,10 @@
     "Failed" : {
 
     },
-    "Intensity" : {
-
-    },
     "Loaded" : {
 
     },
     "Loading" : {
-
-    },
-    "Motion Speed" : {
 
     },
     "Move to" : {
@@ -172814,9 +172766,6 @@
           }
         }
       }
-    },
-    "Default includes Focus Ribbon; Lake includes an island with customizable widgets." : {
-
     },
     "Hover and Swipe" : {
 

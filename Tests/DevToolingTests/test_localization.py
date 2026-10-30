@@ -156,11 +156,11 @@ class LocalizationTests(unittest.TestCase):
             }
             catalog_path = root / "InfoPlist.xcstrings"
             catalog_path.write_text(json.dumps({**empty, "strings": strings}))
-            localization.validate_catalogs(root, plist, widgets=(root,))
+            localization.validate_catalogs(root, plist, widgets=(root,), styles=root)
             strings[localization.INFO_KEYS[0]]["localizations"]["en"] = unit("Wrong text")
             catalog_path.write_text(json.dumps({**empty, "strings": strings}))
             with self.assertRaisesRegex(ValueError, "must match Info.plist"):
-                localization.validate_catalogs(root, plist, widgets=(root,))
+                localization.validate_catalogs(root, plist, widgets=(root,), styles=root)
 
     def test_command_english_value_matches_compiler_default(self):
         with tempfile.TemporaryDirectory() as temporary:
@@ -261,6 +261,44 @@ class LocalizationTests(unittest.TestCase):
             plural = {"variations": {"plural": {"one": unit("%lld"), "other": unit("%lld")}}}
             with self.assertRaisesRegex(ValueError, "plural variations"):
                 localization.validate_shell_usage({"Wind %@": {"localizations": {"en": plural}}}, (widgets,))
+
+    def test_style_tables_need_english_for_used_keys_and_matching_formats(self):
+        with tempfile.TemporaryDirectory() as temporary:
+            styles = Path(temporary)
+            style = styles / "probe"
+            strings = style / "strings"
+            strings.mkdir(parents=True)
+            (style / "widget.luau").write_text(
+                'ui.text{ text = omniwm.l10n("Wind %@", speed) .. omniwm.l10n("Shared") }'
+            )
+            (style / "style.toml").write_text('title = "Probe"\nsummary = "A probe."\n')
+            shell = {"Shared": {}}
+            english = strings / "en.toml"
+            english.write_text('"Wind %@" = "Wind %@"\n')
+            translation = strings / "de.toml"
+            translation.write_text('"Wind %@" = "Wind %@"\n')
+            localization.validate_style_strings(styles, shell)
+            translation.write_text('"Wind %@" = "Wind %lld"\n')
+            with self.assertRaisesRegex(ValueError, "format differs"):
+                localization.validate_style_strings(styles, shell)
+            for unused in ('"Rain" = "Regen"\n', '"Probe" = "Sonde"\n'):
+                translation.write_text(unused)
+                with self.assertRaisesRegex(ValueError, "does not use"):
+                    localization.validate_style_strings(styles, shell)
+            (style / "widgets/converter").mkdir(parents=True)
+            (style / "widgets/converter/component.toml").write_text(
+                'title = "Image converter"\n[options.mode]\ntype = "choice"\ntitle = "Mode"\nchoices = ["ftop"]\n'
+            )
+            english.write_text('"Wind %@" = "Wind %@"\n"Mode" = "Mode"\n')
+            translation.write_text('"Image converter" = "Bildkonverter"\n"ftop" = "Oben"\n')
+            localization.validate_style_strings(styles, shell)
+            translation.unlink()
+            english.write_text('"Wind %@" = "Wind %lld"\n"Mode" = "Mode"\n')
+            with self.assertRaisesRegex(ValueError, "differs from key format"):
+                localization.validate_style_strings(styles, shell)
+            english.write_text('"Wind %@" = "Wind %@"\n')
+            with self.assertRaisesRegex(ValueError, "missing keys"):
+                localization.validate_style_strings(styles, shell)
 
     def test_shell_catalog_tracks_titles_from_both_widget_manifests(self):
         with tempfile.TemporaryDirectory() as temporary:

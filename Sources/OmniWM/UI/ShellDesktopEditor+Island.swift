@@ -19,7 +19,7 @@ extension ShellDesktopEditor {
     var islandKind: IslandKind? {
         guard let snapshot else { return nil }
         guard let island = snapshot.config.island else { return .absent }
-        if island.root == "focus-ribbon" { return .focusRibbon }
+        if island.root == ShellIslandConfig.focusRibbon { return .focusRibbon }
         if let problem = snapshot.islandProblem { return .unavailable(problem) }
         return snapshot.island?.settings == nil ? .styleDefined : .composed
     }

@@ -82,7 +82,7 @@ final class ShellDisabledComponentApprovalTests: XCTestCase {
                 onPopoutChange: {}, onTitleDemandChange: { _ in }
             )
             host.config.directories = [shell]
-            host.config.island = ShellIslandConfig(components: instances)
+            host.config.island = ShellIslandConfig(root: "lake", components: instances)
             state = ShellWidgetHost.WidgetState(name: "lake", sourceURL: root.appendingPathComponent("init.luau"))
             package = ShellWidgetPackage(
                 name: "lake", generation: 1, outbox: ShellWidgetOutbox { [weak host] in host?.receive($0) },

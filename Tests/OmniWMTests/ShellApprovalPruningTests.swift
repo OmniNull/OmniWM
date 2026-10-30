@@ -167,7 +167,7 @@ final class ShellApprovalPruningTests: XCTestCase {
         let host = makeHost()
         host.config.directories = [shell]
         host.config.island = ShellIslandConfig(
-            components: [ShellComponentInstance(id: "converter", widget: "converter")]
+            root: "lake", components: [ShellComponentInstance(id: "converter", widget: "converter")]
         )
         let state = ShellWidgetHost.WidgetState(name: "lake", sourceURL: rootSource)
         state.package = ShellWidgetPackage(

@@ -207,7 +207,7 @@ Use `reminders authorize` to request access, `reminders settings` to open Remind
 
 ## Logging and localization
 
-`omniwm.log(...)` sends diagnostic values to the macOS unified log’s `shell` category. Use it from a handler or lifecycle hook when diagnosing a widget. `omniwm.l10n(key, ...)` uses OmniWM’s localization catalog and optional format arguments. It accepts up to eight formatting arguments. For your own widget text, provide the string directly unless it corresponds to an existing catalog key.
+`omniwm.log(...)` sends diagnostic values to the macOS unified log’s `shell` category. Use it from a handler or lifecycle hook when diagnosing a widget. `omniwm.l10n(key, ...)` looks the key up in the style’s `strings/<locale>.toml` tables, then in OmniWM’s catalog, and formats up to eight arguments. For your own widget text, add the key to your style’s `strings/en.toml` and put translations beside it.
 
 <LuauDeclaration name="omniwm.log" />
 

@@ -12,8 +12,9 @@ enum ShellLocalizer {
 
     static let table = "Shell"
 
-    static let callback: omni_localizer = { _, key, keyLength, arguments, count, out, capacity in
+    static let callback: omni_localizer = { context, key, keyLength, arguments, count, out, capacity in
         guard let key, let out else { return 0 }
+        let strings = context.map { Unmanaged<ShellStrings>.fromOpaque($0).takeUnretainedValue() } ?? .empty
         let name = String(decoding: UnsafeRawBufferPointer(start: key, count: keyLength), as: UTF8.self)
         let values = (0 ..< count).map { index -> Argument in
             let argument = arguments![index]
@@ -23,7 +24,11 @@ enum ShellLocalizer {
                 as: UTF8.self
             ))
         }
-        return copy(string(name, values), into: out, capacity: capacity)
+        return copy(string(name, values, strings: strings), into: out, capacity: capacity)
+    }
+
+    static let release: omni_release = { context in
+        context.map { Unmanaged<ShellStrings>.fromOpaque($0).release() }
     }
 
     static func copy(_ text: String, into out: UnsafeMutablePointer<CChar>, capacity: Int) -> Int {
@@ -36,7 +41,10 @@ enum ShellLocalizer {
         return length
     }
 
-    static func string(_ key: String, _ arguments: [Argument], bundle: Bundle = .module) -> String {
+    static func string(
+        _ key: String, _ arguments: [Argument], strings: ShellStrings = .empty, bundle: Bundle = .module
+    ) -> String {
+        if let template = strings[key] { return format(template, arguments) }
         let missing = "\u{1}"
         let template = bundle.localizedString(forKey: key, value: missing, table: table)
         guard template != missing else { return key }
@@ -71,7 +79,7 @@ enum ShellLocalizer {
                 next += 1
             }
             let flags = String(String.UnicodeScalarView(modifiers.filter { !"hlqLztj".unicodeScalars.contains($0) }))
-            result += render(conversion, flags: flags, index < arguments.count ? arguments[index] : nil)
+            result += render(conversion, flags: flags, arguments.indices.contains(index) ? arguments[index] : nil)
         }
         return result
     }

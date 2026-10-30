@@ -41,7 +41,9 @@ actor ShellSettingsPreviewRenderer {
             let source = try ShellWidgetSourceLoader.build(input)
             let fonts = fontSets[source.fontFolders] ?? ShellFontLibrary.shared.fonts(in: source.fontFolders)
             fontSets[source.fontFolders] = fonts
-            guard let vm = ShellVM.make(memoryLimit: ShellWidgetPackage.memoryLimit, fonts: fonts) else {
+            guard let vm = ShellVM.make(
+                memoryLimit: ShellWidgetPackage.memoryLimit, fonts: fonts, strings: source.strings
+            ) else {
                 throw ShellScriptFailure(kind: .memory, message: "The preview could not create a script VM.")
             }
             defer { _ = omni_vm_destroy(vm) }
@@ -85,7 +87,7 @@ actor ShellSettingsPreviewRenderer {
             try Task.checkCancellation()
             do {
                 let source = try ShellWidgetSourceLoader.build(input)
-                guard let vm = ShellVM.make(memoryLimit: ShellWidgetPackage.memoryLimit) else {
+                guard let vm = ShellVM.make(memoryLimit: ShellWidgetPackage.memoryLimit, strings: source.strings) else {
                     throw ShellScriptFailure(kind: .memory, message: "The preview could not create a script VM.")
                 }
                 defer { _ = omni_vm_destroy(vm) }

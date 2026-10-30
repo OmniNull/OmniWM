@@ -107,10 +107,15 @@ extension ShellDesktopEditor {
         else { perform { try await write(value) } }
     }
 
+    var shaderValues: [Double] {
+        pending(barTarget("values", table: "barShader"), as: [Double].self) ?? snapshot?.config.barShader
+            .map { shader in
+                (0 ..< ShellBarShader.valueCount).map { Double(shader.values[$0]) }
+            } ?? []
+    }
+
     func setShaderValue(_ value: Double, at index: Int) {
-        let target = barTarget("values", table: "barShader")
-        var values = pending(target, as: [Double].self)
-            ?? snapshot?.config.barShader.map { shader in (0 ..< 4).map { Double(shader.values[$0]) } } ?? []
+        var values = shaderValues
         guard values.indices.contains(index) else { return }
         values[index] = value
         set(values, key: "values", table: "barShader", continuous: true)

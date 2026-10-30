@@ -27,7 +27,7 @@ Fonts in top-level `fonts/` and in `<profile>/fonts/` are available to that prof
 
 A profile is any other folder in the shell folder. Choose it in **Settings > Styles & Widgets** with **Use Style**, with `profile = "<name>"` in `shell.toml`, or with `omniwmctl shell profile <name>`. The **Palette** picker recolors the selected style and `omniwmctl shell theme <name>` the active profile, and that profile keeps the choice. Anything a profile does not contain comes from `default/`.
 
-The optional styles in the repository’s `styles/` folder are profiles that restyle the whole bar and its popouts, on the same data and commands as the default widgets. **wayline** has a 40 pt bar with coloured icon blocks, **nocturne** has 40 pt capsules and panels that hang from the bar, and **celestial** follows Caelestia: a 60 pt bar with shaped workspaces and a status pill, and a dashboard that drops from the top centre on hover with Dashboard, Media, Performance and Weather tabs. Celestial starts on the left; all styles support top, bottom, left and right placement, and their bar contents scale with the thickness setting. OmniWM no longer installs or updates them, and style folders you already have are left alone.
+The optional styles in the repository’s `styles/` folder are profiles that restyle the whole bar and its popouts, on the same data and commands as the default widgets. **wayline** has a 40 pt bar with coloured icon blocks, **nocturne** has 40 pt capsules and panels that hang from the bar, and **celestial** follows Caelestia: a 60 pt bar with shaped workspaces and a status pill, and a dashboard that drops from the top centre on hover with Dashboard, Media, Performance and Weather tabs. Celestial starts on the left; all styles support top, bottom, left and right placement, and their bar contents scale with the thickness setting.
 
 **matrix** is Rain Terminal: a dark green, monospace style with a continuous falling-code shader behind the full-width bar, compact numbered workspaces and matching square popouts. Choose **Matrix** in **Settings > Styles & Widgets**, then **Use Style** or run `omniwmctl shell profile matrix`. Its palette stays dark in both system appearances. Widgets retain their ordinary controls, including media transport, volume, calendar, weather and system details.
 
@@ -35,15 +35,13 @@ The optional styles in the repository’s `styles/` folder are profiles that res
 
 **vitreus** is liquid glass with a Desk on the right of each display, with Pad and Focus pages. Open it from the button at the end of the bar or with `omniwmctl shell trigger vitreus desk <display-id>`, using the `id` from `omniwmctl query displays` (for example `display:1`). Desk triggers accept display IDs, so displays with the same name remain separate; `desk-close` without an ID closes it everywhere. Drag the grip along its top to move the Desk, or a corner to shrink it to as little as half size. Drop it near its place, or click the grip there, and it springs back at full size; closing it does the same. The Desk needs **Settings > Styles & Widgets > Island > Show Dynamic Island**. Its palette stays dark. **Wallpaper Colors** in the **Palette** picker tints the glass with the wallpaper's colour, as Vitreus does, and its text and accent follow.
 
-## Install a style from the checkout
+## Installing styles
 
-Copy `styles/<name>/` from the OmniWM repository to `~/.config/omniwm/shell/<name>/`, or run this from the checkout:
+Install, update and remove styles from the style gallery in **Settings > Styles & Widgets**, then choose **Use Style**. Style folders you already have keep working.
 
-```sh
-python3 Scripts/styles.py install vitreus --to ~/.config/omniwm/shell
-```
+## Writing a style
 
-The script refuses to overwrite an existing folder. Choose the installed style in **Settings > Styles & Widgets > Use Style**. A gallery and installer are coming; no download is needed to keep using an installed style.
+A style's `style.toml` gives, in English, its title, summary, version (such as `1.0.0`) and the style API it was written for. OmniWM keeps Default when a style was written for another API or a newer OmniWM. Its `strings/<locale>.toml` files translate the text its widgets and options show; a missing translation falls back to the language, then English, then OmniWM's own strings.
 
 ## Profile settings
 

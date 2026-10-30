@@ -724,9 +724,13 @@ bool omni_vm_module_matches(const omni_vm *vm, const char *path, size_t path_len
     }
 }
 
-void omni_vm_set_localizer(omni_vm *vm, omni_localizer localizer, void *context) noexcept {
+void omni_vm_set_localizer(omni_vm *vm, omni_localizer localizer, void *context, omni_release release) noexcept {
+    if (vm->localizerRelease != nullptr) {
+        vm->localizerRelease(vm->localizerContext);
+    }
     vm->localizer = localizer;
     vm->localizerContext = context;
+    vm->localizerRelease = release;
 }
 
 void omni_vm_set_formatter(omni_vm *vm, omni_formatter formatter, void *context) noexcept {
@@ -788,6 +792,9 @@ omni_status omni_vm_destroy(omni_vm *vm) noexcept {
     } catch (...) {
     }
     destroyServices(vm);
+    if (vm->localizerRelease != nullptr) {
+        vm->localizerRelease(vm->localizerContext);
+    }
     delete vm;
     return OMNI_OK;
 }

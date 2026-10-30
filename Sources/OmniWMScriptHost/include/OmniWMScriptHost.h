@@ -71,7 +71,7 @@ typedef enum omni_status {
 #define OMNI_STYLE_QUARTER 0x100u
 #define OMNI_STYLE_FONT_SHIFT 9u
 #define OMNI_STYLE_FONT_MASK 0xFE00u
-#define OMNI_STYLE_FONT_CUSTOM 4u
+#define OMNI_STYLE_FONT_CUSTOM 3u
 #define OMNI_FONT_NAME_LIMIT 255u
 #define OMNI_STYLE_SIZE_SHIFT 16u
 
@@ -267,6 +267,7 @@ typedef struct omni_l10n_arg {
 } omni_l10n_arg;
 
 typedef size_t (*omni_localizer)(void *context, const char *key, size_t key_length, const omni_l10n_arg *args, size_t count, char *out, size_t capacity);
+typedef void (*omni_release)(void *context);
 
 #define OMNI_FORMAT_NUMBER 0u
 #define OMNI_FORMAT_PERCENT 1u
@@ -296,7 +297,7 @@ omni_vm *omni_vm_create(size_t memory_limit_bytes, const char *data_keys, size_t
 omni_status omni_vm_destroy(omni_vm *vm) OMNI_NOEXCEPT;
 omni_status omni_vm_load(omni_vm *vm, const char *chunk_name, const char *source, size_t source_length, uint64_t budget_ns, char *error, size_t error_capacity) OMNI_NOEXCEPT;
 void omni_vm_collect(omni_vm *vm) OMNI_NOEXCEPT;
-void omni_vm_set_localizer(omni_vm *vm, omni_localizer localizer, void *context) OMNI_NOEXCEPT;
+void omni_vm_set_localizer(omni_vm *vm, omni_localizer localizer, void *context, omni_release release) OMNI_NOEXCEPT;
 void omni_vm_set_formatter(omni_vm *vm, omni_formatter formatter, void *context) OMNI_NOEXCEPT;
 void omni_vm_set_measurer(omni_vm *vm, omni_measurer measurer, void *context) OMNI_NOEXCEPT;
 typedef struct omni_font_family {

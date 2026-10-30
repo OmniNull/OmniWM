@@ -73,7 +73,7 @@ struct ShellIslandInspector: View {
         Section("Actions") {
             ForEach(["clickTarget", "rightClickTarget", "swipeTarget"], id: \.self) { key in
                 if let option = editor.islandRootOptions[key] {
-                    Picker(option.title, selection: Binding(
+                    Picker(editor.strings.title(option.title), selection: Binding(
                         get: {
                             if case let .string(value)? = editor.islandRootValues[key] ?? option.defaultValue {
                                 value
@@ -169,7 +169,8 @@ private struct ShellIslandOptionRows: View {
                     let target = component.map { editor.componentTarget($0, key: key) } ?? editor.islandRootTarget(key)
                     ShellSettingsOptionRow(
                         key: key, option: option,
-                        value: editor.pending(target, as: ShellComponentValue.self) ?? values[key]
+                        value: editor.pending(target, as: ShellComponentValue.self) ?? values[key],
+                        strings: editor.strings
                     ) { value in
                         if let component {
                             editor.setComponentOption(
@@ -196,9 +197,6 @@ private struct ShellIslandOptionRows: View {
     }
 
     private func title(_ option: ShellComponentOption) -> String {
-        String(localized: LocalizedStringResource(
-            String.LocalizationValue(option.title), table: ShellLocalizer.table,
-            locale: locale, bundle: .atURL(Bundle.module.bundleURL)
-        ))
+        editor.strings.title(option.title, locale: locale)
     }
 }

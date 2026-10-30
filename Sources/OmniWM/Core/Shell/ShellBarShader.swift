@@ -5,6 +5,8 @@ import AppKit
 import TOML
 
 struct ShellBarShader: Equatable {
+    static let valueCount = SIMD4<Float>.scalarCount
+
     var source: String
     var fps = 30
     var values = SIMD4<Float>.zero
@@ -54,7 +56,7 @@ struct ShellBarShader: Equatable {
     }
 
     private static func parameters(_ node: TOMLNode) -> SIMD4<Float>? {
-        guard case let .array(nodes) = node, nodes.count <= 4 else { return nil }
+        guard case let .array(nodes) = node, nodes.count <= valueCount else { return nil }
         var values = SIMD4<Float>.zero
         for (index, node) in nodes.enumerated() {
             guard let value = ShellConfig.number(node), value.isFinite, Float(value).isFinite else { return nil }

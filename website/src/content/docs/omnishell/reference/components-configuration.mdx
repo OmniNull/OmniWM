@@ -159,7 +159,7 @@ Unchanged views keep their handlers while other components publish. Each unit re
 
 Option schemas support `boolean`, `number` (`min`, `max`, `step`), `string` (`maxLength`), `choice` (`choices`) and `strings`. Identity and capability fields are reserved. Native provider execution is not enabled merely by installing a component.
 
-Native Settings translates option titles through `Shell.xcstrings`; unrecognized custom titles are displayed as provided. The localization check includes bundled option titles from both `settings.toml` and `component.toml`.
+Native Settings translates option titles, choice labels and component titles through the style’s `strings` tables, then `Shell.xcstrings`; other titles are displayed as provided. The localization check covers option titles from both `settings.toml` and `component.toml` in Default and in every style in `styles/`.
 
 <LuauDeclaration name="ComponentCatalogEntry" />
 

@@ -24,9 +24,6 @@ struct ShellIslandEditorForm: View {
                     Text(
                         "Shows the focused app, workspace, and windows automatically. It expands as you switch workspaces or focus Niri windows."
                     )
-                    SettingsCaption(
-                        localized: "Focus Ribbon uses your existing workspaces and window navigation. It does not use Lake’s component catalog."
-                    )
                     Button("Edit Workspaces…") { navigation.request(SettingsRoute(section: .workspaces)) }
                 }
                 styleAppearance
@@ -52,9 +49,6 @@ struct ShellIslandEditorForm: View {
                 Section {
                     Label("No Island in This Style", systemImage: "capsule").font(.headline)
                     Text("This style has no Dynamic Island.")
-                    SettingsCaption(
-                        localized: "Default includes Focus Ribbon; Lake includes an island with customizable widgets."
-                    )
                 }
             case nil:
                 if editor.problem == nil {

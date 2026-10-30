@@ -39,7 +39,7 @@ final class ShellIslandPlacementTests: XCTestCase {
         let island = ShellBarKey(monitor: monitor.id, placement: .island)
         let root = state("lake")
         let other = state("clock")
-        host.config.island = ShellIslandConfig()
+        host.config.island = ShellIslandConfig(root: root.name)
         host.config.leading = ["lake", "clock"]
         host.bars = [bar: ShellBarData()]
         host.islandData = host.islandPlacements([DesiredIslandSurface(monitor: monitor, fullscreen: false)])
@@ -97,7 +97,7 @@ final class ShellIslandPlacementTests: XCTestCase {
         islandInstance.popoutDeps = ShellDataKey.spectrum.bit
         root.instances = [bar: barInstance, island: islandInstance]
         host.widgets = [root.name: root]
-        host.config.island = ShellIslandConfig()
+        host.config.island = ShellIslandConfig(root: root.name)
         host.islandData = host.islandPlacements([DesiredIslandSurface(monitor: monitor, fullscreen: false)])
         XCTAssertEqual(host.dataDemand, ShellDataKey.clock.bit | ShellDataKey.media.bit | ShellDataKey.spectrum.bit)
 
@@ -130,7 +130,7 @@ final class ShellIslandPlacementTests: XCTestCase {
         other.instances = [bar: barInstance]
         host.widgets = [root.name: root, other.name: other]
         host.config.leading = [other.name]
-        host.config.island = ShellIslandConfig()
+        host.config.island = ShellIslandConfig(root: root.name)
         host.bars = [bar: ShellBarData()]
         host.desiredIslands = [DesiredIslandSurface(monitor: monitor, fullscreen: false)]
         host.islandData = host.islandPlacements(host.desiredIslands)
@@ -220,7 +220,7 @@ final class ShellIslandPlacementTests: XCTestCase {
         let (stream, mailbox) = AsyncStream.makeStream(of: ShellWidgetMessage.self)
         root.mailbox = mailbox
         host.widgets = [root.name: root]
-        host.config.island = ShellIslandConfig()
+        host.config.island = ShellIslandConfig(root: root.name)
         host.config.island?.displays = .all
         host.desiredIslands = [DesiredIslandSurface(monitor: monitor, fullscreen: false)]
         source.bars = [key: bar(12, height: 32)]

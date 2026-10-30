@@ -171,14 +171,13 @@ final class ShellFontLibraryTests: XCTestCase {
 
     func testLayerCopiesOfABundledFamilyAreNeverRegistered() throws {
         let bundled = try XCTUnwrap(ShellDefaults.bundled).deletingLastPathComponent()
-            .appendingPathComponent("Fonts/Rubik.ttf")
-        let copy = try folder().appendingPathComponent("Rubik.ttf")
+            .appendingPathComponent("Fonts/GoogleSansFlex.ttf")
+        let copy = try folder().appendingPathComponent(bundled.lastPathComponent)
         try FileManager.default.copyItem(at: bundled, to: copy)
         XCTAssertEqual(ShellFontLibrary.shared.fonts(in: [copy.deletingLastPathComponent()]), ShellFontSet())
         XCTAssertEqual(ShellFontFixture.registered(copy), 0)
-        let rubik = ShellTextStyle.font(for: UInt32(ShellFontFamily.rubik.rawValue) << OMNI_STYLE_FONT_SHIFT)
-        XCTAssertEqual(CTFontCopyFamilyName(rubik) as String, "Rubik")
+        let sans = ShellTextStyle.font(for: ShellFontFamily.sans.rawValue << OMNI_STYLE_FONT_SHIFT)
+        XCTAssertTrue(ShellFontFamily.bundledFamilies.contains(CTFontCopyFamilyName(sans) as String))
         XCTAssertEqual(ShellFontFixture.registered(copy), 0)
-        XCTAssertTrue(ShellFontFamily.bundledFamilies.contains("Rubik"))
     }
 }

@@ -9,7 +9,7 @@ A Dynamic Island is a persistent surface whose root widget chooses compact, prev
 
 ## Enable and place an island
 
-Choose **Lake** or **Default** in **Settings > Styles & Widgets**, then open **Island**. Using a style changes the shared profile for the bar and island without changing either enable switch.
+Choose **Default**, or **Lake** once it is installed, in **Settings > Styles & Widgets**, then open **Island**. Using a style changes the shared profile for the bar and island without changing either enable switch.
 
 Lake’s **Island** tab provides **Add Widget…**, per-instance enable switches, drag to reorder, and **Remove**. Selecting an instance opens its options editor, which assigns it to Automatic, Main, Side, or Expanded Only placement and exposes its declared options. **Appearance** controls the island’s shape and colors; **Actions** and **Hover and Swipe** control click, right-click, hover, and swipe behavior, with motion tuning under **Advanced Motion**. **Placement** chooses displays, native fullscreen behavior, and advanced surface dimensions.
 
@@ -25,7 +25,7 @@ height = 300
 fullscreen = "hide"
 ```
 
-In the user shell file, use `[profiles.<profile>.island]` instead. An absent island table places no island. `root` defaults to `lake`; that widget must exist in a configured widgets folder. `displays` accepts `notch`, `main`, or `all`. `fullscreen` accepts `hide` (default) or `show`. Width and height are the fixed panel envelope in points, from 1 to 8192, clamped to each display. Change the Luau tree's size to expand or collapse its contents; the window does not resize with those transitions.
+In the user shell file, use `[profiles.<profile>.island]` instead. An absent island table places no island. `root` defaults to `focus-ribbon`; that widget must exist in a configured widgets folder. `displays` accepts `notch`, `main`, or `all`. `fullscreen` accepts `hide` (default) or `show`. Width and height are the fixed panel envelope in points, from 1 to 8192, clamped to each display. Change the Luau tree's size to expand or collapse its contents; the window does not resize with those transitions.
 
 ## Reserve space for authored islands
 
@@ -84,7 +84,7 @@ Default also includes **Focus Ribbon**. Turn on **Settings > Styles & Widgets > 
 
 ## Lake and configured instances
 
-The bundled `lake` profile draws its island in editable Luau. Its bar lanes remain independently configurable: custom bar widgets and an island can run together. The native **Show Dynamic Island** switch controls whether the island is present; selecting a profile does not turn it on. The profile uses a short hover dwell to show a preview, a click to expand, native button press feedback, an upward pointer/trackpad gesture to collapse, and outside press or Escape to dismiss. The primary capsule accepts keyboard focus on click in compact, preview and expanded modes. While focused, Left and Right cycle enabled components in configured order; Escape dismisses the expanded content and releases focus. Collapsing with a click or gesture may leave the compact capsule focused until Escape, blur or an outside press.
+The optional `lake` style draws its island in editable Luau. Its bar lanes remain independently configurable: custom bar widgets and an island can run together. The native **Show Dynamic Island** switch controls whether the island is present; selecting a profile does not turn it on. The profile uses a short hover dwell to show a preview, a click to expand, native button press feedback, an upward pointer/trackpad gesture to collapse, and outside press or Escape to dismiss. The primary capsule accepts keyboard focus on click in compact, preview and expanded modes. While focused, Left and Right cycle enabled components in configured order; Escape dismisses the expanded content and releases focus. Collapsing with a click or gesture may leave the compact capsule focused until Escape, blur or an outside press.
 
 These choices live in `widgets/lake/init.luau` and `lib/lake/intent.luau`, `policy.luau`, `slots.luau` and `motion.luau`. Replace them independently of `lib/lake/services/` to retain integrations. The profile requests gesture boundaries only; its UI does not run Luau for every pointer move. Native capture and automated tests do not establish perceived motion quality: hover dwell, press feel, trackpad direction and focus restoration still need a live check on the target display.
 

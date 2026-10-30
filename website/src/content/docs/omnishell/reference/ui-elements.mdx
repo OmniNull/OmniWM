@@ -42,7 +42,7 @@ ui.row{ gap = 8, pad = 10, radius = 12, fill = "surface",
 | Constructor / property | Behavior |
 |---|---|
 | `ui.text.text` | Displayed string. `style` selects body, bold, mono, small, caption, or rounded presentation. |
-| `font` | `system`, `sans` (Google Sans Flex), `rubik`, or `symbols`, or the family name of a font in a `fonts/` folder of the style, for example `"Space Grotesk"`; unknown names use the system font and are logged once. With `symbols`, `text` is a Material Symbols icon name and `filled = true` selects its filled style. |
+| `font` | `system`, `sans` (Google Sans Flex) or `symbols`, or the family name of a font in a `fonts/` folder of the style, for example `"Space Grotesk"`; unknown names use the system font and are logged once. With `symbols`, `text` is a Material Symbols icon name and `filled = true` selects its filled style. |
 | `size`, `weight`, `color` | Explicit font size in points, font weight, and [color](/omnishell/reference/layout-styling/#api-color). |
 | `maxWidth`, `lines` | Bound text width and line count; without explicit limits text uses its measured size. |
 | `reserve` | Measure a stable placeholder string instead of the displayed text, for example `reserve = "00:00:00"` for a clock. |

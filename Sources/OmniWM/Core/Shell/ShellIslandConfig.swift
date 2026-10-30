@@ -20,7 +20,9 @@ struct ShellIslandConfig: Equatable {
         case show
     }
 
-    var root = "lake"
+    static let focusRibbon = "focus-ribbon"
+
+    var root = Self.focusRibbon
     var displays = Displays.notch
     var width: CGFloat = 760
     var height: CGFloat = 300

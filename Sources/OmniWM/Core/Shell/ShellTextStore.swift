@@ -162,7 +162,6 @@ enum ShellTextMeasurer {
 
 enum ShellFontFamily: UInt32, CaseIterable {
     case sans = 1
-    case rubik
     case symbols
 
     static let bundledFamilies = Set(allCases.map(\.familyName))
@@ -185,7 +184,6 @@ enum ShellFontFamily: UInt32, CaseIterable {
         var axes = [ShellTextStyle.tag("wght"): weight, ShellTextStyle.tag("opsz"): size]
         switch self {
         case .sans: axes[ShellTextStyle.tag("ROND")] = 25
-        case .rubik: break
         case .symbols: axes[ShellTextStyle.tag("FILL")] = filled ? 1 : 0
         }
         return ShellTextStyle.font(family: familyName, size: size, axes: axes)
@@ -194,7 +192,6 @@ enum ShellFontFamily: UInt32, CaseIterable {
     private var familyName: String {
         switch self {
         case .sans: "Google Sans Flex"
-        case .rubik: "Rubik"
         case .symbols: "Material Symbols Rounded"
         }
     }

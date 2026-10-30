@@ -5,7 +5,7 @@ import AppKit
 import TOML
 
 enum ShellProfiles {
-    private static let reserved: Set<String> = ["widgets", "themes", "shaders", "lib", "fonts"]
+    private static let reserved: Set<String> = ["widgets", "themes", "shaders", "lib", "fonts", ShellStrings.folder]
 
     static func names(in shellDirectory: URL) -> [String] {
         let entries = (try? FileManager.default.contentsOfDirectory(
@@ -25,8 +25,17 @@ enum ShellProfiles {
         return [ShellDefaults.profile] + profiles
     }
 
+    static func problem(selecting name: String, in shellDirectory: URL) -> String? {
+        let folder = shellDirectory.appendingPathComponent(name)
+        guard ShellConfig.isName(name), FileManager.default.fileExists(atPath: folder.path) else {
+            return "shell.toml: no profile folder named \(name)"
+        }
+        return ShellStyleManifest.problem(in: folder).map { "\(name)/\($0)" }
+    }
+
     static func select(_ name: String, in shellDirectory: URL) throws -> Bool {
         guard names(in: shellDirectory).contains(name) else { throw CocoaError(.fileNoSuchFile) }
+        _ = try ShellStyleManifest.load(in: shellDirectory.appendingPathComponent(name))
         let original = try contents(in: shellDirectory)
         let present = try ShellTOMLText.contains(["profile"], in: original)
         guard present || name != ShellDefaults.profile else { return false }

@@ -55,6 +55,19 @@ final class ShellIslandTitlesTests: XCTestCase {
         )
     }
 
+    func testTheStyleStringsTranslateDescriptorTitlesBeforeOrdinalsAreAdded() {
+        let descriptor = descriptor()
+        let translated = "Uhr"
+        let strings = ShellStrings([descriptor.title: translated])
+        XCTAssertEqual(
+            ShellIslandTitles.titles(
+                components: [component("first", label: ""), component("second", label: "")],
+                descriptors: [descriptor.widget: descriptor], strings: strings
+            ),
+            ["first": "\(translated) 1", "second": "\(translated) 2"]
+        )
+    }
+
     private func component(_ id: String, label: String? = nil) -> ShellComponentInstance {
         .init(id: id, widget: "clock", options: label.map { ["label": .string($0)] } ?? [:])
     }

@@ -64,10 +64,14 @@ enum ShellDataKey: String, CaseIterable, Sendable {
 }
 
 enum ShellVM {
-    static func make(memoryLimit: Int, fonts: ShellFontSet = .init()) -> OpaquePointer? {
+    static func make(
+        memoryLimit: Int, fonts: ShellFontSet = .init(), strings: ShellStrings = .empty
+    ) -> OpaquePointer? {
         let keys = ShellDataKey.table
         guard let vm = keys.withCString({ omni_vm_create(memoryLimit, $0, keys.utf8.count) }) else { return nil }
-        omni_vm_set_localizer(vm, ShellLocalizer.callback, nil)
+        omni_vm_set_localizer(
+            vm, ShellLocalizer.callback, Unmanaged.passRetained(strings).toOpaque(), ShellLocalizer.release
+        )
         omni_vm_set_formatter(vm, ShellFormatter.callback, nil)
         omni_vm_set_measurer(vm, ShellTextMeasurer.callback, nil)
         guard setFonts(fonts, in: vm) == OMNI_OK else {

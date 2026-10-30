@@ -5,7 +5,7 @@ import Foundation
 import OmniWMScriptHost
 import Synchronization
 
-struct ShellScriptFailure: Error, Equatable, Sendable {
+struct ShellScriptFailure: LocalizedError, Equatable, Sendable {
     enum Kind: Equatable, Sendable {
         case compile
         case runtime
@@ -31,6 +31,10 @@ struct ShellScriptFailure: Error, Equatable, Sendable {
         default: .internalError
         }
         self.message = message
+    }
+
+    var errorDescription: String? {
+        message
     }
 }
 
@@ -242,7 +246,7 @@ actor ShellWidgetPackage {
     func load(_ source: ShellWidgetSource, validateOnly: Bool = false) async -> ShellScriptFailure? {
         guard !closing else { return ShellScriptFailure(kind: .internalError, message: "package is closed") }
         let fonts = ShellFontLibrary.shared.fonts(in: source.fontFolders)
-        guard let vm = ShellVM.make(memoryLimit: Self.memoryLimit, fonts: fonts) else {
+        guard let vm = ShellVM.make(memoryLimit: Self.memoryLimit, fonts: fonts, strings: source.strings) else {
             return ShellScriptFailure(kind: .internalError, message: "the script VM could not be created")
         }
         let loaded = ShellScript(vm: vm)

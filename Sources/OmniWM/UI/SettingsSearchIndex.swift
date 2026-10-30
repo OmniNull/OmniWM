@@ -384,7 +384,6 @@ extension SettingsSearchIndex {
                 "volume",
                 "drawer",
                 "dynamic island",
-                "lake",
                 "focus ribbon",
                 "components"
             ]

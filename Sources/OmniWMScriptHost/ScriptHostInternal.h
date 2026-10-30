@@ -86,6 +86,7 @@ struct omni_vm {
     dispatch_source_t timer = nullptr;
     omni_localizer localizer = nullptr;
     void *localizerContext = nullptr;
+    omni_release localizerRelease = nullptr;
     omni_formatter formatter = nullptr;
     void *formatterContext = nullptr;
     omni_measurer measurer = nullptr;

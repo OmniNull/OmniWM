@@ -99,12 +99,12 @@ local function dateTime(ctx: Context)
     local meridiem = string.match(ctx.data.clock, "(%a+)%s*$")
     local size = 28 * 4 / 3
     local column = { gap = 0, ui.column{ gap = -size * 0.4,
-        ui.text{ text = hour and string.format("%02d", tonumber(hour) or 0) or "--", font = "rubik", size = size,
+        ui.text{ text = hour and string.format("%02d", tonumber(hour) or 0) or "--", font = "Rubik", size = size,
             weight = "semibold", color = "secondaryAccent" },
-        ui.text{ text = "•••", font = "rubik", size = size * 0.9, color = "accent" },
-        ui.text{ text = minute or "--", font = "rubik", size = size, weight = "semibold", color = "secondaryAccent" } } }
+        ui.text{ text = "•••", font = "Rubik", size = size * 0.9, color = "accent" },
+        ui.text{ text = minute or "--", font = "Rubik", size = size, weight = "semibold", color = "secondaryAccent" } } }
     if meridiem then
-        column[#column + 1] = ui.text{ text = meridiem, font = "rubik", size = 18 * 4 / 3, weight = "semibold",
+        column[#column + 1] = ui.text{ text = meridiem, font = "Rubik", size = 18 * 4 / 3, weight = "semibold",
             color = "accent" }
     end
     return card(tokens.dashboard.dateTime, BOTTOM, tokens.rounding.large, { ui.column(column) })

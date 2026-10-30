@@ -16,7 +16,8 @@ from pathlib import Path
 
 ROOT = Path(__file__).resolve().parents[1]
 CATALOGS = ROOT / "Sources/OmniWM/Resources"
-SHELL_WIDGETS = (ROOT / "Sources/OmniWM/ShellDefault", ROOT / "styles")
+SHELL_WIDGETS = (ROOT / "Sources/OmniWM/ShellDefault",)
+STYLES = ROOT / "styles"
 FORMAT = re.compile(
     r"%(?:(\d+)\$)?[-+#0 ']*(?:\d+|\*)?(?:\.(?:\d+|\*))?"
     r"(hh|ll|h|l|q|z|t|j|L)?([@diuoxXfFeEgGaAcCsSp])"
@@ -211,7 +212,7 @@ def validate_catalog_data(data, label):
             raise ValueError(f"{label}: {key!r}: {error}") from error
 
 
-def validate_shell_usage(strings, folders):
+def shell_keys(folders):
     used = set()
     for widget in sorted(widget for folder in folders for widget in folder.rglob("*.luau")):
         used.update(SHELL_KEY.findall(widget.read_text()))
@@ -219,6 +220,59 @@ def validate_shell_usage(strings, folders):
                      if file.name in ("settings.toml", "component.toml")):
         options = tomllib.loads(manifest.read_text(encoding="utf-8")).get("options", {})
         used.update(option.get("title", key) for key, option in options.items())
+    return used
+
+
+def style_keys(style):
+    required = shell_keys((style,))
+    optional = set()
+    for file in style.rglob("*.toml"):
+        if file.name in ("settings.toml", "component.toml"):
+            data = tomllib.loads(file.read_text(encoding="utf-8"))
+            if file.name == "component.toml" and "title" in data:
+                optional.add(data["title"])
+            optional.update(choice for option in data.get("options", {}).values()
+                            for choice in option.get("choices", []))
+    return required, required | optional
+
+
+def table_arguments(key, english):
+    expected = arguments(key)
+    if key not in english:
+        return expected
+    declared = arguments(english[key])
+    if expected and declared != expected:
+        raise ValueError(f"English format {declared} differs from key format {expected}")
+    return expected or declared
+
+
+def validate_style_strings(styles, shell_strings):
+    for style in sorted(path for path in styles.iterdir() if path.is_dir()):
+        tables = {file.stem: tomllib.loads(file.read_text(encoding="utf-8"))
+                  for file in sorted((style / "strings").glob("*.toml"))}
+        english = tables.get("en", {})
+        required, allowed = style_keys(style)
+        missing = sorted(required - english.keys() - shell_strings.keys())
+        if missing:
+            raise ValueError(f"{style.name}/strings/en.toml: missing keys {missing}")
+        for locale, table in tables.items():
+            label = f"{style.name}/strings/{locale}.toml"
+            unused = sorted(table.keys() - allowed)
+            if unused:
+                raise ValueError(f"{label}: keys the style does not use {unused}")
+            for key, value in table.items():
+                if not isinstance(value, str):
+                    raise ValueError(f"{label}: {key!r} must be a string")
+                try:
+                    matches = arguments(value) == table_arguments(key, english)
+                except ValueError as error:
+                    raise ValueError(f"{label}: {key!r}: {error}") from error
+                if not matches:
+                    raise ValueError(f"{label}: {key!r} format differs from English")
+
+
+def validate_shell_usage(strings, folders):
+    used = shell_keys(folders)
     missing = sorted(used - strings.keys())
     if missing:
         raise ValueError(f"Shell.xcstrings: widgets use missing keys {missing}")
@@ -231,13 +285,14 @@ def validate_shell_usage(strings, folders):
         raise ValueError(f"Shell.xcstrings: plural variations are not supported {plural}")
 
 
-def validate_catalogs(catalog_dir=CATALOGS, info_plist=ROOT / "Info.plist", widgets=SHELL_WIDGETS):
+def validate_catalogs(catalog_dir=CATALOGS, info_plist=ROOT / "Info.plist", widgets=SHELL_WIDGETS, styles=STYLES):
     for name in CATALOG_NAMES:
         path = catalog_dir / f"{name}.xcstrings"
         data = json.loads(path.read_text())
         validate_catalog_data(data, path.name)
         if name == "Shell":
             validate_shell_usage(data["strings"], widgets)
+            validate_style_strings(styles, data["strings"])
         if name == "InfoPlist":
             info = plistlib.loads(info_plist.read_bytes())
             for key in INFO_KEYS:

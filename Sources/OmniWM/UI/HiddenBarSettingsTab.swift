@@ -52,11 +52,10 @@ struct HiddenBarSettingsTab: View {
     var body: some View {
         Form {
             if let override = settings.hiddenBar.profileOverride {
+                let style = controller.workspaceBarManager.shellConfiguration.styleTitle(override.profile)
                 Section {
                     Label(
-                        String(
-                            localized: "Settings are saved for the “\(ShellStyleText.title(override.profile))” style."
-                        ),
+                        String(localized: "Settings are saved for the “\(style)” style."),
                         systemImage: "paintbrush"
                     )
                     .foregroundStyle(.secondary)

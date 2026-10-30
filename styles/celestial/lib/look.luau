@@ -483,7 +483,7 @@ return require("./skin")({
             or (focused or occupied) and "foreground" or "border"
         if style.labels then
             return ui.stack{ w = m.cell, h = m.cell,
-                ui.text{ text = workspace.name, font = "rubik", size = tokens.body.small * m.scale,
+                ui.text{ text = workspace.name, font = "Rubik", size = tokens.body.small * m.scale,
                     weight = focused and "bold" or "medium", color = color, maxWidth = m.cell - 4, animate = "effects" } }
         end
         local name = focused and focusedShape(ctx, workspace) or occupied and "Square" or "Circle"

@@ -293,19 +293,18 @@ extension ShellConfig {
         _ problems: inout [String]
     ) {
         if case let .string(name)? = top["profile"] {
-            if isName(name), FileManager.default.fileExists(atPath: shellDirectory.appendingPathComponent(name).path) {
-                config.profile = name
+            if let problem = ShellProfiles.problem(selecting: name, in: shellDirectory) {
+                report("\(problem), using \(ShellDefaults.profile)", &problems)
             } else {
-                report("shell.toml: no profile folder named \(name), using \(ShellDefaults.profile)", &problems)
+                config.profile = name
             }
         }
-        config.directories = [shellDirectory]
-        for name in [config.profile, ShellDefaults.profile] {
-            let directory = shellDirectory.appendingPathComponent(name, isDirectory: true)
-            if !config.directories.contains(directory) {
-                config.directories.append(directory)
-            }
-        }
+        config.directories = directories(for: config.profile, in: shellDirectory)
+    }
+
+    static func directories(for profile: String, in shellDirectory: URL) -> [URL] {
+        let names = profile == ShellDefaults.profile ? [profile] : [profile, ShellDefaults.profile]
+        return [shellDirectory] + names.map { shellDirectory.appendingPathComponent($0, isDirectory: true) }
     }
 
     private static func applyWidgetSettings(

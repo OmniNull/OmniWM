@@ -75,43 +75,20 @@ extension ShellDesktopBarInspector {
 
     @ViewBuilder
     var effectsSection: some View {
-        let shader = editor.snapshot?.config.barShader
-        let matrix = shader?.source == "matrix-rain.metal" || editor.selectedStyle == "matrix"
-        if shader.map({ ["matrix-rain.metal", "sakura-petals.metal"].contains($0.source) })
-            ?? ["matrix", "sakura"].contains(editor.selectedStyle)
-        {
-            Section(matrix ? String(localized: "Matrix Rain") : String(localized: "Sakura Petals")) {
+        if let effect = editor.snapshot?.style.manifest?.barEffect {
+            let shader = editor.snapshot?.config.barShader
+            Section(effect.title) {
                 SettingsCaption(localized: "This effect is shared by all displays in this style.")
                 Toggle("Enable Background Effect", isOn: binding("enabled", value: shader != nil, table: "barShader"))
                 if let shader {
-                    effectParameter(
-                        String(localized: "Intensity"),
-                        index: 0,
-                        range: 0 ... 1,
-                        step: 0.05,
-                        shader: shader
-                    )
-                    effectParameter(
-                        String(localized: "Motion Speed"),
-                        index: 1,
-                        range: 0 ... 4,
-                        step: 0.1,
-                        shader: shader
-                    )
-                    effectParameter(
-                        matrix ? String(localized: "Character Size") : String(localized: "Petal Size"),
-                        index: 2,
-                        range: matrix ? 6 ... 40 : 4 ... 24,
-                        step: 1,
-                        shader: shader
-                    )
-                    effectParameter(
-                        matrix ? String(localized: "Sweep Glow") : String(localized: "Animation Phase"),
-                        index: 3,
-                        range: matrix ? 0 ... 1 : 0 ... 60,
-                        step: matrix ? 0.05 : 1,
-                        shader: shader
-                    )
+                    let values = editor.shaderValues
+                    ForEach(effect.values.indices.filter(values.indices.contains), id: \.self) { index in
+                        ShellSettingsOptionRow(
+                            key: "values", option: effect.values[index], value: .number(values[index])
+                        ) { value in
+                            if case let .number(number) = value { editor.setShaderValue(number, at: index) }
+                        }
+                    }
                     let fps = editor.pending(editor.barTarget("fps", table: "barShader"), as: Int.self) ?? shader.fps
                     SettingsSliderRow(
                         label: String(localized: "Frame Rate"),
@@ -129,18 +106,6 @@ extension ShellDesktopBarInspector {
                 Button("Reset Effect to Style Defaults") { editor.reset(table: "barShader") }
             }
         }
-    }
-
-    private func effectParameter(
-        _ title: String, index: Int, range: ClosedRange<Double>, step: Double, shader: ShellBarShader
-    ) -> some View {
-        let values = editor.pending(editor.barTarget("values", table: "barShader"), as: [Double].self)
-            ?? (0 ..< 4).map { Double(shader.values[$0]) }
-        return SettingsSliderRow(
-            label: title, value: Binding(get: { values[index] }, set: { editor.setShaderValue($0, at: index) }),
-            range: range, step: step,
-            valueText: values[index].formatted(.number.precision(.fractionLength(0 ... 2)))
-        )
     }
 
     private var defaultAccentColor: SettingsColor {
