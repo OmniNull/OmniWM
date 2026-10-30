@@ -259,6 +259,7 @@ final class WorkspaceSwipePreview {
         }) else { return false }
 
         let previous = contents.values.flatMap { $0.map(\.preview) }
+        dropSourceSnapshot()
         contents.removeAll()
         CATransaction.begin()
         CATransaction.setDisableActions(true)
