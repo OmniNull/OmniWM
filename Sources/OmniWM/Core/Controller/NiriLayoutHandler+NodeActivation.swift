@@ -29,7 +29,10 @@ extension NiriLayoutHandler {
 
         state.selectedNodeId = node.id
         let usesSingleWindowFit = engine.singleWindowLayoutContext(in: workspaceId) != nil
-        if usesSingleWindowFit {
+        if usesSingleWindowFit,
+           engine.effectiveSettings(in: workspaceId).edgeOverscroll == .disabled
+           || (options.ensureVisible && !options.preserveViewportAnchor)
+        {
             if state.activeColumnIndex != 0 || state.viewOffset != 0
                 || state.activatePrevColumnOnRemoval != nil || state.viewOffsetToRestore != nil
             {

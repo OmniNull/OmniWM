@@ -1,6 +1,9 @@
 {
   "sourceLanguage" : "en",
   "strings" : {
+    "Allow Overscroll" : {
+
+    },
     "At the ends" : {
       "localizations" : {
         "ar" : {
@@ -248,6 +251,12 @@
           }
         }
       }
+    },
+    "Overscroll Visible Strip" : {
+
+    },
+    "Scroll past the first or last container to expose the desktop. The visible strip is a percentage of the edge container's primary span, capped at the viewport span." : {
+
     },
     "Stop" : {
       "localizations" : {

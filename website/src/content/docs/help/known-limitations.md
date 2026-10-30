@@ -21,7 +21,7 @@ installing so you can decide whether it fits your system and workflow.
 - **Input Monitoring** is required for global hotkeys and optional System Hyper Trigger keys or mouse buttons.
 - **Screen Recording is optional.** Without it, OmniWM still tiles windows. Overview thumbnails, drag previews, and
   captured Hidden Bar glyphs are unavailable. Wallpaper previews fall back to macOS's image URL, which may show the system default image instead of a native solid colour.
-- **Full Disk Access is optional.** Only Hidden Bar uses it; without it, Hidden Bar is unavailable.
+- **Full Disk Access is optional.** Hidden Bar concealment and the [OmniShell Notifications widget](/features/workspace-bar/#notifications) use it. Without it, Hidden Bar is unavailable and the notification feed can report a storage-access error. Notification replies and dismissal also require Accessibility.
 
 See the [installation guide](/guides/install/) for the exact setup sequence.
 

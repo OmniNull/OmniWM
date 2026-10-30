@@ -55,6 +55,8 @@ struct MonitorNiriSettings: MonitorSettingsType {
     var alwaysCenterSingleColumn: Bool?
     var singleWindowFit: SingleWindowFit?
     var infiniteLoop: Bool?
+    var allowOverscroll: Bool?
+    var overscrollVisibleStripPercent: Int?
 
     init(
         id: UUID = UUID(),
@@ -66,7 +68,9 @@ struct MonitorNiriSettings: MonitorSettingsType {
         centerFocusedColumn: CenterFocusedColumn? = nil,
         alwaysCenterSingleColumn: Bool? = nil,
         singleWindowFit: SingleWindowFit? = nil,
-        infiniteLoop: Bool? = nil
+        infiniteLoop: Bool? = nil,
+        allowOverscroll: Bool? = nil,
+        overscrollVisibleStripPercent: Int? = nil
     ) {
         self.id = id
         self.monitorName = monitorName
@@ -78,6 +82,9 @@ struct MonitorNiriSettings: MonitorSettingsType {
         self.alwaysCenterSingleColumn = alwaysCenterSingleColumn
         self.singleWindowFit = singleWindowFit
         self.infiniteLoop = infiniteLoop
+        self.allowOverscroll = allowOverscroll
+        self.overscrollVisibleStripPercent = overscrollVisibleStripPercent
+            .map(NiriSettings.validatedOverscrollVisibleStripPercent)
     }
 
     private enum CodingKeys: String, CodingKey {
@@ -85,7 +92,7 @@ struct MonitorNiriSettings: MonitorSettingsType {
         case defaultContainerPrimarySpan
         case centerFocusedColumn, alwaysCenterSingleColumn
         case singleWindowFit
-        case infiniteLoop
+        case infiniteLoop, allowOverscroll, overscrollVisibleStripPercent
     }
 
     init(from decoder: Decoder) throws {
@@ -103,6 +110,9 @@ struct MonitorNiriSettings: MonitorSettingsType {
         alwaysCenterSingleColumn = try container.decodeIfPresent(Bool.self, forKey: .alwaysCenterSingleColumn)
         singleWindowFit = try container.decodeIfPresent(SingleWindowFit.self, forKey: .singleWindowFit)
         infiniteLoop = try container.decodeIfPresent(Bool.self, forKey: .infiniteLoop)
+        allowOverscroll = try container.decodeIfPresent(Bool.self, forKey: .allowOverscroll)
+        overscrollVisibleStripPercent = try container.decodeIfPresent(Int.self, forKey: .overscrollVisibleStripPercent)
+            .map(NiriSettings.validatedOverscrollVisibleStripPercent)
     }
 
     func encode(to encoder: Encoder) throws {
@@ -122,6 +132,8 @@ struct MonitorNiriSettings: MonitorSettingsType {
         try container.encodeIfPresent(alwaysCenterSingleColumn, forKey: .alwaysCenterSingleColumn)
         try container.encodeIfPresent(singleWindowFit, forKey: .singleWindowFit)
         try container.encodeIfPresent(infiniteLoop, forKey: .infiniteLoop)
+        try container.encodeIfPresent(allowOverscroll, forKey: .allowOverscroll)
+        try container.encodeIfPresent(overscrollVisibleStripPercent, forKey: .overscrollVisibleStripPercent)
     }
 }
 
@@ -132,4 +144,5 @@ struct ResolvedNiriSettings: Equatable {
     let alwaysCenterSingleColumn: Bool
     let singleWindowFit: SingleWindowFit
     let infiniteLoop: Bool
+    var edgeOverscroll: NiriEdgeOverscroll = .disabled
 }

@@ -1,4 +1,4 @@
-.PHONY: setup setup-tools doctor format format-check lint lint-fix build localization-check localization-sync run dev-install use-dev use-release test-dev-tools energy-profile arc-audit test-skylight-live release-check verify check check-tool-versions check-swiftformat-version check-swiftlint-version
+.PHONY: setup setup-tools doctor format format-check lint lint-fix build localization-check localization-sync run dev-install use-dev use-release test-dev-tools energy-profile arc-audit test-skylight-live release-check verify check check-tool-versions check-swiftformat-version check-swiftlint-version check-pins hooks
 
 include Scripts/dev-tools.env
 
@@ -22,6 +22,12 @@ setup-tools:
 
 doctor:
 	./Scripts/doctor.sh
+
+check-pins:
+	python3 Scripts/check-pinned-downloads.py
+
+hooks:
+	git config core.hooksPath .githooks
 
 check-swiftformat-version:
 	@actual="$$("$(SWIFTFORMAT)" --version 2>/dev/null || true)"; if [ "$$actual" != "$(SWIFTFORMAT_VERSION)" ]; then echo "error: SwiftFormat $(SWIFTFORMAT_VERSION) required; found $${actual:-missing}" >&2; exit 1; fi

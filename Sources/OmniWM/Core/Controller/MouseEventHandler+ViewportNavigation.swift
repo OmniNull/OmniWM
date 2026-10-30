@@ -32,6 +32,11 @@ extension MouseEventHandler {
                     vstate.jumpOffset(to: liveOffset)
                 }
             }
+            if engine.effectiveSettings(in: wsId).edgeOverscroll != .disabled {
+                controller.workspaceManager.withNiriViewportState(for: wsId) { vstate in
+                    vstate.preservesGestureOffset = true
+                }
+            }
             driver.beginGesture(in: wsId, isTrackpad: true, timestamp: timestamp)
         }
 

@@ -8,7 +8,8 @@ extension NiriLayoutEngine {
     func layoutSingleWindow(
         _ single: SingleWindowLayoutContext,
         context: NiriCalculationContext,
-        result: inout LayoutResult
+        result: inout LayoutResult,
+        viewportOffset: CGFloat = 0
     ) {
         let layoutArea = context.area
         let orientation = context.orientation
@@ -27,7 +28,8 @@ extension NiriLayoutEngine {
             workspaceOffset: 0,
             scale: layoutArea.scale,
             time: time,
-            orientation: orientation
+            orientation: orientation,
+            viewportOffset: viewportOffset
         )
         layoutContainer(
             container: single.container,

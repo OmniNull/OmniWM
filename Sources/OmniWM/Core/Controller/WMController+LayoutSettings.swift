@@ -78,6 +78,7 @@ extension WMController {
         centerFocusedColumn: CenterFocusedColumn? = nil,
         alwaysCenterSingleColumn: Bool? = nil,
         singleWindowFit: SingleWindowFit? = nil,
+        edgeOverscroll: NiriEdgeOverscroll? = nil,
         containerPrimarySpanPresets: [Double]? = nil,
         defaultContainerPrimarySpan: Double?? = nil
     ) {
@@ -87,6 +88,7 @@ extension WMController {
             centerFocusedColumn: centerFocusedColumn,
             alwaysCenterSingleColumn: alwaysCenterSingleColumn,
             singleWindowFit: singleWindowFit,
+            edgeOverscroll: edgeOverscroll,
             containerPrimarySpanPresets: containerPrimarySpanPresets,
             defaultContainerPrimarySpan: defaultContainerPrimarySpan
         )

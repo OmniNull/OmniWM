@@ -20,6 +20,8 @@ struct ViewportState: Equatable {
 
     var viewOffset: CGFloat = 0.0
 
+    var preservesGestureOffset = false
+
     var offsetTransition = OffsetTransition()
 
     var selectedNodeId: NodeId?

@@ -88,7 +88,10 @@ extension NiriLayoutHandler {
             in: pass.wsId,
             excluding: snapshot.excludedTokens
         ) != nil
-        if usesSingleWindowFit {
+        if usesSingleWindowFit,
+           !state.preservesGestureOffset || removal.removedColumn
+           || pass.engine.effectiveSettings(in: pass.wsId).edgeOverscroll == .disabled
+        {
             resetViewportForSingleWindowFit(state: &state)
         }
 
@@ -239,6 +242,7 @@ extension NiriLayoutHandler {
     }
 
     func resetViewportForSingleWindowFit(state: inout ViewportState) {
+        state.preservesGestureOffset = false
         state.activeColumnIndex = 0
         state.jumpOffset(to: 0)
         state.activatePrevColumnOnRemoval = nil
@@ -353,7 +357,11 @@ extension NiriLayoutHandler {
 
         resolvePrimaryContainerSpansIfNeeded(pass: pass)
 
+        let preservesGesture = state.preservesGestureOffset
+            && pass.engine.effectiveSettings(in: pass.wsId).edgeOverscroll != .disabled
+            && !removal.removedColumn && removal.removalResult.removedTokens.isEmpty
         if !usesSingleWindowFit,
+           !preservesGesture,
            !isGestureOrAnimation,
            snapshot.isActiveWorkspace,
            let selectedId = state.selectedNodeId,
@@ -383,6 +391,23 @@ extension NiriLayoutHandler {
             if abs(liveOffsetDelta) > 1 {
                 viewportNeedsRecalc = true
             }
+        }
+
+        if usesSingleWindowFit,
+           pass.engine.correctSingleWindowGestureOffset(
+               context: pass.interactionContext,
+               state: &state,
+               workingArea: WorkingAreaContext(
+                   workingFrame: pass.insetFrame,
+                   singleWindowFrame: snapshot.monitor.workingFrame,
+                   borderSafeFillFrame: snapshot.monitor.borderSafeFillFrame,
+                   fullscreenLayoutFrame: snapshot.fullscreenLayoutFrame,
+                   viewFrame: snapshot.monitor.frame,
+                   scale: snapshot.monitor.scale
+               )
+           )
+        {
+            viewportNeedsRecalc = true
         }
 
         if !usesSingleWindowFit,

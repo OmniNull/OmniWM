@@ -467,4 +467,66 @@ final class WindowLifecycleQueryTests: XCTestCase {
         XCTAssertNotNil(controller.workspaceManager.entry(for: token))
         XCTAssertNil(controller.workspaceManager.hiddenState(for: token))
     }
+
+    func testSpaceDestructionRetiresOrderedOutWindowOnlyWhenAXElementIsGone() async throws {
+        struct Case {
+            let orderedIn: Bool?
+            let axInvalid: Bool
+            let retired: Bool
+            let probed: Bool
+        }
+        let cases = [
+            Case(orderedIn: false, axInvalid: true, retired: true, probed: true),
+            Case(orderedIn: false, axInvalid: false, retired: false, probed: true),
+            Case(orderedIn: true, axInvalid: true, retired: false, probed: false),
+            Case(orderedIn: nil, axInvalid: true, retired: false, probed: false)
+        ]
+        for testCase in cases {
+            let controller = WindowAdmissionTestSupport.controller()
+            defer { cleanup(controller) }
+            _ = try track(token, controller: controller)
+            let handler = controller.axEventHandler
+            let retained = WindowServerInfo(
+                id: UInt32(token.windowId), pid: token.pid, level: 0,
+                frame: CGRect(x: 10, y: 10, width: 800, height: 600), isOrderedIn: testCase.orderedIn
+            )
+            var probed = false
+            handler.lifecycleQueries.query = { _ in retained }
+            handler.lifecycleQueries.isAXElementInvalid = { _ in
+                probed = true
+                return testCase.axInvalid
+            }
+            handler.handleCGSEvent(.destroyed(windowId: UInt32(token.windowId), spaceId: 0))
+            await handler.lifecycleQueries.task?.value
+            XCTAssertEqual(probed, testCase.probed, "\(testCase)")
+            XCTAssertEqual(controller.workspaceManager.entry(for: token) == nil, testCase.retired, "\(testCase)")
+        }
+    }
+
+    func testCleanupDuringAXProbeCannotRetireOrderedOutWindow() async throws {
+        let controller = WindowAdmissionTestSupport.controller()
+        defer { cleanup(controller) }
+        _ = try track(token, controller: controller)
+        let handler = controller.axEventHandler
+        let retained = WindowServerInfo(
+            id: UInt32(token.windowId), pid: token.pid, level: 0,
+            frame: CGRect(x: 10, y: 10, width: 800, height: 600), isOrderedIn: false
+        )
+        var probe: CheckedContinuation<Bool, Never>?
+        let probeStarted = expectation(description: "AX probe suspended")
+        handler.lifecycleQueries.query = { _ in retained }
+        handler.lifecycleQueries.isAXElementInvalid = { _ in
+            await withCheckedContinuation { continuation in
+                probe = continuation
+                probeStarted.fulfill()
+            }
+        }
+        handler.handleCGSEvent(.destroyed(windowId: UInt32(token.windowId), spaceId: 0))
+        let task = try XCTUnwrap(handler.lifecycleQueries.task)
+        await fulfillment(of: [probeStarted], timeout: 2)
+        handler.cleanup()
+        probe?.resume(returning: true)
+        await task.value
+        XCTAssertNotNil(controller.workspaceManager.entry(for: token))
+    }
 }

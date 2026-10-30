@@ -61,13 +61,14 @@ extension ShellWidgetHost {
 
     private func approvalDeclarations() -> ApprovalDeclarations {
         var result = ApprovalDeclarations()
-        let instances = config.island?.components ?? []
+        let enabled = config.island?.components.filter(\.enabled) ?? []
         for state in widgets.values {
             result.hosts[sourceInput(of: state.sourceURL, name: state.name).principal, default: []]
                 .formUnion(state.declaredHosts)
             for descriptor in state.componentDescriptors {
-                let extended = instances.filter { $0.widget == descriptor.widget }
-                    .flatMap { $0.capabilities?.network ?? [] }
+                let instances = enabled.filter { $0.widget == descriptor.widget }
+                guard !instances.isEmpty else { continue }
+                let extended = instances.flatMap { $0.capabilities?.network ?? [] }
                 result.hosts[descriptor.principal, default: []]
                     .formUnion((descriptor.capabilities.network + extended).map(ShellHTTPPolicy.canonicalHost))
                 if descriptor.capabilities.provider, let command = descriptor.providerCommand {

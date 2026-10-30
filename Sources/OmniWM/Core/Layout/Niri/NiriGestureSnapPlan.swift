@@ -7,6 +7,7 @@ struct NiriGestureSnapPlan {
     struct Point {
         let viewPos: Double
         let columnIndex: Int
+        var isOverscrollBoundary = false
     }
 
     struct Geometry {
@@ -16,6 +17,7 @@ struct NiriGestureSnapPlan {
         let viewSpan: Double
         let sizeKeyPath: KeyPath<NiriContainer, CGFloat>
         let isCentering: Bool
+        let viewport: NiriViewportGeometry
         private let centerOnOverflow: Bool
 
         init(
@@ -26,6 +28,7 @@ struct NiriGestureSnapPlan {
         ) {
             let areas = ViewportFittingAreas(geometry: viewport)
             self.areas = areas
+            self.viewport = viewport
             gap = viewport.gap
             isCentering = centerMode == .always || (alwaysCenterSingleColumn && columnCount <= 1)
             viewSpan = Double(areas.viewSpan)
@@ -137,9 +140,11 @@ struct NiriGestureSnapPlan {
         }
     }
 
-    mutating func appendPoint(_ viewPos: Double, columnIndex: Int) {
+    mutating func appendPoint(_ viewPos: Double, columnIndex: Int, isOverscrollBoundary: Bool = false) {
         guard viewPos.isFinite else { return }
-        points.append(Point(viewPos: viewPos, columnIndex: columnIndex))
+        points.append(Point(
+            viewPos: viewPos, columnIndex: columnIndex, isOverscrollBoundary: isOverscrollBoundary
+        ))
     }
 
     mutating func closestPoint(to projectedViewPos: Double) -> Point? {
