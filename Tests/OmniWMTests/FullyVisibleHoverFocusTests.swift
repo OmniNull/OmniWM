@@ -10,6 +10,7 @@ import XCTest
 final class FullyVisibleHoverFocusTests: XCTestCase {
     private final class FocusRecorder {
         var tokens: [WindowToken] = []
+        var appliedFrames: [Int: CGRect] = [:]
     }
 
     @MainActor private struct Fixture {
@@ -22,6 +23,7 @@ final class FullyVisibleHoverFocusTests: XCTestCase {
         func hover(frame: CGRect, renderedFrame: CGRect? = nil, exactId: Bool) {
             target.frame = frame
             target.renderedFrame = renderedFrame ?? frame
+            recorder.appliedFrames[target.token.windowId] = renderedFrame ?? frame
             controller.mouseEventHandler.dispatchMouseMoved(
                 at: (target.renderedFrame ?? frame).intersection(monitor.frame).center,
                 windowIdUnderPointer: exactId ? target.token.windowId : nil
@@ -97,6 +99,7 @@ final class FullyVisibleHoverFocusTests: XCTestCase {
                 let frame = CGRect(x: 400, y: 100, width: 300, height: 200)
                 fixture.target.frame = frame
                 fixture.target.renderedFrame = nil
+                fixture.recorder.appliedFrames[fixture.target.token.windowId] = frame
                 fixture.controller.mouseEventHandler.dispatchMouseMoved(
                     at: frame.center, windowIdUnderPointer: exactId ? fixture.target.token.windowId : nil
                 )
@@ -294,6 +297,7 @@ final class FullyVisibleHoverFocusTests: XCTestCase {
                     XCTAssertTrue(fixture.monitor.frame.contains(try XCTUnwrap(added[0].renderedFrame)))
                     let rendered = try XCTUnwrap(target.renderedFrame)
                     XCTAssertTrue(fixture.monitor.frame.contains(rendered))
+                    fixture.recorder.appliedFrames[target.token.windowId] = rendered
                     controller.mouseEventHandler.dispatchMouseMoved(
                         at: rendered.center, windowIdUnderPointer: exactId ? target.token.windowId : nil
                     )
@@ -321,6 +325,102 @@ final class FullyVisibleHoverFocusTests: XCTestCase {
         }
     }
 
+    func testAppliedPlacementWinsWhileNewLayoutIsAwaitingFrameWrite() throws {
+        let visible = CGRect(x: 600, y: 100, width: 300, height: 200)
+        let partial = CGRect(x: 800, y: 100, width: 300, height: 200)
+        for exactId in [false, true] {
+            for (applied, planned) in [(partial, visible), (visible, partial)] {
+                try withFixture { fixture in
+                    let controller = fixture.controller
+                    fixture.target.frame = planned
+                    fixture.target.renderedFrame = planned
+                    fixture.recorder.appliedFrames[fixture.target.token.windowId] = applied
+                    controller.axManager.confirmFrameWrite(for: fixture.target.token.windowId, frame: applied)
+                    let entry = try XCTUnwrap(controller.workspaceManager.entry(for: fixture.target.token))
+                    XCTAssertNotNil(controller.axManager.stageFrameWrite(for: .init(
+                        pid: entry.pid, window: entry.axRef, frame: planned
+                    )))
+                    defer {
+                        controller.axManager.cancelPendingFrameJobs(
+                            [(pid: entry.pid, windowId: entry.windowId)], reason: "test"
+                        )
+                    }
+                    controller.mouseEventHandler.dispatchMouseMoved(
+                        at: CGPoint(x: 850, y: 200),
+                        windowIdUnderPointer: exactId ? entry.windowId : nil
+                    )
+                    if applied == visible {
+                        XCTAssertEqual(fixture.recorder.tokens, [fixture.target.token])
+                        XCTAssertEqual(
+                            controller.mouseEventHandler.latestFocusFollowsMouseToken(),
+                            fixture.target.token
+                        )
+                    } else {
+                        XCTAssertTrue(fixture.recorder.tokens.isEmpty)
+                        XCTAssertNil(controller.mouseEventHandler.latestFocusFollowsMouseToken())
+                    }
+                }
+            }
+        }
+    }
+
+    func testFallbackHitTestingUsesAppliedPositionInsteadOfFutureLayoutPosition() throws {
+        try withFixture { fixture in
+            fixture.target.frame = CGRect(x: 800, y: 100, width: 300, height: 200)
+            fixture.target.renderedFrame = fixture.target.frame
+            fixture.recorder.appliedFrames[fixture.target.token.windowId] = CGRect(
+                x: 400, y: 100, width: 300, height: 200
+            )
+            fixture.controller.mouseEventHandler.dispatchMouseMoved(at: CGPoint(x: 500, y: 200))
+            XCTAssertEqual(fixture.recorder.tokens, [fixture.target.token])
+            XCTAssertEqual(fixture.controller.mouseEventHandler.latestFocusFollowsMouseToken(), fixture.target.token)
+        }
+    }
+
+    func testMissingAppliedBoundsDoesNotTrustLayoutOrCachedPlacement() throws {
+        for exactId in [false, true] {
+            try withFixture { fixture in
+                let visible = CGRect(x: 400, y: 100, width: 300, height: 200)
+                fixture.target.frame = visible
+                fixture.target.renderedFrame = visible
+                fixture.controller.axManager.confirmFrameWrite(for: fixture.target.token.windowId, frame: visible)
+                fixture.controller.mouseEventHandler.dispatchMouseMoved(
+                    at: visible.center, windowIdUnderPointer: exactId ? fixture.target.token.windowId : nil
+                )
+                XCTAssertTrue(fixture.recorder.tokens.isEmpty)
+                XCTAssertNil(fixture.controller.mouseEventHandler.latestFocusFollowsMouseToken())
+            }
+        }
+    }
+
+    func testExactTargetThatHasMovedAwayFromPointerDoesNotFocus() throws {
+        try withFixture { fixture in
+            let oldFrame = CGRect(x: 400, y: 100, width: 300, height: 200)
+            fixture.target.frame = oldFrame
+            fixture.target.renderedFrame = oldFrame
+            fixture.recorder.appliedFrames[fixture.target.token.windowId] = oldFrame.offsetBy(dx: 0, dy: 300)
+            fixture.controller.mouseEventHandler.dispatchMouseMoved(
+                at: oldFrame.center, windowIdUnderPointer: fixture.target.token.windowId
+            )
+            XCTAssertTrue(fixture.recorder.tokens.isEmpty)
+            XCTAssertNil(fixture.controller.mouseEventHandler.latestFocusFollowsMouseToken())
+        }
+    }
+
+    func testDefaultModeDoesNotQueryAppliedBounds() throws {
+        try withFixture { fixture in
+            fixture.controller.settings.focus.followsMouseOnlyFullyVisible = false
+            var queries = 0
+            fixture.controller.mouseEventHandler.nativeWindowFrameProvider = { _ in
+                queries += 1
+                return nil
+            }
+            fixture.hover(frame: CGRect(x: 400, y: 100, width: 300, height: 200), exactId: false)
+            XCTAssertEqual(fixture.recorder.tokens, [fixture.target.token])
+            XCTAssertEqual(queries, 0)
+        }
+    }
+
     private func withFixture(
         origin: CGPoint = .zero,
         _ body: (Fixture) throws -> Void
@@ -338,6 +438,7 @@ final class FullyVisibleHoverFocusTests: XCTestCase {
         )
         defer { controller.layoutRefreshController.resetState() }
         controller.settings.focus.followsMouseOnlyFullyVisible = true
+        controller.mouseEventHandler.nativeWindowFrameProvider = { recorder.appliedFrames[$0.windowId] }
         controller.settings.niri.centerFocusedColumn = .never
         controller.motionPolicy.animationsEnabled = false
         let frame = CGRect(origin: origin, size: CGSize(width: 1_000, height: 800))
