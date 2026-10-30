@@ -2,8 +2,10 @@ name: OmniWM CI
 
 on:
   pull_request:
+    paths-ignore: ['docs/**', 'website/**', '*.md']
   push:
     branches: [main, '**-release']
+    paths-ignore: ['docs/**', 'website/**', '*.md']
   workflow_dispatch:
     inputs:
       pr_number:
@@ -35,6 +37,37 @@ jobs:
         with:
           persist-credentials: false
       - uses: ./.github/actions/setup-swift
+  changes:
+    name: Changes
+    if: github.event_name == 'pull_request'
+    runs-on: ubuntu-latest
+    timeout-minutes: 5
+    outputs:
+      tests: ${{ steps.paths.outputs.tests }}
+    steps:
+      - uses: actions/checkout@3d3c42e5aac5ba805825da76410c181273ba90b1
+        with:
+          fetch-depth: 0
+          persist-credentials: false
+      - name: Skip the Swift suite for tooling only changes
+        id: paths
+        env:
+          BASE: ${{ github.event.pull_request.base.sha }}
+          HEAD: ${{ github.event.pull_request.head.sha }}
+        run: |
+          tests=false
+          paths="$(git diff --name-only "$BASE...$HEAD")"
+          while IFS= read -r path; do
+            case "$path" in
+              docs/* | website/* | Tests/DevToolingTests/*) ;;
+              Scripts/*/*) tests=true ;;
+              Scripts/*.py) ;;
+              */*) tests=true ;;
+              *.md) ;;
+              *) tests=true ;;
+            esac
+          done <<< "$paths"
+          echo "tests=$tests" >> "$GITHUB_OUTPUT"
   tooling:
     name: Tooling
     runs-on: xcode-27
@@ -100,6 +133,8 @@ jobs:
         run: make localization-check
   tests:
     name: Tests
+    needs: changes
+    if: ${{ !cancelled() && needs.changes.outputs.tests != 'false' }}
     runs-on: xcode-27
     timeout-minutes: 60
     steps:
