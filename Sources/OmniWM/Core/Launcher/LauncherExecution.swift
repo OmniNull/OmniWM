@@ -75,6 +75,13 @@ struct LauncherLaunchRequest: Sendable {
         ([executable] + arguments).map(Self.quote).joined(separator: " ")
     }
 
+    var terminalShellCommand: String {
+        let inherited = Self.terminalEnvironmentKeys.sorted().map { "${\($0)+\"\($0)=$\($0)\"}" }
+        let captured = terminalEnvironment.sorted { $0.key < $1.key }.map { Self.quote($0.key + "=" + $0.value) }
+        return (["/usr/bin/env", "-i"] + inherited + captured + ["/usr/bin/nice", "-n", "0", shellCommand])
+            .joined(separator: " ")
+    }
+
     func makeTerminalHelper(holdOutput: Bool = true, transfer: LauncherEnvironmentTransfer? = nil) throws -> URL {
         let folder = URL(fileURLWithPath: "/private/tmp/omniwm-launch-" + UUID().uuidString, isDirectory: true)
         let manager = FileManager.default
