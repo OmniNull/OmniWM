@@ -12,8 +12,8 @@ private let safari = ShellMenuApp(pid: 7, name: "Safari", bundle: "com.apple.Saf
 
 @MainActor
 final class ShellVitreusMenusTests: XCTestCase {
-    static let classic = ["workspaces", "title", "tray", "search", "gear", "controls", "clock"]
-    static let buttons = ["bar-search", "bar-gear", "bar-controls", "bar-clock"]
+    static let classic = ["workspaces", "title", "tray", "search", "omniwm", "controls", "clock"]
+    static let buttons = ["bar-search", "bar-omniwm", "bar-controls", "bar-clock"]
 
     func shell() throws -> URL {
         let shell = try VitreusFixture.shell()
@@ -222,7 +222,7 @@ extension ShellVitreusMenusTests {
         XCTAssertEqual(left.width, before.width + 52 * unit, accuracy: 0.001)
         let rest = ["notch-middle", "notch-right", "bar-hover-middle", "bar-hover-right", "title-button"]
         try assertMoved(shown, hidden, Self.buttons + rest, "seg")
-        let pieces = ["apple", "title", "gear"]
+        let pieces = ["apple", "title", "omniwm"]
         let alone = try widget(shell, layout: "seg", pieces: pieces)
         XCTAssertEqual(try frame(alone, "bar-hover-left").width, (26 + 12 + 14 + 12) * unit, accuracy: 0.001)
         let lone = try VitreusFixture.element(alone, key: "bar-apple")

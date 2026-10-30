@@ -40,8 +40,8 @@ private func holdCrossing(rising: Bool) -> Double {
 
 @MainActor
 extension ShellVitreusBarTests {
-    static let pieceOrder: ShellComponentValue = .strings(["title", "tray", "search", "gear", "controls", "clock"])
-    static let titleOrder: ShellComponentValue = .strings(["title", "search", "gear", "controls"])
+    static let pieceOrder: ShellComponentValue = .strings(["title", "tray", "search", "omniwm", "controls", "clock"])
+    static let titleOrder: ShellComponentValue = .strings(["title", "search", "omniwm", "controls"])
 
     func pieceWidget(
         _ shell: URL, pieces: ShellComponentValue = pieceOrder, animations: Bool = false, scale: CGFloat = 2,
@@ -367,7 +367,7 @@ extension ShellVitreusBarTests {
         let display = VitreusFixture.bar().monitorId
         let pill = try VitreusFixture.frame(widget, key: "shell")
         let expected = [
-            ("bar-search", "open-command-palette", 24.0), ("bar-gear", "shell menu", 24),
+            ("bar-search", "open-command-palette", 24.0), ("bar-omniwm", "shell menu", 24),
             ("bar-controls", "shell trigger vitreus drawer-controls \(display)", 26)
         ]
         for (key, command, width) in expected {
@@ -383,7 +383,7 @@ extension ShellVitreusBarTests {
         let rest = try piecePaint(widget, "bar-controls-icon")
         XCTAssertEqual(rest.opacity, 0.65, accuracy: 1e-6)
         XCTAssertEqual(rest.scale, 1)
-        try pieceAssertHalo(widget, ["bar-search-icon", "bar-gear-icon", "bar-controls-icon"])
+        try pieceAssertHalo(widget, ["bar-search-icon", "bar-omniwm-icon", "bar-controls-icon"])
         VitreusFixture.trigger(widget.instance, "drawer-controls", display)
         VitreusFixture.show(widget)
         XCTAssertEqual(try piecePaint(widget, "bar-controls-icon").opacity, 1, accuracy: 1e-6)
@@ -396,7 +396,32 @@ extension ShellVitreusBarTests {
             let color = paint.stroke.role != 0 ? paint.stroke : paint.fill
             XCTAssertEqual(color.role & 0xFF, UInt16(ShellRole.accent.rawValue + 1))
         }
-        XCTAssertEqual(try piecePaint(widget, "bar-gear-icon").opacity, 0.65, accuracy: 1e-6)
+        XCTAssertEqual(try piecePaint(widget, "bar-omniwm-icon").opacity, 1, accuracy: 1e-6)
+    }
+
+    func testTheOmniWMLogoOpensTheStatusMenuShowsTheSecureInputLockAndAlwaysStays() throws {
+        let widget = try pieceWidget(shell(), pieces: .strings(["title", "search", "controls"]))
+        XCTAssertTrue(Self.has(widget, "bar-omniwm"))
+        var bar = VitreusFixture.bar()
+        for locked in [false, true] {
+            bar.style.secureInput = locked
+            VitreusFixture.show(widget, bar: bar)
+            let layout = widget.surface.layout
+            let icon = try VitreusFixture.element(widget, key: "bar-omniwm-icon")
+            let children = layout.core.elements { _ in true }.filter { layout.core.parent(of: $0) == icon }
+            XCTAssertEqual(children.map { layout.core.kind(of: $0) }, [.symbol])
+            let symbol = layout.core.content(of: try XCTUnwrap(children.first))
+            XCTAssertEqual(widget.text.string(symbol.text), locked ? "omniwm.lock" : "omniwm")
+            XCTAssertEqual(symbol.color, Color(packed: 0xB665_45FF))
+            let zone = layout.core.content(of: try VitreusFixture.element(widget, key: "bar-omniwm"))
+            XCTAssertEqual(widget.text.string(zone.secondaryAction), ShellRequest.statusMenuCommand)
+            let help = locked ? "Secure Input is on: Option shortcuts are paused" : "Window manager controls"
+            XCTAssertEqual(widget.text.string(zone.help), ShellLocalizer.string(help, []))
+        }
+        XCTAssertTrue(pieceTimers(widget).isEmpty)
+        try pieceHover(widget, "bar-omniwm", .began)
+        XCTAssertTrue(pieceTimers(widget).isEmpty)
+        XCTAssertEqual(try piecePaint(widget, "bar-omniwm-icon").scale, 1.14, accuracy: 1e-6)
     }
 
     func testPencilRedrawsAtFiveHertzOnlyWhileHoveredAndCancelsOnLeave() throws {
@@ -407,7 +432,7 @@ extension ShellVitreusBarTests {
         }
         XCTAssertTrue(pieceTimers(widget).isEmpty)
         for (zone, icon) in [
-            ("bar-gear", "bar-gear-icon"),
+            ("bar-search", "bar-search-icon"),
             ("bar-clock", "clock-group"),
             ("title-next", "title-next-icon")
         ] {
@@ -439,7 +464,7 @@ extension ShellVitreusBarTests {
         let item = ShellHiddenBarItem(id: "wifi", name: "Wi-Fi", image: nil, width: 22, height: 22)
         let tray = ShellHiddenBarData(enabled: true, available: true, items: [item])
         let empty = ShellHiddenBarData(enabled: true, available: true)
-        let pieces: ShellComponentValue = .strings(["title", "tray", "gear", "controls"])
+        let pieces: ShellComponentValue = .strings(["title", "tray", "omniwm", "controls"])
         let widget = try pieceWidget(shell) { widget in
             widget.set("media") { ShellMedia(title: "Song", app: "Music", playing: true).write(into: &$0) }
             widget.set("hiddenBar") { tray.write(into: &$0) }

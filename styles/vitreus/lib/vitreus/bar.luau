@@ -22,10 +22,10 @@ local addons = require("./addons")
 local visualiser = require("./visualiser")
 
 local calm = table.freeze({ response = 0.513, bounce = 0.06 })
-local defaults = table.freeze({ "apple", "app", "workspaces", "title", "tray", "search", "gear", "controls", "clock" })
+local defaults = table.freeze({ "apple", "app", "workspaces", "title", "tray", "search", "omniwm", "controls", "clock" })
 local owners = table.freeze({
     apple = menus, app = menus, workspaces = marks, title = title, tray = tray, privacy = tray, search = buttons,
-    gear = buttons, controls = buttons, clock = clock,
+    omniwm = buttons, controls = buttons, clock = clock,
 })
 local pieces = table.freeze({ menus, marks, title, tray, buttons, clock })
 local under = table.freeze({ battery })
@@ -40,7 +40,7 @@ local function order(list)
             names[#names + 1] = name
         end
     end
-    if not seen.gear then names[#names + 1] = "gear" end
+    if not seen.omniwm then names[#names + 1] = "omniwm" end
     return table.freeze(names)
 end
 
@@ -93,7 +93,7 @@ local function geometry(ctx, island)
     if style and not table.find(names, "tray") then
         local privacy = ctx.data.privacy
         if privacy and (privacy.microphone or privacy.camera) then
-            table.insert(names, table.find(names, "search") or table.find(names, "gear") or #names + 1, "privacy")
+            table.insert(names, table.find(names, "search") or table.find(names, "omniwm") or #names + 1, "privacy")
         end
     end
     local widths = {}

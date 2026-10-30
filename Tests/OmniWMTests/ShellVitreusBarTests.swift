@@ -122,7 +122,9 @@ final class ShellVitreusBarTests: XCTestCase {
         let values = try settings.values(applying: [:])
         let expected: [String: ShellComponentValue] = [
             "layout": .string("island"), "size": .number(1),
-            "pieces": .strings(["apple", "app", "workspaces", "title", "tray", "search", "gear", "controls", "clock"]),
+            "pieces": .strings([
+                "apple", "app", "workspaces", "title", "tray", "search", "omniwm", "controls", "clock"
+            ]),
             "pins": .strings([]), "addons": .strings([]), "dockOverlap": .bool(false), "visualiser": .bool(false),
             "cols": .number(24), "sens": .number(1), "hgt": .number(150), "bl": .number(1), "lay": .string("bottom"),
             "mon": .string("")
@@ -153,7 +155,7 @@ final class ShellVitreusBarTests: XCTestCase {
         XCTAssertEqual(try settings.values(applying: configured), expected)
     }
 
-    func testBarUnitsScaleFromSeventyPercentInHundredthsAndTheGearAlwaysStays() throws {
+    func testBarUnitsScaleFromSeventyPercentInHundredthsAndTheOmniWMLogoAlwaysStays() throws {
         let lines = try probe("""
         local units = require("../lib/vitreus/units")
         local bar = require("../lib/vitreus/bar")
@@ -167,7 +169,7 @@ final class ShellVitreusBarTests: XCTestCase {
             return ui.column{
                 ui.text{ text = table.concat(rows, ";") },
                 ui.text{ text = table.concat(bar.order({ "workspaces", "clock" }), ",") },
-                ui.text{ text = table.concat(bar.order({ "gear", "bogus", 4, "title", "gear" }), ",") },
+                ui.text{ text = table.concat(bar.order({ "omniwm", "bogus", 4, "title", "omniwm" }), ",") },
                 ui.text{ text = table.concat(bar.order({}), ",") },
                 ui.text{ text = table.concat(bar.order(nil), ",") },
             }
@@ -181,7 +183,8 @@ final class ShellVitreusBarTests: XCTestCase {
         }
         XCTAssertEqual(rows[1][1], 0.945, accuracy: 1e-9)
         XCTAssertEqual(Array(lines.dropFirst()), [
-            "workspaces,clock,gear", "gear,title", "gear", "apple,app,workspaces,title,tray,search,gear,controls,clock"
+            "workspaces,clock,omniwm", "omniwm,title", "omniwm",
+            "apple,app,workspaces,title,tray,search,omniwm,controls,clock"
         ])
     }
 
@@ -195,12 +198,12 @@ final class ShellVitreusBarTests: XCTestCase {
                 apple = { w = 0, grow = 0 }, app = { w = 0, grow = 0 },
                 workspaces = { w = 128 * k.bu, grow = 0 }, title = { w = 0, grow = 0 },
                 tray = { w = tray * k.bu, grow = if tray > 0 then (tray + 12) * k.bu else 0 },
-                search = { w = 12 * k.bu, grow = 0 }, gear = { w = 15 * k.bu, grow = 0 },
+                search = { w = 12 * k.bu, grow = 0 }, omniwm = { w = 15 * k.bu, grow = 0 },
                 controls = { w = 13 * k.bu, grow = 0 }, clock = { w = 80, grow = 0 },
             }
             local p = bar.place(k, 960, units.edge, bar.defaults, widths)
             local values = { p.x, p.y, p.w, p.h, p.radius, p.cy }
-            for _, name in { "workspaces", "title", "tray", "search", "gear", "controls", "clock" } do
+            for _, name in { "workspaces", "title", "tray", "search", "omniwm", "controls", "clock" } do
                 values[#values + 1] = p.slots[name].x
                 values[#values + 1] = p.slots[name].w
             end

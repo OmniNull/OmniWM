@@ -20,7 +20,7 @@ final class ShellVitreusFrameTests: XCTestCase {
     func fixture(
         _ edge: String = "left",
         animations: Bool = false,
-        pieces: [String] = ["workspaces", "title", "tray", "search", "gear", "controls", "clock"]
+        pieces: [String] = ["workspaces", "title", "tray", "search", "omniwm", "controls", "clock"]
     ) throws
         -> Fixture
     {
@@ -177,10 +177,10 @@ extension ShellVitreusFrameTests {
             XCTAssertGreaterThan(first.midY, overview.midY)
             XCTAssertGreaterThan(second.midY, first.midY)
             let controls = try frame(fixture, "bar-controls")
-            let gear = try frame(fixture, "bar-gear")
+            let logo = try frame(fixture, "bar-omniwm")
             let search = try frame(fixture, "bar-search")
-            XCTAssertEqual(controls.midY - gear.midY, 32 * 1.35, accuracy: 0.001)
-            XCTAssertEqual(gear.midY - search.midY, 32 * 1.35, accuracy: 0.001)
+            XCTAssertEqual(controls.midY - logo.midY, 32 * 1.35, accuracy: 0.001)
+            XCTAssertEqual(logo.midY - search.midY, 32 * 1.35, accuracy: 0.001)
             XCTAssertTrue(has(fixture, "clock-hour"))
             XCTAssertTrue(fixture.widget.strings().contains("A document in a vertical strip"))
         }
@@ -188,15 +188,15 @@ extension ShellVitreusFrameTests {
 
     func testBarWideHoverWorksInGapsAndOnPiecesWithoutATitle() throws {
         for edge in ["island", "left", "right", "ftop", "fbottom"] {
-            let fixture = try fixture(edge, pieces: ["gear", "clock"])
+            let fixture = try fixture(edge, pieces: ["omniwm", "clock"])
             let area = try frame(fixture, "bar-hover")
             hover(fixture, at: CGPoint(x: area.minX + 2, y: area.midY))
             let slot = try VitreusFixture.element(fixture.widget, key: "battery-track").slot
             try ShellLayerScene.engineQueue.sync {
                 XCTAssertGreaterThan(try XCTUnwrap(fixture.widget.surface.scene.layers[slot]).opacity, 0)
             }
-            let gear = try frame(fixture, "bar-gear")
-            hover(fixture, at: CGPoint(x: gear.midX, y: gear.midY))
+            let logo = try frame(fixture, "bar-omniwm")
+            hover(fixture, at: CGPoint(x: logo.midX, y: logo.midY))
             try ShellLayerScene.engineQueue.sync {
                 XCTAssertGreaterThan(try XCTUnwrap(fixture.widget.surface.scene.layers[slot]).opacity, 0)
             }
@@ -249,7 +249,7 @@ extension ShellVitreusFrameTests {
 
     func testPrivacyLightsRemainWithoutTheTrayAndDoNotDuplicateWithIt() throws {
         for edge in ["island", "left", "ftop"] {
-            var fixture = try fixture(edge, pieces: ["gear", "clock"])
+            var fixture = try fixture(edge, pieces: ["omniwm", "clock"])
             fixture.widget.set("privacy") { writer in
                 writer.map(2)
                 writer.key("microphone")
@@ -260,7 +260,7 @@ extension ShellVitreusFrameTests {
             show(fixture)
             XCTAssertTrue(has(fixture, "tray-microphone"))
             XCTAssertTrue(has(fixture, "tray-camera"))
-            fixture.settings["pieces"] = .strings(["privacy", "tray", "gear", "clock"])
+            fixture.settings["pieces"] = .strings(["privacy", "tray", "omniwm", "clock"])
             show(fixture)
             let elements = fixture.widget.surface.layout.core.elements { _ in true }
             XCTAssertEqual(

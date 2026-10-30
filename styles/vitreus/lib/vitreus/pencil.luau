@@ -13,23 +13,7 @@ local function number(value: number): string
     return string.format("%.3f", value)
 end
 
-local function tooth(n: number)
-    local angle = math.rad(45 * n)
-    local x, y = math.sin(angle), -math.cos(angle)
-    local points = { { 4.9 * x, 4.9 * y }, { 7.3 * x, 7.3 * y } }
-    return { width = 2, f = band(58 + 11 * n), s = 21730 + 53 * n, points = points }
-end
-
-local gear = {
-    { r = 3.6, width = 1.7, x = 0, y = 0, f = 48, s = 21297, rs = 12400 },
-    { r = 1.2, x = 0, y = 0, f = 59, s = 21350, rs = 12431 },
-}
-for n = 0, 7 do
-    gear[#gear + 1] = tooth(n)
-end
-
 local icons = table.freeze({
-    gear = table.freeze({ offset = { 0.5, 0.4 }, strokes = gear }),
     search = table.freeze({ offset = { 0.5, 0.4 }, strokes = {
         { r = 4, width = 1.7, x = -1.2, y = -1.2, f = 51, s = 22357, rs = 13020 },
         { width = 1.9, f = 55, s = 22313, points = { { 1.8, 1.8 }, { 5, 5 } } },
