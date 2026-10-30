@@ -75,7 +75,8 @@ final class OverviewPreviewTestDriver {
         traceRecorder: OverviewFrameTrace.Recorder = OverviewFrameTrace.shared,
         hasCaptureAccess: @escaping @MainActor () -> Bool = { true },
         adoptsProvisionalPreviews: Bool = true,
-        maximumRetainedBytes: Int = 128 * 1_024 * 1_024
+        maximumRetainedBytes: Int = 128 * 1_024 * 1_024,
+        startTimeout: Duration = .seconds(3)
     ) -> OverviewThumbnailCapture {
         OverviewThumbnailCapture(
             coordinator: coordinator,
@@ -84,6 +85,7 @@ final class OverviewPreviewTestDriver {
             hasCaptureAccess: hasCaptureAccess,
             adoptsProvisionalPreviews: adoptsProvisionalPreviews,
             maximumRetainedBytes: maximumRetainedBytes,
+            startTimeout: startTimeout,
             streamFactory: { [self] request, output in
                 guard !isFinished else { throw CancellationError() }
                 let stream = OverviewPreviewTestStream(request: request, output: output, onStart: { [self] in
