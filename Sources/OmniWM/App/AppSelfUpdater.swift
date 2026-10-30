@@ -75,6 +75,7 @@ final class AppSelfUpdater: AppUpdateInstalling {
     private let opener: URL
     private let terminate: () -> Void
     private(set) var relaunchSignal: FileHandle?
+    private(set) var relaunchHelper: Process?
 
     init(
         bundleURL: URL = Bundle.main.bundleURL,
@@ -95,6 +96,13 @@ final class AppSelfUpdater: AppUpdateInstalling {
     var canInstall: Bool {
         FileManager.default.isWritableFile(atPath: bundleURL.deletingLastPathComponent().path)
             && FileManager.default.isWritableFile(atPath: bundleURL.path)
+            && acceptsReleaseSignature
+    }
+
+    private var acceptsReleaseSignature: Bool {
+        guard let requirementText = try? requirement() else { return false }
+        let flags = kSecCSBasicValidateOnly | SecCSFlags.noNetworkAccess.rawValue
+        return Self.signatureStatus(of: bundleURL, requirement: requirementText, flags: flags) == errSecSuccess
     }
 
     func isInstalled(_ release: GitHubRelease) -> Bool {
@@ -113,7 +121,7 @@ final class AppSelfUpdater: AppUpdateInstalling {
 
         let zip = try await download(archive, into: staging)
         let app = try await Self.extract(zip, into: staging)
-        try Self.verify(app, matches: release, requirement: requirementText)
+        try await Self.verify(app, matches: release, requirement: requirementText)
         try Task.checkCancellation()
         _ = try FileManager.default.replaceItemAt(bundleURL, withItemAt: app)
     }
@@ -131,6 +139,7 @@ final class AppSelfUpdater: AppUpdateInstalling {
             process.arguments = ["-c", script, "sh", String(processIdentifier), bundleURL.path, opener.path]
             process.standardInput = input
             try process.run()
+            relaunchHelper = process
             relaunchSignal = input.fileHandleForWriting
             NotificationCenter.default.addObserver(
                 forName: NSApplication.willTerminateNotification, object: nil, queue: nil
@@ -151,11 +160,12 @@ final class AppSelfUpdater: AppUpdateInstalling {
         try FileManager.default.moveItem(at: temporary, to: zip)
         let status = (response as? HTTPURLResponse)?.statusCode ?? 0
         guard (200 ... 299).contains(status) else { throw AppSelfUpdateError.badStatus(status) }
-        guard try Self.sha256(of: zip) == archive.sha256 else { throw AppSelfUpdateError.digestMismatch }
+        guard try await Self.sha256(of: zip) == archive.sha256 else { throw AppSelfUpdateError.digestMismatch }
         return zip
     }
 
-    nonisolated static func sha256(of file: URL) throws -> String {
+    @concurrent
+    nonisolated static func sha256(of file: URL) async throws -> String {
         let data = try Data(contentsOf: file, options: .mappedIfSafe)
         return SHA256.hash(data: data).map { String(format: "%02x", $0) }.joined()
     }
@@ -183,13 +193,19 @@ final class AppSelfUpdater: AppUpdateInstalling {
         return app
     }
 
-    nonisolated static func verify(_ app: URL, matches release: GitHubRelease, requirement: String) throws {
+    @concurrent
+    nonisolated static func verify(_ app: URL, matches release: GitHubRelease, requirement: String) async throws {
         let bundle = Bundle(url: app)
         let version = bundle?.canaryReleaseTag ?? bundle?.appVersion ?? ""
         guard release.matches(installedVersion: version) else {
             throw AppSelfUpdateError.versionMismatch(version)
         }
+        let flags = kSecCSCheckAllArchitectures | kSecCSStrictValidate | kSecCSCheckNestedCode
+        let status = signatureStatus(of: app, requirement: requirement, flags: flags)
+        guard status == errSecSuccess else { throw AppSelfUpdateError.untrustedSignature(status) }
+    }
 
+    private nonisolated static func signatureStatus(of app: URL, requirement: String, flags: UInt32) -> OSStatus {
         var code: SecStaticCode?
         var compiled: SecRequirement?
         var status = SecStaticCodeCreateWithPath(app as CFURL, [], &code)
@@ -197,10 +213,9 @@ final class AppSelfUpdater: AppUpdateInstalling {
             status = SecRequirementCreateWithString(requirement as CFString, [], &compiled)
         }
         if status == errSecSuccess, let code, let compiled {
-            let flags = SecCSFlags(rawValue: kSecCSCheckAllArchitectures | kSecCSStrictValidate | kSecCSCheckNestedCode)
-            status = SecStaticCodeCheckValidity(code, flags, compiled)
+            status = SecStaticCodeCheckValidity(code, SecCSFlags(rawValue: flags), compiled)
         }
-        guard status == errSecSuccess else { throw AppSelfUpdateError.untrustedSignature(status) }
+        return status
     }
 
     nonisolated static func runningAppRequirement() throws -> String {

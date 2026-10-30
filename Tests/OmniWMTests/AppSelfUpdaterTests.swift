@@ -74,7 +74,7 @@ final class AppSelfUpdaterTests: XCTestCase {
 
     func testInstallReplacesBundleWithVerifiedDownload() async throws {
         let installed = try makeApp(in: "installed", tag: "canary-20261024-0439-40061526227-1")
-        let (release, session) = try publish(makeApp(in: "build", tag: newTag))
+        let (release, session) = try await publish(makeApp(in: "build", tag: newTag))
         defer { session.invalidateAndCancel() }
 
         let updater = AppSelfUpdater(bundleURL: installed, session: session) { "identifier \"\(identifier)\"" }
@@ -89,7 +89,7 @@ final class AppSelfUpdaterTests: XCTestCase {
     func testInstallLeavesBundleAloneWhenDownloadFailsAnyCheck() async throws {
         let oldTag = "canary-20261024-0439-40061526227-1"
         let installed = try makeApp(in: "installed", tag: oldTag)
-        let (release, session) = try publish(makeApp(in: "build", tag: newTag))
+        let (release, session) = try await publish(makeApp(in: "build", tag: newTag))
         defer { session.invalidateAndCancel() }
         let otherDigest = "sha256:" + String(repeating: "0", count: 64)
         var wrongDigest = release
@@ -129,6 +129,17 @@ final class AppSelfUpdaterTests: XCTestCase {
         }
     }
 
+    func testInstallIsOfferedOnlyWhenTheInstalledBundleMeetsTheUpdateRequirement() throws {
+        let installed = try makeApp(in: "installed", tag: newTag)
+        let ours = "identifier \"\(identifier)\""
+        let offers = [ours: true, ours + " and notarized": false, "identifier \"someone.else\"": false]
+        for (requirement, offered) in offers {
+            XCTAssertEqual(AppSelfUpdater(bundleURL: installed) { requirement }.canInstall, offered, requirement)
+        }
+        XCTAssertFalse(AppSelfUpdater(bundleURL: installed) { throw AppSelfUpdateError.untrustedSignature(-1) }
+            .canInstall)
+    }
+
     func testRequirementAlwaysDemandsNotarization() throws {
         XCTAssertEqual(AppSelfUpdater.notarized("anchor apple"), "(anchor apple) and notarized")
         XCTAssertTrue(try AppSelfUpdater.runningAppRequirement().hasSuffix(") and notarized"))
@@ -154,6 +165,8 @@ final class AppSelfUpdaterTests: XCTestCase {
             try updater.relaunch()
             try updater.relaunch()
             XCTAssertEqual(terminations.value, 2)
+            let exited = expectation(description: "helper exited")
+            try XCTUnwrap(updater.relaunchHelper).terminationHandler = { _ in exited.fulfill() }
 
             if confirmed {
                 updater.confirmRelaunch()
@@ -163,23 +176,14 @@ final class AppSelfUpdaterTests: XCTestCase {
             if !confirmed {
                 try updater.relaunchSignal?.close()
             }
-            let didOpen = await waitForFile(opened, seconds: confirmed ? 5 : 1)
-            XCTAssertEqual(didOpen, confirmed)
+            await fulfillment(of: [exited], timeout: 5)
+            XCTAssertEqual(FileManager.default.fileExists(atPath: opened.path), confirmed)
         }
         XCTAssertEqual(try String(contentsOf: opened, encoding: .utf8), app.path + "\n")
     }
 
     private final class Counter {
         var value = 0
-    }
-
-    private func waitForFile(_ url: URL, seconds: Double) async -> Bool {
-        let deadline = Date().addingTimeInterval(seconds)
-        while Date() < deadline {
-            if FileManager.default.fileExists(atPath: url.path) { return true }
-            try? await Task.sleep(for: .milliseconds(50))
-        }
-        return FileManager.default.fileExists(atPath: url.path)
     }
 
     private func tag(of app: URL) -> String? {
@@ -201,7 +205,7 @@ final class AppSelfUpdaterTests: XCTestCase {
         return app
     }
 
-    private func publish(_ app: URL) throws -> (GitHubRelease, URLSession) {
+    private func publish(_ app: URL) async throws -> (GitHubRelease, URLSession) {
         let zip = root.appendingPathComponent("update.zip")
         try run("/usr/bin/ditto", "-c", "-k", "--keepParent", app.path, zip.path)
         try ZipProtocol.body.withLock { $0 = try Data(contentsOf: zip) }
@@ -210,9 +214,8 @@ final class AppSelfUpdaterTests: XCTestCase {
         var release = GitHubRelease(
             tagName: newTag, name: newTag, body: "", releasePageURL: url, publishedAt: Date(), isPrerelease: true
         )
-        release.archive = try ReleaseArchive(
-            name: name, url: url, digest: "sha256:" + AppSelfUpdater.sha256(of: zip), tag: newTag
-        )
+        let digest = try await AppSelfUpdater.sha256(of: zip)
+        release.archive = ReleaseArchive(name: name, url: url, digest: "sha256:" + digest, tag: newTag)
         let configuration = URLSessionConfiguration.ephemeral
         configuration.protocolClasses = [ZipProtocol.self]
         return (release, URLSession(configuration: configuration))

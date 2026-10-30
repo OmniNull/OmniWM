@@ -118,6 +118,7 @@ final class UpdateCoordinatorTests: XCTestCase {
         var events: [String] = []
         var onInstall: (() -> Void)?
         var onRelaunch: (() -> Void)?
+        var onFinish: (() -> Void)?
         var gate: CheckedContinuation<Void, Never>?
 
         func isInstalled(_ release: GitHubRelease) -> Bool {
@@ -126,6 +127,7 @@ final class UpdateCoordinatorTests: XCTestCase {
 
         func install(_ release: GitHubRelease) async throws {
             events.append("install")
+            defer { onFinish?() }
             onInstall?()
             if suspends {
                 await withCheckedContinuation { gate = $0 }
@@ -212,13 +214,14 @@ final class UpdateCoordinatorTests: XCTestCase {
             default: window.onWindowClosedWithoutAction?()
             }
 
-            let nothing = expectation(description: "\(action) relaunched")
-            nothing.isInverted = true
-            installer.onRelaunch = { nothing.fulfill() }
-            window.onEvent = { nothing.fulfill() }
+            let finished = expectation(description: "\(action) finished")
+            installer.onFinish = { finished.fulfill() }
+            window.onEvent = nil
             installer.gate?.resume()
-            await fulfillment(of: [nothing], timeout: 0.3)
+            await fulfillment(of: [finished], timeout: 2)
+            installer.onFinish = nil
             XCTAssertEqual(installer.events, ["install"], action)
+            XCTAssertNil(window.alertTitle, action)
 
             let relaunched = expectation(description: "\(action) retried")
             installer.onRelaunch = { relaunched.fulfill() }
