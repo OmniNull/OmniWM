@@ -584,6 +584,35 @@ final class NaturalDoubleClickTests: NiriInteractionTestCase {
         XCTAssertEqual(column.width, widths[0])
     }
 
+    func testATitleBarDoubleClickUndoesAKeptEdgeResizeBeforeCyclingWidths() throws {
+        let fixture = try makeFixture(pid: 941_090)
+        let token = fixture.tokens[1]
+        let column = try fixture.column(token)
+        let width = column.width
+        try keepEdgeResize(of: token, in: fixture)
+
+        XCTAssertTrue(fixture.doubleClick(at: try fixture.titleBar(token)))
+        XCTAssertEqual(column.width, width)
+        XCTAssertFalse(column.hasManualSingleWindowWidthOverride)
+
+        XCTAssertTrue(fixture.doubleClick(at: try fixture.titleBar(token)))
+        XCTAssertNotEqual(column.width, width)
+    }
+
+    func testATitleBarDoubleClickUndoesOnlyTheClickedWindowsResize() throws {
+        let fixture = try makeFixture(pid: 941_091)
+        let (resized, clicked) = (fixture.tokens[1], fixture.tokens[2])
+        try keepEdgeResize(of: resized, in: fixture)
+        let resizedWidth = try fixture.column(resized).width
+        let clickedWidth = try fixture.column(clicked).width
+
+        XCTAssertTrue(fixture.doubleClick(at: try fixture.titleBar(clicked)))
+
+        XCTAssertNotEqual(try fixture.column(clicked).width, clickedWidth)
+        XCTAssertEqual(try fixture.column(resized).width, resizedWidth)
+        XCTAssertNotNil(fixture.handler.state.nativeResizeUndos[resized])
+    }
+
     func testATitleBarDoubleClickResizesTheWindowAroundItsCentre() throws {
         let fixture = try makeFixture(pid: 941_040)
         let token = fixture.tokens[1]
@@ -1023,6 +1052,20 @@ final class NaturalDoubleClickTests: NiriInteractionTestCase {
         XCTAssertFalse(fixture.doubleClick(at: try fixture.titleBar(fixture.tokens[1])))
 
         XCTAssertEqual(column.width, width)
+    }
+
+    private func keepEdgeResize(of token: WindowToken, in fixture: Fixture) throws {
+        let start = try XCTUnwrap(fixture.handler.nativeResizeUndoStart(
+            for: fixture.window(token),
+            in: fixture.workspaceId
+        ))
+        let column = try fixture.column(token)
+        column.width = .fixed(700)
+        column.presetWidthIdx = nil
+        column.hasManualSingleWindowWidthOverride = true
+        column.cachedWidth = 0
+        fixture.handler.rememberNativeResize(of: token, edges: .right, in: fixture.workspaceId, from: start)
+        fixture.relayout()
     }
 
     private func makeFixture(pid: pid_t, windowCount: Int = 3, stackFirstTwo: Bool = false) throws -> Fixture {

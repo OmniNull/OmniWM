@@ -148,6 +148,7 @@ extension MouseEventHandler {
         let layout = controller.niriLayoutHandler
         switch target.zone {
         case .titleBar:
+            if undoNativeResize(on: .window(target.handle)) { return }
             layout.performWindowSizing(on: .window(target.handle)) { engine, window, context, viewport in
                 guard let column = engine.findColumn(containing: window, in: context.workspaceId) else { return nil }
                 engine.cycleColumnWidthAroundCentre(column, context: context, state: &viewport)

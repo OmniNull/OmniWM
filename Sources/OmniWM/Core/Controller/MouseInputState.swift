@@ -146,6 +146,7 @@ struct MouseInputState {
     var naturalDoubleClickWidths: [NodeId: NaturalDoubleClickWidth] = [:]
     var naturalClickChain: NaturalClickChain?
     var naturalClickChainToken: WindowToken?
+    var nativeResizeUndos: [WindowToken: NativeResizeUndo] = [:]
     var activeInteractionSource: InteractionSource?
     var activeInteractionButton: MouseEventHandler.MouseButton? {
         get { activeInteractionSource?.mouseButton }

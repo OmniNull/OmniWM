@@ -264,6 +264,13 @@ private struct GlobalNiriSettingsSection: View {
                     localized: "macOS also uses Command-drag to move a window behind others without bringing it to the front."
                 )
             }
+
+            UndoResizeHotkeyRow(settings: settings, controller: controller)
+                .disabled(!settings.niri.naturalWindowDrag)
+
+            SettingsCaption(
+                localized: "When dragging a window’s edge resizes it by accident, press this key to put the focused window back as it was, or double-click the window’s title bar. A double-click undoes that window’s last edge resize first, then changes its width."
+            )
         }
         .id("Niri Layout")
 

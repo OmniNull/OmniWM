@@ -108,8 +108,9 @@ enum HotkeySettingsDisplayModel {
         let normalizedQuery = ActionCatalog.normalizedSearchTerm(query)
         var bindingsByCategory: [HotkeyCategory: [HotkeyBinding]] = [:]
         for binding in bindings {
-            guard ActionCatalog.visibility(for: binding.id) != .unassignable,
-                  matchesSearch(normalizedQuery, binding: binding)
+            guard ActionCatalog.visibility(for: binding.id).map({ ![.unassignable, .niriSettings].contains($0) })
+                ?? true,
+                matchesSearch(normalizedQuery, binding: binding)
             else { continue }
             bindingsByCategory[binding.category, default: []].append(binding)
         }

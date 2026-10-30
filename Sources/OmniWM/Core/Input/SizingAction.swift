@@ -21,6 +21,7 @@ enum SizingAction: Equatable, Hashable {
     case setWindowPrimarySpan(NiriSizeChange)
     case setWindowSecondarySpan(NiriSizeChange)
     case balanceSizes
+    case undoResize
 }
 
 extension SizingAction {
@@ -50,6 +51,9 @@ extension SizingAction {
             )
         case .balanceSizes: LocalizedStringResource(
                 "command.sizing.balance", defaultValue: "Balance Sizes", table: "Commands", bundle: .omniWM
+            )
+        case .undoResize: LocalizedStringResource(
+                "command.sizing.undoResize", defaultValue: "Undo Resize", table: "Commands", bundle: .omniWM
             )
         case .toggleContainerFullPrimarySpan,
              .expandContainerToAvailablePrimarySpan,
@@ -103,7 +107,8 @@ extension SizingAction {
              .cycleWindowPrimarySpanBackward,
              .cycleWindowSecondarySpanForward,
              .cycleWindowSecondarySpanBackward,
-             .balanceSizes:
+             .balanceSizes,
+             .undoResize:
             actionDisplayName()
         }
     }
@@ -146,7 +151,8 @@ extension SizingAction {
              .setContainerPrimarySpan,
              .setWindowPrimarySpan,
              .setWindowSecondarySpan,
-             .balanceSizes:
+             .balanceSizes,
+             .undoResize:
             spanTitle()
         }
     }
@@ -155,7 +161,8 @@ extension SizingAction {
         switch self {
         case .resizeContainerPrimarySpan,
              .resizeWindowPrimarySpan,
-             .resizeWindowSecondarySpan:
+             .resizeWindowSecondarySpan,
+             .undoResize:
             nil
         case .cycleSizeForward:
             .sizing(.cycleSizeForward)
@@ -204,7 +211,8 @@ extension SizingAction {
              .resizeWindowSecondarySpan,
              .setContainerPrimarySpan,
              .setWindowPrimarySpan,
-             .setWindowSecondarySpan:
+             .setWindowSecondarySpan,
+             .undoResize:
             .niri
         }
     }

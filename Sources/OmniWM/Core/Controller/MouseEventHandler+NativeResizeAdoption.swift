@@ -175,6 +175,7 @@ extension MouseEventHandler {
         let slide = naturalResizeApplies(context.orientation)
             ? naturalEdgeResizeSlide(around: window, in: workspaceId, resizedFrom: start, to: observed)
             : nil
+        let undoStart = nativeResizeUndoStart(for: window, in: workspaceId)
         var changed = false
         controller.workspaceManager.withNiriViewportState(for: workspaceId) { viewportState in
             if let secondarySpan {
@@ -204,6 +205,9 @@ extension MouseEventHandler {
             settleNaturalEdgeResize(window, sliding: slide, monitor: monitor, context: context)
         } else {
             settleNiriResize(entry.token, in: workspaceId)
+        }
+        if let undoStart {
+            rememberNativeResize(of: entry.token, edges: edges, in: workspaceId, from: undoStart)
         }
         return true
     }

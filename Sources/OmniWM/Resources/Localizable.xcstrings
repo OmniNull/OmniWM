@@ -1036,6 +1036,254 @@
         }
       }
     },
+    "Undo Resize" : {
+      "localizations" : {
+        "ar" : {
+          "stringUnit" : {
+            "state" : "translated",
+            "value" : "تراجع عن تغيير الحجم"
+          }
+        },
+        "da" : {
+          "stringUnit" : {
+            "state" : "translated",
+            "value" : "Fortryd størrelsesændring"
+          }
+        },
+        "de" : {
+          "stringUnit" : {
+            "state" : "translated",
+            "value" : "Größenänderung widerrufen"
+          }
+        },
+        "el" : {
+          "stringUnit" : {
+            "state" : "translated",
+            "value" : "Αναίρεση αλλαγής μεγέθους"
+          }
+        },
+        "es" : {
+          "stringUnit" : {
+            "state" : "translated",
+            "value" : "Deshacer cambio de tamaño"
+          }
+        },
+        "fi" : {
+          "stringUnit" : {
+            "state" : "translated",
+            "value" : "Kumoa koon muutos"
+          }
+        },
+        "fr" : {
+          "stringUnit" : {
+            "state" : "translated",
+            "value" : "Annuler le redimensionnement"
+          }
+        },
+        "he" : {
+          "stringUnit" : {
+            "state" : "translated",
+            "value" : "ביטול שינוי גודל"
+          }
+        },
+        "hi" : {
+          "stringUnit" : {
+            "state" : "translated",
+            "value" : "आकार बदलना पूर्ववत करें"
+          }
+        },
+        "it" : {
+          "stringUnit" : {
+            "state" : "translated",
+            "value" : "Annulla ridimensionamento"
+          }
+        },
+        "ja" : {
+          "stringUnit" : {
+            "state" : "translated",
+            "value" : "サイズ変更を取り消す"
+          }
+        },
+        "ko" : {
+          "stringUnit" : {
+            "state" : "translated",
+            "value" : "크기 조절 실행 취소"
+          }
+        },
+        "nb" : {
+          "stringUnit" : {
+            "state" : "translated",
+            "value" : "Angre endring av størrelse"
+          }
+        },
+        "nl" : {
+          "stringUnit" : {
+            "state" : "translated",
+            "value" : "Formaatwijziging ongedaan maken"
+          }
+        },
+        "pl" : {
+          "stringUnit" : {
+            "state" : "translated",
+            "value" : "Cofnij zmianę rozmiaru"
+          }
+        },
+        "ru" : {
+          "stringUnit" : {
+            "state" : "translated",
+            "value" : "Отменить изменение размера"
+          }
+        },
+        "sr-Latn" : {
+          "stringUnit" : {
+            "state" : "translated",
+            "value" : "Opozovi promenu veličine"
+          }
+        },
+        "sv" : {
+          "stringUnit" : {
+            "state" : "translated",
+            "value" : "Ångra storleksändring"
+          }
+        },
+        "uk" : {
+          "stringUnit" : {
+            "state" : "translated",
+            "value" : "Скасувати зміну розміру"
+          }
+        },
+        "zh-Hans" : {
+          "stringUnit" : {
+            "state" : "translated",
+            "value" : "撤销调整大小"
+          }
+        }
+      }
+    },
+    "When dragging a window’s edge resizes it by accident, press this key to put the focused window back as it was, or double-click the window’s title bar. A double-click undoes that window’s last edge resize first, then changes its width." : {
+      "localizations" : {
+        "ar" : {
+          "stringUnit" : {
+            "state" : "translated",
+            "value" : "إذا غيّر سحب حافة نافذة حجمها عن غير قصد، فاضغط هذا المفتاح لإعادة النافذة النشطة كما كانت، أو انقر نقرًا مزدوجًا على شريط عنوانها. يتراجع النقر المزدوج أولًا عن آخر تغيير لحجم تلك النافذة من حافتها، ثم يغيّر عرضها."
+          }
+        },
+        "da" : {
+          "stringUnit" : {
+            "state" : "translated",
+            "value" : "Hvis et træk i et vindues kant ved et uheld ændrer dets størrelse, så tryk på denne tast for at sætte det aktive vindue tilbage, som det var, eller dobbeltklik på vinduets titellinje. Et dobbeltklik fortryder først vinduets seneste størrelsesændring fra kanten og ændrer derefter dets bredde."
+          }
+        },
+        "de" : {
+          "stringUnit" : {
+            "state" : "translated",
+            "value" : "Wenn das Ziehen am Rand eines Fensters dessen Größe versehentlich ändert, drücken Sie diese Taste, um das aktive Fenster wiederherzustellen, oder doppelklicken Sie auf seine Titelleiste. Ein Doppelklick widerruft zuerst die letzte Größenänderung dieses Fensters am Rand und ändert danach seine Breite."
+          }
+        },
+        "el" : {
+          "stringUnit" : {
+            "state" : "translated",
+            "value" : "Αν το σύρσιμο της άκρης ενός παραθύρου αλλάξει κατά λάθος το μέγεθός του, πατήστε αυτό το πλήκτρο για να επαναφέρετε το ενεργό παράθυρο όπως ήταν ή κάντε διπλό κλικ στη γραμμή τίτλου του. Το διπλό κλικ αναιρεί πρώτα την τελευταία αλλαγή μεγέθους του παραθύρου από την άκρη και μετά αλλάζει το πλάτος του."
+          }
+        },
+        "es" : {
+          "stringUnit" : {
+            "state" : "translated",
+            "value" : "Si al arrastrar el borde de una ventana cambias su tamaño sin querer, pulsa esta tecla para dejar la ventana activa como estaba, o haz doble clic en su barra de título. Un doble clic deshace primero el último cambio de tamaño desde el borde de esa ventana y después cambia su ancho."
+          }
+        },
+        "fi" : {
+          "stringUnit" : {
+            "state" : "translated",
+            "value" : "Jos ikkunan reunan vetäminen muuttaa sen kokoa vahingossa, palauta aktiivinen ikkuna ennalleen painamalla tätä näppäintä tai kaksoisosoita ikkunan otsikkopalkkia. Kaksoisosoitus kumoaa ensin ikkunan viimeisimmän reunasta tehdyn koon muutoksen ja muuttaa sitten sen leveyttä."
+          }
+        },
+        "fr" : {
+          "stringUnit" : {
+            "state" : "translated",
+            "value" : "Si faire glisser le bord d’une fenêtre la redimensionne par accident, appuyez sur cette touche pour remettre la fenêtre active comme elle était, ou double-cliquez sur sa barre de titre. Un double-clic annule d’abord le dernier redimensionnement par le bord de cette fenêtre, puis change sa largeur."
+          }
+        },
+        "he" : {
+          "stringUnit" : {
+            "state" : "translated",
+            "value" : "אם גרירת קצה של חלון משנה את גודלו בטעות, הקש על מקש זה כדי להחזיר את החלון הפעיל למצבו הקודם, או לחץ פעמיים על שורת הכותרת שלו. לחיצה כפולה מבטלת תחילה את שינוי הגודל האחרון של החלון מהקצה, ואחר כך משנה את רוחבו."
+          }
+        },
+        "hi" : {
+          "stringUnit" : {
+            "state" : "translated",
+            "value" : "यदि किसी विंडो का किनारा खींचने से गलती से उसका आकार बदल जाए, तो सक्रिय विंडो को पहले जैसा करने के लिए यह कुंजी दबाएँ, या विंडो की शीर्षक पट्टी पर डबल-क्लिक करें। डबल-क्लिक पहले उस विंडो के किनारे से किया गया पिछला आकार बदलाव पूर्ववत करता है, फिर उसकी चौड़ाई बदलता है।"
+          }
+        },
+        "it" : {
+          "stringUnit" : {
+            "state" : "translated",
+            "value" : "Se trascinando il bordo di una finestra la ridimensioni per errore, premi questo tasto per riportare la finestra attiva com’era, oppure fai doppio clic sulla sua barra del titolo. Un doppio clic annulla prima l’ultimo ridimensionamento dal bordo di quella finestra, poi ne cambia la larghezza."
+          }
+        },
+        "ja" : {
+          "stringUnit" : {
+            "state" : "translated",
+            "value" : "ウインドウの端をドラッグして誤ってサイズを変えてしまったときは、このキーを押すと操作中のウインドウが元に戻ります。ウインドウのタイトルバーをダブルクリックしても戻せます。ダブルクリックでは、まずそのウインドウの最後の端からのサイズ変更を取り消し、その後は幅を切り替えます。"
+          }
+        },
+        "ko" : {
+          "stringUnit" : {
+            "state" : "translated",
+            "value" : "윈도우 가장자리를 드래그하다 실수로 크기가 바뀌면 이 키를 눌러 활성 윈도우를 원래대로 되돌리거나 윈도우의 제목 막대를 이중 클릭합니다. 이중 클릭은 먼저 해당 윈도우의 마지막 가장자리 크기 조절을 실행 취소한 다음 너비를 바꿉니다."
+          }
+        },
+        "nb" : {
+          "stringUnit" : {
+            "state" : "translated",
+            "value" : "Hvis et dra i kanten av et vindu endrer størrelsen ved et uhell, trykker du på denne tasten for å sette det aktive vinduet tilbake slik det var, eller dobbeltklikker på tittellinjen. Et dobbeltklikk angrer først vinduets siste størrelsesendring fra kanten, og endrer deretter bredden."
+          }
+        },
+        "nl" : {
+          "stringUnit" : {
+            "state" : "translated",
+            "value" : "Als het slepen aan de rand van een venster per ongeluk het formaat wijzigt, druk je op deze toets om het actieve venster terug te zetten zoals het was, of dubbelklik je op de titelbalk. Een dubbelklik maakt eerst de laatste formaatwijziging vanaf de rand van dat venster ongedaan en wijzigt daarna de breedte."
+          }
+        },
+        "pl" : {
+          "stringUnit" : {
+            "state" : "translated",
+            "value" : "Jeśli przeciągnięcie krawędzi okna przypadkiem zmieni jego rozmiar, naciśnij ten klawisz, aby przywrócić aktywne okno do poprzedniego stanu, albo kliknij dwukrotnie jego pasek tytułu. Dwukrotne kliknięcie najpierw cofa ostatnią zmianę rozmiaru tego okna od krawędzi, a potem zmienia jego szerokość."
+          }
+        },
+        "ru" : {
+          "stringUnit" : {
+            "state" : "translated",
+            "value" : "Если перетаскивание края окна случайно изменило его размер, нажмите эту клавишу, чтобы вернуть активное окно в прежнее состояние, или дважды щёлкните его заголовок. Двойной щелчок сначала отменяет последнее изменение размера этого окна за край, а затем меняет его ширину."
+          }
+        },
+        "sr-Latn" : {
+          "stringUnit" : {
+            "state" : "translated",
+            "value" : "Ako prevlačenje ivice prozora slučajno promeni njegovu veličinu, pritisnite ovaj taster da biste aktivni prozor vratili kakav je bio, ili dvaput kliknite na njegovu traku naslova. Dvostruki klik prvo opoziva poslednju promenu veličine tog prozora preko ivice, a zatim menja njegovu širinu."
+          }
+        },
+        "sv" : {
+          "stringUnit" : {
+            "state" : "translated",
+            "value" : "Om en dragning i ett fönsters kant av misstag ändrar dess storlek trycker du på den här tangenten för att återställa det aktiva fönstret, eller dubbelklickar på fönstrets namnlist. Ett dubbelklick ångrar först fönstrets senaste storleksändring från kanten och ändrar sedan dess bredd."
+          }
+        },
+        "uk" : {
+          "stringUnit" : {
+            "state" : "translated",
+            "value" : "Якщо перетягування краю вікна випадково змінило його розмір, натисніть цю клавішу, щоб повернути активне вікно до попереднього стану, або двічі клацніть його смугу заголовка. Подвійне клацання спершу скасовує останню зміну розміру цього вікна за край, а потім змінює його ширину."
+          }
+        },
+        "zh-Hans" : {
+          "stringUnit" : {
+            "state" : "translated",
+            "value" : "如果拖移窗口边缘时不小心调整了它的大小，可按此键让当前窗口恢复原样，或连按两次窗口的标题栏。连按两次会先撤销该窗口最近一次的边缘大小调整，之后再切换它的宽度。"
+          }
+        }
+      }
+    },
     "Keeps part of the next window in view at each screen edge that has more windows, so columns and resizing never cover it. Peek Width is a share of each display’s width." : {
       "localizations" : {
         "ar" : {

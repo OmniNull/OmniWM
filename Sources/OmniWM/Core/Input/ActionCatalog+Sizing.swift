@@ -148,4 +148,15 @@ extension ActionCatalog {
             action(id: "swapSplit", command: .dwindle(.swapSplit), category: .layout, binding: .unassigned)
         ])
     }
+
+    static func appendUndoResizeBinding(_ specs: inout [ActionSpec]) {
+        specs.append(action(
+            id: "undoResize",
+            command: .sizing(.undoResize),
+            category: .layout,
+            binding: KeyBinding(keyCode: UInt32(kVK_ANSI_Z), modifiers: UInt32(optionKey | cmdKey)),
+            visibility: .niriSettings,
+            keywords: ["undo", "resize", "edge", "border", "restore size"]
+        ))
+    }
 }

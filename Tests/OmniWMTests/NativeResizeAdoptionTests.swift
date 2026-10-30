@@ -48,6 +48,14 @@ final class NativeResizeAdoptionTests: NiriInteractionTestCase {
             try XCTUnwrap(controller.niriEngine?.findNode(for: token, in: workspaceId))
         }
 
+        func column(_ token: WindowToken) throws -> NiriContainer {
+            try XCTUnwrap(controller.niriEngine?.findColumn(containing: niriNode(token), in: workspaceId))
+        }
+
+        func target(_ token: WindowToken) throws -> NiriLayoutHandler.WindowTarget {
+            try .window(XCTUnwrap(manager.handle(for: token)))
+        }
+
         func frames() throws -> [WindowToken: CGRect] {
             let workingFrame = controller.insetWorkingFrame(for: monitor)
             switch manager.activeLayoutKind(for: workspaceId) {
@@ -2941,6 +2949,98 @@ final class NativeResizeAdoptionTests: NiriInteractionTestCase {
         try single.release(single.tokens[0], at: grown(try single.frame(single.tokens[0]), bottom: -120))
         XCTAssertEqual(single.phase, .awaitingCorrection)
         XCTAssertEqual(try single.frames(), singleBefore)
+    }
+
+    func testUndoResizeGivesALoneFilledWindowItsFillFrameBack() throws {
+        for (index, natural) in [false, true].enumerated() {
+            let fixture = try makeFixture(.niri, windowCount: 1, pid: pid_t(834_081 + index))
+            fixture.controller.settings.gestures.adoptNativeResize = !natural
+            fixture.controller.settings.niri.naturalWindowDrag = natural
+            fixture.controller.motionPolicy.animationsEnabled = false
+            let blocker = blockRefreshes(fixture)
+            defer { unblockRefreshes(fixture, blocker: blocker) }
+            let token = fixture.tokens[0]
+            let before = try fixture.frames()
+            try fixture.release(token, at: grown(try fixture.frame(token), right: -300))
+            XCTAssertNotEqual(try fixture.frames(), before, "natural=\(natural)")
+
+            XCTAssertTrue(fixture.handler.undoNativeResize(on: try fixture.target(token)), "natural=\(natural)")
+
+            XCTAssertFalse(try fixture.column(token).hasManualSingleWindowWidthOverride, "natural=\(natural)")
+            XCTAssertEqual(try fixture.frames(), before, "natural=\(natural)")
+            XCTAssertFalse(fixture.handler.undoNativeResize(on: try fixture.target(token)), "natural=\(natural)")
+        }
+    }
+
+    func testUndoResizeActsOnTheFocusedWindow() throws {
+        let fixture = try makeFixture(.niri, windowCount: 1, pid: 834_083)
+        let blocker = blockRefreshes(fixture)
+        defer { unblockRefreshes(fixture, blocker: blocker) }
+        let token = fixture.tokens[0]
+        let before = try fixture.frames()
+        try fixture.release(token, at: grown(try fixture.frame(token), right: -300))
+        let node = try fixture.niriNode(token)
+        fixture.manager.withNiriViewportState(for: fixture.workspaceId) { $0.selectedNodeId = node.id }
+
+        XCTAssertTrue(fixture.handler.undoNativeResize(on: .focused))
+
+        XCTAssertEqual(try fixture.frames(), before)
+    }
+
+    func testUndoResizeGivesAColumnItsWidthBackAndLeavesTheOthers() throws {
+        let fixture = try makeFixture(.niri, pid: 834_084)
+        fixture.controller.motionPolicy.animationsEnabled = false
+        let blocker = blockRefreshes(fixture)
+        defer { unblockRefreshes(fixture, blocker: blocker) }
+        let (first, second) = (fixture.tokens[0], fixture.tokens[1])
+        let firstWidth = try fixture.frame(first).width
+        let firstSpec = try fixture.column(first).width
+        try fixture.release(first, at: grown(try fixture.frame(first), right: 200))
+        try fixture.confirmLayout()
+        try fixture.release(second, at: grown(try fixture.frame(second), right: -100))
+        let secondWidth = try fixture.frame(second).width
+
+        XCTAssertTrue(fixture.handler.undoNativeResize(on: try fixture.target(first)))
+
+        XCTAssertEqual(try fixture.column(first).width, firstSpec)
+        XCTAssertEqual(try fixture.frame(first).width, firstWidth, accuracy: 1)
+        XCTAssertEqual(try fixture.frame(second).width, secondWidth, accuracy: 1)
+        XCTAssertTrue(fixture.handler.undoNativeResize(on: try fixture.target(second)))
+    }
+
+    func testUndoResizeGivesAStackBothHeightsBack() throws {
+        let fixture = try makeFixture(.niri, stacked: true, pid: 834_085)
+        fixture.controller.settings.niri.naturalWindowDrag = true
+        fixture.controller.motionPolicy.animationsEnabled = false
+        let blocker = blockRefreshes(fixture)
+        defer { unblockRefreshes(fixture, blocker: blocker) }
+        let (top, bottom) = try stackedTopAndBottom(fixture)
+        let before = try fixture.frames()
+        try fixture.release(top, at: grown(try fixture.frame(top), bottom: 100))
+        XCTAssertNotEqual(try fixture.frame(bottom).height, before[bottom]?.height)
+
+        XCTAssertTrue(fixture.handler.undoNativeResize(on: try fixture.target(top)))
+
+        XCTAssertEqual(try fixture.frames(), before)
+    }
+
+    func testUndoResizeLeavesASizeChosenAfterTheDrag() throws {
+        let fixture = try makeFixture(.niri, pid: 834_086)
+        let blocker = blockRefreshes(fixture)
+        defer { unblockRefreshes(fixture, blocker: blocker) }
+        let token = fixture.tokens[0]
+        try fixture.release(token, at: grown(try fixture.frame(token), right: 200))
+        XCTAssertTrue(fixture.controller.niriLayoutHandler.performWindowSizing(
+            on: try fixture.target(token)
+        ) { engine, window, context, state in
+            guard let column = engine.findColumn(containing: window, in: context.workspaceId) else { return nil }
+            engine.toggleContainerFullPrimarySpan(column, context: context, state: &state)
+            return .containerPrimarySpanChanged
+        })
+
+        XCTAssertFalse(fixture.handler.undoNativeResize(on: try fixture.target(token)))
+
+        XCTAssertTrue(try fixture.column(token).isFullWidth)
     }
 
     func testAdoptedFrameIsTheFirstWriteForTheResizedWindow() async throws {

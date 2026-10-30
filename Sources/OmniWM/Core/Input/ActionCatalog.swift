@@ -9,6 +9,7 @@ enum HotkeyVisibility: String {
     case normal
     case advanced
     case unassignable
+    case niriSettings
 }
 
 struct ActionSpec: Equatable {
@@ -194,6 +195,7 @@ enum ActionCatalog {
         specs.append(contentsOf: IPCMediaCommand.allCases.map { $0.actionSpec() })
         specs.append(contentsOf: IPCKeyboardModeCommand.allCases.map { $0.actionSpec() })
         appendShellAppBindings(&specs)
+        appendUndoResizeBinding(&specs)
         appendPresentationBindings(&specs)
 
         return specs
