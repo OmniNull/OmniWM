@@ -236,6 +236,11 @@ final class ShellManipulationSceneTests: XCTestCase {
     }
 
     func testFrameDuringAnInFlightScaleMotionKeepsTheTopLeftPivot() throws {
+        guard #available(macOS 27.2, *) else {
+            throw XCTSkip(
+                "CARenderer before macOS 27.2 draws a child resized during its parent's in-flight transform at its old size"
+            )
+        }
         let begin = CACurrentMediaTime()
         let (scene, renderer) = try makeScene(at: begin)
         let scale = try motion(from: Self.home, to: CGRect(x: 8, y: 8, width: 20, height: 20), begin: begin)
