@@ -1762,10 +1762,10 @@ final class NiriLiveColumnMoveTests: XCTestCase {
         let emptySpace = fixture.stripColumn(holding: 2)
 
         XCTAssertTrue(fixture.engine.liveColumnMoveWouldChange(
-            cursor: CGPoint(x: neighbour.midX, y: fixture.midY), context: fixture.context, state: fixture.state
+            cursor: CGPoint(x: neighbour.midX, y: fixture.midY), strip: fixture.strip(), context: fixture.context
         ))
         XCTAssertFalse(fixture.engine.liveColumnMoveWouldChange(
-            cursor: CGPoint(x: emptySpace.midX, y: fixture.midY), context: fixture.context, state: fixture.state
+            cursor: CGPoint(x: emptySpace.midX, y: fixture.midY), strip: fixture.strip(), context: fixture.context
         ))
         XCTAssertEqual(fixture.order(), order)
         XCTAssertEqual(fixture.engine.liveColumnMove?.phase, .dragging)
@@ -1782,23 +1782,23 @@ final class NiriLiveColumnMoveTests: XCTestCase {
 
         XCTAssertFalse(fixture.engine.liveColumnMoveWouldChange(
             cursor: fixture.farHalf(of: 3),
-            context: fixture.context,
-            state: fixture.state
+            strip: fixture.strip(),
+            context: fixture.context
         ))
         XCTAssertFalse(fixture.engine.liveColumnMoveWouldChange(
             cursor: CGPoint(x: fixture.dropSpace()?.midX ?? 0, y: fixture.midY),
-            context: fixture.context,
-            state: fixture.state
+            strip: fixture.strip(),
+            context: fixture.context
         ))
         XCTAssertTrue(fixture.engine.liveColumnMoveWouldChange(
             cursor: fixture.farHalf(of: 4),
-            context: fixture.context,
-            state: fixture.state
+            strip: fixture.strip(),
+            context: fixture.context
         ))
         XCTAssertTrue(fixture.engine.liveColumnMoveWouldChange(
             cursor: fixture.farHalf(of: 2),
-            context: fixture.context,
-            state: fixture.state
+            strip: fixture.strip(),
+            context: fixture.context
         ))
     }
 
@@ -1811,8 +1811,8 @@ final class NiriLiveColumnMoveTests: XCTestCase {
 
         XCTAssertFalse(fixture.engine.liveColumnMoveWouldChange(
             cursor: cursor,
-            context: fixture.context,
-            state: fixture.state
+            strip: fixture.strip(),
+            context: fixture.context
         ))
     }
 }

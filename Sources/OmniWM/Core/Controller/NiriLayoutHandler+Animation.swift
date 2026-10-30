@@ -67,6 +67,7 @@ extension NiriLayoutHandler {
         applyExpiredViewportGesture(viewportTick, workspaceId: wsId, controller: controller)
         controller.mouseEventHandler.handleLiveEdgeScrollTick(in: wsId, at: targetTime)
         let viewportMotionRunning = viewportTick.isRunning
+            || controller.workspaceManager.animationDriver.hasEdgeScroll(in: wsId)
         let animsMs = scrollTrace ? (CACurrentMediaTime() - animsStart) * 1000 : 0
         let state = controller.workspaceManager.niriViewportState(for: wsId)
         let animationsOngoing = viewportMotionRunning

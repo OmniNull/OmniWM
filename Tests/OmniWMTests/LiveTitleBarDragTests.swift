@@ -1029,6 +1029,106 @@ final class LiveTitleBarDragTests: NiriInteractionTestCase {
         var now: TimeInterval = 1_000
     }
 
+    func testTheEdgeScrollStopsWhenTheEngineDropsTheMove() throws {
+        let fixture = try makeFixture(pid: 938_303, windowCount: 6)
+        let dragged = fixture.tokens[1]
+        try startEdgeScroll(.trailing, dragging: dragged, in: fixture)
+        XCTAssertTrue(fixture.manager.animationDriver.hasEdgeScroll(in: fixture.workspaceId))
+        let window = try XCTUnwrap(fixture.engine.findNode(for: dragged, in: fixture.workspaceId))
+        fixture.manager.withEngineMutationScope(in: fixture.workspaceId) {
+            fixture.engine.cancelInteractions(for: [window.id], in: fixture.workspaceId)
+        }
+        XCTAssertNil(fixture.engine.liveColumnMove)
+
+        fixture.drag(to: edgePoint(.trailing, fixture))
+
+        XCTAssertFalse(fixture.handler.isLiveEdgeScrolling)
+        XCTAssertFalse(fixture.manager.animationDriver.hasEdgeScroll(in: fixture.workspaceId))
+    }
+
+    func testTheScrollTickDrivesTheEdgeScrollAndKeepsItRegistered() throws {
+        let fixture = try makeFixture(pid: 938_304, windowCount: 6)
+        fixture.controller.layoutRefreshController.displayLinkActivationForTests = { _ in true }
+        try startEdgeScroll(.trailing, dragging: fixture.tokens[1], in: fixture)
+        let handler = fixture.controller.niriLayoutHandler
+        XCTAssertTrue(handler.hasScrollAnimation(for: fixture.workspaceId))
+        let order = fixture.landingOrder()
+        var time = try XCTUnwrap(fixture.manager.animationDriver.edgeScroll(in: fixture.workspaceId)).startTime
+
+        for _ in 0 ..< 600 where fixture.landingOrder() == order {
+            time += 1.0 / 60
+            handler.tickScrollAnimation(targetTime: time, displayId: fixture.monitor.displayId)
+            if fixture.handler.isLiveEdgeScrolling {
+                XCTAssertTrue(handler.hasScrollAnimation(for: fixture.workspaceId))
+            }
+        }
+
+        XCTAssertNotEqual(fixture.landingOrder(), order)
+    }
+
+    func testAnEdgeScrollRestartedOnItsLastFrameKeepsTheScrollTickRunning() throws {
+        let fixture = try makeFixture(pid: 938_306, windowCount: 6)
+        fixture.controller.layoutRefreshController.displayLinkActivationForTests = { _ in true }
+        try startEdgeScroll(.trailing, dragging: fixture.tokens[1], in: fixture)
+        let handler = fixture.controller.niriLayoutHandler
+        let driver = fixture.manager.animationDriver
+        let motion = try XCTUnwrap(driver.edgeScroll(in: fixture.workspaceId))
+        let last = try XCTUnwrap(fixture.engine.columns(in: fixture.workspaceId).last)
+        last.width = .proportion(2.0 / 3.0)
+        last.cachedWidth = 0
+
+        handler.tickScrollAnimation(targetTime: motion.startTime + 60, displayId: fixture.monitor.displayId)
+
+        XCTAssertTrue(driver.hasEdgeScroll(in: fixture.workspaceId))
+        XCTAssertTrue(handler.hasScrollAnimation(for: fixture.workspaceId))
+    }
+
+    func testTheEdgeZoneAtAnEdgeSharedWithAnotherDisplayWorksLikeAnOuterOne() throws {
+        let fixture = try makeFixture(pid: 938_305, windowCount: 6)
+        let right = try addDisplay(rightOf: fixture)
+        let clock = edgeClock(fixture)
+        try fixture.startLiveDrag(fixture.tokens[1])
+
+        fixture.drag(to: edgePoint(.trailing, fixture))
+        XCTAssertEqual(fixture.handler.state.liveEdgeScroll?.edge, .trailing)
+        clock.now += 0.3
+        fixture.handler.startLiveEdgeScrollIfDue()
+
+        XCTAssertTrue(fixture.handler.isLiveEdgeScrolling)
+        XCTAssertNotEqual(fixture.manager.monitor(for: fixture.workspaceId)?.id, right.id)
+    }
+
+    func testAQuickCrossingToAnotherDisplayStartsNoEdgeScroll() throws {
+        let fixture = try makeFixture(pid: 938_307, windowCount: 6)
+        let right = try addDisplay(rightOf: fixture)
+        let clock = edgeClock(fixture)
+        try fixture.startLiveDrag(fixture.tokens[1])
+
+        fixture.drag(to: edgePoint(.trailing, fixture))
+        clock.now += 0.1
+        fixture.drag(to: CGPoint(x: right.frame.midX, y: right.frame.midY))
+        clock.now += 0.3
+        fixture.handler.startLiveEdgeScrollIfDue()
+
+        XCTAssertFalse(fixture.handler.isLiveEdgeScrolling)
+        XCTAssertFalse(fixture.manager.animationDriver.hasEdgeScroll(in: fixture.workspaceId))
+    }
+
+    private func addDisplay(rightOf fixture: Fixture) throws -> Monitor {
+        let frame = fixture.monitor.frame.offsetBy(dx: fixture.monitor.frame.width, dy: 0)
+        let right = Monitor(
+            id: .init(displayId: 93_802),
+            displayId: 93_802,
+            frame: frame,
+            visibleFrame: frame,
+            hasNotch: false,
+            name: "Live Title Bar Drag, right"
+        )
+        fixture.manager.applyMonitorConfigurationChange([fixture.monitor, right])
+        XCTAssertEqual(fixture.manager.monitor(for: fixture.workspaceId)?.id, fixture.monitor.id)
+        return right
+    }
+
     private func edgeClock(_ fixture: Fixture) -> EdgeClock {
         let clock = EdgeClock()
         fixture.handler.liveDragClock = { clock.now }

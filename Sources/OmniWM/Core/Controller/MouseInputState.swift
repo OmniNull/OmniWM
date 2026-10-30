@@ -64,6 +64,7 @@ struct MouseInputState {
         }
 
         let edge: Edge
+        let workspaceId: WorkspaceDescriptor.ID
         let enteredAt: TimeInterval
         var delayTimer: Timer?
         var isScrolling = false

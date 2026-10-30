@@ -251,31 +251,23 @@ extension NiriLayoutEngine {
 
     func liveColumnMoveWouldChange(
         cursor: CGPoint,
-        context: NiriInteractionContext,
-        state: ViewportState
-    ) -> Bool {
-        liveColumnMoveWouldChange(
-            cursor: cursor,
-            strip: liveColumnStrip(context: context, state: state),
-            in: context.workspaceId
-        )
-    }
-
-    func liveColumnMoveWouldChange(
-        cursor: CGPoint,
         strip: [LiveColumnMove.StripColumn],
-        in workspaceId: WorkspaceDescriptor.ID
+        context: NiriInteractionContext
     ) -> Bool {
         guard let move = liveColumnMove,
-              move.workspaceId == workspaceId,
+              move.workspaceId == context.workspaceId,
               let dragged = liveDraggedColumn(for: move)
         else { return false }
         let dropSpace = liveDropSpace(for: move)
         guard let underPointer = liveColumn(in: strip, at: cursor, ignoring: dropSpace) else { return false }
-        let children = underPointer.parent?.children ?? []
-        let targetIndex = children.firstIndex { $0 === underPointer } ?? 0
-        let homeIndex = children.firstIndex { $0 === dragged } ?? 0
-        let side: LiveColumnMove.Side = targetIndex > homeIndex ? .after : .before
+        let side = liveTargetSide(
+            underPointer,
+            cursor: cursor,
+            strip: strip,
+            home: dragged,
+            awayFromHome: true,
+            context: context
+        )
         guard let target = liveTarget(
             underPointer,
             side: side,
