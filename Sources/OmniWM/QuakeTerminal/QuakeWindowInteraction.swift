@@ -32,7 +32,7 @@ final class QuakeWindowInteraction {
             return true
         }
 
-        if event.modifierFlags.contains(.option) {
+        if event.modifierFlags.isSuperset(of: [.command, .option]) {
             isInteracting = true
             interactionMode = .windowMove(startOrigin: window.frame.origin, startMouseLocation: NSEvent.mouseLocation)
             NSCursor.closedHand.set()
