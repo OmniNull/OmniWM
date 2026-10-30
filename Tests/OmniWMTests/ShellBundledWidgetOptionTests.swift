@@ -129,7 +129,7 @@ extension ShellBundledWidgetTests {
 
     private func nocturneShellDirectory() throws -> URL {
         let directory = FileManager.default.temporaryDirectory.appendingPathComponent(UUID().uuidString)
-        XCTAssertEqual(ShellDefaults.sync(into: directory), [])
+        XCTAssertEqual(try ShellStyleFixture.prepare(into: directory), [])
         XCTAssertTrue(try ShellProfiles.select("nocturne", in: directory))
         return directory
     }

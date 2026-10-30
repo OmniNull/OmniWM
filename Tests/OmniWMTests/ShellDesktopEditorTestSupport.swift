@@ -22,6 +22,7 @@ extension ShellDesktopEditorTests {
             .appendingPathComponent("ShellDesktopEditorTests-\(UUID().uuidString)")
         let shell = directory.appendingPathComponent("shell")
         addTeardownBlock { try FileManager.default.removeItem(at: directory) }
+        try ShellStyleFixture.installAll(into: shell)
         let configuration = ShellConfigurationCoordinator(shellDirectory: shell)
         try await configuration.ensureLoaded()
         try Data("""

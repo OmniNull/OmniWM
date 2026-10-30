@@ -254,7 +254,7 @@ class LocalizationTests(unittest.TestCase):
             (widgets / "widget-weather.luau").write_text('ui.text{ text = omniwm.l10n("Wind %@", speed) }')
             strings = {"Wind %@": {"localizations": {"en": unit("Wind %@")}}}
             localization.validate_shell_usage(strings, (widgets,))
-            with self.assertRaisesRegex(ValueError, "keys no bundled widget uses"):
+            with self.assertRaisesRegex(ValueError, "keys no widget uses"):
                 localization.validate_shell_usage({**strings, "Rain": {}}, (widgets,))
             with self.assertRaisesRegex(ValueError, "use missing keys"):
                 localization.validate_shell_usage({}, (widgets,))

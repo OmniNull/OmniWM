@@ -12,8 +12,7 @@ enum ShellFontFixture {
     static let fileName = "SpaceGrotesk[wght].ttf"
 
     static let layer: URL? = {
-        guard let source = ShellDefaults.bundledStyles?.appendingPathComponent("vitreus/fonts/\(fileName)")
-        else { return nil }
+        let source = ShellStyleFixture.directory.appendingPathComponent("vitreus/fonts/\(fileName)")
         let layer = FileManager.default.temporaryDirectory
             .appendingPathComponent("omnishell-fonts-\(UUID().uuidString)", isDirectory: true)
         let fonts = layer.appendingPathComponent("fonts", isDirectory: true)

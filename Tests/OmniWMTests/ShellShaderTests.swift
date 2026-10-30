@@ -452,7 +452,7 @@ final class ShellShaderTests: XCTestCase {
 
     func testCelestialsVisualizerDrawsEachBarOutFromTheCoverAsLongAsItsLevel() async throws {
         executionTimeAllowance = 60
-        let styles = try XCTUnwrap(ShellDefaults.bundledStyles)
+        let styles = ShellStyleFixture.directory
         let source = try String(
             contentsOf: styles.appendingPathComponent("celestial/shaders/visualizer.metal"),
             encoding: .utf8
@@ -481,7 +481,7 @@ final class ShellShaderTests: XCTestCase {
 
     func testLakeWaveformUsesActualAudioBandsForBarCoverage() async throws {
         executionTimeAllowance = 60
-        let styles = try XCTUnwrap(ShellDefaults.bundledStyles)
+        let styles = ShellStyleFixture.directory
         let source = try String(
             contentsOf: styles.appendingPathComponent("lake/widgets/media/waveform.metal"),
             encoding: .utf8

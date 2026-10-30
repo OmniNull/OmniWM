@@ -30,7 +30,7 @@ final class ShellLakePolicyTests: XCTestCase {
         init(count: Int = 3, peek: Bool = true, note: Bool = false, blocked: Int = 0) throws {
             vm = try XCTUnwrap(ShellVM.make(memoryLimit: 32 << 20))
             XCTAssertEqual(omni_vm_set_module_limit(vm, 512), OMNI_OK)
-            let profile = try XCTUnwrap(ShellDefaults.bundledStyles).appendingPathComponent("lake")
+            let profile = ShellStyleFixture.directory.appendingPathComponent("lake")
             for path in [
                 "motion",
                 "view",

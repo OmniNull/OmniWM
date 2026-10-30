@@ -8,7 +8,7 @@ import XCTest
 @MainActor
 final class ShellLakeReferenceMatrixTests: XCTestCase {
     func testEveryAdvertisedViewRendersUnavailableDataWithAndWithoutANotch() throws {
-        let profile = try XCTUnwrap(ShellDefaults.bundledStyles).appendingPathComponent("lake")
+        let profile = ShellStyleFixture.directory.appendingPathComponent("lake")
         let widgets = try FileManager.default.contentsOfDirectory(
             at: profile.appendingPathComponent("widgets"), includingPropertiesForKeys: nil
         ).filter { FileManager.default.fileExists(atPath: $0.appendingPathComponent("component.toml").path) }

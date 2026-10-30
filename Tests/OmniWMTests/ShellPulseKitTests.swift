@@ -10,8 +10,7 @@ final class ShellPulseKitTests: XCTestCase {
     private let springs: [(Double, Double)] = [(0.307, 0.68), (0.482, 0.31), (0.926, 0.41), (0.36, 0)]
 
     private func widget(_ body: String) throws -> ShellRenderedWidget {
-        let root = URL(fileURLWithPath: #filePath).deletingLastPathComponent().deletingLastPathComponent()
-            .deletingLastPathComponent().appendingPathComponent("Sources/OmniWM/ShellStyles/vitreus/lib/vitreus")
+        let root = try ShellStyleFixture.source("vitreus").appendingPathComponent("lib/vitreus")
         let modules = try ["kit", "palette", "pencil"].map {
             ShellWidgetSource.Module(
                 path: "vitreus/lib/vitreus/\($0).luau",

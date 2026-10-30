@@ -12,7 +12,7 @@ final class ShellMenuWidgetTests: XCTestCase {
 
     override func setUp() async throws {
         shell = FileManager.default.temporaryDirectory.appendingPathComponent(UUID().uuidString, isDirectory: true)
-        XCTAssertEqual(ShellDefaults.sync(into: shell), [])
+        XCTAssertEqual(try ShellStyleFixture.prepare(into: shell), [])
     }
 
     override func tearDown() async throws {

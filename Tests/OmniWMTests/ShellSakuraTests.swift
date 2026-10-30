@@ -17,7 +17,7 @@ final class ShellSakuraTests: XCTestCase {
 
     override func setUp() async throws {
         shell = FileManager.default.temporaryDirectory.appendingPathComponent(UUID().uuidString)
-        XCTAssertEqual(ShellDefaults.sync(into: shell), [])
+        XCTAssertEqual(try ShellStyleFixture.prepare(into: shell), [])
         XCTAssertTrue(try ShellProfiles.select("sakura", in: shell))
         var problems: [String] = []
         config = try XCTUnwrap(ShellConfig.load(shellDirectory: shell, problems: &problems))

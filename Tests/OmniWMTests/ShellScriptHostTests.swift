@@ -560,14 +560,12 @@ final class ShellScriptHostTests: XCTestCase {
         XCTAssertEqual(ShellTextStyle.symbolSize(for: expected), 15)
     }
 
-    func testBundledFontsUseUncompressedSFNT() throws {
+    func testBundledAndStyleFontsUseUncompressedSFNT() throws {
         let directory = try XCTUnwrap(ShellDefaults.bundled).deletingLastPathComponent()
             .appendingPathComponent("Fonts")
         let fonts = try FileManager.default.contentsOfDirectory(at: directory, includingPropertiesForKeys: nil)
         XCTAssertFalse(fonts.isEmpty)
-        let styles = try FileManager.default.contentsOfDirectory(
-            at: try XCTUnwrap(ShellDefaults.bundledStyles), includingPropertiesForKeys: nil
-        )
+        let styles = try ShellStyleFixture.names().map { try ShellStyleFixture.source($0) }
         let styleFonts = styles.flatMap { ShellFontLibrary.files(in: $0.appendingPathComponent("fonts")) }
         let signatures = [[0, 1, 0, 0], Array("true".utf8), Array("OTTO".utf8)]
         for font in fonts + styleFonts {

@@ -185,7 +185,7 @@ final class ShellLakeSettingsTests: XCTestCase {
     }
 
     func testRegionPolicyAndKeyboardChoiceStayInEditableLuau() throws {
-        let folder = try XCTUnwrap(ShellDefaults.bundledStyles).appendingPathComponent("lake/lib/lake")
+        let folder = ShellStyleFixture.directory.appendingPathComponent("lake/lib/lake")
         let preferences = try String(contentsOf: folder.appendingPathComponent("preferences.luau"), encoding: .utf8)
         let policy = try String(contentsOf: folder.appendingPathComponent("policy.luau"), encoding: .utf8)
         let widget = try ShellRenderedWidget(name: "regions", source: """
@@ -403,7 +403,7 @@ final class ShellLakeSettingsTests: XCTestCase {
         listCount: Int = 2,
         succeed: Bool = false
     ) throws -> ShellRenderedWidget {
-        let folder = try XCTUnwrap(ShellDefaults.bundledStyles).appendingPathComponent("lake/lib/lake")
+        let folder = ShellStyleFixture.directory.appendingPathComponent("lake/lib/lake")
         let settings = try String(contentsOf: folder.appendingPathComponent("settings.luau"), encoding: .utf8)
         let modules = try ["motion", "preferences"].map { name in
             ShellWidgetSource.Module(

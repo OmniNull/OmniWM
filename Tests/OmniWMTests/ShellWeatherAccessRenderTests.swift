@@ -63,7 +63,7 @@ final class ShellWeatherAccessRenderTests: XCTestCase {
     ) throws {
         let shell = FileManager.default.temporaryDirectory.appendingPathComponent(UUID().uuidString)
         defer { try? FileManager.default.removeItem(at: shell) }
-        XCTAssertEqual(ShellDefaults.sync(into: shell), [])
+        XCTAssertEqual(try ShellStyleFixture.prepare(into: shell), [])
         if profile != "default" { XCTAssertTrue(try ShellProfiles.select(profile, in: shell)) }
         let config = ShellConfig.resolve(shellDirectory: shell)
         let source = try ShellWidgetSourceLoader.build(.init(

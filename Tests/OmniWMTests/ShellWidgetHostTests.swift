@@ -1969,7 +1969,7 @@ final class ShellWidgetClickTests: XCTestCase {
         defer { harness.close() }
         try Data("profiles.default.trailing = [\"test\", \"clock\"]\n".utf8)
             .write(to: harness.root.appendingPathComponent("shell/shell.toml"))
-        XCTAssertEqual(ShellDefaults.sync(into: harness.root.appendingPathComponent("shell")), [])
+        XCTAssertEqual(try ShellStyleFixture.prepare(into: harness.root.appendingPathComponent("shell")), [])
         harness.host.rescan()
         var layoutChanges = harness.layoutChanges.makeAsyncIterator()
         let clock = { harness.host.slots(for: Harness.monitor).first { $0.id == "clock" } }
@@ -2004,7 +2004,7 @@ final class ShellWidgetClickTests: XCTestCase {
             let harness = try harness("function render(ctx) return ui.box{ w = 10, h = 10 } end")
             defer { harness.close() }
             let shell = harness.root.appendingPathComponent("shell")
-            XCTAssertEqual(ShellDefaults.sync(into: shell), [], context)
+            XCTAssertEqual(try ShellStyleFixture.prepare(into: shell), [], context)
             let library = shell.appendingPathComponent("lib/look.luau")
             try FileManager.default.createDirectory(
                 at: library.deletingLastPathComponent(), withIntermediateDirectories: true
@@ -2421,7 +2421,7 @@ final class ShellWidgetClickTests: XCTestCase {
         profiles.default.center = []
         profiles.default.trailing = []
         """.utf8).write(to: harness.root.appendingPathComponent("shell/shell.toml"))
-        XCTAssertEqual(ShellDefaults.sync(into: harness.root.appendingPathComponent("shell")), [])
+        XCTAssertEqual(try ShellStyleFixture.prepare(into: harness.root.appendingPathComponent("shell")), [])
         harness.host.rescan()
         var layoutChanges = harness.layoutChanges.makeAsyncIterator()
         while harness.host.slots(for: Harness.monitor).count < 2 {
@@ -2469,7 +2469,7 @@ final class ShellWidgetClickTests: XCTestCase {
         """.utf8).write(to: side.appendingPathComponent("init.luau"))
         try Data("profiles.default.leading = [\"workspaces\", \"test\"]\nprofiles.default.trailing = [\"side\"]\n".utf8)
             .write(to: harness.root.appendingPathComponent("shell/shell.toml"))
-        XCTAssertEqual(ShellDefaults.sync(into: harness.root.appendingPathComponent("shell")), [])
+        XCTAssertEqual(try ShellStyleFixture.prepare(into: harness.root.appendingPathComponent("shell")), [])
         harness.host.rescan()
         let placed = { (island: WorkspaceBarIslandSlice) in
             harness.host.slots(for: Harness.monitor).filter { $0.island == island }
@@ -3089,7 +3089,7 @@ final class ShellWidgetClickTests: XCTestCase {
         let clockWidth = { harness.host.slots(for: Harness.monitor).first { $0.id == "clock" }?.size.width ?? 0 }
         try Data("profiles.default.trailing = [\"test\", \"clock\"]\n".utf8)
             .write(to: harness.root.appendingPathComponent("shell/shell.toml"))
-        XCTAssertEqual(ShellDefaults.sync(into: harness.root.appendingPathComponent("shell")), [])
+        XCTAssertEqual(try ShellStyleFixture.prepare(into: harness.root.appendingPathComponent("shell")), [])
         harness.host.rescan()
         while clockWidth() == 0 {
             try await layoutChanges.change()
@@ -3755,7 +3755,7 @@ final class ShellWidgetClickTests: XCTestCase {
         )
         let harness = try harness(source, bars: [ShellBarKey(monitor: main): ShellBarData()])
         defer { harness.close() }
-        XCTAssertEqual(ShellDefaults.sync(into: harness.root.appendingPathComponent("shell")), [])
+        XCTAssertEqual(try ShellStyleFixture.prepare(into: harness.root.appendingPathComponent("shell")), [])
         harness.host.rescan()
         let items = (0 ..< 6).map {
             ShellHiddenBarItem(id: "com.example.\($0)#0", name: "\($0)", image: nil, width: 30, height: 16)

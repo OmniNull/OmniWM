@@ -876,7 +876,7 @@ final class ShellLakeProfileTests: XCTestCase {
     private func source(in root: URL, install: Bool = true, style: String = "lake") throws -> ShellWidgetSource {
         let shell = root.appendingPathComponent("shell")
         if install {
-            XCTAssertTrue(ShellDefaults.sync(into: shell).isEmpty)
+            XCTAssertTrue(try ShellStyleFixture.prepare(into: shell).isEmpty)
             XCTAssertTrue(try ShellProfiles.select(style, in: shell))
         }
         let host = ShellWidgetHost(

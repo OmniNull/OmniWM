@@ -122,13 +122,13 @@ final class ShellWidgetSettingsModelTests: XCTestCase {
 
     func testBundledOptionMetadataKeepsStyleSpecificDefaultsAndSupportedCapabilities() throws {
         let defaults = try XCTUnwrap(ShellDefaults.bundled)
-        let styles = try XCTUnwrap(ShellDefaults.bundledStyles)
+        let styles = ShellStyleFixture.directory
         let clock = try XCTUnwrap(ShellRootSettings.load("clock", directories: [defaults]))
         XCTAssertEqual(clock.options["date"]?.defaultValue, .bool(true))
         XCTAssertEqual(clock.options["icon"]?.defaultValue, .bool(false))
         let shell = FileManager.default.temporaryDirectory.appendingPathComponent(UUID().uuidString)
         defer { try? FileManager.default.removeItem(at: shell) }
-        XCTAssertEqual(ShellDefaults.sync(into: shell), [])
+        XCTAssertEqual(try ShellStyleFixture.prepare(into: shell), [])
         XCTAssertTrue(try ShellProfiles.select("celestial", in: shell))
         var problems: [String] = []
         let config = try XCTUnwrap(ShellConfig.load(shellDirectory: shell, problems: &problems))
@@ -161,11 +161,14 @@ final class ShellWidgetSettingsModelTests: XCTestCase {
 
     func testEveryBundledBarOptionSchemaHasValidDefaults() throws {
         let roots = [try XCTUnwrap(ShellDefaults.bundled)]
-            + (try FileManager.default.contentsOfDirectory(
-                at: XCTUnwrap(ShellDefaults.bundledStyles),
-                includingPropertiesForKeys: nil
-            ))
-        var checked = 0
+            + (try ShellStyleFixture.names().map { try ShellStyleFixture.source($0) })
+        let declared = roots.flatMap { root in
+            ShellConfig.widgetFolders(in: root).filter {
+                FileManager.default.fileExists(atPath: $0.appendingPathComponent("init.luau").path)
+                    && FileManager.default.fileExists(atPath: $0.appendingPathComponent("settings.toml").path)
+            }
+        }
+        var checked: [URL] = []
         for root in roots {
             for folder in ShellConfig.widgetFolders(in: root) {
                 guard FileManager.default.fileExists(atPath: folder.appendingPathComponent("init.luau").path),
@@ -177,9 +180,10 @@ final class ShellWidgetSettingsModelTests: XCTestCase {
                         "\(root.lastPathComponent)/\(schema.widget)"
                     ) }
                 }
-                checked += 1
+                checked.append(folder)
             }
         }
-        XCTAssertEqual(checked, 17)
+        XCTAssertFalse(declared.isEmpty)
+        XCTAssertEqual(Set(checked), Set(declared))
     }
 }

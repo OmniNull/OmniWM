@@ -10,9 +10,7 @@ import XCTest
 extension ShellVitreusMediaCardTests {
     private func pipeline(_ name: String) throws -> any MTLRenderPipelineState {
         _ = try XCTUnwrap(ShellShaderGPU.device, "The media card shaders need Metal")
-        let root = URL(fileURLWithPath: #filePath)
-            .deletingLastPathComponent().deletingLastPathComponent().deletingLastPathComponent()
-        let file = root.appendingPathComponent("Sources/OmniWM/ShellStyles/vitreus/shaders/" + name)
+        let file = try ShellStyleFixture.source("vitreus").appendingPathComponent("shaders/" + name)
         return try ShellShaderLibrary.pipeline(Data(contentsOf: file), name: name)
     }
 

@@ -10,11 +10,7 @@ import XCTest
 final class ShellVitreusControlsShaderTests: XCTestCase {
     private func pipeline() throws -> any MTLRenderPipelineState {
         _ = try XCTUnwrap(ShellShaderGPU.device, "The shatter proof requires Metal")
-        let root = URL(fileURLWithPath: #filePath)
-            .deletingLastPathComponent().deletingLastPathComponent().deletingLastPathComponent()
-        let file = root.appendingPathComponent(
-            "Sources/OmniWM/ShellStyles/vitreus/shaders/vitreus-shatter.metal"
-        )
+        let file = try ShellStyleFixture.source("vitreus").appendingPathComponent("shaders/vitreus-shatter.metal")
         return try ShellShaderLibrary.pipeline(Data(contentsOf: file), name: file.lastPathComponent)
     }
 

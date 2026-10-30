@@ -19,7 +19,7 @@ final class ShellMediaComponentTests: XCTestCase {
 
         init(custom: Bool = false) throws {
             vm = try XCTUnwrap(ShellVM.make(memoryLimit: 32 << 20))
-            let profile = try XCTUnwrap(ShellDefaults.bundledStyles).appendingPathComponent("lake")
+            let profile = ShellStyleFixture.directory.appendingPathComponent("lake")
             func module(_ path: String, _ source: String) {
                 let path = "profile/" + path
                 XCTAssertEqual(omni_vm_add_module(vm, path, path.utf8.count, source, source.utf8.count), OMNI_OK)

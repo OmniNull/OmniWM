@@ -76,6 +76,7 @@ final class ShellEditorSnapshotIslandTests: XCTestCase {
     func testActiveSnapshotUsesThePublishedCoordinatorCatalog() async throws {
         let directory = FileManager.default.temporaryDirectory.appendingPathComponent(UUID().uuidString)
         addTeardownBlock { try FileManager.default.removeItem(at: directory) }
+        try ShellStyleFixture.install("lake", into: directory)
         let configuration = ShellConfigurationCoordinator(shellDirectory: directory)
         try await configuration.ensureLoaded()
         _ = try await configuration.selectProfile("lake")

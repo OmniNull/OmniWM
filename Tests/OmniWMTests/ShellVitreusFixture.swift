@@ -37,7 +37,7 @@ enum VitreusFixture {
         _ = try ShellFontFixture.fonts()
         let shell = FileManager.default.temporaryDirectory
             .appendingPathComponent("vitreus-\(UUID().uuidString)/shell", isDirectory: true)
-        XCTAssertEqual(ShellDefaults.sync(into: shell), [])
+        XCTAssertEqual(try ShellStyleFixture.prepare(into: shell), [])
         XCTAssertTrue(try ShellProfiles.select("vitreus", in: shell))
         return shell
     }

@@ -37,12 +37,11 @@ final class ShellWidgetOptionDeclarationTests: XCTestCase {
     ]
 
     private func layers(
-        bundled: URL? = ShellDefaults.bundled, styles: URL? = ShellDefaults.bundledStyles
+        bundled: URL? = ShellDefaults.bundled, styles: URL = ShellStyleFixture.directory
     ) throws -> [URL] {
-        let styles = try XCTUnwrap(styles)
-        return try [XCTUnwrap(bundled)] + FileManager.default
-            .contentsOfDirectory(at: styles, includingPropertiesForKeys: nil)
-            .filter(\.hasDirectoryPath)
+        try [XCTUnwrap(bundled)] + ShellStyleFixture.names(in: styles).map {
+            try ShellStyleFixture.source($0, in: styles)
+        }
     }
 
     private func widgetNames(in layer: URL) throws -> [String] {
@@ -187,7 +186,7 @@ final class ShellWidgetOptionDeclarationTests: XCTestCase {
     }
 
     func testSharedLibraryReadsRequireTheirComponentSchemas() throws {
-        let source = try XCTUnwrap(ShellDefaults.bundledStyles).appendingPathComponent("lake")
+        let source = ShellStyleFixture.directory.appendingPathComponent("lake")
         let layer = FileManager.default.temporaryDirectory.appendingPathComponent(UUID().uuidString)
         try FileManager.default.copyItem(at: source, to: layer)
         defer { try? FileManager.default.removeItem(at: layer) }
@@ -215,7 +214,7 @@ final class ShellWidgetOptionDeclarationTests: XCTestCase {
             withIntermediateDirectories: true
         )
         try FileManager.default.copyItem(at: XCTUnwrap(ShellDefaults.bundled), to: bundled)
-        let source = try XCTUnwrap(ShellDefaults.bundledStyles).appendingPathComponent("celestial/lib/look.luau")
+        let source = ShellStyleFixture.directory.appendingPathComponent("celestial/lib/look.luau")
         try FileManager.default.copyItem(at: source, to: layer.appendingPathComponent("lib/look.luau"))
         XCTAssertEqual(
             try layers(bundled: bundled, styles: styles).map { $0.resolvingSymlinksInPath().path },
@@ -246,7 +245,7 @@ final class ShellWidgetOptionDeclarationTests: XCTestCase {
     }
 
     func testLakeAccessorReadsRequireTheirRootSchema() throws {
-        let source = try XCTUnwrap(ShellDefaults.bundledStyles).appendingPathComponent("lake")
+        let source = ShellStyleFixture.directory.appendingPathComponent("lake")
         let layer = FileManager.default.temporaryDirectory.appendingPathComponent(UUID().uuidString)
         try FileManager.default.copyItem(at: source, to: layer)
         defer { try? FileManager.default.removeItem(at: layer) }

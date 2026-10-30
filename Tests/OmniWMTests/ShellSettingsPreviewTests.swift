@@ -283,7 +283,7 @@ final class ShellSettingsPreviewTests: XCTestCase {
     private func fixture() throws -> URL {
         let directory = FileManager.default.temporaryDirectory.appendingPathComponent(UUID().uuidString)
         try FileManager.default.createDirectory(at: directory, withIntermediateDirectories: true)
-        _ = ShellDefaults.sync(into: directory)
+        _ = try ShellStyleFixture.prepare(into: directory)
         try "profile = \"default\"\n".write(
             to: directory.appendingPathComponent("shell.toml"),
             atomically: true,

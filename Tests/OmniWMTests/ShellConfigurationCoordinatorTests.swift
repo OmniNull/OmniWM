@@ -74,7 +74,7 @@ final class ShellConfigurationCoordinatorTests: XCTestCase {
         let shell = directory.appendingPathComponent("config/shell")
         let external = directory.appendingPathComponent("external")
         try FileManager.default.createDirectory(at: external, withIntermediateDirectories: true)
-        _ = ShellDefaults.sync(into: shell)
+        _ = try ShellStyleFixture.prepare(into: shell)
         _ = try ShellProfiles.select("lake", in: shell)
         let target = external.appendingPathComponent("source.luau")
         try Data("before".utf8).write(to: target)
@@ -208,7 +208,7 @@ final class ShellConfigurationCoordinatorTests: XCTestCase {
         let directory = FileManager.default.temporaryDirectory.appendingPathComponent(UUID().uuidString)
         defer { try? FileManager.default.removeItem(at: directory) }
         let shell = directory.appendingPathComponent("shell")
-        _ = ShellDefaults.sync(into: shell)
+        _ = try ShellStyleFixture.prepare(into: shell)
         _ = try ShellProfiles.select("lake", in: shell)
         let coordinator = ShellConfigurationCoordinator(shellDirectory: shell)
         try await coordinator.refresh()
@@ -242,7 +242,7 @@ final class ShellConfigurationCoordinatorTests: XCTestCase {
     func testPreviewingDefaultKeepsLakeSelectedAndSupportsItsSimpleIsland() async throws {
         let shell = FileManager.default.temporaryDirectory.appendingPathComponent(UUID().uuidString)
         defer { try? FileManager.default.removeItem(at: shell) }
-        _ = ShellDefaults.sync(into: shell)
+        _ = try ShellStyleFixture.prepare(into: shell)
         _ = try ShellProfiles.select("lake", in: shell)
         let coordinator = ShellConfigurationCoordinator(shellDirectory: shell)
         try await coordinator.refresh()
@@ -264,7 +264,7 @@ final class ShellConfigurationCoordinatorTests: XCTestCase {
     func testFailedPersistenceDoesNotPublishOrModifyTheEffectiveIsland() async throws {
         let shell = FileManager.default.temporaryDirectory.appendingPathComponent(UUID().uuidString)
         defer { try? FileManager.default.removeItem(at: shell) }
-        _ = ShellDefaults.sync(into: shell)
+        _ = try ShellStyleFixture.prepare(into: shell)
         _ = try ShellProfiles.select("lake", in: shell)
         let coordinator = ShellConfigurationCoordinator(shellDirectory: shell)
         try await coordinator.refresh()
@@ -296,7 +296,7 @@ final class ShellConfigurationCoordinatorTests: XCTestCase {
     func testQueuedProfileAndIslandEditsPublishOnlyAfterTheirOrderedWrites() async throws {
         let shell = FileManager.default.temporaryDirectory.appendingPathComponent(UUID().uuidString)
         defer { try? FileManager.default.removeItem(at: shell) }
-        _ = ShellDefaults.sync(into: shell)
+        _ = try ShellStyleFixture.prepare(into: shell)
         _ = try ShellProfiles.select("lake", in: shell)
         let coordinator = ShellConfigurationCoordinator(shellDirectory: shell)
         try await coordinator.refresh()
@@ -349,7 +349,7 @@ final class ShellConfigurationCoordinatorTests: XCTestCase {
         for fail in [false, true] {
             let shell = FileManager.default.temporaryDirectory.appendingPathComponent(UUID().uuidString)
             defer { try? FileManager.default.removeItem(at: shell) }
-            _ = ShellDefaults.sync(into: shell)
+            _ = try ShellStyleFixture.prepare(into: shell)
             _ = try ShellProfiles.select("lake", in: shell)
             let coordinator = ShellConfigurationCoordinator(shellDirectory: shell)
             try await coordinator.refresh()
@@ -400,7 +400,7 @@ final class ShellConfigurationCoordinatorTests: XCTestCase {
     func testScalarEditsReuseMetadataUntilAnExplicitSourceRefresh() async throws {
         let shell = FileManager.default.temporaryDirectory.appendingPathComponent(UUID().uuidString)
         defer { try? FileManager.default.removeItem(at: shell) }
-        _ = ShellDefaults.sync(into: shell)
+        _ = try ShellStyleFixture.prepare(into: shell)
         _ = try ShellProfiles.select("lake", in: shell)
         let coordinator = ShellConfigurationCoordinator(shellDirectory: shell)
         try await coordinator.refresh()
@@ -557,7 +557,7 @@ final class ShellConfigurationCoordinatorTests: XCTestCase {
             let first = root.appendingPathComponent("targets/A").appendingPathComponent(suffix)
             let second = root.appendingPathComponent("targets/B").appendingPathComponent(suffix)
             for directory in [first, second] {
-                _ = ShellDefaults.sync(into: directory)
+                _ = try ShellStyleFixture.prepare(into: directory)
                 _ = try ShellProfiles.select("lake", in: directory)
             }
             let heightKey = ShellProfiles.key("workspaceBar", of: "lake") + ["height"]
@@ -602,7 +602,7 @@ final class ShellConfigurationCoordinatorTests: XCTestCase {
             let firstRoot = root.appendingPathComponent("targets/A")
             let secondRoot = root.appendingPathComponent("targets/B")
             for directory in [firstRoot, secondRoot] + (profile ? [shell] : []) {
-                _ = ShellDefaults.sync(into: directory)
+                _ = try ShellStyleFixture.prepare(into: directory)
                 _ = try ShellProfiles.select("lake", in: directory)
             }
             let first = profile ? firstRoot.appendingPathComponent("lake") : firstRoot
@@ -654,7 +654,7 @@ final class ShellConfigurationCoordinatorTests: XCTestCase {
         let shell = root.appendingPathComponent("config/shell")
         let external = root.appendingPathComponent("external")
         for directory in [shell, external] {
-            _ = ShellDefaults.sync(into: directory)
+            _ = try ShellStyleFixture.prepare(into: directory)
             _ = try ShellProfiles.select("lake", in: directory)
         }
         let target = external.appendingPathComponent("lake")
@@ -698,7 +698,7 @@ final class ShellConfigurationCoordinatorTests: XCTestCase {
         let first = root.appendingPathComponent("targets/A")
         let second = root.appendingPathComponent("targets/B")
         for directory in [first, second] {
-            _ = ShellDefaults.sync(into: directory)
+            _ = try ShellStyleFixture.prepare(into: directory)
             _ = try ShellProfiles.select("lake", in: directory)
         }
         let heightKey = ShellProfiles.key("workspaceBar", of: "lake") + ["height"]
@@ -1006,7 +1006,7 @@ final class ShellConfigurationCoordinatorTests: XCTestCase {
 
     private func fixture() throws -> URL {
         let shell = FileManager.default.temporaryDirectory.appendingPathComponent(UUID().uuidString)
-        _ = ShellDefaults.sync(into: shell)
+        _ = try ShellStyleFixture.prepare(into: shell)
         _ = try ShellProfiles.select("lake", in: shell)
         return shell
     }

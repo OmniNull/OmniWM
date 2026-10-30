@@ -461,7 +461,7 @@ final class ShellNotificationWidgetTests: XCTestCase {
     func testEveryProfileDimsBusyActionsWithoutHoverWhileConsumingTheirClicks() throws {
         let shell = FileManager.default.temporaryDirectory.appendingPathComponent(UUID().uuidString)
         defer { try? FileManager.default.removeItem(at: shell) }
-        XCTAssertEqual(ShellDefaults.sync(into: shell), [])
+        XCTAssertEqual(try ShellStyleFixture.prepare(into: shell), [])
         let id = "01234567-89ab-cdef-0123-456789abcdef"
         for profile in ShellProfiles.names(in: shell) {
             var problems: [String] = []
@@ -771,7 +771,7 @@ final class ShellNotificationWidgetTests: XCTestCase {
     func testEveryNotificationProfileKeepsNativeReplyControlsInsideTheCard() throws {
         let shell = FileManager.default.temporaryDirectory.appendingPathComponent(UUID().uuidString)
         defer { try? FileManager.default.removeItem(at: shell) }
-        XCTAssertEqual(ShellDefaults.sync(into: shell), [])
+        XCTAssertEqual(try ShellStyleFixture.prepare(into: shell), [])
         let id = "01234567-89ab-cdef-0123-456789abcdef"
         for profile in ShellProfiles.names(in: shell) {
             var problems: [String] = []
@@ -812,7 +812,7 @@ final class ShellNotificationWidgetTests: XCTestCase {
     func testNotificationProfilesFitBaseAndEnlargedBarsAtBothScalesAndOrientations() throws {
         let shell = FileManager.default.temporaryDirectory.appendingPathComponent(UUID().uuidString)
         defer { try? FileManager.default.removeItem(at: shell) }
-        XCTAssertEqual(ShellDefaults.sync(into: shell), [])
+        XCTAssertEqual(try ShellStyleFixture.prepare(into: shell), [])
         let profiles = ShellProfiles.names(in: shell)
         XCTAssertEqual(profiles.count, 8)
         let counts = (0 ..< 256).map { item("item-\($0)") }
@@ -864,7 +864,7 @@ final class ShellNotificationWidgetTests: XCTestCase {
     func testNotificationProfilesKeepStorageStatesAndDeliveredCardPaging() throws {
         let shell = FileManager.default.temporaryDirectory.appendingPathComponent(UUID().uuidString)
         defer { try? FileManager.default.removeItem(at: shell) }
-        XCTAssertEqual(ShellDefaults.sync(into: shell), [])
+        XCTAssertEqual(try ShellStyleFixture.prepare(into: shell), [])
         for profile in ShellProfiles.names(in: shell) {
             var problems: [String] = []
             let config = try XCTUnwrap(ShellConfig.load(profile: profile, shellDirectory: shell, problems: &problems))

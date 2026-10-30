@@ -11,10 +11,8 @@ import XCTest
 final class ShellVitreusFramePieceTests: XCTestCase {
     func testClockGradientUsesTheNativeTextAlphaAndReachesTheMintStop() throws {
         let device = try XCTUnwrap(ShellShaderGPU.device)
-        let root = URL(fileURLWithPath: #filePath)
-            .deletingLastPathComponent().deletingLastPathComponent().deletingLastPathComponent()
-        let shader = root
-            .appendingPathComponent("Sources/OmniWM/ShellStyles/vitreus/shaders/vitreus-clock-gradient.metal")
+        let shader = try ShellStyleFixture.source("vitreus")
+            .appendingPathComponent("shaders/vitreus-clock-gradient.metal")
         let pipeline = try ShellShaderLibrary.pipeline(Data(contentsOf: shader), name: shader.lastPathComponent)
         let descriptor = MTLTextureDescriptor.texture2DDescriptor(
             pixelFormat: .bgra8Unorm, width: 1, height: 200, mipmapped: false

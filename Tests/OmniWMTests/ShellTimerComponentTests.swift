@@ -27,7 +27,7 @@ final class ShellTimerComponentTests: XCTestCase {
 
         init(now: Int = 1000, ownerTimers: Int = 0, seed: [UInt8]? = nil) throws {
             vm = try XCTUnwrap(ShellVM.make(memoryLimit: 32 << 20))
-            let profile = try XCTUnwrap(ShellDefaults.bundledStyles).appendingPathComponent("lake")
+            let profile = ShellStyleFixture.directory.appendingPathComponent("lake")
             func module(_ path: String, _ source: String) {
                 let path = "profile/" + path
                 XCTAssertEqual(omni_vm_add_module(vm, path, path.utf8.count, source, source.utf8.count), OMNI_OK)
@@ -380,7 +380,7 @@ final class ShellTimerComponentTests: XCTestCase {
         }
         try fixture.action("start", text: "1440:00")
         XCTAssertEqual(fixture.drain().first { $0.kind == OMNI_SERVICE_TIMER }?.seconds, 86400)
-        let profile = try XCTUnwrap(ShellDefaults.bundledStyles).appendingPathComponent("lake")
+        let profile = ShellStyleFixture.directory.appendingPathComponent("lake")
         let descriptor = try ShellComponentCatalog.load("timer", directories: [profile])
         XCTAssertEqual(descriptor.views, ["compact", "peek", "expanded"])
         XCTAssertTrue(descriptor.capabilities.network.isEmpty)

@@ -9,7 +9,7 @@ import XCTest
 @MainActor
 final class ShellLakeMotionTests: XCTestCase {
     private func digits(options: String = "{size=20,width=14,height=25}") throws -> ShellRenderedWidget {
-        let directory = try XCTUnwrap(ShellDefaults.bundledStyles).appendingPathComponent("lake/lib/lake")
+        let directory = ShellStyleFixture.directory.appendingPathComponent("lake/lib/lake")
         let modules = try ["motion", "digits"].map { name in
             ShellWidgetSource.Module(
                 path: "lib/lake/\(name).luau",

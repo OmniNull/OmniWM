@@ -168,7 +168,7 @@ final class ShellConfigurationInputsTests: XCTestCase {
         let shell = root.appendingPathComponent("shell")
         let target = root.appendingPathComponent("external")
         let widget = shell.appendingPathComponent("widgets/my-widget")
-        _ = ShellDefaults.sync(into: shell)
+        _ = try ShellStyleFixture.prepare(into: shell)
         _ = try ShellProfiles.select("lake", in: shell)
         try write("[options.value]\ntype = 'boolean'\ndefault = true", to: "settings.toml", in: target)
         try write("function render(ctx) return ui.box{} end", to: "init.luau", in: target)

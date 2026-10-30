@@ -79,50 +79,51 @@ final class ShellDefaultsTests: XCTestCase {
         XCTAssertEqual(try read("widgets/kept/init.luau"), "mine")
     }
 
-    func testBundledStylesInstallAsProfilesBesideTheDefault() throws {
-        let styles = root.appendingPathComponent("styles", isDirectory: true)
-        try write("theme = \"dusk\"", to: "dusk/shell.toml", in: styles)
-        try write("s1", to: "dusk/widgets/clock/init.luau", in: styles)
-        try write("x", to: "widgets/clock/init.luau", in: styles)
-        try write("y", to: "default/shell.toml", in: styles)
+    func testRepositoryStylesInstallExplicitlyBesideTheManagedDefault() throws {
         let shell = root.appendingPathComponent("shell", isDirectory: true)
-
-        XCTAssertEqual(sync(styles: styles), [])
-        let dusk = shell.appendingPathComponent("dusk", isDirectory: true)
+        let name = try XCTUnwrap(ShellStyleFixture.names().first)
+        let source = try ShellStyleFixture.source(name)
+        XCTAssertEqual(sync(), [])
+        XCTAssertEqual(ShellProfiles.names(in: shell), [ShellDefaults.profile])
+        let target = try ShellStyleFixture.install(name, into: shell)
         XCTAssertEqual(
-            try String(contentsOf: dusk.appendingPathComponent("widgets/clock/init.luau"), encoding: .utf8),
-            "s1"
+            try Data(contentsOf: target.appendingPathComponent("shell.toml")),
+            try Data(contentsOf: source.appendingPathComponent("shell.toml"))
         )
-        XCTAssertTrue(FileManager.default.fileExists(atPath: dusk.appendingPathComponent(".manifest.json").path))
-        XCTAssertEqual(ShellProfiles.names(in: shell), ["default", "dusk"])
+        XCTAssertFalse(FileManager.default.fileExists(atPath: target.appendingPathComponent(".manifest.json").path))
+        XCTAssertEqual(ShellProfiles.names(in: shell), [ShellDefaults.profile, name])
+        XCTAssertThrowsError(try ShellStyleFixture.install(name, into: shell))
         XCTAssertEqual(try read("widgets/clock/init.luau"), "v1")
-
-        try write("mine", to: "dusk/widgets/clock/init.luau", in: shell)
-        try write("s2", to: "dusk/widgets/clock/init.luau", in: styles)
-        XCTAssertEqual(sync(styles: styles).map(\.lastPathComponent), ["init.luau.edited-2026-10-08"])
-        XCTAssertEqual(
-            try String(contentsOf: dusk.appendingPathComponent("widgets/clock/init.luau"), encoding: .utf8),
-            "s2"
-        )
     }
 
-    func testTheBundledStylesLoadAsCleanProfiles() throws {
+    func testTheRepositoryStylesLoadAsCleanProfiles() throws {
         let shell = root.appendingPathComponent("shell", isDirectory: true)
-        XCTAssertEqual(ShellDefaults.sync(into: shell), [])
-        XCTAssertEqual(
-            ShellProfiles.names(in: shell),
-            ["default", "celestial", "lake", "matrix", "nocturne", "sakura", "vitreus", "wayline"]
-        )
-        for style in ["celestial", "nocturne", "wayline"] {
+        XCTAssertEqual(try ShellStyleFixture.prepare(into: shell), [])
+        let names = try ShellStyleFixture.names()
+        XCTAssertFalse(names.isEmpty)
+        XCTAssertEqual(ShellProfiles.names(in: shell), [ShellDefaults.profile] + names)
+        let defaultTheme = ShellConfig.resolve(shellDirectory: shell).themeName
+        for style in names {
             try write("profile = \"\(style)\"\n", to: "shell.toml", in: shell)
             var problems: [String] = []
             let config = try XCTUnwrap(ShellConfig.load(shellDirectory: shell, problems: &problems))
             XCTAssertEqual(problems, [], style)
-            XCTAssertEqual(config.themeName, style)
+            let source = try ShellStyleFixture.source(style).appendingPathComponent("shell.toml")
+            let declared = try TOMLDecoder().decode([String: TOMLNode].self, from: Data(contentsOf: source))
+            if case let .string(theme)? = declared["theme"] {
+                XCTAssertEqual(config.themeName, theme, style)
+            } else {
+                XCTAssertEqual(config.themeName, defaultTheme, style)
+            }
+            guard case let .table(bar)? = declared["workspaceBar"],
+                  case let .integer(height)? = bar["height"],
+                  case let .boolean(fullWidth)? = bar["fullWidth"],
+                  case let .string(position)? = bar["position"]
+            else { return XCTFail("Missing bar declaration for \(style)") }
+            XCTAssertEqual(config.barOverride?.settings.height, Double(height), style)
+            XCTAssertEqual(config.barOverride?.settings.fullWidth, fullWidth, style)
+            XCTAssertEqual(config.barOverride?.settings.position?.rawValue, position, style)
             let celestial = style == "celestial"
-            XCTAssertEqual(config.barOverride?.settings.height, celestial ? 60 : 40, style)
-            XCTAssertEqual(config.barOverride?.settings.fullWidth, true, style)
-            XCTAssertEqual(config.barOverride?.settings.position, celestial ? .left : .overlappingMenuBar, style)
             let dashboard = config.drawers.first { $0.id == "dashboard" }
             XCTAssertEqual(dashboard?.widgets, celestial ? ["dashboard"] : nil, style)
             if let dashboard {
@@ -135,6 +136,12 @@ final class ShellDefaultsTests: XCTestCase {
                 XCTAssertNotNil(config.widget(widget), "\(style) \(widget)")
             }
         }
+    }
+
+    func testTheInstalledVitreusProfileKeepsItsIslandAndComponents() throws {
+        let shell = root.appendingPathComponent("shell", isDirectory: true)
+        XCTAssertEqual(ShellDefaults.sync(into: shell), [])
+        try ShellStyleFixture.install("vitreus", into: shell)
         try write("profile = \"vitreus\"\n", to: "shell.toml", in: shell)
         var problems: [String] = []
         let vitreus = try XCTUnwrap(ShellConfig.load(shellDirectory: shell, problems: &problems))
@@ -168,9 +175,9 @@ final class ShellDefaultsTests: XCTestCase {
         }
     }
 
-    func testBundledProfilesStartWithTheSharedAppleAndAppMenus() throws {
+    func testInstalledProfilesStartWithTheSharedAppleAndAppMenus() throws {
         let shell = root.appendingPathComponent("shell", isDirectory: true)
-        XCTAssertEqual(ShellDefaults.sync(into: shell), [])
+        XCTAssertEqual(try ShellStyleFixture.prepare(into: shell), [])
         for profile in ShellProfiles.names(in: shell) {
             _ = try ShellProfiles.select(profile, in: shell)
             var problems: [String] = []
@@ -194,7 +201,7 @@ final class ShellDefaultsTests: XCTestCase {
 
     func testScratchpadIconCountComesFromTheResolvedProfileAndIsClamped() throws {
         let shell = root.appendingPathComponent("shell", isDirectory: true)
-        XCTAssertEqual(ShellDefaults.sync(into: shell), [])
+        XCTAssertEqual(try ShellStyleFixture.prepare(into: shell), [])
         XCTAssertEqual(ShellConfig.resolve(shellDirectory: shell).scratchpadIcons, 3)
         XCTAssertTrue(try ShellProfiles.select("nocturne", in: shell))
         XCTAssertEqual(ShellConfig.resolve(shellDirectory: shell).scratchpadIcons, 2)
@@ -208,7 +215,7 @@ final class ShellDefaultsTests: XCTestCase {
 
     func testDefaultInstallsNativeMaterialBarAndTheSharedEffectsGallery() throws {
         let shell = root.appendingPathComponent("shell", isDirectory: true)
-        XCTAssertEqual(ShellDefaults.sync(into: shell), [])
+        XCTAssertEqual(try ShellStyleFixture.prepare(into: shell), [])
         var problems: [String] = []
         let config = try XCTUnwrap(ShellConfig.load(shellDirectory: shell, problems: &problems))
         XCTAssertEqual(problems, [])
@@ -282,7 +289,7 @@ final class ShellDefaultsTests: XCTestCase {
 
     func testLakeInstallsPopulatedBarLanesAndReservedMaterialPlacement() throws {
         let shell = root.appendingPathComponent("shell", isDirectory: true)
-        XCTAssertEqual(ShellDefaults.sync(into: shell), [])
+        XCTAssertEqual(try ShellStyleFixture.prepare(into: shell), [])
         try write("profile = \"lake\"\n", to: "shell.toml", in: shell)
         var problems: [String] = []
         let config = try XCTUnwrap(ShellConfig.load(shellDirectory: shell, problems: &problems))
@@ -316,7 +323,7 @@ final class ShellDefaultsTests: XCTestCase {
 
     func testStylesWithoutAnIslandInheritTheFocusRibbonOnEveryDisplay() throws {
         let shell = root.appendingPathComponent("shell", isDirectory: true)
-        XCTAssertEqual(ShellDefaults.sync(into: shell), [])
+        XCTAssertEqual(try ShellStyleFixture.prepare(into: shell), [])
         let monitors = [true, false].enumerated().map { index, hasNotch in
             let displayID = CGDirectDisplayID(91001 + index)
             let frame = CGRect(x: index * 1600, y: 0, width: 1600, height: 1000)
@@ -368,103 +375,57 @@ final class ShellDefaultsTests: XCTestCase {
         XCTAssertEqual(try read(path), "#!/usr/bin/perl\nprint 2;\n")
     }
 
-    func testAFolderTheUserMadeUnderAStyleNameIsLeftAlone() throws {
-        let styles = root.appendingPathComponent("styles", isDirectory: true)
-        try write("s1", to: "dusk/widgets/clock/init.luau", in: styles)
+    func testDefaultSyncLeavesAnUnmanagedStyleAlone() throws {
         let shell = root.appendingPathComponent("shell", isDirectory: true)
-        try write("mine", to: "dusk/shell.toml", in: shell)
-
-        XCTAssertEqual(sync(styles: styles), [])
-        let dusk = shell.appendingPathComponent("dusk", isDirectory: true)
-        XCTAssertEqual(try String(contentsOf: dusk.appendingPathComponent("shell.toml"), encoding: .utf8), "mine")
-        XCTAssertFalse(FileManager.default.fileExists(atPath: dusk.appendingPathComponent("widgets").path))
-        XCTAssertFalse(FileManager.default.fileExists(atPath: dusk.appendingPathComponent(".manifest.json").path))
-    }
-
-    func testARetiredStyleLosesItsUneditedFilesAndKeepsTheUsersOwn() throws {
-        let styles = root.appendingPathComponent("styles", isDirectory: true)
-        let bundled = styles.appendingPathComponent("system", isDirectory: true)
-        let shell = root.appendingPathComponent("shell", isDirectory: true)
-        let system = shell.appendingPathComponent("system", isDirectory: true)
-        try write("theme = \"native\"", to: "system/shell.toml", in: styles)
-        try write("s1", to: "system/lib/style.luau", in: styles)
-        try write("r1", to: "system/widgets/focus-ribbon/init.luau", in: styles)
-        XCTAssertEqual(sync(styles: styles), [])
-        try FileManager.default.createDirectory(
-            at: system.appendingPathComponent("widgets/old"),
-            withIntermediateDirectories: true
-        )
-        try FileManager.default.removeItem(at: bundled)
+        let name = try XCTUnwrap(ShellStyleFixture.names().first)
+        let target = try ShellStyleFixture.install(name, into: shell)
+        let file = target.appendingPathComponent("shell.toml")
+        let contents = "mine"
+        try contents.write(to: file, atomically: true, encoding: .utf8)
         XCTAssertEqual(sync(), [])
-        XCTAssertTrue(FileManager.default.fileExists(atPath: system.appendingPathComponent(".manifest.json").path))
-
-        XCTAssertEqual(sync(styles: styles), [])
-        XCTAssertFalse(FileManager.default.fileExists(atPath: system.path))
-        XCTAssertEqual(ShellProfiles.names(in: shell), ["default"])
-        try write("profile = \"system\"", to: "shell.toml", in: shell)
-        XCTAssertEqual(ShellConfig.load(shellDirectory: shell)?.profile, ShellDefaults.profile)
-
-        try write("theme = \"native\"", to: "system/shell.toml", in: styles)
-        try write("s1", to: "system/lib/style.luau", in: styles)
-        try write("r1", to: "system/widgets/focus-ribbon/init.luau", in: styles)
-        XCTAssertEqual(sync(styles: styles), [])
-        try write("mine", to: "system/lib/style.luau", in: shell)
-        try write("extra", to: "system/widgets/extra/init.luau", in: shell)
-        try FileManager.default.removeItem(at: bundled)
-
-        XCTAssertEqual(sync(styles: styles), [])
-        XCTAssertEqual(
-            try String(contentsOf: system.appendingPathComponent("lib/style.luau"), encoding: .utf8),
-            "mine"
-        )
-        XCTAssertTrue(FileManager.default
-            .fileExists(atPath: system.appendingPathComponent("widgets/extra/init.luau").path))
-        for path in ["shell.toml", "widgets/focus-ribbon", ".manifest.json"] {
-            XCTAssertFalse(FileManager.default.fileExists(atPath: system.appendingPathComponent(path).path), path)
-        }
-        XCTAssertEqual(ShellProfiles.names(in: shell), ["default", "system"])
-        XCTAssertEqual(sync(styles: styles), [])
-        XCTAssertEqual(
-            try String(contentsOf: system.appendingPathComponent("lib/style.luau"), encoding: .utf8),
-            "mine"
-        )
+        XCTAssertEqual(try String(contentsOf: file, encoding: .utf8), contents)
+        XCTAssertFalse(FileManager.default.fileExists(atPath: target.appendingPathComponent(".manifest.json").path))
     }
 
-    func testRetiredManagedStyleIsRemovedThroughALongerSymlinkedShellPath() throws {
-        let styles = root.appendingPathComponent("styles", isDirectory: true)
+    func testDefaultSyncLeavesFormerlyManagedStylesAndTheirFilesAlone() throws {
         let shell = root.appendingPathComponent("shell", isDirectory: true)
-        try write("theme = \"native\"", to: "system/shell.toml", in: styles)
-        try write("s1", to: "system/lib/style.luau", in: styles)
-        try write("r1", to: "system/widgets/focus-ribbon/init.luau", in: styles)
-        XCTAssertEqual(sync(styles: styles), [])
+        let files = [
+            "shell.toml": "theme = 'native'", "lib/style.luau": "return {}",
+            "widgets/extra/init.luau": "mine", ".manifest.json": "{}"
+        ]
+        let style = shell.appendingPathComponent("system", isDirectory: true)
+        for (path, contents) in files { try write(contents, to: path, in: style) }
+        for version in ["v1", "v2"] {
+            try write(version, to: "widgets/clock/init.luau", in: source)
+            XCTAssertEqual(sync(), [])
+            XCTAssertEqual(try read("widgets/clock/init.luau"), version)
+            for (path, contents) in files {
+                XCTAssertEqual(try String(contentsOf: style.appendingPathComponent(path), encoding: .utf8), contents)
+            }
+            XCTAssertEqual(ShellProfiles.names(in: shell), [ShellDefaults.profile, style.lastPathComponent])
+        }
+    }
 
-        let link = root.appendingPathComponent(String(repeating: "linked-shell-", count: 12))
+    func testDefaultSyncLeavesInstalledStylesThroughASymlinkedShellPath() throws {
+        let shell = root.appendingPathComponent("shell", isDirectory: true)
+        let name = try XCTUnwrap(ShellStyleFixture.names().first)
+        let style = try ShellStyleFixture.install(name, into: shell)
+        let manifest = ".manifest.json"
+        try write("{}", to: manifest, in: style)
+        let link = root.appendingPathComponent("linked-shell")
         try FileManager.default.createSymbolicLink(at: link, withDestinationURL: root)
         let linkedShell = link.appendingPathComponent("shell", isDirectory: true)
-        let system = linkedShell.appendingPathComponent("system", isDirectory: true)
-        XCTAssertGreaterThan(
-            system.path.count,
-            system.resolvingSymlinksInPath().appendingPathComponent("widgets/focus-ribbon").path.count
-        )
-        XCTAssertTrue(FileManager.default.fileExists(atPath: system.appendingPathComponent(".manifest.json").path))
-        XCTAssertTrue(FileManager.default.fileExists(atPath: system.appendingPathComponent("lib/style.luau").path))
-        XCTAssertEqual(ShellProfiles.names(in: linkedShell), ["default", "system"])
-        try FileManager.default.removeItem(at: styles.appendingPathComponent("system"))
-
-        XCTAssertEqual(
-            ShellDefaults.sync(into: linkedShell, from: source, styles: styles, day: "2026-10-08"),
-            []
-        )
-        XCTAssertFalse(FileManager.default.fileExists(atPath: system.path))
-        XCTAssertFalse(FileManager.default.fileExists(atPath: shell.appendingPathComponent("system").path))
-        XCTAssertEqual(ShellProfiles.names(in: linkedShell), ["default"])
+        let original = try Data(contentsOf: style.appendingPathComponent("shell.toml"))
+        XCTAssertEqual(ShellDefaults.sync(into: linkedShell, from: source), [])
+        XCTAssertEqual(try Data(contentsOf: style.appendingPathComponent("shell.toml")), original)
+        XCTAssertTrue(FileManager.default.fileExists(atPath: style.appendingPathComponent(manifest).path))
+        XCTAssertEqual(ShellProfiles.names(in: linkedShell), [ShellDefaults.profile, name])
     }
 
-    private func sync(styles: URL? = nil) -> [URL] {
+    private func sync() -> [URL] {
         ShellDefaults.sync(
             into: root.appendingPathComponent("shell", isDirectory: true),
             from: source,
-            styles: styles,
             day: "2026-10-08"
         )
     }

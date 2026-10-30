@@ -16,7 +16,7 @@ from pathlib import Path
 
 ROOT = Path(__file__).resolve().parents[1]
 CATALOGS = ROOT / "Sources/OmniWM/Resources"
-SHELL_WIDGETS = (ROOT / "Sources/OmniWM/ShellDefault", ROOT / "Sources/OmniWM/ShellStyles")
+SHELL_WIDGETS = (ROOT / "Sources/OmniWM/ShellDefault", ROOT / "styles")
 FORMAT = re.compile(
     r"%(?:(\d+)\$)?[-+#0 ']*(?:\d+|\*)?(?:\.(?:\d+|\*))?"
     r"(hh|ll|h|l|q|z|t|j|L)?([@diuoxXfFeEgGaAcCsSp])"
@@ -221,10 +221,10 @@ def validate_shell_usage(strings, folders):
         used.update(option.get("title", key) for key, option in options.items())
     missing = sorted(used - strings.keys())
     if missing:
-        raise ValueError(f"Shell.xcstrings: bundled widgets use missing keys {missing}")
+        raise ValueError(f"Shell.xcstrings: widgets use missing keys {missing}")
     unused = sorted(strings.keys() - used)
     if unused:
-        raise ValueError(f"Shell.xcstrings: keys no bundled widget uses {unused}")
+        raise ValueError(f"Shell.xcstrings: keys no widget uses {unused}")
     plural = sorted(key for key, entry in strings.items()
                     if any(has_plural(node) for node in entry.get("localizations", {}).values()))
     if plural:

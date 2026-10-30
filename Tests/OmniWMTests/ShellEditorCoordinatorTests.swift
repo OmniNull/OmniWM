@@ -374,6 +374,7 @@ final class ShellEditorCoordinatorTests: XCTestCase {
         let shell = FileManager.default.temporaryDirectory
             .appendingPathComponent("ShellEditorTests-\(UUID().uuidString)")
         addTeardownBlock { try FileManager.default.removeItem(at: shell) }
+        try ShellStyleFixture.installAll(into: shell)
         let configuration = ShellConfigurationCoordinator(shellDirectory: shell)
         try await configuration.ensureLoaded()
         try write("""
