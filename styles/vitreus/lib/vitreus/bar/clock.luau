@@ -10,6 +10,7 @@ local shadow = palette.alpha("deep", 0.4)
 local lift = table.freeze({ x = 0, y = 1 })
 local last
 local verticalLast
+local dayLast
 
 local function round(value: number): number
     return math.floor(value + 0.5)
@@ -60,10 +61,21 @@ local function none()
     return nil
 end
 
+local function monthAndDay(ctx): string
+    local date = ctx.data.date or ""
+    if not dayLast or dayLast.date ~= date then
+        local seconds = ctx.data.seconds
+        dayLast = table.freeze({
+            date = date, text = string.upper(os.date("%b", seconds)) .. " " .. tostring(tonumber(os.date("%d", seconds))),
+        })
+    end
+    return dayLast.text
+end
+
 local function verticalMeasure(ctx, bz: number)
     local hour, minute, meridiem, day = parts(ctx)
     minute = string.sub(minute, 2)
-    local monthDay = string.upper(os.date("%b", ctx.data.seconds)) .. " " .. tostring(tonumber(os.date("%d", ctx.data.seconds)))
+    local monthDay = monthAndDay(ctx)
     local key = table.concat({ hour, minute, meridiem, day, monthDay, bz }, "|")
     if verticalLast and verticalLast.key == key then return verticalLast end
     local function spec(value: string, points: number)
