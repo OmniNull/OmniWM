@@ -21,6 +21,7 @@ final class OverviewThumbnailCapture {
         let id: UInt64
         let generation: UInt64
         let request: OverviewPreviewRequest
+        var stopsAfterFirstFrame = false
         let requestedAt = CACurrentMediaTime()
         var status = Status.queued
         var published = false
@@ -96,7 +97,8 @@ final class OverviewThumbnailCapture {
         visible: [OverviewPreviewRequest],
         prioritizing selectedHandle: WindowHandle? = nil,
         retainingUnrepresentedPreviews: Bool = false,
-        firstFrameOnly: Bool = false
+        firstFrameOnly: Bool = false,
+        firstFrameHandles: Set<WindowHandle> = []
     ) {
         isPresenting = true
         stopsAfterFirstFrame = firstFrameOnly
@@ -110,13 +112,8 @@ final class OverviewThumbnailCapture {
             onPreview(handle, nil)
         }
         var requests = collectRequests(represented: represented, visible: visible, selectedHandle: selectedHandle)
-        adoptSharedPreviews(for: &requests, droppingSatisfied: firstFrameOnly)
-        for (key, source) in sources where requests[key]?.token != source.request.token
-            || (!firstFrameOnly && source.status == .completed)
-        {
-            retire(source)
-            sources.removeValue(forKey: key)
-        }
+        adoptSharedPreviews(for: &requests) { firstFrameOnly || firstFrameHandles.contains($0) }
+        retireStaleSources(for: requests, firstFrameOnly: firstFrameOnly, firstFrameHandles: firstFrameHandles)
         guard !requests.isEmpty, hasCaptureAccess() else {
             for source in sources.values { retire(source) }
             sources.removeAll()
@@ -128,6 +125,7 @@ final class OverviewThumbnailCapture {
             guard sources[key] == nil, let request = requests[key] else { continue }
             nextSourceId &+= 1
             let source = Source(id: nextSourceId, generation: generation, request: request)
+            source.stopsAfterFirstFrame = firstFrameOnly || firstFrameHandles.contains(request.handle)
             sources[key] = source
             trace(.previewRequested, source: source)
             added = true
@@ -142,6 +140,23 @@ final class OverviewThumbnailCapture {
         if added { onCaptureStarted() }
         startQueuedSources()
         onReadinessChange()
+    }
+
+    private func retireStaleSources(
+        for requests: [ObjectIdentifier: OverviewPreviewRequest],
+        firstFrameOnly: Bool,
+        firstFrameHandles: Set<WindowHandle>
+    ) {
+        for (key, source) in sources {
+            let request = requests[key]
+            let live = request.map { !firstFrameOnly && !firstFrameHandles.contains($0.handle) } ?? false
+            guard let request, request.token == source.request.token, !(live && source.status == .completed) else {
+                retire(source)
+                sources.removeValue(forKey: key)
+                continue
+            }
+            if firstFrameOnly || live { source.stopsAfterFirstFrame = !live }
+        }
     }
 
     func remove(handle: WindowHandle) {
@@ -250,7 +265,7 @@ final class OverviewThumbnailCapture {
     }
 
     private func completeFirstFrame(_ source: Source) {
-        guard stopsAfterFirstFrame, source.published, source.status != .completed else { return }
+        guard source.stopsAfterFirstFrame, source.published, source.status != .completed else { return }
         retire(source)
         source.status = .completed
     }
@@ -259,7 +274,7 @@ final class OverviewThumbnailCapture {
         guard let source = sources[key], source.id == sourceId, isCurrent(source) else { return }
         source.output?.invalidate()
         source.status = .failed
-        if stopsAfterFirstFrame { source.control?.stop() }
+        if source.stopsAfterFirstFrame { source.control?.stop() }
         source.control = nil
         FallbackFiringRecorder.shared.note(.capture, "overviewStreamException")
         onReadinessChange()
@@ -318,7 +333,7 @@ extension OverviewThumbnailCapture {
 
     private func adoptSharedPreviews(
         for requests: inout [ObjectIdentifier: OverviewPreviewRequest],
-        droppingSatisfied: Bool
+        droppingSatisfied: (WindowHandle) -> Bool
     ) {
         for (key, request) in requests where previewCache[request.handle]?.token != request.token {
             guard let frame = adoptSharedPreview(
@@ -326,7 +341,7 @@ extension OverviewThumbnailCapture {
                 satisfying: adoptsProvisionalPreviews ? nil : request
             ) else { continue }
             onPreview(request.handle, frame)
-            if droppingSatisfied, frame.covers(request) { requests.removeValue(forKey: key) }
+            if droppingSatisfied(request.handle), frame.covers(request) { requests.removeValue(forKey: key) }
         }
     }
 

@@ -92,7 +92,7 @@ extension AXManager {
         else { return frames }
         return frames.filter {
             let allowed = isFrameAllowedToWrite($0)
-            if !allowed { workspaceFrameSettlement?.reject($0) }
+            if !allowed { rejectInWorkspaceFrameSettlements($0) }
             return allowed
         }
     }

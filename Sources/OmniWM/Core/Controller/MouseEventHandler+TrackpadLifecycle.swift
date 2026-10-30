@@ -47,17 +47,16 @@ extension MouseEventHandler {
         state.activeGestureMode = mode
         state.gesturePhase = .committed
         if case let .workspaceSwitch(axis) = mode {
-            controller.layoutRefreshController.workspaceSwipe.begin(
+            if controller.layoutRefreshController.workspaceSwipe.begin(
                 axis: axis, cumulative: axis == .horizontal ? metrics.cumulativeX : metrics.cumulativeY,
                 timestamp: timestamp,
                 recognitionMovement: SwipeEvent(
                     delta: Double(axis == .horizontal ? metrics.rawDeltaX : metrics.rawDeltaY),
                     timestamp: metrics.previousTimestamp
                 )
-            )
-            if controller.layoutRefreshController.workspaceSwipe.hasPresentation { state.workspaceSwipeFired = true }
+            ) { state.workspaceSwipeFired = true }
         } else {
-            controller.layoutRefreshController.workspaceSwipe.cancel(reason: "other-gesture")
+            controller.layoutRefreshController.workspaceSwipe.otherGestureRecognized(on: lockedContext.monitorId)
         }
         return true
     }

@@ -94,13 +94,13 @@ final class WindowActionHandler {
 
     func toggleOverview() {
         guard controller?.settings.overview.enabled == true else { return }
-        controller?.layoutRefreshController.workspaceSwipe.cancel(reason: "overview")
+        controller?.layoutRefreshController.workspaceSwipe.cancelAll(reason: "overview")
         overviewController.toggle()
     }
 
     func openOverview() {
         guard controller?.settings.overview.enabled == true else { return }
-        controller?.layoutRefreshController.workspaceSwipe.cancel(reason: "overview")
+        controller?.layoutRefreshController.workspaceSwipe.cancelAll(reason: "overview")
         overviewController.input.beginGestureScrollSuppression()
         overviewController.open()
     }
@@ -123,7 +123,7 @@ final class WindowActionHandler {
 
     func beginOverviewGesture() -> Bool {
         guard controller?.settings.overview.enabled == true else { return false }
-        controller?.layoutRefreshController.workspaceSwipe.cancel(reason: "overview")
+        controller?.layoutRefreshController.workspaceSwipe.cancelAll(reason: "overview")
         return overviewController.beginInteractiveTransition()
     }
 
