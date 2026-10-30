@@ -74,6 +74,7 @@ struct RuntimeState: Codable, Equatable, Sendable {
     var issueDraft: IssueDraft?
     var hasSeenIssueWalkthrough: Bool?
     var welcomePresented: Bool?
+    var screenRecordingPromptDeclined: Bool?
     var monitorSetupStatus: MonitorSetupStatus?
     var launchOverlayPlayedVersion: String?
     var appVolumes: [String: AppVolumeSetting]?
@@ -415,6 +416,17 @@ final class RuntimeStateStore {
         } catch {
             Log.config.error("Failed to load \(url.path): \(error.localizedDescription)")
             return RuntimeState()
+        }
+    }
+}
+
+extension RuntimeStateStore {
+    var screenRecordingPromptDeclined: Bool {
+        get { state.screenRecordingPromptDeclined ?? false }
+        set {
+            guard screenRecordingPromptDeclined != newValue else { return }
+            state.screenRecordingPromptDeclined = newValue
+            scheduleSave()
         }
     }
 }

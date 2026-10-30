@@ -110,9 +110,11 @@ public final class AppDelegate: NSObject, NSApplicationDelegate {
     private func beginPermissionGate() {
         guard !didFinishBootstrap, launchPermissionsWindowController == nil else { return }
 
-        let windowController = LaunchPermissionsWindowController()
-        guard !windowController.snapshot.allGranted else {
-            finishBootstrap()
+        let runtimeState = RuntimeStateStore(directory: OmniWMStoragePaths.live.stateDirectory)
+        runtimeStateStore = runtimeState
+        let windowController = LaunchPermissionsWindowController(runtimeState: runtimeState)
+        guard windowController.needsPrompt else {
+            finishBootstrap(runtimeState: runtimeState)
             return
         }
 
@@ -121,7 +123,7 @@ public final class AppDelegate: NSObject, NSApplicationDelegate {
         windowController.show(
             onStart: { [weak self] in
                 self?.endPermissionGate()
-                self?.finishBootstrap()
+                self?.finishBootstrap(runtimeState: runtimeState)
             },
             onQuit: { [weak self] in
                 self?.endPermissionGate()
@@ -135,13 +137,11 @@ public final class AppDelegate: NSObject, NSApplicationDelegate {
         NSApplication.shared.setActivationPolicy(.accessory)
     }
 
-    func finishBootstrap() {
+    func finishBootstrap(runtimeState: RuntimeStateStore) {
         guard !didFinishBootstrap else { return }
         didFinishBootstrap = true
 
         let storagePaths = OmniWMStoragePaths.live
-        let runtimeState = RuntimeStateStore(directory: storagePaths.stateDirectory)
-        self.runtimeStateStore = runtimeState
 
         let settings = SettingsStore(
             persistence: SettingsFilePersistence(directory: storagePaths.configDirectory),

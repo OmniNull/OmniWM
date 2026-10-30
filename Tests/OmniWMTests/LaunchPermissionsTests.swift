@@ -40,6 +40,24 @@ final class LaunchPermissionsTests: XCTestCase {
         XCTAssertFalse(snapshot.allGranted)
     }
 
+    func testDeclinedScreenRecordingSkipsPromptOnlyWhenRequiredPermissionsAreGranted() {
+        let expectations: [[Bool]: Bool] = [
+            [true, true, false, false]: true,
+            [true, true, false, true]: false,
+            [true, true, true, false]: false,
+            [false, true, false, true]: true,
+            [true, false, true, true]: true
+        ]
+        for (flags, expected) in expectations {
+            let snapshot = LaunchPermissionSnapshot(
+                accessibilityGranted: flags[0],
+                inputMonitoringGranted: flags[1],
+                screenRecordingGranted: flags[2]
+            )
+            XCTAssertEqual(snapshot.needsPrompt(screenRecordingDeclined: flags[3]), expected, "\(flags)")
+        }
+    }
+
     func testRequestRoutesToSelectedPermissionAndRefreshes() {
         let state = State()
         let model = LaunchPermissionsModel(environment: environment(state))
