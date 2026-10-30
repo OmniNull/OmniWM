@@ -12,6 +12,14 @@ final class ParkingEdgeNavigationTests: XCTestCase {
         var tokens: [WindowToken] = []
     }
 
+    @MainActor private final class Pointer {
+        var location: CGPoint
+
+        init(_ location: CGPoint) {
+            self.location = location
+        }
+    }
+
     @MainActor private struct Fixture {
         let controller: WMController
         let engine: NiriLayoutEngine
@@ -278,8 +286,8 @@ extension ParkingEdgeNavigationTests {
                 let mask = try XCTUnwrap(WorldView(controller: controller).parkingEdgeMasks().first {
                     $0.key.monitorId == fixture.monitors[0].id && $0.key.side == side
                 })
-                var pointer = mask.frame.center
-                let edges = ParkingEdgeMaskManager(pointerLocation: { pointer })
+                let pointer = Pointer(mask.frame.center)
+                let edges = ParkingEdgeMaskManager(pointerLocation: { pointer.location })
                 defer { edges.removeAll() }
                 controller.surfaceReconciler.configureParkingEdgeCallbacks(edges)
                 edges.apply([mask])
@@ -302,9 +310,9 @@ extension ParkingEdgeNavigationTests {
                 XCTAssertTrue(fixture.recorder.tokens.isEmpty)
 
                 controller.settings.focus.followsMouseOnlyFullyVisible = false
-                pointer = CGPoint(x: -100, y: -100)
+                pointer.location = CGPoint(x: -100, y: -100)
                 window.updateHover()
-                pointer = mask.frame.center
+                pointer.location = mask.frame.center
                 window.updateHover()
                 XCTAssertNotNil(window.dwellTask)
                 controller.settings.focus.followsMouseOnlyFullyVisible = true
