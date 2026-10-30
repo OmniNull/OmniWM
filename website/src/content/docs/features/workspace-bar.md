@@ -56,10 +56,10 @@ notificationBadgeRefreshIntervalSeconds = 5
 Configure position, height, and appearance in Settings:
 
 - **Position** — overlap the menu bar, sit below it, or dock at **Bottom**, **Left**, or **Right**. Available globally and per display.
-- **Full Width** — span the whole edge, with the shell's `leading`, `center` and `trailing` widgets at its start, middle and end. With **Position → Below Menu Bar**, it leaves macOS's menu-bar auto-hide preference unchanged (**Unreleased:** available when building from `main`). At other positions, including bottom and side placements, an enabled full-width bar sets macOS's **Automatically hide and show the menu bar** to Always, including while automatic hiding, Reveal on modifier hold or native fullscreen hides the bar. When the last bar requesting automatic hiding moves to **Below Menu Bar**, is disabled or hidden with Toggle Workspace Bar, or OmniWM quits normally, your previous choice returns if the macOS setting still matches the value OmniWM applied. Otherwise, OmniWM keeps your new choice. A full-width bar at another position on another display can still request automatic hiding, because this is a system-wide setting. A crash can leave automatic hiding active; relaunch OmniWM and move its full-width bars below the menu bar, disable them, or quit normally to restore the saved preference.
+- **Full Width** — span the whole edge, with the shell's `leading`, `center` and `trailing` widgets at its start, middle and end. With **Position → Below Menu Bar**, it leaves macOS's menu-bar auto-hide preference unchanged (**Unreleased:** available when building from `main`). At other positions, including bottom and side placements, an enabled full-width bar sets macOS's **Automatically hide and show the menu bar** to Always, including while automatic hiding or native fullscreen hides the bar. When the last bar requesting automatic hiding moves to **Below Menu Bar**, is disabled or hidden with Toggle Workspace Bar, or OmniWM quits normally, your previous choice returns if the macOS setting still matches the value OmniWM applied. Otherwise, OmniWM keeps your new choice. A full-width bar at another position on another display can still request automatic hiding, because this is a system-wide setting. A crash can leave automatic hiding active; relaunch OmniWM and move its full-width bars below the menu bar, disable them, or quit normally to restore the saved preference.
 - **Notch handling** — `Off`, `Move Below Menu Bar`, `Right of Notch`, or a split layout (`Split — Active Left` / `Split — Active Right`) that flows the bar around the notch with your chosen side for the active workspace. `Right of Notch` centers the bar without a notch, or places it 8 points to the right of the notch; offsets still apply.
 - **Automatically hide and show** — reveal at the bar's edge and hide when the pointer moves inward past the bar and interactions end. See [Automatic hiding](#automatic-hiding).
-- **Reveal on modifier hold** — keep the bar hidden until you hold a chosen modifier; with automatic hiding enabled, either trigger can reveal it.
+- **Reveal on modifier hold** — reveal automatically hidden bars while holding a chosen modifier. Displays with automatic hiding off keep their bars visible (**Unreleased:** available when building from `main`).
 - **Hide empty workspaces** — omit chips for workspaces with no windows.
 - **Reserve layout space** — reserve space at the bar's selected edge for tiled and layout-fullscreen windows.
 - **Hide in Native Fullscreen** — hide the bar on a monitor while that monitor shows a macOS native fullscreen window, and bring it back on exit; reserved tiled layout space is left untouched so windows do not shuffle around the fullscreen session.
@@ -79,7 +79,7 @@ Placement follows the usable display edge, avoiding a visible Dock. X/Y offsets 
 
 Side bars stack upright labels and icons and scroll vertically when needed. **Bar Thickness** (`height` in TOML) controls their width. Drag-and-drop follows the bar's horizontal or vertical order. Stats, hover previews, workspace rename panels, hidden-icon panels, and the fallback OmniWM menu open inward from the displayed bar or icon.
 
-Notch modes, including **Fill Left of Notch**, are ignored at bottom/left/right without changing your saved preference. Existing visibility settings still apply; modifier-hold bars remain overlay-only.
+Notch modes, including **Fill Left of Notch**, are ignored at bottom/left/right without changing your saved preference. Existing visibility settings still apply; automatically hidden bars remain overlay-only.
 
 ### Automatic hiding
 
@@ -98,7 +98,19 @@ The reveal edge follows the bar's placement and offsets. With no vertical offset
 
 **Auto-Hide Reveal Delay** is how long the pointer must stay at the edge before the bar appears; leaving the edge sooner cancels the reveal. **Auto-Hide Hide Delay** is how long the bar stays after the pointer moves inward past it and interactions end; returning to the bar sooner cancels the hide. Both default to 0 ms, apply to every display that auto-hides, and accept up to 1000 ms.
 
-Auto-hidden bars never reserve layout space, even while visible. Manual hiding, disabling, and native-fullscreen suppression take precedence. Existing modifier-only configurations remain unchanged; when combined with `autoHide`, touching the edge or holding the modifier can reveal the bar. The modifier hold delay applies only to the modifier trigger, and the auto-hide delays only to the pointer.
+Auto-hidden bars never reserve layout space, even while visible. Manual hiding, disabling, and native-fullscreen suppression take precedence. Touching the edge or holding the reveal modifier can reveal an auto-hidden bar. The modifier hold delay applies only to the modifier trigger, and the auto-hide delays only to the pointer.
+
+**Unreleased:** when building from `main`, `autoHide = false` keeps a display's bar visible even when a reveal modifier is configured, and **Reserve layout space** still applies. To hide a bar that previously used only a reveal modifier, enable `autoHide`; both hover and the modifier will reveal it. For example, keep external bars visible while revealing the built-in display's bar on hover or Control+Shift. The example omits the override's generated identity fields; keep those from the override saved by the per-display settings editor:
+
+```toml
+[workspaceBar]
+autoHide = false
+revealModifier = "controlShift"
+
+[[monitorBarOverrides]]
+monitorName = "Built-in Retina Display"
+autoHide = true
+```
 
 ### Additional appearance controls
 
