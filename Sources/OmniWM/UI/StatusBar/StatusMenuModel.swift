@@ -116,11 +116,8 @@ final class StatusMenuModel {
             ToggleTileSpec(
                 control: .preventSleepEnabled,
                 isOn: Binding(
-                    get: { settings.preventSleepEnabled },
-                    set: {
-                        settings.preventSleepEnabled = $0
-                        controller?.setPreventSleepEnabled($0)
-                    }
+                    get: { SleepPreventionManager.shared.awake.on },
+                    set: { controller?.performKeepAwake($0 ? .on : .off) }
                 )
             ),
             ToggleTileSpec(

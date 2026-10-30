@@ -4,7 +4,7 @@
 import AppKit
 import IOKit.pwr_mgt
 
-@MainActor
+@MainActor @Observable
 final class SleepPreventionManager {
     struct PerformanceSnapshot: Equatable, Sendable {
         let assertionAcquisitions: UInt64
@@ -12,17 +12,16 @@ final class SleepPreventionManager {
 
     static let shared = SleepPreventionManager()
 
-    private var sleepAssertionID: IOPMAssertionID?
-    private var wantsSleepPrevention = false
-    private var isUserSessionActive = true
-    private var performanceAssertionAcquisitions: UInt64?
+    @ObservationIgnored private var sleepAssertionID: IOPMAssertionID?
+    @ObservationIgnored private var isUserSessionActive = true
+    @ObservationIgnored private var performanceAssertionAcquisitions: UInt64?
     private let now: @MainActor () -> Date
     private let scheduleDeadline: @MainActor (TimeInterval, @escaping @MainActor () -> Void) -> (@MainActor () -> Void)
     private let createAssertion: @MainActor () -> IOPMAssertionID?
     private let releaseAssertion: @MainActor (IOPMAssertionID) -> Void
     private let observesWorkspace: Bool
-    private var cancelDeadline: (@MainActor () -> Void)?
-    private var awakeSubscriptions: [UUID: @MainActor (ShellAwake) -> Void] = [:]
+    @ObservationIgnored private var cancelDeadline: (@MainActor () -> Void)?
+    @ObservationIgnored private var awakeSubscriptions: [UUID: @MainActor (ShellAwake) -> Void] = [:]
     private(set) var awake = ShellAwake(on: false, until: nil)
 
     init(
@@ -119,16 +118,6 @@ final class SleepPreventionManager {
         return { task.cancel() }
     }
 
-    func preventSleep() {
-        wantsSleepPrevention = true
-        reconcileSleepAssertion()
-    }
-
-    func allowSleep() {
-        wantsSleepPrevention = false
-        reconcileSleepAssertion()
-    }
-
     func beginPerformanceCapture() {
         performanceAssertionAcquisitions = 0
     }
@@ -146,7 +135,7 @@ final class SleepPreventionManager {
     }
 
     private func reconcileSleepAssertion() {
-        guard wantsSleepPrevention || awake.on, isUserSessionActive else {
+        guard awake.on, isUserSessionActive else {
             releaseSleepAssertion()
             return
         }

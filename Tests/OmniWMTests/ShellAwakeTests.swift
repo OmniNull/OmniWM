@@ -63,27 +63,6 @@ final class ShellAwakeTests: XCTestCase {
         XCTAssertNil(ShellSessionCommand(words: ["awake", "on"]))
     }
 
-    func testShellExpiryKeepsTheSettingsAssertionAndPublishesOff() {
-        let environment = Environment()
-        let manager = environment.manager()
-        var snapshots: [ShellAwake] = []
-        manager.subscribeAwake { snapshots.append($0) }
-        manager.preventSleep()
-        manager.perform(.timed(minutes: 15))
-        XCTAssertEqual(manager.awake, ShellAwake(on: true, until: 1_000_900))
-        XCTAssertEqual(environment.acquisitions, [1])
-        XCTAssertEqual(environment.deadlines.map(\.duration), [900])
-        environment.fire(0)
-        XCTAssertEqual(manager.awake, ShellAwake(on: false, until: nil))
-        XCTAssertEqual(environment.releases, [])
-        XCTAssertEqual(snapshots, [
-            ShellAwake(on: false, until: nil), ShellAwake(on: true, until: 1_000_900),
-            ShellAwake(on: false, until: nil)
-        ])
-        manager.allowSleep()
-        XCTAssertEqual(environment.releases, [1])
-    }
-
     func testShellReasonAloneExpiresOnceAndReleasesTheAssertion() {
         let environment = Environment()
         let manager = environment.manager()
@@ -136,18 +115,6 @@ final class ShellAwakeTests: XCTestCase {
         XCTAssertEqual(environment.releases, [1, 2])
     }
 
-    func testSettingsOffCannotReleaseAnActiveShellReason() {
-        let environment = Environment()
-        let manager = environment.manager()
-        manager.preventSleep()
-        manager.perform(.on)
-        manager.allowSleep()
-        XCTAssertEqual(environment.acquisitions, [1])
-        XCTAssertEqual(environment.releases, [])
-        manager.perform(.off)
-        XCTAssertEqual(environment.releases, [1])
-    }
-
     func testInvalidDirectDurationsDoNotCancelTheCurrentReason() {
         let environment = Environment()
         let manager = environment.manager()
@@ -184,5 +151,51 @@ final class ShellAwakeTests: XCTestCase {
         XCTAssertEqual(environment.acquisitions, [1])
         manager.perform(.off)
         XCTAssertEqual(environment.releases, [1])
+    }
+
+    func testTheSwitchAndStyleCommandsShareOneStateAndOnlyAnUntimedOnIsSaved() {
+        let environment = Environment()
+        let manager = environment.manager()
+        let controller = controller()
+        controller.performKeepAwake(.on, manager: manager)
+        XCTAssertTrue(manager.awake.indefinite)
+        XCTAssertTrue(controller.settings.preventSleepEnabled)
+        let minutes = 15.0
+        controller.performKeepAwake(.timed(minutes: minutes), manager: manager)
+        XCTAssertEqual(manager.awake.until, environment.now.timeIntervalSince1970 + minutes * 60)
+        XCTAssertFalse(controller.settings.preventSleepEnabled)
+        controller.setPreventSleepEnabled(controller.settings.preventSleepEnabled, manager: manager)
+        XCTAssertTrue(manager.awake.on)
+        controller.performKeepAwake(.off, manager: manager)
+        XCTAssertFalse(manager.awake.on)
+        XCTAssertFalse(controller.settings.preventSleepEnabled)
+        XCTAssertEqual(environment.releases, environment.acquisitions)
+    }
+
+    func testASavedOnIsAppliedOnceAndAnEndingTimerLeavesTheSettingOff() {
+        let environment = Environment()
+        let manager = environment.manager()
+        let controller = controller()
+        controller.setPreventSleepEnabled(true, manager: manager)
+        controller.setPreventSleepEnabled(true, manager: manager)
+        XCTAssertTrue(manager.awake.indefinite)
+        XCTAssertEqual(environment.acquisitions.count, 1)
+        controller.performKeepAwake(.timed(minutes: 1), manager: manager)
+        environment.fire(0)
+        XCTAssertFalse(manager.awake.on)
+        XCTAssertFalse(controller.settings.preventSleepEnabled)
+        XCTAssertEqual(environment.releases, environment.acquisitions)
+    }
+
+    private func controller() -> WMController {
+        let root = FileManager.default.temporaryDirectory.appendingPathComponent("shell-awake-\(UUID().uuidString)")
+        addTeardownBlock { try? FileManager.default.removeItem(at: root) }
+        return WMController(settings: SettingsStore(
+            persistence: SettingsFilePersistence(
+                directory: root.appendingPathComponent("config"), startWatching: false, deferSaves: false
+            ),
+            runtimeState: RuntimeStateStore(directory: root.appendingPathComponent("state"), deferSaves: false),
+            autosaveEnabled: false
+        ))
     }
 }

@@ -93,7 +93,7 @@ ui.text{ text = ctx.format.bytes(ctx.data.system and ctx.data.system.memory.used
 | `volume`, `muted`, `outputs` | Output volume and the audio outputs |
 | `brightness` | Main display brightness (0–100) and whether the control is available |
 | `microphone` | Default input device volume (0–100) and mute state; either control is absent when unsupported |
-| `awake` | The shell’s keep-awake reason and optional Unix expiry time |
+| `awake` | OmniWM's Prevent Sleep state and its optional Unix expiry time |
 | `audioApps` | Apps with audio and their own volume |
 | `media` | What is playing, with artwork, shuffle and repeat |
 | `lyrics` | Synced lyrics for what is playing, from [LRCLIB](https://lrclib.net); the title, artist, album and track length are sent there while the service is allowed and a widget reads `lyrics` |
@@ -145,7 +145,7 @@ Brightness refreshes when demand starts or resumes and after a brightness comman
 
 ## Keep awake and microphone
 
-`session awake on` keeps the Mac awake until `session awake off`; `session awake <minutes>` sets a duration greater than zero and at most 1440 minutes. `ctx.data.awake.on` describes this shell reason and `until` is its optional Unix expiry. Turning it off does not change the independent **Prevent Sleep** setting. A timed reason expires even when no widget reads it.
+`session awake on` turns on OmniWM's **Prevent Sleep** until `session awake off`; `session awake <minutes>` keeps the Mac awake for more than zero and at most 1440 minutes. `ctx.data.awake.on` is that shared state, the same one the status menu switch shows, and `until` is the optional Unix expiry of a timed run. A timed run is not saved and expires even when no widget reads it.
 
 `microphone set <0-100>` and `microphone mute` control the default input device. The feed listens for device and control changes only while demanded. Unsupported volume or mute controls are `nil`; no audio is recorded and these commands do not request microphone recording access.
 
@@ -184,7 +184,7 @@ Use `reminders authorize` to request access, `reminders settings` to open Remind
 | `volume up [percent]`, `volume down [percent]`, `volume set <0-100>`, `volume mute` | Output volume |
 | `brightness set <0-100>`, `brightness up`, `brightness down`, `brightness settings` | Adjust a supported main display or open Displays settings |
 | `microphone set <0-100>`, `microphone mute` | Default input volume and mute, when supported |
-| `session awake on\|off\|<minutes>` | Keep awake until off or a bounded duration; the Settings switch remains independent |
+| `session awake on\|off\|<minutes>` | OmniWM's Prevent Sleep, on until off or for a number of minutes |
 | `volume output <id>` | Switch the output |
 | `volume app <bundle> set <0-100>`, `volume app <bundle> mute`, `volume app <bundle> reset` | One app's volume |
 | `volume permission` | Open the System Audio Recording privacy settings |

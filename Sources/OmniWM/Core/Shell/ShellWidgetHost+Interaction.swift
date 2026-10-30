@@ -125,7 +125,7 @@ extension ShellWidgetHost {
         case let .volume(command): ShellAudio.perform(command, appVolumes: resources.appVolumes)
         case let .microphone(command): ShellAudio.perform(command)
         case let .brightness(command): resources.devices.brightness.perform(command)
-        case let .awake(command): SleepPreventionManager.shared.perform(command)
+        case let .awake(command): resources.keepAwake(command)
         case let .media(command): resources.media?.perform(command)
         case let .calendar(command): resources.calendar?.perform(command)
         case let .reminders(command): resources.calendar?.perform(command)

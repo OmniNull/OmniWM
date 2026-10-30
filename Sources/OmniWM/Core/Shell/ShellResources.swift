@@ -16,6 +16,7 @@ final class ShellResources {
     let devices = ShellDevices()
     let notifications: ShellNotificationsController
     var resourceImages: ShellResourceImages?
+    let keepAwake: @MainActor (ShellAwakeCommand) -> Void
     private let iconOverride: @MainActor (String) -> NSImage?
     private let windowIcon: @MainActor (String) -> NSImage?
     private var icons: [String: NSImage?] = [:]
@@ -28,7 +29,8 @@ final class ShellResources {
         calendar: CalendarController? = nil,
         notifications: ShellNotificationsController? = nil,
         windowIcon: @escaping @MainActor (String) -> NSImage? = { _ in nil },
-        iconOverride: @escaping @MainActor (String) -> NSImage? = { _ in nil }
+        iconOverride: @escaping @MainActor (String) -> NSImage? = { _ in nil },
+        keepAwake: @escaping @MainActor (ShellAwakeCommand) -> Void = { SleepPreventionManager.shared.perform($0) }
     ) {
         self.motion = motion
         self.appVolumes = appVolumes
@@ -37,6 +39,7 @@ final class ShellResources {
         self.notifications = notifications ?? ShellNotificationsController()
         self.windowIcon = windowIcon
         self.iconOverride = iconOverride
+        self.keepAwake = keepAwake
     }
 
     func setBitmap(_ image: CGImage?, for id: String) {

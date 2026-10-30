@@ -189,7 +189,8 @@ extension WorkspaceBarManager {
             windowIcon: { [weak self] id in self?.shellItemIcons[id] },
             iconOverride: { [weak self] bundleId in
                 self?.controller?.workspaceBarIconResolver.image(for: bundleId)
-            }
+            },
+            keepAwake: { [weak self] command in self?.controller?.performKeepAwake(command) }
         )
     }
 

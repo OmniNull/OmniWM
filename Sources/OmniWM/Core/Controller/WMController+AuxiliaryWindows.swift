@@ -18,11 +18,15 @@ extension WMController {
         windowActionHandlerStorage?.invalidateOverviewDeferredActionsForServiceStop()
     }
 
-    func setPreventSleepEnabled(_ enabled: Bool) {
-        if enabled {
-            SleepPreventionManager.shared.preventSleep()
-        } else {
-            SleepPreventionManager.shared.allowSleep()
+    func setPreventSleepEnabled(_ enabled: Bool, manager: SleepPreventionManager = .shared) {
+        guard enabled != manager.awake.indefinite else { return }
+        manager.perform(enabled ? .on : .off)
+    }
+
+    func performKeepAwake(_ command: ShellAwakeCommand, manager: SleepPreventionManager = .shared) {
+        manager.perform(command)
+        if settings.preventSleepEnabled != manager.awake.indefinite {
+            settings.preventSleepEnabled = manager.awake.indefinite
         }
     }
 

@@ -52,6 +52,10 @@ struct ShellAwake: Equatable, Sendable {
     let on: Bool
     let until: Double?
 
+    var indefinite: Bool {
+        on && until == nil
+    }
+
     func write(into writer: inout ShellValueWriter) {
         writer.map(2)
         writer.key("on")
