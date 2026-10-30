@@ -1353,6 +1353,73 @@ final class TrackpadWorkspaceGestureTests: XCTestCase {
         XCTAssertNotEqual(snapOffset, momentumOffset)
     }
 
+    func testSnapGestureUsesMonitorCenteringOverridesWithOverscroll() throws {
+        for columnCount in [1, 3] {
+            let fixture = try makeFixture(workspaceSwipeEnabled: false, scrollGestureEnabled: true)
+            let controller = fixture.controller
+            defer { controller.layoutRefreshController.resetState() }
+            controller.settings.gestures.trackpadScrollStyle = .snap
+            controller.settings.niri.allowOverscroll = true
+            controller.settings.niri.singleWindowFit = SingleWindowFit(mode: .containerPrimarySpan)
+            controller.settings.niri.centerFocusedColumn = .never
+            controller.settings.niri.alwaysCenterSingleColumn = false
+            controller.settings.niri.update(
+                MonitorNiriSettings(
+                    monitorName: fixture.monitor.name,
+                    centerFocusedColumn: columnCount == 3 ? .always : .never,
+                    alwaysCenterSingleColumn: columnCount == 1
+                ),
+                for: fixture.monitor
+            )
+            controller.updateNiriConfig(
+                centerFocusedColumn: .never, alwaysCenterSingleColumn: false,
+                singleWindowFit: SingleWindowFit(mode: .containerPrimarySpan),
+                edgeOverscroll: controller.settings.niri.edgeOverscroll
+            )
+            let engine = try XCTUnwrap(controller.niriEngine)
+            for index in 0 ..< columnCount {
+                let token = addManagedWindow(
+                    to: fixture.ws1, controller: controller, pid: pid_t(7_001 + index), windowId: 7_101 + index
+                )
+                _ = engine.addWindow(token: token, to: fixture.ws1, afterSelection: nil)
+            }
+            controller.niriLayoutHandler.syncMonitorsToNiriEngine()
+            let geometry = controller.niriInteractionGeometry(for: fixture.monitor)
+            let first = try XCTUnwrap(engine.columns(in: fixture.ws1).first?.windowNodes.first)
+            controller.workspaceManager.withNiriViewportState(for: fixture.ws1) { state in
+                state.selectedNodeId = first.id
+                engine.ensureSelectionVisible(
+                    node: first,
+                    context: NiriInteractionContext(
+                        workspaceId: fixture.ws1, motion: .disabled, workingFrame: geometry.workingFrame,
+                        gaps: geometry.innerGap, orientation: .horizontal
+                    ),
+                    state: &state
+                )
+            }
+            controller.layoutRefreshController.resetState()
+            try withBlockedLayoutRefreshes(fixture) {
+                let time = beginCommittedColumnGesture(fixture)
+                sendFrame(fixture, phase: .ended, fingers: 0, x: 0, y: 0, at: time + 0.01)
+                let state = controller.workspaceManager.niriViewportState(for: fixture.ws1)
+                let selected = try XCTUnwrap(state.selectedNodeId.flatMap {
+                    engine.findNode(by: $0, in: fixture.ws1) as? NiriWindow
+                })
+                let frames = engine.calculateLayout(
+                    state: state, workspaceId: fixture.ws1, monitorFrame: fixture.monitor.frame,
+                    gaps: (horizontal: geometry.innerGap, vertical: geometry.innerGap),
+                    workingArea: WorkingAreaContext(
+                        workingFrame: geometry.workingFrame, viewFrame: fixture.monitor.frame, scale: geometry.scale
+                    ),
+                    orientation: .horizontal
+                )
+                let rendered = try XCTUnwrap(frames[selected.token])
+                XCTAssertTrue(state.preservesGestureOffset)
+                XCTAssertEqual(rendered.midX, geometry.workingFrame.midX, accuracy: 0.5, "\(columnCount) columns")
+            }
+        }
+    }
+
     func testColumnViewportHoldsDuringDragAndSwitchesToLandingOnRelease() throws {
         let fixture = try makeFixture(workspaceSwipeEnabled: false, scrollGestureEnabled: true)
         fixture.controller.settings.gestures.trackpadScrollStyle = .snap
