@@ -1,6 +1,7 @@
 // SPDX-License-Identifier: GPL-2.0-only
 // Copyright (C) 2026 OmniNull — https://github.com/OmniNull/OmniWM
 
+import AppKit
 @testable import OmniWM
 import XCTest
 
@@ -229,6 +230,32 @@ final class ParkingEdgeMaskTests: XCTestCase {
         XCTAssertFalse(SurfaceCoordinator.shared.visibleSurfaceIDs().contains(surfaceId))
         manager.removeAll()
         XCTAssertFalse(SurfaceCoordinator.shared.visibleSurfaceIDs().contains(surfaceId))
+    }
+
+    @MainActor
+    func testHidingAHiddenFinDoesNotOrderItOutAgain() {
+        let key = ParkingEdgeMaskKey(monitorId: Monitor.ID(displayId: 95_004), side: .left)
+        let fin = ParkingEdgeFinWindow(key: key, onHoverChange: {}, onActivate: {})
+        defer { fin.destroy() }
+        var orderOuts = 0
+        let observer = NotificationCenter.default.addObserver(
+            forName: NSNotification.Name("NSWindowDidOrderOffScreenAndFinishAnimatingNotification"),
+            object: fin,
+            queue: nil
+        ) { _ in MainActor.assumeIsolated { orderOuts += 1 } }
+        defer { NotificationCenter.default.removeObserver(observer) }
+
+        fin.hide()
+        XCTAssertEqual(orderOuts, 0)
+
+        let mask = CGRect(x: 91_000, y: 92_000, width: 1, height: 800)
+        fin.show(at: CGPoint(x: 91_000.5, y: 92_400), maskFrame: mask, animated: false)
+        XCTAssertTrue(fin.isVisible)
+        fin.hide()
+        XCTAssertFalse(fin.isVisible)
+        XCTAssertEqual(orderOuts, 1)
+        fin.hide()
+        XCTAssertEqual(orderOuts, 1)
     }
 
     private func makeTopology(first: Monitor, second: Monitor, firstIsFullscreen: Bool) -> SpaceTopology {
