@@ -2,8 +2,10 @@ name: OmniWM CI
 
 on:
   pull_request:
+    paths-ignore: ['docs/**', 'website/**', '*.md']
   push:
     branches: [main, '**-release']
+    paths-ignore: ['docs/**', 'website/**', '*.md']
   workflow_dispatch:
     inputs:
       pr_number:
