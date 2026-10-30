@@ -22,6 +22,8 @@ The current schema is strict — a missing required key in a version 5 file inva
 
 ## File schema
 
+**Unreleased: available when building from `main`.** Schema version 5 is newer than v0.7.6, which writes version 4. This reference describes the main-branch format; keep a backup before switching from stable.
+
 | Key | Type | Default | Description |
 | --- | --- | --- | --- |
 | `schemaVersion` | integer | `5` | Version of the complete `settings.toml` schema. This top-level key appears before the first table. |
@@ -50,7 +52,7 @@ Global switches: hotkeys, Hyper key, default layout, sleep, updates, IPC, animat
 | `animationsEnabled` | boolean | `true` | Animates window layout changes and other OmniWM-authored motion. macOS Reduce Motion turns them off regardless of this key. |
 | `animationSpeed` *(optional)* | float | `1.0` | Tiling animation speed multiplier: `2.0` is twice as fast, `0.5` is half as fast. Applies to Niri focus, window/column movement and resizing, Dwindle layout changes, and workspace swipe settling. Values are clamped to `0.25`–`4.0`; nonfinite values use `1.0`. Changes apply to newly started transitions. Direct gesture tracking, inertial scrolling, Overview, and Quake terminal animations keep their own behavior. |
 | `language` *(optional)* | string | unset | Interface language as a packaged localization code, such as `"ja"` or `"sr-Latn"`. Leave it unset to follow macOS. Takes effect the next time OmniWM starts. |
-| `workspaceAutoBackAndForth` *(optional)* | boolean | `false` | When a workspace shortcut or command palette entry targets the workspace you are already on, switch to the previously active workspace instead, like i3's `workspace_auto_back_and_forth`. `omniwmctl` workspace commands are unaffected. Settings > Workspaces > Workspace Switching. |
+| `workspaceAutoBackAndForth` *(optional)* | boolean | `false` | **Unreleased: available when building from `main`.** When a workspace shortcut or command palette entry targets the workspace you are already on, switch to the previously active workspace instead, like i3's `workspace_auto_back_and_forth`. `omniwmctl` workspace commands are unaffected. Settings > Workspaces > Workspace Switching. |
 
 ## focus
 
@@ -59,7 +61,7 @@ Pointer-driven focus and monitor-edge focus/move behavior.
 | Key | Type | Default | Description |
 | --- | --- | --- | --- |
 | `followsMouse` | boolean | `false` | Focuses a managed window when the pointer enters it, no click needed. |
-| `edgeNavigationInterval` *(optional)* | float | `1.5` | Seconds before hovering at a Niri edge moves one column, and between further moves while the pointer stays on the edge or preview. Requires `followsMouse`; moving away stops navigation. Values are clamped to `0.25`–`2.0` and rounded to the nearest `0.25`; nonfinite values use `1.5`. |
+| `edgeNavigationInterval` *(optional)* | float | `1.5` | **Unreleased: available when building from `main`.** Seconds before hovering at a Niri edge moves one column, and between further moves while the pointer stays on the edge or preview. Requires `followsMouse`; moving away stops navigation. Values are clamped to `0.25`–`2.0` and rounded to the nearest `0.25`; nonfinite values use `1.5`. |
 | `raiseOnMouseFocus` | boolean | `false` | Also raises the window when focus-follows-mouse focuses it. A tiled window that a visible floating window overlaps from the front is focused without raising. |
 | `lockModifier` | string | `"off"` | Modifier that holds focus in place while pressed: `off`, `option`, `leftOption`, `rightOption`, `command`, `leftCommand`, `rightCommand`, `control`, `leftControl`, `rightControl`, `shift`, `leftShift`, `rightShift`. |
 | `moveMouseToFocusedWindow` | boolean | `false` | Moves the pointer to the window that gains focus. |
@@ -155,6 +157,8 @@ Per-display values come from [`[[monitorGapOverrides]]`](#per-monitor-overrides)
 
 Options for the scrolling (Niri) layout.
 
+**Unreleased: available when building from `main`.** `allowOverscroll`, `overscrollVisibleStripPercent` and `moveWindowStacksIntoColumn` are not included in v0.7.6. [Edge overscroll](/guides/layouts/#edge-overscroll) has global and per-monitor controls.
+
 | Key | Type | Default | Description |
 | --- | --- | --- | --- |
 | `visibleContainerCount` | integer | `2` | How many containers (columns) share the viewport side by side. When fewer containers are open, they expand proportionally to fill unused space while preserving their relative widths. Manual resizing takes priority until the container count changes. |
@@ -231,7 +235,7 @@ Overview visibility, zoom, input and colors.
 
 ## windowSwitcher
 
-The [window switcher](/features/window-switcher/). The table is optional; when absent, every key takes its default.
+**Unreleased: available when building from `main`.** The [window switcher](/features/window-switcher/) is not included in v0.7.6. The table is optional; when absent, every key takes its default.
 
 | Key | Type | Default | Description |
 | --- | --- | --- | --- |
@@ -243,7 +247,7 @@ The [window switcher](/features/window-switcher/). The table is optional; when a
 
 ## keyboardModes
 
-[Keyboard modes](/guides/keyboard-shortcuts/#keyboard-modes). The table is optional; when absent, every key takes its default.
+**Unreleased: available when building from `main`.** [Keyboard modes](/guides/keyboard-shortcuts/#keyboard-modes) are not included in v0.7.6. The table is optional; when absent, every key takes its default.
 
 | Key | Type | Default | Description |
 | --- | --- | --- | --- |
@@ -252,6 +256,8 @@ The [window switcher](/features/window-switcher/). The table is optional; when a
 ## workspaceBar
 
 The per-monitor workspace bar. Per-monitor exceptions live in [`monitorBarOverrides`](#per-monitor-overrides). A [shell profile or theme](/omnishell/configuration/profiles-palettes/#profile-settings) can override most of these keys in its own `[workspaceBar]`.
+
+**Unreleased: available when building from `main`.** `fullWidth` and `fullWidthNotchMode`, including their per-display overrides, are not included in v0.7.6.
 
 | Key | Type | Default | Description |
 | --- | --- | --- | --- |
@@ -301,7 +307,7 @@ The per-monitor workspace bar. Per-monitor exceptions live in [`monitorBarOverri
 
 ## island
 
-The Dynamic Island master switch. The table is optional; when absent, the island is disabled.
+**Unreleased: available when building from `main`.** The Dynamic Island master switch is not included in v0.7.6. The table is optional; when absent, the island is disabled.
 
 | Key | Type | Default | Description |
 | --- | --- | --- | --- |
@@ -312,6 +318,8 @@ The island's root, placement and component configuration belong to the selected 
 ## gestures
 
 Mouse and trackpad gestures.
+
+**Unreleased: available when building from `main`.** `workspaceSwipeEdgeBehavior`, `resizePreviewStyle`, `dwindleGroupDragAcrossDisplays`, `adoptNativeResize` and `adoptNativeMoveAcrossDisplays` are not included in v0.7.6.
 
 The seven optional `overviewGesture…` and `window…` keys below configure Overview swipes and trackpad window move/resize.
 
@@ -443,6 +451,8 @@ terminal = "background"
 
 The drop-down (Quake) terminal. `enabled` and `provider` apply to every provider; the position, size, animation, auto-hide and appearance keys below configure Ghostty. Kitty and foot use their own configuration and the optional [Kitty](#quaketerminalkitty) or [foot](#quaketerminalfoot) overrides.
 
+**Unreleased: available when building from `main`.** The provider selector and Kitty/foot integrations are not included in v0.7.6; that release uses embedded Ghostty.
+
 | Key | Type | Default | Description |
 | --- | --- | --- | --- |
 | `enabled` | boolean | `true` | Enables the Quake terminal. |
@@ -458,6 +468,8 @@ The drop-down (Quake) terminal. `enabled` and `provider` apply to every provider
 | `provider` *(optional)* | string | `"ghostty"` | Terminal that provides the Quake terminal: `ghostty` (embedded), `kitty` (Kitty's quick-access terminal, configured in Kitty's `quick-access-terminal.conf`) or `foot` (foot for macOS 1.28.0-macos.8 or newer, configured in `foot.ini`). |
 
 ### quakeTerminal.kitty
+
+**Unreleased: available when building from `main`.** The Kitty provider and these overrides are not included in v0.7.6.
 
 Optional overrides for OmniWM's Kitty Quake panel. When a new Kitty quick-access process starts, omitted keys use `quick-access-terminal.conf`. Removing an override keeps its last applied value in the running process; Kitty's configured value takes effect when a new quick-access process starts. Hiding and showing the panel reuses the current process. Ghostty's values above are not used for Kitty.
 

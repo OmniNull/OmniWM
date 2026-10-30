@@ -141,12 +141,12 @@ OmniWM uses a single third-party Swift package, vendored Luau and Material Color
 ### Building & Running
 
 ```bash
-make setup                   # Build pinned GhosttyKit, SwiftFormat, and SwiftLint from flake.nix
+make setup                   # Obtain pinned prebuilt GhosttyKit and development tools via flake.nix
 make build                   # Ghostty preflight + arm64 Debug build
 make run                     # Build, sign, install, and switch to OmniWM Dev
 make format                  # Rewrite formatting with SwiftFormat
 make lint                    # Run SwiftLint
-make verify                  # format-check + lint + build — the gate before a commit lands
+make verify                  # format-check + lint + localization + arm64 Debug build
 make check                   # Alias for `make verify`
 swift test                   # Default suite; live/private integration and measurement tests are opt-in
 ./Scripts/package-app.sh release true   # Checks, build, sign, notarize
@@ -170,8 +170,13 @@ Live/private integration and measurement cases skip unless their explicit enviro
 | `OMNIWM_RUN_WINDOW_SUBSCRIPTION_LIVE_TESTS=1` | Private WindowServer subscription semantics, requiring two movable foreign windows |
 | `OMNIWM_RUN_METADATA_READ_LIVE_TESTS=1` | Read-only WindowServer metadata checks |
 | `OMNIWM_RUN_AX_WRITE_METRICS_BENCHMARK=1` | AX write metrics recorder latency distributions |
+| `OMNIWM_RUN_LAUNCHER_LIVE_TESTS=1` | Installed application and shell integration checks; the Nix app case also needs `OMNIWM_TEST_NIX_APP` |
+| `OMNIWM_RUN_LAUNCHER_TERMINAL_TESTS=1` | Native Terminal and iTerm2 Launcher sessions |
+| `OMNIWM_RUN_SETTINGS_UI_RENDER_TESTS=1` | Rendered Settings UI captures and probes |
 
 `make test-skylight-live` runs the focused SkyLight transaction test.
+
+Documentation-only changes use the [website checks](/developers/website/) without an app build or Swift tests. App runtime changes also require the full serial suite, and concurrency changes require the parallel suite; see [Verification](/developers/contributing/#verification).
 
 Use `make run` for normal development launches. It installs `~/Applications/OmniWM Dev.app` and opens it through
 LaunchServices with the fixed `com.barut.OmniWM.dev` identity and separate settings, state, and permissions.
@@ -181,8 +186,7 @@ optional local signing, and switching between copies. `swift run OmniWM` starts 
 Hidden Bar uses macOS per-app menu-bar visibility preferences. OmniWM keeps its native status item and a leading
 workspace-bar button available. Left-click either for OmniWM controls; right-click or Option-click to reveal hidden
 icons. The workspace-bar button follows the bar's orientation and opens controls on that display. When the workspace
-bar is visible, hidden icons reveal in a drawer with curved shoulders and the same material and tint. Icons are captured
-from the transparent macOS menu-hosting window. Selecting an icon temporarily reveals the native item for interaction.
+bar is visible, hidden icons reveal through the `hidden-bar` shell widget. Icons are captured from the native menu-hosting window, including MenuBarAgent-hosted items. Selecting an icon acquires its native menu and renders it through `hidden-bar-menu` beneath the icon while the strip stays open; items without a menu retain native activation. The native item is temporarily exposed during menu acquisition and interaction.
 
 ---
 
@@ -648,6 +652,8 @@ NiriRoot (per workspace)
 
 **File organization.** The core engine is split across `NiriLayoutEngine.swift` and focused `NiriLayoutEngine+*.swift` extensions, with navigation in `NiriNavigation.swift`, the node tree in `NiriNode.swift`, viewport math in `ViewportState.swift` and its extensions, and overlays for interactive move/resize, drag ghost, and swap targets. Tabbed Niri columns and grouped Dwindle tiles share the surface-layer `TabRailManager`.
 
+**Edge overscroll.** `NiriEdgeOverscroll` derives scroll bounds that retain a configurable fraction of the first or last container, capped by the viewport span. Resolved global/per-monitor settings feed both gesture snap and momentum plans, projection and single-window layout. With overscroll enabled, gesture settlement may leave desktop space exposed; explicit focus navigation still reveals its target. See [Edge overscroll](/guides/layouts/#edge-overscroll) for controls and defaults.
+
 **Interactive move/resize.** Desktop moves start when one configured non-Shift modifier chord, with or without Shift, is held at mouse-down. The chord defaults to Option, and Off leaves modified drags entirely to applications. Mouse moves in both layouts choose swap or insertion from the drop position through `WindowMoveGeometry`: the central 40% of the target swaps and the nearest edge inserts on that side. Niri maps primary-axis edges to a new column and cross-axis edges to the target column's stack, and re-evaluates the release position before applying the change. Multi-finger move gestures only swap. A mouse release on another display is classified by `MouseEventHandler.classifyMoveLocation`, planned and validated by `WMController.crossDisplayDropPlan` (target slot, destination constraints), and committed as one `cross_display_drop` world event through both engines' cross-workspace transfer helpers. `DragGhostController` captures a ScreenCaptureKit thumbnail shown as a translucent ghost and `SwapTargetOverlay` highlights the drop target. Edge-dragging resizes the container on the primary axis and the selected window on the secondary axis. Each interaction captures its orientation at begin and keeps that axis ownership through update and completion.
 
 ### 4.4 Dwindle Layout Engine (BSP)
@@ -953,7 +959,7 @@ The per-frame **display link** is owned by `LayoutRefreshController` (not by `An
 | **Command Palette** | `UI/CommandPalette/CommandPaletteController.swift`, `Core/Launcher/` | Six modes: windows, application menus, clipboard, commands, Launcher and Files. The original four use substring search with tiered ranking; apps/files use Spotlight ranking, while saved entries match their own names, keywords, paths and command text. |
 | **Menu Anywhere** | `UI/MenuAnywhere/MenuAnywhereController.swift` | Pops the frontmost app's menu bar as a native `NSMenu` at the cursor, via `MenuExtractor` (ObjC runtime AX-tree walk). |
 | **Workspace Bar** | `UI/WorkspaceBar/WorkspaceBarManager.swift` | Per-monitor workspace bars — now **driven by `SurfaceReconciler`** via `apply([DesiredBarSurface])`, not self-polling. |
-| **Hidden Bar** | `UI/HiddenBar/HiddenBarController.swift` | Per-app concealment through macOS menu-bar visibility preferences, AX item discovery and icon capture, and a hidden-items panel. Original visibility choices are journaled before changes and restored when released or on recovery after an interrupted session. OmniWM keeps its native status item available. `HiddenBarDrawerView` reveals the panel from its attachment edge using a Core Animation clipping mask and the shared motion policy; icons and their hit regions stay fixed during the transition. Selection and teardown dismiss immediately before native item interaction. |
+| **Hidden Bar** | `UI/HiddenBar/HiddenBarController.swift`, `Core/Shell/ShellWidgetHost+Interaction.swift` | Per-app concealment through macOS menu-bar visibility preferences, AX item discovery and icon capture. Original visibility choices are journaled before changes and restored when released or on recovery after an interrupted session. The shell's `hidden-bar` widget draws the icon strip; `HiddenBarMenuSession` acquires native menu pages and `hidden-bar-menu` renders them while the strip remains open. Native activation remains the fallback for items without menus. |
 | **Status Bar** | `UI/StatusBar/StatusBarController.swift` | Menu-bar icon, settings access, manual update checks. |
 | **Scratchpad** | `Core/World/ScratchpadState.swift`, `Core/Controller/WMController+Scratchpad*.swift` | Ten slots of floating windows (`membersBySlot` / `revealedIndex` in `WorldStore.scratchpads`); at most one slot revealed, show/hide coordinated by `WMController`. |
 | **Monitors** | `Core/Monitor/` | Display detection (`Monitor.current()`), UUID-first durable identity (`OutputId`), and `resolveWorkspaceRestoreAssignments` in `MonitorRestoreAssignments.swift` (re-maps saved per-monitor workspaces by unique display UUID, then uses runtime ID/name only for UUID-less displays before geometry/name best-match; `MonitorRestoreKey` is the data-only identity it matches on). Duplicate live UUID claims fail closed to session-only runtime identity. Orientation reported over IPC is the **effective** orientation (`settings.effectiveOrientation` — override or auto). |
@@ -1008,6 +1014,8 @@ The main-actor `ShellWidgetHost` owns bar, island and popout instances; each `Sh
 Luau VM, component lifecycle and service ledger. A root's configured components share its VM while retaining
 separate service owners, stores and instance state. View data subscriptions determine which feeds and views update.
 
+`ShellConfigurationInputs` follows linked widget directories, including targets outside the shell folder, while avoiding directory cycles. `ShellWidgetSourceLoader` resolves linked widget and shared-library roots for enumeration but retains logical module paths and user → profile → default precedence. Source fingerprints and observation paths cover target edits, replacement and retargeting; unavailable library layers fall back without discarding their recovery observation paths.
+
 ```text
 configuration/source observation
   → ShellConfigurationCoordinator / ShellWidgetSourceLoader
@@ -1031,6 +1039,8 @@ for persistence in `shellPermissions`. `ShellProvider` supervises native compone
 trust, independently of HTTP host consent. Weather/Lyrics have their own service switches under the same effective
 organization policy. See [HTTP consent](/omnishell/reference/services/#consent-and-policy),
 [providers](/omnishell/reference/providers/) and [managed preferences](/config/managed-preferences/).
+
+Approval declarations include only enabled component instances. Disabling or removing the last enabled instance using a declaration prunes its pending network/program approval; stored user decisions remain intact for later use.
 
 ---
 
@@ -1099,7 +1109,6 @@ macOS window server creates window
     │
     v
 CGSEventObserver.handleRawCGSEvent → EventIntake.post(.cgs(.created))   [INTAKE]
-    │  CGSEventObserver.swift:120
     v
 EventIntake stamps seq + schedules one drain (CFRunLoopPerformBlock)    [STAGE 1]
     v

@@ -5,6 +5,8 @@ sidebar:
   order: 2
 ---
 
+**Unreleased: OmniShell is available when building from `main` and is not included in v0.7.6.** See [Building from Source](/developers/building/).
+
 Bar widgets and popouts use the same widget package. `render(ctx)` supplies the bar slot; `popout(ctx)` supplies its panel. A drawer combines several widgets’ popouts at a display edge. Start with [Build your first widget](/omnishell/guides/first-widget/) or [Build a menu](/omnishell/guides/menus/) to create one.
 
 ## Bar lanes

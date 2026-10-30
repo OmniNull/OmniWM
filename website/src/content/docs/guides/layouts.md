@@ -17,6 +17,12 @@ When fewer containers are open than **Visible Containers**, they expand proporti
 
 Mouse and command resizing use the usual Niri behavior and keep your chosen size, even if that leaves empty space. Automatic filling resumes when the number of containers changes.
 
+### Edge overscroll
+
+**Unreleased: available when building from `main`.** Enable **Settings > Layouts > Niri > Allow Overscroll** to scroll past the first or last container and leave the desktop exposed after release. It is off by default and works with both Snap to Columns and Momentum, including single-window workspaces and vertical layouts. Focus navigation still reveals its target normally.
+
+**Overscroll Visible Strip** keeps part of the edge container visible: 5% by default, adjustable from 1–100%. The percentage uses that container's primary span, capped at the viewport span. Choose **All Displays** or a specific display to set these controls globally or override them per monitor. In TOML, use `niri.allowOverscroll` and `niri.overscrollVisibleStripPercent`, or their [`monitorNiriOverrides`](/config/settings-reference/#per-monitor-overrides) equivalents.
+
 ## Hyprland Dwindle (BSP)
 
 A binary space partition layout that recursively divides screen space. Each new window splits the space in half, and a tile can group multiple windows as tabs. Best for traditional tiling with predictable layouts.
@@ -25,7 +31,7 @@ A binary space partition layout that recursively divides screen space. Each new 
 
 Both layouts show a tab rail beside grouped windows. Click a tab to reveal and focus that window without changing the group order. Hovering a tab also shows its window title, app, and position in the group.
 
-Enable **Settings → Appearance → App → Show app icons in tab rails** to replace compact markers with icons; crowded icon rails scroll vertically. See the [appearance reference](/config/settings-reference/#appearance).
+Enable **Settings → Appearance → App & Motion → Show app icons in tab rails** to replace compact markers with icons; crowded icon rails scroll vertically. See the [appearance reference](/config/settings-reference/#appearance).
 
 ## Floating windows
 

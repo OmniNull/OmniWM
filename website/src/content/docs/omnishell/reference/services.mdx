@@ -7,6 +7,8 @@ sidebar:
 
 import LuauDeclaration from '../../../../components/docs/LuauDeclaration.astro';
 
+**Unreleased: OmniShell is available when building from `main` and is not included in v0.7.6.** See [Building from Source](/developers/building/).
+
 Use these services from input, lifecycle, or async callbacks, where the host knows the calling owner. Render and activity functions describe output; they must not start side-effecting service work. Components share a VM but their async reservations and durable stores retain each configured instance’s identity.
 
 ## Timers and JSON
@@ -80,6 +82,8 @@ Declarations are not consent. The first request to a declared, undecided host au
 These codes arrive in the callback's `error`, not as an admission error. `HTTPError` also permits other error strings, such as transport failures. Requests are never parked or replayed after Allow: the next ordinary request succeeds. A startup-only widget must wait for its next normal reload. Deny, Reset and managed blocks re-check transfers and queued body work; revoked work cannot report a successful late result. Bytes already sent cannot be recalled.
 
 Use **Settings > Network & Permissions** to change decisions, or follow **Network & Permissions…** from a declaring widget’s bar menu or Styles & Widgets inspector. Decisions are stored in OmniWM’s [settings.toml](/config/settings-reference/#shellpermissions), not the widget’s settings file. A root’s Luau configuration API cannot grant consent.
+
+Disabling or removing a component withdraws its pending network and program approval prompts when no other enabled instance still needs them. This leaves saved decisions intact for later re-enabling; use the permission controls to change them.
 
 Your own `shell.toml` instance `capabilities.network` can extend a component’s declared hosts; those hosts still need consent. Host matching is exact, case-insensitive and ignores trailing dots, with no wildcard or subdomain grants; a declared host covers any port. Requests must use HTTPS; plain HTTP is accepted only for declared `localhost`, `127.0.0.1` and `::1`. Every redirect re-checks declarations and current decisions but never prompts. Organization blocks win, a user Deny wins over managed preapproval, and otherwise managed preapproval or user Allow permits the request. See [Managed preferences](/config/managed-preferences/).
 

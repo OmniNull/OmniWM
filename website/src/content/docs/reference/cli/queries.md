@@ -5,6 +5,8 @@ sidebar:
   order: 3
 ---
 
+This reference follows **Unreleased `main` (protocol 22)**. Stable v0.7.6 uses protocol 19; see [protocol compatibility](/reference/cli/overview/#ipc-protocol) before using these commands or payloads.
+
 ```
 omniwmctl query <name> [selectors...] [--fields <field1,field2,...>] [--format json|ndjson|table|tsv|text]
 ```

@@ -7,6 +7,8 @@ sidebar:
 
 import LuauDeclaration from '../../../../components/docs/LuauDeclaration.astro';
 
+**Unreleased: OmniShell is available when building from `main` and is not included in v0.7.6.** See [Building from Source](/developers/building/).
+
 Build a tree by calling `ui` constructors with a Luau table. `ui.row{ ... }` is shorthand for `ui.row({ ... })`; named entries are properties and numeric entries are ordered children. Return the tree from `render(ctx)`, `popout(ctx)`, or a component view. Constructors return `Element` values; do not manufacture `kind` yourself.
 
 Start with [your first widget](/omnishell/guides/first-widget/) or [a menu](/omnishell/guides/menus/). All constructors share [layout, styling, and interaction properties](/omnishell/reference/layout-styling/#api-props). [Components](/omnishell/reference/components-configuration/#api-ui-component) and [shaders](/omnishell/reference/effects-shaders/#api-ui-shader) have their own pages.

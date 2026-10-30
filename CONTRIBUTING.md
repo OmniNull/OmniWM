@@ -218,7 +218,9 @@ Local releases via `Scripts/omniwm_release.py` use your own keychain and notariz
 
 For canaries, configure **canary-signing** with no required reviewers and a selected-branches deployment policy allowing only `main`.
 
-The daily **OmniWM canary** workflow requires the latest **OmniWM CI** push run on `main` for the checked-out commit to pass, including both **Verify** and **Tests**. It checks the actual checkout rather than the scheduled event's commit, before dependency setup or importing Apple credentials. Missing, unfinished, or unsuccessful CI stops the canary; wait for CI to pass and rerun the workflow. The manual `force` option only bypasses the existing-tag check and cannot bypass CI.
+The daily **OmniWM canary** workflow skips a build when the checked-out commit is already contained in a stable or canary tag, or when only documentation changed since the newest ancestor tag. For this check, documentation means root-level `.md` files and everything under `docs/` or `website/`; Markdown elsewhere, including bundled issue-report prompts under `Sources/`, still counts as an app change. Documentation-only commits are also omitted from canary release notes. The manual `force` option bypasses both skip checks.
+
+When a build is needed, the workflow requires the latest **OmniWM CI** push run on `main` for the checked-out commit to pass, including both **Verify** and **Tests**. It checks the actual checkout rather than the scheduled event's commit, before dependency setup or importing Apple credentials. Missing, unfinished, or unsuccessful CI stops the canary; wait for CI to pass and rerun the workflow. The manual `force` option cannot bypass CI.
 
 ### Maintainer CI Rollout
 

@@ -5,7 +5,9 @@ sidebar:
   order: 1
 ---
 
-OmniWM stores its editable configuration at `${XDG_CONFIG_HOME:-$HOME/.config}/omniwm/settings.toml`. `XDG_CONFIG_HOME` is honored only when it is an absolute path beginning with `/`; otherwise OmniWM uses `~/.config/omniwm/settings.toml`. That file is the canonical settings source: it is live-reloaded whenever you save it from an editor, and OmniWM configuration changes made in the Settings window are written back to it. OmniWM writes the top-level key `schemaVersion = 5`.
+OmniWM stores its editable configuration at `${XDG_CONFIG_HOME:-$HOME/.config}/omniwm/settings.toml`. `XDG_CONFIG_HOME` is honored only when it is an absolute path beginning with `/`; otherwise OmniWM uses `~/.config/omniwm/settings.toml`. That file is the canonical settings source: it is live-reloaded whenever you save it from an editor, and OmniWM configuration changes made in the Settings window are written back to it. Current `main` writes the top-level key `schemaVersion = 5`.
+
+**Unreleased: available when building from `main`.** This page describes schema version 5; v0.7.6 writes version 4. Keep a copy of your settings before trying a main-branch build or canary, since the stable app cannot load a newer schema. See [Canary builds](/guides/install/#canary-builds).
 
 :::caution[The schema is strict]
 After version upgrades, `settings.toml` is validated as a whole. In a version 5 file, a missing required key invalidates the **entire file**, and each action may appear in the `hotkeys` array **at most once** — an unknown or duplicate action id rejects the file, while an action that is left out is unassigned. Workspace `10+` hotkey entries are optional. Enumerated string keys must use one of their listed values; an unknown value rejects the whole file too. Conflicting trackpad gesture finger-count assignments (see [gestures](/config/settings-reference/#gestures)) reject the whole file as well. The safest way to edit is to change values in place (or use the Settings window) rather than deleting keys. See the [Settings Reference](/config/settings-reference/) for every key and its default.

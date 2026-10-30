@@ -1,5 +1,9 @@
 # Spike: Camera-Based Spatial Overview for OmniWM / OmniShell
 
+## Implementation status
+
+This is a design spike. `SpatialCameraViewport.swift` and its unit tests implement the transform, anchor rebasing, scale bounds and settlement-target model. The production Overview controller and gesture recognizer do not use that model yet. Camera-layer composition, global pinch recognition and native focus settlement below are proposed integration work. The 120 fps and zero-AX-during-tracking figures are acceptance targets, not measured results.
+
 ## Executive Summary & Background
 
 Modern window managers like Sunlight demonstrate an "infinite canvas" or camera-based paradigm:
@@ -7,7 +11,7 @@ Modern window managers like Sunlight demonstrate an "infinite canvas" or camera-
 - Trackpad pinch-to-zoom and two-finger pan scale and translate a virtual 2D camera viewport at native display refresh rates (up to 120fps via Metal / CoreAnimation).
 - Zooming out transitions from a 1:1 focused window into a spatial birds-eye overview with window clusters; zooming in or clicking a target window springs smoothly back to 1:1 focus.
 
-In OmniWM, workspace transitions and layout recalculations currently trigger accessibility queries and mutations. The goal of this spike is to evaluate and design a camera-based overview architecture for OmniWM and OmniShell that guarantees **zero accessibility reflow during continuous gesture tracking**, maintaining 120fps fluid interaction.
+In OmniWM, workspace transitions and layout recalculations currently trigger accessibility queries and mutations. The goal of this spike is to evaluate a camera-based overview architecture for OmniWM and OmniShell with **zero accessibility reflow during continuous gesture tracking** and a 120 fps target on suitable displays. Integration and measurements are still needed to establish those properties.
 
 ---
 
@@ -34,22 +38,22 @@ OmniWM already contains robust subsystems for window proxying and overlay compos
 
 ### SkyLight Window Transforms vs. CoreAnimation Overlay Layer Scene
 
-We evaluated two technical mechanisms for scaling live windows:
+The design considers two mechanisms for scaling live windows. The table records the proposed tradeoffs; the viewport-model tests do not validate WindowServer transforms or an integrated overlay scene:
 
 | Evaluation Criterion | SkyLight Private Window Transforms (`SLSSetWindowTransform`) | CoreAnimation Overlay Layer Scene (`ScreenCaptureKit` + `IOSurface`) |
 | :--- | :--- | :--- |
 | **APIs** | `CGSSetWindowTransform`, `SLSSetWindowTransformAtPlacement` | `NSPanel`, `CALayer`, `IOSurface`, `ScreenCaptureKit` |
-| **Input Routing** | **Broken.** WindowServer continues to route hit-tests to untransformed client geometry. Clicks miss scaled visual targets. | **Controlled.** The overlay panel absorbs events and maps coordinates via camera inverse transform. |
-| **Redraw / Flush Sync** | **Unstable.** When client apps flush surfaces (e.g., terminal cursor blink, WebKit paint), the WindowServer transform flickers or resets. | **Stable.** Textures are sampled as GPU streams; client app background updates do not corrupt the viewport scene. |
-| **Cross-Space Visibility** | **Unsupported.** Windows residing on inactive macOS Spaces cannot be rendered together without moving spaces. | **Supported.** `ScreenCaptureKit` captures windows across any space or display context simultaneously. |
-| **AX Mutation Overhead** | Zero AX mutations during transform, but fragile WindowServer state. | **Zero AX mutations.** Window frames remain completely untouched until settlement. |
+| **Input Routing** | Must validate whether hit-tests follow transformed geometry; otherwise clicks miss scaled targets. | The proposed overlay owns hit-testing and maps coordinates through the camera's inverse transform. |
+| **Redraw / Flush Sync** | Must validate transform persistence while client apps flush surfaces. | Existing previews provide IOSurface frames; scene updates and transition continuity still need integration tests. |
+| **Cross-Space Visibility** | Requires validation for windows on inactive native Spaces. | The existing capture discovery requests off-screen windows, but this does not guarantee a usable preview for every inactive-Space or fullscreen window. Validate those cases on the target macOS version. |
+| **AX Mutation Overhead** | A transform-only path aims to avoid AX frame writes. | The proposed tracking path changes proxy layers only; instrumentation must verify zero AX calls. |
 | **Security & Sandbox** | Requires undocumented WindowServer SPI and internal connection IDs; susceptible to OS breaks. | Uses public `ScreenCaptureKit` and documented CoreAnimation primitives. |
 
 #### Cross-Process CoreAnimation Layer Clones (`CAContext` / `CALayerHost`)
-Cross-process layer hosting on macOS requires the hosting application to export a `CAContext` identifier (`CAContext.contextId`). Third-party macOS applications (Electron, AppKit, Metal) do not export `CAContext` handles to external window managers. Therefore, cross-process layer cloning is impossible without app-level code injection.
+This repository has no cross-process `CAContext`/`CALayerHost` integration for foreign application windows. The proposed camera therefore reuses the existing ScreenCaptureKit preview path; cross-process layer hosting would require separate investigation and a supported way to obtain the foreign layer context.
 
 #### Architectural Verdict
-Direct SkyLight window transformation is rejected due to input hit-testing dissociation, surface redraw tearing, and cross-space limitations. The **CoreAnimation Overlay Layer Scene backed by `ScreenCaptureKit` / `IOSurface` textures** is the superior, stable, and production-viable architecture.
+The proposed integration uses a **CoreAnimation Overlay Layer Scene backed by `ScreenCaptureKit` / `IOSurface` textures**, reusing OmniWM's existing preview path. Input routing, capture availability, focus restoration and performance still need end-to-end validation before treating the camera mode as production-ready.
 
 ---
 
@@ -59,9 +63,9 @@ Direct SkyLight window transformation is rejected due to input hit-testing disso
 OmniWM's input system currently ingests gestures through two layers:
 1. **Low-Level Multitouch**: `MultitouchGestureSource.swift` links `MultitouchSupport.framework` to register `MTRegisterContactFrameCallback`. It gathers raw finger contacts (`RawTouch`) into `GestureEventSnapshot` with normalized `(x, y)` positions and finger counts.
 2. **Recognition & Dispatch**: `MouseEventHandler+TrackpadRecognition.swift` evaluates multi-finger thresholds:
-   - 2-finger scroll: `columnScroll`
-   - 3/4-finger swipe: `workspaceSwitch` (horizontal / vertical)
-   - 3/4-finger drag: window move / resize
+   - 3/4-finger scroll: `columnScroll`
+   - 2/3/4-finger swipe: `workspaceSwitch` (horizontal / vertical)
+   - 2/3/4-finger drag: window move / resize
    - 3/4-finger vertical swipe: `overview` (open, close, resume)
 3. **Continuous Transform Tracking**: `ShellGestureTrack.swift` maps continuous gesture progress through rational rubber-band curves and velocity derivatives to produce `ShellGestureTransform` (`dx`, `dy`, `scale`, `opacity`).
 
@@ -69,7 +73,7 @@ Currently, pinch gestures (`NSEvent.EventType.magnify`) and two-finger double ta
 
 ### Ingestion Strategy for Spatial Camera Gestures
 
-A spatial camera requires continuous tracking of both **scale** ($s$) and **focal center translation** $(dx, dy)$. Two complementary ingestion pipelines are used:
+A spatial camera requires continuous tracking of both **scale** ($s$) and **focal center translation** $(dx, dy)$. The proposed integration uses two complementary ingestion pipelines; neither is connected to the viewport model yet:
 
 #### Pipeline A: Global Multitouch Recognition (Pinch-In from 1:1 Desktop)
 When the user is in normal 1:1 window management (overview overlay not yet active), AppKit does not route `.magnify` events to OmniWM because OmniWM is not the key/active application.
@@ -164,12 +168,12 @@ where $r \approx 0.35$ is the rubber-band resistance coefficient. The raw gestur
   - `endGesture(velocity:)`: resolves settlement destination (`.focusedWindow` vs. `.overviewGrid`).
 - Verified with unit tests in `Tests/OmniWMTests/SpatialCameraViewportTests.swift`.
 
-#### 2. Overlay Scene Setup
+#### 2. Overlay Scene Setup (Proposed)
 - Instantiate a dedicated camera root layer `cameraLayer = CALayer()` hosted inside the overview panel.
 - On gesture start, populate `cameraLayer` with existing `OverviewWindowLayer` instances configured with `IOSurface` previews from `OverviewThumbnailCapture`.
 - Apply camera transforms directly to `cameraLayer.transform = viewport.current.caTransform3D`. Sublayers inherit the transform without per-layer frame recalculation.
 
-#### 3. Gesture Lifecycle & Zero-AX Contract
+#### 3. Gesture Lifecycle & Zero-AX Contract (Proposed)
 1. **Began**:
    - Two-finger pinch inwards detected.
    - Capture current focused window and cursor position as camera anchor.
@@ -197,13 +201,13 @@ where $r \approx 0.35$ is the rubber-band resistance coefficient. The raw gestur
 
 1. **Screen Recording Permission**:
    - `ScreenCaptureKit` requires screen recording authorization.
-   - *Mitigation*: OmniWM already monitors this via `ScreenCapturePermissionMonitor.shared`. When ungranted, fallback renders clean window wireframes/app icons with zero crash risk.
+   - *Proposed mitigation*: Use `ScreenCapturePermissionMonitor.shared` and preserve the existing Overview fallback to app icons without window pictures. Verify camera transitions with permission absent or revoked.
 2. **GPU Memory Footprint**:
    - Holding full-resolution `IOSurface` textures for dozens of windows across spaces can consume GPU VRAM.
-   - *Mitigation*: Reuses `PreviewCaptureCoordinator`, which subscribes to system memory pressure notifications (`DispatchSourceMemoryPressure`) to prune unpinned textures and caps retained bytes (default 128 MB).
+   - *Proposed mitigation*: Reuse `PreviewCaptureCoordinator`, which observes memory pressure and trims unpinned retained previews against the largest registered capture budget (`OverviewThumbnailCapture` defaults to 128 MiB). Pinned presenting frames can exceed that budget, so it is not a hard cap on total GPU use. Measure the camera scene's live streams and retained textures separately.
 3. **Multi-Monitor Display Topologies**:
    - Displays with different scales (e.g., Retina 2x vs. external 1x) require separate camera layer roots.
-   - *Mitigation*: Each `Monitor` receives an independent `SpatialCameraViewport` synchronized to its active display bounds.
+   - *Proposed mitigation*: Give each `Monitor` an independent `SpatialCameraViewport` synchronized to its active display bounds.
 
 ---
 
@@ -215,6 +219,6 @@ where $r \approx 0.35$ is the rubber-band resistance coefficient. The raw gestur
    - Rubber-banding boundary limits: verified damped behavior outside $[0.2, 1.0]$.
    - Velocity-assisted settlement: flick gestures correctly override position thresholds.
    - Run via: `swift test --filter SpatialCameraViewportTests`.
-2. **Performance Budget**:
+2. **Performance Budget (not yet measured)**:
    - Gesture frame time budget: $\le 8.33\,\text{ms}$ (120fps on ProMotion displays).
    - AX call count during gesture: **strictly 0**.

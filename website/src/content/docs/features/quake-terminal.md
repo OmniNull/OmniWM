@@ -11,6 +11,8 @@ Toggle it with `` Option + ` `` (backtick) by default; the binding is configurab
 
 ## Kitty provider
 
+**Unreleased: available when building from `main`.** The Kitty provider and its overrides are not included in v0.7.6.
+
 Install the Kitty app, then open **Settings → Quake Terminal** and choose **Kitty** in the **Terminal** picker. The same global shortcut toggles a dedicated Kitty quick-access terminal instance.
 
 Kitty's `quick-access-terminal.conf` supplies its configuration, including fonts, tabs, splits and keybindings. In OmniWM's Settings, you can override the panel's placement, auto-hide on focus loss and background opacity. Unset overrides follow Kitty's configuration when a new quick-access process starts. Turning an override off keeps its last applied value in the running process; start a new Kitty quick-access process to restore that setting from Kitty's file. Hiding and showing the panel reuses the current process. Placement changes apply the next time it is shown.

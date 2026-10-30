@@ -44,6 +44,8 @@ The **Trackpad scroll style** picker under **Settings → Mouse & Trackpad → T
 - **Snap to Columns** (default) — the scroll snaps to the nearest column.
 - **Momentum** — free inertial scrolling with rubber-band edges.
 
+**Unreleased: available when building from `main`.** [Allow Overscroll](/guides/layouts/#edge-overscroll) lets either style leave desktop space exposed beyond the first or last container after release, while retaining a configurable visible strip. It is off by default.
+
 All five gesture assignments appear together in **Trackpad Gestures**. You can select fingers while a gesture is off. If an assignment conflicts, **Set Up…** shows exactly which gestures would turn off and lets you choose before applying. Turning off **Scroll columns** also turns off modifier + mouse-wheel column scrolling.
 
 ## Move and resize with the trackpad (opt-in)

@@ -10,13 +10,14 @@ npm run dev       # local dev server at localhost:4321
 npm run build     # static build into dist/
 npm run preview   # serve the built site
 npm run check     # type-check content and components
+npm test          # run demo and interaction tests
 ```
 
 Node 24 LTS required.
 
 ## Adding or editing a knowledge-base page
 
-Every docs page is a Markdown file under `src/content/docs/`, grouped by directory:
+Every docs page is a Markdown (`.md`) or MDX (`.mdx`) file under `src/content/docs/`, grouped by directory:
 
 | Directory | Sidebar group |
 |---|---|
@@ -66,6 +67,7 @@ At the release that includes the new gestures and border effects, update the exi
 ## Data files
 
 - `src/data/maintainers.ts`, `employers.ts`, `education.ts`, `contributors.ts` mirror the machine-generated credits block in the repository README (`<!-- contributors:start -->` … `<!-- contributors:end -->`). When crediting someone new, update both.
+- `src/data/reporters.ts` mirrors the README's Bug Reporters block (`<!-- bug-reporters:start -->` … `<!-- bug-reporters:end -->`): people whose bug reports led to fixes.
 - `src/data/sponsors.ts` mirrors the rank-ordered list in `Sources/OmniWM/UI/SponsorsView.swift`; sponsor avatars in `public/credits/sponsors/` are copies of the app-bundled images in `Sources/OmniWM/Resources/`.
 - Employer and education logos in `public/credits/` are self-hosted copies downloaded once from the README's logo URLs.
 

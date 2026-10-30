@@ -123,6 +123,10 @@ Turning **Enable IPC** on starts the server immediately and creates the Unix soc
 
 **Protocol version:** 22
 
+:::note[Unreleased protocol]
+This reference follows current `main` (protocol 22). The latest stable release, v0.7.6, uses protocol 19 and does not include all commands, fields and channels shown here. Use the `omniwmctl` bundled with the running app, and query `capabilities` to discover that build's supported interface.
+:::
+
 The client and server versions must match exactly. A mismatched client can still call `version`, but every other remote request returns `protocol_mismatch`; there is no cross-version compatibility path.
 
 ### Socket & Authorization

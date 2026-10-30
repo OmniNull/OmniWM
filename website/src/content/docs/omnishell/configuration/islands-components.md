@@ -5,6 +5,8 @@ sidebar:
   order: 3
 ---
 
+**Unreleased: OmniShell is available when building from `main` and is not included in v0.7.6.** See [Building from Source](/developers/building/).
+
 A Dynamic Island is a persistent surface whose root widget chooses compact, preview and expanded content. Components provide reusable views and integrations inside that root. Follow [Build a Dynamic Island](/omnishell/guides/dynamic-island/) to create a separate profile and your first component.
 
 ## Enable and place an island

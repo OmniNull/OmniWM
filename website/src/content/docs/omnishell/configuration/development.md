@@ -5,6 +5,8 @@ sidebar:
   order: 4
 ---
 
+**Unreleased: OmniShell is available when building from `main` and is not included in v0.7.6.** See [Building from Source](/developers/building/).
+
 OmniShell scripts are ordinary files under `~/.config/omniwm/shell/`. Edit them in your own editor. The host watches source and configuration changes and reloads affected packages; you do not need to restart the window manager for each edit.
 
 Before using the CLI below, turn on **Settings > Advanced > Enable IPC**; it is off by default. See [CLI setup](/reference/cli/overview/#installation) for installation and the status-menu alternative.
@@ -36,6 +38,12 @@ Top-level `shell/widgets/` overrides apply to every profile. `shell init` writes
 Use `require("./helpers")` or `require("@self/helpers")` for a widget’s helper files. `require("../lib/panel")` loads a shared `lib/panel.luau`, from the top-level shell folder first, then the selected profile, then `default/`. Component libraries use the root profile’s overrides. Ordinary widgets can load up to 64 source files; island roots can load up to 512 including components and libraries. Exceeding the limit reports a load error.
 
 `ctx.state` lasts across renders of one placement/display instance. Component `instance.state` is shared across that configured instance’s displays. Neither is saved automatically. Use [durable storage](/omnishell/reference/services/) for data that must survive reload or restart.
+
+### Linked source directories
+
+Widget folders under `widgets/` and shared `lib/` directories can be symbolic links to folders outside the shell tree. Keep the same logical layout and `require` paths: top-level user libraries still take precedence over the selected profile and `default/`. Changes to linked widget sources, manifests and settings, and edits, additions or removals in a linked library participate in reload detection; changing a link's target is detected too.
+
+A missing, cyclic or non-directory library link does not supply modules, so a lower-precedence library can supply them instead. Restoring its target makes that layer available again. Keep `settings.toml` and `component.toml` beside the effective widget source. Retargeting a widget to a different resolved source folder also changes its permission identity; see [consent and policy](/omnishell/reference/services/#consent-and-policy).
 
 ## Save and inspect changes
 

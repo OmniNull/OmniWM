@@ -15,6 +15,8 @@ Settings > Keyboard Shortcuts lists all actions that can be assigned a shortcut,
 
 ## Keyboard modes
 
+**Unreleased: available when building from `main`.** Keyboard modes and mode keys are not included in v0.7.6.
+
 Keyboard modes help when OmniWM shortcuts clash with app shortcuts. Their actions — **Pause or Resume Shortcuts**, **Begin Prefix**, **Enter or Leave Window Mode**, and **Leave Keyboard Mode** — are unassigned by default; assign them in Settings > Keyboard Shortcuts.
 
 - **Pause** hands every OmniWM shortcut except Pause and Leave Keyboard Mode, when assigned, to the focused app, so `Option + 3` types `#` again. Press it again to resume, or set [`pauseTimeoutSeconds`](/config/settings-reference/#keyboardmodes) to resume automatically. Use it for Screen Sharing, remote desktops, and virtual machines.
@@ -180,6 +182,8 @@ Niri grow/shrink actions use a configurable increment, defaulting to 5% instead 
 `Consume or Expel Window Left / Right` exist as automation-only actions. They are reachable from `omniwmctl` but never appear in Settings > Keyboard Shortcuts, because they intentionally cannot be bound to a shortcut.
 
 The daily `Focus` and `Move` shortcuts adapt to the active layout and Niri orientation. In horizontal Niri orientation, `Move Left / Right` consumes or expels across columns while `Move Up / Down` reorders within a column. Vertical orientation rotates those roles: `Move Up / Down` consumes or expels across rows while `Move Left / Right` reorders within a row.
+
+**Unreleased: available when building from `main`.** Turn off **Settings > Layouts > Niri > Stack Moved Window Into Adjacent Column** (`niri.moveWindowStacksIntoColumn`, on by default) to swap a lone window's container with its neighbor instead of stacking into it. A window sharing a container still moves out into its own container. The explicit consume/expel commands keep their own behavior.
 
 ## Dwindle Groups
 

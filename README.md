@@ -654,7 +654,7 @@ OmniWM is a free, open-source, Developer ID-signed and Apple-notarized tiling wi
 
 ## Highlights
 
-- Optional [window switcher](website/src/content/docs/features/window-switcher.md) with previews and separate Command-Tab / Option-Tab workspace scopes
+- Optional [window switcher](website/src/content/docs/features/window-switcher.md) with previews and separate Command-Tab / Option-Tab workspace scopes (**Unreleased:** available when building from `main`)
 - Ghostty-powered quake/sticky terminal
 - Native macOS window-tab support
 - Local IPC and `omniwmctl` automation
@@ -769,7 +769,7 @@ After either installation, complete the macOS setup in steps 3-7 below.
 
 ### Canary builds
 
-Stable releases are recommended for everyday use. Canary builds let you try recent changes and help test fixes before the next release. They are built daily when `main` has new changes and are signed and notarized, but may contain regressions.
+Stable releases are recommended for everyday use. Canary builds let you try recent changes and help test fixes before the next release. Daily scheduled runs publish a build only when the checked-out `main` commit passes CI and includes app changes since the newest stable or canary tag in its history; documentation-only changes do not trigger a new build. Builds are signed and notarized, but may contain regressions.
 
 To try one with a Homebrew or GitHub Releases install:
 
@@ -810,7 +810,7 @@ IPC is disabled by default. Enable `Enable IPC` from the menu bar before using t
 
 Diagnostics can be scripted with `omniwmctl capture start trace`, `omniwmctl capture start performance`, `omniwmctl capture stop`, and `omniwmctl capture status`.
 
-`omniwmctl window mark` can name, list, focus, summon, and remove runtime window marks. See [Window Marks](https://omniwm.app/reference/cli/actions/#window-marks).
+`omniwmctl window mark` can name, list, focus, summon, and remove runtime window marks. See [Window Marks](https://omniwm.app/reference/cli/actions/#window-marks). The main-branch CLI reference uses IPC protocol 22; v0.7.6 uses protocol 19. Use the CLI bundled with the running app.
 
 For setup, installation options, commands, queries, rules, subscriptions, and security details, see the [IPC & CLI Reference](https://omniwm.app/reference/cli/overview/).
 
@@ -853,6 +853,8 @@ Workspace homes can be **Main**, **Secondary**, **Tertiary**, or a specific disp
 OmniWM offers two layout engines that you can switch between per workspace:
 
 **Niri (Orientation-Aware Scrolling Containers)** - On monitors using horizontal orientation, windows form vertical columns that scroll left and right; in vertical orientation, they form horizontal rows that scroll up and down. Each container can hold multiple windows or be "tabbed" (multiple windows, one visible at a time).
+
+**Unreleased: available when building from `main`.** **Settings > Layouts > Niri > Allow Overscroll** lets you scroll past the first or last container and leave the desktop exposed after release, in either trackpad scroll style. **Overscroll Visible Strip** keeps 1–100% of the edge container visible (5% by default, capped by the viewport). Both controls support per-display overrides. See [Layout Modes](https://omniwm.app/guides/layouts/#edge-overscroll).
 
 **Hyprland Dwindle (BSP)** - Binary space partition layout that recursively divides screen space. Each new window splits the space in half, and a tile can group multiple windows as tabs. Best for traditional tiling with predictable layouts.
 
@@ -1066,7 +1068,7 @@ OmniWM remembers one custom size and position. It reuses that frame when it fits
 
 Quake Terminal loads Ghostty's normal configuration files and their included files, so font, theme, and other terminal preferences can be shared. OmniWM applies its Quake background opacity and effect afterward; configure those in **Settings → Quake Terminal**.
 
-Select **Kitty** under **Settings → Quake Terminal → Terminal** to use Kitty's quick-access terminal. Install Kitty separately. It uses `quick-access-terminal.conf`, with optional placement, auto-hide, and opacity overrides in OmniWM. The Ghostty settings and shortcuts above apply to the embedded provider. See the [Kitty provider guide](https://omniwm.app/features/quake-terminal/#kitty-provider).
+**Unreleased: available when building from `main`.** Select **Kitty** under **Settings → Quake Terminal → Terminal** to use Kitty's quick-access terminal. Install Kitty separately. It uses `quick-access-terminal.conf`, with optional placement, auto-hide, and opacity overrides in OmniWM. The Ghostty settings and shortcuts above apply to the embedded provider. See the [Kitty provider guide](https://omniwm.app/features/quake-terminal/#kitty-provider).
 
 **Unreleased: available when building from `main`.** Select **foot** to use the Quake terminal of [foot for macOS](https://github.com/gobijan/foot-macos) 1.28.0-macos.8 or newer, installed separately. OmniWM runs a dedicated foot server that it keeps for reuse. It uses `foot.ini`, with optional placement, auto-hide, opacity and dim overrides that apply the next time the panel is shown; dimming is off by default. foot has no tabs or splits, and the regular foot app's own `` Option + ` `` hotkey can clash with OmniWM's shortcut. See the [foot provider guide](https://omniwm.app/features/quake-terminal/#foot-provider).
 

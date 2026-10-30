@@ -5,6 +5,8 @@ sidebar:
   order: 5
 ---
 
+This reference follows **Unreleased `main` (protocol 22)**. Stable v0.7.6 uses protocol 19; see [protocol compatibility](/reference/cli/overview/#ipc-protocol) before using these commands or payloads.
+
 Manage persisted window rules that control layout behavior, default workspace placement, and the initial Niri
 container primary span for matching windows. Primary span is width in horizontal orientation and height in
 vertical orientation.
