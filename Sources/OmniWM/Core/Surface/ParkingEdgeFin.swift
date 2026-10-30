@@ -93,6 +93,7 @@ final class ParkingEdgeFinWindow: NSPanel {
 
     func hide() {
         finView.reset()
+        guard isVisible else { return }
         orderOut(nil)
     }
 
