@@ -999,6 +999,30 @@ final class TrackpadWorkspaceGestureTests: XCTestCase {
         XCTAssertEqual(activeWorkspace(fixture), fixture.ws2)
     }
 
+    func testDiagonalStartWaitsForItsDirectionInsteadOfDroppingTheSwipe() throws {
+        let fixture = try makeFixture(enableNiri: false)
+        var time: TimeInterval = 100
+        sendFrame(fixture, phase: .began, fingers: 3, x: 0.5, y: 0.2, at: time)
+        for (x, y) in [(0.528, 0.22), (0.53, 0.26), (0.53, 0.36), (0.53, 0.46), (0.53, 0.56), (0.53, 0.66)] {
+            time += 0.01
+            sendFrame(fixture, phase: .changed, fingers: 3, x: x, y: y, at: time)
+        }
+        sendFrame(fixture, phase: .ended, fingers: 0, x: 0, y: 0, at: time + 0.01)
+        XCTAssertEqual(activeWorkspace(fixture), fixture.ws2)
+    }
+
+    func testClearlyOffAxisStartIsStillDroppedUntilLift() throws {
+        let fixture = try makeFixture(enableNiri: false)
+        var time: TimeInterval = 100
+        sendFrame(fixture, phase: .began, fingers: 3, x: 0.5, y: 0.2, at: time)
+        for (x, y) in [(0.54, 0.205), (0.54, 0.3), (0.54, 0.44), (0.54, 0.64)] {
+            time += 0.01
+            sendFrame(fixture, phase: .changed, fingers: 3, x: x, y: y, at: time)
+        }
+        sendFrame(fixture, phase: .ended, fingers: 0, x: 0, y: 0, at: time + 0.01)
+        XCTAssertEqual(activeWorkspace(fixture), fixture.ws1)
+    }
+
     func testVerticalSwipeDownSwitchesToPreviousWithWrapAround() throws {
         let fixture = try makeFixture()
         let lastWorkspace = fixture.controller.workspaceManager.workspaces(on: fixture.monitor.id).last?.id

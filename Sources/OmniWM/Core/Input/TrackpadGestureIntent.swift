@@ -206,6 +206,23 @@ enum TrackpadGestureIntent {
         return .workspaceSwitch(axis: workspaceAxis)
     }
 
+    private static let undecidedDirectionTravelLimit: CGFloat = 64
+
+    static func directionMayStillResolve(
+        _ config: Config,
+        fingerCount: Int,
+        cumulativeTranslation: CGVector
+    ) -> Bool {
+        let horizontal = abs(cumulativeTranslation.dx)
+        let vertical = abs(cumulativeTranslation.dy)
+        let travelSquared = horizontal * horizontal + vertical * vertical
+        guard travelSquared < undecidedDirectionTravelLimit * undecidedDirectionTravelLimit,
+              min(horizontal, vertical) * 2 >= max(horizontal, vertical)
+        else { return false }
+        return (config.workspaceSwipeEnabled && fingerCount == config.workspaceSwipeFingerCount)
+            || (config.overviewAction != nil && fingerCount == config.overviewFingerCount)
+    }
+
     static func windowGestureLocation(
         start: CGPoint,
         startTouch: CGPoint,
