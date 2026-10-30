@@ -53,7 +53,9 @@ extension AXEventHandler {
             return result[$0]
         }
 
-        var isAXElementInvalid: (@MainActor (AXWindowRef) async -> Bool)?
+        var probe: @MainActor (AXWindowRef, Thread?) async -> Bool = {
+            await LifecycleQueries.probeAXElement($0, on: $1)
+        }
 
         @MainActor
         static func probeAXElement(
@@ -208,7 +210,7 @@ extension AXEventHandler {
         if case .spaceDestroyed = request.kind, info?.isOrderedIn == false,
            let axRef = appliedIdentity.axRef, let token = appliedIdentity.token
         {
-            let invalid = await probeLifecycleAXElement(axRef, pid: token.pid)
+            let invalid = await lifecycleQueries.probe(axRef, AppAXContextRegistry.contexts[token.pid]?.axThread)
             guard !Task.isCancelled, lifecycleQueries.active?.sequence == request.sequence else { return }
             appliedIdentity = lifecycleQueries.active?.destructionIdentity ?? identity
             closedButRetained = invalid && CFEqual(appliedIdentity.axRef?.element, axRef.element)
@@ -218,42 +220,6 @@ extension AXEventHandler {
             request, identity: appliedIdentity, observedAtSeq: observedAtSeq,
             windowInfo: info, closedButRetained: closedButRetained
         )
-    }
-
-    private func probeLifecycleAXElement(_ axRef: AXWindowRef, pid: pid_t) async -> Bool {
-        let state = RunLoopResumeState<Bool>()
-        let probe = lifecycleQueries.isAXElementInvalid
-        let worker = AppAXContextRegistry.contexts[pid]?.axThread
-        let probeTask = Task {
-            let invalid = if let probe {
-                await probe(axRef)
-            } else {
-                await LifecycleQueries.probeAXElement(axRef, on: worker)
-            }
-            state.takeContinuation(orStore: .success(invalid))?.resume(returning: invalid)
-        }
-        let timeoutTask = Task {
-            do {
-                try await Task.sleep(for: .seconds(AXManager.perAppTimeout))
-            } catch {
-                return
-            }
-            state.takeContinuation(orStore: .success(false))?.resume(returning: false)
-        }
-        defer {
-            probeTask.cancel()
-            timeoutTask.cancel()
-        }
-        return (try? await withTaskCancellationHandler {
-            try Task.checkCancellation()
-            return try await withCheckedThrowingContinuation { continuation in
-                if let result = state.install(continuation) {
-                    continuation.resume(with: result)
-                }
-            }
-        } onCancel: {
-            state.takeContinuation(orStore: .failure(CancellationError()))?.resume(throwing: CancellationError())
-        }) ?? false
     }
 
     private func applyLifecycleObservation(

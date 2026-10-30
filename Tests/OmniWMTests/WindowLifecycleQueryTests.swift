@@ -21,29 +21,38 @@ final class LifecycleQueryGate {
 }
 
 private final class LifecycleProbeTimeouts: @unchecked Sendable {
+    enum Event: Equatable {
+        case configured
+        case reset
+        case read
+    }
+
     private let lock = NSLock()
     private var timeout: Float = 0
-    private var configurations = 0
-    private var resets = 0
     private var reads: [Float] = []
+    private var log: [Event] = []
 
-    func set(_ timeout: Float) -> (configurations: Int, resets: Int) {
+    func set(_ timeout: Float) {
         lock.withLock {
             self.timeout = timeout
-            if timeout == 0 { resets += 1 } else { configurations += 1 }
-            return (configurations, resets)
+            log.append(timeout == 0 ? .reset : .configured)
         }
     }
 
     func read() -> Int {
         lock.withLock {
             reads.append(timeout)
+            log.append(.read)
             return reads.count
         }
     }
 
     var observed: [Float] {
         lock.withLock { reads }
+    }
+
+    var events: [Event] {
+        lock.withLock { log }
     }
 }
 
@@ -530,7 +539,7 @@ final class WindowLifecycleQueryTests: XCTestCase {
             )
             var probed = false
             handler.lifecycleQueries.query = { _ in retained }
-            handler.lifecycleQueries.isAXElementInvalid = { _ in
+            handler.lifecycleQueries.probe = { _, _ in
                 probed = true
                 return testCase.axInvalid
             }
@@ -544,24 +553,15 @@ final class WindowLifecycleQueryTests: XCTestCase {
     func testCancelledNativeProbeCannotResetTheNextProbesTimeout() async throws {
         let worker = nativeProbeWorker()
         let releaseFirstRead = DispatchSemaphore(value: 0)
-        let releaseSecondRead = DispatchSemaphore(value: 0)
         defer {
             releaseFirstRead.signal()
-            releaseSecondRead.signal()
             worker.runInLoopAsync { _ in CFRunLoopStop(CFRunLoopGetCurrent()) }
         }
         let timeouts = LifecycleProbeTimeouts()
         let firstReading = expectation(description: "First native probe suspended")
-        let firstReset = expectation(description: "First native probe reset its timeout")
-        let secondConfigured = expectation(description: "Second native probe must wait for the worker")
-        secondConfigured.isInverted = true
+        let secondQueued = expectation(description: "Second native probe queued behind the first")
         let setTimeout: @Sendable (AXWindowRef, Float) -> AXError = { _, timeout in
-            let counts = timeouts.set(timeout)
-            if timeout == 0, counts.resets == 1 { firstReset.fulfill() }
-            if timeout > 0, counts.configurations == 2 {
-                secondConfigured.fulfill()
-                _ = releaseSecondRead.wait(timeout: .now() + 5)
-            }
+            timeouts.set(timeout)
             return .success
         }
         let readRole: @Sendable (AXWindowRef) -> AXError = { _ in
@@ -580,19 +580,19 @@ final class WindowLifecycleQueryTests: XCTestCase {
         }
         await fulfillment(of: [firstReading], timeout: 2)
         first.cancel()
+        let firstResult = await first.value
         let second = Task {
-            await AXEventHandler.LifecycleQueries.probeAXElement(
+            secondQueued.fulfill()
+            return await AXEventHandler.LifecycleQueries.probeAXElement(
                 axRef, on: worker, setTimeout: setTimeout, readRole: readRole
             )
         }
-        await fulfillment(of: [secondConfigured], timeout: 0.1)
+        await fulfillment(of: [secondQueued], timeout: 2)
         releaseFirstRead.signal()
-        await fulfillment(of: [firstReset], timeout: 2)
-        releaseSecondRead.signal()
-        let firstResult = await first.value
         let secondResult = await second.value
         XCTAssertFalse(firstResult)
         XCTAssertTrue(secondResult)
+        XCTAssertEqual(timeouts.events, [.configured, .read, .reset, .configured, .read, .reset])
         XCTAssertEqual(timeouts.observed, Array(repeating: Float(AXManager.perAppTimeout), count: 2))
     }
 
@@ -613,7 +613,7 @@ final class WindowLifecycleQueryTests: XCTestCase {
         let result = await AXEventHandler.LifecycleQueries.probeAXElement(
             WindowAdmissionTestSupport.axRef(for: token), on: worker,
             setTimeout: { _, timeout in
-                _ = timeouts.set(timeout)
+                timeouts.set(timeout)
                 return .success
             },
             readRole: { _ in
@@ -640,10 +640,9 @@ final class WindowLifecycleQueryTests: XCTestCase {
             id: UInt32(token.windowId), pid: token.pid, level: 0,
             frame: CGRect(x: 10, y: 10, width: 800, height: 600), isOrderedIn: false
         )
-        var probe: CheckedContinuation<Bool, Never>?
-        let probeStarted = expectation(description: "AX probe suspended")
+        let stall = StalledProbe(worker: nativeProbeWorker(), reading: expectation(description: "AX probe suspended"))
+        defer { stall.finish() }
         let otherQueried = expectation(description: "Another application's close was queried")
-        let probeReturned = expectation(description: "Late AX probe returned")
         handler.lifecycleQueries.query = { windowId in
             if windowId == UInt32(other.windowId) {
                 otherQueried.fulfill()
@@ -651,22 +650,14 @@ final class WindowLifecycleQueryTests: XCTestCase {
             }
             return retained
         }
-        handler.lifecycleQueries.isAXElementInvalid = { _ in
-            let invalid = await withCheckedContinuation { continuation in
-                probe = continuation
-                probeStarted.fulfill()
-            }
-            probeReturned.fulfill()
-            return invalid
-        }
+        handler.lifecycleQueries.probe = stall.probe
         handler.handleCGSEvent(.destroyed(windowId: UInt32(token.windowId), spaceId: 0))
         let task = try XCTUnwrap(handler.lifecycleQueries.task)
-        await fulfillment(of: [probeStarted], timeout: 2)
+        await fulfillment(of: [stall.reading], timeout: 2)
         handler.handleCGSEvent(.closed(windowId: UInt32(other.windowId)))
         await fulfillment(of: [otherQueried], timeout: 2)
         XCTAssertNotNil(controller.workspaceManager.entry(for: token))
-        probe?.resume(returning: true)
-        await fulfillment(of: [probeReturned], timeout: 2)
+        await stall.release()
         await task.value
         XCTAssertNotNil(controller.workspaceManager.entry(for: token))
         XCTAssertNil(controller.workspaceManager.entry(for: other))
@@ -677,8 +668,8 @@ final class WindowLifecycleQueryTests: XCTestCase {
         defer { cleanup(controller) }
         _ = try track(token, controller: controller)
         let handler = controller.axEventHandler
-        var probe: CheckedContinuation<Bool, Never>?
-        let probeStarted = expectation(description: "AX probe suspended")
+        let stall = StalledProbe(worker: nativeProbeWorker(), reading: expectation(description: "AX probe suspended"))
+        defer { stall.finish() }
         let finished = expectation(description: "Cancelled lifecycle task finished")
         handler.lifecycleQueries.query = { _ in
             WindowServerInfo(
@@ -686,22 +677,17 @@ final class WindowLifecycleQueryTests: XCTestCase {
                 frame: CGRect(x: 10, y: 10, width: 800, height: 600), isOrderedIn: false
             )
         }
-        handler.lifecycleQueries.isAXElementInvalid = { _ in
-            await withCheckedContinuation { continuation in
-                probe = continuation
-                probeStarted.fulfill()
-            }
-        }
+        handler.lifecycleQueries.probe = stall.probe
         handler.handleCGSEvent(.destroyed(windowId: UInt32(token.windowId), spaceId: 0))
         let task = try XCTUnwrap(handler.lifecycleQueries.task)
-        await fulfillment(of: [probeStarted], timeout: 2)
+        await fulfillment(of: [stall.reading], timeout: 2)
         handler.cleanup()
         let completion = Task {
             await task.value
             finished.fulfill()
         }
         await fulfillment(of: [finished], timeout: 2)
-        probe?.resume(returning: true)
+        await stall.release()
         await completion.value
         XCTAssertNotNil(controller.workspaceManager.entry(for: token))
     }
@@ -715,21 +701,48 @@ final class WindowLifecycleQueryTests: XCTestCase {
             id: UInt32(token.windowId), pid: token.pid, level: 0,
             frame: CGRect(x: 10, y: 10, width: 800, height: 600), isOrderedIn: false
         )
-        var probe: CheckedContinuation<Bool, Never>?
-        let probeStarted = expectation(description: "AX probe suspended")
+        let stall = StalledProbe(worker: nativeProbeWorker(), reading: expectation(description: "AX probe suspended"))
+        defer { stall.finish() }
         handler.lifecycleQueries.query = { _ in retained }
-        handler.lifecycleQueries.isAXElementInvalid = { _ in
-            await withCheckedContinuation { continuation in
-                probe = continuation
-                probeStarted.fulfill()
-            }
-        }
+        handler.lifecycleQueries.probe = stall.probe
         handler.handleCGSEvent(.destroyed(windowId: UInt32(token.windowId), spaceId: 0))
         let task = try XCTUnwrap(handler.lifecycleQueries.task)
-        await fulfillment(of: [probeStarted], timeout: 2)
+        await fulfillment(of: [stall.reading], timeout: 2)
         handler.cleanup()
-        probe?.resume(returning: true)
+        await stall.release()
         await task.value
         XCTAssertNotNil(controller.workspaceManager.entry(for: token))
+    }
+}
+
+@MainActor
+private struct StalledProbe {
+    let worker: Thread
+    let reading: XCTestExpectation
+    let gate = DispatchSemaphore(value: 0)
+
+    var probe: @MainActor (AXWindowRef, Thread?) async -> Bool {
+        { [worker, reading, gate] axRef, _ in
+            await AXEventHandler.LifecycleQueries.probeAXElement(
+                axRef, on: worker, setTimeout: { _, _ in .success },
+                readRole: { _ in
+                    reading.fulfill()
+                    _ = gate.wait(timeout: .now() + 5)
+                    return .invalidUIElement
+                }
+            )
+        }
+    }
+
+    func release() async {
+        gate.signal()
+        await withCheckedContinuation { continuation in
+            worker.runInLoopAsync { _ in continuation.resume() }
+        }
+    }
+
+    func finish() {
+        gate.signal()
+        worker.runInLoopAsync { _ in CFRunLoopStop(CFRunLoopGetCurrent()) }
     }
 }
