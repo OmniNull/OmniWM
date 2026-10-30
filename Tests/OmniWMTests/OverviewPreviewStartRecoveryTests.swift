@@ -49,7 +49,7 @@ final class OverviewPreviewStartRecoveryTests: XCTestCase {
     func testUnansweredStartsReleaseTheirSlotsAndAreRequestedAgain() async throws {
         let driver = OverviewPreviewTestDriver()
         defer { driver.finish() }
-        let capture = driver.makeCapture(startTimeout: .milliseconds(50))
+        let capture = driver.makeCapture(startTimeout: .milliseconds(200))
         let handles = (1 ... 5).map(handle)
         let requests = handles.map { OverviewPreviewRequest(handle: $0, pixelWidth: 80, pixelHeight: 60) }
         capture.reconcile(represented: Set(handles), visible: requests)
@@ -59,6 +59,17 @@ final class OverviewPreviewStartRecoveryTests: XCTestCase {
         XCTAssertFalse(capture.hasPendingFirstFrames)
 
         capture.reconcile(represented: Set(handles), visible: requests)
+        try await driver.waitForStarts(6)
+        let replacement = driver.streams[5]
+        replacement.completeStart()
+        let frame = try makeOverviewPreviewFrame()
+        let published = expectation(description: "replacement preview published")
+        capture.onPreview = { handle, delivered in
+            if handle === replacement.request.handle, delivered === frame { published.fulfill() }
+        }
+        replacement.output.offer(frame)
+        await fulfillment(of: [published], timeout: 1)
+        XCTAssertTrue(capture.preview(for: replacement.request.handle) === frame)
         try await driver.waitForStarts(10)
 
         driver.streams[0].completeStart()
