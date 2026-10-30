@@ -37,8 +37,8 @@ struct ShellDesktopStyleStrip: View {
                     }
                     .buttonStyle(.plain).help(card.summary)
                 }
-                if let repository = ShellStyleRepository.current {
-                    Button { gallery = ShellStyleGallery(editor: editor, repository: repository) } label: {
+                if let source = ShellStyleGallery.source {
+                    Button { gallery = ShellStyleGallery(editor: editor, source: source) } label: {
                         Label("Get Styles", systemImage: "plus.circle").font(.caption.weight(.medium))
                             .frame(width: 132, height: 60)
                             .background(.background.secondary, in: .rect(cornerRadius: 10))

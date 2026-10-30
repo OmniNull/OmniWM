@@ -13,16 +13,18 @@ final class ShellStyleGallery: Identifiable {
         case otherCopy
     }
 
+    static let source: (any ShellStyleSource)? = ShellStyleRepository.current ?? ShellGitHubStyleSource.official()
+
     let editor: ShellDesktopEditor
-    let repository: ShellStyleRepository
+    let source: any ShellStyleSource
     private(set) var listings: [ShellStyleListing] = []
     private(set) var busy: Set<String> = []
     private(set) var notice: String?
     var problem: String?
 
-    init(editor: ShellDesktopEditor, repository: ShellStyleRepository) {
+    init(editor: ShellDesktopEditor, source: any ShellStyleSource) {
         self.editor = editor
-        self.repository = repository
+        self.source = source
     }
 
     private var configuration: ShellConfigurationCoordinator {
@@ -30,9 +32,9 @@ final class ShellStyleGallery: Identifiable {
     }
 
     func load() async {
-        let repository = repository
+        let source = source
         do {
-            listings = try await Task.detached { try repository.styles() }.value
+            listings = try await Task.detached { try await source.styles() }.value
             problem = nil
         } catch {
             problem = error.localizedDescription
@@ -49,9 +51,9 @@ final class ShellStyleGallery: Identifiable {
     }
 
     func install(_ listing: ShellStyleListing, replacing: Bool) async {
-        let repository = repository
+        let source = source
         await perform(listing.name) { [configuration] in
-            let payload = try await Task.detached { try repository.payload(for: listing) }.value
+            let payload = try await Task.detached { try await source.payload(for: listing) }.value
             return try await configuration.installStyle(payload, replacing: replacing)
         }
     }

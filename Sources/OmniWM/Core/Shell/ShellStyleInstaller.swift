@@ -26,8 +26,6 @@ enum ShellStyleInstaller {
 
     static let receiptName = ".omniwm-style.json"
     static let backupsFolder = ".backups"
-    static let fileLimit = 1024
-    static let byteLimit = 32 << 20
     private static let stagingPrefix = ".install-"
 
     static func receipt(in folder: URL) throws -> Receipt? {
@@ -81,10 +79,6 @@ enum ShellStyleInstaller {
     static func validate(_ payload: ShellStylePayload) throws -> ShellStyleManifest {
         let name = payload.name, files = payload.files
         guard ShellProfiles.isStyleName(name) else { throw Failure("\(name) is not a valid style name") }
-        guard files.count <= fileLimit else { throw Failure("\(name) has more than \(fileLimit) files") }
-        guard files.reduce(0, { $0 + $1.data.count }) <= byteLimit else {
-            throw Failure("\(name) is larger than \(byteLimit >> 20) MiB")
-        }
         var paths: Set<String> = []
         var folders: Set<String> = []
         for file in files {

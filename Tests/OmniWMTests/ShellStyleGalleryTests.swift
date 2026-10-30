@@ -10,7 +10,7 @@ extension ShellDesktopEditorTests {
     func testTheGalleryReplacesUsesAndRemovesAStyleWhileTheEditorFollows() async throws {
         let fixture = try await fixture()
         let gallery = ShellStyleGallery(
-            editor: fixture.editor, repository: ShellStyleRepository(folder: ShellStyleFixture.directory)
+            editor: fixture.editor, source: ShellStyleRepository(folder: ShellStyleFixture.directory)
         )
         await gallery.load()
         XCTAssertNil(gallery.problem)
@@ -37,7 +37,7 @@ extension ShellDesktopEditorTests {
     func testTheGalleryKeepsAStyleWhoseEditsAreUnsaved() async throws {
         let fixture = try await fixture()
         let gallery = ShellStyleGallery(
-            editor: fixture.editor, repository: ShellStyleRepository(folder: ShellStyleFixture.directory)
+            editor: fixture.editor, source: ShellStyleRepository(folder: ShellStyleFixture.directory)
         )
         let style = fixture.editor.selectedStyle
         _ = await dirtyText(fixture.editor)

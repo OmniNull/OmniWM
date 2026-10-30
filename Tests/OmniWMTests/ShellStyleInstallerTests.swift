@@ -82,8 +82,8 @@ final class ShellStyleInstallerTests: XCTestCase {
         XCTAssertNoThrow(try ShellStyleInstaller.validate(
             ShellStylePayload(name: "probe", source: repository.source, files: [manifest])
         ))
-        func file(_ path: String, bytes: Int = 1) -> ShellStyleFile {
-            ShellStyleFile(path: path, data: Data(count: bytes), executable: false)
+        func file(_ path: String) -> ShellStyleFile {
+            ShellStyleFile(path: path, data: Data(), executable: false)
         }
         let cases: [(String, [ShellStyleFile])] = [
             ("parent", [manifest, file("../escape.luau")]),
@@ -94,9 +94,7 @@ final class ShellStyleInstallerTests: XCTestCase {
             ("backslash", [manifest, file("widgets\\init.luau")]),
             ("case duplicate", [manifest, file("lib/Look.luau"), file("lib/look.luau")]),
             ("file and folder", [manifest, file("lib"), file("lib/look.luau")]),
-            ("no manifest", [file("shell.toml")]),
-            ("too many files", [manifest] + (0 ..< ShellStyleInstaller.fileLimit).map { file("lib/\($0).luau") }),
-            ("too large", [manifest, file("lib/large.luau", bytes: ShellStyleInstaller.byteLimit)])
+            ("no manifest", [file("shell.toml")])
         ]
         for (label, files) in cases {
             XCTAssertThrowsError(
