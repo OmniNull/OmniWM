@@ -84,6 +84,24 @@ final class FullyVisibleHoverFocusTests: XCTestCase {
         }
     }
 
+    func testFullyVisibleWindowBeforeFirstRenderedFrameStillFocuses() throws {
+        for exactId in [false, true] {
+            try withFixture { fixture in
+                let frame = CGRect(x: 400, y: 100, width: 300, height: 200)
+                fixture.target.frame = frame
+                fixture.target.renderedFrame = nil
+                fixture.controller.mouseEventHandler.dispatchMouseMoved(
+                    at: frame.center, windowIdUnderPointer: exactId ? fixture.target.token.windowId : nil
+                )
+                XCTAssertEqual(fixture.recorder.tokens, [fixture.target.token])
+                XCTAssertEqual(
+                    fixture.controller.mouseEventHandler.latestFocusFollowsMouseToken(),
+                    fixture.target.token
+                )
+            }
+        }
+    }
+
     func testDisablingSettingRestoresPartialWindowHoverImmediately() throws {
         for exactId in [false, true] {
             try withFixture { fixture in
