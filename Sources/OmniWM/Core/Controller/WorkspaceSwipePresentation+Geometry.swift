@@ -10,7 +10,7 @@ extension WorkspaceSwipePresentation {
               controller.motionPolicy.animationsEnabled, controller.settings.gestures.workspaceSwipeEnabled,
               !controller.isOverviewOpen(),
               let monitor = controller.monitorForInteraction(),
-              let preparation = makePreparation(monitorId: monitor.id)
+              let preparation = makePreparation(monitorId: monitor.id, liveFrames: false)
         else { return }
         previewSurface(controller).warm(
             source: preparation.source.items,
@@ -32,10 +32,10 @@ extension WorkspaceSwipePresentation {
         }
     }
 
-    func makePreparation(monitorId: Monitor.ID) -> Preparation? {
+    func makePreparation(monitorId: Monitor.ID, liveFrames: Bool = true) -> Preparation? {
         guard let controller, let monitor = controller.workspaceManager.monitor(byId: monitorId),
               let current = controller.workspaceManager.activeWorkspaceOrFirst(on: monitorId),
-              let source = makeWorkspace(current.id, monitor: monitor, active: true)
+              let source = makeWorkspace(current.id, monitor: monitor, active: true, liveFrames: liveFrames)
         else { return nil }
         let navigation = controller.workspaceNavigationHandler
         let previous = navigation.swipeTargetWorkspace(
@@ -53,35 +53,40 @@ extension WorkspaceSwipePresentation {
         )
     }
 
-    func makeWorkspace(_ id: WorkspaceDescriptor.ID, monitor: Monitor, active: Bool) -> Workspace? {
+    func makeWorkspace(
+        _ id: WorkspaceDescriptor.ID, monitor: Monitor, active: Bool, liveFrames: Bool = true
+    ) -> Workspace? {
         guard let controller, let refreshController else { return nil }
         let entries = controller.workspaceManager.entries(in: id).filter {
             !controller.workspaceManager.isWindowSuppressedByMacOS($0.token)
         }
         guard entries.allSatisfy({ $0.layoutReason == .standard }) else { return nil }
-        let frames: [WindowToken: CGRect] = controller.workspaceManager.withEngineMutationScope {
-            if controller.workspaceManager.activeLayoutKind(for: id) == .niri {
-                return refreshController.niriHandler.settledFrames(in: id, visibleOnly: true) ?? [:]
-            }
-            guard let engine = controller.dwindleEngine,
+        let frames: [WindowToken: CGRect]
+        if controller.workspaceManager.activeLayoutKind(for: id) == .niri {
+            frames = refreshController.niriHandler.settledFrames(in: id, visibleOnly: true) ?? [:]
+        } else if let engine = controller.dwindleEngine,
                   let snapshot = refreshController.dwindleHandler.makeWorkspaceSnapshot(
                       workspaceId: id, monitor: monitor, resolveConstraints: false, isActiveWorkspace: active
-                  ) else { return [:] }
+                  )
+        {
             let plan = refreshController.dwindleHandler.buildOnDemandLayoutPlan(snapshot: snapshot, engine: engine)
-            return Dictionary(
+            frames = Dictionary(
                 plan.diff.frameChanges.map { ($0.token, $0.frame) },
                 uniquingKeysWith: { _, last in last }
             )
+        } else {
+            frames = [:]
         }
+        let live = active && liveFrames
         var items: [WorkspaceSwipePreview.Item] = []
         for entry in entries {
             guard let handle = controller.workspaceManager.handle(for: entry.token) else { return nil }
             let frame: CGRect?
             if entry.mode == .floating {
-                frame = active ? controller.liveFrame(for: entry)
+                frame = live ? controller.liveFrame(for: entry)
                     : controller.workspaceManager.resolvedFloatingFrame(for: entry.token, preferredMonitor: monitor)
             } else if let projected = frames[entry.token] {
-                frame = active ? (controller.liveFrame(for: entry) ?? projected) : projected
+                frame = live ? (controller.liveFrame(for: entry) ?? projected) : projected
             } else {
                 continue
             }
