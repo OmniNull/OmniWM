@@ -281,8 +281,7 @@ extension MouseEventHandler {
     }
 
     private func endLiveColumnDragTracking() {
-        state.liveEdgeZoneHold = nil
-        endLiveEdgeScroll()
+        clearLiveEdgeZone()
         cancelLiveHoverCheck()
         state.nativeTitleBarDrag?.liveDrag = false
     }

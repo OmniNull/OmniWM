@@ -283,9 +283,7 @@ extension NiriLayoutEngine {
         context: NiriInteractionContext,
         state: ViewportState
     ) -> CGFloat? {
-        guard let move = liveColumnMove,
-              move.workspaceId == context.workspaceId
-        else { return nil }
+        guard isLiveColumnMoveActive(in: context.workspaceId) else { return nil }
         let strip = liveColumnStrip(context: context, state: state)
         guard let range = liveStripScrollRange(strip: strip, context: context) else { return nil }
         let pixel = 1.0 / displayScale(in: context.workspaceId)

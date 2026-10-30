@@ -69,6 +69,7 @@ struct MouseInputState {
         var delayTimer: Timer?
         var isScrolling = false
         var strip: (columns: [LiveColumnMove.StripColumn], viewOffset: CGFloat)?
+        var stripContext: NiriInteractionContext?
     }
 
     struct LiveEdgeZoneHold {
