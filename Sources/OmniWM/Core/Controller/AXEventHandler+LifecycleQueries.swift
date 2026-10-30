@@ -53,14 +53,28 @@ extension AXEventHandler {
             return result[$0]
         }
 
-        /// Whether the tracked AX element is gone (`kAXErrorInvalidUIElement`). Runs off the main
-        /// thread so an unresponsive app cannot stall it; any other AX outcome reads as alive.
-        var isAXElementInvalid: @MainActor (AXWindowRef) async -> Bool = { axRef in
-            await Task.detached(priority: .userInitiated) {
+        var isAXElementInvalid: (@MainActor (AXWindowRef) async -> Bool)?
+
+        @MainActor
+        static func probeAXElement(
+            _ axRef: AXWindowRef,
+            on worker: Thread?,
+            setTimeout: @escaping @Sendable (AXWindowRef, Float) -> AXError = {
+                AXUIElementSetMessagingTimeout($0.element, $1)
+            },
+            readRole: @escaping @Sendable (AXWindowRef) -> AXError = { axRef in
                 var role: CFTypeRef?
                 return AXUIElementCopyAttributeValue(axRef.element, kAXRoleAttribute as CFString, &role)
-                    == .invalidUIElement
-            }.value
+            }
+        ) async -> Bool {
+            guard let worker else { return false }
+            return (try? await worker.runInLoop(timeout: .seconds(AXManager.perAppTimeout)) { job in
+                let timeoutResult = setTimeout(axRef, Float(AXManager.perAppTimeout))
+                guard timeoutResult == .success else { return timeoutResult == .invalidUIElement }
+                defer { _ = setTimeout(axRef, 0) }
+                try job.checkCancellation()
+                return readRole(axRef) == .invalidUIElement
+            }) ?? false
         }
 
         var pending: [LifecycleQuery] = []
@@ -191,8 +205,10 @@ extension AXEventHandler {
         // Some apps (WhatsApp) keep a closed window alive, ordered out, in the WindowServer and
         // post `closed` only on next activation. A dead AX element is the authoritative signal.
         var closedButRetained = false
-        if case .spaceDestroyed = request.kind, info?.isOrderedIn == false, let axRef = appliedIdentity.axRef {
-            let invalid = await lifecycleQueries.isAXElementInvalid(axRef)
+        if case .spaceDestroyed = request.kind, info?.isOrderedIn == false,
+           let axRef = appliedIdentity.axRef, let token = appliedIdentity.token
+        {
+            let invalid = await probeLifecycleAXElement(axRef, pid: token.pid)
             guard !Task.isCancelled, lifecycleQueries.active?.sequence == request.sequence else { return }
             appliedIdentity = lifecycleQueries.active?.destructionIdentity ?? identity
             closedButRetained = invalid && CFEqual(appliedIdentity.axRef?.element, axRef.element)
@@ -202,6 +218,42 @@ extension AXEventHandler {
             request, identity: appliedIdentity, observedAtSeq: observedAtSeq,
             windowInfo: info, closedButRetained: closedButRetained
         )
+    }
+
+    private func probeLifecycleAXElement(_ axRef: AXWindowRef, pid: pid_t) async -> Bool {
+        let state = RunLoopResumeState<Bool>()
+        let probe = lifecycleQueries.isAXElementInvalid
+        let worker = AppAXContextRegistry.contexts[pid]?.axThread
+        let probeTask = Task {
+            let invalid = if let probe {
+                await probe(axRef)
+            } else {
+                await LifecycleQueries.probeAXElement(axRef, on: worker)
+            }
+            state.takeContinuation(orStore: .success(invalid))?.resume(returning: invalid)
+        }
+        let timeoutTask = Task {
+            do {
+                try await Task.sleep(for: .seconds(AXManager.perAppTimeout))
+            } catch {
+                return
+            }
+            state.takeContinuation(orStore: .success(false))?.resume(returning: false)
+        }
+        defer {
+            probeTask.cancel()
+            timeoutTask.cancel()
+        }
+        return (try? await withTaskCancellationHandler {
+            try Task.checkCancellation()
+            return try await withCheckedThrowingContinuation { continuation in
+                if let result = state.install(continuation) {
+                    continuation.resume(with: result)
+                }
+            }
+        } onCancel: {
+            state.takeContinuation(orStore: .failure(CancellationError()))?.resume(throwing: CancellationError())
+        }) ?? false
     }
 
     private func applyLifecycleObservation(
