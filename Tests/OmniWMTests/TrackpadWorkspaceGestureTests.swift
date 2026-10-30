@@ -1011,6 +1011,19 @@ final class TrackpadWorkspaceGestureTests: XCTestCase {
         XCTAssertEqual(activeWorkspace(fixture), fixture.ws2)
     }
 
+    func testWaitingDiagonalStartDoesNotInflateTheReleaseVelocity() throws {
+        let fixture = try makeFixture(enableNiri: false)
+        var time: TimeInterval = 100
+        sendFrame(fixture, phase: .began, fingers: 3, x: 0.5, y: 0.2, at: time)
+        let held = [(0.528, 0.22), (0.529, 0.221), (0.530, 0.222), (0.531, 0.223), (0.532, 0.224), (0.532, 0.225)]
+        for (x, y) in held + [(0.532, 0.25)] {
+            time += 0.01
+            sendFrame(fixture, phase: .changed, fingers: 3, x: x, y: y, at: time)
+        }
+        sendFrame(fixture, phase: .ended, fingers: 0, x: 0, y: 0, at: time + 0.01)
+        XCTAssertEqual(activeWorkspace(fixture), fixture.ws1)
+    }
+
     func testClearlyOffAxisStartIsStillDroppedUntilLift() throws {
         let fixture = try makeFixture(enableNiri: false)
         var time: TimeInterval = 100
