@@ -24,6 +24,10 @@ final class FocusSettings {
         didSet { onChange?() }
     }
 
+    var followsMouseOnlyFullyVisible = FocusSettings.defaults.followsMouseOnlyFullyVisible {
+        didSet { onChange?() }
+    }
+
     var edgeNavigationInterval = FocusSettings.defaults.edgeNavigationInterval {
         didSet {
             let normalized = FocusSettings.normalizedEdgeNavigationInterval(edgeNavigationInterval)
@@ -62,6 +66,7 @@ final class FocusSettings {
     func export() -> SettingsExport.Focus {
         SettingsExport.Focus(
             followsMouse: followsMouse,
+            followsMouseOnlyFullyVisible: followsMouseOnlyFullyVisible,
             edgeNavigationInterval: edgeNavigationInterval,
             raiseOnMouseFocus: raiseOnMouseFocus,
             lockModifier: lockModifier,
@@ -74,6 +79,7 @@ final class FocusSettings {
 
     func apply(_ focus: SettingsExport.Focus) {
         followsMouse = focus.followsMouse
+        followsMouseOnlyFullyVisible = focus.followsMouseOnlyFullyVisible
         edgeNavigationInterval = focus.edgeNavigationInterval
         raiseOnMouseFocus = focus.raiseOnMouseFocus
         lockModifier = focus.lockModifier

@@ -174,7 +174,7 @@ extension MouseEventHandler {
             else {
                 return nil
             }
-            return .niri(workspaceId: workspaceId, window: window)
+            return niriFocusFollowsMouseTarget(window, in: workspaceId)
 
         case .dwindle:
             guard let engine = controller.dwindleEngine else { return nil }
@@ -221,7 +221,7 @@ extension MouseEventHandler {
                 ) == true else {
                     return nil
                 }
-                return .niri(workspaceId: entry.workspaceId, window: window)
+                return niriFocusFollowsMouseTarget(window, in: entry.workspaceId)
 
             case .dwindle:
                 guard controller.dwindleEngine?.findNode(
@@ -233,6 +233,22 @@ extension MouseEventHandler {
                 return .dwindle(workspaceId: entry.workspaceId, token: entry.token)
             }
         }
+    }
+
+    private func niriFocusFollowsMouseTarget(
+        _ window: NiriWindow,
+        in workspaceId: WorkspaceDescriptor.ID
+    ) -> FocusFollowsMouseTarget? {
+        guard let controller else { return nil }
+        if controller.settings.focus.followsMouseOnlyFullyVisible {
+            guard let monitor = controller.workspaceManager.monitor(for: workspaceId),
+                  let frame = window.frame,
+                  !frame.isEmpty,
+                  monitor.frame.contains(frame),
+                  monitor.frame.contains(window.renderedFrame ?? frame)
+            else { return nil }
+        }
+        return .niri(workspaceId: workspaceId, window: window)
     }
 
     private func focusFollowsMouseToken(for target: FocusFollowsMouseTarget) -> WindowToken {

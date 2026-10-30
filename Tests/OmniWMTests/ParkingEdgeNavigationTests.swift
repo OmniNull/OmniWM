@@ -269,6 +269,53 @@ final class ParkingEdgeNavigationTests: XCTestCase {
 }
 
 extension ParkingEdgeNavigationTests {
+    func testFullyVisibleHoverSettingStopsEdgeDwellButKeepsClicks() throws {
+        for orientation in [Monitor.Orientation.horizontal, .vertical] {
+            try withFixture(orientation: orientation) { fixture in
+                let controller = fixture.controller
+                controller.setFocusFollowsMouse(true)
+                let side: ParkingEdgeMaskKey.Side = orientation == .horizontal ? .right : .top
+                let mask = try XCTUnwrap(WorldView(controller: controller).parkingEdgeMasks().first {
+                    $0.key.monitorId == fixture.monitors[0].id && $0.key.side == side
+                })
+                let edges = ParkingEdgeMaskManager(pointerLocation: { mask.frame.center })
+                defer { edges.removeAll() }
+                controller.surfaceReconciler.configureParkingEdgeCallbacks(edges)
+                edges.apply([mask])
+                let window = try XCTUnwrap(SurfaceCoordinator.shared.visibleSurfaceInfos().first {
+                    $0.id == "parking-edge-mask-987100-\(side.rawValue)"
+                }?.window as? ParkingEdgeMaskWindow)
+                window.updateHover()
+                XCTAssertNotNil(window.dwellTask)
+
+                controller.settings.focus.followsMouseOnlyFullyVisible = true
+
+                XCTAssertFalse(edges.canInteract(true))
+                XCTAssertTrue(edges.canInteract(false))
+                let updatedMask = try XCTUnwrap(WorldView(controller: controller).parkingEdgeMasks().first {
+                    $0.key == mask.key
+                })
+                edges.apply([updatedMask])
+                window.updateHover()
+                XCTAssertNil(window.dwellTask)
+                XCTAssertTrue(fixture.recorder.tokens.isEmpty)
+
+                controller.settings.focus.followsMouseOnlyFullyVisible = false
+                window.updateHover()
+                XCTAssertNotNil(window.dwellTask)
+                controller.settings.focus.followsMouseOnlyFullyVisible = true
+
+                let click = try XCTUnwrap(NSEvent.mouseEvent(
+                    with: .leftMouseDown, location: .zero, modifierFlags: [], timestamp: 0,
+                    windowNumber: window.windowNumber, context: nil, eventNumber: 1, clickCount: 1, pressure: 1
+                ))
+                window.contentView?.mouseDown(with: click)
+                XCTAssertEqual(fixture.state().selectedNodeId, fixture.windows[0][1].id)
+                XCTAssertEqual(fixture.recorder.tokens, [fixture.windows[0][1].token])
+            }
+        }
+    }
+
     func testRepeatedEdgeClicksFollowFreshTargetsAndStopAtTheLastColumn() throws {
         for orientation in [Monitor.Orientation.horizontal, .vertical] {
             try withFixture(orientation: orientation) { fixture in

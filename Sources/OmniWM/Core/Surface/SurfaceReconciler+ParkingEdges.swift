@@ -48,6 +48,7 @@ extension SurfaceReconciler {
         else { return false }
         guard isHover else { return true }
         guard controller.focusFollowsMouseEnabled,
+              !controller.settings.focus.followsMouseOnlyFullyVisible,
               controller.focusPolicyEngine.evaluate(.focusFollowsMouse).allowsFocusChange,
               !controller.settings.focus.lockModifier.isHeld(inRawFlags: UInt64(NSEvent.modifierFlags.rawValue))
         else { return false }
