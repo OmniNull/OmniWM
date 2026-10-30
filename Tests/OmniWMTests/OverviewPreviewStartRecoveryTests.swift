@@ -58,18 +58,22 @@ final class OverviewPreviewStartRecoveryTests: XCTestCase {
         try await driver.waitForStops(5)
         XCTAssertFalse(capture.hasPendingFirstFrames)
 
-        capture.reconcile(represented: Set(handles), visible: requests)
-        try await driver.waitForStarts(6)
-        let replacement = driver.streams[5]
-        replacement.completeStart()
         let frame = try makeOverviewPreviewFrame()
         let published = expectation(description: "replacement preview published")
-        capture.onPreview = { handle, delivered in
-            if handle === replacement.request.handle, delivered === frame { published.fulfill() }
+        var replacement: OverviewPreviewTestStream?
+        driver.onStreamStart = { stream in
+            guard replacement == nil else { return }
+            replacement = stream
+            stream.completeStart()
+            stream.output.offer(frame)
         }
-        replacement.output.offer(frame)
+        capture.onPreview = { handle, delivered in
+            if handle === replacement?.request.handle, delivered === frame { published.fulfill() }
+        }
+        capture.reconcile(represented: Set(handles), visible: requests)
         await fulfillment(of: [published], timeout: 1)
-        XCTAssertTrue(capture.preview(for: replacement.request.handle) === frame)
+        let replaced = try XCTUnwrap(replacement)
+        XCTAssertTrue(capture.preview(for: replaced.request.handle) === frame)
         try await driver.waitForStarts(10)
 
         driver.streams[0].completeStart()

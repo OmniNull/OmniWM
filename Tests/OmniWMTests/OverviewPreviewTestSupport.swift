@@ -69,6 +69,7 @@ final class OverviewPreviewTestDriver {
     private var stoppedCount = 0
     private var stopWaiters: [(Int, XCTestExpectation)] = []
     private var isFinished = false
+    var onStreamStart: (@MainActor (OverviewPreviewTestStream) -> Void)?
 
     func makeCapture(
         consumer: OverviewFrameTrace.PreviewConsumer = .overview,
@@ -93,6 +94,9 @@ final class OverviewPreviewTestDriver {
                     let ready = startWaiters.filter { $0.0 <= startedCount }
                     startWaiters.removeAll { $0.0 <= startedCount }
                     for (_, waiter) in ready { waiter.fulfill() }
+                    if let started = streams.last(where: { $0.request.handle === request.handle }) {
+                        onStreamStart?(started)
+                    }
                 }, onStop: { [self] in
                     stoppedCount += 1
                     let ready = stopWaiters.filter { $0.0 <= stoppedCount }
