@@ -70,15 +70,22 @@ final class FullyVisibleHoverFocusTests: XCTestCase {
         }
     }
 
-    func testChecksCanonicalAndRenderedFramesBeforeAcceptingHover() throws {
+    func testVisibilityUsesRenderedCoordinatesAfterViewportTranslation() throws {
         let visible = CGRect(x: 400, y: 100, width: 300, height: 200)
         let partial = CGRect(x: 800, y: 100, width: 300, height: 200)
         for exactId in [false, true] {
             for (canonical, rendered) in [(partial, visible), (visible, partial)] {
                 try withFixture { fixture in
                     fixture.hover(frame: canonical, renderedFrame: rendered, exactId: exactId)
-                    XCTAssertTrue(fixture.recorder.tokens.isEmpty)
-                    XCTAssertNil(fixture.controller.mouseEventHandler.latestFocusFollowsMouseToken())
+                    if rendered == visible {
+                        XCTAssertEqual(fixture.recorder.tokens, [fixture.target.token])
+                        XCTAssertEqual(
+                            fixture.controller.mouseEventHandler.latestFocusFollowsMouseToken(), fixture.target.token
+                        )
+                    } else {
+                        XCTAssertTrue(fixture.recorder.tokens.isEmpty)
+                        XCTAssertNil(fixture.controller.mouseEventHandler.latestFocusFollowsMouseToken())
+                    }
                 }
             }
         }
@@ -155,10 +162,10 @@ final class FullyVisibleHoverFocusTests: XCTestCase {
         }
     }
 
-    func testMissingLayoutGeometryDoesNotFocusAnExactWindowId() throws {
+    func testMissingGeometryDoesNotFocusAnExactWindowId() throws {
         try withFixture { fixture in
             fixture.target.frame = nil
-            fixture.target.renderedFrame = CGRect(x: 400, y: 100, width: 300, height: 200)
+            fixture.target.renderedFrame = nil
             fixture.controller.mouseEventHandler.dispatchMouseMoved(
                 at: CGPoint(x: 500, y: 200), windowIdUnderPointer: fixture.target.token.windowId
             )
@@ -231,6 +238,67 @@ final class FullyVisibleHoverFocusTests: XCTestCase {
                         )
                         XCTAssertEqual(controller.workspaceManager.niriViewportState(for: fixture.workspaceId), before)
                     }
+                }
+            }
+        }
+    }
+
+    func testTwoVisibleHalfSizeColumnsFocusAfterScrollingPastEarlierColumns() throws {
+        for orientation in [Monitor.Orientation.horizontal, .vertical] {
+            for exactId in [false, true] {
+                try withFixture { fixture in
+                    let controller = fixture.controller
+                    let engine = try XCTUnwrap(controller.niriEngine)
+                    let manager = controller.workspaceManager
+                    controller.settings.monitors.updateOrientationSettings(
+                        MonitorOrientationSettings(
+                            monitorName: fixture.monitor.name, monitorDisplayId: fixture.monitor.displayId,
+                            orientation: orientation
+                        ),
+                        for: fixture.monitor
+                    )
+                    var previous = fixture.target
+                    var added: [NiriWindow] = []
+                    for index in 0 ..< 2 {
+                        let token = WindowToken(pid: pid_t(986_110 + index), windowId: 986_210 + index)
+                        _ = WindowAdmissionTestSupport.track(token, in: fixture.workspaceId, controller: controller)
+                        previous = engine.addWindow(
+                            token: token, to: fixture.workspaceId, afterSelection: previous.id
+                        )
+                        added.append(previous)
+                    }
+                    let workingFrame = controller.niriWorkingFrame(for: fixture.monitor)
+                    let gap = controller.innerGap(for: fixture.monitor)
+                    let span = orientation == .horizontal ? workingFrame.width : workingFrame.height
+                    let halfSpan = (span - 3 * gap) / 2
+                    for column in engine.columns(in: fixture.workspaceId) {
+                        column.width = .fixed(halfSpan)
+                        column.cachedWidth = halfSpan
+                        column.height = .fixed(halfSpan)
+                        column.cachedHeight = halfSpan
+                    }
+                    let state = ViewportState(
+                        activeColumnIndex: 2, viewOffset: -gap, selectedNodeId: added[0].id
+                    )
+                    manager.updateNiriViewportState(state, for: fixture.workspaceId)
+                    XCTAssertTrue(manager.confirmManagedFocus(
+                        added[0].token, in: fixture.workspaceId, activateWorkspaceOnMonitor: false
+                    ))
+                    _ = engine.calculateLayout(
+                        state: state, workspaceId: fixture.workspaceId,
+                        monitorFrame: workingFrame, screenFrame: fixture.monitor.frame,
+                        gaps: (horizontal: gap, vertical: gap), orientation: orientation, isSettled: true
+                    )
+                    let target = added[1]
+                    XCTAssertFalse(fixture.monitor.frame.contains(try XCTUnwrap(target.frame)))
+                    XCTAssertTrue(fixture.monitor.frame.contains(try XCTUnwrap(added[0].renderedFrame)))
+                    let rendered = try XCTUnwrap(target.renderedFrame)
+                    XCTAssertTrue(fixture.monitor.frame.contains(rendered))
+                    controller.mouseEventHandler.dispatchMouseMoved(
+                        at: rendered.center, windowIdUnderPointer: exactId ? target.token.windowId : nil
+                    )
+                    XCTAssertEqual(fixture.recorder.tokens, [target.token])
+                    XCTAssertEqual(controller.mouseEventHandler.latestFocusFollowsMouseToken(), target.token)
                 }
             }
         }
