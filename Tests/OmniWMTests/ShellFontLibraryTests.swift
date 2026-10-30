@@ -105,7 +105,7 @@ final class ShellFontLibraryTests: XCTestCase {
         let face = ShellTextStyle.font(for: UInt32(id) << OMNI_STYLE_FONT_SHIFT)
         XCTAssertEqual(ShellFontFixture.source(face), file.resolvingSymlinksInPath().standardizedFileURL.path)
         XCTAssertEqual(ShellFontLibrary.shared.family(of: UInt32(id) << OMNI_STYLE_FONT_SHIFT), ShellFontFixture.family)
-        XCTAssertNil(ShellFontLibrary.shared.family(of: 2 << OMNI_STYLE_FONT_SHIFT))
+        XCTAssertNil(ShellFontLibrary.shared.family(of: (OMNI_STYLE_FONT_CUSTOM - 1) << OMNI_STYLE_FONT_SHIFT))
     }
 
     func testOnlyContainedRegularUncompressedFontsWithinTheLimitsAreRead() throws {
@@ -167,17 +167,5 @@ final class ShellFontLibraryTests: XCTestCase {
         let both = ShellFontLibrary.shared
             .fonts(in: [other.deletingLastPathComponent()] + (try ShellFontFixture.folders()))
         XCTAssertEqual(both, owner)
-    }
-
-    func testLayerCopiesOfABundledFamilyAreNeverRegistered() throws {
-        let bundled = try XCTUnwrap(ShellDefaults.bundled).deletingLastPathComponent()
-            .appendingPathComponent("Fonts/GoogleSansFlex.ttf")
-        let copy = try folder().appendingPathComponent(bundled.lastPathComponent)
-        try FileManager.default.copyItem(at: bundled, to: copy)
-        XCTAssertEqual(ShellFontLibrary.shared.fonts(in: [copy.deletingLastPathComponent()]), ShellFontSet())
-        XCTAssertEqual(ShellFontFixture.registered(copy), 0)
-        let sans = ShellTextStyle.font(for: ShellFontFamily.sans.rawValue << OMNI_STYLE_FONT_SHIFT)
-        XCTAssertTrue(ShellFontFamily.bundledFamilies.contains(CTFontCopyFamilyName(sans) as String))
-        XCTAssertEqual(ShellFontFixture.registered(copy), 0)
     }
 }

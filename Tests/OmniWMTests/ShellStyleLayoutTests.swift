@@ -1566,6 +1566,7 @@ final class ShellStyleLayoutTests: XCTestCase {
         defer { try? FileManager.default.removeItem(at: shell) }
         XCTAssertEqual(try ShellStyleFixture.prepare(into: shell), [])
         let hooked = ["wayline", "nocturne", "celestial"]
+        let icons = "Material Symbols Rounded"
         for profile in try barHostingProfiles(in: shell) {
             XCTAssertTrue(try ShellProfiles.select(profile, in: shell))
             let config = ShellConfig.resolve(shellDirectory: shell)
@@ -1588,7 +1589,7 @@ final class ShellStyleLayoutTests: XCTestCase {
                             widget.render(fixture(config, height: height, vertical: vertical))
                             let tree = widget.tree()
                             let labels = tree.filter {
-                                $0.kind == .label && ShellFontFamily(style: $0.content.style) != .symbols
+                                $0.kind == .label && ShellFontLibrary.shared.family(of: $0.content.style) != icons
                             }.map { widget.text.string($0.content.text) }
                             let effectiveMode = mode ?? "beside"
                             let showsText = name == "battery" || effectiveMode != "off" ||
@@ -5640,7 +5641,8 @@ final class ShellStyleLayoutTests: XCTestCase {
         }
         let widget = try ShellRenderedWidget(
             name: name, source: String(contentsOf: source, encoding: .utf8), directories: config.directories,
-            modules: modules, chunk: "@" + chunk, scale: scale, resources: resources
+            modules: modules, chunk: "@" + chunk, scale: scale, resources: resources,
+            fonts: ShellFontLibrary.shared.fonts(in: ShellFontLibrary.folders(config.directories))
         )
         if let settings = config.widgetSettings[name] {
             XCTAssertEqual(settings.withUnsafeBufferPointer {

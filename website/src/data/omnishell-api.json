@@ -42,7 +42,7 @@
       "kind": "type",
       "topic": "ui-elements",
       "anchor": "api-font",
-      "declaration": "export type Font = \"system\" | \"sans\" | \"symbols\" | string",
+      "declaration": "export type Font = \"system\" | string",
       "fields": [],
       "related": []
     },

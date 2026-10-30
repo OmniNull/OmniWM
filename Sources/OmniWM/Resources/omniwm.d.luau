@@ -5,7 +5,7 @@ export type Color = string | number
 export type Motion = "none" | "spring" | "bouncy" | "smooth" | "ease"
 export type Material = "none" | "ultraThin" | "thin" | "regular" | "thick" | "ultraThick" | "bar" | "popover" | "glass" | "clear"
 export type TextStyle = "body" | "bold" | "mono" | "small" | "caption" | "rounded"
-export type Font = "system" | "sans" | "symbols" | string
+export type Font = "system" | string
 export type Weight = "ultraLight" | "thin" | "light" | "regular" | "medium" | "semibold" | "bold" | "heavy" | "black"
 export type Align =
     "center"

@@ -49,7 +49,7 @@ local function tabBar(list: { Tab }, current: number, width: number)
             end,
             surface.icon(entry.icon, { size = tokens.icon.medium, color = active and "accent" or "secondaryForeground",
                 filled = active }),
-            ui.text{ text = entry.label(), font = "sans", size = tokens.body.medium,
+            ui.text{ text = entry.label(), font = "Google Sans Flex", size = tokens.body.medium,
                 color = active and "accent" or "secondaryForeground" } }
     end
     local indicator = math.min(tabWidth - 2 * tokens.padding.large, 120)
