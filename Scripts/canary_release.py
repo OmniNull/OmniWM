@@ -116,9 +116,9 @@ def github_api(path):
 
 def ci_candidates(repo, head):
     candidates = []
-    for commit, touches_app in commits(repo, "%H", "--first-parent", "-50", head):
+    for commit, paths in commits(repo, "%H", "--first-parent", "-51", head):
         candidates.append(commit)
-        if touches_app:
+        if not all(map(is_docs_path, paths)):
             break
     return candidates or [head]
 
@@ -214,11 +214,14 @@ def commits(repo, entry_format, *log_range):
     )
     for record in log.split("\x00")[1:]:
         entry, *paths = [line for line in record.splitlines() if line]
-        yield entry, not paths or not all(map(is_docs_path, paths))
+        yield entry, paths
 
 
 def app_changes(repo, *log_range):
-    return [entry for entry, touches_app in commits(repo, "- %h %s", *log_range) if touches_app]
+    return [
+        entry for entry, paths in commits(repo, "- %h %s", *log_range)
+        if not paths or not all(map(is_docs_path, paths))
+    ]
 
 
 def is_docs_path(path):
