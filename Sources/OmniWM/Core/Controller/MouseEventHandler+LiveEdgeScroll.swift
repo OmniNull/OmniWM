@@ -11,9 +11,12 @@ extension MouseEventHandler {
 
     func trackLiveEdgeZone(at location: CGPoint, monitorFrame: CGRect) {
         guard let edge = liveEdgeZone(containing: location, monitorFrame: monitorFrame) else {
+            state.liveEdgeZoneHold = nil
             endLiveEdgeScroll()
             return
         }
+        if let hold = state.liveEdgeZoneHold, hold.edge == edge, !hold.isPassed(by: location) { return }
+        state.liveEdgeZoneHold = nil
         guard state.liveEdgeScroll?.edge != edge else { return }
         endLiveEdgeScroll()
         guard let configuration = controller?.niriEngine?.moveConfiguration else { return }
@@ -21,6 +24,11 @@ extension MouseEventHandler {
             self?.startLiveEdgeScrollIfDue()
         }
         state.liveEdgeScroll = .init(edge: edge, enteredAt: liveDragClock(), delayTimer: timer)
+    }
+
+    func holdLiveEdgeZone(startingAt location: CGPoint, monitorFrame: CGRect) {
+        state.liveEdgeZoneHold = liveEdgeZone(containing: location, monitorFrame: monitorFrame)
+            .map { .init(edge: $0, x: location.x) }
     }
 
     func startLiveEdgeScrollIfDue() {

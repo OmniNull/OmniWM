@@ -95,6 +95,11 @@ extension MouseEventHandler {
         }
         drag.liveDrag = true
         state.deferredClickScroll = nil
+        if let location = state.liveDragLocation,
+           let monitor = controller.workspaceManager.monitor(for: entry.workspaceId)
+        {
+            holdLiveEdgeZone(startingAt: location, monitorFrame: monitor.frame)
+        }
         return true
     }
 
@@ -276,6 +281,7 @@ extension MouseEventHandler {
     }
 
     private func endLiveColumnDragTracking() {
+        state.liveEdgeZoneHold = nil
         endLiveEdgeScroll()
         cancelLiveHoverCheck()
         state.nativeTitleBarDrag?.liveDrag = false

@@ -70,6 +70,15 @@ struct MouseInputState {
         var strip: (columns: [LiveColumnMove.StripColumn], viewOffset: CGFloat)?
     }
 
+    struct LiveEdgeZoneHold {
+        let edge: LiveEdgeScroll.Edge
+        let x: CGFloat
+
+        func isPassed(by location: CGPoint) -> Bool {
+            edge == .leading ? location.x < x : location.x > x
+        }
+    }
+
     struct LiveDropScroll {
         let token: WindowToken
         let workspaceId: WorkspaceDescriptor.ID
@@ -117,6 +126,7 @@ struct MouseInputState {
     var liveDropScroll: LiveDropScroll?
     var liveHoverTimer: Timer?
     var liveEdgeScroll: LiveEdgeScroll?
+    var liveEdgeZoneHold: LiveEdgeZoneHold?
     var deferredClickScroll: WindowToken?
     var activeInteractionSource: InteractionSource?
     var activeInteractionButton: MouseEventHandler.MouseButton? {

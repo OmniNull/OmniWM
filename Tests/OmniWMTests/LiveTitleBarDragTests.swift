@@ -891,6 +891,41 @@ final class LiveTitleBarDragTests: NiriInteractionTestCase {
         XCTAssertEqual(fixture.handler.state.liveEdgeScroll?.enteredAt, clock.now)
     }
 
+    func testADragStartingInsideTheEdgeZoneWaitsUntilPushedTowardTheEdge() throws {
+        let fixture = try makeFixture(pid: 938_034, windowCount: 6)
+        let clock = edgeClock(fixture)
+        let start = try startLiveDragInsideTheEdgeZone(.leading, dragging: fixture.tokens[1], in: fixture)
+        XCTAssertTrue(fixture.handler.isLiveColumnDragActive)
+        XCTAssertNil(fixture.handler.state.liveEdgeScroll)
+
+        clock.now += 0.4
+        fixture.drag(to: CGPoint(x: start.x + 6, y: start.y))
+        fixture.handler.startLiveEdgeScrollIfDue()
+        XCTAssertNil(fixture.handler.state.liveEdgeScroll)
+        XCTAssertFalse(fixture.handler.isLiveEdgeScrolling)
+
+        clock.now += 0.1
+        fixture.drag(to: CGPoint(x: start.x - 4, y: start.y))
+        XCTAssertEqual(fixture.handler.state.liveEdgeScroll?.edge, .leading)
+        XCTAssertEqual(fixture.handler.state.liveEdgeScroll?.enteredAt, clock.now)
+    }
+
+    func testADragStartingInsideTheEdgeZoneArmsItAfterLeavingAndComingBack() throws {
+        let fixture = try makeFixture(pid: 938_035, windowCount: 6)
+        let clock = edgeClock(fixture)
+        let start = try startLiveDragInsideTheEdgeZone(.trailing, dragging: fixture.tokens[1], in: fixture)
+        XCTAssertNil(fixture.handler.state.liveEdgeScroll)
+
+        clock.now += 0.1
+        fixture.drag(to: CGPoint(x: fixture.monitor.frame.midX, y: start.y))
+        XCTAssertNil(fixture.handler.state.liveEdgeZoneHold)
+
+        clock.now += 0.1
+        fixture.drag(to: CGPoint(x: start.x - 4, y: start.y))
+        XCTAssertEqual(fixture.handler.state.liveEdgeScroll?.edge, .trailing)
+        XCTAssertEqual(fixture.handler.state.liveEdgeScroll?.enteredAt, clock.now)
+    }
+
     func testNoEdgeScrollStartsWhereTheStripIsAlreadyAtItsEnd() throws {
         let fixture = try makeFixture(pid: 938_027, windowCount: 6)
         let clock = edgeClock(fixture)
@@ -1003,6 +1038,20 @@ final class LiveTitleBarDragTests: NiriInteractionTestCase {
     private func edgePoint(_ edge: MouseInputState.LiveEdgeScroll.Edge, _ fixture: Fixture) -> CGPoint {
         let frame = fixture.monitor.frame
         return CGPoint(x: edge == .trailing ? frame.maxX - 10 : frame.minX + 10, y: frame.midY)
+    }
+
+    private func startLiveDragInsideTheEdgeZone(
+        _ edge: MouseInputState.LiveEdgeScroll.Edge,
+        dragging token: WindowToken,
+        in fixture: Fixture
+    ) throws -> CGPoint {
+        let frame = fixture.monitor.frame
+        let zone = fixture.engine.moveConfiguration.liveEdgeZoneWidth(forDisplayWidth: frame.width)
+        let start = CGPoint(x: edge == .trailing ? frame.maxX - zone / 2 : frame.minX + zone / 2, y: frame.midY)
+        try fixture.beginDrag(token)
+        fixture.drag(to: start)
+        try fixture.macOSMoves(token, to: try fixture.frame(token).offsetBy(dx: 30, dy: 0))
+        return start
     }
 
     private func startEdgeScroll(
