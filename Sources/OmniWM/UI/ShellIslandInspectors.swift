@@ -65,13 +65,38 @@ struct ShellIslandInspector: View {
     let editor: ShellDesktopEditor
 
     var body: some View {
-        Section("Appearance") {
-            ShellIslandOptionRows(
-                editor: editor, keys: ["appearance", "width", "radius", "backgroundColor", "highlightColor"]
-            )
+        let styleKeys = editor.islandStyleOptionKeys
+        if editor.declaresIslandRoot(ShellDesktopEditor.islandAppearanceKeys) {
+            Section("Appearance") {
+                ShellIslandOptionRows(editor: editor, keys: ShellDesktopEditor.islandAppearanceKeys)
+            }
         }
+        if editor.declaresIslandRoot(ShellDesktopEditor.islandActionKeys) {
+            actions
+        }
+        if editor.declaresIslandRoot(ShellDesktopEditor.islandHoverKeys) {
+            Section("Hover and Swipe") {
+                ShellIslandOptionRows(editor: editor, keys: ShellDesktopEditor.islandHoverKeys)
+            }
+        }
+        if editor.declaresIslandRoot(ShellDesktopEditor.islandMotionKeys) {
+            Section {
+                DisclosureGroup("Advanced Motion") {
+                    ShellIslandOptionRows(editor: editor, keys: ShellDesktopEditor.islandMotionKeys)
+                }
+            }
+        }
+        if !styleKeys.isEmpty {
+            Section("Style Options") {
+                ShellIslandOptionRows(editor: editor, keys: styleKeys)
+            }
+        }
+        ShellIslandPlacementInspector(editor: editor)
+    }
+
+    private var actions: some View {
         Section("Actions") {
-            ForEach(["clickTarget", "rightClickTarget", "swipeTarget"], id: \.self) { key in
+            ForEach(ShellDesktopEditor.islandActionKeys, id: \.self) { key in
                 if let option = editor.islandRootOptions[key] {
                     Picker(editor.strings.title(option.title), selection: Binding(
                         get: {
@@ -92,18 +117,6 @@ struct ShellIslandInspector: View {
                 }
             }
         }
-        Section("Hover and Swipe") {
-            ShellIslandOptionRows(
-                editor: editor,
-                keys: ["hoverPreview", "hoverDelay", "hoverGrace", "swipeDirection", "swipeSource", "swipeDistance"]
-            )
-        }
-        Section {
-            DisclosureGroup("Advanced Motion") {
-                ShellIslandOptionRows(editor: editor, keys: ["springResponse", "springBounce"])
-            }
-        }
-        ShellIslandPlacementInspector(editor: editor)
     }
 }
 

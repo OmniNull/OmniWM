@@ -32,8 +32,28 @@ extension ShellDesktopEditor {
         snapshot?.island?.entries ?? []
     }
 
+    static let islandAppearanceKeys = ["appearance", "width", "radius", "backgroundColor", "highlightColor"]
+    static let islandActionKeys = ["clickTarget", "rightClickTarget", "swipeTarget"]
+    static let islandHoverKeys = [
+        "hoverPreview", "hoverDelay", "hoverGrace", "swipeDirection", "swipeSource", "swipeDistance"
+    ]
+    static let islandMotionKeys = ["springResponse", "springBounce"]
+    static let islandFixedKeys = islandAppearanceKeys + islandActionKeys + islandHoverKeys + islandMotionKeys
+
     var islandRootOptions: [String: ShellComponentOption] {
         snapshot?.island?.settings?.options ?? [:]
+    }
+
+    var islandStyleOptionKeys: [String] {
+        let shown = Set(Self.islandFixedKeys)
+        return islandRootOptions.filter { !shown.contains($0.key) }
+            .map { (key: $0.key, title: strings.title($0.value.title)) }
+            .sorted { $0.title.localizedStandardCompare($1.title) == .orderedAscending }
+            .map(\.key)
+    }
+
+    func declaresIslandRoot(_ keys: [String]) -> Bool {
+        keys.contains { islandRootOptions[$0] != nil }
     }
 
     var islandRootValues: [String: ShellComponentValue] {
