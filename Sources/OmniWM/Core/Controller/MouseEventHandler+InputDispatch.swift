@@ -111,7 +111,7 @@ extension MouseEventHandler {
         }
         warpDraggedPointer(at: location)
         controller?.workspaceBarManager.handleAutoHideMouseMoved(at: location)
-        beginNativeTitleBarDragIfNeeded(button: button)
+        confirmNativeMouseDrag(button: button)
         if !isCapturedInteraction(button), shouldBlockOwnWindowInput(at: location) {
             cancelActiveMouseInteraction()
             return
@@ -227,7 +227,7 @@ extension MouseEventHandler {
 
     func receiveTapMouseDragged(at location: CGPoint, button: MouseButton = .left) {
         if !isInputSuppressed {
-            beginNativeTitleBarDragIfNeeded(button: button)
+            confirmNativeMouseDrag(button: button)
         }
         EventIntake.post(.mouseDragged(button: button, location: location))
     }
@@ -240,6 +240,7 @@ extension MouseEventHandler {
               entry.mode == .tiling
         else {
             if windowIdUnderPointer != nil {
+                correctDeferredNativeResizeFrameIfNeeded()
                 state.awaitsNativeTitleBarDragTarget = false
                 state.nativeTitleBarDragFallbackToken = nil
                 state.nativeTitleBarDragFallbackReleased = false
@@ -247,6 +248,7 @@ extension MouseEventHandler {
             }
             return
         }
+        correctDeferredNativeResizeFrameIfNeeded(excluding: entry.token)
         state.awaitsNativeTitleBarDragTarget = false
         state.nativeTitleBarDragFallbackToken = nil
         state.nativeTitleBarDragFallbackReleased = false
@@ -254,7 +256,7 @@ extension MouseEventHandler {
         if state.nativeCrossDisplayMove?.token != entry.token {
             captureNativeCrossDisplayMove(for: entry.token)
         }
-        beginNativeTitleBarDragIfNeeded(button: .left)
+        confirmNativeMouseDrag(button: .left)
     }
 
     func receiveTapMouseUp(at location: CGPoint, button: MouseButton = .left) {
@@ -420,7 +422,7 @@ extension MouseEventHandler {
         }
         warpDraggedPointer(at: location)
         controller?.workspaceBarManager.handleAutoHideMouseMoved(at: location)
-        beginNativeTitleBarDragIfNeeded(button: button)
+        confirmNativeMouseDrag(button: button)
         if !isCapturedInteraction(button), shouldBlockOwnWindowInput(at: location) {
             cancelActiveMouseInteraction()
             return

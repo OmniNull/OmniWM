@@ -56,30 +56,92 @@ extension MouseEventHandler {
         state.nativeCrossDisplayMove = .init(token: token, workspaceId: entry.workspaceId, startFrame: frame)
     }
 
-    func beginNativeTitleBarDragIfNeeded(button: MouseButton) {
-        if button == .left {
-            state.nativeCrossDisplayMove?.wasDragged = true
+    func confirmNativeMouseDrag(button: MouseButton) {
+        guard button == .left else { return }
+        state.nativeCrossDisplayMove?.wasDragged = true
+        state.nativeResizeStart?.wasDragged = true
+        let deferredToken = state.nativeResizeStart.flatMap { $0.hasDeferredFrameChange ? $0.token : nil }
+        beginNativeTitleBarDragIfNeeded(button: button)
+        handleDeferredNativeTitleBarFrameIfNeeded(for: deferredToken)
+    }
+
+    private func handleDeferredNativeTitleBarFrameIfNeeded(for token: WindowToken? = nil) {
+        let deferredToken = token ?? state.nativeResizeStart.flatMap { $0.hasDeferredFrameChange ? $0.token : nil }
+        guard let deferredToken,
+              let entry = controller?.workspaceManager.entry(for: deferredToken)
+        else { return }
+        if let drag = state.nativeTitleBarDrag {
+            guard drag.token == deferredToken, drag.phase == .dragging else { return }
+        } else {
+            guard state.awaitsNativeTitleBarDragTarget,
+                  state.nativeTitleBarDragFallbackToken == deferredToken
+            else { return }
         }
+        _ = handleNativeTitleBarDragFrameChanged(for: entry)
+    }
+
+    func correctDeferredNativeResizeFrameIfNeeded(excluding token: WindowToken? = nil) {
+        guard let start = state.nativeResizeStart,
+              start.hasDeferredFrameChange,
+              start.token != token
+        else { return }
+        state.nativeResizeStart = nil
+        guard let controller,
+              controller.hasStartedServices,
+              let entry = controller.workspaceManager.entry(for: start.token),
+              entry.mode == .tiling,
+              entry.hiddenState == nil
+        else { return }
+        requestNativeTitleBarDragCorrection(for: entry)
+    }
+
+    func beginNativeTitleBarDragIfNeeded(button: MouseButton) {
         guard button == .left,
               var drag = state.nativeTitleBarDrag,
               drag.phase == .armed,
               let controller,
               controller.workspaceManager.entry(for: drag.token)?.mode == .tiling
         else { return }
+        let hadUnsettledFrameWrite = controller.axManager.isAwaitingFrameWrite(drag.token.windowId)
+            || controller.axManager.hasInFlightFrameWrite(for: drag.token)
+        let startFrame = state.nativeResizeStart.flatMap { $0.token == drag.token ? $0.frame : nil }
+        let pendingFrameChangesSize = startFrame.map {
+            controller.axManager.hasPendingFrameSizeChange(for: drag.token.windowId, comparedTo: $0.size)
+        } ?? true
+        state.nativeResizeStart = nil
         drag.phase = .dragging
-        drag.adoptionStartFrame = controller.axManager.isAwaitingFrameWrite(drag.token.windowId)
-            ? nil
-            : controller.axManager.lastAppliedFrame(for: drag.token.windowId)
+        drag.adoptionStartFrame = hadUnsettledFrameWrite ? nil : startFrame
         state.nativeTitleBarDrag = drag
         controller.axManager.beginNativeTitleBarDrag(for: drag.token)
+
+        guard hadUnsettledFrameWrite,
+              controller.settings.gestures.adoptNativeResize,
+              !pendingFrameChangesSize,
+              let startFrame,
+              let entry = controller.workspaceManager.entry(for: drag.token),
+              !controller.axManager.hasInFlightFrameWrite(for: drag.token),
+              !controller.axManager.isAwaitingFrameWrite(entry.windowId),
+              controller.axManager.lastAppliedFrame(for: entry.windowId)?.approximatelyEqual(
+                  to: startFrame, tolerance: FrameTolerance.frameWrite
+              ) == true,
+              var currentDrag = state.nativeTitleBarDrag,
+              currentDrag.token == drag.token,
+              currentDrag.phase == .dragging
+        else { return }
+        currentDrag.adoptionStartFrame = startFrame
+        state.nativeTitleBarDrag = currentDrag
     }
 
     func finishNativeTitleBarDragIfNeeded(button: MouseButton) {
         guard button == .left else { return }
+        if state.moveTap != nil, state.nativeTitleBarDrag == nil {
+            correctDeferredNativeResizeFrameIfNeeded()
+        }
         markNativeTitleBarDragFallbackReleased(button: button)
         if state.nativeTitleBarDrag == nil,
            state.nativeTitleBarDragFallbackReleased
         {
+            handleDeferredNativeTitleBarFrameIfNeeded()
             return
         }
         state.awaitsNativeTitleBarDragTarget = false
@@ -259,6 +321,8 @@ extension MouseEventHandler {
     }
 
     func discardNativeTitleBarDragState() {
+        correctDeferredNativeResizeFrameIfNeeded()
+        state.nativeResizeStart = nil
         state.nativeCrossDisplayMove = nil
         state.awaitsNativeTitleBarDragTarget = false
         state.nativeTitleBarDragFallbackToken = nil
