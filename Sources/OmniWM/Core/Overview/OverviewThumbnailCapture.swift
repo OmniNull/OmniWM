@@ -234,13 +234,17 @@ final class OverviewThumbnailCapture {
                 } catch {
                     return
                 }
-                guard let self, let start = starts[sourceId] else { return }
-                start.cancel()
-                FallbackFiringRecorder.shared.note(.capture, "overviewStreamStartTimeout")
-                finishStarting(source, failed: true)
-                if sources[key] === source { sources.removeValue(forKey: key) }
+                self?.expireStart(of: source, key: key)
             }
         }
+    }
+
+    private func expireStart(of source: Source, key: ObjectIdentifier) {
+        guard let start = starts[source.id] else { return }
+        start.cancel()
+        FallbackFiringRecorder.shared.note(.capture, "overviewStreamStartTimeout")
+        finishStarting(source, failed: true)
+        if sources[key] === source { sources.removeValue(forKey: key) }
     }
 
     private func finishStarting(_ source: Source, failed: Bool) {
