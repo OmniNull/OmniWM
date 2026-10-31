@@ -48,6 +48,14 @@ local function none()
     return nil
 end
 
+local function flow(ctx, k, name: string?)
+    local cells = {}
+    for index = 1, #entries(ctx, name) do
+        cells[index] = { key = index, w = 18 * k.bu, at = 9 * k.bu, gap = 6 * k.bu }
+    end
+    return cells
+end
+
 local function glyph(key: string, color: string, bu: number, cell: number)
     local function part(cx: number, cy: number, w: number, h: number, r: number)
         return ui.box({
@@ -130,6 +138,13 @@ local function content(ctx, g, slot, name: string?)
     local parts = slot.parts or { {
         x = if vertical then g.pill.cx - 9 * bu else slot.cx - span(#list, bu) / 2, first = 1, count = #list,
     } }
+    if slot.positions then
+        parts = {}
+        for index = 1, #list do
+            local centre = slot.positions[index]
+            if centre then parts[#parts + 1] = { x = centre - 9 * bu, first = index, count = 1 } end
+        end
+    end
     local items = {}
     for _, part in parts do
         for offset = 0, part.count - 1 do
@@ -143,4 +158,4 @@ local function content(ctx, g, slot, name: string?)
     return items
 end
 
-return table.freeze({ width = width, shapes = none, content = content, span = span, capacity = capacity })
+return table.freeze({ width = width, flow = flow, shapes = none, content = content, span = span, capacity = capacity })
