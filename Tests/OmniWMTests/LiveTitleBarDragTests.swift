@@ -298,7 +298,15 @@ final class LiveTitleBarDragTests: NiriInteractionTestCase {
         fixture.drag(to: try fixture.farHalf(of: fixture.tokens[2]))
         XCTAssertNotEqual(fixture.landingOrder(), order)
 
-        fixture.manager.applyMonitorConfigurationChange([])
+        let replacement = Monitor(
+            id: .init(displayId: 93_802),
+            displayId: 93_802,
+            frame: fixture.monitor.frame,
+            visibleFrame: fixture.monitor.visibleFrame,
+            hasNotch: false,
+            name: "Replacement"
+        )
+        fixture.manager.applyMonitorConfigurationChange([replacement])
         XCTAssertNotNil(fixture.manager.monitor(for: fixture.workspaceId))
         XCTAssertNotNil(fixture.engine.liveColumnMove)
         fixture.handler.cancelActiveMouseInteraction()
