@@ -408,9 +408,13 @@ extension MultitouchGestureSource {
         set { sharedRoute.withLock { $0.source = newValue } }
     }
 
+    private nonisolated static let palmFilters = Mutex(MultitouchPalmFilters())
+
     private static let contactCallback: MultitouchBinding.ContactCallback = { _, fingers, count, timestamp, _, refcon in
         let token = RegistrationToken(bitPattern: refcon.map(UInt.init(bitPattern:)) ?? 0)
-        let frame = MultitouchGestureSource.buildRawFrame(fingers: fingers, count: count, timestamp: timestamp)
+        let frame = palmFilters.withLock { filters in
+            filters.buildRawFrame(fingers: fingers, count: count, timestamp: timestamp, token: token)
+        }
         guard let source = MultitouchGestureSource.shared else { return 0 }
         source.enqueueRawFrame(frame, token: token)
         return 0

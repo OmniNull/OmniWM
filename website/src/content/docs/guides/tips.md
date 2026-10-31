@@ -39,6 +39,8 @@ Hold `Option + Shift + Mouse Scroll Wheel` (default, configurable) to scroll alo
 
 Use three or four fingers (configurable) to scroll along the active Niri primary axis; direction can be inverted. Workspace switching and window move/resize also support two fingers, but column scrolling does not.
 
+Only fingertips count toward a gesture's finger count. A palm or the side of a hand resting on the trackpad, which macOS identifies as a palm, is ignored, so it neither turns a two-finger scroll into a three-finger gesture nor stops a three-finger swipe made beside it.
+
 The **Trackpad scroll style** picker under **Settings → Mouse & Trackpad → Trackpad Gestures → Scroll columns** chooses how the strip responds:
 
 - **Snap to Columns** (default) — the scroll snaps to the nearest column.
