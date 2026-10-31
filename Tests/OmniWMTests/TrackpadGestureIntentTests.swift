@@ -146,6 +146,34 @@ final class TrackpadGestureIntentTests: XCTestCase {
         )
     }
 
+    func testOnlyAmbiguousShortSwipeStartsMayStillResolve() {
+        let config = makeConfig(columnEnabled: false, workspaceFingers: 3, workspaceAxis: .vertical)
+        XCTAssertNil(TrackpadGestureIntent.resolveMode(
+            config,
+            fingerCount: 3,
+            cumulativeTranslation: CGVector(dx: 14, dy: 10),
+            columnScrollAxis: .horizontal,
+            columnContextAvailable: false
+        ))
+        XCTAssertTrue(TrackpadGestureIntent.directionMayStillResolve(
+            config, fingerCount: 3, cumulativeTranslation: CGVector(dx: 14, dy: 10)
+        ))
+        XCTAssertFalse(TrackpadGestureIntent.directionMayStillResolve(
+            config, fingerCount: 3, cumulativeTranslation: CGVector(dx: 20, dy: 2.5)
+        ))
+        XCTAssertFalse(TrackpadGestureIntent.directionMayStillResolve(
+            config, fingerCount: 3, cumulativeTranslation: CGVector(dx: 50, dy: 40)
+        ))
+        XCTAssertFalse(TrackpadGestureIntent.directionMayStillResolve(
+            config, fingerCount: 4, cumulativeTranslation: CGVector(dx: 14, dy: 10)
+        ))
+        XCTAssertFalse(TrackpadGestureIntent.directionMayStillResolve(
+            makeConfig(columnEnabled: false, workspaceEnabled: false),
+            fingerCount: 3,
+            cumulativeTranslation: CGVector(dx: 14, dy: 10)
+        ))
+    }
+
     func testGestureStartAllowedForEitherEnabledFingerCount() {
         let config = makeConfig(columnFingers: 3, workspaceFingers: 4)
         XCTAssertTrue(TrackpadGestureIntent.allowsGestureStart(config, fingerCount: 3))

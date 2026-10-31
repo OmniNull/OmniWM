@@ -295,24 +295,28 @@ extension MouseEventHandler {
                 + metrics.cumulativeY * metrics.cumulativeY
             let thresholdSquared = niriTouchpadGestureRecognitionThreshold * niriTouchpadGestureRecognitionThreshold
             guard distanceSquared >= thresholdSquared else {
-                state.gestureLastAverageX = average.x
-                state.gestureLastAverageY = average.y
-                state.gestureLastTimestamp = timestamp
+                rememberGestureSample(average, at: timestamp)
                 return
             }
-            guard commitGestureMode(metrics: metrics, lockedContext: lockedContext, timestamp: timestamp)
-            else { return }
+            guard commitGestureMode(metrics: metrics, lockedContext: lockedContext, timestamp: timestamp) else {
+                if state.gesturePhase == .armed { rememberGestureSample(average, at: timestamp) }
+                return
+            }
         }
 
-        state.gestureLastAverageX = average.x
-        state.gestureLastAverageY = average.y
-        state.gestureLastTimestamp = timestamp
+        rememberGestureSample(average, at: timestamp)
         dispatchCommittedGestureFrame(
             metrics: metrics,
             lockedContext: lockedContext,
             monitor: monitor,
             timestamp: timestamp
         )
+    }
+
+    private func rememberGestureSample(_ average: CGPoint, at timestamp: TimeInterval) {
+        state.gestureLastAverageX = average.x
+        state.gestureLastAverageY = average.y
+        state.gestureLastTimestamp = timestamp
     }
 
     static func averageGestureTouchPosition(
