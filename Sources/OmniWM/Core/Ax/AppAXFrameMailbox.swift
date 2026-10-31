@@ -86,6 +86,10 @@ final class AppAXFrameMailbox {
         activeDrain?.items.count ?? 0
     }
 
+    func hasInFlightFrameWrite(for windowId: Int) -> Bool {
+        activeDrain?.items.contains { $0.request.windowId == windowId } == true
+    }
+
     var runtimeDepths: AppAXMailboxDepths {
         switch lane {
         case .ordinary:

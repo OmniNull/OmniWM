@@ -1,6 +1,7 @@
 // SPDX-License-Identifier: GPL-2.0-only
 // Copyright (C) 2026 OmniNull — https://github.com/OmniNull/OmniWM
 
+import AppKit
 import CoreGraphics
 @testable import OmniWM
 import XCTest
@@ -769,6 +770,283 @@ final class NativeResizeAdoptionTests: NiriInteractionTestCase {
             fixture.handler.dispatchMouseUp(at: grownFrame.center)
 
             XCTAssertEqual(fixture.phase, .awaitingCorrection)
+            XCTAssertEqual(try fixture.frame(token).width, start.width, accuracy: 1)
+        }
+    }
+
+    func testFrameFallbackAdoptsNativeResizeThroughTheNormalDragLifecycle() throws {
+        for (index, layout) in [LayoutType.niri, .dwindle].enumerated() {
+            let fixture = try makeFixture(layout, pid: pid_t(834_101 + index))
+            let blocker = blockRefreshes(fixture)
+            defer { unblockRefreshes(fixture, blocker: blocker) }
+            let token = fixture.tokens[0]
+            let start = try fixture.frame(token)
+            let observed = grown(start, right: 120)
+            let reported = ReportedFrame(start)
+            fixture.handler.nativeWindowFrameProvider = { _ in reported.frame }
+            fixture.handler.pressedMouseButtonsProvider = { MouseEventHandler.MouseButton.left.pressedMask }
+            XCTAssertFalse(fixture.handler.dispatchMouseDown(at: start.center, modifiers: []))
+            fixture.handler.dispatchMouseDragged(at: CGPoint(x: start.midX + 5, y: start.midY))
+            XCTAssertNil(fixture.handler.state.nativeTitleBarDrag)
+            XCTAssertEqual(fixture.handler.state.nativeTitleBarDragFallbackToken, token)
+            FrameApplyTrace.shared.beginCapture()
+            defer { FrameApplyTrace.shared.endCapture() }
+
+            reported.frame = observed
+            fixture.controller.axEventHandler.handleFrameChanged(windowId: UInt32(token.windowId))
+
+            XCTAssertEqual(fixture.handler.state.nativeTitleBarDrag?.adoptionStartFrame, start, "\(layout)")
+            XCTAssertTrue(fixture.controller.axManager.isNativeTitleBarDragActive(for: token))
+            XCTAssertNil(firstWriteTarget(for: token))
+            XCTAssertEqual(
+                try fixture.frame(token).width,
+                layout == .dwindle ? observed.width : start.width,
+                accuracy: 1,
+                "\(layout)"
+            )
+
+            fixture.handler.dispatchMouseUp(at: observed.center)
+
+            XCTAssertEqual(try fixture.frame(token).width, observed.width, accuracy: 1, "\(layout)")
+            XCTAssertFalse(fixture.controller.axManager.isNativeTitleBarDragActive(for: token))
+            XCTAssertNil(fixture.controller.dwindleEngine?.interactiveResize)
+            XCTAssertEqual(fixture.phase, .awaitingCorrection)
+        }
+    }
+
+    func testReleasedFrameFallbackAdoptsTheDelayedFinalNativeResize() throws {
+        for (index, layout) in [LayoutType.niri, .dwindle].enumerated() {
+            let fixture = try makeFixture(layout, pid: pid_t(834_111 + index))
+            let blocker = blockRefreshes(fixture)
+            defer { unblockRefreshes(fixture, blocker: blocker) }
+            let token = fixture.tokens[0]
+            let start = try fixture.frame(token)
+            let observed = grown(start, right: 140)
+            fixture.handler.nativeWindowFrameProvider = { _ in start }
+            fixture.handler.pressedMouseButtonsProvider = { 0 }
+            XCTAssertFalse(fixture.handler.dispatchMouseDown(at: start.center, modifiers: []))
+            fixture.handler.dispatchMouseDragged(at: CGPoint(x: start.midX + 5, y: start.midY))
+            fixture.handler.dispatchMouseUp(at: start.center)
+            XCTAssertTrue(fixture.handler.state.nativeTitleBarDragFallbackReleased)
+
+            fixture.handler.nativeWindowFrameProvider = { _ in observed }
+            fixture.controller.axEventHandler.handleFrameChanged(windowId: UInt32(token.windowId))
+
+            XCTAssertEqual(try fixture.frame(token).width, observed.width, accuracy: 1, "\(layout)")
+            XCTAssertFalse(fixture.controller.axManager.isNativeTitleBarDragActive(for: token))
+            XCTAssertNil(fixture.controller.dwindleEngine?.interactiveResize)
+            XCTAssertEqual(fixture.phase, .awaitingCorrection)
+        }
+    }
+
+    func testFrameFallbackCanPrecedeTheQueuedDragEvent() throws {
+        for (index, layout) in [LayoutType.niri, .dwindle].enumerated() {
+            let fixture = try makeFixture(layout, pid: pid_t(834_181 + index))
+            let blocker = blockRefreshes(fixture)
+            defer { unblockRefreshes(fixture, blocker: blocker) }
+            let token = fixture.tokens[0]
+            let start = try fixture.frame(token)
+            let observed = grown(start, right: 140)
+            let reported = ReportedFrame(start)
+            fixture.handler.nativeWindowFrameProvider = { _ in reported.frame }
+            fixture.handler.pressedMouseButtonsProvider = { MouseEventHandler.MouseButton.left.pressedMask }
+            XCTAssertFalse(fixture.handler.dispatchMouseDown(at: start.center, modifiers: []))
+
+            reported.frame = observed
+            fixture.controller.axEventHandler.handleFrameChanged(windowId: UInt32(token.windowId))
+            fixture.handler.dispatchMouseDragged(at: CGPoint(x: start.midX + 5, y: start.midY))
+            fixture.handler.dispatchMouseUp(at: observed.center)
+
+            XCTAssertEqual(try fixture.frame(token).width, observed.width, accuracy: 1, "\(layout)")
+            XCTAssertFalse(fixture.controller.axManager.isNativeTitleBarDragActive(for: token))
+        }
+    }
+
+    func testReleasedFallbackClickDoesNotAdoptALaterProgrammaticResize() throws {
+        for (index, layout) in [LayoutType.niri, .dwindle].enumerated() {
+            let fixture = try makeFixture(layout, pid: pid_t(834_171 + index))
+            let blocker = blockRefreshes(fixture)
+            defer { unblockRefreshes(fixture, blocker: blocker) }
+            let token = fixture.tokens[0]
+            let start = try fixture.frame(token)
+            let observed = grown(start, right: 140)
+            fixture.handler.nativeWindowFrameProvider = { _ in start }
+            fixture.handler.pressedMouseButtonsProvider = { 0 }
+            XCTAssertFalse(fixture.handler.dispatchMouseDown(at: start.center, modifiers: []))
+            fixture.handler.dispatchMouseUp(at: start.center)
+
+            fixture.handler.nativeWindowFrameProvider = { _ in observed }
+            fixture.controller.axEventHandler.handleFrameChanged(windowId: UInt32(token.windowId))
+
+            XCTAssertEqual(try fixture.frame(token).width, start.width, accuracy: 1, "\(layout)")
+            XCTAssertFalse(fixture.controller.axManager.isNativeTitleBarDragActive(for: token))
+        }
+    }
+
+    func testPendingFrameJobsAllowNativeResizeWhenTheConfirmedFrameIsStillVisible() throws {
+        for (index, layout) in [LayoutType.niri, .dwindle].enumerated() {
+            for retry in [false, true] {
+                let fixture = try makeFixture(layout, pid: pid_t(834_121 + index * 2 + (retry ? 1 : 0)))
+                let blocker = blockRefreshes(fixture)
+                defer { unblockRefreshes(fixture, blocker: blocker) }
+                let token = fixture.tokens[0]
+                let start = try fixture.frame(token)
+                let target = start.offsetBy(dx: 0, dy: -20)
+                if retry {
+                    fixture.controller.axManager.scheduleFrameRetry(AXFrameRetryRequest(
+                        requestId: 1,
+                        pid: token.pid,
+                        windowId: token.windowId,
+                        expectedWindow: try fixture.entry(token).axRef,
+                        frame: target,
+                        currentFrameHint: start
+                    ))
+                } else {
+                    XCTAssertNotNil(try fixture.controller.axManager.stageFrameWrite(for: AXFrameApplicationTarget(
+                        pid: token.pid, window: fixture.entry(token).axRef, frame: target
+                    )))
+                }
+                XCTAssertTrue(fixture.controller.axManager.isAwaitingFrameWrite(token.windowId))
+                let reported = ReportedFrame(start)
+                fixture.handler.nativeWindowFrameProvider = { _ in reported.frame }
+
+                try fixture.beginDrag(token)
+
+                XCTAssertFalse(fixture.controller.axManager.isAwaitingFrameWrite(token.windowId))
+                XCTAssertEqual(fixture.handler.state.nativeTitleBarDrag?.adoptionStartFrame, start)
+                let observed = grown(start, right: 160)
+                reported.frame = observed
+                fixture.controller.axEventHandler.handleFrameChanged(windowId: UInt32(token.windowId))
+                fixture.handler.dispatchMouseUp(at: observed.center)
+
+                XCTAssertEqual(try fixture.frame(token).width, observed.width, accuracy: 1, "\(layout), retry=\(retry)")
+            }
+        }
+    }
+
+    func testFrameFallbackKeepsTheBaselineBeforeCancellingPendingFrameJobs() throws {
+        for (index, layout) in [LayoutType.niri, .dwindle].enumerated() {
+            for released in [false, true] {
+                for retry in [false, true] {
+                    let pid = pid_t(834_161 + index * 4 + (released ? 2 : 0) + (retry ? 1 : 0))
+                    let fixture = try makeFixture(layout, pid: pid)
+                    let blocker = blockRefreshes(fixture)
+                    defer { unblockRefreshes(fixture, blocker: blocker) }
+                    let token = fixture.tokens[0]
+                    let start = try fixture.frame(token)
+                    let target = start.offsetBy(dx: 0, dy: -20)
+                    if retry {
+                        fixture.controller.axManager.scheduleFrameRetry(AXFrameRetryRequest(
+                            requestId: 1, pid: token.pid, windowId: token.windowId,
+                            expectedWindow: try fixture.entry(token).axRef,
+                            frame: target, currentFrameHint: start
+                        ))
+                    } else {
+                        XCTAssertNotNil(try fixture.controller.axManager.stageFrameWrite(for: AXFrameApplicationTarget(
+                            pid: token.pid, window: fixture.entry(token).axRef, frame: target
+                        )))
+                    }
+                    let reported = ReportedFrame(start)
+                    fixture.handler.nativeWindowFrameProvider = { _ in reported.frame }
+                    fixture.handler
+                        .pressedMouseButtonsProvider = { released ? 0 : MouseEventHandler.MouseButton.left.pressedMask }
+                    XCTAssertFalse(fixture.handler.dispatchMouseDown(at: start.center, modifiers: []))
+                    fixture.handler.dispatchMouseDragged(at: CGPoint(x: start.midX + 5, y: start.midY))
+                    if released {
+                        fixture.handler.dispatchMouseUp(at: start.center)
+                    }
+
+                    let observed = grown(start, right: 160)
+                    reported.frame = observed
+                    fixture.controller.axEventHandler.handleFrameChanged(windowId: UInt32(token.windowId))
+                    if !released { fixture.handler.dispatchMouseUp(at: observed.center) }
+
+                    XCTAssertEqual(
+                        try fixture.frame(token).width, observed.width, accuracy: 1,
+                        "\(layout), released=\(released), retry=\(retry)"
+                    )
+                    XCTAssertFalse(fixture.controller.axManager.isNativeTitleBarDragActive(for: token))
+                }
+            }
+        }
+    }
+
+    func testAnInFlightWriteCannotBecomeANativeResizeAfterCancellation() async throws {
+        let fixture = try makeFixture(.dwindle, pid: 834_151)
+        let blocker = blockRefreshes(fixture)
+        defer { unblockRefreshes(fixture, blocker: blocker) }
+        let token = fixture.tokens[0]
+        let start = try fixture.frame(token)
+        let target = grown(start, right: 180)
+        let createdContext = try await AppAXContextRegistry.getOrCreate(.current, pid: token.pid)
+        let context = try XCTUnwrap(createdContext)
+        defer { context.destroy() }
+        let request = try XCTUnwrap(fixture.controller.axManager.stageFrameWrite(for: AXFrameApplicationTarget(
+            pid: token.pid, window: fixture.entry(token).axRef, frame: target
+        )))
+        let drain = try XCTUnwrap(context.frameDelivery.enqueueFrames(
+            [request], callbackGeneration: context.callbackGeneration, completion: { _ in }
+        ).drain)
+        defer {
+            let outcome = context.frameDelivery.finishFrames(
+                batchId: UUID(), drainId: drain.id,
+                results: [WindowAdmissionTestSupport.successfulFrameResult(request: request)]
+            )
+            for delivery in outcome.deliveries { delivery.deliver() }
+        }
+        XCTAssertEqual(context.frameDelivery.runtimeMailboxDepths.ordinaryInFlight, 1)
+        let reported = ReportedFrame(start)
+        fixture.handler.nativeWindowFrameProvider = { _ in reported.frame }
+
+        try fixture.beginDrag(token)
+
+        XCTAssertFalse(fixture.controller.axManager.isAwaitingFrameWrite(token.windowId))
+        XCTAssertEqual(context.frameDelivery.runtimeMailboxDepths.ordinaryInFlight, 1)
+        XCTAssertNil(fixture.handler.state.nativeTitleBarDrag?.adoptionStartFrame)
+        reported.frame = target
+        fixture.controller.axEventHandler.handleFrameChanged(windowId: UInt32(token.windowId))
+        fixture.handler.dispatchMouseUp(at: target.center)
+
+        XCTAssertEqual(try fixture.frame(token).width, start.width, accuracy: 1)
+    }
+
+    func testAnAlreadyAppliedPendingSizeDoesNotBecomeANativeResize() throws {
+        for (index, layout) in [LayoutType.niri, .dwindle].enumerated() {
+            let fixture = try makeFixture(layout, pid: pid_t(834_131 + index))
+            let blocker = blockRefreshes(fixture)
+            defer { unblockRefreshes(fixture, blocker: blocker) }
+            let token = fixture.tokens[0]
+            let start = try fixture.frame(token)
+            let target = grown(start, right: 180)
+            XCTAssertNotNil(try fixture.controller.axManager.stageFrameWrite(for: AXFrameApplicationTarget(
+                pid: token.pid, window: fixture.entry(token).axRef, frame: target
+            )))
+            fixture.handler.nativeWindowFrameProvider = { _ in target }
+
+            try fixture.beginDrag(token)
+
+            XCTAssertNil(fixture.handler.state.nativeTitleBarDrag?.adoptionStartFrame)
+            fixture.handler.dispatchMouseUp(at: target.center)
+            XCTAssertEqual(try fixture.frame(token).width, start.width, accuracy: 1)
+        }
+    }
+
+    func testChangingTheConfirmedFrameDuringADragStillDisablesAdoption() throws {
+        for (index, layout) in [LayoutType.niri, .dwindle].enumerated() {
+            let fixture = try makeFixture(layout, pid: pid_t(834_141 + index))
+            let blocker = blockRefreshes(fixture)
+            defer { unblockRefreshes(fixture, blocker: blocker) }
+            let token = fixture.tokens[0]
+            let start = try fixture.frame(token)
+            fixture.handler.nativeWindowFrameProvider = { _ in start }
+            try fixture.beginDrag(token)
+            fixture.controller.axManager.confirmFrameWrite(for: token.windowId, frame: start.offsetBy(dx: 20, dy: 0))
+
+            let observed = grown(start, right: 200)
+            fixture.handler.nativeWindowFrameProvider = { _ in observed }
+            fixture.controller.axEventHandler.handleFrameChanged(windowId: UInt32(token.windowId))
+            fixture.handler.dispatchMouseUp(at: observed.center)
+
             XCTAssertEqual(try fixture.frame(token).width, start.width, accuracy: 1)
         }
     }

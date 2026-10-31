@@ -5,6 +5,26 @@ import AppKit
 import Foundation
 
 extension MouseEventHandler {
+    func captureNativeResizeStart(for token: WindowToken?) {
+        state.nativeResizeStart = nil
+        guard let controller,
+              controller.settings.gestures.adoptNativeResize,
+              let token,
+              let entry = controller.workspaceManager.entry(for: token),
+              entry.layoutReason == .standard,
+              !controller.axManager.hasInFlightFrameWrite(for: token),
+              let frame = controller.axManager.lastAppliedFrame(for: token.windowId)
+        else { return }
+        if controller.axManager.isAwaitingFrameWrite(token.windowId),
+           terminalNativeWindowFrame(for: entry)?.approximatelyEqual(
+               to: frame, tolerance: FrameTolerance.frameWrite
+           ) != true
+        {
+            return
+        }
+        state.nativeResizeStart = .init(token: token, frame: frame)
+    }
+
     func adoptNativeResizeIfEligible(
         _ drag: inout MouseInputState.NativeTitleBarDrag,
         entry: WindowState,
