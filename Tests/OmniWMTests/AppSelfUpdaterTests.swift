@@ -140,6 +140,18 @@ final class AppSelfUpdaterTests: XCTestCase {
             .canInstall)
     }
 
+    func testInstallIsNotOfferedWhenTheBundleOrItsFolderIsReadOnly() throws {
+        try XCTSkipIf(getuid() == 0, "root writes through read-only permissions")
+        let installed = try makeApp(in: "installed", tag: newTag)
+        let ours = "identifier \"\(identifier)\""
+        XCTAssertTrue(AppSelfUpdater(bundleURL: installed) { ours }.canInstall)
+        for target in [installed, installed.deletingLastPathComponent()] {
+            try FileManager.default.setAttributes([.posixPermissions: 0o555], ofItemAtPath: target.path)
+            XCTAssertFalse(AppSelfUpdater(bundleURL: installed) { ours }.canInstall, target.lastPathComponent)
+            try FileManager.default.setAttributes([.posixPermissions: 0o755], ofItemAtPath: target.path)
+        }
+    }
+
     func testCancellingStopsExtractionBeforeAndAfterTheToolStarts() async throws {
         let fifo = root.appendingPathComponent("started")
         try run("/usr/bin/mkfifo", fifo.path)

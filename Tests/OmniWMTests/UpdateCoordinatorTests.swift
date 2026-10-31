@@ -114,6 +114,7 @@ final class UpdateCoordinatorTests: XCTestCase {
         var failure: Error?
         var relaunchFailure: Error?
         var suspends = false
+        var commitsBeforeSuspending = false
         var installed = false
         var events: [String] = []
         var onInstall: (() -> Void)?
@@ -129,6 +130,11 @@ final class UpdateCoordinatorTests: XCTestCase {
             events.append("install")
             defer { onFinish?() }
             onInstall?()
+            if commitsBeforeSuspending {
+                installed = true
+                await withCheckedContinuation { gates.append($0) }
+                return
+            }
             if suspends {
                 await withCheckedContinuation { gates.append($0) }
             } else {
@@ -232,6 +238,30 @@ final class UpdateCoordinatorTests: XCTestCase {
             await fulfillment(of: [relaunched], timeout: 2)
             XCTAssertEqual(installer.events, ["install", "install", "relaunch"], action)
         }
+    }
+
+    func testDecliningAfterTheInstallCommitsStillSkipsTheRelaunch() async throws {
+        let window = WindowStub()
+        let installer = InstallerStub()
+        installer.commitsBeforeSuspending = true
+        let install = try await showInstall(window: window, installer: installer)
+        let configuration = try XCTUnwrap(window.configuration)
+
+        let started = expectation(description: "started")
+        installer.onInstall = { started.fulfill() }
+        install()
+        await fulfillment(of: [started], timeout: 2)
+        configuration.notNow()
+
+        let finished = expectation(description: "finished")
+        installer.onFinish = { finished.fulfill() }
+        window.onEvent = nil
+        installer.gates.removeFirst().resume()
+        await fulfillment(of: [finished], timeout: 2)
+        await Task.yield()
+        XCTAssertTrue(installer.installed)
+        XCTAssertEqual(installer.events, ["install"])
+        XCTAssertNil(window.alertTitle)
     }
 
     func testInstallAfterADeclineStartsWhileTheDeclinedOneIsStillFinishing() async throws {
