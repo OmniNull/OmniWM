@@ -128,6 +128,32 @@ extension ShellDesktopEditorTests {
         XCTAssertEqual(fixture.configuration.config.profile, "default")
     }
 
+    func testStyleOptionsListEveryRootOptionTheFixedSectionsLeaveOutAndSaveToTheStyle() async throws {
+        let fixture = try await fixture(style: "vitreus")
+        let editor = fixture.editor
+        await editor.reload()
+        let fixed = ShellDesktopEditor.islandFixedKeys
+        let keys = editor.islandStyleOptionKeys
+        XCTAssertEqual(Set(keys), Set(editor.islandRootOptions.keys).subtracting(fixed))
+        XCTAssertTrue(keys.contains("visualiser"))
+        XCTAssertFalse(editor.declaresIslandRoot(fixed))
+        let titles = try keys.map { try editor.strings.title(XCTUnwrap(editor.islandRootOptions[$0]).title) }
+        XCTAssertEqual(titles, titles.sorted { $0.localizedStandardCompare($1) == .orderedAscending })
+        await islandEdit(fixture) { editor.setIslandRoot("visualiser", value: .bool(true)) }
+        XCTAssertEqual(editor.islandRootValues["visualiser"], .bool(true))
+        guard case let .table(profiles)? = try document(fixture)["profiles"],
+              case let .table(style)? = profiles["vitreus"], case let .table(widgets)? = style["widgets"],
+              case let .table(root)? = widgets["vitreus"]
+        else { return XCTFail("no [profiles.vitreus.widgets.vitreus]") }
+        XCTAssertEqual(root["visualiser"], .boolean(true))
+
+        let lake = await editor.selectStyle("lake")
+        XCTAssertTrue(lake)
+        await editor.reload()
+        XCTAssertTrue(editor.declaresIslandRoot(ShellDesktopEditor.islandAppearanceKeys))
+        XCTAssertTrue(Set(editor.islandStyleOptionKeys).isDisjoint(with: fixed))
+    }
+
     func testControlledAbsentStyleDefinedAndUnavailableStatesKeepTheirMeaning() async throws {
         let fixture = try await fixture(style: "default")
         let base = fixture.shell.appendingPathComponent("default/shell.toml")

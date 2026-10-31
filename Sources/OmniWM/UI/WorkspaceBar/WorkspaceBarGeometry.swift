@@ -61,7 +61,11 @@ struct WorkspaceBarGeometry: Equatable {
                     : overMenuBarOriginY(monitor: monitor, resolved: resolved, barHeight: barHeight)
                 insets.top = max(0, monitor.visibleFrame.maxY - y)
             }
-        case .belowMenuBar: insets.top = reservedInset
+        case .belowMenuBar:
+            if reservedInset > 0 {
+                let visibleMenuBarHeight = max(0, monitor.frame.maxY - monitor.visibleFrame.maxY)
+                insets.top = reservedInset + max(0, resolvedMenuBarHeight - visibleMenuBarHeight)
+            }
         case .bottom: insets.bottom = reservedInset
         case .left: insets.left = reservedInset
         case .right: insets.right = reservedInset
@@ -278,7 +282,8 @@ struct WorkspaceBarGeometry: Equatable {
     func originY(for monitor: Monitor) -> CGFloat {
         switch effectivePosition {
         case .overlappingMenuBar: monitor.visibleFrame.maxY
-        case .belowMenuBar: monitor.visibleFrame.maxY - barHeight
+        case .belowMenuBar:
+            min(monitor.visibleFrame.maxY, monitor.frame.maxY - menuBarHeight) - barHeight
         case .bottom,
              .left,
              .right: monitor.visibleFrame.minY
@@ -299,9 +304,11 @@ struct WorkspaceBarGeometry: Equatable {
         return resolved.position
     }
 
+    static let hiddenMenuBarHeight: CGFloat = 28
+
     static func menuBarHeight(for monitor: Monitor) -> CGFloat {
         let height = monitor.frame.maxY - monitor.visibleFrame.maxY
-        return height > 0 ? height : 28
+        return max(monitor.notchHeight, height > 1 ? height : hiddenMenuBarHeight)
     }
 
     private func splitMetrics(

@@ -211,6 +211,61 @@ final class AudioSpectrumTests: XCTestCase {
         asking.setListening(false)
     }
 
+    private final class SilentRefusal: Sendable {
+        let requested = Counter()
+        let opened = Counter()
+        let granted = Mutex(false)
+
+        var capture: AudioSpectrumCapture {
+            AudioSpectrumCapture(
+                bands: ShellSpectrumBands(),
+                status: { [self] in granted.withLock { $0 } ? .granted : .unknown },
+                request: { [requested] answered in
+                    requested.add()
+                    answered()
+                    return true
+                },
+                open: { [opened] _, _ in
+                    opened.add()
+                    return Stoppable(stopped: Counter())
+                }
+            )
+        }
+    }
+
+    func testASilentRefusalIsAskedOncePerListeningSessionAndReportsDenied() async {
+        let refusal = SilentRefusal()
+        let monitor = AudioSpectrumMonitor(capture: refusal.capture)
+        let (changes, changed) = AsyncStream.makeStream(of: AppVolumeAccess?.self)
+        monitor.onChange = { changed.yield($0?.access) }
+        DispatchQueue.main.asyncAfter(deadline: .now() + 20) { changed.finish() }
+        var reports = changes.makeAsyncIterator()
+        func reported(_ access: AppVolumeAccess) async -> Bool {
+            while let next = await reports.next(isolation: #isolation) {
+                if next == access { return true }
+            }
+            return false
+        }
+        monitor.setListening(true)
+        let denied = await reported(.denied)
+        XCTAssertTrue(denied)
+        XCTAssertEqual(refusal.requested.value, 1)
+        XCTAssertEqual(refusal.opened.value, 0)
+        monitor.setListening(false)
+        monitor.setListening(true)
+        let deniedAgain = await reported(.denied)
+        XCTAssertTrue(deniedAgain)
+        XCTAssertEqual(refusal.requested.value, 2)
+        monitor.setListening(false)
+        refusal.granted.withLock { $0 = true }
+        monitor.setListening(true)
+        let granted = await reported(.granted)
+        XCTAssertTrue(granted)
+        XCTAssertEqual(refusal.opened.value, 1)
+        XCTAssertEqual(refusal.requested.value, 2)
+        monitor.setListening(false)
+    }
+
     func testTheFeedStartsTheSpectrumOnlyForAReader() async {
         let captures = Captures()
         let devices = ShellDevices(spectrum: AudioSpectrumMonitor(capture: captures.capture))

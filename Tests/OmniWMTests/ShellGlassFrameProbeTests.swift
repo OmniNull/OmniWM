@@ -147,24 +147,12 @@ final class ShellGlassFrameProbeTests: XCTestCase {
         return layer
     }
 
-    private func raw(_ frame: Frame, alpha: CGFloat, merge: Bool? = nil, culling: Bool? = nil) throws -> CALayer {
+    private func raw(_ frame: Frame, alpha: CGFloat) throws -> CALayer {
         let capability = ShellGlassCapability.shared
         let body = try XCTUnwrap(capability.bodyClass).init()
         body.anchorPoint = .zero
         body.frame = CGRect(origin: .zero, size: frame.size)
         body.setValue(2 * frame.blend, forKey: "smoothness")
-        if let merge {
-            guard type(of: body).instancesRespond(to: NSSelectorFromString("setMergeElements:")) else {
-                throw ShellScriptFailure(kind: .runtime, message: "CASDFLayer.mergeElements is unavailable")
-            }
-            body.setValue(merge, forKey: "mergeElements")
-        }
-        if let culling {
-            guard type(of: body).instancesRespond(to: NSSelectorFromString("setExperimentalCulling:")) else {
-                throw ShellScriptFailure(kind: .runtime, message: "CASDFLayer.experimentalCulling is unavailable")
-            }
-            body.setValue(culling, forKey: "experimentalCulling")
-        }
         body.setValue(capability.effect(.fill, values: [.color: CGColor(gray: 1, alpha: alpha)]), forKey: "effect")
         for part in ShellGlassBody.parts(for: [frame.shape]).sdf {
             let element = try XCTUnwrap(capability.elementClass).init()
@@ -276,8 +264,6 @@ final class ShellGlassFrameProbeTests: XCTestCase {
                 XCTAssertEqual(image.alpha(frame.size.width / 2, frame.size.height / 2), 0)
             }
         }
-        let merged = try render(raw(frame, alpha: alpha, merge: true), frame: frame, scale: scale)
-        let uncull = try render(raw(frame, alpha: alpha, culling: false), frame: frame, scale: scale)
         if scale == 1, alpha == 0.36,
            frame.name == "display1920" || frame.name == "c7-large256" || frame.name.hasPrefix("f1-")
         {
@@ -289,8 +275,6 @@ final class ShellGlassFrameProbeTests: XCTestCase {
             "fullBody": summary(full, frame: frame),
             "bodyFillOnly": summary(fill, frame: frame),
             "bareNative": summary(bare, frame: frame),
-            "mergeElementsTrue": summary(merged, frame: frame),
-            "experimentalCullingFalse": summary(uncull, frame: frame),
             "bodyAndBareFillIdentical": fill.bytes == bare.bytes
         ]
     }

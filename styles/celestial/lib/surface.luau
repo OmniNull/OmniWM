@@ -6,7 +6,7 @@ local tokens = require("./tokens")
 local function icon(name: string, props: { [string]: any }?)
     local element = props or {}
     element.text = name
-    element.font = "symbols"
+    element.font = "Material Symbols Rounded"
     element.size = element.size or tokens.icon.medium
     element.color = element.color or "foreground"
     return ui.text(element)
@@ -15,7 +15,7 @@ end
 local function text(value: string, scale: { [string]: number }, size: string, props: { [string]: any }?)
     local element = props or {}
     element.text = value
-    element.font = element.font or "sans"
+    element.font = element.font or "Google Sans Flex"
     element.size = scale[size]
     element.color = element.color or "foreground"
     return ui.text(element)

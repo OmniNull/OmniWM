@@ -22,6 +22,7 @@ struct VitreusRequest {
     let revision: UInt64
     let seconds: Double
     let bytes: [UInt8]
+    var cancelled = false
 
     var stored: ShellServiceValue? {
         try? ShellServiceValue.decode(bytes)
@@ -254,7 +255,8 @@ enum VitreusFixture {
                     String(decoding: UnsafeRawBufferPointer(start: $0, count: request.owner_name_length), as: UTF8.self)
                 } ?? "",
                 id: request.id, revision: request.revision, seconds: request.seconds,
-                bytes: request.value.map { Array(UnsafeBufferPointer(start: $0, count: request.value_length)) } ?? []
+                bytes: request.value.map { Array(UnsafeBufferPointer(start: $0, count: request.value_length)) } ?? [],
+                cancelled: request.cancelled
             ))
         }
         for store in result where store.kind == OMNI_SERVICE_STORE { complete(widget, store) }
@@ -284,9 +286,21 @@ enum VitreusFixture {
         return hash == 0 ? 1 : hash
     }
 
-    static func element(_ widget: ShellRenderedWidget, key name: String) throws -> ElementHandle {
+    static func find(_ widget: ShellRenderedWidget, key name: String) -> ElementHandle? {
         let layout = widget.surface.layout
-        return try XCTUnwrap(layout.core.elements { _ in true }.first { layout.core.key(of: $0) == key(name) }, name)
+        return layout.core.elements { _ in true }.first { layout.core.key(of: $0) == key(name) }
+    }
+
+    static func element(_ widget: ShellRenderedWidget, key name: String) throws -> ElementHandle {
+        try XCTUnwrap(find(widget, key: name), name)
+    }
+
+    static func has(_ widget: ShellRenderedWidget, key name: String) -> Bool {
+        find(widget, key: name) != nil
+    }
+
+    static func crests(_ id: String, phase: String) -> [String] {
+        [-1, 1].map { "drawer-ripple-\(id)-\(phase)-\($0)" }
     }
 
     static func frame(_ widget: ShellRenderedWidget, key name: String) throws -> CGRect {

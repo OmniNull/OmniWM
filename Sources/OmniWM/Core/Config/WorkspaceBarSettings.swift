@@ -368,6 +368,8 @@ extension WorkspaceBarSettings {
             .off
         } else if fullWidth {
             fullWidthNotchMode == .moveBelowMenuBar ? .moveBelowMenuBar : .off
+        } else if position == .belowMenuBar, (override?.notchMode ?? self.notchMode) == .fillLeftOfNotch {
+            .off
         } else {
             override?.notchMode ?? self.notchMode
         }

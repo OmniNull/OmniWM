@@ -127,7 +127,7 @@ extension ShellVitreusBarTests {
         let shell = try shell()
         var data = VitreusFixture.bar()
         data.workspaces = [ShellBarWorkspace(id: "1", name: "One", focused: true, windows: [])]
-        let widget = try pieceWidget(shell, pieces: .strings(["workspaces", "title", "gear"])) { widget in
+        let widget = try pieceWidget(shell, pieces: .strings(["workspaces", "title", "omniwm"])) { widget in
             widget.set("battery") { $0.number(50) }
         }
         VitreusFixture.show(widget, bar: data)
@@ -136,8 +136,8 @@ extension ShellVitreusBarTests {
         for (value, target) in zip(try pieceOpacities(widget), [0.1, 0.19, 0.19]) {
             XCTAssertEqual(value, target, accuracy: 1e-6)
         }
-        let gear = try VitreusFixture.frame(widget, key: "bar-gear")
-        let point = CGPoint(x: gear.midX, y: gear.midY)
+        let logo = try VitreusFixture.frame(widget, key: "bar-omniwm")
+        let point = CGPoint(x: logo.midX, y: logo.midY)
         XCTAssertTrue(try VitreusFixture.frame(widget, key: "battery-track-shape").contains(point))
         XCTAssertEqual(widget.surface.command(at: point), "shell menu")
         try pieceHover(widget, "workspace-hit-1", .ended, bar: data)

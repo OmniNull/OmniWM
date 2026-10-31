@@ -86,7 +86,7 @@ An optional **System Hyper Trigger** (acting as the `Hyper` chord while a key or
 
 ## Canary builds
 
-Stable releases are recommended for everyday use. Canary builds let you try recent changes and help test fixes before the next release. They are built daily when `main` has new changes and are signed and notarized, but may contain regressions.
+Stable releases are recommended for everyday use. Canary builds let you try recent changes and help test fixes before the next release. Daily scheduled runs publish a build only when the checked-out `main` commit, or the app commit beneath any documentation-only commits on top, passes CI and includes app changes since the newest stable or canary tag in its history; documentation-only changes do not trigger a new build. Builds are signed and notarized, but may contain regressions.
 
 To try one with a Homebrew or GitHub Releases install:
 
@@ -94,7 +94,7 @@ To try one with a Homebrew or GitHub Releases install:
 2. Quit OmniWM, then download the newest [canary build](https://github.com/OmniNull/OmniWM/releases?q=canary) and replace `OmniWM.app` in `/Applications` with the app from its ZIP.
 3. Relaunch OmniWM. It uses your existing settings.
 
-Canary builds check only for newer published Canary releases. Stable builds continue to check only stable releases. Updates stay manual: download from the release page, or use `brew upgrade --cask omniwm@canary` if you installed that Homebrew cask and its new version is available. Older Canary builds need one manual update to gain Canary update checks.
+Canary builds check only for newer published Canary releases. Stable builds continue to check only stable releases. Use `Install and Relaunch` in the update popup (**Unreleased:** available when building from `main`), download from the release page, or use `brew upgrade --cask omniwm@canary` if you installed that Homebrew cask and its new version is available. Older Canary builds need one manual update to gain Canary update checks.
 
 To return to stable, quit OmniWM. If you installed `omniwm@canary`, run `brew uninstall --cask omniwm@canary` followed by `brew install --cask omniwm`. For an existing `omniwm` Homebrew install, run `brew reinstall --cask omniwm`; for a direct download, replace the app with the [latest release](https://github.com/OmniNull/OmniWM/releases/latest). If stable cannot read settings saved by a canary, quit OmniWM and restore your copy. When reporting a canary bug, include its release link.
 
@@ -103,6 +103,6 @@ To return to stable, quit OmniWM. If you installed `omniwm@canary`, run `brew un
 OmniWM checks for updates by default:
 
 - On launch, OmniWM polls the latest GitHub release at most once per day.
-- Updates stay manual. OmniWM does not auto-download or auto-install a new release.
-- When a newer release is available, OmniWM shows a centered popup with release notes and actions for `Open Release Page`, `Copy brew upgrade omniwm`, `Skip This Version`, and `Not Now`.
+- OmniWM never installs anything on its own. `Install and Relaunch` (**Unreleased:** available when building from `main`) downloads the release's app zip from GitHub, checks it against the SHA-256 digest GitHub publishes for it, checks that the new app carries the release's version and is signed and notarized by the same Developer ID as the running copy, swaps the bundle in place and relaunches. If you cancel the quit, the new version starts on the next launch. The button only appears when the release has an app zip and OmniWM can write to its own bundle, so Nix store and other read-only installs keep the manual actions.
+- When a newer release is available, OmniWM shows a centered popup with release notes and actions for `Install and Relaunch` (when available), `Open Release Page`, `Copy brew upgrade omniwm`, `Skip This Version`, and `Not Now`.
 - You can control this from **Settings > General > Updates** or trigger a manual check from the status bar menu with `Check for Updates...`.

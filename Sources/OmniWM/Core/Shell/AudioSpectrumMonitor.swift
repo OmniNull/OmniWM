@@ -66,6 +66,7 @@ actor AudioSpectrumEngine {
     private var version = 0
     private var listening = false
     private var requestingAccess = false
+    private var answeredAccess = false
     private var source: (any AudioSpectrumSource)?
     private var analyzer: ShellSpectrumAnalyzer?
     private var timer: DispatchSourceTimer?
@@ -84,6 +85,7 @@ actor AudioSpectrumEngine {
     func update(version: Int, listening: Bool) {
         guard version > self.version else { return }
         self.version = version
+        if listening, !self.listening { answeredAccess = false }
         self.listening = listening
         reported = nil
         reconcile()
@@ -116,7 +118,9 @@ actor AudioSpectrumEngine {
 
     private func checkAccess() -> AppVolumeAccess {
         let status = capture.status()
-        if status == .unknown, !requestingAccess {
+        guard status == .unknown else { return status }
+        if answeredAccess { return .denied }
+        if !requestingAccess {
             requestingAccess = capture.request { [weak self] in
                 Task {
                     await self?.accessAnswered()
@@ -128,6 +132,7 @@ actor AudioSpectrumEngine {
 
     private func accessAnswered() {
         requestingAccess = false
+        answeredAccess = true
         reconcile()
     }
 

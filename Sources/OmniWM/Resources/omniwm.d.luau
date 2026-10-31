@@ -5,7 +5,7 @@ export type Color = string | number
 export type Motion = "none" | "spring" | "bouncy" | "smooth" | "ease"
 export type Material = "none" | "ultraThin" | "thin" | "regular" | "thick" | "ultraThick" | "bar" | "popover" | "glass" | "clear"
 export type TextStyle = "body" | "bold" | "mono" | "small" | "caption" | "rounded"
-export type Font = "system" | "sans" | "symbols" | string
+export type Font = "system" | string
 export type Weight = "ultraLight" | "thin" | "light" | "regular" | "medium" | "semibold" | "bold" | "heavy" | "black"
 export type Align =
     "center"
@@ -46,7 +46,7 @@ export type ShapeSource = {
     pads: { left: number?, right: number?, top: number?, bottom: number? }?,
     adhere: { left: number?, right: number?, top: number?, bottom: number? }?,
 }
-export type ShapeTrigger = { shape: string, at: number, rising: boolean?, contact: boolean? }
+export type ShapeTrigger = { shape: string, at: number, rising: boolean?, contact: boolean? } | { beat: true }
 export type ShapeMorph = {
     anchor: { x: number, y: number }?, stops: { ShapeMorphStop }?, stretch: ShapeStretch?,
     impulses: { ShapeImpulse }?, edges: ShapeEdges?, source: ShapeSource?, trigger: ShapeTrigger?,
@@ -958,8 +958,8 @@ export type ShapeProps = {
     hit: boolean?,
     shadowOffset: { x: number, y: number }?,
     morph: ShapeMorph?,
-    spectrum: { band: number, gain: number?, taper: number?, inset: number?, threshold: number?,
-        response: number?, bounce: number? }?,
+    spectrum: { band: number?, gain: number?, taper: number?, inset: number?, threshold: number?,
+        response: number?, bounce: number?, swell: { w: number, h: number }? }?,
 }
 
 export type ComponentProps = Props & {

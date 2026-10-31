@@ -40,6 +40,10 @@ local transport = table.freeze({
     { key = "play", side = 0, command = "media toggle", rest = 0.85 },
     { key = "next", side = 1, command = "media next", rest = 0.65 },
 })
+local least = 48
+local function minimum(ctx, k): number
+    return (if ctx.data.media then 72 else least) * k.bu
+end
 local last
 local verticalLast
 
@@ -118,7 +122,7 @@ local function place(ctx, g, slot)
     local seg = g.layout == "seg"
     local w = if seg then slot.w else math.max(0, slot.w - pill.gap * shown)
     local control = 54 * bu * shown
-    local hw = if seg then w else clamp(math.max(m.cw + control, m.tw) + 12 * bu, 48 * bu, w)
+    local hw = if seg then w else clamp(math.max(m.cw + control, m.tw) + 12 * bu, least * bu, w)
     local cm = if g.frame and not seg
         then clamp(g.size.w / 2, slot.x + 24 * bu, math.max(slot.x + 24 * bu, slot.x + w - 24 * bu))
         else slot.x + w / 2
@@ -129,10 +133,16 @@ local function place(ctx, g, slot)
     local tab = clamp(widest + 12 * u, 52 * u, math.max(52 * u, w - 12 * u))
     return {
         m = m, media = media, shown = shown, control = control, hw = hw, have = have, xs = xs,
-        zc = mix(cm, xs - 6 * bu + hw / 2, have), zw = mix(math.max(48 * bu, w - 12 * bu), hw, have),
+        zc = mix(cm, xs - 6 * bu + hw / 2, have), zw = mix(math.max(least * bu, w - 12 * bu), hw, have),
         mcx = mix(cm, xs - 6 * bu + hw - 27.5 * bu, have), mcy = mix(pill.cy, pill.cy - 6.5 * bu, have),
         tab = tab, tx = mix(cm, xs - 6 * u + tab / 2, clamp(widest / (6 * u), 0, 1)),
     }
+end
+
+local function player(ctx, g)
+    local slot = g.pill.slots.title
+    if slot and ctx.data.media then return place(ctx, g, slot).mcx end
+    return (slot or g.pill).cx
 end
 
 local function shapes(ctx, g, slot)
@@ -280,4 +290,4 @@ local function content(ctx, g, slot)
     return { ui.stack(region) }
 end
 
-return table.freeze({ shapes = shapes, content = content, metrics = metrics })
+return table.freeze({ shapes = shapes, content = content, metrics = metrics, least = least, minimum = minimum, player = player })

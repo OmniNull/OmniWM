@@ -141,12 +141,12 @@ OmniWM uses a single third-party Swift package, vendored Luau and Material Color
 ### Building & Running
 
 ```bash
-make setup                   # Build pinned GhosttyKit, SwiftFormat, and SwiftLint from flake.nix
+make setup                   # Obtain pinned prebuilt GhosttyKit and development tools via flake.nix
 make build                   # Ghostty preflight + arm64 Debug build
 make run                     # Build, sign, install, and switch to OmniWM Dev
 make format                  # Rewrite formatting with SwiftFormat
 make lint                    # Run SwiftLint
-make verify                  # format-check + lint + build — the gate before a commit lands
+make verify                  # format-check + lint + localization + arm64 Debug build
 make check                   # Alias for `make verify`
 swift test                   # Default suite; live/private integration and measurement tests are opt-in
 ./Scripts/package-app.sh release true   # Checks, build, sign, notarize
@@ -170,8 +170,13 @@ Live/private integration and measurement cases skip unless their explicit enviro
 | `OMNIWM_RUN_WINDOW_SUBSCRIPTION_LIVE_TESTS=1` | Private WindowServer subscription semantics, requiring two movable foreign windows |
 | `OMNIWM_RUN_METADATA_READ_LIVE_TESTS=1` | Read-only WindowServer metadata checks |
 | `OMNIWM_RUN_AX_WRITE_METRICS_BENCHMARK=1` | AX write metrics recorder latency distributions |
+| `OMNIWM_RUN_LAUNCHER_LIVE_TESTS=1` | Installed application and shell integration checks; the Nix app case also needs `OMNIWM_TEST_NIX_APP` |
+| `OMNIWM_RUN_LAUNCHER_TERMINAL_TESTS=1` | Native Terminal and iTerm2 Launcher sessions |
+| `OMNIWM_RUN_SETTINGS_UI_RENDER_TESTS=1` | Rendered Settings UI captures and probes |
 
 `make test-skylight-live` runs the focused SkyLight transaction test.
+
+Documentation-only changes use the [website checks](/developers/website/) without an app build or Swift tests. App runtime changes also require the full serial suite, and concurrency changes require the parallel suite; see [Verification](/developers/contributing/#verification).
 
 Use `make run` for normal development launches. It installs `~/Applications/OmniWM Dev.app` and opens it through
 LaunchServices with the fixed `com.barut.OmniWM.dev` identity and separate settings, state, and permissions.
@@ -181,8 +186,7 @@ optional local signing, and switching between copies. `swift run OmniWM` starts 
 Hidden Bar uses macOS per-app menu-bar visibility preferences. OmniWM keeps its native status item and a leading
 workspace-bar button available. Left-click either for OmniWM controls; right-click or Option-click to reveal hidden
 icons. The workspace-bar button follows the bar's orientation and opens controls on that display. When the workspace
-bar is visible, hidden icons reveal in a drawer with curved shoulders and the same material and tint. Icons are captured
-from the transparent macOS menu-hosting window. Selecting an icon temporarily reveals the native item for interaction.
+bar is visible, hidden icons reveal through the `hidden-bar` shell widget. Icons are captured from the native menu-hosting window, including MenuBarAgent-hosted items. Selecting an icon acquires its native menu and renders it through `hidden-bar-menu` beneath the icon while the strip stays open; items without a menu retain native activation. The native item is temporarily exposed during menu acquisition and interaction.
 
 ---
 
@@ -210,7 +214,9 @@ after bootstrap succeeds.
 
 The launch permission check requires Accessibility and Input Monitoring before bootstrap. Screen Recording is
 optional and only controls capture-derived visuals. After granting permissions, the user returns to the permissions
-window and chooses **Start OmniWM** or **Continue Without Screen Recording** to finish bootstrap.
+window and chooses **Start OmniWM** or **Continue Without Screen Recording** to finish bootstrap. Ticking **Don't ask
+about Screen Recording again** stores the choice in runtime state, and later launches skip the window while
+Accessibility and Input Monitoring stay granted (**Unreleased:** available when building from `main`).
 
 The potentially interfering resident-manager catalog covers a second OmniWM instance plus AeroSpace, Amethyst,
 bobrwm, Glide, komorebi for Mac, Nehir, Paneru, parket, Rift, Tangrid, TrimWM, yabai, and Yashiki. Dedicated
@@ -953,7 +959,7 @@ The per-frame **display link** is owned by `LayoutRefreshController` (not by `An
 | **Command Palette** | `UI/CommandPalette/CommandPaletteController.swift`, `Core/Launcher/` | Six modes: windows, application menus, clipboard, commands, Launcher and Files. The original four use substring search with tiered ranking; apps/files use Spotlight ranking, while saved entries match their own names, keywords, paths and command text. |
 | **Menu Anywhere** | `UI/MenuAnywhere/MenuAnywhereController.swift` | Pops the frontmost app's menu bar as a native `NSMenu` at the cursor, via `MenuExtractor` (ObjC runtime AX-tree walk). |
 | **Workspace Bar** | `UI/WorkspaceBar/WorkspaceBarManager.swift` | Per-monitor workspace bars — now **driven by `SurfaceReconciler`** via `apply([DesiredBarSurface])`, not self-polling. |
-| **Hidden Bar** | `UI/HiddenBar/HiddenBarController.swift` | Per-app concealment through macOS menu-bar visibility preferences, AX item discovery and icon capture, and a hidden-items panel. Original visibility choices are journaled before changes and restored when released or on recovery after an interrupted session. OmniWM keeps its native status item available. `HiddenBarDrawerView` reveals the panel from its attachment edge using a Core Animation clipping mask and the shared motion policy; icons and their hit regions stay fixed during the transition. Selection and teardown dismiss immediately before native item interaction. |
+| **Hidden Bar** | `UI/HiddenBar/HiddenBarController.swift`, `Core/Shell/ShellWidgetHost+Interaction.swift` | Per-app concealment through macOS menu-bar visibility preferences, AX item discovery and icon capture. Original visibility choices are journaled before changes and restored when released or on recovery after an interrupted session. The shell's `hidden-bar` widget draws the icon strip; `HiddenBarMenuSession` acquires native menu pages and `hidden-bar-menu` renders them while the strip remains open. Native activation remains the fallback for items without menus. |
 | **Status Bar** | `UI/StatusBar/StatusBarController.swift` | Menu-bar icon, settings access, manual update checks. |
 | **Scratchpad** | `Core/World/ScratchpadState.swift`, `Core/Controller/WMController+Scratchpad*.swift` | Ten slots of floating windows (`membersBySlot` / `revealedIndex` in `WorldStore.scratchpads`); at most one slot revealed, show/hide coordinated by `WMController`. |
 | **Monitors** | `Core/Monitor/` | Display detection (`Monitor.current()`), UUID-first durable identity (`OutputId`), and `resolveWorkspaceRestoreAssignments` in `MonitorRestoreAssignments.swift` (re-maps saved per-monitor workspaces by unique display UUID, then uses runtime ID/name only for UUID-less displays before geometry/name best-match; `MonitorRestoreKey` is the data-only identity it matches on). Duplicate live UUID claims fail closed to session-only runtime identity. Orientation reported over IPC is the **effective** orientation (`settings.effectiveOrientation` — override or auto). |
@@ -1099,7 +1105,6 @@ macOS window server creates window
     │
     v
 CGSEventObserver.handleRawCGSEvent → EventIntake.post(.cgs(.created))   [INTAKE]
-    │  CGSEventObserver.swift:120
     v
 EventIntake stamps seq + schedules one drain (CFRunLoopPerformBlock)    [STAGE 1]
     v

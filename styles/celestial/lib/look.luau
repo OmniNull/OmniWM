@@ -72,7 +72,7 @@ local function calendarButton(text, command)
     return ui.row{ w = width, h = 40, radius = 20, fill = "secondaryContainer",
         hover = "secondaryContainerForeground/0.08", onClick = command,
         ui.box{ grow = 1, h = 1 },
-        ui.text{ text = text, font = "sans", size = tokens.label.large, weight = "medium",
+        ui.text{ text = text, font = "Google Sans Flex", size = tokens.label.large, weight = "medium",
             color = "secondaryContainerForeground", maxWidth = width - 32 },
         ui.box{ grow = 1, h = 1 } }
 end
@@ -85,11 +85,11 @@ local function calendarAgenda(event, first)
         fill = first and "secondaryContainer" or nil,
         ui.box{ w = 4, h = 30, radius = 2, fill = event.color },
         ui.column{ gap = 2, center = false, grow = 1,
-            ui.text{ text = event.title, font = "sans", size = tokens.body.small, weight = "medium",
+            ui.text{ text = event.title, font = "Google Sans Flex", size = tokens.body.small, weight = "medium",
                 maxWidth = textWidth },
-            ui.text{ text = event.day .. " · " .. event.when, font = "sans", size = tokens.label.medium,
+            ui.text{ text = event.day .. " · " .. event.when, font = "Google Sans Flex", size = tokens.label.medium,
                 color = "secondaryForeground", maxWidth = textWidth } },
-        event.countdown and ui.text{ text = event.countdown, font = "sans", size = tokens.label.medium,
+        event.countdown and ui.text{ text = event.countdown, font = "Google Sans Flex", size = tokens.label.medium,
             weight = "semibold", color = "accent" } or nil }
 end
 
@@ -102,7 +102,7 @@ local function batteryChip(ctx, m, mode)
             color = tint, filled = true, animate = "effects" })
     local items = { glyph }
     if mode == nil or mode == "beside" then
-        items[#items + 1] = ui.text{ text = style.vertical and m.text or m.percent, font = "sans",
+        items[#items + 1] = ui.text{ text = style.vertical and m.text or m.percent, font = "Google Sans Flex",
             size = (style.vertical and tokens.label.small or tokens.label.large) * scale,
             weight = "medium", color = tint, reserve = not style.vertical and m.reserve or nil }
     end
@@ -135,14 +135,14 @@ local function statsMeter(ctx, entry, variant)
     local compact = entry.available and tostring(math.round(entry.value)) or "--"
     if variant == "gauge" then
         return require("./stats").gauge(entry.value, tokens.bar.inner * scale, tint,
-            ui.text{ text = compact, font = "sans", size = tokens.label.small * scale, weight = "medium",
+            ui.text{ text = compact, font = "Google Sans Flex", size = tokens.label.small * scale, weight = "medium",
                 color = style.textColor ~= nil and "foreground" or tint })
     end
     local parts = {
         surface.icon(entry.key == "cpu" and "memory" or "memory_alt",
             { size = tokens.icon.small * scale, color = tint }),
         ui.text{ text = style.vertical and compact or text,
-            font = "sans", size = (style.vertical and tokens.label.small or tokens.label.large) * scale,
+            font = "Google Sans Flex", size = (style.vertical and tokens.label.small or tokens.label.large) * scale,
             weight = "medium", color = style.textColor ~= nil and "foreground" or tint,
             reserve = not style.vertical and ctx.format.percent(1) or nil },
     }
@@ -207,7 +207,7 @@ return require("./skin")({
         local style = ctx.data.bar.style
         local scale = style.height / 60
         return surface.pill(style, {
-            ui.text{ text = m.short, font = "sans", size = tokens.label.large * scale,
+            ui.text{ text = m.short, font = "Google Sans Flex", size = tokens.label.large * scale,
                 weight = "medium", color = style.textColor ~= nil and "foreground" or "secondaryAccent",
                 maxWidth = style.vertical and 28 * scale or nil },
         }, { hover = status.hover })
@@ -254,7 +254,7 @@ return require("./skin")({
         local scale = style.height / 60
         local items = { surface.icon("public", { size = tokens.icon.medium * scale, color = "secondaryAccent" }) }
         if style.vertical then
-            items[#items + 1] = ui.text{ text = string.format("%02d", m.clocks[1].hour), font = "sans",
+            items[#items + 1] = ui.text{ text = string.format("%02d", m.clocks[1].hour), font = "Google Sans Flex",
                 size = tokens.label.small * scale, weight = "medium", color = "secondaryAccent" }
         else
             for index = 1, m.shown do
@@ -262,9 +262,9 @@ return require("./skin")({
                 if index > 1 then
                     items[#items + 1] = ui.box{ w = 1, h = tokens.label.medium * scale, fill = "foreground/0.12" }
                 end
-                items[#items + 1] = ui.text{ text = clock.short, font = "sans", size = tokens.label.medium * scale,
+                items[#items + 1] = ui.text{ text = clock.short, font = "Google Sans Flex", size = tokens.label.medium * scale,
                     weight = "medium", color = "secondaryForeground" }
-                items[#items + 1] = ui.text{ text = clock.time, font = "sans", size = tokens.label.large * scale,
+                items[#items + 1] = ui.text{ text = clock.time, font = "Google Sans Flex", size = tokens.label.large * scale,
                     weight = "medium", color = "secondaryAccent", reserve = "00:00 PM" }
             end
         end
@@ -280,7 +280,7 @@ return require("./skin")({
                 h = tokens.icon.medium * scale, placeholder = "app.dashed" }
         end
         if m.display ~= "icon_only" then
-            props[#props + 1] = ui.text{ text = m.title, font = "sans", size = tokens.body.small * scale,
+            props[#props + 1] = ui.text{ text = m.title, font = "Google Sans Flex", size = tokens.body.small * scale,
                 color = style.textColor ~= nil and "foreground" or "accent", maxWidth = m.maxWidth,
                 rotate = style.vertical and 90 or nil, animate = "effects" }
         end
@@ -311,13 +311,13 @@ return require("./skin")({
                 pad = tokens.padding.extraSmall * scale }
             column[#column + 1] = icon
             if m.showDate then
-                column[#column + 1] = ui.text{ text = string.match(m.date, "^(%a+)") or m.date, font = "sans",
+                column[#column + 1] = ui.text{ text = string.match(m.date, "^(%a+)") or m.date, font = "Google Sans Flex",
                     size = tokens.body.small * 0.9 * scale, color = tint }
             end
             column[#column + 1] = ui.column{ gap = 0,
-                ui.text{ text = m.hour, font = "sans", size = size, weight = "medium", color = tint },
-                ui.text{ text = m.minute, font = "sans", size = size, weight = "medium", color = tint },
-                m.meridiem and ui.text{ text = m.meridiem, font = "sans", size = tokens.body.small * 0.9 * scale,
+                ui.text{ text = m.hour, font = "Google Sans Flex", size = size, weight = "medium", color = tint },
+                ui.text{ text = m.minute, font = "Google Sans Flex", size = size, weight = "medium", color = tint },
+                m.meridiem and ui.text{ text = m.meridiem, font = "Google Sans Flex", size = tokens.body.small * 0.9 * scale,
                     color = tint } or nil }
             return ui.column(column)
         end
@@ -325,9 +325,9 @@ return require("./skin")({
             pad = tokens.padding.small * scale }
         row[#row + 1] = icon
         if m.showDate then
-            row[#row + 1] = ui.text{ text = m.date, font = "sans", size = size, color = tint }
+            row[#row + 1] = ui.text{ text = m.date, font = "Google Sans Flex", size = size, color = tint }
         end
-        row[#row + 1] = ui.text{ text = m.time, font = "sans", size = size, weight = "medium", color = tint,
+        row[#row + 1] = ui.text{ text = m.time, font = "Google Sans Flex", size = size, weight = "medium", color = tint,
             reserve = "00:00 PM" }
         return ui.row(row)
     end,
@@ -340,9 +340,9 @@ return require("./skin")({
         if event then
             items[#items + 1] = ui.box{ w = 6, h = 6, radius = 3, fill = event.color }
             if not style.vertical then
-                items[#items + 1] = ui.text{ text = event.title, font = "sans", size = tokens.label.large * scale,
+                items[#items + 1] = ui.text{ text = event.title, font = "Google Sans Flex", size = tokens.label.large * scale,
                     weight = "medium", maxWidth = 130 }
-                items[#items + 1] = ui.text{ text = event.countdown, font = "sans", size = tokens.label.medium * scale,
+                items[#items + 1] = ui.text{ text = event.countdown, font = "Google Sans Flex", size = tokens.label.medium * scale,
                     weight = "semibold", color = "accent" }
             end
         end
@@ -354,7 +354,7 @@ return require("./skin")({
         return surface.pill(style, {
             surface.icon(icons.weather(m.code, m.isDay), { size = tokens.icon.medium * scale,
                 color = "secondaryAccent" }),
-            ui.text{ text = m.temp, font = "sans",
+            ui.text{ text = m.temp, font = "Google Sans Flex",
                 size = (style.vertical and tokens.label.medium or tokens.label.large) * scale,
                 weight = "medium", color = "accent" },
         }, { hover = status.hover, help = m.condition })
@@ -369,7 +369,7 @@ return require("./skin")({
                 rows[#rows + 1] = calendarAgenda(event, index == 1)
             end
             if #m.agenda == 0 then
-                rows[#rows + 1] = ui.text{ text = omniwm.l10n("No upcoming events"), font = "sans",
+                rows[#rows + 1] = ui.text{ text = omniwm.l10n("No upcoming events"), font = "Google Sans Flex",
                     size = tokens.body.small, color = "secondaryForeground" }
             end
         elseif m.action and m.month then
@@ -390,7 +390,7 @@ return require("./skin")({
         return surface.pill(style, {
             surface.icon(icons.volume(m.level, m.muted), { size = tokens.icon.medium * scale, color = tint,
                 filled = true, animate = "effects" }),
-            ui.text{ text = style.vertical and tostring(m.volume) or m.percent, font = "sans",
+            ui.text{ text = style.vertical and tostring(m.volume) or m.percent, font = "Google Sans Flex",
                 size = (style.vertical and tokens.label.small or tokens.label.large) * scale, weight = "medium",
                 color = tint, reserve = not style.vertical and ctx.format.percent(1) or nil },
         }, { hover = status.hover })
@@ -402,7 +402,7 @@ return require("./skin")({
         local items = { surface.icon(if m.playing then "music_note" else "pause", { color = "secondaryAccent",
             size = tokens.icon.medium * scale, filled = true, animate = "effects" }) }
         if not style.vertical then
-            items[2] = ui.text{ text = m.title, font = "sans", size = tokens.label.large * scale, weight = "medium",
+            items[2] = ui.text{ text = m.title, font = "Google Sans Flex", size = tokens.label.large * scale, weight = "medium",
                 maxWidth = 160 }
         end
         return surface.pill(style, items, { hover = status.hover })
@@ -411,7 +411,7 @@ return require("./skin")({
         return status.panel(mediatab.size.w + 2 * tokens.padding.large, { mediatab.tab(ctx, m) })
     end,
     text = function(props)
-        props.font = props.font or "sans"
+        props.font = props.font or "Google Sans Flex"
         if props.color == nil and props.role == "secondary" then
             props.color = "secondaryForeground"
         end
@@ -448,23 +448,23 @@ return require("./skin")({
             return false
         end
         if not m.host then
-            return ui.text{ text = omniwm.l10n("Loading…"), font = "sans", size = tokens.body.small }
+            return ui.text{ text = omniwm.l10n("Loading…"), font = "Google Sans Flex", size = tokens.body.small }
         end
         local host = m.host
         local inner = width - tokens.padding.medium * 2
         return ui.column{ w = width, pad = tokens.padding.medium, gap = tokens.spacing.small,
             radius = tokens.rounding.large, fill = "surface", center = false,
             ui.row{ w = inner, gap = tokens.spacing.large,
-                ui.text{ text = host.name, font = "sans", size = tokens.title.medium, weight = "medium", maxWidth = inner / 2 },
+                ui.text{ text = host.name, font = "Google Sans Flex", size = tokens.title.medium, weight = "medium", maxWidth = inner / 2 },
                 ui.box{ grow = 1, h = 1 },
-                ui.text{ text = host.uptime, font = "sans", size = tokens.body.small, color = "secondaryForeground" } },
-            ui.text{ text = m.memory.title .. " · " .. m.memory.detail, font = "sans", size = tokens.body.small,
+                ui.text{ text = host.uptime, font = "Google Sans Flex", size = tokens.body.small, color = "secondaryForeground" } },
+            ui.text{ text = m.memory.title .. " · " .. m.memory.detail, font = "Google Sans Flex", size = tokens.body.small,
                 maxWidth = inner, lines = 2 },
-            ui.text{ text = m.disk.title .. " · " .. m.disk.detail, font = "sans", size = tokens.body.small,
+            ui.text{ text = m.disk.title .. " · " .. m.disk.detail, font = "Google Sans Flex", size = tokens.body.small,
                 maxWidth = inner, lines = 2 },
-            ui.text{ text = host.model .. " · " .. host.os, font = "sans", size = tokens.label.medium,
+            ui.text{ text = host.model .. " · " .. host.os, font = "Google Sans Flex", size = tokens.label.medium,
                 color = "secondaryForeground", maxWidth = inner },
-            ui.text{ text = table.concat(m.displays, "  ·  "), font = "sans", size = tokens.label.medium,
+            ui.text{ text = table.concat(m.displays, "  ·  "), font = "Google Sans Flex", size = tokens.label.medium,
                 color = "secondaryForeground", maxWidth = inner, lines = 2 } }
     end,
     panel = panel,
@@ -510,7 +510,7 @@ return require("./skin")({
         local size = math.max(11, m.icon * 0.62)
         return ui.row{ align = "topTrailing", dx = 3, dy = -3, h = size, radius = size / 2, fill = "tertiaryAccent",
             ui.box{ w = 3, h = 1 },
-            ui.text{ text = text, font = "sans", size = 9, weight = "bold", color = "background" },
+            ui.text{ text = text, font = "Google Sans Flex", size = 9, weight = "bold", color = "background" },
             ui.box{ w = 3, h = 1 } }
     end,
     notificationBadge = function(item, mode, m)
@@ -523,7 +523,7 @@ return require("./skin")({
         return ui.row{ align = "topLeading", dx = -3, dy = -3, h = height, radius = height / 2, fill = "badge",
             border = "surface", borderWidth = 1,
             ui.box{ w = 3, h = 1 },
-            ui.text{ text = item.badge, font = "sans", size = math.max(8, m.icon * 0.42), weight = "bold", color = "#FFFFFFFF",
+            ui.text{ text = item.badge, font = "Google Sans Flex", size = math.max(8, m.icon * 0.42), weight = "bold", color = "#FFFFFFFF",
                 maxWidth = m.slot },
             ui.box{ w = 3, h = 1 } }
     end,
@@ -604,7 +604,7 @@ return require("./skin")({
     scratchpadLabel = function(scratchpad, style, m, text, width)
         local tint = scratchpadColors(scratchpad, style)
         return ui.stack{ w = width or (m.vertical and m.item - 6 or nil), h = m.item - 6,
-            ui.text{ text = text, font = "sans",
+            ui.text{ text = text, font = "Google Sans Flex",
                 size = if width then math.min(tokens.label.medium * m.scale, width / 2) else tokens.label.medium * m.scale,
                 weight = "medium", color = tint,
                 maxWidth = width } }
@@ -614,7 +614,7 @@ return require("./skin")({
         local height = m.item - 8
         return ui.row{ h = height, radius = height / 2, fill = chip,
             ui.box{ w = 4, h = 1 },
-            ui.text{ text = text, font = "sans", size = 10, weight = "bold", color = tint },
+            ui.text{ text = text, font = "Google Sans Flex", size = 10, weight = "bold", color = tint },
             ui.box{ w = 4, h = 1 } }
     end,
     scratchpadIcon = function(_, glyph, member, _, style)
@@ -659,7 +659,7 @@ return require("./skin")({
         row.gap = tokens.spacing.small
         row.radius = tokens.rounding.large
         row.fill = window.focused and "secondaryContainer" or nil
-        row[1].font = "sans"
+        row[1].font = "Google Sans Flex"
         row[1].maxWidth = math.max(0, row[1].maxWidth - tokens.icon.small - 2 * tokens.spacing.small)
         table.insert(row, 1, surface.icon(window.hidden and "visibility_off" or "web_asset",
             { size = tokens.icon.small, color = window.focused and "secondaryContainerForeground" or "secondaryForeground" }))

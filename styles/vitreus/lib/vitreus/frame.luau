@@ -64,7 +64,7 @@ local function geometry(ctx, k, size, names, widths, place, metrics)
     local slots = {}
     for _, name in names do
         local y = if name == "clock" then lv.clk + 30 * k.bu elseif name == "controls" then lv.ctl
-            elseif name == "gear" then lv.set elseif name == "search" then lv.sr
+            elseif name == "omniwm" then lv.set elseif name == "search" then lv.sr
             elseif name == "apple" or name == "app" then lv[name]
             elseif name == "tray" or name == "privacy" then lv.tray + trayWidth / 2
             elseif name == "title" then lv.tm else lv.ws

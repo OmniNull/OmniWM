@@ -47,7 +47,7 @@ extension ShellVitreusBarTests {
         function render(ctx)
             local k = units.of({ size = { w = 1920, h = 1080 } }, 1)
             local rows = {}
-            for _, name in { "search", "gear", "controls" } do
+            for _, name in { "search", "omniwm", "controls" } do
                 rows[#rows + 1] = table.concat({ require("../lib/vitreus/bar/buttons").width(ctx, k, name) }, " ")
             end
             for _, name in { "marks", "tray", "clock" } do
@@ -57,7 +57,7 @@ extension ShellVitreusBarTests {
         end
         """)
         let measured = try XCTUnwrap(widths.first).split(separator: ";").flatMap { Self.numbers(String($0)) }
-        expect(measured, [16.2, 0, 20.25, 0, 17.55, 0, 172.8, 0, 0, 0, 0, 0], "piece widths")
+        expect(measured, [16.2, 0, 20.25, 0, 17.55, 0, 172.8, 0, 0, 0, 0, 0, 0], "piece widths")
     }
 
     func testPencilIconsKeepTheVitreusStrokesAndJitterInDegrees() throws {
@@ -65,7 +65,7 @@ extension ShellVitreusBarTests {
         local pencil = require("../lib/vitreus/pencil")
         function render(ctx)
             local rows = {}
-            for _, spec in { { "gear", 0, 0 }, { "search", 0, 0 }, { "controls", 1, 3 } } do
+            for _, spec in { { "search", 0, 0 }, { "controls", 1, 3 } } do
                 local passes = pencil.icon(spec[1], 100, 50, 1.35, spec[2], spec[3])
                 local parts = { spec[1], #passes }
                 for _, pass in passes do
@@ -73,32 +73,34 @@ extension ShellVitreusBarTests {
                 end
                 rows[#rows + 1] = table.concat(parts, " ")
             end
-            local gear = pencil.icon("gear", 100, 50, 1.35, 1, 3)
+            local search = pencil.icon("search", 100, 50, 1.35, 1, 3)
             local over = pencil.icon("overview", 10, 10, 24.3, 0, 0, 1.35, 2)
             return ui.column{
-                ui.text{ text = table.concat(rows, ";") }, ui.text{ text = gear[1].d }, ui.text{ text = gear[6].d },
+                ui.text{ text = table.concat(rows, ";") }, ui.text{ text = search[1].d }, ui.text{ text = search[4].d },
                 ui.text{ text = over[4].d .. "|" .. over[4].width .. "|" .. over[4].tone },
-                ui.stack{ w = 200, h = 100, table.unpack(pencil.draw(200, 100, gear, "foreground", 0.65)) },
+                ui.stack{ w = 200, h = 100, table.unpack(pencil.draw(200, 100, search, "foreground", 0.65)) },
             }
         end
         """)
         let heads = lines[0].split(separator: ";").map { $0.split(separator: " ").prefix(4).joined(separator: " ") }
-        XCTAssertEqual(heads, [(1.7, "gear 20"), (1.7, "search 4"), (1.6, "controls 8")].map {
+        XCTAssertEqual(heads, [(1.7, "search 4"), (1.6, "controls 8")].map {
             "\($0.1) \($0.0 * unit)/1 \($0.0 * unit * 0.7)/0.34"
         })
         let jitter = 0.4 * unit
-        let radius = 3.6 * unit * (1 + 0.04 * sine(3 * 47 + 12400))
-        let ring = (x: 100 + jitter * sine(3 * 48 + 21297), y: 50 + jitter * sine(3 * 60 + 21454))
+        let radius = 4 * unit * (1 + 0.04 * sine(3 * 47 + 13020))
+        let ring = (
+            x: 100 - 1.2 * unit + jitter * sine(3 * 51 + 22357), y: 50 - 1.2 * unit + jitter * sine(3 * 63 + 22514)
+        )
         expect(Self.numbers(lines[1]), [
             ring.x, ring.y - radius, radius, radius, 0, 1, 1, ring.x, ring.y + radius, radius, radius, 0, 1, 1,
             ring.x, ring.y - radius
         ], "ring")
         expect(Self.numbers(lines[2]), [
-            100 + 0.5 * unit + jitter * sine(3 * 73 + 22101),
-            50 + 0.4 * unit - 4.9 * unit + jitter * sine(3 * 47 + 22161),
-            100 + 0.5 * unit + jitter * sine(3 * 49 + 22198),
-            50 + 0.4 * unit - 7.3 * unit + jitter * sine(3 * 54 + 22258)
-        ], "faint first tooth")
+            100 + 0.5 * unit + 1.8 * unit + jitter * sine(3 * 70 + 22684),
+            50 + 0.4 * unit + 1.8 * unit + jitter * sine(3 * 44 + 22744),
+            100 + 0.5 * unit + 5 * unit + jitter * sine(3 * 46 + 22781),
+            50 + 0.4 * unit + 5 * unit + jitter * sine(3 * 51 + 22841)
+        ], "faint handle")
         let over = lines[3].split(separator: "|").map(String.init)
         let rest = 0.1 * unit
         let (dx, dy) = (10 + 0.4 * unit, 10 + 0.3 * unit)

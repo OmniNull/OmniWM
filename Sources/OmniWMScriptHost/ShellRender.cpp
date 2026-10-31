@@ -211,7 +211,7 @@ const Name roleNames[] = {
 constexpr size_t roleCount = sizeof roleNames / sizeof roleNames[0];
 const Name styleNames[] = {{"body", 4}, {"bold", 4}, {"mono", 4}, {"small", 5}, {"caption", 7}, {"rounded", 7}};
 constexpr size_t styleCount = sizeof styleNames / sizeof styleNames[0];
-const Name fontNames[] = {{"system", 6}, {"sans", 4}, {"symbols", 7}};
+const Name fontNames[] = {{"system", 6}};
 constexpr size_t fontCount = sizeof fontNames / sizeof fontNames[0];
 static_assert(fontCount == OMNI_STYLE_FONT_CUSTOM);
 constexpr size_t maximumUnknownFonts = 16;
@@ -1126,7 +1126,8 @@ void readMorphAdhesion(lua_State *L, std::string &recipe, unsigned sourceEdge, o
 
 void readMorphBindings(lua_State *L, std::string &recipe, omni_instance *instance) {
     lua_rawgetfield(L, -1, "source");
-    if (!lua_isnil(L, -1)) {
+    const bool sourced = !lua_isnil(L, -1);
+    if (sourced) {
         if (!lua_istable(L, -1)) { luaL_error(L, "morph.source must be a table"); }
         recipeFields(L, lua_gettop(L), {"target", "edge", "from", "span", "pads", "adhere", "contact"}, "morph.source", instance);
         lua_rawgetfield(L, -1, "target");
@@ -1163,7 +1164,18 @@ void readMorphBindings(lua_State *L, std::string &recipe, omni_instance *instanc
     lua_rawgetfield(L, -1, "trigger");
     if (!lua_isnil(L, -1)) {
         if (!lua_istable(L, -1)) { luaL_error(L, "morph.trigger must be a table"); }
-        recipeFields(L, lua_gettop(L), {"shape", "at", "rising", "contact"}, "morph.trigger", instance);
+        recipeFields(L, lua_gettop(L), {"shape", "at", "rising", "contact", "beat"}, "morph.trigger", instance);
+        if (recipeBool(L, "beat", false)) {
+            for (const char *field : {"shape", "at", "rising", "contact"}) {
+                lua_rawgetfield(L, -1, field);
+                if (!lua_isnil(L, -1)) { luaL_error(L, "morph.trigger.beat cannot be combined with %s", field); }
+                lua_pop(L, 1);
+            }
+            if (sourced) { luaL_error(L, "morph.source cannot be combined with morph.trigger"); }
+            recipe += "|beat:1";
+            lua_pop(L, 1);
+            return;
+        }
         lua_rawgetfield(L, -1, "shape");
         uint64_t shape = recipeKey(L, -1, "morph.trigger.shape", instance);
         lua_pop(L, 1);
@@ -2095,7 +2107,11 @@ uint32_t readSpectrumShape(lua_State *L, int index, omni_wire_node &node, omni_i
     lua_rawgetfield(L, index, "spectrum");
     if (lua_isnil(L, -1)) { lua_pop(L, 1); return 0; }
     if (!lua_istable(L, -1)) { luaL_error(L, "ui.shape.spectrum must be a table"); }
-    if ((node.behavior_flags & 6) != 0 || (node.behavior_flags & OMNI_NODE_BEHAVIOR_GLASS_HIT_DISABLED) == 0) {
+    lua_rawgetfield(L, -1, "swell");
+    const bool swell = !lua_isnil(L, -1);
+    lua_pop(L, 1);
+    if ((node.behavior_flags & 6) != 0
+        || (!swell && (node.behavior_flags & OMNI_NODE_BEHAVIOR_GLASS_HIT_DISABLED) == 0)) {
         luaL_error(L, "spectrum requires a rectangular ui.shape with hit=false");
     }
     for (const char *field : {"animate", "morph", "reveal", "follow"}) {
@@ -2103,11 +2119,14 @@ uint32_t readSpectrumShape(lua_State *L, int index, omni_wire_node &node, omni_i
         if (!lua_isnil(L, -1)) { luaL_error(L, "spectrum owns shape geometry and cannot combine with %s", field); }
         lua_pop(L, 1);
     }
-    recipeFields(L, lua_gettop(L), {"band", "gain", "taper", "inset", "threshold", "response", "bounce"},
+    recipeFields(L, lua_gettop(L), {"band", "gain", "taper", "inset", "threshold", "response", "bounce", "swell"},
                  "shape spectrum", instance);
-    lua_rawgetfield(L, -1, "band");
-    const float band = inputNumber(L, -1, "spectrum band", 0, 1);
-    lua_pop(L, 1);
+    float band = 0;
+    if (!swell) {
+        lua_rawgetfield(L, -1, "band");
+        band = inputNumber(L, -1, "spectrum band", 0, 1);
+        lua_pop(L, 1);
+    }
     const float inset = inputField(L, "inset", 0, 0, 256);
     if (node.width <= 0 || node.height <= inset) {
         luaL_error(L, "spectrum requires positive explicit width and height greater than inset");
@@ -2116,6 +2135,14 @@ uint32_t readSpectrumShape(lua_State *L, int index, omni_wire_node &node, omni_i
     recipeValues(L, recipe, ':', {band, inputField(L, "gain", 1, 0, 10), inputField(L, "taper", 1, 0, 1),
         inset, inputField(L, "threshold", 0, 0, 256),
         inputField(L, "response", 0.276f, 0.05, 2.5), inputField(L, "bounce", 0.43f, 0, 0.95)});
+    if (swell) {
+        lua_rawgetfield(L, -1, "swell");
+        if (!lua_istable(L, -1)) { luaL_error(L, "spectrum.swell must be a table"); }
+        recipeFields(L, lua_gettop(L), {"w", "h"}, "spectrum swell", instance);
+        recipe += "|swell";
+        recipeValues(L, recipe, ':', {inputField(L, "w", 0, 0, 256), inputField(L, "h", 0, 0, 256)});
+        lua_pop(L, 1);
+    }
     lua_pop(L, 1);
     node.options |= OMNI_NODE_OPTION_AUDIO;
     return internString(L, recipe.data(), recipe.size(), instance);
@@ -2299,7 +2326,9 @@ void encodeNodeContents(lua_State *L, int index, omni_instance *instance, int de
     if (node.morph != 0) {
         lua_rawgetfield(L, index, "morph");
         node.morph = readMorph(L, node.kind == 12, node.kind == 12 && (node.behavior_flags & 6) == 4, instance);
-        lua_pop(L, 1);
+        lua_rawgetfield(L, -1, "trigger");
+        if (lua_istable(L, -1) && recipeBool(L, "beat", false)) { node.options |= OMNI_NODE_OPTION_AUDIO; }
+        lua_pop(L, 2);
     }
     if (node.texture_ref != 0 && node.kind != 7) { luaL_error(L, "texture is only supported on ui.shader"); }
     if ((node.appear != 0 || node.exit != 0) && (node.options & OMNI_NODE_OPTION_MASK) != 0) {
@@ -2994,14 +3023,14 @@ void publishOutput(omni_instance *instance, ViewOutput &view, omni_render_stats 
                 flags |= OMNI_WIRE_AUDIO;
             }
         }
-        omni_wire_header header{
-            OMNI_WIRE_MAGIC,
-            static_cast<uint32_t>(view.nodes.size()),
-            package.pendingCount,
-            flags,
-            instance->deps,
-            package.epoch,
-        };
+        omni_wire_header header;
+        std::memset(&header, 0, sizeof header);
+        header.magic = OMNI_WIRE_MAGIC;
+        header.node_count = static_cast<uint32_t>(view.nodes.size());
+        header.string_count = package.pendingCount;
+        header.flags = flags;
+        header.deps = instance->deps;
+        header.epoch = package.epoch;
         view.output.clear();
         auto *headerBytes = reinterpret_cast<const uint8_t *>(&header);
         view.output.insert(view.output.end(), headerBytes, headerBytes + sizeof header);
@@ -3731,6 +3760,9 @@ const char *validateTreeStructure(std::vector<omni_wire_node> &nodes, size_t sta
         }
         if (node.morph != 0) {
             auto recipe = recipeText(strings, node.morph);
+            if (recipe.find("|beat:1") != std::string_view::npos && node.reveal == 0) {
+                return "morph.trigger.beat requires the shape's own reveal";
+            }
             bool independent = recipe.find("|track:") != std::string_view::npos ||
                 (node.kind == 12 && (node.reveal != 0 || recipe.find("|edges:") != std::string_view::npos
                 || recipe.find("|source:") != std::string_view::npos || recipe.find("|trigger:") != std::string_view::npos));

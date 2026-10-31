@@ -146,6 +146,45 @@ final class TrackpadGestureIntentTests: XCTestCase {
         )
     }
 
+    func testOnlyAmbiguousShortSwipeStartsMayStillResolve() {
+        let config = makeConfig(columnEnabled: false, workspaceFingers: 3, workspaceAxis: .vertical)
+        let limit = TrackpadGestureIntent.undecidedDirectionTravelLimit
+        let ratio = TrackpadGestureIntent.undecidedDirectionAxisRatio
+        let diagonal = CGVector(dx: limit / 2, dy: limit / 2 / ratio)
+        let offAxis = CGVector(dx: diagonal.dx, dy: diagonal.dy.nextDown)
+        let tooFar = CGVector(dx: limit, dy: limit / ratio)
+        XCTAssertNil(TrackpadGestureIntent.resolveMode(
+            config,
+            fingerCount: 3,
+            cumulativeTranslation: diagonal,
+            columnScrollAxis: .horizontal,
+            columnContextAvailable: false
+        ))
+        XCTAssertTrue(TrackpadGestureIntent.directionMayStillResolve(
+            config, fingerCount: 3, cumulativeTranslation: diagonal
+        ))
+        XCTAssertFalse(TrackpadGestureIntent.directionMayStillResolve(
+            config, fingerCount: 3, cumulativeTranslation: offAxis
+        ))
+        XCTAssertFalse(TrackpadGestureIntent.directionMayStillResolve(
+            config, fingerCount: 3, cumulativeTranslation: tooFar
+        ))
+        XCTAssertFalse(TrackpadGestureIntent.directionMayStillResolve(
+            config, fingerCount: 4, cumulativeTranslation: diagonal
+        ))
+        XCTAssertFalse(TrackpadGestureIntent.directionMayStillResolve(
+            makeConfig(columnEnabled: false, workspaceEnabled: false),
+            fingerCount: 3,
+            cumulativeTranslation: diagonal
+        ))
+        let scrollFingers = TrackpadGestureIntent.appScrollFingerCount
+        XCTAssertFalse(TrackpadGestureIntent.directionMayStillResolve(
+            makeConfig(columnEnabled: false, workspaceFingers: scrollFingers, workspaceAxis: .vertical),
+            fingerCount: scrollFingers,
+            cumulativeTranslation: diagonal
+        ))
+    }
+
     func testGestureStartAllowedForEitherEnabledFingerCount() {
         let config = makeConfig(columnFingers: 3, workspaceFingers: 4)
         XCTAssertTrue(TrackpadGestureIntent.allowsGestureStart(config, fingerCount: 3))

@@ -4,8 +4,6 @@
 import AppKit
 import Foundation
 
-private let niriTouchpadGestureRecognitionThreshold: CGFloat = 16.0
-
 extension MouseEventHandler {
     struct GestureFrameMetrics {
         var cumulativeX: CGFloat
@@ -293,26 +291,30 @@ extension MouseEventHandler {
         if state.gesturePhase == .armed {
             let distanceSquared = metrics.cumulativeX * metrics.cumulativeX
                 + metrics.cumulativeY * metrics.cumulativeY
-            let thresholdSquared = niriTouchpadGestureRecognitionThreshold * niriTouchpadGestureRecognitionThreshold
-            guard distanceSquared >= thresholdSquared else {
-                state.gestureLastAverageX = average.x
-                state.gestureLastAverageY = average.y
-                state.gestureLastTimestamp = timestamp
+            let threshold = TrackpadGestureIntent.recognitionThreshold
+            guard distanceSquared >= threshold * threshold else {
+                rememberGestureSample(average, at: timestamp)
                 return
             }
-            guard commitGestureMode(metrics: metrics, lockedContext: lockedContext, timestamp: timestamp)
-            else { return }
+            guard commitGestureMode(metrics: metrics, lockedContext: lockedContext, timestamp: timestamp) else {
+                if state.gesturePhase == .armed { rememberGestureSample(average, at: timestamp) }
+                return
+            }
         }
 
-        state.gestureLastAverageX = average.x
-        state.gestureLastAverageY = average.y
-        state.gestureLastTimestamp = timestamp
+        rememberGestureSample(average, at: timestamp)
         dispatchCommittedGestureFrame(
             metrics: metrics,
             lockedContext: lockedContext,
             monitor: monitor,
             timestamp: timestamp
         )
+    }
+
+    private func rememberGestureSample(_ average: CGPoint, at timestamp: TimeInterval) {
+        state.gestureLastAverageX = average.x
+        state.gestureLastAverageY = average.y
+        state.gestureLastTimestamp = timestamp
     }
 
     static func averageGestureTouchPosition(

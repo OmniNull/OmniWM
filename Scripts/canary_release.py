@@ -114,29 +114,46 @@ def github_api(path):
         raise CanaryError(f"Invalid CI response: {error}") from error
 
 
+def ci_candidates(repo, head):
+    candidates = []
+    for commit, paths in commits(repo, "%H", "--first-parent", "-51", head):
+        candidates.append(commit)
+        if not all(map(is_docs_path, paths)):
+            break
+    return candidates or [head]
+
+
 def verify_ci(repo, repository):
     require(repository, "--repository or GITHUB_REPOSITORY is required for verify-ci")
     head = git(repo, "rev-parse", "HEAD")
-    pages = github_api(
-        f"repos/{repository}/actions/workflows/ci.yml/runs"
-        f"?branch=main&event=push&head_sha={head}&per_page=100"
+    commit, runs = head, []
+    for commit in ci_candidates(repo, head):
+        pages = github_api(
+            f"repos/{repository}/actions/workflows/ci.yml/runs"
+            f"?branch=main&event=push&head_sha={commit}&per_page=100"
+        )
+        runs = [run for page in pages for run in page["workflow_runs"]]
+        if runs:
+            break
+    require(
+        runs,
+        f"No OmniWM CI push run exists for main commit {head} or the app commit under its docs changes; "
+        "wait for CI and retry the canary.",
     )
-    runs = [run for page in pages for run in page["workflow_runs"]]
-    require(runs, f"No OmniWM CI push run exists for main commit {head}; wait for CI and retry the canary.")
     latest = max(runs, key=lambda run: run["run_number"])
     expected = {
-        "head_sha": head,
+        "head_sha": commit,
         "head_branch": "main",
         "event": "push",
         "path": ".github/workflows/ci.yml",
     }
     require(
         all(latest.get(key) == value for key, value in expected.items()),
-        f"Latest CI run does not match the checked-out main commit {head}.",
+        f"Latest CI run does not match main commit {commit}.",
     )
     require(
         latest.get("status") == "completed" and latest.get("conclusion") == "success",
-        f"Latest OmniWM CI run for {head} has not succeeded: {latest['html_url']} "
+        f"Latest OmniWM CI run for {commit} has not succeeded: {latest['html_url']} "
         f"({latest.get('status')}/{latest.get('conclusion')}); wait for CI and retry the canary.",
     )
     pages = github_api(f"repos/{repository}/actions/runs/{latest['id']}/jobs?filter=latest&per_page=100")
@@ -145,7 +162,7 @@ def verify_ci(repo, repository):
         matching = [job for job in jobs if job.get("name") == name]
         require(
             matching and all(job.get("status") == "completed" and job.get("conclusion") == "success" for job in matching),
-            f"{name} must complete successfully for {head}: {latest['html_url']}",
+            f"{name} must complete successfully for {commit}: {latest['html_url']}",
         )
     return latest
 
@@ -190,17 +207,21 @@ def notes(repo):
     return "\n".join(lines) + "\n"
 
 
-def app_changes(repo, *log_range):
+def commits(repo, entry_format, *log_range):
     log = git(
-        repo, "-c", "core.quotePath=false", "log", "--format=%x00- %h %s",
+        repo, "-c", "core.quotePath=false", "log", f"--format=%x00{entry_format}",
         "--name-only", "--no-renames", "--diff-merges=first-parent", *log_range,
     )
-    changes = []
     for record in log.split("\x00")[1:]:
         entry, *paths = [line for line in record.splitlines() if line]
-        if not paths or not all(map(is_docs_path, paths)):
-            changes.append(entry)
-    return changes
+        yield entry, paths
+
+
+def app_changes(repo, *log_range):
+    return [
+        entry for entry, paths in commits(repo, "- %h %s", *log_range)
+        if not paths or not all(map(is_docs_path, paths))
+    ]
 
 
 def is_docs_path(path):

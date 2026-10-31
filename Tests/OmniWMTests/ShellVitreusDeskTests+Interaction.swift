@@ -178,6 +178,26 @@ extension ShellVitreusDeskTests {
         XCTAssertFalse(widget.surface.containsShape(at: padding))
     }
 
+    func testToggleFlipsTheDeskOnItsDisplayAndClosesItForAnother() throws {
+        let shell = try shell()
+        let widget = try ShellRenderedWidget(
+            source: VitreusFixture.source(shell), resources: VitreusFixture.resources(shell)
+        )
+        let display = VitreusFixture.bar().monitorId
+        let other = VitreusFixture.bar(VitreusFixture.monitor(id: VitreusFixture.monitor().displayId + 1)).monitorId
+        func toggle(_ value: String) -> Bool {
+            VitreusFixture.trigger(widget.instance, "toggle", value)
+            VitreusFixture.show(widget)
+            let layout = widget.surface.layout
+            return layout.core.elements { _ in true }.contains { layout.core.key(of: $0) == VitreusFixture.key("desk") }
+        }
+        VitreusFixture.show(widget)
+        XCTAssertTrue(toggle(display))
+        XCTAssertFalse(toggle(display))
+        XCTAssertTrue(toggle(display))
+        XCTAssertFalse(toggle(other))
+    }
+
     func testChipsActOnlyWhenIdleAndResetOnlyWhileBusy() throws {
         let widget = try VitreusFixture.desk(shell())
         let layout = widget.surface.layout

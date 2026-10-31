@@ -42,7 +42,7 @@
       "kind": "type",
       "topic": "ui-elements",
       "anchor": "api-font",
-      "declaration": "export type Font = \"system\" | \"sans\" | \"rubik\" | \"symbols\" | string",
+      "declaration": "export type Font = \"system\" | string",
       "fields": [],
       "related": []
     },
@@ -280,12 +280,13 @@
       "kind": "type",
       "topic": "effects-shaders",
       "anchor": "api-shapetrigger",
-      "declaration": "export type ShapeTrigger = { shape: string, at: number, rising: boolean?, contact: boolean? }",
+      "declaration": "export type ShapeTrigger = { shape: string, at: number, rising: boolean?, contact: boolean? } | { beat: true }",
       "fields": [
         "shape",
         "at",
         "rising",
-        "contact"
+        "contact",
+        "beat"
       ],
       "related": []
     },
@@ -1956,7 +1957,7 @@
       "kind": "type",
       "topic": "effects-shaders",
       "anchor": "api-shapeprops",
-      "declaration": "export type ShapeProps = {\n    key: string?,\n    w: number?,\n    h: number?,\n    grow: number?,\n    align: Align?,\n    dx: number?,\n    dy: number?,\n    radius: number?,\n    shape: (\"rect\" | \"ellipse\" | \"frame\")?,\n    thickness: number?,\n    animate: Animate?,\n    rotate: number?,\n    reveal: ShapeReveal?,\n    follow: string?,\n    followRadius: (\"scaled\" | \"fixed\")?,\n    hit: boolean?,\n    shadowOffset: { x: number, y: number }?,\n    morph: ShapeMorph?,\n    spectrum: { band: number, gain: number?, taper: number?, inset: number?, threshold: number?,\n        response: number?, bounce: number? }?,\n}",
+      "declaration": "export type ShapeProps = {\n    key: string?,\n    w: number?,\n    h: number?,\n    grow: number?,\n    align: Align?,\n    dx: number?,\n    dy: number?,\n    radius: number?,\n    shape: (\"rect\" | \"ellipse\" | \"frame\")?,\n    thickness: number?,\n    animate: Animate?,\n    rotate: number?,\n    reveal: ShapeReveal?,\n    follow: string?,\n    followRadius: (\"scaled\" | \"fixed\")?,\n    hit: boolean?,\n    shadowOffset: { x: number, y: number }?,\n    morph: ShapeMorph?,\n    spectrum: { band: number?, gain: number?, taper: number?, inset: number?, threshold: number?,\n        response: number?, bounce: number?, swell: { w: number, h: number }? }?,\n}",
       "fields": [
         "key",
         "w",

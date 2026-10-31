@@ -75,6 +75,7 @@ private struct UpdatePopupView: View {
     let configuration: UpdatePopupConfiguration
 
     @State private var copiedCommand = false
+    @State private var installing = false
 
     var body: some View {
         VStack(alignment: .leading, spacing: 20) {
@@ -177,9 +178,19 @@ private struct UpdatePopupView: View {
 
     private var footer: some View {
         VStack(alignment: .leading, spacing: 12) {
-            Text("Updates stay manual. OmniWM can open the release page or copy the Homebrew upgrade command for you.")
-                .font(.system(size: 12))
-                .foregroundStyle(.secondary)
+            Group {
+                if configuration.installUpdate == nil {
+                    Text(
+                        "Updates stay manual. OmniWM can open the release page or copy the Homebrew upgrade command for you."
+                    )
+                } else {
+                    Text(
+                        "Install and Relaunch downloads this release from GitHub, checks its signature, replaces this copy of OmniWM and relaunches it."
+                    )
+                }
+            }
+            .font(.system(size: 12))
+            .foregroundStyle(.secondary)
 
             HStack(spacing: 10) {
                 Button("Skip This Version") {
@@ -208,10 +219,24 @@ private struct UpdatePopupView: View {
                     .buttonStyle(.omniGlass)
                 }
 
-                Button("Open Release Page") {
-                    configuration.openReleasePage()
+                if let installUpdate = configuration.installUpdate {
+                    Button("Open Release Page") {
+                        configuration.openReleasePage()
+                    }
+                    .buttonStyle(.omniGlass)
+
+                    Button(installing ? String(localized: "Installing…") : String(localized: "Install and Relaunch")) {
+                        installing = true
+                        installUpdate()
+                    }
+                    .buttonStyle(.omniGlassProminent)
+                    .disabled(installing)
+                } else {
+                    Button("Open Release Page") {
+                        configuration.openReleasePage()
+                    }
+                    .buttonStyle(.omniGlassProminent)
                 }
-                .buttonStyle(.omniGlassProminent)
             }
         }
     }

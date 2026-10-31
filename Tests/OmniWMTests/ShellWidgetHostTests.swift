@@ -3621,6 +3621,49 @@ final class ShellWidgetClickTests: XCTestCase {
         XCTAssertFalse(harness.host.trigger("test", name: "width", value: "17"))
     }
 
+    func testTheIslandRootIsListedAndTogglesThroughATriggerWithItsDisplay() async throws {
+        executionTimeAllowance = 60
+        guard let screen = NSScreen.screens.first(where: { $0.displayId == CGMainDisplayID() }) else {
+            throw XCTSkip("island toggles need the main display")
+        }
+        let main = Monitor.ID(displayId: CGMainDisplayID())
+        let harness = try harness("""
+        function render(ctx) return ui.box{ w = ctx.state.width or 5, h = 10 } end
+        function trigger(ctx, event)
+            if event.name == "toggle" then ctx.state.width = #event.value end
+        end
+        """, bars: [ShellBarKey(monitor: main): ShellBarData()], files: [
+            "shell.toml": "profiles.default.trailing = [\"test\", \"pop\"]\n",
+            "widgets/pop/init.luau": """
+            function render(ctx) return ui.box{ w = 5, h = 10 } end
+            function popout(ctx) return ui.box{ w = 50, h = 30 } end
+            """
+        ])
+        defer { harness.close() }
+        var layoutChanges = harness.layoutChanges.makeAsyncIterator()
+        while harness.host.slots(for: main).count < 2 {
+            try await layoutChanges.change()
+        }
+        XCTAssertEqual(harness.host.toggleNames, ["pop"])
+        harness.host.config.island = ShellIslandConfig(root: "test")
+        harness.host.config.island?.displays = .all
+        XCTAssertEqual(harness.host.toggleNames, ["pop", "test"])
+        XCTAssertTrue(harness.host.toggle("pop", on: main))
+        let popout = try XCTUnwrap(harness.host.popout)
+        XCTAssertFalse(harness.host.toggle("test", on: main))
+        XCTAssertIdentical(harness.host.popout, popout)
+        harness.host.desiredIslands = [DesiredIslandSurface(monitor: Monitor(
+            id: main, displayId: main.displayId, frame: screen.frame, visibleFrame: screen.visibleFrame,
+            hasNotch: false, name: "Main"
+        ), fullscreen: false)]
+        harness.host.refreshIslandData()
+        XCTAssertTrue(harness.host.toggle("test", on: main))
+        let width = CGFloat(IPCDisplayRef.identifier(main).count)
+        while harness.host.slots(for: main).first(where: { $0.id == "test" })?.size.width != width {
+            try await layoutChanges.change()
+        }
+    }
+
     func testTheWidgetReportFollowsLoadsAndFailures() async throws {
         executionTimeAllowance = 60
         let harness = try harness("function render(ctx) return ui.box{ w = 5, h = 10 } end")

@@ -44,11 +44,11 @@ local function weather(ctx: Context)
     local content = { gap = tokens.spacing.largeIncreased }
     content[1] = surface.icon(data and icons.weather(data.code, data.isDay) or "air",
         { size = tokens.icon.extraLarge * 1.6, color = "secondaryAccent" })
-    content[2] = message and ui.text{ text = message, font = "sans", size = tokens.body.medium,
+    content[2] = message and ui.text{ text = message, font = "Google Sans Flex", size = tokens.body.medium,
         maxWidth = WEATHER - tokens.icon.extraLarge * 1.6 - 60, lines = 3 } or ui.column{ gap = tokens.spacing.extraSmall,
-        ui.text{ text = data and data.temperature or "--", font = "sans",
+        ui.text{ text = data and data.temperature or "--", font = "Google Sans Flex",
             size = tokens.headline.medium, weight = "semibold", color = "accent" },
-        ui.text{ text = data and data.condition or omniwm.l10n("Unavailable"), font = "sans", size = tokens.body.small,
+        ui.text{ text = data and data.condition or omniwm.l10n("Unavailable"), font = "Google Sans Flex", size = tokens.body.small,
             maxWidth = WEATHER - tokens.icon.extraLarge * 1.6 - 60, lines = 2 } }
     return card(WEATHER, TOP, tokens.rounding.extraLarge * 1.5, { ui.row(content) })
 end
@@ -80,13 +80,13 @@ local function user(ctx: Context)
             surface.icon("clock_arrow_up", { size = tokens.icon.medium, color = "tertiaryContainerForeground" }) },
         ui.text{ align = "bottomLeading", dx = pictureEnd - tokens.padding.extraLargeIncreased + uptime
                 + tokens.spacing.small, dy = -(uptime - tokens.body.medium) / 2 + tokens.padding.small,
-            text = system and omniwm.l10n("up %@", duration(system.uptime)) or "", font = "sans",
+            text = system and omniwm.l10n("up %@", duration(system.uptime)) or "", font = "Google Sans Flex",
             size = tokens.body.medium, maxWidth = USER - pictureEnd - uptime - tokens.padding.extraLarge },
         ui.row{ align = "topLeading", dx = pictureEnd + tokens.spacing.small - tokens.padding.medium,
             dy = tokens.padding.extraSmall - pad, gap = tokens.spacing.extraSmall, radius = tokens.rounding.largeIncreased,
             fill = "secondaryContainer", pad = tokens.padding.small,
             surface.icon("select_window", { size = tokens.body.small, color = "secondaryContainerForeground" }),
-            ui.text{ text = "OmniWM…", font = "sans", size = tokens.body.small, color = "secondaryContainerForeground" } },
+            ui.text{ text = "OmniWM…", font = "Google Sans Flex", size = tokens.body.small, color = "secondaryContainerForeground" } },
         ui.box{ align = "topLeading", dx = pictureEnd + tokens.spacing.small + 4, dy = 40 - pad, w = 15, h = 15,
             radius = 7.5, fill = "secondaryContainer" },
         ui.box{ align = "topLeading", dx = pictureEnd + tokens.spacing.small, dy = 54 - pad, w = 10, h = 10,
@@ -129,7 +129,7 @@ local function calendar(ctx: Context, m)
                 hover = m and "secondaryContainerForeground/0.08" or nil,
                 onClick = action and action.command or m and m.open,
                 ui.text{ text = action and action.text or (m and omniwm.l10n("Open Calendar") or omniwm.l10n("Unavailable")),
-                    font = "sans", size = tokens.label.large, color = "secondaryContainerForeground" } } }
+                    font = "Google Sans Flex", size = tokens.label.large, color = "secondaryContainerForeground" } } }
         return card(CALENDAR, BOTTOM, tokens.rounding.extraLarge, { ui.column(column) })
     end
     local cell = math.floor(width / 7)
@@ -141,11 +141,11 @@ local function calendar(ctx: Context, m)
     column[#column + 1] = ui.row{ w = width,
         surface.button("chevron_left", "text", { onClick = m.previous, glyph = tokens.icon.small }),
         ui.stack{ grow = 1, h = 32, radius = 16, hover = "accent/0.08", onClick = m.today,
-            ui.text{ text = month.title, font = "sans", size = tokens.title.small, weight = "medium", color = "accent" } },
+            ui.text{ text = month.title, font = "Google Sans Flex", size = tokens.title.small, weight = "medium", color = "accent" } },
         surface.button("chevron_right", "text", { onClick = m.next, glyph = tokens.icon.small }) }
     local names = { gap = 0 }
     for index, name in month.weekdays do
-        names[index] = ui.stack{ w = cell, ui.text{ text = name, font = "sans", size = tokens.body.small,
+        names[index] = ui.stack{ w = cell, ui.text{ text = name, font = "Google Sans Flex", size = tokens.body.small,
             weight = "medium", color = weekend(index - 1) and "tertiaryAccent" or "foreground" } }
     end
     column[#column + 1] = ui.row(names)
@@ -162,7 +162,7 @@ local function calendar(ctx: Context, m)
                     entry[#entry + 1] = ui.path{ d = shapes.path("Sunny"), viewBox = shapes.viewBox, w = height + 6,
                         h = height + 6, fill = "accent" }
                 end
-                entry[#entry + 1] = ui.text{ text = tostring(day), font = "sans", size = tokens.body.small,
+                entry[#entry + 1] = ui.text{ text = tostring(day), font = "Google Sans Flex", size = tokens.body.small,
                     color = today and "accentForeground" or weekend(index) and "tertiaryAccent" or "secondaryForeground" }
             end
             line[#line + 1] = ui.stack(entry)
@@ -229,7 +229,7 @@ local function media(ctx: Context)
     art[#art + 1] = m and m.artwork and ui.image{ image = m.artwork, w = cover, h = cover }
         or surface.icon("art_track", { size = cover * 0.35, color = "secondaryForeground" })
     local function line(text: string, size: number, color: string)
-        return ui.text{ text = text, font = "sans", size = size, color = color, maxWidth = MEDIA - 32 }
+        return ui.text{ text = text, font = "Google Sans Flex", size = size, color = color, maxWidth = MEDIA - 32 }
     end
     local controls = ui.row{ w = MEDIA - 2 * tokens.padding.large, gap = tokens.spacing.extraSmall,
         surface.button("skip_previous", "tonal", { onClick = m and m.previous }),

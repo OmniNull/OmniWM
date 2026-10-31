@@ -6,7 +6,7 @@ local kit = require("./kit")
 local units = require("./units")
 local cards = require("./cards")
 
-local order = table.freeze({ "desk-pad", "desk-shelf", "desk-clip", "desk-focus", "desk-term", "desk-ask" })
+local order = table.freeze({ "desk-pad", "desk-shelf", "desk-clip", "desk-focus" })
 local rank = {}
 for index, widget in order do
     rank[widget] = index
@@ -267,7 +267,7 @@ end
 
 local function opener(ctx, at)
     local bar = ctx.data.bar
-    local scale = if at then 1 else math.min(1, ((bar.style and bar.style.height) or 32) / (32 * units.cu))
+    local scale = if at then at.scale or 1 else math.min(1, ((bar.style and bar.style.height) or 32) / (32 * units.cu))
     local cu = units.cu * scale
     local lit = if ctx.state.expanded then 1 else 0
     local hover = if ctx.state.openerHover then 1 else 0

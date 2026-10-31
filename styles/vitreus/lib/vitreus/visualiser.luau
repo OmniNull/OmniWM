@@ -1,6 +1,9 @@
 -- SPDX-License-Identifier: GPL-2.0-only
 -- Copyright (C) 2026 OmniNull — https://github.com/OmniNull/OmniWM
 
+local drawer = require("./drawer")
+local title = require("./bar/title")
+
 local spike = table.freeze({ response = 0.276, bounce = 0.43 })
 local placements = table.freeze({ bottom = 0, corners = 1, top = 2, left = 3, right = 4 })
 
@@ -82,7 +85,8 @@ local function plan(ctx, g, budget)
 end
 
 local function shapes(ctx, g, budget)
-    local geometry = plan(ctx, g, budget)
+    local wave = g.pill and not (g.frame and (g.frame.vertical or g.frame.seg))
+    local geometry = plan(ctx, g, if wave then finite(budget, 47) - 2 else budget)
     if not geometry then return nil end
     local cap = if geometry.capped then geometry.requested .. ":" .. geometry.count else nil
     if cap and ctx.state.visualiserCap ~= cap then
@@ -91,6 +95,10 @@ local function shapes(ctx, g, budget)
     ctx.state.visualiserCap = cap
     if geometry.count == 0 then return nil end
     local result = {}
+    if wave and not ctx.state.drawerPanel then
+        drawer.crests(result, { id = "beat", originX = title.player(ctx, g), edge = g.frame and g.frame.edge },
+            g, "close", { beat = true })
+    end
     for _, column in geometry.columns do
         local length = column.maxHeight + 3 * g.k.u
         local x = column.baseX + column.dirX * (column.maxHeight - 3 * g.k.u) / 2

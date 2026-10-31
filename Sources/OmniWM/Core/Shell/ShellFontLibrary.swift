@@ -124,10 +124,6 @@ final class ShellFontLibrary: Sendable {
         let names = Set(descriptors
             .compactMap { CTFontDescriptorCopyAttribute($0, kCTFontFamilyNameAttribute) as? String })
         return names.sorted().filter { name in
-            if ShellFontFamily.bundledFamilies.contains(name) {
-                Log.shell.notice("Skipped \(name) in \(file.path); OmniShell bundles it, so use its font alias")
-                return false
-            }
             guard (1 ... Int(OMNI_FONT_NAME_LIMIT)).contains(name.utf8.count), !name.unicodeScalars.contains(where: {
                 $0.value < 32 || $0.value == 127
             }) else {

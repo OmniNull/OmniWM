@@ -144,7 +144,7 @@ final class WorkspaceBarFillLeftGeometryTests: XCTestCase {
         let monitor = makeMonitor()
         let resolved = makeResolved(
             notchMode: .fillLeftOfNotch,
-            position: .belowMenuBar,
+            position: .overlappingMenuBar,
             height: 30,
             reserveLayoutSpace: true,
             xOffset: 19,

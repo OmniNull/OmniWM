@@ -42,6 +42,8 @@ enum ShellStyleFixture {
     @discardableResult
     static func install(_ name: String, into shell: URL, from directory: URL = directory) throws -> URL {
         let source = try source(name, in: directory)
+        _ = try ShellFontFixture.fonts()
+        _ = ShellFontLibrary.shared.fonts(in: ShellFontLibrary.folders([source]))
         let target = shell.appendingPathComponent(name, isDirectory: true)
         try FileManager.default.createDirectory(at: shell, withIntermediateDirectories: true)
         try FileManager.default.copyItem(at: source, to: target)

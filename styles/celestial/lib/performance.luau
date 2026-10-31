@@ -56,24 +56,24 @@ local function hero(ctx: Context, icon: string, label: string, detail: string, u
         ui.row{ align = "topLeading", dx = tokens.padding.large, dy = tokens.padding.large, gap = tokens.spacing.large,
             ui.stack(ringLayers),
             ui.column{ gap = tokens.spacing.extraSmall, center = false,
-                ui.text{ text = label, font = "sans", size = tokens.title.medium, color = tint },
-                ui.text{ text = detail, font = "sans", size = tokens.body.small, color = "secondaryForeground",
+                ui.text{ text = label, font = "Google Sans Flex", size = tokens.title.medium, color = tint },
+                ui.text{ text = detail, font = "Google Sans Flex", size = tokens.body.small, color = "secondaryForeground",
                     maxWidth = barWidth - ring - tokens.spacing.large } } },
         ui.column{ align = "bottomLeading", dx = tokens.padding.largeIncreased, dy = -tokens.padding.largeIncreased,
             gap = tokens.spacing.extraSmall, center = false,
             ui.row{ gap = tokens.spacing.extraSmall,
                 surface.icon(hot and "thermometer_alert" or "thermometer", { size = tokens.icon.medium,
                     color = hot and "error" or tint, filled = true }),
-                ui.text{ text = temperatureText, font = "sans", size = tokens.body.medium } },
+                ui.text{ text = temperatureText, font = "Google Sans Flex", size = tokens.body.medium } },
             ui.stack{ w = barWidth, h = tokens.padding.small, radius = tokens.padding.small / 2, fill = "secondaryContainer",
                 ui.box{ align = "leading", w = math.max(barWidth * math.clamp((temperature or 0) / 100, 0, 1), 1),
                     h = tokens.padding.small, radius = tokens.padding.small / 2, fill = tint, animate = motion.normal } } },
         ui.column{ align = "bottomTrailing", dx = -tokens.padding.medium, dy = -tokens.padding.medium, gap = 0,
-            ui.text{ text = omniwm.l10n("Usage"), font = "sans", size = tokens.body.small, color = "secondaryForeground" },
+            ui.text{ text = omniwm.l10n("Usage"), font = "Google Sans Flex", size = tokens.body.small, color = "secondaryForeground" },
             ui.stack{ w = shapeSize, h = shapeSize,
                 ui.path{ d = shapes.path(shape), viewBox = shapes.viewBox, w = shapeSize, h = shapeSize,
                     fill = "secondaryContainer", animate = "spatial" },
-                ui.text{ text = percent(ctx, usage), font = "sans", size = tokens.headline.small, color = tint } } } })
+                ui.text{ text = percent(ctx, usage), font = "Google Sans Flex", size = tokens.headline.small, color = tint } } } })
 end
 
 local function usageGauge(ctx: Context, fraction: number, tint: string, icon: string?)
@@ -83,9 +83,9 @@ local function usageGauge(ctx: Context, fraction: number, tint: string, icon: st
     if icon then
         inside[#inside + 1] = surface.icon(icon, { size = tokens.icon.medium, color = tint })
     end
-    inside[#inside + 1] = ui.text{ text = ctx.format.percent(fraction), font = "sans", size = tokens.title.large,
+    inside[#inside + 1] = ui.text{ text = ctx.format.percent(fraction), font = "Google Sans Flex", size = tokens.title.large,
         color = tint }
-    inside[#inside + 1] = ui.text{ text = omniwm.l10n("Used"), font = "sans", size = tokens.body.small,
+    inside[#inside + 1] = ui.text{ text = omniwm.l10n("Used"), font = "Google Sans Flex", size = tokens.body.small,
         color = "secondaryForeground" }
     layers[#layers + 1] = ui.column(inside)
     return ui.stack(layers)
@@ -98,8 +98,8 @@ local function storage(ctx: Context)
         ctx.format.bytes(system.disk.total, "file")) or ""
     return card(SIDE, NETWORK.h, tokens.rounding.extraExtraLarge, { ui.column{ gap = tokens.spacing.small,
         usageGauge(ctx, fraction, "secondaryAccent", "hard_drive"),
-        ui.text{ text = omniwm.l10n("Storage"), font = "sans", size = tokens.title.medium },
-        ui.text{ text = usage, font = "sans", size = tokens.body.small, color = "secondaryAccent",
+        ui.text{ text = omniwm.l10n("Storage"), font = "Google Sans Flex", size = tokens.title.medium },
+        ui.text{ text = usage, font = "Google Sans Flex", size = tokens.body.small, color = "secondaryAccent",
             maxWidth = SIDE - 24 } } })
 end
 
@@ -112,9 +112,9 @@ local function memory(ctx: Context)
     return card(SIDE, NETWORK.h, tokens.rounding.medium, { ui.column{ gap = tokens.spacing.small,
         ui.row{ gap = tokens.spacing.small,
             surface.icon("memory_alt", { size = tokens.icon.medium, color = "tertiaryAccent", filled = true }),
-            ui.text{ text = omniwm.l10n("Memory"), font = "sans", size = tokens.title.medium } },
+            ui.text{ text = omniwm.l10n("Memory"), font = "Google Sans Flex", size = tokens.title.medium } },
         usageGauge(ctx, fraction, "tertiaryAccent"),
-        ui.text{ text = usage, font = "sans", size = tokens.body.small, maxWidth = SIDE - 24 } } })
+        ui.text{ text = usage, font = "Google Sans Flex", size = tokens.body.small, maxWidth = SIDE - 24 } } })
 end
 
 local function network(ctx: Context)
@@ -140,15 +140,15 @@ local function network(ctx: Context)
             h = graph, fill = "tertiaryAccent/0.2" }
         layers[#layers + 1] = ui.path{ d = down, w = inner, h = graph, border = "tertiaryAccent", borderWidth = 2 }
     else
-        layers[#layers + 1] = ui.text{ text = omniwm.l10n("Collecting data…"), font = "sans", size = tokens.body.small,
+        layers[#layers + 1] = ui.text{ text = omniwm.l10n("Collecting data…"), font = "Google Sans Flex", size = tokens.body.small,
             color = "mutedForeground" }
     end
     local function line(icon: string, label: string, value: string, tint: string)
         return ui.row{ w = inner, gap = tokens.spacing.small,
             surface.icon(icon, { size = tokens.icon.medium, color = tint }),
-            ui.text{ text = label, font = "sans", size = tokens.body.small, color = "secondaryForeground" },
+            ui.text{ text = label, font = "Google Sans Flex", size = tokens.body.small, color = "secondaryForeground" },
             ui.box{ grow = 1, h = 1 },
-            ui.text{ text = value, font = "sans", size = tokens.body.medium, weight = "medium", color = tint } }
+            ui.text{ text = value, font = "Google Sans Flex", size = tokens.body.medium, weight = "medium", color = tint } }
     end
     local function speed(bytes: number?): string
         return ctx.format.bytes(bytes or 0, "file") .. "/s"
@@ -158,7 +158,7 @@ local function network(ctx: Context)
     return card(NETWORK.w, NETWORK.h, tokens.rounding.extraLarge, { ui.column{ w = inner, gap = 0, center = false,
         ui.row{ gap = tokens.spacing.small,
             surface.icon("swap_vert", { size = tokens.icon.medium, color = "accent" }),
-            ui.text{ text = omniwm.l10n("Network"), font = "sans", size = tokens.title.medium } },
+            ui.text{ text = omniwm.l10n("Network"), font = "Google Sans Flex", size = tokens.title.medium } },
         ui.box{ w = 1, h = tokens.spacing.medium },
         ui.stack(layers),
         ui.box{ w = 1, h = tokens.spacing.small },
@@ -179,14 +179,14 @@ local function tankContents(ctx: Context, accent: string, text: string, detail: 
     local inner = TANK - 2 * tokens.padding.medium
     return ui.column{ w = inner, h = HEIGHT - 2 * tokens.padding.medium, gap = 0, center = false,
         surface.icon("battery_full", { size = tokens.icon.large, color = accent }),
-        ui.text{ text = omniwm.l10n("Battery"), font = "sans", size = tokens.body.medium, color = text },
+        ui.text{ text = omniwm.l10n("Battery"), font = "Google Sans Flex", size = tokens.body.medium, color = text },
         ui.box{ grow = 1, w = 1 },
-        ui.text{ align = "trailing", text = status, font = "sans", size = tokens.body.small, color = detail },
+        ui.text{ align = "trailing", text = status, font = "Google Sans Flex", size = tokens.body.small, color = detail },
         ui.row{ w = inner, gap = tokens.spacing.extraSmall,
             ui.box{ grow = 1, h = 1 },
             surface.icon("bolt", { size = tokens.icon.large, color = accent, filled = true,
                 opacity = ctx.data.charging and 1 or 0, scale = ctx.data.charging and 1 or 0, animate = "fastSpatial" }),
-            ui.text{ text = ctx.format.percent(level / 100), font = "sans", size = tokens.headline.medium,
+            ui.text{ text = ctx.format.percent(level / 100), font = "Google Sans Flex", size = tokens.headline.medium,
                 color = accent } } }
 end
 

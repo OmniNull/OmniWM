@@ -106,7 +106,7 @@ end
 local function details(media)
     local width = DETAILS
     local function line(text: string, size: number, color: string)
-        return ui.text{ text = text, font = "sans", size = size, color = color, maxWidth = width }
+        return ui.text{ text = text, font = "Google Sans Flex", size = size, color = color, maxWidth = width }
     end
     local function toggle(icon: string, on: boolean?, command: string)
         return surface.button(icon, "tonal", { onClick = command, fill = on and "secondaryAccent" or "secondaryContainer",
@@ -119,10 +119,10 @@ local function details(media)
         line(media.album, tokens.title.medium, "secondaryAccent"),
         ui.box{ w = 1, h = tokens.spacing.extraLargeIncreased },
         ui.row{ w = width, gap = tokens.spacing.small,
-            ui.text{ text = media.elapsedText or "0:00", font = "sans", size = tokens.label.medium, color = "secondaryForeground",
+            ui.text{ text = media.elapsedText or "0:00", font = "Google Sans Flex", size = tokens.label.medium, color = "secondaryForeground",
                 reserve = "00:00" },
             slider(media, width - 2 * 48 - 2 * tokens.spacing.small),
-            ui.text{ text = media.durationText or "--:--", font = "sans", size = tokens.label.medium,
+            ui.text{ text = media.durationText or "--:--", font = "Google Sans Flex", size = tokens.label.medium,
                 color = "secondaryForeground", reserve = "00:00" } },
         ui.box{ w = 1, h = tokens.spacing.largeIncreased },
         ui.row{ w = width, gap = tokens.spacing.extraSmall,
@@ -139,7 +139,7 @@ end
 local function state(icon: string, text: string, tint: string)
     return ui.column{ gap = tokens.spacing.small,
         surface.icon(icon, { size = tokens.icon.large * 2, color = tint }),
-        ui.text{ text = text, font = "sans", size = tokens.title.medium, color = tint } }
+        ui.text{ text = text, font = "Google Sans Flex", size = tokens.title.medium, color = tint } }
 end
 
 local function lyrics(media)
@@ -156,7 +156,7 @@ local function lyrics(media)
             column[#column + 1] = ui.stack{ key = "line" .. index, w = SECTION - tokens.padding.medium, h = LINE,
                 hover = shown and "foreground/0.06" or nil, radius = tokens.rounding.small,
                 onClick = shown and data.seek(entry.time) or nil,
-                shown and ui.text{ align = "leading", text = entry.text ~= "" and entry.text or ". . .", font = "sans",
+                shown and ui.text{ align = "leading", text = entry.text ~= "" and entry.text or ". . .", font = "Google Sans Flex",
                     size = tokens.body.medium, maxWidth = SECTION - tokens.padding.medium,
                     color = index == current and "accent" or "mutedForeground",
                     shadow = index == current and "accent/0.5" or nil, shadowRadius = 6,
@@ -176,12 +176,12 @@ local function lyrics(media)
     return ui.column{ w = SECTION, gap = tokens.spacing.medium, center = false,
         ui.row{ gap = tokens.spacing.medium,
             surface.icon("lyrics", { size = tokens.icon.medium }),
-            ui.text{ text = omniwm.l10n("Lyrics"), font = "sans", size = tokens.title.medium } },
+            ui.text{ text = omniwm.l10n("Lyrics"), font = "Google Sans Flex", size = tokens.title.medium } },
         body,
         ui.row{ h = 40, gap = tokens.spacing.small, pad = tokens.padding.medium, radius = 20, fill = "secondaryContainer",
             hover = "secondaryContainerForeground/0.08", onClick = media.open,
             ui.icon{ app = media.bundle, w = 20, h = 20, placeholder = "music.note" },
-            ui.text{ text = media.app, font = "sans", size = tokens.label.large,
+            ui.text{ text = media.app, font = "Google Sans Flex", size = tokens.label.large,
                 color = "secondaryContainerForeground", maxWidth = SECTION - 80 } } }
 end
 
@@ -192,8 +192,8 @@ local function empty()
             ui.path{ d = shapes.path("ClamShell"), viewBox = shapes.viewBox, w = tokens.icon.large * 2 + 2 * tokens.padding.extraLarge,
                 h = tokens.icon.large * 2 + 2 * tokens.padding.extraLarge, fill = "accentContainer" },
             surface.icon("queue_music", { size = tokens.icon.large * 2, color = "accentContainerForeground" }) },
-        ui.text{ text = omniwm.l10n("Nothing is playing"), font = "sans", size = tokens.headline.medium },
-        ui.text{ text = omniwm.l10n("Play something to see it here"), font = "sans", size = tokens.body.large,
+        ui.text{ text = omniwm.l10n("Nothing is playing"), font = "Google Sans Flex", size = tokens.headline.medium },
+        ui.text{ text = omniwm.l10n("Play something to see it here"), font = "Google Sans Flex", size = tokens.body.large,
             color = "secondaryForeground" } }
 end
 

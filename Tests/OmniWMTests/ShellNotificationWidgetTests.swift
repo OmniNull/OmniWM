@@ -519,7 +519,8 @@ final class ShellNotificationWidgetTests: XCTestCase {
         )
         return try ShellRenderedWidget(
             name: "notifications", source: source.main, directories: config.directories,
-            modules: source.modules, chunk: source.chunk, scale: scale, resources: resources
+            modules: source.modules, chunk: source.chunk, scale: scale, resources: resources,
+            fonts: ShellFontLibrary.shared.fonts(in: source.fontFolders)
         )
     }
 

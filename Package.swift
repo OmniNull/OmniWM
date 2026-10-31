@@ -84,6 +84,7 @@ let package = Package(
                 .headerSearchPath("Compiler/include"),
                 .headerSearchPath("VM/include"),
                 .headerSearchPath("VM/src"),
+                .unsafeFlags(["-O2"], .when(configuration: .debug)),
                 .treatAllWarnings(as: .error),
                 .treatWarning("unused-command-line-argument", as: .warning)
             ]
@@ -93,6 +94,7 @@ let package = Package(
             dependencies: ["OmniWMLuau"],
             path: "Sources/OmniWMScriptHost",
             cxxSettings: [
+                .unsafeFlags(["-O2"], .when(configuration: .debug)),
                 .treatAllWarnings(as: .error),
                 .treatWarning("unused-command-line-argument", as: .warning)
             ]
@@ -131,8 +133,7 @@ let package = Package(
             resources: [
                 .process("Resources"),
                 .copy("Core/IssueReporter/Prompts"),
-                .copy("ShellDefault"),
-                .copy("Fonts")
+                .copy("ShellDefault")
             ],
             swiftSettings: [
                 .swiftLanguageMode(.v6),

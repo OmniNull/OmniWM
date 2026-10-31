@@ -78,7 +78,9 @@ extension ShellLayerScene {
             guard let self else { return }
             CATransaction.begin()
             CATransaction.setDisableActions(true)
-            _ = stepSpectrum(at: CACurrentMediaTime())
+            let time = CACurrentMediaTime()
+            _ = stepSpectrum(at: time)
+            if startBeats(at: time) { flushReveals(animated: true) }
             CATransaction.commit()
         }
         spectrum.timer = timer

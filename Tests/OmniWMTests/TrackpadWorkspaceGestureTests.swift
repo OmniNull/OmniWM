@@ -999,6 +999,58 @@ final class TrackpadWorkspaceGestureTests: XCTestCase {
         XCTAssertEqual(activeWorkspace(fixture), fixture.ws2)
     }
 
+    private func sendDiagonalStart(_ fixture: Fixture, fingers: Int) {
+        var time: TimeInterval = 100
+        sendFrame(fixture, phase: .began, fingers: fingers, x: 0.5, y: 0.2, at: time)
+        for (x, y) in [(0.528, 0.22), (0.53, 0.26), (0.53, 0.36), (0.53, 0.46), (0.53, 0.56), (0.53, 0.66)] {
+            time += 0.01
+            sendFrame(fixture, phase: .changed, fingers: fingers, x: x, y: y, at: time)
+        }
+        sendFrame(fixture, phase: .ended, fingers: 0, x: 0, y: 0, at: time + 0.01)
+    }
+
+    func testDiagonalStartWaitsForItsDirectionInsteadOfDroppingTheSwipe() throws {
+        let fixture = try makeFixture(enableNiri: false)
+        sendDiagonalStart(fixture, fingers: 3)
+        XCTAssertEqual(activeWorkspace(fixture), fixture.ws2)
+    }
+
+    func testTwoFingerDiagonalStartStillDropsLikeAnAppScroll() throws {
+        let fixture = try makeFixture(workspaceFingers: .two, enableNiri: false)
+        sendDiagonalStart(fixture, fingers: TrackpadGestureIntent.appScrollFingerCount)
+        XCTAssertEqual(activeWorkspace(fixture), fixture.ws1)
+    }
+
+    func testWaitingDiagonalStartDoesNotInflateTheReleaseVelocity() throws {
+        let fixture = try makeFixture(enableNiri: false)
+        let handler = fixture.controller.mouseEventHandler
+        var time: TimeInterval = 100
+        sendFrame(fixture, phase: .began, fingers: 3, x: 0.5, y: 0.2, at: time)
+        let held = [(0.528, 0.22), (0.529, 0.221), (0.530, 0.222), (0.531, 0.223), (0.532, 0.224), (0.532, 0.225)]
+        for (x, y) in held {
+            time += 0.01
+            sendFrame(fixture, phase: .changed, fingers: 3, x: x, y: y, at: time)
+        }
+        XCTAssertEqual(handler.state.gesturePhase, .armed)
+        time += 0.01
+        sendFrame(fixture, phase: .changed, fingers: 3, x: 0.532, y: 0.25, at: time)
+        XCTAssertEqual(handler.state.gesturePhase, .committed)
+        sendFrame(fixture, phase: .ended, fingers: 0, x: 0, y: 0, at: time + 0.01)
+        XCTAssertEqual(activeWorkspace(fixture), fixture.ws1)
+    }
+
+    func testClearlyOffAxisStartIsStillDroppedUntilLift() throws {
+        let fixture = try makeFixture(enableNiri: false)
+        var time: TimeInterval = 100
+        sendFrame(fixture, phase: .began, fingers: 3, x: 0.5, y: 0.2, at: time)
+        for (x, y) in [(0.54, 0.205), (0.54, 0.3), (0.54, 0.44), (0.54, 0.64)] {
+            time += 0.01
+            sendFrame(fixture, phase: .changed, fingers: 3, x: x, y: y, at: time)
+        }
+        sendFrame(fixture, phase: .ended, fingers: 0, x: 0, y: 0, at: time + 0.01)
+        XCTAssertEqual(activeWorkspace(fixture), fixture.ws1)
+    }
+
     func testVerticalSwipeDownSwitchesToPreviousWithWrapAround() throws {
         let fixture = try makeFixture()
         let lastWorkspace = fixture.controller.workspaceManager.workspaces(on: fixture.monitor.id).last?.id

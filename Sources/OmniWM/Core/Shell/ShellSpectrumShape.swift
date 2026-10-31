@@ -9,15 +9,21 @@ struct ShellSpectrumShapeRecipe: Equatable, Sendable {
         let bounce: Double
     }
 
+    struct Swell: Equatable, Sendable {
+        let width: Double
+        let height: Double
+    }
+
     let band: Double
     let gain: Double
     let taper: Double
     let inset: Double
     let threshold: Double
     let spring: Spring
+    let swell: Swell?
 
     init?(_ source: String) {
-        guard let record = ShellRecipeFields(source, prefix: "spectrum", count: 8, limit: 256, allowed: []),
+        guard let record = ShellRecipeFields(source, prefix: "spectrum", count: 8, limit: 256, allowed: ["swell"]),
               let band = ShellRecipeFields.number(record.base[1], in: 0 ... 1),
               let gain = ShellRecipeFields.number(record.base[2], in: 0 ... 10),
               let taper = ShellRecipeFields.number(record.base[3], in: 0 ... 1),
@@ -31,9 +37,28 @@ struct ShellSpectrumShapeRecipe: Equatable, Sendable {
         self.inset = inset
         self.threshold = threshold
         spring = Spring(response: response, bounce: bounce)
+        if let fields = record.sections["swell"] {
+            guard fields.count == 2, let width = ShellRecipeFields.number(fields[0], in: 0 ... 256),
+                  let height = ShellRecipeFields.number(fields[1], in: 0 ... 256) else { return nil }
+            swell = Swell(width: width, height: height)
+        } else { swell = nil }
+    }
+
+    static func bass(_ bands: InlineArray<24, Float>) -> Double {
+        (Double(bands[0]) + Double(bands[1]) + Double(bands[2])) / 3
     }
 
     func shape(_ base: ShellGlassShape, bands: InlineArray<24, Float>) -> (shape: ShellGlassShape, visible: Bool) {
+        if let swell {
+            let level = min(1, gain * Self.bass(bands))
+            let rect = CGRect(
+                x: base.rect.minX - swell.width * level / 2,
+                y: base.rect.minY,
+                width: base.rect.width + swell.width * level,
+                height: base.rect.height + swell.height * level
+            )
+            return (base.with(rect: rect, radius: base.radius), true)
+        }
         let position = band * 23
         let lower = min(22, Int(position))
         let fraction = position - Double(lower)
@@ -90,11 +115,14 @@ final class ShellSpectrumShapeBinding {
 }
 
 final class ShellSpectrumShapeStore {
+    static let beatThreshold = 0.6
+
     var bindings: [Int32: ShellSpectrumShapeBinding] = [:]
     var bands = ShellSpectrumBands.live
     var motion = MotionSnapshot.enabled
     var visible = true
     var automatic = true
+    var armed = true
     var timer: (any DispatchSourceTimer)?
 
     deinit {

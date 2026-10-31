@@ -18,16 +18,16 @@ extension MouseEventHandler {
             config.workspaceSwipeAxis = axis
         }
         config.overviewAction = controller.settings.overview.enabled ? lockedContext.overviewAction : nil
+        let translation = CGVector(dx: metrics.cumulativeX, dy: metrics.cumulativeY)
         guard let mode = TrackpadGestureIntent.resolveMode(
             config,
             fingerCount: lockedContext.fingerCount,
-            cumulativeTranslation: CGVector(dx: metrics.cumulativeX, dy: metrics.cumulativeY),
+            cumulativeTranslation: translation,
             columnScrollAxis: lockedContext.columnScrollAxis,
             columnContextAvailable: lockedContext.columnScrollCandidate && controller.niriEngine != nil,
             windowContextAvailable: lockedContext.windowGestureTarget != nil
         ) else {
-            state.suppressGestureStartUntilAllTouchesLift = true
-            resetGestureState()
+            dropGestureUnlessDirectionMayResolve(config, lockedContext: lockedContext, translation: translation)
             return false
         }
         if case .overview = mode, overviewGestureInteractive,
@@ -59,6 +59,24 @@ extension MouseEventHandler {
             controller.layoutRefreshController.workspaceSwipe.otherGestureRecognized(on: lockedContext.monitorId)
         }
         return true
+    }
+
+    private func dropGestureUnlessDirectionMayResolve(
+        _ config: TrackpadGestureIntent.Config,
+        lockedContext: MouseInputState.LockedGestureContext,
+        translation: CGVector
+    ) {
+        if lockedContext.windowGestureTarget == nil,
+           TrackpadGestureIntent.directionMayStillResolve(
+               config,
+               fingerCount: lockedContext.fingerCount,
+               cumulativeTranslation: translation
+           )
+        {
+            return
+        }
+        state.suppressGestureStartUntilAllTouchesLift = true
+        resetGestureState()
     }
 
     func dispatchCommittedGestureFrame(

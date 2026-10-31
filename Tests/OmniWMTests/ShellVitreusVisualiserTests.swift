@@ -160,8 +160,11 @@ final class ShellVitreusVisualiserTests: XCTestCase {
     }
 
     func testBudgetCapRoundsFansToQuartetsAndReportsOnlyOnce() throws {
-        let fixture = try fixture(settings: ["visualiser": .bool(true), "cols": .number(47)], budget: 13)
-        XCTAssertEqual(shapes(fixture.widget).count, 13)
+        let budget = 13
+        let fixture = try fixture(settings: ["visualiser": .bool(true), "cols": .number(47)], budget: budget)
+        let crests = VitreusFixture.crests("beat", phase: "close")
+        XCTAssertTrue(crests.allSatisfy { VitreusFixture.has(fixture.widget, key: $0) })
+        XCTAssertEqual(shapes(fixture.widget).count, budget - crests.count)
         XCTAssertEqual(capReports(fixture.widget), 1)
         show(fixture)
         XCTAssertEqual(capReports(fixture.widget), 1)

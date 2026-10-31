@@ -122,9 +122,7 @@ final class ShellVitreusDrawerTests: XCTestCase {
     }
 
     func has(_ fixture: Fixture, _ name: String) -> Bool {
-        fixture.widget.surface.layout.core.elements { _ in true }.contains {
-            fixture.widget.surface.layout.core.key(of: $0) == VitreusFixture.key(name)
-        }
+        VitreusFixture.has(fixture.widget, key: name)
     }
 
     func morph(_ fixture: Fixture, _ name: String) throws -> ShellMorphRecipe {
@@ -269,7 +267,10 @@ extension ShellVitreusDrawerTests {
         XCTAssertTrue(retired.impulses.contains { $0.velocity == 90 })
         let layout = fixture.widget.surface.layout, glass = try handle(fixture, "bar")
         let shapes = layout.core.elements { _ in true }.filter { layout.core.parent(of: $0) == glass }
-        XCTAssertEqual(shapes.map { layout.core.key(of: $0) }, [VitreusFixture.key("shell")])
+        XCTAssertEqual(
+            Set(shapes.map { layout.core.key(of: $0) }),
+            Set((["shell"] + VitreusFixture.crests("island", phase: "close")).map(VitreusFixture.key))
+        )
     }
 
     func testDisplayBroadcastClosesOtherInstancesAndResetsTodayWithoutExecutingCommands() throws {

@@ -4,7 +4,7 @@
 local order = table.freeze({ "left", "middle", "right" })
 local sides = table.freeze({
     apple = "left", app = "left", workspaces = "left", clock = "middle", title = "middle", tray = "middle",
-    privacy = "middle", search = "right", gear = "right", controls = "right",
+    privacy = "middle", search = "right", omniwm = "right", controls = "right",
 })
 
 local function below(island): number
@@ -33,8 +33,8 @@ local function geometry(k, size, widths, island)
     local x = {
         apple = start, app = start + room("apple"), workspaces = start + room("apple") + room("app"),
         clock = cl, title = te - title, tray = trayX, privacy = trayX,
-        controls = right - span("controls"), gear = right - room("controls") - span("gear"),
-        search = right - room("controls") - room("gear") - span("search"),
+        controls = right - span("controls"), omniwm = right - room("controls") - span("omniwm"),
+        search = right - room("controls") - room("omniwm") - span("search"),
     }
     local function piece(name: string, from: number, to: number, top: number?)
         local y = top or 0
@@ -50,7 +50,7 @@ local function geometry(k, size, widths, island)
     end
     local pieces = {
         middle = piece("middle", cl - pad - slope, te + trayRoom + pad + slope, below(island)),
-        right = piece("right", right - room("controls") - room("gear") - room("search") + gap - pad - slope, size.w),
+        right = piece("right", right - room("controls") - room("omniwm") - room("search") + gap - pad - slope, size.w),
     }
     local marks = widths.workspaces
     local reach = if marks then x.workspaces + (marks.extent or marks.w) - 9 * bu else x.workspaces - gap

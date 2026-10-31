@@ -52,7 +52,7 @@ actor ShellProvider {
     var lastRejection: Rejection?
     var lastReportedApproval: ShellProviderApproval?
     var approvalRevision: UInt64 = 0
-    var executableWatches: [any DispatchSourceFileSystemObject] = []
+    var executableObservation: ShellProviderObservation.Subscription?
     var executableWatchPaths: Set<String> = []
     var lifecycle: ShellProviderLifecycle
     var process: Process?
@@ -151,6 +151,7 @@ actor ShellProvider {
         declaration = nil
         stopExecutableWatches()
         perform(lifecycle.close())
+        await ShellProviderObservation.shared.finishCancellations()
         guard !lifecycle.isClosed else { return }
         await withCheckedContinuation { closeWaiters.append($0) }
     }
