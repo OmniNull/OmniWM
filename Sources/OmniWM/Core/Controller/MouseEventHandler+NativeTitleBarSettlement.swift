@@ -64,28 +64,35 @@ extension MouseEventHandler {
               !nativeWindowFrameMatchesManagedTarget(observedFrame, entry: entry)
         else { return false }
         let released = state.nativeTitleBarDragFallbackReleased
+        let hasResizeStart = state.nativeResizeStart?.token == entry.token
+            && (!released || state.nativeResizeStart?.wasDragged == true)
         state.awaitsNativeTitleBarDragTarget = false
         state.nativeTitleBarDragFallbackToken = nil
         state.nativeTitleBarDragFallbackReleased = false
-        var drag = MouseInputState.NativeTitleBarDrag(token: entry.token)
+        let drag = MouseInputState.NativeTitleBarDrag(token: entry.token)
         if released {
             if settleNativeCrossDisplayMoveIfNeeded(entry, observedFrame: observedFrame) { return true }
-            if let pendingFrame = controller.axManager.pendingFrameWrite(for: entry.windowId) {
+            if let pendingFrame = controller.axManager.pendingFrameWrite(for: entry.windowId),
+               !hasResizeStart || !controller.settings.gestures.adoptNativeResize
+               || controller.axManager.hasInFlightFrameWrite(for: entry.token)
+            {
                 awaitNativeTitleBarDragFrameWrite(
                     pendingFrame,
                     entry: entry,
                     drag: drag
                 )
-            } else {
-                drag.phase = .awaitingCorrection
-                state.nativeTitleBarDrag = drag
-                requestNativeTitleBarDragCorrection(for: entry)
+                return true
             }
+        }
+        state.nativeTitleBarDrag = drag
+        beginNativeTitleBarDragIfNeeded(button: .left)
+        if !hasResizeStart {
+            state.nativeTitleBarDrag?.adoptionStartFrame = nil
+        }
+        if released {
+            finishNativeTitleBarDragIfNeeded(button: .left)
         } else {
-            drag.phase = .dragging
-            drag.receivedFrameChange = true
-            state.nativeTitleBarDrag = drag
-            controller.axManager.beginNativeTitleBarDrag(for: entry.token)
+            _ = handleNativeTitleBarDragFrameChanged(for: entry)
         }
         return true
     }
