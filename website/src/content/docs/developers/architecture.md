@@ -210,7 +210,9 @@ after bootstrap succeeds.
 
 The launch permission check requires Accessibility and Input Monitoring before bootstrap. Screen Recording is
 optional and only controls capture-derived visuals. After granting permissions, the user returns to the permissions
-window and chooses **Start OmniWM** or **Continue Without Screen Recording** to finish bootstrap.
+window and chooses **Start OmniWM** or **Continue Without Screen Recording** to finish bootstrap. Ticking **Don't ask
+about Screen Recording again** stores the choice in runtime state, and later launches skip the window while
+Accessibility and Input Monitoring stay granted (**Unreleased:** available when building from `main`).
 
 The potentially interfering resident-manager catalog covers a second OmniWM instance plus AeroSpace, Amethyst,
 bobrwm, Glide, komorebi for Mac, Nehir, Paneru, parket, Rift, Tangrid, TrimWM, yabai, and Yashiki. Dedicated

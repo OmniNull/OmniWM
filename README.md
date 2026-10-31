@@ -765,7 +765,7 @@ After either installation, complete the macOS setup in steps 3-7 below.
 4. Log out of macOS and log back in for that change to take effect unless you had it on already
 5. Launch OmniWM and grant Accessibility and Input Monitoring when prompted
 6. Optionally grant Screen Recording for capture-derived visuals
-7. Return to OmniWM’s permissions window and click **Start OmniWM** or **Continue Without Screen Recording**. If a required permission still appears missing, click **Check Again**
+7. Return to OmniWM’s permissions window and click **Start OmniWM** or **Continue Without Screen Recording**. If a required permission still appears missing, click **Check Again**. To skip the window on later launches without Screen Recording, tick **Don't ask about Screen Recording again** first; it still appears if a required permission goes missing (**Unreleased:** available when building from `main`)
 
 ### Canary builds
 
