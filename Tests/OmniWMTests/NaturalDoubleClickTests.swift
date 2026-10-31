@@ -788,6 +788,24 @@ final class NaturalDoubleClickTests: NiriInteractionTestCase {
         }
     }
 
+    func testScrollingTheStripBetweenStepsStartsANewCycleWhereTheWindowIs() throws {
+        let fixture = try makeFixture(pid: 941_136)
+        let token = fixture.tokens[1]
+        try fixture.select(token)
+        XCTAssertTrue(fixture.doubleClick(at: try fixture.titleBar(token)))
+        fixture.controller.workspaceManager.withNiriViewportState(for: fixture.workspaceId) { state in
+            state.jumpOffset(to: state.viewOffset + 100)
+        }
+        fixture.relayout()
+        let moved = try fixture.frame(token)
+
+        XCTAssertTrue(fixture.doubleClick(at: try fixture.titleBar(token)))
+
+        let after = try fixture.frame(token)
+        XCTAssertNotEqual(after.width, moved.width, accuracy: 1)
+        XCTAssertEqual(after.midX, moved.midX, accuracy: 1)
+    }
+
     func testAFullLoopFromAPresetCyclesThePresetsOnly() throws {
         let fixture = try makeFixture(pid: 941_132)
         let token = fixture.tokens[1]
