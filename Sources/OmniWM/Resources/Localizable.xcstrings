@@ -173584,6 +173584,39 @@
     },
     "Styles change how the bar, island and drawers look." : {
 
+    },
+    "Add from GitHub…" : {
+
+    },
+    "Public GitHub repository" : {
+
+    },
+    "Paste the repository’s main page, such as https://github.com/owner/repository." : {
+
+    },
+    "https://github.com/owner/repository" : {
+
+    },
+    "Load" : {
+
+    },
+    "This style runs code in OmniWM. Install only if you trust %@." : {
+
+    },
+    "Install %@?" : {
+
+    },
+    "Added from GitHub" : {
+
+    },
+    "Local copy" : {
+
+    },
+    "Checkout at %@" : {
+
+    },
+    "Replace %@ with %@." : {
+
     }
   },
   "version" : "1.0"

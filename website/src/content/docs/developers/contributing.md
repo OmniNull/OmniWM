@@ -168,7 +168,7 @@ CI also checks that the generated IPC wire encoders match their models. After ch
 
 ### Trying a Style
 
-The optional styles live in `styles/`, one folder per style. To try one from your checkout, run `python3 Scripts/styles.py install <name> --to ~/.config/omniwm/shell`, then choose it in **Settings > Styles & Widgets**. The script never replaces an existing folder.
+The optional styles live in `styles/`, one folder per style. A development build running from `.build/` reads them from the checkout. Open **Settings > Styles & Widgets > Get Styles**, install or replace the style, then choose **Use Style**. To publish your own repository, follow the [style folder guide](https://github.com/OmniNull/OmniWM/tree/main/styles).
 
 ### Translating the App
 
