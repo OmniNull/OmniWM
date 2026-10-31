@@ -46,11 +46,56 @@ local function order(list)
     return table.freeze(names)
 end
 
+local function prefix(k, names, widths, split, slots, ranges)
+    local gap = 12 * k.bu
+    local side, x, last = 1, ranges[1].x, 1
+    local ends = { ranges[1].x, ranges[2].x }
+    local function take(width: number, reserve: number, gap: number?)
+        local from = x + (gap or 0)
+        if side == 1 and from + width > ranges[1].to then
+            side, x = 2, ranges[2].x
+            from = x
+        end
+        if from + width > ranges[side].to - (if side == 2 then reserve else 0) then return nil end
+        x = from + width
+        ends[side], last = x, side
+        return from
+    end
+    for index = 1, split - 1 do
+        local name = names[index]
+        local width, cells = widths[name].w, widths[name].flow
+        local reserve = 0
+        for next = index + 1, split - 1 do
+            local later = widths[names[next]]
+            if later.w > 0 then reserve += (if later.flow then later.flow[1].w else later.w) + gap end
+        end
+        local from = x
+        if cells then
+            local positions = {}
+            local lead = 0
+            for _, cell in cells do
+                local at = take(cell.w, reserve, lead)
+                if not at then break end
+                positions[cell.key] = at + cell.at
+                lead = cell.gap or 0
+            end
+            slots[name] = table.freeze({ x = from, w = x - from, cx = (from + x) / 2,
+                positions = table.freeze(positions), hidden = next(positions) == nil })
+        else
+            local at = take(width, reserve)
+            slots[name] = table.freeze({ x = at or x, w = width, cx = (at or x) + width / 2, hidden = at == nil })
+        end
+        if width > 0 and not slots[name].hidden then x += gap ends[side] = x end
+    end
+    return ends, last
+end
+
 local function place(k, cx: number, top: number, names, widths, givenWidth: number?, givenHeight: number?, band,
     tail: number?)
     local bu = k.bu
     local gap = 12 * bu
     local split = table.find(names, "title") or #names + 1
+    local minimum = widths.title and widths.title.minimum or title.least * bu
     local grow, pre, post, used, count = 0, 0, 0, 0, 0
     for index, name in names do
         local width = widths[name].w
@@ -69,11 +114,6 @@ local function place(k, cx: number, top: number, names, widths, givenWidth: numb
     local left, right = cx - w / 2 + 16 * bu, cx + w / 2 - 16 * bu
     local slots = {}
     local x = left
-    for index = 1, split - 1 do
-        local width = widths[names[index]].w
-        slots[names[index]] = table.freeze({ x = x, w = width, cx = x + width / 2 })
-        if width > 0 then x += width + gap end
-    end
     local limit, full
     if filled then
         local spacing = if count > 1 then (right - band.x1 - used) / (count - 1) else 0
@@ -124,9 +164,44 @@ local function place(k, cx: number, top: number, names, widths, givenWidth: numb
             end
         end
     end
+    local flowFrom, flowTo
+    if band and givenWidth and pre > (limit or band.x0) - left then
+        local rightFrom, rightTo = band.x1, right
+        for index = split + 1, #names + 1 do
+            local slot = slots[if index > #names then "opener" else names[index]]
+            if slot and slot.parts then
+                for _, part in slot.parts do
+                    if part.count > 0 and part.x >= band.x1 then
+                        rightFrom = math.max(rightFrom, part.x + tray.span(part.count, bu) + gap)
+                    end
+                end
+            elseif slot and slot.w > 0 and slot.x >= band.x1 then
+                rightTo = math.min(rightTo, slot.x - gap)
+            end
+        end
+        local ends = { limit or band.x0, rightTo }
+        local ranges = { { x = left, to = ends[1] }, { x = rightFrom, to = ends[2] } }
+        local reserve = if names[split] then minimum + gap else 0
+        if rightTo - rightFrom >= reserve then ranges[2].to -= reserve else ranges[1].to -= reserve end
+        local used, side = prefix(k, names, widths, split, slots, ranges)
+        flowFrom, flowTo = used[side], ends[side]
+        if flowTo - flowFrom < minimum then
+            local other = 3 - side
+            if ends[other] - used[other] > flowTo - flowFrom then flowFrom, flowTo = used[other], ends[other] end
+        end
+    else
+        x = left
+        for index = 1, split - 1 do
+            local width = widths[names[index]].w
+            slots[names[index]] = table.freeze({ x = x, w = width, cx = x + width / 2 })
+            if width > 0 then x += width + gap end
+        end
+    end
     if names[split] then
         local from, to = left + pre, right - post
-        if full then
+        if flowFrom then
+            from, to = flowFrom, flowTo
+        elseif full then
             to = limit
         elseif band and givenWidth then
             if band.x0 - from >= title.least * bu then to = band.x0 else from = band.x1 end
@@ -134,7 +209,8 @@ local function place(k, cx: number, top: number, names, widths, givenWidth: numb
             to = band.x0
         end
         local width = math.max(0, to - from)
-        slots.title = table.freeze({ x = from, w = width, cx = from + width / 2 })
+        slots.title = table.freeze({ x = from, w = width, cx = from + width / 2,
+            hidden = flowFrom ~= nil and width < minimum })
     end
     return table.freeze({
         x = cx - w / 2, y = top, w = w, h = givenHeight or 40 * bu, cx = cx,
@@ -167,13 +243,17 @@ local function geometry(ctx, island)
         end
     end
     local widths = {}
-    for _, name in names do
+    local islandLayout = layout == "island"
+    local split = table.find(names, "title") or #names + 1
+    for index, name in names do
         local owner = owners[name]
         local w, grow, cells = 0, 0, nil
         if owner.width then w, grow, cells = owner.width(ctx, k, name) end
-        widths[name] = { w = w, grow = grow or 0, cells = cells, extent = owner.extent and owner.extent(ctx, k) }
+        widths[name] = { w = w, grow = grow or 0, cells = cells, extent = owner.extent and owner.extent(ctx, k),
+            minimum = owner.minimum and owner.minimum(ctx, k),
+            flow = if islandLayout and island.notch and index < split and w > 0 and owner.flow
+                then owner.flow(ctx, k, name) else nil }
     end
-    local islandLayout = layout == "island"
     local metrics = if (layout == "left" or layout == "right") and table.find(names, "title")
         then title.metrics(ctx, k) else { cw = 0, tw = 0 }
     local frameGeometry = frame.geometry(ctx, k, island.size, names, widths, place, metrics)
@@ -266,6 +346,7 @@ local function render(ctx, g)
         local groups = { [pill] = barContent }
         for _, name in g.pieces do
             local owner, slot = owners[name], pill.slots[name]
+            if slot and slot.hidden then continue end
             local piece = if split and slot then slot.piece else pill
             local view = g
             if piece ~= pill then

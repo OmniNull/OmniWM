@@ -77,14 +77,36 @@ local function extent(ctx, k): number?
     return model(ctx, k).row
 end
 
+local function flow(ctx, k)
+    local m, u = model(ctx, k), k.bu
+    local cells = { { key = "overview", w = 25.5 * u, at = 10 * u } }
+    if m.special then
+        cells[#cells + 1] = { key = "special", w = 26 * u, at = 13 * u }
+    else
+        for _, row in m.rows do
+            local width = row.w + 9 * u
+            cells[#cells + 1] = { key = "workspace-" .. row.workspace.id, w = width, at = width / 2 }
+        end
+        if m.plus then cells[#cells + 1] = { key = "plus", w = 23 * u, at = 11.5 * u } end
+    end
+    return cells
+end
+
 local function prepare(ctx, g)
     local s, m = state(ctx), model(ctx, g.k)
-    s.enabled = g.island.visible ~= false and g.pill ~= nil and g.pill.slots.workspaces ~= nil and m.available == true
-    s.special = if s.enabled and m.special then m.special.id else nil
+    local slot = g.pill and g.pill.slots.workspaces
+    local positions = slot and slot.positions
+    local function placed(key: string): boolean
+        return not positions or positions[key] ~= nil
+    end
+    s.enabled = g.island.visible ~= false and slot ~= nil and not slot.hidden and m.available == true
+    s.special = if s.enabled and m.special and placed("special") then m.special.id else nil
     local valid = { ["workspace-overview"] = true }
-    if m.special then valid["workspace-special"] = true end
-    if m.plus then valid["workspace-new"] = true end
-    for _, row in m.rows do valid["workspace-hit-" .. row.workspace.id] = true end
+    if s.special then valid["workspace-special"] = true end
+    if m.plus and placed("plus") then valid["workspace-new"] = true end
+    for _, row in m.rows do
+        if placed("workspace-" .. row.workspace.id) then valid["workspace-hit-" .. row.workspace.id] = true end
+    end
     if not s.enabled or not valid[s.hover] then s.hover = nil end
     sync(s)
 end
@@ -260,7 +282,8 @@ local function content(ctx, g, slot)
     if not s.enabled then return nil end
     local items = {}
     local hot = if s.hover == "workspace-overview" then 1 else 0
-    local cx = if vertical then 8 * g.k.u + 24 * g.k.bcu else slot.x + 10 * u
+    local cx = if slot.positions then slot.positions.overview
+        elseif vertical then 8 * g.k.u + 24 * g.k.bcu else slot.x + 10 * u
     local overview = pencil.draw(40 * u, 40 * u,
         pencil.icon("overview", 20 * u, 20 * u, 18 * u * (1 + 0.2 * hot), hot, if hot > 0 then s.frame else 0, u, 1.3 * u),
         palette.roles.ink, { 0.45 + 0.35 * hot, 0.7 + 0.3 * hot, 0.7 + 0.3 * hot })
@@ -272,7 +295,8 @@ local function content(ctx, g, slot)
     local overviewZone = zone(ctx, g, "workspace-overview", cx, 26 * u, "toggle-overview", 26 * u)
     local origin = if vertical then cx + 15.5 * u else slot.x + 25.5 * u
     if m.special then
-        local centre = origin + 9 * u
+        local centre = if slot.positions then slot.positions.special else origin + 9 * u
+        if not centre then items[#items + 1] = overviewZone return items end
         local paths = pencil.draw(40 * u, 40 * u, specialPaths(g, m.special, s.frame), palette.roles.mint)
         local props = { key = "workspace-special-glyph", w = 40 * u, h = 40 * u,
             dx = if vertical then g.pill.cx else centre, dy = if vertical then centre else g.pill.cy,
@@ -284,7 +308,8 @@ local function content(ctx, g, slot)
         return items
     end
     for _, row in m.rows do
-        local centre = origin + row.x
+        local centre = if slot.positions then slot.positions["workspace-" .. row.workspace.id] else origin + row.x
+        if not centre then continue end
         items[#items + 1] = mark(ctx, g, row, centre)
         if row.workspace.focused then
             items[#items + 1] = pill(ctx, g, slot, centre)
@@ -295,9 +320,11 @@ local function content(ctx, g, slot)
             "switch-workspace " .. row.workspace.id)
     end
     if m.plus then
-        local centre = origin + m.plusX
-        items[#items + 1] = plus(ctx, g, centre)
-        items[#items + 1] = zone(ctx, g, "workspace-new", centre, 23 * u, "switch-workspace " .. m.plus.id)
+        local centre = if slot.positions then slot.positions.plus else origin + m.plusX
+        if centre then
+            items[#items + 1] = plus(ctx, g, centre)
+            items[#items + 1] = zone(ctx, g, "workspace-new", centre, 23 * u, "switch-workspace " .. m.plus.id)
+        end
     end
     items[#items + 1] = overviewZone
     return items
@@ -307,4 +334,4 @@ local function shapes()
     return nil
 end
 
-return table.freeze({ width = width, extent = extent, prepare = prepare, shapes = shapes, content = content })
+return table.freeze({ width = width, extent = extent, flow = flow, prepare = prepare, shapes = shapes, content = content })
