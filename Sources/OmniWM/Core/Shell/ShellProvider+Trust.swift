@@ -1,15 +1,14 @@
 // SPDX-License-Identifier: GPL-2.0-only
 // Copyright (C) 2026 OmniNull — https://github.com/OmniNull/OmniWM
 
-import Darwin
 import Foundation
 
 extension ShellProvider {
     func refreshTrust(
-        _ configuration: ShellProviderConfiguration, refreshWatches: Bool = false,
+        _ configuration: ShellProviderConfiguration,
         configurationChanged: Bool = false
     ) {
-        watchExecutable(nil, configuration: configuration, refresh: refreshWatches)
+        watchExecutable(nil, configuration: configuration)
         do {
             let resolved = try resolveDeclaration(configuration)
             watchExecutable(resolved.executable, configuration: configuration)
@@ -59,13 +58,13 @@ extension ShellProvider {
     }
 
     func stopExecutableWatches() {
-        for watch in executableWatches { watch.cancel() }
-        executableWatches.removeAll()
+        executableObservation?.cancel()
+        executableObservation = nil
         executableWatchPaths.removeAll()
     }
 
     private func watchExecutable(
-        _ executable: URL?, configuration: ShellProviderConfiguration, refresh: Bool = false
+        _ executable: URL?, configuration: ShellProviderConfiguration
     ) {
         guard let command = configuration.command.first else { return }
         let requested = configuration.folder.appendingPathComponent(command)
@@ -78,31 +77,22 @@ extension ShellProvider {
         if let executable {
             paths.insert(executable.path)
             paths.insert(executable.deletingLastPathComponent().path)
-        } else if !refresh, !executableWatches.isEmpty {
+        } else if let executableObservation, paths.isSubset(of: executableWatchPaths) {
+            executableObservation.sync(paths: executableWatchPaths)
             return
         }
-        guard refresh || paths != executableWatchPaths else { return }
-        stopExecutableWatches()
         executableWatchPaths = paths
-        for path in paths {
-            let descriptor = open(path, O_EVTONLY | O_CLOEXEC)
-            guard descriptor >= 0 else { continue }
-            let source = DispatchSource.makeFileSystemObjectSource(
-                fileDescriptor: descriptor,
-                eventMask: [.write, .delete, .rename, .attrib, .revoke],
-                queue: queue
-            )
-            source.setEventHandler { [weak self] in
+        if let executableObservation {
+            executableObservation.sync(paths: paths)
+        } else {
+            executableObservation = ShellProviderObservation.shared.observe(paths: paths) { [weak self] in
                 Task { await self?.executableChanged() }
             }
-            source.setCancelHandler { _ = Darwin.close(descriptor) }
-            executableWatches.append(source)
-            source.resume()
         }
     }
 
     private func executableChanged() {
         guard let declaration else { return }
-        refreshTrust(declaration, refreshWatches: true)
+        refreshTrust(declaration)
     }
 }
