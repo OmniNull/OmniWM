@@ -40,7 +40,7 @@ jobs:
   changes:
     name: Changes
     if: github.event_name == 'pull_request'
-    runs-on: ubuntu-latest
+    runs-on: ubuntu-26.04
     timeout-minutes: 5
     outputs:
       tests: ${{ steps.paths.outputs.tests }}

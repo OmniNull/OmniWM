@@ -31,7 +31,7 @@ env:
 jobs:
   prereq:
     name: Check canary signing setup
-    runs-on: ubuntu-latest
+    runs-on: ubuntu-26.04
     timeout-minutes: 5
     permissions:
       contents: read
