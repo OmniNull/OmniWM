@@ -41,6 +41,9 @@ local transport = table.freeze({
     { key = "next", side = 1, command = "media next", rest = 0.65 },
 })
 local least = 48
+local function minimum(ctx, k): number
+    return (if ctx.data.media then 72 else least) * k.bu
+end
 local last
 local verticalLast
 
@@ -287,4 +290,4 @@ local function content(ctx, g, slot)
     return { ui.stack(region) }
 end
 
-return table.freeze({ shapes = shapes, content = content, metrics = metrics, least = least, player = player })
+return table.freeze({ shapes = shapes, content = content, metrics = metrics, least = least, minimum = minimum, player = player })

@@ -3,6 +3,7 @@
 
 import AppKit
 @testable import OmniWM
+import OmniWMScriptHost
 import OmniWMShellCore
 import QuartzCore
 import XCTest
@@ -69,7 +70,8 @@ extension ShellVitreusBarTests {
     }
 
     private func notchWidget(
-        _ shell: URL, _ run: NotchRun, on monitor: Monitor, tray: [ShellHiddenBarItem] = [], pieces: [String]? = nil
+        _ shell: URL, _ run: NotchRun, on monitor: Monitor, tray: [ShellHiddenBarItem] = [], pieces: [String]? = nil,
+        workspaces: Int = 3
     ) throws -> ShellRenderedWidget {
         let widget = try ShellRenderedWidget(
             source: VitreusFixture.source(shell), scale: 2, resources: VitreusFixture.resources(shell)
@@ -92,7 +94,7 @@ extension ShellVitreusBarTests {
         var bar = VitreusFixture.bar(monitor)
         bar.style.fullWidth = run.fullWidth
         bar.style.hidesMenuBar = true
-        bar.workspaces = ["1", "2", "3"].map { id in
+        bar.workspaces = (1 ... workspaces).map { String($0) }.map { id in
             ShellBarWorkspace(id: id, name: id, focused: id == "1", windows: [ShellBarItem(
                 id: id, bundle: "test.app", name: "App", focused: id == "1", count: 1, hidden: 0,
                 windows: [.init(id: "window-" + id, title: "Window " + id, focused: id == "1", hidden: false)]
@@ -251,6 +253,82 @@ extension ShellVitreusBarTests {
                 XCTAssertFalse(shown.isEmpty, label)
                 XCTAssertLessThan(shown.count, trayItems, label)
             }
+        }
+    }
+
+    func testTrayBeforeTitleStaysBesideTheNotch() throws {
+        let shell = try shell()
+        let monitor = Self.fourteenInch()
+        let orders = [
+            ["apple", "app", "workspaces", "tray", "title", "search", "omniwm", "controls", "clock"],
+            ["tray", "apple", "app", "workspaces", "title", "search", "omniwm", "controls", "clock"],
+            ["apple", "app", "workspaces", "tray", "search", "omniwm", "controls", "clock", "title"],
+            ["apple", "app", "workspaces", "tray", "search", "omniwm", "controls", "clock"]
+        ]
+        let tray = (0 ..< 18).map {
+            ShellHiddenBarItem(id: "prefix-\($0)", name: "Item \($0)", image: nil, width: 22, height: 22)
+        }
+        for (pieces, run) in orders.flatMap({ pieces in NotchRun.all.map { (pieces, $0) } }) {
+            let widget = try notchWidget(shell, run, on: monitor, tray: tray, pieces: pieces)
+            try assertOnScreenBesideTheNotch(widget, on: monitor, run.label)
+            let shown = try frames(widget, tray.map { "tray-" + $0.id })
+            XCTAssertEqual(shown.count, tray.count, run.label)
+            try assertPiecesApart(widget, tray: shown, run.label)
+            if run.fullWidth, pieces.contains("title") {
+                XCTAssertGreaterThan(try VitreusFixture.frame(widget, key: "title-text").width, 0, run.label)
+                if run.media {
+                    for key in ["title-previous", "title-play", "title-next"] {
+                        XCTAssertTrue(Self.has(widget, key), "\(run.label) \(key)")
+                    }
+                }
+            }
+            for item in tray {
+                let frame = try VitreusFixture.frame(widget, key: "tray-" + item.id)
+                XCTAssertEqual(
+                    widget.surface.command(at: CGPoint(x: frame.midX, y: frame.midY)),
+                    "hidden-bar activate " + item.id,
+                    run.label
+                )
+            }
+        }
+    }
+
+    func testCrowdedWorkspacePrefixStaysBesideTheNotch() throws {
+        let shell = try shell()
+        let monitor = Self.fourteenInch()
+        for run in NotchRun.all {
+            let widget = try notchWidget(shell, run, on: monitor, workspaces: 20)
+            try assertOnScreenBesideTheNotch(widget, on: monitor, run.label)
+            XCTAssertEqual(try frames(widget, (1 ... 20).map { "workspace-square-\($0)" }).count, 20, run.label)
+            for id in 1 ... 20 {
+                let frame = try VitreusFixture.frame(widget, key: "workspace-hit-\(id)")
+                XCTAssertEqual(
+                    widget.surface.command(at: CGPoint(x: frame.midX, y: frame.midY)),
+                    "switch-workspace \(id)",
+                    run.label
+                )
+            }
+        }
+    }
+
+    func testHiddenWorkspaceSlotsCancelTheirAnimationTimer() throws {
+        let widget = try VitreusFixture.probe(shell(), """
+        local marks = require("../lib/vitreus/bar/marks")
+        function render(ctx)
+            local model = { state = ctx.state, data = { settings = {}, bar = {
+                style = {}, workspaces = {}, scratchpads = { { id = 7, visible = true } },
+            } } }
+            local slot = { hidden = ctx.data.app == "hidden",
+                positions = if ctx.data.app == "partial" then { overview = 10 } else nil }
+            marks.prepare(model, { k = { bu = 1, bcu = 1 }, island = { visible = true },
+                pill = { slots = { workspaces = slot } } })
+            return ui.text{ text = "marks" }
+        end
+        """)
+        for (state, expected) in [("visible", 1), ("hidden", 0), ("partial", 0), ("visible", 1)] {
+            widget.set("app") { $0.string(state) }
+            widget.render(ShellBarData())
+            XCTAssertEqual(omni_vm_service_stats(widget.vm).reserved, UInt32(expected), state)
         }
     }
 
