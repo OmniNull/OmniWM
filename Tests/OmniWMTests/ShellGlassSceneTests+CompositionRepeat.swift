@@ -79,9 +79,9 @@ extension ShellGlassSceneTests {
         try ShellLayerScene.engineQueue.sync {
             var rows: [[String: Any]] = []
             var count = 0
-            for style in Self.compositionCases {
+            for (index, style) in Self.compositionCases.enumerated() {
                 for opacity in [1.0, 0.55] {
-                    for scale in [1, 2] {
+                    for scale in [1, 2] where Self.sweeps(index, opacity: opacity, scale: scale) {
                         let width = 96 * scale
                         let independent = try Self.pixels(
                             Self.compositionBaseline(style, opacity: opacity),
@@ -117,9 +117,12 @@ extension ShellGlassSceneTests {
                     }
                 }
             }
-            XCTAssertEqual(count, 1620)
-            XCTAssertEqual(rows.count, 540)
-            XCTAssertEqual(rows.compactMap { $0["semanticFrames"] as? Int }.reduce(0, +), 324)
+            XCTAssertEqual(count, Self.sweptCompositionCells * 45)
+            XCTAssertEqual(rows.count, Self.sweptCompositionCells * 15)
+            XCTAssertEqual(
+                rows.compactMap { $0["semanticFrames"] as? Int }.reduce(0, +),
+                Self.sweptCompositionCells * 9
+            )
             try Self.saveCompositionMetrics(rows, name: "composition-repeat-metrics.json")
         }
     }

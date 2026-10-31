@@ -210,10 +210,11 @@ extension ShellGlassSceneTests {
             var renders = 0
             for kind in kinds {
                 let fill = kind.flat == 1 ? Self.rimTint : glassTint
-                for rim in [0.1, 0.4, 0.55, 0.7, 1.0] {
-                    for scale in [1, 2] {
+                for (index, rim) in [0.1, 0.4, 0.55, 0.7, 1.0].enumerated() {
+                    for scale in [1, 2] where Self.fullSweep || scale == index % 2 + 1 {
                         let size = 96 * scale
-                        for shapes in Array(repeating: [Self.rimShape], count: 8) + [[fractional], union] {
+                        let repeats = Array(repeating: [Self.rimShape], count: Self.fullSweep ? 8 : 2)
+                        for shapes in repeats + [[fractional], union] {
                             let body = try Self.rimBody(
                                 "\(rim):\(kind.flat):90", fill: fill, gradient: kind.gradient, shapes: shapes
                             )
@@ -227,7 +228,7 @@ extension ShellGlassSceneTests {
                     }
                 }
             }
-            XCTAssertEqual(renders, 300)
+            XCTAssertEqual(renders, Self.fullSweep ? 300 : 60)
         }
     }
 
