@@ -16,7 +16,7 @@ Turn on **Settings > Styles & Widgets > Island > Show Dynamic Island**. Open the
 
 In the Island layout, drag a panel or section grip to pull it out. Release near its home to redock, near a screen edge to stick, or over the top shelf to store it. Drag to the top edge to open the shelf during a move. Click the owning clock, controls button or window title to return its panel and sections. The media card appears when music is available. The audio visualiser is off by default.
 
-Optional commands: `omniwmctl shell trigger vitreus desk <display-id>` toggles the Desk on a display; obtain its ID with `omniwmctl query displays`. `omniwmctl shell trigger vitreus desk-close` closes every Desk.
+Optional commands: `omniwmctl shell trigger vitreus desk <display-id>` toggles the Desk on a display; obtain its ID with `omniwmctl query displays`. **Settings > Keyboard Shortcuts > Toggle vitreus** (unbound by default) toggles it on the focused display. `omniwmctl shell trigger vitreus desk-close` closes every Desk.
 
 ## Credits and licences
 

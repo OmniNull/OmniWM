@@ -74,7 +74,7 @@ An expanded island can use `focusable = true`, `keys = {"left", "right", "escape
 
 ## Root triggers
 
-Root widgets with `trigger(ctx, event)` receive `{name = "reloaded", source = "host"}` when a display instance is first created, and `{name = "displayChanged", source = "host"}` when its display identity or geometry changes. Visibility and focus remain data facts; they do not trigger this hook. The bundled profile preserves its presentation state while hidden. User-triggered events retain their existing name/value form without `source`. Component `init`, `options` and `deinit` remain package-level hooks.
+Root widgets with `trigger(ctx, event)` receive `{name = "reloaded", source = "host"}` when a display instance is first created, and `{name = "displayChanged", source = "host"}` when its display identity or geometry changes. Visibility and focus remain data facts; they do not trigger this hook. The bundled profile preserves its presentation state while hidden. User-triggered events retain their existing name/value form without `source`. An island root without a popout also receives `{name = "toggle", value = <display ID>}` from `shell toggle <root>` and its keyboard shortcut, on the focused display. Component `init`, `options` and `deinit` remain package-level hooks.
 
 Keep integrations in component service modules so replacing the island layout does not replace their data and actions.
 

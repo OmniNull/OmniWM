@@ -12,7 +12,9 @@ extension ShellWidgetHost {
     }
 
     var toggleNames: [String] {
-        Set(config.drawers.map(\.id) + widgets.values.filter(\.declaration.hasPopout).map(\.name)).sorted()
+        let roots = [config.island?.root].compactMap(\.self).filter { widgets[$0]?.declaration.hasTrigger == true }
+        return Set(config.drawers.map(\.id) + widgets.values.filter(\.declaration.hasPopout).map(\.name) + roots)
+            .sorted()
     }
 
     var widgetReport: IPCShellWidgetsQueryResult {
@@ -80,7 +82,11 @@ extension ShellWidgetHost {
     }
 
     func toggle(_ name: String, on monitor: Monitor.ID) -> Bool {
-        toggleDrawer(name, on: monitor) || togglePopout(of: name, on: monitor)
+        if toggleDrawer(name, on: monitor) { return true }
+        guard config.island?.root == name, widgets[name]?.declaration.hasPopout == false else {
+            return togglePopout(of: name, on: monitor)
+        }
+        return toggleIsland(on: monitor)
     }
 
     func toggleDrawer(_ id: String, on monitor: Monitor.ID) -> Bool {

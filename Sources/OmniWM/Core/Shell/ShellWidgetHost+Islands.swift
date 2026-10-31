@@ -102,6 +102,13 @@ extension ShellWidgetHost {
         updateIslandDragMonitoring()
     }
 
+    func toggleIsland(on monitor: Monitor.ID) -> Bool {
+        guard let root = config.island?.root,
+              islandData[ShellBarKey(monitor: monitor, placement: .island)]?.surface?.visible == true
+        else { return false }
+        return trigger(root, name: "toggle", value: IPCDisplayRef.identifier(monitor))
+    }
+
     func closeIslands() {
         if let monitor = focusedIsland { releaseIslandFocus(on: monitor, restore: true) }
         for island in islandWindows.values { island.close() }

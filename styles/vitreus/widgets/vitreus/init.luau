@@ -47,7 +47,7 @@ function trigger(ctx, event)
         if target == nil or target == display(ctx) then expand(ctx, false) end
         return
     end
-    if name ~= "desk-open" and name ~= "desk" then
+    if name ~= "desk-open" and name ~= "desk" and name ~= "toggle" then
         bar.trigger(ctx, event)
         return
     end
