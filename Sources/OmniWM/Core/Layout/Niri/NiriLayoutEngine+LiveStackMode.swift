@@ -276,6 +276,7 @@ extension NiriLayoutEngine {
         else { return false }
         let target = landing.flatMap { liveColumn(withId: $0.columnId, in: move.workspaceId) }
         let affected = [source, target ?? home]
+        retargetActiveColumn(to: home, context: context, state: &state)
         let columnsBefore = primaryPositions(context: context, state: state)
         let placed = slideLiveWindows(in: affected, skipping: window, context: context) {
             restoreLiveMateHeight(&move)

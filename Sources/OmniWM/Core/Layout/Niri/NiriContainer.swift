@@ -84,6 +84,9 @@ class NiriContainer: NiriNode {
         contentInset: CGFloat = 0,
         applyingPackingHints: Bool = true
     ) -> CGFloat {
+        if isLiveHomeSpot, orientation == .horizontal, case let .fixed(size) = spec {
+            return size
+        }
         let bounds = orientation == .horizontal ? widthBounds(contentInset: contentInset) : heightBounds()
         var result: CGFloat = switch spec {
         case let .proportion(proportion):
@@ -287,6 +290,10 @@ class NiriContainer: NiriNode {
 }
 
 extension NiriContainer {
+    var traceWindowIds: String {
+        windowNodes.map { String($0.token.windowId) }.joined(separator: "+")
+    }
+
     func animateMoveFrom(
         displacement: CGPoint,
         clock: AnimationClock?,

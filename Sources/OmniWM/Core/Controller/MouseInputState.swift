@@ -52,9 +52,11 @@ struct MouseInputState {
         var issuedUnreadableCorrection = false
         var terminalFailureRetryRequestId: AXFrameRequestId?
         var adoptionStartFrame: CGRect?
+        var liveStartFrame: CGRect?
         var dwindleResizeWorkspaceId: WorkspaceDescriptor.ID?
         var liveDrag = false
         var liveDragDeclined = false
+        var liveDragHandedOver = false
     }
 
     struct LiveEdgeScroll {
@@ -132,6 +134,8 @@ struct MouseInputState {
     var isMoving: Bool = false
     var liveDragLocation: CGPoint?
     var liveDragModifiers: CGEventFlags?
+    var liveDragTracedView: String?
+    var liveDragTracedDecline: String?
     var liveTabPull: LiveTabPull?
     var liveDropScroll: LiveDropScroll?
     var liveHoverTimer: Timer?

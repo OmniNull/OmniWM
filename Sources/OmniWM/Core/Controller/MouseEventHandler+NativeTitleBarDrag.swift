@@ -196,6 +196,15 @@ extension MouseEventHandler {
             ? controller.axManager.lastAppliedFrame(for: drag.token.windowId)
             : nil
         drag.adoptionStartFrame = hadUnsettledFrameWrite ? nil : startFrame ?? fusionStartFrame
+        drag.liveStartFrame = controller.axManager.lastAppliedFrame(for: drag.token.windowId) ?? startFrame
+            ?? controller.workspaceManager.entry(for: drag.token).flatMap { entry in
+                controller.niriEngine?.findNode(for: drag.token, in: entry.workspaceId)?.frame
+            }
+        MouseTrace.record(
+            "title-bar drag dragging token=\(TraceFormat.token(drag.token)) "
+                + "awaitingWrite=\(hadUnsettledFrameWrite) "
+                + "start=\(TraceFormat.rect(drag.adoptionStartFrame)) live-start=\(TraceFormat.rect(drag.liveStartFrame))"
+        )
         state.nativeTitleBarDrag = drag
         controller.axManager.beginNativeTitleBarDrag(for: drag.token)
 
@@ -250,6 +259,10 @@ extension MouseEventHandler {
             return
         }
         let excludedFrameWrite = controller.axManager.endNativeTitleBarDrag(for: drag.token)
+        MouseTrace.record(
+            "title-bar drag released token=\(TraceFormat.token(drag.token)) phase=\(drag.phase) "
+                + "live=\(drag.liveDrag) declined=\(drag.liveDragDeclined) frameChange=\(drag.receivedFrameChange)"
+        )
         guard drag.phase == .dragging,
               controller.hasStartedServices,
               let entry = controller.workspaceManager.entry(for: drag.token),

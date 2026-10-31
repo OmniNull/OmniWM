@@ -94,6 +94,13 @@ final class PointerEdgeBarrierTests: XCTestCase {
         return event
     }
 
+    func testTheTapTakesLeftDragsOnlyForNaturalWindowDrag() {
+        let moved: CGEventMask = 1 << CGEventType.mouseMoved.rawValue
+        let dragged: CGEventMask = 1 << CGEventType.leftMouseDragged.rawValue
+        XCTAssertEqual(PointerEdgeBarrier.eventsOfInterest(tracksLiveDrags: false), moved)
+        XCTAssertEqual(PointerEdgeBarrier.eventsOfInterest(tracksLiveDrags: true), moved | dragged)
+    }
+
     func testPinnedEdgeExcludesArrivalAndCrossesOnceAtNetPressure() throws {
         let topology = topology(staircase)
         var recognizer = PointerEdgeRecognizer()
@@ -225,6 +232,215 @@ final class PointerEdgeBarrierTests: XCTestCase {
         XCTAssertNil(recognizer.hold)
         XCTAssertEqual(move(&recognizer, 2559.5, 700, dx: 5, after: 10_000_000, topology), .pass)
         XCTAssertNil(recognizer.hold)
+    }
+
+    private func dragEvent(_ cgPoint: CGPoint, dx: CGFloat) throws -> CGEvent {
+        let event = try XCTUnwrap(CGEvent(
+            mouseEventSource: nil, mouseType: .leftMouseDragged, mouseCursorPosition: cgPoint, mouseButton: .left
+        ))
+        event.setDoubleValueField(.mouseEventDeltaX, value: dx)
+        return event
+    }
+
+    private final class StepClock: Sendable {
+        private let now = Mutex<UInt64>(1_000_000_000)
+
+        func read() -> UInt64 {
+            now.withLock { $0 }
+        }
+
+        func advance(_ nanoseconds: UInt64 = LiveDragHold.settleNs) {
+            now.withLock { $0 += nanoseconds }
+        }
+    }
+
+    private func liveDragBarrier(
+        _ other: Monitor,
+        holding directions: Set<Direction> = [.right],
+        warps: PointRecorder,
+        warpsPointer: Bool = true,
+        clock: StepClock = StepClock()
+    ) -> PointerEdgeBarrier {
+        let barrier = PointerEdgeBarrier(
+            installsTap: false,
+            displayBounds: { _ in .infinite },
+            warpCursor: { warps.record($0)
+                return .success
+            },
+            postMove: { _ in },
+            clock: { clock.read() }
+        )
+        var topology = topology(other, fin: false)
+        topology.warpsPointer = warpsPointer
+        barrier.publish(topology)
+        barrier.publishLiveDragHold(.init(monitorId: main.id, heldDirections: directions))
+        return barrier
+    }
+
+    private func drag(_ barrier: PointerEdgeBarrier, _ cgPoint: CGPoint, dx: CGFloat) throws -> CGPoint {
+        let event = try dragEvent(cgPoint, dx: dx)
+        XCTAssertNotNil(barrier.handleTapEvent(.leftMouseDragged, event))
+        return event.location
+    }
+
+    func testALiveDragIsHeldAtASharedEdgeWhileTheStripCanScroll() throws {
+        let warps = PointRecorder()
+        let barrier = liveDragBarrier(adjoining, warps: warps)
+
+        let held = try drag(barrier, CGPoint(x: 2562, y: 700), dx: 8)
+
+        XCTAssertEqual(held, CGPoint(x: 2558, y: 700))
+        XCTAssertTrue(warps.all.isEmpty)
+        let inside = try drag(barrier, CGPoint(x: 2400, y: 700), dx: -8)
+        XCTAssertEqual(inside, CGPoint(x: 2400, y: 700))
+    }
+
+    func testPushingOnCrossesASharedEdgeOnceTheHoldHasSettled() throws {
+        let warps = PointRecorder()
+        let clock = StepClock()
+        let barrier = liveDragBarrier(adjoining, warps: warps, clock: clock)
+
+        for _ in 0 ..< 30 {
+            _ = try drag(barrier, CGPoint(x: 2562, y: 700), dx: 8)
+        }
+        XCTAssertTrue(warps.all.isEmpty)
+        clock.advance()
+        for _ in 0 ..< 11 {
+            _ = try drag(barrier, CGPoint(x: 2562, y: 700), dx: 8)
+        }
+        XCTAssertTrue(warps.all.isEmpty)
+        let crossed = try drag(barrier, CGPoint(x: 2562, y: 700), dx: 8)
+
+        XCTAssertEqual(warps.all.count, 1)
+        XCTAssertEqual(crossed, warps.all.first)
+        XCTAssertGreaterThanOrEqual(crossed.x, adjoining.frame.minX)
+    }
+
+    func testAFastApproachIsHeldUnlessItIsAFlick() throws {
+        let warps = PointRecorder()
+        let barrier = liveDragBarrier(adjoining, warps: warps)
+
+        let held = try drag(barrier, CGPoint(x: 2570, y: 700), dx: 30)
+        _ = try drag(barrier, CGPoint(x: 2600, y: 700), dx: 60)
+
+        XCTAssertEqual(held, CGPoint(x: 2558, y: 700))
+        XCTAssertTrue(warps.all.isEmpty)
+    }
+
+    func testAQuickFlickCrossesASharedEdgeAtOnce() throws {
+        let warps = PointRecorder()
+        let barrier = liveDragBarrier(adjoining, warps: warps)
+
+        let crossed = try drag(barrier, CGPoint(x: 2600, y: 700), dx: 120)
+
+        XCTAssertEqual(warps.all.count, 1)
+        XCTAssertGreaterThanOrEqual(crossed.x, adjoining.frame.minX)
+    }
+
+    func testAtTheStripsEndASharedEdgeLetsThePointerThrough() throws {
+        let warps = PointRecorder()
+        let barrier = liveDragBarrier(adjoining, holding: [.left], warps: warps)
+
+        let point = try drag(barrier, CGPoint(x: 2562, y: 700), dx: 8)
+
+        XCTAssertEqual(point, CGPoint(x: 2562, y: 700))
+        XCTAssertTrue(warps.all.isEmpty)
+    }
+
+    func testWithWarpOnTheWholeRoutedEdgeIsHeldWhereverMacOSPutsTheDisplay() throws {
+        let warps = PointRecorder()
+        let barrier = liveDragBarrier(staircase, warps: warps)
+
+        let held = try drag(barrier, CGPoint(x: 2562, y: 700), dx: 8)
+
+        XCTAssertEqual(held, CGPoint(x: 2558, y: 700))
+        XCTAssertTrue(warps.all.isEmpty)
+    }
+
+    func testWithWarpOffOutsideTheSpanMacOSSharesTheEdgeIsNotHeld() throws {
+        let warps = PointRecorder()
+        let barrier = liveDragBarrier(staircase, warps: warps, warpsPointer: false)
+
+        let point = try drag(barrier, CGPoint(x: 2562, y: 700), dx: 8)
+
+        XCTAssertEqual(point, CGPoint(x: 2562, y: 700))
+        XCTAssertTrue(warps.all.isEmpty)
+    }
+
+    func testWithWarpOffTheHoldStillWorksAndMacOSCrosses() throws {
+        let warps = PointRecorder()
+        let clock = StepClock()
+        let barrier = liveDragBarrier(adjoining, warps: warps, warpsPointer: false, clock: clock)
+
+        let held = try drag(barrier, CGPoint(x: 2562, y: 700), dx: 8)
+        XCTAssertEqual(held, CGPoint(x: 2558, y: 700))
+        clock.advance()
+        for _ in 0 ..< 11 {
+            _ = try drag(barrier, CGPoint(x: 2562, y: 700), dx: 8)
+        }
+        let through = try drag(barrier, CGPoint(x: 2562, y: 700), dx: 8)
+
+        XCTAssertEqual(through, CGPoint(x: 2562, y: 700))
+        XCTAssertTrue(warps.all.isEmpty)
+    }
+
+    func testWithWarpOffAnEdgeMacOSDoesNotShareIsNotHeld() throws {
+        let warps = PointRecorder()
+        let apart = Self.monitor(7, CGRect(x: 3000, y: 0, width: 1920, height: 1440))
+        let barrier = liveDragBarrier(apart, warps: warps, warpsPointer: false)
+
+        let point = try drag(barrier, CGPoint(x: 2562, y: 700), dx: 8)
+
+        XCTAssertEqual(point, CGPoint(x: 2562, y: 700))
+    }
+
+    func testAfterCrossingTheOldDisplaysHoldNoLongerApplies() throws {
+        let warps = PointRecorder()
+        let clock = StepClock()
+        let barrier = liveDragBarrier(adjoining, warps: warps, clock: clock)
+        _ = try drag(barrier, CGPoint(x: 2562, y: 700), dx: 8)
+        clock.advance()
+        for _ in 0 ..< 12 {
+            _ = try drag(barrier, CGPoint(x: 2562, y: 700), dx: 8)
+        }
+        XCTAssertEqual(warps.all.count, 1)
+        XCTAssertNil(barrier.liveDragHold)
+
+        let point = try drag(barrier, CGPoint(x: 2562, y: 700), dx: 8)
+
+        XCTAssertEqual(point, CGPoint(x: 2562, y: 700))
+    }
+
+    func testAPointerWarpedWellPastTheHeldEdgeIsNotPulledBack() throws {
+        let warps = PointRecorder()
+        let barrier = liveDragBarrier(adjoining, warps: warps)
+        barrier.publishLiveDragHold(.init(monitorId: adjoining.id, heldDirections: [.left]))
+
+        let point = try drag(barrier, CGPoint(x: 2540, y: 700), dx: -4)
+
+        XCTAssertEqual(point, CGPoint(x: 2540, y: 700))
+        XCTAssertTrue(warps.all.isEmpty)
+    }
+
+    func testDragsThatArentLiveAreNotHeld() throws {
+        let warps = PointRecorder()
+        let barrier = liveDragBarrier(adjoining, warps: warps)
+        barrier.publishLiveDragHold(nil)
+
+        let point = try drag(barrier, CGPoint(x: 2562, y: 700), dx: 8)
+
+        XCTAssertEqual(point, CGPoint(x: 2562, y: 700))
+        XCTAssertTrue(warps.all.isEmpty)
+    }
+
+    func testWithWarpOffPlainMouseMovesAreLeftAlone() throws {
+        let warps = PointRecorder()
+        let barrier = liveDragBarrier(staircase, warps: warps, warpsPointer: false)
+        barrier.publishLiveDragHold(nil)
+
+        let event = try moveEvent(CGPoint(x: 2559.5, y: 740))
+        XCTAssertTrue(barrier.handleTapEvent(.mouseMoved, event) != nil)
+        XCTAssertTrue(warps.all.isEmpty)
     }
 
     func testHostCrossingWarpsSuppressesTriggerAndPostsMove() throws {

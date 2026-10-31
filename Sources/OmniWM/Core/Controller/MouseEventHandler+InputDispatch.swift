@@ -283,6 +283,14 @@ extension MouseEventHandler {
               let entry = controller?.workspaceManager.entry(forWindowId: windowIdUnderPointer),
               entry.mode == .tiling
         else {
+            if state.awaitsNativeTitleBarDragTarget, state.nativeTitleBarDrag == nil {
+                let entry = windowIdUnderPointer.flatMap { controller?.workspaceManager.entry(forWindowId: $0) }
+                traceLiveDragDecline(
+                    "annotated-drag windowUnderPointer=\(windowIdUnderPointer.map(String.init) ?? "nil") "
+                        + "managed=\(entry != nil) mode=\(entry.map { "\($0.mode)" } ?? "-") "
+                        + "fallback=\(TraceFormat.token(state.nativeTitleBarDragFallbackToken))"
+                )
+            }
             if windowIdUnderPointer != nil || state.nativeTitleBarDragFallbackReleased {
                 rejectNativeTitleBarDragTarget()
             }

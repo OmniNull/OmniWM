@@ -6,6 +6,83 @@ import CoreGraphics
 import Foundation
 import Synchronization
 
+struct LiveDragHold: Equatable, Sendable {
+    enum Decision: Equatable {
+        case pass
+        case hold(CGPoint)
+        case cross(destination: CGPoint, target: Monitor.ID)
+        case letThrough
+    }
+
+    struct Push: Equatable, Sendable {
+        var distance: CGFloat = 0
+        var heldSince: UInt64?
+    }
+
+    static let flickDistance: CGFloat = 40
+    static let settleNs: UInt64 = 400_000_000
+
+    let monitorId: Monitor.ID
+    let heldDirections: Set<Direction>
+
+    func decide(
+        location: CGPoint,
+        motionX: CGFloat,
+        now: UInt64,
+        push: inout Push,
+        topology: PointerEdgeTopology
+    ) -> Decision {
+        guard let source = topology.monitor(monitorId) else {
+            push = Push()
+            return .pass
+        }
+        let frame = source.frame
+        let inset = topology.margin + 1
+        let direction: Direction? = if location.x >= frame.maxX - inset {
+            .right
+        } else if location.x <= frame.minX + inset {
+            .left
+        } else {
+            nil
+        }
+        let overshoot = direction == .right ? location.x - frame.maxX : frame.minX - location.x
+        guard let direction,
+              heldDirections.contains(direction),
+              overshoot <= abs(motionX) + inset,
+              location.y >= frame.minY, location.y <= frame.maxY,
+              let target = topology.edges[.init(monitorId: source.id, direction: direction)]?.target,
+              topology.warpsPointer || Self.shares(target.frame, frame, direction, at: location.y)
+        else {
+            push = Push()
+            return .pass
+        }
+        let held = CGPoint(x: direction == .right ? frame.maxX - inset : frame.minX + inset, y: location.y)
+        let outward = PointerEdgeRecognizer.outward(CGVector(dx: motionX, dy: 0), direction)
+        if let since = push.heldSince {
+            if now >= since + Self.settleNs { push.distance = max(0, push.distance + outward) }
+        } else {
+            push.heldSince = now
+            if outward >= Self.flickDistance { push.distance = PointerEdgeTopology.pushDistance }
+        }
+        guard push.distance >= PointerEdgeTopology.pushDistance else { return .hold(held) }
+        push = Push()
+        guard topology.warpsPointer else { return .letThrough }
+        let zone = MouseWarpGeometry.crossing(toward: direction, location: held, frame: frame)
+        return .cross(
+            destination: MouseWarpGeometry.destinationPoint(
+                on: target.frame, entryEdge: zone.entryEdge, ratio: zone.ratio, margin: topology.margin
+            ),
+            target: target.id
+        )
+    }
+
+    private static func shares(_ target: CGRect, _ frame: CGRect, _ direction: Direction, at y: CGFloat) -> Bool {
+        let seam = direction == .right ? target.minX - frame.maxX : frame.minX - target.maxX
+        return abs(seam) <= FrameTolerance.screenMatch
+            && y >= max(frame.minY, target.minY) && y <= min(frame.maxY, target.maxY)
+    }
+}
+
 final class PointerEdgeBarrier: Sendable {
     typealias DisplayBounds = @Sendable (CGDirectDisplayID) -> CGRect?
     typealias WarpCursor = @Sendable (CGPoint) -> CGError
@@ -15,6 +92,9 @@ final class PointerEdgeBarrier: Sendable {
     private struct State {
         var topology = PointerEdgeTopology()
         var recognizer = PointerEdgeRecognizer()
+        var liveDragHold: LiveDragHold?
+        var liveDragPush = LiveDragHold.Push()
+        var liveDragHolding = false
     }
 
     private struct TapState {
@@ -23,10 +103,18 @@ final class PointerEdgeBarrier: Sendable {
         var installed = false
         var stopRequested = false
         var needsReenable = false
+        var needsRecreate = false
+    }
+
+    private enum TapLoopStep {
+        case stop
+        case recreate
+        case run(reenable: Bool)
     }
 
     private let state = Mutex(State())
     private let tapState = Mutex(TapState())
+    private let tracksLiveDrags = Mutex(false)
     private let installsTap: Bool
     private let displayBounds: DisplayBounds
     private let warpCursor: WarpCursor
@@ -57,6 +145,23 @@ final class PointerEdgeBarrier: Sendable {
 
     func reset() {
         state.withLock { $0.recognizer.reset() }
+    }
+
+    var liveDragHold: LiveDragHold? {
+        state.withLock { $0.liveDragHold }
+    }
+
+    func publishLiveDragHold(_ hold: LiveDragHold?) {
+        let changed = state.withLock { current -> Bool in
+            if hold?.monitorId != current.liveDragHold?.monitorId { current.liveDragPush = .init() }
+            defer { current.liveDragHold = hold }
+            return hold != current.liveDragHold
+        }
+        guard changed else { return }
+        MouseTrace.record(
+            "live-drag-hold publish monitor=\(hold.map { "\($0.monitorId)" } ?? "nil") "
+                + "held=\(hold.map { "\($0.heldDirections.sorted { "\($0)" < "\($1)" })" } ?? "-")"
+        )
     }
 
     func noteProgrammaticMove(to location: CGPoint) {
@@ -98,50 +203,32 @@ final class PointerEdgeBarrier: Sendable {
     }
 
     private func runTap() {
-        let callback: CGEventTapCallBack = { _, type, event, info in
-            guard let info else { return Unmanaged.passUnretained(event) }
-            return Unmanaged<PointerEdgeBarrier>.fromOpaque(info).takeUnretainedValue().handleTapEvent(type, event)
-        }
-        guard let port = CGEvent.tapCreate(
-                  tap: .cghidEventTap,
-                  place: .headInsertEventTap,
-                  options: .defaultTap,
-                  eventsOfInterest: 1 << CGEventType.mouseMoved.rawValue,
-                  callback: callback,
-                  userInfo: Unmanaged.passUnretained(self).toOpaque()
-              ),
-              let source = CFMachPortCreateRunLoopSource(kCFAllocatorDefault, port, 0)
-        else {
-            MouseTrace.record("pointer-edge tap unavailable")
-            tapState.withLock { $0 = TapState() }
-            return
-        }
-        CFRunLoopAddSource(CFRunLoopGetCurrent(), source, .commonModes)
-        CGEvent.tapEnable(tap: port, enable: true)
-        tapState.withLock { current in
-            current.runLoop = CFRunLoopGetCurrent()
-            current.installed = true
-        }
-        EventIntake.post(.pointerEdgeOwnershipChanged)
-        while true {
-            let (stop, reenable) = tapState.withLock { current -> (Bool, Bool) in
-                if current.stopRequested {
-                    current = TapState()
-                    return (true, false)
-                }
-                defer { current.needsReenable = false }
-                return (false, current.needsReenable)
+        var installed = false
+        while let (port, source) = makeTap() {
+            CFRunLoopAddSource(CFRunLoopGetCurrent(), source, .commonModes)
+            CGEvent.tapEnable(tap: port, enable: true)
+            tapState.withLock { current in
+                current.runLoop = CFRunLoopGetCurrent()
+                current.installed = true
             }
-            if stop { break }
-            if reenable {
-                CGEvent.tapEnable(tap: port, enable: true)
+            if !installed {
+                installed = true
+                EventIntake.post(.pointerEdgeOwnershipChanged)
             }
-            CFRunLoopRun()
+            let recreates = runTapLoop(port)
+            CGEvent.tapEnable(tap: port, enable: false)
+            CFRunLoopRemoveSource(CFRunLoopGetCurrent(), source, .commonModes)
+            CFMachPortInvalidate(port)
+            guard recreates else {
+                EventIntake.post(.pointerEdgeOwnershipChanged)
+                return
+            }
         }
-        CGEvent.tapEnable(tap: port, enable: false)
-        CFRunLoopRemoveSource(CFRunLoopGetCurrent(), source, .commonModes)
-        CFMachPortInvalidate(port)
-        EventIntake.post(.pointerEdgeOwnershipChanged)
+        MouseTrace.record("pointer-edge tap unavailable")
+        tapState.withLock { $0 = TapState() }
+        if installed {
+            EventIntake.post(.pointerEdgeOwnershipChanged)
+        }
     }
 
     func handleTapEvent(_ type: CGEventType, _ event: CGEvent) -> Unmanaged<CGEvent>? {
@@ -151,6 +238,7 @@ final class PointerEdgeBarrier: Sendable {
             reset()
             return Unmanaged.passUnretained(event)
         }
+        if type == .leftMouseDragged { return handleLiveDragEvent(event) }
         guard type == .mouseMoved else { return Unmanaged.passUnretained(event) }
         let receivedAt = clock()
         let cgLocation = event.location
@@ -214,6 +302,67 @@ final class PointerEdgeBarrier: Sendable {
         return nil
     }
 
+    private func handleLiveDragEvent(_ event: CGEvent) -> Unmanaged<CGEvent>? {
+        let cgLocation = event.location
+        let motionX = event.getDoubleValueField(.mouseEventDeltaX)
+        let now = clock()
+        let (decision, flipY) = state.withLock { current -> (LiveDragHold.Decision, CGFloat) in
+            let flipY = current.topology.flipY
+            guard current.topology.isEnabled, let hold = current.liveDragHold else {
+                current.liveDragPush = .init()
+                return (.pass, flipY)
+            }
+            let decision = hold.decide(
+                location: CGPoint(x: cgLocation.x, y: flipY - cgLocation.y),
+                motionX: motionX,
+                now: now,
+                push: &current.liveDragPush,
+                topology: current.topology
+            )
+            switch decision {
+            case .cross,
+                 .letThrough:
+                current.liveDragHold = nil
+                current.liveDragPush = .init()
+            case .pass,
+                 .hold:
+                break
+            }
+            let holding = if case .hold = decision { true } else { false }
+            if holding != current.liveDragHolding {
+                current.liveDragHolding = holding
+                MouseTrace.record(
+                    "live-drag-hold \(holding ? "hold" : "release") monitor=\(hold.monitorId) "
+                        + "held=\(hold.heldDirections) at=\(TraceFormat.point(cgLocation))"
+                )
+            }
+            return (decision, flipY)
+        }
+        switch decision {
+        case .pass:
+            return Unmanaged.passUnretained(event)
+        case .letThrough:
+            MouseTrace.record("live-drag-hold let through at=\(TraceFormat.point(cgLocation))")
+            return Unmanaged.passUnretained(event)
+        case let .hold(point):
+            event.location = CGPoint(x: point.x, y: flipY - point.y)
+            return Unmanaged.passUnretained(event)
+        case let .cross(destination, target):
+            let warpPoint = CGPoint(x: destination.x, y: flipY - destination.y)
+            let error = warpCursor(warpPoint)
+            MouseTrace.record(
+                "live-drag-hold cross to=\(target) warp=\(TraceFormat.point(warpPoint)) raw=\(error.rawValue)"
+            )
+            guard error == .success else { return Unmanaged.passUnretained(event) }
+            state.withLock {
+                $0.recognizer.noteCursorMoved(to: destination, monitor: target, at: clock())
+            }
+            EventIntake.post(.pointerEdgeCrossed(target: target))
+            event.location = warpPoint
+            return Unmanaged.passUnretained(event)
+        }
+    }
+
     private static func traceRoute(_ crossing: PointerEdgeRecognizer.Crossing, _ warpPoint: CGPoint) -> String {
         "from=\(crossing.source) to=\(crossing.target.id) dir=\(crossing.direction) "
             + "dest=\(TraceFormat.point(crossing.destination)) warp=\(TraceFormat.point(warpPoint))"
@@ -229,6 +378,72 @@ final class PointerEdgeBarrier: Sendable {
         DispatchQueue.global(qos: .userInteractive).async {
             CGEvent(mouseEventSource: nil, mouseType: .mouseMoved, mouseCursorPosition: point, mouseButton: .left)?
                 .post(tap: .cghidEventTap)
+        }
+    }
+}
+
+extension PointerEdgeBarrier {
+    nonisolated static func eventsOfInterest(tracksLiveDrags: Bool) -> CGEventMask {
+        let moved: CGEventMask = 1 << CGEventType.mouseMoved.rawValue
+        return tracksLiveDrags ? moved | 1 << CGEventType.leftMouseDragged.rawValue : moved
+    }
+
+    func setTracksLiveDrags(_ tracks: Bool) {
+        let changed = tracksLiveDrags.withLock { current -> Bool in
+            defer { current = tracks }
+            return current != tracks
+        }
+        guard changed else { return }
+        tapState.withLock { current in
+            current.needsRecreate = true
+            guard let runLoop = current.runLoop else { return }
+            CFRunLoopPerformBlock(runLoop, CFRunLoopMode.commonModes.rawValue) {
+                CFRunLoopStop(CFRunLoopGetCurrent())
+            }
+            CFRunLoopWakeUp(runLoop)
+        }
+    }
+
+    fileprivate func makeTap() -> (CFMachPort, CFRunLoopSource)? {
+        let callback: CGEventTapCallBack = { _, type, event, info in
+            guard let info else { return Unmanaged.passUnretained(event) }
+            return Unmanaged<PointerEdgeBarrier>.fromOpaque(info).takeUnretainedValue().handleTapEvent(type, event)
+        }
+        guard let port = CGEvent.tapCreate(
+                  tap: .cghidEventTap,
+                  place: .headInsertEventTap,
+                  options: .defaultTap,
+                  eventsOfInterest: Self.eventsOfInterest(tracksLiveDrags: tracksLiveDrags.withLock { $0 }),
+                  callback: callback,
+                  userInfo: Unmanaged.passUnretained(self).toOpaque()
+              ),
+              let source = CFMachPortCreateRunLoopSource(kCFAllocatorDefault, port, 0)
+        else { return nil }
+        return (port, source)
+    }
+
+    fileprivate func runTapLoop(_ port: CFMachPort) -> Bool {
+        while true {
+            let step = tapState.withLock { current -> TapLoopStep in
+                if current.stopRequested {
+                    current = TapState()
+                    return .stop
+                }
+                defer {
+                    current.needsReenable = false
+                    current.needsRecreate = false
+                }
+                return current.needsRecreate ? .recreate : .run(reenable: current.needsReenable)
+            }
+            switch step {
+            case .stop: return false
+            case .recreate: return true
+            case let .run(reenable):
+                if reenable {
+                    CGEvent.tapEnable(tap: port, enable: true)
+                }
+                CFRunLoopRun()
+            }
         }
     }
 }

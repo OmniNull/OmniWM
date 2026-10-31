@@ -177,6 +177,7 @@ final class LiveTitleBarDragTests: NiriInteractionTestCase {
         XCTAssertNil(fixture.engine.liveColumnMove)
         XCTAssertEqual(fixture.order(), order)
         XCTAssertEqual(fixture.phase, .awaitingCorrection)
+        XCTAssertFalse(fixture.handler.liveDragModifierCapture.isActive)
     }
 
     func testReloadedSettingsLeaveTheTapFilterAloneWhileNaturalWindowDragIsOff() throws {
@@ -346,12 +347,14 @@ final class LiveTitleBarDragTests: NiriInteractionTestCase {
 
         XCTAssertFalse(fixture.handler.isLiveColumnDragActive)
         XCTAssertNil(fixture.controller.niriEngine?.liveColumnMove)
+        XCTAssertFalse(fixture.handler.liveDragModifierCapture.isActive)
         XCTAssertNil(fixture.handler.state.deferredClickScroll)
 
         fixture.handler.dispatchMouseUp(at: try fixture.centre(of: other))
 
         XCTAssertEqual(fixture.phase, .awaitingCorrection)
         XCTAssertEqual(try fixture.frames(), frames)
+        XCTAssertFalse(fixture.handler.liveDragModifierCapture.isActive)
     }
 
     func testMacOSMovingTheWindowStartsALiveDragThatSwapsColumns() throws {
@@ -361,6 +364,7 @@ final class LiveTitleBarDragTests: NiriInteractionTestCase {
         try fixture.startLiveDrag(dragged)
 
         XCTAssertTrue(fixture.handler.isLiveColumnDragActive)
+        XCTAssertTrue(fixture.handler.liveDragModifierCapture.isActive)
         XCTAssertNotNil(fixture.engine.liveColumnMove)
 
         fixture.drag(to: try fixture.farHalf(of: neighbour))
@@ -421,6 +425,7 @@ final class LiveTitleBarDragTests: NiriInteractionTestCase {
 
         XCTAssertNil(fixture.engine.liveColumnMove)
         XCTAssertFalse(fixture.handler.isLiveColumnDragActive)
+        XCTAssertFalse(fixture.handler.liveDragModifierCapture.isActive)
         XCTAssertNil(fixture.handler.state.liveDropScroll)
         XCTAssertEqual(fixture.order(), order)
         XCTAssertEqual(fixture.phase, .awaitingCorrection)
@@ -451,6 +456,7 @@ final class LiveTitleBarDragTests: NiriInteractionTestCase {
             XCTAssertEqual(fixture.order(), order, cancel)
             XCTAssertNil(fixture.engine.liveColumnMove, cancel)
             XCTAssertFalse(fixture.handler.isLiveColumnDragActive, cancel)
+            XCTAssertFalse(fixture.handler.liveDragModifierCapture.isActive, cancel)
         }
     }
 
@@ -1321,6 +1327,26 @@ final class LiveTitleBarDragTests: NiriInteractionTestCase {
         return right
     }
 
+    func testALiveDragHoldsOnlyTheSidesTheStripCanScrollUntilItEnds() throws {
+        let fixture = try makeFixture(pid: 938_193, windowCount: 6)
+        let barrier = fixture.controller.pointerEdgeBarrier
+        XCTAssertNil(barrier.liveDragHold)
+        try fixture.startLiveDrag(fixture.tokens[1])
+        fixture.drag(to: try fixture.centre(of: fixture.tokens[1]))
+        XCTAssertEqual(barrier.liveDragHold?.monitorId, fixture.monitor.id)
+        XCTAssertEqual(barrier.liveDragHold?.heldDirections.contains(.right), true)
+
+        try startEdgeScroll(.trailing, dragging: fixture.tokens[1], in: fixture, started: true)
+        XCTAssertEqual(barrier.liveDragHold?.heldDirections.contains(.right), true)
+        tickEdgeScroll(fixture)
+        fixture.drag(to: edgePoint(.trailing, fixture))
+        XCTAssertEqual(barrier.liveDragHold?.heldDirections.contains(.right), false)
+        XCTAssertEqual(barrier.liveDragHold?.heldDirections.contains(.left), true)
+
+        fixture.handler.dispatchMouseUp(at: edgePoint(.trailing, fixture))
+        XCTAssertNil(barrier.liveDragHold)
+    }
+
     func testStackModeEdgeScrollOpensNoLandingGaps() throws {
         let fixture = try makeFixture(pid: 938_095, windowCount: 6)
         fixture.handler.modifierFlagsProvider = { .maskAlternate }
@@ -1440,11 +1466,14 @@ final class LiveTitleBarDragTests: NiriInteractionTestCase {
     private func startEdgeScroll(
         _ edge: MouseInputState.LiveEdgeScroll.Edge,
         dragging token: WindowToken,
-        in fixture: Fixture
+        in fixture: Fixture,
+        started: Bool = false
     ) throws {
         let clock = edgeClock(fixture)
         fixture.engine.moveConfiguration.liveHoverDelay = 0.12
-        try fixture.startLiveDrag(token)
+        if !started {
+            try fixture.startLiveDrag(token)
+        }
         let start = try fixture.centre(of: token)
         let end = edgePoint(edge, fixture)
         let steps = max(1, Int(abs(end.x - start.x) / 40))
@@ -2202,6 +2231,36 @@ final class LiveTitleBarDragTests: NiriInteractionTestCase {
         XCTAssertEqual(tabbed.windowNodes.map(\.token), tabs)
         XCTAssertTrue(tabbed.isTabbed)
         XCTAssertEqual(tabbed.windowNodes[tabbed.activeTileIdx].token, pulled)
+    }
+
+    func testCancellingATabPullSpringsFromWhereTheStripIsShown() throws {
+        let fixture = try makeFixture(pid: 938_096, windowCount: 4, tabbedRuns: [1 ... 2], animated: true)
+        let pulled = fixture.tokens[2]
+        let tabbed = try column(holding: pulled, in: fixture)
+        let rail = try railInfo(holding: pulled, in: fixture)
+        let start = try fixture.frame(pulled)
+        fixture.handler.nativeWindowFrameProvider = { _ in start }
+        let tabbedIndex = try XCTUnwrap(fixture.engine.columnIndex(of: tabbed, in: fixture.workspaceId))
+        fixture.manager.withNiriViewportState(for: fixture.workspaceId) { $0.activeColumnIndex = tabbedIndex }
+        tabPull(pulled, at: CGPoint(x: start.minX - 10, y: start.midY), rail: rail, in: fixture)
+        XCTAssertEqual(tabbed.windowNodes.count, 1)
+        let context = try XCTUnwrap(fixture.handler.liveColumnContext(for: fixture.workspaceId))
+        var state = fixture.manager.niriViewportState(for: fixture.workspaceId)
+        state.clearOffsetTransition()
+        func minX(_ state: ViewportState) throws -> CGFloat {
+            try XCTUnwrap(fixture.engine.liveColumnStrip(context: context, state: state)
+                .first { $0.column === tabbed }).minX
+        }
+        let shown = try minX(state)
+        let offsetBefore = state.viewOffset
+
+        fixture.manager.withEngineMutationScope(in: fixture.workspaceId) {
+            XCTAssertTrue(fixture.engine.liveColumnMoveCancel(context: context, state: &state))
+        }
+
+        var springStart = state
+        springStart.viewOffset = offsetBefore + state.offsetTransition.rebaseDelta
+        XCTAssertEqual(try minX(springStart), shown, accuracy: 0.5)
     }
 
     func testATabPullNeedsTheSetting() throws {

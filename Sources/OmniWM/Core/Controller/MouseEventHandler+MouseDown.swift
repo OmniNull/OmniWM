@@ -145,6 +145,11 @@ extension MouseEventHandler {
             controller.axEventHandler.noteUnmanagedPointerClick()
         }
         state.nativeTitleBarDragFallbackToken = exactToken == nil ? focusIntentToken : nil
+        state.liveDragTracedDecline = nil
+        MouseTrace.record(
+            "title-bar press windowUnderPointer=\(windowIdUnderPointer.map(String.init) ?? "nil") "
+                + "exact=\(TraceFormat.token(exactToken)) fallback=\(TraceFormat.token(focusIntentToken))"
+        )
         if let exactToken {
             state.awaitsNativeTitleBarDragTarget = false
             let token = exactToken

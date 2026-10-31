@@ -92,6 +92,9 @@ extension NiriLayoutHandler {
            !state.preservesGestureOffset || removal.removedColumn
            || pass.engine.effectiveSettings(in: pass.wsId).edgeOverscroll == .disabled
         {
+            if state.viewOffset != 0 || state.activeColumnIndex != 0 {
+                MouseTrace.record("niri single-window viewport reset ws=\(pass.wsId)")
+            }
             resetViewportForSingleWindowFit(state: &state)
         }
 
@@ -136,6 +139,9 @@ extension NiriLayoutHandler {
            snapshot.isActiveWorkspace
         {
             let isTabLocalArrival = insertion.tabLocalTokens.contains(newToken)
+            if pass.engine.isLiveColumnMoveActive(in: pass.wsId) {
+                MouseTrace.record("niri arrival during live drag ws=\(pass.wsId) token=\(TraceFormat.token(newToken))")
+            }
             state.selectedNodeId = newNode.id
 
             if wasEmpty {
@@ -398,6 +404,9 @@ extension NiriLayoutHandler {
                 : state.viewOffset - offsetBefore
             if abs(liveOffsetDelta) > 1 {
                 viewportNeedsRecalc = true
+                MouseTrace.record(
+                    "niri selection scroll ws=\(pass.wsId) delta=\(Int(liveOffsetDelta)) active=\(state.activeColumnIndex)"
+                )
             }
         }
 

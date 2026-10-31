@@ -48,6 +48,7 @@ extension MouseEventHandler {
         guard button == .left, state.nativeTitleBarDrag != nil else { return false }
         state.liveDragLocation = location
         state.liveDragModifiers = nil
+        resumeHandedOverLiveColumnDrag(at: location)
         guard isLiveColumnDragActive else { return false }
         updateLiveColumnDrag(at: location)
         return true
@@ -69,16 +70,33 @@ extension MouseEventHandler {
         return true
     }
 
+    func traceLiveDragDecline(_ reason: String) {
+        guard MouseTrace.shared.isActive, reason != state.liveDragTracedDecline else { return }
+        state.liveDragTracedDecline = reason
+        MouseTrace.record("live-drag declined \(reason)")
+    }
+
     func beginLiveColumnDragIfEligible(
         _ drag: inout MouseInputState.NativeTitleBarDrag,
         entry: WindowState
     ) -> Bool {
+        if MouseTrace.shared.isActive, !drag.liveDrag {
+            let start = drag.adoptionStartFrame ?? drag.liveStartFrame
+            let observed = entry.axRef.flatMap(nativeWindowFrameProvider)
+            traceLiveDragDecline(
+                "check token=\(TraceFormat.token(entry.token)) declined=\(drag.liveDragDeclined) "
+                    + "resize=\(drag.dwindleResizeWorkspaceId != nil) "
+                    + "start=\(TraceFormat.rect(drag.adoptionStartFrame)) live-start=\(TraceFormat.rect(drag.liveStartFrame)) "
+                    + "observed=\(TraceFormat.rect(observed)) "
+                    + "moved=\(start.flatMap { s in observed.map { Self.isNativeMove(from: s, to: $0) } } ?? false)"
+            )
+        }
         guard !drag.liveDrag, !drag.liveDragDeclined,
               drag.dwindleResizeWorkspaceId == nil,
               let controller,
               controller.settings.niri.naturalWindowDrag,
               controller.workspaceManager.activeLayoutKind(for: entry.workspaceId) == .niri,
-              let start = drag.adoptionStartFrame,
+              let start = drag.adoptionStartFrame ?? drag.liveStartFrame,
               let observed = entry.axRef.flatMap(nativeWindowFrameProvider),
               Self.isNativeMove(from: start, to: observed),
               let engine = controller.niriEngine,
@@ -96,10 +114,12 @@ extension MouseEventHandler {
             )
         }
         guard began else {
+            traceLiveDragDecline("engine-refused token=\(TraceFormat.token(entry.token))")
             drag.liveDragDeclined = true
             return false
         }
         drag.liveDrag = true
+        drag.adoptionStartFrame = start
         state.deferredClickScroll = nil
         if let location = state.liveDragLocation,
            let monitor = controller.workspaceManager.monitor(for: entry.workspaceId)
@@ -111,6 +131,7 @@ extension MouseEventHandler {
     }
 
     func startLiveDragKeyCapture() {
+        controller?.syncLiveDragPointerHold(active: true)
         liveDragModifierCapture.start { [weak self] flags in
             guard let self, let location = state.liveDragLocation else { return }
             state.liveDragModifiers = flags
@@ -137,13 +158,21 @@ extension MouseEventHandler {
             return
         }
         let workspaceId = move.workspaceId
-        guard let monitor = controller.workspaceManager.monitor(for: workspaceId),
-              !pointerHasLeft(monitor, at: location)
-        else {
+        traceLiveDrag("update", at: location)
+        guard let monitor = controller.workspaceManager.monitor(for: workspaceId) else {
             cancelLiveColumnDrag()
             return
         }
+        if pointerHasLeft(monitor, at: location) {
+            if !carryLiveColumnDrag(from: workspaceId, at: location) {
+                MouseTrace.record("live-drag carry refused at=\(TraceFormat.point(location)) from=\(workspaceId)")
+                cancelLiveColumnDrag()
+                state.nativeTitleBarDrag?.liveDragHandedOver = true
+            }
+            return
+        }
         trackLiveEdgeZone(at: location, monitorFrame: monitor.frame)
+        publishLiveDragHold(on: monitor, workspaceId: workspaceId)
         let togglesStackMode = wantsLiveStackMode(move) != move.stackMode
         var immediate = immediate
         if isLiveEdgeScrolling {
@@ -203,6 +232,7 @@ extension MouseEventHandler {
             startLiveEdgeScrollIfDue()
             return
         }
+        traceLiveDrag(immediate ? "changed-immediate" : "changed", at: location)
         refreshLiveColumnLayout(in: workspaceId, engine: engine)
         if !hasPendingLiveColumnAnimation(in: workspaceId, engine: engine) {
             engine.liveColumnMoveSettled()
@@ -249,8 +279,13 @@ extension MouseEventHandler {
         else { return false }
 
         let workspaceId = move.workspaceId
+        let carriedFrom = move.carry?.originalWorkspaceId
+        let carriedTokens = move.isWholeColumn
+            ? engine.liveDraggedColumn(for: move)?.windowNodes.map(\.token) ?? [token]
+            : [token]
         let releaseFrame = releasedFrame
             ?? controller.workspaceManager.entry(for: token).flatMap { $0.axRef.flatMap(nativeWindowFrameProvider) }
+        traceLiveStrip("release-before", in: workspaceId, at: state.liveDragLocation)
         let ended = controller.workspaceManager.withNiriViewportState(for: workspaceId) { viewportState in
             engine.liveColumnMoveEnd(
                 releasedFrame: releaseFrame,
@@ -261,11 +296,21 @@ extension MouseEventHandler {
             )
         }
         guard ended else { return false }
+        traceLiveStrip("release-ended", in: workspaceId, at: state.liveDragLocation)
         controller.workspaceManager.recordLayoutOperation(
             .interactiveMoveEnded(token: token),
             in: workspaceId,
             source: .mouse
         )
+        if let carriedFrom, carriedFrom != workspaceId {
+            controller.finishLiveDragAcrossDisplays(
+                token: token,
+                carrying: carriedTokens,
+                from: carriedFrom,
+                to: workspaceId
+            )
+            traceLiveStrip("release-handed-to-workspace-move", in: workspaceId, at: nil)
+        }
         if engine.isLiveStackDropPending(in: workspaceId) {
             refreshLiveColumnLayout(in: workspaceId, engine: engine)
             if !hasPendingLiveColumnAnimation(in: workspaceId, engine: engine) {
@@ -311,9 +356,11 @@ extension MouseEventHandler {
     }
 
     func cancelLiveColumnDrag() {
+        MouseTrace.record("live-drag cancel requested active=\(isLiveColumnDragActive)")
         guard isLiveColumnDragActive else { return }
         endLiveColumnDragTracking()
         state.nativeTitleBarDrag?.liveDragDeclined = true
+        returnCarriedLiveColumnDragHome()
         guard let controller,
               let engine = controller.niriEngine,
               let move = engine.liveColumnMove,
@@ -365,6 +412,8 @@ extension MouseEventHandler {
     }
 
     private func endLiveColumnDragTracking() {
+        controller?.pointerEdgeBarrier.publishLiveDragHold(nil)
+        controller?.syncLiveDragPointerHold(active: false)
         clearLiveEdgeZone()
         cancelLiveHoverCheck()
         state.nativeTitleBarDrag?.liveDrag = false
@@ -377,7 +426,9 @@ extension MouseEventHandler {
         guard let pending = state.liveDropScroll else { return }
         state.liveDropScroll = nil
         guard let engine = controller?.niriEngine, engine.liveColumnMove == nil else { return }
+        traceLiveStrip("drop-scroll-before", in: pending.workspaceId, at: nil)
         scrollSelectionIntoView(pending.token, in: pending.workspaceId, engine: engine)
+        traceLiveStrip("drop-scroll-after", in: pending.workspaceId, at: nil)
     }
 
     private func scrollSelectionIntoView(
@@ -396,7 +447,7 @@ extension MouseEventHandler {
         refreshLiveColumnLayout(in: workspaceId, engine: engine)
     }
 
-    private func refreshLiveColumnLayout(in workspaceId: WorkspaceDescriptor.ID, engine: NiriLayoutEngine) {
+    func refreshLiveColumnLayout(in workspaceId: WorkspaceDescriptor.ID, engine: NiriLayoutEngine) {
         guard let controller else { return }
         controller.layoutRefreshController.requestLayoutCommandRelayout(affectedWorkspaceIds: [workspaceId])
         controller.niriLayoutHandler.startScrollAnimationIfNeeded(

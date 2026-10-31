@@ -27,9 +27,18 @@ extension MouseEventHandler {
         }
         guard var drag = state.nativeTitleBarDrag,
               drag.token == entry.token
-        else { return false }
+        else {
+            traceLiveDragDecline(
+                "no-title-bar-drag token=\(TraceFormat.token(entry.token)) drag=\(TraceFormat.token(state.nativeTitleBarDrag?.token)) "
+                    + "awaitsTarget=\(state.awaitsNativeTitleBarDragTarget) moveTap=\(state.moveTap != nil) "
+                    + "released=\(state.nativeTitleBarDragFallbackReleased) pressed=\(pressedMouseButtonsProvider()) "
+                    + "fallback=\(TraceFormat.token(state.nativeTitleBarDragFallbackToken)) mode=\(entry.mode)"
+            )
+            return false
+        }
         switch drag.phase {
         case .armed:
+            traceLiveDragDecline("armed token=\(TraceFormat.token(entry.token))")
             return false
         case .dragging:
             drag.receivedFrameChange = true

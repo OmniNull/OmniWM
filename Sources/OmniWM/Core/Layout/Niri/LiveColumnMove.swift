@@ -165,21 +165,41 @@ struct LiveColumnMove {
         let windowSizing: WindowSizing
     }
 
+    struct VisitedStrip {
+        let workspaceId: WorkspaceDescriptor.ID
+        let viewport: ViewportState
+        let activeColumnId: NodeId?
+    }
+
+    struct WidenedColumn {
+        let workspaceId: WorkspaceDescriptor.ID
+        let columnId: NodeId
+        let sizing: NiriContainerSizingState
+    }
+
+    struct Carry {
+        let originalWorkspaceId: WorkspaceDescriptor.ID
+        let originalOwnSizing: NiriContainerSizingState
+        var parkedHomeColumn: NiriContainer?
+        var visitedStrips: [VisitedStrip] = []
+        var widenedColumn: WidenedColumn?
+    }
+
     let windowId: NodeId
     let windowToken: WindowToken
-    let workspaceId: WorkspaceDescriptor.ID
+    var workspaceId: WorkspaceDescriptor.ID
     var homeColumnId: NodeId
     let isWholeColumn: Bool
     let pullsTab: Bool
     var inStack: Bool
     var homeSlotIndex: Int
     let originalSlot: OriginalSlot
-    let ownSizing: NiriContainerSizingState
+    var ownSizing: NiriContainerSizingState
     var ownWindowSizing: WindowSizing
     let originalColumnOrder: [NodeId]
     let originalViewport: ViewportState
     let originalActiveColumnId: NodeId
-    let originalViewPosition: CGFloat
+    var originalViewPosition: CGFloat
     var phase: Phase = .dragging
     var hover: Hover?
     var dropSpaceId: NodeId?
@@ -199,6 +219,7 @@ struct LiveColumnMove {
     var slotLeads: SlotLeads?
     var passed: Passed?
     var sideBySideIds: Set<NodeId> = []
+    var carry: Carry?
 
     func isStill(at cursor: CGPoint) -> Bool {
         guard let still = awaitsPointerMoveFrom else { return false }

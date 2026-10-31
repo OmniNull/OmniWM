@@ -17,11 +17,23 @@ extension WMController {
         publishPointerEdgeTopology()
     }
 
+    func syncLiveDragPointerHold(active: Bool) {
+        guard !settings.pointer.enabled, hasStartedServices, shouldUseMouseWarp() else { return }
+        if active {
+            pointerEdgeBarrier.start()
+            publishPointerEdgeTopology()
+        } else {
+            pointerEdgeBarrier.stop()
+        }
+    }
+
     func publishPointerEdgeTopology() {
         let monitors = workspaceManager.monitors
         var topology = PointerEdgeTopology()
-        topology.isEnabled = isEnabled && settings.pointer.enabled && monitors.count > 1
-            && !mouseEventHandler.isInputSuppressed
+        topology.isEnabled = isEnabled && (settings.pointer.enabled || settings.niri.naturalWindowDrag)
+            && monitors.count > 1 && !mouseEventHandler.isInputSuppressed
+        topology.warpsPointer = settings.pointer.enabled
+        pointerEdgeBarrier.setTracksLiveDrags(settings.niri.naturalWindowDrag)
         guard topology.isEnabled else {
             pointerEdgeBarrier.publish(topology)
             return

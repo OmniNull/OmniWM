@@ -223,9 +223,15 @@ extension NiriLayoutEngine {
               let column = columns(in: workspaceId).first(where: { $0.id == slot.columnId }),
               column.liveSlotWidth != nil
         else { return }
-        column.liveSlotWidth = nil
-        if !column.windowNodes.isEmpty {
-            column.cachedWidth = slot.fullWidth
+        if column.windowNodes.isEmpty {
+            column.liveSlotWidth = nil
+        } else {
+            restoreLiveSlotWidth(slot, of: column)
         }
+    }
+
+    func restoreLiveSlotWidth(_ slot: LiveColumnMove.NarrowedSlot, of column: NiriContainer) {
+        column.liveSlotWidth = nil
+        column.cachedWidth = slot.fullWidth
     }
 }
