@@ -2,6 +2,7 @@
 // Copyright (C) 2026 OmniNull — https://github.com/OmniNull/OmniWM
 
 import AppKit
+import Carbon
 import CoreGraphics
 @testable import OmniWM
 import XCTest
@@ -2963,6 +2964,10 @@ final class NativeResizeAdoptionTests: NiriInteractionTestCase {
             let before = try fixture.frames()
             try fixture.release(token, at: grown(try fixture.frame(token), right: -300))
             XCTAssertNotEqual(try fixture.frames(), before, "natural=\(natural)")
+            guard natural else {
+                XCTAssertFalse(fixture.handler.undoNativeResize(on: try fixture.target(token)))
+                continue
+            }
 
             XCTAssertTrue(fixture.handler.undoNativeResize(on: try fixture.target(token)), "natural=\(natural)")
 
@@ -2972,8 +2977,50 @@ final class NativeResizeAdoptionTests: NiriInteractionTestCase {
         }
     }
 
+    func testUndoResizeIsRegisteredOnlyWithNaturalWindowDragAndKeepsItsBinding() throws {
+        let fixture = try makeFixture(.niri, pid: 834_090)
+        let controller = fixture.controller
+        let registered = { controller.hotkeys.configuration.bindings.contains { $0.id == "undoResize" } }
+        XCTAssertNotNil(controller.settings.hotkeyBindings.first { $0.id == "undoResize" })
+
+        controller.settings.niri.naturalWindowDrag = false
+        controller.applyNaturalWindowDragSettings()
+        XCTAssertFalse(controller.settings.isCommandFeatureEnabled(.sizing(.undoResize)))
+        let undo = try XCTUnwrap(controller.settings.hotkeyBindings.first { $0.id == "undoResize" })
+        XCTAssertTrue(controller.settings.findConflicts(for: undo.binding, excluding: "other").isEmpty)
+        XCTAssertFalse(registered())
+        XCTAssertNotNil(controller.settings.hotkeyBindings.first { $0.id == "undoResize" })
+
+        controller.settings.niri.naturalWindowDrag = true
+        controller.applyNaturalWindowDragSettings()
+        XCTAssertTrue(controller.settings.isCommandFeatureEnabled(.sizing(.undoResize)))
+        XCTAssertEqual(
+            controller.settings.findConflicts(for: undo.binding, excluding: "other").map(\.id),
+            ["undoResize"]
+        )
+        XCTAssertTrue(registered())
+    }
+
+    func testCapturedChordsKeepTheirModifierSideAndSidesCanBeSet() throws {
+        let fixture = try makeFixture(.niri, pid: 834_091)
+        let settings = fixture.controller.settings
+        let chord = KeyBinding(keyCode: 6, modifiers: UInt32(optionKey | cmdKey))
+        settings.updateTrigger(for: "undoResize", newTrigger: .chord(chord.settingSide(.right)))
+
+        let replacement = KeyBinding(keyCode: 7, modifiers: UInt32(optionKey | cmdKey))
+        let kept = HotkeyBindingEditor.triggerKeepingSide(.chord(replacement), for: "undoResize", settings: settings)
+        XCTAssertEqual(kept.chordBinding, replacement.settingSide(.right))
+        XCTAssertEqual(
+            HotkeyBindingEditor.trigger(for: "undoResize", side: .left, settings: settings)?.chordBinding,
+            chord.settingSide(.left)
+        )
+    }
+
     func testUndoResizeActsOnTheFocusedWindow() throws {
         let fixture = try makeFixture(.niri, windowCount: 1, pid: 834_083)
+        fixture.controller.settings.gestures.adoptNativeResize = false
+        fixture.controller.settings.niri.naturalWindowDrag = true
+        fixture.controller.motionPolicy.animationsEnabled = false
         let blocker = blockRefreshes(fixture)
         defer { unblockRefreshes(fixture, blocker: blocker) }
         let token = fixture.tokens[0]
@@ -2989,6 +3036,7 @@ final class NativeResizeAdoptionTests: NiriInteractionTestCase {
 
     func testUndoResizeGivesAColumnItsWidthBackAndLeavesTheOthers() throws {
         let fixture = try makeFixture(.niri, pid: 834_084)
+        fixture.controller.settings.niri.naturalWindowDrag = true
         fixture.controller.motionPolicy.animationsEnabled = false
         let blocker = blockRefreshes(fixture)
         defer { unblockRefreshes(fixture, blocker: blocker) }

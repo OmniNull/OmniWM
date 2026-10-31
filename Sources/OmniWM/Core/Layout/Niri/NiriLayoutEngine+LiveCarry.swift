@@ -300,7 +300,7 @@ extension NiriLayoutEngine {
         let root = workspaceState.root
         let strip = liveColumnStrip(context: context, state: state).filter { !$0.column.windowNodes.isEmpty }
         let under = strip.first { $0.contains(x: cursor.x) }?.column
-            ?? (strip.first.map { cursor.x < $0.minX } == true ? strip.first?.column : strip.last?.column)
+            ?? strip.min { abs($0.midX - cursor.x) < abs($1.midX - cursor.x) }?.column
         let side = under.map {
             liveTargetSide($0, cursor: cursor, strip: strip, home: $0, awayFromHome: false, context: context)
         } ?? .after

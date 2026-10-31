@@ -129,11 +129,10 @@ extension MouseEventHandler {
     func hasOtherLiveStrip(than workspaceId: WorkspaceDescriptor.ID) -> Bool {
         guard let manager = controller?.workspaceManager else { return false }
         return manager.monitors.contains { monitor in
-            guard let other = manager.activeWorkspaceOrFirst(on: monitor.id)?.id,
-                  other != workspaceId,
-                  manager.activeLayoutKind(for: other) == .niri
-            else { return false }
-            return liveColumnContext(for: other)?.orientation == .horizontal
+            guard let other = manager.activeWorkspaceOrFirst(on: monitor.id)?.id, other != workspaceId else {
+                return false
+            }
+            return isLiveStrip(other)
         }
     }
 
@@ -149,10 +148,15 @@ extension MouseEventHandler {
         guard let manager = controller?.workspaceManager,
               let monitor = manager.monitors.first(where: { $0.frame.contains(location) }),
               let workspaceId = manager.activeWorkspaceOrFirst(on: monitor.id)?.id,
-              manager.activeLayoutKind(for: workspaceId) == .niri,
+              isLiveStrip(workspaceId),
               !hasPendingNativeFullscreenTransition(at: location),
               !isPointerDisplayShowingFullscreenSpace(at: location)
         else { return nil }
         return workspaceId
+    }
+
+    private func isLiveStrip(_ workspaceId: WorkspaceDescriptor.ID) -> Bool {
+        controller?.workspaceManager.activeLayoutKind(for: workspaceId) == .niri
+            && liveColumnContext(for: workspaceId)?.orientation == .horizontal
     }
 }

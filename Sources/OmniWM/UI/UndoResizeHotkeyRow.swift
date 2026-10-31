@@ -46,38 +46,23 @@ struct UndoResizeHotkeyRow: View {
             .onChange(of: recordingTarget) { _, _ in
                 controller.setHotkeyRecordingActive(recordingTarget != nil)
             }
-            .alert(item: $conflictAlert) { alert in
-                Alert(
-                    title: Text("Hotkey Conflict"),
-                    message: Text(alert.message),
-                    primaryButton: .destructive(Text("Replace")) {
-                        HotkeyBindingEditor.applyConflictResolution(alert, settings: settings)
-                        applyBindings()
-                    },
-                    secondaryButton: .cancel { cancelRecording() }
-                )
-            }
-            .alert(
-                "Hotkey Conflict",
-                isPresented: Binding(get: { captureRejection != nil }, set: { if !$0 { captureRejection = nil } }),
-                presenting: captureRejection
-            ) { _ in
-                Button("OK", role: .cancel) {}
-            } message: { message in
-                Text(message)
-            }
+            .modifier(HotkeyConflictAlerts(
+                conflictAlert: $conflictAlert,
+                captureRejection: $captureRejection,
+                settings: settings,
+                onReplaced: applyBindings,
+                onCancelled: cancelRecording
+            ))
         }
     }
 
     private func handleChordCaptured(actionId: String, newTrigger: HotkeyTrigger) {
-        let side = settings.hotkeyBindings.first { $0.id == actionId }?.binding.chordBinding?.side ?? .either
-        capture(newTrigger.chordBinding.map { .chord($0.settingSide(side)) } ?? newTrigger, for: actionId)
+        capture(HotkeyBindingEditor.triggerKeepingSide(newTrigger, for: actionId, settings: settings), for: actionId)
     }
 
     private func setSide(actionId: String, side: ModifierSide) {
-        guard let chord = settings.hotkeyBindings.first(where: { $0.id == actionId })?.binding.chordBinding
-        else { return }
-        capture(.chord(chord.settingSide(side)), for: actionId)
+        guard let trigger = HotkeyBindingEditor.trigger(for: actionId, side: side, settings: settings) else { return }
+        capture(trigger, for: actionId)
     }
 
     private func capture(_ trigger: HotkeyTrigger, for actionId: String) {

@@ -146,6 +146,8 @@ extension WMController {
     func applyNaturalWindowDragSettings() {
         updateNiriConfig(naturalWindowDrag: naturalWindowDragConfiguration)
         mouseEventHandler.syncTapFilterSnapshot()
+        pointerEdgeBarrier.setTracksLiveDrags(settings.niri.naturalWindowDrag)
+        updateHotkeyBindings(settings.hotkeyBindings)
     }
 
     private func applyPersistedLayoutSettings(_ settings: SettingsStore) {

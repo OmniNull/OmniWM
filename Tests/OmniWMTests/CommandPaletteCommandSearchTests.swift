@@ -17,6 +17,7 @@ final class CommandPaletteCommandSearchTests: XCTestCase {
 
         XCTAssertFalse(items.contains { $0.id == "toggleOverview" })
         XCTAssertFalse(items.contains { $0.id == "toggleQuakeTerminal" })
+        XCTAssertFalse(items.contains { $0.id == "undoResize" })
         XCTAssertNotNil(ActionCatalog.spec(for: "toggleOverview"))
         XCTAssertNotNil(ActionCatalog.spec(for: "toggleQuakeTerminal"))
         XCTAssertTrue(controller.settings.hotkeyBindings.contains { $0.id == "toggleOverview" })
@@ -25,6 +26,7 @@ final class CommandPaletteCommandSearchTests: XCTestCase {
 
     func testBuildIncludesAllCatalogActionsAndUsesCurrentShortcutBindings() throws {
         let controller = makeController()
+        controller.settings.niri.naturalWindowDrag = true
         let binding = KeyBinding(keyCode: UInt32(kVK_ANSI_Z), modifiers: UInt32(controlKey | optionKey))
         controller.settings.updateBinding(for: "openCommandPalette", newBinding: binding)
 

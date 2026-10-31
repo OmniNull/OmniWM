@@ -80,7 +80,10 @@ extension NiriLayoutEngine {
         let current = liveDraggedColumn(for: move)
         if window.parent !== column || column.windowNodes.firstIndex(where: { $0 === window }) != original.index {
             column.insertChild(window, at: original.index)
-            original.windowSizing.apply(to: window)
+            column.cachedWidth = 0
+        }
+        original.windowSizing.apply(to: window)
+        if column.displayMode != original.displayMode {
             column.displayMode = original.displayMode
             column.cachedWidth = 0
         }

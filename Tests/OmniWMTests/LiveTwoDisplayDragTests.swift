@@ -248,6 +248,54 @@ extension CrossDisplayDragTests {
         }
     }
 
+    func testCancellingAfterCarryingTheLastWindowOfAStackRestoresItsHeight() throws {
+        let drag = try startLiveTwoDisplayDrag(stacked: true, movedHeight: .fixed(300))
+        let fixture = drag.fixture
+        try dragOnto(drag.residents[0], .right, drag)
+        XCTAssertEqual(fixture.manager.workspace(for: drag.moved), fixture.target)
+
+        fixture.handler.cancelLiveColumnDrag()
+
+        XCTAssertEqual(fixture.columns(fixture.source), [[drag.neighbour, drag.moved]])
+        XCTAssertEqual(fixture.niriNode(drag.moved)?.height, .fixed(300))
+    }
+
+    func testAPointerCrossingIntoAGapLandsBesideTheNearestColumn() throws {
+        let drag = try startLiveTwoDisplayDrag(residents: 3)
+        let fixture = drag.fixture
+        fixture.layout()
+        let first = try XCTUnwrap(fixture.frame(drag.residents[0]))
+        let second = try XCTUnwrap(fixture.frame(drag.residents[1]))
+        XCTAssertLessThan(first.maxX, second.minX)
+
+        let source = try XCTUnwrap(fixture.handler.liveColumnContext(for: fixture.source))
+        let target = try XCTUnwrap(fixture.handler.liveColumnContext(for: fixture.target))
+        var carried: [WindowToken] = []
+
+        fixture.manager.withBatchedCrossWorkspaceDrop(
+            into: fixture.target,
+            niriWorkspaceIds: [fixture.source, fixture.target]
+        ) { viewports in
+            var sourceState = viewports[fixture.source] ?? ViewportState()
+            var targetState = viewports[fixture.target] ?? ViewportState()
+            carried = fixture.niri.liveColumnMoveCarry(
+                cursor: CGPoint(x: (first.maxX + second.minX) / 2, y: first.midY),
+                windowWidth: nil,
+                from: source,
+                sourceState: &sourceState,
+                to: target,
+                targetState: &targetState
+            )
+            viewports[fixture.source] = sourceState
+            viewports[fixture.target] = targetState
+            return carried.map { .init(token: $0, workspaceId: fixture.target) }
+        }
+
+        XCTAssertEqual(carried, [drag.moved])
+        let order = fixture.niri.columns(in: fixture.target).map { $0.windowNodes.map(\.token) }
+        XCTAssertNotEqual(order.last, [drag.moved])
+    }
+
     func testGrabbingTheWindowWhileItsWriteBackIsPendingStartsALiveDrag() throws {
         let drag = try startLiveTwoDisplayDrag()
         let fixture = drag.fixture
@@ -328,6 +376,23 @@ extension CrossDisplayDragTests {
 
             XCTAssertEqual(lone.width, ownWidth, ending)
         }
+    }
+
+    func testALoneWindowTakesItsOwnWidthBackWhenTheEngineCutsTheDragOff() throws {
+        let drag = try startLiveTwoDisplayDrag()
+        let fixture = drag.fixture
+        let lone = try XCTUnwrap(fixture.niri.columns(in: fixture.target).first)
+        let ownWidth = lone.width
+        try dragOnto(drag.residents[0], .right, drag)
+        XCTAssertNotEqual(lone.width, ownWidth)
+        let moved = try XCTUnwrap(fixture.niriNode(drag.moved))
+
+        fixture.manager.withEngineMutationScope(in: fixture.target) {
+            fixture.niri.cancelInteractions(for: [moved.id], in: fixture.target)
+        }
+
+        XCTAssertNil(fixture.niri.liveColumnMove)
+        XCTAssertEqual(lone.width, ownWidth)
     }
 
     func testTheEdgeScrollKeepsTheCarriedColumnOnThePointersSide() throws {
@@ -658,7 +723,8 @@ extension CrossDisplayDragTests {
 
     private func startLiveTwoDisplayDrag(
         residents residentCount: Int = 1,
-        stacked: Bool = false
+        stacked: Bool = false,
+        movedHeight: WeightedSize? = nil
     ) throws -> LiveTwoDisplayDrag {
         let fixture = try makeNativeFixture([.niri, .niri])
         fixture.controller.settings.niri.naturalWindowDrag = true
@@ -668,6 +734,9 @@ extension CrossDisplayDragTests {
         let moved = addWindow(2, to: fixture.source, fixture)
         if stacked {
             try stack(moved, onto: neighbour, in: fixture.source, fixture)
+        }
+        if let movedHeight {
+            fixture.niriNode(moved)?.height = movedHeight
         }
         let residents = (0 ..< residentCount).map { addWindow(10 + $0, to: fixture.target, fixture) }
         let start = try beginNativeDrag(moved, fixture)
