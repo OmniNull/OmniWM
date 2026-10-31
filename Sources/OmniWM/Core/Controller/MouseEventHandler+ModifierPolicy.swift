@@ -26,6 +26,15 @@ extension MouseEventHandler {
         return modifiers.subtracting(.maskAlternate)
     }
 
+    func canStartNaturalDrag(windowId: Int) -> Bool {
+        guard let controller,
+              controller.settings.niri.naturalWindowDrag,
+              let entry = controller.workspaceManager.entry(forWindowId: windowId),
+              entry.mode == .tiling
+        else { return false }
+        return controller.workspaceManager.activeLayoutKind(for: entry.workspaceId) == .niri
+    }
+
     nonisolated static func modifierFlagsMatch(_ modifiers: CGEventFlags, required: CGEventFlags) -> Bool {
         modifiers.intersection(Self.relevantModifierFlags) == required
     }

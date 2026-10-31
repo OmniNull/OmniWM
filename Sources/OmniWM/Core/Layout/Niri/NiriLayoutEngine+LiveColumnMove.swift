@@ -23,7 +23,7 @@ extension NiriLayoutEngine {
               !pullsTab || column.isTabbed
         else { return false }
         let isWholeColumn = column.isTabbed && !pullsTab
-        let inStack = column.windowNodes.count > 1 && !isWholeColumn
+        let inStack = projectedWindows(in: column, workspaceId: context.workspaceId).count > 1 && !isWholeColumn
         guard inStack || projectedColumns(in: context.workspaceId).count > 1 else { return false }
 
         let columns = columns(in: context.workspaceId)

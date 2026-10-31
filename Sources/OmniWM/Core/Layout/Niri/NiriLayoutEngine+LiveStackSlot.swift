@@ -92,7 +92,7 @@ extension NiriLayoutEngine {
         }
         move.homeColumnId = column.id
         move.homeSlotIndex = original.index
-        move.inStack = column.windowNodes.count > 1 && !move.isWholeColumn
+        move.inStack = projectedWindows(in: column, workspaceId: move.workspaceId).count > 1 && !move.isWholeColumn
         move.ownWindowSizing = original.windowSizing
     }
 

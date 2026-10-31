@@ -11,7 +11,8 @@ extension NiriLayoutEngine {
         move: LiveColumnMove,
         context: NiriInteractionContext
     ) -> LiveColumnMove.FreeArea? {
-        guard let column = liveColumn(in: strip, at: cursor, ignoring: liveDropSpace(for: move)),
+        guard !move.isWholeColumn,
+              let column = liveColumn(in: strip, at: cursor, ignoring: liveDropSpace(for: move)),
               column.id != move.homeColumnId,
               !column.isTabbed,
               !column.isLiveDropSpace,
@@ -45,11 +46,7 @@ extension NiriLayoutEngine {
         state: inout ViewportState
     ) -> Bool {
         let strip = liveColumnStrip(context: context, state: state)
-        guard let area = liveFreeArea(at: cursor, strip: strip, move: move, context: context),
-              let window = findNode(by: move.windowId, in: move.workspaceId) as? NiriWindow,
-              placeLiveLanding(area.landing, move: &move, context: context, state: &state)
-        else { return false }
-        window.height = .fixed(area.height)
-        return true
+        guard let area = liveFreeArea(at: cursor, strip: strip, move: move, context: context) else { return false }
+        return placeLiveLanding(area.landing, height: area.height, move: &move, context: context, state: &state)
     }
 }

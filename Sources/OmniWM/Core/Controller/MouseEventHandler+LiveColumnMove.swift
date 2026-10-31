@@ -86,6 +86,9 @@ extension MouseEventHandler {
               let window = engine.findNode(for: entry.token, in: entry.workspaceId)
         else { return false }
 
+        if engine.isLiveStackDropPending(in: entry.workspaceId) {
+            finishLiveStackDrop(in: entry.workspaceId)
+        }
         let began = controller.workspaceManager.withNiriViewportState(for: entry.workspaceId) { viewportState in
             engine.liveColumnMoveBegin(
                 windowId: window.id,
@@ -280,7 +283,7 @@ extension MouseEventHandler {
         return true
     }
 
-    private func finishLiveStackDrop(in workspaceId: WorkspaceDescriptor.ID) {
+    func finishLiveStackDrop(in workspaceId: WorkspaceDescriptor.ID) {
         guard let controller,
               let engine = controller.niriEngine,
               let context = liveColumnContext(for: workspaceId)

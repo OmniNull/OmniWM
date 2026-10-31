@@ -162,10 +162,14 @@ final class InputTapThread: @unchecked Sendable {
         switch type {
         case .leftMouseDown:
             let flags = event.flags
-            event.flags = MouseEventHandler.naturalDragPassThroughFlags(
-                flags,
-                naturalDragModifier: snap.naturalDragModifier
-            )
+            if MouseEventHandler.mouseMoveModifiersMatch(flags, required: snap.naturalDragModifier),
+               naturalDragCanStart(windowId: MouseEventHandler.eventWindowIdUnderPointer(event))
+            {
+                event.flags = MouseEventHandler.naturalDragPassThroughFlags(
+                    flags,
+                    naturalDragModifier: snap.naturalDragModifier
+                )
+            }
             evaluateLeftMouseDown(
                 at: location, modifiers: flags, timestamp: event.timestamp,
                 snapshot: snap, captureWindowFrames: Self.captureWindowFrames
@@ -295,6 +299,20 @@ final class InputTapThread: @unchecked Sendable {
             type: .scrollWheel, location: location, modifiers: flags, buttonNumber: 0, scrollPayload: payload
         )
         return suppress ? nil : event
+    }
+
+    private nonisolated func naturalDragCanStart(windowId: Int?) -> Bool {
+        guard let windowId else { return false }
+        if Thread.isMainThread {
+            return MainActor.assumeIsolated {
+                MouseEventHandler._instance?.canStartNaturalDrag(windowId: windowId) ?? false
+            }
+        }
+        return DispatchQueue.main.sync {
+            MainActor.assumeIsolated {
+                MouseEventHandler._instance?.canStartNaturalDrag(windowId: windowId) ?? false
+            }
+        }
     }
 
     private nonisolated func evaluateAuthoritativeTapOnMain(

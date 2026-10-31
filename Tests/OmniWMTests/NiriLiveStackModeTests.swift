@@ -805,6 +805,105 @@ final class NiriLiveStackModeTests: XCTestCase {
         XCTAssertEqual(fixture.window(1).height, height)
     }
 
+    func testAWholeTabbedColumnReleasedOverAFreeAreaStaysWhole() throws {
+        var fixture = makeFixture()
+        fixture.window(2).height = .fixed(400)
+        let tabbed = fixture.makeTabbed(1, tabCount: 2, activeTab: 0)
+        let tabs = tabbed.windowNodes.map(\.token)
+        XCTAssertTrue(fixture.begin(1))
+        let move = try XCTUnwrap(fixture.engine.liveColumnMove)
+        XCTAssertTrue(move.isWholeColumn)
+        let release = fixture.point(inColumnOf: 2, y: 700)
+        XCTAssertNil(fixture.engine.liveFreeArea(
+            at: release,
+            strip: fixture.strip(),
+            move: move,
+            context: fixture.context
+        ))
+
+        _ = fixture.move(to: release, at: 1)
+        XCTAssertTrue(fixture.engine.liveColumnMoveEnd(
+            releasedAt: release,
+            context: fixture.context,
+            state: &fixture.state
+        ))
+
+        XCTAssertFalse(fixture.engine.isLiveStackDropPending(in: fixture.workspaceId))
+        XCTAssertEqual(tabbed.windowNodes.map(\.token), tabs)
+        XCTAssertEqual(fixture.column(2).windowNodes.map(\.token), [fixture.tokens[2]])
+    }
+
+    func testAFreeAreaDropKeepsTheLoneWindowsHeightAndFrame() {
+        var fixture = makeFixture()
+        fixture.motion = .enabled
+        fixture.window(2).height = .fixed(400)
+        let resizedFrame = fixture.frames()[fixture.tokens[2]]
+        XCTAssertTrue(fixture.begin(1))
+        let release = fixture.point(inColumnOf: 2, y: 700)
+        XCTAssertEqual(fixture.move(to: release, at: 1), .unchanged)
+
+        XCTAssertTrue(fixture.engine.liveColumnMoveEnd(
+            releasedAt: release,
+            context: fixture.context,
+            state: &fixture.state
+        ))
+
+        XCTAssertNil(fixture.window(2).heightAnimation)
+        XCTAssertEqual(
+            fixture.frames(at: CACurrentMediaTime())[fixture.tokens[2]]?.height ?? 0,
+            resizedFrame?.height ?? 0,
+            accuracy: 1
+        )
+        XCTAssertTrue(fixture.finishStackDrop())
+        XCTAssertEqual(fixture.window(2).height, .fixed(400))
+    }
+
+    func testALoneWindowGetsItsHeightBackWhenTheDragIsCutOff() {
+        var fixture = makeFixture()
+        fixture.window(2).height = .fixed(300)
+        XCTAssertTrue(fixture.begin(1))
+        _ = fixture.setStackMode(true, at: fixture.upperHalf(of: 2))
+        XCTAssertNotNil(fixture.engine.liveColumnMove?.landing)
+        XCTAssertEqual(fixture.window(2).height, .default)
+
+        fixture.engine.cancelInteractions(for: [fixture.window(1).id], in: fixture.workspaceId)
+
+        XCTAssertNil(fixture.engine.liveColumnMove)
+        XCTAssertEqual(fixture.window(2).height, .fixed(300))
+    }
+
+    func testASecondStackDropBeforeTheFirstSettlesLeavesNoBlankColumn() {
+        var fixture = makeFixture()
+        XCTAssertTrue(fixture.begin(1))
+        XCTAssertEqual(fixture.setStackMode(true, at: fixture.lowerHalf(of: 2)), .changed)
+        XCTAssertTrue(fixture.endStacking())
+        XCTAssertTrue(fixture.engine.isLiveStackDropPending(in: fixture.workspaceId))
+
+        if fixture.begin(3) {
+            XCTAssertEqual(fixture.setStackMode(true, at: fixture.lowerHalf(of: 4)), .changed)
+            XCTAssertTrue(fixture.endStacking())
+        }
+        _ = fixture.finishStackDrop()
+
+        XCTAssertFalse(fixture.engine.isLiveStackDropPending(in: fixture.workspaceId))
+        XCTAssertFalse(fixture.engine.columns(in: fixture.workspaceId).contains { $0.windowNodes.isEmpty })
+    }
+
+    func testAColumnWhoseOnlyMateIsHiddenMovesAsAWholeColumn() {
+        var fixture = makeFixture()
+        fixture.stack(3, onto: 2)
+        fixture.engine.setProjectionExclusions([fixture.tokens[3]], in: fixture.workspaceId)
+        let column = fixture.column(2)
+        XCTAssertEqual(column.windowNodes.count, 2)
+
+        XCTAssertTrue(fixture.begin(2))
+        XCTAssertEqual(fixture.engine.liveColumnMove?.inStack, false)
+        _ = fixture.move(to: fixture.lowerHalf(of: 1), at: 1)
+        XCTAssertTrue(fixture.engine.liveColumnMoveEnd(context: fixture.context, state: &fixture.state))
+
+        XCTAssertEqual(fixture.column(2).windowNodes.map(\.token), [fixture.tokens[2], fixture.tokens[3]])
+    }
+
     private func freeAreaHeight(_ fixture: Fixture, below windowHeight: CGFloat) -> CGFloat {
         fixture.frame.height - 3 * fixture.gap - windowHeight
     }

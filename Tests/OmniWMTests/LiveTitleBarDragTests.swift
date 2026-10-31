@@ -198,6 +198,22 @@ final class LiveTitleBarDragTests: NiriInteractionTestCase {
         )
     }
 
+    func testTheLiveDragCaptureOnlyListensToModifierChanges() {
+        XCTAssertEqual(LiveDragModifierCapture.eventMask, CGEventMask(1 << CGEventType.flagsChanged.rawValue))
+    }
+
+    func testOnlyClicksOnTiledNiriWindowsCanStartANaturalDrag() throws {
+        let niri = try makeFixture(pid: 938_310)
+        let tiled = niri.tokens[1].windowId
+        XCTAssertTrue(niri.handler.canStartNaturalDrag(windowId: tiled))
+        XCTAssertFalse(niri.handler.canStartNaturalDrag(windowId: 999_999))
+        niri.controller.settings.niri.naturalWindowDrag = false
+        XCTAssertFalse(niri.handler.canStartNaturalDrag(windowId: tiled))
+
+        let dwindle = try makeFixture(pid: 938_311, windowCount: 3, layout: .dwindle)
+        XCTAssertFalse(dwindle.handler.canStartNaturalDrag(windowId: dwindle.tokens[0].windowId))
+    }
+
     func testTapKnowsTheNaturalDragModifierOnlyWhileTheSettingIsOn() throws {
         let fixture = try makeFixture(pid: 938_090)
 
@@ -1420,6 +1436,8 @@ final class LiveTitleBarDragTests: NiriInteractionTestCase {
             controller.axManager.cleanup()
         }
         controller.motionPolicy.animationsEnabled = animated
+        controller.mouseEventHandler.liveDragModifierCapture.installsEventTap = false
+        controller.mouseEventHandler.modifierFlagsProvider = { [] }
         let monitor = Monitor(
             id: .init(displayId: 93_801),
             displayId: 93_801,
@@ -1655,6 +1673,34 @@ final class LiveTitleBarDragTests: NiriInteractionTestCase {
         XCTAssertEqual(fixture.engine.liveColumnMove?.swapCount, startSwaps + afterFirstMove.count)
         XCTAssertEqual(dragged.windowNodes.count, 3)
         XCTAssertTrue(dragged.isTabbed)
+    }
+
+    func testANewLiveDragFinishesAStackDropThatIsStillSettling() throws {
+        let fixture = try makeFixture(pid: 938_312, windowCount: 5)
+        let (dragged, target) = (fixture.tokens[1], fixture.tokens[2])
+        let context = try XCTUnwrap(fixture.handler.liveColumnContext(for: fixture.workspaceId))
+        let window = try XCTUnwrap(fixture.engine.findNode(for: dragged, in: fixture.workspaceId))
+        let targetFrame = try fixture.frame(target)
+        let drop = CGPoint(x: targetFrame.midX, y: targetFrame.minY + targetFrame.height / 4)
+        fixture.manager.withNiriViewportState(for: fixture.workspaceId) { state in
+            XCTAssertTrue(fixture.engine.liveColumnMoveBegin(
+                windowId: window.id,
+                windowToken: dragged,
+                context: context,
+                state: &state
+            ))
+            _ = fixture.engine.liveColumnMoveStackModeChanged(held: true, cursor: drop, context: context, state: &state)
+            XCTAssertTrue(fixture.engine.liveColumnMoveEnd(stacking: true, context: context, state: &state))
+        }
+        XCTAssertTrue(fixture.engine.isLiveStackDropPending(in: fixture.workspaceId))
+
+        try fixture.startLiveDrag(fixture.tokens[0])
+
+        XCTAssertFalse(fixture.engine.isLiveStackDropPending(in: fixture.workspaceId))
+        XCTAssertTrue(fixture.handler.isLiveColumnDragActive)
+        XCTAssertFalse(fixture.engine.columns(in: fixture.workspaceId).contains {
+            $0.windowNodes.isEmpty && $0.isLiveHomeSpot
+        })
     }
 
     func testHoldingTheStackModifierStacksOntoTheWindowUnderThePointerOnRelease() throws {

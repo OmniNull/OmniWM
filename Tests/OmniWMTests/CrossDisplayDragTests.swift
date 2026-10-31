@@ -1195,6 +1195,8 @@ final class CrossDisplayDragTests: XCTestCase {
     private func makeNativeFixture(_ layouts: [LayoutType], enabled: Bool = true) throws -> Fixture {
         let fixture = try makeFixture(layouts)
         fixture.controller.settings.gestures.adoptNativeMoveAcrossDisplays = enabled
+        fixture.handler.liveDragModifierCapture.installsEventTap = false
+        fixture.handler.modifierFlagsProvider = { [] }
         addTeardownBlock { @MainActor [controller = fixture.controller] in
             controller.hasStartedServices = false
             controller.layoutRefreshController.resetState()
