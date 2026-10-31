@@ -151,6 +151,8 @@ final class ShellLayerScene: @unchecked Sendable {
 
     let container: CALayer
     let scale: CGFloat
+    var clock: (() -> CFTimeInterval)?
+    var submitTime: CFTimeInterval?
     var layers: [Int32: CALayer] = [:]
     var gestureLayers: [Int32: ShellGestureLayer] = [:]
     var onManipulationSettled: (@MainActor @Sendable (Int32, UInt64, UInt64) -> Void)?
@@ -213,7 +215,10 @@ final class ShellLayerScene: @unchecked Sendable {
         guard !commands.isEmpty || completion != nil else { return }
         let trace = ShellFrameTrace.current
         ShellFrameTrace.shared.record(.engineSubmit, context: trace)
+        let time = clock?()
         Self.engineQueue.async { [self] in
+            submitTime = time
+            defer { submitTime = nil }
             CATransaction.begin()
             CATransaction.setDisableActions(true)
             for command in commands {

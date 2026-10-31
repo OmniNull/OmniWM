@@ -71,7 +71,7 @@ extension ShellLayerScene {
                   let owner = entry?.body ?? parents[slot], glassBodies[owner] != nil else { continue }
             let reference = presence.revealPlans[plan.slot]?.plan.commit
                 ?? presence.revealPlans[slot]?.plan.commit ?? entry?.plan?.commit
-                ?? entry?.begin ?? CACurrentMediaTime()
+                ?? entry?.begin ?? now()
             let begin = reference + plan.animation.beginTime - plan.layer.convertTime(reference, from: nil)
             let scale = shapeTracks.follows[slot]?.binding?.layoutScale ?? 1
             shapeTracks.follows[slot]?.departure = ShellShapeDeparture(

@@ -136,7 +136,7 @@ extension ShellLayerScene {
         let basic = animation.make(keyPath)
         basic.fromValue = from
         basic.toValue = target
-        let now = layer.convertTime(CACurrentMediaTime(), from: nil)
+        let now = layer.convertTime(self.now(), from: nil)
         if let spring = basic as? CASpringAnimation,
            let from = from as? NSNumber, let to = target as? NSNumber
         {

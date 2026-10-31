@@ -344,7 +344,7 @@ extension ShellLayerScene {
             playbacks[slot] = nil
             return
         }
-        let now = CACurrentMediaTime()
+        let now = self.now()
         let phase = (current.flatMap { $0.frames === frames ? $0.phase(at: now) : nil } ?? 0)
             .truncatingRemainder(dividingBy: frames.duration)
         playbacks[slot] = ShellPlaybackState(frames: frames, phase: phase, start: now, playback: playback)
