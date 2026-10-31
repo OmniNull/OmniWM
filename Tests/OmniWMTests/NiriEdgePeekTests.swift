@@ -156,6 +156,31 @@ final class NiriEdgePeekTests: XCTestCase {
         XCTAssertEqual(fixture.column(2).cachedWidth, fixture.cap + peek, accuracy: 0.5)
     }
 
+    func testTwoHalfColumnsAtTheStripStartLeaveRoomForThePeekBeyondThem() throws {
+        var fixture = makeFixture(widths: [0.5, 0.5, 0.5])
+
+        fixture.focus(0, from: 1)
+
+        XCTAssertEqual(fixture.span(of: 0).lowerBound, fixture.frame.minX + fixture.gap, accuracy: 0.5)
+        XCTAssertNil(fixture.leftPeek)
+        XCTAssertLessThanOrEqual(fixture.span(of: 1).upperBound, fixture.frame.maxX + 0.5)
+        XCTAssertEqual(try XCTUnwrap(fixture.rightPeek), peek, accuracy: 0.5)
+        XCTAssertEqual(fixture.column(0).width, .proportion(0.5))
+    }
+
+    func testTwoHalfColumnsAtTheStripEndLeaveRoomForThePeekBeforeThem() throws {
+        var fixture = makeFixture(widths: [0.5, 0.5, 0.5])
+
+        fixture.focus(1, from: 0)
+        fixture.focus(2, from: 1)
+
+        XCTAssertEqual(fixture.span(of: 2).upperBound, fixture.frame.maxX - fixture.gap, accuracy: 0.5)
+        XCTAssertNil(fixture.rightPeek)
+        XCTAssertGreaterThanOrEqual(fixture.span(of: 1).lowerBound, fixture.frame.minX - 0.5)
+        XCTAssertEqual(try XCTUnwrap(fixture.leftPeek), peek, accuracy: 0.5)
+        XCTAssertEqual(fixture.column(2).width, .proportion(0.5))
+    }
+
     func testFocusingANeighbourKeepsAPeekOnBothSides() throws {
         for centering in [CenterFocusedColumn.never, .onOverflow, .always] {
             var fixture = makeFixture(widths: [0.6, 0.6, 0.6, 0.6, 0.6], centering: centering)

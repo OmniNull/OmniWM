@@ -68,6 +68,70 @@ extension NiriLayoutEngine {
             column.edgePeekCap = columnCap
             column.invalidateCachedPrimarySpan(orientation: .horizontal)
         }
+        applyStripEndPeekCaps(to: columns, viewFrame: viewFrame, workingFrame: workingFrame, gap: gap, peeks: peeks)
+    }
+
+    private func applyStripEndPeekCaps(
+        to columns: [NiriContainer],
+        viewFrame: CGRect?,
+        workingFrame: CGRect,
+        gap: CGFloat,
+        peeks: EdgePeekWidths?
+    ) {
+        let previous = columns.map(\.stripEndPeekCap)
+        columns.forEach { $0.stripEndPeekCap = nil }
+        var caps = [CGFloat?](repeating: nil, count: columns.count)
+        if let viewFrame, let peeks, columns.count > 2 {
+            let spans = columns.map { column in
+                column.resolvedWidthPixels(
+                    column.isFullWidth ? .proportion(1) : column.width,
+                    availableSpan: workingFrame.width,
+                    gaps: gap,
+                    contentInset: tabContentInset(for: column)
+                )
+            }
+            let first = Self.peekShortfall(
+                spans: spans,
+                inset: workingFrame.minX + gap - viewFrame.minX,
+                viewSpan: viewFrame.width,
+                peek: peeks.trailing,
+                gap: gap
+            )
+            let last = Self.peekShortfall(
+                spans: spans.reversed(),
+                inset: viewFrame.maxX - workingFrame.maxX + gap,
+                viewSpan: viewFrame.width,
+                peek: peeks.leading,
+                gap: gap
+            )
+            if first > 0 { caps[0] = spans[0] - first }
+            if last > 0 { caps[columns.count - 1] = spans[columns.count - 1] - last }
+        }
+        for (index, column) in columns.enumerated() {
+            guard !column.isLiveHomeSpot, !column.isLiveDropSpace else { continue }
+            column.stripEndPeekCap = caps[index]
+            if caps[index] != previous[index] {
+                column.invalidateCachedPrimarySpan(orientation: .horizontal)
+            }
+        }
+    }
+
+    private static func peekShortfall(
+        spans: [CGFloat],
+        inset: CGFloat,
+        viewSpan: CGFloat,
+        peek: CGFloat,
+        gap: CGFloat
+    ) -> CGFloat {
+        guard peek > 0, let endSpan = spans.first else { return 0 }
+        var position = inset + endSpan + gap
+        for span in spans.dropFirst() {
+            if position + span > viewSpan {
+                return max(0, position - (viewSpan - peek))
+            }
+            position += span + gap
+        }
+        return 0
     }
 
     func applyEdgePeekCaps(in workspaceId: WorkspaceDescriptor.ID, workingFrame: CGRect, gap: CGFloat) {
