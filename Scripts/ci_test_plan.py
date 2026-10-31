@@ -18,10 +18,10 @@ FULL = [
     {"name": "glass", "flag": "--filter", "pattern": GLASS},
     {"name": "rest", "flag": "--skip", "pattern": GLASS},
 ]
-DECLARATION = re.compile(r"^[ \t]*(?:@\w+[ \t]+)*((?:(?:public|private|fileprivate|final|nonisolated)[ \t]+)*)"
+DECLARATION = re.compile(r"^[ \t]*(?:@\w+[ \t]+)*((?:(?:public|package|internal|open|private|fileprivate|final|nonisolated)[ \t]+)*)"
                          r"(class|struct|enum|protocol|actor|extension)[ \t]+([A-Z]\w*)(?:[ \t]*:[ \t]*(\w+))?",
                          re.MULTILINE)
-TOP_LEVEL = re.compile(r"^(?:@\w+(?:\([^)\n]*\))?[ \t]+)*((?:\w+[ \t]+)*)(?:func|var|let)[ \t]", re.MULTILINE)
+TOP_LEVEL = re.compile(r"^(?:@\w+(?:\([^)\n]*\))?[ \t]+)*((?:\w+[ \t]+)*)(?:\w+\(set\)[ \t]+)?(?:func|var|let)[ \t]", re.MULTILINE)
 IDENTIFIER = re.compile(r"\b[A-Z]\w+\b")
 
 

@@ -33,6 +33,9 @@ SUITES = {
     "ProviderConfigurationTests.swift": "final class ProviderConfigurationTests: XCTestCase {\n    let fixture = ProviderFixture()\n}\n",
     "ProviderPackageTests.swift": "final class ProviderPackageTests: XCTestCase {\n    func testLoad() { load(.approving) }\n}\n",
     "EtaTests.swift": "final class EtaTests: XCTestCase {}\n",
+    "ThetaTests.swift": "internal final class ThetaTests: XCTestCase {}\nfinal class IotaTests: XCTestCase {}\n",
+    "CounterSupport.swift": "struct CounterFixture {}\nprivate(set) var counter = 0\n",
+    "CounterTests.swift": "final class CounterTests: XCTestCase {\n    let fixture = CounterFixture()\n}\n",
 }
 
 
@@ -70,6 +73,7 @@ class CITestPlanTests(unittest.TestCase):
         self.assertEqual(self.selected("Tests/OmniWMTests/GammaTests.swift"), r"OmniWMTests\.(GammaTests)/")
         self.assertEqual(self.selected("Tests/OmniWMTests/EpsilonTests.swift"), r"OmniWMTests\.(EpsilonTests)/")
         self.assertEqual(self.selected("Tests/OmniWMTests/DeltaTests.swift"), r"OmniWMTests\.(DeltaTests|GammaBase)/")
+        self.assertEqual(self.selected("Tests/OmniWMTests/ThetaTests.swift"), r"OmniWMTests\.(IotaTests|ThetaTests)/")
 
     def test_extension_conformances_keep_the_test_case_superclass(self):
         self.assertEqual(self.selected("Tests/OmniWMTests/ZetaTests.swift"), r"OmniWMTests\.(ZetaTests)/")
@@ -77,6 +81,7 @@ class CITestPlanTests(unittest.TestCase):
     def test_members_reached_without_a_type_name_run_every_group(self):
         self.assertEqual(self.plan("Tests/OmniWMTests/PreviewSupport.swift"), plan_module.FULL)
         self.assertEqual(self.plan("Tests/OmniWMTests/ProviderSupport.swift"), plan_module.FULL)
+        self.assertEqual(self.plan("Tests/OmniWMTests/CounterSupport.swift"), plan_module.FULL)
 
     def test_selected_glass_suites_get_their_own_group(self):
         groups = self.plan("Tests/OmniWMTests/ShellGlassSceneTests.swift")
