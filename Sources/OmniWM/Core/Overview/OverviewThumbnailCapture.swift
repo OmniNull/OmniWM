@@ -50,6 +50,7 @@ final class OverviewThumbnailCapture {
     private let adoptsProvisionalPreviews: Bool
     private let hasCaptureAccess: @MainActor () -> Bool
     private let streamFactory: StreamFactory?
+    private let startTimeout: Duration
     private var generation: UInt64 = 1
     private var nextSourceId: UInt64 = 0
     private var sources: [ObjectIdentifier: Source] = [:]
@@ -70,6 +71,7 @@ final class OverviewThumbnailCapture {
         hasCaptureAccess: @escaping @MainActor () -> Bool = { ScreenCapturePermissionMonitor.shared.isGranted },
         adoptsProvisionalPreviews: Bool = true,
         maximumRetainedBytes: Int = 128 * 1_024 * 1_024,
+        startTimeout: Duration = .seconds(3),
         streamFactory: StreamFactory? = nil
     ) {
         Self.nextCacheId &+= 1
@@ -81,6 +83,7 @@ final class OverviewThumbnailCapture {
         self.hasCaptureAccess = hasCaptureAccess
         self.maximumRetainedBytes = max(0, maximumRetainedBytes)
         self.streamFactory = streamFactory
+        self.startTimeout = startTimeout
         coordinator.register(self)
     }
 
@@ -212,14 +215,24 @@ final class OverviewThumbnailCapture {
                     try Task.checkCancellation()
                     source.control = control
                     try await control.start()
+                    guard starts[sourceId] != nil else { return }
                     finishStarting(source, failed: false)
                 } catch {
+                    guard starts[sourceId] != nil else { return }
                     if !(error is CancellationError) {
                         ScreenCapturePermissionMonitor.shared.noteCaptureFailure(error)
                         FallbackFiringRecorder.shared.note(.capture, "overviewStreamStartException")
                     }
                     finishStarting(source, failed: true)
                 }
+            }
+            Task { @MainActor [weak self, timeout = startTimeout] in
+                try? await Task.sleep(for: timeout)
+                guard let self, let start = starts[sourceId] else { return }
+                start.cancel()
+                FallbackFiringRecorder.shared.note(.capture, "overviewStreamStartTimeout")
+                finishStarting(source, failed: true)
+                if sources[key] === source { sources.removeValue(forKey: key) }
             }
         }
     }

@@ -69,13 +69,15 @@ final class OverviewPreviewTestDriver {
     private var stoppedCount = 0
     private var stopWaiters: [(Int, XCTestExpectation)] = []
     private var isFinished = false
+    var onStreamStart: (@MainActor (OverviewPreviewTestStream) -> Void)?
 
     func makeCapture(
         consumer: OverviewFrameTrace.PreviewConsumer = .overview,
         traceRecorder: OverviewFrameTrace.Recorder = OverviewFrameTrace.shared,
         hasCaptureAccess: @escaping @MainActor () -> Bool = { true },
         adoptsProvisionalPreviews: Bool = true,
-        maximumRetainedBytes: Int = 128 * 1_024 * 1_024
+        maximumRetainedBytes: Int = 128 * 1_024 * 1_024,
+        startTimeout: Duration = .seconds(3)
     ) -> OverviewThumbnailCapture {
         OverviewThumbnailCapture(
             coordinator: coordinator,
@@ -84,6 +86,7 @@ final class OverviewPreviewTestDriver {
             hasCaptureAccess: hasCaptureAccess,
             adoptsProvisionalPreviews: adoptsProvisionalPreviews,
             maximumRetainedBytes: maximumRetainedBytes,
+            startTimeout: startTimeout,
             streamFactory: { [self] request, output in
                 guard !isFinished else { throw CancellationError() }
                 let stream = OverviewPreviewTestStream(request: request, output: output, onStart: { [self] in
@@ -91,6 +94,9 @@ final class OverviewPreviewTestDriver {
                     let ready = startWaiters.filter { $0.0 <= startedCount }
                     startWaiters.removeAll { $0.0 <= startedCount }
                     for (_, waiter) in ready { waiter.fulfill() }
+                    if let started = streams.last(where: { $0.request.handle === request.handle }) {
+                        onStreamStart?(started)
+                    }
                 }, onStop: { [self] in
                     stoppedCount += 1
                     let ready = stopWaiters.filter { $0.0 <= stoppedCount }

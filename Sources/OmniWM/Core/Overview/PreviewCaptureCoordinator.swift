@@ -21,6 +21,19 @@ final class PreviewCaptureCoordinator {
         }
     }
 
+    @MainActor
+    private final class DiscoveryRace {
+        var continuation: CheckedContinuation<Void, Never>?
+        var outcome: Result<[SCWindow], any Error>?
+
+        func finish(_ outcome: Result<[SCWindow], any Error>?) {
+            guard let continuation else { return }
+            self.outcome = outcome
+            self.continuation = nil
+            continuation.resume()
+        }
+    }
+
     private struct RetainedFrame {
         let bytes: Int
         var lastUse: UInt64 = 0
@@ -28,15 +41,27 @@ final class PreviewCaptureCoordinator {
         var holders: [(capture: OverviewThumbnailCapture, handle: WindowHandle)] = []
     }
 
+    typealias WindowDiscovery = @MainActor () async throws -> [SCWindow]
+
     private let ownedWindowRegistry: OwnedWindowRegistry
+    private let discoverWindows: WindowDiscovery
+    private let discoveryTimeout: Duration
     private let memoryPressure: any DispatchSourceMemoryPressure
     private var captures: [WeakCapture] = []
     private var windowsByToken: [WindowToken: SCWindow] = [:]
     private var discoveryTask: Task<Int?, Never>?
     private var clock: UInt64 = 0
 
-    init(ownedWindowRegistry: OwnedWindowRegistry = .shared) {
+    init(
+        ownedWindowRegistry: OwnedWindowRegistry = .shared,
+        discoveryTimeout: Duration = .seconds(3),
+        discoverWindows: @escaping WindowDiscovery = {
+            try await SCShareableContent.excludingDesktopWindows(true, onScreenWindowsOnly: false).windows
+        }
+    ) {
         self.ownedWindowRegistry = ownedWindowRegistry
+        self.discoveryTimeout = discoveryTimeout
+        self.discoverWindows = discoverWindows
         memoryPressure = DispatchSource.makeMemoryPressureSource(eventMask: [.warning, .critical], queue: .main)
         memoryPressure.setEventHandler { [weak self] in
             MainActor.assumeIsolated { self?.releaseCaches(reason: .memoryPressure) }
@@ -66,8 +91,11 @@ final class PreviewCaptureCoordinator {
         let task = Task { @MainActor [weak self] () -> Int? in
             guard let self else { return nil }
             do {
-                let content = try await SCShareableContent.excludingDesktopWindows(true, onScreenWindowsOnly: false)
-                windowsByToken = Dictionary(uniqueKeysWithValues: content.windows.compactMap { window in
+                guard let windows = try await discoverWindowsWithinTimeout() else {
+                    FallbackFiringRecorder.shared.note(.capture, "overviewContentTimeout")
+                    return nil
+                }
+                windowsByToken = Dictionary(uniqueKeysWithValues: windows.compactMap { window in
                     guard let app = window.owningApplication,
                           ownedWindowRegistry.isCaptureEligible(windowNumber: Int(window.windowID))
                     else { return nil }
@@ -84,6 +112,27 @@ final class PreviewCaptureCoordinator {
         let discoveredCount = await task.value
         discoveryTask = nil
         return (windowsByToken[token], discoveredCount)
+    }
+
+    private func discoverWindowsWithinTimeout() async throws -> [SCWindow]? {
+        let race = DiscoveryRace()
+        await withCheckedContinuation { continuation in
+            race.continuation = continuation
+            let timeout = Task { @MainActor [discoveryTimeout] in
+                try? await Task.sleep(for: discoveryTimeout)
+                race.finish(nil)
+            }
+            Task { @MainActor [discoverWindows] in
+                do {
+                    let windows = try await discoverWindows()
+                    race.finish(.success(windows))
+                } catch {
+                    race.finish(.failure(error))
+                }
+                timeout.cancel()
+            }
+        }
+        return try race.outcome?.get()
     }
 
     func sharedPreview(
