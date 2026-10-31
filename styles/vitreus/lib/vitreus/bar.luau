@@ -265,7 +265,7 @@ local function geometry(ctx, island)
         elseif frameGeometry then frameGeometry.pill else nil
     local docked = islandLayout and pill and pill.slots.opener
     if docked then opener = { x = docked.cx, y = pill.cy, scale = docked.w / (32 * k.cu) } end
-    return table.freeze({
+    local g = {
         island = island,
         calm = calm,
         k = k,
@@ -277,7 +277,9 @@ local function geometry(ctx, island)
         opener = if islandLayout then table.freeze(opener) else nil,
         room = if frameGeometry then frameGeometry.inner else table.freeze({ x = usable.x, y = usable.y,
             w = math.min(island.size.w, usable.x + usable.w) - usable.x, h = usable.h }),
-    })
+    }
+    if pill then g.title = title.resolve(ctx, g, pill.slots.title) end
+    return table.freeze(g)
 end
 
 local function append(list, items)
@@ -348,7 +350,7 @@ local function render(ctx, g)
         local groups = { [pill] = barContent }
         for _, name in g.pieces do
             local owner, slot = owners[name], pill.slots[name]
-            if slot and slot.hidden then continue end
+            if slot and slot.hidden and not (name == "title" and g.title) then continue end
             local piece = if split and slot then slot.piece else pill
             local view = g
             if piece ~= pill then

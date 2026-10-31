@@ -7,6 +7,10 @@ local pencil = require("../pencil")
 local units = require("../units")
 local buttons = require("./buttons")
 
+local titleSize = 13.5
+local controlSize = 24
+local transportWidth = 54
+local rowClearance = 1
 local shadow = palette.alpha("deep", 0.4)
 local lift = table.freeze({ x = 0, y = 1 })
 local wait = table.freeze({ response = 2 * math.pi * 0.28 / 6.64, bounce = 0 })
@@ -95,9 +99,42 @@ local function measure(ctx, bz: number)
     local key = table.concat({ app, title, bz }, "\0")
     if last and last.key == key then return last end
     local cw, ch = ctx.format.measure(app, { font = kit.font, size = 17 * bz, weight = "semibold" })
-    local tw, th = ctx.format.measure(title, { font = kit.font, size = 13.5 * bz, weight = "medium" })
+    local tw, th = ctx.format.measure(title, { font = kit.font, size = titleSize * bz, weight = "medium" })
     last = table.freeze({ key = key, app = app, title = title, cw = cw, ch = ch, tw = tw, th = th })
     return last
+end
+
+local lineLast
+
+local function resolve(ctx, g, slot)
+    local notch, pill, k = g.island.notch, g.pill, g.k
+    if g.frame or g.layout ~= "island" or not notch or not slot then return nil end
+    local app, title = ctx.data.app or "", ctx.data.title or ""
+    local key = table.concat({ app, title, k.bz, kit.font }, "\0")
+    if not lineLast or lineLast.key ~= key then
+        local line = if app == "" then title elseif title == "" then app else app .. " · " .. title
+        local w, h = ctx.format.measure(line, { font = kit.font, size = titleSize * k.bz, weight = "medium" })
+        lineLast = table.freeze({ key = key, text = line, w = w, h = h })
+    end
+    local m = lineLast
+    if m.text == "" then return nil end
+    local bu = k.bu
+    local media = ctx.data.media
+    local control = if media then transportWidth * bu else 0
+    local height = math.max(m.h, if media then controlSize * bu else 0)
+    local top, bottom = notch.h + rowClearance * bu, pill.y + pill.h - rowClearance * bu
+    local left, right = math.max(notch.x, pill.left), math.min(notch.x + notch.w, pill.right)
+    local width = right - left
+    local room = width - 12 * bu - control
+    if height > bottom - top or room < least * bu then return nil end
+    local textWidth = math.min(room, m.w)
+    local textX = left + (width - textWidth - control) / 2
+    local cy = (top + bottom) / 2
+    return table.freeze({
+        compact = true, line = m, x = left, y = cy - height / 2, w = width, h = height, cy = cy,
+        textX = textX, textWidth = textWidth, media = media,
+        mcx = if media then textX + textWidth + control / 2 else (left + right) / 2, mcy = cy,
+    })
 end
 
 local function metrics(ctx, k)
@@ -113,6 +150,7 @@ local function metrics(ctx, k)
 end
 
 local function place(ctx, g, slot)
+    if g.title then return g.title end
     local k = g.k
     local bu, u = k.bu, units.u
     local pill = g.pill
@@ -121,7 +159,7 @@ local function place(ctx, g, slot)
     local shown = if media then 1 else 0
     local seg = g.layout == "seg"
     local w = if seg then slot.w else math.max(0, slot.w - pill.gap * shown)
-    local control = 54 * bu * shown
+    local control = transportWidth * bu * shown
     local hw = if seg then w else clamp(math.max(m.cw + control, m.tw) + 12 * bu, least * bu, w)
     local cm = if g.frame and not seg
         then clamp(g.size.w / 2, slot.x + 24 * bu, math.max(slot.x + 24 * bu, slot.x + w - 24 * bu))
@@ -140,6 +178,7 @@ local function place(ctx, g, slot)
 end
 
 local function player(ctx, g)
+    if g.title then return g.title.mcx end
     local slot = g.pill.slots.title
     if slot and ctx.data.media then return place(ctx, g, slot).mcx end
     return (slot or g.pill).cx
@@ -161,6 +200,13 @@ local function shapes(ctx, g, slot)
         }) }
     end
     local p = place(ctx, g, slot)
+    if p.compact then
+        return { ui.shape({
+            key = "title-tab", align = "topLeading", dx = p.x, dy = p.y, w = p.w, h = p.h,
+            radius = math.min(5 * u, p.h / 2), animate = g.calm, reveal = g.calm,
+            morph = { anchor = { x = 0.5, y = 1 }, stops = { { at = 0, h = 0 }, { at = 1, h = 1 } } },
+        }) }
+    end
     return { ui.shape({
         key = "title-tab", align = "topLeading", dx = p.tx - p.tab / 2,
         dy = if g.frame and g.frame.edge == "fbottom" then pill.cy - pill.h / 2 - 3.5 * u else pill.cy, w = p.tab,
@@ -184,7 +230,7 @@ end
 local function control(ctx, spec, p, bu: number, ox: number, oy: number)
     local a, fr = buttons.sketch(ctx, spec.key)
     local name = if spec.key == "play" then (if p.media.playing then "pause" else "play") else spec.key
-    local size = 24 * bu
+    local size = controlSize * bu
     local passes = glyph(name, size / 2, size / 2, bu, a, fr)
     local icon = buttons.append(buttons.glow({
         key = "title-" .. spec.key .. "-icon", decorative = true, w = size, h = size, dx = 1.5 * bu * spec.side,
@@ -254,6 +300,23 @@ local function content(ctx, g, slot)
     local bu, bz = k.bu, k.bz
     local pill = g.pill
     local p = place(ctx, g, slot)
+    if p.compact then
+        local region = {
+            key = "title-region", align = "topLeading", dx = p.x, dy = p.y, w = p.w, h = p.h,
+            onHover = buttons.hover("bar"),
+        }
+        region[#region + 1] = text("title-text", p.line.text, titleSize * bz, "medium", palette.alpha("ink", 1), 1,
+            p.textWidth, p.textX - p.x, p.cy - p.y, p.line.h)
+        region[#region + 1] = ui.stack({
+            key = "title-button", align = "topLeading", w = p.w, h = p.h,
+            cursor = "pointer", onClick = "shell trigger vitreus drawer-player " .. ctx.data.bar.monitorId,
+            onHover = buttons.hover("title"),
+        })
+        if p.media then
+            for _, spec in transport do region[#region + 1] = control(ctx, spec, p, bu, p.x, p.y) end
+        end
+        return { ui.stack(region) }
+    end
     local m = p.m
     local ox = if slot.x <= pill.left + 0.001 then pill.x else slot.x - pill.gap / 2
     local oy = pill.y
@@ -265,7 +328,7 @@ local function content(ctx, g, slot)
     local faint = palette.alpha("faint", 1)
     region[#region + 1] = text("title-app", m.app, 17 * bz, "semibold", faint, 0.55,
         p.hw - 12 * bu - p.control, round(p.xs) - ox, round(pill.cy - 6.5 * bu) - oy, m.ch)
-    region[#region + 1] = text("title-text", m.title, 13.5 * bz, "medium", palette.alpha("ink", 1), 1,
+    region[#region + 1] = text("title-text", m.title, titleSize * bz, "medium", palette.alpha("ink", 1), 1,
         p.hw - 12 * bu, round(p.xs) - ox, round(pill.cy + 8.75 * bu) - oy, m.th)
     local dots = (1 - p.have) * (1 - p.shown)
     if dots > 0 then
@@ -290,4 +353,5 @@ local function content(ctx, g, slot)
     return { ui.stack(region) }
 end
 
-return table.freeze({ shapes = shapes, content = content, metrics = metrics, least = least, minimum = minimum, player = player })
+return table.freeze({ shapes = shapes, content = content, metrics = metrics, least = least, minimum = minimum,
+    player = player, resolve = resolve })
