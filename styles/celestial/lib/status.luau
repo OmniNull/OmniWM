@@ -27,8 +27,8 @@ local function heading(icon: string, title: string, detail: string?, width: numb
         ui.stack{ w = 40, h = 40, radius = 20, fill = "secondaryContainer",
             surface.icon(icon, { size = tokens.icon.small, color = "secondaryContainerForeground", filled = true }) },
         ui.column{ gap = 2, center = false, grow = 1,
-            ui.text{ text = title, font = "sans", size = tokens.title.small, weight = "medium", maxWidth = width - 60 },
-            detail and ui.text{ text = detail, font = "sans", size = tokens.body.small, color = "secondaryForeground",
+            ui.text{ text = title, font = "Google Sans Flex", size = tokens.title.small, weight = "medium", maxWidth = width - 60 },
+            detail and ui.text{ text = detail, font = "Google Sans Flex", size = tokens.body.small, color = "secondaryForeground",
                 maxWidth = width - 60 } or nil } }
 end
 
@@ -36,12 +36,12 @@ local function line(label: string, value: string, width: number, wrap: boolean?)
     local gap = wrap and tokens.spacing.small or nil
     local maximum = wrap and (width - gap) / 2 or nil
     local row = { w = width, gap = gap,
-        ui.text{ text = label, font = "sans", size = tokens.body.small, color = "secondaryForeground",
+        ui.text{ text = label, font = "Google Sans Flex", size = tokens.body.small, color = "secondaryForeground",
             grow = wrap and 1 or nil, maxWidth = maximum, lines = wrap and 2 or nil } }
     if not wrap then
         row[#row + 1] = ui.box{ grow = 1, h = 1 }
     end
-    row[#row + 1] = ui.text{ text = value, font = "sans", size = tokens.body.small, weight = "medium",
+    row[#row + 1] = ui.text{ text = value, font = "Google Sans Flex", size = tokens.body.small, weight = "medium",
         maxWidth = maximum or width * 0.6, lines = wrap and 2 or nil }
     return ui.row(row)
 end
@@ -51,7 +51,7 @@ local function action(text: string, command: string, width: number, multiline: b
         radius = 20, fill = "secondaryContainer",
         hover = "secondaryContainerForeground/0.08", onClick = command,
         not multiline and ui.box{ grow = 1, h = 1 } or nil,
-        ui.text{ text = text, font = "sans", size = tokens.label.large, weight = "medium",
+        ui.text{ text = text, font = "Google Sans Flex", size = tokens.label.large, weight = "medium",
             color = "secondaryContainerForeground", maxWidth = multiline and width - 32 or nil,
             grow = multiline and 1 or nil, lines = multiline and 3 or nil },
         not multiline and ui.box{ grow = 1, h = 1 } or nil }
@@ -78,7 +78,7 @@ local function networkPanel(ctx: Context, m)
         m and m.connectionStatus or omniwm.l10n("Unavailable"), inner) }
     if m then
         if m.power and m.connected then
-            rows[#rows + 1] = ui.text{ text = m.name, font = "sans", size = tokens.title.medium, weight = "medium",
+            rows[#rows + 1] = ui.text{ text = m.name, font = "Google Sans Flex", size = tokens.title.medium, weight = "medium",
                 maxWidth = inner }
         end
         for _, detail in m.details do
@@ -114,11 +114,11 @@ local function bluetoothPanel(ctx: Context, m)
             surface.icon(icons.bluetooth(device.kind), { size = tokens.icon.small,
                 color = device.connected and "secondaryContainerForeground" or "secondaryForeground", filled = true }),
             ui.column{ gap = 2, center = false, grow = 1,
-                ui.text{ text = device.name, font = "sans", size = tokens.body.small, maxWidth = inner - 110,
+                ui.text{ text = device.name, font = "Google Sans Flex", size = tokens.body.small, maxWidth = inner - 110,
                     color = device.connected and "secondaryContainerForeground" or "foreground" },
-                ui.text{ text = device.status, font = "sans", size = tokens.label.small, color = "secondaryForeground",
+                ui.text{ text = device.status, font = "Google Sans Flex", size = tokens.label.small, color = "secondaryForeground",
                     maxWidth = inner - 110 } },
-            device.batteryText and ui.text{ text = device.batteryText, font = "sans", size = tokens.body.small,
+            device.batteryText and ui.text{ text = device.batteryText, font = "Google Sans Flex", size = tokens.body.small,
                 color = device.lowBattery and "error" or "secondaryForeground" } or nil }
     end
     for _, entry in m.actions do
@@ -141,8 +141,8 @@ local function batteryPanel(ctx: Context, m)
             surface.icon(icons.battery(m.level / 100, m.charging), { size = tokens.icon.large,
                 color = m.low and "error" or "accent", filled = true }),
             ui.column{ center = false, gap = 2,
-                ui.text{ text = m.percent, font = "sans", size = tokens.headline.small, weight = "medium" },
-                ui.text{ text = m.status, font = "sans", size = tokens.body.small, color = "secondaryForeground" } } },
+                ui.text{ text = m.percent, font = "Google Sans Flex", size = tokens.headline.small, weight = "medium" },
+                ui.text{ text = m.status, font = "Google Sans Flex", size = tokens.body.small, color = "secondaryForeground" } } },
     }
     for _, detail in m.details do
         rows[#rows + 1] = line(detail.label, detail.value, inner, true)
@@ -170,7 +170,7 @@ local function audioPanel(ctx: Context, m)
             onClick = device.select,
             surface.icon(device.transport == "bluetooth" and "headphones" or "speaker", { size = tokens.icon.small,
                 color = device.default and "secondaryContainerForeground" or "secondaryForeground", filled = true }),
-            ui.text{ text = device.name, font = "sans", size = tokens.body.small, maxWidth = inner - 60,
+            ui.text{ text = device.name, font = "Google Sans Flex", size = tokens.body.small, maxWidth = inner - 60,
                 color = device.default and "secondaryContainerForeground" or "foreground" } }
     end
     if m.permission then
@@ -198,9 +198,9 @@ local function keyboardPanel(ctx: Context, m)
         rows[#rows + 1] = ui.row{ key = entry.id, w = inner, gap = tokens.spacing.medium, pad = tokens.padding.small,
             radius = tokens.rounding.large, fill = entry.selected and "secondaryContainer" or nil, hover = HOVER,
             onClick = entry.command,
-            ui.text{ text = entry.short, font = "sans", size = tokens.label.medium, weight = "medium",
+            ui.text{ text = entry.short, font = "Google Sans Flex", size = tokens.label.medium, weight = "medium",
                 color = entry.selected and "secondaryContainerForeground" or "accent" },
-            ui.text{ text = entry.name, font = "sans", size = tokens.body.small, maxWidth = inner - 70,
+            ui.text{ text = entry.name, font = "Google Sans Flex", size = tokens.body.small, maxWidth = inner - 70,
                 color = entry.selected and "secondaryContainerForeground" or "foreground" } }
     end
     rows[#rows + 1] = action(omniwm.l10n("Keyboard Settings…"), inputSource.settings, inner)

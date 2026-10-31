@@ -765,7 +765,7 @@ After either installation, complete the macOS setup in steps 3-7 below.
 4. Log out of macOS and log back in for that change to take effect unless you had it on already
 5. Launch OmniWM and grant Accessibility and Input Monitoring when prompted
 6. Optionally grant Screen Recording for capture-derived visuals
-7. Return to OmniWM’s permissions window and click **Start OmniWM** or **Continue Without Screen Recording**. If a required permission still appears missing, click **Check Again**
+7. Return to OmniWM’s permissions window and click **Start OmniWM** or **Continue Without Screen Recording**. If a required permission still appears missing, click **Check Again**. To skip the window on later launches without Screen Recording, tick **Don't ask about Screen Recording again** first; it still appears if a required permission goes missing (**Unreleased:** available when building from `main`)
 
 ### Canary builds
 
@@ -1327,6 +1327,6 @@ The similarly named files under `docs/` are compatibility stubs that direct old 
 
 OmniWM is licensed under the [GNU General Public License v2.0-only](LICENSE). Copyright (C) 2026 OmniNull — https://github.com/OmniNull/OmniWM.
 
-Every OmniWM source file carries an SPDX license header. App-bundled third-party notices stay in `Resources/Licenses` and ship in `Contents/Resources/Licenses`. They cover the vendored Luau and Lua runtimes (MIT), generic colour palettes adapted through [Noctalia](https://github.com/noctalia-dev/noctalia) and [Wayle](https://github.com/wayle-rs/wayle) (MIT), Google Sans Flex (SIL Open Font License), Material Symbols Rounded and Google's Material Color Utilities (Apache 2.0).
+Every OmniWM source file carries an SPDX license header. App-bundled third-party notices stay in `Resources/Licenses` and ship in `Contents/Resources/Licenses`. They cover the vendored Luau and Lua runtimes (MIT), generic colour palettes adapted through [Noctalia](https://github.com/noctalia-dev/noctalia) and [Wayle](https://github.com/wayle-rs/wayle) (MIT), and Google's Material Color Utilities (Apache 2.0).
 
-Optional styles keep their own notices in their folders. [Vitreus](styles/vitreus/README.md) retains its upstream MIT notice and the Space Grotesk font's OFL notice; [Celestial](styles/celestial/README.md) retains Rubik's OFL notice. Each style README lists its credits and licences. Forks and redistributions must retain the applicable notices and the `LICENSE` file, and remain GPL-2.0-only with source available.
+Optional styles keep their own notices in their folders. [Vitreus](styles/vitreus/README.md) retains its upstream MIT notice and the Space Grotesk font's OFL notice; [Celestial](styles/celestial/README.md) retains the notices of Rubik, Google Sans Flex and Material Symbols Rounded. Each style README lists its credits and licences. Forks and redistributions must retain the applicable notices and the `LICENSE` file, and remain GPL-2.0-only with source available.

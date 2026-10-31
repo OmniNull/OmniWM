@@ -13,7 +13,7 @@ return presentation({
             size = size * tokens.icon.medium / 14, color = "secondaryAccent", filled = true })
     end,
     text = function(props)
-        props.font = "sans"
+        props.font = "Google Sans Flex"
         props.size = props.size or (if props.style == "small" then tokens.label.small
             elseif props.style == "bold" then tokens.title.small else tokens.body.small)
         props.weight = props.weight or (if props.style == "bold" then "medium" else nil)

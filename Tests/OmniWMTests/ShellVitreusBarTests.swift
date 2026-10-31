@@ -89,18 +89,15 @@ final class ShellVitreusBarTests: XCTestCase {
             return edges
         }
         let island = try room("")
-        XCTAssertEqual(island.edges, [.top: .init(value: 62, mode: .add, clear: .notch)])
+        XCTAssertEqual(island.edges, [.top: .init(value: 62, mode: .add)])
         XCTAssertNil(island.dock)
         XCTAssertEqual(island.displays, .all)
-        XCTAssertEqual(try room("size = 0.7\n").edges, [.top: .init(value: 46, mode: .add, clear: .notch)])
+        XCTAssertEqual(try room("size = 0.7\n").edges, [.top: .init(value: 46, mode: .add)])
         var seg = total(.top, 59)
         seg[.top] = .init(value: 59, mode: .total, clear: .notch)
         let frames: [(String, Edges)] = [
             ("left", total(.left, 76)), ("right", total(.right, 76)), ("ftop", total(.top, 76)),
-            ("fbottom", total(.bottom, 76)), ("seg", seg), (
-                "island",
-                [.top: .init(value: 62, mode: .add, clear: .notch)]
-            )
+            ("fbottom", total(.bottom, 76)), ("seg", seg), ("island", [.top: .init(value: 62, mode: .add)])
         ]
         let docks: [String: WorkspaceBarRoom.Edge] = [
             "left": .right, "right": .left, "ftop": .bottom, "fbottom": .top, "seg": .bottom, "island": .bottom
@@ -122,7 +119,9 @@ final class ShellVitreusBarTests: XCTestCase {
         let values = try settings.values(applying: [:])
         let expected: [String: ShellComponentValue] = [
             "layout": .string("island"), "size": .number(1),
-            "pieces": .strings(["apple", "app", "workspaces", "title", "tray", "search", "gear", "controls", "clock"]),
+            "pieces": .strings([
+                "apple", "app", "workspaces", "title", "tray", "search", "omniwm", "controls", "clock"
+            ]),
             "pins": .strings([]), "addons": .strings([]), "dockOverlap": .bool(false), "visualiser": .bool(false),
             "cols": .number(24), "sens": .number(1), "hgt": .number(150), "bl": .number(1), "lay": .string("bottom"),
             "mon": .string("")
@@ -153,7 +152,7 @@ final class ShellVitreusBarTests: XCTestCase {
         XCTAssertEqual(try settings.values(applying: configured), expected)
     }
 
-    func testBarUnitsScaleFromSeventyPercentInHundredthsAndTheGearAlwaysStays() throws {
+    func testBarUnitsScaleFromSeventyPercentInHundredthsAndTheOmniWMLogoAlwaysStays() throws {
         let lines = try probe("""
         local units = require("../lib/vitreus/units")
         local bar = require("../lib/vitreus/bar")
@@ -167,7 +166,7 @@ final class ShellVitreusBarTests: XCTestCase {
             return ui.column{
                 ui.text{ text = table.concat(rows, ";") },
                 ui.text{ text = table.concat(bar.order({ "workspaces", "clock" }), ",") },
-                ui.text{ text = table.concat(bar.order({ "gear", "bogus", 4, "title", "gear" }), ",") },
+                ui.text{ text = table.concat(bar.order({ "omniwm", "bogus", 4, "title", "omniwm" }), ",") },
                 ui.text{ text = table.concat(bar.order({}), ",") },
                 ui.text{ text = table.concat(bar.order(nil), ",") },
             }
@@ -181,7 +180,8 @@ final class ShellVitreusBarTests: XCTestCase {
         }
         XCTAssertEqual(rows[1][1], 0.945, accuracy: 1e-9)
         XCTAssertEqual(Array(lines.dropFirst()), [
-            "workspaces,clock,gear", "gear,title", "gear", "apple,app,workspaces,title,tray,search,gear,controls,clock"
+            "workspaces,clock,omniwm", "omniwm,title", "omniwm",
+            "apple,app,workspaces,title,tray,search,omniwm,controls,clock"
         ])
     }
 
@@ -195,12 +195,12 @@ final class ShellVitreusBarTests: XCTestCase {
                 apple = { w = 0, grow = 0 }, app = { w = 0, grow = 0 },
                 workspaces = { w = 128 * k.bu, grow = 0 }, title = { w = 0, grow = 0 },
                 tray = { w = tray * k.bu, grow = if tray > 0 then (tray + 12) * k.bu else 0 },
-                search = { w = 12 * k.bu, grow = 0 }, gear = { w = 15 * k.bu, grow = 0 },
+                search = { w = 12 * k.bu, grow = 0 }, omniwm = { w = 15 * k.bu, grow = 0 },
                 controls = { w = 13 * k.bu, grow = 0 }, clock = { w = 80, grow = 0 },
             }
             local p = bar.place(k, 960, units.edge, bar.defaults, widths)
             local values = { p.x, p.y, p.w, p.h, p.radius, p.cy }
-            for _, name in { "workspaces", "title", "tray", "search", "gear", "controls", "clock" } do
+            for _, name in { "workspaces", "title", "tray", "search", "omniwm", "controls", "clock" } do
                 values[#values + 1] = p.slots[name].x
                 values[#values + 1] = p.slots[name].w
             end
@@ -314,7 +314,7 @@ extension ShellVitreusBarTests {
         }
     }
 
-    func testFullWidthStretchesThePillFromTheEdgeToTheDeskOpener() throws {
+    func testFullWidthStretchesThePillAcrossTheDisplayAndDocksTheDeskOpener() throws {
         let shell = try shell()
         for monitor in [VitreusFixture.monitor(), VitreusFixture.monitor(width: 1440, height: 900)] {
             var data = VitreusFixture.bar(monitor)
@@ -325,8 +325,11 @@ extension ShellVitreusBarTests {
             XCTAssertEqual(pill.minX, 8, accuracy: 0.001)
             XCTAssertEqual(pill.minY, 8, accuracy: 0.001)
             XCTAssertEqual(pill.height, 54, accuracy: 0.001)
-            XCTAssertEqual(opener.minX - pill.maxX, 12 * 1.35, accuracy: 0.001)
-            XCTAssertTrue(widget.surface.containsShape(at: CGPoint(x: pill.maxX - 30, y: pill.midY)))
+            XCTAssertEqual(monitor.frame.width - pill.maxX, pill.minX, accuracy: 0.001)
+            XCTAssertGreaterThanOrEqual(opener.minX, try VitreusFixture.frame(widget, key: "bar-controls").maxX)
+            XCTAssertLessThanOrEqual(opener.maxX, pill.maxX)
+            XCTAssertEqual(opener.midY, pill.midY, accuracy: 0.001)
+            XCTAssertTrue(widget.surface.containsShape(at: CGPoint(x: opener.midX, y: pill.midY)))
         }
     }
 
@@ -341,7 +344,7 @@ extension ShellVitreusBarTests {
             VitreusFixture.show(widget, on: monitor, bar: data)
             let pill = try VitreusFixture.frame(widget, key: "shell")
             let drawer = try VitreusFixture.frame(widget, key: "drawer")
-            let width = fullWidth ? monitor.frame.width - 57 * 1.5525 - 12 * 1.35 - 8 : 607.5
+            let width = fullWidth ? monitor.frame.width - 2 * pill.minX : 607.5
             XCTAssertEqual(pill.width, width, accuracy: 0.001, "full width \(fullWidth)")
             XCTAssertEqual(drawer.midX, pill.midX, accuracy: 0.001, "full width \(fullWidth)")
         }
@@ -375,25 +378,29 @@ extension ShellVitreusBarTests {
         XCTAssertNotIdentical(try VitreusFixture.body(beside), try VitreusFixture.body(beside, key: "bar"))
     }
 
-    func testANotchedDisplayLowersThePillAndAddsTheNotchToTheTopRoom() throws {
+    func testANotchedDisplayKeepsThePillAtTheEdgeAndOnlyTheNotchesRoomClearsTheNotch() throws {
         let shell = try shell()
         let notched = ShellVitreusNotchesTests.notched()
         let plain = VitreusFixture.monitor()
-        let lowered = try island(shell, monitor: notched)
+        let melted = try island(shell, monitor: notched)
         let level = try island(shell, monitor: plain)
-        Self.assertRect(
-            try VitreusFixture.frame(lowered, key: "shell"), CGRect(x: 656.25, y: 40, width: 607.5, height: 54)
+        let pill = try VitreusFixture.frame(melted, key: "shell")
+        let flat = try VitreusFixture.frame(level, key: "shell")
+        Self.assertRect(flat, CGRect(x: 656.25, y: 8, width: 607.5, height: 54))
+        XCTAssertEqual(pill.minY, flat.minY, accuracy: 0.001)
+        XCTAssertEqual(pill.height, flat.height, accuracy: 0.001)
+        XCTAssertEqual(pill.midX, try Self.notch(of: notched).midX, accuracy: 0.001)
+        let opener = try VitreusFixture.frame(melted, key: "desk-opener")
+        XCTAssertGreaterThanOrEqual(opener.minX, try VitreusFixture.frame(melted, key: "bar-controls").maxX)
+        XCTAssertLessThanOrEqual(opener.maxX, pill.maxX)
+        XCTAssertEqual(opener.midY, pill.midY, accuracy: 0.001)
+        VitreusFixture.trigger(melted.instance, "drawer-calendar", VitreusFixture.bar(notched).monitorId)
+        VitreusFixture.show(melted, on: notched)
+        XCTAssertEqual(
+            try VitreusFixture.frame(melted, key: "drawer-content-calendar").minY,
+            pill.maxY,
+            accuracy: 0.001
         )
-        Self.assertRect(
-            try VitreusFixture.frame(level, key: "shell"),
-            CGRect(x: 656.25, y: 8, width: 607.5, height: 54)
-        )
-        Self.assertRect(
-            try VitreusFixture.frame(lowered, key: "desk-opener"), try VitreusFixture.frame(level, key: "desk-opener")
-        )
-        VitreusFixture.trigger(lowered.instance, "drawer-calendar", VitreusFixture.bar(notched).monitorId)
-        VitreusFixture.show(lowered, on: notched)
-        XCTAssertEqual(try VitreusFixture.frame(lowered, key: "drawer-content-calendar").minY, 94, accuracy: 0.001)
         let selected = try String(contentsOf: shell.appendingPathComponent("shell.toml"), encoding: .utf8)
         let rooms: [(String, CGFloat)] = [("island", 62), ("seg", 59)]
         for (layout, room) in rooms {
@@ -406,7 +413,7 @@ extension ShellVitreusBarTests {
                 let label = "\(layout), notch \(monitor.hasNotch)"
                 let menu = monitor.frame.maxY - monitor.visibleFrame.maxY
                 let top = controller.workspaceBarReservedInsets(for: monitor).top + menu
-                XCTAssertEqual(top, room + (monitor.hasNotch ? 32 : 0), label)
+                XCTAssertEqual(top, room + (layout == "seg" && monitor.hasNotch ? monitor.notchHeight : 0), label)
                 let widget = try island(shell, settings: ["layout": .string(layout)], monitor: monitor)
                 let bottom = try VitreusFixture.frame(widget, key: piece).maxY
                 XCTAssertEqual(top - bottom, layout == "seg" ? 10.4 : 0, accuracy: 0.001, label)
@@ -422,7 +429,7 @@ extension ShellVitreusBarTests {
         let resolved = WorkspaceBarSettings().isolated(profileOverride: profile).resolved(for: monitor)
         XCTAssertTrue(WorkspaceBarManager.hidesMenuBar(resolved))
         XCTAssertNotEqual(profile.room?.edges[.top]?.clear, .menuBar)
-        XCTAssertEqual(profile.room?.edges[.top]?.clear, .notch)
+        XCTAssertEqual(profile.room?.edges[.top]?.clear, WorkspaceBarRoom.Clearance.none)
         var data = VitreusFixture.bar(monitor)
         data.style.hidesMenuBar = true
         let widget = try island(shell, bar: data, monitor: monitor)

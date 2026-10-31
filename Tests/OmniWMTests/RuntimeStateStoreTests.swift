@@ -94,6 +94,17 @@ final class RuntimeStateStoreTests: XCTestCase {
         XCTAssertTrue(RuntimeStateStore(directory: directory, deferSaves: false).welcomePresented)
     }
 
+    func testScreenRecordingPromptDeclinedDefaultsToFalseAndRoundTrips() throws {
+        let directory = makeDirectory()
+        let store = RuntimeStateStore(directory: directory, deferSaves: false)
+        XCTAssertFalse(store.screenRecordingPromptDeclined)
+
+        store.screenRecordingPromptDeclined = true
+
+        XCTAssertEqual(try persistedState(store).screenRecordingPromptDeclined, true)
+        XCTAssertTrue(RuntimeStateStore(directory: directory, deferSaves: false).screenRecordingPromptDeclined)
+    }
+
     func testDeferredSavesCoalesceAndWriteOffMainThread() async throws {
         let directory = makeDirectory()
         let calls = Mutex<[(String?, Bool)]>([])

@@ -150,7 +150,7 @@ final class ShellSpectrumShapeTests: XCTestCase {
             "layout": .string(layout),
             "pieces": .strings([
                 "workspaces",
-                "gear",
+                "omniwm",
                 "controls"
             ])
         ])

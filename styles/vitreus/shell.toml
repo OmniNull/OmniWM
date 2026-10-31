@@ -33,7 +33,7 @@ setting = "layout"
 size = "size"
 
 [island.room.variants.island]
-top = { base = 8, scaled = 54, mode = "add", clear = "notch" }
+top = { base = 8, scaled = 54, mode = "add" }
 dock = "bottom"
 
 [island.room.variants.left]

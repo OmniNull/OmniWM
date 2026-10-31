@@ -18,7 +18,7 @@ step = 0.01
 [options.pieces]
 type = "strings"
 title = "Bar pieces"
-default = ["apple", "app", "workspaces", "title", "tray", "search", "gear", "controls", "clock"]
+default = ["apple", "app", "workspaces", "title", "tray", "search", "omniwm", "controls", "clock"]
 maxLength = 16
 
 [options.pins]

@@ -236,7 +236,7 @@ extension ShellVitreusBarTests {
             VitreusFixture.show(widget, bar: data)
             XCTAssertEqual(omni_vm_service_stats(widget.vm).pending, 1)
             if removed == "piece" {
-                VitreusFixture.settings(widget, ["pieces": .strings(["gear"])])
+                VitreusFixture.settings(widget, ["pieces": .strings(["omniwm"])])
             } else if removed == "bar" {
                 data.barEnabled = false
             }

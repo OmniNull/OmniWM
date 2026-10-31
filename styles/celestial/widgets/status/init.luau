@@ -39,7 +39,7 @@ function render(ctx: Context)
         items[#items + 1] = entry("audio", glyph(icons.volume(data.volume / 100, data.muted), scale), omniwm.l10n("Volume"))
     end
     if setting(ctx, "keyboard", false) and data.inputSource then
-        items[#items + 1] = entry("keyboard", ui.text{ text = data.inputSource.short, font = "sans",
+        items[#items + 1] = entry("keyboard", ui.text{ text = data.inputSource.short, font = "Google Sans Flex",
             size = tokens.body.medium * scale, weight = "medium",
             color = style.textColor ~= nil and "foreground" or TINT }, data.inputSource.name)
     end

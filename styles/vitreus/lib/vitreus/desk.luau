@@ -267,7 +267,7 @@ end
 
 local function opener(ctx, at)
     local bar = ctx.data.bar
-    local scale = if at then 1 else math.min(1, ((bar.style and bar.style.height) or 32) / (32 * units.cu))
+    local scale = if at then at.scale or 1 else math.min(1, ((bar.style and bar.style.height) or 32) / (32 * units.cu))
     local cu = units.cu * scale
     local lit = if ctx.state.expanded then 1 else 0
     local hover = if ctx.state.openerHover then 1 else 0

@@ -142,10 +142,10 @@ extension ShellVitreusNotchesTests {
             try frame(fixture, "title-text").minX, (title.minX + 6 * unit + 0.5).rounded(.down), accuracy: 0.001
         )
         let controls = try frame(fixture, "bar-controls")
-        let gear = try frame(fixture, "bar-gear")
+        let logo = try frame(fixture, "bar-omniwm")
         let search = try frame(fixture, "bar-search")
         XCTAssertEqual(controls.midX, 1920 - 32.5 * unit, accuracy: 0.001)
-        XCTAssertEqual(gear.midX, 1920 - 58.5 * unit, accuracy: 0.001)
+        XCTAssertEqual(logo.midX, 1920 - 58.5 * unit, accuracy: 0.001)
         XCTAssertEqual(search.midX, 1920 - 84 * unit, accuracy: 0.001)
         XCTAssertEqual(try frame(fixture, "workspace-overview").midX, 36 * unit, accuracy: 0.001)
         for key in ["bar-controls", "bar-clock", "title-button"] {
@@ -285,7 +285,7 @@ extension ShellVitreusNotchesTests {
         let fixture = try fixture()
         let owners = [
             ("left", ["workspace-overview"]), ("middle", ["bar-clock", "title-button"]),
-            ("right", ["bar-search", "bar-gear", "bar-controls"])
+            ("right", ["bar-search", "bar-omniwm", "bar-controls"])
         ]
         for (name, keys) in owners {
             let area = try VitreusFixture.element(fixture.widget, key: "bar-hover-" + name)

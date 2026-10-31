@@ -6,6 +6,9 @@ local palette = require("../palette")
 local cards = require("../cards")
 local frame = require("../frame")
 
+local clockLast
+local dayLast
+
 local function at(c, props, x, y)
     return kit.at(c, props, x * c.du, y * c.du)
 end
@@ -33,6 +36,14 @@ end
 
 local function date(ctx, seconds, template)
     return ctx.format.date(seconds, template) or ""
+end
+
+local function currentDay(ctx): string
+    local key = ctx.data.date or ""
+    if not dayLast or dayLast.key ~= key then
+        dayLast = table.freeze({ key = key, iso = os.date("%Y-%m-%d", ctx.data.seconds or 0) })
+    end
+    return dayLast.iso
 end
 
 local function weatherKind(code)
@@ -134,14 +145,22 @@ local function weather(ctx, c)
     return items
 end
 
-local function clock(ctx, c)
+local function clockText(ctx)
+    local key = (ctx.data.clock or "") .. "|" .. (ctx.data.date or "")
+    if clockLast and clockLast.key == key then return clockLast end
     local now = ctx.data.seconds or 0
     local hm, ap = date(ctx, now, "h:mm"), date(ctx, now, "a")
     local first, last = string.find(hm, ap, 1, true)
     if ap ~= "" and first then hm = string.sub(hm, 1, first - 1) .. string.sub(hm, last + 1) end
     hm = string.gsub(string.gsub(hm, " ", " "), " ", " ")
     hm = string.match(hm, "^%s*(.-)%s*$")
-    local md, wd = date(ctx, now, "MMM d"), date(ctx, now, "EEEE")
+    clockLast = table.freeze({ key = key, hm = hm, ap = ap, md = date(ctx, now, "MMM d"), wd = date(ctx, now, "EEEE") })
+    return clockLast
+end
+
+local function clock(ctx, c)
+    local text = clockText(ctx)
+    local hm, ap, md, wd = text.hm, text.ap, text.md, text.wd
     local style = { font = kit.font, size = 64.5 * c.rs, weight = "bold" }
     local width = ctx.format.measure(hm, style)
     style.size = 14 * c.rs
@@ -220,7 +239,7 @@ local function month(ctx, c)
     end
     local marked = {}
     for _, day in m.marked do marked[day] = true end
-    local selected = data.selectedDay or os.date("%Y-%m-%d", ctx.data.seconds or 0)
+    local selected = data.selectedDay or currentDay(ctx)
     for index = 0, 41 do
         local value = index - m.offset + 1
         local iso, day = cellDate(m, value)
@@ -269,8 +288,8 @@ end
 local function reminders(ctx, c)
     local data = ctx.data.calendar
     local snapshot = data and data.reminders
-    local selected = data and data.selectedDay or os.date("%Y-%m-%d", ctx.data.seconds or 0)
-    local title = if selected == os.date("%Y-%m-%d", ctx.data.seconds or 0) then "Today" else selected
+    local selected = data and data.selectedDay or currentDay(ctx)
+    local title = if selected == currentDay(ctx) then "Today" else selected
     local count = if snapshot then #snapshot.items else 0
     local events = if data then data.events else {}
     local total = count + #events

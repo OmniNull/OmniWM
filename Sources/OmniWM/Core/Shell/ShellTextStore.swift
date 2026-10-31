@@ -23,9 +23,6 @@ enum ShellTextStyle {
         let size = self.size(of: style).map { CGFloat($0) } ?? defaultSize
         let index = weightIndex(of: style) ?? weights.firstIndex(of: defaultWeight) ?? 3
         let filled = style & OMNI_STYLE_FILLED != 0
-        if let family = ShellFontFamily(style: style) {
-            return family.font(size: size, weight: CGFloat(index + 1) * 100, filled: filled)
-        }
         if let family = ShellFontLibrary.shared.family(of: style) {
             var axes = [tag("wght"): CGFloat(index + 1) * 100, tag("opsz"): size]
             if filled { axes[tag("FILL")] = 1 }
@@ -156,43 +153,6 @@ enum ShellTextMeasurer {
                 cache[style] = ShellTextStyle.font(for: style)
             }
             return ShellTextStyle.measure(string, font: cache[style]!, style: style, width: width, lines: lines)
-        }
-    }
-}
-
-enum ShellFontFamily: UInt32, CaseIterable {
-    case sans = 1
-    case symbols
-
-    static let bundledFamilies = Set(allCases.map(\.familyName))
-
-    private static let registered: Void = {
-        for url in Bundle.module.urls(forResourcesWithExtension: nil, subdirectory: "Fonts") ?? [] {
-            var error: Unmanaged<CFError>?
-            if !CTFontManagerRegisterFontsForURL(url as CFURL, .process, &error) {
-                Log.shell.error("Failed to load the bundled font \(url.lastPathComponent)")
-            }
-        }
-    }()
-
-    init?(style: UInt32) {
-        self.init(rawValue: (style & OMNI_STYLE_FONT_MASK) >> OMNI_STYLE_FONT_SHIFT)
-    }
-
-    func font(size: CGFloat, weight: CGFloat, filled: Bool) -> CTFont {
-        _ = Self.registered
-        var axes = [ShellTextStyle.tag("wght"): weight, ShellTextStyle.tag("opsz"): size]
-        switch self {
-        case .sans: axes[ShellTextStyle.tag("ROND")] = 25
-        case .symbols: axes[ShellTextStyle.tag("FILL")] = filled ? 1 : 0
-        }
-        return ShellTextStyle.font(family: familyName, size: size, axes: axes)
-    }
-
-    private var familyName: String {
-        switch self {
-        case .sans: "Google Sans Flex"
-        case .symbols: "Material Symbols Rounded"
         }
     }
 }

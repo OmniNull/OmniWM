@@ -76,6 +76,10 @@ struct LaunchPermissionSnapshot: Equatable {
         requiredGranted && screenRecordingGranted
     }
 
+    func needsPrompt(screenRecordingDeclined: Bool) -> Bool {
+        !requiredGranted || !(screenRecordingGranted || screenRecordingDeclined)
+    }
+
     func isGranted(_ kind: LaunchPermissionKind) -> Bool {
         switch kind {
         case .accessibility: accessibilityGranted
@@ -121,11 +125,19 @@ struct LaunchPermissionEnvironment {
 @MainActor @Observable
 final class LaunchPermissionsModel {
     private(set) var snapshot: LaunchPermissionSnapshot
+    var screenRecordingDeclined: Bool
     @ObservationIgnored private let environment: LaunchPermissionEnvironment
+    @ObservationIgnored private let runtimeState: RuntimeStateStore
 
-    init(environment: LaunchPermissionEnvironment = .live) {
+    init(environment: LaunchPermissionEnvironment = .live, runtimeState: RuntimeStateStore) {
         self.environment = environment
+        self.runtimeState = runtimeState
+        screenRecordingDeclined = runtimeState.screenRecordingPromptDeclined
         snapshot = environment.snapshot()
+    }
+
+    var needsPrompt: Bool {
+        snapshot.needsPrompt(screenRecordingDeclined: runtimeState.screenRecordingPromptDeclined)
     }
 
     var primaryActionTitle: String {
@@ -146,6 +158,13 @@ final class LaunchPermissionsModel {
         }
         refresh()
     }
+
+    func confirmStart() -> Bool {
+        refresh()
+        guard snapshot.requiredGranted else { return false }
+        runtimeState.screenRecordingPromptDeclined = screenRecordingDeclined
+        return true
+    }
 }
 
 @MainActor
@@ -157,14 +176,15 @@ final class LaunchPermissionsWindowController {
 
     init(
         environment: LaunchPermissionEnvironment = .live,
-        ownedWindowRegistry: OwnedWindowRegistry = .shared
+        ownedWindowRegistry: OwnedWindowRegistry = .shared,
+        runtimeState: RuntimeStateStore
     ) {
         presenter = HostedWindowPresenter(ownedWindowRegistry: ownedWindowRegistry)
-        model = LaunchPermissionsModel(environment: environment)
+        model = LaunchPermissionsModel(environment: environment, runtimeState: runtimeState)
     }
 
-    var snapshot: LaunchPermissionSnapshot {
-        model.snapshot
+    var needsPrompt: Bool {
+        model.needsPrompt
     }
 
     func show(
@@ -196,8 +216,7 @@ final class LaunchPermissionsWindowController {
     }
 
     private func start() {
-        model.refresh()
-        guard model.snapshot.requiredGranted, let startAction else { return }
+        guard let startAction, model.confirmStart() else { return }
         clearActions()
         presenter.close()
         startAction()
@@ -243,6 +262,10 @@ struct LaunchPermissionsView: View {
                             granted: model.snapshot.isGranted(kind),
                             onRequest: { model.request(kind) }
                         )
+                    }
+                    if !model.snapshot.screenRecordingGranted {
+                        Toggle("Don't ask about Screen Recording again", isOn: $model.screenRecordingDeclined)
+                            .frame(maxWidth: .infinity, alignment: .leading)
                     }
                 }
                 .padding(24)

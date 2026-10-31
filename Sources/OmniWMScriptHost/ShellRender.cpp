@@ -211,7 +211,7 @@ const Name roleNames[] = {
 constexpr size_t roleCount = sizeof roleNames / sizeof roleNames[0];
 const Name styleNames[] = {{"body", 4}, {"bold", 4}, {"mono", 4}, {"small", 5}, {"caption", 7}, {"rounded", 7}};
 constexpr size_t styleCount = sizeof styleNames / sizeof styleNames[0];
-const Name fontNames[] = {{"system", 6}, {"sans", 4}, {"symbols", 7}};
+const Name fontNames[] = {{"system", 6}};
 constexpr size_t fontCount = sizeof fontNames / sizeof fontNames[0];
 static_assert(fontCount == OMNI_STYLE_FONT_CUSTOM);
 constexpr size_t maximumUnknownFonts = 16;
