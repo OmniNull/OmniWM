@@ -59,6 +59,31 @@ final class GitHubReleaseServiceTests: XCTestCase, @unchecked Sendable {
         XCTAssertEqual(requests.first?.value(forHTTPHeaderField: "User-Agent"), "OmniWM test")
     }
 
+    func testReleaseArchiveComesOnlyFromItsOwnDigestedAppAsset() async throws {
+        let service = service()
+        defer { service.session.invalidateAndCancel() }
+        let download = "https://github.com/OmniNull/OmniWM/releases/download/v0.7.7/"
+        var json = payload("v0.7.7")
+        json["assets"] = [
+            [
+                "name": "GhosttyKit.xcframework-v0.7.7.zip",
+                "browser_download_url": download + "GhosttyKit.xcframework-v0.7.7.zip",
+                "digest": "sha256:" + String(repeating: "b", count: 64)
+            ],
+            [
+                "name": "OmniWM-v0.7.7.zip",
+                "browser_download_url": download + "OmniWM-v0.7.7.zip",
+                "digest": "sha256:" + String(repeating: "A", count: 64)
+            ]
+        ]
+        try respond(to: "releases/latest", in: service, with: json)
+
+        let release = try await service.fetchLatestRelease(forCanary: false)
+
+        XCTAssertEqual(release?.archive?.url.absoluteString, download + "OmniWM-v0.7.7.zip")
+        XCTAssertEqual(release?.archive?.sha256, String(repeating: "a", count: 64))
+    }
+
     func testCanaryFindsNewestTagWithoutReleaseHistoryOrInstalledTag() async throws {
         let service = service()
         defer { service.session.invalidateAndCancel() }

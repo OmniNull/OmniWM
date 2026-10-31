@@ -32,6 +32,7 @@ struct UpdatePopupConfiguration {
     let copyCommand: () -> Void
     let skipThisVersion: () -> Void
     let notNow: () -> Void
+    var installUpdate: (() -> Void)?
 }
 
 struct ReleaseVersion: Comparable, Equatable {
@@ -98,6 +99,7 @@ struct GitHubRelease: Equatable {
     let publishedAt: Date?
     var isPrerelease = false
     var isDraft = false
+    var archive: ReleaseArchive?
 
     var version: ReleaseVersion? {
         ReleaseVersion(tagName)
@@ -125,6 +127,13 @@ struct GitHubRelease: Equatable {
 
     var homebrewUpdateCommand: String {
         Self.isCanaryTag(tagName) ? "brew upgrade --cask omniwm@canary" : "brew upgrade omniwm"
+    }
+
+    func matches(installedVersion: String) -> Bool {
+        if Self.isCanaryTag(tagName) {
+            return installedVersion == tagName
+        }
+        return version != nil && ReleaseVersion(installedVersion) == version
     }
 
     func isNewer(than currentVersion: String) -> Bool {
@@ -157,8 +166,10 @@ final class UpdateCoordinator: AppUpdateCoordinating {
     private let infoAlertPresenter: (String, String) -> Void
     private let openURL: (URL) -> Void
     private let copyCommandToPasteboard: (String) -> Void
+    private let installer: any AppUpdateInstalling
 
     private var automaticChecksStarted = false
+    private var installTask: Task<Void, Never>?
     private var knownAvailableRelease: GitHubRelease?
 
     init(
@@ -188,7 +199,8 @@ final class UpdateCoordinator: AppUpdateCoordinating {
             let pasteboard = NSPasteboard.general
             pasteboard.clearContents()
             pasteboard.setString(command, forType: .string)
-        }
+        },
+        installer: any AppUpdateInstalling = AppSelfUpdater()
     ) {
         self.settings = settings
         self.runtimeState = runtimeState
@@ -199,6 +211,7 @@ final class UpdateCoordinator: AppUpdateCoordinating {
         self.infoAlertPresenter = infoAlertPresenter
         self.openURL = openURL
         self.copyCommandToPasteboard = copyCommandToPasteboard
+        self.installer = installer
     }
 
     func startAutomaticChecks() {
@@ -300,6 +313,13 @@ final class UpdateCoordinator: AppUpdateCoordinating {
             ? String(localized: "No release notes were provided for this release.")
             : release.body
 
+        var installUpdate: (() -> Void)?
+        if release.archive != nil, installer.canInstall {
+            installUpdate = { [weak self] in
+                self?.handleInstall(release)
+            }
+        }
+
         windowController.onWindowClosedWithoutAction = { [weak self] in
             self?.handleNotNow(for: release, source: source)
         }
@@ -322,17 +342,40 @@ final class UpdateCoordinator: AppUpdateCoordinating {
                 },
                 notNow: { [weak self] in
                     self?.handleNotNowAndClose(for: release, source: source)
-                }
+                },
+                installUpdate: installUpdate
             )
         )
     }
 
+    private func handleInstall(_ release: GitHubRelease) {
+        if let installTask, !installTask.isCancelled { return }
+        installTask = Task { @MainActor [weak self] in
+            guard let self else { return }
+            defer { if !Task.isCancelled { installTask = nil } }
+            do {
+                if !installer.isInstalled(release) {
+                    try await installer.install(release)
+                }
+                guard !Task.isCancelled else { return }
+                windowController.close(markingActionHandled: true)
+                try installer.relaunch()
+            } catch {
+                guard !Task.isCancelled else { return }
+                windowController.close(markingActionHandled: true)
+                infoAlertPresenter(String(localized: "Could Not Install Update"), error.localizedDescription)
+            }
+        }
+    }
+
     private func handleOpenReleasePage(for release: GitHubRelease) {
+        installTask?.cancel()
         openURL(validatedReleasePageURL(for: release))
         windowController.close(markingActionHandled: true)
     }
 
     private func handleSkipThisVersion(for release: GitHubRelease) {
+        installTask?.cancel()
         runtimeState.updaterSkippedReleaseTag = release.skipKey
         windowController.close(markingActionHandled: true)
     }
@@ -349,6 +392,7 @@ final class UpdateCoordinator: AppUpdateCoordinating {
         for release: GitHubRelease,
         source: AutomaticCheckSource
     ) {
+        installTask?.cancel()
         guard source == .automatic else { return }
         runtimeState.updaterSkippedReleaseTag = release.skipKey
     }
