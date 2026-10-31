@@ -32,6 +32,10 @@ final class AppAXFrameDelivery {
         frameWriteSuppression
     }
 
+    func hasInFlightFrameWrite(for windowId: Int) -> Bool {
+        frameMailbox.hasInFlightFrameWrite(for: windowId)
+    }
+
     func cancelFrameJob(for windowId: Int) {
         _ = frameWriteGenerations.nextGeneration(for: windowId)
     }
