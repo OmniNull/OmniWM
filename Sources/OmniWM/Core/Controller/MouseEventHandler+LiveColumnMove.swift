@@ -178,7 +178,12 @@ extension MouseEventHandler {
             .flatMap { $0.axRef.flatMap(nativeWindowFrameProvider) }?
             .minX
         let ended = controller.workspaceManager.withNiriViewportState(for: workspaceId) { viewportState in
-            engine.liveColumnMoveEnd(releasedAtScreenX: releaseX, context: context, state: &viewportState)
+            engine.liveColumnMoveEnd(
+                releasedAtScreenX: releaseX,
+                pointer: state.liveDragLocation,
+                context: context,
+                state: &viewportState
+            )
         }
         guard ended else { return false }
         controller.workspaceManager.recordLayoutOperation(

@@ -22,6 +22,7 @@ class NiriContainer: NiriNode {
 
     var hasManualSingleWindowWidthOverride: Bool = false
     var isLiveDropSpace = false
+    var liveSlotWidth: CGFloat?
 
     var height: ProportionalSize = .default
 
@@ -191,7 +192,7 @@ class NiriContainer: NiriNode {
         gaps: CGFloat,
         contentInset: CGFloat = 0
     ) {
-        cachedWidth = resolvedWidthPixels(
+        cachedWidth = liveSlotWidth ?? resolvedWidthPixels(
             isFullWidth ? .proportion(1) : width,
             availableSpan: workingAreaWidth,
             gaps: gaps,

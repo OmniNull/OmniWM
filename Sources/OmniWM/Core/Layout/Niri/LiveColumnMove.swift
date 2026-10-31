@@ -19,8 +19,16 @@ struct LiveColumnMove {
             (minX + maxX) / 2
         }
 
+        var width: CGFloat {
+            maxX - minX
+        }
+
         func contains(x: CGFloat) -> Bool {
             minX <= x && x < maxX
+        }
+
+        func isFullyVisible(in frame: CGRect) -> Bool {
+            minX >= frame.minX - 0.5 && maxX <= frame.maxX + 0.5
         }
     }
 
@@ -46,6 +54,41 @@ struct LiveColumnMove {
         let side: Side
     }
 
+    struct NarrowedSlot: Equatable {
+        let columnId: NodeId
+        let fullWidth: CGFloat
+        var leftCut: CGFloat
+    }
+
+    enum SlotClosing: Equatable {
+        case pickup(x: CGFloat)
+        case following(edge: Side)
+        case trailing
+    }
+
+    struct SlotLeads: Equatable {
+        let left: CGFloat
+        let right: CGFloat
+    }
+
+    struct Passed: Equatable {
+        let columnId: NodeId
+        let furthestX: CGFloat
+        let wayBack: CGFloat
+
+        func hasComeBack(at x: CGFloat) -> Bool {
+            wayBack < 0 ? x <= furthestX + wayBack : x >= furthestX + wayBack
+        }
+
+        func extended(to x: CGFloat) -> Passed {
+            .init(
+                columnId: columnId,
+                furthestX: wayBack < 0 ? max(furthestX, x) : min(furthestX, x),
+                wayBack: wayBack
+            )
+        }
+    }
+
     let windowId: NodeId
     let windowToken: WindowToken
     let workspaceId: WorkspaceDescriptor.ID
@@ -58,4 +101,9 @@ struct LiveColumnMove {
     var dropSpaceId: NodeId?
     var lockedTarget: TargetLock?
     var swapCount = 0
+    var narrowedSlot: NarrowedSlot?
+    var slotClosing: SlotClosing?
+    var slotLeads: SlotLeads?
+    var passed: Passed?
+    var sideBySideIds: Set<NodeId> = []
 }

@@ -403,7 +403,8 @@ final class LiveTitleBarDragTests: NiriInteractionTestCase {
             }
 
             XCTAssertNil(fixture.handler.state.liveHoverTimer, ending)
-            XCTAssertEqual(fixture.order(), order, ending)
+            let landed = ending == "release" ? [order[0], order[2], order[1]] + order.dropFirst(3) : order
+            XCTAssertEqual(fixture.order(), landed, ending)
         }
     }
 
@@ -594,7 +595,8 @@ final class LiveTitleBarDragTests: NiriInteractionTestCase {
         XCTAssertEqual(fixture.engine.liveColumnMove?.phase, .settling)
         let firstOrder = fixture.landingOrder()
 
-        fixture.drag(to: try fixture.farHalf(of: fixture.tokens[3]))
+        let target = try fixture.farHalf(of: fixture.tokens[3])
+        fixture.drag(to: CGPoint(x: target.x + 60, y: target.y))
 
         XCTAssertNotEqual(fixture.landingOrder(), firstOrder)
     }

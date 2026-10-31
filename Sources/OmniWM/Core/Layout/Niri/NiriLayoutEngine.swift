@@ -49,6 +49,9 @@ final class NiriLayoutEngine {
     var interactiveMove: InteractiveMove?
     var liveColumnMove: LiveColumnMove? {
         didSet {
+            if let slot = oldValue?.narrowedSlot, liveColumnMove?.narrowedSlot?.columnId != slot.columnId {
+                widenLiveSlot(slot, in: oldValue?.workspaceId)
+            }
             guard let previous = oldValue, let dropSpaceId = previous.dropSpaceId,
                   liveColumnMove?.dropSpaceId != dropSpaceId
             else { return }
