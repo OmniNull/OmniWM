@@ -1,6 +1,39 @@
 {
   "sourceLanguage" : "en",
   "strings" : {
+    "Could Not Install Update" : {
+
+    },
+    "GitHub returned HTTP %lld while downloading the update." : {
+
+    },
+    "Install and Relaunch" : {
+
+    },
+    "Install and Relaunch downloads this release from GitHub, checks its signature, replaces this copy of OmniWM and relaunches it." : {
+
+    },
+    "Installing…" : {
+
+    },
+    "The downloaded update contains version %@, not the release that was offered." : {
+
+    },
+    "The downloaded update could not be unpacked (ditto exited with %d)." : {
+
+    },
+    "The downloaded update does not contain OmniWM.app." : {
+
+    },
+    "The downloaded update does not match the checksum GitHub published for it." : {
+
+    },
+    "The downloaded update is not signed and notarized like this copy of OmniWM (error %d)." : {
+
+    },
+    "This release has no OmniWM download to install." : {
+
+    },
     "Don't ask about Screen Recording again" : {
 
     },
