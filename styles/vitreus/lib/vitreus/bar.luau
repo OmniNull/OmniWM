@@ -22,6 +22,8 @@ local addons = require("./addons")
 local visualiser = require("./visualiser")
 
 local calm = table.freeze({ response = 0.513, bounce = 0.06 })
+local beat = table.freeze({ response = 2 * math.pi / math.sqrt(480), bounce = 1 - 15 / (2 * math.sqrt(480)) })
+local swellWidth, swellHeight = 10, 6
 local defaults = table.freeze({ "apple", "app", "workspaces", "title", "tray", "search", "omniwm", "controls", "clock" })
 local owners = table.freeze({
     apple = menus, app = menus, workspaces = marks, title = title, tray = tray, privacy = tray, search = buttons,
@@ -221,6 +223,13 @@ local function hoverContent(g, children, area)
     })
 end
 
+local function swell(ctx, g)
+    if not visualiser.plan(ctx, g, 0) then return nil end
+    local bu = g.k.bu
+    return { swell = { w = swellWidth * bu, h = swellHeight * bu }, gain = if ctx.state.drawerPanel then 0 else 1,
+        response = beat.response, bounce = beat.bounce }
+end
+
 local function render(ctx, g)
     for _, owner in pieces do
         if owner.prepare then owner.prepare(ctx, g) end
@@ -240,9 +249,10 @@ local function render(ctx, g)
     local pill = g.pill
     if pill then
         if not g.frame then
+            local beating = swell(ctx, g)
             body[#body + 1] = ui.shape({
                 key = "shell", align = "topLeading", dx = pill.x, dy = pill.y, w = pill.w, h = pill.h,
-                radius = pill.radius, animate = calm,
+                radius = pill.radius, animate = if beating then nil else calm, spectrum = beating,
             })
             local notch = g.island.notch
             if notch then

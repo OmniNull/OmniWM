@@ -88,6 +88,47 @@ final class ShellSpectrumShapeContractTests: XCTestCase {
         XCTAssertNil(ShellSpectrumShapeRecipe("spectrum:0:1:1:0:0:0.276:0.43|extra:1"))
     }
 
+    func testSwellFollowsTheBassFromItsTopEdgeAndKeepsItsHitArea() throws {
+        let result = try ShellP3WireFixture.render("""
+        ui.glass{ui.shape{key='pill',w=200,h=40,spectrum={swell={w=10,h=6},gain=2,response=0.3,bounce=0.4}}}
+        """)
+        let recipe = try XCTUnwrap(ShellSpectrumShapeRecipe(result.text.string(result.nodes[1].text)))
+        let swell = try XCTUnwrap(recipe.swell)
+        XCTAssertTrue(result.tree[1].content.glassHit)
+        XCTAssertTrue(result.tree[1].content.audio)
+        let base = ShellGlassShape(
+            slot: 1,
+            kind: 0,
+            rect: CGRect(x: 20, y: 8, width: 200, height: 40),
+            radius: 14,
+            thickness: 0
+        )
+        var bands = InlineArray<24, Float>(repeating: 0)
+        bands[0] = 0.1
+        bands[1] = 0.2
+        bands[2] = 0.3
+        let level = min(1, recipe.gain * ShellSpectrumShapeRecipe.bass(bands))
+        let swollen = recipe.shape(base, bands: bands)
+        XCTAssertTrue(swollen.visible)
+        XCTAssertEqual(swollen.shape.rect.minY, base.rect.minY)
+        XCTAssertEqual(swollen.shape.rect.minX, base.rect.minX - swell.width * level / 2)
+        XCTAssertEqual(swollen.shape.rect.width, base.rect.width + swell.width * level)
+        XCTAssertEqual(swollen.shape.rect.height, base.rect.height + swell.height * level)
+        XCTAssertEqual(recipe.shape(base, bands: InlineArray(repeating: 0)).shape.rect, base.rect)
+        let loud = recipe.shape(base, bands: InlineArray(repeating: 1)).shape.rect
+        XCTAssertEqual(loud.size, CGSize(width: base.rect.width + swell.width, height: base.rect.height + swell.height))
+    }
+
+    func testSwellRejectsMalformedFieldsAndStillOwnsGeometry() throws {
+        for fields in [
+            "spectrum={swell=true}", "spectrum={swell={w=-1,h=6}}", "spectrum={swell={w=10,h=300}}",
+            "spectrum={swell={w=10,h=6,x=1}}", "spectrum={swell={w=10,h=6}},animate='spring'"
+        ] {
+            try ShellP3WireFixture.reject("ui.glass{ui.shape{w=200,h=40,\(fields)}}")
+        }
+        XCTAssertNil(ShellSpectrumShapeRecipe("spectrum:0:1:1:0:0:0.276:0.43|swell:10"))
+    }
+
     func testEngineUpdatesColumnsWithoutAnyLuaPublicationAndDemandStopsOnRemoval() throws {
         let widget = try widget()
         let original = widget.output()

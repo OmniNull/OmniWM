@@ -2095,7 +2095,11 @@ uint32_t readSpectrumShape(lua_State *L, int index, omni_wire_node &node, omni_i
     lua_rawgetfield(L, index, "spectrum");
     if (lua_isnil(L, -1)) { lua_pop(L, 1); return 0; }
     if (!lua_istable(L, -1)) { luaL_error(L, "ui.shape.spectrum must be a table"); }
-    if ((node.behavior_flags & 6) != 0 || (node.behavior_flags & OMNI_NODE_BEHAVIOR_GLASS_HIT_DISABLED) == 0) {
+    lua_rawgetfield(L, -1, "swell");
+    const bool swell = !lua_isnil(L, -1);
+    lua_pop(L, 1);
+    if ((node.behavior_flags & 6) != 0
+        || (!swell && (node.behavior_flags & OMNI_NODE_BEHAVIOR_GLASS_HIT_DISABLED) == 0)) {
         luaL_error(L, "spectrum requires a rectangular ui.shape with hit=false");
     }
     for (const char *field : {"animate", "morph", "reveal", "follow"}) {
@@ -2103,11 +2107,14 @@ uint32_t readSpectrumShape(lua_State *L, int index, omni_wire_node &node, omni_i
         if (!lua_isnil(L, -1)) { luaL_error(L, "spectrum owns shape geometry and cannot combine with %s", field); }
         lua_pop(L, 1);
     }
-    recipeFields(L, lua_gettop(L), {"band", "gain", "taper", "inset", "threshold", "response", "bounce"},
+    recipeFields(L, lua_gettop(L), {"band", "gain", "taper", "inset", "threshold", "response", "bounce", "swell"},
                  "shape spectrum", instance);
-    lua_rawgetfield(L, -1, "band");
-    const float band = inputNumber(L, -1, "spectrum band", 0, 1);
-    lua_pop(L, 1);
+    float band = 0;
+    if (!swell) {
+        lua_rawgetfield(L, -1, "band");
+        band = inputNumber(L, -1, "spectrum band", 0, 1);
+        lua_pop(L, 1);
+    }
     const float inset = inputField(L, "inset", 0, 0, 256);
     if (node.width <= 0 || node.height <= inset) {
         luaL_error(L, "spectrum requires positive explicit width and height greater than inset");
@@ -2116,6 +2123,14 @@ uint32_t readSpectrumShape(lua_State *L, int index, omni_wire_node &node, omni_i
     recipeValues(L, recipe, ':', {band, inputField(L, "gain", 1, 0, 10), inputField(L, "taper", 1, 0, 1),
         inset, inputField(L, "threshold", 0, 0, 256),
         inputField(L, "response", 0.276f, 0.05, 2.5), inputField(L, "bounce", 0.43f, 0, 0.95)});
+    if (swell) {
+        lua_rawgetfield(L, -1, "swell");
+        if (!lua_istable(L, -1)) { luaL_error(L, "spectrum.swell must be a table"); }
+        recipeFields(L, lua_gettop(L), {"w", "h"}, "spectrum swell", instance);
+        recipe += "|swell";
+        recipeValues(L, recipe, ':', {inputField(L, "w", 0, 0, 256), inputField(L, "h", 0, 0, 256)});
+        lua_pop(L, 1);
+    }
     lua_pop(L, 1);
     node.options |= OMNI_NODE_OPTION_AUDIO;
     return internString(L, recipe.data(), recipe.size(), instance);

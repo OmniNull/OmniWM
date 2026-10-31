@@ -958,8 +958,8 @@ export type ShapeProps = {
     hit: boolean?,
     shadowOffset: { x: number, y: number }?,
     morph: ShapeMorph?,
-    spectrum: { band: number, gain: number?, taper: number?, inset: number?, threshold: number?,
-        response: number?, bounce: number? }?,
+    spectrum: { band: number?, gain: number?, taper: number?, inset: number?, threshold: number?,
+        response: number?, bounce: number?, swell: { w: number, h: number }? }?,
 }
 
 export type ComponentProps = Props & {
