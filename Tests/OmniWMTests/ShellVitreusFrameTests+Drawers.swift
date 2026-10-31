@@ -144,7 +144,7 @@ extension ShellVitreusFrameDrawerTests {
         XCTAssertEqual(recipe.impulses[0].time, recipe.impulses[1].time, accuracy: 0.0001)
     }
 
-    func testFrameSwitchDelayIsTheAnalyticDriplHalfwayCrossingWithoutATimer() throws {
+    func testFrameSwitchDelayIsTheAnalyticDriplHalfwayCrossingWithOnlyALaterSettleTimer() throws {
         let widget = try fixture("left")
         open(widget, "controls")
         time(widget, 10)
@@ -164,7 +164,12 @@ extension ShellVitreusFrameDrawerTests {
             try XCTUnwrap(ShellRevealRecipe(widget.text.string(widget.surface.layout.core.paint(of: element).reveal)))
         XCTAssertEqual(reveal.delay, expected, accuracy: 0.00001)
         var service = omni_service_request()
-        while omni_vm_next_service(widget.vm, &service) { XCTAssertNotEqual(service.kind, OMNI_SERVICE_TIMER) }
+        var timers: [Double] = []
+        while omni_vm_next_service(widget.vm, &service) {
+            if service.kind == OMNI_SERVICE_TIMER, !service.cancelled { timers.append(service.seconds) }
+        }
+        XCTAssertEqual(timers.count, 1)
+        XCTAssertTrue(timers.allSatisfy { $0 > expected })
     }
 
     func testRipplesUseNativeCrossingTriggersWithNoHitCoverage() throws {

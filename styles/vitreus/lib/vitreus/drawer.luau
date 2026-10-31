@@ -37,6 +37,35 @@ local function drop(state, time: number): (number, number)
     return sample(drip, state.drawerDrop, time)
 end
 
+local function landingTime(state): number?
+    local landing = state.drawerDrop
+    if not landing or landing.target ~= 1 then return nil end
+    local crossing = kit.springCrossing(drip, landing.from, landing.velocity, 1, 0.97, true)
+    return crossing and landing.begin + crossing
+end
+
+local function travelTime(state): number?
+    local travel = state.drawerTravel
+    if not travel or travel.target ~= 1 then return nil end
+    local crossing = kit.springCrossing(kit.springs.dripl, travel.from, travel.velocity, 1, 1.14 / 1.3, true)
+    return crossing and travel.begin + crossing
+end
+
+local function settle(ctx, timed: boolean, now: number)
+    local held = ctx.state.drawerSettle
+    if held and held.timer then held.timer:cancel() end
+    ctx.state.drawerSettle = nil
+    if not timed then return end
+    local travel = ctx.state.drawerTravel
+    local last = math.max(travel and travel.begin or now, landingTime(ctx.state) or now, travelTime(ctx.state) or now)
+    if last <= now then return end
+    local entry = {}
+    entry.timer = omniwm.after(math.max(0.01, last - now), function()
+        if ctx.state.drawerSettle == entry then ctx.state.drawerSettle = nil end
+    end)
+    ctx.state.drawerSettle = entry
+end
+
 local function select(ctx, name: string?, preserve: boolean?)
     local previous = ctx.state.drawerPanel
     if previous == name then return end
@@ -70,6 +99,7 @@ local function select(ctx, name: string?, preserve: boolean?)
         delay + (kit.springCrossing(drip, ctx.state.drawerDrop.from, ctx.state.drawerDrop.velocity, 1, 0.97, true) or 0)
         else nil
     if not framed then ctx.state.drawerDelay = 0 end
+    settle(ctx, framed and name ~= nil, now)
     if name == "calendar" and not preserve then
         omniwm.run("calendar month today")
         omniwm.run("calendar day " .. os.date("%Y-%m-%d", ctx.data.seconds))
@@ -116,6 +146,7 @@ end
 
 local function frameGeometry(ctx, g, name, width, height)
     local f, cu = g.frame, g.k.bcu
+    local travel = ctx.state.drawerTravel
     local thickness = f.thickness
     local slot = g.pill.slots[if name == "calendar" then "clock" elseif name == "player" then "title" else "controls"]
     local strip = if slot and slot.piece then slot.piece.strip else f.strip
@@ -167,7 +198,7 @@ local function frameGeometry(ctx, g, name, width, height)
         anchor = { x = ax, y = ay }, originX = originX, originY = originY,
         slideX = slideX, slideY = slideY, frame = true, vertical = f.vertical, edge = f.edge,
         tail = f.seg == true and name == "controls", close = close, calm = g.calm, delay = ctx.state.drawerDelay or 0,
-        wait = math.max(0, (ctx.state.drawerTravel and ctx.state.drawerTravel.begin or 0) - os.clock()),
+        wait = if ctx.state.drawerSettle and travel then math.max(0, travel.begin - os.clock()) else 0,
         key = "drawer-frame-" .. name,
     }
 end
@@ -293,8 +324,6 @@ end
 
 local function frameImpulses(ctx, panel)
     local impulses = {}
-    local now = os.clock()
-    local travel = ctx.state.drawerTravel
     local function add(after, spring, velocity, width, height, pivot, phase)
         if not after or after < 0 then return end
         impulses[#impulses + 1] = { after = after, spring = spring, velocity = velocity,
@@ -304,16 +333,12 @@ local function frameImpulses(ctx, panel)
         if panel.tail then return end
         add(after, splash, velocity, 0.003 * panel.bodyW, -0.002 * panel.bodyH, "centre", phase)
     end
-    local landing = ctx.state.drawerDrop
-    if landing and landing.target == 1 then
-        local crossing = kit.springCrossing(drip, landing.from, landing.velocity, 1, 0.97, true)
-        local after = crossing and landing.begin + crossing - now
-        add(after, hang, 220, 0, 1, "anchor", "open")
-        wobble(after, -260, "open")
-    end
-    if travel and travel.target == 1 then
-        local crossing = kit.springCrossing(kit.springs.dripl, travel.from, travel.velocity, 1, 1.14 / 1.3, true)
-        wobble(crossing and travel.begin + crossing - now, -520, "open")
+    if ctx.state.drawerSettle then
+        local now = os.clock()
+        local landed, travelled = landingTime(ctx.state), travelTime(ctx.state)
+        add(landed and landed - now, hang, 220, 0, 1, "anchor", "open")
+        wobble(landed and landed - now, -260, "open")
+        wobble(travelled and travelled - now, -520, "open")
     end
     wobble(kit.springCrossing(kit.springs.dripl, 1, 0, 0, 1.14 / 1.3, false), 300, "close")
     wobble(kit.springCrossing(kit.springs.dripl, 1, 0, 0, 0.36 / 1.3, false), -160, "close")
