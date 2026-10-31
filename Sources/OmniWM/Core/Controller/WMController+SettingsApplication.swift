@@ -24,6 +24,7 @@ extension WMController {
         setGapSize(settings.gaps.size, publishChange: false)
 
         applyPersistedLayoutSettings(settings)
+        mouseEventHandler.syncTapFilterSnapshot()
         setTabRailAppIcons(settings.tabRailAppIcons, persist: false)
 
         updateWorkspaceConfig()
@@ -133,6 +134,11 @@ extension WMController {
         }
     }
 
+    func applyNaturalWindowDragSettings() {
+        updateNiriConfig(tabbedColumnsFillHeight: settings.niri.naturalWindowDrag)
+        mouseEventHandler.syncTapFilterSnapshot()
+    }
+
     private func applyPersistedLayoutSettings(_ settings: SettingsStore) {
         if niriEngine == nil {
             enableNiriLayout(
@@ -149,7 +155,8 @@ extension WMController {
             edgeOverscroll: settings.niri.edgeOverscroll,
             containerPrimarySpanPresets: settings.niri.containerPrimarySpanPresets,
             defaultContainerPrimarySpan: settings.niri.defaultContainerPrimarySpan,
-            shrinkToFit: settings.niri.shrinkToFit
+            shrinkToFit: settings.niri.shrinkToFit,
+            tabbedColumnsFillHeight: settings.niri.naturalWindowDrag
         )
 
         if dwindleEngine == nil {

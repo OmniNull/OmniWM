@@ -24,7 +24,8 @@ extension MouseEventHandler {
             return false
         }
 
-        if button == .left, modifiers.isDisjoint(with: Self.relevantModifierFlags) {
+        let startsNaturalDrag = button == .left && naturalWindowDragTakesModifiers(modifiers, in: wsId)
+        if button == .left, startsNaturalDrag || modifiers.isDisjoint(with: Self.relevantModifierFlags) {
             recordPointerFocusIntent(
                 at: location,
                 workspaceId: wsId,
@@ -42,6 +43,7 @@ extension MouseEventHandler {
         guard let engine = controller.niriEngine else { return false }
 
         if button == .left,
+           !startsNaturalDrag,
            Self.mouseMoveModifiersMatch(
                modifiers,
                required: controller.settings.gestures.mouseMoveModifierKey.cgEventFlags
@@ -59,6 +61,17 @@ extension MouseEventHandler {
         else { return false }
 
         return beginNiriMouseResize(at: location, engine: engine, workspaceId: wsId, button: button)
+    }
+
+    func naturalWindowDragTakesModifiers(_ modifiers: CGEventFlags, in workspaceId: WorkspaceDescriptor.ID) -> Bool {
+        guard let controller,
+              controller.settings.niri.naturalWindowDrag,
+              controller.workspaceManager.activeLayoutKind(for: workspaceId) == .niri
+        else { return false }
+        return Self.mouseMoveModifiersMatch(
+            modifiers,
+            required: controller.settings.niri.naturalWindowDragModifier.cgEventFlags
+        )
     }
 
     private func beginNiriMouseMove(

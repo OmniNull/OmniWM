@@ -192,6 +192,9 @@ private struct GlobalNiriSettingsSection: View {
 
             Toggle("Natural Window Drag & Drop", isOn: Bindable(settings.niri).naturalWindowDrag)
                 .id("Natural Window Drag & Drop")
+                .onChange(of: settings.niri.naturalWindowDrag) {
+                    controller.applyNaturalWindowDragSettings()
+                }
                 .onAppear(perform: windowTilingSettingsProbe.refresh)
                 .onReceive(NotificationCenter.default.publisher(for: NSApplication.didBecomeActiveNotification)) { _ in
                     windowTilingSettingsProbe.refresh()
@@ -203,6 +206,32 @@ private struct GlobalNiriSettingsSection: View {
 
             if settings.niri.naturalWindowDrag, !windowTilingSettingsProbe.enabledSettings.isEmpty {
                 windowTilingNote
+            }
+
+            Picker(
+                "Left Mouse Natural Window Drag Modifier",
+                selection: Bindable(settings.niri).naturalWindowDragModifier
+            ) {
+                ForEach(MouseMoveModifierKey.allCases, id: \.self) { key in
+                    Text(key.localizedDisplayName).tag(key)
+                }
+            }
+            .id("Left Mouse Natural Window Drag Modifier")
+            .disabled(!settings.niri.naturalWindowDrag)
+            .onChange(of: settings.niri.naturalWindowDragModifier) {
+                controller.applyNaturalWindowDragSettings()
+            }
+
+            SettingsCaption(
+                localized: "Hold this modifier while dragging a title bar to stack the window onto the one under the pointer. That column makes room where the window will land; over tabbed windows it lands as a new tab. When it matches the Left Mouse Move Modifier, it replaces that move in Niri. Choose Off to never stack."
+            )
+
+            if settings.niri.naturalWindowDrag,
+               settings.niri.naturalWindowDragModifier.cgEventFlags?.contains(.maskCommand) == true
+            {
+                SettingsCaption(
+                    localized: "macOS also uses Command-drag to move a window behind others without bringing it to the front."
+                )
             }
         }
         .id("Niri Layout")

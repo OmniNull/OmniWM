@@ -62,6 +62,9 @@ extension MouseEventHandler {
         edgeScroll.strip = nil
         state.liveEdgeScroll = edgeScroll
         engine.liveColumnMoveEdgeScrolls(toward: edgeScroll.edge == .trailing ? .after : .before)
+        controller.workspaceManager.withNiriViewportState(for: workspaceId) { viewportState in
+            _ = engine.liveColumnMoveCloseLandingForEdgeScroll(context: context, state: &viewportState)
+        }
         controller.layoutRefreshController.startScrollAnimation(for: workspaceId, forGesture: true)
     }
 
@@ -75,7 +78,8 @@ extension MouseEventHandler {
         else { return }
 
         guard !controller.workspaceManager.animationDriver.hasEdgeScroll(in: workspaceId)
-            || liveEdgeScrollReachesColumn(at: location, time: time, engine: engine, workspaceId: workspaceId)
+            || !move.stackMode
+            && liveEdgeScrollReachesColumn(at: location, time: time, engine: engine, workspaceId: workspaceId)
         else { return }
         stopLiveEdgeScroll(at: time)
         updateLiveColumnDrag(at: location, immediate: true)

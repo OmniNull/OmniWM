@@ -58,6 +58,7 @@ class NiriWindow: NiriNode {
 
     var moveXAnimation: MoveAnimation?
     var moveYAnimation: MoveAnimation?
+    var heightAnimation: MoveAnimation?
     private(set) var moveYContainmentFrame: CGRect?
 
     init(token: WindowToken) {
@@ -158,8 +159,43 @@ class NiriWindow: NiriNode {
         }
     }
 
+    func renderHeightOffset(at time: TimeInterval = CACurrentMediaTime()) -> CGFloat {
+        heightAnimation?.currentOffset(at: time) ?? 0
+    }
+
+    func animateHeightFrom(
+        delta: CGFloat,
+        clock: AnimationClock?,
+        config: SpringConfig = .default,
+        displayRefreshRate: Double = 60.0,
+        animated: Bool
+    ) {
+        guard animated else {
+            heightAnimation = nil
+            return
+        }
+        guard delta != 0 else { return }
+        let now = clock?.now() ?? CACurrentMediaTime()
+        let anim = SpringAnimation(
+            from: 1,
+            to: 0,
+            initialVelocity: heightAnimation?.currentVelocity(at: now) ?? 0,
+            startTime: now,
+            config: config,
+            displayRefreshRate: displayRefreshRate
+        )
+        heightAnimation = MoveAnimation(animation: anim, fromOffset: delta + renderHeightOffset(at: now))
+    }
+
     func tickMoveAnimations(at time: TimeInterval) -> Bool {
         var running = false
+        if let height = heightAnimation {
+            if height.isComplete(at: time) {
+                heightAnimation = nil
+            } else {
+                running = true
+            }
+        }
         if let moveX = moveXAnimation {
             if moveX.isComplete(at: time) {
                 moveXAnimation = nil
@@ -181,11 +217,12 @@ class NiriWindow: NiriNode {
     func stopMoveAnimations() {
         moveXAnimation = nil
         moveYAnimation = nil
+        heightAnimation = nil
         moveYContainmentFrame = nil
     }
 
     var hasMoveAnimationsRunning: Bool {
-        moveXAnimation != nil || moveYAnimation != nil
+        moveXAnimation != nil || moveYAnimation != nil || heightAnimation != nil
     }
 
     var hasAnyAnimationRunning: Bool {

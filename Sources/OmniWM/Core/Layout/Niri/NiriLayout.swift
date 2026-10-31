@@ -370,6 +370,9 @@ extension NiriLayoutEngine {
         for window: NiriWindow,
         axis: NiriAxisLayout
     ) -> NiriAxisSolver.Input {
+        if axis.isTabbed, tabbedColumnsFillHeight {
+            return window.axisSolverInput(orientation: axis.orientation, hasFixedValue: false, fixedValue: nil)
+        }
         let specification = switch axis.orientation {
         case .horizontal: window.height
         case .vertical: window.windowWidth

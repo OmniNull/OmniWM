@@ -75,7 +75,9 @@ extension NiriLayoutHandler {
                 windows: windows,
                 activeVisualIndex: activeVisualIndex,
                 controller: controller
-            )
+            ).map { tab in
+                tab.token.map { engine.isLiveDraggedWindow($0, in: workspaceId) } == true ? Self.blankTab(tab) : tab
+            }
             let picture = engine.monitor(for: monitor.id)?.orientation == .vertical
                 ? controller.niriEdgePictures.presentation(for: activeWindow.token) : nil
             let geometry = tabRailGeometry(
@@ -118,6 +120,17 @@ extension NiriLayoutHandler {
             visibleTileFrame: isValid ? frame.intersection(visibleFrame) : .null,
             orderingWindowId: picture.map { Int($0.windowId) },
             displayFrame: picture?.displayFrame
+        )
+    }
+
+    private static func blankTab(_ tab: TabRailTabInfo) -> TabRailTabInfo {
+        TabRailTabInfo(
+            visualIndex: tab.visualIndex,
+            token: nil,
+            windowId: nil,
+            appName: nil,
+            title: nil,
+            isActive: tab.isActive
         )
     }
 

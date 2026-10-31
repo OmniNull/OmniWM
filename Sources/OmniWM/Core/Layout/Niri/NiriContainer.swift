@@ -23,6 +23,7 @@ class NiriContainer: NiriNode {
     var hasManualSingleWindowWidthOverride: Bool = false
     var isLiveDropSpace = false
     var liveSlotWidth: CGFloat?
+    var isLiveHomeSpot = false
 
     var height: ProportionalSize = .default
 
@@ -141,6 +142,7 @@ class NiriContainer: NiriNode {
     func widthBounds(contentInset: CGFloat = 0) -> (min: CGFloat, max: CGFloat?) {
         var minWidth: CGFloat = 1
         var maxWidth: CGFloat?
+        guard !isLiveHomeSpot else { return (minWidth + contentInset, nil) }
 
         for window in windowNodes {
             let constraints = window.constraints.normalized()

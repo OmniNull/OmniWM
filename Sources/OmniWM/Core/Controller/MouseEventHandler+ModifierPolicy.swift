@@ -18,6 +18,14 @@ extension MouseEventHandler {
         return relevantModifiers == required || relevantModifiers == required.union(.maskShift)
     }
 
+    nonisolated static func naturalDragPassThroughFlags(
+        _ modifiers: CGEventFlags,
+        naturalDragModifier: CGEventFlags?
+    ) -> CGEventFlags {
+        guard mouseMoveModifiersMatch(modifiers, required: naturalDragModifier) else { return modifiers }
+        return modifiers.subtracting(.maskAlternate)
+    }
+
     nonisolated static func modifierFlagsMatch(_ modifiers: CGEventFlags, required: CGEventFlags) -> Bool {
         modifiers.intersection(Self.relevantModifierFlags) == required
     }

@@ -153,7 +153,7 @@ final class LiveTitleBarDragTests: NiriInteractionTestCase {
             let frame = try frame(token)
             let columns = engine.columns(in: workspaceId)
             guard let move = engine.liveColumnMove,
-                  let home = columns.firstIndex(where: { $0.windowNodes.contains { $0.id == move.windowId } }),
+                  let home = columns.firstIndex(where: { $0.id == move.homeColumnId }),
                   let target = columns.firstIndex(where: { $0.windowNodes.contains { $0.token == token } }),
                   home != target
             else { return CGPoint(x: frame.midX, y: frame.midY) }
@@ -177,6 +177,69 @@ final class LiveTitleBarDragTests: NiriInteractionTestCase {
         XCTAssertNil(fixture.engine.liveColumnMove)
         XCTAssertEqual(fixture.order(), order)
         XCTAssertEqual(fixture.phase, .awaitingCorrection)
+    }
+
+    func testNaturalDragClicksReachTheAppWithoutOption() {
+        let option = CGEventFlags.maskAlternate
+
+        XCTAssertEqual(MouseEventHandler.naturalDragPassThroughFlags(option, naturalDragModifier: option), [])
+        XCTAssertEqual(
+            MouseEventHandler.naturalDragPassThroughFlags(option.union(.maskShift), naturalDragModifier: option),
+            .maskShift
+        )
+        XCTAssertEqual(MouseEventHandler.naturalDragPassThroughFlags(option, naturalDragModifier: nil), option)
+        XCTAssertEqual(
+            MouseEventHandler.naturalDragPassThroughFlags(option, naturalDragModifier: .maskCommand),
+            option
+        )
+        XCTAssertEqual(
+            MouseEventHandler.naturalDragPassThroughFlags(.maskCommand, naturalDragModifier: .maskCommand),
+            .maskCommand
+        )
+    }
+
+    func testTapKnowsTheNaturalDragModifierOnlyWhileTheSettingIsOn() throws {
+        let fixture = try makeFixture(pid: 938_090)
+
+        fixture.handler.syncTapFilterSnapshot()
+        XCTAssertEqual(fixture.handler.inputTapThread.filterSnapshot.naturalDragModifier, .maskAlternate)
+
+        fixture.controller.settings.niri.naturalWindowDrag = false
+        fixture.handler.syncTapFilterSnapshot()
+        XCTAssertNil(fixture.handler.inputTapThread.filterSnapshot.naturalDragModifier)
+    }
+
+    func testNaturalDragSettingChangesReachTheTapAtOnce() throws {
+        let fixture = try makeFixture(pid: 938_092)
+        let settings = fixture.controller.settings
+        let snapshot = { fixture.handler.inputTapThread.filterSnapshot.naturalDragModifier }
+
+        settings.niri.naturalWindowDragModifier = .command
+        fixture.controller.applyNaturalWindowDragSettings()
+        XCTAssertEqual(snapshot(), .maskCommand)
+
+        settings.niri.naturalWindowDrag = false
+        fixture.controller.applyNaturalWindowDragSettings()
+        XCTAssertNil(snapshot())
+        XCTAssertFalse(fixture.engine.tabbedColumnsFillHeight)
+
+        settings.niri.naturalWindowDrag = true
+        settings.quakeTerminal.enabled = false
+        fixture.controller.applyPersistedSettings(settings, startServices: false)
+        XCTAssertEqual(snapshot(), .maskCommand)
+    }
+
+    func testNaturalDragSettingReachesTheEngine() throws {
+        let fixture = try makeFixture(pid: 938_091)
+        let settings = fixture.controller.settings
+        settings.quakeTerminal.enabled = false
+
+        fixture.controller.applyPersistedSettings(settings, startServices: false)
+        XCTAssertTrue(fixture.engine.tabbedColumnsFillHeight)
+
+        settings.niri.naturalWindowDrag = false
+        fixture.controller.applyPersistedSettings(settings, startServices: false)
+        XCTAssertFalse(fixture.engine.tabbedColumnsFillHeight)
     }
 
     func testDwindleTitleBarDragsStartNoLiveDragAndStillSnapBack() throws {
@@ -235,15 +298,24 @@ final class LiveTitleBarDragTests: NiriInteractionTestCase {
         XCTAssertEqual(fixture.order(), order)
     }
 
-    func testStackedWindowsKeepSnappingBack() throws {
+    func testAStackedWindowStartsALiveDragAndMovesWithinItsStack() throws {
         let fixture = try makeFixture(pid: 938_004, stackFirstTwo: true)
-        let dragged = fixture.tokens[0]
+        let (lower, upper) = (fixture.tokens[0], fixture.tokens[1])
+        let stack = try column(holding: lower, in: fixture)
+        XCTAssertEqual(stack.windowNodes.map(\.token), [lower, upper])
 
-        try fixture.startLiveDrag(dragged)
+        try fixture.startLiveDrag(lower)
+
+        XCTAssertTrue(fixture.handler.isLiveColumnDragActive)
+        XCTAssertEqual(fixture.engine.liveColumnMove?.inStack, true)
+        let drop = try fixture.centre(of: upper)
+        fixture.drag(to: drop)
+        XCTAssertEqual(stack.windowNodes.map(\.token), [upper, lower])
+        fixture.handler.dispatchMouseUp(at: drop)
 
         XCTAssertNil(fixture.engine.liveColumnMove)
-        XCTAssertFalse(fixture.handler.isLiveColumnDragActive)
-        XCTAssertEqual(fixture.handler.state.nativeTitleBarDrag?.liveDragDeclined, true)
+        XCTAssertEqual(stack.windowNodes.map(\.token), [upper, lower])
+        XCTAssertGreaterThan(try fixture.settledFrame(lower).minY, try fixture.settledFrame(upper).maxY)
     }
 
     func testReleaseDropsTheWindowIntoItsNewSlot() throws {
@@ -1129,6 +1201,97 @@ final class LiveTitleBarDragTests: NiriInteractionTestCase {
         return right
     }
 
+    func testStackModeEdgeScrollOpensNoLandingGaps() throws {
+        let fixture = try makeFixture(pid: 938_095, windowCount: 6)
+        fixture.handler.modifierFlagsProvider = { .maskAlternate }
+        try startEdgeScroll(.trailing, dragging: fixture.tokens[1], in: fixture)
+        let swaps = fixture.engine.liveColumnMove?.swapCount
+        var sawLandingWhileScrolling = false
+
+        tickEdgeScroll(fixture) {
+            if fixture.handler.isLiveEdgeScrolling, fixture.engine.liveColumnMove?.landing != nil {
+                sawLandingWhileScrolling = true
+            }
+            return false
+        }
+
+        XCTAssertFalse(sawLandingWhileScrolling)
+        XCTAssertEqual(fixture.engine.liveColumnMove?.swapCount, swaps)
+        XCTAssertFalse(fixture.handler.isLiveEdgeScrolling)
+    }
+
+    func testStartingTheEdgeScrollInStackModeClosesTheLandingGap() throws {
+        let fixture = try makeFixture(pid: 938_096, windowCount: 6)
+        let clock = edgeClock(fixture)
+        try fixture.startLiveDrag(fixture.tokens[1])
+        fixture.handler.modifierFlagsProvider = { .maskAlternate }
+        fixture.drag(to: edgePoint(.trailing, fixture))
+        settleLiveDrag(fixture)
+        XCTAssertNotNil(fixture.engine.liveColumnMove?.landing)
+
+        clock.now += 0.3
+        fixture.handler.startLiveEdgeScrollIfDue()
+
+        XCTAssertTrue(fixture.handler.isLiveEdgeScrolling)
+        XCTAssertNil(fixture.engine.liveColumnMove?.landing)
+    }
+
+    func testWhenTheStackModeEdgeScrollStopsTheColumnUnderThePointerOpensItsGap() throws {
+        let fixture = try makeFixture(pid: 938_097, windowCount: 6)
+        fixture.handler.modifierFlagsProvider = { .maskAlternate }
+        try startEdgeScroll(.trailing, dragging: fixture.tokens[1], in: fixture)
+        XCTAssertNil(fixture.engine.liveColumnMove?.landing)
+        let target = try XCTUnwrap(fixture.tokens.last)
+
+        fixture.drag(to: try fixture.farHalf(of: target))
+
+        XCTAssertFalse(fixture.handler.isLiveEdgeScrolling)
+        XCTAssertNotNil(fixture.engine.liveColumnMove?.landing)
+    }
+
+    func testReleasingDuringAStackModeEdgeScrollStacksOntoTheWindowUnderThePointer() throws {
+        let fixture = try makeFixture(pid: 938_098, windowCount: 6)
+        let dragged = fixture.tokens[1]
+        fixture.handler.modifierFlagsProvider = { .maskAlternate }
+        try startEdgeScroll(.trailing, dragging: dragged, in: fixture)
+        let columnCount = fixture.engine.columns(in: fixture.workspaceId).count
+        var ticks = 0
+        tickEdgeScroll(fixture) {
+            ticks += 1
+            return ticks > 20
+        }
+        XCTAssertTrue(fixture.handler.isLiveEdgeScrolling)
+        XCTAssertNil(fixture.engine.liveColumnMove?.landing)
+
+        fixture.handler.dispatchMouseUp(at: edgePoint(.trailing, fixture))
+
+        let column = try column(holding: dragged, in: fixture)
+        XCTAssertEqual(column.windowNodes.count, 2)
+        XCTAssertLessThan(fixture.engine.columns(in: fixture.workspaceId).count, columnCount)
+    }
+
+    func testReleasingOptionDuringTheEdgeScrollSwapsColumnsAgain() throws {
+        let fixture = try makeFixture(pid: 938_099, windowCount: 6)
+        fixture.handler.modifierFlagsProvider = { .maskAlternate }
+        try startEdgeScroll(.trailing, dragging: fixture.tokens[1], in: fixture)
+        let swaps = fixture.engine.liveColumnMove?.swapCount ?? 0
+
+        fixture.handler.modifierFlagsProvider = { [] }
+        fixture.handler.updateLiveColumnDrag(at: edgePoint(.trailing, fixture))
+        XCTAssertEqual(fixture.engine.liveColumnMove?.stackMode, false)
+        XCTAssertTrue(fixture.handler.isLiveEdgeScrolling)
+        tickEdgeScroll(fixture)
+
+        XCTAssertGreaterThan(fixture.engine.liveColumnMove?.swapCount ?? 0, swaps)
+    }
+
+    private func settleLiveDrag(_ fixture: Fixture) {
+        guard fixture.engine.liveColumnMove?.phase == .settling else { return }
+        fixture.manager.animationDriver.removeMotions(for: [fixture.workspaceId])
+        _ = fixture.engine.cancelAnimations(in: fixture.workspaceId)
+        fixture.handler.handleNiriAnimationsSettled(in: fixture.workspaceId)
+    }
+
     private func edgeClock(_ fixture: Fixture) -> EdgeClock {
         let clock = EdgeClock()
         fixture.handler.liveDragClock = { clock.now }
@@ -1492,5 +1655,352 @@ final class LiveTitleBarDragTests: NiriInteractionTestCase {
         XCTAssertEqual(fixture.engine.liveColumnMove?.swapCount, startSwaps + afterFirstMove.count)
         XCTAssertEqual(dragged.windowNodes.count, 3)
         XCTAssertTrue(dragged.isTabbed)
+    }
+
+    func testHoldingTheStackModifierStacksOntoTheWindowUnderThePointerOnRelease() throws {
+        let fixture = try makeFixture(pid: 938_070)
+        let (dragged, target) = (fixture.tokens[1], fixture.tokens[2])
+        try fixture.startLiveDrag(dragged)
+        fixture.handler.modifierFlagsProvider = { .maskAlternate }
+        let targetFrame = try fixture.frame(target)
+        let drop = CGPoint(x: targetFrame.midX, y: targetFrame.minY + targetFrame.height / 4)
+
+        fixture.drag(to: drop)
+        XCTAssertEqual(fixture.engine.liveColumnMove?.stackMode, true)
+        XCTAssertNotNil(fixture.engine.liveColumnMove?.landing)
+        fixture.handler.dispatchMouseUp(at: drop)
+
+        XCTAssertNil(fixture.engine.liveColumnMove)
+        XCTAssertFalse(fixture.engine.isLiveStackDropPending(in: fixture.workspaceId))
+        let column = try column(holding: target, in: fixture)
+        XCTAssertEqual(column.windowNodes.map(\.token), [dragged, target])
+        XCTAssertEqual(fixture.engine.columns(in: fixture.workspaceId).count, 3)
+        XCTAssertFalse(fixture.engine.columns(in: fixture.workspaceId).contains { $0.windowNodes.isEmpty })
+        XCTAssertLessThan(try fixture.settledFrame(dragged).maxY, try fixture.settledFrame(target).minY)
+        XCTAssertFalse(fixture.handler.liveDragModifierCapture.isActive)
+    }
+
+    func testReleasingTheStackModifierBeforeTheMouseDropsWithoutStackingOrSwapping() throws {
+        let fixture = try makeFixture(pid: 938_071)
+        let order = fixture.order()
+        try fixture.startLiveDrag(fixture.tokens[1])
+        fixture.handler.modifierFlagsProvider = { .maskAlternate }
+        let targetFrame = try fixture.frame(fixture.tokens[2])
+        let point = CGPoint(x: targetFrame.midX, y: targetFrame.minY + targetFrame.height / 4)
+        fixture.drag(to: point)
+        XCTAssertNotNil(fixture.engine.liveColumnMove?.landing)
+
+        fixture.handler.modifierFlagsProvider = { [] }
+        fixture.handler.updateLiveColumnDrag(at: point)
+        XCTAssertEqual(fixture.engine.liveColumnMove?.stackMode, false)
+        XCTAssertNil(fixture.engine.liveColumnMove?.landing)
+        fixture.handler.updateLiveColumnDrag(at: point)
+        XCTAssertEqual(fixture.order(), order)
+        fixture.handler.dispatchMouseUp(at: point)
+
+        XCTAssertEqual(fixture.order(), order)
+        XCTAssertFalse(fixture.engine.columns(in: fixture.workspaceId).contains { $0.windowNodes.count > 1 })
+    }
+
+    func testTheStackModifierAtMouseDownArmsTheTitleBarDragInsteadOfTheMove() throws {
+        let fixture = try makeFixture(pid: 938_072)
+        let token = fixture.tokens[1]
+        let start = try fixture.frame(token)
+        fixture.handler.pressedMouseButtonsProvider = { MouseEventHandler.MouseButton.left.pressedMask }
+        XCTAssertEqual(fixture.controller.settings.gestures.mouseMoveModifierKey, .option)
+        XCTAssertEqual(fixture.controller.settings.niri.naturalWindowDragModifier, .option)
+
+        XCTAssertFalse(fixture.handler.dispatchMouseDown(
+            at: CGPoint(x: start.midX, y: start.maxY - 10),
+            modifiers: .maskAlternate,
+            windowIdUnderPointer: token.windowId
+        ))
+
+        XCTAssertFalse(fixture.handler.state.isMoving)
+        XCTAssertNil(fixture.engine.interactiveMove)
+        XCTAssertEqual(fixture.handler.state.nativeTitleBarDrag?.token, token)
+    }
+
+    func testWithTheSettingOffOrADifferentStackModifierTheMoveStillStarts() throws {
+        for configure in [
+            { (fixture: Fixture) in fixture.controller.settings.niri.naturalWindowDrag = false },
+            { (fixture: Fixture) in fixture.controller.settings.niri.naturalWindowDragModifier = .control }
+        ] {
+            let fixture = try makeFixture(pid: 938_073)
+            configure(fixture)
+            let token = fixture.tokens[1]
+            let start = try fixture.frame(token)
+            fixture.handler.pressedMouseButtonsProvider = { MouseEventHandler.MouseButton.left.pressedMask }
+
+            XCTAssertFalse(fixture.handler.dispatchMouseDown(
+                at: CGPoint(x: start.midX, y: start.midY),
+                modifiers: .maskAlternate,
+                windowIdUnderPointer: token.windowId
+            ))
+
+            XCTAssertTrue(fixture.handler.state.isMoving)
+            XCTAssertNotNil(fixture.engine.interactiveMove)
+            fixture.handler.cancelActiveMouseInteraction()
+        }
+    }
+
+    func testADragStartedWithTheStackModifierHeldIsInStackModeFromTheStart() throws {
+        let fixture = try makeFixture(pid: 938_074)
+        fixture.controller.settings.niri.naturalWindowDragModifier = .control
+        fixture.handler.modifierFlagsProvider = { .maskControl }
+        let target = try column(holding: fixture.tokens[2], in: fixture)
+
+        try fixture.startLiveDrag(fixture.tokens[1])
+        fixture.drag(to: try fixture.farHalf(of: fixture.tokens[2]))
+
+        XCTAssertEqual(fixture.engine.liveColumnMove?.stackMode, true)
+        XCTAssertEqual(fixture.engine.liveColumnMove?.swapCount, 0)
+        XCTAssertEqual(fixture.engine.liveColumnMove?.landing?.columnId, target.id)
+        XCTAssertEqual(fixture.engine.columns(in: fixture.workspaceId).count, 4)
+
+        fixture.handler.modifierFlagsProvider = { .maskAlternate }
+        fixture.handler.updateLiveColumnDrag(at: try fixture.centre(of: fixture.tokens[2]))
+        XCTAssertEqual(fixture.engine.liveColumnMove?.stackMode, false)
+    }
+
+    func testAModifierChangeSeenByTheKeyTapSwitchesStackModeWithoutAMouseMove() throws {
+        let fixture = try makeFixture(pid: 938_077, hoverDelay: 60)
+        try fixture.startLiveDrag(fixture.tokens[1])
+        let targetFrame = try fixture.frame(fixture.tokens[2])
+        fixture.drag(to: CGPoint(x: targetFrame.midX, y: targetFrame.minY + targetFrame.height / 4))
+        XCTAssertEqual(fixture.engine.liveColumnMove?.stackMode, false)
+        let capture = fixture.handler.liveDragModifierCapture
+
+        capture.reportModifiersChanged(.maskAlternate)
+        let pressed = expectation(description: "Modifier press handled")
+        DispatchQueue.main.async { pressed.fulfill() }
+        wait(for: [pressed], timeout: 1)
+        XCTAssertEqual(fixture.engine.liveColumnMove?.stackMode, true)
+        XCTAssertNotNil(fixture.engine.liveColumnMove?.landing)
+
+        capture.reportModifiersChanged([])
+        let released = expectation(description: "Modifier release handled")
+        DispatchQueue.main.async { released.fulfill() }
+        wait(for: [released], timeout: 1)
+        XCTAssertEqual(fixture.engine.liveColumnMove?.stackMode, false)
+        XCTAssertNil(fixture.engine.liveColumnMove?.landing)
+
+        fixture.handler.cancelLiveColumnDrag()
+        capture.reportModifiersChanged(.maskAlternate)
+        let ignored = expectation(description: "Modifier after the drag ignored")
+        DispatchQueue.main.async { ignored.fulfill() }
+        wait(for: [ignored], timeout: 1)
+        XCTAssertNil(fixture.engine.liveColumnMove)
+    }
+
+    func testCancellingInStackModeRestoresTheLayout() throws {
+        let fixture = try makeFixture(pid: 938_075)
+        let order = fixture.order()
+        try fixture.startLiveDrag(fixture.tokens[1])
+        fixture.handler.modifierFlagsProvider = { .maskAlternate }
+        fixture.drag(to: try fixture.farHalf(of: fixture.tokens[2]))
+        XCTAssertNotNil(fixture.engine.liveColumnMove?.landing)
+
+        fixture.handler.cancelLiveColumnDrag()
+
+        XCTAssertNil(fixture.engine.liveColumnMove)
+        XCTAssertEqual(fixture.order(), order)
+        XCTAssertFalse(fixture.engine.columns(in: fixture.workspaceId).contains { $0.windowNodes.count != 1 })
+    }
+
+    func testATabbedTargetShowsABlankRailEntryForTheDraggedWindow() throws {
+        let fixture = try makeFixture(pid: 938_076, windowCount: 5, tabbedRuns: [2 ... 3])
+        let tabbed = try column(holding: fixture.tokens[2], in: fixture)
+        try fixture.startLiveDrag(fixture.tokens[0])
+        fixture.handler.modifierFlagsProvider = { .maskAlternate }
+
+        fixture.drag(to: try fixture.farHalf(of: fixture.tokens[3]))
+        XCTAssertEqual(tabbed.windowNodes.count, 3)
+
+        let info = try XCTUnwrap(fixture.controller.niriLayoutHandler.desiredTabRailInfos().first {
+            $0.owner == .niriColumn(tabbed.id)
+        })
+        XCTAssertEqual(info.tabCount, 3)
+        XCTAssertEqual(info.tabs.filter { $0.token == nil }.count, 1)
+        let blank = try XCTUnwrap(info.tabs.firstIndex { $0.token == nil })
+        XCTAssertEqual(blank, info.activeVisualIndex + 1)
+    }
+
+    private func railInfo(holding token: WindowToken, in fixture: Fixture) throws -> TabRailInfo {
+        let column = try column(holding: token, in: fixture)
+        return try XCTUnwrap(fixture.controller.niriLayoutHandler.desiredTabRailInfos().first {
+            $0.owner == .niriColumn(column.id)
+        })
+    }
+
+    private func tabPull(
+        _ token: WindowToken,
+        at location: CGPoint,
+        rail info: TabRailInfo,
+        pressedAt pressLocation: CGPoint? = nil,
+        in fixture: Fixture
+    ) {
+        fixture.handler.pressedMouseButtonsProvider = { MouseEventHandler.MouseButton.left.pressedMask }
+        fixture.handler.handleTabRailDrag(TabRailDrag(
+            info: info,
+            visualIndex: 0,
+            token: token,
+            location: location,
+            pressLocation: pressLocation ?? location
+        ))
+    }
+
+    func testDraggingATabInTheRailPullsItOutAndTheWindowFollowsThePointer() throws {
+        let fixture = try makeFixture(pid: 938_080, windowCount: 5, tabbedRuns: [1 ... 2])
+        let (kept, pulled, neighbour) = (fixture.tokens[1], fixture.tokens[2], fixture.tokens[3])
+        let tabbed = try column(holding: pulled, in: fixture)
+        XCTAssertTrue(tabbed.windowNodes[tabbed.activeTileIdx].token == pulled)
+        let rail = try railInfo(holding: pulled, in: fixture)
+        let start = try fixture.frame(pulled)
+        fixture.handler.nativeWindowFrameProvider = { _ in start }
+        let press = CGPoint(x: start.minX - 10, y: start.midY)
+
+        tabPull(pulled, at: press, rail: rail, in: fixture)
+        XCTAssertTrue(fixture.handler.isLiveColumnDragActive)
+        XCTAssertEqual(fixture.engine.liveColumnMove?.pullsTab, true)
+        XCTAssertEqual(tabbed.windowNodes.map(\.token), [kept])
+        XCTAssertEqual(tabbed.displayMode, .normal)
+        XCTAssertNil(fixture.controller.niriLayoutHandler.desiredTabRailInfos().first {
+            $0.owner == .niriColumn(tabbed.id)
+        })
+        XCTAssertTrue(fixture.handler.liveDragModifierCapture.isActive)
+        XCTAssertEqual(fixture.engine.liveFloatingFrame(for: pulled, in: fixture.workspaceId), start)
+
+        let away = try fixture.centre(of: neighbour)
+        fixture.drag(to: away)
+        XCTAssertEqual(
+            fixture.engine.liveFloatingFrame(for: pulled, in: fixture.workspaceId),
+            start.offsetBy(dx: away.x - press.x, dy: away.y - press.y)
+        )
+        XCTAssertEqual(tabbed.windowNodes.map(\.token), [kept])
+        XCTAssertEqual(tabbed.displayMode, .normal)
+
+        fixture.handler.dispatchMouseUp(at: away)
+        XCTAssertNil(fixture.engine.liveColumnMove)
+        XCTAssertFalse(fixture.handler.isLiveColumnDragActive)
+        XCTAssertFalse(fixture.handler.liveDragModifierCapture.isActive)
+        XCTAssertEqual(try column(holding: pulled, in: fixture).windowNodes.map(\.token), [pulled])
+    }
+
+    func testTheLayoutWritesTheFloatingFrameOfAPulledTab() throws {
+        let fixture = try makeFixture(pid: 938_081, windowCount: 4, tabbedRuns: [1 ... 2])
+        let pulled = fixture.tokens[2]
+        let rail = try railInfo(holding: pulled, in: fixture)
+        let start = try fixture.frame(pulled)
+        fixture.handler.nativeWindowFrameProvider = { _ in start }
+        tabPull(pulled, at: CGPoint(x: start.minX - 10, y: start.midY), rail: rail, in: fixture)
+        let floating = try XCTUnwrap(fixture.engine.liveFloatingFrame(for: pulled, in: fixture.workspaceId))
+
+        let diff = fixture.controller.niriLayoutHandler.layoutDiff(
+            windows: [LayoutWindowSnapshot(
+                token: pulled,
+                constraints: .unconstrained,
+                hiddenState: nil,
+                layoutReason: .standard
+            )],
+            frames: [pulled: try fixture.frame(fixture.tokens[1])],
+            hiddenHandles: [:],
+            context: NiriLayoutDiffContext(
+                engine: fixture.engine,
+                workspaceId: fixture.workspaceId,
+                canRestoreHiddenWorkspaceWindows: false,
+                reassertHidden: false
+            )
+        )
+
+        XCTAssertEqual(diff.frameChanges.map(\.token), [pulled])
+        XCTAssertEqual(diff.frameChanges.first?.frame, floating)
+    }
+
+    func testCancellingATabPullPutsTheTabBack() throws {
+        let fixture = try makeFixture(pid: 938_082, windowCount: 4, tabbedRuns: [1 ... 2])
+        let pulled = fixture.tokens[2]
+        let tabbed = try column(holding: pulled, in: fixture)
+        let tabs = tabbed.windowNodes.map(\.token)
+        let rail = try railInfo(holding: pulled, in: fixture)
+        let start = try fixture.frame(pulled)
+        fixture.handler.nativeWindowFrameProvider = { _ in start }
+        tabPull(pulled, at: CGPoint(x: start.minX - 10, y: start.midY), rail: rail, in: fixture)
+        fixture.drag(to: try fixture.farHalf(of: fixture.tokens[3]))
+        XCTAssertEqual(tabbed.windowNodes.count, 1)
+
+        fixture.handler.cancelLiveColumnDrag()
+        fixture.handler.dispatchMouseUp(at: try fixture.centre(of: fixture.tokens[3]))
+
+        XCTAssertNil(fixture.engine.liveColumnMove)
+        XCTAssertEqual(tabbed.windowNodes.map(\.token), tabs)
+        XCTAssertTrue(tabbed.isTabbed)
+        XCTAssertEqual(tabbed.windowNodes[tabbed.activeTileIdx].token, pulled)
+    }
+
+    func testATabPullNeedsTheSetting() throws {
+        let fixture = try makeFixture(pid: 938_083, windowCount: 4, tabbedRuns: [1 ... 2])
+        fixture.controller.settings.niri.naturalWindowDrag = false
+        let pulled = fixture.tokens[2]
+        let rail = try railInfo(holding: pulled, in: fixture)
+        let start = try fixture.frame(pulled)
+        fixture.handler.nativeWindowFrameProvider = { _ in start }
+
+        tabPull(pulled, at: CGPoint(x: start.minX - 10, y: start.midY), rail: rail, in: fixture)
+
+        XCTAssertNil(fixture.engine.liveColumnMove)
+        XCTAssertFalse(fixture.handler.isLiveColumnDragActive)
+    }
+
+    func testATabPullCarriesOnThroughTheMouseTapOnceTheRailIsGone() throws {
+        let fixture = try makeFixture(pid: 938_084, windowCount: 5, tabbedRuns: [1 ... 2])
+        let (kept, pulled) = (fixture.tokens[1], fixture.tokens[2])
+        let tabbed = try column(holding: pulled, in: fixture)
+        let rail = try railInfo(holding: pulled, in: fixture)
+        let start = try fixture.frame(pulled)
+        fixture.handler.nativeWindowFrameProvider = { _ in start }
+        fixture.handler.pressedMouseButtonsProvider = { MouseEventHandler.MouseButton.left.pressedMask }
+        let press = CGPoint(x: start.minX - 10, y: start.midY)
+        tabPull(pulled, at: press, rail: rail, in: fixture)
+
+        let away = try fixture.centre(of: fixture.tokens[3])
+        fixture.drag(to: away)
+
+        XCTAssertEqual(tabbed.windowNodes.map(\.token), [kept])
+        XCTAssertEqual(tabbed.displayMode, .normal)
+        XCTAssertNil(fixture.controller.niriLayoutHandler.desiredTabRailInfos().first {
+            $0.owner == .niriColumn(tabbed.id)
+        })
+        XCTAssertEqual(
+            fixture.engine.liveFloatingFrame(for: pulled, in: fixture.workspaceId),
+            start.offsetBy(dx: away.x - press.x, dy: away.y - press.y)
+        )
+
+        fixture.handler.dispatchMouseUp(at: away)
+
+        XCTAssertNil(fixture.engine.liveColumnMove)
+        XCTAssertFalse(fixture.handler.isLiveColumnDragActive)
+        XCTAssertEqual(try column(holding: pulled, in: fixture).windowNodes.map(\.token), [pulled])
+        XCTAssertEqual(tabbed.windowNodes.map(\.token), [kept])
+    }
+
+    func testATabPullStartsFromTheLayoutFrameAtThePointerNotFromAStaleFrame() throws {
+        let fixture = try makeFixture(pid: 938_085, windowCount: 4, tabbedRuns: [1 ... 2])
+        let pulled = fixture.tokens[2]
+        let rail = try railInfo(holding: pulled, in: fixture)
+        let layoutFrame = try fixture.frame(pulled)
+        fixture.handler.nativeWindowFrameProvider = { _ in CGRect(x: -6000, y: -6000, width: 400, height: 300) }
+        let press = CGPoint(x: layoutFrame.minX - 10, y: layoutFrame.midY)
+        let began = CGPoint(x: press.x + 12, y: press.y)
+
+        tabPull(pulled, at: began, rail: rail, pressedAt: press, in: fixture)
+
+        XCTAssertEqual(fixture.engine.liveFloatingFrame(for: pulled, in: fixture.workspaceId), layoutFrame)
+        let next = CGPoint(x: began.x + 50, y: began.y - 20)
+        fixture.drag(to: next)
+        XCTAssertEqual(
+            fixture.engine.liveFloatingFrame(for: pulled, in: fixture.workspaceId),
+            layoutFrame.offsetBy(dx: 50, dy: -20)
+        )
     }
 }

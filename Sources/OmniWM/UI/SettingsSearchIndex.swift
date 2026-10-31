@@ -116,6 +116,12 @@ enum SettingsSearchIndex {
             anchor: "Natural Window Drag & Drop"
         ),
         setting(
+            "Left Mouse Natural Window Drag Modifier",
+            section: .layouts,
+            tab: "niri",
+            anchor: "Left Mouse Natural Window Drag Modifier"
+        ),
+        setting(
             "Default New Container Primary Span",
             section: .layouts,
             tab: "niri",

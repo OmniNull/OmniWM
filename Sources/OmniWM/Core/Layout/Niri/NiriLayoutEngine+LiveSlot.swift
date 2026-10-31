@@ -23,6 +23,7 @@ extension NiriLayoutEngine {
     ) -> LiveHomePlacement? {
         guard let move = liveColumnMove,
               move.workspaceId == context.workspaceId,
+              !move.inStack,
               let home = liveDraggedColumn(for: move),
               !home.hasWidthAnimationRunning,
               let placed = strip.first(where: { $0.column === home })
@@ -36,7 +37,8 @@ extension NiriLayoutEngine {
         context: NiriInteractionContext,
         state: inout ViewportState
     ) -> [LiveColumnMove.StripColumn]? {
-        guard let placement = liveHomePlacement(in: strip, context: context) else { return nil }
+        guard let placement = liveHomePlacement(in: strip, context: context), !placement.move.stackMode
+        else { return nil }
         var move = placement.move
         let placed = placement.placed
         guard let closing = move.slotClosing else {
@@ -222,6 +224,8 @@ extension NiriLayoutEngine {
               column.liveSlotWidth != nil
         else { return }
         column.liveSlotWidth = nil
-        column.cachedWidth = slot.fullWidth
+        if !column.windowNodes.isEmpty {
+            column.cachedWidth = slot.fullWidth
+        }
     }
 }

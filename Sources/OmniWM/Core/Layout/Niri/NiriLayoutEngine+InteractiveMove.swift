@@ -306,13 +306,40 @@ extension NiriLayoutEngine {
             return false
         }
 
-        guard let sourceColumn = findColumn(containing: sourceWindow, in: context.workspaceId),
-              let targetColumn = findColumn(containing: targetWindow, in: context.workspaceId)
+        guard stackWindow(
+            sourceWindow,
+            beside: targetWindow,
+            position: position,
+            in: context.workspaceId,
+            geometry: context.sizingGeometry
+        ) else {
+            return false
+        }
+
+        ensureSelectionVisible(
+            node: sourceWindow,
+            context: context,
+            state: &state
+        )
+
+        return true
+    }
+
+    func stackWindow(
+        _ sourceWindow: NiriWindow,
+        beside targetWindow: NiriWindow,
+        position: InsertPosition,
+        removingEmptySource: Bool = true,
+        in workspaceId: WorkspaceDescriptor.ID,
+        geometry: NiriSizingGeometry
+    ) -> Bool {
+        guard let sourceColumn = findColumn(containing: sourceWindow, in: workspaceId),
+              let targetColumn = findColumn(containing: targetWindow, in: workspaceId)
         else {
             return false
         }
 
-        guard let targetIdx = targetColumn.children.firstIndex(where: { $0.id == targetWindowId }) else {
+        guard let targetIdx = targetColumn.children.firstIndex(where: { $0.id == targetWindow.id }) else {
             return false
         }
 
@@ -323,8 +350,8 @@ extension NiriLayoutEngine {
             guard columnCanAcceptTransfer(
                 targetColumn,
                 adding: sourceWindow,
-                in: context.workspaceId,
-                geometry: context.sizingGeometry
+                in: workspaceId,
+                geometry: geometry
             ) else {
                 return false
             }
@@ -334,7 +361,7 @@ extension NiriLayoutEngine {
 
         let insertIdx: Int
         if sameColumn {
-            let currentTargetIdx = targetColumn.children.firstIndex(where: { $0.id == targetWindowId }) ?? targetIdx
+            let currentTargetIdx = targetColumn.children.firstIndex(where: { $0.id == targetWindow.id }) ?? targetIdx
             insertIdx = position == .before ? currentTargetIdx : currentTargetIdx + 1
         } else {
             insertIdx = position == .before ? targetIdx : targetIdx + 1
@@ -345,12 +372,10 @@ extension NiriLayoutEngine {
         sourceWindow.size = 1.0
         sourceWindow.height = .default
 
-        finishMoveColumns(sourceColumn, target: targetColumn, removeSource: sourceColumnWillBeEmpty)
-
-        ensureSelectionVisible(
-            node: sourceWindow,
-            context: context,
-            state: &state
+        finishMoveColumns(
+            sourceColumn,
+            target: targetColumn,
+            removeSource: removingEmptySource && sourceColumnWillBeEmpty
         )
 
         return true

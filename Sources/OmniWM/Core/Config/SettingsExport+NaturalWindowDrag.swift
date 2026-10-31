@@ -5,6 +5,7 @@ extension SettingsExport.Niri {
     func withNaturalWindowDragDefaults() -> Self {
         var niri = self
         niri.naturalWindowDrag = naturalWindowDrag ?? false
+        niri.naturalWindowDragModifier = naturalWindowDragModifier ?? .option
         return niri
     }
 }

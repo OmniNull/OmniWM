@@ -10,6 +10,7 @@ struct TapFilterSnapshot: Sendable {
     var claimedOtherButtonMask: UInt32 = 0
     var moveModifier: CGEventFlags?
     var adoptNativeResize = false
+    var naturalDragModifier: CGEventFlags?
     var resizeModifier: CGEventFlags = []
     var scrollModifier: CGEventFlags = []
     var minGestureFingers: Int = 3
@@ -160,8 +161,13 @@ final class InputTapThread: @unchecked Sendable {
         let location = ScreenCoordinateSpace.toAppKit(point: event.location)
         switch type {
         case .leftMouseDown:
+            let flags = event.flags
+            event.flags = MouseEventHandler.naturalDragPassThroughFlags(
+                flags,
+                naturalDragModifier: snap.naturalDragModifier
+            )
             evaluateLeftMouseDown(
-                at: location, modifiers: event.flags, timestamp: event.timestamp,
+                at: location, modifiers: flags, timestamp: event.timestamp,
                 snapshot: snap, captureWindowFrames: Self.captureWindowFrames
             )
             return event

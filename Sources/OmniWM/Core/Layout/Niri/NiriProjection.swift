@@ -86,7 +86,7 @@ extension NiriLayoutEngine {
         projected.reserveCapacity(columns.count)
         for (durableIndex, column) in columns.enumerated() {
             let windows = column.windowNodes.filter { !excludedTokens.contains($0.token) }
-            if !windows.isEmpty || column.isLiveDropSpace {
+            if !windows.isEmpty || column.isLiveDropSpace || column.isLiveHomeSpot {
                 projected.append(
                     NiriProjectedColumn(column: column, windows: windows, durableIndex: durableIndex)
                 )

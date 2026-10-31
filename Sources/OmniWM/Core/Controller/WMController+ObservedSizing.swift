@@ -14,6 +14,7 @@ extension WMController {
               entry.layoutReason == .standard,
               entry.hiddenState == nil,
               !workspaceManager.isWindowSuppressedByMacOS(entry.token),
+              !isSizeAnimating(entry.token, in: entry.workspaceId),
               let observed = result.writeResult.observedFrame?.size
         else {
             return
@@ -40,7 +41,8 @@ extension WMController {
               let entry = workspaceManager.entry(forWindowId: refusal.windowId),
               entry.axRef != nil,
               entry.mode == .tiling,
-              workspaceManager.hiddenState(for: entry.token) == nil
+              workspaceManager.hiddenState(for: entry.token) == nil,
+              !isSizeAnimating(entry.token, in: entry.workspaceId)
         else {
             return
         }
@@ -87,6 +89,13 @@ extension WMController {
             accepted: accepted.height
         )
         adoptObservedSizeEvidence(evidence, for: token, in: window.workspaceId)
+    }
+
+    func isSizeAnimating(_ token: WindowToken, in workspaceId: WorkspaceDescriptor.ID) -> Bool {
+        guard let window = niriEngine?.findNode(for: token, in: workspaceId) else { return false }
+        if window.heightAnimation != nil { return true }
+        guard let column = window.parent as? NiriContainer else { return false }
+        return column.hasWidthAnimationRunning || column.hasHeightAnimationRunning
     }
 
     private func adoptObservedSizeEvidence(

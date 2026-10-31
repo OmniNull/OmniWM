@@ -132,6 +132,7 @@ extension MouseEventHandler {
         markNativeTitleBarDragFallbackReleased(button: button, at: location)
         finishNativeTitleBarDragIfNeeded(button: button)
         if button == .left {
+            endLiveTabPull(at: location)
             runDeferredClickScroll()
         }
         if !isCapturedInteraction(button), shouldBlockOwnWindowInput(at: location) {

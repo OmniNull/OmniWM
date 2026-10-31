@@ -104,6 +104,9 @@ extension NiriLayoutHandler {
                 )
                 continue
             }
+            if appendLiveFloatingFrame(window, node: workspace?.nodesByToken[token], context: context, diff: &diff) {
+                continue
+            }
             if context.excludedTokens.contains(token)
                 || context.engine.isLiveDraggedWindow(token, in: context.workspaceId)
             {
@@ -133,6 +136,23 @@ extension NiriLayoutHandler {
             ))
         }
         return diff
+    }
+
+    private func appendLiveFloatingFrame(
+        _ window: LayoutWindowSnapshot,
+        node: NiriWindow?,
+        context: NiriLayoutDiffContext,
+        diff: inout WorkspaceLayoutDiff
+    ) -> Bool {
+        let token = window.token
+        guard !context.excludedTokens.contains(token),
+              let floating = context.engine.liveFloatingFrame(for: token, in: context.workspaceId)
+        else { return false }
+        if window.hiddenState != nil {
+            diff.visibilityChanges.append(.show(token))
+        }
+        diff.frameChanges.append(layoutFrameChange(token: token, frame: floating, node: node, context: context))
+        return true
     }
 
     private func appendNativeFullscreenSlot(

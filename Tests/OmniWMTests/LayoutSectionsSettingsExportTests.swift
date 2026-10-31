@@ -31,7 +31,8 @@ final class LayoutSectionsSettingsExportTests: XCTestCase {
             "allowOverscroll": .boolean(false),
             "overscrollVisibleStripPercent": .integer(5),
             "shrinkToFit": .boolean(false),
-            "naturalWindowDrag": .boolean(false)
+            "naturalWindowDrag": .boolean(false),
+            "naturalWindowDragModifier": .string("option")
         ]))
         XCTAssertEqual(tree["dwindle"], .table([
             "smartSplit": .boolean(false),
@@ -164,6 +165,34 @@ final class LayoutSectionsSettingsExportTests: XCTestCase {
         settings.apply(enabled, baseline: .defaults())
         XCTAssertTrue(settings.naturalWindowDrag)
         XCTAssertEqual(settings.export().naturalWindowDrag, true)
+    }
+
+    @MainActor
+    func testNaturalWindowDragModifierDefaultsToOptionRoundTripsAndLoadsWhenOmitted() throws {
+        XCTAssertEqual(SettingsExport.defaults().niri.naturalWindowDragModifier, .option)
+        XCTAssertEqual(NiriSettings().naturalWindowDragModifier, .option)
+        for key in [MouseMoveModifierKey.off, .control, .controlOptionCommand] {
+            var export = SettingsExport.defaults()
+            export.niri.naturalWindowDragModifier = key
+            let encoded = try SettingsTOMLCodec.encode(export)
+            XCTAssertTrue(String(decoding: encoded, as: UTF8.self)
+                .contains("naturalWindowDragModifier = \"\(key.rawValue)\""))
+            XCTAssertEqual(try SettingsTOMLCodec.decode(encoded), export)
+            XCTAssertTrue(SettingsTOMLCodec.unknownKeyPaths(in: encoded).isEmpty)
+        }
+
+        let source = String(decoding: try SettingsTOMLCodec.encode(.defaults()), as: UTF8.self)
+        let omitted = try removing(key: "naturalWindowDragModifier", from: "niri", in: source)
+        let result = try SettingsTOMLCodec.decodeForLoad(Data(omitted.utf8))
+        XCTAssertNil(result.migration)
+        XCTAssertEqual(result.export.niri.naturalWindowDragModifier, .option)
+
+        let settings = NiriSettings()
+        var changed = SettingsExport.Niri.defaults()
+        changed.naturalWindowDragModifier = .command
+        settings.apply(changed, baseline: .defaults())
+        XCTAssertEqual(settings.naturalWindowDragModifier, .command)
+        XCTAssertEqual(settings.export().naturalWindowDragModifier, .command)
     }
 
     private func removing(key: String, from section: String, in source: String) throws -> String {
