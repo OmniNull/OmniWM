@@ -235,7 +235,13 @@ extension MouseEventHandler {
 
         switch type {
         case .leftMouseDown:
-            return receiveTapMouseDown(at: location, modifiers: modifiers, button: .left, clickCount: clickCount)
+            return receiveTapMouseDown(
+                at: location,
+                modifiers: modifiers,
+                button: .left,
+                clickCount: clickCount,
+                authoritative: true
+            )
         case .leftMouseDragged:
             let suppress = isCapturedInteraction(.left)
             receiveTapMouseDragged(at: location, button: .left)

@@ -1060,6 +1060,37 @@ final class NiriLiveStackModeTests: XCTestCase {
         XCTAssertEqual(fixture.storage(home), [fixture.tokens[2], fixture.tokens[3]])
     }
 
+    func testAnUndoneStackPreviewKeepsTheLoneWindowAtTheTop() {
+        var fixture = makeFixture()
+        let column = fixture.column(2)
+        fixture.window(2).height = .fixed(300)
+        fixture.window(2).rest(atTop: true, in: column)
+        XCTAssertTrue(fixture.begin(1))
+        XCTAssertEqual(fixture.setStackMode(true, at: fixture.upperHalf(of: 2)), .changed)
+        XCTAssertEqual(fixture.window(2).height, .default)
+
+        _ = fixture.setStackMode(false, at: fixture.upperHalf(of: 2))
+        XCTAssertTrue(fixture.engine.liveColumnMoveCancel(context: fixture.context, state: &fixture.state))
+
+        XCTAssertEqual(fixture.window(2).height, .fixed(300))
+        XCTAssertTrue(fixture.window(2).restsAtTop(of: column))
+    }
+
+    func testADraggedLoneWindowBroughtHomeKeepsItsTopRest() {
+        var fixture = makeFixture()
+        let home = fixture.column(1)
+        fixture.window(1).height = .fixed(300)
+        fixture.window(1).rest(atTop: true, in: home)
+        XCTAssertTrue(fixture.begin(1))
+        XCTAssertEqual(fixture.setStackMode(true, at: fixture.lowerHalf(of: 2)), .changed)
+
+        XCTAssertTrue(fixture.engine.liveColumnMoveCancel(context: fixture.context, state: &fixture.state))
+
+        XCTAssertTrue(fixture.window(1).parent === home)
+        XCTAssertEqual(fixture.window(1).height, .fixed(300))
+        XCTAssertTrue(fixture.window(1).restsAtTop(of: home))
+    }
+
     private func freeAreaHeight(_ fixture: Fixture, below windowHeight: CGFloat) -> CGFloat {
         fixture.frame.height - 3 * fixture.gap - windowHeight
     }

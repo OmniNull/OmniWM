@@ -46,14 +46,16 @@ extension MouseEventHandler {
             finishNativeDwindleResize(&drag)
             requestNativeTitleBarDragCorrection(for: entry)
         } else {
-            guard controller.settings.gestures.adoptNativeResize || controller.settings.niri.naturalWindowDrag,
+            let naturalResize = controller.settings.niri.naturalWindowDrag
+                && liveColumnContext(for: entry.workspaceId)?.orientation == .horizontal
+            guard controller.settings.gestures.adoptNativeResize || naturalResize,
                   let start = nativeResizeStartFrame(drag, entry: entry),
                   let observedFrame
             else { return false }
             let edges = Self.nativeResizeEdges(
                 from: start,
                 to: observedFrame,
-                allowsCentred: controller.settings.niri.naturalWindowDrag
+                allowsCentred: naturalResize
             )
             guard !edges.isEmpty,
                   adoptNiriNativeResize(entry, edges: edges, from: start, to: observedFrame)
@@ -155,11 +157,11 @@ extension MouseEventHandler {
               let monitor = controller.workspaceManager.monitor(for: workspaceId),
               !controller.niriLayoutHandler.hasScrollAnimation(for: workspaceId),
               let window = engine.findNode(for: entry.token, in: workspaceId),
-              engine.interactiveResizeTarget(windowId: window.id, in: workspaceId) != nil
+              engine.interactiveResizeTarget(windowId: window.id, in: workspaceId) != nil,
+              let context = liveColumnContext(for: workspaceId)
         else {
             return false
         }
-        let context = nativeResizeContext(controller, engine: engine, workspaceId: workspaceId, monitor: monitor)
         let horizontal = context.orientation == .horizontal
         let primaryEdges = edges.intersection(horizontal ? [.left, .right] : [.top, .bottom])
         let secondary = edges.subtracting(primaryEdges)
@@ -241,22 +243,6 @@ extension MouseEventHandler {
         return false
     }
 
-    private func nativeResizeContext(
-        _ controller: WMController,
-        engine: NiriLayoutEngine,
-        workspaceId: WorkspaceDescriptor.ID,
-        monitor: Monitor
-    ) -> NiriInteractionContext {
-        let geometry = controller.niriInteractionGeometry(for: monitor)
-        return NiriInteractionContext(
-            workspaceId: workspaceId,
-            motion: controller.motionPolicy.snapshot(),
-            workingFrame: geometry.workingFrame,
-            gaps: geometry.innerGap,
-            orientation: resolvedNiriOrientation(engine: engine, workspaceId: workspaceId, monitor: monitor)
-        )
-    }
-
     private func resizeNiriPrimarySpan(
         _ window: NiriWindow,
         edges: ResizeEdge,
@@ -285,7 +271,7 @@ extension MouseEventHandler {
             engine.clearInteractiveResize()
             return false
         }
-        if controller?.settings.niri.naturalWindowDrag == true {
+        if controller?.settings.niri.naturalWindowDrag == true, context.orientation == .horizontal {
             engine.clearInteractiveResize()
         } else {
             engine.interactiveResizeEnd(

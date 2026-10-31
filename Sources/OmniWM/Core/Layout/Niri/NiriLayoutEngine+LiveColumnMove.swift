@@ -29,7 +29,11 @@ extension NiriLayoutEngine {
         let columns = columns(in: context.workspaceId)
         let positions = primaryPositions(context: context, state: state)
         let activeColumn = columns.indices.contains(state.activeColumnIndex) ? columns[state.activeColumnIndex] : column
-        let windowSizing = LiveColumnMove.WindowSizing(size: window.size, height: window.height)
+        let windowSizing = LiveColumnMove.WindowSizing(
+            size: window.size,
+            height: window.height,
+            restsAtTop: window.restsAtTop(of: column)
+        )
         liveColumnMove = LiveColumnMove(
             windowId: windowId,
             windowToken: windowToken,

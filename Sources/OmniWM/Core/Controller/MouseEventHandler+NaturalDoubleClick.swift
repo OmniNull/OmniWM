@@ -10,11 +10,11 @@ extension MouseEventHandler {
     nonisolated static func asksAboutNaturalDoubleClick(
         clickCount: Int64,
         flags: CGEventFlags,
-        naturalDragModifier: CGEventFlags?,
+        naturalWindowDrag: Bool,
         armedAt: CGPoint?,
         location: CGPoint
     ) -> Bool {
-        guard clickCount == 2, naturalDragModifier != nil, flags.isDisjoint(with: relevantModifierFlags),
+        guard clickCount == 2, naturalWindowDrag, flags.isDisjoint(with: relevantModifierFlags),
               let armedAt
         else { return false }
         return hypot(location.x - armedAt.x, location.y - armedAt.y) <= naturalDoubleClickArmRadius

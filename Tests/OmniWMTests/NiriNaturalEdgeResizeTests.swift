@@ -651,6 +651,20 @@ final class NiriNaturalEdgeResizeTests: NiriInteractionTestCase {
         XCTAssertFalse(window.restsAtTop(of: column))
     }
 
+    func testTurningNaturalWindowDragOffForgetsTopRests() throws {
+        let fixture = try makeFixture(pid: 871_091)
+        let window = try fixture.node(fixture.tokens[1])
+        let column = try fixture.column(fixture.tokens[1])
+        window.height = .fixed(300)
+        window.rest(atTop: true, in: column)
+        XCTAssertTrue(window.restsAtTop(of: column))
+
+        fixture.controller.settings.niri.naturalWindowDrag = false
+        fixture.controller.applyNaturalWindowDragSettings()
+
+        XCTAssertFalse(window.restsAtTop(of: column))
+    }
+
     func testTheWidthStopsAtTheWidestColumn() throws {
         let fixture = try makeFixture(pid: 871_011)
         let blocker = blockRefreshes(fixture)
@@ -840,11 +854,35 @@ final class NiriNaturalEdgeResizeTests: NiriInteractionTestCase {
         XCTAssertTrue(try fixture.node(shown).height.isAuto)
     }
 
+    func testOnAVerticalStripAnEdgeDragStillSnapsBack() throws {
+        let fixture = try makeFixture(pid: 871_090)
+        let blocker = blockRefreshes(fixture)
+        defer { unblockRefreshes(fixture, blocker: blocker) }
+        fixture.controller.settings.monitors.updateOrientationSettings(
+            MonitorOrientationSettings(
+                monitorName: fixture.monitor.name,
+                monitorDisplayId: fixture.monitor.displayId,
+                orientation: .vertical
+            ),
+            for: fixture.monitor
+        )
+        XCTAssertEqual(fixture.handler.liveColumnContext(for: fixture.workspaceId)?.orientation, .vertical)
+        let resized = fixture.tokens[1]
+        let start = try fixture.frame(resized)
+        try fixture.beginDrag(resized)
+        fixture.drag(resized, to: grown(start, bottom: 60))
+
+        fixture.release(at: grown(start, bottom: 60))
+
+        XCTAssertEqual(try fixture.frame(resized), start)
+    }
+
     func testWithTheSettingOffACentredDragSnapsBack() throws {
         let fixture = try makeFixture(pid: 871_041)
         let blocker = blockRefreshes(fixture)
         defer { unblockRefreshes(fixture, blocker: blocker) }
         fixture.controller.settings.niri.naturalWindowDrag = false
+        fixture.controller.settings.gestures.adoptNativeResize = true
         let resized = fixture.tokens[1]
         let start = try fixture.frame(resized)
         try fixture.beginDrag(resized)

@@ -211,7 +211,8 @@ extension MouseEventHandler {
         modifiers: CGEventFlags,
         button: MouseButton = .left,
         clickCount: Int64 = 1,
-        queuedLeftPress: LeftMouseDownIntake? = nil
+        queuedLeftPress: LeftMouseDownIntake? = nil,
+        authoritative: Bool = false
     ) -> Bool {
         if button == .left {
             armNaturalDoubleClick(at: location, modifiers: modifiers, clickCount: clickCount)
@@ -238,7 +239,9 @@ extension MouseEventHandler {
                 retireNativeTitleBarDragAtInputBoundary()
             }
         }
-        if button == .left, clickCount == 2, handleNaturalDoubleClick(at: location, modifiers: modifiers) {
+        if authoritative, button == .left, clickCount == 2,
+           handleNaturalDoubleClick(at: location, modifiers: modifiers)
+        {
             return true
         }
         let suppress = dispatchMouseDown(

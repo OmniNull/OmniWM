@@ -29,6 +29,11 @@ extension NiriWindow {
     func rest(atTop: Bool, in column: NiriContainer) {
         topRest = atTop ? NiriTopRest(column: column, heightRevision: heightRevision) : nil
     }
+
+    func restAtTopAgain(_ restsAtTop: Bool) {
+        guard restsAtTop, let column = parent as? NiriContainer else { return }
+        rest(atTop: true, in: column)
+    }
 }
 
 extension NiriContainerLayoutFrames {
@@ -45,6 +50,14 @@ extension NiriContainerLayoutFrames {
 }
 
 extension NiriLayoutEngine {
+    func forgetTopRests() {
+        for state in states.values {
+            for window in state.nodesByToken.values {
+                window.topRest = nil
+            }
+        }
+    }
+
     func loneWindow(
         in column: NiriContainer,
         workspaceId: WorkspaceDescriptor.ID,

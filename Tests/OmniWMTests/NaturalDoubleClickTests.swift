@@ -172,13 +172,13 @@ final class NaturalDoubleClickTests: NiriInteractionTestCase {
         func asks(
             _ clickCount: Int64,
             _ flags: CGEventFlags = [],
-            modifier: CGEventFlags? = option,
+            naturalWindowDrag: Bool = true,
             armedAt: CGPoint? = point
         ) -> Bool {
             MouseEventHandler.asksAboutNaturalDoubleClick(
                 clickCount: clickCount,
                 flags: flags,
-                naturalDragModifier: modifier,
+                naturalWindowDrag: naturalWindowDrag,
                 armedAt: armedAt,
                 location: point
             )
@@ -190,7 +190,7 @@ final class NaturalDoubleClickTests: NiriInteractionTestCase {
         XCTAssertFalse(asks(3))
         XCTAssertFalse(asks(2, option))
         XCTAssertFalse(asks(2, .maskCommand))
-        XCTAssertFalse(asks(2, modifier: nil))
+        XCTAssertFalse(asks(2, naturalWindowDrag: false))
         XCTAssertFalse(asks(2, armedAt: nil))
         XCTAssertFalse(asks(2, armedAt: CGPoint(x: 420, y: 300)))
         XCTAssertTrue(asks(2, armedAt: CGPoint(x: 404, y: 303)))
@@ -396,6 +396,43 @@ final class NaturalDoubleClickTests: NiriInteractionTestCase {
             XCTAssertEqual(frame.minY, start.minY, accuracy: 4, "\(token)")
             XCTAssertEqual(frame.height, start.height, accuracy: 4, "\(token)")
         }
+    }
+
+    func testADoubleClickAlreadyPassedToTheAppIsLeftAlone() throws {
+        let fixture = try makeFixture(pid: 941_090)
+        let column = try fixture.column(fixture.tokens[1])
+        let width = column.width
+        let start = try fixture.frame(fixture.tokens[1])
+
+        XCTAssertFalse(fixture.handler.receiveTapMouseDown(
+            at: try fixture.rightEdge(fixture.tokens[1]),
+            modifiers: [],
+            clickCount: 2
+        ))
+        fixture.relayout()
+
+        XCTAssertNil(fixture.handler.state.capturedInteractionButton)
+        XCTAssertEqual(column.width, width)
+        XCTAssertEqual(try fixture.frame(fixture.tokens[1]), start)
+    }
+
+    func testWithTheStackModifierOffTheTapStillAsksAboutDoubleClicks() throws {
+        let fixture = try makeFixture(pid: 941_091)
+        fixture.controller.settings.niri.naturalWindowDragModifier = .off
+        fixture.handler.syncTapFilterSnapshot()
+        let snapshot = fixture.handler.inputTapThread.filterSnapshot
+        XCTAssertNil(snapshot.naturalDragModifier)
+        XCTAssertTrue(snapshot.naturalWindowDrag)
+        let edge = try fixture.rightEdge(fixture.tokens[1])
+
+        XCTAssertTrue(MouseEventHandler.asksAboutNaturalDoubleClick(
+            clickCount: 2,
+            flags: [],
+            naturalWindowDrag: snapshot.naturalWindowDrag,
+            armedAt: edge,
+            location: edge
+        ))
+        XCTAssertTrue(fixture.doubleClick(at: edge))
     }
 
     func testDoubleClickingTheRightEdgeStretchesItToTheScreenEdgeAndBack() throws {

@@ -244,7 +244,7 @@ extension NiriLayoutEngine {
                let mate = findNode(by: saved.windowId, in: previous.workspaceId) as? NiriWindow,
                mate.height != saved.height
             {
-                mate.height = saved.height
+                saved.apply(to: mate)
             }
         }
     }
@@ -300,7 +300,7 @@ extension NiriLayoutEngine {
         guard let column, !column.isTabbed else { return }
         let mates = column.windowNodes.filter { $0 !== window }
         guard mates.count == 1, let mate = mates.first, mate.height != .default else { return }
-        move.mateHeight = .init(windowId: mate.id, height: mate.height)
+        move.mateHeight = .init(windowId: mate.id, height: mate.height, restsAtTop: mate.restsAtTop(of: column))
         mate.height = .default
     }
 
@@ -322,7 +322,9 @@ extension NiriLayoutEngine {
     private func restoreLiveMateHeight(_ move: inout LiveColumnMove) {
         guard let saved = move.mateHeight else { return }
         move.mateHeight = nil
-        (findNode(by: saved.windowId, in: move.workspaceId) as? NiriWindow)?.height = saved.height
+        if let mate = findNode(by: saved.windowId, in: move.workspaceId) as? NiriWindow {
+            saved.apply(to: mate)
+        }
     }
 
     func slideLiveWindows<Result>(
@@ -603,5 +605,8 @@ extension NiriLayoutEngine {
     func applyNaturalWindowDrag(_ configuration: NaturalWindowDragConfiguration) {
         tabbedColumnsFillHeight = configuration.enabled
         keepsStripEndsOnScreen = configuration.enabled
+        if !configuration.enabled {
+            forgetTopRests()
+        }
     }
 }

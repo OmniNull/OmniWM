@@ -287,6 +287,7 @@ final class MouseEventHandler {
         let otherButtonMask = resolvedOtherButtonMask
         let moveFlags = controller?.settings.gestures.mouseMoveModifierKey.cgEventFlags
         let adoptNativeResize = controller?.settings.gestures.adoptNativeResize == true
+        let naturalWindowDrag = controller?.settings.niri.naturalWindowDrag ?? false
         let naturalDragFlags = controller.flatMap { controller in
             controller.settings.niri.naturalWindowDrag
                 ? controller.settings.niri.naturalWindowDragModifier.cgEventFlags
@@ -312,6 +313,7 @@ final class MouseEventHandler {
             snapshot.moveModifier = moveFlags
             snapshot.adoptNativeResize = adoptNativeResize
             snapshot.naturalDragModifier = naturalDragFlags
+            snapshot.naturalWindowDrag = naturalWindowDrag
             snapshot.resizeModifier = resizeFlags
             snapshot.scrollModifier = scrollFlags
             snapshot.minGestureFingers = minFingers
