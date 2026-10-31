@@ -3024,7 +3024,6 @@ void publishOutput(omni_instance *instance, ViewOutput &view, omni_render_stats 
             }
         }
         omni_wire_header header;
-        // The wire format includes padding, so initialize every byte.
         std::memset(&header, 0, sizeof header);
         header.magic = OMNI_WIRE_MAGIC;
         header.node_count = static_cast<uint32_t>(view.nodes.size());
