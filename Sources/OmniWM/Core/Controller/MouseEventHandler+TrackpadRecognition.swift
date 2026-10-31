@@ -4,8 +4,6 @@
 import AppKit
 import Foundation
 
-private let niriTouchpadGestureRecognitionThreshold: CGFloat = 16.0
-
 extension MouseEventHandler {
     struct GestureFrameMetrics {
         var cumulativeX: CGFloat
@@ -293,8 +291,8 @@ extension MouseEventHandler {
         if state.gesturePhase == .armed {
             let distanceSquared = metrics.cumulativeX * metrics.cumulativeX
                 + metrics.cumulativeY * metrics.cumulativeY
-            let thresholdSquared = niriTouchpadGestureRecognitionThreshold * niriTouchpadGestureRecognitionThreshold
-            guard distanceSquared >= thresholdSquared else {
+            let threshold = TrackpadGestureIntent.recognitionThreshold
+            guard distanceSquared >= threshold * threshold else {
                 rememberGestureSample(average, at: timestamp)
                 return
             }
