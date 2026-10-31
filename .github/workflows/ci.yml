@@ -156,10 +156,11 @@ jobs:
           nu --version
       - name: Verify package toolchain
         run: swift package dump-package > /dev/null
-      - name: Run the serial test suite
+      - name: Run the test group
         env:
           FLAG: ${{ matrix.flag }}
           PATTERN: ${{ matrix.pattern }}
+          OMNIWM_FULL_GLASS_SWEEP: ${{ github.event_name != 'pull_request' && '1' || '' }}
         run: LIBRARY_PATH="$(./Scripts/ghostty-preflight.sh print-library-dir)${LIBRARY_PATH:+:$LIBRARY_PATH}" swift test "$FLAG" "$PATTERN"
   tests:
     name: Tests
