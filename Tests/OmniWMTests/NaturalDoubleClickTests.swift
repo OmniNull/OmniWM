@@ -760,6 +760,78 @@ final class NaturalDoubleClickTests: NiriInteractionTestCase {
         }
     }
 
+    func testAFullLoopFromASizeThatIsNoPresetComesBackToItInTheSamePlace() throws {
+        for index in [1, 2] {
+            let fixture = try makeFixture(pid: index == 1 ? 941_130 : 941_131)
+            let token = fixture.tokens[index]
+            let column = try fixture.column(token)
+            column.width = .proportion(0.4)
+            column.cachedWidth = 0
+            fixture.relayout()
+            try fixture.select(token)
+            let start = try fixture.frame(token)
+            let point = try fixture.titleBar(token)
+            let presets = fixture.engine.presetContainerPrimarySpans.count
+
+            var widths: [ProportionalSize] = []
+            for _ in 0 ..< presets {
+                XCTAssertTrue(fixture.doubleClick(at: point), "\(index)")
+                widths.append(column.width)
+            }
+            XCTAssertFalse(widths.contains(.proportion(0.4)), "\(index)")
+            XCTAssertTrue(fixture.doubleClick(at: point), "\(index)")
+
+            XCTAssertEqual(column.width, .proportion(0.4), "\(index)")
+            let end = try fixture.frame(token)
+            XCTAssertEqual(end.minX, start.minX, accuracy: 1, "\(index)")
+            XCTAssertEqual(end.width, start.width, accuracy: 1, "\(index)")
+        }
+    }
+
+    func testAFullLoopFromAPresetCyclesThePresetsOnly() throws {
+        let fixture = try makeFixture(pid: 941_132)
+        let token = fixture.tokens[1]
+        try fixture.select(token)
+        let point = try fixture.titleBar(token)
+        let presets = fixture.engine.presetContainerPrimarySpans.count
+        for _ in 0 ..< presets {
+            XCTAssertTrue(fixture.doubleClick(at: point))
+        }
+        let start = try fixture.frame(token)
+
+        for _ in 0 ..< presets {
+            XCTAssertTrue(fixture.doubleClick(at: point))
+        }
+
+        let end = try fixture.frame(token)
+        XCTAssertEqual(end.width, start.width, accuracy: 1)
+        XCTAssertEqual(end.minX, start.minX, accuracy: 1)
+    }
+
+    func testTheCycleSizeKeysGoRoundTheSameLoopBothWays() throws {
+        let fixture = try makeFixture(pid: 941_133)
+        let token = fixture.tokens[1]
+        let column = try fixture.column(token)
+        column.width = .proportion(0.4)
+        column.cachedWidth = 0
+        fixture.relayout()
+        try fixture.select(token)
+        let start = try fixture.frame(token)
+        let stops = fixture.engine.presetContainerPrimarySpans.count + 1
+
+        for forward in [true, false] {
+            var widths: [ProportionalSize] = []
+            for _ in 0 ..< stops {
+                fixture.controller.niriLayoutHandler.cycleSize(forward: forward)
+                fixture.relayout()
+                widths.append(column.width)
+            }
+            XCTAssertEqual(Set(widths.map { "\($0)" }).count, stops, "\(forward)")
+            XCTAssertEqual(column.width, .proportion(0.4), "\(forward)")
+            XCTAssertEqual(try fixture.frame(token).minX, start.minX, accuracy: 1, "\(forward)")
+        }
+    }
+
     func testATitleBarDoubleClickOnAControlIsLeftToTheApp() throws {
         let fixture = try makeFixture(pid: 941_008)
         let column = try fixture.column(fixture.tokens[1])

@@ -82,28 +82,6 @@ extension NiriLayoutEngine {
         )
     }
 
-    func cycleColumnWidthAroundCentre(
-        _ column: NiriContainer,
-        forwards: Bool = true,
-        context: NiriInteractionContext,
-        state: inout ViewportState
-    ) {
-        let before = columnScreenSpan(column, context: context, state: state)
-        toggleContainerPrimarySpan(column, forwards: forwards, context: context, state: &state)
-        guard context.orientation == .horizontal,
-              let before,
-              !(isViewportAnchor(column, in: context.workspaceId, state: state)
-                  && centresFocusedColumn(in: context.workspaceId))
-        else { return }
-        centreColumn(
-            column,
-            on: (before.lowerBound + before.upperBound) / 2,
-            animated: true,
-            context: context,
-            state: &state
-        )
-    }
-
     func centreColumn(
         _ column: NiriContainer,
         on centre: CGFloat,
@@ -134,7 +112,7 @@ extension NiriLayoutEngine {
         }
     }
 
-    private func centresFocusedColumn(in workspaceId: WorkspaceDescriptor.ID) -> Bool {
+    func centresFocusedColumn(in workspaceId: WorkspaceDescriptor.ID) -> Bool {
         let settings = effectiveSettings(in: workspaceId)
         return settings.centerFocusedColumn == .always
             || (settings.alwaysCenterSingleColumn && columns(in: workspaceId).count == 1)

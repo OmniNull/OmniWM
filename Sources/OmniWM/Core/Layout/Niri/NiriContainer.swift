@@ -24,6 +24,7 @@ class NiriContainer: NiriNode {
     var isLiveDropSpace = false
     var liveSlotWidth: CGFloat?
     var isLiveHomeSpot = false
+    var centreCycle: ColumnCentreCycle?
 
     var height: ProportionalSize = .default
 
