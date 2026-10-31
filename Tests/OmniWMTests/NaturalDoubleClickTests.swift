@@ -6,6 +6,11 @@ import CoreGraphics
 import XCTest
 
 @MainActor
+private final class ClickClock {
+    var now: TimeInterval = 100
+}
+
+@MainActor
 final class NaturalDoubleClickTests: NiriInteractionTestCase {
     @MainActor
     private struct Fixture {
@@ -106,6 +111,15 @@ final class NaturalDoubleClickTests: NiriInteractionTestCase {
         func titleBar(_ token: WindowToken) throws -> CGPoint {
             let frame = try frame(token)
             return CGPoint(x: frame.midX, y: frame.maxY - 20)
+        }
+
+        func select(_ token: WindowToken) throws {
+            let handle = try XCTUnwrap(controller.workspaceManager.handle(for: token))
+            controller.niriLayoutHandler.withNiriWindowContext(.window(handle)) { engine, window, context, state in
+                state.selectedNodeId = window.id
+                engine.ensureSelectionVisible(node: window, context: context, state: &state)
+            }
+            relayout()
         }
     }
 
@@ -632,6 +646,117 @@ final class NaturalDoubleClickTests: NiriInteractionTestCase {
         for step in 0 ..< fixture.engine.presetContainerPrimarySpans.count {
             XCTAssertTrue(fixture.doubleClick(at: try fixture.titleBar(token)))
             XCTAssertEqual(try fixture.frame(token).midX, middle, accuracy: 1, "\(step)")
+        }
+    }
+
+    func testSingleClicksRightAfterATitleBarDoubleClickKeepCycling() throws {
+        let fixture = try makeFixture(pid: 941_120)
+        let column = try fixture.column(fixture.tokens[1])
+        let point = try fixture.titleBar(fixture.tokens[1])
+        let presets = fixture.engine.presetContainerPrimarySpans.count
+
+        XCTAssertTrue(fixture.doubleClick(at: point))
+        XCTAssertNotNil(fixture.handler.inputTapThread.filterSnapshot.naturalClickChain)
+        var widths = [column.width]
+        for _ in 1 ..< presets {
+            XCTAssertTrue(fixture.doubleClick(at: point, clickCount: 1))
+            widths.append(column.width)
+        }
+
+        XCTAssertEqual(Set(widths.map { "\($0)" }).count, presets)
+    }
+
+    func testTheClickChainEndsAfterASecond() throws {
+        let fixture = try makeFixture(pid: 941_121)
+        let clock = ClickClock()
+        fixture.handler.naturalClickClock = { clock.now }
+        let column = try fixture.column(fixture.tokens[1])
+        let point = try fixture.titleBar(fixture.tokens[1])
+        XCTAssertTrue(fixture.doubleClick(at: point))
+        let width = column.width
+
+        clock.now += MouseEventHandler.naturalClickChainWindow + 0.1
+
+        XCTAssertFalse(fixture.doubleClick(at: point, clickCount: 1))
+        XCTAssertEqual(column.width, width)
+    }
+
+    func testAClickElsewhereOrOnAControlEndsTheClickChain() throws {
+        let fixture = try makeFixture(pid: 941_122)
+        let column = try fixture.column(fixture.tokens[1])
+        let point = try fixture.titleBar(fixture.tokens[1])
+        let other = try fixture.frame(fixture.tokens[0])
+
+        XCTAssertTrue(fixture.doubleClick(at: point))
+        XCTAssertFalse(fixture.doubleClick(at: CGPoint(x: other.midX, y: other.midY), clickCount: 1))
+        XCTAssertNil(fixture.handler.inputTapThread.filterSnapshot.naturalClickChain)
+        let width = column.width
+        XCTAssertFalse(fixture.doubleClick(at: point, clickCount: 1))
+        XCTAssertEqual(column.width, width)
+
+        XCTAssertTrue(fixture.doubleClick(at: point))
+        let afterDoubleClick = column.width
+        fixture.handler.titleBarHitProvider = { _, _ in TitleBarHit(
+            role: "AXButton",
+            placement: .insideBar(elementWithinBar: true)
+        ) }
+        XCTAssertFalse(fixture.doubleClick(at: point, clickCount: 1))
+        fixture.handler.titleBarHitProvider = { _, _ in TitleBarHit(role: "AXWindow") }
+        XCTAssertFalse(fixture.doubleClick(at: point, clickCount: 1))
+        XCTAssertEqual(column.width, afterDoubleClick)
+    }
+
+    func testTheTapAsksAboutAChainClickOnlyAtTheSameSpotWithinASecond() {
+        let chain = NaturalClickChain(location: CGPoint(x: 100, y: 100), deadline: 10)
+        func asks(_ chain: NaturalClickChain?, flags: CGEventFlags = [], at point: CGPoint, now: TimeInterval) -> Bool {
+            MouseEventHandler.continuesNaturalClickChain(chain, flags: flags, location: point, now: now)
+        }
+
+        XCTAssertTrue(asks(chain, at: CGPoint(x: 104, y: 100), now: 9.5))
+        XCTAssertFalse(asks(chain, at: CGPoint(x: 104, y: 100), now: 10.5))
+        XCTAssertFalse(asks(chain, at: CGPoint(x: 120, y: 100), now: 9.5))
+        XCTAssertFalse(asks(chain, flags: .maskCommand, at: CGPoint(x: 100, y: 100), now: 9.5))
+        XCTAssertFalse(asks(nil, at: CGPoint(x: 100, y: 100), now: 9.5))
+    }
+
+    func testWithNaturalDragTheCycleSizeKeysResizeAroundTheCentre() throws {
+        let fixture = try makeFixture(pid: 941_123)
+        let token = fixture.tokens[1]
+        let sides = fixture.screenSides
+        try fixture.select(token)
+
+        for forward in [true, true, false] {
+            let before = try fixture.frame(token)
+            fixture.controller.niriLayoutHandler.cycleSize(forward: forward)
+            fixture.relayout()
+            let after = try fixture.frame(token)
+
+            XCTAssertNotEqual(after.width, before.width, accuracy: 1, "\(forward)")
+            let leading = try after.minX - fixture.frame(fixture.tokens[0]).minX
+            let trailing = try fixture.frame(fixture.tokens[2]).maxX - after.minX
+            var expected = min(max(before.midX - after.width / 2, sides.left), sides.right - after.width)
+            if leading + trailing >= sides.right - sides.left - 1 {
+                expected = min(max(expected, sides.right - trailing), sides.left + leading)
+            }
+            XCTAssertEqual(after.minX, expected, accuracy: 1, "\(forward)")
+        }
+    }
+
+    func testWithoutNaturalDragTheCycleSizeKeysKeepUpstreamsResize() throws {
+        let keyed = try makeFixture(pid: 941_124)
+        let upstream = try makeFixture(pid: 941_125)
+        for fixture in [keyed, upstream] {
+            fixture.controller.settings.niri.naturalWindowDrag = false
+            try fixture.select(fixture.tokens[1])
+        }
+
+        keyed.controller.niriLayoutHandler.cycleSize(forward: true)
+        upstream.controller.niriLayoutHandler.cycleContainerPrimarySpan(forward: true)
+        keyed.relayout()
+        upstream.relayout()
+
+        for index in 0 ..< 3 {
+            XCTAssertEqual(try keyed.frame(keyed.tokens[index]), try upstream.frame(upstream.tokens[index]), "\(index)")
         }
     }
 

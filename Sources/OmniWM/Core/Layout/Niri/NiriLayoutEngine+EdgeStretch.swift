@@ -84,11 +84,12 @@ extension NiriLayoutEngine {
 
     func cycleColumnWidthAroundCentre(
         _ column: NiriContainer,
+        forwards: Bool = true,
         context: NiriInteractionContext,
         state: inout ViewportState
     ) {
         let before = columnScreenSpan(column, context: context, state: state)
-        toggleContainerPrimarySpan(column, forwards: true, context: context, state: &state)
+        toggleContainerPrimarySpan(column, forwards: forwards, context: context, state: &state)
         guard context.orientation == .horizontal,
               let before,
               !(isViewportAnchor(column, in: context.workspaceId, state: state)

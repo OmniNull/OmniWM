@@ -18,6 +18,7 @@ struct TapFilterSnapshot: Sendable {
     var gestureActiveOrLatched: Bool = false
     var isInputSuppressed: Bool = false
     var naturalDoubleClickArmedAt: CGPoint?
+    var naturalClickChain: NaturalClickChain?
 }
 
 private struct TouchCountProviderBox: Sendable {
@@ -352,6 +353,11 @@ extension InputTapThread {
             naturalWindowDrag: snapshot.naturalWindowDrag,
             armedAt: snapshot.naturalDoubleClickArmedAt,
             location: location
+        ) || MouseEventHandler.continuesNaturalClickChain(
+            snapshot.naturalClickChain,
+            flags: modifiers,
+            location: location,
+            now: ProcessInfo.processInfo.systemUptime
         ) {
             return evaluateAuthoritativeTapOnMain(
                 type: .leftMouseDown, location: location, modifiers: modifiers, buttonNumber: 0, scrollPayload: nil,

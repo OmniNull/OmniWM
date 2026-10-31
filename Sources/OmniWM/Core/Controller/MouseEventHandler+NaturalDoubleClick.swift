@@ -6,6 +6,7 @@ import Foundation
 
 extension MouseEventHandler {
     nonisolated static let naturalDoubleClickArmRadius: CGFloat = 8
+    nonisolated static let naturalClickChainWindow: TimeInterval = 1
 
     nonisolated static func asksAboutNaturalDoubleClick(
         clickCount: Int64,
@@ -20,6 +21,39 @@ extension MouseEventHandler {
         return hypot(location.x - armedAt.x, location.y - armedAt.y) <= naturalDoubleClickArmRadius
     }
 
+    nonisolated static func continuesNaturalClickChain(
+        _ chain: NaturalClickChain?,
+        flags: CGEventFlags,
+        location: CGPoint,
+        now: TimeInterval
+    ) -> Bool {
+        guard let chain, now <= chain.deadline, flags.isDisjoint(with: relevantModifierFlags) else { return false }
+        return hypot(location.x - chain.location.x, location.y - chain.location.y) <= naturalDoubleClickArmRadius
+    }
+
+    func continuesNaturalClickChain(at location: CGPoint, modifiers: CGEventFlags) -> Bool {
+        Self.continuesNaturalClickChain(
+            state.naturalClickChain,
+            flags: modifiers,
+            location: location,
+            now: naturalClickClock()
+        )
+    }
+
+    func disarmNaturalClickChain() {
+        guard state.naturalClickChain != nil else { return }
+        state.naturalClickChain = nil
+        state.naturalClickChainToken = nil
+        inputTapThread.updateFilterSnapshot { $0.naturalClickChain = nil }
+    }
+
+    private func armNaturalClickChain(at location: CGPoint, token: WindowToken) {
+        let chain = NaturalClickChain(location: location, deadline: naturalClickClock() + Self.naturalClickChainWindow)
+        state.naturalClickChain = chain
+        state.naturalClickChainToken = token
+        inputTapThread.updateFilterSnapshot { $0.naturalClickChain = chain }
+    }
+
     func armNaturalDoubleClick(at location: CGPoint, modifiers: CGEventFlags, clickCount: Int64) {
         let armed = clickCount == 1
             && modifiers.isDisjoint(with: Self.relevantModifierFlags)
@@ -28,14 +62,21 @@ extension MouseEventHandler {
         inputTapThread.updateFilterSnapshot { $0.naturalDoubleClickArmedAt = armedAt }
     }
 
-    func handleNaturalDoubleClick(at location: CGPoint, modifiers: CGEventFlags) -> Bool {
+    func handleNaturalDoubleClick(at location: CGPoint, modifiers: CGEventFlags, chained: Bool = false) -> Bool {
         guard modifiers.isDisjoint(with: Self.relevantModifierFlags),
               !isInputSuppressed,
               !shouldBlockOwnWindowInput(at: location)
         else { return false }
-        guard let target = naturalDoubleClickTarget(at: location) else { return false }
+        guard let target = naturalDoubleClickTarget(at: location),
+              !chained || target.zone == .titleBar && target.window.token == state.naturalClickChainToken
+        else { return false }
         clearNativeTitleBarDrag()
         performNaturalDoubleClick(on: target)
+        if target.zone == .titleBar {
+            armNaturalClickChain(at: location, token: target.window.token)
+        } else {
+            disarmNaturalClickChain()
+        }
         state.capturedInteractionButton = .left
         return true
     }
@@ -229,4 +270,9 @@ struct NaturalDoubleClickWidth {
     let presetIndex: Int?
     let hadManualWidth: Bool
     let stretch: ColumnStretch
+}
+
+struct NaturalClickChain: Sendable, Equatable {
+    let location: CGPoint
+    let deadline: TimeInterval
 }

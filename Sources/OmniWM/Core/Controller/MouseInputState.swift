@@ -140,6 +140,8 @@ struct MouseInputState {
     var deferredClickScroll: WindowToken?
     var naturalDoubleClickHeights: [WindowToken: NaturalDoubleClickHeight] = [:]
     var naturalDoubleClickWidths: [NodeId: NaturalDoubleClickWidth] = [:]
+    var naturalClickChain: NaturalClickChain?
+    var naturalClickChainToken: WindowToken?
     var activeInteractionSource: InteractionSource?
     var activeInteractionButton: MouseEventHandler.MouseButton? {
         get { activeInteractionSource?.mouseButton }
