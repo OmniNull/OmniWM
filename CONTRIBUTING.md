@@ -220,7 +220,7 @@ For canaries, configure **canary-signing** with no required reviewers and a sele
 
 The daily **OmniWM canary** workflow skips a build when the checked-out commit is already contained in a stable or canary tag, or when only documentation changed since the newest ancestor tag. For this check, documentation means root-level `.md` files and everything under `docs/` or `website/`; Markdown elsewhere, including bundled issue-report prompts under `Sources/`, still counts as an app change. Documentation-only commits are also omitted from canary release notes. The manual `force` option bypasses both skip checks.
 
-When a build is needed, the workflow requires the latest **OmniWM CI** push run on `main` for the checked-out commit to pass, including both **Verify** and **Tests**. It checks the actual checkout rather than the scheduled event's commit, before dependency setup or importing Apple credentials. Missing, unfinished, or unsuccessful CI stops the canary; wait for CI to pass and rerun the workflow. The manual `force` option cannot bypass CI.
+When a build is needed, the workflow requires the latest **OmniWM CI** push run on `main` to pass, including both **Verify** and **Tests**. It starts from the actual checkout rather than the scheduled event's commit, before dependency setup or importing Apple credentials. Documentation-only pushes don't start CI, so it uses the newest commit that has a run, looking from the checked-out commit down through documentation-only commits to the first app commit. A failed or unfinished run there, or no run at all, stops the canary; wait for CI to pass and rerun the workflow. The manual `force` option cannot bypass CI.
 
 ### Maintainer CI Rollout
 

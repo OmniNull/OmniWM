@@ -769,7 +769,7 @@ After either installation, complete the macOS setup in steps 3-7 below.
 
 ### Canary builds
 
-Stable releases are recommended for everyday use. Canary builds let you try recent changes and help test fixes before the next release. Daily scheduled runs publish a build only when the checked-out `main` commit passes CI and includes app changes since the newest stable or canary tag in its history; documentation-only changes do not trigger a new build. Builds are signed and notarized, but may contain regressions.
+Stable releases are recommended for everyday use. Canary builds let you try recent changes and help test fixes before the next release. Daily scheduled runs publish a build only when the checked-out `main` commit, or the app commit beneath any documentation-only commits on top, passes CI and includes app changes since the newest stable or canary tag in its history; documentation-only changes do not trigger a new build. Builds are signed and notarized, but may contain regressions.
 
 To try one with a Homebrew or GitHub Releases install:
 
