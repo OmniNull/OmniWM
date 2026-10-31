@@ -17,10 +17,11 @@ extension NiriLayoutHandler {
     }
 
     func cycleSize(forward: Bool) {
-        guard controller?.settings.niri.naturalWindowDrag == true else {
+        guard let controller, controller.settings.niri.naturalWindowDrag else {
             cycleContainerPrimarySpan(forward: forward)
             return
         }
+        if controller.mouseEventHandler.undoNativeResize(on: .focused) { return }
         performWindowSizing(on: .focused) { engine, windowNode, context, state in
             guard let column = engine.findColumn(containing: windowNode, in: context.workspaceId) else { return nil }
             engine.cycleColumnWidthAroundCentre(column, forwards: forward, context: context, state: &state)

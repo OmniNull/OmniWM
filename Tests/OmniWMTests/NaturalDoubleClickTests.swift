@@ -599,6 +599,24 @@ final class NaturalDoubleClickTests: NiriInteractionTestCase {
         XCTAssertNotEqual(column.width, width)
     }
 
+    func testWithNaturalDragTheCycleSizeKeysUndoAKeptEdgeResizeFirst() throws {
+        for forward in [true, false] {
+            let fixture = try makeFixture(pid: forward ? 941_127 : 941_128)
+            let token = fixture.tokens[1]
+            let column = try fixture.column(token)
+            let width = column.width
+            try keepEdgeResize(of: token, in: fixture)
+            try fixture.select(token)
+
+            fixture.controller.niriLayoutHandler.cycleSize(forward: forward)
+            XCTAssertEqual(column.width, width, "\(forward)")
+            XCTAssertNil(fixture.handler.state.nativeResizeUndos[token], "\(forward)")
+
+            fixture.controller.niriLayoutHandler.cycleSize(forward: forward)
+            XCTAssertNotEqual(column.width, width, "\(forward)")
+        }
+    }
+
     func testATitleBarDoubleClickUndoesOnlyTheClickedWindowsResize() throws {
         let fixture = try makeFixture(pid: 941_091)
         let (resized, clicked) = (fixture.tokens[1], fixture.tokens[2])
