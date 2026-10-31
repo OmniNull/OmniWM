@@ -108,7 +108,7 @@ extension NiriLayoutEngine {
         var offsets: [CGFloat] = []
         offsets.reserveCapacity(windows.count)
         var position = gaps
-        if windows.count == 1, orientation == .horizontal, let availableSpan,
+        if windows.count == 1, windows[0].topRest != nil, orientation == .horizontal, let availableSpan,
            let span = windows[0].resolvedHeight ?? windows[0].frame?.height
         {
             position += windows[0].restingOffset(in: column(of: windows[0]), room: availableSpan - 2 * gaps - span)

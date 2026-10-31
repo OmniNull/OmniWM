@@ -46,8 +46,7 @@ extension MouseEventHandler {
             finishNativeDwindleResize(&drag)
             requestNativeTitleBarDragCorrection(for: entry)
         } else {
-            let naturalResize = controller.settings.niri.naturalWindowDrag
-                && liveColumnContext(for: entry.workspaceId)?.orientation == .horizontal
+            let naturalResize = naturalResizeApplies(liveColumnContext(for: entry.workspaceId)?.orientation)
             guard controller.settings.gestures.adoptNativeResize || naturalResize,
                   let start = nativeResizeStartFrame(drag, entry: entry),
                   let observedFrame
@@ -145,6 +144,10 @@ extension MouseEventHandler {
         return CGPoint(x: start.minX + dx, y: start.minY + dy)
     }
 
+    private func naturalResizeApplies(_ orientation: Monitor.Orientation?) -> Bool {
+        controller?.settings.niri.naturalWindowDrag == true && orientation == .horizontal
+    }
+
     private func adoptNiriNativeResize(
         _ entry: WindowState,
         edges: ResizeEdge,
@@ -229,7 +232,7 @@ extension MouseEventHandler {
         let applied = horizontal ? window.height : window.windowWidth
         guard case let .fixed(value) = applied else { return true }
         if abs(value - renderedSpan) > FrameTolerance.frameWrite,
-           !horizontal || controller?.settings.niri.naturalWindowDrag != true
+           !naturalResizeApplies(context.orientation)
            || neighboursGiveWay(to: window, from: frames.start, to: frames.observed, context: context)
         {
             return true
@@ -271,7 +274,7 @@ extension MouseEventHandler {
             engine.clearInteractiveResize()
             return false
         }
-        if controller?.settings.niri.naturalWindowDrag == true, context.orientation == .horizontal {
+        if naturalResizeApplies(context.orientation) {
             engine.clearInteractiveResize()
         } else {
             engine.interactiveResizeEnd(

@@ -53,14 +53,7 @@ extension NiriLayoutEngine {
         guard let before = columnScreenSpan(column, context: context, state: state) else { return }
         beginManualPrimarySpanResize(column, in: context.workspaceId, orientation: context.orientation)
         let startWidth = column.cachedWidth
-        column.width = .fixed(stretch.width)
-        column.presetWidthIdx = nil
-        column.isFullWidth = false
-        column.savedWidth = nil
-        column.hasManualSingleWindowWidthOverride = true
-        column.widthAnimation = nil
-        column.targetWidth = nil
-        column.cachedWidth = stretch.width
+        applyPrimarySpanResize(stretch.width, to: column, orientation: .horizontal)
 
         let landingDrift = columnScreenSpan(column, context: context, state: state).map { after in
             rightSide ? after.lowerBound - before.lowerBound : after.upperBound - before.upperBound
@@ -76,13 +69,17 @@ extension NiriLayoutEngine {
             animated: context.motion.animationsEnabled
         )
         if abs(drift) > 0.5 {
-            state.animateToOffset(
-                state.viewOffset + drift,
-                motion: context.motion,
-                config: windowMovementAnimationConfig,
-                scale: displayScale(in: context.workspaceId)
-            )
+            animateViewDrift(drift, context: context, state: &state)
         }
+    }
+
+    private func animateViewDrift(_ drift: CGFloat, context: NiriInteractionContext, state: inout ViewportState) {
+        state.animateToOffset(
+            state.viewOffset + drift,
+            motion: context.motion,
+            config: windowMovementAnimationConfig,
+            scale: displayScale(in: context.workspaceId)
+        )
     }
 
     func cycleColumnWidthAroundCentre(
@@ -130,12 +127,7 @@ extension NiriLayoutEngine {
         }
         guard abs(drift) > 0.5 else { return }
         if animated {
-            state.animateToOffset(
-                state.viewOffset + drift,
-                motion: context.motion,
-                config: windowMovementAnimationConfig,
-                scale: displayScale(in: context.workspaceId)
-            )
+            animateViewDrift(drift, context: context, state: &state)
         } else {
             state.jumpOffset(to: state.viewOffset + drift)
         }

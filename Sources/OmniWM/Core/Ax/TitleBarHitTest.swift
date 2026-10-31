@@ -155,8 +155,7 @@ private final class AccessibilityProbe {
     }
 
     private func elementAttribute(_ element: AXUIElement, _ name: String) -> AXUIElement? {
-        guard let value = attribute(element, name), CFGetTypeID(value) == AXUIElementGetTypeID() else { return nil }
-        return unsafeDowncast(value as AnyObject, to: AXUIElement.self)
+        AXUIElement.from(attribute(element, name))
     }
 
     private func string(_ element: AXUIElement, _ name: String) -> String? {

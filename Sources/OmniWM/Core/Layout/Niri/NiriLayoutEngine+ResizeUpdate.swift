@@ -156,7 +156,7 @@ extension NiriLayoutEngine {
         return true
     }
 
-    private func applyPrimarySpanResize(
+    func applyPrimarySpanResize(
         _ span: CGFloat, to column: NiriContainer, orientation: Monitor.Orientation
     ) {
         switch orientation {
