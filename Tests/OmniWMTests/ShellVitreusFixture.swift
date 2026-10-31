@@ -286,9 +286,21 @@ enum VitreusFixture {
         return hash == 0 ? 1 : hash
     }
 
-    static func element(_ widget: ShellRenderedWidget, key name: String) throws -> ElementHandle {
+    static func find(_ widget: ShellRenderedWidget, key name: String) -> ElementHandle? {
         let layout = widget.surface.layout
-        return try XCTUnwrap(layout.core.elements { _ in true }.first { layout.core.key(of: $0) == key(name) }, name)
+        return layout.core.elements { _ in true }.first { layout.core.key(of: $0) == key(name) }
+    }
+
+    static func element(_ widget: ShellRenderedWidget, key name: String) throws -> ElementHandle {
+        try XCTUnwrap(find(widget, key: name), name)
+    }
+
+    static func has(_ widget: ShellRenderedWidget, key name: String) -> Bool {
+        find(widget, key: name) != nil
+    }
+
+    static func crests(_ id: String, phase: String) -> [String] {
+        [-1, 1].map { "drawer-ripple-\(id)-\(phase)-\($0)" }
     }
 
     static func frame(_ widget: ShellRenderedWidget, key name: String) throws -> CGRect {

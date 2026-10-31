@@ -12,6 +12,7 @@ local cards = require("./cards")
 local drip = kit.springs.drip
 local hang = table.freeze({ response = 2 * math.pi / math.sqrt(260), bounce = 1 - 32 / (2 * math.sqrt(260)) })
 local splash = table.freeze({ response = 2 * math.pi / math.sqrt(420), bounce = 1 - 13 / (2 * math.sqrt(420)) })
+local islandClose = 0.08
 local stops = table.freeze({ 0, 0.0625, 0.125, 0.1875, 0.25, 0.3125, 0.375, 0.4375,
     0.5, 0.5625, 0.625, 0.6875, 0.8125, 0.90625, 1, 1.5 })
 local views = setmetatable({}, { __mode = "k" })
@@ -309,7 +310,7 @@ local function shapeMorph(ctx, panel)
             round = math.clamp(1.6 * progress - 0.1, 0, 1) }
     end
     local impulses = {
-        { at = 0.08, rising = false, on = "close", spring = splash, velocity = 90,
+        { at = islandClose, rising = false, on = "close", spring = splash, velocity = 90,
             w = 0.003 * panel.w, h = -0.002 * panel.bodyH, pivot = "centre" },
     }
     if ctx.state.drawerLanding then
@@ -359,7 +360,7 @@ local function frameMorph(ctx, panel)
     return { anchor = panel.anchor, stops = values, impulses = if #impulses > 0 then impulses else nil }
 end
 
-local function crestMorph(panel, g, phase, sign)
+local function crestMorph(panel, g, phase, sign, trigger)
     local duration = if phase == "open" then 1.1 else 0.6
     local spring = { response = 2 * math.pi * duration / 6.64, bounce = 0 }
     local values = {}
@@ -375,19 +376,19 @@ local function crestMorph(panel, g, phase, sign)
         end
     end
     values[#values + 1] = { at = 1, w = if panel.vertical then 0 else 1, h = if panel.vertical then 1 else 0 }
-    return { stops = values, trigger = { shape = panel.key, at = if phase == "open" then 0.84 else 0.06,
-        rising = phase == "open" } }, spring
+    return { stops = values, trigger = trigger }, spring
 end
 
-local function appendCrests(items, panel, g, phase)
-    if not panel or panel.edge ~= g.frame.edge or g.frame.seg then return end
-    local strip = g.frame.strip
+local function appendCrests(items, panel, g, phase, trigger)
+    if not panel or (g.frame and (panel.edge ~= g.frame.edge or g.frame.seg)) then return end
+    local strip = if g.frame then g.frame.strip else g.pill
     local x = if panel.vertical then
         (if panel.edge == "right" then strip.x else strip.x + strip.w) else panel.originX
     local y = if panel.vertical then panel.originY
         else (if panel.edge == "fbottom" then strip.y else strip.y + strip.h)
+    local bound = trigger or { shape = panel.key, at = if phase == "open" then 0.84 else 0.06, rising = phase == "open" }
     for _, sign in { -1, 1 } do
-        local morph, spring = crestMorph(panel, g, phase, sign)
+        local morph, spring = crestMorph(panel, g, phase, sign, bound)
         items[#items + 1] = ui.shape({ key = "drawer-ripple-" .. panel.id .. "-" .. phase .. "-" .. tostring(sign),
             shape = "ellipse", align = "topLeading", dx = x - 9 * g.k.u, dy = y - 9 * g.k.u,
             w = 18 * g.k.u, h = 18 * g.k.u, hit = false,
@@ -417,6 +418,7 @@ local function shapes(ctx, g)
         ctx.state.drawerLayout = g.layout
         ctx.state.drawerFrameGeometry = nil
         ctx.state.drawerPreviousFrame = nil
+        ctx.state.drawerRing = nil
     end
     local panel = geometry(ctx, g)
     if g.frame then
@@ -443,7 +445,16 @@ local function shapes(ctx, g)
             dx = storage.x, w = storage.w, h = storage.h, radius = 26 * g.k.u, reveal = drip,
             morph = { anchor = { x = 0.5, y = 0 }, stops = { { at = 0, h = 0.01 }, { at = 1 } } } })
     end
-    for _, item in panels(ctx, g) do items[#items + 1] = islandShape(ctx, g, item) end
+    local ring = if g.pill then ctx.state.drawerRing else nil
+    for _, item in panels(ctx, g) do
+        items[#items + 1] = islandShape(ctx, g, item)
+        if not item.loose then ring = item.key end
+    end
+    if ring and not ctx.state.drawerPanel then
+        appendCrests(items, { id = "island", key = ring, originX = g.pill.cx }, g, "close",
+            { shape = ring, at = islandClose, rising = false })
+    end
+    ctx.state.drawerRing = ring
     return items
 end
 
