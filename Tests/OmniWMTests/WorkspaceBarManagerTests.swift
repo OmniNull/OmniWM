@@ -120,13 +120,7 @@ final class WorkspaceBarManagerTests: XCTestCase {
         try await manager.shellConfiguration.set(true, key: "fullWidth")
         try await manager.shellConfiguration.set(WorkspaceBarWindowLevel.normal, key: "windowLevel")
         try await manager.shellConfiguration.set(WorkspaceBarPosition.overlappingMenuBar, key: "position")
-        let monitor = Monitor(
-            id: .init(displayId: 92_200), displayId: 92_200,
-            frame: CGRect(x: 0, y: 0, width: 1920, height: 1080),
-            visibleFrame: CGRect(x: 0, y: 25, width: 1920, height: 1055),
-            hasNotch: false, name: "Test"
-        )
-        let bar = DesiredBarSurface(monitor: monitor, visible: true, snapshot: snapshot(itemCount: 1))
+        let bar = barSurface(itemCount: 1)
         manager.apply([bar])
         let instance = try XCTUnwrap(manager.barsByMonitor[monitor.id])
         let original = try XCTUnwrap(instance.primary.lastAppliedFrame)
@@ -140,7 +134,7 @@ final class WorkspaceBarManagerTests: XCTestCase {
         let below = try XCTUnwrap(instance.primary.lastAppliedFrame)
         XCTAssertTrue(manager.barsByMonitor[monitor.id] === instance)
         XCTAssertTrue(instance.primary.panel === panel)
-        XCTAssertEqual(below.maxY, monitor.frame.maxY - 28)
+        XCTAssertEqual(below.maxY, monitor.frame.maxY - WorkspaceBarGeometry.hiddenMenuBarHeight)
         XCTAssertNotEqual(below, original)
         XCTAssertEqual(panel.frame, below)
         XCTAssertEqual(panel.level, .normal)

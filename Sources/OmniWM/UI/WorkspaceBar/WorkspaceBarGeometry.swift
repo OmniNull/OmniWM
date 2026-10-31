@@ -304,9 +304,11 @@ struct WorkspaceBarGeometry: Equatable {
         return resolved.position
     }
 
+    static let hiddenMenuBarHeight: CGFloat = 28
+
     static func menuBarHeight(for monitor: Monitor) -> CGFloat {
         let height = monitor.frame.maxY - monitor.visibleFrame.maxY
-        return max(monitor.notchHeight, height > 1 ? height : 28)
+        return max(monitor.notchHeight, height > 1 ? height : hiddenMenuBarHeight)
     }
 
     private func splitMetrics(

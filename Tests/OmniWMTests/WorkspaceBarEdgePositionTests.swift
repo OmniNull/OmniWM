@@ -135,6 +135,7 @@ final class WorkspaceBarEdgePositionTests: XCTestCase {
     }
 
     func testBelowMenuBarKeepsMenuClearanceWhenTheSystemMenuBarIsHidden() {
+        let barHeight: CGFloat = 24, length: CGFloat = 200
         for fullWidth in [false, true] {
             for notchHeight: CGFloat in [0, 37] {
                 let monitor = Monitor(
@@ -147,7 +148,7 @@ final class WorkspaceBarEdgePositionTests: XCTestCase {
                 settings.fullWidth = fullWidth
                 settings.notchMode = .off
                 settings.fullWidthNotchMode = .off
-                settings.height = 24
+                settings.height = Double(barHeight)
                 settings.reserveLayoutSpace = true
                 settings.position = .overlappingMenuBar
                 let overlapping = settings.resolved(for: monitor)
@@ -155,17 +156,17 @@ final class WorkspaceBarEdgePositionTests: XCTestCase {
                     monitor: monitor, resolved: overlapping, isVisible: true
                 )
                 let overlappingFrame = overlappingGeometry.frame(
-                    fittingLength: 200, monitor: monitor, resolved: overlapping
+                    fittingLength: length, monitor: monitor, resolved: overlapping
                 )
 
                 settings.position = .belowMenuBar
                 let resolved = settings.resolved(for: monitor)
                 let geometry = WorkspaceBarGeometry.resolve(monitor: monitor, resolved: resolved, isVisible: true)
-                let frame = geometry.frame(fittingLength: 200, monitor: monitor, resolved: resolved)
-                let clearance = max(28, notchHeight)
+                let frame = geometry.frame(fittingLength: length, monitor: monitor, resolved: resolved)
+                let clearance = max(WorkspaceBarGeometry.hiddenMenuBarHeight, notchHeight)
 
                 XCTAssertEqual(frame.maxY, monitor.frame.maxY - clearance)
-                XCTAssertEqual(geometry.reservedInsets.top, clearance + 24)
+                XCTAssertEqual(geometry.reservedInsets.top, clearance + barHeight)
                 XCTAssertLessThan(
                     frame.minY,
                     WorkspaceBarGeometry.constrainedOriginY(
@@ -184,24 +185,25 @@ final class WorkspaceBarEdgePositionTests: XCTestCase {
     }
 
     func testBelowMenuBarReservesOnlyTheMissingPartOfTheMenuStrip() {
+        let barHeight: CGFloat = 24, notchHeight: CGFloat = 37, length: CGFloat = 200
         let settings = WorkspaceBarSettings()
         settings.position = .belowMenuBar
         settings.fullWidth = true
-        settings.height = 24
+        settings.height = Double(barHeight)
         settings.reserveLayoutSpace = true
-        for visibleInset: CGFloat in [0, 1, 20, 37] {
+        for visibleInset: CGFloat in [0, 1, 20, notchHeight] {
             let monitor = Monitor(
                 id: .init(displayId: 7), displayId: 7,
                 frame: CGRect(x: 100, y: 200, width: 1512, height: 982),
                 visibleFrame: CGRect(x: 100, y: 200, width: 1512, height: 982 - visibleInset),
-                hasNotch: true, notchHeight: 37, name: "Notched"
+                hasNotch: true, notchHeight: notchHeight, name: "Notched"
             )
             let resolved = settings.resolved(for: monitor)
             let geometry = WorkspaceBarGeometry.resolve(monitor: monitor, resolved: resolved, isVisible: true)
-            let frame = geometry.frame(fittingLength: 200, monitor: monitor, resolved: resolved)
+            let frame = geometry.frame(fittingLength: length, monitor: monitor, resolved: resolved)
 
-            XCTAssertEqual(frame.maxY, monitor.frame.maxY - 37)
-            XCTAssertEqual(geometry.reservedInsets.top, 37 - visibleInset + 24)
+            XCTAssertEqual(frame.maxY, monitor.frame.maxY - notchHeight)
+            XCTAssertEqual(geometry.reservedInsets.top, notchHeight - visibleInset + barHeight)
         }
     }
 
@@ -212,39 +214,44 @@ final class WorkspaceBarEdgePositionTests: XCTestCase {
             visibleFrame: CGRect(x: 0, y: 0, width: 1920, height: 1079),
             hasNotch: false, name: "Hidden menu bar"
         )
+        let barHeight: CGFloat = 24, length: CGFloat = 200
         let settings = WorkspaceBarSettings()
         settings.position = .belowMenuBar
-        settings.height = 24
+        settings.height = Double(barHeight)
         settings.reserveLayoutSpace = true
         for fullWidth in [false, true] {
             settings.fullWidth = fullWidth
             let resolved = settings.resolved(for: monitor)
             let geometry = WorkspaceBarGeometry.resolve(monitor: monitor, resolved: resolved, isVisible: true)
-            let frame = geometry.frame(fittingLength: 200, monitor: monitor, resolved: resolved)
+            let frame = geometry.frame(fittingLength: length, monitor: monitor, resolved: resolved)
 
-            XCTAssertEqual(frame.maxY, monitor.frame.maxY - 28)
-            XCTAssertEqual(geometry.reservedInsets.top, 51)
+            let visibleInset = monitor.frame.maxY - monitor.visibleFrame.maxY
+            XCTAssertEqual(frame.maxY, monitor.frame.maxY - WorkspaceBarGeometry.hiddenMenuBarHeight)
+            XCTAssertEqual(
+                geometry.reservedInsets.top, WorkspaceBarGeometry.hiddenMenuBarHeight - visibleInset + barHeight
+            )
         }
     }
 
     func testBelowMenuBarTakesPrecedenceOverFillLeftWithoutChangingThePreference() {
+        let barHeight: CGFloat = 24, length: CGFloat = 200
         let settings = WorkspaceBarSettings()
         settings.notchMode = .fillLeftOfNotch
         settings.fullWidth = false
-        settings.height = 24
+        settings.height = Double(barHeight)
         settings.position = .overlappingMenuBar
         XCTAssertEqual(settings.resolved(for: monitor).notchMode, .fillLeftOfNotch)
 
         settings.position = .belowMenuBar
         let resolved = settings.resolved(for: monitor)
         let geometry = WorkspaceBarGeometry.resolve(monitor: monitor, resolved: resolved, isVisible: true)
-        let frame = geometry.frame(fittingLength: 200, monitor: monitor, resolved: resolved)
+        let frame = geometry.frame(fittingLength: length, monitor: monitor, resolved: resolved)
 
         XCTAssertEqual(resolved.notchMode, .off)
         XCTAssertEqual(geometry.effectivePosition, .belowMenuBar)
         XCTAssertEqual(frame.maxY, monitor.visibleFrame.maxY)
-        XCTAssertEqual(frame.height, 24)
-        XCTAssertEqual(frame.width, 200)
+        XCTAssertEqual(frame.height, barHeight)
+        XCTAssertEqual(frame.width, length)
         XCTAssertEqual(settings.notchMode, .fillLeftOfNotch)
 
         settings.position = .overlappingMenuBar
