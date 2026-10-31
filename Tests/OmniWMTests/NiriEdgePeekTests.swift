@@ -181,6 +181,41 @@ final class NiriEdgePeekTests: XCTestCase {
         XCTAssertEqual(fixture.column(2).width, .proportion(0.5))
     }
 
+    func testCyclingSizesNeverCoversAPeek() {
+        for target in [0, 1, 3] {
+            for forwards in [true, false] {
+                var fixture = makeFixture(widths: [0.5, 0.5, 0.5, 0.5])
+                if target > 0 {
+                    for index in 1 ... target {
+                        fixture.focus(index, from: index - 1)
+                    }
+                }
+                for press in 1 ... 6 {
+                    fixture.engine.toggleContainerPrimarySpan(
+                        fixture.column(target),
+                        forwards: forwards,
+                        context: fixture.context,
+                        state: &fixture.state
+                    )
+                    fixture.engine.resolvePrimaryContainerSpans(
+                        in: fixture.workspaceId,
+                        workingFrame: fixture.frame,
+                        gaps: fixture.gap,
+                        orientation: .horizontal
+                    )
+                    let label = "column \(target) \(forwards ? "forward" : "backward") press \(press)"
+                    let spans = fixture.spans()
+                    if spans.contains(where: { $0.lowerBound < fixture.frame.minX - 0.5 }) {
+                        XCTAssertGreaterThanOrEqual(fixture.leftPeek ?? 0, peek - 0.5, label)
+                    }
+                    if spans.contains(where: { $0.upperBound > fixture.frame.maxX + 0.5 }) {
+                        XCTAssertGreaterThanOrEqual(fixture.rightPeek ?? 0, peek - 0.5, label)
+                    }
+                }
+            }
+        }
+    }
+
     func testFocusingANeighbourKeepsAPeekOnBothSides() throws {
         for centering in [CenterFocusedColumn.never, .onOverflow, .always] {
             var fixture = makeFixture(widths: [0.6, 0.6, 0.6, 0.6, 0.6], centering: centering)

@@ -99,12 +99,17 @@ extension ViewportState {
         gap: CGFloat,
         sizeKeyPath: KeyPath<NiriContainer, CGFloat>
     ) -> CGFloat {
-        guard areas.edgePeeks != nil, columns.count > 1 else { return viewStart }
-        let spans = columns.map { $0[keyPath: sizeKeyPath] }
-        let stripEnd = totalSpan(containers: columns, gap: gap, sizeKeyPath: sizeKeyPath)
+        areas.viewStartRestoringEdgePeeks(viewStart, spans: columns.map { $0[keyPath: sizeKeyPath] }, gap: gap)
+    }
+}
+
+extension ViewportFittingAreas {
+    func viewStartRestoringEdgePeeks(_ viewStart: CGFloat, spans: [CGFloat], gap: CGFloat) -> CGFloat {
+        guard edgePeeks != nil, spans.count > 1 else { return viewStart }
+        let stripEnd = spans.reduce(0, +) + CGFloat(spans.count - 1) * gap
         let earliest = min(viewStart, -gap)
-        let latest = max(viewStart, earliest, stripEnd + gap - areas.viewSpan)
-        return areas.nearestViewStartShowingEdgePeeks(
+        let latest = max(viewStart, earliest, stripEnd + gap - viewSpan)
+        return nearestViewStartShowingEdgePeeks(
             viewStart,
             spans: spans,
             gap: gap,

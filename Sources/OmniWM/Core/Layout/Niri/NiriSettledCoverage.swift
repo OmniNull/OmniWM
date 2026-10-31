@@ -448,7 +448,7 @@ extension NiriLayoutEngine {
             }
 
             let activeIndex = projectedState.activeColumnIndex.clamped(to: 0 ... containers.count - 1)
-            let offset = NiriSettledCoverageEvaluator.bestOffset(
+            let offset = settledCoverageOffset(
                 for: .init(
                     containerSpans: spans,
                     selectedIndex: selectedIndex,

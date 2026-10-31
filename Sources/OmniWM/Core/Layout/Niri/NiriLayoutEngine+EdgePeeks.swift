@@ -179,3 +179,30 @@ extension NiriLayoutEngine {
         return minX ... max(minX, maxX)
     }
 }
+
+extension NiriLayoutEngine {
+    func settledCoverageOffset(for input: NiriSettledCoverageEvaluator.Input) -> CGFloat {
+        let offset = NiriSettledCoverageEvaluator.bestOffset(for: input)
+        guard input.orientation == .horizontal,
+              input.containerSpans.indices.contains(input.activeIndex),
+              let peeks = edgePeekWidths(viewFrame: input.sourceMonitor.frame)
+        else { return offset }
+        let areas = ViewportFittingAreas(geometry: NiriViewportGeometry(
+            gap: input.gap,
+            viewportSpan: input.workingFrame.width,
+            orientation: input.orientation,
+            workingArea: input.workingFrame,
+            viewFrame: input.sourceMonitor.frame,
+            scale: input.scale,
+            edgePeeks: peeks
+        ))
+        let activePosition = input.containerSpans.prefix(input.activeIndex).reduce(0) { $0 + $1 + input.gap }
+        let viewStart = areas.viewStartRestoringEdgePeeks(
+            activePosition + offset,
+            spans: input.containerSpans,
+            gap: input.gap
+        )
+        return viewStart - activePosition
+    }
+
+}
