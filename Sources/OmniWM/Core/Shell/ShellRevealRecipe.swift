@@ -151,7 +151,12 @@ struct ShellMorphRecipe: Equatable, Sendable {
     let edges: Edges?
     let source: Source?
     let trigger: Trigger?
+    let beat: Bool
     let track: UInt64?
+
+    var waits: Bool {
+        trigger != nil || beat
+    }
 
     init?(_ source: String) {
         guard let recipe = ShellRecipeFields(
@@ -164,6 +169,7 @@ struct ShellMorphRecipe: Equatable, Sendable {
                 "source",
                 "adhere",
                 "trigger",
+                "beat",
                 "track",
                 "sourceContact",
                 "triggerContact"
@@ -187,6 +193,7 @@ struct ShellMorphRecipe: Equatable, Sendable {
         guard let bindings = Self.bindings(recipe) else { return nil }
         self.source = bindings.source
         trigger = bindings.trigger
+        beat = bindings.beat
         track = bindings.track
         anchor = CGPoint(x: ax, y: ay)
         stretch = Stretch(gain: gain, max: max, width: width, height: height)
@@ -199,6 +206,7 @@ extension ShellMorphRecipe {
     private struct Bindings {
         let source: Source?
         let trigger: Trigger?
+        let beat: Bool
         let track: UInt64?
     }
 
@@ -227,11 +235,13 @@ extension ShellMorphRecipe {
                   fields[7] == "0,1,1,1,1,1;1,1,1,1,1,1" else { return nil }
             track = key
         }
+        let beat = recipe.sections["beat"] != nil
         guard recipe.sections["adhere"] == nil || source != nil,
               recipe.sections["sourceContact"] == nil || source != nil,
-              recipe.sections["triggerContact"] == nil || trigger != nil, source == nil || trigger == nil
+              recipe.sections["triggerContact"] == nil || trigger != nil, source == nil || trigger == nil,
+              recipe.sections["beat"].map({ $0 == ["1"] }) ?? true, !beat || (source == nil && trigger == nil)
         else { return nil }
-        return Bindings(source: source, trigger: trigger, track: track)
+        return Bindings(source: source, trigger: trigger, beat: beat, track: track)
     }
 
     private static func number(_ field: Substring, in range: ClosedRange<Double>) -> Double? {

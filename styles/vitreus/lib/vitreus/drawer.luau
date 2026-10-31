@@ -556,5 +556,5 @@ end
 
 return table.freeze({
     open = open, shapes = shapes, content = content, trigger = trigger, shadow = shadow, geometry = geometry, outline = outline, contentMorph = contentMorph,
-    panels = panels,
+    panels = panels, crests = appendCrests,
 })

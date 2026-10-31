@@ -46,7 +46,7 @@ export type ShapeSource = {
     pads: { left: number?, right: number?, top: number?, bottom: number? }?,
     adhere: { left: number?, right: number?, top: number?, bottom: number? }?,
 }
-export type ShapeTrigger = { shape: string, at: number, rising: boolean?, contact: boolean? }
+export type ShapeTrigger = { shape: string, at: number, rising: boolean?, contact: boolean? } | { beat: true }
 export type ShapeMorph = {
     anchor: { x: number, y: number }?, stops: { ShapeMorphStop }?, stretch: ShapeStretch?,
     impulses: { ShapeImpulse }?, edges: ShapeEdges?, source: ShapeSource?, trigger: ShapeTrigger?,

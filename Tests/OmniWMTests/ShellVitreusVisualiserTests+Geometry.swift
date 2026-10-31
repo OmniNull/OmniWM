@@ -87,7 +87,16 @@ extension ShellVitreusVisualiserTests {
         setBands(fixture.widget, source)
         show(fixture)
         let elements = fixture.widget.surface.layout.core.elements { _ in true }
-        XCTAssertEqual(elements.filter { fixture.widget.surface.layout.core.kind(of: $0) == .shape }.count, 24)
+        let crests = VitreusFixture.crests("beat", phase: "close")
+        XCTAssertEqual(
+            elements.filter { fixture.widget.surface.layout.core.kind(of: $0) == .shape }.count, 24 + crests.count
+        )
+        for name in crests {
+            let element = try VitreusFixture.element(fixture.widget, key: name)
+            let content = fixture.widget.surface.layout.core.content(of: element)
+            XCTAssertFalse(content.glassHit, name)
+            XCTAssertFalse(content.acceptsPointer, name)
+        }
         let columns = try (0 ..< 24).map { try VitreusFixture.element(fixture.widget, key: "visualiser-column-\($0)") }
         for (index, element) in columns.enumerated() {
             let content = fixture.widget.surface.layout.core.content(of: element)

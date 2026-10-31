@@ -115,11 +115,14 @@ final class ShellSpectrumShapeBinding {
 }
 
 final class ShellSpectrumShapeStore {
+    static let beatThreshold = 0.6
+
     var bindings: [Int32: ShellSpectrumShapeBinding] = [:]
     var bands = ShellSpectrumBands.live
     var motion = MotionSnapshot.enabled
     var visible = true
     var automatic = true
+    var armed = true
     var timer: (any DispatchSourceTimer)?
 
     deinit {

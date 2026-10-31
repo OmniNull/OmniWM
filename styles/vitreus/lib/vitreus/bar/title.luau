@@ -136,6 +136,12 @@ local function place(ctx, g, slot)
     }
 end
 
+local function player(ctx, g)
+    local slot = g.pill.slots.title
+    if slot and ctx.data.media then return place(ctx, g, slot).mcx end
+    return (slot or g.pill).cx
+end
+
 local function shapes(ctx, g, slot)
     local state = ctx.state
     if g.layout == "seg" or state.barHot ~= "title" or state.drawerPanel == "player" then return nil end
@@ -281,4 +287,4 @@ local function content(ctx, g, slot)
     return { ui.stack(region) }
 end
 
-return table.freeze({ shapes = shapes, content = content, metrics = metrics, least = least })
+return table.freeze({ shapes = shapes, content = content, metrics = metrics, least = least, player = player })

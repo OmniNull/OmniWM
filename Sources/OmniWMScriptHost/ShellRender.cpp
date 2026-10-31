@@ -1126,7 +1126,8 @@ void readMorphAdhesion(lua_State *L, std::string &recipe, unsigned sourceEdge, o
 
 void readMorphBindings(lua_State *L, std::string &recipe, omni_instance *instance) {
     lua_rawgetfield(L, -1, "source");
-    if (!lua_isnil(L, -1)) {
+    const bool sourced = !lua_isnil(L, -1);
+    if (sourced) {
         if (!lua_istable(L, -1)) { luaL_error(L, "morph.source must be a table"); }
         recipeFields(L, lua_gettop(L), {"target", "edge", "from", "span", "pads", "adhere", "contact"}, "morph.source", instance);
         lua_rawgetfield(L, -1, "target");
@@ -1163,7 +1164,18 @@ void readMorphBindings(lua_State *L, std::string &recipe, omni_instance *instanc
     lua_rawgetfield(L, -1, "trigger");
     if (!lua_isnil(L, -1)) {
         if (!lua_istable(L, -1)) { luaL_error(L, "morph.trigger must be a table"); }
-        recipeFields(L, lua_gettop(L), {"shape", "at", "rising", "contact"}, "morph.trigger", instance);
+        recipeFields(L, lua_gettop(L), {"shape", "at", "rising", "contact", "beat"}, "morph.trigger", instance);
+        if (recipeBool(L, "beat", false)) {
+            for (const char *field : {"shape", "at", "rising", "contact"}) {
+                lua_rawgetfield(L, -1, field);
+                if (!lua_isnil(L, -1)) { luaL_error(L, "morph.trigger.beat cannot be combined with %s", field); }
+                lua_pop(L, 1);
+            }
+            if (sourced) { luaL_error(L, "morph.source cannot be combined with morph.trigger"); }
+            recipe += "|beat:1";
+            lua_pop(L, 1);
+            return;
+        }
         lua_rawgetfield(L, -1, "shape");
         uint64_t shape = recipeKey(L, -1, "morph.trigger.shape", instance);
         lua_pop(L, 1);
@@ -2314,7 +2326,9 @@ void encodeNodeContents(lua_State *L, int index, omni_instance *instance, int de
     if (node.morph != 0) {
         lua_rawgetfield(L, index, "morph");
         node.morph = readMorph(L, node.kind == 12, node.kind == 12 && (node.behavior_flags & 6) == 4, instance);
-        lua_pop(L, 1);
+        lua_rawgetfield(L, -1, "trigger");
+        if (lua_istable(L, -1) && recipeBool(L, "beat", false)) { node.options |= OMNI_NODE_OPTION_AUDIO; }
+        lua_pop(L, 2);
     }
     if (node.texture_ref != 0 && node.kind != 7) { luaL_error(L, "texture is only supported on ui.shader"); }
     if ((node.appear != 0 || node.exit != 0) && (node.options & OMNI_NODE_OPTION_MASK) != 0) {
@@ -3746,6 +3760,9 @@ const char *validateTreeStructure(std::vector<omni_wire_node> &nodes, size_t sta
         }
         if (node.morph != 0) {
             auto recipe = recipeText(strings, node.morph);
+            if (recipe.find("|beat:1") != std::string_view::npos && node.reveal == 0) {
+                return "morph.trigger.beat requires the shape's own reveal";
+            }
             bool independent = recipe.find("|track:") != std::string_view::npos ||
                 (node.kind == 12 && (node.reveal != 0 || recipe.find("|edges:") != std::string_view::npos
                 || recipe.find("|source:") != std::string_view::npos || recipe.find("|trigger:") != std::string_view::npos));

@@ -190,7 +190,7 @@ struct ShellShapeTrackEntry {
     func progress(at time: CFTimeInterval) -> (progress: Double, velocity: Double) {
         let active = triggerPlans.isEmpty ? plan : triggerPlans.last { $0.begin <= time }
         return bound?.state(at: time) ?? active?.state(at: time)
-            ?? (progress: morph.trigger == nil ? 1 : 0, velocity: 0)
+            ?? (progress: morph.waits ? 0 : 1, velocity: 0)
     }
 
     var samples: [ShellGlassBody.TrackSample] {
