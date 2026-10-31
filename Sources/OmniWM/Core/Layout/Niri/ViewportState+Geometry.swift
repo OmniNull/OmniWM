@@ -360,11 +360,10 @@ extension ViewportState {
         let offset = shouldCenter
             ? areas.centeredOffset(currentViewStart: currentViewStart, target: target, gap: context.gaps)
             : areas.fitOffset(currentViewStart: currentViewStart, target: target, gap: context.gaps)
-        guard edges.keepsStripEndsOnScreen, target.mode == .normal, effectiveCenterMode != .always else {
-            return areas.offsetShowingEdgePeeks(offset, target: target, containers: containers, gap: context.gaps)
-        }
-        let clamped = offsetKeepingStripEndsOnScreen(offset, target: target, containers: containers, context: context)
-        return areas.offsetShowingEdgePeeks(clamped, target: target, containers: containers, gap: context.gaps)
+        let keptOnScreen = edges.keepsStripEndsOnScreen && target.mode == .normal && effectiveCenterMode != .always
+            ? offsetKeepingStripEndsOnScreen(offset, target: target, containers: containers, context: context)
+            : offset
+        return areas.offsetShowingEdgePeeks(keptOnScreen, target: target, containers: containers, gap: context.gaps)
     }
 
     private func offsetKeepingStripEndsOnScreen(

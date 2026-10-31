@@ -30,12 +30,6 @@ extension NiriLayoutEngine {
         return edgePeekWidths(viewFrame: monitor.frame)
     }
 
-    func edgePeekCap(at index: Int, of count: Int, viewFrame: CGRect?, workingFrame: CGRect, gap: CGFloat) -> CGFloat? {
-        guard count > 1, let viewFrame, let peeks = edgePeekWidths(viewFrame: viewFrame) else { return nil }
-        let room = edgePeekRoom(at: index, of: count, viewFrame: viewFrame, workingFrame: workingFrame, peeks: peeks)
-        return max(1, room.maxX - room.minX - 2 * gap)
-    }
-
     private func edgePeekRoom(
         at index: Int,
         of count: Int,
@@ -55,10 +49,21 @@ extension NiriLayoutEngine {
         gap: CGFloat,
         orientation: Monitor.Orientation
     ) {
+        let peeks = columns.count > 1 && orientation == .horizontal
+            ? viewFrame.flatMap { edgePeekWidths(viewFrame: $0) }
+            : nil
         for (index, column) in columns.enumerated() {
-            let columnCap = orientation != .horizontal || column.isLiveHomeSpot || column.isLiveDropSpace
-                ? nil
-                : edgePeekCap(at: index, of: columns.count, viewFrame: viewFrame, workingFrame: workingFrame, gap: gap)
+            var columnCap: CGFloat?
+            if let viewFrame, let peeks, !column.isLiveHomeSpot, !column.isLiveDropSpace {
+                let room = edgePeekRoom(
+                    at: index,
+                    of: columns.count,
+                    viewFrame: viewFrame,
+                    workingFrame: workingFrame,
+                    peeks: peeks
+                )
+                columnCap = max(1, room.maxX - room.minX - 2 * gap)
+            }
             guard column.edgePeekCap != columnCap else { continue }
             column.edgePeekCap = columnCap
             column.invalidateCachedPrimarySpan(orientation: .horizontal)
@@ -81,7 +86,10 @@ extension NiriLayoutEngine {
             gap: gap,
             orientation: orientation
         )
-        applyEdgePeekCaps(to: hidden, viewFrame: nil, workingFrame: workingFrame, gap: gap, orientation: orientation)
+        for column in hidden where column.edgePeekCap != nil {
+            column.edgePeekCap = nil
+            column.invalidateCachedPrimarySpan(orientation: .horizontal)
+        }
     }
 
     func edgePeekBounds(of column: NiriContainer, context: NiriInteractionContext) -> ClosedRange<CGFloat> {
