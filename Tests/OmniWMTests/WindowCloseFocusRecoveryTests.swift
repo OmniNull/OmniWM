@@ -175,11 +175,15 @@ final class WindowCloseFocusRecoveryTests: XCTestCase {
         let fixture = try Self.makeFixture()
         let controller = fixture.controller
         let handler = controller.axEventHandler
+        // The synthetic windows have no native geometry. Background layout must not discard the seeded frame.
+        let refresh = controller.layoutRefreshController
+        refresh.resetState()
+        refresh.layoutState.isRefreshSuspendedForLockScreen = true
         var acknowledgement: CheckedContinuation<Bool, Never>?
         defer {
             acknowledgement?.resume(returning: false)
             handler.resetCreatedWindowRetryState()
-            controller.layoutRefreshController.resetState()
+            refresh.resetState()
             controller.surfaceReconciler.cleanup()
             Self.stop(fixture)
         }
@@ -220,6 +224,7 @@ final class WindowCloseFocusRecoveryTests: XCTestCase {
         let completion = try XCTUnwrap(handler.admissionRetryStateByWindowId[windowId]?.task)
         await fulfillment(of: [entered], timeout: 2)
 
+        XCTAssertEqual(controller.axManager.lastAppliedFrame(for: fixture.closingToken.windowId), frame)
         XCTAssertNotNil(controller.workspaceManager.entry(for: fixture.closingToken))
         XCTAssertNil(controller.workspaceManager.entry(for: replacementToken))
         XCTAssertNil(SurfaceDerivation.deriveBorder(world: world))
@@ -234,6 +239,8 @@ final class WindowCloseFocusRecoveryTests: XCTestCase {
         XCTAssertTrue(controller.workspaceManager.handle(for: replacementToken) === handle)
         XCTAssertTrue(fixture.engine.findNode(for: replacementToken, in: fixture.localWorkspaceId)
             === fixture.closingNode)
+        XCTAssertNil(controller.axManager.lastAppliedFrame(for: fixture.closingToken.windowId))
+        XCTAssertEqual(controller.axManager.lastAppliedFrame(for: replacementToken.windowId), frame)
         XCTAssertEqual(SurfaceDerivation.deriveBorder(world: world)?.token, replacementToken)
         XCTAssertEqual(
             SurfaceDerivation.deriveAnimationBorder(world: world, previous: previous)?.token,
