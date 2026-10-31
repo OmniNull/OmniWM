@@ -193,6 +193,7 @@ actor AppVolumeEngine {
     private var processListeners: [AudioObjectID: Listener] = [:]
     private var access = AppVolumeAccess.unknown
     private var requestingAccess = false
+    private var answeredAccess = false
     private var sequence = 0
     private var reported = AppVolumeReport()
 
@@ -225,6 +226,7 @@ actor AppVolumeEngine {
 
     private func reconcile() {
         guard request.listing || request.volumes.values.contains(where: { !$0.isUnity }) else {
+            answeredAccess = false
             removeListeners()
             for bundle in Array(taps.keys) {
                 taps.removeValue(forKey: bundle)?.stop()
@@ -261,8 +263,8 @@ actor AppVolumeEngine {
 
     private func checkAccess() -> Bool {
         guard let status = AudioCapturePermission.status else { return true }
-        access = status
-        if status == .unknown, !requestingAccess {
+        access = status == .unknown && answeredAccess ? .denied : status
+        if status == .unknown, !requestingAccess, !answeredAccess {
             requestingAccess = AudioCapturePermission.request { [weak self] _ in
                 guard let engine = self else { return }
                 Task {
@@ -275,6 +277,7 @@ actor AppVolumeEngine {
 
     private func accessAnswered() {
         requestingAccess = false
+        answeredAccess = true
         reconcile()
     }
 
