@@ -115,6 +115,66 @@ final class WorkspaceBarInstanceTests: XCTestCase {
         XCTAssertEqual(instance.primary.lastAppliedFrame, frame)
     }
 
+    func testRepeatedFrameRepairsAnExternallyMovedPanel() throws {
+        guard let screen = NSScreen.screens.first else {
+            throw XCTSkip("Requires an NSScreen to check the actual panel frame")
+        }
+        for width in [CGFloat(200), screen.frame.width] {
+            let fixture = makeFixture()
+            let island = fixture.instance.primary
+            let panel = island.panel
+            panel.targetScreen = screen
+            defer { panel.close() }
+            let frame = CGRect(
+                x: screen.frame.midX - width / 2, y: screen.visibleFrame.maxY - 24,
+                width: width, height: 24
+            )
+            var applied: [CGRect] = []
+            let apply: (WorkspaceBarPanel, NSRect) -> Void = { panel, frame in
+                panel.setFrame(frame, display: false)
+                applied.append(frame)
+            }
+            island.applyFrame(frame, using: apply)
+            let original = panel.frame
+            island.applyFrame(frame, using: apply)
+            XCTAssertEqual(applied.count, 1)
+
+            panel.setFrame(frame.offsetBy(dx: 0, dy: 24), display: false)
+            XCTAssertNotEqual(panel.frame, original)
+            island.applyFrame(frame, using: apply)
+
+            XCTAssertEqual(panel.frame, original)
+            XCTAssertEqual(applied, [frame, frame])
+            island.applyFrame(frame, using: apply)
+            XCTAssertEqual(applied.count, 2)
+        }
+    }
+
+    func testRepeatedFrameDoesNotReapplyAnUnchangedScreenConstraint() throws {
+        guard let screen = NSScreen.screens.first else {
+            throw XCTSkip("Requires an NSScreen to check the actual panel frame")
+        }
+        let fixture = makeFixture()
+        let island = fixture.instance.primary
+        let panel = island.panel
+        panel.targetScreen = screen
+        defer { panel.close() }
+        let frame = CGRect(x: screen.frame.midX, y: screen.frame.maxY, width: 120, height: 24)
+        var count = 0
+        let apply: (WorkspaceBarPanel, NSRect) -> Void = { panel, frame in
+            panel.setFrame(panel.constrainFrameRect(frame, to: screen), display: false)
+            count += 1
+        }
+
+        island.applyFrame(frame, using: apply)
+        XCTAssertNotEqual(panel.frame, frame)
+        let constrained = panel.frame
+        island.applyFrame(frame, using: apply)
+
+        XCTAssertEqual(count, 1)
+        XCTAssertEqual(panel.frame, constrained)
+    }
+
     func testFillModeCompactsAgainstPanelWidthAndRecalculatesAfterModeAndMonitorChanges() {
         let monitor = makeMonitor(width: 1512, notchRange: 656 ... 856)
         let resolved = makeResolved(notchMode: .fillLeftOfNotch)

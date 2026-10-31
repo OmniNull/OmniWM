@@ -112,6 +112,91 @@ final class WorkspaceBarManagerTests: XCTestCase {
         XCTAssertEqual(manager.barsByMonitor[monitor.id]?.primary.lastAppliedFrame, originalFrame)
     }
 
+    func testSavingBelowMenuBarMovesTheExistingPanelWhenTheSystemMenuBarIsHidden() async throws {
+        let manager = makeManager()
+        manager.screenProvider = { _ in nil }
+        manager.frameApplier = { panel, frame in panel.setFrame(frame, display: false) }
+        defer { manager.cleanup() }
+        try await manager.shellConfiguration.set(true, key: "fullWidth")
+        try await manager.shellConfiguration.set(WorkspaceBarWindowLevel.normal, key: "windowLevel")
+        try await manager.shellConfiguration.set(WorkspaceBarPosition.overlappingMenuBar, key: "position")
+        let monitor = Monitor(
+            id: .init(displayId: 92_200), displayId: 92_200,
+            frame: CGRect(x: 0, y: 0, width: 1920, height: 1080),
+            visibleFrame: CGRect(x: 0, y: 25, width: 1920, height: 1055),
+            hasNotch: false, name: "Test"
+        )
+        let bar = DesiredBarSurface(monitor: monitor, visible: true, snapshot: snapshot(itemCount: 1))
+        manager.apply([bar])
+        let instance = try XCTUnwrap(manager.barsByMonitor[monitor.id])
+        let original = try XCTUnwrap(instance.primary.lastAppliedFrame)
+        let panel = instance.primary.panel
+        XCTAssertEqual(panel.frame, original)
+        XCTAssertEqual(original.maxY, monitor.frame.maxY)
+        XCTAssertGreaterThan(panel.level.rawValue, NSWindow.Level.statusBar.rawValue)
+
+        try await manager.shellConfiguration.set(WorkspaceBarPosition.belowMenuBar, key: "position")
+        manager.apply([bar])
+        let below = try XCTUnwrap(instance.primary.lastAppliedFrame)
+        XCTAssertTrue(manager.barsByMonitor[monitor.id] === instance)
+        XCTAssertTrue(instance.primary.panel === panel)
+        XCTAssertEqual(below.maxY, monitor.frame.maxY - 28)
+        XCTAssertNotEqual(below, original)
+        XCTAssertEqual(panel.frame, below)
+        XCTAssertEqual(panel.level, .normal)
+
+        try await manager.shellConfiguration.set(WorkspaceBarPosition.overlappingMenuBar, key: "position")
+        manager.apply([bar])
+        XCTAssertTrue(instance.primary.panel === panel)
+        XCTAssertEqual(instance.primary.lastAppliedFrame, original)
+        XCTAssertEqual(panel.frame, original)
+        XCTAssertGreaterThan(panel.level.rawValue, NSWindow.Level.statusBar.rawValue)
+    }
+
+    func testSavingBelowWithVisibleMenusRepairsActualPanelDriftInBothWidthModes() async throws {
+        guard let screen = NSScreen.screens.first else {
+            throw XCTSkip("Requires an NSScreen to check the actual panel frame")
+        }
+        let monitor = Monitor(
+            id: .init(displayId: 92_200), displayId: 92_200,
+            frame: screen.frame, visibleFrame: screen.visibleFrame,
+            hasNotch: false, name: "Test"
+        )
+        guard screen.frame.maxY > screen.visibleFrame.maxY + 1 else {
+            throw XCTSkip("Requires a screen with a visible menu bar strip")
+        }
+        for fullWidth in [false, true] {
+            let manager = makeManager()
+            manager.screenProvider = { _ in screen }
+            manager.frameApplier = { panel, frame in panel.setFrame(frame, display: false) }
+            defer { manager.cleanup() }
+            try await manager.shellConfiguration.set(fullWidth, key: "fullWidth")
+            try await manager.shellConfiguration.set(WorkspaceBarNotchMode.off, key: "notchMode")
+            try await manager.shellConfiguration.set(WorkspaceBarPosition.overlappingMenuBar, key: "position")
+            let bar = DesiredBarSurface(
+                monitor: monitor, visible: false, snapshot: snapshot(itemCount: 1), retainWhileHidden: true
+            )
+            manager.apply([bar])
+            let instance = try XCTUnwrap(manager.barsByMonitor[monitor.id])
+            let panel = instance.primary.panel
+            let overlapping = panel.frame
+
+            try await manager.shellConfiguration.set(WorkspaceBarPosition.belowMenuBar, key: "position")
+            manager.apply([bar])
+            let below = panel.frame
+            XCTAssertLessThan(below.minY, overlapping.minY)
+            XCTAssertEqual(below.maxY, screen.visibleFrame.maxY)
+
+            panel.setFrame(overlapping, display: false)
+            XCTAssertEqual(controller.settings.workspaceBar.resolved(for: monitor).position, .belowMenuBar)
+            manager.apply([bar])
+
+            XCTAssertTrue(manager.barsByMonitor[monitor.id] === instance)
+            XCTAssertTrue(instance.primary.panel === panel)
+            XCTAssertEqual(panel.frame, below)
+        }
+    }
+
     func testEmptySceneRemovesPrimaryBar() {
         let manager = makeManager()
 
