@@ -351,7 +351,9 @@ extension ShellLayerScene {
         if playback.paused || playback.speed <= 0 {
             layer.contents = frames.frame(at: phase)
         } else {
-            layer.add(frames.animation(playback, phase: phase), forKey: Self.framesKey)
+            let animation = frames.animation(playback, phase: phase)
+            animation.beginTime = layer.convertTime(now, from: nil)
+            layer.add(animation, forKey: Self.framesKey)
         }
     }
 

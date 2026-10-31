@@ -129,14 +129,15 @@ extension ShellLayerScene {
     ) {
         guard changed else { return }
         let target = to
+        let now = layer.convertTime(self.now(), from: nil)
         if let keyframes = animation.keyframes(keyPath, from: from, to: target) {
+            keyframes.beginTime = now
             layer.add(keyframes, forKey: keyPath)
             return
         }
         let basic = animation.make(keyPath)
         basic.fromValue = from
         basic.toValue = target
-        let now = layer.convertTime(self.now(), from: nil)
         if let spring = basic as? CASpringAnimation,
            let from = from as? NSNumber, let to = target as? NSNumber
         {
