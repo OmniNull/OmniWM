@@ -223,6 +223,45 @@ final class NiriEdgePeekTests: XCTestCase {
         XCTAssertEqual(half, (fixture.frame.width - fixture.gap) * 0.5 - fixture.gap, accuracy: 0.5)
     }
 
+    func testATitleBarPresetCycledAroundTheCentreStopsAtThePeek() {
+        var fixture = makeFixture(widths: [0.1, 0.5, 0.3, 0.3], centering: .never)
+        fixture.focus(1, from: 0)
+        let before = fixture.span(of: 1)
+
+        fixture.engine.cycleColumnWidthAroundCentre(fixture.column(1), context: fixture.context, state: &fixture.state)
+
+        let after = fixture.span(of: 1)
+        XCTAssertGreaterThan(after.upperBound - after.lowerBound, before.upperBound - before.lowerBound + 100)
+        XCTAssertGreaterThanOrEqual(after.lowerBound, fixture.frame.minX + peek + fixture.gap - 0.5)
+        XCTAssertLessThanOrEqual(after.upperBound, fixture.frame.maxX - peek - fixture.gap + 0.5)
+    }
+
+    func testCapsStayPutDuringALiveDragAndFollowTheDrop() {
+        var fixture = makeFixture(widths: [0.5, 0.97, 0.5])
+        let column = fixture.column(1)
+        let middleCap = column.edgePeekCap
+        XCTAssertNotNil(middleCap)
+        XCTAssertTrue(fixture.engine.liveColumnMoveBegin(
+            windowId: fixture.window(1).id,
+            windowToken: fixture.tokens[1],
+            context: fixture.context,
+            state: &fixture.state
+        ))
+        let root = fixture.engine.root(for: fixture.workspaceId)!
+        root.insertChild(column, at: root.children.count - 1)
+
+        fixture.engine.applyEdgePeekCaps(in: fixture.workspaceId, workingFrame: fixture.frame, gap: fixture.gap)
+        XCTAssertEqual(column.edgePeekCap, middleCap)
+
+        fixture.engine.liveColumnMove = nil
+        fixture.engine.applyEdgePeekCaps(in: fixture.workspaceId, workingFrame: fixture.frame, gap: fixture.gap)
+        XCTAssertEqual(
+            column.edgePeekCap ?? 0,
+            fixture.frame.width - peek - 2 * fixture.gap,
+            accuracy: 0.5
+        )
+    }
+
     func testASideEdgeDoubleClickStopsAtThePeek() throws {
         var fixture = makeFixture(widths: [0.3, 0.3, 0.3, 0.3], centering: .never)
         fixture.focus(1, from: 0)
@@ -400,6 +439,14 @@ final class NiriEdgePeekTests: XCTestCase {
             sizeKeyPath: \.cachedWidth
         ) + state.viewOffset
         XCTAssertEqual(viewStart, 2450 - peek, accuracy: 0.5)
+    }
+
+    func testWithoutPeeksAnOffsetComesBackExactlyAsItWas() {
+        let frame = CGRect(x: 0, y: 0, width: 1_500, height: 900)
+        let areas = ViewportFittingAreas(working: frame, parent: frame, orientation: .horizontal, scale: 2)
+        let target = ViewportColumnTarget(index: 1, position: 0.1, span: 400, mode: .normal)
+
+        XCTAssertEqual(areas.offsetShowingEdgePeeks(0.2, target: target, containers: [], gap: 12), 0.2)
     }
 
     func testWithoutPeeksAScrollEndsWhereItLands() {

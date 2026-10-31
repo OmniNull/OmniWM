@@ -102,7 +102,7 @@ extension ViewportState {
         let snappedOffset = abs(correctedTargetOffset - snapTargetOffset) < pixel
             ? snapTargetOffset
             : correctedTargetOffset
-        let targetOffset = Double(viewStartRestoringEdgePeeks(
+        let targetOffset = geometry.areas.edgePeeks == nil ? snappedOffset : Double(viewStartRestoringEdgePeeks(
             newContainerPosition + CGFloat(snappedOffset),
             columns: columns,
             areas: geometry.areas,
@@ -334,7 +334,9 @@ extension ViewportState {
             activatePrevColumnOnRemoval = nil
             return
         }
-        let preserved = edgePeekLanding(landing, columns, geometry: geometry)
+        let preserved = geometry.edgePeeks == nil
+            ? landing
+            : edgePeekLanding(landing, columns, geometry: geometry)
 
         let newActivePosition = containerPosition(
             at: preserved.normalizedActiveColumn,

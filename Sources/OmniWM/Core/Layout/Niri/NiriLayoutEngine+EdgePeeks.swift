@@ -32,9 +32,20 @@ extension NiriLayoutEngine {
 
     func edgePeekCap(at index: Int, of count: Int, viewFrame: CGRect?, workingFrame: CGRect, gap: CGFloat) -> CGFloat? {
         guard count > 1, let viewFrame, let peeks = edgePeekWidths(viewFrame: viewFrame) else { return nil }
+        let room = edgePeekRoom(at: index, of: count, viewFrame: viewFrame, workingFrame: workingFrame, peeks: peeks)
+        return max(1, room.maxX - room.minX - 2 * gap)
+    }
+
+    private func edgePeekRoom(
+        at index: Int,
+        of count: Int,
+        viewFrame: CGRect,
+        workingFrame: CGRect,
+        peeks: EdgePeekWidths
+    ) -> (minX: CGFloat, maxX: CGFloat) {
         let minX = index > 0 ? max(workingFrame.minX, viewFrame.minX + peeks.leading) : workingFrame.minX
         let maxX = index < count - 1 ? min(workingFrame.maxX, viewFrame.maxX - peeks.trailing) : workingFrame.maxX
-        return max(1, maxX - minX - 2 * gap)
+        return (minX, maxX)
     }
 
     func applyEdgePeekCaps(
@@ -84,10 +95,15 @@ extension NiriLayoutEngine {
         guard projected.count > 1, let index = projected.firstIndex(where: { $0.column === column }) else {
             return lowest ... highest
         }
-        let minX = index > 0 ? max(lowest, viewFrame.minX + peeks.leading + context.gaps) : lowest
-        let maxX = index < projected.count - 1
-            ? min(highest, viewFrame.maxX - peeks.trailing - context.gaps)
-            : highest
+        let room = edgePeekRoom(
+            at: index,
+            of: projected.count,
+            viewFrame: viewFrame,
+            workingFrame: context.workingFrame,
+            peeks: peeks
+        )
+        let minX = max(lowest, room.minX + context.gaps)
+        let maxX = min(highest, room.maxX - context.gaps)
         return minX ... max(minX, maxX)
     }
 }
