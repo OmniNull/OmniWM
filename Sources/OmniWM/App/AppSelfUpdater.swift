@@ -77,6 +77,7 @@ final class AppSelfUpdater: AppUpdateInstalling {
     private let terminate: () -> Void
     private(set) var relaunchSignal: FileHandle?
     private(set) var relaunchHelper: Process?
+    private var relaunchObserver: NSObjectProtocol?
 
     init(
         bundleURL: URL = Bundle.main.bundleURL,
@@ -142,17 +143,28 @@ final class AppSelfUpdater: AppUpdateInstalling {
             try process.run()
             relaunchHelper = process
             relaunchSignal = input.fileHandleForWriting
-            NotificationCenter.default.addObserver(
+            relaunchObserver = NotificationCenter.default.addObserver(
                 forName: NSApplication.willTerminateNotification, object: nil, queue: nil
             ) { [weak self] _ in
                 MainActor.assumeIsolated { self?.confirmRelaunch() }
             }
         }
-        terminate()
+        scheduleOnMainRunLoop { [self] in
+            terminate()
+            disarmRelaunch()
+        }
     }
 
     func confirmRelaunch() {
         try? relaunchSignal?.write(contentsOf: Data("\n".utf8))
+    }
+
+    private func disarmRelaunch() {
+        relaunchObserver.map(NotificationCenter.default.removeObserver)
+        relaunchObserver = nil
+        try? relaunchSignal?.close()
+        relaunchSignal = nil
+        relaunchHelper = nil
     }
 
     private func download(_ archive: ReleaseArchive, into staging: URL) async throws -> URL {

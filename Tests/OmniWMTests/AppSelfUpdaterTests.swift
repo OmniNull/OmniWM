@@ -189,39 +189,55 @@ final class AppSelfUpdaterTests: XCTestCase {
         try "#!/bin/sh\necho \"$1\" > \"\(opened.path)\"\n".write(to: opener, atomically: true, encoding: .utf8)
         try FileManager.default.setAttributes([.posixPermissions: 0o755], ofItemAtPath: opener.path)
         let app = root.appendingPathComponent("OmniWM.app")
+        let target = Process()
+        target.executableURL = URL(fileURLWithPath: "/bin/sleep")
+        target.arguments = ["30"]
+        try target.run()
+        defer { target.terminate() }
+        let relaunchReturned = Flag()
+        let terminated = Flag()
+        var onTerminate: () -> Void = {}
+        let updater = AppSelfUpdater(
+            bundleURL: app, processIdentifier: target.processIdentifier, opener: opener,
+            terminate: {
+                XCTAssertTrue(relaunchReturned.value, "terminate ran inside relaunch")
+                terminated.value = true
+                onTerminate()
+            }
+        )
 
         for confirmed in [false, true] {
-            let target = Process()
-            target.executableURL = URL(fileURLWithPath: "/bin/sleep")
-            target.arguments = ["30"]
-            try target.run()
-            let terminations = Counter()
-            let updater = AppSelfUpdater(
-                bundleURL: app, processIdentifier: target.processIdentifier, opener: opener,
-                terminate: { terminations.value += 1 }
-            )
+            relaunchReturned.value = false
+            terminated.value = false
+            let quitReturned = expectation(description: "quit returned")
+            onTerminate = { quitReturned.fulfill() }
             try updater.relaunch()
-            try updater.relaunch()
-            XCTAssertEqual(terminations.value, 2)
+            relaunchReturned.value = true
+            XCTAssertFalse(terminated.value)
+            let helper = try XCTUnwrap(updater.relaunchHelper)
+            XCTAssertTrue(helper.isRunning)
             let exited = expectation(description: "helper exited")
-            try XCTUnwrap(updater.relaunchHelper).terminationHandler = { _ in exited.fulfill() }
+            helper.terminationHandler = { _ in exited.fulfill() }
 
             if confirmed {
                 updater.confirmRelaunch()
-            }
-            target.terminate()
-            target.waitUntilExit()
-            if !confirmed {
-                try updater.relaunchSignal?.close()
+                await fulfillment(of: [quitReturned], timeout: 5)
+                XCTAssertFalse(FileManager.default.fileExists(atPath: opened.path))
+                target.terminate()
+                target.waitUntilExit()
+            } else {
+                await fulfillment(of: [quitReturned], timeout: 5)
             }
             await fulfillment(of: [exited], timeout: 5)
+            XCTAssertNil(updater.relaunchHelper)
+            XCTAssertNil(updater.relaunchSignal)
             XCTAssertEqual(FileManager.default.fileExists(atPath: opened.path), confirmed)
         }
         XCTAssertEqual(try String(contentsOf: opened, encoding: .utf8), app.path + "\n")
     }
 
-    private final class Counter {
-        var value = 0
+    private final class Flag {
+        var value = false
     }
 
     private func tag(of app: URL) -> String? {
