@@ -80,8 +80,7 @@ extension NiriLayoutEngine {
         let current = liveDraggedColumn(for: move)
         if window.parent !== column || column.windowNodes.firstIndex(where: { $0 === window }) != original.index {
             column.insertChild(window, at: original.index)
-            window.size = original.windowSizing.size
-            window.height = original.windowSizing.height
+            original.windowSizing.apply(to: window)
             column.displayMode = original.displayMode
             column.cachedWidth = 0
         }
@@ -231,12 +230,7 @@ extension NiriLayoutEngine {
             strip: liveColumnStrip(context: context, state: state),
             context: context
         )
-        guard abs(shift) > 0.001 else { return }
-        state.animateToOffset(
-            state.viewOffset + shift,
-            motion: context.motion,
-            scale: displayScale(in: context.workspaceId)
-        )
+        animateLiveViewShift(shift, context: context, state: &state)
     }
 
     private func animateLiveColumns(

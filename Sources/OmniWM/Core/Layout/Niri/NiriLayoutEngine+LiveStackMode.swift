@@ -208,15 +208,43 @@ extension NiriLayoutEngine {
         let before = primaryPositions(context: context, state: state)
         liveStackDrop = nil
         animateLiveColumnChange(from: before, anchoredOn: target, context: context, state: &state)
-        let shift = liveColumnRevealShift(target, context: context, state: state)
-        if abs(shift) > 0.001 {
-            state.animateToOffset(
-                state.viewOffset + shift,
-                motion: context.motion,
-                scale: displayScale(in: context.workspaceId)
-            )
-        }
+        animateLiveViewShift(
+            liveColumnRevealShift(target, context: context, state: state),
+            context: context,
+            state: &state
+        )
         return true
+    }
+
+    func releaseLivePlaceholders(of previous: LiveColumnMove) {
+        if let slot = previous.narrowedSlot, liveColumnMove?.narrowedSlot?.columnId != slot.columnId {
+            widenLiveSlot(slot, in: previous.workspaceId)
+        }
+        if let dropSpaceId = previous.dropSpaceId,
+           liveColumnMove?.dropSpaceId != dropSpaceId,
+           liveStackDrop?.dropSpaceId != dropSpaceId
+        {
+            removeLivePlaceholder(dropSpaceId, in: previous.workspaceId)
+        }
+        if liveColumnMove == nil, liveStackDrop?.homeColumnId != previous.homeColumnId {
+            removeLivePlaceholder(previous.homeColumnId, in: previous.workspaceId)
+        }
+        if liveColumnMove == nil, liveStackDrop?.windowId != previous.windowId,
+           let saved = previous.mateHeight,
+           let mate = findNode(by: saved.windowId, in: previous.workspaceId) as? NiriWindow,
+           mate.height != saved.height
+        {
+            mate.height = saved.height
+        }
+    }
+
+    func releaseLivePlaceholders(of previous: LiveColumnMove.StackDrop) {
+        if liveStackDrop?.homeColumnId != previous.homeColumnId {
+            removeLivePlaceholder(previous.homeColumnId, in: previous.workspaceId)
+        }
+        if let dropSpaceId = previous.dropSpaceId, liveStackDrop?.dropSpaceId != dropSpaceId {
+            removeLivePlaceholder(dropSpaceId, in: previous.workspaceId)
+        }
     }
 
     func isLiveStackDropPending(in workspaceId: WorkspaceDescriptor.ID) -> Bool {
@@ -305,8 +333,7 @@ extension NiriLayoutEngine {
                 return false
             }
             if target === home {
-                window.size = move.ownWindowSizing.size
-                window.height = move.ownWindowSizing.height
+                move.ownWindowSizing.apply(to: window)
             }
         } else {
             returnLiveWindowHome(window, to: home, move: move)
@@ -357,8 +384,7 @@ extension NiriLayoutEngine {
             source.cachedWidth = 0
         }
         home.insertChild(window, at: move.inStack ? move.homeSlotIndex : 0)
-        window.size = move.ownWindowSizing.size
-        window.height = move.ownWindowSizing.height
+        move.ownWindowSizing.apply(to: window)
         window.isHiddenInTabbedMode = false
         if move.inStack {
             activateWindow(window.id, in: move.workspaceId)
@@ -477,6 +503,15 @@ extension NiriLayoutEngine {
         ).roundedToPhysicalPixels(scale: displayScale(in: context.workspaceId))
     }
 
+    func animateLiveViewShift(_ shift: CGFloat, context: NiriInteractionContext, state: inout ViewportState) {
+        guard abs(shift) > 0.001 else { return }
+        state.animateToOffset(
+            state.viewOffset + shift,
+            motion: context.motion,
+            scale: displayScale(in: context.workspaceId)
+        )
+    }
+
     func animateLiveWindow(
         _ window: NiriWindow,
         from previous: CGRect,
@@ -484,9 +519,13 @@ extension NiriLayoutEngine {
         context: NiriInteractionContext
     ) {
         let displacement = CGPoint(x: previous.minX - current.minX, y: previous.minY - current.minY)
+        let heightDelta = previous.height - current.height
+        let moves = abs(displacement.x) > 0.001 || abs(displacement.y) > 0.001
+        let resizes = previous.height > 0 && abs(heightDelta) > 0.5
+        guard moves || resizes else { return }
         let config = context.motion.scaled(windowMovementAnimationConfig)
         let refreshRate = displayRefreshRate(in: context.workspaceId)
-        if abs(displacement.x) > 0.001 || abs(displacement.y) > 0.001 {
+        if moves {
             window.animateMoveFrom(
                 displacement: displacement,
                 clock: animationClock,
@@ -495,8 +534,7 @@ extension NiriLayoutEngine {
                 animated: context.motion.animationsEnabled
             )
         }
-        let heightDelta = previous.height - current.height
-        if previous.height > 0, abs(heightDelta) > 0.5 {
+        if resizes {
             window.animateHeightFrom(
                 delta: heightDelta,
                 clock: animationClock,

@@ -86,9 +86,7 @@ extension MouseEventHandler {
               let window = engine.findNode(for: entry.token, in: entry.workspaceId)
         else { return false }
 
-        if engine.isLiveStackDropPending(in: entry.workspaceId) {
-            finishLiveStackDrop(in: entry.workspaceId)
-        }
+        finishLiveStackDrop(in: entry.workspaceId)
         let began = controller.workspaceManager.withNiriViewportState(for: entry.workspaceId) { viewportState in
             engine.liveColumnMoveBegin(
                 windowId: window.id,

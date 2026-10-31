@@ -138,6 +138,11 @@ struct LiveColumnMove {
     struct WindowSizing: Equatable {
         let size: CGFloat
         let height: WeightedSize
+
+        func apply(to window: NiriWindow) {
+            window.size = size
+            window.height = height
+        }
     }
 
     struct OriginalSlot: Equatable {

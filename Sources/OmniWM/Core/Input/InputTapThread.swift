@@ -162,14 +162,7 @@ final class InputTapThread: @unchecked Sendable {
         switch type {
         case .leftMouseDown:
             let flags = event.flags
-            if MouseEventHandler.mouseMoveModifiersMatch(flags, required: snap.naturalDragModifier),
-               naturalDragCanStart(windowId: MouseEventHandler.eventWindowIdUnderPointer(event))
-            {
-                event.flags = MouseEventHandler.naturalDragPassThroughFlags(
-                    flags,
-                    naturalDragModifier: snap.naturalDragModifier
-                )
-            }
+            stripNaturalDragOption(from: event, snap: snap)
             evaluateLeftMouseDown(
                 at: location, modifiers: flags, timestamp: event.timestamp,
                 snapshot: snap, captureWindowFrames: Self.captureWindowFrames
@@ -301,20 +294,6 @@ final class InputTapThread: @unchecked Sendable {
         return suppress ? nil : event
     }
 
-    private nonisolated func naturalDragCanStart(windowId: Int?) -> Bool {
-        guard let windowId else { return false }
-        if Thread.isMainThread {
-            return MainActor.assumeIsolated {
-                MouseEventHandler._instance?.canStartNaturalDrag(windowId: windowId) ?? false
-            }
-        }
-        return DispatchQueue.main.sync {
-            MainActor.assumeIsolated {
-                MouseEventHandler._instance?.canStartNaturalDrag(windowId: windowId) ?? false
-            }
-        }
-    }
-
     private nonisolated func evaluateAuthoritativeTapOnMain(
         type: CGEventType,
         location: CGPoint,
@@ -409,5 +388,32 @@ extension InputTapThread {
             }
         }
         return nil
+    }
+}
+
+extension InputTapThread {
+    private nonisolated func stripNaturalDragOption(from event: CGEvent, snap: TapFilterSnapshot) {
+        let flags = event.flags
+        guard MouseEventHandler.mouseMoveModifiersMatch(flags, required: snap.naturalDragModifier),
+              naturalDragCanStart(windowId: MouseEventHandler.eventWindowIdUnderPointer(event))
+        else { return }
+        event.flags = MouseEventHandler.naturalDragPassThroughFlags(
+            flags,
+            naturalDragModifier: snap.naturalDragModifier
+        )
+    }
+
+    private nonisolated func naturalDragCanStart(windowId: Int?) -> Bool {
+        guard let windowId else { return false }
+        if Thread.isMainThread {
+            return MainActor.assumeIsolated {
+                MouseEventHandler._instance?.canStartNaturalDrag(windowId: windowId) ?? false
+            }
+        }
+        return DispatchQueue.main.sync {
+            MainActor.assumeIsolated {
+                MouseEventHandler._instance?.canStartNaturalDrag(windowId: windowId) ?? false
+            }
+        }
     }
 }

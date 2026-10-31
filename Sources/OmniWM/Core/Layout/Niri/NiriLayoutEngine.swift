@@ -51,37 +51,16 @@ final class NiriLayoutEngine {
     var liveColumnMove: LiveColumnMove? {
         didSet {
             liveStackProbe = nil
-            if let slot = oldValue?.narrowedSlot, liveColumnMove?.narrowedSlot?.columnId != slot.columnId {
-                widenLiveSlot(slot, in: oldValue?.workspaceId)
-            }
-            guard let previous = oldValue else { return }
-            if let dropSpaceId = previous.dropSpaceId,
-               liveColumnMove?.dropSpaceId != dropSpaceId,
-               liveStackDrop?.dropSpaceId != dropSpaceId
-            {
-                removeLivePlaceholder(dropSpaceId, in: previous.workspaceId)
-            }
-            if liveColumnMove == nil, liveStackDrop?.homeColumnId != previous.homeColumnId {
-                removeLivePlaceholder(previous.homeColumnId, in: previous.workspaceId)
-            }
-            if liveColumnMove == nil, liveStackDrop?.windowId != previous.windowId,
-               let saved = previous.mateHeight,
-               let mate = findNode(by: saved.windowId, in: previous.workspaceId) as? NiriWindow,
-               mate.height != saved.height
-            {
-                mate.height = saved.height
+            if let oldValue {
+                releaseLivePlaceholders(of: oldValue)
             }
         }
     }
 
     var liveStackDrop: LiveColumnMove.StackDrop? {
         didSet {
-            guard let previous = oldValue else { return }
-            if liveStackDrop?.homeColumnId != previous.homeColumnId {
-                removeLivePlaceholder(previous.homeColumnId, in: previous.workspaceId)
-            }
-            if let dropSpaceId = previous.dropSpaceId, liveStackDrop?.dropSpaceId != dropSpaceId {
-                removeLivePlaceholder(dropSpaceId, in: previous.workspaceId)
+            if let oldValue {
+                releaseLivePlaceholders(of: oldValue)
             }
         }
     }
