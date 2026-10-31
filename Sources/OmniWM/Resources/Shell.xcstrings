@@ -18555,6 +18555,50 @@
           }
         }
       }
+    },
+    "Another notification action is still in progress." : {
+      "extractionState" : "manual",
+      "localizations" : {
+        "en" : {
+          "stringUnit" : {
+            "state" : "translated",
+            "value" : "Another notification action is still in progress."
+          }
+        }
+      }
+    },
+    "Some notification details could not be read. Notifications can still be cleared." : {
+      "extractionState" : "manual",
+      "localizations" : {
+        "en" : {
+          "stringUnit" : {
+            "state" : "translated",
+            "value" : "Some notification details could not be read. Notifications can still be cleared."
+          }
+        }
+      }
+    },
+    "Some notification details could not be read. Some sources cannot be cleared. Clear supported notifications individually." : {
+      "extractionState" : "manual",
+      "localizations" : {
+        "en" : {
+          "stringUnit" : {
+            "state" : "translated",
+            "value" : "Some notification details could not be read. Some sources cannot be cleared. Clear supported notifications individually."
+          }
+        }
+      }
+    },
+    "Some notification sources cannot be cleared. Clear supported notifications individually." : {
+      "extractionState" : "manual",
+      "localizations" : {
+        "en" : {
+          "stringUnit" : {
+            "state" : "translated",
+            "value" : "Some notification sources cannot be cleared. Clear supported notifications individually."
+          }
+        }
+      }
     }
   },
   "version" : "1.0"
