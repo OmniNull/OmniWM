@@ -23,6 +23,11 @@ enum ShellTextStyle {
         let size = self.size(of: style).map { CGFloat($0) } ?? defaultSize
         let index = weightIndex(of: style) ?? weights.firstIndex(of: defaultWeight) ?? 3
         let filled = style & OMNI_STYLE_FILLED != 0
+        if let legacy = ShellLegacyFont(style: style),
+           let font = legacy.font(size: size, weight: CGFloat(index + 1) * 100, filled: filled)
+        {
+            return font
+        }
         if let family = ShellFontLibrary.shared.family(of: style) {
             var axes = [tag("wght"): CGFloat(index + 1) * 100, tag("opsz"): size]
             if filled { axes[tag("FILL")] = 1 }
@@ -154,6 +159,49 @@ enum ShellTextMeasurer {
             }
             return ShellTextStyle.measure(string, font: cache[style]!, style: style, width: width, lines: lines)
         }
+    }
+}
+
+private enum ShellLegacyFont: UInt32 {
+    case sans = 1
+    case symbols
+
+    private struct Face: @unchecked Sendable {
+        // Core Text font descriptors are immutable and may be shared between callers.
+        let descriptor: CTFontDescriptor
+    }
+
+    private static let descriptors = Mutex<[UInt32: Face]>([:])
+
+    init?(style: UInt32) {
+        self.init(rawValue: (style & OMNI_STYLE_FONT_MASK) >> OMNI_STYLE_FONT_SHIFT)
+    }
+
+    func font(size: CGFloat, weight: CGFloat, filled: Bool) -> CTFont? {
+        let face = Self.descriptors.withLock { cache -> Face? in
+            if let face = cache[rawValue] { return face }
+            let name = self == .sans ? "GoogleSansFlex" : "MaterialSymbolsRounded"
+            guard let file = Bundle.module.url(forResource: name, withExtension: "ttf", subdirectory: "Fonts"),
+                  let descriptor = (CTFontManagerCreateFontDescriptorsFromURL(file as CFURL) as? [CTFontDescriptor])?
+                      .first
+            else { return nil }
+            let face = Face(descriptor: descriptor)
+            cache[rawValue] = face
+            return face
+        }
+        guard let face else { return nil }
+        var axes = [ShellTextStyle.tag("wght"): weight, ShellTextStyle.tag("opsz"): size]
+        switch self {
+        case .sans: axes[ShellTextStyle.tag("ROND")] = 25
+        case .symbols: axes[ShellTextStyle.tag("FILL")] = filled ? 1 : 0
+        }
+        let family = self == .sans ? "Google Sans Flex" : "Material Symbols Rounded"
+        let varied = CTFontDescriptorCreateCopyWithAttributes(
+            face.descriptor,
+            [kCTFontVariationAttribute: axes] as CFDictionary
+        )
+        let font = CTFontCreateWithFontDescriptor(varied, size, nil)
+        return CTFontCopyFamilyName(font) as String == family ? font : nil
     }
 }
 

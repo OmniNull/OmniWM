@@ -34,7 +34,10 @@ final class ShellManipulationSceneTests: XCTestCase {
         ))
     }
 
-    func makeScene(at begin: CFTimeInterval) throws -> (ShellLayerScene, ShellOffscreenRenderer) {
+    func makeScene(
+        at begin: CFTimeInterval,
+        fill: CGColor = CGColor(gray: 1, alpha: 1)
+    ) throws -> (ShellLayerScene, ShellOffscreenRenderer) {
         let container = CALayer()
         container.isGeometryFlipped = true
         container.frame = CGRect(x: 0, y: 0, width: Self.width, height: Self.height)
@@ -49,7 +52,7 @@ final class ShellManipulationSceneTests: XCTestCase {
             .paint(
                 slot: 0,
                 ShellLayerPaint(
-                    fill: CGColor(gray: 1, alpha: 1), border: nil, borderWidth: 0, radius: 0,
+                    fill: fill, border: nil, borderWidth: 0, radius: 0,
                     opacity: 1, scale: 1, shadow: nil, shadowRadius: 0
                 ),
                 animation: nil
@@ -308,10 +311,7 @@ extension ShellManipulationSceneTests {
     func testClipOutlineDrawsTheRecipeColorAndFalseDrawsNone() throws {
         let clip = CGSize(width: 30, height: 30)
         let red = CGColor(srgbRed: 1, green: 0, blue: 0, alpha: 1)
-        let black = ShellLayerPaint(
-            fill: CGColor(gray: 0, alpha: 1), border: nil, borderWidth: 0, radius: 0, opacity: 1, scale: 1,
-            shadow: nil, shadowRadius: 0
-        )
+        let black = CGColor(gray: 0, alpha: 1)
         for (outline, expected) in [
             (ShellManipulationClip.standardOutline, [178, 178, 178]),
             (red, [0, 0, 255]),
@@ -320,8 +320,7 @@ extension ShellManipulationSceneTests {
             as [(CGColor?, [Int])]
         {
             let begin = CACurrentMediaTime()
-            let (scene, renderer) = try makeScene(at: begin)
-            submit([.paint(slot: 0, black, animation: nil)], to: scene)
+            let (scene, renderer) = try makeScene(at: begin, fill: black)
             manipulate(
                 scene,
                 .still(translation: .zero, scale: 1, clip: ShellManipulationClip(size: clip, outline: outline))

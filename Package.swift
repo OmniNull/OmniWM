@@ -133,7 +133,8 @@ let package = Package(
             resources: [
                 .process("Resources"),
                 .copy("Core/IssueReporter/Prompts"),
-                .copy("ShellDefault")
+                .copy("ShellDefault"),
+                .copy("Fonts")
             ],
             swiftSettings: [
                 .swiftLanguageMode(.v6),

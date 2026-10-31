@@ -606,6 +606,53 @@ final class ShellScriptHostTests: XCTestCase {
         XCTAssertEqual(style >> OMNI_STYLE_SIZE_SHIFT, 0)
     }
 
+    func testLegacyCelestialFontAliasesRenderWithoutStyleFontFiles() throws {
+        func customFamilies() -> [String] {
+            (OMNI_STYLE_FONT_CUSTOM ... (OMNI_STYLE_FONT_MASK >> OMNI_STYLE_FONT_SHIFT)).compactMap {
+                ShellFontLibrary.shared.family(of: $0 << OMNI_STYLE_FONT_SHIFT)
+            }
+        }
+        let familiesBefore = customFamilies()
+        let script = try Script("""
+        function render(ctx)
+            return ui.row{
+                ui.text{ text = "Hi", font = "sans", weight = "bold", size = 24 },
+                ui.text{ text = "home", font = "symbols", size = 18, filled = true },
+                ui.text{ text = "home", font = "symbols", size = 18 },
+            }
+        end
+        """)
+        XCTAssertEqual(script.render().status, OMNI_OK, script.message)
+        let nodes = Array(decode(script.output).dropFirst())
+        XCTAssertEqual(nodes.count, 3)
+        let fonts = nodes.map { ShellTextStyle.font(for: $0.content.style) }
+        XCTAssertEqual(fonts.map { CTFontCopyFamilyName($0) as String }, [
+            "Google Sans Flex", "Material Symbols Rounded", "Material Symbols Rounded"
+        ])
+        XCTAssertEqual(ShellFontFixture.variation(fonts[0])[ShellTextStyle.tag("ROND")], 25)
+        XCTAssertEqual(ShellFontFixture.variation(fonts[0])[ShellTextStyle.tag("wght")], 700)
+        XCTAssertEqual(ShellFontFixture.variation(fonts[0])[ShellTextStyle.tag("opsz")], 24)
+        let bundled = try XCTUnwrap(ShellDefaults.bundled).deletingLastPathComponent().appendingPathComponent("Fonts")
+        for (font, name) in zip(
+            fonts,
+            ["GoogleSansFlex.ttf", "MaterialSymbolsRounded.ttf", "MaterialSymbolsRounded.ttf"]
+        ) {
+            XCTAssertEqual(
+                ShellFontFixture.source(font),
+                bundled.appendingPathComponent(name).resolvingSymlinksInPath().standardizedFileURL.path
+            )
+        }
+        for font in fonts.dropFirst() {
+            let line = CTLineCreateWithAttributedString(NSAttributedString(
+                string: "home", attributes: [NSAttributedString.Key(kCTFontAttributeName as String): font]
+            ))
+            XCTAssertEqual(CTLineGetGlyphCount(line), 1)
+        }
+        XCTAssertEqual(ShellFontFixture.variation(fonts[1])[ShellTextStyle.tag("FILL")], 1)
+        XCTAssertEqual(ShellFontFixture.variation(fonts[2])[ShellTextStyle.tag("FILL")] ?? 0, 0)
+        XCTAssertEqual(customFamilies(), familiesBefore)
+    }
+
     func testCelestialRendersItsOwnFontFamilies() throws {
         let fonts = ShellFontLibrary.shared
             .fonts(in: [try ShellStyleFixture.source("celestial").appendingPathComponent("fonts")])
