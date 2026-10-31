@@ -70,8 +70,10 @@ extension MouseEventHandler {
         return true
     }
 
-    func traceLiveDragDecline(_ reason: String) {
-        guard MouseTrace.shared.isActive, reason != state.liveDragTracedDecline else { return }
+    func traceLiveDragDecline(_ reason: @autoclosure () -> String) {
+        guard MouseTrace.shared.isActive else { return }
+        let reason = reason()
+        guard reason != state.liveDragTracedDecline else { return }
         state.liveDragTracedDecline = reason
         MouseTrace.record("live-drag declined \(reason)")
     }

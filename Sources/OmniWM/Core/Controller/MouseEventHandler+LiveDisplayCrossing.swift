@@ -9,7 +9,8 @@ extension MouseEventHandler {
         guard let controller,
               let engine = controller.niriEngine,
               let move = engine.liveColumnMove,
-              let targetWorkspaceId = liveCarryTarget(at: location, leaving: sourceWorkspaceId),
+              let targetWorkspaceId = liveStripWorkspace(at: location),
+              targetWorkspaceId != sourceWorkspaceId,
               let source = liveColumnContext(for: sourceWorkspaceId),
               let target = liveColumnContext(for: targetWorkspaceId),
               engine.liveColumnMoveCanCarry(from: sourceWorkspaceId, to: target)
@@ -134,14 +135,6 @@ extension MouseEventHandler {
             }
             return isLiveStrip(other)
         }
-    }
-
-    private func liveCarryTarget(
-        at location: CGPoint,
-        leaving sourceWorkspaceId: WorkspaceDescriptor.ID
-    ) -> WorkspaceDescriptor.ID? {
-        guard let workspaceId = liveStripWorkspace(at: location), workspaceId != sourceWorkspaceId else { return nil }
-        return workspaceId
     }
 
     private func liveStripWorkspace(at location: CGPoint) -> WorkspaceDescriptor.ID? {
