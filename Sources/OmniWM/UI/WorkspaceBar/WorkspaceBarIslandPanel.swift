@@ -10,6 +10,7 @@ final class WorkspaceBarIslandPanel {
     let hostingView: NSHostingView<WorkspaceBarView>
     var slice: WorkspaceBarIslandSlice
     var lastAppliedFrame: NSRect?
+    private var lastObservedFrame: NSRect?
 
     init(panel: WorkspaceBarPanel, rootView: WorkspaceBarView, resolved: ResolvedBarSettings, monitor: Monitor) {
         let hostingView = NSHostingView(rootView: rootView)
@@ -46,8 +47,9 @@ final class WorkspaceBarIslandPanel {
         _ frame: NSRect,
         using frameApplier: (WorkspaceBarPanel, NSRect) -> Void
     ) {
-        guard lastAppliedFrame != frame else { return }
+        guard lastAppliedFrame != frame || lastObservedFrame != panel.frame else { return }
         frameApplier(panel, frame)
         lastAppliedFrame = frame
+        lastObservedFrame = panel.frame
     }
 }
