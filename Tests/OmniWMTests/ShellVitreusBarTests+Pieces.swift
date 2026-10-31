@@ -329,26 +329,26 @@ extension ShellVitreusBarTests {
         let pill = try VitreusFixture.frame(widget, key: "shell")
         XCTAssertEqual(pill.width, (450 + 90 + 12) * unit, accuracy: 0.001)
         let center = pill.maxX - 16 * unit - (12 + 15 + 13 + 36) * unit - 45 * unit
-        let left = rounded(center - 45 * unit)
+        let left = center - 45 * unit
+        let step = 24 * unit
         let top = rounded(pill.midY - 9 * unit)
         for (index, key) in ["microphone", "camera"].enumerated() {
             let light = try VitreusFixture.frame(widget, key: "tray-" + key)
-            Self.assertRect(light, CGRect(x: left + Double(index) * 32, y: top, width: 24, height: 24), key)
+            Self.assertRect(light, CGRect(x: rounded(left + Double(index) * step), y: top, width: 24, height: 24), key)
         }
         let disc = try piecePaint(widget, "tray-microphone-disc")
         XCTAssertEqual([disc.fill.red, disc.fill.green, disc.fill.blue].map { ($0 * 255).rounded() }, [245, 158, 11])
         XCTAssertEqual(Double(disc.fill.alpha), 0x45 / 255, accuracy: 0.002)
         for (index, item) in items.enumerated() {
             let zone = try VitreusFixture.frame(widget, key: "tray-" + item.id)
-            Self.assertRect(zone, CGRect(
-                x: left + Double(index + 2) * 32 - 3 * unit, y: top - 6 * unit, width: 24 * unit, height: 30 * unit
-            ), item.id)
+            let x = rounded(left + Double(index + 2) * step) - 3 * unit
+            Self.assertRect(zone, CGRect(x: x, y: top - 6 * unit, width: 24 * unit, height: 30 * unit), item.id)
             XCTAssertEqual(
                 widget.surface.command(at: CGPoint(x: zone.midX, y: zone.midY)), "hidden-bar activate \(item.id)"
             )
         }
         Self.assertRect(try VitreusFixture.frame(widget, key: "tray-sound-image"), CGRect(
-            x: left + 3 * 32, y: top + 6, width: 24, height: 12
+            x: rounded(left + 3 * step), y: top + 6, width: 24, height: 12
         ))
         try pieceAssertHalo(widget, ["tray-microphone", "tray-camera", "tray-wifi-icon", "tray-sound-icon"])
         XCTAssertEqual(try piecePaint(widget, "tray-wifi-plate").opacity, 0)

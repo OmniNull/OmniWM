@@ -44,31 +44,95 @@ local function order(list)
     return table.freeze(names)
 end
 
-local function place(k, cx: number, top: number, names, widths, givenWidth: number?, givenHeight: number?)
+local function place(k, cx: number, top: number, names, widths, givenWidth: number?, givenHeight: number?, band,
+    tail: number?)
     local bu = k.bu
     local gap = 12 * bu
-    local grow = 0
-    for _, name in names do
+    local split = table.find(names, "title") or #names + 1
+    local grow, pre, post, used, count = 0, 0, 0, 0, 0
+    for index, name in names do
+        local width = widths[name].w
         grow += widths[name].grow
+        if width > 0 and index < split then pre += width + gap end
+        if width > 0 and index > split then post, used, count = post + width + gap, used + width, count + 1 end
     end
     local w = givenWidth or 450 * bu + grow
+    local stretch = if names[split] then math.max(0, w - 32 * bu - pre - post) else 0
+    local filled = band ~= nil and not givenWidth
+    if tail then post, used, count = post + tail + gap, used + tail, count + 1 end
+    if filled then
+        cx = (band.x0 + band.x1) / 2
+        w = band.x1 - band.x0 + 32 * bu + 2 * math.max(pre + stretch, post - gap)
+    end
     local left, right = cx - w / 2 + 16 * bu, cx + w / 2 - 16 * bu
-    local split = table.find(names, "title") or #names + 1
     local slots = {}
-    local pre, post = 0, 0
+    local x = left
     for index = 1, split - 1 do
         local width = widths[names[index]].w
-        slots[names[index]] = table.freeze({ x = left + pre, w = width, cx = left + pre + width / 2 })
-        pre += if width > 0 then width + gap else 0
+        slots[names[index]] = table.freeze({ x = x, w = width, cx = x + width / 2 })
+        if width > 0 then x += width + gap end
     end
-    for index = #names, split + 1, -1 do
-        local width = widths[names[index]].w
-        slots[names[index]] = table.freeze({ x = right - post - width, w = width, cx = right - post - width / 2 })
-        post += if width > 0 then width + gap else 0
+    local limit, full
+    if filled then
+        local spacing = if count > 1 then (right - band.x1 - used) / (count - 1) else 0
+        x = if count > 1 then band.x1 else right - used
+        for index = split + 1, #names do
+            local width = widths[names[index]].w
+            slots[names[index]] = table.freeze({ x = x, w = width, cx = x + width / 2 })
+            if width > 0 then x += width + spacing end
+        end
+        if tail then slots.opener = table.freeze({ x = x, w = tail, cx = x + tail / 2 }) end
+    else
+        x = right
+        if tail then
+            slots.opener = table.freeze({ x = x - tail, w = tail, cx = x - tail / 2 })
+            x -= tail + gap
+        end
+        local index = #names
+        while index > split do
+            local width = widths[names[index]].w
+            if band and width > 0 and x - width < band.x1 then break end
+            slots[names[index]] = table.freeze({ x = x - width, w = width, cx = x - width / 2 })
+            if width > 0 then x -= width + gap end
+            index -= 1
+        end
+        if index > split then
+            full, limit = true, band.x0
+            local room = limit - left - pre - (if names[split] then title.least * bu + gap else 0)
+            for spill = split + 1, index do
+                local width = widths[names[spill]].w
+                if names[spill] ~= "tray" and width > 0 then room -= width + gap end
+            end
+            for spill = index, split + 1, -1 do
+                local name, width = names[spill], widths[names[spill]].w
+                if name == "tray" then
+                    local count = widths[name].cells or 0
+                    local inner = if spill == index then math.min(count, tray.capacity(x - band.x1, bu)) else 0
+                    local outer = math.min(count - inner, tray.capacity(room, bu))
+                    local size = tray.span(inner, bu)
+                    slots[name] = table.freeze({ x = band.x1, w = size, cx = band.x1 + size / 2, parts = table.freeze({
+                        table.freeze({ x = limit - tray.span(outer, bu), first = 1, count = outer }),
+                        table.freeze({ x = band.x1, first = outer + 1, count = inner }),
+                    }) })
+                    if outer > 0 then limit -= tray.span(outer, bu) + gap end
+                else
+                    slots[name] = table.freeze({ x = limit - width, w = width, cx = limit - width / 2 })
+                    if width > 0 then limit -= width + gap end
+                end
+            end
+        end
     end
     if names[split] then
-        local width = math.max(0, right - post - left - pre)
-        slots.title = table.freeze({ x = left + pre, w = width, cx = left + pre + width / 2 })
+        local from, to = left + pre, right - post
+        if full then
+            to = limit
+        elseif band and givenWidth then
+            if band.x0 - from >= title.least * bu then to = band.x0 else from = band.x1 end
+        elseif band then
+            to = band.x0
+        end
+        local width = math.max(0, to - from)
+        slots.title = table.freeze({ x = from, w = width, cx = from + width / 2 })
     end
     return table.freeze({
         x = cx - w / 2, y = top, w = w, h = givenHeight or 40 * bu, cx = cx,
@@ -77,11 +141,15 @@ local function place(k, cx: number, top: number, names, widths, givenWidth: numb
     })
 end
 
-local function islandPill(k, island, style, names, widths, opener)
-    local top = units.edge + notches.below(island)
-    if not style.fullWidth then return place(k, island.size.w / 2, top, names, widths) end
-    local right = opener.x - 16 * k.cu - 12 * k.bu
-    return place(k, (units.edge + right) / 2, top, names, widths, right - units.edge)
+local function islandPill(k, island, style, names, widths)
+    local gap, notch, tail = 12 * k.bu, island.notch, 30 * k.bu
+    local band = if notch then { x0 = notch.x - gap, x1 = notch.x + notch.w + gap } else nil
+    local right = island.size.w - units.edge
+    if not style.fullWidth then
+        local pill = place(k, island.size.w / 2, units.edge, names, widths, nil, nil, band, if band then tail else nil)
+        if not band or pill.w <= right - units.edge then return pill end
+    end
+    return place(k, (units.edge + right) / 2, units.edge, names, widths, right - units.edge, nil, band, tail)
 end
 
 local function geometry(ctx, island)
@@ -99,9 +167,9 @@ local function geometry(ctx, island)
     local widths = {}
     for _, name in names do
         local owner = owners[name]
-        local w, grow = 0, 0
-        if owner.width then w, grow = owner.width(ctx, k, name) end
-        widths[name] = { w = w, grow = grow or 0, extent = owner.extent and owner.extent(ctx, k) }
+        local w, grow, cells = 0, 0, nil
+        if owner.width then w, grow, cells = owner.width(ctx, k, name) end
+        widths[name] = { w = w, grow = grow or 0, cells = cells, extent = owner.extent and owner.extent(ctx, k) }
     end
     local islandLayout = layout == "island"
     local metrics = if (layout == "left" or layout == "right") and table.find(names, "title")
@@ -109,6 +177,10 @@ local function geometry(ctx, island)
     local frameGeometry = frame.geometry(ctx, k, island.size, names, widths, place, metrics)
     local opener = { x = island.size.w - 41 * k.cu, y = units.edge + 20 * k.u }
     local usable = island.usableRect
+    local pill = if islandLayout and style then islandPill(k, island, style, names, widths)
+        elseif frameGeometry then frameGeometry.pill else nil
+    local docked = islandLayout and pill and pill.slots.opener
+    if docked then opener = { x = docked.cx, y = pill.cy, scale = docked.w / (32 * k.cu) } end
     return table.freeze({
         island = island,
         calm = calm,
@@ -117,8 +189,7 @@ local function geometry(ctx, island)
         size = island.size,
         pieces = table.freeze(names),
         frame = frameGeometry,
-        pill = if islandLayout and style then islandPill(k, island, style, names, widths, opener)
-            elseif frameGeometry then frameGeometry.pill else nil,
+        pill = pill,
         opener = if islandLayout then table.freeze(opener) else nil,
         room = if frameGeometry then frameGeometry.inner else table.freeze({ x = usable.x, y = usable.y,
             w = math.min(island.size.w, usable.x + usable.w) - usable.x, h = usable.h }),
@@ -173,6 +244,13 @@ local function render(ctx, g)
                 key = "shell", align = "topLeading", dx = pill.x, dy = pill.y, w = pill.w, h = pill.h,
                 radius = pill.radius, animate = calm,
             })
+            local notch = g.island.notch
+            if notch then
+                body[#body + 1] = ui.shape({
+                    key = "notch-melt", align = "topLeading", dx = notch.x, dy = -pill.radius, w = notch.w,
+                    h = notch.h + pill.radius, radius = pill.radius,
+                })
+            end
         end
         local split = g.frame and g.frame.pieces
         local groups = { [pill] = barContent }

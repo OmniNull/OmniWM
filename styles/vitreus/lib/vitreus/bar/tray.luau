@@ -30,10 +30,18 @@ local function entries(ctx, name: string?)
     return list
 end
 
-local function width(ctx, k, name: string?): (number, number)
+local function span(count: number, bu: number): number
+    return math.max(0, count * 24 - 6) * bu
+end
+
+local function capacity(room: number, bu: number): number
+    return math.max(0, math.floor((room / bu + 6) / 24))
+end
+
+local function width(ctx, k, name: string?): (number, number, number)
     local count = #entries(ctx, name)
-    local w = math.max(0, count * 24 - 6) * k.bu
-    return w, if count > 0 then w + 12 * k.bu else 0
+    local w = span(count, k.bu)
+    return w, if count > 0 then w + 12 * k.bu else 0, count
 end
 
 local function none()
@@ -116,18 +124,23 @@ local function content(ctx, g, slot, name: string?)
     if #list == 0 then return nil end
     local bu = g.k.bu
     local cell = round(18 * bu)
-    local step = cell + round(6 * bu)
+    local step = 24 * bu
     local vertical = g.frame and g.frame.vertical
-    local x = round(if vertical then g.pill.cx - 9 * bu else slot.cx - (#list * 24 - 6) * bu / 2)
-    local y = round(if vertical then slot.y else g.pill.cy - 9 * bu)
+    local y = if vertical then slot.y else g.pill.cy - 9 * bu
+    local parts = slot.parts or { {
+        x = if vertical then g.pill.cx - 9 * bu else slot.cx - span(#list, bu) / 2, first = 1, count = #list,
+    } }
     local items = {}
-    for index, entry in list do
-        local left = x + (if vertical then 0 else (index - 1) * step)
-        local top = y + (if vertical then (index - 1) * step else 0)
-        items[index] = if entry.light then light(entry.light, bu, cell, left, top)
-            else icon(ctx, entry.item, bu, cell, left, top)
+    for _, part in parts do
+        for offset = 0, part.count - 1 do
+            local entry = list[part.first + offset]
+            local left = round(part.x + (if vertical then 0 else offset * step))
+            local top = round(y + (if vertical then offset * step else 0))
+            items[#items + 1] = if entry.light then light(entry.light, bu, cell, left, top)
+                else icon(ctx, entry.item, bu, cell, left, top)
+        end
     end
     return items
 end
 
-return table.freeze({ width = width, shapes = none, content = content })
+return table.freeze({ width = width, shapes = none, content = content, span = span, capacity = capacity })

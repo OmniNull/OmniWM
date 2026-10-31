@@ -57,7 +57,7 @@ extension ShellVitreusBarTests {
         end
         """)
         let measured = try XCTUnwrap(widths.first).split(separator: ";").flatMap { Self.numbers(String($0)) }
-        expect(measured, [16.2, 0, 20.25, 0, 17.55, 0, 172.8, 0, 0, 0, 0, 0], "piece widths")
+        expect(measured, [16.2, 0, 20.25, 0, 17.55, 0, 172.8, 0, 0, 0, 0, 0, 0], "piece widths")
     }
 
     func testPencilIconsKeepTheVitreusStrokesAndJitterInDegrees() throws {
