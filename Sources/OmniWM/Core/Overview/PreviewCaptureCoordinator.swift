@@ -43,9 +43,11 @@ final class PreviewCaptureCoordinator {
 
     typealias WindowDiscovery = @MainActor () async throws -> [SCWindow]
 
+    private static let discoveryTimeout: Duration = .seconds(3)
+
     private let ownedWindowRegistry: OwnedWindowRegistry
     private let discoverWindows: WindowDiscovery
-    private let discoveryTimeout: Duration
+    private let sleep: @MainActor (Duration) async throws -> Void
     private let memoryPressure: any DispatchSourceMemoryPressure
     private var captures: [WeakCapture] = []
     private var windowsByToken: [WindowToken: SCWindow] = [:]
@@ -54,13 +56,13 @@ final class PreviewCaptureCoordinator {
 
     init(
         ownedWindowRegistry: OwnedWindowRegistry = .shared,
-        discoveryTimeout: Duration = .seconds(3),
+        sleep: @escaping @MainActor (Duration) async throws -> Void = { try await Task.sleep(for: $0) },
         discoverWindows: @escaping WindowDiscovery = {
             try await SCShareableContent.excludingDesktopWindows(true, onScreenWindowsOnly: false).windows
         }
     ) {
         self.ownedWindowRegistry = ownedWindowRegistry
-        self.discoveryTimeout = discoveryTimeout
+        self.sleep = sleep
         self.discoverWindows = discoverWindows
         memoryPressure = DispatchSource.makeMemoryPressureSource(eventMask: [.warning, .critical], queue: .main)
         memoryPressure.setEventHandler { [weak self] in
@@ -118,8 +120,12 @@ final class PreviewCaptureCoordinator {
         let race = DiscoveryRace()
         await withCheckedContinuation { continuation in
             race.continuation = continuation
-            let timeout = Task { @MainActor [discoveryTimeout] in
-                try? await Task.sleep(for: discoveryTimeout)
+            let timeout = Task { @MainActor [sleep] in
+                do {
+                    try await sleep(Self.discoveryTimeout)
+                } catch {
+                    return
+                }
                 race.finish(nil)
             }
             Task { @MainActor [discoverWindows] in

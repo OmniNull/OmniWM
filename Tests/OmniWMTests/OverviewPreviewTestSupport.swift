@@ -61,6 +61,36 @@ final class OverviewPreviewTestStream: OverviewPreviewStreamControl {
 }
 
 @MainActor
+final class OverviewPreviewManualSleeper {
+    private var permits = 0
+    private var waiters: [CheckedContinuation<Void, Never>] = []
+
+    func sleep(for _: Duration) async throws {
+        if permits > 0 {
+            permits -= 1
+        } else {
+            await withCheckedContinuation { waiters.append($0) }
+        }
+        try Task.checkCancellation()
+    }
+
+    func resumeNext() {
+        if waiters.isEmpty {
+            permits += 1
+        } else {
+            waiters.removeFirst().resume()
+        }
+    }
+
+    func resumeAll() {
+        for waiter in waiters {
+            waiter.resume()
+        }
+        waiters.removeAll()
+    }
+}
+
+@MainActor
 final class OverviewPreviewTestDriver {
     let coordinator = PreviewCaptureCoordinator(ownedWindowRegistry: OwnedWindowRegistry())
     private(set) var streams: [OverviewPreviewTestStream] = []
@@ -69,7 +99,6 @@ final class OverviewPreviewTestDriver {
     private var stoppedCount = 0
     private var stopWaiters: [(Int, XCTestExpectation)] = []
     private var isFinished = false
-    var onStreamStart: (@MainActor (OverviewPreviewTestStream) -> Void)?
 
     func makeCapture(
         consumer: OverviewFrameTrace.PreviewConsumer = .overview,
@@ -77,7 +106,7 @@ final class OverviewPreviewTestDriver {
         hasCaptureAccess: @escaping @MainActor () -> Bool = { true },
         adoptsProvisionalPreviews: Bool = true,
         maximumRetainedBytes: Int = 128 * 1_024 * 1_024,
-        startTimeout: Duration = .seconds(3)
+        sleep: @escaping @MainActor (Duration) async throws -> Void = { try await Task.sleep(for: $0) }
     ) -> OverviewThumbnailCapture {
         OverviewThumbnailCapture(
             coordinator: coordinator,
@@ -86,7 +115,7 @@ final class OverviewPreviewTestDriver {
             hasCaptureAccess: hasCaptureAccess,
             adoptsProvisionalPreviews: adoptsProvisionalPreviews,
             maximumRetainedBytes: maximumRetainedBytes,
-            startTimeout: startTimeout,
+            sleep: sleep,
             streamFactory: { [self] request, output in
                 guard !isFinished else { throw CancellationError() }
                 let stream = OverviewPreviewTestStream(request: request, output: output, onStart: { [self] in
@@ -94,9 +123,6 @@ final class OverviewPreviewTestDriver {
                     let ready = startWaiters.filter { $0.0 <= startedCount }
                     startWaiters.removeAll { $0.0 <= startedCount }
                     for (_, waiter) in ready { waiter.fulfill() }
-                    if let started = streams.last(where: { $0.request.handle === request.handle }) {
-                        onStreamStart?(started)
-                    }
                 }, onStop: { [self] in
                     stoppedCount += 1
                     let ready = stopWaiters.filter { $0.0 <= stoppedCount }
