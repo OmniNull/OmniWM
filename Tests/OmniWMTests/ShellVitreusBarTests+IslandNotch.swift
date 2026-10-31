@@ -54,6 +54,9 @@ private struct PlacedRow {
 
 private let accuracy = 1e-6
 private let inked: Set<ElementKind> = [.label, .symbol, .image, .bitmap, .path, .shape, .progress, .shader, .slider]
+private let defaultWorkspaces = 3
+private let splitTray = 18
+private let cappedTray = 60
 
 @MainActor
 extension ShellVitreusBarTests {
@@ -71,7 +74,7 @@ extension ShellVitreusBarTests {
 
     private func notchWidget(
         _ shell: URL, _ run: NotchRun, on monitor: Monitor, tray: [ShellHiddenBarItem] = [], pieces: [String]? = nil,
-        workspaces: Int = 3
+        workspaces: Int = defaultWorkspaces
     ) throws -> ShellRenderedWidget {
         let widget = try ShellRenderedWidget(
             source: VitreusFixture.source(shell), scale: 2, resources: VitreusFixture.resources(shell)
@@ -188,18 +191,22 @@ extension ShellVitreusBarTests {
         }
     }
 
-    private static let pieceGroups: [[String]] = [
-        ["bar-apple"], ["bar-app"], ["1", "2", "3"].map { "workspace-mark-" + $0 },
-        ["title-app", "title-text", "title-previous", "title-play", "title-next"],
-        ["bar-search"], ["bar-omniwm"], ["bar-controls"], ["bar-clock"], ["desk-opener"]
-    ]
+    private static func pieceGroups(workspaces: Int) -> [[String]] {
+        [
+            ["bar-apple"], ["bar-app"], (1 ... workspaces).map { "workspace-mark-\($0)" },
+            ["title-app", "title-text", "title-previous", "title-play", "title-next"],
+            ["bar-search"], ["bar-omniwm"], ["bar-controls"], ["bar-clock"], ["desk-opener"]
+        ]
+    }
 
     private func frames(_ widget: ShellRenderedWidget, _ keys: [String]) throws -> [CGRect] {
         try keys.filter { Self.has(widget, $0) }.map { try VitreusFixture.frame(widget, key: $0) }
     }
 
-    private func assertPiecesApart(_ widget: ShellRenderedWidget, tray: [CGRect], _ label: String) throws {
-        let groups = try Self.pieceGroups.map { try frames(widget, $0) }
+    private func assertPiecesApart(
+        _ widget: ShellRenderedWidget, tray: [CGRect], workspaces: Int = defaultWorkspaces, _ label: String
+    ) throws {
+        let groups = try Self.pieceGroups(workspaces: workspaces).map { try frames(widget, $0) }
         for (index, group) in groups.enumerated() {
             for rect in group {
                 for other in groups.dropFirst(index + 1).joined() + tray {
@@ -229,8 +236,6 @@ extension ShellVitreusBarTests {
     func testAFullTrayStaysOnScreenAndOutOfTheNotchInBothWidths() throws {
         let shell = try shell()
         let notched = Self.fourteenInch()
-        let splitTray = 18
-        let cappedTray = 60
         let reordered = ["apple", "app", "workspaces", "title", "search", "omniwm", "tray", "controls", "clock"]
         let cases = [splitTray, cappedTray].flatMap { count in NotchRun.all.map { (count, $0, [String]?.none) } }
             + NotchRun.all.filter(\.media).map { (cappedTray, $0, Optional(reordered)) }
@@ -265,29 +270,45 @@ extension ShellVitreusBarTests {
             ["apple", "app", "workspaces", "tray", "search", "omniwm", "controls", "clock", "title"],
             ["apple", "app", "workspaces", "tray", "search", "omniwm", "controls", "clock"]
         ]
-        let tray = (0 ..< 18).map {
-            ShellHiddenBarItem(id: "prefix-\($0)", name: "Item \($0)", image: nil, width: 22, height: 22)
+        let cases = [splitTray, cappedTray].flatMap { count in
+            orders.flatMap { pieces in NotchRun.all.map { (count, pieces, $0) } }
         }
-        for (pieces, run) in orders.flatMap({ pieces in NotchRun.all.map { (pieces, $0) } }) {
+        for (trayItems, pieces, run) in cases {
+            let label = "\(trayItems) tray items, \(run.label), pieces \(pieces)"
+            let tray = (0 ..< trayItems).map {
+                ShellHiddenBarItem(id: "prefix-\($0)", name: "Item \($0)", image: nil, width: 22, height: 22)
+            }
             let widget = try notchWidget(shell, run, on: monitor, tray: tray, pieces: pieces)
-            try assertOnScreenBesideTheNotch(widget, on: monitor, run.label)
+            try assertOnScreenBesideTheNotch(widget, on: monitor, label)
             let shown = try frames(widget, tray.map { "tray-" + $0.id })
-            XCTAssertEqual(shown.count, tray.count, run.label)
-            try assertPiecesApart(widget, tray: shown, run.label)
+            if trayItems == splitTray {
+                XCTAssertEqual(shown.count, tray.count, label)
+            } else {
+                XCTAssertFalse(shown.isEmpty, label)
+                XCTAssertLessThan(shown.count, tray.count, label)
+            }
+            try assertPiecesApart(widget, tray: shown, label)
+            XCTAssertTrue(Self.has(widget, "workspace-pill-shape"), label)
+            for id in 1 ... defaultWorkspaces {
+                let frame = try VitreusFixture.frame(widget, key: "workspace-hit-\(id)")
+                XCTAssertEqual(
+                    widget.surface.command(at: CGPoint(x: frame.midX, y: frame.midY)), "switch-workspace \(id)", label
+                )
+            }
             if run.fullWidth, pieces.contains("title") {
-                XCTAssertGreaterThan(try VitreusFixture.frame(widget, key: "title-text").width, 0, run.label)
+                XCTAssertGreaterThan(try VitreusFixture.frame(widget, key: "title-text").width, 0, label)
                 if run.media {
                     for key in ["title-previous", "title-play", "title-next"] {
-                        XCTAssertTrue(Self.has(widget, key), "\(run.label) \(key)")
+                        XCTAssertTrue(Self.has(widget, key), "\(label) \(key)")
                     }
                 }
             }
-            for item in tray {
+            for item in tray where Self.has(widget, "tray-" + item.id) {
                 let frame = try VitreusFixture.frame(widget, key: "tray-" + item.id)
                 XCTAssertEqual(
                     widget.surface.command(at: CGPoint(x: frame.midX, y: frame.midY)),
                     "hidden-bar activate " + item.id,
-                    run.label
+                    label
                 )
             }
         }
@@ -296,11 +317,15 @@ extension ShellVitreusBarTests {
     func testCrowdedWorkspacePrefixStaysBesideTheNotch() throws {
         let shell = try shell()
         let monitor = Self.fourteenInch()
+        let workspaces = 20
         for run in NotchRun.all {
-            let widget = try notchWidget(shell, run, on: monitor, workspaces: 20)
+            let widget = try notchWidget(shell, run, on: monitor, workspaces: workspaces)
             try assertOnScreenBesideTheNotch(widget, on: monitor, run.label)
-            XCTAssertEqual(try frames(widget, (1 ... 20).map { "workspace-square-\($0)" }).count, 20, run.label)
-            for id in 1 ... 20 {
+            XCTAssertEqual(
+                try frames(widget, (1 ... workspaces).map { "workspace-square-\($0)" }).count, workspaces, run.label
+            )
+            try assertPiecesApart(widget, tray: [], workspaces: workspaces, run.label)
+            for id in 1 ... workspaces {
                 let frame = try VitreusFixture.frame(widget, key: "workspace-hit-\(id)")
                 XCTAssertEqual(
                     widget.surface.command(at: CGPoint(x: frame.midX, y: frame.midY)),

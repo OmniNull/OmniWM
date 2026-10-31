@@ -67,7 +67,9 @@ local function prefix(k, names, widths, split, slots, ranges)
         local reserve = 0
         for next = index + 1, split - 1 do
             local later = widths[names[next]]
-            if later.w > 0 then reserve += (if later.flow then later.flow[1].w else later.w) + gap end
+            if later.w > 0 then
+                reserve += (if names[next] == "tray" and later.flow then later.flow[1].w else later.w) + gap
+            end
         end
         local from = x
         if cells then
@@ -166,9 +168,9 @@ local function place(k, cx: number, top: number, names, widths, givenWidth: numb
     end
     local flowFrom, flowTo
     if band and givenWidth and pre > (limit or band.x0) - left then
-        local rightFrom, rightTo = band.x1, right
-        for index = split + 1, #names + 1 do
-            local slot = slots[if index > #names then "opener" else names[index]]
+        local rightFrom, rightTo = band.x1, if slots.opener then slots.opener.x - gap else right
+        for index = split + 1, #names do
+            local slot = slots[names[index]]
             if slot and slot.parts then
                 for _, part in slot.parts do
                     if part.count > 0 and part.x >= band.x1 then
