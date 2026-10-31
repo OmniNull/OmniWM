@@ -6,7 +6,7 @@ local kit = require("./kit")
 local units = require("./units")
 local cards = require("./cards")
 
-local order = table.freeze({ "desk-pad", "desk-shelf", "desk-clip", "desk-focus", "desk-term", "desk-ask" })
+local order = table.freeze({ "desk-pad", "desk-shelf", "desk-clip", "desk-focus" })
 local rank = {}
 for index, widget in order do
     rank[widget] = index
