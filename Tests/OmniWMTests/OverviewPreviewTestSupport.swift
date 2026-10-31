@@ -61,6 +61,36 @@ final class OverviewPreviewTestStream: OverviewPreviewStreamControl {
 }
 
 @MainActor
+final class OverviewPreviewManualSleeper {
+    private var permits = 0
+    private var waiters: [CheckedContinuation<Void, Never>] = []
+
+    func sleep(for _: Duration) async throws {
+        if permits > 0 {
+            permits -= 1
+        } else {
+            await withCheckedContinuation { waiters.append($0) }
+        }
+        try Task.checkCancellation()
+    }
+
+    func resumeNext() {
+        if waiters.isEmpty {
+            permits += 1
+        } else {
+            waiters.removeFirst().resume()
+        }
+    }
+
+    func resumeAll() {
+        for waiter in waiters {
+            waiter.resume()
+        }
+        waiters.removeAll()
+    }
+}
+
+@MainActor
 final class OverviewPreviewTestDriver {
     let coordinator = PreviewCaptureCoordinator(ownedWindowRegistry: OwnedWindowRegistry())
     private(set) var streams: [OverviewPreviewTestStream] = []
@@ -75,7 +105,8 @@ final class OverviewPreviewTestDriver {
         traceRecorder: OverviewFrameTrace.Recorder = OverviewFrameTrace.shared,
         hasCaptureAccess: @escaping @MainActor () -> Bool = { true },
         adoptsProvisionalPreviews: Bool = true,
-        maximumRetainedBytes: Int = 128 * 1_024 * 1_024
+        maximumRetainedBytes: Int = 128 * 1_024 * 1_024,
+        sleep: @escaping @MainActor (Duration) async throws -> Void = { try await Task.sleep(for: $0) }
     ) -> OverviewThumbnailCapture {
         OverviewThumbnailCapture(
             coordinator: coordinator,
@@ -84,6 +115,7 @@ final class OverviewPreviewTestDriver {
             hasCaptureAccess: hasCaptureAccess,
             adoptsProvisionalPreviews: adoptsProvisionalPreviews,
             maximumRetainedBytes: maximumRetainedBytes,
+            sleep: sleep,
             streamFactory: { [self] request, output in
                 guard !isFinished else { throw CancellationError() }
                 let stream = OverviewPreviewTestStream(request: request, output: output, onStart: { [self] in
