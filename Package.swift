@@ -84,6 +84,8 @@ let package = Package(
                 .headerSearchPath("Compiler/include"),
                 .headerSearchPath("VM/include"),
                 .headerSearchPath("VM/src"),
+                // The interpreter must meet the same CPU budgets in Debug and Release.
+                .unsafeFlags(["-O2"], .when(configuration: .debug)),
                 .treatAllWarnings(as: .error),
                 .treatWarning("unused-command-line-argument", as: .warning)
             ]
@@ -93,6 +95,8 @@ let package = Package(
             dependencies: ["OmniWMLuau"],
             path: "Sources/OmniWMScriptHost",
             cxxSettings: [
+                // Encoding shares the script's CPU budget.
+                .unsafeFlags(["-O2"], .when(configuration: .debug)),
                 .treatAllWarnings(as: .error),
                 .treatWarning("unused-command-line-argument", as: .warning)
             ]

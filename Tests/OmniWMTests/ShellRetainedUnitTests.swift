@@ -813,7 +813,11 @@ final class ShellRetainedUnitTests: XCTestCase {
         func output() throws -> [UInt8] {
             var length = 0
             let pointer = try XCTUnwrap(omni_instance_output(fixture.instance, OMNI_VIEW_BAR, &length))
-            return Array(UnsafeBufferPointer(start: pointer, count: length))
+            let bytes = Array(UnsafeBufferPointer(start: pointer, count: length))
+            let epochOffset = try XCTUnwrap(MemoryLayout<omni_wire_header>.offset(of: \.epoch))
+            let paddingStart = epochOffset + MemoryLayout<UInt32>.size
+            XCTAssertTrue(bytes[paddingStart ..< MemoryLayout<omni_wire_header>.stride].allSatisfy { $0 == 0 })
+            return bytes
         }
         fixture.number(.cpu, 0)
         _ = fixture.update()
