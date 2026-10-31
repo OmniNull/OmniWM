@@ -25,7 +25,7 @@ struct ShellGlassCompositionErrors {
 extension ShellGlassSceneTests {
     nonisolated static var fullSweep: Bool {
         let environment = ProcessInfo.processInfo.environment
-        return environment["OMNIWM_FULL_GLASS_SWEEP"] == "1" || environment["OMNIWM_GLASS_EVIDENCE"] != nil
+        return environment["OMNIWM_REDUCED_GLASS_SWEEP"] != "1" || environment["OMNIWM_GLASS_EVIDENCE"] != nil
             || environment["OMNI_F1_FRAME_PROBE_OUT"] != nil
     }
 
@@ -262,6 +262,7 @@ extension ShellGlassSceneTests {
                 }
             }
             XCTAssertEqual(rows.count, Self.sweptCompositionCells * 4)
+            XCTAssertEqual(Set(rows.map { "\($0["opacity"] ?? "") \($0["scale"] ?? "")" }).count, 4)
             try Self.saveCompositionMetrics(rows)
         }
     }

@@ -17,14 +17,21 @@ SUITES = {
     "AlphaTests.swift": "final class AlphaTests: XCTestCase {\n    private struct Fixture {}\n}\n"
                         "struct AlphaHarness {}\n",
     "BetaTests.swift": "@MainActor\nfinal class BetaTests: XCTestCase {\n    let harness = AlphaHarness()\n}\n",
-    "GammaTests.swift": "final class GammaTests: XCTestCase {\n    private struct Fixture {}\n}\n",
+    "GammaTests.swift": "final class GammaTests: XCTestCase {\n    private struct Fixture {}\n}\nprivate func local() {}\n",
+    "GammaTests+Extra.swift": "extension GammaTests {\n    func extra() {}\n}\n",
     "DeltaTests.swift": "final class DeltaTests: GammaBase {}\nclass GammaBase: XCTestCase {}\n",
-    "EpsilonTests.swift": "final class EpsilonTests: XCTestCase {}\n",
+    "EpsilonTests.swift": "final class EpsilonTests: XCTestCase {}\nprivate extension String {}\n",
     "Helpers.swift": "import XCTest\n\nfunc helper() {}\n",
     "ShellGlassSceneTests.swift": "final class ShellGlassSceneTests: XCTestCase {}\n",
     "ShellGlassRimTests.swift": "final class ShellGlassRimTests: XCTestCase {\n    let scene = ShellGlassSceneTests()\n}\n",
     "ShellWidgetTests.swift": "final class ShellWidgetTests: XCTestCase {\n    let scene = ShellGlassSceneTests()\n}\n",
-    "ZetaTests.swift": "final class ZetaTests: XCTestCase {}\n",
+    "ZetaTests.swift": "final class ZetaTests: XCTestCase {}\nextension ZetaTests: CustomStringConvertible {}\n",
+    "PreviewSupport.swift": "struct PreviewFixture {}\nfunc makePreviewFrame() {}\n",
+    "PreviewSizeTests.swift": "final class PreviewSizeTests: XCTestCase {\n    let fixture = PreviewFixture()\n}\n",
+    "PreviewFadeTests.swift": "final class PreviewFadeTests: XCTestCase {\n    let frame = makePreviewFrame()\n}\n",
+    "ProviderSupport.swift": "struct ProviderFixture {}\nextension ProviderPermissions {\n    static var approving: Self { .init() }\n}\n",
+    "ProviderConfigurationTests.swift": "final class ProviderConfigurationTests: XCTestCase {\n    let fixture = ProviderFixture()\n}\n",
+    "ProviderPackageTests.swift": "final class ProviderPackageTests: XCTestCase {\n    func testLoad() { load(.approving) }\n}\n",
     "EtaTests.swift": "final class EtaTests: XCTestCase {}\n",
 }
 
@@ -61,7 +68,15 @@ class CITestPlanTests(unittest.TestCase):
     def test_test_only_changes_run_the_suites_that_reach_them(self):
         self.assertEqual(self.selected("Tests/OmniWMTests/AlphaTests.swift"), r"OmniWMTests\.(AlphaTests|BetaTests)/")
         self.assertEqual(self.selected("Tests/OmniWMTests/GammaTests.swift"), r"OmniWMTests\.(GammaTests)/")
+        self.assertEqual(self.selected("Tests/OmniWMTests/EpsilonTests.swift"), r"OmniWMTests\.(EpsilonTests)/")
         self.assertEqual(self.selected("Tests/OmniWMTests/DeltaTests.swift"), r"OmniWMTests\.(DeltaTests|GammaBase)/")
+
+    def test_extension_conformances_keep_the_test_case_superclass(self):
+        self.assertEqual(self.selected("Tests/OmniWMTests/ZetaTests.swift"), r"OmniWMTests\.(ZetaTests)/")
+
+    def test_members_reached_without_a_type_name_run_every_group(self):
+        self.assertEqual(self.plan("Tests/OmniWMTests/PreviewSupport.swift"), plan_module.FULL)
+        self.assertEqual(self.plan("Tests/OmniWMTests/ProviderSupport.swift"), plan_module.FULL)
 
     def test_selected_glass_suites_get_their_own_group(self):
         groups = self.plan("Tests/OmniWMTests/ShellGlassSceneTests.swift")

@@ -19,8 +19,9 @@ FULL = [
     {"name": "rest", "flag": "--skip", "pattern": GLASS},
 ]
 DECLARATION = re.compile(r"^[ \t]*(?:@\w+[ \t]+)*((?:(?:public|private|fileprivate|final|nonisolated)[ \t]+)*)"
-                         r"(?:class|struct|enum|protocol|actor|extension)[ \t]+([A-Z]\w*)(?:[ \t]*:[ \t]*(\w+))?",
+                         r"(class|struct|enum|protocol|actor|extension)[ \t]+([A-Z]\w*)(?:[ \t]*:[ \t]*(\w+))?",
                          re.MULTILINE)
+TOP_LEVEL = re.compile(r"^(?:@\w+(?:\([^)\n]*\))?[ \t]+)*((?:\w+[ \t]+)*)(?:func|var|let)[ \t]", re.MULTILINE)
 IDENTIFIER = re.compile(r"\b[A-Z]\w+\b")
 
 
@@ -36,7 +37,12 @@ def suites(changed, root=ROOT):
     files = {path.relative_to(root).as_posix(): path.read_text(encoding="utf-8", errors="ignore")
              for path in (root / TESTS).glob("*.swift")}
     declared = {name: list(DECLARATION.finditer(text)) for name, text in files.items()}
-    parents = {m.group(2): m.group(3) for found in declared.values() for m in found if m.group(3)}
+    types = {m[3] for found in declared.values() for m in found if m[2] != "extension"}
+    parents = {m[3]: m[4] for found in declared.values() for m in found if m[4] and m[2] != "extension"}
+
+    def opaque(path):
+        return (any("private" not in m[1] for m in TOP_LEVEL.finditer(files[path]))
+                or any(m[2] == "extension" and m[3] not in types and "private" not in m[1] for m in declared[path]))
 
     def is_case(name):
         seen = set()
@@ -58,13 +64,13 @@ def suites(changed, root=ROOT):
         path = pending.pop()
         if path in reached:
             continue
-        if path not in files or not declared[path]:
+        if path not in files or not declared[path] or opaque(path):
             return None
         reached.add(path)
         for match in declared[path]:
-            name = match.group(2)
+            name = match[3]
             names.add(name)
-            if "private" not in match.group(1) and name not in shared:
+            if "private" not in match[1] and name not in shared:
                 shared.add(name)
                 pending += users.get(name, [])
     cases = sorted(name for name in names if is_case(name))
