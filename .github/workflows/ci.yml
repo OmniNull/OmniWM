@@ -39,35 +39,26 @@ jobs:
       - uses: ./.github/actions/setup-swift
   changes:
     name: Changes
-    if: github.event_name == 'pull_request'
     runs-on: ubuntu-latest
     timeout-minutes: 5
     outputs:
-      tests: ${{ steps.paths.outputs.tests }}
+      tests: ${{ steps.plan.outputs.tests }}
+      matrix: ${{ steps.plan.outputs.matrix }}
     steps:
       - uses: actions/checkout@3d3c42e5aac5ba805825da76410c181273ba90b1
         with:
-          fetch-depth: 0
+          fetch-depth: ${{ github.event_name == 'pull_request' && '0' || '1' }}
           persist-credentials: false
-      - name: Skip the Swift suite for tooling only changes
-        id: paths
+      - name: Plan the Swift test groups
+        id: plan
         env:
+          EVENT: ${{ github.event_name }}
           BASE: ${{ github.event.pull_request.base.sha }}
           HEAD: ${{ github.event.pull_request.head.sha }}
         run: |
-          tests=false
-          paths="$(git diff --name-only "$BASE...$HEAD")"
-          while IFS= read -r path; do
-            case "$path" in
-              docs/* | website/* | Tests/DevToolingTests/*) ;;
-              Scripts/*/*) tests=true ;;
-              Scripts/*.py) ;;
-              */*) tests=true ;;
-              *.md) ;;
-              *) tests=true ;;
-            esac
-          done <<< "$paths"
-          echo "tests=$tests" >> "$GITHUB_OUTPUT"
+          if [[ "$EVENT" == pull_request ]]; then
+            git diff --name-only "$BASE...$HEAD"
+          fi | python3 Scripts/ci_test_plan.py "$EVENT" >> "$GITHUB_OUTPUT"
   tooling:
     name: Tooling
     runs-on: xcode-27
@@ -131,12 +122,15 @@ jobs:
         run: swift package dump-package > /dev/null
       - name: Verify localization and build
         run: make localization-check
-  tests:
-    name: Tests
+  test-group:
+    name: Tests (${{ matrix.name }})
     needs: changes
-    if: ${{ !cancelled() && needs.changes.outputs.tests != 'false' }}
+    if: ${{ !cancelled() && needs.changes.outputs.tests == 'true' }}
     runs-on: xcode-27
     timeout-minutes: 60
+    strategy:
+      fail-fast: false
+      matrix: ${{ fromJSON(needs.changes.outputs.matrix) }}
     steps:
       - name: Validate requested pull request
         env:
@@ -162,5 +156,25 @@ jobs:
           nu --version
       - name: Verify package toolchain
         run: swift package dump-package > /dev/null
-      - name: Run the serial test suite
-        run: LIBRARY_PATH="$(./Scripts/ghostty-preflight.sh print-library-dir)${LIBRARY_PATH:+:$LIBRARY_PATH}" swift test
+      - name: Run the test group
+        env:
+          FLAG: ${{ matrix.flag }}
+          PATTERN: ${{ matrix.pattern }}
+          OMNIWM_FULL_GLASS_SWEEP: ${{ github.event_name != 'pull_request' && '1' || '' }}
+        run: LIBRARY_PATH="$(./Scripts/ghostty-preflight.sh print-library-dir)${LIBRARY_PATH:+:$LIBRARY_PATH}" swift test "$FLAG" "$PATTERN"
+  tests:
+    name: Tests
+    needs: [changes, test-group]
+    if: ${{ !cancelled() }}
+    runs-on: ubuntu-latest
+    timeout-minutes: 5
+    steps:
+      - name: Require every test group to pass
+        env:
+          CHANGES: ${{ needs.changes.result }}
+          TEST_GROUPS: ${{ needs.test-group.result }}
+        run: |
+          [[ "$CHANGES" == success && "$TEST_GROUPS" =~ ^(success|skipped)$ ]] || {
+            echo "::error::Changes $CHANGES, test groups $TEST_GROUPS."
+            exit 1
+          }
