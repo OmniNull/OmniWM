@@ -71,7 +71,7 @@ enum AppSelfUpdateError: LocalizedError {
 final class AppSelfUpdater: AppUpdateInstalling {
     private let bundleURL: URL
     private let session: URLSession
-    private let requirement: () throws -> String
+    private let updateRequirement: Result<String, any Error>
     private let processIdentifier: Int32
     private let opener: URL
     private let terminate: () -> Void
@@ -89,7 +89,7 @@ final class AppSelfUpdater: AppUpdateInstalling {
     ) {
         self.bundleURL = bundleURL
         self.session = session
-        self.requirement = requirement
+        updateRequirement = Result { try requirement() }
         self.processIdentifier = processIdentifier
         self.opener = opener
         self.terminate = terminate
@@ -102,7 +102,7 @@ final class AppSelfUpdater: AppUpdateInstalling {
     }
 
     private var acceptsReleaseSignature: Bool {
-        guard let requirementText = try? requirement() else { return false }
+        guard let requirementText = try? updateRequirement.get() else { return false }
         let flags = kSecCSBasicValidateOnly | SecCSFlags.noNetworkAccess.rawValue
         return Self.signatureStatus(of: bundleURL, requirement: requirementText, flags: flags) == errSecSuccess
     }
@@ -115,7 +115,7 @@ final class AppSelfUpdater: AppUpdateInstalling {
 
     func install(_ release: GitHubRelease) async throws {
         guard let archive = release.archive else { throw AppSelfUpdateError.missingArchive }
-        let requirementText = try requirement()
+        let requirementText = try updateRequirement.get()
         let staging = try FileManager.default.url(
             for: .itemReplacementDirectory, in: .userDomainMask, appropriateFor: bundleURL, create: true
         )

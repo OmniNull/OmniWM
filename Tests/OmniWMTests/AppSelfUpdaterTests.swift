@@ -77,11 +77,17 @@ final class AppSelfUpdaterTests: XCTestCase {
         let (release, session) = try await publish(makeApp(in: "build", tag: newTag))
         defer { session.invalidateAndCancel() }
 
-        let updater = AppSelfUpdater(bundleURL: installed, session: session) { "identifier \"\(identifier)\"" }
+        let requirementRead = Flag()
+        let updater = AppSelfUpdater(bundleURL: installed, session: session) {
+            if requirementRead.value { throw AppSelfUpdateError.untrustedSignature(100_002) }
+            requirementRead.value = true
+            return "identifier \"\(identifier)\""
+        }
         XCTAssertTrue(updater.canInstall)
         XCTAssertFalse(updater.isInstalled(release))
         try await updater.install(release)
         XCTAssertTrue(updater.isInstalled(release))
+        XCTAssertTrue(updater.canInstall, "the running app's requirement is gone once its bundle was replaced")
 
         XCTAssertEqual(tag(of: installed), newTag)
     }
@@ -154,27 +160,34 @@ final class AppSelfUpdaterTests: XCTestCase {
 
     func testCancellingStopsExtractionBeforeAndAfterTheToolStarts() async throws {
         let fifo = root.appendingPathComponent("started")
+        let hold = root.appendingPathComponent("hold")
         try run("/usr/bin/mkfifo", fifo.path)
+        try run("/usr/bin/mkfifo", hold.path)
+        defer { release(hold) }
         let zip = root.appendingPathComponent("update.zip")
-        let scripts = [(false, "exec /bin/sleep 3"), (true, "echo started > \"\(fifo.path)\"\nexec /bin/sleep 30")]
+        let block = "exec /bin/cat \"\(hold.path)\""
+        let scripts = [(false, block), (true, "echo started > \"\(fifo.path)\"\n\(block)")]
         for (launched, script) in scripts {
             let tool = root.appendingPathComponent("ditto-\(launched).sh")
             try "#!/bin/sh\n\(script)\n".write(to: tool, atomically: true, encoding: .utf8)
             try FileManager.default.setAttributes([.posixPermissions: 0o755], ofItemAtPath: tool.path)
-            let begin = ContinuousClock.now
             let extraction = Task { try await AppSelfUpdater.extract(zip, into: root, using: tool) }
             if launched {
                 _ = try await Task.detached { try FileHandle(forReadingFrom: fifo).readToEnd() }.value
             }
             extraction.cancel()
-            do {
-                _ = try await extraction.value
-                XCTFail("launched \(launched): extraction finished")
-            } catch is CancellationError {
-            } catch {
-                XCTFail("launched \(launched): unexpected \(error)")
+            let stopped = expectation(description: "launched \(launched): extraction stopped")
+            Task {
+                do {
+                    _ = try await extraction.value
+                    XCTFail("launched \(launched): extraction finished")
+                } catch is CancellationError {
+                } catch {
+                    XCTFail("launched \(launched): unexpected \(error)")
+                }
+                stopped.fulfill()
             }
-            XCTAssertLessThan(ContinuousClock.now - begin, .seconds(2), "launched \(launched)")
+            await fulfillment(of: [stopped], timeout: 5)
         }
     }
 
@@ -190,8 +203,8 @@ final class AppSelfUpdaterTests: XCTestCase {
         try FileManager.default.setAttributes([.posixPermissions: 0o755], ofItemAtPath: opener.path)
         let app = root.appendingPathComponent("OmniWM.app")
         let target = Process()
-        target.executableURL = URL(fileURLWithPath: "/bin/sleep")
-        target.arguments = ["30"]
+        target.executableURL = URL(fileURLWithPath: "/bin/cat")
+        target.standardInput = Pipe()
         try target.run()
         defer { target.terminate() }
         let relaunchReturned = Flag()
@@ -238,6 +251,11 @@ final class AppSelfUpdaterTests: XCTestCase {
 
     private final class Flag {
         var value = false
+    }
+
+    private func release(_ fifo: URL) {
+        let writer = open(fifo.path, O_WRONLY | O_NONBLOCK)
+        if writer >= 0 { close(writer) }
     }
 
     private func tag(of app: URL) -> String? {
