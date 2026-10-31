@@ -123,6 +123,14 @@ final class MultitouchPalmFilterTests: XCTestCase {
         )
     }
 
+    func testPalmOnUntrackedPathIdStaysRejectedUntilItLifts() {
+        var filter = MultitouchPalmFilter()
+        XCTAssertEqual(touchCount([Contact(pathId: 200, fingerId: 7, majorAxis: 22)], filter: &filter), 0)
+        XCTAssertEqual(touchCount([Contact(pathId: 200, fingerId: 2, majorAxis: 12)], filter: &filter), 0)
+        XCTAssertEqual(touchCount([], filter: &filter), 0)
+        XCTAssertEqual(touchCount([Contact(pathId: 200, fingerId: 2)], filter: &filter), 1)
+    }
+
     func testNewRegistrationGenerationForgetsPalms() {
         var filters = MultitouchPalmFilters()
         let palm = [Contact(pathId: 3, fingerId: 7, majorAxis: 22)]

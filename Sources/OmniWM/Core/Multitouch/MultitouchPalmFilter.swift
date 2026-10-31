@@ -12,6 +12,8 @@ struct MultitouchPalmFilter: Equatable, Sendable {
     private var generation: UInt = 0
     private var palmPaths: UInt64 = 0
     private var framePaths: UInt64 = 0
+    private var untrackedPalmPaths: Set<Int32> = []
+    private var untrackedFramePaths: Set<Int32> = []
 
     mutating func beginFrame(generation: UInt) {
         guard generation != self.generation else { return }
@@ -22,7 +24,13 @@ struct MultitouchPalmFilter: Equatable, Sendable {
     mutating func isPalm(pathId: Int32, fingerId: Int32, majorAxis: Float) -> Bool {
         let looksLikePalm = majorAxis > multitouchPalmMajorAxisMillimeters
             || (fingerId != multitouchUnclassifiedFingerId && !multitouchFingerIds.contains(fingerId))
-        guard pathId >= 0, pathId < multitouchTrackedPathCount else { return looksLikePalm }
+        guard pathId >= 0, pathId < multitouchTrackedPathCount else {
+            untrackedFramePaths.insert(pathId)
+            if looksLikePalm {
+                untrackedPalmPaths.insert(pathId)
+            }
+            return untrackedPalmPaths.contains(pathId)
+        }
         let path: UInt64 = 1 << UInt64(pathId)
         framePaths |= path
         if looksLikePalm {
@@ -34,6 +42,9 @@ struct MultitouchPalmFilter: Equatable, Sendable {
     mutating func finishFrame() {
         palmPaths &= framePaths
         framePaths = 0
+        guard !untrackedFramePaths.isEmpty || !untrackedPalmPaths.isEmpty else { return }
+        untrackedPalmPaths.formIntersection(untrackedFramePaths)
+        untrackedFramePaths.removeAll(keepingCapacity: true)
     }
 }
 
