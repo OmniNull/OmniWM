@@ -1,6 +1,7 @@
 -- SPDX-License-Identifier: GPL-2.0-only
 -- Copyright (C) 2026 OmniNull — https://github.com/OmniNull/OmniWM
 
+local keyboardMode = require("../../keyboard-mode")
 local palette = require("../palette")
 local pencil = require("../pencil")
 
@@ -73,8 +74,32 @@ local function command(ctx, name: string): string
     return "shell trigger vitreus drawer-controls " .. ctx.data.bar.monitorId
 end
 
-local function width(_, k, name: string): (number, number)
-    return widths[name] * k.bu, 0
+local function badge(ctx, vertical: boolean?)
+    local style = ctx.data.bar and ctx.data.bar.style
+    if not style or style.keyboardMode == "normal" then return nil end
+    return { keyboardMode = style.keyboardMode, vertical = vertical }
+end
+
+local function width(ctx, k, name: string): (number, number)
+    local mode = if name == "omniwm" then badge(ctx, false) else nil
+    local grow = if mode then 4 * k.bu + keyboardMode.width(ctx, mode, 20 * k.bu) else 0
+    return widths[name] * k.bu + grow, grow
+end
+
+local function chip(ctx, g, slot, mode)
+    local bu = g.k.bu
+    local logo = widths.omniwm * bu
+    local size = (if mode.vertical then 12 else 20) * bu
+    local result = keyboardMode.chip(mode, size)
+    result.key, result.align = "bar-omniwm-mode", "topLeading"
+    if mode.vertical then
+        result.dx = slot.cx + logo / 2 - keyboardMode.width(ctx, mode, size) / 2
+        result.dy = slot.cy + logo / 2 - size / 2
+    else
+        result.dx = slot.x + logo + 4 * bu
+        result.dy = g.pill.cy - size / 2
+    end
+    return result
 end
 
 local function none()
@@ -89,6 +114,8 @@ local function content(ctx, g, slot, name: string)
     if logo then a = if ctx.state.barHot == name then 1 else 0 end
     local sel = if name == "controls" and ctx.state.drawerPanel == "controls" then 1 else 0
     local vertical = g.frame and g.frame.vertical
+    local mode = if logo then badge(ctx, vertical) else nil
+    local cx = if mode and not vertical then slot.x + widths[name] * bu / 2 else slot.cx
     local zone = (if vertical then 36 else zones[name]) * bu
     local height = if vertical then 30 * bu else pill.h
     local pivot = pivots[name] * bu
@@ -112,12 +139,12 @@ local function content(ctx, g, slot, name: string)
     end
     local click = command(ctx, name)
     return { ui.stack({
-        key = "bar-" .. name, align = "topLeading", dx = slot.cx - zone / 2,
+        key = "bar-" .. name, align = "topLeading", dx = cx - zone / 2,
         dy = if vertical then slot.cy - height / 2 else pill.y, w = zone, h = height,
         cursor = "pointer", help = help, onClick = click, onRightClick = if logo then click else nil,
         onHover = hover(name, not logo),
         ui.stack(icon),
-    }) }
+    }), if mode then chip(ctx, g, slot, mode) else nil }
 end
 
 return table.freeze({
