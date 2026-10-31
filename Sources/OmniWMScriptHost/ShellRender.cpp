@@ -3023,14 +3023,15 @@ void publishOutput(omni_instance *instance, ViewOutput &view, omni_render_stats 
                 flags |= OMNI_WIRE_AUDIO;
             }
         }
-        omni_wire_header header{
-            OMNI_WIRE_MAGIC,
-            static_cast<uint32_t>(view.nodes.size()),
-            package.pendingCount,
-            flags,
-            instance->deps,
-            package.epoch,
-        };
+        omni_wire_header header;
+        // The wire format includes padding, so initialize every byte.
+        std::memset(&header, 0, sizeof header);
+        header.magic = OMNI_WIRE_MAGIC;
+        header.node_count = static_cast<uint32_t>(view.nodes.size());
+        header.string_count = package.pendingCount;
+        header.flags = flags;
+        header.deps = instance->deps;
+        header.epoch = package.epoch;
         view.output.clear();
         auto *headerBytes = reinterpret_cast<const uint8_t *>(&header);
         view.output.insert(view.output.end(), headerBytes, headerBytes + sizeof header);
