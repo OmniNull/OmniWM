@@ -13,10 +13,11 @@ from pathlib import Path
 
 ROOT = Path(__file__).resolve().parents[1]
 TESTS = Path("Tests/OmniWMTests")
-GLASS = r"OmniWMTests\.ShellGlass"
+RENDER_PREFIXES = ("ShellGlass", "ShellVitreus", "ShellWidget", "ShellDesktop")
+RENDER = r"OmniWMTests\.(" + "|".join(RENDER_PREFIXES) + ")"
 FULL = [
-    {"name": "glass", "flag": "--filter", "pattern": GLASS},
-    {"name": "rest", "flag": "--skip", "pattern": GLASS},
+    {"name": "render", "flag": "--filter", "pattern": RENDER},
+    {"name": "rest", "flag": "--skip", "pattern": RENDER},
 ]
 DECLARATION = re.compile(r"^[ \t]*(?:@\w+[ \t]+)*((?:(?:public|package|internal|open|private|fileprivate|final|nonisolated)[ \t]+)*)"
                          r"(class|struct|enum|protocol|actor|extension)[ \t]+([A-Z]\w*)(?:[ \t]*:[ \t]*(\w+))?",
@@ -88,8 +89,8 @@ def plan(paths, event, root=ROOT):
     if all(path.startswith(f"{TESTS}/") and path.endswith(".swift") for path in app):
         names = suites(app, root)
         if names:
-            split = {"glass": [n for n in names if n.startswith("ShellGlass")],
-                     "rest": [n for n in names if not n.startswith("ShellGlass")]}
+            split = {"render": [n for n in names if n.startswith(RENDER_PREFIXES)],
+                     "rest": [n for n in names if not n.startswith(RENDER_PREFIXES)]}
             return [{"name": f"selected {name}", "flag": "--filter",
                      "pattern": r"OmniWMTests\.(" + "|".join(group) + ")/"}
                     for name, group in split.items() if group]

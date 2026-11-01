@@ -24,7 +24,8 @@ SUITES = {
     "Helpers.swift": "import XCTest\n\nfunc helper() {}\n",
     "ShellGlassSceneTests.swift": "final class ShellGlassSceneTests: XCTestCase {}\n",
     "ShellGlassRimTests.swift": "final class ShellGlassRimTests: XCTestCase {\n    let scene = ShellGlassSceneTests()\n}\n",
-    "ShellWidgetTests.swift": "final class ShellWidgetTests: XCTestCase {\n    let scene = ShellGlassSceneTests()\n}\n",
+    "ShellVitreusBarTests.swift": "final class ShellVitreusBarTests: XCTestCase {\n    let scene = ShellGlassSceneTests()\n}\n",
+    "ShellThemeTests.swift": "final class ShellThemeTests: XCTestCase {\n    let scene = ShellGlassSceneTests()\n}\n",
     "ZetaTests.swift": "final class ZetaTests: XCTestCase {}\nextension ZetaTests: CustomStringConvertible {}\n",
     "PreviewSupport.swift": "struct PreviewFixture {}\nfunc makePreviewFrame() {}\n",
     "PreviewSizeTests.swift": "final class PreviewSizeTests: XCTestCase {\n    let fixture = PreviewFixture()\n}\n",
@@ -83,13 +84,13 @@ class CITestPlanTests(unittest.TestCase):
         self.assertEqual(self.plan("Tests/OmniWMTests/ProviderSupport.swift"), plan_module.FULL)
         self.assertEqual(self.plan("Tests/OmniWMTests/CounterSupport.swift"), plan_module.FULL)
 
-    def test_selected_glass_suites_get_their_own_group(self):
+    def test_selected_render_suites_get_their_own_group(self):
         groups = self.plan("Tests/OmniWMTests/ShellGlassSceneTests.swift")
         self.assertEqual(
             [(group["name"], group["pattern"]) for group in groups],
             [
-                ("selected glass", r"OmniWMTests\.(ShellGlassRimTests|ShellGlassSceneTests)/"),
-                ("selected rest", r"OmniWMTests\.(ShellWidgetTests)/"),
+                ("selected render", r"OmniWMTests\.(ShellGlassRimTests|ShellGlassSceneTests|ShellVitreusBarTests)/"),
+                ("selected rest", r"OmniWMTests\.(ShellThemeTests)/"),
             ],
         )
 
