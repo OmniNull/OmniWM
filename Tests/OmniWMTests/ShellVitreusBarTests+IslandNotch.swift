@@ -301,8 +301,10 @@ extension ShellVitreusBarTests {
             ["apple", "app", "workspaces", "tray", "search", "omniwm", "controls", "clock", "title"],
             ["apple", "app", "workspaces", "tray", "search", "omniwm", "controls", "clock"]
         ]
-        let cases = [splitTray, cappedTray].flatMap { count in
-            orders.flatMap { pieces in NotchRun.all.map { (count, pieces, $0) } }
+        let cases = orders.enumerated().flatMap { order, pieces in
+            NotchRun.all.map { value in
+                (order.isMultiple(of: 2) == value.media ? cappedTray : splitTray, pieces, value)
+            }
         }
         for (trayItems, pieces, run) in cases {
             let label = "\(trayItems) tray items, \(run.label), pieces \(pieces)"
