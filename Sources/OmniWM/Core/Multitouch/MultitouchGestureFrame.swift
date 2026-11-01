@@ -9,9 +9,12 @@ import os
 import Synchronization
 
 private let multitouchTouchStride = 96
+private let multitouchPathIdByteOffset = 16
 private let multitouchStateByteOffset = 20
+private let multitouchFingerIdByteOffset = 24
 private let multitouchPositionXByteOffset = 32
 private let multitouchPositionYByteOffset = 36
+private let multitouchMajorAxisByteOffset = 60
 private let multitouchTouchingState: Int32 = 4
 
 struct MultitouchContactSession: Equatable, Sendable {
@@ -149,14 +152,21 @@ extension MultitouchGestureSource {
     nonisolated static func buildRawFrame(
         fingers: UnsafeMutableRawPointer?,
         count: Int32,
-        timestamp: Double
+        timestamp: Double,
+        palmFilter: inout MultitouchPalmFilter
     ) -> RawFrame {
+        defer { palmFilter.finishFrame() }
         guard let fingers, count > 0 else { return RawFrame(touches: [], timestamp: timestamp) }
         var touches = RawTouchBuffer()
         for index in 0 ..< Int(count) {
             let base = index * multitouchTouchStride
             let state = fingers.load(fromByteOffset: base + multitouchStateByteOffset, as: Int32.self)
-            guard state == multitouchTouchingState else { continue }
+            let isPalm = palmFilter.isPalm(
+                pathId: fingers.load(fromByteOffset: base + multitouchPathIdByteOffset, as: Int32.self),
+                fingerId: fingers.load(fromByteOffset: base + multitouchFingerIdByteOffset, as: Int32.self),
+                majorAxis: fingers.load(fromByteOffset: base + multitouchMajorAxisByteOffset, as: Float.self)
+            )
+            guard state == multitouchTouchingState, !isPalm else { continue }
             let x = fingers.load(fromByteOffset: base + multitouchPositionXByteOffset, as: Float.self)
             let y = fingers.load(fromByteOffset: base + multitouchPositionYByteOffset, as: Float.self)
             touches.append(RawTouch(x: x, y: y))
