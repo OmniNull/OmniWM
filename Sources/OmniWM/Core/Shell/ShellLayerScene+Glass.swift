@@ -39,7 +39,7 @@ extension ShellLayerScene {
             if content.paint.morph == nil, content.paint.reveal == nil, content.follow == nil,
                let entry = shapeTracks.entries.removeValue(forKey: slot), let body = glassBodies[entry.body]
             {
-                body.setTrackGeometry(entry.shape(at: CACurrentMediaTime()))
+                body.setTrackGeometry(entry.shape(at: now()))
                 body.removeTrack(slot)
                 shapeTracks.follows[slot]?.dirty = true
             }

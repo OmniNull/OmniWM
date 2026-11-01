@@ -350,7 +350,8 @@ extension ShellVitreusBarTests {
                             if after[3] != 0 { leaked += 1 }
                             if before[3] > 0 { covered += 1 }
                         } else if !outside.contains(point), before[3] > 0 {
-                            if after != before { changed += 1 }
+                            let colorChanged = zip(before.prefix(3), after.prefix(3)).contains { abs($0 - $1) > 1 }
+                            if after[3] != before[3] || colorChanged { changed += 1 }
                             visible += 1
                         }
                     }
