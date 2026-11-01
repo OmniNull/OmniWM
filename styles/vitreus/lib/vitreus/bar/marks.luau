@@ -85,7 +85,8 @@ local function flow(ctx, k)
     else
         for _, row in m.rows do
             local width = row.w + 9 * u
-            cells[#cells + 1] = { key = "workspace-" .. row.workspace.id, w = width, at = width / 2 }
+            cells[#cells + 1] = { key = "workspace-" .. row.workspace.id, w = width, at = width / 2,
+                focused = row.workspace.focused }
         end
         if m.plus then cells[#cells + 1] = { key = "plus", w = 23 * u, at = 11.5 * u } end
     end
