@@ -394,26 +394,33 @@ enum LauncherExternalTerminal {
             event.setParam(NSAppleEventDescriptor(string: ""), forKeyword: AEKeyword(keyDirectObject))
             event.setParam(object, forKeyword: 0x6B66696C)
         } else {
-            let property = NSAppleEventDescriptor.record()
-            property.setDescriptor(
-                NSAppleEventDescriptor(typeCode: typeProperty),
-                forKeyword: AEKeyword(keyAEDesiredClass)
-            )
-            property.setDescriptor(
-                NSAppleEventDescriptor(enumCode: OSType(formPropertyID)),
-                forKeyword: AEKeyword(keyAEKeyForm)
-            )
-            property.setDescriptor(NSAppleEventDescriptor(typeCode: 0x5763736E), forKeyword: AEKeyword(keyAEKeyData))
-            property.setDescriptor(object, forKeyword: AEKeyword(keyAEContainer))
-            guard let session = property.coerce(toDescriptorType: typeObjectSpecifier) else {
-                throw LauncherFailure(String(localized: "The terminal session could not be addressed."))
-            }
+            let session = try currentITermSession(object)
             event = makeEvent(pid: target, eventClass: 0x4974726D, id: 0x736E7478)
             event.setParam(session, forKeyword: AEKeyword(keyDirectObject))
             event.setParam(NSAppleEventDescriptor(string: ""), forKeyword: 0x54657874)
             event.setParam(NSAppleEventDescriptor(boolean: true), forKeyword: 0x57746E6C)
         }
         return event
+    }
+
+    private nonisolated static func currentITermSession(
+        _ object: NSAppleEventDescriptor
+    ) throws -> NSAppleEventDescriptor {
+        let property = NSAppleEventDescriptor.record()
+        property.setDescriptor(
+            NSAppleEventDescriptor(typeCode: typeProperty),
+            forKeyword: AEKeyword(keyAEDesiredClass)
+        )
+        property.setDescriptor(
+            NSAppleEventDescriptor(enumCode: OSType(formPropertyID)),
+            forKeyword: AEKeyword(keyAEKeyForm)
+        )
+        property.setDescriptor(NSAppleEventDescriptor(typeCode: 0x5763736E), forKeyword: AEKeyword(keyAEKeyData))
+        property.setDescriptor(object, forKeyword: AEKeyword(keyAEContainer))
+        guard let session = property.coerce(toDescriptorType: typeObjectSpecifier) else {
+            throw LauncherFailure(String(localized: "The terminal session could not be addressed."))
+        }
+        return session
     }
 
     private nonisolated static func makeEvent(
