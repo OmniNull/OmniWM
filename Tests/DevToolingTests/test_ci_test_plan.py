@@ -112,7 +112,8 @@ class CITestPlanTests(unittest.TestCase):
         import re
         names = ["ShellGlassSceneTests", "ShellGlassSceneTestsExtra", "ShellGlassProbeTests",
                  "ShellVitreusBarTests", "ShellVitreusBarTestsExtra", "ShellVitreusFrameTests",
-                 "ShellWidgetTests", "ShellDesktopEditorTests", "ShellStyleTests", "ShellNewTests",
+                 "ShellWidgetTests", "ShellDesktopEditorTests", "ShellStyleTests", "ShellStyleLayoutTests",
+                 "ShellStyleLayoutTestsExtra", "ShellNewTests",
                  "NuCompletionTests", "FutureTests"]
         for name in names:
             identifier = f"OmniWMTests.{name}/testExample"

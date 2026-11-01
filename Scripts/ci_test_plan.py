@@ -18,9 +18,9 @@ GLASS = r"OmniWMTests\.ShellGlass"
 # the entire suite, including test classes added after this plan was written.
 FULL = [
     {"name": "glass", "flag": "--filter", "pattern": r"OmniWMTests\.ShellGlassSceneTests/"},
-    {"name": "rendering", "flag": "--filter", "pattern": r"OmniWMTests\.Shell(?:Glass(?!SceneTests/)|Desktop|Widget|Style|VitreusBarTests/)"},
-    {"name": "shell", "flag": "--filter", "pattern": r"OmniWMTests\.Shell(?!Glass|Desktop|Widget|Style|VitreusBarTests/)"},
-    {"name": "core", "flag": "--skip", "pattern": r"OmniWMTests\.Shell", "completions": True},
+    {"name": "rendering", "flag": "--filter", "pattern": r"OmniWMTests\.Shell(?:Glass(?!SceneTests/)|Widget|Style(?!LayoutTests/)|VitreusBarTests/)"},
+    {"name": "shell", "flag": "--filter", "pattern": r"OmniWMTests\.Shell(?!Glass|Widget|Style|VitreusBarTests/)"},
+    {"name": "core", "flag": "--skip", "pattern": r"OmniWMTests\.Shell(?!StyleLayoutTests/)", "completions": True},
 ]
 DECLARATION = re.compile(r"^[ \t]*(?:@\w+[ \t]+)*((?:(?:public|package|internal|open|private|fileprivate|final|nonisolated)[ \t]+)*)"
                          r"(class|struct|enum|protocol|actor|extension)[ \t]+([A-Z]\w*)(?:[ \t]*:[ \t]*(\w+))?",
