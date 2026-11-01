@@ -122,6 +122,28 @@ final class StatusMenuModel {
         appMenuItemsByGroup[group.id] = appMenuLoader.items(for: group, pid: pid)
     }
 
+    /// Controls grid contents after the user's Status Menu settings are applied.
+    var visibleToggleTiles: [ToggleTileSpec] {
+        toggleTiles.filter { settings.statusMenu.isControlVisible($0.control.rawValue) }
+    }
+
+    func isMenuItemVisible(_ item: StatusMenuItem) -> Bool {
+        settings.statusMenu.isMenuItemVisible(item)
+    }
+
+    /// Rows rendered directly under the app menu section.
+    var hasVisiblePrimaryRows: Bool {
+        if canShowHiddenIcons, isMenuItemVisible(.hiddenIcons) { return true }
+        if checkForUpdatesAction != nil, isMenuItemVisible(.checkForUpdates) { return true }
+        return [StatusMenuItem.settings, .reportBug, .appRules, .openShellFolder]
+            .contains { isMenuItemVisible($0) }
+    }
+
+    /// Rows that open the Advanced, Diagnostics, and Help submenus.
+    var hasVisiblePageRows: Bool {
+        [StatusMenuItem.advanced, .diagnostics, .helpLinks].contains { isMenuItemVisible($0) }
+    }
+
     func refreshCLIStatus() {
         cliStatus = cliManager?.exposureStatus()
     }

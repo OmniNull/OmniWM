@@ -36,6 +36,45 @@
     "APP MENU" : {
 
     },
+    "App Menu Section" : {
+
+    },
+    "Controls Grid" : {
+
+    },
+    "Hide individual OmniWM items from the status menu. Turn off Show OmniWM Items to hide the whole group at once." : {
+
+    },
+    "OmniWM Items" : {
+
+    },
+    "Sections" : {
+
+    },
+    "Show App Menu" : {
+
+    },
+    "Show Control Help" : {
+
+    },
+    "Show Controls" : {
+
+    },
+    "Show Controls is the master switch for the controls grid. OmniWM Items are Settings, App Rules, updates, and the Advanced, Diagnostics, and Help pages; Quit always stays available." : {
+
+    },
+    "Show OmniWM Items" : {
+
+    },
+    "Status Menu" : {
+
+    },
+    "Status Menu Items" : {
+
+    },
+    "Turn off a control to remove its tile from the status menu. The underlying feature keeps its current state." : {
+
+    },
     "Don't ask about Screen Recording again" : {
 
     },

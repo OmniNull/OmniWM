@@ -33,6 +33,15 @@ enum StatusMenuPage: CaseIterable, Hashable, Sendable {
         case .help: "questionmark.circle"
         }
     }
+
+    var menuItem: StatusMenuItem? {
+        switch self {
+        case .root: nil
+        case .advanced: .advanced
+        case .diagnostics: .diagnostics
+        case .help: .helpLinks
+        }
+    }
 }
 
 @MainActor
@@ -110,24 +119,33 @@ struct StatusMenuPanelView: View {
         VStack(spacing: 0) {
             if page == .root {
                 StatusMenuPrimaryView(model: model)
-                ForEach(StatusMenuPage.allCases.filter { $0 != .root }, id: \.self) { destination in
-                    MenuActionRow(
-                        icon: destination.icon,
-                        label: destination.title,
-                        showChevron: true,
-                        dismissesMenu: false,
-                        isExpanded: presentation.expandedPage == destination
-                    ) {
-                        onOpenSubmenu(destination, true)
+                if model.hasVisiblePageRows {
+                    ForEach(
+                        StatusMenuPage.allCases.filter { page in
+                            guard page != .root, let item = page.menuItem else { return false }
+                            return model.isMenuItemVisible(item)
+                        },
+                        id: \.self
+                    ) { destination in
+                        MenuActionRow(
+                            icon: destination.icon,
+                            label: destination.title,
+                            showChevron: true,
+                            dismissesMenu: false,
+                            isExpanded: presentation.expandedPage == destination
+                        ) {
+                            onOpenSubmenu(destination, true)
+                        }
+                        .environment(\.statusMenuControlHover, StatusMenuControlHoverAction { hovered in
+                            onHoverSubmenu(destination, hovered)
+                        })
+                        .onGeometryChange(for: CGRect.self) { proxy in
+                            proxy.frame(in: .named(StatusMenuPage.root))
+                        } action: { frame in
+                            onSubmenuRowFrame(destination, frame)
+                        }
                     }
-                    .environment(\.statusMenuControlHover, StatusMenuControlHoverAction { hovered in
-                        onHoverSubmenu(destination, hovered)
-                    })
-                    .onGeometryChange(for: CGRect.self) { proxy in
-                        proxy.frame(in: .named(StatusMenuPage.root))
-                    } action: { frame in
-                        onSubmenuRowFrame(destination, frame)
-                    }
+                    MenuDivider()
                 }
                 StatusMenuFooterView(model: model)
             } else {
@@ -135,6 +153,7 @@ struct StatusMenuPanelView: View {
             }
         }
         .padding(.bottom, 6)
+        .padding(.horizontal, statusMenuScrollGutter)
         .frame(width: statusMenuWidth)
         .fixedSize(horizontal: false, vertical: true)
         .coordinateSpace(name: StatusMenuPage.root)

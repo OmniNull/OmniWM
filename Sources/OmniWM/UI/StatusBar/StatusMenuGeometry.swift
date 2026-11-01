@@ -4,6 +4,7 @@
 import Foundation
 
 let statusMenuWidth: CGFloat = 280
+let statusMenuScrollGutter: CGFloat = 12
 
 enum StatusMenuGeometry {
     static func panelSize(contentSize: CGSize, visibleFrame: CGRect) -> CGSize {
