@@ -151,23 +151,22 @@ final class ShellWidgetInspectorTests: XCTestCase {
         if option.styleDefault == option.maximum {
             XCTAssertEqual(pixels["default"], pixels["maximum"], option.widget)
         }
-        guard appearance == .aqua else { return }
         let view = try XCTUnwrap(window.contentView)
-        let probes = [
+        let probes = appearance == .aqua ? [
             option.minimum,
             option.maximum,
             option.styleDefault - 1,
             option.styleDefault,
             option.styleDefault + 1
         ]
-        .filter { (option.minimum ... option.maximum).contains($0) }
+        .filter { (option.minimum ... option.maximum).contains($0) } : [option.styleDefault]
         for value in Set(probes).sorted() {
             try await editor.configuration.setWidgetValue(.number(value), widget: option.widget, key: option.key)
             await editor.reload()
             await display(window)
             let reference = try snapshot(
                 view,
-                name: "nocturne-inspector-\(option.widget)-light-value-\(value)"
+                name: "nocturne-inspector-\(option.widget)-\(appearance == .darkAqua ? "dark" : "light")-value-\(value)"
             )
             let context = "\(option.widget) \(appearance.rawValue) \(value)"
             for state in ["default", "reset"] {

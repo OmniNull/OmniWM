@@ -305,7 +305,7 @@ extension ShellVitreusBarTests {
             NotchRun.all.map { value in
                 (order.isMultiple(of: 2) == value.media ? cappedTray : splitTray, pieces, value)
             }
-        }
+        } + NotchRun.all.filter { !$0.media }.map { (cappedTray, orders[0], $0) }
         for (trayItems, pieces, run) in cases {
             let label = "\(trayItems) tray items, \(run.label), pieces \(pieces)"
             let tray = (0 ..< trayItems).map {
