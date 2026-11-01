@@ -813,10 +813,12 @@
       "kind": "type",
       "topic": "context-data",
       "anchor": "api-notifications",
-      "declaration": "export type Notifications = {\n    state: \"loading\" | \"ready\" | \"empty\" | \"accessDenied\" | \"unavailable\" | \"queryError\" | \"malformed\" | \"incomplete\",\n    complete: boolean,\n    items: { NotificationItem },\n    apps: { {\n        bundle: string,\n        name: string?,\n        columns: any,\n        categories: any,\n        categoryMetadata: any,\n        delivered: any,\n        displayed: any,\n        requests: any,\n    } },\n    error: string?,\n    action: {\n        id: string,\n        bundle: string,\n        kind: \"reply\" | \"dismiss\",\n        state: string,\n    }?,\n    dismissAll: {\n        total: number,\n        completed: number,\n        failed: number,\n        active: boolean,\n        state: \"pending\" | \"cancelling\" | \"cancelled\" | \"completed\" | \"partial\" | \"failed\",\n        outcome: string?,\n    }?,\n    dispatched: { string },\n    kept: number,\n}",
+      "declaration": "export type Notifications = {\n    state: \"loading\" | \"ready\" | \"empty\" | \"accessDenied\" | \"unavailable\" | \"queryError\" | \"malformed\" | \"incomplete\",\n    complete: boolean,\n    membershipComplete: boolean,\n    metadataComplete: boolean,\n    items: { NotificationItem },\n    apps: { {\n        bundle: string,\n        name: string?,\n        columns: any,\n        categories: any,\n        categoryMetadata: any,\n        delivered: any,\n        displayed: any,\n        requests: any,\n    } },\n    error: string?,\n    action: {\n        id: string,\n        bundle: string,\n        kind: \"reply\" | \"dismiss\",\n        state: string,\n    }?,\n    dismissAll: {\n        total: number,\n        completed: number,\n        failed: number,\n        active: boolean,\n        state: \"pending\" | \"cancelling\" | \"cancelled\" | \"completed\" | \"partial\" | \"failed\",\n        outcome: string?,\n    }?,\n    dispatched: { string },\n    kept: number,\n}",
       "fields": [
         "state",
         "complete",
+        "membershipComplete",
+        "metadataComplete",
         "items",
         "apps",
         "error",

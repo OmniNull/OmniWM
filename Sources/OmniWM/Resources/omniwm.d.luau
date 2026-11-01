@@ -317,6 +317,8 @@ export type NotificationItem = {
 export type Notifications = {
     state: "loading" | "ready" | "empty" | "accessDenied" | "unavailable" | "queryError" | "malformed" | "incomplete",
     complete: boolean,
+    membershipComplete: boolean,
+    metadataComplete: boolean,
     items: { NotificationItem },
     apps: { {
         bundle: string,

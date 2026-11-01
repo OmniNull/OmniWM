@@ -456,6 +456,35 @@ final class ShellNotificationsDismissAllTests: XCTestCase {
         XCTAssertEqual(controller.current.kept, 0)
     }
 
+    func testMetadataOnlyIncompletenessStillConfirmsDispatchedMembersAreGone() async throws {
+        let id = UUID()
+        let gate = Gate(snapshot: .init(state: "ready", items: [item(id)]))
+        let entered = expectation(description: "batch starts")
+        gate.entered = { _ in entered.fulfill() }
+        let controller = await controller(gate)
+        defer { controller.setListening(false) }
+        XCTAssertTrue(controller.perform(.dismissAll))
+        let task = try XCTUnwrap(controller.actionTask)
+        await fulfillment(of: [entered], timeout: 5)
+        gate.emit(0, .dispatched)
+        XCTAssertTrue(gate.finish(0, .dispatched))
+        await task.value
+        await controller.task?.value
+        XCTAssertEqual(controller.current.dispatched, [id.uuidString.lowercased()])
+
+        gate.snapshot = .init(
+            state: "incomplete", complete: false, membershipComplete: true, metadataComplete: false,
+            issues: [.init(scope: .metadata, reason: .encodingLimit)]
+        )
+        gate.storageRevision = Gate.revision(1)
+        controller.refresh(.filesystem)
+        await controller.task?.value
+        XCTAssertFalse(controller.current.complete)
+        XCTAssertTrue(controller.current.membershipComplete)
+        XCTAssertTrue(controller.current.dispatched.isEmpty)
+        XCTAssertNil(controller.current.dismissAll)
+    }
+
     func testCompleteEmptyReadClearsZeroSuccessFailedAndCancelledBatchResults() async throws {
         for outcome in [ShellNotificationActionOutcome.denied, .cancelled] {
             let initial = ShellNotificationsData(state: "ready", items: [item(UUID())])
