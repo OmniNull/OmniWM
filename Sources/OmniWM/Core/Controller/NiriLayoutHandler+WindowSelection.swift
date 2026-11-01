@@ -46,7 +46,7 @@ extension NiriLayoutHandler {
             {
                 state = pass.engine.initialContainerSizingState(for: CGFloat(initial))
             } else {
-                state = nil
+                state = openingContainerSizingState(for: token, pass: pass)
             }
 
             guard let state else { continue }
@@ -56,6 +56,24 @@ extension NiriLayoutHandler {
             states?[token] = state
         }
         return states
+    }
+
+    private func openingContainerSizingState(
+        for token: WindowToken,
+        pass: NiriLayoutPass
+    ) -> NiriContainerSizingState? {
+        guard let controller,
+              controller.settings.niri.naturalWindowDrag,
+              pass.orientation == .horizontal,
+              let entry = controller.workspaceManager.entry(for: token),
+              let frame = controller.axEventHandler.observedFrame(for: entry)
+        else { return nil }
+        return pass.engine.openingContainerSizingState(
+            width: frame.width,
+            in: pass.wsId,
+            workingWidth: pass.insetFrame.width,
+            gaps: pass.gap
+        )
     }
 
     private func unpositionedPlacements(

@@ -119,4 +119,24 @@ final class NiriCentredStripTests: XCTestCase {
         XCTAssertTrue(fixture.engine.liveColumnMoveEnd(context: fixture.context, state: &fixture.state))
         XCTAssertTrue(fixture.engine.viewportEdgeRules(in: fixture.workspaceId).centersFittingStrip)
     }
+
+    func testANewColumnOpensAtTheAppsOwnWidthCappedToTheDisplay() {
+        let fixture = makeFixture(widths: [0.3])
+        fixture.engine.updateConfiguration(defaultContainerPrimarySpan: .some(nil))
+        func opening(_ width: CGFloat) -> ProportionalSize? {
+            fixture.engine.openingContainerSizingState(
+                width: width,
+                in: fixture.workspaceId,
+                workingWidth: fixture.frame.width,
+                gaps: fixture.gap
+            )?.width
+        }
+
+        XCTAssertEqual(opening(640), .fixed(640))
+        XCTAssertEqual(opening(4_000), .fixed(fixture.frame.width - fixture.gap * 2))
+        XCTAssertNil(opening(0))
+
+        fixture.engine.updateConfiguration(defaultContainerPrimarySpan: .some(0.5))
+        XCTAssertNil(opening(640))
+    }
 }
