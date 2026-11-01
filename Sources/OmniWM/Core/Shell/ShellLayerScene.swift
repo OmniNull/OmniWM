@@ -214,21 +214,26 @@ final class ShellLayerScene: @unchecked Sendable {
         let trace = ShellFrameTrace.current
         ShellFrameTrace.shared.record(.engineSubmit, context: trace)
         Self.engineQueue.async { [self] in
-            CATransaction.begin()
-            CATransaction.setDisableActions(true)
-            for command in commands {
-                apply(command, animated: animated)
-            }
-            flushGlass(animated: animated)
-            flushReveals(animated: animated)
-            flushPulses()
-            CATransaction.commit()
+            applyBatch(commands, animated: animated)
             if !effects.isEmpty { shaders?.redrawGroups() }
             completion?()
             if trace != nil {
                 ShellFrameTrace.shared.commit(trace, time: CACurrentMediaTime())
             }
         }
+    }
+
+    func applyBatch(_ commands: [ShellLayerCommand], animated: Bool) {
+        CATransaction.begin()
+        CATransaction.setDisableActions(true)
+        for command in commands {
+            apply(command, animated: animated)
+        }
+        flushGlass(animated: animated)
+        flushReveals(animated: animated)
+        flushPulses()
+        CATransaction.commit()
+        CATransaction.flush()
     }
 
     private func apply(_ command: ShellLayerCommand, animated: Bool) {

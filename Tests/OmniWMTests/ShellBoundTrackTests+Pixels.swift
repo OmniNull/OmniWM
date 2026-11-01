@@ -115,6 +115,51 @@ final class ShellBoundTrackPixelTests: XCTestCase {
         ))
     }
 
+    func testBoundBatchPublishesNativePixelsWithAPendingImplicitTransaction() throws {
+        let clock = Fixture.Clock()
+        let fixture = try Fixture.Fixture(Fixture.body, animations: true, clock: { clock.now })
+        let stage = try Fixture.stage(fixture, at: clock.now)
+        let surface = fixture.surface
+        let target = try fixture.target()
+        let layout = CGRect(surface.layout.core.absoluteFrame(of: target))
+        let token = try XCTUnwrap(surface.follows[target]?.token)
+        let motion = try crossingMotion(fixture, at: clock.now)
+        surface.follows[target]?.motion = motion
+        let commands = surface.manipulationCommands(
+            target, token: token, presentation: .motion(motion.wrapper(for: layout)), active: false
+        )
+        clock.now += 0.1
+        let expected = try Fixture.expected(fixture)
+        let applied = DispatchSemaphore(value: 0)
+        let release = DispatchSemaphore(value: 0)
+        let finished = DispatchSemaphore(value: 0)
+        let scene = stage.scene
+        ShellLayerScene.engineQueue.async {
+            CATransaction.setDisableActions(true)
+            scene.applyBatch(commands, animated: false)
+            applied.signal()
+            release.wait()
+            CATransaction.flush()
+            finished.signal()
+        }
+        defer {
+            release.signal()
+            XCTAssertEqual(finished.wait(timeout: .now() + 5), .success)
+        }
+        guard applied.wait(timeout: .now() + 5) == .success else {
+            XCTFail("The scene batch did not finish")
+            return
+        }
+        let bytes = try stage.renderer.render(paused: clock.now)
+        let xs = ShellGlassSceneTests.crossings(bytes, width: stage.width, row: Int(expected.midY))
+        let ys = ShellGlassSceneTests.columnCrossings(
+            bytes, width: stage.width, column: Int(expected.midX), rows: 0 ..< stage.height
+        )
+        let left = try XCTUnwrap(xs.first), right = try XCTUnwrap(xs.last)
+        let top = try XCTUnwrap(ys.first), bottom = try XCTUnwrap(ys.last)
+        Fixture.assertRect(CGRect(x: left, y: top, width: right - left, height: bottom - top), expected, accuracy: 0.5)
+    }
+
     func testReleasedBoundSettleHasNativeKeysAtItsAnalyticClampCrossing() throws {
         let clock = Fixture.Clock()
         let fixture = try Fixture.Fixture(Fixture.body, animations: true, clock: { clock.now })
