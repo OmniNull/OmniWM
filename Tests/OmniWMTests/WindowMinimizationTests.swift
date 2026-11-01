@@ -192,6 +192,37 @@ final class WindowMinimizationTests: XCTestCase {
         XCTAssertEqual(factReads, 1)
     }
 
+    func testWithNaturalWindowDragRestoringAFloatingWindowRescansItsAppSoItsKindIsReadAgain() throws {
+        let controller = WindowAdmissionTestSupport.controller()
+        let workspaceId = try XCTUnwrap(controller.workspaceManager.workspaceId(for: "1", createIfMissing: true))
+        let floating = WindowToken(pid: 688_009, windowId: 688_901)
+        let tiled = WindowToken(pid: 688_010, windowId: 688_902)
+        let floatingRef = WindowAdmissionTestSupport.track(floating, in: workspaceId, controller: controller)
+        let tiledRef = WindowAdmissionTestSupport.track(tiled, in: workspaceId, controller: controller)
+        XCTAssertTrue(controller.workspaceManager.setWindowMode(.floating, for: floating))
+        controller.axEventHandler.frontmostApplicationPIDProvider = { 1 }
+        func rescans() -> [RescanScope] {
+            let layoutState = controller.layoutRefreshController.layoutState
+            return [layoutState.activeRefresh, layoutState.pendingRefresh].compactMap { refresh in
+                refresh.flatMap { $0.kind == .fullRescan ? $0.rescanScope : nil }
+            }
+        }
+
+        controller.workspaceManager.setWindowMinimized(true, token: tiled)
+        controller.axEventHandler.handleWindowMinimized(pid: tiled.pid, axRef: tiledRef, minimized: false)
+        XCTAssertEqual(rescans(), [])
+
+        controller.settings.niri.naturalWindowDrag = false
+        controller.workspaceManager.setWindowMinimized(true, token: floating)
+        controller.axEventHandler.handleWindowMinimized(pid: floating.pid, axRef: floatingRef, minimized: false)
+        XCTAssertEqual(rescans(), [])
+
+        controller.settings.niri.naturalWindowDrag = true
+        controller.workspaceManager.setWindowMinimized(true, token: floating)
+        controller.axEventHandler.handleWindowMinimized(pid: floating.pid, axRef: floatingRef, minimized: false)
+        XCTAssertEqual(rescans(), [.targeted(appPIDs: [floating.pid], nativeSpaceIds: [])])
+    }
+
     func testAFloatingWindowTiledWithNaturalWindowDragGlidesFromWhereItWas() throws {
         let controller = WindowAdmissionTestSupport.controller()
         let workspaceId = try XCTUnwrap(controller.workspaceManager.workspaceId(for: "1", createIfMissing: true))
