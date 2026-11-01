@@ -3,7 +3,11 @@ import Foundation
 import PackageDescription
 
 let packageDirectory = URL(fileURLWithPath: #filePath).deletingLastPathComponent().path
-let ghosttyMacOSLibraryDirectory = "\(packageDirectory)/Frameworks/GhosttyKit.xcframework/macos-arm64"
+let ghosttyFrameworkDirectory = "\(packageDirectory)/Frameworks/GhosttyKit.xcframework"
+// Intel CI builds replace the arm64 GhosttyKit with a thin x86_64 one.
+let ghosttyMacOSLibraryDirectory = FileManager.default.fileExists(atPath: "\(ghosttyFrameworkDirectory)/macos-x86_64")
+    ? "\(ghosttyFrameworkDirectory)/macos-x86_64"
+    : "\(ghosttyFrameworkDirectory)/macos-arm64"
 
 let package = Package(
     name: "OmniWM",

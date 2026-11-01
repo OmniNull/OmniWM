@@ -8,6 +8,9 @@ SWIFTFORMAT := $(CURDIR)/.cache/flake-tools/bin/swiftformat
 SWIFTLINT := $(CURDIR)/.cache/flake-tools/bin/swiftlint
 SWIFT_WITH_GHOSTTY = LIBRARY_PATH="$$(./Scripts/ghostty-preflight.sh print-library-dir)$${LIBRARY_PATH:+:$$LIBRARY_PATH}"
 SWIFT := $(or $(SWIFTLY_HOME_DIR),$(HOME)/.swiftly)/bin/swift
+# x86_64 is for Intel CI builds; it needs a thin x86_64 GhosttyKit.
+OMNIWM_ARCH ?= arm64
+export OMNIWM_ARCH
 
 setup: setup-tools
 	@if [ -e "$(GHOSTTYKIT)" ] && ! readlink "$(GHOSTTYKIT)" | grep -q '^/nix/store/'; then \
@@ -54,7 +57,7 @@ lint-fix: check-tool-versions
 
 build:
 	./Scripts/ghostty-preflight.sh verify
-	$(SWIFT_WITH_GHOSTTY) "$(SWIFT)" build --arch arm64
+	$(SWIFT_WITH_GHOSTTY) "$(SWIFT)" build --arch "$(OMNIWM_ARCH)"
 
 localization-check: build
 	python3 Scripts/localization.py check

@@ -7,6 +7,15 @@ ROOT_DIR="$(cd "$(dirname "${BASH_SOURCE[0]}")/.." && pwd)"
 APP_NAME="${OMNIWM_APP_NAME:-OmniWM}"
 BUNDLE_ID="${OMNIWM_BUNDLE_ID:-com.barut.OmniWM}"
 CANARY_TAG="${OMNIWM_CANARY_TAG:-}"
+ARCH="${OMNIWM_ARCH:-arm64}"
+case "$ARCH" in
+  arm64|x86_64) ;;
+  *)
+    echo "package-app: OMNIWM_ARCH must be arm64 or x86_64" >&2
+    exit 1
+    ;;
+esac
+export OMNIWM_ARCH="$ARCH"
 if [[ -n "$CANARY_TAG" && ! "$CANARY_TAG" =~ ^canary-[0-9]{8}-[0-9]{4}-[0-9]+-[0-9]+$ ]]; then
   echo "package-app: invalid Canary release tag" >&2
   exit 1
@@ -19,7 +28,7 @@ case "$APP_NAME" in
 esac
 APP_DIR="$ROOT_DIR/dist/$APP_NAME.app"
 GHOSTTY_LIBRARY_DIR="$("$ROOT_DIR/Scripts/ghostty-preflight.sh" print-library-dir)"
-SWIFT_BUILD_ARGS=(-c "$CONFIG" --arch arm64)
+SWIFT_BUILD_ARGS=(-c "$CONFIG" --arch "$ARCH")
 
 # Signing identity and notarization profile
 SIGNING_IDENTITY="${OMNIWM_SIGNING_IDENTITY:-Developer ID Application: Oliver Nikolic (VF8LDJRGFM)}"
@@ -31,15 +40,20 @@ make -C "$ROOT_DIR" release-check
 
 "$ROOT_DIR/Scripts/ghostty-preflight.sh" verify
 
-echo "Building OmniWM arm64 binary ($CONFIG)..."
+echo "Building OmniWM $ARCH binary ($CONFIG)..."
 LIBRARY_PATH="$GHOSTTY_LIBRARY_DIR${LIBRARY_PATH:+:$LIBRARY_PATH}" swift build "${SWIFT_BUILD_ARGS[@]}"
 BUILD_DIR="$(LIBRARY_PATH="$GHOSTTY_LIBRARY_DIR${LIBRARY_PATH:+:$LIBRARY_PATH}" swift build "${SWIFT_BUILD_ARGS[@]}" --show-bin-path)"
 EXECUTABLE="$BUILD_DIR/OmniWM"
 CLI_EXECUTABLE="$BUILD_DIR/omniwmctl"
 
-echo "Verifying arm64 binaries..."
-lipo -info "$EXECUTABLE"
-lipo -info "$CLI_EXECUTABLE"
+echo "Verifying $ARCH binaries..."
+for binary in "$EXECUTABLE" "$CLI_EXECUTABLE" "$BUILD_DIR/libOmniWMNowPlaying.dylib"; do
+  if [ "$(lipo -archs "$binary")" != "$ARCH" ]; then
+    echo "package-app: $binary is not $ARCH-only" >&2
+    lipo -info "$binary" >&2 || true
+    exit 1
+  fi
+done
 
 echo "Packaging $APP_DIR"
 rm -rf "$APP_DIR"

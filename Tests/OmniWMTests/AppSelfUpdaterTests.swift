@@ -49,7 +49,15 @@ final class AppSelfUpdaterTests: XCTestCase {
         let digest = "sha256:" + String(repeating: "f", count: 64)
         let canaryName = "OmniWM-canary-\(newTag).zip"
         let canaryURL = URL(string: ReleaseArchive.downloadPrefix + "\(newTag)/\(canaryName)")!
-        XCTAssertNotNil(ReleaseArchive(name: canaryName, url: canaryURL, digest: digest, tag: newTag))
+        let intelName = "OmniWM-canary-\(newTag)-x86_64.zip"
+        let intelURL = URL(string: ReleaseArchive.downloadPrefix + "\(newTag)/\(intelName)")!
+        func canary(_ name: String, _ url: URL, suffix: String) -> ReleaseArchive? {
+            ReleaseArchive(name: name, url: url, digest: digest, tag: newTag, archiveSuffix: suffix)
+        }
+        XCTAssertNotNil(canary(canaryName, canaryURL, suffix: ""))
+        XCTAssertNil(canary(canaryName, canaryURL, suffix: "-x86_64"))
+        XCTAssertNotNil(canary(intelName, intelURL, suffix: "-x86_64"))
+        XCTAssertNil(canary(intelName, intelURL, suffix: ""))
 
         let name = "OmniWM-v0.7.7.zip"
         let url = URL(string: ReleaseArchive.downloadPrefix + "v0.7.7/\(name)")!

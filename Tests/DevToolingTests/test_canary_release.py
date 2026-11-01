@@ -437,7 +437,8 @@ class CanaryWorkflowTests(unittest.TestCase):
         workflow = (SOURCE / ".github/workflows/canary.yml").read_text()
         for step in re.split(r"^      - ", workflow, flags=re.MULTILINE):
             if step.startswith(f"name: {name}\n"):
-                return step
+                # A job's last step ends where the next job starts.
+                return re.split(r"^\n?  \S", step, maxsplit=1, flags=re.MULTILINE)[0]
         self.fail(f"Missing canary workflow step: {name}")
 
     def test_published_tag_matches_the_identity_given_to_packaging(self):
