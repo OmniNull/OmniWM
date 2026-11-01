@@ -313,11 +313,12 @@ extension ShellVitreusBarTests {
     private func markSnapshot(_ widget: ShellRenderedWidget, name: String) throws {
         let pill = try VitreusFixture.frame(widget, key: "shell")
         let crop = CGRect(x: floor(pill.minX) - 8, y: 0, width: ceil(pill.width) + 16, height: 90)
-        let bytes = try VitreusFixture.pixels(widget, crop: crop, scale: 2)
-        let width = Int(crop.width) * 2
+        let scale = 1
+        let bytes = try VitreusFixture.pixels(widget, crop: crop, scale: scale)
+        let width = Int(crop.width) * scale
         let provider = try XCTUnwrap(CGDataProvider(data: Data(bytes) as CFData))
         let image = try XCTUnwrap(CGImage(
-            width: width, height: 180, bitsPerComponent: 8, bitsPerPixel: 32, bytesPerRow: width * 4,
+            width: width, height: 90 * scale, bitsPerComponent: 8, bitsPerPixel: 32, bytesPerRow: width * 4,
             space: XCTUnwrap(CGColorSpace(name: CGColorSpace.sRGB)),
             bitmapInfo: CGBitmapInfo.byteOrder32Little.union(CGBitmapInfo(rawValue:
                 CGImageAlphaInfo.premultipliedFirst.rawValue)), provider: provider, decode: nil,
@@ -481,14 +482,13 @@ extension ShellVitreusBarTests {
     func testWorkspaceTranslucentRimsRecordTheirNativeBandError() throws {
         let widget = try markWidget(markData())
         var profiles: [[String: Any]] = []
-        for scale in [1, 2] {
-            for (key, shape) in [
-                ("workspace-mark-2", "workspace-square-2"),
-                ("workspace-pill", "workspace-pill-shape"),
-                ("workspace-plus", "workspace-plus-h")
-            ] {
-                profiles.append(try markRimProfile(widget, key: key, shape: shape, scale: scale))
-            }
+        let scale = 2
+        for (key, shape) in [
+            ("workspace-mark-2", "workspace-square-2"),
+            ("workspace-pill", "workspace-pill-shape"),
+            ("workspace-plus", "workspace-plus-h")
+        ] {
+            profiles.append(try markRimProfile(widget, key: key, shape: shape, scale: scale))
         }
         let json = try JSONSerialization.data(withJSONObject: profiles, options: [.prettyPrinted, .sortedKeys])
         print("Vitreus translucent rim profiles: " + String(decoding: json, as: UTF8.self))

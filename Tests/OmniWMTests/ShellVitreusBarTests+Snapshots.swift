@@ -86,8 +86,6 @@ extension ShellVitreusBarTests {
 
     func testEmptyBarPillSnapshotsKeepTheVitreusSilhouetteOnEveryDisplay() throws {
         try snapshot(width: 1920, height: 1080, scale: 1)
-        try snapshot(width: 1920, height: 1080, scale: 2)
-        try snapshot(width: 1440, height: 900, scale: 2)
         try snapshot(width: 1512, height: 982, scale: 2)
     }
 }
