@@ -1,0 +1,102 @@
+import json
+import os
+from pathlib import Path
+import re
+import subprocess
+import tempfile
+import textwrap
+from types import SimpleNamespace
+import unittest
+
+
+ROOT = Path(__file__).resolve().parents[2]
+
+
+def job(workflow, name):
+    text = (ROOT / ".github/workflows" / workflow).read_text()
+    return re.search(rf"^  {re.escape(name)}:\n(.*?)(?=^  [\w-]+:|\Z)", text, re.MULTILINE | re.DOTALL)[1]
+
+
+class CIWorkflowTests(unittest.TestCase):
+    def plan(self, event, changed="", status=0):
+        step = job("ci.yml", "changes").split("      - name: Plan the Swift test groups\n", 1)[1]
+        script = textwrap.dedent(step.split("        run: |\n", 1)[1])
+        shell = ["bash", "--noprofile", "--norc", "-eo", "pipefail"] if "        shell: bash\n" in step else ["bash", "-e"]
+        with tempfile.TemporaryDirectory() as temporary:
+            root = Path(temporary)
+            fake_git = root / "git"
+            fake_git.write_text('#!/bin/sh\nprintf "%s" "$CHANGED"\nexit "$DIFF_STATUS"\n')
+            fake_git.chmod(0o755)
+            output = root / "output"
+            result = subprocess.run([*shell, "-c", script], cwd=ROOT, capture_output=True, text=True, env={
+                **os.environ,
+                "PATH": f"{root}{os.pathsep}{os.environ['PATH']}",
+                "EVENT": event,
+                "BASE": "base",
+                "HEAD": "head",
+                "CHANGED": changed,
+                "DIFF_STATUS": str(status),
+                "GITHUB_OUTPUT": str(output),
+            })
+            values = dict(line.split("=", 1) for line in output.read_text().splitlines())
+        return result, values
+
+    def test_failed_diff_cannot_skip_tests_successfully(self):
+        result, _ = self.plan("pull_request", status=128)
+        self.assertNotEqual(result.returncode, 0, "A failed diff must fail Changes, not silently skip Swift tests")
+
+    def test_successful_diff_keeps_app_and_tooling_test_plans(self):
+        for changed, expected in (("Sources/OmniWM/App.swift\n", "true"), ("Scripts/localization.py\n", "false"), ("", "false")):
+            with self.subTest(changed=changed):
+                result, values = self.plan("pull_request", changed)
+                self.assertEqual(result.returncode, 0, result.stderr)
+                self.assertEqual(values["tests"], expected)
+                self.assertTrue(json.loads(values["matrix"])["include"])
+
+    def test_push_and_manual_runs_do_not_need_a_diff(self):
+        for event in ("push", "workflow_dispatch"):
+            with self.subTest(event=event):
+                result, values = self.plan(event, status=128)
+                self.assertEqual(result.returncode, 0, result.stderr)
+                self.assertEqual(values["tests"], "true")
+
+    def test_checkouts_keep_the_event_commit_when_refs_move(self):
+        event_sha = "a" * 40
+        for name in ("tooling", "verify", "test-group"):
+            ref = re.search(r"^          ref: \$\{\{ (.+) \}\}$", job("ci.yml", name), re.MULTILINE)[1]
+            expression = ref.replace("&&", " and ").replace("||", " or ")
+            for event_ref, pr, expected in (
+                ("refs/heads/main", "", event_sha),
+                ("refs/pull/42/merge", "", event_sha),
+                ("refs/heads/manual-ci", "", event_sha),
+                ("refs/heads/manual-ci", "42", "refs/pull/42/merge"),
+            ):
+                with self.subTest(job=name, event_ref=event_ref, pr=pr):
+                    selected = eval(expression, {"__builtins__": {}, "format": str.format}, {
+                        "inputs": SimpleNamespace(pr_number=pr),
+                        "github": SimpleNamespace(sha=event_sha, ref=event_ref),
+                    })
+                    self.assertEqual(selected, expected)
+
+    def test_website_test_failure_stops_the_build(self):
+        commands = re.findall(r"^      - run: (.+)$", job("website.yml", "check"), re.MULTILINE)
+        with tempfile.TemporaryDirectory() as temporary:
+            root = Path(temporary)
+            fake_npm = root / "npm"
+            fake_npm.write_text('#!/bin/sh\nprintf "%s\\n" "$*" >> "$NPM_CALLS"\n[ "$*" != test ] || exit 42\n')
+            fake_npm.chmod(0o755)
+            calls = root / "calls"
+            for command in commands:
+                result = subprocess.run(["bash", "-e", "-c", command], cwd=root, capture_output=True, text=True, env={
+                    **os.environ,
+                    "PATH": f"{root}{os.pathsep}{os.environ['PATH']}",
+                    "NPM_CALLS": str(calls),
+                })
+                if result.returncode:
+                    break
+            self.assertEqual(result.returncode, 42, "Website must execute npm test and propagate its failure")
+            self.assertNotIn("run build", calls.read_text().splitlines())
+
+
+if __name__ == "__main__":
+    unittest.main()
