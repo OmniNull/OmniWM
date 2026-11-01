@@ -64,6 +64,8 @@ final class WMController {
     }
 
     let axManager = AXManager()
+    @ObservationIgnored
+    private(set) lazy var shellAppWindowManager = ShellAppWindowManager(controller: self)
     let traceCaptureCoordinator: RuntimeTraceCaptureCoordinator
     let appInfoCache = AppInfoCache()
     @ObservationIgnored

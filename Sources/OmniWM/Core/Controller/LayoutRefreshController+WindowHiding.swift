@@ -32,8 +32,8 @@ extension LayoutRefreshController {
         var resolvedFrame = observedFrame
             ?? fastFrame(for: entry.token, axRef: entry.axRef)
             ?? controller.axManager.lastAppliedFrame(for: entry.windowId)
-        if resolvedFrame == nil, !animationTick {
-            resolvedFrame = try? AXWindowService.frame(entry.axRef)
+        if resolvedFrame == nil, !animationTick, let axRef = entry.axRef {
+            resolvedFrame = try? AXWindowService.frame(axRef)
         }
         guard var frame = resolvedFrame else {
             return .unavailable
@@ -156,6 +156,15 @@ extension LayoutRefreshController {
         observedFrame: CGRect? = nil
     ) -> Bool {
         guard let controller else { return false }
+        if entry.target.hostedMetadata != nil {
+            return hideHostedWindow(
+                entry,
+                monitor: monitor,
+                side: side,
+                reason: reason,
+                preserveWorkspaceInactive: true
+            )
+        }
         let frameEntry = (pid: entry.pid, windowId: entry.windowId)
         switch resolveHideOperation(
             for: entry,
@@ -218,6 +227,8 @@ extension LayoutRefreshController {
 
         for target in targets {
             let entry = target.entry
+            if routeHostedHide(target, reason: reason, preserveWorkspaceInactive: preserveWorkspaceInactive) { continue
+            }
             switch resolveHideOperation(
                 for: entry,
                 monitor: target.monitor,
@@ -253,6 +264,33 @@ extension LayoutRefreshController {
                 afterFrameWritesOf: awaitedWindowIds
             )
         }
+    }
+
+    private func routeHostedHide(
+        _ target: HideTarget, reason: HideReason, preserveWorkspaceInactive: Bool
+    ) -> Bool {
+        guard target.entry.target.hostedMetadata != nil else { return false }
+        _ = hideHostedWindow(
+            target.entry,
+            monitor: target.monitor,
+            side: target.side,
+            reason: reason,
+            preserveWorkspaceInactive: preserveWorkspaceInactive
+        )
+        return true
+    }
+
+    private func hideHostedWindow(
+        _ entry: WindowState, monitor: Monitor, side: HideSide, reason: HideReason,
+        preserveWorkspaceInactive: Bool
+    ) -> Bool {
+        guard let controller, let frame = controller.shellAppWindowManager.frame(for: entry.token) else { return false }
+        let state = updatedHiddenState(
+            for: entry, frame: frame, monitor: monitor,
+            policy: .init(side: side, reason: reason, preserveWorkspaceInactive: preserveWorkspaceInactive)
+        )
+        controller.workspaceManager.setHiddenState(state, for: entry.token)
+        return controller.shellAppWindowManager.setHidden(true, for: entry.token)
     }
 
     func liveFrameHideOrigin(

@@ -24,14 +24,15 @@ extension ServiceLifecycleManager {
         guard let controller else { return [] }
         let manager = controller.workspaceManager
         return manager.allEntries().compactMap { entry in
-            guard entry.layoutReason != .nativeFullscreen,
+            guard let axRef = entry.axRef,
+                  entry.layoutReason != .nativeFullscreen,
                   manager.nativeFullscreenRecord(for: entry.token) == nil,
                   !manager.spaceTopology.isWindowOnFullscreenSpace(entry.windowId),
                   !manager.spaceTopology.isWindowOnKnownInactiveSpace(entry.windowId)
             else { return nil }
             let reveal = controller.layoutRefreshController.pendingRevealTransaction(for: entry.windowId)
             let hidden = entry.hiddenState ?? reveal?.hiddenState
-            let frame = controller.layoutRefreshController.fastFrame(for: entry.token, axRef: entry.axRef)
+            let frame = controller.layoutRefreshController.fastFrame(for: entry.token, axRef: axRef)
             let offscreen = frame.map { frame in
                 !manager.monitors.contains {
                     let overlap = $0.frame.intersection(frame)
@@ -63,7 +64,7 @@ extension ServiceLifecycleManager {
             }
             return StopWindowTarget(
                 token: entry.token,
-                window: entry.axRef,
+                window: axRef,
                 visibleFrame: monitor?.visibleFrame,
                 placement: placement
             )
@@ -113,7 +114,8 @@ extension ServiceLifecycleManager {
 
     func reconcileStopOutcome(_ outcome: StopWindowOutcome) {
         guard let controller, let entry = controller.workspaceManager.entry(for: outcome.target.token),
-              sameAXWindowIdentity(entry.axRef, outcome.target.window)
+              let axRef = entry.axRef,
+              sameAXWindowIdentity(axRef, outcome.target.window)
         else { return }
         if let minimized = outcome.confirmedMinimized {
             controller.workspaceManager.setWindowMinimized(minimized, token: entry.token, source: .service)

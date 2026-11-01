@@ -117,7 +117,7 @@ final class ObservedSizePackingHintTests: XCTestCase {
                 XCTAssertEqual(node.constraints.minSize.height, 100)
                 XCTAssertEqual(node.packingHints, evidence.hints)
                 XCTAssertEqual(try XCTUnwrap(frames[token]).height, columnHeight, accuracy: 0.01)
-                let window = try XCTUnwrap(controller.workspaceManager.entry(for: token)).axRef
+                let window = try XCTUnwrap(controller.workspaceManager.entry(for: token)?.axRef)
                 XCTAssertNil(WindowAdmissionTestSupport.frameRequest(
                     controller.axManager.frameLedger,
                     pid: token.pid,
@@ -173,7 +173,7 @@ final class ObservedSizePackingHintTests: XCTestCase {
         let seeded = ObservedSizeEvidence(minSize: CGSize(width: 1, height: workingHeight))
         XCTAssertTrue(controller.workspaceManager.setObservedSizeEvidence(seeded, for: token))
         let target = try XCTUnwrap(fixture.frames[token])
-        let window = try XCTUnwrap(controller.workspaceManager.entry(for: token)).axRef
+        let window = try XCTUnwrap(controller.workspaceManager.entry(for: token)?.axRef)
         let stale = AXWindowRef(element: AXUIElementCreateApplication(token.pid + 50), windowId: token.windowId)
 
         for (label, expectedWindow, components, observed) in [
@@ -274,7 +274,7 @@ final class ObservedSizePackingHintTests: XCTestCase {
     private func learnBoundedHeightGrowth(for token: WindowToken, in fixture: Fixture) throws {
         let controller = fixture.controller
         let axManager = controller.axManager
-        let window = try XCTUnwrap(controller.workspaceManager.entry(for: token)).axRef
+        let window = try XCTUnwrap(controller.workspaceManager.entry(for: token)?.axRef)
         let target = try XCTUnwrap(fixture.frames[token])
         let observed = CGRect(x: target.minX, y: target.minY - 6, width: target.width, height: target.height + 6)
         let first = try XCTUnwrap(WindowAdmissionTestSupport.frameRequest(
@@ -296,7 +296,7 @@ final class ObservedSizePackingHintTests: XCTestCase {
 
     private func confirmFullWrite(for token: WindowToken, in fixture: Fixture) throws {
         let axManager = fixture.controller.axManager
-        let window = try XCTUnwrap(fixture.controller.workspaceManager.entry(for: token)).axRef
+        let window = try XCTUnwrap(fixture.controller.workspaceManager.entry(for: token)?.axRef)
         let target = try XCTUnwrap(fixture.frames[token])
         axManager.forceApplyNextFrame(for: token.windowId)
         let request = try XCTUnwrap(WindowAdmissionTestSupport.frameRequest(

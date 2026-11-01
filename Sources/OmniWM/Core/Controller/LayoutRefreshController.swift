@@ -86,8 +86,9 @@ import QuartzCore
         SkyLight.shared.nativeSpaceWindowInventory(spaceIds: $0)
     }
 
-    func fastFrame(for token: WindowToken, axRef: AXWindowRef) -> CGRect? {
-        activeFrameContext?.fastFrame(for: token, axRef: axRef)
+    func fastFrame(for token: WindowToken, axRef: AXWindowRef?) -> CGRect? {
+        guard let axRef else { return controller?.shellAppWindowManager.frame(for: token) }
+        return activeFrameContext?.fastFrame(for: token, axRef: axRef)
             ?? fastFrameProvider(token, axRef)
     }
 
@@ -258,7 +259,7 @@ extension LayoutRefreshController {
         for entry: WindowState,
         hiddenState: HiddenState
     ) -> Bool {
-        !hiddenState.workspaceInactive
+        entry.axRef != nil && !hiddenState.workspaceInactive
             && entry.mode == .floating
             && hiddenState.restoresViaFloatingState
     }

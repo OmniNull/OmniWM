@@ -104,7 +104,9 @@ extension AXEventHandler {
         }
         for entry in removedEntries {
             controller.mouseEventHandler.discardNativeTitleBarDrag(for: entry.token)
-            controller.axManager.removeWindowState(pid: entry.pid, expectedWindow: entry.axRef)
+            if let axRef = entry.axRef {
+                controller.axManager.removeWindowState(pid: entry.pid, expectedWindow: axRef)
+            }
             if scratchpadTokens.contains(entry.token) {
                 controller.cleanupScratchpadWindowResources(for: entry.token)
             }

@@ -24,7 +24,8 @@ extension AXEventHandler {
     ) -> PreparedDestroy? {
         guard let controller else { return nil }
         guard let token,
-              let entry = controller.workspaceManager.entry(for: token)
+              let entry = controller.workspaceManager.entry(for: token),
+              let entryAXRef = entry.axRef
         else {
             return nil
         }
@@ -41,7 +42,7 @@ extension AXEventHandler {
         let replacementMetadata: ManagedReplacementMetadata
         if managedReplacementNeedsLiveAXFacts(cachedMetadata) {
             let facts = managedReplacementFacts(
-                for: entry.axRef,
+                for: entryAXRef,
                 pid: token.pid,
                 bundleId: cachedMetadata.bundleId,
                 windowInfo: windowInfo,

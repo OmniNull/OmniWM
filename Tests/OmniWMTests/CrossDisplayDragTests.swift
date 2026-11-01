@@ -851,9 +851,10 @@ final class CrossDisplayDragTests: XCTestCase {
                 fixture.manager.setHiddenState(hidden, for: moved)
                 fixture.controller.axManager.markWindowInactive(moved.windowId)
                 let entry = try XCTUnwrap(fixture.manager.entry(for: moved))
+                let reference = try XCTUnwrap(entry.axRef)
                 let parked = start.offsetBy(dx: fixture.monitors[0].frame.maxX - 1 - start.minX, dy: 0)
                 let request = try XCTUnwrap(fixture.controller.axManager.prepareParkFrameApplications([
-                    .init(pid: moved.pid, window: entry.axRef, frame: parked)
+                    .init(pid: moved.pid, window: reference, frame: parked)
                 ]).first)
                 XCTAssertTrue(fixture.controller.axManager.processParkFrameApplyResults([
                     WindowAdmissionTestSupport.successfulFrameResult(request: request)
@@ -1031,6 +1032,7 @@ final class CrossDisplayDragTests: XCTestCase {
                     let resident = addWindow(2, to: fixture.target, fixture)
                     let start = try beginNativeDrag(moved, fixture)
                     let entry = try XCTUnwrap(fixture.manager.entry(for: moved))
+                    let reference = try XCTUnwrap(entry.axRef)
                     let refresh = fixture.controller.layoutRefreshController
                     refresh.layoutState.activeRefresh = .init(
                         kind: .immediateRelayout, reason: .layoutCommand, affectedWorkspaceIds: [fixture.source]
@@ -1038,7 +1040,7 @@ final class CrossDisplayDragTests: XCTestCase {
                     defer { refresh.resetState() }
                     if excluded {
                         fixture.controller.axManager.applyFramesParallel([.init(
-                            pid: moved.pid, window: entry.axRef, frame: start.offsetBy(dx: 30, dy: 0)
+                            pid: moved.pid, window: reference, frame: start.offsetBy(dx: 30, dy: 0)
                         )])
                     }
                     XCTAssertNil(fixture.controller.axManager.pendingFrameWrite(for: moved.windowId))
@@ -1085,6 +1087,7 @@ final class CrossDisplayDragTests: XCTestCase {
                     let start = try beginNativeDrag(moved, fixture)
                     let point = try XCTUnwrap(fixture.frame(resident)).center
                     let entry = try XCTUnwrap(fixture.manager.entry(for: moved))
+                    let reference = try XCTUnwrap(entry.axRef)
                     if delayed {
                         fixture.handler.dispatchMouseUp(at: point)
                         XCTAssertEqual(fixture.handler.state.nativeTitleBarDrag?.phase, .awaitingFrameChange)
@@ -1092,7 +1095,7 @@ final class CrossDisplayDragTests: XCTestCase {
                     let managedFrame = start.offsetBy(dx: 30, dy: 0)
                     if pending {
                         XCTAssertNotNil(fixture.controller.axManager.stageFrameWrite(for: .init(
-                            pid: moved.pid, window: entry.axRef, frame: managedFrame
+                            pid: moved.pid, window: reference, frame: managedFrame
                         )))
                     } else {
                         fixture.controller.axManager.confirmFrameWrite(for: moved.windowId, frame: managedFrame)

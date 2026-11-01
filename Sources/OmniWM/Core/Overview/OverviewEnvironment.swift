@@ -47,11 +47,13 @@ struct OverviewEnvironment {
     }
 
     var windowTitle: (WindowState) -> String? = { entry in
-        AXWindowService.titlePreferFast(windowId: UInt32(entry.windowId))
+        entry.target.hostedMetadata?.title
+            ?? AXWindowService.titlePreferFast(windowId: UInt32(entry.windowId))
     }
 
     var windowFrame: (WindowState) -> CGRect? = { entry in
-        AXWindowService.framePreferFast(entry.axRef)
+        guard let axRef = entry.axRef else { return nil }
+        return AXWindowService.framePreferFast(axRef)
     }
 
     var onThumbnailCaptureStarted: () -> Void = {}

@@ -228,9 +228,10 @@ extension AXEventHandler {
     ) {
         guard let controller, !controller.isOwnedWindow(windowNumber: Int(request.windowId)) else { return }
         let current = controller.workspaceManager.entry(forWindowId: Int(request.windowId))
+        guard current == nil || current?.axRef != nil else { return }
         guard current?.token == identity.token,
               current.flatMap({ controller.workspaceManager.handle(for: $0.token) }) === identity.handle,
-              current.map({ CFEqual($0.axRef.element, identity.axRef?.element) }) ?? (identity.axRef == nil)
+              current.flatMap(\.axRef).map({ CFEqual($0.element, identity.axRef?.element) }) ?? (identity.axRef == nil)
         else { return }
 
         let retryGeneration = admissionRetryStateByWindowId[request.windowId]?.generation
@@ -301,7 +302,8 @@ extension AXEventHandler {
                   observedAtSeq, for: current.workspaceId, domains: .layoutCommit
               ),
               let focusedWindow = facts.focusedWindow,
-              CFEqual(current.axRef.element, focusedWindow.axRef.element)
+              let currentAXRef = current.axRef,
+              CFEqual(currentAXRef.element, focusedWindow.axRef.element)
               || isKnownAXIdentityAlias(windowId: current.windowId, axRef: focusedWindow.axRef)
         else { return }
         applyObservedWindowOrdering(
@@ -380,12 +382,14 @@ extension AXEventHandler {
     }
 
     func hasPendingLifecycleDestruction(_ token: WindowToken) -> Bool {
-        guard let controller, let entry = controller.workspaceManager.entry(for: token) else { return false }
+        guard let controller, let entry = controller.workspaceManager.entry(for: token),
+              let entryAXRef = entry.axRef
+        else { return false }
         let handle = controller.workspaceManager.handle(for: token)
         func matches(_ request: LifecycleQuery) -> Bool {
             guard let identity = request.destructionIdentity else { return false }
             return identity.token == token && identity.handle === handle
-                && CFEqual(identity.axRef?.element, entry.axRef.element)
+                && CFEqual(identity.axRef?.element, entryAXRef.element)
         }
         return lifecycleQueries.active.map(matches) == true || lifecycleQueries.pending.contains(where: matches)
     }

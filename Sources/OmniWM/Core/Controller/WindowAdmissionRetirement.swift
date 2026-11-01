@@ -51,9 +51,11 @@ extension AXEventHandler {
         prepareRetirementFocus(entry, policy: policy, ownsLiveFocus: ownsLiveFocus, controller: controller)
         controller.mouseEventHandler.discardNativeTitleBarDrag(for: token)
         _ = controller.workspaceManager.removeWindow(pid: token.pid, windowId: token.windowId)
-        noteManagedWindowSubscriptionIdentityChanged()
-        finishDeferredReplacementAfterTracking(windowId: token.windowId)
-        controller.axManager.removeWindowState(pid: token.pid, expectedWindow: entry.axRef)
+        if let axRef = entry.axRef {
+            noteManagedWindowSubscriptionIdentityChanged()
+            finishDeferredReplacementAfterTracking(windowId: token.windowId)
+            controller.axManager.removeWindowState(pid: token.pid, expectedWindow: axRef)
+        }
         if removesScratchpadResources {
             controller.cleanupScratchpadWindowResources(for: token)
         }
@@ -185,6 +187,7 @@ extension AXEventHandler {
             return nil
         }
         guard let entry = controller.workspaceManager.entry(forWindowId: refusal.windowId),
+              entry.axRef != nil,
               entry.mode == .tiling,
               controller.workspaceManager.hiddenState(for: entry.token) == nil
         else { return nil }
@@ -202,24 +205,26 @@ extension AXEventHandler {
     }
 
     private func recordTerminalFrameFailure(for entry: WindowState) -> Int {
+        guard let axRef = entry.axRef else { return 0 }
         if var state = terminalFrameFailureStateByWindowId[entry.windowId],
-           CFEqual(state.axRef.element, entry.axRef.element)
+           CFEqual(state.axRef.element, axRef.element)
         {
             state.count += 1
             terminalFrameFailureStateByWindowId[entry.windowId] = state
             return state.count
         }
         terminalFrameFailureStateByWindowId[entry.windowId] = TerminalFrameFailureState(
-            axRef: entry.axRef,
+            axRef: axRef,
             count: 1
         )
         return 1
     }
 
     private func quarantineAfterTerminalFrameRefusal(_ entry: WindowState) {
+        guard let axRef = entry.axRef else { return }
         admissionQuarantineByWindowId[entry.windowId] = AdmissionQuarantine(
             token: entry.token,
-            axRef: entry.axRef
+            axRef: axRef
         )
         WindowAdmissionTrace.record(
             .init(

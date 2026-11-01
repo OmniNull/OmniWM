@@ -86,7 +86,11 @@ final class IPCQueryRouter {
            let entry = controller.workspaceManager.entry(for: focusedToken),
            entry.workspaceId == workspace.id
         {
-            focusedApp = IPCAppRef(appInfo: controller.appInfoCache.info(for: entry.pid))
+            if let hosted = entry.target.hostedMetadata {
+                focusedApp = IPCAppRef(name: hosted.title, bundleId: hosted.appId)
+            } else {
+                focusedApp = IPCAppRef(appInfo: controller.appInfoCache.info(for: entry.pid))
+            }
         } else {
             focusedApp = nil
         }
@@ -142,14 +146,20 @@ final class IPCQueryRouter {
         let workspaceDescriptor = controller.workspaceManager.descriptor(for: entry.workspaceId)
         let monitor = controller.workspaceManager.monitor(for: entry.workspaceId)
         let appInfo = controller.appInfoCache.info(for: entry.pid)
-        let frame = AXWindowService.framePreferFast(entry.axRef)
+        let frame: CGRect?
+        if let axRef = entry.axRef {
+            frame = AXWindowService.framePreferFast(axRef)
+        } else {
+            frame = controller.shellAppWindowManager.frame(for: entry.token)
+        }
+        let hosted = entry.target.hostedMetadata
         let snapshot = IPCFocusedWindowSnapshot(
             id: IPCWindowOpaqueID.encode(token: focusedToken, sessionToken: sessionToken),
             pid: entry.pid,
             workspace: workspaceDescriptor.map { IPCWorkspaceRef(descriptor: $0, settings: controller.settings) },
             display: monitor.map(IPCDisplayRef.init(monitor:)),
-            app: IPCAppRef(appInfo: appInfo),
-            title: AXWindowService.titlePreferFast(windowId: UInt32(entry.windowId)),
+            app: hosted.map { IPCAppRef(name: $0.title, bundleId: $0.appId) } ?? IPCAppRef(appInfo: appInfo),
+            title: hosted?.title ?? AXWindowService.titlePreferFast(windowId: UInt32(entry.windowId)),
             frame: frame.map(IPCRect.init),
             isFullscreen: controller.workspaceManager.layoutTopology(for: entry.workspaceId).isFullscreen(focusedToken)
         )

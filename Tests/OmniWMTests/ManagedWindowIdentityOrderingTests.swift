@@ -312,10 +312,9 @@ final class ManagedWindowIdentityOrderingTests: XCTestCase {
         XCTAssertEqual(calls, [fixture.predecessor, fixture.successor])
         XCTAssertEqual(successorSource, fixture.predecessor)
         XCTAssertTrue(successorUsedNewIncarnation)
-        XCTAssertTrue(CFEqual(
-            try XCTUnwrap(fixture.manager.entry(for: fixture.successor)).axRef.element,
-            replacementRef.element
-        ))
+        let successorEntry = try XCTUnwrap(fixture.manager.entry(for: fixture.successor))
+        let successorReference = try XCTUnwrap(successorEntry.axRef)
+        XCTAssertTrue(CFEqual(successorReference.element, replacementRef.element))
         assertCanonical(fixture, token: fixture.successor)
     }
 

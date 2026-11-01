@@ -45,7 +45,7 @@ extension WMController {
         if captureGeometry {
             _ = captureVisibleFloatingGeometry(for: entry.token, preferredMonitor: monitor)
         }
-        if let ref = AXWindowService.axWindowRef(for: UInt32(entry.windowId), pid: entry.pid) {
+        if entry.axRef != nil, let ref = AXWindowService.axWindowRef(for: UInt32(entry.windowId), pid: entry.pid) {
             AXWindowService.pinAXElement(ref.element, for: UInt32(entry.windowId))
         }
 
@@ -101,7 +101,7 @@ extension WMController {
         revealGroupId: UInt64? = nil
     ) -> Bool {
         let entry = workspaceManager.entry(for: entry.token) ?? entry
-        axManager.markWindowActive(entry.windowId)
+        if entry.axRef != nil { axManager.markWindowActive(entry.windowId) }
 
         if let hiddenState = workspaceManager.hiddenState(for: entry.token) {
             if hiddenState.isScratchpad {
@@ -124,10 +124,13 @@ extension WMController {
             for: entry.token,
             preferredMonitor: monitor
         ) {
-            axManager.forceApplyNextFrame(for: entry.windowId)
-            axManager.applyFramesParallel([
-                .init(pid: entry.pid, window: entry.axRef, frame: frame)
-            ])
+            if let axRef = entry.axRef {
+                axManager.forceApplyNextFrame(for: entry.windowId)
+                axManager.applyFramesParallel([.init(pid: entry.pid, window: axRef, frame: frame)])
+            } else {
+                shellAppWindowManager.setFrame(frame, for: entry.token)
+                shellAppWindowManager.setHidden(false, for: entry.token)
+            }
         }
 
         if let revealGroupId {

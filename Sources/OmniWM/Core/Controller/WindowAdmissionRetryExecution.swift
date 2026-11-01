@@ -30,6 +30,7 @@ extension AXEventHandler {
                   oldestIdentityRebind(for: source.handle)?.key == windowId
             else { return true }
             guard let entry = controller?.workspaceManager.entry(for: source.handle),
+                  let entryAXRef = entry.axRef,
                   case let .identityRebind(_, newWindow, metadata, hints, constraints) = state.trigger
             else {
                 cancelCreatedWindowRetry(windowId: windowId)
@@ -38,7 +39,7 @@ extension AXEventHandler {
                 return true
             }
             state.trigger = .identityRebind(
-                oldWindow: AXManagedWindowIdentity(token: entry.token, axRef: entry.axRef),
+                oldWindow: AXManagedWindowIdentity(token: entry.token, axRef: entryAXRef),
                 newWindow: newWindow,
                 managedReplacementMetadata: metadata,
                 admissionHints: hints,
@@ -54,11 +55,7 @@ extension AXEventHandler {
         state.executionPhase = .running(executionOwner)
         state.task = nil
         admissionRetryStateByWindowId[windowId] = state
-        resumeAdmissionRetry(
-            windowId: windowId,
-            state: state,
-            executionOwner: executionOwner
-        )
+        resumeAdmissionRetry(windowId: windowId, state: state, executionOwner: executionOwner)
         return true
     }
 

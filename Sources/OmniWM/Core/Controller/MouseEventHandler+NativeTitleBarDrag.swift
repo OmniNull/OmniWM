@@ -227,7 +227,8 @@ extension MouseEventHandler {
            !drag.pendingExcludedCorrection,
            controller.axManager.pendingFrameWrite(for: entry.windowId) == nil,
            let lastAppliedFrame = controller.axManager.lastAppliedFrame(for: entry.windowId),
-           let observedFrame = nativeWindowFrameProvider(entry.axRef),
+           let axRef = entry.axRef,
+           let observedFrame = nativeWindowFrameProvider(axRef),
            observedFrame.approximatelyEqual(
                to: lastAppliedFrame,
                tolerance: FrameTolerance.frameWrite

@@ -126,6 +126,7 @@ extension AXEventHandler {
     ) {
         guard let controller,
               let entry = controller.workspaceManager.entry(for: token),
+              let entryAXRef = entry.axRef,
               entry.workspaceId == workspaceId,
               controller.workspaceManager.isSeqCurrent(
                   plannedSeq,
@@ -139,7 +140,7 @@ extension AXEventHandler {
 
         controller.axManager.forceApplyNextFrame(for: token.windowId)
         controller.axManager.applyFramesParallel([
-            .init(pid: token.pid, window: entry.axRef, frame: targetFrame)
+            .init(pid: token.pid, window: entryAXRef, frame: targetFrame)
         ])
     }
 

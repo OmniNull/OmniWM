@@ -30,13 +30,14 @@ enum WMEvent: Equatable {
         workspaceId: WorkspaceDescriptor.ID,
         monitorId: Monitor.ID?,
         mode: TrackedWindowMode,
-        axRef: AXWindowRef,
+        target: WindowTarget,
         ruleEffects: ManagedWindowRuleEffects,
         admissionHints: ManagedWindowAdmissionHints,
         lifetimeAuthority: ManagedWindowLifetimeAuthority,
         adoptNativeFocus: Bool,
         managedReplacementMetadata: ManagedReplacementMetadata?,
-        source: WMEventSource
+        source: WMEventSource,
+        initialFrame: CGRect? = nil
     )
     case topLevelInventoryObserved(
         tokens: Set<WindowToken>,
@@ -283,26 +284,30 @@ extension WMEvent {
             workspaceId,
             monitorId,
             mode,
-            axRef,
+            target,
             ruleEffects,
             admissionHints,
             lifetimeAuthority,
             adoptNativeFocus,
             metadata,
-            source
+            source,
+            initialFrame
         ):
             .windowAdmitted(
                 token: token,
                 workspaceId: workspaceId,
                 monitorId: monitorId,
                 mode: mode,
-                axRef: AXWindowRef(element: Self.placeholderAXElement, windowId: axRef.windowId),
+                target: target.axRef.map {
+                    .external(AXWindowRef(element: Self.placeholderAXElement, windowId: $0.windowId))
+                } ?? target,
                 ruleEffects: ruleEffects,
                 admissionHints: admissionHints,
                 lifetimeAuthority: lifetimeAuthority,
                 adoptNativeFocus: adoptNativeFocus,
                 managedReplacementMetadata: metadata,
-                source: source
+                source: source,
+                initialFrame: initialFrame
             )
         case let .windowRekeyed(from, to, workspaceId, monitorId, reason, newAXRef, metadata, source):
             .windowRekeyed(
@@ -322,7 +327,7 @@ extension WMEvent {
 
     var token: WindowToken? {
         switch self {
-        case let .windowAdmitted(token, _, _, _, _, _, _, _, _, _, _),
+        case let .windowAdmitted(token, _, _, _, _, _, _, _, _, _, _, _),
              let .windowRemoved(token, _, _),
              let .workspaceAssigned(token, _, _, _, _),
              let .windowModeChanged(token, _, _, _, _),
@@ -377,7 +382,7 @@ extension WMEvent {
 
     var summary: String {
         switch self {
-        case let .windowAdmitted(token, workspaceId, _, mode, _, _, _, _, _, _, _):
+        case let .windowAdmitted(token, workspaceId, _, mode, _, _, _, _, _, _, _, _):
             "window_admitted token=\(token) workspace=\(workspaceId.uuidString) mode=\(mode)"
         case let .topLevelInventoryObserved(tokens, _):
             "top_level_inventory_observed count=\(tokens.count)"

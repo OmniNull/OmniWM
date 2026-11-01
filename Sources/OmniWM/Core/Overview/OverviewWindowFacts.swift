@@ -17,7 +17,8 @@ final class OverviewWindowFacts {
     }
 
     func windowFrame(_ entry: WindowState) -> CGRect? {
-        environment.windowFrame(entry)
+        guard entry.axRef != nil else { return wmController?.shellAppWindowManager.frame(for: entry.token) }
+        return environment.windowFrame(entry)
     }
 
     func makeOverviewWindowData(
@@ -31,9 +32,9 @@ final class OverviewWindowFacts {
             token: entry.token,
             workspaceId: entry.workspaceId,
             title: title.isEmpty ? (appInfo?.name ?? String(localized: "Window")) : title,
-            appName: appInfo?.name ?? String(localized: "Unknown"),
+            appName: entry.target.hostedMetadata?.title ?? appInfo?.name ?? String(localized: "Unknown"),
             appIcon: appInfo?.icon,
-            frame: preferredFrame ?? environment.windowFrame(entry) ?? .zero,
+            frame: preferredFrame ?? windowFrame(entry) ?? .zero,
             isNativeFullscreen: entry.layoutReason == .nativeFullscreen,
             floatingPreviewFrame: floatingPreviewFrame(for: entry)
         )

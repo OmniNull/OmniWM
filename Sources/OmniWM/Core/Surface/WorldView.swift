@@ -230,6 +230,15 @@ struct WorldView {
     }
 
     private func islandWindow(_ entry: WindowState, column: Int) -> IslandNavigationSnapshot.Window {
+        if let hosted = entry.target.hostedMetadata {
+            return IslandNavigationSnapshot.Window(
+                token: entry.token,
+                bundle: hosted.appId,
+                name: hosted.title,
+                title: hosted.title,
+                column: column
+            )
+        }
         let cache = controller.appInfoCache
         let info = cache.hasCachedInfo(for: entry.pid) ? cache.info(for: entry.pid) : nil
         let name = info?.name ?? String(localized: "Unknown")

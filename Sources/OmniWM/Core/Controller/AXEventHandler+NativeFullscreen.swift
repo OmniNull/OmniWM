@@ -84,6 +84,7 @@ extension AXEventHandler {
         if controller.workspaceManager.isWindowOnObservedNativeFullscreenSpace(entry.windowId) {
             return true
         }
-        return AXWindowService.isFullscreenAttributeSet(entry.axRef)
+        guard let axRef = entry.axRef else { return false }
+        return AXWindowService.isFullscreenAttributeSet(axRef)
     }
 }

@@ -18,7 +18,7 @@ extension AXEventHandler {
             }
             return
         }
-        guard CFEqual(entry.axRef.element, axRef.element) else { return }
+        guard let entryAXRef = entry.axRef, CFEqual(entryAXRef.element, axRef.element) else { return }
         updateWindowMinimizedState(minimized, token: token)
         if !minimized, frontmostApplicationPIDProvider() == pid {
             handleAppActivation(pid: pid, source: .focusedWindowChanged)

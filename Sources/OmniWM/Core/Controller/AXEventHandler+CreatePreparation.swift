@@ -161,7 +161,10 @@ extension AXEventHandler {
         let token = identity.token
         let axRef = identity.axRef
         let windowId = UInt32(token.windowId)
-        if CFEqual(existingEntry.axRef.element, axRef.element), existingEntry.token == token {
+        guard let existingAXRef = existingEntry.axRef else {
+            return .ignored(token: token, reason: .invalidIdentity)
+        }
+        if CFEqual(existingAXRef.element, axRef.element), existingEntry.token == token {
             WindowAdmissionTrace.record(
                 .init(
                     action: .admissionAlreadyTracked,

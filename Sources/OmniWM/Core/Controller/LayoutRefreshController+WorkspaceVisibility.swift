@@ -30,6 +30,7 @@ extension LayoutRefreshController {
         var allEntries: [(workspaceId: WorkspaceDescriptor.ID, windowId: Int)] = []
         for workspace in controller.workspaceManager.workspaces {
             controller.workspaceManager.windowQueries.forEachToken(in: workspace.id) { token in
+                guard controller.workspaceManager.entry(for: token)?.axRef != nil else { return }
                 allEntries.append((workspace.id, token.windowId))
             }
         }
@@ -74,6 +75,7 @@ extension LayoutRefreshController {
     func restoreWorkspaceInactiveFloatingWindows(activeWorkspaceIds: Set<WorkspaceDescriptor.ID>) -> Int {
         guard let controller else { return 0 }
         var frameUpdates: [AXFrameApplicationTarget] = []
+        var restoredCount = 0
         var visibleJobs: [(pid: pid_t, windowId: Int)] = []
 
         for workspaceId in activeWorkspaceIds {
@@ -81,10 +83,16 @@ extension LayoutRefreshController {
             for entry in controller.workspaceManager.floatingEntries(in: workspaceId) {
                 guard let frame = workspaceInactiveFloatingRestoreFrame(for: entry, monitor: monitor) else { continue }
                 controller.workspaceManager.setHiddenState(nil, for: entry.token)
+                restoredCount += 1
+                guard let axRef = entry.axRef else {
+                    controller.shellAppWindowManager.setFrame(frame, for: entry.token)
+                    controller.shellAppWindowManager.setHidden(false, for: entry.token)
+                    continue
+                }
                 visibleJobs.append((entry.pid, entry.windowId))
                 controller.axManager.markWindowActive(entry.windowId)
                 controller.axManager.forceApplyNextFrame(for: entry.windowId)
-                frameUpdates.append(.init(pid: entry.pid, window: entry.axRef, frame: frame))
+                frameUpdates.append(.init(pid: entry.pid, window: axRef, frame: frame))
             }
         }
 
@@ -92,7 +100,7 @@ extension LayoutRefreshController {
             controller.axManager.unsuppressFrameWrites(visibleJobs)
         }
         controller.axManager.applyFramesParallel(frameUpdates)
-        return frameUpdates.count
+        return restoredCount
     }
 
     private func workspaceInactiveFloatingRestoreFrame(
@@ -118,7 +126,7 @@ extension LayoutRefreshController {
         var allEntries: [(workspaceId: WorkspaceDescriptor.ID, windowId: Int)] = []
         allEntries.reserveCapacity(workspaceEntries.reduce(into: 0) { $0 += $1.entries.count })
         for snapshot in workspaceEntries {
-            for entry in snapshot.entries {
+            for entry in snapshot.entries where entry.axRef != nil {
                 allEntries.append((snapshot.workspace.id, entry.windowId))
             }
         }
@@ -131,7 +139,7 @@ extension LayoutRefreshController {
         var inactiveWindowJobs: [(pid: pid_t, windowId: Int)] = []
         let hiddenPlacementMonitors = controller.workspaceManager.monitors.map(HiddenPlacementMonitorContext.init)
         for snapshot in workspaceEntries where !activeWorkspaceIds.contains(snapshot.workspace.id) {
-            for entry in snapshot.entries {
+            for entry in snapshot.entries where entry.axRef != nil {
                 inactiveWindowJobs.append((entry.pid, entry.windowId))
             }
         }
@@ -162,7 +170,7 @@ extension LayoutRefreshController {
             guard controller.workspaceManager.layoutReason(for: entry.token) != .nativeFullscreen else {
                 return nil
             }
-            controller.axManager.markWindowInactive(entry.windowId)
+            if entry.axRef != nil { controller.axManager.markWindowInactive(entry.windowId) }
             if isWindowOnKnownInactiveNativeSpace(entry.windowId) {
                 return nil
             }

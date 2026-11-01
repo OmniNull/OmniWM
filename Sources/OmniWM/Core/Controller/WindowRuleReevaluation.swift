@@ -65,6 +65,7 @@ struct WindowRuleReevaluation {
         windowServerLookupAttempted: Bool
     ) -> RuleReevaluationWindow? {
         let existingEntry = controller.workspaceManager.entry(for: token)
+        guard existingEntry?.target.hostedMetadata == nil else { return nil }
         let axRef = liveWindowsByToken[token] ?? existingEntry?.axRef
         guard let axRef else { return nil }
         let createPlacementContext = existingEntry == nil

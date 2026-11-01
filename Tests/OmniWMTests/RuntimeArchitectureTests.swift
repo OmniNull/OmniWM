@@ -4050,12 +4050,13 @@ final class RuntimeArchitectureTests: XCTestCase {
         controller.workspaceManager.setManualLayoutOverride(.forceFloat, for: token)
         controller.axManager.confirmFrameWrite(for: windowId, frame: targetFrame)
         XCTAssertEqual(controller.axManager.lastAppliedFrame(for: windowId), targetFrame)
+        let staleReference = try XCTUnwrap(staleEntry.axRef)
         controller.layoutRefreshController.completePendingRevealTransaction(
             with: Self.frameResult(
                 requestId: 1,
                 pid: pid,
                 windowId: windowId,
-                expectedWindow: staleEntry.axRef,
+                expectedWindow: staleReference,
                 targetFrame: targetFrame,
                 currentFrameHint: nil
             ),
@@ -4110,12 +4111,13 @@ final class RuntimeArchitectureTests: XCTestCase {
         )
         _ = controller.workspaceManager.beginManagedFocusRequest(focusToken, in: workspaceId, requestId: 99)
 
+        let reference = try XCTUnwrap(entry.axRef)
         controller.layoutRefreshController.completePendingRevealTransaction(
             with: Self.frameResult(
                 requestId: 1,
                 pid: pid,
                 windowId: windowId,
-                expectedWindow: entry.axRef,
+                expectedWindow: reference,
                 targetFrame: targetFrame,
                 currentFrameHint: nil
             ),
@@ -4163,12 +4165,13 @@ final class RuntimeArchitectureTests: XCTestCase {
             )
         )
 
+        let reference = try XCTUnwrap(entry.axRef)
         controller.layoutRefreshController.completePendingRevealTransaction(
             with: Self.frameResult(
                 requestId: 1,
                 pid: pid,
                 windowId: windowId,
-                expectedWindow: entry.axRef,
+                expectedWindow: reference,
                 targetFrame: targetFrame,
                 currentFrameHint: nil
             ),

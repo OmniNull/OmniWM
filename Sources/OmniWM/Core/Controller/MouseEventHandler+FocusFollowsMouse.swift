@@ -252,7 +252,8 @@ extension MouseEventHandler {
         if controller.settings.focus.followsMouseOnlyFullyVisible {
             guard let monitor = controller.workspaceManager.monitor(for: workspaceId),
                   let entry = controller.workspaceManager.entry(for: window.token),
-                  let frame = nativeWindowFrameProvider(entry.axRef),
+                  let frame = entry.axRef.flatMap(nativeWindowFrameProvider)
+                  ?? controller.shellAppWindowManager.frame(for: entry.token),
                   !frame.isEmpty,
                   monitor.frame.contains(frame),
                   frame.contains(location)

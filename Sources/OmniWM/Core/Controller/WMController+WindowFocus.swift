@@ -66,6 +66,15 @@ extension WMController {
     }
 
     @discardableResult
+    func performWindowFronting(_ entry: borrowing WindowState) -> Bool {
+        if let axRef = entry.axRef {
+            return performWindowFronting(pid: entry.pid, windowId: entry.windowId, axRef: axRef)
+        }
+        guard canFocusWindow(pid: entry.pid, windowId: entry.windowId) else { return false }
+        return shellAppWindowManager.focus(entry.token)
+    }
+
+    @discardableResult
     func performWindowFronting(
         pid: pid_t,
         windowId: Int,
@@ -98,10 +107,12 @@ extension WMController {
     }
 
     func performWindowOrdering(windowId: Int) {
-        if let entry = workspaceManager.entry(forWindowId: windowId),
-           workspaceManager.isWindowSuppressedByMacOS(entry.token)
-        {
-            return
+        if let entry = workspaceManager.entry(forWindowId: windowId) {
+            guard !workspaceManager.isWindowSuppressedByMacOS(entry.token) else { return }
+            if entry.axRef == nil {
+                _ = shellAppWindowManager.orderFront(entry.token)
+                return
+            }
         }
         windowFocusOperations.orderWindow(UInt32(windowId))
     }

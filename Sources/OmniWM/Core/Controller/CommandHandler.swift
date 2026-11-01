@@ -225,21 +225,16 @@ final class CommandHandler {
            let entry = controller.workspaceManager.entry(for: token),
            !controller.workspaceManager.isWindowSuppressedByMacOS(entry.token)
         {
-            let currentState = isFullscreen(entry.axRef)
-            if currentState {
-                applyNativeFullscreenExit(
-                    token,
-                    axRef: entry.axRef,
-                    controller: controller,
-                    setter: setFullscreen
-                )
+            guard let axRef = entry.axRef else { return }
+            if isFullscreen(axRef) {
+                applyNativeFullscreenExit(token, axRef: axRef, controller: controller, setter: setFullscreen)
                 return
             }
 
             guard controller.workspaceManager.requestNativeFullscreenEnter(token, in: entry.workspaceId) else {
                 return
             }
-            guard setFullscreen(entry.axRef, true) else {
+            guard setFullscreen(axRef, true) else {
                 controller.workspaceManager.restoreNativeFullscreenRecord(for: token)
                 return
             }
@@ -257,6 +252,7 @@ final class CommandHandler {
             ?? frontmostPid.flatMap { controller.axEventHandler.focusedWindowToken(for: $0) }
         guard let token = controller.workspaceManager.nativeFullscreenCommandTarget(frontmostToken: frontmostToken),
               let entry = controller.workspaceManager.entry(for: token),
+              let axRef = entry.axRef,
               !controller.workspaceManager.isWindowSuppressedByMacOS(entry.token)
         else {
             return
@@ -264,7 +260,7 @@ final class CommandHandler {
 
         applyNativeFullscreenExit(
             token,
-            axRef: entry.axRef,
+            axRef: axRef,
             controller: controller,
             setter: setFullscreen
         )

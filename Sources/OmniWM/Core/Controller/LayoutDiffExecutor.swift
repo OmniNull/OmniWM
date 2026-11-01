@@ -56,6 +56,10 @@ final class LayoutDiffExecutor {
             else {
                 continue
             }
+            guard let axRef = entry.axRef else {
+                controller.shellAppWindowManager.setFrame(change.frame, for: entry.token, components: change.components)
+                continue
+            }
             let forceNativeFullscreenRestoreApply = refreshController
                 .consumeNativeFullscreenRestoredFrameApply(for: change.token)
             if change.forceApply {
@@ -66,7 +70,7 @@ final class LayoutDiffExecutor {
             }
             let frameUpdate = AXFrameApplicationTarget(
                 pid: entry.pid,
-                window: entry.axRef,
+                window: axRef,
                 frame: change.frame,
                 components: change.components
             )

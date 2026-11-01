@@ -59,10 +59,11 @@ extension AXEventHandler {
             }
             return .preserve(sourceToken)
         }
-        let isSameElement = CFEqual(existingEntry.axRef.element, axRef.element)
+        guard let existingAXRef = existingEntry.axRef else { return .preserve(existingEntry.token) }
+        let isSameElement = CFEqual(existingAXRef.element, axRef.element)
         let isKnownAlias = isKnownAXIdentityAlias(windowId: windowId, axRef: axRef)
             || observedAliases?.axRefs.contains(where: {
-                CFEqual($0.element, existingEntry.axRef.element)
+                CFEqual($0.element, existingAXRef.element)
             }) == true
         if !isSameElement,
            !isKnownAlias,
@@ -108,7 +109,8 @@ extension AXEventHandler {
             return controller.workspaceManager.entry(for: source.handle)?.token
         }
         guard let sourceEntry = controller.workspaceManager.entry(for: oldWindow.token),
-              sameAXWindowIdentity(sourceEntry.axRef, oldWindow.axRef)
+              let sourceAXRef = sourceEntry.axRef,
+              sameAXWindowIdentity(sourceAXRef, oldWindow.axRef)
         else { return nil }
         return oldWindow.token
     }
@@ -138,7 +140,7 @@ extension AXEventHandler {
             }
         }
         for entry in entries {
-            if let pid = AXWindowService.processIdentifier(entry.axRef) {
+            if let axRef = entry.axRef, let pid = AXWindowService.processIdentifier(axRef) {
                 result[entry.windowId, default: []].insert(pid)
             }
         }
@@ -163,7 +165,7 @@ extension AXEventHandler {
     func managedWindowToken(_ token: WindowToken, matchesObservedPid pid: pid_t) -> Bool {
         if token.pid == pid { return true }
         guard let entry = controller?.workspaceManager.entry(for: token) else { return false }
-        if AXWindowService.processIdentifier(entry.axRef) == pid { return true }
+        if let axRef = entry.axRef, AXWindowService.processIdentifier(axRef) == pid { return true }
         if identityAliasesByWindowId[token.windowId]?.contains(pid: pid) == true { return true }
         guard let windowId = UInt32(exactly: token.windowId) else { return false }
         return windowInfoProvider(windowId)?.pid == pid
@@ -174,8 +176,10 @@ extension AXEventHandler {
     }
 
     func canonicalObservedWindowToken(pid: pid_t, axRef: AXWindowRef) -> WindowToken {
-        if let existingEntry = controller?.workspaceManager.entry(forWindowId: axRef.windowId) {
-            let matchesElement = CFEqual(existingEntry.axRef.element, axRef.element)
+        if let existingEntry = controller?.workspaceManager.entry(forWindowId: axRef.windowId),
+           let existingAXRef = existingEntry.axRef
+        {
+            let matchesElement = CFEqual(existingAXRef.element, axRef.element)
             if matchesElement || isKnownAXIdentityAlias(windowId: axRef.windowId, axRef: axRef) {
                 return existingEntry.token
             }
@@ -193,7 +197,8 @@ extension AXEventHandler {
         axRef: AXWindowRef
     ) -> ManagedWindowDestroyDisposition {
         if let entry = controller?.workspaceManager.entry(forWindowId: windowId),
-           CFEqual(entry.axRef.element, axRef.element)
+           let entryAXRef = entry.axRef,
+           CFEqual(entryAXRef.element, axRef.element)
         {
             return .current
         }
@@ -277,7 +282,8 @@ extension AXEventHandler {
 
     func isCurrentAXIncarnation(windowId: Int, axRef: AXWindowRef) -> Bool {
         if let entry = controller?.workspaceManager.entry(forWindowId: windowId) {
-            return CFEqual(entry.axRef.element, axRef.element)
+            guard let entryAXRef = entry.axRef else { return false }
+            return CFEqual(entryAXRef.element, axRef.element)
         }
         if let admissionWindowId = UInt32(exactly: windowId),
            let retryState = admissionRetryStateByWindowId[admissionWindowId]

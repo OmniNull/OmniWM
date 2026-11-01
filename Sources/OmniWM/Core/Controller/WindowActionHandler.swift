@@ -192,7 +192,10 @@ final class WindowActionHandler {
         guard let controller else { return false }
         guard let entry = controller.workspaceManager.entry(for: handle) else { return false }
 
-        let element = entry.axRef.element
+        guard let axRef = entry.axRef else {
+            return controller.shellAppWindowManager.close(entry.token)
+        }
+        let element = axRef.element
         return MainThreadAXSpanTrace.measure(.closeButtonPress, pid: entry.pid, windowId: entry.windowId) {
             var closeButton: CFTypeRef?
             if AXUIElementCopyAttributeValue(element, kAXCloseButtonAttribute as CFString, &closeButton) == .success,
@@ -320,7 +323,9 @@ final class WindowActionHandler {
         }
         return navigated
     }
+}
 
+extension WindowActionHandler {
     func runningAppsWithWindows() -> [RunningAppInfo] {
         guard let controller else { return [] }
         var appInfoMap: [String: RunningAppInfo] = [:]
@@ -334,7 +339,8 @@ final class WindowActionHandler {
 
             if appInfoMap[key] != nil { continue }
 
-            let frame = (AXWindowService.framePreferFast(entry.axRef)) ?? .zero
+            let frame = entry.axRef.flatMap(AXWindowService.framePreferFast)
+                ?? controller.shellAppWindowManager.frame(for: entry.token) ?? .zero
 
             appInfoMap[key] = RunningAppInfo(
                 id: key,
@@ -348,16 +354,24 @@ final class WindowActionHandler {
 
         return appInfoMap.values.sorted { $0.appName < $1.appName }
     }
-}
 
-extension WindowActionHandler {
     private func restoreMinimizedWindowIfNeeded(_ handle: WindowHandle) -> Bool {
         guard let controller,
               let entry = controller.workspaceManager.entry(for: handle),
               entry.observedState.isMinimized
         else { return true }
-        guard unminimizeWindow(entry.axRef) else { return false }
-        controller.axEventHandler.updateWindowMinimizedState(false, token: entry.token)
+        if let axRef = entry.axRef {
+            guard unminimizeWindow(axRef) else { return false }
+            controller.axEventHandler.updateWindowMinimizedState(false, token: entry.token)
+        } else {
+            guard controller.shellAppWindowManager.focus(entry.token) else { return false }
+            _ = controller.workspaceManager.setWindowMinimized(false, token: entry.token, source: .command)
+            controller.layoutRefreshController.requestVisibilityRefresh(
+                reason: .windowDeminiaturized,
+                affectedWorkspaceIds: [entry.workspaceId]
+            )
+            controller.surfaceReconciler.noteWorldChanged()
+        }
         return true
     }
 }

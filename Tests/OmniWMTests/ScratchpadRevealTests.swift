@@ -1630,6 +1630,7 @@ final class ScratchpadRevealTests: XCTestCase {
         completeFronting: Bool = true
     ) throws {
         let entry = try XCTUnwrap(fixture.controller.workspaceManager.entry(for: token))
+        let reference = try XCTUnwrap(entry.axRef)
         let transactionId = try explicitTransactionId ?? XCTUnwrap(
             fixture.controller.layoutRefreshController.pendingRevealTransactionId(forWindowId: token.windowId)
         )
@@ -1638,7 +1639,7 @@ final class ScratchpadRevealTests: XCTestCase {
             with: AXFrameApplyResult(
                 pid: entry.pid,
                 windowId: entry.windowId,
-                expectedWindow: entry.axRef,
+                expectedWindow: reference,
                 targetFrame: targetFrame,
                 currentFrameHint: nil,
                 writeResult: AXFrameWriteResult(

@@ -30,16 +30,20 @@ extension LayoutRefreshController {
     ) -> LayoutWindowSnapshot {
         let layoutReason = entry.layoutReason
         let constraints: WindowSizeConstraints
-        if isExcluded || !resolveConstraints || layoutReason == .nativeFullscreen {
+        if let metadata = entry.target.hostedMetadata {
+            constraints = WindowSizeConstraints(minSize: metadata.minimumSize, maxSize: .zero, isFixed: false)
+        } else if isExcluded || !resolveConstraints || layoutReason == .nativeFullscreen {
             constraints = controller.workspaceManager.cachedConstraints(for: entry.token) ?? .unconstrained
         } else if let cached = controller.workspaceManager.cachedConstraints(for: entry.token) {
             constraints = cached
-        } else {
-            controller.factResolver.resolveWindowConstraints(token: entry.token, axRef: entry.axRef)
+        } else if let axRef = entry.axRef {
+            controller.factResolver.resolveWindowConstraints(token: entry.token, axRef: axRef)
             constraints = controller.workspaceManager.cachedConstraints(
                 for: entry.token,
                 maxAge: .greatestFiniteMagnitude
             ) ?? .unconstrained
+        } else {
+            constraints = .unconstrained
         }
 
         var mergedConstraints = constraints

@@ -30,7 +30,8 @@ extension AXEventHandler {
               CFEqual(retryOld.axRef.element, oldWindow.axRef.element),
               CFEqual(retryNew.axRef.element, newWindow.axRef.element),
               let oldEntry = controller.workspaceManager.entry(for: oldWindow.token),
-              CFEqual(oldEntry.axRef.element, oldWindow.axRef.element),
+              let oldAXRef = oldEntry.axRef,
+              CFEqual(oldAXRef.element, oldWindow.axRef.element),
               oldWindow.token == newWindow.token
               || controller.workspaceManager.entry(for: newWindow.token) == nil,
               isManagedWindowIdentityRebindTargetAlive(pid: newWindow.token.pid)
@@ -78,7 +79,8 @@ extension AXEventHandler {
               CFEqual(retryOld.axRef.element, oldWindow.axRef.element),
               CFEqual(retryNew.axRef.element, newWindow.axRef.element),
               let entry = controller.workspaceManager.entry(for: newWindow.token),
-              CFEqual(entry.axRef.element, newWindow.axRef.element),
+              let entryAXRef = entry.axRef,
+              CFEqual(entryAXRef.element, newWindow.axRef.element),
               controller.workspaceManager.entry(forWindowId: newWindow.token.windowId)?.token == newWindow.token,
               isManagedWindowIdentityRebindTargetAlive(pid: newWindow.token.pid)
         else {

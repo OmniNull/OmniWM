@@ -337,8 +337,9 @@ final class FullyVisibleHoverFocusTests: XCTestCase {
                     fixture.recorder.appliedFrames[fixture.target.token.windowId] = applied
                     controller.axManager.confirmFrameWrite(for: fixture.target.token.windowId, frame: applied)
                     let entry = try XCTUnwrap(controller.workspaceManager.entry(for: fixture.target.token))
+                    let reference = try XCTUnwrap(entry.axRef)
                     XCTAssertNotNil(controller.axManager.stageFrameWrite(for: .init(
-                        pid: entry.pid, window: entry.axRef, frame: planned
+                        pid: entry.pid, window: reference, frame: planned
                     )))
                     defer {
                         controller.axManager.cancelPendingFrameJobs(

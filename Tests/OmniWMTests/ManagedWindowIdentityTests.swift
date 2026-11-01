@@ -325,7 +325,8 @@ final class ManagedWindowIdentityTests: XCTestCase {
         let oldEntryBeforeCompletion = try XCTUnwrap(
             controller.workspaceManager.entry(for: pending.oldWindow.token)
         )
-        XCTAssertTrue(CFEqual(oldEntryBeforeCompletion.axRef.element, pending.oldWindow.axRef.element))
+        let beforeReference = try XCTUnwrap(oldEntryBeforeCompletion.axRef)
+        XCTAssertTrue(CFEqual(beforeReference.element, pending.oldWindow.axRef.element))
         XCTAssertNil(controller.workspaceManager.entry(for: pending.newWindow.token))
 
         gate.release()
@@ -335,7 +336,8 @@ final class ManagedWindowIdentityTests: XCTestCase {
         let oldEntryAfterCompletion = try XCTUnwrap(
             controller.workspaceManager.entry(for: pending.oldWindow.token)
         )
-        XCTAssertTrue(CFEqual(oldEntryAfterCompletion.axRef.element, pending.oldWindow.axRef.element))
+        let afterReference = try XCTUnwrap(oldEntryAfterCompletion.axRef)
+        XCTAssertTrue(CFEqual(afterReference.element, pending.oldWindow.axRef.element))
         XCTAssertNil(controller.workspaceManager.entry(for: pending.newWindow.token))
         XCTAssertNil(controller.axEventHandler.admissionRetryStateByWindowId[pending.windowId])
     }
@@ -796,7 +798,8 @@ final class ManagedWindowIdentityTests: XCTestCase {
         let entryBeforeCommit = try XCTUnwrap(
             controller.workspaceManager.entry(for: pending.oldWindow.token)
         )
-        XCTAssertTrue(CFEqual(entryBeforeCommit.axRef.element, pending.oldWindow.axRef.element))
+        let beforeReference = try XCTUnwrap(entryBeforeCommit.axRef)
+        XCTAssertTrue(CFEqual(beforeReference.element, pending.oldWindow.axRef.element))
         XCTAssertEqual(controller.workspaceManager.observedSizeEvidence(for: pending.oldWindow.token), observedEvidence)
         XCTAssertEqual(
             controller.axManager.lastAppliedFrame(for: pending.oldWindow.token.windowId),
@@ -813,8 +816,9 @@ final class ManagedWindowIdentityTests: XCTestCase {
         let committedEntry = try XCTUnwrap(
             controller.workspaceManager.entry(for: pending.newWindow.token)
         )
-        XCTAssertTrue(CFEqual(committedEntry.axRef.element, pending.newWindow.axRef.element))
-        XCTAssertFalse(CFEqual(committedEntry.axRef.element, pending.oldWindow.axRef.element))
+        let committedReference = try XCTUnwrap(committedEntry.axRef)
+        XCTAssertTrue(CFEqual(committedReference.element, pending.newWindow.axRef.element))
+        XCTAssertFalse(CFEqual(committedReference.element, pending.oldWindow.axRef.element))
         XCTAssertNil(controller.workspaceManager.observedSizeEvidence(for: pending.newWindow.token))
         XCTAssertNil(controller.axManager.lastAppliedFrame(for: pending.newWindow.token.windowId))
         XCTAssertNil(controller.mouseEventHandler.state.nativeTitleBarDrag)

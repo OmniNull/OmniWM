@@ -36,26 +36,28 @@ enum EventNormalizer {
             workspaceId,
             monitorId,
             mode,
-            axRef,
+            target,
             ruleEffects,
             admissionHints,
             lifetimeAuthority,
             adoptNativeFocus,
             metadata,
-            source
+            source,
+            initialFrame
         ):
             return .windowAdmitted(
                 token: token,
                 workspaceId: workspaceId,
                 monitorId: monitorId ?? existingEntry?.observedState.monitorId ?? existingEntry?.desiredState.monitorId,
                 mode: mode,
-                axRef: axRef,
+                target: target,
                 ruleEffects: ruleEffects,
                 admissionHints: admissionHints,
                 lifetimeAuthority: lifetimeAuthority,
                 adoptNativeFocus: adoptNativeFocus,
                 managedReplacementMetadata: metadata,
-                source: source
+                source: source,
+                initialFrame: initialFrame
             )
         case let .windowRekeyed(from, to, workspaceId, monitorId, reason, newAXRef, metadata, source):
             return .windowRekeyed(

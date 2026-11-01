@@ -77,7 +77,8 @@ final class AXManagedWindowBindings {
         var windowsByPID: [pid_t: [Int: AXWindowRef]] = [:]
         windowsByPID.reserveCapacity(min(entries.count, 8))
         for entry in entries where includedPIDs?.contains(entry.pid) ?? true {
-            windowsByPID[entry.pid, default: [:]][entry.windowId] = entry.axRef
+            guard let axRef = entry.axRef else { continue }
+            windowsByPID[entry.pid, default: [:]][entry.windowId] = axRef
         }
         return windowsByPID
     }

@@ -20,10 +20,12 @@ extension AXEventHandler {
     ) -> ManagedWindowIdentityRebindResult {
         assert(preparedSubscriptionRetainContribution >= 0)
         guard let controller else { return .rejected }
-        guard let oldEntry = managedIdentityRebindSource(from: oldToken, to: newToken, controller: controller) else {
+        guard let oldEntry = managedIdentityRebindSource(from: oldToken, to: newToken, controller: controller),
+              let oldAXRef = oldEntry.axRef
+        else {
             return .rejected
         }
-        let oldWindow = AXManagedWindowIdentity(token: oldToken, axRef: oldEntry.axRef)
+        let oldWindow = AXManagedWindowIdentity(token: oldToken, axRef: oldAXRef)
         let newWindow = AXManagedWindowIdentity(token: newToken, axRef: axRef)
         let rebind = ManagedWindowIdentityRebind(
             oldWindow: oldWindow, newWindow: newWindow,
@@ -31,7 +33,7 @@ extension AXEventHandler {
             admissionHints: admissionHints, sizeConstraints: sizeConstraints
         )
         let changesRuntimeIdentity = oldToken != newToken
-            || !CFEqual(oldEntry.axRef.element, axRef.element)
+            || !CFEqual(oldAXRef.element, axRef.element)
         let requiresAcknowledgement = changesRuntimeIdentity
             && (controller.hasStartedServices || oldToken.pid != newToken.pid)
         if requiresAcknowledgement {

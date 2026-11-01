@@ -277,8 +277,9 @@ final class DwindleWindowCloseFocusRecoveryTests: XCTestCase {
                 let controller = fixture.controller
                 let gate = DwindleCloseFocusFactGate()
                 let remoteEntry = try XCTUnwrap(controller.workspaceManager.entry(for: fixture.remoteToken))
+                let remoteReference = try XCTUnwrap(remoteEntry.axRef)
                 let remoteFact = FocusedWindowFact(
-                    axRef: remoteEntry.axRef,
+                    axRef: remoteReference,
                     isFullscreen: false,
                     isSystemModalSurface: false
                 )

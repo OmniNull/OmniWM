@@ -65,13 +65,25 @@ extension LayoutRefreshController {
         )
     }
 
+    private func externalPositionPlans(_ plans: [WindowPositionPlan], hidingNative: Bool) -> [WindowPositionPlan] {
+        guard let controller else { return [] }
+        return plans.filter { plan in
+            guard plan.entry.axRef != nil else {
+                if !hidingNative { controller.shellAppWindowManager.setFrame(plan.frame, for: plan.entry.token) }
+                controller.shellAppWindowManager.setHidden(hidingNative, for: plan.entry.token)
+                return false
+            }
+            return !controller.workspaceManager.isWindowSuppressedByMacOS(plan.entry.token)
+        }
+    }
+
     @discardableResult
     func applyPositionPlans(
         _ plans: [WindowPositionPlan],
         deferringVisibleAXFor deferredTokens: Set<WindowToken> = []
     ) -> Set<WindowToken> {
         guard let controller, !plans.isEmpty else { return [] }
-        let plans = plans.filter { !controller.workspaceManager.isWindowSuppressedByMacOS($0.entry.token) }
+        let plans = externalPositionPlans(plans, hidingNative: false)
         guard !plans.isEmpty else { return [] }
 
         var requiresVisibleAXTokens = controller.axManager.cancelParkFrameJobs(
@@ -83,13 +95,13 @@ extension LayoutRefreshController {
             allowInactive: true
         )
         let visibleFrames = plans.compactMap { plan -> AXFrameApplicationTarget? in
-            guard requiresVisibleAXTokens.contains(plan.entry.token) else { return nil }
+            guard let axRef = plan.entry.axRef, requiresVisibleAXTokens.contains(plan.entry.token) else { return nil }
             if deferredTokens.contains(plan.entry.token) {
                 return nil
             }
             controller.axManager.markWindowActive(plan.entry.windowId)
             controller.axManager.forceApplyNextFrame(for: plan.entry.windowId)
-            return .init(pid: plan.entry.pid, window: plan.entry.axRef, frame: plan.frame)
+            return .init(pid: plan.entry.pid, window: axRef, frame: plan.frame)
         }
         if !visibleFrames.isEmpty {
             controller.axManager.unsuppressFrameWrites(
@@ -101,6 +113,11 @@ extension LayoutRefreshController {
         return requiresVisibleAXTokens
     }
 
+    private func externalFrameTarget(for plan: WindowPositionPlan) -> AXFrameApplicationTarget? {
+        guard let axRef = plan.entry.axRef else { return nil }
+        return AXFrameApplicationTarget(pid: plan.entry.pid, window: axRef, frame: plan.frame)
+    }
+
     func applyParkPositionPlans(
         _ plans: [WindowPositionPlan],
         movablePlans: [WindowPositionPlan],
@@ -108,17 +125,18 @@ extension LayoutRefreshController {
         afterFrameWritesOf awaitedWindowIds: Set<Int> = []
     ) {
         guard let controller, !plans.isEmpty else { return }
-        let plans = plans.filter { !controller.workspaceManager.isWindowSuppressedByMacOS($0.entry.token) }
+        let plans = externalPositionPlans(plans, hidingNative: true)
         guard !plans.isEmpty else { return }
         let movablePlans = movablePlans.filter {
-            !controller.workspaceManager.isWindowSuppressedByMacOS($0.entry.token)
+            !controller.workspaceManager.isWindowSuppressedByMacOS($0.entry.token) && $0.entry.axRef != nil
         }
 
         if animationTick {
             for plan in plans {
+                guard let axRef = plan.entry.axRef else { continue }
                 controller.axManager.markParkPending(.init(
                     pid: plan.entry.pid,
-                    window: plan.entry.axRef,
+                    window: axRef,
                     frame: plan.frame
                 ))
             }
@@ -151,9 +169,7 @@ extension LayoutRefreshController {
         if animationTick { return }
 
         controller.axManager.applyParkFramesParallel(
-            plans.map {
-                AXFrameApplicationTarget(pid: $0.entry.pid, window: $0.entry.axRef, frame: $0.frame)
-            },
+            plans.compactMap { externalFrameTarget(for: $0) },
             afterFrameWritesOf: awaitedWindowIds
         )
     }

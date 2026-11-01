@@ -202,11 +202,7 @@ final class FloatingWindowRaiser {
 
         switch surface {
         case let .managed(entry):
-            controller.performWindowFronting(
-                pid: entry.pid,
-                windowId: entry.windowId,
-                axRef: entry.axRef
-            )
+            controller.performWindowFronting(entry)
         case let .owned(window):
             frontOwnedWindow(window)
         }

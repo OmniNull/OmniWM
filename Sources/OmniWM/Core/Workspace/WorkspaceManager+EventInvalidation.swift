@@ -15,7 +15,7 @@ extension WorkspaceManager {
 
     private func noteWindowInvalidation(for event: WMEvent) {
         switch event {
-        case let .windowAdmitted(_, workspaceId, _, _, _, _, _, _, _, _, _),
+        case let .windowAdmitted(_, workspaceId, _, _, _, _, _, _, _, _, _, _),
              let .windowModeChanged(_, workspaceId, _, _, _),
              let .hiddenStateChanged(_, workspaceId, _, _, _),
              let .windowMinimizedChanged(_, workspaceId, _, _),

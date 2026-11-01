@@ -43,6 +43,19 @@ extension WMController {
         preferFrontmostWhenExternalOrOwnedFocusActive: Bool = false
     ) -> WindowToken? {
         let selectedManagedToken = workspaceManager.selectedManagedToken
+        if let selectedManagedToken,
+           workspaceManager.entry(for: selectedManagedToken)?.target.hostedMetadata != nil
+        {
+            if !preferFrontmostWhenExternalOrOwnedFocusActive { return selectedManagedToken }
+            switch workspaceManager.nativeFocusOwner {
+            case .managed,
+                 .none:
+                return selectedManagedToken
+            case .external,
+                 .ownedSurface:
+                break
+            }
+        }
         let frontmostPid = commandHandler.frontmostAppPidProvider?()
             ?? NSWorkspace.shared.frontmostApplication?.processIdentifier
         let frontmostToken = commandHandler.frontmostFocusedWindowTokenProvider?()

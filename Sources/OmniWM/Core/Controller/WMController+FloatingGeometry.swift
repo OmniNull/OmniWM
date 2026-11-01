@@ -19,16 +19,25 @@ extension WMController {
         guard !workspaceManager.isHiddenInCorner(entry.token),
               shouldApplyFloatingFrameImmediately(for: entry.workspaceId)
         else { return }
+        applyFloatingWindowFrame(targetFrame, to: entry)
+    }
+
+    private func applyFloatingWindowFrame(_ frame: CGRect, to entry: WindowState) {
+        guard let axRef = entry.axRef else {
+            _ = shellAppWindowManager.setFrame(frame, for: entry.token)
+            return
+        }
         axManager.forceApplyNextFrame(for: entry.windowId)
         axManager.applyFramesParallel([
-            .init(pid: entry.pid, window: entry.axRef, frame: targetFrame)
+            .init(pid: entry.pid, window: axRef, frame: frame)
         ])
     }
 
     func liveFrame(for entry: WindowState) -> CGRect? {
-        AXWindowService.framePreferFast(entry.axRef)
+        guard let axRef = entry.axRef else { return shellAppWindowManager.frame(for: entry.token) }
+        return AXWindowService.framePreferFast(axRef)
             ?? axManager.lastAppliedFrame(for: entry.windowId)
-            ?? (try? AXWindowService.frame(entry.axRef))
+            ?? (try? AXWindowService.frame(axRef))
     }
 
     func floatingPlacementMonitor(
@@ -195,10 +204,7 @@ extension WMController {
                     for: workspaceManager.workspace(for: token) ?? entry.workspaceId
                 )
             {
-                axManager.forceApplyNextFrame(for: entry.windowId)
-                axManager.applyFramesParallel([
-                    .init(pid: entry.pid, window: entry.axRef, frame: targetFrame)
-                ])
+                applyFloatingWindowFrame(targetFrame, to: entry)
             }
         }
         return true

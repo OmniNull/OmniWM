@@ -117,8 +117,9 @@ final class NativeResizeAdoptionTests: NiriInteractionTestCase {
         func confirmWrite(of token: WindowToken) throws {
             _ = controller.axManager.cancelPendingFrameRetry(for: token.windowId)
             let target = try frame(token)
+            let reference = try XCTUnwrap(entry(token).axRef)
             let request = try XCTUnwrap(controller.axManager.stageFrameWrite(
-                for: AXFrameApplicationTarget(pid: token.pid, window: entry(token).axRef, frame: target)
+                for: AXFrameApplicationTarget(pid: token.pid, window: reference, frame: target)
             ))
             controller.axManager
                 .handleFrameApplyResults([WindowAdmissionTestSupport.successfulFrameResult(request: request)])
@@ -127,7 +128,7 @@ final class NativeResizeAdoptionTests: NiriInteractionTestCase {
 
         func refuseWrite(of token: WindowToken, growingWidthBy growth: CGFloat) throws {
             let target = try frame(token)
-            let window = try entry(token).axRef
+            let window = try XCTUnwrap(entry(token).axRef)
             let observed = CGRect(x: target.minX, y: target.minY, width: target.width + growth, height: target.height)
             controller.axManager.forceApplyNextFrame(for: token.windowId)
             let first = try XCTUnwrap(controller.axManager.stageFrameWrite(
@@ -753,10 +754,11 @@ final class NativeResizeAdoptionTests: NiriInteractionTestCase {
             defer { unblockRefreshes(fixture, blocker: blocker) }
             let token = fixture.tokens[0]
             let start = try fixture.frame(token)
+            let reference = try XCTUnwrap(fixture.entry(token).axRef)
             fixture.controller.axManager.applyFramesParallel([
                 AXFrameApplicationTarget(
                     pid: token.pid,
-                    window: try fixture.entry(token).axRef,
+                    window: reference,
                     frame: start.offsetBy(dx: 0, dy: -20)
                 )
             ])
@@ -917,11 +919,12 @@ final class NativeResizeAdoptionTests: NiriInteractionTestCase {
         frame: CGRect,
         requestId: AXFrameRequestId
     ) throws -> AXFrameApplyResult {
-        try AXFrameApplyResult(
+        let reference = try XCTUnwrap(fixture.entry(token).axRef)
+        return AXFrameApplyResult(
             requestId: requestId,
             pid: token.pid,
             windowId: token.windowId,
-            expectedWindow: fixture.entry(token).axRef,
+            expectedWindow: reference,
             targetFrame: frame,
             currentFrameHint: nil,
             writeResult: AXFrameWriteResult(

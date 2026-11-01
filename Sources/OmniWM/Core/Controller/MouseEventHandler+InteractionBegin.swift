@@ -48,7 +48,8 @@ extension MouseEventHandler {
         NSCursor.closedHand.set()
 
         if let entry = controller.workspaceManager.entry(for: tiledWindow.token),
-           let frame = AXWindowService.framePreferFast(entry.axRef)
+           let frame = entry.axRef.flatMap(AXWindowService.framePreferFast)
+           ?? controller.shellAppWindowManager.frame(for: entry.token)
         {
             if state.dragGhostController == nil {
                 state.dragGhostController = DragGhostController()

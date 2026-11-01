@@ -15,6 +15,9 @@ extension LayoutRefreshController {
     ) -> Bool {
         guard let controller else { return false }
         guard let hiddenState = controller.workspaceManager.hiddenState(for: entry.token) else {
+            if entry.target.hostedMetadata != nil {
+                return controller.shellAppWindowManager.setHidden(false, for: entry.token)
+            }
             if controller.axManager.pendingParkWindowIds.contains(entry.windowId),
                let frame = fastFrame(for: entry.token, axRef: entry.axRef)
                ?? controller.axManager.lastAppliedFrame(for: entry.windowId)
@@ -76,7 +79,7 @@ extension LayoutRefreshController {
         switch restoreWindowFromHiddenState(entry, monitor: monitor, hiddenState: hiddenState) {
         case .none:
             guard hiddenState.workspaceInactive else {
-                controller.axManager.suppressFrameWrites(reveal.frameEntry)
+                if entry.axRef != nil { controller.axManager.suppressFrameWrites(reveal.frameEntry) }
                 return false
             }
             prepareImmediateReveal(reveal, controller: controller)
@@ -109,7 +112,7 @@ extension LayoutRefreshController {
         if reveal.hiddenState.isScratchpad {
             controller.requestWorkspaceBarRefresh()
         }
-        controller.axManager.unsuppressFrameWrites(reveal.frameEntry)
+        if reveal.entry.axRef != nil { controller.axManager.unsuppressFrameWrites(reveal.frameEntry) }
     }
 
     private func completeImmediateReveal(_ reveal: HiddenRevealContext, controller: WMController) {
@@ -129,11 +132,19 @@ extension LayoutRefreshController {
         reveal: HiddenRevealContext,
         controller: WMController
     ) -> Bool {
+        guard let axRef = reveal.entry.axRef else {
+            guard controller.shellAppWindowManager.setFrame(frame, for: reveal.entry.token),
+                  controller.shellAppWindowManager.setHidden(false, for: reveal.entry.token)
+            else { return false }
+            prepareImmediateReveal(reveal, controller: controller)
+            completeImmediateReveal(reveal, controller: controller)
+            return true
+        }
         if !shouldUsePendingRevealTransaction(for: reveal.entry, hiddenState: reveal.hiddenState) {
             prepareImmediateReveal(reveal, controller: controller)
             controller.axManager.forceApplyNextFrame(for: reveal.entry.windowId)
             controller.axManager.applyFramesParallel([
-                .init(pid: reveal.entry.pid, window: reveal.entry.axRef, frame: frame)
+                .init(pid: reveal.entry.pid, window: axRef, frame: frame)
             ])
             completeImmediateReveal(reveal, controller: controller)
             return true
@@ -148,10 +159,10 @@ extension LayoutRefreshController {
         ) else {
             return true
         }
-        controller.axManager.unsuppressFrameWrites(reveal.frameEntry)
+        if reveal.entry.axRef != nil { controller.axManager.unsuppressFrameWrites(reveal.frameEntry) }
         controller.axManager.forceApplyNextFrame(for: reveal.entry.windowId)
         controller.axManager.applyFramesParallel(
-            [.init(pid: reveal.entry.pid, window: reveal.entry.axRef, frame: frame)],
+            [.init(pid: reveal.entry.pid, window: axRef, frame: frame)],
             terminalObserver: { [weak self] result in
                 self?.completePendingRevealTransaction(
                     with: result,

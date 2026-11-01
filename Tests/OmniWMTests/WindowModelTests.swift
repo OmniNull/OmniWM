@@ -209,8 +209,9 @@ final class WindowModelTests: XCTestCase {
                 scenario.name
             )
             XCTAssertEqual(rekeyed.token, destinationToken, scenario.name)
-            XCTAssertEqual(rekeyed.axRef.windowId, destinationToken.windowId, scenario.name)
-            XCTAssertTrue(CFEqual(rekeyed.axRef.element, scenario.element), scenario.name)
+            let rekeyedReference = try XCTUnwrap(rekeyed.axRef, scenario.name)
+            XCTAssertEqual(rekeyedReference.windowId, destinationToken.windowId, scenario.name)
+            XCTAssertTrue(CFEqual(rekeyedReference.element, scenario.element), scenario.name)
             XCTAssertEqual(model.allEntries().map(\.token), [destinationToken], scenario.name)
             XCTAssertEqual(model.windows(in: workspaceId).map(\.token), [destinationToken], scenario.name)
             XCTAssertEqual(model.tokens(in: workspaceId, mode: .tiling), [destinationToken], scenario.name)

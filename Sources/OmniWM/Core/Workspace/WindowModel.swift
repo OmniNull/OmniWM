@@ -90,7 +90,7 @@ final class WindowModel {
 
     @discardableResult
     func upsert(
-        window: AXWindowRef,
+        target: WindowTarget,
         pid: pid_t,
         windowId: Int,
         workspace: WorkspaceDescriptor.ID,
@@ -107,8 +107,9 @@ final class WindowModel {
             )
             return existingToken
         }
-        if entries.index(forKey: token) != nil {
-            updateEntry(token) { $0.axRef = window }
+        if let existing = entries[token] {
+            guard (existing.axRef == nil) == (target.axRef == nil) else { return token }
+            updateEntry(token) { $0.target = target }
             updateWorkspace(for: token, workspace: workspace)
             setMode(mode, for: token)
             if let managedReplacementMetadata {
@@ -125,7 +126,7 @@ final class WindowModel {
 
         let entry = WindowState(
             token: token,
-            axRef: window,
+            target: target,
             workspaceId: workspace,
             mode: mode,
             managedReplacementMetadata: managedReplacementMetadata,
@@ -143,6 +144,7 @@ final class WindowModel {
         _ authority: ManagedWindowLifetimeAuthority,
         for token: WindowToken
     ) {
+        guard authority == .directLifecycle || entries[token]?.axRef != nil else { return }
         updateEntry(token) { $0.lifetimeAuthority = authority }
     }
 
@@ -153,12 +155,12 @@ final class WindowModel {
         newAXRef: AXWindowRef,
         managedReplacementMetadata: ManagedReplacementMetadata? = nil
     ) -> WindowState? {
+        guard let originalReference = entries[oldToken]?.axRef else { return nil }
         if oldToken == newToken {
-            guard let entry = entries[oldToken] else { return nil }
-            if !CFEqual(entry.axRef.element, newAXRef.element) {
+            if !CFEqual(originalReference.element, newAXRef.element) {
                 observedSizeEvidenceByToken.removeValue(forKey: oldToken)
             }
-            updateEntry(oldToken) { $0.axRef = newAXRef }
+            updateEntry(oldToken) { $0.target = .external(newAXRef) }
             constraintsCacheByToken.removeValue(forKey: oldToken)
             if let managedReplacementMetadata {
                 updateEntry(oldToken) { $0.managedReplacementMetadata = managedReplacementMetadata }
@@ -179,9 +181,9 @@ final class WindowModel {
             return nil
         }
 
-        let preservesAXIncarnation = CFEqual(entry.axRef.element, newAXRef.element)
+        let preservesAXIncarnation = CFEqual(originalReference.element, newAXRef.element)
         entry.token = newToken
-        entry.axRef = newAXRef
+        entry.target = .external(newAXRef)
         constraintsCacheByToken.removeValue(forKey: oldToken)
         if let evidence = observedSizeEvidenceByToken.removeValue(forKey: oldToken), preservesAXIncarnation {
             observedSizeEvidenceByToken[newToken] = evidence

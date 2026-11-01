@@ -15,6 +15,14 @@ extension WorkspaceManager {
     }
 
     @discardableResult
+    func removeHostedWindow(_ token: WindowToken) -> WindowState? {
+        guard let entry = windowQueries.entry(for: token),
+              entry.target.hostedMetadata != nil
+        else { return nil }
+        return removeTrackedWindow(entry)
+    }
+
+    @discardableResult
     func removeWindowsForApp(pid: pid_t) -> Set<WorkspaceDescriptor.ID> {
         var affectedWorkspaces: Set<WorkspaceDescriptor.ID> = []
         let entriesToRemove = entries(forPid: pid)

@@ -1231,6 +1231,7 @@ final class TargetedWindowActionIPCIntegrationTests: XCTestCase {
 
     private func completeReveal(_ token: WindowToken, _ fixture: Fixture) throws {
         let entry = try XCTUnwrap(fixture.controller.workspaceManager.entry(for: token))
+        let reference = try XCTUnwrap(entry.axRef)
         let transactionId = try XCTUnwrap(
             fixture.controller.layoutRefreshController.pendingRevealTransactionId(forWindowId: token.windowId)
         )
@@ -1239,7 +1240,7 @@ final class TargetedWindowActionIPCIntegrationTests: XCTestCase {
             with: AXFrameApplyResult(
                 pid: entry.pid,
                 windowId: entry.windowId,
-                expectedWindow: entry.axRef,
+                expectedWindow: reference,
                 targetFrame: revealFrame,
                 currentFrameHint: nil,
                 writeResult: AXFrameWriteResult(

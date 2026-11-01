@@ -68,13 +68,16 @@ extension WMController {
             )
         }
         let entry = focusedToken.flatMap { workspaceManager.entry(for: $0) }
-        let info = entry.flatMap { appInfoCache.info(for: $0.pid) }
-        let frontmost = info?.name == nil || info?.bundleId == nil ? NSWorkspace.shared.frontmostApplication : nil
+        let hosted = entry?.target.hostedMetadata
+        let info = hosted == nil ? entry.flatMap { appInfoCache.info(for: $0.pid) } : nil
+        let frontmost = hosted == nil && (info?.name == nil || info?.bundleId == nil)
+            ? NSWorkspace.shared.frontmostApplication : nil
         return ShellWorldData(
             workspace: workspaces.first(where: \.focused)?.name ?? "",
-            app: info?.name ?? frontmost?.localizedName ?? "",
-            bundle: info?.bundleId ?? frontmost?.bundleIdentifier ?? "",
-            title: entry.flatMap { AXWindowService.titlePreferFast(windowId: UInt32($0.windowId)) } ?? "",
+            app: hosted?.title ?? info?.name ?? frontmost?.localizedName ?? "",
+            bundle: hosted?.appId ?? info?.bundleId ?? frontmost?.bundleIdentifier ?? "",
+            title: hosted?.title ?? entry
+                .flatMap { AXWindowService.titlePreferFast(windowId: UInt32($0.windowId)) } ?? "",
             workspaces: workspaces,
             menuApp: shellMenuApp()
         )

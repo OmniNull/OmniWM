@@ -337,8 +337,9 @@ final class BorderSurfaceTests: XCTestCase {
             reconciler.cleanup()
         }
         startViewportMotion(controller, workspaceId: entry.workspaceId)
+        let reference = try XCTUnwrap(entry.axRef)
         let request = try XCTUnwrap(controller.axManager.stageFrameWrite(for: AXFrameApplicationTarget(
-            pid: entry.pid, window: entry.axRef, frame: pendingFrame
+            pid: entry.pid, window: reference, frame: pendingFrame
         )))
         XCTAssertFalse(controller.workspaceManager.animationDriver.tick(in: entry.workspaceId, at: 1000))
         reconciler.noteRestackOccurred()
@@ -1774,9 +1775,10 @@ final class WindowCornerRadiiTests: XCTestCase {
         let fixture = try borderFrameFixture()
         let pending = CGRect(x: 10, y: 20, width: 900, height: 600)
         let live = CGRect(x: 40, y: 50, width: 800, height: 500)
+        let reference = try XCTUnwrap(fixture.entry.axRef)
         let target = AXFrameApplicationTarget(
             pid: fixture.entry.pid,
-            window: fixture.entry.axRef,
+            window: reference,
             frame: pending
         )
         XCTAssertNotNil(fixture.controller.axManager.stageFrameWrite(for: target))
@@ -1797,9 +1799,10 @@ final class WindowCornerRadiiTests: XCTestCase {
     func testBorderFrameFallsBackToPendingAXWriteWhenLiveBoundsAreUnavailable() throws {
         let fixture = try borderFrameFixture()
         let pending = CGRect(x: 10, y: 20, width: 900, height: 600)
+        let reference = try XCTUnwrap(fixture.entry.axRef)
         let target = AXFrameApplicationTarget(
             pid: fixture.entry.pid,
-            window: fixture.entry.axRef,
+            window: reference,
             frame: pending
         )
         XCTAssertNotNil(fixture.controller.axManager.stageFrameWrite(for: target))
@@ -1878,8 +1881,9 @@ final class WindowCornerRadiiTests: XCTestCase {
         })
         let originalBorder = try XCTUnwrap(SurfaceDerivation.deriveAnimationBorder(world: world, previous: nil))
         XCTAssertEqual(originalBorder.frame, fullHeight)
+        let reference = try XCTUnwrap(entry.axRef)
         let request = try XCTUnwrap(controller.axManager.stageFrameWrite(for: .init(
-            pid: entry.pid, window: entry.axRef, frame: target
+            pid: entry.pid, window: reference, frame: target
         )))
         let pendingBorder = try XCTUnwrap(SurfaceDerivation.deriveAnimationBorder(
             world: world,

@@ -256,19 +256,20 @@ final class WorldStore {
             workspaceId,
             _,
             mode,
-            axRef,
+            target,
             ruleEffects,
             admissionHints,
             lifetimeAuthority,
             _,
             metadata,
+            _,
             _
         ) = event else { preconditionFailure("Unexpected event for applyWindowAdmission") }
         let resolvedAdmissionHints = canUpdateAdmissionHints(for: token)
             ? admissionHints
             : model.admissionHints(for: token) ?? admissionHints
         model.upsert(
-            window: axRef,
+            target: target,
             pid: token.pid,
             windowId: token.windowId,
             workspace: workspaceId,

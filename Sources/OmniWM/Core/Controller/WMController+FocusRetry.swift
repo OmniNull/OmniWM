@@ -6,6 +6,7 @@ import Foundation
 
 extension WMController {
     func deferManagedFocusRetry(_ request: ManagedFocusRequest) -> Bool {
+        if let entry = workspaceManager.entry(for: request.token), entry.axRef == nil { return false }
         guard intentLedger.defersRetryRaise(for: request) else { return false }
         dispatchRetryRaise(for: request, refronting: true)
         return true
@@ -14,12 +15,12 @@ extension WMController {
     func dispatchRetryRaise(for request: ManagedFocusRequest, refronting: Bool) {
         guard let entry = workspaceManager.entry(for: request.token),
               entry.workspaceId == request.workspaceId,
+              let expectedWindow = entry.axRef,
               let handle = workspaceManager.handle(for: request.token),
               !isManagedWindowSuppressedByMacOS(request.token),
               let job = intentLedger.beginDeferredRetryRaise(for: request)
         else { return }
         let handleIdentity = ObjectIdentifier(handle)
-        let expectedWindow = entry.axRef
         let applied = !refronting || applyManagedFocusRequest(
             request, entry: entry, validatesPointer: true, isRetry: true, raisesWindow: false
         )
@@ -28,7 +29,8 @@ extension WMController {
                   let liveRequest = intentLedger.completeDeferredRetryRaise(job: job),
                   let currentEntry = workspaceManager.entry(for: liveRequest.token),
                   currentEntry.workspaceId == liveRequest.workspaceId,
-                  sameAXWindowIdentity(currentEntry.axRef, expectedWindow),
+                  let currentAXRef = currentEntry.axRef,
+                  sameAXWindowIdentity(currentAXRef, expectedWindow),
                   workspaceManager.handle(for: liveRequest.token).map(ObjectIdentifier.init) == handleIdentity,
                   !isManagedWindowSuppressedByMacOS(liveRequest.token),
                   workspaceManager.pendingManagedFocusMatches(

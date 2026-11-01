@@ -28,7 +28,7 @@ final class WindowNativeWithdrawalModelTests: XCTestCase {
             let survivor = tokens[1 - withdrawnIndex]
             let handle = try XCTUnwrap(manager.handle(for: withdrawn))
             let nodeId = try XCTUnwrap(engine.findNode(for: withdrawn, in: workspaceId)?.id)
-            let axRef = try XCTUnwrap(manager.entry(for: withdrawn)).axRef
+            let axRef = try XCTUnwrap(manager.entry(for: withdrawn)?.axRef)
 
             XCTAssertTrue(manager.setWindowNativeWithdrawn(true, token: withdrawn))
             XCTAssertFalse(manager.setWindowNativeWithdrawn(true, token: withdrawn))

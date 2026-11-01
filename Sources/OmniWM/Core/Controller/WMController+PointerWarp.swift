@@ -68,7 +68,9 @@ extension WMController {
             return
         }
         guard let entry = workspaceManager.entry(for: token) else { return }
-        guard let frame = preferredFrame ?? AXWindowService.framePreferFast(entry.axRef) else { return }
+        guard let frame = preferredFrame ?? entry.axRef.flatMap(AXWindowService.framePreferFast)
+            ?? shellAppWindowManager.frame(for: token)
+        else { return }
 
         let center = frame.center
 

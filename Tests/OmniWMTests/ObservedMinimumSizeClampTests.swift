@@ -116,7 +116,8 @@ final class ObservedMinimumSizeClampTests: XCTestCase {
         fixture.controller.adoptObservedMinimumAfterStableSizeClamp(originalResult)
 
         XCTAssertNil(manager.observedSizeEvidence(for: replacementToken)?.minSize)
-        XCTAssertTrue(sameAXWindowIdentity(try XCTUnwrap(manager.entry(for: replacementToken)).axRef, replacement))
+        let replacementReference = try XCTUnwrap(manager.entry(for: replacementToken)?.axRef)
+        XCTAssertTrue(sameAXWindowIdentity(replacementReference, replacement))
 
         fixture.controller.adoptObservedMinimumAfterStableSizeClamp(
             clampResult(fixture, target: target, observed: observed, window: replacement)

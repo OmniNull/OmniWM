@@ -612,7 +612,9 @@ final class CGSPhantomEventGuardTests: XCTestCase {
         await controller.axEventHandler.lifecycleQueries.task?.value
 
         let entryAfter = try XCTUnwrap(controller.workspaceManager.entry(for: token))
-        XCTAssertTrue(CFEqual(entryAfter.axRef.element, entryBefore.axRef.element))
+        let beforeReference = try XCTUnwrap(entryBefore.axRef)
+        let afterReference = try XCTUnwrap(entryAfter.axRef)
+        XCTAssertTrue(CFEqual(afterReference.element, beforeReference.element))
         XCTAssertEqual(entryAfter.workspaceId, entryBefore.workspaceId)
         XCTAssertEqual(entryAfter.mode, entryBefore.mode)
         XCTAssertEqual(entryAfter.hiddenState, entryBefore.hiddenState)

@@ -416,6 +416,7 @@ final class FocusWithoutRaiseTests: XCTestCase {
         XCTAssertEqual(fixture.controller.intentLedger.intent(id: supersededRequestId)?.phase, .cancelled)
         XCTAssertEqual(fixture.controller.workspaceManager.pendingFocusedToken, replacementTarget)
 
+        let sourceReference = try XCTUnwrap(sourceEntry.axRef)
         fixture.controller.hasStartedServices = true
         fixture.controller.axEventHandler.handleActivationFactsResolved(
             ActivationFacts(
@@ -425,7 +426,7 @@ final class FocusWithoutRaiseTests: XCTestCase {
                 observationGeneration: 0,
                 requestedAtSeq: 0,
                 focusedWindow: FocusedWindowFact(
-                    axRef: sourceEntry.axRef,
+                    axRef: sourceReference,
                     isFullscreen: false,
                     isSystemModalSurface: false
                 )
@@ -1579,9 +1580,10 @@ final class FocusWithoutRaiseTests: XCTestCase {
         rebindState.executionPhase = .running(executionOwner)
         fixture.controller.axEventHandler.admissionRetryStateByWindowId[UInt32(replacement.windowId)] = rebindState
 
+        let targetReference = try XCTUnwrap(targetEntry.axRef)
         await fixture.controller.axEventHandler.completeManagedWindowIdentityRebind(
             rebind: .init(
-                oldWindow: AXManagedWindowIdentity(token: target, axRef: targetEntry.axRef),
+                oldWindow: AXManagedWindowIdentity(token: target, axRef: targetReference),
                 newWindow: AXManagedWindowIdentity(
                     token: replacement,
                     axRef: replacementRef

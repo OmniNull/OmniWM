@@ -46,6 +46,9 @@ extension WMController {
 
         guard validateMouseFocusRequest(liveRequest, validatesPointer: validatesPointer) else { return false }
 
+        guard let axRef = entry.axRef else {
+            return focusHostedWindow(entry, request: liveRequest)
+        }
         let focusesWithoutRaise = !shouldRaiseManagedFocus(origin: liveRequest.origin, entry: entry)
         guard focusesWithoutRaise else {
             return frontManagedFocusRequest(liveRequest, entry: entry, raisesWindow: raisesWindow)
@@ -78,11 +81,15 @@ extension WMController {
             }
             return false
         }
-        return performWindowFocusOnly(
-            pid: entry.pid,
-            windowId: entry.windowId,
-            axRef: entry.axRef
-        )
+        return performWindowFocusOnly(pid: entry.pid, windowId: entry.windowId, axRef: axRef)
+    }
+
+    private func focusHostedWindow(_ entry: WindowState, request: ManagedFocusRequest) -> Bool {
+        guard canFocusWindow(pid: entry.pid, windowId: entry.windowId) else {
+            cancelManagedFocusRequestAndRestoreSource(request)
+            return false
+        }
+        return shellAppWindowManager.focus(entry.token)
     }
 
     func completeSameAppFocusHandoff(_ request: ManagedFocusRequest) {
@@ -109,6 +116,10 @@ extension WMController {
             )
             return
         }
+        guard let axRef = entry.axRef else {
+            _ = shellAppWindowManager.focus(entry.token)
+            return
+        }
         let raisesWindow = shouldRaiseManagedFocus(origin: liveRequest.origin, entry: entry)
         if raisesWindow {
             windowFocusOperations.activateApp(entry.pid)
@@ -116,7 +127,7 @@ extension WMController {
         guard windowFocusOperations.activateAndFocusSameAppWindow(
             entry.pid,
             UInt32(entry.windowId),
-            entry.axRef.element
+            axRef.element
         ) else {
             cancelManagedFocusRequestAndRestoreSource(
                 liveRequest,
@@ -125,7 +136,7 @@ extension WMController {
             return
         }
         if raisesWindow {
-            windowFocusOperations.raiseWindow(entry.axRef.element)
+            windowFocusOperations.raiseWindow(axRef.element)
         }
         confirmSameAppFocusHandoff(liveRequest, sourceToken: sourceToken, isRetry: isRetry)
     }
@@ -153,9 +164,10 @@ extension WMController {
         entry: WindowState,
         raisesWindow: Bool
     ) -> Bool {
+        guard let axRef = entry.axRef else { return shellAppWindowManager.focus(entry.token) }
         let applied = raisesWindow
-            ? performWindowFronting(pid: entry.pid, windowId: entry.windowId, axRef: entry.axRef)
-            : submitWindowFocus(pid: entry.pid, windowId: entry.windowId, axRef: entry.axRef)
+            ? performWindowFronting(pid: entry.pid, windowId: entry.windowId, axRef: axRef)
+            : submitWindowFocus(pid: entry.pid, windowId: entry.windowId, axRef: axRef)
         if applied, case .awaitingSameAppActivation = liveRequest.phase {
             _ = intentLedger.completeSameAppActivationHandoff(
                 requestId: liveRequest.requestId

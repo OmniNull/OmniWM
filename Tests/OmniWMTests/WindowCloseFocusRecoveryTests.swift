@@ -626,8 +626,9 @@ final class WindowCloseFocusRecoveryTests: XCTestCase {
         defer { stop(fixture) }
         let controller = fixture.controller
         let remoteEntry = try XCTUnwrap(controller.workspaceManager.entry(for: fixture.remoteToken))
+        let remoteReference = try XCTUnwrap(remoteEntry.axRef)
         let remoteFact = FocusedWindowFact(
-            axRef: remoteEntry.axRef,
+            axRef: remoteReference,
             isFullscreen: false,
             isSystemModalSurface: false
         )

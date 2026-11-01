@@ -254,7 +254,7 @@ extension AXEventHandler {
     }
 
     func observedFrame(for entry: WindowState) -> CGRect? {
-        observedFrame(for: entry.axRef)
+        entry.axRef.flatMap { observedFrame(for: $0) }
     }
 
     private func shouldIgnoreScrollingFrameChange(_ trackedEntry: WindowState?, controller: WMController) -> Bool {

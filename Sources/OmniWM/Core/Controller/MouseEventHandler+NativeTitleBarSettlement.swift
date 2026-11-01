@@ -28,15 +28,7 @@ extension MouseEventHandler {
         case .armed:
             return false
         case .dragging:
-            drag.receivedFrameChange = true
-            if drag.dwindleResizeWorkspaceId != nil
-                || (controller?.settings.gestures.adoptNativeResize == true
-                    && controller?.workspaceManager.activeLayoutKind(for: entry.workspaceId) == .dwindle)
-            {
-                updateNativeDwindleResize(&drag, entry: entry, observedFrame: nativeWindowFrameProvider(entry.axRef))
-            }
-            state.nativeTitleBarDrag = drag
-            return true
+            return updateNativeTitleBarDraggingFrame(entry, drag: &drag)
         case .awaitingFrameChange:
             return settleAwaitedNativeTitleBarFrame(entry, drag: drag)
         case .awaitingFrameWrite:
@@ -54,6 +46,24 @@ extension MouseEventHandler {
             state.nativeTitleBarDrag = drag
             return true
         }
+    }
+
+    private func updateNativeTitleBarDraggingFrame(
+        _ entry: WindowState, drag: inout MouseInputState.NativeTitleBarDrag
+    ) -> Bool {
+        drag.receivedFrameChange = true
+        if drag.dwindleResizeWorkspaceId != nil
+            || (controller?.settings.gestures.adoptNativeResize == true
+                && controller?.workspaceManager.activeLayoutKind(for: entry.workspaceId) == .dwindle)
+        {
+            updateNativeDwindleResize(
+                &drag,
+                entry: entry,
+                observedFrame: entry.axRef.flatMap(nativeWindowFrameProvider)
+            )
+        }
+        state.nativeTitleBarDrag = drag
+        return true
     }
 
     private func adoptNativeTitleBarFallback(_ entry: WindowState, controller: WMController) -> Bool {
@@ -138,13 +148,13 @@ extension MouseEventHandler {
         entry: WindowState,
         drag: MouseInputState.NativeTitleBarDrag
     ) {
-        guard let controller else { return }
+        guard let controller, let axRef = entry.axRef else { return }
         var drag = drag
         drag.phase = .awaitingFrameWrite
         drag.receivedFrameChange = true
         state.nativeTitleBarDrag = drag
         controller.axManager.applyFramesParallel(
-            [AXFrameApplicationTarget(pid: entry.pid, window: entry.axRef, frame: pendingFrame)],
+            [AXFrameApplicationTarget(pid: entry.pid, window: axRef, frame: pendingFrame)],
             terminalObserver: { [weak self] result in
                 self?.handleNativeTitleBarDragPendingFrameSettled(result)
             }
@@ -170,8 +180,8 @@ extension MouseEventHandler {
     }
 
     func terminalNativeWindowFrame(for entry: WindowState) -> CGRect? {
-        nativeWindowFrameProvider(entry.axRef)
-            ?? nativeWindowFrameFallbackProvider(entry.axRef)
+        guard let axRef = entry.axRef else { return controller?.shellAppWindowManager.frame(for: entry.token) }
+        return nativeWindowFrameProvider(axRef) ?? nativeWindowFrameFallbackProvider(axRef)
     }
 
     func handleNativeTitleBarDragFrameApplySucceeded(_ result: AXFrameApplyResult) {
@@ -185,7 +195,7 @@ extension MouseEventHandler {
             discardNativeTitleBarDragState()
             return
         }
-        guard sameAXWindowIdentity(result.expectedWindow, entry.axRef) else { return }
+        guard let axRef = entry.axRef, sameAXWindowIdentity(result.expectedWindow, axRef) else { return }
         guard let confirmedFrame = result.confirmedFrame else {
             discardNativeTitleBarDragState()
             return
@@ -239,7 +249,7 @@ extension MouseEventHandler {
             discardNativeTitleBarDragState()
             return
         }
-        guard sameAXWindowIdentity(result.expectedWindow, entry.axRef) else { return }
+        guard let axRef = entry.axRef, sameAXWindowIdentity(result.expectedWindow, axRef) else { return }
         if result.confirmedFrame != nil {
             handleNativeTitleBarDragFrameApplySucceeded(result)
             return
@@ -267,7 +277,7 @@ extension MouseEventHandler {
             discardNativeTitleBarDragState()
             return
         }
-        guard sameAXWindowIdentity(result.expectedWindow, entry.axRef) else { return }
+        guard let axRef = entry.axRef, sameAXWindowIdentity(result.expectedWindow, axRef) else { return }
         guard drag.terminalFailureRetryRequestId != result.requestId else { return }
         controller.axManager.invalidateAppliedFrame(for: entry.windowId)
         guard drag.terminalFailureRetryRequestId == nil else {

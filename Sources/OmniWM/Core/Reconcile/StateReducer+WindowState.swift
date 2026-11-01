@@ -10,13 +10,17 @@ extension StateReducer {
         let currentSnapshot = context.currentSnapshot
         let windowExistedBeforeMutation = context.windowExistedBeforeMutation
         switch event {
-        case let .windowAdmitted(token, workspaceId, monitorId, mode, _, _, _, _, adoptNativeFocus, _, _):
+        case let .windowAdmitted(token, workspaceId, monitorId, mode, _, _, _, _, adoptNativeFocus, _, _, initialFrame):
             plan.lifecyclePhase = lifecyclePhase(for: mode)
-            plan.observedState = baseObservedState(
+            var observedState = baseObservedState(
                 from: existingEntry,
                 workspaceId: workspaceId,
                 monitorId: monitorId
             )
+            if let initialFrame {
+                observedState.frame = initialFrame
+            }
+            plan.observedState = observedState
             plan.desiredState = baseDesiredState(
                 from: existingEntry,
                 workspaceId: workspaceId,

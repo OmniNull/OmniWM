@@ -8,7 +8,8 @@ import OmniWMIPC
 extension WMController {
     func adoptObservedMinimumAfterStableSizeClamp(_ result: AXFrameApplyResult) {
         guard let entry = workspaceManager.entry(forPid: result.pid, windowId: result.windowId),
-              sameAXWindowIdentity(entry.axRef, result.expectedWindow),
+              let axRef = entry.axRef,
+              sameAXWindowIdentity(axRef, result.expectedWindow),
               entry.mode == .tiling,
               entry.layoutReason == .standard,
               entry.hiddenState == nil,
@@ -37,6 +38,7 @@ extension WMController {
     func adoptObservedMinimumAfterTerminalSizeWriteFailure(_ refusal: AXFrameTerminalRefusal) {
         guard case .sizeWriteFailed = refusal.failureReason,
               let entry = workspaceManager.entry(forWindowId: refusal.windowId),
+              entry.axRef != nil,
               entry.mode == .tiling,
               workspaceManager.hiddenState(for: entry.token) == nil
         else {
@@ -67,7 +69,8 @@ extension WMController {
               result.writeResult.observedFrame != nil,
               let accepted = result.confirmedFrame?.size,
               let entry = workspaceManager.entry(forPid: result.pid, windowId: result.windowId),
-              sameAXWindowIdentity(entry.axRef, result.expectedWindow),
+              let axRef = entry.axRef,
+              sameAXWindowIdentity(axRef, result.expectedWindow),
               var evidence = workspaceManager.observedSizeEvidence(for: entry.token)
         else {
             return

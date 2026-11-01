@@ -107,7 +107,7 @@ final class NativeTitleBarDragTests: NiriInteractionTestCase {
         XCTAssertNotNil(fixture.controller.layoutRefreshController.layoutState.pendingRefresh)
         fixture.controller.layoutRefreshController.layoutState.pendingRefresh = nil
 
-        fixture.handler.handleNativeTitleBarDragFrameApplySucceeded(successfulFrameResult(fixture, requestId: 94))
+        fixture.handler.handleNativeTitleBarDragFrameApplySucceeded(try successfulFrameResult(fixture, requestId: 94))
         fixture.handler.retireNativeTitleBarDragAtInputBoundary()
 
         XCTAssertNil(fixture.handler.state.nativeTitleBarDrag)
@@ -157,11 +157,12 @@ final class NativeTitleBarDragTests: NiriInteractionTestCase {
         XCTAssertTrue(fixture.handler.handleNativeTitleBarDragFrameChanged(for: fixture.entry))
         XCTAssertNil(fixture.controller.layoutRefreshController.layoutState.pendingRefresh)
 
+        let reference = try XCTUnwrap(fixture.entry.axRef)
         let firstResult = AXFrameApplyResult(
             requestId: 1,
             pid: fixture.token.pid,
             windowId: fixture.token.windowId,
-            expectedWindow: fixture.entry.axRef,
+            expectedWindow: reference,
             targetFrame: fixture.frame,
             currentFrameHint: nil,
             writeResult: AXFrameWriteResult(
@@ -186,7 +187,7 @@ final class NativeTitleBarDragTests: NiriInteractionTestCase {
             requestId: 2,
             pid: fixture.token.pid,
             windowId: fixture.token.windowId,
-            expectedWindow: fixture.entry.axRef,
+            expectedWindow: reference,
             targetFrame: fixture.frame,
             currentFrameHint: nil,
             writeResult: AXFrameWriteResult(
@@ -542,7 +543,7 @@ final class NativeTitleBarDragTests: NiriInteractionTestCase {
         fixture.handler.nativeWindowFrameProvider = { _ in nil }
         XCTAssertTrue(fixture.handler.handleNativeTitleBarDragFrameChanged(for: fixture.entry))
         fixture.handler.handleNativeTitleBarDragFrameApplySucceeded(
-            successfulFrameResult(fixture, requestId: 1)
+            try successfulFrameResult(fixture, requestId: 1)
         )
         XCTAssertEqual(
             fixture.controller.layoutRefreshController.layoutState.pendingRefresh?.affectedWorkspaceIds,
@@ -551,7 +552,7 @@ final class NativeTitleBarDragTests: NiriInteractionTestCase {
 
         fixture.controller.layoutRefreshController.layoutState.pendingRefresh = nil
         fixture.handler.handleNativeTitleBarDragFrameApplySucceeded(
-            successfulFrameResult(fixture, requestId: 2)
+            try successfulFrameResult(fixture, requestId: 2)
         )
         XCTAssertTrue(fixture.handler.handleNativeTitleBarDragFrameChanged(for: fixture.entry))
         XCTAssertNil(fixture.controller.layoutRefreshController.layoutState.pendingRefresh)
@@ -569,11 +570,12 @@ final class NativeTitleBarDragTests: NiriInteractionTestCase {
         drag.phase = .awaitingFrameWrite
         drag.receivedFrameChange = true
         fixture.handler.state.nativeTitleBarDrag = drag
+        let reference = try XCTUnwrap(fixture.entry.axRef)
         let cancellation = AXFrameApplyResult(
             requestId: 1,
             pid: fixture.token.pid,
             windowId: fixture.token.windowId,
-            expectedWindow: fixture.entry.axRef,
+            expectedWindow: reference,
             targetFrame: fixture.frame,
             currentFrameHint: fixture.frame,
             writeResult: .skipped(
@@ -658,7 +660,7 @@ final class NativeTitleBarDragTests: NiriInteractionTestCase {
         var drag = MouseInputState.NativeTitleBarDrag(token: fixture.token)
         drag.phase = .awaitingCorrection
         fixture.handler.state.nativeTitleBarDrag = drag
-        let firstFailure = failedFrameResult(fixture, requestId: 71)
+        let firstFailure = try failedFrameResult(fixture, requestId: 71)
 
         fixture.handler.handleNativeTitleBarDragFrameApplyTerminated(firstFailure)
 
@@ -676,7 +678,7 @@ final class NativeTitleBarDragTests: NiriInteractionTestCase {
         XCTAssertNil(fixture.controller.layoutRefreshController.layoutState.pendingRefresh)
 
         fixture.handler.handleNativeTitleBarDragFrameApplyTerminated(
-            failedFrameResult(fixture, requestId: 72)
+            try failedFrameResult(fixture, requestId: 72)
         )
         XCTAssertNil(fixture.handler.state.nativeTitleBarDrag)
         XCTAssertNil(fixture.controller.layoutRefreshController.layoutState.pendingRefresh)
@@ -697,10 +699,11 @@ final class NativeTitleBarDragTests: NiriInteractionTestCase {
         defer { fixture.controller.axManager.onFrameApplyTerminated = nil }
         fixture.controller.axManager.forceApplyNextFrame(for: fixture.token.windowId)
 
+        let reference = try XCTUnwrap(fixture.entry.axRef)
         fixture.controller.axManager.applyFramesParallel([
             AXFrameApplicationTarget(
                 pid: fixture.token.pid,
-                window: fixture.entry.axRef,
+                window: reference,
                 frame: fixture.frame
             )
         ])
@@ -722,7 +725,7 @@ final class NativeTitleBarDragTests: NiriInteractionTestCase {
         oldDrag.terminalFailureRetryRequestId = 81
         fixture.handler.state.nativeTitleBarDrag = oldDrag
         fixture.handler.handleNativeTitleBarDragFrameApplyTerminated(
-            failedFrameResult(fixture, requestId: 82)
+            try failedFrameResult(fixture, requestId: 82)
         )
         XCTAssertNil(fixture.handler.state.nativeTitleBarDrag)
 
@@ -734,7 +737,7 @@ final class NativeTitleBarDragTests: NiriInteractionTestCase {
         fixture.controller.layoutRefreshController.layoutState.pendingRefresh = nil
 
         fixture.handler.handleNativeTitleBarDragFrameApplyTerminated(
-            failedFrameResult(fixture, requestId: 83)
+            try failedFrameResult(fixture, requestId: 83)
         )
         XCTAssertEqual(fixture.handler.state.nativeTitleBarDrag?.terminalFailureRetryRequestId, 83)
         XCTAssertEqual(
@@ -754,10 +757,10 @@ final class NativeTitleBarDragTests: NiriInteractionTestCase {
         )
 
         fixture.handler.handleNativeTitleBarDragFrameApplyTerminated(
-            failedFrameResult(fixture, requestId: 91, expectedWindow: staleWindow)
+            try failedFrameResult(fixture, requestId: 91, expectedWindow: staleWindow)
         )
         fixture.handler.handleNativeTitleBarDragFrameApplySucceeded(
-            successfulFrameResult(fixture, requestId: 92, expectedWindow: staleWindow)
+            try successfulFrameResult(fixture, requestId: 92, expectedWindow: staleWindow)
         )
 
         XCTAssertEqual(fixture.handler.state.nativeTitleBarDrag?.token, fixture.token)
@@ -874,7 +877,7 @@ final class NativeTitleBarDragTests: NiriInteractionTestCase {
         XCTAssertNotNil(fixture.controller.layoutRefreshController.layoutState.pendingRefresh)
         fixture.controller.layoutRefreshController.layoutState.pendingRefresh = nil
         fixture.handler.nativeWindowFrameProvider = { _ in fixture.frame }
-        fixture.handler.handleNativeTitleBarDragFrameApplySucceeded(successfulFrameResult(fixture, requestId: 93))
+        fixture.handler.handleNativeTitleBarDragFrameApplySucceeded(try successfulFrameResult(fixture, requestId: 93))
         fixture.controller.surfaceReconciler.cleanup()
 
         fixture.controller.axEventHandler.handleCGSEvent(
@@ -965,12 +968,13 @@ final class NativeTitleBarDragTests: NiriInteractionTestCase {
         _ fixture: Fixture,
         requestId: AXFrameRequestId,
         expectedWindow: AXWindowRef? = nil
-    ) -> AXFrameApplyResult {
-        AXFrameApplyResult(
+    ) throws -> AXFrameApplyResult {
+        let reference = try XCTUnwrap(expectedWindow ?? fixture.entry.axRef)
+        return AXFrameApplyResult(
             requestId: requestId,
             pid: fixture.token.pid,
             windowId: fixture.token.windowId,
-            expectedWindow: expectedWindow ?? fixture.entry.axRef,
+            expectedWindow: reference,
             targetFrame: fixture.frame,
             currentFrameHint: nil,
             writeResult: AXFrameWriteResult(
@@ -987,12 +991,13 @@ final class NativeTitleBarDragTests: NiriInteractionTestCase {
         _ fixture: Fixture,
         requestId: AXFrameRequestId,
         expectedWindow: AXWindowRef? = nil
-    ) -> AXFrameApplyResult {
-        AXFrameApplyResult(
+    ) throws -> AXFrameApplyResult {
+        let reference = try XCTUnwrap(expectedWindow ?? fixture.entry.axRef)
+        return AXFrameApplyResult(
             requestId: requestId,
             pid: fixture.token.pid,
             windowId: fixture.token.windowId,
-            expectedWindow: expectedWindow ?? fixture.entry.axRef,
+            expectedWindow: reference,
             targetFrame: fixture.frame,
             currentFrameHint: fixture.frame,
             writeResult: .skipped(

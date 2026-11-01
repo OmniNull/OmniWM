@@ -122,9 +122,35 @@ struct FloatingState: Equatable {
     var restoreToFloating: Bool
 }
 
+struct HostedWindowMetadata: Equatable, Sendable {
+    let appId: String
+    let title: String
+    let minimumSize: CGSize
+}
+
+enum WindowTarget: Equatable, Sendable {
+    case external(AXWindowRef)
+    case hosted(HostedWindowMetadata)
+
+    var axRef: AXWindowRef? {
+        guard case let .external(reference) = self else { return nil }
+        return reference
+    }
+
+    var hostedMetadata: HostedWindowMetadata? {
+        guard case let .hosted(metadata) = self else { return nil }
+        return metadata
+    }
+}
+
 struct WindowState: Equatable {
     var token: WindowToken
-    var axRef: AXWindowRef
+    var target: WindowTarget
+
+    var axRef: AXWindowRef? {
+        target.axRef
+    }
+
     var workspaceId: WorkspaceDescriptor.ID
     var mode: TrackedWindowMode
     var lifecyclePhase: WindowLifecyclePhase
@@ -158,8 +184,30 @@ struct WindowState: Equatable {
         admissionHints: ManagedWindowAdmissionHints,
         lifetimeAuthority: ManagedWindowLifetimeAuthority = .axTopLevelInventory
     ) {
+        self.init(
+            token: token,
+            target: .external(axRef),
+            workspaceId: workspaceId,
+            mode: mode,
+            managedReplacementMetadata: managedReplacementMetadata,
+            ruleEffects: ruleEffects,
+            admissionHints: admissionHints,
+            lifetimeAuthority: lifetimeAuthority
+        )
+    }
+
+    init(
+        token: WindowToken,
+        target: WindowTarget,
+        workspaceId: WorkspaceDescriptor.ID,
+        mode: TrackedWindowMode,
+        managedReplacementMetadata: ManagedReplacementMetadata?,
+        ruleEffects: ManagedWindowRuleEffects,
+        admissionHints: ManagedWindowAdmissionHints,
+        lifetimeAuthority: ManagedWindowLifetimeAuthority = .axTopLevelInventory
+    ) {
         self.token = token
-        self.axRef = axRef
+        self.target = target
         self.workspaceId = workspaceId
         self.mode = mode
         lifecyclePhase = mode == .floating ? .floating : .tiled

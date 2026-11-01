@@ -84,6 +84,7 @@ struct IPCWindowQueryProjection {
         let workspaceDescriptor = controller.workspaceManager.descriptor(for: entry.workspaceId)
         let monitor = controller.workspaceManager.monitor(for: entry.workspaceId)
         let appInfo = controller.appInfoCache.info(for: entry.pid)
+        let hosted = entry.target.hostedMetadata
         let hiddenState = controller.workspaceManager.hiddenState(for: entry.token)
         let isAppHidden = controller.workspaceManager.isAppHidden(pid: entry.pid)
         let scratchpadIndex = controller.workspaceManager.scratchpadIndex(for: entry.token)
@@ -101,11 +102,11 @@ struct IPCWindowQueryProjection {
                 settings: controller.settings
             ) } : nil,
             display: IPCQuerySelection.include("display", in: fields) ? monitor.map(IPCDisplayRef.init(monitor:)) : nil,
-            app: IPCQuerySelection.include("app", in: fields) ? IPCAppRef(appInfo: appInfo) : nil,
-            title: IPCQuerySelection.include("title", in: fields) ? AXWindowService
+            app: IPCQuerySelection.include("app", in: fields)
+                ? hosted.map { IPCAppRef(name: $0.title, bundleId: $0.appId) } ?? IPCAppRef(appInfo: appInfo) : nil,
+            title: IPCQuerySelection.include("title", in: fields) ? hosted?.title ?? AXWindowService
                 .titlePreferFast(windowId: UInt32(entry.windowId)) : nil,
-            frame: IPCQuerySelection.include("frame", in: fields) ? AXWindowService.framePreferFast(entry.axRef)
-                .map(IPCRect.init) : nil,
+            frame: IPCQuerySelection.include("frame", in: fields) ? windowFrame(entry).map(IPCRect.init) : nil,
             mode: IPCQuerySelection.include("mode", in: fields) ? IPCWindowMode(mode: entry.mode) : nil,
             layoutReason: IPCQuerySelection
                 .include("layout-reason", in: fields) ? IPCLayoutReason(reason: entry.layoutReason) : nil,
@@ -130,6 +131,11 @@ struct IPCWindowQueryProjection {
             columnIndex: columnIndex,
             focusRank: focusRank
         )
+    }
+
+    private func windowFrame(_ entry: WindowState) -> CGRect? {
+        guard let axRef = entry.axRef else { return controller.shellAppWindowManager.frame(for: entry.token) }
+        return AXWindowService.framePreferFast(axRef)
     }
 
     private func matchesWindowQuery(_ entry: WindowState) -> Bool {
@@ -191,12 +197,12 @@ struct IPCWindowQueryProjection {
 
     private func matchesApplication(for entry: WindowState) -> Bool {
         if let appSelector = selectors.app {
-            let appName = controller.appInfoCache.info(for: entry.pid)?.name
+            let appName = entry.target.hostedMetadata?.title ?? controller.appInfoCache.info(for: entry.pid)?.name
             guard appName?.localizedCaseInsensitiveCompare(appSelector) == .orderedSame else { return false }
         }
 
         if let bundleIdSelector = selectors.bundleId {
-            let bundleId = controller.appInfoCache.info(for: entry.pid)?.bundleId
+            let bundleId = entry.target.hostedMetadata?.appId ?? controller.appInfoCache.info(for: entry.pid)?.bundleId
             guard bundleId?.localizedCaseInsensitiveCompare(bundleIdSelector) == .orderedSame else { return false }
         }
 

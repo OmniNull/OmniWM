@@ -42,7 +42,9 @@ extension WMController {
             )
         )
         selectNativeFullscreenPlaceholder(entry)
-        performWindowFronting(pid: entry.pid, windowId: entry.windowId, axRef: entry.axRef)
+        if let axRef = entry.axRef {
+            performWindowFronting(pid: entry.pid, windowId: entry.windowId, axRef: axRef)
+        }
     }
 
     private func traceNativeFullscreenActivationRejected(

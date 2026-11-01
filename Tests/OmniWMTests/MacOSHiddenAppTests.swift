@@ -475,11 +475,12 @@ final class MacOSHiddenAppTests: XCTestCase {
         let token = addWindow(pid: 880_023, windowId: 880_123, to: workspaceId, controller: controller)
         let entry = try XCTUnwrap(controller.workspaceManager.entry(for: token))
         let monitor = try XCTUnwrap(controller.workspaceManager.monitor(for: workspaceId))
+        let reference = try XCTUnwrap(entry.axRef)
         controller.layoutRefreshController.layoutState.closingAnimationsByDisplay[monitor.displayId] = [
             token.windowId: LayoutRefreshState.ClosingAnimation(
                 pid: token.pid,
                 windowId: token.windowId,
-                axRef: entry.axRef,
+                axRef: reference,
                 fromFrame: CGRect(x: 0, y: 0, width: 400, height: 300),
                 displacement: CGPoint(x: 0, y: -12),
                 animation: SpringAnimation(
@@ -522,12 +523,13 @@ final class MacOSHiddenAppTests: XCTestCase {
                 monitor: controller.workspaceManager.monitor(for: workspaceId) ?? Monitor.fallback()
             )
         )
+        let reference = try XCTUnwrap(entry.axRef)
         controller.layoutRefreshController.completePendingRevealTransaction(
             with: AXFrameApplyResult(
                 requestId: 1,
                 pid: token.pid,
                 windowId: token.windowId,
-                expectedWindow: entry.axRef,
+                expectedWindow: reference,
                 targetFrame: targetFrame,
                 currentFrameHint: nil,
                 writeResult: AXFrameWriteResult(

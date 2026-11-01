@@ -5,6 +5,31 @@ import CoreGraphics
 import Foundation
 
 extension WindowModel {
+    @discardableResult
+    func upsert(
+        window: AXWindowRef,
+        pid: pid_t,
+        windowId: Int,
+        workspace: WorkspaceDescriptor.ID,
+        mode: TrackedWindowMode = .tiling,
+        ruleEffects: ManagedWindowRuleEffects = .none,
+        admissionHints: ManagedWindowAdmissionHints = .none,
+        lifetimeAuthority: ManagedWindowLifetimeAuthority = .axTopLevelInventory,
+        managedReplacementMetadata: ManagedReplacementMetadata? = nil
+    ) -> WindowToken {
+        upsert(
+            target: .external(window),
+            pid: pid,
+            windowId: windowId,
+            workspace: workspace,
+            mode: mode,
+            ruleEffects: ruleEffects,
+            admissionHints: admissionHints,
+            lifetimeAuthority: lifetimeAuthority,
+            managedReplacementMetadata: managedReplacementMetadata
+        )
+    }
+
     func applyFieldMutation(_ event: WMEvent, monitors: [Monitor]) {
         switch event {
         case let .topLevelInventoryObserved(tokens, _):

@@ -199,14 +199,14 @@ struct LayoutVisibilityApplication {
                 where !blockedRevealTokens.contains(entry.token)
                 && seenTokens.insert(entry.token).inserted
             {
-                visibleJobs.append((entry.pid, entry.windowId))
+                if entry.axRef != nil { visibleJobs.append((entry.pid, entry.windowId)) }
             }
 
             for (entry, _) in shownEntries
                 where !blockedRevealTokens.contains(entry.token)
                 && seenTokens.insert(entry.token).inserted
             {
-                visibleJobs.append((entry.pid, entry.windowId))
+                if entry.axRef != nil { visibleJobs.append((entry.pid, entry.windowId)) }
             }
 
             if !visibleJobs.isEmpty {
@@ -245,6 +245,10 @@ extension LayoutVisibilityApplication {
                 continue
             }
             guard entry.layoutReason != .nativeFullscreen else { continue }
+            guard let axRef = entry.axRef else {
+                applyHostedFrame(change, entry: entry)
+                continue
+            }
             if deferredVisibleAXTokens.contains(change.token) {
                 controller.axManager.markWindowActive(entry.windowId)
                 controller.axManager.forceApplyNextFrame(for: entry.windowId)
@@ -254,7 +258,7 @@ extension LayoutVisibilityApplication {
             }
             if let transactionId = pendingRevealTransactionIdsByToken[change.token] {
                 revealFrameUpdates.append((
-                    target: AXFrameApplicationTarget(pid: entry.pid, window: entry.axRef, frame: change.frame),
+                    target: AXFrameApplicationTarget(pid: entry.pid, window: axRef, frame: change.frame),
                     transactionId: transactionId
                 ))
             } else {
@@ -275,7 +279,22 @@ extension LayoutVisibilityApplication {
         }
     }
 
+    private func applyHostedFrame(_ change: LayoutFrameChange, entry: WindowState) {
+        guard controller.shellAppWindowManager.setFrame(change.frame, for: entry.token, components: change.components)
+        else { return }
+        controller.shellAppWindowManager.setHidden(false, for: entry.token)
+        guard isDeferredReveal(entry.token) else { return }
+        let hides = diff.deferredHides.filter { $0.revealToken == entry.token }.compactMap { hide in
+            controller.workspaceManager.entry(for: hide.token).map { ($0, hide.side) }
+        }
+        refreshController.applyLayoutTransientHides(
+            hides, monitor: monitor, isAnimationTick: plan.isAnimationTick,
+            preserveWorkspaceInactive: !plan.isActiveWorkspace
+        )
+    }
+
     private mutating func prepareOrdinaryFrame(_ change: LayoutFrameChange, entry: WindowState) {
+        guard let axRef = entry.axRef else { return }
         let forceNativeFullscreenRestoreApply = refreshController
             .consumeNativeFullscreenRestoredFrameApply(for: change.token)
         if change.forceApply {
@@ -286,7 +305,7 @@ extension LayoutVisibilityApplication {
         }
         let frameUpdate = AXFrameApplicationTarget(
             pid: entry.pid,
-            window: entry.axRef,
+            window: axRef,
             frame: change.frame,
             components: change.components
         )
@@ -348,6 +367,7 @@ extension LayoutVisibilityApplication {
         guard !deferredRevealFrameUpdates.isEmpty else { return }
         for update in deferredRevealFrameUpdates {
             guard let entry = controller.workspaceManager.entry(for: update.token),
+                  let axRef = entry.axRef,
                   let transactionId = refreshController.dwindleHandler.groupReveals.beginPendingGroupRevealTransaction(
                       for: entry,
                       targetFrame: update.frame,
@@ -359,7 +379,7 @@ extension LayoutVisibilityApplication {
                 continue
             }
             controller.axManager.applyFramesParallel(
-                [.init(pid: entry.pid, window: entry.axRef, frame: update.frame)],
+                [.init(pid: entry.pid, window: axRef, frame: update.frame)],
                 terminalObserver: { [weak refreshController] result in
                     refreshController?.dwindleHandler.groupReveals.completePendingGroupRevealTransaction(
                         with: result,

@@ -470,7 +470,8 @@ final class FullRescanWindowAdmissionTests: XCTestCase {
         let retainedEntry = try XCTUnwrap(controller.workspaceManager.entry(for: oldToken))
         XCTAssertEqual(retainedEntry.workspaceId, workspaceId)
         XCTAssertEqual(retainedEntry.mode, .floating)
-        XCTAssertTrue(CFEqual(retainedEntry.axRef.element, logicalAXRef.element))
+        let retainedReference = try XCTUnwrap(retainedEntry.axRef)
+        XCTAssertTrue(CFEqual(retainedReference.element, logicalAXRef.element))
         XCTAssertTrue(controller.workspaceManager.selectedManagedHandle === originalHandle)
 
         let executionOwner: UInt64 = 467_949
@@ -498,7 +499,8 @@ final class FullRescanWindowAdmissionTests: XCTestCase {
         let reboundEntry = try XCTUnwrap(controller.workspaceManager.entry(for: newToken))
         XCTAssertEqual(reboundEntry.workspaceId, workspaceId)
         XCTAssertEqual(reboundEntry.mode, .floating)
-        XCTAssertTrue(CFEqual(reboundEntry.axRef.element, helperAXRef.element))
+        let reboundReference = try XCTUnwrap(reboundEntry.axRef)
+        XCTAssertTrue(CFEqual(reboundReference.element, helperAXRef.element))
         XCTAssertTrue(controller.workspaceManager.handle(for: newToken) === originalHandle)
         XCTAssertTrue(controller.workspaceManager.entry(for: originalHandle)?.token == newToken)
         XCTAssertTrue(controller.workspaceManager.selectedManagedHandle === originalHandle)
@@ -1927,7 +1929,8 @@ final class FullRescanWindowAdmissionTests: XCTestCase {
         }
         XCTAssertEqual(preservedToken, existingToken)
         let retained = try XCTUnwrap(controller.workspaceManager.entry(for: existingToken))
-        XCTAssertTrue(CFEqual(retained.axRef.element, existingAXRef.element))
+        let retainedReference = try XCTUnwrap(retained.axRef)
+        XCTAssertTrue(CFEqual(retainedReference.element, existingAXRef.element))
         XCTAssertNotNil(controller.niriEngine?.findNode(for: existingToken, in: workspaceId))
         XCTAssertNil(controller.workspaceManager.entry(for: WindowToken(pid: candidatePID, windowId: windowId)))
     }

@@ -281,7 +281,11 @@ final class NativeAppHideTests: XCTestCase {
                 guard let self else { return nil }
                 requestedPIDs.append(pid)
                 guard let entry = controller.workspaceManager.entries(forPid: pid).first else { return nil }
-                return FocusedWindowFact(axRef: entry.axRef, isFullscreen: false, isSystemModalSurface: false)
+                guard let reference = entry.axRef else {
+                    XCTFail("External fixture requires an AX reference")
+                    return nil
+                }
+                return FocusedWindowFact(axRef: reference, isFullscreen: false, isSystemModalSurface: false)
             }
             controller.hasStartedServices = true
             controller.eventIntake.open(sink: controller.eventInterpreter)

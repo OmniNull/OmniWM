@@ -629,7 +629,7 @@ final class WorkspaceMoveIPCIntegrationTests: XCTestCase {
 
         try withBlockedRefreshes(controller, affectedWorkspaceId: fixture.interactionWorkspaceId) {
             handleTerminalRelocationResult(
-                frameApplyResult(
+                try frameApplyResult(
                     entry: entry,
                     targetFrame: movedWindow.relocation.frame,
                     observedFrame: movedWindow.sourceFrame,
@@ -672,19 +672,19 @@ final class WorkspaceMoveIPCIntegrationTests: XCTestCase {
 
         try withBlockedRefreshes(controller, affectedWorkspaceId: fixture.interactionWorkspaceId) {
             let results = [
-                frameApplyResult(
+                try frameApplyResult(
                     entry: entry,
                     targetFrame: movedWindow.relocation.frame,
                     observedFrame: movedWindow.relocation.frame,
                     failureReason: nil
                 ),
-                frameApplyResult(
+                try frameApplyResult(
                     entry: entry,
                     targetFrame: movedWindow.relocation.frame,
                     observedFrame: movedWindow.sourceFrame,
                     failureReason: .cancelled
                 ),
-                frameApplyResult(
+                try frameApplyResult(
                     entry: entry,
                     targetFrame: movedWindow.relocation.frame,
                     observedFrame: movedWindow.sourceFrame,
@@ -717,7 +717,7 @@ final class WorkspaceMoveIPCIntegrationTests: XCTestCase {
                 windowId: entry.windowId
             )
             handleTerminalRelocationResult(
-                frameApplyResult(
+                try frameApplyResult(
                     entry: entry,
                     expectedWindow: replacementWindow,
                     targetFrame: movedWindow.relocation.frame,
@@ -737,7 +737,7 @@ final class WorkspaceMoveIPCIntegrationTests: XCTestCase {
                 for: movedWindow.token
             )
             handleTerminalRelocationResult(
-                frameApplyResult(
+                try frameApplyResult(
                     entry: entry,
                     targetFrame: movedWindow.relocation.frame,
                     observedFrame: movedWindow.sourceFrame,
@@ -760,7 +760,7 @@ final class WorkspaceMoveIPCIntegrationTests: XCTestCase {
                 referenceMonitor: fixture.center
             )
             handleTerminalRelocationResult(
-                frameApplyResult(
+                try frameApplyResult(
                     entry: entry,
                     targetFrame: movedWindow.relocation.frame,
                     observedFrame: movedWindow.sourceFrame,
@@ -782,7 +782,7 @@ final class WorkspaceMoveIPCIntegrationTests: XCTestCase {
             windowId: 943_306
         )
         let originalEntry = try XCTUnwrap(manager.entry(for: movedWindow.token))
-        let failedResult = frameApplyResult(
+        let failedResult = try frameApplyResult(
             entry: originalEntry,
             targetFrame: movedWindow.relocation.frame,
             observedFrame: movedWindow.sourceFrame,
@@ -828,7 +828,7 @@ final class WorkspaceMoveIPCIntegrationTests: XCTestCase {
 
         try withBlockedRefreshes(controller, affectedWorkspaceId: fixture.interactionWorkspaceId) {
             handleTerminalRelocationResult(
-                frameApplyResult(
+                try frameApplyResult(
                     entry: entry,
                     targetFrame: movedWindow.relocation.frame,
                     observedFrame: movedWindow.sourceFrame,
@@ -1301,11 +1301,12 @@ final class WorkspaceMoveIPCIntegrationTests: XCTestCase {
         targetFrame: CGRect,
         observedFrame: CGRect?,
         failureReason: AXFrameWriteFailureReason?
-    ) -> AXFrameApplyResult {
-        AXFrameApplyResult(
+    ) throws -> AXFrameApplyResult {
+        let reference = try XCTUnwrap(expectedWindow ?? entry.axRef)
+        return AXFrameApplyResult(
             pid: entry.pid,
             windowId: entry.windowId,
-            expectedWindow: expectedWindow ?? entry.axRef,
+            expectedWindow: reference,
             targetFrame: targetFrame,
             currentFrameHint: observedFrame,
             writeResult: AXFrameWriteResult(

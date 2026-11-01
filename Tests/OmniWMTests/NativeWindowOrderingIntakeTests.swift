@@ -34,6 +34,7 @@ final class NativeWindowOrderingIntakeTests: XCTestCase {
 
     private func facts(controller: WMController) throws -> ActivationFacts {
         let entry = try XCTUnwrap(controller.workspaceManager.entry(for: token))
+        let reference = try XCTUnwrap(entry.axRef)
         return ActivationFacts(
             pid: token.pid,
             source: .focusedWindowChanged,
@@ -43,7 +44,7 @@ final class NativeWindowOrderingIntakeTests: XCTestCase {
             ),
             requestedAtSeq: EventIntake.currentSeq(),
             focusedWindow: FocusedWindowFact(
-                axRef: entry.axRef, isFullscreen: false, isSystemModalSurface: false
+                axRef: reference, isFullscreen: false, isSystemModalSurface: false
             )
         )
     }
@@ -119,9 +120,10 @@ final class NativeWindowOrderingIntakeTests: XCTestCase {
         let controller = try controller()
         defer { cleanup(controller) }
         let originalEntry = try XCTUnwrap(controller.workspaceManager.entry(for: token))
+        let originalReference = try XCTUnwrap(originalEntry.axRef)
         let originalHandle = controller.workspaceManager.handle(for: token)
         let enumeratedWindow = AXEnumeratedWindow(
-            axRef: originalEntry.axRef,
+            axRef: originalReference,
             axPid: token.pid,
             role: kAXWindowRole as String,
             subrole: kAXDialogSubrole as String,
