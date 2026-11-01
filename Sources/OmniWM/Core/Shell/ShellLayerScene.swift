@@ -228,6 +228,7 @@ final class ShellLayerScene: @unchecked Sendable {
             flushReveals(animated: animated)
             flushPulses()
             CATransaction.commit()
+            CATransaction.flush()
             if !effects.isEmpty { shaders?.redrawGroups() }
             completion?()
             if trace != nil {
