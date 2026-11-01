@@ -310,7 +310,7 @@ jobs:
           set -euo pipefail
           ZIP="dist/OmniWM-canary-$TAG-x86_64.zip"
           ditto -c -k --keepParent dist/OmniWM.app "$ZIP"
-          gh release upload "$TAG" "$ZIP" --repo "$GITHUB_REPOSITORY"
+          gh release upload "$TAG" "$ZIP" --clobber --repo "$GITHUB_REPOSITORY"
           printf '## Intel canary attached\n\n- Tag: `%s`\n- Asset: `%s`\n' "$TAG" "${ZIP#dist/}" >> "$GITHUB_STEP_SUMMARY"
       - name: Remove release credentials
         if: always()

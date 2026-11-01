@@ -132,6 +132,9 @@ class GhosttyBuildTests(unittest.TestCase):
         self.assertEqual(plistlib.loads((thin / "Info.plist").read_bytes())["CFBundlePackageType"], "XFWK")
         self.assertEqual(BUILDER.build_flags("x86_64")[-1], "-Dxcframework-target=universal")
         self.assertEqual(BUILDER.build_flags("arm64")[-1], "-Dxcframework-target=native")
+        with patch.object(BUILDER, "run", return_value="arm64"):
+            with self.assertRaisesRegex(RuntimeError, "archive must be x86_64-only"):
+                BUILDER.verify_framework(thin, self.root, "x86_64")
 
 
 if __name__ == "__main__":

@@ -27,8 +27,10 @@ class PackageUpdateChannelTests(unittest.TestCase):
         tools.mkdir()
         for name in ("make", "spctl", "syspolicy_check", "xcrun"):
             self.command(tools / name, "exit 0\n")
-        self.command(tools / "lipo", 'printf "%s\\n" "${OMNIWM_TEST_LIPO_ARCH:-$OMNIWM_ARCH}"\n')
-        self.command(tools / "swift", 'for arg in "$@"; do\n'
+        self.command(tools / "lipo", 'if [[ "${2##*/}" == "${OMNIWM_TEST_WRONG_BINARY:-}" ]]; then\n'
+                     '  echo arm64\nelse\n  echo "$OMNIWM_ARCH"\nfi\n')
+        self.command(tools / "swift", 'printf "%s\\n" "$@" >> "$OMNIWM_TEST_ROOT/swift-args"\n'
+                     'for arg in "$@"; do\n'
                      '  if [[ "$arg" == --show-bin-path ]]; then printf "%s\\n" "$OMNIWM_TEST_ROOT/build"; fi\n'
                      'done\n')
         self.command(tools / "ditto", 'for output in "$@"; do :; done\ntouch "$output"\n')
@@ -94,11 +96,18 @@ class PackageUpdateChannelTests(unittest.TestCase):
         result = self.package(OMNIWM_ARCH="x86_64")
         self.assertEqual(result.returncode, 0, result.stderr)
         self.assertIn("Building OmniWM x86_64 binary", result.stdout)
+        swiftArgs = (self.root / "swift-args").read_text().splitlines()
+        self.assertEqual(swiftArgs.count("--arch"), 2)
+        for index, argument in enumerate(swiftArgs):
+            if argument == "--arch":
+                self.assertEqual(swiftArgs[index + 1], "x86_64")
 
     def test_wrong_binary_architecture_or_unknown_arch_is_rejected(self):
-        result = self.package(OMNIWM_ARCH="x86_64", OMNIWM_TEST_LIPO_ARCH="arm64")
-        self.assertNotEqual(result.returncode, 0)
-        self.assertIn("is not x86_64-only", result.stderr)
+        for binary in ("OmniWM", "omniwmctl", "libOmniWMNowPlaying.dylib"):
+            with self.subTest(binary=binary):
+                result = self.package(OMNIWM_ARCH="x86_64", OMNIWM_TEST_WRONG_BINARY=binary)
+                self.assertNotEqual(result.returncode, 0)
+                self.assertIn(f"/{binary} is not x86_64-only", result.stderr)
         result = self.package(OMNIWM_ARCH="i386")
         self.assertNotEqual(result.returncode, 0)
         self.assertIn("OMNIWM_ARCH must be arm64 or x86_64", result.stderr)

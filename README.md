@@ -771,7 +771,7 @@ After either installation, complete the macOS setup in steps 3-7 below.
 
 Stable releases are recommended for everyday use. Canary builds let you try recent changes and help test fixes before the next release. Daily scheduled runs publish a build only when the checked-out `main` commit, or the app commit beneath any documentation-only commits on top, passes CI and includes app changes since the newest stable or canary tag in its history; documentation-only changes do not trigger a new build. Builds are signed and notarized, but may contain regressions.
 
-Each canary release also has an untested Intel build, `OmniWM-canary-<tag>-x86_64.zip`, for Intel Macs that run macOS 26. Stable releases support only Apple Silicon.
+Canary releases can also include an untested Intel build, `OmniWM-canary-<tag>-x86_64.zip`, for Intel Macs that run macOS 26. The Intel build is attached after the Apple Silicon build, so a release can lack it. Stable releases support only Apple Silicon.
 
 To try one with a Homebrew or GitHub Releases install:
 
