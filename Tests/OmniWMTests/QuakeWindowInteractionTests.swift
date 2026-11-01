@@ -58,30 +58,19 @@ final class QuakeWindowInteractionTests: XCTestCase {
         XCTAssertFalse(interaction.isInteracting)
     }
 
-    func testInteriorUnmodifiedEventsRemainTerminalEvents() throws {
-        let (window, view) = makeSurface()
-        let interaction = QuakeWindowInteraction()
-        let event = try mouseEvent(.leftMouseDown, at: CGPoint(x: 200, y: 100), in: window)
+    func testInteriorEventsRemainTerminalEvents() throws {
+        for (label, modifiers) in [("unmodified", NSEvent.ModifierFlags()), ("option", .option)] {
+            let (window, view) = makeSurface()
+            let interaction = QuakeWindowInteraction()
+            let event = try mouseEvent(.leftMouseDown, at: CGPoint(x: 200, y: 100), modifiers: modifiers, in: window)
 
-        XCTAssertFalse(interaction.handleMouseDown(event, in: view))
-        XCTAssertFalse(interaction.handleMouseDrag(in: view))
-        XCTAssertFalse(interaction.handleMouseUp(in: view, onFrameChanged: nil))
-        interaction.finishMouseUp()
-        XCTAssertFalse(interaction.isInteracting)
-        XCTAssertFalse(window.isVisible)
-    }
-
-    func testInteriorOptionEventsRemainTerminalEvents() throws {
-        let (window, view) = makeSurface()
-        let interaction = QuakeWindowInteraction()
-        let event = try mouseEvent(.leftMouseDown, at: CGPoint(x: 200, y: 100), modifiers: .option, in: window)
-
-        XCTAssertFalse(interaction.handleMouseDown(event, in: view))
-        XCTAssertFalse(interaction.handleMouseDrag(in: view))
-        XCTAssertFalse(interaction.handleMouseUp(in: view, onFrameChanged: nil))
-        interaction.finishMouseUp()
-        XCTAssertFalse(interaction.isInteracting)
-        XCTAssertFalse(window.isVisible)
+            XCTAssertFalse(interaction.handleMouseDown(event, in: view), label)
+            XCTAssertFalse(interaction.handleMouseDrag(in: view), label)
+            XCTAssertFalse(interaction.handleMouseUp(in: view, onFrameChanged: nil), label)
+            interaction.finishMouseUp()
+            XCTAssertFalse(interaction.isInteracting, label)
+            XCTAssertFalse(window.isVisible, label)
+        }
     }
 
     func testPerimeterResizeTakesPriorityOverMoveAndReportsBeforeReset() throws {

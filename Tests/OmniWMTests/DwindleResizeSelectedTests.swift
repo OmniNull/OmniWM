@@ -74,22 +74,13 @@ final class DwindleResizeSelectedTests: XCTestCase {
         )
     }
 
-    func testHorizontalGrowNormalizesForSelectedChild() {
+    func testResizeNormalizesForSelectedChild() {
         assertResize(orientation: .horizontal, delta: 0.1, selectedChild: .first, expectedRatio: 1.1)
         assertResize(orientation: .horizontal, delta: 0.1, selectedChild: .second, expectedRatio: 0.9)
-    }
-
-    func testHorizontalShrinkNormalizesForSelectedChild() {
         assertResize(orientation: .horizontal, delta: -0.1, selectedChild: .first, expectedRatio: 0.9)
         assertResize(orientation: .horizontal, delta: -0.1, selectedChild: .second, expectedRatio: 1.1)
-    }
-
-    func testVerticalGrowNormalizesForSelectedChild() {
         assertResize(orientation: .vertical, delta: 0.1, selectedChild: .first, expectedRatio: 1.1)
         assertResize(orientation: .vertical, delta: 0.1, selectedChild: .second, expectedRatio: 0.9)
-    }
-
-    func testVerticalShrinkNormalizesForSelectedChild() {
         assertResize(orientation: .vertical, delta: -0.1, selectedChild: .first, expectedRatio: 0.9)
         assertResize(orientation: .vertical, delta: -0.1, selectedChild: .second, expectedRatio: 1.1)
     }
