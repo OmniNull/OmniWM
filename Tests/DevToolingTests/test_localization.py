@@ -452,7 +452,7 @@ class CompilerMetadataTests(unittest.TestCase):
                 self.assertEqual(localization.swiftly_bin(), expected)
 
     def extraction(self, root, localized):
-        scratch = root / ".build/localization"
+        scratch = root / ".build"
         source = root / "Sources/OmniWM/Sample.swift"
         files = {
             "OmniWM": [scratch / "DerivedSources/resource_bundle_accessor.swift", source],
@@ -492,14 +492,14 @@ class CompilerMetadataTests(unittest.TestCase):
             found, calls, source = self.extraction(root, localized=True)
             self.assertEqual(calls[1], [
                 "/custom swiftly/bin/swift", "build", "--build-system", "swiftbuild", "--arch", "arm64",
-                "--configuration", "debug", "--product", "OmniWM", "--scratch-path", str(root / ".build/localization"),
+                "--configuration", "debug", "--product", "OmniWM", "--scratch-path", str(root / ".build"),
             ])
             self.assertEqual([call[0] for call in calls[2:]], ["/toolchain/usr/bin/swiftc"] * 2)
             self.assertEqual(len(found), 1)
             data = json.loads(found[0].read_text())
             self.assertEqual(data["source"], str(source))
             self.assertEqual([entry["key"] for entry in data["tables"]["Commands"]], ["Title", "command.sample", "Shared", "Header"])
-            self.assertFalse((root / ".build/localization/strings/OmniWM").exists())
+            self.assertFalse((root / ".build/strings/OmniWM").exists())
 
     def test_extraction_without_localized_strings_fails(self):
         with tempfile.TemporaryDirectory() as temporary:

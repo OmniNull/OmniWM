@@ -53,16 +53,66 @@ class CIWorkflowTests(unittest.TestCase):
                 self.assertEqual(values["tests"], expected)
                 self.assertTrue(json.loads(values["matrix"])["include"])
 
-    def test_push_and_manual_runs_do_not_need_a_diff(self):
-        for event in ("push", "workflow_dispatch"):
+    def test_push_diff_failures_block_ci_and_manual_runs_need_no_diff(self):
+        result, _ = self.plan("push", status=128)
+        self.assertNotEqual(result.returncode, 0)
+        result, values = self.plan("workflow_dispatch", status=128)
+        self.assertEqual(result.returncode, 0, result.stderr)
+        self.assertEqual(values["tests"], "true")
+
+    def test_docs_only_commits_skip_expensive_jobs_on_prs_and_pushes(self):
+        for event in ("pull_request", "push"):
             with self.subTest(event=event):
-                result, values = self.plan(event, status=128)
+                result, values = self.plan(event, "README.md\ndocs/config.md\nwebsite/src/content/docs/a.mdx\n")
+                self.assertEqual(result.returncode, 0, result.stderr)
+                for key in ("ci", "verify", "tests"):
+                    self.assertEqual(values[key], "false")
+                result, values = self.plan(event, "README.md\nSources/OmniWM/App.swift\n")
                 self.assertEqual(result.returncode, 0, result.stderr)
                 self.assertEqual(values["tests"], "true")
 
+    def test_only_pr_runs_share_a_cancelling_concurrency_group(self):
+        for workflow in ("ci.yml", "website.yml"):
+            text = (ROOT / ".github/workflows" / workflow).read_text()
+            group = re.search(r"^  group: \$\{\{ (.+) \}\}$", text, re.MULTILINE)[1]
+            # The leading workflow expression is outside the second expression.
+            group = group.split(" }}-${{ ", 1)[-1]
+            cancel = re.search(r"^  cancel-in-progress: \$\{\{ (.+) \}\}$", text, re.MULTILINE)[1]
+            evaluate = lambda expression, context: eval(
+                expression.replace("&&", " and ").replace("||", " or "),
+                {"__builtins__": {}, "format": str.format}, context,
+            )
+            for event, pr, expected_cancel in (("pull_request", 42, True), ("push", 0, False)):
+                groups = []
+                for run_id in (100, 101):
+                    context = {"inputs": SimpleNamespace(pr_number=""), "github": SimpleNamespace(
+                        event_name=event, run_id=run_id, event=SimpleNamespace(pull_request=SimpleNamespace(number=pr)),
+                    )}
+                    groups.append(evaluate(group, context))
+                    self.assertEqual(evaluate(cancel, context), expected_cancel)
+                self.assertEqual(groups[0] == groups[1], expected_cancel)
+
+    def test_tests_gate_distinguishes_skipped_docs_from_failed_dependencies(self):
+        gate = job("ci.yml", "tests")
+        script = textwrap.dedent(gate.split("        run: |\n", 1)[1])
+        for changes, required, verify, groups, expected in (
+            ("success", "false", "skipped", "skipped", 0),
+            ("success", "true", "success", "success", 0),
+            ("success", "true", "failure", "skipped", 1),
+            ("success", "true", "success", "failure", 1),
+            ("success", "true", "success", "skipped", 1),
+            ("failure", "false", "skipped", "skipped", 1),
+        ):
+            with self.subTest(changes=changes, required=required, verify=verify, groups=groups):
+                result = subprocess.run(["bash", "-e", "-c", script], capture_output=True, env={
+                    **os.environ, "CHANGES": changes, "REQUIRED": required,
+                    "VERIFY": verify, "TEST_GROUPS": groups,
+                })
+                self.assertEqual(result.returncode, expected)
+
     def test_checkouts_keep_the_event_commit_when_refs_move(self):
         event_sha = "a" * 40
-        for name in ("tooling", "verify", "test-group"):
+        for name in ("changes", "checks", "tooling-macos", "verify", "test-group"):
             ref = re.search(r"^          ref: \$\{\{ (.+) \}\}$", job("ci.yml", name), re.MULTILINE)[1]
             expression = ref.replace("&&", " and ").replace("||", " or ")
             for event_ref, pr, expected in (

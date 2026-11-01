@@ -108,6 +108,18 @@ class CITestPlanTests(unittest.TestCase):
         self.assertEqual(lines["tests"], "false")
         self.assertEqual(json.loads(lines["matrix"])["include"], plan_module.FULL)
 
+    def test_full_groups_partition_existing_and_future_test_classes(self):
+        import re
+        names = ["ShellGlassSceneTests", "ShellGlassSceneTestsExtra", "ShellGlassProbeTests",
+                 "ShellVitreusBarTests", "ShellVitreusBarTestsExtra", "ShellVitreusFrameTests",
+                 "ShellWidgetTests", "ShellDesktopEditorTests", "ShellStyleTests", "ShellNewTests",
+                 "NuCompletionTests", "FutureTests"]
+        for name in names:
+            identifier = f"OmniWMTests.{name}/testExample"
+            matches = [group for group in plan_module.FULL
+                       if bool(re.search(group["pattern"], identifier)) == (group["flag"] == "--filter")]
+            self.assertEqual(len(matches), 1, (identifier, matches))
+
 
 if __name__ == "__main__":
     unittest.main()

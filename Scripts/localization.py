@@ -636,7 +636,7 @@ def compiler_stringsdata():
     environment = os.environ.copy()
     library_path = environment.get("LIBRARY_PATH")
     environment["LIBRARY_PATH"] = library_dir + (f":{library_path}" if library_path else "")
-    scratch = ROOT / ".build/localization"
+    scratch = ROOT / ".build"
     subprocess.run([
         str(swiftly_bin() / "swift"), "build",
         "--build-system", "swiftbuild", "--arch", "arm64",

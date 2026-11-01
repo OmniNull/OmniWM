@@ -14,9 +14,13 @@ from pathlib import Path
 ROOT = Path(__file__).resolve().parents[1]
 TESTS = Path("Tests/OmniWMTests")
 GLASS = r"OmniWMTests\.ShellGlass"
+# Keep the two slow rendering suites apart. These four expressions partition
+# the entire suite, including test classes added after this plan was written.
 FULL = [
-    {"name": "glass", "flag": "--filter", "pattern": GLASS},
-    {"name": "rest", "flag": "--skip", "pattern": GLASS},
+    {"name": "glass", "flag": "--filter", "pattern": r"OmniWMTests\.ShellGlassSceneTests/"},
+    {"name": "rendering", "flag": "--filter", "pattern": r"OmniWMTests\.Shell(?:Glass(?!SceneTests/)|Desktop|Widget|Style|VitreusBarTests/)"},
+    {"name": "shell", "flag": "--filter", "pattern": r"OmniWMTests\.Shell(?!Glass|Desktop|Widget|Style|VitreusBarTests/)"},
+    {"name": "core", "flag": "--skip", "pattern": r"OmniWMTests\.Shell", "completions": True},
 ]
 DECLARATION = re.compile(r"^[ \t]*(?:@\w+[ \t]+)*((?:(?:public|package|internal|open|private|fileprivate|final|nonisolated)[ \t]+)*)"
                          r"(class|struct|enum|protocol|actor|extension)[ \t]+([A-Z]\w*)(?:[ \t]*:[ \t]*(\w+))?",
@@ -31,6 +35,10 @@ def needs_tests(path):
     if path.startswith("Scripts/") and path.count("/") == 1 and path.endswith(".py"):
         return False
     return not ("/" not in path and path.endswith(".md"))
+
+
+def needs_ci(path):
+    return not (path.startswith(("docs/", "website/")) or ("/" not in path and path.endswith(".md")))
 
 
 def suites(changed, root=ROOT):
@@ -91,13 +99,19 @@ def plan(paths, event, root=ROOT):
             split = {"glass": [n for n in names if n.startswith("ShellGlass")],
                      "rest": [n for n in names if not n.startswith("ShellGlass")]}
             return [{"name": f"selected {name}", "flag": "--filter",
-                     "pattern": r"OmniWMTests\.(" + "|".join(group) + ")/"}
+                     "pattern": r"OmniWMTests\.(" + "|".join(group) + ")/",
+                     "completions": any(case.startswith("NuCompletion") for case in group)}
                     for name, group in split.items() if group]
     return FULL
 
 
 def main():
-    groups = plan(sys.stdin.read().splitlines(), sys.argv[1] if len(sys.argv) > 1 else "pull_request")
+    paths = sys.stdin.read().splitlines()
+    event = sys.argv[1] if len(sys.argv) > 1 else "pull_request"
+    ci = event == "workflow_dispatch" or any(needs_ci(path) for path in paths)
+    groups = plan(paths, event) if ci else []
+    print(f"ci={'true' if ci else 'false'}")
+    print(f"verify={'true' if groups or (ci and 'Scripts/localization.py' in paths) else 'false'}")
     print(f"tests={'true' if groups else 'false'}")
     print(f"matrix={json.dumps({'include': groups or FULL})}")
 
