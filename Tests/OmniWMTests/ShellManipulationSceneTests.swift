@@ -129,6 +129,19 @@ final class ShellManipulationSceneTests: XCTestCase {
         XCTAssertEqual(actual.height, expected.height, accuracy: accuracy, message, line: line)
     }
 
+    func testSubmitReachesTheRendererPastAnOpenEngineThreadTransaction() throws {
+        let begin = CACurrentMediaTime()
+        let (scene, renderer) = try makeScene(at: begin)
+        let moved = CGRect(x: 120, y: 30, width: 40, height: 40)
+        let gate = DispatchSemaphore(value: 0)
+        ShellLayerScene.engineQueue.async { gate.wait() }
+        ShellLayerScene.engineQueue.async { CALayer().opacity = 0.5 }
+        scene.submit([.frame(slot: 0, rect: moved, animation: nil)], animated: false)
+        gate.signal()
+        ShellLayerScene.engineQueue.sync {}
+        assertEqual(try rendered(renderer, at: begin), moved, accuracy: 0.5)
+    }
+
     func testMotionAddsOneNativeSpringPerChannelWithTheMotionTiming() throws {
         let begin = CACurrentMediaTime()
         let (scene, renderer) = try makeScene(at: begin)

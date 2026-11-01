@@ -4,8 +4,12 @@
 import QuartzCore
 
 extension ShellLayerScene {
+    func now() -> CFTimeInterval {
+        submitTime ?? CACurrentMediaTime()
+    }
+
     func prepareShapeTracks(animated: Bool) {
-        let now = CACurrentMediaTime()
+        let now = self.now()
         for (slot, shape) in glassShapes where shapeTracks.entries[slot]?.carrier == nil {
             let tracked = presence.reveals[slot] != nil || shapeTracks.follows[slot]?.radius != nil
             guard let body = parents[slot], glassBodies[body] != nil,

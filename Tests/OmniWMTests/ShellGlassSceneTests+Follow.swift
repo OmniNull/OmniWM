@@ -39,6 +39,7 @@ extension ShellGlassSceneTests {
 
     func followStage(width: Int, height: Int, at begin: CFTimeInterval) throws -> FollowStage {
         let scene = motionScene(width: CGFloat(width), height: CGFloat(height))
+        scene.clock = { begin }
         let renderer = try ShellLayerScene.engineQueue.sync {
             let renderer = try ShellOffscreenRenderer(root: scene.container, width: width, height: height)
             CATransaction.begin()
