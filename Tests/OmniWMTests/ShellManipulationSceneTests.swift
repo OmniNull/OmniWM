@@ -34,7 +34,9 @@ final class ShellManipulationSceneTests: XCTestCase {
         ))
     }
 
-    func makeScene(at begin: CFTimeInterval) throws -> (ShellLayerScene, ShellOffscreenRenderer) {
+    func makeScene(
+        at begin: CFTimeInterval, fill: CGColor = CGColor(gray: 1, alpha: 1)
+    ) throws -> (ShellLayerScene, ShellOffscreenRenderer) {
         let container = CALayer()
         container.isGeometryFlipped = true
         container.frame = CGRect(x: 0, y: 0, width: Self.width, height: Self.height)
@@ -49,7 +51,7 @@ final class ShellManipulationSceneTests: XCTestCase {
             .paint(
                 slot: 0,
                 ShellLayerPaint(
-                    fill: CGColor(gray: 1, alpha: 1), border: nil, borderWidth: 0, radius: 0,
+                    fill: fill, border: nil, borderWidth: 0, radius: 0,
                     opacity: 1, scale: 1, shadow: nil, shadowRadius: 0
                 ),
                 animation: nil
@@ -318,13 +320,37 @@ final class ShellManipulationSceneTests: XCTestCase {
 }
 
 extension ShellManipulationSceneTests {
+    func testLaterPaintChangesTheRenderedFillOfAnExistingBox() throws {
+        let begin = CACurrentMediaTime()
+        let (scene, renderer) = try makeScene(at: begin)
+        let box = try ShellLayerScene.engineQueue.sync { try XCTUnwrap(scene.layers[0]) }
+        let pixel = (20 * Self.width + 37) * 4
+        func assertPixel(_ expected: [Int], at time: CFTimeInterval) throws {
+            let bytes = try ShellLayerScene.engineQueue.sync { try renderer.render(paused: time) }
+            for (channel, value) in expected.enumerated() {
+                XCTAssertEqual(Int(bytes[pixel + channel]), value, accuracy: 2)
+            }
+            XCTAssertEqual(bytes[pixel + 3], 255)
+        }
+        try assertPixel([255, 255, 255], at: begin)
+        submit([
+            .paint(
+                slot: 0,
+                ShellLayerPaint(
+                    fill: CGColor(gray: 0, alpha: 1), border: nil, borderWidth: 0, radius: 0,
+                    opacity: 1, scale: 1, shadow: nil, shadowRadius: 0
+                ),
+                animation: nil
+            )
+        ], to: scene)
+        XCTAssertTrue(ShellLayerScene.engineQueue.sync { scene.layers[0] === box })
+        try assertPixel([0, 0, 0], at: begin + 1.0 / 60)
+    }
+
     func testClipOutlineDrawsTheRecipeColorAndFalseDrawsNone() throws {
         let clip = CGSize(width: 30, height: 30)
         let red = CGColor(srgbRed: 1, green: 0, blue: 0, alpha: 1)
-        let black = ShellLayerPaint(
-            fill: CGColor(gray: 0, alpha: 1), border: nil, borderWidth: 0, radius: 0, opacity: 1, scale: 1,
-            shadow: nil, shadowRadius: 0
-        )
+        let black = CGColor(gray: 0, alpha: 1)
         for (outline, expected) in [
             (ShellManipulationClip.standardOutline, [178, 178, 178]),
             (red, [0, 0, 255]),
@@ -333,8 +359,7 @@ extension ShellManipulationSceneTests {
             as [(CGColor?, [Int])]
         {
             let begin = CACurrentMediaTime()
-            let (scene, renderer) = try makeScene(at: begin)
-            submit([.paint(slot: 0, black, animation: nil)], to: scene)
+            let (scene, renderer) = try makeScene(at: begin, fill: black)
             manipulate(
                 scene,
                 .still(translation: .zero, scale: 1, clip: ShellManipulationClip(size: clip, outline: outline))
