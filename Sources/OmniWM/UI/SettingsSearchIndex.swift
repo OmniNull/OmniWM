@@ -100,6 +100,14 @@ enum SettingsSearchIndex {
         setting("Apps to Hide", section: .menuBar, tab: "hidden", anchor: "Apps to Hide"),
         setting("Hidden Icons Bar", section: .menuBar, tab: "hidden", anchor: "Hidden Icons Bar"),
         setting("Rehide Delay", section: .menuBar, tab: "hidden", anchor: "Rehide Delay"),
+        setting("Status Menu", section: .menuBar, tab: "statusMenu", anchor: "Show Controls"),
+        setting("Show Controls", section: .menuBar, tab: "statusMenu", anchor: "Show Controls"),
+        setting("Show App Menu", section: .menuBar, tab: "statusMenu", anchor: "Show App Menu"),
+        setting("Show Control Help", section: .menuBar, tab: "statusMenu", anchor: "Show Control Help"),
+        setting("Show OmniWM Items", section: .menuBar, tab: "statusMenu", anchor: "Show OmniWM Items"),
+        setting("App Menu Section", section: .menuBar, tab: "statusMenu", anchor: "Show App Menu"),
+        setting("Controls Grid", section: .menuBar, tab: "statusMenu", anchor: "Show Controls"),
+        setting("Status Menu Items", section: .menuBar, tab: "statusMenu", anchor: "Show OmniWM Items"),
         setting("Layout", section: .layouts, tab: "spacing", anchor: "Layout"),
         setting("Inner Gaps", section: .layouts, tab: "spacing", anchor: "Inner Gaps"),
         setting("Outer Margins", section: .layouts, tab: "spacing", anchor: "Outer Margins"),
@@ -361,6 +369,7 @@ extension SettingsSearchIndex {
         case "behavior": String(localized: "Behavior")
         case "apps": String(localized: "Apps")
         case "status": String(localized: "macOS Status Item")
+        case "statusMenu": String(localized: "Status Menu")
         case "hidden": String(localized: "Hidden Bar")
         default: tab.capitalized
         }
@@ -391,7 +400,7 @@ extension SettingsSearchIndex {
                 "focus ribbon",
                 "components"
             ]
-        case .menuBar: ["status bar", "hidden bar", "menu bar", "icons"]
+        case .menuBar: ["status bar", "hidden bar", "menu bar", "icons", "status menu", "app menu", "controls"]
         case .network: [
                 "permissions",
                 "network",

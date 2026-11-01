@@ -19,6 +19,10 @@ final class StatusMenuModel {
     var confirmationAlertPresenter: (String, String, String, String) -> Bool
     var settingsFileActionPerformer: (SettingsFileAction, SettingsStore) throws -> SettingsFileStatus
     private(set) var cliStatus: AppCLIExposureStatus?
+    private(set) var appMenu: StatusMenuAppMenu?
+    private(set) var appMenuItemsByGroup: [String: [StatusMenuAppMenuItem]] = [:]
+    private let appMenuLoader = StatusMenuAppMenuLoader()
+    private var appMenuPid: pid_t?
     private(set) var menuPresentationGeneration = 0
 
     init(settings: SettingsStore, controller: WMController) {
@@ -79,6 +83,65 @@ final class StatusMenuModel {
         menuPresentationGeneration += 1
         controller?.refreshDiagnosticsIssues()
         refreshCLIStatus()
+        // The AX read happens after the panel is on screen so a slow target app
+        // cannot delay presenting the menu.
+        Task { @MainActor [weak self] in
+            await Task.yield()
+            self?.refreshAppMenu()
+        }
+    }
+
+    private var focusedAppPid: pid_t? {
+        let ownPid = ProcessInfo.processInfo.processIdentifier
+        if let frontmost = NSWorkspace.shared.frontmostApplication?.processIdentifier,
+           frontmost != ownPid
+        {
+            return frontmost
+        }
+        return controller?.workspaceManager.selectedManagedToken?.pid
+    }
+
+    func refreshAppMenu() {
+        guard settings.statusMenu.showAppMenu, let pid = focusedAppPid else {
+            appMenu = nil
+            appMenuItemsByGroup = [:]
+            appMenuPid = nil
+            return
+        }
+        // Menus change while an app stays focused (Undo, Recents, Services), so
+        // every presentation re-reads the bar instead of reusing a session cache.
+        appMenuLoader.invalidate(pid: pid)
+        appMenuItemsByGroup = [:]
+        appMenuPid = pid
+        appMenu = appMenuLoader.menu(for: pid)
+    }
+
+    func prepareAppMenuItems(for group: StatusMenuAppMenuGroup) {
+        guard let pid = appMenuPid else { return }
+        guard appMenuItemsByGroup[group.id] == nil else { return }
+        appMenuItemsByGroup[group.id] = appMenuLoader.items(for: group, pid: pid)
+    }
+
+    /// Controls grid contents after the user's Status Menu settings are applied.
+    var visibleToggleTiles: [ToggleTileSpec] {
+        toggleTiles.filter { settings.statusMenu.isControlVisible($0.control.rawValue) }
+    }
+
+    func isMenuItemVisible(_ item: StatusMenuItem) -> Bool {
+        settings.statusMenu.isMenuItemVisible(item)
+    }
+
+    /// Rows rendered directly under the app menu section.
+    var hasVisiblePrimaryRows: Bool {
+        if canShowHiddenIcons, isMenuItemVisible(.hiddenIcons) { return true }
+        if checkForUpdatesAction != nil, isMenuItemVisible(.checkForUpdates) { return true }
+        return [StatusMenuItem.settings, .reportBug, .appRules, .openShellFolder]
+            .contains { isMenuItemVisible($0) }
+    }
+
+    /// Rows that open the Advanced, Diagnostics, and Help submenus.
+    var hasVisiblePageRows: Bool {
+        [StatusMenuItem.advanced, .diagnostics, .helpLinks].contains { isMenuItemVisible($0) }
     }
 
     func refreshCLIStatus() {

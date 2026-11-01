@@ -47,6 +47,7 @@ struct SettingsExport: Equatable {
     var ipcEnabled: Bool
     var gestures: Gestures
     var statusBar: StatusBar
+    var statusMenu = StatusMenu.defaults()
     var hiddenBar: HiddenBar
     var animationsEnabled: Bool
     var animationSpeed: Double
@@ -205,6 +206,26 @@ struct SettingsExport: Equatable {
         var showIcon: Bool? = true
     }
 
+    struct StatusMenu: Codable, Equatable {
+        var showControls: Bool?
+        var showAppMenu: Bool?
+        var showControlHelp: Bool?
+        var showMenuItems: Bool?
+        var hiddenControls: [String]?
+        var hiddenMenuItems: [String]?
+
+        static func defaults() -> Self {
+            Self(
+                showControls: true,
+                showAppMenu: true,
+                showControlHelp: true,
+                showMenuItems: true,
+                hiddenControls: [],
+                hiddenMenuItems: []
+            )
+        }
+    }
+
     struct HiddenBar: Codable, Equatable {
         var enabled: Bool
         var hiddenBundleIDs: [String]
@@ -289,6 +310,7 @@ extension SettingsExport {
             ipcEnabled: false,
             gestures: Gestures.defaults(),
             statusBar: StatusBar.defaults(),
+            statusMenu: StatusMenu.defaults(),
             hiddenBar: HiddenBar.defaults(),
             animationsEnabled: true,
             animationSpeed: 1,

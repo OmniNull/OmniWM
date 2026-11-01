@@ -83,6 +83,7 @@ The full schema is documented key by key in the [Settings Reference](/config/set
 | [`[island]`](/config/settings-reference/#island) | Dynamic Island master switch |
 | [`[gestures]`](/config/settings-reference/#gestures) | Mouse and trackpad gestures |
 | [`[statusBar]`](/config/settings-reference/#statusbar) | Menu bar icon extras |
+| [`[statusMenu]`](/config/settings-reference/#statusmenu) | Status menu panel contents |
 | [`[hiddenBar]`](/config/settings-reference/#hiddenbar) | Menu bar icon concealment |
 | [`[clipboard]`](/config/settings-reference/#clipboard) | Clipboard history limits |
 | [`[launcher]`](/config/settings-reference/#launcher) | Saved applications, commands, scripts and CLI launches; execution defaults and discovery folders |
