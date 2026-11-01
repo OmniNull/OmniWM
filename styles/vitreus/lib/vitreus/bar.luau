@@ -50,13 +50,27 @@ local function prefix(k, names, widths, split, slots, ranges)
     local gap = 12 * k.bu
     local side, x, last = 1, ranges[1].x, 1
     local ends = { ranges[1].x, ranges[2].x }
-    local function take(width: number, reserve: number, gap: number?)
+    local focusIndex, focusCell, focusWidth = nil, nil, 0
+    for index = 1, split - 1 do
+        local cells = widths[names[index]].flow
+        for _, cell in cells or {} do
+            if cell.focused then
+                focusIndex, focusCell = index, cell
+                focusWidth = cell.w + (if cell ~= cells[1] then cells[1].w else 0)
+                break
+            end
+        end
+    end
+    local function take(width: number, reserve: number, gap: number?, keep: number?, afterFocus: number?)
+        local held, trailing = keep or 0, afterFocus or reserve
         local from = x + (gap or 0)
+        if held > 0 and side == 1 and ranges[2].x + held > ranges[2].to - trailing
+            and from + width + held > ranges[1].to then return nil end
         if side == 1 and from + width > ranges[1].to then
             side, x = 2, ranges[2].x
             from = x
         end
-        if from + width > ranges[side].to - (if side == 2 then reserve else 0) then return nil end
+        if from + width > ranges[side].to - (if side == 2 then math.max(reserve, trailing + held) else 0) then return nil end
         x = from + width
         ends[side], last = x, side
         return from
@@ -64,27 +78,35 @@ local function prefix(k, names, widths, split, slots, ranges)
     for index = 1, split - 1 do
         local name = names[index]
         local width, cells = widths[name].w, widths[name].flow
-        local reserve = 0
+        local reserve, afterFocus = 0, 0
         for next = index + 1, split - 1 do
             local later = widths[names[next]]
             if later.w > 0 then
-                reserve += (if names[next] == "tray" and later.flow then later.flow[1].w else later.w) + gap
+                local width = (if names[next] == "tray" and later.flow then later.flow[1].w else later.w) + gap
+                reserve += width
+                if focusIndex and next > focusIndex then afterFocus += width end
             end
         end
+        local keep = if focusIndex and index < focusIndex then focusWidth + gap else 0
         local from = x
         if cells then
             local positions = {}
-            local lead = 0
-            for _, cell in cells do
-                local at = take(cell.w, reserve, lead)
-                if not at then break end
+            local lead, focused = 0, if index == focusIndex then focusCell else nil
+            for cellIndex, cell in cells do
+                local held = if cellIndex > 1 and focused and cell ~= focused then focused.w else keep
+                local at = take(cell.w, reserve, lead, held, afterFocus)
+                if not at then
+                    if focused and held > 0 then continue end
+                    break
+                end
                 positions[cell.key] = at + cell.at
                 lead = cell.gap or 0
+                if cell == focused then focused = nil end
             end
             slots[name] = table.freeze({ x = from, w = x - from, cx = (from + x) / 2,
                 positions = table.freeze(positions), hidden = next(positions) == nil })
         else
-            local at = take(width, reserve)
+            local at = take(width, reserve, nil, keep, afterFocus)
             slots[name] = table.freeze({ x = at or x, w = width, cx = (at or x) + width / 2, hidden = at == nil })
         end
         if width > 0 and not slots[name].hidden then x += gap ends[side] = x end

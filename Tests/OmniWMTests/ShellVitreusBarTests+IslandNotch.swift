@@ -74,7 +74,7 @@ extension ShellVitreusBarTests {
 
     private func notchWidget(
         _ shell: URL, _ run: NotchRun, on monitor: Monitor, tray: [ShellHiddenBarItem] = [], pieces: [String]? = nil,
-        workspaces: Int = defaultWorkspaces
+        workspaces: Int = defaultWorkspaces, focused: String = "1", emptyFocused: Bool = false
     ) throws -> ShellRenderedWidget {
         let widget = try ShellRenderedWidget(
             source: VitreusFixture.source(shell), scale: 2, resources: VitreusFixture.resources(shell)
@@ -94,19 +94,31 @@ extension ShellVitreusBarTests {
         if run.media {
             widget.set("media") { ShellMedia(title: "Song", app: "Music", playing: true).write(into: &$0) }
         }
-        VitreusFixture.show(widget, on: monitor, bar: notchBar(monitor, run, workspaces: workspaces))
+        VitreusFixture.show(
+            widget,
+            on: monitor,
+            bar: notchBar(monitor, run, workspaces: workspaces, focused: focused, emptyFocused: emptyFocused)
+        )
         return widget
     }
 
-    private func notchBar(_ monitor: Monitor, _ run: NotchRun, workspaces: Int = defaultWorkspaces) -> ShellBarData {
+    private func notchBar(
+        _ monitor: Monitor, _ run: NotchRun, workspaces: Int = defaultWorkspaces, focused: String = "1",
+        emptyFocused: Bool = false
+    ) -> ShellBarData {
         var bar = VitreusFixture.bar(monitor)
         bar.style.fullWidth = run.fullWidth
         bar.style.hidesMenuBar = true
         bar.workspaces = (1 ... workspaces).map { String($0) }.map { id in
-            ShellBarWorkspace(id: id, name: id, focused: id == "1", windows: [ShellBarItem(
-                id: id, bundle: "test.app", name: "App", focused: id == "1", count: 1, hidden: 0,
-                windows: [.init(id: "window-" + id, title: "Window " + id, focused: id == "1", hidden: false)]
-            )])
+            ShellBarWorkspace(
+                id: id,
+                name: id,
+                focused: id == focused,
+                windows: emptyFocused && id == focused ? [] : [ShellBarItem(
+                    id: id, bundle: "test.app", name: "App", focused: id == focused, count: 1, hidden: 0,
+                    windows: [.init(id: "window-" + id, title: "Window " + id, focused: id == focused, hidden: false)]
+                )]
+            )
         }
         return bar
     }
@@ -351,22 +363,153 @@ extension ShellVitreusBarTests {
         let shell = try shell()
         let monitor = Self.fourteenInch()
         let workspaces = 20
-        for run in NotchRun.all {
-            let widget = try notchWidget(shell, run, on: monitor, workspaces: workspaces)
-            try assertOnScreenBesideTheNotch(widget, on: monitor, run.label)
+        let cases = NotchRun.all.flatMap { run in ["1", String(workspaces)].map { (run, $0) } }
+        for (run, focused) in cases {
+            let label = "\(run.label), focused \(focused)"
+            let widget = try notchWidget(shell, run, on: monitor, workspaces: workspaces, focused: focused)
+            try assertOnScreenBesideTheNotch(widget, on: monitor, label)
             XCTAssertEqual(
-                try frames(widget, (1 ... workspaces).map { "workspace-square-\($0)" }).count, workspaces, run.label
+                try frames(widget, (1 ... workspaces).map { "workspace-square-\($0)" }).count, workspaces, label
             )
-            try assertPiecesApart(widget, tray: [], workspaces: workspaces, run.label)
+            try assertPiecesApart(widget, tray: [], workspaces: workspaces, label)
+            try assertFocusedWorkspace(widget, id: focused, label)
             for id in 1 ... workspaces {
                 let frame = try VitreusFixture.frame(widget, key: "workspace-hit-\(id)")
                 XCTAssertEqual(
                     widget.surface.command(at: CGPoint(x: frame.midX, y: frame.midY)),
                     "switch-workspace \(id)",
-                    run.label
+                    label
                 )
             }
         }
+    }
+
+    private func assertFocusedWorkspace(_ widget: ShellRenderedWidget, id: String, _ label: String) throws {
+        XCTAssertTrue(Self.has(widget, "workspace-pill"), label)
+        XCTAssertTrue(Self.has(widget, "workspace-square-" + id), label)
+        guard Self.has(widget, "workspace-hit-" + id) else {
+            XCTFail("\(label): the focused workspace has no hit zone")
+            return
+        }
+        let hit = try VitreusFixture.frame(widget, key: "workspace-hit-" + id)
+        let pill = try VitreusFixture.frame(widget, key: "workspace-pill-shape")
+        XCTAssertEqual(pill.midX, hit.midX, accuracy: 0.001, label)
+        XCTAssertEqual(
+            widget.surface.command(at: CGPoint(x: hit.midX, y: hit.midY)), "switch-workspace " + id, label
+        )
+    }
+
+    func testFocusedWorkspaceStaysVisibleWhenThePrefixOverflows() throws {
+        let shell = try shell()
+        let monitor = Self.fourteenInch()
+        let workspaces = 60
+        let cases = NotchRun.all.flatMap { run in [false, true].map { (run, $0) } }
+        for (run, emptyFocused) in cases {
+            let widget = try notchWidget(
+                shell,
+                run,
+                on: monitor,
+                workspaces: workspaces,
+                focused: String(workspaces),
+                emptyFocused: emptyFocused
+            )
+            for focused in [String(workspaces), "30", "1", String(workspaces)] {
+                let label = "\(run.label), focused \(focused), empty focused \(emptyFocused)"
+                VitreusFixture.show(
+                    widget,
+                    on: monitor,
+                    bar: notchBar(monitor, run, workspaces: workspaces, focused: focused, emptyFocused: emptyFocused)
+                )
+                let visible = try frames(widget, (1 ... workspaces).map { "workspace-square-\($0)" })
+                XCTAssertLessThan(visible.count, workspaces, label)
+                XCTAssertGreaterThanOrEqual(visible.count, 3, label)
+                for id in ["2", "3"] {
+                    XCTAssertTrue(Self.has(widget, "workspace-square-" + id), label)
+                }
+                for (previous, next) in zip(visible, visible.dropFirst()) {
+                    XCTAssertLessThan(previous.midX, next.midX, label)
+                }
+                try assertFocusedWorkspace(widget, id: focused, label)
+                try assertOnScreenBesideTheNotch(widget, on: monitor, label)
+                try assertPiecesApart(widget, tray: [], workspaces: workspaces, label)
+            }
+        }
+    }
+
+    func testPrefixTrayKeepsTheLateFocusedWorkspaceVisible() throws {
+        let shell = try shell()
+        let monitor = Self.fourteenInch()
+        let tray = (0 ..< cappedTray).map {
+            ShellHiddenBarItem(id: "item-\($0)", name: "Item \($0)", image: nil, width: 22, height: 22)
+        }
+        let workspaces = 60
+        let focused = String(workspaces)
+        let pieces = ["tray", "apple", "app", "workspaces", "title", "search", "omniwm", "controls", "clock"]
+        for run in NotchRun.all {
+            let widget = try notchWidget(
+                shell,
+                run,
+                on: monitor,
+                tray: tray,
+                pieces: pieces,
+                workspaces: workspaces,
+                focused: focused
+            )
+            try assertFocusedWorkspace(widget, id: focused, run.label)
+            try assertOnScreenBesideTheNotch(widget, on: monitor, run.label)
+            let placed = try frames(widget, tray.map { "tray-" + $0.id })
+            XCTAssertFalse(placed.isEmpty, run.label)
+            XCTAssertLessThan(placed.count, tray.count, run.label)
+            try assertPiecesApart(widget, tray: placed, workspaces: workspaces, run.label)
+        }
+    }
+
+    func testPrefixTrayLeavesRoomForTheFocusedWorkspaceOnANarrowDisplay() throws {
+        let shell = try shell()
+        let monitor = Monitor(
+            id: .init(displayId: 95401), displayId: 95401, frame: CGRect(x: 0, y: 0, width: 1024, height: 768),
+            visibleFrame: CGRect(x: 0, y: 0, width: 1024, height: 730), hasNotch: true, notchRange: 450 ... 574,
+            notchHeight: 32, name: VitreusFixture.primary
+        )
+        let tray = (0 ..< cappedTray).map {
+            ShellHiddenBarItem(id: "item-\($0)", name: "Item \($0)", image: nil, width: 22, height: 22)
+        }
+        let run = NotchRun(size: 1, fullWidth: true, media: false)
+        let pieces = ["tray", "apple", "app", "workspaces", "title", "search", "omniwm", "controls", "clock"]
+        let widget = try notchWidget(shell, run, on: monitor, tray: tray, pieces: pieces, workspaces: 20, focused: "20")
+        try assertFocusedWorkspace(widget, id: "20", run.label)
+        try assertOnScreenBesideTheNotch(widget, on: monitor, run.label)
+        let placed = try frames(widget, tray.map { "tray-" + $0.id })
+        XCTAssertFalse(placed.isEmpty, run.label)
+        try assertPiecesApart(widget, tray: placed, workspaces: 20, run.label)
+    }
+
+    func testFocusedWorkspaceKeepsRoomOnTheLeftWhenTheRightIsTooNarrow() throws {
+        let rows = try probe("""
+        local bar = require("../lib/vitreus/bar")
+        local marks = require("../lib/vitreus/bar/marks")
+        function render(ctx)
+            local model = { data = { settings = {}, bar = { style = {}, workspaces = {
+                { id = "1", windows = { {} } }, { id = "2", windows = { {} } },
+                { id = "3", focused = true, windows = { {} } },
+            } } } }
+            local k = { bu = 1, bcu = 1 }
+            local width, grow = marks.width(model, k)
+            local widths = { workspaces = { w = width, grow = grow, flow = marks.flow(model, k) },
+                title = { w = 0, grow = 0, minimum = 0 } }
+            local placed = bar.place(k, 100, 8, { "workspaces", "title" }, widths, 200, nil, { x0 = 100, x1 = 160 })
+            local positions = placed.slots.workspaces.positions
+            return ui.text{ text = table.concat({ positions["workspace-3"] or -1,
+                positions["workspace-1"] or -1, positions["workspace-2"] or -1, positions.overview or -1 }, " ") }
+        end
+        """).map { Self.numbers($0) }
+        let row = try XCTUnwrap(rows.first)
+        XCTAssertEqual(rows.count, 1)
+        XCTAssertGreaterThanOrEqual(row[0] - 19, 16)
+        XCTAssertLessThanOrEqual(row[0] + 19, 100)
+        XCTAssertEqual(row[1], -1)
+        XCTAssertEqual(row[2], -1)
+        XCTAssertEqual(row[3], 26, accuracy: accuracy)
     }
 
     func testHiddenWorkspaceSlotsCancelTheirAnimationTimer() throws {
