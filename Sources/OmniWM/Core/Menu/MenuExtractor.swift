@@ -25,8 +25,16 @@ final class MenuExtractor {
         reader = MenuAXReader(environment: environment, submenuTimeout: submenuTimeout)
     }
 
-    func getMenuBar(for pid: pid_t) -> AXUIElement? {
+    func getMenuBar(for pid: pid_t, messagingTimeout: Float? = nil) -> AXUIElement? {
         let app = AXUIElementCreateApplication(pid)
+        if let messagingTimeout {
+            AXUIElementSetMessagingTimeout(app, messagingTimeout)
+        }
+        defer {
+            if messagingTimeout != nil {
+                AXUIElementSetMessagingTimeout(app, 0)
+            }
+        }
         var menuBarValue: CFTypeRef?
         let result = AXUIElementCopyAttributeValue(app, kAXMenuBarAttribute as CFString, &menuBarValue)
         guard result == .success else { return nil }
@@ -117,7 +125,7 @@ final class MenuExtractor {
                 var shortcut: String?
                 if let cmd = itemData["AXMenuItemCmdChar"] as? String, !cmd.isEmpty {
                     let flags = NSEvent.ModifierFlags.fromAXModifiers(itemData["AXMenuItemCmdModifiers"] as? Int)
-                    shortcut = formatKeyboardShortcut(cmd, modifiers: flags)
+                    shortcut = MenuShortcutFormatter.format(key: cmd, modifiers: flags)
                 }
 
                 if let subChildren = itemData["AXChildren"] as? [AXUIElement],
@@ -150,16 +158,6 @@ final class MenuExtractor {
                 }
             }
         }
-    }
-
-    private func formatKeyboardShortcut(_ key: String, modifiers: NSEvent.ModifierFlags) -> String {
-        var parts: [String] = []
-        if modifiers.contains(.control) { parts.append("⌃") }
-        if modifiers.contains(.option) { parts.append("⌥") }
-        if modifiers.contains(.shift) { parts.append("⇧") }
-        if modifiers.contains(.command) { parts.append("⌘") }
-        parts.append(key.uppercased())
-        return parts.joined()
     }
 
     private func buildMenuItems(

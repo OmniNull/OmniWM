@@ -187,6 +187,9 @@ struct StatusMenuPrimaryView: View {
                 .padding(.horizontal, 10)
                 .padding(.bottom, 10)
             MenuDivider()
+            if model.settings.statusMenu.showAppMenu {
+                StatusMenuAppMenuSection(model: model)
+            }
             if model.canShowHiddenIcons {
                 MenuActionRow(icon: "eye", label: String(localized: "Show Hidden Icons")) {
                     model.showHiddenIcons()
