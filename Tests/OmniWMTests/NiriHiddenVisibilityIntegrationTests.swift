@@ -193,64 +193,74 @@ final class NiriHiddenVisibilityIntegrationTests: XCTestCase {
     }
 
     func testNativeFullscreenCommandRejectsReusedStableOriginalTokenWithoutAXWrite() throws {
-        let controller = makeController()
-        let firstWorkspaceId = try XCTUnwrap(
-            controller.workspaceManager.workspaceId(for: "1", createIfMissing: true)
-        )
-        let secondWorkspaceId = try XCTUnwrap(
-            controller.workspaceManager.workspaceId(for: "2", createIfMissing: true)
-        )
-        let originalToken = addWindow(
-            pid: 880_072,
-            windowId: 880_172,
-            to: firstWorkspaceId,
-            controller: controller
-        )
-        XCTAssertTrue(
-            controller.workspaceManager.markNativeFullscreenSuspended(
-                originalToken,
-                ownsNativeFocus: false
+        let cases: [(label: String, isFullscreen: Bool, pid: pid_t, originalWindowId: Int)] = [
+            ("enter", false, 880_072, 880_172),
+            ("exit", true, 880_074, 880_175)
+        ]
+        for (label, isFullscreen, pid, originalWindowId) in cases {
+            let controller = makeController()
+            let firstWorkspaceId = try XCTUnwrap(
+                controller.workspaceManager.workspaceId(for: "1", createIfMissing: true)
             )
-        )
-        let replacementToken = WindowToken(pid: originalToken.pid, windowId: 880_173)
-        XCTAssertNotNil(
-            controller.workspaceManager.rekeyWindow(
-                from: originalToken,
-                to: replacementToken,
-                newAXRef: AXWindowRef(
-                    element: AXUIElementCreateApplication(replacementToken.pid),
-                    windowId: replacementToken.windowId
-                )
+            let secondWorkspaceId = try XCTUnwrap(
+                controller.workspaceManager.workspaceId(for: "2", createIfMissing: true)
             )
-        )
-        let reusedToken = addWindow(
-            pid: originalToken.pid,
-            windowId: originalToken.windowId,
-            to: secondWorkspaceId,
-            controller: controller
-        )
-        XCTAssertTrue(
-            controller.workspaceManager.confirmManagedFocus(
-                reusedToken,
-                in: secondWorkspaceId,
-                activateWorkspaceOnMonitor: false
+            let originalToken = addWindow(
+                pid: pid,
+                windowId: originalWindowId,
+                to: firstWorkspaceId,
+                controller: controller
             )
-        )
-        var fullscreenWrites = 0
-        controller.commandHandler.nativeFullscreenStateProvider = { _ in false }
-        controller.commandHandler.nativeFullscreenSetter = { _, _ in
-            fullscreenWrites += 1
-            return true
+            XCTAssertTrue(
+                controller.workspaceManager.markNativeFullscreenSuspended(
+                    originalToken,
+                    ownsNativeFocus: false
+                ),
+                label
+            )
+            let replacementToken = WindowToken(pid: originalToken.pid, windowId: originalWindowId + 1)
+            XCTAssertNotNil(
+                controller.workspaceManager.rekeyWindow(
+                    from: originalToken,
+                    to: replacementToken,
+                    newAXRef: AXWindowRef(
+                        element: AXUIElementCreateApplication(replacementToken.pid),
+                        windowId: replacementToken.windowId
+                    )
+                ),
+                label
+            )
+            let reusedToken = addWindow(
+                pid: originalToken.pid,
+                windowId: originalToken.windowId,
+                to: secondWorkspaceId,
+                controller: controller
+            )
+            XCTAssertTrue(
+                controller.workspaceManager.confirmManagedFocus(
+                    reusedToken,
+                    in: secondWorkspaceId,
+                    activateWorkspaceOnMonitor: false
+                ),
+                label
+            )
+            var fullscreenWrites = 0
+            controller.commandHandler.nativeFullscreenStateProvider = { _ in isFullscreen }
+            controller.commandHandler.nativeFullscreenSetter = { _, _ in
+                fullscreenWrites += 1
+                return true
+            }
+
+            XCTAssertEqual(controller.commandHandler.performCommand(.fullscreen(.native)), .executed, label)
+
+            XCTAssertEqual(fullscreenWrites, 0, label)
+            XCTAssertNil(controller.workspaceManager.nativeFullscreenRecord(for: reusedToken), label)
+            XCTAssertEqual(
+                controller.workspaceManager.nativeFullscreenRecord(for: replacementToken)?.currentToken,
+                replacementToken,
+                label
+            )
         }
-
-        XCTAssertEqual(controller.commandHandler.performCommand(.fullscreen(.native)), .executed)
-
-        XCTAssertEqual(fullscreenWrites, 0)
-        XCTAssertNil(controller.workspaceManager.nativeFullscreenRecord(for: reusedToken))
-        XCTAssertEqual(
-            controller.workspaceManager.nativeFullscreenRecord(for: replacementToken)?.currentToken,
-            replacementToken
-        )
     }
 
     func testNativeFullscreenCommandRetriesAcceptedUnchangedEnterRequest() throws {
@@ -284,67 +294,6 @@ final class NiriHiddenVisibilityIntegrationTests: XCTestCase {
 
         XCTAssertEqual(fullscreenWrites, 1)
         XCTAssertEqual(controller.workspaceManager.nativeFullscreenRecord(for: token)?.transition, .enterRequested)
-    }
-
-    func testNativeFullscreenExitCommandRejectsReusedStableOriginalTokenWithoutAXWrite() throws {
-        let controller = makeController()
-        let firstWorkspaceId = try XCTUnwrap(
-            controller.workspaceManager.workspaceId(for: "1", createIfMissing: true)
-        )
-        let secondWorkspaceId = try XCTUnwrap(
-            controller.workspaceManager.workspaceId(for: "2", createIfMissing: true)
-        )
-        let originalToken = addWindow(
-            pid: 880_074,
-            windowId: 880_175,
-            to: firstWorkspaceId,
-            controller: controller
-        )
-        XCTAssertTrue(
-            controller.workspaceManager.markNativeFullscreenSuspended(
-                originalToken,
-                ownsNativeFocus: false
-            )
-        )
-        let replacementToken = WindowToken(pid: originalToken.pid, windowId: 880_176)
-        XCTAssertNotNil(
-            controller.workspaceManager.rekeyWindow(
-                from: originalToken,
-                to: replacementToken,
-                newAXRef: AXWindowRef(
-                    element: AXUIElementCreateApplication(replacementToken.pid),
-                    windowId: replacementToken.windowId
-                )
-            )
-        )
-        let reusedToken = addWindow(
-            pid: originalToken.pid,
-            windowId: originalToken.windowId,
-            to: secondWorkspaceId,
-            controller: controller
-        )
-        XCTAssertTrue(
-            controller.workspaceManager.confirmManagedFocus(
-                reusedToken,
-                in: secondWorkspaceId,
-                activateWorkspaceOnMonitor: false
-            )
-        )
-        var fullscreenWrites = 0
-        controller.commandHandler.nativeFullscreenStateProvider = { _ in true }
-        controller.commandHandler.nativeFullscreenSetter = { _, _ in
-            fullscreenWrites += 1
-            return true
-        }
-
-        XCTAssertEqual(controller.commandHandler.performCommand(.fullscreen(.native)), .executed)
-
-        XCTAssertEqual(fullscreenWrites, 0)
-        XCTAssertNil(controller.workspaceManager.nativeFullscreenRecord(for: reusedToken))
-        XCTAssertEqual(
-            controller.workspaceManager.nativeFullscreenRecord(for: replacementToken)?.currentToken,
-            replacementToken
-        )
     }
 
     func testNativeFullscreenCommandRetriesAcceptedUnchangedExitRequest() throws {
