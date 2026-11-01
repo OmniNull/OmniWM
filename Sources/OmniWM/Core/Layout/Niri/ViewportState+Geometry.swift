@@ -317,6 +317,9 @@ extension ViewportState {
     ) -> CGFloat {
         guard !containers.isEmpty, containerIndex >= 0, containerIndex < containers.count else { return 0 }
 
+        if let offset = fittingStripOffset(containerIndex, containers, context, edges, scale) {
+            return offset
+        }
         let sizeKeyPath = context.orientation.settledSpanKeyPath
         let viewportSpan: CGFloat = switch context.orientation {
         case .horizontal: context.workingFrame.width
@@ -364,6 +367,41 @@ extension ViewportState {
             ? offsetKeepingStripEndsOnScreen(offset, target: target, containers: containers, context: context)
             : offset
         return areas.offsetShowingEdgePeeks(keptOnScreen, target: target, containers: containers, gap: context.gaps)
+    }
+
+    private func fittingStripOffset(
+        _ containerIndex: Int,
+        _ containers: [NiriContainer],
+        _ context: NiriInteractionContext,
+        _ edges: ViewportEdgeRules,
+        _ scale: CGFloat
+    ) -> CGFloat? {
+        guard edges.centersFittingStrip,
+              let start = Self.centredStripStart(of: containers, context: context, scale: scale)
+        else { return nil }
+        return start - containerPosition(
+            at: containerIndex,
+            containers: containers,
+            gap: context.gaps,
+            sizeKeyPath: context.orientation.settledSpanKeyPath
+        )
+    }
+
+    static func centredStripStart(
+        of containers: [NiriContainer],
+        context: NiriInteractionContext,
+        scale: CGFloat
+    ) -> CGFloat? {
+        guard !containers.isEmpty else { return nil }
+        let sizeKeyPath = context.orientation.settledSpanKeyPath
+        let viewportSpan = switch context.orientation {
+        case .horizontal: context.workingFrame.width
+        case .vertical: context.workingFrame.height
+        }
+        let stripSpan = containers.reduce(0) { $0 + $1[keyPath: sizeKeyPath] }
+            + CGFloat(containers.count - 1) * context.gaps
+        guard stripSpan + context.gaps * 2 <= viewportSpan + FrameTolerance.screenMatch else { return nil }
+        return ((stripSpan - viewportSpan) / 2).roundedToPhysicalPixel(scale: scale)
     }
 
     private func offsetKeepingStripEndsOnScreen(
@@ -426,5 +464,6 @@ extension ViewportState {
 
 struct ViewportEdgeRules: Equatable {
     var keepsStripEndsOnScreen = false
+    var centersFittingStrip = false
     var peeks: EdgePeekWidths?
 }

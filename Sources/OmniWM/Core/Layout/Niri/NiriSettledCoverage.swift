@@ -438,7 +438,7 @@ extension NiriLayoutEngine {
         }
 
         return withProjectedViewport(state: &state, context: context) { containers, projectedState in
-            guard !(settings.alwaysCenterSingleColumn && containers.count == 1),
+            guard !centresWholeStrip(containers, context: context),
                   containers.count > 1,
                   containers.allSatisfy({ $0.effectiveSizingMode == .normal }),
                   let selectedNodeId = projectedState.selectedNodeId,

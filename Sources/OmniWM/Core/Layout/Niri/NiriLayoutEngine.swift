@@ -144,6 +144,8 @@ final class NiriLayoutEngine {
 
     var keepsStripEndsOnScreen = false
 
+    var centersFittingStrips = false
+
     var clipsOverflowToDisplay = false
 
     var edgePeekShare: CGFloat?

@@ -100,8 +100,10 @@ extension NiriLayoutEngine {
         let lowest = limits.lowerBound
         let highest = max(lowest, limits.upperBound - width)
         var drift = after.minX - min(max(centre - width / 2, lowest), highest)
-        if !centresFocusedColumn(in: context.workspaceId),
-           let ends = keptStripEndsDrift(strip: strip, context: context)
+        if let centred = fittingStripDrift(strip, context: context) {
+            drift = centred
+        } else if !centresFocusedColumn(in: context.workspaceId),
+                  let ends = keptStripEndsDrift(strip: strip, context: context)
         {
             drift = min(max(drift, ends.lowest), ends.highest)
         }
@@ -122,6 +124,10 @@ extension NiriLayoutEngine {
 
 extension NiriLayoutEngine {
     func viewportEdgeRules(in workspaceId: WorkspaceDescriptor.ID) -> ViewportEdgeRules {
-        ViewportEdgeRules(keepsStripEndsOnScreen: keepsStripEndsOnScreen, peeks: edgePeekWidths(in: workspaceId))
+        ViewportEdgeRules(
+            keepsStripEndsOnScreen: keepsStripEndsOnScreen,
+            centersFittingStrip: centresFittingStrip(in: workspaceId),
+            peeks: edgePeekWidths(in: workspaceId)
+        )
     }
 }

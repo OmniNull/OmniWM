@@ -67,10 +67,7 @@ extension NiriLayoutEngine {
     ) -> Bool {
         let centerMode = settings.centerFocusedColumn
         let centerSingle = settings.alwaysCenterSingleColumn
-        let columnCount = viewport.columns.count
-        if centerMode == .always
-            || (columnCount == 1 && centerSingle)
-        {
+        if centerMode == .always || centresWholeStrip(viewport.columns, context: context) {
             return centerRemovalViewport(
                 viewport, context: context, state: &state,
                 centerMode: centerMode, centerSingle: centerSingle
@@ -103,6 +100,7 @@ extension NiriLayoutEngine {
             currentViewStart: viewport.viewStart,
             centerMode: centerMode,
             alwaysCenterSingleColumn: centerSingle,
+            edges: viewportEdgeRules(in: context.workspaceId),
             scale: viewport.scale,
             viewFrame: viewport.viewFrame
         )
