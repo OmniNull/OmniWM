@@ -44,6 +44,9 @@ extension ShellLayerScene {
             from: (layer.presentation() ?? layer).frame, to: rect, origin: bounds.origin
         ) {
             removeScalarFrameAnimations(from: layer)
+            let now = layer.convertTime(self.now(), from: nil)
+            trail.position.beginTime = now
+            trail.bounds.beginTime = now
             layer.add(trail.position, forKey: "position")
             layer.add(trail.bounds, forKey: "bounds")
             return
