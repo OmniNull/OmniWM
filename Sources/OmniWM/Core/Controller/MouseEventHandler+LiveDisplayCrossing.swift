@@ -93,7 +93,10 @@ extension MouseEventHandler {
         } ?? "none"
         let view = "ws=\(workspaceId) active=\(viewport.activeColumnIndex) "
             + String(format: "off=%.0f live=%@ ", viewport.viewOffset, live.map { String(format: "%.0f", $0) } ?? "-")
-            + "lock=\(lock) cols=[\(columns.joined(separator: ","))] phase=\(move.map { "\($0.phase)" } ?? "-")"
+            + "lock=\(lock) cols=[\(columns.joined(separator: ","))] phase=\(move.map { "\($0.phase)" } ?? "-") "
+            + "stack=\(move?.stackMode ?? false) "
+            + "mods=\(InputDiagnostics.modifierLabel(UInt((state.liveDragModifiers ?? modifierFlagsProvider()).rawValue)))"
+            + (state.liveDragModifiers == nil ? "/state" : "/key")
         guard label != "update" || view != state.liveDragTracedView else { return }
         state.liveDragTracedView = view
         MouseTrace.record("live-drag \(label) at=\(TraceFormat.point(location)) \(view)")
