@@ -4,6 +4,7 @@ import os
 from pathlib import Path
 import plistlib
 import subprocess
+import sys
 import tempfile
 import unittest
 from unittest.mock import patch
@@ -105,6 +106,7 @@ class LocalizationTests(unittest.TestCase):
         translated["substitutions"]["items"]["formatSpecifier"] = "lld"
         localization.validate_catalog_data(data, "Localizable.xcstrings")
 
+    @unittest.skipUnless(sys.platform == "darwin", "Catalog synchronization uses Apple's xcstringstool")
     def test_compiler_metadata_synchronizes_catalog_with_original_filename(self):
         with tempfile.TemporaryDirectory() as temporary:
             root = Path(temporary)

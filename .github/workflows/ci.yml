@@ -124,8 +124,10 @@ jobs:
         env:
           NIX_CONFIG: access-tokens = github.com=${{ github.token }}
         run: nix flake check
-      - name: Test macOS app packaging
-        run: python3 -m unittest Tests.DevToolingTests.test_package_update_channel
+      - name: Test macOS app packaging and catalog synchronization
+        run: >-
+          python3 -m unittest Tests.DevToolingTests.test_package_update_channel
+          Tests.DevToolingTests.test_localization.LocalizationTests.test_compiler_metadata_synchronizes_catalog_with_original_filename
 
   tooling:
     name: Tooling
