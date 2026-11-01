@@ -50,13 +50,13 @@ actor ShellNotificationAccessibility {
 }
 
 extension ShellNotificationAccessibility {
-    fileprivate struct ActionFailure: Error {
+    struct ActionFailure: Error {
         let outcome: ShellNotificationActionOutcome
     }
 
     fileprivate struct ExpiredElement: Error {}
 
-    fileprivate struct Snapshot {
+    struct Snapshot {
         var historyWindow: AXUIElement?
         var history: Bool {
             historyWindow != nil
@@ -65,7 +65,7 @@ extension ShellNotificationAccessibility {
         var items: [UUID: [AXUIElement]] = [:]
     }
 
-    fileprivate final class Session {
+    final class Session {
         var request: ShellNotificationActionRequest
         let app: AXUIElement
         let menu: AXUIElement
@@ -322,42 +322,6 @@ extension ShellNotificationAccessibility {
             guard matches.count == 1 else { throw ActionFailure(outcome: .ambiguous) }
             trace("native.clock.found", fields: "matches=\(matches.count)")
             return matches[0]
-        }
-
-        func individual() throws -> AXUIElement {
-            var current = try snapshot()
-            var expanded = Set<UUID>()
-            while true {
-                guard current.history else { throw ActionFailure(outcome: .historyClosed) }
-                if let matches = current.items[request.id] {
-                    guard matches.count == 1 else { throw ActionFailure(outcome: .ambiguous) }
-                    let target = matches[0]
-                    let individual = try string(target, kAXSubroleAttribute) == "AXNotificationCenterBanner"
-                    trace("native.target", fields: "matches=\(matches.count) individual=\(individual)")
-                    if individual { return target }
-                }
-                var candidate: (UUID, AXUIElement)?
-                for (id, matches) in current.items where !expanded.contains(id) {
-                    guard matches.count == 1 else { throw ActionFailure(outcome: .ambiguous) }
-                    if try string(matches[0], kAXSubroleAttribute) == "AXNotificationCenterBannerStack" {
-                        candidate = (id, matches[0])
-                        break
-                    }
-                }
-                guard let (id, stack) = candidate else { throw ActionFailure(outcome: .notFound) }
-                expanded.insert(id)
-                try check()
-                let result = AXUIElementPerformAction(stack, kAXPressAction as CFString)
-                trace("native.stack.expand", fields: "stack=\(id.uuidString.lowercased()) ax=\(result.rawValue)")
-                guard result == .success else {
-                    throw ActionFailure(outcome: .failed)
-                }
-                current = try wait { value in
-                    guard value.history else { throw ActionFailure(outcome: .historyClosed) }
-                    guard let matches = value.items[id], matches.count == 1 else { return false }
-                    return try self.string(matches[0], kAXSubroleAttribute) == "AXNotificationCenterBanner"
-                }
-            }
         }
 
         func actions(_ element: AXUIElement) throws -> [String] {

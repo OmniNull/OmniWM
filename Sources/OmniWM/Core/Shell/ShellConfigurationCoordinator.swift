@@ -126,27 +126,6 @@ final class ShellConfigurationCoordinator {
         return value
     }
 
-    @discardableResult
-    func selectProfile(_ name: String) async throws -> Bool {
-        try await editFile(scansSources: false) { try ShellProfiles.select(name, in: $0) }
-    }
-
-    @discardableResult
-    func selectTheme(_ name: String, profile: String? = nil) async throws -> Bool {
-        let profile = try await explicitProfile(profile)
-        return try await editFile(refreshMetadata: false, scansSources: false) {
-            try ShellProfiles.selectTheme(name, profile: profile, in: $0)
-        }
-    }
-
-    @discardableResult
-    func selectScheme(_ scheme: ShellWallpaperScheme, profile: String? = nil) async throws -> Bool {
-        let profile = try await explicitProfile(profile)
-        return try await editFile(refreshMetadata: false, scansSources: false) {
-            try ShellProfiles.selectScheme(scheme, profile: profile, in: $0)
-        }
-    }
-
     func set<Value: Encodable>(
         _ value: Value?, key: String, table: String = "workspaceBar", profile: String? = nil
     ) async throws {
@@ -371,7 +350,7 @@ extension ShellConfigurationCoordinator {
         return try await load().profile
     }
 
-    private func explicitProfile(_ profile: String?) async throws -> String? {
+    func explicitProfile(_ profile: String?) async throws -> String? {
         guard let profile else { return nil }
         try await ensureLoaded()
         guard profiles.contains(profile) else { throw CocoaError(.fileNoSuchFile) }

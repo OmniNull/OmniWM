@@ -4,103 +4,8 @@
 import AppKit
 import Foundation
 
-enum ShellNotificationsCommand: Equatable, Sendable {
-    case refresh
-    case dismissAll
-    case cancelDismissAll
-    case open(bundle: String)
-    case dismiss(bundle: String, id: UUID)
-    case reply(bundle: String, id: UUID, text: String)
-
-    init?(words: [String]) {
-        if words == ["refresh"] {
-            self = .refresh
-        } else if words == ["dismiss-all"] {
-            self = .dismissAll
-        } else if words == ["cancel-dismiss-all"] {
-            self = .cancelDismissAll
-        } else if words.count == 2, words[0] == "open", Self.validBundle(words[1]) {
-            self = .open(bundle: words[1])
-        } else if words.count == 3, words[0] == "dismiss", Self.validBundle(words[1]),
-                  let id = Self.identifier(words[2])
-        {
-            self = .dismiss(bundle: words[1], id: id)
-        } else if words.count == 4, words[0] == "reply", Self.validBundle(words[1]),
-                  let id = Self.identifier(words[2]), let text = Self.replyText(words[3])
-        {
-            self = .reply(bundle: words[1], id: id, text: text)
-        } else {
-            return nil
-        }
-    }
-
-    fileprivate static func validBundle(_ value: String) -> Bool {
-        !value.isEmpty && value.utf8.count <= 255 && value.utf8.allSatisfy {
-            (48 ... 57).contains($0) || (65 ... 90).contains($0) || (97 ... 122).contains($0)
-                || $0 == 45 || $0 == 46 || $0 == 95
-        }
-    }
-
-    private static func identifier(_ value: String) -> UUID? {
-        guard let id = UUID(uuidString: value), value.lowercased() == id.uuidString.lowercased() else { return nil }
-        return id
-    }
-
-    private static func replyText(_ value: String) -> String? {
-        guard !value.isEmpty, value.utf8.count <= 8192, value.utf8.count.isMultiple(of: 2) else { return nil }
-        let hex = Array(value.utf8)
-        func nibble(_ byte: UInt8) -> UInt8? {
-            switch byte {
-            case 48 ... 57: byte - 48
-            case 65 ... 70: byte - 55
-            case 97 ... 102: byte - 87
-            default: nil
-            }
-        }
-        var bytes: [UInt8] = []
-        bytes.reserveCapacity(hex.count / 2)
-        for index in stride(from: 0, to: hex.count, by: 2) {
-            guard let high = nibble(hex[index]), let low = nibble(hex[index + 1]) else { return nil }
-            bytes.append(high << 4 | low)
-        }
-        guard let text = String(bytes: bytes, encoding: .utf8), !text.contains("\0"),
-              !text.trimmingCharacters(in: .whitespacesAndNewlines).isEmpty
-        else { return nil }
-        return text
-    }
-}
-
-private actor ShellNotificationsWorker {
-    let queue = DispatchSerialQueue(label: "com.barut.OmniWM.shell.notifications", qos: .utility)
-
-    nonisolated var unownedExecutor: UnownedSerialExecutor {
-        queue.asUnownedSerialExecutor()
-    }
-
-    func read(at url: URL) -> ShellNotificationsData {
-        ShellNotificationStore.read(at: url)
-    }
-}
-
 @MainActor
 final class ShellNotificationsController {
-    struct StorageRevision: Equatable {
-        let database: SettingsFileAccess.Fingerprint?
-        let wal: SettingsFileAccess.Fingerprint?
-
-        init(database: SettingsFileAccess.Fingerprint? = nil, wal: SettingsFileAccess.Fingerprint? = nil) {
-            self.database = database
-            self.wal = wal
-        }
-
-        static func read(at url: URL) -> Self {
-            Self(
-                database: SettingsFileAccess.currentFingerprint(at: url),
-                wal: SettingsFileAccess.currentFingerprint(at: URL(fileURLWithPath: url.path + "-wal"))
-            )
-        }
-    }
-
     private struct Dispatched {
         let revision: StorageRevision
         let filesystemEvent: UInt64
@@ -140,7 +45,7 @@ final class ShellNotificationsController {
     private var observation: ShellDirectoryObservation?
     private(set) var task: Task<Void, Never>?
     private(set) var actionTask: Task<Void, Never>?
-    private var generation: UInt64 = 0
+    private(set) var generation: UInt64 = 0
     private var pending = false
     private var pendingFilesystemEvent: UInt64?
     private var readSequence: UInt64 = 0
@@ -200,23 +105,14 @@ final class ShellNotificationsController {
         }
     }
 
-    private static func nativeProcesses() -> (pid_t, pid_t)? {
-        guard let notificationPID = NSRunningApplication.runningApplications(
-                  withBundleIdentifier: "com.apple.notificationcenterui"
-              ).first?.processIdentifier,
-              let menuPID = NSRunningApplication.runningApplications(
-                  withBundleIdentifier: "com.apple.MenuBarAgent"
-              ).first?.processIdentifier
-        else { return nil }
-        return (notificationPID, menuPID)
-    }
-
     isolated deinit {
         task?.cancel()
         actionTask?.cancel()
         observation?.cancel()
     }
+}
 
+extension ShellNotificationsController {
     func setListening(_ listening: Bool) {
         guard listening != isListening else { return }
         isListening = listening
@@ -360,70 +256,16 @@ final class ShellNotificationsController {
         }
     }
 
+    func hasDispatched(_ id: UUID) -> Bool {
+        dispatched[id] != nil
+    }
+
     private func recordDispatched(_ id: UUID) {
         dispatched[id] = Dispatched(revision: revision(), filesystemEvent: filesystemEvent)
         current.dispatched = dispatched.keys.map { $0.uuidString.lowercased() }.sorted()
     }
 
-    @discardableResult
-    func perform(_ command: ShellNotificationsCommand) -> Bool {
-        if command == .dismissAll { return dismissAll() }
-        if command == .cancelDismissAll { return cancelDismissAll() }
-        let bundle: String
-        let id: UUID
-        let kind: String
-        switch command {
-        case let .dismiss(source, identifier):
-            bundle = source
-            id = identifier
-            kind = "dismiss"
-        case let .reply(source, identifier, _):
-            bundle = source
-            id = identifier
-            kind = "reply"
-        case .refresh,
-             .open,
-             .dismissAll,
-             .cancelDismissAll:
-            return false
-        }
-        ShellNotificationTrace.record(
-            "action.request", target: id,
-            fields: "kind=\(kind) bundle=\(bundle) generation=\(generation) listening=\(isListening) busy=\(actionTask != nil)"
-        )
-        guard isListening, actionTask == nil, dispatched[id] == nil else {
-            ShellNotificationTrace.record(
-                "action.rejected",
-                target: id,
-                fields: "reason=\(isListening ? "busy" : "stopped")"
-            )
-            return false
-        }
-        guard let target = retainedTarget(bundle: bundle, id: id, kind: kind) else { return false }
-        let operation: ShellNotificationActionRequest.Operation
-        if case let .reply(_, _, text) = command {
-            guard let reply = replyOperation(text: text, item: target.item, bundle: bundle, id: id)
-            else { return false }
-            operation = reply
-        } else {
-            operation = .dismiss
-        }
-        let request = ShellNotificationActionRequest(
-            bundle: bundle,
-            id: id,
-            peers: target.peers,
-            operation: operation
-        )
-        ShellNotificationTrace.record(
-            "action.accepted",
-            target: id,
-            fields: "kind=\(kind) peers=\(request.peers.count)"
-        )
-        start(request, kind: kind)
-        return true
-    }
-
-    private func retainedTarget(
+    func retainedTarget(
         bundle: String, id: UUID, kind: String
     ) -> (item: [String: ShellServiceValue], peers: Set<UUID>)? {
         guard current.complete, current.state == "ready" || current.state == "empty" else {
@@ -445,7 +287,7 @@ final class ShellNotificationsController {
         return (item, Set(items.compactMap { $0["id"]?.string.flatMap(UUID.init(uuidString:)) }))
     }
 
-    private func start(_ request: ShellNotificationActionRequest, kind: String) {
+    func start(_ request: ShellNotificationActionRequest, kind: String) {
         let generation = self.generation
         actionTask = Task { [weak self, performAction] in
             guard !Task.isCancelled, self?.isListening == true, self?.generation == generation else {
@@ -482,36 +324,7 @@ final class ShellNotificationsController {
         publishAction(id: request.id, bundle: request.bundle, kind: kind, state: "pending")
     }
 
-    private func replyOperation(
-        text: String,
-        item: [String: ShellServiceValue],
-        bundle: String,
-        id: UUID
-    ) -> ShellNotificationActionRequest.Operation? {
-        let actions = item["actions"]?.values?.compactMap(\.fields) ?? []
-        let replies = actions.filter {
-            $0["title"]?.string?.isEmpty == false && $0["textInputButtonTitle"]?.string?.isEmpty == false
-        }
-        guard replies.count == 1, let reply = replies.first, let title = reply["title"]?.string,
-              let sendTitle = reply["textInputButtonTitle"]?.string
-        else {
-            let outcome: ShellNotificationActionOutcome = replies.isEmpty ? .unsupported : .ambiguous
-            publishAction(id: id, bundle: bundle, kind: "reply", state: outcome.rawValue)
-            return nil
-        }
-        guard actions.filter({ $0["title"]?.string == title }).count == 1 else {
-            publishAction(
-                id: id,
-                bundle: bundle,
-                kind: "reply",
-                state: ShellNotificationActionOutcome.ambiguous.rawValue
-            )
-            return nil
-        }
-        return .reply(text: text, title: title, sendTitle: sendTitle)
-    }
-
-    private func publishAction(id: UUID, bundle: String, kind: String, state: String) {
+    func publishAction(id: UUID, bundle: String, kind: String, state: String) {
         ShellNotificationTrace.record("action.status", target: id, fields: "kind=\(kind) state=\(state)")
         let action: ShellServiceValue = .object([
             "id": .text(id.uuidString.lowercased()), "bundle": .text(bundle),
@@ -554,38 +367,13 @@ final class ShellNotificationsController {
 }
 
 extension ShellNotificationsController {
-    private func dismissAll() -> Bool {
+    func dismissAll() -> Bool {
         guard isListening, actionTask == nil else { return false }
         guard current.complete, current.state == "ready" || current.state == "empty" else {
             publishDismissAll(total: current.items.count, state: "failed", outcome: .unavailable)
             return false
         }
-        var targets: [(bundle: String, id: UUID)] = []
-        var peers: [String: Set<UUID>] = [:]
-        var identifiers = Set<UUID>()
-        for value in current.items {
-            guard let item = value.fields, let bundle = item["bundle"]?.string,
-                  ShellNotificationsCommand.validBundle(bundle),
-                  let id = item["id"]?.string.flatMap(UUID.init(uuidString:))
-            else {
-                publishDismissAll(total: current.items.count, state: "failed", outcome: .unavailable)
-                return false
-            }
-            guard identifiers.insert(id).inserted else {
-                publishDismissAll(total: current.items.count, state: "failed", outcome: .ambiguous)
-                return false
-            }
-            if dispatched[id] == nil { targets.append((bundle, id)) }
-            peers[bundle, default: []].insert(id)
-        }
-        let requests = targets.map {
-            ShellNotificationActionRequest(
-                bundle: $0.bundle,
-                id: $0.id,
-                peers: peers[$0.bundle] ?? [],
-                operation: .dismiss
-            )
-        }
+        guard let requests = dismissAllRequests() else { return false }
         guard !requests.isEmpty else {
             guard current.items.isEmpty else { return false }
             current.kept = 0
@@ -615,7 +403,36 @@ extension ShellNotificationsController {
         return true
     }
 
-    private func cancelDismissAll() -> Bool {
+    private func dismissAllRequests() -> [ShellNotificationActionRequest]? {
+        var targets: [(bundle: String, id: UUID)] = []
+        var peers: [String: Set<UUID>] = [:]
+        var identifiers = Set<UUID>()
+        for value in current.items {
+            guard let item = value.fields, let bundle = item["bundle"]?.string,
+                  ShellNotificationsCommand.validBundle(bundle),
+                  let id = item["id"]?.string.flatMap(UUID.init(uuidString:))
+            else {
+                publishDismissAll(total: current.items.count, state: "failed", outcome: .unavailable)
+                return nil
+            }
+            guard identifiers.insert(id).inserted else {
+                publishDismissAll(total: current.items.count, state: "failed", outcome: .ambiguous)
+                return nil
+            }
+            if dispatched[id] == nil { targets.append((bundle, id)) }
+            peers[bundle, default: []].insert(id)
+        }
+        return targets.map {
+            ShellNotificationActionRequest(
+                bundle: $0.bundle,
+                id: $0.id,
+                peers: peers[$0.bundle] ?? [],
+                operation: .dismiss
+            )
+        }
+    }
+
+    func cancelDismissAll() -> Bool {
         guard isListening, current.dismissAll?.fields?["active"] == .bool(true), let actionTask else { return false }
         actionTask.cancel()
         updateDismissAll(state: "cancelling")
