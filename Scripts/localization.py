@@ -639,7 +639,7 @@ def compiler_stringsdata():
     scratch = ROOT / ".build/localization"
     subprocess.run([
         str(swiftly_bin() / "swift"), "build",
-        "--build-system", "swiftbuild", "--arch", "arm64",
+        "--build-system", "swiftbuild", "--arch", os.environ.get("OMNIWM_ARCH", "arm64"),
         "--configuration", "debug", "--product", "OmniWM",
         "--scratch-path", str(scratch),
     ], cwd=ROOT, check=True, env=environment)

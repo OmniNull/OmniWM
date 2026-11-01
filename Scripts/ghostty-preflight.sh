@@ -60,6 +60,21 @@ load_metadata() {
   [ -n "$OMNIWM_GHOSTTY_ARCHIVE_RELATIVE_PATH" ] || fail "missing OMNIWM_GHOSTTY_ARCHIVE_RELATIVE_PATH"
   [ -n "$OMNIWM_GHOSTTY_ARCHIVE_SHA256" ] || fail "missing OMNIWM_GHOSTTY_ARCHIVE_SHA256"
 
+  GHOSTTY_ARCH="${OMNIWM_ARCH:-arm64}"
+  case "$GHOSTTY_ARCH" in
+    arm64) ;;
+    x86_64)
+      # The Intel archive is built in CI from the pinned source revision, so
+      # its digest comes from that build's provenance instead of this file.
+      OMNIWM_GHOSTTY_ARCHIVE_RELATIVE_PATH="Frameworks/GhosttyKit.xcframework/macos-x86_64/libghostty-internal.a"
+      OMNIWM_GHOSTTY_ARCHIVE_SHA256="${OMNIWM_GHOSTTY_X86_64_ARCHIVE_SHA256:-}"
+      [[ "$OMNIWM_GHOSTTY_ARCHIVE_SHA256" =~ ^[0-9a-f]{64}$ ]] || fail "x86_64 builds need OMNIWM_GHOSTTY_X86_64_ARCHIVE_SHA256"
+      ;;
+    *)
+      fail "unsupported OMNIWM_ARCH: $GHOSTTY_ARCH"
+      ;;
+  esac
+
   OMNIWM_GHOSTTY_ARCHIVE_PATH="$ROOT_DIR/$OMNIWM_GHOSTTY_ARCHIVE_RELATIVE_PATH"
   OMNIWM_GHOSTTY_ARCHIVE_DIR="$(dirname "$OMNIWM_GHOSTTY_ARCHIVE_PATH")"
 }
@@ -73,12 +88,12 @@ verify_ghostty() {
 
   if ! archs="$(lipo "$OMNIWM_GHOSTTY_ARCHIVE_PATH" -archs 2>/dev/null)"; then
     lipo -info "$OMNIWM_GHOSTTY_ARCHIVE_PATH" >&2 || true
-    fail "Ghostty archive must be arm64-only"
+    fail "Ghostty archive must be $GHOSTTY_ARCH-only"
   fi
 
-  if [ "$archs" != "arm64" ]; then
+  if [ "$archs" != "$GHOSTTY_ARCH" ]; then
     lipo -info "$OMNIWM_GHOSTTY_ARCHIVE_PATH" >&2 || true
-    fail "Ghostty archive must be arm64-only"
+    fail "Ghostty archive must be $GHOSTTY_ARCH-only"
   fi
 
   actual_sha="$(shasum -a 256 "$OMNIWM_GHOSTTY_ARCHIVE_PATH" | awk '{print $1}')"

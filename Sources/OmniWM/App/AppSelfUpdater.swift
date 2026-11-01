@@ -9,12 +9,19 @@ import Synchronization
 
 struct ReleaseArchive: Equatable {
     static let downloadPrefix = "https://github.com/OmniNull/OmniWM/releases/download/"
+    /// Intel builds ship as a separate thin ZIP; Apple Silicon keeps the unsuffixed name.
+    #if arch(x86_64)
+        static let hostArchiveSuffix = "-x86_64"
+    #else
+        static let hostArchiveSuffix = ""
+    #endif
 
     let url: URL
     let sha256: String
 
-    init?(name: String, url: URL, digest: String?, tag: String) {
-        let expectedName = GitHubRelease.isCanaryTag(tag) ? "OmniWM-canary-\(tag).zip" : "OmniWM-\(tag).zip"
+    init?(name: String, url: URL, digest: String?, tag: String, archiveSuffix: String = hostArchiveSuffix) {
+        let stem = GitHubRelease.isCanaryTag(tag) ? "OmniWM-canary-\(tag)" : "OmniWM-\(tag)"
+        let expectedName = stem + archiveSuffix + ".zip"
         guard name == expectedName,
               url.absoluteString == Self.downloadPrefix + "\(tag)/\(name)",
               let digest, digest.hasPrefix("sha256:")

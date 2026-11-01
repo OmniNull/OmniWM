@@ -73,6 +73,9 @@ jobs:
     permissions:
       contents: write
       actions: read
+    outputs:
+      tag: ${{ steps.publish.outputs.tag }}
+      sha: ${{ steps.publish.outputs.sha }}
     steps:
       - uses: actions/checkout@3d3c42e5aac5ba805825da76410c181273ba90b1
         with:
@@ -159,6 +162,7 @@ jobs:
             --title "Canary $STAMP ($SHORT)" \
             --notes-file "$RUNNER_TEMP/canary-notes.md")"
           echo "tag=$TAG" >> "$GITHUB_OUTPUT"
+          echo "sha=$HEAD_SHA" >> "$GITHUB_OUTPUT"
           echo "url=$URL" >> "$GITHUB_OUTPUT"
       - name: Remove release credentials
         if: always()
@@ -186,3 +190,131 @@ jobs:
               printf '## Canary published\n\n- Tag: `%s`\n- Release: %s\n' "$PUBLISHED_TAG" "$PUBLISHED_URL"
             fi
           } >> "$GITHUB_STEP_SUMMARY"
+
+  ghostty-intel:
+    name: Build pinned GhosttyKit for Intel
+    needs: canary
+    if: needs.canary.outputs.tag != ''
+    runs-on: xcode-27
+    timeout-minutes: 90
+    # No signing environment: the Ghostty build never sees Apple credentials.
+    permissions:
+      contents: read
+    outputs:
+      artifact_id: ${{ steps.upload.outputs.artifact-id }}
+    steps:
+      - uses: actions/checkout@3d3c42e5aac5ba805825da76410c181273ba90b1
+        with:
+          ref: ${{ needs.canary.outputs.sha }}
+          persist-credentials: false
+      - uses: ./.github/actions/setup-lix
+      - name: Install translation build tools
+        env:
+          NIX_CONFIG: access-tokens = github.com=${{ github.token }}
+        run: |
+          gettext_out="$(nix build --no-link --print-out-paths .#gettext)"
+          echo "${gettext_out}/bin" >> "$GITHUB_PATH"
+      - name: Install Metal Toolchain
+        run: xcodebuild -downloadComponent metalToolchain
+      - name: Build the pinned Ghostty revision for x86_64
+        run: |
+          set -euo pipefail
+          REVISION="$(sed -n 's/^OMNIWM_GHOSTTY_SOURCE_COMMIT=//p' Scripts/dev-tools.env)"
+          python3 Scripts/build-ghosttykit.py --arch x86_64 --revision "$REVISION" --output-dir .build/intel-ghostty
+      - name: Upload source build and provenance
+        id: upload
+        uses: actions/upload-artifact@043fb46d1a93c77aae656e7c1c64a875d1fc6a0a
+        with:
+          name: ghosttykit-x86_64-${{ github.run_id }}
+          path: |
+            .build/intel-ghostty/GhosttyKit.xcframework.zip
+            .build/intel-ghostty/provenance.json
+          if-no-files-found: error
+          include-hidden-files: true
+          compression-level: 0
+          retention-days: 7
+
+  canary-intel:
+    name: Build and attach the Intel canary
+    needs: [canary, ghostty-intel]
+    runs-on: xcode-27
+    timeout-minutes: 90
+    environment: canary-signing
+    permissions:
+      contents: write
+    env:
+      OMNIWM_ARCH: x86_64
+      TAG: ${{ needs.canary.outputs.tag }}
+    steps:
+      - uses: actions/checkout@3d3c42e5aac5ba805825da76410c181273ba90b1
+        with:
+          ref: ${{ needs.canary.outputs.sha }}
+          persist-credentials: false
+      - uses: ./.github/actions/setup-swift
+      - uses: ./.github/actions/setup-lix
+        with:
+          make-target: setup-tools
+      - name: Download the Intel GhosttyKit
+        uses: actions/download-artifact@3e5f45b2cfb9172054b4087a40e8e0b5a5461e7c
+        with:
+          artifact-ids: ${{ needs.ghostty-intel.outputs.artifact_id }}
+          merge-multiple: true
+          path: .build/intel-ghostty
+      - name: Install the Intel GhosttyKit
+        run: |
+          set -euo pipefail
+          python3 - <<'PY'
+          import hashlib
+          import json
+          import os
+          from pathlib import Path
+
+          root = Path(".build/intel-ghostty")
+          provenance = json.loads((root / "provenance.json").read_text())
+          pins = dict(line.split("=", 1) for line in Path("Scripts/dev-tools.env").read_text().splitlines() if "=" in line)
+          archive = hashlib.sha256((root / "GhosttyKit.xcframework.zip").read_bytes()).hexdigest()
+          if provenance["source_revision"] != pins["OMNIWM_GHOSTTY_SOURCE_COMMIT"] or provenance["architecture"] != "x86_64":
+              raise SystemExit("Intel GhosttyKit was not built from the pinned revision for x86_64")
+          if archive != provenance["zip_sha256"]:
+              raise SystemExit("Intel GhosttyKit ZIP differs from its provenance")
+          digest = provenance["framework_files"]["macos-x86_64/libghostty-internal.a"]
+          with open(os.environ["GITHUB_ENV"], "a") as env:
+              env.write(f"OMNIWM_GHOSTTY_X86_64_ARCHIVE_SHA256={digest}\n")
+          PY
+          mkdir -p Frameworks
+          ditto -x -k .build/intel-ghostty/GhosttyKit.xcframework.zip Frameworks
+      - name: Check the Intel GhosttyKit
+        run: ./Scripts/ghostty-preflight.sh verify
+      # Imported after dependency setup and removed before any later action step.
+      - name: Import signing and notarization credentials
+        env:
+          APPLE_DEVELOPER_ID_CERT_P12_BASE64: ${{ secrets.APPLE_DEVELOPER_ID_CERT_P12_BASE64 }}
+          APPLE_DEVELOPER_ID_CERT_PASSWORD: ${{ secrets.APPLE_DEVELOPER_ID_CERT_PASSWORD }}
+          APPLE_NOTARY_KEY_ID: ${{ secrets.APPLE_NOTARY_KEY_ID }}
+          APPLE_NOTARY_ISSUER_ID: ${{ secrets.APPLE_NOTARY_ISSUER_ID }}
+          APPLE_NOTARY_KEY_P8: ${{ secrets.APPLE_NOTARY_KEY_P8 }}
+        run: |
+          KEYCHAIN_PASSWORD="$(openssl rand -hex 32)"
+          echo "::add-mask::$KEYCHAIN_PASSWORD"
+          export KEYCHAIN_PASSWORD
+          ./Scripts/release-ci-credentials.sh
+      - name: Build, sign and notarize the Intel canary app
+        env:
+          OMNIWM_SIGNING_IDENTITY: ${{ env.OMNIWM_RELEASE_SIGNING_IDENTITY }}
+          OMNIWM_NOTARIZE_PROFILE: ${{ env.OMNIWM_RELEASE_NOTARIZE_PROFILE }}
+        run: OMNIWM_CANARY_TAG="$TAG" Scripts/package-app.sh release true
+      - name: Attach the Intel app to the canary release
+        env:
+          GH_TOKEN: ${{ github.token }}
+        run: |
+          set -euo pipefail
+          ZIP="dist/OmniWM-canary-$TAG-x86_64.zip"
+          ditto -c -k --keepParent dist/OmniWM.app "$ZIP"
+          gh release upload "$TAG" "$ZIP" --clobber --repo "$GITHUB_REPOSITORY"
+          printf '## Intel canary attached\n\n- Tag: `%s`\n- Asset: `%s`\n' "$TAG" "${ZIP#dist/}" >> "$GITHUB_STEP_SUMMARY"
+      - name: Remove release credentials
+        if: always()
+        run: |
+          if [[ -f Scripts/release-ci-credentials.sh ]]; then
+            ./Scripts/release-ci-credentials.sh cleanup
+          fi

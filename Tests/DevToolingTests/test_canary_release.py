@@ -433,11 +433,22 @@ class CanaryCITests(unittest.TestCase):
 
 
 class CanaryWorkflowTests(unittest.TestCase):
+    def testIntelPipelineAttachesRerunnableAssetToCanary(self):
+        workflow = (SOURCE / ".github/workflows/canary.yml").read_text()
+        jobs = dict(re.findall(r"^  ([\w-]+):\n(.*?)(?=^  [\w-]+:|\Z)", workflow, re.MULTILINE | re.DOTALL))
+        self.assertIn("ghostty-intel", jobs)
+        self.assertIn("canary-intel", jobs)
+        self.assertIn("    needs: [canary, ghostty-intel]", jobs["canary-intel"].splitlines())
+        upload = self.step("Attach the Intel app to the canary release")
+        self.assertIn('ZIP="dist/OmniWM-canary-$TAG-x86_64.zip"', upload)
+        self.assertIn('gh release upload "$TAG" "$ZIP" --clobber --repo "$GITHUB_REPOSITORY"', upload)
+
     def step(self, name):
         workflow = (SOURCE / ".github/workflows/canary.yml").read_text()
         for step in re.split(r"^      - ", workflow, flags=re.MULTILINE):
             if step.startswith(f"name: {name}\n"):
-                return step
+                # A job's last step ends where the next job starts.
+                return re.split(r"^\n?  \S", step, maxsplit=1, flags=re.MULTILINE)[0]
         self.fail(f"Missing canary workflow step: {name}")
 
     def test_published_tag_matches_the_identity_given_to_packaging(self):

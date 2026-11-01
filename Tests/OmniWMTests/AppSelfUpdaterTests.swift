@@ -49,26 +49,42 @@ final class AppSelfUpdaterTests: XCTestCase {
         let digest = "sha256:" + String(repeating: "f", count: 64)
         let canaryName = "OmniWM-canary-\(newTag).zip"
         let canaryURL = URL(string: ReleaseArchive.downloadPrefix + "\(newTag)/\(canaryName)")!
-        XCTAssertNotNil(ReleaseArchive(name: canaryName, url: canaryURL, digest: digest, tag: newTag))
+        let intelName = "OmniWM-canary-\(newTag)-x86_64.zip"
+        let intelURL = URL(string: ReleaseArchive.downloadPrefix + "\(newTag)/\(intelName)")!
+        func canary(_ name: String, _ url: URL, suffix: String) -> ReleaseArchive? {
+            ReleaseArchive(name: name, url: url, digest: digest, tag: newTag, archiveSuffix: suffix)
+        }
+        XCTAssertNotNil(canary(canaryName, canaryURL, suffix: ""))
+        XCTAssertNil(canary(canaryName, canaryURL, suffix: "-x86_64"))
+        XCTAssertNotNil(canary(intelName, intelURL, suffix: "-x86_64"))
+        XCTAssertNil(canary(intelName, intelURL, suffix: ""))
 
         let name = "OmniWM-v0.7.7.zip"
         let url = URL(string: ReleaseArchive.downloadPrefix + "v0.7.7/\(name)")!
-        XCTAssertNotNil(ReleaseArchive(name: name, url: url, digest: digest, tag: "v0.7.7"))
+        XCTAssertNotNil(ReleaseArchive(name: name, url: url, digest: digest, tag: "v0.7.7", archiveSuffix: ""))
         XCTAssertNil(ReleaseArchive(
             name: name,
             url: URL(string: "https://evil.example/\(name)")!,
             digest: digest,
-            tag: "v0.7.7"
+            tag: "v0.7.7",
+            archiveSuffix: ""
         ))
-        XCTAssertNil(ReleaseArchive(name: "GhosttyKit.xcframework-v0.7.7.zip", url: url, digest: digest, tag: "v0.7.7"))
-        XCTAssertNil(ReleaseArchive(name: name, url: url, digest: digest, tag: "v0.7.6"))
-        XCTAssertNil(ReleaseArchive(name: name, url: url, digest: nil, tag: "v0.7.7"))
-        XCTAssertNil(ReleaseArchive(name: name, url: url, digest: "sha256:abc", tag: "v0.7.7"))
+        XCTAssertNil(ReleaseArchive(
+            name: "GhosttyKit.xcframework-v0.7.7.zip",
+            url: url,
+            digest: digest,
+            tag: "v0.7.7",
+            archiveSuffix: ""
+        ))
+        XCTAssertNil(ReleaseArchive(name: name, url: url, digest: digest, tag: "v0.7.6", archiveSuffix: ""))
+        XCTAssertNil(ReleaseArchive(name: name, url: url, digest: nil, tag: "v0.7.7", archiveSuffix: ""))
+        XCTAssertNil(ReleaseArchive(name: name, url: url, digest: "sha256:abc", tag: "v0.7.7", archiveSuffix: ""))
         XCTAssertNil(ReleaseArchive(
             name: name,
             url: url,
             digest: "md5:" + String(repeating: "f", count: 64),
-            tag: "v0.7.7"
+            tag: "v0.7.7",
+            archiveSuffix: ""
         ))
     }
 
@@ -103,7 +119,8 @@ final class AppSelfUpdaterTests: XCTestCase {
             name: "OmniWM-canary-\(newTag).zip",
             url: release.archive!.url,
             digest: otherDigest,
-            tag: newTag
+            tag: newTag,
+            archiveSuffix: ""
         )
         let wrongVersion = GitHubRelease(
             tagName: "canary-20261026-0437-40161156174-1", name: nil, body: "",
@@ -287,7 +304,13 @@ final class AppSelfUpdaterTests: XCTestCase {
             tagName: newTag, name: newTag, body: "", releasePageURL: url, publishedAt: Date(), isPrerelease: true
         )
         let digest = try await AppSelfUpdater.sha256(of: zip)
-        release.archive = ReleaseArchive(name: name, url: url, digest: "sha256:" + digest, tag: newTag)
+        release.archive = ReleaseArchive(
+            name: name,
+            url: url,
+            digest: "sha256:" + digest,
+            tag: newTag,
+            archiveSuffix: ""
+        )
         let configuration = URLSessionConfiguration.ephemeral
         configuration.protocolClasses = [ZipProtocol.self]
         return (release, URLSession(configuration: configuration))

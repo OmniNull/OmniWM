@@ -18,8 +18,16 @@ import zipfile
 ROOT = Path(__file__).resolve().parents[1]
 REPOSITORY = "https://github.com/ghostty-org/ghostty.git"
 FRAMEWORK = Path("GhosttyKit.xcframework")
-LIBRARY = Path("macos-arm64/libghostty-internal.a")
-HEADERS = Path("macos-arm64/Headers")
+LIBRARY_NAME = "libghostty-internal.a"
+ARCHITECTURES = ("arm64", "x86_64")
+
+
+def library_path(arch):
+    return Path(f"macos-{arch}/{LIBRARY_NAME}")
+
+
+def headers_path(arch):
+    return Path(f"macos-{arch}/Headers")
 
 
 def require(condition, message):
@@ -85,12 +93,41 @@ def verify_source(source, revision):
     require(not run("git", "status", "--porcelain", "--untracked-files=all", cwd=source, capture=True), "source checkout is dirty")
 
 
-def build_flags():
+def build_flags(arch):
+    # Ghostty builds x86_64 only as half of its universal macOS library.
     return [
         "-Doptimize=ReleaseFast",
         "-Demit-macos-app=false",
-        "-Dxcframework-target=native",
+        f"-Dxcframework-target={'native' if arch == 'arm64' else 'universal'}",
     ]
+
+
+def thin_framework(universal, destination, arch):
+    with (universal / "Info.plist").open("rb") as stream:
+        info = plistlib.load(stream)
+    libraries = info.get("AvailableLibraries", [])
+    require(
+        len(libraries) == 1
+        and libraries[0].get("SupportedPlatform") == "macos"
+        and sorted(libraries[0].get("SupportedArchitectures", [])) == sorted(ARCHITECTURES),
+        "universal framework must contain one arm64 and x86_64 macOS library",
+    )
+    library = libraries[0]
+    source = universal / library["LibraryIdentifier"]
+    headers = destination / headers_path(arch)
+    headers.mkdir(parents=True)
+    for name in ("ghostty.h", "module.modulemap"):
+        shutil.copyfile(source / library["HeadersPath"] / name, headers / name)
+    run("lipo", source / library["LibraryPath"], "-thin", arch, "-output", destination / library_path(arch))
+    library.update({
+        "LibraryIdentifier": f"macos-{arch}",
+        "LibraryPath": LIBRARY_NAME,
+        "HeadersPath": "Headers",
+        "SupportedArchitectures": [arch],
+    })
+    library.pop("DebugSymbolsPath", None)
+    with (destination / "Info.plist").open("xb") as stream:
+        plistlib.dump(info, stream)
 
 
 def embedded_version(archive, expected):
@@ -103,27 +140,28 @@ def embedded_version(archive, expected):
     return expected
 
 
-def verify_framework(framework, source):
+def verify_framework(framework, source, arch="arm64"):
+    library_file, headers = library_path(arch), headers_path(arch)
     with (framework / "Info.plist").open("rb") as stream:
         libraries = plistlib.load(stream).get("AvailableLibraries", [])
     require(len(libraries) == 1, "framework must contain exactly one library")
     library = libraries[0]
     require(
-        library.get("LibraryIdentifier") == "macos-arm64"
-        and library.get("LibraryPath") == LIBRARY.name
+        library.get("LibraryIdentifier") == f"macos-{arch}"
+        and library.get("LibraryPath") == LIBRARY_NAME
         and library.get("HeadersPath") == "Headers"
-        and library.get("SupportedArchitectures") == ["arm64"]
+        and library.get("SupportedArchitectures") == [arch]
         and library.get("SupportedPlatform") == "macos",
-        "framework must contain the native arm64 macOS static library",
+        f"framework must contain the {arch} macOS static library",
     )
-    expected = {Path("Info.plist"), LIBRARY, HEADERS / "ghostty.h", HEADERS / "module.modulemap"}
+    expected = {Path("Info.plist"), library_file, headers / "ghostty.h", headers / "module.modulemap"}
     actual = {path.relative_to(framework) for path in framework.rglob("*") if path.is_file()}
     require(actual == expected, "unexpected framework contents")
     require(not any(path.is_symlink() for path in framework.rglob("*")), "framework must not contain symlinks")
-    require(run("lipo", "-archs", framework / LIBRARY, capture=True) == "arm64", "archive must be arm64-only")
+    require(run("lipo", "-archs", framework / library_file, capture=True) == arch, f"archive must be {arch}-only")
     for name in ("ghostty.h", "module.modulemap"):
         require(
-            (framework / HEADERS / name).read_bytes() == (source / "include" / name).read_bytes(),
+            (framework / headers / name).read_bytes() == (source / "include" / name).read_bytes(),
             f"framework header differs from pinned source: {name}",
         )
     return {str(path): sha256(framework / path) for path in sorted(expected)}
@@ -139,7 +177,9 @@ def package_framework(framework, archive, hashes):
 
 
 def main(argv=None):
-    parser = argparse.ArgumentParser(description="Build current upstream Ghostty main at one immutable revision without changing installed dependencies.")
+    parser = argparse.ArgumentParser(description="Build upstream Ghostty at one immutable revision without changing installed dependencies.")
+    parser.add_argument("--arch", choices=ARCHITECTURES, default="arm64", help="architecture of the output framework")
+    parser.add_argument("--revision", help="full Ghostty commit to build; defaults to current upstream main")
     parser.add_argument("--output-dir", type=Path, default=ROOT / ".build/ghosttykit-source", help="new directory for source, tools and candidate artifacts")
     parser.add_argument("--cache-dir", type=Path, default=ROOT / ".build/ghosttykit-cache")
     parser.add_argument("--zig", type=Path, help="existing Zig executable; must match the source's required version")
@@ -153,9 +193,13 @@ def main(argv=None):
     output.mkdir(parents=True)
     cache = args.cache_dir.resolve()
     cache.mkdir(parents=True, exist_ok=True)
-    remote = run("git", "ls-remote", REPOSITORY, "refs/heads/main", capture=True).split()
-    require(len(remote) == 2 and remote[1] == "refs/heads/main" and re.fullmatch(r"[0-9a-f]{40}", remote[0]), "could not resolve upstream main to one commit")
-    revision = remote[0]
+    if args.revision:
+        require(re.fullmatch(r"[0-9a-f]{40}", args.revision), "--revision must be a full lowercase commit hash")
+        revision = args.revision
+    else:
+        remote = run("git", "ls-remote", REPOSITORY, "refs/heads/main", capture=True).split()
+        require(len(remote) == 2 and remote[1] == "refs/heads/main" and re.fullmatch(r"[0-9a-f]{40}", remote[0]), "could not resolve upstream main to one commit")
+        revision = remote[0]
     source = output / "source"
     run("git", "init", "--quiet", source)
     run("git", "remote", "add", "origin", REPOSITORY, cwd=source)
@@ -179,7 +223,7 @@ def main(argv=None):
         "architecture": platform.machine(),
         "gettext": run("msgfmt", "--version", capture=True).splitlines()[0],
     }
-    flags = build_flags()
+    flags = build_flags(args.arch)
     environment = {
         **os.environ,
         "ZIG_LIB_DIR": str(zig.parent / "lib"),
@@ -190,9 +234,13 @@ def main(argv=None):
     run(zig, "build", *flags, cwd=source, env=environment)
     verify_source(source, revision)
     framework = source / "macos/GhosttyKit.xcframework"
-    hashes = verify_framework(framework, source)
+    if args.arch != "arm64":
+        thin = output / "thin" / FRAMEWORK
+        thin_framework(framework, thin, args.arch)
+        framework = thin
+    hashes = verify_framework(framework, source, args.arch)
     short_revision = run("git", "log", "--format=%h", "-1", cwd=source, capture=True)
-    version = embedded_version(framework / LIBRARY, f"{version}-main+{short_revision}")
+    version = embedded_version(framework / library_path(args.arch), f"{version}-main+{short_revision}")
     archive = output / "GhosttyKit.xcframework.zip"
     archive_hash = package_framework(framework, archive, hashes)
     provenance = {
@@ -201,6 +249,7 @@ def main(argv=None):
         "source_revision": revision,
         "source_version": version,
         "source_clean": True,
+        "architecture": args.arch,
         "zig_version": zig_version,
         "tools": tools,
         "build_arguments": ["build", *flags],

@@ -68,11 +68,12 @@ class GhosttyBuildTests(unittest.TestCase):
         framework = self.root / "candidate"
         include = self.root / "include"
         include.mkdir()
-        (framework / BUILDER.HEADERS).mkdir(parents=True)
-        (framework / BUILDER.LIBRARY).write_bytes(b"archive")
+        headers = framework / BUILDER.headers_path("arm64")
+        headers.mkdir(parents=True)
+        (framework / BUILDER.library_path("arm64")).write_bytes(b"archive")
         for name in ("ghostty.h", "module.modulemap"):
             (include / name).write_text(name)
-            (framework / BUILDER.HEADERS / name).write_text(name)
+            (headers / name).write_text(name)
         (framework / "Info.plist").write_bytes(plistlib.dumps({"AvailableLibraries": [{
             "LibraryIdentifier": "macos-arm64",
             "LibraryPath": "libghostty-internal.a",
@@ -89,11 +90,51 @@ class GhosttyBuildTests(unittest.TestCase):
                 self.assertEqual(set(package.namelist()), {str(BUILDER.FRAMEWORK / path) for path in hashes})
                 for path, expected in hashes.items():
                     self.assertEqual(BUILDER.hashlib.sha256(package.read(str(BUILDER.FRAMEWORK / path))).hexdigest(), expected)
-            (framework / BUILDER.HEADERS / "ghostty.h").write_text("stale header")
+            (headers / "ghostty.h").write_text("stale header")
             with self.assertRaisesRegex(RuntimeError, "header differs"):
                 BUILDER.verify_framework(framework, self.root)
             with self.assertRaisesRegex(RuntimeError, "SHA-256 mismatch"):
                 BUILDER.package_framework(framework, self.root / "stale.zip", hashes)
+
+    def test_universal_framework_is_thinned_to_one_intel_library(self):
+        universal = self.root / "universal"
+        source = universal / "macos-arm64_x86_64"
+        (source / "Headers").mkdir(parents=True)
+        (source / "ghostty-internal.a").write_bytes(b"fat archive")
+        include = self.root / "include"
+        include.mkdir()
+        for name in ("ghostty.h", "module.modulemap"):
+            (include / name).write_text(name)
+            (source / "Headers" / name).write_text(name)
+        (universal / "Info.plist").write_bytes(plistlib.dumps({
+            "AvailableLibraries": [{
+                "LibraryIdentifier": "macos-arm64_x86_64",
+                "LibraryPath": "ghostty-internal.a",
+                "HeadersPath": "Headers",
+                "SupportedArchitectures": ["arm64", "x86_64"],
+                "SupportedPlatform": "macos",
+            }],
+            "CFBundlePackageType": "XFWK",
+        }))
+
+        def lipo(*args, capture=False, **_):
+            if "-thin" in args:
+                Path(args[-1]).write_bytes(b"thin archive")
+            return "x86_64" if capture else None
+
+        thin = self.root / "thin"
+        with patch.object(BUILDER, "run", side_effect=lipo) as command:
+            BUILDER.thin_framework(universal, thin, "x86_64")
+            hashes = BUILDER.verify_framework(thin, self.root, "x86_64")
+        self.assertIn(("lipo", source / "ghostty-internal.a", "-thin", "x86_64", "-output", thin / BUILDER.library_path("x86_64")),
+                      [call.args for call in command.call_args_list])
+        self.assertIn("macos-x86_64/libghostty-internal.a", hashes)
+        self.assertEqual(plistlib.loads((thin / "Info.plist").read_bytes())["CFBundlePackageType"], "XFWK")
+        self.assertEqual(BUILDER.build_flags("x86_64")[-1], "-Dxcframework-target=universal")
+        self.assertEqual(BUILDER.build_flags("arm64")[-1], "-Dxcframework-target=native")
+        with patch.object(BUILDER, "run", return_value="arm64"):
+            with self.assertRaisesRegex(RuntimeError, "archive must be x86_64-only"):
+                BUILDER.verify_framework(thin, self.root, "x86_64")
 
 
 if __name__ == "__main__":
