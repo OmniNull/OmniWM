@@ -23,6 +23,7 @@ public final class AppBootstrapState {
     var settings: SettingsStore?
     var controller: WMController?
     var updateCoordinator: (any AppUpdateCoordinating)?
+    var settingsPresentationDeferred = false
 
     public init() {}
 
@@ -62,6 +63,8 @@ public final class AppDelegate: NSObject, NSApplicationDelegate {
     }
 
     var welcomeWindowController = WelcomeWindowController.shared
+    var showSettings: @MainActor () -> Void = { AppDelegate.sharedBootstrap?.showSettingsAndCloseRedirectWindow(nil) }
+
     private var statusBarController: StatusBarController?
     private var ipcServer: IPCServerLifecycle?
     private var cliManager: AppCLIManager?
@@ -71,7 +74,7 @@ public final class AppDelegate: NSObject, NSApplicationDelegate {
     private var settingsConfigNoticeController: SettingsConfigNoticeController?
     private(set) var monitorSetupScreenObserver: NSObjectProtocol?
     private(set) var monitorSetupEvaluationTask: Task<Void, Never>?
-    private var launchOverlayFinished = false
+    private(set) var launchOverlayFinished = false
     private var launchPermissionsWindowController: LaunchPermissionsWindowController?
     private var didFinishBootstrap = false
     private var terminationPending = false
@@ -404,6 +407,7 @@ extension AppDelegate {
         launchOverlayFinished = true
         settingsConfigNoticeController?.refresh()
         presentWelcomeIfNeeded(runtimeState: runtimeState, controller: controller)
+        presentDeferredSettingsIfNeeded()
     }
 
     private func presentWelcomeIfNeeded(runtimeState: RuntimeStateStore, controller: WMController) {
