@@ -412,6 +412,34 @@ final class NiriLiveStackModeTests: XCTestCase {
         XCTAssertEqual(fixture.stripColumn(target).maxX, fixture.frame.maxX - fixture.gap, accuracy: 0.5)
     }
 
+    func testAStackOfTheOnlyTwoColumnsKeepsTheTargetsWidthDuringTheDragAndAfterTheDrop() {
+        var fixture = makeFixture(widths: [0.3, 0.4], activeIndex: 0)
+        let width = fixture.stripColumn(fixture.column(1)).width
+        XCTAssertTrue(fixture.begin(0))
+
+        XCTAssertEqual(fixture.setStackMode(true, at: fixture.lowerHalf(of: 1)), .changed)
+        XCTAssertTrue(fixture.window(0).parent === fixture.column(1))
+        XCTAssertEqual(fixture.stripColumn(fixture.column(1)).width, width, accuracy: 0.5)
+
+        XCTAssertTrue(fixture.endStacking())
+        XCTAssertTrue(fixture.finishStackDrop())
+        XCTAssertEqual(fixture.columnOrder(), [[fixture.tokens[0], fixture.tokens[1]]])
+        XCTAssertEqual(fixture.stripColumn(fixture.column(1)).width, width, accuracy: 0.5)
+    }
+
+    func testGoingHomeFromAStackGapGivesTheColumnsBackTheirFit() {
+        var fixture = makeFixture(widths: [0.3, 0.4], activeIndex: 0)
+        XCTAssertTrue(fixture.begin(0))
+        XCTAssertEqual(fixture.setStackMode(true, at: fixture.lowerHalf(of: 1)), .changed)
+        XCTAssertNotNil(fixture.engine.ensureState(for: fixture.workspaceId).manualWidthColumnCount)
+
+        XCTAssertEqual(fixture.setStackMode(false, at: fixture.lowerHalf(of: 1)), .changed)
+
+        XCTAssertNil(fixture.engine.ensureState(for: fixture.workspaceId).manualWidthColumnCount)
+        XCTAssertTrue(fixture.engine.liveColumnMoveCancel(context: fixture.context, state: &fixture.state))
+        XCTAssertNil(fixture.engine.ensureState(for: fixture.workspaceId).manualWidthColumnCount)
+    }
+
     func testCancelInStackModeRestoresTheLayoutFromBeforeTheDrag() {
         var fixture = makeFixture()
         let order = fixture.columnOrder()

@@ -89,6 +89,10 @@ struct LiveColumnMove {
         }
     }
 
+    struct KeptWidths: Equatable {
+        let manualColumnCount: Int?
+    }
+
     struct Landing: Equatable {
         let columnId: NodeId
         let targetWindowId: NodeId
@@ -177,6 +181,7 @@ struct LiveColumnMove {
     var stackMode = false
     var landing: Landing?
     var mateHeight: MateHeight?
+    var keptWidths: KeptWidths?
     var stackSuppressPoint: CGPoint?
     var awaitsPointerMoveFrom: CGPoint?
     var floatingFrame: CGRect?

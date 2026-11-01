@@ -276,6 +276,7 @@ extension NiriLayoutEngine {
             } else {
                 shareLiveColumn(target, with: window, move: &move)
             }
+            keepLiveColumnWidths(landing: landing != nil, move: &move)
             return true
         }
         guard placed else { return false }
@@ -290,6 +291,21 @@ extension NiriLayoutEngine {
         guard mates.count == 1, let mate = mates.first, mate.height != .default else { return }
         move.mateHeight = .init(windowId: mate.id, height: mate.height)
         mate.height = .default
+    }
+
+    private func keepLiveColumnWidths(landing: Bool, move: inout LiveColumnMove) {
+        let workspace = ensureState(for: move.workspaceId)
+        guard landing else {
+            if let kept = move.keptWidths {
+                workspace.manualWidthColumnCount = kept.manualColumnCount
+                move.keptWidths = nil
+            }
+            return
+        }
+        if move.keptWidths == nil {
+            move.keptWidths = .init(manualColumnCount: workspace.manualWidthColumnCount)
+        }
+        workspace.manualWidthColumnCount = projectedColumns(in: move.workspaceId).filter { !$0.windows.isEmpty }.count
     }
 
     private func restoreLiveMateHeight(_ move: inout LiveColumnMove) {
