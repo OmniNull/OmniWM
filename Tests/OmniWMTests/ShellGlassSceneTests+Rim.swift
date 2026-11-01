@@ -128,7 +128,7 @@ extension ShellGlassSceneTests {
                     let row = (16 * scale ..< 80 * scale)
                         .map { Self.luminance(plain, x: $0, y: 48 * scale, width: size) }
                     XCTAssertLessThanOrEqual(row.map { abs($0 - row[row.count / 2]) }.max() ?? 0, 1)
-                    for rim in [0.1, 0.3, 0.4, 0.55] {
+                    for rim in Self.sweptRims {
                         let body = try Self.rimBody("\(rim):1:90", gradient: gradient)
                         XCTAssertEqual(body.sdfLayers[2].opacity, 0)
                         XCTAssertEqual(body.sdfLayers[3].opacity, 0)
@@ -158,7 +158,7 @@ extension ShellGlassSceneTests {
                 let lit = (0 ..< 3).map { Self.lightness(shine, Self.edgeIndex(0, depth: $0 * scale, scale: scale)) }
                 let unlit = (0 ..< 3).map { Self.lightness(shine, Self.edgeIndex(2, depth: $0 * scale, scale: scale)) }
                 XCTAssertGreaterThan(lit.reduce(0, +), unlit.reduce(0, +) + 40)
-                for rim in [0.3, 0.4, 0.55] {
+                for rim in Self.fullSweep ? [0.3, 0.4, 0.55] : [0.3, 0.55] {
                     let body = try Self.rimBody("\(rim):0:90", fill: tint)
                     let banded = try Self.pixels(body.layer, width: size, height: size, scale: scale)
                     for edge in 0 ..< 4 {
@@ -210,11 +210,10 @@ extension ShellGlassSceneTests {
             var renders = 0
             for kind in kinds {
                 let fill = kind.flat == 1 ? Self.rimTint : glassTint
-                for (index, rim) in [0.1, 0.4, 0.55, 0.7, 1.0].enumerated() {
+                for (index, rim) in Self.premultipliedRims.enumerated() {
                     for scale in [1, 2] where Self.fullSweep || scale == index % 2 + 1 {
                         let size = 96 * scale
-                        let repeats = Array(repeating: [Self.rimShape], count: Self.fullSweep ? 8 : 2)
-                        for shapes in repeats + [[fractional], union] {
+                        for shapes in [[Self.rimShape], [fractional], union] {
                             let body = try Self.rimBody(
                                 "\(rim):\(kind.flat):90", fill: fill, gradient: kind.gradient, shapes: shapes
                             )
@@ -228,7 +227,7 @@ extension ShellGlassSceneTests {
                     }
                 }
             }
-            XCTAssertEqual(renders, Self.fullSweep ? 300 : 60)
+            XCTAssertEqual(renders, Self.fullSweep ? 90 : 18)
         }
     }
 

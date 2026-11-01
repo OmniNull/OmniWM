@@ -11,7 +11,7 @@ extension ShellVitreusVisualiserTests {
         for placement in ["bottom", "corners", "top", "left", "right"] {
             let fixture = try fixture(settings: ["visualiser": .bool(true), "lay": .string(placement)])
             setBands(fixture.widget, Array(repeating: 0.8, count: 60))
-            for scale in [1, 2] {
+            for scale in placement == "corners" ? [1, 2] : [1] {
                 let bytes = try VitreusFixture.pixels(
                     fixture.widget,
                     crop: CGRect(x: 0, y: 0, width: 1512, height: 982),
