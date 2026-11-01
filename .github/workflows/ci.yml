@@ -121,7 +121,9 @@ jobs:
       - name: Verify package toolchain
         run: swift package dump-package > /dev/null
       - name: Verify localization and build
-        run: make localization-check
+        run: |
+          ./Scripts/ghostty-preflight.sh verify
+          python3 Scripts/localization.py check
   test-group:
     name: Tests (${{ matrix.name }})
     needs: changes
