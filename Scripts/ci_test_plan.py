@@ -15,7 +15,8 @@ from pathlib import Path
 
 ROOT = Path(__file__).resolve().parents[1]
 TESTS = Path("Tests/OmniWMTests")
-SHARDS = 6
+SHARDS = 4
+SHELL_SUITES = {"LauncherExecutionTests", "LauncherTerminalLiveTests", "NuCompletionTests", "WorkspaceMoveIPCContractTests"}
 SECONDS = json.loads((ROOT / "Scripts/ci-suite-seconds.json").read_text())
 DEFAULT_SECONDS = 0.1
 DECLARATION = re.compile(r"^[ \t]*(?:@\w+[ \t]+)*((?:(?:public|package|internal|open|private|fileprivate|final|nonisolated)[ \t]+)*)"
@@ -96,13 +97,21 @@ def seconds(name):
 
 
 def shard(names, count):
+    units = [[name] for name in names if name not in SHELL_SUITES]
+    shells = sorted(set(names) & SHELL_SUITES)
+    if shells:
+        units.append(shells)
     bins = [[] for _ in range(count)]
     load = [0.0] * count
-    for name in sorted(names, key=lambda name: (-seconds(name), name)):
+    for unit in sorted(units, key=lambda unit: (-sum(map(seconds, unit)), unit)):
         lightest = load.index(min(load))
-        bins[lightest].append(name)
-        load[lightest] += seconds(name)
+        bins[lightest] += unit
+        load[lightest] += sum(map(seconds, unit))
     return [sorted(group) for group in bins if group]
+
+
+def group(name, flag, names, runs):
+    return {"name": name, "flag": flag, "pattern": pattern(names), "shells": not SHELL_SUITES.isdisjoint(runs)}
 
 
 def pattern(names):
@@ -111,17 +120,15 @@ def pattern(names):
 
 def full(root=ROOT):
     groups = shard(test_cases(root), SHARDS)
-    filtered = [{"name": f"shard {index}", "flag": "--filter", "pattern": pattern(group)}
-                for index, group in enumerate(groups[:-1], 1)]
-    skipped = sorted(name for group in groups[:-1] for name in group)
-    return filtered + [{"name": f"shard {len(groups)}", "flag": "--skip", "pattern": pattern(skipped)}]
+    filtered = [group(f"shard {index}", "--filter", members, members) for index, members in enumerate(groups[:-1], 1)]
+    skipped = sorted(name for members in groups[:-1] for name in members)
+    return filtered + [group(f"shard {len(groups)}", "--skip", skipped, groups[-1])]
 
 
 def selected(names, root=ROOT):
     budget = sum(map(seconds, test_cases(root))) / SHARDS
     count = max(1, min(SHARDS, math.ceil(sum(map(seconds, names)) / budget)))
-    return [{"name": f"selected {index}", "flag": "--filter", "pattern": pattern(group)}
-            for index, group in enumerate(shard(names, count), 1)]
+    return [group(f"selected {index}", "--filter", members, members) for index, members in enumerate(shard(names, count), 1)]
 
 
 def plan(paths, event, root=ROOT):
@@ -145,15 +152,22 @@ def measured_seconds(log):
         if match := SUITE_END.search(line):
             suite = match[1]
         elif suite and (match := EXECUTED.search(line)):
-            if float(match[1]) >= 0.5:
-                measured[suite] = round(float(match[1]), 1)
+            measured[suite] = round(float(match[1]), 1)
             suite = None
     return measured
 
 
+def refreshed(existing, log):
+    merged = {**existing, **measured_seconds(log)}
+    return {suite: value for suite, value in sorted(merged.items()) if value >= 0.5}
+
+
 def main():
     if sys.argv[1:] == ["seconds"]:
-        print(json.dumps(measured_seconds(sys.stdin.read()), indent=2, sort_keys=True))
+        path = ROOT / "Scripts/ci-suite-seconds.json"
+        staged = path.with_suffix(".tmp")
+        staged.write_text(json.dumps(refreshed(SECONDS, sys.stdin.read()), indent=2) + "\n")
+        staged.replace(path)
         return
     groups = plan(sys.stdin.read().splitlines(), sys.argv[1] if len(sys.argv) > 1 else "pull_request")
     print(f"tests={'true' if groups else 'false'}")

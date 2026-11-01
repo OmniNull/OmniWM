@@ -102,6 +102,16 @@ class CITestPlanTests(unittest.TestCase):
         self.assertIn(["AlphaTests"], groups)
         self.assertIn(["BetaTests"], groups[:-1])
 
+    def test_shell_suites_share_one_shard_that_installs_the_shells(self):
+        with mock.patch.object(plan_module, "SHELL_SUITES", {"AlphaTests", "BetaTests"}), \
+                mock.patch.dict(plan_module.SECONDS, {}, clear=True):
+            groups = plan_module.full(self.root)
+        cases = set(plan_module.test_cases(self.root))
+        runs = [set(self.names(group)) if group["flag"] == "--filter" else cases - set(self.names(group)) for group in groups]
+        flagged = [members for group, members in zip(groups, runs) if group["shells"]]
+        self.assertEqual(len(flagged), 1)
+        self.assertTrue({"AlphaTests", "BetaTests"} <= flagged[0])
+
     def test_selected_suites_split_only_when_they_outweigh_one_shard(self):
         with mock.patch.dict(plan_module.SECONDS, {"ShellGlassSceneTests": 30, "ShellGlassRimTests": 30}, clear=True):
             groups = [self.names(group) for group in self.plan("Tests/OmniWMTests/ShellGlassSceneTests.swift")]
@@ -126,7 +136,17 @@ class CITestPlanTests(unittest.TestCase):
             "Tests (shard 1)\tRun\t2026Z Test Suite 'OmniWMPackageTests.xctest' passed at 2026-11-01 14:21:40.",
             "Tests (shard 1)\tRun\t2026Z \t Executed 8 tests, with 1 failure (0 unexpected) in 12.54 (12.6) seconds",
         ])
-        self.assertEqual(plan_module.measured_seconds(log), {"AlphaTests": 12.3})
+        self.assertEqual(plan_module.measured_seconds(log), {"AlphaTests": 12.3, "BetaTests": 0.2})
+
+    def test_refreshed_seconds_keep_suites_the_run_did_not_reach(self):
+        log = "\n".join([
+            "Test Suite 'AlphaTests' passed at 2026-11-01 14:21:38.",
+            "\t Executed 6 tests, with 0 failures (0 unexpected) in 3.0 (3.0) seconds",
+            "Test Suite 'BetaTests' passed at 2026-11-01 14:21:39.",
+            "\t Executed 2 tests, with 0 failures (0 unexpected) in 0.1 (0.1) seconds",
+        ])
+        existing = {"AlphaTests": 9.0, "BetaTests": 4.0, "GammaTests": 7.0}
+        self.assertEqual(plan_module.refreshed(existing, log), {"AlphaTests": 3.0, "GammaTests": 7.0})
 
     def test_outputs_keep_a_matrix_when_the_suite_is_skipped(self):
         result = subprocess.run(
