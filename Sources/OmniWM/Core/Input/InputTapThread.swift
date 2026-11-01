@@ -19,6 +19,7 @@ struct TapFilterSnapshot: Sendable {
     var isInputSuppressed: Bool = false
     var naturalDoubleClickArmedAt: CGPoint?
     var naturalClickChain: NaturalClickChain?
+    var holdsTitleBarDrag = false
 }
 
 private struct TouchCountProviderBox: Sendable {
@@ -164,24 +165,18 @@ final class InputTapThread: @unchecked Sendable {
         let location = ScreenCoordinateSpace.toAppKit(point: event.location)
         switch type {
         case .leftMouseDown:
-            let flags = event.flags
-            stripNaturalDragOption(from: event, location: location, snap: snap)
-            let suppress = evaluateLeftMouseDown(
-                at: location,
-                modifiers: flags,
-                timestamp: event.timestamp,
-                clickCount: event.getIntegerValueField(.mouseEventClickState),
-                snapshot: snap,
-                captureWindowFrames: Self.captureWindowFrames
-            )
-            return suppress ? nil : event
+            return evaluateLeftMouseDown(event, location: location, snap: snap)
         case .leftMouseDragged:
+            if snap.holdsTitleBarDrag { return nil }
             guard snap.activeCapture == .left else {
                 EventIntake.post(.mouseDragged(button: .left, location: location))
                 return event
             }
             return forwardCapturedDrag(event, type: type, location: location, buttonNumber: 0)
         case .leftMouseUp:
+            if snap.holdsTitleBarDrag {
+                updateFilterSnapshot { $0.holdsTitleBarDrag = false }
+            }
             guard snap.activeCapture == .left else {
                 EventIntake.post(.leftMouseUp(location: location))
                 return event
@@ -338,7 +333,6 @@ final class InputTapThread: @unchecked Sendable {
 }
 
 extension InputTapThread {
-    @discardableResult
     nonisolated func evaluateLeftMouseDown(
         at location: CGPoint,
         modifiers: CGEventFlags,
@@ -346,31 +340,14 @@ extension InputTapThread {
         clickCount: Int64 = 1,
         snapshot: TapFilterSnapshot,
         captureWindowFrames: () -> [WindowToken: CGRect]
-    ) -> Bool {
-        if MouseEventHandler.asksAboutNaturalDoubleClick(
-            clickCount: clickCount,
-            flags: modifiers,
-            naturalWindowDrag: snapshot.naturalWindowDrag,
-            armedAt: snapshot.naturalDoubleClickArmedAt,
-            location: location
-        ) || MouseEventHandler.continuesNaturalClickChain(
-            snapshot.naturalClickChain,
-            flags: modifiers,
-            location: location,
-            now: ProcessInfo.processInfo.systemUptime
-        ) {
-            return evaluateAuthoritativeTapOnMain(
-                type: .leftMouseDown, location: location, modifiers: modifiers, buttonNumber: 0, scrollPayload: nil,
-                clickCount: clickCount
-            )
-        }
+    ) {
         let isMoveCandidate = MouseEventHandler.mouseMoveModifiersMatch(modifiers, required: snapshot.moveModifier)
         if isMoveCandidate {
             _ = evaluateAuthoritativeTapOnMain(
                 type: .leftMouseDown, location: location, modifiers: modifiers, buttonNumber: 0, scrollPayload: nil,
                 clickCount: clickCount
             )
-            return false
+            return
         }
         let needsNativeResizeBaseline = snapshot.adoptNativeResize
             && modifiers.isDisjoint(with: MouseEventHandler.relevantModifierFlags)
@@ -382,7 +359,6 @@ extension InputTapThread {
             windowServerFrames: windowServerFrames,
             clickCount: clickCount
         )))
-        return false
     }
 
     private nonisolated static func captureWindowFrames() -> [WindowToken: CGRect] {
@@ -400,6 +376,45 @@ extension InputTapThread {
             frames[WindowToken(pid: pid, windowId: windowId)] = frame
         }
         return frames
+    }
+
+    private nonisolated func evaluateLeftMouseDown(
+        _ event: CGEvent,
+        location: CGPoint,
+        snap: TapFilterSnapshot
+    ) -> CGEvent? {
+        let flags = event.flags
+        let holdsDrag = holdsTitleBarDrag(event, location: location, snap: snap)
+        updateFilterSnapshot { $0.holdsTitleBarDrag = holdsDrag }
+        stripNaturalDragOption(from: event, location: location, snap: snap)
+        let clickCount = event.getIntegerValueField(.mouseEventClickState)
+        if MouseEventHandler.asksAboutNaturalDoubleClick(
+            clickCount: clickCount,
+            flags: flags,
+            naturalWindowDrag: snap.naturalWindowDrag,
+            armedAt: snap.naturalDoubleClickArmedAt,
+            location: location
+        ) || MouseEventHandler.continuesNaturalClickChain(
+            snap.naturalClickChain,
+            flags: flags,
+            location: location,
+            now: ProcessInfo.processInfo.systemUptime
+        ) {
+            let suppress = evaluateAuthoritativeTapOnMain(
+                type: .leftMouseDown, location: location, modifiers: flags, buttonNumber: 0, scrollPayload: nil,
+                clickCount: clickCount
+            )
+            return suppress ? nil : event
+        }
+        evaluateLeftMouseDown(
+            at: location,
+            modifiers: flags,
+            timestamp: event.timestamp,
+            clickCount: clickCount,
+            snapshot: snap,
+            captureWindowFrames: Self.captureWindowFrames
+        )
+        return event
     }
 
     private nonisolated func forwardCapturedDrag(
@@ -440,6 +455,26 @@ extension InputTapThread {
             flags,
             naturalDragModifier: snap.naturalDragModifier
         )
+    }
+
+    private nonisolated func holdsTitleBarDrag(_ event: CGEvent, location: CGPoint, snap: TapFilterSnapshot) -> Bool {
+        guard snap.naturalWindowDrag,
+              MouseEventHandler.isUnassignedDragModifier(
+                  event.flags,
+                  moveModifier: snap.moveModifier,
+                  naturalDragModifier: snap.naturalDragModifier
+              )
+        else { return false }
+        if Thread.isMainThread {
+            return MainActor.assumeIsolated {
+                MouseEventHandler._instance?.holdsTitleBarDragStill(at: location) ?? false
+            }
+        }
+        return DispatchQueue.main.sync {
+            MainActor.assumeIsolated {
+                MouseEventHandler._instance?.holdsTitleBarDragStill(at: location) ?? false
+            }
+        }
     }
 
     private nonisolated func naturalDragCanStart(windowId: Int?, at location: CGPoint) -> Bool {

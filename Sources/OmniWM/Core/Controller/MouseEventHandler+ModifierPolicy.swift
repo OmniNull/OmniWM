@@ -35,6 +35,16 @@ extension MouseEventHandler {
         syncTapFilterSnapshot()
     }
 
+    nonisolated static func isUnassignedDragModifier(
+        _ modifiers: CGEventFlags,
+        moveModifier: CGEventFlags?,
+        naturalDragModifier: CGEventFlags?
+    ) -> Bool {
+        !modifiers.isDisjoint(with: Self.relevantModifierFlags)
+            && !mouseMoveModifiersMatch(modifiers, required: moveModifier)
+            && !mouseMoveModifiersMatch(modifiers, required: naturalDragModifier)
+    }
+
     func canStartNaturalDrag(windowId: Int?, at location: CGPoint) -> Bool {
         if let windowId {
             return canStartNaturalDrag(windowId: windowId)

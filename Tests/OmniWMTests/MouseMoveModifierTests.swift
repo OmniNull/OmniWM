@@ -48,6 +48,22 @@ final class MouseMoveModifierTests: NiriInteractionTestCase {
         )
     }
 
+    func testOnlyAModifierThatNoMouseDragUsesCountsAsUnassigned() {
+        func unassigned(_ flags: CGEventFlags, move: CGEventFlags? = .maskAlternate) -> Bool {
+            MouseEventHandler.isUnassignedDragModifier(flags, moveModifier: move, naturalDragModifier: .maskAlternate)
+        }
+
+        XCTAssertTrue(unassigned(.maskCommand))
+        XCTAssertTrue(unassigned(.maskControl))
+        XCTAssertTrue(unassigned([.maskCommand, .maskAlternate]))
+        XCTAssertTrue(unassigned(.maskControl, move: nil))
+        XCTAssertFalse(unassigned([]))
+        XCTAssertFalse(unassigned(.maskAlphaShift))
+        XCTAssertFalse(unassigned(.maskAlternate))
+        XCTAssertFalse(unassigned([.maskAlternate, .maskShift]))
+        XCTAssertFalse(unassigned(.maskControl, move: .maskControl))
+    }
+
     @MainActor
     func testOffDoesNotStartMoveForOptionDrag() throws {
         let fixture = try makeFixture(pid: 1_101)
