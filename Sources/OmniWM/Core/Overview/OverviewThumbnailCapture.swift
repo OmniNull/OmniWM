@@ -116,7 +116,9 @@ final class OverviewThumbnailCapture {
             removeCachedPreview(for: handle, reason: reason)
             onPreview(handle, nil)
         }
-        var requests = collectRequests(represented: represented, visible: visible, selectedHandle: selectedHandle)
+        var requests = OverviewThumbnailSizing.collectRequests(
+            represented: represented, visible: visible, selectedHandle: selectedHandle, sourceOrder: &sourceOrder
+        )
         adoptSharedPreviews(for: &requests) { firstFrameOnly || firstFrameHandles.contains($0) }
         retireStaleSources(for: requests, firstFrameOnly: firstFrameOnly, firstFrameHandles: firstFrameHandles)
         guard !requests.isEmpty, hasCaptureAccess() else {
@@ -491,33 +493,5 @@ extension OverviewThumbnailCapture {
                 cachedCount: cachedCount ?? previewCache.count
             )
         )
-    }
-
-    private func collectRequests(
-        represented: Set<WindowHandle>,
-        visible: [OverviewPreviewRequest],
-        selectedHandle: WindowHandle?
-    ) -> [ObjectIdentifier: OverviewPreviewRequest] {
-        var requests: [ObjectIdentifier: OverviewPreviewRequest] = [:]
-        sourceOrder.removeAll(keepingCapacity: true)
-        for request in visible where represented.contains(request.handle) && request.token == request.handle.token {
-            let key = ObjectIdentifier(request.handle)
-            if let previous = requests[key] {
-                requests[key] = OverviewPreviewRequest(
-                    handle: request.handle,
-                    pixelWidth: max(previous.pixelWidth, request.pixelWidth),
-                    pixelHeight: max(previous.pixelHeight, request.pixelHeight)
-                )
-            } else {
-                requests[key] = request
-                sourceOrder.append(key)
-            }
-        }
-        if let selectedHandle,
-           let index = sourceOrder.firstIndex(of: ObjectIdentifier(selectedHandle)), index != 0
-        {
-            sourceOrder.insert(sourceOrder.remove(at: index), at: 0)
-        }
-        return requests
     }
 }

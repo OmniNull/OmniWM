@@ -77,7 +77,7 @@ final class WMController {
     )
     @ObservationIgnored
     let workspaceBarIconResolver: WorkspaceBarIconResolver
-    private(set) var workspaceBarIconResolutionRevision: UInt64 = 0
+    var workspaceBarIconResolutionRevision: UInt64 = 0
     let eventIntake = EventIntake()
     let factResolver = FactResolver()
     let intentLedger = IntentLedger()
@@ -121,11 +121,11 @@ final class WMController {
     @ObservationIgnored
     let floatDemotionTracker = FloatDemotionTracker()
     @ObservationIgnored
-    private(set) var hiddenWorkspaceBarMonitorIds: Set<Monitor.ID> = []
+    var hiddenWorkspaceBarMonitorIds: Set<Monitor.ID> = []
     @ObservationIgnored
-    private(set) var isWorkspaceBarRevealHeld = false
+    var isWorkspaceBarRevealHeld = false
     @ObservationIgnored
-    private lazy var workspaceBarRevealMonitor: WorkspaceBarRevealMonitor = {
+    lazy var workspaceBarRevealMonitor: WorkspaceBarRevealMonitor = {
         let monitor = WorkspaceBarRevealMonitor()
         monitor.onRevealChanged = { [weak self] revealed in
             self?.setWorkspaceBarRevealHeld(revealed)
@@ -395,45 +395,6 @@ extension WMController {
         }
     }
 
-    @discardableResult
-    func toggleWorkspaceBarVisibility() -> Bool {
-        pruneHiddenWorkspaceBarMonitorIds()
-
-        guard let monitor = monitorForInteraction() else { return false }
-        let resolved = settings.workspaceBar.resolved(for: monitor)
-        guard resolved.enabled else { return false }
-
-        if hiddenWorkspaceBarMonitorIds.contains(monitor.id) {
-            hiddenWorkspaceBarMonitorIds.remove(monitor.id)
-        } else {
-            hiddenWorkspaceBarMonitorIds.insert(monitor.id)
-        }
-
-        cachedMonitorLayout = nil
-        workspaceManager.invalidateAllLayouts()
-        layoutRefreshController.requestRelayout(reason: .monitorSettingsChanged)
-        surfaceReconciler.noteWorldChanged()
-        hiddenBarController.dismissPanel()
-        return true
-    }
-
-    @discardableResult
-    func synchronizeWorkspaceBarIconOverrides(
-        forceReload: Bool = false,
-        forceReloadBundleId: String? = nil
-    ) -> Bool {
-        guard workspaceBarIconResolver.synchronize(
-            overrides: settings.workspaceBar.iconOverrides,
-            forceReload: forceReload,
-            forceReloadBundleId: forceReloadBundleId
-        ) else {
-            return false
-        }
-        workspaceBarIconResolutionRevision += 1
-        workspaceBarManager.refreshShellIcons()
-        return true
-    }
-
     func setFocusFollowsMouse(_ enabled: Bool) {
         focusFollowsMouseEnabled = enabled
         mouseEventHandler.reconcileMouseMoveSubscription()
@@ -451,44 +412,10 @@ extension WMController {
         moveMouseToFocusedWindowEnabled = enabled
     }
 
-    func syncWorkspaceBarRevealMonitor() {
-        guard hasStartedServices,
-              settings.workspaceBar.resolvedRevealModifier != .off,
-              workspaceBarRefreshIsEnabled
-        else {
-            workspaceBarRevealMonitor.stop()
-            return
-        }
-
-        workspaceBarRevealMonitor.start(
-            modifier: settings.workspaceBar.resolvedRevealModifier,
-            holdMilliseconds: settings.workspaceBar.resolvedRevealHoldMilliseconds
-        )
-    }
-
-    func setWorkspaceBarRevealHeld(_ revealed: Bool) {
-        guard isWorkspaceBarRevealHeld != revealed else { return }
-        workspaceBarManager.refreshAutoHide()
-        isWorkspaceBarRevealHeld = revealed
-        surfaceReconciler.noteWorldChanged()
-    }
-
-    func resetWorkspaceBarReveal() {
-        workspaceBarRevealMonitor.resetReveal()
-    }
-
     func refreshHotkeyFailureSnapshots() {
         hotkeyRegistrationFailures = hotkeys.registrationFailures
         systemHyperTriggerFailure = hotkeys.systemHyperTriggerFailure
         windowSwitcherInputAvailable = hotkeys.isWindowSwitcherAvailable
-    }
-
-    func pruneHiddenWorkspaceBarMonitorIds() {
-        cachedMonitorLayout = nil
-        hiddenWorkspaceBarMonitorIds = hiddenWorkspaceBarMonitorIds.filter { monitorId in
-            guard let monitor = workspaceManager.monitor(byId: monitorId) else { return false }
-            return settings.workspaceBar.resolved(for: monitor).enabled
-        }
     }
 
     func handleRuntimeInvalidation(
@@ -559,11 +486,5 @@ extension WMController {
         pointerEdgeBarrier.stop()
         mouseWarpHandler.cleanup()
         isMouseWarpPolicyEnabled = false
-    }
-
-    func cleanupUIOnStop() {
-        windowSwitcherControllerStorage?.dismiss()
-        workspaceBarRevealMonitor.stop()
-        workspaceBarManager.cleanup()
     }
 }

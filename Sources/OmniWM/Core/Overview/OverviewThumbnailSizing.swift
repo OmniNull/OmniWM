@@ -67,4 +67,35 @@ enum OverviewThumbnailSizing {
         }
         return requests
     }
+
+    static func collectRequests(
+        represented: Set<WindowHandle>,
+        visible: [OverviewPreviewRequest],
+        selectedHandle: WindowHandle?,
+        sourceOrder: inout [ObjectIdentifier]
+    ) -> [ObjectIdentifier: OverviewPreviewRequest] {
+        var requests: [ObjectIdentifier: OverviewPreviewRequest] = [:]
+        sourceOrder.removeAll(keepingCapacity: true)
+        for index in visible.indices {
+            let request = visible[index]
+            guard represented.contains(request.handle), request.token == request.handle.token else { continue }
+            let key = ObjectIdentifier(request.handle)
+            if let previous = requests[key] {
+                requests[key] = OverviewPreviewRequest(
+                    handle: request.handle,
+                    pixelWidth: max(previous.pixelWidth, request.pixelWidth),
+                    pixelHeight: max(previous.pixelHeight, request.pixelHeight)
+                )
+            } else {
+                requests[key] = request
+                sourceOrder.append(key)
+            }
+        }
+        if let selectedHandle,
+           let index = sourceOrder.firstIndex(of: ObjectIdentifier(selectedHandle)), index != 0
+        {
+            sourceOrder.insert(sourceOrder.remove(at: index), at: 0)
+        }
+        return requests
+    }
 }

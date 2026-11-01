@@ -18,36 +18,6 @@ struct SettingsSearchEntry: Identifiable {
 }
 
 enum SettingsSearchIndex {
-    static func results(for query: String) -> [SettingsSearchEntry] {
-        let words = query.split(whereSeparator: \.isWhitespace).map(String.init)
-        guard !words.isEmpty else { return [] }
-        return entries.filter { entry in
-            let text = ([entry.title, entry.context] + entry.keywords).joined(separator: " ")
-            return words.allSatisfy { text.localizedStandardContains($0) }
-        }
-    }
-
-    static let entries: [SettingsSearchEntry] = SettingsSection.allCases.map { section in
-        SettingsSearchEntry(
-            title: section.displayName,
-            route: SettingsRoute(section: section),
-            keywords: aliases(for: section)
-        )
-    } + settings + networkSettings
-
-    private static func setting(
-        _ title: LocalizedStringResource,
-        section: SettingsSection,
-        tab: String? = nil,
-        anchor: String? = nil,
-        itemID: String? = nil
-    ) -> SettingsSearchEntry {
-        SettingsSearchEntry(
-            title: String(localized: title),
-            route: SettingsRoute(section: section, tab: tab, anchor: anchor, itemID: itemID)
-        )
-    }
-
     private static let settings: [SettingsSearchEntry] = [
         setting("Saved Entries", section: .launcher),
         setting("App Folders", section: .launcher, anchor: "launcher-discovery"),
@@ -344,6 +314,36 @@ enum SettingsSearchIndex {
 }
 
 extension SettingsSearchIndex {
+    static func results(for query: String) -> [SettingsSearchEntry] {
+        let words = query.split(whereSeparator: \.isWhitespace).map(String.init)
+        guard !words.isEmpty else { return [] }
+        return entries.filter { entry in
+            let text = ([entry.title, entry.context] + entry.keywords).joined(separator: " ")
+            return words.allSatisfy { text.localizedStandardContains($0) }
+        }
+    }
+
+    static let entries: [SettingsSearchEntry] = SettingsSection.allCases.map { section in
+        SettingsSearchEntry(
+            title: section.displayName,
+            route: SettingsRoute(section: section),
+            keywords: aliases(for: section)
+        )
+    } + settings + networkSettings
+
+    private static func setting(
+        _ title: LocalizedStringResource,
+        section: SettingsSection,
+        tab: String? = nil,
+        anchor: String? = nil,
+        itemID: String? = nil
+    ) -> SettingsSearchEntry {
+        SettingsSearchEntry(
+            title: String(localized: title),
+            route: SettingsRoute(section: section, tab: tab, anchor: anchor, itemID: itemID)
+        )
+    }
+
     private static let networkSettings: [SettingsSearchEntry] = [
         setting("Widget Network Access", section: .network, anchor: NetworkPermissionsPage.widgetsAnchor),
         setting("Programs", section: .network, anchor: NetworkPermissionsPage.programsAnchor),

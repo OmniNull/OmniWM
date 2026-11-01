@@ -31,7 +31,13 @@ Each optional style describes its appearance, controls and credits in its [READM
 
 ## Installing styles
 
-Install, update and remove styles from the style gallery in **Settings > Styles & Widgets**, then choose **Use Style**. Style folders you already have keep working.
+Open **Settings > Styles & Widgets > Get Styles** to install, update or remove a style, then choose **Use Style**. Installing leaves your current style selected. Style folders you already have keep working.
+
+For another public repository, choose **Add from GitHub…**, paste its main-page URL (`https://github.com/owner/repository`), and choose **Load**. Only install styles from authors you trust: a style runs code in OmniWM. Each browse uses one snapshot of the repository's default branch. Official styles use your app's release tag; development builds can use the checkout.
+
+Other GitHub repositories with installed styles appear under **Added from GitHub**. Browsing alone does not save one; removing its last installed style removes its link.
+
+**Update** appears when the same source offers a newer style version. If you edited its files, **Back Up and Update** asks first. A same-named style from another source offers **Replace…**, showing both sources. Replacements and removals keep the previous copy in your shell folder's `.backups/`.
 
 ## Writing a style
 

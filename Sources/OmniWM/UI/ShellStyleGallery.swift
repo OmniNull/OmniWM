@@ -18,6 +18,8 @@ final class ShellStyleGallery: Identifiable {
 
     let editor: ShellDesktopEditor
     let source: any ShellStyleSource
+    let repositoryName: String?
+    let listingProblems: [String]
     private(set) var listings: [ShellStyleListing] = []
     private(set) var busy: Set<String> = []
     private(set) var notice: String?
@@ -27,10 +29,63 @@ final class ShellStyleGallery: Identifiable {
     init(editor: ShellDesktopEditor, source: any ShellStyleSource) {
         self.editor = editor
         self.source = source
+        repositoryName = nil
+        listingProblems = []
+    }
+
+    init(editor: ShellDesktopEditor, browse: ShellGitHubStyleSource.Browse) {
+        self.editor = editor
+        source = browse.source
+        repositoryName = browse.source.repositoryName
+        listingProblems = browse.problems
+        listings = browse.listings
     }
 
     private var configuration: ShellConfigurationCoordinator {
         editor.configuration
+    }
+
+    var addedRepositories: [ShellGitHubStyleSource.Repository] {
+        Set(configuration.styles.compactMap { style in
+            style.receipt.flatMap { ShellGitHubStyleSource.Repository(source: $0.source) }
+        }).filter {
+            $0.id.caseInsensitiveCompare(ShellGitHubStyleSource.officialRepositoryName) != .orderedSame
+        }.sorted { $0.id.localizedStandardCompare($1.id) == .orderedAscending }
+    }
+
+    var sourceName: String {
+        Self.sourceName(source.source)
+    }
+
+    func installedSource(of name: String) -> String {
+        configuration.style(name).receipt.map { Self.sourceName($0.source) } ?? String(localized: "Local copy")
+    }
+
+    func confirmationMessage(for listing: ShellStyleListing) -> String {
+        let status = status(of: listing)
+        var lines: [String] = []
+        if status == .otherCopy {
+            lines.append(String(localized: "Replace \(installedSource(of: listing.name)) with \(sourceName)."))
+        }
+        if let repositoryName, status != .update {
+            lines
+                .append(
+                    String(localized: "This style runs code in OmniWM. Install only if you trust \(repositoryName).")
+                )
+        }
+        if status != .available {
+            lines.append(String(localized: "Your current copy moves to the .backups folder in your shell folder."))
+        }
+        return lines.joined(separator: "\n\n")
+    }
+
+    private static func sourceName(_ source: String) -> String {
+        if let repository = ShellGitHubStyleSource.Repository(source: source) { return repository.id }
+        if source.hasPrefix("checkout:") {
+            let path = String(source.dropFirst("checkout:".count))
+            return String(localized: "Checkout at \(path)")
+        }
+        return source
     }
 
     func load() async {
@@ -46,6 +101,11 @@ final class ShellStyleGallery: Identifiable {
     func status(of listing: ShellStyleListing) -> Status {
         guard let style = configuration.styles.first(where: { $0.name == listing.name }) else { return .available }
         guard let receipt = style.receipt else { return .otherCopy }
+        if let repository = ShellGitHubStyleSource.Repository(source: source.source) {
+            guard repository == ShellGitHubStyleSource.Repository(source: receipt.source) else { return .otherCopy }
+        } else if receipt.source != source.source {
+            return .otherCopy
+        }
         guard let installed = ReleaseVersion(receipt.version), let offered = ReleaseVersion(listing.manifest.version),
               offered > installed
         else { return .installed }
@@ -54,6 +114,14 @@ final class ShellStyleGallery: Identifiable {
 
     func isActive(_ name: String) -> Bool {
         configuration.config.profile == name
+    }
+
+    func requestInstall(_ listing: ShellStyleListing) async {
+        if repositoryName != nil {
+            confirming = listing
+        } else {
+            await install(listing, replacing: false)
+        }
     }
 
     func install(_ listing: ShellStyleListing, replacing: Bool) async {
@@ -65,7 +133,7 @@ final class ShellStyleGallery: Identifiable {
     }
 
     func update(_ listing: ShellStyleListing) async {
-        guard let receipt = configuration.style(listing.name).receipt else { return }
+        guard status(of: listing) == .update, let receipt = configuration.style(listing.name).receipt else { return }
         let folder = configuration.shellDirectory.appendingPathComponent(listing.name, isDirectory: true)
         let changed = await Task.detached {
             (try? ShellStyleInstaller.hasChanges(in: folder, from: receipt)) ?? true
@@ -112,31 +180,58 @@ struct ShellStyleGalleryView: View {
     let gallery: ShellStyleGallery
     @Environment(\.dismiss) private var dismiss
     @State private var selected: ShellStyleListing?
+    @State private var browser: ShellStyleGitHubBrowser
+
+    init(gallery: ShellStyleGallery) {
+        self.gallery = gallery
+        _browser = State(initialValue: ShellStyleGitHubBrowser(editor: gallery.editor))
+    }
+
+    private var current: ShellStyleGallery {
+        browser.gallery ?? gallery
+    }
 
     var body: some View {
         VStack(alignment: .leading, spacing: 12) {
             HStack {
-                if selected != nil {
-                    Button("Back", systemImage: "chevron.left") { selected = nil }
+                if selected != nil || browser.gallery != nil || browser.adding {
+                    Button("Back", systemImage: "chevron.left") {
+                        if selected != nil { selected = nil } else { browser.back() }
+                    }
                 }
                 Text(selected?.manifest.title ?? String(localized: "Get Styles")).font(.title2.weight(.semibold))
                 Spacer()
+                if selected == nil, browser.gallery == nil, !browser.adding {
+                    Button("Add from GitHub…") { browser.adding = true }
+                }
                 Button("Done") { dismiss() }.keyboardShortcut(.defaultAction)
             }
-            if let problem = gallery.problem {
+            if let repositoryName = current.repositoryName {
+                Text(verbatim: repositoryName).font(.callout).foregroundStyle(.secondary)
+            }
+            if let problem = current.problem {
                 Label(problem, systemImage: "exclamationmark.triangle").foregroundStyle(.red)
-            } else if let notice = gallery.notice {
+            } else if let notice = current.notice {
                 Text(notice).font(.callout).foregroundStyle(.secondary).textSelection(.enabled)
-            } else if selected == nil {
+            } else if selected == nil, !browser.adding {
                 Text("Styles change how the bar, island and drawers look.").font(.callout).foregroundStyle(.secondary)
             }
-            if let selected {
-                ShellStyleDetail(gallery: gallery, listing: selected)
+            if browser.adding {
+                ShellStyleGitHubForm(browser: browser)
+            } else if let selected {
+                ShellStyleDetail(gallery: current, listing: selected)
             } else {
                 ScrollView {
+                    if browser.gallery == nil {
+                        addedRepositories
+                    }
+                    ForEach(current.listingProblems, id: \.self) { problem in
+                        Label(problem, systemImage: "exclamationmark.triangle").foregroundStyle(.secondary)
+                            .frame(maxWidth: .infinity, alignment: .leading)
+                    }
                     LazyVGrid(columns: [GridItem(.adaptive(minimum: 200), spacing: 12)], spacing: 12) {
-                        ForEach(gallery.listings) { listing in
-                            ShellStyleCard(gallery: gallery, listing: listing).onTapGesture { selected = listing }
+                        ForEach(current.listings) { listing in
+                            ShellStyleCard(gallery: current, listing: listing).onTapGesture { selected = listing }
                         }
                     }
                 }
@@ -145,22 +240,47 @@ struct ShellStyleGalleryView: View {
         .padding(20)
         .frame(width: 700, height: 520)
         .task { await gallery.load() }
+        .onDisappear { browser.back() }
         .confirmationDialog(
-            confirmation(gallery.confirming),
-            isPresented: Binding(get: { gallery.confirming != nil }, set: { if !$0 { gallery.confirming = nil } }),
-            presenting: gallery.confirming
+            confirmation(current.confirming),
+            isPresented: Binding(get: { current.confirming != nil }, set: { if !$0 { current.confirming = nil } }),
+            presenting: current.confirming
         ) { listing in
-            Button(gallery.status(of: listing) == .update ? "Back Up and Update" : "Replace") {
-                Task { await gallery.install(listing, replacing: true) }
+            let status = current.status(of: listing)
+            Button(status == .available ? "Install" : status == .update ? "Back Up and Update" : "Replace") {
+                let target = current
+                Task { await target.install(listing, replacing: status != .available) }
             }
-        } message: { _ in
-            Text("Your current copy moves to the .backups folder in your shell folder.")
+        } message: { listing in
+            Text(current.confirmationMessage(for: listing))
+        }
+    }
+
+    @ViewBuilder
+    private var addedRepositories: some View {
+        let repositories = gallery.addedRepositories
+        if !repositories.isEmpty {
+            VStack(alignment: .leading, spacing: 6) {
+                Text("Added from GitHub").font(.headline)
+                ForEach(repositories) { repository in
+                    Button {
+                        Task { await browser.open(repository) }
+                    } label: {
+                        Text(verbatim: repository.id)
+                    }
+                }
+            }
+            .frame(maxWidth: .infinity, alignment: .leading)
+            .padding(.bottom, 12)
         }
     }
 
     private func confirmation(_ listing: ShellStyleListing?) -> String {
         guard let listing else { return "" }
-        return gallery.status(of: listing) == .update
+        if current.status(of: listing) == .available {
+            return String(localized: "Install \(listing.manifest.title)?")
+        }
+        return current.status(of: listing) == .update
             ? String(localized: "Update \(listing.manifest.title)? You changed its files.")
             : String(localized: "Replace your copy of \(listing.manifest.title)?")
     }
@@ -187,7 +307,7 @@ private struct ShellStyleCard: View {
         .padding(10)
         .background(.background.secondary, in: .rect(cornerRadius: 12))
         .overlay {
-            if gallery.isActive(listing.name) {
+            if gallery.status(of: listing) != .otherCopy, gallery.isActive(listing.name) {
                 RoundedRectangle(cornerRadius: 12).strokeBorder(Color.accentColor, lineWidth: 2)
             }
         }
@@ -259,7 +379,7 @@ private struct ShellStyleActions: View {
             HStack(spacing: 6) {
                 switch status {
                 case .available:
-                    Button("Install") { Task { await gallery.install(listing, replacing: false) } }
+                    Button("Install") { Task { await gallery.requestInstall(listing) } }
                 case .otherCopy:
                     Button("Replace…") { gallery.confirming = listing }
                 case .update:

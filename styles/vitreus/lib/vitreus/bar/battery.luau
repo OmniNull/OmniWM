@@ -139,6 +139,18 @@ local function content(ctx, g)
         }),
     }
     if charging and level < 98 then items[#items + 1] = glint(g, bu) end
+    local notch = if not g.frame then g.island.notch else nil
+    if notch then
+        table.insert(items, 1, ui.path({
+            key = "battery-notch-mask", decorative = true, align = "topLeading", mask = true, evenOdd = true,
+            w = g.size.w, h = g.size.h,
+            d = kit.roundedRect(0, 0, g.size.w, g.size.h, 0) .. " "
+                .. kit.roundedRect(notch.x, 0, notch.w, notch.h, 0),
+        }))
+        items.key, items.decorative, items.align = "battery-overlay", true, "topLeading"
+        items.w, items.h = g.size.w, g.size.h
+        return { ui.stack(items) }
+    end
     return items
 end
 

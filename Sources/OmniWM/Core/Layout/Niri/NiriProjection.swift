@@ -351,15 +351,7 @@ extension NiriLayoutEngine {
             case .horizontal: context.workingFrame.width
             case .vertical: context.workingFrame.height
             }
-            let singleRect = singleWindowScrollRect(
-                in: context.workspaceId, workingFrame: context.workingFrame,
-                gaps: LayoutGaps(horizontal: context.gaps, vertical: context.gaps)
-            )
-            let singleOriginOffset: CGFloat = singleRect.map {
-                context.orientation == .horizontal
-                    ? context.workingFrame.minX - $0.minX
-                    : context.workingFrame.minY - $0.minY
-            } ?? 0
+            let singleOriginOffset = singleWindowGestureOrigin(context: context)
             projectedState.rebaseOffset(by: singleOriginOffset)
             projectedState.endGesture(
                 currentOffset: currentOffset + Double(singleOriginOffset),

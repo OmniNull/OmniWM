@@ -184,7 +184,7 @@ extension ShellLayerScene {
                   toOpacity: layer.opacity,
                   fromTransform: appearance.transform(from: layer.transform, size: layer.bounds.size),
                   toTransform: layer.transform,
-                  at: layer.convertTime(CACurrentMediaTime(), from: nil)
+                  at: layer.convertTime(now(), from: nil)
               )
         else { return }
         layer.add(group, forKey: Self.appearanceKey)
@@ -197,7 +197,7 @@ extension ShellLayerScene {
             subtree.removeFromSuperlayer()
             return
         }
-        let now = CACurrentMediaTime()
+        let now = self.now()
         let descendants = presence.reveals[slot] == nil ? [] : presenceDescendants(slot, children: children)
         let plans = ([slot] + descendants).compactMap { presencePlan($0, root: slot, at: now) }
         let closing = presence.revealPlans[slot].flatMap { $0.plan.target == 0 ? $0.plan : nil }

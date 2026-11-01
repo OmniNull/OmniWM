@@ -27,7 +27,6 @@ final class LauncherEnvironmentTransfer: Sendable {
         endpoint = folder.appendingPathComponent("environment.sock").path
         payload = Data((request.terminalShellCommand + "\n" + marker).utf8)
         descriptor = socket(AF_UNIX, SOCK_STREAM, 0)
-        let listener = descriptor
         guard descriptor >= 0
         else {
             throw LauncherFailure(String(localized: "The launcher environment connection could not be created."))
@@ -38,23 +37,7 @@ final class LauncherEnvironmentTransfer: Sendable {
                 withIntermediateDirectories: false,
                 attributes: [.posixPermissions: 0o700]
             )
-            var address = sockaddr_un()
-            address.sun_family = sa_family_t(AF_UNIX)
-            let path = Array(endpoint.utf8CString)
-            guard path.count <= MemoryLayout.size(ofValue: address.sun_path) else {
-                throw LauncherFailure(String(localized: "The launcher environment connection path is too long."))
-            }
-            withUnsafeMutableBytes(of: &address.sun_path) { bytes in
-                for (index, byte) in path.enumerated() { bytes[index] = UInt8(bitPattern: byte) }
-            }
-            let size = socklen_t(MemoryLayout<sockaddr_un>.size)
-            address.sun_len = UInt8(size)
-            let bound = withUnsafePointer(to: &address) {
-                $0.withMemoryRebound(to: sockaddr.self, capacity: 1) { Darwin.bind(listener, $0, size) }
-            }
-            guard bound == 0, listen(descriptor, 1) == 0, fcntl(descriptor, F_SETFL, O_NONBLOCK) != -1 else {
-                throw LauncherFailure(String(localized: "The launcher environment connection could not be opened."))
-            }
+            try Self.openListener(descriptor, endpoint: endpoint)
         } catch {
             close(descriptor)
             try? FileManager.default.removeItem(at: folder)
@@ -77,6 +60,26 @@ final class LauncherEnvironmentTransfer: Sendable {
         timer.schedule(deadline: .now() + 15)
         reader.resume()
         timer.resume()
+    }
+
+    private static func openListener(_ descriptor: Int32, endpoint: String) throws {
+        var address = sockaddr_un()
+        address.sun_family = sa_family_t(AF_UNIX)
+        let path = Array(endpoint.utf8CString)
+        guard path.count <= MemoryLayout.size(ofValue: address.sun_path) else {
+            throw LauncherFailure(String(localized: "The launcher environment connection path is too long."))
+        }
+        withUnsafeMutableBytes(of: &address.sun_path) { bytes in
+            for (index, byte) in path.enumerated() { bytes[index] = UInt8(bitPattern: byte) }
+        }
+        let size = socklen_t(MemoryLayout<sockaddr_un>.size)
+        address.sun_len = UInt8(size)
+        let bound = withUnsafePointer(to: &address) {
+            $0.withMemoryRebound(to: sockaddr.self, capacity: 1) { Darwin.bind(descriptor, $0, size) }
+        }
+        guard bound == 0, listen(descriptor, 1) == 0, fcntl(descriptor, F_SETFL, O_NONBLOCK) != -1 else {
+            throw LauncherFailure(String(localized: "The launcher environment connection could not be opened."))
+        }
     }
 
     func waitForDelivery() async throws {

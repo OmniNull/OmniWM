@@ -94,6 +94,11 @@ extension ShellVitreusBarTests {
         if run.media {
             widget.set("media") { ShellMedia(title: "Song", app: "Music", playing: true).write(into: &$0) }
         }
+        VitreusFixture.show(widget, on: monitor, bar: notchBar(monitor, run, workspaces: workspaces))
+        return widget
+    }
+
+    private func notchBar(_ monitor: Monitor, _ run: NotchRun, workspaces: Int = defaultWorkspaces) -> ShellBarData {
         var bar = VitreusFixture.bar(monitor)
         bar.style.fullWidth = run.fullWidth
         bar.style.hidesMenuBar = true
@@ -103,14 +108,14 @@ extension ShellVitreusBarTests {
                 windows: [.init(id: "window-" + id, title: "Window " + id, focused: id == "1", hidden: false)]
             )])
         }
-        VitreusFixture.show(widget, on: monitor, bar: bar)
-        return widget
+        return bar
     }
 
-    private func drawnContent(_ widget: ShellRenderedWidget) throws -> [CGRect] {
+    private func drawnContent(_ widget: ShellRenderedWidget) throws -> [(frame: CGRect, title: Bool)] {
         let layout = widget.surface.layout
         let scene = widget.surface.scene
         let root = try VitreusFixture.element(widget, key: "bar-hover")
+        let title = VitreusFixture.find(widget, key: "title-region") ?? .none
         return layout.core.elements { _ in true }.filter { element in
             var ancestor = layout.core.parent(of: element)
             while ancestor != .none, ancestor != root {
@@ -118,15 +123,20 @@ extension ShellVitreusBarTests {
             }
             let kind = layout.core.kind(of: element)
             let filled = (kind == .box || kind == .group) && layout.core.paint(of: element).fill != .clear
-            return ancestor == root && (inked.contains(kind) || filled)
+            return ancestor == root && !layout.core.paint(of: element).masks && (inked.contains(kind) || filled)
         }.map { element in
-            let frame = CGRect(layout.core.absoluteFrame(of: element))
-            guard layout.core.kind(of: element) == .path else { return frame }
-            let stroke = ShellLayerScene.engineQueue.sync { () -> CGRect? in
-                guard let shape = scene.layers[element.slot] as? CAShapeLayer, let path = shape.path else { return nil }
-                return path.boundingBoxOfPath.insetBy(dx: -shape.lineWidth / 2, dy: -shape.lineWidth / 2)
+            var frame = CGRect(layout.core.absoluteFrame(of: element))
+            if layout.core.kind(of: element) == .path {
+                let stroke = ShellLayerScene.engineQueue.sync { () -> CGRect? in
+                    guard let shape = scene.layers[element.slot] as? CAShapeLayer,
+                          let path = shape.path else { return nil }
+                    return path.boundingBoxOfPath.insetBy(dx: -shape.lineWidth / 2, dy: -shape.lineWidth / 2)
+                }
+                frame = stroke?.offsetBy(dx: frame.minX, dy: frame.minY) ?? frame
             }
-            return stroke?.offsetBy(dx: frame.minX, dy: frame.minY) ?? frame
+            var ancestor = element
+            while ancestor != .none, ancestor != title { ancestor = layout.core.parent(of: ancestor) }
+            return (frame, title != .none && ancestor == title)
         }
     }
 
@@ -147,7 +157,7 @@ extension ShellVitreusBarTests {
         XCTAssertEqual(frame.minY, notch.minY - radius, accuracy: 0.001, label)
     }
 
-    func testTheIslandBarMeltsIntoTheNotchAndKeepsEveryPieceBesideIt() throws {
+    func testTheIslandBarMeltsIntoTheNotchAndKeepsEveryPieceOutsideIt() throws {
         let shell = try shell()
         let notched = Self.fourteenInch()
         let plain = Self.fourteenInch(notched: false)
@@ -161,8 +171,12 @@ extension ShellVitreusBarTests {
             XCTAssertEqual(pill.height, flat.height, accuracy: 0.001, run.label)
             let content = try drawnContent(widget)
             XCTAssertFalse(content.isEmpty, run.label)
-            for rect in content {
-                XCTAssertTrue(rect.maxX <= notch.minX || rect.minX >= notch.maxX, "\(run.label) \(rect)")
+            for drawn in content {
+                let rect = drawn.frame
+                XCTAssertTrue(
+                    rect.maxX <= notch.minX || rect.minX >= notch.maxX || (drawn.title && rect.minY >= notch.maxY),
+                    "\(run.label) \(rect)"
+                )
                 XCTAssertTrue(rect.minX >= pill.minX && rect.maxX <= pill.maxX, "\(run.label) \(rect)")
             }
             try assertMelt(widget, notch: notch, run.label)
@@ -171,10 +185,15 @@ extension ShellVitreusBarTests {
                 Self.assertRect(pill, flat, run.label)
             } else {
                 XCTAssertEqual(pill.midX, notch.midX, accuracy: 0.001, run.label)
-                XCTAssertEqual(
-                    try VitreusFixture.frame(widget, key: "title-button").width,
-                    try VitreusFixture.frame(level, key: "title-button").width, accuracy: 0.001, run.label
-                )
+                let title = try VitreusFixture.frame(widget, key: "title-button")
+                if title.minY >= notch.maxY {
+                    XCTAssertLessThanOrEqual(title.width, notch.width, run.label)
+                } else {
+                    XCTAssertEqual(
+                        title.width, try VitreusFixture.frame(level, key: "title-button").width,
+                        accuracy: 0.001, run.label
+                    )
+                }
             }
             let opener = try VitreusFixture.frame(widget, key: "desk-opener")
             if run.fullWidth {
@@ -227,8 +246,12 @@ extension ShellVitreusBarTests {
             XCTAssertGreaterThanOrEqual(rect.minX, monitor.frame.minX, "\(label) \(rect)")
             XCTAssertLessThanOrEqual(rect.maxX, monitor.frame.maxX, "\(label) \(rect)")
         }
-        for rect in try drawnContent(widget) {
-            XCTAssertTrue(rect.maxX <= notch.minX || rect.minX >= notch.maxX, "\(label) \(rect)")
+        for drawn in try drawnContent(widget) {
+            let rect = drawn.frame
+            XCTAssertTrue(
+                rect.maxX <= notch.minX || rect.minX >= notch.maxX || (drawn.title && rect.minY >= notch.maxY),
+                "\(label) \(rect)"
+            )
             XCTAssertTrue(rect.minX >= pill.minX && rect.maxX <= pill.maxX, "\(label) \(rect)")
         }
     }
@@ -250,7 +273,15 @@ extension ShellVitreusBarTests {
             try assertPiecesApart(widget, tray: shown, label)
             XCTAssertGreaterThan(try VitreusFixture.frame(widget, key: "title-text").width, 0, label)
             if !run.media {
-                XCTAssertGreaterThan(try VitreusFixture.frame(widget, key: "title-app").width, 0, label)
+                if Self.has(widget, "title-app") {
+                    XCTAssertGreaterThan(try VitreusFixture.frame(widget, key: "title-app").width, 0, label)
+                } else {
+                    XCTAssertTrue(VitreusFixture.labels(widget).contains { $0.text.hasPrefix("Safari · ") }, label)
+                    XCTAssertGreaterThanOrEqual(
+                        try VitreusFixture.frame(widget, key: "title-text").minY,
+                        try Self.notch(of: notched).maxY, label
+                    )
+                }
             }
             if trayItems == splitTray {
                 XCTAssertEqual(shown.count, trayItems, label)
@@ -489,5 +520,211 @@ extension ShellVitreusBarTests {
             let widget = try island(shell, settings: ["size": .number(size)], monitor: monitor)
             XCTAssertEqual(top, try VitreusFixture.frame(widget, key: "shell").maxY.rounded(), "size \(size)")
         }
+    }
+
+    func testTheNotchedTitleUsesItsMeasuredLineAndKeepsItsClickRegion() throws {
+        let shell = try shell()
+        let config = try VitreusFixture.config(shell)
+        let root = try XCTUnwrap(ShellRootSettings.load("vitreus", directories: config.directories))
+        let option = try XCTUnwrap(root.options["size"])
+        let minimum = try XCTUnwrap(option.minimum), maximum = try XCTUnwrap(option.maximum)
+        let step = try XCTUnwrap(option.step)
+        let monitor = Self.fourteenInch()
+        let notch = try Self.notch(of: monitor)
+        let unit = try XCTUnwrap(probe("""
+        local units = require("../lib/vitreus/units")
+        function render(ctx) return ui.text{ text = tostring(units.u) } end
+        """).first.flatMap(Double.init))
+        for fullWidth in [false, true] {
+            for index in Int((minimum / step).rounded()) ... Int((maximum / step).rounded()) {
+                let size = Double(index) * step
+                let run = NotchRun(size: size, fullWidth: fullWidth, media: false)
+                let widget = try notchWidget(shell, run, on: monitor)
+                let pill = try VitreusFixture.frame(widget, key: "shell")
+                let text = try VitreusFixture.frame(widget, key: "title-text")
+                let button = try VitreusFixture.frame(widget, key: "title-button")
+                let available = pill.maxY - notch.maxY - 2 * unit * size
+                let compact = text.height <= available
+                XCTAssertEqual(button.minY >= notch.maxY, compact, run.label)
+                let label = try XCTUnwrap(VitreusFixture.labels(widget).first { $0.frame == text })
+                if compact {
+                    XCTAssertTrue(label.text.hasPrefix("Safari · "), run.label)
+                    XCTAssertFalse(Self.has(widget, "title-app"), run.label)
+                    XCTAssertEqual(button.midX, notch.midX, accuracy: accuracy, run.label)
+                    XCTAssertTrue(button.contains(text), run.label)
+                    XCTAssertLessThanOrEqual(button.maxY, pill.maxY - unit * size, run.label)
+                } else {
+                    XCTAssertTrue(Self.has(widget, "title-app"), run.label)
+                    XCTAssertTrue(button.maxX <= notch.minX || button.minX >= notch.maxX, run.label)
+                }
+                XCTAssertEqual(
+                    widget.surface.command(at: CGPoint(x: button.midX, y: button.midY)),
+                    "shell trigger vitreus drawer-player \(VitreusFixture.bar(monitor).monitorId)", run.label
+                )
+            }
+        }
+    }
+
+    func testTheCompactNotchTitleJoinsOnlyNonemptyPartsAndStaysOmittedWhenRemoved() throws {
+        let shell = try shell()
+        let monitor = Self.fourteenInch()
+        let widget = try notchWidget(shell, NotchRun(size: 1, fullWidth: true, media: false), on: monitor)
+        for (app, title, expected) in [("", "Document", "Document"), ("Safari", "", "Safari"), ("", "", "")] {
+            widget.set("app") { $0.string(app) }
+            widget.set("title") { $0.string(title) }
+            VitreusFixture.show(widget, on: monitor)
+            let label = VitreusFixture.find(widget, key: "title-text").map {
+                widget.text.string(widget.surface.layout.core.content(of: $0).text)
+            }
+            XCTAssertEqual(label ?? "", expected)
+        }
+        let omitted = try notchWidget(
+            shell, NotchRun(size: 1, fullWidth: true, media: false), on: monitor, pieces: ["apple", "omniwm", "clock"]
+        )
+        XCTAssertFalse(Self.has(omitted, "title-text"))
+        XCTAssertFalse(Self.has(omitted, "title-button"))
+    }
+
+    func testTheCompactTitleSwitchesAtTheMeasuredHeightBoundary() throws {
+        let shell = try shell()
+        let run = NotchRun(size: 1, fullWidth: true, media: false)
+        let original = Self.fourteenInch()
+        let widget = try notchWidget(shell, run, on: original)
+        let pill = try VitreusFixture.frame(widget, key: "shell")
+        let text = try VitreusFixture.frame(widget, key: "title-text")
+        let unit = try XCTUnwrap(probe("""
+        local units = require("../lib/vitreus/units")
+        function render(ctx) return ui.text{ text = tostring(units.u) } end
+        """).first.flatMap(Double.init))
+        let boundary = pill.maxY - text.height - 2 * unit * run.size
+        for (height, fits) in [(boundary.nextDown, true), (boundary.nextUp, false)] {
+            let monitor = Monitor(
+                id: original.id, displayId: original.displayId, frame: original.frame,
+                visibleFrame: original.visibleFrame,
+                hasNotch: true, notchRange: original.notchRange, notchHeight: height, name: original.name
+            )
+            let candidate = try notchWidget(shell, run, on: monitor)
+            let button = try VitreusFixture.frame(candidate, key: "title-button")
+            XCTAssertEqual(button.minY >= height, fits, "notch \(height), boundary \(boundary)")
+        }
+    }
+
+    func testNotchTitleSnapshots() throws {
+        let shell = try shell()
+        let monitor = Self.fourteenInch()
+        let notch = try Self.notch(of: monitor)
+        for run in NotchRun.all {
+            let widget = try notchWidget(shell, run, on: monitor)
+            var bar = notchBar(monitor, run)
+            bar.style.keyboardMode = KeyboardModeKind.window.rawValue
+            VitreusFixture.show(widget, on: monitor, bar: bar)
+            let button = try VitreusFixture.frame(widget, key: "title-button")
+            let placement = button.minY >= notch.maxY ? "below" : "beside"
+            let name = "notch-\(placement)-size-\(run.size)-\(run.fullWidth ? "full" : "natural")-\(run.media ? "media" : "title")-badge"
+            XCTAssertTrue(Self.has(widget, "bar-omniwm-mode"), name)
+            try exportNotch(widget, on: monitor, calendar: false, name: name)
+            if run.size == NotchRun.all.map(\.size).max(), !run.media {
+                let components = DateComponents(year: 2026, month: 10, day: 28, hour: 18, minute: 42)
+                let shown = try XCTUnwrap(Calendar.current.date(from: components))
+                widget.set("seconds") { $0.number(shown.timeIntervalSince1970) }
+                widget.set("date") { $0.string("Wed 28 Oct") }
+                widget.set("calendar") { writer in
+                    ShellCalendar(access: "full", month: ShellCalendarMonth(
+                        title: "October 2026", year: 2026, month: 10, days: 31, offset: 3, today: 28,
+                        weekdays: ["M", "T", "W", "T", "F", "S", "S"], marked: []
+                    ), selectedDay: "2026-10-28", reminders: ShellReminders(
+                        access: "full", items: [], total: 0, error: nil
+                    )).write(into: &writer)
+                }
+                VitreusFixture.trigger(widget.instance, "drawer-calendar", bar.monitorId)
+                widget.render(bar)
+                XCTAssertTrue(Self.has(widget, "calendar-clock"))
+                try exportNotch(widget, on: monitor, calendar: true, name: name + "-calendar")
+            }
+        }
+    }
+
+    func testACompleteCompactMediaRowKeepsItsTransportHoverAndBeatTogether() throws {
+        let shell = try shell()
+        let run = NotchRun(size: 1, fullWidth: true, media: true)
+        let original = Self.fourteenInch()
+        let side = try notchWidget(shell, run, on: original)
+        let pill = try VitreusFixture.frame(side, key: "shell")
+        let icon = try VitreusFixture.frame(side, key: "title-play-icon")
+        let units = try XCTUnwrap(probe("""
+        local units = require("../lib/vitreus/units")
+        function render(ctx) return ui.text{ text = tostring(units.u) } end
+        """).first.flatMap(Double.init))
+        let height = (pill.maxY - icon.height - 2 * units * run.size).nextDown
+        let monitor = Monitor(
+            id: original.id, displayId: original.displayId, frame: original.frame, visibleFrame: original.visibleFrame,
+            hasNotch: true, notchRange: original.notchRange, notchHeight: height, name: original.name
+        )
+        let widget = try notchWidget(shell, run, on: monitor)
+        VitreusFixture.settings(widget, ["visualiser": .bool(true), "size": .number(run.size)])
+        var bar = VitreusFixture.bar(monitor)
+        bar.style.fullWidth = run.fullWidth
+        VitreusFixture.show(widget, on: monitor, bar: bar)
+        let notch = try Self.notch(of: monitor)
+        let button = try VitreusFixture.frame(widget, key: "title-button")
+        XCTAssertGreaterThanOrEqual(button.minY, notch.maxY)
+        let player = try VitreusFixture.frame(widget, key: "title-play")
+        for (key, command) in [("previous", "media previous"), ("play", "media toggle"), ("next", "media next")] {
+            let frame = try VitreusFixture.frame(widget, key: "title-" + key)
+            XCTAssertTrue(button.contains(frame), key)
+            XCTAssertTrue(button.contains(try VitreusFixture.frame(widget, key: "title-" + key + "-icon")), key)
+            XCTAssertEqual(widget.surface.command(at: CGPoint(x: frame.midX, y: frame.midY)), command, key)
+        }
+        for name in VitreusFixture.crests("beat", phase: "close") {
+            let frame = try VitreusFixture.frame(widget, key: name)
+            XCTAssertEqual(frame.midX, player.midX, accuracy: Double(Float(player.midX).ulp), name)
+            XCTAssertEqual(frame.midY, pill.maxY, accuracy: Double(Float(pill.maxY).ulp), name)
+        }
+        let action = widget.surface.layout.core.content(of: try VitreusFixture.element(widget, key: "title-button"))
+            .hoverAction
+        var event = ShellEvent()
+        event.phase = .began
+        widget.invoke(action, event: event)
+        VitreusFixture.show(widget, on: monitor, bar: bar)
+        Self.assertRect(try VitreusFixture.frame(widget, key: "title-tab"), button)
+    }
+
+    private func exportNotch(_ widget: ShellRenderedWidget, on monitor: Monitor, calendar: Bool, name: String) throws {
+        guard ProcessInfo.processInfo.environment["OMNIWM_SHELL_SNAPSHOTS"] != nil else { return }
+        let pill = try VitreusFixture.frame(widget, key: "shell")
+        let crop = CGRect(
+            x: 0,
+            y: 0,
+            width: monitor.frame.width,
+            height: calendar ? monitor.frame.height : (pill.maxY + pill.height).rounded(.up)
+        )
+        let scale = Int(widget.surface.scale)
+        let width = Int(crop.width) * scale, height = Int(crop.height) * scale
+        let bytes = try VitreusFixture.pixels(widget, crop: crop, scale: scale)
+        let info = CGBitmapInfo.byteOrder32Little
+            .union(CGBitmapInfo(rawValue: CGImageAlphaInfo.premultipliedFirst.rawValue))
+        let space = try XCTUnwrap(CGColorSpace(name: CGColorSpace.sRGB))
+        let provider = try XCTUnwrap(CGDataProvider(data: Data(bytes) as CFData))
+        let image = try XCTUnwrap(CGImage(
+            width: width, height: height, bitsPerComponent: 8, bitsPerPixel: 32, bytesPerRow: width * 4,
+            space: space, bitmapInfo: info, provider: provider,
+            decode: nil, shouldInterpolate: false, intent: .defaultIntent
+        ))
+        let context = try XCTUnwrap(CGContext(
+            data: nil, width: width, height: height, bitsPerComponent: 8, bytesPerRow: width * 4,
+            space: space, bitmapInfo: info.rawValue
+        ))
+        context.setFillColor(NSColor.darkGray.cgColor)
+        context.fill(CGRect(x: 0, y: 0, width: width, height: height))
+        context.draw(image, in: CGRect(x: 0, y: 0, width: width, height: height))
+        let notch = try Self.notch(of: monitor)
+        context.setFillColor(NSColor.black.cgColor)
+        context.fill(CGRect(
+            x: notch.minX * CGFloat(scale),
+            y: CGFloat(height) - notch.maxY * CGFloat(scale),
+            width: notch.width * CGFloat(scale),
+            height: notch.height * CGFloat(scale)
+        ))
+        try ShellVitreusDeskTests.write(XCTUnwrap(context.makeImage()), name: name)
     }
 }

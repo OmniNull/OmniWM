@@ -23,6 +23,20 @@ struct ShellGlassCompositionErrors {
 }
 
 extension ShellGlassSceneTests {
+    nonisolated static var fullSweep: Bool {
+        let environment = ProcessInfo.processInfo.environment
+        return environment["OMNIWM_REDUCED_GLASS_SWEEP"] != "1" || environment["OMNIWM_GLASS_EVIDENCE"] != nil
+            || environment["OMNI_F1_FRAME_PROBE_OUT"] != nil
+    }
+
+    nonisolated static func sweeps(_ caseIndex: Int, opacity: Double, scale: Int) -> Bool {
+        fullSweep || (opacity == 1 ? 0 : 2) + scale - 1 == caseIndex % 4
+    }
+
+    nonisolated static var sweptCompositionCells: Int {
+        compositionCases.count * (fullSweep ? 4 : 1)
+    }
+
     nonisolated static var compositionCases: [ShellGlassCompositionCase] {
         let tints = [0.36, 0.5, 1.0].flatMap { alpha in
             [
@@ -205,9 +219,9 @@ extension ShellGlassSceneTests {
     func testClippedCompositionMatchesIndependentTintAndGradientReferenceAndPreservesAlpha() throws {
         try ShellLayerScene.engineQueue.sync {
             var rows: [[String: Any]] = []
-            for style in Self.compositionCases {
+            for (index, style) in Self.compositionCases.enumerated() {
                 for opacity in [1.0, 0.55] {
-                    for scale in [1, 2] {
+                    for scale in [1, 2] where Self.sweeps(index, opacity: opacity, scale: scale) {
                         let width = 96 * scale
                         let reference = try Self.pixels(
                             Self.compositionBaseline(style, opacity: opacity), width: width, height: width, scale: scale
@@ -247,7 +261,8 @@ extension ShellGlassSceneTests {
                     }
                 }
             }
-            XCTAssertEqual(rows.count, 144)
+            XCTAssertEqual(rows.count, Self.sweptCompositionCells * 4)
+            XCTAssertEqual(Set(rows.map { "\($0["opacity"] ?? "") \($0["scale"] ?? "")" }).count, 4)
             try Self.saveCompositionMetrics(rows)
         }
     }

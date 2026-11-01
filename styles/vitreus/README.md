@@ -10,6 +10,8 @@ Previews will be added with the Settings gallery.
 
 Liquid glass in Island, Frame and Notches layouts, with calendar, controls and player panels, a Desk, a top shelf, docks and an optional audio visualiser. Its own palette stays dark; **Wallpaper Colors** tints the glass and text from the wallpaper.
 
+On a notched display, the Island title moves below the notch when it fits, otherwise beside it. Music controls stay beside at current bar sizes; the battery effect stays clear of the notch.
+
 ## Controls and commands
 
 Turn on **Settings > Styles & Widgets > Island > Show Dynamic Island**. Open the Desk with the button at the end of the bar; drag its top grip to move it, or a corner to shrink it to half size. Drop it near home, or click the grip there, to return it. Closing it also returns it home.

@@ -342,17 +342,28 @@ extension ViewportState {
         } ?? (0 ... maxViewStart)
         let overscrolled = !bounds.contains(Double(oldActivePosition) + projectedOffset)
 
+        applyMomentumLanding(
+            finalOffset: preserved.finalOffset, offsetDelta: offsetDelta, overscrolled: overscrolled, motion: motion
+        )
+    }
+
+    private mutating func applyMomentumLanding(
+        finalOffset: Double,
+        offsetDelta: CGFloat,
+        overscrolled: Bool,
+        motion: MotionSnapshot
+    ) {
         guard motion.animationsEnabled else {
-            jumpOffset(to: CGFloat(preserved.finalOffset))
+            jumpOffset(to: CGFloat(finalOffset))
             activatePrevColumnOnRemoval = nil
             return
         }
 
         rebaseOffset(by: offsetDelta)
         if overscrolled {
-            springOffset(to: CGFloat(preserved.finalOffset), config: motion.scaled(.niriHorizontalViewMovement))
+            springOffset(to: CGFloat(finalOffset), config: motion.scaled(.niriHorizontalViewMovement))
         } else {
-            decelerateOffset(to: CGFloat(preserved.finalOffset))
+            decelerateOffset(to: CGFloat(finalOffset))
         }
         activatePrevColumnOnRemoval = nil
     }

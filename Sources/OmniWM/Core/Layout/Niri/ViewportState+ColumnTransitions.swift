@@ -58,6 +58,15 @@ extension ViewportState {
             viewFrame: viewFrame
         )
 
+        applyColumnTransition(targetOffset: targetOffset, motion: context.motion, animate: animate, scale: scale)
+    }
+
+    private mutating func applyColumnTransition(
+        targetOffset: CGFloat,
+        motion: MotionSnapshot,
+        animate: Bool,
+        scale: CGFloat
+    ) {
         let pixel: CGFloat = 1.0 / max(scale, 1.0)
         let toDiff = targetOffset - viewOffset
         if abs(toDiff) < pixel {
@@ -68,7 +77,7 @@ extension ViewportState {
         }
 
         if animate {
-            animateToOffset(targetOffset, motion: context.motion)
+            animateToOffset(targetOffset, motion: motion)
         } else {
             jumpOffset(to: targetOffset)
         }

@@ -113,47 +113,13 @@ struct CommandPaletteEnvironment {
         Int,
         @escaping @MainActor (Int, [LauncherSection<LauncherApplicationResult>], [LauncherChip]) -> Void
     ) -> Void = { controller, query, chip, generation, publish in
-        let service = ApplicationCatalogService.shared
-        let settings = controller.settings
-        let publishSnapshot: @MainActor () -> Void = { [weak service] in
-            guard let service, service.hasLoadedCatalog else { return }
-            if query.isEmpty {
-                publish(
-                    generation,
-                    service.browse(
-                        chip: chip,
-                        hiddenSuggestions: settings.launcherHiddenSuggestions,
-                        launchesFor: { settings.launcherLaunches(for: $0) }
-                    ),
-                    service.chips
-                )
-            } else {
-                service.rank(
-                    query: query,
-                    chip: chip,
-                    generation: generation,
-                    language: CommandPaletteKeyboardLanguage.current(),
-                    shortcutTarget: settings.launcherShortcutTarget(for: query),
-                    launchesFor: { settings.launcherLaunches(for: $0) },
-                    publish: { publishedGeneration, sections in
-                        publish(publishedGeneration, sections, service.chips)
-                    }
-                )
-            }
-        }
-        let firstSubmissionForOpening = service.onCatalogChanged == nil
-        service.onCatalogChanged = publishSnapshot
-        service.refreshIfNeeded(
-            refreshMetadata: firstSubmissionForOpening,
-            extraFolders: settings.launcher.appFolders
+        CommandPaletteEnvironment.submitLiveApplicationSearch(
+            controller: controller, query: query, chip: chip, generation: generation, publish: publish
         )
-        publishSnapshot()
     }
 
     var stopApplicationSearch: () -> Void = {
-        let service = ApplicationCatalogService.shared
-        service.onCatalogChanged = nil
-        service.cancelRanking()
+        CommandPaletteEnvironment.stopLiveApplicationSearch()
     }
 
     var submitFileSearch: (
@@ -414,5 +380,57 @@ struct CommandPaletteEnvironment {
             return nil
         }
         return getWindowId(from: unsafeDowncast(windowValue, to: AXUIElement.self))
+    }
+}
+
+extension CommandPaletteEnvironment {
+    private static func submitLiveApplicationSearch(
+        controller: WMController,
+        query: String,
+        chip: LauncherChip?,
+        generation: Int,
+        publish: @escaping @MainActor (Int, [LauncherSection<LauncherApplicationResult>], [LauncherChip]) -> Void
+    ) {
+        let service = ApplicationCatalogService.shared
+        let settings = controller.settings
+        let publishSnapshot: @MainActor () -> Void = { [weak service] in
+            guard let service, service.hasLoadedCatalog else { return }
+            if query.isEmpty {
+                publish(
+                    generation,
+                    service.browse(
+                        chip: chip,
+                        hiddenSuggestions: settings.launcherHiddenSuggestions,
+                        launchesFor: { settings.launcherLaunches(for: $0) }
+                    ),
+                    service.chips
+                )
+            } else {
+                service.rank(
+                    query: query,
+                    chip: chip,
+                    generation: generation,
+                    language: CommandPaletteKeyboardLanguage.current(),
+                    shortcutTarget: settings.launcherShortcutTarget(for: query),
+                    launchesFor: { settings.launcherLaunches(for: $0) },
+                    publish: { publishedGeneration, sections in
+                        publish(publishedGeneration, sections, service.chips)
+                    }
+                )
+            }
+        }
+        let firstSubmissionForOpening = service.onCatalogChanged == nil
+        service.onCatalogChanged = publishSnapshot
+        service.refreshIfNeeded(
+            refreshMetadata: firstSubmissionForOpening,
+            extraFolders: settings.launcher.appFolders
+        )
+        publishSnapshot()
+    }
+
+    private static func stopLiveApplicationSearch() {
+        let service = ApplicationCatalogService.shared
+        service.onCatalogChanged = nil
+        service.cancelRanking()
     }
 }

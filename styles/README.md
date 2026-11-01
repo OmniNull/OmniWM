@@ -18,3 +18,7 @@ Contributors can try a checkout style as described in [Trying a Style](../websit
 ```
 
 Every style has `style.toml` and `README.md`; the other folders are optional. Keep upstream notices in the style folder and font notices beside their fonts. Manifest text stays in English; widget translations fall back from the exact locale to the language, English and the app's own strings.
+
+To publish a style, put this folder's contents at the root of a public GitHub repository, or put several styles under `styles/<name>/`. A root `style.toml` takes precedence over the collection. In a collection, each manifest's `name` must match its folder. List preview file names in the manifest's `previews` field and keep the pictures in `previews/`.
+
+Users add the repository's main-page URL through **Get Styles > Add from GitHub…**. OmniWM reads its default branch; no release or package is needed. Increase the manifest's plain `MAJOR.MINOR.PATCH` version to offer an **Update**. Changes published at the same version do not offer one.

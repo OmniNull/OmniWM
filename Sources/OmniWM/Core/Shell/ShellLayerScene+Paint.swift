@@ -344,14 +344,16 @@ extension ShellLayerScene {
             playbacks[slot] = nil
             return
         }
-        let now = CACurrentMediaTime()
+        let now = self.now()
         let phase = (current.flatMap { $0.frames === frames ? $0.phase(at: now) : nil } ?? 0)
             .truncatingRemainder(dividingBy: frames.duration)
         playbacks[slot] = ShellPlaybackState(frames: frames, phase: phase, start: now, playback: playback)
         if playback.paused || playback.speed <= 0 {
             layer.contents = frames.frame(at: phase)
         } else {
-            layer.add(frames.animation(playback, phase: phase), forKey: Self.framesKey)
+            let animation = frames.animation(playback, phase: phase)
+            animation.beginTime = layer.convertTime(now, from: nil)
+            layer.add(animation, forKey: Self.framesKey)
         }
     }
 

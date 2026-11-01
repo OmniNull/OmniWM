@@ -4,6 +4,27 @@
 import Foundation
 
 extension ShellConfigurationCoordinator {
+    @discardableResult
+    func selectProfile(_ name: String) async throws -> Bool {
+        try await editFile(scansSources: false) { try ShellProfiles.select(name, in: $0) }
+    }
+
+    @discardableResult
+    func selectTheme(_ name: String, profile: String? = nil) async throws -> Bool {
+        let profile = try await explicitProfile(profile)
+        return try await editFile(refreshMetadata: false, scansSources: false) {
+            try ShellProfiles.selectTheme(name, profile: profile, in: $0)
+        }
+    }
+
+    @discardableResult
+    func selectScheme(_ scheme: ShellWallpaperScheme, profile: String? = nil) async throws -> Bool {
+        let profile = try await explicitProfile(profile)
+        return try await editFile(refreshMetadata: false, scansSources: false) {
+            try ShellProfiles.selectScheme(scheme, profile: profile, in: $0)
+        }
+    }
+
     var profiles: [String] {
         styles.map(\.name)
     }

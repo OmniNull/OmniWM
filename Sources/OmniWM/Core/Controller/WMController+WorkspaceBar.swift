@@ -6,6 +6,85 @@ import Foundation
 import OmniWMIPC
 
 extension WMController {
+    @discardableResult
+    func toggleWorkspaceBarVisibility() -> Bool {
+        pruneHiddenWorkspaceBarMonitorIds()
+
+        guard let monitor = monitorForInteraction() else { return false }
+        let resolved = settings.workspaceBar.resolved(for: monitor)
+        guard resolved.enabled else { return false }
+
+        if hiddenWorkspaceBarMonitorIds.contains(monitor.id) {
+            hiddenWorkspaceBarMonitorIds.remove(monitor.id)
+        } else {
+            hiddenWorkspaceBarMonitorIds.insert(monitor.id)
+        }
+
+        cachedMonitorLayout = nil
+        workspaceManager.invalidateAllLayouts()
+        layoutRefreshController.requestRelayout(reason: .monitorSettingsChanged)
+        surfaceReconciler.noteWorldChanged()
+        hiddenBarController.dismissPanel()
+        return true
+    }
+
+    @discardableResult
+    func synchronizeWorkspaceBarIconOverrides(
+        forceReload: Bool = false,
+        forceReloadBundleId: String? = nil
+    ) -> Bool {
+        guard workspaceBarIconResolver.synchronize(
+            overrides: settings.workspaceBar.iconOverrides,
+            forceReload: forceReload,
+            forceReloadBundleId: forceReloadBundleId
+        ) else {
+            return false
+        }
+        workspaceBarIconResolutionRevision += 1
+        workspaceBarManager.refreshShellIcons()
+        return true
+    }
+
+    func syncWorkspaceBarRevealMonitor() {
+        guard hasStartedServices,
+              settings.workspaceBar.resolvedRevealModifier != .off,
+              workspaceBarRefreshIsEnabled
+        else {
+            workspaceBarRevealMonitor.stop()
+            return
+        }
+
+        workspaceBarRevealMonitor.start(
+            modifier: settings.workspaceBar.resolvedRevealModifier,
+            holdMilliseconds: settings.workspaceBar.resolvedRevealHoldMilliseconds
+        )
+    }
+
+    func setWorkspaceBarRevealHeld(_ revealed: Bool) {
+        guard isWorkspaceBarRevealHeld != revealed else { return }
+        workspaceBarManager.refreshAutoHide()
+        isWorkspaceBarRevealHeld = revealed
+        surfaceReconciler.noteWorldChanged()
+    }
+
+    func resetWorkspaceBarReveal() {
+        workspaceBarRevealMonitor.resetReveal()
+    }
+
+    func pruneHiddenWorkspaceBarMonitorIds() {
+        cachedMonitorLayout = nil
+        hiddenWorkspaceBarMonitorIds = hiddenWorkspaceBarMonitorIds.filter { monitorId in
+            guard let monitor = workspaceManager.monitor(byId: monitorId) else { return false }
+            return settings.workspaceBar.resolved(for: monitor).enabled
+        }
+    }
+
+    func cleanupUIOnStop() {
+        windowSwitcherControllerStorage?.dismiss()
+        workspaceBarRevealMonitor.stop()
+        workspaceBarManager.cleanup()
+    }
+
     var workspaceBarRefreshIsEnabled: Bool {
         settings.workspaceBar.enabled
     }

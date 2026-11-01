@@ -141,41 +141,6 @@ final class SettingsStore {
         didSet { runtimeState.commandPaletteLastMode = commandPaletteLastMode }
     }
 
-    var commandPaletteApplicationsViewStyle: LauncherViewStyle {
-        get { runtimeState.commandPaletteViewStyle(for: .applications) }
-        set { runtimeState.setCommandPaletteViewStyle(newValue, for: .applications) }
-    }
-
-    var commandPaletteFilesViewStyle: LauncherViewStyle {
-        get { runtimeState.commandPaletteViewStyle(for: .files) }
-        set { runtimeState.setCommandPaletteViewStyle(newValue, for: .files) }
-    }
-
-    func recordLauncherLaunch(targetID: String, query: String, displayName: String? = nil) {
-        runtimeState.recordLauncherLaunch(
-            targetID: targetID,
-            displayName: displayName ?? URL(fileURLWithPath: targetID).lastPathComponent,
-            query: query
-        )
-    }
-
-    func launcherShortcutTarget(for query: String) -> String? {
-        runtimeState.launcherShortcutTarget(for: query)
-    }
-
-    func launcherLaunches(for targetID: String) -> [LauncherLaunch] {
-        runtimeState.launcherLaunches(for: targetID)
-    }
-
-    var launcherLaunchesSnapshot: [String: [LauncherLaunch]] {
-        runtimeState.launcherLaunchesSnapshot
-    }
-
-    var launcherHiddenSuggestions: Set<String> {
-        get { runtimeState.launcherHiddenSuggestions }
-        set { runtimeState.launcherHiddenSuggestions = newValue }
-    }
-
     var animationsEnabled = SettingsStore.defaultExport.animationsEnabled {
         didSet { scheduleSave() }
     }
@@ -239,14 +204,6 @@ final class SettingsStore {
 
     var tabRailAppIcons = SettingsStore.defaultExport.tabRailAppIcons {
         didSet { scheduleSave() }
-    }
-
-    func loadPersistedWindowRestoreCatalog() -> PersistedWindowRestoreCatalog {
-        runtimeState.windowRestoreCatalog ?? .empty
-    }
-
-    func savePersistedWindowRestoreCatalog(_ catalog: PersistedWindowRestoreCatalog) {
-        runtimeState.windowRestoreCatalog = catalog.entries.isEmpty ? nil : catalog
     }
 
     var monitorSetupStatus = RuntimeStateStore.defaultMonitorSetupStatus {
@@ -366,6 +323,49 @@ final class SettingsStore {
 }
 
 extension SettingsStore {
+    var commandPaletteApplicationsViewStyle: LauncherViewStyle {
+        get { runtimeState.commandPaletteViewStyle(for: .applications) }
+        set { runtimeState.setCommandPaletteViewStyle(newValue, for: .applications) }
+    }
+
+    var commandPaletteFilesViewStyle: LauncherViewStyle {
+        get { runtimeState.commandPaletteViewStyle(for: .files) }
+        set { runtimeState.setCommandPaletteViewStyle(newValue, for: .files) }
+    }
+
+    func recordLauncherLaunch(targetID: String, query: String, displayName: String? = nil) {
+        runtimeState.recordLauncherLaunch(
+            targetID: targetID,
+            displayName: displayName ?? URL(fileURLWithPath: targetID).lastPathComponent,
+            query: query
+        )
+    }
+
+    func launcherShortcutTarget(for query: String) -> String? {
+        runtimeState.launcherShortcutTarget(for: query)
+    }
+
+    func launcherLaunches(for targetID: String) -> [LauncherLaunch] {
+        runtimeState.launcherLaunches(for: targetID)
+    }
+
+    var launcherLaunchesSnapshot: [String: [LauncherLaunch]] {
+        runtimeState.launcherLaunchesSnapshot
+    }
+
+    var launcherHiddenSuggestions: Set<String> {
+        get { runtimeState.launcherHiddenSuggestions }
+        set { runtimeState.launcherHiddenSuggestions = newValue }
+    }
+
+    func loadPersistedWindowRestoreCatalog() -> PersistedWindowRestoreCatalog {
+        runtimeState.windowRestoreCatalog ?? .empty
+    }
+
+    func savePersistedWindowRestoreCatalog(_ catalog: PersistedWindowRestoreCatalog) {
+        runtimeState.windowRestoreCatalog = catalog.entries.isEmpty ? nil : catalog
+    }
+
     var issueDraft: IssueDraft? {
         get { runtimeState.issueDraft }
         set { runtimeState.issueDraft = newValue }

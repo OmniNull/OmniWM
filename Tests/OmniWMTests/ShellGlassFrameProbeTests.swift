@@ -204,7 +204,7 @@ final class ShellGlassFrameProbeTests: XCTestCase {
         var records: [[String: Any]] = []
         for frame in frames {
             XCTAssertTrue(ShellGlassBody.nativeFrameCoversCanvas(frame.shape, canvas: frame.size, blend: frame.blend))
-            for scale in [1, 2] {
+            for scale in ShellGlassSceneTests.fullSweep || frame.size.width < 1920 ? [1, 2] : [1] {
                 records.append(try probe(frame, scale: scale))
             }
         }
