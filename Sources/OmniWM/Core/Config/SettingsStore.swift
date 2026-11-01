@@ -134,6 +134,7 @@ final class SettingsStore {
     }
 
     let statusBar = StatusBarSettings()
+    let statusMenu = StatusMenuSettings()
 
     let hiddenBar = HiddenBarSettings()
 
@@ -293,6 +294,7 @@ final class SettingsStore {
             self?.scheduleSave()
         }
         statusBar.onChange = { [weak self] in self?.scheduleSave() }
+        statusMenu.onChange = { [weak self] in self?.scheduleSave() }
         windowSwitcher.onChange = { [weak self] in self?.scheduleSave() }
         keyboardModes.onChange = { [weak self] in self?.scheduleSave() }
         hiddenBar.onChange = { [weak self] in self?.scheduleSave() }
@@ -466,6 +468,7 @@ extension SettingsStore {
         ipcEnabled = export.ipcEnabled
         gestures.apply(export.gestures)
         statusBar.apply(export.statusBar)
+        statusMenu.apply(export.statusMenu)
         hiddenBar.apply(export.hiddenBar)
         animationsEnabled = export.animationsEnabled
         animationSpeed = export.animationSpeed

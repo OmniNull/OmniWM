@@ -36,6 +36,7 @@ extension SettingsStore {
             ipcEnabled: ipcEnabled,
             gestures: gestures.export(),
             statusBar: statusBar.export(),
+            statusMenu: statusMenu.export(),
             hiddenBar: hiddenBar.export(),
             animationsEnabled: animationsEnabled,
             animationSpeed: animationSpeed,
