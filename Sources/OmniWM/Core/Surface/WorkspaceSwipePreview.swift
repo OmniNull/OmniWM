@@ -321,7 +321,9 @@ final class WorkspaceSwipePreview {
         backdrop.clear()
         capture.releaseCache(reason: .shutdown)
     }
+}
 
+extension WorkspaceSwipePreview {
     private func makeWorkspaceLayer(
         _ items: [Item], monitor: Monitor, frame: CGRect, scale: CGFloat, image: CGImage
     ) -> CALayer {

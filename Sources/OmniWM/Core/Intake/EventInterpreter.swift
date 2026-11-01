@@ -28,8 +28,13 @@ final class EventInterpreter: EventIntakeSink {
         case let .focusedAdmissionRetryFactRequestSuperseded(execution):
             controller.axEventHandler.finishFocusedAdmissionRetryExecution(execution)
 
-        case .activeSpaceChanged:
-            controller.serviceLifecycleManager.handleActiveSpaceDidChange()
+        case .activeSpaceChanged,
+             .display,
+             .nativeFullscreenTransitionExpired,
+             .secureInputStateMayHaveChanged,
+             .systemSleep,
+             .systemWake:
+            handleLifecycleIntakeEvent(stamped.event, controller: controller)
 
         case let .application(event):
             handleApplicationIntakeEvent(event, sequence: stamped.seq, controller: controller)
@@ -39,9 +44,6 @@ final class EventInterpreter: EventIntakeSink {
 
         case let .cgs(event):
             controller.axEventHandler.handleCGSEvent(event)
-
-        case let .display(event):
-            controller.serviceLifecycleManager.monitorConfiguration.handle(event)
 
         case let .hotkeyInvocation(invocation):
             handleHotkeyInvocation(invocation, sequence: stamped.seq, controller: controller)
@@ -68,6 +70,25 @@ final class EventInterpreter: EventIntakeSink {
         case let .mouseScroll(payload):
             controller.mouseEventHandler.dispatchScrollWheel(payload)
 
+        case let .pointerEdgeCrossed(target):
+            controller.mouseWarpHandler.notePointerEdgeCrossing(to: target)
+
+        case .pointerEdgeOwnershipChanged:
+            controller.mouseEventHandler.reconcileMouseMoveSubscription()
+
+        case let .windowConstraintsResolved(fact):
+            controller.layoutRefreshController.applyResolvedConstraints(fact)
+        }
+    }
+
+    private func handleLifecycleIntakeEvent(_ event: IntakeEvent, controller: WMController) {
+        switch event {
+        case .activeSpaceChanged:
+            controller.serviceLifecycleManager.handleActiveSpaceDidChange()
+
+        case let .display(event):
+            controller.serviceLifecycleManager.monitorConfiguration.handle(event)
+
         case let .nativeFullscreenTransitionExpired(originalToken, generation):
             _ = controller.workspaceManager.expireNativeFullscreenTransition(
                 originalToken: originalToken,
@@ -84,14 +105,8 @@ final class EventInterpreter: EventIntakeSink {
         case .systemWake:
             controller.serviceLifecycleManager.handleSystemWake()
 
-        case let .pointerEdgeCrossed(target):
-            controller.mouseWarpHandler.notePointerEdgeCrossing(to: target)
-
-        case .pointerEdgeOwnershipChanged:
-            controller.mouseEventHandler.reconcileMouseMoveSubscription()
-
-        case let .windowConstraintsResolved(fact):
-            controller.layoutRefreshController.applyResolvedConstraints(fact)
+        default:
+            preconditionFailure("Unexpected non-lifecycle intake event")
         }
     }
 

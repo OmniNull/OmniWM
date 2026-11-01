@@ -52,17 +52,33 @@ extension NiriLayoutEngine {
             columns: cols, activeIndex: activeIdx, activePosition: activePosition,
             viewStart: viewStart, span: viewportSpan, scale: scale, viewFrame: monitor?.frame
         )
-        if settings.centerFocusedColumn == .always
-            || (cols.count == 1 && settings.alwaysCenterSingleColumn)
+        return settleRemovalViewport(
+            viewport, context: context, state: &state, settings: settings,
+            preservesCenteredView: preservesCenteredView
+        )
+    }
+
+    private func settleRemovalViewport(
+        _ viewport: RemovalViewport,
+        context: NiriInteractionContext,
+        state: inout ViewportState,
+        settings: ResolvedNiriSettings,
+        preservesCenteredView: Bool
+    ) -> Bool {
+        let centerMode = settings.centerFocusedColumn
+        let centerSingle = settings.alwaysCenterSingleColumn
+        let columnCount = viewport.columns.count
+        if centerMode == .always
+            || (columnCount == 1 && centerSingle)
         {
             return centerRemovalViewport(
                 viewport, context: context, state: &state,
-                centerMode: settings.centerFocusedColumn, centerSingle: settings.alwaysCenterSingleColumn
+                centerMode: centerMode, centerSingle: centerSingle
             )
         }
         return fitRemovalViewport(
             viewport, context: context, state: &state,
-            centerMode: settings.centerFocusedColumn, preservesCenteredView: preservesCenteredView
+            centerMode: centerMode, preservesCenteredView: preservesCenteredView
         )
     }
 

@@ -393,6 +393,21 @@ extension NiriLayoutHandler {
             }
         }
 
+        let correctionNeedsRecalc = correctViewportAfterSelection(
+            pass: pass, state: &state, removal: removal, snapshot: snapshot,
+            usesSingleWindowFit: usesSingleWindowFit
+        )
+        return viewportNeedsRecalc || correctionNeedsRecalc
+    }
+
+    private func correctViewportAfterSelection(
+        pass: NiriLayoutPass,
+        state: inout ViewportState,
+        removal: RemovalContext,
+        snapshot: NiriWorkspaceSnapshot,
+        usesSingleWindowFit: Bool
+    ) -> Bool {
+        var viewportNeedsRecalc = false
         if usesSingleWindowFit,
            pass.engine.correctSingleWindowGestureOffset(
                context: pass.interactionContext,

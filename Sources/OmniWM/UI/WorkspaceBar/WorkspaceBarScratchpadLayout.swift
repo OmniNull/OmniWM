@@ -4,29 +4,33 @@
 import AppKit
 
 enum WorkspaceBarScratchpadLayout {
+    struct WidthBudget {
+        let availableWidth: CGFloat
+        let baseWidth: CGFloat
+    }
+
     static let compactLabelMaximumWidth: CGFloat = 20
     private static let itemWidthSafetyMargin: CGFloat = 1
 
     static func compactedItems(
         _ items: [WorkspaceBarScratchpadItem],
-        availableWidth: CGFloat,
-        baseWidth: CGFloat,
+        widthBudget: WidthBudget,
         barHeight: CGFloat,
         icons: Int,
         hasAdjacentContent: Bool
     ) -> [WorkspaceBarScratchpadItem] {
         let expanded = items.map { $0.presented(as: .expanded) }
-        let requiredWidth = baseWidth
+        let requiredWidth = widthBudget.baseWidth
             + (hasAdjacentContent && !expanded.isEmpty ? 8 : 0)
             + estimatedWidth(of: expanded, barHeight: barHeight, icons: icons)
-        guard requiredWidth > availableWidth else { return expanded }
+        guard requiredWidth > widthBudget.availableWidth else { return expanded }
         let compacted = expanded.map { item in
             item.presented(as: item.isRevealed ? .expanded : .compact)
         }
-        let compactedRequiredWidth = baseWidth
+        let compactedRequiredWidth = widthBudget.baseWidth
             + (hasAdjacentContent && !compacted.isEmpty ? 8 : 0)
             + estimatedWidth(of: compacted, barHeight: barHeight, icons: icons)
-        guard compactedRequiredWidth > availableWidth else { return compacted }
+        guard compactedRequiredWidth > widthBudget.availableWidth else { return compacted }
         return compacted.map { $0.presented(as: .compact) }
     }
 

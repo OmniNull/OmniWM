@@ -52,11 +52,6 @@ extension NiriLayoutEngine {
             gaps: context.gaps,
             orientation: context.orientation
         )
-        let viewportSpan: CGFloat = switch context.orientation {
-        case .horizontal: context.workingFrame.width
-        case .vertical: context.workingFrame.height
-        }
-
         let scale = displayScale(in: context.workspaceId)
         let viewFrame = monitorForWorkspace(context.workspaceId)?.frame
         return withProjectedViewport(
@@ -75,24 +70,9 @@ extension NiriLayoutEngine {
 
             let activeIndex = projectedState.activeColumnIndex.clamped(to: 0 ... columns.count - 1)
             projectedState.activeColumnIndex = activeIndex
-            guard let targetOffset = centeredVisibleColumnsOffset(
-                columns: columns,
-                state: projectedState,
-                geometry: NiriViewportGeometry(
-                    gap: context.gaps,
-                    viewportSpan: viewportSpan,
-                    orientation: context.orientation,
-                    workingArea: context.workingFrame,
-                    viewFrame: viewFrame,
-                    scale: scale
-                )
-            ) ?? (projectedState.preservesGestureOffset ? projectedState.computeCenteredOffset(
-                containerIndex: activeIndex,
-                containers: columns,
-                context: context,
-                viewFrame: viewFrame,
-                scale: scale
-            ) : nil) else { return false }
+            guard let targetOffset = centeredVisibleColumnsTarget(
+                columns: columns, state: projectedState, context: context, viewFrame: viewFrame, scale: scale
+            ) else { return false }
             cancelInteractiveResize(for: columns[activeIndex], in: context.workspaceId)
 
             projectedState.animateToOffset(targetOffset, motion: context.motion, scale: scale)
@@ -107,6 +87,42 @@ extension NiriLayoutEngine {
             )
             return true
         } ?? false
+    }
+
+    private func centeredVisibleColumnsTarget(
+        columns: [NiriContainer],
+        state: ViewportState,
+        context: NiriInteractionContext,
+        viewFrame: CGRect?,
+        scale: CGFloat
+    ) -> CGFloat? {
+        let viewportSpan: CGFloat = switch context.orientation {
+        case .horizontal: context.workingFrame.width
+        case .vertical: context.workingFrame.height
+        }
+
+        if let target = centeredVisibleColumnsOffset(
+            columns: columns,
+            state: state,
+            geometry: NiriViewportGeometry(
+                gap: context.gaps,
+                viewportSpan: viewportSpan,
+                orientation: context.orientation,
+                workingArea: context.workingFrame,
+                viewFrame: viewFrame,
+                scale: scale
+            )
+        ) {
+            return target
+        }
+        guard state.preservesGestureOffset else { return nil }
+        return state.computeCenteredOffset(
+            containerIndex: state.activeColumnIndex,
+            containers: columns,
+            context: context,
+            viewFrame: viewFrame,
+            scale: scale
+        )
     }
 
     private func centeredVisibleColumnsOffset(
