@@ -262,7 +262,12 @@ extension AXEventHandler {
             intent.origin.preservesViewportOnActivation
         case .external: false
         }
-        let preserveViewport = controller.workspaceManager.animationDriver.hasMotion(in: wsId)
+        let animationDriver = controller.workspaceManager.animationDriver
+        let preserveViewport = (
+            controller.settings.niri.naturalWindowDrag
+                ? animationDriver.hasUserMotion(in: wsId)
+                : animationDriver.hasMotion(in: wsId)
+        )
             || preservesPointerViewport
             || preservesAppTerminationRecoveryViewport(for: entry.token)
         let clickFocusWithoutScrolling = controller.settings.focus.clickFocusWithoutScrolling

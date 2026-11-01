@@ -421,3 +421,15 @@ extension AnimationDriver {
         let relativeProjectedOffset: Double
     }
 }
+
+extension AnimationDriver {
+    func hasUserMotion(in workspaceId: WorkspaceDescriptor.ID) -> Bool {
+        switch motions[workspaceId] {
+        case .gesture,
+             .deceleration,
+             .edgeScroll: true
+        case .spring,
+             nil: false
+        }
+    }
+}
