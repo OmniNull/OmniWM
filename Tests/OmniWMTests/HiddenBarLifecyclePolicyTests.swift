@@ -214,25 +214,33 @@ final class HiddenBarLifecyclePolicyTests: XCTestCase {
         hiddenBar.cleanup()
     }
 
-    func testOpenMenuDoesNotConsumeRehideTime() {
-        XCTAssertEqual(
-            HiddenBarMenuGuardPolicy.rehideRemaining(
-                remaining: .seconds(5),
-                elapsed: .seconds(2),
-                previousMenuOpen: false,
-                menuOpen: true
-            ),
-            .seconds(5)
-        )
+    func testCountdownIsNotConsumedWithoutAConfirmedClosedInterval() {
+        let cases: [(label: String, elapsed: Duration, previousMenuOpen: Bool?, menuOpen: Bool?)] = [
+            ("open menu", .seconds(2), false, true),
+            ("unknown menu state", .seconds(2), false, nil),
+            ("first closed sample", .seconds(2), nil, false)
+        ]
+        for testCase in cases {
+            XCTAssertEqual(
+                HiddenBarMenuGuardPolicy.rehideRemaining(
+                    remaining: .seconds(5),
+                    elapsed: testCase.elapsed,
+                    previousMenuOpen: testCase.previousMenuOpen,
+                    menuOpen: testCase.menuOpen
+                ),
+                .seconds(5),
+                testCase.label
+            )
+        }
     }
 
-    func testUnknownMenuStateDoesNotConsumeRehideTime() {
+    func testNegativeElapsedTimeDoesNotIncreaseCountdown() {
         XCTAssertEqual(
             HiddenBarMenuGuardPolicy.rehideRemaining(
                 remaining: .seconds(5),
-                elapsed: .seconds(2),
+                elapsed: .seconds(-2),
                 previousMenuOpen: false,
-                menuOpen: nil
+                menuOpen: false
             ),
             .seconds(5)
         )
@@ -268,30 +276,6 @@ final class HiddenBarLifecyclePolicyTests: XCTestCase {
             menuOpen: false
         )
         XCTAssertEqual(remaining, .zero)
-    }
-
-    func testNegativeElapsedTimeDoesNotIncreaseCountdown() {
-        XCTAssertEqual(
-            HiddenBarMenuGuardPolicy.rehideRemaining(
-                remaining: .seconds(5),
-                elapsed: .seconds(-2),
-                previousMenuOpen: false,
-                menuOpen: false
-            ),
-            .seconds(5)
-        )
-    }
-
-    func testFirstClosedSampleStartsCountdownWithFullInterval() {
-        XCTAssertEqual(
-            HiddenBarMenuGuardPolicy.rehideRemaining(
-                remaining: .seconds(5),
-                elapsed: .seconds(2),
-                previousMenuOpen: nil,
-                menuOpen: false
-            ),
-            .seconds(5)
-        )
     }
 
     func testMenuGuardPollingBacksOffAndCaps() {

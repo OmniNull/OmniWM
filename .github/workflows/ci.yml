@@ -35,8 +35,26 @@ jobs:
     steps:
       - uses: actions/checkout@3d3c42e5aac5ba805825da76410c181273ba90b1
         with:
+          fetch-depth: 0
+          filter: blob:none
           persist-credentials: false
       - uses: ./.github/actions/setup-swift
+      - uses: ./.github/actions/setup-lix
+        with:
+          make-target: setup
+      - name: Date sources by their last commit
+        run: python3 Scripts/restore-mtimes.py
+      - uses: actions/cache/restore@55cc8345863c7cc4c66a329aec7e433d2d1c52a9
+        with:
+          path: .build/localization
+          key: swift-build-${{ runner.os }}-${{ runner.arch }}-${{ hashFiles('.swift-version', 'Package.resolved') }}-${{ github.sha }}
+          restore-keys: swift-build-${{ runner.os }}-${{ runner.arch }}-${{ hashFiles('.swift-version', 'Package.resolved') }}-
+      - name: Build the app and test bundle
+        run: LIBRARY_PATH="$(./Scripts/ghostty-preflight.sh print-library-dir)${LIBRARY_PATH:+:$LIBRARY_PATH}" swift build --build-tests --build-system swiftbuild --arch arm64 --scratch-path .build/localization
+      - uses: actions/cache/save@55cc8345863c7cc4c66a329aec7e433d2d1c52a9
+        with:
+          path: .build/localization
+          key: swift-build-${{ runner.os }}-${{ runner.arch }}-${{ hashFiles('.swift-version', 'Package.resolved') }}-${{ github.sha }}
   changes:
     name: Changes
     runs-on: ubuntu-latest
@@ -56,6 +74,7 @@ jobs:
           BASE: ${{ github.event.pull_request.base.sha }}
           HEAD: ${{ github.event.pull_request.head.sha }}
         run: |
+          set -o pipefail
           if [[ "$EVENT" == pull_request ]]; then
             git diff --name-only "$BASE...$HEAD"
           fi | python3 Scripts/ci_test_plan.py "$EVENT" >> "$GITHUB_OUTPUT"
@@ -97,6 +116,7 @@ jobs:
         run: make test-dev-tools
   verify:
     name: Verify
+    needs: changes
     runs-on: xcode-27
     timeout-minutes: 60
     steps:
@@ -111,23 +131,61 @@ jobs:
       - uses: actions/checkout@3d3c42e5aac5ba805825da76410c181273ba90b1
         with:
           ref: ${{ inputs.pr_number != '' && format('refs/pull/{0}/merge', inputs.pr_number) || github.ref }}
+          fetch-depth: 0
+          filter: blob:none
           persist-credentials: false
       - uses: ./.github/actions/setup-swift
       - uses: ./.github/actions/setup-lix
         with:
           make-target: setup
+      - name: Date sources by their last commit
+        if: needs.changes.outputs.tests == 'true'
+        run: python3 Scripts/restore-mtimes.py
+      - uses: actions/cache/restore@55cc8345863c7cc4c66a329aec7e433d2d1c52a9
+        if: needs.changes.outputs.tests == 'true'
+        with:
+          path: .build/localization
+          key: swift-build-${{ runner.os }}-${{ runner.arch }}-${{ hashFiles('.swift-version', 'Package.resolved') }}-${{ github.sha }}
+          restore-keys: swift-build-${{ runner.os }}-${{ runner.arch }}-${{ hashFiles('.swift-version', 'Package.resolved') }}-
       - name: Put flake tools on PATH
         run: echo "$PWD/.cache/flake-tools/bin" >> "$GITHUB_PATH"
       - name: Verify package toolchain
         run: swift package dump-package > /dev/null
+      - name: Build the app and test bundle once
+        if: needs.changes.outputs.tests == 'true'
+        run: LIBRARY_PATH="$(./Scripts/ghostty-preflight.sh print-library-dir)${LIBRARY_PATH:+:$LIBRARY_PATH}" swift build --build-tests --build-system swiftbuild --arch arm64 --scratch-path .build/localization
       - name: Verify localization and build
-        run: make localization-check
+        run: |
+          ./Scripts/ghostty-preflight.sh verify
+          python3 Scripts/localization.py check
+      - name: Archive the test runtime
+        if: needs.changes.outputs.tests == 'true'
+        run: |
+          scratch=.build/localization
+          tar -cf "$RUNNER_TEMP/swift-tests.tar" \
+            --exclude="$scratch/out/Intermediates.noindex" \
+            --exclude="$scratch/out/ModuleCache.noindex" \
+            --exclude="$scratch/out/SDKExplicitPrecompiledModules.noindex" \
+            --exclude="$scratch/repositories" --exclude="$scratch/strings" \
+            --exclude="$scratch/out/Products/Debug/index" \
+            --exclude="$scratch/out/Products/Debug/*.a" \
+            --exclude='*.o' --exclude='*.swiftmodule' \
+            "$scratch"
+          tar -rhf "$RUNNER_TEMP/swift-tests.tar" Frameworks/GhosttyKit.xcframework
+      - uses: actions/upload-artifact@cf430e030ddbb5b0abf93d22962f4752f3646cd9
+        if: needs.changes.outputs.tests == 'true'
+        with:
+          name: swift-tests
+          path: ${{ runner.temp }}/swift-tests.tar
+          compression-level: 1
+          retention-days: 1
+          overwrite: true
   test-group:
     name: Tests (${{ matrix.name }})
-    needs: changes
-    if: ${{ !cancelled() && needs.changes.outputs.tests == 'true' }}
+    needs: [changes, verify]
+    if: ${{ !cancelled() && needs.changes.outputs.tests == 'true' && needs.verify.result == 'success' }}
     runs-on: xcode-27
-    timeout-minutes: 60
+    timeout-minutes: 30
     strategy:
       fail-fast: false
       matrix: ${{ fromJSON(needs.changes.outputs.matrix) }}
@@ -145,26 +203,29 @@ jobs:
           ref: ${{ inputs.pr_number != '' && format('refs/pull/{0}/merge', inputs.pr_number) || github.ref }}
           persist-credentials: false
       - uses: ./.github/actions/setup-swift
-      - uses: ./.github/actions/setup-lix
+      - uses: actions/download-artifact@9000827ccba6bdab643e8b6fd33ac0654aef8333
         with:
-          make-target: setup
-      - name: Put flake tools on PATH
-        run: echo "$PWD/.cache/flake-tools/bin" >> "$GITHUB_PATH"
-      - name: Check completion test shells
+          name: swift-tests
+      - name: Restore the test runtime
+        run: tar -xf swift-tests.tar && rm swift-tests.tar
+      - uses: ./.github/actions/setup-lix
+        if: matrix.shells
+        with:
+          make-target: setup-tools
+      - name: Put completion test shells on PATH
+        if: matrix.shells
         run: |
-          fish --version
-          nu --version
-      - name: Verify package toolchain
-        run: swift package dump-package > /dev/null
+          echo "$PWD/.cache/flake-tools/bin" >> "$GITHUB_PATH"
+          .cache/flake-tools/bin/fish --version
+          .cache/flake-tools/bin/nu --version
       - name: Run the test group
         env:
           FLAG: ${{ matrix.flag }}
           PATTERN: ${{ matrix.pattern }}
-          OMNIWM_REDUCED_GLASS_SWEEP: ${{ github.event_name == 'pull_request' && '1' || '' }}
-        run: LIBRARY_PATH="$(./Scripts/ghostty-preflight.sh print-library-dir)${LIBRARY_PATH:+:$LIBRARY_PATH}" swift test "$FLAG" "$PATTERN"
+        run: swift test --skip-build --build-system swiftbuild --arch arm64 --scratch-path .build/localization "$FLAG" "$PATTERN"
   tests:
     name: Tests
-    needs: [changes, test-group]
+    needs: [changes, verify, test-group]
     if: ${{ !cancelled() }}
     runs-on: ubuntu-latest
     timeout-minutes: 5
@@ -172,9 +233,15 @@ jobs:
       - name: Require every test group to pass
         env:
           CHANGES: ${{ needs.changes.result }}
+          REQUIRED: ${{ needs.changes.outputs.tests }}
+          VERIFY: ${{ needs.verify.result }}
           TEST_GROUPS: ${{ needs.test-group.result }}
         run: |
-          [[ "$CHANGES" == success && "$TEST_GROUPS" =~ ^(success|skipped)$ ]] || {
-            echo "::error::Changes $CHANGES, test groups $TEST_GROUPS."
+          if [[ "$REQUIRED" == true ]]; then
+            [[ "$CHANGES" == success && "$VERIFY" == success && "$TEST_GROUPS" == success ]]
+          else
+            [[ "$CHANGES" == success && "$TEST_GROUPS" == skipped ]]
+          fi || {
+            echo "::error::Changes $CHANGES, verify $VERIFY, test groups $TEST_GROUPS."
             exit 1
           }

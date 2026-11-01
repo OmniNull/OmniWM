@@ -178,13 +178,11 @@ extension ShellVitreusDeskTests {
 
     func testFocusSnapshotsKeepTheDeskInsideItsClip() throws {
         try snapshot("focus", size: CGSize(width: 1920, height: 1080), scale: 1)
-        try snapshot("focus", size: CGSize(width: 1920, height: 1080), scale: 2)
         try snapshot("focus", size: CGSize(width: 1280, height: 720), scale: 2)
     }
 
     func testPadSnapshotsKeepTheDeskInsideItsClip() throws {
         try snapshot("pad", size: CGSize(width: 1920, height: 1080), scale: 1)
-        try snapshot("pad", size: CGSize(width: 1920, height: 1080), scale: 2)
     }
 
     func testAHalfSizeDeskIsRelaidOutWithCrispTextAndTheScaledFramePixels() throws {

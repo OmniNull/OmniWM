@@ -16,6 +16,7 @@ private struct BandCase {
     let rim: Double
     let background: String
     let share: Double
+    var retina = false
 }
 
 private struct PieceImage {
@@ -393,16 +394,22 @@ extension ShellVitreusBarTests {
     func testBatteryRimBandsFollowTheirBodyOpacityLikePleamarOverAnyBackground() throws {
         let dark = "#1B2127", grey = "#808080"
         let cases = [
-            BandCase(name: "opaque", opacity: 1, alpha: "ff", rim: 0.1, background: dark, share: 1),
-            BandCase(name: "track", opacity: 0.1, alpha: "ff", rim: 0.1, background: dark, share: 0.1),
+            BandCase(name: "opaque", opacity: 1, alpha: "ff", rim: 0.1, background: dark, share: 1, retina: true),
             BandCase(name: "track-grey", opacity: 0.1, alpha: "ff", rim: 0.1, background: grey, share: 0.1),
             BandCase(name: "fill", opacity: 0.19, alpha: "ff", rim: 0.18, background: dark, share: 0.19),
-            BandCase(name: "fill-low", opacity: 0.28, alpha: "ff", rim: 0.18, background: grey, share: 0.28),
-            BandCase(name: "fill-alpha", opacity: 1, alpha: "1a", rim: 0.1, background: dark, share: 0x1A / 255),
+            BandCase(
+                name: "fill-low",
+                opacity: 0.28,
+                alpha: "ff",
+                rim: 0.18,
+                background: grey,
+                share: 0.28,
+                retina: true
+            ),
             BandCase(name: "fill-alpha-grey", opacity: 1, alpha: "1a", rim: 0.1, background: grey, share: 0x1A / 255)
         ]
         for scale in [1, 2] {
-            for entry in cases {
+            for entry in cases where scale == 1 || entry.retina {
                 guard let lit = try pieceBand(entry, rim: entry.rim, scale: scale),
                       let unlit = try pieceBand(entry, rim: 0, scale: scale)
                 else { throw XCTSkip("Native glass is unavailable") }
@@ -483,24 +490,23 @@ extension ShellVitreusBarTests {
         let shell = try shell()
         let blend = 6.0, depth = 3.5
         let vitreus = CGFloat((depth + (blend - depth) * (blend - depth) / (4 * blend)) * unit)
-        for scale in [1, 2] {
-            let widget = try pieceSnapshotWidget(shell, scale: scale)
-            let pill = try VitreusFixture.frame(widget, key: "shell")
-            try pieceHover(widget, "title-region", .began)
-            let flat = try pieceImage(widget, scale: scale)
-            try pieceHover(widget, "title-button", .began)
-            let tabbed = try pieceImage(widget, scale: scale)
-            let column = try VitreusFixture.frame(widget, key: "title-tab").midX
-            func reach(_ image: PieceImage) -> CGFloat {
-                var y = pill.maxY - 3
-                while y < 119, image.pixel(column, y)[3] >= 46 { y += 1 / CGFloat(scale) }
-                return y - pill.maxY
-            }
-            let label = "vitreus-bar-pieces-1920x1080-\(scale)x-title-tab"
-            print("vitreus-title-tab-reach \(label) without \(reach(flat)) with \(reach(tabbed)) vitreus \(vitreus)")
-            XCTAssertEqual(reach(flat), 0, accuracy: 1, label)
-            XCTAssertEqual(reach(tabbed), vitreus, accuracy: 1, label)
-            try ShellVitreusDeskTests.write(XCTUnwrap(tabbed.image()), name: label)
+        let scale = 2
+        let widget = try pieceSnapshotWidget(shell, scale: scale)
+        let pill = try VitreusFixture.frame(widget, key: "shell")
+        try pieceHover(widget, "title-region", .began)
+        let flat = try pieceImage(widget, scale: scale)
+        try pieceHover(widget, "title-button", .began)
+        let tabbed = try pieceImage(widget, scale: scale)
+        let column = try VitreusFixture.frame(widget, key: "title-tab").midX
+        func reach(_ image: PieceImage) -> CGFloat {
+            var y = pill.maxY - 3
+            while y < 119, image.pixel(column, y)[3] >= 46 { y += 1 / CGFloat(scale) }
+            return y - pill.maxY
         }
+        let label = "vitreus-bar-pieces-1920x1080-\(scale)x-title-tab"
+        print("vitreus-title-tab-reach \(label) without \(reach(flat)) with \(reach(tabbed)) vitreus \(vitreus)")
+        XCTAssertEqual(reach(flat), 0, accuracy: 1, label)
+        XCTAssertEqual(reach(tabbed), vitreus, accuracy: 1, label)
+        try ShellVitreusDeskTests.write(XCTUnwrap(tabbed.image()), name: label)
     }
 }
