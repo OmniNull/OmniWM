@@ -66,6 +66,10 @@ extension AXManager {
         frameLedger.hasPendingFrameWrite(for: windowId)
     }
 
+    func hasInFlightFrameWrite(for token: WindowToken) -> Bool {
+        AppAXContextRegistry.contexts[token.pid]?.frameDelivery.hasInFlightFrameWrite(for: token.windowId) == true
+    }
+
     func pendingFrameWrite(for windowId: Int) -> CGRect? {
         frameLedger.pendingFrameWrite(for: windowId)
     }
