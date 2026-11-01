@@ -220,6 +220,9 @@ extension WMController {
         referenceMonitor: Monitor?
     ) -> Bool {
         let token = entry.token
+        if let currentFrame, settings.niri.naturalWindowDrag {
+            niriEngine?.noteStripGlide(for: token, from: currentFrame)
+        }
         if let currentFrame {
             workspaceManager.updateFloatingGeometry(
                 frame: currentFrame,

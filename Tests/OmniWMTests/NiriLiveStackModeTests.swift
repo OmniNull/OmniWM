@@ -1316,6 +1316,38 @@ final class NiriLiveStackModeTests: XCTestCase {
         XCTAssertLessThan(settled, fullHeight - 100)
     }
 
+    func testAWindowThatBecomesTiledGlidesFromWhereItWasIntoItsSlot() {
+        var fixture = makeFixture(widths: [0.25], activeIndex: 0)
+        fixture.motion = .enabled
+        let token = WindowToken(pid: 941, windowId: 99)
+        let stale = WindowToken(pid: 941, windowId: 98)
+        let start = CGRect(x: 300, y: 200, width: 500, height: 400)
+        let now = CACurrentMediaTime()
+        fixture.engine.noteStripGlide(for: token, from: start, at: now)
+        fixture.engine.noteStripGlide(for: stale, from: start, at: now - 5)
+        for added in [token, stale] {
+            _ = fixture.engine.addWindow(token: added, to: fixture.workspaceId, afterSelection: nil)
+        }
+        fixture.engine.resolvePrimaryContainerSpans(
+            in: fixture.workspaceId,
+            workingFrame: fixture.frame,
+            gaps: fixture.gap,
+            orientation: .horizontal
+        )
+        let landed = fixture.frames()[token]
+        fixture.engine.glideIntoStrip([token, stale], context: fixture.context, state: fixture.state, at: now)
+
+        let first = fixture.frames(at: now)[token]
+        XCTAssertEqual(first?.minX ?? 0, start.minX, accuracy: 2)
+        XCTAssertEqual(first?.minY ?? 0, start.minY, accuracy: 2)
+        XCTAssertEqual(first?.height ?? 0, start.height, accuracy: 2)
+        let settled = fixture.frames(at: now + 10)[token]
+        XCTAssertEqual(settled?.minX ?? 0, landed?.minX ?? 1, accuracy: 1)
+        XCTAssertEqual(settled?.minY ?? 0, landed?.minY ?? 1, accuracy: 1)
+        XCTAssertFalse(fixture.engine.findNode(for: stale, in: fixture.workspaceId)?.hasMoveAnimationsRunning ?? true)
+        XCTAssertTrue(fixture.engine.stripGlides.isEmpty)
+    }
+
     func testWithAnimationsOffTheHeightChangesAtOnce() {
         var fixture = makeFixture()
         XCTAssertTrue(fixture.begin(1))

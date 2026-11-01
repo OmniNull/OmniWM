@@ -192,6 +192,24 @@ final class WindowMinimizationTests: XCTestCase {
         XCTAssertEqual(factReads, 1)
     }
 
+    func testAFloatingWindowTiledWithNaturalWindowDragGlidesFromWhereItWas() throws {
+        let controller = WindowAdmissionTestSupport.controller()
+        let workspaceId = try XCTUnwrap(controller.workspaceManager.workspaceId(for: "1", createIfMissing: true))
+        controller.niriLayoutHandler.enableNiriLayout()
+        let engine = try XCTUnwrap(controller.niriEngine)
+        let frame = CGRect(x: 300, y: 200, width: 500, height: 400)
+        for (index, naturalWindowDrag) in [false, true].enumerated() {
+            let token = WindowToken(pid: 688_011, windowId: 688_910 + index)
+            _ = WindowAdmissionTestSupport.track(token, in: workspaceId, controller: controller)
+            XCTAssertTrue(controller.workspaceManager.setWindowMode(.floating, for: token))
+            controller.settings.niri.naturalWindowDrag = naturalWindowDrag
+
+            XCTAssertTrue(controller.transitionWindowMode(for: token, to: .tiling, observedFrame: frame))
+
+            XCTAssertEqual(engine.stripGlides[token]?.frame, naturalWindowDrag ? frame : nil)
+        }
+    }
+
     func testUnknownWindowNotificationInvalidatesInitialEnumeration() {
         let controller = WindowAdmissionTestSupport.controller()
         let token = WindowToken(pid: 688_008, windowId: 688_801)

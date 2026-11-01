@@ -328,6 +328,7 @@ extension NiriLayoutHandler {
                 )
             }
         }
+        pass.engine.glideIntoStrip(visibleNewTokens, context: pass.interactionContext, state: state)
 
         return InsertionContext(
             newTokens: visibleNewTokens,
