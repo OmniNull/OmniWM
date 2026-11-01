@@ -13,18 +13,9 @@ final class HiddenWindowRevealTests: XCTestCase {
         visibleFrame: CGRect(x: 0, y: 0, width: 1800, height: 1130)
     )
 
-    func testPositiveRevealIsOnePoint() {
-        XCTAssertEqual(
-            HiddenWindowPlacementResolver.effectiveReveal(baseReveal: 1.0),
-            1.0
-        )
-    }
-
-    func testZeroRevealStaysZero() {
-        XCTAssertEqual(
-            HiddenWindowPlacementResolver.effectiveReveal(baseReveal: 0),
-            0
-        )
+    func testEffectiveRevealIsOnePointOrZero() {
+        XCTAssertEqual(HiddenWindowPlacementResolver.effectiveReveal(baseReveal: 1.0), 1.0)
+        XCTAssertEqual(HiddenWindowPlacementResolver.effectiveReveal(baseReveal: 0), 0)
     }
 
     func testHiddenWindowKeepsAtLeastOnePointOnScreen() {

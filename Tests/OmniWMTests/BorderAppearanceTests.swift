@@ -413,41 +413,25 @@ final class BorderAppearanceTests: XCTestCase {
         XCTAssertNil(BorderConfig.resolvedGlow(inherited, isDark: false).color)
     }
 
-    func testDisabledGlowProducesZeroPadding() {
-        let glow = BorderGlow(enabled: false, radius: 16, opacity: 0.5)
-        XCTAssertEqual(BorderConfig.renderPadding(glow: glow, scale: 2), 0)
-    }
-
-    func testNilGlowProducesZeroPadding() {
-        XCTAssertEqual(BorderConfig.renderPadding(glow: nil, scale: 2), 0)
-    }
-
-    func testRenderPaddingUsesOnePointFiveMultiplier() {
-        let glow = BorderGlow(enabled: true, radius: 8, opacity: 0.6)
-        XCTAssertEqual(BorderConfig.renderPadding(glow: glow, scale: 1), 12)
-    }
-
-    func testRenderPaddingAtRetinaScale() {
-        let glow = BorderGlow(enabled: true, radius: 8, opacity: 0.6)
-        XCTAssertEqual(BorderConfig.renderPadding(glow: glow, scale: 2), 12)
-        let fractional = BorderGlow(enabled: true, radius: 5, opacity: 0.6)
-        XCTAssertEqual(BorderConfig.renderPadding(glow: fractional, scale: 1), 8)
-        XCTAssertEqual(BorderConfig.renderPadding(glow: fractional, scale: 2), 7.5)
-    }
-
-    func testRenderPaddingAtMaxRadius() {
-        let glow = BorderGlow(enabled: true, radius: 32, opacity: 1)
-        XCTAssertEqual(BorderConfig.renderPadding(glow: glow, scale: 1), 48)
-    }
-
-    func testRenderPaddingClampsNegativeRadius() {
-        let glow = BorderGlow(enabled: true, radius: -5, opacity: 0.6)
-        XCTAssertEqual(BorderConfig.renderPadding(glow: glow, scale: 1), 0)
-    }
-
-    func testRenderPaddingCapsAtMaxRadius() {
-        let glow = BorderGlow(enabled: true, radius: 100, opacity: 0.6)
-        XCTAssertEqual(BorderConfig.renderPadding(glow: glow, scale: 1), 48)
+    func testRenderPadding() {
+        let cases: [(label: String, glow: BorderGlow?, scale: CGFloat, expected: CGFloat)] = [
+            ("disabled", BorderGlow(enabled: false, radius: 16, opacity: 0.5), 2, 0),
+            ("nil", nil, 2, 0),
+            ("one and a half multiplier", BorderGlow(enabled: true, radius: 8, opacity: 0.6), 1, 12),
+            ("retina scale", BorderGlow(enabled: true, radius: 8, opacity: 0.6), 2, 12),
+            ("fractional at 1x", BorderGlow(enabled: true, radius: 5, opacity: 0.6), 1, 8),
+            ("fractional at 2x", BorderGlow(enabled: true, radius: 5, opacity: 0.6), 2, 7.5),
+            ("max radius", BorderGlow(enabled: true, radius: 32, opacity: 1), 1, 48),
+            ("negative radius", BorderGlow(enabled: true, radius: -5, opacity: 0.6), 1, 0),
+            ("radius over max", BorderGlow(enabled: true, radius: 100, opacity: 0.6), 1, 48)
+        ]
+        for testCase in cases {
+            XCTAssertEqual(
+                BorderConfig.renderPadding(glow: testCase.glow, scale: testCase.scale),
+                testCase.expected,
+                testCase.label
+            )
+        }
     }
 
     func testResolvedGeometryExpandsSurfaceForGlow() {

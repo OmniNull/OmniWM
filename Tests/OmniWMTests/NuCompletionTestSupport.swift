@@ -6,9 +6,14 @@ import Foundation
 import XCTest
 
 enum NuCompletionTestSupport {
-    static func completions(_ commandLine: String) throws -> [String] {
-        let output = try run("\(literal(commandLine)) | commandline complete | to json")
-        return try JSONDecoder().decode([String].self, from: output)
+    static func completions(_ commandLines: [String]) throws -> [[String]] {
+        let list = try commandLines.map(literal).joined(separator: ", ")
+        let output = try run("[\(list)] | each { |line| $line | commandline complete | default [] } | to json")
+        let results = try JSONDecoder().decode([[String]].self, from: output)
+        guard results.count == commandLines.count else {
+            throw Failure.resultCount(expected: commandLines.count, output: String(decoding: output, as: UTF8.self))
+        }
+        return results
     }
 
     static func run(_ body: String) throws -> Data {
@@ -65,5 +70,6 @@ enum NuCompletionTestSupport {
 
     private enum Failure: Error {
         case shell(Int32, String)
+        case resultCount(expected: Int, output: String)
     }
 }
