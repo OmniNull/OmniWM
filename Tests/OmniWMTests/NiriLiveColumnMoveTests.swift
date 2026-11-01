@@ -1743,6 +1743,39 @@ final class NiriLiveColumnMoveTests: XCTestCase {
         ))
     }
 
+    func testAnEdgeScrollTowardTheHomeSpotHandsTheDropSpaceOnAsEachWindowArrives() {
+        var fixture = makeFixture(widths: Array(repeating: 0.5, count: 7), activeIndex: 0)
+        XCTAssertTrue(fixture.begin(0))
+        for target in 1 ... 6 {
+            fixture.scrollSoThat(target, startsAt: fixture.frame.maxX - 300)
+            _ = fixture.moveAndSettle(to: CGPoint(x: fixture.frame.maxX - 5, y: fixture.midY))
+        }
+        XCTAssertEqual(fixture.landingOrder().last, fixture.tokens[0])
+
+        fixture.engine.liveColumnMoveEdgeScrolls(toward: .before)
+        let cursor = CGPoint(x: fixture.frame.minX + 1, y: fixture.midY)
+        var landings: [Int] = []
+        var steps = 0
+        while steps < 1_000, fixture.engine.liveEdgeScrollLimit(
+            towardTrailingEdge: false, context: fixture.context, state: fixture.state
+        ) != nil {
+            steps += 1
+            fixture.state.jumpOffset(to: fixture.state.viewOffset - 20)
+            guard fixture.engine.liveColumnMoveWouldChange(
+                cursor: cursor, strip: fixture.strip(), context: fixture.context
+            ) else { continue }
+            _ = fixture.engine.liveColumnMoveUpdate(
+                cursor: cursor, at: 0, immediate: true, context: fixture.context, state: &fixture.state
+            )
+            fixture.engine.liveColumnMoveSettled()
+            landings.append(fixture.landingOrder().firstIndex(of: fixture.tokens[0]) ?? -1)
+        }
+
+        XCTAssertEqual(landings, [4, 3, 2, 1, 0])
+        XCTAssertLessThanOrEqual(steps, 12)
+        XCTAssertNil(fixture.dropSpace())
+    }
+
     func testEdgeScrollNeverPullsAnOverScrolledStripBack() {
         var fixture = makeFixture()
         XCTAssertTrue(fixture.begin(2))

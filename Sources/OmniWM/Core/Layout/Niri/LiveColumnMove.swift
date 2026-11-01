@@ -101,6 +101,7 @@ struct LiveColumnMove {
     var dropSpaceId: NodeId?
     var dropSpaceKeepsStripEnd = false
     var lockedTarget: TargetLock?
+    var edgeScrollSide: Side?
     var swapCount = 0
     var narrowedSlot: NarrowedSlot?
     var slotClosing: SlotClosing?

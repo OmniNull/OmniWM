@@ -305,6 +305,10 @@ extension NiriLayoutEngine {
         liveColumnMove?.phase = .dragging
     }
 
+    func liveColumnMoveEdgeScrolls(toward side: LiveColumnMove.Side?) {
+        liveColumnMove?.edgeScrollSide = side
+    }
+
     func liveColumnMoveEnd(
         releasedAtScreenX releaseX: CGFloat? = nil,
         pointer: CGPoint? = nil,
@@ -501,6 +505,9 @@ extension NiriLayoutEngine {
             if target.nextSibling() === landing {
                 return placed.maxX - cursor.x >= depth ? .before : .after
             }
+        }
+        if awayFromHome, let ahead = liveColumnMove?.edgeScrollSide {
+            return ahead
         }
         if awayFromHome,
            let children = target.parent?.children,
