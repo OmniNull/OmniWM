@@ -6,6 +6,45 @@ import CoreGraphics
 import XCTest
 
 final class MouseEventHandlerWheelTests: XCTestCase {
+    func testMouseWheelSensitivityAdvancesSmoothInputWithLessMovement() {
+        var baseline = NiriScrollTracker(tick: niriWheelScrollTickAmount)
+        var faster = NiriScrollTracker(tick: niriWheelScrollTickAmount)
+
+        XCTAssertEqual(baseline.accumulate(MouseEventHandler.scaledWheelAxisDelta(
+            12, isContinuous: true, sensitivity: 1
+        )), 0)
+        XCTAssertEqual(faster.accumulate(MouseEventHandler.scaledWheelAxisDelta(
+            12, isContinuous: true, sensitivity: 10
+        )), 1)
+    }
+
+    func testMouseWheelSensitivityPreservesDiscreteWheelSteps() {
+        for sign: CGFloat in [-1, 1] {
+            let normalized = MouseEventHandler.resolvedWheelAxisDelta(
+                pointDelta: sign, fixedPointDelta: 0, isContinuous: false
+            )
+            var tracker = NiriScrollTracker(tick: niriWheelScrollTickAmount)
+            XCTAssertEqual(tracker.accumulate(MouseEventHandler.scaledWheelAxisDelta(
+                normalized, isContinuous: false, sensitivity: 10
+            )), Int(sign))
+        }
+    }
+
+    func testMouseWheelSensitivityPreservesDirectionAndAccumulatesSmallSteps() {
+        var tracker = NiriScrollTracker(tick: niriWheelScrollTickAmount)
+        let delta = MouseEventHandler.scaledWheelAxisDelta(-4, isContinuous: true, sensitivity: 10)
+        XCTAssertEqual(tracker.accumulate(delta), 0)
+        XCTAssertEqual(tracker.accumulate(delta), 0)
+        XCTAssertEqual(tracker.accumulate(delta), -1)
+        XCTAssertEqual(tracker.accumulator, 0)
+    }
+
+    func testDefaultMouseWheelSensitivityPreservesSmoothInput() {
+        XCTAssertEqual(MouseEventHandler.scaledWheelAxisDelta(
+            -12, isContinuous: true, sensitivity: 1
+        ), -12)
+    }
+
     func testScrollModifierChoicesMatchOnlyTheirExactModifierCombination() {
         let choices: [(ScrollModifierKey, CGEventFlags)] = [
             (.optionShift, [.maskAlternate, .maskShift]),

@@ -192,6 +192,7 @@ struct SettingsExport: Equatable {
         var dwindleGroupDragAcrossDisplays: DwindleGroupDrag? = .group
         var adoptNativeResize: Bool? = false
         var adoptNativeMoveAcrossDisplays: Bool? = false
+        var mouseWheelSensitivity: Double? = 1.0
     }
 
     struct StatusBar: Codable, Equatable {

@@ -15,12 +15,18 @@ final class GestureSettings {
     @ObservationIgnored private var isApplying = false
 
     nonisolated static let windowGestureSensitivityRange = 0.1 ... 5.0
+    nonisolated static let mouseWheelSensitivityRange = 0.1 ... 10.0
 
     private nonisolated static let scrollSensitivityRange = 0.1 ... 100.0
 
     private nonisolated static func normalizedScrollSensitivity(_ value: Double) -> Double {
         guard value.isFinite else { return defaults.scrollSensitivity }
         return min(max(value, scrollSensitivityRange.lowerBound), scrollSensitivityRange.upperBound)
+    }
+
+    nonisolated static func normalizedMouseWheelSensitivity(_ value: Double) -> Double {
+        guard value.isFinite else { return defaults.mouseWheelSensitivity ?? 1.0 }
+        return min(max(value, mouseWheelSensitivityRange.lowerBound), mouseWheelSensitivityRange.upperBound)
     }
 
     var scrollEnabled = GestureSettings.defaults.scrollEnabled {
@@ -43,6 +49,17 @@ final class GestureSettings {
 
     var scrollModifierKey = GestureSettings.defaults.scrollModifierKey {
         didSet { notifyChange() }
+    }
+
+    var mouseWheelSensitivity = GestureSettings.defaults.mouseWheelSensitivity ?? 1.0 {
+        didSet {
+            let normalized = GestureSettings.normalizedMouseWheelSensitivity(mouseWheelSensitivity)
+            guard normalized == mouseWheelSensitivity else {
+                mouseWheelSensitivity = normalized
+                return
+            }
+            notifyChange()
+        }
     }
 
     var mouseMoveModifierKey = GestureSettings.defaults.mouseMoveModifierKey {
@@ -186,7 +203,8 @@ final class GestureSettings {
             resizePreviewStyle: resizePreviewStyle,
             dwindleGroupDragAcrossDisplays: dwindleGroupDragAcrossDisplays,
             adoptNativeResize: adoptNativeResize,
-            adoptNativeMoveAcrossDisplays: adoptNativeMoveAcrossDisplays
+            adoptNativeMoveAcrossDisplays: adoptNativeMoveAcrossDisplays,
+            mouseWheelSensitivity: mouseWheelSensitivity
         )
     }
 
@@ -200,6 +218,7 @@ final class GestureSettings {
         isApplying = true
         scrollEnabled = gestures.scrollEnabled
         scrollSensitivity = gestures.scrollSensitivity
+        mouseWheelSensitivity = gestures.mouseWheelSensitivity ?? 1.0
         scrollModifierKey = gestures.scrollModifierKey
         mouseMoveModifierKey = gestures.mouseMoveModifierKey
         mouseResizeModifierKey = gestures.mouseResizeModifierKey
