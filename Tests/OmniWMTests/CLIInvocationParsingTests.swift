@@ -11,6 +11,8 @@ final class CLIInvocationParsingTests: XCTestCase {
         let cases: [(arguments: [String], kind: IPCRequestKind)] = [
             (["ping"], .ping),
             (["version"], .version),
+            (["--version"], .version),
+            (["-V"], .version),
             (["command", "focus", "left"], .command),
             (["query", "windows"], .query),
             (["rule", "remove", "B9B137A2-9406-4D68-BD0E-8ED465450413"], .rule),
@@ -50,7 +52,7 @@ final class CLIInvocationParsingTests: XCTestCase {
     }
 
     func testPayloadFreeAndUnknownCommandsKeepUsageFailures() {
-        for arguments in [["ping", "extra"], ["version", "extra"], ["unknown"], []] {
+        for arguments in [["ping", "extra"], ["version", "extra"], ["--version", "extra"], ["-V", "extra"], ["unknown"], []] {
             XCTAssertThrowsError(try CLIParser.parse(arguments: ["omniwmctl"] + arguments)) { error in
                 XCTAssertEqual(error as? CLIParseError, .usage(CLIParser.usageText))
             }

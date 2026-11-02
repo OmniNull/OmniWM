@@ -75,7 +75,9 @@ enum CLIParser {
     private static func parseRemoteRequest(command: String, id: String, arguments: [String]) throws -> IPCRequest {
         switch command {
         case "ping",
-             "version":
+             "version",
+             "--version",
+             "-V":
             guard arguments.isEmpty else {
                 throw CLIParseError.usage(usageText)
             }

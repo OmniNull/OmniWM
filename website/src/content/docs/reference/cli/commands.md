@@ -16,7 +16,7 @@ omniwmctl <command> [arguments...] [--format json|ndjson|table|tsv|text] [--json
 | Command | Type | Description |
 |---------|------|-------------|
 | `ping` | remote | Verify IPC reachability and return `pong` |
-| `version` | remote | Return app and IPC protocol versions plus available build fingerprint fields |
+| `version`, `--version`, `-V` | remote | Return app and IPC protocol versions plus available build fingerprint fields |
 | `command` | remote | Execute window manager commands through the IPC command surface |
 | `capture` | remote | Start, stop, or inspect a diagnostics trace or performance capture |
 | `query` | remote | Query OmniWM state, registries, and protocol capabilities |
