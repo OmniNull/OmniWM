@@ -15,6 +15,7 @@ final class FocusRoutingSettingsExportTests: XCTestCase {
         XCTAssertEqual(tree["focus"], .table([
             "followsMouse": .boolean(false),
             "followsMouseOnlyFullyVisible": .boolean(false),
+            "clickFocusWithoutScrolling": .boolean(false),
             "edgeNavigationInterval": .float(1.5),
             "raiseOnMouseFocus": .boolean(false),
             "lockModifier": .string("off"),
@@ -64,6 +65,26 @@ final class FocusRoutingSettingsExportTests: XCTestCase {
 
         let malformed = source.replacingOccurrences(
             of: "followsMouseOnlyFullyVisible = true", with: "followsMouseOnlyFullyVisible = \"true\""
+        )
+        XCTAssertThrowsError(try SettingsTOMLCodec.decode(Data(malformed.utf8)))
+    }
+
+    func testClickFocusWithoutScrollingRoundTripsAndDefaultsForExistingConfigurations() throws {
+        var export = SettingsExport.defaults()
+        export.focus.clickFocusWithoutScrolling = true
+        let data = try SettingsTOMLCodec.encode(export)
+        XCTAssertEqual(try SettingsTOMLCodec.decode(data), export)
+        XCTAssertFalse(SettingsTOMLCodec.unknownKeyPaths(in: data).contains("focus.clickFocusWithoutScrolling"))
+
+        let source = String(decoding: data, as: UTF8.self)
+        let missing = try removing(key: "clickFocusWithoutScrolling", from: "focus", in: source)
+        let result = try SettingsTOMLCodec.decodeForLoad(Data(missing.utf8))
+        XCTAssertFalse(result.export.focus.clickFocusWithoutScrolling)
+        XCTAssertNil(result.migration)
+        XCTAssertNil(result.migratedData)
+
+        let malformed = source.replacingOccurrences(
+            of: "clickFocusWithoutScrolling = true", with: "clickFocusWithoutScrolling = \"true\""
         )
         XCTAssertThrowsError(try SettingsTOMLCodec.decode(Data(malformed.utf8)))
     }

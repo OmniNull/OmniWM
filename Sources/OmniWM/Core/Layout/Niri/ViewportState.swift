@@ -26,6 +26,8 @@ struct ViewportState: Equatable {
 
     var selectedNodeId: NodeId?
 
+    var clickFocusedNodeId: NodeId?
+
     var viewOffsetToRestore: CGFloat?
 
     var activatePrevColumnOnRemoval: CGFloat?

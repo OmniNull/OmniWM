@@ -109,6 +109,13 @@ private struct GlobalNiriSettingsSection: View {
                     controller.updateNiriConfig(alwaysCenterSingleColumn: newValue)
                 }
 
+            Toggle("Focus Clicked Windows Without Scrolling", isOn: Bindable(settings.focus).clickFocusWithoutScrolling)
+                .id("Focus Clicked Windows Without Scrolling")
+
+            SettingsCaption(
+                localized: "A left click on a partially visible window focuses it without moving the viewport. Keyboard navigation, gestures, Cmd-Tab, and the Dock still scroll windows into view. Has no effect when Center Focused Column is Always."
+            )
+
             Toggle("Allow Overscroll", isOn: Bindable(settings.niri).allowOverscroll)
                 .id("Allow Overscroll")
                 .onChange(of: settings.niri.allowOverscroll) { _, _ in

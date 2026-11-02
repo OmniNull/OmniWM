@@ -360,9 +360,13 @@ extension NiriLayoutHandler {
         let preservesGesture = state.preservesGestureOffset
             && pass.engine.effectiveSettings(in: pass.wsId).edgeOverscroll != .disabled
             && !removal.removedColumn && removal.removalResult.removedTokens.isEmpty
+        let keepsClickedSelectionOffscreen = state.clickFocusedNodeId != nil
+            && state.clickFocusedNodeId == state.selectedNodeId
+            && controller?.settings.focus.clickFocusWithoutScrolling == true
         if !usesSingleWindowFit,
            !preservesGesture,
            !isGestureOrAnimation,
+           !keepsClickedSelectionOffscreen,
            snapshot.isActiveWorkspace,
            let selectedId = state.selectedNodeId,
            let selectedNode = pass.engine.findNode(by: selectedId, in: pass.wsId),

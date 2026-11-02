@@ -233,6 +233,7 @@ struct NodeActivationOptions {
     var axFocus: Bool = true
     var focusOrigin: ManagedFocusOrigin = .keyboardOrProgrammatic
     var startAnimation: Bool = true
+    var clickFocusWithoutScrolling: Bool = false
 }
 
 @MainActor struct NiriOperationContext {
