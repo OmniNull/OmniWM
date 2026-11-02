@@ -388,6 +388,44 @@ final class NiriLiveColumnMoveTests: XCTestCase {
         XCTAssertEqual(fixture.strip().count, 7)
     }
 
+    func testTheHomeSlotOfATabbedColumnWithAHiddenTabClosesAndThenSettles() {
+        var fixture = makeFixture()
+        let tabbed = fixture.makeTabbed(2)
+        fixture.engine.setProjectionExclusions([tabbed.windowNodes[2].token], in: fixture.workspaceId)
+        XCTAssertTrue(fixture.beginActiveTab(2))
+        let home = fixture.stripColumn(holding: 2)
+        let pickup = CGPoint(x: home.midX, y: fixture.midY)
+        XCTAssertEqual(fixture.move(to: pickup), .unchanged)
+        let cursor = CGPoint(x: pickup.x + 120, y: fixture.midY)
+
+        XCTAssertEqual(fixture.move(to: cursor), .changed)
+        fixture.engine.liveColumnMoveSettled()
+
+        XCTAssertEqual(fixture.move(to: cursor), .unchanged)
+        let narrowed = fixture.stripColumn(holding: 2)
+        XCTAssertLessThan(narrowed.maxX - narrowed.minX, home.maxX - home.minX - 100)
+    }
+
+    func testAnOffScreenHomeSlotOfATabbedColumnWithAHiddenTabNarrowsOnce() {
+        var fixture = makeFixture(widths: Array(repeating: 1.0 / 3.0, count: 7))
+        let tabbed = fixture.makeTabbed(2)
+        fixture.engine.setProjectionExclusions([tabbed.windowNodes[2].token], in: fixture.workspaceId)
+        XCTAssertTrue(fixture.beginActiveTab(2))
+        let home = fixture.stripColumn(holding: 2)
+        fixture.scrollSoThat(2, startsAt: fixture.frame.minX - (home.maxX - home.minX) - 50)
+
+        XCTAssertEqual(fixture.engine.narrowOffScreenHomeSlot(context: fixture.context, state: &fixture.state), true)
+        fixture.engine.liveColumnMoveSettled()
+
+        XCTAssertEqual(fixture.engine.narrowOffScreenHomeSlot(context: fixture.context, state: &fixture.state), false)
+        let narrowed = fixture.stripColumn(holding: 2)
+        XCTAssertEqual(
+            narrowed.maxX - narrowed.minX,
+            fixture.engine.liveDropSpaceWidth(context: fixture.context),
+            accuracy: 0.5
+        )
+    }
+
     func testStackedTargetGetsOneDropSpaceBesideTheWholeColumn() {
         var fixture = makeFixture()
         let extra = WindowToken(pid: 931, windowId: 98)
