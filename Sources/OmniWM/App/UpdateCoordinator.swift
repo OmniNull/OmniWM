@@ -349,7 +349,7 @@ final class UpdateCoordinator: AppUpdateCoordinating {
     }
 
     private func handleInstall(_ release: GitHubRelease) {
-        if let installTask, !installTask.isCancelled { return }
+        if installTask != nil { return }
         installTask = Task { @MainActor [weak self] in
             guard let self else { return }
             defer { if !Task.isCancelled { installTask = nil } }
@@ -368,14 +368,19 @@ final class UpdateCoordinator: AppUpdateCoordinating {
         }
     }
 
-    private func handleOpenReleasePage(for release: GitHubRelease) {
+    private func cancelInstall() {
         installTask?.cancel()
+        installTask = nil
+    }
+
+    private func handleOpenReleasePage(for release: GitHubRelease) {
+        cancelInstall()
         openURL(validatedReleasePageURL(for: release))
         windowController.close(markingActionHandled: true)
     }
 
     private func handleSkipThisVersion(for release: GitHubRelease) {
-        installTask?.cancel()
+        cancelInstall()
         runtimeState.updaterSkippedReleaseTag = release.skipKey
         windowController.close(markingActionHandled: true)
     }
@@ -392,7 +397,7 @@ final class UpdateCoordinator: AppUpdateCoordinating {
         for release: GitHubRelease,
         source: AutomaticCheckSource
     ) {
-        installTask?.cancel()
+        cancelInstall()
         guard source == .automatic else { return }
         runtimeState.updaterSkippedReleaseTag = release.skipKey
     }
