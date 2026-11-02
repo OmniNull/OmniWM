@@ -33,6 +33,16 @@ extension MouseEventHandler {
         syncTapFilterSnapshot()
     }
 
+    func canStartNaturalDrag(windowId: Int?, at location: CGPoint) -> Bool {
+        if let windowId {
+            return canStartNaturalDrag(windowId: windowId)
+        }
+        guard let workspaceId = workspaceIdForPointer(at: location),
+              let token = geometricFocusIntentCandidate(at: location, workspaceId: workspaceId)
+        else { return false }
+        return canStartNaturalDrag(windowId: token.windowId)
+    }
+
     func canStartNaturalDrag(windowId: Int) -> Bool {
         guard let controller,
               controller.settings.niri.naturalWindowDrag,

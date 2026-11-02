@@ -239,6 +239,17 @@ final class LiveTitleBarDragTests: NiriInteractionTestCase {
         XCTAssertFalse(dwindle.handler.canStartNaturalDrag(windowId: dwindle.tokens[0].windowId))
     }
 
+    func testAPressWhoseEventNamesNoWindowFindsTheTiledWindowUnderThePointer() throws {
+        let fixture = try makeFixture(pid: 938_314)
+        let onWindow = try fixture.centre(of: fixture.tokens[1])
+        let offWindows = CGPoint(x: fixture.monitor.frame.minX + 1, y: fixture.monitor.frame.maxY - 1)
+
+        XCTAssertTrue(fixture.handler.canStartNaturalDrag(windowId: nil, at: onWindow))
+        XCTAssertFalse(fixture.handler.canStartNaturalDrag(windowId: nil, at: offWindows))
+        fixture.controller.settings.niri.naturalWindowDrag = false
+        XCTAssertFalse(fixture.handler.canStartNaturalDrag(windowId: nil, at: onWindow))
+    }
+
     func testTapKnowsTheNaturalDragModifierOnlyWhileTheSettingIsOn() throws {
         let fixture = try makeFixture(pid: 938_090)
 
