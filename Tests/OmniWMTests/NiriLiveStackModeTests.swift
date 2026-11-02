@@ -268,6 +268,29 @@ final class NiriLiveStackModeTests: XCTestCase {
         XCTAssertFalse(fixture.engine.isLiveColumnMoveActive(in: fixture.workspaceId))
     }
 
+    func testLeavingAStackWhoseOtherWindowIsHiddenKeepsTheStripInPlace() {
+        var fixture = makeFixture()
+        fixture.stack(4, onto: 1)
+        let home = fixture.column(1)
+        let target = fixture.column(2)
+        fixture.engine.setProjectionExclusions([fixture.tokens[4]], in: fixture.workspaceId)
+        let placesBefore = fixture.strip().map { ($0.column.id, $0.minX) }
+        XCTAssertTrue(fixture.begin(1))
+        let cursor = fixture.lowerHalf(of: 2)
+
+        XCTAssertEqual(fixture.setStackMode(true, at: cursor), .changed)
+
+        XCTAssertTrue(fixture.window(1).parent === target)
+        XCTAssertTrue(fixture.strip().contains { $0.column === home })
+        XCTAssertEqual(
+            fixture.stripColumn(target).minX,
+            placesBefore.first { $0.0 == target.id }?.1 ?? .nan,
+            accuracy: 0.5
+        )
+        XCTAssertEqual(fixture.move(to: cursor), .unchanged)
+        XCTAssertTrue(fixture.window(1).parent === target)
+    }
+
     func testStackAbovePutsTheWindowAboveTheTarget() {
         var fixture = makeFixture()
         XCTAssertTrue(fixture.begin(1))

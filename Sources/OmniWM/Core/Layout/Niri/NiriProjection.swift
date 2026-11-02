@@ -82,11 +82,12 @@ extension NiriLayoutEngine {
             return root(for: workspaceId)?.projectedColumns ?? []
         }
         let columns = columns(in: workspaceId)
+        let liveHomeColumnId = liveColumnMove?.homeColumnId ?? liveStackDrop?.homeColumnId
         var projected: [NiriProjectedColumn] = []
         projected.reserveCapacity(columns.count)
         for (durableIndex, column) in columns.enumerated() {
             let windows = column.windowNodes.filter { !excludedTokens.contains($0.token) }
-            if !windows.isEmpty || column.isLiveDropSpace || column.isLiveHomeSpot {
+            if !windows.isEmpty || column.isLiveDropSpace || column.isLiveHomeSpot || column.id == liveHomeColumnId {
                 projected.append(
                     NiriProjectedColumn(column: column, windows: windows, durableIndex: durableIndex)
                 )
