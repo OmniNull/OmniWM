@@ -179,6 +179,31 @@ final class LiveTitleBarDragTests: NiriInteractionTestCase {
         XCTAssertEqual(fixture.phase, .awaitingCorrection)
     }
 
+    func testReloadedSettingsLeaveTheTapFilterAloneWhileNaturalWindowDragIsOff() throws {
+        let fixture = try makeFixture(pid: 938_070)
+        let controller = fixture.controller
+        let tap = fixture.handler.inputTapThread
+        controller.settings.niri.naturalWindowDrag = false
+        fixture.handler.syncTapFilterSnapshot()
+        let before = tap.filterSnapshot.moveModifier
+        controller.settings.gestures.mouseMoveModifierKey = controller.settings.gestures.mouseMoveModifierKey == .option
+            ? .command
+            : .option
+
+        fixture.handler.syncNaturalDragTapFilter()
+        XCTAssertEqual(tap.filterSnapshot.moveModifier, before)
+        XCTAssertNil(tap.filterSnapshot.naturalDragModifier)
+
+        controller.settings.niri.naturalWindowDrag = true
+        controller.settings.niri.naturalWindowDragModifier = .option
+        fixture.handler.syncNaturalDragTapFilter()
+        XCTAssertEqual(tap.filterSnapshot.naturalDragModifier, .maskAlternate)
+
+        controller.settings.niri.naturalWindowDrag = false
+        fixture.handler.syncNaturalDragTapFilter()
+        XCTAssertNil(tap.filterSnapshot.naturalDragModifier)
+    }
+
     func testNaturalDragClicksReachTheAppWithoutOption() {
         let option = CGEventFlags.maskAlternate
 

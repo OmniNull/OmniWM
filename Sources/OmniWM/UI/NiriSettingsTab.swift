@@ -219,7 +219,9 @@ private struct GlobalNiriSettingsSection: View {
             .id("Left Mouse Natural Window Drag Modifier")
             .disabled(!settings.niri.naturalWindowDrag)
             .onChange(of: settings.niri.naturalWindowDragModifier) {
-                controller.applyNaturalWindowDragSettings()
+                if settings.niri.naturalWindowDrag {
+                    controller.applyNaturalWindowDragSettings()
+                }
             }
 
             SettingsCaption(
