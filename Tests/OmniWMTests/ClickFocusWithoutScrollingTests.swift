@@ -125,6 +125,16 @@ final class ClickFocusWithoutScrollingTests: XCTestCase {
         XCTAssertEqual(origins[true], origins[false])
     }
 
+    func testSwitchingToAlwaysCenteringRevealsOnNextRelayout() throws {
+        try withFixture(clickFocusWithoutScrolling: true) { fixture in
+            try fixture.activateTarget(afterClick: true)
+            XCTAssertFalse(try fixture.isFullyVisible(fixture.target, in: fixture.relayout()))
+            fixture.controller.settings.niri.centerFocusedColumn = .always
+            fixture.controller.updateNiriConfig(centerFocusedColumn: .always)
+            XCTAssertTrue(try fixture.isFullyVisible(fixture.target, in: fixture.relayout()))
+        }
+    }
+
     func testActivationWithoutClickStillScrolls() throws {
         try withFixture(clickFocusWithoutScrolling: true) { fixture in
             try fixture.activateTarget(afterClick: false)
