@@ -207,6 +207,9 @@ extension AXEventHandler {
             postLayout: completeReveal,
             postLayoutInvalidated: completeReveal
         )
+        if controller.settings.niri.naturalWindowDrag, entries.contains(where: { $0.mode == .floating }) {
+            requestTargetedFullRescan(for: [pid])
+        }
         controller.surfaceReconciler.noteWorldChanged()
     }
 
