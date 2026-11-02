@@ -202,6 +202,14 @@ final class LiveTitleBarDragTests: NiriInteractionTestCase {
         controller.settings.niri.naturalWindowDrag = false
         fixture.handler.syncNaturalDragTapFilter()
         XCTAssertNil(tap.filterSnapshot.naturalDragModifier)
+
+        controller.settings.niri.naturalWindowDrag = true
+        controller.settings.niri.naturalWindowDragModifier = .off
+        fixture.handler.syncNaturalDragTapFilter()
+        XCTAssertTrue(tap.filterSnapshot.naturalWindowDrag)
+        controller.settings.niri.naturalWindowDrag = false
+        fixture.handler.syncNaturalDragTapFilter()
+        XCTAssertFalse(tap.filterSnapshot.naturalWindowDrag)
     }
 
     func testNaturalDragClicksReachTheAppWithoutOption() {

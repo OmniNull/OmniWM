@@ -27,8 +27,10 @@ extension MouseEventHandler {
     }
 
     func syncNaturalDragTapFilter() {
+        let snapshot = inputTapThread.filterSnapshot
         guard controller?.settings.niri.naturalWindowDrag == true
-            || inputTapThread.filterSnapshot.naturalDragModifier != nil
+            || snapshot.naturalWindowDrag
+            || snapshot.naturalDragModifier != nil
         else { return }
         syncTapFilterSnapshot()
     }
