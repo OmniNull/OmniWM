@@ -56,12 +56,15 @@ extension SettingsStore {
     }
 
     func withDynamicHotkeys(_ bindings: [HotkeyBinding]) -> [HotkeyBinding] {
-        HotkeyBindingRegistry.reconcilingShellToggleBindings(
-            HotkeyBindingRegistry.reconcilingWorkspaceNumberBindings(
-                bindings,
-                workspaceNames: workspaces.configuredNames() + (liveWorkspaceNamesForHotkeys?() ?? [])
+        HotkeyBindingRegistry.reconcilingOpenAppBindings(
+            HotkeyBindingRegistry.reconcilingShellToggleBindings(
+                HotkeyBindingRegistry.reconcilingWorkspaceNumberBindings(
+                    bindings,
+                    workspaceNames: workspaces.configuredNames() + (liveWorkspaceNamesForHotkeys?() ?? [])
+                ),
+                names: liveShellNamesForHotkeys?() ?? []
             ),
-            names: liveShellNamesForHotkeys?() ?? []
+            bundleIDs: launcher.entries.compactMap(\.bundleIdentifier)
         )
     }
 

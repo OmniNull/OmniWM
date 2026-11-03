@@ -162,7 +162,10 @@ final class SettingsStore {
     }
 
     var launcher = LauncherConfiguration() {
-        didSet { scheduleSave() }
+        didSet {
+            if launcher.entries != oldValue.entries { reconcileDynamicHotkeys() }
+            scheduleSave()
+        }
     }
 
     let clipboard = ClipboardSettings()

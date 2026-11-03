@@ -27,6 +27,15 @@ struct LauncherSettingsPage: View {
                         Spacer()
                         Text(entry.kind.title).foregroundStyle(.secondary)
                         Button("Run") { run(entry) }
+                        if let bundleID = entry.bundleIdentifier {
+                            Button("Configure Shortcut…") {
+                                settings.reconcileDynamicHotkeys()
+                                navigation.request(SettingsRoute(
+                                    section: .hotkeys,
+                                    itemID: ActionCatalog.openAppPrefix + bundleID
+                                ))
+                            }
+                        }
                         Button("Edit") { navigation.launcherEditorRequest = .init(entry: entry) }
                         Button("Remove", role: .destructive) {
                             controller.commandPaletteController.removeLauncherEntry(entry.id, settings: settings)

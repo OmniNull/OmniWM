@@ -115,6 +115,12 @@ struct LauncherEntry: Codable, Equatable, Identifiable, Sendable {
         }
     }
 
+    var bundleIdentifier: String? {
+        guard kind == .application else { return nil }
+        return ApplicationCatalogFilter.resolvedBundleURL(LauncherPaths.expanded(path))
+            .flatMap { Bundle(url: $0)?.bundleIdentifier }
+    }
+
     func matches(_ query: String) -> Bool {
         let fields = [name, keywords, path, command]
         return query.split(whereSeparator: \.isWhitespace).allSatisfy { term in

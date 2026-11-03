@@ -20,6 +20,7 @@ extension ActionCatalog {
         case let .media(command): .media(command)
         case let .keyboardMode(command): .keyboardMode(command)
         case .shellToggle,
+             .openApp,
              .windowMark:
             nil
         case .shellAppOpen: .shellAppOpen
