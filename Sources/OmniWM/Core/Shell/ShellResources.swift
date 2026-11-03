@@ -19,6 +19,7 @@ final class ShellResources {
     let keepAwake: @MainActor (ShellAwakeCommand) -> Void
     private let iconOverride: @MainActor (String) -> NSImage?
     private let windowIcon: @MainActor (String) -> NSImage?
+    private let processIcon: @MainActor (pid_t) -> NSImage?
     private var icons: [String: NSImage?] = [:]
     private var bitmaps: [String: CGImage] = [:]
 
@@ -29,6 +30,7 @@ final class ShellResources {
         calendar: CalendarController? = nil,
         notifications: ShellNotificationsController? = nil,
         windowIcon: @escaping @MainActor (String) -> NSImage? = { _ in nil },
+        processIcon: @escaping @MainActor (pid_t) -> NSImage? = { NSRunningApplication(processIdentifier: $0)?.icon },
         iconOverride: @escaping @MainActor (String) -> NSImage? = { _ in nil },
         keepAwake: @escaping @MainActor (ShellAwakeCommand) -> Void = { SleepPreventionManager.shared.perform($0) }
     ) {
@@ -38,6 +40,7 @@ final class ShellResources {
         self.calendar = calendar
         self.notifications = notifications ?? ShellNotificationsController()
         self.windowIcon = windowIcon
+        self.processIcon = processIcon
         self.iconOverride = iconOverride
         self.keepAwake = keepAwake
     }
@@ -54,7 +57,7 @@ final class ShellResources {
         switch source {
         case .bundle: icon(for: reference)
         case .window: windowIcon(reference)
-        case .pid: pid_t(reference).flatMap { NSRunningApplication(processIdentifier: $0)?.icon }
+        case .pid: pid_t(reference).flatMap(processIcon)
         }
     }
 
