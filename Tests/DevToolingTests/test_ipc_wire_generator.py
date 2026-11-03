@@ -21,6 +21,17 @@ def encoder_body(typ):
 
 
 class IPCWireGeneratorTests(unittest.TestCase):
+    def test_command_encoder_covers_every_declared_command_case(self):
+        source = (generator.models / "IPCCommandModels.swift").read_text()
+        declaration = re.search(
+            r"public enum IPCCommandRequest: [^{]+\{(.*?)\n    public var name:", source, re.S
+        )
+        self.assertIsNotNone(declaration)
+        expected = set(re.findall(r"^    case (\w+)", declaration.group(1), re.M))
+        branches = re.findall(r"^        case (.+):$", encoder_body("IPCCommandRequest"), re.M)
+        actual = set(re.findall(r"\.(\w+)", "\n".join(branches)))
+        self.assertEqual(actual, expected)
+
     def test_payload_roots_write_sorted_keys_and_delegate_the_payload_switch(self):
         roots = {
             "IPCResult": ["kind", "payload"],

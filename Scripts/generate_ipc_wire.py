@@ -152,8 +152,15 @@ def variants(typ, mappings):
 
 def command():
     argument_types = set()
+
+    def generate_argument(typ):
+        if typ not in argument_types:
+            argument_types.add(typ)
+            generate(typ)
+            output.append(f'    mutating func argument(_ name: StaticString, _ value: borrowing {typ}, _ first: inout Bool) throws {{\n        self.key("arguments", &first)\n        begin(123)\n        var argumentFirst = true\n        self.key(name, &argumentFirst)\n        try self.value(value)\n        end(125)\n    }}')
+
     generate('IPCCommandName')
-    body = ['        begin(123)', '        var first = true', '        switch value {']
+    body = ['        begin(123)', '        var first = true', '        switch value {', '        case let .shellAppOpen(appID):', '            try argument("appId", appID, &first)']
     nested = {'focus': 'IPCFocusCommand', 'windowMovement': 'IPCWindowMovementCommand', 'workspace': 'IPCWorkspaceCommand', 'column': 'IPCColumnCommand', 'sizing': 'IPCSizingCommand', 'dwindle': 'IPCDwindleCommand', 'workspaceLayout': 'IPCWorkspaceLayoutCommand', 'scratchpad': 'IPCScratchpadCommand'}
     for (case, typ) in nested.items():
         body += [f'        case let .{case}(command):', '            try arguments(command, &first)']
@@ -176,16 +183,15 @@ def command():
                 fields = {names.get(k, k): field(v, types[k]) for (k, v) in parameters.items()}
             if len(fields) == 1:
                 (key, (expression, ft)) = next(iter(fields.items()))
-                if ft not in argument_types:
-                    argument_types.add(ft)
-                    generate(ft)
-                    output.append(f'    mutating func argument(_ name: StaticString, _ value: borrowing {ft}, _ first: inout Bool) throws {{\n        self.key("arguments", &first)\n        begin(123)\n        var argumentFirst = true\n        self.key(name, &argumentFirst)\n        try self.value(value)\n        end(125)\n    }}')
+                generate_argument(ft)
                 transformed.append(f'            try argument("{key}", {expression}, &first)')
             else:
                 transformed += ['            self.key("arguments", &first)'] + object_lines(fields, '            ', 'argumentFirst')
         output.append(f'    mutating func arguments(_ value: borrowing {typ}, _ first: inout Bool) throws {{\n        switch value {{\n' + '\n'.join(transformed) + '\n        }\n    }')
-    for (case, ft, key) in [('swapWorkspaceWithMonitor', 'IPCDirection', 'direction'), ('openCommandPaletteMode', 'IPCCommandPaletteMode', 'mode')]:
-        body += [f'        case let .{case}(argument):', '            self.key("arguments", &first)'] + object_lines({key: field('argument', ft)}, '            ', 'argumentFirst')
+    generate('IPCCommandPaletteMode')
+    generate_argument('String')
+    for (case, key, expression) in [('swapWorkspaceWithMonitor', 'direction', 'argument'), ('openCommandPaletteMode', 'mode', 'argument.rawValue')]:
+        body += [f'        case let .{case}(argument):', f'            try self.argument("{key}", {expression}, &first)']
     body += ['        case .monitorFocus, .openCommandPalette, .raiseAllFloatingWindows, .toggleFloatingFocus, .rescueOffscreenWindows, .fullscreen, .presentation, .media, .keyboardMode, .windowState, .openMenuAnywhere:', '            break', '        }', '        self.key("name", &first)', '        try self.value(value.name)', '        end(125)']
     overload('IPCCommandRequest', body)
 custom = {'IPCResult': lambda : payload_root('IPCResult'), 'IPCRequest': lambda : payload_root('IPCRequest'), 'IPCCommandRequest': command, 'WorkspaceTarget': lambda : enum_object('WorkspaceTarget', [(f'let .{case}(text)', {'kind': field(json.dumps(raw), 'String'), 'value': field('text', 'String')}) for (case, raw) in [('rawID', 'raw-id'), ('displayName', 'display-name')]]), 'IPCWindowRequest': lambda : overload('IPCWindowRequest', object_lines({'name': field('value.name', 'IPCWindowActionName'), 'windowId': field('value.windowId', 'String'), 'workspaceTarget': field('value.workspaceTarget', 'WorkspaceTarget?'), 'columnIndex': field('value.columnIndex', 'Int?'), 'direction': field('value.direction', 'IPCDirection?'), 'change': field('value.change', 'IPCSizeChange?'), 'cycle': field('value.cycle', 'IPCCycleDirection?'), 'scratchpadIndex': field('value.scratchpadIndex', 'Int?')})), 'IPCCaptureRequest': lambda : variants('IPCCaptureRequest', {'start': ('let .start(profile)', {'profile': 'profile'}), 'stop': ('.stop', {}), 'status': ('.status', {})}), 'IPCRuleApplyTarget': lambda : variants('IPCRuleApplyTarget', {'focused': ('.focused', {}), 'window': ('let .window(id)', {'windowId': 'id'}), 'pid': ('let .pid(pid)', {'pid': 'pid'})}), 'IPCRuleRequest': lambda : variants('IPCRuleRequest', {k: (f'let .{k}(' + ', '.join(fields) + ')', {f: f for f in fields}) for (k, fields) in [('add', ['rule']), ('replace', ['id', 'rule']), ('remove', ['id']), ('move', ['id', 'position']), ('apply', ['target'])]}), 'IPCWorkspaceRequest': lambda : variants('IPCWorkspaceRequest', {'focus-name': ('let .focusName(target)', {'workspaceTarget': 'target'}), 'move-to-monitor': ('let .moveToMonitor(target, direction, force)', {'workspaceTarget': 'target', 'direction': 'direction', 'force': 'force'}), 'rename': ('let .rename(target, displayName)', {'workspaceTarget': 'target', 'displayName': 'displayName'})}), 'IPCWindowMarkRequest': lambda : variants('IPCWindowMarkRequest', {k: ('.list', {}) if k == 'list' else (f'let .{k}(mark)', {'mark': 'mark'}) for k in ['set', 'list', 'focus', 'summon', 'remove']}), 'IPCShellRequest': lambda : variants('IPCShellRequest', {'set': ('let .set(key, text)', {'key': 'key', 'value': 'text'}), 'unset': ('let .unset(key)', {'key': 'key'}), 'toggle': ('let .toggle(widget)', {'widget': 'widget'}), 'profile': ('let .profile(name)', {'key': 'name'}), 'theme': ('let .theme(name, scheme)', {'key': 'name', 'value': 'scheme'}), 'eject': ('let .eject(widget)', {'widget': 'widget'}), 'init': ('let .initialize(widget)', {'widget': 'widget'}), 'trigger': ('let .trigger(widget, name, text)', {'widget': 'widget', 'key': 'name', 'value': 'text'})})}
