@@ -142,22 +142,19 @@ extension NiriLayoutEngine {
         cycle: ColumnCentreCycle,
         context: NiriInteractionContext
     ) -> [ColumnCentreCycle.Stop] {
-        var stops = presetContainerPrimarySpans.indices.map { presetIndex in
-            (
-                stop: ColumnCentreCycle.Stop.preset(presetIndex),
-                pixels: widthPixels(
-                    presetSpec(presetIndex, for: column, context: context),
-                    for: column,
-                    context: context
-                )
-            )
+        let presetPixels = presetContainerPrimarySpans.indices.map { presetIndex in
+            widthPixels(presetSpec(presetIndex, for: column, context: context), for: column, context: context)
         }
-        if cycle.stop == .start || !stops.contains(where: { abs($0.pixels - cycle.startPixels) < 1 }) {
-            stops.append((stop: .start, pixels: cycle.startPixels))
+        var stops = presetContainerPrimarySpans.indices.map { ColumnCentreCycle.Stop.preset($0) }
+        guard cycle.stop == .start || !presetPixels.contains(where: { abs($0 - cycle.startPixels) < 1 }) else {
+            return stops
         }
-        return stops.enumerated()
-            .sorted { ($0.element.pixels, $0.offset) < ($1.element.pixels, $1.offset) }
-            .map(\.element.stop)
+        // The presets keep the user's order; a start width that is no preset joins after the widest narrower one.
+        let widestNarrower = presetPixels.indices
+            .filter { presetPixels[$0] < cycle.startPixels }
+            .max { presetPixels[$0] < presetPixels[$1] }
+        stops.insert(.start, at: widestNarrower.map { $0 + 1 } ?? 0)
+        return stops
     }
 
     private func presetSpec(

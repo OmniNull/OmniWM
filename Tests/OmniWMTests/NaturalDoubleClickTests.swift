@@ -850,6 +850,53 @@ final class NaturalDoubleClickTests: NiriInteractionTestCase {
         }
     }
 
+    func testTheCycleSizeKeysFollowThePresetsInTheUsersOrder() throws {
+        for naturalWindowDrag in [true, false] {
+            let fixture = try makeFixture(pid: naturalWindowDrag ? 941_134 : 941_135)
+            fixture.controller.settings.niri.naturalWindowDrag = naturalWindowDrag
+            fixture.engine.presetContainerPrimarySpans = [
+                .proportion(2.0 / 3.0),
+                .proportion(0.5),
+                .proportion(1.0 / 3.0)
+            ]
+            let token = fixture.tokens[1]
+            let column = try fixture.column(token)
+            column.width = .proportion(2.0 / 3.0)
+            column.presetWidthIdx = 0
+            column.cachedWidth = 0
+            fixture.relayout()
+            try fixture.select(token)
+
+            fixture.controller.niriLayoutHandler.cycleSize(forward: true)
+            fixture.relayout()
+
+            XCTAssertEqual(column.width, .proportion(0.5), "\(naturalWindowDrag)")
+        }
+    }
+
+    func testAStartWidthThatIsNoPresetJoinsTheCycleAfterTheWidestNarrowerPreset() throws {
+        let fixture = try makeFixture(pid: 941_136)
+        fixture.engine.presetContainerPrimarySpans = [.proportion(0.5), .proportion(1.0 / 3.0), .proportion(2.0 / 3.0)]
+        let token = fixture.tokens[1]
+        let column = try fixture.column(token)
+        column.width = .proportion(0.4)
+        column.cachedWidth = 0
+        fixture.relayout()
+        try fixture.select(token)
+
+        var widths: [CGFloat] = []
+        for _ in 0 ..< 4 {
+            fixture.controller.niriLayoutHandler.cycleSize(forward: true)
+            fixture.relayout()
+            guard case let .proportion(width) = column.width else { return XCTFail("\(column.width)") }
+            widths.append(width)
+        }
+
+        for (width, expected) in zip(widths, [2.0 / 3.0, 0.5, 1.0 / 3.0, 0.4]) {
+            XCTAssertEqual(width, expected, accuracy: 0.001)
+        }
+    }
+
     func testATitleBarDoubleClickOnAControlIsLeftToTheApp() throws {
         let fixture = try makeFixture(pid: 941_008)
         let column = try fixture.column(fixture.tokens[1])
