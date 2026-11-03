@@ -79,6 +79,7 @@ final class MouseEventHandler {
     func cleanup() {
         state.latestFocusFollowsMouseSample = nil
         clearNativeTitleBarDrag()
+        state.nativeResizeCorrectionsByWindowId.removeAll()
         cancelActiveMouseInteraction()
         state.capturedInteractionButton = nil
         state.capturedOtherMouseButton = nil
