@@ -88,7 +88,20 @@ struct ShellNotificationsData: Equatable, Sendable, ShellValueWritable {
         writer.key("metadataComplete")
         writer.bool(metadataComplete)
         writer.key("items")
-        ShellServiceValue.array(items).write(to: &writer)
+        writer.array(items.count)
+        for item in items {
+            guard let fields = item.fields else {
+                item.write(to: &writer)
+                continue
+            }
+            writer.map(fields.count + 1)
+            for key in fields.keys.sorted() {
+                writer.key(key)
+                fields[key]?.write(to: &writer)
+            }
+            writer.key("actionsSupported")
+            writer.bool(fields["bundle"]?.string.map(ShellNotificationsCommand.validBundle) ?? false)
+        }
         writer.key("apps")
         ShellServiceValue.array(apps).write(to: &writer)
         writer.key("error")

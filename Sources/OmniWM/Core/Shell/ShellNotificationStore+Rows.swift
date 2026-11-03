@@ -133,7 +133,6 @@ extension ShellNotificationStore {
             if required { budget.mark(.invalidRecord) }
             return nil
         }
-        // The borrowed payload is used only while SQLite owns this row's bytes.
         let bytes = Data(bytesNoCopy: UnsafeMutableRawPointer(mutating: pointer), count: count, deallocator: .none)
         guard let identity = rootIdentity(in: bytes) else {
             if required { budget.mark(.invalidRecord) }

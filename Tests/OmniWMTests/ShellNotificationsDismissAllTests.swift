@@ -254,7 +254,13 @@ final class ShellNotificationsDismissAllTests: XCTestCase {
         controller.current.write(into: &writer)
         let decoded = try ShellServiceValue.decode(writer.bytes)
         XCTAssertEqual(decoded.fields?["dismissAll"], controller.current.dismissAll)
-        XCTAssertEqual(decoded.fields?["items"], .array(initial.items))
+        let expected = try initial.items.map { item in
+            var fields = try XCTUnwrap(item.fields)
+            fields["actionsSupported"] = .bool(try ShellNotificationsCommand
+                .validBundle(XCTUnwrap(fields["bundle"]?.string)))
+            return ShellServiceValue.object(fields)
+        }
+        XCTAssertEqual(decoded.fields?["items"], .array(expected))
         XCTAssertEqual(decoded.fields?["dispatched"], .array([.text(first.uuidString.lowercased())]))
         XCTAssertEqual(decoded.fields?["kept"], .number(0))
         var empty = ShellValueWriter()

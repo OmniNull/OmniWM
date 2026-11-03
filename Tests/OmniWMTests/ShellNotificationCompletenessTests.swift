@@ -17,11 +17,17 @@ final class ShellNotificationCompletenessTests: XCTestCase {
             "com.example.Valid", "A_1-b.c", "0", "", String(repeating: "a", count: 256),
             "_SYSTEM_CENTER_:com.apple.loginwindow", "has space", "mail.客户", "bad'quote", "bad;command"
         ] {
-            let supported = ShellNotificationsCommand(words: ["dismiss", source, id]) != nil
+            let supported = ShellNotificationsCommand.validBundle(source)
+            XCTAssertEqual(ShellNotificationsCommand(words: ["dismiss", source, id]) != nil, supported, source)
             let value = ShellNotificationsData(state: "ready", items: [.object([
                 "id": .text(id), "bundle": .text(source), "title": .text("Source fixture"),
                 "actions": .array([.object(["title": .text("Reply"), "textInputButtonTitle": .text("Send")])])
             ])])
+            var writer = ShellValueWriter()
+            value.write(into: &writer)
+            let item = try XCTUnwrap(ShellServiceValue.decode(writer.bytes).fields?["items"]?.values?.first?.fields)
+            XCTAssertEqual(item["bundle"], .text(source), source)
+            XCTAssertEqual(item["actionsSupported"], .bool(supported), source)
             let widget = try ShellRenderedWidget("notifications")
             widget.set("notifications") { value.write(into: &$0) }
             let commands = widget.renderPopout().map { widget.text.string($0.content.action) }
@@ -37,6 +43,36 @@ final class ShellNotificationCompletenessTests: XCTestCase {
                 XCTAssertTrue(widget.strings(OMNI_VIEW_POPOUT).contains(ShellLocalizer.string(
                     "Some notification sources cannot be cleared. Clear supported notifications individually.", []
                 )), source)
+            }
+        }
+    }
+
+    func testWidgetFollowsTheHostSourceActionFlag() throws {
+        let id = "00000000-0000-0000-0000-000000000001"
+        for source in [bundle, "_SYSTEM_CENTER_:com.apple.loginwindow"] {
+            let supported = ShellNotificationsCommand.validBundle(source)
+            for flag in [supported, !supported] {
+                let value = ShellServiceValue.object([
+                    "state": .text("ready"), "complete": .bool(true), "membershipComplete": .bool(true),
+                    "metadataComplete": .bool(true), "items": .array([.object([
+                        "id": .text(id), "bundle": .text(source), "title": .text("Source fixture"),
+                        "actionsSupported": .bool(flag), "actions": .array([.object([
+                            "title": .text("Reply"), "textInputButtonTitle": .text("Send")
+                        ])])
+                    ])])
+                ])
+                let widget = try ShellRenderedWidget("notifications")
+                widget.set("notifications") { value.write(to: &$0) }
+                let commands = widget.renderPopout().map { widget.text.string($0.content.action) }
+                XCTAssertEqual(commands.contains("notifications open \(source)"), flag, source)
+                XCTAssertEqual(commands.contains("notifications dismiss \(source) \(id)"), flag, source)
+                XCTAssertEqual(commands.contains("notifications dismiss-all"), flag, source)
+                XCTAssertEqual(
+                    widget.strings(OMNI_VIEW_POPOUT).contains(ShellLocalizer.string("Reply", [])), flag, source
+                )
+                XCTAssertEqual(widget.strings(OMNI_VIEW_POPOUT).contains(ShellLocalizer.string(
+                    "Some notification sources cannot be cleared. Clear supported notifications individually.", []
+                )), !flag, source)
             }
         }
     }

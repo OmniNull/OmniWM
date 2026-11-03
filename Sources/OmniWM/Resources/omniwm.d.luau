@@ -300,6 +300,7 @@ export type NotificationAttachment = {
 export type NotificationItem = {
     id: string,
     bundle: string,
+    actionsSupported: boolean,
     title: string,
     subtitle: string,
     body: string,

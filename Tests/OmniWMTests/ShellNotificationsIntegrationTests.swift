@@ -89,7 +89,10 @@ final class ShellNotificationsIntegrationTests: XCTestCase {
         let decoded = try ShellServiceValue.decode(writer.bytes)
         XCTAssertEqual(decoded.fields?["state"]?.string, "incomplete")
         XCTAssertEqual(decoded.fields?["complete"], .bool(false))
-        XCTAssertEqual(decoded.fields?["items"], .array([item]))
+        var expected = try XCTUnwrap(item.fields)
+        expected["actionsSupported"] = .bool(expected["bundle"]?.string
+            .map(ShellNotificationsCommand.validBundle) ?? false)
+        XCTAssertEqual(decoded.fields?["items"], .array([.object(expected)]))
         XCTAssertEqual(decoded.fields?["apps"], .array([app]))
         XCTAssertEqual(decoded.fields?["error"]?.string, "Fixture limit")
         XCTAssertEqual(decoded.fields?["items"]?.values?.first?.fields?["metadata"]?.fields?["rawPayload"], raw)

@@ -29,20 +29,15 @@ local function canDismiss(value)
         and (value.state == "ready" or value.state == "empty" or value.state == "incomplete")
 end
 
-local function validBundle(bundle)
-    return type(bundle) == "string" and #bundle > 0 and #bundle <= 255
-        and string.find(bundle, "^[A-Za-z0-9%-%._]+$") ~= nil
-end
-
-local function allBundlesValid(value)
+local function allSourcesSupported(value)
     for _, item in visibleItems(value) do
-        if not validBundle(item.bundle) then return false end
+        if not item.actionsSupported then return false end
     end
     return true
 end
 
 local function sourceStatus(value)
-    if not allBundlesValid(value) then
+    if not allSourcesSupported(value) then
         if not value.metadataComplete then
             return omniwm.l10n("Some notification details could not be read. Some sources cannot be cleared. Clear supported notifications individually.")
         end
@@ -267,7 +262,7 @@ local function notification(ctx, item)
     local action = value.action
     local busy = (action and action.state == "pending") or (value.dismissAll and value.dismissAll.active)
     local rows = { key = item.id, w = width, gap = 5, pad = 8, center = false,
-        onClick = if validBundle(item.bundle) then "notifications open " .. item.bundle else nil }
+        onClick = if item.actionsSupported then "notifications open " .. item.bundle else nil }
     local app = nil
     for _, candidate in value.apps or {} do
         if candidate.bundle == item.bundle then
@@ -280,7 +275,7 @@ local function notification(ctx, item)
         ui.icon{ app = item.bundle, w = 18, h = 18, placeholder = "app" },
         presentation.text{ text = name, style = "small", grow = 1, maxWidth = content - 150 },
         presentation.text{ text = relativeTime(ctx, item.date), style = "small", color = "secondaryForeground" },
-        button("×", if canDismiss(value) and validBundle(item.bundle) and not busy
+        button("×", if canDismiss(value) and item.actionsSupported and not busy
             then "notifications dismiss " .. item.bundle .. " " .. id else nil) }
     local seen = {}
     for _, shown in { item.title, item.subtitle } do
@@ -330,7 +325,7 @@ local function notification(ctx, item)
     if attachmentIndicator then
         text(rows, omniwm.l10n("Attachment"), content, "small", "secondaryForeground")
     end
-    local reply = if value.complete == true and validBundle(item.bundle) then replyAction(item) else nil
+    local reply = if value.complete == true and item.actionsSupported then replyAction(item) else nil
     if reply then
         rows[#rows + 1] = button(omniwm.l10n("Reply"), if busy then nil else function(next)
             next.state.reply = if next.state.reply == id then nil else id
@@ -414,7 +409,7 @@ function popout(ctx)
         ui.row{ w = WIDTH - 24, gap = 5,
             presentation.text{ text = omniwm.l10n("Notifications"), style = "bold", grow = 1 },
             button(omniwm.l10n("Clear All"),
-                if canDismiss(value) and allBundlesValid(value) and #items > 0 and not busy
+                if canDismiss(value) and allSourcesSupported(value) and #items > 0 and not busy
                     then "notifications dismiss-all" else nil),
             button(omniwm.l10n("Settings"), "notifications settings") } }
     local issue = status(value)

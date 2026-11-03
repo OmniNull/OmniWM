@@ -43,7 +43,12 @@ final class ShellNotificationWidgetTests: XCTestCase {
         widget.set("notifications") {
             var value: [String: Any] = [
                 "state": state, "complete": complete, "membershipComplete": complete, "metadataComplete": complete,
-                "items": items, "dispatched": dispatched, "kept": kept,
+                "items": items.map { item in
+                    var fields = item
+                    fields["actionsSupported"] = (item["bundle"] as? String)
+                        .map(ShellNotificationsCommand.validBundle) ?? false
+                    return fields
+                }, "dispatched": dispatched, "kept": kept,
                 "apps": [["bundle": "com.example.fixture", "name": "Fixture App"]]
             ]
             if let action { value["action"] = action }
