@@ -14,9 +14,18 @@ struct MenuBarSettingsPage: View {
     }
 
     var body: some View {
-        SettingsTabs(selection: selection, tabs: [("macOS Status Item", "status"), ("Hidden Bar", "hidden")]) { tab in
+        SettingsTabs(
+            selection: selection,
+            tabs: [
+                ("macOS Status Item", "status"),
+                ("Status Menu", "statusMenu"),
+                ("Hidden Bar", "hidden")
+            ]
+        ) { tab in
             if tab == "hidden" {
                 HiddenBarSettingsTab(settings: settings, controller: controller)
+            } else if tab == "statusMenu" {
+                StatusMenuSettingsTab(settings: settings)
             } else {
                 Form {
                     Section("Status Bar") {

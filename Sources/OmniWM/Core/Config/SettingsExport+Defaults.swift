@@ -42,6 +42,7 @@ extension SettingsExport {
             ipcEnabled: false,
             gestures: Gestures.defaults(),
             statusBar: StatusBar.defaults(),
+            statusMenu: StatusMenu.defaults(),
             hiddenBar: HiddenBar.defaults(),
             animationsEnabled: true,
             animationSpeed: 1,

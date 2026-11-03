@@ -21,6 +21,7 @@ struct CanonicalTOMLConfig: Codable, Equatable {
     var island: SettingsExport.Island
     var gestures: SettingsExport.Gestures
     var statusBar: SettingsExport.StatusBar
+    var statusMenu: SettingsExport.StatusMenu
     var hiddenBar: SettingsExport.HiddenBar
     var launcher: LauncherConfiguration
     var clipboard: SettingsExport.Clipboard
@@ -96,14 +97,14 @@ extension CanonicalTOMLConfig {
         island = try container.decodeIfPresent(SettingsExport.Island.self, forKey: .island) ?? .defaults()
         gestures = try container.decode(SettingsExport.Gestures.self, forKey: .gestures)
         statusBar = try container.decode(SettingsExport.StatusBar.self, forKey: .statusBar)
+        statusMenu = try Self.decodeStatusMenu(from: container)
         hiddenBar = try container.decode(SettingsExport.HiddenBar.self, forKey: .hiddenBar)
         launcher = try container.decodeIfPresent(LauncherConfiguration.self, forKey: .launcher) ?? .init()
         clipboard = try container.decode(SettingsExport.Clipboard.self, forKey: .clipboard)
         quakeTerminal = try container.decode(SettingsExport.QuakeTerminal.self, forKey: .quakeTerminal)
         scratchpads = try container.decode(SettingsExport.Scratchpads.self, forKey: .scratchpads)
         appearance = try container.decode(Appearance.self, forKey: .appearance)
-        let persistedHotkeys = try container.decode([PersistedHotkeyBinding].self, forKey: .hotkeys)
-        hotkeys = try HotkeyBindingRegistry.resolve(persistedHotkeys)
+        hotkeys = try Self.decodeHotkeys(from: container)
         workspaces = try container.decode([WorkspaceConfiguration].self, forKey: .workspaces)
         appRules = try container.decode([AppRule].self, forKey: .appRules)
         monitorBarOverrides = try container
@@ -157,6 +158,7 @@ extension CanonicalTOMLConfig {
         island = export.island
         gestures = export.gestures
         statusBar = export.statusBar
+        statusMenu = export.statusMenu
         hiddenBar = export.hiddenBar
         launcher = export.launcher
         clipboard = export.clipboard
@@ -208,6 +210,7 @@ extension CanonicalTOMLConfig {
             ipcEnabled: general.ipcEnabled,
             gestures: gesturesForExport(),
             statusBar: statusBarForExport(),
+            statusMenu: statusMenuForExport(),
             hiddenBar: hiddenBar,
             animationsEnabled: general.animationsEnabled,
             animationSpeed: AnimationSpeed.normalized(general.animationSpeed ?? 1),
@@ -228,6 +231,31 @@ extension CanonicalTOMLConfig {
         overview.invertScrollDirection = overview.invertScrollDirection ?? false
         overview.mouseScrollSpeed = overview.mouseScrollSpeed ?? 1
         return overview
+    }
+
+    private static func decodeHotkeys(
+        from container: KeyedDecodingContainer<CodingKeys>
+    ) throws -> [HotkeyBinding] {
+        let persisted = try container.decode([PersistedHotkeyBinding].self, forKey: .hotkeys)
+        return try HotkeyBindingRegistry.resolve(persisted)
+    }
+
+    private static func decodeStatusMenu(
+        from container: KeyedDecodingContainer<CodingKeys>
+    ) throws -> SettingsExport.StatusMenu {
+        try container.decodeIfPresent(SettingsExport.StatusMenu.self, forKey: .statusMenu) ?? .defaults()
+    }
+
+    private func statusMenuForExport() -> SettingsExport.StatusMenu {
+        var statusMenu = statusMenu
+        let defaults = SettingsExport.StatusMenu.defaults()
+        statusMenu.showControls = statusMenu.showControls ?? defaults.showControls
+        statusMenu.showAppMenu = statusMenu.showAppMenu ?? defaults.showAppMenu
+        statusMenu.showControlHelp = statusMenu.showControlHelp ?? defaults.showControlHelp
+        statusMenu.showMenuItems = statusMenu.showMenuItems ?? defaults.showMenuItems
+        statusMenu.hiddenControls = statusMenu.hiddenControls ?? defaults.hiddenControls
+        statusMenu.hiddenMenuItems = statusMenu.hiddenMenuItems ?? defaults.hiddenMenuItems
+        return statusMenu
     }
 
     private func statusBarForExport() -> SettingsExport.StatusBar {
