@@ -17,7 +17,7 @@ extension MouseEventHandler {
               let window = engine.findNode(for: token, in: entry.workspaceId),
               let column = engine.findColumn(containing: window, in: entry.workspaceId)
         else { return }
-        finishLiveStackDrop(in: entry.workspaceId)
+        finishPendingLiveStackDrop()
         let viewport = controller.workspaceManager.niriViewportState(for: entry.workspaceId)
         guard let startFrame = engine.liveWindowFrame(of: window, in: column, context: context, state: viewport)
             ?? entry.axRef.flatMap(nativeWindowFrameProvider)

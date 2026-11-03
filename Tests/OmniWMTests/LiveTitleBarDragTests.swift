@@ -1739,6 +1739,56 @@ final class LiveTitleBarDragTests: NiriInteractionTestCase {
         })
     }
 
+    func testAStackDropFinishesWhenItSettlesWhileAnotherWorkspaceHasALiveDrag() throws {
+        let fixture = try makeFixture(pid: 938_313, windowCount: 5)
+        let (dragged, target) = (fixture.tokens[1], fixture.tokens[2])
+        let context = try XCTUnwrap(fixture.handler.liveColumnContext(for: fixture.workspaceId))
+        let window = try XCTUnwrap(fixture.engine.findNode(for: dragged, in: fixture.workspaceId))
+        let targetFrame = try fixture.frame(target)
+        let drop = CGPoint(x: targetFrame.midX, y: targetFrame.minY + targetFrame.height / 4)
+        fixture.manager.withNiriViewportState(for: fixture.workspaceId) { state in
+            XCTAssertTrue(fixture.engine.liveColumnMoveBegin(
+                windowId: window.id,
+                windowToken: dragged,
+                context: context,
+                state: &state
+            ))
+            _ = fixture.engine.liveColumnMoveStackModeChanged(held: true, cursor: drop, context: context, state: &state)
+            XCTAssertTrue(fixture.engine.liveColumnMoveEnd(stacking: true, context: context, state: &state))
+        }
+        XCTAssertTrue(fixture.engine.isLiveStackDropPending(in: fixture.workspaceId))
+
+        let otherWorkspace = WorkspaceDescriptor.ID()
+        let otherTokens = (0 ..< 3).map { WindowToken(pid: 938_314, windowId: 938_414 + $0) }
+        var previous: NiriWindow?
+        for token in otherTokens {
+            previous = fixture.engine.addWindow(token: token, to: otherWorkspace, afterSelection: previous?.id)
+        }
+        let otherWindow = try XCTUnwrap(fixture.engine.findNode(for: otherTokens[1], in: otherWorkspace))
+        let otherContext = NiriInteractionContext(
+            workspaceId: otherWorkspace,
+            motion: .disabled,
+            workingFrame: context.workingFrame,
+            gaps: context.gaps,
+            orientation: .horizontal
+        )
+        var otherState = ViewportState(selectedNodeId: otherWindow.id)
+        fixture.manager.withEngineMutationScope(in: otherWorkspace) {
+            XCTAssertTrue(fixture.engine.liveColumnMoveBegin(
+                windowId: otherWindow.id,
+                windowToken: otherTokens[1],
+                context: otherContext,
+                state: &otherState
+            ))
+        }
+
+        fixture.handler.handleNiriAnimationsSettled(in: fixture.workspaceId)
+
+        XCTAssertFalse(fixture.engine.isLiveStackDropPending(in: fixture.workspaceId))
+        XCTAssertEqual(fixture.engine.liveColumnMove?.workspaceId, otherWorkspace)
+        XCTAssertFalse(fixture.engine.columns(in: fixture.workspaceId).contains { $0.windowNodes.isEmpty })
+    }
+
     func testHoldingTheStackModifierStacksOntoTheWindowUnderThePointerOnRelease() throws {
         let fixture = try makeFixture(pid: 938_070)
         let (dragged, target) = (fixture.tokens[1], fixture.tokens[2])
