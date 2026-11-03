@@ -6,14 +6,15 @@ import CoreGraphics
 import XCTest
 
 final class MouseEventHandlerWheelTests: XCTestCase {
-    func testMouseWheelSensitivityAdvancesSmoothInputWithLessMovement() {
+    func testMouseWheelSensitivityAdvancesSmoothInputWithLessMovement() throws {
         var baseline = NiriScrollTracker(tick: niriWheelScrollTickAmount)
         var faster = NiriScrollTracker(tick: niriWheelScrollTickAmount)
+        let defaultSensitivity = try XCTUnwrap(SettingsExport.Gestures.defaults().mouseWheelSensitivity)
         let sensitivity = 10.0
         let delta = niriWheelScrollTickAmount / CGFloat(sensitivity)
 
         XCTAssertEqual(baseline.accumulate(MouseEventHandler.scaledWheelAxisDelta(
-            delta, isContinuous: true, sensitivity: 1
+            delta, isContinuous: true, sensitivity: defaultSensitivity
         )), 0)
         XCTAssertEqual(faster.accumulate(MouseEventHandler.scaledWheelAxisDelta(
             delta, isContinuous: true, sensitivity: sensitivity
@@ -44,10 +45,11 @@ final class MouseEventHandlerWheelTests: XCTestCase {
         XCTAssertEqual(tracker.accumulator, 0)
     }
 
-    func testDefaultMouseWheelSensitivityPreservesSmoothInput() {
+    func testDefaultMouseWheelSensitivityPreservesSmoothInput() throws {
+        let defaultSensitivity = try XCTUnwrap(SettingsExport.Gestures.defaults().mouseWheelSensitivity)
         let delta = -niriWheelScrollTickAmount / 10
         XCTAssertEqual(MouseEventHandler.scaledWheelAxisDelta(
-            delta, isContinuous: true, sensitivity: 1
+            delta, isContinuous: true, sensitivity: defaultSensitivity
         ), delta)
     }
 
@@ -83,35 +85,37 @@ final class MouseEventHandlerWheelTests: XCTestCase {
     }
 
     func testDiscreteWheelAxisDeltaNormalizesToOneTick() {
+        let largeDiscreteDelta = -niriWheelScrollTickAmount * 10
+        let continuousDelta: CGFloat = 10
         XCTAssertEqual(
             MouseEventHandler.resolvedWheelAxisDelta(
                 pointDelta: 1, fixedPointDelta: 0, isContinuous: false
             ),
-            120
+            niriWheelScrollTickAmount
         )
         XCTAssertEqual(
             MouseEventHandler.resolvedWheelAxisDelta(
-                pointDelta: -1200, fixedPointDelta: 0, isContinuous: false
+                pointDelta: largeDiscreteDelta, fixedPointDelta: 0, isContinuous: false
             ),
-            -120
+            -niriWheelScrollTickAmount
         )
         XCTAssertEqual(
             MouseEventHandler.resolvedWheelAxisDelta(
-                pointDelta: 10, fixedPointDelta: 0, isContinuous: true
+                pointDelta: continuousDelta, fixedPointDelta: 0, isContinuous: true
             ),
-            10
+            continuousDelta
         )
         XCTAssertEqual(
             MouseEventHandler.resolvedWheelAxisDelta(
                 pointDelta: 0, fixedPointDelta: -1, isContinuous: false
             ),
-            -120
+            -niriWheelScrollTickAmount
         )
         XCTAssertEqual(
             MouseEventHandler.resolvedWheelAxisDelta(
-                pointDelta: 0.0005, fixedPointDelta: 1, isContinuous: false
+                pointDelta: .leastNonzeroMagnitude, fixedPointDelta: 1, isContinuous: false
             ),
-            120
+            niriWheelScrollTickAmount
         )
         XCTAssertEqual(
             MouseEventHandler.resolvedWheelAxisDelta(

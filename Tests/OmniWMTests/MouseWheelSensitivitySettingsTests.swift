@@ -8,19 +8,21 @@ import XCTest
 @MainActor
 final class MouseWheelSensitivitySettingsTests: XCTestCase {
     func testMouseWheelSensitivityRoundTripsThroughTOML() throws {
+        let sensitivity = 8.0
         var export = SettingsExport.defaults()
-        export.gestures.mouseWheelSensitivity = 8
+        export.gestures.mouseWheelSensitivity = sensitivity
 
         let decoded = try SettingsTOMLCodec.decode(SettingsTOMLCodec.encode(export))
         let settings = GestureSettings()
         settings.apply(decoded.gestures)
 
-        XCTAssertEqual(decoded.gestures.mouseWheelSensitivity, 8)
-        XCTAssertEqual(settings.mouseWheelSensitivity, 8)
-        XCTAssertEqual(settings.export().mouseWheelSensitivity, 8)
+        XCTAssertEqual(decoded.gestures.mouseWheelSensitivity, sensitivity)
+        XCTAssertEqual(settings.mouseWheelSensitivity, sensitivity)
+        XCTAssertEqual(settings.export().mouseWheelSensitivity, sensitivity)
     }
 
     func testOlderConfigWithoutMouseWheelSensitivityUsesOriginalBehavior() throws {
+        let defaultSensitivity = try XCTUnwrap(SettingsExport.Gestures.defaults().mouseWheelSensitivity)
         var export = SettingsExport.defaults()
         export.gestures.mouseWheelSensitivity = nil
         let decoded = try SettingsTOMLCodec.decode(SettingsTOMLCodec.encode(export))
@@ -30,22 +32,22 @@ final class MouseWheelSensitivitySettingsTests: XCTestCase {
         settings.apply(decoded.gestures)
 
         XCTAssertNil(decoded.gestures.mouseWheelSensitivity)
-        XCTAssertEqual(settings.mouseWheelSensitivity, 1)
-        XCTAssertEqual(settings.export().mouseWheelSensitivity, 1)
+        XCTAssertEqual(settings.mouseWheelSensitivity, defaultSensitivity)
+        XCTAssertEqual(settings.export().mouseWheelSensitivity, defaultSensitivity)
     }
 
-    func testMouseWheelSensitivityClampsFiniteValuesAndRejectsNonfiniteValues() {
+    func testMouseWheelSensitivityClampsFiniteValuesAndRejectsNonfiniteValues() throws {
         let settings = GestureSettings()
         let range = GestureSettings.mouseWheelSensitivityRange
-        let defaultSensitivity = settings.mouseWheelSensitivity
+        let defaultSensitivity = try XCTUnwrap(SettingsExport.Gestures.defaults().mouseWheelSensitivity)
         var observedValues: [Double] = []
         settings.onChange = { observedValues.append(settings.mouseWheelSensitivity) }
         defer { settings.onChange = nil }
 
-        settings.mouseWheelSensitivity = range.lowerBound - 1
+        settings.mouseWheelSensitivity = range.lowerBound.nextDown
         XCTAssertEqual(settings.mouseWheelSensitivity, range.lowerBound)
         XCTAssertEqual(observedValues, [range.lowerBound])
-        settings.mouseWheelSensitivity = range.upperBound + 1
+        settings.mouseWheelSensitivity = range.upperBound.nextUp
         XCTAssertEqual(settings.mouseWheelSensitivity, range.upperBound)
         XCTAssertEqual(settings.export().mouseWheelSensitivity, range.upperBound)
         XCTAssertEqual(observedValues, [range.lowerBound, range.upperBound])
@@ -61,7 +63,7 @@ final class MouseWheelSensitivitySettingsTests: XCTestCase {
 
     func testChangingMouseWheelSensitivityDoesNotChangeTrackpadSensitivity() {
         let settings = GestureSettings()
-        let trackpadSensitivity = settings.scrollSensitivity
+        let trackpadSensitivity = SettingsExport.Gestures.defaults().scrollSensitivity
         settings.mouseWheelSensitivity = 8
 
         XCTAssertEqual(settings.scrollSensitivity, trackpadSensitivity)

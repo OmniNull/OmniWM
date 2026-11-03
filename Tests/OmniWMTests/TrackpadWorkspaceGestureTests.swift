@@ -579,11 +579,12 @@ final class TrackpadWorkspaceGestureTests: XCTestCase {
     }
 
     func testContinuousWheelHandlerAppliesSensitivityBeforeAdvancingColumns() throws {
+        let defaultSensitivity = try XCTUnwrap(SettingsExport.Gestures.defaults().mouseWheelSensitivity)
         let fasterSensitivity = 4.0
         let delta = niriWheelScrollTickAmount / CGFloat(fasterSensitivity)
 
         for horizontal in [true, false] {
-            for sensitivity in [1.0, fasterSensitivity] {
+            for sensitivity in [defaultSensitivity, fasterSensitivity] {
                 let fixture = try makeFixture(workspaceSwipeEnabled: false, scrollGestureEnabled: true)
                 try addColumnGestureWindows(to: fixture)
                 let controller = fixture.controller
@@ -614,7 +615,7 @@ final class TrackpadWorkspaceGestureTests: XCTestCase {
                 XCTAssertEqual(manager.pendingFocusedToken, advancesColumn ? second.token : pendingFocusBeforeScroll)
                 let state = controller.mouseEventHandler.state
                 let tracker = horizontal ? state.horizontalWheelTracker : state.verticalWheelTracker
-                XCTAssertEqual(tracker.accumulator, advancesColumn ? 0 : delta, accuracy: 0.0001)
+                XCTAssertEqual(tracker.accumulator, advancesColumn ? 0 : delta * CGFloat(defaultSensitivity))
             }
         }
     }
