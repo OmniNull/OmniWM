@@ -57,6 +57,7 @@ struct MouseInputState {
     struct NativeResizeStart {
         let token: WindowToken
         let frame: CGRect
+        let location: CGPoint
         var wasDragged = false
         var hasDeferredFrameChange = false
     }

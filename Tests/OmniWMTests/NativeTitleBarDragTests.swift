@@ -422,7 +422,10 @@ final class NativeTitleBarDragTests: NiriInteractionTestCase {
                 modifiers: []
             )
         )
-        fixture.handler.receiveAnnotatedNativeMouseDragged(windowIdUnderPointer: floatingToken.windowId)
+        fixture.handler.receiveAnnotatedNativeMouseDragged(
+            at: CGPoint(x: fixture.frame.midX + 5, y: fixture.frame.midY),
+            windowIdUnderPointer: floatingToken.windowId
+        )
         fixture.handler.dispatchMouseDragged(at: fixture.frame.center)
 
         XCTAssertNil(fixture.handler.state.nativeTitleBarDrag)
@@ -454,7 +457,10 @@ final class NativeTitleBarDragTests: NiriInteractionTestCase {
         XCTAssertNil(fixture.handler.state.nativeTitleBarDrag)
         XCTAssertTrue(fixture.handler.state.awaitsNativeTitleBarDragTarget)
 
-        fixture.handler.receiveAnnotatedNativeMouseDragged(windowIdUnderPointer: fixture.token.windowId)
+        fixture.handler.receiveAnnotatedNativeMouseDragged(
+            at: CGPoint(x: fixture.frame.midX + 5, y: fixture.frame.midY),
+            windowIdUnderPointer: fixture.token.windowId
+        )
 
         XCTAssertEqual(fixture.handler.state.nativeTitleBarDrag?.token, fixture.token)
         XCTAssertTrue(fixture.controller.axManager.isNativeTitleBarDragActive(for: fixture.token))
