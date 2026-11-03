@@ -170,6 +170,8 @@ extension NiriLayoutEngine {
             column.savedWidth = nil
             column.hasManualSingleWindowWidthOverride = true
         case .vertical:
+            column.heightAnimation = nil
+            column.targetHeight = nil
             column.cachedHeight = span
             column.height = .fixed(span)
             column.isFullHeight = false

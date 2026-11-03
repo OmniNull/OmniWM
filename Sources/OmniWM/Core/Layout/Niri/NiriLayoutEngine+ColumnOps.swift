@@ -286,9 +286,15 @@ extension NiriLayoutEngine {
                 column.isFullHeight = false
                 column.savedHeight = nil
                 column.hasManualSingleWindowHeightOverride = false
-                column.cachedHeight = clampedSpan(
-                    targetPixels,
-                    to: projectedHeightBounds(for: column, workspaceId: workspaceId)
+                column.animateHeightTo(
+                    newHeight: clampedSpan(
+                        targetPixels,
+                        to: projectedHeightBounds(for: column, workspaceId: workspaceId)
+                    ),
+                    clock: animationClock,
+                    config: motion.scaled(windowMovementAnimationConfig),
+                    displayRefreshRate: displayRefreshRate(in: workspaceId),
+                    animated: motion.animationsEnabled
                 )
 
                 for window in projectedColumn.windows {

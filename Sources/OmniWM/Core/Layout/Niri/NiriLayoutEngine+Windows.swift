@@ -23,7 +23,18 @@ extension NiriLayoutEngine {
         guard node.constraints != normalized else { return }
         node.constraints = normalized
         guard let column else { return }
-        if column.cachedHeight > 0 {
+        if let target = column.targetHeight {
+            let clampedTarget = column.clampedToHeightBounds(target)
+            if clampedTarget != target {
+                column.animateHeightTo(
+                    newHeight: clampedTarget,
+                    clock: animationClock,
+                    config: motion.scaled(windowMovementAnimationConfig),
+                    displayRefreshRate: displayRefreshRate(in: workspaceId),
+                    animated: motion.animationsEnabled
+                )
+            }
+        } else if column.cachedHeight > 0 {
             column.cachedHeight = column.clampedToHeightBounds(column.cachedHeight)
         }
         let contentInset = tabContentInset(for: column)

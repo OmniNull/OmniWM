@@ -37,11 +37,17 @@ class NiriContainer: NiriNode {
 
     var widthAnimation: SpringAnimation?
     var targetWidth: CGFloat?
+    var heightAnimation: SpringAnimation?
+    var targetHeight: CGFloat?
     var fittedWidth: CGFloat?
     var fittedHeight: CGFloat?
 
     var settledWidth: CGFloat {
         targetWidth ?? cachedWidth
+    }
+
+    var settledHeight: CGFloat {
+        targetHeight ?? cachedHeight
     }
 
     private var _cachedWindowNodes: [NiriWindow]?
@@ -124,7 +130,9 @@ class NiriContainer: NiriNode {
         if targetWidth == nil {
             cachedWidth = 0
         }
-        cachedHeight = 0
+        if targetHeight == nil {
+            cachedHeight = 0
+        }
     }
 
     func widthBounds(contentInset: CGFloat = 0) -> (min: CGFloat, max: CGFloat?) {
@@ -205,6 +213,8 @@ class NiriContainer: NiriNode {
             targetWidth = nil
         case .vertical:
             cachedHeight = 0
+            heightAnimation = nil
+            targetHeight = nil
         }
     }
 
@@ -379,15 +389,11 @@ extension NiriContainer {
             return false
         }
 
-        let now = clock?.now() ?? CACurrentMediaTime()
-        let currentWidth = cachedWidth > 0 ? cachedWidth : newWidth
-        let currentVel = widthAnimation?.velocity(at: now) ?? 0
-
-        widthAnimation = SpringAnimation(
-            from: Double(currentWidth),
-            to: Double(newWidth),
-            initialVelocity: currentVel,
-            startTime: now,
+        widthAnimation = Self.spanSpring(
+            from: cachedWidth,
+            to: newWidth,
+            continuing: widthAnimation,
+            clock: clock,
             config: config,
             displayRefreshRate: displayRefreshRate
         )
@@ -398,22 +404,88 @@ extension NiriContainer {
     func tickWidthAnimation(at time: TimeInterval) -> Bool {
         guard let anim = widthAnimation else { return false }
 
-        let lowerEndpoint = min(CGFloat(anim.from), targetWidth ?? CGFloat(anim.from))
-        cachedWidth = max(CGFloat(anim.value(at: time)), lowerEndpoint)
-
-        if anim.isComplete(at: time) {
-            if let target = targetWidth {
-                cachedWidth = target
-            }
-            widthAnimation = nil
-            targetWidth = nil
-            return false
-        }
-        return true
+        let sample = Self.spanSample(anim, target: targetWidth, at: time)
+        cachedWidth = sample.span
+        guard sample.isComplete else { return true }
+        widthAnimation = nil
+        targetWidth = nil
+        return false
     }
 
     var hasWidthAnimationRunning: Bool {
         widthAnimation != nil
+    }
+
+    @discardableResult
+    func animateHeightTo(
+        newHeight: CGFloat,
+        clock: AnimationClock?,
+        config: SpringConfig,
+        displayRefreshRate: Double = 60.0,
+        animated: Bool
+    ) -> Bool {
+        guard animated else {
+            cachedHeight = newHeight
+            heightAnimation = nil
+            targetHeight = nil
+            return false
+        }
+
+        heightAnimation = Self.spanSpring(
+            from: cachedHeight,
+            to: newHeight,
+            continuing: heightAnimation,
+            clock: clock,
+            config: config,
+            displayRefreshRate: displayRefreshRate
+        )
+        targetHeight = newHeight
+        return true
+    }
+
+    func tickHeightAnimation(at time: TimeInterval) -> Bool {
+        guard let anim = heightAnimation else { return false }
+
+        let sample = Self.spanSample(anim, target: targetHeight, at: time)
+        cachedHeight = sample.span
+        guard sample.isComplete else { return true }
+        heightAnimation = nil
+        targetHeight = nil
+        return false
+    }
+
+    var hasHeightAnimationRunning: Bool {
+        heightAnimation != nil
+    }
+
+    private static func spanSpring(
+        from currentSpan: CGFloat,
+        to newSpan: CGFloat,
+        continuing running: SpringAnimation?,
+        clock: AnimationClock?,
+        config: SpringConfig,
+        displayRefreshRate: Double
+    ) -> SpringAnimation {
+        let now = clock?.now() ?? CACurrentMediaTime()
+        return SpringAnimation(
+            from: Double(currentSpan > 0 ? currentSpan : newSpan),
+            to: Double(newSpan),
+            initialVelocity: running?.velocity(at: now) ?? 0,
+            startTime: now,
+            config: config,
+            displayRefreshRate: displayRefreshRate
+        )
+    }
+
+    private static func spanSample(
+        _ animation: SpringAnimation,
+        target: CGFloat?,
+        at time: TimeInterval
+    ) -> (span: CGFloat, isComplete: Bool) {
+        let lowerEndpoint = min(CGFloat(animation.from), target ?? CGFloat(animation.from))
+        let span = max(CGFloat(animation.value(at: time)), lowerEndpoint)
+        guard animation.isComplete(at: time) else { return (span, false) }
+        return (target ?? span, true)
     }
 
     func stopAnimations() {
@@ -424,5 +496,10 @@ extension NiriContainer {
         }
         widthAnimation = nil
         targetWidth = nil
+        if let targetHeight {
+            cachedHeight = targetHeight
+        }
+        heightAnimation = nil
+        targetHeight = nil
     }
 }

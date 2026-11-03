@@ -191,13 +191,16 @@ extension NiriLayoutEngine {
         for column in columns {
             if column.tickMoveAnimation(at: time) { anyRunning = true }
             if column.tickWidthAnimation(at: time) { anyRunning = true }
+            if column.tickHeightAnimation(at: time) { anyRunning = true }
         }
         return anyRunning
     }
 
     func hasAnyColumnAnimationsRunning(in workspaceId: WorkspaceDescriptor.ID) -> Bool {
         guard let root = root(for: workspaceId) else { return false }
-        return root.columns.contains { $0.hasMoveAnimationRunning || $0.hasWidthAnimationRunning }
+        return root.columns.contains {
+            $0.hasMoveAnimationRunning || $0.hasWidthAnimationRunning || $0.hasHeightAnimationRunning
+        }
     }
 
     @discardableResult
@@ -206,6 +209,7 @@ extension NiriLayoutEngine {
         var hadAnimations = false
         for column in root.columns {
             hadAnimations = hadAnimations || column.hasMoveAnimationRunning || column.hasWidthAnimationRunning
+                || column.hasHeightAnimationRunning
             column.stopAnimations()
         }
         for window in root.allWindows {

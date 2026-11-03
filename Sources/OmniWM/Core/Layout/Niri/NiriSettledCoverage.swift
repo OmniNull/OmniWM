@@ -468,7 +468,7 @@ extension NiriLayoutEngine {
         for container in containers {
             let span: CGFloat = switch orientation {
             case .horizontal: container.settledWidth
-            case .vertical: container.cachedHeight
+            case .vertical: container.settledHeight
             }
             guard span > 0 else { return nil }
             spans.append(span)

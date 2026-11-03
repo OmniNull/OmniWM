@@ -115,10 +115,16 @@ extension NiriLayoutEngine {
         column.isFullHeight = false
         column.savedHeight = nil
         column.hasManualSingleWindowHeightOverride = true
-        column.cachedHeight = column.resolvedHeightPixels(
-            newHeight,
-            availableSpan: context.workingFrame.height,
-            gaps: context.gaps
+        column.animateHeightTo(
+            newHeight: column.resolvedHeightPixels(
+                newHeight,
+                availableSpan: context.workingFrame.height,
+                gaps: context.gaps
+            ),
+            clock: animationClock,
+            config: context.motion.scaled(windowMovementAnimationConfig),
+            displayRefreshRate: displayRefreshRate(in: context.workspaceId),
+            animated: context.motion.animationsEnabled
         )
 
         let verticalContext = context.oriented(.vertical)
@@ -175,7 +181,7 @@ extension NiriLayoutEngine {
             at: activeIndex,
             containers: containers,
             gap: context.gaps,
-            sizeKeyPath: \.cachedHeight
+            sizeKeyPath: \.settledHeight
         )
         let previousHeight = column.currentHeightForSizing(
             workingAreaHeight: context.workingFrame.height,
@@ -183,13 +189,20 @@ extension NiriLayoutEngine {
         )
         cancelInteractiveResize(for: column, in: context.workspaceId)
         let effectiveHeight = column.toggleFullHeightSpec()
-        column.cachedHeight = column.resolvedHeightPixels(
+        let newHeight = column.resolvedHeightPixels(
             effectiveHeight,
             availableSpan: context.workingFrame.height,
             gaps: context.gaps
         )
 
-        guard abs(column.cachedHeight - previousHeight) > 0.001 else { return }
+        guard abs(newHeight - previousHeight) > 0.001 else { return }
+        column.animateHeightTo(
+            newHeight: newHeight,
+            clock: animationClock,
+            config: context.motion.scaled(windowMovementAnimationConfig),
+            displayRefreshRate: displayRefreshRate(in: context.workspaceId),
+            animated: context.motion.animationsEnabled
+        )
 
         let settings = effectiveSettings(in: context.workspaceId)
         let verticalContext = context.oriented(.vertical)
@@ -203,7 +216,7 @@ extension NiriLayoutEngine {
                 at: activeIndex,
                 containers: containers,
                 gap: context.gaps,
-                sizeKeyPath: \.cachedHeight
+                sizeKeyPath: \.settledHeight
             )
             state.rebaseOffset(by: previousActivePosition - currentActivePosition)
         }
