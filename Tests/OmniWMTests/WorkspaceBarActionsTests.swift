@@ -1,6 +1,7 @@
 // SPDX-License-Identifier: GPL-2.0-only
 // Copyright (C) 2026 OmniNull — https://github.com/OmniNull/OmniWM
 
+import AppKit
 import ApplicationServices
 import CoreGraphics
 import Foundation
@@ -451,6 +452,44 @@ final class WorkspaceBarActionsTests: XCTestCase {
         XCTAssertEqual(controller.activeStatusBarWorkspaceSummary()?.layout, .dwindle)
         XCTAssertTrue(controller.commandHandler.setWorkspaceLayout(.niri, forWorkspaceNamed: "3"))
         XCTAssertEqual(controller.activeStatusBarWorkspaceSummary()?.layout, .niri)
+    }
+
+    func testLayoutMutationsRefreshTheNativeStatusItem() async throws {
+        let fixture = try makeFixture(followsFocus: false)
+        let controller = fixture.controller
+        controller.hotkeysEnabled = false
+        controller.settings.workspaceBar.enabled = false
+        controller.settings.hiddenBar.enabled = false
+        controller.settings.statusBar.showLayout = true
+        controller.settings.statusBar.showWorkspaceName = false
+        controller.settings.statusBar.showIcon = false
+        let suite = "StatusBarRefreshTests.\(UUID().uuidString)"
+        let defaults = try XCTUnwrap(UserDefaults(suiteName: suite))
+        let statusBar = StatusBarController(
+            settings: controller.settings,
+            controller: controller,
+            hiddenBarController: controller.hiddenBarController,
+            statusItemDefaults: defaults
+        )
+        controller.statusBarController = statusBar
+        defer {
+            statusBar.cleanup()
+            controller.layoutRefreshController.resetState()
+            defaults.removePersistentDomain(forName: suite)
+        }
+        statusBar.setup()
+        let button = try XCTUnwrap(statusBar.statusButton)
+        XCTAssertEqual(button.accessibilityValue() as? String, "Niri (Scrolling)")
+
+        XCTAssertTrue(controller.commandHandler.setWorkspaceLayout(.dwindle))
+        XCTAssertEqual(button.accessibilityValue() as? String, "Dwindle (BSP)")
+        XCTAssertTrue(controller.commandHandler.setWorkspaceLayout(.defaultLayout))
+        XCTAssertEqual(button.accessibilityValue() as? String, "Niri (Scrolling)")
+
+        controller.settings.workspaces.defaultLayoutType = .dwindle
+        controller.updateWorkspaceConfig()
+        XCTAssertEqual(button.accessibilityValue() as? String, "Dwindle (BSP)")
+        await WindowAdmissionTestSupport.drainLayoutRefreshes(controller)
     }
 
     private func makeFixture(followsFocus: Bool) throws -> Fixture {

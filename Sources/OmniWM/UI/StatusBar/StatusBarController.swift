@@ -22,6 +22,10 @@ final class StatusBarController: NSObject {
         menuHost?.model
     }
 
+    var statusButton: NSStatusBarButton? {
+        statusItem?.button
+    }
+
     init(
         settings: SettingsStore,
         controller: WMController,
@@ -60,7 +64,7 @@ final class StatusBarController: NSObject {
         StatusItemPersistence.configureMandatoryItem(ownedStatusItem, as: .main)
         statusItem = ownedStatusItem
 
-        guard let button = statusItem?.button else { return }
+        guard let button = statusButton else { return }
         button.image = OmniWMBrandMark.statusItemImage(pointSize: 18)
         button.target = self
         button.action = #selector(handleClick(_:))
@@ -163,7 +167,7 @@ final class StatusBarController: NSObject {
     }
 
     func updateButtonAppearance() {
-        guard let button = statusItem?.button else { return }
+        guard let button = statusButton else { return }
         button.wantsLayer = true
         if controller?.traceCaptureStatus.profile == .problem {
             let config = NSImage.SymbolConfiguration(paletteColors: [.systemRed])
@@ -269,16 +273,24 @@ final class StatusBarController: NSObject {
     }
 
     func refreshWorkspaces() {
-        guard let button = statusItem?.button else { return }
+        guard let button = statusButton else { return }
 
         updateButtonAppearance()
         let modeTitle = Self.keyboardModeTitle(controller?.keyboardModeKind ?? .normal)
+        let hasStateIcon = controller?.traceCaptureStatus.profile != nil || controller?.isSecureInputIndicated == true
+            || modeTitle != nil
 
         guard settings.statusBar.showWorkspaceName || settings.statusBar.showLayout,
               let summary = controller?.activeStatusBarWorkspaceSummary()
         else {
-            button.title = modeTitle.map { " \($0)" } ?? ""
-            button.imagePosition = modeTitle == nil ? .imageOnly : .imageLeft
+            if settings.statusBar.showLayout, !settings.statusBar.showIcon, !hasStateIcon {
+                button.image = nil
+                button.title = " \u{2026}"
+                button.imagePosition = .noImage
+            } else {
+                button.title = modeTitle.map { " \($0)" } ?? ""
+                button.imagePosition = modeTitle == nil ? .imageOnly : .imageLeft
+            }
             return
         }
 
@@ -292,8 +304,6 @@ final class StatusBarController: NSObject {
             modeTitle: modeTitle
         )
         button.title = title
-        let hasStateIcon = controller?.traceCaptureStatus.profile != nil || controller?.isSecureInputIndicated == true
-            || modeTitle != nil
         button.imagePosition = Self.labeledImagePosition(
             showIcon: settings.statusBar.showIcon,
             hasStateIcon: hasStateIcon,

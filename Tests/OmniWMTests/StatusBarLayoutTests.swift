@@ -63,6 +63,24 @@ final class StatusBarLayoutTests: XCTestCase {
         )
     }
 
+    func testNiriAndDwindleGlyphsAreDistinct() throws {
+        var masks: [[Bool]] = []
+        for layout in [ActiveLayoutKind.niri, .dwindle] {
+            let image = try XCTUnwrap(StatusBarController.statusButtonImage(icon: nil, layout: layout))
+            let canvas = NSImage(size: NSSize(width: 32, height: 32), flipped: false) { rect in
+                image.draw(in: rect)
+                return true
+            }
+            let bitmap = try XCTUnwrap(NSBitmapImageRep(data: XCTUnwrap(canvas.tiffRepresentation)))
+            masks.append((0 ..< bitmap.pixelsHigh).flatMap { y in
+                (0 ..< bitmap.pixelsWide).map { x in
+                    (bitmap.colorAt(x: x, y: y)?.alphaComponent ?? 0) > 0.5
+                }
+            })
+        }
+        XCTAssertNotEqual(masks[0], masks[1])
+    }
+
     func testLayoutAccessibilityRetainsExistingStateInformation() {
         for layout in [ActiveLayoutKind.niri, .dwindle] {
             let name = StatusBarController.layoutDisplayName(layout)
@@ -96,5 +114,66 @@ final class StatusBarLayoutTests: XCTestCase {
         XCTAssertTrue(controller.hasWorkspaceBarDataConsumers)
         controller.settings.statusBar.showLayout = false
         XCTAssertFalse(controller.statusBarRefreshIsEnabled)
+    }
+
+    func testMissingWorkspaceKeepsTheHiddenBrandOffWithoutLosingTheMenuButton() throws {
+        let controller = WindowAdmissionTestSupport.controller(prefix: "StatusBarMissingWorkspace")
+        controller.hotkeysEnabled = false
+        controller.settings.workspaceBar.enabled = false
+        controller.settings.hiddenBar.enabled = false
+        controller.settings.statusBar.showLayout = true
+        controller.settings.statusBar.showWorkspaceName = false
+        controller.settings.statusBar.showIcon = false
+        controller.workspaceManager.commitMonitorSessions([:])
+        let suite = "StatusBarMissingWorkspaceTests.\(UUID().uuidString)"
+        let defaults = try XCTUnwrap(UserDefaults(suiteName: suite))
+        let statusBar = StatusBarController(
+            settings: controller.settings,
+            controller: controller,
+            hiddenBarController: controller.hiddenBarController,
+            statusItemDefaults: defaults
+        )
+        controller.statusBarController = statusBar
+        defer {
+            statusBar.cleanup()
+            defaults.removePersistentDomain(forName: suite)
+        }
+        statusBar.setup()
+        let button = try XCTUnwrap(statusBar.statusButton)
+        let cell = try XCTUnwrap(button.cell)
+        let bounds = NSRect(x: 0, y: 0, width: 64, height: 24)
+        XCTAssertNil(controller.activeStatusBarWorkspaceSummary())
+        XCTAssertTrue(cell.imageRect(forBounds: bounds).isEmpty)
+        XCTAssertEqual(button.title, " \u{2026}")
+        XCTAssertEqual(button.imagePosition, .noImage)
+        XCTAssertTrue(button.isEnabled)
+        XCTAssertTrue(button.target === statusBar)
+        XCTAssertNotNil(button.action)
+        XCTAssertGreaterThan(cell.cellSize.width, 0)
+        XCTAssertEqual(button.accessibilityValue() as? String, "Window manager controls")
+
+        controller.settings.statusBar.showIcon = true
+        statusBar.refreshWorkspaces()
+        XCTAssertNotNil(button.image)
+        XCTAssertEqual(button.title, "")
+        XCTAssertEqual(button.imagePosition, .imageOnly)
+
+        controller.settings.statusBar.showIcon = false
+        statusBar.refreshWorkspaces()
+        XCTAssertTrue(cell.imageRect(forBounds: bounds).isEmpty)
+        XCTAssertEqual(button.title, " \u{2026}")
+
+        controller.keyboardModeKind = .paused
+        statusBar.refreshWorkspaces()
+        XCTAssertNotNil(button.image)
+        XCTAssertEqual(button.title, " Paused")
+        XCTAssertEqual(button.imagePosition, .imageLeft)
+
+        controller.keyboardModeKind = .normal
+        controller.settings.statusBar.showLayout = false
+        statusBar.refreshWorkspaces()
+        XCTAssertNotNil(button.image)
+        XCTAssertEqual(button.title, "")
+        XCTAssertEqual(button.imagePosition, .imageOnly)
     }
 }
