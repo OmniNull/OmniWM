@@ -132,8 +132,7 @@ extension MouseEventHandler {
         state.nativeTitleBarDrag = currentDrag
     }
 
-    func finishNativeTitleBarDragIfNeeded(button: MouseButton) {
-        guard button == .left else { return }
+    private func prepareNativeTitleBarDragForSettlement(button: MouseButton) -> MouseInputState.NativeTitleBarDrag? {
         if state.moveTap != nil, state.nativeTitleBarDrag == nil {
             correctDeferredNativeResizeFrameIfNeeded()
         }
@@ -142,12 +141,16 @@ extension MouseEventHandler {
            state.nativeTitleBarDragFallbackReleased
         {
             handleDeferredNativeTitleBarFrameIfNeeded()
-            return
+            return nil
         }
         state.awaitsNativeTitleBarDragTarget = false
         state.nativeTitleBarDragFallbackToken = nil
         state.nativeTitleBarDragFallbackReleased = false
-        guard var drag = state.nativeTitleBarDrag else { return }
+        return state.nativeTitleBarDrag
+    }
+
+    func finishNativeTitleBarDragIfNeeded(button: MouseButton) {
+        guard button == .left, var drag = prepareNativeTitleBarDragForSettlement(button: button) else { return }
         switch drag.phase {
         case .armed,
              .dragging:
