@@ -7,6 +7,11 @@ import OmniWMScriptHost
 import OmniWMShellCore
 import XCTest
 
+enum ShellRenderTestBudget {
+    static let ordinaryRender: UInt64 = 100_000_000
+    static let unlimited: UInt64 = 0
+}
+
 @MainActor
 final class ShellRenderedWidget {
     let vm: OpaquePointer
@@ -14,6 +19,7 @@ final class ShellRenderedWidget {
     let surface: ShellWidgetSurface
     let resources: ShellResources
     let text = ShellTextStore()
+    let renderBudget: UInt64
     var clicks: [(action: String, button: ShellEvent.Button)] = []
     var actions: [UInt32] = []
     var events: [ShellClick] = []
@@ -29,11 +35,16 @@ final class ShellRenderedWidget {
         try self.init(name: name, source: source.main, modules: source.modules, chunk: source.chunk)
     }
 
-    convenience init(source: ShellWidgetSource, scale: CGFloat = 2, resources: ShellResources? = nil) throws {
+    convenience init(
+        source: ShellWidgetSource,
+        scale: CGFloat = 2,
+        resources: ShellResources? = nil,
+        renderBudget: UInt64 = ShellRenderTestBudget.ordinaryRender
+    ) throws {
         try self.init(
             name: source.chunk, source: source.main, modules: source.modules, chunk: source.chunk, scale: scale,
             resources: resources, fonts: ShellFontLibrary.shared.fonts(in: source.fontFolders),
-            memoryLimit: ShellWidgetPackage.memoryLimit, moduleLimit: source.moduleLimit
+            memoryLimit: ShellWidgetPackage.memoryLimit, moduleLimit: source.moduleLimit, renderBudget: renderBudget
         )
         guard source.isIslandRoot else { return }
         configure(ShellComponentCatalog.configurationBytes(
@@ -51,8 +62,10 @@ final class ShellRenderedWidget {
         resources: ShellResources? = nil,
         fonts: ShellFontSet = .init(),
         memoryLimit: Int = 8 << 20,
-        moduleLimit: Int? = nil
+        moduleLimit: Int? = nil,
+        renderBudget: UInt64 = ShellRenderTestBudget.ordinaryRender
     ) throws {
+        self.renderBudget = renderBudget
         vm = try XCTUnwrap(ShellVM.make(memoryLimit: memoryLimit, fonts: fonts))
         if let moduleLimit { XCTAssertEqual(omni_vm_set_module_limit(vm, moduleLimit), OMNI_OK) }
         for module in modules {
@@ -147,7 +160,7 @@ final class ShellRenderedWidget {
     private func render(_ view: omni_view) -> [UInt8] {
         var stats = omni_render_stats()
         var error = [CChar](repeating: 0, count: 256)
-        let status = omni_instance_render(instance, view, 100_000_000, &stats, &error, error.count)
+        let status = omni_instance_render(instance, view, renderBudget, &stats, &error, error.count)
         XCTAssertEqual(
             status,
             OMNI_OK,

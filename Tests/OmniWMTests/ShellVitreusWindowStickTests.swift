@@ -185,7 +185,7 @@ extension ShellVitreusWindowStickTests {
         ])
     }
 
-    func testHeldWindowAndTwoStuckWindowsKeepFifteenTargetsAndStayUnderShapeAndRenderBudgets() throws {
+    func testRenderSpeedHeldAndStuckWindowsStayWithinProductionBudget() throws {
         let widget = try windows.docks.island([
             "pins": .strings([ShellVitreusDockTests.safari]),
             "addons": .strings(["notes"])

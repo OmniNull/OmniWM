@@ -333,7 +333,7 @@ extension ShellVitreusWindowShelfTests {
 
 @MainActor
 extension ShellVitreusWindowShelfTests {
-    func testAllBuiltInTargetsAndThreeLooseWindowsFitBudgetsWithShelfOpen() throws {
+    func testRenderSpeedOpenShelfAndLooseWindowsStayWithinProductionBudget() throws {
         let widget = try docks.island(["pins": .strings([ShellVitreusDockTests.safari]), "addons": .strings(["notes"])])
         let fixture = Fixture(
             widget: widget,

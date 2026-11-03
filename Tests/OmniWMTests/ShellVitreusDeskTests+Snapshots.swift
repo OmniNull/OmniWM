@@ -225,6 +225,14 @@ extension ShellVitreusDeskTests {
     }
 
     func testSettingsIslandPreviewDrawsTheDeskAndNativeGlass() async throws {
+        try await checkSettingsIslandPreview(renderBudget: ShellRenderTestBudget.unlimited)
+    }
+
+    func testRenderSpeedSettingsIslandPreviewStaysWithinProductionBudget() async throws {
+        try await checkSettingsIslandPreview(renderBudget: ShellWidgetPackage.renderBudget, snapshotSuffix: "-speed")
+    }
+
+    private func checkSettingsIslandPreview(renderBudget: UInt64, snapshotSuffix: String = "") async throws {
         let shell = try shell()
         let config = try VitreusFixture.config(shell)
         let island = try XCTUnwrap(config.island)
@@ -246,7 +254,7 @@ extension ShellVitreusDeskTests {
                 scale: 1,
                 surface: sample
             ),
-            settings: config.widgetSettings, expanded: true
+            settings: config.widgetSettings, expanded: true, renderBudget: renderBudget
         )
         let text = ShellTextStore()
         let tree = try XCTUnwrap(trees.first)
@@ -254,7 +262,7 @@ extension ShellVitreusDeskTests {
         for caption in ["Pad", "Focus", "READY", "30:00"] {
             XCTAssertTrue(text.strings.contains(caption), caption)
         }
-        let expanded = try await ShellSettingsPreview.render(request)
+        let expanded = try await ShellSettingsPreview.render(request, renderBudget: renderBudget)
         XCTAssertEqual(CGSize(width: expanded.width, height: expanded.height), sample.size)
         let bytes = try XCTUnwrap(expanded.dataProvider?.data) as Data
         func alpha(_ x: CGFloat, _ y: CGFloat) -> UInt8 {
@@ -264,15 +272,15 @@ extension ShellVitreusDeskTests {
         XCTAssertTrue((-20 ... 20).contains { alpha(rect.minX + 176.5 * du + CGFloat($0), rect.minY + 182 * du) > 0 })
         XCTAssertGreaterThan(alpha(rect.minX + 3 * du, rect.midY), 80)
         XCTAssertEqual(alpha(rect.minX - 40, rect.midY), 0)
-        try Self.write(expanded, name: "settings-vitreus-expanded-dark-1x")
+        try Self.write(expanded, name: "settings-vitreus-expanded-dark-1x\(snapshotSuffix)")
         let compact = try await ShellSettingsPreview.render(.init(
             config: config, surface: .island(expanded: false), style: .init(), scale: 1, dark: true, fullWidth: true,
             sourceGeneration: 0
-        ))
+        ), renderBudget: renderBudget)
         XCTAssertEqual(CGSize(width: compact.width, height: compact.height), sample.size)
         let pill = try XCTUnwrap(compact.dataProvider?.data) as Data
         XCTAssertGreaterThan(pill[35 * compact.bytesPerRow + 720 * 4 + 3], 80)
         XCTAssertEqual(pill[90 * compact.bytesPerRow + 720 * 4 + 3], 0)
-        try Self.write(compact, name: "settings-vitreus-compact-dark-1x")
+        try Self.write(compact, name: "settings-vitreus-compact-dark-1x\(snapshotSuffix)")
     }
 }

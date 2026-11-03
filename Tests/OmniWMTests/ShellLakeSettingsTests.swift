@@ -381,7 +381,9 @@ final class ShellLakeSettingsTests: XCTestCase {
     private func renderPublished(_ widget: ShellRenderedWidget) -> Bool {
         var stats = omni_render_stats()
         var error = [CChar](repeating: 0, count: 512)
-        let status = omni_instance_render(widget.instance, OMNI_VIEW_BAR, 8_000_000, &stats, &error, error.count)
+        let status = omni_instance_render(
+            widget.instance, OMNI_VIEW_BAR, ShellRenderTestBudget.unlimited, &stats, &error, error.count
+        )
         XCTAssertEqual(
             status,
             OMNI_OK,

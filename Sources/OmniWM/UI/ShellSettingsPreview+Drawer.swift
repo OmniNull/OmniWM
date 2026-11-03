@@ -46,7 +46,7 @@ extension ShellSettingsPreview {
     }
 
     @MainActor
-    static func drawerImage(_ id: String, request: Request) async throws -> CGImage {
+    static func drawerImage(_ id: String, request: Request, renderBudget: UInt64) async throws -> CGImage {
         let config = request.config
         guard let drawer = config.drawers.first(where: { $0.id == id }) else {
             throw ShellScriptFailure(kind: .runtime, message: String(localized: "This drawer no longer exists."))
@@ -56,7 +56,7 @@ extension ShellSettingsPreview {
         let trees = try await ShellSettingsPreviewRenderer.shared.render(
             inputs: inputs, values: ShellSettingsPreviewSamples.values(
                 style: request.style, islandSize: nil, dark: request.dark, scale: request.scale
-            ), settings: config.widgetSettings, expanded: nil, popout: true
+            ), settings: config.widgetSettings, expanded: nil, popout: true, renderBudget: renderBudget
         )
         let padding = drawer.chrome ? ShellEdgeDrawer.padding : 0
         let images = try await ShellSettingsPreviewRaster.render(

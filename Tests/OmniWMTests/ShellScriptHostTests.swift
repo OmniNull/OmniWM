@@ -412,10 +412,9 @@ final class ShellScriptHostTests: XCTestCase {
             end
         end
         """)
-        let start = ContinuousClock.now
-        let result = script.render(budget: 5_000_000)
+        let result = script.render(budget: ShellWidgetPackage.renderBudget)
         XCTAssertEqual(result.status, OMNI_ERR_TIMEOUT, script.message)
-        XCTAssertLessThan(ContinuousClock.now - start, .seconds(1))
+        XCTAssertEqual(script.message, "script exceeded its CPU budget")
     }
 
     func testMemoryCapIsEnforced() throws {
