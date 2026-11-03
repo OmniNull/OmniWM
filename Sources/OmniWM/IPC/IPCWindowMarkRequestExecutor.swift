@@ -49,7 +49,15 @@ struct IPCWindowMarkRequestExecutor {
             return .disabled
         case .ignoredOverview:
             return .overviewOpen
-        default:
+        case .executed,
+             .ignoredLayoutMismatch,
+             .staleWindowId,
+             .workspaceAssignmentConflict,
+             .workspaceStateConflict,
+             .notFound,
+             .noChange,
+             .windowActionFailed,
+             .invalidArguments:
             return nil
         }
     }
@@ -86,12 +94,14 @@ struct IPCWindowMarkRequestExecutor {
                 continue
             }
 
-            let appInfo = controller.appInfoCache.info(for: entry.pid)
-            let app = IPCAppRef(
-                name: appInfo?.name ?? "PID \(entry.pid)",
-                bundleId: appInfo?.bundleId
+            let presentation = controller.appInfoCache.presentation(
+                for: entry, title: AXWindowService.titlePreferFast(windowId: UInt32(entry.windowId))
             )
-            let title = AXWindowService.titlePreferFast(windowId: UInt32(entry.windowId))
+            let app = IPCAppRef(
+                name: presentation.name ?? "PID \(entry.pid)",
+                bundleId: entry.target.hostedMetadata?.appId ?? controller.appInfoCache.bundleId(for: entry.pid)
+            )
+            let title = presentation.title
             let id = IPCWindowOpaqueID.encode(token: entry.token, sessionToken: sessionToken)
             entries.append(
                 IPCWindowMarkEntry(

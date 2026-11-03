@@ -123,13 +123,15 @@ final class WindowSwitcherController {
                   let handle = controller.workspaceManager.handle(for: entry.token),
                   let workspace = controller.workspaceManager.descriptor(for: entry.workspaceId)
             else { return nil }
-            let app = controller.appInfoCache.info(for: entry.pid)
-            let title = AXWindowService.titlePreferFast(windowId: UInt32(entry.windowId)) ?? ""
+            let presentation = controller.appInfoCache.presentation(
+                for: entry, title: AXWindowService.titlePreferFast(windowId: UInt32(entry.windowId))
+            )
+            let title = presentation.title ?? ""
             return WindowSwitcherItem(
                 handle: handle,
-                title: title.isEmpty ? (app?.name ?? String(localized: "Window")) : title,
-                appName: app?.name ?? String(localized: "Unknown"),
-                icon: app?.icon,
+                title: title.isEmpty ? (presentation.name ?? String(localized: "Window")) : title,
+                appName: presentation.name ?? String(localized: "Unknown"),
+                icon: presentation.icon,
                 workspaceName: controller.settings.workspaces.displayName(for: workspace.name),
                 isMinimized: entry.observedState.isMinimized
             )

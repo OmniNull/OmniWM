@@ -120,26 +120,24 @@ extension NiriLayoutHandler {
             let storageIndex = windows.count - 1 - visualIndex
             let window = windows[storageIndex]
             let entry = controller.workspaceManager.entry(for: window.token)
-            let appName: String?
-            if let entry, controller.appInfoCache.hasCachedInfo(for: entry.pid) {
-                appName = controller.appInfoCache.name(for: entry.pid)
-            } else {
-                appName = nil
-            }
-            let title = entry?.managedReplacementMetadata?.title
-                ?? entry.flatMap { entry in
-                    UInt32(exactly: entry.windowId).flatMap {
+            let presentation = entry.map { entry in
+                controller.appInfoCache.presentation(
+                    for: entry,
+                    title: entry.managedReplacementMetadata?.title ?? UInt32(exactly: entry.windowId).flatMap {
                         AXWindowService.titlePreferFast(windowId: $0)
-                    }
-                }
+                    },
+                    cachedProcessOnly: true
+                )
+            }
             tabs.append(
                 TabRailTabInfo(
                     visualIndex: visualIndex,
                     token: window.token,
                     windowId: entry?.windowId,
-                    appName: appName,
-                    title: title,
-                    isActive: visualIndex == clampedActiveVisualIndex
+                    appName: presentation?.name,
+                    title: presentation?.title,
+                    isActive: visualIndex == clampedActiveVisualIndex,
+                    icon: presentation?.icon
                 )
             )
         }

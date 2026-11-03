@@ -280,16 +280,17 @@ enum CommandPaletteSearch {
             guard entry.layoutReason == .standard,
                   let handle = wmController.workspaceManager.handle(for: entry.token) else { continue }
 
-            let title = AXWindowService.titlePreferFast(windowId: UInt32(entry.windowId)) ?? ""
-            let appInfo = wmController.appInfoCache.info(for: entry.pid)
+            let presentation = wmController.appInfoCache.presentation(
+                for: entry, title: AXWindowService.titlePreferFast(windowId: UInt32(entry.windowId))
+            )
             let workspaceName = wmController.workspaceManager.descriptor(for: entry.workspaceId)?.name ?? "?"
 
             items.append(CommandPaletteWindowItem(
                 id: entry.token,
                 handle: handle,
-                title: title,
-                appName: appInfo?.name ?? String(localized: "Unknown"),
-                appIcon: appInfo?.icon,
+                title: presentation.title ?? "",
+                appName: presentation.name ?? String(localized: "Unknown"),
+                appIcon: presentation.icon,
                 workspaceName: workspaceName,
                 isAppHidden: wmController.workspaceManager.isAppHidden(pid: entry.pid),
                 markNames: wmController.windowMarkRegistry.names(for: entry.token)

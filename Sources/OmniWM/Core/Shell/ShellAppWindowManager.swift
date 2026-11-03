@@ -12,6 +12,7 @@ final class ShellAppWindowManager: NSObject, NSWindowDelegate {
     var sessions: [WindowToken: ShellAppWindowSession] = [:]
     var liveResizeStarts: [WindowToken: CGRect] = [:]
     var applyingFrames: Set<WindowToken> = []
+    private(set) var isShuttingDown = false
     var makeWindow: @MainActor (ShellAppDefinition) -> NSWindow = ShellAppWindowManager.makeWindow
     var activateApplication: () -> Void = { NSApp.activate() }
     var focusWithoutRaising: (WindowToken) -> Void = { token in
@@ -32,7 +33,7 @@ final class ShellAppWindowManager: NSObject, NSWindowDelegate {
         to workspaceId: WorkspaceDescriptor.ID
     ) -> WindowToken? {
         let token = WindowToken(pid: getpid(), windowId: window.windowNumber)
-        guard windows[token] == nil else { return nil }
+        guard !isShuttingDown, windows[token] == nil else { return nil }
         windows[token] = window
         guard controller.workspaceManager.addHostedWindow(
             token: token, metadata: metadata, to: workspaceId, initialFrame: window.frame
@@ -111,6 +112,16 @@ final class ShellAppWindowManager: NSObject, NSWindowDelegate {
         return true
     }
 
+    func shutdown() {
+        guard !isShuttingDown else { return }
+        isShuttingDown = true
+        controller.layoutRefreshController.workspaceSwipe.cancelAll(reason: "quit")
+        if let request = controller.intentLedger.activeManagedRequest, windows[request.token] != nil {
+            controller.cancelManagedFocusRequest(request)
+        }
+        for window in Array(windows.values) { window.close() }
+    }
+
     func windowWillClose(_ notification: Notification) {
         guard let window = notification.object as? NSWindow,
               let token = windows.first(where: { $0.value === window })?.key
@@ -121,7 +132,7 @@ final class ShellAppWindowManager: NSObject, NSWindowDelegate {
         liveResizeStarts.removeValue(forKey: token)
         guard let entry = controller.workspaceManager.entry(for: token),
               entry.target.hostedMetadata != nil else { return }
-        guard controller.hasStartedServices else {
+        guard controller.hasStartedServices, !isShuttingDown else {
             controller.workspaceManager.removeHostedWindow(token)
             return
         }

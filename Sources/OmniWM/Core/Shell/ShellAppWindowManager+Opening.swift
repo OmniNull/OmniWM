@@ -22,6 +22,7 @@ extension ShellAppWindowManager {
         in workspace: WorkspaceDescriptor.ID,
         newInstance: Bool = false
     ) -> Bool {
+        guard !isShuttingDown else { return false }
         if !newInstance, let token = existingWindow(for: definition.id) {
             if windows[token]?.isMiniaturized == true { windows[token]?.deminiaturize(nil) }
             guard let handle = controller.workspaceManager.handle(for: token) else { return false }
@@ -33,7 +34,9 @@ extension ShellAppWindowManager {
         )
         let minimum = window.frameRect(forContentRect: CGRect(origin: .zero, size: definition.minimumContentSize)).size
         guard let token = admit(
-            window, metadata: HostedWindowMetadata(appId: definition.id, title: definition.title, minimumSize: minimum),
+            window, metadata: HostedWindowMetadata(
+                appId: definition.id, title: definition.title, minimumSize: minimum, icon: definition.icon
+            ),
             to: workspace
         ) else { session.close()
             window.close()

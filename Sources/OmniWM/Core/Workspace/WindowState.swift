@@ -126,6 +126,7 @@ struct HostedWindowMetadata: Equatable, Sendable {
     let appId: String
     let title: String
     let minimumSize: CGSize
+    var icon = "app"
 }
 
 enum WindowTarget: Equatable, Sendable {

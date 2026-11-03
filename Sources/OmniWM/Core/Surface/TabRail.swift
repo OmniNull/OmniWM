@@ -24,6 +24,7 @@ struct TabRailTabInfo: Equatable {
     let appName: String?
     let title: String?
     let isActive: Bool
+    var icon: NSImage?
 
     var accessibilityLabel: String {
         let ordinal = String(localized: "Tab \(visualIndex + 1)")

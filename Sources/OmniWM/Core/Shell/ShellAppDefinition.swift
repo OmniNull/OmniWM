@@ -9,6 +9,7 @@ struct ShellAppDefinition: Sendable {
     let contentSize: CGSize
     let minimumContentSize: CGSize
     let folder: URL
+    var icon = "app"
 
     static var example: Self? {
         example(in: .module)
@@ -37,7 +38,7 @@ struct ShellAppDefinition: Sendable {
         )
         source.components = [.init(id: "app", widget: id)]
         source.componentDescriptors = [.init(
-            widget: id, title: title, icon: "app", views: ["window"], uses: [], options: [:],
+            widget: id, title: title, icon: icon, views: ["window"], uses: [], options: [:],
             capabilities: ShellComponentCapabilities(), providerCommand: nil, folder: folder
         )]
         source.assetPackages = [id: folder]

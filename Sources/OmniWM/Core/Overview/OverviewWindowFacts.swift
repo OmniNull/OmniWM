@@ -26,14 +26,14 @@ final class OverviewWindowFacts {
         preferredFrame: CGRect?,
         appInfoCache: AppInfoCache
     ) -> OverviewWindowLayoutData {
-        let title = environment.windowTitle(entry) ?? ""
-        let appInfo = appInfoCache.info(for: entry.pid)
+        let presentation = appInfoCache.presentation(for: entry, title: environment.windowTitle(entry))
+        let title = presentation.title ?? ""
         return OverviewWindowLayoutData(
             token: entry.token,
             workspaceId: entry.workspaceId,
-            title: title.isEmpty ? (appInfo?.name ?? String(localized: "Window")) : title,
-            appName: entry.target.hostedMetadata?.title ?? appInfo?.name ?? String(localized: "Unknown"),
-            appIcon: appInfo?.icon,
+            title: title.isEmpty ? (presentation.name ?? String(localized: "Window")) : title,
+            appName: presentation.name ?? String(localized: "Unknown"),
+            appIcon: presentation.icon,
             frame: preferredFrame ?? windowFrame(entry) ?? .zero,
             isNativeFullscreen: entry.layoutReason == .nativeFullscreen,
             floatingPreviewFrame: floatingPreviewFrame(for: entry)

@@ -107,7 +107,7 @@ extension ShellAppWindowManager {
     }
 
     private func registeredWindow(in notification: Notification) -> RegisteredWindow? {
-        guard let window = notification.object as? NSWindow else { return nil }
+        guard !isShuttingDown, let window = notification.object as? NSWindow else { return nil }
         let token = WindowToken(pid: getpid(), windowId: window.windowNumber)
         guard windows[token] === window,
               let entry = controller.workspaceManager.entry(for: token), entry.target.hostedMetadata != nil

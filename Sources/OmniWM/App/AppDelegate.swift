@@ -455,17 +455,14 @@ extension AppDelegate {
         return deferTermination(
             stop: { completion in
                 Task { @MainActor in
-                    do {
-                        try await controller.clipboardHistoryService.flushForQuit()
-                    } catch {
-                        if !self.confirmQuitWithoutSavingClipboardHistory(error) {
-                            controller.clipboardHistoryService.resumeAfterCanceledQuit()
-                            self.terminationPending = false
-                            application.reply(toApplicationShouldTerminate: false)
-                            return
-                        }
+                    guard await self.prepareShellForQuit(
+                        controller: controller,
+                        confirmDiscard: self.confirmQuitWithoutSavingClipboardHistory
+                    ) else {
+                        self.terminationPending = false
+                        application.reply(toApplicationShouldTerminate: false)
+                        return
                     }
-                    await controller.workspaceBarManager.flushShellForQuit()
                     controller.serviceLifecycleManager.stopRestoringWindows(forQuit: true, completion: completion)
                 }
             },
