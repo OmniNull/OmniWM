@@ -5,7 +5,7 @@ import AppKit
 import Foundation
 
 extension MouseEventHandler {
-    func captureNativeResizeStart(for token: WindowToken?) {
+    func captureNativeResizeStart(for token: WindowToken?, at location: CGPoint) {
         state.nativeResizeStart = nil
         guard let controller,
               controller.settings.gestures.adoptNativeResize,
@@ -15,14 +15,10 @@ extension MouseEventHandler {
               !controller.axManager.hasInFlightFrameWrite(for: token),
               let frame = controller.axManager.lastAppliedFrame(for: token.windowId)
         else { return }
-        if controller.axManager.isAwaitingFrameWrite(token.windowId),
-           terminalNativeWindowFrame(for: entry)?.approximatelyEqual(
-               to: frame, tolerance: FrameTolerance.frameWrite
-           ) != true
-        {
-            return
-        }
-        state.nativeResizeStart = .init(token: token, frame: frame)
+        guard terminalNativeWindowFrame(for: entry)?.approximatelyEqual(
+            to: frame, tolerance: FrameTolerance.frameWrite
+        ) == true else { return }
+        state.nativeResizeStart = .init(token: token, frame: frame, location: location)
     }
 
     func adoptNativeResizeIfEligible(

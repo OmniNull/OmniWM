@@ -111,7 +111,7 @@ extension MouseEventHandler {
         }
         warpDraggedPointer(at: location)
         controller?.workspaceBarManager.handleAutoHideMouseMoved(at: location)
-        confirmNativeMouseDrag(button: button)
+        confirmNativeMouseDrag(at: location, button: button)
         if !isCapturedInteraction(button), shouldBlockOwnWindowInput(at: location) {
             cancelActiveMouseInteraction()
             return
@@ -212,6 +212,13 @@ extension MouseEventHandler {
         }
         if shouldBlockOwnWindowInput(at: location) {
             dropPendingTapEvents()
+            if button == .left, !isInputSuppressed,
+               state.nativeTitleBarDrag == nil,
+               state.awaitsNativeTitleBarDragTarget,
+               state.nativeTitleBarDragFallbackReleased
+            {
+                retireNativeTitleBarDragAtInputBoundary()
+            }
         } else {
             flushQueuedTapEventsBeforeImmediateDispatch()
             if button == .left, !isInputSuppressed {
@@ -227,27 +234,24 @@ extension MouseEventHandler {
 
     func receiveTapMouseDragged(at location: CGPoint, button: MouseButton = .left) {
         if !isInputSuppressed {
-            confirmNativeMouseDrag(button: button)
+            confirmNativeMouseDrag(at: location, button: button)
         }
         EventIntake.post(.mouseDragged(button: button, location: location))
     }
 
-    func receiveAnnotatedNativeMouseDragged(windowIdUnderPointer: Int?) {
+    func receiveAnnotatedNativeMouseDragged(at location: CGPoint, windowIdUnderPointer: Int?) {
         guard state.awaitsNativeTitleBarDragTarget,
               state.nativeTitleBarDrag == nil,
               let windowIdUnderPointer,
               let entry = controller?.workspaceManager.entry(forWindowId: windowIdUnderPointer),
               entry.mode == .tiling
         else {
-            if windowIdUnderPointer != nil {
-                correctDeferredNativeResizeFrameIfNeeded()
-                state.awaitsNativeTitleBarDragTarget = false
-                state.nativeTitleBarDragFallbackToken = nil
-                state.nativeTitleBarDragFallbackReleased = false
-                state.nativeCrossDisplayMove = nil
+            if windowIdUnderPointer != nil || state.nativeTitleBarDragFallbackReleased {
+                rejectNativeTitleBarDragTarget()
             }
             return
         }
+        let released = state.nativeTitleBarDragFallbackReleased
         correctDeferredNativeResizeFrameIfNeeded(excluding: entry.token)
         state.awaitsNativeTitleBarDragTarget = false
         state.nativeTitleBarDragFallbackToken = nil
@@ -256,7 +260,8 @@ extension MouseEventHandler {
         if state.nativeCrossDisplayMove?.token != entry.token {
             captureNativeCrossDisplayMove(for: entry.token)
         }
-        confirmNativeMouseDrag(button: .left)
+        confirmNativeMouseDrag(at: location, button: .left)
+        if released { finishNativeTitleBarDragIfNeeded(button: .left) }
     }
 
     func receiveTapMouseUp(at location: CGPoint, button: MouseButton = .left) {
@@ -422,7 +427,7 @@ extension MouseEventHandler {
         }
         warpDraggedPointer(at: location)
         controller?.workspaceBarManager.handleAutoHideMouseMoved(at: location)
-        confirmNativeMouseDrag(button: button)
+        confirmNativeMouseDrag(at: location, button: button)
         if !isCapturedInteraction(button), shouldBlockOwnWindowInput(at: location) {
             cancelActiveMouseInteraction()
             return

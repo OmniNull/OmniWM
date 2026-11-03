@@ -66,33 +66,37 @@ extension MouseEventHandler {
     }
 
     private func installAnnotatedMoveTap() -> Bool {
-        let moveCallback: CGEventTapCallBack = { _, type, event, _ in
-            if type == .tapDisabledByTimeout || type == .tapDisabledByUserInput {
-                InputTapHealth.recordTapDisabled(mouse: true, byTimeout: type == .tapDisabledByTimeout)
-                if let tap = MouseEventHandler._instance?.state.moveTap {
-                    CGEvent.tapEnable(tap: tap, enable: true)
-                }
-                return Unmanaged.passUnretained(event)
-            }
+        installAnnotatedMoveTap(callback: Self.annotatedMoveTapCallback)
+    }
 
-            if type == .leftMouseDragged, Thread.isMainThread {
-                MainActor.assumeIsolated {
-                    guard let handler = MouseEventHandler._instance,
-                          handler.state.awaitsNativeTitleBarDragTarget
-                    else { return }
-                    if handler.isCapturingPerformance {
-                        handler.recordCGEvent(type)
-                    }
-                    handler.receiveAnnotatedNativeMouseDragged(
-                        windowIdUnderPointer: MouseEventHandler.eventWindowIdUnderPointer(event)
-                    )
-                }
-            } else {
-                _ = MouseEventHandler.processTapCallback(type: type, event: event)
+    static let annotatedMoveTapCallback: CGEventTapCallBack = { _, type, event, _ in
+        if type == .tapDisabledByTimeout || type == .tapDisabledByUserInput {
+            InputTapHealth.recordTapDisabled(mouse: true, byTimeout: type == .tapDisabledByTimeout)
+            if let tap = MouseEventHandler._instance?.state.moveTap {
+                CGEvent.tapEnable(tap: tap, enable: true)
             }
             return Unmanaged.passUnretained(event)
         }
-        return installAnnotatedMoveTap(callback: moveCallback)
+
+        if type == .leftMouseDragged, Thread.isMainThread {
+            let windowId = MouseEventHandler.eventWindowIdUnderPointer(event)
+            let location = ScreenCoordinateSpace.toAppKit(point: event.location)
+            MainActor.assumeIsolated {
+                guard let handler = MouseEventHandler._instance,
+                      handler.state.awaitsNativeTitleBarDragTarget
+                else { return }
+                if handler.isCapturingPerformance {
+                    handler.recordCGEvent(type)
+                }
+                handler.receiveAnnotatedNativeMouseDragged(
+                    at: location,
+                    windowIdUnderPointer: windowId
+                )
+            }
+        } else {
+            _ = MouseEventHandler.processTapCallback(type: type, event: event)
+        }
+        return Unmanaged.passUnretained(event)
     }
 
     private func installAnnotatedMoveTap(callback: CGEventTapCallBack) -> Bool {
