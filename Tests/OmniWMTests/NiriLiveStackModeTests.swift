@@ -463,6 +463,19 @@ final class NiriLiveStackModeTests: XCTestCase {
         XCTAssertNil(fixture.engine.ensureState(for: fixture.workspaceId).manualWidthColumnCount)
     }
 
+    func testADragCutOffWhileALandingIsOpenGivesTheColumnsBackTheirFit() {
+        var fixture = makeFixture(widths: [0.3, 0.4, 0.3], activeIndex: 2)
+        XCTAssertNil(fixture.engine.ensureState(for: fixture.workspaceId).manualWidthColumnCount)
+        XCTAssertTrue(fixture.begin(2))
+        XCTAssertEqual(fixture.setStackMode(true, at: fixture.lowerHalf(of: 1)), .changed)
+        XCTAssertNotNil(fixture.engine.ensureState(for: fixture.workspaceId).manualWidthColumnCount)
+
+        fixture.engine.cancelInteractions(for: [fixture.window(2).id], in: fixture.workspaceId)
+
+        XCTAssertNil(fixture.engine.liveColumnMove)
+        XCTAssertNil(fixture.engine.ensureState(for: fixture.workspaceId).manualWidthColumnCount)
+    }
+
     func testCancelInStackModeRestoresTheLayoutFromBeforeTheDrag() {
         var fixture = makeFixture()
         let order = fixture.columnOrder()

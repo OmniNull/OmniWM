@@ -230,6 +230,11 @@ extension NiriLayoutEngine {
             removeLivePlaceholder(previous.homeColumnId, in: previous.workspaceId)
         }
         if liveColumnMove == nil, liveStackDrop?.windowId != previous.windowId,
+           let kept = previous.keptWidths
+        {
+            ensureState(for: previous.workspaceId).manualWidthColumnCount = kept.manualColumnCount
+        }
+        if liveColumnMove == nil, liveStackDrop?.windowId != previous.windowId,
            let saved = previous.mateHeight,
            let mate = findNode(by: saved.windowId, in: previous.workspaceId) as? NiriWindow,
            mate.height != saved.height
