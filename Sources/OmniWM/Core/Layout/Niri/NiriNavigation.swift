@@ -255,7 +255,7 @@ extension NiriLayoutEngine {
             alwaysCenterSingleColumn: settings.alwaysCenterSingleColumn,
             animationConfig: animationConfig,
             fromContainerIndex: prevIdx,
-            keepsStripEndsOnScreen: keepsStripEndsOnScreen,
+            edges: viewportEdgeRules(in: context.workspaceId),
             scale: scale,
             viewFrame: viewFrame
         )

@@ -13,7 +13,7 @@ extension ViewportState {
         centerMode: CenterFocusedColumn,
         alwaysCenterSingleColumn: Bool = false,
         fromColumnIndex: Int? = nil,
-        keepsStripEndsOnScreen: Bool = false,
+        edges: ViewportEdgeRules = .init(),
         scale: CGFloat = 2.0,
         viewFrame: CGRect? = nil
     ) {
@@ -55,7 +55,7 @@ extension ViewportState {
             centerMode: centerMode,
             alwaysCenterSingleColumn: alwaysCenterSingleColumn,
             fromContainerIndex: fromColumnIndex ?? prevActiveColumn,
-            keepsStripEndsOnScreen: keepsStripEndsOnScreen,
+            edges: edges,
             scale: scale,
             viewFrame: viewFrame
         )
@@ -97,7 +97,7 @@ extension ViewportState {
         alwaysCenterSingleColumn: Bool = false,
         animationConfig: SpringConfig? = nil,
         fromContainerIndex: Int? = nil,
-        keepsStripEndsOnScreen: Bool = false,
+        edges: ViewportEdgeRules = .init(),
         scale: CGFloat = 2.0,
         viewFrame: CGRect? = nil
     ) {
@@ -123,7 +123,7 @@ extension ViewportState {
             centerMode: centerMode,
             alwaysCenterSingleColumn: alwaysCenterSingleColumn,
             fromContainerIndex: fromContainerIndex,
-            keepsStripEndsOnScreen: keepsStripEndsOnScreen,
+            edges: edges,
             scale: scale,
             viewFrame: viewFrame
         )

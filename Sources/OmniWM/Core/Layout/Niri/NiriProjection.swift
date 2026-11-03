@@ -321,7 +321,7 @@ extension NiriLayoutEngine {
                 alwaysCenterSingleColumn: settings.alwaysCenterSingleColumn,
                 animationConfig: animationConfig,
                 fromContainerIndex: projectedFromIndex,
-                keepsStripEndsOnScreen: keepsStripEndsOnScreen,
+                edges: viewportEdgeRules(in: context.workspaceId),
                 scale: displayScale(in: context.workspaceId),
                 viewFrame: monitorForWorkspace(context.workspaceId)?.frame
             )
@@ -378,7 +378,7 @@ extension NiriLayoutEngine {
                 snapToColumn: snapToColumn,
                 centerMode: centerMode,
                 alwaysCenterSingleColumn: alwaysCenterSingleColumn,
-                keepsStripEndsOnScreen: keepsStripEndsOnScreen
+                edges: viewportEdgeRules(in: context.workspaceId)
             )
 
             projectedState.rebaseOffset(by: -singleOriginOffset)

@@ -123,3 +123,9 @@ extension NiriLayoutEngine {
             || (settings.alwaysCenterSingleColumn && columns(in: workspaceId).count == 1)
     }
 }
+
+extension NiriLayoutEngine {
+    func viewportEdgeRules(in _: WorkspaceDescriptor.ID) -> ViewportEdgeRules {
+        ViewportEdgeRules(keepsStripEndsOnScreen: keepsStripEndsOnScreen)
+    }
+}

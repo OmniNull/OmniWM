@@ -307,7 +307,7 @@ extension ViewportState {
         centerMode: CenterFocusedColumn,
         alwaysCenterSingleColumn: Bool = false,
         fromContainerIndex: Int? = nil,
-        keepsStripEndsOnScreen: Bool = false,
+        edges: ViewportEdgeRules = .init(),
         scale: CGFloat = 2.0,
         viewFrame: CGRect? = nil
     ) -> CGFloat {
@@ -354,7 +354,8 @@ extension ViewportState {
         let offset = shouldCenter
             ? areas.centeredOffset(currentViewStart: currentViewStart, target: target, gap: context.gaps)
             : areas.fitOffset(currentViewStart: currentViewStart, target: target, gap: context.gaps)
-        guard keepsStripEndsOnScreen, target.mode == .normal, effectiveCenterMode != .always else { return offset }
+        guard edges.keepsStripEndsOnScreen, target.mode == .normal,
+              effectiveCenterMode != .always else { return offset }
         return offsetKeepingStripEndsOnScreen(offset, target: target, containers: containers, context: context)
     }
 
@@ -414,4 +415,8 @@ extension ViewportState {
         return (pairSpan + context.gaps * 2).roundedToPhysicalPixel(scale: areas.scale)
             > areas.span(of: areas.working).roundedToPhysicalPixel(scale: areas.scale)
     }
+}
+
+struct ViewportEdgeRules: Equatable {
+    var keepsStripEndsOnScreen = false
 }

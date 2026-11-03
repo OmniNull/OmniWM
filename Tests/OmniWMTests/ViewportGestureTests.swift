@@ -106,7 +106,7 @@ final class ViewportGestureTests: XCTestCase {
             geometry: NiriViewportGeometry(gap: 10, viewportSpan: 150, orientation: .horizontal),
             motion: .disabled,
             snapToColumn: false,
-            keepsStripEndsOnScreen: true
+            edges: .init(keepsStripEndsOnScreen: true)
         )
 
         let viewStart = 220 + state.viewOffset
@@ -128,7 +128,7 @@ final class ViewportGestureTests: XCTestCase {
             ),
             motion: .disabled,
             snapToColumn: false,
-            keepsStripEndsOnScreen: true
+            edges: .init(keepsStripEndsOnScreen: true)
         )
 
         XCTAssertEqual(state.activeColumnIndex, 2)
@@ -144,7 +144,7 @@ final class ViewportGestureTests: XCTestCase {
             geometry: NiriViewportGeometry(gap: 10, viewportSpan: 150, orientation: .horizontal),
             motion: .disabled,
             snapToColumn: false,
-            keepsStripEndsOnScreen: true
+            edges: .init(keepsStripEndsOnScreen: true)
         )
 
         XCTAssertEqual(state.activeColumnIndex, 0)

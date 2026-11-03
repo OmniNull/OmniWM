@@ -14,7 +14,7 @@ extension ViewportState {
         snapToColumn: Bool = true,
         centerMode: CenterFocusedColumn = .never,
         alwaysCenterSingleColumn: Bool = false,
-        keepsStripEndsOnScreen: Bool = false
+        edges: ViewportEdgeRules = .init()
     ) {
         guard !columns.isEmpty else {
             endGestureWithoutSnap(currentOffset: currentOffset)
@@ -34,7 +34,7 @@ extension ViewportState {
                 columns: columns,
                 geometry: geometry,
                 totalContentSpan: totalContentSpan,
-                padding: keepsStripEndsOnScreen ? Double(geometry.gap) : 0,
+                padding: edges.keepsStripEndsOnScreen ? Double(geometry.gap) : 0,
                 motion: motion
             )
             return
