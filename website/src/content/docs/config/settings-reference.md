@@ -364,7 +364,6 @@ Contents of the OmniWM status menu panel (the dropdown on OmniWM's menu bar item
 | Key | Type | Default | Description |
 | --- | --- | --- | --- |
 | `showControls` | boolean | `true` | Master switch for the CONTROLS grid and its help card. |
-| `showAppMenu` | boolean | `true` | Shows an APP MENU section that mirrors the focused app's menu bar. Requires Accessibility permission; it stays hidden when the menu bar cannot be read. |
 | `showControlHelp` | boolean | `true` | Shows the description card under the controls grid. Has no effect while `showControls` is off. |
 | `showMenuItems` | boolean | `true` | Master switch for OmniWM's own rows: Settings, Report a Bug…, App Rules, Open Shell Folder, Check for Updates…, Advanced, Diagnostics, Help & Links, Omni Sponsors. Quit OmniWM always stays. |
 | `hiddenControls` | string array | `[]` | Control tiles to hide individually: `bordersEnabled`, `workspaceBarEnabled`, `preventSleepEnabled`, `focusFollowsMouse`, `focusCrossesMonitorAtEdge`, `moveMouseToFocusedWindow`, `focusFollowsWindowToMonitor`, `moveCrossesMonitorAtEdge`, `mouseWarpEnabled`, `hiddenBarEnabled`. |

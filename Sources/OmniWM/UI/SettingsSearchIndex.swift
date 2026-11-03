@@ -72,10 +72,8 @@ enum SettingsSearchIndex {
         setting("Rehide Delay", section: .menuBar, tab: "hidden", anchor: "Rehide Delay"),
         setting("Status Menu", section: .menuBar, tab: "statusMenu", anchor: "Show Controls"),
         setting("Show Controls", section: .menuBar, tab: "statusMenu", anchor: "Show Controls"),
-        setting("Show App Menu", section: .menuBar, tab: "statusMenu", anchor: "Show App Menu"),
         setting("Show Control Help", section: .menuBar, tab: "statusMenu", anchor: "Show Control Help"),
         setting("Show OmniWM Items", section: .menuBar, tab: "statusMenu", anchor: "Show OmniWM Items"),
-        setting("App Menu Section", section: .menuBar, tab: "statusMenu", anchor: "Show App Menu"),
         setting("Controls Grid", section: .menuBar, tab: "statusMenu", anchor: "Show Controls"),
         setting("Status Menu Items", section: .menuBar, tab: "statusMenu", anchor: "Show OmniWM Items"),
         setting("Layout", section: .layouts, tab: "spacing", anchor: "Layout"),
@@ -400,7 +398,7 @@ extension SettingsSearchIndex {
                 "focus ribbon",
                 "components"
             ]
-        case .menuBar: ["status bar", "hidden bar", "menu bar", "icons", "status menu", "app menu", "controls"]
+        case .menuBar: ["status bar", "hidden bar", "menu bar", "icons", "status menu", "controls"]
         case .network: [
                 "permissions",
                 "network",

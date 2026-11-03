@@ -250,7 +250,6 @@ extension CanonicalTOMLConfig {
         var statusMenu = statusMenu
         let defaults = SettingsExport.StatusMenu.defaults()
         statusMenu.showControls = statusMenu.showControls ?? defaults.showControls
-        statusMenu.showAppMenu = statusMenu.showAppMenu ?? defaults.showAppMenu
         statusMenu.showControlHelp = statusMenu.showControlHelp ?? defaults.showControlHelp
         statusMenu.showMenuItems = statusMenu.showMenuItems ?? defaults.showMenuItems
         statusMenu.hiddenControls = statusMenu.hiddenControls ?? defaults.hiddenControls

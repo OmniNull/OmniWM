@@ -204,7 +204,6 @@ struct SettingsExport: Equatable {
 
     struct StatusMenu: Codable, Equatable {
         var showControls: Bool?
-        var showAppMenu: Bool?
         var showControlHelp: Bool?
         var showMenuItems: Bool?
         var hiddenControls: [String]?
@@ -213,7 +212,6 @@ struct SettingsExport: Equatable {
         static func defaults() -> Self {
             Self(
                 showControls: true,
-                showAppMenu: true,
                 showControlHelp: true,
                 showMenuItems: true,
                 hiddenControls: [],

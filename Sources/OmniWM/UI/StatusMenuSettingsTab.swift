@@ -11,8 +11,6 @@ struct StatusMenuSettingsTab: View {
             Section("Sections") {
                 Toggle("Show Controls", isOn: Bindable(settings.statusMenu).showControls)
                     .id("Show Controls")
-                Toggle("Show App Menu", isOn: Bindable(settings.statusMenu).showAppMenu)
-                    .id("Show App Menu")
                 Toggle("Show Control Help", isOn: Bindable(settings.statusMenu).showControlHelp)
                     .id("Show Control Help")
                     .disabled(!settings.statusMenu.showControls)
@@ -50,16 +48,16 @@ struct StatusMenuSettingsTab: View {
         .formStyle(.grouped)
     }
 
-    private func visibilityBinding(for control: StatusMenuControl) -> Binding<Bool> {
+    func visibilityBinding(for control: StatusMenuControl) -> Binding<Bool> {
         Binding(
-            get: { settings.statusMenu.isControlVisible(control.rawValue) },
+            get: { !settings.statusMenu.hiddenControls.contains(control.rawValue) },
             set: { settings.statusMenu.setControl(control.rawValue, isVisible: $0) }
         )
     }
 
-    private func menuItemVisibilityBinding(for item: StatusMenuItem) -> Binding<Bool> {
+    func menuItemVisibilityBinding(for item: StatusMenuItem) -> Binding<Bool> {
         Binding(
-            get: { settings.statusMenu.isMenuItemVisible(item) },
+            get: { !settings.statusMenu.hiddenMenuItems.contains(item.rawValue) },
             set: { settings.statusMenu.setMenuItem(item, isVisible: $0) }
         )
     }

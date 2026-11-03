@@ -191,9 +191,6 @@ struct StatusMenuPrimaryView: View {
                 }
                 MenuDivider()
             }
-            if model.settings.statusMenu.showAppMenu {
-                StatusMenuAppMenuSection(model: model)
-            }
             if model.hasVisiblePrimaryRows {
                 if model.canShowHiddenIcons, model.isMenuItemVisible(.hiddenIcons) {
                     MenuActionRow(

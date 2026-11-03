@@ -13,10 +13,6 @@ final class StatusMenuSettings {
         didSet { onChange?() }
     }
 
-    var showAppMenu = StatusMenuSettings.defaults.showAppMenu ?? true {
-        didSet { onChange?() }
-    }
-
     var showControlHelp = StatusMenuSettings.defaults.showControlHelp ?? true {
         didSet { onChange?() }
     }
@@ -25,13 +21,10 @@ final class StatusMenuSettings {
         didSet { onChange?() }
     }
 
-    /// Controls the user turned off individually. Kept separate from `showControls`
-    /// so the grid master toggle can be flipped without losing per-tile choices.
     var hiddenControls: Set<String> = [] {
         didSet { onChange?() }
     }
 
-    /// OmniWM rows the user turned off individually, same rationale as `hiddenControls`.
     var hiddenMenuItems: Set<String> = [] {
         didSet { onChange?() }
     }
@@ -65,7 +58,6 @@ final class StatusMenuSettings {
     func export() -> SettingsExport.StatusMenu {
         SettingsExport.StatusMenu(
             showControls: showControls,
-            showAppMenu: showAppMenu,
             showControlHelp: showControlHelp,
             showMenuItems: showMenuItems,
             hiddenControls: hiddenControls.sorted(),
@@ -76,7 +68,6 @@ final class StatusMenuSettings {
     func apply(_ values: SettingsExport.StatusMenu) {
         let defaults = StatusMenuSettings.defaults
         showControls = values.showControls ?? defaults.showControls ?? true
-        showAppMenu = values.showAppMenu ?? defaults.showAppMenu ?? true
         showControlHelp = values.showControlHelp ?? defaults.showControlHelp ?? true
         showMenuItems = values.showMenuItems ?? defaults.showMenuItems ?? true
         hiddenControls = Self.normalizedIDs(values.hiddenControls)

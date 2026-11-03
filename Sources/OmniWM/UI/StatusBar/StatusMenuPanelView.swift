@@ -55,8 +55,6 @@ final class StatusMenuPresentation {
 enum StatusMenuFocusItem: Hashable, Sendable {
     case action(String)
     case control(StatusMenuControl)
-    case appMenuGroup(String)
-    case appMenuItem(String)
 }
 
 struct StatusMenuControlHoverAction: Sendable {
