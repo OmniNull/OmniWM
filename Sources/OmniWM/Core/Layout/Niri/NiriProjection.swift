@@ -221,6 +221,9 @@ extension NiriLayoutEngine {
     ) -> CGFloat {
         let column = projectedColumn.column
         let windows = projectedColumn.windows
+        if orientation == .horizontal, let liveSlotWidth = column.liveSlotWidth {
+            return liveSlotWidth
+        }
         let usesFittedSpan = orientation == .horizontal
             ? column.fittedWidth != nil
             : column.fittedHeight != nil

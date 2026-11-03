@@ -172,6 +172,23 @@ final class NiriLiveColumnMoveTests: XCTestCase {
         XCTAssertLessThanOrEqual(dropSpace.maxX, fixture.frame.maxX - fixture.gap + 0.5, file: file, line: line)
     }
 
+    func testTheHomeSlotOfALoneTabbedWindowClosesAndThenSettles() {
+        var fixture = makeFixture()
+        fixture.column(2).displayMode = .tabbed
+        XCTAssertTrue(fixture.begin(2))
+        let home = fixture.stripColumn(holding: 2)
+        let pickup = CGPoint(x: home.midX, y: fixture.midY)
+        XCTAssertEqual(fixture.move(to: pickup), .unchanged)
+        let cursor = CGPoint(x: pickup.x + 120, y: fixture.midY)
+
+        XCTAssertEqual(fixture.move(to: cursor), .changed)
+        fixture.engine.liveColumnMoveSettled()
+
+        XCTAssertEqual(fixture.move(to: cursor), .unchanged)
+        let narrowed = fixture.stripColumn(holding: 2)
+        XCTAssertLessThan(narrowed.maxX - narrowed.minX, home.maxX - home.minX - 100)
+    }
+
     func testStripMatchesTheLayoutFramesOfVisibleColumns() {
         var fixture = makeFixture(widths: [1.0 / 3.0, 2.0 / 3.0, 0.5, 1.0 / 3.0, 0.5])
         fixture.state.jumpOffset(to: -137)

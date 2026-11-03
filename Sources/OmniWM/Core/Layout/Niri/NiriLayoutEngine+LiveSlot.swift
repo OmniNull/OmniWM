@@ -182,6 +182,7 @@ extension NiriLayoutEngine {
         let home = placement.home
         guard var move = liveColumnMove, bounds.upperBound - bounds.lowerBound < placement.placed.width - 0.5
         else { return nil }
+        let unchanged = (move: move, slotWidth: home.liveSlotWidth, cachedWidth: home.cachedWidth, state: state)
         let leftCut = bounds.lowerBound - placement.placed.minX
         var slot = move.narrowedSlot ?? .init(columnId: home.id, fullWidth: home.cachedWidth, leftCut: 0)
         slot.leftCut += leftCut
@@ -197,6 +198,15 @@ extension NiriLayoutEngine {
         let after = primaryPositions(context: context, state: state)
         state.rebaseOffset(by: -((after[active.id] ?? 0) - (before[active.id] ?? 0)) - leftCut)
         let stripAfter = liveColumnStrip(context: context, state: state)
+        guard let placedHome = stripAfter.first(where: { $0.column === home }),
+              placedHome.width < placement.placed.width - 0.5
+        else {
+            liveColumnMove = unchanged.move
+            home.liveSlotWidth = unchanged.slotWidth
+            home.cachedWidth = unchanged.cachedWidth
+            state = unchanged.state
+            return nil
+        }
         for placed in stripAfter where placed.column !== home {
             guard let previous = stripBefore.first(where: { $0.column === placed.column }),
                   abs(previous.minX - placed.minX) > 0.001
