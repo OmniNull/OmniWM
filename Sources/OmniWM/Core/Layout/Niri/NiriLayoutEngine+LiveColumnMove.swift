@@ -359,7 +359,13 @@ extension NiriLayoutEngine {
     }
 
     func isLiveColumnMoveActive(in workspaceId: WorkspaceDescriptor.ID) -> Bool {
-        liveColumnMove?.workspaceId == workspaceId || liveStackDrop?.workspaceId == workspaceId
+        liveColumnMove?.workspaceId == workspaceId || isLiveStackDropSettling(in: workspaceId)
+    }
+
+    func isLiveStackDropSettling(in workspaceId: WorkspaceDescriptor.ID) -> Bool {
+        guard liveStackDrop?.workspaceId == workspaceId else { return false }
+        return hasAnyColumnAnimationsRunning(in: workspaceId)
+            || root(for: workspaceId)?.allWindows.contains { $0.hasMoveAnimationsRunning } == true
     }
 
     func isLiveDraggedWindow(_ token: WindowToken, in workspaceId: WorkspaceDescriptor.ID) -> Bool {

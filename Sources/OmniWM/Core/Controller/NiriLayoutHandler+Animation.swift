@@ -270,6 +270,7 @@ extension NiriLayoutHandler {
         terminateViewportGesture(for: workspaceId, disposition: gestureDisposition)
         driver.removeMotions(for: [workspaceId])
         let hadEngineAnimations = engine?.cancelAnimations(in: workspaceId) == true
+        controller.mouseEventHandler.finishInterruptedLiveStackDrop(in: workspaceId)
         return hadViewportMotion || hadEngineAnimations
     }
 

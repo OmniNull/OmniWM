@@ -198,6 +198,13 @@ extension NiriLayoutEngine {
         return CGRect(x: release.minX, y: minY, width: release.width, height: maxY - minY)
     }
 
+    func liveStackDropAbandon(in workspaceId: WorkspaceDescriptor.ID) -> Bool {
+        guard liveStackDrop?.workspaceId == workspaceId else { return false }
+        assertSanctionedMutation()
+        liveStackDrop = nil
+        return true
+    }
+
     func liveStackDropFinish(context: NiriInteractionContext, state: inout ViewportState) -> Bool {
         assertSanctionedMutation()
         guard let drop = liveStackDrop, drop.workspaceId == context.workspaceId else { return false }

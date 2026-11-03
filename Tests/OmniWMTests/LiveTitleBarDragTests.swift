@@ -1789,6 +1789,52 @@ final class LiveTitleBarDragTests: NiriInteractionTestCase {
         XCTAssertFalse(fixture.engine.columns(in: fixture.workspaceId).contains { $0.windowNodes.isEmpty })
     }
 
+    private func dropOntoStackWhileAnimating(_ fixture: Fixture) throws {
+        fixture.controller.layoutRefreshController.displayLinkActivationForTests = { _ in true }
+        let (dragged, target) = (fixture.tokens[1], fixture.tokens[2])
+        try fixture.startLiveDrag(dragged)
+        fixture.handler.modifierFlagsProvider = { .maskAlternate }
+        let targetFrame = try fixture.frame(target)
+        let drop = CGPoint(x: targetFrame.midX, y: targetFrame.minY + targetFrame.height / 4)
+        fixture.drag(to: drop)
+        fixture.handler.dispatchMouseUp(at: drop)
+        XCTAssertTrue(fixture.engine.isLiveStackDropPending(in: fixture.workspaceId))
+        XCTAssertTrue(fixture.engine.isLiveColumnMoveActive(in: fixture.workspaceId))
+    }
+
+    func testAStackDropWhoseSettleIsCancelledFinishesAndLetsTheStripFollowFocus() throws {
+        let fixture = try makeFixture(pid: 938_315, windowCount: 5, animated: true)
+        try dropOntoStackWhileAnimating(fixture)
+
+        fixture.controller.niriLayoutHandler.cancelAnimationMotion(for: fixture.workspaceId)
+
+        XCTAssertFalse(fixture.engine.isLiveStackDropPending(in: fixture.workspaceId))
+        XCTAssertFalse(fixture.engine.isLiveColumnMoveActive(in: fixture.workspaceId))
+        XCTAssertFalse(fixture.engine.columns(in: fixture.workspaceId).contains { $0.windowNodes.isEmpty })
+    }
+
+    func testAStackDropWhoseScrollAnimationStopsMidSettleFinishes() throws {
+        let fixture = try makeFixture(pid: 938_316, windowCount: 5, animated: true)
+        try dropOntoStackWhileAnimating(fixture)
+        XCTAssertTrue(fixture.controller.niriLayoutHandler.hasScrollAnimation(for: fixture.workspaceId))
+
+        fixture.controller.layoutRefreshController.stopScrollAnimation(for: fixture.monitor.displayId)
+
+        XCTAssertFalse(fixture.engine.isLiveStackDropPending(in: fixture.workspaceId))
+        XCTAssertFalse(fixture.engine.columns(in: fixture.workspaceId).contains { $0.windowNodes.isEmpty })
+    }
+
+    func testAStackDropWhoseSettleEndsStillFinishesThroughTheSettledCallback() throws {
+        let fixture = try makeFixture(pid: 938_317, windowCount: 5, animated: true)
+        try dropOntoStackWhileAnimating(fixture)
+        let handler = fixture.controller.niriLayoutHandler
+
+        handler.tickScrollAnimation(targetTime: CACurrentMediaTime() + 60, displayId: fixture.monitor.displayId)
+
+        XCTAssertFalse(fixture.engine.isLiveStackDropPending(in: fixture.workspaceId))
+        XCTAssertFalse(fixture.engine.columns(in: fixture.workspaceId).contains { $0.windowNodes.isEmpty })
+    }
+
     func testHoldingTheStackModifierStacksOntoTheWindowUnderThePointerOnRelease() throws {
         let fixture = try makeFixture(pid: 938_070)
         let (dragged, target) = (fixture.tokens[1], fixture.tokens[2])

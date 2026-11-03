@@ -281,6 +281,17 @@ extension MouseEventHandler {
         return true
     }
 
+    func finishInterruptedLiveStackDrop(in workspaceId: WorkspaceDescriptor.ID, whileSettling: Bool = false) {
+        guard let controller,
+              let engine = controller.niriEngine,
+              engine.isLiveStackDropPending(in: workspaceId),
+              !whileSettling || engine.isLiveStackDropSettling(in: workspaceId)
+        else { return }
+        controller.workspaceManager.withNiriViewportState(for: workspaceId) { _ in
+            engine.liveStackDropAbandon(in: workspaceId)
+        }
+    }
+
     func finishPendingLiveStackDrop() {
         guard let drop = controller?.niriEngine?.liveStackDrop else { return }
         finishLiveStackDrop(in: drop.workspaceId)
