@@ -46,6 +46,7 @@ struct MouseInputState {
     struct NativeTitleBarDrag {
         let token: WindowToken
         var phase: NativeTitleBarDragPhase = .armed
+        var targetWasRejected = false
         var receivedFrameChange = false
         var pendingExcludedCorrection = false
         var issuedUnreadableCorrection = false
@@ -57,6 +58,7 @@ struct MouseInputState {
     struct NativeResizeStart {
         let token: WindowToken
         let frame: CGRect
+        let location: CGPoint
         var wasDragged = false
         var hasDeferredFrameChange = false
     }

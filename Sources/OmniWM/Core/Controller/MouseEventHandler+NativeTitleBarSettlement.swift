@@ -75,7 +75,7 @@ extension MouseEventHandler {
         let released = state.nativeTitleBarDragFallbackReleased
         let hasResizeStart = state.nativeResizeStart?.token == entry.token
             && state.nativeResizeStart?.wasDragged == true
-        if !released,
+        if !released || state.moveTap != nil,
            state.nativeResizeStart?.token == entry.token,
            state.nativeResizeStart?.wasDragged == false || state.moveTap != nil
         {
