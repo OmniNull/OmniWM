@@ -3,6 +3,7 @@
 
 import AppKit
 @testable import OmniWM
+import OmniWMShellCore
 import XCTest
 
 @MainActor
@@ -28,10 +29,14 @@ final class HostedWindowBarLifetimeTests: XCTestCase {
         let host: ShellWidgetHost
         let feed: ShellDataFeed
         let name = "lifetime-probe"
+        let key: ShellBarKey
         let initial: ShellConfig
         let replacement: ShellConfig
+        var onDelivery: (@MainActor @Sendable () -> Void)?
 
         init(monitor: Monitor.ID) throws {
+            let key = ShellBarKey(monitor: monitor)
+            self.key = key
             directory = FileManager.default.temporaryDirectory.appendingPathComponent(UUID().uuidString)
             let shell = directory.appendingPathComponent("shell")
             let profiles = ["before-reload", "after-reload"]
@@ -40,7 +45,7 @@ final class HostedWindowBarLifetimeTests: XCTestCase {
                 let folder = shell.appendingPathComponent(profile)
                 let widget = folder.appendingPathComponent("widgets/\(name)")
                 try FileManager.default.createDirectory(at: widget, withIntermediateDirectories: true)
-                let source = "function render(ctx) return ui.label{text='\(profile)'} end"
+                let source = "function render(ctx) return ui.text{text='\(profile)'} end"
                 try Data(source.utf8).write(to: widget.appendingPathComponent("init.luau"))
                 var config = ShellConfig()
                 config.profile = profile
@@ -55,7 +60,7 @@ final class HostedWindowBarLifetimeTests: XCTestCase {
                 resources: ShellResources(motion: MotionPolicy(animationsEnabled: false)),
                 resourceStore: ShellResourceStore(directory: directory.appendingPathComponent("resources")),
                 world: { ShellWorldData() }, vars: { [:] },
-                bars: { [ShellBarKey(monitor: monitor): ShellBarData()] },
+                bars: { [key: ShellBarData()] },
                 onLayoutChange: {}, onCommand: { _, _ in }, onMenu: { _ in },
                 onPreview: { _ in }, onDrag: { _ in }, onPopoutChange: {}, onTitleDemandChange: { _ in }
             )
@@ -63,7 +68,11 @@ final class HostedWindowBarLifetimeTests: XCTestCase {
             feed = ShellDataFeed(deliver: { [weak host] data in host?.broadcast(data) })
             host.feed = feed
             host.config = initial
-            host.outbox = ShellWidgetOutbox { [weak host] batch in host?.receive(batch) }
+            host.outbox = ShellWidgetOutbox { [weak self] batch in
+                guard let self else { return }
+                self.host.receive(batch)
+                onDelivery?()
+            }
             host.started = true
         }
 
@@ -144,21 +153,37 @@ final class HostedWindowBarLifetimeTests: XCTestCase {
         in bar: BarFixture, configuration: ShellConfig, after action: () -> Void
     ) async throws -> ShellWidgetPackage {
         let source = try XCTUnwrap(configuration.widget(bar.name))
-        let loaded = expectation(description: "Declared bar package loads or reports failure")
+        let loaded = expectation(description: "Declared bar tree is applied or reports failure")
         let loadFailureDeadline: TimeInterval = 10
-        bar.host.onWidgetsChange = { [weak host = bar.host] in
-            guard let host, let state = host.widgets[bar.name], state.sourceURL == source,
-                  state.package != nil || state.lastFailure != nil else { return }
-            host.onWidgetsChange = nil
+        let completeIfReady: @MainActor @Sendable () -> Void = { [weak bar] in
+            guard let bar, let state = bar.host.widgets[bar.name], state.sourceURL == source,
+                  state.lastFailure != nil
+                  || (state.renderedGeneration == state.package?.generation
+                      && state.instances[bar.key]?.nodes.isEmpty == false) else { return }
+            bar.host.onWidgetsChange = nil
+            bar.onDelivery = nil
+            XCTAssertNil(state.lastFailure)
             loaded.fulfill()
         }
+        bar.host.onWidgetsChange = completeIfReady
+        bar.onDelivery = completeIfReady
         action()
         await fulfillment(of: [loaded], timeout: loadFailureDeadline)
         bar.host.onWidgetsChange = nil
+        bar.onDelivery = nil
         let state = try XCTUnwrap(bar.host.widgets[bar.name])
         XCTAssertEqual(state.sourceURL, source)
         XCTAssertNil(state.lastFailure)
-        return try XCTUnwrap(state.package)
+        let package = try XCTUnwrap(state.package)
+        XCTAssertEqual(state.renderedGeneration, package.generation)
+        let instance = try XCTUnwrap(state.instances[bar.key])
+        XCTAssertFalse(instance.nodes.isEmpty)
+        let layout = try XCTUnwrap(instance.unmountedLayout)
+        let captions = layout.core.elements { $0.text != 0 }.map { handle in
+            state.text.string(layout.core.content(of: handle).text)
+        }
+        XCTAssertEqual(captions, [configuration.profile])
+        return package
     }
 
     private func assertRetained(
