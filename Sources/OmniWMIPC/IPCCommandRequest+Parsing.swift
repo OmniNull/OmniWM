@@ -21,6 +21,9 @@ extension IPCSizeChange {
 extension IPCCommandArgumentValue {
     public init?(token: String, kind: IPCCommandArgumentKind) {
         switch kind {
+        case .appID:
+            guard !token.isEmpty else { return nil }
+            self = .appID(token)
         case .direction:
             guard let direction = IPCDirection(rawValue: token) else { return nil }
             self = .direction(direction)

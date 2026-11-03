@@ -15,7 +15,7 @@ private struct ShellLatestDataOutput: Sendable {
 
 private extension ShellWidgetPackage {
     func latestDataOutput(_ key: ShellBarKey, view: ShellWidgetView = .bar) -> ShellLatestDataOutput? {
-        guard let script, let instance = script.instances[key], let state = states[key] else { return nil }
+        guard let script, let instance = script.instances[.bar(key)], let state = states[.bar(key)] else { return nil }
         var count = 0
         guard let pointer = omni_instance_output(instance, view.wire, &count),
               count >= MemoryLayout<omni_wire_header>.stride + MemoryLayout<omni_wire_node>.stride else { return nil }

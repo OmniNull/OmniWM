@@ -145,6 +145,9 @@ enum StateReducer {
              .windowModeChanged:
             reduceWorkspaceAssignment(event, context: context, plan: &plan)
             return true
+        case .hostedWindowGeometryObserved:
+            reduceHostedGeometry(event, context: context, plan: &plan)
+            return true
         case .floatingGeometryUpdated,
              .floatingStateChanged,
              .manualLayoutOverrideChanged,

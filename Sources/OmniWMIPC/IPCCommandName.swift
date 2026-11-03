@@ -23,6 +23,7 @@ public enum IPCCommandName: RawRepresentable, Codable, CaseIterable, Hashable, S
     case windowState(IPCWindowStateCommand)
     case scratchpad(IPCScratchpadCommandName)
     case openMenuAnywhere
+    case shellAppOpen
 
     public var rawValue: String {
         switch self {
@@ -68,6 +69,8 @@ public enum IPCCommandName: RawRepresentable, Codable, CaseIterable, Hashable, S
             name.rawValue
         case .openMenuAnywhere:
             "open-menu-anywhere"
+        case .shellAppOpen:
+            "app-open"
         }
     }
 
@@ -87,6 +90,8 @@ public enum IPCCommandName: RawRepresentable, Codable, CaseIterable, Hashable, S
             self = .rescueOffscreenWindows
         case "open-menu-anywhere":
             self = .openMenuAnywhere
+        case "app-open":
+            self = .shellAppOpen
         default:
             var name = IPCFocusCommandName(rawValue: rawValue).map(Self.focus)
             name = name ?? IPCWindowMovementCommandName(rawValue: rawValue).map(Self.windowMovement)
@@ -130,6 +135,7 @@ public enum IPCCommandName: RawRepresentable, Codable, CaseIterable, Hashable, S
         names.append(contentsOf: IPCWindowStateCommand.allCases.map(Self.windowState))
         names.append(contentsOf: IPCScratchpadCommandName.allCases.map(Self.scratchpad))
         names.append(.openMenuAnywhere)
+        names.append(.shellAppOpen)
         return names
     }
 

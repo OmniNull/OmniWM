@@ -20,6 +20,7 @@ extension WMEvent {
              .workspaceAssigned,
              .windowModeChanged,
              .floatingGeometryUpdated,
+             .hostedWindowGeometryObserved,
              .floatingStateChanged,
              .manualLayoutOverrideChanged,
              .windowAdmissionHintsChanged,

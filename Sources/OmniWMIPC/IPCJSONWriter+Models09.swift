@@ -97,10 +97,21 @@ extension IPCJSONWriter {
         try self.value(value.rawValue)
     }
 
+    mutating func argument(_ name: StaticString, _ value: borrowing String, _ first: inout Bool) throws {
+        self.key("arguments", &first)
+        begin(123)
+        var argumentFirst = true
+        self.key(name, &argumentFirst)
+        try self.value(value)
+        end(125)
+    }
+
     mutating func value(_ value: borrowing IPCCommandRequest) throws {
         begin(123)
         var first = true
         switch value {
+        case let .shellAppOpen(appID):
+            try argument("appId", appID, &first)
         case let .focus(command):
             try arguments(command, &first)
         case let .windowMovement(command):
@@ -118,19 +129,9 @@ extension IPCJSONWriter {
         case let .scratchpad(command):
             try arguments(command, &first)
         case let .swapWorkspaceWithMonitor(argument):
-            self.key("arguments", &first)
-            begin(123)
-            var argumentFirst = true
-            self.key("direction", &argumentFirst)
-            try self.value(argument)
-            end(125)
+            try self.argument("direction", argument, &first)
         case let .openCommandPaletteMode(argument):
-            self.key("arguments", &first)
-            begin(123)
-            var argumentFirst = true
-            self.key("mode", &argumentFirst)
-            try self.value(argument)
-            end(125)
+            try self.argument("mode", argument.rawValue, &first)
         case .monitorFocus,
              .openCommandPalette,
              .raiseAllFloatingWindows,

@@ -189,6 +189,7 @@ enum ActionCatalog {
         appendPreselectionBindings(&specs)
         specs.append(contentsOf: IPCMediaCommand.allCases.map { $0.actionSpec() })
         specs.append(contentsOf: IPCKeyboardModeCommand.allCases.map { $0.actionSpec() })
+        appendShellAppBindings(&specs)
         appendPresentationBindings(&specs)
 
         return specs
@@ -241,7 +242,8 @@ enum ActionCatalog {
              .presentation,
              .media,
              .keyboardMode,
-             .shellToggle:
+             .shellToggle,
+             .shellAppOpen:
             .shared
         case let .focusNavigation(action):
             action.compatibility
@@ -301,6 +303,7 @@ enum ActionCatalog {
         case let .shellToggle(name): LocalizedStringResource(
                 "command.shell.toggle", defaultValue: "Toggle \(name)", table: "Commands", bundle: .omniWM
             )
+        case .shellAppOpen: shellAppExampleTitle
         case let .focusNavigation(action): action.actionDisplayName()
         case let .windowMovement(action): action.actionDisplayName()
         case let .column(action): action.actionDisplayName()
@@ -339,14 +342,14 @@ enum ActionCatalog {
             .media(command)
         case let .keyboardMode(command):
             .keyboardMode(command)
-        case .shellToggle:
+        case .shellToggle,
+             .windowMark:
             nil
+        case .shellAppOpen: .shellAppOpen
         case let .windowState(command):
             .windowState(command)
         case .openMenuAnywhere:
             .openMenuAnywhere
-        case .windowMark:
-            nil
         case let .focusNavigation(action):
             action.ipcCommandName()
         case let .windowMovement(action):

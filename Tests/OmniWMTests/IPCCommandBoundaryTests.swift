@@ -150,6 +150,8 @@ final class IPCCommandBoundaryTests: XCTestCase {
 
     private func argument(_ kind: IPCCommandArgumentKind) -> IPCCommandArgumentValue {
         switch kind {
+        case .appID:
+            .appID("example")
         case .direction:
             .direction(.left)
         case .workspaceNumber,

@@ -9,8 +9,8 @@ extension ShellWidgetPackage {
         _ authority: ShellDropAuthority,
         key: ShellTreeKey
     ) async -> Result<ShellDropReservation, ShellResourceFailure> {
-        guard !closing, nativeInput.isConnected, let script, let instance = script.instances[key.bar],
-              let sequence = states[key.bar]?.sequences[key.view.rawValue], authority.sequence <= sequence
+        guard !closing, nativeInput.isConnected, let script, let instance = script.instances[key.instance],
+              let sequence = states[key.instance]?.sequences[key.view.rawValue], authority.sequence <= sequence
         else { return .failure(ShellResourceFailure("drop target is unavailable")) }
         var token = omni_owner_token()
         var request: UInt64 = 0

@@ -9,7 +9,7 @@ import XCTest
 
 extension ShellWidgetPackage {
     fileprivate func controlOutput(_ key: ShellBarKey) -> (width: Float, demand: UInt64)? {
-        guard let instance = script?.instances[key] else { return nil }
+        guard let instance = script?.instances[.bar(key)] else { return nil }
         var count = 0
         guard let bytes = omni_instance_output(instance, OMNI_VIEW_BAR, &count),
               count >= MemoryLayout<omni_wire_header>.stride + MemoryLayout<omni_wire_node>.stride else { return nil }

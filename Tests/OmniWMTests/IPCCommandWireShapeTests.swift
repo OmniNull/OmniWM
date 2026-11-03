@@ -33,6 +33,8 @@ final class IPCCommandWireShapeTests: XCTestCase {
 
     private func argument(_ kind: IPCCommandArgumentKind) -> IPCCommandArgumentValue {
         switch kind {
+        case .appID:
+            .appID("example")
         case .direction:
             .direction(.left)
         case .workspaceNumber,
@@ -151,6 +153,7 @@ final class IPCCommandWireShapeTests: XCTestCase {
         #"{"name":"close-focused-window"}"#,
         #"{"arguments":{"scratchpadIndex":2},"name":"scratchpad-assign"}"#,
         #"{"arguments":{"scratchpadIndex":2},"name":"scratchpad-toggle"}"#,
-        #"{"name":"open-menu-anywhere"}"#
+        #"{"name":"open-menu-anywhere"}"#,
+        #"{"arguments":{"appId":"example"},"name":"app-open"}"#
     ]
 }

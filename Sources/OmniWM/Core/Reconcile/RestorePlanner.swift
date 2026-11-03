@@ -146,6 +146,7 @@ struct RestorePlanner {
         case .systemWake: .systemWake
         case .systemSleep: .systemSleep
         case .floatingGeometryUpdated,
+             .hostedWindowGeometryObserved,
              .appVisibilityInvalidated,
              .floatingStateChanged,
              .focusFallbackRemembered,

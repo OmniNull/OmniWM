@@ -50,6 +50,8 @@ extension IPCCommandRequest {
             self = try .scratchpad(IPCScratchpadCommand(name: name, arguments: arguments))
         case .openMenuAnywhere:
             self = try arguments.requireNoArguments(.openMenuAnywhere)
+        case .shellAppOpen:
+            self = try .shellAppOpen(appID: arguments.appID())
         }
     }
 }

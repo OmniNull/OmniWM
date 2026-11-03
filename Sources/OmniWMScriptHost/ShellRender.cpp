@@ -252,11 +252,12 @@ constexpr uint32_t maximumEncodeSteps = 65536;
 constexpr int maximumValueDepth = 16;
 constexpr size_t maximumSelections = 256;
 constexpr int actionsIndex = 2;
-constexpr unsigned viewCount = 2;
-const char *const viewEntries[viewCount] = {"render", "popout"};
+constexpr unsigned viewCount = OMNI_VIEW_NONE;
+const char *const viewEntries[viewCount] = {"render", "popout", "window"};
 const char *const missingEntries[viewCount] = {
     "the widget does not define a render function",
     "the widget does not define a popout function",
+    "the widget does not define a window function",
 };
 
 uint64_t fnv1a(const char *s, size_t length) {
@@ -5052,6 +5053,32 @@ void invalidateActivityData(omni_instance *instance, lua_State *L, const char *k
     lua_rawgetfield(L, -1, key);
     if (lua_isnumber(L, -1)) { instance->pendingActivityData |= 1ull << lua_tointeger(L, -1); }
     lua_pop(L, 2);
+}
+
+omni_status omni_instance_set_window_size(omni_instance *instance, double width, double height) noexcept {
+    if (instance == nullptr || !std::isfinite(width) || !std::isfinite(height) || width <= 0 || height <= 0) {
+        return OMNI_ERR_INTERNAL;
+    }
+    if (instance->vm->inCall) { return OMNI_ERR_REENTRANT; }
+    lua_State *P = instance->vm->thread;
+    try {
+        lua_getref(P, instance->ctxRef);
+        lua_createtable(P, 0, 3);
+        lua_pushliteral(P, "window");
+        lua_setfield(P, -2, "name");
+        lua_pushnumber(P, width);
+        lua_setfield(P, -2, "w");
+        lua_pushnumber(P, height);
+        lua_setfield(P, -2, "h");
+        lua_setreadonly(P, -1, true);
+        lua_setfield(P, -2, "view");
+        lua_settop(P, 0);
+        instance->retained[OMNI_VIEW_WINDOW].root.dirty = true;
+        return OMNI_OK;
+    } catch (...) {
+        lua_settop(P, 0);
+        return OMNI_ERR_MEMORY;
+    }
 }
 
 omni_status omni_instance_set_number(omni_instance *instance, const char *key, double value) noexcept {

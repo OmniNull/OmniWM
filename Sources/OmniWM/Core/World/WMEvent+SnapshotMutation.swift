@@ -12,6 +12,7 @@ extension WMEvent {
         case .activeSpaceChanged,
              .appVisibilityInvalidated,
              .floatingGeometryUpdated,
+             .hostedWindowGeometryObserved,
              .floatingStateChanged,
              .focusFallbackRemembered,
              .focusForgotten,

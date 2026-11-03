@@ -37,6 +37,17 @@ extension WindowModel {
                 setLifetimeAuthority(.axTopLevelInventory, for: token)
             }
 
+        case let .hostedWindowGeometryObserved(token, _, monitorId, frame, _):
+            guard let entry = entry(for: token), entry.target.hostedMetadata != nil,
+                  entry.mode == .floating else { return }
+            let visibleFrame = monitors.first { $0.id == monitorId }?.visibleFrame ?? frame
+            setFloatingState(.init(
+                lastFrame: frame,
+                normalizedOrigin: FloatingFrameGeometry.normalizedOrigin(for: frame, in: visibleFrame),
+                referenceMonitorId: monitorId,
+                restoreToFloating: entry.floatingState?.restoreToFloating ?? true
+            ), for: token)
+
         case let .floatingGeometryUpdated(token, _, referenceMonitorId, frame, normalizedOrigin, restoreToFloating, _):
             setFloatingState(
                 .init(

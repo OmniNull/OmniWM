@@ -5,8 +5,14 @@ import AppKit
 
 @MainActor
 final class ShellAppWindowManager: NSObject, NSWindowDelegate {
-    private unowned let controller: WMController
-    private var windows: [WindowToken: NSWindow] = [:]
+    nonisolated static let exampleID = "example"
+
+    unowned let controller: WMController
+    var windows: [WindowToken: NSWindow] = [:]
+    var sessions: [WindowToken: ShellAppWindowSession] = [:]
+    var liveResizeStarts: [WindowToken: CGRect] = [:]
+    var applyingFrames: Set<WindowToken> = []
+    var makeWindow: @MainActor (ShellAppDefinition) -> NSWindow = ShellAppWindowManager.makeWindow
     var activateApplication: () -> Void = { NSApp.activate() }
 
     init(controller: WMController) {
@@ -48,7 +54,12 @@ final class ShellAppWindowManager: NSObject, NSWindowDelegate {
             target.size = frame.size
             target.origin.y = top - target.height
         }
-        if window.frame != target { window.setFrame(target, display: true) }
+        if window.frame != target {
+            applyingFrames.insert(token)
+            defer { applyingFrames.remove(token) }
+            window.setFrame(target, display: true)
+        }
+        sessions[token]?.resize(contentSize(of: window))
         return true
     }
 
@@ -60,6 +71,7 @@ final class ShellAppWindowManager: NSObject, NSWindowDelegate {
         } else if !hidden, !window.isVisible {
             window.orderFront(nil)
         }
+        sessions[token]?.setVisible(!hidden && !window.isMiniaturized)
         return true
     }
 
@@ -67,6 +79,7 @@ final class ShellAppWindowManager: NSObject, NSWindowDelegate {
     func orderFront(_ token: WindowToken) -> Bool {
         guard let window = windows[token] else { return false }
         window.orderFront(nil)
+        sessions[token]?.setVisible(!window.isMiniaturized)
         return true
     }
 
@@ -75,6 +88,7 @@ final class ShellAppWindowManager: NSObject, NSWindowDelegate {
         guard let window = windows[token], controller.workspaceManager.entry(for: token) != nil else { return false }
         if window.isMiniaturized { window.deminiaturize(nil) }
         window.makeKeyAndOrderFront(nil)
+        sessions[token]?.setVisible(true)
         activateApplication()
         return true
     }
@@ -91,6 +105,9 @@ final class ShellAppWindowManager: NSObject, NSWindowDelegate {
               let token = windows.first(where: { $0.value === window })?.key
         else { return }
         windows.removeValue(forKey: token)
+        sessions.removeValue(forKey: token)?.close()
+        applyingFrames.remove(token)
+        liveResizeStarts.removeValue(forKey: token)
         guard let entry = controller.workspaceManager.entry(for: token),
               entry.target.hostedMetadata != nil else { return }
         controller.axEventHandler.retireManagedWindow(

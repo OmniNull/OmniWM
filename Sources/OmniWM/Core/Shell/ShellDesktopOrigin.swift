@@ -19,12 +19,13 @@ extension ShellWidgetPackage {
         switch request.view {
         case OMNI_VIEW_BAR: view = .bar
         case OMNI_VIEW_POPOUT: view = .popout
+        case OMNI_VIEW_WINDOW: view = .window
         default: return nil
         }
         return ShellDesktopOrigin(
             widget: name,
             generation: generation,
-            key: ShellTreeKey(bar: key, view: view),
+            key: ShellTreeKey(instance: key, view: view),
             sourceID: request.surface
         )
     }

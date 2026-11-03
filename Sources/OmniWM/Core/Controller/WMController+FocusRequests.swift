@@ -35,6 +35,7 @@ extension WMController {
         {
             dispatchRetryRaise(for: request, refronting: false)
         }
+        guard entry.axRef != nil else { return request }
         windowFocusOperations.afterSubmittedFocus { [weak self] in
             guard let self,
                   intentLedger.activeManagedRequest(requestId: request.requestId)?.phase == .awaitingConfirmation

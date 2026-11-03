@@ -9,8 +9,8 @@ import XCTest
 
 private extension ShellWidgetPackage {
     func inputTestAuthority(_ key: ShellTreeKey) -> ShellDropAuthority? {
-        guard let script, let instance = script.instances[key.bar],
-              let sequence = states[key.bar]?.sequences[key.view.rawValue] else { return nil }
+        guard let script, let instance = script.instances[key.instance],
+              let sequence = states[key.instance]?.sequences[key.view.rawValue] else { return nil }
         var count = 0
         guard let pointer = omni_instance_output(instance, key.view.wire, &count) else { return nil }
         let header = UnsafeRawPointer(pointer).loadUnaligned(as: omni_wire_header.self)
@@ -33,8 +33,8 @@ private extension ShellWidgetPackage {
     }
 
     func inputTestDragAuthority(_ key: ShellTreeKey) -> ShellDragOutAuthority? {
-        guard let script, let instance = script.instances[key.bar],
-              let sequence = states[key.bar]?.sequences[key.view.rawValue] else { return nil }
+        guard let script, let instance = script.instances[key.instance],
+              let sequence = states[key.instance]?.sequences[key.view.rawValue] else { return nil }
         var count = 0
         guard let pointer = omni_instance_output(instance, key.view.wire, &count) else { return nil }
         let header = UnsafeRawPointer(pointer).loadUnaligned(as: omni_wire_header.self)
@@ -63,12 +63,12 @@ private extension ShellWidgetPackage {
     }
 
     func inputTestBeginPass(_ key: ShellTreeKey) -> Bool {
-        guard let script, let instance = script.instances[key.bar] else { return false }
+        guard let script, let instance = script.instances[key.instance] else { return false }
         return omni_instance_begin_update(instance, key.view.wire, .max, true) == OMNI_OK
     }
 
     func inputTestFinishPass(_ key: ShellTreeKey) -> Bool {
-        guard let script, let instance = script.instances[key.bar] else { return false }
+        guard let script, let instance = script.instances[key.instance] else { return false }
         defer { omni_instance_cancel_update(instance, key.view.wire) }
         for _ in 0 ..< 16 {
             var step = omni_render_step_stats()
@@ -128,7 +128,7 @@ final class ShellNativeInputTests: XCTestCase {
             end
             """)
             XCTAssertNil(error)
-            await package.receive(.bars([key.bar: ShellBarData()]))
+            await package.receive(.bars([try XCTUnwrap(key.bar): ShellBarData()]))
         }
 
         func reserve() async throws -> (ShellDropReservation, [ShellResourceID]) {

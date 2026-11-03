@@ -72,6 +72,13 @@ enum WMEvent: Equatable {
         mode: TrackedWindowMode,
         source: WMEventSource
     )
+    case hostedWindowGeometryObserved(
+        token: WindowToken,
+        workspaceId: WorkspaceDescriptor.ID,
+        monitorId: Monitor.ID?,
+        frame: CGRect,
+        source: WMEventSource
+    )
     case floatingGeometryUpdated(
         token: WindowToken,
         workspaceId: WorkspaceDescriptor.ID,
@@ -332,6 +339,7 @@ extension WMEvent {
              let .workspaceAssigned(token, _, _, _, _),
              let .windowModeChanged(token, _, _, _, _),
              let .floatingGeometryUpdated(token, _, _, _, _, _, _),
+             let .hostedWindowGeometryObserved(token, _, _, _, _),
              let .floatingStateChanged(token, _, _, _),
              let .manualLayoutOverrideChanged(token, _, _, _),
              let .windowAdmissionHintsChanged(token, _, _, _),
@@ -394,6 +402,8 @@ extension WMEvent {
             "workspace_assigned token=\(token) from=\(from?.uuidString ?? "nil") to=\(to.uuidString)"
         case let .windowModeChanged(token, workspaceId, _, mode, _):
             "window_mode_changed token=\(token) workspace=\(workspaceId.uuidString) mode=\(mode)"
+        case let .hostedWindowGeometryObserved(token, workspaceId, _, frame, _):
+            "hosted_window_geometry_observed token=\(token) workspace=\(workspaceId.uuidString) frame=\(frame.debugDescription)"
         case let .floatingGeometryUpdated(token, workspaceId, _, frame, _, restoreToFloating, _):
             "floating_geometry_updated token=\(token) workspace=\(workspaceId.uuidString) frame=\(frame.debugDescription) restore=\(restoreToFloating)"
         case let .floatingStateChanged(token, workspaceId, state, _):

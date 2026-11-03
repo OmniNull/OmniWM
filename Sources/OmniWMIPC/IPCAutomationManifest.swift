@@ -46,6 +46,7 @@ public enum IPCQuerySelectorName: String, Codable, CaseIterable, Equatable, Hash
 }
 
 public enum IPCCommandArgumentKind: String, Codable, CaseIterable, Equatable, Sendable {
+    case appID = "app-id"
     case direction
     case workspaceNumber = "workspace-number"
     case columnIndex = "column-index"
@@ -59,6 +60,8 @@ public enum IPCCommandArgumentKind: String, Codable, CaseIterable, Equatable, Se
 
     public var usagePlaceholder: String {
         switch self {
+        case .appID:
+            "<app-id>"
         case .direction:
             "<left|right|up|down>"
         case .workspaceNumber,
@@ -113,6 +116,7 @@ public struct IPCCommandArgumentDescriptor: Codable, Equatable, Sendable {
     public let kind: IPCCommandArgumentKind
     public let summary: String
 
+    static let appID = Self(kind: .appID, summary: "Hosted OmniShell app identifier.")
     static let direction = Self(
         kind: .direction,
         summary: "Direction argument."

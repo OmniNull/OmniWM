@@ -126,6 +126,21 @@ extension StateReducer {
         }
     }
 
+    static func reduceHostedGeometry(_ event: WMEvent, context: ReductionContext, plan: inout ActionPlan) {
+        guard case let .hostedWindowGeometryObserved(_, _, monitorId, frame, _) = event,
+              let entry = context.existingEntry, entry.target.hostedMetadata != nil else { return }
+        var observed = entry.observedState
+        observed.frame = frame
+        if let monitorId { observed.monitorId = monitorId }
+        plan.observedState = observed
+        if entry.mode == .floating {
+            var desired = entry.desiredState
+            desired.floatingFrame = frame
+            if let monitorId { desired.monitorId = monitorId }
+            plan.desiredState = desired
+        }
+    }
+
     static func reduceFloatingState(_ event: WMEvent, context: ReductionContext, plan: inout ActionPlan) {
         let existingEntry = context.existingEntry
         switch event {

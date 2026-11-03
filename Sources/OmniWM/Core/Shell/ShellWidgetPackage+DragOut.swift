@@ -6,8 +6,8 @@ import OmniWMScriptHost
 
 extension ShellWidgetPackage {
     func prepareDragOut(_ authority: ShellDragOutAuthority, key: ShellTreeKey) async throws -> ShellDragOutPreparation {
-        guard !closing, nativeInput.isConnected, let script, let instance = script.instances[key.bar],
-              let sequence = states[key.bar]?.sequences[key.view.rawValue], authority.sequence <= sequence
+        guard !closing, nativeInput.isConnected, let script, let instance = script.instances[key.instance],
+              let sequence = states[key.instance]?.sequences[key.view.rawValue], authority.sequence <= sequence
         else {
             throw ShellResourceFailure("drag_source_unavailable")
         }

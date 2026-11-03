@@ -69,6 +69,7 @@ enum HotkeyCommand: Equatable, Hashable {
     case media(IPCMediaCommand)
     case keyboardMode(IPCKeyboardModeCommand)
     case shellToggle(String)
+    case shellAppOpen(String)
     case focusNavigation(FocusNavigationAction)
     case windowMovement(WindowMovementAction)
     case column(ColumnAction)

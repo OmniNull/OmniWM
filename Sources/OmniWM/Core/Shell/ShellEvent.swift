@@ -158,11 +158,27 @@ struct ShellEvent: Equatable, Sendable {
 
 final class ShellGestureBox: Sendable {
     struct Gesture: Sendable {
-        let bar: ShellBarKey
+        let instance: ShellInstanceKey
+        var bar: ShellBarKey? {
+            instance.bar
+        }
+
         let view: ShellWidgetView
         let action: UInt32
         var sequence: Int
         var event: ShellEvent
+
+        init(instance: ShellInstanceKey, view: ShellWidgetView, action: UInt32, sequence: Int, event: ShellEvent) {
+            self.instance = instance
+            self.view = view
+            self.action = action
+            self.sequence = sequence
+            self.event = event
+        }
+
+        init(bar: ShellBarKey, view: ShellWidgetView, action: UInt32, sequence: Int, event: ShellEvent) {
+            self.init(instance: .bar(bar), view: view, action: action, sequence: sequence, event: event)
+        }
     }
 
     final class Pending: Sendable {
@@ -175,7 +191,7 @@ final class ShellGestureBox: Sendable {
         func merge(_ gesture: Gesture) -> Bool {
             value.withLock { queued in
                 guard let previous = queued,
-                      previous.bar == gesture.bar, previous.view == gesture.view,
+                      previous.instance == gesture.instance, previous.view == gesture.view,
                       previous.event.sourceID == gesture.event.sourceID,
                       previous.event.kind == .textChange || previous.action == gesture.action,
                       previous.event.kind == gesture.event.kind, previous.event.phase == gesture.event.phase,
@@ -204,7 +220,7 @@ final class ShellGestureBox: Sendable {
     }
 
     private struct TextTarget: Hashable {
-        let bar: ShellBarKey
+        let instance: ShellInstanceKey
         let view: Int
         let field: UInt64
     }
@@ -220,7 +236,7 @@ final class ShellGestureBox: Sendable {
         pending.withLock { pending in
             if gesture.event.kind == .textChange {
                 let key = TextTarget(
-                    bar: gesture.bar,
+                    instance: gesture.instance,
                     view: gesture.view.rawValue,
                     field: gesture.event.coalescingTarget
                 )

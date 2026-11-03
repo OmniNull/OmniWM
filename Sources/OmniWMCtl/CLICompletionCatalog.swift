@@ -221,7 +221,8 @@ enum CLICompletionCatalog {
             return ["grow", "shrink"]
         case .scratchpadIndex:
             return IPCScratchpadSlots.range.map(String.init)
-        case .workspaceNumber,
+        case .appID,
+             .workspaceNumber,
              .columnIndex,
              .windowIndex,
              .sizeChange:

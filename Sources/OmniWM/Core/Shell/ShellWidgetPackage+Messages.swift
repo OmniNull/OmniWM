@@ -40,6 +40,8 @@ extension ShellWidgetPackage {
             interval = next
         case let .bars(bars):
             await sync(bars, in: script)
+        case let .window(context):
+            await syncWindow(context, in: script)
         case let .catalog(enabled, catalog, schema):
             await updateConfigurationCatalog(enabled: enabled, catalog: catalog, schema: schema, in: script)
         case let .components(source):
@@ -53,21 +55,12 @@ extension ShellWidgetPackage {
         case let .log(line):
             log(1) { _ in line }
         case let .gesture(pending):
-            guard let gesture = pending.take() else { return }
-            await ShellFrameTrace.$context.withValue(gesture.event.trace) {
-                await invoke(
-                    gesture.action,
-                    in: gesture.view,
-                    of: gesture.bar,
-                    clicked: gesture.sequence,
-                    event: gesture.event
-                )
-            }
+            await invokeGesture(pending)
         case let .trigger(name, value):
             await trigger(name, value: value, in: script)
         case let .popout(key, open, trace):
             await ShellFrameTrace.$context.withValue(trace) {
-                await setPopout(key, open: open, in: script)
+                await setPopout(.bar(key), open: open, in: script)
             }
         case .services:
             await deliverServices(in: script)
@@ -80,6 +73,16 @@ extension ShellWidgetPackage {
         case .permissions:
             revalidatePermissions()
         case .capture: break
+        }
+    }
+
+    private func invokeGesture(_ pending: ShellGestureBox.Pending) async {
+        guard let gesture = pending.take() else { return }
+        await ShellFrameTrace.$context.withValue(gesture.event.trace) {
+            await invoke(
+                gesture.action, in: gesture.view, of: gesture.instance,
+                clicked: gesture.sequence, event: gesture.event
+            )
         }
     }
 
@@ -99,7 +102,13 @@ extension ShellWidgetPackage {
         let invocation: ShellGestureBox.Gesture
         switch message {
         case let .invoke(key, view, action, sequence, event):
-            invocation = ShellGestureBox.Gesture(bar: key, view: view, action: action, sequence: sequence, event: event)
+            invocation = ShellGestureBox.Gesture(
+                instance: key,
+                view: view,
+                action: action,
+                sequence: sequence,
+                event: event
+            )
         case let .gesture(pending):
             guard let gesture = pending.take() else { return }
             invocation = gesture
@@ -110,7 +119,7 @@ extension ShellWidgetPackage {
         outbox.finishInvoke(
             name: name,
             generation: generation,
-            key: ShellTreeKey(bar: invocation.bar, view: invocation.view),
+            key: ShellTreeKey(instance: invocation.instance, view: invocation.view),
             invocationID: id,
             failed: true
         )
@@ -127,6 +136,7 @@ extension ShellWidgetPackage {
         case .components: "components"
         case .catalog: "catalog"
         case .bars: "bars"
+        case .window: "window"
         case .invoke: "invoke"
         case .gesture: "gesture"
         case .popout: "popout"
@@ -155,8 +165,7 @@ extension ShellWidgetPackage {
         current = next
         for state in states.values {
             state.pendingData |= changed
-            state.invalidations[0] |= changed
-            state.invalidations[1] |= changed
+            for view in ShellWidgetView.allCases { state.invalidations[view.rawValue] |= changed }
         }
         return changed
     }
@@ -173,7 +182,7 @@ extension ShellWidgetPackage {
         value: String?,
         in script: ShellScript,
         source: String? = nil,
-        only key: ShellBarKey? = nil
+        only key: ShellInstanceKey? = nil
     ) async {
         var writer = ShellValueWriter()
         writer.map(source == nil ? 2 : 3)
@@ -213,7 +222,7 @@ extension ShellWidgetPackage {
         }
     }
 
-    private func setPopout(_ key: ShellBarKey, open: Bool, in script: ShellScript) async {
+    private func setPopout(_ key: ShellInstanceKey, open: Bool, in script: ShellScript) async {
         guard let instance = script.instances[key] else { return }
         if open {
             popout = key
@@ -229,7 +238,7 @@ extension ShellWidgetPackage {
     private func invoke(
         _ action: UInt32,
         in view: ShellWidgetView,
-        of key: ShellBarKey,
+        of key: ShellInstanceKey,
         clicked: Int,
         event: ShellEvent
     ) async {
@@ -240,7 +249,7 @@ extension ShellWidgetPackage {
                 outbox.finishInvoke(
                     name: name,
                     generation: generation,
-                    key: ShellTreeKey(bar: key, view: view),
+                    key: ShellTreeKey(instance: key, view: view),
                     invocationID: id,
                     failed: failed
                 )
@@ -256,7 +265,7 @@ extension ShellWidgetPackage {
         installProviderStateBeforeAction(action, view: view, instance: instance, script: script)
         let sourceID = event.sourceID
         let bytes = event.bytes
-        let trace = traceContext(key, view: view == .bar ? "bar" : "popout", continuing: ShellFrameTrace.current)
+        let trace = traceContext(key, view: view.traceLabel, continuing: ShellFrameTrace.current)
         ShellFrameTrace.shared.record(.handlerStart, context: trace)
         let status = invokeHandler(action, view: view, instance: instance, sourceID: sourceID, bytes: bytes)
         ShellFrameTrace.shared.record(.handlerEnd, context: trace)
@@ -300,7 +309,8 @@ extension ShellWidgetPackage {
     }
 
     private func sync(_ bars: [ShellBarKey: ShellBarData], in script: ShellScript) async {
-        for key in Array(script.instances.keys) where bars[key] == nil {
+        for key in Array(script.instances.keys) {
+            guard case let .bar(barKey) = key, bars[barKey] == nil else { continue }
             if let instance = script.instances.removeValue(forKey: key) {
                 omni_instance_destroy(instance)
             }
@@ -310,7 +320,9 @@ extension ShellWidgetPackage {
             }
         }
         publishBackgroundDemand()
-        for (key, bar) in bars where states[key]?.bar != bar {
+        for (barKey, bar) in bars {
+            let key = ShellInstanceKey.bar(barKey)
+            guard states[key]?.bar != bar else { continue }
             guard !closing, self.script === script else { return }
             let created = script.instances[key] == nil
             let previous = states[key]?.bar
@@ -339,7 +351,36 @@ extension ShellWidgetPackage {
         }
     }
 
-    private func create(_ key: ShellBarKey, in script: ShellScript) -> OpaquePointer? {
+    private func syncWindow(_ context: ShellWindowContext?, in script: ShellScript) async {
+        for key in Array(script.instances.keys) {
+            guard case let .window(id) = key, id != context?.id else { continue }
+            if let instance = script.instances.removeValue(forKey: key) { omni_instance_destroy(instance) }
+            states.removeValue(forKey: key)
+        }
+        publishBackgroundDemand()
+        guard let context, context.width.isFinite, context.height.isFinite,
+              context.width > 0, context.height > 0 else { return }
+        let key = ShellInstanceKey.window(context.id)
+        guard states[key]?.window != context else { return }
+        let created = script.instances[key] == nil
+        let previous = states[key]?.window
+        guard let instance = script.instances[key] ?? create(key, in: script) else { return }
+        if created || previous?.width != context.width || previous?.height != context.height {
+            let status = omni_instance_set_window_size(instance, context.width, context.height)
+            guard status == OMNI_OK else { fail(status)
+                return
+            }
+        }
+        states[key]?.window = context
+        await renderVisible(
+            key,
+            instance,
+            changed: created || previous?.visible == false && context.visible
+                ? .max : nil
+        )
+    }
+
+    private func create(_ key: ShellInstanceKey, in script: ShellScript) -> OpaquePointer? {
         guard let instance = omni_instance_create(script.vm) else {
             outbox.fail(
                 name: name,

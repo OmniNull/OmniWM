@@ -54,12 +54,12 @@ final class ShellGestureBoxTests: XCTestCase {
         XCTAssertFalse(earlier === later)
         let earlierSample = try XCTUnwrap(earlier.take())
         let laterSample = try XCTUnwrap(later.take())
-        XCTAssertEqual(earlierSample.bar, coalesced.bar)
+        XCTAssertEqual(earlierSample.instance, coalesced.instance)
         XCTAssertEqual(earlierSample.view, coalesced.view)
         XCTAssertEqual(earlierSample.action, coalesced.action)
         XCTAssertEqual(earlierSample.sequence, coalesced.sequence)
         XCTAssertEqual(earlierSample.event, coalesced.event)
-        XCTAssertEqual(laterSample.bar, next.bar)
+        XCTAssertEqual(laterSample.instance, next.instance)
         XCTAssertEqual(laterSample.view, next.view)
         XCTAssertEqual(laterSample.action, next.action)
         XCTAssertEqual(laterSample.sequence, next.sequence)
@@ -73,7 +73,7 @@ final class ShellGestureBoxTests: XCTestCase {
         var sample = gesture(kind: .scroll, dx: 1, dy: 2)
         let first = try XCTUnwrap(box.post(sample))
         sample = ShellGestureBox.Gesture(
-            bar: sample.bar,
+            instance: sample.instance,
             view: sample.view,
             action: 9,
             sequence: 2,
