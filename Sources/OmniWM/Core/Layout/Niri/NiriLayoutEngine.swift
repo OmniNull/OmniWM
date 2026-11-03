@@ -47,6 +47,7 @@ final class NiriLayoutEngine {
 
     var interactiveResize: InteractiveResize?
     var interactiveMove: InteractiveMove?
+    var openingWindows: Set<WindowToken> = []
     var liveStackProbe: LiveColumnMove.StackProbe?
     var liveColumnMove: LiveColumnMove? {
         didSet {

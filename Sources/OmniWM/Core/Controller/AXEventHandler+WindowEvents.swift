@@ -290,6 +290,9 @@ extension AXEventHandler {
             return
         }
 
+        if effectivePlacementOrigin == .liveCreate, controller?.settings.niri.naturalWindowDrag == true {
+            controller?.niriEngine?.noteOpeningWindow(candidate.token)
+        }
         trackPreparedCreate(candidate)
     }
 

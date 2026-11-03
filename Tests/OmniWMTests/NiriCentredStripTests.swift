@@ -120,6 +120,40 @@ final class NiriCentredStripTests: XCTestCase {
         XCTAssertTrue(fixture.engine.viewportEdgeRules(in: fixture.workspaceId).centersFittingStrip)
     }
 
+    func testAWindowEnteringTheStripKeepsItsWidthAndOnlyANewOneTakesTheSettingsWidth() {
+        let fixture = makeFixture(widths: [0.3])
+        func entering(opening: Bool, hasRuleWidth: Bool = false) -> ProportionalSize? {
+            fixture.engine.enteringContainerSizingState(
+                width: 640,
+                opening: opening,
+                hasRuleWidth: hasRuleWidth,
+                in: fixture.workspaceId,
+                workingWidth: fixture.frame.width,
+                gaps: fixture.gap
+            )?.width
+        }
+
+        fixture.engine.updateConfiguration(defaultContainerPrimarySpan: .some(nil))
+        XCTAssertEqual(entering(opening: true), .fixed(640))
+        XCTAssertNil(entering(opening: true, hasRuleWidth: true))
+        XCTAssertEqual(entering(opening: false, hasRuleWidth: true), .fixed(640))
+
+        fixture.engine.updateConfiguration(defaultContainerPrimarySpan: .some(0.5))
+        XCTAssertNil(entering(opening: true))
+        XCTAssertEqual(entering(opening: false), .fixed(640))
+    }
+
+    func testAnOpeningWindowIsTakenOnlyOnce() {
+        let fixture = makeFixture(widths: [0.3])
+        let token = WindowToken(pid: 977, windowId: 1)
+        XCTAssertFalse(fixture.engine.takeOpeningWindow(token))
+
+        fixture.engine.noteOpeningWindow(token)
+
+        XCTAssertTrue(fixture.engine.takeOpeningWindow(token))
+        XCTAssertFalse(fixture.engine.takeOpeningWindow(token))
+    }
+
     func testANewColumnOpensAtTheAppsOwnWidthCappedToTheDisplay() {
         let fixture = makeFixture(widths: [0.3])
         fixture.engine.updateConfiguration(defaultContainerPrimarySpan: .some(nil))

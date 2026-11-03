@@ -39,14 +39,18 @@ extension NiriLayoutHandler {
         var states: [WindowToken: NiriContainerSizingState]?
         for token in pass.windowTokens where pass.engine.findNode(for: token, in: pass.wsId) == nil {
             let state: NiriContainerSizingState?
-            if let detached = controller.workspaceManager.restoreIntent(for: token)?.detachedNiriContainerSizingState {
+            if let natural = naturalWindowDragContainerSizingState(for: token, pass: pass) {
+                state = natural
+            } else if let detached = controller.workspaceManager.restoreIntent(for: token)?
+                .detachedNiriContainerSizingState
+            {
                 state = detached
             } else if let initial = controller.workspaceManager.admissionHints(for: token)?
                 .initialNiriContainerPrimarySpan
             {
                 state = pass.engine.initialContainerSizingState(for: CGFloat(initial))
             } else {
-                state = openingContainerSizingState(for: token, pass: pass)
+                state = nil
             }
 
             guard let state else { continue }
@@ -58,18 +62,23 @@ extension NiriLayoutHandler {
         return states
     }
 
-    private func openingContainerSizingState(
+    private func naturalWindowDragContainerSizingState(
         for token: WindowToken,
         pass: NiriLayoutPass
     ) -> NiriContainerSizingState? {
         guard let controller,
               controller.settings.niri.naturalWindowDrag,
-              pass.orientation == .horizontal,
-              let entry = controller.workspaceManager.entry(for: token),
+              pass.orientation == .horizontal
+        else { return nil }
+        let opening = pass.engine.takeOpeningWindow(token)
+        guard let entry = controller.workspaceManager.entry(for: token),
               let frame = controller.axEventHandler.observedFrame(for: entry)
         else { return nil }
-        return pass.engine.openingContainerSizingState(
+        return pass.engine.enteringContainerSizingState(
             width: frame.width,
+            opening: opening,
+            hasRuleWidth: controller.workspaceManager.admissionHints(for: token)?
+                .initialNiriContainerPrimarySpan != nil,
             in: pass.wsId,
             workingWidth: pass.insetFrame.width,
             gaps: pass.gap
