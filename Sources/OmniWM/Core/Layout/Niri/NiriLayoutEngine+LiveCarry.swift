@@ -72,23 +72,11 @@ extension NiriLayoutEngine {
         )
 
         move.carry = carry
-        move.narrowedSlot = nil
-        move.slotClosing = .trailing
-        move.slotLeads = nil
-        move.passed = nil
-        move.sideBySideIds = []
+        move.forgetStrip()
         move.workspaceId = target.workspaceId
         move.homeColumnId = arrival.column.id
         move.inStack = false
         move.homeSlotIndex = 0
-        move.dropSpaceId = nil
-        move.hover = nil
-        move.landing = nil
-        move.mateHeight = nil
-        move.stackMode = false
-        move.stackSuppressPoint = nil
-        move.awaitsPointerMoveFrom = nil
-        move.edgeScrollSide = nil
         move.lockedTarget = arrival.lock
         move.ownWindowSizing = .init(size: 1.0, height: .default)
         move.ownSizing = sizing
@@ -152,16 +140,13 @@ extension NiriLayoutEngine {
         }
 
         move.carry = nil
+        move.forgetStrip()
         move.workspaceId = originalWorkspaceId
         move.homeColumnId = home.id
         move.inStack = home.windowNodes.count > 1 && !move.isWholeColumn
         move.homeSlotIndex = home.windowNodes.count - 1
         move.ownSizing = carry.originalOwnSizing
-        move.dropSpaceId = nil
-        move.hover = nil
-        move.landing = nil
         move.lockedTarget = nil
-        move.stackMode = false
         liveColumnMove = move
         return move.isWholeColumn ? home.windowNodes.map(\.token) : [window.token]
     }
@@ -364,5 +349,23 @@ extension NiriLayoutEngine {
             scale: displayScale(in: context.workspaceId)
         )
         state.selectedNodeId = visited.viewport.selectedNodeId
+    }
+}
+
+extension LiveColumnMove {
+    mutating func forgetStrip() {
+        narrowedSlot = nil
+        slotClosing = .trailing
+        slotLeads = nil
+        passed = nil
+        sideBySideIds = []
+        dropSpaceId = nil
+        hover = nil
+        landing = nil
+        mateHeight = nil
+        stackMode = false
+        stackSuppressPoint = nil
+        awaitsPointerMoveFrom = nil
+        edgeScrollSide = nil
     }
 }
