@@ -8,31 +8,33 @@ import XCTest
 final class MultitouchPalmFilterTests: XCTestCase {
     private struct Contact {
         var pathId: Int32
-        var state: Int32 = 4
+        var state = multitouchTouchingState
         var fingerId: Int32 = 2
         var majorAxis: Float = 8
         var x: Float = 0.5
         var y: Float = 0.5
     }
 
-    private static let touchStride = 96
+    private static let palmFingerId = multitouchFingerIds.upperBound + 1
+    private static let oversizedMajorAxis = multitouchPalmMajorAxisMillimeters.nextUp
 
     private static func withRawContacts<Result>(
         _ contacts: [Contact],
         _ body: (UnsafeMutableRawPointer?, Int32) -> Result
     ) -> Result {
-        let byteCount = max(contacts.count, 1) * touchStride
-        let buffer = UnsafeMutableRawPointer.allocate(byteCount: byteCount, alignment: 8)
+        let byteCount = max(contacts.count, 1) * multitouchTouchStride
+        let alignment = max(MemoryLayout<Int32>.alignment, MemoryLayout<Float>.alignment)
+        let buffer = UnsafeMutableRawPointer.allocate(byteCount: byteCount, alignment: alignment)
         defer { buffer.deallocate() }
         buffer.initializeMemory(as: UInt8.self, repeating: 0, count: byteCount)
         for (index, contact) in contacts.enumerated() {
-            let base = index * touchStride
-            buffer.storeBytes(of: contact.pathId, toByteOffset: base + 16, as: Int32.self)
-            buffer.storeBytes(of: contact.state, toByteOffset: base + 20, as: Int32.self)
-            buffer.storeBytes(of: contact.fingerId, toByteOffset: base + 24, as: Int32.self)
-            buffer.storeBytes(of: contact.x, toByteOffset: base + 32, as: Float.self)
-            buffer.storeBytes(of: contact.y, toByteOffset: base + 36, as: Float.self)
-            buffer.storeBytes(of: contact.majorAxis, toByteOffset: base + 60, as: Float.self)
+            let base = index * multitouchTouchStride
+            buffer.storeBytes(of: contact.pathId, toByteOffset: base + multitouchPathIdByteOffset, as: Int32.self)
+            buffer.storeBytes(of: contact.state, toByteOffset: base + multitouchStateByteOffset, as: Int32.self)
+            buffer.storeBytes(of: contact.fingerId, toByteOffset: base + multitouchFingerIdByteOffset, as: Int32.self)
+            buffer.storeBytes(of: contact.x, toByteOffset: base + multitouchPositionXByteOffset, as: Float.self)
+            buffer.storeBytes(of: contact.y, toByteOffset: base + multitouchPositionYByteOffset, as: Float.self)
+            buffer.storeBytes(of: contact.majorAxis, toByteOffset: base + multitouchMajorAxisByteOffset, as: Float.self)
         }
         return body(buffer, Int32(contacts.count))
     }
@@ -53,7 +55,7 @@ final class MultitouchPalmFilterTests: XCTestCase {
         let contacts = [
             Contact(pathId: 1, fingerId: 2, x: 0.45, y: 0.4),
             Contact(pathId: 2, fingerId: 3, x: 0.55, y: 0.45),
-            Contact(pathId: 3, fingerId: 7, majorAxis: 14, x: 0.01, y: 0.7)
+            Contact(pathId: 3, fingerId: Self.palmFingerId, majorAxis: 14, x: 0.01, y: 0.7)
         ]
         XCTAssertEqual(touchCount(contacts, filter: &filter), 2)
     }
@@ -64,31 +66,48 @@ final class MultitouchPalmFilterTests: XCTestCase {
             Contact(pathId: 1, fingerId: 2, x: 0.42, y: 0.41),
             Contact(pathId: 2, fingerId: 3, x: 0.5, y: 0.57),
             Contact(pathId: 3, fingerId: 4, x: 0.68, y: 0.58),
-            Contact(pathId: 4, fingerId: 12, majorAxis: 17, x: 0.07, y: 0.86)
+            Contact(pathId: 4, fingerId: Self.palmFingerId, majorAxis: 17, x: 0.07, y: 0.86)
         ]
         XCTAssertEqual(touchCount(contacts, filter: &filter), 3)
     }
 
     func testOversizedContactIsRejectedDespiteFingerLabel() {
         var filter = MultitouchPalmFilter()
-        XCTAssertEqual(touchCount([Contact(pathId: 4, fingerId: 1, majorAxis: 24)], filter: &filter), 0)
+        XCTAssertEqual(
+            touchCount(
+                [Contact(pathId: 4, fingerId: multitouchFingerIds.lowerBound, majorAxis: Self.oversizedMajorAxis)],
+                filter: &filter
+            ),
+            0
+        )
     }
 
     func testUnclassifiedFingertipStillCounts() {
         var filter = MultitouchPalmFilter()
-        XCTAssertEqual(touchCount([Contact(pathId: 1, fingerId: 0)], filter: &filter), 1)
+        XCTAssertEqual(touchCount([Contact(pathId: 1, fingerId: multitouchUnclassifiedFingerId)], filter: &filter), 1)
     }
 
     func testContactLabelledPalmBeforeTouchingStaysRejectedWhenRelabelled() {
         var filter = MultitouchPalmFilter()
-        XCTAssertEqual(touchCount([Contact(pathId: 5, state: 2, fingerId: 6, majorAxis: 12)], filter: &filter), 0)
-        XCTAssertEqual(touchCount([Contact(pathId: 5, state: 4, fingerId: 5, majorAxis: 12)], filter: &filter), 0)
-        XCTAssertEqual(touchCount([Contact(pathId: 5, state: 4, fingerId: 1, majorAxis: 12)], filter: &filter), 0)
+        let palm = Contact(pathId: 5, state: 2, fingerId: Self.palmFingerId, majorAxis: 12)
+        XCTAssertEqual(touchCount([palm], filter: &filter), 0)
+        var finger = palm
+        finger.state = multitouchTouchingState
+        finger.fingerId = multitouchFingerIds.upperBound
+        XCTAssertEqual(touchCount([finger], filter: &filter), 0)
+        finger.fingerId = multitouchFingerIds.lowerBound
+        XCTAssertEqual(touchCount([finger], filter: &filter), 0)
     }
 
     func testPathReusedAfterPalmLiftsCountsAsFinger() {
         var filter = MultitouchPalmFilter()
-        XCTAssertEqual(touchCount([Contact(pathId: 5, fingerId: 7, majorAxis: 22)], filter: &filter), 0)
+        XCTAssertEqual(
+            touchCount(
+                [Contact(pathId: 5, fingerId: Self.palmFingerId, majorAxis: Self.oversizedMajorAxis)],
+                filter: &filter
+            ),
+            0
+        )
         XCTAssertEqual(touchCount([], filter: &filter), 0)
         XCTAssertEqual(touchCount([Contact(pathId: 5, fingerId: 2)], filter: &filter), 1)
     }
@@ -98,11 +117,11 @@ final class MultitouchPalmFilterTests: XCTestCase {
         let x: Float = 0.05
         let y: Float = 0.73
         let frames = [
-            Contact(pathId: 5, state: 4, fingerId: 7, majorAxis: 14.3, x: x, y: y),
-            Contact(pathId: 5, state: 7, fingerId: 0, majorAxis: 0, x: x, y: y),
-            Contact(pathId: 5, state: 1, fingerId: 0, majorAxis: 13.5, x: x, y: y),
+            Contact(pathId: 5, fingerId: Self.palmFingerId, majorAxis: 14.3, x: x, y: y),
+            Contact(pathId: 5, state: 7, fingerId: multitouchUnclassifiedFingerId, majorAxis: 0, x: x, y: y),
+            Contact(pathId: 5, state: 1, fingerId: multitouchUnclassifiedFingerId, majorAxis: 13.5, x: x, y: y),
             Contact(pathId: 5, state: 3, fingerId: 3, majorAxis: 13.5, x: x, y: y),
-            Contact(pathId: 5, state: 4, fingerId: 3, majorAxis: 13.6, x: x, y: y)
+            Contact(pathId: 5, fingerId: 3, majorAxis: 13.6, x: x, y: y)
         ]
         for contact in frames {
             XCTAssertEqual(touchCount([Contact(pathId: 1, fingerId: 2), contact], filter: &filter), 1)
@@ -113,7 +132,13 @@ final class MultitouchPalmFilterTests: XCTestCase {
         var filter = MultitouchPalmFilter()
         let palmAndFinger = [
             Contact(pathId: 1, fingerId: 2),
-            Contact(pathId: 6, fingerId: 6, majorAxis: 19, x: 0.99, y: 0.4)
+            Contact(
+                pathId: 6,
+                fingerId: Self.palmFingerId,
+                majorAxis: multitouchPalmMajorAxisMillimeters.nextDown,
+                x: 0.99,
+                y: 0.4
+            )
         ]
         XCTAssertEqual(touchCount(palmAndFinger, filter: &filter), 1)
         XCTAssertEqual(touchCount([Contact(pathId: 1, fingerId: 2)], filter: &filter), 1)
@@ -125,43 +150,86 @@ final class MultitouchPalmFilterTests: XCTestCase {
 
     func testPalmOnUntrackedPathIdStaysRejectedUntilItLifts() {
         var filter = MultitouchPalmFilter()
-        XCTAssertEqual(touchCount([Contact(pathId: 200, fingerId: 7, majorAxis: 22)], filter: &filter), 0)
-        XCTAssertEqual(touchCount([Contact(pathId: 200, fingerId: 2, majorAxis: 12)], filter: &filter), 0)
+        let palm = Contact(
+            pathId: multitouchTrackedPathCount,
+            fingerId: Self.palmFingerId,
+            majorAxis: Self.oversizedMajorAxis
+        )
+        var finger = palm
+        finger.fingerId = multitouchFingerIds.lowerBound
+        finger.majorAxis = multitouchPalmMajorAxisMillimeters.nextDown
+        XCTAssertEqual(touchCount([palm], filter: &filter), 0)
+        XCTAssertEqual(touchCount([finger], filter: &filter), 0)
         XCTAssertEqual(touchCount([], filter: &filter), 0)
-        XCTAssertEqual(touchCount([Contact(pathId: 200, fingerId: 2)], filter: &filter), 1)
+        XCTAssertEqual(touchCount([finger], filter: &filter), 1)
     }
 
     func testNewRegistrationGenerationForgetsPalms() {
         var filters = MultitouchPalmFilters()
-        let palm = [Contact(pathId: 3, fingerId: 7, majorAxis: 22)]
+        let palm = [Contact(pathId: 3, fingerId: Self.palmFingerId, majorAxis: Self.oversizedMajorAxis)]
         let finger = [Contact(pathId: 3, fingerId: 2)]
         let first = MultitouchGestureSource.RegistrationToken(generation: 1, slot: 0)
-        let second = MultitouchGestureSource.RegistrationToken(generation: 2, slot: 0)
+        let second = MultitouchGestureSource.RegistrationToken(generation: first.generation + 1, slot: first.slot)
+        let firstTimestamp: Double = 1
+        let secondTimestamp = firstTimestamp.nextUp
 
         let palmFrame = Self.withRawContacts(palm) { fingers, count in
-            filters.buildRawFrame(fingers: fingers, count: count, timestamp: 1, token: first)
+            filters.buildRawFrame(fingers: fingers, count: count, timestamp: firstTimestamp, token: first)
         }
         XCTAssertEqual(palmFrame.touches.count, 0)
 
         let fingerFrame = Self.withRawContacts(finger) { fingers, count in
-            filters.buildRawFrame(fingers: fingers, count: count, timestamp: 2, token: second)
+            filters.buildRawFrame(fingers: fingers, count: count, timestamp: secondTimestamp, token: second)
         }
         XCTAssertEqual(fingerFrame.touches.count, 1)
     }
 
+    func testOlderRegistrationCannotResetTheCurrentPalmLatch() {
+        var filters = MultitouchPalmFilters()
+        let palm = Contact(pathId: multitouchTrackedPathCount - 1, fingerId: Self.palmFingerId)
+        var finger = palm
+        finger.fingerId = multitouchFingerIds.lowerBound
+        let older = MultitouchGestureSource.RegistrationToken(generation: 1, slot: 0)
+        let current = MultitouchGestureSource.RegistrationToken(generation: older.generation + 1, slot: older.slot)
+        let timestamp: Double = 1
+
+        let palmFrame = Self.withRawContacts([palm]) { fingers, count in
+            filters.buildRawFrame(fingers: fingers, count: count, timestamp: timestamp, token: current)
+        }
+        XCTAssertEqual(palmFrame.touches.count, 0)
+
+        _ = Self.withRawContacts([]) { fingers, count in
+            filters.buildRawFrame(fingers: fingers, count: count, timestamp: timestamp.nextUp, token: older)
+        }
+
+        let fingerTimestamp = timestamp.nextUp.nextUp
+        let fingerFrame = Self.withRawContacts([finger]) { fingers, count in
+            filters.buildRawFrame(fingers: fingers, count: count, timestamp: fingerTimestamp, token: current)
+        }
+        XCTAssertEqual(fingerFrame.touches.count, 0)
+        XCTAssertEqual(fingerFrame.timestamp, fingerTimestamp)
+    }
+
     func testFingerPositionsSurviveFiltering() throws {
         var filter = MultitouchPalmFilter()
+        let finger = Contact(pathId: 1, fingerId: 2, x: 0.25, y: 0.75)
+        let timestamp: Double = 3
         let contacts = [
-            Contact(pathId: 2, fingerId: 6, majorAxis: 15, x: 0.01, y: 0.9),
-            Contact(pathId: 1, fingerId: 2, x: 0.25, y: 0.75)
+            Contact(pathId: 2, fingerId: Self.palmFingerId, majorAxis: 15, x: 0.01, y: 0.9),
+            finger
         ]
         let frame = Self.withRawContacts(contacts) { fingers, count in
-            MultitouchGestureSource.buildRawFrame(fingers: fingers, count: count, timestamp: 3, palmFilter: &filter)
+            MultitouchGestureSource.buildRawFrame(
+                fingers: fingers,
+                count: count,
+                timestamp: timestamp,
+                palmFilter: &filter
+            )
         }
         let touch = try XCTUnwrap(frame.touches.first)
         XCTAssertEqual(frame.touches.count, 1)
-        XCTAssertEqual(touch.x, 0.25)
-        XCTAssertEqual(touch.y, 0.75)
-        XCTAssertEqual(frame.timestamp, 3)
+        XCTAssertEqual(touch.x, finger.x)
+        XCTAssertEqual(touch.y, finger.y)
+        XCTAssertEqual(frame.timestamp, timestamp)
     }
 }

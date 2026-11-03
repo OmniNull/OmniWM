@@ -8,14 +8,14 @@ import IOKit
 import os
 import Synchronization
 
-private let multitouchTouchStride = 96
-private let multitouchPathIdByteOffset = 16
-private let multitouchStateByteOffset = 20
-private let multitouchFingerIdByteOffset = 24
-private let multitouchPositionXByteOffset = 32
-private let multitouchPositionYByteOffset = 36
-private let multitouchMajorAxisByteOffset = 60
-private let multitouchTouchingState: Int32 = 4
+let multitouchTouchStride = 96
+let multitouchPathIdByteOffset = 16
+let multitouchStateByteOffset = 20
+let multitouchFingerIdByteOffset = 24
+let multitouchPositionXByteOffset = 32
+let multitouchPositionYByteOffset = 36
+let multitouchMajorAxisByteOffset = 60
+let multitouchTouchingState: Int32 = 4
 
 struct MultitouchContactSession: Equatable, Sendable {
     let generation: UInt

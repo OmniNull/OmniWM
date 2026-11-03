@@ -2,11 +2,12 @@
 // Copyright (C) 2026 OmniNull — https://github.com/OmniNull/OmniWM
 
 import Foundation
+import Synchronization
 
-private let multitouchUnclassifiedFingerId: Int32 = 0
-private let multitouchFingerIds: ClosedRange<Int32> = 1 ... 5
-private let multitouchPalmMajorAxisMillimeters: Float = 20
-private let multitouchTrackedPathCount: Int32 = 64
+let multitouchUnclassifiedFingerId: Int32 = 0
+let multitouchFingerIds: ClosedRange<Int32> = 1 ... 5
+let multitouchPalmMajorAxisMillimeters: Float = 20
+let multitouchTrackedPathCount: Int32 = 64
 
 struct MultitouchPalmFilter: Equatable, Sendable {
     private var generation: UInt = 0
@@ -15,10 +16,13 @@ struct MultitouchPalmFilter: Equatable, Sendable {
     private var untrackedPalmPaths: Set<Int32> = []
     private var untrackedFramePaths: Set<Int32> = []
 
-    mutating func beginFrame(generation: UInt) {
-        guard generation != self.generation else { return }
-        self = MultitouchPalmFilter()
-        self.generation = generation
+    mutating func beginFrame(generation: UInt) -> Bool {
+        guard generation >= self.generation else { return false }
+        if generation != self.generation {
+            self = MultitouchPalmFilter()
+            self.generation = generation
+        }
+        return true
     }
 
     mutating func isPalm(pathId: Int32, fingerId: Int32, majorAxis: Float) -> Bool {
@@ -49,7 +53,19 @@ struct MultitouchPalmFilter: Equatable, Sendable {
 }
 
 struct MultitouchPalmFilters: Sendable {
+    private static let shared = Mutex(MultitouchPalmFilters())
     private var filters = InlineArray<64, MultitouchPalmFilter>(repeating: MultitouchPalmFilter())
+
+    static func capture(
+        fingers: UnsafeMutableRawPointer?,
+        count: Int32,
+        timestamp: Double,
+        token: MultitouchGestureSource.RegistrationToken
+    ) -> MultitouchGestureSource.RawFrame {
+        shared.withLock { filters in
+            filters.buildRawFrame(fingers: fingers, count: count, timestamp: timestamp, token: token)
+        }
+    }
 
     mutating func buildRawFrame(
         fingers: UnsafeMutableRawPointer?,
@@ -66,7 +82,9 @@ struct MultitouchPalmFilters: Sendable {
                 palmFilter: &unattributed
             )
         }
-        filters[token.slot].beginFrame(generation: token.generation)
+        guard filters[token.slot].beginFrame(generation: token.generation) else {
+            return MultitouchGestureSource.RawFrame(touches: [], timestamp: timestamp)
+        }
         return MultitouchGestureSource.buildRawFrame(
             fingers: fingers,
             count: count,
