@@ -1563,6 +1563,108 @@ final class NativeResizeAdoptionTests: NiriInteractionTestCase {
         }
     }
 
+    func testOverviewButtonOnlyPassesAMatchingRejectedTerminalDrag() throws {
+        var scenario = 0
+        for layout in [LayoutType.niri, .dwindle] {
+            for rejected in [false, true] {
+                for matching in [false, true] {
+                    let fixture = try makeFixture(layout, pid: pid_t(835_201 + scenario))
+                    scenario += 1
+                    let blocker = blockRefreshes(fixture)
+                    defer { unblockRefreshes(fixture, blocker: blocker) }
+                    defer { fixture.controller.windowActionHandler.invalidateOverviewDeferredActionsForServiceStop() }
+                    fixture.controller.isEnabled = true
+                    try fixture.controller.settings.setOverviewMouseButton(2)
+                    let token = fixture.tokens[0]
+                    let start = try fixture.frame(token)
+                    let reported = ReportedFrame(start)
+                    fixture.handler.nativeWindowFrameProvider = { _ in reported.frame }
+                    if rejected {
+                        fixture.handler.state.moveTap = try XCTUnwrap(CFMachPortCreate(
+                            kCFAllocatorDefault,
+                            nil,
+                            nil,
+                            nil
+                        ))
+                        let location = CGPoint(x: start.midX + 5, y: start.midY)
+                        fixture.handler.pressedMouseButtonsProvider = { MouseEventHandler.MouseButton.left.pressedMask }
+                        XCTAssertFalse(fixture.handler.receiveTapMouseDown(at: start.center, modifiers: []))
+                        fixture.handler.receiveTapMouseDragged(at: location)
+                        fixture.handler.pressedMouseButtonsProvider = { 0 }
+                        fixture.handler.receiveTapMouseUp(at: location)
+                        try fixture.annotatedDrag(windowId: nil, at: location)
+                    } else {
+                        try fixture.beginDrag(token)
+                        fixture.handler.pressedMouseButtonsProvider = { 0 }
+                        fixture.handler.receiveTapMouseUp(at: start.center)
+                    }
+                    XCTAssertEqual(fixture.phase, .awaitingFrameChange)
+                    if !matching { reported.frame = grown(start, right: 140) }
+
+                    let captures = fixture.handler.receiveTapOtherMouseButton(type: .otherMouseDown, button: 2)
+                    XCTAssertEqual(
+                        captures,
+                        rejected && matching,
+                        "\(layout), rejected=\(rejected), matching=\(matching)"
+                    )
+                    XCTAssertEqual(fixture.controller.isOverviewOpen(), rejected && matching)
+                    XCTAssertEqual(fixture.phase, .awaitingFrameChange)
+                    if captures {
+                        XCTAssertTrue(fixture.handler.receiveTapOtherMouseButton(type: .otherMouseUp, button: 2))
+                        reported.frame = grown(start, right: 140)
+                        XCTAssertTrue(try fixture.handler
+                            .handleNativeTitleBarDragFrameChanged(for: fixture.entry(token)))
+                        XCTAssertEqual(
+                            fixture.controller.layoutRefreshController.layoutState.pendingRefresh?.affectedWorkspaceIds,
+                            [fixture.workspaceId]
+                        )
+                        XCTAssertEqual(try fixture.frame(token).width, start.width, accuracy: 1)
+                    }
+                }
+            }
+        }
+    }
+
+    func testOwnedClickRetiresAMatchingRejectedTerminalDrag() throws {
+        for (index, layout) in [LayoutType.niri, .dwindle].enumerated() {
+            let fixture = try makeFixture(layout, pid: pid_t(835_211 + index))
+            let blocker = blockRefreshes(fixture)
+            defer { unblockRefreshes(fixture, blocker: blocker) }
+            fixture.handler.state.moveTap = try XCTUnwrap(CFMachPortCreate(kCFAllocatorDefault, nil, nil, nil))
+            let token = fixture.tokens[0]
+            let start = try fixture.frame(token)
+            let location = CGPoint(x: start.midX + 5, y: start.midY)
+            fixture.handler.pressedMouseButtonsProvider = { MouseEventHandler.MouseButton.left.pressedMask }
+            XCTAssertFalse(fixture.handler.receiveTapMouseDown(at: start.center, modifiers: []))
+            fixture.handler.receiveTapMouseDragged(at: location)
+            fixture.handler.pressedMouseButtonsProvider = { 0 }
+            fixture.handler.receiveTapMouseUp(at: location)
+            try fixture.annotatedDrag(windowId: nil, at: location)
+            XCTAssertEqual(fixture.phase, .awaitingFrameChange)
+            let surfaceId = "rejected-native-resize-\(token.windowId)"
+            let ownedFrame = CGRect(x: -800, y: -800, width: 40, height: 40)
+            fixture.controller.ownedWindowRegistry.registerWindowNumber(
+                surfaceId: surfaceId,
+                policy: SurfacePolicy(
+                    kind: .utility,
+                    hitTestPolicy: .interactive,
+                    capturePolicy: .included,
+                    suppressesManagedFocusRecovery: true
+                ),
+                windowNumber: token.windowId + 10_000,
+                frameProvider: { ownedFrame },
+                visibilityProvider: { true }
+            )
+            defer { fixture.controller.ownedWindowRegistry.unregister(surfaceId: surfaceId) }
+
+            XCTAssertFalse(fixture.handler.receiveTapMouseDown(at: ownedFrame.center, modifiers: []))
+
+            XCTAssertNil(fixture.handler.state.nativeTitleBarDrag)
+            XCTAssertFalse(fixture.handler.state.awaitsNativeTitleBarDragTarget)
+            XCTAssertEqual(try fixture.frame(token).width, start.width, accuracy: 1)
+        }
+    }
+
     func testReleasedAnnotatedCandidateIsRetiredAtTheNextInputBoundary() throws {
         var scenario = 0
         for layout in [LayoutType.niri, .dwindle] {

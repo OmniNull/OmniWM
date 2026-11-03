@@ -186,7 +186,7 @@ extension MouseEventHandler {
     private func captureOverviewMouseButton(_ button: Int64, controller: WMController) -> Bool {
         flushQueuedTapEventsBeforeImmediateDispatch()
         guard canCaptureOtherMouseButton(controller), !isTrackpadSwipeSessionActive,
-              state.nativeTitleBarDrag == nil, !state.awaitsNativeTitleBarDragTarget
+              !nativeTitleBarDragBlocksOverview, !state.awaitsNativeTitleBarDragTarget
         else { return false }
         state.capturedOtherMouseButton = button
         controller.windowActionHandler.toggleOverview()
@@ -213,9 +213,9 @@ extension MouseEventHandler {
         if shouldBlockOwnWindowInput(at: location) {
             dropPendingTapEvents()
             if button == .left, !isInputSuppressed,
-               state.nativeTitleBarDrag == nil,
-               state.awaitsNativeTitleBarDragTarget,
-               state.nativeTitleBarDragFallbackReleased
+               state.nativeTitleBarDrag?.targetWasRejected == true
+               || (state.nativeTitleBarDrag == nil && state.awaitsNativeTitleBarDragTarget
+                   && state.nativeTitleBarDragFallbackReleased)
             {
                 retireNativeTitleBarDragAtInputBoundary()
             }

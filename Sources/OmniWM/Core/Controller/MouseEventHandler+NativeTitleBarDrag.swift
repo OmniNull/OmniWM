@@ -117,8 +117,20 @@ extension MouseEventHandler {
             return
         }
         state.nativeResizeStart = nil
-        state.nativeTitleBarDrag = .init(token: releasedToken, phase: .awaitingFrameChange)
+        state.nativeTitleBarDrag = .init(token: releasedToken, phase: .awaitingFrameChange, targetWasRejected: true)
         _ = handleNativeTitleBarDragFrameChanged(for: entry)
+    }
+
+    var nativeTitleBarDragBlocksOverview: Bool {
+        guard let drag = state.nativeTitleBarDrag else { return false }
+        guard drag.targetWasRejected, drag.phase == .awaitingFrameChange,
+              let controller,
+              controller.axManager.pendingFrameWrite(for: drag.token.windowId) == nil,
+              let entry = controller.workspaceManager.entry(for: drag.token),
+              let observedFrame = terminalNativeWindowFrame(for: entry),
+              nativeWindowFrameMatchesManagedTarget(observedFrame, entry: entry)
+        else { return true }
+        return false
     }
 
     func beginNativeTitleBarDragIfNeeded(button: MouseButton) {
