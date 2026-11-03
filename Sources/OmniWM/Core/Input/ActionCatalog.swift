@@ -293,14 +293,7 @@ enum ActionCatalog {
         case .openMenuAnywhere: LocalizedStringResource(
                 "command.menu.openAnywhere", defaultValue: "Open Menu Anywhere", table: "Commands", bundle: .omniWM
             )
-        case .windowMark(.set): LocalizedStringResource(
-                "command.windowMark.set", defaultValue: "Set Mark on Focused Window", table: "Commands",
-                bundle: .omniWM
-            )
-        case .windowMark(.remove): LocalizedStringResource(
-                "command.windowMark.remove", defaultValue: "Remove Mark from Focused Window", table: "Commands",
-                bundle: .omniWM
-            )
+        case let .windowMark(action): action.actionDisplayName()
         case let .presentation(command): command.actionDisplayName()
         case let .media(command): command.actionDisplayName()
         case let .keyboardMode(command): command.actionDisplayName()
