@@ -198,11 +198,10 @@ extension NiriLayoutEngine {
         return CGRect(x: release.minX, y: minY, width: release.width, height: maxY - minY)
     }
 
-    func liveStackDropAbandon(in workspaceId: WorkspaceDescriptor.ID) -> Bool {
-        guard liveStackDrop?.workspaceId == workspaceId else { return false }
+    func liveStackDropAbandon(in workspaceId: WorkspaceDescriptor.ID) {
+        guard liveStackDrop?.workspaceId == workspaceId else { return }
         assertSanctionedMutation()
         liveStackDrop = nil
-        return true
     }
 
     func liveStackDropFinish(context: NiriInteractionContext, state: inout ViewportState) -> Bool {
@@ -236,17 +235,16 @@ extension NiriLayoutEngine {
         if liveColumnMove == nil, liveStackDrop?.homeColumnId != previous.homeColumnId {
             removeLivePlaceholder(previous.homeColumnId, in: previous.workspaceId)
         }
-        if liveColumnMove == nil, liveStackDrop?.windowId != previous.windowId,
-           let kept = previous.keptWidths
-        {
-            ensureState(for: previous.workspaceId).manualWidthColumnCount = kept.manualColumnCount
-        }
-        if liveColumnMove == nil, liveStackDrop?.windowId != previous.windowId,
-           let saved = previous.mateHeight,
-           let mate = findNode(by: saved.windowId, in: previous.workspaceId) as? NiriWindow,
-           mate.height != saved.height
-        {
-            mate.height = saved.height
+        if liveColumnMove == nil, liveStackDrop?.windowId != previous.windowId {
+            if let kept = previous.keptWidths {
+                ensureState(for: previous.workspaceId).manualWidthColumnCount = kept.manualColumnCount
+            }
+            if let saved = previous.mateHeight,
+               let mate = findNode(by: saved.windowId, in: previous.workspaceId) as? NiriWindow,
+               mate.height != saved.height
+            {
+                mate.height = saved.height
+            }
         }
     }
 
