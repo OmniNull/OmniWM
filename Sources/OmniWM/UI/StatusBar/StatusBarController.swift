@@ -96,8 +96,12 @@ final class StatusBarController: NSObject {
         isRightClick || optionHeld ? .hiddenIconsBar : .menu
     }
 
-    nonisolated static func labeledImagePosition(showIcon: Bool, hasStateIcon: Bool) -> NSControl.ImagePosition {
-        showIcon || hasStateIcon ? .imageLeft : .noImage
+    nonisolated static func labeledImagePosition(
+        showIcon: Bool,
+        hasStateIcon: Bool,
+        showLayout: Bool = false
+    ) -> NSControl.ImagePosition {
+        showIcon || hasStateIcon || showLayout ? .imageLeft : .noImage
     }
 
     @objc private func handleClick(_ button: NSStatusBarButton) {
@@ -204,7 +208,20 @@ final class StatusBarController: NSObject {
                 ? controller?.activeStatusBarWorkspaceSummary().map { Self.layoutDisplayName($0.layout) }
                 : nil
         }
+        updateButtonLayoutImage(button)
         updateButtonAccessibility(button)
+    }
+
+    private func updateButtonLayoutImage(_ button: NSStatusBarButton) {
+        guard settings.statusBar.showLayout,
+              let summary = controller?.activeStatusBarWorkspaceSummary()
+        else { return }
+        let hasStateIcon = controller?.traceCaptureStatus.profile != nil || controller?.isSecureInputIndicated == true
+            || (controller?.keyboardModeKind ?? .normal) != .normal
+        button.image = Self.statusButtonImage(
+            icon: settings.statusBar.showIcon || hasStateIcon ? button.image : nil,
+            layout: summary.layout
+        )
     }
 
     private func applyRecordingPulse(to button: NSStatusBarButton) {
@@ -227,33 +244,6 @@ final class StatusBarController: NSObject {
     static func truncatedStatusBarAppName(_ appName: String) -> String {
         guard appName.count > maxStatusBarAppNameLength else { return appName }
         return String(appName.prefix(maxStatusBarAppNameLength)) + "\u{2026}"
-    }
-
-    nonisolated static func statusButtonAccessibilityValue(
-        workspaceLabel: String?,
-        focusedAppName: String?,
-        isRecording: Bool,
-        isSecureInputActive: Bool,
-        layout: ActiveLayoutKind? = nil
-    ) -> String {
-        var components: [String] = []
-        if isRecording {
-            components.append(String(localized: "Recording diagnostics"))
-        }
-        if isSecureInputActive {
-            components.append(String(localized: "Secure Input is on"))
-        }
-        if let workspaceLabel, !workspaceLabel.isEmpty {
-            components.append(String(localized: "Workspace \(workspaceLabel)"))
-        }
-        if let focusedAppName, !focusedAppName.isEmpty {
-            components.append(String(localized: "Focused app \(focusedAppName)"))
-        }
-        if let layout {
-            components.append(Self.layoutDisplayName(layout))
-        }
-        return components.isEmpty ? String(localized: "Window manager controls") : components
-            .joined(separator: String(localized: ", "))
     }
 
     private func updateButtonAccessibility(_ button: NSStatusBarButton) {
@@ -302,18 +292,12 @@ final class StatusBarController: NSObject {
             modeTitle: modeTitle
         )
         button.title = title
-        if settings.statusBar.showLayout {
-            button.attributedTitle = Self.statusButtonAttributedTitle(
-                title,
-                layout: summary.layout,
-                font: button.font ?? .menuBarFont(ofSize: 0)
-            )
-        }
         let hasStateIcon = controller?.traceCaptureStatus.profile != nil || controller?.isSecureInputIndicated == true
             || modeTitle != nil
         button.imagePosition = Self.labeledImagePosition(
             showIcon: settings.statusBar.showIcon,
-            hasStateIcon: hasStateIcon
+            hasStateIcon: hasStateIcon,
+            showLayout: settings.statusBar.showLayout
         )
     }
 

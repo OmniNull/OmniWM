@@ -7,40 +7,59 @@ import XCTest
 
 @MainActor
 final class StatusBarLayoutTests: XCTestCase {
-    func testDisabledLayoutPreservesTheExistingTitle() {
-        let title = StatusBarController.statusButtonTitle(workspaceLabel: "Code", focusedAppName: "Xcode")
-        let rendered = StatusBarController.statusButtonAttributedTitle(
-            title,
-            layout: nil,
-            font: .menuBarFont(ofSize: 0)
+    func testDisabledLayoutPreservesTheExistingImageAndTitle() {
+        let icon = OmniWMBrandMark.statusItemImage(pointSize: 18)
+        XCTAssertTrue(StatusBarController.statusButtonImage(icon: icon, layout: nil) === icon)
+        XCTAssertEqual(
+            StatusBarController.statusButtonTitle(workspaceLabel: "Code", focusedAppName: "Xcode"),
+            " Code \u{2013} Xcode"
         )
-        XCTAssertEqual(rendered.string, " Code \u{2013} Xcode")
-        XCTAssertNil(rendered.attribute(.attachment, at: 0, effectiveRange: nil))
-    }
-
-    func testBothLayoutsRenderAlongsideWorkspaceAndKeyboardModes() throws {
-        for layout in [ActiveLayoutKind.niri, .dwindle] {
-            for workspace in [nil, "Code"] as [String?] {
-                for mode in [nil, "Paused"] as [String?] {
-                    let title = StatusBarController.statusButtonTitle(
-                        workspaceLabel: workspace, focusedAppName: nil, modeTitle: mode
-                    )
-                    let rendered = StatusBarController.statusButtonAttributedTitle(
-                        title, layout: layout, font: .menuBarFont(ofSize: 0)
-                    )
-                    XCTAssertEqual(rendered.string, title + " \u{FFFC}")
-                    let attachment = try XCTUnwrap(rendered.attribute(
-                        .attachment, at: rendered.length - 1, effectiveRange: nil
-                    ) as? NSTextAttachment)
-                    XCTAssertNotNil(attachment.image)
-                    XCTAssertGreaterThan(attachment.bounds.width, 0)
-                    XCTAssertGreaterThan(attachment.bounds.height, 0)
-                }
-            }
-        }
         XCTAssertEqual(
             StatusBarController.statusButtonTitle(workspaceLabel: nil, focusedAppName: nil, modeTitle: "Paused"),
             " Paused"
+        )
+    }
+
+    func testBothLayoutsProduceVisibleGlyphsAndPreserveStateColors() throws {
+        for layout in [ActiveLayoutKind.niri, .dwindle] {
+            let image = try XCTUnwrap(StatusBarController.statusButtonImage(icon: nil, layout: layout))
+            XCTAssertTrue(image.isTemplate)
+            let bitmap = try XCTUnwrap(NSBitmapImageRep(data: XCTUnwrap(image.tiffRepresentation)))
+            XCTAssertTrue((0 ..< bitmap.pixelsWide).contains { x in
+                (0 ..< bitmap.pixelsHigh).contains { y in
+                    (bitmap.colorAt(x: x, y: y)?.alphaComponent ?? 0) > 0
+                }
+            })
+
+            let icon = NSImage(size: NSSize(width: 18, height: 18), flipped: false) { rect in
+                NSColor.systemRed.setFill()
+                rect.fill()
+                return true
+            }
+            let combined = try XCTUnwrap(StatusBarController.statusButtonImage(icon: icon, layout: layout))
+            XCTAssertFalse(combined.isTemplate)
+            XCTAssertGreaterThan(combined.size.width, image.size.width)
+            let combinedBitmap = try XCTUnwrap(NSBitmapImageRep(data: XCTUnwrap(combined.tiffRepresentation)))
+            let center = Int(9 * CGFloat(combinedBitmap.pixelsWide) / combined.size.width)
+            let color = try XCTUnwrap(combinedBitmap.colorAt(x: center, y: combinedBitmap.pixelsHigh / 2)?
+                .usingColorSpace(.deviceRGB))
+            XCTAssertGreaterThan(color.redComponent, color.greenComponent)
+        }
+    }
+
+    func testNativeStatusButtonKeepsTheLayoutImageWhenTheBrandIconIsHidden() throws {
+        let item = NSStatusBar.system.statusItem(withLength: NSStatusItem.variableLength)
+        defer { NSStatusBar.system.removeStatusItem(item) }
+        let button = try XCTUnwrap(item.button)
+        button.image = StatusBarController.statusButtonImage(icon: nil, layout: .niri)
+        button.imagePosition = StatusBarController.labeledImagePosition(
+            showIcon: false, hasStateIcon: false, showLayout: true
+        )
+        let imageRect = try XCTUnwrap(button.cell?.imageRect(forBounds: NSRect(x: 0, y: 0, width: 64, height: 24)))
+        XCTAssertFalse(imageRect.isEmpty)
+        XCTAssertEqual(
+            StatusBarController.labeledImagePosition(showIcon: false, hasStateIcon: false),
+            .noImage
         )
     }
 
