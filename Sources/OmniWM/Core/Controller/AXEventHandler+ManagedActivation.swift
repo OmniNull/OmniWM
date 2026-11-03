@@ -265,6 +265,9 @@ extension AXEventHandler {
         let preserveViewport = controller.workspaceManager.animationDriver.hasMotion(in: wsId)
             || preservesPointerViewport
             || preservesAppTerminationRecoveryViewport(for: entry.token)
+        let clickFocusWithoutScrolling = controller.settings.focus.clickFocusWithoutScrolling
+            && hasRecentMouseFocusIntent(for: entry.token)
+            && engine.effectiveSettings(in: wsId).centerFocusedColumn != .always
         let preserveReplacementViewport = isProtectedManagedReplacementFocus(
             token: entry.token,
             workspaceId: wsId
@@ -274,7 +277,8 @@ extension AXEventHandler {
             options: managedActivationOptions(
                 isWorkspaceActive: observation.isWorkspaceActive,
                 preserveViewport: preserveViewport,
-                preserveReplacementViewport: preserveReplacementViewport
+                preserveReplacementViewport: preserveReplacementViewport,
+                clickFocusWithoutScrolling: clickFocusWithoutScrolling
             )
         )
         _ = controller.workspaceManager.applySessionPatch(
@@ -294,7 +298,8 @@ extension AXEventHandler {
     private func managedActivationOptions(
         isWorkspaceActive: Bool,
         preserveViewport: Bool,
-        preserveReplacementViewport: Bool
+        preserveReplacementViewport: Bool,
+        clickFocusWithoutScrolling: Bool
     ) -> NodeActivationOptions {
         if preserveReplacementViewport {
             return .init(
@@ -312,6 +317,15 @@ extension AXEventHandler {
                 layoutRefresh: false,
                 axFocus: false,
                 startAnimation: false
+            )
+        }
+        if clickFocusWithoutScrolling {
+            return .init(
+                ensureVisible: false,
+                layoutRefresh: false,
+                axFocus: false,
+                startAnimation: false,
+                clickFocusWithoutScrolling: true
             )
         }
         return .init(layoutRefresh: isWorkspaceActive, axFocus: false)

@@ -28,6 +28,10 @@ final class FocusSettings {
         didSet { onChange?() }
     }
 
+    var clickFocusWithoutScrolling = FocusSettings.defaults.clickFocusWithoutScrolling {
+        didSet { onChange?() }
+    }
+
     var edgeNavigationInterval = FocusSettings.defaults.edgeNavigationInterval {
         didSet {
             let normalized = FocusSettings.normalizedEdgeNavigationInterval(edgeNavigationInterval)
@@ -67,6 +71,7 @@ final class FocusSettings {
         SettingsExport.Focus(
             followsMouse: followsMouse,
             followsMouseOnlyFullyVisible: followsMouseOnlyFullyVisible,
+            clickFocusWithoutScrolling: clickFocusWithoutScrolling,
             edgeNavigationInterval: edgeNavigationInterval,
             raiseOnMouseFocus: raiseOnMouseFocus,
             lockModifier: lockModifier,
@@ -80,6 +85,7 @@ final class FocusSettings {
     func apply(_ focus: SettingsExport.Focus) {
         followsMouse = focus.followsMouse
         followsMouseOnlyFullyVisible = focus.followsMouseOnlyFullyVisible
+        clickFocusWithoutScrolling = focus.clickFocusWithoutScrolling
         edgeNavigationInterval = focus.edgeNavigationInterval
         raiseOnMouseFocus = focus.raiseOnMouseFocus
         lockModifier = focus.lockModifier

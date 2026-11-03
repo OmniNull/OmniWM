@@ -114,6 +114,24 @@ final class SettingsDomainOwnerTests: XCTestCase {
             .focus.followsMouseOnlyFullyVisible)
     }
 
+    func testClickFocusWithoutScrollingImportsAndPersistsEdits() throws {
+        let directory = FileManager.default.temporaryDirectory.appendingPathComponent(UUID().uuidString)
+        defer { try? FileManager.default.removeItem(at: directory) }
+        let settings = makeSettings(directory: directory)
+        let focus = settings.focus
+        var imported = settings.toExport()
+        imported.focus.clickFocusWithoutScrolling = true
+        settings.applyExport(imported)
+        XCTAssertTrue(settings.focus === focus)
+        XCTAssertTrue(focus.clickFocusWithoutScrolling)
+        focus.clickFocusWithoutScrolling = false
+        let saved = try SettingsTOMLCodec.decode(Data(contentsOf: settings.settingsFileURL))
+        XCTAssertFalse(saved.focus.clickFocusWithoutScrolling)
+        focus.clickFocusWithoutScrolling = true
+        XCTAssertTrue(try SettingsTOMLCodec.decode(Data(contentsOf: settings.settingsFileURL))
+            .focus.clickFocusWithoutScrolling)
+    }
+
     private func makeSettings(directory: URL) -> SettingsStore {
         SettingsStore(
             persistence: SettingsFilePersistence(directory: directory, startWatching: false, deferSaves: false),
