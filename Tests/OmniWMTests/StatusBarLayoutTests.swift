@@ -36,14 +36,32 @@ final class StatusBarLayoutTests: XCTestCase {
                 rect.fill()
                 return true
             }
-            let combined = try XCTUnwrap(StatusBarController.statusButtonImage(icon: icon, layout: layout))
-            XCTAssertFalse(combined.isTemplate)
-            XCTAssertGreaterThan(combined.size.width, image.size.width)
-            let combinedBitmap = try XCTUnwrap(NSBitmapImageRep(data: XCTUnwrap(combined.tiffRepresentation)))
-            let center = Int(9 * CGFloat(combinedBitmap.pixelsWide) / combined.size.width)
-            let color = try XCTUnwrap(combinedBitmap.colorAt(x: center, y: combinedBitmap.pixelsHigh / 2)?
-                .usingColorSpace(.deviceRGB))
-            XCTAssertGreaterThan(color.redComponent, color.greenComponent)
+            for isTemplate in [false, true] {
+                icon.isTemplate = isTemplate
+                let combined = try XCTUnwrap(StatusBarController.statusButtonImage(icon: icon, layout: layout))
+                XCTAssertEqual(combined.isTemplate, isTemplate)
+                XCTAssertEqual(combined.size.width, icon.size.width + 5 + image.size.width)
+                let layoutRect = NSRect(
+                    x: icon.size.width + 5,
+                    y: (combined.size.height - image.size.height) / 2,
+                    width: image.size.width,
+                    height: image.size.height
+                )
+                let expected = NSImage(size: combined.size, flipped: false) { _ in
+                    image.draw(in: layoutRect)
+                    return true
+                }
+                let expectedMask = try glyphMask(expected, in: layoutRect)
+                let combinedMask = try glyphMask(combined, in: layoutRect)
+                XCTAssertTrue(combinedMask == expectedMask, "\(layout) should remain visible beside the icon")
+                if !isTemplate {
+                    let combinedBitmap = try XCTUnwrap(NSBitmapImageRep(data: XCTUnwrap(combined.tiffRepresentation)))
+                    let center = Int(9 * CGFloat(combinedBitmap.pixelsWide) / combined.size.width)
+                    let color = try XCTUnwrap(combinedBitmap.colorAt(x: center, y: combinedBitmap.pixelsHigh / 2)?
+                        .usingColorSpace(.deviceRGB))
+                    XCTAssertGreaterThan(color.redComponent, color.greenComponent)
+                }
+            }
         }
     }
 
@@ -80,7 +98,7 @@ final class StatusBarLayoutTests: XCTestCase {
         XCTAssertNotEqual(masks[0], masks[1])
     }
 
-    private func glyphMask(_ image: NSImage) throws -> [Bool] {
+    private func glyphMask(_ image: NSImage, in region: NSRect? = nil) throws -> [Bool] {
         let native = NSImage(size: image.size, flipped: false) { rect in
             image.draw(in: rect)
             return true
@@ -88,7 +106,12 @@ final class StatusBarLayoutTests: XCTestCase {
         let nativeBitmap = try XCTUnwrap(NSBitmapImageRep(data: XCTUnwrap(native.tiffRepresentation)))
         let raster = NSImage(cgImage: try XCTUnwrap(nativeBitmap.cgImage), size: image.size)
         let canvas = NSImage(size: NSSize(width: 32, height: 32), flipped: false) { rect in
-            raster.draw(in: rect)
+            raster.draw(
+                in: rect,
+                from: region ?? NSRect(origin: .zero, size: image.size),
+                operation: .sourceOver,
+                fraction: 1
+            )
             return true
         }
         let bitmap = try XCTUnwrap(NSBitmapImageRep(data: XCTUnwrap(canvas.tiffRepresentation)))
