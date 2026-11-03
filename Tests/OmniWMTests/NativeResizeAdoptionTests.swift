@@ -1885,15 +1885,19 @@ final class NativeResizeAdoptionTests: NiriInteractionTestCase {
                 fixture.handler.state.moveTap = try XCTUnwrap(CFMachPortCreate(kCFAllocatorDefault, nil, nil, nil))
                 let (token, other) = (fixture.tokens[0], fixture.tokens[1])
                 let start = try fixture.frame(token)
-                let step = max(FrameTolerance.frameWrite, FrameTolerance.screenMatch) + 1
-                let location = CGPoint(x: start.midX + step, y: start.midY)
+                let location = nativeDragLocation(from: start)
+                var intermediate = start
+                intermediate.size.width = (start.width + max(FrameTolerance.frameWrite, FrameTolerance.screenMatch))
+                    .nextUp
+                var displaced = intermediate
+                displaced.origin.x = (start.minX + FrameTolerance.frameWrite).nextUp
                 fixture.handler.pressedMouseButtonsProvider = { MouseEventHandler.MouseButton.left.pressedMask }
                 XCTAssertFalse(fixture.handler.receiveTapMouseDown(at: start.center, modifiers: []))
                 fixture.handler.receiveTapMouseDragged(at: location)
                 fixture.handler.pressedMouseButtonsProvider = { 0 }
                 fixture.handler.receiveTapMouseUp(at: location)
                 try fixture.annotatedDrag(windowId: other.windowId, at: location)
-                fixture.nativeFrames[token.windowId]?.frame = grown(start, right: step * 2).offsetBy(dx: step, dy: 0)
+                fixture.nativeFrames[token.windowId]?.frame = displaced
                 fixture.controller.axEventHandler.handleFrameChanged(windowId: UInt32(token.windowId))
                 XCTAssertNotNil(fixture.controller.layoutRefreshController.layoutState.pendingRefresh)
                 let reference = try XCTUnwrap(fixture.entry(token).axRef)
@@ -1902,7 +1906,7 @@ final class NativeResizeAdoptionTests: NiriInteractionTestCase {
                 ))
                 fixture.controller.layoutRefreshController.layoutState.pendingRefresh = nil
 
-                fixture.nativeFrames[token.windowId]?.frame = grown(start, right: step * 2)
+                fixture.nativeFrames[token.windowId]?.frame = intermediate
                 fixture.controller.axEventHandler.handleFrameChanged(windowId: UInt32(token.windowId))
 
                 XCTAssertNil(
@@ -1924,13 +1928,15 @@ final class NativeResizeAdoptionTests: NiriInteractionTestCase {
                     "\(layout), completion, lateFrameSurvives=\(lateFrameSurvives)"
                 )
                 fixture.controller.layoutRefreshController.layoutState.pendingRefresh = nil
-                fixture.nativeFrames[token.windowId]?.frame = grown(start, right: step)
+                var lateFrame = start
+                lateFrame.size.width = (start.width + FrameTolerance.frameWrite).nextUp
+                fixture.nativeFrames[token.windowId]?.frame = lateFrame
                 fixture.controller.axEventHandler.handleFrameChanged(windowId: UInt32(token.windowId))
                 XCTAssertEqual(
                     fixture.controller.layoutRefreshController.layoutState.pendingRefresh?.affectedWorkspaceIds,
                     [fixture.workspaceId]
                 )
-                XCTAssertEqual(try fixture.frame(token).width, start.width, accuracy: 1)
+                XCTAssertEqual(try fixture.frame(token).width, start.width, accuracy: FrameTolerance.frameWrite)
             }
         }
     }
@@ -1950,7 +1956,8 @@ final class NativeResizeAdoptionTests: NiriInteractionTestCase {
                         }
                     let token = fixture.tokens[0]
                     let start = try fixture.frame(token)
-                    let displaced = grown(start, right: 50)
+                    var displaced = start
+                    displaced.size.width = (start.width + FrameTolerance.frameWrite).nextUp
                     let reference = try XCTUnwrap(fixture.entry(token).axRef)
                     fixture.handler.retainNativeResizeCorrection(for: token)
                     fixture.nativeFrames[token.windowId]?.frame = observedOnFailure ? displaced : nil
@@ -2020,13 +2027,17 @@ final class NativeResizeAdoptionTests: NiriInteractionTestCase {
                 fixture.handler.state.moveTap = try XCTUnwrap(CFMachPortCreate(kCFAllocatorDefault, nil, nil, nil))
                 let (token, other) = (fixture.tokens[0], fixture.tokens[1])
                 let start = try fixture.frame(token)
+                let unknownWindowId = try XCTUnwrap(fixture.tokens.map(\.windowId).max()) + 1
+                XCTAssertNil(fixture.manager.entry(forWindowId: unknownWindowId))
                 let reference = try XCTUnwrap(fixture.entry(token).axRef)
                 fixture.handler.retainNativeResizeCorrection(for: token)
                 fixture.controller.axManager.forceApplyNextFrame(for: token.windowId)
                 let request = try XCTUnwrap(fixture.controller.axManager.stageFrameWrite(
                     for: AXFrameApplicationTarget(pid: token.pid, window: reference, frame: start)
                 ))
-                fixture.nativeFrames[token.windowId]?.frame = grown(start, right: 50)
+                var displaced = start
+                displaced.size.width = (start.width + FrameTolerance.frameWrite).nextUp
+                fixture.nativeFrames[token.windowId]?.frame = displaced
                 fixture.controller.axEventHandler.handleFrameChanged(windowId: UInt32(token.windowId))
                 fixture.handler.pressedMouseButtonsProvider = { MouseEventHandler.MouseButton.left.pressedMask }
                 XCTAssertFalse(fixture.handler.receiveTapMouseDown(at: start.center, modifiers: []))
@@ -2040,7 +2051,7 @@ final class NativeResizeAdoptionTests: NiriInteractionTestCase {
 
                 XCTAssertNil(fixture.controller.layoutRefreshController.layoutState.pendingRefresh)
                 try fixture.annotatedDrag(
-                    windowId: rejectsTarget ? 99_999_999 : other.windowId, at: nativeDragLocation(from: start)
+                    windowId: rejectsTarget ? unknownWindowId : other.windowId, at: nativeDragLocation(from: start)
                 )
 
                 XCTAssertEqual(
