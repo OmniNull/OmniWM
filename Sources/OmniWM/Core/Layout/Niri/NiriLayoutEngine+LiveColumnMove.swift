@@ -851,6 +851,20 @@ extension NiriLayoutEngine {
         return min(0, drift.lowest) ... max(0, drift.highest)
     }
 
+    func keptStripEndsDrift(
+        strip: [LiveColumnMove.StripColumn],
+        context: NiriInteractionContext
+    ) -> (lowest: CGFloat, highest: CGFloat)? {
+        guard let first = strip.first, let last = strip.last,
+              ViewportState.stripEndOffsets(
+                  stripSpan: last.maxX - first.minX,
+                  viewSpan: context.workingFrame.width,
+                  gap: context.gaps
+              ) != nil
+        else { return nil }
+        return stripEndsDrift(strip: strip, context: context)
+    }
+
     func stripEndsDrift(
         strip: [LiveColumnMove.StripColumn],
         context: NiriInteractionContext

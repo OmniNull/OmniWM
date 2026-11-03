@@ -99,13 +99,7 @@ extension NiriLayoutEngine {
         let highest = max(lowest, context.workingFrame.maxX - context.gaps - width)
         var drift = after.minX - min(max(centre - width / 2, lowest), highest)
         if !centresFocusedColumn(in: context.workspaceId),
-           let ends = stripEndsDrift(strip: strip, context: context),
-           let first = strip.first, let last = strip.last,
-           ViewportState.stripEndOffsets(
-               stripSpan: last.maxX - first.minX,
-               viewSpan: context.workingFrame.width,
-               gap: context.gaps
-           ) != nil
+           let ends = keptStripEndsDrift(strip: strip, context: context)
         {
             drift = min(max(drift, ends.lowest), ends.highest)
         }
