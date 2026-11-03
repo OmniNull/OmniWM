@@ -68,6 +68,12 @@ enum TitleBarHitTest {
         }
     }
 
+    /// Bare title-bar background only: no tab, button or other element in the bar.
+    static func isBareTitleBar(_ hit: TitleBarHit?) -> Bool {
+        guard let hit, hit.placement != .outsideBar else { return false }
+        return isWindowBackground(role: hit.role)
+    }
+
     static func hit(pid: pid_t, at point: CGPoint) -> TitleBarHit? {
         let probe = AccessibilityProbe(deadline: CACurrentMediaTime() + budget)
         let hit = probe.hit(pid: pid, at: ScreenCoordinateSpace.toWindowServer(point: point))
