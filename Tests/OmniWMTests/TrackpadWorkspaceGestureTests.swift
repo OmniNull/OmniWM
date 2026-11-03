@@ -578,6 +578,47 @@ final class TrackpadWorkspaceGestureTests: XCTestCase {
         XCTAssertEqual(manager.pendingFocusedToken, second.token)
     }
 
+    func testContinuousWheelHandlerAppliesSensitivityBeforeAdvancingColumns() throws {
+        let fasterSensitivity = 4.0
+        let delta = niriWheelScrollTickAmount / CGFloat(fasterSensitivity)
+
+        for horizontal in [true, false] {
+            for sensitivity in [1.0, fasterSensitivity] {
+                let fixture = try makeFixture(workspaceSwipeEnabled: false, scrollGestureEnabled: true)
+                try addColumnGestureWindows(to: fixture)
+                let controller = fixture.controller
+                controller.settings.gestures.mouseWheelSensitivity = sensitivity
+                let manager = controller.workspaceManager
+                let columns = try XCTUnwrap(controller.niriEngine).columns(in: fixture.ws1)
+                let first = try XCTUnwrap(columns[0].windowNodes.first)
+                let second = try XCTUnwrap(columns[1].windowNodes.first)
+                manager.withNiriViewportState(for: fixture.ws1) { state in
+                    state.selectedNodeId = first.id
+                    state.activeColumnIndex = 0
+                }
+                let pendingFocusBeforeScroll = manager.pendingFocusedToken
+                controller.mouseEventHandler.handleScrollWheelFromTap(MouseScrollIntake(
+                    location: CGPoint(x: 800, y: 450),
+                    deltaX: horizontal ? delta : 0,
+                    deltaY: horizontal ? 0 : delta,
+                    momentumPhase: 0, phase: 0,
+                    modifiersRawValue: controller.settings.gestures.scrollModifierKey.cgEventFlag.rawValue,
+                    isContinuous: true
+                ))
+
+                let advancesColumn = sensitivity == fasterSensitivity
+                XCTAssertEqual(
+                    manager.niriViewportState(for: fixture.ws1).selectedNodeId,
+                    advancesColumn ? second.id : first.id
+                )
+                XCTAssertEqual(manager.pendingFocusedToken, advancesColumn ? second.token : pendingFocusBeforeScroll)
+                let state = controller.mouseEventHandler.state
+                let tracker = horizontal ? state.horizontalWheelTracker : state.verticalWheelTracker
+                XCTAssertEqual(tracker.accumulator, advancesColumn ? 0 : delta, accuracy: 0.0001)
+            }
+        }
+    }
+
     func testParkingEdgesAllowGestureFramesAndDrainQueuedInputWhileOtherOwnedSurfacesBlock() throws {
         for kind in [SurfaceKind.parkingEdgeMask, .utility] {
             let fixture = try makeFixture(workspaceSwipeEnabled: false, scrollGestureEnabled: true)

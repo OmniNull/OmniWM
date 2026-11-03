@@ -9,12 +9,14 @@ final class MouseEventHandlerWheelTests: XCTestCase {
     func testMouseWheelSensitivityAdvancesSmoothInputWithLessMovement() {
         var baseline = NiriScrollTracker(tick: niriWheelScrollTickAmount)
         var faster = NiriScrollTracker(tick: niriWheelScrollTickAmount)
+        let sensitivity = 10.0
+        let delta = niriWheelScrollTickAmount / CGFloat(sensitivity)
 
         XCTAssertEqual(baseline.accumulate(MouseEventHandler.scaledWheelAxisDelta(
-            12, isContinuous: true, sensitivity: 1
+            delta, isContinuous: true, sensitivity: 1
         )), 0)
         XCTAssertEqual(faster.accumulate(MouseEventHandler.scaledWheelAxisDelta(
-            12, isContinuous: true, sensitivity: 10
+            delta, isContinuous: true, sensitivity: sensitivity
         )), 1)
     }
 
@@ -32,7 +34,10 @@ final class MouseEventHandlerWheelTests: XCTestCase {
 
     func testMouseWheelSensitivityPreservesDirectionAndAccumulatesSmallSteps() {
         var tracker = NiriScrollTracker(tick: niriWheelScrollTickAmount)
-        let delta = MouseEventHandler.scaledWheelAxisDelta(-4, isContinuous: true, sensitivity: 10)
+        let sensitivity = 10.0
+        let smallDelta = -niriWheelScrollTickAmount / CGFloat(sensitivity) / 4
+        let delta = MouseEventHandler.scaledWheelAxisDelta(smallDelta, isContinuous: true, sensitivity: sensitivity)
+        XCTAssertEqual(tracker.accumulate(delta), 0)
         XCTAssertEqual(tracker.accumulate(delta), 0)
         XCTAssertEqual(tracker.accumulate(delta), 0)
         XCTAssertEqual(tracker.accumulate(delta), -1)
@@ -40,9 +45,10 @@ final class MouseEventHandlerWheelTests: XCTestCase {
     }
 
     func testDefaultMouseWheelSensitivityPreservesSmoothInput() {
+        let delta = -niriWheelScrollTickAmount / 10
         XCTAssertEqual(MouseEventHandler.scaledWheelAxisDelta(
-            -12, isContinuous: true, sensitivity: 1
-        ), -12)
+            delta, isContinuous: true, sensitivity: 1
+        ), delta)
     }
 
     func testScrollModifierChoicesMatchOnlyTheirExactModifierCombination() {

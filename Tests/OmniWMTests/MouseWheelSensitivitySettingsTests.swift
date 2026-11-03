@@ -36,16 +36,26 @@ final class MouseWheelSensitivitySettingsTests: XCTestCase {
 
     func testMouseWheelSensitivityClampsFiniteValuesAndRejectsNonfiniteValues() {
         let settings = GestureSettings()
-        settings.mouseWheelSensitivity = 0
-        XCTAssertEqual(settings.mouseWheelSensitivity, 0.1)
-        settings.mouseWheelSensitivity = 100
-        XCTAssertEqual(settings.mouseWheelSensitivity, 10)
-        XCTAssertEqual(settings.export().mouseWheelSensitivity, 10)
+        let range = GestureSettings.mouseWheelSensitivityRange
+        let defaultSensitivity = settings.mouseWheelSensitivity
+        var observedValues: [Double] = []
+        settings.onChange = { observedValues.append(settings.mouseWheelSensitivity) }
+        defer { settings.onChange = nil }
+
+        settings.mouseWheelSensitivity = range.lowerBound - 1
+        XCTAssertEqual(settings.mouseWheelSensitivity, range.lowerBound)
+        XCTAssertEqual(observedValues, [range.lowerBound])
+        settings.mouseWheelSensitivity = range.upperBound + 1
+        XCTAssertEqual(settings.mouseWheelSensitivity, range.upperBound)
+        XCTAssertEqual(settings.export().mouseWheelSensitivity, range.upperBound)
+        XCTAssertEqual(observedValues, [range.lowerBound, range.upperBound])
 
         for value in [Double.nan, .infinity, -.infinity] {
+            observedValues.removeAll()
             settings.mouseWheelSensitivity = value
-            XCTAssertEqual(settings.mouseWheelSensitivity, 1)
+            XCTAssertEqual(settings.mouseWheelSensitivity, defaultSensitivity)
             XCTAssertTrue(settings.mouseWheelSensitivity.isFinite)
+            XCTAssertEqual(observedValues, [defaultSensitivity])
         }
     }
 
