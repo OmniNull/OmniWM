@@ -83,6 +83,10 @@ extension ShellWidgetPackage {
                         in: script
                     )
                 }
+            case OMNI_SERVICE_WINDOW:
+                if !request.cancelled {
+                    enqueueWindow(id, origin: desktopOrigin(request, in: script), value: value, in: script)
+                }
             case OMNI_SERVICE_RESOURCE:
                 enqueueResource(id, component: component, value: value, cancelled: request.cancelled, in: script)
             case OMNI_SERVICE_CONFIG:

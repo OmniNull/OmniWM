@@ -126,7 +126,8 @@ extension WorkspaceManager {
 
     @discardableResult
     func setScratchpadMembership(_ token: WindowToken, to index: ScratchpadIndex?) -> Bool {
-        updateScratchpadMembership(token, to: index, notify: true)
+        guard index == nil || entry(for: token)?.target.hostedMetadata?.role.parent == nil else { return false }
+        return updateScratchpadMembership(token, to: index, notify: true)
     }
 
     @discardableResult

@@ -168,7 +168,7 @@ final class HostedWindowBarLifetimeTests: XCTestCase {
         for (owner, value) in zip(owners, values) {
             let instance = owner.instance
             XCTAssertTrue(fixture.manager.windows[instance.token] === instance.window)
-            XCTAssertTrue(fixture.manager.sessions[instance.token] === instance.session)
+            XCTAssertTrue(fixture.manager.runtime(for: instance.token) === instance.session)
             XCTAssertTrue(instance.session.package === owner.package)
             XCTAssertTrue(instance.session.surface === owner.surface)
             XCTAssertTrue(owner.surface.textInputs[owner.input.handle] === owner.input)

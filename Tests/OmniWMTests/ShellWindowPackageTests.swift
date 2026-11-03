@@ -139,7 +139,7 @@ final class ShellWindowPackageTests: XCTestCase {
             .window(original.id), .window, action: action, sequence: initial.sequence, event: ShellEvent()
         ))
 
-        await package.receive(.window(nil))
+        await package.receive(.removeWindow(original.id))
         let removed = await package.windowSnapshot(original.id)
         XCTAssertNil(removed)
         await package.receive(.window(original))

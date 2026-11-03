@@ -46,6 +46,11 @@ extension CommandHandler {
     }
 
     func perform(_ action: WorkspaceAction, controller: WMController) -> ExternalCommandResult {
+        if detachesWindow(action), let token = controller.focusedManagedTokenForCommand(),
+           controller.workspaceManager.entry(for: token)?.target.hostedMetadata?.role.parent != nil
+        {
+            return .attachedWindow
+        }
         switch action {
         case let .moveToMonitor(direction):
             controller.workspaceNavigationHandler.moveWindowToMonitor(direction: direction)
@@ -72,13 +77,7 @@ extension CommandHandler {
         case .previous:
             controller.workspaceNavigationHandler.switchWorkspaceRelative(isNext: false)
         case let .moveWorkspaceToMonitor(direction):
-            if let workspaceId = controller.activeWorkspace()?.id {
-                _ = controller.workspaceNavigationHandler.moveWorkspaceToMonitor(
-                    workspaceId,
-                    direction: direction,
-                    force: true
-                )
-            }
+            moveActiveWorkspace(toMonitor: direction, controller: controller)
         case let .swapWithMonitor(direction):
             controller.workspaceNavigationHandler.swapCurrentWorkspaceWithMonitor(direction: direction)
         case .backAndForth:
@@ -87,6 +86,31 @@ extension CommandHandler {
             toggleWorkspaceLayout()
         }
         return .executed
+    }
+
+    private func detachesWindow(_ action: WorkspaceAction) -> Bool {
+        switch action {
+        case .moveToMonitor,
+             .moveTo,
+             .moveUp,
+             .moveDown,
+             .moveToSlot:
+            true
+        case .switchTo,
+             .switchSlot,
+             .next,
+             .previous,
+             .moveWorkspaceToMonitor,
+             .swapWithMonitor,
+             .backAndForth,
+             .toggleLayout:
+            false
+        }
+    }
+
+    private func moveActiveWorkspace(toMonitor direction: Direction, controller: WMController) {
+        guard let workspaceId = controller.activeWorkspace()?.id else { return }
+        _ = controller.workspaceNavigationHandler.moveWorkspaceToMonitor(workspaceId, direction: direction, force: true)
     }
 
     func perform(_ action: WindowMovementAction, controller: WMController) -> ExternalCommandResult {
@@ -144,6 +168,11 @@ extension CommandHandler {
     }
 
     func perform(_ action: IPCFullscreenCommand, controller: WMController) -> ExternalCommandResult {
+        if let token = controller.focusedManagedTokenForCommand(),
+           controller.workspaceManager.entry(for: token)?.target.hostedMetadata?.role.parent != nil
+        {
+            return .attachedWindow
+        }
         switch action {
         case .managed:
             toggleFullscreen()

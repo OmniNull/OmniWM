@@ -66,6 +66,8 @@ extension WorkspaceManager {
     }
 
     func setWorkspace(for token: WindowToken, to workspace: WorkspaceDescriptor.ID) {
+        if let parent = entry(for: token)?.target.hostedMetadata?.role.parent,
+           entry(for: parent)?.workspaceId != workspace { return }
         let previousWorkspace = windowQueries.workspace(for: token)
         guard previousWorkspace != workspace else { return }
         quietArrivalTokens.remove(token)

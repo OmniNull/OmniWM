@@ -59,7 +59,7 @@ final class HostedWindowShutdownTests: XCTestCase {
         XCTAssertEqual(nativeCloses.withLock { $0 }, Dictionary(uniqueKeysWithValues: instances.map { ($0.token, 1) }))
         XCTAssertTrue(fixture.manager.isShuttingDown)
         XCTAssertTrue(fixture.manager.windows.isEmpty)
-        XCTAssertTrue(fixture.manager.sessions.isEmpty)
+        XCTAssertTrue(fixture.manager.runtimes.isEmpty)
         XCTAssertTrue(fixture.manager.liveResizeStarts.isEmpty)
         XCTAssertTrue(fixture.manager.applyingFrames.isEmpty)
         XCTAssertNil(fixture.controller.intentLedger.activeManagedRequest)
@@ -117,7 +117,7 @@ final class HostedWindowShutdownTests: XCTestCase {
         let retirement = ShellWidgetHost.retiringTasks[ObjectIdentifier(package)]
         XCTAssertNotNil(retirement)
         XCTAssertFalse(preparationCompleted)
-        XCTAssertTrue(fixture.manager.sessions.isEmpty)
+        XCTAssertTrue(fixture.manager.runtimes.isEmpty)
         XCTAssertTrue(held.session.closed)
         XCTAssertTrue(sibling.session.closed)
         XCTAssertFalse(package.services.contains(service))
@@ -176,8 +176,8 @@ final class HostedWindowShutdownTests: XCTestCase {
         XCTAssertFalse(fixture.manager.isShuttingDown)
         XCTAssertTrue(fixture.manager.windows[first.token] === first.window)
         XCTAssertTrue(fixture.manager.windows[second.token] === second.window)
-        XCTAssertTrue(fixture.manager.sessions[first.token] === first.session)
-        XCTAssertTrue(fixture.manager.sessions[second.token] === second.session)
+        XCTAssertTrue(fixture.manager.runtime(for: first.token) === first.session)
+        XCTAssertTrue(fixture.manager.runtime(for: second.token) === second.session)
         XCTAssertTrue(first.session.package === firstPackage)
         XCTAssertTrue(second.session.package === secondPackage)
         XCTAssertNotNil(fixture.world.entry(for: first.token))
@@ -197,9 +197,9 @@ final class HostedWindowShutdownTests: XCTestCase {
         await ShellWidgetHost.flushRetiredWork()
     }
 
-    private func assertLateTreeRejected(by session: ShellAppWindowSession) {
+    private func assertLateTreeRejected(by session: ShellAppRuntime) {
         let sequence = session.renderedSequence
-        var delivery = ShellWidgetDelivery(generation: ShellAppWindowSession.generation)
+        var delivery = ShellWidgetDelivery(generation: ShellAppRuntime.generation)
         delivery.trees[ShellTreeKey(instance: .window(session.id), view: .window)] = .init(sequence: sequence + 1)
         session.receive(delivery)
         XCTAssertEqual(session.renderedSequence, sequence)

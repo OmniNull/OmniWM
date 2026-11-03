@@ -42,6 +42,8 @@ extension ShellWidgetPackage {
             await sync(bars, in: script)
         case let .window(context):
             await syncWindow(context, in: script)
+        case let .removeWindow(id):
+            removeWindow(id, in: script)
         case let .catalog(enabled, catalog, schema):
             await updateConfigurationCatalog(enabled: enabled, catalog: catalog, schema: schema, in: script)
         case let .components(source):
@@ -137,6 +139,7 @@ extension ShellWidgetPackage {
         case .catalog: "catalog"
         case .bars: "bars"
         case .window: "window"
+        case .removeWindow: "remove_window"
         case .invoke: "invoke"
         case .gesture: "gesture"
         case .popout: "popout"
@@ -351,22 +354,29 @@ extension ShellWidgetPackage {
         }
     }
 
-    private func syncWindow(_ context: ShellWindowContext?, in script: ShellScript) async {
-        for key in Array(script.instances.keys) {
-            guard case let .window(id) = key, id != context?.id else { continue }
-            if let instance = script.instances.removeValue(forKey: key) { omni_instance_destroy(instance) }
-            states.removeValue(forKey: key)
-        }
+    private func removeWindow(_ id: UUID, in script: ShellScript) {
+        let key = ShellInstanceKey.window(id)
+        guard let instance = script.instances.removeValue(forKey: key) else { return }
+        omni_instance_destroy(instance)
+        states.removeValue(forKey: key)
+        drainServices(in: script)
         publishBackgroundDemand()
-        guard let context, context.width.isFinite, context.height.isFinite,
-              context.width > 0, context.height > 0 else { return }
+    }
+
+    private func syncWindow(_ context: ShellWindowContext, in script: ShellScript) async {
+        guard context.width.isFinite, context.height.isFinite,
+              context.width > 0, context.height > 0, ShellComponentCatalog.validName(context.viewName) else { return }
         let key = ShellInstanceKey.window(context.id)
         guard states[key]?.window != context else { return }
         let created = script.instances[key] == nil
         let previous = states[key]?.window
         guard let instance = script.instances[key] ?? create(key, in: script) else { return }
-        if created || previous?.width != context.width || previous?.height != context.height {
-            let status = omni_instance_set_window_size(instance, context.width, context.height)
+        if created || previous?.width != context.width || previous?.height != context.height
+            || previous?.viewName != context.viewName
+        {
+            let status = omni_instance_set_window_offer(
+                instance, context.viewName, context.viewName.utf8.count, context.width, context.height
+            )
             guard status == OMNI_OK else { fail(status)
                 return
             }

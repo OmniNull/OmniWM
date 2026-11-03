@@ -21,6 +21,7 @@ final class ShellWidgetSurface {
     var onTooltip: (@MainActor (ShellTooltipEvent?) -> Void)?
     var onMove: (@MainActor () -> Void)?
     var onFocusChange: (@MainActor (Bool) -> Void)?
+    var onUnhandledEscape: (() -> Void)?
     var sequence = 0
     var resourceImages: [Int32: ResourceImageBinding] = [:]
     var resourceDragBridge: ShellDragOutBridge? {

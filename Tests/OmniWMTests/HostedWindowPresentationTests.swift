@@ -126,7 +126,7 @@ final class HostedWindowPresentationTests: XCTestCase {
         definition.icon = "square.and.pencil"
         XCTAssertEqual(try definition.source().componentDescriptors.first?.icon, definition.icon)
         XCTAssertTrue(fixture.manager.open(definition, in: fixture.source, newInstance: true))
-        let session = try XCTUnwrap(fixture.manager.sessions.values.first)
+        let session = try XCTUnwrap(fixture.manager.runtimes.values.first)
         await readyHosted(session)
         let entry = try XCTUnwrap(fixture.world.allEntries().first { $0.target.hostedMetadata != nil })
         XCTAssertEqual(entry.target.hostedMetadata?.icon, definition.icon)

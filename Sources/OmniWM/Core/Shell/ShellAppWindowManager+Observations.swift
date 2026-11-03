@@ -43,7 +43,7 @@ extension ShellAppWindowManager {
         guard let registered = registeredWindow(in: notification) else { return }
         let token = registered.token
         let window = registered.window
-        sessions[token]?.resize(contentSize(of: window))
+        resizeContent(of: token, window: window)
         observeNativeGeometry(window, token: token)
     }
 
@@ -60,6 +60,7 @@ extension ShellAppWindowManager {
         let token = registered.token
         let window = registered.window
         let entry = registered.entry
+        guard activeSheet(for: token).map({ $0 == token }) ?? true else { return }
         if let request = controller.intentLedger.activeManagedRequest, request.token != token {
             guard isDirectFocusEvent(for: window) else { return }
             controller.cancelManagedFocusRequest(request)
@@ -89,8 +90,9 @@ extension ShellAppWindowManager {
         guard let registered = registeredWindow(in: notification) else { return }
         let token = registered.token
         let window = registered.window
-        sessions[token]?
-            .setVisible(window.isVisible && !window.isMiniaturized && window.occlusionState.contains(.visible))
+        setContentVisible(
+            window.isVisible && !window.isMiniaturized && window.occlusionState.contains(.visible), token: token
+        )
     }
 
     func windowDidChangeBackingProperties(_ notification: Notification) {
@@ -103,7 +105,7 @@ extension ShellAppWindowManager {
 
     private func updateDisplayContext(_ notification: Notification) {
         guard let registered = registeredWindow(in: notification) else { return }
-        sessions[registered.token]?.surface.updateDisplayContext(scale: registered.window.backingScaleFactor)
+        slot(for: registered.token)?.surface.updateDisplayContext(scale: registered.window.backingScaleFactor)
     }
 
     private func registeredWindow(in notification: Notification) -> RegisteredWindow? {
@@ -130,7 +132,7 @@ extension ShellAppWindowManager {
 
     private func observeNativeGeometry(_ window: NSWindow, token: WindowToken) {
         guard controller.hasStartedServices, !applyingFrames.contains(token),
-              let entry = controller.workspaceManager.entry(for: token), entry.target.hostedMetadata != nil,
+              let entry = controller.workspaceManager.entry(for: token), entry.target.hostedMetadata?.role == .main,
               controller.workspaceManager.hiddenState(for: token) == nil
         else { return }
         controller.workspaceManager.observeHostedWindowGeometry(frame: window.frame, for: token)
@@ -151,7 +153,7 @@ extension ShellAppWindowManager {
         guard let registered = registeredWindow(in: notification) else { return }
         let token = registered.token
         let window = registered.window
-        sessions[token]?.setVisible(!minimized && window.isVisible)
+        setContentVisible(!minimized && window.isVisible, token: token)
         if minimized { liveResizeStarts.removeValue(forKey: token) }
         if controller.hasStartedServices {
             controller.axEventHandler.updateWindowMinimizedState(minimized, token: token, source: .service)

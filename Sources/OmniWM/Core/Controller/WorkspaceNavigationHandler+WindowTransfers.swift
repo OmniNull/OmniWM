@@ -149,6 +149,9 @@ extension WorkspaceNavigationHandler {
             return .unchanged
         }
         let token = handle.id
+        guard controller.workspaceManager.entry(for: token)?.target.hostedMetadata?.role.parent == nil else {
+            return .unchanged
+        }
 
         guard let currentWorkspaceId = controller.workspaceManager.workspace(for: token),
               currentWorkspaceId != targetWsId

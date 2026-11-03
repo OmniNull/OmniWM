@@ -29,20 +29,27 @@ extension ShellAppWindowManager {
             return controller.windowActionHandler.navigateToWindow(handle: handle)
         }
         let window = makeWindow(definition)
-        let session = ShellAppWindowSession(
+        let session = ShellAppRuntime(
             definition: definition, window: window, resources: ShellResources(motion: controller.motionPolicy)
         )
         let minimum = window.frameRect(forContentRect: CGRect(origin: .zero, size: definition.minimumContentSize)).size
         guard let token = admit(
             window, metadata: HostedWindowMetadata(
-                appId: definition.id, title: definition.title, minimumSize: minimum, icon: definition.icon
+                appId: definition.id, title: definition.title, minimumSize: minimum, icon: definition.icon,
+                instanceID: session.id, rootID: session.id
             ),
             to: workspace
         ) else { session.close()
             window.close()
             return false
         }
-        sessions[token] = session
+        runtimes[session.id] = session
+        session.onWindowRequest = { [weak self, weak session] request in
+            guard let self, let session, runtimes[session.id] === session else {
+                return "The owning app instance is no longer available."
+            }
+            return handleWindowRequest(request, runtime: session, parent: token)
+        }
         session.start()
         controller.layoutRefreshController.requestRelayout(reason: .axWindowChanged, affectedWorkspaceIds: [workspace])
         _ = controller.focusWindow(token)
@@ -50,11 +57,11 @@ extension ShellAppWindowManager {
     }
 
     private func existingWindow(for appID: String) -> WindowToken? {
-        let candidates = Set(sessions.compactMap { token, session -> WindowToken? in
-            guard !session.closed, session.definition.id == appID, windows[token] != nil,
-                  controller.workspaceManager.entry(for: token)?.target.hostedMetadata?.appId == appID
-            else { return nil }
-            return token
+        let candidates = Set(windows.keys.filter { token in
+            guard let metadata = controller.workspaceManager.entry(for: token)?.target.hostedMetadata,
+                  metadata.role == .main, metadata.appId == appID,
+                  let runtime = runtimes[metadata.instanceID], !runtime.closed else { return false }
+            return true
         })
         return controller.workspaceManager.windowFocusRecencyOrder.first(where: candidates.contains)
             ?? candidates.min { $0.windowId < $1.windowId }

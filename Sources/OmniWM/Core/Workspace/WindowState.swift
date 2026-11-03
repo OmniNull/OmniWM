@@ -122,11 +122,26 @@ struct FloatingState: Equatable {
     var restoreToFloating: Bool
 }
 
+enum HostedWindowRole: Equatable, Sendable {
+    case main
+    case sheet(parent: WindowToken, declarationID: String)
+
+    var parent: WindowToken? {
+        switch self {
+        case .main: nil
+        case let .sheet(parent, _): parent
+        }
+    }
+}
+
 struct HostedWindowMetadata: Equatable, Sendable {
     let appId: String
     let title: String
     let minimumSize: CGSize
     var icon = "app"
+    var instanceID = UUID()
+    var rootID = UUID()
+    var role = HostedWindowRole.main
 }
 
 enum WindowTarget: Equatable, Sendable {

@@ -57,6 +57,7 @@ struct IPCWindowMarkRequestExecutor {
              .notFound,
              .noChange,
              .windowActionFailed,
+             .attachedWindow,
              .invalidArguments:
             return nil
         }

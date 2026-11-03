@@ -55,7 +55,7 @@ extension ShellAppWindowManager {
             manager.setWindowMinimized(window.isMiniaturized, token: token, source: .service)
             manager.setHiddenState(nil, for: token)
             if window.isMiniaturized {
-                sessions[token]?.setVisible(false)
+                setContentVisible(false, token: token)
             } else {
                 setHidden(false, for: token)
             }
@@ -76,9 +76,9 @@ extension ShellAppWindowManager {
                     )
                 }
             }
-            sessions[token]?.resize(contentSize(of: window))
-            sessions[token]?.surface.updateDisplayContext(scale: window.backingScaleFactor)
-            sessions[token]?.setVisible(window.isVisible && !window.isMiniaturized)
+            resizeContent(of: token, window: window)
+            slot(for: token)?.surface.updateDisplayContext(scale: window.backingScaleFactor)
+            setContentVisible(window.isVisible && !window.isMiniaturized, token: token)
         }
     }
 }

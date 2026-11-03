@@ -26,6 +26,7 @@ extension WMController {
             return .notFound
         }
 
+        guard entry.target.hostedMetadata?.role.parent == nil else { return .attachedWindow }
         if workspaceManager.scratchpadIndex(for: token) == index {
             guard !workspaceManager.isHiddenInCorner(token) else {
                 return .notFound

@@ -62,8 +62,8 @@ final class HostedWindowManagementLifecycleTests: XCTestCase {
             XCTAssertEqual(fixture.world.hiddenState(for: fixture.external), externalHidden)
             assertHostedContent(hiddenText, in: hidden.session)
             assertHostedContent(minimizedText, in: minimized.session)
-            XCTAssertTrue(fixture.manager.sessions[hidden.token] === hidden.session)
-            XCTAssertTrue(fixture.manager.sessions[minimized.token] === minimized.session)
+            XCTAssertTrue(fixture.manager.runtime(for: hidden.token) === hidden.session)
+            XCTAssertTrue(fixture.manager.runtime(for: minimized.token) === minimized.session)
             var restored: [WindowToken] = []
             let recoveryFailureBudget: TimeInterval = 10
             let failureDeadline = ProcessInfo.processInfo.systemUptime + recoveryFailureBudget
@@ -168,7 +168,7 @@ final class HostedWindowManagementLifecycleTests: XCTestCase {
         XCTAssertEqual(fixture.world.workspace(for: floating.token), fixture.source)
         XCTAssertEqual(fixture.world.windowMode(for: tiled.token), .tiling)
         XCTAssertEqual(tiled.session.surface.size, tiled.window.contentRect(forFrameRect: nativeTiled).size)
-        XCTAssertNil(fixture.manager.sessions[closing.token])
+        XCTAssertNil(fixture.manager.runtime(for: closing.token))
         XCTAssertNil(fixture.world.entry(for: closing.token))
         XCTAssertNil(fixture.controller.intentLedger.activeManagedRequest)
         XCTAssertNil(fixture.controller.layoutRefreshController.layoutState.activeRefresh)
@@ -190,8 +190,8 @@ final class HostedWindowManagementLifecycleTests: XCTestCase {
         await WindowAdmissionTestSupport.drainLayoutRefreshes(fixture.controller)
         XCTAssertFalse(tiled.window.isVisible)
         XCTAssertTrue(floating.window.isVisible)
-        XCTAssertTrue(fixture.manager.sessions[tiled.token] === tiled.session)
-        XCTAssertTrue(fixture.manager.sessions[floating.token] === floating.session)
+        XCTAssertTrue(fixture.manager.runtime(for: tiled.token) === tiled.session)
+        XCTAssertTrue(fixture.manager.runtime(for: floating.token) === floating.session)
         assertHostedContent(stoppedText, in: tiled.session)
         fixture.close()
         await ShellWidgetHost.flushRetiredWork()
@@ -235,7 +235,7 @@ final class HostedWindowManagementLifecycleTests: XCTestCase {
             name: NSWindow.didChangeScreenNotification
         ))
         XCTAssertEqual(sibling.session.surface.scale, siblingScale)
-        XCTAssertTrue(fixture.manager.sessions[sibling.token] === sibling.session)
+        XCTAssertTrue(fixture.manager.runtime(for: sibling.token) === sibling.session)
         fixture.close()
         await ShellWidgetHost.flushRetiredWork()
     }

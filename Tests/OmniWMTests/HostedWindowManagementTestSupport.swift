@@ -11,7 +11,7 @@ import XCTest
 struct HostedManagementInstance {
     let token: WindowToken
     let window: HostedManagementWindow
-    let session: ShellAppWindowSession
+    let session: ShellAppRuntime
 }
 
 @MainActor
@@ -110,7 +110,11 @@ final class HostedManagementFixture {
         XCTAssertEqual(controller.commandHandler.performCommand(.shellAppNewWindow(definition.id)), .executed)
         let window = try XCTUnwrap(windows.last)
         let token = WindowToken(pid: getpid(), windowId: window.windowNumber)
-        return HostedManagementInstance(token: token, window: window, session: try XCTUnwrap(manager.sessions[token]))
+        return HostedManagementInstance(
+            token: token,
+            window: window,
+            session: try XCTUnwrap(manager.runtime(for: token))
+        )
     }
 
     func select(_ instance: HostedManagementInstance) throws {
@@ -245,6 +249,7 @@ final class HostedManagementWindow: NSWindow {
     override func orderOut(_ sender: Any?) {
         reportsVisible = false
         operations.append(.out)
+        super.orderOut(sender)
     }
 
     override func makeKeyAndOrderFront(_ sender: Any?) {
@@ -273,7 +278,7 @@ final class HostedManagementWindow: NSWindow {
 
 @MainActor
 extension XCTestCase {
-    func hostedRender(_ session: ShellAppWindowSession, after action: () -> Void) async {
+    func hostedRender(_ session: ShellAppRuntime, after action: () -> Void) async {
         let sequence = session.renderedSequence
         let published = expectation(description: "Hosted management content publishes or fails")
         let renderFailureDeadline: TimeInterval = 10
@@ -289,12 +294,12 @@ extension XCTestCase {
         XCTAssertGreaterThan(session.renderedSequence, sequence)
     }
 
-    func readyHosted(_ session: ShellAppWindowSession) async {
+    func readyHosted(_ session: ShellAppRuntime) async {
         if session.renderedSequence == 0 { await hostedRender(session, after: {}) }
         XCTAssertNil(session.failure)
     }
 
-    func applyHosted(_ value: String, to session: ShellAppWindowSession) async throws {
+    func applyHosted(_ value: String, to session: ShellAppRuntime) async throws {
         await readyHosted(session)
         let input = try XCTUnwrap(session.surface.textInputs.values.first)
         await hostedRender(session, after: {
@@ -302,17 +307,11 @@ extension XCTestCase {
             input.changed()
         })
         let surface = session.surface
-        let button = try XCTUnwrap(surface.layout.core.elements { $0.action != 0 }.first {
-            surface.layout.core.kind(of: $0) == .box
-        })
-        let capture = surface.capture(button)
-        let action = surface.layout.core.content(of: button).action
-        await hostedRender(session, after: {
-            surface.emit(action, capture: capture, point: capture.origin, event: ShellEvent())
-        })
+        let apply = try hostedSheetAction("Apply", surface: surface)
+        await hostedRender(session, after: apply)
     }
 
-    func assertHostedContent(_ value: String, in session: ShellAppWindowSession) {
+    func assertHostedContent(_ value: String, in session: ShellAppRuntime) {
         XCTAssertEqual(session.surface.textInputs.values.first?.text, value)
         XCTAssertTrue(session.surface.text?.strings.contains("You wrote: " + value) == true)
     }

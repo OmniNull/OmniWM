@@ -86,7 +86,7 @@ final class HostedAppCommandTests: XCTestCase {
         XCTAssertFalse(manager.newWindow(ShellAppWindowManager.exampleID, bundle: bundle))
 
         XCTAssertTrue(manager.windows.isEmpty)
-        XCTAssertTrue(manager.sessions.isEmpty)
+        XCTAssertTrue(manager.runtimes.isEmpty)
         XCTAssertEqual(controller.workspaceManager.worldSeq, sequence)
     }
 
@@ -110,7 +110,7 @@ final class HostedAppCommandTests: XCTestCase {
         XCTAssertEqual(router.handle(.shellAppOpen(appID: appID)), .notFound)
         XCTAssertEqual(router.handle(.shellAppNewWindow(appID: appID)), .notFound)
         XCTAssertTrue(manager.windows.isEmpty)
-        XCTAssertTrue(manager.sessions.isEmpty)
+        XCTAssertTrue(manager.runtimes.isEmpty)
         XCTAssertEqual(controller.workspaceManager.worldSeq, sequence)
     }
 

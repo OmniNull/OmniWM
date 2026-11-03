@@ -149,6 +149,7 @@ extension WMController {
         allowLiveFrameFallback: Bool = true
     ) -> Bool {
         guard let entry = workspaceManager.entry(for: token) else { return false }
+        guard entry.target.hostedMetadata?.role.parent == nil else { return false }
         let currentMode = entry.mode
         guard currentMode != targetMode else { return false }
 

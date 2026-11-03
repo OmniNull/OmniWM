@@ -18,4 +18,5 @@ struct ShellWindowContext: Equatable, Sendable {
     let width: Double
     let height: Double
     let visible: Bool
+    var viewName = "window"
 }

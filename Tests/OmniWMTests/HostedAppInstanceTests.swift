@@ -42,14 +42,14 @@ final class HostedAppInstanceTests: XCTestCase {
         XCTAssertEqual(fixture.controller.workspaceManager.nativeManagedFocusToken, first.token)
         XCTAssertEqual(fixture.controller.commandHandler.performCommand(.windowState(.close)), .executed)
         XCTAssertTrue(first.session.closed)
-        XCTAssertNil(fixture.manager.sessions[first.token])
+        XCTAssertNil(fixture.manager.runtime(for: first.token))
         XCTAssertNil(fixture.controller.workspaceManager.entry(for: first.token))
-        XCTAssertTrue(fixture.manager.sessions[second.token] === second.session)
+        XCTAssertTrue(fixture.manager.runtime(for: second.token) === second.session)
         let survivingText = "Still editable after the first window closed"
         try await apply(survivingText, to: second.session)
         assertContent(survivingText, in: second.session)
         let sequence = second.session.renderedSequence
-        var late = ShellWidgetDelivery(generation: ShellAppWindowSession.generation)
+        var late = ShellWidgetDelivery(generation: ShellAppRuntime.generation)
         late.trees[ShellTreeKey(instance: .window(first.session.id), view: .window)] = .init(sequence: sequence)
         first.session.receive(late)
         second.session.receive(late)
@@ -88,8 +88,8 @@ final class HostedAppInstanceTests: XCTestCase {
         XCTAssertEqual(fixture.focusedWindows, [first.token])
         fixture.confirm(first)
         XCTAssertEqual(fixture.controller.workspaceManager.nativeManagedFocusToken, first.token)
-        XCTAssertTrue(fixture.manager.sessions[first.token] === first.session)
-        XCTAssertTrue(fixture.manager.sessions[second.token] === second.session)
+        XCTAssertTrue(fixture.manager.runtime(for: first.token) === first.session)
+        XCTAssertTrue(fixture.manager.runtime(for: second.token) === second.session)
     }
 
     func testOpenFallsBackToLowestLiveMatchingWindowNumberWithoutFocusHistory() async throws {
@@ -131,7 +131,7 @@ final class HostedAppInstanceTests: XCTestCase {
         XCTAssertEqual(fixture.created, originalWindows)
     }
 
-    private func ready(_ session: ShellAppWindowSession) async {
+    private func ready(_ session: ShellAppRuntime) async {
         if session.renderedSequence > 0 {
             XCTAssertNil(session.failure)
             return
@@ -139,7 +139,7 @@ final class HostedAppInstanceTests: XCTestCase {
         await render(session, after: {})
     }
 
-    private func render(_ session: ShellAppWindowSession, after action: () -> Void) async {
+    private func render(_ session: ShellAppRuntime, after action: () -> Void) async {
         let sequence = session.renderedSequence
         let published = expectation(description: "The window publishes changed content or a failure")
         session.onRender = { [weak session] in
@@ -154,25 +154,18 @@ final class HostedAppInstanceTests: XCTestCase {
         XCTAssertGreaterThan(session.renderedSequence, sequence)
     }
 
-    private func apply(_ value: String, to session: ShellAppWindowSession) async throws {
+    private func apply(_ value: String, to session: ShellAppRuntime) async throws {
         let input = try XCTUnwrap(session.surface.textInputs.values.first)
         await render(session, after: {
             input.field?.stringValue = value
             input.changed()
         })
         let surface = session.surface
-        let button = try XCTUnwrap(surface.layout.core.elements { $0.action != 0 }.first {
-            surface.layout.core.kind(of: $0) == .box
-        })
-        let capture = surface.capture(button)
-        let action = surface.layout.core.content(of: button).action
-        await render(
-            session,
-            after: { surface.emit(action, capture: capture, point: capture.origin, event: ShellEvent()) }
-        )
+        let apply = try hostedSheetAction("Apply", surface: surface)
+        await render(session, after: apply)
     }
 
-    private func assertContent(_ value: String, in session: ShellAppWindowSession) {
+    private func assertContent(_ value: String, in session: ShellAppRuntime) {
         XCTAssertEqual(session.surface.textInputs.values.first?.text, value)
         XCTAssertTrue(session.surface.text?.strings.contains("You wrote: " + value) == true)
     }
@@ -182,7 +175,7 @@ private extension HostedAppInstanceTests {
     struct Instance {
         let token: WindowToken
         let window: InstanceWindow
-        let session: ShellAppWindowSession
+        let session: ShellAppRuntime
     }
 
     @MainActor
@@ -235,27 +228,27 @@ private extension HostedAppInstanceTests {
             XCTAssertEqual(controller.commandHandler.performCommand(command), .executed)
             let window = try XCTUnwrap(created.last)
             let token = WindowToken(pid: getpid(), windowId: window.windowNumber)
-            return Instance(token: token, window: window, session: try XCTUnwrap(manager.sessions[token]))
+            return Instance(token: token, window: window, session: try XCTUnwrap(manager.runtime(for: token)))
         }
 
         func admitUnfocused(definition other: ShellAppDefinition? = nil) throws -> Instance {
             let definition = other ?? self.definition
             let window = try XCTUnwrap(manager.makeWindow(definition) as? InstanceWindow)
+            let session = ShellAppRuntime(
+                definition: definition, window: window,
+                resources: ShellResources(motion: MotionPolicy(animationsEnabled: false))
+            )
             let token = try XCTUnwrap(manager.admit(
                 window,
                 metadata: HostedWindowMetadata(
                     appId: definition.id, title: definition.title,
                     minimumSize: window.frameRect(forContentRect: CGRect(
                         origin: .zero, size: definition.minimumContentSize
-                    )).size
+                    )).size, instanceID: session.id, rootID: session.id
                 ),
                 to: workspace
             ))
-            let session = ShellAppWindowSession(
-                definition: definition, window: window,
-                resources: ShellResources(motion: MotionPolicy(animationsEnabled: false))
-            )
-            manager.sessions[token] = session
+            manager.runtimes[session.id] = session
             return Instance(token: token, window: window, session: session)
         }
 

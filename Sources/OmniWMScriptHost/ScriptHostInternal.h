@@ -162,6 +162,9 @@ struct ScriptSourceScope {
 
 omni_owner_token scriptOwner(lua_State *L);
 uint32_t scriptDisplay(lua_State *L);
+ScriptSource scriptSource(lua_State *L);
+bool scriptIsWindowUIHandler(lua_State *L);
+void retireWindowRequests(omni_vm *vm, uint32_t display);
 bool scriptOwnerIsLive(lua_State *L);
 bool scriptDisplayIsLive(omni_vm *vm, uint32_t display);
 void setScriptDisplay(lua_State *L, uint32_t display);

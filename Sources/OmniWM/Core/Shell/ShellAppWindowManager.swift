@@ -9,7 +9,7 @@ final class ShellAppWindowManager: NSObject, NSWindowDelegate {
 
     unowned let controller: WMController
     var windows: [WindowToken: NSWindow] = [:]
-    var sessions: [WindowToken: ShellAppWindowSession] = [:]
+    var runtimes: [UUID: ShellAppRuntime] = [:]
     var liveResizeStarts: [WindowToken: CGRect] = [:]
     var applyingFrames: Set<WindowToken> = []
     private(set) var isShuttingDown = false
@@ -52,6 +52,7 @@ final class ShellAppWindowManager: NSObject, NSWindowDelegate {
     @discardableResult
     func setFrame(_ frame: CGRect, for token: WindowToken, components: AXFrameComponents = .all) -> Bool {
         guard let window = windows[token] else { return false }
+        if controller.workspaceManager.entry(for: token)?.target.hostedMetadata?.role.parent != nil { return true }
         var target = window.frame
         if components.contains(.position) {
             target.origin = CGPoint(x: frame.minX, y: frame.maxY - target.height)
@@ -66,7 +67,7 @@ final class ShellAppWindowManager: NSObject, NSWindowDelegate {
             defer { applyingFrames.remove(token) }
             window.setFrame(target, display: true)
         }
-        sessions[token]?.resize(contentSize(of: window))
+        resizeContent(of: token, window: window)
         return true
     }
 
@@ -78,7 +79,7 @@ final class ShellAppWindowManager: NSObject, NSWindowDelegate {
         } else if !hidden, !window.isVisible {
             window.orderFront(nil)
         }
-        sessions[token]?.setVisible(!hidden && !window.isMiniaturized)
+        setContentVisible(!hidden && !window.isMiniaturized, token: token)
         return true
     }
 
@@ -86,7 +87,7 @@ final class ShellAppWindowManager: NSObject, NSWindowDelegate {
     func orderFront(_ token: WindowToken) -> Bool {
         guard let window = windows[token] else { return false }
         window.orderFront(nil)
-        sessions[token]?.setVisible(!window.isMiniaturized)
+        setContentVisible(!window.isMiniaturized, token: token)
         return true
     }
 
@@ -100,7 +101,7 @@ final class ShellAppWindowManager: NSObject, NSWindowDelegate {
             window.makeKey()
             focusWithoutRaising(token)
         }
-        sessions[token]?.setVisible(true)
+        setContentVisible(true, token: token)
         if raisesWindow { activateApplication() }
         return true
     }
@@ -108,6 +109,13 @@ final class ShellAppWindowManager: NSObject, NSWindowDelegate {
     @discardableResult
     func close(_ token: WindowToken) -> Bool {
         guard let window = windows[token] else { return false }
+        if let sheet = activeSheet(for: token) { closeSheet(sheet)
+            return true
+        }
+        if controller.workspaceManager.entry(for: token)?.target.hostedMetadata?.role.parent != nil {
+            closeSheet(token)
+            return true
+        }
         window.performClose(nil)
         return true
     }
@@ -127,12 +135,20 @@ final class ShellAppWindowManager: NSObject, NSWindowDelegate {
               let token = windows.first(where: { $0.value === window })?.key
         else { return }
         windows.removeValue(forKey: token)
-        sessions.removeValue(forKey: token)?.close()
+        if let parent = window.sheetParent { parent.endSheet(window, returnCode: .cancel) }
+        if let metadata = controller.workspaceManager.entry(for: token)?.target.hostedMetadata {
+            if metadata.role == .main {
+                for child in childTokens(of: token) { closeSheet(child) }
+                runtimes.removeValue(forKey: metadata.instanceID)?.close()
+            } else {
+                runtimes[metadata.instanceID]?.removeRoot(metadata.rootID)
+            }
+        }
         applyingFrames.remove(token)
         liveResizeStarts.removeValue(forKey: token)
         guard let entry = controller.workspaceManager.entry(for: token),
               entry.target.hostedMetadata != nil else { return }
-        guard controller.hasStartedServices, !isShuttingDown else {
+        guard controller.hasStartedServices, !isShuttingDown, entry.target.hostedMetadata?.role == .main else {
             controller.workspaceManager.removeHostedWindow(token)
             return
         }
