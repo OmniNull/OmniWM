@@ -4,6 +4,7 @@
 import AppKit
 @testable import OmniWM
 import QuartzCore
+import Synchronization
 import XCTest
 
 @MainActor
@@ -36,23 +37,30 @@ final class ShellFrameEndpointTests: XCTestCase {
         XCTAssertEqual(result.2, target)
     }
 
-    func testSubmitStampsItsBatchWithTheSceneClock() throws {
+    func testSubmitStampsItsBatchWithTheSceneClockAtSubmission() throws {
         let scene = ShellLayerScene(container: CALayer(), scale: 2)
-        scene.clock = { 1000 }
+        let submitted: CFTimeInterval = 1000
+        let time = Mutex(submitted)
+        scene.clock = { @Sendable in time.withLock { $0 } }
+        let gate = DispatchSemaphore(value: 0)
+        ShellLayerScene.engineQueue.async { gate.wait() }
         let stamped = expectation(description: "batch applied")
-        nonisolated(unsafe) var during: CFTimeInterval?
+        let during = Mutex<CFTimeInterval?>(nil)
         scene.submit([], animated: false) {
-            during = scene.now()
+            during.withLock { $0 = scene.now() }
             stamped.fulfill()
         }
+        time.withLock { $0 = submitted.nextUp }
+        gate.signal()
         wait(for: [stamped], timeout: 5)
-        XCTAssertEqual(during, 1000)
+        XCTAssertEqual(during.withLock { $0 }, submitted)
         XCTAssertNil(ShellLayerScene.engineQueue.sync { scene.submitTime })
     }
 
     func testSegmentedAndTrailFrameCurvesBeginAtTheBatchTime() throws {
         let scene = ShellLayerScene(container: CALayer(), scale: 2)
         let start = CGRect(x: 10, y: 20, width: 40, height: 30)
+        let batch: CFTimeInterval = 1000
         scene.submit([
             .insert(slot: 0, parent: -1, kind: .image, after: -1),
             .insert(slot: 1, parent: -1, kind: .image, after: 0),
@@ -66,13 +74,13 @@ final class ShellFrameEndpointTests: XCTestCase {
                 CATransaction.begin()
                 CATransaction.setDisableActions(true)
                 defer { CATransaction.commit() }
-                scene.submitTime = 1000
+                scene.submitTime = batch
                 defer { scene.submitTime = nil }
                 scene.applyFrame(slot, CGRect(x: 90, y: 50, width: 120, height: 80), preset: animation, animated: true)
                 return ["position", "bounds"]
                     .map { (scene.layers[slot]?.animation(forKey: $0) as? CAKeyframeAnimation)?.beginTime }
             }
-            XCTAssertEqual(begins, [1000, 1000], "trails \(trails)")
+            XCTAssertEqual(begins, [batch, batch], "trails \(trails)")
         }
     }
 

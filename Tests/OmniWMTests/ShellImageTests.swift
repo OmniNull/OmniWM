@@ -134,13 +134,14 @@ final class ShellImageTests: XCTestCase {
         let container = CALayer()
         let scene = ShellLayerScene(container: container, scale: 1)
         scene.submit([.insert(slot: 0, parent: -1, kind: .bitmap, after: -1)], animated: false)
+        let batch: CFTimeInterval = 1000
         let state = try ShellLayerScene.engineQueue.sync {
             CATransaction.begin()
             defer { CATransaction.commit() }
             let layer = try XCTUnwrap(scene.layers[0])
             scene.imageFrames[0] = frames
             scene.playbackSettings[0] = playing
-            scene.submitTime = 1000
+            scene.submitTime = batch
             scene.updatePlayback(0, contentsReplaced: true)
             scene.submitTime = nil
             let running = layer.animation(forKey: ShellLayerScene.framesKey) as? CAKeyframeAnimation
@@ -157,7 +158,7 @@ final class ShellImageTests: XCTestCase {
             return (running?.speed, paused, stopped, single, running?.beginTime)
         }
         XCTAssertEqual(state.0, 2)
-        XCTAssertEqual(state.4, 1000)
+        XCTAssertEqual(state.4, batch)
         XCTAssertTrue(state.1.0)
         XCTAssertTrue(state.1.1)
         XCTAssertTrue(state.2)
