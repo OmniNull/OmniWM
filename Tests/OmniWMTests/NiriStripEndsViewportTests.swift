@@ -40,6 +40,12 @@ final class NiriStripEndsViewportTests: XCTestCase {
         }
     }
 
+    func testTheStripEndsRuleAcceptsAStripWithinAScreenMatchOfTheView() {
+        XCTAssertEqual(ViewportState.stripEndOffsets(stripSpan: 1_000, viewSpan: 1_000, gap: 10), -10 ... 10)
+        XCTAssertEqual(ViewportState.stripEndOffsets(stripSpan: 979.5, viewSpan: 1_000, gap: 10), -10 ... -10)
+        XCTAssertNil(ViewportState.stripEndOffsets(stripSpan: 970, viewSpan: 1_000, gap: 10))
+    }
+
     func testWithNaturalWindowDragTheFirstColumnStaysAtTheScreenEdge() {
         var fixture = makeFixture(keepsStripEndsOnScreen: true)
 

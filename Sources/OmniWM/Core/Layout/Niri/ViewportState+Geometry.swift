@@ -373,10 +373,16 @@ extension ViewportState {
         case .horizontal: context.workingFrame.width
         case .vertical: context.workingFrame.height
         }
-        let earliest = -context.gaps
-        let latest = stripEnd + context.gaps - viewportSpan
-        guard latest >= earliest else { return offset }
-        return (target.position + offset).clamped(to: earliest ... latest) - target.position
+        guard let range = Self.stripEndOffsets(stripSpan: stripEnd, viewSpan: viewportSpan, gap: context.gaps)
+        else { return offset }
+        return (target.position + offset).clamped(to: range) - target.position
+    }
+
+    static func stripEndOffsets(stripSpan: CGFloat, viewSpan: CGFloat, gap: CGFloat) -> ClosedRange<CGFloat>? {
+        let earliest = -gap
+        let latest = stripSpan + gap - viewSpan
+        guard latest >= earliest - FrameTolerance.screenMatch else { return nil }
+        return earliest ... max(earliest, latest)
     }
 
     private func shouldCenterAdjacentPair(
