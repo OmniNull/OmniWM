@@ -9,6 +9,143 @@ import XCTest
 
 @MainActor
 final class DurableParkTests: XCTestCase {
+    func testClampedPortraitParkRequiresAXVerificationOfCorrectedPosition() throws {
+        let fixture = try Self.layoutParkFixture(pid: 972_001, windowId: 972_101, isAnimationTick: true)
+        let controller = fixture.controller
+        let manager = controller.axManager
+        let portrait = Monitor(
+            id: fixture.monitor.id,
+            displayId: fixture.monitor.displayId,
+            frame: CGRect(x: -1440, y: -2560, width: 1440, height: 2560),
+            visibleFrame: CGRect(x: -1440, y: -2560, width: 1440, height: 2530),
+            hasNotch: false,
+            name: "Portrait"
+        )
+        let laptop = Monitor(
+            id: .init(displayId: 78), displayId: 78,
+            frame: CGRect(x: 0, y: 0, width: 1512, height: 982),
+            visibleFrame: CGRect(x: 0, y: 0, width: 1512, height: 950),
+            hasNotch: true, name: "Laptop"
+        )
+        let lower = Monitor(
+            id: .init(displayId: 79), displayId: 79,
+            frame: CGRect(x: -4000, y: -4000, width: 2560, height: 1440),
+            visibleFrame: CGRect(x: -4000, y: -4000, width: 2560, height: 1410),
+            hasNotch: false, name: "Lower"
+        )
+        controller.workspaceManager.applyMonitorConfigurationChange([portrait, laptop, lower])
+        _ = controller.workspaceManager.moveWorkspaceToMonitor(fixture.workspaceId, to: portrait.id, force: true)
+        _ = controller.workspaceManager.focusWorkspace(id: fixture.workspaceId)
+        XCTAssertEqual(controller.workspaceManager.monitor(for: fixture.workspaceId)?.id, portrait.id)
+        let hidden = try XCTUnwrap(controller.workspaceManager.hiddenState(for: fixture.token))
+        controller.workspaceManager.setHiddenState(HiddenState(
+            proportionalPosition: hidden.proportionalPosition,
+            referenceMonitorId: hidden.referenceMonitorId,
+            reason: .layoutTransient(.right)
+        ), for: fixture.token)
+        let entry = try XCTUnwrap(controller.workspaceManager.entry(for: fixture.token))
+        let target = AXFrameApplicationTarget(
+            pid: entry.pid, window: try XCTUnwrap(entry.axRef),
+            frame: CGRect(x: -1426, y: -31, width: 1412, height: 2506)
+        )
+        let request = try XCTUnwrap(manager.prepareParkFrameApplications([target]).first)
+        let clamped = CGRect(x: -1372, y: 0, width: 1412, height: 950)
+        XCTAssertFalse(clamped.intersection(laptop.frame).isEmpty)
+        let failure = WindowAdmissionTestSupport.frameResult(
+            request: request, observed: clamped, failure: .verificationMismatch
+        )
+        FrameApplyTrace.shared.beginCapture()
+        defer { FrameApplyTrace.shared.endCapture() }
+
+        manager.handleParkFrameApplyResults([failure])
+
+        let repaired = try XCTUnwrap(manager.parkTargetFrame(for: entry.windowId))
+        XCTAssertEqual(repaired, CGRect(x: -2851, y: -1770, width: 1412, height: 950))
+        XCTAssertTrue(repaired.intersection(laptop.frame).isNull)
+        XCTAssertTrue(repaired.intersection(lower.frame).isNull)
+        XCTAssertEqual(repaired.intersection(portrait.frame).width, 1)
+        XCTAssertNil(manager.pendingParkFrameRequest(for: entry.windowId))
+        XCTAssertFalse(Self.frameTrace(fixture).contains("park-ledger-prepared/retry"))
+
+        let corrected = AXFrameApplicationTarget(pid: entry.pid, window: try XCTUnwrap(entry.axRef), frame: repaired)
+        let correctedRequest = try XCTUnwrap(manager.prepareParkFrameApplications([corrected]).first)
+        XCTAssertTrue(manager.processParkFrameApplyResults([
+            WindowAdmissionTestSupport.successfulFrameResult(request: correctedRequest)
+        ]).isEmpty)
+        XCTAssertEqual(manager.verifiedParkFrame(for: entry.windowId), repaired)
+
+        FrameApplyTrace.shared.beginCapture()
+        XCTAssertTrue(controller.layoutRefreshController.hideWindow(
+            entry, monitor: portrait, side: .right, reason: .layoutTransient, observedFrame: repaired
+        ))
+        XCTAssertFalse(Self.frameTrace(fixture).contains("park-ledger-prepared"))
+        XCTAssertNil(manager.pendingParkFrameRequest(for: entry.windowId))
+    }
+
+    func testLayoutTransientPositionOnlyDriftReissuesAXPark() throws {
+        let fixture = try Self.layoutParkFixture(pid: 971_001, windowId: 971_101, isAnimationTick: true)
+        let manager = fixture.controller.axManager
+        let entry = try XCTUnwrap(fixture.controller.workspaceManager.entry(for: fixture.token))
+        let hidden = fixture.controller.workspaceManager.hiddenState(for: fixture.token)
+        manager.clearSkyLightLivePosition(for: fixture.token.windowId)
+        FrameApplyTrace.shared.beginCapture()
+        defer { FrameApplyTrace.shared.endCapture() }
+
+        fixture.controller.layoutRefreshController.repairLayoutTransientPark(
+            for: entry, side: .left, observedFrame: CGRect(x: 100, y: 16, width: 800, height: 600)
+        )
+
+        XCTAssertNil(manager.skyLightLivePosition(for: fixture.token.windowId))
+        XCTAssertNil(manager.verifiedParkFrame(for: fixture.token.windowId))
+        XCTAssertEqual(manager.parkTargetFrame(for: fixture.token.windowId), fixture.parkedFrame)
+        XCTAssertEqual(fixture.controller.workspaceManager.hiddenState(for: fixture.token), hidden)
+        XCTAssertTrue(Self.frameTrace(fixture).contains("outcome=ax-park-failed/contextUnavailable"))
+        XCTAssertFalse(manager.prepareParkFrameApplications([
+            .init(pid: entry.pid, window: try XCTUnwrap(entry.axRef), frame: fixture.parkedFrame)
+        ]).isEmpty)
+    }
+
+    func testRejectedLayoutTransientPositionKeepsBoundedRetryBudget() throws {
+        let fixture = try Self.layoutParkFixture(pid: 971_004, windowId: 971_104, isAnimationTick: true)
+        let manager = fixture.controller.axManager
+        let entry = try XCTUnwrap(fixture.controller.workspaceManager.entry(for: fixture.token))
+        let target = AXFrameApplicationTarget(
+            pid: entry.pid, window: try XCTUnwrap(entry.axRef), frame: fixture.parkedFrame
+        )
+        let request = try XCTUnwrap(manager.prepareParkFrameApplications([target]).first)
+        let observed = fixture.parkedFrame.offsetBy(dx: 100, dy: 0)
+        func failure(_ request: AXFrameApplicationRequest) -> AXFrameApplyResult {
+            WindowAdmissionTestSupport.frameResult(
+                request: request, observed: observed, failure: .verificationMismatch
+            )
+        }
+        let repair = fixture.controller.layoutRefreshController.repairLayoutTransientPark(after:)
+
+        let retries = manager.parkLedger.processParkFrameApplyResults([failure(request)], onFailure: repair)
+        let retry = try XCTUnwrap(retries.first)
+        XCTAssertEqual(retries.count, 1)
+        XCTAssertEqual(retry.frame, target.frame)
+        XCTAssertEqual(manager.pendingParkFrameRequest(for: entry.windowId), retry)
+
+        XCTAssertTrue(manager.parkLedger.processParkFrameApplyResults([failure(retry)], onFailure: repair).isEmpty)
+        XCTAssertNil(manager.pendingParkFrameRequest(for: entry.windowId))
+        XCTAssertNil(manager.verifiedParkFrame(for: entry.windowId))
+        XCTAssertTrue(manager.pendingParkWindowIds.contains(entry.windowId))
+    }
+
+    func testLayoutTransientPositionRepairIgnoresAnAlreadyParkedWindow() throws {
+        let fixture = try Self.layoutParkFixture(pid: 971_003, windowId: 971_103, isAnimationTick: true)
+        let entry = try XCTUnwrap(fixture.controller.workspaceManager.entry(for: fixture.token))
+        FrameApplyTrace.shared.beginCapture()
+        defer { FrameApplyTrace.shared.endCapture() }
+
+        fixture.controller.layoutRefreshController.repairLayoutTransientPark(
+            for: entry, side: .left, observedFrame: fixture.parkedFrame
+        )
+
+        XCTAssertEqual(Self.frameTrace(fixture), "none")
+    }
+
     func testInactiveParkingKeepsScreenContactFromZoomClampedFrames() throws {
         let controller = Self.controller()
         let monitor = Self.monitor()
@@ -276,7 +413,7 @@ final class DurableParkTests: XCTestCase {
         XCTAssertTrue(fixture.controller.niriLayoutHandler.hasScrollAnimation(for: fixture.workspaceId))
     }
 
-    func testLayoutParkedWindowPositionOnlyFrameChangesDoNotRepark() async throws {
+    func testLayoutParkedWindowPositionOnlyDriftReparksThroughAX() async throws {
         let fixture = try Self.layoutParkFixture(pid: 969_003, windowId: 969_103, isAnimationTick: false)
 
         FrameApplyTrace.shared.beginCapture()
@@ -285,9 +422,7 @@ final class DurableParkTests: XCTestCase {
             _ = await Self.deliverFrameChange(frame, token: fixture.token, controller: fixture.controller)
         }
 
-        XCTAssertFalse(FrameApplyTrace.shared.dump().split(separator: "\n").contains {
-            $0.contains("win=\(fixture.token.windowId) ") && $0.contains("outcome=sls-park-intent")
-        })
+        XCTAssertEqual(Self.settledParkEventCount(windowId: fixture.token.windowId, target: fixture.parkedFrame), 1)
     }
 
     func testInactiveParkedWindowThatGrowsIsReparked() async throws {

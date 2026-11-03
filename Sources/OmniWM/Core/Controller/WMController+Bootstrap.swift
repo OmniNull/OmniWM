@@ -10,6 +10,9 @@ extension WMController {
         axManager.isWindowParked = { [workspaceManager] windowId in
             workspaceManager.entry(forWindowId: windowId)?.hiddenState != nil
         }
+        axManager.onParkFrameApplyFailed = { [weak self] result in
+            self?.layoutRefreshController.repairLayoutTransientPark(after: result)
+        }
         intentLedger.seqProvider = { [eventIntake] in eventIntake.lastSeq }
         intentLedger.deadlineWheel = deadlineWheel
         focusPolicyEngine.intentLedger = intentLedger

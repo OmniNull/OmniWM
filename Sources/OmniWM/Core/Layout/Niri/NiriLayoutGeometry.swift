@@ -113,19 +113,28 @@ struct NiriLayoutViewport {
             hiddenPlacementMonitors: hiddenPlacementMonitors
         )
         if case .visible = visibilityState {
-            let clampedVisibilityRect = NiriMonitorPlaneGeometry.clampedFrame(
-                visibilityRect,
-                screenClampRect: area.viewFrame,
-                orientation: orientation
-            )
-            if let liveOverflowEdge = NiriMonitorPlaneGeometry.overflowEdgeIntersectingNeighboringMonitor(
-                clampedVisibilityRect,
-                viewportFrame: area.workingFrame,
-                orientation: orientation,
-                hiddenPlacementMonitor: hiddenPlacementMonitor,
-                hiddenPlacementMonitors: hiddenPlacementMonitors
-            ) {
-                visibilityState = .hidden(liveOverflowEdge)
+            if orientation == .vertical,
+               let hiddenPlacementMonitor,
+               hiddenPlacementMonitors.contains(where: { $0.id != hiddenPlacementMonitor.id }),
+               visibilityRect.maxY > hiddenPlacementMonitor.frame.maxY
+               || visibilityRect.maxY <= area.workingFrame.minY
+            {
+                visibilityState = .hidden(visibilityRect.maxY <= area.workingFrame.minY ? .minimum : .maximum)
+            } else {
+                let clampedVisibilityRect = NiriMonitorPlaneGeometry.clampedFrame(
+                    visibilityRect,
+                    screenClampRect: area.viewFrame,
+                    orientation: orientation
+                )
+                if let liveOverflowEdge = NiriMonitorPlaneGeometry.overflowEdgeIntersectingNeighboringMonitor(
+                    clampedVisibilityRect,
+                    viewportFrame: area.workingFrame,
+                    orientation: orientation,
+                    hiddenPlacementMonitor: hiddenPlacementMonitor,
+                    hiddenPlacementMonitors: hiddenPlacementMonitors
+                ) {
+                    visibilityState = .hidden(liveOverflowEdge)
+                }
             }
         }
         return NiriColumnVisibility(

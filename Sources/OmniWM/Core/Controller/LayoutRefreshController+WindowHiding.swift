@@ -321,11 +321,19 @@ extension LayoutRefreshController {
             ).origin
         case .layoutTransient:
             let orientation = controller.settings.monitors.effectiveOrientation(for: monitor)
-            let orthogonalOrigin: CGFloat = switch orientation {
-            case .horizontal: frame.origin.y
-            case .vertical: frame.origin.x
+            let orthogonalOrigin: CGFloat
+            let requestedEdge: AxisHideEdge
+            switch orientation {
+            case .horizontal:
+                orthogonalOrigin = frame.origin.y
+                requestedEdge = AxisHideEdge(encodedHideSide: side)
+            case .vertical:
+                orthogonalOrigin = min(
+                    monitor.visibleFrame.midY - frame.height / 2,
+                    monitor.visibleFrame.maxY - frame.height
+                )
+                requestedEdge = .minimum
             }
-            let requestedEdge = AxisHideEdge(encodedHideSide: side)
             let placement = HiddenWindowPlacementResolver(
                 monitor: hiddenPlacementMonitor,
                 monitors: resolvedHiddenPlacementMonitors
@@ -334,7 +342,7 @@ extension LayoutRefreshController {
                 requestedEdge: requestedEdge,
                 orthogonalOrigin: orthogonalOrigin,
                 baseReveal: baseReveal,
-                orientation: orientation
+                orientation: .horizontal
             )
             return placement.origin
         }

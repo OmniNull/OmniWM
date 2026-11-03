@@ -1,12 +1,77 @@
 // SPDX-License-Identifier: GPL-2.0-only
 // Copyright (C) 2026 OmniNull — https://github.com/OmniNull/OmniWM
 
+import CoreGraphics
+import Darwin
 import Foundation
 @testable import OmniWM
 import XCTest
 
 @MainActor
 final class SkyLightNativeSpaceInventoryLiveTests: XCTestCase {
+    func testForeignMoveCannotPoisonBoundsUsedForVerification() async throws {
+        try requireLiveTestsEnabled()
+        let helper = Process()
+        let output = Pipe()
+        let input = Pipe()
+        helper.executableURL = URL(fileURLWithPath: "/usr/bin/swift")
+        helper.arguments = ["-e", #"""
+        import AppKit
+        let app = NSApplication.shared
+        app.setActivationPolicy(.accessory)
+        let panel = NSPanel(
+            contentRect: CGRect(x: 5, y: 5, width: 10, height: 10),
+            styleMask: [.borderless, .nonactivatingPanel], backing: .buffered, defer: false
+        )
+        panel.level = .statusBar
+        panel.orderFrontRegardless()
+        DispatchQueue.main.asyncAfter(deadline: .now() + 0.1) {
+            print(panel.windowNumber)
+            fflush(stdout)
+        }
+        DispatchQueue.global().async {
+            _ = FileHandle.standardInput.readDataToEndOfFile()
+            exit(0)
+        }
+        app.run()
+        """#]
+        helper.standardOutput = output
+        helper.standardInput = input
+        try helper.run()
+        defer {
+            try? input.fileHandleForWriting.close()
+            helper.terminate()
+            helper.waitUntilExit()
+        }
+        var line = Data()
+        while true {
+            var descriptor = pollfd(fd: output.fileHandleForReading.fileDescriptor, events: Int16(POLLIN), revents: 0)
+            guard poll(&descriptor, 1, 30_000) > 0 else {
+                return XCTFail("Foreign helper did not report its window within 30 seconds")
+            }
+            guard let byte = try output.fileHandleForReading.read(upToCount: 1), !byte.isEmpty else { break }
+            if byte == Data([10]) { break }
+            line.append(byte)
+        }
+        let wid = try XCTUnwrap(UInt32(String(decoding: line, as: UTF8.self)))
+        func independentlyObservedBounds() -> CGRect? {
+            guard let list = CGWindowListCopyWindowInfo(.optionAll, 0) as? [[String: Any]],
+                  let info = list.first(where: { ($0[kCGWindowNumber as String] as? NSNumber)?.uint32Value == wid }),
+                  let bounds = info[kCGWindowBounds as String] as? [String: Any]
+            else { return nil }
+            return CGRect(dictionaryRepresentation: bounds as CFDictionary)
+        }
+        let before = try XCTUnwrap(independentlyObservedBounds(), "Foreign helper running: \(helper.isRunning)")
+        let sky = SkyLight.shared
+        XCTAssertEqual(sky.getWindowBounds(wid), before)
+        XCTAssertEqual(sky.batchMoveWindows([
+            (windowId: wid, origin: CGPoint(x: before.minX + 6, y: before.minY + 6))
+        ]), .submitted)
+        try await Task.sleep(for: .milliseconds(50))
+
+        XCTAssertEqual(sky.getWindowBounds(wid), try XCTUnwrap(independentlyObservedBounds()))
+    }
+
     func testLiveDeferredOrderingTracksOffscreenWithdrawalAndReopening() async throws {
         try requireLiveTestsEnabled()
         let sky = SkyLight.shared

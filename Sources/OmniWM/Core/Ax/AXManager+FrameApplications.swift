@@ -110,7 +110,9 @@ extension AXManager {
         for result in results {
             FrameApplyTrace.recordResult(result, lane: .park)
         }
-        dispatchParkFrameApplications(parkLedger.processParkFrameApplyResults(results))
+        dispatchParkFrameApplications(parkLedger.processParkFrameApplyResults(results) { [weak self] result in
+            self?.onParkFrameApplyFailed?(result)
+        })
     }
 
     private func dispatchParkFrameApplications(_ requests: [AXFrameApplicationRequest]) {
