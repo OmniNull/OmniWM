@@ -213,9 +213,9 @@ extension MouseEventHandler {
         if shouldBlockOwnWindowInput(at: location) {
             dropPendingTapEvents()
             if button == .left, !isInputSuppressed,
-               state.nativeTitleBarDrag?.targetWasRejected == true
-               || (state.nativeTitleBarDrag == nil && state.awaitsNativeTitleBarDragTarget
-                   && state.nativeTitleBarDragFallbackReleased)
+               state.nativeTitleBarDrag == nil,
+               state.awaitsNativeTitleBarDragTarget,
+               state.nativeTitleBarDragFallbackReleased
             {
                 retireNativeTitleBarDragAtInputBoundary()
             }

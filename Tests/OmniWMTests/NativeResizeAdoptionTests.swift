@@ -14,6 +14,10 @@ private final class ReportedFrame {
     }
 }
 
+private func nativeDragLocation(from frame: CGRect) -> CGPoint {
+    CGPoint(x: (frame.midX + FrameTolerance.frameWrite).nextUp, y: frame.midY)
+}
+
 @MainActor
 final class NativeResizeAdoptionTests: NiriInteractionTestCase {
     @MainActor
@@ -80,6 +84,37 @@ final class NativeResizeAdoptionTests: NiriInteractionTestCase {
             }
         }
 
+        func addUnrelatedAnimationWorkspace() throws -> (workspaceId: WorkspaceDescriptor.ID, monitor: Monitor) {
+            let displayId = monitor.displayId + 1
+            let frame = monitor.frame.offsetBy(dx: monitor.frame.width, dy: 0)
+            let animationMonitor = Monitor(
+                id: .init(displayId: displayId),
+                displayId: displayId,
+                frame: frame,
+                visibleFrame: frame,
+                hasNotch: false,
+                name: "Unrelated Animation"
+            )
+            let workspaceName = String(controller.settings.workspaces.configurations.count + 1)
+            controller.settings.workspaces.configurations.append(WorkspaceConfiguration(
+                name: workspaceName,
+                monitorAssignment: .specificDisplay(OutputId(from: animationMonitor)),
+                layoutType: .niri
+            ))
+            manager.applyMonitorConfigurationChange([monitor, animationMonitor])
+            manager.applySettings()
+            if controller.niriEngine == nil {
+                controller.enableNiriLayout()
+            } else {
+                controller.syncMonitorsToNiriEngine()
+            }
+            let workspaceId = try XCTUnwrap(manager.workspaceId(named: workspaceName))
+            XCTAssertEqual(manager.activeWorkspace(on: animationMonitor.id)?.id, workspaceId)
+            try confirmLayout()
+            controller.layoutRefreshController.resetState()
+            return (workspaceId, animationMonitor)
+        }
+
         func beginDrag(_ token: WindowToken) throws {
             handler.retireNativeTitleBarDragAtInputBoundary()
             handler.pressedMouseButtonsProvider = { MouseEventHandler.MouseButton.left.pressedMask }
@@ -89,7 +124,7 @@ final class NativeResizeAdoptionTests: NiriInteractionTestCase {
                 modifiers: [],
                 windowIdUnderPointer: token.windowId
             ))
-            handler.dispatchMouseDragged(at: CGPoint(x: start.center.x + 5, y: start.center.y))
+            handler.dispatchMouseDragged(at: nativeDragLocation(from: start))
             XCTAssertEqual(phase, .dragging)
         }
 
@@ -833,7 +868,7 @@ final class NativeResizeAdoptionTests: NiriInteractionTestCase {
             fixture.handler.nativeWindowFrameProvider = { _ in reported.frame }
             fixture.handler.pressedMouseButtonsProvider = { MouseEventHandler.MouseButton.left.pressedMask }
             XCTAssertFalse(fixture.handler.dispatchMouseDown(at: start.center, modifiers: []))
-            fixture.handler.dispatchMouseDragged(at: CGPoint(x: start.midX + 5, y: start.midY))
+            fixture.handler.dispatchMouseDragged(at: nativeDragLocation(from: start))
             XCTAssertNil(fixture.handler.state.nativeTitleBarDrag)
             XCTAssertEqual(fixture.handler.state.nativeTitleBarDragFallbackToken, token)
             FrameApplyTrace.shared.beginCapture()
@@ -917,11 +952,11 @@ final class NativeResizeAdoptionTests: NiriInteractionTestCase {
                 XCTAssertFalse(fixture.handler.receiveTapMouseDown(at: start.center, modifiers: []))
                 if annotated {
                     fixture.handler.receiveAnnotatedNativeMouseDragged(
-                        at: CGPoint(x: start.midX + 5, y: start.midY),
+                        at: nativeDragLocation(from: start),
                         windowIdUnderPointer: token.windowId
                     )
                 } else {
-                    fixture.handler.receiveTapMouseDragged(at: CGPoint(x: start.midX + 5, y: start.midY))
+                    fixture.handler.receiveTapMouseDragged(at: nativeDragLocation(from: start))
                 }
 
                 reported.frame = grown(start, right: 140)
@@ -1031,7 +1066,7 @@ final class NativeResizeAdoptionTests: NiriInteractionTestCase {
             fixture.handler.nativeWindowFrameProvider = { _ in start }
             fixture.handler.pressedMouseButtonsProvider = { 0 }
             XCTAssertFalse(fixture.handler.dispatchMouseDown(at: start.center, modifiers: []))
-            fixture.handler.dispatchMouseDragged(at: CGPoint(x: start.midX + 5, y: start.midY))
+            fixture.handler.dispatchMouseDragged(at: nativeDragLocation(from: start))
             fixture.handler.dispatchMouseUp(at: start.center)
             XCTAssertTrue(fixture.handler.state.nativeTitleBarDragFallbackReleased)
 
@@ -1072,7 +1107,7 @@ final class NativeResizeAdoptionTests: NiriInteractionTestCase {
                 "\(layout), before drag"
             )
             XCTAssertFalse(fixture.controller.axManager.isNativeTitleBarDragActive(for: token))
-            fixture.handler.dispatchQueuedMouseDragged(at: CGPoint(x: start.midX + 5, y: start.midY), button: .left)
+            fixture.handler.dispatchQueuedMouseDragged(at: nativeDragLocation(from: start), button: .left)
             XCTAssertEqual(
                 try fixture.frame(token).width,
                 layout == .dwindle ? observed.width : start.width,
@@ -1182,11 +1217,11 @@ final class NativeResizeAdoptionTests: NiriInteractionTestCase {
                     }
                     if annotated {
                         fixture.handler.receiveAnnotatedNativeMouseDragged(
-                            at: CGPoint(x: start.midX + 5, y: start.midY),
+                            at: nativeDragLocation(from: start),
                             windowIdUnderPointer: token.windowId
                         )
                     } else {
-                        fixture.handler.dispatchMouseDragged(at: CGPoint(x: start.midX + 5, y: start.midY))
+                        fixture.handler.dispatchMouseDragged(at: nativeDragLocation(from: start))
                     }
 
                     let observed = grown(start, right: 60)
@@ -1256,12 +1291,12 @@ final class NativeResizeAdoptionTests: NiriInteractionTestCase {
                 XCTAssertFalse(fixture.controller.axManager.isAwaitingFrameWrite(token.windowId))
                 if annotated {
                     fixture.handler.receiveAnnotatedNativeMouseDragged(
-                        at: CGPoint(x: start.midX + 5, y: start.midY),
+                        at: nativeDragLocation(from: start),
                         windowIdUnderPointer: token.windowId
                     )
                 } else {
                     fixture.handler.dispatchQueuedMouseDragged(
-                        at: CGPoint(x: start.midX + 5, y: start.midY),
+                        at: nativeDragLocation(from: start),
                         button: .left
                     )
                 }
@@ -1299,7 +1334,7 @@ final class NativeResizeAdoptionTests: NiriInteractionTestCase {
             try fixture.confirmLayout()
 
             fixture.handler.receiveAnnotatedNativeMouseDragged(
-                at: CGPoint(x: start.midX + 5, y: start.midY),
+                at: nativeDragLocation(from: start),
                 windowIdUnderPointer: token.windowId
             )
             let observed = grown(start, right: 100)
@@ -1330,7 +1365,7 @@ final class NativeResizeAdoptionTests: NiriInteractionTestCase {
                 let token = fixture.tokens[0]
                 let start = try fixture.frame(token)
                 let observed = grown(start, right: 140)
-                let location = CGPoint(x: start.midX + 5, y: start.midY)
+                let location = nativeDragLocation(from: start)
                 let reported = ReportedFrame(start)
                 fixture.handler.nativeWindowFrameProvider = { _ in reported.frame }
                 fixture.handler.pressedMouseButtonsProvider = { MouseEventHandler.MouseButton.left.pressedMask }
@@ -1379,7 +1414,7 @@ final class NativeResizeAdoptionTests: NiriInteractionTestCase {
                 let start = try fixture.frame(token)
                 let otherFrame = try fixture.frame(other)
                 let reported = ReportedFrame(start)
-                let location = CGPoint(x: start.midX + 5, y: start.midY)
+                let location = nativeDragLocation(from: start)
                 fixture.handler.nativeWindowFrameProvider = { ref in
                     ref.windowId == token.windowId ? reported.frame : otherFrame
                 }
@@ -1421,31 +1456,7 @@ final class NativeResizeAdoptionTests: NiriInteractionTestCase {
             for earlyFrame in [false, true] {
                 let fixture = try makeFixture(layout, pid: pid_t(835_181 + scenario))
                 scenario += 1
-                let animationFrame = fixture.monitor.frame.offsetBy(dx: fixture.monitor.frame.width, dy: 0)
-                let animationMonitor = Monitor(
-                    id: .init(displayId: 83_402),
-                    displayId: 83_402,
-                    frame: animationFrame,
-                    visibleFrame: animationFrame,
-                    hasNotch: false,
-                    name: "Unrelated Animation"
-                )
-                fixture.controller.settings.workspaces.configurations.append(WorkspaceConfiguration(
-                    name: "2",
-                    monitorAssignment: .specificDisplay(OutputId(from: animationMonitor)),
-                    layoutType: .niri
-                ))
-                fixture.manager.applyMonitorConfigurationChange([fixture.monitor, animationMonitor])
-                fixture.manager.applySettings()
-                if fixture.controller.niriEngine == nil {
-                    fixture.controller.enableNiriLayout()
-                } else {
-                    fixture.controller.syncMonitorsToNiriEngine()
-                }
-                let animationWorkspace = try XCTUnwrap(fixture.manager.workspaceId(named: "2"))
-                XCTAssertEqual(fixture.manager.activeWorkspace(on: animationMonitor.id)?.id, animationWorkspace)
-                try fixture.confirmLayout()
-                fixture.controller.layoutRefreshController.resetState()
+                let (animationWorkspace, animationMonitor) = try fixture.addUnrelatedAnimationWorkspace()
                 fixture.wireFrameApplyCallbacks()
                 let blocker = blockRefreshes(fixture)
                 defer { unblockRefreshes(fixture, blocker: blocker) }
@@ -1453,7 +1464,7 @@ final class NativeResizeAdoptionTests: NiriInteractionTestCase {
                 let token = fixture.tokens[0]
                 let start = try fixture.frame(token)
                 let reported = ReportedFrame(start)
-                let location = CGPoint(x: start.midX + 5, y: start.midY)
+                let location = nativeDragLocation(from: start)
                 fixture.handler.nativeWindowFrameProvider = { _ in reported.frame }
                 let windowInfo: @MainActor (UInt32) -> WindowServerInfo? = { windowId in
                     guard windowId == UInt32(token.windowId), let frame = reported.frame else { return nil }
@@ -1515,7 +1526,7 @@ final class NativeResizeAdoptionTests: NiriInteractionTestCase {
             let token = fixture.tokens[0]
             let start = try fixture.frame(token)
             let reported = ReportedFrame(start)
-            let location = CGPoint(x: start.midX + 5, y: start.midY)
+            let location = nativeDragLocation(from: start)
             fixture.handler.nativeWindowFrameProvider = { _ in reported.frame }
             fixture.handler.pressedMouseButtonsProvider = { MouseEventHandler.MouseButton.left.pressedMask }
             XCTAssertFalse(fixture.handler.receiveTapMouseDown(at: start.center, modifiers: []))
@@ -1586,7 +1597,7 @@ final class NativeResizeAdoptionTests: NiriInteractionTestCase {
                             nil,
                             nil
                         ))
-                        let location = CGPoint(x: start.midX + 5, y: start.midY)
+                        let location = nativeDragLocation(from: start)
                         fixture.handler.pressedMouseButtonsProvider = { MouseEventHandler.MouseButton.left.pressedMask }
                         XCTAssertFalse(fixture.handler.receiveTapMouseDown(at: start.center, modifiers: []))
                         fixture.handler.receiveTapMouseDragged(at: location)
@@ -1618,22 +1629,36 @@ final class NativeResizeAdoptionTests: NiriInteractionTestCase {
                             fixture.controller.layoutRefreshController.layoutState.pendingRefresh?.affectedWorkspaceIds,
                             [fixture.workspaceId]
                         )
-                        XCTAssertEqual(try fixture.frame(token).width, start.width, accuracy: 1)
+                        XCTAssertEqual(try fixture.frame(token).width, start.width, accuracy: FrameTolerance.frameWrite)
                     }
                 }
             }
         }
     }
 
-    func testOwnedClickRetiresAMatchingRejectedTerminalDrag() throws {
+    func testOwnedClickPreservesRejectedDragCorrectionDuringAnotherDisplayAnimation() async throws {
         for (index, layout) in [LayoutType.niri, .dwindle].enumerated() {
             let fixture = try makeFixture(layout, pid: pid_t(835_211 + index))
+            let (animationWorkspace, animationMonitor) = try fixture.addUnrelatedAnimationWorkspace()
             let blocker = blockRefreshes(fixture)
             defer { unblockRefreshes(fixture, blocker: blocker) }
             fixture.handler.state.moveTap = try XCTUnwrap(CFMachPortCreate(kCFAllocatorDefault, nil, nil, nil))
             let token = fixture.tokens[0]
             let start = try fixture.frame(token)
-            let location = CGPoint(x: start.midX + 5, y: start.midY)
+            let reported = ReportedFrame(start)
+            fixture.handler.nativeWindowFrameProvider = { _ in reported.frame }
+            let windowInfo: @MainActor (UInt32) -> WindowServerInfo? = { windowId in
+                guard windowId == UInt32(token.windowId), let frame = reported.frame else { return nil }
+                return WindowServerInfo(
+                    id: windowId,
+                    pid: token.pid,
+                    level: 0,
+                    frame: ScreenCoordinateSpace.toWindowServer(rect: frame)
+                )
+            }
+            fixture.controller.axEventHandler.frameObservations.query = { windowInfo($0) }
+            fixture.controller.axEventHandler.frameObservations.nativeDragQuery = windowInfo
+            let location = nativeDragLocation(from: start)
             fixture.handler.pressedMouseButtonsProvider = { MouseEventHandler.MouseButton.left.pressedMask }
             XCTAssertFalse(fixture.handler.receiveTapMouseDown(at: start.center, modifiers: []))
             fixture.handler.receiveTapMouseDragged(at: location)
@@ -1642,7 +1667,7 @@ final class NativeResizeAdoptionTests: NiriInteractionTestCase {
             try fixture.annotatedDrag(windowId: nil, at: location)
             XCTAssertEqual(fixture.phase, .awaitingFrameChange)
             let surfaceId = "rejected-native-resize-\(token.windowId)"
-            let ownedFrame = CGRect(x: -800, y: -800, width: 40, height: 40)
+            let ownedFrame = start.offsetBy(dx: -fixture.monitor.frame.width, dy: -fixture.monitor.frame.height)
             fixture.controller.ownedWindowRegistry.registerWindowNumber(
                 surfaceId: surfaceId,
                 policy: SurfacePolicy(
@@ -1651,7 +1676,7 @@ final class NativeResizeAdoptionTests: NiriInteractionTestCase {
                     capturePolicy: .included,
                     suppressesManagedFocusRecovery: true
                 ),
-                windowNumber: token.windowId + 10_000,
+                windowNumber: try XCTUnwrap(fixture.tokens.map(\.windowId).max()) + 1,
                 frameProvider: { ownedFrame },
                 visibilityProvider: { true }
             )
@@ -1659,9 +1684,46 @@ final class NativeResizeAdoptionTests: NiriInteractionTestCase {
 
             XCTAssertFalse(fixture.handler.receiveTapMouseDown(at: ownedFrame.center, modifiers: []))
 
-            XCTAssertNil(fixture.handler.state.nativeTitleBarDrag)
+            XCTAssertEqual(fixture.phase, .awaitingFrameChange, "\(layout)")
+            XCTAssertEqual(fixture.handler.state.nativeTitleBarDrag?.targetWasRejected, true)
+            XCTAssertNil(fixture.handler.state.nativeTitleBarDrag?.adoptionStartFrame)
             XCTAssertFalse(fixture.handler.state.awaitsNativeTitleBarDragTarget)
-            XCTAssertEqual(try fixture.frame(token).width, start.width, accuracy: 1)
+            XCTAssertNil(fixture.handler.state.nativeResizeStart)
+            XCTAssertNil(fixture.controller.layoutRefreshController.layoutState.pendingRefresh)
+            XCTAssertTrue(fixture.controller.niriLayoutHandler.registerScrollAnimation(
+                animationWorkspace,
+                on: animationMonitor.displayId
+            ))
+            XCTAssertFalse(fixture.controller.niriLayoutHandler.hasScrollAnimation(for: fixture.workspaceId))
+            reported.frame = CGRect(
+                origin: start.origin,
+                size: CGSize(
+                    width: (start.width + AXRecentFrameWriteFailure.maxAcceptedSizeSnap).nextUp,
+                    height: start.height
+                )
+            )
+            fixture.controller.axEventHandler.handleCGSEvent(.frameChanged(windowId: UInt32(token.windowId)))
+            await fixture.controller.axEventHandler.frameObservations.byWindowId[UInt32(token.windowId)]?.task.value
+
+            XCTAssertEqual(
+                fixture.controller.layoutRefreshController.layoutState.pendingRefresh?.affectedWorkspaceIds,
+                [fixture.workspaceId],
+                "\(layout)"
+            )
+            XCTAssertEqual(
+                fixture.controller.layoutRefreshController.layoutState.pendingRefresh?.reason,
+                .interactiveGesture,
+                "\(layout)"
+            )
+            XCTAssertEqual(fixture.phase, .awaitingCorrection, "\(layout)")
+            XCTAssertEqual(try fixture.frame(token).width, start.width, accuracy: FrameTolerance.frameWrite)
+            XCTAssertFalse(fixture.controller.axManager.isNativeTitleBarDragActive(for: token))
+            let correction = try fixture.controller.axManager.stageFrameWrite(for: AXFrameApplicationTarget(
+                pid: token.pid,
+                window: XCTUnwrap(fixture.entry(token).axRef),
+                frame: start
+            ))
+            XCTAssertEqual(correction?.frame, start, "\(layout)")
         }
     }
 
@@ -1678,7 +1740,7 @@ final class NativeResizeAdoptionTests: NiriInteractionTestCase {
                 let start = try fixture.frame(token)
                 let otherFrame = try fixture.frame(other)
                 let reported = ReportedFrame(start)
-                let location = CGPoint(x: start.midX + 5, y: start.midY)
+                let location = nativeDragLocation(from: start)
                 fixture.handler.nativeWindowFrameProvider = { ref in
                     ref.windowId == token.windowId ? reported.frame : otherFrame
                 }
@@ -1712,7 +1774,7 @@ final class NativeResizeAdoptionTests: NiriInteractionTestCase {
             fixture.controller.settings.gestures.adoptNativeMoveAcrossDisplays = true
             let token = fixture.tokens[0]
             let start = try fixture.frame(token)
-            let location = CGPoint(x: start.midX + 5, y: start.midY)
+            let location = nativeDragLocation(from: start)
             fixture.handler.nativeWindowFrameProvider = { _ in start }
             XCTAssertFalse(fixture.handler.receiveTapMouseDown(at: start.center, modifiers: []))
             try fixture.annotatedDrag(windowId: token.windowId, at: location)
@@ -1778,7 +1840,7 @@ final class NativeResizeAdoptionTests: NiriInteractionTestCase {
                 XCTAssertFalse(fixture.handler.receiveTapMouseDown(at: start.center, modifiers: []))
                 if queuedDragOrder == 1 {
                     fixture.handler.dispatchQueuedMouseDragged(
-                        at: CGPoint(x: start.midX + 5, y: start.midY),
+                        at: nativeDragLocation(from: start),
                         button: .left
                     )
                 }
@@ -1797,11 +1859,11 @@ final class NativeResizeAdoptionTests: NiriInteractionTestCase {
                 XCTAssertFalse(fixture.controller.axManager.isNativeTitleBarDragActive(for: token))
                 if queuedDragOrder == 2 {
                     fixture.handler.dispatchQueuedMouseDragged(
-                        at: CGPoint(x: start.midX + 5, y: start.midY),
+                        at: nativeDragLocation(from: start),
                         button: .left
                     )
                 }
-                try fixture.annotatedDrag(windowId: token.windowId, at: CGPoint(x: start.midX + 5, y: start.midY))
+                try fixture.annotatedDrag(windowId: token.windowId, at: nativeDragLocation(from: start))
 
                 XCTAssertEqual(fixture.phase, .dragging)
                 XCTAssertEqual(
@@ -1858,12 +1920,12 @@ final class NativeResizeAdoptionTests: NiriInteractionTestCase {
                     fixture.handler.handleInputSuppressionBegan()
                 case .unmanagedTarget:
                     fixture.handler.receiveAnnotatedNativeMouseDragged(
-                        at: CGPoint(x: start.midX + 5, y: start.midY),
+                        at: nativeDragLocation(from: start),
                         windowIdUnderPointer: token.windowId + 10_000
                     )
                 case .otherTiledTarget:
                     fixture.handler.receiveAnnotatedNativeMouseDragged(
-                        at: CGPoint(x: start.midX + 5, y: start.midY),
+                        at: nativeDragLocation(from: start),
                         windowIdUnderPointer: other.windowId
                     )
                     XCTAssertEqual(fixture.handler.state.nativeTitleBarDrag?.token, other)
@@ -1922,7 +1984,7 @@ final class NativeResizeAdoptionTests: NiriInteractionTestCase {
                 XCTAssertFalse(fixture.handler.receiveTapMouseDown(at: start.center, modifiers: []))
 
                 fixture.handler.receiveAnnotatedNativeMouseDragged(
-                    at: CGPoint(x: start.midX + 5, y: start.midY),
+                    at: nativeDragLocation(from: start),
                     windowIdUnderPointer: token.windowId
                 )
 
@@ -2043,7 +2105,7 @@ final class NativeResizeAdoptionTests: NiriInteractionTestCase {
                     fixture.handler
                         .pressedMouseButtonsProvider = { released ? 0 : MouseEventHandler.MouseButton.left.pressedMask }
                     XCTAssertFalse(fixture.handler.dispatchMouseDown(at: start.center, modifiers: []))
-                    fixture.handler.dispatchMouseDragged(at: CGPoint(x: start.midX + 5, y: start.midY))
+                    fixture.handler.dispatchMouseDragged(at: nativeDragLocation(from: start))
                     if released {
                         fixture.handler.dispatchMouseUp(at: start.center)
                     }
@@ -2175,15 +2237,25 @@ final class NativeResizeAdoptionTests: NiriInteractionTestCase {
             XCTAssertNil(fixture.manager.observedSizeEvidence(for: resized), "\(layout)")
             XCTAssertNil(fixture.manager.cachedConstraints(for: resized, maxAge: .greatestFiniteMagnitude), "\(layout)")
 
-            try fixture.refuseWrite(of: neighbor, growingWidthBy: 40)
+            let neighborTarget = try fixture.frame(neighbor)
+            let refusedWidth = (neighborTarget.width + AXRecentFrameWriteFailure.maxAcceptedSizeSnap).nextUp
+            try fixture.refuseWrite(of: neighbor, growingWidthBy: refusedWidth - neighborTarget.width)
             let neighborEvidence = try XCTUnwrap(fixture.manager.observedSizeEvidence(for: neighbor), "\(layout)")
-            XCTAssertEqual(neighborEvidence.minSize.width, try fixture.frame(neighbor).width, accuracy: 41, "\(layout)")
-            XCTAssertGreaterThan(neighborEvidence.minSize.width, 1, "\(layout)")
+            XCTAssertEqual(
+                neighborEvidence.minSize.width,
+                refusedWidth,
+                accuracy: FrameTolerance.frameWrite,
+                "\(layout)"
+            )
+            XCTAssertGreaterThan(neighborEvidence.minSize.width, ObservedSizeEvidence().minSize.width, "\(layout)")
             XCTAssertNil(fixture.manager.observedSizeEvidence(for: resized), "\(layout)")
 
-            try fixture.refuseWrite(of: resized, growingWidthBy: 10)
+            let resizedTarget = try fixture.frame(resized)
+            let hintedWidth = resizedTarget.width + AXRecentFrameWriteFailure.maxAcceptedSizeSnap
+            try fixture.refuseWrite(of: resized, growingWidthBy: hintedWidth - resizedTarget.width)
             let hinted = try XCTUnwrap(fixture.manager.observedSizeEvidence(for: resized), "\(layout)")
-            XCTAssertLessThanOrEqual(hinted.minSize.width, 1, "\(layout)")
+            XCTAssertEqual(hinted.minSize.width, ObservedSizeEvidence().minSize.width, "\(layout)")
+            XCTAssertEqual(hinted.hints.width, ObservedAxisHint(requested: resizedTarget.width, observed: hintedWidth))
             XCTAssertFalse(hinted.hints.isEmpty, "\(layout)")
         }
     }
