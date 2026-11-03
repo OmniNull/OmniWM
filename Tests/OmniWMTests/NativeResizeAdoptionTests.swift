@@ -940,12 +940,12 @@ final class NativeResizeAdoptionTests: NiriInteractionTestCase {
                     if retry {
                         fixture.controller.axManager.scheduleFrameRetry(AXFrameRetryRequest(
                             requestId: 1, pid: token.pid, windowId: token.windowId,
-                            expectedWindow: try fixture.entry(token).axRef,
+                            expectedWindow: try XCTUnwrap(fixture.entry(token).axRef),
                             frame: target, currentFrameHint: start
                         ))
                     } else {
                         XCTAssertNotNil(try fixture.controller.axManager.stageFrameWrite(for: AXFrameApplicationTarget(
-                            pid: token.pid, window: fixture.entry(token).axRef, frame: target
+                            pid: token.pid, window: XCTUnwrap(fixture.entry(token).axRef), frame: target
                         )))
                     }
                     if queuedBeforeMouseDown {
@@ -1181,7 +1181,7 @@ final class NativeResizeAdoptionTests: NiriInteractionTestCase {
                 XCTAssertFalse(fixture.controller.axManager.isNativeTitleBarDragActive(for: token))
                 XCTAssertNil(fixture.controller.dwindleEngine?.interactiveResize)
                 XCTAssertNotNil(try fixture.controller.axManager.stageFrameWrite(for: AXFrameApplicationTarget(
-                    pid: token.pid, window: fixture.entry(token).axRef, frame: start
+                    pid: token.pid, window: XCTUnwrap(fixture.entry(token).axRef), frame: start
                 )))
                 fixture.handler.receiveTapMouseUp(at: otherFrame.center)
             }
@@ -1200,12 +1200,12 @@ final class NativeResizeAdoptionTests: NiriInteractionTestCase {
                 if retry {
                     fixture.controller.axManager.scheduleFrameRetry(AXFrameRetryRequest(
                         requestId: 1, pid: token.pid, windowId: token.windowId,
-                        expectedWindow: try fixture.entry(token).axRef,
+                        expectedWindow: try XCTUnwrap(fixture.entry(token).axRef),
                         frame: target, currentFrameHint: start
                     ))
                 } else {
                     XCTAssertNotNil(try fixture.controller.axManager.stageFrameWrite(for: AXFrameApplicationTarget(
-                        pid: token.pid, window: fixture.entry(token).axRef, frame: target
+                        pid: token.pid, window: XCTUnwrap(fixture.entry(token).axRef), frame: target
                     )))
                 }
                 let reported = ReportedFrame(start)
@@ -1263,13 +1263,13 @@ final class NativeResizeAdoptionTests: NiriInteractionTestCase {
                         requestId: 1,
                         pid: token.pid,
                         windowId: token.windowId,
-                        expectedWindow: try fixture.entry(token).axRef,
+                        expectedWindow: try XCTUnwrap(fixture.entry(token).axRef),
                         frame: target,
                         currentFrameHint: start
                     ))
                 } else {
                     XCTAssertNotNil(try fixture.controller.axManager.stageFrameWrite(for: AXFrameApplicationTarget(
-                        pid: token.pid, window: fixture.entry(token).axRef, frame: target
+                        pid: token.pid, window: XCTUnwrap(fixture.entry(token).axRef), frame: target
                     )))
                 }
                 XCTAssertTrue(fixture.controller.axManager.isAwaitingFrameWrite(token.windowId))
@@ -1304,12 +1304,12 @@ final class NativeResizeAdoptionTests: NiriInteractionTestCase {
                     if retry {
                         fixture.controller.axManager.scheduleFrameRetry(AXFrameRetryRequest(
                             requestId: 1, pid: token.pid, windowId: token.windowId,
-                            expectedWindow: try fixture.entry(token).axRef,
+                            expectedWindow: try XCTUnwrap(fixture.entry(token).axRef),
                             frame: target, currentFrameHint: start
                         ))
                     } else {
                         XCTAssertNotNil(try fixture.controller.axManager.stageFrameWrite(for: AXFrameApplicationTarget(
-                            pid: token.pid, window: fixture.entry(token).axRef, frame: target
+                            pid: token.pid, window: XCTUnwrap(fixture.entry(token).axRef), frame: target
                         )))
                     }
                     let reported = ReportedFrame(start)
@@ -1348,7 +1348,7 @@ final class NativeResizeAdoptionTests: NiriInteractionTestCase {
         let context = try XCTUnwrap(createdContext)
         defer { context.destroy() }
         let request = try XCTUnwrap(fixture.controller.axManager.stageFrameWrite(for: AXFrameApplicationTarget(
-            pid: token.pid, window: fixture.entry(token).axRef, frame: target
+            pid: token.pid, window: XCTUnwrap(fixture.entry(token).axRef), frame: target
         )))
         let drain = try XCTUnwrap(context.frameDelivery.enqueueFrames(
             [request], callbackGeneration: context.callbackGeneration, completion: { _ in }
@@ -1385,7 +1385,7 @@ final class NativeResizeAdoptionTests: NiriInteractionTestCase {
             let start = try fixture.frame(token)
             let target = grown(start, right: 180)
             XCTAssertNotNil(try fixture.controller.axManager.stageFrameWrite(for: AXFrameApplicationTarget(
-                pid: token.pid, window: fixture.entry(token).axRef, frame: target
+                pid: token.pid, window: XCTUnwrap(fixture.entry(token).axRef), frame: target
             )))
             fixture.handler.nativeWindowFrameProvider = { _ in target }
 
