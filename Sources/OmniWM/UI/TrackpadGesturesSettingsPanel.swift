@@ -222,6 +222,19 @@ struct TrackpadGesturesSettingsPanel: View {
             SettingsCaption(
                 localized: "Hold this modifier and scroll the mouse wheel to scroll columns. Turning off Scroll columns disables both trackpad and modified mouse-wheel column scrolling."
             )
+            SettingsSliderRow(
+                label: String(localized: "Mouse wheel sensitivity"),
+                value: Bindable(settings.gestures).mouseWheelSensitivity,
+                range: GestureSettings.mouseWheelSensitivityRange,
+                step: 0.1,
+                valueText: String(
+                    localized: "\(settings.gestures.mouseWheelSensitivity.formatted(.number.precision(.fractionLength(1))))x"
+                )
+            )
+            .id("Mouse wheel sensitivity")
+            SettingsCaption(
+                localized: "Increase to switch columns with less wheel movement. Affects smooth mouse-wheel navigation only. Trackpad gestures and normal app scrolling are unchanged."
+            )
         }
     }
 

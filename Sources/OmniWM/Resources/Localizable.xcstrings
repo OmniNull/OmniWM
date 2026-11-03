@@ -173652,6 +173652,12 @@
     },
     "Replace %@ with %@." : {
 
+    },
+    "Increase to switch columns with less wheel movement. Affects smooth mouse-wheel navigation only. Trackpad gestures and normal app scrolling are unchanged." : {
+
+    },
+    "Mouse wheel sensitivity" : {
+
     }
   },
   "version" : "1.0"

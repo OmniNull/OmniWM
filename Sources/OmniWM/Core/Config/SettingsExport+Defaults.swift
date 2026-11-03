@@ -216,7 +216,8 @@ extension SettingsExport.Gestures {
             resizePreviewStyle: .live,
             dwindleGroupDragAcrossDisplays: .group,
             adoptNativeResize: false,
-            adoptNativeMoveAcrossDisplays: false
+            adoptNativeMoveAcrossDisplays: false,
+            mouseWheelSensitivity: 1.0
         )
     }
 }

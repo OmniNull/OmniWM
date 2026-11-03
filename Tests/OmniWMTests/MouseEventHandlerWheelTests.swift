@@ -6,6 +6,51 @@ import CoreGraphics
 import XCTest
 
 final class MouseEventHandlerWheelTests: XCTestCase {
+    func testMouseWheelSensitivityAdvancesSmoothInputWithLessMovement() {
+        var baseline = NiriScrollTracker(tick: niriWheelScrollTickAmount)
+        var faster = NiriScrollTracker(tick: niriWheelScrollTickAmount)
+        let sensitivity = 10.0
+        let delta = niriWheelScrollTickAmount / CGFloat(sensitivity)
+
+        XCTAssertEqual(baseline.accumulate(MouseEventHandler.scaledWheelAxisDelta(
+            delta, isContinuous: true, sensitivity: 1
+        )), 0)
+        XCTAssertEqual(faster.accumulate(MouseEventHandler.scaledWheelAxisDelta(
+            delta, isContinuous: true, sensitivity: sensitivity
+        )), 1)
+    }
+
+    func testMouseWheelSensitivityPreservesDiscreteWheelSteps() {
+        for sign: CGFloat in [-1, 1] {
+            let normalized = MouseEventHandler.resolvedWheelAxisDelta(
+                pointDelta: sign, fixedPointDelta: 0, isContinuous: false
+            )
+            var tracker = NiriScrollTracker(tick: niriWheelScrollTickAmount)
+            XCTAssertEqual(tracker.accumulate(MouseEventHandler.scaledWheelAxisDelta(
+                normalized, isContinuous: false, sensitivity: 10
+            )), Int(sign))
+        }
+    }
+
+    func testMouseWheelSensitivityPreservesDirectionAndAccumulatesSmallSteps() {
+        var tracker = NiriScrollTracker(tick: niriWheelScrollTickAmount)
+        let sensitivity = 10.0
+        let smallDelta = -niriWheelScrollTickAmount / CGFloat(sensitivity) / 4
+        let delta = MouseEventHandler.scaledWheelAxisDelta(smallDelta, isContinuous: true, sensitivity: sensitivity)
+        XCTAssertEqual(tracker.accumulate(delta), 0)
+        XCTAssertEqual(tracker.accumulate(delta), 0)
+        XCTAssertEqual(tracker.accumulate(delta), 0)
+        XCTAssertEqual(tracker.accumulate(delta), -1)
+        XCTAssertEqual(tracker.accumulator, 0)
+    }
+
+    func testDefaultMouseWheelSensitivityPreservesSmoothInput() {
+        let delta = -niriWheelScrollTickAmount / 10
+        XCTAssertEqual(MouseEventHandler.scaledWheelAxisDelta(
+            delta, isContinuous: true, sensitivity: 1
+        ), delta)
+    }
+
     func testScrollModifierChoicesMatchOnlyTheirExactModifierCombination() {
         let choices: [(ScrollModifierKey, CGEventFlags)] = [
             (.optionShift, [.maskAlternate, .maskShift]),
