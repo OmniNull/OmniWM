@@ -292,7 +292,8 @@ extension AXParkFrameLedger {
     }
 
     func processParkFrameApplyResults(
-        _ results: [AXFrameApplyResult]
+        _ results: [AXFrameApplyResult],
+        onFailure: (AXFrameApplyResult) -> Void = { _ in }
     ) -> [AXFrameApplicationRequest] {
         var retries: [AXFrameApplicationRequest] = []
         retries.reserveCapacity(results.count)
@@ -331,6 +332,8 @@ extension AXParkFrameLedger {
             }
 
             result.recordParkFailure(failureReason)
+            onFailure(result)
+            if parkRequestWasSuperseded(result) { continue }
             guard pending.retriesRemaining > 0,
                   pendingParkWindowIds.contains(windowId)
             else {
@@ -348,6 +351,11 @@ extension AXParkFrameLedger {
         }
 
         return retries
+    }
+
+    private func parkRequestWasSuperseded(_ result: AXFrameApplyResult) -> Bool {
+        pendingParkFrameRequestsByWindowId[result.windowId] != nil
+            || parkFrameTargetStatesByWindowId[result.windowId]?.target.frame != result.targetFrame
     }
 
     private func registerParkFrameRequest(

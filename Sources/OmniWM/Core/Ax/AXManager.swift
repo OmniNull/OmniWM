@@ -19,6 +19,7 @@ final class AXManager {
     var onFrameApplyTerminated: ((AXFrameApplyResult) -> Void)?
     var onFrameApplySucceeded: ((AXFrameApplyResult) -> Void)?
     var onStableSizeClamp: ((AXFrameApplyResult) -> Void)?
+    var onParkFrameApplyFailed: ((AXFrameApplyResult) -> Void)?
     var onManagedWindowBindingFailed: ((pid_t) -> Void)? {
         get { managedWindowBindings.onManagedWindowBindingFailed }
         set { managedWindowBindings.onManagedWindowBindingFailed = newValue }
