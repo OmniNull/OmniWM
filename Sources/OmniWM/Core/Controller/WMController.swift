@@ -7,15 +7,6 @@ import OmniWMIPC
 
 @MainActor @Observable
 final class WMController {
-    private struct BorderLayoutConfig: Equatable {
-        let enabled: Bool
-        let width: CGFloat
-
-        func clearance(scale: CGFloat) -> CGFloat {
-            BorderConfig.layoutClearance(enabled: enabled, width: width, scale: scale)
-        }
-    }
-
     var isEnabled: Bool = true
     var hotkeysEnabled: Bool = true
     private(set) var desiredEnabled: Bool = true
@@ -66,6 +57,10 @@ final class WMController {
     let axManager = AXManager()
     @ObservationIgnored
     private(set) lazy var shellAppWindowManager = ShellAppWindowManager(controller: self)
+    @ObservationIgnored
+    private(set) lazy var shellAppCatalog = ShellAppCatalog(
+        configDirectory: settings.settingsFileURL.deletingLastPathComponent()
+    )
     let traceCaptureCoordinator: RuntimeTraceCaptureCoordinator
     let appInfoCache = AppInfoCache()
     @ObservationIgnored
@@ -329,6 +324,15 @@ final class WMController {
 }
 
 extension WMController {
+    private struct BorderLayoutConfig: Equatable {
+        let enabled: Bool
+        let width: CGFloat
+
+        func clearance(scale: CGFloat) -> CGFloat {
+            BorderConfig.layoutClearance(enabled: enabled, width: width, scale: scale)
+        }
+    }
+
     func setEnabled(_ enabled: Bool) {
         desiredEnabled = enabled
         if enabled {

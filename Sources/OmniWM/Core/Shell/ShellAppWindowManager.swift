@@ -150,6 +150,7 @@ final class ShellAppWindowManager: NSObject, NSWindowDelegate {
     func shutdown() {
         guard !isShuttingDown else { return }
         isShuttingDown = true
+        controller.shellAppCatalog.stopObserving()
         controller.layoutRefreshController.workspaceSwipe.cancelAll(reason: "quit")
         if let request = controller.intentLedger.activeManagedRequest, windows[request.token] != nil {
             controller.cancelManagedFocusRequest(request)

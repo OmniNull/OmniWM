@@ -6,7 +6,9 @@ import AppKit
 extension ShellAppWindowManager {
     @discardableResult
     func open(_ appID: String, bundle: Bundle = .module, newInstance: Bool = false) -> Bool {
-        guard appID == Self.exampleID, let definition = ShellAppDefinition.example(in: bundle),
+        let definition = appID == Self.exampleID
+            ? ShellAppDefinition.example(in: bundle) : controller.shellAppCatalog.definitions[appID]
+        guard let definition,
               let workspace = controller.activeWorkspace() else { return false }
         return open(definition, in: workspace.id, newInstance: newInstance)
     }

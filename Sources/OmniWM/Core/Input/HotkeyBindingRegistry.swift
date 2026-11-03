@@ -49,6 +49,7 @@ enum HotkeyBindingRegistry {
         var result = bindings.filter {
             bindingsByID[$0.id] != nil || ActionCatalog.shellToggleSpec(for: $0.id) != nil
                 || ActionCatalog.openAppBundleID(for: $0.id) != nil
+                || ActionCatalog.shellAppSpec(for: $0.id) != nil
         }
         let groups = Dictionary(grouping: workspaceBindings) { rowGroup(of: $0.id) }
         let insertions = groups.map { group, rows in

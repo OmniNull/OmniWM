@@ -122,15 +122,18 @@ final class HostedWindowPresentationTests: XCTestCase {
     func testDefinitionIconReachesComponentAndRegisteredMetadata() async throws {
         let fixture = try HostedManagementFixture()
         defer { fixture.close() }
-        var definition = fixture.definition
-        definition.icon = "square.and.pencil"
-        XCTAssertEqual(try definition.source().componentDescriptors.first?.icon, definition.icon)
+        let app = ShellAppAuthoringFixture()
+        defer { try? app.remove() }
+        try app.write()
+        let definition = try ShellAppDefinition.load(id: app.id, folder: app.folder)
+        let declaredIcon = "square.and.pencil"
+        XCTAssertEqual(try definition.source().componentDescriptors.first?.icon, declaredIcon)
         XCTAssertTrue(fixture.manager.open(definition, in: fixture.source, newInstance: true))
         let session = try XCTUnwrap(fixture.manager.runtimes.values.first)
         await readyHosted(session)
         let entry = try XCTUnwrap(fixture.world.allEntries().first { $0.target.hostedMetadata != nil })
-        XCTAssertEqual(entry.target.hostedMetadata?.icon, definition.icon)
-        try assertHostedSymbol(fixture.controller.appInfoCache.presentation(for: entry).icon, named: definition.icon)
+        XCTAssertEqual(entry.target.hostedMetadata?.icon, declaredIcon)
+        try assertHostedSymbol(fixture.controller.appInfoCache.presentation(for: entry).icon, named: declaredIcon)
         fixture.close()
         await ShellWidgetHost.flushRetiredWork()
     }

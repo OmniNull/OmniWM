@@ -59,7 +59,13 @@ final class ShellAppRuntime {
 
     init(definition: ShellAppDefinition, window: NSWindow, resources: ShellResources) {
         self.definition = definition
-        primary = Slot(id: id, viewName: "window", window: window, resources: resources, folder: definition.folder)
+        primary = Slot(
+            id: id,
+            viewName: definition.view,
+            window: window,
+            resources: resources,
+            folder: definition.folder
+        )
         attach(primary)
     }
 

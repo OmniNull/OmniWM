@@ -79,12 +79,14 @@ enum ActionCatalog {
         switch command {
         case let .shellToggle(name): shellToggleSpec(name: name)
         case let .openApp(bundleID): openAppSpec(bundleID: bundleID)
+        case let .shellAppOpen(id): shellAppSpec(appID: id)
+        case let .shellAppNewWindow(id): shellAppSpec(appID: id, newWindow: true)
         default: specsByCommand[command] ?? workspaceNumberSpec(for: command)
         }
     }
 
     static func dynamicSpec(for id: String) -> ActionSpec? {
-        workspaceNumberSpec(for: id) ?? shellToggleSpec(for: id) ?? openAppSpec(for: id)
+        workspaceNumberSpec(for: id) ?? shellToggleSpec(for: id) ?? openAppSpec(for: id) ?? shellAppSpec(for: id)
     }
 
     static func normalizedSearchTerms(for id: String) -> [String]? {
@@ -203,9 +205,10 @@ enum ActionCatalog {
         category: HotkeyCategory,
         binding: KeyBinding,
         visibility: HotkeyVisibility = .normal,
-        keywords: [String] = []
+        keywords: [String] = [],
+        title: LocalizedStringResource? = nil
     ) -> ActionSpec {
-        let resource = titleResource(for: command)
+        let resource = title ?? titleResource(for: command)
         let localizedTitle = String(localized: resource)
         let title = canonicalSourceTitle(for: resource)
         return ActionSpec(

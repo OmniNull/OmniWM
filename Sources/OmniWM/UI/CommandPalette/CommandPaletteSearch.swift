@@ -180,7 +180,11 @@ enum CommandPaletteSearch {
             uniquingKeysWith: { first, _ in first }
         )
 
-        return ActionCatalog.allSpecs().filter {
+        let apps = wmController.shellAppCatalog.definitions.values.filter { $0.id != ShellAppWindowManager.exampleID }
+        let appSpecs = apps.flatMap { app in
+            [false, true].compactMap { ActionCatalog.shellAppSpec(appID: app.id, title: app.title, newWindow: $0) }
+        }
+        return (ActionCatalog.allSpecs() + appSpecs).filter {
             wmController.settings.isCommandFeatureEnabled($0.command)
         }.map { spec in
             let trigger = spec.visibility == .unassignable ? nil : triggersByID[spec.id]
