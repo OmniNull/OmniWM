@@ -34,7 +34,7 @@ extension SkyLight {
 
     func getWindowBounds(_ wid: UInt32) -> CGRect? {
         MainThreadAXSpanTrace.measure(.windowServerBounds, windowId: Int(wid)) {
-            queryWindowInfoOffMainConnection(wid)?.frame
+            queryWindowBounds(wid)
         } succeeded: { $0 != nil }
     }
 

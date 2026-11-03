@@ -1,40 +1,34 @@
 // SPDX-License-Identifier: GPL-2.0-only
 // Copyright (C) 2026 OmniNull — https://github.com/OmniNull/OmniWM
 
+import AppKit
 import CoreGraphics
 import Darwin
 import Foundation
 @testable import OmniWM
+import QuartzCore
 import XCTest
 
 @MainActor
 final class SkyLightNativeSpaceInventoryLiveTests: XCTestCase {
     func testForeignMoveCannotPoisonBoundsUsedForVerification() async throws {
         try requireLiveTestsEnabled()
+        if ProcessInfo.processInfo.environment[Self.foreignHelperEnvironmentKey] == "1" {
+            try runForeignPanelHelper()
+            return
+        }
         let helper = Process()
         let output = Pipe()
         let input = Pipe()
-        helper.executableURL = URL(fileURLWithPath: "/usr/bin/swift")
-        helper.arguments = ["-e", #"""
-        import AppKit
-        let app = NSApplication.shared
-        app.setActivationPolicy(.accessory)
-        let panel = NSPanel(
-            contentRect: CGRect(x: 5, y: 5, width: 10, height: 10),
-            styleMask: [.borderless, .nonactivatingPanel], backing: .buffered, defer: false
-        )
-        panel.level = .statusBar
-        panel.orderFrontRegardless()
-        DispatchQueue.main.asyncAfter(deadline: .now() + 0.1) {
-            print(panel.windowNumber)
-            fflush(stdout)
-        }
-        DispatchQueue.global().async {
-            _ = FileHandle.standardInput.readDataToEndOfFile()
-            exit(0)
-        }
-        app.run()
-        """#]
+        helper.executableURL = URL(fileURLWithPath: CommandLine.arguments[0])
+        helper.arguments = [
+            "-XCTest",
+            "OmniWMTests.SkyLightNativeSpaceInventoryLiveTests/testForeignMoveCannotPoisonBoundsUsedForVerification",
+            Bundle(for: Self.self).bundlePath
+        ]
+        var environment = ProcessInfo.processInfo.environment
+        environment[Self.foreignHelperEnvironmentKey] = "1"
+        helper.environment = environment
         helper.standardOutput = output
         helper.standardInput = input
         try helper.run()
@@ -43,17 +37,7 @@ final class SkyLightNativeSpaceInventoryLiveTests: XCTestCase {
             helper.terminate()
             helper.waitUntilExit()
         }
-        var line = Data()
-        while true {
-            var descriptor = pollfd(fd: output.fileHandleForReading.fileDescriptor, events: Int16(POLLIN), revents: 0)
-            guard poll(&descriptor, 1, 30_000) > 0 else {
-                return XCTFail("Foreign helper did not report its window within 30 seconds")
-            }
-            guard let byte = try output.fileHandleForReading.read(upToCount: 1), !byte.isEmpty else { break }
-            if byte == Data([10]) { break }
-            line.append(byte)
-        }
-        let wid = try XCTUnwrap(UInt32(String(decoding: line, as: UTF8.self)))
+        let wid = try foreignWindowId(from: output.fileHandleForReading)
         func independentlyObservedBounds() -> CGRect? {
             guard let list = CGWindowListCopyWindowInfo(.optionAll, 0) as? [[String: Any]],
                   let info = list.first(where: { ($0[kCGWindowNumber as String] as? NSNumber)?.uint32Value == wid }),
@@ -65,9 +49,9 @@ final class SkyLightNativeSpaceInventoryLiveTests: XCTestCase {
         let sky = SkyLight.shared
         XCTAssertEqual(sky.getWindowBounds(wid), before)
         XCTAssertEqual(sky.batchMoveWindows([
-            (windowId: wid, origin: CGPoint(x: before.minX + 6, y: before.minY + 6))
+            (windowId: wid, origin: CGPoint(x: before.midX, y: before.midY))
         ]), .submitted)
-        try await Task.sleep(for: .milliseconds(50))
+        try synchronizeWindowServer()
 
         XCTAssertEqual(sky.getWindowBounds(wid), try XCTUnwrap(independentlyObservedBounds()))
     }
@@ -87,6 +71,7 @@ final class SkyLightNativeSpaceInventoryLiveTests: XCTestCase {
 
         for expected in [false, true, false, true] {
             sky.orderWindow(wid, relativeTo: 0, order: expected ? .above : .out)
+            try synchronizeWindowServer()
             XCTAssertEqual(sky.isWindowOrderedIn(wid), expected)
 
             let result = try await sky.queryWindowInfoDeferred(
@@ -114,11 +99,11 @@ final class SkyLightNativeSpaceInventoryLiveTests: XCTestCase {
         defer { sky.releaseBorderWindow(wid) }
 
         sky.transactionHide(wid)
-        let orderedOut = await observedOrderedState(of: wid, matching: false)
+        let orderedOut = try observedOrderedState(of: wid, matching: false)
         XCTAssertEqual(orderedOut, false)
 
         sky.orderWindow(wid, relativeTo: 0, order: .above)
-        let orderedIn = await observedOrderedState(of: wid, matching: true)
+        let orderedIn = try observedOrderedState(of: wid, matching: true)
         XCTAssertEqual(orderedIn, true)
     }
 
@@ -143,20 +128,20 @@ final class SkyLightNativeSpaceInventoryLiveTests: XCTestCase {
         }
 
         XCTAssertEqual(scopedSubmission, .deferred)
-        let scopedMovedBounds = await observedBounds(of: wid, matching: scopedTarget)
-        XCTAssertEqual(scopedMovedBounds?.size, initialBounds.size)
+        let scopedMovedBounds = try observedBounds(of: wid, matching: scopedTarget)
+        XCTAssertEqual(scopedMovedBounds.size, initialBounds.size)
         XCTAssertTrue(sky.moveWindow(wid, to: initialBounds.origin))
-        let scopedRestoredBounds = await observedBounds(of: wid, matching: initialBounds.origin)
-        XCTAssertEqual(scopedRestoredBounds?.size, initialBounds.size)
+        let scopedRestoredBounds = try observedBounds(of: wid, matching: initialBounds.origin)
+        XCTAssertEqual(scopedRestoredBounds.size, initialBounds.size)
 
         let submittedTarget = CGPoint(x: initialBounds.origin.x + 12, y: initialBounds.origin.y + 12)
         let submitted = sky.batchMoveWindows([(windowId: wid, origin: submittedTarget)])
         XCTAssertEqual(submitted, .submitted)
-        let submittedMovedBounds = await observedBounds(of: wid, matching: submittedTarget)
-        XCTAssertEqual(submittedMovedBounds?.size, initialBounds.size)
+        let submittedMovedBounds = try observedBounds(of: wid, matching: submittedTarget)
+        XCTAssertEqual(submittedMovedBounds.size, initialBounds.size)
         XCTAssertTrue(sky.moveWindow(wid, to: initialBounds.origin))
-        let submittedRestoredBounds = await observedBounds(of: wid, matching: initialBounds.origin)
-        XCTAssertEqual(submittedRestoredBounds?.size, initialBounds.size)
+        let submittedRestoredBounds = try observedBounds(of: wid, matching: initialBounds.origin)
+        XCTAssertEqual(submittedRestoredBounds.size, initialBounds.size)
 
         let orderedWid = sky.createBorderWindow(frame: CGRect(x: -8960, y: -9000, width: 10, height: 10))
         guard orderedWid != 0 else {
@@ -182,12 +167,12 @@ final class SkyLightNativeSpaceInventoryLiveTests: XCTestCase {
             )
         }
 
-        let orderedMovedInfo = await observedWindowInfo(
+        let orderedMovedInfo = try observedWindowInfo(
             of: orderedWid,
             matching: orderedTarget,
             level: alternateLevel
         )
-        XCTAssertEqual(orderedMovedInfo?.frame.size, orderedInitialInfo.frame.size)
+        XCTAssertEqual(orderedMovedInfo.frame.size, orderedInitialInfo.frame.size)
         XCTAssertEqual(sky.isWindowOrderedIn(orderedWid), true)
 
         sky.transactionMoveAndOrder(
@@ -197,12 +182,12 @@ final class SkyLightNativeSpaceInventoryLiveTests: XCTestCase {
             relativeTo: 0,
             order: .above
         )
-        let orderedRestoredInfo = await observedWindowInfo(
+        let orderedRestoredInfo = try observedWindowInfo(
             of: orderedWid,
             matching: orderedInitialInfo.frame.origin,
             level: orderedInitialInfo.level
         )
-        XCTAssertEqual(orderedRestoredInfo?.frame.size, orderedInitialInfo.frame.size)
+        XCTAssertEqual(orderedRestoredInfo.frame.size, orderedInitialInfo.frame.size)
     }
 
     func testLiveNativeSpaceInventoryReturnsCompleteDeduplicatedDetails() throws {
@@ -262,62 +247,102 @@ final class SkyLightNativeSpaceInventoryLiveTests: XCTestCase {
         }
     }
 
-    private func observedBounds(of wid: UInt32, matching origin: CGPoint) async -> CGRect? {
-        let clock = ContinuousClock()
-        let deadline = clock.now.advanced(by: .milliseconds(250))
-        repeat {
-            if let bounds = SkyLight.shared.getWindowBounds(wid),
-               abs(bounds.origin.x - origin.x) < 2,
-               abs(bounds.origin.y - origin.y) < 2
-            {
-                return bounds
-            }
-            do {
-                try await Task.sleep(for: .milliseconds(5))
-            } catch {
-                return nil
-            }
-        } while clock.now < deadline
-        return nil
+    private static let foreignHelperEnvironmentKey = "OMNIWM_SKYLIGHT_FOREIGN_PANEL_HELPER"
+    private static let foreignWindowPrefix = "OMNIWM_FOREIGN_WINDOW="
+
+    private func runForeignPanelHelper() throws {
+        let app = NSApplication.shared
+        app.setActivationPolicy(.accessory)
+        let panel = NSPanel(
+            contentRect: CGRect(x: 5, y: 5, width: 10, height: 10),
+            styleMask: [.borderless, .nonactivatingPanel], backing: .buffered, defer: false
+        )
+        panel.level = .statusBar
+        FileHandle.standardInput.readabilityHandler = { handle in
+            if handle.availableData.isEmpty { exit(EXIT_SUCCESS) }
+        }
+        panel.orderFrontRegardless()
+        panel.displayIfNeeded()
+        CATransaction.flush()
+        try synchronizeWindowServer()
+        let wid = try XCTUnwrap(UInt32(exactly: panel.windowNumber))
+        let info = try XCTUnwrap(SkyLight.shared.queryWindowInfo(wid))
+        XCTAssertEqual(info.pid, getpid())
+        XCTAssertEqual(SkyLight.shared.isWindowOrderedIn(wid), true)
+        print(Self.foreignWindowPrefix + String(wid))
+        fflush(stdout)
+        app.run()
+        withExtendedLifetime(panel) {}
     }
 
-    private func observedOrderedState(of wid: UInt32, matching expected: Bool) async -> Bool? {
+    private func foreignWindowId(from output: FileHandle) throws -> UInt32 {
         let clock = ContinuousClock()
-        let deadline = clock.now.advanced(by: .milliseconds(250))
-        repeat {
-            if let orderedIn = SkyLight.shared.isWindowOrderedIn(wid), orderedIn == expected {
-                return orderedIn
+        let deadline = clock.now.advanced(by: .seconds(30))
+        var line = Data()
+        while true {
+            let remaining = clock.now.duration(to: deadline)
+            guard remaining > .zero else {
+                throw ForeignPanelError.readinessDeadlineExceeded
             }
-            do {
-                try await Task.sleep(for: .milliseconds(5))
-            } catch {
-                return nil
+            let components = remaining.components
+            let milliseconds = components.seconds * 1_000 + components.attoseconds / 1_000_000_000_000_000
+            var descriptor = pollfd(fd: output.fileDescriptor, events: Int16(POLLIN), revents: 0)
+            guard poll(&descriptor, 1, Int32(clamping: milliseconds)) > 0 else {
+                throw ForeignPanelError.readinessDeadlineExceeded
             }
-        } while clock.now < deadline
-        return nil
+            guard let byte = try output.read(upToCount: 1), !byte.isEmpty else {
+                throw ForeignPanelError.exitedBeforeReady
+            }
+            if byte == Data("\n".utf8) {
+                let message = String(decoding: line, as: UTF8.self)
+                if message.hasPrefix(Self.foreignWindowPrefix),
+                   let wid = UInt32(message.dropFirst(Self.foreignWindowPrefix.count))
+                {
+                    return wid
+                }
+                line.removeAll(keepingCapacity: true)
+            } else {
+                line.append(byte)
+            }
+        }
+    }
+
+    private enum ForeignPanelError: Error {
+        case readinessDeadlineExceeded
+        case exitedBeforeReady
+    }
+
+    private func synchronizeWindowServer() throws {
+        let sky = SkyLight.shared
+        let transaction = try XCTUnwrap(sky.transactions.transactionCreate(sky.getMainConnectionID())?
+            .takeRetainedValue())
+        let synchronous: Int32 = 1
+        sky.transactions.transactionCommit(transaction, synchronous)
+    }
+
+    private func observedBounds(of wid: UInt32, matching origin: CGPoint) throws -> CGRect {
+        try synchronizeWindowServer()
+        let bounds = try XCTUnwrap(SkyLight.shared.getWindowBounds(wid))
+        XCTAssertEqual(bounds.origin, origin)
+        return bounds
+    }
+
+    private func observedOrderedState(of wid: UInt32, matching expected: Bool) throws -> Bool {
+        try synchronizeWindowServer()
+        let orderedIn = try XCTUnwrap(SkyLight.shared.isWindowOrderedIn(wid))
+        XCTAssertEqual(orderedIn, expected)
+        return orderedIn
     }
 
     private func observedWindowInfo(
         of wid: UInt32,
         matching origin: CGPoint,
         level: Int32
-    ) async -> WindowServerInfo? {
-        let clock = ContinuousClock()
-        let deadline = clock.now.advanced(by: .milliseconds(250))
-        repeat {
-            if let info = SkyLight.shared.queryWindowInfo(wid),
-               info.level == level,
-               abs(info.frame.origin.x - origin.x) < 2,
-               abs(info.frame.origin.y - origin.y) < 2
-            {
-                return info
-            }
-            do {
-                try await Task.sleep(for: .milliseconds(5))
-            } catch {
-                return nil
-            }
-        } while clock.now < deadline
-        return nil
+    ) throws -> WindowServerInfo {
+        try synchronizeWindowServer()
+        let info = try XCTUnwrap(SkyLight.shared.queryWindowInfo(wid))
+        XCTAssertEqual(info.level, level)
+        XCTAssertEqual(info.frame.origin, origin)
+        return info
     }
 }

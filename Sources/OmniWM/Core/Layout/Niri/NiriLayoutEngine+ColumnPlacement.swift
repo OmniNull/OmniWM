@@ -103,7 +103,7 @@ extension NiriLayoutEngine {
         result: inout LayoutResult
     ) {
         let visibility = pass.viewport.columnVisibility(
-            for: prepared, at: index, viewPosition: pass.viewPosition,
+            for: prepared, at: (index: index, isActive: index == pass.activeIndex), viewPosition: pass.viewPosition,
             hiddenPlacementMonitor: pass.context.hiddenPlacementMonitor,
             hiddenPlacementMonitors: pass.context.hiddenPlacementMonitors
         )

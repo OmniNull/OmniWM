@@ -36,8 +36,15 @@ extension LayoutRefreshController {
     }
 
     func repairLayoutTransientPark(after result: AXFrameApplyResult) {
+        switch result.writeResult.failureReason {
+        case nil,
+             .verificationMismatch,
+             .positionWriteFailed:
+            break
+        default:
+            return
+        }
         guard let controller,
-              result.writeResult.failureReason == nil || result.writeResult.failureReason == .verificationMismatch,
               let observedFrame = result.writeResult.observedFrame,
               !observedFrame.size.isWithinFrameTolerance(of: result.targetFrame.size),
               let entry = controller.workspaceManager.entry(for: WindowToken(

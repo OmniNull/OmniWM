@@ -87,12 +87,11 @@ struct NiriLayoutViewport {
 
     func columnVisibility(
         for column: NiriPreparedLayoutColumn,
-        at idx: Int,
+        at selection: (index: Int, isActive: Bool),
         viewPosition viewPos: CGFloat,
         hiddenPlacementMonitor: HiddenPlacementMonitorContext?,
         hiddenPlacementMonitors: [HiddenPlacementMonitorContext]
     ) -> NiriColumnVisibility {
-        let renderOffset = column.renderOffset
         let canonicalContainerRect = area.canonicalContainerRect(
             position: column.position,
             span: column.span,
@@ -102,18 +101,19 @@ struct NiriLayoutViewport {
             canonicalRect: canonicalContainerRect,
             viewPosition: viewPos,
             workspaceOffset: workspaceOffset,
-            renderOffset: renderOffset,
+            renderOffset: column.renderOffset,
             orientation: orientation
         )
         var visibilityState = sampledContainerVisibilityState(
             canonicalRect: canonicalContainerRect,
-            renderOffset: renderOffset,
-            fallback: idx == 0 ? .minimum : .maximum,
+            renderOffset: column.renderOffset,
+            fallback: selection.index == 0 ? .minimum : .maximum,
             hiddenPlacementMonitor: hiddenPlacementMonitor,
             hiddenPlacementMonitors: hiddenPlacementMonitors
         )
         if case .visible = visibilityState {
             if orientation == .vertical,
+               !(selection.isActive && column.span > area.workingFrame.height),
                let hiddenPlacementMonitor,
                hiddenPlacementMonitors.contains(where: { $0.id != hiddenPlacementMonitor.id }),
                visibilityRect.maxY > hiddenPlacementMonitor.frame.maxY

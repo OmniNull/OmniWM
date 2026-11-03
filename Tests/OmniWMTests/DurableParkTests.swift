@@ -10,6 +10,12 @@ import XCTest
 @MainActor
 final class DurableParkTests: XCTestCase {
     func testClampedPortraitParkRequiresAXVerificationOfCorrectedPosition() throws {
+        for failure: AXFrameWriteFailureReason in [.verificationMismatch, .positionWriteFailed(.failure)] {
+            try assertClampedPortraitParkRequiresAXVerification(failure: failure)
+        }
+    }
+
+    private func assertClampedPortraitParkRequiresAXVerification(failure: AXFrameWriteFailureReason) throws {
         let fixture = try Self.layoutParkFixture(pid: 972_001, windowId: 972_101, isAnimationTick: true)
         let controller = fixture.controller
         let manager = controller.axManager
@@ -44,26 +50,46 @@ final class DurableParkTests: XCTestCase {
             reason: .layoutTransient(.right)
         ), for: fixture.token)
         let entry = try XCTUnwrap(controller.workspaceManager.entry(for: fixture.token))
+        let insets = (horizontal: CGFloat(14), bottom: CGFloat(14), top: CGFloat(10))
+        let workingFrame = CGRect(
+            x: portrait.visibleFrame.minX + insets.horizontal,
+            y: portrait.visibleFrame.minY + insets.bottom,
+            width: portrait.visibleFrame.width - insets.horizontal * 2,
+            height: portrait.visibleFrame.height - insets.bottom - insets.top
+        )
+        let reveal = LayoutRefreshController.hiddenWindowEdgeRevealEpsilon
         let target = AXFrameApplicationTarget(
             pid: entry.pid, window: try XCTUnwrap(entry.axRef),
-            frame: CGRect(x: -1426, y: -31, width: 1412, height: 2506)
+            frame: CGRect(
+                origin: CGPoint(x: workingFrame.minX, y: portrait.visibleFrame.maxY - reveal), size: workingFrame.size
+            )
         )
         let request = try XCTUnwrap(manager.prepareParkFrameApplications([target]).first)
-        let clamped = CGRect(x: -1372, y: 0, width: 1412, height: 950)
+        let clamped = CGRect(
+            x: laptop.frame.minX - workingFrame.width + portrait.frame.maxY - workingFrame.maxY,
+            y: portrait.frame.maxY, width: workingFrame.width, height: laptop.visibleFrame.height
+        )
         XCTAssertFalse(clamped.intersection(laptop.frame).isEmpty)
-        let failure = WindowAdmissionTestSupport.frameResult(
-            request: request, observed: clamped, failure: .verificationMismatch
+        let result = WindowAdmissionTestSupport.frameResult(
+            request: request, observed: clamped, failure: failure
         )
         FrameApplyTrace.shared.beginCapture()
         defer { FrameApplyTrace.shared.endCapture() }
 
-        manager.handleParkFrameApplyResults([failure])
+        manager.handleParkFrameApplyResults([result])
 
         let repaired = try XCTUnwrap(manager.parkTargetFrame(for: entry.windowId))
-        XCTAssertEqual(repaired, CGRect(x: -2851, y: -1770, width: 1412, height: 950))
+        let expected = CGRect(
+            origin: CGPoint(
+                x: portrait.frame.minX - clamped.width + reveal,
+                y: min(portrait.visibleFrame.midY - clamped.height / 2, portrait.visibleFrame.maxY - clamped.height)
+            ),
+            size: clamped.size
+        )
+        XCTAssertEqual(repaired, expected)
         XCTAssertTrue(repaired.intersection(laptop.frame).isNull)
         XCTAssertTrue(repaired.intersection(lower.frame).isNull)
-        XCTAssertEqual(repaired.intersection(portrait.frame).width, 1)
+        XCTAssertEqual(repaired.intersection(portrait.frame).width, reveal)
         XCTAssertNil(manager.pendingParkFrameRequest(for: entry.windowId))
         XCTAssertFalse(Self.frameTrace(fixture).contains("park-ledger-prepared/retry"))
 
@@ -106,6 +132,12 @@ final class DurableParkTests: XCTestCase {
     }
 
     func testRejectedLayoutTransientPositionKeepsBoundedRetryBudget() throws {
+        for reason: AXFrameWriteFailureReason in [.verificationMismatch, .positionWriteFailed(.failure)] {
+            try assertRejectedLayoutTransientPositionKeepsBoundedRetryBudget(reason: reason)
+        }
+    }
+
+    private func assertRejectedLayoutTransientPositionKeepsBoundedRetryBudget(reason: AXFrameWriteFailureReason) throws {
         let fixture = try Self.layoutParkFixture(pid: 971_004, windowId: 971_104, isAnimationTick: true)
         let manager = fixture.controller.axManager
         let entry = try XCTUnwrap(fixture.controller.workspaceManager.entry(for: fixture.token))
@@ -116,7 +148,7 @@ final class DurableParkTests: XCTestCase {
         let observed = fixture.parkedFrame.offsetBy(dx: 100, dy: 0)
         func failure(_ request: AXFrameApplicationRequest) -> AXFrameApplyResult {
             WindowAdmissionTestSupport.frameResult(
-                request: request, observed: observed, failure: .verificationMismatch
+                request: request, observed: observed, failure: reason
             )
         }
         let repair = fixture.controller.layoutRefreshController.repairLayoutTransientPark(after:)
@@ -171,7 +203,9 @@ final class DurableParkTests: XCTestCase {
                 reason: .workspaceInactive
             ))
             let parkedFrame = CGRect(origin: origin, size: frame.size)
-            XCTAssertEqual(parkedFrame.intersection(monitor.frame).width, 1)
+            XCTAssertEqual(
+                parkedFrame.intersection(monitor.frame).width, LayoutRefreshController.hiddenWindowEdgeRevealEpsilon
+            )
             XCTAssertTrue(parkedFrame.intersection(upperMonitor.frame).isNull)
             XCTAssertEqual(origin.y, frame.minY)
         }
@@ -294,7 +328,10 @@ final class DurableParkTests: XCTestCase {
                 reason: .layoutTransient
             ))
             XCTAssertEqual(controller.axManager.skyLightLivePosition(for: token.windowId), parkOrigin)
-            XCTAssertEqual(CGRect(origin: parkOrigin, size: frame.size).intersection(monitor.frame).width, 1)
+            XCTAssertEqual(
+                CGRect(origin: parkOrigin, size: frame.size).intersection(monitor.frame).width,
+                LayoutRefreshController.hiddenWindowEdgeRevealEpsilon
+            )
             XCTAssertTrue(controller.axManager.pendingParkWindowIds.contains(token.windowId))
         }
     }
@@ -382,7 +419,7 @@ final class DurableParkTests: XCTestCase {
             reason: .layoutTransient,
             controller: fixture.controller
         )
-        XCTAssertEqual(reparkedFrame.minX, fixture.parkedFrame.minX - 200, accuracy: 0.01)
+        XCTAssertEqual(reparkedFrame.minX, fixture.parkedFrame.minX - (grownFrame.width - fixture.parkedFrame.width))
         XCTAssertEqual(Self.settledParkEventCount(windowId: fixture.token.windowId, target: reparkedFrame), 1)
     }
 
@@ -487,7 +524,7 @@ final class DurableParkTests: XCTestCase {
             reason: .workspaceInactive,
             controller: controller
         )
-        XCTAssertEqual(reparkedFrame.minX, parkFrame.minX - 200, accuracy: 0.01)
+        XCTAssertEqual(reparkedFrame.minX, parkFrame.minX - (grownFrame.width - parkFrame.width))
         XCTAssertEqual(Self.settledParkEventCount(windowId: windowId, target: reparkedFrame), 1)
     }
 
