@@ -218,23 +218,26 @@ extension ShellWidgetHost {
         layoutChanged: inout Bool
     ) {
         for (key, tree) in delivery.trees {
+            guard let bar = key.bar else { continue }
             ShellFrameTrace.$context.withValue(tree.trace) {
                 ShellFrameTrace.shared.record(.applyStart)
                 defer { ShellFrameTrace.shared.record(.applyEnd) }
                 switch key.view {
                 case .bar:
                     layoutGeneration &+= 1
-                    if state.instances[key.bar]?.apply(
+                    if state.instances[bar]?.apply(
                         tree,
                         text: state.text,
                         gestureAcknowledgement: delivery.acknowledgements[key]?.invocationID ?? 0
-                    ) == true, bars[key.bar] != nil {
+                    ) == true, bars[bar] != nil {
                         layoutChanged = true
                     }
+                case .window:
+                    break
                 case .popout:
                     applyPopout(
                         tree,
-                        key: key.bar,
+                        key: bar,
                         for: state,
                         gestureAcknowledgement: delivery.acknowledgements[key]?.invocationID ?? 0
                     )
@@ -244,11 +247,13 @@ extension ShellWidgetHost {
     }
 
     func interactionSurface(key: ShellTreeKey, for state: WidgetState) -> ShellWidgetSurface? {
+        guard let bar = key.bar else { return nil }
         switch key.view {
-        case .bar: return state.instances[key.bar]?.surface
+        case .bar: return state.instances[bar]?.surface
+        case .window: return nil
         case .popout:
-            if let popout, popout.widget == state.name, popout.key == key.bar { return popout.surface }
-            return drawer?.section(widget: state.name, key: key.bar)?.surface
+            if let popout, popout.widget == state.name, popout.key == bar { return popout.surface }
+            return drawer?.section(widget: state.name, key: bar)?.surface
         }
     }
 

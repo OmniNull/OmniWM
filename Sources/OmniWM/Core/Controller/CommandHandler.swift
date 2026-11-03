@@ -108,6 +108,8 @@ final class CommandHandler {
             return controller.performKeyboardModeCommand(command)
         case let .shellToggle(name):
             return controller.workspaceBarManager.toggleShell(name) ? .executed : .notFound
+        case let .shellAppOpen(appID):
+            return controller.shellAppWindowManager.open(appID) ? .executed : .notFound
         }
         return .executed
     }

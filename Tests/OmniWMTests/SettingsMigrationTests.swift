@@ -505,7 +505,8 @@ final class SettingsMigrationTests: XCTestCase {
     }
 
     func testVersionOneFixtureAddsCurrentBindingsAndPreservesCustomDataByID() throws {
-        let result = try SettingsTOMLCodec.decodeForLoad(legacyFixtureData(named: "v0.6.4-custom"))
+        let originalData = try legacyFixtureData(named: "v0.6.4-custom")
+        let result = try SettingsTOMLCodec.decodeForLoad(originalData)
         let migration = try XCTUnwrap(result.migration)
         let migratedData = try XCTUnwrap(result.migratedData)
 
@@ -560,18 +561,16 @@ final class SettingsMigrationTests: XCTestCase {
         XCTAssertEqual(rule.minWidth, 720)
         XCTAssertEqual(rule.minHeight, 480)
 
-        let actionsAddedAfterVersionFour: Set<String> = [
-            "toggleFloatingFocus", "volumeUp", "volumeDown", "volumeMute", "mediaPlayPause", "mediaNext",
-            "mediaPrevious", "openCommandPalette.windows", "openCommandPalette.menu",
-            "openCommandPalette.clipboard", "openCommandPalette.commands", "openCommandPalette.applications",
-            "openCommandPalette.files", "toggleShortcutPause", "beginPrefix", "toggleWindowMode",
-            "exitKeyboardMode"
-        ]
-        XCTAssertEqual(
-            hotkeyIDs(in: migratedData),
-            HotkeyBindingRegistry.defaults().map(\.id).filter { !actionsAddedAfterVersionFour.contains($0) }
-        )
-        for id in actionsAddedAfterVersionFour {
+        let currentIDs = HotkeyBindingRegistry.defaults().map(\.id)
+        let renamedIDs = Dictionary(uniqueKeysWithValues: expectedVersionFiveMappings.map {
+            ($0.previousID, $0.currentID)
+        })
+        let persistedIDs = Set(hotkeyIDs(in: originalData).map { renamedIDs[$0] ?? $0 })
+            .union(expectedVersionTwoHotkeyIDs)
+            .union(expectedVersionFourHotkeyIDs)
+        XCTAssertEqual(Set(hotkeyIDs(in: migratedData)), persistedIDs)
+        XCTAssertEqual(hotkeyIDs(in: migratedData), currentIDs.filter { persistedIDs.contains($0) })
+        for id in Set(currentIDs).subtracting(persistedIDs) {
             XCTAssertEqual(hotkey(id, in: result.export)?.binding, .unassigned, id)
         }
         let markerSections = hotkeySections(in: migratedData).filter {
@@ -1378,7 +1377,7 @@ final class SettingsMigrationTests: XCTestCase {
     }
 
     private var expectedVersionFourHotkeyIDs: Set<String> {
-        SettingsTOMLMigration.hotkeyIDsAddedInVersionFour
+        ["setWindowMark", "removeWindowMark"]
     }
 
     private var expectedVersionFiveMappings: [SettingsHotkeyMapping] {

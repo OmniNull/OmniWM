@@ -16,7 +16,8 @@ enum EventNormalizer {
             normalizeAdmission(event, existingEntry: existingEntry)
         case .workspaceAssigned,
              .windowModeChanged,
-             .floatingGeometryUpdated:
+             .floatingGeometryUpdated,
+             .hostedWindowGeometryObserved:
             normalizePlacement(event, existingEntry: existingEntry)
         case .hiddenStateChanged,
              .nativeFullscreenTransition,
@@ -98,6 +99,12 @@ enum EventNormalizer {
                 monitorId: monitorId ?? existingEntry?.observedState.monitorId ?? existingEntry?.desiredState.monitorId,
                 mode: mode,
                 source: source
+            )
+        case let .hostedWindowGeometryObserved(token, workspaceId, monitorId, frame, source):
+            return .hostedWindowGeometryObserved(
+                token: token, workspaceId: workspaceId,
+                monitorId: monitorId ?? existingEntry?.observedState.monitorId ?? existingEntry?.desiredState.monitorId,
+                frame: frame, source: source
             )
         case let .floatingGeometryUpdated(
             token,

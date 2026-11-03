@@ -17,7 +17,7 @@ private struct ShellInvalidationSnapshot: Sendable {
 
 private extension ShellWidgetPackage {
     func invalidationSnapshot(_ key: ShellBarKey, view: ShellWidgetView) -> ShellInvalidationSnapshot? {
-        guard let script, let instance = script.instances[key], let state = states[key] else { return nil }
+        guard let script, let instance = script.instances[.bar(key)], let state = states[.bar(key)] else { return nil }
         var count = 0
         guard let output = omni_instance_output(instance, view.wire, &count),
               count >= MemoryLayout<omni_wire_header>.stride + MemoryLayout<omni_wire_node>.stride

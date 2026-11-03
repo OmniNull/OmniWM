@@ -14,7 +14,7 @@ private struct ShellIslandRenderSnapshot: Sendable {
 
 private extension ShellWidgetPackage {
     func islandRenderSnapshot(_ key: ShellBarKey) -> ShellIslandRenderSnapshot? {
-        guard let instance = script?.instances[key], let state = states[key] else { return nil }
+        guard let instance = script?.instances[.bar(key)], let state = states[.bar(key)] else { return nil }
         var count = 0
         var node: omni_wire_node?
         if let output = omni_instance_output(instance, OMNI_VIEW_BAR, &count),

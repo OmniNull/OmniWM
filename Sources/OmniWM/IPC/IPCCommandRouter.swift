@@ -37,11 +37,7 @@ final class IPCCommandRouter {
         case .openCommandPalette:
             return controller.commandHandler.performCommand(.openCommandPalette)
         case let .openCommandPaletteMode(mode):
-            if let guardResult = IPCCommandValidation.controllerState(controller) {
-                return guardResult
-            }
-            controller.openCommandPalette(mode: CommandPaletteMode(ipc: mode))
-            return .executed
+            return openCommandPalette(mode: mode)
         case .raiseAllFloatingWindows:
             return raiseAllFloatingWindows()
         case .toggleFloatingFocus:
@@ -64,6 +60,8 @@ final class IPCCommandRouter {
             return controller.commandHandler.performCommand(HotkeyCommand(ipc: command))
         case .openMenuAnywhere:
             return controller.commandHandler.performCommand(.openMenuAnywhere)
+        case let .shellAppOpen(appID):
+            return controller.commandHandler.performCommand(.shellAppOpen(appID))
         }
     }
 
@@ -328,5 +326,15 @@ final class IPCCommandRouter {
             monitorDirection: monitorDirection
         )
         return controller.workspaceManager.workspace(for: token) == previousWorkspaceId ? .notFound : .executed
+    }
+}
+
+extension IPCCommandRouter {
+    private func openCommandPalette(mode: IPCCommandPaletteMode) -> ExternalCommandResult {
+        if let guardResult = IPCCommandValidation.controllerState(controller) {
+            return guardResult
+        }
+        controller.openCommandPalette(mode: CommandPaletteMode(ipc: mode))
+        return .executed
     }
 }

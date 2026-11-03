@@ -482,5 +482,7 @@ extension IPCAutomationManifest {
             name: .media(.previous),
             summary: "Go back to the previous track."
         )
-    ] + keyboardModeCommandDescriptors
+    ] + keyboardModeCommandDescriptors + [
+        .init(name: .shellAppOpen, summary: "Open or focus a hosted OmniShell app window.", arguments: [.appID])
+    ]
 }

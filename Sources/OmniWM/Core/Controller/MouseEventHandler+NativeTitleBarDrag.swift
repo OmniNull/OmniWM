@@ -10,7 +10,7 @@ extension MouseEventHandler {
     ) -> WindowToken? {
         guard let windowIdUnderPointer,
               let entry = controller?.workspaceManager.entry(forWindowId: windowIdUnderPointer),
-              entry.mode == .tiling
+              entry.mode == .tiling, entry.axRef != nil
         else { return nil }
         return entry.token
     }

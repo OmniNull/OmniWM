@@ -56,6 +56,24 @@ extension MouseEventHandler {
         return true
     }
 
+    @discardableResult
+    func adoptHostedNativeResize(_ entry: WindowState, from start: CGRect, to observed: CGRect) -> Bool {
+        guard let controller, controller.settings.gestures.adoptNativeResize,
+              entry.target.hostedMetadata != nil, entry.mode == .tiling, entry.layoutReason == .standard,
+              entry.hiddenState == nil else { return false }
+        let edges = Self.nativeResizeEdges(from: start, to: observed)
+        guard !edges.isEmpty else { return false }
+        if controller.workspaceManager.activeLayoutKind(for: entry.workspaceId) == .niri {
+            return adoptNiriNativeResize(entry, edges: edges, from: start, to: observed)
+        }
+        var drag = MouseInputState.NativeTitleBarDrag(token: entry.token)
+        drag.adoptionStartFrame = start
+        updateNativeDwindleResize(&drag, entry: entry, observedFrame: observed, renderOnChange: false)
+        guard drag.dwindleResizeWorkspaceId != nil else { return false }
+        finishNativeDwindleResize(&drag)
+        return true
+    }
+
     private func nativeResizeStartFrame(
         _ drag: MouseInputState.NativeTitleBarDrag,
         entry: WindowState
@@ -63,8 +81,9 @@ extension MouseEventHandler {
         guard let controller,
               controller.settings.gestures.adoptNativeResize,
               let start = drag.adoptionStartFrame,
-              entry.layoutReason == .standard,
-              !controller.axManager.isAwaitingFrameWrite(entry.windowId),
+              entry.layoutReason == .standard else { return nil }
+        if entry.target.hostedMetadata != nil { return start }
+        guard !controller.axManager.isAwaitingFrameWrite(entry.windowId),
               controller.axManager.lastAppliedFrame(for: entry.windowId)?.approximatelyEqual(
                   to: start,
                   tolerance: FrameTolerance.frameWrite
@@ -160,7 +179,7 @@ extension MouseEventHandler {
             }
         }
         guard changed else { return false }
-        controller.axManager.forceApplyNextFrame(for: entry.windowId)
+        if entry.axRef != nil { controller.axManager.forceApplyNextFrame(for: entry.windowId) }
         settleNiriResize(entry.token, in: workspaceId)
         return true
     }
@@ -298,7 +317,7 @@ extension MouseEventHandler {
         guard !combinedEdges.isSuperset(of: [.left, .right]),
               !combinedEdges.isSuperset(of: [.top, .bottom])
         else { return }
-        state.nativeTitleBarDrag = drag
+        if entry.axRef != nil { state.nativeTitleBarDrag = drag }
         if engine.interactiveResizeUpdate(
             currentLocation: Self.nativeResizeLocation(combinedEdges, from: start, to: observedFrame),
             edges: edges

@@ -23,7 +23,8 @@ extension WorkspaceManager {
              let .managedReplacementMetadataChanged(_, workspaceId, _, _, _):
             noteInvalidation(workspaceId: workspaceId, domains: [.workspace, .layout, .focus])
 
-        case let .floatingGeometryUpdated(_, workspaceId, _, _, _, _, _):
+        case let .floatingGeometryUpdated(_, workspaceId, _, _, _, _, _),
+             let .hostedWindowGeometryObserved(_, workspaceId, _, _, _):
             noteInvalidation(
                 workspaceId: workspaceId,
                 domains: [.workspace, .layout],
@@ -128,56 +129,7 @@ extension WorkspaceManager {
     }
 
     func eventRequiresRuntimeInvalidation(_ event: WMEvent) -> Bool {
-        switch event {
-        case .activeSpaceChanged,
-             .appVisibilityInvalidated,
-             .floatingStateChanged,
-             .hiddenApplicationsChanged,
-             .windowMinimizedChanged,
-             .windowNativeWithdrawalChanged,
-             .layoutOperationPerformed,
-             .manualLayoutOverrideChanged,
-             .systemSleep,
-             .systemWake,
-             .topologyChanged:
-            return true
-        case .floatingGeometryUpdated,
-             .focusFallbackRemembered,
-             .focusForgotten,
-             .focusLeaseChanged,
-             .focusRemembered,
-             .hiddenStateChanged,
-             .interactionMonitorChanged,
-             .managedFocusCancelled,
-             .managedFocusConfirmed,
-             .managedFocusRequested,
-             .managedReplacementMetadataChanged,
-             .nativeFocusOwnerChanged,
-             .nativeFullscreenPlaceholderSelected,
-             .nativeFullscreenTransition,
-             .niriPlacementsResolved,
-             .dwindlePlacementsResolved,
-             .scratchpadMembershipChanged,
-             .scratchpadRevealChanged,
-             .selectionChanged,
-             .spaceTopologyChanged,
-             .suppressedFocusChanged,
-             .systemModalFocusChanged,
-             .topLevelInventoryObserved,
-             .userCommand,
-             .viewportChanged,
-             .viewportCommitted,
-             .viewportForgotten,
-             .visibleWorkspacesChanged,
-             .windowAdmitted,
-             .windowAdmissionHintsChanged,
-             .windowModeChanged,
-             .windowRekeyed,
-             .windowRemoved,
-             .workspaceAssigned,
-             .workspaceFocusCleared:
-            return false
-        }
+        event.requiresRuntimeInvalidation
     }
 
     func invalidateLayout(for ids: Set<WorkspaceDescriptor.ID>) {

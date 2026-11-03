@@ -88,7 +88,8 @@ typedef enum omni_value_tag {
 typedef enum omni_view {
     OMNI_VIEW_BAR = 0,
     OMNI_VIEW_POPOUT = 1,
-    OMNI_VIEW_NONE = 2
+    OMNI_VIEW_WINDOW = 2,
+    OMNI_VIEW_NONE = 3
 } omni_view;
 
 typedef enum omni_message_kind {
@@ -368,6 +369,7 @@ void omni_vm_reset_strings(omni_vm *vm) OMNI_NOEXCEPT;
 
 omni_instance *omni_instance_create(omni_vm *vm) OMNI_NOEXCEPT;
 void omni_instance_destroy(omni_instance *instance) OMNI_NOEXCEPT;
+omni_status omni_instance_set_window_size(omni_instance *instance, double width, double height) OMNI_NOEXCEPT;
 omni_status omni_instance_set_number(omni_instance *instance, const char *key, double value) OMNI_NOEXCEPT;
 omni_status omni_instance_set_string(omni_instance *instance, const char *key, const char *value, size_t length) OMNI_NOEXCEPT;
 omni_status omni_instance_set_value(omni_instance *instance, const char *key, const uint8_t *value, size_t length) OMNI_NOEXCEPT;

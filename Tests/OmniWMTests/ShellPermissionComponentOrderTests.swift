@@ -8,8 +8,8 @@ import XCTest
 
 private extension ShellWidgetPackage {
     func componentOrderObservation(_ key: ShellBarKey) async -> (Double, Bool, Double)? {
-        guard let script, let instance = script.instances[key] else { return nil }
-        await renderVisible(key, instance)
+        guard let script, let instance = script.instances[.bar(key)] else { return nil }
+        await renderVisible(.bar(key), instance)
         var order = 0.0
         var disabled = false
         var target = 0.0

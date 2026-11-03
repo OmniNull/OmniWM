@@ -36,8 +36,8 @@ extension ShellWidgetPackage {
         origin: ShellDesktopOrigin
     ) throws -> ShellDesktopAnchorResolution {
         guard !closing, owner.generation == services.generation, origin.widget == name, origin.generation == generation,
-              origin.sourceID != 0, let script, let instance = script.instances[origin.key.bar],
-              let state = states[origin.key.bar] else { throw ShellResourceFailure("anchor_unavailable") }
+              origin.sourceID != 0, let script, let instance = script.instances[origin.key.instance],
+              let state = states[origin.key.instance] else { throw ShellResourceFailure("anchor_unavailable") }
         var steps = [omni_anchor_step](repeating: omni_anchor_step(), count: 65)
         var count = 0
         var error = [CChar](repeating: 0, count: 256)

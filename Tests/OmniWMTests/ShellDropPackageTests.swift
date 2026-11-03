@@ -9,8 +9,8 @@ import XCTest
 
 private extension ShellWidgetPackage {
     func dropAuthority(for key: ShellTreeKey) -> ShellDropAuthority? {
-        guard let script, let instance = script.instances[key.bar],
-              let sequence = states[key.bar]?.sequences[key.view.rawValue] else { return nil }
+        guard let script, let instance = script.instances[key.instance],
+              let sequence = states[key.instance]?.sequences[key.view.rawValue] else { return nil }
         var count = 0
         guard let pointer = omni_instance_output(instance, key.view.wire, &count) else { return nil }
         let header = UnsafeRawPointer(pointer).loadUnaligned(as: omni_wire_header.self)
@@ -62,7 +62,7 @@ final class ShellDropPackageTests: XCTestCase {
         end
         """)
         XCTAssertNil(failure)
-        await package.receive(.bars([key.bar: ShellBarData()]))
+        await package.receive(.bars([try XCTUnwrap(key.bar): ShellBarData()]))
         let mailbox = ShellWidgetHost.connect(package)
         defer { mailbox.finish() }
         let authority = await package.dropAuthority(for: key)
@@ -123,7 +123,7 @@ final class ShellDropPackageTests: XCTestCase {
             )
             let failure = await package.load(source)
             XCTAssertNil(failure)
-            await package.receive(.bars([key.bar: ShellBarData()]))
+            await package.receive(.bars([try XCTUnwrap(key.bar): ShellBarData()]))
             let mailbox = ShellWidgetHost.connect(package)
             defer { mailbox.finish() }
             let authority = await package.dropAuthority(for: key)

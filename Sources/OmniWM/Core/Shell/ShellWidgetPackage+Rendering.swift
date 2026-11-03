@@ -7,7 +7,7 @@ import QuartzCore
 
 extension ShellWidgetPackage {
     func traceContext(
-        _ key: ShellBarKey,
+        _ key: ShellInstanceKey,
         view: String,
         continuing context: ShellFrameTraceContext? = nil
     ) -> ShellFrameTraceContext? {
@@ -16,9 +16,13 @@ extension ShellWidgetPackage {
         }
         trace.widget = RuntimeTraceLimits.boundedString(name, maxBytes: 128)
         trace.generation = generation
-        trace.display = key.monitor.displayId
-        trace.placement = key.placement == .island ? "island" : "bar"
-        trace.slice = key.island.rawValue
+        if let bar = key.bar {
+            trace.display = bar.monitor.displayId
+            trace.placement = bar.placement == .island ? "island" : "bar"
+            trace.slice = bar.island.rawValue
+        } else {
+            trace.placement = "window"
+        }
         trace.view = view
         return trace
     }
@@ -46,20 +50,23 @@ extension ShellWidgetPackage {
     }
 
     func renderVisible(
-        _ key: ShellBarKey,
+        _ key: ShellInstanceKey,
         _ instance: OpaquePointer,
         changed: UInt64? = nil,
         allowed: UInt64 = .max
     ) async {
         guard !closing, let state = states[key] else { return }
         if let changed {
-            state.invalidations[0] |= changed
-            state.invalidations[1] |= changed
+            for view in ShellWidgetView.allCases { state.invalidations[view.rawValue] |= changed }
         }
-        let visible = state.bar?.surface?.visible != false
-        for index in 0 ..< 2 {
-            let view: ShellWidgetView = index == 0 ? .bar : .popout
-            guard view == .bar || popout == key else { continue }
+        let visible = state.window?.visible ?? (state.bar?.surface?.visible != false)
+        for view in ShellWidgetView.allCases {
+            switch key {
+            case .bar:
+                guard view == .bar || (view == .popout && popout == key) else { continue }
+            case .window:
+                guard view == .window else { continue }
+            }
             let pending = state.invalidations[view.rawValue] & allowed
             if changed != nil {
                 let dependencies = state.deps[view.rawValue] | state.backgroundDemand
@@ -71,7 +78,7 @@ extension ShellWidgetPackage {
     }
 
     func render(
-        _ key: ShellBarKey,
+        _ key: ShellInstanceKey,
         _ instance: OpaquePointer,
         _ view: ShellWidgetView,
         changed: UInt64 = 0,
@@ -80,7 +87,7 @@ extension ShellWidgetPackage {
         guard !closing, let script, script.instances[key] == instance else { return }
         hydrate(key, instance)
         collectIfNeeded(script.vm)
-        let trace = traceContext(key, view: view == .bar ? "bar" : "popout")
+        let trace = traceContext(key, view: view.traceLabel)
         let admission = omni_instance_begin_update(instance, view.wire, changed, visible)
         guard admission == OMNI_OK else {
             fail(admission)
@@ -106,7 +113,7 @@ extension ShellWidgetPackage {
                 if let bytes = omni_instance_output(instance, view.wire, &size) {
                     state.sequences[view.rawValue] += 1
                     outbox.publish(
-                        name: name, generation: generation, key: ShellTreeKey(bar: key, view: view),
+                        name: name, generation: generation, key: ShellTreeKey(instance: key, view: view),
                         sequence: state.sequences[view.rawValue],
                         output: UnsafeRawBufferPointer(start: bytes, count: size), trace: trace
                     )
@@ -162,7 +169,7 @@ extension ShellWidgetPackage {
         }
     }
 
-    func flushMessages(_ key: ShellBarKey, _ instance: OpaquePointer) {
+    func flushMessages(_ key: ShellInstanceKey, _ instance: OpaquePointer) {
         if let script { drainServices(in: script) }
         let message = { (kind: omni_message_kind, index: Int) -> String in
             var length = 0
@@ -174,7 +181,7 @@ extension ShellWidgetPackage {
             log(logs) { message(OMNI_MESSAGE_LOG, $0) }
         }
         let requests = (0 ..< omni_instance_message_count(instance, OMNI_MESSAGE_REQUEST)).map {
-            ShellWidgetScriptRequest(bar: key, text: message(OMNI_MESSAGE_REQUEST, $0))
+            ShellWidgetScriptRequest(bar: key.bar, text: message(OMNI_MESSAGE_REQUEST, $0))
         }
         omni_instance_clear_messages(instance)
         if !requests.isEmpty {

@@ -27,6 +27,21 @@ enum IPCCommandArgumentSource {
         return value
     }
 
+    func appID() throws -> String {
+        let value: String
+        switch self {
+        case let .values(arguments):
+            guard arguments.count == 1, case let .appID(appID) = arguments[0] else {
+                throw IPCCommandRequestConstructionError.invalidArgumentType
+            }
+            value = appID
+        case let .json(container):
+            value = try container.decode(IPCAppIDArguments.self, forKey: .arguments).appId
+        }
+        guard !value.isEmpty else { throw IPCCommandRequestConstructionError.invalidArgumentType }
+        return value
+    }
+
     func direction() throws -> IPCDirection {
         switch self {
         case let .values(arguments):
@@ -151,6 +166,10 @@ struct IPCCommandArgumentWriter {
         try container.encode(name, forKey: .name)
     }
 
+    mutating func encode(appID value: String) throws {
+        try container.encode(IPCAppIDArguments(appId: value), forKey: .arguments)
+    }
+
     mutating func encode(direction value: IPCDirection) throws {
         try container.encode(IPCDirectionArguments(direction: value), forKey: .arguments)
     }
@@ -196,6 +215,10 @@ struct IPCCommandArgumentWriter {
     mutating func encode(axis: IPCResizeAxis, operation: IPCResizeOperation) throws {
         try container.encode(IPCResizeArguments(axis: axis, operation: operation), forKey: .arguments)
     }
+}
+
+private struct IPCAppIDArguments: Codable, Equatable, Sendable {
+    let appId: String
 }
 
 private struct IPCDirectionArguments: Codable, Equatable, Sendable {

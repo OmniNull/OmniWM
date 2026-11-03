@@ -11,6 +11,8 @@ extension IPCCommandRequest: Codable {
     public func encode(to encoder: Encoder) throws {
         var writer = try IPCCommandArgumentWriter(encoder: encoder, name: name.rawValue)
         switch self {
+        case let .shellAppOpen(appID):
+            try writer.encode(appID: appID)
         case let .focus(command):
             try command.encodeArguments(to: &writer)
         case let .windowMovement(command):

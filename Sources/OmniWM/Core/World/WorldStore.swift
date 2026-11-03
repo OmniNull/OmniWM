@@ -174,6 +174,7 @@ final class WorldStore {
 
         case .topLevelInventoryObserved,
              .floatingGeometryUpdated,
+             .hostedWindowGeometryObserved,
              .floatingStateChanged,
              .manualLayoutOverrideChanged,
              .niriPlacementsResolved,

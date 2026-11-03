@@ -57,8 +57,6 @@ enum SettingsTOMLMigration {
         "removeWindowMark"
     ]
 
-    static let hotkeyIDsAddedInVersionFour = Set(versionFourHotkeyIDs)
-
     private static let versionFiveHotkeyMappings = [
         "setContainerPrimarySpan.decrease10Percent": "resizeContainerPrimarySpan.shrink",
         "setContainerPrimarySpan.increase10Percent": "resizeContainerPrimarySpan.grow",

@@ -7,7 +7,7 @@ import XCTest
 
 private extension ShellWidgetPackage {
     func componentPackageWidths(_ key: ShellBarKey) -> [Float] {
-        guard let script, let instance = script.instances[key] else { return [] }
+        guard let script, let instance = script.instances[.bar(key)] else { return [] }
         var length = 0
         guard let pointer = omni_instance_output(instance, OMNI_VIEW_BAR, &length) else { return [] }
         let bytes = UnsafeRawBufferPointer(start: pointer, count: length)

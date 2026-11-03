@@ -210,7 +210,7 @@ extension ShellWidgetPackage {
             guard omni_vm_message_origin(script.vm, OMNI_MESSAGE_REQUEST, index, &owner, &display) else { continue }
             let bar = script.instances.first { omni_instance_display_id($0.value) == display }?.key
             requests.append(ShellWidgetScriptRequest(
-                bar: bar, text: message(OMNI_MESSAGE_REQUEST, index), owner: ShellServiceOwner(owner)
+                bar: bar?.bar, text: message(OMNI_MESSAGE_REQUEST, index), owner: ShellServiceOwner(owner)
             ))
         }
         omni_vm_clear_messages(script.vm)

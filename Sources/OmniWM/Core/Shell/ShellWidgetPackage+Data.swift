@@ -5,7 +5,7 @@ import Foundation
 import OmniWMScriptHost
 
 extension ShellWidgetPackage {
-    func hydrate(_ key: ShellBarKey, _ instance: OpaquePointer) {
+    func hydrate(_ key: ShellInstanceKey, _ instance: OpaquePointer) {
         guard let state = states[key], state.pendingData != 0 else { return }
         let changed = state.pendingData
         state.pendingData = 0

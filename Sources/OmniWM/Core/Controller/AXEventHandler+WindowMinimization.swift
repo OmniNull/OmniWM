@@ -80,7 +80,7 @@ extension AXEventHandler {
             controller.intentLedger.discardPendingFocus(token)
             controller.layoutRefreshController.cancelActiveAnimations(for: entry.workspaceId)
         }
-        controller.axManager.setWindowNativeSuppressed(suppressed, token: token)
+        if entry.axRef != nil { controller.axManager.setWindowNativeSuppressed(suppressed, token: token) }
         controller.mouseEventHandler.handleAppVisibilityChanged()
         controller.windowActionHandler.refreshOverviewProjection(affectedWorkspaceIds: [entry.workspaceId])
         if requestRefresh {

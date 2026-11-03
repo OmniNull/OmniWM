@@ -38,14 +38,24 @@ struct ShellScriptFailure: LocalizedError, Equatable, Sendable {
     }
 }
 
-enum ShellWidgetView: Int, Sendable {
+enum ShellWidgetView: Int, CaseIterable, Sendable {
     case bar
     case popout
+    case window
+
+    var traceLabel: String {
+        switch self {
+        case .bar: "bar"
+        case .popout: "popout"
+        case .window: "window"
+        }
+    }
 
     var wire: omni_view {
         switch self {
         case .bar: OMNI_VIEW_BAR
         case .popout: OMNI_VIEW_POPOUT
+        case .window: OMNI_VIEW_WINDOW
         }
     }
 }
@@ -57,7 +67,8 @@ enum ShellWidgetMessage: Sendable {
     case components(ShellWidgetSource)
     case catalog(enabled: Bool, catalog: [UInt8], schema: [UInt8])
     case bars([ShellBarKey: ShellBarData])
-    case invoke(ShellBarKey, ShellWidgetView, action: UInt32, sequence: Int, event: ShellEvent)
+    case window(ShellWindowContext?)
+    case invoke(ShellInstanceKey, ShellWidgetView, action: UInt32, sequence: Int, event: ShellEvent)
     case gesture(ShellGestureBox.Pending)
     case popout(ShellBarKey, Bool, trace: ShellFrameTraceContext? = nil)
     case interval(Double?)
@@ -98,13 +109,26 @@ extension ShellWidgetDeclaration {
 }
 
 struct ShellTreeKey: Hashable, Sendable {
-    let bar: ShellBarKey
+    let instance: ShellInstanceKey
     let view: ShellWidgetView
+
+    var bar: ShellBarKey? {
+        instance.bar
+    }
+
+    init(instance: ShellInstanceKey, view: ShellWidgetView) {
+        self.instance = instance
+        self.view = view
+    }
+
+    init(bar: ShellBarKey, view: ShellWidgetView) {
+        self.init(instance: .bar(bar), view: view)
+    }
 }
 
 final class ShellScript {
     let vm: OpaquePointer
-    var instances: [ShellBarKey: OpaquePointer] = [:]
+    var instances: [ShellInstanceKey: OpaquePointer] = [:]
 
     init(vm: OpaquePointer) {
         self.vm = vm
@@ -132,10 +156,11 @@ actor ShellWidgetPackage {
     final class InstanceState {
         var pendingData: UInt64 = .max
         var backgroundDemand: UInt64 = 0
-        var invalidations = InlineArray<2, UInt64>(repeating: 0)
+        var invalidations = InlineArray<3, UInt64>(repeating: 0)
         var bar: ShellBarData?
-        var sequences = InlineArray<2, Int>(repeating: 0)
-        var deps = InlineArray<2, UInt64>(repeating: .max)
+        var window: ShellWindowContext?
+        var sequences = InlineArray<3, Int>(repeating: 0)
+        var deps = InlineArray<3, UInt64>(repeating: .max)
     }
 
     nonisolated let name: String
@@ -188,11 +213,11 @@ actor ShellWidgetPackage {
     var rootPurpose: String?
     var hasComponents = false
     var reloadRequested = false
-    var states: [ShellBarKey: InstanceState] = [:]
+    var states: [ShellInstanceKey: InstanceState] = [:]
     let latestData: ShellLatestWidgetData?
     var dataRevision: UInt64 = 0
     var current = ShellWidgetData()
-    var popout: ShellBarKey?
+    var popout: ShellInstanceKey?
     var settings: [UInt8] = []
     var configurationCatalog: [UInt8] = []
     var configurationSchema: [UInt8] = []
@@ -281,7 +306,9 @@ actor ShellWidgetPackage {
         guard status == OMNI_OK else {
             return ShellScriptFailure(status: status, message: lastError())
         }
-        guard omni_vm_global_function(vm, "render") == OMNI_OK else {
+        guard omni_vm_global_function(vm, "render") == OMNI_OK
+            || omni_vm_global_function(vm, "window") == OMNI_OK
+        else {
             return ShellScriptFailure(kind: .compile, message: "the widget does not define a render function")
         }
         if validateOnly { return nil }
@@ -363,5 +390,13 @@ actor ShellWidgetPackage {
         await closeProviders()
         await retireResources()
         return await store.close(owners)
+    }
+}
+
+extension ShellWidgetMessage {
+    static func invoke(
+        _ key: ShellBarKey, _ view: ShellWidgetView, action: UInt32, sequence: Int, event: ShellEvent
+    ) -> ShellWidgetMessage {
+        .invoke(.bar(key), view, action: action, sequence: sequence, event: event)
     }
 }
