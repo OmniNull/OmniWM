@@ -115,6 +115,35 @@ final class NativeResizeAdoptionTests: NiriInteractionTestCase {
             return (workspaceId, animationMonitor)
         }
 
+        func prepareUnrelatedScrollAnimation() throws -> (WorkspaceDescriptor.ID, CGDirectDisplayID) {
+            let frame = monitor.frame.offsetBy(dx: monitor.frame.width, dy: 0)
+            let other = Monitor(
+                id: .init(displayId: 83_402),
+                displayId: 83_402,
+                frame: frame,
+                visibleFrame: frame,
+                hasNotch: false,
+                name: "Unrelated Animation"
+            )
+            controller.settings.workspaces.configurations.append(WorkspaceConfiguration(
+                name: "2",
+                monitorAssignment: .specificDisplay(OutputId(from: other)),
+                layoutType: .niri
+            ))
+            manager.applyMonitorConfigurationChange([monitor, other])
+            manager.applySettings()
+            if controller.niriEngine == nil {
+                controller.enableNiriLayout()
+            } else {
+                controller.syncMonitorsToNiriEngine()
+            }
+            let workspace = try XCTUnwrap(manager.workspaceId(named: "2"))
+            XCTAssertEqual(manager.activeWorkspace(on: other.id)?.id, workspace)
+            try confirmLayout()
+            controller.layoutRefreshController.resetState()
+            return (workspace, other.displayId)
+        }
+
         func beginDrag(_ token: WindowToken) throws {
             handler.retireNativeTitleBarDragAtInputBoundary()
             handler.pressedMouseButtonsProvider = { MouseEventHandler.MouseButton.left.pressedMask }
@@ -1724,6 +1753,151 @@ final class NativeResizeAdoptionTests: NiriInteractionTestCase {
                 frame: start
             ))
             XCTAssertEqual(correction?.frame, start, "\(layout)")
+        }
+    }
+
+    func testReleasedCandidatesStayCorrectableAfterTargetOrOwnedInputChanges() async throws {
+        var scenario = 0
+        for layout in [LayoutType.niri, .dwindle] {
+            for acceptsOther in [false, true] {
+                let fixture = try makeFixture(layout, pid: pid_t(835_221 + scenario))
+                scenario += 1
+                let (animationWorkspace, animationDisplayId) = try fixture.prepareUnrelatedScrollAnimation()
+                let blocker = blockRefreshes(fixture)
+                defer { unblockRefreshes(fixture, blocker: blocker) }
+                fixture.wireFrameApplyCallbacks()
+                fixture.handler.state.moveTap = try XCTUnwrap(CFMachPortCreate(kCFAllocatorDefault, nil, nil, nil))
+                let (token, other) = (fixture.tokens[0], fixture.tokens[1])
+                let start = try fixture.frame(token)
+                let location = CGPoint(x: start.midX + FrameTolerance.frameWrite + 1, y: start.midY)
+                let tokens = fixture.tokens
+                let nativeFrames = fixture.nativeFrames
+                let info: @MainActor (UInt32) -> WindowServerInfo? = { windowId in
+                    guard let token = tokens.first(where: { $0.windowId == Int(windowId) }),
+                          let frame = nativeFrames[Int(windowId)]?.frame else { return nil }
+                    return WindowServerInfo(
+                        id: windowId, pid: token.pid, level: 0,
+                        frame: ScreenCoordinateSpace.toWindowServer(rect: frame)
+                    )
+                }
+                fixture.controller.axEventHandler.frameObservations.query = { info($0) }
+                fixture.controller.axEventHandler.frameObservations.nativeDragQuery = info
+                fixture.handler.pressedMouseButtonsProvider = { MouseEventHandler.MouseButton.left.pressedMask }
+                XCTAssertFalse(fixture.handler.receiveTapMouseDown(at: start.center, modifiers: []))
+                fixture.handler.receiveTapMouseDragged(at: location)
+                fixture.handler.pressedMouseButtonsProvider = { 0 }
+                fixture.handler.receiveTapMouseUp(at: location)
+                try fixture.annotatedDrag(windowId: acceptsOther ? other.windowId : nil, at: location)
+                if !acceptsOther {
+                    let surfaceId = "retired-native-resize-\(token.windowId)"
+                    let frame = CGRect(x: -800, y: -800, width: 40, height: 40)
+                    fixture.controller.ownedWindowRegistry.registerWindowNumber(
+                        surfaceId: surfaceId,
+                        policy: SurfacePolicy(
+                            kind: .utility, hitTestPolicy: .interactive, capturePolicy: .included,
+                            suppressesManagedFocusRecovery: true
+                        ),
+                        windowNumber: token.windowId + 10_000,
+                        frameProvider: { frame }, visibilityProvider: { true }
+                    )
+                    defer { fixture.controller.ownedWindowRegistry.unregister(surfaceId: surfaceId) }
+                    XCTAssertFalse(fixture.handler.receiveTapMouseDown(at: frame.center, modifiers: []))
+                }
+                XCTAssertNil(fixture.controller.layoutRefreshController.layoutState.pendingRefresh)
+                XCTAssertTrue(fixture.controller.niriLayoutHandler.registerScrollAnimation(
+                    animationWorkspace, on: animationDisplayId
+                ))
+
+                fixture.nativeFrames[token.windowId]?.frame = grown(
+                    start,
+                    right: max(FrameTolerance.frameWrite, FrameTolerance.screenMatch) + 1
+                )
+                fixture.controller.axEventHandler.handleCGSEvent(.frameChanged(windowId: UInt32(token.windowId)))
+                await fixture.controller.axEventHandler.frameObservations.byWindowId[UInt32(token.windowId)]?.task.value
+
+                let refresh = fixture.controller.layoutRefreshController.layoutState.pendingRefresh
+                XCTAssertEqual(
+                    refresh?.affectedWorkspaceIds,
+                    [fixture.workspaceId],
+                    "\(layout), acceptsOther=\(acceptsOther)"
+                )
+                XCTAssertEqual(refresh?.reason, .interactiveGesture)
+                if refresh != nil { try fixture.confirmWrite(of: token) }
+                XCTAssertEqual(fixture.nativeFrames[token.windowId]?.frame, start)
+                XCTAssertEqual(try fixture.frame(token).width, start.width, accuracy: 1)
+                XCTAssertFalse(fixture.controller.axManager.isNativeTitleBarDragActive(for: token))
+                XCTAssertTrue(fixture.handler.tracksNativeTitleBarDrag(windowId: token.windowId))
+                fixture.handler.discardNativeTitleBarDrag(for: WindowToken(
+                    pid: token.pid + 10_000,
+                    windowId: token.windowId
+                ))
+                XCTAssertTrue(fixture.handler.tracksNativeTitleBarDrag(windowId: token.windowId))
+                let activeToken = fixture.handler.state.nativeTitleBarDrag?.token
+                fixture.handler.discardNativeTitleBarDrag(for: token)
+                XCTAssertFalse(fixture.handler.tracksNativeTitleBarDrag(windowId: token.windowId))
+                XCTAssertEqual(
+                    fixture.handler.state.nativeTitleBarDrag?.token,
+                    activeToken == token ? nil : activeToken
+                )
+            }
+        }
+    }
+
+    func testOverviewGateDoesNotReadAXWhenTheFastFrameIsUnavailable() throws {
+        for (index, layout) in [LayoutType.niri, .dwindle].enumerated() {
+            let fixture = try makeFixture(layout, pid: pid_t(835_231 + index))
+            let blocker = blockRefreshes(fixture)
+            defer { unblockRefreshes(fixture, blocker: blocker) }
+            defer { fixture.controller.windowActionHandler.invalidateOverviewDeferredActionsForServiceStop() }
+            fixture.controller.isEnabled = true
+            try fixture.controller.settings.setOverviewMouseButton(2)
+            fixture.handler.state.moveTap = try XCTUnwrap(CFMachPortCreate(kCFAllocatorDefault, nil, nil, nil))
+            let start = try fixture.frame(fixture.tokens[0])
+            let location = CGPoint(x: start.midX + FrameTolerance.frameWrite + 1, y: start.midY)
+            fixture.handler.pressedMouseButtonsProvider = { MouseEventHandler.MouseButton.left.pressedMask }
+            XCTAssertFalse(fixture.handler.receiveTapMouseDown(at: start.center, modifiers: []))
+            fixture.handler.receiveTapMouseDragged(at: location)
+            fixture.handler.pressedMouseButtonsProvider = { 0 }
+            fixture.handler.receiveTapMouseUp(at: location)
+            try fixture.annotatedDrag(windowId: nil, at: location)
+            var fallbackReads = 0
+            fixture.handler.nativeWindowFrameProvider = { _ in nil }
+            fixture.handler.nativeWindowFrameFallbackProvider = { _ in
+                fallbackReads += 1
+                return start
+            }
+
+            XCTAssertFalse(fixture.handler.receiveTapOtherMouseButton(type: .otherMouseDown, button: 2))
+
+            XCTAssertEqual(fallbackReads, 0)
+            XCTAssertFalse(fixture.controller.isOverviewOpen())
+        }
+    }
+
+    func testOrdinaryFrameChangesKeepTheirBusyRelayoutPolicy() async throws {
+        for (index, layout) in [LayoutType.niri, .dwindle].enumerated() {
+            let fixture = try makeFixture(layout, pid: pid_t(835_241 + index))
+            let (animationWorkspace, animationDisplayId) = try fixture.prepareUnrelatedScrollAnimation()
+            let blocker = blockRefreshes(fixture)
+            defer { unblockRefreshes(fixture, blocker: blocker) }
+            let token = fixture.tokens[0]
+            let start = try fixture.frame(token)
+            fixture.controller.axEventHandler.frameObservations.query = { windowId in
+                WindowServerInfo(id: windowId, pid: token.pid, level: 0, frame: start)
+            }
+            XCTAssertTrue(fixture.controller.niriLayoutHandler.registerScrollAnimation(
+                animationWorkspace, on: animationDisplayId
+            ))
+            fixture.nativeFrames[token.windowId]?.frame = grown(
+                start,
+                right: max(FrameTolerance.frameWrite, FrameTolerance.screenMatch) + 1
+            )
+
+            fixture.controller.axEventHandler.handleCGSEvent(.frameChanged(windowId: UInt32(token.windowId)))
+            await fixture.controller.axEventHandler.frameObservations.byWindowId[UInt32(token.windowId)]?.task.value
+
+            XCTAssertNil(fixture.controller.layoutRefreshController.layoutState.pendingRefresh)
+            XCTAssertFalse(fixture.handler.tracksNativeTitleBarDrag(windowId: token.windowId))
         }
     }
 

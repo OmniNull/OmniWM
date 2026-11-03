@@ -20,6 +20,11 @@ extension MouseEventHandler {
         {
             return adoptNativeTitleBarFallback(entry, controller: controller)
         }
+        if state.nativeTitleBarDrag?.token != entry.token,
+           handleRetainedNativeResizeCorrection(for: entry)
+        {
+            return true
+        }
         guard var drag = state.nativeTitleBarDrag,
               drag.token == entry.token
         else { return false }
@@ -193,9 +198,13 @@ extension MouseEventHandler {
         ) == true
     }
 
-    func terminalNativeWindowFrame(for entry: WindowState) -> CGRect? {
+    func fastNativeWindowFrame(for entry: WindowState) -> CGRect? {
         guard let axRef = entry.axRef else { return controller?.shellAppWindowManager.frame(for: entry.token) }
-        return nativeWindowFrameProvider(axRef) ?? nativeWindowFrameFallbackProvider(axRef)
+        return nativeWindowFrameProvider(axRef)
+    }
+
+    func terminalNativeWindowFrame(for entry: WindowState) -> CGRect? {
+        fastNativeWindowFrame(for: entry) ?? entry.axRef.flatMap(nativeWindowFrameFallbackProvider)
     }
 
     func handleNativeTitleBarDragFrameApplySucceeded(_ result: AXFrameApplyResult) {

@@ -63,6 +63,11 @@ struct MouseInputState {
         var hasDeferredFrameChange = false
     }
 
+    struct NativeResizeCorrection {
+        let token: WindowToken
+        var issuedUnreadableCorrection = false
+    }
+
     struct NativeCrossDisplayMove {
         let token: WindowToken
         let workspaceId: WorkspaceDescriptor.ID
@@ -106,6 +111,7 @@ struct MouseInputState {
     var nativeTitleBarDragFallbackReleased = false
     var nativeTitleBarDrag: NativeTitleBarDrag?
     var nativeResizeStart: NativeResizeStart?
+    var nativeResizeCorrectionsByWindowId: [Int: NativeResizeCorrection] = [:]
     var nativeCrossDisplayMove: NativeCrossDisplayMove?
 
     var lastFocusFollowsMouseTime: Date = .distantPast
