@@ -29,6 +29,7 @@ struct LauncherSettingsPage: View {
                         Button("Run") { run(entry) }
                         if let bundleID = entry.bundleIdentifier {
                             Button("Configure Shortcut…") {
+                                settings.reconcileDynamicHotkeys()
                                 navigation.request(SettingsRoute(
                                     section: .hotkeys,
                                     itemID: ActionCatalog.openAppPrefix + bundleID
