@@ -172,8 +172,6 @@ extension NiriLayoutHandler {
 
     private func raiseMovingColumn(_ column: NiriContainer, keepingOnTop focused: NiriWindow) {
         guard let controller, controller.settings.niri.naturalWindowDrag else { return }
-        let windowIds = column.windowNodes.map(\.token.windowId)
-        traceWindowOrder("move-column raise before", windowIds)
         let raised = column.windowNodes.filter { $0 !== focused && !$0.isHiddenInTabbedMode } + [focused]
         for window in raised {
             guard let entry = controller.workspaceManager.entry(for: window.token),
@@ -181,24 +179,6 @@ extension NiriLayoutHandler {
             else { continue }
             controller.windowFocusOperations.raiseWindow(element)
         }
-        traceWindowOrder("move-column raise after", windowIds)
-        DispatchQueue.main.asyncAfter(deadline: .now() + 0.1) { [weak self] in
-            self?.traceWindowOrder("move-column raise after 100ms", windowIds)
-        }
-    }
-
-    private func traceWindowOrder(_ label: String, _ windowIds: [Int]) {
-        guard MouseTrace.shared.isActive,
-              let list = CGWindowListCopyWindowInfo([.optionOnScreenOnly, .excludeDesktopElements], kCGNullWindowID)
-              as? [[String: Any]]
-        else { return }
-        let normal = list.filter { ($0[kCGWindowLayer as String] as? Int) == 0 }
-        let order = normal.compactMap { $0[kCGWindowNumber as String] as? Int }
-        let ranks = windowIds.map { id in "\(id)@\(order.firstIndex(of: id).map(String.init) ?? "-")" }
-        MouseTrace
-            .record(
-                "\(label) column=\(ranks.joined(separator: ",")) front=\(order.prefix(8).map(String.init).joined(separator: ","))"
-            )
     }
 
     func moveColumnPreservingFocus(
