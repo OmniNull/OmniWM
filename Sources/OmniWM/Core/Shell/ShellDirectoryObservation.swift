@@ -20,14 +20,6 @@ final class ShellDirectoryObservation {
         let identity: FileIdentity
     }
 
-    private final class Callback: Sendable {
-        let onEvents: @Sendable ([String], [FSEventStreamEventFlags]) -> Void
-
-        init(_ onEvents: @escaping @Sendable ([String], [FSEventStreamEventFlags]) -> Void) {
-            self.onEvents = onEvents
-        }
-    }
-
     private let onChange: @MainActor () -> Void
     private let watchLinks: Bool
     private let createStream: @MainActor (FSEventStreamContext, [String]) -> FSEventStreamRef?
@@ -36,6 +28,7 @@ final class ShellDirectoryObservation {
     private let hasDescriptorReserve: @MainActor (Int) -> Bool
     private let eventQueue = DispatchQueue(label: "com.omniwm.shell-directory-observation")
     private var stream: FSEventStreamRef?
+    private var retiringGeneration: UInt64?
     private var generation: UInt64 = 0
     private var retryTimer: DispatchSourceTimer?
     private var paths: [URL] = []
@@ -140,9 +133,11 @@ final class ShellDirectoryObservation {
     }
 
     private func stopStream() {
+        let stoppedGeneration = generation
         generation &+= 1
         guard let stream else { return }
         self.stream = nil
+        retiringGeneration = stoppedGeneration
         FSEventStreamStop(stream)
         FSEventStreamInvalidate(stream)
         FSEventStreamRelease(stream)
@@ -150,13 +145,18 @@ final class ShellDirectoryObservation {
     }
 
     private func start() {
+        guard retiringGeneration == nil else { return }
         let generation = generation
-        let callback = Callback { [weak self] paths, flags in
+        let callback = Callback(onEvents: { [weak self] paths, flags in
             Task { @MainActor [weak self] in
                 guard let self, self.generation == generation else { return }
                 receive(paths: paths, flags: flags)
             }
-        }
+        }, onRelease: { [weak self] in
+            Task { @MainActor [weak self] in
+                self?.didReleaseStream(generation: generation)
+            }
+        })
         let context = Self.makeContext(callback)
         guard let candidate = withExtendedLifetime(callback, { createStream(context, roots) }) else {
             retry()
@@ -164,6 +164,7 @@ final class ShellDirectoryObservation {
         }
         FSEventStreamSetDispatchQueue(candidate, eventQueue)
         guard startStream(candidate) else {
+            retiringGeneration = generation
             FSEventStreamInvalidate(candidate)
             FSEventStreamRelease(candidate)
             eventQueue.sync {}
@@ -173,6 +174,14 @@ final class ShellDirectoryObservation {
         stream = candidate
         retryTimer?.cancel()
         retryTimer = nil
+    }
+
+    private func didReleaseStream(generation: UInt64) {
+        guard retiringGeneration == generation else { return }
+        retiringGeneration = nil
+        guard !paths.isEmpty, retryTimer == nil else { return }
+        sync(paths: paths, recursivePaths: recursivePaths)
+        onChange()
     }
 
     private func retry() {
@@ -303,18 +312,36 @@ final class ShellDirectoryObservation {
             ancestor = parent
         }
     }
+}
 
-    private nonisolated static func makeContext(_ callback: Callback) -> FSEventStreamContext {
+extension ShellDirectoryObservation {
+    final class Callback: Sendable {
+        let onEvents: @Sendable ([String], [FSEventStreamEventFlags]) -> Task<Void, Never>
+        let onRelease: @Sendable () -> Task<Void, Never>
+
+        init(
+            onEvents: @escaping @Sendable ([String], [FSEventStreamEventFlags]) -> Task<Void, Never>,
+            onRelease: @escaping @Sendable () -> Task<Void, Never>
+        ) {
+            self.onEvents = onEvents
+            self.onRelease = onRelease
+        }
+    }
+
+    nonisolated static func makeContext(_ callback: Callback) -> FSEventStreamContext {
         FSEventStreamContext(
             version: 0,
             info: Unmanaged.passUnretained(callback).toOpaque(),
             retain: { UnsafeRawPointer(Unmanaged<Callback>.fromOpaque($0!).retain().toOpaque()) },
-            release: { Unmanaged<Callback>.fromOpaque($0!).release() },
+            release: {
+                let callback = Unmanaged<Callback>.fromOpaque($0!).takeRetainedValue()
+                _ = callback.onRelease()
+            },
             copyDescription: nil
         )
     }
 
-    private nonisolated static func makeStream(context: FSEventStreamContext, paths: [String]) -> FSEventStreamRef? {
+    nonisolated static func makeStream(context: FSEventStreamContext, paths: [String]) -> FSEventStreamRef? {
         var context = context
         return FSEventStreamCreate(
             nil,
@@ -322,7 +349,7 @@ final class ShellDirectoryObservation {
                 guard let info else { return }
                 let paths = Unmanaged<CFArray>.fromOpaque(eventPaths).takeUnretainedValue() as? [String] ?? []
                 let flags = Array(UnsafeBufferPointer(start: eventFlags, count: count))
-                Unmanaged<Callback>.fromOpaque(info).takeUnretainedValue().onEvents(paths, flags)
+                _ = Unmanaged<Callback>.fromOpaque(info).takeUnretainedValue().onEvents(paths, flags)
             },
             &context,
             paths as CFArray,

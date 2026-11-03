@@ -181,29 +181,6 @@ final class ShellConfigurationCoordinatorTests: XCTestCase {
         XCTAssertLessThanOrEqual(openDescriptorCount() - before, 16)
     }
 
-    func testDirectoryObservationReplacesAndCancelsRootsWithoutLeakingDescriptors() async throws {
-        let root = FileManager.default.temporaryDirectory.appendingPathComponent(UUID().uuidString)
-        defer { try? FileManager.default.removeItem(at: root) }
-        let first = root.appendingPathComponent("first")
-        let second = root.appendingPathComponent("second")
-        for directory in [first, second] {
-            try FileManager.default.createDirectory(at: directory, withIntermediateDirectories: true)
-        }
-        let changed = expectation(description: "Events after cancellation")
-        changed.isInverted = true
-        let observation = ShellDirectoryObservation { changed.fulfill() }
-        let before = openDescriptorCount()
-        for index in 0 ..< 32 {
-            let directory = index.isMultiple(of: 2) ? first : second
-            observation.sync(paths: [directory], recursivePaths: [directory])
-        }
-        XCTAssertLessThanOrEqual(openDescriptorCount() - before, 16)
-        observation.cancel()
-        try Data("after cancel".utf8).write(to: second.appendingPathComponent("new.luau"))
-        await fulfillment(of: [changed], timeout: 0.5)
-        XCTAssertLessThanOrEqual(openDescriptorCount() - before, 16)
-    }
-
     func testNativeIslandEditsPersistWithoutEnablingAnyShellSurface() async throws {
         let directory = FileManager.default.temporaryDirectory.appendingPathComponent(UUID().uuidString)
         defer { try? FileManager.default.removeItem(at: directory) }

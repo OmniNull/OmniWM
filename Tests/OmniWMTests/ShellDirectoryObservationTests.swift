@@ -106,7 +106,7 @@ final class ShellDirectoryObservationTests: XCTestCase {
         XCTAssertEqual(attempts, [[first.path], [second.path]])
     }
 
-    func testRetargetKeepsNativeObservationWithStaleEnumeratedDirectories() throws {
+    func testRetargetKeepsNativeObservationWithStaleEnumeratedDirectories() async throws {
         let root = try fixture()
         defer { try? FileManager.default.removeItem(at: root) }
         let first = try directory("first", in: root)
@@ -116,9 +116,13 @@ final class ShellDirectoryObservationTests: XCTestCase {
         try FileManager.default.createSymbolicLink(atPath: link.path, withDestinationPath: "first")
         let paths = Array(SettingsFileObservationDirectories.paths(for: link)) + [link] + stale
         var attempts: [[String]] = []
+        let rearmed = expectation(description: "Retargeted native stream starts after retirement")
         let observation = ShellDirectoryObservation(watchLinks: true, startStream: { stream in
-            attempts.append(FSEventStreamCopyPathsBeingWatched(stream) as? [String] ?? [])
-            return FSEventStreamStart(stream)
+            let roots = FSEventStreamCopyPathsBeingWatched(stream) as? [String] ?? []
+            attempts.append(roots)
+            let started = FSEventStreamStart(stream)
+            if started, roots == [second.path] { rearmed.fulfill() }
+            return started
         }) {}
         defer { observation.cancel() }
 
@@ -128,6 +132,7 @@ final class ShellDirectoryObservationTests: XCTestCase {
         try FileManager.default.removeItem(at: link)
         try FileManager.default.createSymbolicLink(atPath: link.path, withDestinationPath: "second")
         observation.sync(paths: paths, recursivePaths: [link])
+        await fulfillment(of: [rearmed], timeout: 5)
 
         XCTAssertEqual(attempts, [[first.path], [second.path]])
         XCTAssertTrue(observation.isUsingNativeObservation)
