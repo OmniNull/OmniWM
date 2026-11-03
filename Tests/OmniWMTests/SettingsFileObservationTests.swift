@@ -58,8 +58,11 @@ final class SettingsFileObservationTests: XCTestCase {
         XCTAssertEqual(persistence.load().gaps.size, 17)
 
         await expectReload(19, from: persistence) { try writeSettings(19, in: external) }
-        try FileManager.default.removeItem(at: target)
-        try await Task.sleep(for: .milliseconds(150))
+        try await expectObservation(from: persistence, watching: [link, external]) {
+            !FileManager.default.fileExists(atPath: target.path)
+        } edit: {
+            try FileManager.default.removeItem(at: target)
+        }
         await expectReload(23, from: persistence) { try writeSettings(23, in: external) }
         await expectReload(29, from: persistence) { try writeSettings(29, in: external, atomic: true) }
         await expectReload(31, from: persistence) { try writeSettings(31, in: external) }
@@ -78,8 +81,11 @@ final class SettingsFileObservationTests: XCTestCase {
         let persistence = SettingsFilePersistence(directory: config, deferSaves: false)
         XCTAssertEqual(persistence.load().gaps.size, 17)
 
-        try FileManager.default.removeItem(at: config)
-        try await Task.sleep(for: .milliseconds(150))
+        try await expectObservation(from: persistence, watching: [config, root]) {
+            !FileManager.default.fileExists(atPath: config.path)
+        } edit: {
+            try FileManager.default.removeItem(at: config)
+        }
         await expectReload(23, from: persistence) {
             try FileManager.default.createSymbolicLink(at: config, withDestinationURL: second)
         }
@@ -112,8 +118,12 @@ final class SettingsFileObservationTests: XCTestCase {
         await expectReload(23, from: persistence) {
             try replaceLink(intermediate, destination: "../directory-link/../settings.toml")
         }
-        try FileManager.default.removeItem(at: second.appendingPathComponent(SettingsFilePersistence.fileName))
-        try await Task.sleep(for: .milliseconds(150))
+        let target = second.appendingPathComponent(SettingsFilePersistence.fileName)
+        try await expectObservation(from: persistence, watching: [settings, second]) {
+            !FileManager.default.fileExists(atPath: target.path)
+        } edit: {
+            try FileManager.default.removeItem(at: target)
+        }
         await expectReload(29, from: persistence) { try writeSettings(29, in: second, atomic: true) }
         await expectReload(31, from: persistence) { try writeSettings(31, in: second) }
     }
@@ -132,12 +142,22 @@ final class SettingsFileObservationTests: XCTestCase {
         let persistence = SettingsFilePersistence(directory: config, deferSaves: false)
         XCTAssertEqual(persistence.load().gaps.size, 17)
 
-        try FileManager.default.removeItem(at: external)
-        try await Task.sleep(for: .milliseconds(150))
-        _ = try makeDirectory("external", in: root)
-        try await Task.sleep(for: .milliseconds(150))
-        _ = try makeDirectory("nested", in: external)
-        try await Task.sleep(for: .milliseconds(150))
+        try await expectObservation(from: persistence, watching: [settings, nested, external, root]) {
+            !FileManager.default.fileExists(atPath: external.path)
+                && !persistence.observation.isWatchingDirectory(at: external)
+        } edit: {
+            try FileManager.default.removeItem(at: external)
+        }
+        try await expectObservation(from: persistence, watching: [root]) {
+            persistence.observation.isWatchingDirectory(at: external)
+        } edit: {
+            _ = try makeDirectory("external", in: root)
+        }
+        try await expectObservation(from: persistence, watching: [external]) {
+            persistence.observation.isWatchingDirectory(at: nested)
+        } edit: {
+            _ = try makeDirectory("nested", in: external)
+        }
         await expectReload(23, from: persistence) { try writeSettings(23, in: nested) }
         await expectReload(29, from: persistence) { try writeSettings(29, in: nested, atomic: true) }
     }
@@ -167,25 +187,51 @@ final class SettingsFileObservationTests: XCTestCase {
         let root = try makeRoot()
         defer { try? FileManager.default.removeItem(at: root) }
         let config = try makeDirectory("config", in: root)
-        try writeSettings(17, in: config)
+        let initialSize = 17.0
+        let savedSize = 23.0
+        let externalSize = 29.0
+        try writeSettings(initialSize, in: config)
         let persistence = SettingsFilePersistence(directory: config, deferSaves: false)
         var export = persistence.load()
-        let reloaded = expectation(description: "Unchanged settings must not reload")
-        reloaded.isInverted = true
-        persistence.setExternalChangeHandler { _ in reloaded.fulfill() }
+        XCTAssertEqual(export.gaps.size, initialSize)
+        var reloads: [Double?] = []
+        persistence.setExternalChangeHandler { reloads.append($0.export?.gaps.size) }
 
-        try Data("unrelated".utf8).write(to: root.appendingPathComponent("sibling"))
-        export.gaps.size = 23
-        try persistence.saveImmediately(export)
-        await fulfillment(of: [reloaded], timeout: 0.2)
-        XCTAssertEqual(try SettingsTOMLCodec.decode(Data(contentsOf: persistence.fileURL)).gaps.size, 23)
+        let unrelated = root.appendingPathComponent("sibling")
+        try await expectObservation(from: persistence, watching: [root]) {
+            FileManager.default.fileExists(atPath: unrelated.path)
+        } edit: {
+            try Data("unrelated".utf8).write(to: unrelated)
+        }
+        persistence.handlePossibleSettingsFileChange()
+        XCTAssertTrue(reloads.isEmpty)
+
+        export.gaps.size = savedSize
+        try await expectObservation(from: persistence, watching: [persistence.fileURL, config]) {
+            (try? SettingsTOMLCodec.decode(Data(contentsOf: persistence.fileURL)).gaps.size) == savedSize
+        } edit: {
+            try persistence.saveImmediately(export)
+        }
+        persistence.handlePossibleSettingsFileChange()
+        XCTAssertTrue(reloads.isEmpty)
+        XCTAssertEqual(try SettingsTOMLCodec.decode(Data(contentsOf: persistence.fileURL)).gaps.size, savedSize)
+
+        let reloaded = expectation(description: "External settings reload after filtered native events")
+        reloaded.assertForOverFulfill = false
+        persistence.setExternalChangeHandler { outcome in
+            reloads.append(outcome.export?.gaps.size)
+            if outcome.export?.gaps.size == externalSize { reloaded.fulfill() }
+        }
+        try writeSettings(externalSize, in: config)
+        await fulfillment(of: [reloaded], timeout: 3)
+        XCTAssertEqual(reloads, [externalSize])
     }
 
     private func makeRoot() throws -> URL {
         let root = FileManager.default.temporaryDirectory
             .appendingPathComponent("OmniWMSettingsObservationTests-\(UUID().uuidString)", isDirectory: true)
         try FileManager.default.createDirectory(at: root, withIntermediateDirectories: true)
-        return root
+        return try SettingsFileAccess.canonicalURL(for: root)
     }
 
     private func makeDirectory(_ name: String, in parent: URL) throws -> URL {
@@ -209,6 +255,23 @@ final class SettingsFileObservationTests: XCTestCase {
         guard Darwin.rename(replacement.path, link.path) == 0 else {
             throw POSIXError(POSIXErrorCode(rawValue: errno) ?? .EIO)
         }
+    }
+
+    private func expectObservation(
+        from persistence: SettingsFilePersistence,
+        watching urls: [URL],
+        ready: @escaping @MainActor () -> Bool,
+        edit: () throws -> Void
+    ) async throws {
+        let processed = expectation(description: "Process native settings event for \(urls.map(\.path))")
+        processed.assertForOverFulfill = false
+        let paths = Set(urls.map(\.path))
+        persistence.observation.onEventProcessed = { url in
+            if paths.contains(url.path), ready() { processed.fulfill() }
+        }
+        defer { persistence.observation.onEventProcessed = nil }
+        try edit()
+        await fulfillment(of: [processed], timeout: 3)
     }
 
     private func expectReload(

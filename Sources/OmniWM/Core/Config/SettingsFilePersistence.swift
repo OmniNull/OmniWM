@@ -27,7 +27,7 @@ final class SettingsFilePersistence {
 
     private let deferSaves: Bool
     private let monitorProvider: () -> [Monitor]
-    private let observation: SettingsFileObservation
+    let observation: SettingsFileObservation
     private var pendingExport: SettingsExport?
     private var saveScheduled = false
     private var lastWrittenFingerprint: SettingsFileAccess.Fingerprint?

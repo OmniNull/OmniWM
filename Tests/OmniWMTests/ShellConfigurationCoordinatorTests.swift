@@ -12,29 +12,6 @@ import XCTest
 
 @MainActor
 final class ShellConfigurationCoordinatorTests: XCTestCase {
-    func testObservingBundledShellKeepsFileDescriptorsAvailable() async throws {
-        let shell = try fixture()
-        defer { try? FileManager.default.removeItem(at: shell) }
-        let coordinator = ShellConfigurationCoordinator(shellDirectory: shell)
-        try await coordinator.refresh()
-        let inputs = try ShellConfigurationInputs(directory: shell, config: coordinator.config)
-        XCTAssertGreaterThan(inputs.paths.count, 256)
-        let before = openDescriptorCount()
-
-        coordinator.startObserving()
-        defer { coordinator.stopObserving() }
-
-        XCTAssertLessThanOrEqual(openDescriptorCount() - before, 16)
-        XCTAssertFalse(try Data(contentsOf: shell.appendingPathComponent("shell.toml")).isEmpty)
-        try await coordinator.set(45, key: "height")
-        XCTAssertEqual(try load(shell).barOverride?.settings.height, 45)
-        XCTAssertNil(coordinator.metadataError)
-    }
-
-    private func openDescriptorCount() -> Int {
-        (0 ..< min(getdtablesize(), 4096)).filter { fcntl($0, F_GETFD) >= 0 }.count
-    }
-
     func testNewNestedSourcesAndAtomicReplacementsRefreshWithoutLiveShellHost() async throws {
         let shell = try fixture()
         defer { try? FileManager.default.removeItem(at: shell) }
@@ -107,30 +84,6 @@ final class ShellConfigurationCoordinatorTests: XCTestCase {
         }
     }
 
-    func testDirectoryObservationRefreshesAndRetriesWhenStreamCreationFails() async throws {
-        let shell = try fixture()
-        defer { try? FileManager.default.removeItem(at: shell) }
-        var attempts = 0
-        var changes = 0
-        let refreshed = expectation(description: "Periodic refresh after stream creation failure")
-        let observation = ShellDirectoryObservation(createStream: { _, _ in
-            attempts += 1
-            return nil
-        }) {
-            changes += 1
-            if changes == 1 { refreshed.fulfill() }
-        }
-        let before = openDescriptorCount()
-        observation.sync(paths: [shell], recursivePaths: [shell])
-        await fulfillment(of: [refreshed], timeout: 5)
-        XCTAssertGreaterThanOrEqual(attempts, 2)
-        XCTAssertLessThanOrEqual(openDescriptorCount() - before, 16)
-        observation.cancel()
-        let stopped = changes
-        try await Task.sleep(for: .milliseconds(1200))
-        XCTAssertEqual(changes, stopped)
-    }
-
     func testDirectoryObservationRecoversAfterStreamStartFailure() async throws {
         let shell = try fixture()
         defer { try? FileManager.default.removeItem(at: shell) }
@@ -152,33 +105,6 @@ final class ShellConfigurationCoordinatorTests: XCTestCase {
         changed = expectation(description: "Native file event after stream recovery")
         try Data("profile = 'default'\n".utf8).write(to: file, options: .atomic)
         await fulfillment(of: [try XCTUnwrap(changed)], timeout: 5)
-    }
-
-    func testDirectoryObservationFallsBackBeforeExceedingRootBudget() async throws {
-        let root = FileManager.default.temporaryDirectory.appendingPathComponent(UUID().uuidString)
-        defer { try? FileManager.default.removeItem(at: root) }
-        let directories = try (0 ..< 32).map { index in
-            let directory = root.appendingPathComponent(String(index))
-            try FileManager.default.createDirectory(at: directory, withIntermediateDirectories: true)
-            return directory
-        }
-        var attempts = 0
-        var refreshed = false
-        let fallback = expectation(description: "Periodic refresh with too many independent roots")
-        let observation = ShellDirectoryObservation(createStream: { _, _ in
-            attempts += 1
-            return nil
-        }) {
-            if !refreshed { fallback.fulfill()
-                refreshed = true
-            }
-        }
-        defer { observation.cancel() }
-        let before = openDescriptorCount()
-        observation.sync(paths: directories, recursivePaths: directories)
-        await fulfillment(of: [fallback], timeout: 5)
-        XCTAssertEqual(attempts, 0)
-        XCTAssertLessThanOrEqual(openDescriptorCount() - before, 16)
     }
 
     func testNativeIslandEditsPersistWithoutEnablingAnyShellSurface() async throws {
@@ -611,7 +537,6 @@ final class ShellConfigurationCoordinatorTests: XCTestCase {
             try replaceDirectoryLink(link, destination: second.path)
             await fulfillment(of: [failed], timeout: 3)
             await coordinator.flush()
-            try await Task.sleep(for: .milliseconds(600))
             XCTAssertNotNil(coordinator.metadataError)
             XCTAssertEqual(coordinator.config.barOverride?.settings.height, 41)
 
@@ -654,7 +579,6 @@ final class ShellConfigurationCoordinatorTests: XCTestCase {
         _ = try ShellProfiles.select("alternate", in: shell)
         await fulfillment(of: [failed], timeout: 3)
         await coordinator.flush()
-        try await Task.sleep(for: .milliseconds(600))
         XCTAssertNotNil(coordinator.metadataError)
         XCTAssertEqual(coordinator.config.profile, "lake")
         try await expectObservedBarHeight(47, from: coordinator) {
@@ -694,7 +618,6 @@ final class ShellConfigurationCoordinatorTests: XCTestCase {
         try FileManager.default.createDirectory(at: parent, withIntermediateDirectories: true)
         try FileManager.default.createSymbolicLink(at: shell, withDestinationURL: first)
         try await coordinator.refresh()
-        try await Task.sleep(for: .milliseconds(600))
         await coordinator.flush()
         XCTAssertEqual(coordinator.revision, revision)
         try await expectObservedBarHeight(47, from: coordinator) {
@@ -983,14 +906,14 @@ final class ShellConfigurationCoordinatorTests: XCTestCase {
         }
     }
 
-    private func fixture() throws -> URL {
+    func fixture() throws -> URL {
         let shell = FileManager.default.temporaryDirectory.appendingPathComponent(UUID().uuidString)
         _ = try ShellStyleFixture.prepare(into: shell)
         _ = try ShellProfiles.select("lake", in: shell)
         return shell
     }
 
-    private func load(_ shell: URL) throws -> ShellConfig {
+    func load(_ shell: URL) throws -> ShellConfig {
         var problems: [String] = []
         return try XCTUnwrap(ShellConfig.load(shellDirectory: shell, problems: &problems), "\(problems)")
     }

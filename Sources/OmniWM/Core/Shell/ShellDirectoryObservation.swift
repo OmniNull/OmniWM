@@ -7,7 +7,7 @@ import Foundation
 
 @MainActor
 final class ShellDirectoryObservation {
-    private static let maximumDescriptorCost = 32
+    static let maximumDescriptorCost = 32
     private static let reservedDescriptorCount = 64
 
     private struct FileIdentity: Equatable {
@@ -30,7 +30,7 @@ final class ShellDirectoryObservation {
     private var stream: FSEventStreamRef?
     private var retiringGeneration: UInt64?
     private var generation: UInt64 = 0
-    private var retryTimer: DispatchSourceTimer?
+    private(set) var retryTimer: DispatchSourceTimer?
     private var paths: [URL] = []
     private var recursivePaths: [URL] = []
     private var watchedPaths: Set<String> = []

@@ -119,6 +119,132 @@ extension ShellConfigurationCoordinatorTests {
         return try SettingsFileAccess.canonicalURL(for: root)
     }
 
+    func testObservingBundledShellKeepsFileDescriptorsAvailable() async throws {
+        let shell = try SettingsFileAccess.canonicalURL(for: fixture())
+        defer { try? FileManager.default.removeItem(at: shell) }
+        let streams = ObservationStreams()
+        let released = expectation(description: "Bundled observation releases its native context")
+        streams.released { _ in released.fulfill() }
+        var opened: [Int32] = []
+        var observation: ShellDirectoryObservation?
+        let coordinator = ShellConfigurationCoordinator(shellDirectory: shell)
+        coordinator.makeObservation = { onChange in
+            let value = ShellDirectoryObservation(
+                watchLinks: true, createStream: streams.create, startStream: streams.start,
+                openDirectory: { path in
+                    let descriptor = open(path, O_EVTONLY)
+                    if descriptor >= 0 { opened.append(descriptor) }
+                    return descriptor
+                },
+                onChange: onChange
+            )
+            observation = value
+            return value
+        }
+        try await coordinator.refresh()
+        let inputs = try ShellConfigurationInputs(directory: shell, config: coordinator.config)
+        let entries = try XCTUnwrap(FileManager.default.enumerator(
+            at: shell, includingPropertiesForKeys: nil, options: .skipsHiddenFiles
+        )).compactMap { $0 as? URL }
+        let declaredPaths = Set(entries.map(\.path))
+        XCTAssertGreaterThan(declaredPaths.count, ShellDirectoryObservation.maximumDescriptorCost)
+        XCTAssertTrue(declaredPaths.isSubset(of: Set(inputs.paths.map(\.path))))
+        let before = Dictionary(grouping: try observationDescriptors(), by: \.path).mapValues(\.count)
+        coordinator.startObserving()
+        defer { coordinator.stopObserving() }
+        await coordinator.flush()
+        XCTAssertTrue(try XCTUnwrap(observation).isUsingNativeObservation)
+        XCTAssertEqual(streams.roots, [[shell.path]])
+        XCTAssertEqual(try observationDescriptors(under: shell).map(\.path), [shell.path])
+        XCTAssertTrue(opened.isEmpty)
+        let active = Dictionary(grouping: try observationDescriptors(), by: \.path).mapValues(\.count)
+        let watchedPaths = active.keys.filter { active[$0, default: 0] > before[$0, default: 0] }
+        XCTAssertFalse(try Data(contentsOf: shell.appendingPathComponent("shell.toml")).isEmpty)
+        let height = 45.0
+        try await coordinator.set(height, key: "height")
+        XCTAssertEqual(try load(shell).barOverride?.settings.height, height)
+        XCTAssertNil(coordinator.metadataError)
+        coordinator.stopObserving()
+        await fulfillment(of: [released], timeout: 5)
+        for task in streams.tasks { await task.value }
+        XCTAssertEqual(Set(streams.releases.keys), Set(streams.roots.indices))
+        XCTAssertTrue(streams.releases.values.allSatisfy { $0 == 1 })
+        XCTAssertTrue(try observationDescriptors(under: shell).isEmpty)
+        let after = Dictionary(grouping: try observationDescriptors(), by: \.path).mapValues(\.count)
+        for path in watchedPaths { XCTAssertLessThanOrEqual(after[path, default: 0], before[path, default: 0], path) }
+    }
+
+    func testDirectoryObservationRefreshesAndRetriesWhenStreamCreationFails() async throws {
+        let shell = try observationRoot()
+        var attempts = 0
+        var changes = 0
+        var refreshed: XCTestExpectation? = expectation(description: "Periodic refresh after stream creation failure")
+        let completion = try XCTUnwrap(refreshed)
+        let observation = ShellDirectoryObservation(createStream: { _, _ in
+            attempts += 1
+            return nil
+        }) {
+            changes += 1
+            refreshed?.fulfill()
+            refreshed = nil
+        }
+        defer { observation.cancel() }
+        XCTAssertTrue(try observationDescriptors(under: shell).isEmpty)
+        observation.sync(paths: [shell], recursivePaths: [shell])
+        let initialAttempts = attempts
+        XCTAssertGreaterThan(initialAttempts, 0)
+        await fulfillment(of: [completion], timeout: 5)
+        XCTAssertGreaterThan(attempts, initialAttempts)
+        XCTAssertTrue(try observationDescriptors(under: shell).isEmpty)
+        let stopped = changes
+        let stoppedAttempts = attempts
+        try await cancelRetryAndWait(observation)
+        XCTAssertEqual(changes, stopped)
+        XCTAssertEqual(attempts, stoppedAttempts)
+        XCTAssertFalse(observation.isUsingNativeObservation)
+        XCTAssertTrue(try observationDescriptors(under: shell).isEmpty)
+    }
+
+    func testDirectoryObservationFallsBackBeforeExceedingRootBudget() async throws {
+        let root = try observationRoot()
+        let directories = try (0 ... ShellDirectoryObservation.maximumDescriptorCost).map { index in
+            let directory = root.appendingPathComponent(String(index))
+            try FileManager.default.createDirectory(at: directory, withIntermediateDirectories: true)
+            return directory
+        }
+        var attempts = 0
+        var changes = 0
+        var refreshed: XCTestExpectation? = expectation(description: "Periodic refresh with too many independent roots")
+        let fallback = try XCTUnwrap(refreshed)
+        let observation = ShellDirectoryObservation(createStream: { _, _ in
+            attempts += 1
+            return nil
+        }) {
+            changes += 1
+            refreshed?.fulfill()
+            refreshed = nil
+        }
+        defer { observation.cancel() }
+        observation.sync(paths: directories, recursivePaths: directories)
+        await fulfillment(of: [fallback], timeout: 5)
+        XCTAssertEqual(attempts, 0)
+        XCTAssertTrue(try observationDescriptors(under: root).isEmpty)
+        let stopped = changes
+        try await cancelRetryAndWait(observation)
+        XCTAssertEqual(changes, stopped)
+        XCTAssertTrue(try observationDescriptors(under: root).isEmpty)
+    }
+
+    private func cancelRetryAndWait(_ observation: ShellDirectoryObservation) async throws {
+        let timer = try XCTUnwrap(observation.retryTimer)
+        let cancelled = expectation(description: "Fallback timer cancellation completes")
+        timer.setCancelHandler { cancelled.fulfill() }
+        defer { timer.cancel() }
+        observation.cancel()
+        await fulfillment(of: [cancelled], timeout: 5)
+        XCTAssertTrue(timer.isCancelled)
+    }
+
     func testDirectoryObservationReplacesAndCancelsRootsWithoutLeakingDescriptors() async throws {
         let root = try observationRoot()
         let directories = ["first", "second"].map { root.appendingPathComponent($0) }

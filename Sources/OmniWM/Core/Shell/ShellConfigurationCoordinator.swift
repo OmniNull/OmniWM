@@ -55,6 +55,11 @@ final class ShellConfigurationCoordinator {
     @ObservationIgnored private var needsRefresh = false
     @ObservationIgnored private var observationGeneration: UInt64 = 0
     @ObservationIgnored private let onDefaultsUpdated: @MainActor ([URL]) -> Void
+    @ObservationIgnored var makeObservation: @MainActor (@escaping @MainActor () -> Void)
+        -> ShellDirectoryObservation = {
+            ShellDirectoryObservation(watchLinks: true, onChange: $0)
+        }
+
     @ObservationIgnored var onSave: (@MainActor (ShellConfig) -> Void)?
 
     init(
@@ -81,7 +86,7 @@ final class ShellConfigurationCoordinator {
 
     func startObserving() {
         guard observation == nil else { return }
-        observation = ShellDirectoryObservation(watchLinks: true) { [weak self] in self?.requestRefresh() }
+        observation = makeObservation { [weak self] in self?.requestRefresh() }
         observation?.sync(
             paths: inputs?.paths ?? [shellDirectory, shellDirectory.deletingLastPathComponent()],
             recursivePaths: inputs?.recursivePaths ?? [shellDirectory]

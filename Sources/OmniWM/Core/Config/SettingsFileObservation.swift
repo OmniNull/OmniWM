@@ -33,6 +33,8 @@ final class SettingsFileObservation {
     private var settingsFileWatch: Watch?
     private var started = false
 
+    var onEventProcessed: (@MainActor (URL) -> Void)?
+
     init(directoryURL: URL, fileURL: URL) {
         self.directoryURL = directoryURL
         self.fileURL = fileURL
@@ -75,6 +77,13 @@ final class SettingsFileObservation {
         settingsFileWatch = makeWatch(at: fileURL)
     }
 
+    func isWatchingDirectory(at url: URL) -> Bool {
+        guard let watch = directoryWatches.first(where: { $0.key.path == url.path })?.value,
+              let fingerprint = SettingsFileAccess.currentFingerprint(at: url)
+        else { return false }
+        return watch.identity == FileIdentity(fingerprint)
+    }
+
     private func refreshDirectoryWatches() {
         guard started else { return }
         let directories = SettingsFileObservationDirectories.paths(for: fileURL)
@@ -105,8 +114,10 @@ final class SettingsFileObservation {
             eventMask: [.write, .delete, .rename],
             queue: .main
         )
-        source.setEventHandler { [weak persistence] in
+        source.setEventHandler { [weak self] in
+            guard let self else { return }
             persistence?.handlePossibleSettingsFileChange()
+            onEventProcessed?(url)
         }
         source.setCancelHandler {
             close(descriptor)
