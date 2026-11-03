@@ -115,35 +115,6 @@ final class NativeResizeAdoptionTests: NiriInteractionTestCase {
             return (workspaceId, animationMonitor)
         }
 
-        func prepareUnrelatedScrollAnimation() throws -> (WorkspaceDescriptor.ID, CGDirectDisplayID) {
-            let frame = monitor.frame.offsetBy(dx: monitor.frame.width, dy: 0)
-            let other = Monitor(
-                id: .init(displayId: 83_402),
-                displayId: 83_402,
-                frame: frame,
-                visibleFrame: frame,
-                hasNotch: false,
-                name: "Unrelated Animation"
-            )
-            controller.settings.workspaces.configurations.append(WorkspaceConfiguration(
-                name: "2",
-                monitorAssignment: .specificDisplay(OutputId(from: other)),
-                layoutType: .niri
-            ))
-            manager.applyMonitorConfigurationChange([monitor, other])
-            manager.applySettings()
-            if controller.niriEngine == nil {
-                controller.enableNiriLayout()
-            } else {
-                controller.syncMonitorsToNiriEngine()
-            }
-            let workspace = try XCTUnwrap(manager.workspaceId(named: "2"))
-            XCTAssertEqual(manager.activeWorkspace(on: other.id)?.id, workspace)
-            try confirmLayout()
-            controller.layoutRefreshController.resetState()
-            return (workspace, other.displayId)
-        }
-
         func beginDrag(_ token: WindowToken) throws {
             handler.retireNativeTitleBarDragAtInputBoundary()
             handler.pressedMouseButtonsProvider = { MouseEventHandler.MouseButton.left.pressedMask }
@@ -1762,14 +1733,15 @@ final class NativeResizeAdoptionTests: NiriInteractionTestCase {
             for acceptsOther in [false, true] {
                 let fixture = try makeFixture(layout, pid: pid_t(835_221 + scenario))
                 scenario += 1
-                let (animationWorkspace, animationDisplayId) = try fixture.prepareUnrelatedScrollAnimation()
+                let (animationWorkspace, animationMonitor) = try fixture.addUnrelatedAnimationWorkspace()
                 let blocker = blockRefreshes(fixture)
                 defer { unblockRefreshes(fixture, blocker: blocker) }
                 fixture.wireFrameApplyCallbacks()
                 fixture.handler.state.moveTap = try XCTUnwrap(CFMachPortCreate(kCFAllocatorDefault, nil, nil, nil))
                 let (token, other) = (fixture.tokens[0], fixture.tokens[1])
+                let expectedActiveToken = acceptsOther ? other : token
                 let start = try fixture.frame(token)
-                let location = CGPoint(x: start.midX + FrameTolerance.frameWrite + 1, y: start.midY)
+                let location = nativeDragLocation(from: start)
                 let tokens = fixture.tokens
                 let nativeFrames = fixture.nativeFrames
                 let info: @MainActor (UInt32) -> WindowServerInfo? = { windowId in
@@ -1803,15 +1775,15 @@ final class NativeResizeAdoptionTests: NiriInteractionTestCase {
                     defer { fixture.controller.ownedWindowRegistry.unregister(surfaceId: surfaceId) }
                     XCTAssertFalse(fixture.handler.receiveTapMouseDown(at: frame.center, modifiers: []))
                 }
+                XCTAssertEqual(fixture.handler.state.nativeTitleBarDrag?.token, expectedActiveToken)
                 XCTAssertNil(fixture.controller.layoutRefreshController.layoutState.pendingRefresh)
                 XCTAssertTrue(fixture.controller.niriLayoutHandler.registerScrollAnimation(
-                    animationWorkspace, on: animationDisplayId
+                    animationWorkspace, on: animationMonitor.displayId
                 ))
 
-                fixture.nativeFrames[token.windowId]?.frame = grown(
-                    start,
-                    right: max(FrameTolerance.frameWrite, FrameTolerance.screenMatch) + 1
-                )
+                var displaced = start
+                displaced.size.width = (start.width + max(FrameTolerance.frameWrite, FrameTolerance.screenMatch)).nextUp
+                fixture.nativeFrames[token.windowId]?.frame = displaced
                 fixture.controller.axEventHandler.handleCGSEvent(.frameChanged(windowId: UInt32(token.windowId)))
                 await fixture.controller.axEventHandler.frameObservations.byWindowId[UInt32(token.windowId)]?.task.value
 
@@ -1824,7 +1796,8 @@ final class NativeResizeAdoptionTests: NiriInteractionTestCase {
                 XCTAssertEqual(refresh?.reason, .interactiveGesture)
                 if refresh != nil { try fixture.confirmWrite(of: token) }
                 XCTAssertEqual(fixture.nativeFrames[token.windowId]?.frame, start)
-                XCTAssertEqual(try fixture.frame(token).width, start.width, accuracy: 1)
+                XCTAssertEqual(try fixture.frame(token).width, start.width, accuracy: FrameTolerance.frameWrite)
+                XCTAssertEqual(fixture.handler.state.nativeTitleBarDrag?.token, expectedActiveToken)
                 XCTAssertFalse(fixture.controller.axManager.isNativeTitleBarDragActive(for: token))
                 XCTAssertTrue(fixture.handler.tracksNativeTitleBarDrag(windowId: token.windowId))
                 fixture.handler.discardNativeTitleBarDrag(for: WindowToken(
@@ -1832,12 +1805,12 @@ final class NativeResizeAdoptionTests: NiriInteractionTestCase {
                     windowId: token.windowId
                 ))
                 XCTAssertTrue(fixture.handler.tracksNativeTitleBarDrag(windowId: token.windowId))
-                let activeToken = fixture.handler.state.nativeTitleBarDrag?.token
+                XCTAssertEqual(fixture.handler.state.nativeTitleBarDrag?.token, expectedActiveToken)
                 fixture.handler.discardNativeTitleBarDrag(for: token)
                 XCTAssertFalse(fixture.handler.tracksNativeTitleBarDrag(windowId: token.windowId))
                 XCTAssertEqual(
                     fixture.handler.state.nativeTitleBarDrag?.token,
-                    activeToken == token ? nil : activeToken
+                    acceptsOther ? other : nil
                 )
             }
         }
@@ -1853,7 +1826,7 @@ final class NativeResizeAdoptionTests: NiriInteractionTestCase {
             try fixture.controller.settings.setOverviewMouseButton(2)
             fixture.handler.state.moveTap = try XCTUnwrap(CFMachPortCreate(kCFAllocatorDefault, nil, nil, nil))
             let start = try fixture.frame(fixture.tokens[0])
-            let location = CGPoint(x: start.midX + FrameTolerance.frameWrite + 1, y: start.midY)
+            let location = nativeDragLocation(from: start)
             fixture.handler.pressedMouseButtonsProvider = { MouseEventHandler.MouseButton.left.pressedMask }
             XCTAssertFalse(fixture.handler.receiveTapMouseDown(at: start.center, modifiers: []))
             fixture.handler.receiveTapMouseDragged(at: location)
@@ -1877,7 +1850,7 @@ final class NativeResizeAdoptionTests: NiriInteractionTestCase {
     func testOrdinaryFrameChangesKeepTheirBusyRelayoutPolicy() async throws {
         for (index, layout) in [LayoutType.niri, .dwindle].enumerated() {
             let fixture = try makeFixture(layout, pid: pid_t(835_241 + index))
-            let (animationWorkspace, animationDisplayId) = try fixture.prepareUnrelatedScrollAnimation()
+            let (animationWorkspace, animationMonitor) = try fixture.addUnrelatedAnimationWorkspace()
             let blocker = blockRefreshes(fixture)
             defer { unblockRefreshes(fixture, blocker: blocker) }
             let token = fixture.tokens[0]
@@ -1886,12 +1859,11 @@ final class NativeResizeAdoptionTests: NiriInteractionTestCase {
                 WindowServerInfo(id: windowId, pid: token.pid, level: 0, frame: start)
             }
             XCTAssertTrue(fixture.controller.niriLayoutHandler.registerScrollAnimation(
-                animationWorkspace, on: animationDisplayId
+                animationWorkspace, on: animationMonitor.displayId
             ))
-            fixture.nativeFrames[token.windowId]?.frame = grown(
-                start,
-                right: max(FrameTolerance.frameWrite, FrameTolerance.screenMatch) + 1
-            )
+            var displaced = start
+            displaced.size.width = (start.width + max(FrameTolerance.frameWrite, FrameTolerance.screenMatch)).nextUp
+            fixture.nativeFrames[token.windowId]?.frame = displaced
 
             fixture.controller.axEventHandler.handleCGSEvent(.frameChanged(windowId: UInt32(token.windowId)))
             await fixture.controller.axEventHandler.frameObservations.byWindowId[UInt32(token.windowId)]?.task.value
