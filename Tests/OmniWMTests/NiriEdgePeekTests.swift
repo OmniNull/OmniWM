@@ -181,6 +181,60 @@ final class NiriEdgePeekTests: XCTestCase {
         XCTAssertEqual(fixture.column(2).width, .proportion(0.5))
     }
 
+    func testStretchingAnEndColumnNarrowedForThePeekReachesThePeek() throws {
+        var fixture = makeFixture(widths: [0.5, 0.5, 0.5])
+        fixture.focus(0, from: 1)
+        let before = fixture.span(of: 0)
+
+        let stretch = try XCTUnwrap(fixture.engine.columnStretchToScreenEdge(
+            fixture.column(0),
+            rightSide: true,
+            context: fixture.context,
+            state: fixture.state
+        ))
+        fixture.engine.stretchColumn(
+            fixture.column(0),
+            to: stretch,
+            rightSide: true,
+            context: fixture.context,
+            state: &fixture.state
+        )
+        fixture.focus(0, from: 0)
+
+        let after = fixture.span(of: 0)
+        XCTAssertGreaterThan(after.upperBound - after.lowerBound, before.upperBound - before.lowerBound + 100)
+        XCTAssertEqual(after.lowerBound, before.lowerBound, accuracy: 0.5)
+        XCTAssertEqual(try XCTUnwrap(fixture.rightPeek), peek, accuracy: 0.5)
+    }
+
+    func testAWidthChangeThatGivesAnEndColumnRoomForThePeekAnimates() throws {
+        var fixture = makeFixture(widths: [0.5, 0.5, 1.0 / 3.0])
+        fixture.focus(1, from: 0)
+        fixture.focus(2, from: 1)
+        let last = fixture.column(2)
+        let context = NiriInteractionContext(
+            workspaceId: fixture.workspaceId,
+            motion: .enabled,
+            workingFrame: fixture.frame,
+            gaps: fixture.gap,
+            orientation: .horizontal
+        )
+        fixture.engine.presetContainerPrimarySpans = [.proportion(1.0 / 3.0), .proportion(0.5)]
+        last.presetWidthIdx = 0
+
+        fixture.engine.toggleContainerPrimarySpan(last, forwards: true, context: context, state: &fixture.state)
+        XCTAssertEqual(last.width, .proportion(0.5))
+        fixture.engine.ensureSelectionVisible(
+            node: fixture.window(2),
+            context: context,
+            state: &fixture.state,
+            fromContainerIndex: 2
+        )
+
+        XCTAssertTrue(last.hasWidthAnimationRunning)
+        XCTAssertNotNil(last.stripEndPeekRoom)
+    }
+
     func testCyclingSizesNeverCoversAPeek() {
         for target in [0, 1, 3] {
             for forwards in [true, false] {

@@ -26,7 +26,7 @@ class NiriContainer: NiriNode {
     var isLiveHomeSpot = false
     var centreCycle: ColumnCentreCycle?
     var edgePeekCap: CGFloat?
-    var stripEndPeekCap: CGFloat?
+    var stripEndPeekRoom: StripEndPeekRoom?
 
     var height: ProportionalSize = .default
 
@@ -103,7 +103,8 @@ class NiriContainer: NiriNode {
         }
         if let effectiveMaxConstraint, result > effectiveMaxConstraint { result = effectiveMaxConstraint }
         if orientation == .horizontal, let edgePeekCap {
-            result = min(result, max(min(edgePeekCap, stripEndPeekCap ?? edgePeekCap), bounds.min))
+            let stripEndCap = stripEndPeekRoom?.cappedSpan(result) ?? edgePeekCap
+            result = min(result, max(min(edgePeekCap, stripEndCap), bounds.min))
         }
         return result
     }

@@ -78,9 +78,9 @@ extension NiriLayoutEngine {
         gap: CGFloat,
         peeks: EdgePeekWidths?
     ) {
-        let previous = columns.map(\.stripEndPeekCap)
-        columns.forEach { $0.stripEndPeekCap = nil }
-        var caps = [CGFloat?](repeating: nil, count: columns.count)
+        let previous = columns.map(\.stripEndPeekRoom)
+        columns.forEach { $0.stripEndPeekRoom = nil }
+        var rooms = [StripEndPeekRoom?](repeating: nil, count: columns.count)
         if let viewFrame, let peeks, columns.count > 2 {
             let spans = columns.map { column in
                 column.resolvedWidthPixels(
@@ -90,33 +90,31 @@ extension NiriLayoutEngine {
                     contentInset: tabContentInset(for: column)
                 )
             }
-            let first = Self.peekShortfall(
-                spans: spans,
+            rooms[0] = StripEndPeekRoom(
+                farSpans: Array(spans.dropFirst()),
                 inset: workingFrame.minX + gap - viewFrame.minX,
                 viewSpan: viewFrame.width,
                 peek: peeks.trailing,
                 gap: gap
             )
-            let last = Self.peekShortfall(
-                spans: spans.reversed(),
+            rooms[columns.count - 1] = StripEndPeekRoom(
+                farSpans: Array(spans.dropLast().reversed()),
                 inset: viewFrame.maxX - workingFrame.maxX + gap,
                 viewSpan: viewFrame.width,
                 peek: peeks.leading,
                 gap: gap
             )
-            if first > 0 { caps[0] = spans[0] - first }
-            if last > 0 { caps[columns.count - 1] = spans[columns.count - 1] - last }
         }
         for (index, column) in columns.enumerated() {
             guard !column.isLiveHomeSpot, !column.isLiveDropSpace else { continue }
-            column.stripEndPeekCap = caps[index]
-            if caps[index] != previous[index] {
+            column.stripEndPeekRoom = rooms[index]
+            if rooms[index] != previous[index] {
                 column.invalidateCachedPrimarySpan(orientation: .horizontal)
             }
         }
     }
 
-    private static func peekShortfall(
+    static func peekShortfall(
         spans: [CGFloat],
         inset: CGFloat,
         viewSpan: CGFloat,
@@ -205,4 +203,22 @@ extension NiriLayoutEngine {
         return viewStart - activePosition
     }
 
+}
+
+struct StripEndPeekRoom: Equatable {
+    var farSpans: [CGFloat]
+    var inset: CGFloat
+    var viewSpan: CGFloat
+    var peek: CGFloat
+    var gap: CGFloat
+
+    func cappedSpan(_ span: CGFloat) -> CGFloat {
+        span - NiriLayoutEngine.peekShortfall(
+            spans: [span] + farSpans,
+            inset: inset,
+            viewSpan: viewSpan,
+            peek: peek,
+            gap: gap
+        )
+    }
 }
