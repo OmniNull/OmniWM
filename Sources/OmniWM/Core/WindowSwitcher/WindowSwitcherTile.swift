@@ -6,6 +6,8 @@ import QuartzCore
 
 @MainActor
 final class WindowSwitcherTile: NSView {
+    static let selectedBorderWidth: CGFloat = 3
+
     let handle: WindowHandle
     private let item: WindowSwitcherItem
     private let scope: WindowSwitcherScope
@@ -78,7 +80,7 @@ final class WindowSwitcherTile: NSView {
     }
 
     func setSelected(_ selected: Bool) {
-        layer?.borderWidth = selected ? 3 : 1
+        layer?.borderWidth = selected ? Self.selectedBorderWidth : 1
         layer?.borderColor = (selected ? NSColor.controlAccentColor : NSColor.separatorColor).cgColor
         layer?.backgroundColor = NSColor.black.withAlphaComponent(selected ? 0.2 : 0.1).cgColor
         setAccessibilityValue(selected ? String(localized: "Selected") : "")

@@ -45,7 +45,8 @@ final class WindowSwitcherControllerTests: XCTestCase {
                 }
                 XCTAssertEqual(tiles(in: content).map(\.handle.id), expected)
                 XCTAssertEqual(
-                    tiles(in: content).filter { $0.layer?.borderWidth == 3 }.map(\.handle.id),
+                    tiles(in: content).filter { $0.layer?.borderWidth == WindowSwitcherTile.selectedBorderWidth }
+                        .map(\.handle.id),
                     [fixture.tokens[2]]
                 )
 
@@ -53,7 +54,8 @@ final class WindowSwitcherControllerTests: XCTestCase {
 
                 let selectedIndex = try XCTUnwrap(expected.firstIndex(of: fixture.tokens[2]))
                 XCTAssertEqual(
-                    tiles(in: content).filter { $0.layer?.borderWidth == 3 }.map(\.handle.id),
+                    tiles(in: content).filter { $0.layer?.borderWidth == WindowSwitcherTile.selectedBorderWidth }
+                        .map(\.handle.id),
                     [expected[(selectedIndex + 1) % expected.count]]
                 )
                 XCTAssertEqual(manager.nativeManagedFocusToken, fixture.tokens[0])
@@ -81,7 +83,8 @@ final class WindowSwitcherControllerTests: XCTestCase {
                     let cards = tiles(in: try XCTUnwrap(panel.contentView))
                     XCTAssertEqual(cards.map(\.handle.id), fixture.tokens)
                     XCTAssertEqual(
-                        cards.filter { $0.layer?.borderWidth == 3 }.map(\.handle.id),
+                        cards.filter { $0.layer?.borderWidth == WindowSwitcherTile.selectedBorderWidth }
+                            .map(\.handle.id),
                         [fixture.tokens[windowCount - 1]]
                     )
                     XCTAssertEqual(fixture.controller.workspaceManager.nativeManagedFocusToken, fixture.tokens[0])

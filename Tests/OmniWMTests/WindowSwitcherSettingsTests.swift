@@ -31,8 +31,9 @@ final class WindowSwitcherSettingsTests: XCTestCase {
         settings.windowSwitcher.enabled = true
         settings.windowSwitcher.commandTab = .remembered
         let encoded = try SettingsTOMLCodec.encode(settings)
+        let orderLine = "order = \"\(WindowSwitcherOrder.omniLayout.rawValue)\"\n"
         let legacy = String(decoding: encoded, as: UTF8.self)
-            .replacingOccurrences(of: "order = \"omniLayout\"\n", with: "")
+            .replacingOccurrences(of: orderLine, with: "")
         XCTAssertNotEqual(legacy, String(decoding: encoded, as: UTF8.self))
         let decoded = try SettingsTOMLCodec.decode(Data(legacy.utf8))
         XCTAssertEqual(decoded.windowSwitcher, settings.windowSwitcher)

@@ -152,7 +152,8 @@ final class WindowSwitcherController {
                     return item
                 }
             }
-        return controller.settings.windowSwitcher.order.orderedItems(scoped, recent: manager.windowFocusRecencyOrder)
+        guard controller.settings.windowSwitcher.order == .lastUsed else { return scoped }
+        return WindowSwitcherOrder.lastUsed.orderedItems(scoped, recent: manager.windowFocusRecencyOrder)
     }
 
     private func orderedEntries(in workspaceId: WorkspaceDescriptor.ID, manager: WorkspaceManager) -> [WindowState] {
