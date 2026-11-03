@@ -1084,17 +1084,23 @@ final class TrackpadWorkspaceGestureTests: XCTestCase {
         XCTAssertEqual(activeWorkspace(fixture), fixture.ws1)
     }
 
-    func testFastFlickBelowDistanceThresholdSwitchesOnRelease() throws {
-        let fixture = try makeFixture()
-        var time: TimeInterval = 100
-        sendFrame(fixture, phase: .began, fingers: 3, x: 0.5, y: 0.2, at: time)
-        for step in 1 ... 3 {
-            time += 0.01
-            sendFrame(fixture, phase: .changed, fingers: 3, x: 0.5, y: 0.2 + 0.04 * CGFloat(step), at: time)
+    func testFastFlickBelowDistanceThresholdSwitchesOnReleaseButNeverOnCancel() throws {
+        let cases: [(label: String, phase: NSEvent.Phase, switches: Bool)] = [
+            ("ended", .ended, true),
+            ("cancelled", .cancelled, false)
+        ]
+        for (label, phase, switches) in cases {
+            let fixture = try makeFixture()
+            var time: TimeInterval = 100
+            sendFrame(fixture, phase: .began, fingers: 3, x: 0.5, y: 0.2, at: time)
+            for step in 1 ... 3 {
+                time += 0.01
+                sendFrame(fixture, phase: .changed, fingers: 3, x: 0.5, y: 0.2 + 0.04 * CGFloat(step), at: time)
+            }
+            time += 0.005
+            sendFrame(fixture, phase: phase, fingers: 0, x: 0, y: 0, at: time)
+            XCTAssertEqual(activeWorkspace(fixture), switches ? fixture.ws2 : fixture.ws1, label)
         }
-        time += 0.005
-        sendFrame(fixture, phase: .ended, fingers: 0, x: 0, y: 0, at: time)
-        XCTAssertEqual(activeWorkspace(fixture), fixture.ws2)
     }
 
     func testCommitCrossingFrameContributesExactlyOneVelocitySample() throws {
@@ -1107,19 +1113,6 @@ final class TrackpadWorkspaceGestureTests: XCTestCase {
         }
         time += 0.02
         sendFrame(fixture, phase: .ended, fingers: 0, x: 0, y: 0, at: time)
-        XCTAssertEqual(activeWorkspace(fixture), fixture.ws1)
-    }
-
-    func testCancelledGestureNeverFires() throws {
-        let fixture = try makeFixture()
-        var time: TimeInterval = 100
-        sendFrame(fixture, phase: .began, fingers: 3, x: 0.5, y: 0.2, at: time)
-        for step in 1 ... 3 {
-            time += 0.01
-            sendFrame(fixture, phase: .changed, fingers: 3, x: 0.5, y: 0.2 + 0.04 * CGFloat(step), at: time)
-        }
-        time += 0.005
-        sendFrame(fixture, phase: .cancelled, fingers: 0, x: 0, y: 0, at: time)
         XCTAssertEqual(activeWorkspace(fixture), fixture.ws1)
     }
 

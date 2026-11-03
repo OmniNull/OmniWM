@@ -174,7 +174,7 @@ Live/private integration and measurement cases skip unless their explicit enviro
 | `OMNIWM_RUN_LAUNCHER_TERMINAL_TESTS=1` | Native Terminal and iTerm2 Launcher sessions |
 | `OMNIWM_RUN_SETTINGS_UI_RENDER_TESTS=1` | Rendered Settings UI captures and probes |
 
-`OMNIWM_REDUCED_GLASS_SWEEP=1` makes the three slowest glass renderer sweeps (composition, repeated composition and rim band) render a reduced grid that still covers every case, opacity, scale and rim value, and the frame coverage probe render its 1920-wide frames at 1x only. CI sets it on pull requests; everything else, including a plain `swift test`, runs the whole grid. `OMNIWM_GLASS_EVIDENCE` and `OMNI_F1_FRAME_PROBE_OUT` always run the whole grid.
+The three slowest glass renderer sweeps (composition, premultiplication and rim band) render a reduced grid that still covers every case, opacity, scale and rim value, and the frame coverage probe renders its 1920-wide frames at 1x only. This is the default everywhere, including a plain `swift test`; `OMNIWM_GLASS_EVIDENCE` or `OMNI_F1_FRAME_PROBE_OUT` enable the whole grid. `ShellGlassProbeTests` skip unless `OMNI_PROBE_OUT` is set.
 
 `make test-skylight-live` runs the focused SkyLight transaction test.
 

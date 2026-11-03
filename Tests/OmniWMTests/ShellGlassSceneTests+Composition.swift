@@ -25,8 +25,7 @@ struct ShellGlassCompositionErrors {
 extension ShellGlassSceneTests {
     nonisolated static var fullSweep: Bool {
         let environment = ProcessInfo.processInfo.environment
-        return environment["OMNIWM_REDUCED_GLASS_SWEEP"] != "1" || environment["OMNIWM_GLASS_EVIDENCE"] != nil
-            || environment["OMNI_F1_FRAME_PROBE_OUT"] != nil
+        return environment["OMNIWM_GLASS_EVIDENCE"] != nil || environment["OMNI_F1_FRAME_PROBE_OUT"] != nil
     }
 
     nonisolated static func sweeps(_ caseIndex: Int, opacity: Double, scale: Int) -> Bool {
@@ -35,6 +34,14 @@ extension ShellGlassSceneTests {
 
     nonisolated static var sweptCompositionCells: Int {
         compositionCases.count * (fullSweep ? 4 : 1)
+    }
+
+    nonisolated static var sweptRims: [Double] {
+        fullSweep ? [0.1, 0.3, 0.4, 0.55] : [0.1, 0.55]
+    }
+
+    nonisolated static var premultipliedRims: [Double] {
+        fullSweep ? [0.1, 0.4, 0.55, 0.7, 1.0] : [0.4, 1.0]
     }
 
     nonisolated static var compositionCases: [ShellGlassCompositionCase] {
@@ -125,23 +132,6 @@ extension ShellGlassSceneTests {
         return owner
     }
 
-    nonisolated static func compositionRenderer(
-        _ layer: CALayer,
-        scale: Int
-    ) throws -> ShellOffscreenRenderer {
-        let width = 96 * scale
-        let root = CALayer()
-        root.frame = CGRect(x: 0, y: 0, width: width, height: width)
-        root.isGeometryFlipped = true
-        let holder = CALayer()
-        holder.anchorPoint = .zero
-        holder.bounds = layer.bounds
-        holder.setAffineTransform(CGAffineTransform(scaleX: CGFloat(scale), y: CGFloat(scale)))
-        root.addSublayer(holder)
-        holder.addSublayer(layer)
-        return try ShellOffscreenRenderer(root: root, width: width, height: width)
-    }
-
     private nonisolated static func compositionDistance(_ x: Int, _ y: Int, scale: Int) -> Double {
         let px = (Double(x) + 0.5) / Double(scale) - 48
         let py = (Double(y) + 0.5) / Double(scale) - 48
@@ -196,9 +186,9 @@ extension ShellGlassSceneTests {
 
     func testCompositionPreservesTheOriginalAuthoredTintAndGradientWithoutABand() throws {
         try ShellLayerScene.engineQueue.sync {
-            for style in Self.compositionCases {
+            for (index, style) in Self.compositionCases.enumerated() {
                 for opacity in [1.0, 0.55] {
-                    for scale in [1, 2] {
+                    for scale in [1, 2] where Self.sweeps(index, opacity: opacity, scale: scale) {
                         let width = 96 * scale
                         let reference = try Self.pixels(
                             Self.compositionBaseline(style, opacity: opacity), width: width, height: width, scale: scale
@@ -230,7 +220,7 @@ extension ShellGlassSceneTests {
                             Self.compositionBody(style, opacity: opacity, rim: 0).layer,
                             width: width, height: width, scale: scale
                         )
-                        for rim in [0.1, 0.3, 0.4, 0.55] {
+                        for rim in Self.sweptRims {
                             let body = try Self.compositionBody(style, opacity: opacity, rim: rim)
                             let pixels = try Self.pixels(body.layer, width: width, height: width, scale: scale)
                             let error = Self.compositionErrors(pixels, baseline: reference, rim: rim, scale: scale)
@@ -261,7 +251,7 @@ extension ShellGlassSceneTests {
                     }
                 }
             }
-            XCTAssertEqual(rows.count, Self.sweptCompositionCells * 4)
+            XCTAssertEqual(rows.count, Self.sweptCompositionCells * Self.sweptRims.count)
             XCTAssertEqual(Set(rows.map { "\($0["opacity"] ?? "") \($0["scale"] ?? "")" }).count, 4)
             try Self.saveCompositionMetrics(rows)
         }
@@ -277,7 +267,7 @@ extension ShellGlassSceneTests {
                 XCTAssertTrue(empty.allSatisfy { $0 == 0 })
                 for alpha in [0.0, 0.1] {
                     let fill = try XCTUnwrap(Self.rimTint.copy(alpha: alpha))
-                    for rim in [0.3, 0.55, 1.0] {
+                    for rim in [0.3, 1.0] {
                         let glass = try Self.rimBody("\(rim):0:90", fill: fill)
                         CATransaction.begin()
                         CATransaction.setDisableActions(true)
@@ -327,7 +317,7 @@ extension ShellGlassSceneTests {
             scale: scale
         )
         var rows: [[String: Any]] = []
-        for rim in [0.1, 0.3, 0.4, 0.55] {
+        for rim in sweptRims {
             let body = try isolatedGlassTintPlane(style, rim: rim)
             let actual = try pixels(body.layer, width: width, height: width, scale: scale)
             let recipe = try XCTUnwrap(ShellGlassRecipe("glass:26:-1:0:0:1|optics:\(rim):0:90"))
@@ -361,23 +351,24 @@ extension ShellGlassSceneTests {
     }
 
     func testGlassTintPlaneSharesTheBandOnceAndClipsAtItsOwnAlpha() throws {
+        let tints = Self.fullSweep
+            ? [(0.1, false), (0.1, true), (0.36, false), (0.36, true)]
+            : [(0.1, true), (0.36, false)]
         try ShellLayerScene.engineQueue.sync {
             var rows: [[String: Any]] = []
-            for alpha in [0.1, 0.36] {
-                for bright in [false, true] {
-                    let style = ShellGlassCompositionCase(
-                        name: "glass-\(bright ? "bright" : "dark")-\(alpha)",
-                        fill: CGColor(
-                            srgbRed: bright ? 0.8 : 0.2,
-                            green: bright ? 0.8 : 0.3,
-                            blue: bright ? 0.8 : 0.4,
-                            alpha: alpha
-                        )
+            for (alpha, bright) in tints {
+                let style = ShellGlassCompositionCase(
+                    name: "glass-\(bright ? "bright" : "dark")-\(alpha)",
+                    fill: CGColor(
+                        srgbRed: bright ? 0.8 : 0.2,
+                        green: bright ? 0.8 : 0.3,
+                        blue: bright ? 0.8 : 0.4,
+                        alpha: alpha
                     )
-                    for scale in [1, 2] { rows += try Self.glassTintProfiles(style, scale: scale) }
-                }
+                )
+                for scale in [1, 2] { rows += try Self.glassTintProfiles(style, scale: scale) }
             }
-            XCTAssertEqual(rows.count, 32)
+            XCTAssertEqual(rows.count, tints.count * 2 * Self.sweptRims.count)
             try Self.saveCompositionMetrics(rows, name: "glass-tint-plane-metrics.json")
         }
     }

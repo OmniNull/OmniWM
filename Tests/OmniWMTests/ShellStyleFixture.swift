@@ -51,15 +51,55 @@ enum ShellStyleFixture {
     }
 
     static func installAll(into shell: URL, from directory: URL = directory) throws {
-        for name in try names(in: directory) { try install(name, into: shell, from: directory) }
+        if directory == Self.directory, !FileManager.default.fileExists(atPath: shell.path) {
+            return try clone(installedTemplate.get(), to: shell)
+        }
+        try installEach(into: shell, from: directory)
     }
 
     @discardableResult
     static func prepare(
         into shell: URL, from defaults: URL? = ShellDefaults.bundled, styles: URL = directory
     ) throws -> [URL] {
+        if defaults == ShellDefaults.bundled, styles == directory, !FileManager.default.fileExists(atPath: shell.path) {
+            let template = try preparedTemplate.get()
+            try clone(template.shell, to: shell)
+            return template.backups
+        }
+        return try sync(into: shell, from: defaults, styles: styles)
+    }
+
+    private static func installEach(into shell: URL, from directory: URL) throws {
+        for name in try names(in: directory) { try install(name, into: shell, from: directory) }
+    }
+
+    private static func sync(into shell: URL, from defaults: URL?, styles: URL) throws -> [URL] {
         let backups = ShellDefaults.sync(into: shell, from: defaults)
-        try installAll(into: shell, from: styles)
+        try installEach(into: shell, from: styles)
         return backups
+    }
+
+    private static let templateRoot: URL = {
+        atexit { try? FileManager.default.removeItem(at: ShellStyleFixture.templateRoot) }
+        return FileManager.default.temporaryDirectory
+            .appendingPathComponent("omniwm-shell-template-\(UUID().uuidString)", isDirectory: true)
+    }()
+
+    private static let preparedTemplate = Result<(shell: URL, backups: [URL]), Error> {
+        let shell = templateRoot.appendingPathComponent("prepared", isDirectory: true)
+        return (shell, try sync(into: shell, from: ShellDefaults.bundled, styles: directory))
+    }
+
+    private static let installedTemplate = Result<URL, Error> {
+        let shell = templateRoot.appendingPathComponent("installed", isDirectory: true)
+        try installEach(into: shell, from: directory)
+        return shell
+    }
+
+    private static func clone(_ template: URL, to shell: URL) throws {
+        try FileManager.default.createDirectory(
+            at: shell.deletingLastPathComponent(), withIntermediateDirectories: true
+        )
+        try FileManager.default.copyItem(at: template, to: shell)
     }
 }

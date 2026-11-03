@@ -119,7 +119,7 @@ extension ShellLayerScene {
 
     func flushShapeFollows() {
         guard !shapeTracks.follows.isEmpty else { return }
-        let now = CACurrentMediaTime()
+        let now = self.now()
         for slot in Array(shapeTracks.follows.keys) {
             guard var follow = shapeTracks.follows[slot] else { continue }
             let entry = shapeTracks.entries[slot]
@@ -161,7 +161,7 @@ extension ShellLayerScene {
             return ShapeTrackPlan(begin: entry.begin, samples: entry.samples, duration: max(0, entry.duration))
         }
         var entry = entry
-        if follow.mode == .transform { entry.begin = Self.followStart(follow, at: CACurrentMediaTime()) }
+        if follow.mode == .transform { entry.begin = Self.followStart(follow, at: now()) }
         let base = max(0, entry.duration)
         let samples = entry.samples
         let origin = entry.base.target.rect.origin
@@ -190,7 +190,7 @@ extension ShellLayerScene {
     }
 
     func replanShapeFollows() {
-        let now = CACurrentMediaTime()
+        let now = self.now()
         for (slot, follow) in shapeTracks.follows where follow.mode == .composite {
             guard var entry = shapeTracks.entries[slot], entry.carrier == nil, let body = glassBodies[entry.body]
             else { continue }

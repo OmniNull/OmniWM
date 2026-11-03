@@ -36,6 +36,46 @@ final class ShellFrameEndpointTests: XCTestCase {
         XCTAssertEqual(result.2, target)
     }
 
+    func testSubmitStampsItsBatchWithTheSceneClock() throws {
+        let scene = ShellLayerScene(container: CALayer(), scale: 2)
+        scene.clock = { 1000 }
+        let stamped = expectation(description: "batch applied")
+        nonisolated(unsafe) var during: CFTimeInterval?
+        scene.submit([], animated: false) {
+            during = scene.now()
+            stamped.fulfill()
+        }
+        wait(for: [stamped], timeout: 5)
+        XCTAssertEqual(during, 1000)
+        XCTAssertNil(ShellLayerScene.engineQueue.sync { scene.submitTime })
+    }
+
+    func testSegmentedAndTrailFrameCurvesBeginAtTheBatchTime() throws {
+        let scene = ShellLayerScene(container: CALayer(), scale: 2)
+        let start = CGRect(x: 10, y: 20, width: 40, height: 30)
+        scene.submit([
+            .insert(slot: 0, parent: -1, kind: .image, after: -1),
+            .insert(slot: 1, parent: -1, kind: .image, after: 0),
+            .frame(slot: 0, rect: start, animation: nil),
+            .frame(slot: 1, rect: start, animation: nil)
+        ], animated: false)
+        for (slot, trails) in [(Int32(0), false), (1, true)] {
+            var animation = ShellAnimation(motion: .ease, speed: 1, curve: ShellCurve(wire: 9, custom: nil))
+            animation.trails = trails
+            let begins = ShellLayerScene.engineQueue.sync {
+                CATransaction.begin()
+                CATransaction.setDisableActions(true)
+                defer { CATransaction.commit() }
+                scene.submitTime = 1000
+                defer { scene.submitTime = nil }
+                scene.applyFrame(slot, CGRect(x: 90, y: 50, width: 120, height: 80), preset: animation, animated: true)
+                return ["position", "bounds"]
+                    .map { (scene.layers[slot]?.animation(forKey: $0) as? CAKeyframeAnimation)?.beginTime }
+            }
+            XCTAssertEqual(begins, [1000, 1000], "trails \(trails)")
+        }
+    }
+
     func testSegmentedPaintCurveEndsAtNewValues() throws {
         let scene = ShellLayerScene(container: CALayer(), scale: 2)
         let base = ShellLayerPaint(

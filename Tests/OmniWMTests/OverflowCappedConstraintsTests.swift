@@ -31,16 +31,12 @@ final class OverflowCappedConstraintsTests: XCTestCase {
         )
     }
 
-    func testFittingMinIsKept() {
-        let result = capped(constraints(minWidth: 800, minHeight: 600))
-        XCTAssertEqual(result.minSize.width, 800)
-        XCTAssertEqual(result.minSize.height, 600)
-    }
-
-    func testOversizedMinIsKeptWithoutNeighbors() {
-        let result = capped(constraints(minWidth: 3000, minHeight: 2000))
-        XCTAssertEqual(result.minSize.width, 3000)
-        XCTAssertEqual(result.minSize.height, 2000)
+    func testMinIsKeptWithoutNeighbors() {
+        for (label, width, height) in [("fitting", CGFloat(800), CGFloat(600)), ("oversized", 3000, 2000)] {
+            let result = capped(constraints(minWidth: width, minHeight: height))
+            XCTAssertEqual(result.minSize.width, width, label)
+            XCTAssertEqual(result.minSize.height, height, label)
+        }
     }
 
     func testOversizedMinWidthCappedByHorizontalNeighbor() {

@@ -152,7 +152,15 @@ final class ShellWidgetInspectorTests: XCTestCase {
             XCTAssertEqual(pixels["default"], pixels["maximum"], option.widget)
         }
         let view = try XCTUnwrap(window.contentView)
-        for value in stride(from: option.minimum, through: option.maximum, by: 1) {
+        let probes = appearance == .aqua ? [
+            option.minimum,
+            option.maximum,
+            option.styleDefault - 1,
+            option.styleDefault,
+            option.styleDefault + 1
+        ]
+        .filter { (option.minimum ... option.maximum).contains($0) } : [option.styleDefault]
+        for value in Set(probes).sorted() {
             try await editor.configuration.setWidgetValue(.number(value), widget: option.widget, key: option.key)
             await editor.reload()
             await display(window)

@@ -12,16 +12,12 @@ final class SidedHyperBindingDetectorTests: XCTestCase {
         return HotkeyBinding(id: id, command: .focusNavigation(.previous), binding: chord)
     }
 
-    func testFiresForLeftSidedHyperBinding() {
-        let issues = SidedHyperBindingDetector.issues(currentBindings: [hyperBinding(id: "a", side: .left)])
-        XCTAssertEqual(issues.map(\.id), ["hotkey-sided-hyper:a"])
-        XCTAssertTrue(issues.first?.message.contains("Left-side") ?? false)
-    }
-
-    func testFiresForRightSidedHyperBinding() {
-        let issues = SidedHyperBindingDetector.issues(currentBindings: [hyperBinding(id: "b", side: .right)])
-        XCTAssertEqual(issues.map(\.id), ["hotkey-sided-hyper:b"])
-        XCTAssertTrue(issues.first?.message.contains("Right-side") ?? false)
+    func testFiresForSidedHyperBinding() {
+        for (side, label) in [(ModifierSide.left, "Left-side"), (.right, "Right-side")] {
+            let issues = SidedHyperBindingDetector.issues(currentBindings: [hyperBinding(id: "a", side: side)])
+            XCTAssertEqual(issues.map(\.id), ["hotkey-sided-hyper:a"], label)
+            XCTAssertTrue(issues.first?.message.contains(label) ?? false, label)
+        }
     }
 
     func testIgnoresUnsidedHyperBinding() {

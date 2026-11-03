@@ -41,7 +41,7 @@ final class QuakeTerminalTabBar: NSView {
 
     override func draw(_ dirtyRect: NSRect) {
         NSColor(white: 0.1, alpha: 0.95).setFill()
-        dirtyRect.fill()
+        bounds.fill()
 
         let tabWidth = calculateTabWidth()
 

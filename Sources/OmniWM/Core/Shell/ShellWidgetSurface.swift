@@ -110,7 +110,10 @@ final class ShellWidgetSurface {
     var reveals: [ElementHandle: ShellRevealRoot] = [:]
     var retiringReveals: [ShellLayerIdentity: ShellReveal] = [:]
     var revealTokens: UInt64 = 0
-    var clock: () -> CFTimeInterval = CACurrentMediaTime
+    var clock: () -> CFTimeInterval = CACurrentMediaTime {
+        didSet { scene.clock = clock }
+    }
+
     var gesturePosition = CGPoint.zero
     var gesturePointer = CGPoint.zero
     var sliding = ElementHandle.none

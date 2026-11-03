@@ -26,84 +26,81 @@ final class SpatialNeighborTokenTests: XCTestCase {
         )
     }
 
-    func testRightPicksLeftMostEligible() {
-        let target = CGRect(x: 1000, y: 0, width: 1000, height: 1000)
-        let left = token(1)
-        let right = token(2)
-        let result = pick(
-            from: CGRect(x: 0, y: 200, width: 500, height: 600),
-            [
-                (right, CGRect(x: 1500, y: 0, width: 400, height: 1000)),
-                (left, CGRect(x: 1000, y: 0, width: 400, height: 1000))
-            ],
-            direction: .right,
-            targetFrame: target
+    func testPicksEligibleCandidateForEachDirection() {
+        typealias Case = (
+            label: String,
+            source: CGRect,
+            candidates: [(id: Int, frame: CGRect)],
+            direction: Direction,
+            target: CGRect,
+            expected: Int
         )
-        XCTAssertEqual(result, left)
-    }
-
-    func testLeftPicksRightMostEligible() {
-        let target = CGRect(x: 0, y: 0, width: 1000, height: 1000)
-        let near = token(1)
-        let far = token(2)
-        let result = pick(
-            from: CGRect(x: 1500, y: 200, width: 500, height: 600),
-            [
-                (far, CGRect(x: 0, y: 0, width: 400, height: 1000)),
-                (near, CGRect(x: 500, y: 0, width: 400, height: 1000))
-            ],
-            direction: .left,
-            targetFrame: target
-        )
-        XCTAssertEqual(result, near)
-    }
-
-    func testDownPicksTopMostEligible() {
-        let target = CGRect(x: 0, y: 0, width: 1000, height: 1000)
-        let top = token(1)
-        let bottom = token(2)
-        let result = pick(
-            from: CGRect(x: 200, y: 1100, width: 600, height: 400),
-            [
-                (bottom, CGRect(x: 0, y: 0, width: 1000, height: 400)),
-                (top, CGRect(x: 0, y: 600, width: 1000, height: 400))
-            ],
-            direction: .down,
-            targetFrame: target
-        )
-        XCTAssertEqual(result, top)
-    }
-
-    func testUpPicksBottomMostEligible() {
-        let target = CGRect(x: 0, y: 1000, width: 1000, height: 1000)
-        let top = token(1)
-        let bottom = token(2)
-        let result = pick(
-            from: CGRect(x: 200, y: 200, width: 600, height: 400),
-            [
-                (top, CGRect(x: 0, y: 1600, width: 1000, height: 400)),
-                (bottom, CGRect(x: 0, y: 1000, width: 1000, height: 400))
-            ],
-            direction: .up,
-            targetFrame: target
-        )
-        XCTAssertEqual(result, bottom)
-    }
-
-    func testCrossAxisOverlapBeatsCloserUnalignedCandidate() {
-        let target = CGRect(x: 1000, y: 0, width: 1000, height: 1000)
-        let edgeButUnaligned = token(1)
-        let alignedButFar = token(2)
-        let result = pick(
-            from: CGRect(x: 0, y: 400, width: 500, height: 200),
-            [
-                (edgeButUnaligned, CGRect(x: 1000, y: 0, width: 100, height: 100)),
-                (alignedButFar, CGRect(x: 1500, y: 400, width: 100, height: 200))
-            ],
-            direction: .right,
-            targetFrame: target
-        )
-        XCTAssertEqual(result, alignedButFar)
+        let cases: [Case] = [
+            (
+                "right picks left-most",
+                CGRect(x: 0, y: 200, width: 500, height: 600),
+                [
+                    (2, CGRect(x: 1500, y: 0, width: 400, height: 1000)),
+                    (1, CGRect(x: 1000, y: 0, width: 400, height: 1000))
+                ],
+                .right,
+                CGRect(x: 1000, y: 0, width: 1000, height: 1000),
+                1
+            ),
+            (
+                "left picks right-most",
+                CGRect(x: 1500, y: 200, width: 500, height: 600),
+                [
+                    (2, CGRect(x: 0, y: 0, width: 400, height: 1000)),
+                    (1, CGRect(x: 500, y: 0, width: 400, height: 1000))
+                ],
+                .left,
+                CGRect(x: 0, y: 0, width: 1000, height: 1000),
+                1
+            ),
+            (
+                "down picks top-most",
+                CGRect(x: 200, y: 1100, width: 600, height: 400),
+                [
+                    (2, CGRect(x: 0, y: 0, width: 1000, height: 400)),
+                    (1, CGRect(x: 0, y: 600, width: 1000, height: 400))
+                ],
+                .down,
+                CGRect(x: 0, y: 0, width: 1000, height: 1000),
+                1
+            ),
+            (
+                "up picks bottom-most",
+                CGRect(x: 200, y: 200, width: 600, height: 400),
+                [
+                    (1, CGRect(x: 0, y: 1600, width: 1000, height: 400)),
+                    (2, CGRect(x: 0, y: 1000, width: 1000, height: 400))
+                ],
+                .up,
+                CGRect(x: 0, y: 1000, width: 1000, height: 1000),
+                2
+            ),
+            (
+                "cross-axis overlap beats closer unaligned candidate",
+                CGRect(x: 0, y: 400, width: 500, height: 200),
+                [
+                    (1, CGRect(x: 1000, y: 0, width: 100, height: 100)),
+                    (2, CGRect(x: 1500, y: 400, width: 100, height: 200))
+                ],
+                .right,
+                CGRect(x: 1000, y: 0, width: 1000, height: 1000),
+                2
+            )
+        ]
+        for testCase in cases {
+            let result = pick(
+                from: testCase.source,
+                testCase.candidates.map { (token($0.id), $0.frame) },
+                direction: testCase.direction,
+                targetFrame: testCase.target
+            )
+            XCTAssertEqual(result, token(testCase.expected), testCase.label)
+        }
     }
 
     func testNoSourceFramePicksNearestEdgeByTargetCenter() {

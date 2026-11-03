@@ -265,4 +265,26 @@ extension ShellGlassSceneTests {
             }
         }
     }
+
+    func testSteppedApplyLeavesItsCommitClosed() throws {
+        let recipe = try XCTUnwrap(ShellGlassRecipe(recipe))
+        let paint = paint()
+        try ShellLayerScene.engineQueue.sync {
+            let canvas = try GlassProbeCanvas(width: 96, height: 96)
+            let body = try Self.native(ShellGlassBody())
+            canvas.add(body.layer)
+            for shift in [0, 4, 8] {
+                CATransaction.flush()
+                let shape = ShellGlassShape(
+                    slot: 1, kind: 0, rect: Self.rimShape.rect.offsetBy(dx: CGFloat(shift), dy: 0), radius: 12,
+                    thickness: 0
+                )
+                body.apply(
+                    size: CGSize(width: 96, height: 96), shapes: [shape], recipe: recipe, paint: paint, animation: nil
+                )
+            }
+            let element = try XCTUnwrap(body.lockstepLayers(1).first)
+            XCTAssertEqual(element.presentation()?.position, element.position)
+        }
+    }
 }

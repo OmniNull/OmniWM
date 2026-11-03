@@ -221,31 +221,19 @@ final class SettingsTOMLCodecTests: XCTestCase {
         XCTAssertTrue(try SettingsTOMLCodec.decode(data).focus.raiseOnMouseFocus)
     }
 
-    func testTOMLRejectsCorruptSystemHyperTrigger() throws {
-        let corrupt = try canonicalDefaultLines { lines in
-            let index = try XCTUnwrap(lines.firstIndex { $0.hasPrefix("systemHyperTrigger = ") })
-            lines[index] = #"systemHyperTrigger = "NotAKey""#
-        }
-
-        XCTAssertThrowsError(try SettingsTOMLCodec.decode(corrupt)) { error in
-            guard case let DecodingError.dataCorrupted(context) = error else {
-                return XCTFail("expected dataCorrupted, got \(error)")
+    func testTOMLRejectsCorruptHyperSettings() throws {
+        for (key, value) in [("systemHyperTrigger", "NotAKey"), ("hyperKeyModifiers", "Control")] {
+            let corrupt = try canonicalDefaultLines { lines in
+                let index = try XCTUnwrap(lines.firstIndex { $0.hasPrefix("\(key) = ") })
+                lines[index] = "\(key) = \"\(value)\""
             }
-            XCTAssertEqual(context.codingPath.map(\.stringValue), ["general", "systemHyperTrigger"])
-        }
-    }
 
-    func testTOMLRejectsCorruptHyperKeyModifiers() throws {
-        let corrupt = try canonicalDefaultLines { lines in
-            let index = try XCTUnwrap(lines.firstIndex { $0.hasPrefix("hyperKeyModifiers = ") })
-            lines[index] = #"hyperKeyModifiers = "Control""#
-        }
-
-        XCTAssertThrowsError(try SettingsTOMLCodec.decode(corrupt)) { error in
-            guard case let DecodingError.dataCorrupted(context) = error else {
-                return XCTFail("expected dataCorrupted, got \(error)")
+            XCTAssertThrowsError(try SettingsTOMLCodec.decode(corrupt), key) { error in
+                guard case let DecodingError.dataCorrupted(context) = error else {
+                    return XCTFail("\(key): expected dataCorrupted, got \(error)")
+                }
+                XCTAssertEqual(context.codingPath.map(\.stringValue), ["general", key], key)
             }
-            XCTAssertEqual(context.codingPath.map(\.stringValue), ["general", "hyperKeyModifiers"])
         }
     }
 
@@ -385,22 +373,14 @@ final class SettingsTOMLCodecTests: XCTestCase {
         XCTAssertEqual(rewritten, try SettingsTOMLCodec.encode(export))
     }
 
-    func testPreservingEncodeRejectsEmptyPreviousData() {
-        XCTAssertThrowsError(
-            try SettingsTOMLCodec.encode(.defaults(), preservingUnknownKeysFrom: Data())
-        ) { error in
-            XCTAssertEqual(error as? SettingsTOMLCodecError, .cannotSafelyPreservePreviousData)
-        }
-    }
-
-    func testPreservingEncodeRejectsMalformedPreviousData() {
-        XCTAssertThrowsError(
-            try SettingsTOMLCodec.encode(
-                .defaults(),
-                preservingUnknownKeysFrom: Data("[general\ninvalid".utf8)
-            )
-        ) { error in
-            XCTAssertEqual(error as? SettingsTOMLCodecError, .cannotSafelyPreservePreviousData)
+    func testPreservingEncodeRejectsUnparseablePreviousData() {
+        for (label, previous) in [("empty", Data()), ("malformed", Data("[general\ninvalid".utf8))] {
+            XCTAssertThrowsError(
+                try SettingsTOMLCodec.encode(.defaults(), preservingUnknownKeysFrom: previous),
+                label
+            ) { error in
+                XCTAssertEqual(error as? SettingsTOMLCodecError, .cannotSafelyPreservePreviousData, label)
+            }
         }
     }
 
@@ -589,14 +569,6 @@ final class SettingsTOMLCodecTests: XCTestCase {
         XCTAssertTrue(destination.toExport().focus.raiseOnMouseFocus)
     }
 
-    func testMalformedMouseMoveModifierTypeRejectsDecode() throws {
-        let malformed = try defaultsWithReplacements(
-            ("mouseMoveModifierKey = \"option\"\n", "mouseMoveModifierKey = 3\n")
-        )
-
-        XCTAssertThrowsError(try SettingsTOMLCodec.decode(malformed))
-    }
-
     func testOverviewGestureSettingsRoundTripAndExistingConfigDefaults() throws {
         var export = SettingsExport.defaults()
         export.gestures.overviewGestureEnabled = true
@@ -627,16 +599,6 @@ final class SettingsTOMLCodecTests: XCTestCase {
         settings.gestures.overviewGestureEnabled = false
         XCTAssertFalse(settings.effectiveTrackpadGesturesEnabled)
         XCTAssertEqual(changes, [true, false])
-    }
-
-    func testOverviewGestureRejectsUnsupportedFingerCount() throws {
-        let data = try defaultsWithReplacements(("overviewGestureFingerCount = 4", "overviewGestureFingerCount = 2"))
-        XCTAssertThrowsError(try SettingsTOMLCodec.decode(data))
-    }
-
-    func testColumnScrollRejectsTwoFingers() throws {
-        let data = try defaultsWithReplacements(("\nfingerCount = 3", "\nfingerCount = 2"))
-        XCTAssertThrowsError(try SettingsTOMLCodec.decode(data))
     }
 
     func testWorkspaceSwipeSettingsRoundTrip() throws {
@@ -737,16 +699,19 @@ final class SettingsTOMLCodecTests: XCTestCase {
         XCTAssertEqual(settings.gestures.effectiveWorkspaceSwipeAxis, .horizontal)
     }
 
-    func testMalformedWorkspaceSwipeTypesRejectDecode() throws {
+    func testMalformedOrUnsupportedSettingValuesRejectDecode() throws {
         let replacements = [
             ("workspaceSwipeEnabled = false\n", "workspaceSwipeEnabled = \"false\"\n"),
             ("workspaceSwipeFingerCount = 3\n", "workspaceSwipeFingerCount = \"three\"\n"),
-            ("workspaceSwipeAxis = \"vertical\"\n", "workspaceSwipeAxis = 3\n")
+            ("workspaceSwipeAxis = \"vertical\"\n", "workspaceSwipeAxis = 3\n"),
+            ("mouseMoveModifierKey = \"option\"\n", "mouseMoveModifierKey = 3\n"),
+            ("overviewGestureFingerCount = 4", "overviewGestureFingerCount = 2"),
+            ("\nfingerCount = 3", "\nfingerCount = 2")
         ]
 
         for (target, replacement) in replacements {
             let malformed = try defaultsWithReplacements((target, replacement))
-            XCTAssertThrowsError(try SettingsTOMLCodec.decode(malformed))
+            XCTAssertThrowsError(try SettingsTOMLCodec.decode(malformed), replacement)
         }
     }
 
@@ -828,37 +793,22 @@ final class SettingsTOMLCodecTests: XCTestCase {
         XCTAssertEqual(try SettingsTOMLCodec.decode(data).focus.lockModifier, .leftOption)
     }
 
-    func testFocusCrossesMonitorAtEdgeRoundTrips() throws {
-        XCTAssertFalse(SettingsExport.defaults().focus.crossesMonitorAtEdge)
+    func testBooleanSettingsRoundTrip() throws {
+        let cases: [(key: String, path: WritableKeyPath<SettingsExport, Bool>)] = [
+            ("crossesMonitorAtEdge", \.focus.crossesMonitorAtEdge),
+            ("moveCrossesMonitorAtEdge", \.focus.moveCrossesMonitorAtEdge),
+            ("constrainToArrangement", \.mouseWarp.constrainToArrangement)
+        ]
+        for (key, path) in cases {
+            XCTAssertFalse(SettingsExport.defaults()[keyPath: path], key)
 
-        var export = SettingsExport.defaults()
-        export.focus.crossesMonitorAtEdge = true
-        let data = try SettingsTOMLCodec.encode(export)
+            var export = SettingsExport.defaults()
+            export[keyPath: path] = true
+            let data = try SettingsTOMLCodec.encode(export)
 
-        XCTAssertTrue(String(decoding: data, as: UTF8.self).contains("crossesMonitorAtEdge = true"))
-        XCTAssertTrue(try SettingsTOMLCodec.decode(data).focus.crossesMonitorAtEdge)
-    }
-
-    func testMoveCrossesMonitorAtEdgeRoundTrips() throws {
-        XCTAssertFalse(SettingsExport.defaults().focus.moveCrossesMonitorAtEdge)
-
-        var export = SettingsExport.defaults()
-        export.focus.moveCrossesMonitorAtEdge = true
-        let data = try SettingsTOMLCodec.encode(export)
-
-        XCTAssertTrue(String(decoding: data, as: UTF8.self).contains("moveCrossesMonitorAtEdge = true"))
-        XCTAssertTrue(try SettingsTOMLCodec.decode(data).focus.moveCrossesMonitorAtEdge)
-    }
-
-    func testCursorContainmentRoundTrips() throws {
-        XCTAssertFalse(SettingsExport.defaults().mouseWarp.constrainToArrangement)
-
-        var export = SettingsExport.defaults()
-        export.mouseWarp.constrainToArrangement = true
-        let data = try SettingsTOMLCodec.encode(export)
-
-        XCTAssertTrue(String(decoding: data, as: UTF8.self).contains("constrainToArrangement = true"))
-        XCTAssertTrue(try SettingsTOMLCodec.decode(data).mouseWarp.constrainToArrangement)
+            XCTAssertTrue(String(decoding: data, as: UTF8.self).contains("\(key) = true"), key)
+            XCTAssertTrue(try SettingsTOMLCodec.decode(data)[keyPath: path], key)
+        }
     }
 
     func testUnknownEnumValueRejectsWholeFile() throws {

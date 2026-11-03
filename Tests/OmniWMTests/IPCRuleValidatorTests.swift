@@ -5,12 +5,6 @@ import OmniWMIPC
 import XCTest
 
 final class IPCRuleValidatorTests: XCTestCase {
-    func testEmptyBundleWithoutMatchersIsInvalid() {
-        let report = IPCRuleValidator.validate(IPCRuleDefinition(bundleId: ""))
-        XCTAssertNotNil(report.identifierError)
-        XCTAssertFalse(report.isValid)
-    }
-
     func testEmptyBundleWithAppNameIsValid() {
         let report = IPCRuleValidator.validate(
             IPCRuleDefinition(bundleId: "", appNameSubstring: "VMD", layout: .float)
@@ -28,30 +22,26 @@ final class IPCRuleValidatorTests: XCTestCase {
         XCTAssertTrue(report.isValid)
     }
 
-    func testEmptyBundleWithAxOnlyIsInvalid() {
-        let report = IPCRuleValidator.validate(
-            IPCRuleDefinition(bundleId: "", axSubrole: "AXStandardWindow", layout: .float)
-        )
-        XCTAssertNotNil(report.identifierError)
-        XCTAssertFalse(report.isValid)
-    }
-
-    func testMalformedBundleIsRejected() {
-        let report = IPCRuleValidator.validate(IPCRuleDefinition(bundleId: "not a bundle id"))
-        XCTAssertNotNil(report.bundleIdError)
-        XCTAssertFalse(report.isValid)
+    func testInvalidDefinitionsReportTheirError() {
+        let cases: [(label: String, rule: IPCRuleDefinition, error: KeyPath<IPCRuleValidationReport, String?>)] = [
+            ("empty bundle without matchers", IPCRuleDefinition(bundleId: ""), \.identifierError),
+            (
+                "empty bundle with ax matcher only",
+                IPCRuleDefinition(bundleId: "", axSubrole: "AXStandardWindow", layout: .float),
+                \.identifierError
+            ),
+            ("malformed bundle", IPCRuleDefinition(bundleId: "not a bundle id"), \.bundleIdError),
+            ("matcher without effect", IPCRuleDefinition(bundleId: "com.test.app"), \.effectError)
+        ]
+        for testCase in cases {
+            let report = IPCRuleValidator.validate(testCase.rule)
+            XCTAssertNotNil(report[keyPath: testCase.error], testCase.label)
+            XCTAssertFalse(report.isValid, testCase.label)
+        }
     }
 
     func testEmptyBundleStringHasNoFormatError() {
         XCTAssertNil(IPCRuleValidator.bundleIdError(for: ""))
-    }
-
-    func testIdentifyingMatcherWithoutEffectIsInvalid() {
-        let report = IPCRuleValidator.validate(
-            IPCRuleDefinition(bundleId: "com.test.app")
-        )
-        XCTAssertNotNil(report.effectError)
-        XCTAssertFalse(report.isValid)
     }
 
     func testWorkspaceAssignmentCountsAsEffect() {

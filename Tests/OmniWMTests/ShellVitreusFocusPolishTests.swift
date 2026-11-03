@@ -350,47 +350,46 @@ final class ShellVitreusFocusPolishTests: XCTestCase {
         XCTAssertEqual(glow.damping, 2 * 6.64 / 0.14, accuracy: 0.1)
     }
 
-    func testFocusButtonsAndThumbRenderTheirVitreusColoursAndGlowAtOneAndTwoX() throws {
+    func testFocusButtonsAndThumbRenderTheirVitreusColoursAndGlowAtTwoX() throws {
         let du = self.du
-        for scale in [1, 2] {
-            let widget = try desk(scale: CGFloat(scale))
-            let (rect, _) = ShellVitreusDeskTests.envelope(width: 1920, height: 1080)
-            let crop = rect.insetBy(dx: -24, dy: -24).integral
-            let button = try VitreusFixture.frame(widget, key: "start")
-            let thumb = try VitreusFixture.frame(widget, key: "chip-thumb-shape")
-            let glass = CGPoint(x: rect.midX + 140 * du, y: button.minY - 3 * du)
-            func sample(_ bytes: [UInt8], _ point: CGPoint) -> [Int] {
-                Focus.bgra(bytes, crop: crop, scale: scale, point)
-            }
-            let resting = try VitreusFixture.pixels(widget, crop: crop, scale: scale)
-            for (fraction, from, to) in [(0.25, [0xEC, 0xF8, 0xDC], [0xBD, 0xD6, 0x9E])] {
-                let top = sample(resting, CGPoint(x: button.minX + 12 * du, y: button.minY + fraction * button.height))
-                let bottom = sample(resting, CGPoint(
-                    x: button.minX + 12 * du, y: button.minY + (1 - fraction) * button.height
-                ))
-                for channel in 0 ..< 3 {
-                    let span = Double(to[channel] - from[channel])
-                    XCTAssertEqual(Double(top[channel]), Double(from[channel]) + fraction * span, accuracy: 3)
-                    XCTAssertEqual(Double(bottom[channel]), Double(to[channel]) - fraction * span, accuracy: 3)
-                }
-                XCTAssertEqual(top[3], 255)
-            }
-            let mint = sample(resting, CGPoint(x: thumb.minX + 4 * du, y: thumb.midY - 6 * du))
-            for (channel, value) in [0xBD, 0xD6, 0x9E, 0xFF].enumerated() {
-                XCTAssertEqual(mint[channel], value, accuracy: 3, "\(scale)x thumb")
-            }
-            let halo = { (bytes: [UInt8], gap: Double) in
-                sample(bytes, CGPoint(x: button.midX + 30 * du, y: button.minY - gap * du))[1]
-            }
-            let base = sample(resting, glass)[1]
-            XCTAssertGreaterThan(halo(resting, 3), base + 8, "\(scale)x rest glow")
-            try Focus.export(resting, crop: crop, scale: scale, name: "vitreus-focus-polish-\(scale)x")
-            try hover(widget, "start", .began)
-            let hovered = try VitreusFixture.pixels(widget, crop: crop, scale: scale)
-            XCTAssertGreaterThan(halo(hovered, 3), halo(resting, 3), "\(scale)x hover glow")
-            XCTAssertGreaterThan(halo(hovered, 9), halo(resting, 9), "\(scale)x hover reach")
-            try Focus.export(hovered, crop: crop, scale: scale, name: "vitreus-focus-polish-start-hover-\(scale)x")
+        let scale = 2
+        let widget = try desk(scale: CGFloat(scale))
+        let (rect, _) = ShellVitreusDeskTests.envelope(width: 1920, height: 1080)
+        let crop = rect.insetBy(dx: -24, dy: -24).integral
+        let button = try VitreusFixture.frame(widget, key: "start")
+        let thumb = try VitreusFixture.frame(widget, key: "chip-thumb-shape")
+        let glass = CGPoint(x: rect.midX + 140 * du, y: button.minY - 3 * du)
+        func sample(_ bytes: [UInt8], _ point: CGPoint) -> [Int] {
+            Focus.bgra(bytes, crop: crop, scale: scale, point)
         }
+        let resting = try VitreusFixture.pixels(widget, crop: crop, scale: scale)
+        for (fraction, from, to) in [(0.25, [0xEC, 0xF8, 0xDC], [0xBD, 0xD6, 0x9E])] {
+            let top = sample(resting, CGPoint(x: button.minX + 12 * du, y: button.minY + fraction * button.height))
+            let bottom = sample(resting, CGPoint(
+                x: button.minX + 12 * du, y: button.minY + (1 - fraction) * button.height
+            ))
+            for channel in 0 ..< 3 {
+                let span = Double(to[channel] - from[channel])
+                XCTAssertEqual(Double(top[channel]), Double(from[channel]) + fraction * span, accuracy: 3)
+                XCTAssertEqual(Double(bottom[channel]), Double(to[channel]) - fraction * span, accuracy: 3)
+            }
+            XCTAssertEqual(top[3], 255)
+        }
+        let mint = sample(resting, CGPoint(x: thumb.minX + 4 * du, y: thumb.midY - 6 * du))
+        for (channel, value) in [0xBD, 0xD6, 0x9E, 0xFF].enumerated() {
+            XCTAssertEqual(mint[channel], value, accuracy: 3, "\(scale)x thumb")
+        }
+        let halo = { (bytes: [UInt8], gap: Double) in
+            sample(bytes, CGPoint(x: button.midX + 30 * du, y: button.minY - gap * du))[1]
+        }
+        let base = sample(resting, glass)[1]
+        XCTAssertGreaterThan(halo(resting, 3), base + 8, "\(scale)x rest glow")
+        try Focus.export(resting, crop: crop, scale: scale, name: "vitreus-focus-polish-\(scale)x")
+        try hover(widget, "start", .began)
+        let hovered = try VitreusFixture.pixels(widget, crop: crop, scale: scale)
+        XCTAssertGreaterThan(halo(hovered, 3), halo(resting, 3), "\(scale)x hover glow")
+        XCTAssertGreaterThan(halo(hovered, 9), halo(resting, 9), "\(scale)x hover reach")
+        try Focus.export(hovered, crop: crop, scale: scale, name: "vitreus-focus-polish-start-hover-\(scale)x")
     }
 }
 

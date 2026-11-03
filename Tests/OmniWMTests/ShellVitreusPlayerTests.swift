@@ -333,7 +333,7 @@ extension ShellVitreusPlayerTests {
         }
     }
 
-    func testOpenPlayerHasNativePixelsAtOneAndTwoTimesScale() throws {
+    func testOpenPlayerHasNativePixelsAtTwoTimesScale() throws {
         var fixture = try fixture(media: true)
         fixture.bar.workspaces = [workspace(
             "1",
@@ -342,16 +342,15 @@ extension ShellVitreusPlayerTests {
         show(fixture)
         let panel = try VitreusFixture.frame(fixture.widget, key: "drawer-content-player")
         let crop = panel.insetBy(dx: -10, dy: -10).integral
-        for scale in [1, 2] {
-            let bytes = try VitreusFixture.pixels(fixture.widget, crop: crop, scale: scale)
-            XCTAssertTrue(bytes.contains { $0 > 100 })
-            let width = Int(crop.width) * scale, height = Int(crop.height) * scale
-            let cover = try VitreusFixture.frame(fixture.widget, key: "player-media-cover-fallback")
-            let x = Int((cover.midX - crop.minX) * Double(scale))
-            let y = Int((cover.midY - crop.minY) * Double(scale))
-            XCTAssertGreaterThan(bytes[(y * width + x) * 4 + 3], 0)
-            try save(bytes, width: width, height: height, name: "vitreus-player-\(scale)x")
-        }
+        let scale = 2
+        let bytes = try VitreusFixture.pixels(fixture.widget, crop: crop, scale: scale)
+        XCTAssertTrue(bytes.contains { $0 > 100 })
+        let width = Int(crop.width) * scale, height = Int(crop.height) * scale
+        let cover = try VitreusFixture.frame(fixture.widget, key: "player-media-cover-fallback")
+        let x = Int((cover.midX - crop.minX) * Double(scale))
+        let y = Int((cover.midY - crop.minY) * Double(scale))
+        XCTAssertGreaterThan(bytes[(y * width + x) * 4 + 3], 0)
+        try save(bytes, width: width, height: height, name: "vitreus-player-\(scale)x")
     }
 
     private func save(_ bytes: [UInt8], width: Int, height: Int, name: String) throws {

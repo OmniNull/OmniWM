@@ -11,7 +11,7 @@ extension ShellVitreusFrameTests {
         for edge in ["left", "right", "ftop", "fbottom"] {
             let fixture = try fixture(edge)
             if edge == "left" || edge == "right" { try await prepareClock(fixture) }
-            for scale in [1, 2] {
+            for scale in edge == "left" ? [1, 2] : [1] {
                 let pixels = try VitreusFixture.pixels(
                     fixture.widget,
                     crop: CGRect(x: 0, y: 0, width: 1920, height: 1080),

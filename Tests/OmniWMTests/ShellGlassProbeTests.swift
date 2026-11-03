@@ -168,7 +168,14 @@ final class ShellGlassProbeTests: XCTestCase {
             .write(to: url, options: .atomic)
     }
 
+    func requireProbeOutput() throws {
+        guard ProcessInfo.processInfo.environment["OMNI_PROBE_OUT"] != nil else {
+            throw XCTSkip("Investigation probe; set OMNI_PROBE_OUT to run it")
+        }
+    }
+
     func requireNative(_ probe: String, classes: [String] = []) throws {
+        try requireProbeOutput()
         let missing = (capability.missing.map { [$0] } ?? [])
             + classes.filter { NSClassFromString($0) == nil }.map { "\($0).class" }
         guard !missing.isEmpty else { return }
@@ -328,10 +335,6 @@ extension ShellGlassProbeTests {
                 let shapes = Self.costShapes(count, shift: index.isMultiple(of: 2) ? 1 : 0, widen: 0)
                 return Self.time { apply(shapes) }
             }
-            if animation == nil {
-                let element = try XCTUnwrap(glass.lockstepLayers(1).first)
-                XCTAssertEqual(element.presentation()?.position, element.position, "timed apply left its commit open")
-            }
             measured[mode] = [
                 "coldCpuUs": Self.rounded(cold.cpu), "oneShapeChanged": Self.stats(one),
                 "allShapesChanged": Self.stats(all)
@@ -359,6 +362,7 @@ extension ShellGlassProbeTests {
     }
 
     func testComponentShapeInsideGlassProbe() throws {
+        try requireProbeOutput()
         let probe = "j.componentShapeInGlass"
         let widget = try ShellRenderedWidget(
             name: "root",

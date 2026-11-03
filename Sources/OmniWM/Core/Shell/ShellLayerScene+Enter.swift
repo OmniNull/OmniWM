@@ -222,7 +222,7 @@ extension ShellLayerScene {
             target.removeAnimation(forKey: Self.enterPathKey)
         }
         guard let enter = enters[slot] else { return }
-        let now = CACurrentMediaTime()
+        let now = self.now()
         animateEnter(enter, slot: slot, on: layer, shown: layerShown, at: now)
         if let mirror {
             animateEnter(enter, slot: slot, on: mirror, shown: mirrorShown, at: now)

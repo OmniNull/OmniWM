@@ -34,7 +34,7 @@ extension ShellLayerScene {
               let morph = presence.morphs[slot] ?? ShellShapeTrackStore.identityMorph
         else { return false }
         let supplied = presence.revealPlans[slot]?.plan
-        let now = supplied?.commit ?? CACurrentMediaTime()
+        let now = supplied?.commit ?? self.now()
         let old = shapeTracks.entries.removeValue(forKey: slot)
         let base = old?.base.state(at: now) ?? (shape: raw, velocity: SIMD8<Double>.zero)
         let prior = old?.progress(at: now) ?? (progress: 1.0, velocity: 0.0)
@@ -127,7 +127,7 @@ extension ShellLayerScene {
                 body.setTrackGeometry(entry.terminal)
                 body.removeTrack(slot)
             }
-            entry.finish(at: CACurrentMediaTime())
+            entry.finish(at: now())
             entry.animations = []
             entry.dirty = false
             shapeTracks.entries[slot] = entry
@@ -159,7 +159,7 @@ extension ShellLayerScene {
 
     func flushShapeCanvases() {
         var canvases: [Int32: ShellShapeCanvas] = [:]
-        let now = CACurrentMediaTime()
+        let now = self.now()
         for entry in shapeTracks.entries.values where !entry.animations.isEmpty && now < entry.end {
             guard let body = glassBodies[entry.body] else { continue }
             let bounds = body.layer.bounds.union(entry.union)

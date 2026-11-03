@@ -249,7 +249,8 @@ final class ShellGlassFrameProbeTests: XCTestCase {
 
     private func probeFill(_ frame: Frame, scale: Int, alpha: CGFloat, mask: Image) throws -> [String: Any] {
         let body = try body(frame, alpha: alpha)
-        let full = try render(body.layer, frame: frame, scale: scale)
+        let recording = ProcessInfo.processInfo.environment["OMNI_F1_FRAME_PROBE_OUT"] != nil
+        let full = recording ? try render(body.layer, frame: frame, scale: scale) : nil
         let children = body.layer.sublayers ?? []
         let visibility = children.map(\.isHidden)
         for child in children { child.isHidden = child !== body.sdfLayers[1] }
@@ -267,12 +268,12 @@ final class ShellGlassFrameProbeTests: XCTestCase {
         if scale == 1, alpha == 0.36,
            frame.name == "display1920" || frame.name == "c7-large256" || frame.name.hasPrefix("f1-")
         {
-            try save(full, name: frame.name + "-body")
+            if let full { try save(full, name: frame.name + "-body") }
             try save(mask, name: frame.name + "-base-mask")
             try save(bare, name: frame.name + "-bare-native")
         }
         return [
-            "fullBody": summary(full, frame: frame),
+            "fullBody": full.map { summary($0, frame: frame) } ?? [:],
             "bodyFillOnly": summary(fill, frame: frame),
             "bareNative": summary(bare, frame: frame),
             "bodyAndBareFillIdentical": fill.bytes == bare.bytes

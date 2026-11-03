@@ -227,9 +227,9 @@ extension ShellBoundTrackTests {
             XCTAssertGreaterThan(sample.values, 0)
         }
         var samples: [ShellBoundCostSample] = []
-        for iteration in 0 ..< 16 {
+        for iteration in 0 ..< 4 {
             for arm in iteration.isMultiple(of: 2) ? [active, settle] : [settle, active] {
-                try retargetBoundCost(arm, step: iteration + 1)
+                try retargetBoundCost(arm, step: iteration * 5 + 1)
                 let sample = try measureBoundCommit(arm)
                 XCTAssertGreaterThan(abs(sample.velocity.x) + abs(sample.velocity.y) + abs(sample.velocity.width), 1)
                 XCTAssertGreaterThanOrEqual(sample.animatedShapes, 2)

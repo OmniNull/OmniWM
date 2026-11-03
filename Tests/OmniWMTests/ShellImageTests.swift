@@ -140,7 +140,9 @@ final class ShellImageTests: XCTestCase {
             let layer = try XCTUnwrap(scene.layers[0])
             scene.imageFrames[0] = frames
             scene.playbackSettings[0] = playing
+            scene.submitTime = 1000
             scene.updatePlayback(0, contentsReplaced: true)
+            scene.submitTime = nil
             let running = layer.animation(forKey: ShellLayerScene.framesKey) as? CAKeyframeAnimation
             scene.playbackSettings[0] = ShellPlayback(speed: 2, paused: true)
             scene.updatePlayback(0, contentsReplaced: false)
@@ -152,9 +154,10 @@ final class ShellImageTests: XCTestCase {
             scene.playbackSettings[0] = playing
             scene.updatePlayback(0, contentsReplaced: true)
             let single = layer.animation(forKey: ShellLayerScene.framesKey) == nil
-            return (running?.speed, paused, stopped, single)
+            return (running?.speed, paused, stopped, single, running?.beginTime)
         }
         XCTAssertEqual(state.0, 2)
+        XCTAssertEqual(state.4, 1000)
         XCTAssertTrue(state.1.0)
         XCTAssertTrue(state.1.1)
         XCTAssertTrue(state.2)

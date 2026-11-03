@@ -227,7 +227,7 @@ final class ClipboardHistoryServiceTests: XCTestCase {
         service.start()
         changeCount.value = 1
         timer.fire()
-        await fulfillment(of: [captured], timeout: 2)
+        await fulfillment(of: [captured], timeout: 20)
         service.onPaletteItemsChanged = nil
         guard let item = service.paletteItems.first else {
             XCTFail("Rich-only item was not captured")

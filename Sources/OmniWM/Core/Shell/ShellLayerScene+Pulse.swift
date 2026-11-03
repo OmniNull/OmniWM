@@ -45,7 +45,7 @@ extension ShellLayerScene {
         }
         guard changed else { return }
         Self.removePulse(from: layer)
-        let begin = layer.convertTime(CACurrentMediaTime(), from: nil)
+        let begin = layer.convertTime(now(), from: nil)
         for (key, animation) in pulse.animations(size: size) {
             animation.beginTime = begin
             layer.add(animation, forKey: key)

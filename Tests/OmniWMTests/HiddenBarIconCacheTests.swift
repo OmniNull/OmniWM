@@ -48,51 +48,26 @@ final class HiddenBarIconCacheTests: XCTestCase {
     }
 
     @MainActor
-    func testReplaceVisuallyEqualIconDoesNotFire() {
-        let cache = HiddenBarIconCache()
-        cache.replaceResolvedItems(
-            ["a": [item("a")]],
-            capturedIcons: [key("a"): CapturedIcon(image: makeImage(), scale: 2)]
-        )
-        var fired = 0
-        cache.onChange = { fired += 1 }
-        cache.replaceResolvedItems(
-            ["a": [item("a")]],
-            capturedIcons: [key("a"): CapturedIcon(image: makeImage(), scale: 2)]
-        )
-        XCTAssertEqual(fired, 0)
-    }
-
-    @MainActor
-    func testReplaceChangedPixelsFires() {
-        let cache = HiddenBarIconCache()
-        cache.replaceResolvedItems(
-            ["a": [item("a")]],
-            capturedIcons: [key("a"): CapturedIcon(image: makeImage(red: 1), scale: 2)]
-        )
-        var fired = 0
-        cache.onChange = { fired += 1 }
-        cache.replaceResolvedItems(
-            ["a": [item("a")]],
-            capturedIcons: [key("a"): CapturedIcon(image: makeImage(red: 0.5), scale: 2)]
-        )
-        XCTAssertEqual(fired, 1)
-    }
-
-    @MainActor
-    func testReplaceScaleChangeFires() {
-        let cache = HiddenBarIconCache()
-        cache.replaceResolvedItems(
-            ["a": [item("a")]],
-            capturedIcons: [key("a"): CapturedIcon(image: makeImage(), scale: 2)]
-        )
-        var fired = 0
-        cache.onChange = { fired += 1 }
-        cache.replaceResolvedItems(
-            ["a": [item("a")]],
-            capturedIcons: [key("a"): CapturedIcon(image: makeImage(), scale: 1)]
-        )
-        XCTAssertEqual(fired, 1)
+    func testReplaceFiresOnlyWhenIconVisuallyChanges() {
+        let cases: [(label: String, red: CGFloat, scale: CGFloat, expectedFires: Int)] = [
+            ("visually equal", 1, 2, 0),
+            ("changed pixels", 0.5, 2, 1),
+            ("changed scale", 1, 1, 1)
+        ]
+        for testCase in cases {
+            let cache = HiddenBarIconCache()
+            cache.replaceResolvedItems(
+                ["a": [item("a")]],
+                capturedIcons: [key("a"): CapturedIcon(image: makeImage(), scale: 2)]
+            )
+            var fired = 0
+            cache.onChange = { fired += 1 }
+            cache.replaceResolvedItems(
+                ["a": [item("a")]],
+                capturedIcons: [key("a"): CapturedIcon(image: makeImage(red: testCase.red), scale: testCase.scale)]
+            )
+            XCTAssertEqual(fired, testCase.expectedFires, testCase.label)
+        }
     }
 
     @MainActor

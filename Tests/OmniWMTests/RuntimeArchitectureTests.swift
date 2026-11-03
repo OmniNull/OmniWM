@@ -3349,63 +3349,39 @@ final class RuntimeArchitectureTests: XCTestCase {
     }
 
     @MainActor
-    func testAXFrameLedgerPreservesPendingAllComponentsWhenPositionSupersedes() throws {
-        let ledger = AXFrameApplicationLedger()
-        let window = AXWindowRef(element: AXUIElementCreateApplication(getpid()), windowId: 10)
-        let first = ledger.prepareFrameApplication(
-            .init(
-                pid: getpid(),
-                window: window,
-                frame: CGRect(x: 10, y: 20, width: 300, height: 200),
-                components: .all
-            ),
-            isRetry: false,
-            terminalObserver: nil
-        )
-        XCTAssertEqual(try XCTUnwrap(first.request).components, .all)
+    func testAXFrameLedgerUnionsPendingComponentsWhenSuperseded() throws {
+        let cases: [(label: String, first: AXFrameComponents, second: AXFrameComponents, secondFrame: CGRect)] = [
+            ("all then position", .all, .position, CGRect(x: 40, y: 50, width: 300, height: 200)),
+            ("position then size", .position, .size, CGRect(x: 10, y: 20, width: 360, height: 240))
+        ]
+        for (label, first, second, secondFrame) in cases {
+            let ledger = AXFrameApplicationLedger()
+            let window = AXWindowRef(element: AXUIElementCreateApplication(getpid()), windowId: 10)
+            let firstDecision = ledger.prepareFrameApplication(
+                .init(
+                    pid: getpid(),
+                    window: window,
+                    frame: CGRect(x: 10, y: 20, width: 300, height: 200),
+                    components: first
+                ),
+                isRetry: false,
+                terminalObserver: nil
+            )
+            XCTAssertEqual(try XCTUnwrap(firstDecision.request).components, first, label)
 
-        let second = ledger.prepareFrameApplication(
-            .init(
-                pid: getpid(),
-                window: window,
-                frame: CGRect(x: 40, y: 50, width: 300, height: 200),
-                components: .position
-            ),
-            isRetry: false,
-            terminalObserver: nil
-        )
+            let secondDecision = ledger.prepareFrameApplication(
+                .init(
+                    pid: getpid(),
+                    window: window,
+                    frame: secondFrame,
+                    components: second
+                ),
+                isRetry: false,
+                terminalObserver: nil
+            )
 
-        XCTAssertEqual(try XCTUnwrap(second.request).components, .all)
-    }
-
-    @MainActor
-    func testAXFrameLedgerUnionsPendingPositionAndSizeComponents() throws {
-        let ledger = AXFrameApplicationLedger()
-        let window = AXWindowRef(element: AXUIElementCreateApplication(getpid()), windowId: 10)
-        let first = ledger.prepareFrameApplication(
-            .init(
-                pid: getpid(),
-                window: window,
-                frame: CGRect(x: 10, y: 20, width: 300, height: 200),
-                components: .position
-            ),
-            isRetry: false,
-            terminalObserver: nil
-        )
-        XCTAssertEqual(try XCTUnwrap(first.request).components, .position)
-
-        let second = ledger.prepareFrameApplication(
-            .init(
-                pid: getpid(),
-                window: window,
-                frame: CGRect(x: 10, y: 20, width: 360, height: 240),
-                components: .size
-            ),
-            isRetry: false,
-            terminalObserver: nil
-        )
-
-        XCTAssertEqual(try XCTUnwrap(second.request).components, .all)
+            XCTAssertEqual(try XCTUnwrap(secondDecision.request).components, .all, label)
+        }
     }
 
     @MainActor

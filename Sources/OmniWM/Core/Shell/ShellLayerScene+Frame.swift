@@ -44,6 +44,9 @@ extension ShellLayerScene {
             from: (layer.presentation() ?? layer).frame, to: rect, origin: bounds.origin
         ) {
             removeScalarFrameAnimations(from: layer)
+            let now = layer.convertTime(self.now(), from: nil)
+            trail.position.beginTime = now
+            trail.bounds.beginTime = now
             layer.add(trail.position, forKey: "position")
             layer.add(trail.bounds, forKey: "bounds")
             return
@@ -129,14 +132,15 @@ extension ShellLayerScene {
     ) {
         guard changed else { return }
         let target = to
+        let now = layer.convertTime(self.now(), from: nil)
         if let keyframes = animation.keyframes(keyPath, from: from, to: target) {
+            keyframes.beginTime = now
             layer.add(keyframes, forKey: keyPath)
             return
         }
         let basic = animation.make(keyPath)
         basic.fromValue = from
         basic.toValue = target
-        let now = layer.convertTime(CACurrentMediaTime(), from: nil)
         if let spring = basic as? CASpringAnimation,
            let from = from as? NSNumber, let to = target as? NSNumber
         {

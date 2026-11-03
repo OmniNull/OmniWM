@@ -105,7 +105,7 @@ final class WindowAdmissionFrameLifecycleTests: XCTestCase {
             pid: pid,
             window: window,
             target: target,
-            observed: observed,
+            firstObserved: observed,
             terminalObserver: { terminalResults.append($0) }
         )
 
@@ -147,7 +147,7 @@ final class WindowAdmissionFrameLifecycleTests: XCTestCase {
             pid: pid,
             window: window,
             target: target,
-            observed: observed
+            firstObserved: observed
         )
 
         XCTAssertTrue(settlement.outcome.retries.isEmpty)
@@ -170,7 +170,7 @@ final class WindowAdmissionFrameLifecycleTests: XCTestCase {
                 pid: pid,
                 window: window,
                 target: target,
-                observed: observed
+                firstObserved: observed
             )
 
             XCTAssertEqual(settlement.outcome.stableSizeClamps.count, 1)
@@ -203,7 +203,7 @@ final class WindowAdmissionFrameLifecycleTests: XCTestCase {
                 pid: pid,
                 window: window,
                 target: target,
-                observed: observed
+                firstObserved: observed
             )
 
             XCTAssertTrue(settlement.outcome.stableSizeClamps.isEmpty)
@@ -263,7 +263,7 @@ final class WindowAdmissionFrameLifecycleTests: XCTestCase {
             pid: pid,
             window: window,
             target: target,
-            observed: observed
+            firstObserved: observed
         )
 
         XCTAssertNil(
@@ -332,7 +332,7 @@ final class WindowAdmissionFrameLifecycleTests: XCTestCase {
                 pid: pid,
                 window: window,
                 target: target,
-                observed: observed
+                firstObserved: observed
             )
 
             XCTAssertTrue(
@@ -600,13 +600,45 @@ final class WindowAdmissionFrameLifecycleTests: XCTestCase {
             pid: pid,
             window: window,
             target: target,
-            observed: observed
+            firstObserved: observed
         )
 
         XCTAssertTrue(settlement.outcome.terminalRefusals.isEmpty)
         XCTAssertTrue(settlement.outcome.stableSizeClamps.isEmpty)
         XCTAssertEqual(settlement.acceptedResults.map(\.confirmedFrame), [observed])
         XCTAssertEqual(ledger.lastAppliedFrame(for: window.windowId), observed)
+    }
+
+    func testBothObservationsMustRespectTheSixteenPointConvergenceBound() throws {
+        let cases: [(label: String, firstWidth: CGFloat, retryWidth: CGFloat, accepted: Bool)] = [
+            ("both at the bound", 656, 656, true),
+            ("first beyond the bound", 656.5, 656, false),
+            ("retry beyond the bound", 656, 656.5, false)
+        ]
+        for (label, firstWidth, retryWidth, accepted) in cases {
+            let ledger = AXFrameApplicationLedger()
+            let pid = getpid()
+            let window = AXWindowRef(element: AXUIElementCreateApplication(pid), windowId: 467_505)
+            let retryObserved = CGRect(x: 20, y: 30, width: retryWidth, height: 480)
+
+            let settlement = try settleSizeConvergence(
+                ledger,
+                pid: pid,
+                window: window,
+                target: CGRect(x: 20, y: 30, width: 640, height: 480),
+                firstObserved: CGRect(x: 20, y: 30, width: firstWidth, height: 480),
+                retryObserved: retryObserved,
+                label: label
+            )
+
+            XCTAssertEqual(settlement.outcome.stableSizeClamps.count, 1, label)
+            XCTAssertTrue(settlement.outcome.retries.isEmpty, label)
+            XCTAssertEqual(settlement.acceptedResults.count, accepted ? 1 : 0, label)
+            XCTAssertEqual(settlement.outcome.terminalRefusals.count, accepted ? 0 : 1, label)
+            XCTAssertEqual(settlement.outcome.terminalFailures.count, accepted ? 0 : 1, label)
+            XCTAssertEqual(ledger.lastAppliedFrame(for: window.windowId), accepted ? retryObserved : nil, label)
+            XCTAssertEqual(ledger.hasTerminalRefusal(for: window.windowId), !accepted, label)
+        }
     }
 
     func testSizeConvergenceRequiresStableRetryObservation() throws {
@@ -688,14 +720,14 @@ final class WindowAdmissionFrameLifecycleTests: XCTestCase {
             pid: pid,
             window: firstWindow,
             target: firstTarget,
-            observed: firstObserved
+            firstObserved: firstObserved
         )
         _ = try settleSizeConvergence(
             ledger,
             pid: pid,
             window: secondWindow,
             target: secondTarget,
-            observed: secondObserved
+            firstObserved: secondObserved
         )
 
         let movedFirstTarget = CGRect(origin: secondTarget.origin, size: firstTarget.size)
@@ -707,14 +739,14 @@ final class WindowAdmissionFrameLifecycleTests: XCTestCase {
             pid: pid,
             window: firstWindow,
             target: movedFirstTarget,
-            observed: movedFirstObserved
+            firstObserved: movedFirstObserved
         )
         let secondMove = try settleSizeConvergence(
             ledger,
             pid: pid,
             window: secondWindow,
             target: movedSecondTarget,
-            observed: movedSecondObserved
+            firstObserved: movedSecondObserved
         )
 
         XCTAssertEqual(firstMove.acceptedResults.map(\.confirmedFrame), [movedFirstObserved])
@@ -1500,19 +1532,23 @@ final class WindowAdmissionFrameLifecycleTests: XCTestCase {
         pid: pid_t,
         window: AXWindowRef,
         target: CGRect,
-        observed: CGRect,
-        terminalObserver: AXFrameApplicationTerminalObserver? = nil
+        firstObserved: CGRect,
+        retryObserved: CGRect? = nil,
+        terminalObserver: AXFrameApplicationTerminalObserver? = nil,
+        label: String = "",
+        file: StaticString = #filePath,
+        line: UInt = #line
     ) throws -> (outcome: AXFrameApplyOutcome, acceptedResults: [AXFrameApplyResult]) {
         let firstDecision = ledger.prepareFrameApplication(
             .init(pid: pid, window: window, frame: target),
             isRetry: false,
             terminalObserver: terminalObserver
         )
-        let firstRequest = try XCTUnwrap(firstDecision.request)
+        let firstRequest = try XCTUnwrap(firstDecision.request, label, file: file, line: line)
         let firstOutcome = ledger.handleFrameApplyResults([
             WindowAdmissionTestSupport.verificationMismatchFrameResult(
                 request: firstRequest,
-                observed: observed
+                observed: firstObserved
             )
         ])
         XCTAssertEqual(firstOutcome.retries, [
@@ -1524,10 +1560,10 @@ final class WindowAdmissionFrameLifecycleTests: XCTestCase {
                 frame: target,
                 currentFrameHint: firstRequest.currentFrameHint
             )
-        ])
-        XCTAssertTrue(firstOutcome.deliveries.isEmpty)
-        XCTAssertTrue(firstOutcome.terminalRefusals.isEmpty)
-        XCTAssertTrue(firstOutcome.stableSizeClamps.isEmpty)
+        ], label, file: file, line: line)
+        XCTAssertTrue(firstOutcome.deliveries.isEmpty, label, file: file, line: line)
+        XCTAssertTrue(firstOutcome.terminalRefusals.isEmpty, label, file: file, line: line)
+        XCTAssertTrue(firstOutcome.stableSizeClamps.isEmpty, label, file: file, line: line)
 
         let retryRequest = try XCTUnwrap(
             WindowAdmissionTestSupport.frameRequest(
@@ -1543,7 +1579,7 @@ final class WindowAdmissionFrameLifecycleTests: XCTestCase {
             [
                 WindowAdmissionTestSupport.verificationMismatchFrameResult(
                     request: retryRequest,
-                    observed: observed
+                    observed: retryObserved ?? firstObserved
                 )
             ],
             onAcceptedSuccess: { acceptedResults.append($0) }
