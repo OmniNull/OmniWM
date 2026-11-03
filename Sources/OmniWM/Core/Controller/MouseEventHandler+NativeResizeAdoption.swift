@@ -15,9 +15,10 @@ extension MouseEventHandler {
               !controller.axManager.hasInFlightFrameWrite(for: token),
               let frame = controller.axManager.lastAppliedFrame(for: token.windowId)
         else { return }
-        guard terminalNativeWindowFrame(for: entry)?.approximatelyEqual(
-            to: frame, tolerance: FrameTolerance.frameWrite
-        ) == true else { return }
+        guard let axRef = entry.axRef,
+              nativeWindowFrameProvider(axRef)?.approximatelyEqual(
+                  to: frame, tolerance: FrameTolerance.frameWrite
+              ) == true else { return }
         state.nativeResizeStart = .init(token: token, frame: frame, location: location)
     }
 

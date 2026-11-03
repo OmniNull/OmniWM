@@ -116,7 +116,6 @@ extension MouseEventHandler {
             state.nativeResizeStart = nil
             return
         }
-        // A rejected target can still deliver its native frame after the annotation.
         state.nativeResizeStart = nil
         state.nativeTitleBarDrag = .init(token: releasedToken, phase: .awaitingFrameChange)
         _ = handleNativeTitleBarDragFrameChanged(for: entry)
