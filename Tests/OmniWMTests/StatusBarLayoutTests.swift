@@ -63,22 +63,40 @@ final class StatusBarLayoutTests: XCTestCase {
         )
     }
 
-    func testNiriAndDwindleGlyphsAreDistinct() throws {
+    func testLayoutsUseDistinctExpectedGlyphs() throws {
         var masks: [[Bool]] = []
-        for layout in [ActiveLayoutKind.niri, .dwindle] {
+        for (layout, symbol) in [
+            (ActiveLayoutKind.niri, "rectangle.split.3x1"),
+            (.dwindle, "rectangle.split.2x2")
+        ] {
             let image = try XCTUnwrap(StatusBarController.statusButtonImage(icon: nil, layout: layout))
-            let canvas = NSImage(size: NSSize(width: 32, height: 32), flipped: false) { rect in
-                image.draw(in: rect)
-                return true
-            }
-            let bitmap = try XCTUnwrap(NSBitmapImageRep(data: XCTUnwrap(canvas.tiffRepresentation)))
-            masks.append((0 ..< bitmap.pixelsHigh).flatMap { y in
-                (0 ..< bitmap.pixelsWide).map { x in
-                    (bitmap.colorAt(x: x, y: y)?.alphaComponent ?? 0) > 0.5
-                }
-            })
+            let expected = try XCTUnwrap(NSImage(systemSymbolName: symbol, accessibilityDescription: nil)?
+                .withSymbolConfiguration(.init(pointSize: 14, weight: .regular)))
+            let mask = try glyphMask(image)
+            let expectedMask = try glyphMask(expected)
+            XCTAssertTrue(mask == expectedMask, "\(layout) should use \(symbol)")
+            masks.append(mask)
         }
         XCTAssertNotEqual(masks[0], masks[1])
+    }
+
+    private func glyphMask(_ image: NSImage) throws -> [Bool] {
+        let native = NSImage(size: image.size, flipped: false) { rect in
+            image.draw(in: rect)
+            return true
+        }
+        let nativeBitmap = try XCTUnwrap(NSBitmapImageRep(data: XCTUnwrap(native.tiffRepresentation)))
+        let raster = NSImage(cgImage: try XCTUnwrap(nativeBitmap.cgImage), size: image.size)
+        let canvas = NSImage(size: NSSize(width: 32, height: 32), flipped: false) { rect in
+            raster.draw(in: rect)
+            return true
+        }
+        let bitmap = try XCTUnwrap(NSBitmapImageRep(data: XCTUnwrap(canvas.tiffRepresentation)))
+        return (0 ..< bitmap.pixelsHigh).flatMap { y in
+            (0 ..< bitmap.pixelsWide).map { x in
+                (bitmap.colorAt(x: x, y: y)?.alphaComponent ?? 0) > 0.5
+            }
+        }
     }
 
     func testLayoutAccessibilityRetainsExistingStateInformation() {
