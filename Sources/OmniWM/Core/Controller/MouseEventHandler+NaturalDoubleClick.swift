@@ -118,10 +118,13 @@ extension MouseEventHandler {
         return NaturalDoubleClickCandidate(hit: hit, entry: entry, engine: engine, workspaceId: workspaceId)
     }
 
-    func holdsTitleBarDragStill(at location: CGPoint) -> Bool {
+    func holdsTitleBarDragStill(at location: CGPoint, windowIdUnderPointer: Int? = nil) -> Bool {
         guard let candidate = naturalDoubleClickCandidate(at: location),
               candidate.hit.zone == .titleBar,
-              TitleBarHitTest.isTitleBar(titleBarHitProvider(candidate.entry.pid, location))
+              windowIdUnderPointer.map({ $0 == candidate.entry.windowId }) ?? true,
+              let hit = titleBarHitProvider(candidate.entry.pid, location),
+              hit.placement != .outsideBar,
+              TitleBarHitTest.isWindowBackground(role: hit.role)
         else { return false }
         MouseTrace.record("title-bar drag held still token=\(TraceFormat.token(candidate.entry.token))")
         return true

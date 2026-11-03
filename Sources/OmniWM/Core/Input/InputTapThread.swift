@@ -465,14 +465,17 @@ extension InputTapThread {
                   naturalDragModifier: snap.naturalDragModifier
               )
         else { return false }
+        let windowId = MouseEventHandler.eventWindowIdUnderPointer(event)
         if Thread.isMainThread {
             return MainActor.assumeIsolated {
-                MouseEventHandler._instance?.holdsTitleBarDragStill(at: location) ?? false
+                MouseEventHandler._instance?.holdsTitleBarDragStill(at: location, windowIdUnderPointer: windowId)
+                    ?? false
             }
         }
         return DispatchQueue.main.sync {
             MainActor.assumeIsolated {
-                MouseEventHandler._instance?.holdsTitleBarDragStill(at: location) ?? false
+                MouseEventHandler._instance?.holdsTitleBarDragStill(at: location, windowIdUnderPointer: windowId)
+                    ?? false
             }
         }
     }
