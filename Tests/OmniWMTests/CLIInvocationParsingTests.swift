@@ -52,7 +52,14 @@ final class CLIInvocationParsingTests: XCTestCase {
     }
 
     func testPayloadFreeAndUnknownCommandsKeepUsageFailures() {
-        for arguments in [["ping", "extra"], ["version", "extra"], ["--version", "extra"], ["-V", "extra"], ["unknown"], []] {
+        for arguments in [
+            ["ping", "extra"],
+            ["version", "extra"],
+            ["--version", "extra"],
+            ["-V", "extra"],
+            ["unknown"],
+            []
+        ] {
             XCTAssertThrowsError(try CLIParser.parse(arguments: ["omniwmctl"] + arguments)) { error in
                 XCTAssertEqual(error as? CLIParseError, .usage(CLIParser.usageText))
             }
