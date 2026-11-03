@@ -212,7 +212,9 @@ private struct GlobalNiriSettingsSection: View {
                 .id("Peek at Neighboring Windows")
                 .disabled(!settings.niri.naturalWindowDrag)
                 .onChange(of: settings.niri.edgePeek) {
-                    controller.applyNaturalWindowDragSettings()
+                    if settings.niri.naturalWindowDrag {
+                        controller.applyNaturalWindowDragSettings()
+                    }
                 }
 
             SettingsSliderRow(
@@ -226,7 +228,9 @@ private struct GlobalNiriSettingsSection: View {
             .id("Peek Width")
             .disabled(!settings.niri.naturalWindowDrag || !settings.niri.edgePeek)
             .onChange(of: settings.niri.edgePeekPercent) {
-                controller.applyNaturalWindowDragSettings()
+                if settings.niri.naturalWindowDrag {
+                    controller.applyNaturalWindowDragSettings()
+                }
             }
 
             SettingsCaption(
