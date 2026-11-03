@@ -495,21 +495,29 @@ extension ShellVitreusBarTests {
             } } } }
             local k = { bu = 1, bcu = 1 }
             local width, grow = marks.width(model, k)
-            local widths = { workspaces = { w = width, grow = grow, flow = marks.flow(model, k) },
+            local cells = marks.flow(model, k)
+            local focused
+            for _, cell in cells do
+                if cell.focused then focused = cell break end
+            end
+            local widths = { workspaces = { w = width, grow = grow, flow = cells },
                 title = { w = 0, grow = 0, minimum = 0 } }
-            local placed = bar.place(k, 100, 8, { "workspaces", "title" }, widths, 200, nil, { x0 = 100, x1 = 160 })
+            local bounds = { w = 200, top = 8 }
+            local band = { x0 = bounds.w / 2, x1 = 160 }
+            local placed = bar.place(k, bounds.w / 2, bounds.top, { "workspaces", "title" }, widths, bounds.w, nil, band)
             local positions = placed.slots.workspaces.positions
             return ui.text{ text = table.concat({ positions["workspace-3"] or -1,
-                positions["workspace-1"] or -1, positions["workspace-2"] or -1, positions.overview or -1 }, " ") }
+                positions["workspace-1"] or -1, positions["workspace-2"] or -1, positions.overview or -1,
+                focused.at, focused.w - focused.at, placed.left, band.x0, placed.left + cells[1].at }, " ") }
         end
         """).map { Self.numbers($0) }
         let row = try XCTUnwrap(rows.first)
         XCTAssertEqual(rows.count, 1)
-        XCTAssertGreaterThanOrEqual(row[0] - 19, 16)
-        XCTAssertLessThanOrEqual(row[0] + 19, 100)
+        XCTAssertGreaterThanOrEqual(row[0] - row[4], row[6])
+        XCTAssertLessThanOrEqual(row[0] + row[5], row[7])
         XCTAssertEqual(row[1], -1)
         XCTAssertEqual(row[2], -1)
-        XCTAssertEqual(row[3], 26, accuracy: accuracy)
+        XCTAssertEqual(row[3], row[8], accuracy: accuracy)
     }
 
     func testHiddenWorkspaceSlotsCancelTheirAnimationTimer() throws {
