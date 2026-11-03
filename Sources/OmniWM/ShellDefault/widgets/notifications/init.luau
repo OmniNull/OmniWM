@@ -24,6 +24,33 @@ local function visibleItems(value)
     return items
 end
 
+local function canDismiss(value)
+    return value and value.membershipComplete
+        and (value.state == "ready" or value.state == "empty" or value.state == "incomplete")
+end
+
+local function validBundle(bundle)
+    return type(bundle) == "string" and #bundle > 0 and #bundle <= 255
+        and string.find(bundle, "^[A-Za-z0-9%-%._]+$") ~= nil
+end
+
+local function allBundlesValid(value)
+    for _, item in visibleItems(value) do
+        if not validBundle(item.bundle) then return false end
+    end
+    return true
+end
+
+local function sourceStatus(value)
+    if not allBundlesValid(value) then
+        if not value.metadataComplete then
+            return omniwm.l10n("Some notification details could not be read. Some sources cannot be cleared. Clear supported notifications individually.")
+        end
+        return omniwm.l10n("Some notification sources cannot be cleared. Clear supported notifications individually.")
+    end
+    return nil
+end
+
 local function replyAction(item)
     local reply = nil
     for _, action in item.actions or {} do
@@ -107,7 +134,7 @@ local function syncReplies(ctx, value)
             end
         end
     end
-    if value and value.complete == true and (value.state == "ready" or value.state == "empty") then
+    if canDismiss(value) then
         local retained = {}
         for _, item in value.items or {} do retained[string.lower(item.id)] = true end
         for id in ctx.state.drafts do
@@ -240,7 +267,7 @@ local function notification(ctx, item)
     local action = value.action
     local busy = (action and action.state == "pending") or (value.dismissAll and value.dismissAll.active)
     local rows = { key = item.id, w = width, gap = 5, pad = 8, center = false,
-        onClick = "notifications open " .. item.bundle }
+        onClick = if validBundle(item.bundle) then "notifications open " .. item.bundle else nil }
     local app = nil
     for _, candidate in value.apps or {} do
         if candidate.bundle == item.bundle then
@@ -253,7 +280,8 @@ local function notification(ctx, item)
         ui.icon{ app = item.bundle, w = 18, h = 18, placeholder = "app" },
         presentation.text{ text = name, style = "small", grow = 1, maxWidth = content - 150 },
         presentation.text{ text = relativeTime(ctx, item.date), style = "small", color = "secondaryForeground" },
-        button("×", if value.complete == true and not busy then "notifications dismiss " .. item.bundle .. " " .. id else nil) }
+        button("×", if canDismiss(value) and validBundle(item.bundle) and not busy
+            then "notifications dismiss " .. item.bundle .. " " .. id else nil) }
     local seen = {}
     for _, shown in { item.title, item.subtitle } do
         if type(shown) == "string" then seen[shown] = true end
@@ -302,7 +330,7 @@ local function notification(ctx, item)
     if attachmentIndicator then
         text(rows, omniwm.l10n("Attachment"), content, "small", "secondaryForeground")
     end
-    local reply = if value.complete == true then replyAction(item) else nil
+    local reply = if value.complete == true and validBundle(item.bundle) then replyAction(item) else nil
     if reply then
         rows[#rows + 1] = button(omniwm.l10n("Reply"), if busy then nil else function(next)
             next.state.reply = if next.state.reply == id then nil else id
@@ -348,12 +376,15 @@ local function status(value)
         return omniwm.l10n("The notification database could not be read.")
     elseif value.state == "malformed" then
         return omniwm.l10n("The notification database contains unsupported or malformed data.")
-    elseif value.state == "incomplete" or value.complete == false then
+    elseif value.state == "incomplete" or value.complete == false or not value.membershipComplete then
+        if value.membershipComplete then
+            return sourceStatus(value) or omniwm.l10n("Some notification details could not be read. Notifications can still be cleared.")
+        end
         return omniwm.l10n("Some notification data could not be read. The list is incomplete.")
     elseif value.state ~= "ready" and value.state ~= "empty" then
         return omniwm.l10n("Loading notifications…")
     end
-    return nil
+    return sourceStatus(value)
 end
 
 function render(ctx)
@@ -383,16 +414,20 @@ function popout(ctx)
         ui.row{ w = WIDTH - 24, gap = 5,
             presentation.text{ text = omniwm.l10n("Notifications"), style = "bold", grow = 1 },
             button(omniwm.l10n("Clear All"),
-                if value and value.complete == true and value.state == "ready" and #items > 0 and not busy
+                if canDismiss(value) and allBundlesValid(value) and #items > 0 and not busy
                     then "notifications dismiss-all" else nil),
             button(omniwm.l10n("Settings"), "notifications settings") } }
     local issue = status(value)
     if issue then
         text(rows, issue, WIDTH - 24, "body", "secondaryForeground")
-    elseif #items == 0 then
+    end
+    if #items == 0 and canDismiss(value) then
         rows[#rows + 1] = presentation.text{ text = omniwm.l10n("No retained notifications"), color = "secondaryForeground" }
     end
-    if value and value.error and value.error ~= "" then
+    if value and value.action and value.action.state == "pending" then
+        text(rows, omniwm.l10n("Another notification action is still in progress."), WIDTH - 24, "small", "secondaryForeground")
+    end
+    if value and value.error and value.error ~= "" and value.error ~= "Notification snapshot incomplete" then
         text(rows, value.error, WIDTH - 24, "small", "secondaryForeground")
     end
     if value and value.kept and value.kept > 0 then
