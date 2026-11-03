@@ -48,6 +48,7 @@ extension WindowActionHandler {
               let handle = controller.workspaceManager.handle(for: token),
               let entry = controller.workspaceManager.entry(for: token),
               entry.workspaceId == workspaceId,
+              let navigationToken = navigationRoot(for: entry, controller: controller),
               !controller.workspaceManager.isWindowSuppressedByMacOS(entry.token)
         else {
             return nil
@@ -69,7 +70,7 @@ extension WindowActionHandler {
 
         switch targetLayoutKind {
         case .dwindle:
-            if !prepareDwindleNavigationTarget(token, workspaceId: workspaceId) {
+            if !prepareDwindleNavigationTarget(navigationToken, workspaceId: workspaceId) {
                 _ = controller.workspaceManager.applySessionPatch(
                     .init(
                         workspaceId: workspaceId,
@@ -82,16 +83,34 @@ extension WindowActionHandler {
         case .niri:
             guard let engine = controller.niriEngine else { return nil }
             if settlesMotion {
-                controller.niriLayoutHandler.cancelAnimationMotion(for: workspaceId)
-                for (displayId, animatedWorkspaceId) in controller.niriLayoutHandler.scrollAnimationByDisplay
-                    where animatedWorkspaceId == workspaceId
-                {
-                    controller.layoutRefreshController.stopScrollAnimation(for: displayId)
-                }
+                settleNavigationMotion(in: workspaceId, controller: controller)
             }
-            prepareNiriNavigationTarget(token, workspaceId: workspaceId, engine: engine, controller: controller)
+            prepareNiriNavigationTarget(
+                navigationToken,
+                workspaceId: workspaceId,
+                engine: engine,
+                controller: controller
+            )
         }
         return handle
+    }
+
+    private func settleNavigationMotion(in workspaceId: WorkspaceDescriptor.ID, controller: WMController) {
+        controller.niriLayoutHandler.cancelAnimationMotion(for: workspaceId)
+        for (displayId, animatedWorkspaceId) in controller.niriLayoutHandler.scrollAnimationByDisplay
+            where animatedWorkspaceId == workspaceId
+        {
+            controller.layoutRefreshController.stopScrollAnimation(for: displayId)
+        }
+    }
+
+    private func navigationRoot(for entry: WindowState, controller: WMController) -> WindowToken? {
+        guard entry.target.hostedMetadata != nil else { return entry.token }
+        guard let root = controller.workspaceManager.hostedFamilyRoot(for: entry.token),
+              controller.workspaceManager.entry(for: root)?.workspaceId == entry.workspaceId,
+              controller.shellAppWindowManager.restoreFamilyIfMinimized(for: entry.token)
+        else { return nil }
+        return root
     }
 
     private func prepareNiriNavigationTarget(

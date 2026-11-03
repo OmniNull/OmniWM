@@ -68,7 +68,7 @@ extension ShellAppWindowManager {
     }
 
     static func makeWindow(_ definition: ShellAppDefinition) -> NSWindow {
-        let window = NSWindow(
+        let window = ShellAppNativeWindow(
             contentRect: CGRect(origin: .zero, size: definition.contentSize),
             styleMask: [.titled, .closable, .miniaturizable, .resizable], backing: .buffered, defer: false
         )

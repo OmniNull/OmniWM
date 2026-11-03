@@ -81,6 +81,9 @@ extension WMController {
     }
 
     func configureWorldCallbacks() {
+        workspaceManager.onHostedFamilyWorkspaceChanged = { [weak self] token, workspace in
+            self?.retargetHostedChildFocus(afterMoving: token, to: workspace)
+        }
         workspaceManager.onSessionStateChanged = { [weak self] surfaceScope in
             self?.handleSessionStateChanged(surfaceScope: surfaceScope)
         }

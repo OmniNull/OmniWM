@@ -52,6 +52,14 @@ enum HiddenReason: Equatable {
 }
 
 struct HiddenState: Equatable {
+    static func proportionalPosition(topLeft: CGPoint, in frame: CGRect) -> CGPoint {
+        let width = max(1, frame.width)
+        let height = max(1, frame.height)
+        let x = (topLeft.x - frame.minX) / width
+        let y = (frame.maxY - topLeft.y) / height
+        return CGPoint(x: min(max(0, x), 1), y: min(max(0, y), 1))
+    }
+
     let proportionalPosition: CGPoint
     let referenceMonitorId: Monitor.ID?
     let reason: HiddenReason
@@ -125,11 +133,29 @@ struct FloatingState: Equatable {
 enum HostedWindowRole: Equatable, Sendable {
     case main
     case sheet(parent: WindowToken, declarationID: String)
+    case utility(parent: WindowToken, declarationID: String)
 
     var parent: WindowToken? {
         switch self {
         case .main: nil
-        case let .sheet(parent, _): parent
+        case let .sheet(parent, _),
+             let .utility(parent, _): parent
+        }
+    }
+
+    var declarationID: String? {
+        switch self {
+        case .main: nil
+        case let .sheet(_, id),
+             let .utility(_, id): id
+        }
+    }
+
+    var isSheet: Bool {
+        switch self {
+        case .sheet: true
+        case .main,
+             .utility: false
         }
     }
 }

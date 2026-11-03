@@ -51,8 +51,28 @@ final class ShellAppWindowManager: NSObject, NSWindowDelegate {
 
     @discardableResult
     func setFrame(_ frame: CGRect, for token: WindowToken, components: AXFrameComponents = .all) -> Bool {
-        guard let window = windows[token] else { return false }
+        guard windows[token] != nil else { return false }
         if controller.workspaceManager.entry(for: token)?.target.hostedMetadata?.role.parent != nil { return true }
+        return applyFrame(frame, to: token, components: components)
+    }
+
+    @discardableResult
+    func setFloatingFrame(_ frame: CGRect, for token: WindowToken) -> Bool {
+        guard controller.workspaceManager.entry(for: token)?.target.hostedMetadata?.role.isSheet == false else {
+            return false
+        }
+        guard applyFrame(frame, to: token, components: .all) else { return false }
+        if case .utility = controller.workspaceManager.entry(for: token)?.target.hostedMetadata?.role,
+           let window = windows[token]
+        {
+            controller.workspaceManager.observeHostedWindowGeometry(frame: window.frame, for: token)
+        }
+        return true
+    }
+
+    @discardableResult
+    func applyFrame(_ frame: CGRect, to token: WindowToken, components: AXFrameComponents) -> Bool {
+        guard let window = windows[token] else { return false }
         var target = window.frame
         if components.contains(.position) {
             target.origin = CGPoint(x: frame.minX, y: frame.maxY - target.height)
@@ -60,6 +80,11 @@ final class ShellAppWindowManager: NSObject, NSWindowDelegate {
         if components.contains(.size) {
             let top = target.maxY
             target.size = frame.size
+            if case .utility = controller.workspaceManager.entry(for: token)?.target.hostedMetadata?.role {
+                let minimum = window.frameRect(forContentRect: CGRect(origin: .zero, size: window.contentMinSize)).size
+                target.size.width = max(target.width, minimum.width)
+                target.size.height = max(target.height, minimum.height)
+            }
             target.origin.y = top - target.height
         }
         if window.frame != target {
@@ -73,19 +98,15 @@ final class ShellAppWindowManager: NSObject, NSWindowDelegate {
 
     @discardableResult
     func setHidden(_ hidden: Bool, for token: WindowToken) -> Bool {
-        guard let window = windows[token] else { return false }
-        if hidden, window.isVisible {
-            window.orderOut(nil)
-        } else if !hidden, !window.isVisible {
-            window.orderFront(nil)
-        }
-        setContentVisible(!hidden && !window.isMiniaturized, token: token)
-        return true
+        setFamilyHidden(hidden, requestedBy: token)
     }
 
     @discardableResult
     func orderFront(_ token: WindowToken) -> Bool {
         guard let window = windows[token] else { return false }
+        if let parent = controller.workspaceManager.entry(for: token)?.target.hostedMetadata?.role.parent {
+            _ = setHidden(false, for: parent)
+        }
         window.orderFront(nil)
         setContentVisible(!window.isMiniaturized, token: token)
         return true
@@ -93,8 +114,12 @@ final class ShellAppWindowManager: NSObject, NSWindowDelegate {
 
     @discardableResult
     func focus(_ token: WindowToken, raisesWindow: Bool = true) -> Bool {
+        let token = activeSheet(for: token) ?? token
         guard let window = windows[token], controller.workspaceManager.entry(for: token) != nil else { return false }
-        if window.isMiniaturized { window.deminiaturize(nil) }
+        guard restoreFamilyIfMinimized(for: token) else { return false }
+        if let parent = controller.workspaceManager.entry(for: token)?.target.hostedMetadata?.role.parent {
+            _ = setHidden(false, for: parent)
+        }
         if raisesWindow {
             window.makeKeyAndOrderFront(nil)
         } else {
@@ -109,11 +134,13 @@ final class ShellAppWindowManager: NSObject, NSWindowDelegate {
     @discardableResult
     func close(_ token: WindowToken) -> Bool {
         guard let window = windows[token] else { return false }
-        if let sheet = activeSheet(for: token) { closeSheet(sheet)
+        if controller.workspaceManager.entry(for: token)?.target.hostedMetadata?.role == .main,
+           let sheet = activeSheet(for: token)
+        { closeChild(sheet)
             return true
         }
         if controller.workspaceManager.entry(for: token)?.target.hostedMetadata?.role.parent != nil {
-            closeSheet(token)
+            closeChild(token)
             return true
         }
         window.performClose(nil)
@@ -136,9 +163,10 @@ final class ShellAppWindowManager: NSObject, NSWindowDelegate {
         else { return }
         windows.removeValue(forKey: token)
         if let parent = window.sheetParent { parent.endSheet(window, returnCode: .cancel) }
+        window.parent?.removeChildWindow(window)
         if let metadata = controller.workspaceManager.entry(for: token)?.target.hostedMetadata {
             if metadata.role == .main {
-                for child in childTokens(of: token) { closeSheet(child) }
+                for child in childTokens(of: token) { closeChild(child, recoverFocus: false) }
                 runtimes.removeValue(forKey: metadata.instanceID)?.close()
             } else {
                 runtimes[metadata.instanceID]?.removeRoot(metadata.rootID)

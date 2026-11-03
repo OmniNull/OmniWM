@@ -28,7 +28,7 @@ extension WorkspaceManager {
         }
 
         let assignments = StateReducer.gatherAssignments(
-            entries,
+            workspaceAssignmentEntries(includingFamiliesOf: entries),
             to: destinationId,
             monitorId: monitorId(for: destinationId),
             focusSession: focusSessionSnapshot
@@ -43,6 +43,9 @@ extension WorkspaceManager {
             },
             resolvePlan: { plan, _, _ in plan }
         )
+        for entry in entries where entry.target.hostedMetadata?.role == .main {
+            onHostedFamilyWorkspaceChanged?(entry.token, destinationId)
+        }
 
         for (workspaceId, previous) in zip(affectedWorkspaceIds, previousViewports) {
             animationDriver.reconcileViewportCommit(

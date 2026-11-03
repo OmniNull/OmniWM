@@ -357,21 +357,14 @@ extension WindowActionHandler {
 
     private func restoreMinimizedWindowIfNeeded(_ handle: WindowHandle) -> Bool {
         guard let controller,
-              let entry = controller.workspaceManager.entry(for: handle),
-              entry.observedState.isMinimized
+              let entry = controller.workspaceManager.entry(for: handle)
         else { return true }
-        if let axRef = entry.axRef {
-            guard unminimizeWindow(axRef) else { return false }
-            controller.axEventHandler.updateWindowMinimizedState(false, token: entry.token)
-        } else {
-            guard controller.shellAppWindowManager.focus(entry.token) else { return false }
-            _ = controller.workspaceManager.setWindowMinimized(false, token: entry.token, source: .command)
-            controller.layoutRefreshController.requestVisibilityRefresh(
-                reason: .windowDeminiaturized,
-                affectedWorkspaceIds: [entry.workspaceId]
-            )
-            controller.surfaceReconciler.noteWorldChanged()
+        if entry.target.hostedMetadata != nil {
+            return controller.shellAppWindowManager.restoreFamilyIfMinimized(for: entry.token)
         }
+        guard entry.observedState.isMinimized, let axRef = entry.axRef else { return true }
+        guard unminimizeWindow(axRef) else { return false }
+        controller.axEventHandler.updateWindowMinimizedState(false, token: entry.token)
         return true
     }
 }

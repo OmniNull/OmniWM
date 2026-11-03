@@ -24,7 +24,7 @@ extension WMController {
 
     private func applyFloatingWindowFrame(_ frame: CGRect, to entry: WindowState) {
         guard let axRef = entry.axRef else {
-            _ = shellAppWindowManager.setFrame(frame, for: entry.token)
+            _ = shellAppWindowManager.setFloatingFrame(frame, for: entry.token)
             return
         }
         axManager.forceApplyNextFrame(for: entry.windowId)

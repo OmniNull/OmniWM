@@ -80,7 +80,8 @@ enum SurfaceDerivation {
         let config = world.borderConfig
         guard config.enabled else { return nil }
         guard let token = world.borderFocusToken,
-              let entry = world.entry(for: token)
+              let entry = world.entry(for: token),
+              entry.target.hostedMetadata?.role.isSheet != true
         else {
             return nil
         }

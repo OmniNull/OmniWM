@@ -132,9 +132,15 @@ extension ShellAppWindowManager {
 
     private func observeNativeGeometry(_ window: NSWindow, token: WindowToken) {
         guard controller.hasStartedServices, !applyingFrames.contains(token),
-              let entry = controller.workspaceManager.entry(for: token), entry.target.hostedMetadata?.role == .main,
+              let entry = controller.workspaceManager.entry(for: token), let role = entry.target.hostedMetadata?.role,
+              !role.isSheet,
               controller.workspaceManager.hiddenState(for: token) == nil
         else { return }
+        if let parent = role.parent {
+            guard !applyingFrames.contains(parent) else { return }
+            controller.workspaceManager.observeHostedWindowGeometry(frame: window.frame, for: token)
+            return
+        }
         controller.workspaceManager.observeHostedWindowGeometry(frame: window.frame, for: token)
         if entry.mode == .floating {
             controller.axEventHandler.updateFloatingWindowGeometryAndMonitorMembership(
@@ -152,13 +158,21 @@ extension ShellAppWindowManager {
     private func updateMinimized(_ minimized: Bool, notification: Notification) {
         guard let registered = registeredWindow(in: notification) else { return }
         let token = registered.token
-        let window = registered.window
-        setContentVisible(!minimized && window.isVisible, token: token)
-        if minimized { liveResizeStarts.removeValue(forKey: token) }
+        guard registered.entry.target.hostedMetadata?.role == .main else { return }
+        if minimized {
+            liveResizeStarts.removeValue(forKey: token)
+            if let request = controller.intentLedger.activeManagedRequest, request.token != token,
+               controller.workspaceManager.hostedFamilyRoot(for: request.token) == token
+            {
+                controller.cancelManagedFocusRequest(request)
+            }
+            for child in childTokens(of: token) { controller.intentLedger.discardPendingFocus(child) }
+        }
         if controller.hasStartedServices {
             controller.axEventHandler.updateWindowMinimizedState(minimized, token: token, source: .service)
         } else {
             controller.workspaceManager.setWindowMinimized(minimized, token: token, source: .service)
         }
+        _ = setFamilyHidden(minimized || controller.workspaceManager.hiddenState(for: token) != nil, requestedBy: token)
     }
 }

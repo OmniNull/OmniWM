@@ -229,7 +229,12 @@ extension OverviewController {
         projection.scale = presentation.configuredScale
         overviewSnapshot.build()
 
-        if let focusedHandle = wmController.workspaceManager.selectedManagedHandle,
+        let manager = wmController.workspaceManager
+        let focusedToken = manager.selectedManagedToken.map { token in
+            manager.entry(for: token)?.target.hostedMetadata?.role.isSheet == true
+                ? manager.hostedFamilyRoot(for: token) ?? token : token
+        }
+        if let focusedHandle = focusedToken.flatMap({ manager.handle(for: $0) }),
            overviewSnapshot.windows[focusedHandle] != nil
         {
             projection.selectedWindowHandle = focusedHandle

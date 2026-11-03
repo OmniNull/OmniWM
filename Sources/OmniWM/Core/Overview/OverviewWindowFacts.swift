@@ -27,7 +27,7 @@ final class OverviewWindowFacts {
         appInfoCache: AppInfoCache
     ) -> OverviewWindowLayoutData {
         let presentation = appInfoCache.presentation(for: entry, title: environment.windowTitle(entry))
-        let title = presentation.title ?? ""
+        let title = presentationTitle(for: entry, fallback: presentation.title ?? "")
         return OverviewWindowLayoutData(
             token: entry.token,
             workspaceId: entry.workspaceId,
@@ -38,6 +38,13 @@ final class OverviewWindowFacts {
             isNativeFullscreen: entry.layoutReason == .nativeFullscreen,
             floatingPreviewFrame: floatingPreviewFrame(for: entry)
         )
+    }
+
+    func presentationTitle(for entry: WindowState, fallback: String) -> String {
+        guard let metadata = entry.target.hostedMetadata else { return fallback }
+        guard metadata.role == .main,
+              wmController?.shellAppWindowManager.activeSheet(for: entry.token) != nil else { return metadata.title }
+        return metadata.title + " — " + String(localized: "Dialog open")
     }
 
     func floatingPreviewFrame(for entry: WindowState) -> CGRect? {
@@ -60,11 +67,12 @@ final class OverviewWindowFacts {
         _ entry: WindowState,
         workspaceManager: WorkspaceManager
     ) -> Bool {
-        !workspaceManager.isWindowSuppressedByMacOS(entry.token)
+        entry.target.hostedMetadata?.role.isSheet != true
+            && !workspaceManager.isWindowSuppressedByMacOS(entry.token)
     }
 
     func isStructurallyMutable(_ entry: WindowState) -> Bool {
-        entry.layoutReason == .standard
+        entry.layoutReason == .standard && entry.target.hostedMetadata?.role.parent == nil
     }
 
     func cachedNiriSnapshot(

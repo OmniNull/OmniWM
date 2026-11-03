@@ -67,10 +67,12 @@ extension ShellAppWindowManager {
         let manager = controller.workspaceManager
         for (token, window) in windows {
             guard let entry = manager.entry(for: token), entry.target.hostedMetadata != nil else { continue }
-            manager.setWindowMinimized(window.isMiniaturized, token: token, source: .service)
+            if entry.target.hostedMetadata?.role == .main {
+                manager.setWindowMinimized(window.isMiniaturized, token: token, source: .service)
+            }
             if manager.hiddenState(for: token) == nil {
                 manager.observeHostedWindowGeometry(frame: window.frame, for: token)
-                if entry.mode == .floating, !window.isMiniaturized {
+                if entry.mode == .floating, entry.target.hostedMetadata?.role == .main, !window.isMiniaturized {
                     controller.axEventHandler.updateFloatingWindowGeometryAndMonitorMembership(
                         entry: entry, frame: window.frame
                     )

@@ -13,11 +13,7 @@ extension LayoutRefreshController {
     }
 
     func proportionalPosition(topLeft: CGPoint, in frame: CGRect) -> CGPoint {
-        let width = max(1, frame.width)
-        let height = max(1, frame.height)
-        let x = (topLeft.x - frame.minX) / width
-        let y = (frame.maxY - topLeft.y) / height
-        return CGPoint(x: min(max(0, x), 1), y: min(max(0, y), 1))
+        HiddenState.proportionalPosition(topLeft: topLeft, in: frame)
     }
 
     func preferredHideSides(for monitors: [Monitor]) -> [Monitor.ID: HideSide] {

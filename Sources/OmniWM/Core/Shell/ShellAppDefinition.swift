@@ -23,10 +23,16 @@ struct ShellAppDefinition: Sendable {
             id: ShellAppWindowManager.exampleID, title: "OmniShell Example",
             contentSize: CGSize(width: 640, height: 420), minimumContentSize: CGSize(width: 280, height: 240),
             folder: entry.deletingLastPathComponent(),
-            children: ["confirm": ShellAppChildDefinition(
-                id: "confirm", view: "confirm", title: "Confirm deletion",
-                contentSize: CGSize(width: 360, height: 200), minimumContentSize: CGSize(width: 280, height: 160)
-            )]
+            children: [
+                "confirm": ShellAppChildDefinition(
+                    id: "confirm", view: "confirm", title: "Confirm deletion",
+                    contentSize: CGSize(width: 360, height: 200), minimumContentSize: CGSize(width: 280, height: 160)
+                ),
+                "preferences": ShellAppChildDefinition(
+                    id: "preferences", view: "preferences", title: "Preferences", kind: .utility,
+                    contentSize: CGSize(width: 420, height: 260), minimumContentSize: CGSize(width: 280, height: 220)
+                )
+            ]
         )
     }
 
@@ -55,9 +61,15 @@ struct ShellAppDefinition: Sendable {
 }
 
 struct ShellAppChildDefinition: Sendable {
+    enum Kind: Sendable {
+        case sheet
+        case utility
+    }
+
     let id: String
     let view: String
     let title: String
+    var kind = Kind.sheet
     let contentSize: CGSize
     let minimumContentSize: CGSize
 }
