@@ -84,10 +84,12 @@ extension StatusBarController {
                 width: layoutImage.size.width,
                 height: layoutImage.size.height
             )
-            layoutImage.draw(in: layoutRect)
-            if !isTemplate {
-                NSColor.labelColor.set()
-                layoutRect.fill(using: .sourceAtop)
+            if isTemplate {
+                layoutImage.draw(in: layoutRect)
+            } else {
+                let coloredLayout = layoutImage.withSymbolConfiguration(.init(paletteColors: [.labelColor]))
+                    ?? layoutImage
+                coloredLayout.draw(in: layoutRect)
             }
             return true
         }
