@@ -45,7 +45,7 @@ extension NiriLayoutHandler {
             viewportNeedsRecalc: selection.viewportNeedsRecalc, arrival: arrival
         )
 
-        let diff = layoutDiff(
+        var diff = layoutDiff(
             windows: snapshot.windows,
             frames: frames,
             hiddenHandles: hiddenHandles,
@@ -58,6 +58,7 @@ extension NiriLayoutHandler {
                 settledContext: isSettled ? (snapshot.monitor, state) : nil
             )
         )
+        diff.topEdgeHiddenFrames = topEdgeHiddenFrames(engine: pass.engine, snapshot: snapshot)
         completeAnimationDirectives(&directives, pass: pass, state: state)
         return WorkspaceLayoutPlan(
             workspaceId: pass.wsId,
@@ -72,6 +73,13 @@ extension NiriLayoutHandler {
             animationDirectives: directives,
             isActiveWorkspace: snapshot.isActiveWorkspace
         )
+    }
+
+    func topEdgeHiddenFrames(engine: NiriLayoutEngine, snapshot: NiriWorkspaceSnapshot) -> [WindowToken: CGRect] {
+        engine.layoutPool.topEdgeHiddenFrames.filter { token, _ in
+            snapshot.windows.contains { $0.token == token && !$0.isNativeFullscreenSuspended }
+                && !snapshot.excludedTokens.contains(token)
+        }
     }
 
     func layoutDiff(

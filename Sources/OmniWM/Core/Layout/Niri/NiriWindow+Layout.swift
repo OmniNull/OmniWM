@@ -66,7 +66,7 @@ extension NiriWindow {
         return roundedFrame
     }
 
-    private func animatedFrame(
+    func animatedFrame(
         from renderedBaseFrame: CGRect,
         within containerRect: CGRect,
         at time: TimeInterval,

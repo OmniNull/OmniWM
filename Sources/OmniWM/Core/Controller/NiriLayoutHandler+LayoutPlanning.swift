@@ -145,8 +145,8 @@ extension NiriLayoutHandler {
                 settledContext: isSettled ? (snapshot.monitor, snapshot.viewportState) : nil
             )
         )
-        let isInteractiveResize = animationTime == nil
-            && engine.interactiveResize?.workspaceId == snapshot.workspaceId
+        diff.topEdgeHiddenFrames = topEdgeHiddenFrames(engine: engine, snapshot: snapshot)
+        let isInteractiveResize = animationTime == nil && engine.interactiveResize?.workspaceId == snapshot.workspaceId
         enforceOnDemandFrameSizes(&diff, animated: sampledAnimationTime != nil || isInteractiveResize)
         if animationTime != nil {
             diff.tabRailGeometryCommands = niriTabRailGeometryCommands(

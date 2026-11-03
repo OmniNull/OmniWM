@@ -160,6 +160,7 @@ extension LayoutRefreshController {
         controller.workspaceManager.quietArrivalTokens.subtract(plan.quietArrivalTokens)
 
         let plan = controller.resizeOverlay.intercept(plan)
+        controller.niriTopEdgePictures.reconcile(plan)
         applyLayoutMutations(plan, controller: controller)
         publishAcceptedLayoutSurfaces(plan, controller: controller)
         if let disposition = plan.dwindleAnimationTargetDisposition {

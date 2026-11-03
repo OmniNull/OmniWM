@@ -73,6 +73,9 @@ final class WMController {
         }
     )
     @ObservationIgnored
+    private(set) lazy var niriTopEdgePictures = makeTopEdgePictures()
+
+    @ObservationIgnored
     let workspaceBarIconResolver: WorkspaceBarIconResolver
     var workspaceBarIconResolutionRevision: UInt64 = 0
     let eventIntake = EventIntake()
@@ -429,6 +432,7 @@ extension WMController {
         domains: InvalidationDomain,
         surfaceScope: SessionSurfaceInvalidationScope
     ) {
+        pruneTopEdgePictures()
         layoutRefreshController.workspaceSwipe.handleInvalidation(workspaceId: workspaceId, domains: domains)
         switch surfaceScope {
         case .full:

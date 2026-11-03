@@ -80,6 +80,7 @@ extension WMController {
     }
 
     func cleanupUIOnStop() {
+        niriTopEdgePictures.reset()
         windowSwitcherControllerStorage?.dismiss()
         workspaceBarRevealMonitor.stop()
         workspaceBarManager.cleanup()

@@ -161,9 +161,17 @@ final class ServiceLifecycleManager {
 
     private func connectAXFrameCallbacks(_ controller: WMController) {
         controller.axManager.onTerminalFrameRefusal = { [weak controller] refusal in
+            controller?.niriTopEdgePictures.frameApplicationEnded(
+                token: WindowToken(pid: refusal.pid, windowId: refusal.windowId),
+                targetFrame: refusal.targetFrame
+            )
             controller?.axEventHandler.handleTerminalFrameRefusal(refusal)
         }
         controller.axManager.onFrameApplyTerminated = { [weak controller] result in
+            controller?.niriTopEdgePictures.frameApplicationEnded(
+                token: WindowToken(pid: result.pid, windowId: result.windowId),
+                targetFrame: result.targetFrame
+            )
             controller?.mouseEventHandler.handleNativeTitleBarDragFrameApplyTerminated(result)
         }
         controller.axManager.onFrameApplySucceeded = { [weak self] result in
@@ -187,16 +195,6 @@ final class ServiceLifecycleManager {
         controller.axManager.onFrameApplySucceeded = nil
         controller.axManager.onStableSizeClamp = nil
         controller.axManager.onManagedWindowBindingFailed = nil
-    }
-
-    func handleFrameApplySucceeded(_ result: AXFrameApplyResult) {
-        guard let controller else { return }
-        controller.resizeOverlay.frameApplied(windowId: result.windowId)
-        controller.axEventHandler.clearTerminalFrameFailure(windowId: result.windowId)
-        controller.mouseEventHandler.handleNativeTitleBarDragFrameApplySucceeded(result)
-        guard result.writeResult.observedFrame != nil, result.confirmedFrame != nil else { return }
-        controller.relaxObservedSizeEvidence(afterVerifiedWrite: result)
-        controller.surfaceReconciler.handleVerifiedFrameApplySuccess(result)
     }
 
     func startLockScreenObserver() {
@@ -373,5 +371,21 @@ extension ServiceLifecycleManager {
                 source: .service
             )
         )
+    }
+}
+
+extension ServiceLifecycleManager {
+    func handleFrameApplySucceeded(_ result: AXFrameApplyResult) {
+        guard let controller else { return }
+        controller.resizeOverlay.frameApplied(windowId: result.windowId)
+        controller.niriTopEdgePictures.frameApplicationEnded(
+            token: WindowToken(pid: result.pid, windowId: result.windowId),
+            targetFrame: result.targetFrame
+        )
+        controller.axEventHandler.clearTerminalFrameFailure(windowId: result.windowId)
+        controller.mouseEventHandler.handleNativeTitleBarDragFrameApplySucceeded(result)
+        guard result.writeResult.observedFrame != nil, result.confirmedFrame != nil else { return }
+        controller.relaxObservedSizeEvidence(afterVerifiedWrite: result)
+        controller.surfaceReconciler.handleVerifiedFrameApplySuccess(result)
     }
 }

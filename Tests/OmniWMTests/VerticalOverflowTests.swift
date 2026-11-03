@@ -120,6 +120,65 @@ final class VerticalOverflowTests: XCTestCase {
         guard case .hidden(.minimum) = result.state else {
             return XCTFail("A settled column below the working area must not peek into the bottom gap")
         }
+        XCTAssertFalse(result.isTopEdgeHidden)
+    }
+
+    func testTopHiddenColumnRetainsLivePerWindowFrames() throws {
+        let column = NiriContainer()
+        let windows = [
+            NiriWindow(token: WindowToken(pid: 77, windowId: 77)),
+            NiriWindow(token: WindowToken(pid: 78, windowId: 78))
+        ]
+        for window in windows { column.appendChild(window) }
+        let result = layoutTopCrossingColumn(column, orientation: .vertical)
+        let windowWidth = workingFrame.width / CGFloat(windows.count)
+        XCTAssertEqual(result.topEdgeHiddenFrames.count, windows.count)
+        for (index, window) in windows.enumerated() {
+            let frame = try XCTUnwrap(result.topEdgeHiddenFrames[window.token])
+            XCTAssertEqual(frame, CGRect(
+                x: workingFrame.minX + CGFloat(index) * windowWidth,
+                y: workingFrame.midY,
+                width: windowWidth,
+                height: workingFrame.height
+            ))
+            XCTAssertEqual(result.hiddenHandles[window.token], AxisHideEdge.maximum.encodedHideSide)
+            XCTAssertNotEqual(result.frames[window.token], frame)
+            XCTAssertTrue(frame.intersects(portrait.frame))
+        }
+    }
+
+    func testTopEdgeFramesExcludeActiveAndHorizontalColumns() {
+        let column = NiriContainer()
+        let window = NiriWindow(token: WindowToken(pid: 77, windowId: 77))
+        column.appendChild(window)
+        for orientation: Monitor.Orientation in [.horizontal, .vertical] {
+            for isActive in [false, true] where orientation == .horizontal || isActive {
+                let result = layoutTopCrossingColumn(column, orientation: orientation, isActive: isActive)
+                XCTAssertTrue(result.topEdgeHiddenFrames.isEmpty)
+                XCTAssertNil(result.hiddenHandles[window.token])
+            }
+        }
+    }
+
+    func testTopEdgeFramesOnlyShowTheActiveTabAndClearOnAnEmptyPass() {
+        let column = NiriContainer()
+        let active = NiriWindow(token: WindowToken(pid: 77, windowId: 77))
+        let inactive = NiriWindow(token: WindowToken(pid: 78, windowId: 78))
+        column.appendChild(active)
+        column.appendChild(inactive)
+        column.displayMode = .tabbed
+        var result = layoutTopCrossingColumn(column, orientation: .vertical)
+        XCTAssertEqual(Set(result.topEdgeHiddenFrames.keys), [active.token])
+        NiriLayoutEngine().calculateLayoutInto(
+            result: &result,
+            state: ViewportState(),
+            workspaceId: WorkspaceDescriptor.ID(),
+            geometry: NiriLayoutGeometry(
+                workingArea: WorkingAreaContext(workingFrame: workingFrame, viewFrame: portrait.frame, scale: 1),
+                gaps: LayoutGaps(horizontal: 0, vertical: 0), orientation: .vertical
+            )
+        )
+        XCTAssertTrue(result.topEdgeHiddenFrames.isEmpty)
     }
 
     func testBothVerticalHideSidesParkOutsideBottomGapAndAvoidLaptopAfterSizeClamp() throws {
@@ -191,6 +250,36 @@ final class VerticalOverflowTests: XCTestCase {
                 )
             }
         }
+    }
+
+    private func layoutTopCrossingColumn(
+        _ column: NiriContainer,
+        orientation: Monitor.Orientation,
+        isActive: Bool = false
+    ) -> LayoutResult {
+        let engine = NiriLayoutEngine()
+        let area = WorkingAreaContext(workingFrame: workingFrame, viewFrame: portrait.frame, scale: 1)
+        let span = orientation == .vertical ? workingFrame.height : workingFrame.width
+        let context = NiriCalculationContext(
+            geometry: NiriLayoutGeometry(
+                workingArea: area, gaps: LayoutGaps(horizontal: 0, vertical: 0), orientation: orientation
+            ),
+            time: 0, hiddenPlacementMonitor: portrait, hiddenPlacementMonitors: [portrait, laptop]
+        )
+        let viewport = NiriLayoutViewport(
+            area: area, orientation: orientation, workspaceOffset: 0, viewPositions: [0], revealMargin: 0
+        )
+        let pass = NiriColumnLayoutPass(
+            context: context, viewport: viewport, activeIndex: isActive ? 1 : 0,
+            viewPosition: 0, selectedNodeId: nil, settledContentFrame: nil
+        )
+        var result = LayoutResult(frames: [:], hiddenHandles: [:])
+        engine.layoutProjectedColumn(
+            NiriProjectedColumn(column: column, windows: column.windowNodes, durableIndex: 1),
+            prepared: NiriPreparedLayoutColumn(span: span, renderOffset: .zero, position: span / 2),
+            at: 1, pass: pass, result: &result
+        )
+        return result
     }
 
     private func visibility(

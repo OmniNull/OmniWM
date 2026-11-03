@@ -62,6 +62,7 @@ struct NiriColumnVisibility {
     let canonicalRect: CGRect
     let visibleRect: CGRect
     let state: ContainerVisibilityState
+    let isTopEdgeHidden: Bool
 }
 
 struct NiriLayoutViewport {
@@ -111,6 +112,7 @@ struct NiriLayoutViewport {
             hiddenPlacementMonitor: hiddenPlacementMonitor,
             hiddenPlacementMonitors: hiddenPlacementMonitors
         )
+        var isTopEdgeHidden = false
         if case .visible = visibilityState {
             if orientation == .vertical,
                !(selection.isActive && column.span > area.workingFrame.height),
@@ -120,14 +122,12 @@ struct NiriLayoutViewport {
                || visibilityRect.maxY <= area.workingFrame.minY
             {
                 visibilityState = .hidden(visibilityRect.maxY <= area.workingFrame.minY ? .minimum : .maximum)
+                isTopEdgeHidden = !selection.isActive && visibilityRect.maxY > hiddenPlacementMonitor.frame.maxY
             } else {
-                let clampedVisibilityRect = NiriMonitorPlaneGeometry.clampedFrame(
-                    visibilityRect,
-                    screenClampRect: area.viewFrame,
-                    orientation: orientation
-                )
                 if let liveOverflowEdge = NiriMonitorPlaneGeometry.overflowEdgeIntersectingNeighboringMonitor(
-                    clampedVisibilityRect,
+                    NiriMonitorPlaneGeometry.clampedFrame(
+                        visibilityRect, screenClampRect: area.viewFrame, orientation: orientation
+                    ),
                     viewportFrame: area.workingFrame,
                     orientation: orientation,
                     hiddenPlacementMonitor: hiddenPlacementMonitor,
@@ -140,7 +140,8 @@ struct NiriLayoutViewport {
         return NiriColumnVisibility(
             canonicalRect: canonicalContainerRect,
             visibleRect: visibilityRect,
-            state: visibilityState
+            state: visibilityState,
+            isTopEdgeHidden: isTopEdgeHidden
         )
     }
 

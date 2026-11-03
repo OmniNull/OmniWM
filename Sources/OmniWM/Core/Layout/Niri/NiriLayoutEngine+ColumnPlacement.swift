@@ -123,6 +123,36 @@ extension NiriLayoutEngine {
             ),
             result: &result.frames
         )
+        if visibility.isTopEdgeHidden {
+            recordTopEdgeHiddenFrames(column, visibility: visibility, pass: pass, result: &result.topEdgeHiddenFrames)
+        }
+    }
+
+    private func recordTopEdgeHiddenFrames(
+        _ column: NiriProjectedColumn,
+        visibility: NiriColumnVisibility,
+        pass: NiriColumnLayoutPass,
+        result: inout [WindowToken: CGRect]
+    ) {
+        let activeTab = column.column.isTabbed ? projectedActiveWindow(in: column) : nil
+        for window in column.windows {
+            guard window.sizingMode == .normal,
+                  activeTab == nil || window === activeTab,
+                  let canonicalFrame = window.frame
+            else { continue }
+            let baseFrame = canonicalFrame.offsetBy(
+                dx: visibility.visibleRect.minX - visibility.canonicalRect.minX,
+                dy: visibility.visibleRect.minY - visibility.canonicalRect.minY
+            )
+            let frame = window.animatedFrame(
+                from: baseFrame,
+                within: visibility.visibleRect,
+                at: pass.context.time,
+                orientation: pass.context.orientation
+            ).roundedToPhysicalPixels(scale: pass.context.area.scale)
+            guard frame.intersects(pass.context.area.viewFrame) else { continue }
+            result[window.token] = frame
+        }
     }
 
     private func renderedColumnFrame(

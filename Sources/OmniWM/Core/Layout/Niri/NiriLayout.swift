@@ -8,6 +8,7 @@ import QuartzCore
 struct LayoutResult {
     var frames: [WindowToken: CGRect]
     var hiddenHandles: [WindowToken: HideSide]
+    var topEdgeHiddenFrames: [WindowToken: CGRect] = [:]
 }
 
 struct NiriContainerPlacement {
@@ -103,6 +104,7 @@ extension NiriLayoutEngine {
         isSettled: Bool = false,
         excludedTokens: Set<WindowToken>? = nil
     ) {
+        result.topEdgeHiddenFrames.removeAll(keepingCapacity: true)
         if let excludedTokens { setProjectionExclusions(excludedTokens, in: workspaceId) }
         let excludedTokens = projectionExclusions(in: workspaceId)
         let projectedColumns = projectedColumns(in: workspaceId)

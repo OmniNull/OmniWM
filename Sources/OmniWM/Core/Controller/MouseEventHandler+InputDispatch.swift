@@ -78,7 +78,7 @@ extension MouseEventHandler {
             return false
         }
         guard controller != nil else { return false }
-        let blocked = shouldBlockOwnWindowInput(at: location)
+        let blocked = shouldBlockOwnWindowInput(at: location, windowIdUnderPointer: windowIdUnderPointer)
         if MouseTrace.shared.isActive {
             let geometric = controller?.ownedWindowRegistry.containsGeometric(point: location) ?? false
             MouseTrace.record(
@@ -88,7 +88,7 @@ extension MouseEventHandler {
             )
         }
         if blocked {
-            if controller?.ownedWindowRegistry.contains(point: location, excluding: .parkingEdgeMask) == false {
+            if controller?.ownedWindowRegistry.contains(point: location, excluding: [.parkingEdgeMask]) == false {
                 state.parkingEdgePressButton = button
             }
             return false
