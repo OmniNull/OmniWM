@@ -160,7 +160,7 @@ def command():
             output.append(f'    mutating func argument(_ name: StaticString, _ value: borrowing {typ}, _ first: inout Bool) throws {{\n        self.key("arguments", &first)\n        begin(123)\n        var argumentFirst = true\n        self.key(name, &argumentFirst)\n        try self.value(value)\n        end(125)\n    }}')
 
     generate('IPCCommandName')
-    body = ['        begin(123)', '        var first = true', '        switch value {', '        case let .shellAppOpen(appID):', '            try argument("appId", appID, &first)']
+    body = ['        begin(123)', '        var first = true', '        switch value {', '        case let .shellAppOpen(appID), let .shellAppNewWindow(appID):', '            try argument("appId", appID, &first)']
     nested = {'focus': 'IPCFocusCommand', 'windowMovement': 'IPCWindowMovementCommand', 'workspace': 'IPCWorkspaceCommand', 'column': 'IPCColumnCommand', 'sizing': 'IPCSizingCommand', 'dwindle': 'IPCDwindleCommand', 'workspaceLayout': 'IPCWorkspaceLayoutCommand', 'scratchpad': 'IPCScratchpadCommand'}
     for (case, typ) in nested.items():
         body += [f'        case let .{case}(command):', '            try arguments(command, &first)']

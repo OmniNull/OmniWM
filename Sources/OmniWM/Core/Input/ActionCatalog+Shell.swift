@@ -10,8 +10,16 @@ extension ActionCatalog {
         )
     }
 
+    static var shellAppNewWindowExampleTitle: LocalizedStringResource {
+        LocalizedStringResource(
+            "command.shell.appNewWindowExample", defaultValue: "New OmniShell Example Window", table: "Commands",
+            bundle: .omniWM
+        )
+    }
+
     static let shellTogglePrefix = "toggleShellWidget."
     static let shellAppExampleActionID = "openShellApp.example"
+    static let shellAppNewWindowExampleActionID = "newShellAppWindow.example"
 
     static func appendShellAppBindings(_ specs: inout [ActionSpec]) {
         specs.append(action(
@@ -20,6 +28,13 @@ extension ActionCatalog {
             category: .focus,
             binding: .unassigned,
             keywords: ["shell", "app", "window", "example"]
+        ))
+        specs.append(action(
+            id: shellAppNewWindowExampleActionID,
+            command: .shellAppNewWindow(ShellAppWindowManager.exampleID),
+            category: .focus,
+            binding: .unassigned,
+            keywords: ["shell", "app", "new", "window", "example"]
         ))
     }
 

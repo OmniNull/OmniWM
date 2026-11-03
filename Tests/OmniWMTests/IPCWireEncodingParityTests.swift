@@ -47,17 +47,23 @@ final class IPCWireEncodingParityTests: XCTestCase {
         }
     }
 
-    func testAppOpenRequestEncodesAppIDAndRoundTrips() throws {
-        let request = IPCRequest(id: "app-open", command: .shellAppOpen(appID: "example"))
-        let line = try IPCWire.encodeRequestLine(request)
-        let object = try XCTUnwrap(JSONSerialization.jsonObject(with: line) as? [String: Any])
-        let payload = try XCTUnwrap(object["payload"] as? [String: Any])
-        let arguments = try XCTUnwrap(payload["arguments"] as? [String: String])
+    func testHostedAppRequestsEncodeAppIDAndRoundTrip() throws {
+        let fixtures: [(name: String, command: IPCCommandRequest)] = [
+            ("app-open", .shellAppOpen(appID: "example")),
+            ("app-new-window", .shellAppNewWindow(appID: "example"))
+        ]
+        for fixture in fixtures {
+            let request = IPCRequest(id: fixture.name, command: fixture.command)
+            let line = try IPCWire.encodeRequestLine(request)
+            let object = try XCTUnwrap(JSONSerialization.jsonObject(with: line) as? [String: Any])
+            let payload = try XCTUnwrap(object["payload"] as? [String: Any])
+            let arguments = try XCTUnwrap(payload["arguments"] as? [String: String])
 
-        XCTAssertEqual(payload["name"] as? String, "app-open")
-        XCTAssertEqual(arguments, ["appId": "example"])
-        XCTAssertEqual(line, try reference(request))
-        XCTAssertEqual(try IPCWire.decodeRequest(from: line), request)
+            XCTAssertEqual(payload["name"] as? String, fixture.name)
+            XCTAssertEqual(arguments, ["appId": "example"])
+            XCTAssertEqual(line, try reference(request))
+            XCTAssertEqual(try IPCWire.decodeRequest(from: line), request)
+        }
     }
 
     func testAllResponseAndEventModelsMatchReference() throws {

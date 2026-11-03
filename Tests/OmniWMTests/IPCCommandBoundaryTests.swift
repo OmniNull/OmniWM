@@ -56,7 +56,8 @@ final class IPCCommandBoundaryTests: XCTestCase {
             ("scratchpad-assign", "scratchpadIndex"), ("focus-window-in-column", "windowIndex"),
             ("move-to-workspace-on-monitor", "workspaceNumber"), ("set-workspace-layout", "layout"),
             ("open-command-palette-mode", "mode"),
-            ("resize", "axis"), ("resize-focused", "operation"), ("set-container-primary-span", "change")
+            ("resize", "axis"), ("resize-focused", "operation"), ("set-container-primary-span", "change"),
+            ("app-open", "appId"), ("app-new-window", "appId")
         ]
         for payload in payloads {
             try assertFailure(#"{"name":"\#(payload.name)"}"#, kind: "keyNotFound", subject: "arguments", path: [])

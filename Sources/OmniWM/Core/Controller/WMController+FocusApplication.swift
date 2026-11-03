@@ -46,10 +46,10 @@ extension WMController {
 
         guard validateMouseFocusRequest(liveRequest, validatesPointer: validatesPointer) else { return false }
 
-        guard let axRef = entry.axRef else {
-            return focusHostedWindow(entry, request: liveRequest)
-        }
         let focusesWithoutRaise = !shouldRaiseManagedFocus(origin: liveRequest.origin, entry: entry)
+        guard let axRef = entry.axRef else {
+            return focusHostedWindow(entry, request: liveRequest, raisesWindow: !focusesWithoutRaise)
+        }
         guard focusesWithoutRaise else {
             return frontManagedFocusRequest(liveRequest, entry: entry, raisesWindow: raisesWindow)
         }
@@ -84,12 +84,16 @@ extension WMController {
         return performWindowFocusOnly(pid: entry.pid, windowId: entry.windowId, axRef: axRef)
     }
 
-    private func focusHostedWindow(_ entry: WindowState, request: ManagedFocusRequest) -> Bool {
+    private func focusHostedWindow(
+        _ entry: WindowState,
+        request: ManagedFocusRequest,
+        raisesWindow: Bool
+    ) -> Bool {
         guard canFocusWindow(pid: entry.pid, windowId: entry.windowId) else {
             cancelManagedFocusRequestAndRestoreSource(request)
             return false
         }
-        return shellAppWindowManager.focus(entry.token)
+        return shellAppWindowManager.focus(entry.token, raisesWindow: raisesWindow)
     }
 
     func completeSameAppFocusHandoff(_ request: ManagedFocusRequest) {
@@ -116,11 +120,11 @@ extension WMController {
             )
             return
         }
+        let raisesWindow = shouldRaiseManagedFocus(origin: liveRequest.origin, entry: entry)
         guard let axRef = entry.axRef else {
-            _ = shellAppWindowManager.focus(entry.token)
+            _ = shellAppWindowManager.focus(entry.token, raisesWindow: raisesWindow)
             return
         }
-        let raisesWindow = shouldRaiseManagedFocus(origin: liveRequest.origin, entry: entry)
         if raisesWindow {
             windowFocusOperations.activateApp(entry.pid)
         }

@@ -110,7 +110,8 @@ extension IPCJSONWriter {
         begin(123)
         var first = true
         switch value {
-        case let .shellAppOpen(appID):
+        case let .shellAppOpen(appID),
+             let .shellAppNewWindow(appID):
             try argument("appId", appID, &first)
         case let .focus(command):
             try arguments(command, &first)

@@ -56,28 +56,16 @@ enum WindowAdmissionTestSupport {
     }
 
     static func drainLayoutRefreshes(_ controller: WMController) async {
-        let clock = ContinuousClock()
-        let deadline = clock.now.advanced(by: .seconds(5))
-        while clock.now < deadline {
+        let refresh = controller.layoutRefreshController
+        while let task = refresh.layoutState.activeRefreshTask ?? refresh.layoutState.pendingDebounceTask {
             guard !Task.isCancelled else {
                 XCTFail("layout refresh drain cancelled")
                 return
             }
-            let state = controller.layoutRefreshController.layoutState
-            if state.activeRefreshTask == nil,
-               state.activeRefresh == nil,
-               state.pendingRefresh == nil
-            {
-                return
-            }
-            do {
-                try await clock.sleep(for: .milliseconds(5))
-            } catch {
-                XCTFail("layout refresh drain cancelled")
-                return
-            }
+            await task.value
         }
-        XCTFail("layout refresh drain exceeded five seconds")
+        XCTAssertNil(refresh.layoutState.activeRefresh)
+        XCTAssertNil(refresh.layoutState.pendingRefresh)
     }
 
     static func axRef(for token: WindowToken) -> AXWindowRef {

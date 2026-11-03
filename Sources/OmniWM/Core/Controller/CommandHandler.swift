@@ -110,6 +110,8 @@ final class CommandHandler {
             return controller.workspaceBarManager.toggleShell(name) ? .executed : .notFound
         case let .shellAppOpen(appID):
             return controller.shellAppWindowManager.open(appID) ? .executed : .notFound
+        case let .shellAppNewWindow(appID):
+            return controller.shellAppWindowManager.newWindow(appID) ? .executed : .notFound
         }
         return .executed
     }

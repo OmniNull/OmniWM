@@ -75,6 +75,7 @@ public enum IPCCommandRequest: Equatable, Sendable {
     case scratchpad(IPCScratchpadCommand)
     case openMenuAnywhere
     case shellAppOpen(appID: String)
+    case shellAppNewWindow(appID: String)
 
     public var name: IPCCommandName {
         switch self {
@@ -122,6 +123,8 @@ public enum IPCCommandRequest: Equatable, Sendable {
             .openMenuAnywhere
         case .shellAppOpen:
             .shellAppOpen
+        case .shellAppNewWindow:
+            .shellAppNewWindow
         }
     }
 }

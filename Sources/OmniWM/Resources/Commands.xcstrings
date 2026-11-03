@@ -17555,6 +17555,17 @@
           }
         }
       }
+    },
+    "command.shell.appNewWindowExample" : {
+      "extractionState" : "extracted_with_value",
+      "localizations" : {
+        "en" : {
+          "stringUnit" : {
+            "state" : "new",
+            "value" : "New OmniShell Example Window"
+          }
+        }
+      }
     }
   },
   "version" : "1.0"

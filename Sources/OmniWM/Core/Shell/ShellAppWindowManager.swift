@@ -14,6 +14,12 @@ final class ShellAppWindowManager: NSObject, NSWindowDelegate {
     var applyingFrames: Set<WindowToken> = []
     var makeWindow: @MainActor (ShellAppDefinition) -> NSWindow = ShellAppWindowManager.makeWindow
     var activateApplication: () -> Void = { NSApp.activate() }
+    var focusWithoutRaising: (WindowToken) -> Void = { token in
+        WindowFocusDispatcher.shared.drain()
+        MainThreadAXSpanTrace.measure(.privateFocus, pid: token.pid, windowId: token.windowId) {
+            OmniWM.focusWindow(pid: token.pid, windowId: UInt32(token.windowId))
+        }
+    }
 
     init(controller: WMController) {
         self.controller = controller
@@ -84,12 +90,17 @@ final class ShellAppWindowManager: NSObject, NSWindowDelegate {
     }
 
     @discardableResult
-    func focus(_ token: WindowToken) -> Bool {
+    func focus(_ token: WindowToken, raisesWindow: Bool = true) -> Bool {
         guard let window = windows[token], controller.workspaceManager.entry(for: token) != nil else { return false }
         if window.isMiniaturized { window.deminiaturize(nil) }
-        window.makeKeyAndOrderFront(nil)
+        if raisesWindow {
+            window.makeKeyAndOrderFront(nil)
+        } else {
+            window.makeKey()
+            focusWithoutRaising(token)
+        }
         sessions[token]?.setVisible(true)
-        activateApplication()
+        if raisesWindow { activateApplication() }
         return true
     }
 
