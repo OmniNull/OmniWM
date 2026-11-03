@@ -172,7 +172,9 @@ extension MouseEventHandler {
         guard !primaryEdges.isEmpty || secondarySpan != nil else { return false }
         let primary = centredPrimaryResize(primaryEdges, from: start, to: observed)
 
-        let slide = naturalEdgeResizeSlide(around: window, in: workspaceId, resizedFrom: start, to: observed)
+        let slide = naturalResizeApplies(context.orientation)
+            ? naturalEdgeResizeSlide(around: window, in: workspaceId, resizedFrom: start, to: observed)
+            : nil
         var changed = false
         controller.workspaceManager.withNiriViewportState(for: workspaceId) { viewportState in
             if let secondarySpan {

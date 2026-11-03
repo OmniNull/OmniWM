@@ -13,6 +13,7 @@ final class NiriNaturalEdgeResizeTests: NiriInteractionTestCase {
         let workspaceId: WorkspaceDescriptor.ID
         let monitor: Monitor
         let tokens: [WindowToken]
+        var orientation: Monitor.Orientation = .horizontal
 
         var handler: MouseEventHandler {
             controller.mouseEventHandler
@@ -49,7 +50,7 @@ final class NiriNaturalEdgeResizeTests: NiriInteractionTestCase {
                 workspaceId: workspaceId,
                 monitorFrame: controller.insetWorkingFrame(for: monitor),
                 gaps: (horizontal: gap, vertical: gap),
-                orientation: .horizontal
+                orientation: orientation
             )
         }
 
@@ -69,7 +70,7 @@ final class NiriNaturalEdgeResizeTests: NiriInteractionTestCase {
                 workspaceId: workspaceId,
                 monitorFrame: controller.insetWorkingFrame(for: monitor),
                 gaps: (horizontal: gap, vertical: gap),
-                orientation: .horizontal,
+                orientation: orientation,
                 animationTime: later
             ).frames[token])
         }
@@ -246,6 +247,25 @@ final class NiriNaturalEdgeResizeTests: NiriInteractionTestCase {
         let frame = try fixture.frame(upper)
         XCTAssertEqual(frame.maxX, upperStart.maxX, accuracy: 1)
         XCTAssertEqual(frame.width, upperStart.width + 80, accuracy: 1)
+    }
+
+    func testOnAVerticalStripAKeptEdgeResizeDoesntSlide() throws {
+        let fixture = try makeFixture(portrait: true, pid: 871_020)
+        let blocker = blockRefreshes(fixture)
+        defer { unblockRefreshes(fixture, blocker: blocker) }
+        fixture.controller.settings.gestures.adoptNativeResize = true
+        XCTAssertEqual(fixture.handler.liveColumnContext(for: fixture.workspaceId)?.orientation, .vertical)
+        let resized = fixture.tokens[1]
+        let start = try fixture.frame(resized)
+        let observed = grown(start, bottom: 100)
+        try fixture.beginDrag(resized)
+        fixture.drag(resized, to: observed)
+
+        fixture.release(at: observed)
+
+        for token in fixture.tokens {
+            XCTAssertFalse(try fixture.node(token).hasMoveAnimationsRunning)
+        }
     }
 
     func testWithoutNaturalWindowDragNothingSlides() throws {
@@ -1183,7 +1203,15 @@ final class NiriNaturalEdgeResizeTests: NiriInteractionTestCase {
         fixture.controller.layoutRefreshController.layoutState.pendingRefresh = nil
     }
 
-    private func makeFixture(stacked: Bool = false, stackedThree: Bool = false, pid: pid_t) throws -> Fixture {
+    private func makeFixture(
+        stacked: Bool = false,
+        stackedThree: Bool = false,
+        portrait: Bool = false,
+        pid: pid_t
+    ) throws -> Fixture {
+        let monitorFrame = portrait
+            ? CGRect(x: workingFrame.minX, y: workingFrame.minY, width: workingFrame.height, height: workingFrame.width)
+            : workingFrame
         let controller = WindowAdmissionTestSupport.controller(prefix: "NiriNaturalEdgeResizeTests")
         addTeardownBlock { @MainActor [controller] in
             controller.hasStartedServices = false
@@ -1195,8 +1223,8 @@ final class NiriNaturalEdgeResizeTests: NiriInteractionTestCase {
         let monitor = Monitor(
             id: .init(displayId: 87_101),
             displayId: 87_101,
-            frame: workingFrame,
-            visibleFrame: workingFrame,
+            frame: monitorFrame,
+            visibleFrame: monitorFrame,
             hasNotch: false,
             name: "Niri Live Edge Resize"
         )
@@ -1245,7 +1273,13 @@ final class NiriNaturalEdgeResizeTests: NiriInteractionTestCase {
             column.width = .proportion(1.0 / 3.0)
             column.cachedWidth = 0
         }
-        let fixture = Fixture(controller: controller, workspaceId: workspaceId, monitor: monitor, tokens: tokens)
+        let fixture = Fixture(
+            controller: controller,
+            workspaceId: workspaceId,
+            monitor: monitor,
+            tokens: tokens,
+            orientation: portrait ? .vertical : .horizontal
+        )
         let frames = fixture.frames()
         fixture.confirmLayout()
         controller.axEventHandler.windowInfoProvider = { windowId in
