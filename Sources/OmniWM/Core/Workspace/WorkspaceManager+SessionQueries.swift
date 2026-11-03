@@ -62,7 +62,7 @@ extension WorkspaceManager {
         }
 
         if let handle = handleIfEligible(selectedManagedToken) { return handle }
-        for token in focusSessionSnapshot.tiledFocusHistory {
+        for token in focusSessionSnapshot.windowFocusHistory {
             if let handle = handleIfEligible(token) { return handle }
         }
         if let interactionMonitorId,

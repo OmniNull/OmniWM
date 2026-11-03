@@ -29,11 +29,7 @@ struct LauncherSettingsPage: View {
                         Button("Run") { run(entry) }
                         if let bundleID = entry.bundleIdentifier {
                             Button("Configure Shortcut…") {
-                                settings.reconcileDynamicHotkeys()
-                                navigation.request(SettingsRoute(
-                                    section: .hotkeys,
-                                    itemID: ActionCatalog.openAppPrefix + bundleID
-                                ))
+                                configureShortcut(bundleID: bundleID)
                             }
                         }
                         Button("Edit") { navigation.launcherEditorRequest = .init(entry: entry) }
@@ -139,6 +135,11 @@ struct LauncherSettingsPage: View {
                 }, run: run
             )
         }
+    }
+
+    func configureShortcut(bundleID: String) {
+        settings.reconcileDynamicHotkeys()
+        navigation.request(SettingsRoute(section: .hotkeys, itemID: ActionCatalog.openAppPrefix + bundleID))
     }
 
     private func run(_ entry: LauncherEntry) {

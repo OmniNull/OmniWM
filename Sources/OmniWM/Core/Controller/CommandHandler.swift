@@ -121,7 +121,7 @@ final class CommandHandler {
                 LauncherApplicationResult(
                     bundleURL: url,
                     bundleIdentifier: bundleID,
-                    displayName: ActionCatalog.appDisplayName(bundleID: bundleID)
+                    displayName: FileManager.default.displayName(atPath: url.path)
                 ),
                 ""
             ))

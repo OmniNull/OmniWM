@@ -48,7 +48,7 @@ enum HotkeyBindingRegistry {
             }
         var result = bindings.filter {
             bindingsByID[$0.id] != nil || ActionCatalog.shellToggleSpec(for: $0.id) != nil
-                || ActionCatalog.openAppSpec(for: $0.id) != nil
+                || ActionCatalog.openAppBundleID(for: $0.id) != nil
         }
         let groups = Dictionary(grouping: workspaceBindings) { rowGroup(of: $0.id) }
         let insertions = groups.map { group, rows in
@@ -72,11 +72,10 @@ enum HotkeyBindingRegistry {
         reconcilingDynamicBindings(
             bindings,
             specs: bundleIDs.compactMap(ActionCatalog.openAppSpec(bundleID:)),
-            isMember: { ActionCatalog.openAppSpec(for: $0) != nil }
+            isMember: { ActionCatalog.openAppBundleID(for: $0) != nil }
         )
     }
 
-    /// Adds a row per current spec, keeps assigned rows whose source went away, drops stale unassigned rows.
     private static func reconcilingDynamicBindings(
         _ bindings: [HotkeyBinding],
         specs: [ActionSpec],

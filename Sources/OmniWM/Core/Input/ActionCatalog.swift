@@ -100,7 +100,8 @@ enum ActionCatalog {
     }
 
     static func layoutCompatibility(for command: HotkeyCommand) -> LayoutCompatibility? {
-        spec(for: command)?.layoutCompatibility
+        if case .openApp = command { return compatibility(for: command) }
+        return spec(for: command)?.layoutCompatibility
     }
 
     static func category(for id: String) -> HotkeyCategory? {
