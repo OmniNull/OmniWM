@@ -149,6 +149,7 @@ final class TabRailIconTests: XCTestCase {
             let cgEvent = try XCTUnwrap(CGEvent(
                 scrollWheelEvent2Source: nil, units: .line, wheelCount: 1, wheel1: delta, wheel2: 0, wheel3: 0
             ))
+            cgEvent.flags = []
             cgEvent.setIntegerValueField(.mouseEventWindowUnderMousePointer, value: Int64(window.windowNumber))
             cgEvent.setIntegerValueField(
                 .mouseEventWindowUnderMousePointerThatCanHandleThisEvent,
