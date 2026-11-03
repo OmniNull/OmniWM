@@ -66,6 +66,8 @@ struct MouseInputState {
     struct NativeResizeCorrection {
         let token: WindowToken
         var issuedUnreadableCorrection = false
+        var needsFrameWriteRecheck = false
+        var issuedTerminalFailureCorrection = false
     }
 
     struct NativeCrossDisplayMove {

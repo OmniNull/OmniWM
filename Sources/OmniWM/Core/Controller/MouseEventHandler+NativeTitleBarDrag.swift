@@ -102,8 +102,9 @@ extension MouseEventHandler {
     }
 
     func rejectNativeTitleBarDragTarget() {
+        let fallbackToken = state.nativeTitleBarDragFallbackToken
         let releasedToken = state.nativeTitleBarDrag == nil && state.nativeTitleBarDragFallbackReleased
-            ? state.nativeTitleBarDragFallbackToken : nil
+            ? fallbackToken : nil
         state.awaitsNativeTitleBarDragTarget = false
         state.nativeTitleBarDragFallbackToken = nil
         state.nativeTitleBarDragFallbackReleased = false
@@ -114,6 +115,7 @@ extension MouseEventHandler {
         else {
             correctDeferredNativeResizeFrameIfNeeded()
             state.nativeResizeStart = nil
+            if let fallbackToken { recheckRetainedNativeResizeCorrection(for: fallbackToken) }
             return
         }
         state.nativeResizeStart = nil
@@ -151,12 +153,19 @@ extension MouseEventHandler {
             state.nativeResizeCorrectionsByWindowId[entry.windowId] = nil
             return false
         }
+        if controller.axManager.pendingFrameWrite(for: entry.windowId) != nil {
+            correction.needsFrameWriteRecheck = true
+            state.nativeResizeCorrectionsByWindowId[entry.windowId] = correction
+            return true
+        }
+        correction.needsFrameWriteRecheck = false
         if let observedFrame = fastNativeWindowFrame(for: entry) {
             correction.issuedUnreadableCorrection = false
             state.nativeResizeCorrectionsByWindowId[entry.windowId] = correction
             if nativeWindowFrameMatchesManagedTarget(observedFrame, entry: entry) { return true }
         } else {
             guard !correction.issuedUnreadableCorrection else {
+                state.nativeResizeCorrectionsByWindowId[entry.windowId] = correction
                 controller.axManager.invalidateAppliedFrame(for: entry.windowId)
                 return true
             }
