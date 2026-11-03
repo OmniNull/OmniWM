@@ -83,7 +83,7 @@ extension WMController {
         containerPrimarySpanPresets: [Double]? = nil,
         defaultContainerPrimarySpan: Double?? = nil,
         shrinkToFit: Bool? = nil,
-        tabbedColumnsFillHeight: Bool? = nil
+        naturalWindowDrag: NaturalWindowDragConfiguration? = nil
     ) {
         niriLayoutHandler.updateNiriConfig(
             visibleContainerCount: visibleContainerCount,
@@ -95,7 +95,7 @@ extension WMController {
             containerPrimarySpanPresets: containerPrimarySpanPresets,
             defaultContainerPrimarySpan: defaultContainerPrimarySpan,
             shrinkToFit: shrinkToFit,
-            tabbedColumnsFillHeight: tabbedColumnsFillHeight
+            naturalWindowDrag: naturalWindowDrag
         )
     }
 

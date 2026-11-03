@@ -305,14 +305,14 @@ final class NiriLayoutEngine {
         presetContainerPrimarySpans: [PresetSize]? = nil,
         defaultContainerPrimarySpan: CGFloat?? = nil,
         shrinkToFit: Bool? = nil,
-        tabbedColumnsFillHeight: Bool? = nil
+        naturalWindowDrag: NaturalWindowDragConfiguration? = nil
     ) {
         assertSanctionedMutation()
         if let shrinkToFit {
             self.shrinkToFit = shrinkToFit
         }
-        if let tabbedColumnsFillHeight {
-            self.tabbedColumnsFillHeight = tabbedColumnsFillHeight
+        if let naturalWindowDrag {
+            applyNaturalWindowDrag(naturalWindowDrag)
         }
         if let max = visibleContainerCount {
             self.visibleContainerCount = max.clamped(to: 1 ... 5)

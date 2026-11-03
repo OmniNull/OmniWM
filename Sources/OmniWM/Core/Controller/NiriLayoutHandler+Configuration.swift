@@ -83,7 +83,7 @@ extension NiriLayoutHandler {
         containerPrimarySpanPresets: [Double]? = nil,
         defaultContainerPrimarySpan: Double?? = nil,
         shrinkToFit: Bool? = nil,
-        tabbedColumnsFillHeight: Bool? = nil
+        naturalWindowDrag: NaturalWindowDragConfiguration? = nil
     ) {
         guard let controller else { return }
         controller.workspaceManager.withEngineMutationScope {
@@ -97,7 +97,7 @@ extension NiriLayoutHandler {
                 presetContainerPrimarySpans: containerPrimarySpanPresets?.map { .proportion($0) },
                 defaultContainerPrimarySpan: defaultContainerPrimarySpan.map { $0.map { CGFloat($0) } },
                 shrinkToFit: shrinkToFit,
-                tabbedColumnsFillHeight: tabbedColumnsFillHeight
+                naturalWindowDrag: naturalWindowDrag
             )
         }
         refreshResolvedMonitorSettings(rebalanceChangedSpans: defaultContainerPrimarySpan != nil)

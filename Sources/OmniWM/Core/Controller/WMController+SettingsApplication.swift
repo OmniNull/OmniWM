@@ -134,8 +134,12 @@ extension WMController {
         }
     }
 
+    var naturalWindowDragConfiguration: NaturalWindowDragConfiguration {
+        NaturalWindowDragConfiguration(enabled: settings.niri.naturalWindowDrag)
+    }
+
     func applyNaturalWindowDragSettings() {
-        updateNiriConfig(tabbedColumnsFillHeight: settings.niri.naturalWindowDrag)
+        updateNiriConfig(naturalWindowDrag: naturalWindowDragConfiguration)
         mouseEventHandler.syncTapFilterSnapshot()
     }
 
@@ -156,7 +160,7 @@ extension WMController {
             containerPrimarySpanPresets: settings.niri.containerPrimarySpanPresets,
             defaultContainerPrimarySpan: settings.niri.defaultContainerPrimarySpan,
             shrinkToFit: settings.niri.shrinkToFit,
-            tabbedColumnsFillHeight: settings.niri.naturalWindowDrag
+            naturalWindowDrag: naturalWindowDragConfiguration
         )
 
         if dwindleEngine == nil {

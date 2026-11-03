@@ -594,3 +594,13 @@ extension NiriLayoutEngine {
         return wanted.clamped(to: range)
     }
 }
+
+struct NaturalWindowDragConfiguration: Equatable {
+    var enabled: Bool
+}
+
+extension NiriLayoutEngine {
+    func applyNaturalWindowDrag(_ configuration: NaturalWindowDragConfiguration) {
+        tabbedColumnsFillHeight = configuration.enabled
+    }
+}

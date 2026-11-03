@@ -616,7 +616,7 @@ final class NiriLiveStackModeTests: XCTestCase {
         let shown = column.windowNodes[column.activeTileIdx]
         XCTAssertEqual(fixture.frames()[shown.token]?.height ?? .nan, 400, accuracy: 1)
 
-        fixture.engine.updateConfiguration(tabbedColumnsFillHeight: true)
+        fixture.engine.updateConfiguration(naturalWindowDrag: .init(enabled: true))
 
         XCTAssertEqual(fixture.frames()[shown.token]?.height ?? .nan, fullTabHeight(fixture), accuracy: 1)
     }
