@@ -49,6 +49,25 @@ final class ContiguousSectionsSettingsExportTests: XCTestCase {
         XCTAssertEqual(try SettingsTOMLCodec.decode(SettingsTOMLCodec.encode(hidden)).statusBar.showIcon, false)
     }
 
+    @MainActor
+    func testStatusBarLayoutDefaultsOffForExistingFilesAndRoundTrips() throws {
+        let source = String(decoding: try SettingsTOMLCodec.encode(.defaults()), as: UTF8.self)
+        let omitted = try removing(key: "showLayout", from: "statusBar", in: source)
+        let decoded = try SettingsTOMLCodec.decode(Data(omitted.utf8))
+        let settings = StatusBarSettings()
+        settings.showLayout = true
+        settings.apply(decoded.statusBar)
+        XCTAssertFalse(settings.showLayout)
+        XCTAssertEqual(decoded.statusBar.showLayout, false)
+
+        for enabled in [true, false] {
+            settings.showLayout = enabled
+            var export = SettingsExport.defaults()
+            export.statusBar = settings.export()
+            XCTAssertEqual(try SettingsTOMLCodec.decode(SettingsTOMLCodec.encode(export)).statusBar.showLayout, enabled)
+        }
+    }
+
     private func removing(key: String, from section: String, in source: String) throws -> String {
         var lines = source.components(separatedBy: "\n")
         let header = try XCTUnwrap(lines.firstIndex(of: "[\(section)]"))

@@ -90,7 +90,7 @@ extension WMController {
     }
 
     var statusBarRefreshIsEnabled: Bool {
-        statusBarController != nil && settings.statusBar.showWorkspaceName
+        statusBarController != nil && (settings.statusBar.showWorkspaceName || settings.statusBar.showLayout)
     }
 
     var hasWindowOrLayoutEventSubscribers: Bool {
@@ -154,7 +154,8 @@ extension WMController {
             monitorId: monitor.id,
             workspaceLabel: settings.workspaces.displayName(for: workspace.name),
             workspaceRawName: workspace.name,
-            focusedAppName: focusedAppName
+            focusedAppName: focusedAppName,
+            layout: workspaceManager.activeLayoutKind(for: workspace.id)
         )
     }
 

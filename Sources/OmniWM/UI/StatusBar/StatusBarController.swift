@@ -200,7 +200,9 @@ final class StatusBarController: NSObject {
             button.layer?.opacity = 1
             button.image = OmniWMBrandMark.statusItemImage(pointSize: 18)
             button.contentTintColor = nil
-            button.toolTip = nil
+            button.toolTip = settings.statusBar.showLayout
+                ? controller?.activeStatusBarWorkspaceSummary().map { Self.layoutDisplayName($0.layout) }
+                : nil
         }
         updateButtonAccessibility(button)
     }
@@ -227,20 +229,12 @@ final class StatusBarController: NSObject {
         return String(appName.prefix(maxStatusBarAppNameLength)) + "\u{2026}"
     }
 
-    static func statusButtonTitle(workspaceLabel: String, focusedAppName: String?, modeTitle: String? = nil) -> String {
-        var title = modeTitle.map { " \($0) \u{00B7}" } ?? ""
-        title += " \(workspaceLabel)"
-        if let focusedAppName, !focusedAppName.isEmpty {
-            title += " \u{2013} \(truncatedStatusBarAppName(focusedAppName))"
-        }
-        return title
-    }
-
     nonisolated static func statusButtonAccessibilityValue(
         workspaceLabel: String?,
         focusedAppName: String?,
         isRecording: Bool,
-        isSecureInputActive: Bool
+        isSecureInputActive: Bool,
+        layout: ActiveLayoutKind? = nil
     ) -> String {
         var components: [String] = []
         if isRecording {
@@ -255,25 +249,30 @@ final class StatusBarController: NSObject {
         if let focusedAppName, !focusedAppName.isEmpty {
             components.append(String(localized: "Focused app \(focusedAppName)"))
         }
+        if let layout {
+            components.append(Self.layoutDisplayName(layout))
+        }
         return components.isEmpty ? String(localized: "Window manager controls") : components
             .joined(separator: String(localized: ", "))
     }
 
     private func updateButtonAccessibility(_ button: NSStatusBarButton) {
-        let summary = settings.statusBar.showWorkspaceName
+        let summary = settings.statusBar.showWorkspaceName || settings.statusBar.showLayout
             ? controller?.activeStatusBarWorkspaceSummary()
             : nil
-        let workspaceLabel = summary.map {
+        let workspaceLabel = settings.statusBar.showWorkspaceName ? summary.map {
             settings.statusBar.useWorkspaceId ? $0.workspaceRawName : $0.workspaceLabel
-        }
-        let focusedAppName = settings.statusBar.showAppNames ? summary?.focusedAppName : nil
+        } : nil
+        let focusedAppName = settings.statusBar.showWorkspaceName && settings.statusBar.showAppNames
+            ? summary?.focusedAppName : nil
         button.setAccessibilityLabel("OmniWM")
         button.setAccessibilityValue(
             Self.statusButtonAccessibilityValue(
                 workspaceLabel: workspaceLabel,
                 focusedAppName: focusedAppName,
                 isRecording: controller?.isTraceCaptureActive == true,
-                isSecureInputActive: controller?.isSecureInputIndicated == true
+                isSecureInputActive: controller?.isSecureInputIndicated == true,
+                layout: settings.statusBar.showLayout ? summary?.layout : nil
             )
         )
         button.setAccessibilityHelp(String(localized: "Press to open OmniWM controls."))
@@ -285,7 +284,7 @@ final class StatusBarController: NSObject {
         updateButtonAppearance()
         let modeTitle = Self.keyboardModeTitle(controller?.keyboardModeKind ?? .normal)
 
-        guard settings.statusBar.showWorkspaceName,
+        guard settings.statusBar.showWorkspaceName || settings.statusBar.showLayout,
               let summary = controller?.activeStatusBarWorkspaceSummary()
         else {
             button.title = modeTitle.map { " \($0)" } ?? ""
@@ -293,13 +292,23 @@ final class StatusBarController: NSObject {
             return
         }
 
-        let workspaceLabel = settings.statusBar.useWorkspaceId ? summary.workspaceRawName : summary.workspaceLabel
-        let focusedAppName = settings.statusBar.showAppNames ? summary.focusedAppName : nil
-        button.title = Self.statusButtonTitle(
+        let workspaceLabel = settings.statusBar.showWorkspaceName
+            ? (settings.statusBar.useWorkspaceId ? summary.workspaceRawName : summary.workspaceLabel) : nil
+        let focusedAppName = settings.statusBar.showWorkspaceName && settings.statusBar.showAppNames
+            ? summary.focusedAppName : nil
+        let title = Self.statusButtonTitle(
             workspaceLabel: workspaceLabel,
             focusedAppName: focusedAppName,
             modeTitle: modeTitle
         )
+        button.title = title
+        if settings.statusBar.showLayout {
+            button.attributedTitle = Self.statusButtonAttributedTitle(
+                title,
+                layout: summary.layout,
+                font: button.font ?? .menuBarFont(ofSize: 0)
+            )
+        }
         let hasStateIcon = controller?.traceCaptureStatus.profile != nil || controller?.isSecureInputIndicated == true
             || modeTitle != nil
         button.imagePosition = Self.labeledImagePosition(

@@ -434,6 +434,25 @@ final class WorkspaceBarActionsTests: XCTestCase {
         try XCTUnwrap(fixture.controller.niriEngine).columns(in: workspaceId).map { $0.windowNodes.map(\.token) }
     }
 
+    func testStatusSummaryResolvesLayoutAcrossWorkspacesAndMonitors() throws {
+        let fixture = try makeFixture(followsFocus: false)
+        let controller = fixture.controller
+        let manager = controller.workspaceManager
+        XCTAssertEqual(controller.activeStatusBarWorkspaceSummary()?.layout, .niri)
+
+        controller.settings.workspaces.defaultLayoutType = .dwindle
+        XCTAssertEqual(controller.activeStatusBarWorkspaceSummary()?.layout, .dwindle)
+        XCTAssertTrue(controller.commandHandler.setWorkspaceLayout(.niri, forWorkspaceNamed: "2"))
+        XCTAssertTrue(manager.setActiveWorkspace(fixture.ws2, on: fixture.mainMonitor.id))
+        XCTAssertEqual(controller.activeStatusBarWorkspaceSummary()?.layout, .niri)
+
+        XCTAssertTrue(manager.setInteractionMonitor(fixture.sideMonitor.id))
+        XCTAssertEqual(controller.activeStatusBarWorkspaceSummary()?.monitorId, fixture.sideMonitor.id)
+        XCTAssertEqual(controller.activeStatusBarWorkspaceSummary()?.layout, .dwindle)
+        XCTAssertTrue(controller.commandHandler.setWorkspaceLayout(.niri, forWorkspaceNamed: "3"))
+        XCTAssertEqual(controller.activeStatusBarWorkspaceSummary()?.layout, .niri)
+    }
+
     private func makeFixture(followsFocus: Bool) throws -> Fixture {
         let root = FileManager.default.temporaryDirectory
             .appendingPathComponent("WorkspaceBarActionsTests-\(UUID().uuidString)", isDirectory: true)
