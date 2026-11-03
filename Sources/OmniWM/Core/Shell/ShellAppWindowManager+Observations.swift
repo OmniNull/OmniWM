@@ -19,7 +19,7 @@ extension ShellAppWindowManager {
         let token = registered.token
         let window = registered.window
         let entry = registered.entry
-        guard !applyingFrames.contains(token), entry.mode == .tiling else { return }
+        guard controller.hasStartedServices, !applyingFrames.contains(token), entry.mode == .tiling else { return }
         liveResizeStarts[token] = window.frame
     }
 
@@ -31,7 +31,7 @@ extension ShellAppWindowManager {
         guard let start = liveResizeStarts[token] else { return }
         defer { liveResizeStarts.removeValue(forKey: token) }
         observeNativeGeometry(window, token: token)
-        guard entry.mode == .tiling else { return }
+        guard controller.hasStartedServices, entry.mode == .tiling else { return }
         if !controller.mouseEventHandler.adoptHostedNativeResize(entry, from: start, to: window.frame) {
             controller.layoutRefreshController.requestRelayout(
                 reason: .axWindowChanged, affectedWorkspaceIds: [entry.workspaceId]
@@ -55,7 +55,8 @@ extension ShellAppWindowManager {
     }
 
     func windowDidBecomeKey(_ notification: Notification) {
-        guard let registered = registeredWindow(in: notification), registered.window.isKeyWindow else { return }
+        guard controller.hasStartedServices,
+              let registered = registeredWindow(in: notification), registered.window.isKeyWindow else { return }
         let token = registered.token
         let window = registered.window
         let entry = registered.entry
@@ -92,6 +93,19 @@ extension ShellAppWindowManager {
             .setVisible(window.isVisible && !window.isMiniaturized && window.occlusionState.contains(.visible))
     }
 
+    func windowDidChangeBackingProperties(_ notification: Notification) {
+        updateDisplayContext(notification)
+    }
+
+    func windowDidChangeScreen(_ notification: Notification) {
+        updateDisplayContext(notification)
+    }
+
+    private func updateDisplayContext(_ notification: Notification) {
+        guard let registered = registeredWindow(in: notification) else { return }
+        sessions[registered.token]?.surface.updateDisplayContext(scale: registered.window.backingScaleFactor)
+    }
+
     private func registeredWindow(in notification: Notification) -> RegisteredWindow? {
         guard let window = notification.object as? NSWindow else { return nil }
         let token = WindowToken(pid: getpid(), windowId: window.windowNumber)
@@ -115,12 +129,19 @@ extension ShellAppWindowManager {
     }
 
     private func observeNativeGeometry(_ window: NSWindow, token: WindowToken) {
-        guard !applyingFrames.contains(token),
+        guard controller.hasStartedServices, !applyingFrames.contains(token),
               let entry = controller.workspaceManager.entry(for: token), entry.target.hostedMetadata != nil,
               controller.workspaceManager.hiddenState(for: token) == nil
         else { return }
         controller.workspaceManager.observeHostedWindowGeometry(frame: window.frame, for: token)
-        guard entry.mode == .tiling, !window.inLiveResize, liveResizeStarts[token] == nil else { return }
+        if entry.mode == .floating {
+            controller.axEventHandler.updateFloatingWindowGeometryAndMonitorMembership(
+                entry: entry,
+                frame: window.frame
+            )
+            return
+        }
+        guard !window.inLiveResize, liveResizeStarts[token] == nil else { return }
         controller.layoutRefreshController.requestRelayout(
             reason: .axWindowChanged, affectedWorkspaceIds: [entry.workspaceId]
         )
@@ -132,6 +153,10 @@ extension ShellAppWindowManager {
         let window = registered.window
         sessions[token]?.setVisible(!minimized && window.isVisible)
         if minimized { liveResizeStarts.removeValue(forKey: token) }
-        controller.axEventHandler.updateWindowMinimizedState(minimized, token: token, source: .service)
+        if controller.hasStartedServices {
+            controller.axEventHandler.updateWindowMinimizedState(minimized, token: token, source: .service)
+        } else {
+            controller.workspaceManager.setWindowMinimized(minimized, token: token, source: .service)
+        }
     }
 }

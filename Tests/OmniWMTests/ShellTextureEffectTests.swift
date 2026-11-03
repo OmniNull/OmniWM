@@ -117,14 +117,14 @@ extension ShellShaderTests {
         ) { frames.continuation.yield($0) }
         var input = ShellShaderInput(values: SIMD4(0.5, 0, 0, 1), rate: 0, colors: .init(repeating: .zero))
         drawer.update(0, layer: layer, program: program, input: input)
-        for index in 0 ..< 3 {
+        for index in 0 ..< ShellShaderDrawer.overrunLimit {
             let completed = await next.next()
             let frame = try XCTUnwrap(completed)
-            input.values.x = Float(index) / 3
+            input.values.x = Float(index) / Float(ShellShaderDrawer.overrunLimit)
             drawer.update(0, layer: layer, program: program, input: input)
             drawer.finish(.init(
                 slot: frame.slot, token: frame.token, index: frame.index, program: frame.program,
-                revision: frame.revision, failure: nil, duration: ShellShaderDrawer.frameBudget + 0.001
+                revision: frame.revision, failure: nil, duration: ShellShaderDrawer.frameBudget.nextUp
             ))
             XCTAssertNil(layer.contents)
         }

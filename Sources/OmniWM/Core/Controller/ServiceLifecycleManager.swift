@@ -154,6 +154,7 @@ final class ServiceLifecycleManager {
 
         controller.spaceTracker.start()
         startLockScreenObserver()
+        controller.shellAppWindowManager.reconcileManagementResume()
         performStartupRefresh()
         startSecureInputMonitor()
     }
@@ -298,6 +299,7 @@ final class ServiceLifecycleManager {
             controller.cancelManagedFocusRequestAndRestoreSource(request)
         }
         controller.hasStartedServices = false
+        let hostedRestorations = controller.shellAppWindowManager.prepareManagementStop()
         controller.updateWorkspaceBarNotificationBadgeSettings()
         controller.invalidateOverviewDeferredActionsForServiceStop()
         topologyInventory.cancel()
@@ -315,6 +317,7 @@ final class ServiceLifecycleManager {
 
         controller.mouseEventHandler.cleanup()
         controller.layoutRefreshController.resetState()
+        controller.shellAppWindowManager.restoreForManagementStop(hostedRestorations)
         controller.resetMouseWarpPolicy()
         controller.axEventHandler.cleanup()
 

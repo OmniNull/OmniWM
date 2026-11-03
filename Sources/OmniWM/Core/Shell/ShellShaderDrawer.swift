@@ -10,7 +10,6 @@ final class ShellShaderDrawer {
     static let frameBudget: CFTimeInterval = 0.008
     static let overrunLimit = 3
     static let maximumPixels = 4096
-
     static let timeWrap: CFTimeInterval = 86400
     static let transitionRate = 60
 
@@ -46,7 +45,7 @@ final class ShellShaderDrawer {
     }
 
     private let emptySource = ShellShaderTexture.make(nil)
-    private let scale: CGFloat
+    private var scale: CGFloat
     private let container: CALayer
     private let queue: DispatchSerialQueue
     private let completion: Completion
@@ -177,6 +176,18 @@ final class ShellShaderDrawer {
     func setTransition(_ next: ShellShaderTransition) {
         guard transition != next else { return }
         transition = next
+        redrawAll(deferGroups: true)
+        updateTimer()
+    }
+
+    func updateBackingScale(_ next: CGFloat) {
+        guard next != scale else { return }
+        scale = next
+        for target in targets.values {
+            target.revision += 1
+            target.displayed = nil
+            target.pending = true
+        }
         redrawAll(deferGroups: true)
         updateTimer()
     }

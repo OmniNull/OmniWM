@@ -199,6 +199,7 @@ private extension HostedAppInstanceTests {
         init() throws {
             definition = try XCTUnwrap(ShellAppDefinition.example)
             controller = WindowAdmissionTestSupport.controller(prefix: "HostedAppInstances")
+            controller.hasStartedServices = true
             controller.shellAppWindowManager.activateApplication = {}
             let frame = CGRect(origin: .zero, size: definition.contentSize)
             let display = CGDirectDisplayID.max

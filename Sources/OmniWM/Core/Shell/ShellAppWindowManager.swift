@@ -121,6 +121,10 @@ final class ShellAppWindowManager: NSObject, NSWindowDelegate {
         liveResizeStarts.removeValue(forKey: token)
         guard let entry = controller.workspaceManager.entry(for: token),
               entry.target.hostedMetadata != nil else { return }
+        guard controller.hasStartedServices else {
+            controller.workspaceManager.removeHostedWindow(token)
+            return
+        }
         controller.axEventHandler.retireManagedWindow(
             entry, reason: .destroyed(shouldRecoverFocus: true, allowsPreferredRecoveryToken: true)
         )

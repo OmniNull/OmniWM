@@ -68,7 +68,20 @@ extension ShellLayerScene {
             invalidateContainingEffect(slot)
         case .transition:
             for effect in effects.values { effect.invalidate() }
-        default:
+        case .effect,
+             .effectNeutral,
+             .spectrumMotion,
+             .stage,
+             .clearExits,
+             .visibility,
+             .manipulation,
+             .shapeFollow,
+             .retainedFollowers,
+             .followExit,
+             .boundTrack,
+             .raise,
+             .reveal,
+             .backingScale:
             break
         }
     }

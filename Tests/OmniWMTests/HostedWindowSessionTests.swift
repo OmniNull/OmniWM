@@ -108,6 +108,7 @@ final class HostedWindowSessionTests: XCTestCase {
     func testOpenReusesTheManagedInstanceAndNativeCloseReleasesIt() throws {
         let definition = try XCTUnwrap(ShellAppDefinition.example)
         let controller = WindowAdmissionTestSupport.controller(prefix: "HostedWindowSession")
+        controller.hasStartedServices = true
         controller.shellAppWindowManager.activateApplication = {}
         let frame = CGRect(origin: .zero, size: CGSize(
             width: definition.contentSize.width * 2, height: definition.contentSize.height * 2

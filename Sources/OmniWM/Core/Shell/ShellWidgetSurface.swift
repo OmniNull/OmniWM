@@ -11,7 +11,7 @@ import QuartzCore
 final class ShellWidgetSurface {
     let sourceID = ShellInvocation.next()
     let view: ShellSurfaceView
-    let scale: CGFloat
+    var scale: CGFloat
     var onAction: (@MainActor (ShellClick) -> Void)?
     var onShapeChange: (@MainActor () -> Void)?
     var onLayoutMenu: (@MainActor (ShellAnchor) -> Void)?

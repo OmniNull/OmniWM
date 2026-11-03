@@ -219,6 +219,7 @@ final class HostedWindowObservationTests: XCTestCase {
                 orderWindow: { _ in operations("order") }
             )
         )
+        controller.hasStartedServices = true
         controller.shellAppWindowManager.activateApplication = {}
         return controller
     }

@@ -10,7 +10,7 @@ import XCTest
 @MainActor
 final class ShellGroupEffectTests: XCTestCase {
     private func program() throws -> ShellShaderProgram {
-        guard ShellShaderGPU.device != nil else { throw XCTSkip("Metal is not available") }
+        _ = try XCTUnwrap(ShellShaderGPU.device, "Group effect tests require Metal")
         let pipeline = try ShellShaderLibrary.pipeline(Data("""
         #define OMNI_TEXTURE
         float4 shade(float2 uv, constant OmniShader& shader, texture2d<float> image) {

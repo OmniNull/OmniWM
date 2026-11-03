@@ -101,7 +101,7 @@ final class ShellGroupEffect {
     let output = CALayer()
     private let root = CALayer()
     private let scaler = CALayer()
-    let scale: CGFloat
+    private(set) var scale: CGFloat
     private(set) var input: ShellGroupEffectInput
     private(set) var resources: Resources?
     private var renderer: CARenderer?
@@ -147,14 +147,26 @@ final class ShellGroupEffect {
 
     func update(_ next: ShellGroupEffectInput) {
         if input.bleed != next.bleed || input.display != next.display {
-            retireResources()
-            resources = nil
-            renderer = nil
-            firstFrame = true
-            sourceDirty = true
+            invalidateResources()
         }
         input = next
         synchronizeGeometry()
+    }
+
+    func updateBackingScale(_ next: CGFloat) {
+        guard next != scale else { return }
+        scale = next
+        for layer in [root, scaler, output] { layer.contentsScale = next }
+        invalidateResources()
+        synchronizeGeometry()
+    }
+
+    private func invalidateResources() {
+        retireResources()
+        resources = nil
+        renderer = nil
+        firstFrame = true
+        sourceDirty = true
     }
 
     func setNeutral(_ value: Bool) {

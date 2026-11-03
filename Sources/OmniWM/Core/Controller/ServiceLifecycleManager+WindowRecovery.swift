@@ -33,12 +33,7 @@ extension ServiceLifecycleManager {
             let reveal = controller.layoutRefreshController.pendingRevealTransaction(for: entry.windowId)
             let hidden = entry.hiddenState ?? reveal?.hiddenState
             let frame = controller.layoutRefreshController.fastFrame(for: entry.token, axRef: axRef)
-            let offscreen = frame.map { frame in
-                !manager.monitors.contains {
-                    let overlap = $0.frame.intersection(frame)
-                    return overlap.width > 1 && overlap.height > 1
-                }
-            } ?? false
+            let offscreen = frame.map { !StopWindowGeometry.isOnscreen($0, monitors: manager.monitors) } ?? false
             let parkedByOmniWM = hidden != nil || reveal != nil
                 || controller.axManager.pendingParkWindowIds.contains(entry.windowId)
                 || controller.axManager.verifiedParkFrame(for: entry.windowId) != nil
@@ -47,21 +42,10 @@ extension ServiceLifecycleManager {
                 ?? (hidden?.referenceMonitorId ?? entry.floatingState?.referenceMonitorId)
                 .flatMap { manager.monitor(byId: $0) }
                 ?? manager.monitors.first(where: \.isMain) ?? manager.monitors.first
-            let placement: StopWindowTarget.Placement?
-            if entry.mode == .floating, let floating = entry.floatingState {
-                if floating.referenceMonitorId != monitor?.id, let normalized = floating.normalizedOrigin {
-                    placement = .floatingNormalizedOrigin(normalized)
-                } else {
-                    placement = .floatingOrigin(floating.lastFrame.origin)
-                }
-            } else if let hidden, let monitor {
-                placement = .topLeft(CGPoint(
-                    x: monitor.frame.minX + monitor.frame.width * min(max(hidden.proportionalPosition.x, 0), 1),
-                    y: monitor.frame.maxY - monitor.frame.height * min(max(hidden.proportionalPosition.y, 0), 1)
-                ))
-            } else {
-                placement = reveal.map { .topLeft($0.targetFrame.topLeftCorner) }
-            }
+            let placement = StopWindowGeometry.placement(
+                floating: entry.mode == .floating ? entry.floatingState : nil,
+                hidden: hidden, monitor: monitor, fallbackFrame: reveal?.targetFrame
+            )
             return StopWindowTarget(
                 token: entry.token,
                 window: axRef,

@@ -11,9 +11,10 @@ import XCTest
 @MainActor
 final class ShellShaderTests: XCTestCase {
     private var directory: URL!
+    private let completionDeadline: TimeInterval = 10
 
     override func setUp() async throws {
-        guard ShellShaderGPU.device != nil else { throw XCTSkip("Metal is not available") }
+        _ = try XCTUnwrap(ShellShaderGPU.device, "Shader tests require Metal")
         directory = FileManager.default.temporaryDirectory.appendingPathComponent(UUID().uuidString, isDirectory: true)
         try FileManager.default.createDirectory(at: directory, withIntermediateDirectories: true)
     }
@@ -27,9 +28,34 @@ final class ShellShaderTests: XCTestCase {
     private func compiled(_ name: String, _ source: String) async throws -> ShellShaderProgram {
         try Data(source.utf8).write(to: directory.appendingPathComponent(name))
         let library = ShellShaderLibrary()
+        let completion = expectation(description: "Shader compilation finishes")
+        library.onChange = { completion.fulfill() }
+        defer { library.onChange = nil }
         let program = library.program(source: name, directories: [directory])
-        await until { !program.isCompiling }
+        if program.isCompiling {
+            await fulfillment(of: [completion], timeout: completionDeadline)
+        }
+        XCTAssertFalse(program.isCompiling)
         return program
+    }
+
+    private func renderingScene(container: CALayer, completion: XCTestExpectation) -> ShellLayerScene {
+        let scene = ShellLayerScene(container: container, scale: 1)
+        ShellLayerScene.engineQueue.sync {
+            scene.shaders = ShellShaderDrawer(
+                scale: scene.scale,
+                container: container,
+                queue: ShellLayerScene.engineQueue
+            ) {
+                [weak scene] frame in
+                ShellLayerScene.engineQueue.async { [weak scene] in
+                    scene?.shaders?.finish(frame)
+                    XCTAssertNil(frame.failure)
+                    completion.fulfill()
+                }
+            }
+        }
+        return scene
     }
 
     private nonisolated static func pixel(
@@ -74,19 +100,19 @@ final class ShellShaderTests: XCTestCase {
         XCTAssertNotNil(program.pipeline)
 
         let container = CALayer()
-        let scene = ShellLayerScene(container: container, scale: 1)
+        let completion = expectation(description: "The shader frame is published")
+        let scene = renderingScene(container: container, completion: completion)
         let input = ShellShaderInput(values: SIMD4(1, 0, 0, 0), rate: 0, colors: .init(repeating: .zero))
         scene.submit([
             .insert(slot: 0, parent: -1, kind: .shader, after: -1),
             .frame(slot: 0, rect: CGRect(x: 0, y: 0, width: 4, height: 4), animation: nil),
             .shader(slot: 0, program: program, input: input)
         ], animated: false)
-        var surface: IOSurface?
-        for _ in 0 ..< 400 where surface == nil {
-            try await Task.sleep(for: .milliseconds(5))
-            surface = ShellLayerScene.engineQueue.sync { container.sublayers?.first?.contents as? IOSurface }
-        }
-        let rendered = try XCTUnwrap(surface)
+        await fulfillment(of: [completion], timeout: completionDeadline)
+        withExtendedLifetime(scene) {}
+        let rendered = try XCTUnwrap(ShellLayerScene.engineQueue.sync {
+            container.sublayers?.first?.contents as? IOSurface
+        })
         rendered.lock(options: .readOnly, seed: nil)
         let pixel = rendered.baseAddress.load(as: UInt32.self)
         rendered.unlock(options: .readOnly, seed: nil)
@@ -101,7 +127,8 @@ final class ShellShaderTests: XCTestCase {
         }
         """)
         let container = CALayer()
-        let scene = ShellLayerScene(container: container, scale: 1)
+        let completion = expectation(description: "The mask shader frame is published")
+        let scene = renderingScene(container: container, completion: completion)
         let input = ShellShaderInput(values: .zero, rate: 0, colors: .init(repeating: .zero))
         let paint = { (masks: Bool) in
             ShellLayerPaint(
@@ -124,13 +151,9 @@ final class ShellShaderTests: XCTestCase {
             .paint(slot: 1, paint(true), animation: nil),
             .shader(slot: 1, program: program, input: input)
         ], animated: false)
+        await fulfillment(of: [completion], timeout: completionDeadline)
         let host = try XCTUnwrap(ShellLayerScene.engineQueue.sync { container.sublayers?.first })
-        var shape: IOSurface?
-        for _ in 0 ..< 400 where shape == nil {
-            try await Task.sleep(for: .milliseconds(5))
-            shape = ShellLayerScene.engineQueue.sync { host.mask?.contents as? IOSurface }
-        }
-        XCTAssertNotNil(shape)
+        XCTAssertNotNil(ShellLayerScene.engineQueue.sync { host.mask?.contents as? IOSurface })
         ShellLayerScene.engineQueue.sync {
             let shader = host.sublayers?.first
             XCTAssertEqual(shader?.isHidden, true)

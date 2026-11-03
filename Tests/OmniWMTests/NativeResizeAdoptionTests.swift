@@ -2644,12 +2644,10 @@ final class NativeResizeAdoptionTests: NiriInteractionTestCase {
             defer { FrameApplyTrace.shared.endCapture() }
 
             try fixture.release(token, at: observed)
-            for _ in 0 ..< 8 where fixture.controller.niriLayoutHandler.hasScrollAnimation(for: fixture.workspaceId) {
-                fixture.controller.niriLayoutHandler.tickScrollAnimation(
-                    targetTime: CACurrentMediaTime() + 10,
-                    displayId: fixture.monitor.displayId
-                )
-            }
+            fixture.controller.niriLayoutHandler.tickScrollAnimation(
+                targetTime: fixture.controller.animationClock.now(),
+                displayId: fixture.monitor.displayId
+            )
             await WindowAdmissionTestSupport.drainLayoutRefreshes(fixture.controller)
 
             let target = try XCTUnwrap(firstWriteTarget(for: token), "\(layout) \(tokenIndex)")

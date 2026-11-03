@@ -80,7 +80,7 @@ extension ShellWidgetSurface {
         return commands
     }
 
-    private struct TextPatch {
+    struct TextPatch {
         let id: UInt32
         let style: UInt32
         let color: Color
@@ -88,7 +88,7 @@ extension ShellWidgetSurface {
         let lines: UInt8
     }
 
-    private func textCommand(_ handle: ElementHandle, text: ShellTextStore, content: TextPatch) -> ShellLayerCommand {
+    func textCommand(_ handle: ElementHandle, text: ShellTextStore, content: TextPatch) -> ShellLayerCommand {
         let string = text.string(content.id)
         return imageCommand(handle, string, color: content.color, style: content.style, text: text) ?? .text(
             slot: handle.slot,
