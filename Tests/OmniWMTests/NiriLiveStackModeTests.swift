@@ -955,6 +955,22 @@ final class NiriLiveStackModeTests: XCTestCase {
         XCTAssertEqual(fixture.column(2).windowNodes.map(\.token), [fixture.tokens[2], fixture.tokens[3]])
     }
 
+    func testGoingHomeBesideAHiddenMateKeepsTheStackOrder() {
+        var fixture = makeFixture()
+        fixture.stack(3, onto: 2)
+        fixture.engine.setProjectionExclusions([fixture.tokens[2]], in: fixture.workspaceId)
+        let home = fixture.column(2)
+        XCTAssertEqual(fixture.storage(home), [fixture.tokens[2], fixture.tokens[3]])
+
+        XCTAssertTrue(fixture.begin(3))
+        XCTAssertEqual(fixture.engine.liveColumnMove?.inStack, false)
+        XCTAssertEqual(fixture.setStackMode(true, at: fixture.lowerHalf(of: 1)), .changed)
+        XCTAssertEqual(fixture.setStackMode(false, at: fixture.lowerHalf(of: 1)), .changed)
+
+        XCTAssertTrue(fixture.window(3).parent === home)
+        XCTAssertEqual(fixture.storage(home), [fixture.tokens[2], fixture.tokens[3]])
+    }
+
     private func freeAreaHeight(_ fixture: Fixture, below windowHeight: CGFloat) -> CGFloat {
         fixture.frame.height - 3 * fixture.gap - windowHeight
     }

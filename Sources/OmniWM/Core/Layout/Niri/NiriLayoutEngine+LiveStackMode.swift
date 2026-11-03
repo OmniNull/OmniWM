@@ -399,7 +399,7 @@ extension NiriLayoutEngine {
         if let source = window.parent as? NiriContainer, source.isTabbed {
             source.cachedWidth = 0
         }
-        home.insertChild(window, at: move.inStack ? move.homeSlotIndex : 0)
+        home.insertChild(window, at: min(move.homeSlotIndex, home.windowNodes.count))
         move.ownWindowSizing.apply(to: window)
         window.isHiddenInTabbedMode = false
         if move.inStack {
