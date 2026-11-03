@@ -783,6 +783,27 @@ final class NaturalDoubleClickTests: NiriInteractionTestCase {
         XCTAssertFalse(fixture.handler.holdsTitleBarDragStill(at: titleBar, windowIdUnderPointer: token.windowId))
     }
 
+    func testAnAppsOwnDrawnTitleBarDoesNotHoldADragStill() throws {
+        let fixture = try makeFixture(pid: 941_139)
+        let token = fixture.tokens[1]
+        let titleBar = try fixture.titleBar(token)
+        for role in ["AXGroup", "AXTabGroup"] {
+            fixture.handler.titleBarHitProvider = { _, _ in TitleBarHit(
+                role: role,
+                placement: .insideBar(elementWithinBar: true)
+            ) }
+            XCTAssertFalse(
+                fixture.handler.holdsTitleBarDragStill(at: titleBar, windowIdUnderPointer: token.windowId),
+                role
+            )
+        }
+        fixture.handler.titleBarHitProvider = { _, _ in TitleBarHit(
+            role: "AXToolbar",
+            placement: .insideBar(elementWithinBar: true)
+        ) }
+        XCTAssertTrue(fixture.handler.holdsTitleBarDragStill(at: titleBar, windowIdUnderPointer: token.windowId))
+    }
+
     func testTheTapAsksAboutAChainClickOnlyAtTheSameSpotWithinASecond() {
         let chain = NaturalClickChain(location: CGPoint(x: 100, y: 100), deadline: 10)
         func asks(_ chain: NaturalClickChain?, flags: CGEventFlags = [], at point: CGPoint, now: TimeInterval) -> Bool {
