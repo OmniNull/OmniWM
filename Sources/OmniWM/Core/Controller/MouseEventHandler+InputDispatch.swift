@@ -252,7 +252,8 @@ extension MouseEventHandler {
             return
         }
         let released = state.nativeTitleBarDragFallbackReleased
-        if released, let fallbackToken = state.nativeTitleBarDragFallbackToken, fallbackToken != entry.token {
+        let fallbackToken = state.nativeTitleBarDragFallbackToken
+        if released, let fallbackToken, fallbackToken != entry.token {
             retainNativeResizeCorrection(for: fallbackToken)
         }
         correctDeferredNativeResizeFrameIfNeeded(excluding: entry.token)
@@ -260,6 +261,7 @@ extension MouseEventHandler {
         state.nativeTitleBarDragFallbackToken = nil
         state.nativeTitleBarDragFallbackReleased = false
         state.nativeTitleBarDrag = .init(token: entry.token)
+        if let fallbackToken { recheckRetainedNativeResizeCorrection(for: fallbackToken) }
         if state.nativeCrossDisplayMove?.token != entry.token {
             captureNativeCrossDisplayMove(for: entry.token)
         }

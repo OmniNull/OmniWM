@@ -140,17 +140,20 @@ final class WindowSwitcherController {
         guard let controller else { return [] }
         let manager = controller.workspaceManager
         let byToken = Dictionary(uniqueKeysWithValues: items.map { ($0.handle.id, $0) })
-        return manager.workspaces.filter { scope == .allWorkspaces || $0.id == workspaceId }.flatMap { workspace in
-            orderedEntries(in: workspace.id, manager: manager).compactMap { entry -> WindowSwitcherItem? in
-                guard !entry.observedState.isNativeWithdrawn,
-                      var item = byToken[entry.token],
-                      manager.handle(for: entry.token) === item.handle
-                else { return nil }
-                item.workspaceName = controller.settings.workspaces.displayName(for: workspace.name)
-                item.isMinimized = entry.observedState.isMinimized
-                return item
+        let scoped = manager.workspaces.filter { scope == .allWorkspaces || $0.id == workspaceId }
+            .flatMap { workspace in
+                orderedEntries(in: workspace.id, manager: manager).compactMap { entry -> WindowSwitcherItem? in
+                    guard !entry.observedState.isNativeWithdrawn,
+                          var item = byToken[entry.token],
+                          manager.handle(for: entry.token) === item.handle
+                    else { return nil }
+                    item.workspaceName = controller.settings.workspaces.displayName(for: workspace.name)
+                    item.isMinimized = entry.observedState.isMinimized
+                    return item
+                }
             }
-        }
+        guard controller.settings.windowSwitcher.order == .lastUsed else { return scoped }
+        return WindowSwitcherOrder.lastUsed.orderedItems(scoped, recent: manager.windowFocusRecencyOrder)
     }
 
     private func orderedEntries(in workspaceId: WorkspaceDescriptor.ID, manager: WorkspaceManager) -> [WindowState] {

@@ -42,6 +42,7 @@ extension SettingsExport {
             ipcEnabled: false,
             gestures: Gestures.defaults(),
             statusBar: StatusBar.defaults(),
+            statusMenu: StatusMenu.defaults(),
             hiddenBar: HiddenBar.defaults(),
             animationsEnabled: true,
             animationSpeed: 1,
@@ -215,7 +216,8 @@ extension SettingsExport.Gestures {
             resizePreviewStyle: .live,
             dwindleGroupDragAcrossDisplays: .group,
             adoptNativeResize: false,
-            adoptNativeMoveAcrossDisplays: false
+            adoptNativeMoveAcrossDisplays: false,
+            mouseWheelSensitivity: 1.0
         )
     }
 }

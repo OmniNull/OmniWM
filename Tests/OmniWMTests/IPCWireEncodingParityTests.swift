@@ -47,6 +47,19 @@ final class IPCWireEncodingParityTests: XCTestCase {
         }
     }
 
+    func testAppOpenRequestEncodesAppIDAndRoundTrips() throws {
+        let request = IPCRequest(id: "app-open", command: .shellAppOpen(appID: "example"))
+        let line = try IPCWire.encodeRequestLine(request)
+        let object = try XCTUnwrap(JSONSerialization.jsonObject(with: line) as? [String: Any])
+        let payload = try XCTUnwrap(object["payload"] as? [String: Any])
+        let arguments = try XCTUnwrap(payload["arguments"] as? [String: String])
+
+        XCTAssertEqual(payload["name"] as? String, "app-open")
+        XCTAssertEqual(arguments, ["appId": "example"])
+        XCTAssertEqual(line, try reference(request))
+        XCTAssertEqual(try IPCWire.decodeRequest(from: line), request)
+    }
+
     func testAllResponseAndEventModelsMatchReference() throws {
         let messages = try fixtures().filter { $0.kind != "request" }
         XCTAssertEqual(messages.count, 257)

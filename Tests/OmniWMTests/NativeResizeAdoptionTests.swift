@@ -1873,6 +1873,198 @@ final class NativeResizeAdoptionTests: NiriInteractionTestCase {
         }
     }
 
+    func testRetainedCorrectionWaitsForAFrameWriteAndRechecksItsCompletion() throws {
+        var scenario = 0
+        for layout in [LayoutType.niri, .dwindle] {
+            for lateFrameSurvives in [false, true] {
+                let fixture = try makeFixture(layout, pid: pid_t(835_251 + scenario))
+                scenario += 1
+                let blocker = blockRefreshes(fixture)
+                defer { unblockRefreshes(fixture, blocker: blocker) }
+                fixture.wireFrameApplyCallbacks()
+                fixture.handler.state.moveTap = try XCTUnwrap(CFMachPortCreate(kCFAllocatorDefault, nil, nil, nil))
+                let (token, other) = (fixture.tokens[0], fixture.tokens[1])
+                let start = try fixture.frame(token)
+                let location = nativeDragLocation(from: start)
+                var intermediate = start
+                intermediate.size.width = (start.width + max(FrameTolerance.frameWrite, FrameTolerance.screenMatch))
+                    .nextUp
+                var displaced = intermediate
+                displaced.origin.x = (start.minX + FrameTolerance.frameWrite).nextUp
+                fixture.handler.pressedMouseButtonsProvider = { MouseEventHandler.MouseButton.left.pressedMask }
+                XCTAssertFalse(fixture.handler.receiveTapMouseDown(at: start.center, modifiers: []))
+                fixture.handler.receiveTapMouseDragged(at: location)
+                fixture.handler.pressedMouseButtonsProvider = { 0 }
+                fixture.handler.receiveTapMouseUp(at: location)
+                try fixture.annotatedDrag(windowId: other.windowId, at: location)
+                fixture.nativeFrames[token.windowId]?.frame = displaced
+                fixture.controller.axEventHandler.handleFrameChanged(windowId: UInt32(token.windowId))
+                XCTAssertNotNil(fixture.controller.layoutRefreshController.layoutState.pendingRefresh)
+                let reference = try XCTUnwrap(fixture.entry(token).axRef)
+                let request = try XCTUnwrap(fixture.controller.axManager.stageFrameWrite(
+                    for: AXFrameApplicationTarget(pid: token.pid, window: reference, frame: start)
+                ))
+                fixture.controller.layoutRefreshController.layoutState.pendingRefresh = nil
+
+                fixture.nativeFrames[token.windowId]?.frame = intermediate
+                fixture.controller.axEventHandler.handleFrameChanged(windowId: UInt32(token.windowId))
+
+                XCTAssertNil(
+                    fixture.controller.layoutRefreshController.layoutState.pendingRefresh,
+                    "\(layout), intermediate frame, lateFrameSurvives=\(lateFrameSurvives)"
+                )
+                XCTAssertEqual(fixture.controller.axManager.pendingFrameWrite(for: token.windowId), start)
+                fixture.controller.layoutRefreshController.layoutState.pendingRefresh = nil
+                if !lateFrameSurvives { fixture.nativeFrames[token.windowId]?.frame = start }
+                fixture.controller.axManager.handleFrameApplyResults([
+                    WindowAdmissionTestSupport.successfulFrameResult(request: request)
+                ])
+
+                XCTAssertNil(fixture.controller.axManager.pendingFrameWrite(for: token.windowId))
+                XCTAssertEqual(fixture.controller.axManager.lastAppliedFrame(for: token.windowId), start)
+                XCTAssertEqual(
+                    fixture.controller.layoutRefreshController.layoutState.pendingRefresh?.affectedWorkspaceIds,
+                    lateFrameSurvives ? [fixture.workspaceId] : nil,
+                    "\(layout), completion, lateFrameSurvives=\(lateFrameSurvives)"
+                )
+                fixture.controller.layoutRefreshController.layoutState.pendingRefresh = nil
+                var lateFrame = start
+                lateFrame.size.width = (start.width + FrameTolerance.frameWrite).nextUp
+                fixture.nativeFrames[token.windowId]?.frame = lateFrame
+                fixture.controller.axEventHandler.handleFrameChanged(windowId: UInt32(token.windowId))
+                XCTAssertEqual(
+                    fixture.controller.layoutRefreshController.layoutState.pendingRefresh?.affectedWorkspaceIds,
+                    [fixture.workspaceId]
+                )
+                XCTAssertEqual(try fixture.frame(token).width, start.width, accuracy: FrameTolerance.frameWrite)
+            }
+        }
+    }
+
+    func testRetainedCorrectionRecoversOnceAfterTerminalFailure() throws {
+        var scenario = 0
+        for layout in [LayoutType.niri, .dwindle] {
+            for receivedFrame in [false, true] {
+                for observedOnFailure in [false, true] {
+                    let fixture = try makeFixture(layout, pid: pid_t(835_271 + scenario))
+                    scenario += 1
+                    let blocker = blockRefreshes(fixture)
+                    defer { unblockRefreshes(fixture, blocker: blocker) }
+                    fixture.controller.axManager
+                        .onFrameApplyTerminated = { [weak controller = fixture.controller] result in
+                            controller?.mouseEventHandler.handleNativeTitleBarDragFrameApplyTerminated(result)
+                        }
+                    let token = fixture.tokens[0]
+                    let start = try fixture.frame(token)
+                    var displaced = start
+                    displaced.size.width = (start.width + FrameTolerance.frameWrite).nextUp
+                    let reference = try XCTUnwrap(fixture.entry(token).axRef)
+                    fixture.handler.retainNativeResizeCorrection(for: token)
+                    fixture.nativeFrames[token.windowId]?.frame = observedOnFailure ? displaced : nil
+                    fixture.controller.axEventHandler.handleFrameChanged(windowId: UInt32(token.windowId))
+                    XCTAssertNotNil(fixture.controller.layoutRefreshController.layoutState.pendingRefresh)
+                    fixture.controller.layoutRefreshController.layoutState.pendingRefresh = nil
+                    for attempt in 0 ..< 2 {
+                        fixture.controller.axManager.forceApplyNextFrame(for: token.windowId)
+                        let request = try XCTUnwrap(fixture.controller.axManager.stageFrameWrite(
+                            for: AXFrameApplicationTarget(pid: token.pid, window: reference, frame: start)
+                        ))
+                        if receivedFrame {
+                            fixture.controller.axEventHandler.handleFrameChanged(windowId: UInt32(token.windowId))
+                            XCTAssertNil(fixture.controller.layoutRefreshController.layoutState.pendingRefresh)
+                        }
+                        fixture.controller.axManager.handleFrameApplyResults([
+                            WindowAdmissionTestSupport.verificationMismatchFrameResult(
+                                request: request,
+                                observed: displaced
+                            )
+                        ])
+                        _ = fixture.controller.axManager.cancelPendingFrameRetry(for: token.windowId)
+                        let retry = try XCTUnwrap(WindowAdmissionTestSupport.frameRequest(
+                            fixture.controller.axManager.frameLedger,
+                            pid: token.pid, window: reference, frame: start, isRetry: true
+                        ))
+                        let failure = AXFrameApplyResult(
+                            requestId: retry.requestId, pid: retry.pid, windowId: retry.windowId,
+                            expectedWindow: retry.expectedWindow, targetFrame: retry.frame,
+                            currentFrameHint: retry.currentFrameHint,
+                            writeResult: AXFrameWriteResult(
+                                observedFrame: observedOnFailure ? displaced : nil, writeOrder: .sizeThenPosition,
+                                sizeError: .cannotComplete, positionError: .success, failureReason: .contextUnavailable
+                            )
+                        )
+
+                        fixture.controller.axManager.handleFrameApplyResults([failure])
+
+                        XCTAssertNil(fixture.controller.axManager.pendingFrameWrite(for: token.windowId))
+                        XCTAssertEqual(
+                            fixture.controller.layoutRefreshController.layoutState.pendingRefresh?.affectedWorkspaceIds,
+                            attempt == 0 ? [fixture.workspaceId] : nil,
+                            "\(layout), receivedFrame=\(receivedFrame), observedOnFailure=\(observedOnFailure), attempt=\(attempt)"
+                        )
+                        fixture.controller.layoutRefreshController.layoutState.pendingRefresh = nil
+                        fixture.handler.handleNativeTitleBarDragFrameApplyTerminated(failure)
+                        XCTAssertNil(fixture.controller.layoutRefreshController.layoutState.pendingRefresh)
+                    }
+                    fixture.nativeFrames[token.windowId]?.frame = displaced
+                    fixture.controller.axEventHandler.handleFrameChanged(windowId: UInt32(token.windowId))
+                    XCTAssertNotNil(fixture.controller.layoutRefreshController.layoutState.pendingRefresh)
+                    XCTAssertEqual(try fixture.frame(token), start)
+                }
+            }
+        }
+    }
+
+    func testRetainedCorrectionResumesWhenAHeldFallbackChangesTarget() throws {
+        var scenario = 0
+        for layout in [LayoutType.niri, .dwindle] {
+            for rejectsTarget in [false, true] {
+                let fixture = try makeFixture(layout, pid: pid_t(835_291 + scenario))
+                scenario += 1
+                let blocker = blockRefreshes(fixture)
+                defer { unblockRefreshes(fixture, blocker: blocker) }
+                fixture.wireFrameApplyCallbacks()
+                fixture.handler.state.moveTap = try XCTUnwrap(CFMachPortCreate(kCFAllocatorDefault, nil, nil, nil))
+                let (token, other) = (fixture.tokens[0], fixture.tokens[1])
+                let start = try fixture.frame(token)
+                let unknownWindowId = try XCTUnwrap(fixture.tokens.map(\.windowId).max()) + 1
+                XCTAssertNil(fixture.manager.entry(forWindowId: unknownWindowId))
+                let reference = try XCTUnwrap(fixture.entry(token).axRef)
+                fixture.handler.retainNativeResizeCorrection(for: token)
+                fixture.controller.axManager.forceApplyNextFrame(for: token.windowId)
+                let request = try XCTUnwrap(fixture.controller.axManager.stageFrameWrite(
+                    for: AXFrameApplicationTarget(pid: token.pid, window: reference, frame: start)
+                ))
+                var displaced = start
+                displaced.size.width = (start.width + FrameTolerance.frameWrite).nextUp
+                fixture.nativeFrames[token.windowId]?.frame = displaced
+                fixture.controller.axEventHandler.handleFrameChanged(windowId: UInt32(token.windowId))
+                fixture.handler.pressedMouseButtonsProvider = { MouseEventHandler.MouseButton.left.pressedMask }
+                XCTAssertFalse(fixture.handler.receiveTapMouseDown(at: start.center, modifiers: []))
+                fixture.handler.receiveTapMouseDragged(at: nativeDragLocation(from: start))
+                XCTAssertEqual(fixture.handler.state.nativeTitleBarDragFallbackToken, token)
+                XCTAssertNil(fixture.controller.layoutRefreshController.layoutState.pendingRefresh)
+
+                fixture.controller.axManager.handleFrameApplyResults([
+                    WindowAdmissionTestSupport.successfulFrameResult(request: request)
+                ])
+
+                XCTAssertNil(fixture.controller.layoutRefreshController.layoutState.pendingRefresh)
+                try fixture.annotatedDrag(
+                    windowId: rejectsTarget ? unknownWindowId : other.windowId, at: nativeDragLocation(from: start)
+                )
+
+                XCTAssertEqual(
+                    fixture.controller.layoutRefreshController.layoutState.pendingRefresh?.affectedWorkspaceIds,
+                    [fixture.workspaceId], "\(layout), rejectsTarget=\(rejectsTarget)"
+                )
+                XCTAssertNil(fixture.handler.state.nativeTitleBarDragFallbackToken)
+                XCTAssertEqual(fixture.handler.state.nativeTitleBarDrag?.token, rejectsTarget ? nil : other)
+                XCTAssertEqual(try fixture.frame(token), start)
+            }
+        }
+    }
+
     func testReleasedAnnotatedCandidateIsRetiredAtTheNextInputBoundary() throws {
         var scenario = 0
         for layout in [LayoutType.niri, .dwindle] {

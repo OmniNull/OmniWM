@@ -8,6 +8,61 @@ import XCTest
 
 @MainActor
 final class WindowSwitcherControllerTests: XCTestCase {
+    func testWindowOrderControlsDisplayedCardsAndCyclingWithinEachScope() throws {
+        for order in [WindowSwitcherOrder.omniLayout, .lastUsed] {
+            for scope in WindowSwitcherScope.allCases {
+                let fixture = try makePresentationFixture(windowCount: 3)
+                defer {
+                    fixture.switcher.shutdown()
+                    fixture.driver.finish()
+                    fixture.controller.layoutRefreshController.resetState()
+                    fixture.controller.surfaceReconciler.cleanup()
+                }
+                let manager = fixture.controller.workspaceManager
+                let workspaceId = try XCTUnwrap(manager.workspaceId(for: "1", createIfMissing: false))
+                let otherWorkspaceId = try XCTUnwrap(WindowAdmissionTestSupport.workspace(
+                    named: "2", layoutType: .niri, controller: fixture.controller
+                ))
+                let otherToken = WindowToken(pid: 81_001, windowId: 81_104)
+                _ = WindowAdmissionTestSupport.track(otherToken, in: otherWorkspaceId, controller: fixture.controller)
+                manager.setManagedFocus(fixture.tokens[1], in: workspaceId)
+                manager.setManagedFocus(otherToken, in: otherWorkspaceId)
+                manager.setManagedFocus(fixture.tokens[2], in: workspaceId)
+                manager.setManagedFocus(fixture.tokens[0], in: workspaceId)
+                fixture.controller.settings.windowSwitcher.order = order
+
+                fixture.switcher.handle(.begin(reverse: false, scope: scope))
+
+                let panel = try XCTUnwrap(fixture.registry.visibleWindows().first as? WindowSwitcherPanel)
+                let content = try XCTUnwrap(panel.contentView)
+                let expected: [WindowToken]
+                switch order {
+                case .omniLayout:
+                    expected = fixture.tokens + (scope == .allWorkspaces ? [otherToken] : [])
+                case .lastUsed:
+                    expected = [fixture.tokens[0], fixture.tokens[2]]
+                        + (scope == .allWorkspaces ? [otherToken] : []) + [fixture.tokens[1]]
+                }
+                XCTAssertEqual(tiles(in: content).map(\.handle.id), expected)
+                XCTAssertEqual(
+                    tiles(in: content).filter { $0.layer?.borderWidth == WindowSwitcherTile.selectedBorderWidth }
+                        .map(\.handle.id),
+                    [fixture.tokens[2]]
+                )
+
+                fixture.switcher.handle(.cycle(reverse: false))
+
+                let selectedIndex = try XCTUnwrap(expected.firstIndex(of: fixture.tokens[2]))
+                XCTAssertEqual(
+                    tiles(in: content).filter { $0.layer?.borderWidth == WindowSwitcherTile.selectedBorderWidth }
+                        .map(\.handle.id),
+                    [expected[(selectedIndex + 1) % expected.count]]
+                )
+                XCTAssertEqual(manager.nativeManagedFocusToken, fixture.tokens[0])
+            }
+        }
+    }
+
     func testSingleAndTwoWindowScopesPresentCardsWithoutChangingFocusAndCanCancel() throws {
         for windowCount in [1, 2] {
             for scope in WindowSwitcherScope.allCases {
@@ -28,7 +83,8 @@ final class WindowSwitcherControllerTests: XCTestCase {
                     let cards = tiles(in: try XCTUnwrap(panel.contentView))
                     XCTAssertEqual(cards.map(\.handle.id), fixture.tokens)
                     XCTAssertEqual(
-                        cards.filter { $0.layer?.borderWidth == 3 }.map(\.handle.id),
+                        cards.filter { $0.layer?.borderWidth == WindowSwitcherTile.selectedBorderWidth }
+                            .map(\.handle.id),
                         [fixture.tokens[windowCount - 1]]
                     )
                     XCTAssertEqual(fixture.controller.workspaceManager.nativeManagedFocusToken, fixture.tokens[0])

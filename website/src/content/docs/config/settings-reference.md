@@ -241,6 +241,7 @@ The [window switcher](/features/window-switcher/). The table is optional; when a
 | `optionTab` | string | `"allWorkspaces"` | Scope Option-Tab opens. Same values as `commandTab`. |
 | `scope` | string | `"allWorkspaces"` | The remembered scope, saved when you press S or click the scope button: `allWorkspaces` or `activeWorkspace`. |
 | `showFooter` | boolean | `true` | Shows the scope button and window count. |
+| `order` | string | `"omniLayout"` | Window order: `omniLayout` follows the workspace layout; `lastUsed` sorts by focus recency across the selected scope, followed by windows without focus history in layout order. |
 
 ## keyboardModes
 
@@ -319,7 +320,8 @@ The seven optional `overviewGesture…` and `window…` keys below configure Ove
 | Key | Type | Default | Description |
 | --- | --- | --- | --- |
 | `scrollEnabled` | boolean | `true` | Trackpad column scrolling (`fingerCount`) and modifier + mouse scroll wheel scrolling along the Niri primary axis; `false` turns off both. |
-| `scrollSensitivity` | float | `5.0` | Scroll gesture sensitivity. |
+| `scrollSensitivity` | float | `5.0` | Trackpad scroll gesture sensitivity. |
+| `mouseWheelSensitivity` (optional) | float | `1.0` | **Unreleased:** Available when building from `main`. Smooth mouse-wheel navigation multiplier, clamped to `0.1`–`10.0`. Higher values require less wheel movement to switch columns. Standard discrete wheel steps still move one column per notch. Applies only while the mouse scroll modifier is held. Normal app scrolling is unchanged. |
 | `scrollModifierKey` | string | `"optionShift"` | Modifier for wheel scrolling: `optionShift`, `controlShift`, `commandShift`, `controlOptionShift`, `optionCommandShift`, `controlCommandShift`, or `controlOptionCommandShift`. The System Hyper Trigger does not add modifiers to wheel events. |
 | `mouseMoveModifierKey` | string | `"option"` | Modifier for left-dragging tiled windows. Both layouts choose from the drop position: the target tile's center swaps and its sides insert beside it. In Niri, the sides facing neighboring columns open a new column and the other sides stack into the target's column; in Dwindle, internal dividers insert between subtrees and the workspace's outer edges insert at the root. `Shift` does not change this behavior. Workspace-edge targets take precedence in a band up to 24 points wide along the working area's boundary; dropping on another display uses the same targets there; see [drag guidance](/guides/tips/#swap-windows-by-dragging). Values: `off`, `option`, `control`, `command`, `controlOption`, `optionCommand`, `controlCommand`, `controlOptionCommand`. |
 | `mouseResizeModifierKey` | string | `"option"` | Modifier for right-drag resize: `option`, `control`, `command`, `shift`, `controlOption`, `optionCommand`, `optionShift`, `controlCommand`, `controlShift`, `commandShift`, `controlOptionCommand`, `controlOptionShift`, `optionCommandShift`, `controlCommandShift`, `controlOptionCommandShift`. |
@@ -357,6 +359,20 @@ Extra readouts beside the menu bar icon.
 | `showAppNames` | boolean | `false` | Also shows the focused app's name. |
 | `useWorkspaceId` | boolean | `false` | Shows the workspace number instead of its name. |
 | `showIcon` | boolean | `true` | Shows the OmniWM icon beside the workspace or layout. When off, state icons still appear for diagnostics, Secure Input, and keyboard modes. Has no effect while both `showWorkspaceName` and `showLayout` are off. |
+
+## statusMenu
+
+Contents of the OmniWM status menu panel (the dropdown on OmniWM's menu bar item). All keys are optional.
+
+| Key | Type | Default | Description |
+| --- | --- | --- | --- |
+| `showControls` | boolean | `true` | Master switch for the CONTROLS grid and its help card. |
+| `showControlHelp` | boolean | `true` | Shows the description card under the controls grid. Has no effect while `showControls` is off. |
+| `showMenuItems` | boolean | `true` | Master switch for OmniWM's own rows: Settings, Report a Bug…, App Rules, Open Shell Folder, Check for Updates…, Advanced, Diagnostics, Help & Links, Omni Sponsors. Quit OmniWM always stays. |
+| `hiddenControls` | string array | `[]` | Control tiles to hide individually: `bordersEnabled`, `workspaceBarEnabled`, `preventSleepEnabled`, `focusFollowsMouse`, `focusCrossesMonitorAtEdge`, `moveMouseToFocusedWindow`, `focusFollowsWindowToMonitor`, `moveCrossesMonitorAtEdge`, `mouseWarpEnabled`, `hiddenBarEnabled`. |
+| `hiddenMenuItems` | string array | `[]` | OmniWM rows to hide individually: `hiddenIcons`, `settings`, `reportBug`, `appRules`, `openShellFolder`, `checkForUpdates`, `advanced`, `diagnostics`, `helpLinks`, `sponsors`. |
+
+The master switches and the per-item arrays are independent: turning a master off hides the group without changing the individual choices, so turning it back on restores exactly the previous selection. Unknown ids are ignored.
 
 ## hiddenBar
 

@@ -81,6 +81,25 @@ final class StatusMenuModel {
         refreshCLIStatus()
     }
 
+    var visibleToggleTiles: [ToggleTileSpec] {
+        toggleTiles.filter { settings.statusMenu.isControlVisible($0.control.rawValue) }
+    }
+
+    func isMenuItemVisible(_ item: StatusMenuItem) -> Bool {
+        settings.statusMenu.isMenuItemVisible(item)
+    }
+
+    var hasVisiblePrimaryRows: Bool {
+        if canShowHiddenIcons, isMenuItemVisible(.hiddenIcons) { return true }
+        if checkForUpdatesAction != nil, isMenuItemVisible(.checkForUpdates) { return true }
+        return [StatusMenuItem.settings, .reportBug, .appRules, .openShellFolder]
+            .contains { isMenuItemVisible($0) }
+    }
+
+    var hasVisiblePageRows: Bool {
+        [StatusMenuItem.advanced, .diagnostics, .helpLinks].contains { isMenuItemVisible($0) }
+    }
+
     func refreshCLIStatus() {
         cliStatus = cliManager?.exposureStatus()
     }

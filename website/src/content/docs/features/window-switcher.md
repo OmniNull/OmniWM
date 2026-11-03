@@ -21,13 +21,18 @@ Configure **Command-Tab** and **Option-Tab** independently as **Active Workspace
 
 Each shortcut opens its assigned scope. **Last Used Scope** remembers the choice made with S or the scope button. For a single shortcut with a remembered scope, set Command-Tab to Last Used Scope and Option-Tab to Disabled.
 
-The first forward Tab selects the most recently focused window available in that scope, excluding the current window. Further presses follow the displayed layout order. Repeatedly pressing and releasing the shortcut switches back and forth between the two most recently used windows. Shift-Tab starts in reverse layout order.
+The first forward Tab selects the most recently focused window available in that scope, excluding the current window. Further presses follow the selected window order. Repeatedly pressing and releasing the shortcut switches back and forth between the two most recently used windows. Shift-Tab starts in reverse display order.
 
 A scope with one or two windows uses the same preview panel and controls as a larger scope. Opening the switcher does not activate a window: release the shortcut's modifier, press Return, or click a card to select it. Escape cancels, and S still changes the workspace scope.
 
 ## Appearance and previews
 
-Windows follow their layout order within each workspace: Niri column and tile order, or Dwindle tree order, with floating windows afterward. All Workspaces groups them in workspace-bar order and shows a workspace badge using the same name or emoji as the bar. Active Workspace uses the same layout ordering for its windows.
+**Window Order** offers two choices:
+
+- **Omni Layout** (default): windows follow Niri column and tile order or Dwindle tree order within each workspace, with floating windows afterward. All Workspaces groups them in workspace-bar order.
+- **Last Used**: windows appear from most recently focused to least recently focused across the selected scope. Windows without focus history follow afterward in Omni layout order.
+
+All Workspaces shows a workspace badge using the same name or emoji as the bar.
 
 **Show Switcher Footer** controls the scope button and window count together. Turning it off removes the footer; S still changes scope.
 
@@ -47,9 +52,12 @@ enabled = true
 commandTab = "activeWorkspace"
 optionTab = "allWorkspaces"
 showFooter = true
+order = "omniLayout"
 scope = "allWorkspaces"
 ```
 
 `commandTab` and `optionTab` accept `"activeWorkspace"`, `"allWorkspaces"`, `"remembered"`, or `"disabled"`. `scope` stores the last chosen workspace scope. Changing shortcut assignments cancels an open switcher.
+
+`order` accepts `"omniLayout"` or `"lastUsed"`. Existing configurations keep Omni layout ordering.
 
 Enabled shortcuts use OmniWM's existing input event tap and require Input Monitoring permission. Close Overview or the command palette before opening the switcher.

@@ -47,6 +47,7 @@ struct SettingsExport: Equatable {
     var ipcEnabled: Bool
     var gestures: Gestures
     var statusBar: StatusBar
+    var statusMenu = StatusMenu.defaults()
     var hiddenBar: HiddenBar
     var animationsEnabled: Bool
     var animationSpeed: Double
@@ -192,6 +193,7 @@ struct SettingsExport: Equatable {
         var dwindleGroupDragAcrossDisplays: DwindleGroupDrag? = .group
         var adoptNativeResize: Bool? = false
         var adoptNativeMoveAcrossDisplays: Bool? = false
+        var mouseWheelSensitivity: Double? = 1.0
     }
 
     struct StatusBar: Codable, Equatable {
@@ -200,6 +202,24 @@ struct SettingsExport: Equatable {
         var useWorkspaceId: Bool
         var showIcon: Bool? = true
         var showLayout: Bool? = false
+    }
+
+    struct StatusMenu: Codable, Equatable {
+        var showControls: Bool?
+        var showControlHelp: Bool?
+        var showMenuItems: Bool?
+        var hiddenControls: [String]?
+        var hiddenMenuItems: [String]?
+
+        static func defaults() -> Self {
+            Self(
+                showControls: true,
+                showControlHelp: true,
+                showMenuItems: true,
+                hiddenControls: [],
+                hiddenMenuItems: []
+            )
+        }
     }
 
     struct HiddenBar: Codable, Equatable {

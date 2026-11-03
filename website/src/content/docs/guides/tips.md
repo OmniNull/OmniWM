@@ -35,9 +35,15 @@ Hold the configured right-mouse resize modifier (`Option` by default) and right-
 
 Hold `Option + Shift + Mouse Scroll Wheel` (default, configurable) to scroll along the active Niri primary axis: left/right in horizontal orientation or up/down in vertical orientation.
 
+**Unreleased:** Mouse wheel sensitivity is available when building from `main`.
+
+If a smooth mouse wheel needs too much movement to switch columns, expand **Scroll columns** under **Settings → Mouse & Trackpad → Trackpad** and increase **Mouse wheel sensitivity**. The default `1.0x` preserves existing behavior. Higher values speed up window navigation without changing normal scrolling in apps or trackpad sensitivity. The same setting is available as `mouseWheelSensitivity` in the TOML `[gestures]` table.
+
 ## Trackpad gestures
 
 Use three or four fingers (configurable) to scroll along the active Niri primary axis; direction can be inverted. Workspace switching and window move/resize also support two fingers, but column scrolling does not.
+
+A contact that macOS labels as a palm or the side of a hand, or one much larger than a fingertip, does not count toward a gesture's finger count. A palm resting on the trackpad therefore neither turns a two-finger scroll into a three-finger gesture nor stops a three-finger swipe made beside it.
 
 The **Trackpad scroll style** picker under **Settings → Mouse & Trackpad → Trackpad Gestures → Scroll columns** chooses how the strip responds:
 
