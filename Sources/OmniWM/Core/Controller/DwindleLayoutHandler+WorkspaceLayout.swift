@@ -18,6 +18,7 @@ extension DwindleLayoutHandler {
             let wsName = workspace.name
             let layoutType = controller.settings.workspaces.layoutType(for: wsName)
             guard layoutType == .dwindle else { continue }
+            forgetNiriStrip(in: wsId, controller: controller)
             let isActiveWorkspace = controller.workspaceManager.activeWorkspaceOrFirst(on: monitor.id)?.id == wsId
 
             guard let snapshot = makeWorkspaceSnapshot(
@@ -36,6 +37,14 @@ extension DwindleLayoutHandler {
         }
 
         return plans
+    }
+
+    private func forgetNiriStrip(in workspaceId: WorkspaceDescriptor.ID, controller: WMController) {
+        guard controller.settings.niri.naturalWindowDrag,
+              let niriEngine = controller.niriEngine,
+              niriEngine.root(for: workspaceId) != nil
+        else { return }
+        niriEngine.removeWorkspaceState(workspaceId)
     }
 
     func recordLayoutOperation(
