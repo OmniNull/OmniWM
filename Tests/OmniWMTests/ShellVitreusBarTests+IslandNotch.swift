@@ -426,6 +426,7 @@ extension ShellVitreusBarTests {
                 for id in ["2", "3"] {
                     XCTAssertTrue(Self.has(widget, "workspace-square-" + id), label)
                 }
+                XCTAssertTrue(Self.has(widget, "workspace-overview"), label)
                 for (previous, next) in zip(visible, visible.dropFirst()) {
                     XCTAssertLessThan(previous.midX, next.midX, label)
                 }
