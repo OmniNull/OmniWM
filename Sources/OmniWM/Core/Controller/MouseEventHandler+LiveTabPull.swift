@@ -33,6 +33,9 @@ extension MouseEventHandler {
             )
         }
         guard began else { return }
+        if let monitor = controller.workspaceManager.monitor(for: entry.workspaceId) {
+            holdLiveEdgeZone(startingAt: drag.location, monitorFrame: monitor.frame)
+        }
         state.liveTabPull = .init(token: token, anchorLocation: drag.location, startFrame: startFrame)
         state.deferredClickScroll = nil
         startLiveDragKeyCapture()

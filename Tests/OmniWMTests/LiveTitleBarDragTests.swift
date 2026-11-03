@@ -2028,6 +2028,26 @@ final class LiveTitleBarDragTests: NiriInteractionTestCase {
         ))
     }
 
+    func testATabPullStartingInsideTheEdgeZoneWaitsUntilPushedTowardTheEdge() throws {
+        let fixture = try makeFixture(pid: 938_318, windowCount: 5, tabbedRuns: [1 ... 2])
+        let clock = edgeClock(fixture)
+        let pulled = fixture.tokens[2]
+        let rail = try railInfo(holding: pulled, in: fixture)
+        let start = try fixture.frame(pulled)
+        fixture.handler.nativeWindowFrameProvider = { _ in start }
+        let frame = fixture.monitor.frame
+        let zone = fixture.engine.moveConfiguration.liveEdgeZoneWidth(forDisplayWidth: frame.width)
+        let inZone = CGPoint(x: frame.minX + zone / 2, y: frame.midY)
+
+        tabPull(pulled, at: inZone, rail: rail, in: fixture)
+
+        XCTAssertTrue(fixture.handler.isLiveColumnDragActive)
+        XCTAssertEqual(fixture.handler.state.liveEdgeZoneHold?.edge, .leading)
+        clock.now += 0.4
+        fixture.handler.startLiveEdgeScrollIfDue()
+        XCTAssertFalse(fixture.handler.isLiveEdgeScrolling)
+    }
+
     func testDraggingATabInTheRailPullsItOutAndTheWindowFollowsThePointer() throws {
         let fixture = try makeFixture(pid: 938_080, windowCount: 5, tabbedRuns: [1 ... 2])
         let (kept, pulled, neighbour) = (fixture.tokens[1], fixture.tokens[2], fixture.tokens[3])
