@@ -46,7 +46,10 @@ enum HotkeyBindingRegistry {
             .map { spec in
                 existing[spec.id] ?? HotkeyBinding(id: spec.id, command: spec.command, binding: spec.defaultBinding)
             }
-        var result = bindings.filter { bindingsByID[$0.id] != nil || ActionCatalog.shellToggleSpec(for: $0.id) != nil }
+        var result = bindings.filter {
+            bindingsByID[$0.id] != nil || ActionCatalog.shellToggleSpec(for: $0.id) != nil
+                || ActionCatalog.openAppSpec(for: $0.id) != nil
+        }
         let groups = Dictionary(grouping: workspaceBindings) { rowGroup(of: $0.id) }
         let insertions = groups.map { group, rows in
             (index: result.lastIndex { rowGroup(of: $0.id) == group }.map { $0 + 1 } ?? result.count, rows: rows)
@@ -58,19 +61,40 @@ enum HotkeyBindingRegistry {
     }
 
     static func reconcilingShellToggleBindings(_ bindings: [HotkeyBinding], names: [String]) -> [HotkeyBinding] {
-        let isToggle = { (binding: HotkeyBinding) in ActionCatalog.shellToggleSpec(for: binding.id) != nil }
-        let current = Set(names.compactMap { ActionCatalog.shellToggleSpec(name: $0)?.id })
-        var toggles = Dictionary(
+        reconcilingDynamicBindings(
+            bindings,
+            specs: names.compactMap(ActionCatalog.shellToggleSpec(name:)),
+            isMember: { ActionCatalog.shellToggleSpec(for: $0) != nil }
+        )
+    }
+
+    static func reconcilingOpenAppBindings(_ bindings: [HotkeyBinding], bundleIDs: [String]) -> [HotkeyBinding] {
+        reconcilingDynamicBindings(
+            bindings,
+            specs: bundleIDs.compactMap(ActionCatalog.openAppSpec(bundleID:)),
+            isMember: { ActionCatalog.openAppSpec(for: $0) != nil }
+        )
+    }
+
+    /// Adds a row per current spec, keeps assigned rows whose source went away, drops stale unassigned rows.
+    private static func reconcilingDynamicBindings(
+        _ bindings: [HotkeyBinding],
+        specs: [ActionSpec],
+        isMember: (String) -> Bool
+    ) -> [HotkeyBinding] {
+        let current = Set(specs.map(\.id))
+        var rows = Dictionary(
             bindings
-                .filter { isToggle($0) && (!$0.binding.isUnassigned || $0.modeKey != nil || current.contains($0.id)) }
+                .filter {
+                    isMember($0.id) && (!$0.binding.isUnassigned || $0.modeKey != nil || current.contains($0.id))
+                }
                 .map { ($0.id, $0) },
             uniquingKeysWith: { first, _ in first }
         )
-        for name in names {
-            guard let spec = ActionCatalog.shellToggleSpec(name: name), toggles[spec.id] == nil else { continue }
-            toggles[spec.id] = HotkeyBinding(id: spec.id, command: spec.command, binding: spec.defaultBinding)
+        for spec in specs where rows[spec.id] == nil {
+            rows[spec.id] = HotkeyBinding(id: spec.id, command: spec.command, binding: spec.defaultBinding)
         }
-        return bindings.filter { !isToggle($0) } + toggles.keys.sorted().compactMap { toggles[$0] }
+        return bindings.filter { !isMember($0.id) } + rows.keys.sorted().compactMap { rows[$0] }
     }
 
     private static func rowGroup(of id: String) -> WorkspaceNumberActionKind? {

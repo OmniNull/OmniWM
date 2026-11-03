@@ -110,6 +110,19 @@ final class CommandHandler {
             return controller.workspaceBarManager.toggleShell(name) ? .executed : .notFound
         case let .shellAppOpen(appID):
             return controller.shellAppWindowManager.open(appID) ? .executed : .notFound
+        case let .openApp(bundleID):
+            guard let url = NSWorkspace.shared.urlForApplication(withBundleIdentifier: bundleID) else {
+                return .notFound
+            }
+            controller.commandPaletteController.actionExecutor.perform(.openApplication(
+                controller,
+                LauncherApplicationResult(
+                    bundleURL: url,
+                    bundleIdentifier: bundleID,
+                    displayName: ActionCatalog.appDisplayName(bundleID: bundleID)
+                ),
+                ""
+            ))
         }
         return .executed
     }

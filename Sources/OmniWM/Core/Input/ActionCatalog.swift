@@ -76,14 +76,15 @@ enum ActionCatalog {
     }
 
     static func spec(for command: HotkeyCommand) -> ActionSpec? {
-        if case let .shellToggle(name) = command {
-            return shellToggleSpec(name: name)
+        switch command {
+        case let .shellToggle(name): shellToggleSpec(name: name)
+        case let .openApp(bundleID): openAppSpec(bundleID: bundleID)
+        default: specsByCommand[command] ?? workspaceNumberSpec(for: command)
         }
-        return specsByCommand[command] ?? workspaceNumberSpec(for: command)
     }
 
     static func dynamicSpec(for id: String) -> ActionSpec? {
-        workspaceNumberSpec(for: id) ?? shellToggleSpec(for: id)
+        workspaceNumberSpec(for: id) ?? shellToggleSpec(for: id) ?? openAppSpec(for: id)
     }
 
     static func normalizedSearchTerms(for id: String) -> [String]? {
@@ -243,7 +244,8 @@ enum ActionCatalog {
              .media,
              .keyboardMode,
              .shellToggle,
-             .shellAppOpen:
+             .shellAppOpen,
+             .openApp:
             .shared
         case let .focusNavigation(action):
             action.compatibility
@@ -304,6 +306,10 @@ enum ActionCatalog {
                 "command.shell.toggle", defaultValue: "Toggle \(name)", table: "Commands", bundle: .omniWM
             )
         case .shellAppOpen: shellAppExampleTitle
+        case let .openApp(bundleID): LocalizedStringResource(
+                "command.app.open", defaultValue: "Open \(appDisplayName(bundleID: bundleID))", table: "Commands",
+                bundle: .omniWM
+            )
         case let .focusNavigation(action): action.actionDisplayName()
         case let .windowMovement(action): action.actionDisplayName()
         case let .column(action): action.actionDisplayName()
@@ -343,6 +349,7 @@ enum ActionCatalog {
         case let .keyboardMode(command):
             .keyboardMode(command)
         case .shellToggle,
+             .openApp,
              .windowMark:
             nil
         case .shellAppOpen: .shellAppOpen
