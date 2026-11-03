@@ -208,6 +208,7 @@ extension MouseEventHandler {
     }
 
     func handleNativeTitleBarDragFrameApplySucceeded(_ result: AXFrameApplyResult) {
+        settleRetainedNativeResizeCorrectionAfterWrite(result)
         guard let controller, var drag = state.nativeTitleBarDrag,
               drag.phase == .awaitingCorrection || drag.phase == .awaitingFrameWrite,
               drag.token == WindowToken(pid: result.pid, windowId: result.windowId)
@@ -229,10 +230,7 @@ extension MouseEventHandler {
         if drag.receivedFrameChange {
             let observedFrame = terminalNativeWindowFrame(for: entry)
             if let observedFrame,
-               !observedFrame.approximatelyEqual(
-                   to: confirmedFrame,
-                   tolerance: FrameTolerance.frameWrite
-               )
+               !observedFrame.approximatelyEqual(to: confirmedFrame, tolerance: FrameTolerance.frameWrite)
             {
                 drag.issuedUnreadableCorrection = false
                 drag.receivedFrameChange = false
@@ -260,6 +258,37 @@ extension MouseEventHandler {
         state.nativeTitleBarDrag = drag
     }
 
+    private func settleRetainedNativeResizeCorrectionAfterWrite(_ result: AXFrameApplyResult) {
+        guard var correction = state.nativeResizeCorrectionsByWindowId[result.windowId],
+              correction.token == WindowToken(pid: result.pid, windowId: result.windowId),
+              let controller, controller.hasStartedServices,
+              let entry = controller.workspaceManager.entry(for: correction.token),
+              entry.mode == .tiling, entry.hiddenState == nil,
+              let reference = entry.axRef, sameAXWindowIdentity(result.expectedWindow, reference)
+        else { return }
+        if result.confirmedFrame != nil {
+            correction.issuedTerminalFailureCorrection = false
+        } else {
+            guard !correction.issuedTerminalFailureCorrection else { return }
+            correction.issuedTerminalFailureCorrection = true
+            correction.issuedUnreadableCorrection = false
+            correction.needsFrameWriteRecheck = true
+            controller.axManager.invalidateAppliedFrame(for: entry.windowId)
+        }
+        state.nativeResizeCorrectionsByWindowId[entry.windowId] = correction
+        recheckRetainedNativeResizeCorrection(for: correction.token)
+    }
+
+    func recheckRetainedNativeResizeCorrection(for token: WindowToken) {
+        guard let correction = state.nativeResizeCorrectionsByWindowId[token.windowId],
+              correction.token == token, correction.needsFrameWriteRecheck,
+              state.nativeTitleBarDrag?.token != correction.token,
+              state.nativeTitleBarDragFallbackToken != correction.token,
+              let entry = controller?.workspaceManager.entry(for: correction.token)
+        else { return }
+        _ = handleRetainedNativeResizeCorrection(for: entry)
+    }
+
     func handleNativeTitleBarDragPendingFrameSettled(_ result: AXFrameApplyResult) {
         guard let drag = state.nativeTitleBarDrag,
               drag.phase == .awaitingFrameWrite,
@@ -281,6 +310,7 @@ extension MouseEventHandler {
     }
 
     func handleNativeTitleBarDragFrameApplyTerminated(_ result: AXFrameApplyResult) {
+        settleRetainedNativeResizeCorrectionAfterWrite(result)
         handleNativeTitleBarDragFrameApplyTerminated(result, allowsAwaitingFrameWrite: false)
     }
 
