@@ -154,6 +154,12 @@ final class NiriCentredStripTests: XCTestCase {
         XCTAssertFalse(fixture.engine.takeOpeningWindow(token))
     }
 
+    func testACentredStripStartsOnAWholePixelOnANonRetinaDisplay() {
+        XCTAssertEqual(ViewportState.centredStripOffset(stripSpan: 901, viewSpan: 1_500, gap: 12, scale: 1), -300)
+        XCTAssertEqual(ViewportState.centredStripOffset(stripSpan: 901, viewSpan: 1_500, gap: 12, scale: 2), -299.5)
+        XCTAssertNil(ViewportState.centredStripOffset(stripSpan: 1_490, viewSpan: 1_500, gap: 12, scale: 1))
+    }
+
     func testANewColumnOpensAtTheAppsOwnWidthCappedToTheDisplay() {
         let fixture = makeFixture(widths: [0.3])
         fixture.engine.updateConfiguration(defaultContainerPrimarySpan: .some(nil))

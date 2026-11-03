@@ -400,8 +400,12 @@ extension ViewportState {
         }
         let stripSpan = containers.reduce(0) { $0 + $1[keyPath: sizeKeyPath] }
             + CGFloat(containers.count - 1) * context.gaps
-        guard stripSpan + context.gaps * 2 <= viewportSpan + FrameTolerance.screenMatch else { return nil }
-        return ((stripSpan - viewportSpan) / 2).roundedToPhysicalPixel(scale: scale)
+        return centredStripOffset(stripSpan: stripSpan, viewSpan: viewportSpan, gap: context.gaps, scale: scale)
+    }
+
+    static func centredStripOffset(stripSpan: CGFloat, viewSpan: CGFloat, gap: CGFloat, scale: CGFloat) -> CGFloat? {
+        guard stripSpan + gap * 2 <= viewSpan + FrameTolerance.screenMatch else { return nil }
+        return ((stripSpan - viewSpan) / 2).roundedToPhysicalPixel(scale: scale)
     }
 
     private func offsetKeepingStripEndsOnScreen(

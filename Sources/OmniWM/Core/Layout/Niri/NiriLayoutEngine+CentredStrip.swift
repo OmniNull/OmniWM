@@ -27,9 +27,13 @@ extension NiriLayoutEngine {
               let first = strip.first,
               let last = strip.last
         else { return nil }
-        let span = last.maxX - first.minX
         let frame = context.workingFrame
-        guard span + context.gaps * 2 <= frame.width + FrameTolerance.screenMatch else { return nil }
-        return first.minX - (frame.minX + (frame.width - span) / 2)
+        guard let offset = ViewportState.centredStripOffset(
+            stripSpan: last.maxX - first.minX,
+            viewSpan: frame.width,
+            gap: context.gaps,
+            scale: displayScale(in: context.workspaceId)
+        ) else { return nil }
+        return first.minX - (frame.minX - offset)
     }
 }
