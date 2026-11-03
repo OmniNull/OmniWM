@@ -80,6 +80,28 @@ final class VerticalOverflowTests: XCTestCase {
         }
     }
 
+    func testActiveColumnPastTheTopEdgeStaysVisibleWhileInactiveOnesPark() {
+        let topJustPastEdge = portrait.frame.maxY - workingFrame.maxY
+            + LayoutRefreshController.hiddenWindowEdgeRevealEpsilon
+        for position in [topJustPastEdge, offscreenTitleBarPosition] {
+            for samples: [CGFloat] in [[0], [position, 0]] {
+                let active = visibility(
+                    position: position, samples: samples, monitors: [portrait, laptop], isActive: true
+                )
+                XCTAssertGreaterThan(active.visibleRect.maxY, portrait.frame.maxY)
+                XCTAssertFalse(active.visibleRect.intersects(laptop.frame))
+                guard case .visible = active.state else {
+                    return XCTFail("The active column must stay visible while its top passes the edge")
+                }
+                guard case .hidden(.maximum) = visibility(
+                    position: position, samples: samples, monitors: [portrait, laptop]
+                ).state else {
+                    return XCTFail("An inactive column whose top passes the edge must be parked")
+                }
+            }
+        }
+    }
+
     func testFocusedColumnAndSingleDisplayRetainVisibility() {
         for (position, monitors): (CGFloat, [HiddenPlacementMonitorContext]) in [
             (0, [portrait, laptop]), (offscreenTitleBarPosition, [portrait])
@@ -136,10 +158,46 @@ final class VerticalOverflowTests: XCTestCase {
         }
     }
 
+    func testCenteredVerticalParksSitOnThePhysicalPixelGrid() throws {
+        let controller = WindowAdmissionTestSupport.controller()
+        for scale: CGFloat in [1, 2] {
+            func monitor(_ context: HiddenPlacementMonitorContext) -> Monitor {
+                Monitor(
+                    id: context.id, displayId: context.id.displayId,
+                    frame: context.frame, visibleFrame: context.visibleFrame,
+                    hasNotch: false, backingScale: scale, name: "Parking"
+                )
+            }
+            let source = monitor(portrait)
+            controller.workspaceManager.applyMonitorConfigurationChange([source, monitor(laptop)])
+            let pixel = 1 / scale
+            for (shortfallInPixels, offsetFromCenter) in [(CGFloat(1), pixel / 2), (2, 0)] {
+                let size = CGSize(
+                    width: workingFrame.width,
+                    height: portrait.visibleFrame.height - shortfallInPixels * pixel
+                )
+                let origin = try XCTUnwrap(controller.layoutRefreshController.liveFrameHideOrigin(
+                    for: CGRect(origin: workingFrame.origin, size: size),
+                    monitor: source, side: AxisHideEdge.maximum.encodedHideSide, reason: .layoutTransient
+                ))
+                let centered = portrait.visibleFrame.midY - size.height / 2
+                XCTAssertEqual(abs(origin.y - centered), offsetFromCenter)
+                XCTAssertEqual((origin.y * scale).rounded(), origin.y * scale)
+                let parked = CGRect(origin: origin, size: size)
+                XCTAssertFalse(parked.intersects(laptop.frame))
+                XCTAssertEqual(
+                    parked.intersection(portrait.frame).width,
+                    LayoutRefreshController.hiddenWindowEdgeRevealEpsilon
+                )
+            }
+        }
+    }
+
     private func visibility(
         position: CGFloat,
         samples: [CGFloat],
-        monitors: [HiddenPlacementMonitorContext]
+        monitors: [HiddenPlacementMonitorContext],
+        isActive: Bool = false
     ) -> NiriColumnVisibility {
         NiriLayoutViewport(
             area: WorkingAreaContext(
@@ -150,7 +208,7 @@ final class VerticalOverflowTests: XCTestCase {
             revealMargin: portrait.frame.height - workingFrame.height
         ).columnVisibility(
             for: NiriPreparedLayoutColumn(span: workingFrame.height, renderOffset: .zero, position: position),
-            at: (index: 0, isActive: false), viewPosition: 0,
+            at: (index: 0, isActive: isActive), viewPosition: 0,
             hiddenPlacementMonitor: portrait, hiddenPlacementMonitors: monitors
         )
     }

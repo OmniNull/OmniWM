@@ -331,7 +331,7 @@ extension LayoutRefreshController {
                 orthogonalOrigin = min(
                     monitor.visibleFrame.midY - frame.height / 2,
                     monitor.visibleFrame.maxY - frame.height
-                )
+                ).roundedToPhysicalPixel(scale: monitor.backingScale)
                 requestedEdge = .minimum
             }
             let placement = HiddenWindowPlacementResolver(

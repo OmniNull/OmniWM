@@ -116,7 +116,7 @@ struct NiriLayoutViewport {
                !(selection.isActive && column.span > area.workingFrame.height),
                let hiddenPlacementMonitor,
                hiddenPlacementMonitors.contains(where: { $0.id != hiddenPlacementMonitor.id }),
-               visibilityRect.maxY > hiddenPlacementMonitor.frame.maxY
+               !selection.isActive && visibilityRect.maxY > hiddenPlacementMonitor.frame.maxY
                || visibilityRect.maxY <= area.workingFrame.minY
             {
                 visibilityState = .hidden(visibilityRect.maxY <= area.workingFrame.minY ? .minimum : .maximum)

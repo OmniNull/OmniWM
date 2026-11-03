@@ -193,7 +193,7 @@ enum RuntimeDiagnosticsReport {
         for entry in controller.workspaceManager.allEntries() {
             guard let hiddenState = controller.workspaceManager.hiddenState(for: entry.token) else { continue }
             let placement = switch hiddenState.reason {
-            case let .layoutTransient(side): "side=\(side)"
+            case let .layoutTransient(side): "layoutEdge=\(AxisHideEdge(encodedHideSide: side))"
             case .workspaceInactive: "inactive"
             case .scratchpad: "scratchpad"
             }
