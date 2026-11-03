@@ -4,6 +4,7 @@
 import CoreServices
 import Darwin
 import Foundation
+import Observation
 @testable import OmniWM
 import Synchronization
 import XCTest
@@ -150,9 +151,13 @@ extension ShellConfigurationCoordinatorTests {
         XCTAssertGreaterThan(declaredPaths.count, ShellDirectoryObservation.maximumDescriptorCost)
         XCTAssertTrue(declaredPaths.isSubset(of: Set(inputs.paths.map(\.path))))
         let before = Dictionary(grouping: try observationDescriptors(), by: \.path).mapValues(\.count)
+        let refreshQueued = expectation(description: "Starting observation queues its refresh")
+        withObservationTracking { _ = coordinator.isSaving } onChange: { refreshQueued.fulfill() }
         coordinator.startObserving()
         defer { coordinator.stopObserving() }
+        await fulfillment(of: [refreshQueued], timeout: 5)
         await coordinator.flush()
+        XCTAssertFalse(coordinator.isSaving)
         XCTAssertTrue(try XCTUnwrap(observation).isUsingNativeObservation)
         XCTAssertEqual(streams.roots, [[shell.path]])
         XCTAssertEqual(try observationDescriptors(under: shell).map(\.path), [shell.path])
@@ -165,11 +170,12 @@ extension ShellConfigurationCoordinatorTests {
         XCTAssertEqual(try load(shell).barOverride?.settings.height, height)
         XCTAssertNil(coordinator.metadataError)
         coordinator.stopObserving()
+        await coordinator.flush()
         await fulfillment(of: [released], timeout: 5)
         for task in streams.tasks { await task.value }
         XCTAssertEqual(Set(streams.releases.keys), Set(streams.roots.indices))
         XCTAssertTrue(streams.releases.values.allSatisfy { $0 == 1 })
-        XCTAssertTrue(try observationDescriptors(under: shell).isEmpty)
+        XCTAssertEqual(try observationDescriptors(under: shell).map(\.path), [])
         let after = Dictionary(grouping: try observationDescriptors(), by: \.path).mapValues(\.count)
         for path in watchedPaths { XCTAssertLessThanOrEqual(after[path, default: 0], before[path, default: 0], path) }
     }
