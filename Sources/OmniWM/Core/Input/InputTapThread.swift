@@ -10,15 +10,15 @@ struct TapFilterSnapshot: Sendable {
     var claimedOtherButtonMask: UInt32 = 0
     var moveModifier: CGEventFlags?
     var adoptNativeResize = false
-    var naturalDragModifier: CGEventFlags?
-    var naturalWindowDrag = false
+    var fusionDragModifier: CGEventFlags?
+    var macOSFusion = false
     var resizeModifier: CGEventFlags = []
     var scrollModifier: CGEventFlags = []
     var minGestureFingers: Int = 3
     var gestureActiveOrLatched: Bool = false
     var isInputSuppressed: Bool = false
-    var naturalDoubleClickArmedAt: CGPoint?
-    var naturalClickChain: NaturalClickChain?
+    var fusionDoubleClickArmedAt: CGPoint?
+    var fusionClickChain: FusionClickChain?
     var holdsTitleBarDrag = false
 }
 
@@ -386,16 +386,16 @@ extension InputTapThread {
         let flags = event.flags
         let holdsDrag = holdsTitleBarDrag(event, location: location, snap: snap)
         updateFilterSnapshot { $0.holdsTitleBarDrag = holdsDrag }
-        stripNaturalDragOption(from: event, location: location, snap: snap)
+        stripFusionDragOption(from: event, location: location, snap: snap)
         let clickCount = event.getIntegerValueField(.mouseEventClickState)
-        if MouseEventHandler.asksAboutNaturalDoubleClick(
+        if MouseEventHandler.asksAboutFusionDoubleClick(
             clickCount: clickCount,
             flags: flags,
-            naturalWindowDrag: snap.naturalWindowDrag,
-            armedAt: snap.naturalDoubleClickArmedAt,
+            macOSFusion: snap.macOSFusion,
+            armedAt: snap.fusionDoubleClickArmedAt,
             location: location
-        ) || MouseEventHandler.continuesNaturalClickChain(
-            snap.naturalClickChain,
+        ) || MouseEventHandler.continuesFusionClickChain(
+            snap.fusionClickChain,
             flags: flags,
             location: location,
             now: ProcessInfo.processInfo.systemUptime
@@ -442,27 +442,27 @@ extension InputTapThread {
 }
 
 extension InputTapThread {
-    private nonisolated func stripNaturalDragOption(
+    private nonisolated func stripFusionDragOption(
         from event: CGEvent,
         location: CGPoint,
         snap: TapFilterSnapshot
     ) {
         let flags = event.flags
-        guard MouseEventHandler.mouseMoveModifiersMatch(flags, required: snap.naturalDragModifier),
-              naturalDragCanStart(windowId: MouseEventHandler.eventWindowIdUnderPointer(event), at: location)
+        guard MouseEventHandler.mouseMoveModifiersMatch(flags, required: snap.fusionDragModifier),
+              fusionDragCanStart(windowId: MouseEventHandler.eventWindowIdUnderPointer(event), at: location)
         else { return }
-        event.flags = MouseEventHandler.naturalDragPassThroughFlags(
+        event.flags = MouseEventHandler.fusionDragPassThroughFlags(
             flags,
-            naturalDragModifier: snap.naturalDragModifier
+            fusionDragModifier: snap.fusionDragModifier
         )
     }
 
     private nonisolated func holdsTitleBarDrag(_ event: CGEvent, location: CGPoint, snap: TapFilterSnapshot) -> Bool {
-        guard snap.naturalWindowDrag,
+        guard snap.macOSFusion,
               MouseEventHandler.isUnassignedDragModifier(
                   event.flags,
                   moveModifier: snap.moveModifier,
-                  naturalDragModifier: snap.naturalDragModifier
+                  fusionDragModifier: snap.fusionDragModifier
               )
         else { return false }
         let windowId = MouseEventHandler.eventWindowIdUnderPointer(event)
@@ -480,15 +480,15 @@ extension InputTapThread {
         }
     }
 
-    private nonisolated func naturalDragCanStart(windowId: Int?, at location: CGPoint) -> Bool {
+    private nonisolated func fusionDragCanStart(windowId: Int?, at location: CGPoint) -> Bool {
         if Thread.isMainThread {
             return MainActor.assumeIsolated {
-                MouseEventHandler._instance?.canStartNaturalDrag(windowId: windowId, at: location) ?? false
+                MouseEventHandler._instance?.canStartFusionDrag(windowId: windowId, at: location) ?? false
             }
         }
         return DispatchQueue.main.sync {
             MainActor.assumeIsolated {
-                MouseEventHandler._instance?.canStartNaturalDrag(windowId: windowId, at: location) ?? false
+                MouseEventHandler._instance?.canStartFusionDrag(windowId: windowId, at: location) ?? false
             }
         }
     }

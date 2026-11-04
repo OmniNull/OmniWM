@@ -46,7 +46,7 @@ final class NiriStripEndsViewportTests: XCTestCase {
         XCTAssertNil(ViewportState.stripEndOffsets(stripSpan: 970, viewSpan: 1_000, gap: 10))
     }
 
-    func testWithNaturalWindowDragTheFirstColumnStaysAtTheScreenEdge() {
+    func testWithMacOSFusionTheFirstColumnStaysAtTheScreenEdge() {
         var fixture = makeFixture(keepsStripEndsOnScreen: true)
 
         fixture.focus(0, from: 1)
@@ -54,7 +54,7 @@ final class NiriStripEndsViewportTests: XCTestCase {
         XCTAssertEqual(fixture.span(of: 0).lowerBound, fixture.frame.minX + fixture.gap, accuracy: 0.5)
     }
 
-    func testWithNaturalWindowDragTheLastColumnStaysAtTheScreenEdge() {
+    func testWithMacOSFusionTheLastColumnStaysAtTheScreenEdge() {
         var fixture = makeFixture(keepsStripEndsOnScreen: true)
         fixture.focus(2, from: 1)
 
@@ -63,7 +63,7 @@ final class NiriStripEndsViewportTests: XCTestCase {
         XCTAssertEqual(fixture.span(of: 3).upperBound, fixture.frame.maxX - fixture.gap, accuracy: 0.5)
     }
 
-    func testWithNaturalWindowDragAMiddleColumnIsStillCentred() {
+    func testWithMacOSFusionAMiddleColumnIsStillCentred() {
         var fixture = makeFixture(keepsStripEndsOnScreen: true)
 
         fixture.focus(2, from: 1)
@@ -72,7 +72,7 @@ final class NiriStripEndsViewportTests: XCTestCase {
         XCTAssertEqual((span.lowerBound + span.upperBound) / 2, fixture.frame.midX, accuracy: 0.5)
     }
 
-    func testWithNaturalWindowDragAnAlwaysCentredFirstColumnIsStillCentred() {
+    func testWithMacOSFusionAnAlwaysCentredFirstColumnIsStillCentred() {
         var fixture = makeFixture(keepsStripEndsOnScreen: true, centering: .always)
 
         fixture.focus(0, from: 1)
@@ -81,7 +81,7 @@ final class NiriStripEndsViewportTests: XCTestCase {
         XCTAssertEqual((span.lowerBound + span.upperBound) / 2, fixture.frame.midX, accuracy: 0.5)
     }
 
-    func testWithoutNaturalWindowDragTheFirstColumnIsCentred() {
+    func testWithoutMacOSFusionTheFirstColumnIsCentred() {
         var fixture = makeFixture(keepsStripEndsOnScreen: false)
 
         fixture.focus(0, from: 1)

@@ -192,7 +192,7 @@ final class WindowMinimizationTests: XCTestCase {
         XCTAssertEqual(factReads, 1)
     }
 
-    func testWithNaturalWindowDragRestoringAFloatingWindowRescansItsAppSoItsKindIsReadAgain() throws {
+    func testWithMacOSFusionRestoringAFloatingWindowRescansItsAppSoItsKindIsReadAgain() throws {
         let controller = WindowAdmissionTestSupport.controller()
         let workspaceId = try XCTUnwrap(controller.workspaceManager.workspaceId(for: "1", createIfMissing: true))
         let floating = WindowToken(pid: 688_009, windowId: 688_901)
@@ -212,32 +212,32 @@ final class WindowMinimizationTests: XCTestCase {
         controller.axEventHandler.handleWindowMinimized(pid: tiled.pid, axRef: tiledRef, minimized: false)
         XCTAssertEqual(rescans(), [])
 
-        controller.settings.niri.naturalWindowDrag = false
+        controller.settings.niri.macOSFusion = false
         controller.workspaceManager.setWindowMinimized(true, token: floating)
         controller.axEventHandler.handleWindowMinimized(pid: floating.pid, axRef: floatingRef, minimized: false)
         XCTAssertEqual(rescans(), [])
 
-        controller.settings.niri.naturalWindowDrag = true
+        controller.settings.niri.macOSFusion = true
         controller.workspaceManager.setWindowMinimized(true, token: floating)
         controller.axEventHandler.handleWindowMinimized(pid: floating.pid, axRef: floatingRef, minimized: false)
         XCTAssertEqual(rescans(), [.targeted(appPIDs: [floating.pid], nativeSpaceIds: [])])
     }
 
-    func testAFloatingWindowTiledWithNaturalWindowDragGlidesFromWhereItWas() throws {
+    func testAFloatingWindowTiledWithMacOSFusionGlidesFromWhereItWas() throws {
         let controller = WindowAdmissionTestSupport.controller()
         let workspaceId = try XCTUnwrap(controller.workspaceManager.workspaceId(for: "1", createIfMissing: true))
         controller.niriLayoutHandler.enableNiriLayout()
         let engine = try XCTUnwrap(controller.niriEngine)
         let frame = CGRect(x: 300, y: 200, width: 500, height: 400)
-        for (index, naturalWindowDrag) in [false, true].enumerated() {
+        for (index, macOSFusion) in [false, true].enumerated() {
             let token = WindowToken(pid: 688_011, windowId: 688_910 + index)
             _ = WindowAdmissionTestSupport.track(token, in: workspaceId, controller: controller)
             XCTAssertTrue(controller.workspaceManager.setWindowMode(.floating, for: token))
-            controller.settings.niri.naturalWindowDrag = naturalWindowDrag
+            controller.settings.niri.macOSFusion = macOSFusion
 
             XCTAssertTrue(controller.transitionWindowMode(for: token, to: .tiling, observedFrame: frame))
 
-            XCTAssertEqual(engine.stripGlides[token]?.frame, naturalWindowDrag ? frame : nil)
+            XCTAssertEqual(engine.stripGlides[token]?.frame, macOSFusion ? frame : nil)
         }
     }
 

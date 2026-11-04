@@ -587,7 +587,7 @@ final class NiriLiveStackModeTests: XCTestCase {
         XCTAssertTrue(shown.isHiddenInTabbedMode)
     }
 
-    func testATabbedColumnTakesTheFullHeightWithNaturalDragOn() {
+    func testATabbedColumnTakesTheFullHeightWithMacOSFusionOn() {
         var fixture = makeFixture()
         let column = makeTabbedColumnWithAResizedTab(&fixture)
         fixture.engine.tabbedColumnsFillHeight = true
@@ -599,7 +599,7 @@ final class NiriLiveStackModeTests: XCTestCase {
         }
     }
 
-    func testATabbedColumnKeepsAFixedTabHeightWithNaturalDragOff() {
+    func testATabbedColumnKeepsAFixedTabHeightWithMacOSFusionOff() {
         var fixture = makeFixture()
         let column = makeTabbedColumnWithAResizedTab(&fixture)
 

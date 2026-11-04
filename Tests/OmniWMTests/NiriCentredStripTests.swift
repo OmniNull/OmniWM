@@ -40,11 +40,11 @@ final class NiriCentredStripTests: XCTestCase {
     private func makeFixture(
         widths: [CGFloat],
         activeIndex: Int = 0,
-        naturalWindowDrag: Bool = true
+        macOSFusion: Bool = true
     ) -> Fixture {
         let engine = NiriLayoutEngine()
         engine.alwaysCenterSingleColumn = true
-        engine.applyNaturalWindowDrag(.init(enabled: naturalWindowDrag))
+        engine.applyMacOSFusion(.init(enabled: macOSFusion))
         let workspaceId = WorkspaceDescriptor.ID()
         let frame = CGRect(x: 0, y: 0, width: 1_500, height: 900)
         let monitor = Monitor(
@@ -87,8 +87,8 @@ final class NiriCentredStripTests: XCTestCase {
         XCTAssertEqual(fixture.margins().leading, fixture.gap, accuracy: 1)
     }
 
-    func testWithoutNaturalWindowDragOnlyASingleColumnIsCentred() {
-        var fixture = makeFixture(widths: [0.3, 0.25], naturalWindowDrag: false)
+    func testWithoutMacOSFusionOnlyASingleColumnIsCentred() {
+        var fixture = makeFixture(widths: [0.3, 0.25], macOSFusion: false)
         fixture.show(0)
         XCTAssertEqual(fixture.margins().leading, fixture.gap, accuracy: 1)
     }

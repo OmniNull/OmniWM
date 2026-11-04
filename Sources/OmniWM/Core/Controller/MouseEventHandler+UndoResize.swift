@@ -65,7 +65,7 @@ extension MouseEventHandler {
         in workspaceId: WorkspaceDescriptor.ID
     ) -> NativeResizeUndo.Start? {
         guard let controller,
-              controller.settings.niri.naturalWindowDrag,
+              controller.settings.niri.macOSFusion,
               let engine = controller.niriEngine,
               let column = engine.findColumn(containing: window, in: workspaceId)
         else { return nil }

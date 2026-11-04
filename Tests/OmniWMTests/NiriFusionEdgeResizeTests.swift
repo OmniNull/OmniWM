@@ -6,7 +6,7 @@ import CoreGraphics
 import XCTest
 
 @MainActor
-final class NiriNaturalEdgeResizeTests: NiriInteractionTestCase {
+final class NiriFusionEdgeResizeTests: NiriInteractionTestCase {
     @MainActor
     private struct Fixture {
         let controller: WMController
@@ -268,11 +268,11 @@ final class NiriNaturalEdgeResizeTests: NiriInteractionTestCase {
         }
     }
 
-    func testWithoutNaturalWindowDragNothingSlides() throws {
+    func testWithoutMacOSFusionNothingSlides() throws {
         let fixture = try makeFixture(pid: 871_018)
         let blocker = blockRefreshes(fixture)
         defer { unblockRefreshes(fixture, blocker: blocker) }
-        fixture.controller.settings.niri.naturalWindowDrag = false
+        fixture.controller.settings.niri.macOSFusion = false
         fixture.controller.settings.gestures.adoptNativeResize = true
         let (resized, right) = (fixture.tokens[1], fixture.tokens[2])
         let start = try fixture.frame(resized)
@@ -671,7 +671,7 @@ final class NiriNaturalEdgeResizeTests: NiriInteractionTestCase {
         XCTAssertFalse(window.restsAtTop(of: column))
     }
 
-    func testTurningNaturalWindowDragOffForgetsTopRests() throws {
+    func testTurningMacOSFusionOffForgetsTopRests() throws {
         let fixture = try makeFixture(pid: 871_091)
         let window = try fixture.node(fixture.tokens[1])
         let column = try fixture.column(fixture.tokens[1])
@@ -679,8 +679,8 @@ final class NiriNaturalEdgeResizeTests: NiriInteractionTestCase {
         window.rest(atTop: true, in: column)
         XCTAssertTrue(window.restsAtTop(of: column))
 
-        fixture.controller.settings.niri.naturalWindowDrag = false
-        fixture.controller.applyNaturalWindowDragSettings()
+        fixture.controller.settings.niri.macOSFusion = false
+        fixture.controller.applyMacOSFusionSettings()
 
         XCTAssertFalse(window.restsAtTop(of: column))
     }
@@ -703,7 +703,7 @@ final class NiriNaturalEdgeResizeTests: NiriInteractionTestCase {
     func testAnEdgeDragReleasedPastThePeekStopsAtIt() throws {
         let fixture = try makeFixture(pid: 871_190)
         fixture.controller.settings.niri.edgePeek = true
-        fixture.controller.applyNaturalWindowDragSettings()
+        fixture.controller.applyMacOSFusionSettings()
         let blocker = blockRefreshes(fixture)
         defer { unblockRefreshes(fixture, blocker: blocker) }
         let resized = fixture.tokens[1]
@@ -736,7 +736,7 @@ final class NiriNaturalEdgeResizeTests: NiriInteractionTestCase {
         let fixture = try makeFixture(pid: 871_015)
         let blocker = blockRefreshes(fixture)
         defer { unblockRefreshes(fixture, blocker: blocker) }
-        fixture.controller.settings.niri.naturalWindowDrag = false
+        fixture.controller.settings.niri.macOSFusion = false
         fixture.controller.settings.gestures.adoptNativeResize = true
         let resized = fixture.tokens[1]
         let start = try fixture.frame(resized)
@@ -752,7 +752,7 @@ final class NiriNaturalEdgeResizeTests: NiriInteractionTestCase {
         let fixture = try makeFixture(pid: 871_013)
         let blocker = blockRefreshes(fixture)
         defer { unblockRefreshes(fixture, blocker: blocker) }
-        fixture.controller.settings.niri.naturalWindowDrag = false
+        fixture.controller.settings.niri.macOSFusion = false
         let (resized, right) = (fixture.tokens[1], fixture.tokens[2])
         let start = try fixture.frame(resized)
         let rightStart = try fixture.frame(right)
@@ -919,7 +919,7 @@ final class NiriNaturalEdgeResizeTests: NiriInteractionTestCase {
         let fixture = try makeFixture(pid: 871_041)
         let blocker = blockRefreshes(fixture)
         defer { unblockRefreshes(fixture, blocker: blocker) }
-        fixture.controller.settings.niri.naturalWindowDrag = false
+        fixture.controller.settings.niri.macOSFusion = false
         fixture.controller.settings.gestures.adoptNativeResize = true
         let resized = fixture.tokens[1]
         let start = try fixture.frame(resized)
@@ -1067,7 +1067,7 @@ final class NiriNaturalEdgeResizeTests: NiriInteractionTestCase {
 
     func testAnOptionPressOnAFixedSizeWindowsEdgeStillMovesIt() throws {
         let fixture = try makeFixture(pid: 871_054)
-        fixture.controller.settings.niri.naturalWindowDragModifier = .control
+        fixture.controller.settings.niri.macOSFusionModifier = .control
         fixture.controller.settings.gestures.mouseMoveModifierKey = .option
         let pressed = fixture.tokens[1]
         let frame = try fixture.frame(pressed)
@@ -1119,7 +1119,7 @@ final class NiriNaturalEdgeResizeTests: NiriInteractionTestCase {
 
     func testWithAnotherStackModifierAnOptionPressOnAWindowEdgeIsLeftToMacOS() throws {
         let fixture = try makeFixture(pid: 871_045)
-        fixture.controller.settings.niri.naturalWindowDragModifier = .control
+        fixture.controller.settings.niri.macOSFusionModifier = .control
         fixture.controller.settings.gestures.mouseMoveModifierKey = .option
         let pressed = fixture.tokens[1]
         let frame = try fixture.frame(pressed)
@@ -1230,7 +1230,7 @@ final class NiriNaturalEdgeResizeTests: NiriInteractionTestCase {
         let monitorFrame = portrait
             ? CGRect(x: workingFrame.minX, y: workingFrame.minY, width: workingFrame.height, height: workingFrame.width)
             : workingFrame
-        let controller = WindowAdmissionTestSupport.controller(prefix: "NiriNaturalEdgeResizeTests")
+        let controller = WindowAdmissionTestSupport.controller(prefix: "NiriFusionEdgeResizeTests")
         addTeardownBlock { @MainActor [controller] in
             controller.hasStartedServices = false
             controller.layoutRefreshController.resetState()
@@ -1246,7 +1246,7 @@ final class NiriNaturalEdgeResizeTests: NiriInteractionTestCase {
             hasNotch: false,
             name: "Niri Live Edge Resize"
         )
-        controller.settings.niri.naturalWindowDrag = true
+        controller.settings.niri.macOSFusion = true
         controller.settings.gestures.adoptNativeResize = false
         controller.settings.workspaces.configurations = [
             WorkspaceConfiguration(

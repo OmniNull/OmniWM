@@ -5,108 +5,108 @@ import AppKit
 import Foundation
 
 extension MouseEventHandler {
-    nonisolated static let naturalDoubleClickArmRadius: CGFloat = 8
-    nonisolated static let naturalClickChainWindow: TimeInterval = 1
+    nonisolated static let fusionDoubleClickArmRadius: CGFloat = 8
+    nonisolated static let fusionClickChainWindow: TimeInterval = 1
 
-    nonisolated static func asksAboutNaturalDoubleClick(
+    nonisolated static func asksAboutFusionDoubleClick(
         clickCount: Int64,
         flags: CGEventFlags,
-        naturalWindowDrag: Bool,
+        macOSFusion: Bool,
         armedAt: CGPoint?,
         location: CGPoint
     ) -> Bool {
-        guard clickCount == 2, naturalWindowDrag, flags.isDisjoint(with: relevantModifierFlags),
+        guard clickCount == 2, macOSFusion, flags.isDisjoint(with: relevantModifierFlags),
               let armedAt
         else { return false }
-        return hypot(location.x - armedAt.x, location.y - armedAt.y) <= naturalDoubleClickArmRadius
+        return hypot(location.x - armedAt.x, location.y - armedAt.y) <= fusionDoubleClickArmRadius
     }
 
-    nonisolated static func continuesNaturalClickChain(
-        _ chain: NaturalClickChain?,
+    nonisolated static func continuesFusionClickChain(
+        _ chain: FusionClickChain?,
         flags: CGEventFlags,
         location: CGPoint,
         now: TimeInterval
     ) -> Bool {
         guard let chain, now <= chain.deadline, flags.isDisjoint(with: relevantModifierFlags) else { return false }
-        return hypot(location.x - chain.location.x, location.y - chain.location.y) <= naturalDoubleClickArmRadius
+        return hypot(location.x - chain.location.x, location.y - chain.location.y) <= fusionDoubleClickArmRadius
     }
 
-    func continuesNaturalClickChain(at location: CGPoint, modifiers: CGEventFlags) -> Bool {
-        Self.continuesNaturalClickChain(
-            state.naturalClickChain,
+    func continuesFusionClickChain(at location: CGPoint, modifiers: CGEventFlags) -> Bool {
+        Self.continuesFusionClickChain(
+            state.fusionClickChain,
             flags: modifiers,
             location: location,
-            now: naturalClickClock()
+            now: fusionClickClock()
         )
     }
 
-    func disarmNaturalClickChain() {
-        guard state.naturalClickChain != nil else { return }
-        state.naturalClickChain = nil
-        state.naturalClickChainToken = nil
-        inputTapThread.updateFilterSnapshot { $0.naturalClickChain = nil }
+    func disarmFusionClickChain() {
+        guard state.fusionClickChain != nil else { return }
+        state.fusionClickChain = nil
+        state.fusionClickChainToken = nil
+        inputTapThread.updateFilterSnapshot { $0.fusionClickChain = nil }
     }
 
-    private func armNaturalClickChain(at location: CGPoint, token: WindowToken) {
-        let chain = NaturalClickChain(location: location, deadline: naturalClickClock() + Self.naturalClickChainWindow)
-        state.naturalClickChain = chain
-        state.naturalClickChainToken = token
-        inputTapThread.updateFilterSnapshot { $0.naturalClickChain = chain }
+    private func armFusionClickChain(at location: CGPoint, token: WindowToken) {
+        let chain = FusionClickChain(location: location, deadline: fusionClickClock() + Self.fusionClickChainWindow)
+        state.fusionClickChain = chain
+        state.fusionClickChainToken = token
+        inputTapThread.updateFilterSnapshot { $0.fusionClickChain = chain }
     }
 
-    func armNaturalDoubleClick(at location: CGPoint, modifiers: CGEventFlags, clickCount: Int64) {
+    func armFusionDoubleClick(at location: CGPoint, modifiers: CGEventFlags, clickCount: Int64) {
         let armed = clickCount == 1
             && modifiers.isDisjoint(with: Self.relevantModifierFlags)
-            && naturalDoubleClickCandidate(at: location) != nil
+            && fusionDoubleClickCandidate(at: location) != nil
         let armedAt: CGPoint? = armed ? location : nil
-        inputTapThread.updateFilterSnapshot { $0.naturalDoubleClickArmedAt = armedAt }
+        inputTapThread.updateFilterSnapshot { $0.fusionDoubleClickArmedAt = armedAt }
     }
 
-    func handleNaturalDoubleClick(at location: CGPoint, modifiers: CGEventFlags, chained: Bool = false) -> Bool {
+    func handleFusionDoubleClick(at location: CGPoint, modifiers: CGEventFlags, chained: Bool = false) -> Bool {
         guard modifiers.isDisjoint(with: Self.relevantModifierFlags),
               !isInputSuppressed,
               !shouldBlockOwnWindowInput(at: location)
         else { return false }
-        guard let target = naturalDoubleClickTarget(at: location),
-              !chained || target.zone == .titleBar && target.window.token == state.naturalClickChainToken
+        guard let target = fusionDoubleClickTarget(at: location),
+              !chained || target.zone == .titleBar && target.window.token == state.fusionClickChainToken
         else { return false }
         clearNativeTitleBarDrag()
-        performNaturalDoubleClick(on: target)
+        performFusionDoubleClick(on: target)
         if target.zone == .titleBar {
-            armNaturalClickChain(at: location, token: target.window.token)
+            armFusionClickChain(at: location, token: target.window.token)
         } else {
-            disarmNaturalClickChain()
+            disarmFusionClickChain()
         }
         state.capturedInteractionButton = .left
         return true
     }
 
-    private struct NaturalDoubleClickCandidate {
-        let hit: NaturalDoubleClickHit
+    private struct FusionDoubleClickCandidate {
+        let hit: FusionDoubleClickHit
         let entry: WindowState
         let engine: NiriLayoutEngine
         let workspaceId: WorkspaceDescriptor.ID
     }
 
-    private struct NaturalDoubleClickTarget {
+    private struct FusionDoubleClickTarget {
         let handle: WindowHandle
         let window: NiriWindow
         let column: NiriContainer
         let workspaceId: WorkspaceDescriptor.ID
-        let zone: NaturalDoubleClickZone
+        let zone: FusionDoubleClickZone
         let projectedWindowCount: Int
     }
 
-    private func naturalDoubleClickCandidate(at location: CGPoint) -> NaturalDoubleClickCandidate? {
+    private func fusionDoubleClickCandidate(at location: CGPoint) -> FusionDoubleClickCandidate? {
         guard let controller,
-              controller.settings.niri.naturalWindowDrag,
+              controller.settings.niri.macOSFusion,
               canHandleManagedMouseInteraction(controller: controller),
               let engine = controller.niriEngine,
               let workspaceId = workspaceIdForPointer(at: location),
               controller.workspaceManager.activeLayoutKind(for: workspaceId) == .niri,
               let monitor = controller.workspaceManager.monitor(for: workspaceId),
               resolvedNiriOrientation(engine: engine, workspaceId: workspaceId, monitor: monitor) == .horizontal,
-              let hit = engine.naturalDoubleClickHit(
+              let hit = engine.fusionDoubleClickHit(
                   at: location,
                   in: workspaceId,
                   gap: controller.niriInteractionGeometry(for: monitor).innerGap,
@@ -115,11 +115,11 @@ extension MouseEventHandler {
               let entry = controller.workspaceManager.entry(for: hit.window.token),
               entry.mode == .tiling
         else { return nil }
-        return NaturalDoubleClickCandidate(hit: hit, entry: entry, engine: engine, workspaceId: workspaceId)
+        return FusionDoubleClickCandidate(hit: hit, entry: entry, engine: engine, workspaceId: workspaceId)
     }
 
     func holdsTitleBarDragStill(at location: CGPoint, windowIdUnderPointer: Int? = nil) -> Bool {
-        guard let candidate = naturalDoubleClickCandidate(at: location),
+        guard let candidate = fusionDoubleClickCandidate(at: location),
               candidate.hit.zone == .titleBar,
               windowIdUnderPointer == nil || windowIdUnderPointer == candidate.entry.windowId,
               TitleBarHitTest.isBareTitleBar(titleBarHitProvider(candidate.entry.pid, location))
@@ -128,11 +128,11 @@ extension MouseEventHandler {
         return true
     }
 
-    private func naturalDoubleClickTarget(at location: CGPoint) -> NaturalDoubleClickTarget? {
+    private func fusionDoubleClickTarget(at location: CGPoint) -> FusionDoubleClickTarget? {
         guard !state.isMoving, !state.isResizing,
               state.capturedInteractionButton == nil,
               state.liveTabPull == nil,
-              let candidate = naturalDoubleClickCandidate(at: location),
+              let candidate = fusionDoubleClickCandidate(at: location),
               let handle = controller?.workspaceManager.handle(for: candidate.hit.window.token),
               let column = candidate.engine.column(of: candidate.hit.window)
         else { return nil }
@@ -141,7 +141,7 @@ extension MouseEventHandler {
         {
             return nil
         }
-        return NaturalDoubleClickTarget(
+        return FusionDoubleClickTarget(
             handle: handle,
             window: candidate.hit.window,
             column: column,
@@ -152,7 +152,7 @@ extension MouseEventHandler {
         )
     }
 
-    private func performNaturalDoubleClick(on target: NaturalDoubleClickTarget) {
+    private func performFusionDoubleClick(on target: FusionDoubleClickTarget) {
         guard let controller, let engine = controller.niriEngine else { return }
         forgetDoubleClickSizesOfGoneWindows(engine: engine, in: target.workspaceId)
         let layout = controller.niriLayoutHandler
@@ -177,7 +177,7 @@ extension MouseEventHandler {
         }
     }
 
-    private func toggleTabbedFromDoubleClick(_ target: NaturalDoubleClickTarget) {
+    private func toggleTabbedFromDoubleClick(_ target: FusionDoubleClickTarget) {
         guard let controller, let engine = controller.niriEngine else { return }
         if !target.column.isTabbed {
             controller.workspaceManager.withEngineMutationScope(in: target.workspaceId) {
@@ -187,17 +187,17 @@ extension MouseEventHandler {
         controller.niriLayoutHandler.toggleColumnTabbed(target: .window(target.handle))
     }
 
-    private func stretchColumnFromDoubleClick(_ target: NaturalDoubleClickTarget, rightSide: Bool) {
+    private func stretchColumnFromDoubleClick(_ target: FusionDoubleClickTarget, rightSide: Bool) {
         guard let controller else { return }
         let columnId = target.column.id
         controller.niriLayoutHandler
             .performWindowSizing(on: .window(target.handle)) { engine, window, context, viewport in
                 guard let column = engine.findColumn(containing: window, in: context.workspaceId) else { return nil }
                 let width = column.targetWidth ?? column.cachedWidth
-                if let stretch = state.naturalDoubleClickWidths[columnId],
+                if let stretch = state.fusionDoubleClickWidths[columnId],
                    stretch.rightSide == rightSide, abs(stretch.stretch.width - width) < 1
                 {
-                    state.naturalDoubleClickWidths[columnId] = nil
+                    state.fusionDoubleClickWidths[columnId] = nil
                     engine.stretchColumn(
                         column,
                         to: ColumnStretch(width: stretch.width, keptSideShift: -stretch.stretch.keptSideShift),
@@ -217,7 +217,7 @@ extension MouseEventHandler {
                     state: viewport
                 ), reach.width > width + 1
                 else { return nil }
-                state.naturalDoubleClickWidths[columnId] = NaturalDoubleClickWidth(
+                state.fusionDoubleClickWidths[columnId] = FusionDoubleClickWidth(
                     workspaceId: context.workspaceId,
                     rightSide: rightSide,
                     width: width,
@@ -231,7 +231,7 @@ extension MouseEventHandler {
             }
     }
 
-    private func toggleFullHeightFromDoubleClick(_ target: NaturalDoubleClickTarget) {
+    private func toggleFullHeightFromDoubleClick(_ target: FusionDoubleClickTarget) {
         guard let controller else { return }
         let token = target.window.token
         let layout = controller.niriLayoutHandler
@@ -239,14 +239,14 @@ extension MouseEventHandler {
             let height = target.window.height
             let restsAtTop = target.window.restsAtTop(of: target.column)
             guard layout.resetWindowSecondarySpan(target: .window(target.handle)) else { return }
-            state.naturalDoubleClickHeights[token] = NaturalDoubleClickHeight(
+            state.fusionDoubleClickHeights[token] = FusionDoubleClickHeight(
                 height: height,
                 revision: target.window.heightRevision,
                 restsAtTop: restsAtTop
             )
             return
         }
-        guard let remembered = state.naturalDoubleClickHeights.removeValue(forKey: token),
+        guard let remembered = state.fusionDoubleClickHeights.removeValue(forKey: token),
               remembered.revision == target.window.heightRevision
         else { return }
         layout.performWindowSizing(on: .window(target.handle)) { _, window, _, _ in
@@ -258,22 +258,22 @@ extension MouseEventHandler {
 
     private func forgetDoubleClickSizesOfGoneWindows(engine: NiriLayoutEngine, in workspaceId: WorkspaceDescriptor.ID) {
         guard let controller else { return }
-        state.naturalDoubleClickHeights = state.naturalDoubleClickHeights.filter {
+        state.fusionDoubleClickHeights = state.fusionDoubleClickHeights.filter {
             controller.workspaceManager.entry(for: $0.key) != nil
         }
-        state.naturalDoubleClickWidths = state.naturalDoubleClickWidths.filter {
+        state.fusionDoubleClickWidths = state.fusionDoubleClickWidths.filter {
             $0.value.workspaceId != workspaceId || engine.findNode(by: $0.key, in: workspaceId) is NiriContainer
         }
     }
 }
 
-struct NaturalDoubleClickHeight {
+struct FusionDoubleClickHeight {
     let height: WeightedSize
     let revision: Int
     let restsAtTop: Bool
 }
 
-struct NaturalDoubleClickWidth {
+struct FusionDoubleClickWidth {
     let workspaceId: WorkspaceDescriptor.ID
     let rightSide: Bool
     let width: CGFloat
@@ -283,7 +283,7 @@ struct NaturalDoubleClickWidth {
     let stretch: ColumnStretch
 }
 
-struct NaturalClickChain: Sendable, Equatable {
+struct FusionClickChain: Sendable, Equatable {
     let location: CGPoint
     let deadline: TimeInterval
 }

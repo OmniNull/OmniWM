@@ -40,7 +40,7 @@ extension DwindleLayoutHandler {
     }
 
     private func forgetNiriStrip(in workspaceId: WorkspaceDescriptor.ID, controller: WMController) {
-        guard controller.settings.niri.naturalWindowDrag,
+        guard controller.settings.niri.macOSFusion,
               let niriEngine = controller.niriEngine,
               niriEngine.root(for: workspaceId) != nil
         else { return }

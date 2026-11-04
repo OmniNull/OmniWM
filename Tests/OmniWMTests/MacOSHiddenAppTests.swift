@@ -204,7 +204,7 @@ final class MacOSHiddenAppTests: XCTestCase {
         XCTAssertGreaterThan(frameReadCount, frameReadsBeforeUnhide)
     }
 
-    func testWithNaturalWindowDragUnhidingAnAppWithAFloatingWindowRescansItSoItsKindIsReadAgain() throws {
+    func testWithMacOSFusionUnhidingAnAppWithAFloatingWindowRescansItSoItsKindIsReadAgain() throws {
         let controller = makeController()
         let workspaceId = try XCTUnwrap(controller.workspaceManager.workspaceId(for: "1", createIfMissing: true))
         let floating = addWindow(pid: 880_021, windowId: 880_121, to: workspaceId, controller: controller)
@@ -221,15 +221,15 @@ final class MacOSHiddenAppTests: XCTestCase {
             controller.axEventHandler.handleAppUnhidden(pid: token.pid, source: .service)
         }
 
-        controller.settings.niri.naturalWindowDrag = true
+        controller.settings.niri.macOSFusion = true
         hideAndUnhide(tiled)
         XCTAssertEqual(rescans(), [])
 
-        controller.settings.niri.naturalWindowDrag = false
+        controller.settings.niri.macOSFusion = false
         hideAndUnhide(floating)
         XCTAssertEqual(rescans(), [])
 
-        controller.settings.niri.naturalWindowDrag = true
+        controller.settings.niri.macOSFusion = true
         hideAndUnhide(floating)
         XCTAssertEqual(rescans(), [.targeted(appPIDs: [floating.pid], nativeSpaceIds: [])])
     }

@@ -171,7 +171,7 @@ extension NiriLayoutHandler {
     }
 
     private func raiseMovingColumn(_ column: NiriContainer, keepingOnTop focused: NiriWindow) {
-        guard let controller, controller.settings.niri.naturalWindowDrag else { return }
+        guard let controller, controller.settings.niri.macOSFusion else { return }
         let raised = column.windowNodes.filter { $0 !== focused && !$0.isHiddenInTabbedMode } + [focused]
         for window in raised {
             guard let entry = controller.workspaceManager.entry(for: window.token),
@@ -226,7 +226,7 @@ extension NiriLayoutHandler {
         withNiriWindowContext(target) { engine, windowNode, context, state in
             let workspaceId = context.workspaceId
             guard let column = engine.column(of: windowNode) else { return }
-            let movesFromRealPlaces = controller.settings.niri.naturalWindowDrag && context.orientation == .horizontal
+            let movesFromRealPlaces = controller.settings.niri.macOSFusion && context.orientation == .horizontal
             let previousPlaces = movesFromRealPlaces ? engine.liveWindowPlaces(in: [column], context: context) : [:]
             let shownTab = column.isTabbed ? engine.projectedActiveWindow(in: column, workspaceId: workspaceId) : nil
             guard engine.toggleColumnTabbed(

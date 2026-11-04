@@ -97,7 +97,7 @@ final class ViewportGestureTests: XCTestCase {
         XCTAssertEqual(220 + state.viewOffset, 170)
     }
 
-    func testWithNaturalWindowDragAFlingPastTheEndRestsAGapBeyondTheLastColumn() {
+    func testWithMacOSFusionAFlingPastTheEndRestsAGapBeyondTheLastColumn() {
         var state = makeState()
         state.endGesture(
             currentOffset: 30,
@@ -135,7 +135,7 @@ final class ViewportGestureTests: XCTestCase {
         XCTAssertEqual(220 + state.viewOffset, 260)
     }
 
-    func testWithNaturalWindowDragAFlingPastTheStartRestsAGapBeforeTheFirstColumn() {
+    func testWithMacOSFusionAFlingPastTheStartRestsAGapBeforeTheFirstColumn() {
         var state = makeState(activeColumnIndex: 1, viewOffset: 0)
         state.endGesture(
             currentOffset: -30,

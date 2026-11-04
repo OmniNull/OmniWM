@@ -2953,46 +2953,46 @@ final class NativeResizeAdoptionTests: NiriInteractionTestCase {
     }
 
     func testUndoResizeGivesALoneFilledWindowItsFillFrameBack() throws {
-        for (index, natural) in [false, true].enumerated() {
+        for (index, fusion) in [false, true].enumerated() {
             let fixture = try makeFixture(.niri, windowCount: 1, pid: pid_t(834_081 + index))
-            fixture.controller.settings.gestures.adoptNativeResize = !natural
-            fixture.controller.settings.niri.naturalWindowDrag = natural
+            fixture.controller.settings.gestures.adoptNativeResize = !fusion
+            fixture.controller.settings.niri.macOSFusion = fusion
             fixture.controller.motionPolicy.animationsEnabled = false
             let blocker = blockRefreshes(fixture)
             defer { unblockRefreshes(fixture, blocker: blocker) }
             let token = fixture.tokens[0]
             let before = try fixture.frames()
             try fixture.release(token, at: grown(try fixture.frame(token), right: -300))
-            XCTAssertNotEqual(try fixture.frames(), before, "natural=\(natural)")
-            guard natural else {
+            XCTAssertNotEqual(try fixture.frames(), before, "fusion=\(fusion)")
+            guard fusion else {
                 XCTAssertFalse(fixture.handler.undoNativeResize(on: try fixture.target(token)))
                 continue
             }
 
-            XCTAssertTrue(fixture.handler.undoNativeResize(on: try fixture.target(token)), "natural=\(natural)")
+            XCTAssertTrue(fixture.handler.undoNativeResize(on: try fixture.target(token)), "fusion=\(fusion)")
 
-            XCTAssertFalse(try fixture.column(token).hasManualSingleWindowWidthOverride, "natural=\(natural)")
-            XCTAssertEqual(try fixture.frames(), before, "natural=\(natural)")
-            XCTAssertFalse(fixture.handler.undoNativeResize(on: try fixture.target(token)), "natural=\(natural)")
+            XCTAssertFalse(try fixture.column(token).hasManualSingleWindowWidthOverride, "fusion=\(fusion)")
+            XCTAssertEqual(try fixture.frames(), before, "fusion=\(fusion)")
+            XCTAssertFalse(fixture.handler.undoNativeResize(on: try fixture.target(token)), "fusion=\(fusion)")
         }
     }
 
-    func testUndoResizeIsRegisteredOnlyWithNaturalWindowDragAndKeepsItsBinding() throws {
+    func testUndoResizeIsRegisteredOnlyWithMacOSFusionAndKeepsItsBinding() throws {
         let fixture = try makeFixture(.niri, pid: 834_090)
         let controller = fixture.controller
         let registered = { controller.hotkeys.configuration.bindings.contains { $0.id == "undoResize" } }
         XCTAssertNotNil(controller.settings.hotkeyBindings.first { $0.id == "undoResize" })
 
-        controller.settings.niri.naturalWindowDrag = false
-        controller.applyNaturalWindowDragSettings()
+        controller.settings.niri.macOSFusion = false
+        controller.applyMacOSFusionSettings()
         XCTAssertFalse(controller.settings.isCommandFeatureEnabled(.sizing(.undoResize)))
         let undo = try XCTUnwrap(controller.settings.hotkeyBindings.first { $0.id == "undoResize" })
         XCTAssertTrue(controller.settings.findConflicts(for: undo.binding, excluding: "other").isEmpty)
         XCTAssertFalse(registered())
         XCTAssertNotNil(controller.settings.hotkeyBindings.first { $0.id == "undoResize" })
 
-        controller.settings.niri.naturalWindowDrag = true
-        controller.applyNaturalWindowDragSettings()
+        controller.settings.niri.macOSFusion = true
+        controller.applyMacOSFusionSettings()
         XCTAssertTrue(controller.settings.isCommandFeatureEnabled(.sizing(.undoResize)))
         XCTAssertEqual(
             controller.settings.findConflicts(for: undo.binding, excluding: "other").map(\.id),
@@ -3019,7 +3019,7 @@ final class NativeResizeAdoptionTests: NiriInteractionTestCase {
     func testUndoResizeActsOnTheFocusedWindow() throws {
         let fixture = try makeFixture(.niri, windowCount: 1, pid: 834_083)
         fixture.controller.settings.gestures.adoptNativeResize = false
-        fixture.controller.settings.niri.naturalWindowDrag = true
+        fixture.controller.settings.niri.macOSFusion = true
         fixture.controller.motionPolicy.animationsEnabled = false
         let blocker = blockRefreshes(fixture)
         defer { unblockRefreshes(fixture, blocker: blocker) }
@@ -3036,7 +3036,7 @@ final class NativeResizeAdoptionTests: NiriInteractionTestCase {
 
     func testUndoResizeGivesAColumnItsWidthBackAndLeavesTheOthers() throws {
         let fixture = try makeFixture(.niri, pid: 834_084)
-        fixture.controller.settings.niri.naturalWindowDrag = true
+        fixture.controller.settings.niri.macOSFusion = true
         fixture.controller.motionPolicy.animationsEnabled = false
         let blocker = blockRefreshes(fixture)
         defer { unblockRefreshes(fixture, blocker: blocker) }
@@ -3058,7 +3058,7 @@ final class NativeResizeAdoptionTests: NiriInteractionTestCase {
 
     func testUndoResizeGivesAStackBothHeightsBack() throws {
         let fixture = try makeFixture(.niri, stacked: true, pid: 834_085)
-        fixture.controller.settings.niri.naturalWindowDrag = true
+        fixture.controller.settings.niri.macOSFusion = true
         fixture.controller.motionPolicy.animationsEnabled = false
         let blocker = blockRefreshes(fixture)
         defer { unblockRefreshes(fixture, blocker: blocker) }

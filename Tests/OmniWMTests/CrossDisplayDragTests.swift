@@ -775,9 +775,9 @@ final class CrossDisplayDragTests: XCTestCase {
         }
     }
 
-    func testALiveNaturalDragHandsOverToTheNativeMoveOnADwindleDisplay() throws {
+    func testALiveFusionDragHandsOverToTheNativeMoveOnADwindleDisplay() throws {
         let fixture = try makeNativeFixture([.niri, .dwindle])
-        fixture.controller.settings.niri.naturalWindowDrag = true
+        fixture.controller.settings.niri.macOSFusion = true
         let moved = addWindow(1, to: fixture.source, fixture)
         let neighbour = addWindow(2, to: fixture.source, fixture)
         let resident = addWindow(3, to: fixture.target, fixture)
@@ -809,7 +809,7 @@ final class CrossDisplayDragTests: XCTestCase {
 
     func testAPortraitNiriDisplayGetsTheHandOverWithoutRestartingTheLiveDrag() throws {
         let fixture = try makeNativeFixture([.niri, .niri])
-        fixture.controller.settings.niri.naturalWindowDrag = true
+        fixture.controller.settings.niri.macOSFusion = true
         let portrait = fixture.monitors[1]
         fixture.controller.settings.monitors.updateOrientationSettings(
             MonitorOrientationSettings(
@@ -844,7 +844,7 @@ final class CrossDisplayDragTests: XCTestCase {
 
     func testALiveDragReleasedOnAnotherDisplayBeforeADragEventThereDoesNotStayLive() throws {
         let fixture = try makeNativeFixture([.niri, .niri])
-        fixture.controller.settings.niri.naturalWindowDrag = true
+        fixture.controller.settings.niri.macOSFusion = true
         let moved = addWindow(1, to: fixture.source, fixture)
         _ = addWindow(2, to: fixture.source, fixture)
         let resident = addWindow(3, to: fixture.target, fixture)
@@ -1031,7 +1031,7 @@ final class CrossDisplayDragTests: XCTestCase {
     func testALiveCarryOfAnUnselectedWindowKeepsTheNativeMovesFocusPolicy() throws {
         for follows in [false, true] {
             let fixture = try makeNativeFixture([.niri, .niri])
-            fixture.controller.settings.niri.naturalWindowDrag = true
+            fixture.controller.settings.niri.macOSFusion = true
             fixture.controller.settings.focus.followsWindowToMonitor = follows
             let moved = addWindow(1, to: fixture.source, fixture)
             _ = addWindow(2, to: fixture.source, fixture)

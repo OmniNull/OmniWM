@@ -26,7 +26,7 @@ final class NiriCornerDisplayOverflowTests: XCTestCase {
     func testAColumnPastAnEdgeThatOnlyMeetsAnotherDisplayAtACornerStaysShowing() throws {
         let fixture = makeFixture(
             neighbour: CGRect(x: 0, y: 0, width: 3360, height: 1890),
-            naturalWindowDrag: true
+            macOSFusion: true
         )
 
         let layout = layout(fixture, active: 3, offset: -331)
@@ -47,7 +47,7 @@ final class NiriCornerDisplayOverflowTests: XCTestCase {
     func testThePeekPastACornerEdgeStaysShowing() {
         let fixture = makeFixture(
             neighbour: CGRect(x: 0, y: 0, width: 3360, height: 1890),
-            naturalWindowDrag: true
+            macOSFusion: true
         )
 
         let layout = layout(fixture, active: 2, offset: -61)
@@ -58,7 +58,7 @@ final class NiriCornerDisplayOverflowTests: XCTestCase {
     func testAColumnPastAnEdgeSharedWithAnotherDisplayIsStillHidden() {
         let fixture = makeFixture(
             neighbour: CGRect(x: 0, y: 1500, width: 3360, height: 1890),
-            naturalWindowDrag: true
+            macOSFusion: true
         )
 
         let layout = layout(fixture, active: 3, offset: -331)
@@ -66,10 +66,10 @@ final class NiriCornerDisplayOverflowTests: XCTestCase {
         XCTAssertEqual(layout.hiddenHandles[fixture.tokens[2]], .left)
     }
 
-    func testWithoutNaturalWindowDragACornerDisplayStillHidesTheColumn() {
+    func testWithoutMacOSFusionACornerDisplayStillHidesTheColumn() {
         let fixture = makeFixture(
             neighbour: CGRect(x: 0, y: 0, width: 3360, height: 1890),
-            naturalWindowDrag: false
+            macOSFusion: false
         )
 
         let layout = layout(fixture, active: 3, offset: -331)
@@ -99,11 +99,11 @@ final class NiriCornerDisplayOverflowTests: XCTestCase {
         )
     }
 
-    private func makeFixture(neighbour: CGRect, naturalWindowDrag: Bool) -> Fixture {
+    private func makeFixture(neighbour: CGRect, macOSFusion: Bool) -> Fixture {
         let engine = NiriLayoutEngine()
         engine.updateConfiguration(
             centerFocusedColumn: .onOverflow,
-            naturalWindowDrag: .init(enabled: naturalWindowDrag)
+            macOSFusion: .init(enabled: macOSFusion)
         )
         let other = Monitor(
             id: Monitor.ID(displayId: 2), displayId: 2, frame: neighbour, visibleFrame: neighbour,

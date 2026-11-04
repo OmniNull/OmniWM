@@ -223,7 +223,7 @@ extension CommandHandler {
         case .balanceSizes:
             layoutHandler(as: LayoutSizable.self)?.balanceSizes()
         case .undoResize:
-            guard controller.settings.niri.naturalWindowDrag else { return .executed }
+            guard controller.settings.niri.macOSFusion else { return .executed }
             controller.mouseEventHandler.undoNativeResize(on: .focused)
         }
         return .executed

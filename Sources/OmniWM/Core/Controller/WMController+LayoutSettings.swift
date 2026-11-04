@@ -83,7 +83,7 @@ extension WMController {
         containerPrimarySpanPresets: [Double]? = nil,
         defaultContainerPrimarySpan: Double?? = nil,
         shrinkToFit: Bool? = nil,
-        naturalWindowDrag: NaturalWindowDragConfiguration? = nil
+        macOSFusion: MacOSFusionConfiguration? = nil
     ) {
         niriLayoutHandler.updateNiriConfig(
             visibleContainerCount: visibleContainerCount,
@@ -95,7 +95,7 @@ extension WMController {
             containerPrimarySpanPresets: containerPrimarySpanPresets,
             defaultContainerPrimarySpan: defaultContainerPrimarySpan,
             shrinkToFit: shrinkToFit,
-            naturalWindowDrag: naturalWindowDrag
+            macOSFusion: macOSFusion
         )
     }
 

@@ -26,7 +26,7 @@ final class CommandPaletteCommandSearchTests: XCTestCase {
 
     func testBuildIncludesAllCatalogActionsAndUsesCurrentShortcutBindings() throws {
         let controller = makeController()
-        controller.settings.niri.naturalWindowDrag = true
+        controller.settings.niri.macOSFusion = true
         let binding = KeyBinding(keyCode: UInt32(kVK_ANSI_Z), modifiers: UInt32(controlKey | optionKey))
         controller.settings.updateBinding(for: "openCommandPalette", newBinding: binding)
 

@@ -6,7 +6,7 @@ extension SettingsStore {
         switch command {
         case .presentation(.overview): overview.enabled
         case .presentation(.quakeTerminal): quakeTerminal.enabled
-        case .sizing(.undoResize): niri.naturalWindowDrag
+        case .sizing(.undoResize): niri.macOSFusion
         default: true
         }
     }
@@ -44,7 +44,7 @@ extension SettingsStore {
     func findConflicts(for trigger: HotkeyTrigger, excluding commandId: String) -> [HotkeyBinding] {
         hotkeyBindings.filter { hotkeyBinding in
             hotkeyBinding.id != commandId &&
-                (hotkeyBinding.command != .sizing(.undoResize) || niri.naturalWindowDrag) &&
+                (hotkeyBinding.command != .sizing(.undoResize) || niri.macOSFusion) &&
                 hotkeyBinding.binding.conflicts(with: trigger)
         }
     }

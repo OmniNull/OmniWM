@@ -11,7 +11,7 @@ private final class ClickClock {
 }
 
 @MainActor
-final class NaturalDoubleClickTests: NiriInteractionTestCase {
+final class FusionDoubleClickTests: NiriInteractionTestCase {
     @MainActor
     private struct Fixture {
         let controller: WMController
@@ -126,8 +126,8 @@ final class NaturalDoubleClickTests: NiriInteractionTestCase {
     func testTheZoneIsAnEdgeBandInsideOrOutsideTheFrameButNeverACorner() {
         let frame = CGRect(x: 100, y: 100, width: 400, height: 300)
         let bounds = CGRect(x: 0, y: 0, width: 1000, height: 1000)
-        func zone(_ x: CGFloat, _ y: CGFloat, gap: CGFloat = 16) -> NaturalDoubleClickZone? {
-            NiriLayoutEngine.naturalDoubleClickZone(at: CGPoint(x: x, y: y), in: frame, gap: gap, bounds: bounds)
+        func zone(_ x: CGFloat, _ y: CGFloat, gap: CGFloat = 16) -> FusionDoubleClickZone? {
+            NiriLayoutEngine.fusionDoubleClickZone(at: CGPoint(x: x, y: y), in: frame, gap: gap, bounds: bounds)
         }
 
         XCTAssertEqual(zone(300, 399), .edge(.top))
@@ -148,17 +148,17 @@ final class NaturalDoubleClickTests: NiriInteractionTestCase {
         let open = CGRect(x: 0, y: 0, width: 1000, height: 1000)
 
         XCTAssertEqual(
-            NiriLayoutEngine.naturalDoubleClickZone(at: CGPoint(x: 300, y: 402), in: frame, gap: 6, bounds: open),
+            NiriLayoutEngine.fusionDoubleClickZone(at: CGPoint(x: 300, y: 402), in: frame, gap: 6, bounds: open),
             .edge(.top)
         )
         XCTAssertNil(
-            NiriLayoutEngine.naturalDoubleClickZone(at: CGPoint(x: 300, y: 404), in: frame, gap: 6, bounds: open)
+            NiriLayoutEngine.fusionDoubleClickZone(at: CGPoint(x: 300, y: 404), in: frame, gap: 6, bounds: open)
         )
         XCTAssertNil(
-            NiriLayoutEngine.naturalDoubleClickZone(at: CGPoint(x: 300, y: 402), in: frame, gap: 0, bounds: open)
+            NiriLayoutEngine.fusionDoubleClickZone(at: CGPoint(x: 300, y: 402), in: frame, gap: 0, bounds: open)
         )
         XCTAssertNil(
-            NiriLayoutEngine.naturalDoubleClickZone(
+            NiriLayoutEngine.fusionDoubleClickZone(
                 at: CGPoint(x: 300, y: 402),
                 in: frame,
                 gap: 16,
@@ -170,8 +170,8 @@ final class NaturalDoubleClickTests: NiriInteractionTestCase {
     func testTheTitleZoneIsBelowTheTopBandWithinItsDepthAndTheBodyIsNoZone() {
         let frame = CGRect(x: 100, y: 100, width: 400, height: 300)
         let bounds = CGRect(x: 0, y: 0, width: 1000, height: 1000)
-        func zone(_ y: CGFloat) -> NaturalDoubleClickZone? {
-            NiriLayoutEngine.naturalDoubleClickZone(at: CGPoint(x: 300, y: y), in: frame, gap: 16, bounds: bounds)
+        func zone(_ y: CGFloat) -> FusionDoubleClickZone? {
+            NiriLayoutEngine.fusionDoubleClickZone(at: CGPoint(x: 300, y: y), in: frame, gap: 16, bounds: bounds)
         }
 
         XCTAssertEqual(zone(395), .titleBar)
@@ -180,19 +180,19 @@ final class NaturalDoubleClickTests: NiriInteractionTestCase {
         XCTAssertNil(zone(250))
     }
 
-    func testTheTapAsksAboutPlainDoubleClicksOnlyWithNaturalDragOn() {
+    func testTheTapAsksAboutPlainDoubleClicksOnlyWithMacOSFusionOn() {
         let option = CGEventFlags.maskAlternate
         let point = CGPoint(x: 400, y: 300)
         func asks(
             _ clickCount: Int64,
             _ flags: CGEventFlags = [],
-            naturalWindowDrag: Bool = true,
+            macOSFusion: Bool = true,
             armedAt: CGPoint? = point
         ) -> Bool {
-            MouseEventHandler.asksAboutNaturalDoubleClick(
+            MouseEventHandler.asksAboutFusionDoubleClick(
                 clickCount: clickCount,
                 flags: flags,
-                naturalWindowDrag: naturalWindowDrag,
+                macOSFusion: macOSFusion,
                 armedAt: armedAt,
                 location: point
             )
@@ -204,7 +204,7 @@ final class NaturalDoubleClickTests: NiriInteractionTestCase {
         XCTAssertFalse(asks(3))
         XCTAssertFalse(asks(2, option))
         XCTAssertFalse(asks(2, .maskCommand))
-        XCTAssertFalse(asks(2, naturalWindowDrag: false))
+        XCTAssertFalse(asks(2, macOSFusion: false))
         XCTAssertFalse(asks(2, armedAt: nil))
         XCTAssertFalse(asks(2, armedAt: CGPoint(x: 420, y: 300)))
         XCTAssertTrue(asks(2, armedAt: CGPoint(x: 404, y: 303)))
@@ -216,13 +216,13 @@ final class NaturalDoubleClickTests: NiriInteractionTestCase {
         let edge = try fixture.rightEdge(fixture.tokens[1])
 
         fixture.handler.receiveTapMouseDown(at: edge, modifiers: [], clickCount: 1)
-        XCTAssertEqual(fixture.handler.inputTapThread.filterSnapshot.naturalDoubleClickArmedAt, edge)
+        XCTAssertEqual(fixture.handler.inputTapThread.filterSnapshot.fusionDoubleClickArmedAt, edge)
 
         fixture.handler.receiveTapMouseDown(at: CGPoint(x: frame.midX, y: frame.midY), modifiers: [], clickCount: 1)
-        XCTAssertNil(fixture.handler.inputTapThread.filterSnapshot.naturalDoubleClickArmedAt)
+        XCTAssertNil(fixture.handler.inputTapThread.filterSnapshot.fusionDoubleClickArmedAt)
 
         fixture.handler.receiveTapMouseDown(at: edge, modifiers: .maskAlternate, clickCount: 1)
-        XCTAssertNil(fixture.handler.inputTapThread.filterSnapshot.naturalDoubleClickArmedAt)
+        XCTAssertNil(fixture.handler.inputTapThread.filterSnapshot.fusionDoubleClickArmedAt)
     }
 
     func testWithoutABarOnlyWindowBackgroundCountsAsTheTitleBar() {
@@ -377,7 +377,7 @@ final class NaturalDoubleClickTests: NiriInteractionTestCase {
         XCTAssertEqual(other.height, stacked[0].height, accuracy: 4)
     }
 
-    func testTheTabbedCommandAlsoSnapsTheOtherWindowsInWithNaturalDragOn() throws {
+    func testTheTabbedCommandAlsoSnapsTheOtherWindowsInWithMacOSFusionOn() throws {
         let fixture = try makeFixture(pid: 941_026, stackFirstTwo: true)
         let column = try fixture.column(fixture.tokens[0])
         let stacked = try fixture.tokens[0 ..< 2].map { try fixture.frame($0) }
@@ -432,17 +432,17 @@ final class NaturalDoubleClickTests: NiriInteractionTestCase {
 
     func testWithTheStackModifierOffTheTapStillAsksAboutDoubleClicks() throws {
         let fixture = try makeFixture(pid: 941_091)
-        fixture.controller.settings.niri.naturalWindowDragModifier = .off
+        fixture.controller.settings.niri.macOSFusionModifier = .off
         fixture.handler.syncTapFilterSnapshot()
         let snapshot = fixture.handler.inputTapThread.filterSnapshot
-        XCTAssertNil(snapshot.naturalDragModifier)
-        XCTAssertTrue(snapshot.naturalWindowDrag)
+        XCTAssertNil(snapshot.fusionDragModifier)
+        XCTAssertTrue(snapshot.macOSFusion)
         let edge = try fixture.rightEdge(fixture.tokens[1])
 
-        XCTAssertTrue(MouseEventHandler.asksAboutNaturalDoubleClick(
+        XCTAssertTrue(MouseEventHandler.asksAboutFusionDoubleClick(
             clickCount: 2,
             flags: [],
-            naturalWindowDrag: snapshot.naturalWindowDrag,
+            macOSFusion: snapshot.macOSFusion,
             armedAt: edge,
             location: edge
         ))
@@ -599,7 +599,7 @@ final class NaturalDoubleClickTests: NiriInteractionTestCase {
         XCTAssertNotEqual(column.width, width)
     }
 
-    func testWithNaturalDragTheCycleSizeKeysUndoAKeptEdgeResizeFirst() throws {
+    func testWithMacOSFusionTheCycleSizeKeysUndoAKeptEdgeResizeFirst() throws {
         for forward in [true, false] {
             let fixture = try makeFixture(pid: forward ? 941_127 : 941_128)
             let token = fixture.tokens[1]
@@ -703,7 +703,7 @@ final class NaturalDoubleClickTests: NiriInteractionTestCase {
         let presets = fixture.engine.presetContainerPrimarySpans.count
 
         XCTAssertTrue(fixture.doubleClick(at: point))
-        XCTAssertNotNil(fixture.handler.inputTapThread.filterSnapshot.naturalClickChain)
+        XCTAssertNotNil(fixture.handler.inputTapThread.filterSnapshot.fusionClickChain)
         var widths = [column.width]
         for _ in 1 ..< presets {
             XCTAssertTrue(fixture.doubleClick(at: point, clickCount: 1))
@@ -716,13 +716,13 @@ final class NaturalDoubleClickTests: NiriInteractionTestCase {
     func testTheClickChainEndsAfterASecond() throws {
         let fixture = try makeFixture(pid: 941_121)
         let clock = ClickClock()
-        fixture.handler.naturalClickClock = { clock.now }
+        fixture.handler.fusionClickClock = { clock.now }
         let column = try fixture.column(fixture.tokens[1])
         let point = try fixture.titleBar(fixture.tokens[1])
         XCTAssertTrue(fixture.doubleClick(at: point))
         let width = column.width
 
-        clock.now += MouseEventHandler.naturalClickChainWindow + 0.1
+        clock.now += MouseEventHandler.fusionClickChainWindow + 0.1
 
         XCTAssertFalse(fixture.doubleClick(at: point, clickCount: 1))
         XCTAssertEqual(column.width, width)
@@ -736,7 +736,7 @@ final class NaturalDoubleClickTests: NiriInteractionTestCase {
 
         XCTAssertTrue(fixture.doubleClick(at: point))
         XCTAssertFalse(fixture.doubleClick(at: CGPoint(x: other.midX, y: other.midY), clickCount: 1))
-        XCTAssertNil(fixture.handler.inputTapThread.filterSnapshot.naturalClickChain)
+        XCTAssertNil(fixture.handler.inputTapThread.filterSnapshot.fusionClickChain)
         let width = column.width
         XCTAssertFalse(fixture.doubleClick(at: point, clickCount: 1))
         XCTAssertEqual(column.width, width)
@@ -805,9 +805,9 @@ final class NaturalDoubleClickTests: NiriInteractionTestCase {
     }
 
     func testTheTapAsksAboutAChainClickOnlyAtTheSameSpotWithinASecond() {
-        let chain = NaturalClickChain(location: CGPoint(x: 100, y: 100), deadline: 10)
-        func asks(_ chain: NaturalClickChain?, flags: CGEventFlags = [], at point: CGPoint, now: TimeInterval) -> Bool {
-            MouseEventHandler.continuesNaturalClickChain(chain, flags: flags, location: point, now: now)
+        let chain = FusionClickChain(location: CGPoint(x: 100, y: 100), deadline: 10)
+        func asks(_ chain: FusionClickChain?, flags: CGEventFlags = [], at point: CGPoint, now: TimeInterval) -> Bool {
+            MouseEventHandler.continuesFusionClickChain(chain, flags: flags, location: point, now: now)
         }
 
         XCTAssertTrue(asks(chain, at: CGPoint(x: 104, y: 100), now: 9.5))
@@ -817,7 +817,7 @@ final class NaturalDoubleClickTests: NiriInteractionTestCase {
         XCTAssertFalse(asks(nil, at: CGPoint(x: 100, y: 100), now: 9.5))
     }
 
-    func testWithNaturalDragTheCycleSizeKeysResizeAroundTheCentre() throws {
+    func testWithMacOSFusionTheCycleSizeKeysResizeAroundTheCentre() throws {
         let fixture = try makeFixture(pid: 941_123)
         let token = fixture.tokens[1]
         let sides = fixture.screenSides
@@ -840,11 +840,11 @@ final class NaturalDoubleClickTests: NiriInteractionTestCase {
         }
     }
 
-    func testWithoutNaturalDragTheCycleSizeKeysKeepUpstreamsResize() throws {
+    func testWithoutMacOSFusionTheCycleSizeKeysKeepUpstreamsResize() throws {
         let keyed = try makeFixture(pid: 941_124)
         let upstream = try makeFixture(pid: 941_125)
         for fixture in [keyed, upstream] {
-            fixture.controller.settings.niri.naturalWindowDrag = false
+            fixture.controller.settings.niri.macOSFusion = false
             try fixture.select(fixture.tokens[1])
         }
 
@@ -944,9 +944,9 @@ final class NaturalDoubleClickTests: NiriInteractionTestCase {
     }
 
     func testTheCycleSizeKeysFollowThePresetsInTheUsersOrder() throws {
-        for naturalWindowDrag in [true, false] {
-            let fixture = try makeFixture(pid: naturalWindowDrag ? 941_134 : 941_135)
-            fixture.controller.settings.niri.naturalWindowDrag = naturalWindowDrag
+        for macOSFusion in [true, false] {
+            let fixture = try makeFixture(pid: macOSFusion ? 941_134 : 941_135)
+            fixture.controller.settings.niri.macOSFusion = macOSFusion
             fixture.engine.presetContainerPrimarySpans = [
                 .proportion(2.0 / 3.0),
                 .proportion(0.5),
@@ -963,7 +963,7 @@ final class NaturalDoubleClickTests: NiriInteractionTestCase {
             fixture.controller.niriLayoutHandler.cycleSize(forward: true)
             fixture.relayout()
 
-            XCTAssertEqual(column.width, .proportion(0.5), "\(naturalWindowDrag)")
+            XCTAssertEqual(column.width, .proportion(0.5), "\(macOSFusion)")
         }
     }
 
@@ -1104,11 +1104,11 @@ final class NaturalDoubleClickTests: NiriInteractionTestCase {
         let column = try fixture.column(fixture.tokens[1])
         let width = column.width
 
-        fixture.controller.settings.niri.naturalWindowDrag = false
+        fixture.controller.settings.niri.macOSFusion = false
         XCTAssertFalse(fixture.doubleClick(at: try fixture.titleBar(fixture.tokens[1])))
         XCTAssertFalse(fixture.doubleClick(at: try fixture.rightEdge(fixture.tokens[1])))
 
-        fixture.controller.settings.niri.naturalWindowDrag = true
+        fixture.controller.settings.niri.macOSFusion = true
         fixture.controller.settings.workspaces.configurations = [
             WorkspaceConfiguration(
                 name: "1",
@@ -1138,7 +1138,7 @@ final class NaturalDoubleClickTests: NiriInteractionTestCase {
     }
 
     private func makeFixture(pid: pid_t, windowCount: Int = 3, stackFirstTwo: Bool = false) throws -> Fixture {
-        let controller = WindowAdmissionTestSupport.controller(prefix: "NaturalDoubleClickTests")
+        let controller = WindowAdmissionTestSupport.controller(prefix: "FusionDoubleClickTests")
         addTeardownBlock { @MainActor [controller] in
             controller.hasStartedServices = false
             controller.layoutRefreshController.resetState()
@@ -1153,9 +1153,9 @@ final class NaturalDoubleClickTests: NiriInteractionTestCase {
             frame: workingFrame,
             visibleFrame: workingFrame,
             hasNotch: false,
-            name: "Natural Double Click"
+            name: "Fusion Double Click"
         )
-        controller.settings.niri.naturalWindowDrag = true
+        controller.settings.niri.macOSFusion = true
         controller.settings.workspaces.configurations = [
             WorkspaceConfiguration(
                 name: "1",

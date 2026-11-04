@@ -9,7 +9,7 @@ extension MouseEventHandler {
         guard let token = drag.token,
               !isLiveColumnDragActive,
               let controller,
-              controller.settings.niri.naturalWindowDrag,
+              controller.settings.niri.macOSFusion,
               let entry = controller.workspaceManager.entry(for: token),
               controller.workspaceManager.activeLayoutKind(for: entry.workspaceId) == .niri,
               let engine = controller.niriEngine,

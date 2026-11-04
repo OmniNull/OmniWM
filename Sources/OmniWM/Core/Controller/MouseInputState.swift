@@ -142,10 +142,10 @@ struct MouseInputState {
     var liveEdgeScroll: LiveEdgeScroll?
     var liveEdgeZoneHold: LiveEdgeZoneHold?
     var deferredClickScroll: WindowToken?
-    var naturalDoubleClickHeights: [WindowToken: NaturalDoubleClickHeight] = [:]
-    var naturalDoubleClickWidths: [NodeId: NaturalDoubleClickWidth] = [:]
-    var naturalClickChain: NaturalClickChain?
-    var naturalClickChainToken: WindowToken?
+    var fusionDoubleClickHeights: [WindowToken: FusionDoubleClickHeight] = [:]
+    var fusionDoubleClickWidths: [NodeId: FusionDoubleClickWidth] = [:]
+    var fusionClickChain: FusionClickChain?
+    var fusionClickChainToken: WindowToken?
     var nativeResizeUndos: [WindowToken: NativeResizeUndo] = [:]
     var activeInteractionSource: InteractionSource?
     var activeInteractionButton: MouseEventHandler.MouseButton? {

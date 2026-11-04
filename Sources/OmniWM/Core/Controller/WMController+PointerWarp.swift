@@ -30,10 +30,10 @@ extension WMController {
     func publishPointerEdgeTopology() {
         let monitors = workspaceManager.monitors
         var topology = PointerEdgeTopology()
-        topology.isEnabled = isEnabled && (settings.pointer.enabled || settings.niri.naturalWindowDrag)
+        topology.isEnabled = isEnabled && (settings.pointer.enabled || settings.niri.macOSFusion)
             && monitors.count > 1 && !mouseEventHandler.isInputSuppressed
         topology.warpsPointer = settings.pointer.enabled
-        pointerEdgeBarrier.setTracksLiveDrags(settings.niri.naturalWindowDrag)
+        pointerEdgeBarrier.setTracksLiveDrags(settings.niri.macOSFusion)
         guard topology.isEnabled else {
             pointerEdgeBarrier.publish(topology)
             return

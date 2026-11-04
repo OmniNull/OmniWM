@@ -110,16 +110,16 @@ enum SettingsSearchIndex {
         setting("Single Window", section: .layouts, tab: "niri", anchor: "Niri Layout"),
         setting("Resize Increment", section: .layouts, tab: "niri", anchor: "Resize Increment"),
         setting(
-            "Natural Window Drag & Drop",
+            "macOS Fusion",
             section: .layouts,
             tab: "niri",
-            anchor: "Natural Window Drag & Drop"
+            anchor: "macOS Fusion"
         ),
         setting(
-            "Left Mouse Natural Window Drag Modifier",
+            "Left Mouse macOS Fusion Modifier",
             section: .layouts,
             tab: "niri",
-            anchor: "Left Mouse Natural Window Drag Modifier"
+            anchor: "Left Mouse macOS Fusion Modifier"
         ),
         setting("Peek at Neighboring Windows", section: .layouts, tab: "niri", anchor: "Peek at Neighboring Windows"),
         setting("Peek Width", section: .layouts, tab: "niri", anchor: "Peek Width"),

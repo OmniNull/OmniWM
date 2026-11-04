@@ -472,7 +472,7 @@ extension CrossDisplayDragTests {
 
     func testBackFromAHandOverTheLiveDragResumesOnItsOwnDisplay() throws {
         let fixture = try makeNativeFixture([.niri, .dwindle])
-        fixture.controller.settings.niri.naturalWindowDrag = true
+        fixture.controller.settings.niri.macOSFusion = true
         fixture.handler.liveDragModifierCapture.installsEventTap = false
         fixture.niri.moveConfiguration.liveHoverDelay = 0
         let moved = addWindow(1, to: fixture.source, fixture)
@@ -499,7 +499,7 @@ extension CrossDisplayDragTests {
 
     func testFromAHandOverOntoAnotherLiveStripTheDragIsCarried() throws {
         let fixture = try makeNativeFixture([.niri, .dwindle, .niri])
-        fixture.controller.settings.niri.naturalWindowDrag = true
+        fixture.controller.settings.niri.macOSFusion = true
         fixture.handler.liveDragModifierCapture.installsEventTap = false
         fixture.niri.moveConfiguration.liveHoverDelay = 0
         let moved = addWindow(1, to: fixture.workspaces[0], fixture)
@@ -653,7 +653,7 @@ extension CrossDisplayDragTests {
 
     private func makeLiveFixture(_ layouts: [LayoutType]) throws -> Fixture {
         let fixture = try makeNativeFixture(layouts)
-        fixture.controller.settings.niri.naturalWindowDrag = true
+        fixture.controller.settings.niri.macOSFusion = true
         fixture.handler.liveDragModifierCapture.installsEventTap = false
         fixture.niri.moveConfiguration.liveHoverDelay = 0
         return fixture
@@ -682,7 +682,7 @@ extension CrossDisplayDragTests {
 
     private func startLiveTabbedColumnDrag() throws -> LiveTabbedColumnDrag {
         let fixture = try makeNativeFixture([.niri, .niri])
-        fixture.controller.settings.niri.naturalWindowDrag = true
+        fixture.controller.settings.niri.macOSFusion = true
         fixture.handler.liveDragModifierCapture.installsEventTap = false
         fixture.niri.moveConfiguration.liveHoverDelay = 0
         let first = addWindow(1, to: fixture.source, fixture)
@@ -727,7 +727,7 @@ extension CrossDisplayDragTests {
         movedHeight: WeightedSize? = nil
     ) throws -> LiveTwoDisplayDrag {
         let fixture = try makeNativeFixture([.niri, .niri])
-        fixture.controller.settings.niri.naturalWindowDrag = true
+        fixture.controller.settings.niri.macOSFusion = true
         fixture.handler.liveDragModifierCapture.installsEventTap = false
         fixture.niri.moveConfiguration.liveHoverDelay = 0
         let neighbour = addWindow(1, to: fixture.source, fixture)

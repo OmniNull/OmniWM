@@ -598,13 +598,13 @@ extension NiriLayoutEngine {
     }
 }
 
-struct NaturalWindowDragConfiguration: Equatable {
+struct MacOSFusionConfiguration: Equatable {
     var enabled: Bool
     var edgePeekShare: CGFloat?
 }
 
 extension NiriLayoutEngine {
-    func applyNaturalWindowDrag(_ configuration: NaturalWindowDragConfiguration) {
+    func applyMacOSFusion(_ configuration: MacOSFusionConfiguration) {
         tabbedColumnsFillHeight = configuration.enabled
         keepsStripEndsOnScreen = configuration.enabled
         centersFittingStrips = configuration.enabled

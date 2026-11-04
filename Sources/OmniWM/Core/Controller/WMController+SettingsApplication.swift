@@ -24,7 +24,7 @@ extension WMController {
         setGapSize(settings.gaps.size, publishChange: false)
 
         applyPersistedLayoutSettings(settings)
-        mouseEventHandler.syncNaturalDragTapFilter()
+        mouseEventHandler.syncFusionDragTapFilter()
         setTabRailAppIcons(settings.tabRailAppIcons, persist: false)
 
         updateWorkspaceConfig()
@@ -135,18 +135,18 @@ extension WMController {
     }
 
     var edgePeekShare: CGFloat? {
-        guard settings.niri.naturalWindowDrag, settings.niri.edgePeek else { return nil }
+        guard settings.niri.macOSFusion, settings.niri.edgePeek else { return nil }
         return CGFloat(settings.niri.edgePeekPercent / 100)
     }
 
-    var naturalWindowDragConfiguration: NaturalWindowDragConfiguration {
-        NaturalWindowDragConfiguration(enabled: settings.niri.naturalWindowDrag, edgePeekShare: edgePeekShare)
+    var macOSFusionConfiguration: MacOSFusionConfiguration {
+        MacOSFusionConfiguration(enabled: settings.niri.macOSFusion, edgePeekShare: edgePeekShare)
     }
 
-    func applyNaturalWindowDragSettings() {
-        updateNiriConfig(naturalWindowDrag: naturalWindowDragConfiguration)
+    func applyMacOSFusionSettings() {
+        updateNiriConfig(macOSFusion: macOSFusionConfiguration)
         mouseEventHandler.syncTapFilterSnapshot()
-        pointerEdgeBarrier.setTracksLiveDrags(settings.niri.naturalWindowDrag)
+        pointerEdgeBarrier.setTracksLiveDrags(settings.niri.macOSFusion)
         updateHotkeyBindings(settings.hotkeyBindings)
     }
 
@@ -167,7 +167,7 @@ extension WMController {
             containerPrimarySpanPresets: settings.niri.containerPrimarySpanPresets,
             defaultContainerPrimarySpan: settings.niri.defaultContainerPrimarySpan,
             shrinkToFit: settings.niri.shrinkToFit,
-            naturalWindowDrag: naturalWindowDragConfiguration
+            macOSFusion: macOSFusionConfiguration
         )
 
         if dwindleEngine == nil {

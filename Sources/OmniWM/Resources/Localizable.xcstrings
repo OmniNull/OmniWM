@@ -1780,250 +1780,250 @@
         }
       }
     },
-    "Natural Window Drag & Drop" : {
+    "macOS Fusion" : {
       "localizations" : {
         "ar" : {
           "stringUnit" : {
             "state" : "translated",
-            "value" : "سحب النوافذ وإفلاتها بشكل طبيعي"
+            "value" : "macOS Fusion"
           }
         },
         "da" : {
           "stringUnit" : {
             "state" : "translated",
-            "value" : "Naturlig træk og slip af vinduer"
+            "value" : "macOS Fusion"
           }
         },
         "de" : {
           "stringUnit" : {
             "state" : "translated",
-            "value" : "Natürliches Drag & Drop für Fenster"
+            "value" : "macOS Fusion"
           }
         },
         "el" : {
           "stringUnit" : {
             "state" : "translated",
-            "value" : "Φυσική μεταφορά και απόθεση παραθύρων"
+            "value" : "macOS Fusion"
           }
         },
         "es" : {
           "stringUnit" : {
             "state" : "translated",
-            "value" : "Arrastrar y soltar ventanas de forma natural"
+            "value" : "macOS Fusion"
           }
         },
         "fi" : {
           "stringUnit" : {
             "state" : "translated",
-            "value" : "Luonteva ikkunoiden vedä ja pudota"
+            "value" : "macOS Fusion"
           }
         },
         "fr" : {
           "stringUnit" : {
             "state" : "translated",
-            "value" : "Glisser-déposer naturel des fenêtres"
+            "value" : "macOS Fusion"
           }
         },
         "he" : {
           "stringUnit" : {
             "state" : "translated",
-            "value" : "גרירה ושחרור טבעיים של חלונות"
+            "value" : "macOS Fusion"
           }
         },
         "hi" : {
           "stringUnit" : {
             "state" : "translated",
-            "value" : "स्वाभाविक विंडो ड्रैग और ड्रॉप"
+            "value" : "macOS Fusion"
           }
         },
         "it" : {
           "stringUnit" : {
             "state" : "translated",
-            "value" : "Trascinamento naturale delle finestre"
+            "value" : "macOS Fusion"
           }
         },
         "ja" : {
           "stringUnit" : {
             "state" : "translated",
-            "value" : "自然なウインドウのドラッグ＆ドロップ"
+            "value" : "macOS Fusion"
           }
         },
         "ko" : {
           "stringUnit" : {
             "state" : "translated",
-            "value" : "자연스러운 윈도우 드래그 앤 드롭"
+            "value" : "macOS Fusion"
           }
         },
         "nb" : {
           "stringUnit" : {
             "state" : "translated",
-            "value" : "Naturlig dra og slipp for vinduer"
+            "value" : "macOS Fusion"
           }
         },
         "nl" : {
           "stringUnit" : {
             "state" : "translated",
-            "value" : "Natuurlijk slepen en neerzetten van vensters"
+            "value" : "macOS Fusion"
           }
         },
         "pl" : {
           "stringUnit" : {
             "state" : "translated",
-            "value" : "Naturalne przeciąganie i upuszczanie okien"
+            "value" : "macOS Fusion"
           }
         },
         "ru" : {
           "stringUnit" : {
             "state" : "translated",
-            "value" : "Естественное перетаскивание окон"
+            "value" : "macOS Fusion"
           }
         },
         "sr-Latn" : {
           "stringUnit" : {
             "state" : "translated",
-            "value" : "Prirodno prevlačenje i otpuštanje prozora"
+            "value" : "macOS Fusion"
           }
         },
         "sv" : {
           "stringUnit" : {
             "state" : "translated",
-            "value" : "Naturlig dra och släpp för fönster"
+            "value" : "macOS Fusion"
           }
         },
         "uk" : {
           "stringUnit" : {
             "state" : "translated",
-            "value" : "Природне перетягування вікон"
+            "value" : "macOS Fusion"
           }
         },
         "zh-Hans" : {
           "stringUnit" : {
             "state" : "translated",
-            "value" : "自然的窗口拖放"
+            "value" : "macOS Fusion"
           }
         }
       }
     },
-    "Left Mouse Natural Window Drag Modifier" : {
+    "Left Mouse macOS Fusion Modifier" : {
       "localizations" : {
         "ar" : {
           "stringUnit" : {
             "state" : "translated",
-            "value" : "مفتاح التعديل للسحب الطبيعي للنوافذ بزر الماوس الأيسر"
+            "value" : "مفتاح التعديل لـ macOS Fusion بزر الماوس الأيسر"
           }
         },
         "da" : {
           "stringUnit" : {
             "state" : "translated",
-            "value" : "Modifikator for naturlig vinduestræk med venstre musetast"
+            "value" : "Modifikatortast til macOS Fusion med venstre museknap"
           }
         },
         "de" : {
           "stringUnit" : {
             "state" : "translated",
-            "value" : "Modifikator für natürliches Fensterziehen mit linker Maustaste"
+            "value" : "Modifikator für macOS Fusion mit linker Maustaste"
           }
         },
         "el" : {
           "stringUnit" : {
             "state" : "translated",
-            "value" : "Τροποποιητής φυσικής μεταφοράς παραθύρων με αριστερό κλικ"
+            "value" : "Τροποποιητής macOS Fusion με αριστερό κλικ"
           }
         },
         "es" : {
           "stringUnit" : {
             "state" : "translated",
-            "value" : "Modificador para arrastrar ventanas de forma natural con el botón izquierdo"
+            "value" : "Modificador de macOS Fusion con el botón izquierdo"
           }
         },
         "fi" : {
           "stringUnit" : {
             "state" : "translated",
-            "value" : "Muokkausnäppäin luontevaan ikkunoiden vetämiseen vasemmalla painikkeella"
+            "value" : "Vasemman painikkeen macOS Fusion -muokkain"
           }
         },
         "fr" : {
           "stringUnit" : {
             "state" : "translated",
-            "value" : "Modificateur de glissement naturel des fenêtres avec le bouton gauche"
+            "value" : "Modificateur macOS Fusion avec le bouton gauche"
           }
         },
         "he" : {
           "stringUnit" : {
             "state" : "translated",
-            "value" : "מקש שינוי לגרירה טבעית של חלונות בלחצן העכבר השמאלי"
+            "value" : "מקש שינוי ל-macOS Fusion בלחצן העכבר השמאלי"
           }
         },
         "hi" : {
           "stringUnit" : {
             "state" : "translated",
-            "value" : "बाएं माउस स्वाभाविक विंडो ड्रैग मॉडिफायर"
+            "value" : "बाएं माउस macOS Fusion मॉडिफायर"
           }
         },
         "it" : {
           "stringUnit" : {
             "state" : "translated",
-            "value" : "Modificatore per il trascinamento naturale delle finestre con il tasto sinistro"
+            "value" : "Modificatore macOS Fusion con il tasto sinistro del mouse"
           }
         },
         "ja" : {
           "stringUnit" : {
             "state" : "translated",
-            "value" : "左マウスの自然なウインドウドラッグ修飾子"
+            "value" : "左マウスの macOS Fusion 修飾子"
           }
         },
         "ko" : {
           "stringUnit" : {
             "state" : "translated",
-            "value" : "왼쪽 마우스 자연스러운 윈도우 드래그 보조 키"
+            "value" : "왼쪽 마우스 macOS Fusion 보조 키"
           }
         },
         "nb" : {
           "stringUnit" : {
             "state" : "translated",
-            "value" : "Modifikator for naturlig vindusdraing med venstre museknapp"
+            "value" : "Modifikator for macOS Fusion med venstre museknapp"
           }
         },
         "nl" : {
           "stringUnit" : {
             "state" : "translated",
-            "value" : "Modificatietoets voor natuurlijk slepen van vensters met de linkermuisknop"
+            "value" : "Modifier voor macOS Fusion met linkermuisknop"
           }
         },
         "pl" : {
           "stringUnit" : {
             "state" : "translated",
-            "value" : "Modyfikator naturalnego przeciągania okien lewym przyciskiem myszy"
+            "value" : "Modyfikator macOS Fusion lewym przyciskiem myszy"
           }
         },
         "ru" : {
           "stringUnit" : {
             "state" : "translated",
-            "value" : "Модификатор естественного перетаскивания окон левой кнопкой мыши"
+            "value" : "Модификатор macOS Fusion для левой кнопки мыши"
           }
         },
         "sr-Latn" : {
           "stringUnit" : {
             "state" : "translated",
-            "value" : "Modifikator za prirodno prevlačenje prozora levim tasterom miša"
+            "value" : "Modifikator za macOS Fusion levim tasterom miša"
           }
         },
         "sv" : {
           "stringUnit" : {
             "state" : "translated",
-            "value" : "Modifierare för naturlig fönsterdragning med vänster musknapp"
+            "value" : "Modifierare för macOS Fusion med vänster musknapp"
           }
         },
         "uk" : {
           "stringUnit" : {
             "state" : "translated",
-            "value" : "Клавіша-модифікатор природного перетягування вікон лівою кнопкою миші"
+            "value" : "Клавіша-модифікатор macOS Fusion для лівої кнопки миші"
           }
         },
         "zh-Hans" : {
           "stringUnit" : {
             "state" : "translated",
-            "value" : "左键自然窗口拖放修饰键"
+            "value" : "左键 macOS Fusion 修饰键"
           }
         }
       }

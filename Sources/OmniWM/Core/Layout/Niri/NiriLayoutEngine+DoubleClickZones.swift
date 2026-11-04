@@ -4,14 +4,14 @@
 import AppKit
 import Foundation
 
-enum NaturalDoubleClickZone: Equatable {
+enum FusionDoubleClickZone: Equatable {
     case edge(ResizeEdge)
     case titleBar
 }
 
-struct NaturalDoubleClickHit {
+struct FusionDoubleClickHit {
     let window: NiriWindow
-    let zone: NaturalDoubleClickZone
+    let zone: FusionDoubleClickZone
 }
 
 extension NiriLayoutEngine {
@@ -19,12 +19,12 @@ extension NiriLayoutEngine {
     static let doubleClickEdgeOutset: CGFloat = 6
     static let doubleClickTitleBarDepth: CGFloat = 52
 
-    static func naturalDoubleClickZone(
+    static func fusionDoubleClickZone(
         at point: CGPoint,
         in frame: CGRect,
         gap: CGFloat,
         bounds: CGRect
-    ) -> NaturalDoubleClickZone? {
+    ) -> FusionDoubleClickZone? {
         guard bounds.contains(point) else { return nil }
         let outset = min(doubleClickEdgeOutset, max(0, gap / 2))
         let reach = frame.insetBy(dx: -outset, dy: -outset)
@@ -49,20 +49,20 @@ extension NiriLayoutEngine {
         }
     }
 
-    func naturalDoubleClickHit(
+    func fusionDoubleClickHit(
         at point: CGPoint,
         in workspaceId: WorkspaceDescriptor.ID,
         gap: CGFloat,
         bounds: CGRect
-    ) -> NaturalDoubleClickHit? {
+    ) -> FusionDoubleClickHit? {
         for column in projectedColumns(in: workspaceId) {
             for window in column.windows {
                 guard isProjectedFocusableWindow(window, in: workspaceId),
                       !window.isFullscreen,
                       let frame = window.renderedFrame ?? window.frame,
-                      let zone = Self.naturalDoubleClickZone(at: point, in: frame, gap: gap, bounds: bounds)
+                      let zone = Self.fusionDoubleClickZone(at: point, in: frame, gap: gap, bounds: bounds)
                 else { continue }
-                return NaturalDoubleClickHit(window: window, zone: zone)
+                return FusionDoubleClickHit(window: window, zone: zone)
             }
         }
         return nil

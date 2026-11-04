@@ -18,7 +18,7 @@ extension MouseEventHandler {
     }
 
     func deferClickScrollIfPressed(on token: WindowToken) -> Bool {
-        guard controller?.settings.niri.naturalWindowDrag == true,
+        guard controller?.settings.niri.macOSFusion == true,
               pressedMouseButtonsProvider() & MouseButton.left.pressedMask != 0,
               tracksNativeTitleBarDrag(windowId: token.windowId)
         else { return false }
@@ -98,7 +98,7 @@ extension MouseEventHandler {
         guard !drag.liveDrag, !drag.liveDragDeclined,
               drag.dwindleResizeWorkspaceId == nil,
               let controller,
-              controller.settings.niri.naturalWindowDrag,
+              controller.settings.niri.macOSFusion,
               controller.workspaceManager.activeLayoutKind(for: entry.workspaceId) == .niri,
               let start = drag.adoptionStartFrame ?? drag.liveStartFrame,
               let observed = entry.axRef.flatMap(nativeWindowFrameProvider),
@@ -249,7 +249,7 @@ extension MouseEventHandler {
         guard !move.isWholeColumn, let controller else { return false }
         return Self.mouseMoveModifiersMatch(
             state.liveDragModifiers ?? modifierFlagsProvider(),
-            required: controller.settings.niri.naturalWindowDragModifier.cgEventFlags
+            required: controller.settings.niri.macOSFusionModifier.cgEventFlags
         )
     }
 

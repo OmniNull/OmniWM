@@ -20,7 +20,7 @@ extension AXEventHandler {
         }
         guard let entryAXRef = entry.axRef, CFEqual(entryAXRef.element, axRef.element) else { return }
         updateWindowMinimizedState(minimized, token: token)
-        if !minimized, entry.mode == .floating, controller.settings.niri.naturalWindowDrag {
+        if !minimized, entry.mode == .floating, controller.settings.niri.macOSFusion {
             requestTargetedFullRescan(for: [pid])
         }
         if !minimized, frontmostApplicationPIDProvider() == pid {

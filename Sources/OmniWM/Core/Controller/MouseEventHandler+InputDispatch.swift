@@ -215,7 +215,7 @@ extension MouseEventHandler {
         authoritative: Bool = false
     ) -> Bool {
         if button == .left {
-            armNaturalDoubleClick(at: location, modifiers: modifiers, clickCount: clickCount)
+            armFusionDoubleClick(at: location, modifiers: modifiers, clickCount: clickCount)
         }
         if let latched = state.parkingEdgePressButton,
            latched == button || pressedMouseButtonsProvider() & latched.pressedMask == 0
@@ -240,13 +240,13 @@ extension MouseEventHandler {
             }
         }
         if authoritative, button == .left,
-           clickCount == 2 || continuesNaturalClickChain(at: location, modifiers: modifiers),
-           handleNaturalDoubleClick(at: location, modifiers: modifiers, chained: clickCount != 2)
+           clickCount == 2 || continuesFusionClickChain(at: location, modifiers: modifiers),
+           handleFusionDoubleClick(at: location, modifiers: modifiers, chained: clickCount != 2)
         {
             return true
         }
         if button == .left {
-            disarmNaturalClickChain()
+            disarmFusionClickChain()
         }
         let suppress = dispatchMouseDown(
             at: location,

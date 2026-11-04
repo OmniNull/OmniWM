@@ -264,7 +264,7 @@ extension AXEventHandler {
         }
         let animationDriver = controller.workspaceManager.animationDriver
         let preserveViewport = (
-            controller.settings.niri.naturalWindowDrag
+            controller.settings.niri.macOSFusion
                 ? animationDriver.hasUserMotion(in: wsId)
                 : animationDriver.hasMotion(in: wsId)
         )

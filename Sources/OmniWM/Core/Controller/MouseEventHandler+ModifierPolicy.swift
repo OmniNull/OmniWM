@@ -18,19 +18,19 @@ extension MouseEventHandler {
         return relevantModifiers == required || relevantModifiers == required.union(.maskShift)
     }
 
-    nonisolated static func naturalDragPassThroughFlags(
+    nonisolated static func fusionDragPassThroughFlags(
         _ modifiers: CGEventFlags,
-        naturalDragModifier: CGEventFlags?
+        fusionDragModifier: CGEventFlags?
     ) -> CGEventFlags {
-        guard mouseMoveModifiersMatch(modifiers, required: naturalDragModifier) else { return modifiers }
+        guard mouseMoveModifiersMatch(modifiers, required: fusionDragModifier) else { return modifiers }
         return modifiers.subtracting(.maskAlternate)
     }
 
-    func syncNaturalDragTapFilter() {
+    func syncFusionDragTapFilter() {
         let snapshot = inputTapThread.filterSnapshot
-        guard controller?.settings.niri.naturalWindowDrag == true
-            || snapshot.naturalWindowDrag
-            || snapshot.naturalDragModifier != nil
+        guard controller?.settings.niri.macOSFusion == true
+            || snapshot.macOSFusion
+            || snapshot.fusionDragModifier != nil
         else { return }
         syncTapFilterSnapshot()
     }
@@ -38,26 +38,26 @@ extension MouseEventHandler {
     nonisolated static func isUnassignedDragModifier(
         _ modifiers: CGEventFlags,
         moveModifier: CGEventFlags?,
-        naturalDragModifier: CGEventFlags?
+        fusionDragModifier: CGEventFlags?
     ) -> Bool {
         !modifiers.isDisjoint(with: Self.relevantModifierFlags)
             && !mouseMoveModifiersMatch(modifiers, required: moveModifier)
-            && !mouseMoveModifiersMatch(modifiers, required: naturalDragModifier)
+            && !mouseMoveModifiersMatch(modifiers, required: fusionDragModifier)
     }
 
-    func canStartNaturalDrag(windowId: Int?, at location: CGPoint) -> Bool {
+    func canStartFusionDrag(windowId: Int?, at location: CGPoint) -> Bool {
         if let windowId {
-            return canStartNaturalDrag(windowId: windowId)
+            return canStartFusionDrag(windowId: windowId)
         }
         guard let workspaceId = workspaceIdForPointer(at: location),
               let token = geometricFocusIntentCandidate(at: location, workspaceId: workspaceId)
         else { return false }
-        return canStartNaturalDrag(windowId: token.windowId)
+        return canStartFusionDrag(windowId: token.windowId)
     }
 
-    func canStartNaturalDrag(windowId: Int) -> Bool {
+    func canStartFusionDrag(windowId: Int) -> Bool {
         guard let controller,
-              controller.settings.niri.naturalWindowDrag,
+              controller.settings.niri.macOSFusion,
               let entry = controller.workspaceManager.entry(forWindowId: windowId),
               entry.mode == .tiling
         else { return false }

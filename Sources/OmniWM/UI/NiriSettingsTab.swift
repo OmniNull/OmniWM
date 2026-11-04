@@ -190,10 +190,10 @@ private struct GlobalNiriSettingsSection: View {
                 }
             }
 
-            Toggle("Natural Window Drag & Drop", isOn: Bindable(settings.niri).naturalWindowDrag)
-                .id("Natural Window Drag & Drop")
-                .onChange(of: settings.niri.naturalWindowDrag) {
-                    controller.applyNaturalWindowDragSettings()
+            Toggle("macOS Fusion", isOn: Bindable(settings.niri).macOSFusion)
+                .id("macOS Fusion")
+                .onChange(of: settings.niri.macOSFusion) {
+                    controller.applyMacOSFusionSettings()
                 }
                 .onAppear(perform: windowTilingSettingsProbe.refresh)
                 .onReceive(NotificationCenter.default.publisher(for: NSApplication.didBecomeActiveNotification)) { _ in
@@ -204,16 +204,16 @@ private struct GlobalNiriSettingsSection: View {
                 localized: "Drag a tiled window by its title bar to move its Niri column. Rest on another window and the windows slide over to make room; near a screen edge, a narrow gap shows where it will land, and holding the pointer at the edge scrolls. Release to drop it. Off: title-bar drags snap back."
             )
 
-            if settings.niri.naturalWindowDrag, !windowTilingSettingsProbe.enabledSettings.isEmpty {
+            if settings.niri.macOSFusion, !windowTilingSettingsProbe.enabledSettings.isEmpty {
                 windowTilingNote
             }
 
             Toggle("Peek at Neighboring Windows", isOn: Bindable(settings.niri).edgePeek)
                 .id("Peek at Neighboring Windows")
-                .disabled(!settings.niri.naturalWindowDrag)
+                .disabled(!settings.niri.macOSFusion)
                 .onChange(of: settings.niri.edgePeek) {
-                    if settings.niri.naturalWindowDrag {
-                        controller.applyNaturalWindowDragSettings()
+                    if settings.niri.macOSFusion {
+                        controller.applyMacOSFusionSettings()
                     }
                 }
 
@@ -226,10 +226,10 @@ private struct GlobalNiriSettingsSection: View {
                 valueWidth: 56
             )
             .id("Peek Width")
-            .disabled(!settings.niri.naturalWindowDrag || !settings.niri.edgePeek)
+            .disabled(!settings.niri.macOSFusion || !settings.niri.edgePeek)
             .onChange(of: settings.niri.edgePeekPercent) {
-                if settings.niri.naturalWindowDrag {
-                    controller.applyNaturalWindowDragSettings()
+                if settings.niri.macOSFusion {
+                    controller.applyMacOSFusionSettings()
                 }
             }
 
@@ -238,18 +238,18 @@ private struct GlobalNiriSettingsSection: View {
             )
 
             Picker(
-                "Left Mouse Natural Window Drag Modifier",
-                selection: Bindable(settings.niri).naturalWindowDragModifier
+                "Left Mouse macOS Fusion Modifier",
+                selection: Bindable(settings.niri).macOSFusionModifier
             ) {
                 ForEach(MouseMoveModifierKey.allCases, id: \.self) { key in
                     Text(key.localizedDisplayName).tag(key)
                 }
             }
-            .id("Left Mouse Natural Window Drag Modifier")
-            .disabled(!settings.niri.naturalWindowDrag)
-            .onChange(of: settings.niri.naturalWindowDragModifier) {
-                if settings.niri.naturalWindowDrag {
-                    controller.applyNaturalWindowDragSettings()
+            .id("Left Mouse macOS Fusion Modifier")
+            .disabled(!settings.niri.macOSFusion)
+            .onChange(of: settings.niri.macOSFusionModifier) {
+                if settings.niri.macOSFusion {
+                    controller.applyMacOSFusionSettings()
                 }
             }
 
@@ -257,8 +257,8 @@ private struct GlobalNiriSettingsSection: View {
                 localized: "Hold this modifier while dragging a title bar to stack the window onto the one under the pointer. That column makes room where the window will land; over tabbed windows it lands as a new tab. When it matches the Left Mouse Move Modifier, it replaces that move in Niri. Choose Off to never stack."
             )
 
-            if settings.niri.naturalWindowDrag,
-               settings.niri.naturalWindowDragModifier.cgEventFlags?.contains(.maskCommand) == true
+            if settings.niri.macOSFusion,
+               settings.niri.macOSFusionModifier.cgEventFlags?.contains(.maskCommand) == true
             {
                 SettingsCaption(
                     localized: "macOS also uses Command-drag to move a window behind others without bringing it to the front."
@@ -266,7 +266,7 @@ private struct GlobalNiriSettingsSection: View {
             }
 
             UndoResizeHotkeyRow(settings: settings, controller: controller)
-                .disabled(!settings.niri.naturalWindowDrag)
+                .disabled(!settings.niri.macOSFusion)
 
             SettingsCaption(
                 localized: "When dragging a window’s edge resizes it by accident, press this key to put the focused window back as it was, or double-click the window’s title bar. A double-click undoes that window’s last edge resize first, then changes its width."

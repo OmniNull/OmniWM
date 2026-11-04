@@ -192,7 +192,7 @@ extension MouseEventHandler {
         } ?? true
         state.nativeResizeStart = nil
         drag.phase = .dragging
-        let fusionStartFrame = controller.settings.niri.naturalWindowDrag
+        let fusionStartFrame = controller.settings.niri.macOSFusion
             ? controller.axManager.lastAppliedFrame(for: drag.token.windowId)
             : nil
         drag.adoptionStartFrame = hadUnsettledFrameWrite ? nil : startFrame ?? fusionStartFrame

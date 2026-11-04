@@ -31,8 +31,8 @@ final class LayoutSectionsSettingsExportTests: XCTestCase {
             "allowOverscroll": .boolean(false),
             "overscrollVisibleStripPercent": .integer(5),
             "shrinkToFit": .boolean(false),
-            "naturalWindowDrag": .boolean(false),
-            "naturalWindowDragModifier": .string("option"),
+            "macOSFusion": .boolean(false),
+            "macOSFusionModifier": .string("option"),
             "edgePeek": .boolean(false),
             "edgePeekPercent": .float(3.0)
         ]))
@@ -143,30 +143,30 @@ final class LayoutSectionsSettingsExportTests: XCTestCase {
     }
 
     @MainActor
-    func testNaturalWindowDragDefaultsOffRoundTripsAndLoadsWhenOmitted() throws {
-        XCTAssertEqual(SettingsExport.defaults().niri.naturalWindowDrag, false)
-        XCTAssertFalse(NiriSettings().naturalWindowDrag)
+    func testMacOSFusionDefaultsOffRoundTripsAndLoadsWhenOmitted() throws {
+        XCTAssertEqual(SettingsExport.defaults().niri.macOSFusion, false)
+        XCTAssertFalse(NiriSettings().macOSFusion)
         for enabled in [false, true] {
             var export = SettingsExport.defaults()
-            export.niri.naturalWindowDrag = enabled
+            export.niri.macOSFusion = enabled
             let encoded = try SettingsTOMLCodec.encode(export)
-            XCTAssertTrue(String(decoding: encoded, as: UTF8.self).contains("naturalWindowDrag = \(enabled)"))
+            XCTAssertTrue(String(decoding: encoded, as: UTF8.self).contains("macOSFusion = \(enabled)"))
             XCTAssertEqual(try SettingsTOMLCodec.decode(encoded), export)
             XCTAssertTrue(SettingsTOMLCodec.unknownKeyPaths(in: encoded).isEmpty)
         }
 
         let source = String(decoding: try SettingsTOMLCodec.encode(.defaults()), as: UTF8.self)
-        let omitted = try removing(key: "naturalWindowDrag", from: "niri", in: source)
+        let omitted = try removing(key: "macOSFusion", from: "niri", in: source)
         let result = try SettingsTOMLCodec.decodeForLoad(Data(omitted.utf8))
         XCTAssertNil(result.migration)
-        XCTAssertEqual(result.export.niri.naturalWindowDrag, false)
+        XCTAssertEqual(result.export.niri.macOSFusion, false)
 
         let settings = NiriSettings()
         var enabled = SettingsExport.Niri.defaults()
-        enabled.naturalWindowDrag = true
+        enabled.macOSFusion = true
         settings.apply(enabled, baseline: .defaults())
-        XCTAssertTrue(settings.naturalWindowDrag)
-        XCTAssertEqual(settings.export().naturalWindowDrag, true)
+        XCTAssertTrue(settings.macOSFusion)
+        XCTAssertEqual(settings.export().macOSFusion, true)
     }
 
     @MainActor
@@ -220,31 +220,31 @@ final class LayoutSectionsSettingsExportTests: XCTestCase {
     }
 
     @MainActor
-    func testNaturalWindowDragModifierDefaultsToOptionRoundTripsAndLoadsWhenOmitted() throws {
-        XCTAssertEqual(SettingsExport.defaults().niri.naturalWindowDragModifier, .option)
-        XCTAssertEqual(NiriSettings().naturalWindowDragModifier, .option)
+    func testMacOSFusionModifierDefaultsToOptionRoundTripsAndLoadsWhenOmitted() throws {
+        XCTAssertEqual(SettingsExport.defaults().niri.macOSFusionModifier, .option)
+        XCTAssertEqual(NiriSettings().macOSFusionModifier, .option)
         for key in [MouseMoveModifierKey.off, .control, .controlOptionCommand] {
             var export = SettingsExport.defaults()
-            export.niri.naturalWindowDragModifier = key
+            export.niri.macOSFusionModifier = key
             let encoded = try SettingsTOMLCodec.encode(export)
             XCTAssertTrue(String(decoding: encoded, as: UTF8.self)
-                .contains("naturalWindowDragModifier = \"\(key.rawValue)\""))
+                .contains("macOSFusionModifier = \"\(key.rawValue)\""))
             XCTAssertEqual(try SettingsTOMLCodec.decode(encoded), export)
             XCTAssertTrue(SettingsTOMLCodec.unknownKeyPaths(in: encoded).isEmpty)
         }
 
         let source = String(decoding: try SettingsTOMLCodec.encode(.defaults()), as: UTF8.self)
-        let omitted = try removing(key: "naturalWindowDragModifier", from: "niri", in: source)
+        let omitted = try removing(key: "macOSFusionModifier", from: "niri", in: source)
         let result = try SettingsTOMLCodec.decodeForLoad(Data(omitted.utf8))
         XCTAssertNil(result.migration)
-        XCTAssertEqual(result.export.niri.naturalWindowDragModifier, .option)
+        XCTAssertEqual(result.export.niri.macOSFusionModifier, .option)
 
         let settings = NiriSettings()
         var changed = SettingsExport.Niri.defaults()
-        changed.naturalWindowDragModifier = .command
+        changed.macOSFusionModifier = .command
         settings.apply(changed, baseline: .defaults())
-        XCTAssertEqual(settings.naturalWindowDragModifier, .command)
-        XCTAssertEqual(settings.export().naturalWindowDragModifier, .command)
+        XCTAssertEqual(settings.macOSFusionModifier, .command)
+        XCTAssertEqual(settings.export().macOSFusionModifier, .command)
     }
 
     private func removing(key: String, from section: String, in source: String) throws -> String {

@@ -220,7 +220,7 @@ extension WMController {
         referenceMonitor: Monitor?
     ) -> Bool {
         let token = entry.token
-        if let currentFrame, settings.niri.naturalWindowDrag {
+        if let currentFrame, settings.niri.macOSFusion {
             niriEngine?.noteStripGlide(for: token, from: currentFrame)
         }
         if let currentFrame {

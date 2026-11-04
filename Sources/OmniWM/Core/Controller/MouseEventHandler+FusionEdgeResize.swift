@@ -4,7 +4,7 @@
 import AppKit
 import Foundation
 
-struct NaturalEdgeResizeSlide {
+struct FusionEdgeResizeSlide {
     struct StackMate {
         let window: NiriWindow
         let frame: CGRect
@@ -142,23 +142,23 @@ extension MouseEventHandler {
         return (up, growth - up)
     }
 
-    func naturalEdgeResizeSlide(
+    func fusionEdgeResizeSlide(
         around window: NiriWindow,
         in workspaceId: WorkspaceDescriptor.ID,
         resizedFrom start: CGRect,
         to observed: CGRect
-    ) -> NaturalEdgeResizeSlide? {
+    ) -> FusionEdgeResizeSlide? {
         guard let controller,
-              controller.settings.niri.naturalWindowDrag,
+              controller.settings.niri.macOSFusion,
               let engine = controller.niriEngine,
               let column = engine.findColumn(containing: window, in: workspaceId)
         else { return nil }
         let stack = column.windowNodes
-        return NaturalEdgeResizeSlide(
+        return FusionEdgeResizeSlide(
             neighbourFrames: engine.captureWindowFrames(in: workspaceId, excluding: Set(stack.map(\.token))),
             stackMates: stack.compactMap { mate in
                 guard mate !== window, let frame = mate.renderedFrame ?? mate.frame else { return nil }
-                return NaturalEdgeResizeSlide.StackMate(window: mate, frame: frame)
+                return FusionEdgeResizeSlide.StackMate(window: mate, frame: frame)
             },
             wasAtTop: window.restsAtTop(of: column),
             start: start,
@@ -166,9 +166,9 @@ extension MouseEventHandler {
         )
     }
 
-    func settleNaturalEdgeResize(
+    func settleFusionEdgeResize(
         _ window: NiriWindow,
-        sliding slide: NaturalEdgeResizeSlide,
+        sliding slide: FusionEdgeResizeSlide,
         monitor: Monitor,
         context: NiriInteractionContext
     ) {
@@ -209,7 +209,7 @@ extension MouseEventHandler {
         controller.niriLayoutHandler.startScrollAnimationIfNeeded(for: workspaceId, state: state, engine: engine)
     }
 
-    private func endAfterResize(_ slide: NaturalEdgeResizeSlide, context: NiriInteractionContext) -> Bool {
+    private func endAfterResize(_ slide: FusionEdgeResizeSlide, context: NiriInteractionContext) -> Bool {
         let room = context.workingFrame.height - 2 * context.gaps
         guard slide.observed.height < room - FrameTolerance.screenMatch else { return false }
         let vertical = Self.nativeResizeEdges(from: slide.start, to: slide.observed).intersection([.top, .bottom])
@@ -224,7 +224,7 @@ extension MouseEventHandler {
         in workspaceId: WorkspaceDescriptor.ID
     ) -> Bool {
         guard let controller,
-              controller.settings.niri.naturalWindowDrag,
+              controller.settings.niri.macOSFusion,
               let engine = controller.niriEngine,
               let column = engine.findColumn(containing: window, in: workspaceId),
               let frame = window.renderedFrame ?? window.frame

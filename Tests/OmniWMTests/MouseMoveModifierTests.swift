@@ -50,7 +50,7 @@ final class MouseMoveModifierTests: NiriInteractionTestCase {
 
     func testOnlyAModifierThatNoMouseDragUsesCountsAsUnassigned() {
         func unassigned(_ flags: CGEventFlags, move: CGEventFlags? = .maskAlternate) -> Bool {
-            MouseEventHandler.isUnassignedDragModifier(flags, moveModifier: move, naturalDragModifier: .maskAlternate)
+            MouseEventHandler.isUnassignedDragModifier(flags, moveModifier: move, fusionDragModifier: .maskAlternate)
         }
 
         XCTAssertTrue(unassigned(.maskCommand))

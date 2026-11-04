@@ -8,10 +8,10 @@ import XCTest
 
 @MainActor
 final class NiriLayoutSwitchTests: XCTestCase {
-    func testWithNaturalWindowDragAWorkspaceSwitchedToDwindleForgetsItsNiriStrip() throws {
-        for natural in [false, true] {
+    func testWithMacOSFusionAWorkspaceSwitchedToDwindleForgetsItsNiriStrip() throws {
+        for fusion in [false, true] {
             let controller = makeController()
-            controller.settings.niri.naturalWindowDrag = natural
+            controller.settings.niri.macOSFusion = fusion
             let workspaceId = try XCTUnwrap(controller.workspaceManager.workspaceId(for: "1", createIfMissing: true))
             _ = controller.workspaceManager.focusWorkspace(named: "1")
             controller.niriLayoutHandler.enableNiriLayout()
@@ -37,7 +37,7 @@ final class NiriLayoutSwitchTests: XCTestCase {
                 controller.dwindleLayoutHandler.layoutWithDwindleEngine(activeWorkspaces: [workspaceId])
             }
 
-            XCTAssertEqual(engine.root(for: workspaceId) == nil, natural, "natural=\(natural)")
+            XCTAssertEqual(engine.root(for: workspaceId) == nil, fusion, "fusion=\(fusion)")
         }
     }
 

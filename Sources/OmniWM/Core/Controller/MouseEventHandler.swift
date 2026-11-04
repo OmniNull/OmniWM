@@ -34,7 +34,7 @@ final class MouseEventHandler {
     var multitouchSourceFactory: @MainActor () -> MultitouchGestureSource = { MultitouchGestureSource() }
     var pressedMouseButtonsProvider: @MainActor () -> Int = { Int(NSEvent.pressedMouseButtons) }
     var liveDragClock: @MainActor () -> TimeInterval = { CACurrentMediaTime() }
-    var naturalClickClock: @MainActor () -> TimeInterval = { ProcessInfo.processInfo.systemUptime }
+    var fusionClickClock: @MainActor () -> TimeInterval = { ProcessInfo.processInfo.systemUptime }
     var modifierFlagsProvider: @MainActor () -> CGEventFlags = { CGEventSource.flagsState(.combinedSessionState) }
     var nativeWindowFrameProvider: @MainActor (AXWindowRef) -> CGRect? = {
         AXWindowService.framePreferFast($0)
@@ -288,10 +288,10 @@ final class MouseEventHandler {
         let otherButtonMask = resolvedOtherButtonMask
         let moveFlags = controller?.settings.gestures.mouseMoveModifierKey.cgEventFlags
         let adoptNativeResize = controller?.settings.gestures.adoptNativeResize == true
-        let naturalWindowDrag = controller?.settings.niri.naturalWindowDrag ?? false
-        let naturalDragFlags = controller.flatMap { controller in
-            controller.settings.niri.naturalWindowDrag
-                ? controller.settings.niri.naturalWindowDragModifier.cgEventFlags
+        let macOSFusion = controller?.settings.niri.macOSFusion ?? false
+        let fusionDragFlags = controller.flatMap { controller in
+            controller.settings.niri.macOSFusion
+                ? controller.settings.niri.macOSFusionModifier.cgEventFlags
                 : nil
         }
         let resizeFlags = controller?.settings.gestures.mouseResizeModifierKey.cgEventFlag ?? []
@@ -313,8 +313,8 @@ final class MouseEventHandler {
             snapshot.claimedOtherButtonMask = otherButtonMask
             snapshot.moveModifier = moveFlags
             snapshot.adoptNativeResize = adoptNativeResize
-            snapshot.naturalDragModifier = naturalDragFlags
-            snapshot.naturalWindowDrag = naturalWindowDrag
+            snapshot.fusionDragModifier = fusionDragFlags
+            snapshot.macOSFusion = macOSFusion
             snapshot.resizeModifier = resizeFlags
             snapshot.scrollModifier = scrollFlags
             snapshot.minGestureFingers = minFingers

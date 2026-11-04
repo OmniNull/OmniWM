@@ -46,15 +46,15 @@ extension MouseEventHandler {
             finishNativeDwindleResize(&drag)
             requestNativeTitleBarDragCorrection(for: entry)
         } else {
-            let naturalResize = naturalResizeApplies(liveColumnContext(for: entry.workspaceId)?.orientation)
-            guard controller.settings.gestures.adoptNativeResize || naturalResize,
+            let fusionResize = fusionResizeApplies(liveColumnContext(for: entry.workspaceId)?.orientation)
+            guard controller.settings.gestures.adoptNativeResize || fusionResize,
                   let start = nativeResizeStartFrame(drag, entry: entry),
                   let observedFrame
             else { return false }
             let edges = Self.nativeResizeEdges(
                 from: start,
                 to: observedFrame,
-                allowsCentred: naturalResize
+                allowsCentred: fusionResize
             )
             guard !edges.isEmpty,
                   adoptNiriNativeResize(entry, edges: edges, from: start, to: observedFrame)
@@ -144,8 +144,8 @@ extension MouseEventHandler {
         return CGPoint(x: start.minX + dx, y: start.minY + dy)
     }
 
-    private func naturalResizeApplies(_ orientation: Monitor.Orientation?) -> Bool {
-        controller?.settings.niri.naturalWindowDrag == true && orientation == .horizontal
+    private func fusionResizeApplies(_ orientation: Monitor.Orientation?) -> Bool {
+        controller?.settings.niri.macOSFusion == true && orientation == .horizontal
     }
 
     private func adoptNiriNativeResize(
@@ -172,8 +172,8 @@ extension MouseEventHandler {
         guard !primaryEdges.isEmpty || secondarySpan != nil else { return false }
         let primary = centredPrimaryResize(primaryEdges, from: start, to: observed)
 
-        let slide = naturalResizeApplies(context.orientation)
-            ? naturalEdgeResizeSlide(around: window, in: workspaceId, resizedFrom: start, to: observed)
+        let slide = fusionResizeApplies(context.orientation)
+            ? fusionEdgeResizeSlide(around: window, in: workspaceId, resizedFrom: start, to: observed)
             : nil
         let undoStart = nativeResizeUndoStart(for: window, in: workspaceId)
         var changed = false
@@ -202,7 +202,7 @@ extension MouseEventHandler {
         guard changed else { return false }
         if entry.axRef != nil { controller.axManager.forceApplyNextFrame(for: entry.windowId) }
         if let slide {
-            settleNaturalEdgeResize(window, sliding: slide, monitor: monitor, context: context)
+            settleFusionEdgeResize(window, sliding: slide, monitor: monitor, context: context)
         } else {
             settleNiriResize(entry.token, in: workspaceId)
         }
@@ -238,7 +238,7 @@ extension MouseEventHandler {
         let applied = horizontal ? window.height : window.windowWidth
         guard case let .fixed(value) = applied else { return true }
         if abs(value - renderedSpan) > FrameTolerance.frameWrite,
-           !naturalResizeApplies(context.orientation)
+           !fusionResizeApplies(context.orientation)
            || neighboursGiveWay(to: window, from: frames.start, to: frames.observed, context: context)
         {
             return true
@@ -280,7 +280,7 @@ extension MouseEventHandler {
             engine.clearInteractiveResize()
             return false
         }
-        if naturalResizeApplies(context.orientation) {
+        if fusionResizeApplies(context.orientation) {
             engine.clearInteractiveResize()
         } else {
             engine.interactiveResizeEnd(

@@ -24,8 +24,8 @@ extension MouseEventHandler {
             return false
         }
 
-        let startsNaturalDrag = button == .left && naturalWindowDragTakesModifiers(modifiers, in: wsId)
-        if button == .left, startsNaturalDrag || modifiers.isDisjoint(with: Self.relevantModifierFlags) {
+        let startsFusionDrag = button == .left && macOSFusionTakesModifiers(modifiers, in: wsId)
+        if button == .left, startsFusionDrag || modifiers.isDisjoint(with: Self.relevantModifierFlags) {
             recordPointerFocusIntent(
                 at: location,
                 workspaceId: wsId,
@@ -43,7 +43,7 @@ extension MouseEventHandler {
         guard let engine = controller.niriEngine else { return false }
 
         if button == .left,
-           !startsNaturalDrag,
+           !startsFusionDrag,
            Self.mouseMoveModifiersMatch(
                modifiers,
                required: controller.settings.gestures.mouseMoveModifierKey.cgEventFlags
@@ -64,14 +64,14 @@ extension MouseEventHandler {
         return beginNiriMouseResize(at: location, engine: engine, workspaceId: wsId, button: button)
     }
 
-    func naturalWindowDragTakesModifiers(_ modifiers: CGEventFlags, in workspaceId: WorkspaceDescriptor.ID) -> Bool {
+    func macOSFusionTakesModifiers(_ modifiers: CGEventFlags, in workspaceId: WorkspaceDescriptor.ID) -> Bool {
         guard let controller,
-              controller.settings.niri.naturalWindowDrag,
+              controller.settings.niri.macOSFusion,
               controller.workspaceManager.activeLayoutKind(for: workspaceId) == .niri
         else { return false }
         return Self.mouseMoveModifiersMatch(
             modifiers,
-            required: controller.settings.niri.naturalWindowDragModifier.cgEventFlags
+            required: controller.settings.niri.macOSFusionModifier.cgEventFlags
         )
     }
 
@@ -81,7 +81,7 @@ extension MouseEventHandler {
         engine: NiriLayoutEngine,
         workspaceId: WorkspaceDescriptor.ID
     ) -> Bool {
-        guard controller?.settings.niri.naturalWindowDrag == true,
+        guard controller?.settings.niri.macOSFusion == true,
               modifiers.contains(.maskAlternate),
               let window = engine.hitTestTiled(point: location, in: workspaceId),
               !window.constraints.isFixed,

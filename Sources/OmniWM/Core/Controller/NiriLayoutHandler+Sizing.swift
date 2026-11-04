@@ -17,7 +17,7 @@ extension NiriLayoutHandler {
     }
 
     func cycleSize(forward: Bool) {
-        guard let controller, controller.settings.niri.naturalWindowDrag else {
+        guard let controller, controller.settings.niri.macOSFusion else {
             cycleContainerPrimarySpan(forward: forward)
             return
         }

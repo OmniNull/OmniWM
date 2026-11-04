@@ -8,7 +8,7 @@ import XCTest
 
 @MainActor
 final class NiriMoveColumnRaiseTests: XCTestCase {
-    func testWithNaturalWindowDragMovingAStackedColumnBringsEveryWindowForwardWithTheFocusedOneOnTop() throws {
+    func testWithMacOSFusionMovingAStackedColumnBringsEveryWindowForwardWithTheFocusedOneOnTop() throws {
         var ordered: [pid_t] = []
         let controller = makeController { element in
             var pid: pid_t = 0
@@ -35,7 +35,7 @@ final class NiriMoveColumnRaiseTests: XCTestCase {
         _ = controller.niriLayoutHandler.consumeWindowIntoColumn(containing: focused)
         XCTAssertEqual(engine.columns(in: workspaceId).map { $0.windowNodes.map(\.token) }.first?.count, 2)
         let mate = try XCTUnwrap(engine.columns(in: workspaceId).first?.windowNodes.first { $0.token != tokens[0] })
-        controller.settings.niri.naturalWindowDrag = false
+        controller.settings.niri.macOSFusion = false
         ordered = []
 
         _ = controller.niriLayoutHandler.moveColumn(containing: focused, direction: .right)
@@ -43,7 +43,7 @@ final class NiriMoveColumnRaiseTests: XCTestCase {
         XCTAssertEqual(engine.columns(in: workspaceId).last?.windowNodes.contains { $0.token == tokens[0] }, true)
         XCTAssertEqual(ordered, [])
 
-        controller.settings.niri.naturalWindowDrag = true
+        controller.settings.niri.macOSFusion = true
         _ = controller.niriLayoutHandler.moveColumn(containing: focused, direction: .left)
 
         XCTAssertEqual(engine.columns(in: workspaceId).first?.windowNodes.contains { $0.token == tokens[0] }, true)

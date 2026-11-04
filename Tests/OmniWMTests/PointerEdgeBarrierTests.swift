@@ -94,7 +94,7 @@ final class PointerEdgeBarrierTests: XCTestCase {
         return event
     }
 
-    func testTheTapTakesLeftDragsOnlyForNaturalWindowDrag() {
+    func testTheTapTakesLeftDragsOnlyForMacOSFusion() {
         let moved: CGEventMask = 1 << CGEventType.mouseMoved.rawValue
         let dragged: CGEventMask = 1 << CGEventType.leftMouseDragged.rawValue
         XCTAssertEqual(PointerEdgeBarrier.eventsOfInterest(tracksLiveDrags: false), moved)

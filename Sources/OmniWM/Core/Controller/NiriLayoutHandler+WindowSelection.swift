@@ -39,8 +39,8 @@ extension NiriLayoutHandler {
         var states: [WindowToken: NiriContainerSizingState]?
         for token in pass.windowTokens where pass.engine.findNode(for: token, in: pass.wsId) == nil {
             let state: NiriContainerSizingState?
-            if let natural = naturalWindowDragContainerSizingState(for: token, pass: pass) {
-                state = natural
+            if let fusion = macOSFusionContainerSizingState(for: token, pass: pass) {
+                state = fusion
             } else if let detached = controller.workspaceManager.restoreIntent(for: token)?
                 .detachedNiriContainerSizingState
             {
@@ -62,12 +62,12 @@ extension NiriLayoutHandler {
         return states
     }
 
-    private func naturalWindowDragContainerSizingState(
+    private func macOSFusionContainerSizingState(
         for token: WindowToken,
         pass: NiriLayoutPass
     ) -> NiriContainerSizingState? {
         guard let controller,
-              controller.settings.niri.naturalWindowDrag,
+              controller.settings.niri.macOSFusion,
               pass.orientation == .horizontal
         else { return nil }
         let opening = pass.engine.takeOpeningWindow(token)
