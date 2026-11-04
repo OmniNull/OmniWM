@@ -226,6 +226,8 @@ struct TabRailGeometryCommand: Equatable {
     let key: TabRailKey
     let tileFrame: CGRect
     let visibleTileFrame: CGRect
+    var orderingWindowId: Int?
+    var displayFrame: CGRect?
 }
 
 // `frameChanges` imply active, restore-eligible windows for this pass.

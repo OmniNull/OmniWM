@@ -21,24 +21,42 @@ struct NiriEdgePictureGeometry: Equatable {
     }
 }
 
+struct NiriEdgePicturePresentation: Equatable {
+    let frame: CGRect
+    let displayFrame: CGRect
+    let scale: CGFloat
+    let windowId: UInt32
+}
+
 @MainActor
 protocol NiriEdgePictureSurface: AnyObject {
+    var windowId: UInt32? { get }
+    var isVisibleForCapture: Bool { get }
     func update(geometry: NiriEdgePictureGeometry, image: CGImage, activate: @escaping @MainActor () -> Void)
     func destroy()
+}
+
+extension NiriEdgePictureSurface {
+    var windowId: UInt32? {
+        nil
+    }
 }
 
 @MainActor
 final class NiriEdgePictures {
     typealias Capture = @MainActor (WindowToken, @escaping @MainActor (CGImage?) -> Void) -> Task<Void, Never>?
+    typealias Cadence = @MainActor (Duration, @escaping @MainActor () -> Void) -> (@MainActor () -> Void)
 
     final class Picture {
         let workspaceId: WorkspaceDescriptor.ID
         let displayId: CGDirectDisplayID
         let displayFrame: CGRect
+        let scale: CGFloat
         var geometry: NiriEdgePictureGeometry
         var image: CGImage?
         var surface: (any NiriEdgePictureSurface)?
         var revealFrame: CGRect?
+        var isResting = false
 
         init(
             workspaceId: WorkspaceDescriptor.ID,
@@ -48,11 +66,15 @@ final class NiriEdgePictures {
             self.workspaceId = workspaceId
             displayId = monitor.displayId
             displayFrame = monitor.frame
+            scale = monitor.scale
             self.geometry = geometry
         }
     }
 
     let capture: Capture
+    let startCadence: Cadence
+    var cancelLiveRefresh: (@MainActor () -> Void)?
+    let isOverviewOpen: @MainActor () -> Bool
     private let makeSurface: @MainActor () -> any NiriEdgePictureSurface
     private let activate: @MainActor (WindowToken, WorkspaceDescriptor.ID) -> Void
     var pictures: [WindowToken: Picture] = [:]
@@ -62,26 +84,34 @@ final class NiriEdgePictures {
     var readyTokens: Set<WindowToken> = []
     var isUnderMemoryPressure = false
     var removeCaptureObservers: (@MainActor () -> Void)?
+    var onPresentationChanged: @MainActor () -> Void = {}
     let isCaptureEligible: @MainActor (WindowToken) -> Bool
 
     init(
         capture: @escaping Capture = NiriEdgePictures.captureWindow,
+        startCadence: @escaping Cadence = NiriEdgePictures.startLiveCadence,
         makeSurface: @escaping @MainActor () -> any NiriEdgePictureSurface = { NiriEdgePictureWindow() },
         isCaptureEligible: @escaping @MainActor (WindowToken) -> Bool = { _ in true },
+        isOverviewOpen: @escaping @MainActor () -> Bool = { false },
         activate: @escaping @MainActor (WindowToken, WorkspaceDescriptor.ID) -> Void
     ) {
         self.isCaptureEligible = isCaptureEligible
+        self.isOverviewOpen = isOverviewOpen
         self.capture = capture
+        self.startCadence = startCadence
         self.makeSurface = makeSurface
         self.activate = activate
     }
 
     isolated deinit {
+        cancelLiveRefresh?()
         removeCaptureObservers?()
         for captured in capturedPictures.values { captured.task?.cancel() }
     }
 
     func reconcile(_ plan: WorkspaceLayoutPlan) {
+        defer { reconcileLiveRefresh() }
+        let resting = !plan.isInteractiveResize && plan.diff.picturePreparation?.isSettled == true
         let enabled = plan.isActiveWorkspace && plan.monitor.orientation == .vertical
         let desired = enabled ? plan.diff.edgeHiddenFrames : [:]
         preparePictures(plan, enabled: enabled)
@@ -103,6 +133,7 @@ final class NiriEdgePictures {
                 continue
             }
             picture.revealFrame = change.frame
+            picture.isResting = false
             picture.geometry = geometry
             present(token, picture: picture)
         }
@@ -116,12 +147,14 @@ final class NiriEdgePictures {
                     remove(token)
                 } else {
                     picture.revealFrame = nil
+                    picture.isResting = resting
                     picture.geometry = geometry
                     present(token, picture: picture)
                     continue
                 }
             }
             let picture = Picture(workspaceId: plan.workspaceId, monitor: plan.monitor, geometry: geometry)
+            picture.isResting = resting
             pictures[token] = picture
             preparePicture(token, picture: picture, plan: plan)
         }
@@ -160,9 +193,13 @@ final class NiriEdgePictures {
     }
 
     func remove(_ token: WindowToken) {
-        pictures.removeValue(forKey: token)?.surface?.destroy()
+        if let surface = pictures.removeValue(forKey: token)?.surface {
+            surface.destroy()
+            onPresentationChanged()
+        }
         discardCapture(token)
         pendingCaptures[token] = nil
+        reconcileLiveRefresh()
     }
 
     func reset() {
@@ -174,11 +211,23 @@ final class NiriEdgePictures {
 
     func present(_ token: WindowToken, picture: Picture) {
         guard let image = picture.image else { return }
-        if picture.surface == nil { picture.surface = makeSurface() }
+        let mounted = picture.surface == nil
+        if mounted { picture.surface = makeSurface() }
         picture.surface?.update(geometry: picture.geometry, image: image) { [weak self, weak picture] in
             guard let self, let picture, pictures[token] === picture else { return }
             activate(token, picture.workspaceId)
         }
+        if mounted {
+            onPresentationChanged()
+            reconcileLiveRefresh()
+        }
+    }
+
+    func presentation(for token: WindowToken) -> NiriEdgePicturePresentation? {
+        guard let picture = pictures[token], let windowId = picture.surface?.windowId else { return nil }
+        return NiriEdgePicturePresentation(
+            frame: picture.geometry.frame, displayFrame: picture.displayFrame, scale: picture.scale, windowId: windowId
+        )
     }
 
     static func captureWindow(
@@ -206,8 +255,10 @@ extension WMController {
                 self?.workspaceManager.entry(for: token)?.axRef != nil && ScreenCapturePermissionMonitor.shared
                     .isGranted
             },
+            isOverviewOpen: { [weak self] in self?.windowActionHandler.overviewState.isOpen == true },
             activate: { [weak self] in self?.activateEdgePicture($0, in: $1) }
         )
+        pictures.onPresentationChanged = { [weak self] in self?.surfaceReconciler.noteWorldChanged() }
         observePictureCaptureState(pictures)
         return pictures
     }

@@ -4,10 +4,17 @@
 import CoreGraphics
 import Foundation
 
+struct BorderPresentation: Equatable {
+    var windowId: UInt32
+    var displayFrame: CGRect
+    var scale: CGFloat
+}
+
 struct DesiredBorderSurface: Equatable {
     var token: WindowToken
     var frame: CGRect
     var config: BorderConfig
+    var presentation: BorderPresentation?
 
     var windowId: Int {
         token.windowId

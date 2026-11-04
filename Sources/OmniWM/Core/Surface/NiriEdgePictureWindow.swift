@@ -49,6 +49,15 @@ final class NiriEdgePictureWindow: NSPanel, NiriEdgePictureSurface {
         )
     }
 
+    var windowId: UInt32? {
+        guard windowNumber > 0 else { return nil }
+        return UInt32(exactly: windowNumber)
+    }
+
+    var isVisibleForCapture: Bool {
+        occlusionState.contains(.visible)
+    }
+
     override var canBecomeKey: Bool {
         false
     }

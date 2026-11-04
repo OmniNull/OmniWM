@@ -97,7 +97,7 @@ extension NiriEdgePictures {
             present(token, picture: picture)
             CATransaction.commit()
         }
-        if let image = captured.image, let picture = pictures[token] {
+        if let image = captured.image, let picture = pictures[token], picture.image !== image {
             picture.image = image
             present(token, picture: picture)
         }
@@ -118,7 +118,9 @@ extension NiriEdgePictures {
     func retirePicture(_ token: WindowToken) {
         guard let picture = pictures.removeValue(forKey: token) else { return }
         picture.surface?.destroy()
+        if picture.surface != nil { onPresentationChanged() }
         if !retainsCapture(token, in: picture.workspaceId) { discardCapture(token) }
+        reconcileLiveRefresh()
     }
 
     func retainsCapture(_ token: WindowToken, in workspaceId: WorkspaceDescriptor.ID) -> Bool {

@@ -233,7 +233,8 @@ extension NiriLayoutHandler {
                 )
             },
             isSettled: isSettled,
-            excludedTokens: snapshot.excludedTokens, edgePictures: snapshot.edgePictures
+            excludedTokens: snapshot.excludedTokens, edgePictures: snapshot.edgePictures,
+            recordsPresentationGeometry: true
         )
     }
 

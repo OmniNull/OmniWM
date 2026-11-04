@@ -36,7 +36,7 @@ final class BorderSurfaceApplier {
     private var cornerRetryState: CornerRetryState?
     private var cornerDesiredSize: CGSize?
     private var cornerQueryGeneration: UInt64 = 0
-    private var cornerQueryTask: Task<Void, Never>?
+    private(set) var cornerQueryTask: Task<Void, Never>?
     private var wantsCornerQuery = false
     private let borderWindowOperations: BorderWindow.Operations
     private let cornerSampleProvider: @MainActor (WindowToken) async throws -> WindowCornerSample?
@@ -107,12 +107,12 @@ final class BorderSurfaceApplier {
         let cornerSample = resolvedCornerSample(
             for: desired.token,
             desiredSize: desired.frame.size,
-            refresh: refreshCornerRadii
+            refresh: refreshCornerRadii && desired.presentation == nil
         )
         if canReuseAppliedBorder(desired, cornerSample: cornerSample) {
             BorderOpMetricsRecorder.shared.noteShortCircuit()
             if forceOrdering {
-                borderWindow?.reorder(relativeTo: desired.token)
+                borderWindow?.reorder(relativeTo: desired.token, presentation: desired.presentation)
             }
             return BorderSurfaceApplyResult(
                 didApply: true,
@@ -123,6 +123,7 @@ final class BorderSurfaceApplier {
         guard borderWindow?.update(
             frame: desired.frame,
             targetToken: desired.token,
+            presentation: desired.presentation,
             cornerRadii: cornerSample?.radii ?? defaultCornerRadii,
             cornerContour: cornerSample?.contour,
             forceOrdering: forceOrdering
@@ -131,10 +132,7 @@ final class BorderSurfaceApplier {
             appliedCornerSample = nil
             clearCornerState()
             unregisterSurface()
-            return BorderSurfaceApplyResult(
-                didApply: false,
-                needsWindowLevelRetry: false
-            )
+            return BorderSurfaceApplyResult(didApply: false, needsWindowLevelRetry: false)
         }
         scaleInvalidated = false
         applied = desired
@@ -168,6 +166,7 @@ final class BorderSurfaceApplier {
             && borderWindow?.hasDeferredLevelUpdate != true
             && applied.token == desired.token
             && applied.config == desired.config
+            && applied.presentation == desired.presentation
             && appliedCornerSample == cornerSample
             && desired.frame.approximatelyEqual(to: applied.frame, tolerance: FrameTolerance.frameWrite)
     }

@@ -11,6 +11,7 @@ struct NiriCalculationContext {
     let secondaryGap: CGFloat
     let time: TimeInterval
     let edgePictures: NiriEdgePictureState
+    let recordsPresentationGeometry: Bool
     let frames: NiriLayoutFrames
     let hiddenPlacementMonitor: HiddenPlacementMonitorContext?
     let hiddenPlacementMonitors: [HiddenPlacementMonitorContext]
@@ -24,9 +25,11 @@ struct NiriCalculationContext {
         time: TimeInterval,
         hiddenPlacementMonitor: HiddenPlacementMonitorContext?,
         hiddenPlacementMonitors: [HiddenPlacementMonitorContext],
-        edgePictures: NiriEdgePictureState = .none
+        edgePictures: NiriEdgePictureState = .none,
+        recordsPresentationGeometry: Bool = false
     ) {
         self.edgePictures = edgePictures
+        self.recordsPresentationGeometry = recordsPresentationGeometry
         self.geometry = geometry
         area = geometry.resolveWorkingArea()
         (primaryGap, secondaryGap) = geometry.axisGaps()

@@ -43,6 +43,7 @@ final class BorderWindow {
     private var appliedTargetFrame: CGRect = .zero
     private var appliedSurfaceFrame: CGRect = .zero
     private var appliedTargetToken: WindowToken?
+    private var appliedPresentation: BorderPresentation?
     private var needsRedraw = true
     private var isVisible = false
     private var lastOrderedTargetToken: WindowToken?
@@ -54,7 +55,7 @@ final class BorderWindow {
     private var cachedTargetLevel: CachedTargetLevel?
     private var deferredLevelTarget: WindowToken?
     private var deferredLevelGeneration: UInt64 = 0
-    private var deferredLevelTask: Task<Void, Never>?
+    private(set) var deferredLevelTask: Task<Void, Never>?
     private(set) var hasDeferredLevelUpdate = false
     var onWindowLevelResolved: (@MainActor () -> Void)?
     private var pendingTargetLevelRetryToken: WindowToken?
@@ -89,6 +90,7 @@ final class BorderWindow {
         isVisible = false
         lastOrderedTargetToken = nil
         appliedTargetToken = nil
+        appliedPresentation = nil
         cachedTargetLevel = nil
         pendingTargetLevelRetryToken = nil
         needsWindowLevelRetry = false
@@ -100,6 +102,7 @@ final class BorderWindow {
     func update(
         frame targetFrame: CGRect,
         targetToken: WindowToken,
+        presentation: BorderPresentation? = nil,
         cornerRadii: WindowCornerRadii? = nil,
         cornerContour: WindowCornerContour? = nil,
         forceOrdering: Bool = false
@@ -107,18 +110,20 @@ final class BorderWindow {
         BorderOpMetricsRecorder.shared.noteUpdate()
         needsWindowLevelRetry = false
         guard let targetWid = UInt32(exactly: targetToken.windowId), targetWid != 0 else { return false }
-        let scale = backingScale(for: targetFrame)
+        let scale = presentation?.scale ?? backingScale(for: targetFrame)
         let resolvedCornerRadii = (cornerRadii ?? defaultCornerRadii).nonnegative
         let geometry = config.resolvedGeometry(for: targetFrame, scale: scale)
         let surfaceFrame = geometry.surfaceFrame
         appliedTargetFrame = geometry.targetFrame
         appliedSurfaceFrame = surfaceFrame
         let localGeometry = geometry.localized()
-        let targetChanged = appliedTargetToken != targetToken
+        let presentationChanged = appliedPresentation?.windowId != presentation?.windowId
+        let targetChanged = appliedTargetToken != targetToken || presentationChanged
         if targetChanged {
             pendingTargetLevelRetryToken = nil
-            invalidateDeferredLevel(target: targetToken)
+            invalidateDeferredLevel(target: presentation == nil ? targetToken : nil)
         }
+        appliedPresentation = presentation
 
         let createdWindow = wid == 0
         if createdWindow {
@@ -126,31 +131,15 @@ final class BorderWindow {
             guard wid != 0 else { return false }
         }
 
-        if scale != lastConfiguredScale, wid != 0 {
-            BorderOpMetricsRecorder.shared.noteScaleReconfiguration()
-            lastConfiguredScale = scale
-            needsRedraw = true
-        }
-
-        if localGeometry.surfaceFrame.size != currentSurfaceFrame.size {
-            BorderOpMetricsRecorder.shared.noteReshape()
-            needsRedraw = true
-        }
-        if currentCornerRadii != resolvedCornerRadii || currentCornerContour != cornerContour {
-            needsRedraw = true
-        }
-        currentSurfaceFrame = localGeometry.surfaceFrame
-        currentCornerRadii = resolvedCornerRadii
-        currentCornerContour = cornerContour
-
-        updateLayerGeometry(localGeometry)
+        updateLayerGeometry(localGeometry, scale: scale, cornerRadii: resolvedCornerRadii, cornerContour: cornerContour)
 
         let retryingTargetLevel = pendingTargetLevelRetryToken == targetToken
         let needsOrdering = forceOrdering || createdWindow || !isVisible
-            || lastOrderedTargetToken != targetToken || retryingTargetLevel || hasDeferredLevelUpdate
+            || lastOrderedTargetToken != targetToken || presentationChanged || retryingTargetLevel ||
+            hasDeferredLevelUpdate
         move(
             relativeTo: targetToken,
-            targetWid: targetWid,
+            targetWid: presentation?.windowId ?? targetWid,
             needsOrdering: needsOrdering,
             retryingTargetLevel: retryingTargetLevel
         )
@@ -161,7 +150,7 @@ final class BorderWindow {
     }
 
     private func createWindow(scale: CGFloat) {
-        guard let panel = operations.createLayerPanel(appliedSurfaceFrame) else { return }
+        guard let panel = operations.createLayerPanel(visibleSurfaceFrame) else { return }
         guard let windowId = UInt32(exactly: panel.windowNumber), windowId != 0 else {
             panel.close()
             return
@@ -183,10 +172,10 @@ final class BorderWindow {
     ) {
         if needsOrdering {
             BorderOpMetricsRecorder.shared.noteMoveAndOrder()
-            let level = resolvedTargetLevel(
+            let level: Int32 = appliedPresentation == nil ? resolvedTargetLevel(
                 for: targetToken,
                 retrying: retryingTargetLevel
-            )
+            ) : 0
             appliedTargetLevel = level
             if let layerPanel {
                 layerPanel.level = NSWindow.Level(rawValue: Int(level))
@@ -281,16 +270,17 @@ final class BorderWindow {
         }
     }
 
-    func reorder(relativeTo targetToken: WindowToken) {
+    func reorder(relativeTo targetToken: WindowToken, presentation: BorderPresentation? = nil) {
         needsWindowLevelRetry = false
         guard wid != 0,
               let targetWid = UInt32(exactly: targetToken.windowId),
               targetWid != 0
         else { return }
+        appliedPresentation = presentation
         let retryingTargetLevel = pendingTargetLevelRetryToken == targetToken
         move(
             relativeTo: targetToken,
-            targetWid: targetWid,
+            targetWid: presentation?.windowId ?? targetWid,
             needsOrdering: true,
             retryingTargetLevel: retryingTargetLevel
         )
@@ -325,7 +315,7 @@ final class BorderWindow {
     }
 
     var frameOnScreen: CGRect? {
-        wid == 0 || !isVisible ? nil : appliedSurfaceFrame
+        wid == 0 || !isVisible ? nil : visibleSurfaceFrame
     }
 
     var targetFrameOnScreen: CGRect? {
@@ -334,6 +324,10 @@ final class BorderWindow {
 }
 
 extension BorderWindow {
+    private var visibleSurfaceFrame: CGRect {
+        appliedPresentation.map { appliedSurfaceFrame.integral.intersection($0.displayFrame) } ?? appliedSurfaceFrame
+    }
+
     func invalidateScaleCache() {
         cachedScale = 0
         cachedScaleScreenFrame = .null
@@ -369,11 +363,34 @@ extension BorderWindow {
 }
 
 extension BorderWindow {
-    private func updateLayerGeometry(_ geometry: BorderConfig.ResolvedGeometry) {
+    private func updateLayerGeometry(
+        _ geometry: BorderConfig.ResolvedGeometry,
+        scale: CGFloat,
+        cornerRadii: WindowCornerRadii,
+        cornerContour: WindowCornerContour?
+    ) {
+        if scale != lastConfiguredScale, wid != 0 {
+            BorderOpMetricsRecorder.shared.noteScaleReconfiguration()
+            lastConfiguredScale = scale
+            needsRedraw = true
+        }
+        if geometry.surfaceFrame.size != currentSurfaceFrame.size {
+            BorderOpMetricsRecorder.shared.noteReshape()
+            needsRedraw = true
+        }
+        if currentCornerRadii != cornerRadii || currentCornerContour != cornerContour {
+            needsRedraw = true
+        }
+        currentSurfaceFrame = geometry.surfaceFrame
+        currentCornerRadii = cornerRadii
+        currentCornerContour = cornerContour
         CATransaction.begin()
         CATransaction.setDisableActions(true)
         defer { CATransaction.commit() }
-        layerPanel?.applyFrame(targetFrame: appliedTargetFrame, surfaceFrame: appliedSurfaceFrame)
+        layerPanel?.applyFrame(
+            targetFrame: appliedTargetFrame, surfaceFrame: appliedSurfaceFrame,
+            displayClip: appliedPresentation?.displayFrame
+        )
         if needsRedraw { draw(geometry: geometry) }
     }
 }

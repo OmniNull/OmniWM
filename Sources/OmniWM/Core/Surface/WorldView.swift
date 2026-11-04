@@ -350,6 +350,14 @@ struct WorldView {
 }
 
 extension WorldView {
+    func edgePicturePresentation(for entry: borrowing WindowState) -> NiriEdgePicturePresentation? {
+        guard entry.layoutReason == .standard,
+              !controller.workspaceManager.isWindowSuppressedByMacOS(entry)
+        else { return nil }
+        if let hidden = entry.hiddenState, hidden.offscreenSide == nil { return nil }
+        return controller.niriEdgePictures.presentation(for: entry.token)
+    }
+
     func islandSurfaces() -> [DesiredIslandSurface] {
         guard controller.settings.island.enabled else { return [] }
         let topology = spaceTopology

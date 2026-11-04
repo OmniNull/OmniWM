@@ -12,6 +12,7 @@ final class NiriEdgePicturesTests: XCTestCase {
     private let displayFrame = CGRect(x: 0, y: 0, width: 1200, height: 800)
 
     private final class Surface: NiriEdgePictureSurface {
+        let isVisibleForCapture = true
         var geometry: NiriEdgePictureGeometry?
         var activation: (@MainActor () -> Void)?
         var destroyed = false
@@ -32,7 +33,7 @@ final class NiriEdgePicturesTests: XCTestCase {
         var selected: (WindowToken, WorkspaceDescriptor.ID)?
         let presenter = NiriEdgePictures(
             capture: { _, completion in completions.append(completion)
-                return nil
+                return Task {}
             },
             makeSurface: { let surface = Surface()
                 surfaces.append(surface)
@@ -87,7 +88,7 @@ final class NiriEdgePicturesTests: XCTestCase {
         var surfaces: [Surface] = []
         let presenter = NiriEdgePictures(
             capture: { _, completion in completions.append(completion)
-                return nil
+                return Task {}
             },
             makeSurface: { let surface = Surface()
                 surfaces.append(surface)
@@ -139,7 +140,7 @@ final class NiriEdgePicturesTests: XCTestCase {
         var surfaceCount = 0
         let presenter = NiriEdgePictures(
             capture: { _, ready in completion = ready
-                return nil
+                return Task {}
             },
             makeSurface: { surfaceCount += 1
                 return Surface()

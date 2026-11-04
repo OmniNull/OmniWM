@@ -88,15 +88,16 @@ enum SurfaceDerivation {
         guard !world.hasPendingNativeFullscreenTransition(for: token) else { return nil }
         guard !world.hasPendingWindowClose(for: entry) else { return nil }
         guard world.systemModalFocusToken != token else { return nil }
+        let picture = world.edgePicturePresentation(for: entry)
         guard world.suppressedFocusToken != token,
               !world.hasPendingNativeFullscreenTransition(in: entry.workspaceId),
               !world.isWindowFullscreenInLayout(entry),
-              world.isManagedWindowDisplayable(entry),
+              picture != nil || world.isManagedWindowDisplayable(entry),
               world.isWorkspaceVisible(entry.workspaceId)
         else {
             return nil
         }
-        guard let frame = borderFrame(
+        guard let frame = picture?.frame ?? borderFrame(
                   for: entry,
                   world: world,
                   policy: framePolicy
@@ -105,7 +106,12 @@ enum SurfaceDerivation {
         else {
             return nil
         }
-        return DesiredBorderSurface(token: entry.token, frame: frame, config: config)
+        return DesiredBorderSurface(
+            token: entry.token, frame: frame, config: config,
+            presentation: picture.map {
+                BorderPresentation(windowId: $0.windowId, displayFrame: $0.displayFrame, scale: $0.scale)
+            }
+        )
     }
 
     @MainActor

@@ -19,11 +19,12 @@ final class NiriPicturePrewarmingTests: XCTestCase {
         func capture(_ token: WindowToken, completion: @escaping @MainActor (CGImage?) -> Void) -> Task<Void, Never>? {
             tokens.append(token)
             completions.append(completion)
-            return nil
+            return Task {}
         }
     }
 
     private final class Surface: NiriEdgePictureSurface {
+        let isVisibleForCapture = true
         var image: CGImage?
         var geometry: NiriEdgePictureGeometry?
         var destroyed = false

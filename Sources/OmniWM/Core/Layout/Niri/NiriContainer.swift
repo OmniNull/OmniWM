@@ -41,6 +41,7 @@ class NiriContainer: NiriNode {
     var targetHeight: CGFloat?
     var fittedWidth: CGFloat?
     var fittedHeight: CGFloat?
+    var edgeHiddenFrame: CGRect?
 
     var settledWidth: CGFloat {
         targetWidth ?? cachedWidth

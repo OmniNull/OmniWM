@@ -129,7 +129,7 @@ extension NiriLayoutHandler {
         } == true)
         let (frames, hiddenHandles) = calculateOnDemandFrames(
             snapshot: snapshot, engine: engine, monitor: monitor,
-            sampledAnimationTime: sampledAnimationTime, isSettled: isSettled
+            sampledAnimationTime: sampledAnimationTime, isSettled: isSettled, recordsPresentationGeometry: true
         )
 
         var diff = layoutDiff(
@@ -388,7 +388,8 @@ extension NiriLayoutHandler {
         engine: NiriLayoutEngine,
         monitor: Monitor,
         sampledAnimationTime: TimeInterval?,
-        isSettled: Bool
+        isSettled: Bool,
+        recordsPresentationGeometry: Bool = false
     ) -> (frames: [WindowToken: CGRect], hiddenHandles: [WindowToken: HideSide]) {
         let gaps = LayoutGaps(
             horizontal: snapshot.gap,
@@ -420,7 +421,8 @@ extension NiriLayoutHandler {
             viewOffsetOverride: offsets?.liveOffset,
             settledVisibilityOffset: offsets?.settledVisibilityOffset,
             isSettled: isSettled,
-            excludedTokens: snapshot.excludedTokens, edgePictures: snapshot.edgePictures
+            excludedTokens: snapshot.excludedTokens, edgePictures: snapshot.edgePictures,
+            recordsPresentationGeometry: recordsPresentationGeometry
         )
     }
 

@@ -103,19 +103,28 @@ extension NiriLayoutEngine {
         settledVisibilityOffset: CGFloat? = nil,
         isSettled: Bool = false,
         excludedTokens: Set<WindowToken>? = nil,
-        edgePictures: NiriEdgePictureState = .none
+        edgePictures: NiriEdgePictureState = .none,
+        recordsPresentationGeometry: Bool = false
     ) {
         result.edgeHiddenFrames.removeAll(keepingCapacity: true)
         if let excludedTokens { setProjectionExclusions(excludedTokens, in: workspaceId) }
         let excludedTokens = projectionExclusions(in: workspaceId)
         let projectedColumns = projectedColumns(in: workspaceId)
-        guard !projectedColumns.isEmpty else { return }
+        guard !projectedColumns.isEmpty else {
+            if recordsPresentationGeometry {
+                for column in columns(in: workspaceId) { column.edgeHiddenFrame = nil }
+            }
+            return
+        }
         let context = NiriCalculationContext(
             geometry: geometry, time: animationTime ?? CACurrentMediaTime(),
             hiddenPlacementMonitor: hiddenPlacementMonitor,
-            hiddenPlacementMonitors: hiddenPlacementMonitors, edgePictures: edgePictures
+            hiddenPlacementMonitors: hiddenPlacementMonitors, edgePictures: edgePictures,
+            recordsPresentationGeometry: recordsPresentationGeometry
         )
-        clearExcludedColumnFrames(in: workspaceId, excluding: excludedTokens)
+        clearExcludedColumnFrames(
+            in: workspaceId, excluding: excludedTokens, recordsPresentationGeometry: recordsPresentationGeometry
+        )
         if animationTime == nil {
             reconcilePrimarySpanFit(
                 in: workspaceId,
@@ -133,24 +142,15 @@ extension NiriLayoutEngine {
             )
             return
         }
-        let prepared = prepareLayoutColumns(
-            projectedColumns, area: context.area, primaryGap: context.primaryGap,
-            time: context.time, orientation: context.orientation
+        layoutProjectedColumns(
+            projectedColumns, selection: NiriViewportSelection(state: state, workspaceId: workspaceId),
+            context: context,
+            sampling: NiriViewportSampling(
+                viewOffset: viewOffsetOverride ?? state.viewOffset,
+                settledVisibilityOffset: settledVisibilityOffset, isSettled: isSettled
+            ),
+            result: &result
         )
-        let sampling = NiriViewportSampling(
-            viewOffset: viewOffsetOverride ?? state.viewOffset,
-            settledVisibilityOffset: settledVisibilityOffset,
-            isSettled: isSettled
-        )
-        let pass = columnLayoutPass(
-            selection: NiriViewportSelection(state: state, workspaceId: workspaceId), columns: projectedColumns,
-            prepared: prepared, context: context, sampling: sampling
-        )
-        for index in projectedColumns.indices {
-            layoutProjectedColumn(
-                projectedColumns[index], prepared: prepared[index], at: index, pass: pass, result: &result
-            )
-        }
     }
 
     func prepareLayoutColumns(

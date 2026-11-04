@@ -73,14 +73,16 @@ class BorderLayerPanel: NSPanel {
         frameRect
     }
 
-    func applyFrame(targetFrame: CGRect, surfaceFrame: CGRect) {
-        let panelFrame = surfaceFrame.integral
+    func applyFrame(targetFrame: CGRect, surfaceFrame: CGRect, displayClip: CGRect? = nil) {
+        let panelFrame = displayClip.map { surfaceFrame.integral.intersection($0) } ?? surfaceFrame.integral
         let layerFrame = targetFrame.offsetBy(dx: -panelFrame.minX, dy: -panelFrame.minY)
         let effectsFrame = surfaceFrame.offsetBy(dx: -panelFrame.minX, dy: -panelFrame.minY)
         guard frame != panelFrame || borderLayer.frame != layerFrame
+            || containerLayer.masksToBounds != (displayClip != nil)
             || effects.root.frame != effectsFrame else { return }
         CATransaction.begin()
         CATransaction.setDisableActions(true)
+        containerLayer.masksToBounds = displayClip != nil
         if frame != panelFrame {
             setFrame(panelFrame, display: false)
         }

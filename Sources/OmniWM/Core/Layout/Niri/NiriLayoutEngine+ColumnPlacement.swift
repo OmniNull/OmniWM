@@ -11,6 +11,7 @@ extension NiriLayoutEngine {
         result: inout LayoutResult,
         viewportOffset: CGFloat = 0
     ) {
+        if context.recordsPresentationGeometry { single.container.edgeHiddenFrame = nil }
         let layoutArea = context.area
         let orientation = context.orientation
         let time = context.time
@@ -38,6 +39,25 @@ extension NiriLayoutEngine {
             context: NiriContainerLayoutContext(frames: context.frames, secondaryGap: 0, time: time),
             result: &result.frames
         )
+    }
+
+    func layoutProjectedColumns(
+        _ columns: [NiriProjectedColumn],
+        selection: NiriViewportSelection,
+        context: NiriCalculationContext,
+        sampling: NiriViewportSampling,
+        result: inout LayoutResult
+    ) {
+        let prepared = prepareLayoutColumns(
+            columns, area: context.area, primaryGap: context.primaryGap,
+            time: context.time, orientation: context.orientation
+        )
+        let pass = columnLayoutPass(
+            selection: selection, columns: columns, prepared: prepared, context: context, sampling: sampling
+        )
+        for index in columns.indices {
+            layoutProjectedColumn(columns[index], prepared: prepared[index], at: index, pass: pass, result: &result)
+        }
     }
 
     func columnLayoutPass(
@@ -111,6 +131,9 @@ extension NiriLayoutEngine {
                 isActive: index == pass.activeIndex, isSettled: pass.settledContentFrame != nil
             ) : .none
         )
+        if pass.context.recordsPresentationGeometry {
+            column.column.edgeHiddenFrame = visibility.isEdgeHidden ? visibility.visibleRect : nil
+        }
         let renderedRect = renderedColumnFrame(column, at: index, visibility: visibility, pass: pass, result: &result)
         layoutContainer(
             container: column.column,
