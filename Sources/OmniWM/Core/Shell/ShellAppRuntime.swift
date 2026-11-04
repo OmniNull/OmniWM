@@ -45,6 +45,17 @@ final class ShellAppRuntime {
     private(set) var closed = false
     private(set) var failure: ShellScriptFailure?
     var onRender: (() -> Void)?
+    var onApprovalsChange: (() -> Void)?
+    private(set) var descriptors: [ShellComponentDescriptor] = []
+    private(set) var networkApprovals: [ShellNetworkApproval.Key: ShellNetworkApproval] = [:] {
+        didSet { if networkApprovals != oldValue { onApprovalsChange?() } }
+    }
+
+    private(set) var providerApprovals: [ShellProviderApproval.Key: ShellProviderApproval] = [:] {
+        didSet { if providerApprovals != oldValue { onApprovalsChange?() } }
+    }
+
+    private let permissions: ShellNetworkPermissions
     private var text = ShellTextStore()
     private var epoch = 0
     private var mailbox: AsyncStream<ShellWidgetMessage>.Continuation?
@@ -55,10 +66,18 @@ final class ShellAppRuntime {
         receive(delivery)
     }
 
-    private(set) lazy var package = ShellWidgetPackage(name: definition.id, generation: Self.generation, outbox: outbox)
+    private(set) lazy var package = ShellWidgetPackage(
+        name: definition.id, generation: Self.generation, outbox: outbox, permissions: permissions
+    )
 
-    init(definition: ShellAppDefinition, window: NSWindow, resources: ShellResources) {
+    init(
+        definition: ShellAppDefinition,
+        window: NSWindow,
+        resources: ShellResources,
+        permissions: ShellNetworkPermissions = ShellNetworkPermissions()
+    ) {
         self.definition = definition
+        self.permissions = permissions
         primary = Slot(
             id: id,
             viewName: definition.view,
@@ -106,6 +125,7 @@ final class ShellAppRuntime {
             onRender?()
             return
         }
+        descriptors = source.componentDescriptors
         let package = package
         loading = Task { [weak self] in
             let failure = await package.load(source)
@@ -147,12 +167,14 @@ final class ShellAppRuntime {
         mailbox?.finish()
         mailbox = nil
         onRender = nil
+        onApprovalsChange = nil
         onWindowRequest = nil
         ShellWidgetHost.close(package)
     }
 
     func receive(_ delivery: ShellWidgetDelivery) {
         guard !closed, delivery.generation == Self.generation else { return }
+        recordApprovals(of: delivery)
         failure = delivery.failure
         if delivery.epoch != epoch {
             epoch = delivery.epoch
@@ -176,6 +198,22 @@ final class ShellAppRuntime {
             package.services.complete(ShellWindowRequest.completion(id: request.id, error: error))
         }
         onRender?()
+    }
+
+    func permissionsChanged() {
+        guard !closed else { return }
+        networkApprovals = networkApprovals.filter { permissions.isPending($0.key) }
+        providerApprovals = providerApprovals.filter { permissions.decide($0.value) == .notApproved }
+        package.permissionsChanged()
+    }
+
+    private func recordApprovals(of delivery: ShellWidgetDelivery) {
+        for approval in delivery.networkApprovals where permissions.isPending(approval.key) {
+            networkApprovals[approval.key] = approval
+        }
+        for approval in delivery.providerApprovals where permissions.decide(approval) == .notApproved {
+            providerApprovals[approval.key] = approval
+        }
     }
 
     private func update(_ rootID: UUID, width: Double, height: Double, visible: Bool) {

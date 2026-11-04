@@ -242,6 +242,11 @@ extension WorkspaceBarManager {
             managed: reloadingManagedPolicy ? ShellManagedPolicy.current() : nil
         ) else { return }
         shellHost?.permissionsChanged()
+        controller?.shellAppWindowManager.permissionsChanged()
+    }
+
+    func shellPermissionTitle(of principal: ShellWidgetPrincipal) -> String? {
+        controller?.shellAppWindowManager.permissionTitle(of: principal) ?? shellHost?.title(of: principal)
     }
 
     func setShellLocked(_ locked: Bool) {

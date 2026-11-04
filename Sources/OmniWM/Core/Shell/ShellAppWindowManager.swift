@@ -169,6 +169,7 @@ final class ShellAppWindowManager: NSObject, NSWindowDelegate {
             if metadata.role == .main {
                 for child in childTokens(of: token) { closeChild(child, recoverFocus: false) }
                 runtimes.removeValue(forKey: metadata.instanceID)?.close()
+                publishApprovals()
             } else {
                 runtimes[metadata.instanceID]?.removeRoot(metadata.rootID)
             }

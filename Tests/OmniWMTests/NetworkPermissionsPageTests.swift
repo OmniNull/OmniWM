@@ -43,6 +43,7 @@ final class NetworkPermissionsPageTests: XCTestCase {
         config: ShellConfig = ShellConfig(),
         schemas: [ShellRootSettings] = [],
         descriptors: [ShellComponentDescriptor] = [],
+        apps: [ShellComponentDescriptor] = [],
         decisions: ShellPermissionDecisions = ShellPermissionDecisions(),
         managed: ShellManagedPolicy = ShellManagedPolicy(),
         pending: [ShellPermissionPrompts.Request] = []
@@ -51,6 +52,7 @@ final class NetworkPermissionsPageTests: XCTestCase {
             config: config,
             schemas: Dictionary(uniqueKeysWithValues: schemas.map { ($0.widget, $0) }),
             catalog: catalog(descriptors),
+            apps: apps,
             permissions: ShellNetworkPermissions(decisions: decisions, managed: managed).snapshot,
             pending: pending
         )
@@ -80,7 +82,7 @@ final class NetworkPermissionsPageTests: XCTestCase {
             managed: managed
         )
 
-        XCTAssertEqual(page.widgets.map(\.id), ["component:ci-status", "root:lake", "bar:weather"])
+        XCTAssertEqual(page.widgets.map(\.anchor), ["component:ci-status", "root:lake", "bar:weather"])
         XCTAssertEqual(page.widgets[0].purpose, "Shows build status")
         XCTAssertEqual(page.widgets[0].hosts, [
             .init(name: "api.github.com", declaredByShellConfig: false, state: .notAsked),
@@ -92,6 +94,33 @@ final class NetworkPermissionsPageTests: XCTestCase {
         XCTAssertEqual(page.widgets[2].purpose, "Forecast")
         XCTAssertEqual(page.widgets[2].hosts.map(\.state), [.allowed, .blockedByOrganization, .allowedByOrganization])
         XCTAssertEqual(page.widgets[2].hosts.map(\.decision), [.allowed, nil, nil])
+    }
+
+    func testAnAppNamedLikeAWidgetKeepsItsOwnRowsWithoutTheWidgetsExtensions() throws {
+        var config = ShellConfig()
+        var island = ShellIslandConfig(root: "lake")
+        var instance = ShellComponentInstance(id: "ci", widget: "ci-status")
+        instance.capabilities = ShellComponentCapabilities(network: ["git.example.com"])
+        island.components = [instance]
+        config.island = island
+        let widget = descriptor("ci-status", network: ["widget.example"], provider: ["widget.sh"])
+        let app = ShellComponentDescriptor(
+            widget: widget.widget, title: "CI App", icon: "app", views: [], uses: [], options: [:],
+            capabilities: ShellComponentCapabilities(network: ["app.example"], provider: true),
+            providerCommand: ["app.sh"], folder: URL(fileURLWithPath: "/shell/apps/ci-status", isDirectory: true)
+        )
+
+        let page = self.page(config: config, descriptors: [widget], apps: [app, widget, app])
+
+        XCTAssertEqual(page.widgets.count, 2)
+        XCTAssertEqual(Set(page.widgets.map(\.id)).count, page.widgets.count)
+        XCTAssertEqual(Set(page.widgets.map(\.anchor)), [NetworkPermissionsPage.anchor(.component, widget.widget)])
+        XCTAssertEqual(page.programs.count, 2)
+        XCTAssertEqual(Set(page.programs.map(\.id)).count, page.programs.count)
+        let appRow = try XCTUnwrap(page.widgets.first { $0.principal == app.principal })
+        XCTAssertEqual(appRow.hosts.map(\.name), ["app.example"])
+        let widgetRow = try XCTUnwrap(page.widgets.first { $0.principal == widget.principal })
+        XCTAssertEqual(widgetRow.hosts.map(\.name), ["git.example.com", "widget.example"])
     }
 
     func testAUserDenyWinsOverAnOrganizationPreapproval() {
@@ -122,13 +151,16 @@ final class NetworkPermissionsPageTests: XCTestCase {
         let descriptors = [converter, mixed, idle, descriptor("plain")]
 
         let page = self.page(descriptors: descriptors, decisions: decisions, pending: [.program(pending)])
-        XCTAssertEqual(page.programs.map(\.id), ["component:converter", "program.component:mixed", "component:idle"])
+        XCTAssertEqual(
+            page.programs.map(\.anchor),
+            ["component:converter", "program.component:mixed", "component:idle"]
+        )
         XCTAssertEqual(page.programs.map(\.state), [
             .needsApproval(pending),
             .allowed(ShellProviderApproval(principal: mixed.principal, command: ["run.sh"], sha256: "aa")),
             .denied
         ])
-        XCTAssertEqual(page.widgets.map(\.id), ["component:mixed"])
+        XCTAssertEqual(page.widgets.map(\.anchor), ["component:mixed"])
 
         var managed = ShellManagedPolicy()
         managed.providersAllowed = false
@@ -150,7 +182,8 @@ final class NetworkPermissionsPageTests: XCTestCase {
         let installed = catalog([converter])
         let page = {
             NetworkPermissionsPage(
-                config: ShellConfig(), schemas: [:], catalog: installed, permissions: permissions.snapshot, pending: []
+                config: ShellConfig(), schemas: [:], catalog: installed, apps: [],
+                permissions: permissions.snapshot, pending: []
             )
         }
         let invalidations = Mutex(0)

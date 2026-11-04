@@ -48,6 +48,9 @@ final class ShellPermissionPrompts {
     @ObservationIgnored private var dismissActive: (@MainActor () -> Void)?
     @ObservationIgnored private var presentation = 0
     @ObservationIgnored private var suspended = false
+    @ObservationIgnored private weak var host: ShellWidgetHost?
+    @ObservationIgnored private var appNetwork: [ShellNetworkApproval] = []
+    @ObservationIgnored private var appPrograms: [ShellProviderApproval] = []
 
     init(settings: ShellPermissionSettings, present: @escaping Present) {
         self.settings = settings
@@ -59,11 +62,22 @@ final class ShellPermissionPrompts {
     }
 
     func observe(_ host: ShellWidgetHost) {
-        host.onApprovalsChange = { [weak self, weak host] in
-            guard let self, let host else { return }
-            update(network: host.networkApprovals.values, programs: host.providerApprovals.values)
-        }
-        update(network: host.networkApprovals.values, programs: host.providerApprovals.values)
+        self.host = host
+        host.onApprovalsChange = { [weak self] in self?.refresh() }
+        refresh()
+    }
+
+    func setAppApprovals(network: [ShellNetworkApproval], programs: [ShellProviderApproval]) {
+        appNetwork = network
+        appPrograms = programs
+        refresh()
+    }
+
+    private func refresh() {
+        update(
+            network: (host.map { Array($0.networkApprovals.values) } ?? []) + appNetwork,
+            programs: (host.map { Array($0.providerApprovals.values) } ?? []) + appPrograms
+        )
     }
 
     func update(network: some Sequence<ShellNetworkApproval>, programs: some Sequence<ShellProviderApproval>) {

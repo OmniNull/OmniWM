@@ -207,6 +207,10 @@ final class ShellNetworkPermissions: Observable, Sendable {
         state.withLock { state in (state.revision, hosts.filter { state.decide($0, for: principal) == .notApproved }) }
     }
 
+    func isPending(_ key: ShellNetworkApproval.Key) -> Bool {
+        undecided(key.hosts, for: key.principal).hosts == key.hosts
+    }
+
     @discardableResult
     func update(decisions: ShellPermissionDecisions? = nil, managed: ShellManagedPolicy? = nil) -> Bool {
         let widgets = decisions.map(Self.widgets)

@@ -12,7 +12,7 @@ extension ShellWidgetHost {
     }
 
     func permissionsChanged() {
-        networkApprovals = networkApprovals.filter { isPending($0.key) }
+        networkApprovals = networkApprovals.filter { permissions.isPending($0.key) }
         providerApprovals = providerApprovals.filter { permissions.decide($0.value) == .notApproved }
         feed?.permissionsChanged()
         for state in widgets.values {
@@ -25,7 +25,7 @@ extension ShellWidgetHost {
     func recordNetworkApprovals(_ approvals: [ShellNetworkApproval]) {
         guard !approvals.isEmpty else { return }
         let declarations = approvalDeclarations()
-        for approval in approvals where declarations.declares(approval.key) && isPending(approval.key) {
+        for approval in approvals where declarations.declares(approval.key) && permissions.isPending(approval.key) {
             networkApprovals[approval.key] = approval
         }
     }
@@ -81,9 +81,5 @@ extension ShellWidgetHost {
                 .formUnion(hiddenBarMenuHosts)
         }
         return result
-    }
-
-    private func isPending(_ key: ShellNetworkApproval.Key) -> Bool {
-        permissions.undecided(key.hosts, for: key.principal).hosts == key.hosts
     }
 }

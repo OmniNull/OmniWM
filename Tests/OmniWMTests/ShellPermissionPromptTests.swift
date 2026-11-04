@@ -230,6 +230,25 @@ final class ShellPermissionPromptTests: XCTestCase {
         XCTAssertNil(prompts.active)
     }
 
+    func testAppAndHostApprovalsShareOneQueueWithoutDroppingEachOther() {
+        let presenter = Presenter()
+        let prompts = prompts(ShellPermissionSettings(), presenter)
+        let host = makeHost(permissions: ShellNetworkPermissions())
+        prompts.observe(host)
+        let app = network(ci, ["api.github.com"])
+        let widget = network(clock, ["time.example"])
+
+        prompts.setAppApprovals(network: [app], programs: [])
+        host.networkApprovals = [widget.key: widget]
+        XCTAssertEqual(Set(prompts.pending.map(\.key)), [.network(app.key), .network(widget.key)])
+
+        host.networkApprovals = [:]
+        XCTAssertEqual(prompts.pending, [.network(app)])
+
+        prompts.setAppApprovals(network: [], programs: [])
+        XCTAssertEqual(prompts.pending, [])
+    }
+
     private func makeHost(permissions: ShellNetworkPermissions) -> ShellWidgetHost {
         ShellWidgetHost(
             configDirectory: FileManager.default.temporaryDirectory.appendingPathComponent(UUID().uuidString),

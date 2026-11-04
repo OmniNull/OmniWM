@@ -69,10 +69,11 @@ extension XCTestCase {
 
     func openHostedSheet(
         _ parent: HostedManagementInstance,
-        fixture: HostedManagementFixture
+        fixture: HostedManagementFixture,
+        button: String = "Delete"
     ) async throws -> HostedSheetSnapshot {
         await readyHosted(parent.session)
-        let action = try hostedSheetAction("Delete", surface: parent.session.surface)
+        let action = try hostedSheetAction(button, surface: parent.session.surface)
         await hostedSheetEvent(parent.session, description: "The native child root publishes its content", completed: {
             guard let token = fixture.manager.activeSheet(for: parent.token),
                   let slot = fixture.manager.slot(for: token) else { return false }

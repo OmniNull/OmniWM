@@ -40,7 +40,7 @@ final class WorkspaceBarManager {
     private var hiddenBarJoin: HiddenBarPanelPlacement.Join?
     var shellHost: ShellWidgetHost?
     let shellPermissions = ShellNetworkPermissions()
-    private(set) var shellPermissionPrompts: ShellPermissionPrompts?
+    var shellPermissionPrompts: ShellPermissionPrompts?
     private let configDirectory: URL
     lazy var shellConfiguration = ShellConfigurationCoordinator(
         shellDirectory: ShellWidgetHost.shellDirectory(in: configDirectory),
@@ -86,7 +86,7 @@ final class WorkspaceBarManager {
         if shellPermissionPrompts == nil {
             shellPermissionPrompts = ShellPermissionPrompts(settings: settings.shellPermissions) { [weak self] in
                 ShellPermissionPromptPanel.present(
-                    $0, title: self?.shellHost?.title(of: $0.principal) ?? $0.principal.name, answer: $1
+                    $0, title: self?.shellPermissionTitle(of: $0.principal) ?? $0.principal.name, answer: $1
                 )
             }
         }

@@ -32,7 +32,8 @@ extension ShellAppWindowManager {
         }
         let window = makeWindow(definition)
         let session = ShellAppRuntime(
-            definition: definition, window: window, resources: ShellResources(motion: controller.motionPolicy)
+            definition: definition, window: window, resources: ShellResources(motion: controller.motionPolicy),
+            permissions: controller.workspaceBarManager.shellPermissions
         )
         let minimum = window.frameRect(forContentRect: CGRect(origin: .zero, size: definition.minimumContentSize)).size
         guard let token = admit(
@@ -46,6 +47,7 @@ extension ShellAppWindowManager {
             return false
         }
         runtimes[session.id] = session
+        session.onApprovalsChange = { [weak self] in self?.publishApprovals() }
         session.onWindowRequest = { [weak self, weak session] request in
             guard let self, let session, runtimes[session.id] === session else {
                 return "The owning app instance is no longer available."

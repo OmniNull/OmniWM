@@ -50,16 +50,24 @@ struct NetworkPermissionsPage: Equatable {
         let purpose: String?
         let hosts: [Host]
 
-        var id: String {
+        var anchor: String {
             NetworkPermissionsPage.anchor(principal.role, principal.name)
+        }
+
+        var id: String {
+            anchor + ":" + principal.source
         }
     }
 
     struct Program: Equatable, Identifiable {
-        let id: String
+        let anchor: String
         let key: ShellProviderApproval.Key
         let title: String
         let state: ProgramState
+
+        var id: String {
+            ([anchor, key.principal.source] + key.command).joined(separator: "\n")
+        }
     }
 
     let widgets: [Widget]
@@ -73,10 +81,13 @@ struct NetworkPermissionsPage: Equatable {
         config: ShellConfig,
         schemas: [String: ShellRootSettings],
         catalog: ShellConfigurationCatalog?,
+        apps: [ShellComponentDescriptor],
         permissions: ShellNetworkPermissions.Snapshot,
         pending: [ShellPermissionPrompts.Request]
     ) {
-        let descriptors = catalog?.entries.compactMap(\.descriptor) ?? []
+        let installed = catalog?.entries.compactMap(\.descriptor) ?? []
+        let installedPrincipals = Set(installed.map(\.principal))
+        let descriptors = installed + apps
         let instances = config.island?.components ?? []
         var widgets = schemas.values.filter { !$0.network.isEmpty }.map { schema in
             let principal = ShellWidgetPrincipal(
@@ -87,26 +98,29 @@ struct NetworkPermissionsPage: Equatable {
                 hosts: Self.hosts(declared: schema.network, extended: [], for: principal, permissions)
             )
         }
-        for descriptor in descriptors {
-            let extended = instances.filter { $0.widget == descriptor.widget }
+        for (principal, versions) in Dictionary(grouping: descriptors, by: \.principal) {
+            let descriptor = versions[0]
+            let extended = !installedPrincipals.contains(principal) ? [] : instances
+                .filter { $0.widget == descriptor.widget }
                 .flatMap { $0.capabilities?.network ?? [] }
-            guard !descriptor.capabilities.network.isEmpty || !extended.isEmpty else { continue }
+            let declared = versions.flatMap(\.capabilities.network)
+            guard !declared.isEmpty || !extended.isEmpty else { continue }
             widgets.append(Widget(
-                principal: descriptor.principal, title: descriptor.title, purpose: descriptor.capabilities.purpose,
-                hosts: Self.hosts(
-                    declared: descriptor.capabilities.network, extended: extended,
-                    for: descriptor.principal, permissions
-                )
+                principal: principal, title: descriptor.title, purpose: descriptor.capabilities.purpose,
+                hosts: Self.hosts(declared: declared, extended: extended, for: principal, permissions)
             ))
         }
         self.widgets = widgets.sorted { ($0.title, $0.id) < ($1.title, $1.id) }
-        let widgetIDs = Set(self.widgets.map(\.id))
+        let widgetAnchors = Set(self.widgets.map(\.anchor))
+        var listedPrograms: Set<ShellProviderApproval.Key> = []
         programs = descriptors.compactMap { descriptor in
             guard descriptor.capabilities.provider, let command = descriptor.providerCommand else { return nil }
             let key = ShellProviderApproval.Key(principal: descriptor.principal, command: command)
+            guard listedPrograms.insert(key).inserted else { return nil }
             let anchor = Self.anchor(.component, descriptor.widget)
             return Program(
-                id: widgetIDs.contains(anchor) ? "program." + anchor : anchor, key: key, title: descriptor.title,
+                anchor: widgetAnchors.contains(anchor) ? "program." + anchor : anchor, key: key,
+                title: descriptor.title,
                 state: Self.state(of: key, permissions, pending: pending)
             )
         }

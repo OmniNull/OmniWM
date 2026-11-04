@@ -19,6 +19,7 @@ struct NetworkPermissionsSettingsPage: View {
         let permissions = controller.workspaceBarManager.shellPermissions.snapshot
         let page = NetworkPermissionsPage(
             config: configuration.config, schemas: configuration.widgetSchemas, catalog: configuration.catalog,
+            apps: controller.shellAppWindowManager.permissionDescriptors,
             permissions: permissions, pending: controller.workspaceBarManager.shellPermissionPrompts?.pending ?? []
         )
         ScrollViewReader { proxy in
@@ -35,14 +36,14 @@ struct NetworkPermissionsSettingsPage: View {
                 widgetsSection(page.widgets)
                 ForEach(page.widgets) { widget in
                     NetworkPermissionsWidgetSection(widget: widget, permissions: settings.shellPermissions)
-                        .id(widget.id)
+                        .id(widget.anchor)
                 }
                 programsSection(page.programs, managed: permissions.managed)
                 servicesSection(decisions.services, permissions: permissions)
             }
             .formStyle(.grouped)
-            .onChange(of: page.widgets.map(\.id) + page.programs.map(\.id), initial: true) { _, ids in
-                guard let anchor = navigation.route.anchor, ids.contains(anchor) else { return }
+            .onChange(of: page.widgets.map(\.anchor) + page.programs.map(\.anchor), initial: true) { _, anchors in
+                guard let anchor = navigation.route.anchor, anchors.contains(anchor) else { return }
                 proxy.scrollTo(anchor, anchor: .top)
                 navigation.reflect(SettingsRoute(section: .network))
             }
@@ -92,7 +93,7 @@ struct NetworkPermissionsSettingsPage: View {
         Section("Programs") {
             ForEach(programs) { program in
                 NetworkPermissionsProgramRow(program: program, permissions: settings.shellPermissions)
-                    .id(program.id)
+                    .id(program.anchor)
             }
             if programs.isEmpty, loaded, configuration.metadataError == nil {
                 SettingsCaption(localized: "No installed widget includes a native program.")
