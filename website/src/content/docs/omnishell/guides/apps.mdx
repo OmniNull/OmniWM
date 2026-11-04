@@ -1,0 +1,125 @@
+---
+title: Build an app
+description: Make a Luau app that opens in its own tiled window, with sheets, utility windows and an optional provider.
+sidebar:
+  order: 4
+---
+
+import ExampleFile from '../../../../components/docs/ExampleFile.astro';
+
+An app is a [component](/omnishell/reference/components-configuration/) that opens in its own window. OmniWM tiles it, focuses it and closes it like any other window, and draws its Luau views directly.
+
+**Unreleased: apps are available when building from `main`.**
+
+## Layout
+
+Put each app in its own folder:
+
+```text
+~/.config/omniwm/apps/<id>/
+  component.toml
+  init.luau
+```
+
+The folder name is the app's ID. OmniWM notices new apps and edits on its own. Windows already open keep the version they started with.
+
+## Declare the windows
+
+A `[window]` table makes a component an app. Sizes are content points, and all four are required:
+
+```toml
+title = "Notes"
+icon = "app"
+views = ["window", "confirm"]
+
+[window]
+width = 640
+height = 420
+minWidth = 280
+minHeight = 240
+```
+
+`view` picks the main view and defaults to `window`. Each child window is a table under `[window.children]`. `kind` is `sheet`, attached to the main window and blocking it, or `utility`, a floating window attached to it:
+
+```toml
+[window.children.confirm]
+kind = "sheet"
+view = "confirm"
+title = "Confirm deletion"
+width = 360
+height = 200
+minWidth = 280
+minHeight = 160
+```
+
+## Write the views
+
+`init.luau` exports a view for each name in `views`. Use `ctx.view.w` and `ctx.view.h` so the content follows the window size.
+
+```lua
+return {
+    views = {
+        window = function(ctx)
+            return ui.column{ w = ctx.view.w, h = ctx.view.h, pad = 20, gap = 12, center = false,
+                ui.text{ text = ctx.instance.state.result or "Ready", color = "foreground" },
+                ui.box{ key = "delete", w = 120, h = 36, color = "accent", radius = 8,
+                    onClick = function() omniwm.windows.open("confirm") end,
+                    ui.text{ text = "Delete", color = "foreground" } },
+            }
+        end,
+        confirm = function(ctx)
+            return ui.column{ w = ctx.view.w, h = ctx.view.h, pad = 16, gap = 12,
+                ui.text{ text = "Delete this note?", color = "foreground" },
+                ui.box{ key = "confirm", w = 120, h = 36, color = "accent", radius = 8,
+                    onClick = function(next)
+                        next.instance.state.result = "Deleted"
+                        omniwm.windows.close("confirm")
+                    end,
+                    ui.text{ text = "Delete", color = "foreground" } },
+            }
+        end,
+    },
+}
+```
+
+`ctx.instance.state` is shared by every window of one app instance, so a sheet can change what the main window shows. `ctx.state` belongs to one window. [`omniwm.windows.open` and `close`](/omnishell/reference/services/#app-windows) work from that app's UI handlers.
+
+## Open it
+
+The command palette lists **Open _title_** and **New _title_ Window** for each app, and you can bind them to keys. With IPC turned on, use:
+
+```bash
+omniwmctl command app-open <id>
+```
+
+```bash
+omniwmctl command app-new-window <id>
+```
+
+Open reuses the most recently used window. New Window starts a separate instance.
+
+If an app has a mistake, such as a missing view or size, it isn't listed, and the error appears in **Settings → Styles & Widgets**. When two folders use the same ID, the first keeps it and the other shows an error.
+
+## Add a provider
+
+A [provider](/omnishell/reference/providers/) is a separate program for work Luau can't do. It uses the same JSON Lines channel as any other component and gets no window API. It can't open windows: it sends an event, and your Luau decides what to show.
+
+This example asks its provider to check for work. The provider answers with an event, and the app shows a **Review** button that opens the sheet.
+
+<ExampleFile file="apps/provider-review/component.toml" />
+
+<ExampleFile file="apps/provider-review/init.luau" />
+
+<ExampleFile file="apps/provider-review/provider.sh" />
+
+Download the three files into `~/.config/omniwm/apps/provider-review/`, then make the script executable:
+
+```bash
+chmod +x ~/.config/omniwm/apps/provider-review/provider.sh
+```
+
+Open **Provider Review** and approve the program when prompted. Nothing runs until you do. The provider can be written in any language.
+
+## Limits
+
+Apps run inside OmniWM's own process and use its identity. They don't come back after a restart, and they aren't packaged as separate macOS apps. Only an approved provider runs outside it.
