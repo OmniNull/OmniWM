@@ -34,6 +34,8 @@ extension WMController {
 
     @discardableResult
     func commitWorkspaceBarDrop(_ action: WorkspaceBarDropAction, source: WorkspaceBarDragSource) -> Bool {
+        let layoutStart = niriLayoutHandler.layoutChangeStart(in: source.workspaceId)
+        defer { niriLayoutHandler.recordLayoutChange(since: layoutStart) }
         switch action {
         case let .moveToWorkspace(workspaceId):
             return workspaceNavigationHandler.moveWindowsFromBar(source.tokens, toWorkspaceId: workspaceId)

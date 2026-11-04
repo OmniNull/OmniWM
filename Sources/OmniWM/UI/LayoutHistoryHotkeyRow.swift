@@ -3,9 +3,9 @@
 
 import SwiftUI
 
-struct UndoResizeHotkeyRow: View {
-    static let actionId = "undoResize"
-
+struct LayoutHistoryHotkeyRow: View {
+    let actionId: String
+    let anchor: String
     @Bindable var settings: SettingsStore
     @Bindable var controller: WMController
     @State private var recordingTarget: HotkeyRecordingTarget?
@@ -13,7 +13,7 @@ struct UndoResizeHotkeyRow: View {
     @State private var captureRejection: String?
 
     var body: some View {
-        if let binding = settings.hotkeyBindings.first(where: { $0.id == Self.actionId }) {
+        if let binding = settings.hotkeyBindings.first(where: { $0.id == actionId }) {
             HotkeyBindingRow(
                 binding: binding,
                 recordingTarget: $recordingTarget,
@@ -42,7 +42,7 @@ struct UndoResizeHotkeyRow: View {
                 onModeKeyCaptured: { _, _ in },
                 onClearModeKey: { _ in }
             )
-            .id("Undo Resize")
+            .id(anchor)
             .onChange(of: recordingTarget) { _, _ in
                 controller.setHotkeyRecordingActive(recordingTarget != nil)
             }

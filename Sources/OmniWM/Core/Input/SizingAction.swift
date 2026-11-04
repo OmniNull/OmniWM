@@ -21,7 +21,8 @@ enum SizingAction: Equatable, Hashable {
     case setWindowPrimarySpan(NiriSizeChange)
     case setWindowSecondarySpan(NiriSizeChange)
     case balanceSizes
-    case undoResize
+    case undo
+    case redo
 }
 
 extension SizingAction {
@@ -52,8 +53,11 @@ extension SizingAction {
         case .balanceSizes: LocalizedStringResource(
                 "command.sizing.balance", defaultValue: "Balance Sizes", table: "Commands", bundle: .omniWM
             )
-        case .undoResize: LocalizedStringResource(
-                "command.sizing.undoResize", defaultValue: "Undo Resize", table: "Commands", bundle: .omniWM
+        case .undo: LocalizedStringResource(
+                "command.sizing.undo", defaultValue: "Undo", table: "Commands", bundle: .omniWM
+            )
+        case .redo: LocalizedStringResource(
+                "command.sizing.redo", defaultValue: "Redo", table: "Commands", bundle: .omniWM
             )
         case .toggleContainerFullPrimarySpan,
              .expandContainerToAvailablePrimarySpan,
@@ -108,7 +112,8 @@ extension SizingAction {
              .cycleWindowSecondarySpanForward,
              .cycleWindowSecondarySpanBackward,
              .balanceSizes,
-             .undoResize:
+             .undo,
+             .redo:
             actionDisplayName()
         }
     }
@@ -152,7 +157,8 @@ extension SizingAction {
              .setWindowPrimarySpan,
              .setWindowSecondarySpan,
              .balanceSizes,
-             .undoResize:
+             .undo,
+             .redo:
             spanTitle()
         }
     }
@@ -162,7 +168,8 @@ extension SizingAction {
         case .resizeContainerPrimarySpan,
              .resizeWindowPrimarySpan,
              .resizeWindowSecondarySpan,
-             .undoResize:
+             .undo,
+             .redo:
             nil
         case .cycleSizeForward:
             .sizing(.cycleSizeForward)
@@ -212,7 +219,8 @@ extension SizingAction {
              .setContainerPrimarySpan,
              .setWindowPrimarySpan,
              .setWindowSecondarySpan,
-             .undoResize:
+             .undo,
+             .redo:
             .niri
         }
     }

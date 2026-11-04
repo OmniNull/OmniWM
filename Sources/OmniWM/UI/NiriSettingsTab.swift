@@ -275,11 +275,14 @@ private struct GlobalNiriSettingsSection: View {
                 )
             }
 
-            UndoResizeHotkeyRow(settings: settings, controller: controller)
+            LayoutHistoryHotkeyRow(actionId: "undo", anchor: "Undo", settings: settings, controller: controller)
+                .disabled(!settings.niri.macOSFusion)
+
+            LayoutHistoryHotkeyRow(actionId: "redo", anchor: "Redo", settings: settings, controller: controller)
                 .disabled(!settings.niri.macOSFusion)
 
             SettingsCaption(
-                localized: "When dragging a window’s edge resizes it by accident, press this key to put the focused window back as it was, or double-click the window’s title bar. A double-click undoes that window’s last edge resize first, then changes its width."
+                localized: "Undo takes back the last change to the windows in this workspace, such as a move, a stack, a resize or tabs, up to 20 changes. Redo puts it back."
             )
         }
         .id("macOS Fusion")

@@ -17,7 +17,7 @@ final class CommandPaletteCommandSearchTests: XCTestCase {
 
         XCTAssertFalse(items.contains { $0.id == "toggleOverview" })
         XCTAssertFalse(items.contains { $0.id == "toggleQuakeTerminal" })
-        XCTAssertFalse(items.contains { $0.id == "undoResize" })
+        XCTAssertFalse(items.contains { $0.id == "undo" || $0.id == "redo" })
         XCTAssertNotNil(ActionCatalog.spec(for: "toggleOverview"))
         XCTAssertNotNil(ActionCatalog.spec(for: "toggleQuakeTerminal"))
         XCTAssertTrue(controller.settings.hotkeyBindings.contains { $0.id == "toggleOverview" })

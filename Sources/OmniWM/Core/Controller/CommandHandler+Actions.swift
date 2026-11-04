@@ -222,9 +222,10 @@ extension CommandHandler {
             controller.niriLayoutHandler.setWindowSecondarySpan(change)
         case .balanceSizes:
             layoutHandler(as: LayoutSizable.self)?.balanceSizes()
-        case .undoResize:
-            guard controller.settings.niri.macOSFusion else { return .executed }
-            controller.mouseEventHandler.undoNativeResize(on: .focused)
+        case .undo:
+            controller.niriLayoutHandler.stepLayoutHistory(.undo)
+        case .redo:
+            controller.niriLayoutHandler.stepLayoutHistory(.redo)
         }
         return .executed
     }

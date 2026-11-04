@@ -195,7 +195,7 @@ enum ActionCatalog {
         specs.append(contentsOf: IPCMediaCommand.allCases.map { $0.actionSpec() })
         specs.append(contentsOf: IPCKeyboardModeCommand.allCases.map { $0.actionSpec() })
         appendShellAppBindings(&specs)
-        appendUndoResizeBinding(&specs)
+        appendLayoutHistoryBindings(&specs)
         appendPresentationBindings(&specs)
 
         return specs

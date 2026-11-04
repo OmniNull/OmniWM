@@ -23,6 +23,7 @@ extension MouseEventHandler {
             ?? entry.axRef.flatMap(nativeWindowFrameProvider)
         else { return }
 
+        let layoutStart = controller.niriLayoutHandler.layoutChangeStart(in: entry.workspaceId)
         let began = controller.workspaceManager.withNiriViewportState(for: entry.workspaceId) { viewportState in
             engine.liveColumnMoveBegin(
                 windowId: window.id,
@@ -33,6 +34,7 @@ extension MouseEventHandler {
             )
         }
         guard began else { return }
+        state.liveDragLayoutStart = layoutStart
         if let monitor = controller.workspaceManager.monitor(for: entry.workspaceId) {
             holdLiveEdgeZone(startingAt: drag.location, monitorFrame: monitor.frame)
         }

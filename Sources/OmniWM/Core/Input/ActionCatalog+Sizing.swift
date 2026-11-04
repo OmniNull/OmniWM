@@ -149,14 +149,22 @@ extension ActionCatalog {
         ])
     }
 
-    static func appendUndoResizeBinding(_ specs: inout [ActionSpec]) {
+    static func appendLayoutHistoryBindings(_ specs: inout [ActionSpec]) {
         specs.append(action(
-            id: "undoResize",
-            command: .sizing(.undoResize),
+            id: "undo",
+            command: .sizing(.undo),
             category: .layout,
             binding: KeyBinding(keyCode: UInt32(kVK_ANSI_Z), modifiers: UInt32(optionKey | cmdKey)),
             visibility: .niriSettings,
-            keywords: ["undo", "resize", "edge", "border", "restore size"]
+            keywords: ["undo", "layout", "move", "stack", "resize", "tabs", "restore"]
+        ))
+        specs.append(action(
+            id: "redo",
+            command: .sizing(.redo),
+            category: .layout,
+            binding: KeyBinding(keyCode: UInt32(kVK_ANSI_Z), modifiers: UInt32(optionKey | cmdKey | shiftKey)),
+            visibility: .niriSettings,
+            keywords: ["redo", "layout", "move", "stack", "resize", "tabs"]
         ))
     }
 }

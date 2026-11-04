@@ -154,7 +154,7 @@ struct MouseInputState {
     var fusionDoubleClickWidths: [NodeId: FusionDoubleClickWidth] = [:]
     var fusionClickChain: FusionClickChain?
     var fusionClickChainToken: WindowToken?
-    var nativeResizeUndos: [WindowToken: NativeResizeUndo] = [:]
+    var liveDragLayoutStart: NiriLayoutChangeStart?
     var activeInteractionSource: InteractionSource?
     var activeInteractionButton: MouseEventHandler.MouseButton? {
         get { activeInteractionSource?.mouseButton }

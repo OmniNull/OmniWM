@@ -588,40 +588,38 @@ final class FusionDoubleClickTests: NiriInteractionTestCase {
         XCTAssertEqual(column.width, widths[0])
     }
 
-    func testATitleBarDoubleClickUndoesAKeptEdgeResizeBeforeCyclingWidths() throws {
+    func testATitleBarDoubleClickCyclesWidthsEvenAfterAKeptEdgeResize() throws {
         let fixture = try makeFixture(pid: 941_090)
         let token = fixture.tokens[1]
         let column = try fixture.column(token)
         let width = column.width
         try keepEdgeResize(of: token, in: fixture)
+        let resized = column.width
 
         XCTAssertTrue(fixture.doubleClick(at: try fixture.titleBar(token)))
+        XCTAssertNotEqual(column.width, resized)
+
+        XCTAssertTrue(fixture.controller.niriLayoutHandler.stepLayoutHistory(.undo))
+        XCTAssertEqual(column.width, resized)
+        XCTAssertTrue(fixture.controller.niriLayoutHandler.stepLayoutHistory(.undo))
         XCTAssertEqual(column.width, width)
-        XCTAssertFalse(column.hasManualSingleWindowWidthOverride)
-
-        XCTAssertTrue(fixture.doubleClick(at: try fixture.titleBar(token)))
-        XCTAssertNotEqual(column.width, width)
     }
 
-    func testWithMacOSFusionTheCycleSizeKeysUndoAKeptEdgeResizeFirst() throws {
+    func testWithMacOSFusionTheCycleSizeKeysOnlyCycleAfterAKeptEdgeResize() throws {
         for forward in [true, false] {
             let fixture = try makeFixture(pid: forward ? 941_127 : 941_128)
             let token = fixture.tokens[1]
             let column = try fixture.column(token)
-            let width = column.width
             try keepEdgeResize(of: token, in: fixture)
+            let resized = column.width
             try fixture.select(token)
 
             fixture.controller.niriLayoutHandler.cycleSize(forward: forward)
-            XCTAssertEqual(column.width, width, "\(forward)")
-            XCTAssertNil(fixture.handler.state.nativeResizeUndos[token], "\(forward)")
-
-            fixture.controller.niriLayoutHandler.cycleSize(forward: forward)
-            XCTAssertNotEqual(column.width, width, "\(forward)")
+            XCTAssertNotEqual(column.width, resized, "\(forward)")
         }
     }
 
-    func testATitleBarDoubleClickUndoesOnlyTheClickedWindowsResize() throws {
+    func testATitleBarDoubleClickChangesOnlyTheClickedWindow() throws {
         let fixture = try makeFixture(pid: 941_091)
         let (resized, clicked) = (fixture.tokens[1], fixture.tokens[2])
         try keepEdgeResize(of: resized, in: fixture)
@@ -632,7 +630,6 @@ final class FusionDoubleClickTests: NiriInteractionTestCase {
 
         XCTAssertNotEqual(try fixture.column(clicked).width, clickedWidth)
         XCTAssertEqual(try fixture.column(resized).width, resizedWidth)
-        XCTAssertNotNil(fixture.handler.state.nativeResizeUndos[resized])
     }
 
     func testATitleBarDoubleClickResizesTheWindowAroundItsCentre() throws {
@@ -1184,16 +1181,13 @@ final class FusionDoubleClickTests: NiriInteractionTestCase {
     }
 
     private func keepEdgeResize(of token: WindowToken, in fixture: Fixture) throws {
-        let start = try XCTUnwrap(fixture.handler.nativeResizeUndoStart(
-            for: fixture.window(token),
-            in: fixture.workspaceId
-        ))
+        let start = try XCTUnwrap(fixture.controller.niriLayoutHandler.layoutChangeStart(in: fixture.workspaceId))
         let column = try fixture.column(token)
         column.width = .fixed(700)
         column.presetWidthIdx = nil
         column.hasManualSingleWindowWidthOverride = true
         column.cachedWidth = 0
-        fixture.handler.rememberNativeResize(of: token, edges: .right, in: fixture.workspaceId, from: start)
+        fixture.controller.niriLayoutHandler.recordLayoutChange(since: start)
         fixture.relayout()
     }
 

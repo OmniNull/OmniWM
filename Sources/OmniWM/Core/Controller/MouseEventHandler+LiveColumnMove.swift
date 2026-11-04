@@ -109,6 +109,7 @@ extension MouseEventHandler {
         else { return false }
 
         finishPendingLiveStackDrop()
+        let layoutStart = controller.niriLayoutHandler.layoutChangeStart(in: entry.workspaceId)
         let began = controller.workspaceManager.withNiriViewportState(for: entry.workspaceId) { viewportState in
             engine.liveColumnMoveBegin(
                 windowId: window.id,
@@ -123,6 +124,7 @@ extension MouseEventHandler {
             drag.liveDragDeclined = true
             return false
         }
+        state.liveDragLayoutStart = layoutStart
         drag.liveDrag = true
         drag.adoptionStartFrame = start
         state.deferredClickScroll = nil
@@ -323,6 +325,7 @@ extension MouseEventHandler {
             }
             return true
         }
+        recordLiveDragLayoutChange()
         state.liveDropScroll = .init(token: token, workspaceId: workspaceId)
         refreshLiveColumnLayout(in: workspaceId, engine: engine)
         if !hasPendingLiveColumnAnimation(in: workspaceId, engine: engine) {
@@ -340,6 +343,7 @@ extension MouseEventHandler {
         controller.workspaceManager.withNiriViewportState(for: workspaceId) { _ in
             engine.liveStackDropAbandon(in: workspaceId)
         }
+        recordLiveDragLayoutChange()
     }
 
     func finishPendingLiveStackDrop() {
@@ -356,13 +360,20 @@ extension MouseEventHandler {
             engine.liveStackDropFinish(context: context, state: &viewportState)
         }
         if finished {
+            recordLiveDragLayoutChange()
             refreshLiveColumnLayout(in: workspaceId, engine: engine)
         }
+    }
+
+    func recordLiveDragLayoutChange() {
+        controller?.niriLayoutHandler.recordLayoutChange(since: state.liveDragLayoutStart)
+        state.liveDragLayoutStart = nil
     }
 
     func cancelLiveColumnDrag() {
         MouseTrace.record("live-drag cancel requested active=\(isLiveColumnDragActive)")
         guard isLiveColumnDragActive else { return }
+        state.liveDragLayoutStart = nil
         endLiveColumnDragTracking()
         state.nativeTitleBarDrag?.liveDragDeclined = true
         returnCarriedLiveColumnDragHome()

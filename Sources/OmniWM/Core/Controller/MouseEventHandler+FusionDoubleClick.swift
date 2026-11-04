@@ -165,9 +165,10 @@ extension MouseEventHandler {
         guard let controller, let engine = controller.niriEngine else { return }
         forgetDoubleClickSizesOfGoneWindows(engine: engine, in: target.workspaceId)
         let layout = controller.niriLayoutHandler
+        let changeStart = layout.layoutChangeStart(in: target.workspaceId)
+        defer { layout.recordLayoutChange(since: changeStart) }
         switch target.zone {
         case .titleBar:
-            if undoNativeResize(on: .window(target.handle)) { return }
             layout.performWindowSizing(on: .window(target.handle)) { engine, window, context, viewport in
                 guard let column = engine.findColumn(containing: window, in: context.workspaceId) else { return nil }
                 engine.cycleColumnWidthAroundCentre(column, forwards: forwards, context: context, state: &viewport)

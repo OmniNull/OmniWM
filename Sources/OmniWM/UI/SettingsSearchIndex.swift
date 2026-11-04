@@ -123,7 +123,8 @@ enum SettingsSearchIndex {
         ),
         setting("Peek at Neighboring Windows", section: .layouts, tab: "niri", anchor: "Peek at Neighboring Windows"),
         setting("Peek Width", section: .layouts, tab: "niri", anchor: "Peek Width"),
-        setting("Undo Resize", section: .layouts, tab: "niri", anchor: "Undo Resize"),
+        setting("Undo", section: .layouts, tab: "niri", anchor: "Undo"),
+        setting("Redo", section: .layouts, tab: "niri", anchor: "Redo"),
         setting(
             "Default New Container Primary Span",
             section: .layouts,

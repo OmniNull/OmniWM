@@ -258,6 +258,17 @@ struct NodeActivationOptions {
         oldFrames: [WindowToken: CGRect],
         yContainmentFrame: CGRect? = nil
     ) {
+        let animationTime = (engine.animationClock?.now() ?? CACurrentMediaTime()) + 2.0
+        _ = engine.triggerMoveAnimations(
+            in: wsId,
+            oldFrames: oldFrames,
+            newFrames: predictedFrames(state: state, at: animationTime),
+            motion: motion,
+            yContainmentFrame: yContainmentFrame
+        )
+    }
+
+    func predictedFrames(state: ViewportState, at animationTime: TimeInterval) -> [WindowToken: CGRect] {
         let scale = NSScreen.screens.first(where: { $0.displayId == monitor.displayId })?
             .backingScaleFactor ?? 2.0
         let layoutFrames = controller.layoutFrames(for: monitor, scale: scale)
@@ -279,8 +290,7 @@ struct NodeActivationOptions {
             horizontal: gaps,
             vertical: gaps
         )
-        let animationTime = (engine.animationClock?.now() ?? CACurrentMediaTime()) + 2.0
-        let newFrames = engine.calculateCombinedLayoutUsingPools(
+        return engine.calculateCombinedLayoutUsingPools(
             in: wsId,
             monitor: monitor,
             gaps: layoutGaps,
@@ -288,13 +298,6 @@ struct NodeActivationOptions {
             workingArea: workingArea,
             animationTime: animationTime
         ).frames
-        _ = engine.triggerMoveAnimations(
-            in: wsId,
-            oldFrames: oldFrames,
-            newFrames: newFrames,
-            motion: motion,
-            yContainmentFrame: yContainmentFrame
-        )
     }
 
     func prepareCapturedAnimation(oldFrames: [WindowToken: CGRect]) {

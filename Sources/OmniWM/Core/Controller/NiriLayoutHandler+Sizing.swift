@@ -21,7 +21,6 @@ extension NiriLayoutHandler {
             cycleContainerPrimarySpan(forward: forward)
             return
         }
-        if controller.mouseEventHandler.undoNativeResize(on: .focused) { return }
         performWindowSizing(on: .focused) { engine, windowNode, context, state in
             guard let column = engine.findColumn(containing: windowNode, in: context.workspaceId) else { return nil }
             engine.cycleColumnWidthAroundCentre(column, forwards: forward, context: context, state: &state)

@@ -175,7 +175,7 @@ extension MouseEventHandler {
         let slide = fusionResizeApplies(context.orientation)
             ? fusionEdgeResizeSlide(around: window, in: workspaceId, resizedFrom: start, to: observed)
             : nil
-        let undoStart = nativeResizeUndoStart(for: window, in: workspaceId)
+        let changeStart = controller.niriLayoutHandler.layoutChangeStart(in: workspaceId)
         var changed = false
         controller.workspaceManager.withNiriViewportState(for: workspaceId) { viewportState in
             if let secondarySpan {
@@ -212,9 +212,7 @@ extension MouseEventHandler {
         } else {
             settleNiriResize(entry.token, in: workspaceId)
         }
-        if let undoStart {
-            rememberNativeResize(of: entry.token, edges: edges, in: workspaceId, from: undoStart)
-        }
+        controller.niriLayoutHandler.recordLayoutChange(since: changeStart)
         return true
     }
 

@@ -315,6 +315,45 @@ final class SettingsTOMLCodecTests: XCTestCase {
         }
     }
 
+    func testAConfigFromBeforeUndoGivesUndoAndRedoTheirKeys() throws {
+        let defaults = HotkeyBindingRegistry.defaults()
+        let older = defaults
+            .filter { !HotkeyBindingRegistry.idsGivenTheirDefaultWhenMissing.contains($0.id) }
+            .map { PersistedHotkeyBinding(id: $0.id, trigger: $0.binding) }
+
+        let resolved = try HotkeyBindingRegistry.resolve(older)
+
+        for id in ["undo", "redo"] {
+            let expected = try XCTUnwrap(defaults.first { $0.id == id }?.binding)
+            XCTAssertNotEqual(expected, .unassigned, id)
+            XCTAssertEqual(resolved.first { $0.id == id }?.binding, expected, id)
+        }
+    }
+
+    func testUndoKeepsNoKeyWhenAnotherCommandHasItOrTheUserClearedIt() throws {
+        let defaults = HotkeyBindingRegistry.defaults()
+        let undoKey = try XCTUnwrap(defaults.first { $0.id == "undo" }?.binding)
+        let redoKey = try XCTUnwrap(defaults.first { $0.id == "redo" }?.binding)
+        var older = defaults
+            .filter { !HotkeyBindingRegistry.idsGivenTheirDefaultWhenMissing.contains($0.id) }
+            .map { PersistedHotkeyBinding(id: $0.id, trigger: $0.binding) }
+        let other = older[0].id
+        older[0] = PersistedHotkeyBinding(id: other, trigger: undoKey)
+
+        let taken = try HotkeyBindingRegistry.resolve(older)
+
+        XCTAssertEqual(taken.first { $0.id == other }?.binding, undoKey)
+        XCTAssertEqual(taken.first { $0.id == "undo" }?.binding, .unassigned)
+        XCTAssertEqual(taken.first { $0.id == "redo" }?.binding, redoKey)
+
+        let cleared = defaults.map {
+            PersistedHotkeyBinding(id: $0.id, trigger: $0.id == "undo" ? .unassigned : $0.binding)
+        }
+        let resolved = try HotkeyBindingRegistry.resolve(cleared)
+
+        XCTAssertEqual(resolved.first { $0.id == "undo" }?.binding, .unassigned)
+    }
+
     @MainActor
     func testLoadFailureReportsRejectedHotkeyActionsPrecisely() throws {
         let cases = [
