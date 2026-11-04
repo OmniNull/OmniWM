@@ -25,7 +25,7 @@ Open **Settings > Styles & Widgets > Bar** to arrange widgets, select a widget f
 
 ## System Stats
 
-Optionally show a System Stats button that opens a CPU, memory, GPU, disk, and uptime popup. The `Toggle System Stats` hotkey and `omniwmctl command toggle-system-stats` drive the same popup, and both do nothing unless a monitor currently shows that workspace-bar button. See the [CLI reference](/reference/cli/overview/). The button is the shell's `system-stats` widget, so it must stay in one of the bar's groups (`trailing` by default).
+Optionally show a System Stats button that opens a CPU, memory, GPU, disk, and uptime popup. The `Toggle System Stats` hotkey and `omniwmctl command toggle-system-stats` drive the same popup. They do nothing while the bar holding that button is hidden; if the widget isn't in the bar, as in Vitreus, the popup opens at the screen edge. See the [CLI reference](/reference/cli/overview/). The button is the shell's `system-stats` widget, so it must stay in one of the bar's groups (`trailing` by default).
 
 ## Notifications
 
