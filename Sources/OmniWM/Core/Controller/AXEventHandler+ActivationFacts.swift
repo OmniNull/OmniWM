@@ -22,7 +22,12 @@ extension AXEventHandler {
                 finishFocusedAdmissionRetryExecution(execution)
             }
         }
-        defer { rescanAppThatLostFocus() }
+        let newFocusWindowId = untrackedFocusWindowId(facts)
+        defer { rescanAppThatLostFocus(newFocusWindowId: newFocusWindowId) }
+        applyResolvedActivationFacts(facts)
+    }
+
+    private func applyResolvedActivationFacts(_ facts: ActivationFacts) {
         guard let controller, controller.hasStartedServices else { return }
         guard isCurrentActivationFacts(facts, controller: controller) else { return }
 

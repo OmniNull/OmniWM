@@ -162,7 +162,15 @@ extension AXEventHandler {
             deferCreatedWindow(windowId)
             return
         }
+        if retryWaitingFocusedAdmission(windowId: windowId) { return }
         processCreatedWindow(windowId: windowId)
+    }
+
+    private func retryWaitingFocusedAdmission(windowId: UInt32) -> Bool {
+        guard let state = admissionRetryStateByWindowId[windowId], case .focused = state.trigger,
+              state.executionPhase == .waiting
+        else { return false }
+        return dispatchAdmissionRetry(windowId: windowId)
     }
 
     func shouldDeferCreateForInactiveNativeSpace(_ spaceId: UInt64) -> Bool {

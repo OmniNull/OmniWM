@@ -254,6 +254,7 @@ extension AXEventHandler {
         }
         admissionRetryStateByWindowId.removeAll()
         deferredReplacementProtectionsByWindowId.removeAll()
+        cancelFocusLossRescans()
     }
 
     func cancelSameAppCloseProbe(

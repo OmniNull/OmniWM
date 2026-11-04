@@ -39,6 +39,35 @@ final class WindowAdmissionRetryTests: XCTestCase {
         await controller.axEventHandler.lifecycleQueries.task?.value
     }
 
+    func testWindowCreatedEventRunsAWaitingFocusedAdmissionRetryWithoutItsTimer() async {
+        let controller = WindowAdmissionTestSupport.controller()
+        let handler = controller.axEventHandler
+        let windowId: UInt32 = 467_404
+        let token = WindowToken(pid: 467_304, windowId: Int(windowId))
+        let timer = Task<Void, Never> { @MainActor in
+            for await _ in AsyncStream<Void>.makeStream().stream {}
+        }
+        handler.admissionRetryStateByWindowId[windowId] = AdmissionRetryState(
+            expectedToken: token,
+            axRef: nil,
+            reason: .degenerateGeometry,
+            attempt: 1,
+            generation: 1,
+            trigger: .focused(
+                token: token, source: .focusedWindowChanged, observationGeneration: 0, callbackGeneration: nil
+            ),
+            exhausted: false,
+            executionPhase: .waiting,
+            task: timer
+        )
+
+        handler.handleCGSEvent(.created(windowId: windowId, spaceId: 0))
+
+        XCTAssertNil(handler.admissionRetryStateByWindowId[windowId])
+        timer.cancel()
+        await timer.value
+    }
+
     func testRetryExhaustionSurvivesPIDAliasUntilAXIncarnationChanges() async {
         let controller = WindowAdmissionTestSupport.controller()
         let windowId: UInt32 = 467_403

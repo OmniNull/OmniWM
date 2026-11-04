@@ -189,10 +189,9 @@ enum RefreshReason: String, Sendable {
              .windowReopened,
              .appHidden,
              .appUnhidden,
-             .overviewMutation:
+             .overviewMutation,
+             .axWindowCreated:
             .plain
-        case .axWindowCreated:
-            .debounced(nanoseconds: 4_000_000, dropWhileBusy: false)
         case .axWindowChanged:
             .debounced(nanoseconds: 8_000_000, dropWhileBusy: true)
         case .staleLayoutPlan:

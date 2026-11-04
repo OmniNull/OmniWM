@@ -166,6 +166,7 @@ final class ServiceLifecycleManager {
                 targetFrame: refusal.targetFrame, applied: false
             )
             controller?.axEventHandler.handleTerminalFrameRefusal(refusal)
+            controller?.axEventHandler.releaseFocusLossRescan(windowId: refusal.windowId)
         }
         controller.axManager.onFrameApplyTerminated = { [weak controller] result in
             controller?.niriEdgePictures.frameApplicationEnded(
@@ -173,6 +174,7 @@ final class ServiceLifecycleManager {
                 targetFrame: result.targetFrame, applied: false
             )
             controller?.mouseEventHandler.handleNativeTitleBarDragFrameApplyTerminated(result)
+            controller?.axEventHandler.releaseFocusLossRescan(windowId: result.windowId)
         }
         controller.axManager.onFrameApplySucceeded = { [weak self] result in
             self?.handleFrameApplySucceeded(result)
@@ -382,6 +384,7 @@ extension ServiceLifecycleManager {
             token: WindowToken(pid: result.pid, windowId: result.windowId),
             targetFrame: result.targetFrame
         )
+        controller.axEventHandler.releaseFocusLossRescan(windowId: result.windowId)
         controller.axEventHandler.clearTerminalFrameFailure(windowId: result.windowId)
         controller.mouseEventHandler.handleNativeTitleBarDragFrameApplySucceeded(result)
         guard result.writeResult.observedFrame != nil, result.confirmedFrame != nil else { return }

@@ -33,7 +33,7 @@ final class AXEventHandler {
     var terminalFrameFailureStateByWindowId: [Int: TerminalFrameFailureState] = [:]
     var admissionQuarantineByWindowId: [Int: AdmissionQuarantine] = [:]
     var identityAliasesByWindowId: [Int: WindowIdentityAliasHistory] = [:]
-    var previouslyFocusedManagedToken: WindowToken?
+    var focusLossRescans = FocusLossRescans()
     private var windowCloseFocusRecoveryContext: WindowCloseFocusRecoveryContext?
     private var recentMouseFocusIntent: RecentMouseFocusIntent?
     var recentUnmanagedPointerClickExpiresAt: Date?
