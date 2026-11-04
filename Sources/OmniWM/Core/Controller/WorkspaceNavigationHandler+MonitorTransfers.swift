@@ -35,6 +35,7 @@ extension WorkspaceNavigationHandler {
         direction: Direction
     ) -> StructuralMutationOutcome {
         guard let controller,
+              controller.workspaceManager.entry(for: handle.id)?.target.hostedMetadata?.role.parent == nil,
               let sourceWorkspaceId = controller.workspaceManager.workspace(for: handle.id),
               let sourceMonitorId = controller.workspaceManager.monitorId(for: sourceWorkspaceId),
               let targetMonitor = controller.workspaceManager.adjacentMonitor(

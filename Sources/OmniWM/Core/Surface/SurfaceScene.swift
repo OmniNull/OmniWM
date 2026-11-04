@@ -7,6 +7,7 @@ import Foundation
 enum SurfaceKind: String, CaseIterable, Hashable, Sendable {
     case border
     case parkingEdgeMask
+    case niriEdgePicture
     case workspaceBar
     case shellIsland
     case overview
@@ -22,6 +23,8 @@ enum SurfaceKind: String, CaseIterable, Hashable, Sendable {
     case secureInputIndicator
     case hiddenBarPanel
     case statusPanel
+
+    static let gestureTransparent: [SurfaceKind] = [.parkingEdgeMask, .niriEdgePicture]
 }
 
 enum HitTestPolicy: Equatable {
@@ -200,9 +203,9 @@ final class SurfaceScene {
         return true
     }
 
-    func containsInteractive(point: CGPoint, excluding kind: SurfaceKind? = nil) -> Bool {
+    func containsInteractive(point: CGPoint, excluding kinds: [SurfaceKind] = []) -> Bool {
         nodesByID.values.contains { node in
-            guard node.policy.kind != kind,
+            guard !kinds.contains(node.policy.kind),
                   node.policy.hitTestPolicy != .passthrough,
                   isVisible(node)
             else {

@@ -78,7 +78,7 @@ final class TabRailIconView: NSVisualEffectView {
         let membershipChanged = tokens != nextTokens || rows.count != tabs.count
         let activeChanged = self.activeVisualIndex != activeVisualIndex
         if membershipChanged {
-            rebuildRows(tokens: nextTokens)
+            rebuildRows(tabs: tabs, tokens: nextTokens)
         }
         self.activeVisualIndex = activeVisualIndex
         updateSelection(animate: activeChanged && !membershipChanged)
@@ -154,17 +154,18 @@ final class TabRailIconView: NSVisualEffectView {
         path.stroke()
     }
 
-    private func rebuildRows(tokens nextTokens: [WindowToken?]) {
+    private func rebuildRows(tabs: [TabRailTabInfo], tokens nextTokens: [WindowToken?]) {
         var reusable: [WindowToken: TabRailIconRowView] = [:]
         for (token, row) in zip(tokens, rows) {
             if let token { reusable[token] = row }
             row.removeFromSuperview()
         }
         tokens = nextTokens
-        rows = tokens.map { token in
-            let row = token.flatMap { reusable.removeValue(forKey: $0) }
+        rows = tabs.map { tab in
+            let row = tab.token.flatMap { reusable.removeValue(forKey: $0) }
                 ?? TabRailIconRowView(
-                    image: token.flatMap { appInfoCache.info(for: $0.pid)?.icon }, motionPolicy: motionPolicy
+                    image: tab.icon ?? tab.token.flatMap { appInfoCache.info(for: $0.pid)?.icon },
+                    motionPolicy: motionPolicy
                 )
             document.addSubview(row)
             return row

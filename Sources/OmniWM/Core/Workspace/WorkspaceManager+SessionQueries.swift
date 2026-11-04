@@ -62,7 +62,7 @@ extension WorkspaceManager {
         }
 
         if let handle = handleIfEligible(selectedManagedToken) { return handle }
-        for token in focusSessionSnapshot.tiledFocusHistory {
+        for token in focusSessionSnapshot.windowFocusHistory {
             if let handle = handleIfEligible(token) { return handle }
         }
         if let interactionMonitorId,
@@ -126,7 +126,8 @@ extension WorkspaceManager {
 
     @discardableResult
     func setScratchpadMembership(_ token: WindowToken, to index: ScratchpadIndex?) -> Bool {
-        updateScratchpadMembership(token, to: index, notify: true)
+        guard index == nil || entry(for: token)?.target.hostedMetadata?.role.parent == nil else { return false }
+        return updateScratchpadMembership(token, to: index, notify: true)
     }
 
     @discardableResult

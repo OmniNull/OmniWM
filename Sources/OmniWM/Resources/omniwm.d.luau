@@ -975,6 +975,9 @@ export type ServiceHandle = {
     cancel: (self: ServiceHandle) -> (),
 }
 
+export type WindowResult = { ok: boolean, error: string? }
+export type WindowCallback = (result: WindowResult) -> ()
+
 export type HTTPRequest = {
     url: string,
     method: string?,
@@ -1011,6 +1014,10 @@ declare json: {
 }
 
 declare omniwm: {
+    windows: {
+        open: (id: string, callback: WindowCallback?) -> (ServiceHandle?, string?),
+        close: (id: string, callback: WindowCallback?) -> (ServiceHandle?, string?),
+    },
     resources: {
         persist: (resource: Resource, callback: ((result: { ok: boolean, token: string?, error: string? }) -> ())?) -> (string?, string?),
         restore: (token: string) -> (Resource?, string?),

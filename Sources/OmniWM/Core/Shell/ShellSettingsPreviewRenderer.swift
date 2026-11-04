@@ -32,7 +32,8 @@ actor ShellSettingsPreviewRenderer {
         values: [String: [UInt8]],
         settings: [String: [UInt8]],
         expanded: Bool?,
-        popout: Bool = false
+        popout: Bool = false,
+        renderBudget: UInt64 = ShellWidgetPackage.renderBudget
     ) throws -> [Tree] {
         let view = popout ? OMNI_VIEW_POPOUT : OMNI_VIEW_BAR
         var fontSets: [[URL]: ShellFontSet] = [:]
@@ -71,7 +72,7 @@ actor ShellSettingsPreviewRenderer {
             try check(omni_instance_render(
                 instance,
                 view,
-                ShellWidgetPackage.renderBudget,
+                renderBudget,
                 &stats,
                 &error,
                 error.count

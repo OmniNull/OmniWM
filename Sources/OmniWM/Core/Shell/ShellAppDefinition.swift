@@ -3,12 +3,16 @@
 
 import Foundation
 
-struct ShellAppDefinition: Sendable {
+struct ShellAppDefinition: Equatable, Sendable {
     let id: String
     let title: String
     let contentSize: CGSize
     let minimumContentSize: CGSize
     let folder: URL
+    var view = "window"
+    var component: ShellComponentDescriptor?
+    var icon = "app"
+    var children: [String: ShellAppChildDefinition] = [:]
 
     static var example: Self? {
         example(in: .module)
@@ -17,32 +21,32 @@ struct ShellAppDefinition: Sendable {
     static func example(in bundle: Bundle) -> Self? {
         guard let entry = bundle.url(forResource: "init", withExtension: "luau", subdirectory: "ShellApps/example")
         else { return nil }
-        return Self(
-            id: ShellAppWindowManager.exampleID, title: "OmniShell Example",
-            contentSize: CGSize(width: 640, height: 420), minimumContentSize: CGSize(width: 280, height: 240),
-            folder: entry.deletingLastPathComponent()
-        )
+        return try? load(id: ShellAppWindowManager.exampleID, folder: entry.deletingLastPathComponent())
     }
 
-    func source() throws -> ShellWidgetSource {
-        let component = try String(contentsOf: folder.appendingPathComponent("init.luau"), encoding: .utf8)
-        var source = ShellWidgetSource(
-            chunk: "@widgets/\(id)/init.luau",
-            main: """
-            function window(ctx)
-                return ui.component{ id = "app", view = "window", w = ctx.view.w, h = ctx.view.h }
-            end
-            """,
-            modules: [.init(path: "widgets/\(id)/component.luau", source: component)]
+    static func load(id: String, folder: URL) throws -> Self {
+        let component = try ShellComponentCatalog.load(id, folder: folder, sourceFile: "init.luau")
+        guard let window = component.window else {
+            throw ShellComponentCatalog.Failure("\(id)/component.toml: missing [window]")
+        }
+        return Self(
+            id: id, title: component.title, contentSize: window.contentSize,
+            minimumContentSize: window.minimumContentSize, folder: folder,
+            view: window.view, component: component, icon: component.icon, children: window.children
         )
-        source.components = [.init(id: "app", widget: id)]
-        source.componentDescriptors = [.init(
-            widget: id, title: title, icon: "app", views: ["window"], uses: [], options: [:],
-            capabilities: ShellComponentCapabilities(), providerCommand: nil, folder: folder
-        )]
-        source.assetPackages = [id: folder]
-        source.profile = "app.\(id)"
-        source.principal = ShellWidgetPrincipal(role: .root, name: source.profile, folder: folder)
-        return source
     }
+}
+
+struct ShellAppChildDefinition: Equatable, Sendable {
+    enum Kind: String, Sendable {
+        case sheet
+        case utility
+    }
+
+    let id: String
+    let view: String
+    let title: String
+    var kind = Kind.sheet
+    let contentSize: CGSize
+    let minimumContentSize: CGSize
 }

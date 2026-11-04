@@ -7,15 +7,6 @@ import OmniWMIPC
 
 @MainActor @Observable
 final class WMController {
-    private struct BorderLayoutConfig: Equatable {
-        let enabled: Bool
-        let width: CGFloat
-
-        func clearance(scale: CGFloat) -> CGFloat {
-            BorderConfig.layoutClearance(enabled: enabled, width: width, scale: scale)
-        }
-    }
-
     var isEnabled: Bool = true
     var hotkeysEnabled: Bool = true
     private(set) var desiredEnabled: Bool = true
@@ -66,6 +57,10 @@ final class WMController {
     let axManager = AXManager()
     @ObservationIgnored
     private(set) lazy var shellAppWindowManager = ShellAppWindowManager(controller: self)
+    @ObservationIgnored
+    private(set) lazy var shellAppCatalog = ShellAppCatalog(
+        configDirectory: settings.settingsFileURL.deletingLastPathComponent()
+    )
     let traceCaptureCoordinator: RuntimeTraceCaptureCoordinator
     let appInfoCache = AppInfoCache()
     @ObservationIgnored
@@ -77,6 +72,9 @@ final class WMController {
             self?.layoutRefreshController.requestRelayout(reason: .staleLayoutPlan, affectedWorkspaceIds: [$0])
         }
     )
+    @ObservationIgnored
+    private(set) lazy var niriEdgePictures = makeEdgePictures()
+
     @ObservationIgnored
     let workspaceBarIconResolver: WorkspaceBarIconResolver
     var workspaceBarIconResolutionRevision: UInt64 = 0
@@ -193,7 +191,7 @@ final class WMController {
     }()
 
     @ObservationIgnored
-    private(set) lazy var commandPaletteController: CommandPaletteController = .init(motionPolicy: motionPolicy)
+    lazy var commandPaletteController: CommandPaletteController = .init(motionPolicy: motionPolicy)
     @ObservationIgnored var windowSwitcherControllerStorage: WindowSwitcherController?
     var windowSwitcherController: WindowSwitcherController {
         if let windowSwitcherControllerStorage { return windowSwitcherControllerStorage }
@@ -329,6 +327,15 @@ final class WMController {
 }
 
 extension WMController {
+    private struct BorderLayoutConfig: Equatable {
+        let enabled: Bool
+        let width: CGFloat
+
+        func clearance(scale: CGFloat) -> CGFloat {
+            BorderConfig.layoutClearance(enabled: enabled, width: width, scale: scale)
+        }
+    }
+
     func setEnabled(_ enabled: Bool) {
         desiredEnabled = enabled
         if enabled {
@@ -425,6 +432,7 @@ extension WMController {
         domains: InvalidationDomain,
         surfaceScope: SessionSurfaceInvalidationScope
     ) {
+        pruneEdgePictures()
         layoutRefreshController.workspaceSwipe.handleInvalidation(workspaceId: workspaceId, domains: domains)
         switch surfaceScope {
         case .full:

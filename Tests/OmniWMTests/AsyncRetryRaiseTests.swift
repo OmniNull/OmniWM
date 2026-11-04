@@ -8,6 +8,10 @@ import XCTest
 
 @MainActor
 final class AsyncRetryRaiseTests: XCTestCase {
+    private enum WorkerScenario: CaseIterable {
+        case cancelled, frameSuppressed, appSuppressed, missing, replaced, accepted
+    }
+
     func testRetirementAndLifecycleInvalidateQueuedRetry() throws {
         for transition in 0 ..< 7 {
             let ledger = IntentLedger()
@@ -212,29 +216,32 @@ final class AsyncRetryRaiseTests: XCTestCase {
     func testWorkerRejectsCancelledSuppressedMissingAndReplacedWindows() {
         let window = AXWindowRef(element: AXUIElementCreateApplication(831_004), windowId: 831_104)
         $appThreadToken.withValue(AppThreadToken(pid: 831_004)) {
-            for condition in 0 ..< 6 {
-                let windows = ThreadGuardedValue([window.windowId: window.element])
-                defer { windows.destroy() }
-                let suppression = LockedWindowIdSet()
-                let job = RunLoopJob()
-                switch condition {
-                case 0: job.cancel()
-                case 1: suppression.insert(window.windowId)
-                case 2: suppression.setHardSuppressed(true)
-                case 3: windows[window.windowId] = nil
-                case 4: windows[window.windowId] = AXUIElementCreateApplication(831_005)
-                default: break
-                }
-                var raises = 0
-                let result = AppAXContext.performRetryRaise(
-                    window, windows: windows, suppression: suppression, job: job,
-                    awaitingSubmittedFocus: {},
-                    raiseWindow: { _ in raises += 1
-                        return true
+            for allowsLayoutHiddenWindow in [false, true] {
+                for scenario in WorkerScenario.allCases {
+                    let windows = ThreadGuardedValue([window.windowId: window.element])
+                    defer { windows.destroy() }
+                    let suppression = LockedWindowIdSet()
+                    let job = RunLoopJob()
+                    switch scenario {
+                    case .cancelled: job.cancel()
+                    case .frameSuppressed: suppression.insert(window.windowId)
+                    case .appSuppressed: suppression.setHardSuppressed(true)
+                    case .missing: windows[window.windowId] = nil
+                    case .replaced: windows[window.windowId] = AXUIElementCreateApplication(831_005)
+                    case .accepted: break
                     }
-                )
-                XCTAssertEqual(result, condition == 5)
-                XCTAssertEqual(raises, condition == 5 ? 1 : 0)
+                    var didRaise = false
+                    let result = AppAXContext.performRetryRaise(
+                        window, windows: windows, suppression: suppression, job: job,
+                        awaitingSubmittedFocus: {}, allowsLayoutHiddenWindow: allowsLayoutHiddenWindow,
+                        raiseWindow: { _ in didRaise = true
+                            return true
+                        }
+                    )
+                    let expected = scenario == .accepted || (scenario == .frameSuppressed && allowsLayoutHiddenWindow)
+                    XCTAssertEqual(result, expected)
+                    XCTAssertEqual(didRaise, expected)
+                }
             }
         }
     }
@@ -264,35 +271,55 @@ final class AsyncRetryRaiseTests: XCTestCase {
         }
     }
 
-    func testCancellingAnExecutingWorkerRaiseDoesNotWaitForTheRaise() throws {
+    func testCancellingAnExecutingWorkerRaiseDoesNotWaitForTheRaise() {
         let job = RunLoopJob()
-        let entered = DispatchSemaphore(value: 0)
-        let release = DispatchSemaphore(value: 0)
-        let finished = DispatchSemaphore(value: 0)
         let window = AXWindowRef(element: AXUIElementCreateApplication(831_006), windowId: 831_106)
-        Thread.detachNewThread {
-            $appThreadToken.withValue(AppThreadToken(pid: 831_006)) {
-                let windows = ThreadGuardedValue([window.windowId: window.element])
-                defer { windows.destroy()
-                    finished.signal()
+        $appThreadToken.withValue(AppThreadToken(pid: 831_006)) {
+            let windows = ThreadGuardedValue([window.windowId: window.element])
+            defer { windows.destroy() }
+            var steps: [String] = []
+            let raised = AppAXContext.performRetryRaise(
+                window, windows: windows, suppression: LockedWindowIdSet(), job: job,
+                awaitingSubmittedFocus: {},
+                raiseWindow: { _ in
+                    steps.append("entered")
+                    job.cancel()
+                    steps.append("cancelled")
+                    return true
                 }
-                _ = AppAXContext.performRetryRaise(
-                    window, windows: windows, suppression: LockedWindowIdSet(), job: job,
-                    awaitingSubmittedFocus: {},
-                    raiseWindow: { _ in
-                        entered.signal()
-                        _ = release.wait(timeout: .now() + 3)
-                        return true
+            )
+            XCTAssertTrue(raised)
+            XCTAssertTrue(job.isCancelled)
+            XCTAssertEqual(steps, ["entered", "cancelled"])
+        }
+    }
+
+    func testLayoutHiddenWorkerRaiseBypassesOnlySoftSuppression() {
+        let window = AXWindowRef(element: AXUIElementCreateApplication(831_008), windowId: 831_108)
+        $appThreadToken.withValue(AppThreadToken(pid: 831_008)) {
+            let windows = ThreadGuardedValue([window.windowId: window.element])
+            defer { windows.destroy() }
+            for allowsLayoutHiddenWindow in [false, true] {
+                for hardSuppressed in [false, true] {
+                    for windowHardSuppressed in [false, true] {
+                        let suppression = LockedWindowIdSet()
+                        suppression.insert(window.windowId)
+                        suppression.setHardSuppressed(hardSuppressed)
+                        suppression.setHardSuppressed(windowHardSuppressed, for: window.windowId)
+                        var didRaise = false
+                        let raised = AppAXContext.performRetryRaise(
+                            window, windows: windows, suppression: suppression, job: RunLoopJob(),
+                            awaitingSubmittedFocus: {}, allowsLayoutHiddenWindow: allowsLayoutHiddenWindow,
+                            raiseWindow: { _ in didRaise = true
+                                return true
+                            }
+                        )
+                        let expected = allowsLayoutHiddenWindow && !hardSuppressed && !windowHardSuppressed
+                        XCTAssertEqual(raised, expected)
+                        XCTAssertEqual(didRaise, expected)
                     }
-                )
+                }
             }
         }
-        XCTAssertEqual(entered.wait(timeout: .now() + 3), .success)
-        let start = ContinuousClock.now
-        job.cancel()
-        XCTAssertLessThan(start.duration(to: .now), .seconds(1))
-        XCTAssertTrue(job.isCancelled)
-        release.signal()
-        XCTAssertEqual(finished.wait(timeout: .now() + 3), .success)
     }
 }

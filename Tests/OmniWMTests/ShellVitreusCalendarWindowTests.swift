@@ -160,7 +160,7 @@ final class ShellVitreusCalendarWindowTests: XCTestCase {
         XCTAssertFalse(drawers.has(fixture, "drawer-content-calendar"))
     }
 
-    func testDetachedCalendarRemainsWhenAnotherDropdownOpensWithinShapeAndTargetBudgets() throws {
+    func testRenderSpeedDetachedCalendarAndDropdownStayWithinProductionBudget() throws {
         let fixture = try fixture()
         let target = try element(fixture, "drawer-content-calendar")
         try move(fixture, to: CGPoint(x: 200, y: 300))

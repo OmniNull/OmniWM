@@ -63,7 +63,32 @@ extension ShellLayerScene {
                 shapeTracks.follows[slot]?.binding = binding
                 followShape(slot, binding.presentation(presentation, in: frame))
             }
-        default: return false
+        case .insert,
+             .remove,
+             .move,
+             .frame,
+             .paint,
+             .text,
+             .image,
+             .value,
+             .scroll,
+             .shader,
+             .effect,
+             .effectNeutral,
+             .path,
+             .glass,
+             .transition,
+             .spectrumMotion,
+             .stage,
+             .clearExits,
+             .visibility,
+             .gesture,
+             .settleGesture,
+             .followExit,
+             .boundTrack,
+             .reveal,
+             .backingScale:
+            return false
         }
         return true
     }

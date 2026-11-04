@@ -88,12 +88,17 @@ extension WorkspaceManager {
               initialFrame.height.isFinite, initialFrame.height > 0,
               windowQueries.entry(forWindowId: token.windowId) == nil
         else { return nil }
+        if let parent = metadata.role.parent {
+            guard let entry = entry(for: parent), let owner = entry.target.hostedMetadata,
+                  owner.role == .main, owner.instanceID == metadata.instanceID,
+                  entry.workspaceId == workspace else { return nil }
+        }
         recordReconcileEvent(
             .windowAdmitted(
                 token: token,
                 workspaceId: workspace,
                 monitorId: monitorId(for: workspace),
-                mode: .tiling,
+                mode: metadata.role == .main ? .tiling : .floating,
                 target: .hosted(metadata),
                 ruleEffects: .none,
                 admissionHints: .none,

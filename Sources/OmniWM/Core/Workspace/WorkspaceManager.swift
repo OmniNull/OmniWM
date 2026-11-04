@@ -42,6 +42,7 @@ final class WorkspaceManager {
         ((WorkspaceDescriptor.ID?, InvalidationDomain, SessionSurfaceInvalidationScope) -> Void)?
     var onWindowPresenceObserved: ((WindowHandle) -> Void)?
     var onWindowRemoved: ((WindowState) -> Void)?
+    var onHostedFamilyWorkspaceChanged: ((WindowToken, WorkspaceDescriptor.ID) -> Void)?
     var onDeferredWorkspaceMonitorMove: ((WorkspaceMonitorMoveOutcome) -> Void)?
     var onAnimationMotionsWillBeRemoved: ((Set<WorkspaceDescriptor.ID>) -> Void)?
 
@@ -385,8 +386,7 @@ extension WorkspaceManager {
 
     func setCachedConstraints(_ constraints: WindowSizeConstraints, for token: WindowToken) {
         guard windowQueries.entry(for: token) != nil else { return }
-        let normalized = constraints.normalized()
-        world.setCachedConstraints(normalized, for: token)
+        world.setCachedConstraints(constraints.normalized(), for: token)
     }
 
     @discardableResult

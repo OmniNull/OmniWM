@@ -73,6 +73,33 @@ final class AppVisibilityDiagnosticsTests: XCTestCase {
         XCTAssertTrue(report.contains("dwindle=excluded:1,missing:0,unexpected:0,match:true"), report)
     }
 
+    func testHiddenWindowPhysicalSectionNamesTheLogicalLayoutEdge() throws {
+        let controller = makeController()
+        let workspaceId = try XCTUnwrap(
+            controller.workspaceManager.workspaceId(for: "1", createIfMissing: true)
+        )
+        let edges: [AxisHideEdge] = [.minimum, .maximum]
+        let tokens = edges.indices.map {
+            addWindow(pid: 881_201, windowId: 881_301 + $0, workspaceId: workspaceId, controller: controller)
+        }
+        for (token, edge) in zip(tokens, edges) {
+            controller.workspaceManager.setHiddenState(
+                HiddenState(
+                    proportionalPosition: CGPoint(x: 0.5, y: 0.5),
+                    referenceMonitorId: nil,
+                    reason: .layoutTransient(edge.encodedHideSide)
+                ),
+                for: token
+            )
+        }
+
+        let report = RuntimeDiagnosticsReport.build(controller, traceLimit: 10)
+
+        for (token, edge) in zip(tokens, edges) {
+            XCTAssertTrue(report.contains("win=\(token.windowId) layoutEdge=\(edge) physical="), report)
+        }
+    }
+
     func testReportSurfacesVisibilityFenceDesynchronization() throws {
         let controller = makeController()
         let workspaceId = try XCTUnwrap(

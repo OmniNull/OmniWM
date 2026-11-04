@@ -102,6 +102,9 @@ extension NiriContainer {
         workingAreaHeight: CGFloat,
         gaps: CGFloat
     ) -> CGFloat {
+        if let targetHeight {
+            return targetHeight
+        }
         if cachedHeight <= 0 {
             resolveAndCacheHeight(workingAreaHeight: workingAreaHeight, gaps: gaps)
         }

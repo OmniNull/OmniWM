@@ -102,6 +102,7 @@ struct NiriWorkspaceSnapshot {
     let displayRefreshRate: Double
     let isActiveWorkspace: Bool
     let quietArrivalTokens: Set<WindowToken>
+    var edgePictures: NiriEdgePictureState = .none
 }
 
 struct DwindleWorkspaceSnapshot {
@@ -225,6 +226,8 @@ struct TabRailGeometryCommand: Equatable {
     let key: TabRailKey
     let tileFrame: CGRect
     let visibleTileFrame: CGRect
+    var orderingWindowId: Int?
+    var displayFrame: CGRect?
 }
 
 // `frameChanges` imply active, restore-eligible windows for this pass.
@@ -234,6 +237,8 @@ struct WorkspaceLayoutDiff {
     var visibilityChanges: [LayoutVisibilityChange] = []
     var restoreChanges: [LayoutRestoreChange] = []
     var deferredHides: [LayoutDeferredHide] = []
+    var edgeHiddenFrames: [WindowToken: CGRect] = [:]
+    var picturePreparation: NiriPicturePreparation?
     var nativeFullscreenSlots: [WindowToken: NativeFullscreenSlotProjection] = [:]
     var tabRailGeometryCommands: [TabRailGeometryCommand] = []
 }

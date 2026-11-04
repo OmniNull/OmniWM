@@ -106,14 +106,23 @@ final class ShellIconTests: XCTestCase {
 
     func testIconsResolveFromWindowsAndProcesses() throws {
         let image = NSImage(size: NSSize(width: 4, height: 4))
+        let knownProcess: pid_t = 4101
+        let missingProcess: pid_t = 4102
+        let lookups = ProcessIconLookups()
         let resources = ShellResources(
             motion: MotionPolicy(animationsEnabled: false),
-            windowIcon: { $0 == "ow_known" ? image : nil }
+            windowIcon: { $0 == "ow_known" ? image : nil },
+            processIcon: { process in
+                lookups.requested.append(process)
+                return process == knownProcess ? image : nil
+            }
         )
         XCTAssertTrue(resources.icon(.window, "ow_known") === image)
         XCTAssertNil(resources.icon(.window, "ow_missing"))
-        XCTAssertNotNil(resources.icon(.pid, String(NSRunningApplication.current.processIdentifier)))
+        XCTAssertTrue(resources.icon(.pid, String(knownProcess)) === image)
+        XCTAssertNil(resources.icon(.pid, String(missingProcess)))
         XCTAssertNil(resources.icon(.pid, "not-a-pid"))
+        XCTAssertEqual(lookups.requested, [knownProcess, missingProcess])
     }
 
     func testMissingIconsDrawTheirPlaceholderAndTintsRecolorIcons() throws {
@@ -207,4 +216,9 @@ final class ShellIconTests: XCTestCase {
         let overridden = ShellResources(motion: MotionPolicy(animationsEnabled: false), iconOverride: { _ in override })
         XCTAssertTrue(overridden.icon(for: "com.apple.finder") === override)
     }
+}
+
+@MainActor
+private final class ProcessIconLookups {
+    var requested: [pid_t] = []
 }

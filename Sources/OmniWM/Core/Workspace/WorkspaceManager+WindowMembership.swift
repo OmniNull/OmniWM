@@ -66,6 +66,9 @@ extension WorkspaceManager {
     }
 
     func setWorkspace(for token: WindowToken, to workspace: WorkspaceDescriptor.ID) {
+        if let parent = entry(for: token)?.target.hostedMetadata?.role.parent {
+            guard hostedFamilyRoot(for: token) == parent, entry(for: parent)?.workspaceId == workspace else { return }
+        }
         let previousWorkspace = windowQueries.workspace(for: token)
         guard previousWorkspace != workspace else { return }
         quietArrivalTokens.remove(token)
@@ -102,6 +105,10 @@ extension WorkspaceManager {
     }
 
     func setHiddenState(_ state: HiddenState?, for token: WindowToken) {
+        if let parent = entry(for: token)?.target.hostedMetadata?.role.parent {
+            guard hostedFamilyRoot(for: token) == parent,
+                  entry(for: parent)?.hiddenState?.reason == state?.reason else { return }
+        }
         guard windowQueries.hiddenState(for: token) != state else { return }
         guard let workspaceId = workspace(for: token) else { return }
         recordReconcileEvent(

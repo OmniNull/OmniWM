@@ -63,6 +63,7 @@ enum CLIRenderer {
              .notFound,
              .noChange,
              .windowActionFailed,
+             .attachedWindow,
              .workspaceAssignmentConflict,
              .workspaceStateConflict,
              .captureStateConflict,

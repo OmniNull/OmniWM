@@ -483,6 +483,7 @@ extension IPCAutomationManifest {
             summary: "Go back to the previous track."
         )
     ] + keyboardModeCommandDescriptors + [
-        .init(name: .shellAppOpen, summary: "Open or focus a hosted OmniShell app window.", arguments: [.appID])
+        .init(name: .shellAppOpen, summary: "Open or focus a hosted OmniShell app window.", arguments: [.appID]),
+        .init(name: .shellAppNewWindow, summary: "Create a new hosted OmniShell app window.", arguments: [.appID])
     ]
 }

@@ -102,14 +102,16 @@ final class CommandHandler {
         case let .windowMark(action):
             return performWindowMarkAction(action, for: controller.workspaceManager.nativeManagedFocusToken)
         case let .presentation(action): return perform(action, controller: controller)
-        case let .media(action):
-            perform(action, controller: controller)
+        case let .media(action): perform(action, controller: controller)
         case let .keyboardMode(command):
             return controller.performKeyboardModeCommand(command)
         case let .shellToggle(name):
             return controller.workspaceBarManager.toggleShell(name) ? .executed : .notFound
         case let .shellAppOpen(appID):
             return controller.shellAppWindowManager.open(appID) ? .executed : .notFound
+        case let .shellAppNewWindow(appID):
+            return controller.shellAppWindowManager.newWindow(appID) ? .executed : .notFound
+        case let .openApp(bundleID): return openApp(bundleID, controller: controller)
         }
         return .executed
     }
@@ -370,5 +372,21 @@ extension CommandHandler {
              .staleMark:
             .windowActionFailed
         }
+    }
+
+    private func openApp(_ bundleID: String, controller: WMController) -> ExternalCommandResult {
+        guard let url = NSWorkspace.shared.urlForApplication(withBundleIdentifier: bundleID) else {
+            return .notFound
+        }
+        controller.commandPaletteController.actionExecutor.perform(.openApplication(
+            controller,
+            LauncherApplicationResult(
+                bundleURL: url,
+                bundleIdentifier: bundleID,
+                displayName: FileManager.default.displayName(atPath: url.path)
+            ),
+            ""
+        ))
+        return .executed
     }
 }

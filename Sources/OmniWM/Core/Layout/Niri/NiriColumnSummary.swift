@@ -114,6 +114,9 @@ extension NiriLayoutEngine {
             gap: geometry.gaps,
             orientation: geometry.orientation
         )
-        return geometry.orientation == .horizontal ? column.column.targetWidth ?? span : span
+        return switch geometry.orientation {
+        case .horizontal: column.column.targetWidth ?? span
+        case .vertical: column.column.targetHeight ?? span
+        }
     }
 }

@@ -182,7 +182,7 @@ final class ParkingEdgeInteractionTests: XCTestCase {
             window.updateHover()
             XCTAssertTrue(SurfaceCoordinator.shared.containsInteractive(point: pointer.value))
             XCTAssertFalse(SurfaceCoordinator.shared.containsInteractive(
-                point: pointer.value, excluding: .parkingEdgeMask
+                point: pointer.value, excluding: [.parkingEdgeMask]
             ))
             XCTAssertTrue(SurfaceCoordinator.shared.visibleSurfaceIDs(kind: .parkingEdgeMask).contains(
                 "parking-edge-fin-989002-\(side.rawValue)"

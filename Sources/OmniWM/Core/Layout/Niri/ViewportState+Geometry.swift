@@ -202,7 +202,7 @@ extension Monitor.Orientation {
     var settledSpanKeyPath: KeyPath<NiriContainer, CGFloat> {
         switch self {
         case .horizontal: \.settledWidth
-        case .vertical: \.cachedHeight
+        case .vertical: \.settledHeight
         }
     }
 }

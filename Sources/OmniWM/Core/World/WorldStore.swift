@@ -69,6 +69,7 @@ final class WorldStore {
             false
         }
         preMutate()
+        let familyEvents = hostedFamilyEvents(for: event, monitors: monitors)
         applyWindowMutationBeforePlan(event, monitors: monitors)
         let existingEntry = event.token.flatMap { model.entry(for: $0) }
         let normalizedEvent = EventNormalizer.normalize(
@@ -84,10 +85,12 @@ final class WorldStore {
             monitors: monitors,
             windowExistedBeforeMutation: windowExistedBeforeMutation
         )
-        let resolvedPlan = resolvePlan(plan, normalizedEvent.token, reducerSnapshot)
+        var resolvedPlan = resolvePlan(plan, normalizedEvent.token, reducerSnapshot)
+        applyHostedFamilyEvents(familyEvents, monitors: monitors, snapshot: snapshot, plan: &resolvedPlan)
         applyWindowRemovalAfterPlan(event, monitors: monitors)
 
-        var committedSnapshot = resolvedPlan.mutatesRuntimeState || event.mutatesSnapshotAfterPlan
+        var committedSnapshot = resolvedPlan.mutatesRuntimeState || event.mutatesSnapshotAfterPlan || !familyEvents
+            .isEmpty
             ? snapshot()
             : reducerSnapshot
         completeSnapshot(&committedSnapshot)
@@ -152,7 +155,7 @@ final class WorldStore {
         }
     }
 
-    private func applyWindowMutationBeforePlan(_ event: WMEvent, monitors: [Monitor]) {
+    func applyWindowMutationBeforePlan(_ event: WMEvent, monitors: [Monitor]) {
         switch event.reconcileDomain {
         case .window:
             applyWindowEventBeforePlan(event, monitors: monitors)

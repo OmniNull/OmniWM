@@ -50,6 +50,7 @@ extension LayoutRefreshController {
         let actionWorkspacesCurrentAtEntry = plan.postLayoutActions.map {
             $0.currentWorkspaces(using: controller.workspaceManager)
         }
+        let pendingAtEntry = currentPendingPostLayoutActions()
         let forwardedPostLayoutActions = { (acceptedSeqs: [WorkspaceDescriptor.ID: AcceptedSeq]) in
             zip(plan.postLayoutActions, actionWorkspacesCurrentAtEntry).map { action, currentAtEntry in
                 action.forwarded(by: acceptedSeqs, currentAtEntry: currentAtEntry)
@@ -66,6 +67,7 @@ extension LayoutRefreshController {
             plan, controller: controller,
             activeWorkspaceIds: &currentEffectActiveWorkspaceIds, acceptedSeqs: &acceptedSeqs
         )
+        forwardPendingPostLayoutActions(pendingAtEntry, by: acceptedSeqs)
 
         let activeWorkspaceIdsForFocusValidation = currentEffectActiveWorkspaceIds ?? currentActiveWorkspaceIds()
         for workspaceId in plan.effects.focusValidationWorkspaceIds
@@ -158,6 +160,7 @@ extension LayoutRefreshController {
         controller.workspaceManager.quietArrivalTokens.subtract(plan.quietArrivalTokens)
 
         let plan = controller.resizeOverlay.intercept(plan)
+        controller.niriEdgePictures.reconcile(plan)
         applyLayoutMutations(plan, controller: controller)
         publishAcceptedLayoutSurfaces(plan, controller: controller)
         if let disposition = plan.dwindleAnimationTargetDisposition {

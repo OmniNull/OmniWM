@@ -80,22 +80,24 @@ enum SurfaceDerivation {
         let config = world.borderConfig
         guard config.enabled else { return nil }
         guard let token = world.borderFocusToken,
-              let entry = world.entry(for: token)
+              let entry = world.entry(for: token),
+              entry.target.hostedMetadata?.role.isSheet != true
         else {
             return nil
         }
         guard !world.hasPendingNativeFullscreenTransition(for: token) else { return nil }
         guard !world.hasPendingWindowClose(for: entry) else { return nil }
         guard world.systemModalFocusToken != token else { return nil }
+        let picture = world.edgePicturePresentation(for: entry)
         guard world.suppressedFocusToken != token,
               !world.hasPendingNativeFullscreenTransition(in: entry.workspaceId),
               !world.isWindowFullscreenInLayout(entry),
-              world.isManagedWindowDisplayable(entry),
+              picture != nil || world.isManagedWindowDisplayable(entry),
               world.isWorkspaceVisible(entry.workspaceId)
         else {
             return nil
         }
-        guard let frame = borderFrame(
+        guard let frame = picture?.frame ?? borderFrame(
                   for: entry,
                   world: world,
                   policy: framePolicy
@@ -104,7 +106,15 @@ enum SurfaceDerivation {
         else {
             return nil
         }
-        return DesiredBorderSurface(token: entry.token, frame: frame, config: config)
+        return DesiredBorderSurface(
+            token: entry.token, frame: frame, config: config,
+            presentation: picture.map {
+                BorderPresentation(
+                    windowId: $0.windowId, displayFrame: $0.displayFrame, scale: $0.scale,
+                    otherDisplayFrames: $0.otherDisplayFrames, isMoving: $0.isMoving
+                )
+            }
+        )
     }
 
     @MainActor

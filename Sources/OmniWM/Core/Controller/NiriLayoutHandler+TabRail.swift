@@ -34,29 +34,13 @@ extension NiriLayoutHandler {
         let columnSpan = columns.span
         for index in columnSpan.indices where columnSpan[index].isTabbed {
             let column = columnSpan[index]
-            let key = TabRailKey(workspaceId: workspaceId, owner: .niriColumn(column.id))
-            guard let frame = column.renderedFrame,
-                  !frame.isNull,
-                  !frame.isInfinite,
-                  frame.width > 0,
-                  frame.height > 0
-            else {
-                commands.append(
-                    TabRailGeometryCommand(
-                        key: key,
-                        tileFrame: .zero,
-                        visibleTileFrame: .null
-                    )
-                )
-                continue
-            }
-            commands.append(
-                TabRailGeometryCommand(
-                    key: key,
-                    tileFrame: frame,
-                    visibleTileFrame: frame.intersection(monitor.visibleFrame)
-                )
-            )
+            let picture = monitor.orientation == .vertical
+                ? engine.projectedActiveWindow(in: column, workspaceId: workspaceId).flatMap {
+                    controller?.niriEdgePictures.presentation(for: $0.token)
+                } : nil
+            commands.append(tabRailGeometry(
+                column: column, workspaceId: workspaceId, visibleFrame: monitor.visibleFrame, picture: picture
+            ))
         }
         return commands
     }
@@ -84,27 +68,49 @@ extension NiriLayoutHandler {
                 activeVisualIndex: activeVisualIndex,
                 controller: controller
             )
-            let candidateFrame = column.renderedFrame ?? column.frame
-            let frame = candidateFrame.map {
-                !$0.isNull && !$0.isInfinite && $0.width > 0 && $0.height > 0 ? $0 : .zero
-            } ?? .zero
-            let visibleColumnFrame = frame == .zero ? CGRect.null : frame.intersection(monitor.visibleFrame)
+            let picture = engine.monitor(for: monitor.id)?.orientation == .vertical
+                ? controller.niriEdgePictures.presentation(for: activeWindow.token) : nil
+            let geometry = tabRailGeometry(
+                column: column, workspaceId: workspaceId, visibleFrame: monitor.visibleFrame, picture: picture,
+                nativeFrame: column.renderedFrame ?? column.frame
+            )
 
             infos.append(
                 TabRailInfo(
                     workspaceId: workspaceId,
                     owner: .niriColumn(column.id),
                     plannedSeq: controller.workspaceManager.worldSeq,
-                    tileFrame: frame,
-                    visibleTileFrame: visibleColumnFrame,
+                    tileFrame: geometry.tileFrame,
+                    visibleTileFrame: geometry.visibleTileFrame,
                     tabCount: windows.count,
                     activeVisualIndex: activeVisualIndex,
                     activeWindowId: activeWindowId,
-                    tabs: tabs
+                    tabs: tabs,
+                    orderingWindowId: geometry.orderingWindowId,
+                    displayFrame: geometry.displayFrame
                 )
             )
         }
         return infos
+    }
+
+    private func tabRailGeometry(
+        column: NiriContainer,
+        workspaceId: WorkspaceDescriptor.ID,
+        visibleFrame: CGRect,
+        picture: NiriEdgePicturePresentation?,
+        nativeFrame: CGRect? = nil
+    ) -> TabRailGeometryCommand {
+        let frame = column.edgeHiddenFrame.map { picture == nil ? CGRect.zero : $0 }
+            ?? nativeFrame ?? column.renderedFrame ?? .zero
+        let isValid = !frame.isNull && !frame.isInfinite && frame.width > 0 && frame.height > 0
+        return TabRailGeometryCommand(
+            key: TabRailKey(workspaceId: workspaceId, owner: .niriColumn(column.id)),
+            tileFrame: isValid ? frame : .zero,
+            visibleTileFrame: isValid ? frame.intersection(visibleFrame) : .null,
+            orderingWindowId: picture.map { Int($0.windowId) },
+            displayFrame: picture?.displayFrame
+        )
     }
 
     private func tabbedColumnTabs(
@@ -120,26 +126,24 @@ extension NiriLayoutHandler {
             let storageIndex = windows.count - 1 - visualIndex
             let window = windows[storageIndex]
             let entry = controller.workspaceManager.entry(for: window.token)
-            let appName: String?
-            if let entry, controller.appInfoCache.hasCachedInfo(for: entry.pid) {
-                appName = controller.appInfoCache.name(for: entry.pid)
-            } else {
-                appName = nil
-            }
-            let title = entry?.managedReplacementMetadata?.title
-                ?? entry.flatMap { entry in
-                    UInt32(exactly: entry.windowId).flatMap {
+            let presentation = entry.map { entry in
+                controller.appInfoCache.presentation(
+                    for: entry,
+                    title: entry.managedReplacementMetadata?.title ?? UInt32(exactly: entry.windowId).flatMap {
                         AXWindowService.titlePreferFast(windowId: $0)
-                    }
-                }
+                    },
+                    cachedProcessOnly: true
+                )
+            }
             tabs.append(
                 TabRailTabInfo(
                     visualIndex: visualIndex,
                     token: window.token,
                     windowId: entry?.windowId,
-                    appName: appName,
-                    title: title,
-                    isActive: visualIndex == clampedActiveVisualIndex
+                    appName: presentation?.name,
+                    title: presentation?.title,
+                    isActive: visualIndex == clampedActiveVisualIndex,
+                    icon: presentation?.icon
                 )
             )
         }

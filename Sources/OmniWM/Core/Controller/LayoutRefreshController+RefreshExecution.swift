@@ -34,6 +34,7 @@ extension LayoutRefreshController {
         let currentBeforeBuild = refresh.postLayoutActions.map {
             $0.currentWorkspaces(using: controller.workspaceManager)
         }
+        let pendingBeforeBuild = currentPendingPostLayoutActions()
         let buildStart = CACurrentMediaTime()
         var plan = buildRelayoutEffectPlan(
             useScrollAnimationPath: useScrollAnimationPath,
@@ -49,7 +50,7 @@ extension LayoutRefreshController {
             }
         )
         applyRefreshMetadata(refresh, includePostLayoutActions: false, to: &plan)
-        if !refresh.postLayoutActions.isEmpty {
+        if !refresh.postLayoutActions.isEmpty || !pendingBeforeBuild.isEmpty {
             let builtSeqs = Dictionary(uniqueKeysWithValues: plan.workspacePlans.map {
                 ($0.workspaceId, AcceptedSeq(
                     after: $0.sessionPatch.plannedSeq,
@@ -59,6 +60,7 @@ extension LayoutRefreshController {
             plan.postLayoutActions += zip(refresh.postLayoutActions, currentBeforeBuild).map {
                 $0.forwarded(by: builtSeqs, currentAtEntry: $1)
             }
+            forwardPendingPostLayoutActions(pendingBeforeBuild, by: builtSeqs)
         }
         return executeEffectPlan(plan, generation: generation)
     }

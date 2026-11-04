@@ -85,6 +85,11 @@ enum ShellSettingsPreview {
 
     @MainActor
     static func render(_ request: Request) async throws -> CGImage {
+        try await render(request, renderBudget: ShellWidgetPackage.renderBudget)
+    }
+
+    @MainActor
+    static func render(_ request: Request, renderBudget: UInt64) async throws -> CGImage {
         let config = request.config
         let names: [String]
         let islandSize: CGSize?
@@ -111,7 +116,7 @@ enum ShellSettingsPreview {
             }
             expanded = value
         case let .drawer(id):
-            return try await drawerImage(id, request: request)
+            return try await drawerImage(id, request: request, renderBudget: renderBudget)
         }
         var seen: Set<String> = []
         let components = islandSize == nil ? nil : config.island?.components
@@ -125,7 +130,7 @@ enum ShellSettingsPreview {
             inputs: inputs, values: ShellSettingsPreviewSamples.values(
                 style: request.style, islandSize: islandSize, dark: request.dark, scale: request.scale,
                 surface: islandData
-            ), settings: config.widgetSettings, expanded: expanded
+            ), settings: config.widgetSettings, expanded: expanded, renderBudget: renderBudget
         )
         let images = try await ShellSettingsPreviewRaster.render(
             trees, theme: config.theme, dark: request.dark, scale: request.scale, limit: islandSize

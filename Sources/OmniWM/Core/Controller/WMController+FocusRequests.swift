@@ -13,6 +13,8 @@ extension WMController {
         defersRetryRaise: Bool = false,
         requiresWorkerRaise: Bool = false
     ) -> ManagedFocusRequest? {
+        let token = workspaceManager.entry(for: token)?.target.hostedMetadata == nil
+            ? token : shellAppWindowManager.activeSheet(for: token) ?? token
         guard let entry = focusableEntry(for: token, origin: origin) else { return nil }
         let handoff = prepareFocusHandoff(for: token)
         let requiresWorkerRaise = requiresWorkerRaise && !raisesWindow

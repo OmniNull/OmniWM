@@ -277,16 +277,21 @@ extension ShellWidgetSurface {
             wantedSamples[slot] = point
             return
         }
+        let scale = scale
         scene.sampleAlpha(slot, at: point) { [weak self] alpha in
             Task { @MainActor in
-                self?.receiveSample(slot, at: point, alpha: alpha)
+                self?.receiveSample(slot, at: point, alpha: alpha, scale: scale)
             }
         }
     }
 
-    private func receiveSample(_ slot: Int32, at point: CGPoint, alpha: Float?) {
+    func receiveSample(_ slot: Int32, at point: CGPoint, alpha: Float?, scale: CGFloat) {
         sampling.remove(slot)
         let next = wantedSamples.removeValue(forKey: slot)
+        guard scale == self.scale else {
+            if let next { requestSample(slot, at: next) }
+            return
+        }
         guard let alpha else { return }
         samples[slot] = (point, alpha > Self.alphaThreshold)
         if let next {

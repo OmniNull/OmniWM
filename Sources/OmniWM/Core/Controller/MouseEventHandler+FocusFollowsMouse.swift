@@ -50,7 +50,7 @@ extension MouseEventHandler {
             return
         }
 
-        if shouldBlockOwnWindowInput(at: location) {
+        if shouldBlockOwnWindowInput(at: location, windowIdUnderPointer: windowIdUnderPointer) {
             resetHoveredEdgesIfNeeded()
             return
         }
@@ -93,13 +93,18 @@ extension MouseEventHandler {
             ?? monitor.autoOrientation
     }
 
-    func shouldBlockOwnWindowInput(at location: CGPoint) -> Bool {
-        guard let controller else { return false }
-        return controller.isPointInOwnWindow(location)
+    func shouldBlockOwnWindowInput(at location: CGPoint, windowIdUnderPointer: Int? = nil) -> Bool {
+        guard let controller, controller.isPointInOwnWindow(location) else { return false }
+        if let windowIdUnderPointer, windowIdUnderPointer > 0,
+           !controller.isOwnedWindow(windowNumber: windowIdUnderPointer)
+        {
+            return controller.ownedWindowRegistry.contains(point: location, excluding: [.niriEdgePicture])
+        }
+        return true
     }
 
     func shouldBlockOwnWindowGestureInput(at location: CGPoint) -> Bool {
-        controller?.ownedWindowRegistry.contains(point: location, excluding: .parkingEdgeMask) == true
+        controller?.ownedWindowRegistry.contains(point: location, excluding: SurfaceKind.gestureTransparent) == true
     }
 
     private func handleFocusFollowsMouse(at location: CGPoint, windowIdUnderPointer: Int?) {

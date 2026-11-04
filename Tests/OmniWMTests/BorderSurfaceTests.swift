@@ -193,6 +193,27 @@ final class BorderSurfaceTests: XCTestCase {
         )
     }
 
+    @MainActor
+    private final class PictureSurface: NiriEdgePictureSurface {
+        let windowId: UInt32?
+        let isVisibleForCapture = true
+
+        init(windowId: UInt32) {
+            self.windowId = windowId
+        }
+
+        func update(
+            geometry _: NiriEdgePictureGeometry,
+            content _: NiriPictureContent,
+            isMoving _: Bool,
+            activate _: @escaping @MainActor () -> Void
+        ) {}
+        func setOrderingTarget(_: Int?) {}
+        func hide() {}
+
+        func destroy() {}
+    }
+
     private let frame = CGRect(x: 10, y: 10, width: 200, height: 150)
     private let configRed = BorderConfig(
         enabled: true,
@@ -226,13 +247,15 @@ final class BorderSurfaceTests: XCTestCase {
     }
 
     @MainActor
-    private func reconcileFixture() throws -> (controller: WMController, entry: WindowState) {
+    private func reconcileFixture(
+        monitorSize: CGSize = CGSize(width: 1600, height: 1000)
+    ) throws -> (controller: WMController, entry: WindowState) {
         let controller = WindowAdmissionTestSupport.controller(prefix: "BorderMotionQueryTests")
         controller.settings.workspaceBar.enabled = false
         controller.settings.borders.enabled = true
         let monitor = Monitor(
             id: .init(displayId: 814_101), displayId: 814_101,
-            frame: CGRect(x: 0, y: 0, width: 1600, height: 1000), visibleFrame: .zero,
+            frame: CGRect(origin: .zero, size: monitorSize), visibleFrame: .zero,
             hasNotch: false, name: "Border Motion"
         )
         controller.workspaceManager.applyMonitorConfigurationChange([monitor])
@@ -1124,7 +1147,7 @@ final class BorderSurfaceTests: XCTestCase {
     }
 
     @MainActor
-    func testDeferredCornersRearmExhaustedRetryAfterSettledSizeChangeOrHide() async {
+    func testDeferredCornersRearmExhaustedRetryAfterSettledSizeChangeOrHide() async throws {
         for hide in [false, true] {
             let recorder = BorderOperationsRecorder()
             let probe = DeferredCornerProbe()
@@ -1133,13 +1156,14 @@ final class BorderSurfaceTests: XCTestCase {
             for attempt in 0 ..< 2 {
                 let started = expectation(description: "query")
                 probe.onRequest = { started.fulfill() }
-                let resolved = expectation(description: "first failure schedules retry")
-                resolved.isInverted = attempt == 1
-                applier.onCornerSampleResolved = { resolved.fulfill() }
+                var resolvedCount = 0
+                applier.onCornerSampleResolved = { resolvedCount += 1 }
                 _ = applier.apply(desired(configRed), forceOrdering: false)
                 await fulfillment(of: [started], timeout: 1)
+                let query = try XCTUnwrap(applier.cornerQueryTask)
                 probe.complete(nil)
-                await fulfillment(of: [resolved], timeout: attempt == 1 ? 0.05 : 1)
+                await query.value
+                XCTAssertEqual(resolvedCount, attempt == 0 ? 1 : 0)
             }
             if hide { _ = applier.apply(nil, forceOrdering: false) }
             let newFrame = hide ? frame : frame.insetBy(dx: -20, dy: 0)
@@ -1263,7 +1287,7 @@ final class BorderSurfaceTests: XCTestCase {
     }
 
     @MainActor
-    func testDeferredCornersDoNotRestartWhileHiddenOrAnimating() async {
+    func testDeferredCornersDoNotRestartWhileHiddenOrAnimating() async throws {
         for hide in [false, true] {
             let recorder = BorderOperationsRecorder()
             let probe = DeferredCornerProbe()
@@ -1273,6 +1297,7 @@ final class BorderSurfaceTests: XCTestCase {
             probe.onRequest = { first.fulfill() }
             _ = applier.apply(desired(configRed), forceOrdering: false)
             await fulfillment(of: [first], timeout: 1)
+            let query = try XCTUnwrap(applier.cornerQueryTask)
             if hide {
                 _ = applier.apply(nil, forceOrdering: false)
             } else {
@@ -1281,12 +1306,13 @@ final class BorderSurfaceTests: XCTestCase {
                     forceOrdering: false, refreshCornerRadii: false
                 )
             }
-            let unexpected = expectation(description: "no query or notification")
-            unexpected.isInverted = true
-            probe.onRequest = { unexpected.fulfill() }
-            applier.onCornerSampleResolved = { unexpected.fulfill() }
+            probe.onRequest = { XCTFail("Hidden or animating borders must not restart the query") }
+            var resolvedCount = 0
+            applier.onCornerSampleResolved = { resolvedCount += 1 }
             probe.complete(nil)
-            await fulfillment(of: [unexpected], timeout: 0.05)
+            await query.value
+            XCTAssertNil(applier.cornerQueryTask)
+            XCTAssertEqual(resolvedCount, 0)
             XCTAssertEqual(probe.requests.count, 1)
             let settled = expectation(description: "settled query")
             probe.onRequest = { settled.fulfill() }
@@ -1300,7 +1326,7 @@ final class BorderSurfaceTests: XCTestCase {
     }
 
     @MainActor
-    func testDeferredCornersActualFailuresExhaustOnlyOneRetry() async {
+    func testDeferredCornersActualFailuresExhaustOnlyOneRetry() async throws {
         for invalid in [
             nil,
             sample(WindowCornerRadii(uniform: 20), size: CGSize(width: 400, height: 150)),
@@ -1313,20 +1339,19 @@ final class BorderSurfaceTests: XCTestCase {
             for attempt in 0 ..< 2 {
                 let started = expectation(description: "query \(attempt)")
                 probe.onRequest = { started.fulfill() }
-                let resolved = expectation(description: "retry only on first failure")
-                resolved.isInverted = attempt == 1
-                applier.onCornerSampleResolved = { resolved.fulfill() }
+                var resolvedCount = 0
+                applier.onCornerSampleResolved = { resolvedCount += 1 }
                 _ = applier.apply(desired(configRed), forceOrdering: false)
                 await fulfillment(of: [started], timeout: 1)
                 for _ in 0 ..< 50 {
                     XCTAssertTrue(applier.apply(desired(configRed), forceOrdering: false).didApply)
                 }
+                let query = try XCTUnwrap(applier.cornerQueryTask)
                 probe.complete(invalid)
-                await fulfillment(of: [resolved], timeout: attempt == 1 ? 0.05 : 1)
+                await query.value
+                XCTAssertEqual(resolvedCount, attempt == 0 ? 1 : 0)
             }
-            let unexpected = expectation(description: "exhausted budget")
-            unexpected.isInverted = true
-            probe.onRequest = { unexpected.fulfill() }
+            probe.onRequest = { XCTFail("Exhausted corner query budget must not restart the query") }
             _ = applier.apply(
                 desired(configRed, frame: frame.insetBy(dx: -10, dy: 0)),
                 forceOrdering: false, refreshCornerRadii: false
@@ -1334,7 +1359,7 @@ final class BorderSurfaceTests: XCTestCase {
             for _ in 0 ..< 50 {
                 XCTAssertTrue(applier.apply(desired(configRed), forceOrdering: false).didApply)
             }
-            await fulfillment(of: [unexpected], timeout: 0.05)
+            XCTAssertNil(applier.cornerQueryTask)
             XCTAssertEqual(probe.requests.count, 2)
         }
     }
@@ -1944,5 +1969,175 @@ final class WindowCornerRadiiTests: XCTestCase {
 
         XCTAssertEqual(tiledEntry.observedState.frame, floatingFrame)
         XCTAssertEqual(WorldView(controller: controller).cachedBorderFrame(for: tiledEntry), tiledFrame)
+    }
+}
+
+extension BorderSurfaceTests {
+    @MainActor
+    func testPictureBorderUsesDisplayScaleAndKeepsFullGeometryWhileClipChanges() throws {
+        for scale in [CGFloat(1), CGFloat(2)] {
+            let recorder = BorderOperationsRecorder()
+            let window = BorderWindow(config: configRed, operations: recorder.operations())
+            defer { window.destroy() }
+            let display = CGRect(origin: .zero, size: CGSize(width: frame.width * 4, height: frame.height * 4))
+            let presentation = BorderPresentation(
+                windowId: 701, displayFrame: display, scale: scale,
+                otherDisplayFrames: [display.offsetBy(dx: 0, dy: display.height)]
+            )
+            let picturedFrame = CGRect(
+                origin: CGPoint(x: frame.minX, y: display.maxY - frame.height / 4), size: frame.size
+            )
+            XCTAssertFalse(display.contains(picturedFrame.center))
+            XCTAssertTrue(window.update(frame: picturedFrame, targetToken: token(), presentation: presentation))
+            let panel = try XCTUnwrap(recorder.layerPanels.first)
+            let geometry = configRed.resolvedGeometry(for: picturedFrame, scale: scale)
+            XCTAssertEqual(panel.frame, geometry.surfaceFrame.integral.intersection(display))
+            XCTAssertEqual(window.frameOnScreen, panel.frame)
+            XCTAssertEqual(panel.borderLayer.frame.size, geometry.targetFrame.size)
+            XCTAssertEqual(panel.borderLayer.contentsScale, scale)
+            XCTAssertEqual(
+                panel.borderLayer.frame.offsetBy(dx: panel.frame.minX, dy: panel.frame.minY),
+                geometry.targetFrame
+            )
+            XCTAssertTrue(panel.contentView?.layer?.masksToBounds == true)
+            XCTAssertEqual(recorder.backingScaleQueryCount, 0)
+            XCTAssertNil(window.deferredLevelTask)
+            XCTAssertEqual(recorder.orderCalls.map(\.targetWindowId), [presentation.windowId])
+            XCTAssertEqual(recorder.orderCalls.map(\.level), [NSWindow.Level.normal.rawValue])
+            let redrawCount = panel.borderUpdateCount
+            let moved = picturedFrame.offsetBy(dx: 0, dy: -frame.height / 4)
+            XCTAssertTrue(window.update(frame: moved, targetToken: token(), presentation: presentation))
+            let movedGeometry = configRed.resolvedGeometry(for: moved, scale: scale)
+            XCTAssertEqual(panel.frame, movedGeometry.surfaceFrame.integral.intersection(display))
+            XCTAssertEqual(
+                panel.borderLayer.frame.offsetBy(dx: panel.frame.minX, dy: panel.frame.minY),
+                movedGeometry.targetFrame
+            )
+            XCTAssertEqual(panel.borderUpdateCount, redrawCount)
+            XCTAssertEqual(recorder.backingScaleQueryCount, 0)
+            XCTAssertEqual(recorder.orderCalls.count, 1)
+            XCTAssertNil(window.deferredLevelTask)
+        }
+    }
+
+    @MainActor
+    func testSameFramePictureChangesUpdateClipAndRestoreNativeOrdering() throws {
+        let recorder = BorderOperationsRecorder()
+        let applier = makeApplier(recorder)
+        defer { applier.cleanup() }
+        let display = CGRect(origin: frame.origin, size: CGSize(width: frame.width, height: frame.height / 2))
+        var pictured = desired(configRed)
+        pictured.presentation = BorderPresentation(
+            windowId: 702, displayFrame: display, scale: recorder.backingScale,
+            otherDisplayFrames: [frame.offsetBy(dx: 0, dy: display.height)]
+        )
+        XCTAssertTrue(applier.apply(pictured, forceOrdering: false).didApply)
+        XCTAssertNil(applier.cornerQueryTask)
+        let panel = try XCTUnwrap(recorder.layerPanels.first)
+        XCTAssertEqual(panel.frame, display)
+        let redrawCount = panel.borderUpdateCount
+        pictured.presentation?.displayFrame = frame
+        XCTAssertTrue(applier.apply(pictured, forceOrdering: false).didApply)
+        XCTAssertEqual(panel.frame, frame)
+        XCTAssertEqual(panel.borderUpdateCount, redrawCount)
+        XCTAssertEqual(recorder.orderCalls.map(\.targetWindowId), [try XCTUnwrap(pictured.presentation).windowId])
+        let native = desired(configRed)
+        XCTAssertTrue(applier.apply(native, forceOrdering: false, refreshCornerRadii: false).didApply)
+        XCTAssertEqual(
+            recorder.orderCalls.map(\.targetWindowId),
+            [try XCTUnwrap(pictured.presentation).windowId, UInt32(token().windowId)]
+        )
+        XCTAssertEqual(
+            panel.frame,
+            configRed.resolvedGeometry(for: frame, scale: recorder.backingScale).surfaceFrame.integral
+        )
+        XCTAssertFalse(panel.contentView?.layer?.masksToBounds ?? true)
+        XCTAssertEqual(panel.borderUpdateCount, redrawCount)
+        XCTAssertTrue(applier.apply(pictured, forceOrdering: false).didApply)
+        XCTAssertEqual(recorder.orderCalls.last?.targetWindowId, pictured.presentation?.windowId)
+        XCTAssertEqual(recorder.orderCalls.count, 3)
+        XCTAssertNil(applier.cornerQueryTask)
+        XCTAssertTrue(applier.apply(pictured, forceOrdering: true).didApply)
+        XCTAssertEqual(recorder.orderCalls.last?.targetWindowId, pictured.presentation?.windowId)
+        XCTAssertEqual(recorder.orderCalls.count, 4)
+    }
+
+    @MainActor
+    func testFocusedPictureBorderPersistsThroughRevealUntilNativeCompletion() throws {
+        let (controller, entry) = try reconcileFixture(monitorSize: CGSize(width: 1000, height: 1600))
+        let monitor = try XCTUnwrap(controller.workspaceManager.monitor(for: entry.workspaceId))
+        XCTAssertEqual(controller.settings.monitors.effectiveOrientation(for: monitor), .vertical)
+        let snapshot = LayoutMonitorSnapshot(
+            monitorId: monitor.id, displayId: monitor.displayId, frame: monitor.frame,
+            visibleFrame: monitor.frame, workingFrame: monitor.frame,
+            fullscreenLayoutFrame: monitor.frame, scale: 2, orientation: .vertical
+        )
+        let picturedFrame = CGRect(
+            origin: CGPoint(x: frame.minX, y: monitor.frame.maxY - frame.height / 2), size: frame.size
+        )
+        let picture = NiriEdgePictures.Picture(
+            workspaceId: entry.workspaceId, monitor: snapshot,
+            geometry: try XCTUnwrap(NiriEdgePictureGeometry(frame: picturedFrame, displayFrame: monitor.frame))
+        )
+        let surface = PictureSurface(windowId: 703)
+        picture.surface = surface
+        controller.niriEdgePictures.pictures[entry.token] = picture
+        defer { controller.niriEdgePictures.reset() }
+        controller.workspaceManager.setHiddenState(
+            HiddenState(proportionalPosition: .zero, referenceMonitorId: monitor.id, reason: .layoutTransient(.right)),
+            for: entry.token
+        )
+        let world = WorldView(controller: controller, liveBoundsProvider: { _ in
+            XCTFail("A mounted picture owns border geometry until native completion")
+            return nil
+        })
+        XCTAssertNotNil(controller.niriEdgePictures.presentation(for: entry.token))
+        let pictured = try XCTUnwrap(SurfaceDerivation.deriveBorder(world: world))
+        XCTAssertEqual(pictured.frame, picturedFrame)
+        XCTAssertEqual(pictured.presentation, BorderPresentation(
+            windowId: try XCTUnwrap(surface.windowId), displayFrame: monitor.frame, scale: snapshot.scale,
+            isMoving: true
+        ))
+        XCTAssertEqual(SurfaceDerivation.deriveAnimationBorder(world: world, previous: nil), pictured)
+        picture.revealFrame = frame
+        picture.geometry = try XCTUnwrap(NiriEdgePictureGeometry(frame: frame, displayFrame: monitor.frame))
+        controller.workspaceManager.setHiddenState(nil, for: entry.token)
+        let revealing = try XCTUnwrap(SurfaceDerivation.deriveBorder(world: world))
+        XCTAssertEqual(revealing.frame, frame)
+        XCTAssertEqual(revealing.presentation, pictured.presentation)
+        controller.niriEdgePictures.frameApplicationEnded(token: entry.token, targetFrame: frame)
+        let nativeWorld = WorldView(controller: controller, liveBoundsProvider: { _ in self.frame })
+        let native = try XCTUnwrap(SurfaceDerivation.deriveBorder(world: nativeWorld))
+        XCTAssertEqual(native.frame, revealing.frame)
+        XCTAssertNil(native.presentation)
+    }
+
+    @MainActor
+    func testPictureDoesNotMakeScratchpadOrMinimizedWindowBorderDisplayable() throws {
+        let (controller, entry) = try reconcileFixture(monitorSize: CGSize(width: 1000, height: 1600))
+        let monitor = try XCTUnwrap(controller.workspaceManager.monitor(for: entry.workspaceId))
+        let snapshot = LayoutMonitorSnapshot(
+            monitorId: monitor.id, displayId: monitor.displayId, frame: monitor.frame,
+            visibleFrame: monitor.frame, workingFrame: monitor.frame,
+            fullscreenLayoutFrame: monitor.frame, scale: 2, orientation: .vertical
+        )
+        let picture = NiriEdgePictures.Picture(
+            workspaceId: entry.workspaceId, monitor: snapshot,
+            geometry: try XCTUnwrap(NiriEdgePictureGeometry(frame: frame, displayFrame: monitor.frame))
+        )
+        picture.surface = PictureSurface(windowId: 704)
+        controller.niriEdgePictures.pictures[entry.token] = picture
+        defer { controller.niriEdgePictures.reset() }
+        let world = WorldView(controller: controller)
+        controller.workspaceManager.setHiddenState(
+            HiddenState(proportionalPosition: .zero, referenceMonitorId: monitor.id, reason: .scratchpad),
+            for: entry.token
+        )
+        XCTAssertNotNil(controller.niriEdgePictures.presentation(for: entry.token))
+        XCTAssertNil(SurfaceDerivation.deriveBorder(world: world))
+        controller.workspaceManager.setHiddenState(nil, for: entry.token)
+        controller.workspaceManager.setWindowMinimized(true, token: entry.token)
+        XCTAssertNotNil(controller.niriEdgePictures.presentation(for: entry.token))
+        XCTAssertNil(SurfaceDerivation.deriveBorder(world: world))
     }
 }

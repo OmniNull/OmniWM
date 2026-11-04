@@ -26,6 +26,7 @@ final class FocusWithoutRaiseTests: XCTestCase {
         var workerAvailable = true
         var coverage: Bool?
         var coverageQueries: [(windowId: UInt32, candidates: Set<UInt32>)] = []
+        var heldFocusCompletions: [@MainActor () -> Void]?
     }
 
     func testCoveredTiledMouseFocusRechecksCoverageOnRetry() throws {
@@ -1641,7 +1642,7 @@ final class FocusWithoutRaiseTests: XCTestCase {
         XCTAssertNil(fixture.controller.workspaceManager.pendingFocusedToken)
     }
 
-    func testDisabledFocusFollowsMouseRejectsRequestBeforeFocusOrProbe() async throws {
+    func testDisabledFocusFollowsMouseRejectsRequestBeforeFocusOrProbe() throws {
         let fixture = try makeFixture(focusFollowsMouseEnabled: false)
         let target = addWindow(
             pid: 820_018,
@@ -1656,10 +1657,11 @@ final class FocusWithoutRaiseTests: XCTestCase {
             return nil
         }
 
-        fixture.controller.focusWindow(target, origin: .focusFollowsMouse)
-        await Task.yield()
+        fixture.recorder.heldFocusCompletions = []
+        XCTAssertNil(fixture.controller.focusWindow(target, origin: .focusFollowsMouse))
 
         XCTAssertTrue(fixture.recorder.operations.isEmpty)
+        XCTAssertEqual(fixture.recorder.heldFocusCompletions?.count, 0)
         XCTAssertEqual(factRequestCount, 0)
         XCTAssertNil(fixture.controller.intentLedger.activeManagedRequest)
         XCTAssertNil(fixture.controller.workspaceManager.pendingFocusedToken)
@@ -1674,22 +1676,28 @@ final class FocusWithoutRaiseTests: XCTestCase {
             controller: fixture.controller
         )
         var factRequestCount = 0
+        var initialProbe: CheckedContinuation<Void, Never>?
         fixture.controller.hasStartedServices = true
         fixture.controller.factResolver.factProvider = { _ in
             factRequestCount += 1
+            initialProbe?.resume()
+            initialProbe = nil
             return nil
         }
+        fixture.recorder.heldFocusCompletions = []
         fixture.controller.focusWindow(target, origin: .focusFollowsMouse)
         let requestId = try XCTUnwrap(fixture.controller.intentLedger.activeManagedRequest?.requestId)
-        await Task.yield()
-        await Task.yield()
+        let completeFocus = try XCTUnwrap(fixture.recorder.heldFocusCompletions?.first)
+        await withCheckedContinuation { continuation in
+            initialProbe = continuation
+            completeFocus()
+        }
         let initialFactRequestCount = factRequestCount
         fixture.recorder.operations.removeAll()
 
         fixture.controller.setFocusFollowsMouse(false)
         fixture.controller.axEventHandler.handleIntentExpired(requestId)
-        await Task.yield()
-        await Task.yield()
+        completeFocus()
 
         XCTAssertTrue(fixture.recorder.operations.isEmpty)
         XCTAssertEqual(factRequestCount, initialFactRequestCount)
@@ -1774,6 +1782,13 @@ final class FocusWithoutRaiseTests: XCTestCase {
                 submitFocusSpecificWindow: { pid, windowId, _ in
                     recorder.operations.append(.submittedFocus(WindowToken(pid: pid, windowId: Int(windowId))))
                 },
+                afterSubmittedFocus: { work in
+                    if recorder.heldFocusCompletions != nil {
+                        recorder.heldFocusCompletions?.append(work)
+                    } else {
+                        work()
+                    }
+                },
                 deactivateSameAppWindow: { pid, windowId in
                     recorder.operations.append(.deactivate(WindowToken(pid: pid, windowId: Int(windowId))))
                     return recorder.deactivateSucceeds
@@ -1790,7 +1805,7 @@ final class FocusWithoutRaiseTests: XCTestCase {
                     recorder.coverageQueries.append((windowId, candidates))
                     return recorder.coverage
                 },
-                enqueueRetryRaise: { _, _, job, completion in
+                enqueueRetryRaise: { _, _, job, _, completion in
                     guard recorder.workerAvailable else { return false }
                     recorder.queuedRaises.append((job, completion))
                     return true

@@ -84,7 +84,7 @@ extension WorkspaceManager {
 
     @discardableResult
     func setWindowMode(_ mode: TrackedWindowMode, for token: WindowToken) -> Bool {
-        guard let entry = entry(for: token) else { return false }
+        guard let entry = entry(for: token), entry.target.hostedMetadata?.role.parent == nil else { return false }
         let oldMode = entry.mode
         guard oldMode != mode else { return false }
 

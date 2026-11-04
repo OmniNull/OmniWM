@@ -90,6 +90,7 @@ public enum IPCErrorCode: String, Codable, Equatable, Sendable, Error {
     case staleWindowId = "stale_window_id"
     case notFound = "not_found"
     case noChange = "no_change"
+    case attachedWindow = "attached_window_follows_parent"
     case windowActionFailed = "window_action_failed"
     case workspaceAssignmentConflict = "workspace_assignment_conflict"
     case workspaceStateConflict = "workspace_state_conflict"

@@ -8,6 +8,8 @@ import QuartzCore
 @MainActor
 class BorderLayerPanel: NSPanel {
     let borderLayer = CALayer()
+    private var windowServerPlacement: (appKitFrame: CGRect, frame: CGRect)?
+    private var laidOutSurfaceSize: CGSize?
     private let containerLayer = CALayer()
     private let effects = BorderEffectLayers()
     var glowColorLayer: CAGradientLayer {
@@ -73,17 +75,28 @@ class BorderLayerPanel: NSPanel {
         frameRect
     }
 
-    func applyFrame(targetFrame: CGRect, surfaceFrame: CGRect) {
-        let panelFrame = surfaceFrame.integral
-        let layerFrame = targetFrame.offsetBy(dx: -panelFrame.minX, dy: -panelFrame.minY)
-        let effectsFrame = surfaceFrame.offsetBy(dx: -panelFrame.minX, dy: -panelFrame.minY)
-        guard frame != panelFrame || borderLayer.frame != layerFrame
+    func applyFrame(
+        targetFrame: CGRect, surfaceFrame: CGRect, displayClip: CGRect? = nil,
+        presentation: BorderPresentation? = nil
+    ) {
+        let stableBacking = presentation != nil && displayClip == nil
+        let panelFrame = stableBacking ? SurfacePanelGeometry.backingFrame(for: surfaceFrame)
+            : displayClip.map { surfaceFrame.integral.intersection($0) } ?? surfaceFrame.integral
+        let contentOrigin = stableBacking ? surfaceFrame.origin : panelFrame.origin
+        let layerFrame = targetFrame.offsetBy(dx: -contentOrigin.x, dy: -contentOrigin.y)
+        let effectsFrame = surfaceFrame.offsetBy(dx: -contentOrigin.x, dy: -contentOrigin.y)
+        if stableBacking, presentation?.isMoving == true, laidOutSurfaceSize == surfaceFrame.size,
+           borderLayer.frame == layerFrame, effects.root.frame == effectsFrame,
+           !containerLayer.masksToBounds, moveInWindowServer(to: panelFrame)
+        { return }
+        guard windowServerPlacement != nil || frame != panelFrame || borderLayer.frame != layerFrame
+            || containerLayer.masksToBounds != (displayClip != nil)
             || effects.root.frame != effectsFrame else { return }
         CATransaction.begin()
         CATransaction.setDisableActions(true)
-        if frame != panelFrame {
-            setFrame(panelFrame, display: false)
-        }
+        containerLayer.masksToBounds = displayClip != nil
+        setFrameReconcilingWindowServer(panelFrame)
+        laidOutSurfaceSize = stableBacking ? surfaceFrame.size : nil
         if borderLayer.frame != layerFrame {
             borderLayer.frame = layerFrame
         }
@@ -91,6 +104,24 @@ class BorderLayerPanel: NSPanel {
             effects.root.frame = effectsFrame
         }
         CATransaction.commit()
+    }
+
+    func moveInWindowServer(to target: CGRect) -> Bool {
+        guard SkyLight.shared.transactionMove(
+            UInt32(windowNumber), origin: ScreenCoordinateSpace.toWindowServer(rect: target).origin
+        ) else { return false }
+        windowServerPlacement = (frame, target)
+        return true
+    }
+
+    private func setFrameReconcilingWindowServer(_ target: CGRect) {
+        let previous = windowServerPlacement.flatMap { $0.appKitFrame == frame ? $0.frame : nil }
+        if frame != target { setFrame(target, display: false) }
+        if let previous, previous != frame, !moveInWindowServer(to: target) {
+            setFrame(previous, display: false)
+            setFrame(target, display: false)
+        }
+        windowServerPlacement = nil
     }
 
     func updateBorder(

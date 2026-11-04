@@ -10,7 +10,11 @@ final class OverviewController {
     let motionPolicy: MotionPolicy
     private let environment: OverviewEnvironment
 
-    private(set) var state: OverviewState = .closed
+    private(set) var state: OverviewState = .closed {
+        didSet { if state.isOpen != oldValue.isOpen { onVisibilityChanged?() } }
+    }
+
+    var onVisibilityChanged: (() -> Void)?
     private let overviewSnapshot: OverviewSnapshot
     let drag: OverviewDragSession
     private let mutationSession: OverviewMutationSession
@@ -140,23 +144,6 @@ final class OverviewController {
 }
 
 extension OverviewController {
-    func toggle() {
-        switch state {
-        case .closed:
-            open()
-        case .opening:
-            if isInteractiveTransitionActive, transitionProgress < 0.5 {
-                commitOpen()
-            } else {
-                input.dismissToSelection(animated: true)
-            }
-        case .open:
-            input.dismissToSelection(animated: true)
-        case .closing:
-            reverseClosingTransition()
-        }
-    }
-
     func performStructuralHotkey(_ command: HotkeyCommand, selectedHandle: WindowHandle) -> StructuralMutationOutcome? {
         structuralActions.performStructuralHotkey(command, selectedHandle: selectedHandle)
     }
@@ -229,7 +216,12 @@ extension OverviewController {
         projection.scale = presentation.configuredScale
         overviewSnapshot.build()
 
-        if let focusedHandle = wmController.workspaceManager.selectedManagedHandle,
+        let manager = wmController.workspaceManager
+        let focusedToken = manager.selectedManagedToken.map { token in
+            manager.entry(for: token)?.target.hostedMetadata?.role.isSheet == true
+                ? manager.hostedFamilyRoot(for: token) ?? token : token
+        }
+        if let focusedHandle = focusedToken.flatMap({ manager.handle(for: $0) }),
            overviewSnapshot.windows[focusedHandle] != nil
         {
             projection.selectedWindowHandle = focusedHandle

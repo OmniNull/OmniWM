@@ -26,18 +26,25 @@ final class OverviewWindowFacts {
         preferredFrame: CGRect?,
         appInfoCache: AppInfoCache
     ) -> OverviewWindowLayoutData {
-        let title = environment.windowTitle(entry) ?? ""
-        let appInfo = appInfoCache.info(for: entry.pid)
+        let presentation = appInfoCache.presentation(for: entry, title: environment.windowTitle(entry))
+        let title = presentationTitle(for: entry, fallback: presentation.title ?? "")
         return OverviewWindowLayoutData(
             token: entry.token,
             workspaceId: entry.workspaceId,
-            title: title.isEmpty ? (appInfo?.name ?? String(localized: "Window")) : title,
-            appName: entry.target.hostedMetadata?.title ?? appInfo?.name ?? String(localized: "Unknown"),
-            appIcon: appInfo?.icon,
+            title: title.isEmpty ? (presentation.name ?? String(localized: "Window")) : title,
+            appName: presentation.name ?? String(localized: "Unknown"),
+            appIcon: presentation.icon,
             frame: preferredFrame ?? windowFrame(entry) ?? .zero,
             isNativeFullscreen: entry.layoutReason == .nativeFullscreen,
             floatingPreviewFrame: floatingPreviewFrame(for: entry)
         )
+    }
+
+    func presentationTitle(for entry: WindowState, fallback: String) -> String {
+        guard let metadata = entry.target.hostedMetadata else { return fallback }
+        guard metadata.role == .main,
+              wmController?.shellAppWindowManager.activeSheet(for: entry.token) != nil else { return metadata.title }
+        return metadata.title + " — " + String(localized: "Dialog open")
     }
 
     func floatingPreviewFrame(for entry: WindowState) -> CGRect? {
@@ -60,11 +67,12 @@ final class OverviewWindowFacts {
         _ entry: WindowState,
         workspaceManager: WorkspaceManager
     ) -> Bool {
-        !workspaceManager.isWindowSuppressedByMacOS(entry.token)
+        entry.target.hostedMetadata?.role.isSheet != true
+            && !workspaceManager.isWindowSuppressedByMacOS(entry.token)
     }
 
     func isStructurallyMutable(_ entry: WindowState) -> Bool {
-        entry.layoutReason == .standard
+        entry.layoutReason == .standard && entry.target.hostedMetadata?.role.parent == nil
     }
 
     func cachedNiriSnapshot(

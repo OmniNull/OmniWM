@@ -97,48 +97,6 @@ struct ShellLayerPaint: Sendable {
     var gradient: [CGColor]?
 }
 
-enum ShellLayerCommand: Sendable {
-    case insert(slot: Int32, parent: Int32, kind: ElementKind, after: Int32, identity: ShellLayerIdentity? = nil)
-    case remove(slot: Int32)
-    case move(slot: Int32, after: Int32)
-    case frame(slot: Int32, rect: CGRect, animation: ShellAnimation?)
-    case paint(slot: Int32, ShellLayerPaint, animation: ShellAnimation?)
-    case text(
-        slot: Int32,
-        text: String,
-        style: UInt32,
-        color: CGColor,
-        maxWidth: CGFloat,
-        lines: Int,
-        animation: ShellAnimation?
-    )
-    case image(slot: Int32, image: CGImage?, animation: ShellAnimation?, frames: ShellImageFrames? = nil)
-    case value(slot: Int32, fraction: CGFloat, color: CGColor, track: CGColor?, animation: ShellAnimation?)
-    case scroll(slot: Int32, origin: CGPoint)
-    case shader(slot: Int32, program: ShellShaderProgram?, input: ShellShaderInput)
-    case effect(slot: Int32, input: ShellGroupEffectInput?)
-    case effectNeutral(slot: Int32, Bool)
-    case path(slot: Int32, ShellLayerPath, animation: ShellAnimation?)
-    case glass(slot: Int32, ShellGlassContent, animation: ShellAnimation?)
-    case transition(ShellShaderTransition)
-    case spectrumMotion(MotionSnapshot)
-    case stage(ShellShaderStage?)
-    case clearExits
-    case visibility(Bool)
-    case gesture(slot: Int32, token: UInt64, value: ShellGestureTransform)
-    case settleGesture(slot: Int32, token: UInt64, velocity: ShellGestureTransform, animation: ShellAnimation?)
-    case manipulation(slot: Int32, token: UInt64, presentation: ShellManipulationPresentation, active: Bool)
-    case shapeFollow(slot: Int32, binding: ShellShapeFollowBinding, presentation: ShellManipulationPresentation)
-    case retainedFollowers(
-        target: Int32, frame: CGRect, presentation: ShellManipulationPresentation,
-        time: CFTimeInterval
-    )
-    case followExit(target: Int32, followers: [ShellFollowExitBinding])
-    case boundTrack(slot: Int32, ShellBoundInput)
-    case raise(slot: Int32, Bool)
-    case reveal(slot: Int32, token: UInt64, ShellReveal)
-}
-
 final class ShellLayerScene: @unchecked Sendable {
     static let engineQueue = DispatchSerialQueue(label: "com.barut.OmniWM.shell.engine", qos: .userInteractive)
 
@@ -150,7 +108,7 @@ final class ShellLayerScene: @unchecked Sendable {
     }
 
     let container: CALayer
-    let scale: CGFloat
+    var scale: CGFloat
     var clock: (() -> CFTimeInterval)?
     var submitTime: CFTimeInterval?
     var layers: [Int32: CALayer] = [:]
@@ -239,6 +197,11 @@ final class ShellLayerScene: @unchecked Sendable {
 
     private func apply(_ command: ShellLayerCommand, animated: Bool) {
         if applyFollowCommand(command) || applyShaderCommand(command) { return }
+        guard applyLayerCommand(command, animated: animated) else { return }
+        invalidateEffect(for: command)
+    }
+
+    private func applyLayerCommand(_ command: ShellLayerCommand, animated: Bool) -> Bool {
         switch command {
         case let .insert(slot, parent, kind, after, identity):
             insert(slot: slot, parent: parent, kind: kind, after: after, identity: identity)
@@ -246,7 +209,7 @@ final class ShellLayerScene: @unchecked Sendable {
             invalidateContainingEffect(slot)
             remove(slot, animated: animated && visible)
         case let .move(slot, after):
-            guard move(slot, after: after) else { return }
+            guard move(slot, after: after) else { return false }
         case let .frame(slot, rect, preset):
             applyFrame(slot, rect, preset: preset, animated: animated)
         case let .paint(slot, paint, preset):
@@ -284,10 +247,11 @@ final class ShellLayerScene: @unchecked Sendable {
              .retainedFollowers,
              .followExit,
              .boundTrack,
-             .reveal:
+             .reveal,
+             .backingScale:
             break
         }
-        invalidateEffect(for: command)
+        return true
     }
 
     private func applyImage(
@@ -455,16 +419,11 @@ extension ShellLayerScene {
     private func applyShaderCommand(_ command: ShellLayerCommand) -> Bool {
         switch command {
         case let .shader(slot, program, input):
-            if let layer = layers[slot] {
-                shaderDrawer().update(slot, layer: layer, program: program, input: input, mask: masks[slot])
-            }
+            applyShader(slot, program: program, input: input)
         case let .effect(slot, input):
             applyEffect(slot, input: input)
         case let .effectNeutral(slot, value):
-            if let effect = effects[slot], effect.neutral != value {
-                effect.setNeutral(value)
-                shaderDrawer().updateGroup(slot, group: effect)
-            }
+            setEffectNeutral(slot, value: value)
         case let .spectrumMotion(motion):
             setSpectrumMotion(motion)
         case let .followExit(target, followers):
@@ -477,23 +436,56 @@ extension ShellLayerScene {
             stage = next
             shaders?.setStage(next)
         case let .visibility(isVisible):
-            visible = isVisible
-            setSpectrumVisible(isVisible)
-            if !isVisible {
-                finishAllPresenceExits()
-                finishShapeTracks()
-            }
-            shaders?.setVisible(isVisible)
+            setVisible(isVisible)
+        case let .backingScale(scale):
+            updateBackingScale(scale)
         case .clearExits:
             finishAllPresenceExits()
             finishShapeTracks()
         case let .reveal(slot, token, plan):
             presence.revealPlans[slot] = (plan, token)
             if plan.target != 0 { presence.dirtyReveals.insert(slot) }
-        default:
+        case .insert,
+             .remove,
+             .move,
+             .frame,
+             .paint,
+             .text,
+             .image,
+             .value,
+             .scroll,
+             .path,
+             .glass,
+             .gesture,
+             .settleGesture,
+             .manipulation,
+             .shapeFollow,
+             .retainedFollowers,
+             .raise:
             return false
         }
         invalidateEffect(for: command)
         return true
+    }
+
+    private func applyShader(_ slot: Int32, program: ShellShaderProgram?, input: ShellShaderInput) {
+        guard let layer = layers[slot] else { return }
+        shaderDrawer().update(slot, layer: layer, program: program, input: input, mask: masks[slot])
+    }
+
+    private func setEffectNeutral(_ slot: Int32, value: Bool) {
+        guard let effect = effects[slot], effect.neutral != value else { return }
+        effect.setNeutral(value)
+        shaderDrawer().updateGroup(slot, group: effect)
+    }
+
+    private func setVisible(_ isVisible: Bool) {
+        visible = isVisible
+        setSpectrumVisible(isVisible)
+        if !isVisible {
+            finishAllPresenceExits()
+            finishShapeTracks()
+        }
+        shaders?.setVisible(isVisible)
     }
 }

@@ -197,7 +197,8 @@ extension LayoutRefreshController {
         _ hiddenEntries: [(entry: WindowState, side: HideSide)],
         monitor: Monitor,
         isAnimationTick: Bool,
-        preserveWorkspaceInactive: Bool
+        preserveWorkspaceInactive: Bool,
+        requiresNativePark: Bool = false
     ) {
         guard !hiddenEntries.isEmpty, let controller else { return }
         applyHides(
@@ -205,7 +206,8 @@ extension LayoutRefreshController {
             reason: .layoutTransient,
             hiddenPlacementMonitors: controller.workspaceManager.monitors.map(HiddenPlacementMonitorContext.init),
             isAnimationTick: isAnimationTick,
-            preserveWorkspaceInactive: preserveWorkspaceInactive
+            preserveWorkspaceInactive: preserveWorkspaceInactive,
+            requiresNativePark: requiresNativePark
         )
     }
 
@@ -215,7 +217,8 @@ extension LayoutRefreshController {
         hiddenPlacementMonitors: [HiddenPlacementMonitorContext],
         isAnimationTick: Bool = false,
         preserveWorkspaceInactive: Bool = true,
-        afterFrameWritesOf awaitedWindowIds: Set<Int> = []
+        afterFrameWritesOf awaitedWindowIds: Set<Int> = [],
+        requiresNativePark: Bool = false
     ) {
         guard !targets.isEmpty, let controller else { return }
         var hiddenJobs: [(pid: pid_t, windowId: Int)] = []
@@ -260,7 +263,7 @@ extension LayoutRefreshController {
             applyParkPositionPlans(
                 parkPlans,
                 movablePlans: movableParkPlans,
-                animationTick: isAnimationTick,
+                animationTick: isAnimationTick && !requiresNativePark,
                 afterFrameWritesOf: awaitedWindowIds
             )
         }
@@ -321,11 +324,19 @@ extension LayoutRefreshController {
             ).origin
         case .layoutTransient:
             let orientation = controller.settings.monitors.effectiveOrientation(for: monitor)
-            let orthogonalOrigin: CGFloat = switch orientation {
-            case .horizontal: frame.origin.y
-            case .vertical: frame.origin.x
+            let orthogonalOrigin: CGFloat
+            let requestedEdge: AxisHideEdge
+            switch orientation {
+            case .horizontal:
+                orthogonalOrigin = frame.origin.y
+                requestedEdge = AxisHideEdge(encodedHideSide: side)
+            case .vertical:
+                orthogonalOrigin = min(
+                    monitor.visibleFrame.midY - frame.height / 2,
+                    monitor.visibleFrame.maxY - frame.height
+                ).roundedToPhysicalPixel(scale: monitor.backingScale)
+                requestedEdge = .minimum
             }
-            let requestedEdge = AxisHideEdge(encodedHideSide: side)
             let placement = HiddenWindowPlacementResolver(
                 monitor: hiddenPlacementMonitor,
                 monitors: resolvedHiddenPlacementMonitors
@@ -334,7 +345,7 @@ extension LayoutRefreshController {
                 requestedEdge: requestedEdge,
                 orthogonalOrigin: orthogonalOrigin,
                 baseReveal: baseReveal,
-                orientation: orientation
+                orientation: .horizontal
             )
             return placement.origin
         }

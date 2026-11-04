@@ -9,6 +9,7 @@ extension ShellWidgetSurface {
         let handle: ElementHandle
         let source: String
         let points: Float
+        let scale: CGFloat
         var binding: ShellThumbnailBinding?
         var image: CGImage?
         var error: String?
@@ -21,13 +22,16 @@ extension ShellWidgetSurface {
     func resourceImageCommand(_ handle: ElementHandle, content: Content, text: ShellTextStore) -> ShellLayerCommand {
         let source = text.string(content.resourceImageRef)
         if let previous = resourceImages[handle.slot], previous.handle == handle,
-           previous.source == source, previous.points == content.thumbnail
+           previous.source == source, previous.points == content.thumbnail,
+           previous.scale == scale
         {
             return .image(slot: handle.slot, image: previous.image, animation: animation(for: handle))
         }
         let previous = resourceImages[handle.slot].flatMap { $0.handle == handle ? $0.image : nil }
         forgetResourceImage(handle)
-        var entry = ResourceImageBinding(handle: handle, source: source, points: content.thumbnail, image: previous)
+        var entry = ResourceImageBinding(
+            handle: handle, source: source, points: content.thumbnail, scale: scale, image: previous
+        )
         do {
             guard let images = resources.resourceImages
             else { throw ShellResourceFailure("resource images are unavailable") }

@@ -11,7 +11,7 @@ import QuartzCore
 final class ShellWidgetSurface {
     let sourceID = ShellInvocation.next()
     let view: ShellSurfaceView
-    let scale: CGFloat
+    var scale: CGFloat
     var onAction: (@MainActor (ShellClick) -> Void)?
     var onShapeChange: (@MainActor () -> Void)?
     var onLayoutMenu: (@MainActor (ShellAnchor) -> Void)?
@@ -21,6 +21,7 @@ final class ShellWidgetSurface {
     var onTooltip: (@MainActor (ShellTooltipEvent?) -> Void)?
     var onMove: (@MainActor () -> Void)?
     var onFocusChange: (@MainActor (Bool) -> Void)?
+    var onUnhandledEscape: (() -> Void)?
     var sequence = 0
     var resourceImages: [Int32: ResourceImageBinding] = [:]
     var resourceDragBridge: ShellDragOutBridge? {

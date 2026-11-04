@@ -475,6 +475,9 @@ extension LayoutRefreshController {
                 controller.workspaceManager.applySessionPatch(plan.sessionPatch)
             }
             diffExecutor.execute(plan, controller: controller)
+            if !plan.isAnimationTick {
+                controller.shellAppWindowManager.reconcileAttachedGeometry(in: plan.workspaceId)
+            }
             controller.workspaceManager.setNiriRestorePlacements(plan.niriRestorePlacements)
             controller.workspaceManager.setDwindleRestorePlacements(plan.dwindleRestorePlacements)
         }

@@ -67,6 +67,8 @@ final class CommandPaletteActionExecutor {
                 case .staleWindowId,
                      .notFound:
                     String(localized: "The target window is no longer available.")
+                case .attachedWindow:
+                    "Attached windows stay floating and follow their parent."
                 case .workspaceAssignmentConflict,
                      .workspaceStateConflict,
                      .windowActionFailed,

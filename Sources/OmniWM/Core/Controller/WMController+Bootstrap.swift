@@ -10,6 +10,9 @@ extension WMController {
         axManager.isWindowParked = { [workspaceManager] windowId in
             workspaceManager.entry(forWindowId: windowId)?.hiddenState != nil
         }
+        axManager.onParkFrameApplyFailed = { [weak self] result in
+            self?.layoutRefreshController.repairLayoutTransientPark(after: result)
+        }
         intentLedger.seqProvider = { [eventIntake] in eventIntake.lastSeq }
         intentLedger.deadlineWheel = deadlineWheel
         focusPolicyEngine.intentLedger = intentLedger
@@ -81,6 +84,9 @@ extension WMController {
     }
 
     func configureWorldCallbacks() {
+        workspaceManager.onHostedFamilyWorkspaceChanged = { [weak self] token, workspace in
+            self?.retargetHostedChildFocus(afterMoving: token, to: workspace)
+        }
         workspaceManager.onSessionStateChanged = { [weak self] surfaceScope in
             self?.handleSessionStateChanged(surfaceScope: surfaceScope)
         }
@@ -99,6 +105,7 @@ extension WMController {
             self?.windowMarkRegistry.retire(entry.token)
             self?.windowActionHandlerStorage?.handleOverviewWindowRemoved(entry)
             self?.layoutRefreshController.workspaceSwipe.windowRemoved(entry.token)
+            self?.niriEdgePictures.remove(entry.token)
             PreviewCaptureCoordinator.shared.windowRemoved(entry.token)
         }
         workspaceManager.onDeferredWorkspaceMonitorMove = { [weak self] outcome in

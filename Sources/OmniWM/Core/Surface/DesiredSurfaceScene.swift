@@ -4,10 +4,23 @@
 import CoreGraphics
 import Foundation
 
+struct BorderPresentation: Equatable {
+    var windowId: UInt32
+    var displayFrame: CGRect
+    var scale: CGFloat
+    var otherDisplayFrames: [CGRect] = []
+    var isMoving = false
+
+    func displayClip(for frame: CGRect) -> CGRect? {
+        NiriEdgePictureGeometry.overlapsDisplay(frame, otherDisplayFrames: otherDisplayFrames) ? displayFrame : nil
+    }
+}
+
 struct DesiredBorderSurface: Equatable {
     var token: WindowToken
     var frame: CGRect
     var config: BorderConfig
+    var presentation: BorderPresentation?
 
     var windowId: Int {
         token.windowId

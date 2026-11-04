@@ -38,7 +38,7 @@ extension WorldStore {
         }
         refreshProjectionExclusions(in: Set(plan.affectedWorkspaceIds))
 
-        for token in plan.request.tokens {
+        for token in Set(plan.request.tokens).union(assignments.patches.map(\.token)) {
             guard let entry = windows.entry(for: token) else { continue }
             let restoreIntent = StateReducer.restoreIntent(for: entry, monitors: monitors)
             if entry.restoreIntent != restoreIntent {

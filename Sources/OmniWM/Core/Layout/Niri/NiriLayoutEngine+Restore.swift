@@ -208,6 +208,8 @@ extension NiriLayoutEngine {
         column.cachedHeight = 0
         column.widthAnimation = nil
         column.targetWidth = nil
+        column.heightAnimation = nil
+        column.targetHeight = nil
     }
 
     func applyPersistedWindowState(_ state: PersistedNiriWindowState, to window: NiriWindow) {

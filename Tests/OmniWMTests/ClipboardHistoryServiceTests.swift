@@ -129,11 +129,9 @@ final class ClipboardHistoryServiceTests: XCTestCase {
             try await service.flushForQuit()
         }
         await fulfillment(of: [timerInvalidated], timeout: 2)
-        await Task.yield()
         XCTAssertFalse(quitState.didFinish)
         readerGate.signal()
         await fulfillment(of: [recognitionStarted], timeout: 2)
-        await Task.yield()
         XCTAssertFalse(quitState.didFinish)
         recognitionGate.signal()
         try await quit.value

@@ -53,7 +53,10 @@ extension ShellVitreusSectionCardTests {
             widget: "desk-pad"
         )] : []))
         let source = try VitreusFixture.source(shell, components: components)
-        let widget = try ShellRenderedWidget(source: budgetSource(source), resources: VitreusFixture.resources(shell))
+        let widget = try ShellRenderedWidget(
+            source: budgetSource(source), resources: VitreusFixture.resources(shell),
+            renderBudget: ShellRenderTestBudget.unlimited
+        )
         let fixture = ShellVitreusDrawerTests.Fixture(
             widget: widget, monitor: VitreusFixture.monitor(), clock: .init(), scene: widget.surface.scene
         )
@@ -127,6 +130,14 @@ extension ShellVitreusSectionCardTests {
     }
 
     func testEverySectionAndAnExtraUserPageOutReserveAllPlatesBeforeDecorativePieces() throws {
+        try checkEverySectionAndAnExtraPage(renderBudget: ShellRenderTestBudget.unlimited)
+    }
+
+    func testRenderSpeedEverySectionAndAnExtraPageStayWithinProductionBudget() throws {
+        try checkEverySectionAndAnExtraPage(renderBudget: ShellWidgetPackage.renderBudget)
+    }
+
+    private func checkEverySectionAndAnExtraPage(renderBudget: UInt64) throws {
         for held in ["calendar", "calendar-month", "player-album"] {
             let shell = try windows.docks.shell()
             defer { VitreusFixture.remove(shell) }
@@ -158,7 +169,7 @@ extension ShellVitreusSectionCardTests {
             var stats = omni_render_stats()
             var error = [CChar](repeating: 0, count: 512)
             XCTAssertEqual(omni_instance_render(
-                widget.instance, OMNI_VIEW_BAR, ShellWidgetPackage.renderBudget, &stats, &error, error.count
+                widget.instance, OMNI_VIEW_BAR, renderBudget, &stats, &error, error.count
             ), OMNI_OK, String(decoding: error.prefix { $0 != 0 }.map { UInt8(bitPattern: $0) }, as: UTF8.self))
             print(
                 "SECTION-BUDGET held=\(held) targets=\(surface.manipulationTargets.count) shapes=\(counts) cpu_ns=\(stats.cpu_ns) encode_ns=\(stats.encode_cpu_ns)"
@@ -169,7 +180,15 @@ extension ShellVitreusSectionCardTests {
 
 @MainActor
 extension ShellVitreusSectionCardTests {
-    func testThreeStoredPanelsAndThePageCardsStayWithinTheRenderBudget() throws {
+    func testThreeStoredPanelsAndThePageCardsRemainVisible() throws {
+        try checkStoredPanelsAndPageCards(renderBudget: ShellRenderTestBudget.unlimited)
+    }
+
+    func testRenderSpeedStoredPanelsAndPageCardsStayWithinProductionBudget() throws {
+        try checkStoredPanelsAndPageCards(renderBudget: ShellWidgetPackage.renderBudget)
+    }
+
+    private func checkStoredPanelsAndPageCards(renderBudget: UInt64) throws {
         let shell = try windows.docks.shell()
         defer { VitreusFixture.remove(shell) }
         let fixture = try budgetFixture(shell, extraPage: true)
@@ -185,7 +204,7 @@ extension ShellVitreusSectionCardTests {
         var stats = omni_render_stats()
         var error = [CChar](repeating: 0, count: 512)
         XCTAssertEqual(omni_instance_render(
-            fixture.widget.instance, OMNI_VIEW_BAR, ShellWidgetPackage.renderBudget, &stats, &error, error.count
+            fixture.widget.instance, OMNI_VIEW_BAR, renderBudget, &stats, &error, error.count
         ), OMNI_OK, String(decoding: error.prefix { $0 != 0 }.map { UInt8(bitPattern: $0) }, as: UTF8.self))
         print("SHELVED-PANELS cpu_ns=\(stats.cpu_ns) encode_ns=\(stats.encode_cpu_ns)")
     }
@@ -194,6 +213,14 @@ extension ShellVitreusSectionCardTests {
 @MainActor
 extension ShellVitreusSectionCardTests {
     func testPageCapacityKeepsTwentyFourTargetsAndOverflowPagesStayInTheDesk() throws {
+        try checkOverflowPages(renderBudget: ShellRenderTestBudget.unlimited)
+    }
+
+    func testRenderSpeedOverflowPagesStayWithinProductionBudget() throws {
+        try checkOverflowPages(renderBudget: ShellWidgetPackage.renderBudget)
+    }
+
+    private func checkOverflowPages(renderBudget: UInt64) throws {
         let shell = try windows.docks.shell()
         defer { VitreusFixture.remove(shell) }
         let components = ShellVitreusDockTests.components + (0 ..< 9).map {
@@ -219,7 +246,7 @@ extension ShellVitreusSectionCardTests {
         var stats = omni_render_stats()
         var error = [CChar](repeating: 0, count: 512)
         XCTAssertEqual(omni_instance_render(
-            fixture.widget.instance, OMNI_VIEW_BAR, ShellWidgetPackage.renderBudget, &stats, &error, error.count
+            fixture.widget.instance, OMNI_VIEW_BAR, renderBudget, &stats, &error, error.count
         ), OMNI_OK, String(decoding: error.prefix { $0 != 0 }.map { UInt8(bitPattern: $0) }, as: UTF8.self))
         let layout = fixture.widget.surface.layout
         let elements = layout.core.elements { _ in true }

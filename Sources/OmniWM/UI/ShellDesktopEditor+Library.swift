@@ -24,7 +24,9 @@ extension ShellDesktopEditor {
     }
 
     var metadataProblem: String? {
-        scope == .active ? configuration.metadataError : nil
+        let shell = scope == .active ? configuration.metadataError : nil
+        let problems = [shell].compactMap { $0 } + controller.shellAppCatalog.problems
+        return problems.isEmpty ? nil : problems.joined(separator: "\n")
     }
 
     func libraryEntries(_ target: LibraryTarget) -> [LibraryEntry] {

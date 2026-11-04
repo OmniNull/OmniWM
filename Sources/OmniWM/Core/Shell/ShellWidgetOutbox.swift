@@ -44,6 +44,7 @@ struct ShellWidgetDelivery: Sendable {
     var requests: [ShellWidgetScriptRequest] = []
     var configurationRequests: [ShellConfigurationRequest] = []
     var desktopRequests: [ShellDesktopSubmission] = []
+    var windowRequests: [ShellWindowRequest] = []
     var networkApprovals: [ShellNetworkApproval] = []
     var providerApprovals: [ShellProviderApproval] = []
 
@@ -153,6 +154,25 @@ final class ShellWidgetOutbox: Sendable {
         if needsDelivery { deliver() }
     }
 
+    func window(name: String, generation: Int, request: ShellWindowRequest) {
+        let needsDelivery = state.withLock { state in
+            return Self.update(name: name, generation: generation, in: &state) { delivery in
+                delivery.windowRequests.append(request)
+            }
+        }
+        if needsDelivery { deliver() }
+    }
+
+    func cancelWindow(name: String, generation: Int, id: ShellServiceID) {
+        state.withLock { state in
+            if state.pending[name]?.generation == generation {
+                state.pending[name]?.windowRequests.removeAll { $0.id == id }
+            }
+            let key = InvocationKey(name: name, generation: generation)
+            state.invoking[key]?.windowRequests.removeAll { $0.id == id }
+        }
+    }
+
     func networkApproval(name: String, generation: Int, approval: ShellNetworkApproval) {
         let needsDelivery = state.withLock { state in
             return Self.update(name: name, generation: generation, in: &state) { delivery in
@@ -257,6 +277,7 @@ final class ShellWidgetOutbox: Sendable {
         delivery.requests += next.requests
         delivery.configurationRequests += next.configurationRequests
         delivery.desktopRequests += next.desktopRequests
+        delivery.windowRequests += next.windowRequests
         delivery.networkApprovals += next.networkApprovals
         delivery.providerApprovals += next.providerApprovals
     }

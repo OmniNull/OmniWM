@@ -24,6 +24,7 @@ struct TabRailTabInfo: Equatable {
     let appName: String?
     let title: String?
     let isActive: Bool
+    var icon: NSImage?
 
     var accessibilityLabel: String {
         let ordinal = String(localized: "Tab \(visualIndex + 1)")
@@ -49,6 +50,8 @@ struct TabRailInfo: Equatable {
     let tabCount: Int
     let activeVisualIndex: Int
     let activeWindowId: Int?
+    let orderingWindowId: Int?
+    let displayFrame: CGRect?
     let tabs: [TabRailTabInfo]
 
     var key: TabRailKey {
@@ -64,7 +67,9 @@ struct TabRailInfo: Equatable {
         tabCount: Int,
         activeVisualIndex: Int,
         activeWindowId: Int?,
-        tabs: [TabRailTabInfo]? = nil
+        tabs: [TabRailTabInfo]? = nil,
+        orderingWindowId: Int? = nil,
+        displayFrame: CGRect? = nil
     ) {
         self.workspaceId = workspaceId
         self.owner = owner
@@ -74,6 +79,8 @@ struct TabRailInfo: Equatable {
         self.tabCount = max(0, tabCount)
         self.activeVisualIndex = activeVisualIndex
         self.activeWindowId = activeWindowId
+        self.orderingWindowId = orderingWindowId
+        self.displayFrame = displayFrame
         self.tabs = tabs ?? Self.defaultTabs(tabCount: tabCount, activeVisualIndex: activeVisualIndex)
     }
 

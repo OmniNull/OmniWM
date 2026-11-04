@@ -12,6 +12,8 @@ final class TabRailIconTests: XCTestCase {
         let manager = TabRailManager(motionPolicy: MotionPolicy(animationsEnabled: false))
         defer { manager.removeAll() }
         let visibleFrame = try XCTUnwrap(NSScreen.screens.first).visibleFrame
+        let iconSize = CGSize(width: TabRailStyle.iconSize, height: TabRailStyle.iconSize)
+        let hitSize = CGSize(width: TabRailStyle.appIcons.hitWidth, height: TabRailStyle.iconRowHeight)
         var selected: Int?
         manager.onSelect = { _, index, _ in selected = index }
         for count in [2, 5, 6, 10] {
@@ -21,7 +23,7 @@ final class TabRailIconTests: XCTestCase {
                 )
                 manager.updateRails([info], style: .appIcons)
                 let (window, view, icons) = try views(manager, info)
-                XCTAssertEqual(window.frame.width, 28)
+                XCTAssertEqual(window.frame.width, TabRailStyle.appIcons.hitWidth)
                 XCTAssertEqual(window.frame.minX, info.tileFrame.minX)
                 XCTAssertEqual(icons.rows.count, count)
                 for (index, row) in icons.rows.enumerated() where index != active {
@@ -32,8 +34,8 @@ final class TabRailIconTests: XCTestCase {
                     icons.viewDidChangeBackingProperties()
                     let children = try XCTUnwrap(view.accessibilityChildren() as? [NSAccessibilityElement])
                     for item in icons.railLayout(in: view).items {
-                        XCTAssertEqual(item.pillRect.size, CGSize(width: 20, height: 20))
-                        XCTAssertEqual(item.hitRect.size, CGSize(width: 28, height: 28))
+                        XCTAssertEqual(item.pillRect.size, iconSize)
+                        XCTAssertEqual(item.hitRect.size, hitSize)
                         XCTAssertEqual(item.pillRect.minX * scale, (item.pillRect.minX * scale).rounded())
                         let center = CGPoint(x: item.pillRect.midX, y: item.pillRect.midY)
                         XCTAssertEqual(view.item(at: center)?.visualIndex, item.visualIndex)
@@ -56,39 +58,49 @@ final class TabRailIconTests: XCTestCase {
     func testNativeScrollPreservesOffsetAndRevealsAccessibilitySelection() throws {
         let manager = TabRailManager(motionPolicy: MotionPolicy(animationsEnabled: false))
         defer { manager.removeAll() }
-        let info = makeInfo(count: 10, height: 56)
+        let rowHeight = TabRailStyle.iconRowHeight
+        let info = makeInfo(count: 10, height: rowHeight * 2)
+        let firstVisibleIndex = 3
+        let scrollOffset = CGFloat(firstVisibleIndex) * rowHeight
+        let lastIndex = info.tabCount - 1
         manager.updateRails([info], style: .appIcons)
         let (window, view, icons) = try views(manager, info)
         let clip = icons.scrollView.contentView
         try showHover(window, view, icons)
-        clip.scroll(to: CGPoint(x: 0, y: 84))
-        XCTAssertEqual(clip.bounds.minY, 84)
+        clip.scroll(to: CGPoint(x: 0, y: scrollOffset))
+        XCTAssertEqual(clip.bounds.minY, scrollOffset)
         XCTAssertFalse(window.hoverCard.isVisible)
         manager.updateRails([info], style: .appIcons)
-        XCTAssertEqual(clip.bounds.minY, 84)
+        XCTAssertEqual(clip.bounds.minY, scrollOffset)
         let children = try XCTUnwrap(view.accessibilityChildren() as? [NSAccessibilityElement])
-        XCTAssertEqual(children.count, 10)
+        XCTAssertEqual(children.count, info.tabCount)
         XCTAssertEqual(children[0].accessibilityFrame(), .zero)
-        XCTAssertEqual(view.item(at: CGPoint(x: 14, y: 42))?.visualIndex, 3)
+        let firstVisibleCenter = CGPoint(
+            x: TabRailStyle.appIcons.hitWidth / 2, y: info.tileFrame.height - rowHeight / 2
+        )
+        XCTAssertEqual(view.item(at: firstVisibleCenter)?.visualIndex, firstVisibleIndex)
         try showHover(window, view, icons)
-        children[9].setAccessibilityFocused(true)
+        children[lastIndex].setAccessibilityFocused(true)
         XCTAssertFalse(window.hoverCard.isVisible)
-        XCTAssertEqual(clip.bounds.minY, 224)
-        XCTAssertFalse(children[9].accessibilityFrame().isEmpty)
+        XCTAssertEqual(clip.bounds.minY, CGFloat(info.tabCount) * rowHeight - info.tileFrame.height)
+        XCTAssertFalse(children[lastIndex].accessibilityFrame().isEmpty)
         var selected: Int?
         manager.onSelect = { _, index, _ in selected = index }
         XCTAssertTrue(children[0].accessibilityPerformPress())
         XCTAssertEqual(selected, 0)
         XCTAssertEqual(clip.bounds.minY, 0)
-        manager.updateRails([makeInfo(count: 10, active: 5, height: 56, key: info.key)], style: .appIcons)
-        XCTAssertEqual(clip.bounds.minY, 112)
-        XCTAssertTrue(icons.railLayout(in: view).items[5].hitRect.height == 28)
+        let next = makeInfo(
+            count: info.tabCount, active: info.tabCount / 2, height: info.tileFrame.height, key: info.key
+        )
+        manager.updateRails([next], style: .appIcons)
+        XCTAssertEqual(clip.bounds.minY, CGFloat(next.activeVisualIndex + 1) * rowHeight - next.tileFrame.height)
+        XCTAssertEqual(icons.railLayout(in: view).items[next.activeVisualIndex].hitRect.height, rowHeight)
     }
 
     func testIconRowsAndAccessibilitySurviveGeometryOnlyMovement() throws {
         let manager = TabRailManager(motionPolicy: MotionPolicy(animationsEnabled: false))
         defer { manager.removeAll() }
-        let info = makeInfo(count: 5, height: 84)
+        let info = makeInfo(count: 5, height: TabRailStyle.iconRowHeight * 3)
         manager.updateRails([info], style: .appIcons)
         let (window, view, icons) = try views(manager, info)
         let rows = icons.rows.map(ObjectIdentifier.init)
@@ -106,7 +118,10 @@ final class TabRailIconTests: XCTestCase {
             (view.accessibilityChildren() as? [NSAccessibilityElement])?.map(ObjectIdentifier.init),
             children.map(ObjectIdentifier.init)
         )
-        manager.updateRails([makeInfo(count: 5, height: 84, key: info.key, origin: moved.origin)], style: .appIcons)
+        let movedInfo = makeInfo(
+            count: info.tabCount, height: info.tileFrame.height, key: info.key, origin: moved.origin
+        )
+        manager.updateRails([movedInfo], style: .appIcons)
         XCTAssertNotEqual(children.map { $0.accessibilityFrame() }, frames)
         XCTAssertEqual(icons.rows.map(ObjectIdentifier.init), rows)
     }
@@ -114,7 +129,7 @@ final class TabRailIconTests: XCTestCase {
     func testSameSizeFrameKeepsHoverAndAccessibilityAcrossHiddenReshow() throws {
         let manager = TabRailManager(motionPolicy: MotionPolicy(animationsEnabled: false))
         defer { manager.removeAll() }
-        let info = makeInfo(count: 5, height: 84)
+        let info = makeInfo(count: 5, height: TabRailStyle.iconRowHeight * 3)
         manager.updateRails([info], style: .appIcons)
         let (window, view, icons) = try views(manager, info)
         let children = try XCTUnwrap(view.accessibilityChildren() as? [NSAccessibilityElement])
@@ -137,9 +152,13 @@ final class TabRailIconTests: XCTestCase {
     func testWheelInputScrollsOnlyTheRailAndClampsAtItsEnds() throws {
         let manager = TabRailManager(motionPolicy: MotionPolicy(animationsEnabled: false))
         defer { manager.removeAll() }
-        let info = makeInfo(count: 10, height: 56)
+        let info = makeInfo(count: 10, height: TabRailStyle.iconRowHeight * 2)
         manager.updateRails([info], style: .appIcons)
         let (window, view, icons) = try views(manager, info)
+        let source = try XCTUnwrap(CGEventSource(stateID: .privateState))
+        source.pixelsPerLine = Double(TabRailStyle.iconRowHeight)
+        icons.scrollView.verticalLineScroll = TabRailStyle.iconRowHeight
+        let fullContentScroll = Int32(info.tabCount)
         var selections = 0
         manager.onSelect = { _, _, _ in selections += 1 }
         window.displayIfNeeded()
@@ -147,8 +166,9 @@ final class TabRailIconTests: XCTestCase {
         try showHover(window, view, icons)
         func scroll(_ delta: Int32) throws {
             let cgEvent = try XCTUnwrap(CGEvent(
-                scrollWheelEvent2Source: nil, units: .line, wheelCount: 1, wheel1: delta, wheel2: 0, wheel3: 0
+                scrollWheelEvent2Source: source, units: .line, wheelCount: 1, wheel1: delta, wheel2: 0, wheel3: 0
             ))
+            cgEvent.flags = []
             cgEvent.setIntegerValueField(.mouseEventWindowUnderMousePointer, value: Int64(window.windowNumber))
             cgEvent.setIntegerValueField(
                 .mouseEventWindowUnderMousePointerThatCanHandleThisEvent,
@@ -157,12 +177,15 @@ final class TabRailIconTests: XCTestCase {
             let event = try XCTUnwrap(NSEvent(cgEvent: cgEvent))
             view.scrollWheel(with: event)
         }
-        try scroll(-3)
+        try scroll(-1)
         XCTAssertFalse(window.hoverCard.isVisible)
         XCTAssertGreaterThan(icons.scrollView.contentView.bounds.minY, 0)
-        try scroll(-10000)
-        XCTAssertEqual(icons.scrollView.contentView.bounds.minY, 224)
-        try scroll(10000)
+        try scroll(-fullContentScroll)
+        XCTAssertEqual(
+            icons.scrollView.contentView.bounds.minY,
+            CGFloat(info.tabCount) * TabRailStyle.iconRowHeight - info.tileFrame.height
+        )
+        try scroll(fullContentScroll)
         XCTAssertEqual(icons.scrollView.contentView.bounds.minY, 0)
         XCTAssertEqual(selections, 0)
     }
@@ -170,25 +193,29 @@ final class TabRailIconTests: XCTestCase {
     func testResizeMembershipAndStyleChangesClampScrollAndDismissHover() throws {
         let manager = TabRailManager(motionPolicy: MotionPolicy(animationsEnabled: false))
         defer { manager.removeAll() }
-        let info = makeInfo(count: 10, active: 9, height: 56)
+        let count = 10
+        let info = makeInfo(count: count, active: count - 1, height: TabRailStyle.iconRowHeight * 2)
+        let contentHeight = CGFloat(info.tabCount) * TabRailStyle.iconRowHeight
         manager.updateRails([info], style: .appIcons)
         let (window, view, icons) = try views(manager, info)
-        XCTAssertEqual(icons.scrollView.contentView.bounds.minY, 224)
+        XCTAssertEqual(icons.scrollView.contentView.bounds.minY, contentHeight - info.tileFrame.height)
         try showHover(window, view, icons)
-        let resized = CGRect(origin: info.tileFrame.origin, size: CGSize(width: 400, height: 112))
+        let resized = CGRect(
+            origin: info.tileFrame.origin, size: CGSize(width: info.tileFrame.width, height: info.tileFrame.height * 2)
+        )
         manager.applyAnimationGeometry([.init(key: info.key, tileFrame: resized, visibleTileFrame: resized)])
         XCTAssertFalse(window.hoverCard.isVisible)
-        XCTAssertEqual(icons.scrollView.contentView.bounds.minY, 168)
+        XCTAssertEqual(icons.scrollView.contentView.bounds.minY, contentHeight - resized.height)
         try showHover(window, view, icons)
-        let fewer = makeInfo(count: 2, height: 112, key: info.key)
+        let fewer = makeInfo(count: 2, height: resized.height, key: info.key)
         manager.updateRails([fewer], style: .appIcons)
         XCTAssertFalse(window.hoverCard.isVisible)
         XCTAssertEqual(icons.scrollView.contentView.bounds.minY, 0)
-        XCTAssertEqual(icons.rows.count, 2)
+        XCTAssertEqual(icons.rows.count, fewer.tabCount)
         try showHover(window, view, icons)
         manager.updateRails([fewer])
         XCTAssertFalse(window.hoverCard.isVisible)
-        XCTAssertEqual(window.frame.width, 22)
+        XCTAssertEqual(window.frame.width, TabRailStyle.compact.hitWidth)
         XCTAssertFalse(view.subviews.contains { $0 is TabRailIconView })
         manager.updateRails([fewer], style: .appIcons)
         let (_, _, restoredIcons) = try views(manager, fewer)

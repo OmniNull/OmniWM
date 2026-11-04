@@ -5,40 +5,72 @@ import AppKit
 
 extension ShellAppWindowManager {
     @discardableResult
-    func open(_ appID: String, bundle: Bundle = .module) -> Bool {
-        guard appID == Self.exampleID, let definition = ShellAppDefinition.example(in: bundle),
+    func open(_ appID: String, bundle: Bundle = .module, newInstance: Bool = false) -> Bool {
+        let definition = appID == Self.exampleID
+            ? ShellAppDefinition.example(in: bundle) : controller.shellAppCatalog.definitions[appID]
+        guard let definition,
               let workspace = controller.activeWorkspace() else { return false }
-        return open(definition, in: workspace.id)
+        return open(definition, in: workspace.id, newInstance: newInstance)
     }
 
     @discardableResult
-    func open(_ definition: ShellAppDefinition, in workspace: WorkspaceDescriptor.ID) -> Bool {
-        if let token = sessions.first(where: { $0.value.definition.id == definition.id && !$0.value.closed })?.key {
+    func newWindow(_ appID: String, bundle: Bundle = .module) -> Bool {
+        open(appID, bundle: bundle, newInstance: true)
+    }
+
+    @discardableResult
+    func open(
+        _ definition: ShellAppDefinition,
+        in workspace: WorkspaceDescriptor.ID,
+        newInstance: Bool = false
+    ) -> Bool {
+        guard !isShuttingDown else { return false }
+        if !newInstance, let token = existingWindow(for: definition.id) {
             if windows[token]?.isMiniaturized == true { windows[token]?.deminiaturize(nil) }
             guard let handle = controller.workspaceManager.handle(for: token) else { return false }
             return controller.windowActionHandler.navigateToWindow(handle: handle)
         }
         let window = makeWindow(definition)
-        let session = ShellAppWindowSession(
+        let session = ShellAppRuntime(
             definition: definition, window: window, resources: ShellResources(motion: controller.motionPolicy)
         )
         let minimum = window.frameRect(forContentRect: CGRect(origin: .zero, size: definition.minimumContentSize)).size
         guard let token = admit(
-            window, metadata: HostedWindowMetadata(appId: definition.id, title: definition.title, minimumSize: minimum),
+            window, metadata: HostedWindowMetadata(
+                appId: definition.id, title: definition.title, minimumSize: minimum, icon: definition.icon,
+                instanceID: session.id, rootID: session.id
+            ),
             to: workspace
         ) else { session.close()
             window.close()
             return false
         }
-        sessions[token] = session
+        runtimes[session.id] = session
+        session.onWindowRequest = { [weak self, weak session] request in
+            guard let self, let session, runtimes[session.id] === session else {
+                return "The owning app instance is no longer available."
+            }
+            return handleWindowRequest(request, runtime: session, parent: token)
+        }
         session.start()
         controller.layoutRefreshController.requestRelayout(reason: .axWindowChanged, affectedWorkspaceIds: [workspace])
         _ = controller.focusWindow(token)
         return true
     }
 
+    private func existingWindow(for appID: String) -> WindowToken? {
+        let candidates = Set(windows.keys.filter { token in
+            guard let metadata = controller.workspaceManager.entry(for: token)?.target.hostedMetadata,
+                  metadata.role == .main, metadata.appId == appID,
+                  let runtime = runtimes[metadata.instanceID], !runtime.closed else { return false }
+            return true
+        })
+        return controller.workspaceManager.windowFocusRecencyOrder.first(where: candidates.contains)
+            ?? candidates.min { $0.windowId < $1.windowId }
+    }
+
     static func makeWindow(_ definition: ShellAppDefinition) -> NSWindow {
-        let window = NSWindow(
+        let window = ShellAppNativeWindow(
             contentRect: CGRect(origin: .zero, size: definition.contentSize),
             styleMask: [.titled, .closable, .miniaturizable, .resizable], backing: .buffered, defer: false
         )

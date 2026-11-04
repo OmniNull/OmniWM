@@ -25,6 +25,7 @@ final class WindowActionHandler {
         }
         guard let controller else { fatal("WindowActionHandler requires controller") }
         let oc = OverviewController(wmController: controller, motionPolicy: controller.motionPolicy)
+        oc.onVisibilityChanged = { [weak self] in self?.controller?.niriEdgePictures.reconcileLiveStreams() }
         oc.onPrepareActivation = { [weak self] handle, workspaceId in
             self?.prepareOverviewSelection(handle: handle, workspaceId: workspaceId)
         }
@@ -154,6 +155,7 @@ final class WindowActionHandler {
     func releaseOverviewController() {
         overviewControllerStorage?.invalidateDeferredActionsForServiceStop()
         overviewControllerStorage = nil
+        controller?.niriEdgePictures.reconcileLiveStreams()
     }
 
     func handleOverviewWindowRemoved(_ entry: WindowState) {
@@ -357,21 +359,14 @@ extension WindowActionHandler {
 
     private func restoreMinimizedWindowIfNeeded(_ handle: WindowHandle) -> Bool {
         guard let controller,
-              let entry = controller.workspaceManager.entry(for: handle),
-              entry.observedState.isMinimized
+              let entry = controller.workspaceManager.entry(for: handle)
         else { return true }
-        if let axRef = entry.axRef {
-            guard unminimizeWindow(axRef) else { return false }
-            controller.axEventHandler.updateWindowMinimizedState(false, token: entry.token)
-        } else {
-            guard controller.shellAppWindowManager.focus(entry.token) else { return false }
-            _ = controller.workspaceManager.setWindowMinimized(false, token: entry.token, source: .command)
-            controller.layoutRefreshController.requestVisibilityRefresh(
-                reason: .windowDeminiaturized,
-                affectedWorkspaceIds: [entry.workspaceId]
-            )
-            controller.surfaceReconciler.noteWorldChanged()
+        if entry.target.hostedMetadata != nil {
+            return controller.shellAppWindowManager.restoreFamilyIfMinimized(for: entry.token)
         }
+        guard entry.observedState.isMinimized, let axRef = entry.axRef else { return true }
+        guard unminimizeWindow(axRef) else { return false }
+        controller.axEventHandler.updateWindowMinimizedState(false, token: entry.token)
         return true
     }
 }

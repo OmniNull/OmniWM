@@ -115,6 +115,20 @@ Async callbacks and coroutines retain their component identity. A coroutine whos
 
 <LuauDeclaration name="omniwm.store" />
 
+## App windows
+
+In a hosted app window, `omniwm.windows.open(id)` opens a child window the app declares, such as a confirmation sheet or a Preferences window, and `omniwm.windows.close(id)` closes it. Call them from that window's UI handlers; bars and popouts can't use them. The optional callback receives `ok` and, on failure, an `error` message.
+
+<LuauDeclaration name="omniwm.windows.open" />
+
+<LuauDeclaration name="omniwm.windows.close" />
+
+<LuauDeclaration name="WindowResult" />
+
+<LuauDeclaration name="WindowCallback" />
+
+<LuauDeclaration name="omniwm.windows" />
+
 ## Complete OmniWM namespace
 
 This block is copied verbatim from the shipped declarations. Links in the [symbol index](/omnishell/reference/) lead to each service’s behavior and types.

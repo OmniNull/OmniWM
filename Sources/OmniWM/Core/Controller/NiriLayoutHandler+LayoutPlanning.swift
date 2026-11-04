@@ -78,15 +78,17 @@ extension NiriLayoutHandler {
 
         let effectiveViewportState = viewportState ?? controller.workspaceManager.niriViewportState(for: wsId)
         let gap = controller.innerGap(for: monitor, scale: refreshInput.monitor.scale)
+        let pictures = edgePictureState(for: refreshInput)
 
         return NiriWorkspaceSnapshot(
-            workspaceId: wsId,
-            monitor: refreshInput.monitor,
+            workspaceId: wsId, monitor: refreshInput.monitor,
             windows: refreshInput.windows,
             excludedTokens: refreshInput.excludedTokens,
             plannedSeq: refreshInput.plannedSeq,
             viewportState: effectiveViewportState,
-            preferredFocusToken: isRelayoutSnapshot ? controller.workspaceManager.preferredFocusToken(in: wsId) : nil,
+            preferredFocusToken: picturePreferredFocus(
+                in: wsId, state: effectiveViewportState, pictures: pictures, isRelayout: isRelayoutSnapshot
+            ),
             hasCompletedInitialRefresh: controller.layoutRefreshController.layoutState.hasCompletedInitialRefresh,
             useScrollAnimationPath: useScrollAnimationPath,
             removalSeed: removalSeed,
@@ -106,7 +108,8 @@ extension NiriLayoutHandler {
             isActiveWorkspace: refreshInput.isActiveWorkspace,
             quietArrivalTokens: isRelayoutSnapshot
                 ? controller.workspaceManager.quietArrivalTokens.intersection(refreshInput.windows.map(\.token))
-                : []
+                : [],
+            edgePictures: pictures
         )
     }
 
@@ -120,21 +123,17 @@ extension NiriLayoutHandler {
         let sampledAnimationTime = settlesAnimation ? nil : animationTime
         let isSettled = settlesAnimation || (animationTime == nil && controller.map {
             !hasPendingNiriAnimationWork(
-                state: snapshot.viewportState,
-                driver: $0.workspaceManager.animationDriver,
-                engine: engine,
-                workspaceId: snapshot.workspaceId
+                state: snapshot.viewportState, driver: $0.workspaceManager.animationDriver,
+                engine: engine, workspaceId: snapshot.workspaceId
             )
         } == true)
         let (frames, hiddenHandles) = calculateOnDemandFrames(
             snapshot: snapshot, engine: engine, monitor: monitor,
-            sampledAnimationTime: sampledAnimationTime, isSettled: isSettled
+            sampledAnimationTime: sampledAnimationTime, isSettled: isSettled, recordsPresentationGeometry: true
         )
 
         var diff = layoutDiff(
-            windows: snapshot.windows,
-            frames: frames,
-            hiddenHandles: hiddenHandles,
+            windows: snapshot.windows, frames: frames, hiddenHandles: hiddenHandles,
             context: NiriLayoutDiffContext(
                 engine: engine,
                 workspaceId: snapshot.workspaceId,
@@ -145,8 +144,14 @@ extension NiriLayoutHandler {
                 settledContext: isSettled ? (snapshot.monitor, snapshot.viewportState) : nil
             )
         )
-        let isInteractiveResize = animationTime == nil
-            && engine.interactiveResize?.workspaceId == snapshot.workspaceId
+        diff.edgeHiddenFrames = edgeHiddenFrames(engine: engine, snapshot: snapshot)
+        if shouldPreparePictures(snapshot: snapshot, animationTime: sampledAnimationTime) {
+            diff.picturePreparation = picturePreparation(
+                engine: engine, snapshot: snapshot, state: snapshot.viewportState,
+                isSettled: isSettled, time: sampledAnimationTime ?? CACurrentMediaTime()
+            )
+        }
+        let isInteractiveResize = animationTime == nil && engine.interactiveResize?.workspaceId == snapshot.workspaceId
         enforceOnDemandFrameSizes(&diff, animated: sampledAnimationTime != nil || isInteractiveResize)
         if animationTime != nil {
             diff.tabRailGeometryCommands = niriTabRailGeometryCommands(
@@ -160,9 +165,7 @@ extension NiriLayoutHandler {
             workspaceId: snapshot.workspaceId,
             monitor: snapshot.monitor,
             sessionPatch: WorkspaceSessionPatch(
-                workspaceId: snapshot.workspaceId,
-                viewportState: nil,
-                plannedSeq: snapshot.plannedSeq
+                workspaceId: snapshot.workspaceId, viewportState: nil, plannedSeq: snapshot.plannedSeq
             ),
             diff: diff,
             isAnimationTick: sampledAnimationTime != nil,
@@ -385,7 +388,8 @@ extension NiriLayoutHandler {
         engine: NiriLayoutEngine,
         monitor: Monitor,
         sampledAnimationTime: TimeInterval?,
-        isSettled: Bool
+        isSettled: Bool,
+        recordsPresentationGeometry: Bool = false
     ) -> (frames: [WindowToken: CGRect], hiddenHandles: [WindowToken: HideSide]) {
         let gaps = LayoutGaps(
             horizontal: snapshot.gap,
@@ -417,7 +421,8 @@ extension NiriLayoutHandler {
             viewOffsetOverride: offsets?.liveOffset,
             settledVisibilityOffset: offsets?.settledVisibilityOffset,
             isSettled: isSettled,
-            excludedTokens: snapshot.excludedTokens
+            excludedTokens: snapshot.excludedTokens, edgePictures: snapshot.edgePictures,
+            recordsPresentationGeometry: recordsPresentationGeometry
         )
     }
 

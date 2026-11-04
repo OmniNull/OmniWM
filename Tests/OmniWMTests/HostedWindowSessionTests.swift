@@ -13,7 +13,7 @@ final class HostedWindowSessionTests: XCTestCase {
     func testTheRealComponentUsesContentSizeAndKeepsInputAndResultAcrossResize() async throws {
         let definition = try XCTUnwrap(ShellAppDefinition.example)
         let window = makeWindow(definition)
-        let session = ShellAppWindowSession(
+        let session = ShellAppRuntime(
             definition: definition, window: window,
             resources: ShellResources(motion: MotionPolicy(animationsEnabled: false))
         )
@@ -37,14 +37,10 @@ final class HostedWindowSessionTests: XCTestCase {
             input.changed()
         }, newerThan: sequence)
         XCTAssertEqual(try XCTUnwrap(session.surface.textInputs.values.first).text, draft)
-        let button = try XCTUnwrap(session.surface.layout.core.elements { $0.action != 0 }.first {
-            session.surface.layout.core.kind(of: $0) == .box
-        })
-        let capture = session.surface.capture(button)
-        let action = session.surface.layout.core.content(of: button).action
+        let apply = try hostedSheetAction("Apply", surface: session.surface)
         let buttonSequence = session.renderedSequence
         await render(session, after: {
-            session.surface.emit(action, capture: capture, point: capture.origin, event: ShellEvent())
+            apply()
         }, newerThan: buttonSequence)
         XCTAssertTrue(session.surface.text?.strings.contains("You wrote: " + draft) == true)
         let package = session.package
@@ -69,7 +65,7 @@ final class HostedWindowSessionTests: XCTestCase {
     func testCloseRejectsLateTreesAndAReopenedWindowHasADifferentIdentity() async throws {
         let definition = try XCTUnwrap(ShellAppDefinition.example)
         let previousWindow = makeWindow(definition)
-        let previous = ShellAppWindowSession(
+        let previous = ShellAppRuntime(
             definition: definition, window: previousWindow,
             resources: ShellResources(motion: MotionPolicy(animationsEnabled: false))
         )
@@ -80,7 +76,7 @@ final class HostedWindowSessionTests: XCTestCase {
         let previousSequence = previous.renderedSequence
         previous.close()
         let nextWindow = makeWindow(definition)
-        let next = ShellAppWindowSession(
+        let next = ShellAppRuntime(
             definition: definition, window: nextWindow,
             resources: ShellResources(motion: MotionPolicy(animationsEnabled: false))
         )
@@ -89,7 +85,7 @@ final class HostedWindowSessionTests: XCTestCase {
         }
         XCTAssertNotEqual(previous.id, next.id)
         XCTAssertFalse(previous.package === next.package)
-        var late = ShellWidgetDelivery(generation: ShellAppWindowSession.generation)
+        var late = ShellWidgetDelivery(generation: ShellAppRuntime.generation)
         late.trees[ShellTreeKey(instance: .window(previous.id), view: .window)] = .init(
             sequence: previousSequence + 1
         )
@@ -108,6 +104,7 @@ final class HostedWindowSessionTests: XCTestCase {
     func testOpenReusesTheManagedInstanceAndNativeCloseReleasesIt() throws {
         let definition = try XCTUnwrap(ShellAppDefinition.example)
         let controller = WindowAdmissionTestSupport.controller(prefix: "HostedWindowSession")
+        controller.hasStartedServices = true
         controller.shellAppWindowManager.activateApplication = {}
         let frame = CGRect(origin: .zero, size: CGSize(
             width: definition.contentSize.width * 2, height: definition.contentSize.height * 2
@@ -142,8 +139,8 @@ final class HostedWindowSessionTests: XCTestCase {
         }
         let manager = controller.shellAppWindowManager
         XCTAssertTrue(manager.open(definition, in: workspace))
-        let pair = try XCTUnwrap(manager.sessions.first)
-        let original = pair.value
+        let pair = try XCTUnwrap(manager.windows.first)
+        let original = try XCTUnwrap(manager.runtime(for: pair.key))
         let native = try XCTUnwrap(manager.windows[pair.key])
         let createdBeforeReopen = created
         XCTAssertNotNil(controller.workspaceManager.entry(for: pair.key))
@@ -151,28 +148,28 @@ final class HostedWindowSessionTests: XCTestCase {
         XCTAssertTrue(manager.open(definition, in: workspace))
 
         XCTAssertEqual(created, createdBeforeReopen)
-        XCTAssertTrue(manager.sessions[pair.key] === original)
+        XCTAssertTrue(manager.runtime(for: pair.key) === original)
         XCTAssertTrue(manager.windows[pair.key] === native)
         native.close()
         XCTAssertTrue(original.closed)
-        XCTAssertNil(manager.sessions[pair.key])
+        XCTAssertNil(manager.runtime(for: pair.key))
         XCTAssertNil(manager.windows[pair.key])
         XCTAssertNil(controller.workspaceManager.entry(for: pair.key))
         XCTAssertTrue(manager.open(definition, in: workspace))
-        let reopened = try XCTUnwrap(manager.sessions.first?.value)
+        let reopened = try XCTUnwrap(manager.runtimes.first?.value)
         XCTAssertNotEqual(reopened.id, original.id)
         XCTAssertFalse(reopened === original)
-        let reopenedPair = try XCTUnwrap(manager.sessions.first)
+        let reopenedPair = try XCTUnwrap(manager.windows.first)
         let reopenedWindow = try XCTUnwrap(manager.windows[reopenedPair.key])
         manager.windowDidBecomeKey(Notification(name: NSWindow.didBecomeKeyNotification, object: reopenedWindow))
         XCTAssertEqual(controller.commandHandler.performCommand(.windowState(.close)), .executed)
         XCTAssertTrue(reopened.closed)
-        XCTAssertNil(manager.sessions[reopenedPair.key])
+        XCTAssertNil(manager.runtime(for: reopenedPair.key))
         XCTAssertNil(controller.workspaceManager.entry(for: reopenedPair.key))
     }
 
     private func render(
-        _ session: ShellAppWindowSession, after action: () -> Void, newerThan sequence: Int = 0
+        _ session: ShellAppRuntime, after action: () -> Void, newerThan sequence: Int = 0
     ) async {
         let rendered = expectation(description: "The hosted component publishes its next tree or a failure")
         session.onRender = { [weak session] in

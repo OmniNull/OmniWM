@@ -30,6 +30,15 @@ struct IPCWindowRequestExecutor {
     }
 
     private func perform(_ request: IPCWindowRequest, token: WindowToken) -> ExternalCommandResult {
+        if controller.workspaceManager.entry(for: token)?.target.hostedMetadata?.role.parent != nil,
+           [.moveToWorkspace, .summonRight, .toggleFloating, .assignToScratchpad].contains(request.name)
+        {
+            return .attachedWindow
+        }
+        return apply(request, token: token)
+    }
+
+    private func apply(_ request: IPCWindowRequest, token: WindowToken) -> ExternalCommandResult {
         switch request.name {
         case .focus:
             return controller.windowActionHandler.focusWindowFromBar(token: token)

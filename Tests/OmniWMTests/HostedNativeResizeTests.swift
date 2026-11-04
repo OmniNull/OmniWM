@@ -108,6 +108,7 @@ final class HostedNativeResizeTests: XCTestCase {
 
     private func fixture(_ layout: LayoutType) throws -> Fixture {
         let controller = WindowAdmissionTestSupport.controller(prefix: "HostedNativeResize")
+        controller.hasStartedServices = true
         controller.shellAppWindowManager.activateApplication = {}
         controller.settings.gestures.adoptNativeResize = true
         let display = CGDirectDisplayID.max

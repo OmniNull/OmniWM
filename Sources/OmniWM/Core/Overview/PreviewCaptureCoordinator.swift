@@ -2,6 +2,7 @@
 // Copyright (C) 2026 OmniNull — https://github.com/OmniNull/OmniWM
 
 import Dispatch
+import Foundation
 import ScreenCaptureKit
 
 @MainActor
@@ -53,6 +54,8 @@ final class PreviewCaptureCoordinator {
     private var windowsByToken: [WindowToken: SCWindow] = [:]
     private var discoveryTask: Task<Int?, Never>?
     private var clock: UInt64 = 0
+    private var memoryPressureObservers: [UUID: @MainActor (Bool) -> Void] = [:]
+    private(set) var isUnderMemoryPressure = false
 
     init(
         ownedWindowRegistry: OwnedWindowRegistry = .shared,
@@ -64,9 +67,14 @@ final class PreviewCaptureCoordinator {
         self.ownedWindowRegistry = ownedWindowRegistry
         self.sleep = sleep
         self.discoverWindows = discoverWindows
-        memoryPressure = DispatchSource.makeMemoryPressureSource(eventMask: [.warning, .critical], queue: .main)
+        memoryPressure = DispatchSource.makeMemoryPressureSource(
+            eventMask: [.normal, .warning, .critical],
+            queue: .main
+        )
         memoryPressure.setEventHandler { [weak self] in
-            MainActor.assumeIsolated { self?.releaseCaches(reason: .memoryPressure) }
+            MainActor.assumeIsolated {
+                self?.handleMemoryPressure(self?.memoryPressure.data ?? [])
+            }
         }
         memoryPressure.activate()
     }
@@ -77,6 +85,28 @@ final class PreviewCaptureCoordinator {
 
     func register(_ capture: OverviewThumbnailCapture) {
         captures.append(WeakCapture(capture))
+    }
+
+    func addMemoryPressureObserver(_ observer: @escaping @MainActor (Bool) -> Void) -> UUID {
+        let id = UUID()
+        memoryPressureObservers[id] = observer
+        return id
+    }
+
+    func removeMemoryPressureObserver(_ id: UUID) {
+        memoryPressureObservers.removeValue(forKey: id)
+    }
+
+    func handleMemoryPressure(_ events: DispatchSource.MemoryPressureEvent) {
+        if events.contains(.warning) || events.contains(.critical) {
+            isUnderMemoryPressure = true
+            releaseCaches(reason: .memoryPressure)
+        } else if events.contains(.normal) {
+            isUnderMemoryPressure = false
+        } else {
+            return
+        }
+        for observer in memoryPressureObservers.values { observer(isUnderMemoryPressure) }
     }
 
     func nextUse() -> UInt64 {

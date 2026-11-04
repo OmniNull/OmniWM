@@ -39,6 +39,8 @@ final class NiriLayoutEngine {
 
     var edgeOverscroll: NiriEdgeOverscroll = .disabled
 
+    var edgePicturesAvailable = true
+
     var renderStyle: NiriRenderStyle = .default
 
     var interactiveResize: InteractiveResize?
@@ -366,6 +368,8 @@ extension NiriLayoutEngine {
         column.cachedHeight = 0
         column.widthAnimation = nil
         column.targetWidth = nil
+        column.heightAnimation = nil
+        column.targetHeight = nil
     }
 
     func initializeNewContainerSizing(

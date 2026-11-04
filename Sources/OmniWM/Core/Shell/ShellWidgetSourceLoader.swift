@@ -186,7 +186,7 @@ actor ShellWidgetSourceLoader {
         return result
     }
 
-    private static func entries(in folder: URL, directories: Bool) -> [URL] {
+    static func entries(in folder: URL, directories: Bool) -> [URL] {
         let resolved = folder.resolvingSymlinksInPath().standardizedFileURL
         let prefixLength = resolved.path.count + 1
         return FileManager.default.enumerator(
@@ -207,7 +207,7 @@ actor ShellWidgetSourceLoader {
             } ?? []
     }
 
-    private static func read(_ url: URL) throws -> String {
+    static func read(_ url: URL) throws -> String {
         let contents = try SettingsFileAccess.readContents(at: url)
         guard contents.data.count <= sourceLimit else {
             throw ShellScriptFailure(kind: .compile, message: "\(url.lastPathComponent) is larger than 1 MiB")

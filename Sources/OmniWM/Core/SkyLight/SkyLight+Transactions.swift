@@ -33,14 +33,9 @@ extension SkyLight {
     }
 
     func getWindowBounds(_ wid: UInt32) -> CGRect? {
-        let cid = getMainConnectionID()
-        guard cid != 0 else { return nil }
-        var rect = CGRect.zero
-        let result = MainThreadAXSpanTrace.measure(.windowServerBounds, windowId: Int(wid)) {
-            transactions.getWindowBounds(cid, wid, &rect)
-        } succeeded: { $0 == .success } status: { $0.rawValue }
-        guard result == .success else { return nil }
-        return rect
+        MainThreadAXSpanTrace.measure(.windowServerBounds, windowId: Int(wid)) {
+            queryWindowBounds(wid)
+        } succeeded: { $0 != nil }
     }
 
     @discardableResult

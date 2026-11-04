@@ -42,7 +42,8 @@ extension NiriLayoutEngine {
 
     func clearExcludedColumnFrames(
         in workspaceId: WorkspaceDescriptor.ID,
-        excluding excludedTokens: Set<WindowToken>
+        excluding excludedTokens: Set<WindowToken>,
+        recordsPresentationGeometry: Bool = false
     ) {
         if !excludedTokens.isEmpty {
             for column in columns(in: workspaceId)
@@ -50,6 +51,7 @@ extension NiriLayoutEngine {
             {
                 column.frame = nil
                 column.renderedFrame = nil
+                if recordsPresentationGeometry { column.edgeHiddenFrame = nil }
             }
         }
     }

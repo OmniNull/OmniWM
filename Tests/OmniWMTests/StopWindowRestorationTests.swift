@@ -8,7 +8,7 @@ import XCTest
 final class StopWindowRestorationTests: XCTestCase {
     private let usable = CGRect(x: 100, y: 40, width: 1000, height: 700)
 
-    private func target(placement: StopWindowTarget
+    private func target(placement: StopWindowGeometry
         .Placement? = .topLeft(CGPoint(x: 400, y: 500))) -> StopWindowTarget
     {
         let token = WindowToken(pid: 696_001, windowId: 696_002)

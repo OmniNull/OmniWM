@@ -4275,6 +4275,15 @@ bool scriptDisplayIsLive(omni_vm *vm, uint32_t display) {
     return resolveInstance(vm->package, display) != nullptr;
 }
 
+bool scriptIsWindowUIHandler(lua_State *L) {
+    auto *instance = scriptInstance(L);
+    if (instance == nullptr || !instance->handling || !instance->vm->inCall || isServiceCall(instance->vm)) { return false; }
+    ScriptSource caller = scriptSource(L);
+    ScriptSource active = scriptSource(instance->thread);
+    return active.view == OMNI_VIEW_WINDOW && active.surface != 0 && active.display == instance->id
+        && caller.display == active.display && caller.view == active.view && caller.surface == active.surface;
+}
+
 int16_t shellAtom(lua_State *, const char *s, size_t length) {
     return static_cast<int16_t>(nameIndex(atomNames, AtomCount, s, length));
 }
@@ -5027,6 +5036,7 @@ void omni_instance_destroy(omni_instance *instance) noexcept {
         return;
     }
     try {
+        retireWindowRequests(instance->vm, instance->id);
         ShellPackage &package = instance->vm->package;
         size_t slot = instance->id & 0xFFFF;
         if (slot < package.instances.size() && package.instances[slot] == instance) {
@@ -5055,8 +5065,14 @@ void invalidateActivityData(omni_instance *instance, lua_State *L, const char *k
     lua_pop(L, 2);
 }
 
-omni_status omni_instance_set_window_size(omni_instance *instance, double width, double height) noexcept {
-    if (instance == nullptr || !std::isfinite(width) || !std::isfinite(height) || width <= 0 || height <= 0) {
+omni_status omni_instance_set_window_offer(omni_instance *instance, const char *view_name, size_t view_name_length, double width, double height) noexcept {
+    if (instance == nullptr || view_name == nullptr || view_name_length == 0 || view_name_length > 128
+        || !std::isfinite(width) || !std::isfinite(height) || width <= 0 || height <= 0) {
+        return OMNI_ERR_INTERNAL;
+    }
+    std::string_view name(view_name, view_name_length);
+    if (name.front() == '.' || name.find_first_of("/\\:") != std::string_view::npos
+        || std::any_of(name.begin(), name.end(), [](unsigned char character) { return character < 0x20 || character == 0x7F; })) {
         return OMNI_ERR_INTERNAL;
     }
     if (instance->vm->inCall) { return OMNI_ERR_REENTRANT; }
@@ -5064,7 +5080,7 @@ omni_status omni_instance_set_window_size(omni_instance *instance, double width,
     try {
         lua_getref(P, instance->ctxRef);
         lua_createtable(P, 0, 3);
-        lua_pushliteral(P, "window");
+        lua_pushlstring(P, view_name, view_name_length);
         lua_setfield(P, -2, "name");
         lua_pushnumber(P, width);
         lua_setfield(P, -2, "w");

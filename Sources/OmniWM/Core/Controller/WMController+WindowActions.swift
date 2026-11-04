@@ -25,6 +25,7 @@ extension WMController {
         arrivesQuietly: Bool = false
     ) -> ExternalCommandResult {
         guard let entry = workspaceManager.entry(for: token) else { return .notFound }
+        guard entry.target.hostedMetadata?.role.parent == nil else { return .attachedWindow }
 
         let nextOverride: ManualWindowOverride?
         if workspaceManager.manualLayoutOverride(for: token) != nil {
@@ -50,6 +51,7 @@ extension WMController {
         preferredMonitor: Monitor? = nil,
         arrivesQuietly: Bool = false
     ) {
+        guard entry.target.hostedMetadata?.role.parent == nil else { return }
         workspaceManager.setManualLayoutOverride(override, for: token)
         let entry = workspaceManager.entry(for: token) ?? entry
         guard let axRef = entry.axRef else {

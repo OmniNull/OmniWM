@@ -44,6 +44,24 @@ enum TabRailMetrics {
     }
 }
 
+@MainActor
+enum TabRailPlacement {
+    static func frame(
+        for visibleTileFrame: CGRect, tabCount: Int, style: TabRailStyle, displayFrame: CGRect? = nil
+    ) -> CGRect {
+        guard tabCount > 0,
+              TabRailManager.isRenderable(visibleTileFrame: visibleTileFrame)
+        else { return .zero }
+        let width = style.hitWidth
+        let height = style.fittedHeight(tabCount: tabCount, availableHeight: visibleTileFrame.height)
+        guard height > 1 else { return .zero }
+        let x = visibleTileFrame.minX - (width - style.reservedWidth)
+        let y = visibleTileFrame.minY + (visibleTileFrame.height - height) / 2
+        let frame = CGRect(x: x, y: y, width: width, height: height)
+        return displayFrame.map { frame.intersection($0) } ?? frame
+    }
+}
+
 enum TabRailOrderingPolicy {
     static func shouldOrderFront(
         forceOrdering: Bool,

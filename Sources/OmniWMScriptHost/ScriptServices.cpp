@@ -1313,6 +1313,25 @@ int configurationWrite(lua_State *L) {
     return admitStructured(L, OMNI_SERVICE_CONFIG, std::move(bytes), callback);
 }
 
+int windowRequest(lua_State *L) {
+    currentOwner(L);
+    if (!scriptIsWindowUIHandler(L)) { return returnedError(L, "window_request_denied"); }
+    if (!configurationName(L, 1) || (!lua_isnoneornil(L, 2) && !lua_isfunction(L, 2))) {
+        return returnedError(L, "invalid window arguments");
+    }
+    lua_settop(L, 2);
+    lua_createtable(L, 0, 2);
+    int payload = lua_gettop(L);
+    lua_pushvalue(L, lua_upvalueindex(1));
+    lua_setfield(L, payload, "op");
+    lua_pushvalue(L, 1);
+    lua_setfield(L, payload, "id");
+    std::vector<uint8_t> bytes;
+    std::string error;
+    if (!encodeValue(L, payload, bytes, maximumConfigurationBytes, error)) { return returnedError(L, error.c_str()); }
+    return admitStructured(L, OMNI_SERVICE_WINDOW, std::move(bytes), 2);
+}
+
 int httpRequest(lua_State *L) {
     OwnerState &owner = currentOwner(L);
     if (!lua_istable(L, 1) || !lua_isfunction(L, 2)) { return returnedError(L, "invalid_request"); }
@@ -1572,6 +1591,20 @@ omni_owner_token scriptOwner(lua_State *L) {
 uint32_t scriptDisplay(lua_State *L) {
     ThreadIdentity *thread = identity(L);
     return thread == nullptr ? OMNI_NO_DISPLAY : thread->source.display;
+}
+
+ScriptSource scriptSource(lua_State *L) {
+    ThreadIdentity *thread = identity(L);
+    return thread == nullptr ? ScriptSource{} : thread->source;
+}
+
+void retireWindowRequests(omni_vm *vm, uint32_t display) {
+    ServiceState &state = *vm->package.services;
+    for (auto &request : state.requests) {
+        if (request.live && request.kind == OMNI_SERVICE_WINDOW && request.source.display == display) {
+            cancel(vm->thread, state, request);
+        }
+    }
 }
 
 bool scriptOwnerIsLive(lua_State *L) {
@@ -1972,6 +2005,14 @@ void installServices(lua_State *L, ShellPackage &package) {
     lua_setfield(L, -2, "set");
     lua_setreadonly(L, -1, true);
     lua_setfield(L, -2, "config");
+    lua_newtable(L);
+    for (const char *operation : {"open", "close"}) {
+        lua_pushstring(L, operation);
+        lua_pushcclosure(L, windowRequest, operation, 1);
+        lua_setfield(L, -2, operation);
+    }
+    lua_setreadonly(L, -1, true);
+    lua_setfield(L, -2, "windows");
     lua_newtable(L);
     lua_pushcfunction(L, storeGet, "get");
     lua_setfield(L, -2, "get");

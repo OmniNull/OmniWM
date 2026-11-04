@@ -15,12 +15,14 @@ final class ShellLakeProfileTests: XCTestCase {
     private final class Fixture {
         let vm: OpaquePointer
         let instance: OpaquePointer
+        let renderBudget: UInt64
         let text = ShellTextStore()
         let layout = ShellWidgetLayout()
         var error = [CChar](repeating: 0, count: 512)
         var nodes: [omni_wire_node] = []
 
-        init(source: ShellWidgetSource) throws {
+        init(source: ShellWidgetSource, renderBudget: UInt64 = ShellRenderTestBudget.unlimited) throws {
+            self.renderBudget = renderBudget
             let created = try XCTUnwrap(ShellVM.make(memoryLimit: 32 << 20))
             var diagnostics = [CChar](repeating: 0, count: 512)
             XCTAssertEqual(omni_vm_set_module_limit(created, source.moduleLimit), OMNI_OK)
@@ -87,7 +89,7 @@ final class ShellLakeProfileTests: XCTestCase {
             XCTAssertEqual(omni_instance_render(
                 instance,
                 OMNI_VIEW_BAR,
-                8_000_000,
+                renderBudget,
                 &stats,
                 &error,
                 error.count
@@ -171,6 +173,14 @@ final class ShellLakeProfileTests: XCTestCase {
     }
 
     func testExpandedMediaRetainedWorkAndMainActorApplyMeasurement() throws {
+        try checkExpandedMediaRetainedWork(renderBudget: ShellRenderTestBudget.unlimited)
+    }
+
+    func testRenderSpeedExpandedMediaUpdatesStayWithinProductionBudget() throws {
+        try checkExpandedMediaRetainedWork(renderBudget: ShellWidgetPackage.renderBudget)
+    }
+
+    private func checkExpandedMediaRetainedWork(renderBudget: UInt64) throws {
         let root = FileManager.default.temporaryDirectory.appendingPathComponent(UUID().uuidString)
         defer { try? FileManager.default.removeItem(at: root) }
         let fixture = try Fixture(source: source(in: root))
@@ -206,7 +216,7 @@ final class ShellLakeProfileTests: XCTestCase {
             while !done {
                 var step = omni_render_step_stats()
                 XCTAssertEqual(omni_instance_step_update(
-                    fixture.instance, OMNI_VIEW_BAR, 8_000_000, &step, &fixture.error, fixture.error.count
+                    fixture.instance, OMNI_VIEW_BAR, renderBudget, &step, &fixture.error, fixture.error.count
                 ), OMNI_OK)
                 XCTAssertEqual(step.unit_status, OMNI_OK)
                 counts[step.kind.rawValue, default: 0] += 1
@@ -454,6 +464,14 @@ final class ShellLakeProfileTests: XCTestCase {
     }
 
     func testLakeWidgetsButtonOpensVisibleSettingsAndExportsRenderedStates() throws {
+        try checkLakeWidgetsSettings(renderBudget: ShellRenderTestBudget.unlimited)
+    }
+
+    func testRenderSpeedLakeWidgetsSettingsStayWithinProductionBudget() throws {
+        try checkLakeWidgetsSettings(renderBudget: ShellWidgetPackage.renderBudget, snapshotSuffix: "-speed")
+    }
+
+    private func checkLakeWidgetsSettings(renderBudget: UInt64, snapshotSuffix: String = "") throws {
         let root = FileManager.default.temporaryDirectory.appendingPathComponent(UUID().uuidString)
         defer { try? FileManager.default.removeItem(at: root) }
         let source = try source(in: root)
@@ -465,7 +483,7 @@ final class ShellLakeProfileTests: XCTestCase {
         let catalog = try ShellComponentCatalog.catalogBytes(entries)
         let schema = try ShellComponentCatalog.settingsBytes(settings.options)
         for notch in [false, true] {
-            let fixture = try Fixture(source: source)
+            let fixture = try Fixture(source: source, renderBudget: renderBudget)
             configure(fixture, notch: notch)
             for (key, bytes) in [("catalog", catalog), ("settingsSchema", schema)] {
                 XCTAssertEqual(bytes.withUnsafeBufferPointer {
@@ -475,7 +493,7 @@ final class ShellLakeProfileTests: XCTestCase {
             let surface = lakeSurface(source, scale: 2)
             defer { surface.setVisible(false) }
             surface.onAction = { click in fixture.invoke(click.action, event: click.event.bytes) }
-            let name = notch ? "notch" : "plain"
+            let name = (notch ? "notch" : "plain") + snapshotSuffix
             try fixture.render()
             try applyLake(fixture, to: surface)
             try exportLake(surface, name: "lake-\(name)-compact", scale: 2)

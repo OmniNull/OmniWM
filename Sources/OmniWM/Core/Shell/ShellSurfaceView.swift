@@ -84,7 +84,7 @@ final class ShellSurfaceView: NSView {
     }
 
     override var acceptsFirstResponder: Bool {
-        surface?.focusAxis != nil || surface?.declaredFocus == true
+        surface?.focusAxis != nil || surface?.declaredFocus == true || surface?.onUnhandledEscape != nil
     }
 
     override func keyDown(with event: NSEvent) {
@@ -92,7 +92,13 @@ final class ShellSurfaceView: NSView {
             if surface?.handleDeclaredKey(event) != true,
                surface?.handleKey(event.keyCode, shift: event.modifierFlags.contains(.shift)) != true
             {
-                super.keyDown(with: event)
+                if event.keyCode == UInt16(kVK_Escape), surface?.hasFocusedTextInput != true,
+                   let cancel = surface?.onUnhandledEscape
+                {
+                    cancel()
+                } else {
+                    super.keyDown(with: event)
+                }
             }
         }
     }

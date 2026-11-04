@@ -76,14 +76,17 @@ enum ActionCatalog {
     }
 
     static func spec(for command: HotkeyCommand) -> ActionSpec? {
-        if case let .shellToggle(name) = command {
-            return shellToggleSpec(name: name)
+        switch command {
+        case let .shellToggle(name): shellToggleSpec(name: name)
+        case let .openApp(bundleID): openAppSpec(bundleID: bundleID)
+        case let .shellAppOpen(id): shellAppSpec(appID: id)
+        case let .shellAppNewWindow(id): shellAppSpec(appID: id, newWindow: true)
+        default: specsByCommand[command] ?? workspaceNumberSpec(for: command)
         }
-        return specsByCommand[command] ?? workspaceNumberSpec(for: command)
     }
 
     static func dynamicSpec(for id: String) -> ActionSpec? {
-        workspaceNumberSpec(for: id) ?? shellToggleSpec(for: id)
+        workspaceNumberSpec(for: id) ?? shellToggleSpec(for: id) ?? openAppSpec(for: id) ?? shellAppSpec(for: id)
     }
 
     static func normalizedSearchTerms(for id: String) -> [String]? {
@@ -99,7 +102,8 @@ enum ActionCatalog {
     }
 
     static func layoutCompatibility(for command: HotkeyCommand) -> LayoutCompatibility? {
-        spec(for: command)?.layoutCompatibility
+        if case .openApp = command { return compatibility(for: command) }
+        return spec(for: command)?.layoutCompatibility
     }
 
     static func category(for id: String) -> HotkeyCategory? {
@@ -201,9 +205,10 @@ enum ActionCatalog {
         category: HotkeyCategory,
         binding: KeyBinding,
         visibility: HotkeyVisibility = .normal,
-        keywords: [String] = []
+        keywords: [String] = [],
+        title: LocalizedStringResource? = nil
     ) -> ActionSpec {
-        let resource = titleResource(for: command)
+        let resource = title ?? titleResource(for: command)
         let localizedTitle = String(localized: resource)
         let title = canonicalSourceTitle(for: resource)
         return ActionSpec(
@@ -243,7 +248,9 @@ enum ActionCatalog {
              .media,
              .keyboardMode,
              .shellToggle,
-             .shellAppOpen:
+             .shellAppOpen,
+             .shellAppNewWindow,
+             .openApp:
             .shared
         case let .focusNavigation(action):
             action.compatibility
@@ -289,14 +296,7 @@ enum ActionCatalog {
         case .openMenuAnywhere: LocalizedStringResource(
                 "command.menu.openAnywhere", defaultValue: "Open Menu Anywhere", table: "Commands", bundle: .omniWM
             )
-        case .windowMark(.set): LocalizedStringResource(
-                "command.windowMark.set", defaultValue: "Set Mark on Focused Window", table: "Commands",
-                bundle: .omniWM
-            )
-        case .windowMark(.remove): LocalizedStringResource(
-                "command.windowMark.remove", defaultValue: "Remove Mark from Focused Window", table: "Commands",
-                bundle: .omniWM
-            )
+        case let .windowMark(action): action.actionDisplayName()
         case let .presentation(command): command.actionDisplayName()
         case let .media(command): command.actionDisplayName()
         case let .keyboardMode(command): command.actionDisplayName()
@@ -304,6 +304,11 @@ enum ActionCatalog {
                 "command.shell.toggle", defaultValue: "Toggle \(name)", table: "Commands", bundle: .omniWM
             )
         case .shellAppOpen: shellAppExampleTitle
+        case .shellAppNewWindow: shellAppNewWindowExampleTitle
+        case let .openApp(bundleID): LocalizedStringResource(
+                "command.app.open", defaultValue: "Open \(appDisplayName(bundleID: bundleID))", table: "Commands",
+                bundle: .omniWM
+            )
         case let .focusNavigation(action): action.actionDisplayName()
         case let .windowMovement(action): action.actionDisplayName()
         case let .column(action): action.actionDisplayName()
@@ -311,59 +316,6 @@ enum ActionCatalog {
         case let .sizing(action): action.actionDisplayName()
         case let .dwindle(action): action.actionDisplayName()
         case let .scratchpad(action): action.actionDisplayName()
-        }
-    }
-
-    private static func ipcCommandName(for command: HotkeyCommand) -> IPCCommandName? {
-        switch command {
-        case .focus:
-            .focus(.spatial)
-        case .move:
-            .windowMovement(.spatial)
-        case let .monitorFocus(command):
-            .monitorFocus(command)
-        case .moveColumn:
-            .column(.move)
-        case .openCommandPalette:
-            .openCommandPalette
-        case .openCommandPaletteMode:
-            .openCommandPaletteMode
-        case .raiseAllFloatingWindows:
-            .raiseAllFloatingWindows
-        case .toggleFloatingFocus:
-            .toggleFloatingFocus
-        case .rescueOffscreenWindows:
-            .rescueOffscreenWindows
-        case let .fullscreen(command):
-            .fullscreen(command)
-        case let .presentation(command):
-            .presentation(command)
-        case let .media(command):
-            .media(command)
-        case let .keyboardMode(command):
-            .keyboardMode(command)
-        case .shellToggle,
-             .windowMark:
-            nil
-        case .shellAppOpen: .shellAppOpen
-        case let .windowState(command):
-            .windowState(command)
-        case .openMenuAnywhere:
-            .openMenuAnywhere
-        case let .focusNavigation(action):
-            action.ipcCommandName()
-        case let .windowMovement(action):
-            action.ipcCommandName()
-        case let .column(action):
-            action.ipcCommandName()
-        case let .workspace(action):
-            action.ipcCommandName()
-        case let .sizing(action):
-            action.ipcCommandName()
-        case let .dwindle(action):
-            action.ipcCommandName()
-        case let .scratchpad(action):
-            action.ipcCommandName()
         }
     }
 }

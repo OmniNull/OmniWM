@@ -574,4 +574,77 @@ final class NiriPortraitSizingTests: NiriInteractionTestCase {
         XCTAssertEqual(fixture.column.height, .proportion(0.5))
         XCTAssertEqual(fixture.first.height, .fixed(250))
     }
+
+    func testPortraitPresetHeightSpringsFromTheRenderedHeightToThePreset() throws {
+        let preset: CGFloat = 0.25
+        let fixture = try makeTwoWindowRow()
+        fixture.engine.presetContainerPrimarySpans = [.proportion(preset)]
+        fixture.engine.animationClock = AnimationClock()
+        var state = fixture.state
+        let renderedHeight = try XCTUnwrap(
+            portraitLayout(fixture.engine, in: fixture.workspaceId, state: state)[fixture.first.token]
+        ).height
+
+        fixture.engine.toggleContainerPrimarySpan(
+            fixture.column,
+            forwards: true,
+            context: .init(
+                workspaceId: fixture.workspaceId,
+                motion: .enabled,
+                workingFrame: portraitFrame,
+                gaps: 0,
+                orientation: .vertical
+            ),
+            state: &state
+        )
+
+        let presetHeight = portraitFrame.height * preset
+        XCTAssertNotEqual(renderedHeight, presetHeight)
+        XCTAssertEqual(fixture.column.cachedHeight, renderedHeight)
+        XCTAssertEqual(try XCTUnwrap(fixture.column.targetHeight), presetHeight)
+        XCTAssertEqual(fixture.column.settledHeight, presetHeight)
+        XCTAssertTrue(fixture.engine.hasAnyColumnAnimationsRunning(in: fixture.workspaceId))
+        XCTAssertEqual(
+            fixture.column.currentHeightForSizing(workingAreaHeight: portraitFrame.height, gaps: 0),
+            presetHeight
+        )
+
+        XCTAssertFalse(fixture.engine.tickAllColumnAnimations(in: fixture.workspaceId, at: .infinity))
+        XCTAssertEqual(fixture.column.cachedHeight, presetHeight)
+        XCTAssertNil(fixture.column.heightAnimation)
+        XCTAssertNil(fixture.column.targetHeight)
+        XCTAssertEqual(
+            try XCTUnwrap(
+                portraitLayout(fixture.engine, in: fixture.workspaceId, state: state)[fixture.first.token]
+            ).height,
+            presetHeight
+        )
+    }
+
+    func testPortraitPresetHeightRetargetKeepsTheRunningSpring() throws {
+        let presets: [CGFloat] = [0.25, 0.75]
+        let fixture = try makeTwoWindowRow()
+        fixture.engine.presetContainerPrimarySpans = presets.map { .proportion($0) }
+        fixture.engine.animationClock = AnimationClock()
+        var state = fixture.state
+        _ = portraitLayout(fixture.engine, in: fixture.workspaceId, state: state)
+        let context = NiriInteractionContext(
+            workspaceId: fixture.workspaceId,
+            motion: .enabled,
+            workingFrame: portraitFrame,
+            gaps: 0,
+            orientation: .vertical
+        )
+
+        fixture.engine.toggleContainerPrimarySpan(fixture.column, forwards: true, context: context, state: &state)
+        let firstTarget = try XCTUnwrap(fixture.column.targetHeight)
+        let spring = try XCTUnwrap(fixture.column.heightAnimation)
+        fixture.engine.toggleContainerPrimarySpan(fixture.column, forwards: true, context: context, state: &state)
+
+        XCTAssertEqual(firstTarget, portraitFrame.height * presets[0])
+        XCTAssertEqual(try XCTUnwrap(fixture.column.targetHeight), portraitFrame.height * presets[1])
+        XCTAssertEqual(try XCTUnwrap(fixture.column.heightAnimation).from, spring.from)
+        XCTAssertFalse(fixture.engine.tickAllColumnAnimations(in: fixture.workspaceId, at: .infinity))
+        XCTAssertEqual(fixture.column.cachedHeight, portraitFrame.height * presets[1])
+    }
 }

@@ -22,6 +22,11 @@ extension WorkspaceManager {
                 return self.applyActionPlan(plan, to: token)
             }
         )
+        if case let .workspaceAssigned(token, _, destination, _, _) = event,
+           entry(for: token)?.target.hostedMetadata?.role == .main
+        {
+            onHostedFamilyWorkspaceChanged?(token, destination)
+        }
         if txn.plan.mutatesRuntimeState || eventRequiresRuntimeInvalidation(event) {
             noteInvalidation(for: event)
         }

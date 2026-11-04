@@ -21,6 +21,7 @@ struct WorkspaceBarWindowProjector {
     }
 
     private enum AppGroupKey: Hashable {
+        case hosted(String)
         case bundleId(String)
         case pid(pid_t)
     }
@@ -114,8 +115,9 @@ struct WorkspaceBarWindowProjector {
         else {
             return nil
         }
-        let appInfo = entries.lazy.compactMap { appInfoCache.info(for: $0.pid) }.first
-        let appName = appInfo?.name ?? String(localized: "Unknown")
+        let appEntry = entries.first { appInfoCache.info(for: $0.pid) != nil } ?? firstEntry
+        let presentation = appInfoCache.presentation(for: appEntry)
+        let appName = presentation.name ?? String(localized: "Unknown")
         let windowInfos = entries.compactMap { entry -> WorkspaceBarWindowInfo? in
             guard let handle = workspaceManager.handle(for: entry.token) else { return nil }
             return WorkspaceBarWindowInfo(
@@ -136,7 +138,8 @@ struct WorkspaceBarWindowProjector {
             bundleId: bundleId(for: firstEntry),
             icon: icon(
                 for: firstEntry,
-                appInfo: appInfo
+                fallback: presentation.icon,
+                processBundleId: appInfoCache.bundleId(for: appEntry.pid)
             ),
             isFocused: entries.contains { $0.token == focusedToken },
             windowCount: windowInfos.count,
@@ -152,8 +155,8 @@ struct WorkspaceBarWindowProjector {
     ) -> [WorkspaceBarWindowItem] {
         entries.compactMap { entry -> WorkspaceBarWindowItem? in
             guard let handle = workspaceManager.handle(for: entry.token) else { return nil }
-            let appInfo = appInfoCache.info(for: entry.pid)
-            let appName = appInfo?.name ?? String(localized: "Unknown")
+            let presentation = appInfoCache.presentation(for: entry)
+            let appName = presentation.name ?? String(localized: "Unknown")
             let title = windowTitle(for: entry) ?? appName
 
             return WorkspaceBarWindowItem(
@@ -164,7 +167,8 @@ struct WorkspaceBarWindowProjector {
                 bundleId: bundleId(for: entry),
                 icon: icon(
                     for: entry,
-                    appInfo: appInfo
+                    fallback: presentation.icon,
+                    processBundleId: appInfoCache.bundleId(for: entry.pid)
                 ),
                 isFocused: entry.token == focusedToken,
                 windowCount: 1,
@@ -185,21 +189,23 @@ struct WorkspaceBarWindowProjector {
 
     private func icon(
         for entry: WindowState,
-        appInfo: AppInfoCache.AppInfo?
+        fallback: NSImage?,
+        processBundleId: String?
     ) -> NSImage? {
-        guard iconResolver.hasOverrides else { return appInfo?.icon }
+        guard iconResolver.hasOverrides else { return fallback }
         if let bundleId = normalizedBundleId(entry.managedReplacementMetadata?.bundleId)
-            ?? normalizedBundleId(appInfo?.bundleId),
+            ?? normalizedBundleId(processBundleId),
            let override = iconResolver.image(for: bundleId)
         {
             return override
         }
-        return appInfo?.icon
+        return fallback
     }
 
     private func appGroupKey(
         for entry: WindowState
     ) -> AppGroupKey {
+        if let hosted = entry.target.hostedMetadata { return .hosted(hosted.appId) }
         if let bundleId = bundleId(for: entry) {
             return .bundleId(bundleId.lowercased())
         }
@@ -223,7 +229,9 @@ struct WorkspaceBarWindowProjector {
     }
 
     private func windowTitle(for entry: WindowState) -> String? {
-        guard let title = AXWindowService.titlePreferFast(windowId: UInt32(entry.windowId)),
+        guard let title = appInfoCache.presentation(
+                  for: entry, title: AXWindowService.titlePreferFast(windowId: UInt32(entry.windowId))
+              ).title,
               !title.isEmpty else { return nil }
         return title
     }

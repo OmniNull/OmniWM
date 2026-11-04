@@ -160,6 +160,7 @@ public final class AppDelegate: NSObject, NSApplicationDelegate {
         )
         controller.workspaceBarManager.menuBarHold = menuBarHold
         controller.applyPersistedSettings(settings)
+        controller.shellAppCatalog.startObserving()
         startSystemPreferenceObservation(controller)
         let cliManager = AppCLIManager()
         let updateCoordinator = UpdateCoordinator(settings: settings, runtimeState: runtimeState)
@@ -224,6 +225,7 @@ public final class AppDelegate: NSObject, NSApplicationDelegate {
         settings.onExternalSettingsReloaded = { [weak controller] in
             guard let controller else { return }
             controller.applyPersistedSettings(settings)
+            controller.shellAppCatalog.requestRefresh()
         }
         settings.onConfigNoticeChanged = { [weak self, weak controller] in
             controller?.refreshDiagnosticsIssues()
@@ -361,16 +363,6 @@ public final class AppDelegate: NSObject, NSApplicationDelegate {
         return action
     }
 
-    private func presentInfoAlert(title: String, message: String) {
-        let alert = NSAlert()
-        alert.alertStyle = .informational
-        alert.messageText = title
-        alert.informativeText = message
-        alert.addButton(withTitle: String(localized: "OK"))
-        NSApplication.shared.activate(ignoringOtherApps: true)
-        _ = alert.runModal()
-    }
-
     private func confirmQuitWithoutSavingClipboardHistory(_ error: Error) -> Bool {
         let alert = NSAlert()
         alert.alertStyle = .warning
@@ -386,6 +378,16 @@ public final class AppDelegate: NSObject, NSApplicationDelegate {
 }
 
 extension AppDelegate {
+    private func presentInfoAlert(title: String, message: String) {
+        let alert = NSAlert()
+        alert.alertStyle = .informational
+        alert.messageText = title
+        alert.informativeText = message
+        alert.addButton(withTitle: String(localized: "OK"))
+        NSApplication.shared.activate(ignoringOtherApps: true)
+        _ = alert.runModal()
+    }
+
     private func beginLaunchPresentation(runtimeState: RuntimeStateStore, controller: WMController) {
         startMonitorSetupPresentationObservation()
         let overlay = LaunchOverlayController()
@@ -455,17 +457,14 @@ extension AppDelegate {
         return deferTermination(
             stop: { completion in
                 Task { @MainActor in
-                    do {
-                        try await controller.clipboardHistoryService.flushForQuit()
-                    } catch {
-                        if !self.confirmQuitWithoutSavingClipboardHistory(error) {
-                            controller.clipboardHistoryService.resumeAfterCanceledQuit()
-                            self.terminationPending = false
-                            application.reply(toApplicationShouldTerminate: false)
-                            return
-                        }
+                    guard await self.prepareShellForQuit(
+                        controller: controller,
+                        confirmDiscard: self.confirmQuitWithoutSavingClipboardHistory
+                    ) else {
+                        self.terminationPending = false
+                        application.reply(toApplicationShouldTerminate: false)
+                        return
                     }
-                    await controller.workspaceBarManager.flushShellForQuit()
                     controller.serviceLifecycleManager.stopRestoringWindows(forQuit: true, completion: completion)
                 }
             },

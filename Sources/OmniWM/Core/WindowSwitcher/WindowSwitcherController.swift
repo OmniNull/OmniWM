@@ -5,7 +5,7 @@ import AppKit
 
 struct WindowSwitcherItem {
     let handle: WindowHandle
-    let title: String
+    var title: String
     let appName: String
     let icon: NSImage?
     var workspaceName: String
@@ -101,11 +101,11 @@ final class WindowSwitcherController {
         scale = NSScreen.screens.first { $0.displayId == monitor.displayId }?.backingScaleFactor ?? 2
         let current = controller.focusedOrFrontmostWindowTokenForAutomation(
             preferFrontmostWhenExternalOrOwnedFocusActive: true
-        )
+        ).map { listedToken($0, manager: controller.workspaceManager) }
         items = buildItems(controller: controller)
         selection.begin(
             tokens: scopedItems().map { $0.handle.id }, current: current, reverse: reverse,
-            recent: controller.workspaceManager.windowFocusRecencyOrder
+            recent: listedRecency(manager: controller.workspaceManager)
         )
         isVisible = true
         controller.focusPolicyEngine.beginLease(owner: .windowSwitcher, reason: "window_switcher", duration: nil)
@@ -120,16 +120,19 @@ final class WindowSwitcherController {
     private func buildItems(controller: WMController) -> [WindowSwitcherItem] {
         return controller.workspaceManager.allEntries().compactMap { entry -> WindowSwitcherItem? in
             guard !entry.observedState.isNativeWithdrawn,
+                  entry.target.hostedMetadata?.role.isSheet != true,
                   let handle = controller.workspaceManager.handle(for: entry.token),
                   let workspace = controller.workspaceManager.descriptor(for: entry.workspaceId)
             else { return nil }
-            let app = controller.appInfoCache.info(for: entry.pid)
-            let title = AXWindowService.titlePreferFast(windowId: UInt32(entry.windowId)) ?? ""
+            let presentation = controller.appInfoCache.presentation(
+                for: entry, title: AXWindowService.titlePreferFast(windowId: UInt32(entry.windowId))
+            )
+            let title = presentation.title ?? ""
             return WindowSwitcherItem(
                 handle: handle,
-                title: title.isEmpty ? (app?.name ?? String(localized: "Window")) : title,
-                appName: app?.name ?? String(localized: "Unknown"),
-                icon: app?.icon,
+                title: title.isEmpty ? (presentation.name ?? String(localized: "Window")) : title,
+                appName: presentation.name ?? String(localized: "Unknown"),
+                icon: presentation.icon,
                 workspaceName: controller.settings.workspaces.displayName(for: workspace.name),
                 isMinimized: entry.observedState.isMinimized
             )
@@ -149,11 +152,30 @@ final class WindowSwitcherController {
                     else { return nil }
                     item.workspaceName = controller.settings.workspaces.displayName(for: workspace.name)
                     item.isMinimized = entry.observedState.isMinimized
+                    if let metadata = entry.target.hostedMetadata {
+                        item.title = metadata.title
+                        if metadata.role == .main,
+                           controller.shellAppWindowManager.activeSheet(for: entry.token) != nil
+                        {
+                            item.title += " — " + String(localized: "Dialog open")
+                        }
+                    }
                     return item
                 }
             }
         guard controller.settings.windowSwitcher.order == .lastUsed else { return scoped }
-        return WindowSwitcherOrder.lastUsed.orderedItems(scoped, recent: manager.windowFocusRecencyOrder)
+        return WindowSwitcherOrder.lastUsed.orderedItems(scoped, recent: listedRecency(manager: manager))
+    }
+
+    private func listedToken(_ token: WindowToken, manager: WorkspaceManager) -> WindowToken {
+        guard let role = manager.entry(for: token)?.target.hostedMetadata?.role, role.isSheet else { return token }
+        return manager.hostedFamilyRoot(for: token) ?? token
+    }
+
+    private func listedRecency(manager: WorkspaceManager) -> [WindowToken] {
+        var seen: Set<WindowToken> = []
+        return manager.windowFocusRecencyOrder.map { listedToken($0, manager: manager) }
+            .filter { seen.insert($0).inserted }
     }
 
     private func orderedEntries(in workspaceId: WorkspaceDescriptor.ID, manager: WorkspaceManager) -> [WindowState] {

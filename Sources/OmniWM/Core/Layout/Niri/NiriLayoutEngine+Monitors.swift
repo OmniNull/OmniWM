@@ -205,6 +205,8 @@ extension NiriLayoutEngine {
             {
                 column.height = .proportion(reset.proportion)
                 column.savedHeight = nil
+                column.heightAnimation = nil
+                column.targetHeight = nil
             }
         }
     }

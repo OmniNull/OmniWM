@@ -35,19 +35,46 @@ extension LayoutRefreshController {
         )
     }
 
-    func repairLayoutTransientPark(for entry: WindowState, side: HideSide, observedFrame: CGRect) {
+    func repairLayoutTransientPark(after result: AXFrameApplyResult) {
+        switch result.writeResult.failureReason {
+        case nil,
+             .verificationMismatch,
+             .positionWriteFailed:
+            break
+        default:
+            return
+        }
+        guard let controller,
+              let observedFrame = result.writeResult.observedFrame,
+              !observedFrame.size.isWithinFrameTolerance(of: result.targetFrame.size),
+              let entry = controller.workspaceManager.entry(for: WindowToken(
+                  pid: result.pid,
+                  windowId: result.windowId
+              )),
+              let axRef = entry.axRef,
+              sameAXWindowIdentity(axRef, result.expectedWindow),
+              let side = entry.hiddenState?.offscreenSide
+        else { return }
+        repairLayoutTransientPark(for: entry, side: side, observedFrame: observedFrame)
+    }
+
+    func repairLayoutTransientPark(
+        for entry: WindowState,
+        side: HideSide,
+        observedFrame: CGRect
+    ) {
         guard let controller,
               entry.layoutReason == .standard,
               let parkFrame = controller.axManager.parkTargetFrame(for: entry.windowId),
-              !observedFrame.size.isWithinFrameTolerance(of: parkFrame.size),
               let monitor = controller.workspaceManager.monitor(for: entry.workspaceId),
+              controller.workspaceManager.activeWorkspaceOrFirst(on: monitor.id)?.id == entry.workspaceId,
               let parkOrigin = liveFrameHideOrigin(
                   for: observedFrame,
                   monitor: monitor,
                   side: side,
                   reason: .layoutTransient
               ),
-              !observedFrame.approximatelyEqual(
+              !observedFrame.size.isWithinFrameTolerance(of: parkFrame.size) || !observedFrame.approximatelyEqual(
                   to: CGRect(origin: parkOrigin, size: observedFrame.size),
                   tolerance: FrameTolerance.frameWrite
               ),

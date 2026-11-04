@@ -121,6 +121,7 @@ extension LayoutRefreshController {
 
     func hideInactiveWorkspaces(activeWorkspaceIds: Set<WorkspaceDescriptor.ID>) {
         guard let controller else { return }
+        controller.niriEdgePictures.retainWorkspaces(activeWorkspaceIds)
         let workspaceEntries = workspaceEntriesSnapshot(on: controller)
 
         var allEntries: [(workspaceId: WorkspaceDescriptor.ID, windowId: Int)] = []

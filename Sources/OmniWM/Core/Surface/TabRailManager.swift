@@ -68,7 +68,9 @@ final class TabRailManager {
                 tabCount: info.tabCount,
                 activeVisualIndex: info.activeVisualIndex,
                 activeWindowId: info.activeWindowId,
-                tabs: info.tabs
+                tabs: info.tabs,
+                orderingWindowId: command.orderingWindowId,
+                displayFrame: command.displayFrame
             )
             railInfos[command.key] = presentedInfo
             updateRail(presentedInfo, forceOrdering: false)

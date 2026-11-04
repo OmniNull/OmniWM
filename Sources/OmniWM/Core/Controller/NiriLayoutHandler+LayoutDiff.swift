@@ -34,10 +34,7 @@ extension NiriLayoutHandler {
                 )
             } == true
         let (frames, hiddenHandles) = calculateRelayoutFrames(
-            pass: pass,
-            state: state,
-            snapshot: snapshot,
-            isSettled: isSettled
+            pass: pass, state: state, snapshot: snapshot, isSettled: isSettled
         )
 
         var directives = relayoutAnimationDirectives(
@@ -45,7 +42,7 @@ extension NiriLayoutHandler {
             viewportNeedsRecalc: selection.viewportNeedsRecalc, arrival: arrival
         )
 
-        let diff = layoutDiff(
+        var diff = layoutDiff(
             windows: snapshot.windows,
             frames: frames,
             hiddenHandles: hiddenHandles,
@@ -57,6 +54,10 @@ extension NiriLayoutHandler {
                 excludedTokens: snapshot.excludedTokens,
                 settledContext: isSettled ? (snapshot.monitor, state) : nil
             )
+        )
+        diff.edgeHiddenFrames = edgeHiddenFrames(engine: pass.engine, snapshot: snapshot)
+        diff.picturePreparation = picturePreparation(
+            engine: pass.engine, snapshot: snapshot, state: state, isSettled: isSettled
         )
         completeAnimationDirectives(&directives, pass: pass, state: state)
         return WorkspaceLayoutPlan(
@@ -72,6 +73,13 @@ extension NiriLayoutHandler {
             animationDirectives: directives,
             isActiveWorkspace: snapshot.isActiveWorkspace
         )
+    }
+
+    func edgeHiddenFrames(engine: NiriLayoutEngine, snapshot: NiriWorkspaceSnapshot) -> [WindowToken: CGRect] {
+        engine.layoutPool.edgeHiddenFrames.filter { token, _ in
+            snapshot.windows.contains { $0.token == token && !$0.isNativeFullscreenSuspended }
+                && !snapshot.excludedTokens.contains(token)
+        }
     }
 
     func layoutDiff(
@@ -225,7 +233,8 @@ extension NiriLayoutHandler {
                 )
             },
             isSettled: isSettled,
-            excludedTokens: snapshot.excludedTokens
+            excludedTokens: snapshot.excludedTokens, edgePictures: snapshot.edgePictures,
+            recordsPresentationGeometry: true
         )
     }
 

@@ -62,9 +62,12 @@ struct NiriColumnVisibility {
     let canonicalRect: CGRect
     let visibleRect: CGRect
     let state: ContainerVisibilityState
+    let isEdgeHidden: Bool
 }
 
 struct NiriLayoutViewport {
+    static let minimumNativeBottomVisibility: CGFloat = 32
+
     private let area: WorkingAreaContext
     private let orientation: Monitor.Orientation
     private let workspaceOffset: CGFloat
@@ -87,52 +90,103 @@ struct NiriLayoutViewport {
 
     func columnVisibility(
         for column: NiriPreparedLayoutColumn,
-        at idx: Int,
+        at selection: (index: Int, isActive: Bool),
         viewPosition viewPos: CGFloat,
         hiddenPlacementMonitor: HiddenPlacementMonitorContext?,
-        hiddenPlacementMonitors: [HiddenPlacementMonitorContext]
+        hiddenPlacementMonitors: [HiddenPlacementMonitorContext],
+        edgePictures: NiriColumnPictureState = .none
     ) -> NiriColumnVisibility {
-        let renderOffset = column.renderOffset
         let canonicalContainerRect = area.canonicalContainerRect(
-            position: column.position,
-            span: column.span,
-            orientation: orientation
+            position: column.position, span: column.span, orientation: orientation
         )
         let visibilityRect = area.visibleRenderedContainerRect(
             canonicalRect: canonicalContainerRect,
             viewPosition: viewPos,
             workspaceOffset: workspaceOffset,
-            renderOffset: renderOffset,
+            renderOffset: column.renderOffset,
             orientation: orientation
         )
         var visibilityState = sampledContainerVisibilityState(
             canonicalRect: canonicalContainerRect,
-            renderOffset: renderOffset,
-            fallback: idx == 0 ? .minimum : .maximum,
+            renderOffset: column.renderOffset,
+            fallback: selection.index == 0 ? .minimum : .maximum,
             hiddenPlacementMonitor: hiddenPlacementMonitor,
             hiddenPlacementMonitors: hiddenPlacementMonitors
         )
+        var isEdgeHidden = false
+        if let bottom = bottomMotionVisibility(
+            column: column, isActive: selection.isActive, rect: visibilityRect,
+            monitor: hiddenPlacementMonitor, pictures: edgePictures
+        ) {
+            visibilityState = bottom.state
+            isEdgeHidden = bottom.isPicture
+        }
         if case .visible = visibilityState {
-            let clampedVisibilityRect = NiriMonitorPlaneGeometry.clampedFrame(
-                visibilityRect,
-                screenClampRect: area.viewFrame,
-                orientation: orientation
-            )
-            if let liveOverflowEdge = NiriMonitorPlaneGeometry.overflowEdgeIntersectingNeighboringMonitor(
-                clampedVisibilityRect,
-                viewportFrame: area.workingFrame,
-                orientation: orientation,
-                hiddenPlacementMonitor: hiddenPlacementMonitor,
-                hiddenPlacementMonitors: hiddenPlacementMonitors
+            if let edge = verticalHiddenEdge(
+                column: column, isActive: selection.isActive, rect: visibilityRect,
+                monitor: hiddenPlacementMonitor, monitors: hiddenPlacementMonitors, pictures: edgePictures
             ) {
-                visibilityState = .hidden(liveOverflowEdge)
+                visibilityState = .hidden(edge)
+                isEdgeHidden = edge == .maximum
+            } else {
+                if let liveOverflowEdge = NiriMonitorPlaneGeometry.overflowEdgeIntersectingNeighboringMonitor(
+                    NiriMonitorPlaneGeometry.clampedFrame(
+                        visibilityRect, screenClampRect: area.viewFrame, orientation: orientation
+                    ),
+                    viewportFrame: area.workingFrame,
+                    orientation: orientation,
+                    hiddenPlacementMonitor: hiddenPlacementMonitor,
+                    hiddenPlacementMonitors: hiddenPlacementMonitors
+                ) {
+                    visibilityState = .hidden(liveOverflowEdge)
+                }
             }
         }
         return NiriColumnVisibility(
-            canonicalRect: canonicalContainerRect,
-            visibleRect: visibilityRect,
-            state: visibilityState
+            canonicalRect: canonicalContainerRect, visibleRect: visibilityRect,
+            state: visibilityState, isEdgeHidden: isEdgeHidden
         )
+    }
+
+    private func verticalHiddenEdge(
+        column: NiriPreparedLayoutColumn,
+        isActive: Bool,
+        rect: CGRect,
+        monitor: HiddenPlacementMonitorContext?,
+        monitors: [HiddenPlacementMonitorContext],
+        pictures: NiriColumnPictureState = .none
+    ) -> AxisHideEdge? {
+        guard orientation == .vertical,
+              !(isActive && column.span > area.workingFrame.height),
+              let monitor else { return nil }
+        if isActive, pictures.holdsActive, pictures.isReady || rect.minY >= monitor.frame.maxY {
+            return .maximum
+        }
+        let hasAnotherMonitor = monitors.contains { $0.id != monitor.id }
+        if !isActive, pictures.isAvailable || hasAnotherMonitor, rect.maxY > monitor.frame.maxY {
+            return .maximum
+        }
+        guard !pictures.isAvailable || pictures.isSettled else { return nil }
+        return (pictures.isAvailable || hasAnotherMonitor) && rect.maxY <= area.workingFrame.minY ? .minimum : nil
+    }
+
+    private func bottomMotionVisibility(
+        column: NiriPreparedLayoutColumn,
+        isActive: Bool,
+        rect: CGRect,
+        monitor: HiddenPlacementMonitorContext?,
+        pictures: NiriColumnPictureState
+    ) -> (state: ContainerVisibilityState, isPicture: Bool)? {
+        guard orientation == .vertical, pictures.isAvailable, !pictures.isSettled,
+              !(isActive && column.span > area.workingFrame.height), let monitor else { return nil }
+        let floor = monitor.visibleFrame.minY + Self.minimumNativeBottomVisibility
+        if pictures.isReady, !isActive || pictures.holdsActiveBelow, rect.maxY < floor {
+            return (.hidden(.minimum), true)
+        }
+        if rect.maxY >= floor, rect.maxY <= area.workingFrame.minY {
+            return (.visible, false)
+        }
+        return nil
     }
 
     func sampledContainerVisibilityState(

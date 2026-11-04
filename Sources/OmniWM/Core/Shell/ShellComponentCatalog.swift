@@ -113,11 +113,12 @@ struct ShellComponentDescriptor: Equatable, Sendable {
     let providerCommand: [String]?
     let folder: URL
     let principal: ShellWidgetPrincipal
+    var window: ShellAppWindowDeclaration?
 
     init(
         widget: String, title: String, icon: String, views: [String], uses: [String],
         options: [String: ShellComponentOption], capabilities: ShellComponentCapabilities,
-        providerCommand: [String]?, folder: URL
+        providerCommand: [String]?, folder: URL, window: ShellAppWindowDeclaration? = nil
     ) {
         self.widget = widget
         self.title = title
@@ -128,6 +129,7 @@ struct ShellComponentDescriptor: Equatable, Sendable {
         self.capabilities = capabilities
         self.providerCommand = providerCommand
         self.folder = folder
+        self.window = window
         principal = ShellWidgetPrincipal(role: .component, name: widget, folder: folder)
     }
 
@@ -211,51 +213,7 @@ enum ShellComponentCatalog {
             $0.appendingPathComponent("widgets/\(widget)", isDirectory: true)
         }).first(where: { FileManager.default.fileExists(atPath: $0.appendingPathComponent("component.toml").path) })
         else { throw Failure("No component named \(widget) is installed") }
-        let url = folder.appendingPathComponent("component.toml")
-        let data = try SettingsFileAccess.readContents(at: url).data
-        guard data.count <= 256 * 1024 else { throw Failure("\(widget)/component.toml is larger than 256 KiB") }
-        let table = try TOMLDecoder().decode([String: TOMLNode].self, from: data)
-        guard FileManager.default.fileExists(atPath: folder.appendingPathComponent("component.luau").path) else {
-            throw Failure("\(widget) has no component.luau")
-        }
-        try checkKeys(
-            table,
-            allowed: ["title", "icon", "views", "uses", "options", "capabilities", "provider"],
-            place: widget
-        )
-        let title = try string(table["title"], fallback: widget, place: "\(widget) title")
-        let icon = try string(table["icon"], fallback: "square.grid.2x2", place: "\(widget) icon")
-        let views = try strings(table["views"], fallback: [], place: "\(widget) views")
-        guard !views.isEmpty, views.allSatisfy(validName), Set(views).count == views.count else {
-            throw Failure("\(widget) views must contain unique view names")
-        }
-        let uses = try strings(table["uses"], fallback: [], place: "\(widget) uses")
-        guard uses.allSatisfy(validName), Set(uses).count == uses.count else {
-            throw Failure("\(widget) uses must contain unique component names")
-        }
-        let options = try parseOptions(table["options"], place: widget)
-        let capabilities = try parseCapabilities(table["capabilities"], place: widget, describesPurpose: true)
-        var command: [String]?
-        if let node = table["provider"] {
-            guard case let .table(provider) = node else { throw Failure("\(widget) provider must be a table") }
-            try checkKeys(provider, allowed: ["command"], place: "\(widget) provider")
-            let argv = try strings(provider["command"], fallback: [], place: "\(widget) provider command")
-            guard let executable = argv.first, !executable.isEmpty, argv.count <= 64,
-                  !executable.hasPrefix("/"), !executable.split(separator: "/").contains("..")
-            else { throw Failure("\(widget) provider command must name a program inside its package") }
-            command = argv
-        }
-        return ShellComponentDescriptor(
-            widget: widget,
-            title: title,
-            icon: icon,
-            views: views,
-            uses: uses,
-            options: options,
-            capabilities: capabilities,
-            providerCommand: command,
-            folder: folder
-        )
+        return try load(widget, folder: folder)
     }
 
     static func resolve(_ instances: [ShellComponentInstance], directories: [URL]) throws -> Resolution {
@@ -380,7 +338,7 @@ enum ShellComponentCatalog {
         }
     }
 
-    private static func parseCapabilities(
+    static func parseCapabilities(
         _ node: TOMLNode?, place: String, describesPurpose: Bool = false
     ) throws -> ShellComponentCapabilities {
         guard let node else { return ShellComponentCapabilities() }
@@ -418,19 +376,19 @@ enum ShellComponentCatalog {
         return value
     }
 
-    private static func checkKeys(_ table: [String: TOMLNode], allowed: Set<String>, place: String) throws {
+    static func checkKeys(_ table: [String: TOMLNode], allowed: Set<String>, place: String) throws {
         if let key = table.keys.sorted().first(where: { !allowed.contains($0) }) {
             throw Failure("\(place): unknown key \(key)")
         }
     }
 
-    private static func string(_ node: TOMLNode?, fallback: String, place: String) throws -> String {
+    static func string(_ node: TOMLNode?, fallback: String, place: String) throws -> String {
         guard let node else { return fallback }
         guard case let .string(value) = node else { throw Failure("\(place) must be a string") }
         return value
     }
 
-    private static func strings(_ node: TOMLNode?, fallback: [String], place: String) throws -> [String] {
+    static func strings(_ node: TOMLNode?, fallback: [String], place: String) throws -> [String] {
         guard let node else { return fallback }
         guard case let .array(values) = node else { throw Failure("\(place) must be a string array") }
         return try values.map { value in

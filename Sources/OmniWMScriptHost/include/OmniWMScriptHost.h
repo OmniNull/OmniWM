@@ -369,7 +369,7 @@ void omni_vm_reset_strings(omni_vm *vm) OMNI_NOEXCEPT;
 
 omni_instance *omni_instance_create(omni_vm *vm) OMNI_NOEXCEPT;
 void omni_instance_destroy(omni_instance *instance) OMNI_NOEXCEPT;
-omni_status omni_instance_set_window_size(omni_instance *instance, double width, double height) OMNI_NOEXCEPT;
+omni_status omni_instance_set_window_offer(omni_instance *instance, const char *view_name, size_t view_name_length, double width, double height) OMNI_NOEXCEPT;
 omni_status omni_instance_set_number(omni_instance *instance, const char *key, double value) OMNI_NOEXCEPT;
 omni_status omni_instance_set_string(omni_instance *instance, const char *key, const char *value, size_t length) OMNI_NOEXCEPT;
 omni_status omni_instance_set_value(omni_instance *instance, const char *key, const uint8_t *value, size_t length) OMNI_NOEXCEPT;
@@ -424,7 +424,8 @@ typedef enum omni_service_kind {
     OMNI_SERVICE_DROP = 5,
     OMNI_SERVICE_DESKTOP = 6,
     OMNI_SERVICE_RESOURCE = 7,
-    OMNI_SERVICE_DRAG = 8
+    OMNI_SERVICE_DRAG = 8,
+    OMNI_SERVICE_WINDOW = 9
 } omni_service_kind;
 
 typedef struct omni_resource_id {

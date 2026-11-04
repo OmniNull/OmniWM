@@ -50,15 +50,42 @@ struct LayoutVisibilityApplication {
         prepareVisibility()
         prepareRestores()
         beginReveals()
-        refreshController.applyLayoutTransientHides(
-            hiddenEntries, monitor: monitor, isAnimationTick: plan.isAnimationTick,
-            preserveWorkspaceInactive: !plan.isActiveWorkspace
-        )
+        applyHiddenEntries()
         restoreHiddenEntries()
         clearShownHiddenStates()
         unsuppressVisibleWindows()
         prepareFrames()
         applyFrames()
+    }
+
+    private func applyHiddenEntries() {
+        guard plan.isAnimationTick, plan.monitor.orientation == .vertical else {
+            refreshController.applyLayoutTransientHides(
+                hiddenEntries, monitor: monitor, isAnimationTick: plan.isAnimationTick,
+                preserveWorkspaceInactive: !plan.isActiveWorkspace
+            )
+            return
+        }
+        var nativeParkEntries: [(entry: WindowState, side: HideSide)] = []
+        var deferredParkEntries: [(entry: WindowState, side: HideSide)] = []
+        for hidden in hiddenEntries {
+            if hidden.side == AxisHideEdge.minimum.encodedHideSide,
+               diff.edgeHiddenFrames[hidden.entry.token] != nil
+               || controller.axManager.pendingParkFrameRequest(for: hidden.entry.windowId)?.pid == hidden.entry.pid
+            {
+                nativeParkEntries.append(hidden)
+            } else {
+                deferredParkEntries.append(hidden)
+            }
+        }
+        refreshController.applyLayoutTransientHides(
+            deferredParkEntries, monitor: monitor, isAnimationTick: true,
+            preserveWorkspaceInactive: !plan.isActiveWorkspace
+        )
+        refreshController.applyLayoutTransientHides(
+            nativeParkEntries, monitor: monitor, isAnimationTick: true,
+            preserveWorkspaceInactive: !plan.isActiveWorkspace, requiresNativePark: true
+        )
     }
 
     private mutating func prepareVisibility() {

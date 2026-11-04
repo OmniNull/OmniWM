@@ -11,6 +11,7 @@ extension NiriLayoutEngine {
         result: inout LayoutResult,
         viewportOffset: CGFloat = 0
     ) {
+        if context.recordsPresentationGeometry { single.container.edgeHiddenFrame = nil }
         let layoutArea = context.area
         let orientation = context.orientation
         let time = context.time
@@ -38,6 +39,25 @@ extension NiriLayoutEngine {
             context: NiriContainerLayoutContext(frames: context.frames, secondaryGap: 0, time: time),
             result: &result.frames
         )
+    }
+
+    func layoutProjectedColumns(
+        _ columns: [NiriProjectedColumn],
+        selection: NiriViewportSelection,
+        context: NiriCalculationContext,
+        sampling: NiriViewportSampling,
+        result: inout LayoutResult
+    ) {
+        let prepared = prepareLayoutColumns(
+            columns, area: context.area, primaryGap: context.primaryGap,
+            time: context.time, orientation: context.orientation
+        )
+        let pass = columnLayoutPass(
+            selection: selection, columns: columns, prepared: prepared, context: context, sampling: sampling
+        )
+        for index in columns.indices {
+            layoutProjectedColumn(columns[index], prepared: prepared[index], at: index, pass: pass, result: &result)
+        }
     }
 
     func columnLayoutPass(
@@ -103,10 +123,17 @@ extension NiriLayoutEngine {
         result: inout LayoutResult
     ) {
         let visibility = pass.viewport.columnVisibility(
-            for: prepared, at: index, viewPosition: pass.viewPosition,
+            for: prepared, at: (index: index, isActive: index == pass.activeIndex), viewPosition: pass.viewPosition,
             hiddenPlacementMonitor: pass.context.hiddenPlacementMonitor,
-            hiddenPlacementMonitors: pass.context.hiddenPlacementMonitors
+            hiddenPlacementMonitors: pass.context.hiddenPlacementMonitors,
+            edgePictures: pass.context.orientation == .vertical ? pass.context.edgePictures.columnState(
+                column, activeTab: column.column.isTabbed ? projectedActiveWindow(in: column) : nil,
+                isActive: index == pass.activeIndex, isSettled: pass.settledContentFrame != nil
+            ) : .none
         )
+        if pass.context.recordsPresentationGeometry {
+            column.column.edgeHiddenFrame = visibility.isEdgeHidden ? visibility.visibleRect : nil
+        }
         let renderedRect = renderedColumnFrame(column, at: index, visibility: visibility, pass: pass, result: &result)
         layoutContainer(
             container: column.column,
@@ -123,6 +150,36 @@ extension NiriLayoutEngine {
             ),
             result: &result.frames
         )
+        if visibility.isEdgeHidden {
+            recordEdgeHiddenFrames(column, visibility: visibility, pass: pass, result: &result.edgeHiddenFrames)
+        }
+    }
+
+    private func recordEdgeHiddenFrames(
+        _ column: NiriProjectedColumn,
+        visibility: NiriColumnVisibility,
+        pass: NiriColumnLayoutPass,
+        result: inout [WindowToken: CGRect]
+    ) {
+        let activeTab = column.column.isTabbed ? projectedActiveWindow(in: column) : nil
+        for window in column.windows {
+            guard window.sizingMode == .normal,
+                  activeTab == nil || window === activeTab,
+                  let canonicalFrame = window.frame
+            else { continue }
+            let baseFrame = canonicalFrame.offsetBy(
+                dx: visibility.visibleRect.minX - visibility.canonicalRect.minX,
+                dy: visibility.visibleRect.minY - visibility.canonicalRect.minY
+            )
+            let frame = window.animatedFrame(
+                from: baseFrame,
+                within: visibility.visibleRect,
+                at: pass.context.time,
+                orientation: pass.context.orientation
+            ).roundedToPhysicalPixels(scale: pass.context.area.scale)
+            guard frame.intersects(pass.context.area.viewFrame) else { continue }
+            result[window.token] = frame
+        }
     }
 
     private func renderedColumnFrame(
