@@ -73,6 +73,7 @@ typedef enum omni_status {
 #define OMNI_STYLE_FONT_MASK 0xFE00u
 #define OMNI_STYLE_FONT_CUSTOM 1u
 #define OMNI_FONT_NAME_LIMIT 255u
+#define OMNI_GLASS_SHAPE_LIMIT 64u
 #define OMNI_STYLE_SIZE_SHIFT 16u
 
 typedef enum omni_value_tag {

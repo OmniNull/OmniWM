@@ -185,11 +185,20 @@ extension ShellVitreusWindowStickTests {
         ])
     }
 
+    func testHeldAndStuckWindowsKeepAllTargetsAndGlassShapes() throws {
+        try checkHeldAndStuckWindows(renderBudget: ShellRenderTestBudget.unlimited)
+    }
+
     func testRenderSpeedHeldAndStuckWindowsStayWithinProductionBudget() throws {
+        try ShellRenderTestBudget.requireBenchmark()
+        try checkHeldAndStuckWindows(renderBudget: ShellWidgetPackage.renderBudget)
+    }
+
+    private func checkHeldAndStuckWindows(renderBudget: UInt64) throws {
         let widget = try windows.docks.island([
             "pins": .strings([ShellVitreusDockTests.safari]),
             "addons": .strings(["notes"])
-        ])
+        ], renderBudget: ShellRenderTestBudget.unlimited)
         let fixture = Fixture(
             widget: widget,
             monitor: VitreusFixture.monitor(),
@@ -198,22 +207,40 @@ extension ShellVitreusWindowStickTests {
         )
         windows.seed(widget)
         windows.show(fixture)
-        _ = try stuck(fixture, id: "calendar", side: "left")
-        _ = try stuck(fixture, id: "controls", side: "right")
-        _ = try stuck(fixture, id: "player", side: "bottom")
+        let heldWindow = "calendar"
+        let restingWindows = [(id: "controls", side: "right"), (id: "player", side: "bottom")]
+        _ = try stuck(fixture, id: heldWindow, side: "left")
+        for window in restingWindows {
+            _ = try stuck(fixture, id: window.id, side: window.side)
+        }
         windows.trigger(fixture, "desk-open")
         try windows.invoke(fixture, "addon-pin-notes")
         windows.shelfOpen = true
         windows.show(fixture)
-        let pointer = try windows.grab(fixture, id: "calendar", to: CGPoint(x: 130, y: 300))
-        XCTAssertEqual(widget.surface.manipulationTargets.count, 15)
+        let pointer = try windows.grab(fixture, id: heldWindow, to: CGPoint(x: 130, y: 300))
+        let expectedTargets = ShellVitreusWindowShelfTests.shelfAndWindowTargetKeys
+        XCTAssertEqual(widget.surface.manipulationTargets.count, expectedTargets.count)
         let layout = widget.surface.layout
+        XCTAssertEqual(Set(widget.surface.manipulationTargets.keys.map { layout.core.key(of: $0) }), expectedTargets)
         let elements = layout.core.elements { _ in true }
         let counts = elements.filter { layout.core.kind(of: $0) == .glass }.map { body in
             elements.count { layout.core.parent(of: $0) == body }
         }
-        XCTAssertEqual(counts.max(), 37)
-        XCTAssertTrue(counts.allSatisfy { $0 <= 64 })
+        let heldPieces = [
+            "lip", "bulge", "ripple-break-top", "ripple-break-bottom", "stray",
+            "ripple-return-top", "ripple-return-bottom"
+        ]
+        let expectedShapeNames = ["shell", "window-shelf-glass", "drawer"]
+            + restingWindows.map { "drawer-" + $0.id }
+            + sides.flatMap { side, _ in heldPieces.map { key(heldWindow, side, $0) } }
+            + restingWindows.flatMap { window in ["lip", "bulge"].map { key(window.id, window.side, $0) } }
+        let body = try VitreusFixture.element(widget, key: "bar")
+        XCTAssertEqual(counts.max(), expectedShapeNames.count)
+        XCTAssertEqual(
+            Set(elements.filter { layout.core.parent(of: $0) == body }.map { layout.core.key(of: $0) }),
+            Set(expectedShapeNames.map { VitreusFixture.key($0) })
+        )
+        XCTAssertTrue(counts.allSatisfy { $0 <= Int(OMNI_GLASS_SHAPE_LIMIT) })
         XCTAssertFalse(widget.surface.islandRegions().contains { $0.contains(CGPoint(x: 10, y: 900)) })
         var stats = omni_render_stats()
         var error = [CChar](repeating: 0, count: 256)
@@ -221,7 +248,7 @@ extension ShellVitreusWindowStickTests {
             omni_instance_render(
                 widget.instance,
                 OMNI_VIEW_BAR,
-                ShellWidgetPackage.renderBudget,
+                renderBudget,
                 &stats,
                 &error,
                 error.count

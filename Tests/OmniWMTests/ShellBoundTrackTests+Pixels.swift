@@ -25,15 +25,26 @@ final class ShellBoundTrackPixelTests: XCTestCase {
     }
 
     func testBoundPadsKeepTheAttachedReachUnscaledAtScalePointEightAndDetPointThree() throws {
-        let begin = CACurrentMediaTime()
+        let begin = Fixture.timelineOrigin
+        let scale: CGFloat = 0.8
         let fixture = try Fixture.Fixture(Fixture.body, animations: false, clock: { begin })
         let stage = try Fixture.stage(fixture, at: begin)
         let shape = try Fixture.element(fixture, "bound")
         try pixels.requireNative(stage, Fixture.element(fixture, "panes").slot)
-        try Fixture.scale(fixture, to: 0.8)
+        try Fixture.scale(fixture, to: scale)
         let expected = try Fixture.expected(fixture)
-        XCTAssertEqual(expected.maxX, 626 * 0.7 + (571 + 13 * 0.8) * 0.3, accuracy: 1e-9)
-        XCTAssertEqual(expected.maxX, 612.62, accuracy: 1e-9)
+        let shownMaxX = Fixture.targetFrame.minX + Fixture.targetFrame.width * scale
+        let detachment = (Fixture.canvasFrame.maxX - shownMaxX - Fixture.detachFrom) / Fixture.detachSpan
+        let detachedMaxX = shownMaxX + Fixture.padding * scale
+        let attachedMaxX = Fixture.attachedFrame.maxX
+        XCTAssertEqual(
+            expected.maxX, attachedMaxX * (1 - detachment) + detachedMaxX * detachment,
+            accuracy: expected.maxX.ulp
+        )
+        XCTAssertEqual(
+            expected.maxX, attachedMaxX - (attachedMaxX - detachedMaxX) * detachment,
+            accuracy: expected.maxX.ulp
+        )
         XCTAssertEqual(fixture.surface.layout.core.content(of: shape).glassFollow, 0)
         XCTAssertNil(ShellLayerScene.engineQueue.sync { stage.scene.shapeTracks.follows[shape.slot] })
         try check(fixture, on: stage, at: begin)
@@ -117,6 +128,7 @@ final class ShellBoundTrackPixelTests: XCTestCase {
 
     func testReleasedBoundSettleHasNativeKeysAtItsAnalyticClampCrossing() throws {
         let clock = Fixture.Clock()
+        clock.now = Fixture.timelineOrigin
         let fixture = try Fixture.Fixture(Fixture.body, animations: true, clock: { clock.now })
         let stage = try Fixture.stage(fixture, at: clock.now)
         let begin = clock.now
@@ -127,12 +139,18 @@ final class ShellBoundTrackPixelTests: XCTestCase {
             let bound = try XCTUnwrap(entry.bound)
             let crossing = try XCTUnwrap(bound.plan.crossings(at: 1, rising: true).first)
             XCTAssertGreaterThan(crossing, begin)
-            XCTAssertTrue(entry.samples.contains { abs(entry.begin + $0.time - crossing) < 1e-9 })
+            XCTAssertTrue(entry.samples.contains { abs(entry.begin + $0.time - crossing) <= crossing.ulp })
             return crossing
         }
-        for time in [crossing - 1.0 / 600, crossing, crossing + 1.0 / 600] {
+        let offset = crossing - begin
+        let previousSample = floor(offset * ShellReveal.rate) / ShellReveal.rate
+        let nextSample = ceil(offset * ShellReveal.rate) / ShellReveal.rate
+        let sampleOffset = min(offset - previousSample, nextSample - offset) / 2
+        XCTAssertGreaterThan(sampleOffset, 0)
+        let halfPixel = Double(Fixture.viewport.width) / Double(stage.width) / 2
+        for time in [crossing - sampleOffset, crossing, crossing + sampleOffset] {
             clock.now = time
-            try check(fixture, on: stage, at: time, accuracy: 0.5)
+            try check(fixture, on: stage, at: time, accuracy: halfPixel)
         }
     }
 

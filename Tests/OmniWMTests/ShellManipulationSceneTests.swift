@@ -41,6 +41,7 @@ final class ShellManipulationSceneTests: XCTestCase {
         container.isGeometryFlipped = true
         container.frame = CGRect(x: 0, y: 0, width: Self.width, height: Self.height)
         let scene = ShellLayerScene(container: container, scale: 1)
+        scene.clock = { begin }
         let renderer = try ShellLayerScene.engineQueue.sync {
             try ShellOffscreenRenderer(root: container, width: Self.width, height: Self.height)
         }
@@ -232,22 +233,25 @@ final class ShellManipulationSceneTests: XCTestCase {
     }
 
     func testCommitRebaseInOneTransactionKeepsTheRenderedRect() throws {
-        let begin = CACurrentMediaTime()
+        let begin: CFTimeInterval = 1
         let (scene, renderer) = try makeScene(at: begin)
         let release = CGRect(x: 100, y: 30, width: 40, height: 40)
         let drag = try motion(from: release, velocity: .init(x: -300, y: 120, width: 0), to: release, begin: begin)
         manipulate(scene, .motion(drag.wrapper(for: Self.home)), token: 3)
-        let time = begin + 0.1
+        let retargetElapsed: CFTimeInterval = 0.1
+        let time = begin + retargetElapsed
         let before = try rendered(renderer, at: time)
         let committed = Self.home.offsetBy(dx: 30, dy: 12)
         let settle = try XCTUnwrap(drag.retargeted(at: time, to: committed))
+        scene.clock = { time }
         submit([
             .frame(slot: 0, rect: committed, animation: nil),
             .manipulation(slot: 0, token: 3, presentation: .motion(settle.wrapper(for: committed)), active: false)
         ], to: scene)
         let after = try rendered(renderer, at: time)
-        assertEqual(after, before, accuracy: 0.5)
-        assertEqual(try rendered(renderer, at: time + settle.duration + 0.01), committed, accuracy: 0.5)
+        let halfPixel = 1 / scene.scale / 2
+        assertEqual(after, before, accuracy: halfPixel)
+        assertEqual(try rendered(renderer, at: (settle.begin + settle.duration).nextUp), committed, accuracy: halfPixel)
     }
 
     func testFrameDuringAnInFlightScaleMotionKeepsTheTopLeftPivot() throws {
@@ -346,14 +350,15 @@ extension ShellManipulationSceneTests {
         let clip = CGSize(width: 30, height: 30)
         let red = CGColor(srgbRed: 1, green: 0, blue: 0, alpha: 1)
         let black = CGColor(gray: 0, alpha: 1)
-        for (outline, expected) in [
-            (ShellManipulationClip.standardOutline, [178, 178, 178]),
-            (red, [0, 0, 255]),
-            (nil, [0, 0, 0])
-        ]
-            as [(CGColor?, [Int])]
-        {
-            let begin = CACurrentMediaTime()
+        let space = try XCTUnwrap(CGColorSpace(name: CGColorSpace.sRGB))
+        let background = try XCTUnwrap(black.converted(to: space, intent: .defaultIntent, options: nil)?.components)
+        let bytesPerPixel = MemoryLayout<UInt32>.size
+        let maximumChannel = CGFloat(UInt8.max)
+        for outline in [ShellManipulationClip.standardOutline, red, nil] {
+            let color = try XCTUnwrap((outline ?? black).converted(to: space, intent: .defaultIntent, options: nil))
+            let channels = try XCTUnwrap(color.components)
+            let expected = [2, 1, 0].map { channels[$0] * color.alpha + background[$0] * (1 - color.alpha) }
+            let begin: CFTimeInterval = 1
             let (scene, renderer) = try makeScene(at: begin, fill: black)
             manipulate(
                 scene,
@@ -363,16 +368,24 @@ extension ShellManipulationSceneTests {
             let state = ShellLayerScene.engineQueue.sync {
                 (layer.borderWidth, layer.borderColor, layer.masksToBounds, layer.bounds.size)
             }
-            XCTAssertEqual(state.0, outline == nil ? 0 : 1)
+            let pixelWidth = 1 / scene.scale
+            XCTAssertEqual(state.0, outline == nil ? 0 : pixelWidth)
             XCTAssertTrue(ShellLayerScene.same(state.1, outline))
             XCTAssertTrue(state.2)
             XCTAssertEqual(state.3, clip)
             let bytes = try ShellLayerScene.engineQueue.sync { try renderer.render(paused: begin) }
-            let border = (20 * Self.width + 37) * 4
+            let clippedFrame = CGRect(origin: Self.home.origin, size: clip)
+            let row = Int(clippedFrame.midY / pixelWidth)
+            let borderColumn = Int(clippedFrame.maxX / pixelWidth) - 1
+            let border = (row * Self.width + borderColumn) * bytesPerPixel
             for (channel, value) in expected.enumerated() {
-                XCTAssertEqual(Int(bytes[border + channel]), value, accuracy: 2, "\(String(describing: outline))")
+                XCTAssertEqual(
+                    CGFloat(bytes[border + channel]) / maximumChannel, value,
+                    accuracy: 1 / maximumChannel, "\(String(describing: outline))"
+                )
             }
-            XCTAssertEqual(Int(bytes[(20 * Self.width + 38) * 4 + 3]), 0)
+            let outside = (row * Self.width + borderColumn + 1) * bytesPerPixel + bytesPerPixel - 1
+            XCTAssertEqual(bytes[outside], 0)
         }
     }
 }

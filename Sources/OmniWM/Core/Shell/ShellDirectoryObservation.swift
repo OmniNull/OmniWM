@@ -38,6 +38,7 @@ final class ShellDirectoryObservation {
     private var rootIdentities: [String: FileIdentity] = [:]
     private var directoryWatches: [String: DirectoryWatch] = [:]
     private var directoryIdentities: [String: FileIdentity] = [:]
+    var onNativeObservationReady: (@MainActor () -> Void)?
 
     var isUsingNativeObservation: Bool {
         stream != nil && retryTimer == nil
@@ -174,6 +175,7 @@ final class ShellDirectoryObservation {
         stream = candidate
         retryTimer?.cancel()
         retryTimer = nil
+        onNativeObservationReady?()
     }
 
     private func didReleaseStream(generation: UInt64) {

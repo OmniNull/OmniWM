@@ -23,7 +23,10 @@ final class ShellVitreusDrawerTests: XCTestCase {
         let scene: ShellLayerScene
     }
 
-    func fixture(animations: Bool = false, display: UInt32 = 95100) throws -> Fixture {
+    func fixture(
+        animations: Bool = false, display: UInt32 = 95100,
+        renderBudget: UInt64 = ShellRenderTestBudget.ordinaryRender
+    ) throws -> Fixture {
         let shell = try VitreusFixture.shell()
         addTeardownBlock { VitreusFixture.remove(shell) }
         let source = try VitreusFixture.source(shell)
@@ -48,7 +51,7 @@ final class ShellVitreusDrawerTests: XCTestCase {
             name: "vitreus-drawer", source: main, modules: modules, chunk: source.chunk,
             resources: VitreusFixture.resources(shell, animations: animations),
             fonts: ShellFontLibrary.shared.fonts(in: source.fontFolders), memoryLimit: ShellWidgetPackage.memoryLimit,
-            moduleLimit: source.moduleLimit
+            moduleLimit: source.moduleLimit, renderBudget: renderBudget
         )
         let clock = Clock()
         widget.surface.clock = { clock.time }

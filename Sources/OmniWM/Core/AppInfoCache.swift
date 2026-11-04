@@ -53,15 +53,20 @@ final class AppInfoCache {
         insertionOrder.removeAll { $0 == pid }
     }
 
-    func info(for pid: pid_t) -> AppInfo? {
+    func info(
+        for pid: pid_t,
+        load: @MainActor (pid_t) -> AppInfo? = { pid in
+            guard let app = NSRunningApplication(processIdentifier: pid) else { return nil }
+            return AppInfo(
+                name: app.localizedName,
+                bundleId: app.bundleIdentifier,
+                icon: app.icon,
+                activationPolicy: app.activationPolicy
+            )
+        }
+    ) -> AppInfo? {
         if let cached = cache[pid] { return cached }
-        guard let app = NSRunningApplication(processIdentifier: pid) else { return nil }
-        let info = AppInfo(
-            name: app.localizedName,
-            bundleId: app.bundleIdentifier,
-            icon: app.icon,
-            activationPolicy: app.activationPolicy
-        )
+        guard let info = load(pid) else { return nil }
         if cache.count >= maxEntries, let oldest = insertionOrder.first {
             insertionOrder.removeFirst()
             cache.removeValue(forKey: oldest)

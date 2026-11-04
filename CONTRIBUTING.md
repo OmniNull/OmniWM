@@ -155,6 +155,15 @@ Every Swift source and test file starts with the two-line GPL-2.0 header enforce
 
 Use focused regression tests for changed behavior. Runtime changes require the full serial `swift test` suite, and changes affecting concurrency also require `swift test --parallel`. Environment-dependent live tests remain opt-in. For motion, focus, layout, and other visible behavior, also describe the manual checks you performed.
 
+Shell render speed benchmarks are opt-in because their production CPU-budget verdict depends on the machine and its load. Run them with the pinned toolchain:
+
+```sh
+LIBRARY_PATH="$(./Scripts/ghostty-preflight.sh print-library-dir)${LIBRARY_PATH:+:$LIBRARY_PATH}" \
+OMNIWM_RUN_SHELL_BENCHMARKS=1 "$HOME/.swiftly/bin/swift" test --arch arm64 --filter testRenderSpeed
+```
+
+The default suite keeps the corresponding functional assertions without a render CPU limit and still checks runaway-script containment. The app's production CPU budget is unchanged.
+
 CI takes Fish and Nushell from the flake to run the native CLI completion tests. For the same coverage locally, run `swift test` inside `nix develop`; tests for a missing shell are skipped.
 
 For changes to setup, packaging, development installation, or related tooling, also run `make test-dev-tools`. This runs the Python development-tooling tests and is included in CI's **Tooling** job.

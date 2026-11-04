@@ -271,6 +271,10 @@ extension ShellVitreusBarTests {
             let index = parent?.sublayers?.firstIndex(of: owner) ?? 0
             let position = owner.position
             let mask = owner.mask
+            let rasterized = owner.shouldRasterize
+            let rasterScale = owner.rasterizationScale
+            owner.shouldRasterize = true
+            owner.rasterizationScale = CGFloat(scale)
             let bodies = bodySlots.compactMap { scene.layers[$0] }
             let hidden = bodies.map(\.isHidden)
             let band = bandSlot.flatMap { scene.layers[$0] }
@@ -293,6 +297,8 @@ extension ShellVitreusBarTests {
             }
             defer {
                 owner.mask = mask
+                owner.shouldRasterize = rasterized
+                owner.rasterizationScale = rasterScale
                 owner.position = position
                 if let bandPosition { band?.position = bandPosition }
                 for (body, value) in zip(bodies, hidden) { body.isHidden = value }
@@ -351,8 +357,7 @@ extension ShellVitreusBarTests {
                             if after[3] != 0 { leaked += 1 }
                             if before[3] > 0 { covered += 1 }
                         } else if !outside.contains(point), before[3] > 0 {
-                            let colorChanged = zip(before.prefix(3), after.prefix(3)).contains { abs($0 - $1) > 1 }
-                            if after[3] != before[3] || colorChanged { changed += 1 }
+                            if after != before { changed += 1 }
                             visible += 1
                         }
                     }

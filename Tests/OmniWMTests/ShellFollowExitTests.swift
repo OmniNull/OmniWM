@@ -13,22 +13,38 @@ final class ShellFollowExitTests: XCTestCase {
     private let inputs = ShellManipulationSurfaceTests()
     private let glass = ShellGlassSceneTests()
 
+    private static let timelineOrigin: CFTimeInterval = 1
+    private static let viewport = CGSize(width: 600, height: 400)
+    private static let deskFrame = CGRect(x: 200, y: 100, width: 100, height: 80)
+    private static let exitOffset = CGPoint(x: -120, y: -30)
+    private static let exitScale: CGFloat = 2
+    private static let revealResponse = 0.482
+    private static let revealBounce = 0.31
+    private static let exitDelay: CFTimeInterval = 0.04
+
+    private static var exitFrame: CGRect {
+        CGRect(
+            x: deskFrame.minX + exitOffset.x, y: deskFrame.minY + exitOffset.y,
+            width: deskFrame.width * exitScale, height: deskFrame.height * exitScale
+        )
+    }
+
     private static let body = """
     local open=not (ctx.data.vars or {}).closed
-    local drip={response=0.482,bounce=0.31}
+    local drip={response=\(revealResponse),bounce=\(revealBounce)}
     local morph={anchor={x=1,y=0.5},stops={{at=0,scale=0},{at=1,scale=1}}}
-    return ui.stack{key='root',w=600,h=400,
-        ui.glass{key='panes',align='topLeading',w=600,h=400,
+    return ui.stack{key='root',w=\(viewport.width),h=\(viewport.height),
+        ui.glass{key='panes',align='topLeading',w=\(viewport.width),h=\(viewport.height),
             backdrop=false,fill='#FFFFFFFF',shadow='#00000000',rim=0,blend=0,
-            open and ui.shape{key='desk-shape',align='topLeading',dx=200,dy=100,w=100,h=80,
+            open and ui.shape{key='desk-shape',align='topLeading',dx=\(deskFrame.minX),dy=\(deskFrame.minY),w=\(deskFrame.width),h=\(deskFrame.height),
                 radius=0,follow='desk',reveal=drip,morph=morph} or nil},
-        open and ui.stack{key='desk',align='topLeading',dx=200,dy=100,w=100,h=80,
+        open and ui.stack{key='desk',align='topLeading',dx=\(deskFrame.minX),dy=\(deskFrame.minY),w=\(deskFrame.width),h=\(deskFrame.height),
             reveal=drip,manipulationFollow={response=0.363,bounce=0.42},
-            exit={dx=-120,dy=-30,scale=2,anchor={x=0,y=0},animate={response=0.363,bounce=0.42}},
+            exit={dx=\(exitOffset.x),dy=\(exitOffset.y),scale=\(exitScale),anchor={x=0,y=0},animate={response=0.363,bounce=0.42}},
             ui.box{key='grip',align='topLeading',w=100,h=12,onGesture=function() end,
                 gesture={track={mode='move',target='desk',bounds={w=600,h=400},
                     min={w=50,h=40},max={w=200,h=160}}}},
-            ui.box{key='content',w=100,h=80,fill='#FFFFFFFF',morph=morph}} or nil}
+            ui.box{key='content',w=\(deskFrame.width),h=\(deskFrame.height),fill='#FFFFFFFF',morph=morph}} or nil}
 
     """
 
@@ -51,12 +67,14 @@ final class ShellFollowExitTests: XCTestCase {
             root.removeFromSuperlayer()
             CATransaction.begin()
             CATransaction.setDisableActions(true)
-            root.frame = CGRect(x: 0, y: 0, width: 600, height: 400)
+            root.frame = CGRect(origin: .zero, size: Self.viewport)
             root.isGeometryFlipped = true
             root.speed = 0
             root.timeOffset = begin
             CATransaction.commit()
-            let renderer = try ShellOffscreenRenderer(root: root, width: 600, height: 400)
+            let renderer = try ShellOffscreenRenderer(
+                root: root, width: Int(Self.viewport.width), height: Int(Self.viewport.height)
+            )
             _ = try renderer.render(paused: begin)
             return renderer
         }
@@ -79,7 +97,12 @@ final class ShellFollowExitTests: XCTestCase {
             XCTAssertEqual(closing.progress, 1)
             XCTAssertEqual(closing.commit, begin)
             return Stage(
-                pixels: .init(scene: scene, renderer: renderer, width: 600, height: 400),
+                pixels: .init(
+                    scene: scene,
+                    renderer: renderer,
+                    width: Int(Self.viewport.width),
+                    height: Int(Self.viewport.height)
+                ),
                 panes: try XCTUnwrap(scene.layers[pane.slot]), content: retained.subtree, closing: closing
             )
         }
@@ -105,20 +128,33 @@ final class ShellFollowExitTests: XCTestCase {
         return try glass.drawn(stage.pixels, at: time, around: expected)
     }
 
+    private func closing(at begin: CFTimeInterval) throws -> ShellReveal {
+        let spring = try XCTUnwrap(ShellSpringDynamics.Parameters(ShellAnimation(
+            motion: .spring(response: Self.revealResponse, bounce: Self.revealBounce), speed: 1
+        )))
+        return ShellReveal(begin: begin, progress: 1, target: 0, spring: spring)
+    }
+
     func testClosingAMovedHalfScaledTargetCarriesItsExitIntoTheRetainedFollower() throws {
-        let begin = CACurrentMediaTime()
+        let begin = Self.timelineOrigin
         let fixture = try Fixture(Self.body, animations: true, clock: { begin })
         let stage = try stage(fixture, at: begin)
         let spring = try inputs.desk
         let returning = try XCTUnwrap(ShellManipulationMotion(
-            from: CGRect(x: 200, y: 100, width: 100, height: 80),
-            to: CGRect(x: 80, y: 70, width: 200, height: 160), begin: begin, spring: spring
+            from: Self.deskFrame, to: Self.exitFrame, begin: begin, spring: spring
         ))
-        for elapsed in [0.0, 0.03, 0.06, 0.1, 0.14] {
+        let expectedClosing = try closing(at: begin)
+        XCTAssertEqual(stage.closing, expectedClosing)
+        let pixelWidth = Self.viewport.width / CGFloat(stage.pixels.width)
+        let sampleTimes: [CFTimeInterval] = [0, 0.03, 0.06, 0.1, 0.14]
+        let finalSample = try XCTUnwrap(sampleTimes.max())
+        let minimumVisibleProgress = expectedClosing.state(at: begin + finalSample).progress.nextDown
+        XCTAssertGreaterThan(minimumVisibleProgress, 0)
+        for elapsed in sampleTimes {
             let time = begin + elapsed
             let rect = returning.rect(at: time)
-            let progress = stage.closing.state(at: time).progress
-            XCTAssertGreaterThan(progress, 0.15)
+            let progress = expectedClosing.state(at: time).progress
+            XCTAssertGreaterThan(progress, minimumVisibleProgress)
             let expected = CGRect(
                 x: rect.maxX - rect.width * progress,
                 y: rect.midY - rect.height * progress / 2,
@@ -127,29 +163,34 @@ final class ShellFollowExitTests: XCTestCase {
             let content = try drawn(stage, at: time, around: expected, pane: false)
             let pane = try drawn(stage, at: time, around: expected, pane: true)
             print("FOLLOW-EXIT", elapsed, "content", content, "glass", pane, "expected", expected)
-            glass.assertRect(content, expected, accuracy: 1, "content at \(elapsed)")
-            glass.assertRect(pane, content, accuracy: 1, "glass follows the closing content at \(elapsed)")
+            glass.assertRect(content, expected, accuracy: pixelWidth, "content at \(elapsed)")
+            glass.assertRect(pane, content, accuracy: pixelWidth, "glass follows the closing content at \(elapsed)")
         }
     }
 
     func testClosingADeskWithADelayedEaseExitKeepsTheGlassOnItsContent() throws {
-        let begin = CACurrentMediaTime()
+        let begin = Self.timelineOrigin
         let body = Self.body.replacingOccurrences(
-            of: "animate={response=0.363,bounce=0.42}", with: "delay=0.04,animate='ease'"
+            of: "animate={response=0.363,bounce=0.42}", with: "delay=\(Self.exitDelay),animate='ease'"
         )
         let fixture = try Fixture(body, animations: true, clock: { begin })
         let stage = try stage(fixture, at: begin)
         let curve = try XCTUnwrap(ShellCurve(wire: 4, custom: nil))
-        for elapsed in [0.0, 0.03, 0.04, 0.06, 0.1, 0.14] {
+        let duration = ShellAnimation(motion: .ease, speed: 1).make("position").duration
+        let expectedClosing = try closing(at: begin)
+        XCTAssertEqual(stage.closing, expectedClosing)
+        let pixelWidth = Self.viewport.width / CGFloat(stage.pixels.width)
+        let sampleTimes: [CFTimeInterval] = [0, 0.03, Self.exitDelay, 0.06, 0.1, 0.14]
+        for elapsed in sampleTimes {
             let time = begin + elapsed
-            let amount = Double(curve.value(at: max(0, elapsed - 0.04) / 0.2))
+            let amount = Double(curve.value(at: max(0, elapsed - Self.exitDelay) / duration))
             let rect = CGRect(
-                x: 200 - 120 * amount,
-                y: 100 - 30 * amount,
-                width: 100 * (1 + amount),
-                height: 80 * (1 + amount)
+                x: Self.deskFrame.minX + Self.exitOffset.x * amount,
+                y: Self.deskFrame.minY + Self.exitOffset.y * amount,
+                width: Self.deskFrame.width * (1 + (Self.exitScale - 1) * amount),
+                height: Self.deskFrame.height * (1 + (Self.exitScale - 1) * amount)
             )
-            let progress = stage.closing.state(at: time).progress
+            let progress = expectedClosing.state(at: time).progress
             let expected = CGRect(
                 x: rect.maxX - rect.width * progress, y: rect.midY - rect.height * progress / 2,
                 width: rect.width * progress, height: rect.height * progress
@@ -157,8 +198,8 @@ final class ShellFollowExitTests: XCTestCase {
             let content = try drawn(stage, at: time, around: expected, pane: false)
             let pane = try drawn(stage, at: time, around: expected, pane: true)
             print("FOLLOW-EASE-EXIT", elapsed, "content", content, "glass", pane, "expected", expected)
-            glass.assertRect(content, expected, accuracy: 1, "content at \(elapsed)")
-            glass.assertRect(pane, content, accuracy: 1, "glass follows the delayed exit at \(elapsed)")
+            glass.assertRect(content, expected, accuracy: pixelWidth, "content at \(elapsed)")
+            glass.assertRect(pane, content, accuracy: pixelWidth, "glass follows the delayed exit at \(elapsed)")
         }
     }
 

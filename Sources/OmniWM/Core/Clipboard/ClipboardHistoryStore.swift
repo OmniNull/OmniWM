@@ -29,6 +29,8 @@ struct ClipboardHistoryPersistence: Sendable {
 }
 
 actor ClipboardHistoryStore {
+    static let searchTextLimit = 10_000
+
     private var configuration: ClipboardHistoryConfiguration
     private var persistence: ClipboardHistoryPersistence
     private var items: [ClipboardHistoryItem] = []
@@ -337,7 +339,7 @@ actor ClipboardHistoryStore {
 
     private func searchable(_ text: String?) -> String? {
         guard let text else { return nil }
-        let limited = shortened(text.trimmingCharacters(in: .whitespacesAndNewlines), to: 10_000)
+        let limited = shortened(text.trimmingCharacters(in: .whitespacesAndNewlines), to: Self.searchTextLimit)
         return limited.isEmpty ? nil : limited
     }
 

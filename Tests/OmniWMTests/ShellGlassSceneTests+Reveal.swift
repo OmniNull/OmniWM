@@ -38,7 +38,9 @@ extension ShellGlassSceneTests {
         return ShellLayerScene(container: layer, scale: 1, glassNativeEnabled: native)
     }
 
-    private func revealCommands(_ plan: ShellReveal?) -> [ShellLayerCommand] {
+    private func revealCommands(
+        _ plan: ShellReveal?, glassRecipe: String? = nil, glassPaint: ShellLayerPaint? = nil
+    ) -> [ShellLayerCommand] {
         var root = paint()
         root.reveal = ShellRevealRecipe("reveal:0.482:0.31")
         var shape = paint(radius: Self.cardRadius)
@@ -55,7 +57,9 @@ extension ShellGlassSceneTests {
             .insert(slot: 1, parent: 0, kind: .glass, after: -1),
             .glass(
                 slot: 1,
-                ShellGlassContent(kind: .glass, recipe: recipe, shape: 0, paint: paint(), params: .zero),
+                ShellGlassContent(
+                    kind: .glass, recipe: glassRecipe ?? recipe, shape: 0, paint: glassPaint ?? paint(), params: .zero
+                ),
                 animation: nil
             ),
             .frame(slot: 1, rect: Self.card, animation: nil),
@@ -110,13 +114,14 @@ extension ShellGlassSceneTests {
         container: CALayer,
         at time: CFTimeInterval
     ) throws -> CGRect {
+        CATransaction.begin()
+        CATransaction.setDisableActions(true)
         body.sdfLayers.first?.isHidden = true
+        CATransaction.commit()
         let bytes = try renderer.render(paused: time)
         CATransaction.begin()
         CATransaction.setDisableActions(true)
         body.sdfLayers.first?.isHidden = false
-        container.speed = 1
-        container.timeOffset = 0
         CATransaction.commit()
         var minX = Int.max, minY = Int.max, maxX = Int.min, maxY = Int.min
         for row in 0 ..< 200 {
@@ -341,32 +346,55 @@ extension ShellGlassSceneTests {
     }
 
     func testReinsertionDuringACloseContinuesTheRenderedWidth() async throws {
+        let timelineOrigin: CFTimeInterval = 1
+        let openingBeforeClose: CFTimeInterval = 0.25
+        let closingBeforeReinsertion: CFTimeInterval = 0.1
         let scene = revealScene()
+        func advance(to time: CFTimeInterval) {
+            scene.clock = { time }
+            ShellLayerScene.engineQueue.sync {
+                CATransaction.begin()
+                CATransaction.setDisableActions(true)
+                scene.container.speed = 0
+                scene.container.timeOffset = time
+                CATransaction.commit()
+            }
+        }
+        advance(to: timelineOrigin)
         let renderer = try ShellLayerScene.engineQueue.sync {
             try ShellOffscreenRenderer(root: scene.container, width: 320, height: 200)
         }
-        let plan = try opening()
-        await apply(revealCommands(plan), to: scene, animated: true)
-        let (retiring, rim) = try ShellLayerScene.engineQueue.sync {
+        let plan = try ShellReveal(begin: timelineOrigin, progress: 0, target: 1, spring: ShellRevealTests.drip())
+        let fixturePaint = paint(fill: Self.white, shadow: ShellLayerScene.clear)
+        await apply(
+            revealCommands(plan, glassRecipe: Self.flatFollow, glassPaint: fixturePaint), to: scene, animated: true
+        )
+        let retiring = try ShellLayerScene.engineQueue.sync {
             let body = try Self.native(scene.glassBodies[1])
-            return try (body, Self.rim(body, renderer, container: scene.container, at: plan.end + 0.1))
+            let settled = try Self.silhouette(body, renderer, container: scene.container, at: plan.end)
+            Self.assertClose(settled, Self.card)
+            return body
         }
-        let closing = plan.retargeted(at: plan.begin + 0.25, to: 0)
+        let closing = plan.retargeted(at: plan.begin + openingBeforeClose, to: 0)
+        advance(to: closing.commit)
         await apply([.reveal(slot: 0, token: 0, closing), .remove(slot: 0)], to: scene, animated: true)
-        let time = closing.begin + 0.1
+        let time = closing.begin + closingBeforeReinsertion
         let before = try ShellLayerScene.engineQueue.sync {
             try Self.silhouette(retiring, renderer, container: scene.container, at: time)
         }
-        Self.assertClose(before, try Self.keyframed(closing, at: time), rim: rim)
+        Self.assertClose(before, try Self.keyframed(closing, at: time))
         let reopened = closing.retargeted(at: time, to: 1)
-        await apply(revealCommands(reopened), to: scene, animated: true)
+        advance(to: reopened.commit)
+        await apply(
+            revealCommands(reopened, glassRecipe: Self.flatFollow, glassPaint: fixturePaint), to: scene, animated: true
+        )
         try ShellLayerScene.engineQueue.sync {
             XCTAssertTrue(scene.presence.retained.isEmpty)
             let body = try Self.native(scene.glassBodies[1])
             let after = try Self.silhouette(body, renderer, container: scene.container, at: time)
             XCTAssertEqual(after.width, before.width, accuracy: 1)
             XCTAssertEqual(after.minX, before.minX, accuracy: 1)
-            XCTAssertGreaterThan(before.width, 20)
+            XCTAssertGreaterThan(before.width, Self.card.width / 2)
         }
         withExtendedLifetime(renderer) {}
     }

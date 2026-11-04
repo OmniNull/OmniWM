@@ -12,8 +12,8 @@ final class ShellVitreusCalendarWindowTests: XCTestCase {
     private let drawers = ShellVitreusDrawerTests()
     private typealias Fixture = ShellVitreusDrawerTests.Fixture
 
-    private func fixture() throws -> Fixture {
-        let fixture = try drawers.fixture()
+    private func fixture(renderBudget: UInt64 = ShellRenderTestBudget.ordinaryRender) throws -> Fixture {
+        let fixture = try drawers.fixture(renderBudget: renderBudget)
         fixture.widget.set("clock") { $0.string("3:00 PM") }
         fixture.widget.set("date") { $0.string("Thu 29") }
         drawers.show(fixture)
@@ -29,14 +29,14 @@ final class ShellVitreusCalendarWindowTests: XCTestCase {
         try VitreusFixture.element(fixture.widget, key: key)
     }
 
-    private func checkRenderBudget(_ fixture: Fixture) {
+    private func checkRender(_ fixture: Fixture, renderBudget: UInt64) {
         var stats = omni_render_stats()
         var error = [CChar](repeating: 0, count: 256)
         XCTAssertEqual(
             omni_instance_render(
                 fixture.widget.instance,
                 OMNI_VIEW_BAR,
-                ShellWidgetPackage.renderBudget,
+                renderBudget,
                 &stats,
                 &error,
                 error.count
@@ -160,8 +160,17 @@ final class ShellVitreusCalendarWindowTests: XCTestCase {
         XCTAssertFalse(drawers.has(fixture, "drawer-content-calendar"))
     }
 
+    func testDetachedCalendarAndDropdownRetainTheirContent() throws {
+        try checkDetachedCalendarAndDropdown(renderBudget: ShellRenderTestBudget.unlimited)
+    }
+
     func testRenderSpeedDetachedCalendarAndDropdownStayWithinProductionBudget() throws {
-        let fixture = try fixture()
+        try ShellRenderTestBudget.requireBenchmark()
+        try checkDetachedCalendarAndDropdown(renderBudget: ShellWidgetPackage.renderBudget)
+    }
+
+    private func checkDetachedCalendarAndDropdown(renderBudget: UInt64) throws {
+        let fixture = try fixture(renderBudget: ShellRenderTestBudget.unlimited)
         let target = try element(fixture, "drawer-content-calendar")
         try move(fixture, to: CGPoint(x: 200, y: 300))
         drawers.trigger(fixture, "drawer-player")
@@ -176,14 +185,16 @@ final class ShellVitreusCalendarWindowTests: XCTestCase {
         fixture.widget.set("media") { media.write(into: &$0) }
         drawers.trigger(fixture, "desk-open")
         let surface = fixture.widget.surface
-        XCTAssertEqual(surface.manipulationTargets.count, 7)
+        let expectedTargets = ShellVitreusWindowShelfTests.calendarAndPlayerTargetKeys
+        XCTAssertEqual(surface.manipulationTargets.count, expectedTargets.count)
         let layout = surface.layout
+        XCTAssertEqual(Set(surface.manipulationTargets.keys.map { layout.core.key(of: $0) }), expectedTargets)
         let bodies = layout.core.elements { _ in true }.filter { layout.core.kind(of: $0) == .glass }
         let counts = bodies.map { body in
             layout.core.elements { _ in true }.count { layout.core.parent(of: $0) == body }
         }
-        XCTAssertTrue(counts.allSatisfy { $0 <= 64 })
+        XCTAssertTrue(counts.allSatisfy { $0 <= Int(OMNI_GLASS_SHAPE_LIMIT) })
         print("CALENDAR-WINDOW-BUDGET targets=\(surface.manipulationTargets.count) shapes=\(counts)")
-        checkRenderBudget(fixture)
+        checkRender(fixture, renderBudget: renderBudget)
     }
 }

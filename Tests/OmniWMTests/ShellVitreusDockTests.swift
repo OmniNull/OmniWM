@@ -64,12 +64,14 @@ final class ShellVitreusDockTests: XCTestCase {
     }
 
     func island(
-        _ settings: [String: ShellComponentValue] = [:], monitor: Monitor = VitreusFixture.monitor(), scale: CGFloat = 2
+        _ settings: [String: ShellComponentValue] = [:], monitor: Monitor = VitreusFixture.monitor(),
+        scale: CGFloat = 2,
+        renderBudget: UInt64 = ShellRenderTestBudget.ordinaryRender
     ) throws -> ShellRenderedWidget {
         let shell = try shell()
         let widget = try ShellRenderedWidget(
             source: VitreusFixture.source(shell, components: Self.components), scale: scale,
-            resources: VitreusFixture.resources(shell)
+            resources: VitreusFixture.resources(shell), renderBudget: renderBudget
         )
         XCTAssertEqual(omni_vm_set_configuration_enabled(widget.vm, true), OMNI_OK)
         let catalog = try ShellComponentCatalog.catalogBytes(

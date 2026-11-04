@@ -12,24 +12,37 @@ enum ShellBoundSurfaceFixture {
     typealias Fixture = ShellManipulationSurfaceTests.Fixture
     typealias Clock = ShellManipulationSurfaceTests.Clock
 
+    static let timelineOrigin: CFTimeInterval = 1
+    static let viewport = CGSize(width: 730, height: 400)
+    static let targetFrame = CGRect(x: 411, y: 70, width: 200, height: 160)
+    static let canvasFrame = CGRect(x: 0, y: 0, width: 700, height: 400)
+    static let attachedFrame = CGRect(x: 400, y: 70, width: 226, height: 160)
+    static let padding: CGFloat = 13
+    static let detachFrom: CGFloat = 114
+    static let detachSpan: CGFloat = 50
+    static let scaleGripSide: CGFloat = 12
+
     static let body = """
     ctx.state.renders=(ctx.state.renders or 0)+1
     local vars=ctx.data.vars or {}
-    local target={key='widget',align='topLeading',dx=411,dy=70,w=200,h=160,
+    local target={key='widget',align='topLeading',dx=\(targetFrame.minX),dy=\(targetFrame.minY),
+        w=\(targetFrame.width),h=\(targetFrame.height),
         manipulationFollow={response=0.363,bounce=0.42},
-        ui.box{key='move',align='topLeading',w=200,h=20,onGesture=function() end,
-            gesture={track={mode='move',target='widget',bounds={w=730,h=400},
-                min={w=80,h=64},max={w=200,h=160}}}},
-        ui.box{key='scale',align='bottomTrailing',w=12,h=12,onGesture=function() end,
-            gesture={track={mode='scale',target='widget',edge='se',bounds={w=730,h=400},
-                min={w=80,h=64},max={w=200,h=160}}}}}
-    return ui.stack{key='root',w=730,h=400,
+        ui.box{key='move',align='topLeading',w=\(targetFrame.width),h=20,onGesture=function() end,
+            gesture={track={mode='move',target='widget',bounds={w=\(viewport.width),h=\(viewport.height)},
+                min={w=80,h=64},max={w=\(targetFrame.width),h=\(targetFrame.height)}}}},
+        ui.box{key='scale',align='bottomTrailing',w=\(scaleGripSide),h=\(scaleGripSide),onGesture=function() end,
+            gesture={track={mode='scale',target='widget',edge='se',bounds={w=\(viewport.width),h=\(viewport.height)},
+                min={w=80,h=64},max={w=\(targetFrame.width),h=\(targetFrame.height)}}}}}
+    return ui.stack{key='root',w=\(viewport.width),h=\(viewport.height),
         if vars.replace then ui.box(target) else ui.stack(target),
-        ui.glass{key='panes',align='topLeading',dx=vars.bodyX or 0,w=700,h=400,
+        ui.glass{key='panes',align='topLeading',dx=vars.bodyX or 0,w=\(canvasFrame.width),h=\(canvasFrame.height),
             backdrop=false,fill='#FFFFFFFF',shadow='#00000000',rim=0,blend=0,
-            ui.shape{key='bound',align='topLeading',dx=400,dy=70,w=226,h=160,radius=0,hit=false,
-                morph={source={target='widget',edge='right',from=114,span=50,
-                    pads={left=-13,right=13,top=-13,bottom=13}},stops={{at=0},{at=1}}}}},
+            ui.shape{key='bound',align='topLeading',dx=\(attachedFrame.minX),dy=\(attachedFrame.minY),
+                w=\(attachedFrame.width),h=\(attachedFrame.height),radius=0,hit=false,
+                morph={source={target='widget',edge='right',from=\(detachFrom),span=\(detachSpan),
+                    pads={left=\(-padding),right=\(padding),top=\(-padding),bottom=\(padding)}},
+                    stops={{at=0},{at=1}}}}},
         ui.text{key='render-count',align='topLeading',dx=-10000,text=tostring(ctx.state.renders)}}
     """
 
@@ -42,14 +55,15 @@ enum ShellBoundSurfaceFixture {
             root.removeFromSuperlayer()
             CATransaction.begin()
             CATransaction.setDisableActions(true)
-            root.frame = CGRect(x: 0, y: 0, width: 730, height: 400)
+            root.frame = CGRect(origin: .zero, size: viewport)
             root.isGeometryFlipped = true
             root.speed = 0
             root.timeOffset = begin
             CATransaction.commit()
-            let renderer = try ShellOffscreenRenderer(root: root, width: 730, height: 400)
+            let width = Int(viewport.width), height = Int(viewport.height)
+            let renderer = try ShellOffscreenRenderer(root: root, width: width, height: height)
             _ = try renderer.render(paused: begin)
-            return .init(scene: scene, renderer: renderer, width: 730, height: 400)
+            return .init(scene: scene, renderer: renderer, width: width, height: height)
         }
     }
 
@@ -59,18 +73,19 @@ enum ShellBoundSurfaceFixture {
 
     static func scale(_ fixture: Fixture, to factor: Double, timestamp: Double = 0.01) throws {
         let surface = fixture.surface
+        let grip = CGPoint(x: targetFrame.maxX - scaleGripSide / 2, y: targetFrame.maxY - scaleGripSide / 2)
         if surface.manipulation == nil {
-            surface.press(at: CGPoint(x: 605, y: 224), timestamp: 0)
+            surface.press(at: grip, timestamp: 0)
         }
         surface.drag(
-            to: CGPoint(x: 605 - 200 * (1 - factor), y: 224 - 160 * (1 - factor)),
+            to: CGPoint(x: grip.x - targetFrame.width * (1 - factor), y: grip.y - targetFrame.height * (1 - factor)),
             screen: .zero,
             timestamp: timestamp
         )
         ShellLayerScene.engineQueue.sync {}
         let preview = try XCTUnwrap(surface.manipulation?.preview)
-        XCTAssertEqual(preview.width, 200 * factor, accuracy: 1e-9)
-        XCTAssertEqual(preview.height, 160 * factor, accuracy: 1e-9)
+        XCTAssertEqual(preview.width, targetFrame.width * factor, accuracy: 1e-9)
+        XCTAssertEqual(preview.height, targetFrame.height * factor, accuracy: 1e-9)
     }
 
     static func renderCount(_ fixture: Fixture) throws -> String {
@@ -86,11 +101,11 @@ enum ShellBoundSurfaceFixture {
         let layout = CGRect(surface.layout.core.absoluteFrame(of: target))
         let shown = CGRect(surface.presentedFrame(of: target))
         let scale = shown.width / layout.width
-        let progress = min(max((canvas.maxX - shown.maxX - 114) / 50, 0), 1)
-        let left = shown.minX - 13 * scale
-        let right = raw.maxX + (shown.maxX + 13 * scale - raw.maxX) * progress
-        let top = shown.minY - 13 * scale
-        let bottom = shown.maxY + 13 * scale
+        let progress = min(max((canvas.maxX - shown.maxX - detachFrom) / detachSpan, 0), 1)
+        let left = shown.minX - padding * scale
+        let right = raw.maxX + (shown.maxX + padding * scale - raw.maxX) * progress
+        let top = shown.minY - padding * scale
+        let bottom = shown.maxY + padding * scale
         return CGRect(x: left, y: top, width: right - left, height: bottom - top)
     }
 

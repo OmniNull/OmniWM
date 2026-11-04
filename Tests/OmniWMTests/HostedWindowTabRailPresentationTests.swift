@@ -35,17 +35,37 @@ final class HostedWindowTabRailPresentationTests: XCTestCase {
     }
 
     func testExternalRailRetainsProcessNameIconAndReplacementTitle() throws {
+        let name = "External Application"
+        let icon = NSImage(size: NSSize(width: 4, height: 4), flipped: false) { rect in
+            NSColor.red.setFill()
+            rect.fill()
+            return true
+        }
+        let iconData = try XCTUnwrap(icon.tiffRepresentation)
         for layout in [LayoutType.niri, .dwindle] {
             let fixture = try HostedPresentationFixture(layout: layout)
             defer { fixture.close() }
             let hosted = try fixture.add(fixture.notes)
             let external = try fixture.addExternal()
-            _ = fixture.controller.appInfoCache.info(for: external.pid)
+            let processInfo = AppInfoCache.AppInfo(
+                name: name, bundleId: fixture.externalBundle, icon: icon, activationPolicy: .regular
+            )
+            let cache = fixture.controller.appInfoCache
+            cache.evict(pid: external.pid)
+            var requested: [pid_t] = []
+            _ = cache.info(for: external.pid) { pid in
+                requested.append(pid)
+                return processInfo
+            }
+            XCTAssertEqual(requested, [external.pid])
             let info = try groupedRail([hosted, external], fixture: fixture)
             let tab = try XCTUnwrap(info.tabs.first { $0.token == external.token })
-            XCTAssertEqual(tab.appName, NSRunningApplication.current.localizedName)
+            XCTAssertEqual(tab.appName, name)
             XCTAssertEqual(tab.title, fixture.externalTitle)
-            XCTAssertEqual(tab.icon?.tiffRepresentation, NSRunningApplication.current.icon?.tiffRepresentation)
+            XCTAssertEqual(tab.icon?.tiffRepresentation, iconData)
+            XCTAssertTrue(tab.icon === icon)
+            XCTAssertEqual(tab.token, external.token)
+            XCTAssertEqual(tab.windowId, external.windowId)
         }
     }
 

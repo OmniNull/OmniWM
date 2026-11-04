@@ -3772,7 +3772,7 @@ const char *validateTreeStructure(std::vector<omni_wire_node> &nodes, size_t sta
         }
         if (glassParent) {
             if (node.kind != 12) { return "ui.glass accepts only direct ui.shape children"; }
-            if (++shapes > 64) { return "ui.glass supports at most 64 shapes"; }
+            if (++shapes > OMNI_GLASS_SHAPE_LIMIT) { return "ui.glass supports at most 64 shapes"; }
             if ((node.behavior_flags & 6) == 4 && shapes != 1) { return "a frame shape must be the first shape in its glass body"; }
         }
         if (node.kind == 12) {

@@ -121,7 +121,7 @@ extension ShellGlassSceneTests {
     func testDragSampleRebuildKeepsTheOwnSpringClock() throws {
         let layout = CGRect(x: 30, y: 20, width: 60, height: 40)
         let moved = CGRect(x: 90, y: 20, width: 60, height: 40)
-        let begin = CACurrentMediaTime()
+        let begin: CFTimeInterval = 1
         let (wrapped, followed) = try followLifeStages(layout: layout, width: 400, height: 240, at: begin)
         for stage in [wrapped, followed] {
             run([.frame(slot: 11, rect: moved, animation: Self.calm)], on: stage, animated: true)

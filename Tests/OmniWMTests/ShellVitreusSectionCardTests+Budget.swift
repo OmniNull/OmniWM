@@ -9,6 +9,46 @@ import XCTest
 
 @MainActor
 extension ShellVitreusSectionCardTests {
+    private static let budgetWindows = ["calendar", "controls", "player"]
+    private static let budgetSections = [
+        "calendar-month", "calendar-events", "controls-toggles", "controls-sliders",
+        "controls-mixer", "player-album", "player-windows"
+    ]
+    private static let budgetComponents = ShellVitreusDockTests.components + [
+        ShellComponentInstance(id: "extra-pad", widget: "desk-pad")
+    ]
+    private static let movingPieces = [
+        "lip", "bulge", "ripple-break-top", "ripple-break-bottom", "stray",
+        "ripple-return-top", "ripple-return-bottom"
+    ]
+
+    private func budgetPageIDs(_ components: [ShellComponentInstance]) -> [String] {
+        components.filter { $0.enabled && ($0.widget == "desk-pad" || $0.widget == "desk-focus") }.map(\.id)
+    }
+
+    private func budgetPlateIDs(_ pages: [String]) -> [String] {
+        Self.budgetSections.filter { $0 != "player-album" } + pages.map { "page-" + $0 }
+    }
+
+    private func budgetEdgeKeys(_ prefix: String, held: Bool) -> [String] {
+        let sides = held ? ["left", "right", "top", "bottom"] : ["left"]
+        let pieces = held ? Self.movingPieces : ["lip", "bulge"]
+        return sides.flatMap { side in
+            pieces.map { prefix + (side == "right" ? "" : "-" + side) + "-" + $0 }
+        }
+    }
+
+    private func assertBudgetTargets(_ fixture: ShellVitreusDrawerTests.Fixture, pages: [String]) {
+        let names = (Self.budgetWindows + budgetPlateIDs(pages)).map { "drawer-content-" + $0 }
+            + ["media-card", "desk", "addon-drawer", "dock-pill", "addon-pill"]
+        let surface = fixture.widget.surface
+        XCTAssertEqual(surface.manipulationTargets.count, names.count)
+        XCTAssertEqual(
+            Set(surface.manipulationTargets.keys.map { surface.layout.core.key(of: $0) }),
+            Set(names.map { VitreusFixture.key($0) })
+        )
+    }
+
     private func budgetSource(_ source: ShellWidgetSource) -> ShellWidgetSource {
         let main = source.main + """
 
@@ -16,12 +56,11 @@ extension ShellVitreusSectionCardTests {
         function trigger(ctx,event)
             if event.name ~= 'test-spread' then original(ctx,event) return end
             ctx.state.windows = {}
-            for _, id in {'calendar','controls','player'} do
+            for _, id in {\(Self.budgetWindows.map { "'\($0)'" }.joined(separator: ","))} do
                 ctx.state.windows[id] = {location='edge',side='left',rect={x=0,y=200},glass='drawer-'..id}
             end
             local cards = require('../lib/vitreus/cards')
-            for _, id in {'calendar-month','calendar-events','controls-toggles','controls-sliders',
-                'controls-mixer','player-album','player-windows','page-pad','page-focus'} do
+            for _, id in {\(Self.budgetSections.map { "'\($0)'" }.joined(separator: ","))} do
                 local item = cards.record(ctx,id)
                 item.location,item.side,item.rect,item.initialized = 'edge','left',{x=0,y=200},true
             end
@@ -45,13 +84,9 @@ extension ShellVitreusSectionCardTests {
 
     private func budgetFixture(
         _ shell: URL,
-        extraPage: Bool = false,
         components given: [ShellComponentInstance]? = nil
     ) throws -> ShellVitreusDrawerTests.Fixture {
-        let components = given ?? (ShellVitreusDockTests.components + (extraPage ? [ShellComponentInstance(
-            id: "extra-pad",
-            widget: "desk-pad"
-        )] : []))
+        let components = given ?? Self.budgetComponents
         let source = try VitreusFixture.source(shell, components: components)
         let widget = try ShellRenderedWidget(
             source: budgetSource(source), resources: VitreusFixture.resources(shell),
@@ -112,17 +147,7 @@ extension ShellVitreusSectionCardTests {
     }
 
     private func assertExtraPagePlates(_ fixture: ShellVitreusDrawerTests.Fixture) {
-        for id in [
-            "calendar-month",
-            "calendar-events",
-            "controls-toggles",
-            "controls-sliders",
-            "controls-mixer",
-            "player-windows",
-            "page-pad",
-            "page-focus",
-            "page-extra-pad"
-        ] {
+        for id in budgetPlateIDs(budgetPageIDs(Self.budgetComponents)) {
             XCTAssertTrue(windows.has(fixture, "drawer-content-" + id), id)
             XCTAssertTrue(windows.has(fixture, "card-glass-" + id), id)
         }
@@ -134,14 +159,17 @@ extension ShellVitreusSectionCardTests {
     }
 
     func testRenderSpeedEverySectionAndAnExtraPageStayWithinProductionBudget() throws {
+        try ShellRenderTestBudget.requireBenchmark()
         try checkEverySectionAndAnExtraPage(renderBudget: ShellWidgetPackage.renderBudget)
     }
 
     private func checkEverySectionAndAnExtraPage(renderBudget: UInt64) throws {
+        let pages = budgetPageIDs(Self.budgetComponents)
+        let cardIDs = budgetPlateIDs(pages)
         for held in ["calendar", "calendar-month", "player-album"] {
             let shell = try windows.docks.shell()
             defer { VitreusFixture.remove(shell) }
-            let fixture = try budgetFixture(shell, extraPage: true)
+            let fixture = try budgetFixture(shell)
             let widget = fixture.widget
             windows.shelfOpen = true
             windows.show(fixture)
@@ -149,16 +177,31 @@ extension ShellVitreusSectionCardTests {
             VitreusFixture.trigger(widget.instance, "test-spread", held)
             showBudgetWindows(fixture)
             let surface = widget.surface
-            XCTAssertEqual(surface.manipulationTargets.count, 17)
+            assertBudgetTargets(fixture, pages: pages)
             let layout = surface.layout
             let elements = layout.core.elements { _ in true }
             let bodies = elements.filter { layout.core.kind(of: $0) == .glass }
             let counts = bodies.map { body in elements.count { layout.core.parent(of: $0) == body } }
+            let barShapes = ["shell", "window-shelf-glass"]
+                + Self.budgetWindows.map { "drawer-" + $0 }
+                + cardIDs.map { "card-glass-" + $0 }
+                + Self.budgetWindows.flatMap { budgetEdgeKeys($0 + "-window", held: held == $0) }
+                + cardIDs.flatMap { budgetEdgeKeys($0 + "-card", held: held == $0) }
+            let deskShapes = ["desk-shape", "media-card-glass"]
+                + Self.movingPieces.filter { $0 != "lip" }.map { "desk-" + $0 }
+                + budgetEdgeKeys("player-album-card", held: held == "player-album")
+            for (name, expected) in [("bar", barShapes), ("desk-glass", deskShapes)] {
+                let parent = try VitreusFixture.element(widget, key: name)
+                let children = elements.filter { layout.core.parent(of: $0) == parent }
+                XCTAssertEqual(children.count, expected.count, name)
+                XCTAssertEqual(
+                    Set(children.map { layout.core.key(of: $0) }),
+                    Set(expected.map { VitreusFixture.key($0) }),
+                    name
+                )
+            }
             let body = try VitreusFixture.element(widget, key: "bar")
-            XCTAssertEqual(elements.count { layout.core.parent(of: $0) == body }, held == "player-album" ? 38 : 64)
-            let deskBody = try VitreusFixture.element(widget, key: "desk-glass")
-            XCTAssertEqual(elements.count { layout.core.parent(of: $0) == deskBody }, held == "player-album" ? 36 : 10)
-            XCTAssertTrue(counts.allSatisfy { $0 <= 64 })
+            XCTAssertTrue(counts.allSatisfy { $0 <= Int(OMNI_GLASS_SHAPE_LIMIT) })
             assertExtraPagePlates(fixture)
             XCTAssertEqual(layout.core.parent(of: try VitreusFixture.element(widget, key: "window-shelf-glass")), body)
             XCTAssertEqual(
@@ -185,20 +228,21 @@ extension ShellVitreusSectionCardTests {
     }
 
     func testRenderSpeedStoredPanelsAndPageCardsStayWithinProductionBudget() throws {
+        try ShellRenderTestBudget.requireBenchmark()
         try checkStoredPanelsAndPageCards(renderBudget: ShellWidgetPackage.renderBudget)
     }
 
     private func checkStoredPanelsAndPageCards(renderBudget: UInt64) throws {
         let shell = try windows.docks.shell()
         defer { VitreusFixture.remove(shell) }
-        let fixture = try budgetFixture(shell, extraPage: true)
+        let fixture = try budgetFixture(shell)
         windows.shelfOpen = true
         windows.show(fixture)
-        for id in ["calendar", "controls", "player"] {
+        for id in Self.budgetWindows {
             windows.trigger(fixture, "drawer-" + id)
             try windows.store(fixture, id: id)
         }
-        for id in ["calendar", "controls", "player"] {
+        for id in Self.budgetWindows {
             XCTAssertTrue(windows.has(fixture, "drawer-content-" + id))
         }
         var stats = omni_render_stats()
@@ -217,31 +261,35 @@ extension ShellVitreusSectionCardTests {
     }
 
     func testRenderSpeedOverflowPagesStayWithinProductionBudget() throws {
+        try ShellRenderTestBudget.requireBenchmark()
         try checkOverflowPages(renderBudget: ShellWidgetPackage.renderBudget)
     }
 
     private func checkOverflowPages(renderBudget: UInt64) throws {
         let shell = try windows.docks.shell()
         defer { VitreusFixture.remove(shell) }
-        let components = ShellVitreusDockTests.components + (0 ..< 9).map {
+        let extraPages = (0 ..< 9).map {
             ShellComponentInstance(id: "pad-\($0)", widget: "desk-pad")
         }
+        let overflowPage = try XCTUnwrap(extraPages.last)
+        let components = ShellVitreusDockTests.components + extraPages
+        let shelfPages = budgetPageIDs(ShellVitreusDockTests.components + extraPages.dropLast())
         let fixture = try budgetFixture(shell, components: components)
         windows.shelfOpen = true
         windows.show(fixture)
         try windows.invoke(fixture, "addon-pin-notes")
         VitreusFixture.trigger(fixture.widget.instance, "test-spread", "calendar-month")
         showBudgetWindows(fixture)
-        XCTAssertEqual(fixture.widget.surface.manipulationTargets.count, 24)
-        XCTAssertFalse(windows.has(fixture, "drawer-content-page-pad-8"))
-        _ = try windows.invoke(fixture, "tab-pad-8")
-        let page = try VitreusFixture.element(fixture.widget, key: "pad-8")
+        assertBudgetTargets(fixture, pages: shelfPages)
+        XCTAssertFalse(windows.has(fixture, "drawer-content-page-" + overflowPage.id))
+        _ = try windows.invoke(fixture, "tab-" + overflowPage.id)
+        let page = try VitreusFixture.element(fixture.widget, key: overflowPage.id)
         let desk = try XCTUnwrap(fixture.widget.surface.manipulationTargets.keys.first {
             fixture.widget.surface.layout.core.key(of: $0) == VitreusFixture.key("desk")
         })
         XCTAssertTrue(fixture.widget.surface.isWithin(page, desk))
         XCTAssertEqual(fixture.widget.surface.layout.core.elements { _ in true }.count {
-            fixture.widget.surface.layout.core.key(of: $0) == VitreusFixture.key("pad-8")
+            fixture.widget.surface.layout.core.key(of: $0) == VitreusFixture.key(overflowPage.id)
         }, 1)
         var stats = omni_render_stats()
         var error = [CChar](repeating: 0, count: 512)
@@ -253,7 +301,7 @@ extension ShellVitreusSectionCardTests {
         let counts = elements.filter { layout.core.kind(of: $0) == .glass }.map { body in
             elements.count { layout.core.parent(of: $0) == body }
         }
-        XCTAssertTrue(counts.allSatisfy { $0 <= 64 })
+        XCTAssertTrue(counts.allSatisfy { $0 <= Int(OMNI_GLASS_SHAPE_LIMIT) })
         print(
             "CAPACITY-BUDGET targets=\(fixture.widget.surface.manipulationTargets.count) shapes=\(counts) cpu_ns=\(stats.cpu_ns) encode_ns=\(stats.encode_cpu_ns)"
         )

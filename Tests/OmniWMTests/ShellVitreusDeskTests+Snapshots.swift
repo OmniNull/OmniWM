@@ -229,6 +229,7 @@ extension ShellVitreusDeskTests {
     }
 
     func testRenderSpeedSettingsIslandPreviewStaysWithinProductionBudget() async throws {
+        try ShellRenderTestBudget.requireBenchmark()
         try await checkSettingsIslandPreview(renderBudget: ShellWidgetPackage.renderBudget, snapshotSuffix: "-speed")
     }
 

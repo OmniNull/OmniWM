@@ -177,6 +177,7 @@ final class ShellLakeProfileTests: XCTestCase {
     }
 
     func testRenderSpeedExpandedMediaUpdatesStayWithinProductionBudget() throws {
+        try ShellRenderTestBudget.requireBenchmark()
         try checkExpandedMediaRetainedWork(renderBudget: ShellWidgetPackage.renderBudget)
     }
 
@@ -468,6 +469,7 @@ final class ShellLakeProfileTests: XCTestCase {
     }
 
     func testRenderSpeedLakeWidgetsSettingsStayWithinProductionBudget() throws {
+        try ShellRenderTestBudget.requireBenchmark()
         try checkLakeWidgetsSettings(renderBudget: ShellWidgetPackage.renderBudget, snapshotSuffix: "-speed")
     }
 

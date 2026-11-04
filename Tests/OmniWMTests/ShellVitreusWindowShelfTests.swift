@@ -140,6 +140,18 @@ final class ShellVitreusWindowShelfTests: XCTestCase {
 
 @MainActor
 extension ShellVitreusWindowShelfTests {
+    static let calendarAndPlayerTargetKeys = Set([
+        "drawer-content-calendar", "drawer-content-player", "drawer-content-calendar-month",
+        "drawer-content-calendar-events", "drawer-content-player-windows", "media-card", "desk"
+    ].map { VitreusFixture.key($0) })
+
+    static let shelfAndWindowTargetKeys = calendarAndPlayerTargetKeys.union(([
+        "drawer-content-controls", "drawer-content-controls-toggles", "drawer-content-controls-sliders",
+        "addon-drawer", "dock-pill", "addon-pill"
+    ] + ShellVitreusDockTests.components.filter {
+        $0.enabled && ($0.widget == "desk-pad" || $0.widget == "desk-focus")
+    }.map { "drawer-content-page-" + $0.id }).map { VitreusFixture.key($0) })
+
     func testShelfUsesTheEngineDrawerStateAndOnlyShowsItsHintWhenEmpty() throws {
         let fixture = try fixture()
         XCTAssertFalse(has(fixture, "window-shelf"))
@@ -333,8 +345,20 @@ extension ShellVitreusWindowShelfTests {
 
 @MainActor
 extension ShellVitreusWindowShelfTests {
+    func testOpenShelfAndLooseWindowsRemainVisible() throws {
+        try checkOpenShelfAndLooseWindows(renderBudget: ShellRenderTestBudget.unlimited)
+    }
+
     func testRenderSpeedOpenShelfAndLooseWindowsStayWithinProductionBudget() throws {
-        let widget = try docks.island(["pins": .strings([ShellVitreusDockTests.safari]), "addons": .strings(["notes"])])
+        try ShellRenderTestBudget.requireBenchmark()
+        try checkOpenShelfAndLooseWindows(renderBudget: ShellWidgetPackage.renderBudget)
+    }
+
+    private func checkOpenShelfAndLooseWindows(renderBudget: UInt64) throws {
+        let widget = try docks.island(
+            ["pins": .strings([ShellVitreusDockTests.safari]), "addons": .strings(["notes"])],
+            renderBudget: ShellRenderTestBudget.unlimited
+        )
         let fixture = Fixture(
             widget: widget,
             monitor: VitreusFixture.monitor(),
@@ -348,13 +372,17 @@ extension ShellVitreusWindowShelfTests {
         try openThree(fixture)
         shelfOpen = true
         show(fixture)
-        XCTAssertEqual(widget.surface.manipulationTargets.count, 15)
+        XCTAssertEqual(widget.surface.manipulationTargets.count, Self.shelfAndWindowTargetKeys.count)
         let layout = widget.surface.layout
+        XCTAssertEqual(
+            Set(widget.surface.manipulationTargets.keys.map { layout.core.key(of: $0) }),
+            Self.shelfAndWindowTargetKeys
+        )
         let elements = layout.core.elements { _ in true }
         let counts = elements.filter { layout.core.kind(of: $0) == .glass }.map { body in
             elements.count { layout.core.parent(of: $0) == body }
         }
-        XCTAssertTrue(counts.allSatisfy { $0 <= 64 })
+        XCTAssertTrue(counts.allSatisfy { $0 <= Int(OMNI_GLASS_SHAPE_LIMIT) })
         XCTAssertFalse(widget.surface.islandRegions().contains { $0.contains(CGPoint(x: 10, y: 900)) })
         var stats = omni_render_stats()
         var error = [CChar](repeating: 0, count: 256)
@@ -362,7 +390,7 @@ extension ShellVitreusWindowShelfTests {
             omni_instance_render(
                 widget.instance,
                 OMNI_VIEW_BAR,
-                ShellWidgetPackage.renderBudget,
+                renderBudget,
                 &stats,
                 &error,
                 error.count
