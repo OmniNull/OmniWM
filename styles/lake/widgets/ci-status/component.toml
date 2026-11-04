@@ -1,7 +1,7 @@
 title = "CI status"
 icon = "checkmark.circle"
 views = ["compact", "expanded"]
-capabilities = { network = ["api.github.com"] }
+capabilities = { network = ["api.github.com"], purpose = "Shows public repository workflow status." }
 
 [options.repo]
 type = "string"
