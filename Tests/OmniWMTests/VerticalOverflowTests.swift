@@ -120,7 +120,7 @@ final class VerticalOverflowTests: XCTestCase {
         guard case .hidden(.minimum) = result.state else {
             return XCTFail("A settled column below the working area must not peek into the bottom gap")
         }
-        XCTAssertFalse(result.isTopEdgeHidden)
+        XCTAssertFalse(result.isEdgeHidden)
     }
 
     func testTopHiddenColumnRetainsLivePerWindowFrames() throws {
@@ -132,9 +132,9 @@ final class VerticalOverflowTests: XCTestCase {
         for window in windows { column.appendChild(window) }
         let result = layoutTopCrossingColumn(column, orientation: .vertical)
         let windowWidth = workingFrame.width / CGFloat(windows.count)
-        XCTAssertEqual(result.topEdgeHiddenFrames.count, windows.count)
+        XCTAssertEqual(result.edgeHiddenFrames.count, windows.count)
         for (index, window) in windows.enumerated() {
-            let frame = try XCTUnwrap(result.topEdgeHiddenFrames[window.token])
+            let frame = try XCTUnwrap(result.edgeHiddenFrames[window.token])
             XCTAssertEqual(frame, CGRect(
                 x: workingFrame.minX + CGFloat(index) * windowWidth,
                 y: workingFrame.midY,
@@ -154,7 +154,7 @@ final class VerticalOverflowTests: XCTestCase {
         for orientation: Monitor.Orientation in [.horizontal, .vertical] {
             for isActive in [false, true] where orientation == .horizontal || isActive {
                 let result = layoutTopCrossingColumn(column, orientation: orientation, isActive: isActive)
-                XCTAssertTrue(result.topEdgeHiddenFrames.isEmpty)
+                XCTAssertTrue(result.edgeHiddenFrames.isEmpty)
                 XCTAssertNil(result.hiddenHandles[window.token])
             }
         }
@@ -168,7 +168,7 @@ final class VerticalOverflowTests: XCTestCase {
         column.appendChild(inactive)
         column.displayMode = .tabbed
         var result = layoutTopCrossingColumn(column, orientation: .vertical)
-        XCTAssertEqual(Set(result.topEdgeHiddenFrames.keys), [active.token])
+        XCTAssertEqual(Set(result.edgeHiddenFrames.keys), [active.token])
         NiriLayoutEngine().calculateLayoutInto(
             result: &result,
             state: ViewportState(),
@@ -178,7 +178,7 @@ final class VerticalOverflowTests: XCTestCase {
                 gaps: LayoutGaps(horizontal: 0, vertical: 0), orientation: .vertical
             )
         )
-        XCTAssertTrue(result.topEdgeHiddenFrames.isEmpty)
+        XCTAssertTrue(result.edgeHiddenFrames.isEmpty)
     }
 
     func testBothVerticalHideSidesParkOutsideBottomGapAndAvoidLaptopAfterSizeClamp() throws {

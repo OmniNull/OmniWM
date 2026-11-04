@@ -4,12 +4,17 @@
 import AppKit
 
 extension WMController {
-    func observePictureCaptureState(_ pictures: NiriTopEdgePictures) {
-        let permission = ScreenCapturePermissionMonitor.shared
+    func observePictureCaptureState(
+        _ pictures: NiriEdgePictures,
+        permission: ScreenCapturePermissionMonitor = .shared
+    ) {
         let previews = PreviewCaptureCoordinator.shared
-        let permissionObserver = permission.addChangeObserver { [weak self, weak pictures] _ in
+        let permissionObserver = permission.addChangeObserver { [weak self, weak pictures] granted in
             pictures?.reset()
             guard let self else { return }
+            workspaceManager.withEngineMutationScope {
+                niriEngine?.edgePicturesAvailable = granted
+            }
             let workspaces = Set(workspaceManager.monitors.compactMap { monitor -> WorkspaceDescriptor.ID? in
                 guard settings.monitors.effectiveOrientation(for: monitor) == .vertical else { return nil }
                 return workspaceManager.activeWorkspaceOrFirst(on: monitor.id)?.id

@@ -7,7 +7,7 @@ import OmniWMIPC
 
 extension WMController {
     func handleSessionStateChanged(surfaceScope: SessionSurfaceInvalidationScope) {
-        pruneTopEdgePictures()
+        pruneEdgePictures()
         intentLedger.cancelConfirmedWorkerRaise(unlessFocused: workspaceManager.nativeManagedFocusToken)
         axEventHandler.recheckVisibilityAfterFocusLoss()
         if let source = columnModeToast.source,

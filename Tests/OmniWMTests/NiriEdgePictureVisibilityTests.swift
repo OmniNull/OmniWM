@@ -14,31 +14,31 @@ final class NiriEdgePictureVisibilityTests: XCTestCase {
     func testReadyNativeActiveNeverBecomesAPicture() {
         let result = layout(ready: [first], parked: [], position: display.height)
         XCTAssertNil(result.hiddenHandles[first])
-        XCTAssertTrue(result.topEdgeHiddenFrames.isEmpty)
+        XCTAssertTrue(result.edgeHiddenFrames.isEmpty)
     }
 
     func testParkedActiveHoldsAfterTopClearsUntilSettled() throws {
         let position = display.height / 4
         let moving = layout(ready: [first], parked: [first], position: position)
         XCTAssertEqual(moving.hiddenHandles[first], .right)
-        XCTAssertEqual(try XCTUnwrap(moving.topEdgeHiddenFrames[first]), CGRect(
+        XCTAssertEqual(try XCTUnwrap(moving.edgeHiddenFrames[first]), CGRect(
             x: display.minX, y: position, width: display.width, height: display.height / 2
         ))
         let landed = layout(ready: [first], parked: [first], position: position, settled: true)
         XCTAssertNil(landed.hiddenHandles[first])
-        XCTAssertTrue(landed.topEdgeHiddenFrames.isEmpty)
+        XCTAssertTrue(landed.edgeHiddenFrames.isEmpty)
     }
 
     func testWhollyAboveStaysParkedWithoutAReadyImage() {
         let above = layout(ready: [], parked: [first], position: display.maxY)
         XCTAssertEqual(above.hiddenHandles[first], .right)
-        XCTAssertTrue(above.topEdgeHiddenFrames.isEmpty)
+        XCTAssertTrue(above.edgeHiddenFrames.isEmpty)
         let intersecting = display.maxY - display.height / 4
         let missed = layout(ready: [], parked: [first], position: intersecting)
         XCTAssertNil(missed.hiddenHandles[first])
         let ready = layout(ready: [first], parked: [first], position: intersecting)
         XCTAssertEqual(ready.hiddenHandles[first], .right)
-        XCTAssertNotNil(ready.topEdgeHiddenFrames[first])
+        XCTAssertNotNil(ready.edgeHiddenFrames[first])
     }
 
     func testWholeRowMustBeParkedAndReady() {
@@ -63,7 +63,7 @@ final class NiriEdgePictureVisibilityTests: XCTestCase {
             ready: [first], parked: [first, second], position: position, tokens: [first, second], tabbed: true
         )
         XCTAssertEqual(parked.hiddenHandles[first], .right)
-        XCTAssertEqual(Set(parked.topEdgeHiddenFrames.keys), [first])
+        XCTAssertEqual(Set(parked.edgeHiddenFrames.keys), [first])
     }
 
     func testNonNormalAndOversizedActiveStayNative() {
@@ -83,7 +83,7 @@ final class NiriEdgePictureVisibilityTests: XCTestCase {
         for ready: Set<WindowToken> in [[], [first]] {
             let capable = layout(ready: ready, parked: [], position: position, active: false)
             XCTAssertEqual(capable.hiddenHandles[first], .right)
-            XCTAssertNotNil(capable.topEdgeHiddenFrames[first])
+            XCTAssertNotNil(capable.edgeHiddenFrames[first])
         }
     }
 

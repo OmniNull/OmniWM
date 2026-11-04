@@ -7,7 +7,7 @@ import Foundation
 enum SurfaceKind: String, CaseIterable, Hashable, Sendable {
     case border
     case parkingEdgeMask
-    case niriTopEdgePicture
+    case niriEdgePicture
     case workspaceBar
     case shellIsland
     case overview
@@ -18,13 +18,13 @@ enum SurfaceKind: String, CaseIterable, Hashable, Sendable {
     case keyboardModeIndicator
     case dragGhost
     case utility
-
-    static let gestureTransparent: [SurfaceKind] = [.parkingEdgeMask, .niriTopEdgePicture]
     case quake
     case launchOverlay
     case secureInputIndicator
     case hiddenBarPanel
     case statusPanel
+
+    static let gestureTransparent: [SurfaceKind] = [.parkingEdgeMask, .niriEdgePicture]
 }
 
 enum HitTestPolicy: Equatable {

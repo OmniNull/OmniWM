@@ -98,7 +98,7 @@ extension MouseEventHandler {
         if let windowIdUnderPointer, windowIdUnderPointer > 0,
            !controller.isOwnedWindow(windowNumber: windowIdUnderPointer)
         {
-            return controller.ownedWindowRegistry.contains(point: location, excluding: [.niriTopEdgePicture])
+            return controller.ownedWindowRegistry.contains(point: location, excluding: [.niriEdgePicture])
         }
         return true
     }

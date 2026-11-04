@@ -127,12 +127,12 @@ extension NiriLayoutEngine {
             ),
             result: &result.frames
         )
-        if visibility.isTopEdgeHidden {
-            recordTopEdgeHiddenFrames(column, visibility: visibility, pass: pass, result: &result.topEdgeHiddenFrames)
+        if visibility.isEdgeHidden {
+            recordEdgeHiddenFrames(column, visibility: visibility, pass: pass, result: &result.edgeHiddenFrames)
         }
     }
 
-    private func recordTopEdgeHiddenFrames(
+    private func recordEdgeHiddenFrames(
         _ column: NiriProjectedColumn,
         visibility: NiriColumnVisibility,
         pass: NiriColumnLayoutPass,

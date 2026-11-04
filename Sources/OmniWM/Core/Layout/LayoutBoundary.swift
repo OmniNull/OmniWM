@@ -235,7 +235,7 @@ struct WorkspaceLayoutDiff {
     var visibilityChanges: [LayoutVisibilityChange] = []
     var restoreChanges: [LayoutRestoreChange] = []
     var deferredHides: [LayoutDeferredHide] = []
-    var topEdgeHiddenFrames: [WindowToken: CGRect] = [:]
+    var edgeHiddenFrames: [WindowToken: CGRect] = [:]
     var picturePreparation: NiriPicturePreparation?
     var nativeFullscreenSlots: [WindowToken: NativeFullscreenSlotProjection] = [:]
     var tabRailGeometryCommands: [TabRailGeometryCommand] = []

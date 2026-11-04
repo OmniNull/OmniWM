@@ -23,12 +23,12 @@ final class NiriPicturePrewarmingTests: XCTestCase {
         }
     }
 
-    private final class Surface: NiriTopEdgePictureSurface {
+    private final class Surface: NiriEdgePictureSurface {
         var image: CGImage?
-        var geometry: NiriTopEdgePictureGeometry?
+        var geometry: NiriEdgePictureGeometry?
         var destroyed = false
 
-        func update(geometry: NiriTopEdgePictureGeometry, image: CGImage, activate _: @escaping @MainActor () -> Void) {
+        func update(geometry: NiriEdgePictureGeometry, image: CGImage, activate _: @escaping @MainActor () -> Void) {
             self.geometry = geometry
             self.image = image
         }
@@ -168,7 +168,7 @@ final class NiriPicturePrewarmingTests: XCTestCase {
 
     func testIneligibleHostedOrDeniedTokenNeverCapturesOrBecomesReady() {
         let log = CaptureLog()
-        let presenter = NiriTopEdgePictures(
+        let presenter = NiriEdgePictures(
             capture: log.capture, isCaptureEligible: { _ in false }, activate: { _, _ in }
         )
         presenter.reconcile(plan(warm: [token: display.size], pictured: true))
@@ -200,8 +200,70 @@ final class NiriPicturePrewarmingTests: XCTestCase {
         XCTAssertTrue(log.tokens.isEmpty)
     }
 
-    private func presenter(_ log: CaptureLog, surface: Surface = Surface()) -> NiriTopEdgePictures {
-        NiriTopEdgePictures(capture: log.capture, makeSurface: { surface }, activate: { _, _ in })
+    func testMotionImageSurvivesReversalAndDropsAtSettlement() throws {
+        let log = CaptureLog()
+        let presenter = presenter(log)
+        let motion = plan(settled: false, motion: [token: display.size])
+        presenter.reconcile(motion)
+        log.completions[0](try image())
+        presenter.reconcile(plan(settled: false))
+        XCTAssertEqual(presenter.readyTokens, [token])
+        presenter.reconcile(motion)
+        XCTAssertEqual(log.tokens, [token])
+        XCTAssertEqual(presenter.readyTokens, [token])
+        presenter.reconcile(plan())
+        XCTAssertTrue(presenter.readyTokens.isEmpty)
+        XCTAssertTrue(presenter.capturedPictures.isEmpty)
+    }
+
+    func testBottomPictureRetiresAtSettledHideWithoutNativeReveal() throws {
+        let log = CaptureLog()
+        let surface = Surface()
+        let presenter = presenter(log, surface: surface)
+        var moving = plan(settled: false, motion: [token: display.size])
+        moving.diff.edgeHiddenFrames[token] = display.offsetBy(
+            dx: 0, dy: -display.height + NiriLayoutViewport.minimumNativeBottomVisibility / 2
+        )
+        presenter.reconcile(moving)
+        log.completions[0](try image())
+        XCTAssertNotNil(surface.image)
+        var settled = plan()
+        settled.diff.visibilityChanges = [.hide(token, side: AxisHideEdge.minimum.encodedHideSide)]
+        presenter.reconcile(settled)
+        XCTAssertTrue(surface.destroyed)
+        XCTAssertTrue(presenter.pictures.isEmpty)
+        XCTAssertTrue(presenter.readyTokens.isEmpty)
+    }
+
+    func testCoverageIsIdenticalWithEmptyInFlightAndReadyCaches() throws {
+        let source = HiddenPlacementMonitorContext(id: .init(displayId: 1), frame: display, visibleFrame: display)
+        let otherFrame = display.offsetBy(dx: display.width * 2, dy: display.height * 2)
+        let other = HiddenPlacementMonitorContext(id: .init(displayId: 2), frame: otherFrame, visibleFrame: otherFrame)
+        let selectedSpan = display.height / 2
+        for available in [false, true] {
+            let input = NiriSettledCoverageEvaluator.Input(
+                containerSpans: [selectedSpan, selectedSpan, display.height], selectedIndex: 1, activeIndex: 1,
+                semanticOffset: 0, gap: 0, workingFrame: display, sourceMonitor: source, monitors: [source, other],
+                orientation: .vertical, scale: 1, edgePicturesAvailable: available
+            )
+            let expected = available ? 0 : -(display.height - selectedSpan)
+            let log = CaptureLog()
+            let presenter = presenter(log)
+            XCTAssertTrue(presenter.capturedPictures.isEmpty)
+            XCTAssertEqual(NiriSettledCoverageEvaluator.bestOffset(for: input), expected)
+            presenter.reconcile(plan(warm: [token: display.size]))
+            XCTAssertEqual(log.tokens, [token])
+            XCTAssertNotNil(presenter.capturedPictures[token])
+            XCTAssertTrue(presenter.readyTokens.isEmpty)
+            XCTAssertEqual(NiriSettledCoverageEvaluator.bestOffset(for: input), expected)
+            log.completions[0](try image())
+            XCTAssertEqual(presenter.readyTokens, [token])
+            XCTAssertEqual(NiriSettledCoverageEvaluator.bestOffset(for: input), expected)
+        }
+    }
+
+    private func presenter(_ log: CaptureLog, surface: Surface = Surface()) -> NiriEdgePictures {
+        NiriEdgePictures(capture: log.capture, makeSurface: { surface }, activate: { _, _ in })
     }
 
     private var pictureFrame: CGRect {
@@ -219,7 +281,7 @@ final class NiriPicturePrewarmingTests: XCTestCase {
         diff.picturePreparation = NiriPicturePreparation(
             isSettled: settled, warmCandidates: warm, motionCandidates: motion
         )
-        if pictured { diff.topEdgeHiddenFrames[token] = pictureFrame }
+        if pictured { diff.edgeHiddenFrames[token] = pictureFrame }
         return WorkspaceLayoutPlan(
             workspaceId: workspaceId,
             monitor: LayoutMonitorSnapshot(

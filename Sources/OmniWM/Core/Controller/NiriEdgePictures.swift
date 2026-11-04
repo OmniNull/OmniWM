@@ -4,7 +4,7 @@
 import AppKit
 import QuartzCore
 
-struct NiriTopEdgePictureGeometry: Equatable {
+struct NiriEdgePictureGeometry: Equatable {
     let frame: CGRect
     let visibleFrame: CGRect
 
@@ -22,28 +22,28 @@ struct NiriTopEdgePictureGeometry: Equatable {
 }
 
 @MainActor
-protocol NiriTopEdgePictureSurface: AnyObject {
-    func update(geometry: NiriTopEdgePictureGeometry, image: CGImage, activate: @escaping @MainActor () -> Void)
+protocol NiriEdgePictureSurface: AnyObject {
+    func update(geometry: NiriEdgePictureGeometry, image: CGImage, activate: @escaping @MainActor () -> Void)
     func destroy()
 }
 
 @MainActor
-final class NiriTopEdgePictures {
+final class NiriEdgePictures {
     typealias Capture = @MainActor (WindowToken, @escaping @MainActor (CGImage?) -> Void) -> Task<Void, Never>?
 
     final class Picture {
         let workspaceId: WorkspaceDescriptor.ID
         let displayId: CGDirectDisplayID
         let displayFrame: CGRect
-        var geometry: NiriTopEdgePictureGeometry
+        var geometry: NiriEdgePictureGeometry
         var image: CGImage?
-        var surface: (any NiriTopEdgePictureSurface)?
+        var surface: (any NiriEdgePictureSurface)?
         var revealFrame: CGRect?
 
         init(
             workspaceId: WorkspaceDescriptor.ID,
             monitor: LayoutMonitorSnapshot,
-            geometry: NiriTopEdgePictureGeometry
+            geometry: NiriEdgePictureGeometry
         ) {
             self.workspaceId = workspaceId
             displayId = monitor.displayId
@@ -53,7 +53,7 @@ final class NiriTopEdgePictures {
     }
 
     let capture: Capture
-    private let makeSurface: @MainActor () -> any NiriTopEdgePictureSurface
+    private let makeSurface: @MainActor () -> any NiriEdgePictureSurface
     private let activate: @MainActor (WindowToken, WorkspaceDescriptor.ID) -> Void
     var pictures: [WindowToken: Picture] = [:]
     var capturedPictures: [WindowToken: NiriCapturedPicture] = [:]
@@ -65,8 +65,8 @@ final class NiriTopEdgePictures {
     let isCaptureEligible: @MainActor (WindowToken) -> Bool
 
     init(
-        capture: @escaping Capture = NiriTopEdgePictures.captureWindow,
-        makeSurface: @escaping @MainActor () -> any NiriTopEdgePictureSurface = { NiriTopEdgePictureWindow() },
+        capture: @escaping Capture = NiriEdgePictures.captureWindow,
+        makeSurface: @escaping @MainActor () -> any NiriEdgePictureSurface = { NiriEdgePictureWindow() },
         isCaptureEligible: @escaping @MainActor (WindowToken) -> Bool = { _ in true },
         activate: @escaping @MainActor (WindowToken, WorkspaceDescriptor.ID) -> Void
     ) {
@@ -83,7 +83,7 @@ final class NiriTopEdgePictures {
 
     func reconcile(_ plan: WorkspaceLayoutPlan) {
         let enabled = plan.isActiveWorkspace && plan.monitor.orientation == .vertical
-        let desired = enabled ? plan.diff.topEdgeHiddenFrames : [:]
+        let desired = enabled ? plan.diff.edgeHiddenFrames : [:]
         preparePictures(plan, enabled: enabled)
         guard !desired.isEmpty || pictures.values.contains(where: { $0.workspaceId == plan.workspaceId })
         else { return }
@@ -98,7 +98,7 @@ final class NiriTopEdgePictures {
             }
             if desired[token] != nil { continue }
             guard let change = plan.diff.frameChanges.first(where: { $0.token == token }),
-                  let geometry = NiriTopEdgePictureGeometry(frame: change.frame, displayFrame: plan.monitor.frame)
+                  let geometry = NiriEdgePictureGeometry(frame: change.frame, displayFrame: plan.monitor.frame)
             else { retirePicture(token)
                 continue
             }
@@ -107,7 +107,7 @@ final class NiriTopEdgePictures {
             present(token, picture: picture)
         }
         for (token, frame) in desired {
-            guard let geometry = NiriTopEdgePictureGeometry(frame: frame, displayFrame: plan.monitor.frame)
+            guard let geometry = NiriEdgePictureGeometry(frame: frame, displayFrame: plan.monitor.frame)
             else { retirePicture(token)
                 continue
             }
@@ -197,23 +197,23 @@ final class NiriTopEdgePictures {
 }
 
 extension WMController {
-    func makeTopEdgePictures() -> NiriTopEdgePictures {
-        let pictures = NiriTopEdgePictures(
+    func makeEdgePictures() -> NiriEdgePictures {
+        let pictures = NiriEdgePictures(
             makeSurface: { [weak self] in
-                NiriTopEdgePictureWindow(orderBelowWindowId: self?.workspaceManager.nativeManagedFocusToken?.windowId)
+                NiriEdgePictureWindow(orderBelowWindowId: self?.workspaceManager.nativeManagedFocusToken?.windowId)
             },
             isCaptureEligible: { [weak self] token in
                 self?.workspaceManager.entry(for: token)?.axRef != nil && ScreenCapturePermissionMonitor.shared
                     .isGranted
             },
-            activate: { [weak self] in self?.activateTopEdgePicture($0, in: $1) }
+            activate: { [weak self] in self?.activateEdgePicture($0, in: $1) }
         )
         observePictureCaptureState(pictures)
         return pictures
     }
 
-    func pruneTopEdgePictures() {
-        niriTopEdgePictures.retainCurrentContexts { token, workspaceId, displayId, displayFrame in
+    func pruneEdgePictures() {
+        niriEdgePictures.retainCurrentContexts { token, workspaceId, displayId, displayFrame in
             guard let monitor = workspaceManager.monitor(for: workspaceId),
                   monitor.displayId == displayId, monitor.frame == displayFrame,
                   settings.monitors.effectiveOrientation(for: monitor) == .vertical,
@@ -225,7 +225,7 @@ extension WMController {
         }
     }
 
-    func activateTopEdgePicture(_ token: WindowToken, in workspaceId: WorkspaceDescriptor.ID) {
+    func activateEdgePicture(_ token: WindowToken, in workspaceId: WorkspaceDescriptor.ID) {
         guard let node = niriEngine?.findNode(for: token, in: workspaceId),
               let monitor = workspaceManager.monitor(for: workspaceId),
               workspaceManager.activeWorkspaceOrFirst(on: monitor.id)?.id == workspaceId

@@ -39,6 +39,8 @@ final class NiriLayoutEngine {
 
     var edgeOverscroll: NiriEdgeOverscroll = .disabled
 
+    var edgePicturesAvailable = true
+
     var renderStyle: NiriRenderStyle = .default
 
     var interactiveResize: InteractiveResize?

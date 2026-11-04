@@ -62,10 +62,12 @@ struct NiriColumnVisibility {
     let canonicalRect: CGRect
     let visibleRect: CGRect
     let state: ContainerVisibilityState
-    let isTopEdgeHidden: Bool
+    let isEdgeHidden: Bool
 }
 
 struct NiriLayoutViewport {
+    static let minimumNativeBottomVisibility: CGFloat = 32
+
     private let area: WorkingAreaContext
     private let orientation: Monitor.Orientation
     private let workspaceOffset: CGFloat
@@ -95,9 +97,7 @@ struct NiriLayoutViewport {
         edgePictures: NiriColumnPictureState = .none
     ) -> NiriColumnVisibility {
         let canonicalContainerRect = area.canonicalContainerRect(
-            position: column.position,
-            span: column.span,
-            orientation: orientation
+            position: column.position, span: column.span, orientation: orientation
         )
         let visibilityRect = area.visibleRenderedContainerRect(
             canonicalRect: canonicalContainerRect,
@@ -113,14 +113,21 @@ struct NiriLayoutViewport {
             hiddenPlacementMonitor: hiddenPlacementMonitor,
             hiddenPlacementMonitors: hiddenPlacementMonitors
         )
-        var isTopEdgeHidden = false
+        var isEdgeHidden = false
+        if let bottom = bottomMotionVisibility(
+            column: column, isActive: selection.isActive, rect: visibilityRect,
+            monitor: hiddenPlacementMonitor, pictures: edgePictures
+        ) {
+            visibilityState = bottom.state
+            isEdgeHidden = bottom.isPicture
+        }
         if case .visible = visibilityState {
             if let edge = verticalHiddenEdge(
                 column: column, isActive: selection.isActive, rect: visibilityRect,
                 monitor: hiddenPlacementMonitor, monitors: hiddenPlacementMonitors, pictures: edgePictures
             ) {
                 visibilityState = .hidden(edge)
-                isTopEdgeHidden = edge == .maximum
+                isEdgeHidden = edge == .maximum
             } else {
                 if let liveOverflowEdge = NiriMonitorPlaneGeometry.overflowEdgeIntersectingNeighboringMonitor(
                     NiriMonitorPlaneGeometry.clampedFrame(
@@ -136,10 +143,8 @@ struct NiriLayoutViewport {
             }
         }
         return NiriColumnVisibility(
-            canonicalRect: canonicalContainerRect,
-            visibleRect: visibilityRect,
-            state: visibilityState,
-            isTopEdgeHidden: isTopEdgeHidden
+            canonicalRect: canonicalContainerRect, visibleRect: visibilityRect,
+            state: visibilityState, isEdgeHidden: isEdgeHidden
         )
     }
 
@@ -161,7 +166,27 @@ struct NiriLayoutViewport {
         if !isActive, pictures.isAvailable || hasAnotherMonitor, rect.maxY > monitor.frame.maxY {
             return .maximum
         }
-        return hasAnotherMonitor && rect.maxY <= area.workingFrame.minY ? .minimum : nil
+        guard !pictures.isAvailable || pictures.isSettled else { return nil }
+        return (pictures.isAvailable || hasAnotherMonitor) && rect.maxY <= area.workingFrame.minY ? .minimum : nil
+    }
+
+    private func bottomMotionVisibility(
+        column: NiriPreparedLayoutColumn,
+        isActive: Bool,
+        rect: CGRect,
+        monitor: HiddenPlacementMonitorContext?,
+        pictures: NiriColumnPictureState
+    ) -> (state: ContainerVisibilityState, isPicture: Bool)? {
+        guard orientation == .vertical, pictures.isAvailable, !pictures.isSettled,
+              !(isActive && column.span > area.workingFrame.height), let monitor else { return nil }
+        let floor = monitor.visibleFrame.minY + Self.minimumNativeBottomVisibility
+        if pictures.isReady, !isActive || pictures.holdsActiveBelow, rect.maxY < floor {
+            return (.hidden(.minimum), true)
+        }
+        if rect.maxY >= floor, rect.maxY <= area.workingFrame.minY {
+            return (.visible, false)
+        }
+        return nil
     }
 
     func sampledContainerVisibilityState(

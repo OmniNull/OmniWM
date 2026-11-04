@@ -196,7 +196,7 @@ final class NiriKeyboardFocusTests: XCTestCase {
         }
     }
 
-    func testOnlyVerticalTopParkedFocusAllowsLayoutHiddenWorkerRaise() throws {
+    func testOnlyVerticalParkedFocusAllowsLayoutHiddenWorkerRaise() throws {
         let hiddenReasons: [HiddenReason?] = [
             nil, .layoutTransient(AxisHideEdge.maximum.encodedHideSide),
             .layoutTransient(AxisHideEdge.minimum.encodedHideSide), .workspaceInactive, .scratchpad
@@ -219,8 +219,10 @@ final class NiriKeyboardFocusTests: XCTestCase {
                     XCTAssertTrue(controller.niriLayoutHandler.focusNeighbor(direction: direction))
 
                     XCTAssertEqual(fixture.recorder.operations, [.submittedFocus(target)])
+                    let isLayoutHidden = reason == .layoutTransient(AxisHideEdge.maximum.encodedHideSide)
+                        || reason == .layoutTransient(AxisHideEdge.minimum.encodedHideSide)
                     XCTAssertEqual(fixture.recorder.allowsLayoutHiddenRaises, [
-                        orientation == .vertical && reason == .layoutTransient(AxisHideEdge.maximum.encodedHideSide)
+                        orientation == .vertical && isLayoutHidden
                     ])
                     XCTAssertFalse(try XCTUnwrap(fixture.recorder.queuedRaises.first).job.isCancelled)
                 }

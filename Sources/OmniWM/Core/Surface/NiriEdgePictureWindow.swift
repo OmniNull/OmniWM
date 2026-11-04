@@ -5,7 +5,7 @@ import AppKit
 import QuartzCore
 
 @MainActor
-final class NiriTopEdgePictureWindow: NSPanel, NiriTopEdgePictureSurface {
+final class NiriEdgePictureWindow: NSPanel, NiriEdgePictureSurface {
     private let pictureLayer = CALayer()
     private let button = NSButton()
     private var activate: (@MainActor () -> Void)?
@@ -39,9 +39,9 @@ final class NiriTopEdgePictureWindow: NSPanel, NiriTopEdgePictureSurface {
         contentView = root
         SurfaceCoordinator.shared.register(
             window: self,
-            id: "niri-top-picture-\(ObjectIdentifier(self))",
+            id: "niri-edge-picture-\(ObjectIdentifier(self))",
             policy: SurfacePolicy(
-                kind: .niriTopEdgePicture,
+                kind: .niriEdgePicture,
                 hitTestPolicy: .interactive,
                 capturePolicy: .excluded,
                 suppressesManagedFocusRecovery: false
@@ -61,7 +61,7 @@ final class NiriTopEdgePictureWindow: NSPanel, NiriTopEdgePictureSurface {
         frameRect
     }
 
-    func update(geometry: NiriTopEdgePictureGeometry, image: CGImage, activate: @escaping @MainActor () -> Void) {
+    func update(geometry: NiriEdgePictureGeometry, image: CGImage, activate: @escaping @MainActor () -> Void) {
         self.activate = activate
         setFrame(geometry.visibleFrame, display: false)
         let bounds = CGRect(origin: .zero, size: geometry.visibleFrame.size)

@@ -4,7 +4,7 @@
 import AppKit
 import QuartzCore
 
-extension NiriTopEdgePictures {
+extension NiriEdgePictures {
     func needsMotionPreparation(in workspaceId: WorkspaceDescriptor.ID) -> Bool {
         warmStates[workspaceId]?.isMoving != true
     }
@@ -25,7 +25,7 @@ extension NiriTopEdgePictures {
             if !isUnderMemoryPressure { prepareSettledPictures(preparation, plan: plan) }
         } else {
             state.isMoving = true
-            state.motionCandidates = Set(preparation.motionCandidates.keys)
+            state.motionCandidates.formUnion(preparation.motionCandidates.keys)
             let fresh = preparation.motionCandidates.filter { state.capturedThisMotion.insert($0.key).inserted }
             warmStates[plan.workspaceId] = state
             for (token, size) in fresh {

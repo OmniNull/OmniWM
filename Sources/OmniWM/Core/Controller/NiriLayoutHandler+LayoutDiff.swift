@@ -55,7 +55,7 @@ extension NiriLayoutHandler {
                 settledContext: isSettled ? (snapshot.monitor, state) : nil
             )
         )
-        diff.topEdgeHiddenFrames = topEdgeHiddenFrames(engine: pass.engine, snapshot: snapshot)
+        diff.edgeHiddenFrames = edgeHiddenFrames(engine: pass.engine, snapshot: snapshot)
         diff.picturePreparation = picturePreparation(
             engine: pass.engine, snapshot: snapshot, state: state, isSettled: isSettled
         )
@@ -75,8 +75,8 @@ extension NiriLayoutHandler {
         )
     }
 
-    func topEdgeHiddenFrames(engine: NiriLayoutEngine, snapshot: NiriWorkspaceSnapshot) -> [WindowToken: CGRect] {
-        engine.layoutPool.topEdgeHiddenFrames.filter { token, _ in
+    func edgeHiddenFrames(engine: NiriLayoutEngine, snapshot: NiriWorkspaceSnapshot) -> [WindowToken: CGRect] {
+        engine.layoutPool.edgeHiddenFrames.filter { token, _ in
             snapshot.windows.contains { $0.token == token && !$0.isNativeFullscreenSuspended }
                 && !snapshot.excludedTokens.contains(token)
         }

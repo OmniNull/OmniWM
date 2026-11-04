@@ -145,6 +145,7 @@ struct NiriSettledCoverageEvaluator {
         let monitors: [HiddenPlacementMonitorContext]
         let orientation: Monitor.Orientation
         let scale: CGFloat
+        var edgePicturesAvailable = true
 
         fileprivate func renderedContainerRect(
             position: CGFloat,
@@ -178,7 +179,17 @@ struct NiriSettledCoverageEvaluator {
             return renderedRect.roundedToPhysicalPixels(scale: scale)
         }
 
-        fileprivate func visibleContainerRect(_ renderedRect: CGRect, within revealFrame: CGRect) -> CGRect? {
+        fileprivate func visibleContainerRect(
+            _ renderedRect: CGRect,
+            within revealFrame: CGRect,
+            isActive: Bool
+        ) -> CGRect? {
+            if orientation == .vertical, !edgePicturesAvailable, !isActive,
+               renderedRect.maxY > sourceMonitor.frame.maxY,
+               monitors.contains(where: { $0.id != sourceMonitor.id })
+            {
+                return nil
+            }
             if NiriSettledCoverageEvaluator.primaryIntersects(
                 renderedRect,
                 revealFrame,
@@ -294,7 +305,9 @@ struct NiriSettledCoverageEvaluator {
                 viewPosition: viewPosition
             )
 
-            if let visibleRect = input.visibleContainerRect(renderedRect, within: revealFrame) {
+            if let visibleRect = input.visibleContainerRect(
+                renderedRect, within: revealFrame, isActive: index == input.activeIndex
+            ) {
                 let start = primaryOrigin(of: visibleRect, orientation: input.orientation)
                 let end = primaryMaximum(of: visibleRect, orientation: input.orientation)
                 let uncoveredStart = max(start, coveredEnd)
@@ -416,10 +429,7 @@ extension NiriLayoutEngine {
             return false
         }
 
-        return withProjectedViewport(
-            state: &state,
-            context: context
-        ) { containers, projectedState in
+        return withProjectedViewport(state: &state, context: context) { containers, projectedState in
             guard !(settings.alwaysCenterSingleColumn && containers.count == 1),
                   containers.count > 1,
                   containers.allSatisfy({ $0.effectiveSizingMode == .normal }),
@@ -449,7 +459,8 @@ extension NiriLayoutEngine {
                     sourceMonitor: HiddenPlacementMonitorContext(sourceMonitor),
                     monitors: monitors.values.map(HiddenPlacementMonitorContext.init),
                     orientation: context.orientation,
-                    scale: sourceMonitor.scale
+                    scale: sourceMonitor.scale,
+                    edgePicturesAvailable: edgePicturesAvailable
                 )
             )
             guard abs(offset - projectedState.viewOffset) > 0.0001 else { return false }

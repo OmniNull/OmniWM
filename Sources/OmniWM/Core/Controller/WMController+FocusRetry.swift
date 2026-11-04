@@ -60,7 +60,7 @@ extension WMController {
     }
 
     private func permitsParkedVerticalRetryRaise(for entry: WindowState) -> Bool {
-        guard entry.hiddenState?.offscreenSide == AxisHideEdge.maximum.encodedHideSide,
+        guard entry.hiddenState?.offscreenSide != nil,
               workspaceManager.activeLayoutKind(for: entry.workspaceId) == .niri,
               let monitor = workspaceManager.monitor(for: entry.workspaceId)
         else { return false }

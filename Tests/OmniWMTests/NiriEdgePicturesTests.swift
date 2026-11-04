@@ -6,17 +6,17 @@ import AppKit
 import XCTest
 
 @MainActor
-final class NiriTopEdgePicturesTests: XCTestCase {
+final class NiriEdgePicturesTests: XCTestCase {
     private let workspaceId = WorkspaceDescriptor.ID()
     private let token = WindowToken(pid: 123, windowId: 456)
     private let displayFrame = CGRect(x: 0, y: 0, width: 1200, height: 800)
 
-    private final class Surface: NiriTopEdgePictureSurface {
-        var geometry: NiriTopEdgePictureGeometry?
+    private final class Surface: NiriEdgePictureSurface {
+        var geometry: NiriEdgePictureGeometry?
         var activation: (@MainActor () -> Void)?
         var destroyed = false
 
-        func update(geometry: NiriTopEdgePictureGeometry, image _: CGImage, activate: @escaping @MainActor () -> Void) {
+        func update(geometry: NiriEdgePictureGeometry, image _: CGImage, activate: @escaping @MainActor () -> Void) {
             self.geometry = geometry
             activation = activate
         }
@@ -30,7 +30,7 @@ final class NiriTopEdgePicturesTests: XCTestCase {
         var completions: [@MainActor (CGImage?) -> Void] = []
         var surfaces: [Surface] = []
         var selected: (WindowToken, WorkspaceDescriptor.ID)?
-        let presenter = NiriTopEdgePictures(
+        let presenter = NiriEdgePictures(
             capture: { _, completion in completions.append(completion)
                 return nil
             },
@@ -62,7 +62,7 @@ final class NiriTopEdgePicturesTests: XCTestCase {
     func testRevealWaitsForMatchingResultAndReversalRejectsOldResult() throws {
         let surface = Surface()
         let captured = try image()
-        let presenter = NiriTopEdgePictures(
+        let presenter = NiriEdgePictures(
             capture: { _, completion in completion(captured)
                 return nil
             },
@@ -85,7 +85,7 @@ final class NiriTopEdgePicturesTests: XCTestCase {
     func testRetiredCaptureCannotPublishIntoNewPicture() throws {
         var completions: [@MainActor (CGImage?) -> Void] = []
         var surfaces: [Surface] = []
-        let presenter = NiriTopEdgePictures(
+        let presenter = NiriEdgePictures(
             capture: { _, completion in completions.append(completion)
                 return nil
             },
@@ -111,7 +111,7 @@ final class NiriTopEdgePicturesTests: XCTestCase {
         var captureCount = 0
         var surfaces: [Surface] = []
         let captured = try image()
-        let presenter = NiriTopEdgePictures(
+        let presenter = NiriEdgePictures(
             capture: { _, completion in
                 captureCount += 1
                 completion(captureCount == 1 ? nil : captured)
@@ -137,7 +137,7 @@ final class NiriTopEdgePicturesTests: XCTestCase {
     func testChangedContextRetiresBeforeCaptureCanPublish() throws {
         var completion: (@MainActor (CGImage?) -> Void)?
         var surfaceCount = 0
-        let presenter = NiriTopEdgePictures(
+        let presenter = NiriEdgePictures(
             capture: { _, ready in completion = ready
                 return nil
             },
@@ -160,11 +160,11 @@ final class NiriTopEdgePicturesTests: XCTestCase {
     func testPictureAllowsGesturesButStillOwnsClicks() {
         let registry = OwnedWindowRegistry(surfaceCoordinator: SurfaceCoordinator())
         let controller = WindowAdmissionTestSupport.controller(
-            prefix: "NiriTopEdgePicturesTests", ownedWindowRegistry: registry
+            prefix: "NiriEdgePicturesTests", ownedWindowRegistry: registry
         )
         registry.registerWindowNumber(
             surfaceId: "picture", policy: SurfacePolicy(
-                kind: .niriTopEdgePicture, hitTestPolicy: .interactive,
+                kind: .niriEdgePicture, hitTestPolicy: .interactive,
                 capturePolicy: .excluded, suppressesManagedFocusRecovery: false
             ), windowNumber: token.windowId, frameProvider: { self.displayFrame }, visibilityProvider: { true }
         )
@@ -183,7 +183,7 @@ final class NiriTopEdgePicturesTests: XCTestCase {
     }
 
     func testPictureStaysBelowFloatingWindowsAndOnItsOwnSpace() {
-        let window = NiriTopEdgePictureWindow()
+        let window = NiriEdgePictureWindow()
         defer { window.destroy() }
         XCTAssertEqual(window.level, .normal)
         XCTAssertFalse(window.isFloatingPanel)
@@ -206,7 +206,7 @@ final class NiriTopEdgePicturesTests: XCTestCase {
         orientation: Monitor.Orientation = .vertical
     ) -> WorkspaceLayoutPlan {
         var diff = WorkspaceLayoutDiff()
-        diff.topEdgeHiddenFrames = pictured
+        diff.edgeHiddenFrames = pictured
         diff.frameChanges = revealed.map { LayoutFrameChange(token: $0.key, frame: $0.value, forceApply: false) }
         return WorkspaceLayoutPlan(
             workspaceId: workspaceId,

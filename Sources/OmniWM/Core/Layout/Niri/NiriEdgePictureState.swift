@@ -9,6 +9,7 @@ struct NiriEdgePictureState {
     var isAvailable = false
     var readyTokens: Set<WindowToken> = []
     var parkedAboveTokens: Set<WindowToken> = []
+    var parkedBelowTokens: Set<WindowToken> = []
 
     func columnState(
         _ column: NiriProjectedColumn,
@@ -16,15 +17,21 @@ struct NiriEdgePictureState {
         isActive: Bool,
         isSettled: Bool
     ) -> NiriColumnPictureState {
-        guard isActive, !isSettled,
-              column.windows.allSatisfy({ $0.sizingMode == .normal && parkedAboveTokens.contains($0.token) })
-        else { return NiriColumnPictureState(isAvailable: isAvailable) }
+        let normal = column.windows.allSatisfy { $0.sizingMode == .normal }
         let ready = if let activeTab {
             readyTokens.contains(activeTab.token)
         } else {
             column.windows.allSatisfy { readyTokens.contains($0.token) }
         }
-        return NiriColumnPictureState(isAvailable: isAvailable, holdsActive: true, isReady: ready)
+        return NiriColumnPictureState(
+            isAvailable: isAvailable,
+            holdsActive: isActive && !isSettled && normal
+                && column.windows.allSatisfy { parkedAboveTokens.contains($0.token) },
+            holdsActiveBelow: isActive && !isSettled && normal
+                && column.windows.allSatisfy { parkedBelowTokens.contains($0.token) },
+            isReady: normal && ready,
+            isSettled: isSettled
+        )
     }
 }
 
@@ -33,5 +40,7 @@ struct NiriColumnPictureState {
 
     var isAvailable = false
     var holdsActive = false
+    var holdsActiveBelow = false
     var isReady = false
+    var isSettled = true
 }

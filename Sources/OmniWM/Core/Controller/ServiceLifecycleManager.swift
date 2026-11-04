@@ -161,14 +161,14 @@ final class ServiceLifecycleManager {
 
     private func connectAXFrameCallbacks(_ controller: WMController) {
         controller.axManager.onTerminalFrameRefusal = { [weak controller] refusal in
-            controller?.niriTopEdgePictures.frameApplicationEnded(
+            controller?.niriEdgePictures.frameApplicationEnded(
                 token: WindowToken(pid: refusal.pid, windowId: refusal.windowId),
                 targetFrame: refusal.targetFrame, applied: false
             )
             controller?.axEventHandler.handleTerminalFrameRefusal(refusal)
         }
         controller.axManager.onFrameApplyTerminated = { [weak controller] result in
-            controller?.niriTopEdgePictures.frameApplicationEnded(
+            controller?.niriEdgePictures.frameApplicationEnded(
                 token: WindowToken(pid: result.pid, windowId: result.windowId),
                 targetFrame: result.targetFrame, applied: false
             )
@@ -378,7 +378,7 @@ extension ServiceLifecycleManager {
     func handleFrameApplySucceeded(_ result: AXFrameApplyResult) {
         guard let controller else { return }
         controller.resizeOverlay.frameApplied(windowId: result.windowId)
-        controller.niriTopEdgePictures.frameApplicationEnded(
+        controller.niriEdgePictures.frameApplicationEnded(
             token: WindowToken(pid: result.pid, windowId: result.windowId),
             targetFrame: result.targetFrame
         )

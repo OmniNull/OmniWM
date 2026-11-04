@@ -8,6 +8,16 @@ import XCTest
 final class NiriSettledCoverageTests: NiriInteractionTestCase {
     private let sourceFrame = CGRect(x: 0, y: 0, width: 1_440, height: 2_560)
     private let traceWorkingFrame = CGRect(x: 16, y: 16, width: 1_408, height: 2_498)
+    private let traceNeighborSpan: CGFloat = 1_581
+    private let traceSelectedSpan: CGFloat = 1_241
+
+    private var traceGap: CGFloat {
+        traceWorkingFrame.minX - sourceFrame.minX
+    }
+
+    private var traceTrailingOffset: CGFloat {
+        -(traceWorkingFrame.height - traceGap - traceSelectedSpan)
+    }
 
     func testTraceGeometrySelectsTrailingFitAndIsIdempotent() {
         let source = monitorContext(
@@ -20,11 +30,11 @@ final class NiriSettledCoverageTests: NiriInteractionTestCase {
             frame: CGRect(x: 328, y: 2_560, width: 1_920, height: 1_080)
         )
         let input = NiriSettledCoverageEvaluator.Input(
-            containerSpans: [1_581, 1_581, 1_241, 1_581],
+            containerSpans: [traceNeighborSpan, traceNeighborSpan, traceSelectedSpan, traceNeighborSpan],
             selectedIndex: 2,
             activeIndex: 2,
-            semanticOffset: -16,
-            gap: 16,
+            semanticOffset: -traceGap,
+            gap: traceGap,
             workingFrame: traceWorkingFrame,
             sourceMonitor: source,
             monitors: [source, upperNeighbor],
@@ -34,7 +44,7 @@ final class NiriSettledCoverageTests: NiriInteractionTestCase {
 
         let recovered = NiriSettledCoverageEvaluator.bestOffset(for: input)
 
-        XCTAssertEqual(recovered, -1_241, accuracy: 0.001)
+        XCTAssertEqual(recovered, traceTrailingOffset)
         XCTAssertEqual(
             NiriSettledCoverageEvaluator.bestOffset(
                 for: .init(
@@ -50,8 +60,7 @@ final class NiriSettledCoverageTests: NiriInteractionTestCase {
                     scale: input.scale
                 )
             ),
-            recovered,
-            accuracy: 0.001
+            recovered
         )
     }
 
@@ -64,11 +73,11 @@ final class NiriSettledCoverageTests: NiriInteractionTestCase {
 
         let recovered = NiriSettledCoverageEvaluator.bestOffset(
             for: .init(
-                containerSpans: [1_581, 1_241, 1_581],
+                containerSpans: [traceNeighborSpan, traceSelectedSpan, traceNeighborSpan],
                 selectedIndex: 1,
                 activeIndex: 1,
-                semanticOffset: -1_241,
-                gap: 16,
+                semanticOffset: traceTrailingOffset,
+                gap: traceGap,
                 workingFrame: traceWorkingFrame,
                 sourceMonitor: source,
                 monitors: [source, lowerNeighbor],
@@ -77,7 +86,7 @@ final class NiriSettledCoverageTests: NiriInteractionTestCase {
             )
         )
 
-        XCTAssertEqual(recovered, -16, accuracy: 0.001)
+        XCTAssertEqual(recovered, -traceGap)
     }
 
     func testHorizontalNeighborUsesTheSameAxisGenericRecovery() {
@@ -91,11 +100,11 @@ final class NiriSettledCoverageTests: NiriInteractionTestCase {
 
         let recovered = NiriSettledCoverageEvaluator.bestOffset(
             for: .init(
-                containerSpans: [1_581, 1_581, 1_241, 1_581],
+                containerSpans: [traceNeighborSpan, traceNeighborSpan, traceSelectedSpan, traceNeighborSpan],
                 selectedIndex: 2,
                 activeIndex: 2,
-                semanticOffset: -16,
-                gap: 16,
+                semanticOffset: -traceGap,
+                gap: traceGap,
                 workingFrame: horizontalWorkingFrame,
                 sourceMonitor: source,
                 monitors: [source, rightNeighbor],
@@ -104,12 +113,14 @@ final class NiriSettledCoverageTests: NiriInteractionTestCase {
             )
         )
 
-        XCTAssertEqual(recovered, -1_241, accuracy: 0.001)
+        XCTAssertEqual(recovered, -(horizontalWorkingFrame.width - traceGap - traceSelectedSpan))
     }
 
     func testOnePhysicalPixelGainStaysAndTwoPixelGainMoves() {
         let frame = CGRect(x: 0, y: 0, width: 100, height: 100)
         let source = monitorContext(displayId: 30, frame: frame)
+        let scale: CGFloat = 2
+        let pixel = 1 / scale
 
         func recoveredOffset(from semanticOffset: CGFloat) -> CGFloat {
             NiriSettledCoverageEvaluator.bestOffset(
@@ -123,25 +134,26 @@ final class NiriSettledCoverageTests: NiriInteractionTestCase {
                     sourceMonitor: source,
                     monitors: [source],
                     orientation: .vertical,
-                    scale: 2
+                    scale: scale
                 )
             )
         }
 
-        XCTAssertEqual(recoveredOffset(from: 0.5), 0.5, accuracy: 0.001)
-        XCTAssertEqual(recoveredOffset(from: 1), 0, accuracy: 0.001)
+        XCTAssertEqual(recoveredOffset(from: pixel), pixel)
+        XCTAssertEqual(recoveredOffset(from: pixel * 2), 0)
     }
 
     func testSemanticCandidateUsesItsExactExistingOffset() {
         let frame = CGRect(x: 0, y: 0, width: 100, height: 100)
         let source = monitorContext(displayId: 31, frame: frame)
+        let semanticOffset: CGFloat = -97.25
 
         let recovered = NiriSettledCoverageEvaluator.bestOffset(
             for: .init(
                 containerSpans: [35, 63.25, 57.5, 90.5, 43.5],
                 selectedIndex: 1,
                 activeIndex: 2,
-                semanticOffset: -97.25,
+                semanticOffset: semanticOffset,
                 gap: 0.25,
                 workingFrame: frame,
                 sourceMonitor: source,
@@ -151,7 +163,7 @@ final class NiriSettledCoverageTests: NiriInteractionTestCase {
             )
         )
 
-        XCTAssertEqual(recovered, -97.25, accuracy: 0.001)
+        XCTAssertEqual(recovered, semanticOffset)
     }
 
     func testInteractiveResizeRecoversOnlyAfterRelease() throws {
@@ -190,16 +202,16 @@ final class NiriSettledCoverageTests: NiriInteractionTestCase {
         engine.moveWorkspace(workspaceId, to: sourceMonitor.id, monitor: sourceMonitor)
 
         let columns = engine.columns(in: workspaceId)
-        XCTAssertEqual(columns.count, 4)
+        XCTAssertEqual(columns.count, windows.count)
         for column in columns {
-            column.height = .fixed(1_581)
-            column.cachedHeight = 1_581
+            column.height = .fixed(traceNeighborSpan)
+            column.cachedHeight = traceNeighborSpan
         }
 
         var state = ViewportState()
         state.activeColumnIndex = 2
         state.selectedNodeId = windows[2].id
-        state.jumpOffset(to: -16)
+        state.jumpOffset(to: -traceGap)
 
         XCTAssertTrue(
             engine.interactiveResizeBegin(
@@ -213,30 +225,30 @@ final class NiriSettledCoverageTests: NiriInteractionTestCase {
         )
         XCTAssertTrue(
             engine.interactiveResizeUpdate(
-                currentLocation: CGPoint(x: 0, y: -340),
+                currentLocation: CGPoint(x: 0, y: traceSelectedSpan - traceNeighborSpan),
                 monitorFrame: traceWorkingFrame,
-                gaps: LayoutGaps(horizontal: 16, vertical: 16),
+                gaps: LayoutGaps(horizontal: traceGap, vertical: traceGap),
                 viewportState: { mutate in mutate(&state) }
             )
         )
 
-        XCTAssertEqual(columns[2].cachedHeight, 1_241, accuracy: 0.001)
-        XCTAssertEqual(state.viewOffset, -16, accuracy: 0.001)
+        XCTAssertEqual(columns[2].cachedHeight, traceSelectedSpan)
+        XCTAssertEqual(state.viewOffset, -traceGap)
 
         engine.interactiveResizeEnd(
             motion: .disabled,
             state: &state,
             workingFrame: traceWorkingFrame,
-            gaps: 16
+            gaps: traceGap
         )
 
         XCTAssertNil(engine.interactiveResize)
-        XCTAssertEqual(state.viewOffset, -1_241, accuracy: 0.001)
+        XCTAssertEqual(state.viewOffset, traceTrailingOffset)
 
         let layout = engine.calculateCombinedLayoutUsingPools(
             in: workspaceId,
             monitor: sourceMonitor,
-            gaps: LayoutGaps(horizontal: 16, vertical: 16),
+            gaps: LayoutGaps(horizontal: traceGap, vertical: traceGap),
             state: state,
             workingArea: WorkingAreaContext(
                 workingFrame: traceWorkingFrame,
@@ -262,16 +274,16 @@ final class NiriSettledCoverageTests: NiriInteractionTestCase {
         XCTAssertGreaterThanOrEqual(intervals.count, 2)
         let firstInterval = try XCTUnwrap(intervals.first)
         let lastInterval = try XCTUnwrap(intervals.last)
-        XCTAssertEqual(firstInterval.lowerBound, traceWorkingFrame.minY, accuracy: 0.001)
-        XCTAssertEqual(lastInterval.upperBound, traceWorkingFrame.maxY - 16, accuracy: 0.001)
+        XCTAssertEqual(firstInterval.lowerBound, traceWorkingFrame.minY)
+        XCTAssertEqual(lastInterval.upperBound, traceWorkingFrame.maxY - traceGap)
         for index in 1 ..< intervals.count {
             XCTAssertLessThanOrEqual(
                 intervals[index].lowerBound - intervals[index - 1].upperBound,
-                16.001
+                traceGap
             )
         }
 
-        state.jumpOffset(to: -16)
+        state.jumpOffset(to: -traceGap)
         engine.centerFocusedColumn = .always
         XCTAssertFalse(
             engine.recoverSettledCoverage(
@@ -279,13 +291,13 @@ final class NiriSettledCoverageTests: NiriInteractionTestCase {
                     workspaceId: workspaceId,
                     motion: .disabled,
                     workingFrame: traceWorkingFrame,
-                    gaps: 16,
+                    gaps: traceGap,
                     orientation: .vertical
                 ),
                 state: &state
             )
         )
-        XCTAssertEqual(state.viewOffset, -16, accuracy: 0.001)
+        XCTAssertEqual(state.viewOffset, -traceGap)
 
         engine.centerFocusedColumn = .never
         windows[2].sizingMode = .fullscreen
@@ -295,13 +307,13 @@ final class NiriSettledCoverageTests: NiriInteractionTestCase {
                     workspaceId: workspaceId,
                     motion: .disabled,
                     workingFrame: traceWorkingFrame,
-                    gaps: 16,
+                    gaps: traceGap,
                     orientation: .vertical
                 ),
                 state: &state
             )
         )
-        XCTAssertEqual(state.viewOffset, -16, accuracy: 0.001)
+        XCTAssertEqual(state.viewOffset, -traceGap)
 
         windows[2].sizingMode = .normal
         XCTAssertTrue(
@@ -310,15 +322,15 @@ final class NiriSettledCoverageTests: NiriInteractionTestCase {
                     workspaceId: workspaceId,
                     motion: .disabled,
                     workingFrame: traceWorkingFrame,
-                    gaps: 16,
+                    gaps: traceGap,
                     orientation: .vertical
                 ),
                 state: &state
             )
         )
-        XCTAssertEqual(state.viewOffset, -1_241, accuracy: 0.001)
+        XCTAssertEqual(state.viewOffset, traceTrailingOffset)
 
-        state.jumpOffset(to: -16)
+        state.jumpOffset(to: -traceGap)
         windows[0].sizingMode = .maximized
         XCTAssertFalse(
             engine.recoverSettledCoverage(
@@ -326,17 +338,18 @@ final class NiriSettledCoverageTests: NiriInteractionTestCase {
                     workspaceId: workspaceId,
                     motion: .disabled,
                     workingFrame: traceWorkingFrame,
-                    gaps: 16,
+                    gaps: traceGap,
                     orientation: .vertical
                 ),
                 state: &state
             )
         )
-        XCTAssertEqual(state.viewOffset, -16, accuracy: 0.001)
+        XCTAssertEqual(state.viewOffset, -traceGap)
     }
 
     func testSingleWindowFitAndForcedCenteringPreserveOffset() {
         let engine = NiriLayoutEngine()
+        let semanticOffset: CGFloat = 37
         let workspaceId = WorkspaceDescriptor.ID()
         let sourceMonitor = Monitor(
             id: .init(displayId: 50),
@@ -352,7 +365,7 @@ final class NiriSettledCoverageTests: NiriInteractionTestCase {
 
         var state = ViewportState()
         state.selectedNodeId = window.id
-        state.jumpOffset(to: 37)
+        state.jumpOffset(to: semanticOffset)
         engine.singleWindowFit = .fullScreen
 
         XCTAssertFalse(
@@ -361,13 +374,13 @@ final class NiriSettledCoverageTests: NiriInteractionTestCase {
                     workspaceId: workspaceId,
                     motion: .disabled,
                     workingFrame: traceWorkingFrame,
-                    gaps: 16,
+                    gaps: traceGap,
                     orientation: .vertical
                 ),
                 state: &state
             )
         )
-        XCTAssertEqual(state.viewOffset, 37, accuracy: 0.001)
+        XCTAssertEqual(state.viewOffset, semanticOffset)
 
         engine.singleWindowFit = SingleWindowFit(mode: .containerPrimarySpan)
         engine.alwaysCenterSingleColumn = true
@@ -377,13 +390,13 @@ final class NiriSettledCoverageTests: NiriInteractionTestCase {
                     workspaceId: workspaceId,
                     motion: .disabled,
                     workingFrame: traceWorkingFrame,
-                    gaps: 16,
+                    gaps: traceGap,
                     orientation: .vertical
                 ),
                 state: &state
             )
         )
-        XCTAssertEqual(state.viewOffset, 37, accuracy: 0.001)
+        XCTAssertEqual(state.viewOffset, semanticOffset)
     }
 
     private func monitorContext(

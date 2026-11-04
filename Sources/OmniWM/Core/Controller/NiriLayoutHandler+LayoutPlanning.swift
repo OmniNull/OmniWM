@@ -144,7 +144,7 @@ extension NiriLayoutHandler {
                 settledContext: isSettled ? (snapshot.monitor, snapshot.viewportState) : nil
             )
         )
-        diff.topEdgeHiddenFrames = topEdgeHiddenFrames(engine: engine, snapshot: snapshot)
+        diff.edgeHiddenFrames = edgeHiddenFrames(engine: engine, snapshot: snapshot)
         if shouldPreparePictures(snapshot: snapshot, animationTime: sampledAnimationTime) {
             diff.picturePreparation = picturePreparation(
                 engine: engine, snapshot: snapshot, state: snapshot.viewportState,

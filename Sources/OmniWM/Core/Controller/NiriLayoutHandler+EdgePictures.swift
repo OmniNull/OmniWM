@@ -8,9 +8,10 @@ extension NiriLayoutHandler {
     func edgePictureState(for input: WorkspaceRefreshInput) -> NiriEdgePictureState {
         guard input.isActiveWorkspace, input.monitor.orientation == .vertical, let controller else { return .none }
         let available = ScreenCapturePermissionMonitor.shared.isGranted
-        let cached = controller.niriTopEdgePictures.readyTokens
+        let cached = controller.niriEdgePictures.readyTokens
         var ready: Set<WindowToken> = []
         var parkedAbove: Set<WindowToken> = []
+        var parkedBelow: Set<WindowToken> = []
         for window in input.windows where !window.isNativeFullscreenSuspended
             && !input.excludedTokens.contains(window.token)
             && controller.workspaceManager.entry(for: window.token)?.axRef != nil
@@ -18,9 +19,13 @@ extension NiriLayoutHandler {
             if available, cached.contains(window.token) { ready.insert(window.token) }
             if window.hiddenState?.offscreenSide == AxisHideEdge.maximum.encodedHideSide {
                 parkedAbove.insert(window.token)
+            } else if window.hiddenState?.offscreenSide == AxisHideEdge.minimum.encodedHideSide {
+                parkedBelow.insert(window.token)
             }
         }
-        return NiriEdgePictureState(isAvailable: available, readyTokens: ready, parkedAboveTokens: parkedAbove)
+        return NiriEdgePictureState(
+            isAvailable: available, readyTokens: ready, parkedAboveTokens: parkedAbove, parkedBelowTokens: parkedBelow
+        )
     }
 
     func picturePreferredFocus(
@@ -30,9 +35,9 @@ extension NiriLayoutHandler {
         isRelayout: Bool
     ) -> WindowToken? {
         guard isRelayout, let controller else { return nil }
-        if !pictures.parkedAboveTokens.isEmpty, let selectedId = state.selectedNodeId,
+        if let selectedId = state.selectedNodeId,
            let selected = controller.niriEngine?.findNode(by: selectedId, in: workspaceId) as? NiriWindow,
-           pictures.parkedAboveTokens.contains(selected.token)
+           pictures.parkedAboveTokens.contains(selected.token) || pictures.parkedBelowTokens.contains(selected.token)
         {
             return selected.token
         }
@@ -45,7 +50,7 @@ extension NiriLayoutHandler {
         guard animationTime != nil else { return true }
         guard let controller else { return false }
         return controller.workspaceManager.animationDriver.hasGesture(in: snapshot.workspaceId)
-            || controller.niriTopEdgePictures.needsMotionPreparation(in: snapshot.workspaceId)
+            || controller.niriEdgePictures.needsMotionPreparation(in: snapshot.workspaceId)
     }
 
     func picturePreparation(
@@ -67,11 +72,14 @@ extension NiriLayoutHandler {
             isSettled: isSettled
         )
         let edgeIndex = geometry.lastIndex { $0.live.minY < snapshot.monitor.frame.maxY } ?? columns.startIndex
+        let bottomIndex = geometry.firstIndex {
+            $0.live.maxY > snapshot.niriWorkingFrame.minY && $0.live.minY < snapshot.monitor.frame.maxY
+        }
         let gesture = controller?.workspaceManager.animationDriver.hasGesture(in: snapshot.workspaceId) == true
         var warm: [WindowToken: CGSize] = [:]
         var motion: [WindowToken: CGSize] = [:]
         for index in columns.indices {
-            let isWarm = index == edgeIndex || index == edgeIndex + 1
+            let isWarm = index == edgeIndex || index == edgeIndex + 1 || index == bottomIndex
             let isMotion = !isSettled && pictureMotionCandidate(
                 columns[index], geometry: geometry[index], snapshot: snapshot,
                 isActive: index == activeIndex, isGesture: gesture
@@ -94,6 +102,9 @@ extension NiriLayoutHandler {
         if isActive, column.windows.allSatisfy({ snapshot.edgePictures.parkedAboveTokens.contains($0.token) }) {
             return true
         }
+        if bottomPictureMotionCandidate(geometry: geometry, snapshot: snapshot, isGesture: isGesture) {
+            return true
+        }
         guard geometry.live.intersects(snapshot.monitor.frame),
               isGesture || geometry.target.maxY > snapshot.monitor.frame.maxY
         else { return false }
@@ -102,6 +113,18 @@ extension NiriLayoutHandler {
         return displayed.allSatisfy { window in
             snapshot.windows.contains { $0.token == window.token && $0.hiddenState == nil }
         }
+    }
+
+    private func bottomPictureMotionCandidate(
+        geometry: (live: CGRect, target: CGRect),
+        snapshot: NiriWorkspaceSnapshot,
+        isGesture: Bool
+    ) -> Bool {
+        let bottom = snapshot.monitor.visibleFrame.minY
+        let floor = bottom + NiriLayoutViewport.minimumNativeBottomVisibility
+        let live = geometry.live.maxY
+        let target = isGesture ? live : geometry.target.maxY
+        return min(live, target) < floor && max(live, target) > bottom
     }
 
     private func pictureColumnGeometry(

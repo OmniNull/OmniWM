@@ -105,7 +105,7 @@ extension WMController {
             self?.windowMarkRegistry.retire(entry.token)
             self?.windowActionHandlerStorage?.handleOverviewWindowRemoved(entry)
             self?.layoutRefreshController.workspaceSwipe.windowRemoved(entry.token)
-            self?.niriTopEdgePictures.remove(entry.token)
+            self?.niriEdgePictures.remove(entry.token)
             PreviewCaptureCoordinator.shared.windowRemoved(entry.token)
         }
         workspaceManager.onDeferredWorkspaceMonitorMove = { [weak self] outcome in
