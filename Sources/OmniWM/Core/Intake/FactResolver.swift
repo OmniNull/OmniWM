@@ -81,6 +81,10 @@ final class FactResolver {
     private var inFlightConstraintTokens: Set<WindowToken> = []
     private var resolverGeneration: UInt64 = 0
 
+    var activationRequestsInFlight: Int {
+        inFlightActivationPids.count
+    }
+
     @discardableResult
     func resolveActivationFacts(
         pid: pid_t,
@@ -142,6 +146,10 @@ final class FactResolver {
                 let focusedWindow = await deferredFactProvider(request.pid)
                 completeActivationFactRequest(request, focusedWindow: focusedWindow)
             }
+            return true
+        }
+        if request.pid == getpid() {
+            completeActivationFactRequest(request, focusedWindow: Self.readFocusedWindowFact(pid: request.pid))
             return true
         }
         nonisolated(unsafe) let thread = AppAXContextRegistry.contexts[request.pid]?.axThread ?? sharedResolverThread()
