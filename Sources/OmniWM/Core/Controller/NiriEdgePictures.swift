@@ -55,15 +55,20 @@ protocol NiriEdgePictureSurface: AnyObject {
     func setOrderingTarget(_ windowId: Int?)
     func update(
         geometry: NiriEdgePictureGeometry,
-        image: CGImage,
+        content: NiriPictureContent,
         isMoving: Bool,
         activate: @escaping @MainActor () -> Void
     )
+    func setContent(_ content: NiriPictureContent)
+    func observeVisibility(_ changed: (@MainActor () -> Void)?)
     func hide()
     func destroy()
 }
 
 extension NiriEdgePictureSurface {
+    func setContent(_: NiriPictureContent) {}
+    func observeVisibility(_: (@MainActor () -> Void)?) {}
+
     var windowId: UInt32? {
         nil
     }
@@ -72,15 +77,16 @@ extension NiriEdgePictureSurface {
 @MainActor
 final class NiriEdgePictures {
     typealias Capture = @MainActor (WindowToken, @escaping @MainActor (CGImage?) -> Void) -> Task<Void, Never>?
-    typealias Cadence = @MainActor (Duration, @escaping @MainActor () -> Void) -> (@MainActor () -> Void)
 
+    @MainActor
     final class Picture {
         let workspaceId: WorkspaceDescriptor.ID
         let displayId: CGDirectDisplayID
         let displayFrame: CGRect
         let scale: CGFloat
         var geometry: NiriEdgePictureGeometry
-        var image: CGImage?
+        var content: NiriPictureContent?
+        var stream: NiriPictureStreamSession?
         var surface: (any NiriEdgePictureSurface)?
         var revealFrame: CGRect?
         var isResting = false
@@ -99,8 +105,7 @@ final class NiriEdgePictures {
     }
 
     let capture: Capture
-    let startCadence: Cadence
-    var cancelLiveRefresh: (@MainActor () -> Void)?
+    let prepareStream: NiriPictureStreamSession.Prepare?
     let isOverviewOpen: @MainActor () -> Bool
     let makeSurface: @MainActor () -> any NiriEdgePictureSurface
     private let activate: @MainActor (WindowToken, WorkspaceDescriptor.ID) -> Void
@@ -119,7 +124,7 @@ final class NiriEdgePictures {
 
     init(
         capture: @escaping Capture = NiriEdgePictures.captureWindow,
-        startCadence: @escaping Cadence = NiriEdgePictures.startLiveCadence,
+        prepareStream: NiriPictureStreamSession.Prepare? = nil,
         makeSurface: @escaping @MainActor () -> any NiriEdgePictureSurface = { NiriEdgePictureWindow() },
         orderingWindowId: @escaping @MainActor () -> Int? = { nil },
         displayFrames: @escaping @MainActor () -> [CGRect] = { [] },
@@ -132,20 +137,22 @@ final class NiriEdgePictures {
         self.isCaptureEligible = isCaptureEligible
         self.isOverviewOpen = isOverviewOpen
         self.capture = capture
-        self.startCadence = startCadence
+        self.prepareStream = prepareStream
         self.makeSurface = makeSurface
         self.activate = activate
     }
 
     isolated deinit {
-        cancelLiveRefresh?()
+        for picture in pictures.values { picture.stream?.stop()
+            picture.surface?.destroy()
+        }
         removeCaptureObservers?()
         for captured in capturedPictures.values { captured.task?.cancel() }
         for surface in spareSurfaces { surface.destroy() }
     }
 
     func reconcile(_ plan: WorkspaceLayoutPlan) {
-        defer { reconcileLiveRefresh() }
+        defer { reconcileLiveStreams() }
         let resting = !plan.isInteractiveResize && plan.diff.picturePreparation?.isSettled == true
         let enabled = plan.isActiveWorkspace && plan.monitor.orientation == .vertical
         let desired = enabled ? plan.diff.edgeHiddenFrames : [:]
@@ -155,7 +162,7 @@ final class NiriEdgePictures {
         let otherDisplays = displayFrames().filter { $0 != plan.monitor.frame }
         for (token, picture) in pictures where picture.workspaceId == plan.workspaceId {
             guard enabled, picture.displayId == plan.monitor.displayId,
-                  picture.displayFrame == plan.monitor.frame
+                  picture.displayFrame == plan.monitor.frame, picture.scale == plan.monitor.scale
             else { remove(token)
                 continue
             }
@@ -230,13 +237,16 @@ final class NiriEdgePictures {
     }
 
     func remove(_ token: WindowToken) {
-        if let surface = pictures.removeValue(forKey: token)?.surface {
+        let picture = pictures.removeValue(forKey: token)
+        picture?.stream?.stop()
+        if let surface = picture?.surface {
+            surface.observeVisibility(nil)
             surface.destroy()
             onPresentationChanged()
         }
         discardCapture(token)
         pendingCaptures[token] = nil
-        reconcileLiveRefresh()
+        reconcileLiveStreams()
     }
 
     func reset() {
@@ -249,13 +259,17 @@ final class NiriEdgePictures {
     }
 
     func present(_ token: WindowToken, picture: Picture) {
-        guard let image = picture.image else { return }
+        guard let content = picture.content else { return }
         let mounted = picture.surface == nil
         if mounted {
             picture.surface = spareSurfaces.popLast() ?? makeSurface()
             picture.surface?.setOrderingTarget(orderingWindowId())
+            picture.surface?.observeVisibility { [weak self, weak picture] in
+                guard let self, let picture, pictures[token] === picture else { return }
+                reconcileLiveStreams()
+            }
         }
-        picture.surface?.update(geometry: picture.geometry, image: image, isMoving: !picture.isResting) { [
+        picture.surface?.update(geometry: picture.geometry, content: content, isMoving: !picture.isResting) { [
             weak self,
             weak picture
         ] in
@@ -264,7 +278,7 @@ final class NiriEdgePictures {
         }
         if mounted {
             onPresentationChanged()
-            reconcileLiveRefresh()
+            reconcileLiveStreams()
         }
     }
 
@@ -294,6 +308,7 @@ final class NiriEdgePictures {
 extension WMController {
     func makeEdgePictures() -> NiriEdgePictures {
         let pictures = NiriEdgePictures(
+            prepareStream: NiriPictureStreamSession.prepareNative,
             orderingWindowId: { [weak self] in self?.workspaceManager.nativeManagedFocusToken?.windowId },
             displayFrames: { [weak self] in self?.workspaceManager.monitors.map(\.frame) ?? [] },
             isCaptureEligible: { [weak self] token in

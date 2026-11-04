@@ -8,6 +8,8 @@ import QuartzCore
 class NiriEdgePictureWindow: NSPanel, NiriEdgePictureSurface {
     private let pictureLayer = CALayer()
     private let button = NSButton()
+    private var displayedContent: NiriPictureContent?
+    private var visibilityChanged: (@MainActor () -> Void)?
     private var activate: (@MainActor () -> Void)?
     private var orderBelowWindowId: Int?
     private var visiblePictureFrame: CGRect?
@@ -38,6 +40,10 @@ class NiriEdgePictureWindow: NSPanel, NiriEdgePictureSurface {
         button.sendAction(on: .leftMouseUp)
         root.addSubview(button)
         contentView = root
+        NotificationCenter.default.addObserver(
+            self, selector: #selector(occlusionChanged), name: NSWindow.didChangeOcclusionStateNotification,
+            object: self
+        )
         SurfaceCoordinator.shared.register(
             window: self, id: surfaceID,
             policy: SurfacePolicy(
@@ -85,7 +91,7 @@ class NiriEdgePictureWindow: NSPanel, NiriEdgePictureSurface {
 
     func update(
         geometry: NiriEdgePictureGeometry,
-        image: CGImage,
+        content: NiriPictureContent,
         isMoving: Bool,
         activate: @escaping @MainActor () -> Void
     ) {
@@ -93,16 +99,11 @@ class NiriEdgePictureWindow: NSPanel, NiriEdgePictureSurface {
         visiblePictureFrame = geometry.visibleFrame
         let unclipped = !geometry.requiresDisplayClip
         let target = unclipped ? SurfacePanelGeometry.backingFrame(for: geometry.frame) : geometry.panelFrame
-        let imageChanged = pictureLayer.contents as AnyObject? !== image
+        let contentChanged = !content.matches(displayedContent)
         if hasOrderedIn, isMoving, unclipped, laidOutPictureSize == geometry.frame.size,
            moveInWindowServer(to: target)
         {
-            if imageChanged {
-                CATransaction.begin()
-                CATransaction.setDisableActions(true)
-                pictureLayer.contents = image
-                CATransaction.commit()
-            }
+            if contentChanged { setContent(content) }
             return
         }
         CATransaction.begin()
@@ -113,7 +114,7 @@ class NiriEdgePictureWindow: NSPanel, NiriEdgePictureSurface {
         contentView?.frame = bounds
         button.frame = unclipped ? CGRect(origin: .zero, size: geometry.frame.size) : bounds
         pictureLayer.frame = unclipped ? CGRect(origin: .zero, size: geometry.frame.size) : geometry.pictureFrame
-        if imageChanged { pictureLayer.contents = image }
+        if contentChanged { applyContent(content) }
         CATransaction.commit()
         if !hasOrderedIn {
             hasOrderedIn = true
@@ -147,18 +148,53 @@ class NiriEdgePictureWindow: NSPanel, NiriEdgePictureSurface {
         windowServerPlacement = nil
     }
 
+    func setContent(_ content: NiriPictureContent) {
+        guard !content.matches(displayedContent) else { return }
+        CATransaction.begin()
+        CATransaction.setDisableActions(true)
+        applyContent(content)
+        CATransaction.commit()
+    }
+
+    private func applyContent(_ content: NiriPictureContent) {
+        let previous = displayedContent
+        CATransaction.setCompletionBlock { withExtendedLifetime(previous) {} }
+        displayedContent = content
+        pictureLayer.contents = content.layerContents
+        pictureLayer.contentsRect = content.contentsRect
+    }
+
+    func observeVisibility(_ changed: (@MainActor () -> Void)?) {
+        visibilityChanged = changed
+    }
+
+    @objc private func occlusionChanged() {
+        visibilityChanged?()
+    }
+
     func hide() {
+        visibilityChanged = nil
         activate = nil
         visiblePictureFrame = nil
         hasOrderedIn = false
         SkyLight.shared.transactionHide(UInt32(windowNumber))
         CATransaction.begin()
         CATransaction.setDisableActions(true)
+        let previous = displayedContent
+        CATransaction.setCompletionBlock { withExtendedLifetime(previous) {} }
         pictureLayer.contents = nil
+        pictureLayer.contentsRect = CGRect(x: 0, y: 0, width: 1, height: 1)
+        displayedContent = nil
         CATransaction.commit()
     }
 
     func destroy() {
+        visibilityChanged = nil
+        NotificationCenter.default.removeObserver(
+            self,
+            name: NSWindow.didChangeOcclusionStateNotification,
+            object: self
+        )
         activate = nil
         SurfaceCoordinator.shared.unregister(id: surfaceID)
         orderOut(nil)

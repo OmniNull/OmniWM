@@ -89,10 +89,14 @@ protocol OverviewPreviewStreamControl: AnyObject {
 final class OverviewNativePreviewStream: OverviewPreviewStreamControl {
     private let stream: SCStream
 
-    init(window: SCWindow, request: OverviewPreviewRequest, output: OverviewPreviewStream) throws {
+    convenience init(window: SCWindow, request: OverviewPreviewRequest, output: OverviewPreviewStream) throws {
+        try self.init(window: window, pixelWidth: request.pixelWidth, pixelHeight: request.pixelHeight, output: output)
+    }
+
+    init(window: SCWindow, pixelWidth: Int, pixelHeight: Int, output: OverviewPreviewStream) throws {
         let config = SCStreamConfiguration()
-        config.width = request.pixelWidth
-        config.height = request.pixelHeight
+        config.width = pixelWidth
+        config.height = pixelHeight
         config.pixelFormat = kCVPixelFormatType_32BGRA
         config.captureDynamicRange = .SDR
         config.minimumFrameInterval = CMTime(value: 1, timescale: 5)

@@ -204,7 +204,7 @@ final class BorderSurfaceTests: XCTestCase {
 
         func update(
             geometry _: NiriEdgePictureGeometry,
-            image _: CGImage,
+            content _: NiriPictureContent,
             isMoving _: Bool,
             activate _: @escaping @MainActor () -> Void
         ) {}

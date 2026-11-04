@@ -20,7 +20,7 @@ final class NiriEdgePicturesTests: XCTestCase {
 
         func update(
             geometry: NiriEdgePictureGeometry,
-            image _: CGImage,
+            content _: NiriPictureContent,
             isMoving _: Bool,
             activate: @escaping @MainActor () -> Void
         ) {

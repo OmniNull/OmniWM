@@ -62,7 +62,7 @@ extension NiriEdgePictures {
            captured.key.workspaceId == picture.workspaceId, captured.key.displayId == picture.displayId,
            captured.key.displayFrame == picture.displayFrame, captured.key.scale == plan.monitor.scale
         {
-            picture.image = captured.image
+            picture.acceptStill(captured.image)
             present(token, picture: picture)
             return
         }
@@ -92,14 +92,14 @@ extension NiriEdgePictures {
             readyTokens.insert(token)
             guard let picture = pictures[token], picture.workspaceId == key.workspaceId,
                   picture.displayId == key.displayId, picture.displayFrame == key.displayFrame else { return }
-            picture.image = image
+            picture.acceptStill(image)
             CATransaction.begin()
             CATransaction.setDisableActions(true)
             present(token, picture: picture)
             CATransaction.commit()
         }
-        if let image = captured.image, let picture = pictures[token], picture.image !== image {
-            picture.image = image
+        if let image = captured.image, let picture = pictures[token], picture.content?.image !== image {
+            picture.acceptStill(image)
             present(token, picture: picture)
         }
     }
@@ -118,13 +118,15 @@ extension NiriEdgePictures {
 
     func retirePicture(_ token: WindowToken) {
         guard let picture = pictures.removeValue(forKey: token) else { return }
+        picture.stream?.stop()
         if let surface = picture.surface {
+            surface.observeVisibility(nil)
             surface.hide()
             spareSurfaces.append(surface)
             onPresentationChanged()
         }
         if !retainsCapture(token, in: picture.workspaceId) { discardCapture(token) }
-        reconcileLiveRefresh()
+        reconcileLiveStreams()
     }
 
     private func prepareSpareSurfaces() {
@@ -163,10 +165,11 @@ extension NiriEdgePictures {
 
     func handleMemoryPressure(_ underPressure: Bool) {
         isUnderMemoryPressure = underPressure
+        reconcileLiveStreams()
         guard underPressure else { return }
         for surface in spareSurfaces { surface.destroy() }
         spareSurfaces.removeAll()
-        for token in capturedPictures.keys where pictures[token]?.image == nil { discardCapture(token) }
-        for token in pendingCaptures.keys where pictures[token]?.image == nil { pendingCaptures[token] = nil }
+        for token in capturedPictures.keys where pictures[token]?.content == nil { discardCapture(token) }
+        for token in pendingCaptures.keys where pictures[token]?.content == nil { pendingCaptures[token] = nil }
     }
 }

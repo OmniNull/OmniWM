@@ -32,12 +32,12 @@ final class NiriPicturePrewarmingTests: XCTestCase {
 
         func update(
             geometry: NiriEdgePictureGeometry,
-            image: CGImage,
+            content: NiriPictureContent,
             isMoving _: Bool,
             activate _: @escaping @MainActor () -> Void
         ) {
             self.geometry = geometry
-            self.image = image
+            self.image = content.image
         }
 
         func setOrderingTarget(_: Int?) {}

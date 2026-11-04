@@ -25,6 +25,7 @@ final class WindowActionHandler {
         }
         guard let controller else { fatal("WindowActionHandler requires controller") }
         let oc = OverviewController(wmController: controller, motionPolicy: controller.motionPolicy)
+        oc.onVisibilityChanged = { [weak self] in self?.controller?.niriEdgePictures.reconcileLiveStreams() }
         oc.onPrepareActivation = { [weak self] handle, workspaceId in
             self?.prepareOverviewSelection(handle: handle, workspaceId: workspaceId)
         }
@@ -154,6 +155,7 @@ final class WindowActionHandler {
     func releaseOverviewController() {
         overviewControllerStorage?.invalidateDeferredActionsForServiceStop()
         overviewControllerStorage = nil
+        controller?.niriEdgePictures.reconcileLiveStreams()
     }
 
     func handleOverviewWindowRemoved(_ entry: WindowState) {

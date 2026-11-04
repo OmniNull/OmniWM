@@ -49,7 +49,7 @@ final class NiriFractionalPicturePlacementTests: XCTestCase {
         defer { panel.destroy() }
         let image = try image()
         let initial = fractionalFrame
-        panel.update(geometry: try geometry(initial), image: image, isMoving: true, activate: {})
+        panel.update(geometry: try geometry(initial), content: .image(image), isMoving: true, activate: {})
         let laidOut = panel.frame
         let writes = panel.frameWrites
         let layer = try XCTUnwrap(panel.contentView?.layer?.sublayers?.first)
@@ -57,7 +57,7 @@ final class NiriFractionalPicturePlacementTests: XCTestCase {
         let bounds = panel.contentView?.frame
         XCTAssertEqual(panel.contentView?.subviews.first?.frame.size, initial.size)
         let moved = initial.offsetBy(dx: pixel, dy: pixel)
-        panel.update(geometry: try geometry(moved), image: image, isMoving: true, activate: {})
+        panel.update(geometry: try geometry(moved), content: .image(image), isMoving: true, activate: {})
         XCTAssertEqual(
             panel.moves,
             [CGRect(origin: CGPoint(x: origin.x + pixel * scale, y: origin.y + pixel * scale), size: wholeSize)]
@@ -67,7 +67,7 @@ final class NiriFractionalPicturePlacementTests: XCTestCase {
         XCTAssertEqual(layer.frame, layerFrame)
         XCTAssertEqual(panel.contentView?.frame, bounds)
         let placement = try XCTUnwrap(panel.moves.last)
-        panel.update(geometry: try geometry(moved), image: image, isMoving: false, activate: {})
+        panel.update(geometry: try geometry(moved), content: .image(image), isMoving: false, activate: {})
         XCTAssertEqual(panel.frame, placement)
         XCTAssertEqual(layer.frame, layerFrame)
         XCTAssertEqual(panel.convertToScreen(.zero).origin, placement.origin)
@@ -77,11 +77,11 @@ final class NiriFractionalPicturePlacementTests: XCTestCase {
         let panel = PicturePanel()
         defer { panel.destroy() }
         let image = try image()
-        panel.update(geometry: try geometry(fractionalFrame), image: image, isMoving: true, activate: {})
+        panel.update(geometry: try geometry(fractionalFrame), content: .image(image), isMoving: true, activate: {})
         let backing = panel.frame.size
         var resized = fractionalFrame
         resized.size.height += pixel
-        panel.update(geometry: try geometry(resized), image: image, isMoving: true, activate: {})
+        panel.update(geometry: try geometry(resized), content: .image(image), isMoving: true, activate: {})
         XCTAssertTrue(panel.moves.isEmpty)
         XCTAssertEqual(panel.frame.size, backing)
         XCTAssertEqual(panel.contentView?.layer?.sublayers?.first?.frame.size, resized.size)

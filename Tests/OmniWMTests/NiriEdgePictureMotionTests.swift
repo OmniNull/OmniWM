@@ -35,7 +35,7 @@ final class NiriEdgePictureMotionTests: XCTestCase {
         }
 
         func update(
-            geometry _: NiriEdgePictureGeometry, image _: CGImage,
+            geometry _: NiriEdgePictureGeometry, content _: NiriPictureContent,
             isMoving: Bool, activate: @escaping @MainActor () -> Void
         ) {
             isVisibleForCapture = true
