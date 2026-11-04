@@ -24,14 +24,14 @@ final class NiriEdgePictureStreamTests: XCTestCase {
         XCTAssertEqual(control.stops, 0)
     }
 
-    func testVisiblePixelStripRunsCoveredStopsAndUncoverRestartsOnceWithoutAPlan() async throws {
+    func testThresholdStripRunsCoveredStopsAndUncoverRestartsOnceWithoutAPlan() async throws {
         let driver = NiriPictureStreamTestDriver()
         let presenter = driver.presenter()
         defer { driver.finish(presenter) }
-        let still = try driver.mount(presenter, strip: true)
+        let still = try driver.mount(presenter, visibleHeight: NiriEdgePictures.minimumLivePictureHeight)
         let first = try await driver.running(presenter)
         let surface = try XCTUnwrap(driver.surfaces.first)
-        XCTAssertEqual(surface.geometry?.visibleFrame.height, 1 / driver.scale)
+        XCTAssertEqual(surface.geometry?.visibleFrame.height, NiriEdgePictures.minimumLivePictureHeight)
         surface.visible(false)
         XCTAssertEqual(first.stops, 1)
         XCTAssertTrue(surface.content?.image === still)

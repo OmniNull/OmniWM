@@ -17,6 +17,7 @@ final class NiriPictureStreamTestDriver {
         var publications: [OverviewPreviewFrame] = []
         var onPublication: (() -> Void)?
         var geometry: NiriEdgePictureGeometry?
+        var activate: (@MainActor () -> Void)?
 
         func setOrderingTarget(_: Int?) {}
         func observeVisibility(_ changed: (@MainActor () -> Void)?) {
@@ -25,10 +26,11 @@ final class NiriPictureStreamTestDriver {
 
         func update(
             geometry: NiriEdgePictureGeometry, content: NiriPictureContent,
-            isMoving _: Bool, activate _: @escaping @MainActor () -> Void
+            isMoving _: Bool, activate: @escaping @MainActor () -> Void
         ) {
             self.geometry = geometry
             self.content = content
+            self.activate = activate
         }
 
         func setContent(_ content: NiriPictureContent) {
@@ -92,6 +94,7 @@ final class NiriPictureStreamTestDriver {
     var captures: [@MainActor (CGImage?) -> Void] = []
     var controls: [Control] = []
     var surfaces: [Surface] = []
+    var activations: [WindowToken] = []
 
     func presenter() -> NiriEdgePictures {
         NiriEdgePictures(
@@ -107,7 +110,7 @@ final class NiriPictureStreamTestDriver {
                 return surface
             },
             isCaptureEligible: { [self] _ in eligible }, isOverviewOpen: { [self] in overviewOpen },
-            activate: { _, _ in }
+            activate: { [self] token, _ in activations.append(token) }
         )
     }
 
@@ -115,12 +118,13 @@ final class NiriPictureStreamTestDriver {
         settled: Bool = true,
         pictured: Bool = true,
         size: CGSize? = nil,
-        strip: Bool = false
+        visibleHeight: CGFloat? = nil
     ) -> WorkspaceLayoutPlan {
         var diff = WorkspaceLayoutDiff()
         diff.picturePreparation = NiriPicturePreparation(isSettled: settled)
         let pictureFrame = CGRect(
-            x: display.minX, y: strip ? display.maxY - 1 / scale : display.midY, width: size?.width ?? display.width,
+            x: display.minX, y: visibleHeight.map { display.maxY - $0 } ?? display.midY,
+            width: size?.width ?? display.width,
             height: size?.height ?? display.height
         )
         if pictured { diff.edgeHiddenFrames[token] = pictureFrame }
@@ -133,8 +137,8 @@ final class NiriPictureStreamTestDriver {
         )
     }
 
-    func mount(_ presenter: NiriEdgePictures, strip: Bool = false) throws -> CGImage {
-        presenter.reconcile(plan(strip: strip))
+    func mount(_ presenter: NiriEdgePictures, visibleHeight: CGFloat? = nil) throws -> CGImage {
+        presenter.reconcile(plan(visibleHeight: visibleHeight))
         let context = try XCTUnwrap(CGContext(
             data: nil, width: 1, height: 1, bitsPerComponent: 8, bytesPerRow: 4,
             space: CGColorSpaceCreateDeviceRGB(), bitmapInfo: CGImageAlphaInfo.premultipliedLast.rawValue

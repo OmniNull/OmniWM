@@ -4,6 +4,8 @@
 import Foundation
 
 extension NiriEdgePictures {
+    static let minimumLivePictureHeight: CGFloat = 5
+
     func reconcileLiveStreams() {
         guard let prepareStream else { return }
         let suspended = isOverviewOpen() || isUnderMemoryPressure
@@ -13,8 +15,8 @@ extension NiriEdgePictures {
                 picture.stream = nil
                 continue
             }
-            guard picture.isResting, let surface = picture.surface else { continue }
-            guard surface.isVisibleForCapture else {
+            guard picture.isResting else { continue }
+            guard isVisibleForStreaming(picture) else {
                 picture.stream?.stop()
                 picture.stream = nil
                 continue
@@ -115,7 +117,12 @@ extension NiriEdgePictures {
 
     private func canPresentStream(_ session: NiriPictureStreamSession, picture: Picture) -> Bool {
         isCurrentStream(session, picture: picture) && picture.isResting
-            && picture.surface?.isVisibleForCapture == true && !isOverviewOpen() && !isUnderMemoryPressure
+            && isVisibleForStreaming(picture) && !isOverviewOpen() && !isUnderMemoryPressure
             && isCaptureEligible(session.request.token)
+    }
+
+    private func isVisibleForStreaming(_ picture: Picture) -> Bool {
+        picture.geometry.visibleFrame.height >= Self.minimumLivePictureHeight
+            && picture.surface?.isVisibleForCapture == true
     }
 }
