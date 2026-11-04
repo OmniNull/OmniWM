@@ -444,9 +444,9 @@ extension ShellWidgetSurface {
             return symbolImage(text.string(content.placeholder), color: content.color, style: content.style)
         }
         var rect = CGRect(x: 0, y: 0, width: key.pixels, height: key.pixels)
-        let image = icon.cgImage(forProposedRect: &rect, context: nil, hints: nil).map { image in
-            content.color.isVisible ? tinted(image, palette.color(content.color, default: .foreground)) : image
-        }
+        let tint = palette.color(content.color, default: .foreground)
+        let image = icon.cgImage(forProposedRect: &rect, context: nil, hints: nil)
+            .map { content.color.isVisible || icon.isTemplate ? tinted($0, tint) : $0 }
         iconImages[key] = image
         return image
     }

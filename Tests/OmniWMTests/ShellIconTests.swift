@@ -135,15 +135,41 @@ final class ShellIconTests: XCTestCase {
         XCTAssertLessThan(center.green, 40)
     }
 
-    private func drawnImage(_ element: String) throws -> CGImage? {
+    func testTemplateIconsTakeTheForegroundAndOtherIconsKeepTheirColors() throws {
+        func solid(template: Bool) -> NSImage {
+            let image = NSImage(size: NSSize(width: 8, height: 8), flipped: false) { rect in
+                NSColor.black.setFill()
+                rect.fill()
+                return true
+            }
+            image.isTemplate = template
+            return image
+        }
+        let resources = ShellResources(
+            motion: MotionPolicy(animationsEnabled: false),
+            windowIcon: { $0 == "template" ? solid(template: true) : solid(template: false) }
+        )
+        func center(_ element: String) throws -> (red: Int, green: Int) {
+            let image = try XCTUnwrap(drawnImage(element, resources: resources))
+            return try XCTUnwrap(pixel(of: image, x: image.width / 2, y: image.height / 2))
+        }
+        let template = try center("ui.icon{ window = \"template\", w = 8, h = 8 }")
+        let foreground = try center("ui.icon{ window = \"template\", w = 8, h = 8, color = \"foreground\" }")
+        XCTAssertEqual(template.red, foreground.red)
+        XCTAssertEqual(template.green, foreground.green)
+        let plain = try center("ui.icon{ window = \"plain\", w = 8, h = 8 }")
+        XCTAssertEqual(plain.red, 0)
+        XCTAssertEqual(plain.green, 0)
+    }
+
+    private func drawnImage(
+        _ element: String,
+        resources: ShellResources = ShellResources(motion: MotionPolicy(animationsEnabled: false))
+    ) throws -> CGImage? {
         let bytes = try output("function render(ctx) return \(element) end")
         let text = ShellTextStore()
         text.ingest(wire: bytes)
-        let surface = ShellWidgetSurface(
-            scale: 2,
-            resources: ShellResources(motion: MotionPolicy(animationsEnabled: false)),
-            directories: []
-        )
+        let surface = ShellWidgetSurface(scale: 2, resources: resources, directories: [])
         self.surface = surface
         XCTAssertTrue(surface.apply(bytes, text: text))
         ShellLayerScene.engineQueue.sync {}

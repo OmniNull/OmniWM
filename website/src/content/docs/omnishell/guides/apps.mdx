@@ -62,7 +62,7 @@ return {
         window = function(ctx)
             return ui.column{ w = ctx.view.w, h = ctx.view.h, pad = 20, gap = 12, center = false,
                 ui.text{ text = ctx.instance.state.result or "Ready", color = "foreground" },
-                ui.box{ key = "delete", w = 120, h = 36, color = "accent", radius = 8,
+                ui.stack{ key = "delete", w = 120, h = 36, fill = "accent", radius = 8,
                     onClick = function() omniwm.windows.open("confirm") end,
                     ui.text{ text = "Delete", color = "foreground" } },
             }
@@ -70,7 +70,7 @@ return {
         confirm = function(ctx)
             return ui.column{ w = ctx.view.w, h = ctx.view.h, pad = 16, gap = 12,
                 ui.text{ text = "Delete this note?", color = "foreground" },
-                ui.box{ key = "confirm", w = 120, h = 36, color = "accent", radius = 8,
+                ui.stack{ key = "confirm", w = 120, h = 36, fill = "accent", radius = 8,
                     onClick = function(next)
                         next.instance.state.result = "Deleted"
                         omniwm.windows.close("confirm")
