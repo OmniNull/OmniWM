@@ -205,8 +205,12 @@ final class BorderSurfaceTests: XCTestCase {
         func update(
             geometry _: NiriEdgePictureGeometry,
             image _: CGImage,
+            isMoving _: Bool,
             activate _: @escaping @MainActor () -> Void
         ) {}
+        func setOrderingTarget(_: Int?) {}
+        func hide() {}
+
         func destroy() {}
     }
 
@@ -1976,7 +1980,10 @@ extension BorderSurfaceTests {
             let window = BorderWindow(config: configRed, operations: recorder.operations())
             defer { window.destroy() }
             let display = CGRect(origin: .zero, size: CGSize(width: frame.width * 4, height: frame.height * 4))
-            let presentation = BorderPresentation(windowId: 701, displayFrame: display, scale: scale)
+            let presentation = BorderPresentation(
+                windowId: 701, displayFrame: display, scale: scale,
+                otherDisplayFrames: [display.offsetBy(dx: 0, dy: display.height)]
+            )
             let picturedFrame = CGRect(
                 origin: CGPoint(x: frame.minX, y: display.maxY - frame.height / 4), size: frame.size
             )
@@ -2020,7 +2027,10 @@ extension BorderSurfaceTests {
         defer { applier.cleanup() }
         let display = CGRect(origin: frame.origin, size: CGSize(width: frame.width, height: frame.height / 2))
         var pictured = desired(configRed)
-        pictured.presentation = BorderPresentation(windowId: 702, displayFrame: display, scale: recorder.backingScale)
+        pictured.presentation = BorderPresentation(
+            windowId: 702, displayFrame: display, scale: recorder.backingScale,
+            otherDisplayFrames: [frame.offsetBy(dx: 0, dy: display.height)]
+        )
         XCTAssertTrue(applier.apply(pictured, forceOrdering: false).didApply)
         XCTAssertNil(applier.cornerQueryTask)
         let panel = try XCTUnwrap(recorder.layerPanels.first)
@@ -2085,7 +2095,8 @@ extension BorderSurfaceTests {
         let pictured = try XCTUnwrap(SurfaceDerivation.deriveBorder(world: world))
         XCTAssertEqual(pictured.frame, picturedFrame)
         XCTAssertEqual(pictured.presentation, BorderPresentation(
-            windowId: try XCTUnwrap(surface.windowId), displayFrame: monitor.frame, scale: snapshot.scale
+            windowId: try XCTUnwrap(surface.windowId), displayFrame: monitor.frame, scale: snapshot.scale,
+            isMoving: true
         ))
         XCTAssertEqual(SurfaceDerivation.deriveAnimationBorder(world: world, previous: nil), pictured)
         picture.revealFrame = frame

@@ -325,7 +325,9 @@ final class BorderWindow {
 
 extension BorderWindow {
     private var visibleSurfaceFrame: CGRect {
-        appliedPresentation.map { appliedSurfaceFrame.integral.intersection($0.displayFrame) } ?? appliedSurfaceFrame
+        appliedPresentation?.displayClip(for: appliedSurfaceFrame).map {
+            appliedSurfaceFrame.integral.intersection($0)
+        } ?? appliedSurfaceFrame
     }
 
     func invalidateScaleCache() {
@@ -384,12 +386,20 @@ extension BorderWindow {
         currentSurfaceFrame = geometry.surfaceFrame
         currentCornerRadii = cornerRadii
         currentCornerContour = cornerContour
+        let displayClip = appliedPresentation?.displayClip(for: appliedSurfaceFrame)
+        if appliedPresentation?.isMoving == true, displayClip == nil, !needsRedraw {
+            layerPanel?.applyFrame(
+                targetFrame: appliedTargetFrame, surfaceFrame: appliedSurfaceFrame, presentation: appliedPresentation
+            )
+            return
+        }
         CATransaction.begin()
         CATransaction.setDisableActions(true)
         defer { CATransaction.commit() }
         layerPanel?.applyFrame(
             targetFrame: appliedTargetFrame, surfaceFrame: appliedSurfaceFrame,
-            displayClip: appliedPresentation?.displayFrame
+            displayClip: displayClip,
+            presentation: appliedPresentation
         )
         if needsRedraw { draw(geometry: geometry) }
     }

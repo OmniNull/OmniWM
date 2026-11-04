@@ -7,13 +7,31 @@ import QuartzCore
 struct NiriEdgePictureGeometry: Equatable {
     let frame: CGRect
     let visibleFrame: CGRect
+    let otherDisplayFrames: [CGRect]
 
-    init?(frame: CGRect, displayFrame: CGRect) {
+    init?(frame: CGRect, displayFrame: CGRect, otherDisplayFrames: [CGRect] = []) {
         let visible = frame.intersection(displayFrame)
         guard frame.size.hasFinitePositiveDimensions(), frame.origin.x.isFinite, frame.origin.y.isFinite,
               !visible.isNull, !visible.isEmpty else { return nil }
         self.frame = frame
         visibleFrame = visible
+        self.otherDisplayFrames = otherDisplayFrames
+    }
+
+    static func overlapsDisplay(_ frame: CGRect, otherDisplayFrames: [CGRect]) -> Bool {
+        let extent = frame.union(SurfacePanelGeometry.backingFrame(for: frame))
+        return otherDisplayFrames.contains {
+            let overlap = extent.intersection($0)
+            return !overlap.isNull && !overlap.isEmpty
+        }
+    }
+
+    var requiresDisplayClip: Bool {
+        Self.overlapsDisplay(frame, otherDisplayFrames: otherDisplayFrames)
+    }
+
+    var panelFrame: CGRect {
+        requiresDisplayClip ? visibleFrame : frame
     }
 
     var pictureFrame: CGRect {
@@ -26,13 +44,22 @@ struct NiriEdgePicturePresentation: Equatable {
     let displayFrame: CGRect
     let scale: CGFloat
     let windowId: UInt32
+    var otherDisplayFrames: [CGRect] = []
+    var isMoving = false
 }
 
 @MainActor
 protocol NiriEdgePictureSurface: AnyObject {
     var windowId: UInt32? { get }
     var isVisibleForCapture: Bool { get }
-    func update(geometry: NiriEdgePictureGeometry, image: CGImage, activate: @escaping @MainActor () -> Void)
+    func setOrderingTarget(_ windowId: Int?)
+    func update(
+        geometry: NiriEdgePictureGeometry,
+        image: CGImage,
+        isMoving: Bool,
+        activate: @escaping @MainActor () -> Void
+    )
+    func hide()
     func destroy()
 }
 
@@ -75,8 +102,11 @@ final class NiriEdgePictures {
     let startCadence: Cadence
     var cancelLiveRefresh: (@MainActor () -> Void)?
     let isOverviewOpen: @MainActor () -> Bool
-    private let makeSurface: @MainActor () -> any NiriEdgePictureSurface
+    let makeSurface: @MainActor () -> any NiriEdgePictureSurface
     private let activate: @MainActor (WindowToken, WorkspaceDescriptor.ID) -> Void
+    let orderingWindowId: @MainActor () -> Int?
+    let displayFrames: @MainActor () -> [CGRect]
+    var spareSurfaces: [any NiriEdgePictureSurface] = []
     var pictures: [WindowToken: Picture] = [:]
     var capturedPictures: [WindowToken: NiriCapturedPicture] = [:]
     var warmStates: [WorkspaceDescriptor.ID: NiriPictureWarmState] = [:]
@@ -91,10 +121,14 @@ final class NiriEdgePictures {
         capture: @escaping Capture = NiriEdgePictures.captureWindow,
         startCadence: @escaping Cadence = NiriEdgePictures.startLiveCadence,
         makeSurface: @escaping @MainActor () -> any NiriEdgePictureSurface = { NiriEdgePictureWindow() },
+        orderingWindowId: @escaping @MainActor () -> Int? = { nil },
+        displayFrames: @escaping @MainActor () -> [CGRect] = { [] },
         isCaptureEligible: @escaping @MainActor (WindowToken) -> Bool = { _ in true },
         isOverviewOpen: @escaping @MainActor () -> Bool = { false },
         activate: @escaping @MainActor (WindowToken, WorkspaceDescriptor.ID) -> Void
     ) {
+        self.orderingWindowId = orderingWindowId
+        self.displayFrames = displayFrames
         self.isCaptureEligible = isCaptureEligible
         self.isOverviewOpen = isOverviewOpen
         self.capture = capture
@@ -107,6 +141,7 @@ final class NiriEdgePictures {
         cancelLiveRefresh?()
         removeCaptureObservers?()
         for captured in capturedPictures.values { captured.task?.cancel() }
+        for surface in spareSurfaces { surface.destroy() }
     }
 
     func reconcile(_ plan: WorkspaceLayoutPlan) {
@@ -117,9 +152,7 @@ final class NiriEdgePictures {
         preparePictures(plan, enabled: enabled)
         guard !desired.isEmpty || pictures.values.contains(where: { $0.workspaceId == plan.workspaceId })
         else { return }
-        CATransaction.begin()
-        CATransaction.setDisableActions(true)
-        defer { CATransaction.commit() }
+        let otherDisplays = displayFrames().filter { $0 != plan.monitor.frame }
         for (token, picture) in pictures where picture.workspaceId == plan.workspaceId {
             guard enabled, picture.displayId == plan.monitor.displayId,
                   picture.displayFrame == plan.monitor.frame
@@ -128,7 +161,9 @@ final class NiriEdgePictures {
             }
             if desired[token] != nil { continue }
             guard let change = plan.diff.frameChanges.first(where: { $0.token == token }),
-                  let geometry = NiriEdgePictureGeometry(frame: change.frame, displayFrame: plan.monitor.frame)
+                  let geometry = NiriEdgePictureGeometry(
+                      frame: change.frame, displayFrame: plan.monitor.frame, otherDisplayFrames: otherDisplays
+                  )
             else { retirePicture(token)
                 continue
             }
@@ -138,7 +173,9 @@ final class NiriEdgePictures {
             present(token, picture: picture)
         }
         for (token, frame) in desired {
-            guard let geometry = NiriEdgePictureGeometry(frame: frame, displayFrame: plan.monitor.frame)
+            guard let geometry = NiriEdgePictureGeometry(
+                frame: frame, displayFrame: plan.monitor.frame, otherDisplayFrames: otherDisplays
+            )
             else { retirePicture(token)
                 continue
             }
@@ -207,13 +244,21 @@ final class NiriEdgePictures {
         for token in capturedPictures.keys { discardCapture(token) }
         pendingCaptures.removeAll()
         warmStates.removeAll()
+        for surface in spareSurfaces { surface.destroy() }
+        spareSurfaces.removeAll()
     }
 
     func present(_ token: WindowToken, picture: Picture) {
         guard let image = picture.image else { return }
         let mounted = picture.surface == nil
-        if mounted { picture.surface = makeSurface() }
-        picture.surface?.update(geometry: picture.geometry, image: image) { [weak self, weak picture] in
+        if mounted {
+            picture.surface = spareSurfaces.popLast() ?? makeSurface()
+            picture.surface?.setOrderingTarget(orderingWindowId())
+        }
+        picture.surface?.update(geometry: picture.geometry, image: image, isMoving: !picture.isResting) { [
+            weak self,
+            weak picture
+        ] in
             guard let self, let picture, pictures[token] === picture else { return }
             activate(token, picture.workspaceId)
         }
@@ -226,7 +271,8 @@ final class NiriEdgePictures {
     func presentation(for token: WindowToken) -> NiriEdgePicturePresentation? {
         guard let picture = pictures[token], let windowId = picture.surface?.windowId else { return nil }
         return NiriEdgePicturePresentation(
-            frame: picture.geometry.frame, displayFrame: picture.displayFrame, scale: picture.scale, windowId: windowId
+            frame: picture.geometry.frame, displayFrame: picture.displayFrame, scale: picture.scale, windowId: windowId,
+            otherDisplayFrames: picture.geometry.otherDisplayFrames, isMoving: !picture.isResting
         )
     }
 
@@ -248,9 +294,8 @@ final class NiriEdgePictures {
 extension WMController {
     func makeEdgePictures() -> NiriEdgePictures {
         let pictures = NiriEdgePictures(
-            makeSurface: { [weak self] in
-                NiriEdgePictureWindow(orderBelowWindowId: self?.workspaceManager.nativeManagedFocusToken?.windowId)
-            },
+            orderingWindowId: { [weak self] in self?.workspaceManager.nativeManagedFocusToken?.windowId },
+            displayFrames: { [weak self] in self?.workspaceManager.monitors.map(\.frame) ?? [] },
             isCaptureEligible: { [weak self] token in
                 self?.workspaceManager.entry(for: token)?.axRef != nil && ScreenCapturePermissionMonitor.shared
                     .isGranted

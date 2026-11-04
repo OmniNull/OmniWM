@@ -36,6 +36,7 @@ extension NiriEdgePictures {
     }
 
     func prepareSettledPictures(_ preparation: NiriPicturePreparation, plan: WorkspaceLayoutPlan) {
+        prepareSpareSurfaces()
         for (token, size) in preparation.warmCandidates {
             guard isCaptureEligible(token) else { remove(token)
                 continue
@@ -117,10 +118,19 @@ extension NiriEdgePictures {
 
     func retirePicture(_ token: WindowToken) {
         guard let picture = pictures.removeValue(forKey: token) else { return }
-        picture.surface?.destroy()
-        if picture.surface != nil { onPresentationChanged() }
+        if let surface = picture.surface {
+            surface.hide()
+            spareSurfaces.append(surface)
+            onPresentationChanged()
+        }
         if !retainsCapture(token, in: picture.workspaceId) { discardCapture(token) }
         reconcileLiveRefresh()
+    }
+
+    private func prepareSpareSurfaces() {
+        let capacity = warmStates.values.reduce(0) { $0 + $1.warmCandidates.count }
+        while spareSurfaces.count > capacity { spareSurfaces.removeLast().destroy() }
+        while spareSurfaces.count < capacity { spareSurfaces.append(makeSurface()) }
     }
 
     func retainsCapture(_ token: WindowToken, in workspaceId: WorkspaceDescriptor.ID) -> Bool {
@@ -154,6 +164,8 @@ extension NiriEdgePictures {
     func handleMemoryPressure(_ underPressure: Bool) {
         isUnderMemoryPressure = underPressure
         guard underPressure else { return }
+        for surface in spareSurfaces { surface.destroy() }
+        spareSurfaces.removeAll()
         for token in capturedPictures.keys where pictures[token]?.image == nil { discardCapture(token) }
         for token in pendingCaptures.keys where pictures[token]?.image == nil { pendingCaptures[token] = nil }
     }

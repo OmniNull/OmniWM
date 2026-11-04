@@ -8,6 +8,12 @@ struct BorderPresentation: Equatable {
     var windowId: UInt32
     var displayFrame: CGRect
     var scale: CGFloat
+    var otherDisplayFrames: [CGRect] = []
+    var isMoving = false
+
+    func displayClip(for frame: CGRect) -> CGRect? {
+        NiriEdgePictureGeometry.overlapsDisplay(frame, otherDisplayFrames: otherDisplayFrames) ? displayFrame : nil
+    }
 }
 
 struct DesiredBorderSurface: Equatable {

@@ -18,7 +18,9 @@ final class SurfaceCoordinator {
         window: NSWindow,
         id: String,
         policy: SurfacePolicy,
-        regionProvider: (@MainActor () -> [CGRect])? = nil
+        regionProvider: (@MainActor () -> [CGRect])? = nil,
+        frameProvider: (@MainActor () -> CGRect?)? = nil,
+        visibilityProvider: (@MainActor () -> Bool)? = nil
     ) {
         scene.register(
             window: window,
@@ -28,8 +30,8 @@ final class SurfaceCoordinator {
                 window: window,
                 windowObjectIdentifier: ObjectIdentifier(window),
                 windowNumber: window.windowNumber > 0 ? window.windowNumber : nil,
-                frameProvider: nil,
-                visibilityProvider: nil,
+                frameProvider: frameProvider,
+                visibilityProvider: visibilityProvider,
                 regionProvider: regionProvider
             )
         )

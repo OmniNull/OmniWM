@@ -16,10 +16,21 @@ final class NiriEdgePicturesTests: XCTestCase {
         var geometry: NiriEdgePictureGeometry?
         var activation: (@MainActor () -> Void)?
         var destroyed = false
+        var hidden = false
 
-        func update(geometry: NiriEdgePictureGeometry, image _: CGImage, activate: @escaping @MainActor () -> Void) {
+        func update(
+            geometry: NiriEdgePictureGeometry,
+            image _: CGImage,
+            isMoving _: Bool,
+            activate: @escaping @MainActor () -> Void
+        ) {
             self.geometry = geometry
             activation = activate
+        }
+
+        func setOrderingTarget(_: Int?) {}
+        func hide() {
+            hidden = true
         }
 
         func destroy() {
@@ -80,7 +91,9 @@ final class NiriEdgePicturesTests: XCTestCase {
         XCTAssertFalse(surface.destroyed)
         presenter.reconcile(plan(revealed: [token: native]))
         presenter.frameApplicationEnded(token: token, targetFrame: native)
-        XCTAssertTrue(surface.destroyed)
+        XCTAssertTrue(surface.hidden)
+        XCTAssertFalse(surface.destroyed)
+        presenter.reset()
     }
 
     func testRetiredCaptureCannotPublishIntoNewPicture() throws {

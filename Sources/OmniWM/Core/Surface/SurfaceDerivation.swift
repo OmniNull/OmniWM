@@ -109,7 +109,10 @@ enum SurfaceDerivation {
         return DesiredBorderSurface(
             token: entry.token, frame: frame, config: config,
             presentation: picture.map {
-                BorderPresentation(windowId: $0.windowId, displayFrame: $0.displayFrame, scale: $0.scale)
+                BorderPresentation(
+                    windowId: $0.windowId, displayFrame: $0.displayFrame, scale: $0.scale,
+                    otherDisplayFrames: $0.otherDisplayFrames, isMoving: $0.isMoving
+                )
             }
         )
     }

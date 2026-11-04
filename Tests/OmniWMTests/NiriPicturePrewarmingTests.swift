@@ -28,10 +28,21 @@ final class NiriPicturePrewarmingTests: XCTestCase {
         var image: CGImage?
         var geometry: NiriEdgePictureGeometry?
         var destroyed = false
+        var hidden = false
 
-        func update(geometry: NiriEdgePictureGeometry, image: CGImage, activate _: @escaping @MainActor () -> Void) {
+        func update(
+            geometry: NiriEdgePictureGeometry,
+            image: CGImage,
+            isMoving _: Bool,
+            activate _: @escaping @MainActor () -> Void
+        ) {
             self.geometry = geometry
             self.image = image
+        }
+
+        func setOrderingTarget(_: Int?) {}
+        func hide() {
+            hidden = true
         }
 
         func destroy() {
@@ -231,7 +242,8 @@ final class NiriPicturePrewarmingTests: XCTestCase {
         var settled = plan()
         settled.diff.visibilityChanges = [.hide(token, side: AxisHideEdge.minimum.encodedHideSide)]
         presenter.reconcile(settled)
-        XCTAssertTrue(surface.destroyed)
+        XCTAssertTrue(surface.hidden)
+        XCTAssertFalse(surface.destroyed)
         XCTAssertTrue(presenter.pictures.isEmpty)
         XCTAssertTrue(presenter.readyTokens.isEmpty)
     }

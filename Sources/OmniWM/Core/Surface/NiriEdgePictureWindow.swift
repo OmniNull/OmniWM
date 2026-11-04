@@ -5,17 +5,18 @@ import AppKit
 import QuartzCore
 
 @MainActor
-final class NiriEdgePictureWindow: NSPanel, NiriEdgePictureSurface {
+class NiriEdgePictureWindow: NSPanel, NiriEdgePictureSurface {
     private let pictureLayer = CALayer()
     private let button = NSButton()
     private var activate: (@MainActor () -> Void)?
-    private let orderBelowWindowId: Int?
+    private var orderBelowWindowId: Int?
+    private var visiblePictureFrame: CGRect?
+    private var windowServerPlacement: (appKitFrame: CGRect, frame: CGRect)?
+    private var laidOutPictureSize: CGSize?
     private var hasOrderedIn = false
 
-    init(orderBelowWindowId: Int? = nil) {
-        self.orderBelowWindowId = orderBelowWindowId
+    init() {
         super.init(contentRect: .zero, styleMask: [.borderless, .nonactivatingPanel], backing: .buffered, defer: false)
-        isFloatingPanel = false
         isOpaque = false
         backgroundColor = .clear
         level = .normal
@@ -38,15 +39,18 @@ final class NiriEdgePictureWindow: NSPanel, NiriEdgePictureSurface {
         root.addSubview(button)
         contentView = root
         SurfaceCoordinator.shared.register(
-            window: self,
-            id: "niri-edge-picture-\(ObjectIdentifier(self))",
+            window: self, id: surfaceID,
             policy: SurfacePolicy(
-                kind: .niriEdgePicture,
-                hitTestPolicy: .interactive,
-                capturePolicy: .excluded,
-                suppressesManagedFocusRecovery: false
-            )
+                kind: .niriEdgePicture, hitTestPolicy: .interactive,
+                capturePolicy: .excluded, suppressesManagedFocusRecovery: false
+            ),
+            frameProvider: { [weak self] in self?.visiblePictureFrame },
+            visibilityProvider: { [weak self] in self?.hasOrderedIn == true }
         )
+    }
+
+    private var surfaceID: String {
+        "niri-edge-picture-\(ObjectIdentifier(self))"
     }
 
     var windowId: UInt32? {
@@ -55,7 +59,7 @@ final class NiriEdgePictureWindow: NSPanel, NiriEdgePictureSurface {
     }
 
     var isVisibleForCapture: Bool {
-        occlusionState.contains(.visible)
+        hasOrderedIn && occlusionState.contains(.visible)
     }
 
     override var canBecomeKey: Bool {
@@ -70,26 +74,93 @@ final class NiriEdgePictureWindow: NSPanel, NiriEdgePictureSurface {
         frameRect
     }
 
-    func update(geometry: NiriEdgePictureGeometry, image: CGImage, activate: @escaping @MainActor () -> Void) {
+    override func convertToScreen(_ rect: NSRect) -> NSRect {
+        let placed = windowServerPlacement.flatMap { $0.appKitFrame == frame ? $0.frame : nil } ?? frame
+        return rect.offsetBy(dx: placed.minX, dy: placed.minY)
+    }
+
+    func setOrderingTarget(_ windowId: Int?) {
+        orderBelowWindowId = windowId
+    }
+
+    func update(
+        geometry: NiriEdgePictureGeometry,
+        image: CGImage,
+        isMoving: Bool,
+        activate: @escaping @MainActor () -> Void
+    ) {
         self.activate = activate
-        setFrame(geometry.visibleFrame, display: false)
-        let bounds = CGRect(origin: .zero, size: geometry.visibleFrame.size)
+        visiblePictureFrame = geometry.visibleFrame
+        let unclipped = !geometry.requiresDisplayClip
+        let target = unclipped ? SurfacePanelGeometry.backingFrame(for: geometry.frame) : geometry.panelFrame
+        let imageChanged = pictureLayer.contents as AnyObject? !== image
+        if hasOrderedIn, isMoving, unclipped, laidOutPictureSize == geometry.frame.size,
+           moveInWindowServer(to: target)
+        {
+            if imageChanged {
+                CATransaction.begin()
+                CATransaction.setDisableActions(true)
+                pictureLayer.contents = image
+                CATransaction.commit()
+            }
+            return
+        }
+        CATransaction.begin()
+        CATransaction.setDisableActions(true)
+        setFrameReconcilingWindowServer(target)
+        laidOutPictureSize = unclipped ? geometry.frame.size : nil
+        let bounds = CGRect(origin: .zero, size: target.size)
         contentView?.frame = bounds
-        button.frame = bounds
-        pictureLayer.frame = geometry.pictureFrame
-        if pictureLayer.contents as AnyObject? !== image { pictureLayer.contents = image }
+        button.frame = unclipped ? CGRect(origin: .zero, size: geometry.frame.size) : bounds
+        pictureLayer.frame = unclipped ? CGRect(origin: .zero, size: geometry.frame.size) : geometry.pictureFrame
+        if imageChanged { pictureLayer.contents = image }
+        CATransaction.commit()
         if !hasOrderedIn {
             hasOrderedIn = true
-            orderFrontRegardless()
-            if let target = orderBelowWindowId.flatMap(UInt32.init(exactly:)) {
-                SkyLight.shared.orderWindow(UInt32(windowNumber), relativeTo: target, order: .below)
-            }
+            orderIn()
         }
+    }
+
+    func orderIn() {
+        orderFrontRegardless()
+        SkyLight.shared.orderWindow(
+            UInt32(windowNumber), relativeTo: orderBelowWindowId.flatMap(UInt32.init(exactly:)) ?? 0,
+            order: orderBelowWindowId == nil ? .above : .below
+        )
+    }
+
+    func moveInWindowServer(to target: CGRect) -> Bool {
+        guard SkyLight.shared.transactionMove(
+            UInt32(windowNumber), origin: ScreenCoordinateSpace.toWindowServer(rect: target).origin
+        ) else { return false }
+        windowServerPlacement = (frame, target)
+        return true
+    }
+
+    private func setFrameReconcilingWindowServer(_ target: CGRect) {
+        let previous = windowServerPlacement.flatMap { $0.appKitFrame == frame ? $0.frame : nil }
+        if frame != target { setFrame(target, display: false) }
+        if let previous, previous != frame, !moveInWindowServer(to: target) {
+            setFrame(previous, display: false)
+            setFrame(target, display: false)
+        }
+        windowServerPlacement = nil
+    }
+
+    func hide() {
+        activate = nil
+        visiblePictureFrame = nil
+        hasOrderedIn = false
+        SkyLight.shared.transactionHide(UInt32(windowNumber))
+        CATransaction.begin()
+        CATransaction.setDisableActions(true)
+        pictureLayer.contents = nil
+        CATransaction.commit()
     }
 
     func destroy() {
         activate = nil
-        SurfaceCoordinator.shared.unregister(window: self)
+        SurfaceCoordinator.shared.unregister(id: surfaceID)
         orderOut(nil)
         close()
     }

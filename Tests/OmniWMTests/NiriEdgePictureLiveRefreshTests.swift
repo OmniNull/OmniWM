@@ -56,9 +56,20 @@ final class NiriEdgePictureLiveRefreshTests: XCTestCase {
         var destroyed = false
         var updates = 0
 
-        func update(geometry _: NiriEdgePictureGeometry, image: CGImage, activate _: @escaping @MainActor () -> Void) {
+        func update(
+            geometry _: NiriEdgePictureGeometry,
+            image: CGImage,
+            isMoving _: Bool,
+            activate _: @escaping @MainActor () -> Void
+        ) {
             self.image = image
+            isVisibleForCapture = true
             updates += 1
+        }
+
+        func setOrderingTarget(_: Int?) {}
+        func hide() {
+            isVisibleForCapture = false
         }
 
         func destroy() {
@@ -169,7 +180,8 @@ final class NiriEdgePictureLiveRefreshTests: XCTestCase {
         driver.ticks[0]()
         presenter.reconcile(plan(pictured: false))
         XCTAssertEqual(driver.cancelled, [0])
-        XCTAssertTrue(driver.surfaces[0].destroyed)
+        XCTAssertFalse(driver.surfaces[0].isVisibleForCapture)
+        XCTAssertFalse(driver.surfaces[0].destroyed)
         XCTAssertTrue(presenter.readyTokens.isEmpty)
         driver.completions[1](try image())
         XCTAssertTrue(presenter.readyTokens.isEmpty)
@@ -190,7 +202,7 @@ final class NiriEdgePictureLiveRefreshTests: XCTestCase {
         var landing = plan(pictured: false)
         landing.diff.frameChanges = [.init(token: token, frame: frame, forceApply: false)]
         presenter.reconcile(landing)
-        expected = .init(frame: frame, displayFrame: frame, scale: scale, windowId: expected.windowId)
+        expected = .init(frame: frame, displayFrame: frame, scale: scale, windowId: expected.windowId, isMoving: true)
         XCTAssertEqual(presenter.presentation(for: token), expected)
         XCTAssertNil(presenter.cancelLiveRefresh)
         presenter.frameApplicationEnded(token: token, targetFrame: frame)
