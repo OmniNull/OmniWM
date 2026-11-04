@@ -123,11 +123,13 @@ extension NiriLayoutEngine {
         if target === dragged, let dropSpace {
             closeLiveDropSpace(dropSpace, home: dragged, context: context, state: &state)
             move.dropSpaceId = nil
+            releaseLiveStripEnd(&move, context: context, state: &state)
             return markLiveChange(&move, target: target, side: side)
         }
         if let dropSpace, liveNeighbour(of: target, on: side) === dragged {
             closeLiveDropSpace(dropSpace, home: dragged, context: context, state: &state)
             move.dropSpaceId = nil
+            releaseLiveStripEnd(&move, context: context, state: &state)
             scrollLiveLandingUnderPointer(dragged, target: target, cursor: cursor, context: context, state: &state)
             return markLiveChange(&move, target: target, side: side, passed: sideBySide ? passed : nil)
         }
@@ -147,6 +149,16 @@ extension NiriLayoutEngine {
             state: &state
         ) else { return .unchanged }
         move.dropSpaceId = opened.id
+        holdLiveStripEnd(
+            &move,
+            opening: dropSpace == nil,
+            beside: target,
+            side: side,
+            home: dragged,
+            strip: strip,
+            context: context,
+            state: &state
+        )
         scrollLiveLandingUnderPointer(opened, target: target, cursor: cursor, context: context, state: &state)
         return markLiveChange(&move, target: target, side: side, passed: sideBySide ? passed : nil)
     }
@@ -164,6 +176,45 @@ extension NiriLayoutEngine {
             strip: liveColumnStrip(context: context, state: state),
             context: context
         )
+        state.animateToOffset(
+            state.viewOffset + shift,
+            motion: context.motion,
+            scale: displayScale(in: context.workspaceId)
+        )
+    }
+
+    private func holdLiveStripEnd(
+        _ move: inout LiveColumnMove,
+        opening: Bool,
+        beside target: NiriContainer,
+        side: LiveColumnMove.Side,
+        home: NiriContainer,
+        strip: [LiveColumnMove.StripColumn],
+        context: NiriInteractionContext,
+        state: inout ViewportState
+    ) {
+        guard opening, !move.dropSpaceKeepsStripEnd, side == .after else { return }
+        let windows = strip.filter { !$0.column.isLiveDropSpace }
+        guard windows.count == 2,
+              windows.first?.column === home,
+              windows.last?.column === target,
+              windows.allSatisfy({ $0.isFullyVisible(in: context.workingFrame) })
+        else { return }
+        move.dropSpaceKeepsStripEnd = true
+        shiftLiveView(by: liveDropSpaceWidth(context: context) + context.gaps, context: context, state: &state)
+    }
+
+    private func releaseLiveStripEnd(
+        _ move: inout LiveColumnMove,
+        context: NiriInteractionContext,
+        state: inout ViewportState
+    ) {
+        guard move.dropSpaceKeepsStripEnd else { return }
+        move.dropSpaceKeepsStripEnd = false
+        shiftLiveView(by: -(liveDropSpaceWidth(context: context) + context.gaps), context: context, state: &state)
+    }
+
+    private func shiftLiveView(by shift: CGFloat, context: NiriInteractionContext, state: inout ViewportState) {
         state.animateToOffset(
             state.viewOffset + shift,
             motion: context.motion,

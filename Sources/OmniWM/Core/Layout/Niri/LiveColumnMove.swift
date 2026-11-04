@@ -99,6 +99,7 @@ struct LiveColumnMove {
     var phase: Phase = .dragging
     var hover: Hover?
     var dropSpaceId: NodeId?
+    var dropSpaceKeepsStripEnd = false
     var lockedTarget: TargetLock?
     var swapCount = 0
     var narrowedSlot: NarrowedSlot?
