@@ -11,6 +11,7 @@ final class AppAXContext {
     private struct PendingRetryRaise {
         let window: AXWindowRef
         let job: RunLoopJob
+        let allowsLayoutHiddenWindow: Bool
         let completion: @MainActor @Sendable () -> Void
     }
 
@@ -102,14 +103,6 @@ final class AppAXContext {
         return observerRegistered && focusedObserverRegistered
     }
 
-    func cancelFrameJob(for windowId: Int) {
-        frameDelivery.cancelFrameJob(for: windowId)
-    }
-
-    func cancelParkFrameJob(for windowId: Int) {
-        frameDelivery.cancelParkFrameJob(for: windowId)
-    }
-
     func invalidateWindowIdentity() {
         cancelRetryRaise()
         _ = windowBindingEpoch.advance()
@@ -119,11 +112,14 @@ final class AppAXContext {
         _ window: AXWindowRef,
         job: RunLoopJob,
         awaitingSubmittedFocus: @escaping @Sendable () -> Void,
+        allowsLayoutHiddenWindow: Bool = false,
         completion: @escaping @MainActor @Sendable () -> Void
     ) -> Bool {
         guard let thread, !job.isCancelled else { return false }
         cancelRetryRaise()
-        pendingRetryRaise = PendingRetryRaise(window: window, job: job, completion: completion)
+        pendingRetryRaise = PendingRetryRaise(
+            window: window, job: job, allowsLayoutHiddenWindow: allowsLayoutHiddenWindow, completion: completion
+        )
         let frameWriteSuppression = frameDelivery.retryRaiseSuppression
         let pid = pid
         let postedNs = WindowFocusDispatchTrace.retryRaise.isActive ? DispatchTime.now().uptimeNanoseconds : 0
@@ -135,7 +131,8 @@ final class AppAXContext {
                         awaitingSubmittedFocus: {
                             awaitingSubmittedFocus()
                             waited()
-                        }
+                        },
+                        allowsLayoutHiddenWindow: allowsLayoutHiddenWindow
                     )
                 }
             scheduleOnMainRunLoop { [weak self] in
@@ -182,7 +179,9 @@ final class AppAXContext {
     func suppressFrameWrites(for windowIds: [Int]) {
         guard !windowIds.isEmpty else { return }
         for windowId in windowIds {
-            cancelRetryRaise(for: windowId)
+            if pendingRetryRaise?.allowsLayoutHiddenWindow != true {
+                cancelRetryRaise(for: windowId)
+            }
             frameDelivery.cancelFrameJob(for: windowId)
             frameDelivery.suppressFrameWrite(for: windowId)
         }

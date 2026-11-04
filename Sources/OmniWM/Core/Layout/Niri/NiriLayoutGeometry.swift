@@ -91,7 +91,8 @@ struct NiriLayoutViewport {
         at selection: (index: Int, isActive: Bool),
         viewPosition viewPos: CGFloat,
         hiddenPlacementMonitor: HiddenPlacementMonitorContext?,
-        hiddenPlacementMonitors: [HiddenPlacementMonitorContext]
+        hiddenPlacementMonitors: [HiddenPlacementMonitorContext],
+        edgePictures: NiriColumnPictureState = .none
     ) -> NiriColumnVisibility {
         let canonicalContainerRect = area.canonicalContainerRect(
             position: column.position,
@@ -114,15 +115,12 @@ struct NiriLayoutViewport {
         )
         var isTopEdgeHidden = false
         if case .visible = visibilityState {
-            if orientation == .vertical,
-               !(selection.isActive && column.span > area.workingFrame.height),
-               let hiddenPlacementMonitor,
-               hiddenPlacementMonitors.contains(where: { $0.id != hiddenPlacementMonitor.id }),
-               !selection.isActive && visibilityRect.maxY > hiddenPlacementMonitor.frame.maxY
-               || visibilityRect.maxY <= area.workingFrame.minY
-            {
-                visibilityState = .hidden(visibilityRect.maxY <= area.workingFrame.minY ? .minimum : .maximum)
-                isTopEdgeHidden = !selection.isActive && visibilityRect.maxY > hiddenPlacementMonitor.frame.maxY
+            if let edge = verticalHiddenEdge(
+                column: column, isActive: selection.isActive, rect: visibilityRect,
+                monitor: hiddenPlacementMonitor, monitors: hiddenPlacementMonitors, pictures: edgePictures
+            ) {
+                visibilityState = .hidden(edge)
+                isTopEdgeHidden = edge == .maximum
             } else {
                 if let liveOverflowEdge = NiriMonitorPlaneGeometry.overflowEdgeIntersectingNeighboringMonitor(
                     NiriMonitorPlaneGeometry.clampedFrame(
@@ -143,6 +141,27 @@ struct NiriLayoutViewport {
             state: visibilityState,
             isTopEdgeHidden: isTopEdgeHidden
         )
+    }
+
+    private func verticalHiddenEdge(
+        column: NiriPreparedLayoutColumn,
+        isActive: Bool,
+        rect: CGRect,
+        monitor: HiddenPlacementMonitorContext?,
+        monitors: [HiddenPlacementMonitorContext],
+        pictures: NiriColumnPictureState = .none
+    ) -> AxisHideEdge? {
+        guard orientation == .vertical,
+              !(isActive && column.span > area.workingFrame.height),
+              let monitor else { return nil }
+        if isActive, pictures.holdsActive, pictures.isReady || rect.minY >= monitor.frame.maxY {
+            return .maximum
+        }
+        let hasAnotherMonitor = monitors.contains { $0.id != monitor.id }
+        if !isActive, pictures.isAvailable || hasAnotherMonitor, rect.maxY > monitor.frame.maxY {
+            return .maximum
+        }
+        return hasAnotherMonitor && rect.maxY <= area.workingFrame.minY ? .minimum : nil
     }
 
     func sampledContainerVisibilityState(

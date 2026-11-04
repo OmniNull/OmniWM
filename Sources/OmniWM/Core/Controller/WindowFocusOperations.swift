@@ -16,7 +16,7 @@ struct WindowFocusOperations {
     let raiseWindow: (AXUIElement) -> Void
     let orderWindow: (UInt32) -> Void
     let hasOverlappingWindowsAbove: (UInt32, Set<UInt32>) -> Bool?
-    let enqueueRetryRaise: (pid_t, AXWindowRef, RunLoopJob, @escaping @MainActor @Sendable () -> Void) -> Bool
+    let enqueueRetryRaise: (pid_t, AXWindowRef, RunLoopJob, Bool, @escaping @MainActor @Sendable () -> Void) -> Bool
 
     init(
         activateApp: @escaping (pid_t) -> Void,
@@ -29,13 +29,14 @@ struct WindowFocusOperations {
         orderWindow: @escaping (UInt32) -> Void = { _ in },
         hasOverlappingWindowsAbove: @escaping (UInt32, Set<UInt32>) -> Bool? = { _, _ in nil },
         enqueueRetryRaise: @escaping (
-            pid_t, AXWindowRef, RunLoopJob, @escaping @MainActor @Sendable () -> Void
-        ) -> Bool = { pid, window, job, completion in
+            pid_t, AXWindowRef, RunLoopJob, Bool, @escaping @MainActor @Sendable () -> Void
+        ) -> Bool = { pid, window, job, allowsLayoutHiddenWindow, completion in
             guard let context = AppAXContextRegistry.contexts[pid] else { return false }
             return context.enqueueRetryRaise(
                 window,
                 job: job,
                 awaitingSubmittedFocus: WindowFocusDispatcher.shared.waitForSubmitted,
+                allowsLayoutHiddenWindow: allowsLayoutHiddenWindow,
                 completion: completion
             )
         }

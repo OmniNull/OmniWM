@@ -102,7 +102,8 @@ extension NiriLayoutEngine {
         viewOffsetOverride: CGFloat? = nil,
         settledVisibilityOffset: CGFloat? = nil,
         isSettled: Bool = false,
-        excludedTokens: Set<WindowToken>? = nil
+        excludedTokens: Set<WindowToken>? = nil,
+        edgePictures: NiriEdgePictureState = .none
     ) {
         result.topEdgeHiddenFrames.removeAll(keepingCapacity: true)
         if let excludedTokens { setProjectionExclusions(excludedTokens, in: workspaceId) }
@@ -112,7 +113,7 @@ extension NiriLayoutEngine {
         let context = NiriCalculationContext(
             geometry: geometry, time: animationTime ?? CACurrentMediaTime(),
             hiddenPlacementMonitor: hiddenPlacementMonitor,
-            hiddenPlacementMonitors: hiddenPlacementMonitors
+            hiddenPlacementMonitors: hiddenPlacementMonitors, edgePictures: edgePictures
         )
         clearExcludedColumnFrames(in: workspaceId, excluding: excludedTokens)
         if animationTime == nil {

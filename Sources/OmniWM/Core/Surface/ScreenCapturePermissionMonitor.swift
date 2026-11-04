@@ -12,6 +12,7 @@ final class ScreenCapturePermissionMonitor {
     private let notificationCenter: NotificationCenter
     private var deactivationObserver: NotificationCenter.ObservationToken?
     private var granted: Bool?
+    private var changeObservers: [UUID: @MainActor (Bool) -> Void] = [:]
 
     init(
         preflight: @escaping @MainActor () -> Bool = { CGPreflightScreenCaptureAccess() },
@@ -37,8 +38,25 @@ final class ScreenCapturePermissionMonitor {
     @discardableResult
     func refresh() -> Bool {
         let value = MainThreadAXSpanTrace.measure(.screenCapturePreflight) { preflight() } succeeded: { $0 }
-        granted = value
+        updateGranted(value)
         return value
+    }
+
+    func addChangeObserver(_ observer: @escaping @MainActor (Bool) -> Void) -> UUID {
+        let id = UUID()
+        changeObservers[id] = observer
+        return id
+    }
+
+    func removeChangeObserver(_ id: UUID) {
+        changeObservers.removeValue(forKey: id)
+    }
+
+    private func updateGranted(_ value: Bool) {
+        let previous = granted
+        granted = value
+        guard let previous, previous != value else { return }
+        for observer in changeObservers.values { observer(value) }
     }
 
     func applicationDidDeactivate(bundleIdentifier: String?) {
@@ -48,6 +66,6 @@ final class ScreenCapturePermissionMonitor {
 
     func noteCaptureFailure(_ error: any Error) {
         guard (error as? SCStreamError)?.code == .userDeclined else { return }
-        granted = false
+        updateGranted(false)
     }
 }

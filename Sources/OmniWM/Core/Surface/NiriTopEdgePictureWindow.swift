@@ -68,7 +68,7 @@ final class NiriTopEdgePictureWindow: NSPanel, NiriTopEdgePictureSurface {
         contentView?.frame = bounds
         button.frame = bounds
         pictureLayer.frame = geometry.pictureFrame
-        pictureLayer.contents = image
+        if pictureLayer.contents as AnyObject? !== image { pictureLayer.contents = image }
         if !hasOrderedIn {
             hasOrderedIn = true
             orderFrontRegardless()

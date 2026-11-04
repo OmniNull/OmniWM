@@ -34,10 +34,7 @@ extension NiriLayoutHandler {
                 )
             } == true
         let (frames, hiddenHandles) = calculateRelayoutFrames(
-            pass: pass,
-            state: state,
-            snapshot: snapshot,
-            isSettled: isSettled
+            pass: pass, state: state, snapshot: snapshot, isSettled: isSettled
         )
 
         var directives = relayoutAnimationDirectives(
@@ -59,6 +56,9 @@ extension NiriLayoutHandler {
             )
         )
         diff.topEdgeHiddenFrames = topEdgeHiddenFrames(engine: pass.engine, snapshot: snapshot)
+        diff.picturePreparation = picturePreparation(
+            engine: pass.engine, snapshot: snapshot, state: state, isSettled: isSettled
+        )
         completeAnimationDirectives(&directives, pass: pass, state: state)
         return WorkspaceLayoutPlan(
             workspaceId: pass.wsId,
@@ -233,7 +233,7 @@ extension NiriLayoutHandler {
                 )
             },
             isSettled: isSettled,
-            excludedTokens: snapshot.excludedTokens
+            excludedTokens: snapshot.excludedTokens, edgePictures: snapshot.edgePictures
         )
     }
 

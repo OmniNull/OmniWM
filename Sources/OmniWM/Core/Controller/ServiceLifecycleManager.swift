@@ -163,14 +163,14 @@ final class ServiceLifecycleManager {
         controller.axManager.onTerminalFrameRefusal = { [weak controller] refusal in
             controller?.niriTopEdgePictures.frameApplicationEnded(
                 token: WindowToken(pid: refusal.pid, windowId: refusal.windowId),
-                targetFrame: refusal.targetFrame
+                targetFrame: refusal.targetFrame, applied: false
             )
             controller?.axEventHandler.handleTerminalFrameRefusal(refusal)
         }
         controller.axManager.onFrameApplyTerminated = { [weak controller] result in
             controller?.niriTopEdgePictures.frameApplicationEnded(
                 token: WindowToken(pid: result.pid, windowId: result.windowId),
-                targetFrame: result.targetFrame
+                targetFrame: result.targetFrame, applied: false
             )
             controller?.mouseEventHandler.handleNativeTitleBarDragFrameApplyTerminated(result)
         }

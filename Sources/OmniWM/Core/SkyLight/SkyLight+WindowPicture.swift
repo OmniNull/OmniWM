@@ -18,8 +18,7 @@ extension SkyLight {
             windowIteratorGetWindowID = queries.windowIteratorGetWindowID,
             windowIteratorGetPID = queries.windowIteratorGetPID
         ] cid in
-            guard CGPreflightScreenCaptureAccess(),
-                  let query = windowQueryWindows(cid, [NSNumber(value: wid)] as CFArray, 0)?.takeRetainedValue(),
+            guard let query = windowQueryWindows(cid, [NSNumber(value: wid)] as CFArray, 0)?.takeRetainedValue(),
                   let iterator = windowQueryResultCopyWindows(query)?.takeRetainedValue(),
                   windowIteratorAdvance(iterator),
                   windowIteratorGetWindowID(iterator) == wid,

@@ -17,6 +17,7 @@ final class NiriKeyboardFocusTests: XCTestCase {
     private final class FocusRecorder {
         var operations: [FocusOperation] = []
         var queuedRaises: [(job: RunLoopJob, completion: @MainActor @Sendable () -> Void)] = []
+        var allowsLayoutHiddenRaises: [Bool] = []
         var onFocus: (() -> Void)?
         var heldFocusCompletions: [@MainActor () -> Void]?
     }
@@ -192,6 +193,38 @@ final class NiriKeyboardFocusTests: XCTestCase {
 
             XCTAssertEqual(fixture.recorder.queuedRaises.count, 1)
             XCTAssertEqual(controller.intentLedger.activeManagedRequest?.token, target)
+        }
+    }
+
+    func testOnlyVerticalTopParkedFocusAllowsLayoutHiddenWorkerRaise() throws {
+        let hiddenReasons: [HiddenReason?] = [
+            nil, .layoutTransient(AxisHideEdge.maximum.encodedHideSide),
+            .layoutTransient(AxisHideEdge.minimum.encodedHideSide), .workspaceInactive, .scratchpad
+        ]
+        for orientation in [Monitor.Orientation.horizontal, .vertical] {
+            for reason in hiddenReasons {
+                try withFixture(selection: 1, orientation: orientation, sharedPid: true) { fixture in
+                    let controller = fixture.controller
+                    let source = fixture.windows[1].token
+                    let target = fixture.windows[2].token
+                    XCTAssertTrue(controller.workspaceManager.confirmManagedFocus(
+                        source, in: fixture.workspaceId, activateWorkspaceOnMonitor: false
+                    ))
+                    controller.workspaceManager.setHiddenState(reason.map {
+                        HiddenState(proportionalPosition: .zero, referenceMonitorId: nil, reason: $0)
+                    }, for: target)
+                    fixture.recorder.operations.removeAll()
+                    let direction: Direction = orientation == .horizontal ? .right : .up
+
+                    XCTAssertTrue(controller.niriLayoutHandler.focusNeighbor(direction: direction))
+
+                    XCTAssertEqual(fixture.recorder.operations, [.submittedFocus(target)])
+                    XCTAssertEqual(fixture.recorder.allowsLayoutHiddenRaises, [
+                        orientation == .vertical && reason == .layoutTransient(AxisHideEdge.maximum.encodedHideSide)
+                    ])
+                    XCTAssertFalse(try XCTUnwrap(fixture.recorder.queuedRaises.first).job.isCancelled)
+                }
+            }
         }
     }
 
@@ -388,7 +421,7 @@ final class NiriKeyboardFocusTests: XCTestCase {
     }
 
     func testSecondaryNavigationRetainsFullFronting() throws {
-        try withFixture() { fixture in
+        try withFixture { fixture in
             let controller = fixture.controller
             let monitor = try XCTUnwrap(controller.workspaceManager.monitor(for: fixture.workspaceId))
             let column = try XCTUnwrap(fixture.engine.column(of: fixture.windows[2]))
@@ -422,7 +455,7 @@ final class NiriKeyboardFocusTests: XCTestCase {
     }
 
     func testOrdinaryFocusRetainsFullFronting() throws {
-        try withFixture() { fixture in
+        try withFixture { fixture in
             let target = fixture.windows[2].token
 
             fixture.controller.focusWindow(target)
@@ -459,7 +492,8 @@ final class NiriKeyboardFocusTests: XCTestCase {
                     }
                 },
                 raiseWindow: { _ in recorder.operations.append(.raise) },
-                enqueueRetryRaise: { _, _, job, completion in
+                enqueueRetryRaise: { _, _, job, allowsLayoutHiddenWindow, completion in
+                    recorder.allowsLayoutHiddenRaises.append(allowsLayoutHiddenWindow)
                     recorder.queuedRaises.append((job, completion))
                     return true
                 }

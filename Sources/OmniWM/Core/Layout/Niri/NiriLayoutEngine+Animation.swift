@@ -271,7 +271,8 @@ extension NiriLayoutEngine {
         viewOffsetOverride: CGFloat? = nil,
         settledVisibilityOffset: CGFloat? = nil,
         isSettled: Bool = false,
-        excludedTokens: Set<WindowToken>? = nil
+        excludedTokens: Set<WindowToken>? = nil,
+        edgePictures: NiriEdgePictureState = .none
     ) -> (frames: [WindowToken: CGRect], hiddenHandles: [WindowToken: HideSide]) {
         layoutPool.frames.removeAll(keepingCapacity: true)
         layoutPool.hiddenHandles.removeAll(keepingCapacity: true)
@@ -298,7 +299,7 @@ extension NiriLayoutEngine {
             viewOffsetOverride: viewOffsetOverride,
             settledVisibilityOffset: settledVisibilityOffset,
             isSettled: isSettled,
-            excludedTokens: excludedTokens
+            excludedTokens: excludedTokens, edgePictures: edgePictures
         )
 
         return (layoutPool.frames, layoutPool.hiddenHandles)

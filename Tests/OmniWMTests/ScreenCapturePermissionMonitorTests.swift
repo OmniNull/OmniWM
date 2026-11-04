@@ -69,6 +69,53 @@ final class ScreenCapturePermissionMonitorTests: XCTestCase {
         XCTAssertEqual(preflight.calls, 1)
     }
 
+    func testObserversReceiveChangesFromRefreshAndDenialOnly() {
+        let preflight = Preflight()
+        let monitor = makeMonitor(preflight)
+        var values: [Bool] = []
+        let observation = monitor.addChangeObserver { values.append($0) }
+        XCTAssertTrue(monitor.isGranted)
+        XCTAssertTrue(monitor.refresh())
+        XCTAssertTrue(values.isEmpty)
+
+        preflight.granted = false
+        XCTAssertFalse(monitor.refresh())
+        XCTAssertEqual(values, [false])
+        XCTAssertFalse(monitor.refresh())
+        monitor.noteCaptureFailure(SCStreamError(.userDeclined))
+        XCTAssertEqual(values, [false])
+
+        preflight.granted = true
+        XCTAssertTrue(monitor.refresh())
+        monitor.noteCaptureFailure(SCStreamError(.failedToStart))
+        XCTAssertEqual(values, [false, true])
+        monitor.noteCaptureFailure(SCStreamError(.userDeclined))
+        XCTAssertEqual(values, [false, true, false])
+
+        monitor.removeChangeObserver(observation)
+        XCTAssertTrue(monitor.refresh())
+        XCTAssertEqual(values, [false, true, false])
+    }
+
+    func testRemovingOnePermissionObserverKeepsTheOther() {
+        let preflight = Preflight()
+        let monitor = makeMonitor(preflight)
+        XCTAssertTrue(monitor.isGranted)
+        var first: [Bool] = []
+        var second: [Bool] = []
+        let firstObservation = monitor.addChangeObserver { first.append($0) }
+        let secondObservation = monitor.addChangeObserver { second.append($0) }
+        monitor.noteCaptureFailure(SCStreamError(.userDeclined))
+        XCTAssertEqual(first, [false])
+        XCTAssertEqual(second, [false])
+
+        monitor.removeChangeObserver(firstObservation)
+        XCTAssertTrue(monitor.refresh())
+        XCTAssertEqual(first, [false])
+        XCTAssertEqual(second, [false, true])
+        monitor.removeChangeObserver(secondObservation)
+    }
+
     func testInteractivePreviewReconcilesReuseCachedPermission() async throws {
         let preflight = Preflight()
         let monitor = makeMonitor(preflight)

@@ -31,13 +31,12 @@ protocol NiriTopEdgePictureSurface: AnyObject {
 final class NiriTopEdgePictures {
     typealias Capture = @MainActor (WindowToken, @escaping @MainActor (CGImage?) -> Void) -> Task<Void, Never>?
 
-    private final class Picture {
+    final class Picture {
         let workspaceId: WorkspaceDescriptor.ID
         let displayId: CGDirectDisplayID
         let displayFrame: CGRect
         var geometry: NiriTopEdgePictureGeometry
         var image: CGImage?
-        var task: Task<Void, Never>?
         var surface: (any NiriTopEdgePictureSurface)?
         var revealFrame: CGRect?
 
@@ -53,24 +52,39 @@ final class NiriTopEdgePictures {
         }
     }
 
-    private let capture: Capture
+    let capture: Capture
     private let makeSurface: @MainActor () -> any NiriTopEdgePictureSurface
     private let activate: @MainActor (WindowToken, WorkspaceDescriptor.ID) -> Void
-    private var pictures: [WindowToken: Picture] = [:]
+    var pictures: [WindowToken: Picture] = [:]
+    var capturedPictures: [WindowToken: NiriCapturedPicture] = [:]
+    var warmStates: [WorkspaceDescriptor.ID: NiriPictureWarmState] = [:]
+    var pendingCaptures: [WindowToken: NiriPendingPictureCapture] = [:]
+    var readyTokens: Set<WindowToken> = []
+    var isUnderMemoryPressure = false
+    var removeCaptureObservers: (@MainActor () -> Void)?
+    let isCaptureEligible: @MainActor (WindowToken) -> Bool
 
     init(
         capture: @escaping Capture = NiriTopEdgePictures.captureWindow,
         makeSurface: @escaping @MainActor () -> any NiriTopEdgePictureSurface = { NiriTopEdgePictureWindow() },
+        isCaptureEligible: @escaping @MainActor (WindowToken) -> Bool = { _ in true },
         activate: @escaping @MainActor (WindowToken, WorkspaceDescriptor.ID) -> Void
     ) {
+        self.isCaptureEligible = isCaptureEligible
         self.capture = capture
         self.makeSurface = makeSurface
         self.activate = activate
     }
 
+    isolated deinit {
+        removeCaptureObservers?()
+        for captured in capturedPictures.values { captured.task?.cancel() }
+    }
+
     func reconcile(_ plan: WorkspaceLayoutPlan) {
         let enabled = plan.isActiveWorkspace && plan.monitor.orientation == .vertical
         let desired = enabled ? plan.diff.topEdgeHiddenFrames : [:]
+        preparePictures(plan, enabled: enabled)
         guard !desired.isEmpty || pictures.values.contains(where: { $0.workspaceId == plan.workspaceId })
         else { return }
         CATransaction.begin()
@@ -85,7 +99,7 @@ final class NiriTopEdgePictures {
             if desired[token] != nil { continue }
             guard let change = plan.diff.frameChanges.first(where: { $0.token == token }),
                   let geometry = NiriTopEdgePictureGeometry(frame: change.frame, displayFrame: plan.monitor.frame)
-            else { remove(token)
+            else { retirePicture(token)
                 continue
             }
             picture.revealFrame = change.frame
@@ -94,7 +108,7 @@ final class NiriTopEdgePictures {
         }
         for (token, frame) in desired {
             guard let geometry = NiriTopEdgePictureGeometry(frame: frame, displayFrame: plan.monitor.frame)
-            else { remove(token)
+            else { retirePicture(token)
                 continue
             }
             if let picture = pictures[token] {
@@ -109,26 +123,25 @@ final class NiriTopEdgePictures {
             }
             let picture = Picture(workspaceId: plan.workspaceId, monitor: plan.monitor, geometry: geometry)
             pictures[token] = picture
-            picture.task = capture(token) { [weak self, weak picture] image in
-                guard let self, let picture, pictures[token] === picture else { return }
-                picture.task = nil
-                picture.image = image
-                CATransaction.begin()
-                CATransaction.setDisableActions(true)
-                present(token, picture: picture)
-                CATransaction.commit()
-            }
+            preparePicture(token, picture: picture, plan: plan)
         }
     }
 
-    func frameApplicationEnded(token: WindowToken, targetFrame: CGRect) {
+    func frameApplicationEnded(token: WindowToken, targetFrame: CGRect, applied: Bool = true) {
+        finishPendingCapture(token, targetFrame: targetFrame, applied: applied)
         guard let picture = pictures[token], picture.revealFrame == targetFrame else { return }
-        remove(token)
+        retirePicture(token)
     }
 
     func retainCurrentContexts(
         _ isCurrent: (WindowToken, WorkspaceDescriptor.ID, CGDirectDisplayID, CGRect) -> Bool
     ) {
+        for (token, pending) in pendingCaptures
+            where !isCurrent(token, pending.key.workspaceId, pending.key.displayId, pending.key.displayFrame)
+        { remove(token) }
+        for (token, captured) in capturedPictures
+            where !isCurrent(token, captured.key.workspaceId, captured.key.displayId, captured.key.displayFrame)
+        { remove(token) }
         for (token, picture) in pictures
             where !isCurrent(token, picture.workspaceId, picture.displayId, picture.displayFrame)
         {
@@ -137,22 +150,29 @@ final class NiriTopEdgePictures {
     }
 
     func retainWorkspaces(_ workspaceIds: Set<WorkspaceDescriptor.ID>) {
+        for (token, pending) in pendingCaptures where !workspaceIds.contains(pending.key.workspaceId) { remove(token) }
+        for (token, captured) in capturedPictures
+            where !workspaceIds.contains(captured.key.workspaceId) { remove(token) }
+        for workspaceId in warmStates.keys where !workspaceIds.contains(workspaceId) { warmStates[workspaceId] = nil }
         for (token, picture) in pictures where !workspaceIds.contains(picture.workspaceId) {
             remove(token)
         }
     }
 
     func remove(_ token: WindowToken) {
-        guard let picture = pictures.removeValue(forKey: token) else { return }
-        picture.task?.cancel()
-        picture.surface?.destroy()
+        pictures.removeValue(forKey: token)?.surface?.destroy()
+        discardCapture(token)
+        pendingCaptures[token] = nil
     }
 
     func reset() {
         for token in pictures.keys { remove(token) }
+        for token in capturedPictures.keys { discardCapture(token) }
+        pendingCaptures.removeAll()
+        warmStates.removeAll()
     }
 
-    private func present(_ token: WindowToken, picture: Picture) {
+    func present(_ token: WindowToken, picture: Picture) {
         guard let image = picture.image else { return }
         if picture.surface == nil { picture.surface = makeSurface() }
         picture.surface?.update(geometry: picture.geometry, image: image) { [weak self, weak picture] in
@@ -178,12 +198,18 @@ final class NiriTopEdgePictures {
 
 extension WMController {
     func makeTopEdgePictures() -> NiriTopEdgePictures {
-        NiriTopEdgePictures(
+        let pictures = NiriTopEdgePictures(
             makeSurface: { [weak self] in
                 NiriTopEdgePictureWindow(orderBelowWindowId: self?.workspaceManager.nativeManagedFocusToken?.windowId)
             },
+            isCaptureEligible: { [weak self] token in
+                self?.workspaceManager.entry(for: token)?.axRef != nil && ScreenCapturePermissionMonitor.shared
+                    .isGranted
+            },
             activate: { [weak self] in self?.activateTopEdgePicture($0, in: $1) }
         )
+        observePictureCaptureState(pictures)
+        return pictures
     }
 
     func pruneTopEdgePictures() {

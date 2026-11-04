@@ -45,11 +45,26 @@ extension WMController {
                 origin: .retry
             )
         }
+        let allowsLayoutHiddenWindow = permitsParkedVerticalRetryRaise(for: entry)
         if !applied || job.isCancelled
-            || !windowFocusOperations.enqueueRetryRaise(entry.pid, expectedWindow, job, completion)
+            || !windowFocusOperations.enqueueRetryRaise(
+                entry.pid,
+                expectedWindow,
+                job,
+                allowsLayoutHiddenWindow,
+                completion
+            )
         {
             completion()
         }
+    }
+
+    private func permitsParkedVerticalRetryRaise(for entry: WindowState) -> Bool {
+        guard entry.hiddenState?.offscreenSide == AxisHideEdge.maximum.encodedHideSide,
+              workspaceManager.activeLayoutKind(for: entry.workspaceId) == .niri,
+              let monitor = workspaceManager.monitor(for: entry.workspaceId)
+        else { return false }
+        return settings.monitors.effectiveOrientation(for: monitor) == .vertical
     }
 
     func retryManagedFocusFronting(_ request: ManagedFocusRequest) {

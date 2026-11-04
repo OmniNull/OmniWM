@@ -102,12 +102,12 @@ final class VerticalOverflowTests: XCTestCase {
         }
     }
 
-    func testFocusedColumnAndSingleDisplayRetainVisibility() {
+    func testFocusedColumnAndSingleDisplayRetainVisibilityWithoutCapability() {
         for (position, monitors): (CGFloat, [HiddenPlacementMonitorContext]) in [
             (0, [portrait, laptop]), (offscreenTitleBarPosition, [portrait])
         ] {
             guard case .visible = visibility(position: position, samples: [0], monitors: monitors).state else {
-                return XCTFail("An onscreen title bar or single-display layout must remain visible")
+                return XCTFail("An onscreen title bar or single-display layout without pictures must remain visible")
             }
         }
     }

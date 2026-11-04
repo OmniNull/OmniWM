@@ -105,7 +105,11 @@ extension NiriLayoutEngine {
         let visibility = pass.viewport.columnVisibility(
             for: prepared, at: (index: index, isActive: index == pass.activeIndex), viewPosition: pass.viewPosition,
             hiddenPlacementMonitor: pass.context.hiddenPlacementMonitor,
-            hiddenPlacementMonitors: pass.context.hiddenPlacementMonitors
+            hiddenPlacementMonitors: pass.context.hiddenPlacementMonitors,
+            edgePictures: pass.context.orientation == .vertical ? pass.context.edgePictures.columnState(
+                column, activeTab: column.column.isTabbed ? projectedActiveWindow(in: column) : nil,
+                isActive: index == pass.activeIndex, isSettled: pass.settledContentFrame != nil
+            ) : .none
         )
         let renderedRect = renderedColumnFrame(column, at: index, visibility: visibility, pass: pass, result: &result)
         layoutContainer(

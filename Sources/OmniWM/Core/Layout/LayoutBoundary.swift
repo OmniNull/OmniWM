@@ -102,6 +102,7 @@ struct NiriWorkspaceSnapshot {
     let displayRefreshRate: Double
     let isActiveWorkspace: Bool
     let quietArrivalTokens: Set<WindowToken>
+    var edgePictures: NiriEdgePictureState = .none
 }
 
 struct DwindleWorkspaceSnapshot {
@@ -235,6 +236,7 @@ struct WorkspaceLayoutDiff {
     var restoreChanges: [LayoutRestoreChange] = []
     var deferredHides: [LayoutDeferredHide] = []
     var topEdgeHiddenFrames: [WindowToken: CGRect] = [:]
+    var picturePreparation: NiriPicturePreparation?
     var nativeFullscreenSlots: [WindowToken: NativeFullscreenSlotProjection] = [:]
     var tabRailGeometryCommands: [TabRailGeometryCommand] = []
 }
