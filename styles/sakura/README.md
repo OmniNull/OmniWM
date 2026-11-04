@@ -4,7 +4,7 @@ A light bar with soft pink accents and a drifting-petal shader.
 
 ## Previews
 
-Previews will be added with the Settings gallery.
+![Sakura on the desktop](previews/desktop.jpg)
 
 ## What it changes
 

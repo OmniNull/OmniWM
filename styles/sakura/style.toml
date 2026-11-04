@@ -6,6 +6,7 @@ author = "OmniNull"
 license = "GPL-2.0-only"
 title = "Sakura"
 summary = "A light bar with soft pink accents and a drifting-petal shader."
+previews = ["bar.jpg", "desktop.jpg"]
 
 [barEffect]
 title = "Sakura Petals"

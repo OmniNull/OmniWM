@@ -4,7 +4,7 @@ A minimal bar and a customizable island for media, calendar, and more.
 
 ## Previews
 
-Previews will be added with the Settings gallery.
+![Lake on the desktop](previews/desktop.jpg)
 
 ## What it changes
 

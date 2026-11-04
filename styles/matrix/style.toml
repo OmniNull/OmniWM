@@ -6,6 +6,7 @@ author = "OmniNull"
 license = "GPL-2.0-only"
 title = "Matrix"
 summary = "A terminal-inspired bar with green accents and a rain shader."
+previews = ["bar.jpg", "desktop.jpg"]
 
 [barEffect]
 title = "Matrix Rain"

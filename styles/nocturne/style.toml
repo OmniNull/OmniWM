@@ -6,3 +6,4 @@ author = "OmniNull"
 license = "GPL-2.0-only"
 title = "Nocturne"
 summary = "A rounded bar with rich status widgets and deep colors."
+previews = ["bar.jpg", "desktop.jpg"]

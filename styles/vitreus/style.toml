@@ -6,3 +6,4 @@ author = "OmniNull"
 license = "GPL-2.0-only"
 title = "Vitreus"
 summary = "Liquid glass with a Desk for focus sessions and tasks."
+previews = ["bar.jpg", "desktop.jpg"]

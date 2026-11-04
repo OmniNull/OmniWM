@@ -407,7 +407,7 @@ private struct ShellStylePicture: View {
                 if let url {
                     AsyncImage(url: url) { phase in
                         if let image = phase.image {
-                            image.resizable().scaledToFill()
+                            image.resizable().scaledToFit()
                         } else if phase.error != nil {
                             placeholder
                         } else {

@@ -4,7 +4,7 @@ A terminal-inspired bar with green accents and a rain shader.
 
 ## Previews
 
-Previews will be added with the Settings gallery.
+![Matrix on the desktop](previews/desktop.jpg)
 
 ## What it changes
 

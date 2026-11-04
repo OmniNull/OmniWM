@@ -6,3 +6,4 @@ author = "OmniNull"
 license = "GPL-2.0-only"
 title = "Celestial"
 summary = "A vertical bar with spacious app and workspace tiles."
+previews = ["bar.jpg", "desktop.jpg"]

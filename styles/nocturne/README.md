@@ -4,7 +4,7 @@ A rounded bar with rich status widgets and deep colors.
 
 ## Previews
 
-Previews will be added with the Settings gallery.
+![Nocturne on the desktop](previews/desktop.jpg)
 
 ## What it changes
 

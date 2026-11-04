@@ -4,7 +4,7 @@ Liquid glass with a Desk for focus sessions and tasks.
 
 ## Previews
 
-Previews will be added with the Settings gallery.
+![Vitreus on the desktop](previews/desktop.jpg)
 
 ## What it changes
 

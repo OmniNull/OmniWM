@@ -4,7 +4,7 @@ A vertical bar with spacious app and workspace tiles.
 
 ## Previews
 
-Previews will be added with the Settings gallery.
+![Celestial on the desktop](previews/desktop.jpg)
 
 ## What it changes
 

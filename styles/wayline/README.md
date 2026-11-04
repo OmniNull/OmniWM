@@ -4,7 +4,7 @@ A structured bar with labeled workspaces and quick status controls.
 
 ## Previews
 
-Previews will be added with the Settings gallery.
+![Wayline on the desktop](previews/desktop.jpg)
 
 ## What it changes
 
