@@ -17,6 +17,10 @@ final class ShellAppNativeWindow: NSWindow {
         !blockedBySheet && super.canBecomeMain
     }
 
+    override func constrainFrameRect(_ frameRect: NSRect, to _: NSScreen?) -> NSRect {
+        frameRect
+    }
+
     override func sendEvent(_ event: NSEvent) {
         if blockedBySheet {
             switch event.type {
