@@ -10,6 +10,8 @@ Previews will be added with the Settings gallery.
 
 Liquid glass in Island, Frame and Notches layouts, with calendar, controls and player panels, a Desk, a top shelf, docks and an optional audio visualiser. Its own palette stays dark; **Wallpaper Colors** tints the glass and text from the wallpaper.
 
+The bar shows each workspace's app icons next to its mark, your scratchpads after the workspaces, and a System Stats button. Click an icon to focus its window, a scratchpad to show or hide it, and the gauge for system stats. **Bar pieces** in the style's options controls which of these appear.
+
 On a notched display, the Island title moves below the notch when it fits, otherwise beside it. Music controls stay beside at current bar sizes; the battery effect stays clear of the notch.
 
 ## Controls and commands

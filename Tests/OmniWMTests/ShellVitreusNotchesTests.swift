@@ -9,6 +9,8 @@ import QuartzCore
 import XCTest
 
 private let unit = 1.35
+private let markIcons = 63.0
+private let statsRoom = 25.0
 private let cu = 1.5525
 
 @MainActor
@@ -121,9 +123,17 @@ extension ShellVitreusNotchesTests {
         XCTAssertEqual(try frame(fixture, "bar-clock").midX, 960 - 164 * unit / 2, accuracy: 0.001)
         let span = try middle(fixture)
         let expected = [
-            ("notch-left", CGRect(x: -12 * unit, y: -12 * unit, width: 175.5 * unit, height: 48 * unit)),
+            ("notch-left", CGRect(x: -12 * unit, y: -12 * unit, width: (175.5 + markIcons) * unit, height: 48 * unit)),
             ("notch-middle", CGRect(x: span.from, y: -12 * unit, width: span.to - span.from, height: 48 * unit)),
-            ("notch-right", CGRect(x: 1920 - 116 * unit, y: -12 * unit, width: 128 * unit, height: 48 * unit))
+            (
+                "notch-right",
+                CGRect(
+                    x: 1920 - (116 + statsRoom) * unit,
+                    y: -12 * unit,
+                    width: (128 + statsRoom) * unit,
+                    height: 48 * unit
+                )
+            )
         ]
         let glass = try VitreusFixture.element(fixture.widget, key: "bar")
         for (key, rect) in expected {
@@ -146,7 +156,7 @@ extension ShellVitreusNotchesTests {
         let search = try frame(fixture, "bar-search")
         XCTAssertEqual(controls.midX, 1920 - 32.5 * unit, accuracy: 0.001)
         XCTAssertEqual(logo.midX, 1920 - 58.5 * unit, accuracy: 0.001)
-        XCTAssertEqual(search.midX, 1920 - 84 * unit, accuracy: 0.001)
+        XCTAssertEqual(search.midX, 1920 - (84 + statsRoom) * unit, accuracy: 0.001)
         XCTAssertEqual(try frame(fixture, "workspace-overview").midX, 36 * unit, accuracy: 0.001)
         for key in ["bar-controls", "bar-clock", "title-button"] {
             XCTAssertEqual(try frame(fixture, key).minY, 0, accuracy: 0.001, key)
@@ -249,9 +259,12 @@ extension ShellVitreusNotchesTests {
             XCTAssertTrue(fixture.widget.surface.containsShape(at: point), "\(point)")
         }
         let areas = [
-            ("left", CGRect(x: 0, y: 0, width: 163.5 * unit, height: 36 * unit)),
+            ("left", CGRect(x: 0, y: 0, width: (163.5 + markIcons) * unit, height: 36 * unit)),
             ("middle", CGRect(x: span.from, y: 0, width: span.to - span.from, height: 36 * unit)),
-            ("right", CGRect(x: 1920 - 116 * unit, y: 0, width: 116 * unit, height: 36 * unit))
+            (
+                "right",
+                CGRect(x: 1920 - (116 + statsRoom) * unit, y: 0, width: (116 + statsRoom) * unit, height: 36 * unit)
+            )
         ]
         for (name, rect) in areas {
             ShellVitreusBarTests.assertRect(try frame(fixture, "bar-hover-" + name), rect, name)

@@ -5,6 +5,7 @@ local palette = require("./palette")
 local units = require("./units")
 local menus = require("./bar/menus")
 local marks = require("./bar/marks")
+local scratchpads = require("./bar/scratchpads")
 local title = require("./bar/title")
 local tray = require("./bar/tray")
 local buttons = require("./bar/buttons")
@@ -24,10 +25,12 @@ local visualiser = require("./visualiser")
 local calm = table.freeze({ response = 0.513, bounce = 0.06 })
 local beat = table.freeze({ response = 2 * math.pi / math.sqrt(480), bounce = 1 - 15 / (2 * math.sqrt(480)) })
 local swellWidth, swellHeight = 10, 6
-local defaults = table.freeze({ "apple", "app", "workspaces", "title", "tray", "search", "omniwm", "controls", "clock" })
+local defaults = table.freeze({
+    "apple", "app", "workspaces", "scratchpads", "title", "tray", "search", "stats", "omniwm", "controls", "clock",
+})
 local owners = table.freeze({
-    apple = menus, app = menus, workspaces = marks, title = title, tray = tray, privacy = tray, search = buttons,
-    omniwm = buttons, controls = buttons, clock = clock,
+    apple = menus, app = menus, workspaces = marks, scratchpads = scratchpads, title = title, tray = tray,
+    privacy = tray, search = buttons, stats = buttons, omniwm = buttons, controls = buttons, clock = clock,
 })
 local pieces = table.freeze({ menus, marks, title, tray, buttons, clock })
 local under = table.freeze({ battery })

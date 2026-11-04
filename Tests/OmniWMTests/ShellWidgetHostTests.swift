@@ -842,6 +842,55 @@ final class ShellWidgetBarLifecycleTests: XCTestCase {
         XCTAssertNil(host.popout)
     }
 
+    func testToggleSystemStatsOpensAWidgetWithNoLaneOnTheFirstPreferredMonitor() async throws {
+        let display = try XCTUnwrap(NSScreen.main.map { screen in
+            Monitor(
+                id: .init(displayId: screen.displayId ?? 1), displayId: screen.displayId ?? 1, frame: screen.frame,
+                visibleFrame: screen.visibleFrame, hasNotch: false, name: "Main"
+            )
+        })
+        let shell = controller.settings.settingsFileURL.deletingLastPathComponent().appendingPathComponent("shell")
+        let stats = shell.appendingPathComponent("widgets/stats", isDirectory: true)
+        try FileManager.default.createDirectory(at: stats, withIntermediateDirectories: true)
+        try Data("""
+        function render(ctx) return ui.box{ w = 10, h = 10 } end
+        function popout(ctx) return ui.box{ w = 50, h = 30 } end
+        """.utf8).write(to: stats.appendingPathComponent("init.luau"))
+        try Data(
+            "profiles.default.leading = []\nprofiles.default.center = []\nprofiles.default.trailing = [\"test\"]\nprofiles.default.systemStatsWidget = \"stats\"\n"
+                .utf8
+        )
+        .write(to: shell.appendingPathComponent("shell.toml"))
+        let manager = makeManager()
+        defer { manager.cleanup() }
+        manager.apply([barSurface(on: display)])
+        let host = try XCTUnwrap(manager.shellHost)
+        let settled = expectation(description: "The stats widget finishes loading")
+        settled.assertForOverFulfill = false
+        let loadFailureDeadline: TimeInterval = 10
+        func statsState() -> String? {
+            host.widgetReport.widgets.first { $0.name == "stats" }?.state
+        }
+        let published = host.onWidgetsChange
+        host.onWidgetsChange = {
+            published?()
+            if statsState() != "loading" { settled.fulfill() }
+        }
+        XCTAssertEqual(statsState(), "loading")
+        await fulfillment(of: [settled], timeout: loadFailureDeadline)
+        XCTAssertEqual(statsState(), "loaded")
+        XCTAssertEqual(host.systemStatsWidget, "stats")
+        XCTAssertNil(host.config.barLane(of: "stats"))
+        XCTAssertFalse(host.shows("stats", on: display.id))
+
+        XCTAssertTrue(manager.toggleShellSystemStats(preferring: [display]))
+        XCTAssertEqual(host.popout?.widget, "stats")
+        XCTAssertEqual(host.popout?.key.monitor, display.id)
+
+        XCTAssertTrue(manager.toggleShellSystemStats(preferring: [display]))
+        XCTAssertNil(host.popout)
+    }
+
     private func makeManager() -> WorkspaceBarManager {
         let manager = WorkspaceBarManager(
             configDirectory: controller.settings.settingsFileURL.deletingLastPathComponent(),

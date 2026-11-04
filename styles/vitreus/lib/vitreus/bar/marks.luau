@@ -1,6 +1,7 @@
 -- SPDX-License-Identifier: GPL-2.0-only
 -- Copyright (C) 2026 OmniNull — https://github.com/OmniNull/OmniWM
 
+local look = require("../../look")
 local palette = require("../palette")
 local pencil = require("../pencil")
 local kit = require("../kit")
@@ -9,6 +10,7 @@ local buttons = require("./buttons")
 local edges = table.freeze({ lead = { response = 0.142, bounce = 0 }, trail = { response = 0.378, bounce = 0 } })
 local quick = table.freeze({ response = 2 * math.pi / math.sqrt(420), bounce = 1 - 40 / (2 * math.sqrt(420)) })
 local frequencies = table.freeze({ 67, 54, 73, 62, 52, 69, 59, 47 })
+local mostIcons, iconSide, iconStep, iconLead, iconRoom = 4, 16, 18, 3, 0.4
 local arm
 
 local function state(ctx)
@@ -37,24 +39,52 @@ local function sync(s)
     if s.enabled and (s.hover or s.special) then arm(s) else cancel(s) end
 end
 
+local function markSpan(workspace, u: number): number
+    return (if workspace.focused then 29 else 12.5) * u
+end
+
+local function iconRun(workspace, cap: number, u: number): number
+    local count = #workspace.windows
+    return if cap > 0 and count > 0 then (iconLead + math.min(count, cap + 1) * iconStep) * u else 0
+end
+
+local function iconCap(ctx, workspaces, vertical: boolean, u: number): number
+    local island = ctx.data.island
+    if not island or not island.size then return mostIcons end
+    local room = if vertical then iconRoom * island.size.h
+        elseif island.notch then island.notch.x else iconRoom * island.size.w
+    for cap = mostIcons, 1, -1 do
+        local length = 0
+        for _, workspace in workspaces do
+            if workspace.focused or #workspace.windows > 0 then
+                length += markSpan(workspace, u) + 9 * u + iconRun(workspace, cap, u)
+            end
+        end
+        if length <= room then return cap end
+    end
+    return 0
+end
+
 local function model(ctx, k)
     local bar = ctx.data.bar
     local layout = (ctx.data.settings or {}).layout
-    local u = if layout == "left" or layout == "right" then k.bcu else k.bu
+    local vertical = layout == "left" or layout == "right"
+    local u = if vertical then k.bcu else k.bu
     local rows, active, empty, special = {}, nil, nil, nil
     if not bar or not bar.style then return { rows = rows, w = 128 * u } end
     for _, pad in bar.scratchpads or {} do
         if pad.visible then special = pad break end
     end
-    local length = 0
+    local length, cap = 0, iconCap(ctx, bar.workspaces or {}, vertical, u)
     for _, workspace in bar.workspaces or {} do
         local busy = #workspace.windows > 0
         if workspace.focused then active = workspace end
         if not busy and not workspace.focused and not empty then empty = workspace end
         if not special and (busy or workspace.focused) then
-            local span = (if workspace.focused then 29 else 12.5) * u
-            rows[#rows + 1] = { workspace = workspace, busy = busy, x = length + span / 2, w = span }
-            length += span + 9 * u
+            local span = markSpan(workspace, u)
+            local run = iconRun(workspace, cap, u)
+            rows[#rows + 1] = { workspace = workspace, busy = busy, x = length + span / 2, w = span, run = run, cap = cap }
+            length += span + 9 * u + run
         end
     end
     local row = 25.5 * u + (if special then 9 * u else length + 14 * u)
@@ -85,7 +115,7 @@ local function flow(ctx, k)
     else
         for _, row in m.rows do
             local width = row.w + 9 * u
-            cells[#cells + 1] = { key = "workspace-" .. row.workspace.id, w = width, at = width / 2,
+            cells[#cells + 1] = { key = "workspace-" .. row.workspace.id, w = width + row.run, at = width / 2,
                 focused = row.workspace.focused }
         end
         if m.plus then cells[#cells + 1] = { key = "plus", w = 23 * u, at = 11.5 * u } end
@@ -180,6 +210,57 @@ local function mark(ctx, g, row, cx: number)
     }, g.k.bu))
 end
 
+local function iconOpacity(item, workspace): number
+    if item.count > 0 and item.hidden == item.count then return 0.4 end
+    if item.focused then return 1 end
+    return if workspace.focused then 0.75 else 0.55
+end
+
+local function countBadge(count: number, u: number)
+    local size = 10 * u
+    return ui.row({ align = "topTrailing", dx = 3 * u, dy = -2 * u, h = size, radius = size / 2, fill = "surface",
+        ui.box({ w = 2 * u, h = 1 }),
+        ui.text({ text = tostring(count), font = kit.font, size = 8 * u, weight = "semibold", color = palette.roles.ink }),
+        ui.box({ w = 2 * u, h = 1 }) })
+end
+
+local function icons(ctx, g, row, centre: number)
+    local vertical = g.frame and g.frame.vertical
+    local u = if vertical then g.k.bcu else g.k.bu
+    local side, items = iconSide * u, {}
+    local workspace, badges = row.workspace, ctx.data.bar.badges
+    local at = centre + row.w / 2 + iconLead * u
+    local metrics = { icon = side, slot = side, margin = 0, scale = u }
+    local function located(props)
+        props.align = "topLeading"
+        props.dx = if vertical then g.pill.cx - side / 2 else at
+        props.dy = if vertical then at else g.pill.cy - side / 2
+        at += iconStep * u
+        return props
+    end
+    for index, item in workspace.windows do
+        if row.cap == 0 then break end
+        if index > row.cap then
+            items[#items + 1] = ui.stack(located({ key = "workspace-more-" .. workspace.id, w = side, h = side,
+                decorative = true,
+                ui.text({ text = "+" .. tostring(#workspace.windows - row.cap), font = kit.font, size = 11 * u,
+                    weight = "semibold", color = palette.roles.ink }) }))
+            break
+        end
+        local node = { key = "workspace-icon-" .. workspace.id .. "-" .. item.id, w = side, h = side,
+            cursor = "pointer", help = item.name, onClick = "window focus " .. item.id,
+            target = "window " .. item.id, menu = true, preview = true, hoverScale = 1.1, hoverAnimate = 0.1,
+            ui.icon({ window = item.id, placeholder = "app.dashed", w = side, h = side,
+                opacity = iconOpacity(item, workspace) }) }
+        if item.count > 1 then node[#node + 1] = countBadge(item.count, u) end
+        if badges ~= "off" and item.badge ~= "" then
+            node[#node + 1] = look.notificationBadge(item, badges, metrics)
+        end
+        items[#items + 1] = ui.stack(located(node))
+    end
+    return items
+end
+
 local function pill(ctx, g, slot, cx: number)
     local vertical = g.frame and g.frame.vertical
     local u = if vertical then g.k.bcu else g.k.bu
@@ -217,9 +298,9 @@ local function plus(ctx, g, cx: number)
     }, g.k.bu))
 end
 
-local function specialPaths(g, pad, frame: number)
+local function specialPaths(g, pad, frame: number, scale: number?)
     local u = g.k.u
-    local k = 9 * (if g.frame and g.frame.vertical then g.k.bcu else g.k.bu)
+    local k = 9 * (scale or 1) * (if g.frame and g.frame.vertical then g.k.bcu else g.k.bu)
     local kind = string.lower(pad.name)
     local seed = if kind == "music" then 41037 elseif kind == "private" then 42221 else 31037
     local n, list = 0, {}
@@ -319,6 +400,7 @@ local function content(ctx, g, slot)
         end
         items[#items + 1] = zone(ctx, g, "workspace-hit-" .. row.workspace.id, centre, row.w + 9 * u,
             "switch-workspace " .. row.workspace.id)
+        append(items, icons(ctx, g, row, centre))
     end
     if m.plus then
         local centre = if slot.positions then slot.positions.plus else origin + m.plusX
@@ -335,4 +417,5 @@ local function shapes()
     return nil
 end
 
-return table.freeze({ width = width, extent = extent, flow = flow, prepare = prepare, shapes = shapes, content = content })
+return table.freeze({ width = width, extent = extent, flow = flow, prepare = prepare, shapes = shapes, content = content,
+    specialPaths = specialPaths })

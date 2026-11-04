@@ -336,8 +336,8 @@ extension ShellWidgetHost {
                 }
             }
         }
-        for name in config.leading + config.center + config.trailing + [config.hiddenBarWidget, config.island?.root]
-            .compactMap(\.self)
+        for name in config.leading + config.center + config.trailing
+            + [config.hiddenBarWidget, config.systemStatsWidget, config.island?.root].compactMap(\.self)
             + config.drawers.flatMap(\.widgets) where packages[name] == nil
         {
             packages[name] = config.widget(name) ?? ShellConfig.bundledWidget(name)

@@ -5,9 +5,9 @@ local keyboardMode = require("../../keyboard-mode")
 local palette = require("../palette")
 local pencil = require("../pencil")
 
-local widths = table.freeze({ search = 12, omniwm = 15, controls = 13 })
-local zones = table.freeze({ search = 24, omniwm = 24, controls = 26 })
-local pivots = table.freeze({ search = 2, omniwm = 0, controls = 0 })
+local widths = table.freeze({ search = 12, stats = 13, omniwm = 15, controls = 13 })
+local zones = table.freeze({ search = 24, stats = 24, omniwm = 24, controls = 26 })
+local pivots = table.freeze({ search = 2, stats = 0, omniwm = 0, controls = 0 })
 local touch = table.freeze({ response = 2 * math.pi * 0.14 / 6.64, bounce = 0 })
 local halo = palette.alpha("deep", 1)
 local still = table.freeze({ x = 0, y = 0 })
@@ -71,6 +71,7 @@ end
 local function command(ctx, name: string): string
     if name == "search" then return "open-command-palette" end
     if name == "omniwm" then return "shell menu" end
+    if name == "stats" then return "shell toggle system-stats" end
     return "shell trigger vitreus drawer-controls " .. ctx.data.bar.monitorId
 end
 
@@ -80,7 +81,15 @@ local function badge(ctx, vertical: boolean?)
     return { keyboardMode = style.keyboardMode, vertical = vertical }
 end
 
+local function shown(ctx, name: string): boolean
+    if name ~= "stats" then return true end
+    local style = ctx.data.bar and ctx.data.bar.style
+    return style ~= nil and style.statsButton
+end
+
 local function width(ctx, k, name: string): (number, number)
+    if not shown(ctx, name) then return 0, 0 end
+    if name == "stats" then return widths.stats * k.bu, 0 end
     local mode = if name == "omniwm" then badge(ctx, false) else nil
     local grow = if mode then 4 * k.bu + keyboardMode.width(ctx, mode, 20 * k.bu) else 0
     return widths[name] * k.bu + grow, grow
@@ -107,6 +116,7 @@ local function none()
 end
 
 local function content(ctx, g, slot, name: string)
+    if not shown(ctx, name) then return nil end
     local bu = g.k.bu
     local pill = g.pill
     local logo = name == "omniwm"
@@ -124,7 +134,7 @@ local function content(ctx, g, slot, name: string)
         key = "bar-" .. name .. "-icon", decorative = true, w = size, h = size, dx = pivot, dy = pivot,
         scale = 1 + 0.14 * a, opacity = if logo then 1 else 0.65 + 0.35 * math.max(a, sel), animate = touch,
     }, bu)
-    local help
+    local help = if name == "stats" then omniwm.l10n("Show system stats") else nil
     if logo then
         local locked = ctx.data.bar.style.secureInput
         icon[1] = ui.symbol({

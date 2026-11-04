@@ -46,15 +46,21 @@ local function geometry(ctx, k, size, names, widths, place, metrics)
         return table.freeze(result)
     end
     local lv = { ws = thin + 88 * k.bcu, clk = size.h - thin - 73 * k.bu }
-    lv.ctl, lv.set, lv.sr = lv.clk - 34 * k.bu, lv.clk - 66 * k.bu, lv.clk - 98 * k.bu
+    lv.ctl, lv.set = lv.clk - 34 * k.bu, lv.clk - 66 * k.bu
     local function above(y: number, name: string): number
         return if ((widths[name] or {}).w or 0) > 0 then y - 32 * k.bu else y
     end
+    lv.stats = above(lv.set, "stats")
+    lv.sr = lv.stats - 32 * k.bu
     lv.app = above(lv.sr, "app")
     lv.apple = above(lv.app, "apple")
     local trayWidth = (widths.tray or widths.privacy or {}).w or 0
     lv.tray = lv.apple - 22 * k.bu - trayWidth
-    lv.tt, lv.bot = lv.ws + 52 * k.bcu + 14 * k.bu, lv.tray - (if trayWidth > 0 then 14 * k.bu else 0)
+    local marks = widths.workspaces or {}
+    local padsLength = (widths.scratchpads or {}).w or 0
+    lv.pads = 8 * k.u + 14 * k.bcu + (marks.extent or marks.w or 0)
+    lv.tt = math.max(lv.ws + 52 * k.bcu + 14 * k.bu, lv.pads + padsLength + 14 * k.bu)
+    lv.bot = lv.tray - (if trayWidth > 0 then 14 * k.bu else 0)
     local titleOn = table.find(names, "title") ~= nil
     lv.mc = if titleOn and ctx.data.media then 62 * k.bcu else 0
     local textLength = if titleOn then math.max(metrics.cw, metrics.tw, if metrics.cw < 1 and metrics.tw < 1 then 44 * k.bcu else 0) else 0
@@ -64,11 +70,13 @@ local function geometry(ctx, k, size, names, widths, place, metrics)
     local slots = {}
     for _, name in names do
         local y = if name == "clock" then lv.clk + 30 * k.bu elseif name == "controls" then lv.ctl
-            elseif name == "omniwm" then lv.set elseif name == "search" then lv.sr
+            elseif name == "omniwm" then lv.set elseif name == "stats" then lv.stats elseif name == "search" then lv.sr
+            elseif name == "scratchpads" then lv.pads + padsLength / 2
             elseif name == "apple" or name == "app" then lv[name]
             elseif name == "tray" or name == "privacy" then lv.tray + trayWidth / 2
             elseif name == "title" then lv.tm else lv.ws
         local h = if name == "clock" then 100 * k.bu elseif name == "title" then math.max(1, lv.span)
+            elseif name == "scratchpads" then padsLength
             elseif name == "tray" or name == "privacy" then trayWidth else 30 * k.bu
         slots[name] = { x = strip.x, y = y - h / 2, w = strip.w, h = h, cx = strip.cx, cy = y }
     end

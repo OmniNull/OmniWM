@@ -328,15 +328,33 @@ extension ShellVitreusControlsTests {
         widget.set("notifications") {
             ShellNotificationsData(state: "ready", items: [.object([
                 "id": .text(id), "bundle": .text("test.mail"), "title": .text("A message"),
-                "body": .text("A notification from the existing bridge")
-            ])]).write(into: &$0)
+                "body": .text("A notification from the existing bridge"), "date": .number(1000 - 2 * 3600)
+            ])], apps: [.object(["bundle": .text("test.mail"), "name": .text("Mail")])]).write(into: &$0)
         }
         XCTAssertEqual(try invoke(widget, "controls-tile-notifications"), ["notifications refresh"])
         XCTAssertTrue(has(widget, "controls-notification-" + id))
+        XCTAssertTrue(has(widget, "controls-notification-icon-" + id))
+        XCTAssertTrue(widget.strings().contains("Mail"))
+        XCTAssertTrue(widget.strings().contains("2 hr ago"))
+        XCTAssertEqual(try invoke(widget, "controls-notification-" + id), ["notifications open test.mail"])
         XCTAssertEqual(
             try invoke(widget, "controls-notification-dismiss-" + id),
             ["notifications dismiss test.mail " + id]
         )
+        let readOnly = "read-only-source"
+        let unsupportedBundle = "not a bundle"
+        XCTAssertFalse(ShellNotificationsCommand.validBundle(unsupportedBundle))
+        widget.set("notifications") {
+            ShellNotificationsData(state: "ready", items: [.object([
+                "id": .text(readOnly), "bundle": .text(unsupportedBundle), "title": .text("A message"),
+                "body": .text("A read-only source")
+            ])]).write(into: &$0)
+        }
+        show(widget)
+        XCTAssertTrue(has(widget, "controls-notification-" + readOnly))
+        XCTAssertFalse(has(widget, "controls-notification-dismiss-" + readOnly))
+        XCTAssertEqual(try content(widget, "controls-notification-" + readOnly).action, 0)
+        XCTAssertTrue(widget.strings().contains(unsupportedBundle))
         XCTAssertEqual(try invoke(widget, "controls-notifications-clear"), ["notifications dismiss-all"])
         XCTAssertEqual(try invoke(widget, "controls-notifications-focus"), ["focus settings"])
         widget.set("notifications") {

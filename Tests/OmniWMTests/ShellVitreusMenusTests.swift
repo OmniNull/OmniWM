@@ -12,7 +12,17 @@ private let safari = ShellMenuApp(pid: 7, name: "Safari", bundle: "com.apple.Saf
 
 @MainActor
 final class ShellVitreusMenusTests: XCTestCase {
-    static let classic = ["workspaces", "title", "tray", "search", "omniwm", "controls", "clock"]
+    static let classic = [
+        "workspaces",
+        "scratchpads",
+        "title",
+        "tray",
+        "search",
+        "stats",
+        "omniwm",
+        "controls",
+        "clock"
+    ]
     static let buttons = ["bar-search", "bar-omniwm", "bar-controls", "bar-clock"]
 
     func shell() throws -> URL {
@@ -152,15 +162,18 @@ extension ShellVitreusMenusTests {
         XCTAssertTrue(has(widget, "bar-apple"))
         XCTAssertFalse(has(widget, "bar-app"))
         XCTAssertNotEqual(deps(widget) & ShellDataKey.menuApp.bit, 0)
-        XCTAssertEqual(try frame(widget, "shell").width, (450 + 24) * unit, accuracy: 0.001)
+        let oneIconRun = 21.0
+        let markRow = 25.5 + (29 + 9 + oneIconRun) + (12.5 + 9 + oneIconRun) + 14
+        let baseWidth = 450 + markRow - 128
+        XCTAssertEqual(try frame(widget, "shell").width, (baseWidth + 24) * unit, accuracy: 0.001)
         widget.set("menuApp") { safari.write(into: &$0) }
         VitreusFixture.show(widget, bar: bar(hides: true))
         XCTAssertTrue(has(widget, "bar-app"))
-        XCTAssertEqual(try frame(widget, "shell").width, (450 + 52) * unit, accuracy: 0.001)
+        XCTAssertEqual(try frame(widget, "shell").width, (baseWidth + 52) * unit, accuracy: 0.001)
         VitreusFixture.show(widget, bar: bar(hides: false))
         XCTAssertFalse(has(widget, "bar-apple"))
         XCTAssertFalse(has(widget, "bar-app"))
-        XCTAssertEqual(try frame(widget, "shell").width, 450 * unit, accuracy: 0.001)
+        XCTAssertEqual(try frame(widget, "shell").width, baseWidth * unit, accuracy: 0.001)
         XCTAssertEqual(deps(widget) & ShellDataKey.menuApp.bit, 0)
     }
 

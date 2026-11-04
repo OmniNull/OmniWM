@@ -120,7 +120,8 @@ final class ShellVitreusBarTests: XCTestCase {
         let expected: [String: ShellComponentValue] = [
             "layout": .string("island"), "size": .number(1),
             "pieces": .strings([
-                "apple", "app", "workspaces", "title", "tray", "search", "omniwm", "controls", "clock"
+                "apple", "app", "workspaces", "scratchpads", "title", "tray", "search", "stats", "omniwm", "controls",
+                "clock"
             ]),
             "pins": .strings([]), "addons": .strings([]), "dockOverlap": .bool(false), "visualiser": .bool(false),
             "cols": .number(24), "sens": .number(1), "hgt": .number(150), "bl": .number(1), "lay": .string("bottom"),
@@ -181,7 +182,7 @@ final class ShellVitreusBarTests: XCTestCase {
         XCTAssertEqual(rows[1][1], 0.945, accuracy: 1e-9)
         XCTAssertEqual(Array(lines.dropFirst()), [
             "workspaces,clock,omniwm", "omniwm,title", "omniwm",
-            "apple,app,workspaces,title,tray,search,omniwm,controls,clock"
+            "apple,app,workspaces,scratchpads,title,tray,search,stats,omniwm,controls,clock"
         ])
     }
 
@@ -193,9 +194,9 @@ final class ShellVitreusBarTests: XCTestCase {
             local k = units.of({ size = { w = 1920, h = 1080 } }, size)
             local widths = {
                 apple = { w = 0, grow = 0 }, app = { w = 0, grow = 0 },
-                workspaces = { w = 128 * k.bu, grow = 0 }, title = { w = 0, grow = 0 },
+                workspaces = { w = 128 * k.bu, grow = 0 }, scratchpads = { w = 0, grow = 0 }, title = { w = 0, grow = 0 },
                 tray = { w = tray * k.bu, grow = if tray > 0 then (tray + 12) * k.bu else 0 },
-                search = { w = 12 * k.bu, grow = 0 }, omniwm = { w = 15 * k.bu, grow = 0 },
+                search = { w = 12 * k.bu, grow = 0 }, stats = { w = 0, grow = 0 }, omniwm = { w = 15 * k.bu, grow = 0 },
                 controls = { w = 13 * k.bu, grow = 0 }, clock = { w = 80, grow = 0 },
             }
             local p = bar.place(k, 960, units.edge, bar.defaults, widths)

@@ -60,7 +60,8 @@ extension WorkspaceBarManager {
             host.closePopout()
             return true
         }
-        guard let monitor = monitors.first(where: { host.shows(widget, on: $0.id) }) else { return false }
+        let headless = host.config.barLane(of: widget) == nil ? monitors.first : nil
+        guard let monitor = monitors.first(where: { host.shows(widget, on: $0.id) }) ?? headless else { return false }
         return host.togglePopout(of: widget, on: monitor.id)
     }
 

@@ -3,6 +3,7 @@
 
 local kit = require("../kit")
 local palette = require("../palette")
+local relativeTime = require("../../notification-time")
 local lengths = table.freeze({ 0, 15, 30, 60, 120, 240, -1 })
 local session = table.freeze({ "lock", "sleep", "logout", "restart", "shutdown" })
 local sessionNames = table.freeze({ "Lock", "Sleep", "Log out", "Restart", "Power off" })
@@ -35,6 +36,13 @@ local function visibleNotifications(data)
     return rows
 end
 
+local function appName(data, bundle: string): string
+    for _, app in data.apps or {} do
+        if app.bundle == bundle then return app.name or bundle end
+    end
+    return bundle
+end
+
 local function batteries(ctx)
     local result = {}
     local battery = ctx.data.battery
@@ -54,7 +62,7 @@ local function height(ctx)
         local rows = batteries(ctx)
         return 229 + (if #rows > 0 then 20 + 56 * #rows else 0)
     end
-    return 308
+    return if ctx.state.controlsPanel == "notifications" then 396 else 308
 end
 
 local function wifi(ctx, c, items)
@@ -155,35 +163,42 @@ local function notifications(ctx, c, items)
         276, 36, "focus settings")
     items[#items + 1] = label(c, nil, "HISTORY", 60, 110, 10.5, palette.roles.faint, "bold", 84)
     items[#items + 1] = button(c, "controls-notifications-clear", "Clear", 268, 110, 52, 24, "notifications dismiss-all")
-    local list = { key = "controls-notifications-list", w = 276 * c.du, h = 150 * c.du, gap = 6 * c.du,
+    local list = { key = "controls-notifications-list", w = 276 * c.du, h = 238 * c.du, gap = 6 * c.du,
         align = "topLeading", dx = 18 * c.du, dy = 126 * c.du, center = false, scroll = true }
     for _, item in rows do
-        local row = kit.canvas(276 * c.du, 54 * c.du, c.du, c.rs)
+        local row = kit.canvas(276 * c.du, 74 * c.du, c.du, c.rs)
+        local open = if item.actionsSupported then "notifications open " .. item.bundle else nil
         list[#list + 1] = ui.stack({ key = "controls-notification-" .. item.id, w = row.w, h = row.h,
-            fill = palette.alpha("ink", 0.06), radius = 12 * c.du,
-            kit.label(row, { text = item.title, x = 10 * c.du, y = 16 * c.du, align = "leading", size = 13,
-                weight = "bold", maxWidth = 226 * c.du, lines = 1 }),
-            kit.label(row, { text = item.body, x = 10 * c.du, y = 37 * c.du, align = "leading", size = 11.5,
-                color = palette.roles.faint, maxWidth = 226 * c.du, lines = 1 }),
-            button(row, "controls-notification-dismiss-" .. item.id, "×", 256, 27, 26, 30,
-                "notifications dismiss " .. item.bundle .. " " .. item.id),
+            fill = palette.alpha("ink", 0.06), radius = 12 * c.du, onClick = open, cursor = if open then "pointer" else nil,
+            ui.icon(at(row, { key = "controls-notification-icon-" .. item.id, app = item.bundle, placeholder = "app",
+                w = 16 * c.du, h = 16 * c.du, decorative = true }, 18, 14)),
+            kit.label(row, { text = appName(data, item.bundle), x = 30 * c.du, y = 14 * c.du, align = "leading",
+                size = 11, color = palette.roles.faint, maxWidth = 130 * c.du, lines = 1 }),
+            kit.label(row, { key = "controls-notification-time-" .. item.id, text = relativeTime(ctx, item.date),
+                x = 212 * c.du, y = 14 * c.du, size = 10.5, color = palette.roles.faint, maxWidth = 76 * c.du, lines = 1 }),
+            kit.label(row, { text = item.title or "", x = 10 * c.du, y = 32 * c.du, align = "leading", size = 13,
+                weight = "bold", maxWidth = 256 * c.du, lines = 1 }),
+            kit.label(row, { text = item.body or "", x = 10 * c.du, y = 55 * c.du, align = "leading", size = 11.5,
+                color = palette.roles.faint, maxWidth = 256 * c.du, lines = 2 }),
+            if item.actionsSupported then button(row, "controls-notification-dismiss-" .. item.id, "×", 262, 14, 22, 22,
+                "notifications dismiss " .. item.bundle .. " " .. item.id) else nil,
         })
     end
     if #rows == 0 then
         local status = if not data then "History unavailable" elseif data.state == "accessDenied" then
             "Allow notification history in Settings" elseif data.state == "loading" then "Loading history…"
             elseif data.state == "ready" or data.state == "empty" then "All clear" else data.error or "History unavailable"
-        list[#list + 1] = ui.stack({ w = list.w, h = 110 * c.du,
-            kit.label(kit.canvas(list.w, 110 * c.du, c.du, c.rs), { text = status, size = 13,
+        list[#list + 1] = ui.stack({ w = list.w, h = 198 * c.du,
+            kit.label(kit.canvas(list.w, 198 * c.du, c.du, c.rs), { text = status, size = 13,
                 color = palette.roles.faint, maxWidth = 260 * c.du, lines = 2 }) })
     end
     items[#items + 1] = ui.column(list)
     if data and data.dismissAll and data.dismissAll.active then
-        items[#items + 1] = button(c, "controls-notifications-cancel", "Stop clearing", 156, 292,
+        items[#items + 1] = button(c, "controls-notifications-cancel", "Stop clearing", 156, 380,
             150, 24, "notifications cancel-dismiss-all")
     elseif data and data.action then
         items[#items + 1] = label(c, "controls-notifications-action", "Notification: " .. tostring(data.action.state),
-            156, 292, 11, palette.roles.faint)
+            156, 380, 11, palette.roles.faint)
     end
 end
 

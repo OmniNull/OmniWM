@@ -55,7 +55,7 @@ private struct PlacedRow {
 private let accuracy = 1e-6
 private let inked: Set<ElementKind> = [.label, .symbol, .image, .bitmap, .path, .shape, .progress, .shader, .slider]
 private let defaultWorkspaces = 3
-private let splitTray = 18
+private let splitTray = 14
 private let cappedTray = 60
 
 @MainActor
@@ -226,7 +226,7 @@ extension ShellVitreusBarTests {
         [
             ["bar-apple"], ["bar-app"], (1 ... workspaces).map { "workspace-mark-\($0)" },
             ["title-app", "title-text", "title-previous", "title-play", "title-next"],
-            ["bar-search"], ["bar-omniwm"], ["bar-controls"], ["bar-clock"], ["desk-opener"]
+            ["bar-search"], ["bar-stats"], ["bar-omniwm"], ["bar-controls"], ["bar-clock"], ["desk-opener"]
         ]
     }
 
@@ -490,7 +490,7 @@ extension ShellVitreusBarTests {
         local bar = require("../lib/vitreus/bar")
         local marks = require("../lib/vitreus/bar/marks")
         function render(ctx)
-            local model = { data = { settings = {}, bar = { style = {}, workspaces = {
+            local model = { data = { settings = {}, island = { size = { w = 0, h = 0 } }, bar = { style = {}, workspaces = {
                 { id = "1", windows = { {} } }, { id = "2", windows = { {} } },
                 { id = "3", focused = true, windows = { {} } },
             } } } }

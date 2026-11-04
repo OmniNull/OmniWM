@@ -26,6 +26,7 @@ final class ShellWidgetOptionDeclarationTests: XCTestCase {
         "lib/lake/services/timer.luau": ["timer"],
         "lib/vitreus/bar.luau": ["vitreus"],
         "lib/vitreus/bar/marks.luau": ["vitreus"],
+        "lib/vitreus/bar/scratchpads.luau": ["vitreus"],
         "lib/vitreus/frame.luau": ["vitreus"],
         "lib/vitreus/media.luau": ["vitreus"],
         "lib/vitreus/visualiser.luau": ["vitreus"]
