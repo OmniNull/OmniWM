@@ -279,30 +279,45 @@ extension NiriLayoutEngine {
                 }
             }
         case .vertical:
-            let targetPixels = (workingFrame.height - gaps) * resolvedWidth.proportion - gaps
-            for projectedColumn in columns {
-                let column = projectedColumn.column
-                column.height = .proportion(resolvedWidth.proportion)
-                column.isFullHeight = false
-                column.savedHeight = nil
-                column.hasManualSingleWindowHeightOverride = false
-                column.animateHeightTo(
-                    newHeight: clampedSpan(
-                        targetPixels,
-                        to: projectedHeightBounds(for: column, workspaceId: workspaceId)
-                    ),
-                    clock: animationClock,
-                    config: motion.scaled(windowMovementAnimationConfig),
-                    displayRefreshRate: displayRefreshRate(in: workspaceId),
-                    animated: motion.animationsEnabled
-                )
-
-                for window in projectedColumn.windows {
-                    window.windowWidth = .auto(weight: 1)
-                }
-            }
+            balanceColumnHeights(
+                columns,
+                proportion: resolvedWidth.proportion,
+                targetPixels: (workingFrame.height - gaps) * resolvedWidth.proportion - gaps,
+                in: workspaceId,
+                motion: motion
+            )
         }
         return true
+    }
+
+    private func balanceColumnHeights(
+        _ columns: [NiriProjectedColumn],
+        proportion: CGFloat,
+        targetPixels: CGFloat,
+        in workspaceId: WorkspaceDescriptor.ID,
+        motion: MotionSnapshot
+    ) {
+        for projectedColumn in columns {
+            let column = projectedColumn.column
+            column.height = .proportion(proportion)
+            column.isFullHeight = false
+            column.savedHeight = nil
+            column.hasManualSingleWindowHeightOverride = false
+            column.animateHeightTo(
+                newHeight: clampedSpan(
+                    targetPixels,
+                    to: projectedHeightBounds(for: column, workspaceId: workspaceId)
+                ),
+                clock: animationClock,
+                config: motion.scaled(windowMovementAnimationConfig),
+                displayRefreshRate: displayRefreshRate(in: workspaceId),
+                animated: motion.animationsEnabled
+            )
+
+            for window in projectedColumn.windows {
+                window.windowWidth = .auto(weight: 1)
+            }
+        }
     }
 
     func ensureColumnVisible(
