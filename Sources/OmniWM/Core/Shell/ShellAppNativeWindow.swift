@@ -4,9 +4,23 @@
 import AppKit
 
 final class ShellAppNativeWindow: NSWindow {
+    private weak var parentDuringNativeMove: NSWindow?
+
     private var blockedBySheet: Bool {
-        guard let sheet = parent?.attachedSheet else { return false }
+        guard let sheet = (parent ?? parentDuringNativeMove)?.attachedSheet else { return false }
         return sheet !== self
+    }
+
+    func detachForNativeMove() {
+        guard let parent else { return }
+        parentDuringNativeMove = parent
+        parent.removeChildWindow(self)
+    }
+
+    func finishNativeMove() {
+        guard let parent = parentDuringNativeMove else { return }
+        parentDuringNativeMove = nil
+        parent.addChildWindow(self, ordered: .above)
     }
 
     override var canBecomeKey: Bool {
@@ -22,6 +36,9 @@ final class ShellAppNativeWindow: NSWindow {
     }
 
     override func sendEvent(_ event: NSEvent) {
+        defer {
+            if event.type == .leftMouseUp { finishNativeMove() }
+        }
         if blockedBySheet {
             switch event.type {
             case .leftMouseDown,

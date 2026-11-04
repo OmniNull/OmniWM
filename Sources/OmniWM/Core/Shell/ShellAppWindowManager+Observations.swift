@@ -54,6 +54,10 @@ extension ShellAppWindowManager {
         observeNativeGeometry(window, token: token)
     }
 
+    func windowWillMove(_ notification: Notification) {
+        (notification.object as? ShellAppNativeWindow)?.detachForNativeMove()
+    }
+
     func windowDidBecomeKey(_ notification: Notification) {
         guard controller.hasStartedServices,
               let registered = registeredWindow(in: notification), registered.window.isKeyWindow else { return }

@@ -18,6 +18,7 @@ extension ShellAppWindowManager {
         let hidden = (parent == token ? hidden : manager.hiddenState(for: parent) != nil || !window.isVisible)
             || window.isMiniaturized || manager.isWindowSuppressedByMacOS(parent)
         if hidden, window.isVisible {
+            for child in childTokens(of: parent) { (windows[child] as? ShellAppNativeWindow)?.finishNativeMove() }
             window.orderOut(nil)
         } else if !hidden, !window.isVisible {
             window.orderFront(nil)
