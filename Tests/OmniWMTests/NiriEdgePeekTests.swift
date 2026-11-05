@@ -156,6 +156,17 @@ final class NiriEdgePeekTests: XCTestCase {
         XCTAssertEqual(fixture.column(2).cachedWidth, fixture.cap + peek, accuracy: 0.5)
     }
 
+    func testTheDragsPlaceholdersDontCountForTheCaps() {
+        let fixture = makeFixture(widths: [1.0])
+        let dropSpace = NiriContainer()
+        dropSpace.isLiveDropSpace = true
+        fixture.engine.root(for: fixture.workspaceId)!.insertChild(dropSpace, at: 0)
+
+        fixture.engine.applyEdgePeekCaps(in: fixture.workspaceId, workingFrame: fixture.frame, gap: fixture.gap)
+
+        XCTAssertNil(fixture.column(0).edgePeekCap)
+    }
+
     func testTwoHalfColumnsAtTheStripStartLeaveRoomForThePeekBeyondThem() throws {
         var fixture = makeFixture(widths: [0.5, 0.5, 0.5])
 

@@ -41,6 +41,7 @@ final class TabRailView: NSView {
 
     var onSelect: ((Int) -> Void)?
     var onDrag: ((TabRailDragGesture.Event, CGPoint) -> Void)?
+    var acceptsDrags: () -> Bool = { false }
     private var dragGesture = TabRailDragGesture()
     var onHoverChange: ((TabRailTabInfo?, CGRect?) -> Void)?
 
@@ -175,14 +176,16 @@ final class TabRailView: NSView {
         onSelect?(item.visualIndex)
     }
 
-    override func mouseDragged(with _: NSEvent) {
+    override func mouseDragged(with event: NSEvent) {
+        guard acceptsDrags() else { return super.mouseDragged(with: event) }
         let location = NSEvent.mouseLocation
-        guard let event = dragGesture.drag(to: location) else { return }
-        onDrag?(event, location)
+        guard let gestureEvent = dragGesture.drag(to: location) else { return }
+        onDrag?(gestureEvent, location)
     }
 
-    override func mouseUp(with _: NSEvent) {
+    override func mouseUp(with event: NSEvent) {
         dragGesture.release()
+        guard acceptsDrags() else { return super.mouseUp(with: event) }
     }
 
     override func scrollWheel(with event: NSEvent) {

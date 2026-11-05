@@ -85,7 +85,7 @@ extension MouseEventHandler {
         if MouseTrace.shared.isActive, !drag.liveDrag, drag.liveDragDeclined {
             traceLiveDragDecline("check token=\(TraceFormat.token(entry.token)) declined=true")
         } else if MouseTrace.shared.isActive, !drag.liveDrag {
-            let start = drag.adoptionStartFrame ?? drag.liveStartFrame
+            let start = drag.liveStartFrame ?? drag.adoptionStartFrame
             let observed = entry.axRef.flatMap(nativeWindowFrameProvider)
             traceLiveDragDecline(
                 "check token=\(TraceFormat.token(entry.token)) declined=\(drag.liveDragDeclined) "
@@ -100,7 +100,7 @@ extension MouseEventHandler {
               let controller,
               controller.settings.niri.macOSFusion,
               controller.workspaceManager.activeLayoutKind(for: entry.workspaceId) == .niri,
-              let start = drag.adoptionStartFrame ?? drag.liveStartFrame,
+              let start = drag.liveStartFrame ?? drag.adoptionStartFrame,
               let observed = entry.axRef.flatMap(nativeWindowFrameProvider),
               Self.isNativeMove(from: start, to: observed),
               let engine = controller.niriEngine,

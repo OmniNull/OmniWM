@@ -26,6 +26,7 @@ extension MouseEventHandler {
 
         let startsFusionDrag = button == .left && macOSFusionTakesModifiers(modifiers, in: wsId)
         if button == .left, startsFusionDrag || modifiers.isDisjoint(with: Self.relevantModifierFlags) {
+            finishNiriSlideBeforePress(in: wsId)
             recordPointerFocusIntent(
                 at: location,
                 workspaceId: wsId,
@@ -62,6 +63,25 @@ extension MouseEventHandler {
         else { return false }
 
         return beginNiriMouseResize(at: location, engine: engine, workspaceId: wsId, button: button)
+    }
+
+    private func finishNiriSlideBeforePress(in workspaceId: WorkspaceDescriptor.ID) {
+        guard let controller,
+              controller.settings.niri.macOSFusion,
+              controller.workspaceManager.activeLayoutKind(for: workspaceId) == .niri,
+              let engine = controller.niriEngine,
+              !engine.isLiveColumnMoveActive(in: workspaceId),
+              !engine.isLiveStackDropPending(in: workspaceId),
+              hasPendingNiriAnimationWork(
+                  state: controller.workspaceManager.niriViewportState(for: workspaceId),
+                  driver: controller.workspaceManager.animationDriver,
+                  engine: engine,
+                  workspaceId: workspaceId
+              )
+        else { return }
+        controller.niriLayoutHandler.cancelAnimationMotion(for: workspaceId)
+        refreshLiveColumnLayout(in: workspaceId, engine: engine)
+        MouseTrace.record("press finished the running slide ws=\(workspaceId)")
     }
 
     func macOSFusionTakesModifiers(_ modifiers: CGEventFlags, in workspaceId: WorkspaceDescriptor.ID) -> Bool {

@@ -92,7 +92,9 @@ extension WMController {
     }
 
     func isSizeAnimating(_ token: WindowToken, in workspaceId: WorkspaceDescriptor.ID) -> Bool {
-        guard let window = niriEngine?.findNode(for: token, in: workspaceId) else { return false }
+        guard settings.niri.macOSFusion,
+              let window = niriEngine?.findNode(for: token, in: workspaceId)
+        else { return false }
         if window.heightAnimation != nil { return true }
         guard let column = window.parent as? NiriContainer else { return false }
         return column.hasWidthAnimationRunning || column.hasHeightAnimationRunning

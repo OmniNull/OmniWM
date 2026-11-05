@@ -57,26 +57,29 @@ extension NiriLayoutEngine {
         gap: CGFloat,
         orientation: Monitor.Orientation
     ) {
-        let peeks = columns.count > 1 && orientation == .horizontal
+        let placed = columns.filter { !$0.isLiveHomeSpot && !$0.isLiveDropSpace }
+        let peeks = placed.count > 1 && orientation == .horizontal
             ? viewFrame.flatMap { edgePeekWidths(viewFrame: $0) }
             : nil
-        for (index, column) in columns.enumerated() {
-            var columnCap: CGFloat?
-            if let viewFrame, let peeks, !column.isLiveHomeSpot, !column.isLiveDropSpace {
-                let room = edgePeekRoom(
-                    at: index,
-                    of: columns.count,
-                    viewFrame: viewFrame,
-                    workingFrame: workingFrame,
-                    peeks: peeks
-                )
-                columnCap = max(1, room.maxX - room.minX - 2 * gap)
+        for (index, column) in placed.enumerated() {
+            let cap = viewFrame.flatMap { viewFrame in
+                peeks.map { peeks in
+                    let room = edgePeekRoom(
+                        at: index,
+                        of: placed.count,
+                        viewFrame: viewFrame,
+                        workingFrame: workingFrame,
+                        peeks: peeks
+                    )
+                    return max(1, room.maxX - room.minX - 2 * gap)
+                }
             }
-            guard column.edgePeekCap != columnCap else { continue }
-            column.edgePeekCap = columnCap
+            guard column.edgePeekCap != cap else { continue }
+            if cap != nil { hasSetEdgePeekCaps = true }
+            column.edgePeekCap = cap
             column.invalidateCachedPrimarySpan(orientation: .horizontal)
         }
-        applyStripEndPeekCaps(to: columns, viewFrame: viewFrame, workingFrame: workingFrame, gap: gap, peeks: peeks)
+        applyStripEndPeekCaps(to: placed, viewFrame: viewFrame, workingFrame: workingFrame, gap: gap, peeks: peeks)
     }
 
     private func applyStripEndPeekCaps(
@@ -114,7 +117,6 @@ extension NiriLayoutEngine {
             )
         }
         for (index, column) in columns.enumerated() {
-            guard !column.isLiveHomeSpot, !column.isLiveDropSpace else { continue }
             column.stripEndPeekRoom = rooms[index]
             if rooms[index] != previous[index] {
                 column.invalidateCachedPrimarySpan(orientation: .horizontal)
@@ -144,7 +146,7 @@ extension NiriLayoutEngine {
         let monitor = monitorForWorkspace(workspaceId)
         guard !isLiveColumnMoveActive(in: workspaceId),
               edgePeekShare(onDisplayWith: monitor?.frame) != nil
-              || columns(in: workspaceId).contains(where: { $0.edgePeekCap != nil })
+              || hasSetEdgePeekCaps && columns(in: workspaceId).contains(where: { $0.edgePeekCap != nil })
         else { return }
         let orientation = monitor?.orientation ?? .horizontal
         let projected = projectedColumns(in: workspaceId)

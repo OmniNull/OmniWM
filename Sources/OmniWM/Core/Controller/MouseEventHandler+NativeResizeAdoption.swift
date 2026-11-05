@@ -61,6 +61,7 @@ extension MouseEventHandler {
             else { return false }
         }
         drag.adoptionStartFrame = nil
+        drag.pendingWriteStartFrame = nil
         drag.phase = .awaitingCorrection
         drag.receivedFrameChange = false
         return true
@@ -88,10 +89,9 @@ extension MouseEventHandler {
         _ drag: MouseInputState.NativeTitleBarDrag,
         entry: WindowState
     ) -> CGRect? {
-        guard let controller,
-              let start = drag.adoptionStartFrame,
-              entry.layoutReason == .standard else { return nil }
-        if entry.target.hostedMetadata != nil { return start }
+        guard let controller, entry.layoutReason == .standard else { return nil }
+        guard let start = drag.adoptionStartFrame else { return drag.pendingWriteStartFrame }
+        if entry.target.hostedMetadata != nil || drag.lateResize { return start }
         guard !controller.axManager.isAwaitingFrameWrite(entry.windowId),
               controller.axManager.lastAppliedFrame(for: entry.windowId)?.approximatelyEqual(
                   to: start,
@@ -200,7 +200,13 @@ extension MouseEventHandler {
             }
         }
         guard changed else { return false }
-        if entry.axRef != nil { controller.axManager.forceApplyNextFrame(for: entry.windowId) }
+        if entry.axRef != nil {
+            if fusionResizeApplies(context.orientation) {
+                controller.axManager.confirmFrameWrite(for: entry.windowId, frame: observed)
+            } else {
+                controller.axManager.forceApplyNextFrame(for: entry.windowId)
+            }
+        }
         if let slide {
             settleFusionEdgeResize(window, sliding: slide, monitor: monitor, context: context)
         } else {

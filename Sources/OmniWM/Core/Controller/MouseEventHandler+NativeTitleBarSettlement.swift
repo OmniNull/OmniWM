@@ -48,6 +48,11 @@ extension MouseEventHandler {
             return updateNativeTitleBarDraggingFrame(entry, drag: &drag)
         case .awaitingFrameChange:
             return settleAwaitedNativeTitleBarFrame(entry, drag: drag)
+        case .settlingResize:
+            drag.receivedFrameChange = true
+            state.nativeTitleBarDrag = drag
+            scheduleNativeResizeSettle()
+            return true
         case .awaitingFrameWrite:
             drag.receivedFrameChange = true
             if controller?.axManager.pendingFrameWrite(for: entry.windowId) == nil {
@@ -149,6 +154,9 @@ extension MouseEventHandler {
             state.nativeTitleBarDrag = drag
             return true
         }
+        if beginLateNativeResizeSettlingIfNeeded(drag, entry: entry, observedFrame: observedFrame) {
+            return true
+        }
         if let pendingFrame = controller?.axManager.pendingFrameWrite(for: entry.windowId) {
             awaitNativeTitleBarDragFrameWrite(
                 pendingFrame,
@@ -172,6 +180,36 @@ extension MouseEventHandler {
         drag.receivedFrameChange = false
         state.nativeTitleBarDrag = drag
         requestNativeTitleBarDragCorrection(for: entry)
+        return true
+    }
+
+    private func beginLateNativeResizeSettlingIfNeeded(
+        _ drag: MouseInputState.NativeTitleBarDrag,
+        entry: WindowState,
+        observedFrame: CGRect?
+    ) -> Bool {
+        guard let controller,
+              nativeResizeSettleQuietTime > 0,
+              controller.settings.niri.macOSFusion,
+              controller.workspaceManager.activeLayoutKind(for: entry.workspaceId) == .niri,
+              let observedFrame,
+              let start = drag.adoptionStartFrame ?? drag.pendingWriteStartFrame ?? drag.liveStartFrame,
+              abs(observedFrame.width - start.width) > FrameTolerance.screenMatch
+              || abs(observedFrame.height - start.height) > FrameTolerance.screenMatch,
+              !Self.nativeResizeEdges(from: start, to: observedFrame, allowsCentred: true).isEmpty
+        else { return false }
+        var settling = drag
+        settling.phase = .settlingResize
+        settling.receivedFrameChange = true
+        settling.lateResize = true
+        settling.adoptionStartFrame = start
+        state.nativeTitleBarDrag = settling
+        state.nativeResizeSettling?.timer?.invalidate()
+        state.nativeResizeSettling = .init(releasedAt: liveDragClock(), timer: nil)
+        MouseTrace.record(
+            "title-bar drag settling late token=\(TraceFormat.token(drag.token)) observed=\(TraceFormat.rect(observedFrame))"
+        )
+        scheduleNativeResizeSettle()
         return true
     }
 

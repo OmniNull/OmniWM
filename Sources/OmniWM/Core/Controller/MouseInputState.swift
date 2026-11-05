@@ -41,6 +41,12 @@ struct MouseInputState {
         case awaitingFrameChange
         case awaitingFrameWrite
         case awaitingCorrection
+        case settlingResize
+    }
+
+    struct NativeResizeSettling {
+        let releasedAt: TimeInterval
+        var timer: Timer?
     }
 
     struct NativeTitleBarDrag {
@@ -52,6 +58,8 @@ struct MouseInputState {
         var issuedUnreadableCorrection = false
         var terminalFailureRetryRequestId: AXFrameRequestId?
         var adoptionStartFrame: CGRect?
+        var pendingWriteStartFrame: CGRect?
+        var lateResize = false
         var liveStartFrame: CGRect?
         var dwindleResizeWorkspaceId: WorkspaceDescriptor.ID?
         var liveDrag = false
@@ -167,6 +175,7 @@ struct MouseInputState {
     var nativeTitleBarDragFallbackToken: WindowToken?
     var nativeTitleBarDragFallbackReleased = false
     var nativeTitleBarDrag: NativeTitleBarDrag?
+    var nativeResizeSettling: NativeResizeSettling?
     var nativeResizeStart: NativeResizeStart?
     var nativeResizeCorrectionsByWindowId: [Int: NativeResizeCorrection] = [:]
     var nativeCrossDisplayMove: NativeCrossDisplayMove?

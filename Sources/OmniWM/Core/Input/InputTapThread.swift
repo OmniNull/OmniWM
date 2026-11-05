@@ -385,7 +385,9 @@ extension InputTapThread {
     ) -> CGEvent? {
         let flags = event.flags
         let holdsDrag = holdsTitleBarDrag(event, location: location, snap: snap)
-        updateFilterSnapshot { $0.holdsTitleBarDrag = holdsDrag }
+        if holdsDrag != snap.holdsTitleBarDrag {
+            updateFilterSnapshot { $0.holdsTitleBarDrag = holdsDrag }
+        }
         stripFusionDragOption(from: event, location: location, snap: snap)
         let clickCount = event.getIntegerValueField(.mouseEventClickState)
         if MouseEventHandler.asksAboutFusionDoubleClick(

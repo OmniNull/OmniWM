@@ -65,6 +65,7 @@ extension MouseEventHandler {
             && Self.fusionClickCyclesForwards(modifiers) != nil
             && fusionDoubleClickCandidate(at: location) != nil
         let armedAt: CGPoint? = armed ? location : nil
+        guard armedAt != inputTapThread.filterSnapshot.fusionDoubleClickArmedAt else { return }
         inputTapThread.updateFilterSnapshot { $0.fusionDoubleClickArmedAt = armedAt }
     }
 

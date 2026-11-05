@@ -151,6 +151,8 @@ final class NiriLayoutEngine {
 
     var keepsWindowWidths = false
 
+    var hasSetEdgePeekCaps = false
+
     var edgePeekShare: CGFloat?
 
     var defaultContainerPrimarySpan: CGFloat? = 0.5

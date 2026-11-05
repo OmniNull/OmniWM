@@ -228,7 +228,9 @@ extension NiriLayoutHandler {
             guard let column = engine.column(of: windowNode) else { return }
             let movesFromRealPlaces = controller.settings.niri.macOSFusion && context.orientation == .horizontal
             let previousPlaces = movesFromRealPlaces ? engine.liveWindowPlaces(in: [column], context: context) : [:]
-            let shownTab = column.isTabbed ? engine.projectedActiveWindow(in: column, workspaceId: workspaceId) : nil
+            let shownTab = movesFromRealPlaces && column.isTabbed
+                ? engine.projectedActiveWindow(in: column, workspaceId: workspaceId)
+                : nil
             guard engine.toggleColumnTabbed(
                 column,
                 in: workspaceId,

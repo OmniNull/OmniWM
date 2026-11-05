@@ -196,14 +196,21 @@ extension MouseEventHandler {
             ? controller.axManager.lastAppliedFrame(for: drag.token.windowId)
             : nil
         drag.adoptionStartFrame = hadUnsettledFrameWrite ? nil : startFrame ?? fusionStartFrame
-        drag.liveStartFrame = controller.axManager.lastAppliedFrame(for: drag.token.windowId) ?? startFrame
-            ?? controller.workspaceManager.entry(for: drag.token).flatMap { entry in
-                controller.niriEngine?.findNode(for: drag.token, in: entry.workspaceId)?.frame
-            }
+        drag.pendingWriteStartFrame = hadUnsettledFrameWrite && controller.settings.niri.macOSFusion
+            ? controller.axManager.awaitedFrameWrite(for: drag.token.windowId) ?? fusionStartFrame
+            : nil
+        if controller.settings.niri.macOSFusion {
+            let entry = controller.workspaceManager.entry(for: drag.token)
+            drag.liveStartFrame = entry.flatMap(fastNativeWindowFrame) ?? fusionStartFrame ?? startFrame
+                ?? entry.flatMap { entry in
+                    controller.niriEngine?.findNode(for: drag.token, in: entry.workspaceId)?.frame
+                }
+        }
         MouseTrace.record(
             "title-bar drag dragging token=\(TraceFormat.token(drag.token)) "
                 + "awaitingWrite=\(hadUnsettledFrameWrite) "
-                + "start=\(TraceFormat.rect(drag.adoptionStartFrame)) live-start=\(TraceFormat.rect(drag.liveStartFrame))"
+                + "start=\(TraceFormat.rect(drag.adoptionStartFrame)) pending=\(TraceFormat.rect(drag.pendingWriteStartFrame)) "
+                + "live-start=\(TraceFormat.rect(drag.liveStartFrame))"
         )
         state.nativeTitleBarDrag = drag
         controller.axManager.beginNativeTitleBarDrag(for: drag.token)
@@ -244,16 +251,23 @@ extension MouseEventHandler {
     }
 
     func finishNativeTitleBarDragIfNeeded(button: MouseButton) {
-        guard button == .left, var drag = prepareNativeTitleBarDragForSettlement(button: button) else { return }
+        guard button == .left, let drag = prepareNativeTitleBarDragForSettlement(button: button) else { return }
         switch drag.phase {
         case .armed,
              .dragging:
             break
         case .awaitingFrameChange,
              .awaitingFrameWrite,
-             .awaitingCorrection:
+             .awaitingCorrection,
+             .settlingResize:
             return
         }
+        if beginNativeResizeSettlingIfNeeded(drag) { return }
+        completeNativeTitleBarRelease(drag)
+    }
+
+    private func completeNativeTitleBarRelease(_ drag: MouseInputState.NativeTitleBarDrag) {
+        var drag = drag
         guard let controller else {
             discardNativeTitleBarDragState()
             return
@@ -288,6 +302,60 @@ extension MouseEventHandler {
             needsCorrection: finishedLiveDrag || excludedFrameWrite || observedDisplacement
         )
     }
+
+    private func beginNativeResizeSettlingIfNeeded(_ drag: MouseInputState.NativeTitleBarDrag) -> Bool {
+        guard let controller,
+              nativeResizeSettleQuietTime > 0,
+              controller.settings.niri.macOSFusion,
+              drag.phase == .dragging,
+              !drag.liveDrag,
+              drag.receivedFrameChange,
+              let entry = controller.workspaceManager.entry(for: drag.token),
+              entry.mode == .tiling,
+              controller.workspaceManager.activeLayoutKind(for: entry.workspaceId) == .niri,
+              let start = drag.adoptionStartFrame ?? drag.pendingWriteStartFrame ?? drag.liveStartFrame,
+              let observed = terminalNativeWindowFrame(for: entry),
+              abs(observed.width - start.width) > FrameTolerance.screenMatch
+              || abs(observed.height - start.height) > FrameTolerance.screenMatch
+        else { return false }
+        var settling = drag
+        settling.phase = .settlingResize
+        state.nativeTitleBarDrag = settling
+        state.nativeResizeSettling?.timer?.invalidate()
+        state.nativeResizeSettling = .init(releasedAt: liveDragClock(), timer: nil)
+        MouseTrace.record(
+            "title-bar drag settling token=\(TraceFormat.token(drag.token)) observed=\(TraceFormat.rect(observed))"
+        )
+        scheduleNativeResizeSettle()
+        return true
+    }
+
+    func scheduleNativeResizeSettle() {
+        guard var settling = state.nativeResizeSettling else { return }
+        settling.timer?.invalidate()
+        let limit = Self.nativeResizeSettleLimit - (liveDragClock() - settling.releasedAt)
+        let delay = min(nativeResizeSettleQuietTime, max(0, limit))
+        settling.timer = scheduleLiveDragTimer(after: delay) { [weak self] in
+            self?.finishNativeResizeSettling()
+        }
+        state.nativeResizeSettling = settling
+    }
+
+    func finishNativeResizeSettling() {
+        guard let settling = state.nativeResizeSettling else { return }
+        settling.timer?.invalidate()
+        state.nativeResizeSettling = nil
+        guard var drag = state.nativeTitleBarDrag, drag.phase == .settlingResize else { return }
+        drag.phase = .dragging
+        state.nativeTitleBarDrag = drag
+        MouseTrace.record(
+            "title-bar drag settled token=\(TraceFormat.token(drag.token)) "
+                + "after=\(Int(((liveDragClock() - settling.releasedAt) * 1000).rounded()))ms"
+        )
+        completeNativeTitleBarRelease(drag)
+    }
+
+    static let nativeResizeSettleLimit: TimeInterval = 1.0
 
     private func settleReleasedNativeTitleBarDrag(
         _ drag: MouseInputState.NativeTitleBarDrag,
@@ -375,6 +443,13 @@ extension MouseEventHandler {
     }
 
     func retireNativeTitleBarDragAtInputBoundary() {
+        if state.nativeTitleBarDrag?.phase == .settlingResize {
+            finishNativeResizeSettling()
+            if state.nativeTitleBarDrag?.phase == .awaitingCorrection {
+                discardNativeTitleBarDragState()
+                return
+            }
+        }
         guard let drag = state.nativeTitleBarDrag else {
             discardNativeTitleBarDragState()
             return
@@ -424,6 +499,8 @@ extension MouseEventHandler {
     }
 
     func discardNativeTitleBarDragState() {
+        state.nativeResizeSettling?.timer?.invalidate()
+        state.nativeResizeSettling = nil
         correctDeferredNativeResizeFrameIfNeeded()
         state.nativeResizeStart = nil
         state.nativeCrossDisplayMove = nil

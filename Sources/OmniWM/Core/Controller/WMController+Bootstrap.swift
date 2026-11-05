@@ -76,6 +76,7 @@ extension WMController {
             guard case .niriColumn = drag.info.owner else { return }
             self?.mouseEventHandler.handleTabRailDrag(drag)
         }
+        tabRailManager.acceptsDrags = { [weak self] in self?.settings.niri.macOSFusion == true }
         tabRailManager.onSelect = { [weak self] info, visualIndex, token in
             guard let self else { return }
             switch info.owner {

@@ -10,6 +10,7 @@ final class TabRailManager {
     var onSelect: SelectionHandler?
     var ringOrderedAbove: (@MainActor (UInt32) -> UInt32?)?
     var onDrag: ((TabRailDrag) -> Void)?
+    var acceptsDrags: () -> Bool = { false }
 
     private var railWindows: [TabRailKey: TabRailWindow] = [:]
     private var railInfos: [TabRailKey: TabRailInfo] = [:]
@@ -96,6 +97,7 @@ final class TabRailManager {
             window.onDrag = { [weak self] drag in
                 self?.onDrag?(drag)
             }
+            window.acceptsDrags = { [weak self] in self?.acceptsDrags() ?? false }
             railWindows[key] = window
             return window
         }()
