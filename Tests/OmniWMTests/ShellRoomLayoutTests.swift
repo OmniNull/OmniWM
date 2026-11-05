@@ -109,6 +109,64 @@ final class ShellRoomLayoutTests: XCTestCase {
         XCTAssertEqual(frames(controller.layoutFrames(for: monitor, scale: 2)), baseline)
     }
 
+    func testChangingTheRoomResolvesExistingNiriColumnsForTheNewSpace() throws {
+        let controller = fixture()
+        let monitor = monitor()
+        controller.workspaceManager.applyMonitorConfigurationChange([monitor])
+        controller.enableNiriLayout()
+        let engine = try XCTUnwrap(controller.niriEngine)
+        engine.visibleContainerCount = 2
+        engine.defaultContainerPrimarySpan = nil
+        let workspace = WorkspaceDescriptor.ID()
+        controller.workspaceManager.withEngineMutationScope {
+            for id in 1 ... 2 {
+                _ = engine.addWindow(token: WindowToken(pid: 843, windowId: id), to: workspace, afterSelection: nil)
+            }
+        }
+        _ = try niriEnvelope(of: engine, workspace, controller, monitor, orientation: .horizontal)
+        let room = totalRoom()
+        setRoom(room, on: controller)
+        controller.updateWorkspaceBarSettings()
+        XCTAssertEqual(
+            try niriEnvelope(of: engine, workspace, controller, monitor, orientation: .horizontal),
+            try envelope(of: room, on: monitor)
+        )
+    }
+
+    func testFloatingAWindowKeepsItInsideTheRoomAndItsTopEdgeReachable() throws {
+        let controller = fixture()
+        let monitor = monitor()
+        setRoom(totalRoom(), on: controller)
+        let manager = controller.workspaceManager
+        manager.applyMonitorConfigurationChange([monitor])
+        let workspace = try XCTUnwrap(manager.activeWorkspace(on: monitor.id)?.id)
+        let working = controller.layoutFrames(for: monitor, scale: monitor.backingScale).workingFrame
+        let half = CGSize(width: working.width / 2, height: working.height / 2)
+        let atTheTopRight = CGRect(
+            origin: CGPoint(x: working.maxX - half.width, y: working.maxY - half.height),
+            size: half
+        )
+        let tallerThanTheRoom = CGRect(origin: working.origin, size: monitor.frame.size)
+
+        func float(_ frame: CGRect, windowId: Int) throws -> CGRect {
+            let token = manager.addWindow(
+                AXWindowRef(element: AXUIElementCreateApplication(843), windowId: windowId),
+                pid: 843, windowId: windowId, to: workspace, mode: .tiling
+            )
+            XCTAssertTrue(controller.transitionWindowMode(
+                for: token, to: .floating, preferredMonitor: monitor, applyFloatingFrame: false,
+                observedFrame: frame, allowLiveFrameFallback: false
+            ))
+            return try XCTUnwrap(manager.floatingState(for: token)).lastFrame
+        }
+
+        XCTAssertTrue(working.contains(try float(atTheTopRight, windowId: 1)))
+        let oversized = try float(tallerThanTheRoom, windowId: 2)
+        XCTAssertEqual(oversized.size, tallerThanTheRoom.size)
+        XCTAssertEqual(oversized.minX, working.minX)
+        XCTAssertEqual(oversized.maxY, working.maxY)
+    }
+
     func testResolvedRoomAndDisplayChangesInvalidateTheCachedFrames() {
         let controller = fixture()
         let monitor = monitor()
@@ -250,13 +308,23 @@ extension ShellRoomLayoutTests {
     private func niriEnvelope(
         _ controller: WMController, _ monitor: Monitor, orientation: Monitor.Orientation
     ) throws -> CGRect {
-        let geometry = controller.niriInteractionGeometry(for: monitor, scale: monitor.backingScale)
         let engine = NiriLayoutEngine(visibleContainerCount: 2)
         engine.defaultContainerPrimarySpan = nil
         let workspace = WorkspaceDescriptor.ID()
         for id in 1 ... 2 {
             _ = engine.addWindow(token: WindowToken(pid: 841, windowId: id), to: workspace, afterSelection: nil)
         }
+        return try niriEnvelope(of: engine, workspace, controller, monitor, orientation: orientation)
+    }
+
+    private func niriEnvelope(
+        of engine: NiriLayoutEngine,
+        _ workspace: WorkspaceDescriptor.ID,
+        _ controller: WMController,
+        _ monitor: Monitor,
+        orientation: Monitor.Orientation
+    ) throws -> CGRect {
+        let geometry = controller.niriInteractionGeometry(for: monitor, scale: monitor.backingScale)
         var state = ViewportState()
         state.jumpOffset(to: -geometry.innerGap)
         let frames = engine.calculateLayout(

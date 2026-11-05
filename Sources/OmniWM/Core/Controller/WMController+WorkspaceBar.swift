@@ -166,6 +166,7 @@ extension WMController {
             forceReload: forceIconReload
         )
         pruneHiddenWorkspaceBarMonitorIds()
+        workspaceManager.invalidateNiriCachedPrimarySpans()
         workspaceManager.invalidateAllLayouts()
         layoutRefreshController.requestRelayout(reason: .monitorSettingsChanged)
         surfaceReconciler.noteWorldChanged()

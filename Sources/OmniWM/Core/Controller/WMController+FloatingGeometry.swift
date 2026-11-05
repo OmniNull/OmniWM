@@ -77,7 +77,10 @@ extension WMController {
         ) else {
             return offsetFrame
         }
-        return FloatingFrameGeometry.clamped(offsetFrame, in: monitor.visibleFrame)
+        let workingFrame = layoutFrames(for: monitor, scale: backingScaleFactor(for: monitor)).workingFrame
+        var placed = FloatingFrameGeometry.clamped(offsetFrame, in: workingFrame)
+        placed.origin.y = min(placed.origin.y, workingFrame.maxY - placed.height)
+        return placed
     }
 
     private func shouldApplyFloatingFrameImmediately(
