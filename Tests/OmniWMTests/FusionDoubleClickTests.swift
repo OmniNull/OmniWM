@@ -180,7 +180,7 @@ final class FusionDoubleClickTests: NiriInteractionTestCase {
         XCTAssertNil(zone(250))
     }
 
-    func testTheTapAsksAboutPlainDoubleClicksOnlyWithMacOSFusionOn() {
+    func testTheTapAsksAboutPlainAndShiftDoubleClicksOnlyWithMacOSFusionOn() {
         let option = CGEventFlags.maskAlternate
         let point = CGPoint(x: 400, y: 300)
         func asks(
@@ -204,6 +204,10 @@ final class FusionDoubleClickTests: NiriInteractionTestCase {
         XCTAssertFalse(asks(3))
         XCTAssertFalse(asks(2, option))
         XCTAssertFalse(asks(2, .maskCommand))
+        XCTAssertTrue(asks(2, .maskShift))
+        XCTAssertFalse(asks(2, [.maskShift, .maskCommand]))
+        XCTAssertFalse(asks(2, [.maskShift, option]))
+        XCTAssertFalse(asks(2, .maskControl))
         XCTAssertFalse(asks(2, macOSFusion: false))
         XCTAssertFalse(asks(2, armedAt: nil))
         XCTAssertFalse(asks(2, armedAt: CGPoint(x: 420, y: 300)))
@@ -713,6 +717,60 @@ final class FusionDoubleClickTests: NiriInteractionTestCase {
         XCTAssertEqual(Set(widths.map { "\($0)" }).count, presets)
     }
 
+    func testAShiftDoubleClickOnTheTitleBarCyclesBackwardsAndEachChainClickFollowsItsOwnShift() throws {
+        let fixture = try makeFixture(pid: 941_140)
+        fixture.engine.presetContainerPrimarySpans = [.proportion(1.0 / 3.0), .proportion(0.5), .proportion(2.0 / 3.0)]
+        fixture.handler.titleBarHitProvider = { _, _ in TitleBarHit(role: "AXWindow") }
+        let token = fixture.tokens[1]
+        let column = try fixture.column(token)
+        column.width = .proportion(0.5)
+        column.cachedWidth = 0
+        fixture.relayout()
+        try fixture.select(token)
+        let point = try fixture.titleBar(token)
+        func width() -> CGFloat {
+            guard case let .proportion(width) = column.width else {
+                XCTFail("\(column.width)")
+                return .nan
+            }
+            return width
+        }
+
+        XCTAssertTrue(fixture.doubleClick(at: point, modifiers: .maskShift))
+        XCTAssertEqual(width(), 1.0 / 3.0, accuracy: 0.001)
+        XCTAssertTrue(fixture.doubleClick(at: point, modifiers: .maskShift, clickCount: 1))
+        XCTAssertEqual(width(), 2.0 / 3.0, accuracy: 0.001)
+        XCTAssertTrue(fixture.doubleClick(at: point, clickCount: 1))
+        XCTAssertEqual(width(), 1.0 / 3.0, accuracy: 0.001)
+    }
+
+    func testAShiftDoubleClickOnATabOrAnEdgeIsLeftToTheApp() throws {
+        let fixture = try makeFixture(pid: 941_141)
+        let token = fixture.tokens[1]
+        let column = try fixture.column(token)
+        let width = column.width
+        fixture.handler.titleBarHitProvider = { _, _ in TitleBarHit(
+            role: "AXRadioButton",
+            subrole: "AXTabButton",
+            placement: .insideBar(elementWithinBar: true)
+        ) }
+
+        XCTAssertFalse(fixture.doubleClick(at: try fixture.titleBar(token), modifiers: .maskShift))
+        XCTAssertEqual(column.width, width)
+        fixture.handler.titleBarHitProvider = { _, _ in TitleBarHit(role: "AXWindow") }
+        XCTAssertFalse(fixture.doubleClick(at: try fixture.rightEdge(token), modifiers: .maskShift))
+        XCTAssertFalse(fixture.doubleClick(at: try fixture.titleBar(token), modifiers: [.maskShift, .maskCommand]))
+        XCTAssertEqual(column.width, width)
+
+        fixture.handler.titleBarHitProvider = { _, _ in TitleBarHit(
+            role: "AXRadioButton",
+            subrole: "AXTabButton",
+            placement: .insideBar(elementWithinBar: true)
+        ) }
+        XCTAssertTrue(fixture.doubleClick(at: try fixture.titleBar(token)))
+        XCTAssertNotEqual(column.width, width)
+    }
+
     func testTheClickChainEndsAfterASecond() throws {
         let fixture = try makeFixture(pid: 941_121)
         let clock = ClickClock()
@@ -814,6 +872,8 @@ final class FusionDoubleClickTests: NiriInteractionTestCase {
         XCTAssertFalse(asks(chain, at: CGPoint(x: 104, y: 100), now: 10.5))
         XCTAssertFalse(asks(chain, at: CGPoint(x: 120, y: 100), now: 9.5))
         XCTAssertFalse(asks(chain, flags: .maskCommand, at: CGPoint(x: 100, y: 100), now: 9.5))
+        XCTAssertTrue(asks(chain, flags: .maskShift, at: CGPoint(x: 100, y: 100), now: 9.5))
+        XCTAssertFalse(asks(chain, flags: [.maskShift, .maskAlternate], at: CGPoint(x: 100, y: 100), now: 9.5))
         XCTAssertFalse(asks(nil, at: CGPoint(x: 100, y: 100), now: 9.5))
     }
 

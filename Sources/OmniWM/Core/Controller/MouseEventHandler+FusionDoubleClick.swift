@@ -8,6 +8,12 @@ extension MouseEventHandler {
     nonisolated static let fusionDoubleClickArmRadius: CGFloat = 8
     nonisolated static let fusionClickChainWindow: TimeInterval = 1
 
+    nonisolated static func fusionClickCyclesForwards(_ flags: CGEventFlags) -> Bool? {
+        let modifiers = flags.intersection(relevantModifierFlags)
+        if modifiers.isEmpty { return true }
+        return modifiers == .maskShift ? false : nil
+    }
+
     nonisolated static func asksAboutFusionDoubleClick(
         clickCount: Int64,
         flags: CGEventFlags,
@@ -15,7 +21,7 @@ extension MouseEventHandler {
         armedAt: CGPoint?,
         location: CGPoint
     ) -> Bool {
-        guard clickCount == 2, macOSFusion, flags.isDisjoint(with: relevantModifierFlags),
+        guard clickCount == 2, macOSFusion, fusionClickCyclesForwards(flags) != nil,
               let armedAt
         else { return false }
         return hypot(location.x - armedAt.x, location.y - armedAt.y) <= fusionDoubleClickArmRadius
@@ -27,7 +33,7 @@ extension MouseEventHandler {
         location: CGPoint,
         now: TimeInterval
     ) -> Bool {
-        guard let chain, now <= chain.deadline, flags.isDisjoint(with: relevantModifierFlags) else { return false }
+        guard let chain, now <= chain.deadline, fusionClickCyclesForwards(flags) != nil else { return false }
         return hypot(location.x - chain.location.x, location.y - chain.location.y) <= fusionDoubleClickArmRadius
     }
 
@@ -56,22 +62,23 @@ extension MouseEventHandler {
 
     func armFusionDoubleClick(at location: CGPoint, modifiers: CGEventFlags, clickCount: Int64) {
         let armed = clickCount == 1
-            && modifiers.isDisjoint(with: Self.relevantModifierFlags)
+            && Self.fusionClickCyclesForwards(modifiers) != nil
             && fusionDoubleClickCandidate(at: location) != nil
         let armedAt: CGPoint? = armed ? location : nil
         inputTapThread.updateFilterSnapshot { $0.fusionDoubleClickArmedAt = armedAt }
     }
 
     func handleFusionDoubleClick(at location: CGPoint, modifiers: CGEventFlags, chained: Bool = false) -> Bool {
-        guard modifiers.isDisjoint(with: Self.relevantModifierFlags),
+        guard let forwards = Self.fusionClickCyclesForwards(modifiers),
               !isInputSuppressed,
               !shouldBlockOwnWindowInput(at: location)
         else { return false }
         guard let target = fusionDoubleClickTarget(at: location),
-              !chained || target.zone == .titleBar && target.window.token == state.fusionClickChainToken
+              !chained || target.zone == .titleBar && target.window.token == state.fusionClickChainToken,
+              forwards || target.zone == .titleBar && target.isBareTitleBar
         else { return false }
         clearNativeTitleBarDrag()
-        performFusionDoubleClick(on: target)
+        performFusionDoubleClick(on: target, forwards: forwards)
         if target.zone == .titleBar {
             armFusionClickChain(at: location, token: target.window.token)
         } else {
@@ -94,6 +101,7 @@ extension MouseEventHandler {
         let column: NiriContainer
         let workspaceId: WorkspaceDescriptor.ID
         let zone: FusionDoubleClickZone
+        let isBareTitleBar: Bool
         let projectedWindowCount: Int
     }
 
@@ -136,9 +144,8 @@ extension MouseEventHandler {
               let handle = controller?.workspaceManager.handle(for: candidate.hit.window.token),
               let column = candidate.engine.column(of: candidate.hit.window)
         else { return nil }
-        if candidate.hit.zone == .titleBar,
-           !TitleBarHitTest.isTitleBar(titleBarHitProvider(candidate.entry.pid, location))
-        {
+        let titleBarHit = candidate.hit.zone == .titleBar ? titleBarHitProvider(candidate.entry.pid, location) : nil
+        if candidate.hit.zone == .titleBar, !TitleBarHitTest.isTitleBar(titleBarHit) {
             return nil
         }
         return FusionDoubleClickTarget(
@@ -147,12 +154,13 @@ extension MouseEventHandler {
             column: column,
             workspaceId: candidate.workspaceId,
             zone: candidate.hit.zone,
+            isBareTitleBar: TitleBarHitTest.isBareTitleBar(titleBarHit),
             projectedWindowCount: candidate.engine.projectedWindows(in: column, workspaceId: candidate.workspaceId)
                 .count
         )
     }
 
-    private func performFusionDoubleClick(on target: FusionDoubleClickTarget) {
+    private func performFusionDoubleClick(on target: FusionDoubleClickTarget, forwards: Bool) {
         guard let controller, let engine = controller.niriEngine else { return }
         forgetDoubleClickSizesOfGoneWindows(engine: engine, in: target.workspaceId)
         let layout = controller.niriLayoutHandler
@@ -161,7 +169,7 @@ extension MouseEventHandler {
             if undoNativeResize(on: .window(target.handle)) { return }
             layout.performWindowSizing(on: .window(target.handle)) { engine, window, context, viewport in
                 guard let column = engine.findColumn(containing: window, in: context.workspaceId) else { return nil }
-                engine.cycleColumnWidthAroundCentre(column, context: context, state: &viewport)
+                engine.cycleColumnWidthAroundCentre(column, forwards: forwards, context: context, state: &viewport)
                 return .containerPrimarySpanChanged
             }
         case .edge(.left):
