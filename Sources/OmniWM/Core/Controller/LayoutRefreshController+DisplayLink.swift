@@ -56,6 +56,7 @@ extension LayoutRefreshController {
         detectRefreshRates()
         controller?.syncMonitorsToNiriEngine()
         controller?.surfaceReconciler.noteWorldChanged()
+        screenParametersHandledForTests?()
     }
 
     func cleanupForMonitorDisconnect(displayId: CGDirectDisplayID, migrateAnimations: Bool) {

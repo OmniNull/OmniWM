@@ -123,13 +123,14 @@ final class ShellDevicesTests: XCTestCase {
     func testWiFiIsReadOffTheMainThreadOnlyWhileAWidgetReadsIt() async throws {
         guard CWWiFiClient.shared().interface() != nil else { throw XCTSkip("this Mac has no Wi-Fi") }
         let devices = ShellDevices()
-        let feed = ShellDataFeed(devices: devices, deliver: { _ in })
+        let (changes, changed) = boundedChanges()
+        let feed = ShellDataFeed(devices: devices, deliver: { _ in changed.yield() })
         defer { feed.stop() }
         feed.start()
         let reading = read([.wifi])
         feed.setDemand(reading.deps, cadence: reading.cadence)
         XCTAssertTrue(devices.wifi.isListening)
-        await until { feed.current.wifi != nil }
+        await changes.wait { feed.current.wifi != nil }
         XCTAssertEqual(feed.current.wifi, devices.wifi.value)
         XCTAssertEqual(feed.current.wifi?.location, ShellWiFi.location(CLLocationManager().authorizationStatus))
         let other = read([.clock])
@@ -183,7 +184,8 @@ final class ShellDevicesTests: XCTestCase {
 
     func testTheUserAndTheirPictureAreReadOnlyWhileAWidgetReadsThem() async throws {
         let devices = ShellDevices()
-        let feed = ShellDataFeed(devices: devices, deliver: { _ in })
+        let (changes, changed) = boundedChanges()
+        let feed = ShellDataFeed(devices: devices, deliver: { _ in changed.yield() })
         defer { feed.stop() }
         feed.start()
         XCTAssertNil(feed.current.user)
@@ -192,7 +194,7 @@ final class ShellDevicesTests: XCTestCase {
         XCTAssertEqual(feed.current.user?.name, NSFullUserName())
         XCTAssertEqual(feed.current.user?.account, NSUserName())
         if UserMonitor.picture(of: NSUserName()) != nil {
-            await until { feed.current.user?.avatar == true }
+            await changes.wait { feed.current.user?.avatar == true }
             XCTAssertNotNil(devices.user.bitmap(ShellUser.avatarId))
             let wider = read([.user, .clock])
             feed.setDemand(wider.deps, cadence: wider.cadence)
@@ -226,12 +228,13 @@ final class ShellDevicesTests: XCTestCase {
         XCTAssertEqual(ShellSMC.name(ShellSMC.code("Tp0D")), "Tp0D")
 
         let devices = ShellDevices()
-        let feed = ShellDataFeed(devices: devices, deliver: { _ in })
+        let (changes, changed) = boundedChanges()
+        let feed = ShellDataFeed(devices: devices, deliver: { _ in changed.yield() })
         defer { feed.stop() }
         feed.start()
         let reading = read([.thermal])
         feed.setDemand(reading.deps, cadence: reading.cadence)
-        await until { feed.current.thermal != nil }
+        await changes.wait { feed.current.thermal != nil }
         if ShellSMC() != nil {
             XCTAssertNotNil(feed.current.thermal?.cpu)
         }

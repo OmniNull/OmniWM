@@ -33,7 +33,7 @@ final class ShellBarShaderTests: XCTestCase {
             view.update(program: program, input: input, paused: false)
             let scene = try XCTUnwrap(view.scene)
             scene.submit([.visibility(true)], animated: false)
-            await until {
+            await waitForFrames(in: scene) {
                 ShellLayerScene.engineQueue.sync { scene.layers[0]?.contents is IOSurface }
             }
             let rendered = try XCTUnwrap(ShellLayerScene.engineQueue.sync { scene.layers[0]?.contents as? IOSurface })
@@ -121,7 +121,7 @@ final class ShellBarShaderTests: XCTestCase {
         host.stop()
     }
 
-    func testConstructedProgramBackgroundStaysAttachedAcrossFullWidthChanges() async throws {
+    func testConstructedProgramBackgroundStaysAttachedAcrossFullWidthChanges() throws {
         let source = "sakura-petals.metal"
         let model = WorkspaceBarModel(snapshot: WorkspaceBarSnapshot(
             projection: WorkspaceBarProjection(items: [], scratchpads: []),
@@ -148,19 +148,19 @@ final class ShellBarShaderTests: XCTestCase {
 
         model.zones = WorkspaceBarZones(notch: nil, mode: .splitAroundNotch)
         view.layoutSubtreeIfNeeded()
-        await until { background.frame.size == CGSize(width: 1000, height: 40) }
+        XCTAssertEqual(background.frame.size, CGSize(width: 1000, height: 40))
         XCTAssertTrue(background.window === window, source)
         XCTAssertTrue(background.isDescendant(of: view), source)
 
         model.zones = nil
         view.layoutSubtreeIfNeeded()
-        await until { background.frame.width < 1000 }
+        XCTAssertLessThan(background.frame.width, 1000)
         XCTAssertTrue(background.window === window, source)
         XCTAssertTrue(background.isDescendant(of: view), source)
         background.stop()
     }
 
-    func testBackgroundReplacementUpdatesTheHostedView() async {
+    func testBackgroundReplacementUpdatesTheHostedView() {
         let model = WorkspaceBarModel(snapshot: WorkspaceBarSnapshot(
             projection: WorkspaceBarProjection(items: [], scratchpads: []),
             backgroundOpacity: 1, barHeight: 40,
@@ -180,7 +180,8 @@ final class ShellBarShaderTests: XCTestCase {
             model: model, slice: .active, motionPolicy: motion, shaderBackground: { second }
         ).frame(width: 1000, height: 40)
         view.layoutSubtreeIfNeeded()
-        await until { second.isDescendant(of: view) && !first.isDescendant(of: view) }
+        XCTAssertTrue(second.isDescendant(of: view))
+        XCTAssertFalse(first.isDescendant(of: view))
         XCTAssertEqual(second.frame.size, CGSize(width: 1000, height: 40))
     }
 }

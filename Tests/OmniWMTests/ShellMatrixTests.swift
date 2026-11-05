@@ -90,7 +90,9 @@ final class ShellMatrixTests: XCTestCase {
             rendered.layoutPopout()
             XCTAssertGreaterThan(rendered.surface.size.width, 0, name)
             XCTAssertGreaterThan(rendered.surface.size.height, 0, name)
-            await until { rendered.surface.shaders.values.allSatisfy { !$0.program.isCompiling } }
+            await waitForShaders(in: rendered.resources.shaders) {
+                rendered.surface.shaders.values.allSatisfy { !$0.program.isCompiling }
+            }
             XCTAssertNil(rendered.surface.failedShader, name)
             if ["media", "control-center"].contains(name) {
                 try await capture(rendered, name: name)
@@ -235,7 +237,7 @@ final class ShellMatrixTests: XCTestCase {
         let program = resources.shaders.program(
             source: shader.source, directories: config.directories.map { $0.appendingPathComponent("shaders") }
         )
-        await until { !program.isCompiling }
+        await waitForShaders(in: resources.shaders) { !program.isCompiling }
         let pipeline = try XCTUnwrap(program.pipeline, program.failure ?? "")
         let render = { (time: Double, values: SIMD4<Float>, fps: Int) in
             let uniforms = ShellShaderInput(values: values, rate: fps, colors: resources.palette.shaderColors).uniforms(
@@ -355,7 +357,7 @@ final class ShellMatrixTests: XCTestCase {
 
     private func capture(_ rendered: ShellRenderedWidget, name: String) async throws {
         guard let path = ProcessInfo.processInfo.environment["OMNIWM_SHELL_SNAPSHOTS"] else { return }
-        await until {
+        await waitForFrames(in: rendered.surface.scene) {
             ShellLayerScene.engineQueue.sync {
                 rendered.layers().contains { $0.contents is IOSurface }
             }

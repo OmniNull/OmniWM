@@ -89,8 +89,10 @@ final class ShellFrameTraceTests: XCTestCase {
         }
         let key = ShellBarKey(monitor: Monitor.ID(displayId: 42))
         var delivered: ShellWidgetDelivery.Tree?
+        let (changes, changed) = boundedChanges()
         let outbox = ShellWidgetOutbox { batch in
             delivered = batch["trace-test"]?.trees[ShellTreeKey(bar: key, view: .bar)]
+            changed.yield()
         }
         let package = ShellWidgetPackage(name: "trace-test", generation: 1, outbox: outbox)
         let failure = await package.load(source: """
@@ -101,7 +103,7 @@ final class ShellFrameTraceTests: XCTestCase {
         """)
         XCTAssertNil(failure)
         await package.receive(.bars([key: ShellBarData()]))
-        await until { delivered != nil }
+        await changes.wait { delivered != nil }
         let first = try XCTUnwrap(delivered)
         let node = first.nodes.withUnsafeBytes {
             $0.loadUnaligned(fromByteOffset: MemoryLayout<omni_wire_header>.stride, as: omni_wire_node.self)
@@ -114,7 +116,7 @@ final class ShellFrameTraceTests: XCTestCase {
             sequence: first.sequence,
             event: ShellEvent(trace: input)
         ))
-        await until { delivered?.sequence == first.sequence + 1 }
+        await changes.wait { delivered?.sequence == first.sequence + 1 }
         XCTAssertEqual(delivered?.trace?.parent, input.id)
         let output = ShellFrameTrace.shared.dump()
         let renders = output.split(separator: "\n").filter { $0.hasPrefix("event=render ") }

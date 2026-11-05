@@ -66,6 +66,7 @@ import QuartzCore
     var displayTickMetrics = DisplayTickMetrics()
     var performanceCounters: PerformanceCounters?
     var displayLinkActivationForTests: ((CGDirectDisplayID) -> Bool)?
+    var screenParametersHandledForTests: (() -> Void)?
     var displayLinkCreationAllowedForTests: ((CGDirectDisplayID) -> Bool)?
     var activeDisplayLinkCountForTests: (() -> Int)?
     var fullRescanEnumerationSnapshotForTests: AXManager.FullRescanEnumerationSnapshot?

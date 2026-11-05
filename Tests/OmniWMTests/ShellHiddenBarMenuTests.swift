@@ -107,6 +107,7 @@ final class ShellHiddenBarMenuTests: XCTestCase {
         let icon = CGRect(x: parent.panel.frame.minX + 12, y: parent.panel.frame.minY + 5, width: 20, height: 20)
         var selected: [String] = []
         var failures = 0
+        let (changes, changed) = boundedChanges()
         let menu = ShellHiddenBarMenu(
             page: HiddenBarMenuPage(title: nil, rows: [row("first")], backID: nil),
             anchor: ShellAnchor(frame: icon, level: parent.panel.level, container: parent.panel.frame),
@@ -117,10 +118,14 @@ final class ShellHiddenBarMenuTests: XCTestCase {
             source: try source(),
             directories: [],
             onSelect: { selected.append($0) },
-            onFailure: { failures += 1 }
+            onFailure: {
+                failures += 1
+                changed.yield()
+            }
         )
         defer { menu.close() }
-        await until { menu.popout.panel.isVisible || failures > 0 }
+        menu.popout.surface.onMove = { changed.yield() }
+        await changes.wait { menu.popout.panel.isVisible || failures > 0 }
         XCTAssertEqual(failures, 0)
         guard menu.popout.panel.isVisible else { return XCTFail("The child menu did not become visible") }
         XCTAssertTrue(OwnedWindowRegistry.shared.contains(window: parent.panel))
@@ -136,7 +141,7 @@ final class ShellHiddenBarMenuTests: XCTestCase {
         menu.popout.surface.press(at: CGPoint(x: 40, y: 18))
         menu.popout.surface.release(at: CGPoint(x: 40, y: 18))
         XCTAssertEqual(selected, ["first"])
-        await until { menu.popout.surface.size.height >= 90 || failures > 0 }
+        await changes.wait { menu.popout.surface.size.height >= 90 || failures > 0 }
         XCTAssertEqual(failures, 0)
         guard menu.popout.surface.size.height >= 90 else { return XCTFail("The next menu page did not render") }
         menu.popout.surface.press(at: CGPoint(x: 40, y: 18))
@@ -157,6 +162,7 @@ final class ShellHiddenBarMenuTests: XCTestCase {
         let parent = makeParent(screen: screen, resources: resources)
         defer { parent.close(animated: false) }
         var failures = 0
+        let (changes, changed) = boundedChanges()
         let menu = ShellHiddenBarMenu(
             page: HiddenBarMenuPage(title: nil, rows: [], backID: nil),
             anchor: ShellAnchor(frame: screen.visibleFrame, level: .popUpMenu),
@@ -167,10 +173,13 @@ final class ShellHiddenBarMenuTests: XCTestCase {
             source: ShellWidgetSource(chunk: "=invalid", main: "not valid Luau", modules: []),
             directories: [],
             onSelect: { _ in XCTFail("failed script selected an action") },
-            onFailure: { failures += 1 }
+            onFailure: {
+                failures += 1
+                changed.yield()
+            }
         )
         defer { menu.close() }
-        await until { failures > 0 }
+        await changes.wait { failures > 0 }
         XCTAssertEqual(failures, 1)
         XCTAssertFalse(menu.popout.panel.isVisible)
         menu.update(page: HiddenBarMenuPage(title: nil, rows: [row("closed")], backID: nil))

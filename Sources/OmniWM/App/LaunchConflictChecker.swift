@@ -170,7 +170,7 @@ final class LaunchConflictAutoRecheck {
     private let interval: TimeInterval
     private let scan: @MainActor () -> LaunchConflictCheckResult
     private let onClear: @MainActor () -> Void
-    private var timer: Timer?
+    private(set) var timer: Timer?
 
     init(
         interval: TimeInterval = 1,

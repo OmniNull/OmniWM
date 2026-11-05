@@ -14,6 +14,7 @@ final class LyricsControllerTests: XCTestCase {
             waiting: [CheckedContinuation<Void, Never>],
             finished: Bool
         )>(([], [], false))
+        let (changes, changed) = boundedChanges()
         let held: Bool
         let result: @Sendable (ShellLyricsTrack) throws -> ShellLyrics
 
@@ -40,6 +41,7 @@ final class LyricsControllerTests: XCTestCase {
                         return false
                     }
                     if finished { continuation.resume() }
+                    changed.yield()
                 }
             }
             return try result(track)
@@ -136,14 +138,17 @@ final class LyricsControllerTests: XCTestCase {
 
         controller.show(Self.song)
         XCTAssertEqual(controller.lyrics, .loading)
-        await until { loaded.count == 1 }
+        await controller.task?.value
+        XCTAssertEqual(loaded.count, 1)
         XCTAssertEqual(controller.lyrics, Self.synced)
         controller.show(Self.other)
-        await until { loaded.count == 2 }
+        await controller.task?.value
+        XCTAssertEqual(loaded.count, 2)
         XCTAssertEqual(controller.lyrics, .missing)
         let offline = ShellLyricsTrack(title: "Offline", artist: "Artist")
         controller.show(offline)
-        await until { loaded.count == 3 }
+        await controller.task?.value
+        XCTAssertEqual(loaded.count, 3)
         XCTAssertEqual(controller.lyrics, .missing)
 
         controller.show(Self.song)
@@ -151,7 +156,8 @@ final class LyricsControllerTests: XCTestCase {
         controller.show(Self.other)
         XCTAssertEqual(controller.lyrics, .missing)
         controller.show(offline)
-        await until { loaded.count == 4 }
+        await controller.task?.value
+        XCTAssertEqual(loaded.count, 4)
         XCTAssertEqual(loads.tracks.map(\.title), ["Song", "Other", "Offline", "Offline"])
 
         controller.show(nil)
@@ -170,13 +176,13 @@ final class LyricsControllerTests: XCTestCase {
 
         controller.show(Self.song)
         let earlier = try XCTUnwrap(controller.task)
-        await until { loads.waiting == 1 }
+        await loads.changes.wait { loads.waiting == 1 }
         _ = try XCTUnwrap(loads.waiting == 1 ? loads : nil, "Expected the first held request")
         controller.show(Self.other)
         let current = try XCTUnwrap(controller.task)
         XCTAssertTrue(earlier.isCancelled)
         XCTAssertFalse(current.isCancelled)
-        await until { loads.waiting == 2 }
+        await loads.changes.wait { loads.waiting == 2 }
         _ = try XCTUnwrap(loads.waiting == 2 ? loads : nil, "Expected both held requests")
         loads.releaseAll()
         await earlier.value
@@ -187,7 +193,7 @@ final class LyricsControllerTests: XCTestCase {
         controller.show(Self.song)
         let cleared = try XCTUnwrap(controller.task)
         XCTAssertEqual(controller.lyrics, .loading)
-        await until { loads.waiting == 1 }
+        await loads.changes.wait { loads.waiting == 1 }
         _ = try XCTUnwrap(loads.waiting == 1 ? loads : nil, "Expected the request cleared below")
         controller.show(nil)
         XCTAssertTrue(cleared.isCancelled)
@@ -209,17 +215,22 @@ final class LyricsControllerTests: XCTestCase {
             while (<STDIN>) {}
             """#]
         ))
-        let feed = ShellDataFeed(media: media, lyrics: LyricsController(load: loads.load), deliver: { _ in })
+        let (changes, changed) = boundedChanges()
+        let feed = ShellDataFeed(
+            media: media,
+            lyrics: LyricsController(load: loads.load),
+            deliver: { _ in changed.yield() }
+        )
         defer { feed.stop() }
         feed.start()
 
         feed.setDemand(ShellDataKey.media.bit, cadence: .of([(ShellDataKey.media.bit, nil)]))
-        await until { feed.current.media?.title == "Song" }
+        await changes.wait { feed.current.media?.title == "Song" }
         XCTAssertNil(feed.current.lyrics)
         XCTAssertEqual(loads.tracks, [])
 
         feed.setDemand(ShellDataKey.lyrics.bit, cadence: .of([(ShellDataKey.lyrics.bit, nil)]))
-        await until { feed.current.lyrics == Self.synced }
+        await changes.wait { feed.current.lyrics == Self.synced }
         XCTAssertEqual(loads.tracks, [Self.song])
 
         feed.setDemand(ShellDataKey.clock.bit, cadence: .of([(ShellDataKey.clock.bit, nil)]))

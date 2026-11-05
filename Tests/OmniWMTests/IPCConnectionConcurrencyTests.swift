@@ -18,6 +18,7 @@ final class IPCConnectionConcurrencyTests: XCTestCase {
     }
 
     final class CloseSignal: @unchecked Sendable {
+        let closed = XCTestExpectation(description: "Connection closed")
         private let lock = NSLock()
         private var closedCount = 0
 
@@ -25,6 +26,7 @@ final class IPCConnectionConcurrencyTests: XCTestCase {
             lock.lock()
             closedCount += 1
             lock.unlock()
+            closed.fulfill()
         }
 
         var didClose: Bool {
@@ -159,12 +161,7 @@ final class IPCConnectionConcurrencyTests: XCTestCase {
     }
 
     private func waitForClose(_ signal: CloseSignal, timeout: Double) async -> Bool {
-        let deadline = Date().addingTimeInterval(timeout)
-        while Date() < deadline {
-            if signal.didClose { return true }
-            try? await Task.sleep(for: .milliseconds(25))
-        }
-        return signal.didClose
+        await XCTWaiter.fulfillment(of: [signal.closed], timeout: timeout) == .completed
     }
 
     private func makePeer(

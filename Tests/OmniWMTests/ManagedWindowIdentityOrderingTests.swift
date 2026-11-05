@@ -9,10 +9,12 @@ import XCTest
 
 @MainActor
 private final class IdentityOrderingGate {
+    let reached = XCTestExpectation(description: "Identity rebind reached its gate")
     private var released = false
     private var continuations: [CheckedContinuation<Void, Never>] = []
 
     func wait() async {
+        reached.fulfill()
         guard !released else { return }
         await withCheckedContinuation { continuations.append($0) }
     }
@@ -28,10 +30,6 @@ private final class IdentityOrderingGate {
 
 @MainActor
 final class ManagedWindowIdentityOrderingTests: XCTestCase {
-    private enum WaitError: Error {
-        case timedOut
-    }
-
     @MainActor
     private struct Fixture {
         let controller: WMController
@@ -83,7 +81,6 @@ final class ManagedWindowIdentityOrderingTests: XCTestCase {
         }
         var calls: [WindowToken] = []
         var sources: [WindowToken] = []
-        var bFinalizing = false
         fixture.handler.managedWindowIdentityRebindAcknowledgementProvider = { source, target in
             sources.append(source.token)
             calls.append(target.token)
@@ -92,14 +89,14 @@ final class ManagedWindowIdentityOrderingTests: XCTestCase {
         }
         fixture.handler.managedWindowIdentityRebindFinalizationProvider = { _, target in
             if target.token == fixture.predecessor {
-                bFinalizing = true
                 await bFinalization.wait()
             }
             return true
         }
 
         try enqueue(fixture.predecessor, from: fixture.original, fixture: fixture)
-        try await waitFor { calls == [fixture.predecessor] }
+        await fulfillment(of: [bAcknowledgement.reached], timeout: 2)
+        XCTAssertEqual(calls, [fixture.predecessor])
         try enqueue(fixture.successor, from: fixture.original, fixture: fixture)
         let attempt = fixture.handler.admissionRetryStateByWindowId[UInt32(fixture.successor.windowId)]?.attempt
         for _ in 0 ..< 3 {
@@ -119,14 +116,14 @@ final class ManagedWindowIdentityOrderingTests: XCTestCase {
         assertCanonical(fixture, token: fixture.original)
 
         bAcknowledgement.release()
-        try await waitFor { bFinalizing }
+        await fulfillment(of: [bFinalization.reached], timeout: 2)
         await rescan(fixture, selected: fixture.successor, visible: [fixture.predecessor, fixture.successor])
         XCTAssertEqual(calls, [fixture.predecessor])
         assertPreservedSource(fixture, target: fixture.successor, expected: fixture.predecessor)
         assertCanonical(fixture, token: fixture.predecessor)
 
         bFinalization.release()
-        try await waitFor { calls.count == 2 }
+        await fulfillment(of: [cAcknowledgement.reached], timeout: 2)
         XCTAssertEqual(calls, [fixture.predecessor, fixture.successor])
         XCTAssertEqual(sources, [fixture.original, fixture.predecessor])
         await rescan(fixture, selected: fixture.successor, visible: [fixture.predecessor, fixture.successor])
@@ -160,10 +157,15 @@ final class ManagedWindowIdentityOrderingTests: XCTestCase {
             return true
         }
         try enqueue(fixture.predecessor, from: fixture.original, fixture: fixture)
-        try await waitFor { bAttempts == 1 }
+        await fulfillment(of: [firstAttempt.reached], timeout: 2)
+        XCTAssertEqual(bAttempts, 1)
         try enqueue(fixture.successor, from: fixture.original, fixture: fixture)
+        let failedAttempt = try rebindTask(fixture.predecessor, fixture: fixture)
         firstAttempt.release()
-        try await waitFor { bAttempts == 2 }
+        await failedAttempt.value
+        XCTAssertNotEqual(try rebindTask(fixture.predecessor, fixture: fixture), failedAttempt)
+        XCTAssertTrue(fixture.handler.dispatchAdmissionRetry(windowId: UInt32(fixture.predecessor.windowId)))
+        await fulfillment(of: [secondAttempt.reached], timeout: 2)
         XCTAssertEqual(calls, [fixture.predecessor, fixture.predecessor])
         assertCanonical(fixture, token: fixture.original)
         secondAttempt.release()
@@ -205,7 +207,8 @@ final class ManagedWindowIdentityOrderingTests: XCTestCase {
         XCTAssertLessThan(predecessorOrder, successorOrder)
         XCTAssertTrue(fixture.handler.retryAdmissionAfterFrameChange(windowId: UInt32(fixture.successor.windowId)))
         XCTAssertTrue(fixture.handler.retryAdmissionAfterFrameChange(windowId: UInt32(fixture.predecessor.windowId)))
-        try await waitFor { calls == [fixture.predecessor] }
+        await fulfillment(of: [acknowledgement.reached], timeout: 2)
+        XCTAssertEqual(calls, [fixture.predecessor])
         assertCanonical(fixture, token: fixture.original)
         acknowledgement.release()
         try await waitUntilSettled(fixture.successor, fixture: fixture)
@@ -230,14 +233,17 @@ final class ManagedWindowIdentityOrderingTests: XCTestCase {
             return true
         }
         try enqueue(fixture.predecessor, from: fixture.original, fixture: fixture)
-        try await waitFor { calls == [fixture.predecessor] }
+        await fulfillment(of: [acknowledgement.reached], timeout: 2)
+        XCTAssertEqual(calls, [fixture.predecessor])
         try enqueue(fixture.successor, from: fixture.original, fixture: fixture)
+        let cancelledRebind = try rebindTask(fixture.predecessor, fixture: fixture)
         fixture.handler.cancelCreatedWindowRetry(windowId: UInt32(fixture.predecessor.windowId))
         XCTAssertTrue(fixture.handler.retryAdmissionAfterFrameChange(windowId: UInt32(fixture.successor.windowId)))
         await rescan(fixture, selected: fixture.successor, visible: [fixture.original, fixture.successor])
         XCTAssertEqual(calls, [fixture.predecessor])
         assertCanonical(fixture, token: fixture.original)
         acknowledgement.release()
+        await cancelledRebind.value
         try await waitUntilSettled(fixture.successor, fixture: fixture)
         XCTAssertEqual(calls, [fixture.predecessor, fixture.successor])
         XCTAssertEqual(sources, [fixture.original, fixture.original])
@@ -258,7 +264,8 @@ final class ManagedWindowIdentityOrderingTests: XCTestCase {
             return true
         }
         try enqueue(fixture.predecessor, from: fixture.original, fixture: fixture)
-        try await waitFor { calls == [fixture.predecessor] }
+        await fulfillment(of: [acknowledgement.reached], timeout: 2)
+        XCTAssertEqual(calls, [fixture.predecessor])
         try enqueue(fixture.successor, from: fixture.original, fixture: fixture)
         fixture.handler.handleRemoved(
             pid: fixture.successor.pid,
@@ -298,7 +305,8 @@ final class ManagedWindowIdentityOrderingTests: XCTestCase {
             return true
         }
         try enqueue(fixture.predecessor, from: fixture.original, fixture: fixture)
-        try await waitFor { calls == [fixture.predecessor] }
+        await fulfillment(of: [acknowledgement.reached], timeout: 2)
+        XCTAssertEqual(calls, [fixture.predecessor])
         try enqueue(fixture.successor, from: fixture.original, fixture: fixture)
         try enqueue(fixture.successor, from: fixture.original, axRef: replacementRef, fixture: fixture)
         fixture.handler.handleRemoved(
@@ -350,9 +358,10 @@ final class ManagedWindowIdentityOrderingTests: XCTestCase {
             return true
         }
         try enqueue(fixture.predecessor, from: fixture.original, fixture: fixture)
-        try await waitFor { calls == [fixture.predecessor] }
+        await fulfillment(of: [firstAcknowledgement.reached], timeout: 2)
+        XCTAssertEqual(calls, [fixture.predecessor])
         try enqueue(replacement, from: sibling, axRef: replacementRef, fixture: fixture)
-        try await waitFor { calls.count == 2 }
+        await fulfillment(of: [secondAcknowledgement.reached], timeout: 2)
         XCTAssertEqual(calls, [fixture.predecessor, replacement])
         secondAcknowledgement.release()
         try await waitUntilSettled(replacement, fixture: fixture)
@@ -375,7 +384,6 @@ final class ManagedWindowIdentityOrderingTests: XCTestCase {
             acknowledgement.release()
             fixture.stop()
         }
-        var predecessorStarted = false
         var focusReads: [pid_t] = []
         let successorRef = try XCTUnwrap(fixture.refs[fixture.successor])
         fixture.controller.factResolver.factProvider = { pid in
@@ -386,13 +394,12 @@ final class ManagedWindowIdentityOrderingTests: XCTestCase {
         fixture.controller.eventIntake.open(sink: fixture.controller.eventInterpreter)
         fixture.handler.managedWindowIdentityRebindAcknowledgementProvider = { _, target in
             if target.token == fixture.predecessor {
-                predecessorStarted = true
                 await acknowledgement.wait()
             }
             return true
         }
         try enqueue(fixture.predecessor, from: fixture.original, fixture: fixture)
-        try await waitFor { predecessorStarted }
+        await fulfillment(of: [acknowledgement.reached], timeout: 2)
         try enqueue(fixture.successor, from: fixture.original, fixture: fixture)
         XCTAssertTrue(fixture.handler.retainFocusedAdmissionContinuation(
             .init(
@@ -515,23 +522,26 @@ final class ManagedWindowIdentityOrderingTests: XCTestCase {
         }
     }
 
-    private func waitFor(_ condition: () -> Bool) async throws {
-        let clock = ContinuousClock()
-        let deadline = clock.now.advanced(by: .seconds(2))
-        while !condition(), clock.now < deadline {
-            try await clock.sleep(for: .milliseconds(5))
-        }
-        if !condition() {
-            XCTFail("Identity rebind did not reach the expected phase")
-            throw WaitError.timedOut
-        }
+    private func rebindTask(_ token: WindowToken, fixture: Fixture) throws -> Task<Void, Never> {
+        try XCTUnwrap(fixture.handler.admissionRetryStateByWindowId[UInt32(token.windowId)]?.task)
     }
 
     private func waitUntilSettled(_ token: WindowToken, fixture: Fixture) async throws {
-        try await waitFor {
-            fixture.manager.entry(for: token) != nil
-                && !fixture.handler.activeAdmissionRetryWindowIds.contains(token.windowId)
+        let handler = fixture.handler
+        let windowId = UInt32(token.windowId)
+        if let source = handler.admissionRetryStateByWindowId[windowId]?.identityRebindSource?.handle,
+           let running = handler.admissionRetryStateByWindowId.values.first(where: {
+               $0.identityRebindSource?.handle === source && $0.task != nil
+           })?.task
+        {
+            await running.value
         }
+        if let target = handler.admissionRetryStateByWindowId[windowId]?.task {
+            await target.value
+        }
+        fixture.controller.eventIntake.drainNow()
+        _ = try XCTUnwrap(fixture.manager.entry(for: token))
+        XCTAssertFalse(handler.activeAdmissionRetryWindowIds.contains(token.windowId))
         await WindowAdmissionTestSupport.drainLayoutRefreshes(fixture.controller)
     }
 

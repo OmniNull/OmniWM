@@ -949,11 +949,7 @@ final class NativeTitleBarDragTests: NiriInteractionTestCase {
     }
 
     private func blockRefreshes(_ fixture: Fixture) -> Task<Void, Never> {
-        let blocker = Task { @MainActor in
-            while !Task.isCancelled {
-                try? await Task.sleep(for: .seconds(1))
-            }
-        }
+        let blocker = WindowAdmissionTestSupport.parkedTask()
         fixture.controller.layoutRefreshController.layoutState.activeRefreshTask = blocker
         fixture.controller.layoutRefreshController.layoutState.activeRefresh = .init(
             kind: .immediateRelayout,

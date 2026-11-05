@@ -1292,10 +1292,8 @@ final class SettingsMigrationTests: XCTestCase {
             with: "schemaVersion = 6"
         ).utf8)
 
-        try future.write(to: settingsURL(in: fixture), options: .atomic)
-        for _ in 0 ..< 200 {
-            if settings.settingsWritesBlocked { break }
-            try await Task.sleep(for: .milliseconds(10))
+        try await expectProcessedEdit(on: persistence, until: { settings.settingsWritesBlocked }) {
+            try future.write(to: settingsURL(in: fixture), options: .atomic)
         }
 
         XCTAssertTrue(settings.settingsWritesBlocked)
@@ -1303,16 +1301,16 @@ final class SettingsMigrationTests: XCTestCase {
         XCTAssertEqual(appliedReloads, 0)
 
         let malformed = Data("[general\nmalformed".utf8)
-        try malformed.write(to: settingsURL(in: fixture), options: .atomic)
-        for _ in 0 ..< 200 {
-            if !settings.settingsWritesBlocked,
-               let notice = settings.configNotice,
-               case .invalidRejected = notice
-            {
-                break
-            }
-            try await Task.sleep(for: .milliseconds(10))
-        }
+        try await expectProcessedEdit(
+            on: persistence,
+            until: {
+                guard !settings.settingsWritesBlocked, case .invalidRejected = settings.configNotice else {
+                    return false
+                }
+                return true
+            },
+            after: { try malformed.write(to: settingsURL(in: fixture), options: .atomic) }
+        )
 
         XCTAssertFalse(settings.settingsWritesBlocked)
         guard let notice = settings.configNotice, case .invalidRejected = notice else {
@@ -1540,6 +1538,22 @@ final class SettingsMigrationTests: XCTestCase {
     @MainActor
     private func makePersistence(in fixture: Fixture) -> SettingsFilePersistence {
         SettingsFilePersistence(directory: fixture.configDirectory, startWatching: false, deferSaves: false)
+    }
+
+    @MainActor
+    private func expectProcessedEdit(
+        on persistence: SettingsFilePersistence,
+        until ready: @escaping @MainActor () -> Bool,
+        after edit: () throws -> Void
+    ) async throws {
+        let processed = expectation(description: "Process the native event for the external edit")
+        processed.assertForOverFulfill = false
+        persistence.observation.onEventProcessed = { _ in
+            if ready() { processed.fulfill() }
+        }
+        defer { persistence.observation.onEventProcessed = nil }
+        try edit()
+        await fulfillment(of: [processed], timeout: 3)
     }
 
     private func settingsURL(in fixture: Fixture) -> URL {

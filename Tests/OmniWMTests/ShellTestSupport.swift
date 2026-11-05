@@ -7,27 +7,118 @@ import OmniWMScriptHost
 import QuartzCore
 import XCTest
 
+let changeFailureBound = DispatchTimeInterval.seconds(30)
+
+func boundedChanges() -> (changes: AsyncStream<Void>, changed: AsyncStream<Void>.Continuation) {
+    let (changes, changed) = AsyncStream.makeStream(of: Void.self)
+    DispatchQueue.main.asyncAfter(deadline: .now() + changeFailureBound) { changed.finish() }
+    return (changes, changed)
+}
+
+extension AsyncStream<Void> {
+    @MainActor
+    func wait(
+        _ description: @autoclosure () -> String = "",
+        file: StaticString = #filePath,
+        line: UInt = #line,
+        arming arm: () -> Void = {},
+        until condition: () -> Bool
+    ) async {
+        var iterator = makeAsyncIterator()
+        while !condition() {
+            arm()
+            guard await iterator.next() != nil else {
+                let detail = description()
+                XCTFail(
+                    "The condition did not hold when the changes ended\(detail.isEmpty ? "" : ": \(detail)")",
+                    file: file,
+                    line: line
+                )
+                return
+            }
+        }
+    }
+}
+
 @MainActor
-func until(
-    _ description: @autoclosure () -> String = "",
-    timeout: Duration = .seconds(20),
+func waitForApply(
+    to surfaces: [ShellWidgetSurface],
     file: StaticString = #filePath,
     line: UInt = #line,
-    _ condition: () -> Bool
+    until condition: () -> Bool
 ) async {
-    let deadline = ContinuousClock.now + timeout
-    while !condition() {
-        guard ContinuousClock.now < deadline else {
-            let detail = description()
-            XCTFail(
-                "The condition did not hold within \(timeout)\(detail.isEmpty ? "" : ": \(detail)")",
-                file: file,
-                line: line
-            )
-            return
+    let (changes, changed) = boundedChanges()
+    let installed = surfaces.map(\.onMove)
+    for (surface, onMove) in zip(surfaces, installed) {
+        surface.onMove = {
+            onMove?()
+            changed.yield()
         }
-        await Task.yield()
     }
+    defer {
+        for (surface, onMove) in zip(surfaces, installed) {
+            surface.onMove = onMove
+        }
+    }
+    await changes.wait(file: file, line: line, until: condition)
+}
+
+@MainActor
+func waitForWidgetReport(
+    of host: ShellWidgetHost,
+    _ description: @autoclosure () -> String = "",
+    file: StaticString = #filePath,
+    line: UInt = #line,
+    until condition: () -> Bool
+) async {
+    let (changes, changed) = boundedChanges()
+    let published = host.onWidgetsChange
+    host.onWidgetsChange = {
+        published?()
+        changed.yield()
+    }
+    defer { host.onWidgetsChange = published }
+    await changes.wait(description(), file: file, line: line, until: condition)
+}
+
+@MainActor
+func waitForShaders(
+    in library: ShellShaderLibrary,
+    file: StaticString = #filePath,
+    line: UInt = #line,
+    until condition: () -> Bool
+) async {
+    let (changes, changed) = boundedChanges()
+    let onChange = library.onChange
+    let onAssetChange = library.onAssetChange
+    library.onChange = {
+        onChange?()
+        changed.yield()
+    }
+    library.onAssetChange = { url in
+        onAssetChange?(url)
+        changed.yield()
+    }
+    defer {
+        library.onChange = onChange
+        library.onAssetChange = onAssetChange
+    }
+    await changes.wait(file: file, line: line, until: condition)
+}
+
+@MainActor
+func waitForFrames(
+    in scene: ShellLayerScene,
+    file: StaticString = #filePath,
+    line: UInt = #line,
+    until condition: () -> Bool
+) async {
+    let (changes, changed) = boundedChanges()
+    let observations = ShellLayerScene.engineQueue.sync {
+        scene.layers.values.map { $0.observe(\.contents) { _, _ in changed.yield() } }
+    }
+    defer { ShellLayerScene.engineQueue.sync { observations.forEach { $0.invalidate() } } }
+    await changes.wait(file: file, line: line, until: condition)
 }
 
 struct LayoutChangeMissing: Error, CustomStringConvertible {

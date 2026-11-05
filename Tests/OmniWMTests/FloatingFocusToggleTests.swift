@@ -87,11 +87,7 @@ final class FloatingFocusToggleTests: XCTestCase {
 
         XCTAssertEqual(fixture.manager.preferredFocusToken(in: fixture.workspace1), firstTiled)
         XCTAssertEqual(fixture.controller.toggleFloatingFocus(), .executed)
-        let clock = ContinuousClock()
-        let deadline = clock.now.advanced(by: .seconds(2))
-        while fixture.controller.intentLedger.activeManagedRequest?.token != firstTiled, clock.now < deadline {
-            try await clock.sleep(for: .milliseconds(5))
-        }
+        await WindowAdmissionTestSupport.drainLayoutRefreshes(fixture.controller)
         XCTAssertEqual(fixture.controller.intentLedger.activeManagedRequest?.token, firstTiled)
     }
 

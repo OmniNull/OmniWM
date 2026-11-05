@@ -6,6 +6,18 @@ import Foundation
 @testable import OmniWM
 import XCTest
 
+private final class ConnectionReleaseObserver: Sendable {
+    private let released: XCTestExpectation
+
+    init(released: XCTestExpectation) {
+        self.released = released
+    }
+
+    deinit {
+        released.fulfill()
+    }
+}
+
 @MainActor
 final class IPCConnectionRegistryTests: XCTestCase {
     func testLateConnectionIsRejectedAfterShutdown() async throws {
@@ -43,9 +55,11 @@ final class IPCConnectionRegistryTests: XCTestCase {
     func testShutdownClosesAndReleasesActiveConnection() async throws {
         let registry = IPCConnectionRegistry()
         weak var stoppedConnection: IPCConnection?
+        let released = XCTestExpectation(description: "Connection released after shutdown")
 
         do {
-            let (connection, peerHandle) = try makeConnection()
+            let observer = ConnectionReleaseObserver(released: released)
+            let (connection, peerHandle) = try makeConnection(onClose: { _ in withExtendedLifetime(observer) {} })
             stoppedConnection = connection
             let accepted = await registry.insert(connection)
             XCTAssertTrue(accepted)
@@ -58,10 +72,7 @@ final class IPCConnectionRegistryTests: XCTestCase {
             await assertClosed(connection, peerHandle: peerHandle)
         }
 
-        let deadline = ContinuousClock.now.advanced(by: .seconds(2))
-        while stoppedConnection != nil, ContinuousClock.now < deadline {
-            try? await Task.sleep(for: .milliseconds(5))
-        }
+        await fulfillment(of: [released], timeout: 2)
         XCTAssertNil(stoppedConnection)
     }
 
@@ -78,22 +89,21 @@ final class IPCConnectionRegistryTests: XCTestCase {
         XCTAssertFalse(hasReadSource, file: file, line: line)
         XCTAssertFalse(hasWriteSource, file: file, line: line)
 
-        let deadline = ContinuousClock.now.advanced(by: .seconds(2))
+        let readable = XCTestExpectation(description: "Peer socket readable after connection shutdown")
+        readable.assertForOverFulfill = false
+        let peerEvents = DispatchSource.makeReadSource(fileDescriptor: peerHandle.fileDescriptor, queue: .main)
+        peerEvents.setEventHandler { readable.fulfill() }
+        peerEvents.resume()
+        await fulfillment(of: [readable], timeout: 2)
+        peerEvents.cancel()
         var byte: UInt8 = 0
-        while true {
-            let result = recv(peerHandle.fileDescriptor, &byte, 1, MSG_DONTWAIT)
-            if result == 0 { return }
-            guard result < 0, errno == EAGAIN || errno == EWOULDBLOCK,
-                  ContinuousClock.now < deadline
-            else {
-                XCTFail("Expected peer EOF after connection shutdown, received \(result)", file: file, line: line)
-                return
-            }
-            try? await Task.sleep(for: .milliseconds(5))
-        }
+        let result = recv(peerHandle.fileDescriptor, &byte, 1, MSG_DONTWAIT)
+        XCTAssertEqual(result, 0, "Expected peer EOF after connection shutdown", file: file, line: line)
     }
 
-    private func makeConnection() throws -> (IPCConnection, FileHandle) {
+    private func makeConnection(
+        onClose: @escaping @Sendable (UUID) -> Void = { _ in }
+    ) throws -> (IPCConnection, FileHandle) {
         var descriptors: [Int32] = [-1, -1]
         guard socketpair(AF_UNIX, SOCK_STREAM, 0, &descriptors) == 0 else {
             throw POSIXError(.EIO)
@@ -135,7 +145,7 @@ final class IPCConnectionRegistryTests: XCTestCase {
             try? FileManager.default.removeItem(at: root)
         }
         return (
-            IPCConnection(handle: serverHandle, bridge: bridge, onClose: { _ in }),
+            IPCConnection(handle: serverHandle, bridge: bridge, onClose: onClose),
             peerHandle
         )
     }

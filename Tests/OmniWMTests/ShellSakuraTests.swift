@@ -99,10 +99,12 @@ final class ShellSakuraTests: XCTestCase {
                     XCTAssertEqual(frame, CGRect(origin: .zero, size: size), name)
                 }
             }
-            await until { rendered.surface.shaders.values.allSatisfy { !$0.program.isCompiling } }
+            await waitForShaders(in: rendered.resources.shaders) {
+                rendered.surface.shaders.values.allSatisfy { !$0.program.isCompiling }
+            }
             XCTAssertNil(rendered.surface.failedShader, name)
             if ["media", "control-center"].contains(name), snapshotsEnabled {
-                await until {
+                await waitForFrames(in: rendered.surface.scene) {
                     ShellLayerScene.engineQueue.sync { rendered.layers().contains { $0.contents is IOSurface } }
                 }
                 rendered.surface.view.setFrameSize(size)
@@ -155,7 +157,7 @@ final class ShellSakuraTests: XCTestCase {
         let program = resources.shaders.program(
             source: shader.source, directories: config.directories.map { $0.appendingPathComponent("shaders") }
         )
-        await until { !program.isCompiling }
+        await waitForShaders(in: resources.shaders) { !program.isCompiling }
         let pipeline = try XCTUnwrap(program.pipeline, program.failure ?? "")
         for (size, values) in [
             (CGSize(width: 320, height: 40), shader.values),
@@ -293,7 +295,9 @@ final class ShellSakuraTests: XCTestCase {
         defer { background.stop() }
         let scene = try XCTUnwrap(background.scene)
         scene.submit([.visibility(true)], animated: false)
-        await until { ShellLayerScene.engineQueue.sync { scene.layers[0]?.contents is IOSurface } }
+        await waitForFrames(in: scene) {
+            ShellLayerScene.engineQueue.sync { scene.layers[0]?.contents is IOSurface }
+        }
         var widgets: [ShellRenderedWidget] = []
         var overlays: [(NSView, CGPoint)] = []
         for (index, names) in [config.leading, config.center, config.trailing].enumerated() {

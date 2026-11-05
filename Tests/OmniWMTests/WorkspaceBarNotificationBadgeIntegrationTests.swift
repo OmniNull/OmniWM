@@ -30,11 +30,8 @@ final class WorkspaceBarNotificationBadgeIntegrationTests: XCTestCase {
         }
         controller.hasStartedServices = false
         manager.startShellHostIfNeeded(settings: controller.settings)
-        await until {
-            controller.layoutRefreshController.layoutState.activeRefresh == nil
-                && controller.layoutRefreshController.layoutState.pendingRefresh == nil
-                && controller.surfaceReconciler.pendingReconcileScope == nil
-        }
+        await WindowAdmissionTestSupport.drainLayoutRefreshes(controller)
+        controller.surfaceReconciler.reconcileNow()
         controller.hasStartedServices = true
         let initialSequence = controller.workspaceManager.worldSeq
         XCTAssertNil(controller.surfaceReconciler.pendingReconcileScope)

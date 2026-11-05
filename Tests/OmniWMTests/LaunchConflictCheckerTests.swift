@@ -338,16 +338,10 @@ final class LaunchConflictCheckerTests: XCTestCase {
             _ = waitpid(childPID, &status, 0)
         }
 
-        var observedStatus: UInt32?
-        for _ in 0 ..< 500 {
-            observedStatus = LaunchProcessScanner.processStatus(pid: childPID)
-            if observedStatus == UInt32(SZOMB) {
-                break
-            }
-            usleep(1_000)
-        }
+        var exitInfo = siginfo_t()
+        XCTAssertEqual(waitid(P_PID, id_t(childPID), &exitInfo, WEXITED | WNOWAIT), 0)
 
-        XCTAssertEqual(observedStatus, UInt32(SZOMB))
+        XCTAssertEqual(LaunchProcessScanner.processStatus(pid: childPID), UInt32(SZOMB))
     }
 
     private func snapshot(
@@ -450,6 +444,7 @@ final class LaunchConflictAutoRecheckTests: XCTestCase {
         private var results: [LaunchConflictCheckResult]
         private(set) var scans = 0
         private(set) var clears = 0
+        var onClear: @MainActor () -> Void = {}
 
         init(_ results: [LaunchConflictCheckResult]) {
             self.results = results
@@ -464,6 +459,7 @@ final class LaunchConflictAutoRecheckTests: XCTestCase {
                 },
                 onClear: {
                     self.clears += 1
+                    self.onClear()
                 }
             )
         }
@@ -488,21 +484,19 @@ final class LaunchConflictAutoRecheckTests: XCTestCase {
         XCTAssertEqual(script.clears, 1)
     }
 
-    func testTimerFiresOnMainRunLoopAndStopsAfterClear() {
+    func testTimerFiresOnMainRunLoopAndStopsAfterClear() async throws {
         let script = ScriptedScan([.blocked(.conflicts([.yabai])), .blocked(.conflicts([.yabai])), .clear])
+        let cleared = expectation(description: "Timer ticks reached the clear scan")
+        script.onClear = { cleared.fulfill() }
         let recheck = script.makeRecheck(interval: 0.01)
         recheck.start()
+        let timer = try XCTUnwrap(recheck.timer)
 
-        let deadline = Date().addingTimeInterval(5)
-        while script.clears == 0, Date() < deadline {
-            RunLoop.main.run(mode: .default, before: Date().addingTimeInterval(0.02))
-        }
+        await fulfillment(of: [cleared], timeout: 5)
         XCTAssertEqual(script.clears, 1)
         XCTAssertEqual(script.scans, 3)
-
-        RunLoop.main.run(mode: .default, before: Date().addingTimeInterval(0.05))
-        XCTAssertEqual(script.scans, 3)
-        XCTAssertEqual(script.clears, 1)
+        XCTAssertFalse(timer.isValid)
+        XCTAssertNil(recheck.timer)
     }
 
     func testStopPreventsFurtherTicks() {

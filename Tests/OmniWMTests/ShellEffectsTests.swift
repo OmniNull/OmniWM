@@ -38,6 +38,24 @@ final class ShellEffectsTests: XCTestCase {
         widget.invoke(action, view: OMNI_VIEW_POPOUT, event: event)
     }
 
+    private func waitForSampleImage(of widget: ShellRenderedWidget) async {
+        let images = widget.resources.images
+        let (changes, changed) = boundedChanges()
+        let onLoad = images.onLoad
+        images.onLoad = {
+            onLoad?()
+            changed.yield()
+        }
+        defer { images.onLoad = onLoad }
+        await changes.wait {
+            images.image(
+                "@omni-asset:effects-lab/sample.png",
+                folders: [],
+                packages: widget.surface.assetFolders
+            ) != nil
+        }
+    }
+
     func testMotionRecipesAreIndependentAndAllEffectsEncodeThroughThePublicAPI() throws {
         let module = try String(contentsOf: XCTUnwrap(ShellDefaults.bundledFile("lib/effects.luau")), encoding: .utf8)
         let widget = try ShellRenderedWidget(name: "recipes", source: """
@@ -170,20 +188,16 @@ final class ShellEffectsTests: XCTestCase {
                 widget.layoutPopout()
                 XCTAssertEqual(widget.surface.size.width, 392)
                 XCTAssertLessThan(widget.surface.size.height, 700)
-                await until { widget.surface.shaders.values.allSatisfy { !$0.program.isCompiling } }
+                await waitForShaders(in: widget.resources.shaders) {
+                    widget.surface.shaders.values.allSatisfy { !$0.program.isCompiling }
+                }
                 XCTAssertNil(widget.surface.failedShader)
                 if ["Blur", "Texture"].contains(tab) {
-                    await until {
-                        widget.resources.images.image(
-                            "@omni-asset:effects-lab/sample.png",
-                            folders: [],
-                            packages: widget.surface.assetFolders
-                        ) != nil
-                    }
+                    await waitForSampleImage(of: widget)
                 }
                 if tab == "Texture", let slot = widget.surface.shaders.keys.first {
                     let scene = widget.surface.scene
-                    await until {
+                    await waitForFrames(in: scene) {
                         ShellLayerScene.engineQueue.sync {
                             (scene.shaders?.alpha(slot, at: CGPoint(x: 180, y: 120)) ?? 0) > 0
                         }

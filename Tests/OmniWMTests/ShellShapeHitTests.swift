@@ -135,30 +135,31 @@ final class ShellShapeHitTests: XCTestCase {
             return ui.stack{ material = "clear", w = 40, h = 20, ui.shader{ source = "half.metal" } }
         end
         """, directories: [directory])
-        let (changes, changed) = AsyncStream.makeStream(of: Void.self)
-        widget.resources.shaders.onChange = { changed.yield() }
         let program = widget.resources.shaders.program(source: "half.metal", directories: [directory])
-        var compiled = changes.makeAsyncIterator()
-        while program.isCompiling {
-            await compiled.next()
-        }
+        await waitForShaders(in: widget.resources.shaders) { !program.isCompiling }
         XCTAssertNotNil(program.pipeline, program.failure ?? "")
+        let (shapeChanges, shapeChanged) = boundedChanges()
         var shapes = 0
-        widget.surface.onShapeChange = { shapes += 1 }
+        widget.surface.onShapeChange = {
+            shapes += 1
+            shapeChanged.yield()
+        }
         widget.layoutPopout()
+        let scene = widget.surface.scene
+        let slot = try XCTUnwrap(widget.surface.shaders.keys.first)
+        await waitForFrames(in: scene) {
+            ShellLayerScene.engineQueue.sync { scene.shaders?.alpha(slot, at: .zero) != nil }
+        }
 
         let clear = CGPoint(x: 30, y: 10)
         XCTAssertTrue(widget.surface.containsShape(at: clear))
-        for _ in 0 ..< 400 where widget.surface.containsShape(at: clear) {
-            try await Task.sleep(for: .milliseconds(5))
-        }
+        await shapeChanges.wait { !widget.surface.containsShape(at: clear) }
         XCTAssertFalse(widget.surface.containsShape(at: clear))
         XCTAssertGreaterThan(shapes, 0)
         let drawn = CGPoint(x: 10, y: 10)
+        let shapesBeforeDrawn = shapes
         _ = widget.surface.containsShape(at: drawn)
-        for _ in 0 ..< 400 where shapes < 2 {
-            try await Task.sleep(for: .milliseconds(5))
-        }
+        await shapeChanges.wait { shapes > shapesBeforeDrawn }
         XCTAssertTrue(widget.surface.containsShape(at: drawn))
     }
 }

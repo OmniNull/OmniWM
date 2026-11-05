@@ -14,6 +14,7 @@ final class MediaControllerTests: XCTestCase {
 
     private final class Changes {
         var values: [ShellMedia?] = []
+        let (arrivals, arrived) = boundedChanges()
     }
 
     private func controller(_ script: String) -> MediaController {
@@ -27,12 +28,13 @@ final class MediaControllerTests: XCTestCase {
         let changes = Changes()
         controller.onChange = { media in
             changes.values.append(media)
+            changes.arrived.yield()
         }
         return changes
     }
 
     private func wait(in changes: Changes, until done: @escaping ([ShellMedia?]) -> Bool) async {
-        await until { done(changes.values) }
+        await changes.arrivals.wait { done(changes.values) }
     }
 
     func testMediaCommandsParseBesideVolume() {

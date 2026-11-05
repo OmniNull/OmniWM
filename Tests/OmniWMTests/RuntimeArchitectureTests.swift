@@ -854,11 +854,7 @@ final class RuntimeArchitectureTests: XCTestCase {
             to: workspaceId
         )
         _ = engine.addWindow(token: token, to: workspaceId, activeWindowFrame: nil)
-        let blocker = Task { @MainActor in
-            while !Task.isCancelled {
-                try? await Task.sleep(for: .seconds(1))
-            }
-        }
+        let blocker = WindowAdmissionTestSupport.parkedTask()
         controller.layoutRefreshController.layoutState.activeRefreshTask = blocker
         controller.layoutRefreshController.layoutState.activeRefresh = .init(
             kind: .immediateRelayout,
@@ -902,11 +898,7 @@ final class RuntimeArchitectureTests: XCTestCase {
             to: workspaceId,
             afterSelection: nil
         ))
-        let blocker = Task { @MainActor in
-            while !Task.isCancelled {
-                try? await Task.sleep(for: .seconds(1))
-            }
-        }
+        let blocker = WindowAdmissionTestSupport.parkedTask()
         controller.layoutRefreshController.layoutState.activeRefreshTask = blocker
         controller.layoutRefreshController.layoutState.activeRefresh = .init(
             kind: .immediateRelayout,
@@ -1202,11 +1194,7 @@ final class RuntimeArchitectureTests: XCTestCase {
             line: line
         )
 
-        let blocker = Task { @MainActor in
-            while !Task.isCancelled {
-                try? await Task.sleep(for: .seconds(1))
-            }
-        }
+        let blocker = WindowAdmissionTestSupport.parkedTask()
         controller.layoutRefreshController.layoutState.activeRefreshTask = blocker
         controller.layoutRefreshController.layoutState.activeRefresh = .init(
             kind: .immediateRelayout,
@@ -1724,11 +1712,7 @@ final class RuntimeArchitectureTests: XCTestCase {
         ))
         node.frame = targetFrame
         node.renderedFrame = targetFrame
-        let blocker = Task { @MainActor in
-            while !Task.isCancelled {
-                try? await Task.sleep(for: .seconds(1))
-            }
-        }
+        let blocker = WindowAdmissionTestSupport.parkedTask()
         controller.layoutRefreshController.layoutState.activeRefreshTask = blocker
         controller.layoutRefreshController.layoutState.activeRefresh = .init(
             kind: .immediateRelayout,
@@ -1785,11 +1769,7 @@ final class RuntimeArchitectureTests: XCTestCase {
         _ = engine.addWindow(token: token, to: workspaceId, activeWindowFrame: nil)
         let frames = engine.calculateLayout(for: workspaceId, screen: monitor.visibleFrame)
         let targetFrame = try XCTUnwrap(frames[token])
-        let blocker = Task { @MainActor in
-            while !Task.isCancelled {
-                try? await Task.sleep(for: .seconds(1))
-            }
-        }
+        let blocker = WindowAdmissionTestSupport.parkedTask()
         controller.layoutRefreshController.layoutState.activeRefreshTask = blocker
         controller.layoutRefreshController.layoutState.activeRefresh = .init(
             kind: .immediateRelayout,
@@ -1880,11 +1860,7 @@ final class RuntimeArchitectureTests: XCTestCase {
         _ = engine.addWindow(token: token, to: workspaceId, activeWindowFrame: nil)
         let frames = engine.calculateLayout(for: workspaceId, screen: monitor.visibleFrame)
         let targetFrame = try XCTUnwrap(frames[token])
-        let blocker = Task { @MainActor in
-            while !Task.isCancelled {
-                try? await Task.sleep(for: .seconds(1))
-            }
-        }
+        let blocker = WindowAdmissionTestSupport.parkedTask()
         controller.layoutRefreshController.layoutState.activeRefreshTask = blocker
         controller.layoutRefreshController.layoutState.activeRefresh = .init(
             kind: .immediateRelayout,
@@ -2602,11 +2578,7 @@ final class RuntimeArchitectureTests: XCTestCase {
         let workspaceId = try XCTUnwrap(
             controller.workspaceManager.workspaceId(for: "1", createIfMissing: true)
         )
-        let blocker = Task { @MainActor in
-            while !Task.isCancelled {
-                try? await Task.sleep(for: .seconds(1))
-            }
-        }
+        let blocker = WindowAdmissionTestSupport.parkedTask()
         controller.layoutRefreshController.layoutState.activeRefreshTask = blocker
         controller.layoutRefreshController.layoutState.activeRefresh = .init(
             kind: .immediateRelayout,
@@ -3187,11 +3159,7 @@ final class RuntimeArchitectureTests: XCTestCase {
             windowId: 765_113,
             to: workspaceId
         )
-        let blocker = Task { @MainActor in
-            while !Task.isCancelled {
-                try? await Task.sleep(for: .seconds(1))
-            }
-        }
+        let blocker = WindowAdmissionTestSupport.parkedTask()
         controller.layoutRefreshController.layoutState.activeRefreshTask = blocker
         controller.layoutRefreshController.layoutState.activeRefresh = .init(
             kind: .immediateRelayout,
@@ -3230,11 +3198,7 @@ final class RuntimeArchitectureTests: XCTestCase {
             windowId: 765_160,
             to: workspaceId
         )
-        let blocker = Task { @MainActor in
-            while !Task.isCancelled {
-                try? await Task.sleep(for: .seconds(1))
-            }
-        }
+        let blocker = WindowAdmissionTestSupport.parkedTask()
         controller.layoutRefreshController.layoutState.activeRefreshTask = blocker
         controller.layoutRefreshController.layoutState.activeRefresh = .init(
             kind: .immediateRelayout,
@@ -4333,11 +4297,7 @@ final class RuntimeArchitectureTests: XCTestCase {
         let forwardDirection: Direction = orientation == .vertical ? .up : .right
         let backwardDirection: Direction = orientation == .vertical ? .down : .left
 
-        let blocker = Task { @MainActor in
-            while !Task.isCancelled {
-                try? await Task.sleep(for: .seconds(1))
-            }
-        }
+        let blocker = WindowAdmissionTestSupport.parkedTask()
         controller.layoutRefreshController.layoutState.activeRefreshTask = blocker
         controller.layoutRefreshController.layoutState.activeRefresh = .init(
             kind: .immediateRelayout,
@@ -4404,11 +4364,7 @@ final class RuntimeArchitectureTests: XCTestCase {
             engine.setSelectedNode(firstLeaf, in: workspaceId)
         }
 
-        let blocker = Task { @MainActor in
-            while !Task.isCancelled {
-                try? await Task.sleep(for: .seconds(1))
-            }
-        }
+        let blocker = WindowAdmissionTestSupport.parkedTask()
         controller.layoutRefreshController.layoutState.activeRefreshTask = blocker
         controller.layoutRefreshController.layoutState.activeRefresh = .init(
             kind: .immediateRelayout,
@@ -4462,11 +4418,7 @@ final class RuntimeArchitectureTests: XCTestCase {
         _ = engine.addWindow(token: firstToken, to: workspaceId, activeWindowFrame: nil)
         _ = engine.addWindow(token: secondToken, to: workspaceId, activeWindowFrame: nil)
 
-        let blocker = Task { @MainActor in
-            while !Task.isCancelled {
-                try? await Task.sleep(for: .seconds(1))
-            }
-        }
+        let blocker = WindowAdmissionTestSupport.parkedTask()
         controller.layoutRefreshController.layoutState.activeRefreshTask = blocker
         controller.layoutRefreshController.layoutState.activeRefresh = .init(
             kind: .immediateRelayout,
@@ -5668,11 +5620,7 @@ final class RuntimeArchitectureTests: XCTestCase {
         let workspaceId = try XCTUnwrap(
             controller.workspaceManager.workspaceId(for: "1", createIfMissing: true)
         )
-        let blocker = Task { @MainActor in
-            while !Task.isCancelled {
-                try? await Task.sleep(for: .seconds(1))
-            }
-        }
+        let blocker = WindowAdmissionTestSupport.parkedTask()
         controller.layoutRefreshController.layoutState.activeRefreshTask = blocker
         controller.layoutRefreshController.layoutState.activeRefresh = .init(
             kind: .relayout,
@@ -6788,40 +6736,13 @@ final class RuntimeArchitectureTests: XCTestCase {
         file: StaticString = #filePath,
         line: UInt = #line
     ) async -> Bool {
-        for _ in 0 ..< 80 {
-            guard !Task.isCancelled else {
-                XCTFail("Window removal refresh wait was cancelled", file: file, line: line)
-                return false
-            }
-            let state = controller.layoutRefreshController.layoutState
-            if controller.workspaceManager.entry(for: removedToken) == nil,
-               state.activeRefreshTask == nil,
-               state.activeRefresh == nil,
-               state.pendingRefresh == nil
-            {
-                return true
-            }
-            do {
-                try await Task.sleep(for: .milliseconds(10))
-            } catch {
-                XCTFail("Window removal refresh wait was cancelled", file: file, line: line)
-                return false
-            }
-        }
-        guard !Task.isCancelled else {
-            XCTFail("Window removal refresh wait was cancelled", file: file, line: line)
+        await controller.axEventHandler.awaitPendingManagedReplacementBursts(for: [removedToken.pid])
+        await WindowAdmissionTestSupport.drainLayoutRefreshes(controller)
+        guard controller.workspaceManager.entry(for: removedToken) == nil else {
+            XCTFail("Window removal refresh finished with the window still tracked", file: file, line: line)
             return false
         }
-        let state = controller.layoutRefreshController.layoutState
-        if controller.workspaceManager.entry(for: removedToken) == nil,
-           state.activeRefreshTask == nil,
-           state.activeRefresh == nil,
-           state.pendingRefresh == nil
-        {
-            return true
-        }
-        XCTFail("Window removal refresh did not finish within 80 samples", file: file, line: line)
-        return false
+        return true
     }
 
     private enum NiriTabLocalViewportPosition {

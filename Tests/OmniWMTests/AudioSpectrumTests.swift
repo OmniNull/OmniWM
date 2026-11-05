@@ -177,12 +177,16 @@ final class AudioSpectrumTests: XCTestCase {
     func testTheEngineTapsOnlyWhileListenedToAndWithAccess() async {
         let captures = Captures()
         let monitor = AudioSpectrumMonitor(capture: captures.capture)
+        let (reports, reported) = boundedChanges()
         var changes: [ShellSpectrum?] = []
-        monitor.onChange = { changes.append($0) }
+        monitor.onChange = {
+            changes.append($0)
+            reported.yield()
+        }
         XCTAssertNil(monitor.value)
         monitor.setListening(true)
         XCTAssertEqual(monitor.value, ShellSpectrum())
-        await until { changes.contains { $0?.bars.isEmpty == false } }
+        await reports.wait { changes.contains { $0?.bars.isEmpty == false } }
         XCTAssertEqual(captures.opened.value, 1)
         XCTAssertEqual(monitor.value?.access, .granted)
         XCTAssertEqual(monitor.value?.bars.count, ShellSpectrumAnalyzer.bandCount)
@@ -190,15 +194,16 @@ final class AudioSpectrumTests: XCTestCase {
         XCTAssertTrue((0 ..< ShellSpectrumBands.Bars.count).contains { bands[$0] > 0 })
         monitor.setListening(false)
         XCTAssertNil(monitor.value)
-        await until { captures.stopped.value == 1 }
+        await monitor.engineUpdate?.value
+        XCTAssertEqual(captures.stopped.value, 1)
         let cleared = captures.bands.current
         XCTAssertTrue((0 ..< ShellSpectrumBands.Bars.count).allSatisfy { cleared[$0] == 0 })
 
         let denied = Captures(access: .denied)
         let refused = AudioSpectrumMonitor(capture: denied.capture)
-        refused.onChange = { _ in }
+        refused.onChange = { _ in reported.yield() }
         refused.setListening(true)
-        await until { refused.value?.access == .denied }
+        await reports.wait { refused.value?.access == .denied }
         XCTAssertEqual(denied.opened.value, 0)
         XCTAssertEqual(denied.requested.value, 0)
         refused.setListening(false)
@@ -206,7 +211,8 @@ final class AudioSpectrumTests: XCTestCase {
         let unasked = Captures(access: .unknown)
         let asking = AudioSpectrumMonitor(capture: unasked.capture)
         asking.setListening(true)
-        await until { unasked.requested.value == 1 }
+        await asking.engineUpdate?.value
+        XCTAssertEqual(unasked.requested.value, 1)
         XCTAssertEqual(unasked.opened.value, 0)
         asking.setListening(false)
     }
@@ -238,7 +244,7 @@ final class AudioSpectrumTests: XCTestCase {
         let monitor = AudioSpectrumMonitor(capture: refusal.capture)
         let (changes, changed) = AsyncStream.makeStream(of: AppVolumeAccess?.self)
         monitor.onChange = { changed.yield($0?.access) }
-        DispatchQueue.main.asyncAfter(deadline: .now() + 20) { changed.finish() }
+        DispatchQueue.main.asyncAfter(deadline: .now() + changeFailureBound) { changed.finish() }
         var reports = changes.makeAsyncIterator()
         func reported(_ access: AppVolumeAccess) async -> Bool {
             while let next = await reports.next(isolation: #isolation) {
@@ -269,17 +275,19 @@ final class AudioSpectrumTests: XCTestCase {
     func testTheFeedStartsTheSpectrumOnlyForAReader() async {
         let captures = Captures()
         let devices = ShellDevices(spectrum: AudioSpectrumMonitor(capture: captures.capture))
-        let feed = ShellDataFeed(devices: devices, deliver: { _ in })
+        let (changes, changed) = boundedChanges()
+        let feed = ShellDataFeed(devices: devices, deliver: { _ in changed.yield() })
         defer { feed.stop() }
         feed.start()
         feed.setDemand(ShellDataKey.clock.bit, cadence: .of([(ShellDataKey.clock.bit, nil)]))
         XCTAssertNil(feed.current.spectrum)
         feed.setDemand(ShellDataKey.spectrum.bit, cadence: .of([(ShellDataKey.spectrum.bit, nil)]))
         XCTAssertEqual(feed.current.spectrum, ShellSpectrum())
-        await until { feed.current.spectrum?.bars.isEmpty == false }
+        await changes.wait { feed.current.spectrum?.bars.isEmpty == false }
         feed.setDemand(ShellDataKey.clock.bit, cadence: .of([(ShellDataKey.clock.bit, nil)]))
         XCTAssertNil(feed.current.spectrum)
-        await until { captures.stopped.value == 1 }
+        await devices.spectrum.engineUpdate?.value
+        XCTAssertEqual(captures.stopped.value, 1)
         XCTAssertEqual(captures.opened.value, 1)
     }
 
@@ -326,8 +334,10 @@ final class AudioSpectrumTests: XCTestCase {
         defer { feed.stop() }
         feed.start()
         feed.setDemand(ShellDataKey.tempo.bit, cadence: .of([(ShellDataKey.tempo.bit, nil)]))
-        await until { captures.opened.value == 1 }
+        await devices.spectrum.engineUpdate?.value
+        XCTAssertEqual(captures.opened.value, 1)
         feed.setDemand(0, cadence: .of([]))
-        await until { captures.stopped.value == 1 }
+        await devices.spectrum.engineUpdate?.value
+        XCTAssertEqual(captures.stopped.value, 1)
     }
 }

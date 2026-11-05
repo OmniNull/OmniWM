@@ -73,6 +73,14 @@ enum WindowAdmissionTestSupport {
         return controller.workspaceManager.workspaceId(for: name, createIfMissing: true)
     }
 
+    static func parkedTask() -> Task<Void, Never> {
+        Task { @MainActor in
+            let (parked, keepOpen) = AsyncStream.makeStream(of: Void.self)
+            for await _ in parked {}
+            keepOpen.finish()
+        }
+    }
+
     static func drainLayoutRefreshes(_ controller: WMController) async {
         let refresh = controller.layoutRefreshController
         while let task = refresh.layoutState.activeRefreshTask ?? refresh.layoutState.pendingDebounceTask {

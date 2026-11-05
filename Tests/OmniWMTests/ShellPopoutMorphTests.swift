@@ -15,43 +15,41 @@ final class ShellPopoutMorphTests: XCTestCase {
         panel.show(frame: frame, level: .popUpMenu, chrome: ShellPopoutChrome(), fadeDuration: nil, morph: morph)
     }
 
-    private func settled(after duration: CFTimeInterval) async {
-        let probe = CALayer()
-        var done = false
+    private func showMorphing(_ panel: ShellPopoutPanel, _ frame: CGRect) -> AsyncStream<Void> {
+        let (ended, end) = boundedChanges()
         CATransaction.begin()
-        CATransaction.setCompletionBlock { done = true }
-        let wait = CABasicAnimation(keyPath: "opacity")
-        wait.duration = duration
-        probe.add(wait, forKey: "wait")
+        CATransaction.setCompletionBlock { end.yield() }
+        show(panel, frame, morph: morph)
         CATransaction.commit()
-        await until { done }
+        return ended
     }
 
-    func testAVisiblePanelMorphsThroughBothFramesAndSettlesOnTheNewOne() async {
+    func testAVisiblePanelMorphsThroughBothFramesAndSettlesOnTheNewOne() async throws {
         let content = NSView()
         let panel = ShellPopoutPanel(content: content)
         defer { panel.orderOut(nil) }
         show(panel, first)
-        show(panel, second, morph: morph)
+        var morphEnded = showMorphing(panel, second).makeAsyncIterator()
         XCTAssertEqual(panel.frame, first.union(second))
         XCTAssertEqual(content.frame, CGRect(origin: .zero, size: second.size))
         XCTAssertNotNil(content.layer?.animation(forKey: ShellPopoutPanel.morphBounds))
         XCTAssertNotNil(content.layer?.animation(forKey: ShellPopoutPanel.morphPosition))
-        await until { panel.frame == second }
+        try await morphEnded.change()
+        XCTAssertEqual(panel.frame, second)
         XCTAssertEqual(content.frame, CGRect(origin: .zero, size: second.size))
     }
 
-    func testANewerPlacementWinsOverAnUnfinishedMorph() async {
+    func testANewerPlacementWinsOverAnUnfinishedMorph() async throws {
         let content = NSView()
         let panel = ShellPopoutPanel(content: content)
         defer { panel.orderOut(nil) }
         let third = CGRect(x: 400, y: 400, width: 120, height: 80)
         show(panel, first)
-        show(panel, second, morph: morph)
+        var morphEnded = showMorphing(panel, second).makeAsyncIterator()
         show(panel, third)
         XCTAssertEqual(panel.frame, third)
         XCTAssertNil(content.layer?.animation(forKey: ShellPopoutPanel.morphBounds))
-        await settled(after: 0.2)
+        try await morphEnded.change()
         XCTAssertEqual(panel.frame, third)
         XCTAssertEqual(content.frame, CGRect(origin: .zero, size: third.size))
     }

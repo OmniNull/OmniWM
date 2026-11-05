@@ -473,24 +473,7 @@ final class OverviewStructuralCommandTests: XCTestCase {
             )?.didMutate == true
         )
 
-        let refreshController = fixture.controller.layoutRefreshController
-        for _ in 0 ..< 100 {
-            if refreshController.layoutState.activeRefreshTask == nil,
-               refreshController.layoutState.activeRefresh == nil,
-               refreshController.layoutState.pendingRefresh == nil
-            {
-                break
-            }
-            try await Task.sleep(for: .milliseconds(10))
-        }
-        try Task.checkCancellation()
-        guard refreshController.layoutState.activeRefreshTask == nil,
-              refreshController.layoutState.activeRefresh == nil,
-              refreshController.layoutState.pendingRefresh == nil
-        else {
-            XCTFail("Coalesced structural refresh did not finish within 100 samples")
-            return
-        }
+        await WindowAdmissionTestSupport.drainLayoutRefreshes(fixture.controller)
 
         XCTAssertEqual(refreshedWorkspaceSets.count, 1)
         XCTAssertEqual(refreshedWorkspaceSets.first, [firstWorkspaceId, secondWorkspaceId])
@@ -1126,7 +1109,7 @@ final class OverviewStructuralCommandTests: XCTestCase {
         prepared.overview.drag.beginDrag(on: fixture.monitor.id, handle: dragged, startPoint: .zero)
         prepared.overview.drag.updateDrag(on: fixture.monitor.id, at: dropPoint)
         prepared.overview.drag.endDrag(on: fixture.monitor.id, at: dropPoint)
-        try await waitForLayoutRefreshes(fixture)
+        await WindowAdmissionTestSupport.drainLayoutRefreshes(fixture.controller)
 
         let engine = try XCTUnwrap(fixture.controller.dwindleEngine)
         XCTAssertNil(engine.findNode(for: dragged.id, in: sourceWorkspaceId))
@@ -1630,19 +1613,6 @@ final class OverviewStructuralCommandTests: XCTestCase {
         return (overview, layout)
     }
 
-    private func waitForLayoutRefreshes(_ fixture: Fixture) async throws {
-        let refreshController = fixture.controller.layoutRefreshController
-        for _ in 0 ..< 200 {
-            if refreshController.layoutState.activeRefreshTask == nil,
-               refreshController.layoutState.pendingRefresh == nil
-            {
-                return
-            }
-            try await Task.sleep(for: .milliseconds(10))
-        }
-        XCTFail("Layout refreshes did not settle")
-    }
-
     private func addManagedWindow(
         pid: pid_t,
         windowId: Int,
@@ -1675,11 +1645,7 @@ final class OverviewStructuralCommandTests: XCTestCase {
         _ fixture: Fixture,
         _ body: () throws -> T
     ) rethrows -> T {
-        let blocker = Task { @MainActor in
-            while !Task.isCancelled {
-                try? await Task.sleep(for: .seconds(1))
-            }
-        }
+        let blocker = WindowAdmissionTestSupport.parkedTask()
         let refreshController = fixture.controller.layoutRefreshController
         refreshController.layoutState.activeRefreshTask = blocker
         refreshController.layoutState.activeRefresh = .init(

@@ -57,7 +57,6 @@ final class AXCallbackGenerationRegistryTests: XCTestCase {
 
         let callbackEntered = DispatchSemaphore(value: 0)
         let releaseCallback = DispatchSemaphore(value: 0)
-        let advanceStarted = DispatchSemaphore(value: 0)
         let advanceFinished = DispatchSemaphore(value: 0)
 
         DispatchQueue.global().async {
@@ -67,14 +66,12 @@ final class AXCallbackGenerationRegistryTests: XCTestCase {
             }
         }
         XCTAssertEqual(callbackEntered.wait(timeout: .now() + 2), .success)
+        XCTAssertTrue(registry.isLocked)
 
         DispatchQueue.global().async {
-            advanceStarted.signal()
             registry.advance()
             advanceFinished.signal()
         }
-        XCTAssertEqual(advanceStarted.wait(timeout: .now() + 2), .success)
-        XCTAssertEqual(advanceFinished.wait(timeout: .now() + 0.05), .timedOut)
 
         releaseCallback.signal()
 

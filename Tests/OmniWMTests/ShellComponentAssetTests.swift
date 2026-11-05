@@ -215,10 +215,10 @@ final class ShellComponentAssetTests: XCTestCase {
                     return surface.baseAddress.load(fromByteOffset: 2, as: UInt8.self)
                 }
             }
-            await until { red() == 64 }
+            await waitForFrames(in: scene) { red() == 64 }
             try png(file, width: 4)
             XCTAssertEqual(widget.resources.images.refresh(), !qualified)
-            await until { red() == 128 }
+            await waitForFrames(in: scene) { red() == 128 }
         }
     }
 }

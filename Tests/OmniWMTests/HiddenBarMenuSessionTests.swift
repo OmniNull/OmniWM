@@ -343,6 +343,7 @@ final class HiddenBarMenuSessionTests: XCTestCase {
         let session = fixture.session()
         XCTAssertEqual(session.open(target: fixture.target(), cachedItems: [fixture.target()]), .unavailable)
         let ready = AsyncStream.makeStream(of: Void.self)
+        let (changes, changed) = boundedChanges()
         var result: HiddenBarMenuSession.OpenResult?
         var releases = 0
         session.acquire(
@@ -357,14 +358,17 @@ final class HiddenBarMenuSessionTests: XCTestCase {
                 releases += 1
                 fixture.extrasAvailable = false
             },
-            onOpen: { result = $0 }
+            onOpen: {
+                result = $0
+                changed.yield()
+            }
         )
         XCTAssertEqual(session.bundleID, fixture.target().key.bundleID)
         XCTAssertNil(session.page)
         XCTAssertNil(result)
         ready.continuation.yield(())
         ready.continuation.finish()
-        await until { result != nil }
+        await changes.wait { result != nil }
         XCTAssertEqual(result, .menu)
         XCTAssertEqual(releases, 0)
         XCTAssertTrue(fixture.pressed.isEmpty)
@@ -413,6 +417,7 @@ final class HiddenBarMenuSessionTests: XCTestCase {
             let session = fixture.session()
             var releases = 0
             var result: HiddenBarMenuSession.OpenResult?
+            let (changes, changed) = boundedChanges()
             session.acquire(
                 target: .init(
                     key: fixture.target().key,
@@ -421,9 +426,12 @@ final class HiddenBarMenuSessionTests: XCTestCase {
                 ),
                 resolve: { replacement },
                 release: { _ in releases += 1 },
-                onOpen: { result = $0 }
+                onOpen: {
+                    result = $0
+                    changed.yield()
+                }
             )
-            await until { result != nil }
+            await changes.wait { result != nil }
             XCTAssertEqual(result, .unavailable)
             XCTAssertEqual(releases, 1)
             XCTAssertNil(session.bundleID)
@@ -446,6 +454,7 @@ final class HiddenBarMenuSessionTests: XCTestCase {
             runtimeState: RuntimeStateStore(directory: directory, deferSaves: false)
         )
         XCTAssertTrue(hold.setMenuAccess(true))
+        let (changes, changed) = boundedChanges()
         var releases = 0
         var result: HiddenBarMenuSession.OpenResult?
         session.acquire(
@@ -459,9 +468,10 @@ final class HiddenBarMenuSessionTests: XCTestCase {
             onOpen: {
                 XCTAssertFalse(menuBar.nativeAutohide)
                 result = $0
+                changed.yield()
             }
         )
-        await until { result != nil }
+        await changes.wait { result != nil }
         XCTAssertEqual(result, .noMenu)
         XCTAssertEqual(releases, 1)
         XCTAssertNil(session.bundleID)
@@ -481,6 +491,7 @@ final class HiddenBarMenuSessionTests: XCTestCase {
             let session = fixture.session()
             let cache = HiddenBarIconCache()
             let target = fixture.target()
+            let (changes, changed) = boundedChanges()
             var result: HiddenBarMenuSession.OpenResult?
             var releases = 0
             session.acquire(
@@ -491,10 +502,11 @@ final class HiddenBarMenuSessionTests: XCTestCase {
                 onOpen: {
                     XCTAssertEqual(cache.resolvedSnapshot(for: target.key.bundleID)?.map(\.key), [target.key])
                     result = $0
+                    changed.yield()
                 }
             )
             XCTAssertEqual(session.bundleID, target.key.bundleID)
-            await until { result != nil }
+            await changes.wait { result != nil }
             XCTAssertEqual(result, hasMenu ? .menu : .noMenu)
             XCTAssertEqual(session.page?.rows.first?.title, hasMenu ? "Command" : nil)
             XCTAssertEqual(releases, hasMenu ? 0 : 1)
@@ -512,6 +524,7 @@ final class HiddenBarMenuSessionTests: XCTestCase {
         let fresh = [fixture.target(), fixture.target(ordinal: 1, identifier: "other")]
         let session = fixture.session()
         let cache = HiddenBarIconCache()
+        let (changes, changed) = boundedChanges()
         var result: HiddenBarMenuSession.OpenResult?
         var releases = 0
         session.acquire(
@@ -519,9 +532,12 @@ final class HiddenBarMenuSessionTests: XCTestCase {
             resolve: { fresh },
             onResolve: { cache.replaceResolvedItems([fixture.target().key.bundleID: $0]) },
             release: { _ in releases += 1 },
-            onOpen: { result = $0 }
+            onOpen: {
+                result = $0
+                changed.yield()
+            }
         )
-        await until { result != nil }
+        await changes.wait { result != nil }
         XCTAssertEqual(result, .unavailable)
         XCTAssertEqual(cache.resolvedSnapshot(for: fixture.target().key.bundleID)?.map(\.key), fresh.map(\.key))
         XCTAssertEqual(releases, 1)
@@ -538,9 +554,12 @@ final class HiddenBarMenuSessionTests: XCTestCase {
             ),
             resolve: { fresh },
             release: { _ in releases += 1 },
-            onOpen: { result = $0 }
+            onOpen: {
+                result = $0
+                changed.yield()
+            }
         )
-        await until { result != nil }
+        await changes.wait { result != nil }
         XCTAssertEqual(result, .menu)
         XCTAssertEqual(session.page?.rows.first?.title, "Command")
         session.close()
@@ -556,6 +575,7 @@ final class HiddenBarMenuSessionTests: XCTestCase {
             [fixture.target(), fixture.target(ordinal: 1, pid: 5678)]
         ] {
             let session = fixture.session()
+            let (changes, changed) = boundedChanges()
             var result: HiddenBarMenuSession.OpenResult?
             var releases = 0
             session.acquire(
@@ -563,9 +583,12 @@ final class HiddenBarMenuSessionTests: XCTestCase {
                 resolve: { fresh },
                 onResolve: { _ in XCTFail("Unverified resolution must not be published") },
                 release: { _ in releases += 1 },
-                onOpen: { result = $0 }
+                onOpen: {
+                    result = $0
+                    changed.yield()
+                }
             )
-            await until { result != nil }
+            await changes.wait { result != nil }
             XCTAssertEqual(result, .unavailable)
             XCTAssertEqual(releases, 1)
             XCTAssertNil(session.page)
@@ -582,13 +605,18 @@ final class HiddenBarMenuSessionTests: XCTestCase {
         ]
         for (key, cachedItems) in cases {
             let session = fixture.session()
+            let (changes, changed) = boundedChanges()
             var result: HiddenBarMenuSession.OpenResult?
             session.acquire(
                 target: .init(key: key, ownerPID: fixture.target().pid, cachedItems: cachedItems),
                 resolve: { [fixture.target()] },
-                release: { _ in }, onOpen: { result = $0 }
+                release: { _ in },
+                onOpen: {
+                    result = $0
+                    changed.yield()
+                }
             )
-            await until { result != nil }
+            await changes.wait { result != nil }
             XCTAssertEqual(result, .unavailable)
             XCTAssertNil(session.page)
             XCTAssertTrue(fixture.reads.isEmpty)
@@ -598,6 +626,7 @@ final class HiddenBarMenuSessionTests: XCTestCase {
     func testOwnerExitingDuringAcquisitionReleasesWithoutOpening() async {
         let fixture = HiddenBarMenuFixture()
         let session = fixture.session()
+        let (changes, changed) = boundedChanges()
         var releases = 0
         var result: HiddenBarMenuSession.OpenResult?
         session.acquire(
@@ -607,9 +636,12 @@ final class HiddenBarMenuSessionTests: XCTestCase {
                 return [fixture.target()]
             },
             release: { _ in releases += 1 },
-            onOpen: { result = $0 }
+            onOpen: {
+                result = $0
+                changed.yield()
+            }
         )
-        await until { result != nil }
+        await changes.wait { result != nil }
         XCTAssertEqual(result, .unavailable)
         XCTAssertEqual(releases, 1)
         XCTAssertNil(session.page)

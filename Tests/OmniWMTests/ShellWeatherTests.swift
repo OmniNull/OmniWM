@@ -360,14 +360,15 @@ final class ShellDataFeedDemandTests: XCTestCase {
     }
 
     func testSystemDetailsAreSampledEverySecondOnlyWhileDemanded() async throws {
-        let feed = ShellDataFeed(deliver: { _ in })
+        let (changes, changed) = boundedChanges()
+        let feed = ShellDataFeed(deliver: { _ in changed.yield() })
         defer { feed.stop() }
         feed.start()
         XCTAssertNil(feed.current.system)
 
         feed.setDemand(ShellDataKey.system.bit, cadence: .of([(ShellDataKey.system.bit, 1)]))
         XCTAssertEqual(feed.interval, 1)
-        await until { feed.current.system != nil }
+        await changes.wait { feed.current.system != nil }
         let system = try XCTUnwrap(feed.current.system)
         XCTAssertGreaterThan(system.memoryUsed, 0)
         XCTAssertGreaterThan(system.memoryTotal, system.memoryUsed)
@@ -385,7 +386,7 @@ final class ShellDataFeedDemandTests: XCTestCase {
         XCTAssertEqual(feed.interval, 0)
     }
 
-    func testDiskAskedForDuringAGPUReadIsReadOnTheNextSample() async {
+    func testDiskAskedForDuringAGPUReadIsReadOnTheNextSample() async throws {
         let feed = ShellDataFeed(deliver: { _ in })
         defer { feed.stop() }
         feed.start()
@@ -396,9 +397,19 @@ final class ShellDataFeedDemandTests: XCTestCase {
         XCTAssertTrue(feed.slowSampling)
         let both = gpu | ShellDataKey.disk.bit
         feed.setDemand(both, cadence: .of([(both, 1)]))
-        await until { !feed.slowSampling }
+        try await slowSampleFinished()
         feed.sampleSystem()
-        await until { feed.diskBytes.map { $0.total != 2 } == true }
+        try await slowSampleFinished()
+        XCTAssertEqual(feed.diskBytes.map { $0.total != 2 }, true)
+    }
+
+    private func slowSampleFinished() async throws {
+        let (changes, changed) = boundedChanges()
+        var finished = changes.makeAsyncIterator()
+        ShellDataFeed.slowSampler.async {
+            DispatchQueue.main.async { changed.yield() }
+        }
+        try await finished.change()
     }
 }
 

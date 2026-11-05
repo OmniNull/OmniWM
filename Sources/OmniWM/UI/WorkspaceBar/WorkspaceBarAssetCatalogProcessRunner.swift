@@ -121,7 +121,8 @@ enum WorkspaceBarAssetCatalogProcessRunner {
     static func run(
         executableURL: URL,
         arguments: [String],
-        timeout: Duration
+        timeout: Duration,
+        sleep: @escaping @Sendable (Duration) async throws -> Void = { try await Task.sleep(for: $0) }
     ) async -> Data? {
         let outputURL = FileManager.default.temporaryDirectory.appendingPathComponent(
             "omniwm-assetutil-\(UUID().uuidString).json"
@@ -155,7 +156,7 @@ enum WorkspaceBarAssetCatalogProcessRunner {
         return await withTaskCancellationHandler {
             let timeoutTask = Task {
                 do {
-                    try await Task.sleep(for: timeout)
+                    try await sleep(timeout)
                 } catch {
                     return
                 }

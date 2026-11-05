@@ -31,6 +31,10 @@ final class AXCallbackGenerationRegistry: Sendable {
         state.withLock { $0.serviceGeneration }
     }
 
+    var isLocked: Bool {
+        state.withLockIfAvailable { _ in } == nil
+    }
+
     func isCurrent(_ generation: UInt64) -> Bool {
         state.withLock { $0.serviceGeneration == generation }
     }

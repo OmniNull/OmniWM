@@ -12,12 +12,16 @@ final class SystemStatsSamplerTests: XCTestCase {
             var data: ShellWidgetData?
         }
         let latest = Latest()
-        let feed = ShellDataFeed(deliver: { latest.data = $0 })
+        let (changes, changed) = boundedChanges()
+        let feed = ShellDataFeed(deliver: {
+            latest.data = $0
+            changed.yield()
+        })
         defer { feed.stop() }
         feed.start()
         let keys = ShellDataKey.disk.bit | ShellDataKey.system.bit
         feed.setDemand(keys, cadence: .of([(keys, nil)]))
-        await until { latest.data?.disk != nil && (latest.data?.system?.diskTotal ?? 0) > 0 }
+        await changes.wait { latest.data?.disk != nil && (latest.data?.system?.diskTotal ?? 0) > 0 }
         XCTAssertNotNil(latest.data?.disk)
         XCTAssertGreaterThan(latest.data?.system?.diskTotal ?? 0, 0)
     }
@@ -28,12 +32,16 @@ final class SystemStatsSamplerTests: XCTestCase {
             var data: ShellWidgetData?
         }
         let latest = Latest()
-        let feed = ShellDataFeed(deliver: { latest.data = $0 })
+        let (changes, changed) = boundedChanges()
+        let feed = ShellDataFeed(deliver: {
+            latest.data = $0
+            changed.yield()
+        })
         defer { feed.stop() }
         feed.start()
         let keys = ShellDataKey.networkHistory.bit
         feed.setDemand(keys, cadence: .of([(keys, 0.1)]))
-        await until { (latest.data?.networkHistory?.down.count ?? 0) >= 2 }
+        await changes.wait { (latest.data?.networkHistory?.down.count ?? 0) >= 2 }
         XCTAssertGreaterThan(latest.data?.networkHistory?.received ?? 0, 0)
         XCTAssertEqual(latest.data?.networkHistory?.up.count, latest.data?.networkHistory?.down.count)
         XCTAssertNil(latest.data?.network)

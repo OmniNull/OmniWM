@@ -22,6 +22,7 @@ struct AudioSpectrumCapture: Sendable {
 @MainActor
 final class AudioSpectrumMonitor: ShellDeviceSource {
     private(set) var value: ShellSpectrum?
+    private(set) var engineUpdate: Task<Void, Never>?
     var onChange: ((ShellSpectrum?) -> Void)?
     private let capture: AudioSpectrumCapture
     private var listening = false
@@ -43,7 +44,7 @@ final class AudioSpectrumMonitor: ShellDeviceSource {
         version += 1
         value = listening ? ShellSpectrum() : nil
         let version = version
-        Task { [engine] in
+        engineUpdate = Task { [engine] in
             await engine.update(version: version, listening: listening)
         }
     }

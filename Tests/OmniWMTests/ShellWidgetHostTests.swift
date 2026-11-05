@@ -3,6 +3,7 @@
 
 import AppKit
 import Carbon
+import Observation
 @testable import OmniWM
 import OmniWMIPC
 import OmniWMScriptHost
@@ -278,7 +279,7 @@ final class ShellWidgetBarLifecycleTests: XCTestCase {
         )
         XCTAssertTrue(FileManager.default.fileExists(atPath: shell.appendingPathComponent("widgets").path))
         let expected = ["apple-menu", "app-menu", "omniwm"]
-        await until {
+        await waitForBarModel(of: manager, on: monitor) {
             let ids = manager.barsByMonitor[monitor.id]?.model.snapshot.shellWidgets.map(\.id) ?? []
             return Set(ids).isSuperset(of: expected)
         }
@@ -344,7 +345,7 @@ final class ShellWidgetBarLifecycleTests: XCTestCase {
         let manager = makeManager()
         defer { manager.cleanup() }
         manager.apply([barSurface()])
-        await until {
+        await waitForBarModel(of: manager, on: monitor) {
             manager.barsByMonitor[monitor.id]?.model.snapshot.shellWidgets.first?.size.width == 130
         }
     }
@@ -480,8 +481,8 @@ final class ShellWidgetBarLifecycleTests: XCTestCase {
         XCTAssertEqual(popout.widget, "drawer")
         XCTAssertEqual(popout.drawerPlacement, first)
         let cellWidth = { instance.model.snapshot.shellWidgets.first { $0.id == "drawer" }?.size.width }
-        await until { cellWidth() == 30 }
-        await until { instance.model.hiddenBarJoinEdge != nil }
+        await waitForBarModel(of: manager, on: display) { cellWidth() == 30 }
+        await waitForBarModel(of: manager, on: display) { instance.model.hiddenBarJoinEdge != nil }
         XCTAssertEqual(instance.model.hiddenBarJoinEdge, first.attachment.edge)
         XCTAssertTrue(popout.panel.isVisible)
 
@@ -620,8 +621,14 @@ final class ShellWidgetBarLifecycleTests: XCTestCase {
                 XCTAssertTrue(host.popout === popout)
                 XCTAssertEqual(popout.drawerPlacement, latest)
                 PanelDismissalMonitor.screenFrames = { belowAnother }
+                let (closes, closing) = boundedChanges()
+                let keyboardFocus = popout.onKeyboardFocus
+                popout.onKeyboardFocus = {
+                    keyboardFocus?($0)
+                    closing.yield()
+                }
                 NotificationCenter.default.post(name: NSApplication.didChangeScreenParametersNotification, object: nil)
-                await until { host.popout == nil }
+                await closes.wait { host.popout == nil }
                 XCTAssertNil(host.popout)
             }
             XCTAssertNil(host.hiddenBarMenu)
@@ -666,12 +673,12 @@ final class ShellWidgetBarLifecycleTests: XCTestCase {
         )
         let toggle = manager.makeShellHiddenBarDrawer()
         XCTAssertTrue(toggle.isActive())
-        await until { host.widgets["drawer"]?.package != nil }
+        await waitForWidgetReport(of: host) { host.widgets["drawer"]?.package != nil }
         _ = try XCTUnwrap(host.widgets["drawer"]?.package)
         toggle.show([], main, placement)
         let popout = try XCTUnwrap(host.popout)
         XCTAssertEqual(popout.drawerPlacement, placement)
-        await until { popout.surface.size.width > 0 }
+        await waitForApply(to: [popout.surface]) { popout.surface.size.width > 0 }
         XCTAssertEqual(popout.surface.size, CGSize(width: 260, height: 30))
         XCTAssertTrue(host.slots(for: main).isEmpty)
 
@@ -680,11 +687,11 @@ final class ShellWidgetBarLifecycleTests: XCTestCase {
         function popout(ctx) return ui.box{ w = 200, h = 30 } end
         """.utf8).write(to: drawer.appendingPathComponent("init.luau"))
         host.rescan()
-        await until { host.popout == nil }
+        await waitForWidgetReport(of: host) { host.popout == nil }
         guard host.popout == nil else { return XCTFail("The old drawer did not close during reload") }
         toggle.show([], main, placement)
         let reloaded = try XCTUnwrap(host.popout)
-        await until { reloaded.surface.size.width > 0 }
+        await waitForApply(to: [reloaded.surface]) { reloaded.surface.size.width > 0 }
         XCTAssertEqual(reloaded.surface.size, CGSize(width: 200, height: 30))
 
         toggle.close(false)
@@ -762,7 +769,7 @@ final class ShellWidgetBarLifecycleTests: XCTestCase {
         XCTAssertTrue(host.toggleDrawer("dashboard", on: main.id))
         let drawer = try XCTUnwrap(host.drawer)
         XCTAssertNil(drawer.holdRegion)
-        await until { drawer.panel.isVisible }
+        await waitForApply(to: drawer.sections.map(\.surface)) { drawer.panel.isVisible }
         XCTAssertNotNil(drawer.holdRegion)
         XCTAssertFalse(drawer.chrome)
         XCTAssertEqual(drawer.sections.first?.surface.view.frame.origin, .zero)
@@ -1006,10 +1013,32 @@ final class ShellWidgetBarLifecycleTests: XCTestCase {
         loaded widget: String? = nil
     ) async {
         let widgets = { manager.barsByMonitor[monitor.id]?.model.snapshot.shellWidgets.count }
-        await until("\(count) shell widgets on \(monitor.name), have \(String(describing: widgets()))") {
+        await waitForBarModel(
+            of: manager, on: monitor, "\(count) shell widgets on \(monitor.name), have \(String(describing: widgets()))"
+        ) {
             if let widget, manager.shellHost?.widgets[widget]?.package == nil { return false }
             return (widgets() ?? 0) >= count
         }
+    }
+
+    private func waitForBarModel(
+        of manager: WorkspaceBarManager,
+        on monitor: Monitor,
+        _ description: @autoclosure () -> String = "",
+        file: StaticString = #filePath,
+        line: UInt = #line,
+        until condition: () -> Bool
+    ) async {
+        let (changes, changed) = boundedChanges()
+        await changes.wait(description(), file: file, line: line, arming: {
+            let model = manager.barsByMonitor[monitor.id]?.model
+            withObservationTracking {
+                _ = model?.snapshot
+                _ = model?.hiddenBarJoinEdge
+            } onChange: {
+                changed.yield()
+            }
+        }, until: condition)
     }
 
     private func barSurface(on monitor: Monitor? = nil, items: [WorkspaceBarItem] = []) -> DesiredBarSurface {
@@ -1105,8 +1134,7 @@ final class ShellWidgetClickTests: XCTestCase {
         let sink = Sink()
         sink.world = world
         sink.bars = bars
-        let (changes, changed) = AsyncStream.makeStream(of: Void.self)
-        DispatchQueue.main.asyncAfter(deadline: .now() + 30) { changed.finish() }
+        let (changes, changed) = boundedChanges()
         let resources = ShellResources(
             motion: MotionPolicy(animationsEnabled: animations),
             notifications: notifications,
@@ -1189,10 +1217,11 @@ final class ShellWidgetClickTests: XCTestCase {
         ], notifications: notifications)
         defer { harness.close() }
         XCTAssertTrue(harness.resources.notifications === notifications)
-        await until {
-            notifications.isListening && notifications.current.state == "ready"
-                && harness.host.slots(for: main).first?.id == "notifications"
+        await harness.layoutChanges.wait {
+            notifications.isListening && harness.host.slots(for: main).first?.id == "notifications"
         }
+        await notifications.task?.value
+        XCTAssertEqual(notifications.current.state, "ready")
         let expectedFeedback = "completed:1/1"
         func hasFeedback(_ surface: ShellWidgetSurface) -> Bool {
             !surface.layout.core.elements { surface.text?.string($0.text) == expectedFeedback }.isEmpty
@@ -1206,7 +1235,7 @@ final class ShellWidgetClickTests: XCTestCase {
         await notifications.task?.value
         let finished = try XCTUnwrap(notifications.current.dismissAll)
         XCTAssertEqual(finished.fields?["state"]?.string, "completed")
-        await until { hasFeedback(firstPopout.surface) }
+        await waitForApply(to: [firstPopout.surface]) { hasFeedback(firstPopout.surface) }
         XCTAssertTrue(hasFeedback(firstPopout.surface))
         XCTAssertEqual(notifications.current.items, snapshot.items)
 
@@ -1216,7 +1245,7 @@ final class ShellWidgetClickTests: XCTestCase {
         XCTAssertTrue(harness.host.togglePopout(of: "notifications", on: main))
         let reopenedPopout = try XCTUnwrap(harness.host.popout)
         XCTAssertFalse(reopenedPopout === firstPopout)
-        await until { hasFeedback(reopenedPopout.surface) }
+        await waitForApply(to: [reopenedPopout.surface]) { hasFeedback(reopenedPopout.surface) }
         XCTAssertTrue(hasFeedback(reopenedPopout.surface))
         XCTAssertEqual(notifications.current.dismissAll, finished)
         XCTAssertEqual(notifications.current.items, snapshot.items)
@@ -1226,7 +1255,7 @@ final class ShellWidgetClickTests: XCTestCase {
         let firstDrawer = try XCTUnwrap(harness.host.drawer)
         let firstSection = try XCTUnwrap(firstDrawer.sections.first)
         XCTAssertEqual(firstSection.widget, "notifications")
-        await until { hasFeedback(firstSection.surface) }
+        await waitForApply(to: [firstSection.surface]) { hasFeedback(firstSection.surface) }
         XCTAssertTrue(hasFeedback(firstSection.surface))
         XCTAssertEqual(notifications.current.dismissAll, finished)
         XCTAssertEqual(notifications.current.items, snapshot.items)
@@ -1238,7 +1267,7 @@ final class ShellWidgetClickTests: XCTestCase {
         let reopenedDrawer = try XCTUnwrap(harness.host.drawer)
         XCTAssertFalse(reopenedDrawer === firstDrawer)
         let reopenedSection = try XCTUnwrap(reopenedDrawer.sections.first)
-        await until { hasFeedback(reopenedSection.surface) }
+        await waitForApply(to: [reopenedSection.surface]) { hasFeedback(reopenedSection.surface) }
         XCTAssertTrue(hasFeedback(reopenedSection.surface))
         XCTAssertEqual(notifications.current.dismissAll, finished)
         XCTAssertEqual(notifications.current.items, snapshot.items)
@@ -1314,8 +1343,7 @@ final class ShellWidgetClickTests: XCTestCase {
         executionTimeAllowance = 60
         let harness = try harness("function render(ctx) return ui.box{ w = 10, h = 10 } end")
         defer { harness.close() }
-        let (changes, changed) = AsyncStream.makeStream(of: Void.self)
-        DispatchQueue.main.asyncAfter(deadline: .now() + 30) { changed.finish() }
+        let (changes, changed) = boundedChanges()
         harness.host.onWidgetsChange = { changed.yield() }
         var reports = changes.makeAsyncIterator()
         XCTAssertEqual(harness.host.widgetReport.problems, [])
@@ -1458,8 +1486,14 @@ final class ShellWidgetClickTests: XCTestCase {
         var layoutChanges = harness.layoutChanges.makeAsyncIterator()
         try await layoutChanges.change()
         let surface = try harness.barSurface()
+        let (tooltips, tooltipChanged) = boundedChanges()
+        let showTooltip = surface.onTooltip
+        surface.onTooltip = {
+            showTooltip?($0)
+            tooltipChanged.yield()
+        }
         surface.hover(at: CGPoint(x: 5, y: 5))
-        await until { harness.host.tooltip.text != nil }
+        await tooltips.wait { harness.host.tooltip.text != nil }
         XCTAssertEqual(harness.host.tooltip.text, "Focus workspace")
         surface.hover(at: nil)
         XCTAssertNil(harness.host.tooltip.text)
@@ -1824,7 +1858,7 @@ final class ShellWidgetClickTests: XCTestCase {
         click(surface, at: CGPoint(x: 5, y: 5))
         let popout = try XCTUnwrap(harness.host.popout)
         try await layoutChanges.change()
-        await until { popout.surface.size == CGSize(width: 70, height: 5) }
+        await waitForApply(to: [popout.surface]) { popout.surface.size == CGSize(width: 70, height: 5) }
         XCTAssertEqual(popout.surface.size, CGSize(width: 70, height: 5))
     }
 
@@ -1881,8 +1915,7 @@ final class ShellWidgetClickTests: XCTestCase {
         let workspace = ShellBarWorkspace(id: "1", name: "1", focused: true, windows: [])
         let sink = Sink()
         sink.bars = [Harness.bar: ShellBarData(monitor: "Main", workspaces: [workspace, workspace])]
-        let (changes, changed) = AsyncStream.makeStream(of: Void.self)
-        DispatchQueue.main.asyncAfter(deadline: .now() + 30) { changed.finish() }
+        let (changes, changed) = boundedChanges()
         let host = ShellWidgetHost(
             configDirectory: root,
             resources: ShellResources(motion: MotionPolicy(animationsEnabled: false)),
@@ -2136,7 +2169,7 @@ final class ShellWidgetClickTests: XCTestCase {
             )
             defer { harness.close() }
             let bundled = try XCTUnwrap(ShellConfig.bundledWidget(name))
-            await until("bundled fallback for \(name)") {
+            await waitForWidgetReport(of: harness.host, "bundled fallback for \(name)") {
                 guard let state = harness.host.widgets[name], state.sourceURL == bundled else { return false }
                 return state.package != nil || state.lastFailure != nil
             }
@@ -2149,7 +2182,7 @@ final class ShellWidgetClickTests: XCTestCase {
             try Data("function render(ctx) return ui.box{ w = 33, h = 10 } end".utf8).write(to: source)
             harness.host.rescan()
             let slot = { harness.host.slots(for: Harness.monitor).first { $0.id == name } }
-            await until("repaired user widget for \(name)") {
+            await harness.layoutChanges.wait("repaired user widget for \(name)") {
                 slot()?.size.width == 33 && slot()?.failure == nil
             }
         }
@@ -3198,16 +3231,23 @@ final class ShellWidgetClickTests: XCTestCase {
         try await layoutChanges.change()
         XCTAssertTrue(harness.host.togglePopout(of: "test", on: main))
         let popout = try XCTUnwrap(harness.host.popout)
-        await until { popout.panel.isVisible && popout.surface.size.width == 100 }
+        await waitForApply(to: [popout.surface]) { popout.panel.isVisible && popout.surface.size.width == 100 }
         let before = popout.panel.frame
 
         harness.sink.vars = ["w": "180"]
         harness.host.updateVars()
-        await until { popout.surface.size.width == 180 }
+        await waitForApply(to: [popout.surface]) { popout.surface.size.width == 180 }
         let after = popout.panel.frame
         XCTAssertEqual(after.width, max(before.maxX, after.maxX) - min(before.minX, after.minX))
         XCTAssertNotNil(popout.panel.contentView?.subviews.last?.layer?.animation(forKey: ShellPopoutPanel.morphBounds))
-        await until { popout.panel.frame.width == 180 }
+        let (resizes, resized) = boundedChanges()
+        let resizeObserver = NotificationCenter.default.addObserver(
+            forName: NSWindow.didResizeNotification,
+            object: popout.panel,
+            queue: nil
+        ) { _ in resized.yield() }
+        defer { NotificationCenter.default.removeObserver(resizeObserver) }
+        await resizes.wait { popout.panel.frame.width == 180 }
     }
 
     func testPopoutsDemandTheDataTheyRead() async throws {
@@ -3367,7 +3407,7 @@ final class ShellWidgetClickTests: XCTestCase {
         harness.sink.vars = ["w": "9"]
         harness.host.updateVars()
         try await layoutChanges.change()
-        await until { popout.surface.size == CGSize(width: 50, height: 30) }
+        await waitForApply(to: [popout.surface]) { popout.surface.size == CGSize(width: 50, height: 30) }
         XCTAssertEqual(popout.surface.size, CGSize(width: 50, height: 30))
         XCTAssertEqual(popout.panel.frame.maxX, screen.visibleFrame.maxX - 8, accuracy: 0.5)
         XCTAssertEqual(popout.panel.frame.maxY, screen.visibleFrame.maxY - 5, accuracy: 0.5)
@@ -3413,7 +3453,7 @@ final class ShellWidgetClickTests: XCTestCase {
         XCTAssertTrue(harness.host.toggle("controls", on: main))
         let drawer = try XCTUnwrap(harness.host.drawer)
         XCTAssertEqual(drawer.sections.map(\.widget), ["test", "second"])
-        await until {
+        await waitForApply(to: drawer.sections.map(\.surface)) {
             drawer.panel.isVisible && drawer.sections.allSatisfy { $0.surface.size.height > 0 }
         }
         XCTAssertEqual(drawer.panel.frame.size, CGSize(width: 80 + 24, height: 12 + 20 + 12 + 30 + 12))
@@ -3460,7 +3500,7 @@ final class ShellWidgetClickTests: XCTestCase {
         defer { bar.close() }
         click(surface, at: CGPoint(x: 5, y: 5))
         let popout = try XCTUnwrap(harness.host.popout)
-        await until { popout.panel.isVisible }
+        await waitForApply(to: [popout.surface]) { popout.panel.isVisible }
         let opened = popout.panel.frame
 
         harness.sink.vars = ["w": "40"]
@@ -3498,7 +3538,7 @@ final class ShellWidgetClickTests: XCTestCase {
         defer { bar.close() }
         click(surface, at: CGPoint(x: 5, y: 5))
         let popout = try XCTUnwrap(harness.host.popout)
-        await until { popout.panel.isVisible }
+        await waitForApply(to: [popout.surface]) { popout.panel.isVisible }
         XCTAssertLessThan(popout.panel.frame.height, 5000)
         XCTAssertEqual(popout.surface.naturalSize.height, 5000)
         XCTAssertEqual(popout.surface.size, popout.panel.frame.size)
@@ -3534,7 +3574,7 @@ final class ShellWidgetClickTests: XCTestCase {
         defer { bar.close() }
         click(surface, at: CGPoint(x: 5, y: 5))
         let popout = try XCTUnwrap(harness.host.popout)
-        await until { popout.panel.isVisible }
+        await waitForApply(to: [popout.surface]) { popout.panel.isVisible }
         let opened = harness.sink.popoutChanges
 
         harness.sink.vars = ["gone": "1"]
@@ -3790,7 +3830,7 @@ final class ShellWidgetClickTests: XCTestCase {
         harness.sink.vars = ["w": "9"]
         harness.host.updateVars()
         try await layoutChanges.change()
-        await until { popout.surface.size == CGSize(width: 50, height: 30) }
+        await waitForApply(to: [popout.surface]) { popout.surface.size == CGSize(width: 50, height: 30) }
         XCTAssertEqual(popout.surface.size, CGSize(width: 50, height: 30))
         XCTAssertTrue(harness.host.slots(for: main).isEmpty)
         XCTAssertEqual(harness.slot?.size.width, 9)
@@ -3877,7 +3917,7 @@ final class ShellWidgetClickTests: XCTestCase {
         let items = (0 ..< 6).map {
             ShellHiddenBarItem(id: "com.example.\($0)#0", name: "\($0)", image: nil, width: 30, height: 16)
         }
-        await until { harness.host.widgets["test"]?.package != nil }
+        await waitForWidgetReport(of: harness.host) { harness.host.widgets["test"]?.package != nil }
         _ = try XCTUnwrap(harness.host.widgets["test"]?.package)
         var previous = 0
         let size = { (data: ShellHiddenBarData) async throws -> CGSize in
@@ -3885,7 +3925,7 @@ final class ShellWidgetClickTests: XCTestCase {
             XCTAssertTrue(harness.host.togglePopout(of: "test", on: main))
             let popout = try XCTUnwrap(harness.host.popout)
             defer { harness.host.closePopout(animated: false) }
-            await until { popout.surface.sequence > previous }
+            await waitForApply(to: [popout.surface]) { popout.surface.sequence > previous }
             XCTAssertGreaterThan(popout.surface.sequence, previous)
             previous = popout.surface.sequence
             return popout.surface.size
@@ -3961,14 +4001,14 @@ final class ShellWidgetClickTests: XCTestCase {
         harness.sink.vars = ["w": "9"]
         harness.host.updateVars()
         try await layoutChanges.change()
-        await until { popout.surface.size.width > 0 }
+        await waitForApply(to: [popout.surface]) { popout.surface.size.width > 0 }
         XCTAssertEqual(popout.surface.chrome, ShellPopoutChrome())
         XCTAssertFalse(panel.showsGlass)
 
         harness.sink.vars = ["w": "11", "glass": "1"]
         harness.host.updateVars()
         try await layoutChanges.change()
-        await until { popout.surface.chrome.glass }
+        await waitForApply(to: [popout.surface]) { popout.surface.chrome.glass }
         XCTAssertEqual(popout.surface.chrome, ShellPopoutChrome(glass: true, radius: 14))
         XCTAssertTrue(panel.showsGlass)
         ShellLayerScene.engineQueue.sync {}
@@ -3979,7 +4019,7 @@ final class ShellWidgetClickTests: XCTestCase {
         harness.sink.vars = ["w": "13", "glass": "2"]
         harness.host.updateVars()
         try await layoutChanges.change()
-        await until { popout.surface.chrome.clear }
+        await waitForApply(to: [popout.surface]) { popout.surface.chrome.clear }
         XCTAssertEqual(popout.surface.chrome, ShellPopoutChrome(clear: true))
         XCTAssertFalse(panel.showsGlass)
         XCTAssertFalse(panel.hasShadow)
@@ -4047,7 +4087,7 @@ final class ShellWidgetClickTests: XCTestCase {
         harness.sink.vars = ["w": "9"]
         harness.host.updateVars()
         try await layoutChanges.change()
-        await until { popout.panel.isVisible }
+        await waitForApply(to: [popout.surface]) { popout.panel.isVisible }
         XCTAssertEqual(popout.panel.frame.minX, side.maxX + 4, accuracy: 0.5)
         XCTAssertEqual(popout.panel.frame.midY, button.midY, accuracy: 0.5)
     }
@@ -4165,7 +4205,7 @@ final class ShellWidgetClickTests: XCTestCase {
         harness.sink.vars = ["w": "9"]
         harness.host.updateVars()
         try await layoutChanges.change()
-        await until { popout.surface.size == CGSize(width: 60, height: 20) }
+        await waitForApply(to: [popout.surface]) { popout.surface.size == CGSize(width: 60, height: 20) }
         XCTAssertEqual(popout.surface.size, CGSize(width: 60, height: 20))
         XCTAssertTrue(popout.panel.firstResponder === popout.surface.view)
         let rings = try XCTUnwrap(popout.surface.view.layer).flattened
@@ -4268,7 +4308,7 @@ final class ShellWidgetClickTests: XCTestCase {
         let popout = try XCTUnwrap(harness.host.popout)
         click(surface, at: CGPoint(x: 25, y: 5))
         try await layoutChanges.change()
-        await until { popout.panel.isVisible }
+        await waitForApply(to: [popout.surface]) { popout.panel.isVisible }
         XCTAssertTrue(popout.panel.isVisible)
         XCTAssertEqual(popout.surface.transition.from, 0)
         XCTAssertEqual(popout.surface.transition.to, 1)
@@ -4289,7 +4329,7 @@ final class ShellWidgetClickTests: XCTestCase {
         let reopened = try XCTUnwrap(harness.host.popout)
         click(surface, at: CGPoint(x: 25, y: 5))
         try await layoutChanges.change()
-        await until { reopened.panel.isVisible }
+        await waitForApply(to: [reopened.surface]) { reopened.panel.isVisible }
         XCTAssertTrue(reopened.panel.isVisible)
         harness.host.closePopout()
         XCTAssertTrue(harness.host.closingPopout === reopened)
@@ -4331,7 +4371,7 @@ final class ShellWidgetClickTests: XCTestCase {
         let popout = try XCTUnwrap(harness.host.popout)
         click(surface, at: CGPoint(x: 25, y: 5))
         try await layoutChanges.change()
-        await until { popout.panel.isVisible }
+        await waitForApply(to: [popout.surface]) { popout.panel.isVisible }
         XCTAssertTrue(popout.panel.isVisible)
         XCTAssertTrue(popout.isShaped)
         XCTAssertFalse(popout.panel.hasShadow)
@@ -4373,11 +4413,11 @@ final class ShellWidgetClickTests: XCTestCase {
         bar.contentView = surface.view
         click(surface, at: CGPoint(x: 5, y: 5))
         let popout = try XCTUnwrap(harness.host.popout)
-        await until { popout.panel.isVisible }
+        await waitForApply(to: [popout.surface]) { popout.panel.isVisible }
         XCTAssertEqual(popout.panel.frame.maxY, bar.frame.minY - PopupAttachment.gap, accuracy: 0.5)
 
         click(surface, at: CGPoint(x: 25, y: 5))
-        await until { abs(popout.panel.frame.maxY - bar.frame.minY) < 0.5 }
+        await waitForApply(to: [popout.surface]) { abs(popout.panel.frame.maxY - bar.frame.minY) < 0.5 }
         XCTAssertEqual(popout.panel.frame.maxY, bar.frame.minY, accuracy: 0.5)
         XCTAssertEqual(popout.panel.frame.midX, bar.frame.minX + 10, accuracy: 0.5)
     }
@@ -4414,7 +4454,7 @@ final class ShellWidgetClickTests: XCTestCase {
 
         click(surface, at: CGPoint(x: 25, y: 5))
         try await layoutChanges.change()
-        await until { popout.surface.size == CGSize(width: 50, height: 30) }
+        await waitForApply(to: [popout.surface]) { popout.surface.size == CGSize(width: 50, height: 30) }
         XCTAssertEqual(popout.surface.size, CGSize(width: 50, height: 30))
         XCTAssertTrue(popout.panel.isVisible)
 
@@ -4471,7 +4511,7 @@ extension ShellWidgetClickTests {
         let popout = try XCTUnwrap(harness.host.popout)
         click(surface, at: CGPoint(x: 25, y: 5))
         try await layoutChanges.change()
-        await until { popout.panel.isVisible }
+        await waitForApply(to: [popout.surface]) { popout.panel.isVisible }
         XCTAssertEqual(popout.surface.timing, ShellTiming(open: 0.8, close: 0.6))
         XCTAssertEqual(popout.surface.transition.from, 0)
         XCTAssertEqual(popout.surface.transition.to, 1)
@@ -4526,7 +4566,7 @@ extension ShellWidgetClickTests {
         XCTAssertTrue(harness.host.toggle("controls", on: main))
         let drawer = try XCTUnwrap(harness.host.drawer)
         let section = try XCTUnwrap(drawer.sections.first)
-        await until { drawer.panel.isVisible && section.surface.size.height > 0 }
+        await waitForApply(to: [section.surface]) { drawer.panel.isVisible && section.surface.size.height > 0 }
         XCTAssertEqual(section.surface.transition.duration, 0.6, accuracy: 1e-6)
         XCTAssertTrue(section.surface.transition.forced)
 
@@ -4596,7 +4636,7 @@ extension ShellWidgetClickTests {
         harness.sink.vars = ["w": "9"]
         harness.host.updateVars()
         try await layoutChanges.change()
-        await until { popout.panel.isVisible }
+        await waitForApply(to: [popout.surface]) { popout.panel.isVisible }
         XCTAssertEqual(popout.surface.transition.duration, 0.5, accuracy: 1e-6)
         XCTAssertTrue(popout.surface.transition.forced)
 
