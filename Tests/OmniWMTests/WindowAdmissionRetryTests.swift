@@ -1232,7 +1232,7 @@ final class WindowAdmissionRetryTests: XCTestCase {
         controller.axEventHandler.cancelCreatedWindowRetry(windowId: unrelatedWindowId)
     }
 
-    func testStoppedResolverDropsOldActivationCompletionAfterRestart() async {
+    func testStoppedResolverDropsOldActivationCompletionAfterRestart() async throws {
         let controller = WindowAdmissionTestSupport.controller()
         let pid: pid_t = 467_331
         let gate = FocusedFactReadGate()
@@ -1253,6 +1253,7 @@ final class WindowAdmissionRetryTests: XCTestCase {
                 observationGeneration: 1
             )
         )
+        let staleResolution = try XCTUnwrap(controller.factResolver.deferredFactTask)
         await fulfillment(of: [readStarted], timeout: 2)
 
         controller.factResolver.stop()
@@ -1261,7 +1262,7 @@ final class WindowAdmissionRetryTests: XCTestCase {
         let reopenedSeq = controller.eventIntake.lastSeq
         gate.release()
         await fulfillment(of: [readFinished], timeout: 2)
-        await Task.yield()
+        await staleResolution.value
         controller.eventIntake.drainNow()
 
         XCTAssertEqual(controller.eventIntake.lastSeq, reopenedSeq)

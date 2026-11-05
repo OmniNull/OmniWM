@@ -30,7 +30,7 @@ final class MultitouchGestureSource {
     private let devices: MultitouchDeviceRegistration
     private var activeGeneration: UInt = 0
     private var previousActiveCount = 0
-    private var revalidationTask: Task<Void, Never>?
+    private(set) var revalidationTask: Task<Void, Never>?
     private var episodeActive = false
     private var episodeReasons: Set<RevalidationReason> = []
     private var episodeBaselineDeviceIds: Set<UInt64> = []

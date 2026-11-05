@@ -612,8 +612,9 @@ final class WorkspaceBarManagerTests: XCTestCase {
         manager.handleAutoHideMouseMoved(at: pointer)
 
         XCTAssertFalse(manager.isPointerRevealed(on: monitor.id))
+        let reveal = try pendingDelay(on: manager)
         try sleeps.resumeNext()
-        try await waitUntil { manager.isPointerRevealed(on: monitor.id) }
+        await reveal.value
         XCTAssertTrue(manager.isPointerRevealed(on: monitor.id))
         XCTAssertTrue(sleeps.isEmpty)
     }
@@ -633,11 +634,12 @@ final class WorkspaceBarManagerTests: XCTestCase {
         manager.handleAutoHideMouseMoved(at: pointer)
         await fulfillment(of: [sleepEntries[0]], timeout: 2)
         XCTAssertEqual(sleeps.requestedDurations.last, .milliseconds(300))
+        let cancelledReveal = try pendingDelay(on: manager)
 
         pointer = monitor.frame.center
         manager.handleAutoHideMouseMoved(at: pointer)
         try sleeps.resumeNext()
-        await settle()
+        await cancelledReveal.value
 
         XCTAssertFalse(manager.isPointerRevealed(on: monitor.id))
         XCTAssertTrue(manager.autoHideDelays.pendingIds.isEmpty)
@@ -674,18 +676,20 @@ final class WorkspaceBarManagerTests: XCTestCase {
         await fulfillment(of: [sleepEntries[0]], timeout: 2)
         XCTAssertEqual(sleeps.requestedDurations.last, .milliseconds(300))
         XCTAssertTrue(manager.isPointerRevealed(on: monitor.id))
+        let cancelledHide = try pendingDelay(on: manager)
         pointer = Self.retentionPoint
         manager.handleAutoHideMouseMoved(at: pointer)
         try sleeps.resumeNext()
-        await settle()
+        await cancelledHide.value
         XCTAssertTrue(manager.isPointerRevealed(on: monitor.id))
 
         pointer = monitor.frame.center
         manager.handleAutoHideMouseMoved(at: pointer)
         await fulfillment(of: [sleepEntries[1]], timeout: 2)
         XCTAssertEqual(sleeps.requestedDurations.last, .milliseconds(300))
+        let hide = try pendingDelay(on: manager)
         try sleeps.resumeNext()
-        try await waitUntil { !manager.isPointerRevealed(on: monitor.id) }
+        await hide.value
         XCTAssertFalse(manager.isPointerRevealed(on: monitor.id))
     }
 
@@ -704,6 +708,7 @@ final class WorkspaceBarManagerTests: XCTestCase {
         manager.handleAutoHideMouseMoved(at: pointer)
         await fulfillment(of: [sleepEntries[0]], timeout: 2)
         XCTAssertEqual(sleeps.requestedDurations.last, .milliseconds(300))
+        let cancelledReveal = try pendingDelay(on: manager)
         let hiddenBar = DesiredBarSurface(
             monitor: monitor,
             visible: false,
@@ -720,12 +725,13 @@ final class WorkspaceBarManagerTests: XCTestCase {
         await fulfillment(of: [sleepEntries[1]], timeout: 2)
         XCTAssertEqual(sleeps.requestedDurations.last, .milliseconds(300))
         XCTAssertEqual(sleeps.count, 2)
+        let reveal = try pendingDelay(on: manager)
         try sleeps.resumeNext()
-        await settle()
+        await cancelledReveal.value
         XCTAssertFalse(manager.isPointerRevealed(on: monitor.id))
 
         try sleeps.resumeNext()
-        try await waitUntil { manager.isPointerRevealed(on: monitor.id) }
+        await reveal.value
         XCTAssertTrue(manager.isPointerRevealed(on: monitor.id))
     }
 
@@ -769,24 +775,8 @@ final class WorkspaceBarManagerTests: XCTestCase {
         return manager
     }
 
-    private enum AutoHideFixtureError: Error {
-        case conditionNotReached
-    }
-
-    private func waitUntil(_ condition: () -> Bool) async throws {
-        let clock = ContinuousClock()
-        let deadline = clock.now.advanced(by: .seconds(2))
-        while !condition(), clock.now < deadline {
-            try Task.checkCancellation()
-            await Task.yield()
-        }
-        guard condition() else { throw AutoHideFixtureError.conditionNotReached }
-    }
-
-    private func settle() async {
-        for _ in 0 ..< 20 {
-            await Task.yield()
-        }
+    private func pendingDelay(on manager: WorkspaceBarManager) throws -> Task<Void, Never> {
+        try XCTUnwrap(manager.autoHideDelays.pending[monitor.id]?.task)
     }
 
     private func makeManager() -> WorkspaceBarManager {

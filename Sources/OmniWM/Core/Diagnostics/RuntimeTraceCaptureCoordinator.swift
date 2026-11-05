@@ -72,7 +72,7 @@ final class RuntimeTraceCaptureCoordinator {
     private var automaticEvidenceProvider: (() async -> String)?
     private var performanceMetricsEnd: (() -> Void)?
     private var traceMetricsEnd: (() async -> Void)?
-    private var captureTask: Task<Void, Never>?
+    private(set) var captureTask: Task<Void, Never>?
     private var captureGeneration: UInt64 = 0
     private(set) var lastArtifact: TraceCaptureArtifact?
     var onStateChange: (() -> Void)?

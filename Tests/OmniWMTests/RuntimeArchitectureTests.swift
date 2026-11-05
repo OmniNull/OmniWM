@@ -6065,6 +6065,8 @@ final class RuntimeArchitectureTests: XCTestCase {
     @MainActor
     func testFloatDemotionHysteresisIgnoresTransientMisreadReasons() throws {
         let controller = Self.controller()
+        var now = ContinuousClock.now
+        controller.floatDemotionTracker.now = { now }
         let ws = try XCTUnwrap(controller.workspaceManager.workspaceId(for: "1", createIfMissing: true))
         _ = controller.workspaceManager.focusWorkspace(named: "1")
         controller.niriLayoutHandler.enableNiriLayout()
@@ -6118,7 +6120,7 @@ final class RuntimeArchitectureTests: XCTestCase {
             guardedEntries.append((reason, entry))
         }
 
-        Thread.sleep(forTimeInterval: 0.35)
+        now = now.advanced(by: FloatDemotionTracker.floatDemotionStabilityInterval)
 
         XCTAssertEqual(
             demotionMode([.accessoryWithoutClose], controlEntry),

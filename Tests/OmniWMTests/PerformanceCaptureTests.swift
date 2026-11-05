@@ -314,6 +314,7 @@ final class PerformanceCaptureTests: XCTestCase {
         ) else {
             return XCTFail("expected first capture to start")
         }
+        let cancelledAutoStop = try XCTUnwrap(coordinator.captureTask)
         await fulfillment(of: [sleepEntries[0]], timeout: 2)
         _ = await coordinator.toggle(
             desiredState: .inactive,
@@ -332,9 +333,7 @@ final class PerformanceCaptureTests: XCTestCase {
         await fulfillment(of: [sleepEntries[1]], timeout: 2)
 
         try await sleepGate.resumeFirst()
-        for _ in 0 ..< 10 {
-            await Task.yield()
-        }
+        await cancelledAutoStop.value
 
         XCTAssertEqual(coordinator.status.phase, .recording)
         XCTAssertEqual(coordinator.status.profile, .performance)

@@ -74,6 +74,7 @@ final class FactResolver {
 
     var factProvider: ((pid_t) -> FocusedWindowFact?)?
     var deferredFactProvider: ((pid_t) async -> FocusedWindowFact?)?
+    private(set) var deferredFactTask: Task<Void, Never>?
 
     private var resolverThread: Thread?
     private var inFlightActivationPids: Set<pid_t> = []
@@ -142,7 +143,7 @@ final class FactResolver {
         }
         inFlightActivationPids.insert(request.pid)
         if let deferredFactProvider {
-            Task { @MainActor in
+            deferredFactTask = Task { @MainActor in
                 let focusedWindow = await deferredFactProvider(request.pid)
                 completeActivationFactRequest(request, focusedWindow: focusedWindow)
             }

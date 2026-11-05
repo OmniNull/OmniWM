@@ -9,7 +9,6 @@ import XCTest
 final class MultitouchWaitFailureTests: XCTestCase {
     private enum WaitFailure: Error {
         case rejected
-        case stateDidNotSettle
     }
 
     func testNoncancelledStartupWaitFailureExhaustsAndAllowsFreshWakeEpisode() async throws {
@@ -81,18 +80,11 @@ final class MultitouchWaitFailureTests: XCTestCase {
     }
 
     private func waitForRevalidation(_ source: MultitouchGestureSource, exhausted: Bool) async throws {
-        let deadline = ContinuousClock.now.advanced(by: .seconds(2))
-        while true {
-            let snapshot = source.diagnosticsSnapshot()
-            if snapshot.retryExhausted == exhausted,
-               snapshot.nextRetryDelay == nil,
-               exhausted || snapshot.state == .running
-            {
-                return
-            }
-            guard ContinuousClock.now < deadline else { throw WaitFailure.stateDidNotSettle }
-            await Task.yield()
-        }
+        try await XCTUnwrap(source.revalidationTask).value
+        let snapshot = source.diagnosticsSnapshot()
+        XCTAssertEqual(snapshot.retryExhausted, exhausted)
+        XCTAssertNil(snapshot.nextRetryDelay)
+        XCTAssertTrue(exhausted || snapshot.state == .running)
     }
 
     private func makeSource(

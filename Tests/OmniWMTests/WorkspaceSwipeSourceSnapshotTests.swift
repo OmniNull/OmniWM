@@ -14,7 +14,8 @@ final class WorkspaceSwipeSourceSnapshotTests: XCTestCase {
         defer { preview.stop() }
 
         preview.captureSource(monitor: monitor)
-        await gate.deliver(image)
+        let capture = try XCTUnwrap(preview.sourceSnapshotTask)
+        await gate.deliver(image, finishing: capture)
         XCTAssertTrue(preview.begin(source: [], destination: [], monitor: monitor))
         XCTAssertTrue(preview.presentedSourceSnapshot as AnyObject? === image)
         XCTAssertEqual(gate.frames, [monitor.visibleFrame])
@@ -27,9 +28,10 @@ final class WorkspaceSwipeSourceSnapshotTests: XCTestCase {
         defer { preview.stop() }
 
         preview.captureSource(monitor: monitor)
+        let capture = try XCTUnwrap(preview.sourceSnapshotTask)
         XCTAssertTrue(preview.begin(source: [], destination: [], monitor: monitor))
         XCTAssertNil(preview.presentedSourceSnapshot)
-        await gate.deliver(image)
+        await gate.deliver(image, finishing: capture)
         XCTAssertTrue(preview.presentedSourceSnapshot as AnyObject? === image)
     }
 
@@ -40,16 +42,18 @@ final class WorkspaceSwipeSourceSnapshotTests: XCTestCase {
         defer { preview.stop() }
 
         preview.captureSource(monitor: monitor)
+        let stoppedCapture = try XCTUnwrap(preview.sourceSnapshotTask)
         preview.stop()
-        await gate.deliver(image)
+        await gate.deliver(image, finishing: stoppedCapture)
         XCTAssertTrue(preview.begin(source: [], destination: [], monitor: monitor))
         XCTAssertNil(preview.presentedSourceSnapshot)
         preview.stop()
 
         preview.captureSource(monitor: monitor)
+        let frozenCapture = try XCTUnwrap(preview.sourceSnapshotTask)
         XCTAssertTrue(preview.begin(source: [], destination: [], monitor: monitor))
         preview.freezeSource()
-        await gate.deliver(image)
+        await gate.deliver(image, finishing: frozenCapture)
         XCTAssertNil(preview.presentedSourceSnapshot)
     }
 
@@ -60,9 +64,10 @@ final class WorkspaceSwipeSourceSnapshotTests: XCTestCase {
         defer { preview.stop() }
 
         preview.captureSource(monitor: monitor)
+        let originalCapture = try XCTUnwrap(preview.sourceSnapshotTask)
         XCTAssertTrue(preview.begin(source: [], destination: [], monitor: monitor))
         XCTAssertTrue(preview.replace(source: [], destination: [], monitor: monitor))
-        await gate.deliver(image)
+        await gate.deliver(image, finishing: originalCapture)
         XCTAssertNil(preview.presentedSourceSnapshot)
     }
 
@@ -115,21 +120,28 @@ final class WorkspaceSwipeSourceSnapshotTests: XCTestCase {
     private final class SnapshotGate {
         var frames: [CGRect] = []
         private var pending: CheckedContinuation<CGImage?, Never>?
+        private var captureEntered: XCTestExpectation?
 
         func capture(_ frame: CGRect) async -> CGImage? {
             frames.append(frame)
-            return await withCheckedContinuation { pending = $0 }
+            return await withCheckedContinuation { continuation in
+                pending = continuation
+                captureEntered?.fulfill()
+                captureEntered = nil
+            }
         }
 
-        func deliver(_ image: CGImage?) async {
-            for _ in 0 ..< 50 where pending == nil {
-                await Task.yield()
+        func deliver(_ image: CGImage?, finishing capture: Task<Void, Never>) async {
+            if pending == nil {
+                let entered = XCTestExpectation(description: "Source snapshot capture entered")
+                captureEntered = entered
+                guard await XCTWaiter.fulfillment(of: [entered], timeout: 2) == .completed else {
+                    return XCTFail("Source snapshot capture did not start")
+                }
             }
             pending?.resume(returning: image)
             pending = nil
-            for _ in 0 ..< 50 {
-                await Task.yield()
-            }
+            await capture.value
         }
     }
 }

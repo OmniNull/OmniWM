@@ -57,7 +57,7 @@ final class WorkspaceSwipePreview {
     private let captureDisplay: @MainActor (Monitor, CGRect) async -> CGImage?
     private var sourceSnapshot: CGImage?
     private var sourceSnapshotLayer: CALayer?
-    private var sourceSnapshotTask: Task<Void, Never>?
+    private(set) var sourceSnapshotTask: Task<Void, Never>?
     private var tokens: [WindowHandle: WindowToken] = [:]
     private var panel: WorkspaceSwipePreviewPanel?
     private var sourceLayer: CALayer?

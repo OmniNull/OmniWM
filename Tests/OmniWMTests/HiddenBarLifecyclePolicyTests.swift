@@ -207,10 +207,12 @@ final class HiddenBarLifecyclePolicyTests: XCTestCase {
         XCTAssertEqual(refreshes, 0)
 
         hiddenBar.setup()
+        let laterRefresh = expectation(description: "Later running-applications refresh ran")
+        laterRefresh.assertForOverFulfill = false
+        hiddenBar.observation.onRunningApplicationsRefreshForTests = { laterRefresh.fulfill() }
         let laterObserverEvent = hiddenBar.observation.enqueueRunningApplicationsChangedForTests()
         await laterObserverEvent.value
-        let refreshed = await waitUntil { refreshes >= 1 }
-        XCTAssertTrue(refreshed)
+        await fulfillment(of: [laterRefresh], timeout: 2)
         hiddenBar.cleanup()
     }
 
@@ -303,7 +305,6 @@ final class HiddenBarLifecyclePolicyTests: XCTestCase {
         hiddenBar.reconcealment.menuGuardNow = { now }
         hiddenBar.reconcealment.menuGuardSleeper = { delay in
             now = now.advanced(by: delay)
-            await Task.yield()
         }
         hiddenBar.reconcealment.menuOpenProviderForTests = { _ in nil }
         hiddenBar.performance.begin()
@@ -341,7 +342,6 @@ final class HiddenBarLifecyclePolicyTests: XCTestCase {
                 XCTAssertEqual(hiddenBar?.temporarilyRevealedBundleIDsForTests.isEmpty, false)
                 panelOpen = false
             }
-            await Task.yield()
         }
         hiddenBar.reconcealment.menuOpenProviderForTests = { _ in
             HiddenBarMenuGuard.isMenuOpen(
@@ -367,22 +367,16 @@ final class HiddenBarLifecyclePolicyTests: XCTestCase {
         hiddenBar.reconcealment.menuGuardNow = { now }
         hiddenBar.reconcealment.menuGuardSleeper = { delay in
             now = now.advanced(by: delay)
-            await Task.yield()
         }
-        hiddenBar.reconcealment.menuOpenProviderForTests = { _ in true }
+        hiddenBar.reconcealment.menuOpenProviderForTests = { [weak hiddenBar] _ in
+            XCTAssertNil(hiddenBar?.performance.snapshot()?.terminalReason)
+            return true
+        }
         hiddenBar.performance.begin()
 
         hiddenBar.startReconcealForTests(revealedBundleIDs: ["com.omniwm.open"])
         await driveReconcealTask(hiddenBar)
 
-        let terminalSnapshot = hiddenBar.performance.snapshot()
-        for _ in 0 ..< 8 {
-            await Task.yield()
-        }
-        XCTAssertEqual(
-            hiddenBar.performance.snapshot()?.menuGuardQueries,
-            terminalSnapshot?.menuGuardQueries
-        )
         let snapshot = hiddenBar.performance.end()
         XCTAssertGreaterThan(snapshot?.menuGuardQueries ?? 0, 3)
         XCTAssertEqual(snapshot?.terminalReason, .watchdog)
@@ -442,23 +436,13 @@ final class HiddenBarLifecyclePolicyTests: XCTestCase {
 
     @MainActor
     private func driveReconcealTask(_ hiddenBar: HiddenBarController) async {
-        for _ in 0 ..< 256 {
-            if hiddenBar.performance.snapshot()?.terminalReason != nil {
-                return
-            }
-            await Task.yield()
+        guard let reconcealTask = hiddenBar.reconcealment.task else {
+            return XCTFail("Reconceal task was not scheduled")
         }
-        XCTFail("Reconceal task did not reach a terminal state")
-    }
-
-    @MainActor
-    private func waitUntil(_ predicate: () -> Bool) async -> Bool {
-        for _ in 0 ..< 128 {
-            if predicate() {
-                return true
-            }
-            await Task.yield()
-        }
-        return false
+        await reconcealTask.value
+        XCTAssertNotNil(
+            hiddenBar.performance.snapshot()?.terminalReason,
+            "Reconceal task did not reach a terminal state"
+        )
     }
 }

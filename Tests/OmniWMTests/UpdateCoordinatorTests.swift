@@ -256,7 +256,6 @@ final class UpdateCoordinatorTests: XCTestCase {
         window.onEvent = nil
         installer.gates.removeFirst().resume()
         await fulfillment(of: [finished], timeout: 2)
-        await Task.yield()
         XCTAssertTrue(installer.installed)
         XCTAssertEqual(installer.events, ["install"])
         XCTAssertNil(window.alertTitle)

@@ -17,7 +17,7 @@ final class HiddenBarReconcealment {
     private weak var controller: HiddenBarController?
     private let itemService: MenuBarItemService
     private let performance: HiddenBarPerformanceCapture
-    private var task: Task<Void, Never>?
+    private(set) var task: Task<Void, Never>?
     private var generation = 0
     var menuGuardSleeper: @MainActor (Duration) async throws -> Void = {
         try await Task.sleep(for: $0)

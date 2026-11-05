@@ -8,7 +8,8 @@ import OmniWMIPC
 @MainActor
 final class FloatDemotionTracker {
     private var floatDemotionFirstSamplesByToken: [WindowToken: ContinuousClock.Instant] = [:]
-    private static let floatDemotionStabilityInterval: Duration = .milliseconds(300)
+    static let floatDemotionStabilityInterval: Duration = .milliseconds(300)
+    var now: @MainActor () -> ContinuousClock.Instant = { ContinuousClock.now }
 
     func clearSample(for token: WindowToken) {
         floatDemotionFirstSamplesByToken.removeValue(forKey: token)
@@ -27,7 +28,7 @@ final class FloatDemotionTracker {
             return .tiling
         }
 
-        let now = ContinuousClock.now
+        let now = self.now()
         guard let firstSampledAt = floatDemotionFirstSamplesByToken[token] else {
             floatDemotionFirstSamplesByToken[token] = now
             return .tiling

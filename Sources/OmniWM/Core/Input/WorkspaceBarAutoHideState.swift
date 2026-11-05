@@ -71,7 +71,7 @@ struct WorkspaceBarAutoHideState {
 @MainActor
 final class WorkspaceBarAutoHideDelays {
     var sleep: @MainActor (Duration) async throws -> Void = { try await Task.sleep(for: $0) }
-    private var pending: [Monitor.ID: (revealing: Bool, task: Task<Void, Never>)] = [:]
+    private(set) var pending: [Monitor.ID: (revealing: Bool, task: Task<Void, Never>)] = [:]
 
     var pendingIds: some Collection<Monitor.ID> {
         pending.keys
