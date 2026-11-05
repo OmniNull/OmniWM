@@ -6,11 +6,6 @@ import CoreGraphics
 import XCTest
 
 @MainActor
-private final class ClickClock {
-    var now: TimeInterval = 100
-}
-
-@MainActor
 final class FusionDoubleClickTests: NiriInteractionTestCase {
     @MainActor
     private struct Fixture {
@@ -180,7 +175,7 @@ final class FusionDoubleClickTests: NiriInteractionTestCase {
         XCTAssertNil(zone(250))
     }
 
-    func testTheTapAsksAboutPlainAndShiftDoubleClicksOnlyWithMacOSFusionOn() {
+    func testTheTapAsksAboutPlainDoubleClicksOnlyWithMacOSFusionOn() {
         let option = CGEventFlags.maskAlternate
         let point = CGPoint(x: 400, y: 300)
         func asks(
@@ -204,7 +199,7 @@ final class FusionDoubleClickTests: NiriInteractionTestCase {
         XCTAssertFalse(asks(3))
         XCTAssertFalse(asks(2, option))
         XCTAssertFalse(asks(2, .maskCommand))
-        XCTAssertTrue(asks(2, .maskShift))
+        XCTAssertFalse(asks(2, .maskShift))
         XCTAssertFalse(asks(2, [.maskShift, .maskCommand]))
         XCTAssertFalse(asks(2, [.maskShift, option]))
         XCTAssertFalse(asks(2, .maskControl))
@@ -572,37 +567,91 @@ final class FusionDoubleClickTests: NiriInteractionTestCase {
         }
     }
 
-    func testDoubleClickingTheTitleBarMovesTheColumnToTheNextPreset() throws {
+    func testDoubleClickingTheTitleBarGoesToFullWidthAndBack() throws {
         let fixture = try makeFixture(pid: 941_007)
-        let column = try fixture.column(fixture.tokens[1])
-        let presets = fixture.engine.presetContainerPrimarySpans.count
-        XCTAssertGreaterThan(presets, 1)
+        let token = fixture.tokens[1]
+        let column = try fixture.column(token)
+        let sides = fixture.screenSides
+        let width = column.width
+        try fixture.settleStripStart()
+        let before = try fixture.frame(token)
 
-        var widths: [ProportionalSize] = []
-        for _ in 0 ..< presets {
-            XCTAssertTrue(fixture.doubleClick(at: try fixture.titleBar(fixture.tokens[1])))
-            widths.append(column.width)
-        }
-        XCTAssertEqual(Set(widths.map { "\($0)" }).count, presets)
-        XCTAssertTrue(fixture.doubleClick(at: try fixture.titleBar(fixture.tokens[1])))
-        XCTAssertEqual(column.width, widths[0])
+        XCTAssertTrue(fixture.doubleClick(at: try fixture.titleBar(token)))
+        XCTAssertEqual(column.width, .proportion(1))
+        let full = try fixture.frame(token)
+        XCTAssertEqual(full.width, sides.right - sides.left, accuracy: 1)
+        XCTAssertEqual(full.minX, sides.left, accuracy: 1)
+
+        XCTAssertTrue(fixture.doubleClick(at: try fixture.titleBar(token)))
+        XCTAssertEqual(column.width, width)
+        let back = try fixture.frame(token)
+        XCTAssertEqual(back.width, before.width, accuracy: 1)
+        XCTAssertEqual(back.midX, before.midX, accuracy: 1)
     }
 
-    func testATitleBarDoubleClickCyclesWidthsEvenAfterAKeptEdgeResize() throws {
+    func testEachTitleBarDoubleClickIsOneUndoStep() throws {
         let fixture = try makeFixture(pid: 941_090)
         let token = fixture.tokens[1]
         let column = try fixture.column(token)
-        let width = column.width
         try keepEdgeResize(of: token, in: fixture)
         let resized = column.width
 
         XCTAssertTrue(fixture.doubleClick(at: try fixture.titleBar(token)))
-        XCTAssertNotEqual(column.width, resized)
-
-        XCTAssertTrue(fixture.controller.niriLayoutHandler.stepLayoutHistory(.undo))
+        XCTAssertTrue(fixture.doubleClick(at: try fixture.titleBar(token)))
         XCTAssertEqual(column.width, resized)
-        XCTAssertTrue(fixture.controller.niriLayoutHandler.stepLayoutHistory(.undo))
+
+        let history = fixture.controller.niriLayoutHandler
+        XCTAssertTrue(history.stepLayoutHistory(.undo))
+        XCTAssertEqual(column.width, .proportion(1))
+        XCTAssertTrue(history.stepLayoutHistory(.undo))
+        XCTAssertEqual(column.width, resized)
+    }
+
+    func testAWidthChangedAtFullWidthStartsAgainFromFullWidth() throws {
+        let fixture = try makeFixture(pid: 941_120)
+        let token = fixture.tokens[1]
+        let column = try fixture.column(token)
+        let width = column.width
+        try fixture.select(token)
+
+        XCTAssertTrue(fixture.doubleClick(at: try fixture.titleBar(token)))
+        fixture.controller.niriLayoutHandler.cycleSize(forward: true)
+        let changed = column.width
+        XCTAssertNotEqual(changed, .proportion(1))
+
+        XCTAssertTrue(fixture.doubleClick(at: try fixture.titleBar(token)))
+        XCTAssertEqual(column.width, .proportion(1))
+        XCTAssertTrue(fixture.doubleClick(at: try fixture.titleBar(token)))
+        XCTAssertEqual(column.width, changed)
+        XCTAssertNotEqual(column.width, width)
+    }
+
+    func testAtFullWidthWithNothingToGoBackToADoubleClickChangesNothing() throws {
+        let fixture = try makeFixture(pid: 941_121)
+        let token = fixture.tokens[1]
+        let column = try fixture.column(token)
+        let handle = try XCTUnwrap(fixture.controller.workspaceManager.handle(for: token))
+        XCTAssertTrue(fixture.controller.niriLayoutHandler.toggleContainerFullPrimarySpan(target: .window(handle)))
+        fixture.relayout()
+        let width = column.width
+        let frame = try fixture.frame(token)
+
+        fixture.doubleClick(at: try fixture.titleBar(token))
+
+        XCTAssertTrue(column.isFullWidth)
         XCTAssertEqual(column.width, width)
+        XCTAssertEqual(try fixture.frame(token).width, frame.width, accuracy: 1)
+    }
+
+    func testAStackGoesToFullWidthAsAWholeColumn() throws {
+        let fixture = try makeFixture(pid: 941_122, stackFirstTwo: true)
+        let sides = fixture.screenSides
+
+        XCTAssertTrue(fixture.doubleClick(at: try fixture.titleBar(fixture.tokens[1])))
+
+        for token in fixture.tokens[0 ..< 2] {
+            XCTAssertEqual(try fixture.frame(token).width, sides.right - sides.left, accuracy: 1)
+        }
     }
 
     func testWithMacOSFusionTheCycleSizeKeysOnlyCycleAfterAKeptEdgeResize() throws {
@@ -632,41 +681,19 @@ final class FusionDoubleClickTests: NiriInteractionTestCase {
         XCTAssertEqual(try fixture.column(resized).width, resizedWidth)
     }
 
-    func testATitleBarDoubleClickResizesTheWindowAroundItsCentre() throws {
-        let fixture = try makeFixture(pid: 941_040)
-        let token = fixture.tokens[1]
-        let sides = fixture.screenSides
-        let presets = fixture.engine.presetContainerPrimarySpans.count
-
-        for step in 0 ..< presets {
-            let before = try fixture.frame(token)
-            XCTAssertTrue(fixture.doubleClick(at: try fixture.titleBar(token)))
-            let after = try fixture.frame(token)
-
-            XCTAssertNotEqual(after.width, before.width, accuracy: 1, "\(step)")
-            let leading = try after.minX - fixture.frame(fixture.tokens[0]).minX
-            let trailing = try fixture.frame(fixture.tokens[2]).maxX - after.minX
-            var expected = min(max(before.midX - after.width / 2, sides.left), sides.right - after.width)
-            if leading + trailing >= sides.right - sides.left - 1 {
-                expected = min(max(expected, sides.right - trailing), sides.left + leading)
-            }
-            XCTAssertEqual(after.minX, expected, accuracy: 1, "\(step)")
-            XCTAssertGreaterThanOrEqual(after.minX, sides.left - 1, "\(step)")
-            XCTAssertLessThanOrEqual(after.maxX, sides.right + 1, "\(step)")
-        }
-    }
-
-    func testATitleBarDoubleClickOnTheLastColumnLeavesNoEmptyScreenBesideIt() throws {
+    func testATitleBarDoubleClickOnTheLastColumnShowsItWhole() throws {
         let fixture = try makeFixture(pid: 941_041)
-        let (first, last) = (fixture.tokens[0], fixture.tokens[2])
+        let last = fixture.tokens[2]
         let sides = fixture.screenSides
+        let before = try fixture.frame(last)
 
-        for step in 0 ..< fixture.engine.presetContainerPrimarySpans.count {
+        for step in 0 ..< 2 {
             XCTAssertTrue(fixture.doubleClick(at: try fixture.titleBar(last)))
-            let hidesTheStart = try fixture.frame(first).minX < sides.left - 1
-            let leavesEmptyScreen = try fixture.frame(last).maxX < sides.right - 1
-            XCTAssertFalse(hidesTheStart && leavesEmptyScreen, "\(step)")
+            let frame = try fixture.frame(last)
+            XCTAssertGreaterThanOrEqual(frame.minX, sides.left - 1, "\(step)")
+            XCTAssertLessThanOrEqual(frame.maxX, sides.right + 1, "\(step)")
         }
+        XCTAssertEqual(try fixture.frame(last).width, before.width, accuracy: 1)
     }
 
     func testATitleBarDoubleClickKeepsAnAlwaysCentredColumnCentred() throws {
@@ -691,121 +718,33 @@ final class FusionDoubleClickTests: NiriInteractionTestCase {
         })
         let middle = (fixture.screenSides.left + fixture.screenSides.right) / 2
 
-        for step in 0 ..< fixture.engine.presetContainerPrimarySpans.count {
+        for step in 0 ..< 2 {
             XCTAssertTrue(fixture.doubleClick(at: try fixture.titleBar(token)))
             XCTAssertEqual(try fixture.frame(token).midX, middle, accuracy: 1, "\(step)")
         }
     }
 
-    func testSingleClicksRightAfterATitleBarDoubleClickKeepCycling() throws {
-        let fixture = try makeFixture(pid: 941_120)
-        let column = try fixture.column(fixture.tokens[1])
-        let point = try fixture.titleBar(fixture.tokens[1])
-        let presets = fixture.engine.presetContainerPrimarySpans.count
-
-        XCTAssertTrue(fixture.doubleClick(at: point))
-        XCTAssertNotNil(fixture.handler.inputTapThread.filterSnapshot.fusionClickChain)
-        var widths = [column.width]
-        for _ in 1 ..< presets {
-            XCTAssertTrue(fixture.doubleClick(at: point, clickCount: 1))
-            widths.append(column.width)
-        }
-
-        XCTAssertEqual(Set(widths.map { "\($0)" }).count, presets)
-    }
-
-    func testAShiftDoubleClickOnTheTitleBarCyclesBackwardsAndEachChainClickFollowsItsOwnShift() throws {
+    func testAShiftDoubleClickOnTheTitleBarIsLeftToTheApp() throws {
         let fixture = try makeFixture(pid: 941_140)
-        fixture.engine.presetContainerPrimarySpans = [.proportion(1.0 / 3.0), .proportion(0.5), .proportion(2.0 / 3.0)]
         fixture.handler.titleBarHitProvider = { _, _ in TitleBarHit(role: "AXWindow") }
         let token = fixture.tokens[1]
         let column = try fixture.column(token)
-        column.width = .proportion(0.5)
-        column.cachedWidth = 0
-        fixture.relayout()
-        try fixture.select(token)
-        let point = try fixture.titleBar(token)
-        func width() -> CGFloat {
-            guard case let .proportion(width) = column.width else {
-                XCTFail("\(column.width)")
-                return .nan
-            }
-            return width
-        }
-
-        XCTAssertTrue(fixture.doubleClick(at: point, modifiers: .maskShift))
-        XCTAssertEqual(width(), 1.0 / 3.0, accuracy: 0.001)
-        XCTAssertTrue(fixture.doubleClick(at: point, modifiers: .maskShift, clickCount: 1))
-        XCTAssertEqual(width(), 2.0 / 3.0, accuracy: 0.001)
-        XCTAssertTrue(fixture.doubleClick(at: point, clickCount: 1))
-        XCTAssertEqual(width(), 1.0 / 3.0, accuracy: 0.001)
-    }
-
-    func testAShiftDoubleClickOnATabOrAnEdgeIsLeftToTheApp() throws {
-        let fixture = try makeFixture(pid: 941_141)
-        let token = fixture.tokens[1]
-        let column = try fixture.column(token)
         let width = column.width
-        fixture.handler.titleBarHitProvider = { _, _ in TitleBarHit(
-            role: "AXRadioButton",
-            subrole: "AXTabButton",
-            placement: .insideBar(elementWithinBar: true)
-        ) }
 
         XCTAssertFalse(fixture.doubleClick(at: try fixture.titleBar(token), modifiers: .maskShift))
-        XCTAssertEqual(column.width, width)
-        fixture.handler.titleBarHitProvider = { _, _ in TitleBarHit(role: "AXWindow") }
-        XCTAssertFalse(fixture.doubleClick(at: try fixture.rightEdge(token), modifiers: .maskShift))
         XCTAssertFalse(fixture.doubleClick(at: try fixture.titleBar(token), modifiers: [.maskShift, .maskCommand]))
         XCTAssertEqual(column.width, width)
-
-        fixture.handler.titleBarHitProvider = { _, _ in TitleBarHit(
-            role: "AXRadioButton",
-            subrole: "AXTabButton",
-            placement: .insideBar(elementWithinBar: true)
-        ) }
-        XCTAssertTrue(fixture.doubleClick(at: try fixture.titleBar(token)))
-        XCTAssertNotEqual(column.width, width)
     }
 
-    func testTheClickChainEndsAfterASecond() throws {
-        let fixture = try makeFixture(pid: 941_121)
-        let clock = ClickClock()
-        fixture.handler.fusionClickClock = { clock.now }
+    func testClicksRightAfterATitleBarDoubleClickReachTheApp() throws {
+        let fixture = try makeFixture(pid: 941_141)
         let column = try fixture.column(fixture.tokens[1])
         let point = try fixture.titleBar(fixture.tokens[1])
-        XCTAssertTrue(fixture.doubleClick(at: point))
-        let width = column.width
-
-        clock.now += MouseEventHandler.fusionClickChainWindow + 0.1
-
-        XCTAssertFalse(fixture.doubleClick(at: point, clickCount: 1))
-        XCTAssertEqual(column.width, width)
-    }
-
-    func testAClickElsewhereOrOnAControlEndsTheClickChain() throws {
-        let fixture = try makeFixture(pid: 941_122)
-        let column = try fixture.column(fixture.tokens[1])
-        let point = try fixture.titleBar(fixture.tokens[1])
-        let other = try fixture.frame(fixture.tokens[0])
 
         XCTAssertTrue(fixture.doubleClick(at: point))
-        XCTAssertFalse(fixture.doubleClick(at: CGPoint(x: other.midX, y: other.midY), clickCount: 1))
-        XCTAssertNil(fixture.handler.inputTapThread.filterSnapshot.fusionClickChain)
-        let width = column.width
         XCTAssertFalse(fixture.doubleClick(at: point, clickCount: 1))
-        XCTAssertEqual(column.width, width)
-
-        XCTAssertTrue(fixture.doubleClick(at: point))
-        let afterDoubleClick = column.width
-        fixture.handler.titleBarHitProvider = { _, _ in TitleBarHit(
-            role: "AXButton",
-            placement: .insideBar(elementWithinBar: true)
-        ) }
-        XCTAssertFalse(fixture.doubleClick(at: point, clickCount: 1))
-        fixture.handler.titleBarHitProvider = { _, _ in TitleBarHit(role: "AXWindow") }
-        XCTAssertFalse(fixture.doubleClick(at: point, clickCount: 1))
-        XCTAssertEqual(column.width, afterDoubleClick)
+        XCTAssertFalse(fixture.doubleClick(at: point, clickCount: 3))
+        XCTAssertEqual(column.width, .proportion(1))
     }
 
     func testOnlyATiledWindowsTitleBarHoldsADragStill() throws {
@@ -859,21 +798,6 @@ final class FusionDoubleClickTests: NiriInteractionTestCase {
         XCTAssertTrue(fixture.handler.holdsTitleBarDragStill(at: titleBar, windowIdUnderPointer: token.windowId))
     }
 
-    func testTheTapAsksAboutAChainClickOnlyAtTheSameSpotWithinASecond() {
-        let chain = FusionClickChain(location: CGPoint(x: 100, y: 100), deadline: 10)
-        func asks(_ chain: FusionClickChain?, flags: CGEventFlags = [], at point: CGPoint, now: TimeInterval) -> Bool {
-            MouseEventHandler.continuesFusionClickChain(chain, flags: flags, location: point, now: now)
-        }
-
-        XCTAssertTrue(asks(chain, at: CGPoint(x: 104, y: 100), now: 9.5))
-        XCTAssertFalse(asks(chain, at: CGPoint(x: 104, y: 100), now: 10.5))
-        XCTAssertFalse(asks(chain, at: CGPoint(x: 120, y: 100), now: 9.5))
-        XCTAssertFalse(asks(chain, flags: .maskCommand, at: CGPoint(x: 100, y: 100), now: 9.5))
-        XCTAssertTrue(asks(chain, flags: .maskShift, at: CGPoint(x: 100, y: 100), now: 9.5))
-        XCTAssertFalse(asks(chain, flags: [.maskShift, .maskAlternate], at: CGPoint(x: 100, y: 100), now: 9.5))
-        XCTAssertFalse(asks(nil, at: CGPoint(x: 100, y: 100), now: 9.5))
-    }
-
     func testWithMacOSFusionTheCycleSizeKeysResizeAroundTheCentre() throws {
         let fixture = try makeFixture(pid: 941_123)
         let token = fixture.tokens[1]
@@ -924,11 +848,10 @@ final class FusionDoubleClickTests: NiriInteractionTestCase {
         column.cachedWidth = 0
         fixture.relayout()
         try fixture.select(token)
-        let point = try fixture.titleBar(token)
 
         var widths: [CGFloat] = []
         for _ in 0 ..< 4 {
-            XCTAssertTrue(fixture.doubleClick(at: point))
+            pressCycleSizeForward(in: fixture)
             guard case let .proportion(width) = column.width else { return XCTFail("\(column.width)") }
             widths.append(width)
         }
@@ -942,14 +865,14 @@ final class FusionDoubleClickTests: NiriInteractionTestCase {
         let fixture = try makeFixture(pid: 941_136)
         let token = fixture.tokens[1]
         try fixture.select(token)
-        XCTAssertTrue(fixture.doubleClick(at: try fixture.titleBar(token)))
+        pressCycleSizeForward(in: fixture)
         fixture.controller.workspaceManager.withNiriViewportState(for: fixture.workspaceId) { state in
             state.jumpOffset(to: state.viewOffset + 100)
         }
         fixture.relayout()
         let moved = try fixture.frame(token)
 
-        XCTAssertTrue(fixture.doubleClick(at: try fixture.titleBar(token)))
+        pressCycleSizeForward(in: fixture)
 
         let after = try fixture.frame(token)
         XCTAssertNotEqual(after.width, moved.width, accuracy: 1)
@@ -960,15 +883,14 @@ final class FusionDoubleClickTests: NiriInteractionTestCase {
         let fixture = try makeFixture(pid: 941_132)
         let token = fixture.tokens[1]
         try fixture.select(token)
-        let point = try fixture.titleBar(token)
         let presets = fixture.engine.presetContainerPrimarySpans.count
         for _ in 0 ..< presets {
-            XCTAssertTrue(fixture.doubleClick(at: point))
+            pressCycleSizeForward(in: fixture)
         }
         let start = try fixture.frame(token)
 
         for _ in 0 ..< presets {
-            XCTAssertTrue(fixture.doubleClick(at: point))
+            pressCycleSizeForward(in: fixture)
         }
 
         let end = try fixture.frame(token)
@@ -1178,6 +1100,11 @@ final class FusionDoubleClickTests: NiriInteractionTestCase {
         XCTAssertFalse(fixture.doubleClick(at: try fixture.titleBar(fixture.tokens[1])))
 
         XCTAssertEqual(column.width, width)
+    }
+
+    private func pressCycleSizeForward(in fixture: Fixture) {
+        fixture.controller.niriLayoutHandler.cycleSize(forward: true)
+        fixture.relayout()
     }
 
     private func keepEdgeResize(of token: WindowToken, in fixture: Fixture) throws {

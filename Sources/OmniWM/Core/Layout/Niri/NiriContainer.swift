@@ -25,6 +25,7 @@ class NiriContainer: NiriNode {
     var liveSlotWidth: CGFloat?
     var isLiveHomeSpot = false
     var centreCycle: ColumnCentreCycle?
+    var widthBeforeFull: ColumnWidthBeforeFull?
     var edgePeekCap: CGFloat?
     var stripEndPeekRoom: StripEndPeekRoom?
 

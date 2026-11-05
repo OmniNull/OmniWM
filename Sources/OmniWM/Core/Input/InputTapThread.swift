@@ -18,7 +18,6 @@ struct TapFilterSnapshot: Sendable {
     var gestureActiveOrLatched: Bool = false
     var isInputSuppressed: Bool = false
     var fusionDoubleClickArmedAt: CGPoint?
-    var fusionClickChain: FusionClickChain?
     var holdsTitleBarDrag = false
 }
 
@@ -396,11 +395,6 @@ extension InputTapThread {
             macOSFusion: snap.macOSFusion,
             armedAt: snap.fusionDoubleClickArmedAt,
             location: location
-        ) || MouseEventHandler.continuesFusionClickChain(
-            snap.fusionClickChain,
-            flags: flags,
-            location: location,
-            now: ProcessInfo.processInfo.systemUptime
         ) {
             let suppress = evaluateAuthoritativeTapOnMain(
                 type: .leftMouseDown, location: location, modifiers: flags, buttonNumber: 0, scrollPayload: nil,

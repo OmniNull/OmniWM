@@ -6,12 +6,9 @@ import Foundation
 
 extension MouseEventHandler {
     nonisolated static let fusionDoubleClickArmRadius: CGFloat = 8
-    nonisolated static let fusionClickChainWindow: TimeInterval = 1
 
-    nonisolated static func fusionClickCyclesForwards(_ flags: CGEventFlags) -> Bool? {
-        let modifiers = flags.intersection(relevantModifierFlags)
-        if modifiers.isEmpty { return true }
-        return modifiers == .maskShift ? false : nil
+    nonisolated static func takesFusionDoubleClick(_ flags: CGEventFlags) -> Bool {
+        flags.intersection(relevantModifierFlags).isEmpty
     }
 
     nonisolated static func asksAboutFusionDoubleClick(
@@ -21,70 +18,28 @@ extension MouseEventHandler {
         armedAt: CGPoint?,
         location: CGPoint
     ) -> Bool {
-        guard clickCount == 2, macOSFusion, fusionClickCyclesForwards(flags) != nil,
-              let armedAt
+        guard clickCount == 2, macOSFusion, takesFusionDoubleClick(flags), let armedAt
         else { return false }
         return hypot(location.x - armedAt.x, location.y - armedAt.y) <= fusionDoubleClickArmRadius
     }
 
-    nonisolated static func continuesFusionClickChain(
-        _ chain: FusionClickChain?,
-        flags: CGEventFlags,
-        location: CGPoint,
-        now: TimeInterval
-    ) -> Bool {
-        guard let chain, now <= chain.deadline, fusionClickCyclesForwards(flags) != nil else { return false }
-        return hypot(location.x - chain.location.x, location.y - chain.location.y) <= fusionDoubleClickArmRadius
-    }
-
-    func continuesFusionClickChain(at location: CGPoint, modifiers: CGEventFlags) -> Bool {
-        Self.continuesFusionClickChain(
-            state.fusionClickChain,
-            flags: modifiers,
-            location: location,
-            now: fusionClickClock()
-        )
-    }
-
-    func disarmFusionClickChain() {
-        guard state.fusionClickChain != nil else { return }
-        state.fusionClickChain = nil
-        state.fusionClickChainToken = nil
-        inputTapThread.updateFilterSnapshot { $0.fusionClickChain = nil }
-    }
-
-    private func armFusionClickChain(at location: CGPoint, token: WindowToken) {
-        let chain = FusionClickChain(location: location, deadline: fusionClickClock() + Self.fusionClickChainWindow)
-        state.fusionClickChain = chain
-        state.fusionClickChainToken = token
-        inputTapThread.updateFilterSnapshot { $0.fusionClickChain = chain }
-    }
-
     func armFusionDoubleClick(at location: CGPoint, modifiers: CGEventFlags, clickCount: Int64) {
         let armed = clickCount == 1
-            && Self.fusionClickCyclesForwards(modifiers) != nil
+            && Self.takesFusionDoubleClick(modifiers)
             && fusionDoubleClickCandidate(at: location) != nil
         let armedAt: CGPoint? = armed ? location : nil
         guard armedAt != inputTapThread.filterSnapshot.fusionDoubleClickArmedAt else { return }
         inputTapThread.updateFilterSnapshot { $0.fusionDoubleClickArmedAt = armedAt }
     }
 
-    func handleFusionDoubleClick(at location: CGPoint, modifiers: CGEventFlags, chained: Bool = false) -> Bool {
-        guard let forwards = Self.fusionClickCyclesForwards(modifiers),
+    func handleFusionDoubleClick(at location: CGPoint, modifiers: CGEventFlags) -> Bool {
+        guard Self.takesFusionDoubleClick(modifiers),
               !isInputSuppressed,
-              !shouldBlockOwnWindowInput(at: location)
-        else { return false }
-        guard let target = fusionDoubleClickTarget(at: location),
-              !chained || target.zone == .titleBar && target.window.token == state.fusionClickChainToken,
-              forwards || target.zone == .titleBar && target.isBareTitleBar
+              !shouldBlockOwnWindowInput(at: location),
+              let target = fusionDoubleClickTarget(at: location)
         else { return false }
         clearNativeTitleBarDrag()
-        performFusionDoubleClick(on: target, forwards: forwards)
-        if target.zone == .titleBar {
-            armFusionClickChain(at: location, token: target.window.token)
-        } else {
-            disarmFusionClickChain()
-        }
+        performFusionDoubleClick(on: target)
         state.capturedInteractionButton = .left
         return true
     }
@@ -102,7 +57,6 @@ extension MouseEventHandler {
         let column: NiriContainer
         let workspaceId: WorkspaceDescriptor.ID
         let zone: FusionDoubleClickZone
-        let isBareTitleBar: Bool
         let projectedWindowCount: Int
     }
 
@@ -155,13 +109,12 @@ extension MouseEventHandler {
             column: column,
             workspaceId: candidate.workspaceId,
             zone: candidate.hit.zone,
-            isBareTitleBar: TitleBarHitTest.isBareTitleBar(titleBarHit),
             projectedWindowCount: candidate.engine.projectedWindows(in: column, workspaceId: candidate.workspaceId)
                 .count
         )
     }
 
-    private func performFusionDoubleClick(on target: FusionDoubleClickTarget, forwards: Bool) {
+    private func performFusionDoubleClick(on target: FusionDoubleClickTarget) {
         guard let controller, let engine = controller.niriEngine else { return }
         forgetDoubleClickSizesOfGoneWindows(engine: engine, in: target.workspaceId)
         let layout = controller.niriLayoutHandler
@@ -171,7 +124,8 @@ extension MouseEventHandler {
         case .titleBar:
             layout.performWindowSizing(on: .window(target.handle)) { engine, window, context, viewport in
                 guard let column = engine.findColumn(containing: window, in: context.workspaceId) else { return nil }
-                engine.cycleColumnWidthAroundCentre(column, forwards: forwards, context: context, state: &viewport)
+                guard engine.toggleColumnFullWidthAndBack(column, context: context, state: &viewport)
+                else { return nil }
                 return .containerPrimarySpanChanged
             }
         case .edge(.left):
@@ -291,9 +245,4 @@ struct FusionDoubleClickWidth {
     let presetIndex: Int?
     let hadManualWidth: Bool
     let stretch: ColumnStretch
-}
-
-struct FusionClickChain: Sendable, Equatable {
-    let location: CGPoint
-    let deadline: TimeInterval
 }

@@ -152,8 +152,6 @@ struct MouseInputState {
     var deferredClickScroll: WindowToken?
     var fusionDoubleClickHeights: [WindowToken: FusionDoubleClickHeight] = [:]
     var fusionDoubleClickWidths: [NodeId: FusionDoubleClickWidth] = [:]
-    var fusionClickChain: FusionClickChain?
-    var fusionClickChainToken: WindowToken?
     var liveDragLayoutStart: NiriLayoutChangeStart?
     var activeInteractionSource: InteractionSource?
     var activeInteractionButton: MouseEventHandler.MouseButton? {

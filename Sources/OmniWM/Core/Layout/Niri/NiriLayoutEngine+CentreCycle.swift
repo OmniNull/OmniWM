@@ -34,6 +34,77 @@ struct ColumnCentreCycle {
     }
 }
 
+struct ColumnWidthBeforeFull: Equatable {
+    let width: ProportionalSize
+    let presetIndex: Int?
+    let hadManualWidth: Bool
+    let centre: CGFloat?
+}
+
+extension NiriLayoutEngine {
+    @discardableResult
+    func toggleColumnFullWidthAndBack(
+        _ column: NiriContainer,
+        context: NiriInteractionContext,
+        state: inout ViewportState
+    ) -> Bool {
+        guard context.orientation == .horizontal else { return false }
+        let full = ProportionalSize.proportion(1)
+        if let before = column.widthBeforeFull, column.width == full, column.presetWidthIdx == nil,
+           !column.isFullWidth
+        {
+            column.centreCycle = nil
+            setContainerPrimarySpan(
+                column,
+                to: before.width,
+                presetIndex: before.presetIndex,
+                context: context,
+                state: &state
+            )
+            column.hasManualSingleWindowWidthOverride = before.hadManualWidth
+            if let centre = before.centre {
+                centreAfterWidthToggle(column, on: centre, context: context, state: &state)
+            }
+            return true
+        }
+        let pixels = column.settledWidth > 0 ? column.settledWidth : widthPixels(
+            column.width,
+            for: column,
+            context: context
+        )
+        guard !column.isFullWidth, column.width != full,
+              pixels < widthPixels(full, for: column, context: context) - 1
+        else { return false }
+        let centre = settledScreenSpan(of: column, context: context, state: state)
+            .map { ($0.lowerBound + $0.upperBound) / 2 }
+        let before = ColumnWidthBeforeFull(
+            width: column.width,
+            presetIndex: column.presetWidthIdx,
+            hadManualWidth: column.hasManualSingleWindowWidthOverride,
+            centre: centre
+        )
+        column.centreCycle = nil
+        setContainerPrimarySpan(column, to: full, presetIndex: nil, context: context, state: &state)
+        column.widthBeforeFull = before
+        if let centre {
+            centreAfterWidthToggle(column, on: centre, context: context, state: &state)
+        }
+        return true
+    }
+
+    private func centreAfterWidthToggle(
+        _ column: NiriContainer,
+        on centre: CGFloat,
+        context: NiriInteractionContext,
+        state: inout ViewportState
+    ) {
+        guard !(isViewportAnchor(column, in: context.workspaceId, state: state)
+            && centresFocusedColumn(in: context.workspaceId))
+        else { return }
+        centreColumn(column, on: centre, animated: true, context: context, state: &state)
+    }
+}
+
 extension NiriLayoutEngine {
     func cycleColumnWidthAroundCentre(
         _ column: NiriContainer,
