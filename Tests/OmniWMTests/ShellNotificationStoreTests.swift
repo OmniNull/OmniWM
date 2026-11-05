@@ -7,6 +7,55 @@ import SQLite3
 import XCTest
 
 final class ShellNotificationStoreTests: XCTestCase {
+    func testSilentDeliveredRecordsAreNotDisplayedOrQueuedForDismissal() throws {
+        let payload = try fixture("rich-base")
+        let root = try XCTUnwrap(PropertyListSerialization.propertyList(from: payload, format: nil) as? [String: Any])
+        let guid = try XCTUnwrap(root["uuid"] as? Data)
+        try database { url, db in
+            try insert(payload, uuid: guid, into: db)
+            try sql("UPDATE record SET style=0; INSERT INTO delivered VALUES(1,\(blob(guid)))", db)
+            let result = ShellNotificationStore.read(at: url)
+            XCTAssertEqual(result.state, "empty")
+            XCTAssertTrue(result.complete)
+            XCTAssertTrue(result.membershipComplete)
+            XCTAssertTrue(result.items.isEmpty)
+            XCTAssertTrue(result.issues.isEmpty)
+
+            try sql("UPDATE record SET style=1", db)
+            XCTAssertEqual(ShellNotificationStore.read(at: url).items.count, 1)
+        }
+    }
+
+    func testOnlyExplicitlySilentRecordsAreExcludedAndMissingMembersStillFail() throws {
+        let base = try XCTUnwrap(PropertyListSerialization
+            .propertyList(from: fixture("rich-base"), format: nil) as? [String: Any])
+        try database { url, db in
+            var members = Data()
+            var expected: Set<String> = []
+            for (index, style) in ["0", "1", "2", "99", "NULL"].enumerated() {
+                let id = Data(repeating: UInt8(index + 1), count: 16)
+                var root = base
+                root["uuid"] = id
+                let payload = try PropertyListSerialization.data(fromPropertyList: root, format: .binary, options: 0)
+                try insert(payload, uuid: id, into: db)
+                try sql("UPDATE record SET style=\(style),presented=0 WHERE uuid=\(blob(id))", db)
+                members.append(id)
+                if style != "0" { expected.insert(try XCTUnwrap(ShellNotificationMetadata.guid(id))) }
+            }
+            try sql("INSERT INTO delivered VALUES(1,\(blob(members)))", db)
+            let result = ShellNotificationStore.read(at: url)
+            XCTAssertTrue(result.complete)
+            XCTAssertEqual(Set(result.items.compactMap { $0.fields?["id"]?.string }), expected)
+
+            members.append(Data(repeating: 9, count: 16))
+            try sql("UPDATE delivered SET list=\(blob(members))", db)
+            let incomplete = ShellNotificationStore.read(at: url)
+            XCTAssertFalse(incomplete.membershipComplete)
+            XCTAssertTrue(incomplete.issues.contains { $0.reason == .missingRecord })
+            XCTAssertEqual(incomplete.items.count, expected.count)
+        }
+    }
+
     func testRichRecordPreservesExactTextArchivesActionsAndBinaryMetadata() throws {
         let payload = try fixture("rich-base")
         let root = try XCTUnwrap(PropertyListSerialization.propertyList(from: payload, format: nil) as? [String: Any])
