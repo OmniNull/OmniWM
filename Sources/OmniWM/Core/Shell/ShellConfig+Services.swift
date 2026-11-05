@@ -9,6 +9,10 @@ extension ShellConfig {
 
     private static let weatherKeys: Set = ["city", "latitude", "longitude", "units", "refresh"]
 
+    private static let islandKeys: Set = [
+        "root", "displays", "width", "height", "fullscreen", "components", "sizing", "room", "drawsSystemStats"
+    ]
+
     var hasSystemStatsButtonPlace: Bool {
         island?.drawsSystemStats == true || systemStatsWidget.flatMap(barLane(of:)) != nil
     }
@@ -43,51 +47,9 @@ extension ShellConfig {
             report("shell.toml: [island] must be a table", &problems)
             return nil
         }
-        unknownKeys(
-            in: table,
-            known: [
-                "root",
-                "displays",
-                "width",
-                "height",
-                "fullscreen",
-                "components",
-                "sizing",
-                "room",
-                "drawsSystemStats"
-            ],
-            of: "shell.toml: [island]",
-            &problems
-        )
+        unknownKeys(in: table, known: islandKeys, of: "shell.toml: [island]", &problems)
         var island = ShellIslandConfig()
-        if let root = table["root"] {
-            guard case let .string(name) = root, isName(name) else {
-                report("shell.toml: [island] root must be a widget name", &problems)
-                return nil
-            }
-            island.root = name
-        }
-        if let draws = table["drawsSystemStats"] {
-            guard case let .boolean(value) = draws else {
-                report("shell.toml: [island] drawsSystemStats must be true or false", &problems)
-                return nil
-            }
-            island.drawsSystemStats = value
-        }
-        if let displays = table["displays"] {
-            guard case let .string(name) = displays, let value = ShellIslandConfig.Displays(rawValue: name) else {
-                report("shell.toml: [island] displays must be notch, main or all", &problems)
-                return nil
-            }
-            island.displays = value
-        }
-        if let fullscreen = table["fullscreen"] {
-            guard case let .string(name) = fullscreen, let value = ShellIslandConfig.Fullscreen(rawValue: name) else {
-                report("shell.toml: [island] fullscreen must be hide or show", &problems)
-                return nil
-            }
-            island.fullscreen = value
-        }
+        guard applyIslandPlacement(table, to: &island, &problems) else { return nil }
         guard applyIslandSize(table, to: &island, &problems) else { return nil }
         do {
             island.components = try ShellComponentCatalog.instances(from: table["components"])
@@ -96,6 +58,40 @@ extension ShellConfig {
             return nil
         }
         return island
+    }
+
+    private static func applyIslandPlacement(
+        _ table: [String: TOMLNode], to island: inout ShellIslandConfig, _ problems: inout [String]
+    ) -> Bool {
+        if let root = table["root"] {
+            guard case let .string(name) = root, isName(name) else {
+                report("shell.toml: [island] root must be a widget name", &problems)
+                return false
+            }
+            island.root = name
+        }
+        if let draws = table["drawsSystemStats"] {
+            guard case let .boolean(value) = draws else {
+                report("shell.toml: [island] drawsSystemStats must be true or false", &problems)
+                return false
+            }
+            island.drawsSystemStats = value
+        }
+        if let displays = table["displays"] {
+            guard case let .string(name) = displays, let value = ShellIslandConfig.Displays(rawValue: name) else {
+                report("shell.toml: [island] displays must be notch, main or all", &problems)
+                return false
+            }
+            island.displays = value
+        }
+        if let fullscreen = table["fullscreen"] {
+            guard case let .string(name) = fullscreen, let value = ShellIslandConfig.Fullscreen(rawValue: name) else {
+                report("shell.toml: [island] fullscreen must be hide or show", &problems)
+                return false
+            }
+            island.fullscreen = value
+        }
+        return true
     }
 
     private static func applyIslandSize(
