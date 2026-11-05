@@ -303,7 +303,7 @@ extension ShellVitreusPlayerTests {
         fixture.widget.resources.motion.userAnimationsEnabled = false
         show(fixture)
         XCTAssertNil(fixture.widget.surface.presence(paint.appear, for: target)?.animation)
-        for key in ["workspace-overview-icon", "workspace-mark-halo-2", "workspace-plus-halo"] {
+        for key in ["workspace-mark-halo-2"] {
             let slot = try handle(fixture, key).slot
             try ShellLayerScene.engineQueue.sync {
                 let layer = try XCTUnwrap(fixture.widget.surface.scene.layers[slot])

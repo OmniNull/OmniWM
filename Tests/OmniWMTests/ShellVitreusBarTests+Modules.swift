@@ -74,10 +74,8 @@ extension ShellVitreusBarTests {
                 rows[#rows + 1] = table.concat(parts, " ")
             end
             local search = pencil.icon("search", 100, 50, 1.35, 1, 3)
-            local over = pencil.icon("overview", 10, 10, 24.3, 0, 0, 1.35, 2)
             return ui.column{
                 ui.text{ text = table.concat(rows, ";") }, ui.text{ text = search[1].d }, ui.text{ text = search[4].d },
-                ui.text{ text = over[4].d .. "|" .. over[4].width .. "|" .. over[4].tone },
                 ui.stack{ w = 200, h = 100, table.unpack(pencil.draw(200, 100, search, "foreground", 0.65)) },
             }
         end
@@ -101,16 +99,6 @@ extension ShellVitreusBarTests {
             100 + 0.5 * unit + 5 * unit + jitter * sine(3 * 46 + 22781),
             50 + 0.4 * unit + 5 * unit + jitter * sine(3 * 51 + 22841)
         ], "faint handle")
-        let over = lines[3].split(separator: "|").map(String.init)
-        let rest = 0.1 * unit
-        let (dx, dy) = (10 + 0.4 * unit, 10 + 0.3 * unit)
-        expect(Self.numbers(over[0]), [
-            dx - 0.25 * 24.3 + rest * sine(23744), dy - 0.15 * 24.3 + rest * sine(23804),
-            dx + 0.41 * 24.3 + rest * sine(23841), dy - 0.15 * 24.3 + rest * sine(23901),
-            dx + 0.41 * 24.3 + rest * sine(23938), dy + 0.35 * 24.3 + rest * sine(23998),
-            dx - 0.25 * 24.3 + rest * sine(24035), dy + 0.35 * 24.3 + rest * sine(24095)
-        ], "faint overview window")
-        XCTAssertEqual(Array(over.dropFirst()), ["1.4", "2"])
     }
 
     func testPencilOutlinesAndLinesBowThroughTheirViaPoints() throws {

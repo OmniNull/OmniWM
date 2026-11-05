@@ -30,13 +30,6 @@ local icons = table.freeze({
         { width = 1.8, f = 64, s = 23667, points = { { 0, 3 }, { 3, -1.6 } } },
         { r = 1.3, x = 0, y = 3, f = 59, s = 23720, rs = 13510 },
     } }),
-    overview = table.freeze({ offset = { 0.4, 0.3 }, strokes = {
-        { tone = 1, f = 47, s = 23320,
-            points = { { -0.25, 0.15 }, { -0.41, 0.15 }, { -0.41, -0.35 }, { 0.25, -0.35 }, { 0.25, -0.15 } } },
-        { tone = 2, f = 58, s = 23373, close = true,
-            points = { { -0.25, -0.15 }, { 0.41, -0.15 }, { 0.41, 0.35 }, { -0.25, 0.35 } } },
-        { tone = 3, f = 69, s = 23426, points = { { -0.25, -0.01 }, { 0.41, -0.01 } } },
-    } }),
 })
 
 local function ellipse(stroke, cx: number, cy: number, k: number, jt: number, fr: number, faint: boolean): string
@@ -65,28 +58,19 @@ local function polyline(stroke, cx: number, cy: number, k: number, jt: number, f
         parts[#parts + 1] = number(cx + point[1] * k + jt * wave(fr, fx, s + 97 * i))
         parts[#parts + 1] = number(cy + point[2] * k + jt * wave(fr, band(fx + 5), s + 97 * i + 60))
     end
-    if stroke.close then parts[#parts + 1] = "Z" end
     return table.concat(parts, " ")
 end
 
-local function icon(name: string, cx: number, cy: number, k: number, a: number, fr: number, unit: number?, sw: number?)
+local function icon(name: string, cx: number, cy: number, k: number, a: number, fr: number)
     local spec = icons[name]
-    local j = unit or k
-    local jt = (0.1 + 0.3 * a) * j
-    local dx, dy = spec.offset[1] * j, spec.offset[2] * j
+    local jt = (0.1 + 0.3 * a) * k
+    local dx, dy = spec.offset[1] * k, spec.offset[2] * k
     local list = {}
     for _, stroke in spec.strokes do
-        local w = if stroke.width then stroke.width * k else sw
+        local w = stroke.width and stroke.width * k
         local build = if stroke.r then ellipse else polyline
-        local filled = stroke.r ~= nil and stroke.width == nil
-        list[#list + 1] = {
-            d = build(stroke, cx, cy, k, jt, fr, false), width = if filled then nil else w,
-            alpha = 1, tone = stroke.tone,
-        }
-        list[#list + 1] = {
-            d = build(stroke, cx + dx, cy + dy, k, jt, fr, true), width = if filled then nil else w and w * 0.7,
-            alpha = 0.34, tone = stroke.tone,
-        }
+        list[#list + 1] = { d = build(stroke, cx, cy, k, jt, fr, false), width = w, alpha = 1 }
+        list[#list + 1] = { d = build(stroke, cx + dx, cy + dy, k, jt, fr, true), width = w and w * 0.7, alpha = 0.34 }
     end
     return list
 end
@@ -161,10 +145,10 @@ local function line(cx: number, cy: number, len: number, bu: number, a: number, 
     }, a, fr)
 end
 
-local function draw(w: number, h: number, list, color: string, opacity: (number | { number })?)
+local function draw(w: number, h: number, list, color: string, opacity: number?)
     local items = {}
     for index, pass in list do
-        local amount = if type(opacity) == "table" then opacity[pass.tone or 1] else opacity or 1
+        local amount = opacity or 1
         items[index] = ui.path({
             decorative = true, w = w, h = h, d = pass.d, opacity = amount * pass.alpha,
             fill = if pass.width then 0 else color, border = if pass.width then color else nil,

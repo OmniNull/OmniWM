@@ -123,7 +123,7 @@ extension ShellVitreusNotchesTests {
         XCTAssertEqual(try frame(fixture, "bar-clock").midX, 960 - 164 * unit / 2, accuracy: 0.001)
         let span = try middle(fixture)
         let expected = [
-            ("notch-left", CGRect(x: -12 * unit, y: -12 * unit, width: (175.5 + markIcons) * unit, height: 48 * unit)),
+            ("notch-left", CGRect(x: -12 * unit, y: -12 * unit, width: (136 + markIcons) * unit, height: 48 * unit)),
             ("notch-middle", CGRect(x: span.from, y: -12 * unit, width: span.to - span.from, height: 48 * unit)),
             (
                 "notch-right",
@@ -157,7 +157,6 @@ extension ShellVitreusNotchesTests {
         XCTAssertEqual(controls.midX, 1920 - 32.5 * unit, accuracy: 0.001)
         XCTAssertEqual(logo.midX, 1920 - 58.5 * unit, accuracy: 0.001)
         XCTAssertEqual(search.midX, 1920 - (84 + statsRoom) * unit, accuracy: 0.001)
-        XCTAssertEqual(try frame(fixture, "workspace-overview").midX, 36 * unit, accuracy: 0.001)
         for key in ["bar-controls", "bar-clock", "title-button"] {
             XCTAssertEqual(try frame(fixture, key).minY, 0, accuracy: 0.001, key)
             XCTAssertEqual(try frame(fixture, key).height, 36 * unit, accuracy: 0.001, key)
@@ -259,7 +258,7 @@ extension ShellVitreusNotchesTests {
             XCTAssertTrue(fixture.widget.surface.containsShape(at: point), "\(point)")
         }
         let areas = [
-            ("left", CGRect(x: 0, y: 0, width: (163.5 + markIcons) * unit, height: 36 * unit)),
+            ("left", CGRect(x: 0, y: 0, width: (124 + markIcons) * unit, height: 36 * unit)),
             ("middle", CGRect(x: span.from, y: 0, width: span.to - span.from, height: 36 * unit)),
             (
                 "right",
@@ -297,7 +296,7 @@ extension ShellVitreusNotchesTests {
     func testEachPieceDrawsItsOwnSlotsOnADisplayWithoutANotch() throws {
         let fixture = try fixture()
         let owners = [
-            ("left", ["workspace-overview"]), ("middle", ["bar-clock", "title-button"]),
+            ("left", ["workspace-hit-1"]), ("middle", ["bar-clock", "title-button"]),
             ("right", ["bar-search", "bar-omniwm", "bar-controls"])
         ]
         for (name, keys) in owners {
@@ -429,7 +428,7 @@ extension ShellVitreusNotchesTests {
             CGRect(x: span.from, y: -12 * unit, width: span.to - span.from, height: 12 * unit + top + 36 * unit),
             "middle"
         )
-        for key in ["notch-left", "notch-right", "bar-controls", "workspace-overview"] {
+        for key in ["notch-left", "notch-right", "bar-controls", "workspace-hit-1"] {
             ShellVitreusBarTests.assertRect(try frame(notched, key), try frame(plain, key), key)
         }
         XCTAssertEqual(try frame(plain, "notch-middle").minY, -12 * unit, accuracy: 0.001)

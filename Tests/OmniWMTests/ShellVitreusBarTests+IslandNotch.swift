@@ -426,7 +426,6 @@ extension ShellVitreusBarTests {
                 for id in ["2", "3"] {
                     XCTAssertTrue(Self.has(widget, "workspace-square-" + id), label)
                 }
-                XCTAssertTrue(Self.has(widget, "workspace-overview"), label)
                 for (previous, next) in zip(visible, visible.dropFirst()) {
                     XCTAssertLessThan(previous.midX, next.midX, label)
                 }
@@ -504,21 +503,20 @@ extension ShellVitreusBarTests {
             local widths = { workspaces = { w = width, grow = grow, flow = cells },
                 title = { w = 0, grow = 0, minimum = 0 } }
             local bounds = { w = 200, top = 8 }
-            local band = { x0 = bounds.w / 2, x1 = 160 }
+            local band = { x0 = 60, x1 = 160 }
             local placed = bar.place(k, bounds.w / 2, bounds.top, { "workspaces", "title" }, widths, bounds.w, nil, band)
             local positions = placed.slots.workspaces.positions
             return ui.text{ text = table.concat({ positions["workspace-3"] or -1,
-                positions["workspace-1"] or -1, positions["workspace-2"] or -1, positions.overview or -1,
-                focused.at, focused.w - focused.at, placed.left, band.x0, placed.left + cells[1].at }, " ") }
+                positions["workspace-1"] or -1, positions["workspace-2"] or -1,
+                focused.at, focused.w - focused.at, placed.left, band.x0 }, " ") }
         end
         """).map { Self.numbers($0) }
         let row = try XCTUnwrap(rows.first)
         XCTAssertEqual(rows.count, 1)
-        XCTAssertGreaterThanOrEqual(row[0] - row[4], row[6])
-        XCTAssertLessThanOrEqual(row[0] + row[5], row[7])
+        XCTAssertGreaterThanOrEqual(row[0] - row[3], row[5])
+        XCTAssertLessThanOrEqual(row[0] + row[4], row[6])
         XCTAssertEqual(row[1], -1)
         XCTAssertEqual(row[2], -1)
-        XCTAssertEqual(row[3], row[8], accuracy: accuracy)
     }
 
     func testHiddenWorkspaceSlotsCancelTheirAnimationTimer() throws {
@@ -529,7 +527,7 @@ extension ShellVitreusBarTests {
                 style = {}, workspaces = {}, scratchpads = { { id = 7, visible = true } },
             } } }
             local slot = { hidden = ctx.data.app == "hidden",
-                positions = if ctx.data.app == "partial" then { overview = 10 } else nil }
+                positions = if ctx.data.app == "partial" then { other = 10 } else nil }
             marks.prepare(model, { k = { bu = 1, bcu = 1 }, island = { visible = true },
                 pill = { slots = { workspaces = slot } } })
             return ui.text{ text = "marks" }

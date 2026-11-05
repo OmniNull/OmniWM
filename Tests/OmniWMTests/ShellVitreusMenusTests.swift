@@ -163,8 +163,8 @@ extension ShellVitreusMenusTests {
         XCTAssertFalse(has(widget, "bar-app"))
         XCTAssertNotEqual(deps(widget) & ShellDataKey.menuApp.bit, 0)
         let oneIconRun = 21.0
-        let markRow = 25.5 + (29 + 9 + oneIconRun) + (12.5 + 9 + oneIconRun) + 14
-        let baseWidth = 450 + markRow - 128
+        let markRow = (29 + 9 + oneIconRun) + (12.5 + 9 + oneIconRun)
+        let baseWidth = 450 + max(markRow, 128) - 128
         XCTAssertEqual(try frame(widget, "shell").width, (baseWidth + 24) * unit, accuracy: 0.001)
         widget.set("menuApp") { safari.write(into: &$0) }
         VitreusFixture.show(widget, bar: bar(hides: true))
@@ -207,13 +207,13 @@ extension ShellVitreusMenusTests {
         XCTAssertEqual(pill.width, try frame(hidden, "shell").width + 52 * unit, accuracy: 0.001)
         XCTAssertEqual(pill.midX, 960, accuracy: 0.001)
         try assertLead(shown, x: pill.minX + 16 * unit, top: pill.minY, height: pill.height, "island")
-        try assertMoved(shown, hidden, Self.buttons + ["workspace-overview", "title-button"], dx: 26 * unit, "island")
+        try assertMoved(shown, hidden, Self.buttons + ["workspace-hit-1", "title-button"], dx: 26 * unit, "island")
         for layout in ["ftop", "fbottom"] {
             let shown = try widget(shell, layout: layout)
             let hidden = try widget(shell, layout: layout, hides: false)
             let strip = try frame(shown, "bar-hover")
             try assertLead(shown, x: 28 * unit, top: strip.minY, height: strip.height, layout)
-            try assertMoved(shown, hidden, ["workspace-overview"], dx: 52 * unit, layout)
+            try assertMoved(shown, hidden, ["workspace-hit-1"], dx: 52 * unit, layout)
             try assertMoved(shown, hidden, Self.buttons + ["title-button"], layout)
         }
     }
@@ -227,8 +227,8 @@ extension ShellVitreusMenusTests {
             XCTAssertTrue(shown.surface.isWithin(try VitreusFixture.element(shown, key: key), area), key)
         }
         try assertLead(shown, x: 26 * unit, top: 0, height: 36 * unit, "seg")
-        XCTAssertLessThan(try frame(shown, "bar-app").maxX, try frame(shown, "workspace-overview").minX)
-        try assertMoved(shown, hidden, ["workspace-overview"], dx: 52 * unit, "seg")
+        XCTAssertLessThan(try frame(shown, "bar-app").maxX, try frame(shown, "workspace-hit-1").minX)
+        try assertMoved(shown, hidden, ["workspace-hit-1"], dx: 52 * unit, "seg")
         let left = try frame(shown, "notch-left")
         let before = try frame(hidden, "notch-left")
         XCTAssertEqual(left.minX, before.minX, accuracy: 0.001)
@@ -258,7 +258,7 @@ extension ShellVitreusMenusTests {
                     "\(layout) \(key)"
                 )
             }
-            let kept = Self.buttons + ["workspace-overview", "workspace-hit-1", "workspace-hit-2"]
+            let kept = Self.buttons + ["workspace-hit-1", "workspace-hit-2"]
             try assertMoved(shown, hidden, kept, layout)
             XCTAssertEqual(
                 try frame(shown, "tray-wifi").midY, try frame(hidden, "tray-wifi").midY - 64 * unit, accuracy: 1,

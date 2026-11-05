@@ -11,6 +11,8 @@ local edges = table.freeze({ lead = { response = 0.142, bounce = 0 }, trail = { 
 local quick = table.freeze({ response = 2 * math.pi / math.sqrt(420), bounce = 1 - 40 / (2 * math.sqrt(420)) })
 local frequencies = table.freeze({ 67, 54, 73, 62, 52, 69, 59, 47 })
 local mostIcons, iconSide, iconStep, iconLead, iconRoom = 4, 16, 18, 3, 0.4
+local nameSize, namePadding = 8, 3
+local nameWidths = {}
 local arm
 
 local function state(ctx)
@@ -39,8 +41,24 @@ local function sync(s)
     if s.enabled and (s.hover or s.special) then arm(s) else cancel(s) end
 end
 
-local function markSpan(workspace, u: number): number
-    return (if workspace.focused then 29 else 12.5) * u
+local function nameWidth(ctx, name: string, u: number): number
+    local size = nameSize * u
+    local key = name .. "\0" .. size
+    local width = nameWidths[key]
+    if not width then
+        width = ctx.format.measure(name, { font = kit.font, size = size, weight = "semibold" })
+        nameWidths[key] = width
+    end
+    return width
+end
+
+local function fitted(ctx, workspace, least: number, u: number, vertical: boolean?): number
+    if vertical or not ctx.data.bar.style.labels then return least end
+    return math.max(least, nameWidth(ctx, workspace.name, u) + 2 * namePadding * u)
+end
+
+local function markSpan(ctx, workspace, u: number, vertical: boolean?): number
+    return fitted(ctx, workspace, (if workspace.focused then 29 else 12.5) * u, u, vertical)
 end
 
 local function iconRun(workspace, cap: number, u: number): number
@@ -56,9 +74,7 @@ local function iconCap(ctx, workspaces, vertical: boolean, u: number): number
     for cap = mostIcons, 1, -1 do
         local length = 0
         for _, workspace in workspaces do
-            if workspace.focused or #workspace.windows > 0 then
-                length += markSpan(workspace, u) + 9 * u + iconRun(workspace, cap, u)
-            end
+            length += markSpan(ctx, workspace, u, vertical) + 9 * u + iconRun(workspace, cap, u)
         end
         if length <= room then return cap end
     end
@@ -70,28 +86,25 @@ local function model(ctx, k)
     local layout = (ctx.data.settings or {}).layout
     local vertical = layout == "left" or layout == "right"
     local u = if vertical then k.bcu else k.bu
-    local rows, active, empty, special = {}, nil, nil, nil
+    local rows, special = {}, nil
     if not bar or not bar.style then return { rows = rows, w = 128 * u } end
     for _, pad in bar.scratchpads or {} do
         if pad.visible then special = pad break end
     end
-    local length, cap = 0, iconCap(ctx, bar.workspaces or {}, vertical, u)
-    for _, workspace in bar.workspaces or {} do
-        local busy = #workspace.windows > 0
-        if workspace.focused then active = workspace end
-        if not busy and not workspace.focused and not empty then empty = workspace end
-        if not special and (busy or workspace.focused) then
-            local span = markSpan(workspace, u)
+    local length = 0
+    if not special then
+        local cap = iconCap(ctx, bar.workspaces or {}, vertical, u)
+        for _, workspace in bar.workspaces or {} do
+            local span = markSpan(ctx, workspace, u, vertical)
             local run = iconRun(workspace, cap, u)
-            rows[#rows + 1] = { workspace = workspace, busy = busy, x = length + span / 2, w = span, run = run, cap = cap }
+            rows[#rows + 1] = { workspace = workspace, busy = #workspace.windows > 0, x = length + span / 2, w = span,
+                run = run, cap = cap }
             length += span + 9 * u + run
         end
     end
-    local row = 25.5 * u + (if special then 9 * u else length + 14 * u)
+    local row = if special then 35 * u else length
     return {
-        rows = rows, active = active, special = special,
-        plus = if not special and active and #active.windows > 0 then empty else nil,
-        plusX = length + 7 * u,
+        rows = rows, special = special,
         w = math.max(128 * u, row),
         row = row,
         available = special ~= nil or #(bar.workspaces or {}) > 0,
@@ -109,16 +122,12 @@ end
 
 local function flow(ctx, k)
     local m, u = model(ctx, k), k.bu
-    local cells = { { key = "overview", w = 25.5 * u, at = 10 * u } }
-    if m.special then
-        cells[#cells + 1] = { key = "special", w = 26 * u, at = 13 * u }
-    else
-        for _, row in m.rows do
-            local width = row.w + 9 * u
-            cells[#cells + 1] = { key = "workspace-" .. row.workspace.id, w = width + row.run, at = width / 2,
-                focused = row.workspace.focused }
-        end
-        if m.plus then cells[#cells + 1] = { key = "plus", w = 23 * u, at = 11.5 * u } end
+    if m.special then return { { key = "special", w = 26 * u, at = 13 * u } } end
+    local cells = {}
+    for _, row in m.rows do
+        local width = row.w + 9 * u
+        cells[#cells + 1] = { key = "workspace-" .. row.workspace.id, w = width + row.run, at = width / 2,
+            focused = row.workspace.focused }
     end
     return cells
 end
@@ -132,9 +141,8 @@ local function prepare(ctx, g)
     end
     s.enabled = g.island.visible ~= false and slot ~= nil and not slot.hidden and m.available == true
     s.special = if s.enabled and m.special and placed("special") then m.special.id else nil
-    local valid = { ["workspace-overview"] = true }
+    local valid = {}
     if s.special then valid["workspace-special"] = true end
-    if m.plus and placed("plus") then valid["workspace-new"] = true end
     for _, row in m.rows do
         if placed("workspace-" .. row.workspace.id) then valid["workspace-hit-" .. row.workspace.id] = true end
     end
@@ -150,9 +158,9 @@ local function hovered(ctx, key: string)
     end
 end
 
-local function zone(ctx, g, key: string, x: number, w: number, command: string, height: number?)
+local function zone(ctx, g, key: string, x: number, w: number, command: string)
     local vertical = g.frame and g.frame.vertical
-    local h = height or (if vertical then 40 * g.k.bu else g.pill.h)
+    local h = if vertical then 40 * g.k.bu else g.pill.h
     return ui.box({ key = key, w = if vertical then h else w, h = if vertical then w else h,
         dx = if vertical then g.pill.cx - h / 2 else x - w / 2,
         dy = if vertical then x - w / 2 else g.pill.cy - h / 2, align = "topLeading",
@@ -192,22 +200,41 @@ local function mark(ctx, g, row, cx: number)
     local vertical = g.frame and g.frame.vertical
     local id, u = row.workspace.id, if vertical then g.k.bcu else g.k.bu
     local hot = if state(ctx).hover == "workspace-hit-" .. id then 1 else 0
-    local side = (if row.busy then 12.5 else 8) * u * (1 + 0.35 * hot)
+    local grow = 1 + 0.35 * hot
+    local least = (if row.busy or ctx.data.bar.style.labels then 12.5 else 8) * u
+    local w, h = grow * fitted(ctx, row.workspace, least, u, vertical), grow * least
     local amount = math.min(1, (if row.busy then 0.85 else 0.30) + 0.35 * hot)
     if row.workspace.focused then amount = 0 end
     local extent = 24 * u
-    local body = ui.glass({ key = "workspace-mark-" .. id, w = extent, h = extent,
+    local wide = math.max(extent, w + 7 * u)
+    local body = ui.glass({ key = "workspace-mark-" .. id, w = wide, h = extent,
         dx = 0, dy = 0, align = "topLeading", backdrop = false,
         fill = palette.roles.ink, opacity = 0.55 * amount, rim = 0.40, blend = 0, animate = quick,
-        ui.shape({ key = "workspace-square-" .. id, w = side, h = side, dx = (extent - side) / 2,
-            dy = (extent - side) / 2, align = "topLeading", radius = 0.3 * side, animate = kit.springs.pop }),
+        ui.shape({ key = "workspace-square-" .. id, w = w, h = h, dx = (wide - w) / 2,
+            dy = (extent - h) / 2, align = "topLeading", radius = 0.3 * h, animate = kit.springs.pop }),
     })
     local localG = { k = g.k, pill = { cy = extent / 2 } }
-    return ui.stack(buttons.glow({ key = "workspace-mark-halo-" .. id, w = extent, h = extent,
-        dx = (if vertical then g.pill.cx else cx) - extent / 2,
+    return ui.stack(buttons.glow({ key = "workspace-mark-halo-" .. id, w = wide, h = extent,
+        dx = (if vertical then g.pill.cx else cx) - wide / 2,
         dy = (if vertical then cx else g.pill.cy) - extent / 2, align = "topLeading", decorative = true,
-        body, outline(ctx, localG, "workspace-outline-" .. id, extent / 2, side, side, hot, false, amount),
+        body, outline(ctx, localG, "workspace-outline-" .. id, wide / 2, w, h, hot, false, amount),
     }, g.k.bu))
+end
+
+local function name(ctx, g, row, cx: number)
+    if not ctx.data.bar.style.labels then return nil end
+    local vertical = g.frame and g.frame.vertical
+    local id, u = row.workspace.id, if vertical then g.k.bcu else g.k.bu
+    local focused = row.workspace.focused
+    local hot = if state(ctx).hover == "workspace-hit-" .. id then 1 else 0
+    local w, h = if vertical then (if focused then 15 else 12.5) * u else row.w, 15 * u
+    return ui.stack({ key = "workspace-name-" .. id, w = w, h = h, align = "topLeading", decorative = true,
+        dx = (if vertical then g.pill.cx else cx) - w / 2, dy = (if vertical then cx else g.pill.cy) - h / 2,
+        ui.text({ key = "workspace-name-text-" .. id, text = row.workspace.name, font = kit.font, size = nameSize * u,
+            weight = "semibold", maxWidth = w, lines = 1,
+            color = if focused then palette.roles.onmint else palette.roles.ink, animate = kit.springs.slide,
+            opacity = if focused then 1 else math.min(1, (if row.busy then 0.85 else 0.5) + 0.35 * hot) }),
+    })
 end
 
 local function iconOpacity(item, workspace): number
@@ -261,7 +288,7 @@ local function icons(ctx, g, row, centre: number)
     return items
 end
 
-local function pill(ctx, g, slot, cx: number)
+local function pill(ctx, g, span: number, cx: number)
     local vertical = g.frame and g.frame.vertical
     local u = if vertical then g.k.bcu else g.k.bu
     return ui.glass({ key = "workspace-pill", w = if vertical then 15 * u else g.size.w,
@@ -270,32 +297,11 @@ local function pill(ctx, g, slot, cx: number)
         align = "topLeading", backdrop = false, rim = 0.55, blend = 0, opacity = 0.55, animate = g.calm,
         gradient = { from = palette.roles.minthi, to = palette.roles.mintlo, angle = if vertical then 0 else 90 },
         shadow = palette.alpha("mint", 0.30), shadowRadius = 7 * g.k.bu, shadowOffset = { x = 0, y = 0 },
-        ui.shape({ key = "workspace-pill-shape", w = if vertical then 15 * u else 29 * u,
-            h = if vertical then 29 * u else 15 * u, dx = if vertical then 0 else cx - 14.5 * u,
-            dy = if vertical then cx - 14.5 * u else 0, align = "topLeading", radius = 4.5 * u,
+        ui.shape({ key = "workspace-pill-shape", w = if vertical then 15 * u else span,
+            h = if vertical then span else 15 * u, dx = if vertical then 0 else cx - span / 2,
+            dy = if vertical then cx - span / 2 else 0, align = "topLeading", radius = 4.5 * u,
             morph = { edges = { lead = edges.lead, trail = edges.trail, thin = 0.18, unit = 29.75 * u } } }),
     })
-end
-
-local function plus(ctx, g, cx: number)
-    local vertical = g.frame and g.frame.vertical
-    local u = if vertical then g.k.bcu else g.k.bu
-    local hot = if state(ctx).hover == "workspace-new" then 1 else 0
-    local extent, length = 20 * u, 14 * 0.62 * u * (1 + 0.3 * hot)
-    local body = ui.glass({ key = "workspace-plus", w = extent, h = extent, dx = 0,
-        dy = 0, align = "topLeading", backdrop = false, fill = palette.roles.ink,
-        opacity = 0.55 + 0.40 * hot, rim = 0.30, blend = 0, animate = kit.springs.pop,
-        ui.shape({ key = "workspace-plus-h", w = length, h = 1.6 * u, radius = 0.8 * u,
-            dx = (extent - length) / 2, dy = (extent - 1.6 * u) / 2, align = "topLeading",
-            animate = kit.springs.pop }),
-        ui.shape({ key = "workspace-plus-v", w = 1.6 * u, h = length, radius = 0.8 * u,
-            dx = (extent - 1.6 * u) / 2, dy = (extent - length) / 2, align = "topLeading",
-            animate = kit.springs.pop }),
-    })
-    return ui.stack(buttons.glow({ key = "workspace-plus-halo", w = extent, h = extent,
-        dx = (if vertical then g.pill.cx else cx) - extent / 2,
-        dy = (if vertical then cx else g.pill.cy) - extent / 2, align = "topLeading", decorative = true, body,
-    }, g.k.bu))
 end
 
 local function specialPaths(g, pad, frame: number, scale: number?)
@@ -363,22 +369,10 @@ local function content(ctx, g, slot)
     local m, s, u = model(ctx, g.k), state(ctx), if vertical then g.k.bcu else g.k.bu
     if not s.enabled then return nil end
     local items = {}
-    local hot = if s.hover == "workspace-overview" then 1 else 0
-    local cx = if slot.positions then slot.positions.overview
-        elseif vertical then 8 * g.k.u + 24 * g.k.bcu else slot.x + 10 * u
-    local overview = pencil.draw(40 * u, 40 * u,
-        pencil.icon("overview", 20 * u, 20 * u, 18 * u * (1 + 0.2 * hot), hot, if hot > 0 then s.frame else 0, u, 1.3 * u),
-        palette.roles.ink, { 0.45 + 0.35 * hot, 0.7 + 0.3 * hot, 0.7 + 0.3 * hot })
-    items[#items + 1] = ui.stack(buttons.glow(buttons.append({ key = "workspace-overview-icon",
-        w = 40 * u, h = 40 * u, dx = (if vertical then g.pill.cx else cx) - 20 * u,
-        dy = (if vertical then cx else g.pill.cy) - 20 * u,
-        align = "topLeading", decorative = true,
-    }, overview), g.k.bu))
-    local overviewZone = zone(ctx, g, "workspace-overview", cx, 26 * u, "toggle-overview", 26 * u)
-    local origin = if vertical then cx + 15.5 * u else slot.x + 25.5 * u
+    local origin = if vertical then 8 * g.k.u + 14 * g.k.bcu else slot.x
     if m.special then
-        local centre = if slot.positions then slot.positions.special else origin + 9 * u
-        if not centre then items[#items + 1] = overviewZone return items end
+        local centre = if slot.positions then slot.positions.special else origin + 13 * u
+        if not centre then return items end
         local paths = pencil.draw(40 * u, 40 * u, specialPaths(g, m.special, s.frame), palette.roles.mint)
         local props = { key = "workspace-special-glyph", w = 40 * u, h = 40 * u,
             dx = if vertical then g.pill.cx else centre, dy = if vertical then centre else g.pill.cy,
@@ -386,7 +380,6 @@ local function content(ctx, g, slot)
         append(props, paths)
         items[#items + 1] = ui.stack(buttons.glow(props, g.k.bu))
         items[#items + 1] = zone(ctx, g, "workspace-special", centre, 26 * u, "scratchpad toggle " .. m.special.id)
-        items[#items + 1] = overviewZone
         return items
     end
     for _, row in m.rows do
@@ -394,22 +387,15 @@ local function content(ctx, g, slot)
         if not centre then continue end
         items[#items + 1] = mark(ctx, g, row, centre)
         if row.workspace.focused then
-            items[#items + 1] = pill(ctx, g, slot, centre)
+            items[#items + 1] = pill(ctx, g, row.w, centre)
             local hoveredAny = if s.hover and string.sub(s.hover, 1, 14) == "workspace-hit-" then 1 else 0
-            items[#items + 1] = outline(ctx, g, "workspace-pill-outline", centre, 29 * u, 15 * u, hoveredAny, true, 1)
+            items[#items + 1] = outline(ctx, g, "workspace-pill-outline", centre, row.w, 15 * u, hoveredAny, true, 1)
         end
+        items[#items + 1] = name(ctx, g, row, centre)
         items[#items + 1] = zone(ctx, g, "workspace-hit-" .. row.workspace.id, centre, row.w + 9 * u,
             "switch-workspace " .. row.workspace.id)
         append(items, icons(ctx, g, row, centre))
     end
-    if m.plus then
-        local centre = if slot.positions then slot.positions.plus else origin + m.plusX
-        if centre then
-            items[#items + 1] = plus(ctx, g, centre)
-            items[#items + 1] = zone(ctx, g, "workspace-new", centre, 23 * u, "switch-workspace " .. m.plus.id)
-        end
-    end
-    items[#items + 1] = overviewZone
     return items
 end
 

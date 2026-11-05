@@ -170,11 +170,9 @@ extension ShellVitreusFrameTests {
     func testVerticalPiecesAreStackedAndTheTitleReadsUpTheStrip() throws {
         for edge in ["left", "right"] {
             let fixture = try fixture(edge)
-            let overview = try frame(fixture, "workspace-overview")
             let first = try frame(fixture, "workspace-hit-1")
             let second = try frame(fixture, "workspace-hit-2")
-            XCTAssertEqual(overview.midX, edge == "left" ? 31.05 : 1888.95, accuracy: 0.001)
-            XCTAssertGreaterThan(first.midY, overview.midY)
+            XCTAssertEqual(first.midX, edge == "left" ? 31.05 : 1888.95, accuracy: 0.001)
             XCTAssertGreaterThan(second.midY, first.midY)
             let controls = try frame(fixture, "bar-controls")
             let logo = try frame(fixture, "bar-omniwm")

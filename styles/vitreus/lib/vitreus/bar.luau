@@ -59,7 +59,7 @@ local function prefix(k, names, widths, split, slots, ranges)
         for _, cell in cells or {} do
             if cell.focused then
                 focusIndex, focusCell = index, cell
-                focusWidth = cell.w + (if cell ~= cells[1] then cells[1].w else 0)
+                focusWidth = cell.w
                 break
             end
         end
@@ -95,8 +95,8 @@ local function prefix(k, names, widths, split, slots, ranges)
         if cells then
             local positions = {}
             local lead, focused = 0, if index == focusIndex then focusCell else nil
-            for cellIndex, cell in cells do
-                local held = if cellIndex > 1 and focused and cell ~= focused then focused.w else keep
+            for _, cell in cells do
+                local held = if focused and cell ~= focused then focused.w else keep
                 local at = take(cell.w, reserve, lead, held, afterFocus)
                 if not at then
                     if focused and held > 0 then continue end

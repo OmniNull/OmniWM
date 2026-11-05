@@ -15,7 +15,9 @@ extension ShellVitreusBarTests {
 
     private static let oneIconRun = 21.0
 
-    private func markWorkspace(_ id: String, occupied: Bool = false, focused: Bool = false) -> ShellBarWorkspace {
+    private func markWorkspace(
+        _ id: String, name: String? = nil, occupied: Bool = false, focused: Bool = false
+    ) -> ShellBarWorkspace {
         let items: [ShellBarItem] = occupied ? [ShellBarItem(
             id: "app-" + id, bundle: "test.app." + id, name: "App " + id, focused: focused,
             count: 1, hidden: 0, windows: [.init(
@@ -25,7 +27,7 @@ extension ShellVitreusBarTests {
                 hidden: false
             )]
         )] : []
-        return ShellBarWorkspace(id: id, name: "Room " + id, focused: focused, windows: items)
+        return ShellBarWorkspace(id: id, name: name ?? id, focused: focused, windows: items)
     }
 
     private func markData(active: String = "1", emptyActive: Bool = false) -> ShellBarData {
@@ -74,7 +76,7 @@ extension ShellVitreusBarTests {
             let widget = try markWidget(markData(), size: size)
             let unit = 1.35 * size
             let shell = try VitreusFixture.frame(widget, key: "shell")
-            let origin = shell.minX + (16 + 25.5) * unit
+            let origin = shell.minX + 16 * unit
             let pill = try VitreusFixture.frame(widget, key: "workspace-pill-shape")
             Self.assertRect(pill, CGRect(x: origin, y: shell.midY - 7.5 * unit, width: 29 * unit, height: 15 * unit))
             let occupied = try VitreusFixture.frame(widget, key: "workspace-square-2")
@@ -82,9 +84,11 @@ extension ShellVitreusBarTests {
                 x: origin + (38 + Self.oneIconRun) * unit, y: shell.midY - 6.25 * unit,
                 width: 12.5 * unit, height: 12.5 * unit
             ))
+            let empty = try VitreusFixture.frame(widget, key: "workspace-square-3")
+            XCTAssertEqual(empty.minX - occupied.maxX, (9 + Self.oneIconRun) * unit, accuracy: 0.001)
+            XCTAssertEqual(empty.size, occupied.size)
             let next = try VitreusFixture.frame(widget, key: "workspace-square-4")
-            XCTAssertEqual(next.minX - occupied.maxX, (9 + Self.oneIconRun) * unit, accuracy: 0.001)
-            XCTAssertFalse(Self.has(widget, "workspace-hit-3"))
+            XCTAssertEqual(next.minX - empty.maxX, 9 * unit, accuracy: 0.001)
             let radius = try markPaint(widget, "workspace-square-2").cornerRadius
             XCTAssertEqual(Double(radius), 3.75 * unit, accuracy: 0.001)
             let hit = try VitreusFixture.frame(widget, key: "workspace-hit-2")
@@ -92,38 +96,71 @@ extension ShellVitreusBarTests {
             XCTAssertEqual(hit.height, shell.height, accuracy: 0.001)
             let activeHit = try VitreusFixture.frame(widget, key: "workspace-hit-1")
             XCTAssertEqual(activeHit.maxX + Self.oneIconRun * unit, hit.minX, accuracy: 0.001)
-            let overview = try VitreusFixture.frame(widget, key: "workspace-overview")
-            XCTAssertEqual(Float(overview.width), Float(26 * unit))
-            XCTAssertEqual(Float(overview.height), Float(26 * unit))
-            XCTAssertEqual(
-                widget.surface.command(at: CGPoint(x: overview.maxX - unit / 2, y: overview.midY)),
-                "toggle-overview"
-            )
         }
     }
 
-    func testWorkspaceRowGrowsForOccupiedRoomsAndReservesTheHiddenPlusSlot() throws {
+    func testWorkspaceRowGrowsForEveryWorkspaceAndItsIcons() throws {
         var data = markData()
-        data.workspaces = (1 ... 10).map { markWorkspace(String($0), occupied: true, focused: $0 == 1) }
+        data.workspaces = (1 ... 9).map { markWorkspace(String($0), occupied: true, focused: $0 == 1) }
         let widget = try markWidget(data)
         let pill = try VitreusFixture.frame(widget, key: "shell")
-        XCTAssertEqual(pill.width, (450 + 271 + 10 * Self.oneIconRun - 128) * 1.35, accuracy: 0.001)
-        XCTAssertFalse(Self.has(widget, "workspace-new"))
-        let last = try VitreusFixture.frame(widget, key: "workspace-hit-10")
+        let row = 29 + 9 + 8 * (12.5 + 9) + 9 * Self.oneIconRun
+        XCTAssertEqual(pill.width, (450 + row - 128) * 1.35, accuracy: 0.001)
+        let last = try VitreusFixture.frame(widget, key: "workspace-hit-9")
         XCTAssertLessThan(last.maxX, pill.maxX - 16 * 1.35)
+    }
+
+    func testEveryWorkspaceShowsItsNameInATileThatFitsIt() throws {
+        var data = markData()
+        data.workspaces = [
+            markWorkspace("1", name: "Browser", occupied: true, focused: true),
+            markWorkspace("2", name: "Mail", occupied: true),
+            markWorkspace("3", name: "3")
+        ]
+        let widget = try markWidget(data)
+        let unit = 1.35
+        XCTAssertTrue(Set(["Browser", "Mail", "3"]).isSubset(of: widget.strings()))
+        for (id, square) in [("1", "workspace-pill-shape"), ("2", "workspace-square-2"), ("3", "workspace-square-3")] {
+            let text = try VitreusFixture.frame(widget, key: "workspace-name-text-" + id)
+            let tile = try VitreusFixture.frame(widget, key: square)
+            XCTAssertEqual(text.midX, tile.midX, accuracy: 0.001, id)
+            XCTAssertEqual(text.midY, tile.midY, accuracy: 0.001, id)
+            XCTAssertLessThanOrEqual(text.width, tile.width, id)
+            let hit = try VitreusFixture.frame(widget, key: "workspace-hit-" + id)
+            XCTAssertEqual(hit.width, tile.width + 9 * unit, accuracy: 0.001, id)
+        }
+        let pill = try VitreusFixture.frame(widget, key: "workspace-pill-shape")
+        let browser = try VitreusFixture.frame(widget, key: "workspace-name-text-1")
+        XCTAssertGreaterThan(pill.width, 29 * unit)
+        XCTAssertEqual(pill.width, browser.width + 6 * unit, accuracy: 0.001)
+        XCTAssertEqual(try VitreusFixture.frame(widget, key: "workspace-square-3").width, 12.5 * unit, accuracy: 0.001)
+    }
+
+    func testTurningWorkspaceLabelsOffLeavesBlankMarksAtTheirOwnSizes() throws {
+        var data = markData()
+        data.workspaces = [
+            markWorkspace("1", name: "Browser", occupied: true, focused: true),
+            markWorkspace("2", name: "Mail", occupied: true),
+            markWorkspace("3", name: "Empty")
+        ]
+        data.style.labels = false
+        let widget = try markWidget(data)
+        let unit = 1.35
+        XCTAssertFalse(widget.strings().contains("Browser"))
+        XCTAssertFalse(Self.has(widget, "workspace-name-1"))
+        XCTAssertEqual(try VitreusFixture.frame(widget, key: "workspace-pill-shape").width, 29 * unit, accuracy: 0.001)
+        XCTAssertEqual(try VitreusFixture.frame(widget, key: "workspace-square-2").width, 12.5 * unit, accuracy: 0.001)
+        XCTAssertEqual(try VitreusFixture.frame(widget, key: "workspace-square-3").width, 8 * unit, accuracy: 0.001)
     }
 
     func testWorkspaceFlatBodiesDeclareReferenceOpacityRimsGradientAndGlow() throws {
         let widget = try markWidget(markData())
         let square = try markRecipe(widget, "workspace-mark-2")
         let pill = try markRecipe(widget, "workspace-pill")
-        let plus = try markRecipe(widget, "workspace-plus")
         XCTAssertTrue(square.flat)
         XCTAssertTrue(pill.flat)
-        XCTAssertTrue(plus.flat)
         XCTAssertEqual(square.rim, 0.4, accuracy: 0.0001)
         XCTAssertEqual(pill.rim, 0.55, accuracy: 0.0001)
-        XCTAssertEqual(plus.rim, 0.3, accuracy: 0.0001)
         XCTAssertEqual(pill.gradientAngle, 90)
         let squarePaint = try markPaint(widget, "workspace-mark-2")
         XCTAssertEqual(squarePaint.opacity, 0.4675, accuracy: 0.0001)
@@ -137,13 +174,6 @@ extension ShellVitreusBarTests {
         XCTAssertEqual(pillPaint.shadow.role & 0xFF, UInt16(ShellRole.accent.rawValue + 1))
         XCTAssertEqual(Double(pillPaint.shadow.role >> 8) / 255, 0.3, accuracy: 0.003)
         XCTAssertEqual(pill.shadowOffset, .zero)
-        let plusHorizontal = try VitreusFixture.frame(widget, key: "workspace-plus-h")
-        let plusVertical = try VitreusFixture.frame(widget, key: "workspace-plus-v")
-        XCTAssertEqual(plusHorizontal.width, 14 * 0.62 * 1.35, accuracy: 0.001)
-        XCTAssertEqual(plusHorizontal.height, 1.6 * 1.35, accuracy: 0.001)
-        XCTAssertEqual(plusHorizontal.midX, plusVertical.midX, accuracy: 0.001)
-        XCTAssertEqual(plusHorizontal.midY, plusVertical.midY, accuracy: 0.001)
-        XCTAssertEqual(plusHorizontal.width, plusVertical.height, accuracy: 0.001)
     }
 
     func testWorkspacePillDeclaresIndependentLeadAndTrailAndKeepsMovingNatively() throws {
@@ -175,19 +205,18 @@ extension ShellVitreusBarTests {
         }
     }
 
-    func testWorkspaceMarksAndPlusDispatchExistingCommandsAndEmptyActiveHidesPlus() throws {
-        for (key, command) in [
-            ("workspace-hit-2", "switch-workspace 2"), ("workspace-new", "switch-workspace 3"),
-            ("workspace-overview", "toggle-overview")
-        ] {
+    func testBusyAndEmptyWorkspacesAreClickableWithNoOverviewOrPlus() throws {
+        for (key, command) in [("workspace-hit-2", "switch-workspace 2"), ("workspace-hit-3", "switch-workspace 3")] {
             let widget = try markWidget(markData())
             try VitreusFixture.click(widget, key: key)
             XCTAssertEqual(widget.clicks.last?.action, command)
+            XCTAssertFalse(widget.tree().contains { widget.text.string($0.content.text) == "toggle-overview" })
+            for removed in ["workspace-overview", "workspace-overview-icon", "workspace-new", "workspace-plus"] {
+                XCTAssertFalse(Self.has(widget, removed), removed)
+            }
         }
         let empty = try markWidget(markData(emptyActive: true))
         XCTAssertTrue(Self.has(empty, "workspace-hit-1"))
-        XCTAssertFalse(Self.has(empty, "workspace-new"))
-        XCTAssertFalse(Self.has(empty, "workspace-plus"))
     }
 
     func testWorkspaceMarksUseTheSuppliedDisplayAndNilStyleShowsNoMarks() throws {
@@ -202,7 +231,6 @@ extension ShellVitreusBarTests {
         var disabled = markData()
         disabled.barEnabled = false
         let absent = try markWidget(disabled)
-        XCTAssertFalse(Self.has(absent, "workspace-overview"))
         XCTAssertFalse(Self.has(absent, "workspace-pill"))
         XCTAssertFalse(Self.has(absent, "workspace-hit-2"))
     }
@@ -280,7 +308,6 @@ extension ShellVitreusBarTests {
             XCTAssertTrue(Self.has(widget, "workspace-special"), name)
             XCTAssertFalse(Self.has(widget, "workspace-hit-1"), name)
             XCTAssertFalse(Self.has(widget, "workspace-pill"), name)
-            XCTAssertFalse(Self.has(widget, "workspace-new"), name)
             let pending = try XCTUnwrap(VitreusFixture.drain(widget).first { $0.kind == OMNI_SERVICE_TIMER })
             XCTAssertEqual(pending.seconds, 0.2, accuracy: 0.0001)
             let frame = try VitreusFixture.frame(widget, key: "workspace-special")
@@ -488,8 +515,7 @@ extension ShellVitreusBarTests {
         let scale = 2
         for (key, shape) in [
             ("workspace-mark-2", "workspace-square-2"),
-            ("workspace-pill", "workspace-pill-shape"),
-            ("workspace-plus", "workspace-plus-h")
+            ("workspace-pill", "workspace-pill-shape")
         ] {
             profiles.append(try markRimProfile(widget, key: key, shape: shape, scale: scale))
         }
