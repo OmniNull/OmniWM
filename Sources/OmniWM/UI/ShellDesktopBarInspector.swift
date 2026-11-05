@@ -207,9 +207,8 @@ struct ShellDesktopBarInspector: View {
             .help("Hide the bar on a monitor while it shows a native fullscreen window")
             Toggle("System Stats Button", isOn: Binding(
                 get: {
-                    guard let config = editor.snapshot?.config,
-                          let widget = config.systemStatsWidget else { return false }
-                    return (style?.systemStatsButton ?? bar.systemStatsButton) && config.barLane(of: widget) != nil
+                    guard let config = editor.snapshot?.config else { return false }
+                    return (style?.systemStatsButton ?? bar.systemStatsButton) && config.hasSystemStatsButtonPlace
                 },
                 set: editor.setSystemStats
             ))

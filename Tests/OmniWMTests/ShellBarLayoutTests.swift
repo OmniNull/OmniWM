@@ -69,6 +69,23 @@ final class ShellBarLayoutTests: XCTestCase {
         XCTAssertEqual(config.trailing, ["clock"])
     }
 
+    func testAnIslandThatDrawsStatsKeepsTheToggleOutOfTheBarLanes() throws {
+        try write("default/shell.toml", """
+        leading = ["workspaces"]
+        trailing = ["clock"]
+        systemStatsWidget = "weather"
+
+        [island]
+        root = "mine"
+        drawsSystemStats = true
+        """)
+        XCTAssertTrue(ShellConfig.resolve(shellDirectory: shell).hasSystemStatsButtonPlace)
+        XCTAssertTrue(try ShellBarLayout.setSystemStatsEnabled(true, in: shell))
+        let config = ShellConfig.resolve(shellDirectory: shell)
+        XCTAssertEqual(config.trailing, ["clock"])
+        XCTAssertEqual(config.barOverride?.systemStatsButton, true)
+    }
+
     func testTheLayoutShowsWhatTheBarShowsAndWhatCanBeAdded() throws {
         let layout = try ShellBarLayout.load(shellDirectory: shell).get()
         XCTAssertEqual(layout.leading, ["workspaces"])

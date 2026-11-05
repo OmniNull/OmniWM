@@ -25,7 +25,7 @@ height = 300
 fullscreen = "hide"
 ```
 
-In the user shell file, use `[profiles.<profile>.island]` instead. An absent island table places no island. `root` defaults to `focus-ribbon`; that widget must exist in a configured widgets folder. `displays` accepts `notch`, `main`, or `all`. `fullscreen` accepts `hide` (default) or `show`. Width and height are the fixed panel envelope in points, from 1 to 8192, clamped to each display. Change the Luau tree's size to expand or collapse its contents; the window does not resize with those transitions.
+In the user shell file, use `[profiles.<profile>.island]` instead. An absent island table places no island. `root` defaults to `focus-ribbon`; that widget must exist in a configured widgets folder. `displays` accepts `notch`, `main`, or `all`. `fullscreen` accepts `hide` (default) or `show`. Set `drawsSystemStats = true` when the island root draws its own system stats button, so the System Stats Button setting doesn't also add one to the Workspace Bar. Width and height are the fixed panel envelope in points, from 1 to 8192, clamped to each display. Change the Luau tree's size to expand or collapse its contents; the window does not resize with those transitions.
 
 ## Reserve space for authored islands
 

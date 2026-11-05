@@ -24,6 +24,7 @@ dockOverlap = false
 
 [island]
 root = "vitreus"
+drawsSystemStats = true
 displays = "all"
 sizing = "display"
 fullscreen = "hide"

@@ -149,6 +149,7 @@ final class ShellDefaultsTests: XCTestCase {
         XCTAssertEqual(vitreus.themeName, "vitreus")
         let island = try XCTUnwrap(vitreus.island)
         XCTAssertEqual(island.root, "vitreus")
+        XCTAssertTrue(island.drawsSystemStats)
         XCTAssertEqual(island.sizing, .display)
         XCTAssertEqual(island.displays, .all)
         XCTAssertEqual(island.components.map(\.id), ["pad", "focus"])

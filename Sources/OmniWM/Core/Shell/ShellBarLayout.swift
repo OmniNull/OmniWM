@@ -102,7 +102,7 @@ struct ShellBarLayout: Equatable, Sendable {
             ShellProfiles.key("workspaceBar", of: config.profile) + ["systemStatsButton"],
             Optional(enabled ? "true" : "false")
         )]
-        if enabled, let widget = config.systemStatsWidget, config.barLane(of: widget) == nil {
+        if enabled, let widget = config.systemStatsWidget, !config.hasSystemStatsButtonPlace {
             entries.append((ShellProfiles.key("trailing", of: config.profile), Self.list(config.trailing + [widget])))
         }
         return try ShellProfiles.setTopLevel(entries, in: shellDirectory)

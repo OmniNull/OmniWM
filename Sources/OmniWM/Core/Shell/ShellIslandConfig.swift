@@ -28,6 +28,7 @@ struct ShellIslandConfig: Equatable {
     var height: CGFloat = 300
     var fullscreen = Fullscreen.hide
     var sizing = Sizing.fixed
+    var drawsSystemStats = false
     var components: [ShellComponentInstance] = []
 
     var size: CGSize {

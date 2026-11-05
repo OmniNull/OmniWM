@@ -9,6 +9,10 @@ extension ShellConfig {
 
     private static let weatherKeys: Set = ["city", "latitude", "longitude", "units", "refresh"]
 
+    var hasSystemStatsButtonPlace: Bool {
+        island?.drawsSystemStats == true || systemStatsWidget.flatMap(barLane(of:)) != nil
+    }
+
     static func applyServices(
         _ table: [String: TOMLNode],
         to config: inout ShellConfig,
@@ -41,7 +45,17 @@ extension ShellConfig {
         }
         unknownKeys(
             in: table,
-            known: ["root", "displays", "width", "height", "fullscreen", "components", "sizing", "room"],
+            known: [
+                "root",
+                "displays",
+                "width",
+                "height",
+                "fullscreen",
+                "components",
+                "sizing",
+                "room",
+                "drawsSystemStats"
+            ],
             of: "shell.toml: [island]",
             &problems
         )
@@ -52,6 +66,13 @@ extension ShellConfig {
                 return nil
             }
             island.root = name
+        }
+        if let draws = table["drawsSystemStats"] {
+            guard case let .boolean(value) = draws else {
+                report("shell.toml: [island] drawsSystemStats must be true or false", &problems)
+                return nil
+            }
+            island.drawsSystemStats = value
         }
         if let displays = table["displays"] {
             guard case let .string(name) = displays, let value = ShellIslandConfig.Displays(rawValue: name) else {
