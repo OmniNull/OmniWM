@@ -137,8 +137,6 @@ final class UpdateCoordinatorTests: XCTestCase {
             }
             if suspends {
                 await withCheckedContinuation { gates.append($0) }
-            } else {
-                await Task.yield()
             }
             try Task.checkCancellation()
             if let failure { throw failure }

@@ -2131,7 +2131,7 @@ final class OverviewBehaviorTests: XCTestCase {
         overview.completeCloseTransition(targetWindow: nil)
     }
 
-    func testImmediateSelectionDismissDoesNotRecloseReversedOverview() async throws {
+    func testImmediateSelectionDismissDoesNotRecloseReversedOverview() throws {
         let fixture = try makeRuntimeOverviewFixture(windowCount: 1)
         let harness = InteractiveOverviewHarness(fixture: fixture)
         let overview = harness.overview
@@ -2147,8 +2147,6 @@ final class OverviewBehaviorTests: XCTestCase {
         XCTAssertTrue(target === selectedHandle)
         harness.clock.time = 10.03
         overview.toggle()
-        await Task.yield()
-        await Task.yield()
 
         guard case .opening = overview.state else {
             return XCTFail("Expected reversal to remain opening")

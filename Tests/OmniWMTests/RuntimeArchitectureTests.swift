@@ -2590,15 +2590,7 @@ final class RuntimeArchitectureTests: XCTestCase {
         )
         controller.workspaceManager.invalidateLayout(for: [workspaceId])
 
-        for _ in 0 ..< 8 {
-            if let task = controller.layoutRefreshController.layoutState.activeRefreshTask {
-                await task.value
-            } else if controller.layoutRefreshController.layoutState.pendingRefresh == nil {
-                break
-            } else {
-                await Task.yield()
-            }
-        }
+        await WindowAdmissionTestSupport.drainLayoutRefreshes(controller)
 
         XCTAssertFalse(ranCurrentAction)
         XCTAssertTrue(ranInvalidatedAction)
@@ -3173,15 +3165,7 @@ final class RuntimeArchitectureTests: XCTestCase {
             try XCTUnwrap(mergedRefresh.followUpRefresh).suppressesWindowActivation
         )
 
-        for _ in 0 ..< 8 {
-            if let task = controller.layoutRefreshController.layoutState.activeRefreshTask {
-                await task.value
-            } else if controller.layoutRefreshController.layoutState.pendingRefresh == nil {
-                break
-            } else {
-                await Task.yield()
-            }
-        }
+        await WindowAdmissionTestSupport.drainLayoutRefreshes(controller)
 
         let secondToken = try XCTUnwrap(followUpToken)
         XCTAssertNotNil(engine.findNode(for: firstToken, in: workspaceId))
@@ -4208,13 +4192,7 @@ final class RuntimeArchitectureTests: XCTestCase {
             : .right
 
         _ = controller.niriLayoutHandler.focusNeighbor(direction: forwardDirection)
-        for _ in 0 ..< 40 where focusedTokens.last != secondToken {
-            if let refreshTask = controller.layoutRefreshController.layoutState.activeRefreshTask {
-                await refreshTask.value
-            } else {
-                await Task.yield()
-            }
-        }
+        await WindowAdmissionTestSupport.drainLayoutRefreshes(controller)
 
         XCTAssertEqual(controller.workspaceManager.niriViewportState(for: workspaceId).selectedNodeId, secondNode.id)
         XCTAssertEqual(controller.workspaceManager.lastFocusedToken(in: workspaceId), secondToken)

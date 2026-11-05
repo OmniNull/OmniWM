@@ -298,15 +298,9 @@ final class DwindleWindowCloseFocusRecoveryTests: XCTestCase {
                 await Self.settleClose(fixture)
                 Self.assertRecoveredLocally(fixture)
 
-                let previousSeq = controller.eventIntake.lastSeq
-                await gate.resolve(remoteFact)
-                let clock = ContinuousClock()
-                let deadline = clock.now.advanced(by: .seconds(2))
-                while controller.eventIntake.lastSeq <= previousSeq, clock.now < deadline {
-                    await Task.yield()
+                await WindowAdmissionTestSupport.awaitActivationFactsDelivery(to: controller) {
+                    await gate.resolve(remoteFact)
                 }
-                XCTAssertGreaterThan(controller.eventIntake.lastSeq, previousSeq)
-                controller.eventIntake.drainNow()
                 Self.assertRecoveredLocally(fixture)
             }
         }

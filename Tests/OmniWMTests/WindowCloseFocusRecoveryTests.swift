@@ -660,10 +660,9 @@ final class WindowCloseFocusRecoveryTests: XCTestCase {
         await controller.axEventHandler.awaitPendingManagedReplacementBursts(for: [fixture.pid])
         await WindowAdmissionTestSupport.drainLayoutRefreshes(controller)
         let settledViewport = controller.workspaceManager.niriViewportState(for: fixture.localWorkspaceId)
-        let previousSeq = controller.eventIntake.lastSeq
-        await gate.resolve(remoteFact)
-        await waitForIntake(after: previousSeq, controller: controller)
-        controller.eventIntake.drainNow()
+        await WindowAdmissionTestSupport.awaitActivationFactsDelivery(to: controller) {
+            await gate.resolve(remoteFact)
+        }
         let viewport = controller.workspaceManager.niriViewportState(for: fixture.localWorkspaceId)
 
         XCTAssertEqual(controller.activeWorkspace()?.id, fixture.localWorkspaceId)
@@ -814,41 +813,21 @@ final class WindowCloseFocusRecoveryTests: XCTestCase {
         to newToken: WindowToken,
         controller: WMController
     ) async throws {
-        let clock = ContinuousClock()
-        let deadline = clock.now.advanced(by: .seconds(2))
         let windowId = try XCTUnwrap(UInt32(exactly: newToken.windowId))
-        while (controller.workspaceManager.entry(for: newToken) == nil
-            || controller.axEventHandler.admissionRetryStateByWindowId[windowId] != nil),
-            clock.now < deadline
-        {
-            await Task.yield()
-        }
+        try await waitForAdmissionRetryToFinish(windowId: windowId, controller: controller)
         XCTAssertNil(controller.workspaceManager.entry(for: oldToken))
         XCTAssertNotNil(controller.workspaceManager.entry(for: newToken))
-        XCTAssertNil(controller.axEventHandler.admissionRetryStateByWindowId[windowId])
     }
 
     private static func waitForAdmissionRetryToFinish(
         windowId: UInt32,
         controller: WMController
     ) async throws {
-        let clock = ContinuousClock()
-        let deadline = clock.now.advanced(by: .seconds(2))
-        while controller.axEventHandler.admissionRetryStateByWindowId[windowId] != nil,
-              clock.now < deadline
-        {
-            await Task.yield()
-        }
-        XCTAssertNil(controller.axEventHandler.admissionRetryStateByWindowId[windowId])
-    }
-
-    private static func waitForIntake(after sequence: UInt64, controller: WMController) async {
-        let clock = ContinuousClock()
-        let deadline = clock.now.advanced(by: .seconds(2))
-        while controller.eventIntake.lastSeq <= sequence, clock.now < deadline {
-            await Task.yield()
-        }
-        XCTAssertGreaterThan(controller.eventIntake.lastSeq, sequence)
+        let handler = controller.axEventHandler
+        XCTAssertTrue(handler.dispatchAdmissionRetry(windowId: windowId))
+        let rebind = try XCTUnwrap(handler.admissionRetryStateByWindowId[windowId]?.task)
+        await rebind.value
+        XCTAssertNil(handler.admissionRetryStateByWindowId[windowId])
     }
 
     @discardableResult

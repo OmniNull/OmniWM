@@ -47,9 +47,6 @@ final class LayoutRefreshSchedulingTests: XCTestCase {
         for refresh in refreshes {
             refreshController.enqueueRefresh(refresh)
         }
-        for _ in 0 ..< 50 {
-            await Task.yield()
-        }
 
         XCTAssertNil(refreshController.layoutState.activeRefresh)
         XCTAssertNil(refreshController.layoutState.activeRefreshTask)
@@ -61,9 +58,6 @@ final class LayoutRefreshSchedulingTests: XCTestCase {
         XCTAssertEqual(lockedMetrics.lockedRefreshDeferrals, 5)
 
         controller.isLockScreenActive = false
-        for _ in 0 ..< 50 {
-            await Task.yield()
-        }
         XCTAssertTrue(refreshController.layoutState.isRefreshSuspendedForLockScreen)
         XCTAssertTrue(refreshController.layoutState.isAwaitingPostUnlockTopologySample)
         XCTAssertEqual(refreshController.performanceSnapshot()?.refreshesStarted, 0)

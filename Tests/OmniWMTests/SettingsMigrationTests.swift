@@ -1062,14 +1062,18 @@ final class SettingsMigrationTests: XCTestCase {
         persistence.setExternalChangeHandler { outcome in
             outcomes.append(outcome)
         }
+        let selfWriteProcessed = expectation(description: "Process a native event after the canonical self-write")
+        selfWriteProcessed.assertForOverFulfill = false
+        var migrationEventProcessed = false
+        persistence.observation.onEventProcessed = { _ in
+            if migrationEventProcessed { selfWriteProcessed.fulfill() }
+            migrationEventProcessed = !outcomes.isEmpty
+        }
+        defer { persistence.observation.onEventProcessed = nil }
         let legacy = try legacyFixtureData(named: "v0.6.3-custom")
 
         try legacy.write(to: settingsURL(in: fixture), options: .atomic)
-        for _ in 0 ..< 200 {
-            if !outcomes.isEmpty { break }
-            try await Task.sleep(for: .milliseconds(10))
-        }
-        try await Task.sleep(for: .milliseconds(200))
+        await fulfillment(of: [selfWriteProcessed], timeout: 3)
 
         XCTAssertEqual(outcomes.count, 1)
         let outcome = try XCTUnwrap(outcomes.only)

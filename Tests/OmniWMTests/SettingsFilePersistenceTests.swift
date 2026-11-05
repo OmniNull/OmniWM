@@ -249,7 +249,7 @@ final class SettingsFilePersistenceTests: XCTestCase {
     }
 
     @MainActor
-    func testDeferredSaveDoesNotOverwriteAcceptedExternalRestore() async throws {
+    func testDeferredSaveDoesNotOverwriteAcceptedExternalRestore() throws {
         let fixture = try makeFixture()
         defer { fixture.remove() }
 
@@ -277,9 +277,6 @@ final class SettingsFilePersistenceTests: XCTestCase {
         XCTAssertEqual(settings.gaps.size, restored.gaps.size)
 
         settings.flushNow()
-        for _ in 0 ..< 4 {
-            await Task.yield()
-        }
 
         XCTAssertEqual(try SettingsTOMLCodec.decode(Data(contentsOf: persistence.fileURL)), restored)
         XCTAssertEqual(settings.toExport(), restored)

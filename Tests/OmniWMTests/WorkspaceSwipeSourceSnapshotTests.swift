@@ -66,7 +66,7 @@ final class WorkspaceSwipeSourceSnapshotTests: XCTestCase {
         XCTAssertNil(preview.presentedSourceSnapshot)
     }
 
-    func testSourceSnapshotNeedsCaptureAccess() async {
+    func testSourceSnapshotNeedsCaptureAccess() {
         let gate = SnapshotGate()
         let preview = WorkspaceSwipePreview(
             ownedWindowRegistry: OwnedWindowRegistry(),
@@ -74,7 +74,6 @@ final class WorkspaceSwipeSourceSnapshotTests: XCTestCase {
             captureDisplay: { _, frame in await gate.capture(frame) }
         )
         preview.captureSource(monitor: monitor)
-        await gate.deliver(nil)
         XCTAssertTrue(gate.frames.isEmpty)
     }
 

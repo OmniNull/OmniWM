@@ -1965,15 +1965,23 @@ final class AXFullRescanBoundaryTests: XCTestCase {
         var maximumActive = 0
         var observedPIDs: [pid_t] = []
         var observedWindowIds: [[Int]] = []
+        let (suspendedBatches, suspendedBatch) = AsyncStream.makeStream(of: CheckedContinuation<Void, Never>.self)
 
-        await FullRescanCandidateSelection.forEachOneShotPromotionBatch(candidates) { pid, batch in
-            active += 1
-            maximumActive = max(maximumActive, active)
-            observedPIDs.append(pid)
-            observedWindowIds.append(batch.map(\.windowId))
-            await Task.yield()
-            active -= 1
+        let promotion = Task {
+            await FullRescanCandidateSelection.forEachOneShotPromotionBatch(candidates) { pid, batch in
+                active += 1
+                maximumActive = max(maximumActive, active)
+                observedPIDs.append(pid)
+                observedWindowIds.append(batch.map(\.windowId))
+                await withCheckedContinuation { suspendedBatch.yield($0) }
+                active -= 1
+            }
+            suspendedBatch.finish()
         }
+        for await batch in suspendedBatches {
+            batch.resume()
+        }
+        await promotion.value
 
         XCTAssertEqual(observedPIDs, [firstPID, secondPID, thirdPID])
         XCTAssertEqual(observedWindowIds, [[72_043, 72_045], [72_046], [72_042]])

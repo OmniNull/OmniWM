@@ -290,7 +290,7 @@ final class FakeMultitouchBackend {
 
 @MainActor
 func drainMultitouchTasks() async {
-    for _ in 0 ..< 8 {
-        await Task.yield()
+    await withCheckedContinuation { continuation in
+        DispatchQueue.main.async { continuation.resume() }
     }
 }

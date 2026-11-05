@@ -5,6 +5,7 @@ import CoreGraphics
 import Foundation
 @testable import OmniWM
 import OmniWMIPC
+import Synchronization
 import XCTest
 
 @MainActor
@@ -55,6 +56,13 @@ final class IPCSessionEventPublicationTests: XCTestCase {
         fixture.controller.ipcApplicationBridge = bridge
         let stream = await bridge.stream(for: .activeWorkspace)
         var iterator = stream.makeAsyncIterator()
+        let publishingChanges = Mutex(0)
+        let observers = [Notification.Name.omniwmFocusedWorkspaceChanged, .omniwmFocusedMonitorChanged].map { name in
+            NotificationCenter.default.addObserver(forName: name, object: fixture.controller, queue: nil) { _ in
+                publishingChanges.withLock { $0 += 1 }
+            }
+        }
+        defer { observers.forEach(NotificationCenter.default.removeObserver) }
 
         fixture.controller.workspaceNavigationHandler.switchWorkspaceRelative(isNext: true)
 
@@ -68,9 +76,7 @@ final class IPCSessionEventPublicationTests: XCTestCase {
         XCTAssertNotNil(result.display)
 
         await WindowAdmissionTestSupport.drainLayoutRefreshes(fixture.controller)
-        for _ in 0 ..< 8 {
-            await Task.yield()
-        }
+        XCTAssertEqual(publishingChanges.withLock { $0 }, 1)
         XCTAssertEqual(fixture.controller.workspaceManager.nativeFocusOwner, .none)
         await bridge.shutdown()
         let trailing = await iterator.next()
@@ -119,9 +125,7 @@ final class IPCSessionEventPublicationTests: XCTestCase {
             currentMonitors: [fixture.monitor, makeMonitor(displayId: 3, name: "Transient", width: 1)],
             performPostUpdateActions: false
         )
-        for _ in 0 ..< 8 {
-            await Task.yield()
-        }
+        await bridge.publishEvent(.displayChanged)
         await bridge.shutdown()
         let trailing = await iterator.next()
         XCTAssertNil(trailing)

@@ -29,13 +29,12 @@ final class ShellPermissionPromptPanelTests: XCTestCase {
     private func withPanel(
         _ request: ShellPermissionPrompts.Request,
         check: (NSPanel, NSView, CGRect) throws -> Void
-    ) async throws {
+    ) throws {
         _ = Self.application
         let screen = try XCTUnwrap(NSScreen.main)
         let existing = Set(NSApp.windows.map(\.windowNumber))
         let dismiss = ShellPermissionPromptPanel.present(request, title: "Test widget") { _ in }
         defer { dismiss() }
-        try await Task.sleep(for: .milliseconds(100))
         let panel = try XCTUnwrap(NSApp.windows.first {
             !existing.contains($0.windowNumber) && $0 is NSPanel && $0.isVisible
         } as? NSPanel)
@@ -45,7 +44,6 @@ final class ShellPermissionPromptPanelTests: XCTestCase {
         content.sizingOptions = []
         content.frame = hosting.frame
         panel.contentView = content
-        try await Task.sleep(for: .milliseconds(100))
         content.layoutSubtreeIfNeeded()
         XCTAssertEqual(panel.frame, originalFrame)
         try check(panel, content, panel.screen?.visibleFrame ?? screen.visibleFrame)
@@ -138,46 +136,46 @@ final class ShellPermissionPromptPanelTests: XCTestCase {
         )
     }
 
-    func testSixtyHostsFitTheScreenAndScrollAboveTheDecisionButtons() async throws {
-        try await withPanel(network(hostCount: 60, purpose: "Shows service status")) { panel, content, visible in
+    func testSixtyHostsFitTheScreenAndScrollAboveTheDecisionButtons() throws {
+        try withPanel(network(hostCount: 60, purpose: "Shows service status")) { panel, content, visible in
             XCTAssertLessThanOrEqual(panel.frame.height, visible.height)
             XCTAssertTrue(visible.contains(panel.frame))
             try assertScrollableDetails(in: content)
         }
     }
 
-    func testShortNetworkPromptKeepsItsNaturalHeight() async throws {
-        try await withPanel(network(hostCount: 2)) { panel, _, visible in
+    func testShortNetworkPromptKeepsItsNaturalHeight() throws {
+        try withPanel(network(hostCount: 2)) { panel, _, visible in
             XCTAssertTrue(visible.contains(panel.frame))
             XCTAssertLessThan(panel.frame.height, 400)
         }
     }
 
-    func testLongPurposeAndSourceRemainScrollable() async throws {
+    func testLongPurposeAndSourceRemainScrollable() throws {
         let request = network(
             hostCount: 2,
             purpose: String(repeating: "A widget's description can span several lines. ", count: 100),
             source: "/" + String(repeating: "nested-directory/", count: 80) + "widget"
         )
-        try await withPanel(request) { panel, content, visible in
+        try withPanel(request) { panel, content, visible in
             XCTAssertTrue(visible.contains(panel.frame))
             try assertScrollableDetails(in: content)
         }
     }
 
-    func testLongProgramCommandRemainsScrollable() async throws {
+    func testLongProgramCommandRemainsScrollable() throws {
         let request = ShellPermissionPrompts.Request.program(ShellProviderApproval(
             principal: ShellWidgetPrincipal(role: .component, name: "test", source: "/shell/widgets/test"),
             command: ["provider"] + Array(repeating: "--long-program-argument", count: 100),
             sha256: "abc"
         ))
-        try await withPanel(request) { panel, content, visible in
+        try withPanel(request) { panel, content, visible in
             XCTAssertTrue(visible.contains(panel.frame))
             try assertScrollableDetails(in: content)
         }
     }
 
-    func testLongPromptFitsASmallerContentHeight() async throws {
+    func testLongPromptFitsASmallerContentHeight() throws {
         _ = Self.application
         let content = NSHostingView(rootView: ShellPermissionPromptView(
             request: network(hostCount: 60), name: "Test widget", maximumHeight: 320, answer: { _ in }
@@ -188,7 +186,6 @@ final class ShellPermissionPromptPanelTests: XCTestCase {
         panel.setContentSize(content.fittingSize)
         panel.orderFrontRegardless()
         defer { panel.close() }
-        try await Task.sleep(for: .milliseconds(100))
         content.layoutSubtreeIfNeeded()
         XCTAssertLessThanOrEqual(content.bounds.height, 320)
         try assertScrollableDetails(in: content)

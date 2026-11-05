@@ -89,12 +89,12 @@ final class SpringAnimation {
     private(set) var from: Double
     private(set) var target: Double
     private let initialVelocity: Double
-    private let startTime: TimeInterval
+    let startTime: TimeInterval
     let config: SpringConfig
     private let displayRefreshRate: Double
 
     private var displacement: Double
-    private var duration: TimeInterval
+    private(set) var duration: TimeInterval
 
     init(
         from: Double,

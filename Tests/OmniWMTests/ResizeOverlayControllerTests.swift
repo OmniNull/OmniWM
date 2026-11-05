@@ -192,12 +192,19 @@ final class ResizeOverlayControllerTests: XCTestCase {
         XCTAssertTrue(overlay.isTracking(fixture.workspaceId))
 
         let heldFrames = overlay.panels.mapValues(\.targetFrame)
-        handler.tickScrollAnimation(targetTime: CACurrentMediaTime() + 0.03, displayId: fixture.monitor.displayId)
+        let springs = try XCTUnwrap(fixture.controller.niriEngine?.columns(in: fixture.workspaceId))
+            .compactMap(\.widthAnimation)
+        let spring = try XCTUnwrap(springs.first)
+        handler.tickScrollAnimation(
+            targetTime: spring.startTime + spring.duration / 2,
+            displayId: fixture.monitor.displayId
+        )
         XCTAssertNotEqual(overlay.panels.mapValues(\.targetFrame), heldFrames)
         XCTAssertFalse(overlay.panels.isEmpty)
         XCTAssertEqual(frameApplicationEvents(fixture).count, 0)
 
-        handler.tickScrollAnimation(targetTime: CACurrentMediaTime() + 5, displayId: fixture.monitor.displayId)
+        let settled = try XCTUnwrap(springs.map { ($0.startTime + $0.duration).nextUp }.max())
+        handler.tickScrollAnimation(targetTime: settled, displayId: fixture.monitor.displayId)
         XCTAssertGreaterThan(frameApplicationEvents(fixture).count, 0)
         XCTAssertTrue(frameApplicationEvents(fixture).contains { $0.contains(" event=outcome=") })
         XCTAssertFalse(overlay.isTracking(fixture.workspaceId))

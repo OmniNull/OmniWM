@@ -8,6 +8,24 @@ import Foundation
 import XCTest
 
 @MainActor
+private final class ActivationFactsForwardingSink: EventIntakeSink {
+    private let interpreter: EventInterpreter
+    private let delivered: XCTestExpectation
+
+    init(interpreter: EventInterpreter, delivered: XCTestExpectation) {
+        self.interpreter = interpreter
+        self.delivered = delivered
+    }
+
+    func handleIntakeEvent(_ stamped: StampedIntakeEvent) {
+        interpreter.handleIntakeEvent(stamped)
+        if case .activationFactsResolved = stamped.event {
+            delivered.fulfill()
+        }
+    }
+}
+
+@MainActor
 enum WindowAdmissionTestSupport {
     static func controller(
         prefix: String = "OmniWMWindowAdmissionTests",
@@ -66,6 +84,24 @@ enum WindowAdmissionTestSupport {
         }
         XCTAssertNil(refresh.layoutState.activeRefresh)
         XCTAssertNil(refresh.layoutState.pendingRefresh)
+    }
+
+    static func awaitActivationFactsDelivery(
+        to controller: WMController,
+        afterResolving resolve: () async -> Void
+    ) async {
+        let previousSeq = controller.eventIntake.lastSeq
+        let delivered = XCTestExpectation(description: "Deferred activation facts reached the interpreter")
+        delivered.assertForOverFulfill = false
+        let sink = ActivationFactsForwardingSink(interpreter: controller.eventInterpreter, delivered: delivered)
+        controller.eventIntake.open(sink: sink)
+        await resolve()
+        let delivery = await XCTWaiter.fulfillment(of: [delivered], timeout: 2)
+        XCTAssertEqual(delivery, .completed)
+        XCTAssertGreaterThan(controller.eventIntake.lastSeq, previousSeq)
+        controller.eventIntake.open(sink: controller.eventInterpreter)
+        withExtendedLifetime(sink) {}
+        controller.eventIntake.drainNow()
     }
 
     static func axRef(for token: WindowToken) -> AXWindowRef {
