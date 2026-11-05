@@ -151,6 +151,8 @@ jobs:
         run: echo "$PWD/.cache/flake-tools/bin" >> "$GITHUB_PATH"
       - name: Verify package toolchain
         run: swift package dump-package > /dev/null
+      - name: Audit ARC in the shell core
+        run: make arc-audit
       - name: Build the app and test bundle once
         if: needs.changes.outputs.tests == 'true'
         run: LIBRARY_PATH="$(./Scripts/ghostty-preflight.sh print-library-dir)${LIBRARY_PATH:+:$LIBRARY_PATH}" swift build --build-tests --build-system swiftbuild --arch arm64 --scratch-path .build/localization
