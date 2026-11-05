@@ -49,6 +49,7 @@ final class WorkspaceBarIslandPanel {
     ) {
         guard lastAppliedFrame != frame || lastObservedFrame != panel.frame else { return }
         frameApplier(panel, frame)
+        panel.layoutIfNeeded()
         lastAppliedFrame = frame
         lastObservedFrame = panel.frame
     }

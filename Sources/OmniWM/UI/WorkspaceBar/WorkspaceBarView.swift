@@ -38,6 +38,10 @@ struct WorkspaceBarView: View {
 }
 
 extension WorkspaceBarView {
+    static func contentThickness(forBarHeight barHeight: CGFloat) -> CGFloat {
+        max(16, barHeight - 4) + 4
+    }
+
     static func barShape(
         joinedAt edge: PopupAttachment.Edge?,
         radius: CGFloat = WorkspaceBarGeometry.cornerRadius
@@ -76,10 +80,6 @@ private struct WorkspaceBarContentView: View {
     @Environment(\.colorSchemeContrast) private var colorSchemeContrast
     @Environment(\.colorScheme) private var colorScheme
 
-    private var itemHeight: CGFloat {
-        max(16, snapshot.barHeight - 4)
-    }
-
     private var barShape: UnevenRoundedRectangle {
         WorkspaceBarView.barShape(
             joinedAt: hiddenBarJoinEdge,
@@ -88,10 +88,11 @@ private struct WorkspaceBarContentView: View {
     }
 
     var body: some View {
+        let thickness = WorkspaceBarView.contentThickness(forBarHeight: snapshot.barHeight)
         widgets
             .frame(
-                width: snapshot.orientation.isVertical ? itemHeight + 4 : nil,
-                height: snapshot.orientation.isVertical ? nil : itemHeight + 4
+                width: snapshot.orientation.isVertical ? thickness : nil,
+                height: snapshot.orientation.isVertical ? nil : thickness
             )
             .background { background }
             .animation(

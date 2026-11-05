@@ -191,6 +191,40 @@ final class WorkspaceBarManagerTests: XCTestCase {
         }
     }
 
+    func testLayoutThatResizesAThinBarSettlesWithoutRewritingItsFrame() async throws {
+        let manager = makeManager()
+        defer { manager.cleanup() }
+        var writes = 0
+        manager.frameApplier = { panel, frame in
+            writes += 1
+            panel.setFrame(frame, display: false)
+        }
+        let barHeight: CGFloat = 1
+        try await manager.shellConfiguration.set(Double(barHeight), key: "height")
+        try await manager.shellConfiguration.set(true, key: "fullWidth")
+        let bar = DesiredBarSurface(
+            monitor: monitor, visible: true, snapshot: snapshot(itemCount: 1, barHeight: barHeight)
+        )
+        manager.apply([bar])
+        let panel = try XCTUnwrap(manager.barsByMonitor[monitor.id]).primary.panel
+        let contentHeight = WorkspaceBarView.contentThickness(forBarHeight: barHeight)
+        let content = WindowHeightEnforcingView(height: contentHeight)
+        panel.contentView?.addSubview(content)
+        func applyAfterLayout() {
+            content.needsLayout = true
+            panel.layoutIfNeeded()
+            manager.apply([bar])
+        }
+
+        applyAfterLayout()
+        let settledWrites = writes
+        applyAfterLayout()
+        applyAfterLayout()
+
+        XCTAssertEqual(writes, settledWrites)
+        XCTAssertEqual(panel.frame.height, contentHeight)
+    }
+
     func testEmptySceneRemovesPrimaryBar() {
         let manager = makeManager()
 
@@ -803,7 +837,7 @@ final class WorkspaceBarManagerTests: XCTestCase {
         )
     }
 
-    private func snapshot(itemCount: Int) -> WorkspaceBarSnapshot {
+    private func snapshot(itemCount: Int, barHeight: CGFloat = 24) -> WorkspaceBarSnapshot {
         let items = (0 ..< itemCount).map { index in
             WorkspaceBarItem(
                 id: WorkspaceDescriptor.ID(),
@@ -817,8 +851,32 @@ final class WorkspaceBarManagerTests: XCTestCase {
         return WorkspaceBarSnapshot(
             projection: WorkspaceBarProjection(items: items, scratchpads: []),
             backgroundOpacity: 0.6,
-            barHeight: 24
+            barHeight: barHeight
         )
+    }
+}
+
+private final class WindowHeightEnforcingView: NSView {
+    private let height: CGFloat
+
+    init(height: CGFloat) {
+        self.height = height
+        super.init(frame: .zero)
+        autoresizingMask = [.width, .height]
+    }
+
+    @available(*, unavailable)
+    required init?(coder _: NSCoder) {
+        fatalError("init(coder:) is not used")
+    }
+
+    override func layout() {
+        super.layout()
+        guard let window, window.frame.height != height else { return }
+        var frame = window.frame
+        frame.origin.y = frame.maxY - height
+        frame.size.height = height
+        window.setFrame(frame, display: false)
     }
 }
 

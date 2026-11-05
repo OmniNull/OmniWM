@@ -11,6 +11,23 @@ import XCTest
 
 @MainActor
 final class SkyLightNativeSpaceInventoryLiveTests: XCTestCase {
+    func testLiveBatchedBoundsMatchSingleReads() throws {
+        try requireLiveTestsEnabled()
+        let sky = SkyLight.shared
+        let windows = (0 ..< 3).map { index in
+            sky.createBorderWindow(frame: CGRect(x: -8960 + CGFloat(index) * 40, y: -9000, width: 10, height: 10))
+        }
+        defer { windows.forEach(sky.releaseBorderWindow) }
+        XCTAssertFalse(windows.contains(0))
+
+        let batch = sky.queryWindowBounds(windows)
+
+        XCTAssertEqual(Set(batch.keys), Set(windows))
+        for window in windows {
+            XCTAssertEqual(batch[window], sky.queryWindowBounds(window))
+        }
+    }
+
     func testForeignMoveCannotPoisonBoundsUsedForVerification() async throws {
         try requireLiveTestsEnabled()
         if ProcessInfo.processInfo.environment[Self.foreignHelperEnvironmentKey] == "1" {

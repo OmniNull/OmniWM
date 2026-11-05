@@ -43,6 +43,16 @@ extension SkyLight {
         } succeeded: { $0 != nil }
     }
 
+    func getWindowBounds(_ windowIds: [UInt32]) -> [UInt32: CGRect] {
+        MainThreadAXSpanTrace.measure(.windowServerBatchQuery, count: windowIds.count) {
+            queryWindowBounds(windowIds)
+        }
+    }
+
+    func moveJoiningOpenTransaction(_ wid: UInt32, origin: CGPoint) -> Bool {
+        scopedTransaction == nil ? moveWindow(wid, to: origin) : transactionMove(wid, origin: origin)
+    }
+
     @discardableResult
     func transactionMove(_ wid: UInt32, origin: CGPoint) -> Bool {
         withTransaction { transaction in

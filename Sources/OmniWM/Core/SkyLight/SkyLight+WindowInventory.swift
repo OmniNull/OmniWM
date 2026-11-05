@@ -5,45 +5,45 @@ import CoreGraphics
 import Foundation
 
 extension SkyLight {
-    private struct WindowBoundsReadResult: Sendable {
-        let frame: CGRect?
-    }
-
     private struct WindowBoundsQuery: Sendable {
-        let windowId: UInt32
+        let windowIds: [UInt32]
         let windowQueryWindows: SkyLightQueryFunctions.WindowQueryWindowsFunc
         let windowQueryResultCopyWindows: SkyLightQueryFunctions.WindowQueryResultCopyWindowsFunc
         let windowIteratorAdvance: SkyLightQueryFunctions.WindowIteratorAdvanceFunc
         let windowIteratorGetWindowID: SkyLightQueryFunctions.WindowIteratorGetWindowIDFunc
         let windowIteratorGetBounds: SkyLightQueryFunctions.WindowIteratorGetBoundsFunc
 
-        nonisolated func read(connectionId cid: Int32) -> WindowBoundsReadResult? {
+        nonisolated func read(connectionId cid: Int32) -> [UInt32: CGRect]? {
             guard cid != 0 else { return nil }
-            let windowNumbers = [NSNumber(value: windowId)] as CFArray
+            let windowNumbers = windowIds.map { NSNumber(value: $0) } as CFArray
             guard let query = windowQueryWindows(cid, windowNumbers, 0)?.takeRetainedValue(),
                   let iterator = windowQueryResultCopyWindows(query)?.takeRetainedValue()
             else { return nil }
+            var bounds: [UInt32: CGRect] = [:]
+            bounds.reserveCapacity(windowIds.count)
             while windowIteratorAdvance(iterator) {
-                guard windowIteratorGetWindowID(iterator) == windowId else { continue }
-                return WindowBoundsReadResult(frame: windowIteratorGetBounds(iterator))
+                bounds[windowIteratorGetWindowID(iterator)] = windowIteratorGetBounds(iterator)
             }
-            return WindowBoundsReadResult(frame: nil)
+            return bounds
         }
     }
 
     func queryWindowBounds(_ windowId: UInt32) -> CGRect? {
+        queryWindowBounds([windowId])[windowId]
+    }
+
+    func queryWindowBounds(_ windowIds: [UInt32]) -> [UInt32: CGRect] {
         let query = WindowBoundsQuery(
-            windowId: windowId,
+            windowIds: windowIds,
             windowQueryWindows: queries.windowQueryWindows,
             windowQueryResultCopyWindows: queries.windowQueryResultCopyWindows,
             windowIteratorAdvance: queries.windowIteratorAdvance,
             windowIteratorGetWindowID: queries.windowIteratorGetWindowID,
             windowIteratorGetBounds: queries.windowIteratorGetBounds
         )
-        if let result = immediateQueryConnection()?.performNow({ query.read(connectionId: $0) }) {
-            return result.frame
-        }
-        return query.read(connectionId: getMainConnectionID())?.frame
+        return immediateQueryConnection()?.performNow { query.read(connectionId: $0) }
+            ?? query.read(connectionId: getMainConnectionID())
+            ?? [:]
     }
 
     private struct WindowInfoQuery: Sendable {

@@ -222,6 +222,7 @@ extension LayoutRefreshController {
         requiresNativePark: Bool = false
     ) {
         guard !targets.isEmpty, let controller else { return }
+        if !isAnimationTick { primeFrames(for: targets) }
         var hiddenJobs: [(pid: pid_t, windowId: Int)] = []
         hiddenJobs.reserveCapacity(targets.count)
         var parkPlans: [WindowPositionPlan] = []

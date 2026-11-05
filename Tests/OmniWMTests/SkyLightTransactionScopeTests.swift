@@ -6,6 +6,21 @@ import XCTest
 
 final class SkyLightTransactionScopeTests: XCTestCase {
     @MainActor
+    func testMoveJoinsAnOpenTransactionAndOpensNone() {
+        let skyLight = SkyLight.shared
+        let absentWindow: UInt32 = 0
+        skyLight.withTransactionScope {
+            _ = skyLight.moveJoiningOpenTransaction(absentWindow, origin: .zero)
+            XCTAssertNil(skyLight.scopedTransaction)
+
+            var open: CFTypeRef?
+            skyLight.withTransaction { open = $0 }
+            XCTAssertTrue(skyLight.moveJoiningOpenTransaction(absentWindow, origin: .zero))
+            XCTAssertTrue(skyLight.scopedTransaction === open)
+        }
+    }
+
+    @MainActor
     func testScopeCreatesTransactionOnlyOnFirstUse() throws {
         let skyLight = SkyLight.shared
         var created = false

@@ -282,6 +282,63 @@ final class DurableParkTests: XCTestCase {
         )
     }
 
+    func testSettledHideReadsEveryHiddenWindowInOneQuery() throws {
+        let controller = Self.controller()
+        let monitor = Self.monitor()
+        controller.workspaceManager.applyMonitorConfigurationChange([monitor])
+        let workspaceId = try XCTUnwrap(controller.workspaceManager.workspaceId(for: "1", createIfMissing: true))
+        _ = controller.workspaceManager.focusWorkspace(named: "1")
+        controller.niriLayoutHandler.enableNiriLayout()
+        let tokens = (0 ..< 3).map { index in
+            let pid = pid_t(951_501 + index), windowId = 951_601 + index
+            let token = controller.workspaceManager.addWindow(
+                AXWindowRef(element: AXUIElementCreateApplication(pid), windowId: windowId),
+                pid: pid, windowId: windowId, to: workspaceId
+            )
+            _ = controller.niriEngine?.addWindow(token: token, to: workspaceId, afterSelection: nil)
+            return token
+        }
+        let bounds = Dictionary(uniqueKeysWithValues: tokens.enumerated().map { index, token in
+            (UInt32(token.windowId), CGRect(x: 100 + CGFloat(index), y: 16, width: 800, height: 600))
+        })
+        let refresh = controller.layoutRefreshController
+        var batches: [Set<UInt32>] = []
+        var singleReads = 0
+        refresh.windowBoundsProvider = { windowIds in
+            batches.append(Set(windowIds))
+            return bounds
+        }
+        refresh.fastFrameProvider = { _, _ in
+            singleReads += 1
+            return nil
+        }
+        var diff = WorkspaceLayoutDiff()
+        diff.visibilityChanges = tokens.map { .hide($0, side: .left) }
+        var plan = EffectPlan()
+        plan.workspacePlans = [
+            Self.plan(workspaceId: workspaceId, monitor: monitor, diff: diff, isAnimationTick: false)
+        ]
+
+        FrameApplyTrace.shared.beginCapture()
+        defer { FrameApplyTrace.shared.endCapture() }
+        XCTAssertTrue(refresh.executeEffectPlan(plan, generation: refresh.layoutState.refreshGeneration))
+
+        XCTAssertEqual(batches, [Set(bounds.keys)])
+        XCTAssertEqual(singleReads, 0)
+        let trace = FrameApplyTrace.shared.dump().split(separator: "\n")
+        for token in tokens {
+            let frame = ScreenCoordinateSpace.toAppKit(rect: try XCTUnwrap(bounds[UInt32(token.windowId)]))
+            let origin = try XCTUnwrap(refresh.liveFrameHideOrigin(
+                for: frame, monitor: monitor, side: .left, reason: .layoutTransient
+            ))
+            let target = "target=\(TraceFormat.rect(CGRect(origin: origin, size: frame.size)))"
+            let settled = trace.filter {
+                $0.contains("win=\(token.windowId) ") && $0.contains("event=outcome=sls-park-intent/settled")
+            }
+            XCTAssertEqual(settled.filter { $0.contains(target) }.count, 1)
+        }
+    }
+
     func testTickHideReadsTheWindowWhenNoFrameWasApplied() throws {
         let fixture = try hideFixture(pid: 951_301, windowId: 951_401)
         let refresh = fixture.controller.layoutRefreshController

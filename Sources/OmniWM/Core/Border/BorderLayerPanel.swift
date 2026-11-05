@@ -164,7 +164,7 @@ class BorderLayerPanel: NSPanel {
     }
 
     func moveInWindowServer(to target: CGRect) -> Bool {
-        SkyLight.shared.transactionMove(
+        SkyLight.shared.moveJoiningOpenTransaction(
             UInt32(windowNumber), origin: ScreenCoordinateSpace.toWindowServer(rect: target).origin
         )
     }
