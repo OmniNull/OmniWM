@@ -12,7 +12,6 @@ struct FusionEdgeResizeSlide {
 
     let neighbourFrames: [WindowToken: CGRect]
     let stackMates: [StackMate]
-    let wasAtTop: Bool
     let start: CGRect
     let observed: CGRect
 }
@@ -160,7 +159,6 @@ extension MouseEventHandler {
                 guard mate !== window, let frame = mate.renderedFrame ?? mate.frame else { return nil }
                 return FusionEdgeResizeSlide.StackMate(window: mate, frame: frame)
             },
-            wasAtTop: window.restsAtTop(of: column),
             start: start,
             observed: observed
         )
@@ -174,12 +172,6 @@ extension MouseEventHandler {
     ) {
         guard let controller, let engine = controller.niriEngine else { return }
         let workspaceId = context.workspaceId
-        if !window.height.isAuto,
-           let column = engine.findColumn(containing: window, in: workspaceId),
-           engine.loneWindow(in: column, workspaceId: workspaceId, orientation: context.orientation) === window
-        {
-            window.rest(atTop: endAfterResize(slide, context: context), in: column)
-        }
         let state = controller.workspaceManager.niriViewportState(for: workspaceId)
         NiriOperationContext(
             controller: controller,
@@ -207,15 +199,6 @@ extension MouseEventHandler {
         }
         settleNiriResize(window.token, in: workspaceId)
         controller.niriLayoutHandler.startScrollAnimationIfNeeded(for: workspaceId, state: state, engine: engine)
-    }
-
-    private func endAfterResize(_ slide: FusionEdgeResizeSlide, context: NiriInteractionContext) -> Bool {
-        let room = context.workingFrame.height - 2 * context.gaps
-        guard slide.observed.height < room - FrameTolerance.screenMatch else { return false }
-        let vertical = Self.nativeResizeEdges(from: slide.start, to: slide.observed).intersection([.top, .bottom])
-        if vertical.contains(.bottom) { return true }
-        if vertical.contains(.top) { return false }
-        return slide.wasAtTop
     }
 
     func isColumnEndEdge(

@@ -155,7 +155,6 @@ extension NiriLayoutEngine {
             secondarySpanOverride: nil
         )
         var position = context.workingFrame.minY + context.gaps
-            + loneRestingOffset(of: windows, in: column, spans: spans, context: context)
         var result: [LiveColumnMove.WindowSpan] = []
         for (window, span) in zip(windows, spans) {
             result.append(.init(window: window, minY: position, maxY: position + span.value))
@@ -285,7 +284,6 @@ extension NiriLayoutEngine {
     @discardableResult
     func placeLiveLanding(
         _ landing: LiveColumnMove.Landing?,
-        height fixedHeight: CGFloat? = nil,
         move: inout LiveColumnMove,
         context: NiriInteractionContext,
         state: inout ViewportState
@@ -303,11 +301,7 @@ extension NiriLayoutEngine {
             guard relocateLiveWindow(window, to: landing, from: source, move: move, context: context) else {
                 return false
             }
-            if let fixedHeight {
-                window.height = .fixed(fixedHeight)
-            } else {
-                shareLiveColumn(target, with: window, move: &move)
-            }
+            shareLiveColumn(target, with: window, move: &move)
             keepLiveColumnWidths(landing: landing != nil, move: &move)
             return true
         }
@@ -321,7 +315,7 @@ extension NiriLayoutEngine {
         guard let column, !column.isTabbed else { return }
         let mates = column.windowNodes.filter { $0 !== window }
         guard mates.count == 1, let mate = mates.first, mate.height != .default else { return }
-        move.mateHeight = .init(windowId: mate.id, height: mate.height, restsAtTop: mate.restsAtTop(of: column))
+        move.mateHeight = .init(windowId: mate.id, height: mate.height)
         mate.height = .default
     }
 
@@ -477,7 +471,7 @@ extension NiriLayoutEngine {
         }
         let others = spans.filter { $0.window !== window }
         guard let hitIndex = others.firstIndex(where: { $0.contains(y: cursor.y) }) else {
-            return liveFreeArea(at: cursor, strip: strip, move: move, context: context) == nil ? .keep : .home
+            return .keep
         }
         let hit = others[hitIndex]
         let above = cursor.y >= (hit.minY + hit.maxY) / 2
@@ -632,8 +626,5 @@ extension NiriLayoutEngine {
         clipsOverflowToDisplay = configuration.enabled
         keepsWindowWidths = configuration.enabled
         edgePeekShare = configuration.edgePeekShare
-        if !configuration.enabled {
-            forgetTopRests()
-        }
     }
 }

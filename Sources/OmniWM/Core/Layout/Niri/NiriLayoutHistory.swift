@@ -9,14 +9,12 @@ struct NiriWindowSpans: Equatable {
     let windowWidth: WeightedSize
     let savedHeight: WeightedSize?
     let sizingMode: SizingMode
-    let restsAtTop: Bool
 
     init(_ window: NiriWindow, in column: NiriContainer) {
         height = window.height
         windowWidth = window.windowWidth
         savedHeight = window.savedHeight
         sizingMode = window.sizingMode
-        restsAtTop = window.restsAtTop(of: column)
     }
 
     func restore(_ window: NiriWindow, in column: NiriContainer) {
@@ -24,7 +22,6 @@ struct NiriWindowSpans: Equatable {
         window.windowWidth = windowWidth
         window.savedHeight = savedHeight
         window.sizingMode = sizingMode
-        window.rest(atTop: restsAtTop, in: column)
     }
 }
 

@@ -22,7 +22,6 @@ class NiriWindow: NiriNode {
     private(set) var heightRevision = 0
 
     var savedHeight: WeightedSize?
-    var topRest: NiriTopRest?
 
     var windowWidth: WeightedSize = .default {
         didSet {

@@ -241,7 +241,7 @@ extension NiriLayoutEngine {
             secondarySpanOverride: placement.secondarySpanOverride
         )
 
-        var pos = containerFrames.restingStart(of: windows, in: container, spans: resolvedSpans, gap: secondaryGap)
+        var pos = containerFrames.secondaryStart(gap: secondaryGap)
 
         let windowSpan = windows.span
         for i in windowSpan.indices {

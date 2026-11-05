@@ -598,38 +598,6 @@ final class NiriFusionEdgeResizeTests: NiriInteractionTestCase {
         XCTAssertEqual(span.minY, placed.minY, accuracy: 1)
     }
 
-    func testATopRestAppliesOnlyToItsColumnAndHeight() throws {
-        let fixture = try makeFixture(pid: 871_026)
-        let window = try fixture.node(fixture.tokens[1])
-        let column = try fixture.column(fixture.tokens[1])
-        let other = try fixture.column(fixture.tokens[2])
-        window.height = .fixed(300)
-
-        window.rest(atTop: true, in: column)
-
-        XCTAssertTrue(window.restsAtTop(of: column))
-        XCTAssertFalse(window.restsAtTop(of: other))
-        XCTAssertEqual(window.restingOffset(in: column, room: 80), 80)
-        XCTAssertEqual(window.restingOffset(in: column, room: -10), 0)
-        XCTAssertEqual(window.restingOffset(in: other, room: 80), 0)
-        window.height = .fixed(320)
-        XCTAssertFalse(window.restsAtTop(of: column))
-    }
-
-    func testTurningMacOSFusionOffForgetsTopRests() throws {
-        let fixture = try makeFixture(pid: 871_091)
-        let window = try fixture.node(fixture.tokens[1])
-        let column = try fixture.column(fixture.tokens[1])
-        window.height = .fixed(300)
-        window.rest(atTop: true, in: column)
-        XCTAssertTrue(window.restsAtTop(of: column))
-
-        fixture.controller.settings.niri.macOSFusion = false
-        fixture.controller.applyMacOSFusionSettings()
-
-        XCTAssertFalse(window.restsAtTop(of: column))
-    }
-
     func testTheWidthStopsAtTheWidestColumn() throws {
         let fixture = try makeFixture(pid: 871_011)
         let blocker = blockRefreshes(fixture)
@@ -1078,25 +1046,6 @@ final class NiriFusionEdgeResizeTests: NiriInteractionTestCase {
             windowIdUnderPointer: pressed.windowId
         )
         XCTAssertTrue(fixture.handler.state.isMoving)
-    }
-
-    func testALoneWindowWithoutAHeightYetSitsAtTheColumnStart() throws {
-        let fixture = try makeFixture(pid: 871_046)
-        let window = try fixture.node(fixture.tokens[1])
-        window.height = .fixed(300)
-        window.rest(atTop: true, in: try fixture.column(fixture.tokens[1]))
-        window.resolvedHeight = nil
-        window.frame = nil
-
-        let offsets = fixture.engine.projectedSecondaryOffsets(
-            for: [window],
-            effectiveTabbed: false,
-            gaps: 8,
-            orientation: .horizontal,
-            availableSpan: 900
-        )
-
-        XCTAssertEqual(offsets, [8])
     }
 
     @discardableResult

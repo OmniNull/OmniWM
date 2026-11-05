@@ -120,17 +120,10 @@ struct LiveColumnMove {
     struct MateHeight: Equatable {
         let windowId: NodeId
         let height: WeightedSize
-        let restsAtTop: Bool
 
         func apply(to window: NiriWindow) {
             window.height = height
-            window.restAtTopAgain(restsAtTop)
         }
-    }
-
-    struct FreeArea: Equatable {
-        let landing: Landing
-        let height: CGFloat
     }
 
     enum StackChoice: Equatable {
@@ -148,12 +141,10 @@ struct LiveColumnMove {
     struct WindowSizing: Equatable {
         let size: CGFloat
         let height: WeightedSize
-        var restsAtTop = false
 
         func apply(to window: NiriWindow) {
             window.size = size
             window.height = height
-            window.restAtTopAgain(restsAtTop)
         }
     }
 

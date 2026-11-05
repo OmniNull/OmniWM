@@ -56,8 +56,7 @@ extension NiriLayoutEngine {
                         for: projectedColumn.windows,
                         effectiveTabbed: effectiveTabbed,
                         gaps: gaps,
-                        orientation: orientation,
-                        availableSpan: workingFrame.height
+                        orientation: orientation
                     )
                 )
             )
@@ -97,8 +96,7 @@ extension NiriLayoutEngine {
         for windows: [NiriWindow],
         effectiveTabbed: Bool,
         gaps: CGFloat,
-        orientation: Monitor.Orientation,
-        availableSpan: CGFloat? = nil
+        orientation: Monitor.Orientation
     ) -> [CGFloat] {
         guard !windows.isEmpty else { return [] }
         if effectiveTabbed {
@@ -108,11 +106,6 @@ extension NiriLayoutEngine {
         var offsets: [CGFloat] = []
         offsets.reserveCapacity(windows.count)
         var position = gaps
-        if windows.count == 1, windows[0].topRest != nil, orientation == .horizontal, let availableSpan,
-           let span = windows[0].resolvedHeight ?? windows[0].frame?.height
-        {
-            position += windows[0].restingOffset(in: column(of: windows[0]), room: availableSpan - 2 * gaps - span)
-        }
         for window in windows {
             offsets.append(position)
             let span = switch orientation {
