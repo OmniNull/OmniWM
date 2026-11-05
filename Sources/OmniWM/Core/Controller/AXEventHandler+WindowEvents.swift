@@ -48,6 +48,7 @@ extension AXEventHandler {
             handleWindowOrderChanged(windowId: windowId)
 
         case let .visibilityChanged(windowId, orderedIn):
+            if orderedIn { noteHostedWindowRestack(windowId: windowId) }
             let entry = controller.workspaceManager.entry(forWindowId: Int(windowId))
             guard !orderedIn || entry?.observedState.isNativeWithdrawn == true || hasVisibilityQuery(windowId: windowId)
             else { return }
@@ -100,7 +101,15 @@ extension AXEventHandler {
     }
 
     private func handleWindowOrderChanged(windowId: UInt32) {
+        noteHostedWindowRestack(windowId: windowId)
         enqueueLifecycleQuery(windowId: windowId, kind: .orderChanged)
+    }
+
+    private func noteHostedWindowRestack(windowId: UInt32) {
+        guard let controller,
+              controller.workspaceManager.entry(forWindowId: Int(windowId))?.target.hostedMetadata != nil
+        else { return }
+        controller.surfaceReconciler.noteRestackOccurred()
     }
 
     func applyWindowOrderChanged(windowId: UInt32, windowInfo: WindowServerInfo?) {

@@ -6,12 +6,19 @@ import QuartzCore
 
 @MainActor
 final class BorderWindow {
+    struct Display {
+        var scale: CGFloat
+        var screenFrame: CGRect
+        var colorSpace: CGColorSpace?
+    }
+
     struct Operations {
         var createLayerPanel: @MainActor (CGRect) -> BorderLayerPanel?
         var excludeFromScreencaptureSelection: @MainActor (UInt32) -> Void
         var queryWindowInfoDeferred: @MainActor (UInt32) async throws -> WindowServerInfo?
-        var backingScaleForFrame: @MainActor (CGRect) -> (scale: CGFloat, screenFrame: CGRect)
+        var backingScaleForFrame: @MainActor (CGRect) -> Display
         var orderWindow: @MainActor (UInt32, UInt32, SkyLightWindowOrder) -> Void
+        var orderPanel: @MainActor (BorderLayerPanel, NSWindow.OrderingMode, UInt32) -> Void
 
         static let live = Self(
             createLayerPanel: { BorderLayerPanel(frame: $0) },
@@ -23,9 +30,14 @@ final class BorderWindow {
                 let targetScreen = NSScreen.screens.first(where: {
                     $0.frame.contains(targetFrame.center)
                 }) ?? NSScreen.main ?? NSScreen.screens.first
-                return (targetScreen?.backingScaleFactor ?? 2.0, targetScreen?.frame ?? .null)
+                return Display(
+                    scale: targetScreen?.backingScaleFactor ?? 2.0,
+                    screenFrame: targetScreen?.frame ?? .null,
+                    colorSpace: targetScreen?.colorSpace?.cgColorSpace
+                )
             },
-            orderWindow: { SkyLight.shared.orderWindow($0, relativeTo: $1, order: $2) }
+            orderWindow: { SkyLight.shared.orderWindow($0, relativeTo: $1, order: $2) },
+            orderPanel: { $0.order($1, directlyRelativeTo: $2) }
         )
     }
 
@@ -45,6 +57,8 @@ final class BorderWindow {
     private var appliedTargetToken: WindowToken?
     private var appliedPresentation: BorderPresentation?
     private var appliedIsMoving = false
+    private var appliedOrdersAboveTarget = false
+    private var isOrderedOutInWindowServer = false
     private var needsRedraw = true
     private var isVisible = false
     private var lastOrderedTargetToken: WindowToken?
@@ -53,6 +67,7 @@ final class BorderWindow {
     private var currentCornerContour: WindowCornerContour?
     private var cachedScale: CGFloat = 0
     private var cachedScaleScreenFrame: CGRect = .null
+    private var cachedColorSpace: CGColorSpace?
     private var cachedTargetLevel: CachedTargetLevel?
     private var deferredLevelTarget: WindowToken?
     private var deferredLevelGeneration: UInt64 = 0
@@ -108,12 +123,14 @@ final class BorderWindow {
         isMoving: Bool = false,
         cornerRadii: WindowCornerRadii? = nil,
         cornerContour: WindowCornerContour? = nil,
-        forceOrdering: Bool = false
+        forceOrdering: Bool = false,
+        ordersAboveTarget: Bool = false
     ) -> Bool {
         BorderOpMetricsRecorder.shared.noteUpdate()
         needsWindowLevelRetry = false
         guard let targetWid = UInt32(exactly: targetToken.windowId), targetWid != 0 else { return false }
-        let scale = presentation?.scale ?? backingScale(for: targetFrame)
+        let displayScale = backingScale(for: presentation?.displayFrame ?? targetFrame)
+        let scale = presentation?.scale ?? displayScale
         let resolvedCornerRadii = (cornerRadii ?? defaultCornerRadii).nonnegative
         let geometry = config.resolvedGeometry(for: targetFrame, scale: scale)
         let surfaceFrame = geometry.surfaceFrame
@@ -138,13 +155,15 @@ final class BorderWindow {
         updateLayerGeometry(localGeometry, scale: scale, cornerRadii: resolvedCornerRadii, cornerContour: cornerContour)
 
         let retryingTargetLevel = pendingTargetLevelRetryToken == targetToken
-        let needsOrdering = forceOrdering || createdWindow || !isVisible
-            || lastOrderedTargetToken != targetToken || presentationChanged || retryingTargetLevel ||
-            hasDeferredLevelUpdate
+        let orderingChanged = forceOrdering || createdWindow || !isVisible
+            || lastOrderedTargetToken != targetToken || presentationChanged || retryingTargetLevel
+            || appliedOrdersAboveTarget != ordersAboveTarget
+        appliedOrdersAboveTarget = ordersAboveTarget
         move(
             relativeTo: targetToken,
             targetWid: presentation?.windowId ?? targetWid,
-            needsOrdering: needsOrdering,
+            needsOrdering: orderingChanged || hasDeferredLevelUpdate,
+            ordersAtUnchangedLevel: orderingChanged,
             retryingTargetLevel: retryingTargetLevel
         )
         isVisible = true
@@ -159,8 +178,11 @@ final class BorderWindow {
             panel.close()
             return
         }
+        panel.orderFront(nil)
+        CATransaction.flush()
         layerPanel = panel
         wid = windowId
+        isOrderedOutInWindowServer = false
         needsRedraw = true
         lastConfiguredScale = scale
         BorderOpMetricsRecorder.shared.noteWindowCreation()
@@ -172,6 +194,7 @@ final class BorderWindow {
         relativeTo targetToken: WindowToken,
         targetWid: UInt32,
         needsOrdering: Bool,
+        ordersAtUnchangedLevel: Bool,
         retryingTargetLevel: Bool
     ) {
         if needsOrdering {
@@ -180,13 +203,16 @@ final class BorderWindow {
                 for: targetToken,
                 retrying: retryingTargetLevel
             ) : 0
+            let levelChanged = level != appliedTargetLevel
             appliedTargetLevel = level
-            if let layerPanel {
+            if let layerPanel, ordersAtUnchangedLevel || levelChanged {
                 layerPanel.level = NSWindow.Level(rawValue: Int(level))
-                if !isVisible, !layerPanel.isVisible {
-                    layerPanel.orderFront(nil)
+                if isOrderedOutInWindowServer {
+                    CATransaction.flush()
+                    operations.orderWindow(wid, targetWid, .below)
+                    isOrderedOutInWindowServer = false
                 }
-                operations.orderWindow(wid, targetWid, .below)
+                operations.orderPanel(layerPanel, appliedOrdersAboveTarget ? .above : .below, targetWid)
             }
             return
         }
@@ -194,6 +220,156 @@ final class BorderWindow {
         BorderOpMetricsRecorder.shared.noteMoveOnly()
     }
 
+    func reorder(
+        relativeTo targetToken: WindowToken,
+        presentation: BorderPresentation? = nil,
+        ordersAboveTarget: Bool = false
+    ) {
+        needsWindowLevelRetry = false
+        guard wid != 0,
+              let targetWid = UInt32(exactly: targetToken.windowId),
+              targetWid != 0
+        else { return }
+        appliedPresentation = presentation
+        appliedOrdersAboveTarget = ordersAboveTarget
+        let retryingTargetLevel = pendingTargetLevelRetryToken == targetToken
+        move(
+            relativeTo: targetToken,
+            targetWid: presentation?.windowId ?? targetWid,
+            needsOrdering: true,
+            ordersAtUnchangedLevel: true,
+            retryingTargetLevel: retryingTargetLevel
+        )
+        isVisible = true
+        appliedTargetToken = targetToken
+        lastOrderedTargetToken = targetToken
+    }
+
+    func hide() {
+        invalidateDeferredLevel(target: nil)
+        guard wid != 0 else { return }
+        BorderOpMetricsRecorder.shared.noteHide()
+        operations.orderWindow(wid, 0, .out)
+        isOrderedOutInWindowServer = true
+        isVisible = false
+        lastOrderedTargetToken = nil
+        pendingTargetLevelRetryToken = nil
+        needsWindowLevelRetry = false
+    }
+
+    func updateConfig(_ newConfig: BorderConfig) {
+        guard config != newConfig else { return }
+        if config.color != newConfig.color || config.width != newConfig.width
+            || config.gradient != newConfig.gradient || config.glow != newConfig.glow
+        {
+            needsRedraw = true
+        }
+        config = newConfig
+    }
+
+    var windowId: UInt32? {
+        wid == 0 ? nil : wid
+    }
+
+    var frameOnScreen: CGRect? {
+        wid == 0 || !isVisible ? nil : visibleSurfaceFrame
+    }
+
+    var targetFrameOnScreen: CGRect? {
+        wid == 0 || !isVisible ? nil : appliedTargetFrame
+    }
+}
+
+extension BorderWindow {
+    private var visibleSurfaceFrame: CGRect {
+        appliedPresentation?.displayClip(for: appliedSurfaceFrame).map {
+            appliedSurfaceFrame.integral.intersection($0)
+        } ?? appliedSurfaceFrame
+    }
+
+    func invalidateScaleCache() {
+        cachedScale = 0
+        cachedScaleScreenFrame = .null
+        lastConfiguredScale = 0
+        needsRedraw = true
+        layerPanel?.invalidatePlacement()
+    }
+
+    private func backingScale(for targetFrame: CGRect) -> CGFloat {
+        if cachedScale > 0, cachedScaleScreenFrame.contains(targetFrame.center) {
+            return cachedScale
+        }
+        let display = operations.backingScaleForFrame(targetFrame)
+        cachedScale = display.scale
+        cachedScaleScreenFrame = display.screenFrame
+        cachedColorSpace = display.colorSpace
+        return display.scale
+    }
+
+    private func draw(geometry: BorderConfig.ResolvedGeometry) {
+        guard let layerPanel else { return }
+        let color = BorderLayerPanel.cgColor(config.color)
+        layerPanel.updateBorder(
+            geometry: geometry, cornerRadii: currentCornerRadii,
+            color: color, scale: lastConfiguredScale
+        )
+        layerPanel.updateEffects(
+            geometry: geometry, cornerRadii: currentCornerRadii,
+            config: config, baseColor: color, scale: lastConfiguredScale,
+            cornerContour: currentCornerContour
+        )
+        needsRedraw = false
+        BorderOpMetricsRecorder.shared.noteRedraw()
+    }
+}
+
+extension BorderWindow {
+    private func updateLayerGeometry(
+        _ geometry: BorderConfig.ResolvedGeometry,
+        scale: CGFloat,
+        cornerRadii: WindowCornerRadii,
+        cornerContour: WindowCornerContour?
+    ) {
+        if scale != lastConfiguredScale, wid != 0 {
+            BorderOpMetricsRecorder.shared.noteScaleReconfiguration()
+            lastConfiguredScale = scale
+            needsRedraw = true
+        }
+        let resized = geometry.surfaceFrame.size != currentSurfaceFrame.size
+        if resized {
+            BorderOpMetricsRecorder.shared.noteReshape()
+            needsRedraw = true
+        }
+        if currentCornerRadii != cornerRadii || currentCornerContour != cornerContour {
+            needsRedraw = true
+        }
+        currentSurfaceFrame = geometry.surfaceFrame
+        currentCornerRadii = cornerRadii
+        currentCornerContour = cornerContour
+        layerPanel?.setDisplayColorSpace(cachedColorSpace)
+        let displayClip = appliedPresentation?.displayClip(for: appliedSurfaceFrame)
+        if appliedIsMoving, displayClip == nil, !needsRedraw {
+            layerPanel?.applyFrame(
+                targetFrame: appliedTargetFrame, surfaceFrame: appliedSurfaceFrame,
+                presentation: appliedPresentation, isMoving: true
+            )
+            return
+        }
+        CATransaction.begin()
+        CATransaction.setDisableActions(true)
+        layerPanel?.applyFrame(
+            targetFrame: appliedTargetFrame, surfaceFrame: appliedSurfaceFrame,
+            displayClip: displayClip,
+            presentation: appliedPresentation,
+            isMoving: appliedIsMoving
+        )
+        if needsRedraw { draw(geometry: geometry) }
+        CATransaction.commit()
+        if resized { CATransaction.flush() }
+    }
+}
+
+extension BorderWindow {
     private func resolvedTargetLevel(
         for targetToken: WindowToken,
         retrying: Bool
@@ -272,141 +448,5 @@ final class BorderWindow {
             hasDeferredLevelUpdate = true
             onWindowLevelResolved?()
         }
-    }
-
-    func reorder(relativeTo targetToken: WindowToken, presentation: BorderPresentation? = nil) {
-        needsWindowLevelRetry = false
-        guard wid != 0,
-              let targetWid = UInt32(exactly: targetToken.windowId),
-              targetWid != 0
-        else { return }
-        appliedPresentation = presentation
-        let retryingTargetLevel = pendingTargetLevelRetryToken == targetToken
-        move(
-            relativeTo: targetToken,
-            targetWid: presentation?.windowId ?? targetWid,
-            needsOrdering: true,
-            retryingTargetLevel: retryingTargetLevel
-        )
-        isVisible = true
-        appliedTargetToken = targetToken
-        lastOrderedTargetToken = targetToken
-    }
-
-    func hide() {
-        invalidateDeferredLevel(target: nil)
-        guard wid != 0 else { return }
-        BorderOpMetricsRecorder.shared.noteHide()
-        operations.orderWindow(wid, 0, .out)
-        isVisible = false
-        lastOrderedTargetToken = nil
-        pendingTargetLevelRetryToken = nil
-        needsWindowLevelRetry = false
-    }
-
-    func updateConfig(_ newConfig: BorderConfig) {
-        guard config != newConfig else { return }
-        if config.color != newConfig.color || config.width != newConfig.width
-            || config.gradient != newConfig.gradient || config.glow != newConfig.glow
-        {
-            needsRedraw = true
-        }
-        config = newConfig
-    }
-
-    var windowId: UInt32? {
-        wid == 0 ? nil : wid
-    }
-
-    var frameOnScreen: CGRect? {
-        wid == 0 || !isVisible ? nil : visibleSurfaceFrame
-    }
-
-    var targetFrameOnScreen: CGRect? {
-        wid == 0 || !isVisible ? nil : appliedTargetFrame
-    }
-}
-
-extension BorderWindow {
-    private var visibleSurfaceFrame: CGRect {
-        appliedPresentation?.displayClip(for: appliedSurfaceFrame).map {
-            appliedSurfaceFrame.integral.intersection($0)
-        } ?? appliedSurfaceFrame
-    }
-
-    func invalidateScaleCache() {
-        cachedScale = 0
-        cachedScaleScreenFrame = .null
-        lastConfiguredScale = 0
-        needsRedraw = true
-    }
-
-    private func backingScale(for targetFrame: CGRect) -> CGFloat {
-        if cachedScale > 0, cachedScaleScreenFrame.contains(targetFrame.center) {
-            return cachedScale
-        }
-        let (scale, screenFrame) = operations.backingScaleForFrame(targetFrame)
-        cachedScale = scale
-        cachedScaleScreenFrame = screenFrame
-        return scale
-    }
-
-    private func draw(geometry: BorderConfig.ResolvedGeometry) {
-        guard let layerPanel else { return }
-        let color = BorderLayerPanel.cgColor(config.color)
-        layerPanel.updateBorder(
-            geometry: geometry, cornerRadii: currentCornerRadii,
-            color: color, scale: lastConfiguredScale
-        )
-        layerPanel.updateEffects(
-            geometry: geometry, cornerRadii: currentCornerRadii,
-            config: config, baseColor: color, scale: lastConfiguredScale,
-            cornerContour: currentCornerContour
-        )
-        needsRedraw = false
-        BorderOpMetricsRecorder.shared.noteRedraw()
-    }
-}
-
-extension BorderWindow {
-    private func updateLayerGeometry(
-        _ geometry: BorderConfig.ResolvedGeometry,
-        scale: CGFloat,
-        cornerRadii: WindowCornerRadii,
-        cornerContour: WindowCornerContour?
-    ) {
-        if scale != lastConfiguredScale, wid != 0 {
-            BorderOpMetricsRecorder.shared.noteScaleReconfiguration()
-            lastConfiguredScale = scale
-            needsRedraw = true
-        }
-        if geometry.surfaceFrame.size != currentSurfaceFrame.size {
-            BorderOpMetricsRecorder.shared.noteReshape()
-            needsRedraw = true
-        }
-        if currentCornerRadii != cornerRadii || currentCornerContour != cornerContour {
-            needsRedraw = true
-        }
-        currentSurfaceFrame = geometry.surfaceFrame
-        currentCornerRadii = cornerRadii
-        currentCornerContour = cornerContour
-        let displayClip = appliedPresentation?.displayClip(for: appliedSurfaceFrame)
-        if appliedIsMoving, displayClip == nil, !needsRedraw {
-            layerPanel?.applyFrame(
-                targetFrame: appliedTargetFrame, surfaceFrame: appliedSurfaceFrame,
-                presentation: appliedPresentation, isMoving: true
-            )
-            return
-        }
-        CATransaction.begin()
-        CATransaction.setDisableActions(true)
-        defer { CATransaction.commit() }
-        layerPanel?.applyFrame(
-            targetFrame: appliedTargetFrame, surfaceFrame: appliedSurfaceFrame,
-            displayClip: displayClip,
-            presentation: appliedPresentation,
-            isMoving: appliedIsMoving
-        )
-        if needsRedraw { draw(geometry: geometry) }
     }
 }

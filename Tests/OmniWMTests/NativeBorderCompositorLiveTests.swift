@@ -113,7 +113,12 @@ final class NativeBorderCompositorLiveTests: XCTestCase {
             let native = try await capture(panel, label: "\(label)-native")
             configure(panel, geometry: geometry, radii: radii, config: config)
             let effects = try await capture(panel, label: "\(label)-effects")
-            assertEffectOutline(effects, matches: native, geometry: geometry, panelFrame: panel.frame)
+            assertEffectOutline(
+                effects,
+                matches: native,
+                geometry: geometry,
+                panelFrame: try XCTUnwrap(panel.placedFrame)
+            )
 
             let path = panel.gradientRingMaskLayer.path
             panel.applyFrame(targetFrame: movedGeometry.targetFrame, surfaceFrame: movedGeometry.surfaceFrame)
@@ -121,7 +126,12 @@ final class NativeBorderCompositorLiveTests: XCTestCase {
             XCTAssertTrue(panel.gradientRingMaskLayer.path === path)
             configure(panel, geometry: movedGeometry, radii: radii, config: nativeConfig)
             let movedNative = try await capture(panel, label: "\(label)-fractional-native")
-            assertEffectOutline(movedEffects, matches: movedNative, geometry: movedGeometry, panelFrame: panel.frame)
+            assertEffectOutline(
+                movedEffects,
+                matches: movedNative,
+                geometry: movedGeometry,
+                panelFrame: try XCTUnwrap(panel.placedFrame)
+            )
         }
 
         settings.appearanceMode = .dark
@@ -162,8 +172,9 @@ final class NativeBorderCompositorLiveTests: XCTestCase {
         let content = try await SCShareableContent.currentProcess
         let window = try XCTUnwrap(content.windows.first(where: { $0.windowID == CGWindowID(panel.windowNumber) }))
         let capture = SCStreamConfiguration()
-        capture.width = Int(panel.frame.width * 2)
-        capture.height = Int(panel.frame.height * 2)
+        let placed = try XCTUnwrap(panel.placedFrame)
+        capture.width = Int(placed.width * 2)
+        capture.height = Int(placed.height * 2)
         capture.pixelFormat = kCVPixelFormatType_32BGRA
         capture.showsCursor = false
         capture.ignoreShadowsSingleWindow = true

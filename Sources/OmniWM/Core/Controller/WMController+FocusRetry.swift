@@ -25,8 +25,9 @@ extension WMController {
             request, entry: entry, validatesPointer: true, isRetry: true, raisesWindow: false
         )
         let completion: @MainActor @Sendable () -> Void = { [weak self] in
-            guard let self,
-                  let liveRequest = intentLedger.completeDeferredRetryRaise(job: job),
+            guard let self else { return }
+            surfaceReconciler.noteRestackOccurred()
+            guard let liveRequest = intentLedger.completeDeferredRetryRaise(job: job),
                   let currentEntry = workspaceManager.entry(for: liveRequest.token),
                   currentEntry.workspaceId == liveRequest.workspaceId,
                   let currentAXRef = currentEntry.axRef,

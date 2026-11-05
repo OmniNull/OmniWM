@@ -3,6 +3,8 @@
 
 import CoreGraphics
 import Foundation
+import OmniWMLayerCorners
+import QuartzCore
 
 extension SkyLight {
     private static let windowTitleKey = "kCGSWindowTitle" as CFString
@@ -49,6 +51,23 @@ extension SkyLight {
             FallbackFiringRecorder.shared.note(.skylight, "newWindowFailed")
         }
         return wid
+    }
+
+    func attachLayerContext(rootLayer: CALayer, toWindow wid: UInt32) -> NSObject? {
+        let cid = getMainConnectionID()
+        guard let connection = UInt32(exactly: cid), connection != 0,
+              let setWindowLayerContext = surfaces.setWindowLayerContext,
+              let context = omniwm_layer_context_create(connection, rootLayer)
+        else {
+            FallbackFiringRecorder.shared.note(.skylight, "layerContextUnavailable")
+            return nil
+        }
+        guard setWindowLayerContext(cid, wid, context) == .success else {
+            FallbackFiringRecorder.shared.note(.skylight, "layerContextAttachFailed")
+            omniwm_layer_context_invalidate(context)
+            return nil
+        }
+        return context
     }
 
     func releaseBorderWindow(_ wid: UInt32) {

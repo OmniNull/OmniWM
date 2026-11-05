@@ -42,6 +42,20 @@ final class HostedChildNavigationTests: XCTestCase {
         }
     }
 
+    func testHostedWindowOrderChangeOrdersTheBorderAgain() throws {
+        let fixture = try HostedChildPresentationFixture(includesSheet: false)
+        defer { fixture.close() }
+        let controller = fixture.base.controller
+        controller.surfaceReconciler.reconcileNow()
+        XCTAssertFalse(controller.surfaceReconciler.forceOrderingOnNextReconcile)
+
+        controller.axEventHandler.handleCGSEvent(
+            .orderChanged(windowId: try XCTUnwrap(UInt32(exactly: fixture.utility.token.windowId)))
+        )
+
+        XCTAssertTrue(controller.surfaceReconciler.forceOrderingOnNextReconcile)
+    }
+
     func testUtilitySelectionRestoresTheParentAndAnActiveSheetWinsFinalFocus() async throws {
         let fixture = try HostedChildPresentationFixture(includesSheet: false)
         defer { fixture.close() }

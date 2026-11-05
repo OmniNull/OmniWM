@@ -30,6 +30,7 @@ final class BorderSurfaceApplier {
     private var borderWindow: BorderWindow?
     private var applied: DesiredBorderSurface?
     private var appliedCornerSample: WindowCornerSample?
+    private var appliedOrdersAboveTarget = false
     private var cornerTargetToken: WindowToken?
     private var cachedCornerSample: CachedCornerSample?
     private var recentCornerSamples: [CachedCornerSample] = []
@@ -44,7 +45,7 @@ final class BorderSurfaceApplier {
     private var registeredSurfaceWindowNumber: Int?
     private let defaultCornerRadii: WindowCornerRadii
     private let surfaceID = "border-surface"
-    private var screenParametersObserver: NSObjectProtocol?
+    private var screenParametersObservers: [NSObjectProtocol] = []
     private var scaleInvalidated = false
     var onWindowLevelResolved: (@MainActor () -> Void)?
     var onDisplayScaleInvalidated: (@MainActor () -> Void)?
@@ -64,15 +65,16 @@ final class BorderSurfaceApplier {
     }
 
     private func installScreenParametersObserverIfNeeded() {
-        guard screenParametersObserver == nil else { return }
-        screenParametersObserver = NotificationCenter.default.addObserver(
-            forName: NSApplication.didChangeScreenParametersNotification,
-            object: nil,
-            queue: .main
-        ) { [weak self] _ in
-            MainActor.assumeIsolated {
-                self?.invalidateDisplayScale()
-                self?.onDisplayScaleInvalidated?()
+        guard screenParametersObservers.isEmpty else { return }
+        screenParametersObservers = [
+            NSApplication.didChangeScreenParametersNotification,
+            NSScreen.colorSpaceDidChangeNotification
+        ].map { name in
+            NotificationCenter.default.addObserver(forName: name, object: nil, queue: .main) { [weak self] _ in
+                MainActor.assumeIsolated {
+                    self?.invalidateDisplayScale()
+                    self?.onDisplayScaleInvalidated?()
+                }
             }
         }
     }
@@ -92,10 +94,7 @@ final class BorderSurfaceApplier {
     ) -> BorderSurfaceApplyResult {
         guard let desired else {
             hide()
-            return BorderSurfaceApplyResult(
-                didApply: true,
-                needsWindowLevelRetry: false
-            )
+            return BorderSurfaceApplyResult(didApply: true, needsWindowLevelRetry: false)
         }
 
         installScreenParametersObserverIfNeeded()
@@ -109,15 +108,18 @@ final class BorderSurfaceApplier {
             desiredSize: desired.frame.size,
             refresh: refreshCornerRadii && desired.presentation == nil
         )
-        if canReuseAppliedBorder(desired, cornerSample: cornerSample) {
+        let ordersAboveTarget = desired.presentation == nil
+            && (cornerSample != nil || retryIsExhausted(for: desired.token, desiredSize: desired.frame.size))
+        if appliedOrdersAboveTarget == ordersAboveTarget, canReuseAppliedBorder(desired, cornerSample: cornerSample) {
             BorderOpMetricsRecorder.shared.noteShortCircuit()
             if forceOrdering {
-                borderWindow?.reorder(relativeTo: desired.token, presentation: desired.presentation)
+                borderWindow?.reorder(
+                    relativeTo: desired.token,
+                    presentation: desired.presentation,
+                    ordersAboveTarget: ordersAboveTarget
+                )
             }
-            return BorderSurfaceApplyResult(
-                didApply: true,
-                needsWindowLevelRetry: borderWindow?.needsWindowLevelRetry == true
-            )
+            return appliedResult
         }
 
         guard borderWindow?.update(
@@ -127,7 +129,8 @@ final class BorderSurfaceApplier {
             isMoving: desired.isMoving,
             cornerRadii: cornerSample?.radii ?? defaultCornerRadii,
             cornerContour: cornerSample?.contour,
-            forceOrdering: forceOrdering
+            forceOrdering: forceOrdering,
+            ordersAboveTarget: ordersAboveTarget
         ) == true else {
             applied = nil
             appliedCornerSample = nil
@@ -138,11 +141,13 @@ final class BorderSurfaceApplier {
         scaleInvalidated = false
         applied = desired
         appliedCornerSample = cornerSample
+        appliedOrdersAboveTarget = ordersAboveTarget
         syncSurfaceRegistration()
-        return BorderSurfaceApplyResult(
-            didApply: true,
-            needsWindowLevelRetry: borderWindow?.needsWindowLevelRetry == true
-        )
+        return appliedResult
+    }
+
+    private var appliedResult: BorderSurfaceApplyResult {
+        BorderSurfaceApplyResult(didApply: true, needsWindowLevelRetry: borderWindow?.needsWindowLevelRetry == true)
     }
 
     private func configureBorderWindow(_ config: BorderConfig) {
@@ -178,10 +183,8 @@ final class BorderSurfaceApplier {
         recentCornerSamples.removeAll()
         borderWindow?.destroy()
         borderWindow = nil
-        if let screenParametersObserver {
-            NotificationCenter.default.removeObserver(screenParametersObserver)
-            self.screenParametersObserver = nil
-        }
+        screenParametersObservers.forEach(NotificationCenter.default.removeObserver)
+        screenParametersObservers = []
     }
 
     private func hide() {
@@ -255,7 +258,8 @@ final class BorderSurfaceApplier {
                 rememberCornerSample()
                 cornerRetryState = nil
                 onCornerSampleResolved?()
-            } else if recordCornerFailure(for: token, desiredSize: desiredSize) {
+            } else {
+                _ = recordCornerFailure(for: token, desiredSize: desiredSize)
                 onCornerSampleResolved?()
             }
         }

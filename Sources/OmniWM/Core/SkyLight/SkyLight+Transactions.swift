@@ -32,6 +32,11 @@ extension SkyLight {
         return result == .success
     }
 
+    func currentWindowBounds(_ wid: UInt32) -> CGRect? {
+        var bounds = CGRect.zero
+        return transactions.getWindowBounds(getMainConnectionID(), wid, &bounds) == .success ? bounds : nil
+    }
+
     func getWindowBounds(_ wid: UInt32) -> CGRect? {
         MainThreadAXSpanTrace.measure(.windowServerBounds, windowId: Int(wid)) {
             queryWindowBounds(wid)
@@ -41,6 +46,18 @@ extension SkyLight {
     @discardableResult
     func transactionMove(_ wid: UInt32, origin: CGPoint) -> Bool {
         withTransaction { transaction in
+            transactions.transactionMoveWindowWithGroup(transaction, wid, origin)
+        }
+    }
+
+    func transactionReshape(_ wid: UInt32, origin: CGPoint, size: CGSize) -> Bool {
+        guard let setShape = surfaces.transactionSetWindowShape else { return false }
+        var region: CFTypeRef?
+        var rect = CGRect(origin: .zero, size: size)
+        _ = surfaces.newRegionWithRect(&rect, &region)
+        guard let region else { return false }
+        return withTransaction { transaction in
+            setShape(transaction, wid, 0, 0, region)
             transactions.transactionMoveWindowWithGroup(transaction, wid, origin)
         }
     }

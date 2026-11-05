@@ -32,6 +32,7 @@ final class NiriFractionalPicturePlacementTests: XCTestCase {
     private final class BorderPanel: BorderLayerPanel {
         var frameWrites: [CGRect] = []
         var moves: [CGRect] = []
+        var reshapes: [CGRect] = []
         var movesSucceed = true
 
         override func setFrame(_ frameRect: NSRect, display flag: Bool) {
@@ -42,6 +43,12 @@ final class NiriFractionalPicturePlacementTests: XCTestCase {
         override func moveInWindowServer(to target: CGRect) -> Bool {
             guard movesSucceed else { return false }
             moves.append(target)
+            return true
+        }
+
+        override func reshapeInWindowServer(to target: CGRect) -> Bool {
+            guard movesSucceed else { return false }
+            reshapes.append(target)
             return true
         }
     }
@@ -94,7 +101,8 @@ final class NiriFractionalPicturePlacementTests: XCTestCase {
     }
 
     private func assertRingOnTarget(_ panel: BorderPanel, _ target: CGRect, line: UInt = #line) throws {
-        let placement = try XCTUnwrap(panel.moves.last, line: line)
+        let placement = try XCTUnwrap(panel.moves.last ?? panel.reshapes.last, line: line)
+        XCTAssertEqual(panel.placedFrame, placement, line: line)
         XCTAssertEqual(panel.borderLayer.frame.offsetBy(dx: placement.minX, dy: placement.minY), target, line: line)
     }
 
@@ -105,11 +113,12 @@ final class NiriFractionalPicturePlacementTests: XCTestCase {
         let inset = pixel * 2
         let target = initial.insetBy(dx: inset, dy: inset)
         panel.applyFrame(targetFrame: target, surfaceFrame: initial, isMoving: true)
-        XCTAssertEqual(panel.moves, [movingPlacement(for: initial)])
+        XCTAssertEqual(panel.reshapes, [movingPlacement(for: initial)])
+        XCTAssertTrue(panel.moves.isEmpty)
         try assertRingOnTarget(panel, target)
         let writes = panel.frameWrites
         let layerFrame = panel.borderLayer.frame
-        var expected = panel.moves
+        var expected: [CGRect] = []
         for step in 1 ... 3 {
             let moved = initial.offsetBy(dx: pixel * CGFloat(step), dy: 0)
             let movedTarget = moved.insetBy(dx: inset, dy: inset)
@@ -118,8 +127,52 @@ final class NiriFractionalPicturePlacementTests: XCTestCase {
             try assertRingOnTarget(panel, movedTarget)
         }
         XCTAssertEqual(panel.moves, expected)
+        XCTAssertEqual(panel.reshapes.count, 1)
         XCTAssertEqual(panel.frameWrites, writes)
         XCTAssertEqual(panel.borderLayer.frame, layerFrame)
+    }
+
+    func testAppKitScreenAdjustmentCannotMoveThePanel() throws {
+        let initial = fractionalFrame
+        let panel = try XCTUnwrap(BorderPanel(frame: initial))
+        defer { panel.close() }
+        let appKitFrame = panel.frame
+        panel.applyFrame(targetFrame: initial, surfaceFrame: initial, isMoving: true)
+        let placed = panel.placedFrame
+
+        panel.setFrame(initial.offsetBy(dx: wholeSize.width, dy: wholeSize.height), display: false, animate: false)
+
+        XCTAssertEqual(panel.frame, appKitFrame)
+        XCTAssertEqual(panel.placedFrame, placed)
+        XCTAssertTrue(panel.frameWrites.isEmpty)
+    }
+
+    func testWindowServerMoveEventRepairsAForeignWriteOnlyOnceSettled() throws {
+        let initial = fractionalFrame
+        let panel = try XCTUnwrap(BorderPanel(frame: initial))
+        defer { panel.close() }
+        let appKitFrame = panel.frame
+        let event = try XCTUnwrap(NSEvent.otherEvent(
+            with: .appKitDefined, location: .zero, modifierFlags: [], timestamp: 0,
+            windowNumber: panel.windowNumber, context: nil,
+            subtype: NSEvent.EventSubtype.windowMoved.rawValue, data1: 0, data2: 0
+        ))
+        panel.applyFrame(targetFrame: initial, surfaceFrame: initial, isMoving: true)
+        let reshapesWhileMoving = panel.reshapes
+
+        panel.sendEvent(event)
+
+        XCTAssertEqual(panel.reshapes, reshapesWhileMoving)
+        XCTAssertEqual(panel.frame, appKitFrame)
+        let settled = initial.offsetBy(dx: wholeSize.width, dy: wholeSize.height)
+        panel.applyFrame(targetFrame: settled, surfaceFrame: settled)
+        let placed = try XCTUnwrap(panel.placedFrame)
+        let reshapesSettled = panel.reshapes
+
+        panel.sendEvent(event)
+
+        XCTAssertEqual(panel.reshapes, reshapesSettled + [placed])
+        XCTAssertEqual(panel.frame, appKitFrame)
     }
 
     func testPlainRingStaysOnTargetWhenTheWindowServerMoveIsRejected() throws {
@@ -131,10 +184,12 @@ final class NiriFractionalPicturePlacementTests: XCTestCase {
         let target = initial.insetBy(dx: inset, dy: inset)
         panel.applyFrame(targetFrame: target, surfaceFrame: initial, isMoving: true)
         XCTAssertTrue(panel.moves.isEmpty)
+        XCTAssertEqual(panel.frameWrites, [SurfacePanelGeometry.backingFrame(for: initial)])
         XCTAssertEqual(panel.borderLayer.frame.offsetBy(dx: panel.frame.minX, dy: panel.frame.minY), target)
         let moved = initial.offsetBy(dx: pixel, dy: 0)
         let movedTarget = moved.insetBy(dx: inset, dy: inset)
         panel.applyFrame(targetFrame: movedTarget, surfaceFrame: moved, isMoving: true)
+        XCTAssertEqual(panel.frameWrites.last, SurfacePanelGeometry.backingFrame(for: moved))
         XCTAssertEqual(panel.borderLayer.frame.offsetBy(dx: panel.frame.minX, dy: panel.frame.minY), movedTarget)
     }
 
@@ -148,14 +203,14 @@ final class NiriFractionalPicturePlacementTests: XCTestCase {
         let moved = initial.offsetBy(dx: pixel, dy: pixel)
         let movedTarget = moved.insetBy(dx: inset, dy: inset)
         panel.applyFrame(targetFrame: movedTarget, surfaceFrame: moved, isMoving: true)
-        let appKitFrame = panel.frame
+        let writes = panel.frameWrites
 
         panel.applyFrame(targetFrame: movedTarget, surfaceFrame: moved)
 
-        XCTAssertEqual(panel.frame, moved.integral)
-        XCTAssertNotEqual(panel.frame, appKitFrame)
+        XCTAssertEqual(panel.placedFrame, moved.integral)
         XCTAssertEqual(panel.moves.last, moved.integral)
-        XCTAssertEqual(panel.borderLayer.frame.offsetBy(dx: panel.frame.minX, dy: panel.frame.minY), movedTarget)
+        XCTAssertEqual(panel.frameWrites, writes)
+        try assertRingOnTarget(panel, movedTarget)
     }
 
     func testPlainRingStaysOnTargetWhenItsSizeChangesDuringMotion() throws {
@@ -164,13 +219,13 @@ final class NiriFractionalPicturePlacementTests: XCTestCase {
         defer { panel.close() }
         let inset = pixel * 2
         panel.applyFrame(targetFrame: initial.insetBy(dx: inset, dy: inset), surfaceFrame: initial, isMoving: true)
-        let writes = panel.frameWrites.count
+        let writes = panel.frameWrites
         var resized = initial
         resized.size.width += 1
         let resizedTarget = resized.insetBy(dx: inset, dy: inset)
         panel.applyFrame(targetFrame: resizedTarget, surfaceFrame: resized, isMoving: true)
-        XCTAssertGreaterThan(panel.frameWrites.count, writes)
-        XCTAssertEqual(panel.moves.last, movingPlacement(for: resized))
+        XCTAssertEqual(panel.frameWrites, writes)
+        XCTAssertEqual(panel.reshapes.last, movingPlacement(for: resized))
         try assertRingOnTarget(panel, resizedTarget)
     }
 
@@ -200,7 +255,7 @@ final class NiriFractionalPicturePlacementTests: XCTestCase {
         panel.applyFrame(
             targetFrame: moved.insetBy(dx: inset, dy: inset), surfaceFrame: moved, presentation: presentation
         )
-        XCTAssertEqual(panel.frame, placement)
+        XCTAssertEqual(panel.placedFrame, placement)
         XCTAssertEqual(panel.borderLayer.frame, layerFrame)
     }
 

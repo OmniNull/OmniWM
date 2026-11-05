@@ -375,6 +375,25 @@ final class NiriKeyboardFocusTests: XCTestCase {
         }
     }
 
+    func testFinishedWorkerRaiseOrdersTheBorderAgain() throws {
+        try withFixture { fixture in
+            let controller = fixture.controller
+            XCTAssertTrue(controller.workspaceManager.confirmManagedFocus(
+                fixture.windows[3].token, in: fixture.workspaceId, activateWorkspaceOnMonitor: false
+            ))
+            XCTAssertTrue(controller.niriLayoutHandler.focusNeighbor(direction: .left))
+            let request = try XCTUnwrap(controller.intentLedger.activeManagedRequest)
+            controller.axEventHandler.handleIntentExpired(request.requestId)
+            let queued = try XCTUnwrap(fixture.recorder.queuedRaises.first)
+            controller.surfaceReconciler.reconcileNow()
+            XCTAssertFalse(controller.surfaceReconciler.forceOrderingOnNextReconcile)
+
+            queued.completion()
+
+            XCTAssertTrue(controller.surfaceReconciler.forceOrderingOnNextReconcile)
+        }
+    }
+
     func testCrossAppRetryRaiseIsQueuedBeforeMainFocusCompletion() throws {
         try withFixture { fixture in
             let controller = fixture.controller

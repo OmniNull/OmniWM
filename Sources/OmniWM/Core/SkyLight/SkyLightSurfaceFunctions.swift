@@ -30,6 +30,8 @@ struct SkyLightSurfaceFunctions {
     typealias NewRegionWithRectFunc = @convention(c) (UnsafePointer<CGRect>, UnsafeMutablePointer<CFTypeRef?>)
         -> CGError
     typealias TransactionSetWindowLevelFunc = @convention(c) (CFTypeRef, UInt32, Int32) -> Void
+    typealias TransactionSetWindowShapeFunc = @convention(c) (CFTypeRef, UInt32, Float, Float, CFTypeRef) -> Void
+    typealias SetWindowLayerContextFunc = @convention(c) (Int32, UInt32, AnyObject) -> CGError
     typealias CaptureWindowListFunc = @convention(c) (
         Int32, UnsafeMutablePointer<UInt32>, UInt32, UInt32
     ) -> Unmanaged<CFArray>?
@@ -46,6 +48,8 @@ struct SkyLightSurfaceFunctions {
     let flushWindowContentRegion: FlushWindowContentRegionFunc
     let newRegionWithRect: NewRegionWithRectFunc
     let transactionSetWindowLevel: TransactionSetWindowLevelFunc
+    let transactionSetWindowShape: TransactionSetWindowShapeFunc?
+    let setWindowLayerContext: SetWindowLayerContextFunc?
     let captureWindowList: CaptureWindowListFunc?
 
     init(resolver: inout SkyLightSymbolResolver) {
@@ -69,6 +73,14 @@ struct SkyLightSurfaceFunctions {
         transactionSetWindowLevel = resolver.resolve(
             "SLSTransactionSetWindowLevel",
             as: TransactionSetWindowLevelFunc.self
+        )
+        transactionSetWindowShape = resolver.resolveOptional(
+            "SLSTransactionSetWindowShape",
+            as: TransactionSetWindowShapeFunc.self
+        )
+        setWindowLayerContext = resolver.resolveOptional(
+            "SLSSetWindowLayerContext",
+            as: SetWindowLayerContextFunc.self
         )
         captureWindowList = resolver.resolveOptional("SLSHWCaptureWindowList", as: CaptureWindowListFunc.self)
     }

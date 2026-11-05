@@ -8,8 +8,11 @@ import QuartzCore
 @MainActor
 class BorderLayerPanel: NSPanel {
     let borderLayer = CALayer()
-    private var windowServerPlacement: (appKitFrame: CGRect, frame: CGRect)?
-    private var laidOutSurfaceSize: CGSize?
+    private(set) var placedFrame: CGRect?
+    private var placementIsMoving = false
+    private var layerContext: NSObject?
+    private var windowManagerIdentifier: String?
+    private var appliedColorSpace: CGColorSpace?
     private let containerLayer = CALayer()
     private let effects = BorderEffectLayers()
     var glowColorLayer: CAGradientLayer {
@@ -30,6 +33,7 @@ class BorderLayerPanel: NSPanel {
 
     init?(frame: CGRect) {
         guard omniwm_layer_border_available() else { return nil }
+        omniwm_window_manager_begin_coordinator_capture()
         super.init(
             contentRect: frame.integral,
             styleMask: [.borderless, .nonactivatingPanel],
@@ -48,8 +52,7 @@ class BorderLayerPanel: NSPanel {
         animationBehavior = .none
         isRestorable = false
 
-        let view = NSView(frame: CGRect(origin: .zero, size: frame.integral.size))
-        view.wantsLayer = true
+        omniwm_window_manager_end_coordinator_capture()
         borderLayer.cornerCurve = .continuous
         borderLayer.rimOpacity = 1
         borderLayer.actions = [
@@ -59,8 +62,22 @@ class BorderLayerPanel: NSPanel {
         containerLayer.actions = ["hidden": NSNull()]
         containerLayer.addSublayer(effects.root)
         containerLayer.addSublayer(borderLayer)
-        view.layer = containerLayer
-        contentView = view
+        guard let layerContext = SkyLight.shared.attachLayerContext(
+            rootLayer: containerLayer, toWindow: UInt32(windowNumber)
+        ) else {
+            super.close()
+            return nil
+        }
+        self.layerContext = layerContext
+        windowManagerIdentifier = omniwm_window_manager_identifier(self)
+    }
+
+    override func close() {
+        if let layerContext {
+            omniwm_layer_context_invalidate(layerContext)
+            self.layerContext = nil
+        }
+        super.close()
     }
 
     override var canBecomeKey: Bool {
@@ -75,59 +92,96 @@ class BorderLayerPanel: NSPanel {
         frameRect
     }
 
+    override func setFrame(_: NSRect, display _: Bool, animate _: Bool) {}
+
+    override func sendEvent(_ event: NSEvent) {
+        guard event.type == .appKitDefined, event.subtype == .windowMoved else {
+            super.sendEvent(event)
+            return
+        }
+        if !placementIsMoving { reassertPlacement() }
+    }
+
     func applyFrame(
         targetFrame: CGRect, surfaceFrame: CGRect, displayClip: CGRect? = nil,
         presentation: BorderPresentation? = nil, isMoving: Bool = false
     ) {
         let moving = presentation?.isMoving ?? isMoving
+        placementIsMoving = moving
         let stableBacking = (presentation != nil || moving) && displayClip == nil
-        let panelFrame = stableBacking ? SurfacePanelGeometry.backingFrame(for: surfaceFrame)
+        let backingFrame = stableBacking ? SurfacePanelGeometry.backingFrame(for: surfaceFrame)
             : displayClip.map { surfaceFrame.integral.intersection($0) } ?? surfaceFrame.integral
-        let contentOrigin = stableBacking ? surfaceFrame.origin : panelFrame.origin
-        let layerFrame = targetFrame.offsetBy(dx: -contentOrigin.x, dy: -contentOrigin.y)
-        let effectsFrame = surfaceFrame.offsetBy(dx: -contentOrigin.x, dy: -contentOrigin.y)
-        let movedFrame = presentation == nil ? CGRect(origin: surfaceFrame.origin, size: panelFrame.size) : panelFrame
-        if stableBacking, moving, laidOutSurfaceSize == surfaceFrame.size,
-           borderLayer.frame == layerFrame, effects.root.frame == effectsFrame,
-           !containerLayer.masksToBounds, moveInWindowServer(to: movedFrame)
-        { return }
-        guard windowServerPlacement != nil || frame != panelFrame || borderLayer.frame != layerFrame
-            || containerLayer.masksToBounds != (displayClip != nil)
-            || effects.root.frame != effectsFrame else { return }
+        let contentOrigin = stableBacking ? surfaceFrame.origin : backingFrame.origin
+        let nextFrame = stableBacking && presentation == nil
+            ? CGRect(origin: surfaceFrame.origin, size: backingFrame.size) : backingFrame
+        let placed = placedFrame == nextFrame || placeInWindowServer(nextFrame)
+        if !placed {
+            setFrame(backingFrame, display: false)
+            placedFrame = backingFrame
+        }
+        let origin = placed ? contentOrigin : backingFrame.origin
+        let layerFrame = targetFrame.offsetBy(dx: -origin.x, dy: -origin.y)
+        let effectsFrame = surfaceFrame.offsetBy(dx: -origin.x, dy: -origin.y)
+        guard borderLayer.frame != layerFrame || effects.root.frame != effectsFrame else { return }
         CATransaction.begin()
         CATransaction.setDisableActions(true)
-        containerLayer.masksToBounds = displayClip != nil
-        setFrameReconcilingWindowServer(panelFrame)
-        let placedOrigin = stableBacking && presentation == nil && !moveInWindowServer(to: movedFrame)
-            ? panelFrame.origin : contentOrigin
-        laidOutSurfaceSize = stableBacking ? surfaceFrame.size : nil
-        let placedLayerFrame = targetFrame.offsetBy(dx: -placedOrigin.x, dy: -placedOrigin.y)
-        let placedEffectsFrame = surfaceFrame.offsetBy(dx: -placedOrigin.x, dy: -placedOrigin.y)
-        if borderLayer.frame != placedLayerFrame {
-            borderLayer.frame = placedLayerFrame
-        }
-        if effects.root.frame != placedEffectsFrame {
-            effects.root.frame = placedEffectsFrame
-        }
+        borderLayer.frame = layerFrame
+        effects.root.frame = effectsFrame
         CATransaction.commit()
     }
 
-    func moveInWindowServer(to target: CGRect) -> Bool {
-        guard SkyLight.shared.transactionMove(
-            UInt32(windowNumber), origin: ScreenCoordinateSpace.toWindowServer(rect: target).origin
-        ) else { return false }
-        windowServerPlacement = (frame, target)
-        return true
+    func invalidatePlacement() {
+        placedFrame = nil
     }
 
-    private func setFrameReconcilingWindowServer(_ target: CGRect) {
-        let previous = windowServerPlacement.flatMap { $0.appKitFrame == frame ? $0.frame : nil }
-        if frame != target { setFrame(target, display: false) }
-        if let previous, previous != frame, !moveInWindowServer(to: target) {
-            setFrame(previous, display: false)
-            setFrame(target, display: false)
+    func setDisplayColorSpace(_ colorSpace: CGColorSpace?) {
+        guard let layerContext, appliedColorSpace !== colorSpace else { return }
+        appliedColorSpace = colorSpace
+        omniwm_layer_context_set_color_space(layerContext, colorSpace)
+    }
+
+    private func reassertPlacement() {
+        guard let placedFrame,
+              let bounds = SkyLight.shared.currentWindowBounds(UInt32(windowNumber)),
+              !bounds.approximatelyEqual(
+                  to: ScreenCoordinateSpace.toWindowServer(rect: placedFrame), tolerance: FrameTolerance.frameWrite
+              )
+        else { return }
+        _ = reshapeInWindowServer(to: placedFrame)
+    }
+
+    private func placeInWindowServer(_ target: CGRect) -> Bool {
+        let placed = windowServerSizeMatches(target.size)
+            ? moveInWindowServer(to: target)
+            : reshapeInWindowServer(to: target)
+        if placed { placedFrame = target }
+        return placed
+    }
+
+    private func windowServerSizeMatches(_ size: CGSize) -> Bool {
+        guard placedFrame?.size == size else { return false }
+        return placementIsMoving || SkyLight.shared.currentWindowBounds(UInt32(windowNumber))?.size == size
+    }
+
+    func moveInWindowServer(to target: CGRect) -> Bool {
+        SkyLight.shared.transactionMove(
+            UInt32(windowNumber), origin: ScreenCoordinateSpace.toWindowServer(rect: target).origin
+        )
+    }
+
+    func reshapeInWindowServer(to target: CGRect) -> Bool {
+        SkyLight.shared.transactionReshape(
+            UInt32(windowNumber), origin: ScreenCoordinateSpace.toWindowServer(rect: target).origin, size: target.size
+        )
+    }
+
+    func order(_ place: NSWindow.OrderingMode, directlyRelativeTo otherWindow: UInt32) {
+        guard let windowManagerIdentifier,
+              omniwm_window_manager_order(windowManagerIdentifier, place, otherWindow)
+        else {
+            order(place, relativeTo: Int(otherWindow))
+            return
         }
-        windowServerPlacement = nil
     }
 
     func updateBorder(
