@@ -173,7 +173,7 @@ extension NiriLayoutEngine {
                 return .hovering(until: until)
             }
         }
-        let sideBySide = move.sideBySideIds.contains(target.id)
+        let sideBySide = isLiveNeighbourBesideHome(target, home: dragged, move: move)
         let passed = livePassed(target, side: side, strip: strip, cursor: cursor)
 
         if target === dragged, let dropSpace {
@@ -694,7 +694,8 @@ extension NiriLayoutEngine {
             return ahead
         }
         if awayFromHome,
-           liveColumnMove?.sideBySideIds.contains(target.id) == true,
+           let move = liveColumnMove,
+           isLiveNeighbourBesideHome(target, home: home, move: move),
            let children = target.parent?.children,
            let targetIndex = children.firstIndex(where: { $0 === target }),
            let homeIndex = children.firstIndex(where: { $0 === home })
@@ -705,6 +706,14 @@ extension NiriLayoutEngine {
         let visibleMaxX = min(placed.maxX, context.workingFrame.maxX)
         let middle = visibleMaxX > visibleMinX ? (visibleMinX + visibleMaxX) / 2 : placed.midX
         return cursor.x < middle ? .before : .after
+    }
+
+    private func isLiveNeighbourBesideHome(
+        _ target: NiriContainer,
+        home: NiriContainer,
+        move: LiveColumnMove
+    ) -> Bool {
+        move.sideBySideIds.contains(target.id) && (target.prevSibling() === home || target.nextSibling() === home)
     }
 
     private func liveNeighbour(of column: NiriContainer, on side: LiveColumnMove.Side) -> NiriContainer? {

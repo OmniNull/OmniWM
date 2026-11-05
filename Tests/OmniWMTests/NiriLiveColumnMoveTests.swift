@@ -1740,6 +1740,32 @@ final class NiriLiveColumnMoveTests: XCTestCase {
         }
     }
 
+    func testTheNeighbourRuleStopsOnceTheGapHasMovedAwayFromTheNeighbour() {
+        for towardLeading in [true, false] {
+            var fixture = makeFixture(widths: Array(repeating: 0.2, count: 7), activeIndex: 3)
+            fixture.engine.moveConfiguration.liveHoverDelay = 0
+            fixture.scrollSoThat(3, startsAt: fixture.frame.midX - 150)
+            XCTAssertTrue(fixture.begin(3))
+            let neighbour = towardLeading ? 2 : 4
+            let away = towardLeading ? 1 : 5
+            _ = fixture.move(to: CGPoint(x: fixture.stripColumn(holding: 3).midX, y: fixture.midY))
+            let farColumn = fixture.stripColumn(holding: away)
+            _ = fixture.move(to: CGPoint(
+                x: towardLeading ? farColumn.minX + 20 : farColumn.maxX - 20,
+                y: fixture.midY
+            ))
+            XCTAssertNil(fixture.engine.liveColumnMove?.dropSpaceId, "\(towardLeading)")
+
+            let back = fixture.stripColumn(holding: neighbour)
+            _ = fixture.move(to: CGPoint(x: towardLeading ? back.maxX - 20 : back.minX + 20, y: fixture.midY))
+
+            XCTAssertNil(fixture.engine.liveColumnMove?.dropSpaceId, "\(towardLeading)")
+            let expected = [0, 1, 2, 3, 4, 5, 6]
+            XCTAssertTrue(fixture.engine.liveColumnMoveEnd(context: fixture.context, state: &fixture.state))
+            XCTAssertEqual(fixture.order(), expected.map { fixture.tokens[$0] }, "\(towardLeading)")
+        }
+    }
+
     func testAQuickReleaseFollowsTheHalfUnderThePointerExceptOverANeighbour() {
         let cases: [(pointer: Int, nearHalf: Bool, expected: [Int])] = [
             (2, true, [0, 1, 3, 2, 4, 5, 6]),
