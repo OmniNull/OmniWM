@@ -175,7 +175,6 @@ extension NiriLayoutEngine {
         }
         move.homeColumnId = column.id
         move.inStack = false
-        move.leftStack = true
         move.homeSlotIndex = 0
         move.sideBySideIds = []
         move.ownWindowSizing = .init(size: 1.0, height: .default)

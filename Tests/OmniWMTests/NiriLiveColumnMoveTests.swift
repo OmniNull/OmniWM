@@ -1740,27 +1740,34 @@ final class NiriLiveColumnMoveTests: XCTestCase {
         }
     }
 
-    func testReleasingOverAWindowLandsTheDraggedWindowBeyondIt() {
-        for (pointer, expected) in [(2, [0, 1, 3, 2, 4, 5, 6]), (5, [0, 1, 2, 4, 5, 3, 6])] {
+    func testAQuickReleaseFollowsTheHalfUnderThePointerExceptOverANeighbour() {
+        let cases: [(pointer: Int, nearHalf: Bool, expected: [Int])] = [
+            (2, true, [0, 1, 3, 2, 4, 5, 6]),
+            (2, false, [0, 1, 3, 2, 4, 5, 6]),
+            (5, true, [0, 1, 2, 4, 3, 5, 6]),
+            (5, false, [0, 1, 2, 4, 5, 3, 6]),
+            (1, true, [0, 1, 3, 2, 4, 5, 6]),
+            (1, false, [0, 3, 1, 2, 4, 5, 6])
+        ]
+        for (pointer, nearHalf, expected) in cases {
             var fixture = makeFixture(widths: Array(repeating: 0.2, count: 7), activeIndex: 3)
             fixture.engine.moveConfiguration.liveHoverDelay = 0.12
             fixture.scrollSoThat(3, startsAt: fixture.frame.midX - 150)
             XCTAssertTrue(fixture.begin(3))
             _ = fixture.move(to: CGPoint(x: fixture.stripColumn(holding: 3).midX, y: fixture.midY), at: 10)
             let target = fixture.stripColumn(holding: pointer)
-            let nearEdge = CGPoint(
-                x: pointer < 3 ? target.maxX - 10 : target.minX + 10,
-                y: fixture.midY
-            )
-            _ = fixture.move(to: nearEdge, at: 10.01)
+            let towardHome = pointer < 3 ? target.maxX - 10 : target.minX + 10
+            let awayFromHome = pointer < 3 ? target.minX + 10 : target.maxX - 10
+            let release = CGPoint(x: nearHalf ? towardHome : awayFromHome, y: fixture.midY)
+            _ = fixture.move(to: release, at: 10.01)
 
             XCTAssertTrue(fixture.engine.liveColumnMoveEnd(
-                releasedAt: nearEdge,
+                releasedAt: release,
                 context: fixture.context,
                 state: &fixture.state
             ))
 
-            XCTAssertEqual(fixture.order(), expected.map { fixture.tokens[$0] }, "\(pointer)")
+            XCTAssertEqual(fixture.order(), expected.map { fixture.tokens[$0] }, "\(pointer) \(nearHalf)")
         }
     }
 

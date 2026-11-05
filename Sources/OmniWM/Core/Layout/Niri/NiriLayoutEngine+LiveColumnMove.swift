@@ -694,7 +694,7 @@ extension NiriLayoutEngine {
             return ahead
         }
         if awayFromHome,
-           liveColumnMove?.leftStack != true,
+           liveColumnMove?.sideBySideIds.contains(target.id) == true,
            let children = target.parent?.children,
            let targetIndex = children.firstIndex(where: { $0 === target }),
            let homeIndex = children.firstIndex(where: { $0 === home })
