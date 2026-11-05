@@ -24,7 +24,7 @@ return {
                     end)
                 end,
                 ui.text{ text = "Delete", color = "foreground", size = 14 } }
-            local preferences = ui.stack{ key = "preferences", w = actionWidth, h = 36, fill = "surface", radius = 8,
+            local preferences = ui.stack{ key = "preferences", w = actionWidth, h = 36, fill = "elevatedSurface", radius = 8,
                 onClick = function(next)
                     omniwm.windows.open("preferences", function(result)
                         next.state.dialogError = result.error
@@ -50,7 +50,7 @@ return {
                 ui.input{ key = "heading", w = ctx.view.w - 32, h = 36,
                     text = ctx.instance.state.heading or "OmniShell Example", color = "foreground",
                     onChange = function(next, event) next.instance.state.heading = event.text or "" end },
-                ui.stack{ key = "close-preferences", w = 120, h = 36, fill = "surface", radius = 8,
+                ui.stack{ key = "close-preferences", w = 120, h = 36, fill = "elevatedSurface", radius = 8,
                     onClick = function() omniwm.windows.close("preferences") end,
                     ui.text{ text = "Close", color = "foreground" } },
             }

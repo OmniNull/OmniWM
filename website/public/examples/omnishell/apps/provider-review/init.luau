@@ -1,5 +1,5 @@
 local function button(key, label, onClick)
-    return ui.stack{ key = key, w = 150, h = 36, fill = "surface", radius = 8, onClick = onClick,
+    return ui.stack{ key = key, w = 150, h = 36, fill = "elevatedSurface", radius = 8, onClick = onClick,
         ui.text{ text = label, color = "foreground", size = 14 } }
 end
 

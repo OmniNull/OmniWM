@@ -238,7 +238,7 @@ struct ShellStyleGalleryView: View {
             }
         }
         .padding(20)
-        .frame(width: 700, height: 520)
+        .frame(width: 700, height: 520, alignment: .top)
         .task { await gallery.load() }
         .onDisappear { browser.back() }
         .confirmationDialog(
