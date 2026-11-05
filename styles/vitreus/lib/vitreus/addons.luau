@@ -205,16 +205,8 @@ local function drawer(ctx, g, d, p)
             onGesture = release(d, p, true),
         })
     end
-    local button = kit.canvas(28 * cu, 28 * cu, cu, k.rs)
-    items[#items + 1] = kit.zone(c, {
-        key = "addon-close", x = d.w - 28 * cu - d.xr, y = 24 * cu, w = 28 * cu, h = 28 * cu, rest = 0.7, hover = 1,
-        cursor = "pointer", onClick = function(next) close(next.state) end,
-        ui.box({
-            w = 26 * cu, h = 26 * cu, radius = 13 * cu, fill = palette.alpha("ink", 0.08 / 0.7),
-            hover = palette.alpha("ink", 0.2),
-        }),
-        kit.stroke(button, kit.cross(14 * cu, 14 * cu, 3.4 * cu), "foreground", 1.5 * cu),
-    })
+    items[#items + 1] = kit.closeButton(c, { key = "addon-close", x = d.w - 28 * cu - d.xr, y = 24 * cu,
+        onClick = function(next) close(next.state) end })
     local inner = { key = "addon-drawer-reveal", w = d.w, h = d.h, morph = morph(d.inner, false) }
     for index, item in items do
         inner[index] = item

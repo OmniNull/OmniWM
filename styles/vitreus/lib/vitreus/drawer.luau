@@ -8,6 +8,7 @@ local frame = require("./frame")
 local windows = require("./windows")
 local stick = require("./stick")
 local cards = require("./cards")
+local units = require("./units")
 
 local drip = kit.springs.drip
 local hang = table.freeze({ response = 2 * math.pi / math.sqrt(260), bounce = 1 - 32 / (2 * math.sqrt(260)) })
@@ -277,11 +278,12 @@ local function prepare(ctx, g)
     local pages = 0
     for _, entry in ctx.data.components or {} do
         if entry.enabled and not entry.error and (entry.widget == "desk-pad" or entry.widget == "desk-focus")
-            and ((ctx.data.island and ctx.data.island.drawer == "shelf") or cards.onShelf(ctx, entry.id)) then
+            and ((ctx.data.island and ctx.data.island.drawer == "shelf") or cards.pageOut(ctx, entry.id)) then
             pages += 1
             if pages > 10 then continue end
             local id = "page-" .. entry.id
             cards.add(ctx, "pages", { { id = id, page = true, x = 0, y = 0, w = 340, h = 360,
+                returnTo = if ctx.state.expanded then units.desk(g.island, nil, ctx.state.place, g.frame).envelope else nil,
                 content = function(_, p)
                     return { ui.stack({ key = "shelf-page-" .. entry.id, align = "topLeading", dy = -80 * p.cu,
                         w = p.w, h = 460 * p.cu,

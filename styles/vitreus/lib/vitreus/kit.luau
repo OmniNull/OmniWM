@@ -235,6 +235,7 @@ local function zone(c, spec)
         hoverAnimate = spec.hoverAnimate,
         onClick = if active then spec.onClick else nil,
         cursor = if active then spec.cursor else nil,
+        help = spec.help,
         gesture = spec.gesture,
         onGesture = spec.onGesture,
         pulse = spec.pulse,
@@ -433,6 +434,20 @@ local function cross(cx: number, cy: number, arm: number): string
     }, " ")
 end
 
+local function closeButton(c, spec)
+    local du = c.du
+    local side = 28 * du
+    return zone(c, {
+        key = spec.key, x = spec.x, y = spec.y, w = side, h = side, rest = 0.7, hover = 1, cursor = "pointer",
+        help = spec.help, onClick = spec.onClick,
+        ui.box({
+            w = 26 * du, h = 26 * du, radius = 13 * du,
+            fill = palette.alpha("ink", 0.08 / 0.7), hover = palette.alpha("ink", 0.2),
+        }),
+        stroke(canvas(side, side, du, c.rs), cross(side / 2, side / 2, 3.4 * du), "foreground", 1.5 * du),
+    })
+end
+
 local function tick(cx: number, cy: number, du: number): string
     return table.concat({
         "M", number(cx - 3.6 * du), number(cy + 0.2 * du),
@@ -478,6 +493,7 @@ return table.freeze({
     ringPath = ringPath,
     arc = arc,
     cross = cross,
+    closeButton = closeButton,
     tick = tick,
     play = play,
 })

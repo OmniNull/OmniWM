@@ -95,9 +95,9 @@ extension ShellVitreusSectionCardTests {
         )
         windows.shelfOpen = true
         windows.show(fixture)
-        let target = try VitreusFixture.element(widget, key: "drawer-content-page-pad")
+        let shelved = try VitreusFixture.element(widget, key: "drawer-content-page-pad")
         let input = try XCTUnwrap(widget.surface.layout.core.elements { $0.action != 0 }.first {
-            widget.surface.layout.core.kind(of: $0) == .input && widget.surface.isWithin($0, target)
+            widget.surface.layout.core.kind(of: $0) == .input && widget.surface.isWithin($0, shelved)
         })
         var event = ShellEvent()
         event.text = "Do not lose this when the shelf closes"
@@ -111,6 +111,7 @@ extension ShellVitreusSectionCardTests {
         windows.shelfOpen = true
         windows.show(fixture)
         XCTAssertTrue(widget.strings().contains("Do not lose this when the shelf closes"))
+        let target = try VitreusFixture.element(widget, key: "drawer-content-page-pad")
         try moveCard(fixture, id: "page-pad", to: CGPoint(x: 50, y: 650))
         XCTAssertEqual(try windows.frame(fixture, "drawer-content-page-pad").width, 340 * 1.5525, accuracy: 0.01)
         XCTAssertEqual(try windows.frame(fixture, "drawer-content-page-pad").height, 360 * 1.5525, accuracy: 0.01)

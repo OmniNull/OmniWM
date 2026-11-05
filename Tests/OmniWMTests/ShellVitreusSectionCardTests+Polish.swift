@@ -268,6 +268,7 @@ extension ShellVitreusSectionCardTests {
         XCTAssertTrue(fixture.widget.strings().contains { $0.hasSuffix("is on the top shelf") })
         try dragCard(fixture, "page-pad", to: CGPoint(x: 100, y: 350))
         XCTAssertTrue(fixture.widget.strings().contains { $0.hasSuffix("is in a floating card") })
+        XCTAssertTrue(fixture.widget.strings().contains("Bring Back"))
         try dragCard(fixture, "page-pad", to: CGPoint(x: 0, y: 350))
         XCTAssertTrue(fixture.widget.strings().contains { $0.hasSuffix("is on the left edge") })
     }

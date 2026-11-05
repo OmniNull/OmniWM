@@ -125,17 +125,25 @@ local function notices(c, g, tabs, failed)
 end
 
 local function close(c, g, display)
-    local du = c.du
-    local button = g.close
-    local zone = kit.canvas(button.zone, button.zone, du, c.rs)
-    return kit.zone(c, {
-        key = "close", x = button.x, y = button.y, w = button.zone, h = button.zone, rest = 0.7, hover = 1,
-        cursor = "pointer", onClick = "shell trigger vitreus desk-close " .. display,
-        ui.box({
-            w = 2 * button.r, h = 2 * button.r, radius = button.r,
-            fill = palette.alpha("ink", 0.08 / 0.7), hover = palette.alpha("ink", 0.2),
-        }),
-        kit.stroke(zone, kit.cross(button.zone / 2, button.zone / 2, 3.4 * du), "foreground", 1.5 * du),
+    return kit.closeButton(c, { key = "close", x = g.close.x, y = g.close.y,
+        onClick = "shell trigger vitreus desk-close " .. display })
+end
+
+local function away(ctx, c, env, tab)
+    local du, id = c.du, "page-" .. tab.id
+    local message = kit.label(c, { key = "page-on-shelf", text = tab.title .. " is " .. cards.location(ctx, tab.id),
+        x = c.w / 2, y = env.h / 2, size = 13, color = "secondaryForeground", maxWidth = 300 * du, lines = 2 })
+    if cards.record(ctx, id).location == "drawer" then return message end
+    local w, h = 132 * du, 36 * du
+    local face = kit.canvas(w, h, du, c.rs)
+    return ui.stack({ key = "page-away", w = c.w, h = env.h, message,
+        ui.stack(kit.at(c, {
+            key = "page-bring-back", w = w, h = h, radius = 14 * du,
+            fill = palette.alpha("ink", 0.09), hover = palette.alpha("ink", 0.19), hoverAnimate = kit.hover,
+            pressScale = 0.92, pressAnimate = kit.springs.pop, cursor = "pointer",
+            onClick = function(next) cards.home(next, id) end,
+            kit.label(face, { text = "Bring Back", x = w / 2, y = h / 2, size = 14.5, weight = "semibold", opacity = 0.88 }),
+        }, c.w / 2, env.h / 2 + 40 * du)),
     })
 end
 
@@ -213,8 +221,7 @@ local function render(ctx, g)
     local page = if selected then ui.stack({
         key = "page", w = c.w, h = env.h,
         if not g.framed and cards.entry(ctx, "page-" .. tabs[selected].id) ~= nil then
-            kit.label(c, { key = "page-on-shelf", text = tabs[selected].title .. " is " .. cards.location(ctx, tabs[selected].id),
-                x = c.w / 2, y = env.h / 2, size = 13, color = "secondaryForeground", maxWidth = 300 * du, lines = 2 })
+            away(ctx, c, env, tabs[selected])
         else ui.component({
             id = tabs[selected].id, view = "desk", w = g.content.w, h = g.content.h,
             align = "topLeading", dx = g.content.x, dy = g.content.y,

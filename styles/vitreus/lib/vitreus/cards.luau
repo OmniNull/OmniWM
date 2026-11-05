@@ -91,7 +91,8 @@ local function layout(ctx, storage, parents)
             end,
             homeLocation = if spec.page then "drawer" else "home", homeEnabled = parent and parent.visible,
             homePriority = true,
-            homeParent = if parent and parent.visible then { x = parent.x, y = if parent.loose then parent.y else space.pill.y,
+            homeParent = if spec.page then spec.returnTo
+                elseif parent and parent.visible then { x = parent.x, y = if parent.loose then parent.y else space.pill.y,
                 w = parent.w, h = parent.y + parent.h - (if parent.loose then parent.y else space.pill.y) } else nil,
             help = "Drag this card to a screen edge, its panel, or the top shelf." }
         spec.parent = parent
@@ -110,7 +111,8 @@ end
 local function home(ctx, id, commit)
     local value, spec = record(ctx, id), entry(ctx, id)
     value.arrive = if spec and not spec.nested then arrival(spec.panel, spec.parent) else nil
-    value.location, value.side, value.rect, value.held, value.scale, value.grab = "home", nil, nil, nil, nil, nil
+    value.location = if spec and spec.page then "drawer" else "home"
+    value.side, value.rect, value.held, value.scale, value.grab = nil, nil, nil, nil, nil
     value.serial = (value.serial or 0) + 1
     value.commit = commit or "card-home-" .. id .. "-" .. value.serial
 end
@@ -121,8 +123,9 @@ local function redock(ctx, owner)
     end
 end
 
-local function onShelf(ctx, id)
-    return ctx.state.cards ~= nil and ctx.state.cards["page-" .. id] ~= nil
+local function pageOut(ctx, id)
+    local item = ctx.state.cards and ctx.state.cards["page-" .. id]
+    return item ~= nil and item.location ~= "drawer"
 end
 
 local function expose(ctx, id, near, height)
@@ -151,7 +154,7 @@ end
 local function content(ctx, spec, morph)
     local p, item = spec.panel, record(ctx, spec.id)
     local view = views[ctx.state]
-    local arrive = if spec.shown then view.arrive[spec.id] else nil
+    local arrive = view.arrive[spec.id]
     view.arrive[spec.id] = nil
     local travelX = if spec.nested and arrive and arrive.px and not spec.parent.loose then arrive.px - spec.parent.x else 0
     local travelY = if spec.nested and arrive and arrive.py and not spec.parent.loose then arrive.py - spec.parent.y else 0
@@ -164,13 +167,16 @@ local function content(ctx, spec, morph)
     for _, node in nodes do rise[#rise + 1] = node end
     clip[#clip + 1] = ui.stack(rise)
     local children = { ui.stack(clip), windows.grip(ctx, p, record) }
+    if spec.page and item.location ~= "drawer" then
+        children[#children + 1] = kit.closeButton(kit.canvas(p.w, p.h, p.cu, p.rs), {
+            key = "card-close-" .. spec.id, x = p.w - 22 * p.cu, y = 22 * p.cu, help = "Put back in the Desk",
+            onClick = function(next) home(next, spec.id) end })
+    end
     local x, y = p.x, p.y
     if spec.nested then x -= spec.parent.x y -= spec.parent.y end
-    if not spec.shown then x, y = -p.w - 64, -p.h - 64 end
     return ui.stack({ key = spec.target, align = "topLeading", dx = x, dy = y, w = p.w, h = p.h,
-        opacity = if spec.shown then 1 else 0,
         animate = if spec.nested and not spec.parent.loose then spec.parent.calm else nil,
-        manipulationFollow = if spec.shown then kit.springs.desk else nil, manipulationCommit = item.commit,
+        manipulationFollow = kit.springs.desk, manipulationCommit = item.commit,
         appear = if arrive then { dx = arrive.x - p.x - travelX, dy = arrive.y - p.y - travelY,
             scale = arrive.w / p.w, anchor = { x = 0, y = 0 }, animate = kit.springs.desk } else nil,
         onPress = if spec.id ~= "player-album" then function() end else nil,
@@ -265,10 +271,10 @@ local function render(ctx, g)
     local entries = views[ctx.state].entries
     local result = {}
     for _, spec in entries do
-        if not spec.nested and (spec.shown or spec.page) then result[#result + 1] = content(ctx, spec) end
+        if not spec.nested and spec.shown then result[#result + 1] = content(ctx, spec) end
     end
     return result
 end
 
 return table.freeze({ reset = reset, add = add, measures = measures, layout = layout,
-    shapes = shapes, content = render, nested = nested, placeholder = placeholder, out = out, redock = redock, record = record, expose = expose, onShelf = onShelf, anyOut = anyOut, entry = entry, home = home, held = held, priority = priority, location = location })
+    shapes = shapes, content = render, nested = nested, placeholder = placeholder, out = out, redock = redock, record = record, expose = expose, pageOut = pageOut, anyOut = anyOut, entry = entry, home = home, held = held, priority = priority, location = location })

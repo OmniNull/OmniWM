@@ -152,7 +152,7 @@ extension ShellVitreusSectionCardTests {
         }
     }
 
-    func testShelfPagesHaveOneStableMountAndPreserveTheirDraftAndTimer() throws {
+    func testShelfPagesKeepOneMountAndTheirDraftAndTimerWhileTheyMove() throws {
         let shell = try VitreusFixture.shell()
         defer { VitreusFixture.remove(shell) }
         let widget = try VitreusFixture.desk(shell)
@@ -183,21 +183,110 @@ extension ShellVitreusSectionCardTests {
         XCTAssertTrue(widget.strings().contains("Keep this draft while floating"))
         let focusTarget = try VitreusFixture.element(widget, key: "drawer-content-page-focus")
         try cycleFocus(fixture, within: focusTarget)
+        func assertOneMountEach(_ label: String) {
+            let all = widget.surface.layout.core.elements { _ in true }
+            for id in ["pad", "focus"] {
+                XCTAssertEqual(all.count { widget.surface.layout.core.key(of: $0) == VitreusFixture.key(id) }, 1, label)
+            }
+            XCTAssertTrue(widget.strings().contains("Keep this draft while floating"), label)
+            XCTAssertTrue(widget.strings().contains("FOCUSING"), label)
+        }
+        assertOneMountEach("shelf open")
         windows.shelfOpen = false
         windows.show(fixture)
         XCTAssertTrue(windows.has(fixture, "drawer-content-page-pad"))
-        let focus = try windows.frame(fixture, "drawer-content-page-focus")
-        XCTAssertLessThan(focus.maxX, 0)
-        XCTAssertFalse(widget.surface.islandRegions().contains { $0.contains(CGPoint(x: 1800, y: 900)) })
+        XCTAssertFalse(windows.has(fixture, "drawer-content-page-focus"))
+        XCTAssertFalse(widget.strings().contains("Focus is on the top shelf"))
+        assertOneMountEach("shelf closed")
         windows.shelfOpen = true
         windows.show(fixture)
-        let all = widget.surface.layout.core.elements { _ in true }
-        for id in ["pad", "focus"] {
-            XCTAssertEqual(all.count { widget.surface.layout.core.key(of: $0) == VitreusFixture.key(id) }, 1)
+        XCTAssertTrue(windows.has(fixture, "drawer-content-page-focus"))
+        XCTAssertTrue(widget.strings().contains("Focus is on the top shelf"))
+        assertOneMountEach("shelf reopened")
+    }
+
+    private func pageOutOfTheShelf(_ id: String) throws -> ShellVitreusDrawerTests.Fixture {
+        let fixture = try pagesFixture()
+        _ = try windows.invoke(fixture, "tab-" + id)
+        windows.shelfOpen = true
+        windows.show(fixture)
+        try dragCard(fixture, "page-" + id, to: CGPoint(x: 100, y: 350))
+        windows.shelfOpen = false
+        windows.show(fixture)
+        XCTAssertTrue(windows.has(fixture, "drawer-content-page-" + id))
+        XCTAssertTrue(fixture.widget.strings().contains { $0.hasSuffix("is in a floating card") })
+        return fixture
+    }
+
+    private func assertBackInTheDesk(_ fixture: ShellVitreusDrawerTests.Fixture, _ id: String) {
+        XCTAssertFalse(windows.has(fixture, "drawer-content-page-" + id))
+        XCTAssertFalse(windows.has(fixture, "card-close-page-" + id))
+        XCTAssertFalse(windows.has(fixture, "page-bring-back"))
+        XCTAssertFalse(fixture.widget.strings().contains { $0.hasSuffix("is in a floating card") })
+        let mounts = fixture.widget.surface.layout.core.elements { _ in true }.count {
+            fixture.widget.surface.layout.core.key(of: $0) == VitreusFixture.key(id)
         }
-        XCTAssertTrue(widget.strings().contains("Keep this draft while floating"))
-        XCTAssertTrue(widget.strings().contains("FOCUSING"))
-        XCTAssertEqual(try VitreusFixture.element(widget, key: "drawer-content-page-focus"), focusTarget)
+        XCTAssertEqual(mounts, 1)
+    }
+
+    func testOneTouchOfTheShelfLeavesThePagesInTheDesk() throws {
+        let fixture = try pagesFixture()
+        XCTAssertTrue(windows.has(fixture, "start"))
+        windows.shelfOpen = true
+        windows.show(fixture)
+        XCTAssertTrue(fixture.widget.strings().contains("Focus is on the top shelf"))
+        XCTAssertFalse(windows.has(fixture, "page-bring-back"))
+        XCTAssertFalse(windows.has(fixture, "card-close-page-focus"))
+        windows.shelfOpen = false
+        windows.show(fixture)
+        XCTAssertFalse(fixture.widget.strings().contains("Focus is on the top shelf"))
+        assertBackInTheDesk(fixture, "focus")
+    }
+
+    func testAFloatingPageGoesBackThroughItsCloseButton() throws {
+        for id in ["focus", "pad"] {
+            let fixture = try pageOutOfTheShelf(id)
+            _ = try windows.invoke(fixture, "card-close-page-" + id)
+            windows.show(fixture)
+            assertBackInTheDesk(fixture, id)
+        }
+    }
+
+    func testAFloatingPageGoesBackThroughTheDesksBringBackButton() throws {
+        let fixture = try pageOutOfTheShelf("focus")
+        _ = try windows.invoke(fixture, "page-bring-back")
+        windows.show(fixture)
+        assertBackInTheDesk(fixture, "focus")
+    }
+
+    func testDroppingAFloatingPageOnTheDeskPutsItBack() throws {
+        let fixture = try pageOutOfTheShelf("focus")
+        let desk = try windows.frame(fixture, "desk-clip")
+        try dragCard(fixture, "page-focus", to: desk.origin)
+        windows.show(fixture)
+        assertBackInTheDesk(fixture, "focus")
+    }
+
+    func testAPageStuckToAnEdgeHasTheSameWayBack() throws {
+        let fixture = try pageOutOfTheShelf("focus")
+        try dragCard(fixture, "page-focus", to: CGPoint(x: 0, y: 350))
+        XCTAssertTrue(fixture.widget.strings().contains { $0.hasSuffix("is on the left edge") })
+        _ = try windows.invoke(fixture, "card-close-page-focus")
+        windows.show(fixture)
+        XCTAssertFalse(fixture.widget.strings().contains { $0.hasSuffix("is on the left edge") })
+        assertBackInTheDesk(fixture, "focus")
+    }
+
+    func testAPageClosedWithTheDeskShutReappearsWhenTheDeskOpens() throws {
+        let fixture = try pageOutOfTheShelf("focus")
+        windows.trigger(fixture, "desk-close")
+        XCTAssertFalse(windows.has(fixture, "desk-clip"))
+        _ = try windows.invoke(fixture, "card-close-page-focus")
+        windows.show(fixture)
+        XCTAssertFalse(windows.has(fixture, "drawer-content-page-focus"))
+        windows.trigger(fixture, "desk-open")
+        assertBackInTheDesk(fixture, "focus")
+        XCTAssertTrue(windows.has(fixture, "start"))
     }
 }
 

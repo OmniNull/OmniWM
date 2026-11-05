@@ -58,7 +58,7 @@ local function desk(island, given, place, frame)
         cx = cx,
         grip = table.freeze({ x = cx, y = 11 * du, w = 34 * du, h = 4 * du, zoneW = 294 * du, zoneH = 22 * du }),
         tabs = table.freeze({ x = cx - 18 * du, y = 40 * du, w = 268 * du, h = 34 * du }),
-        close = table.freeze({ x = cx + 143 * du, y = 40 * du, r = 13 * du, zone = 28 * du }),
+        close = table.freeze({ x = cx + 143 * du, y = 40 * du }),
     })
 end
 

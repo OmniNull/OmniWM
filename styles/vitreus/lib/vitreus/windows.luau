@@ -130,7 +130,7 @@ local function resolve(item, event, panel, width)
         else math.sqrt((rect.x - home.x) ^ 2 + (rect.y - home.y) ^ 2)
     local parent = panel.homeParent
     local insideParent = parent and x >= parent.x and x <= parent.x + parent.w and y >= parent.y and y <= parent.y + parent.h
-    local nearHome = panel.homeEnabled ~= false and panel.homeLocation ~= "drawer" and (insideParent or distance <= 60 * cu)
+    local nearHome = panel.homeEnabled ~= false and (insideParent or panel.homeLocation ~= "drawer" and distance <= 60 * cu)
     if storage and x >= storage.x and x <= storage.x + storage.w and y >= storage.y and y <= storage.y + storage.h
         and not (panel.homePriority and nearHome) then
         item.location, item.rect, item.side = "drawer", nil, nil
