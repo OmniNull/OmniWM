@@ -32,16 +32,20 @@ actor ShellWidgetSourceLoader {
         }
 
         var contained: Bool {
-            sourceURL.standardizedFileURL.path.hasPrefix(shellDirectory.standardizedFileURL.path + "/")
+            Self.resolvedPath(sourceURL).hasPrefix(Self.resolvedPath(shellDirectory) + "/")
         }
 
         func relativePath(_ url: URL) -> String {
-            String(url.standardizedFileURL.path.dropFirst(shellDirectory.standardizedFileURL.path.count + 1))
+            String(Self.resolvedPath(url).dropFirst(Self.resolvedPath(shellDirectory).count + 1))
         }
 
         var layer: String {
             let folder = sourceURL.deletingLastPathComponent().deletingLastPathComponent().deletingLastPathComponent()
-            return folder.standardizedFileURL == shellDirectory.standardizedFileURL ? "" : relativePath(folder)
+            return Self.resolvedPath(folder) == Self.resolvedPath(shellDirectory) ? "" : relativePath(folder)
+        }
+
+        private static func resolvedPath(_ url: URL) -> String {
+            url.resolvingSymlinksInPath().standardizedFileURL.path
         }
 
         var principal: ShellWidgetPrincipal {
