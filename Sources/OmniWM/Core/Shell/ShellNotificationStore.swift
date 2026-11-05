@@ -189,6 +189,14 @@ enum ShellNotificationStore {
     ) {
         for row in records {
             do {
+                if row["style"]?.integer == 0,
+                   case let .record(identity, _)? = row["data"], context.retained.contains(identity.id)
+                {
+                    if !result.found[context.appID, default: []].insert(identity.id).inserted {
+                        budget.mark(.duplicateIdentifier)
+                    }
+                    continue
+                }
                 guard let item = try record(
                     row,
                     bundle: context.bundle,
