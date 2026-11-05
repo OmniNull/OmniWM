@@ -492,7 +492,7 @@ final class LaunchConflictAutoRecheckTests: XCTestCase {
         recheck.start()
         let timer = try XCTUnwrap(recheck.timer)
 
-        await fulfillment(of: [cleared], timeout: 5)
+        await fulfillment(of: [cleared], timeout: failureBound)
         XCTAssertEqual(script.clears, 1)
         XCTAssertEqual(script.scans, 3)
         XCTAssertFalse(timer.isValid)

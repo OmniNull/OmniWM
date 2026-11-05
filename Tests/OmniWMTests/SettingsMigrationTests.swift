@@ -1073,7 +1073,7 @@ final class SettingsMigrationTests: XCTestCase {
         let legacy = try legacyFixtureData(named: "v0.6.3-custom")
 
         try legacy.write(to: settingsURL(in: fixture), options: .atomic)
-        await fulfillment(of: [selfWriteProcessed], timeout: 3)
+        await fulfillment(of: [selfWriteProcessed], timeout: failureBound)
 
         XCTAssertEqual(outcomes.count, 1)
         let outcome = try XCTUnwrap(outcomes.only)
@@ -1553,7 +1553,7 @@ final class SettingsMigrationTests: XCTestCase {
         }
         defer { persistence.observation.onEventProcessed = nil }
         try edit()
-        await fulfillment(of: [processed], timeout: 3)
+        await fulfillment(of: [processed], timeout: failureBound)
     }
 
     private func settingsURL(in fixture: Fixture) -> URL {

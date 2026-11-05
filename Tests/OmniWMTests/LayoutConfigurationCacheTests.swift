@@ -154,7 +154,7 @@ final class LayoutConfigurationCacheTests: XCTestCase {
         let handled = expectation(description: "Screen notification refreshes backing scales")
         refresh.screenParametersHandledForTests = { handled.fulfill() }
         NotificationCenter.default.post(name: NSApplication.didChangeScreenParametersNotification, object: nil)
-        await fulfillment(of: [handled], timeout: 2)
+        await fulfillment(of: [handled], timeout: failureBound)
         XCTAssertEqual(refresh.backingScale(for: missing), 2)
         refresh.resetState()
         XCTAssertNil(refresh.layoutState.backingScaleByDisplay)

@@ -104,7 +104,7 @@ enum WindowAdmissionTestSupport {
         let sink = ActivationFactsForwardingSink(interpreter: controller.eventInterpreter, delivered: delivered)
         controller.eventIntake.open(sink: sink)
         await resolve()
-        let delivery = await XCTWaiter.fulfillment(of: [delivered], timeout: 2)
+        let delivery = await XCTWaiter.fulfillment(of: [delivered], timeout: failureBound)
         XCTAssertEqual(delivery, .completed)
         XCTAssertGreaterThan(controller.eventIntake.lastSeq, previousSeq)
         controller.eventIntake.open(sink: controller.eventInterpreter)

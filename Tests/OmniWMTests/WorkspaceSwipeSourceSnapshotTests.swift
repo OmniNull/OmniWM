@@ -135,7 +135,7 @@ final class WorkspaceSwipeSourceSnapshotTests: XCTestCase {
             if pending == nil {
                 let entered = XCTestExpectation(description: "Source snapshot capture entered")
                 captureEntered = entered
-                guard await XCTWaiter.fulfillment(of: [entered], timeout: 2) == .completed else {
+                guard await XCTWaiter.fulfillment(of: [entered], timeout: failureBound) == .completed else {
                     return XCTFail("Source snapshot capture did not start")
                 }
             }

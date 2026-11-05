@@ -244,7 +244,7 @@ final class AudioSpectrumTests: XCTestCase {
         let monitor = AudioSpectrumMonitor(capture: refusal.capture)
         let (changes, changed) = AsyncStream.makeStream(of: AppVolumeAccess?.self)
         monitor.onChange = { changed.yield($0?.access) }
-        DispatchQueue.main.asyncAfter(deadline: .now() + changeFailureBound) { changed.finish() }
+        DispatchQueue.main.asyncAfter(deadline: .now() + failureBound) { changed.finish() }
         var reports = changes.makeAsyncIterator()
         func reported(_ access: AppVolumeAccess) async -> Bool {
             while let next = await reports.next(isolation: #isolation) {

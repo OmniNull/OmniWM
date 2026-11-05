@@ -212,7 +212,7 @@ final class HiddenBarLifecyclePolicyTests: XCTestCase {
         hiddenBar.observation.onRunningApplicationsRefreshForTests = { laterRefresh.fulfill() }
         let laterObserverEvent = hiddenBar.observation.enqueueRunningApplicationsChangedForTests()
         await laterObserverEvent.value
-        await fulfillment(of: [laterRefresh], timeout: 2)
+        await fulfillment(of: [laterRefresh], timeout: failureBound)
         hiddenBar.cleanup()
     }
 

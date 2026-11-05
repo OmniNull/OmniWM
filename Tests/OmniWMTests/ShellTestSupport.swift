@@ -7,11 +7,11 @@ import OmniWMScriptHost
 import QuartzCore
 import XCTest
 
-let changeFailureBound = DispatchTimeInterval.seconds(30)
+let failureBound: TimeInterval = 30
 
 func boundedChanges() -> (changes: AsyncStream<Void>, changed: AsyncStream<Void>.Continuation) {
     let (changes, changed) = AsyncStream.makeStream(of: Void.self)
-    DispatchQueue.main.asyncAfter(deadline: .now() + changeFailureBound) { changed.finish() }
+    DispatchQueue.main.asyncAfter(deadline: .now() + failureBound) { changed.finish() }
     return (changes, changed)
 }
 

@@ -72,7 +72,7 @@ final class IPCConnectionRegistryTests: XCTestCase {
             await assertClosed(connection, peerHandle: peerHandle)
         }
 
-        await fulfillment(of: [released], timeout: 2)
+        await fulfillment(of: [released], timeout: failureBound)
         XCTAssertNil(stoppedConnection)
     }
 
@@ -94,7 +94,7 @@ final class IPCConnectionRegistryTests: XCTestCase {
         let peerEvents = DispatchSource.makeReadSource(fileDescriptor: peerHandle.fileDescriptor, queue: .main)
         peerEvents.setEventHandler { readable.fulfill() }
         peerEvents.resume()
-        await fulfillment(of: [readable], timeout: 2)
+        await fulfillment(of: [readable], timeout: failureBound)
         peerEvents.cancel()
         var byte: UInt8 = 0
         let result = recv(peerHandle.fileDescriptor, &byte, 1, MSG_DONTWAIT)

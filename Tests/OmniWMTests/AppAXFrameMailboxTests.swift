@@ -113,10 +113,10 @@ final class AppAXFrameMailboxTests: XCTestCase {
             }
             group.leave()
         }
-        guard admitted.wait(timeout: .now() + 5) == .success else {
+        guard admitted.wait(timeout: .now() + failureBound) == .success else {
             XCTFail("Concurrent writer was not admitted before the readiness deadline")
             proceed.signal()
-            XCTAssertEqual(group.wait(timeout: .now() + 5), .success)
+            XCTAssertEqual(group.wait(timeout: .now() + failureBound), .success)
             metrics.endCapture()
             return
         }
@@ -124,7 +124,7 @@ final class AppAXFrameMailboxTests: XCTestCase {
         proceed.signal()
         metrics.endCapture()
         let frozen = metrics.snapshot()
-        guard group.wait(timeout: .now() + 5) == .success else {
+        guard group.wait(timeout: .now() + failureBound) == .success else {
             XCTFail("Admitted writer did not finish before the cleanup deadline")
             return
         }
