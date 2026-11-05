@@ -10,6 +10,15 @@ import QuartzCore
 import ScreenCaptureKit
 import XCTest
 
+private enum SurfaceMeasurement {
+    static let onePixel: Double = 1
+    static let calibrationShift: CGFloat = 24
+    static let clientGray: CGFloat = 0.25
+    static let medianRadiusPixels = 2
+    static let colorConversionsInCapture = 2
+    static let channelStepsPerConversion = 1
+}
+
 @MainActor
 final class SurfacePresentationLiveTests: XCTestCase {
     private struct RailPresentationReport: Codable {
@@ -42,6 +51,10 @@ final class SurfacePresentationLiveTests: XCTestCase {
     }
 
     private struct BorderPresentationRGB: Equatable {
+        static let red = Self(red: 255, green: 0, blue: 0)
+        static let green = Self(red: 0, green: 255, blue: 0)
+        static let blue = Self(red: 0, green: 0, blue: 255)
+
         let red: Int
         let green: Int
         let blue: Int
@@ -84,7 +97,9 @@ final class SurfacePresentationLiveTests: XCTestCase {
             bytes = storage
         }
 
-        func medianColor(at point: CGPoint, radius: Int = 2) -> BorderPresentationRGB? {
+        func medianColor(
+            at point: CGPoint, radius: Int = SurfaceMeasurement.medianRadiusPixels
+        ) -> BorderPresentationRGB? {
             let centerX = Int(point.x.rounded())
             let centerY = Int(point.y.rounded())
             guard centerX >= 0, centerX < width, centerY >= 0, centerY < height else { return nil }
@@ -122,9 +137,17 @@ final class SurfacePresentationLiveTests: XCTestCase {
 
         let largeFrame = borderPresentationFrame(on: screen)
         let smallFrame = CGRect(origin: largeFrame.origin, size: CGSize(width: 360, height: 240))
-        let clientWindow = makeClientWindow(
-            frame: smallFrame,
-            backgroundColor: NSColor(srgbRed: 0.25, green: 0.25, blue: 0.25, alpha: 1)
+        let clientGray = SurfaceMeasurement.clientGray
+        let clientColor = NSColor(srgbRed: clientGray, green: clientGray, blue: clientGray, alpha: 1)
+        let clientWindow = makeClientWindow(frame: smallFrame, backgroundColor: clientColor)
+        let captureSpace = try XCTUnwrap(CGColorSpace(name: CGColorSpace.sRGB))
+        let clientComponents = try XCTUnwrap(
+            clientColor.cgColor.converted(to: captureSpace, intent: .defaultIntent, options: nil)?.components
+        )
+        let expectedClient = BorderPresentationRGB(
+            red: Int((clientComponents[0] * 255).rounded()),
+            green: Int((clientComponents[1] * 255).rounded()),
+            blue: Int((clientComponents[2] * 255).rounded())
         )
         let borderWidth: CGFloat = 12
         let cornerRadii = WindowCornerRadii(uniform: 12)
@@ -150,16 +173,14 @@ final class SurfacePresentationLiveTests: XCTestCase {
         }
 
         clientWindow.orderFrontRegardless()
-        await settle(for: .milliseconds(250))
 
         let shareable = try await SCShareableContent.currentProcess
-        guard let display = shareable.displays.first(where: { $0.displayID == displayId }) else {
-            throw XCTSkip("ScreenCaptureKit did not expose the target display")
-        }
+        let display = try XCTUnwrap(shareable.displays.first { $0.displayID == displayId })
+        let application = try XCTUnwrap(shareable.applications.first { $0.processID == getpid() })
         let captureRegion = ScreenCoordinateSpace.toWindowServer(
             rect: largeFrame.insetBy(dx: -borderWidth, dy: -borderWidth)
         ).intersection(display.frame)
-        let filter = SCContentFilter(display: display, excludingWindows: [])
+        let filter = SCContentFilter(display: display, including: [application], exceptingWindows: [])
         let configuration = SCStreamConfiguration()
         configuration.sourceRect = captureRegion.offsetBy(dx: -display.frame.minX, dy: -display.frame.minY)
         configuration.width = max(1, Int((captureRegion.width * CGFloat(filter.pointPixelScale)).rounded()))
@@ -170,12 +191,8 @@ final class SurfacePresentationLiveTests: XCTestCase {
         configuration.ignoreShadowsDisplay = true
         configuration.shouldBeOpaque = true
         let targetToken = WindowToken(pid: getpid(), windowId: clientWindow.windowNumber)
-        let baselineClientColor = try await capturedBorderPresentationColor(
-            at: smallFrame.center,
-            captureRegion: captureRegion,
-            filter: filter,
-            configuration: configuration
-        )
+        let watch = try await ScreenWatch.started(filter: filter, configuration: configuration)
+        addTeardownBlock { await watch.stop() }
 
         XCTAssertTrue(
             borderWindow.update(
@@ -188,14 +205,16 @@ final class SurfacePresentationLiveTests: XCTestCase {
         let initialWindowId = try XCTUnwrap(borderWindow.windowId)
         try await assertBorderPresentation(
             borderWindow,
-            expected: BorderPresentationRGB(red: 255, green: 0, blue: 0),
-            expectedClient: baselineClientColor,
+            expected: .red,
+            expectedClient: expectedClient,
             targetFrame: smallFrame,
             borderWidth: borderWidth,
+            scale: screen.backingScaleFactor,
             cornerRadii: cornerRadii,
             captureRegion: captureRegion,
             filter: filter,
             configuration: configuration,
+            watch: watch,
             label: "border-red-small"
         )
 
@@ -210,14 +229,16 @@ final class SurfacePresentationLiveTests: XCTestCase {
         XCTAssertEqual(borderWindow.windowId, initialWindowId)
         try await assertBorderPresentation(
             borderWindow,
-            expected: BorderPresentationRGB(red: 0, green: 0, blue: 255),
-            expectedClient: baselineClientColor,
+            expected: .blue,
+            expectedClient: expectedClient,
             targetFrame: smallFrame,
             borderWidth: borderWidth,
+            scale: screen.backingScaleFactor,
             cornerRadii: cornerRadii,
             captureRegion: captureRegion,
             filter: filter,
             configuration: configuration,
+            watch: watch,
             label: "border-blue-small"
         )
 
@@ -240,14 +261,16 @@ final class SurfacePresentationLiveTests: XCTestCase {
         XCTAssertEqual(borderWindow.windowId, initialWindowId)
         try await assertBorderPresentation(
             borderWindow,
-            expected: BorderPresentationRGB(red: 0, green: 0, blue: 255),
-            expectedClient: baselineClientColor,
+            expected: .blue,
+            expectedClient: expectedClient,
             targetFrame: largeFrame,
             borderWidth: borderWidth,
+            scale: screen.backingScaleFactor,
             cornerRadii: cornerRadii,
             captureRegion: captureRegion,
             filter: filter,
             configuration: configuration,
+            watch: watch,
             label: "border-blue-large"
         )
 
@@ -261,14 +284,16 @@ final class SurfacePresentationLiveTests: XCTestCase {
         )
         try await assertBorderPresentation(
             borderWindow,
-            expected: BorderPresentationRGB(red: 0, green: 255, blue: 0),
-            expectedClient: baselineClientColor,
+            expected: .green,
+            expectedClient: expectedClient,
             targetFrame: largeFrame,
             borderWidth: borderWidth,
+            scale: screen.backingScaleFactor,
             cornerRadii: cornerRadii,
             captureRegion: captureRegion,
             filter: filter,
             configuration: configuration,
+            watch: watch,
             label: "border-green-large"
         )
 
@@ -291,15 +316,40 @@ final class SurfacePresentationLiveTests: XCTestCase {
         XCTAssertEqual(borderWindow.windowId, initialWindowId)
         try await assertBorderPresentation(
             borderWindow,
-            expected: BorderPresentationRGB(red: 0, green: 255, blue: 0),
-            expectedClient: baselineClientColor,
+            expected: .green,
+            expectedClient: expectedClient,
             targetFrame: largeFrame,
             borderWidth: borderWidth,
+            scale: screen.backingScaleFactor,
             cornerRadii: cornerRadii,
             captureRegion: captureRegion,
             filter: filter,
             configuration: configuration,
+            watch: watch,
             label: "border-green-regrown"
+        )
+
+        XCTAssertTrue(
+            borderWindow.update(
+                frame: largeFrame,
+                targetToken: targetToken,
+                cornerRadii: cornerRadii,
+                ordersAboveTarget: true
+            )
+        )
+        try await assertBorderPresentation(
+            borderWindow,
+            expected: .green,
+            expectedClient: expectedClient,
+            targetFrame: largeFrame,
+            borderWidth: borderWidth,
+            scale: screen.backingScaleFactor,
+            cornerRadii: cornerRadii,
+            captureRegion: captureRegion,
+            filter: filter,
+            configuration: configuration,
+            watch: watch,
+            label: "border-green-above-target"
         )
     }
 
@@ -342,22 +392,14 @@ final class SurfacePresentationLiveTests: XCTestCase {
         let railWindow = try XCTUnwrap(manager.existingWindow(for: key))
         railWindow.displayIfNeeded()
         railWindow.contentView?.display()
-        await settle(for: .milliseconds(350))
 
-        let shareable = try await SCShareableContent.currentProcess
-        guard let display = shareable.displays.first(where: { $0.displayID == displayId }) else {
-            throw XCTSkip("ScreenCaptureKit did not expose the target display")
-        }
         let clientWid = CGWindowID(clientWindow.windowNumber)
         let railWid = CGWindowID(railWindow.windowNumber)
-        guard let clientCaptureWindow = shareable.windows.first(where: { $0.windowID == clientWid }),
-              let railCaptureWindow = shareable.windows.first(where: { $0.windowID == railWid })
-        else {
-            throw XCTSkip("ScreenCaptureKit did not expose both measurement windows")
-        }
-        guard clientCaptureWindow.isOnScreen, railCaptureWindow.isOnScreen else {
-            throw XCTSkip("Both measurement windows must be on-screen")
-        }
+        let shareable = try await SCShareableContent.currentProcess
+        let display = try XCTUnwrap(shareable.displays.first { $0.displayID == displayId })
+        let presented = try await presentedWindows([clientWid, railWid], on: display)
+        let clientCaptureWindow = presented[0]
+        let railCaptureWindow = presented[1]
 
         let captureRegion = captureRegionForRailMotion(baseFrame: baseFrame, displayFrame: display.frame)
         let filter = SCContentFilter(
@@ -365,8 +407,14 @@ final class SurfacePresentationLiveTests: XCTestCase {
             including: [clientCaptureWindow, railCaptureWindow]
         )
         let captureScale = CGFloat(filter.pointPixelScale)
+        let railFrame = railWindow.frame
+        let (located, locatedChanged) = boundedChanges()
         let output = RailCompositeCaptureOutput(
+            changed: locatedChanged,
             clientWidthPixels: Int((baseFrame.width * captureScale).rounded()),
+            railLeadingPixels: Int(((railFrame.minX - baseFrame.minX) * captureScale).rounded()),
+            railSpanPixels: Int(((railFrame.width + SurfaceMeasurement.calibrationShift) * captureScale).rounded()),
+            railHeightPixels: Int((railFrame.height * captureScale).rounded()),
             pointPixelScale: captureScale,
             backgroundColor: CGColor(
                 colorSpace: CGColorSpace(name: CGColorSpace.sRGB)!,
@@ -421,47 +469,44 @@ final class SurfacePresentationLiveTests: XCTestCase {
         try stream.addStreamOutput(output, type: .screen, sampleHandlerQueue: outputQueue)
         try await stream.startCapture()
 
-        let baselineReady = await waitUntil(timeout: .seconds(3)) {
-            output.snapshot().locatedSamples.count >= 1
-        }
-        guard baselineReady else {
+        let baselineReady = { !output.snapshot().locatedSamples.isEmpty }
+        await located.wait("no locatable composite frame", until: baselineReady)
+        guard baselineReady() else {
             try? await stream.stopCapture()
             outputQueue.sync {}
-            let snapshot = output.snapshot()
-            XCTFail(
-                "ScreenCaptureKit produced no locatable composite frame"
-                    + " callbacks=\(snapshot.callbacks) complete=\(snapshot.completeFrames)"
-            )
             return
         }
         let baselineSnapshot = output.snapshot()
         let baselineOffset = median(baselineSnapshot.locatedSamples.map(\.relativeOffsetPixels))
         let initialDisplayTime = baselineSnapshot.locatedSamples.last?.displayTime ?? 0
-        let calibrationFrame = baseFrame.offsetBy(dx: 24, dy: 0)
-        manager.applyAnimationGeometry([
-            TabRailGeometryCommand(
-                key: key,
-                tileFrame: calibrationFrame,
-                visibleTileFrame: calibrationFrame
+        let calibrationShiftPixels = Double(SurfaceMeasurement.calibrationShift * captureScale)
+        let calibrationFrame = baseFrame.offsetBy(dx: SurfaceMeasurement.calibrationShift, dy: 0)
+        let shiftRail = { (frame: CGRect) in
+            manager.applyAnimationGeometry(
+                [TabRailGeometryCommand(key: key, tileFrame: frame, visibleTileFrame: frame)], in: workspaceId
             )
-        ], in: workspaceId)
-        let calibrationDetected = await waitUntil(timeout: .seconds(2)) {
+        }
+        let railIsShifted = { (after: UInt64) in
             output.snapshot().locatedSamples.last.map {
-                $0.displayTime > initialDisplayTime
-                    && abs($0.relativeOffsetPixels - baselineOffset) >= 20 * captureScale
+                $0.displayTime > after
+                    && abs($0.relativeOffsetPixels - baselineOffset - calibrationShiftPixels)
+                    <= SurfaceMeasurement.onePixel
             } == true
         }
+        let railIsAligned = {
+            output.snapshot().locatedSamples.last.map {
+                abs($0.relativeOffsetPixels - baselineOffset) <= SurfaceMeasurement.onePixel
+            } == true
+        }
+        shiftRail(calibrationFrame)
+        await located.wait("the rail did not reach its calibration offset") { railIsShifted(initialDisplayTime) }
+        let calibrationDetected = railIsShifted(initialDisplayTime)
         let calibrationOffset = output.snapshot().locatedSamples.last.map {
             $0.relativeOffsetPixels - baselineOffset
         } ?? 0
-        manager.applyAnimationGeometry([
-            TabRailGeometryCommand(key: key, tileFrame: baseFrame, visibleTileFrame: baseFrame)
-        ], in: workspaceId)
-        let calibrationRealigned = await waitUntil(timeout: .seconds(2)) {
-            output.snapshot().locatedSamples.last.map {
-                abs($0.relativeOffsetPixels - baselineOffset) <= 1
-            } == true
-        }
+        shiftRail(baseFrame)
+        await located.wait("the rail did not return to its client", until: railIsAligned)
+        let calibrationRealigned = railIsAligned()
         guard calibrationDetected, calibrationRealigned else {
             try? await stream.stopCapture()
             outputQueue.sync {}
@@ -496,13 +541,17 @@ final class SurfacePresentationLiveTests: XCTestCase {
             }
         }
         await driver.run(on: screen)
-        await settle(for: .milliseconds(500))
+        let lastMotionTime = output.snapshot().locatedSamples.last?.displayTime ?? baselineDisplayTime
+        let finalFrame = railMotionFrame(index: requestedFrames - 1, baseFrame: baseFrame)
+        shiftRail(finalFrame.offsetBy(dx: SurfaceMeasurement.calibrationShift, dy: 0))
+        await located.wait("the end-of-motion marker never appeared") { railIsShifted(lastMotionTime) }
+        let endOfMotion = output.snapshot().locatedSamples.last?.displayTime ?? lastMotionTime
         try await stream.stopCapture()
         outputQueue.sync {}
 
         let snapshot = output.snapshot()
         let motionSamples = snapshot.locatedSamples
-            .filter { $0.displayTime > baselineDisplayTime }
+            .filter { $0.displayTime > baselineDisplayTime && $0.displayTime < endOfMotion }
             .sorted { $0.displayTime < $1.displayTime }
         let movementSamples = movementBearingSamples(motionSamples)
         let absoluteErrors = movementSamples.map {
@@ -514,7 +563,7 @@ final class SurfacePresentationLiveTests: XCTestCase {
         let signedErrorHistogram = Dictionary(grouping: signedErrors) {
             String(Int($0.rounded()))
         }.mapValues(\.count)
-        let aligned = absoluteErrors.filter { $0 <= 1 }.count
+        let aligned = absoluteErrors.filter { $0 <= SurfaceMeasurement.onePixel }.count
         let alignedRate = Double(aligned) / Double(max(1, absoluteErrors.count))
         let report = RailPresentationReport(
             schema: 1,
@@ -536,8 +585,8 @@ final class SurfacePresentationLiveTests: XCTestCase {
             alignedRate: alignedRate,
             signedErrorHistogram: signedErrorHistogram,
             lagVerdict: lagVerdict(signedErrors: signedErrors),
-            railBehindSamples: signedErrors.filter { $0 < -0.5 }.count,
-            clientBehindSamples: signedErrors.filter { $0 > 0.5 }.count,
+            railBehindSamples: signedErrors.filter { $0 < 0 }.count,
+            clientBehindSamples: signedErrors.filter { $0 > 0 }.count,
             absoluteErrorP50Pixels: percentile(absoluteErrors, 0.50),
             absoluteErrorP95Pixels: percentile(absoluteErrors, 0.95),
             absoluteErrorP99Pixels: percentile(absoluteErrors, 0.99),
@@ -548,13 +597,12 @@ final class SurfacePresentationLiveTests: XCTestCase {
         )
         try emit(report, label: "rail-presentation")
 
-        XCTAssertGreaterThanOrEqual(movementSamples.count, requestedFrames / 4)
+        XCTAssertGreaterThanOrEqual(movementSamples.count, Self.railSweepFrames - Self.railSweepSettleSamples)
         XCTAssertEqual(snapshot.submissionFailures, 0)
         XCTAssertEqual(snapshot.frameStatusCounts[SCFrameStatus.blank.rawValue, default: 0], 0)
         XCTAssertEqual(snapshot.frameStatusCounts[SCFrameStatus.suspended.rawValue, default: 0], 0)
-        XCTAssertGreaterThanOrEqual(alignedRate, 0.99)
-        XCTAssertLessThanOrEqual(percentile(absoluteErrors, 0.99), 1)
-        XCTAssertLessThanOrEqual(absoluteErrors.max() ?? 0, 1)
+        XCTAssertEqual(aligned, absoluteErrors.count)
+        XCTAssertLessThanOrEqual(absoluteErrors.max() ?? 0, SurfaceMeasurement.onePixel)
     }
 
     private func clientFrame(on screen: NSScreen) -> CGRect {
@@ -708,48 +756,24 @@ final class SurfacePresentationLiveTests: XCTestCase {
         ]
     }
 
-    private func capturedBorderPresentationColor(
-        at appKitPoint: CGPoint,
-        captureRegion: CGRect,
-        filter: SCContentFilter,
-        configuration: SCStreamConfiguration
-    ) async throws -> BorderPresentationRGB {
-        let image = try await SCScreenshotManager.captureImage(
-            contentFilter: filter,
-            configuration: configuration
-        )
-        let bitmap = try XCTUnwrap(BorderPresentationBitmap(image: image))
-        let pixelPoint = borderPresentationPixelPoint(
-            for: appKitPoint,
-            captureRegion: captureRegion,
-            bitmap: bitmap
-        )
-        return try XCTUnwrap(bitmap.medianColor(at: pixelPoint))
-    }
-
     private func assertBorderPresentation(
         _ borderWindow: BorderWindow,
         expected: BorderPresentationRGB,
         expectedClient: BorderPresentationRGB,
         targetFrame: CGRect,
         borderWidth: CGFloat,
+        scale: CGFloat,
         cornerRadii: WindowCornerRadii,
         captureRegion: CGRect,
         filter: SCContentFilter,
         configuration: SCStreamConfiguration,
+        watch: ScreenWatch,
         label: String
     ) async throws {
-        XCTAssertTrue(
-            try XCTUnwrap(borderWindow.targetFrameOnScreen)
-                .approximatelyEqual(to: targetFrame, tolerance: 0.5)
-        )
-        XCTAssertTrue(
-            try XCTUnwrap(borderWindow.frameOnScreen)
-                .approximatelyEqual(
-                    to: targetFrame.insetBy(dx: -borderWidth, dy: -borderWidth),
-                    tolerance: 0.5
-                )
-        )
+        let geometry = BorderConfig(enabled: true, width: borderWidth)
+            .resolvedGeometry(for: targetFrame, scale: scale)
+        XCTAssertEqual(borderWindow.targetFrameOnScreen, geometry.targetFrame)
+        XCTAssertEqual(borderWindow.frameOnScreen, geometry.surfaceFrame)
         let borderSamples = exteriorBorderPresentationSamples(
             targetFrame: targetFrame,
             borderWidth: borderWidth,
@@ -759,10 +783,9 @@ final class SurfacePresentationLiveTests: XCTestCase {
             targetFrame: targetFrame,
             borderWidth: borderWidth
         )
-        let clock = ContinuousClock()
-        let deadline = clock.now.advanced(by: .seconds(2))
         var lastImage: CGImage?
         var lastMismatches: [String] = []
+        var frames = watch.changes.makeAsyncIterator()
         repeat {
             if let image = try? await SCScreenshotManager.captureImage(
                    contentFilter: filter,
@@ -805,8 +828,7 @@ final class SurfacePresentationLiveTests: XCTestCase {
                     return
                 }
             }
-            try? await Task.sleep(for: .milliseconds(25))
-        } while clock.now < deadline
+        } while await frames.next() != nil
 
         if let lastImage {
             try writeBorderPresentationImage(lastImage, label: "\(label)-failed")
@@ -833,9 +855,10 @@ final class SurfacePresentationLiveTests: XCTestCase {
         _ actual: BorderPresentationRGB,
         matches expected: BorderPresentationRGB
     ) -> Bool {
-        abs(actual.red - expected.red) <= 16
-            && abs(actual.green - expected.green) <= 16
-            && abs(actual.blue - expected.blue) <= 16
+        let rounding = SurfaceMeasurement.colorConversionsInCapture * SurfaceMeasurement.channelStepsPerConversion
+        return abs(actual.red - expected.red) <= rounding
+            && abs(actual.green - expected.green) <= rounding
+            && abs(actual.blue - expected.blue) <= rounding
     }
 
     private func writeBorderPresentationImage(_ image: CGImage, label: String) throws {
@@ -855,7 +878,8 @@ final class SurfacePresentationLiveTests: XCTestCase {
     private func captureRegionForRailMotion(baseFrame: CGRect, displayFrame: CGRect) -> CGRect {
         let left = railMotionFrame(index: 0, baseFrame: baseFrame)
         let right = railMotionFrame(index: Self.railSweepFrames - 1, baseFrame: baseFrame)
-        let appKitBounds = left.union(right).insetBy(dx: -48, dy: -48)
+        let margin = SurfaceMeasurement.calibrationShift + TabRailMetrics.hitWidth
+        let appKitBounds = left.union(right).insetBy(dx: -margin, dy: -margin)
         return ScreenCoordinateSpace.toWindowServer(rect: appKitBounds).intersection(displayFrame)
     }
 
@@ -894,12 +918,14 @@ final class SurfacePresentationLiveTests: XCTestCase {
     }
 
     private func lagVerdict(signedErrors: [Double]) -> String {
-        let behind = signedErrors.filter { $0 < -0.5 }.count
-        let ahead = signedErrors.filter { $0 > 0.5 }.count
-        guard behind + ahead > 0 else { return "aligned" }
-        let ratio = Double(max(behind, ahead)) / Double(behind + ahead)
-        guard ratio >= 0.8 else { return "mixed" }
-        return behind > ahead ? "rail-lags-client" : "client-lags-rail"
+        let behind = signedErrors.contains { $0 < 0 }
+        let ahead = signedErrors.contains { $0 > 0 }
+        switch (behind, ahead) {
+        case (false, false): return "aligned"
+        case (true, false): return "rail-lags-client"
+        case (false, true): return "client-lags-rail"
+        case (true, true): return "mixed"
+        }
     }
 
     private func percentile(_ values: [Double], _ quantile: Double) -> Double {
@@ -964,27 +990,84 @@ final class SurfacePresentationLiveTests: XCTestCase {
         }
     }
 
-    private func waitUntil(
-        timeout: Duration,
-        condition: @escaping @Sendable () -> Bool
-    ) async -> Bool {
-        let clock = ContinuousClock()
-        let deadline = clock.now.advanced(by: timeout)
-        repeat {
-            if condition() {
-                return true
-            }
-            try? await Task.sleep(for: .milliseconds(20))
-        } while clock.now < deadline
-        return false
+    private func presentedWindows(_ ids: [CGWindowID], on display: SCDisplay) async throws -> [SCWindow] {
+        let watch = try await ScreenWatch.started(
+            filter: SCContentFilter(display: display, excludingWindows: []),
+            configuration: SCStreamConfiguration()
+        )
+        var frames = watch.changes.makeAsyncIterator()
+        var presented: [SCWindow] = []
+        while true {
+            let content = try await SCShareableContent.currentProcess
+            presented = ids.compactMap { id in content.windows.first { $0.windowID == id && $0.isOnScreen } }
+            guard presented.count < ids.count, await frames.next() != nil else { break }
+        }
+        await watch.stop()
+        guard presented.count == ids.count else { throw MissingMeasurementWindows() }
+        return presented
+    }
+}
+
+private struct MissingMeasurementWindows: Error {}
+
+private final class ScreenChangeOutput: NSObject, SCStreamOutput, Sendable {
+    private let changed: AsyncStream<Void>.Continuation
+
+    init(changed: AsyncStream<Void>.Continuation) {
+        self.changed = changed
     }
 
-    private func settle(for duration: Duration) async {
-        try? await Task.sleep(for: duration)
+    func stream(
+        _: SCStream,
+        didOutputSampleBuffer sampleBuffer: CMSampleBuffer,
+        of outputType: SCStreamOutputType
+    ) {
+        guard outputType == .screen, sampleBuffer.surfaceFrameStatus == .complete else { return }
+        changed.yield()
+    }
+}
+
+@MainActor
+private final class ScreenWatch {
+    let changes: AsyncStream<Void>
+    private let stream: SCStream
+    private let output: ScreenChangeOutput
+
+    private init(filter: SCContentFilter, configuration: SCStreamConfiguration) throws {
+        let (changes, changed) = boundedChanges()
+        self.changes = changes
+        output = ScreenChangeOutput(changed: changed)
+        stream = SCStream(filter: filter, configuration: configuration, delegate: nil)
+        try stream.addStreamOutput(
+            output, type: .screen,
+            sampleHandlerQueue: DispatchQueue(label: "com.omniwm.surface-presentation-watch", qos: .userInteractive)
+        )
+    }
+
+    static func started(filter: SCContentFilter, configuration: SCStreamConfiguration) async throws -> ScreenWatch {
+        let watch = try ScreenWatch(filter: filter, configuration: configuration)
+        try await watch.stream.startCapture()
+        return watch
+    }
+
+    func stop() async {
+        try? await stream.stopCapture()
+    }
+}
+
+private extension CMSampleBuffer {
+    var surfaceFrameStatus: SCFrameStatus? {
+        guard let attachments = CMSampleBufferGetSampleAttachmentsArray(self, createIfNecessary: false)
+            as? [[SCStreamFrameInfo: Any]],
+            let status = attachments.first?[.status] as? NSNumber
+        else { return nil }
+        return SCFrameStatus(rawValue: status.intValue)
     }
 }
 
 private final class RailCompositeCaptureOutput: NSObject, SCStreamOutput, @unchecked Sendable {
+    private static let channelMidpoint: UInt8 = 128
+
     struct LocatedSample: Sendable {
         let displayTime: UInt64
         let clientOriginPixels: Int
@@ -1013,14 +1096,30 @@ private final class RailCompositeCaptureOutput: NSObject, SCStreamOutput, @unche
         var submissionFailures = 0
     }
 
+    private let changed: AsyncStream<Void>.Continuation
     private let clientWidthPixels: Int
+    private let railLeadingPixels: Int
+    private let railSpanPixels: Int
+    private let railHeightPixels: Int
     private let pointPixelScale: CGFloat
     let backgroundColor: CGColor
     private let lock = NSLock()
     private var state = State()
 
-    init(clientWidthPixels: Int, pointPixelScale: CGFloat, backgroundColor: CGColor) {
+    init(
+        changed: AsyncStream<Void>.Continuation,
+        clientWidthPixels: Int,
+        railLeadingPixels: Int,
+        railSpanPixels: Int,
+        railHeightPixels: Int,
+        pointPixelScale: CGFloat,
+        backgroundColor: CGColor
+    ) {
+        self.changed = changed
         self.clientWidthPixels = clientWidthPixels
+        self.railLeadingPixels = railLeadingPixels
+        self.railSpanPixels = railSpanPixels
+        self.railHeightPixels = railHeightPixels
         self.pointPixelScale = pointPixelScale
         self.backgroundColor = backgroundColor
     }
@@ -1053,6 +1152,7 @@ private final class RailCompositeCaptureOutput: NSObject, SCStreamOutput, @unche
 
         guard let located = locateWindows(in: pixelBuffer, displayTime: displayTime) else { return }
         lock.withLock { state.locatedSamples.append(located) }
+        changed.yield()
     }
 
     func noteDeferredSubmission() {
@@ -1099,8 +1199,9 @@ private final class RailCompositeCaptureOutput: NSObject, SCStreamOutput, @unche
         }
         guard clientRight >= clientWidthPixels - 1 else { return nil }
         let clientOrigin = clientRight - clientWidthPixels + 1
-        let scanMinX = max(0, clientOrigin - Int((6 * pointPixelScale).rounded()))
-        let scanMaxX = min(width - 1, clientOrigin + Int((28 * pointPixelScale).rounded()))
+        let scanMinX = max(0, clientOrigin + railLeadingPixels)
+        let scanMaxX = min(width - 1, scanMinX + railSpanPixels)
+        let minimumRailPixels = Int((TabRailMetrics.minimumSegmentHeight * pointPixelScale).rounded())
         var railAnchor: Int?
 
         for x in scanMinX ... scanMaxX {
@@ -1111,7 +1212,7 @@ private final class RailCompositeCaptureOutput: NSObject, SCStreamOutput, @unche
                     railPixelCount += 1
                 }
             }
-            if railPixelCount >= 8, railPixelCount < max(16, height * 3 / 4) {
+            if railPixelCount >= minimumRailPixels, railPixelCount <= railHeightPixels {
                 railAnchor = x
                 break
             }
@@ -1129,7 +1230,8 @@ private final class RailCompositeCaptureOutput: NSObject, SCStreamOutput, @unche
         let green = pixel[1]
         let red = pixel[2]
         let alpha = pixel[3]
-        return blue >= 225 && red >= 225 && green <= 100 && alpha >= 225
+        return blue >= Self.channelMidpoint && red >= Self.channelMidpoint
+            && green < Self.channelMidpoint && alpha >= Self.channelMidpoint
     }
 
     private func isRailPixel(_ pixel: UnsafePointer<UInt8>) -> Bool {
@@ -1137,8 +1239,9 @@ private final class RailCompositeCaptureOutput: NSObject, SCStreamOutput, @unche
         let green = pixel[1]
         let red = pixel[2]
         let alpha = pixel[3]
-        let isBackground = green >= 240 && red >= 240 && blue >= 240
-        return alpha >= 32 && !isBackground && !isClientPixel(pixel)
+        let isBackground = green >= Self.channelMidpoint && red >= Self.channelMidpoint
+            && blue >= Self.channelMidpoint
+        return alpha >= Self.channelMidpoint && !isBackground && !isClientPixel(pixel)
     }
 }
 
