@@ -75,9 +75,15 @@ final class HiddenBarClickForwarder {
     }
 
     nonisolated static func isCoveredByOwnWindow(_ point: CGPoint) -> Bool {
+        isCoveredByOwnWindow(
+            point,
+            windows: CGWindowListCopyWindowInfo([.optionOnScreenOnly, .excludeDesktopElements], kCGNullWindowID)
+                as? [[String: Any]] ?? []
+        )
+    }
+
+    nonisolated static func isCoveredByOwnWindow(_ point: CGPoint, windows: [[String: Any]]) -> Bool {
         let own = ProcessInfo.processInfo.processIdentifier
-        let windows = CGWindowListCopyWindowInfo([.optionOnScreenOnly, .excludeDesktopElements], kCGNullWindowID)
-            as? [[String: Any]] ?? []
         return windows.contains { window in
             guard window[kCGWindowOwnerPID as String] as? pid_t == own,
                   let info = window[kCGWindowBounds as String] as? NSDictionary,
