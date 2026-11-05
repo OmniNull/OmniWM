@@ -202,7 +202,6 @@ extension NiriLayoutEngine {
         )
         return viewStart - activePosition
     }
-
 }
 
 struct StripEndPeekRoom: Equatable {
