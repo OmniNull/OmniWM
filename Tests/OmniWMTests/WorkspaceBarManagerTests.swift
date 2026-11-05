@@ -253,6 +253,54 @@ final class WorkspaceBarManagerTests: XCTestCase {
         XCTAssertNil(manager.hiddenBarPanelPlacement(on: monitor.id))
     }
 
+    func testIconClickOpensTheHiddenBarUnderTheIconWhileOtherTriggersJoinTheBar() throws {
+        let settings = controller.settings
+        settings.workspaceBar.enabled = true
+        settings.hiddenBar.enabled = true
+        let hiddenBar = HiddenBarController(settings: settings, hider: NativeMenuBarHider(
+            preferences: NativeMenuBarPreferences(read: {
+                try PropertyListSerialization.data(fromPropertyList: [[String: Any]](), format: .binary, options: 0)
+            }, write: { _ in XCTFail("Opening the hidden bar must not change native preferences") })
+        ))
+        let controller = WMController(settings: settings, hiddenBarController: hiddenBar)
+        controller.workspaceManager.applyMonitorConfigurationChange([monitor])
+        let manager = controller.workspaceBarManager
+        manager.setup(controller: controller, settings: settings)
+        manager.panelFactory = { WorkspaceBarPanel.defaultPanel() }
+        manager.frameApplier = { _, _ in }
+        defer { manager.cleanup() }
+        manager.apply([barSurface(itemCount: 1)])
+        var placements: [HiddenBarPanelPlacement] = []
+        hiddenBar.shellDrawer = HiddenBarShellDrawer(
+            isActive: { true },
+            isOpen: { false },
+            show: { _, _, placement in placements.append(placement) },
+            refresh: { _ in },
+            close: { _ in }
+        )
+        let iconSide = CGFloat(30)
+        let drawerSize = CGSize(width: 3 * iconSide, height: iconSide)
+        let icon = CGRect(
+            x: monitor.visibleFrame.maxX - 2 * drawerSize.width,
+            y: monitor.visibleFrame.maxY - 2 * iconSide,
+            width: iconSide,
+            height: iconSide
+        )
+
+        StatusBarController(settings: settings, controller: controller, hiddenBarController: hiddenBar).routeClick(
+            route: .hiddenIconsBar, anchorFrame: icon, screen: nil, edge: .below, monitorId: monitor.id
+        )
+        controller.toggleHiddenBarPanel(on: monitor.id)
+
+        XCTAssertEqual(placements.count, 2)
+        let underIcon = try XCTUnwrap(placements.first)
+        XCTAssertNil(underIcon.workspaceBar)
+        let drawer = underIcon.layout(size: drawerSize).frame
+        XCTAssertEqual(drawer.midX, icon.midX)
+        XCTAssertEqual(drawer.maxY, icon.minY - PopupAttachment.gap)
+        XCTAssertEqual(placements.last?.workspaceBar?.monitorId, monitor.id)
+    }
+
     func testHiddenBarJoinSquaresOnlyTheJoinedBar() throws {
         let manager = makeManager()
         defer { manager.cleanup() }

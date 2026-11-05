@@ -30,11 +30,11 @@ extension WMController {
         }
     }
 
-    func toggleHiddenBarPanel(on monitorId: Monitor.ID? = nil) {
+    func toggleHiddenBarPanel(on monitorId: Monitor.ID? = nil, attachment: PopupAttachment? = nil) {
         statusBarController?.dismissPanel()
         hiddenBarController.toggleDrawer(
             on: hiddenBarMonitor(on: monitorId)?.id,
-            placement: hiddenBarPanelPlacement(on: monitorId)
+            placement: hiddenBarPanelPlacement(on: monitorId, attachment: attachment)
         )
     }
 
@@ -45,8 +45,14 @@ extension WMController {
             ?? monitors.first(where: \.isMain) ?? monitors.first
     }
 
-    private func hiddenBarPanelPlacement(on monitorId: Monitor.ID?) -> HiddenBarPanelPlacement? {
+    private func hiddenBarPanelPlacement(
+        on monitorId: Monitor.ID?,
+        attachment: PopupAttachment?
+    ) -> HiddenBarPanelPlacement? {
         guard let monitor = hiddenBarMonitor(on: monitorId) else { return nil }
+        if let attachment {
+            return HiddenBarPanelPlacement(attachment: attachment, visibleFrame: monitor.visibleFrame)
+        }
         let resolved = settings.workspaceBar.resolved(for: monitor)
         if isWorkspaceBarVisible(on: monitor, resolved: resolved),
            let placement = workspaceBarManager.hiddenBarPanelPlacement(on: monitor.id)

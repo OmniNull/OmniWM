@@ -132,7 +132,10 @@ final class StatusBarController: NSObject {
     ) {
         switch route {
         case .hiddenIconsBar:
-            controller?.toggleHiddenBarPanel(on: monitorId)
+            controller?.toggleHiddenBarPanel(
+                on: monitorId,
+                attachment: PopupAttachment(sourceFrame: anchorFrame, edge: edge)
+            )
         case .menu:
             hiddenBarController.dismissPanel()
             menuHost?.toggle(anchorFrame: anchorFrame, screen: screen, edge: edge)
