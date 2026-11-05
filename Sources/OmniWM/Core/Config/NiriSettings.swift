@@ -120,7 +120,7 @@ final class NiriSettings {
         }
     }
 
-    static func validatedEdgePeekPercent(_ percent: Double) -> Double {
+    nonisolated static func validatedEdgePeekPercent(_ percent: Double) -> Double {
         min(10, max(1, percent))
     }
 
@@ -210,8 +210,14 @@ final class NiriSettings {
             edgeOverscroll: NiriEdgeOverscroll(
                 allowed: override?.allowOverscroll ?? allowOverscroll,
                 visibleStripPercent: override?.overscrollVisibleStripPercent ?? overscrollVisibleStripPercent
-            )
+            ),
+            edgePeekShare: edgePeekShare(override: override)
         )
+    }
+
+    private func edgePeekShare(override: MonitorNiriSettings?) -> CGFloat? {
+        guard macOSFusion, override?.edgePeek ?? edgePeek else { return nil }
+        return CGFloat(override?.edgePeekPercent ?? edgePeekPercent) / 100
     }
 
     nonisolated static let defaultContainerPrimarySpanPresets: [Double] = BuiltInSettingsDefaults

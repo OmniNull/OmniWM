@@ -63,7 +63,8 @@ extension NiriLayoutEngine {
             alwaysCenterSingleColumn: alwaysCenterSingleColumn,
             singleWindowFit: singleWindowFit,
             infiniteLoop: infiniteLoop,
-            edgeOverscroll: edgeOverscroll
+            edgeOverscroll: edgeOverscroll,
+            edgePeekShare: edgePeekShare
         )
     }
 

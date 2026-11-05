@@ -10,9 +10,17 @@ struct EdgePeekWidths: Equatable {
 }
 
 extension NiriLayoutEngine {
+    func edgePeekShare(onDisplayWith viewFrame: CGRect?) -> CGFloat? {
+        guard let viewFrame else { return nil }
+        guard let resolved = monitors.values.first(where: { $0.frame == viewFrame })?.resolvedSettings else {
+            return edgePeekShare
+        }
+        return resolved.edgePeekShare
+    }
+
     func edgePeekWidths(viewFrame: CGRect?) -> EdgePeekWidths? {
-        guard let edgePeekShare, let viewFrame else { return nil }
-        let width = (viewFrame.width * edgePeekShare).rounded()
+        guard let viewFrame, let share = edgePeekShare(onDisplayWith: viewFrame) else { return nil }
+        let width = (viewFrame.width * share).rounded()
         let others = monitors.values.map(\.frame).filter { $0 != viewFrame }
         func shared(_ edge: CGFloat, _ otherEdge: (CGRect) -> CGFloat) -> Bool {
             others.contains { other in
@@ -133,10 +141,11 @@ extension NiriLayoutEngine {
     }
 
     func applyEdgePeekCaps(in workspaceId: WorkspaceDescriptor.ID, workingFrame: CGRect, gap: CGFloat) {
-        guard !isLiveColumnMoveActive(in: workspaceId),
-              edgePeekShare != nil || columns(in: workspaceId).contains(where: { $0.edgePeekCap != nil })
-        else { return }
         let monitor = monitorForWorkspace(workspaceId)
+        guard !isLiveColumnMoveActive(in: workspaceId),
+              edgePeekShare(onDisplayWith: monitor?.frame) != nil
+              || columns(in: workspaceId).contains(where: { $0.edgePeekCap != nil })
+        else { return }
         let orientation = monitor?.orientation ?? .horizontal
         let projected = projectedColumns(in: workspaceId)
         let projectedIds = Set(projected.map { ObjectIdentifier($0.column) })

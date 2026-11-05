@@ -633,9 +633,10 @@ final class LiveTitleBarDragTests: NiriInteractionTestCase {
 
     func testClickingAPeekFocusesItsColumnAndScrollsItIntoViewOnRelease() async throws {
         let fixture = try makeFixture(pid: 938_190, windowCount: 5)
-        fixture.manager.withEngineMutationScope(in: fixture.workspaceId) {
-            fixture.engine.edgePeekShare = 0.03
-        }
+        fixture.controller.settings.niri.macOSFusion = true
+        fixture.controller.settings.niri.edgePeek = true
+        fixture.controller.settings.niri.edgePeekPercent = 3
+        fixture.controller.applyMacOSFusionSettings()
         let target = fixture.tokens[3]
         try scroll(fixture, so: target, isHalfOffTheRightEdge: ())
         let before = try fixture.settledFrame(target)

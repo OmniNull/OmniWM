@@ -57,6 +57,8 @@ struct MonitorNiriSettings: MonitorSettingsType {
     var infiniteLoop: Bool?
     var allowOverscroll: Bool?
     var overscrollVisibleStripPercent: Int?
+    var edgePeek: Bool?
+    var edgePeekPercent: Double?
 
     init(
         id: UUID = UUID(),
@@ -70,7 +72,9 @@ struct MonitorNiriSettings: MonitorSettingsType {
         singleWindowFit: SingleWindowFit? = nil,
         infiniteLoop: Bool? = nil,
         allowOverscroll: Bool? = nil,
-        overscrollVisibleStripPercent: Int? = nil
+        overscrollVisibleStripPercent: Int? = nil,
+        edgePeek: Bool? = nil,
+        edgePeekPercent: Double? = nil
     ) {
         self.id = id
         self.monitorName = monitorName
@@ -85,6 +89,8 @@ struct MonitorNiriSettings: MonitorSettingsType {
         self.allowOverscroll = allowOverscroll
         self.overscrollVisibleStripPercent = overscrollVisibleStripPercent
             .map(NiriSettings.validatedOverscrollVisibleStripPercent)
+        self.edgePeek = edgePeek
+        self.edgePeekPercent = edgePeekPercent.map(NiriSettings.validatedEdgePeekPercent)
     }
 
     private enum CodingKeys: String, CodingKey {
@@ -93,6 +99,7 @@ struct MonitorNiriSettings: MonitorSettingsType {
         case centerFocusedColumn, alwaysCenterSingleColumn
         case singleWindowFit
         case infiniteLoop, allowOverscroll, overscrollVisibleStripPercent
+        case edgePeek, edgePeekPercent
     }
 
     init(from decoder: Decoder) throws {
@@ -113,6 +120,9 @@ struct MonitorNiriSettings: MonitorSettingsType {
         allowOverscroll = try container.decodeIfPresent(Bool.self, forKey: .allowOverscroll)
         overscrollVisibleStripPercent = try container.decodeIfPresent(Int.self, forKey: .overscrollVisibleStripPercent)
             .map(NiriSettings.validatedOverscrollVisibleStripPercent)
+        edgePeek = try container.decodeIfPresent(Bool.self, forKey: .edgePeek)
+        edgePeekPercent = try container.decodeIfPresent(Double.self, forKey: .edgePeekPercent)
+            .map(NiriSettings.validatedEdgePeekPercent)
     }
 
     func encode(to encoder: Encoder) throws {
@@ -134,6 +144,8 @@ struct MonitorNiriSettings: MonitorSettingsType {
         try container.encodeIfPresent(infiniteLoop, forKey: .infiniteLoop)
         try container.encodeIfPresent(allowOverscroll, forKey: .allowOverscroll)
         try container.encodeIfPresent(overscrollVisibleStripPercent, forKey: .overscrollVisibleStripPercent)
+        try container.encodeIfPresent(edgePeek, forKey: .edgePeek)
+        try container.encodeIfPresent(edgePeekPercent, forKey: .edgePeekPercent)
     }
 }
 
@@ -145,4 +157,5 @@ struct ResolvedNiriSettings: Equatable {
     let singleWindowFit: SingleWindowFit
     let infiniteLoop: Bool
     var edgeOverscroll: NiriEdgeOverscroll = .disabled
+    var edgePeekShare: CGFloat?
 }

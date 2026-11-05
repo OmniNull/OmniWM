@@ -482,6 +482,34 @@ private struct MonitorNiriSettingsSection: View {
         }
         .id("Niri Layout")
 
+        Section("macOS Fusion") {
+            OverridableToggle(
+                label: String(localized: "Peek at Neighboring Windows"),
+                value: ms.edgePeek,
+                globalValue: settings.niri.edgePeek,
+                onChange: { newValue in updateSetting { $0.edgePeek = newValue } },
+                onReset: { updateSetting { $0.edgePeek = nil } }
+            )
+            .disabled(!settings.niri.macOSFusion)
+
+            OverridableSlider(
+                label: String(localized: "Peek Width"),
+                value: ms.edgePeekPercent,
+                globalValue: settings.niri.edgePeekPercent,
+                range: 1 ... 10,
+                step: 0.5,
+                formatter: { $0.formatted(.number.precision(.fractionLength(0 ... 1))) + "%" },
+                onChange: { newValue in updateSetting { $0.edgePeekPercent = newValue } },
+                onReset: { updateSetting { $0.edgePeekPercent = nil } }
+            )
+            .disabled(!settings.niri.macOSFusion || !(ms.edgePeek ?? settings.niri.edgePeek))
+
+            SettingsCaption(
+                localized: "Keeps part of the next window in view at each screen edge that has more windows, so columns and resizing never cover it. Peek Width is a share of each display’s width."
+            )
+        }
+        .id("macOS Fusion")
+
         NiriDefaultSpanSettingsSection(allowsGlobal: true, mode: spanMode, percent: spanPercent)
     }
 }
