@@ -1284,6 +1284,9 @@
         }
       }
     },
+    "macOS Fusion keeps each window’s own width, so Visible Containers applies only with macOS Fusion off." : {
+
+    },
     "Keeps part of the next window in view at each screen edge that has more windows, so columns and resizing never cover it. Peek Width is a share of each display’s width." : {
       "localizations" : {
         "ar" : {

@@ -183,7 +183,7 @@ extension NiriLayoutEngine {
     }
 
     private func rederiveAutomaticContainerSpans(in root: NiriRoot, for monitor: NiriMonitor) {
-        guard effectiveSettings(for: monitor.id).defaultContainerPrimarySpan == nil else { return }
+        guard !keepsWindowWidths, effectiveSettings(for: monitor.id).defaultContainerPrimarySpan == nil else { return }
         let reset = resolvedContainerResetPrimarySpan(for: monitor.id)
         switch monitor.orientation {
         case .horizontal:

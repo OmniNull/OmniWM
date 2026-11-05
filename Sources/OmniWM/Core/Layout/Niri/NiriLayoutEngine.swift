@@ -149,6 +149,8 @@ final class NiriLayoutEngine {
 
     var clipsOverflowToDisplay = false
 
+    var keepsWindowWidths = false
+
     var edgePeekShare: CGFloat?
 
     var defaultContainerPrimarySpan: CGFloat? = 0.5
@@ -379,6 +381,9 @@ extension NiriLayoutEngine {
         if let defaultSpan = settings.defaultContainerPrimarySpan {
             let span = CGFloat(defaultSpan)
             return (span, matchingPresetIndex(for: span))
+        }
+        if keepsWindowWidths, case let .proportion(span)? = presetContainerPrimarySpans.first?.kind {
+            return (span, 0)
         }
         return (1.0 / CGFloat(settings.visibleContainerCount), nil)
     }

@@ -83,9 +83,16 @@ private struct GlobalNiriSettingsSection: View {
                 valueWidth: 32
             )
             .id("Visible Containers")
+            .disabled(settings.niri.macOSFusion)
             .onChange(of: settings.niri.visibleContainerCount) { _, newValue in
                 controller.updateNiriConfig(visibleContainerCount: newValue)
                 controller.rebalanceNiriSizesForVisibleContainerCountChange()
+            }
+
+            if settings.niri.macOSFusion {
+                SettingsCaption(
+                    localized: "macOS Fusion keeps each window’s own width, so Visible Containers applies only with macOS Fusion off."
+                )
             }
 
             Toggle("Infinite Loop Navigation", isOn: Bindable(settings.niri).infiniteLoop)
@@ -424,6 +431,13 @@ private struct MonitorNiriSettingsSection: View {
                 },
                 onReset: { updateSetting { $0.visibleContainerCount = nil } }
             )
+            .disabled(settings.niri.macOSFusion)
+
+            if settings.niri.macOSFusion {
+                SettingsCaption(
+                    localized: "macOS Fusion keeps each window’s own width, so Visible Containers applies only with macOS Fusion off."
+                )
+            }
 
             OverridableToggle(
                 label: String(localized: "Infinite Loop Navigation"),
