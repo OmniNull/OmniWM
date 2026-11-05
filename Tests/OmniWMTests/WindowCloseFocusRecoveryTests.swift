@@ -675,6 +675,7 @@ final class WindowCloseFocusRecoveryTests: XCTestCase {
 
     private static func makeFixture() throws -> Fixture {
         let controller = WindowAdmissionTestSupport.controller(prefix: "OmniWMWindowCloseFocusRecoveryTests")
+        controller.motionPolicy.animationsEnabled = false
         let localWorkspaceId = try XCTUnwrap(
             controller.workspaceManager.workspaceId(for: "1", createIfMissing: true)
         )
