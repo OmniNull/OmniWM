@@ -125,6 +125,9 @@ enum SurfaceDerivation {
     ) -> CGRect? {
         switch policy {
         case .complete:
+            if world.hasMotion(in: entry.workspaceId), let planned = world.cachedBorderFrame(for: entry) {
+                return planned
+            }
             return world.borderFrame(for: entry)
         case let .animation(previous):
             if let cached = world.cachedBorderFrame(for: entry) {

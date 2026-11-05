@@ -1837,6 +1837,56 @@ final class WindowCornerRadiiTests: XCTestCase {
     }
 
     @MainActor
+    func testBorderTakesThePendingWriteDuringMotionAndLiveBoundsOnceMotionEnds() throws {
+        let fixture = try borderFrameFixture()
+        fixture.controller.hasStartedServices = true
+        XCTAssertTrue(fixture.controller.workspaceManager.setManagedFocus(
+            fixture.entry.token,
+            in: fixture.entry.workspaceId
+        ))
+        let pending = CGRect(x: 10, y: 20, width: 900, height: 600)
+        let delayedWindow = CGRect(x: 40, y: 50, width: 800, height: 500)
+        XCTAssertNotNil(fixture.controller.axManager.stageFrameWrite(for: AXFrameApplicationTarget(
+            pid: fixture.entry.pid,
+            window: try XCTUnwrap(fixture.entry.axRef),
+            frame: pending
+        )))
+        var liveReads = 0
+        let world = WorldView(controller: fixture.controller, liveBoundsProvider: { _ in
+            liveReads += 1
+            return delayedWindow
+        })
+        let driver = fixture.controller.workspaceManager.animationDriver
+
+        XCTAssertNotNil(driver.beginGesture(in: fixture.entry.workspaceId, isTrackpad: true))
+        XCTAssertEqual(SurfaceDerivation.deriveBorder(world: world)?.frame, pending)
+        XCTAssertEqual(liveReads, 0)
+
+        driver.removeMotions(for: [fixture.entry.workspaceId])
+        XCTAssertEqual(SurfaceDerivation.deriveBorder(world: world)?.frame, delayedWindow)
+        XCTAssertEqual(liveReads, 1)
+    }
+
+    @MainActor
+    func testBorderReadsLiveBoundsDuringMotionWhenNoPlannedFrameIsKnown() throws {
+        let fixture = try borderFrameFixture()
+        fixture.controller.hasStartedServices = true
+        XCTAssertTrue(fixture.controller.workspaceManager.setWindowMode(.tiling, for: fixture.entry.token))
+        XCTAssertTrue(fixture.controller.workspaceManager.setManagedFocus(
+            fixture.entry.token,
+            in: fixture.entry.workspaceId
+        ))
+        let live = CGRect(x: 40, y: 50, width: 800, height: 500)
+        let world = WorldView(controller: fixture.controller, liveBoundsProvider: { _ in live })
+        let entry = try XCTUnwrap(fixture.controller.workspaceManager.entry(for: fixture.entry.token))
+        XCTAssertNil(world.cachedBorderFrame(for: entry))
+        XCTAssertNotNil(
+            fixture.controller.workspaceManager.animationDriver.beginGesture(in: entry.workspaceId, isTrackpad: true)
+        )
+        XCTAssertEqual(SurfaceDerivation.deriveBorder(world: world)?.frame, live)
+    }
+
+    @MainActor
     /// After an AX write settles, a divergent live frame is used for the border.
     func testBorderFrameUsesDivergentLiveBoundsAfterAXWriteSettles() throws {
         let fixture = try borderFrameFixture()

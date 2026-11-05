@@ -311,6 +311,10 @@ struct WorldView {
         return cachedBorderFrame(for: entry)
     }
 
+    func hasMotion(in workspaceId: WorkspaceDescriptor.ID) -> Bool {
+        controller.workspaceManager.animationDriver.hasMotion(in: workspaceId)
+    }
+
     func cachedBorderFrame(for entry: WindowState) -> CGRect? {
         if let pending = controller.axManager.pendingFrameWrite(for: entry.windowId) {
             return pending

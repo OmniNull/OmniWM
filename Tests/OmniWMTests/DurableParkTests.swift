@@ -211,6 +211,99 @@ final class DurableParkTests: XCTestCase {
         }
     }
 
+    private func hideFixture(pid: pid_t, windowId: Int) throws -> (
+        controller: WMController, monitor: Monitor, workspaceId: WorkspaceDescriptor.ID, token: WindowToken
+    ) {
+        let controller = Self.controller()
+        let monitor = Self.monitor()
+        controller.workspaceManager.applyMonitorConfigurationChange([monitor])
+        let workspaceId = try XCTUnwrap(controller.workspaceManager.workspaceId(for: "1", createIfMissing: true))
+        _ = controller.workspaceManager.focusWorkspace(named: "1")
+        controller.niriLayoutHandler.enableNiriLayout()
+        let token = controller.workspaceManager.addWindow(
+            AXWindowRef(element: AXUIElementCreateApplication(pid), windowId: windowId),
+            pid: pid, windowId: windowId, to: workspaceId
+        )
+        _ = controller.niriEngine?.addWindow(token: token, to: workspaceId, afterSelection: nil)
+        return (controller, monitor, workspaceId, token)
+    }
+
+    private static func leftHidePlan(
+        workspaceId: WorkspaceDescriptor.ID, monitor: Monitor, token: WindowToken, isAnimationTick: Bool
+    ) -> WorkspaceLayoutPlan {
+        var diff = WorkspaceLayoutDiff()
+        diff.visibilityChanges.append(.hide(token, side: .left))
+        return plan(workspaceId: workspaceId, monitor: monitor, diff: diff, isAnimationTick: isAnimationTick)
+    }
+
+    func testTickHideTakesTheAppliedFrameWithoutAReadAndTheSettledHideUsesTheRealSize() throws {
+        let fixture = try hideFixture(pid: 951_101, windowId: 951_201)
+        let refresh = fixture.controller.layoutRefreshController
+        let applied = CGRect(x: 100, y: 16, width: 800, height: 600)
+        let constrainedSize = CGSize(width: 960, height: 640)
+        fixture.controller.axManager.confirmFrameWrite(for: fixture.token.windowId, frame: applied)
+        XCTAssertNil(fixture.controller.axManager.skyLightLivePosition(for: fixture.token.windowId))
+        var physical = CGRect(origin: applied.origin, size: constrainedSize)
+        var reads = 0
+        refresh.fastFrameProvider = { _, _ in
+            reads += 1
+            return physical
+        }
+
+        XCTAssertTrue(refresh.executeLayoutPlan(Self.leftHidePlan(
+            workspaceId: fixture.workspaceId, monitor: fixture.monitor, token: fixture.token, isAnimationTick: true
+        )))
+        XCTAssertEqual(reads, 0)
+        let tickOrigin = try XCTUnwrap(fixture.controller.axManager.skyLightLivePosition(for: fixture.token.windowId))
+        XCTAssertEqual(tickOrigin, refresh.liveFrameHideOrigin(
+            for: applied, monitor: fixture.monitor, side: .left, reason: .layoutTransient
+        ))
+
+        physical = CGRect(origin: tickOrigin, size: constrainedSize)
+        FrameApplyTrace.shared.beginCapture()
+        defer { FrameApplyTrace.shared.endCapture() }
+        XCTAssertTrue(refresh.executeLayoutPlan(Self.leftHidePlan(
+            workspaceId: fixture.workspaceId, monitor: fixture.monitor, token: fixture.token, isAnimationTick: false
+        )))
+        XCTAssertEqual(reads, 1)
+        let settledOrigin = try XCTUnwrap(refresh.liveFrameHideOrigin(
+            for: physical, monitor: fixture.monitor, side: .left, reason: .layoutTransient
+        ))
+        XCTAssertNotEqual(settledOrigin.x, tickOrigin.x)
+        let settled = FrameApplyTrace.shared.dump().split(separator: "\n").filter {
+            $0.contains("win=\(fixture.token.windowId) ") && $0.contains("event=outcome=sls-park-intent/settled")
+        }
+        XCTAssertEqual(settled.count, 1)
+        XCTAssertEqual(
+            settled.filter {
+                $0.contains("target=\(TraceFormat.rect(CGRect(origin: settledOrigin, size: constrainedSize)))")
+            }.count,
+            1
+        )
+    }
+
+    func testTickHideReadsTheWindowWhenNoFrameWasApplied() throws {
+        let fixture = try hideFixture(pid: 951_301, windowId: 951_401)
+        let refresh = fixture.controller.layoutRefreshController
+        XCTAssertNil(fixture.controller.axManager.lastAppliedFrame(for: fixture.token.windowId))
+        let physical = CGRect(x: 100, y: 16, width: 800, height: 600)
+        var reads = 0
+        refresh.fastFrameProvider = { _, _ in
+            reads += 1
+            return physical
+        }
+        XCTAssertTrue(refresh.executeLayoutPlan(Self.leftHidePlan(
+            workspaceId: fixture.workspaceId, monitor: fixture.monitor, token: fixture.token, isAnimationTick: true
+        )))
+        XCTAssertEqual(reads, 1)
+        XCTAssertEqual(
+            fixture.controller.axManager.skyLightLivePosition(for: fixture.token.windowId),
+            refresh.liveFrameHideOrigin(
+                for: physical, monitor: fixture.monitor, side: .left, reason: .layoutTransient
+            )
+        )
+    }
+
     func testMatchingSkyLightFrameStaysPendingUntilVerifiedAXPark() throws {
         let controller = Self.controller()
         let monitor = Self.monitor()

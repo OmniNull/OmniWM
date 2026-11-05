@@ -30,6 +30,7 @@ extension LayoutRefreshController {
     ) -> HideOperationResolution {
         guard let controller else { return .unavailable }
         var resolvedFrame = observedFrame
+            ?? (animationTick ? controller.axManager.lastAppliedFrame(for: entry.windowId) : nil)
             ?? fastFrame(for: entry.token, axRef: entry.axRef)
             ?? controller.axManager.lastAppliedFrame(for: entry.windowId)
         if resolvedFrame == nil, !animationTick, let axRef = entry.axRef {
