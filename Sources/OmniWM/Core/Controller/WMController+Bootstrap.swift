@@ -139,6 +139,7 @@ extension WMController {
                     source: .focusPolicy
                 )
             )
+            self?.surfaceReconciler.reapplyParkingEdgeMasks()
         }
         MenuAnywhereController.shared.onMenuTrackingChanged = { [weak self] isTracking in
             guard let self else { return }

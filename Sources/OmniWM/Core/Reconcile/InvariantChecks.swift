@@ -276,13 +276,13 @@ extension ReconcileWindowSnapshot {
             )
         }
 
-        if let restoreIntent = self.restoreIntent,
-           restoreIntent.workspaceId != self.workspaceId
+        if let restoreWorkspaceId,
+           restoreWorkspaceId != self.workspaceId
         {
             violations.append(
                 .init(
                     code: "restore_workspace_mismatch",
-                    message: "Restore intent workspace \(restoreIntent.workspaceId.uuidString) does not match entry workspace \(self.workspaceId.uuidString) for \(self.token)."
+                    message: "Restore intent workspace \(restoreWorkspaceId.uuidString) does not match entry workspace \(self.workspaceId.uuidString) for \(self.token)."
                 )
             )
         }

@@ -36,35 +36,10 @@ extension WorkspaceManager {
     }
 
     func reconcileReductionSnapshot() -> ReconcileSnapshot {
-        let entries = windowQueries.allEntries()
-        var windowOrder: [ReconcileWindowOrder] = []
-        windowOrder.reserveCapacity(entries.count)
-        for index in entries.indices {
-            let entry = entries[index]
-            windowOrder.append(ReconcileWindowOrder(index: index, workspaceId: entry.workspaceId, token: entry.token))
-        }
-        windowOrder.sort(by: Self.reconcileWindowPrecedes)
-
-        var windowSnapshots: [ReconcileWindowSnapshot] = []
-        windowSnapshots.reserveCapacity(entries.count)
-        for item in windowOrder {
-            let entry = entries[item.index]
-            windowSnapshots.append(ReconcileWindowSnapshot(
-                token: entry.token,
-                workspaceId: entry.workspaceId,
-                mode: entry.mode,
-                lifecyclePhase: entry.lifecyclePhase,
-                observedState: entry.observedState,
-                desiredState: entry.desiredState,
-                restoreIntent: entry.restoreIntent,
-                lifetimeAuthority: entry.lifetimeAuthority
-            ))
-        }
-
-        return ReconcileSnapshot(
+        ReconcileSnapshot(
             topologyProfile: currentTopologyProfile(),
             focusSession: focusSessionSnapshot,
-            windows: windowSnapshots,
+            windows: windowQueries.reconcileWindowSnapshots(),
             viewports: recordedViewportStates
         )
     }
@@ -86,23 +61,6 @@ extension WorkspaceManager {
             }
         }
         snapshot.layouts = layouts
-    }
-
-    private struct ReconcileWindowOrder {
-        let index: Int
-        let workspaceId: WorkspaceDescriptor.ID
-        let token: WindowToken
-    }
-
-    private nonisolated static func reconcileWindowPrecedes(
-        _ lhs: ReconcileWindowOrder,
-        _ rhs: ReconcileWindowOrder
-    ) -> Bool {
-        lhs.workspaceId == rhs.workspaceId
-            ? (lhs.token.pid == rhs.token.pid
-                ? lhs.token.windowId < rhs.token.windowId
-                : lhs.token.pid < rhs.token.pid)
-            : lhs.workspaceId < rhs.workspaceId
     }
 
     func reconcileSnapshotDump() -> String {

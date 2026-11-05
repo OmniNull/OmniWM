@@ -149,6 +149,74 @@ final class MonitorRestoreIdentityTests: XCTestCase {
         )
     }
 
+    func testPersistedHydrationKeepsItsMatchPrecedence() throws {
+        let token = WindowToken(pid: 123, windowId: 456)
+        let otherToken = WindowToken(pid: 124, windowId: 457)
+        let metadata = ManagedReplacementMetadata(
+            bundleId: "com.example.identity",
+            workspaceId: UUID(),
+            mode: .tiling,
+            role: nil,
+            subrole: nil,
+            title: "Window",
+            windowLevel: 0,
+            parentWindowId: nil,
+            frame: nil
+        )
+        let workspaceIds = ["hard": UUID(), "hard2": UUID(), "soft": UUID(), "soft2": UUID()]
+        func entry(
+            _ workspace: String,
+            identityOf owner: WindowToken,
+            title: String? = nil
+        ) throws -> PersistedWindowRestoreEntry {
+            try PersistedWindowRestoreEntry(
+                key: XCTUnwrap(PersistedWindowRestoreKey(metadata: metadata, title: title)),
+                identity: XCTUnwrap(PersistedWindowRestoreIdentity(token: owner, metadata: metadata)),
+                restoreIntent: PersistedRestoreIntent(
+                    workspaceName: workspace,
+                    topologyProfile: TopologyProfile(monitors: []),
+                    preferredMonitor: nil,
+                    floatingFrame: nil,
+                    normalizedFloatingOrigin: nil,
+                    restoreToFloating: false,
+                    rescueEligible: false
+                )
+            )
+        }
+        func restoredWorkspace(
+            _ entries: [PersistedWindowRestoreEntry],
+            consumed: [PersistedWindowRestoreEntry] = [],
+            metadata planned: ManagedReplacementMetadata? = nil
+        ) -> String? {
+            let plan = PersistedRestorePlanner.plan(PersistedRestorePlanner.Input(
+                token: token,
+                metadata: planned ?? metadata,
+                catalog: PersistedWindowRestoreCatalog(entries: entries),
+                consumedEntries: Set(consumed.map(PersistedWindowRestoreConsumptionKey.init(entry:))),
+                monitors: [],
+                workspaceIdForName: { workspaceIds[$0] }
+            ))
+            return workspaceIds.first { $0.value == plan?.workspaceId }?.key
+        }
+        let hard = try entry("hard", identityOf: token)
+        let secondHard = try entry("hard2", identityOf: token, title: "Second")
+        let soft = try entry("soft", identityOf: otherToken)
+        let secondSoft = try entry("soft2", identityOf: WindowToken(pid: 125, windowId: 458))
+
+        XCTAssertEqual(restoredWorkspace([soft, hard]), "hard")
+        XCTAssertNil(restoredWorkspace([hard, secondHard]))
+        XCTAssertEqual(restoredWorkspace([hard, secondHard], consumed: [hard]), "hard2")
+        XCTAssertNil(restoredWorkspace([hard, soft], consumed: [hard]))
+        XCTAssertEqual(restoredWorkspace([soft, secondSoft], consumed: [soft]), "soft2")
+        XCTAssertNil(restoredWorkspace([soft, secondSoft]))
+        var titled = metadata
+        titled.title = "Different"
+        XCTAssertNil(restoredWorkspace([soft], metadata: titled))
+        var bundleless = metadata
+        bundleless.bundleId = "   "
+        XCTAssertNil(restoredWorkspace([hard, soft], metadata: bundleless))
+    }
+
     private func persistedPreferredMonitor(
         previous: Monitor,
         current: [Monitor]

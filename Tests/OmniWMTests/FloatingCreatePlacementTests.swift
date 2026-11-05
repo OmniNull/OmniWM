@@ -1547,7 +1547,7 @@ final class FloatingCreatePlacementTests: XCTestCase {
             lifecyclePhase: mode == .floating ? .floating : .tiled,
             observedState: .initial(workspaceId: workspaceId, monitorId: nil),
             desiredState: .initial(workspaceId: workspaceId, monitorId: nil, disposition: mode),
-            restoreIntent: nil
+            restoreWorkspaceId: nil
         )
     }
 

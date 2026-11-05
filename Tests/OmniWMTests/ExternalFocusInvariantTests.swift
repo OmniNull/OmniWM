@@ -133,7 +133,7 @@ final class ExternalFocusInvariantTests: XCTestCase {
                 monitorId: nil,
                 disposition: .tiling
             ),
-            restoreIntent: nil
+            restoreWorkspaceId: nil
         )
     }
 }

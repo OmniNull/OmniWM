@@ -105,6 +105,10 @@ extension WindowModel {
             model.allEntries()
         }
 
+        func reconcileWindowSnapshots() -> [ReconcileWindowSnapshot] {
+            model.reconcileWindowSnapshots()
+        }
+
         func allEntries(mode: TrackedWindowMode) -> [WindowState] {
             model.allEntries(mode: mode)
         }

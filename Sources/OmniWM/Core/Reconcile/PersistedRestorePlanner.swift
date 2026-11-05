@@ -28,15 +28,12 @@ enum PersistedRestorePlanner {
     }
 
     static func plan(_ input: Input) -> Plan? {
-        let matches = persistedHydrationMatches(
-            token: input.token,
-            metadata: input.metadata,
-            catalog: input.catalog,
-            consumedEntries: input.consumedEntries
-        )
-
-        guard matches.count == 1,
-              let persistedEntry = matches.first,
+        guard let persistedEntry = soleHydrationMatch(
+                  token: input.token,
+                  metadata: input.metadata,
+                  catalog: input.catalog,
+                  consumedEntries: input.consumedEntries
+              ),
               let workspaceId = input.workspaceIdForName(persistedEntry.restoreIntent.workspaceName)
         else {
             return nil
@@ -71,32 +68,43 @@ enum PersistedRestorePlanner {
         )
     }
 
-    private static func persistedHydrationMatches(
+    private static func soleHydrationMatch(
         token: WindowToken,
         metadata: ManagedReplacementMetadata,
         catalog: PersistedWindowRestoreCatalog,
         consumedEntries: Set<PersistedWindowRestoreConsumptionKey>
-    ) -> [PersistedWindowRestoreEntry] {
-        let allHardMatches = catalog.entries.filter { entry in
-            entry.identity?.matches(token: token, metadata: metadata) == true
+    ) -> PersistedWindowRestoreEntry? {
+        guard let baseKey = PersistedWindowRestoreBaseKey(metadata: metadata) else { return nil }
+        let entries = catalog.entries
+        let span = entries.span
+        var hasHardMatch = false
+        var match: Int?
+        var matchCount = 0
+        for index in span.indices
+            where span[index].identity?.pid == token.pid
+            && span[index].identity?.windowId == token.windowId
+            && span[index].identity?.bundleId == baseKey.bundleId
+        {
+            hasHardMatch = true
+            guard !consumedEntries.contains(PersistedWindowRestoreConsumptionKey(entry: span[index])) else {
+                continue
+            }
+            match = index
+            matchCount += 1
         }
-        let availableEntries = catalog.entries.filter { entry in
-            !consumedEntries.contains(PersistedWindowRestoreConsumptionKey(entry: entry))
+        if !hasHardMatch {
+            let title = PersistedWindowRestoreKey.normalizeTitle(metadata.title)
+            for index in span.indices
+                where span[index].key.baseKey == baseKey
+                && (span[index].key.title == nil || span[index].key.title == title)
+                && !consumedEntries.contains(PersistedWindowRestoreConsumptionKey(entry: span[index]))
+            {
+                match = index
+                matchCount += 1
+            }
         }
-        let availableHardMatches = allHardMatches.filter { entry in
-            !consumedEntries.contains(PersistedWindowRestoreConsumptionKey(entry: entry))
-        }
-
-        if !availableHardMatches.isEmpty {
-            return availableHardMatches
-        }
-        if !allHardMatches.isEmpty {
-            return []
-        }
-
-        return availableEntries.filter { entry in
-            entry.key.matches(metadata)
-        }
+        guard matchCount == 1, let match else { return nil }
+        return entries[match]
     }
 
     private static func resolvePersistedPreferredMonitor(

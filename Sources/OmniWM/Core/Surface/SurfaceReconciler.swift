@@ -352,3 +352,22 @@ extension SurfaceReconciler {
         appliedScene.bars = desired.bars
     }
 }
+
+extension SurfaceReconciler {
+    func noteInvalidation(_ scope: SessionSurfaceInvalidationScope) {
+        switch scope {
+        case .full:
+            noteWorldChanged()
+        case .border:
+            noteBorderChanged()
+        case .layoutEdge:
+            let needsFullScene = !appliedScene.tabRails.isEmpty
+                || controller?.hasWindowOrLayoutEventSubscribers == true
+            scheduleReconcile(needsFullScene ? .fullScene : .borderOnly)
+        }
+    }
+
+    func reapplyParkingEdgeMasks() {
+        parkingEdgeMaskManager.apply(appliedScene.parkingEdgeMasks)
+    }
+}

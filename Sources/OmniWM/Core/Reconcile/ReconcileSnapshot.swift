@@ -155,7 +155,7 @@ struct ReconcileWindowSnapshot: Equatable {
     let lifecyclePhase: WindowLifecyclePhase
     let observedState: ObservedWindowState
     let desiredState: DesiredWindowState
-    let restoreIntent: RestoreIntent?
+    let restoreWorkspaceId: WorkspaceDescriptor.ID?
     let lifetimeAuthority: ManagedWindowLifetimeAuthority
 
     init(
@@ -165,7 +165,7 @@ struct ReconcileWindowSnapshot: Equatable {
         lifecyclePhase: WindowLifecyclePhase,
         observedState: ObservedWindowState,
         desiredState: DesiredWindowState,
-        restoreIntent: RestoreIntent?,
+        restoreWorkspaceId: WorkspaceDescriptor.ID?,
         lifetimeAuthority: ManagedWindowLifetimeAuthority = .axTopLevelInventory
     ) {
         self.token = token
@@ -174,7 +174,7 @@ struct ReconcileWindowSnapshot: Equatable {
         self.lifecyclePhase = lifecyclePhase
         self.observedState = observedState
         self.desiredState = desiredState
-        self.restoreIntent = restoreIntent
+        self.restoreWorkspaceId = restoreWorkspaceId
         self.lifetimeAuthority = lifetimeAuthority
     }
 }

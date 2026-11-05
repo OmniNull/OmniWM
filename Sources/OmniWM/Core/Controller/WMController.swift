@@ -434,12 +434,7 @@ extension WMController {
     ) {
         pruneEdgePictures()
         layoutRefreshController.workspaceSwipe.handleInvalidation(workspaceId: workspaceId, domains: domains)
-        switch surfaceScope {
-        case .full:
-            surfaceReconciler.noteWorldChanged()
-        case .border:
-            surfaceReconciler.noteBorderChanged()
-        }
+        surfaceReconciler.noteInvalidation(surfaceScope)
         guard domains.contains(.workspace) || domains.contains(.fullscreen) else { return }
         guard runtimeFrameJobCancellationSuppressionDepth == 0 else { return }
         cancelPendingFrameJobsForInvalidation(workspaceId: workspaceId)

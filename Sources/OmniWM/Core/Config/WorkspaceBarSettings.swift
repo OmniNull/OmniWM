@@ -350,17 +350,17 @@ extension WorkspaceBarSettings {
 
     func resolved(for monitor: Monitor, includingProfileMonitor: Bool = true) -> ResolvedBarSettings {
         let monitorOverride = settings(for: monitor)
-        guard let profile = profileOverride else { return resolved(override: monitorOverride) }
+        guard let profile = profileOverride else { return resolved(override: monitorOverride, profile: nil) }
         var combined = monitorOverride?.overlaid(by: profile.settings) ?? profile.settings
         if includingProfileMonitor,
            let override = MonitorSettingsStore.get(for: monitor, in: profile.monitorOverrides)
         {
             combined = combined.overlaid(by: override)
         }
-        return resolved(override: combined)
+        return resolved(override: combined, profile: profile)
     }
 
-    private func resolved(override: MonitorBarSettings?) -> ResolvedBarSettings {
+    private func resolved(override: MonitorBarSettings?, profile: WorkspaceBarProfileOverride?) -> ResolvedBarSettings {
         let position = override?.position ?? self.position
         let fullWidth = override?.fullWidth ?? self.fullWidth
         let fullWidthNotchMode = override?.fullWidthNotchMode ?? self.fullWidthNotchMode
@@ -386,7 +386,7 @@ extension WorkspaceBarSettings {
             notchActiveZoneWidth: override?.notchActiveZoneWidth ?? notchActiveZoneWidth,
             fullWidth: fullWidth,
             fullWidthNotchMode: fullWidthNotchMode,
-            systemStatsButton: profileOverride?.systemStatsButton ?? systemStatsButton,
+            systemStatsButton: profile?.systemStatsButton ?? systemStatsButton,
             position: position,
             windowLevel: override?.windowLevel ?? windowLevel,
             height: override?.height ?? height,
@@ -398,10 +398,10 @@ extension WorkspaceBarSettings {
             showAccentHighlights: override?.showAccentHighlights ?? showAccentHighlights,
             xOffset: override?.xOffset ?? xOffset,
             yOffset: override?.yOffset ?? yOffset,
-            accentColor: profileOverride?.accentColor ?? (profileOverride?.usesThemeColors == true ? nil : accentColor),
-            textColor: profileOverride?.textColor ?? (profileOverride?.usesThemeColors == true ? nil : textColor),
-            barFill: profileOverride?.barFill,
-            barBorder: profileOverride?.barBorder
+            accentColor: profile?.accentColor ?? (profile?.usesThemeColors == true ? nil : accentColor),
+            textColor: profile?.textColor ?? (profile?.usesThemeColors == true ? nil : textColor),
+            barFill: profile?.barFill,
+            barBorder: profile?.barBorder
         )
     }
 

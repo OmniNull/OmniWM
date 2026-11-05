@@ -59,13 +59,13 @@ final class InvariantViolationOrderingTests: XCTestCase {
             desiredState: .initial(
                 workspaceId: otherWorkspace, monitorId: .init(displayId: 1), disposition: .floating
             ),
-            restoreIntent: nil
+            restoreWorkspaceId: nil
         )
         let last = ReconcileWindowSnapshot(
             token: token, workspaceId: workspace, mode: .tiling, lifecyclePhase: .destroyed,
             observedState: .initial(workspaceId: workspace, monitorId: nil),
             desiredState: .initial(workspaceId: workspace, monitorId: nil, disposition: .tiling),
-            restoreIntent: nil
+            restoreWorkspaceId: nil
         )
         return ReconcileSnapshot(
             topologyProfile: TopologyProfile(sortedMonitors: []),

@@ -13,15 +13,37 @@ extension WorkspaceManager {
         }
     }
 
+    private func noteHiddenStateInvalidation(
+        _ hiddenState: HiddenState?,
+        of token: WindowToken,
+        in workspaceId: WorkspaceDescriptor.ID
+    ) {
+        let isLayoutEdge = switch hiddenState?.reason {
+        case .none,
+             .layoutTransient:
+            !isScratchpadToken(token) && windowQueries.layoutReason(for: token) == .standard
+        case .workspaceInactive,
+             .scratchpad:
+            false
+        }
+        noteInvalidation(
+            workspaceId: workspaceId,
+            domains: [.workspace, .layout, .focus],
+            surfaceScope: isLayoutEdge ? .layoutEdge : .full
+        )
+    }
+
     private func noteWindowInvalidation(for event: WMEvent) {
         switch event {
         case let .windowAdmitted(_, workspaceId, _, _, _, _, _, _, _, _, _, _),
              let .windowModeChanged(_, workspaceId, _, _, _),
-             let .hiddenStateChanged(_, workspaceId, _, _, _),
              let .windowMinimizedChanged(_, workspaceId, _, _),
              let .windowNativeWithdrawalChanged(_, workspaceId, _, _),
              let .managedReplacementMetadataChanged(_, workspaceId, _, _, _):
             noteInvalidation(workspaceId: workspaceId, domains: [.workspace, .layout, .focus])
+
+        case let .hiddenStateChanged(token, workspaceId, _, hiddenState, _):
+            noteHiddenStateInvalidation(hiddenState, of: token, in: workspaceId)
 
         case let .floatingGeometryUpdated(_, workspaceId, _, _, _, _, _),
              let .hostedWindowGeometryObserved(_, workspaceId, _, _, _):
@@ -102,7 +124,7 @@ extension WorkspaceManager {
             break
 
         case .focusLeaseChanged:
-            noteInvalidation(workspaceId: nil, domains: .focus)
+            noteInvalidation(workspaceId: nil, domains: .focus, surfaceScope: .border)
 
         case .nativeFocusOwnerChanged:
             noteInvalidation(workspaceId: nil, domains: .focus, surfaceScope: .border)

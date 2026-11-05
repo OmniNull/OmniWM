@@ -251,7 +251,7 @@ final class WorldStoreCommitTests: XCTestCase {
                     lifecyclePhase: $0.lifecyclePhase,
                     observedState: $0.observedState,
                     desiredState: $0.desiredState,
-                    restoreIntent: $0.restoreIntent,
+                    restoreWorkspaceId: $0.restoreIntent?.workspaceId,
                     lifetimeAuthority: $0.lifetimeAuthority
                 )
             }

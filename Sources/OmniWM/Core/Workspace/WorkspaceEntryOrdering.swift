@@ -5,39 +5,31 @@ import Foundation
 
 @MainActor
 enum WorkspaceEntryOrdering {
-    private struct SortKey {
-        let group: Int
-        let primary: Int
-        let secondary: Int
-    }
-
     static func orderedEntries(
         _ entries: [WindowState],
         topology: LayoutTopology
     ) -> [WindowState] {
-        guard topology.hasColumns else { return entries }
+        guard topology.hasColumns, !entries.isEmpty else { return entries }
 
-        var orderMap: [WindowToken: SortKey] = [:]
-        for (columnIndex, column) in topology.columns.enumerated() {
-            for (rowIndex, tile) in column.tiles.enumerated() {
-                orderMap[tile.token] = SortKey(group: 0, primary: columnIndex, secondary: rowIndex)
+        var indexByToken: [WindowToken: Int] = [:]
+        indexByToken.reserveCapacity(entries.count)
+        for index in entries.indices {
+            indexByToken[entries[index].token] = index
+        }
+
+        var ordered: [WindowState] = []
+        ordered.reserveCapacity(entries.count)
+        for column in topology.columns {
+            for tile in column.tiles {
+                if let index = indexByToken.removeValue(forKey: tile.token) {
+                    ordered.append(entries[index])
+                }
             }
         }
-
-        let fallbackOrder = Dictionary(uniqueKeysWithValues: entries.enumerated()
-            .map { ($0.element.token, $0.offset) })
-
-        return entries.sorted { lhs, rhs in
-            let lhsKey = orderMap[lhs.token] ?? SortKey(group: 2, primary: Int.max, secondary: Int.max)
-            let rhsKey = orderMap[rhs.token] ?? SortKey(group: 2, primary: Int.max, secondary: Int.max)
-
-            if lhsKey.group != rhsKey.group { return lhsKey.group < rhsKey.group }
-            if lhsKey.primary != rhsKey.primary { return lhsKey.primary < rhsKey.primary }
-            if lhsKey.secondary != rhsKey.secondary { return lhsKey.secondary < rhsKey.secondary }
-
-            let lhsFallback = fallbackOrder[lhs.token] ?? 0
-            let rhsFallback = fallbackOrder[rhs.token] ?? 0
-            return lhsFallback < rhsFallback
+        guard !indexByToken.isEmpty else { return ordered }
+        for index in entries.indices where indexByToken[entries[index].token] != nil {
+            ordered.append(entries[index])
         }
+        return ordered
     }
 }

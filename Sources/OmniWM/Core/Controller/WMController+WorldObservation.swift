@@ -19,7 +19,8 @@ extension WMController {
         case .full:
             surfaceReconciler.noteWorldChanged()
             windowSwitcherControllerStorage?.refreshWindows()
-        case .border:
+        case .border,
+             .layoutEdge:
             surfaceReconciler.noteBorderChanged()
         }
         let changeSet = focusNotificationDispatcher.notifyFocusChangesIfNeeded()

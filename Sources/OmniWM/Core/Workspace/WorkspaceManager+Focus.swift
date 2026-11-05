@@ -6,6 +6,7 @@ import Foundation
 enum SessionSurfaceInvalidationScope: Equatable, Sendable {
     case full
     case border
+    case layoutEdge
 }
 
 extension WorkspaceManager {

@@ -179,6 +179,146 @@ final class SurfaceReconcileScopeTests: XCTestCase {
         XCTAssertEqual(controller.surfaceReconciler.pendingReconcileScope, .borderOnly)
     }
 
+    private func startedController() -> WMController {
+        let controller = WindowAdmissionTestSupport.controller(prefix: "SurfaceReconcileScopeTests")
+        controller.workspaceManager.applyMonitorConfigurationChange([
+            Monitor(
+                id: .init(displayId: 812_301),
+                displayId: 812_301,
+                frame: CGRect(x: 0, y: 0, width: 1920, height: 1080),
+                visibleFrame: CGRect(x: 0, y: 0, width: 1920, height: 1055),
+                hasNotch: false,
+                name: "Scope"
+            )
+        ])
+        controller.hasStartedServices = true
+        addTeardownBlock { @MainActor in
+            controller.hasStartedServices = false
+            controller.surfaceReconciler.cleanup()
+        }
+        return controller
+    }
+
+    private func tiledWindows(
+        count: Int,
+        controller: WMController
+    ) throws -> (workspaceId: WorkspaceDescriptor.ID, tokens: [WindowToken]) {
+        let workspaceId = try XCTUnwrap(
+            controller.workspaceManager.workspaceId(for: "1", createIfMissing: true)
+        )
+        controller.niriLayoutHandler.enableNiriLayout()
+        let engine = try XCTUnwrap(controller.niriEngine)
+        let tokens = (0 ..< count).map { WindowToken(pid: 812_201, windowId: 812_210 + $0) }
+        for token in tokens {
+            _ = controller.workspaceManager.addWindow(
+                WindowAdmissionTestSupport.axRef(for: token),
+                pid: token.pid,
+                windowId: token.windowId,
+                to: workspaceId
+            )
+            controller.workspaceManager.withEngineMutationScope {
+                _ = engine.addWindow(token: token, to: workspaceId, afterSelection: nil)
+            }
+        }
+        return (workspaceId, tokens)
+    }
+
+    private func hiddenState(_ reason: HiddenReason) -> HiddenState {
+        HiddenState(proportionalPosition: .zero, referenceMonitorId: nil, reason: reason)
+    }
+
+    func testLayoutEdgeHideAndRestoreScheduleBorderOnly() throws {
+        let controller = WindowAdmissionTestSupport.controller(prefix: "SurfaceReconcileScopeTests")
+        let token = try XCTUnwrap(tiledWindows(count: 1, controller: controller).tokens.first)
+        let reconciler = controller.surfaceReconciler
+        reconciler.reconcileNow()
+
+        controller.workspaceManager.setHiddenState(hiddenState(.layoutTransient(.left)), for: token)
+        XCTAssertEqual(reconciler.pendingReconcileScope, .borderOnly)
+        reconciler.reconcileNow()
+
+        controller.workspaceManager.setHiddenState(nil, for: token)
+        XCTAssertEqual(reconciler.pendingReconcileScope, .borderOnly)
+    }
+
+    func testHidesThatSurfacesReadScheduleFullScene() throws {
+        let controller = WindowAdmissionTestSupport.controller(prefix: "SurfaceReconcileScopeTests")
+        let tokens = try tiledWindows(count: 3, controller: controller).tokens
+        let reconciler = controller.surfaceReconciler
+        reconciler.reconcileNow()
+
+        controller.workspaceManager.setHiddenState(hiddenState(.workspaceInactive), for: tokens[0])
+        XCTAssertEqual(reconciler.pendingReconcileScope, .fullScene)
+        reconciler.reconcileNow()
+
+        controller.workspaceManager.setHiddenState(hiddenState(.scratchpad), for: tokens[1])
+        XCTAssertEqual(reconciler.pendingReconcileScope, .fullScene)
+        reconciler.reconcileNow()
+
+        XCTAssertTrue(controller.workspaceManager.setScratchpadMembership(tokens[2], to: 1))
+        reconciler.reconcileNow()
+        controller.workspaceManager.setHiddenState(hiddenState(.layoutTransient(.left)), for: tokens[2])
+        XCTAssertEqual(reconciler.pendingReconcileScope, .fullScene)
+    }
+
+    func testLayoutEdgeHideSchedulesFullSceneForWindowEventSubscribers() async throws {
+        let controller = WindowAdmissionTestSupport.controller(prefix: "SurfaceReconcileScopeTests")
+        let token = try XCTUnwrap(tiledWindows(count: 1, controller: controller).tokens.first)
+        let bridge = IPCApplicationBridge(
+            controller: controller,
+            appVersion: "0.0.0-test",
+            sessionToken: "session",
+            authorizationToken: "token"
+        )
+        addTeardownBlock { await bridge.shutdown() }
+        controller.ipcApplicationBridge = bridge
+        let stream = await bridge.stream(for: .windowsChanged)
+        XCTAssertTrue(controller.hasWindowOrLayoutEventSubscribers)
+        controller.surfaceReconciler.reconcileNow()
+
+        controller.workspaceManager.setHiddenState(hiddenState(.layoutTransient(.left)), for: token)
+
+        XCTAssertEqual(controller.surfaceReconciler.pendingReconcileScope, .fullScene)
+        withExtendedLifetime(stream) {}
+    }
+
+    func testLayoutEdgeHideSchedulesFullSceneWhileTabRailsExist() throws {
+        let controller = startedController()
+        let (workspaceId, tokens) = try tiledWindows(count: 2, controller: controller)
+        let engine = try XCTUnwrap(controller.niriEngine)
+        controller.workspaceManager.withEngineMutationScope {
+            let columns = engine.columns(in: workspaceId)
+            let moved = columns[1].windowNodes[0]
+            moved.detach()
+            columns[1].remove()
+            columns[0].appendChild(moved)
+            columns[0].displayMode = .tabbed
+            columns[0].setActiveTileIdx(0)
+        }
+        let reconciler = controller.surfaceReconciler
+        reconciler.reconcileNow()
+        XCTAssertFalse(reconciler.appliedScene.tabRails.isEmpty)
+
+        controller.workspaceManager.setHiddenState(hiddenState(.layoutTransient(.left)), for: tokens[0])
+
+        XCTAssertEqual(reconciler.pendingReconcileScope, .fullScene)
+    }
+
+    func testFocusLeaseChangeSchedulesBorderOnlyAndReappliesParkingMasks() throws {
+        let controller = startedController()
+        let reconciler = controller.surfaceReconciler
+        reconciler.reconcileNow()
+        XCTAssertFalse(reconciler.appliedScene.parkingEdgeMasks.isEmpty)
+        let masks = SurfaceCoordinator.shared.visibleSurfaceInfos().compactMap { $0.window as? ParkingEdgeMaskWindow }
+        XCTAssertFalse(masks.isEmpty)
+        masks.forEach { $0.orderOut(nil) }
+
+        controller.focusPolicyEngine.beginLease(owner: .nativeMenu, reason: "test")
+
+        XCTAssertEqual(reconciler.pendingReconcileScope, .borderOnly)
+        XCTAssertTrue(masks.allSatisfy(\.isVisible))
+    }
+
     func testBorderColorChangeSchedulesOnlyOneBorderPass() {
         let controller = WindowAdmissionTestSupport.controller(prefix: "SurfaceReconcileScopeTests")
         controller.surfaceReconciler.reconcileNow()
