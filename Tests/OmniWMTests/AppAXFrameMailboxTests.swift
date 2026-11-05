@@ -100,24 +100,28 @@ final class AppAXFrameMailboxTests: XCTestCase {
                 enqueuedAt: enqueuedAt
             )
         }
+        let admitted = DispatchSemaphore(value: 0)
+        let proceed = DispatchSemaphore(value: 0)
         let group = DispatchGroup()
         metrics.beginCapture()
         group.enter()
         DispatchQueue.global().async {
-            metrics.noteOrdinaryStarted(items)
+            metrics.withActiveCapture {
+                admitted.signal()
+                proceed.wait()
+                metrics.recordStarted(items, lane: .ordinary)
+            }
             group.leave()
         }
-        let deadline = ContinuousClock.now.advanced(by: .seconds(5))
-        while metrics.snapshot().ordinaryStarted == 0, ContinuousClock.now < deadline {
-            sched_yield()
-        }
-        guard metrics.snapshot().ordinaryStarted > 0 else {
+        guard admitted.wait(timeout: .now() + 5) == .success else {
             XCTFail("Concurrent writer was not admitted before the readiness deadline")
+            proceed.signal()
             XCTAssertEqual(group.wait(timeout: .now() + 5), .success)
             metrics.endCapture()
             return
         }
 
+        proceed.signal()
         metrics.endCapture()
         let frozen = metrics.snapshot()
         guard group.wait(timeout: .now() + 5) == .success else {

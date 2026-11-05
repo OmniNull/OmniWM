@@ -243,40 +243,44 @@ final class AppAXContextRuntimeMetrics: @unchecked Sendable {
 
     private func noteStarted(_ items: [AppAXFrameMailbox.Item], lane: AppAXFrameLane) {
         withActiveCapture {
-            let now = DispatchTime.now().uptimeNanoseconds
-            switch lane {
-            case .ordinary:
-                _ = ordinaryStarted.wrappingAdd(UInt64(items.count), ordering: .relaxed)
-            case .park:
-                _ = parkStarted.wrappingAdd(UInt64(items.count), ordering: .relaxed)
-            case .closing:
-                _ = closingStarted.wrappingAdd(UInt64(items.count), ordering: .relaxed)
-            }
-            var samples: UInt64 = 0
-            var under1ms: UInt64 = 0
-            var under4ms: UInt64 = 0
-            var under16ms: UInt64 = 0
-            var atLeast16ms: UInt64 = 0
-            for item in items {
-                guard let enqueuedAt = item.enqueuedAt else { continue }
-                samples &+= 1
-                let wait = now >= enqueuedAt ? now - enqueuedAt : 0
-                if wait < 1_000_000 {
-                    under1ms &+= 1
-                } else if wait < 4_000_000 {
-                    under4ms &+= 1
-                } else if wait < 16_000_000 {
-                    under16ms &+= 1
-                } else {
-                    atLeast16ms &+= 1
-                }
-            }
-            _ = queueWaitSamples.wrappingAdd(samples, ordering: .relaxed)
-            _ = queueWaitUnder1ms.wrappingAdd(under1ms, ordering: .relaxed)
-            _ = queueWaitUnder4ms.wrappingAdd(under4ms, ordering: .relaxed)
-            _ = queueWaitUnder16ms.wrappingAdd(under16ms, ordering: .relaxed)
-            _ = queueWaitAtLeast16ms.wrappingAdd(atLeast16ms, ordering: .relaxed)
+            recordStarted(items, lane: lane)
         }
+    }
+
+    func recordStarted(_ items: [AppAXFrameMailbox.Item], lane: AppAXFrameLane) {
+        let now = DispatchTime.now().uptimeNanoseconds
+        switch lane {
+        case .ordinary:
+            _ = ordinaryStarted.wrappingAdd(UInt64(items.count), ordering: .relaxed)
+        case .park:
+            _ = parkStarted.wrappingAdd(UInt64(items.count), ordering: .relaxed)
+        case .closing:
+            _ = closingStarted.wrappingAdd(UInt64(items.count), ordering: .relaxed)
+        }
+        var samples: UInt64 = 0
+        var under1ms: UInt64 = 0
+        var under4ms: UInt64 = 0
+        var under16ms: UInt64 = 0
+        var atLeast16ms: UInt64 = 0
+        for item in items {
+            guard let enqueuedAt = item.enqueuedAt else { continue }
+            samples &+= 1
+            let wait = now >= enqueuedAt ? now - enqueuedAt : 0
+            if wait < 1_000_000 {
+                under1ms &+= 1
+            } else if wait < 4_000_000 {
+                under4ms &+= 1
+            } else if wait < 16_000_000 {
+                under16ms &+= 1
+            } else {
+                atLeast16ms &+= 1
+            }
+        }
+        _ = queueWaitSamples.wrappingAdd(samples, ordering: .relaxed)
+        _ = queueWaitUnder1ms.wrappingAdd(under1ms, ordering: .relaxed)
+        _ = queueWaitUnder4ms.wrappingAdd(under4ms, ordering: .relaxed)
+        _ = queueWaitUnder16ms.wrappingAdd(under16ms, ordering: .relaxed)
+        _ = queueWaitAtLeast16ms.wrappingAdd(atLeast16ms, ordering: .relaxed)
     }
 
     func noteClosingStarted(_ count: Int) {
@@ -373,7 +377,7 @@ final class AppAXContextRuntimeMetrics: @unchecked Sendable {
     }
 
     @inline(__always)
-    private func withActiveCapture(_ operation: () -> Void) {
+    func withActiveCapture(_ operation: () -> Void) {
         let generation = activeGeneration.load(ordering: .relaxed)
         guard generation != 0 else { return }
         _ = activeWriters.wrappingAdd(1, ordering: .acquiringAndReleasing)
