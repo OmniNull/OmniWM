@@ -167,7 +167,6 @@ Live/private integration and measurement cases skip unless their explicit enviro
 | `OMNIWM_RUN_FINDER_QUICK_LOOK_TESTS=1` | Finder Quick Look placement, with a Quick Look window open |
 | `OMNIWM_RUN_SURFACE_MEASUREMENTS=1` | Surface presentation measurements |
 | `OMNIWM_RUN_OVERVIEW_PREVIEW_LIVE_TESTS=1` | Live Overview previews and layer compositor checks |
-| `OMNIWM_RUN_WINDOW_SUBSCRIPTION_LIVE_TESTS=1` | Private WindowServer subscription semantics, requiring two movable foreign windows |
 | `OMNIWM_RUN_METADATA_READ_LIVE_TESTS=1` | Read-only WindowServer metadata checks |
 | `OMNIWM_RUN_AX_WRITE_METRICS_BENCHMARK=1` | AX write metrics recorder latency distributions |
 | `OMNIWM_RUN_LAUNCHER_LIVE_TESTS=1` | Installed application and shell integration checks; the Nix app case also needs `OMNIWM_TEST_NIX_APP` |
