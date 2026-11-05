@@ -44,6 +44,7 @@ final class BorderWindow {
     private var appliedSurfaceFrame: CGRect = .zero
     private var appliedTargetToken: WindowToken?
     private var appliedPresentation: BorderPresentation?
+    private var appliedIsMoving = false
     private var needsRedraw = true
     private var isVisible = false
     private var lastOrderedTargetToken: WindowToken?
@@ -91,6 +92,7 @@ final class BorderWindow {
         lastOrderedTargetToken = nil
         appliedTargetToken = nil
         appliedPresentation = nil
+        appliedIsMoving = false
         cachedTargetLevel = nil
         pendingTargetLevelRetryToken = nil
         needsWindowLevelRetry = false
@@ -103,6 +105,7 @@ final class BorderWindow {
         frame targetFrame: CGRect,
         targetToken: WindowToken,
         presentation: BorderPresentation? = nil,
+        isMoving: Bool = false,
         cornerRadii: WindowCornerRadii? = nil,
         cornerContour: WindowCornerContour? = nil,
         forceOrdering: Bool = false
@@ -124,6 +127,7 @@ final class BorderWindow {
             invalidateDeferredLevel(target: presentation == nil ? targetToken : nil)
         }
         appliedPresentation = presentation
+        appliedIsMoving = presentation?.isMoving ?? isMoving
 
         let createdWindow = wid == 0
         if createdWindow {
@@ -387,9 +391,10 @@ extension BorderWindow {
         currentCornerRadii = cornerRadii
         currentCornerContour = cornerContour
         let displayClip = appliedPresentation?.displayClip(for: appliedSurfaceFrame)
-        if appliedPresentation?.isMoving == true, displayClip == nil, !needsRedraw {
+        if appliedIsMoving, displayClip == nil, !needsRedraw {
             layerPanel?.applyFrame(
-                targetFrame: appliedTargetFrame, surfaceFrame: appliedSurfaceFrame, presentation: appliedPresentation
+                targetFrame: appliedTargetFrame, surfaceFrame: appliedSurfaceFrame,
+                presentation: appliedPresentation, isMoving: true
             )
             return
         }
@@ -399,7 +404,8 @@ extension BorderWindow {
         layerPanel?.applyFrame(
             targetFrame: appliedTargetFrame, surfaceFrame: appliedSurfaceFrame,
             displayClip: displayClip,
-            presentation: appliedPresentation
+            presentation: appliedPresentation,
+            isMoving: appliedIsMoving
         )
         if needsRedraw { draw(geometry: geometry) }
     }

@@ -77,17 +77,19 @@ class BorderLayerPanel: NSPanel {
 
     func applyFrame(
         targetFrame: CGRect, surfaceFrame: CGRect, displayClip: CGRect? = nil,
-        presentation: BorderPresentation? = nil
+        presentation: BorderPresentation? = nil, isMoving: Bool = false
     ) {
-        let stableBacking = presentation != nil && displayClip == nil
+        let moving = presentation?.isMoving ?? isMoving
+        let stableBacking = (presentation != nil || moving) && displayClip == nil
         let panelFrame = stableBacking ? SurfacePanelGeometry.backingFrame(for: surfaceFrame)
             : displayClip.map { surfaceFrame.integral.intersection($0) } ?? surfaceFrame.integral
         let contentOrigin = stableBacking ? surfaceFrame.origin : panelFrame.origin
         let layerFrame = targetFrame.offsetBy(dx: -contentOrigin.x, dy: -contentOrigin.y)
         let effectsFrame = surfaceFrame.offsetBy(dx: -contentOrigin.x, dy: -contentOrigin.y)
-        if stableBacking, presentation?.isMoving == true, laidOutSurfaceSize == surfaceFrame.size,
+        let movedFrame = presentation == nil ? CGRect(origin: surfaceFrame.origin, size: panelFrame.size) : panelFrame
+        if stableBacking, moving, laidOutSurfaceSize == surfaceFrame.size,
            borderLayer.frame == layerFrame, effects.root.frame == effectsFrame,
-           !containerLayer.masksToBounds, moveInWindowServer(to: panelFrame)
+           !containerLayer.masksToBounds, moveInWindowServer(to: movedFrame)
         { return }
         guard windowServerPlacement != nil || frame != panelFrame || borderLayer.frame != layerFrame
             || containerLayer.masksToBounds != (displayClip != nil)
@@ -96,12 +98,16 @@ class BorderLayerPanel: NSPanel {
         CATransaction.setDisableActions(true)
         containerLayer.masksToBounds = displayClip != nil
         setFrameReconcilingWindowServer(panelFrame)
+        let placedOrigin = stableBacking && presentation == nil && !moveInWindowServer(to: movedFrame)
+            ? panelFrame.origin : contentOrigin
         laidOutSurfaceSize = stableBacking ? surfaceFrame.size : nil
-        if borderLayer.frame != layerFrame {
-            borderLayer.frame = layerFrame
+        let placedLayerFrame = targetFrame.offsetBy(dx: -placedOrigin.x, dy: -placedOrigin.y)
+        let placedEffectsFrame = surfaceFrame.offsetBy(dx: -placedOrigin.x, dy: -placedOrigin.y)
+        if borderLayer.frame != placedLayerFrame {
+            borderLayer.frame = placedLayerFrame
         }
-        if effects.root.frame != effectsFrame {
-            effects.root.frame = effectsFrame
+        if effects.root.frame != placedEffectsFrame {
+            effects.root.frame = placedEffectsFrame
         }
         CATransaction.commit()
     }

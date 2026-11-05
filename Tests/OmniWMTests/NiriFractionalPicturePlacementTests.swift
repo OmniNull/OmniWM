@@ -32,6 +32,7 @@ final class NiriFractionalPicturePlacementTests: XCTestCase {
     private final class BorderPanel: BorderLayerPanel {
         var frameWrites: [CGRect] = []
         var moves: [CGRect] = []
+        var movesSucceed = true
 
         override func setFrame(_ frameRect: NSRect, display flag: Bool) {
             frameWrites.append(frameRect)
@@ -39,6 +40,7 @@ final class NiriFractionalPicturePlacementTests: XCTestCase {
         }
 
         override func moveInWindowServer(to target: CGRect) -> Bool {
+            guard movesSucceed else { return false }
             moves.append(target)
             return true
         }
@@ -85,6 +87,91 @@ final class NiriFractionalPicturePlacementTests: XCTestCase {
         XCTAssertTrue(panel.moves.isEmpty)
         XCTAssertEqual(panel.frame.size, backing)
         XCTAssertEqual(panel.contentView?.layer?.sublayers?.first?.frame.size, resized.size)
+    }
+
+    private func movingPlacement(for surface: CGRect) -> CGRect {
+        CGRect(origin: surface.origin, size: SurfacePanelGeometry.backingFrame(for: surface).size)
+    }
+
+    private func assertRingOnTarget(_ panel: BorderPanel, _ target: CGRect, line: UInt = #line) throws {
+        let placement = try XCTUnwrap(panel.moves.last, line: line)
+        XCTAssertEqual(panel.borderLayer.frame.offsetBy(dx: placement.minX, dy: placement.minY), target, line: line)
+    }
+
+    func testPlainRingMovesInWindowServerToFractionalOriginsWithoutFrameOrLayerWrites() throws {
+        let initial = fractionalFrame
+        let panel = try XCTUnwrap(BorderPanel(frame: initial))
+        defer { panel.close() }
+        let inset = pixel * 2
+        let target = initial.insetBy(dx: inset, dy: inset)
+        panel.applyFrame(targetFrame: target, surfaceFrame: initial, isMoving: true)
+        XCTAssertEqual(panel.moves, [movingPlacement(for: initial)])
+        try assertRingOnTarget(panel, target)
+        let writes = panel.frameWrites
+        let layerFrame = panel.borderLayer.frame
+        var expected = panel.moves
+        for step in 1 ... 3 {
+            let moved = initial.offsetBy(dx: pixel * CGFloat(step), dy: 0)
+            let movedTarget = moved.insetBy(dx: inset, dy: inset)
+            panel.applyFrame(targetFrame: movedTarget, surfaceFrame: moved, isMoving: true)
+            expected.append(movingPlacement(for: moved))
+            try assertRingOnTarget(panel, movedTarget)
+        }
+        XCTAssertEqual(panel.moves, expected)
+        XCTAssertEqual(panel.frameWrites, writes)
+        XCTAssertEqual(panel.borderLayer.frame, layerFrame)
+    }
+
+    func testPlainRingStaysOnTargetWhenTheWindowServerMoveIsRejected() throws {
+        let initial = fractionalFrame
+        let panel = try XCTUnwrap(BorderPanel(frame: initial))
+        defer { panel.close() }
+        panel.movesSucceed = false
+        let inset = pixel * 2
+        let target = initial.insetBy(dx: inset, dy: inset)
+        panel.applyFrame(targetFrame: target, surfaceFrame: initial, isMoving: true)
+        XCTAssertTrue(panel.moves.isEmpty)
+        XCTAssertEqual(panel.borderLayer.frame.offsetBy(dx: panel.frame.minX, dy: panel.frame.minY), target)
+        let moved = initial.offsetBy(dx: pixel, dy: 0)
+        let movedTarget = moved.insetBy(dx: inset, dy: inset)
+        panel.applyFrame(targetFrame: movedTarget, surfaceFrame: moved, isMoving: true)
+        XCTAssertEqual(panel.borderLayer.frame.offsetBy(dx: panel.frame.minX, dy: panel.frame.minY), movedTarget)
+    }
+
+    func testPlainRingSettlesOnTheSameFrameAtItsUsualPlacement() throws {
+        let initial = fractionalFrame
+        let panel = try XCTUnwrap(BorderPanel(frame: initial))
+        defer { panel.close() }
+        let inset = pixel * 2
+        let target = initial.insetBy(dx: inset, dy: inset)
+        panel.applyFrame(targetFrame: target, surfaceFrame: initial, isMoving: true)
+        let moved = initial.offsetBy(dx: pixel, dy: pixel)
+        let movedTarget = moved.insetBy(dx: inset, dy: inset)
+        panel.applyFrame(targetFrame: movedTarget, surfaceFrame: moved, isMoving: true)
+        let appKitFrame = panel.frame
+
+        panel.applyFrame(targetFrame: movedTarget, surfaceFrame: moved)
+
+        XCTAssertEqual(panel.frame, moved.integral)
+        XCTAssertNotEqual(panel.frame, appKitFrame)
+        XCTAssertEqual(panel.moves.last, moved.integral)
+        XCTAssertEqual(panel.borderLayer.frame.offsetBy(dx: panel.frame.minX, dy: panel.frame.minY), movedTarget)
+    }
+
+    func testPlainRingStaysOnTargetWhenItsSizeChangesDuringMotion() throws {
+        let initial = fractionalFrame
+        let panel = try XCTUnwrap(BorderPanel(frame: initial))
+        defer { panel.close() }
+        let inset = pixel * 2
+        panel.applyFrame(targetFrame: initial.insetBy(dx: inset, dy: inset), surfaceFrame: initial, isMoving: true)
+        let writes = panel.frameWrites.count
+        var resized = initial
+        resized.size.width += 1
+        let resizedTarget = resized.insetBy(dx: inset, dy: inset)
+        panel.applyFrame(targetFrame: resizedTarget, surfaceFrame: resized, isMoving: true)
+        XCTAssertGreaterThan(panel.frameWrites.count, writes)
+        XCTAssertEqual(panel.moves.last, movingPlacement(for: resized))
+        try assertRingOnTarget(panel, resizedTarget)
     }
 
     func testFractionalBorderMovesWithoutFrameWritesAndKeepsGeometryAtLanding() throws {

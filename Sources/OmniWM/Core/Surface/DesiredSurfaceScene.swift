@@ -21,6 +21,7 @@ struct DesiredBorderSurface: Equatable {
     var frame: CGRect
     var config: BorderConfig
     var presentation: BorderPresentation?
+    var isMoving = false
 
     var windowId: Int {
         token.windowId

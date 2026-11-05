@@ -113,7 +113,8 @@ enum SurfaceDerivation {
                     windowId: $0.windowId, displayFrame: $0.displayFrame, scale: $0.scale,
                     otherDisplayFrames: $0.otherDisplayFrames, isMoving: $0.isMoving
                 )
-            }
+            },
+            isMoving: world.hasMotion(in: entry.workspaceId)
         )
     }
 

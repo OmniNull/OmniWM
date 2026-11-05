@@ -124,6 +124,7 @@ final class BorderSurfaceApplier {
             frame: desired.frame,
             targetToken: desired.token,
             presentation: desired.presentation,
+            isMoving: desired.isMoving,
             cornerRadii: cornerSample?.radii ?? defaultCornerRadii,
             cornerContour: cornerSample?.contour,
             forceOrdering: forceOrdering
@@ -167,6 +168,7 @@ final class BorderSurfaceApplier {
             && applied.token == desired.token
             && applied.config == desired.config
             && applied.presentation == desired.presentation
+            && applied.isMoving == desired.isMoving
             && appliedCornerSample == cornerSample
             && desired.frame.approximatelyEqual(to: applied.frame, tolerance: FrameTolerance.frameWrite)
     }

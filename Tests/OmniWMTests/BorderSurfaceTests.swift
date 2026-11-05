@@ -1868,6 +1868,27 @@ final class WindowCornerRadiiTests: XCTestCase {
     }
 
     @MainActor
+    func testBorderIsMovingOnlyWhileItsWorkspaceHasMotion() throws {
+        let fixture = try borderFrameFixture()
+        fixture.controller.hasStartedServices = true
+        XCTAssertTrue(fixture.controller.workspaceManager.setManagedFocus(
+            fixture.entry.token,
+            in: fixture.entry.workspaceId
+        ))
+        let world = WorldView(controller: fixture.controller, liveBoundsProvider: { _ in nil })
+        let driver = fixture.controller.workspaceManager.animationDriver
+        XCTAssertEqual(SurfaceDerivation.deriveBorder(world: world)?.isMoving, false)
+        XCTAssertNotNil(driver.beginGesture(in: fixture.entry.workspaceId, isTrackpad: true))
+        XCTAssertEqual(SurfaceDerivation.deriveBorder(world: world)?.isMoving, true)
+        XCTAssertEqual(
+            SurfaceDerivation.deriveAnimationBorder(world: world, previous: nil)?.isMoving,
+            true
+        )
+        driver.removeMotions(for: [fixture.entry.workspaceId])
+        XCTAssertEqual(SurfaceDerivation.deriveBorder(world: world)?.isMoving, false)
+    }
+
+    @MainActor
     func testBorderReadsLiveBoundsDuringMotionWhenNoPlannedFrameIsKnown() throws {
         let fixture = try borderFrameFixture()
         fixture.controller.hasStartedServices = true
@@ -2023,6 +2044,25 @@ final class WindowCornerRadiiTests: XCTestCase {
 }
 
 extension BorderSurfaceTests {
+    @MainActor
+    func testSettlingOnAnUnchangedFrameIsNotShortCircuited() throws {
+        let recorder = BorderOperationsRecorder()
+        let applier = makeApplier(recorder)
+        defer { applier.cleanup() }
+        var desired = DesiredBorderSurface(token: token(), frame: frame, config: configRed, isMoving: true)
+        XCTAssertTrue(applier.apply(desired, forceOrdering: false, refreshCornerRadii: false).didApply)
+        let panel = try XCTUnwrap(recorder.layerPanels.first)
+        let moved = frame.offsetBy(dx: 40, dy: 0)
+        desired.frame = moved
+        XCTAssertTrue(applier.apply(desired, forceOrdering: false, refreshCornerRadii: false).didApply)
+        let geometry = configRed.resolvedGeometry(for: moved, scale: panel.backingScaleFactor)
+        XCTAssertNotEqual(panel.frame, geometry.surfaceFrame.integral)
+
+        desired.isMoving = false
+        XCTAssertTrue(applier.apply(desired, forceOrdering: false, refreshCornerRadii: false).didApply)
+        XCTAssertEqual(panel.frame, geometry.surfaceFrame.integral)
+    }
+
     @MainActor
     func testPictureBorderUsesDisplayScaleAndKeepsFullGeometryWhileClipChanges() throws {
         for scale in [CGFloat(1), CGFloat(2)] {
