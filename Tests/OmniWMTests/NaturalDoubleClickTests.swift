@@ -760,31 +760,26 @@ final class NaturalDoubleClickTests: NiriInteractionTestCase {
         }
     }
 
-    func testAFullLoopFromASizeThatIsNoPresetComesBackToItInTheSamePlace() throws {
-        for index in [1, 2] {
-            let fixture = try makeFixture(pid: index == 1 ? 941_130 : 941_131)
-            let token = fixture.tokens[index]
-            let column = try fixture.column(token)
-            column.width = .proportion(0.4)
-            column.cachedWidth = 0
-            fixture.relayout()
-            try fixture.select(token)
-            let start = try fixture.frame(token)
-            let point = try fixture.titleBar(token)
-            let presets = fixture.engine.presetContainerPrimarySpans.count
+    func testAWidthApartFromThePresetsGoesToTheNextPresetAndIsNotComeBackTo() throws {
+        let fixture = try makeFixture(pid: 941_130)
+        fixture.engine.presetContainerPrimarySpans = [.proportion(1.0 / 3.0), .proportion(0.5), .proportion(2.0 / 3.0)]
+        let token = fixture.tokens[1]
+        let column = try fixture.column(token)
+        column.width = .proportion(0.4)
+        column.cachedWidth = 0
+        fixture.relayout()
+        try fixture.select(token)
+        let point = try fixture.titleBar(token)
 
-            var widths: [ProportionalSize] = []
-            for _ in 0 ..< presets {
-                XCTAssertTrue(fixture.doubleClick(at: point), "\(index)")
-                widths.append(column.width)
-            }
-            XCTAssertFalse(widths.contains(.proportion(0.4)), "\(index)")
-            XCTAssertTrue(fixture.doubleClick(at: point), "\(index)")
+        var widths: [CGFloat] = []
+        for _ in 0 ..< 4 {
+            XCTAssertTrue(fixture.doubleClick(at: point))
+            guard case let .proportion(width) = column.width else { return XCTFail("\(column.width)") }
+            widths.append(width)
+        }
 
-            XCTAssertEqual(column.width, .proportion(0.4), "\(index)")
-            let end = try fixture.frame(token)
-            XCTAssertEqual(end.minX, start.minX, accuracy: 1, "\(index)")
-            XCTAssertEqual(end.width, start.width, accuracy: 1, "\(index)")
+        for (width, expected) in zip(widths, [0.5, 2.0 / 3.0, 1.0 / 3.0, 0.5]) {
+            XCTAssertEqual(width, expected, accuracy: 0.001)
         }
     }
 
@@ -830,12 +825,12 @@ final class NaturalDoubleClickTests: NiriInteractionTestCase {
         let fixture = try makeFixture(pid: 941_133)
         let token = fixture.tokens[1]
         let column = try fixture.column(token)
-        column.width = .proportion(0.4)
+        column.width = .proportion(0.5)
         column.cachedWidth = 0
         fixture.relayout()
         try fixture.select(token)
         let start = try fixture.frame(token)
-        let stops = fixture.engine.presetContainerPrimarySpans.count + 1
+        let stops = fixture.engine.presetContainerPrimarySpans.count
 
         for forward in [true, false] {
             var widths: [ProportionalSize] = []
@@ -845,7 +840,7 @@ final class NaturalDoubleClickTests: NiriInteractionTestCase {
                 widths.append(column.width)
             }
             XCTAssertEqual(Set(widths.map { "\($0)" }).count, stops, "\(forward)")
-            XCTAssertEqual(column.width, .proportion(0.4), "\(forward)")
+            XCTAssertEqual(column.width, .proportion(0.5), "\(forward)")
             XCTAssertEqual(try fixture.frame(token).minX, start.minX, accuracy: 1, "\(forward)")
         }
     }
@@ -874,9 +869,9 @@ final class NaturalDoubleClickTests: NiriInteractionTestCase {
         }
     }
 
-    func testAStartWidthThatIsNoPresetJoinsTheCycleAfterTheWidestNarrowerPreset() throws {
-        let fixture = try makeFixture(pid: 941_136)
-        fixture.engine.presetContainerPrimarySpans = [.proportion(0.5), .proportion(1.0 / 3.0), .proportion(2.0 / 3.0)]
+    func testBackwardsAWidthApartFromThePresetsGoesToTheWidestNarrowerPreset() throws {
+        let fixture = try makeFixture(pid: 941_139)
+        fixture.engine.presetContainerPrimarySpans = [.proportion(1.0 / 3.0), .proportion(0.5), .proportion(2.0 / 3.0)]
         let token = fixture.tokens[1]
         let column = try fixture.column(token)
         column.width = .proportion(0.4)
@@ -884,16 +879,39 @@ final class NaturalDoubleClickTests: NiriInteractionTestCase {
         fixture.relayout()
         try fixture.select(token)
 
-        var widths: [CGFloat] = []
-        for _ in 0 ..< 4 {
-            fixture.controller.niriLayoutHandler.cycleSize(forward: true)
-            fixture.relayout()
-            guard case let .proportion(width) = column.width else { return XCTFail("\(column.width)") }
-            widths.append(width)
-        }
+        fixture.controller.niriLayoutHandler.cycleSize(forward: false)
+        fixture.relayout()
 
-        for (width, expected) in zip(widths, [2.0 / 3.0, 0.5, 1.0 / 3.0, 0.4]) {
-            XCTAssertEqual(width, expected, accuracy: 0.001)
+        guard case let .proportion(width) = column.width else { return XCTFail("\(column.width)") }
+        XCTAssertEqual(width, 1.0 / 3.0, accuracy: 0.001)
+    }
+
+    func testAWidthCloseToAPresetCountsAsThatPresetBothWays() throws {
+        for (forward, expected) in [(true, [1.0 / 3.0, 2.0 / 3.0, 0.5]), (false, [2.0 / 3.0, 1.0 / 3.0, 0.5])] {
+            let fixture = try makeFixture(pid: forward ? 941_137 : 941_138)
+            fixture.engine.presetContainerPrimarySpans = [
+                .proportion(0.5),
+                .proportion(1.0 / 3.0),
+                .proportion(2.0 / 3.0)
+            ]
+            let token = fixture.tokens[1]
+            let column = try fixture.column(token)
+            column.width = .proportion(0.49)
+            column.cachedWidth = 0
+            fixture.relayout()
+            try fixture.select(token)
+
+            var widths: [CGFloat] = []
+            for _ in 0 ..< 3 {
+                fixture.controller.niriLayoutHandler.cycleSize(forward: forward)
+                fixture.relayout()
+                guard case let .proportion(width) = column.width else { return XCTFail("\(column.width)") }
+                widths.append(width)
+            }
+
+            for (width, wanted) in zip(widths, expected) {
+                XCTAssertEqual(width, wanted, accuracy: 0.001, "\(forward)")
+            }
         }
     }
 
