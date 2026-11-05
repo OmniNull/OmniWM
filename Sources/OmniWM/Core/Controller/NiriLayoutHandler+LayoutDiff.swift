@@ -298,12 +298,19 @@ extension NiriLayoutHandler {
                 in: pass.wsId,
                 excluding: snapshot.excludedTokens
             )
-            let animationsTriggered = pass.engine.triggerMoveAnimations(
+            let movesTriggered = pass.engine.triggerMoveAnimations(
                 in: pass.wsId,
                 oldFrames: removalSeed.oldFrames,
                 newFrames: newFrames,
                 motion: pass.motion
             )
+            let heightsTriggered = pass.engine.animateFilledHeightChanges(
+                in: pass.wsId,
+                oldFrames: removalSeed.oldFrames,
+                newFrames: newFrames,
+                motion: pass.motion
+            )
+            let animationsTriggered = movesTriggered || heightsTriggered
             let hasWindowAnimations = pass.engine.hasAnyWindowAnimationsRunning(in: pass.wsId)
             let hasColumnAnimations = pass.engine.hasAnyColumnAnimationsRunning(in: pass.wsId)
             if animationsTriggered || hasWindowAnimations || hasColumnAnimations {

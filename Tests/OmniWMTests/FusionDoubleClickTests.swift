@@ -272,61 +272,73 @@ final class FusionDoubleClickTests: NiriInteractionTestCase {
         TitleBarHit(role: role, subrole: subrole, placement: .insideBar(elementWithinBar: elementWithinBar))
     }
 
-    func testDoubleClickingALoneWindowsTopEdgeGivesItTheFullColumnHeight() throws {
+    func testALoneWindowFillsItsColumnWhateverHeightItHas() throws {
         let fixture = try makeFixture(pid: 941_001)
         let lone = try fixture.window(fixture.tokens[0])
         lone.height = .fixed(400)
         fixture.relayout()
 
-        XCTAssertTrue(fixture.doubleClick(at: try fixture.topEdge(fixture.tokens[0])))
-
-        XCTAssertTrue(lone.height.isAuto)
         XCTAssertEqual(try fixture.frame(fixture.tokens[0]).height, try fixture.frame(fixture.tokens[1]).height)
     }
 
-    func testASecondDoubleClickGivesTheLoneWindowItsHeightBack() throws {
+    func testAStackWithFixedHeightsFillsItsColumnInProportionOnlyWithMacOSFusion() throws {
+        for macOSFusion in [true, false] {
+            let fixture = try makeFixture(pid: macOSFusion ? 941_150 : 941_151, stackFirstTwo: true)
+            fixture.controller.settings.niri.macOSFusion = macOSFusion
+            fixture.controller.updateNiriConfig(macOSFusion: fixture.controller.macOSFusionConfiguration)
+            try fixture.window(fixture.tokens[0]).height = .fixed(200)
+            try fixture.window(fixture.tokens[1]).height = .fixed(100)
+            fixture.relayout()
+            let upper = try fixture.frame(fixture.tokens[0])
+            let lower = try fixture.frame(fixture.tokens[1])
+            let lone = try fixture.frame(fixture.tokens[2])
+            let gap = fixture.controller.innerGap(for: fixture.monitor)
+
+            if macOSFusion {
+                XCTAssertEqual(upper.height + lower.height + gap, lone.height, accuracy: 1)
+                XCTAssertEqual(upper.height, 2 * lower.height, accuracy: 1)
+            } else {
+                XCTAssertEqual(upper.height, 200, accuracy: 1)
+                XCTAssertEqual(lower.height, 100, accuracy: 1)
+            }
+        }
+    }
+
+    func testExpellingAWindowFromAStackGrowsTheWindowLeftWithAnAnimation() throws {
+        let fixture = try makeFixture(pid: 941_152, stackFirstTwo: true)
+        let left = try fixture.window(fixture.tokens[0])
+        let full = try fixture.frame(fixture.tokens[2]).height
+        XCTAssertLessThan(try fixture.frame(fixture.tokens[0]).height, full - 1)
+        fixture.controller.motionPolicy.animationsEnabled = true
+        let handle = try XCTUnwrap(fixture.controller.workspaceManager.handle(for: fixture.tokens[1]))
+
+        _ = fixture.controller.niriLayoutHandler.moveWindow(handle: handle, direction: .right)
+        fixture.relayout()
+
+        XCTAssertNotNil(left.heightAnimation)
+        XCTAssertFalse(try fixture.column(fixture.tokens[0]).windowNodes.contains { $0.token == fixture.tokens[1] })
+        left.heightAnimation = nil
+        fixture.relayout()
+        XCTAssertEqual(try fixture.frame(fixture.tokens[0]).height, full, accuracy: 1)
+    }
+
+    func testATopOrBottomEdgeDoubleClickOnALoneWindowIsTakenAndChangesNothing() throws {
         let fixture = try makeFixture(pid: 941_002)
         let lone = try fixture.window(fixture.tokens[0])
-        lone.height = .fixed(400)
-        fixture.relayout()
-
-        fixture.doubleClick(at: try fixture.topEdge(fixture.tokens[0]))
-        XCTAssertTrue(fixture.doubleClick(at: try fixture.topEdge(fixture.tokens[0])))
-
-        XCTAssertEqual(lone.height, .fixed(400))
-
-        let neverResized = try fixture.window(fixture.tokens[1])
-        XCTAssertTrue(fixture.doubleClick(at: try fixture.topEdge(fixture.tokens[1])))
-        XCTAssertTrue(neverResized.height.isAuto)
-    }
-
-    func testAHeightChangedSinceTheFirstDoubleClickIsntReplaced() throws {
-        let fixture = try makeFixture(pid: 941_025)
-        let lone = try fixture.window(fixture.tokens[0])
-        lone.height = .fixed(400)
-        fixture.relayout()
-
-        fixture.doubleClick(at: try fixture.topEdge(fixture.tokens[0]))
-        lone.height = .fixed(300)
-        let handle = try XCTUnwrap(fixture.controller.workspaceManager.handle(for: fixture.tokens[0]))
-        fixture.controller.niriLayoutHandler.resetWindowSecondarySpan(target: .window(handle))
-        fixture.relayout()
-        XCTAssertTrue(lone.height.isAuto)
+        let frame = try fixture.frame(fixture.tokens[0])
 
         XCTAssertTrue(fixture.doubleClick(at: try fixture.topEdge(fixture.tokens[0])))
+        XCTAssertTrue(fixture.doubleClick(at: try fixture.bottomEdge(fixture.tokens[0])))
+
         XCTAssertTrue(lone.height.isAuto)
+        XCTAssertEqual(try fixture.frame(fixture.tokens[0]), frame)
     }
 
-    func testTheBottomEdgeActsLikeTheTopEdge() throws {
+    func testTheBottomEdgeOfAStackedWindowActsLikeItsTopEdge() throws {
         let fixture = try makeFixture(pid: 941_003, stackFirstTwo: true)
-        let lone = try fixture.window(fixture.tokens[2])
-        lone.height = .fixed(400)
-        fixture.relayout()
-
-        XCTAssertTrue(fixture.doubleClick(at: try fixture.bottomEdge(fixture.tokens[2])))
-        XCTAssertTrue(lone.height.isAuto)
 
         XCTAssertTrue(fixture.doubleClick(at: try fixture.bottomEdge(fixture.tokens[0])))
+
         XCTAssertTrue(try fixture.column(fixture.tokens[0]).isTabbed)
     }
 
@@ -1153,6 +1165,7 @@ final class FusionDoubleClickTests: NiriInteractionTestCase {
             _ = WindowAdmissionTestSupport.track(token, in: workspaceId, controller: controller)
         }
         controller.enableNiriLayout()
+        controller.updateNiriConfig(macOSFusion: controller.macOSFusionConfiguration)
         let engine = try XCTUnwrap(controller.niriEngine)
         var previous: NiriWindow?
         for (index, token) in tokens.enumerated() {

@@ -304,10 +304,14 @@ extension NiriLayoutEngine {
                 gapSize: axis.gap,
                 isTabbed: axis.isTabbed
             )
-            outputs = packedSecondarySpans(
-                windows: windows,
+            outputs = columnFillingSpans(
+                packedSecondarySpans(
+                    windows: windows,
+                    inputs: inputs,
+                    hardOutputs: hardOutputs,
+                    axis: axis
+                ),
                 inputs: inputs,
-                hardOutputs: hardOutputs,
                 axis: axis
             )
             container.axisSolveMemo = (cacheKey, outputs)
@@ -364,6 +368,34 @@ extension NiriLayoutEngine {
             availableSpace: axis.availableSpace,
             gapSize: axis.gap,
             isTabbed: axis.isTabbed
+        )
+    }
+
+    private func columnFillingSpans(
+        _ outputs: [NiriAxisSolver.Output],
+        inputs: [NiriAxisSolver.Input],
+        axis: NiriAxisLayout
+    ) -> [NiriAxisSolver.Output] {
+        guard windowsFillColumnHeight, !axis.isTabbed, axis.orientation == .horizontal else { return outputs }
+        let usableSpace = axis.availableSpace - axis.gap * CGFloat(outputs.count + 1)
+        let total = outputs.reduce(0) { $0 + $1.value }
+        guard total > 0, total < usableSpace - 0.5 else { return outputs }
+        let shares = zip(inputs, outputs).map { input, output in
+            NiriAxisSolver.Input(
+                weight: output.value,
+                minConstraint: input.minConstraint,
+                maxConstraint: input.maxConstraint,
+                hasMaxConstraint: input.hasMaxConstraint,
+                isConstraintFixed: input.isConstraintFixed,
+                hasFixedValue: false,
+                fixedValue: nil
+            )
+        }
+        return NiriAxisSolver.solve(
+            windows: shares,
+            availableSpace: axis.availableSpace,
+            gapSize: axis.gap,
+            isTabbed: false
         )
     }
 

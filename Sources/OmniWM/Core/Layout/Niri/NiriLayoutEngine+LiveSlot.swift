@@ -37,8 +37,7 @@ extension NiriLayoutEngine {
         context: NiriInteractionContext,
         state: inout ViewportState
     ) -> [LiveColumnMove.StripColumn]? {
-        guard let placement = liveHomePlacement(in: strip, context: context), !placement.move.stackMode
-        else { return nil }
+        guard let placement = liveHomePlacement(in: strip, context: context) else { return nil }
         var move = placement.move
         let placed = placement.placed
         guard let closing = move.slotClosing else {
@@ -171,6 +170,31 @@ extension NiriLayoutEngine {
         } else {
             return false
         }
+        return placeLiveSlot(placement, in: strip, to: bounds, context: context, state: &state) != nil
+    }
+
+    func collapseLiveHomeSlotBesideLanding(
+        context: NiriInteractionContext,
+        state: inout ViewportState
+    ) -> Bool {
+        guard let move = liveColumnMove,
+              move.stackMode,
+              let landing = move.landing,
+              let target = liveColumn(withId: landing.columnId, in: context.workspaceId),
+              let homeIndex = columnIndex(of: liveDraggedColumn(for: move) ?? target, in: context.workspaceId),
+              let targetIndex = columnIndex(of: target, in: context.workspaceId),
+              homeIndex != targetIndex
+        else { return false }
+        let strip = liveColumnStrip(context: context, state: state)
+        guard let placement = liveHomePlacement(in: strip, context: context),
+              placement.home.windowNodes.isEmpty
+        else { return false }
+        let placed = placement.placed
+        let width = liveDropSpaceWidth(context: context)
+        guard placed.width > width + 0.5 else { return false }
+        let bounds = targetIndex < homeIndex
+            ? placed.minX ... placed.minX + width
+            : placed.maxX - width ... placed.maxX
         return placeLiveSlot(placement, in: strip, to: bounds, context: context, state: &state) != nil
     }
 

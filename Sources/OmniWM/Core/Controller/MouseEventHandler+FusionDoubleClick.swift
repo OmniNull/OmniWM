@@ -116,7 +116,7 @@ extension MouseEventHandler {
 
     private func performFusionDoubleClick(on target: FusionDoubleClickTarget) {
         guard let controller, let engine = controller.niriEngine else { return }
-        forgetDoubleClickSizesOfGoneWindows(engine: engine, in: target.workspaceId)
+        forgetDoubleClickSizesOfGoneColumns(engine: engine, in: target.workspaceId)
         let layout = controller.niriLayoutHandler
         let changeStart = layout.layoutChangeStart(in: target.workspaceId)
         defer { layout.recordLayoutChange(since: changeStart) }
@@ -135,8 +135,6 @@ extension MouseEventHandler {
         case .edge:
             if target.projectedWindowCount > 1 {
                 toggleTabbedFromDoubleClick(target)
-            } else {
-                toggleFullHeightFromDoubleClick(target)
             }
         }
     }
@@ -195,46 +193,11 @@ extension MouseEventHandler {
             }
     }
 
-    private func toggleFullHeightFromDoubleClick(_ target: FusionDoubleClickTarget) {
-        guard let controller else { return }
-        let token = target.window.token
-        let layout = controller.niriLayoutHandler
-        if !target.window.height.isAuto {
-            let height = target.window.height
-            let restsAtTop = target.window.restsAtTop(of: target.column)
-            guard layout.resetWindowSecondarySpan(target: .window(target.handle)) else { return }
-            state.fusionDoubleClickHeights[token] = FusionDoubleClickHeight(
-                height: height,
-                revision: target.window.heightRevision,
-                restsAtTop: restsAtTop
-            )
-            return
-        }
-        guard let remembered = state.fusionDoubleClickHeights.removeValue(forKey: token),
-              remembered.revision == target.window.heightRevision
-        else { return }
-        layout.performWindowSizing(on: .window(target.handle)) { _, window, _, _ in
-            window.height = remembered.height
-            window.rest(atTop: remembered.restsAtTop, in: target.column)
-            return .windowSizeChanged(token: window.token)
-        }
-    }
-
-    private func forgetDoubleClickSizesOfGoneWindows(engine: NiriLayoutEngine, in workspaceId: WorkspaceDescriptor.ID) {
-        guard let controller else { return }
-        state.fusionDoubleClickHeights = state.fusionDoubleClickHeights.filter {
-            controller.workspaceManager.entry(for: $0.key) != nil
-        }
+    private func forgetDoubleClickSizesOfGoneColumns(engine: NiriLayoutEngine, in workspaceId: WorkspaceDescriptor.ID) {
         state.fusionDoubleClickWidths = state.fusionDoubleClickWidths.filter {
             $0.value.workspaceId != workspaceId || engine.findNode(by: $0.key, in: workspaceId) is NiriContainer
         }
     }
-}
-
-struct FusionDoubleClickHeight {
-    let height: WeightedSize
-    let revision: Int
-    let restsAtTop: Bool
 }
 
 struct FusionDoubleClickWidth {

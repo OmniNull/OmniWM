@@ -452,35 +452,19 @@ final class NiriFusionEdgeResizeTests: NiriInteractionTestCase {
         XCTAssertEqual(try fixture.settledFrame(right).minX, rightStart.minX + 100, accuracy: 1)
     }
 
-    func testALoneWindowShortenedFromTheTopSitsAtTheBottom() throws {
+    func testShorteningALoneWindowFromEitherEndSnapsBack() throws {
         let fixture = try makeFixture(pid: 871_008)
         let blocker = blockRefreshes(fixture)
         defer { unblockRefreshes(fixture, blocker: blocker) }
         let lone = fixture.tokens[1]
         let start = try fixture.frame(lone)
-        let shorter = grown(start, top: -150)
-        try fixture.beginDrag(lone)
-        fixture.drag(lone, to: shorter)
 
-        fixture.release(at: shorter)
+        for shorter in [grown(start, top: -150), grown(start, bottom: -150)] {
+            try fixture.resize(lone, to: shorter)
 
-        XCTAssertEqual(try fixture.frame(lone).height, start.height - 150, accuracy: 1)
-        XCTAssertEqual(try fixture.frame(lone).minY, start.minY, accuracy: 1)
-        XCTAssertFalse(try fixture.node(lone).height.isAuto)
-    }
-
-    func testALoneWindowShortenedFromTheBottomSitsAtTheTop() throws {
-        let fixture = try makeFixture(pid: 871_020)
-        let blocker = blockRefreshes(fixture)
-        defer { unblockRefreshes(fixture, blocker: blocker) }
-        let lone = fixture.tokens[1]
-        let start = try fixture.frame(lone)
-
-        try fixture.resize(lone, to: grown(start, bottom: -150))
-
-        let frame = try fixture.settledFrame(lone)
-        XCTAssertEqual(frame.maxY, start.maxY, accuracy: 1)
-        XCTAssertEqual(frame.minY, start.minY + 150, accuracy: 1)
+            XCTAssertEqual(try fixture.settledFrame(lone), start)
+            XCTAssertTrue(try fixture.node(lone).height.isAuto)
+        }
     }
 
     func testTheEdgeAtTheColumnsEndSnapsBack() throws {
@@ -498,45 +482,6 @@ final class NiriFusionEdgeResizeTests: NiriInteractionTestCase {
 
         XCTAssertEqual(try fixture.settledFrame(atBottom), bottomPlaced)
         XCTAssertEqual(try fixture.settledFrame(atTop), topPlaced)
-    }
-
-    func testDraggingTheFreeEdgeToTheColumnsEndGivesTheFullHeight() throws {
-        let fixture = try makeFixture(pid: 871_029)
-        let blocker = blockRefreshes(fixture)
-        defer { unblockRefreshes(fixture, blocker: blocker) }
-        let lone = fixture.tokens[1]
-        let start = try fixture.frame(lone)
-        try fixture.resize(lone, to: grown(start, bottom: -150))
-
-        try fixture.resize(lone, to: grown(try fixture.settledFrame(lone), bottom: 150))
-
-        XCTAssertEqual(try fixture.settledFrame(lone), start)
-        try fixture.resize(lone, to: grown(start, top: -100))
-        let frame = try fixture.settledFrame(lone)
-        XCTAssertEqual(frame.minY, start.minY, accuracy: 1)
-        XCTAssertEqual(frame.height, start.height - 100, accuracy: 1)
-    }
-
-    func testDroppingALoneWindowInItsSpaceMovesItToThatEnd() throws {
-        let fixture = try makeFixture(pid: 871_030)
-        let blocker = blockRefreshes(fixture)
-        defer { unblockRefreshes(fixture, blocker: blocker) }
-        let lone = fixture.tokens[1]
-        let start = try fixture.frame(lone)
-        try fixture.resize(lone, to: grown(start, top: -300))
-        let atBottom = try fixture.settledFrame(lone)
-
-        try fixture.moveByTitleBar(
-            lone,
-            from: atBottom,
-            by: 200,
-            releasingAt: CGPoint(x: atBottom.midX, y: atBottom.maxY + 100)
-        )
-
-        XCTAssertTrue(try fixture.node(lone).hasMoveAnimationsRunning)
-        let atTop = try fixture.settledFrame(lone)
-        XCTAssertEqual(atTop.maxY, start.maxY, accuracy: 1)
-        XCTAssertEqual(atTop.height, atBottom.height, accuracy: 1)
     }
 
     func testDroppingALoneWindowInTheSpaceBelowMovesItToTheBottom() throws {
@@ -828,7 +773,7 @@ final class NiriFusionEdgeResizeTests: NiriInteractionTestCase {
         XCTAssertEqual(try fixture.settledFrame(lower).height, lowerStart.height - 50, accuracy: 1)
     }
 
-    func testACentredHeightDragOnALoneWindowKeepsItAtItsEnd() throws {
+    func testACentredHeightDragOnALoneWindowSnapsBack() throws {
         let fixture = try makeFixture(pid: 871_038)
         let blocker = blockRefreshes(fixture)
         defer { unblockRefreshes(fixture, blocker: blocker) }
@@ -837,12 +782,10 @@ final class NiriFusionEdgeResizeTests: NiriInteractionTestCase {
 
         try fixture.resize(lone, to: grown(start, bottom: -75, top: -75))
 
-        let frame = try fixture.settledFrame(lone)
-        XCTAssertEqual(frame.height, start.height - 150, accuracy: 1)
-        XCTAssertEqual(frame.minY, start.minY, accuracy: 1)
+        XCTAssertEqual(try fixture.settledFrame(lone), start)
     }
 
-    func testACentredCornerDragTakesBothAxes() throws {
+    func testACentredCornerDragOnALoneWindowTakesOnlyTheWidth() throws {
         let fixture = try makeFixture(pid: 871_039)
         let blocker = blockRefreshes(fixture)
         defer { unblockRefreshes(fixture, blocker: blocker) }
@@ -854,11 +797,11 @@ final class NiriFusionEdgeResizeTests: NiriInteractionTestCase {
         let frame = try fixture.settledFrame(lone)
         XCTAssertEqual(frame.minX, start.minX - 40, accuracy: 1)
         XCTAssertEqual(frame.width, start.width + 80, accuracy: 1)
-        XCTAssertEqual(frame.height, start.height - 100, accuracy: 1)
+        XCTAssertEqual(frame.height, start.height, accuracy: 1)
         XCTAssertEqual(frame.minY, start.minY, accuracy: 1)
     }
 
-    func testAnInwardCentredCornerDragSlidesTheWindowBackToItsEnd() throws {
+    func testAnInwardCentredCornerDragOnALoneWindowGrowsBackToTheFullHeight() throws {
         let fixture = try makeFixture(pid: 871_051)
         let blocker = blockRefreshes(fixture)
         defer { unblockRefreshes(fixture, blocker: blocker) }
@@ -870,12 +813,10 @@ final class NiriFusionEdgeResizeTests: NiriInteractionTestCase {
 
         fixture.release(at: released)
 
-        XCTAssertTrue(try fixture.node(lone).hasMoveAnimationsRunning)
-        XCTAssertEqual(try fixture.frame(lone).minY, released.minY, accuracy: 1)
-        let midway = try fixture.frame(lone, after: 0.08)
-        XCTAssertLessThan(midway.minY, released.minY - 1)
-        XCTAssertGreaterThan(midway.minY, start.minY + 1)
-        XCTAssertEqual(try fixture.settledFrame(lone).minY, start.minY, accuracy: 1)
+        let settled = try fixture.settledFrame(lone)
+        XCTAssertEqual(settled.width, start.width - 60, accuracy: 1)
+        XCTAssertEqual(settled.minY, start.minY, accuracy: 1)
+        XCTAssertEqual(settled.height, start.height, accuracy: 1)
     }
 
     func testATabbedColumnsCentredHeightDragSnapsBack() throws {

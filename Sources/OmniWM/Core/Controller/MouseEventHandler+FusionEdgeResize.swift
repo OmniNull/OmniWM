@@ -74,8 +74,8 @@ extension MouseEventHandler {
         switch engine.stackPlace(of: window, frame: start, in: column, workspaceId: workspaceId) {
         case .top: return start.height + start.minY - observed.minY
         case .bottom: return start.height + observed.maxY - start.maxY
-        case .alone,
-             .middle: return observed.height
+        case .alone: return controller?.settings.niri.macOSFusion == true ? nil : observed.height
+        case .middle: return observed.height
         }
     }
 
@@ -233,25 +233,10 @@ extension MouseEventHandler {
             return !edges.isDisjoint(with: [.top, .bottom])
         }
         switch engine.stackPlace(of: window, frame: frame, in: column, workspaceId: workspaceId) {
-        case .alone: return isLoneWindowEndEdge(edges, of: window, frame: frame, in: column, workspaceId: workspaceId)
+        case .alone: return !edges.isDisjoint(with: [.top, .bottom])
         case .top: return edges.contains(.top)
         case .bottom: return edges.contains(.bottom)
         case .middle: return false
         }
-    }
-
-    private func isLoneWindowEndEdge(
-        _ edges: ResizeEdge,
-        of window: NiriWindow,
-        frame: CGRect,
-        in column: NiriContainer,
-        workspaceId: WorkspaceDescriptor.ID
-    ) -> Bool {
-        guard let engine = controller?.niriEngine,
-              let context = liveColumnContext(for: workspaceId),
-              engine.loneWindow(in: column, workspaceId: workspaceId, orientation: context.orientation) === window,
-              frame.height < context.workingFrame.height - 2 * context.gaps - FrameTolerance.screenMatch
-        else { return false }
-        return edges.contains(window.restsAtTop(of: column) ? .top : .bottom)
     }
 }

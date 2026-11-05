@@ -12,6 +12,23 @@ extension NiriLayoutEngine {
         context: NiriInteractionContext,
         state: inout ViewportState
     ) -> LiveColumnMove.Step {
+        let step = applyLiveStackModeChange(
+            held: held,
+            cursor: cursor,
+            duringEdgeScroll: duringEdgeScroll,
+            context: context,
+            state: &state
+        )
+        return collapseLiveHomeSlotBesideLanding(context: context, state: &state) ? .changed : step
+    }
+
+    private func applyLiveStackModeChange(
+        held: Bool,
+        cursor: CGPoint,
+        duringEdgeScroll: Bool,
+        context: NiriInteractionContext,
+        state: inout ViewportState
+    ) -> LiveColumnMove.Step {
         assertSanctionedMutation()
         guard var move = liveColumnMove,
               move.workspaceId == context.workspaceId,
@@ -224,7 +241,10 @@ extension NiriLayoutEngine {
     }
 
     func releaseLivePlaceholders(of previous: LiveColumnMove) {
-        if let slot = previous.narrowedSlot, liveColumnMove?.narrowedSlot?.columnId != slot.columnId {
+        if let slot = previous.narrowedSlot,
+           liveColumnMove?.narrowedSlot?.columnId != slot.columnId,
+           liveStackDrop?.homeColumnId != slot.columnId
+        {
             widenLiveSlot(slot, in: previous.workspaceId)
         }
         if let dropSpaceId = previous.dropSpaceId,
@@ -606,6 +626,7 @@ struct MacOSFusionConfiguration: Equatable {
 extension NiriLayoutEngine {
     func applyMacOSFusion(_ configuration: MacOSFusionConfiguration) {
         tabbedColumnsFillHeight = configuration.enabled
+        windowsFillColumnHeight = configuration.enabled
         keepsStripEndsOnScreen = configuration.enabled
         centersFittingStrips = configuration.enabled
         clipsOverflowToDisplay = configuration.enabled

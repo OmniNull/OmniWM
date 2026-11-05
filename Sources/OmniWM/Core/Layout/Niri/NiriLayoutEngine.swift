@@ -143,6 +143,14 @@ final class NiriLayoutEngine {
         }
     }
 
+    var windowsFillColumnHeight = false {
+        didSet {
+            if oldValue != windowsFillColumnHeight {
+                axisSolveConfigurationRevision &+= 1
+            }
+        }
+    }
+
     var keepsStripEndsOnScreen = false
 
     var centersFittingStrips = false

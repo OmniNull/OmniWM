@@ -192,6 +192,7 @@ struct LiveColumnMove {
     let isWholeColumn: Bool
     let pullsTab: Bool
     var inStack: Bool
+    var leftStack = false
     var homeSlotIndex: Int
     let originalSlot: OriginalSlot
     var ownSizing: NiriContainerSizingState

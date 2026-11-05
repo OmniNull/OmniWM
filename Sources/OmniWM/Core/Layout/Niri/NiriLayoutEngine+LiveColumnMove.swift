@@ -98,7 +98,8 @@ extension NiriLayoutEngine {
             state: &state
         )
         let narrowed = narrowOffScreenHomeSlot(strip: step == .changed ? nil : current, context: context, state: &state)
-        return closed != nil || narrowed ? .changed : step
+        let collapsed = collapseLiveHomeSlotBesideLanding(context: context, state: &state)
+        return closed != nil || narrowed || collapsed ? .changed : step
     }
 
     private func liveColumnMoveStep(
@@ -693,6 +694,7 @@ extension NiriLayoutEngine {
             return ahead
         }
         if awayFromHome,
+           liveColumnMove?.leftStack != true,
            let children = target.parent?.children,
            let targetIndex = children.firstIndex(where: { $0 === target }),
            let homeIndex = children.firstIndex(where: { $0 === home })
@@ -777,7 +779,9 @@ extension NiriLayoutEngine {
         }
         var probe = state
         rebaseLiveView(from: before, anchoredOn: home, context: context, state: &probe)
-        guard isLiveColumnFullyVisible(home, atOffset: probe.viewOffset, context: context, state: probe) else {
+        guard home.isLiveHomeSpot
+            || isLiveColumnFullyVisible(home, atOffset: probe.viewOffset, context: context, state: probe)
+        else {
             home.detach()
             for place in originalPlaces {
                 root.insertChild(place.column, at: place.index)

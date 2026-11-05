@@ -300,6 +300,16 @@ struct NodeActivationOptions {
         ).frames
     }
 
+    func preparePredictedHeightAnimation(state: ViewportState, oldFrames: [WindowToken: CGRect]) {
+        let animationTime = (engine.animationClock?.now() ?? CACurrentMediaTime()) + 2.0
+        engine.animateFilledHeightChanges(
+            in: wsId,
+            oldFrames: oldFrames,
+            newFrames: predictedFrames(state: state, at: animationTime),
+            motion: motion
+        )
+    }
+
     func prepareCapturedAnimation(oldFrames: [WindowToken: CGRect]) {
         let newFrames = engine.captureWindowFrames(in: wsId)
         _ = engine.triggerMoveAnimations(
