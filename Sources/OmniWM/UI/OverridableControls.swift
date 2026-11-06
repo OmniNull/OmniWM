@@ -154,6 +154,26 @@ struct ResetIconButton: View {
     }
 }
 
+struct OverrideStatus: View {
+    let label: String
+    let isOverridden: Bool
+    let onReset: () -> Void
+
+    var body: some View {
+        if isOverridden {
+            ResetIconButton(title: String(localized: "Reset \(label) to global default"), action: onReset)
+        } else {
+            Text("Global")
+                .font(.caption)
+                .foregroundStyle(.secondary)
+                .frame(minWidth: 45)
+                .accessibilityElement(children: .ignore)
+                .accessibilityAddTraits(.isStaticText)
+                .accessibilityLabel(String(localized: "\(label) uses global default"))
+        }
+    }
+}
+
 struct OverridableToggle: View {
     let label: String
     let value: Bool?
@@ -179,25 +199,10 @@ struct OverridableToggle: View {
                 .labelsHidden()
                 .accessibilityLabel(label)
 
-                overrideStatus
+                OverrideStatus(label: label, isOverridden: isOverridden, onReset: onReset)
             }
         } label: {
             Text(label)
-        }
-    }
-
-    @ViewBuilder
-    private var overrideStatus: some View {
-        if isOverridden {
-            ResetIconButton(title: String(localized: "Reset \(label) to global default"), action: onReset)
-        } else {
-            Text("Global")
-                .font(.caption)
-                .foregroundStyle(.secondary)
-                .frame(minWidth: 45)
-                .accessibilityElement(children: .ignore)
-                .accessibilityAddTraits(.isStaticText)
-                .accessibilityLabel(String(localized: "\(label) uses global default"))
         }
     }
 }
@@ -233,23 +238,8 @@ struct OverridablePicker<T: Hashable & Identifiable>: View {
                 .labelsHidden()
                 .accessibilityLabel(label)
 
-                overrideStatus
+                OverrideStatus(label: label, isOverridden: isOverridden, onReset: onReset)
             }
-        }
-    }
-
-    @ViewBuilder
-    private var overrideStatus: some View {
-        if isOverridden {
-            ResetIconButton(title: String(localized: "Reset \(label) to global default"), action: onReset)
-        } else {
-            Text("Global")
-                .font(.caption)
-                .foregroundStyle(.secondary)
-                .frame(minWidth: 45)
-                .accessibilityElement(children: .ignore)
-                .accessibilityAddTraits(.isStaticText)
-                .accessibilityLabel(String(localized: "\(label) uses global default"))
         }
     }
 }
@@ -287,23 +277,8 @@ struct OverridableSlider: View {
                 .accessibilityValue(displayValue)
 
                 SettingsValueText(text: displayValue, width: 48)
-                overrideStatus
+                OverrideStatus(label: label, isOverridden: isOverridden, onReset: onReset)
             }
-        }
-    }
-
-    @ViewBuilder
-    private var overrideStatus: some View {
-        if isOverridden {
-            ResetIconButton(title: String(localized: "Reset \(label) to global default"), action: onReset)
-        } else {
-            Text("Global")
-                .font(.caption)
-                .foregroundStyle(.secondary)
-                .frame(minWidth: 45)
-                .accessibilityElement(children: .ignore)
-                .accessibilityAddTraits(.isStaticText)
-                .accessibilityLabel(String(localized: "\(label) uses global default"))
         }
     }
 }

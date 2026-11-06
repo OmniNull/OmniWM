@@ -27,7 +27,7 @@ struct SingleWindowFitControls: View {
                 .accessibilityLabel(label)
 
                 if let onReset {
-                    overrideStatus(onReset: onReset)
+                    OverrideStatus(label: label, isOverridden: isOverridden, onReset: onReset)
                 }
             }
         }
@@ -56,19 +56,6 @@ struct SingleWindowFitControls: View {
                     Text("pt").foregroundStyle(.secondary)
                 }
             }
-        }
-    }
-
-    @ViewBuilder
-    private func overrideStatus(onReset: @escaping () -> Void) -> some View {
-        if isOverridden {
-            ResetIconButton(title: String(localized: "Reset \(label) to global default"), action: onReset)
-        } else {
-            Text("Global")
-                .font(.caption)
-                .foregroundStyle(.secondary)
-                .frame(minWidth: 45)
-                .accessibilityLabel(String(localized: "\(label) uses global default"))
         }
     }
 }

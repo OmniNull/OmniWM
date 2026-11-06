@@ -16,7 +16,7 @@ final class OverridableControlsAccessibilityTests: XCTestCase {
     }()
 
     private enum Control: String, CaseIterable {
-        case slider, toggle, picker
+        case slider, toggle, picker, singleWindowFit
     }
 
     private enum Choice: String, CaseIterable, Identifiable {
@@ -26,28 +26,39 @@ final class OverridableControlsAccessibilityTests: XCTestCase {
         }
     }
 
+    private static let label = "Gaps"
+    private static let resetHelp = String(localized: "Reset \(label) to global default")
+    private static let usesGlobal = String(localized: "\(label) uses global default")
+
     private struct ResettableRow: View {
         let control: Control
+        private let label = OverridableControlsAccessibilityTests.label
         @State private var sliderValue: Double? = 3
         @State private var toggleValue: Bool? = false
         @State private var pickerValue: Choice? = .second
+        @State private var fitIsOverridden = true
 
         var body: some View {
             Form {
                 switch control {
                 case .slider:
                     OverridableSlider(
-                        label: "Gaps", value: sliderValue, globalValue: 2, range: 1 ... 5, step: 1,
+                        label: label, value: sliderValue, globalValue: 2, range: 1 ... 5, step: 1,
                         formatter: { "\(Int($0))" }, onChange: { sliderValue = $0 }, onReset: { sliderValue = nil }
                     )
                 case .toggle:
                     OverridableToggle(
-                        label: "Gaps", value: toggleValue, globalValue: true,
+                        label: label, value: toggleValue, globalValue: true,
                         onChange: { toggleValue = $0 }, onReset: { toggleValue = nil }
+                    )
+                case .singleWindowFit:
+                    SingleWindowFitControls(
+                        label: label, fit: .fullScreen, modes: SingleWindowFit.niriModes,
+                        isOverridden: fitIsOverridden, onChange: { _ in }, onReset: { fitIsOverridden = false }
                     )
                 case .picker:
                     OverridablePicker(
-                        label: "Gaps", value: pickerValue, globalValue: .first, options: Choice.allCases,
+                        label: label, value: pickerValue, globalValue: .first, options: Choice.allCases,
                         displayName: \.rawValue, onChange: { pickerValue = $0 }, onReset: { pickerValue = nil }
                     )
                 }
@@ -81,16 +92,16 @@ final class OverridableControlsAccessibilityTests: XCTestCase {
             window.display()
 
             let reset = try XCTUnwrap(
-                elements(in: window).first { $0.description == "Reset Gaps to global default" },
+                elements(in: window).first { $0.description == Self.resetHelp },
                 control.rawValue
             )
             XCTAssertEqual(AXUIElementPerformAction(reset.reference, kAXPressAction as CFString), .success)
 
             let after = elements(in: window)
-            XCTAssertFalse(after.contains { $0.description == "Reset Gaps to global default" }, control.rawValue)
-            let global = try XCTUnwrap(after.first { $0.value == "Gaps uses global default" }, control.rawValue)
+            XCTAssertFalse(after.contains { $0.description == Self.resetHelp }, control.rawValue)
+            let global = try XCTUnwrap(after.first { $0.value == Self.usesGlobal }, control.rawValue)
             XCTAssertEqual(global.role, kAXStaticTextRole, control.rawValue)
-            XCTAssertFalse(after.contains { $0.value == "Global" }, control.rawValue)
+            XCTAssertFalse(after.contains { $0.value == String(localized: "Global") }, control.rawValue)
         }
     }
 
