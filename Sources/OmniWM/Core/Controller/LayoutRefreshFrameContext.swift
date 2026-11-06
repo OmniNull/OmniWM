@@ -18,10 +18,11 @@ final class LayoutRefreshFrameContext {
 
     func prime(
         _ targets: [LayoutRefreshController.HideTarget],
+        skipping isKnown: (WindowState) -> Bool,
         using readBounds: ([UInt32]) -> [UInt32: CGRect]
     ) {
         let windows = targets.compactMap { target -> (token: WindowToken, id: UInt32)? in
-            guard target.entry.axRef != nil, cache[target.entry.token] == nil,
+            guard target.entry.axRef != nil, !isKnown(target.entry), cache[target.entry.token] == nil,
                   let id = UInt32(exactly: target.entry.windowId)
             else { return nil }
             return (target.entry.token, id)

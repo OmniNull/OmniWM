@@ -36,6 +36,10 @@ extension AXManager {
         parkLedger.parkTargetFrame(for: windowId)
     }
 
+    func knownFrame(for windowId: Int) -> CGRect? {
+        lastAppliedFrame(for: windowId) ?? parkTargetFrame(for: windowId)
+    }
+
     func processParkFrameApplyResults(_ results: [AXFrameApplyResult]) -> [AXFrameApplicationRequest] {
         parkLedger
             .processParkFrameApplyResults(results)

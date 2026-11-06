@@ -62,7 +62,8 @@ struct LayoutVisibilityApplication {
         guard plan.isAnimationTick, plan.monitor.orientation == .vertical else {
             refreshController.applyLayoutTransientHides(
                 hiddenEntries, monitor: monitor, isAnimationTick: plan.isAnimationTick,
-                preserveWorkspaceInactive: !plan.isActiveWorkspace
+                preserveWorkspaceInactive: !plan.isActiveWorkspace,
+                trustsKnownFrames: plan.isSlideInFlight
             )
             return
         }

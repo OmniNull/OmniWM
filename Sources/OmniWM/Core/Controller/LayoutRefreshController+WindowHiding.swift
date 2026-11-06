@@ -25,12 +25,14 @@ extension LayoutRefreshController {
         reason: HideReason,
         hiddenPlacementMonitors: [HiddenPlacementMonitorContext]? = nil,
         animationTick: Bool = false,
+        trustsKnownFrames: Bool = false,
         preserveWorkspaceInactive: Bool = true,
         observedFrame: CGRect? = nil
     ) -> HideOperationResolution {
         guard let controller else { return .unavailable }
         var resolvedFrame = observedFrame
             ?? (animationTick ? controller.axManager.lastAppliedFrame(for: entry.windowId) : nil)
+            ?? (trustsKnownFrames ? controller.axManager.knownFrame(for: entry.windowId) : nil)
             ?? fastFrame(for: entry.token, axRef: entry.axRef)
             ?? controller.axManager.lastAppliedFrame(for: entry.windowId)
         if resolvedFrame == nil, !animationTick, let axRef = entry.axRef {
@@ -199,7 +201,8 @@ extension LayoutRefreshController {
         monitor: Monitor,
         isAnimationTick: Bool,
         preserveWorkspaceInactive: Bool,
-        requiresNativePark: Bool = false
+        requiresNativePark: Bool = false,
+        trustsKnownFrames: Bool = false
     ) {
         guard !hiddenEntries.isEmpty, let controller else { return }
         applyHides(
@@ -208,7 +211,8 @@ extension LayoutRefreshController {
             hiddenPlacementMonitors: controller.workspaceManager.monitors.map(HiddenPlacementMonitorContext.init),
             isAnimationTick: isAnimationTick,
             preserveWorkspaceInactive: preserveWorkspaceInactive,
-            requiresNativePark: requiresNativePark
+            requiresNativePark: requiresNativePark,
+            trustsKnownFrames: trustsKnownFrames
         )
     }
 
@@ -219,10 +223,13 @@ extension LayoutRefreshController {
         isAnimationTick: Bool = false,
         preserveWorkspaceInactive: Bool = true,
         afterFrameWritesOf awaitedWindowIds: Set<Int> = [],
-        requiresNativePark: Bool = false
+        requiresNativePark: Bool = false,
+        trustsKnownFrames: Bool = false
     ) {
         guard !targets.isEmpty, let controller else { return }
-        if !isAnimationTick { primeFrames(for: targets) }
+        if !isAnimationTick {
+            primeFrames(for: targets) { trustsKnownFrames && controller.axManager.knownFrame(for: $0.windowId) != nil }
+        }
         var hiddenJobs: [(pid: pid_t, windowId: Int)] = []
         hiddenJobs.reserveCapacity(targets.count)
         var parkPlans: [WindowPositionPlan] = []
@@ -241,6 +248,7 @@ extension LayoutRefreshController {
                 reason: reason,
                 hiddenPlacementMonitors: hiddenPlacementMonitors,
                 animationTick: isAnimationTick,
+                trustsKnownFrames: trustsKnownFrames,
                 preserveWorkspaceInactive: preserveWorkspaceInactive
             ) {
             case let .movable(movePlan, hiddenState):

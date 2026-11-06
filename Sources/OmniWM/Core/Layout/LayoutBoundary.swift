@@ -282,6 +282,7 @@ struct WorkspaceLayoutPlan {
     var isAnimationTick = false
     var isInteractiveResize = false
     var isActiveWorkspace = true
+    var isSlideInFlight = false
 }
 
 struct RefreshPostLayoutAction {

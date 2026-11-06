@@ -59,7 +59,7 @@ extension NiriLayoutHandler {
         diff.picturePreparation = picturePreparation(
             engine: pass.engine, snapshot: snapshot, state: state, isSettled: isSettled
         )
-        completeAnimationDirectives(&directives, pass: pass, state: state)
+        let hasPendingAnimationWork = completeAnimationDirectives(&directives, pass: pass, state: state)
         return WorkspaceLayoutPlan(
             workspaceId: pass.wsId,
             monitor: snapshot.monitor,
@@ -71,7 +71,8 @@ extension NiriLayoutHandler {
             ),
             diff: diff,
             animationDirectives: directives,
-            isActiveWorkspace: snapshot.isActiveWorkspace
+            isActiveWorkspace: snapshot.isActiveWorkspace,
+            isSlideInFlight: hasPendingAnimationWork
         )
     }
 
@@ -292,7 +293,7 @@ extension NiriLayoutHandler {
         _ directives: inout [AnimationDirective],
         pass: NiriLayoutPass,
         state: ViewportState
-    ) {
+    ) -> Bool {
         let startsAnimation = directives.contains {
             if case .startNiriScroll = $0 { return true }
             return false
@@ -309,5 +310,6 @@ extension NiriLayoutHandler {
         if hasPendingAnimationWork, !startsAnimation, !hasRegisteredAnimation {
             directives.append(.startNiriScroll(workspaceId: pass.wsId))
         }
+        return hasPendingAnimationWork
     }
 }

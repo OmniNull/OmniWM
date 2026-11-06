@@ -71,8 +71,8 @@ import QuartzCore
 
     var windowBoundsProvider: ([UInt32]) -> [UInt32: CGRect] = { SkyLight.shared.getWindowBounds($0) }
 
-    func primeFrames(for targets: [HideTarget]) {
-        activeFrameContext?.prime(targets, using: windowBoundsProvider)
+    func primeFrames(for targets: [HideTarget], skipping isKnown: (WindowState) -> Bool) {
+        activeFrameContext?.prime(targets, skipping: isKnown, using: windowBoundsProvider)
     }
 
     func fastFrame(for token: WindowToken, axRef: AXWindowRef?) -> CGRect? {

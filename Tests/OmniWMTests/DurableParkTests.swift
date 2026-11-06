@@ -339,6 +339,154 @@ final class DurableParkTests: XCTestCase {
         }
     }
 
+    func testRelayoutDuringASlideTrustsKnownFramesAndTheSettledHideRereadsThem() throws {
+        let fixture = try hideFixture(pid: 951_701, windowId: 951_801)
+        let refresh = fixture.controller.layoutRefreshController
+        let applied = CGRect(x: 100, y: 16, width: 800, height: 600)
+        let constrainedSize = CGSize(width: 960, height: 640)
+        fixture.controller.axManager.confirmFrameWrite(for: fixture.token.windowId, frame: applied)
+        var reads = 0
+        refresh.fastFrameProvider = { _, _ in
+            reads += 1
+            return CGRect(origin: applied.origin, size: constrainedSize)
+        }
+        var duringSlide = Self.leftHidePlan(
+            workspaceId: fixture.workspaceId, monitor: fixture.monitor, token: fixture.token, isAnimationTick: false
+        )
+        duringSlide.isSlideInFlight = true
+
+        FrameApplyTrace.shared.beginCapture()
+        defer { FrameApplyTrace.shared.endCapture() }
+        XCTAssertTrue(refresh.executeLayoutPlan(duringSlide))
+        XCTAssertEqual(reads, 0)
+        let trustedOrigin = try XCTUnwrap(refresh.liveFrameHideOrigin(
+            for: applied, monitor: fixture.monitor, side: .left, reason: .layoutTransient
+        ))
+        XCTAssertEqual(
+            fixture.controller.workspaceManager.hiddenState(for: fixture.token)?.referenceMonitorId,
+            fixture.monitor.id
+        )
+        XCTAssertEqual(fixture.controller.axManager.parkTargetFrame(for: fixture.token.windowId)?.origin, trustedOrigin)
+
+        XCTAssertTrue(refresh.executeLayoutPlan(Self.leftHidePlan(
+            workspaceId: fixture.workspaceId, monitor: fixture.monitor, token: fixture.token, isAnimationTick: false
+        )))
+        XCTAssertEqual(reads, 1)
+        let rereadOrigin = try XCTUnwrap(refresh.liveFrameHideOrigin(
+            for: CGRect(origin: applied.origin, size: constrainedSize),
+            monitor: fixture.monitor, side: .left, reason: .layoutTransient
+        ))
+        XCTAssertNotEqual(rereadOrigin.x, trustedOrigin.x)
+        XCTAssertEqual(fixture.controller.axManager.parkTargetFrame(for: fixture.token.windowId)?.origin, rereadOrigin)
+    }
+
+    func testRelayoutDuringASlideQueriesOnlyWindowsWithNoKnownFrame() throws {
+        let controller = Self.controller()
+        let monitor = Self.monitor()
+        controller.workspaceManager.applyMonitorConfigurationChange([monitor])
+        let workspaceId = try XCTUnwrap(controller.workspaceManager.workspaceId(for: "1", createIfMissing: true))
+        _ = controller.workspaceManager.focusWorkspace(named: "1")
+        controller.niriLayoutHandler.enableNiriLayout()
+        let tokens = (0 ..< 4).map { index in
+            let pid = pid_t(951_711 + index), windowId = 951_811 + index
+            let token = controller.workspaceManager.addWindow(
+                AXWindowRef(element: AXUIElementCreateApplication(pid), windowId: windowId),
+                pid: pid, windowId: windowId, to: workspaceId
+            )
+            _ = controller.niriEngine?.addWindow(token: token, to: workspaceId, afterSelection: nil)
+            return token
+        }
+        let refresh = controller.layoutRefreshController
+        let appliedOnly = tokens[0], parkedOnly = tokens[1], unknown = Array(tokens[2...])
+        let physical = CGRect(x: 100, y: 16, width: 800, height: 600)
+        controller.axManager.confirmFrameWrite(for: appliedOnly.windowId, frame: physical)
+        var batches: [Set<UInt32>] = []
+        var singleReads = 0
+        refresh.windowBoundsProvider = { windowIds in
+            batches.append(Set(windowIds))
+            return Dictionary(uniqueKeysWithValues: windowIds.map { ($0, physical) })
+        }
+        refresh.fastFrameProvider = { _, _ in
+            singleReads += 1
+            return physical
+        }
+        func effectPlan(_ hidden: [WindowToken], slideInFlight: Bool) -> EffectPlan {
+            var diff = WorkspaceLayoutDiff()
+            diff.visibilityChanges = hidden.map { .hide($0, side: .left) }
+            var layout = Self.plan(workspaceId: workspaceId, monitor: monitor, diff: diff, isAnimationTick: false)
+            layout.isSlideInFlight = slideInFlight
+            var plan = EffectPlan()
+            plan.workspacePlans = [layout]
+            return plan
+        }
+
+        XCTAssertTrue(refresh.executeEffectPlan(
+            effectPlan([parkedOnly], slideInFlight: false),
+            generation: refresh.layoutState.refreshGeneration
+        ))
+        XCTAssertNil(controller.axManager.lastAppliedFrame(for: parkedOnly.windowId))
+        XCTAssertNotNil(controller.axManager.parkTargetFrame(for: parkedOnly.windowId))
+        singleReads = 0
+
+        XCTAssertTrue(refresh.executeEffectPlan(
+            effectPlan(tokens, slideInFlight: true),
+            generation: refresh.layoutState.refreshGeneration
+        ))
+        XCTAssertEqual(batches, [Set(unknown.map { UInt32($0.windowId) })])
+        XCTAssertEqual(singleReads, 0)
+    }
+
+    func testOnlyTheWorkspaceStillMovingPlansAsASlide() throws {
+        let controller = Self.controller()
+        let moving = Self.monitor()
+        let still = Monitor(
+            id: .init(displayId: 951_900),
+            displayId: 951_900,
+            frame: moving.frame.offsetBy(dx: moving.frame.width, dy: 0),
+            visibleFrame: moving.visibleFrame.offsetBy(dx: moving.frame.width, dy: 0),
+            hasNotch: false,
+            name: "Still"
+        )
+        controller.workspaceManager.applyMonitorConfigurationChange([moving, still])
+        let movingId = try XCTUnwrap(controller.workspaceManager.workspaceId(for: "1", createIfMissing: true))
+        let stillId = try XCTUnwrap(controller.workspaceManager.workspaceId(for: "2", createIfMissing: true))
+        _ = controller.workspaceManager.setActiveWorkspace(movingId, on: moving.id)
+        _ = controller.workspaceManager.setActiveWorkspace(stillId, on: still.id)
+        controller.niriLayoutHandler.enableNiriLayout()
+        for (index, workspaceId) in [movingId, stillId].enumerated() {
+            let pid = pid_t(951_901 + index), windowId = 951_911 + index
+            let token = controller.workspaceManager.addWindow(
+                AXWindowRef(element: AXUIElementCreateApplication(pid), windowId: windowId),
+                pid: pid, windowId: windowId, to: workspaceId
+            )
+            _ = controller.niriEngine?.addWindow(token: token, to: workspaceId, afterSelection: nil)
+        }
+        func plans(closing oldFrames: [WindowToken: CGRect] = [:]) -> [WorkspaceDescriptor.ID: Bool] {
+            let seed = NiriWindowRemovalSeed(removedNodeIds: [], oldFrames: oldFrames, removedColumn: false)
+            let plans = controller.workspaceManager.withBatchedLayoutBuild {
+                controller.niriLayoutHandler.layoutWithNiriEngine(
+                    activeWorkspaces: [movingId, stillId],
+                    removalSeeds: [stillId: seed]
+                )
+            }
+            return Dictionary(uniqueKeysWithValues: plans.map { ($0.workspaceId, $0.isSlideInFlight) })
+        }
+        XCTAssertEqual(plans(), [movingId: false, stillId: false])
+
+        controller.workspaceManager.withNiriViewportState(for: movingId) { state in
+            state.animateViewOffsetRestore(
+                state.viewOffset + moving.frame.width,
+                motion: MotionSnapshot(animationsEnabled: true)
+            )
+        }
+        XCTAssertEqual(plans(), [movingId: true, stillId: false])
+
+        let frames = try XCTUnwrap(controller.niriEngine).captureWindowFrames(in: stillId, excluding: [])
+        XCTAssertFalse(frames.isEmpty)
+        XCTAssertEqual(plans(closing: frames)[stillId], false)
+        XCTAssertEqual(plans(closing: frames.mapValues { $0.offsetBy(dx: $0.width, dy: 0) })[stillId], true)
+    }
+
     func testTickHideReadsTheWindowWhenNoFrameWasApplied() throws {
         let fixture = try hideFixture(pid: 951_301, windowId: 951_401)
         let refresh = fixture.controller.layoutRefreshController
