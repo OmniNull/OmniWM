@@ -26,7 +26,7 @@ final class NiriPictureStreamTestDriver {
 
         func update(
             geometry: NiriEdgePictureGeometry, content: NiriPictureContent,
-            isMoving _: Bool, activate: @escaping @MainActor () -> Void
+            activate: @escaping @MainActor () -> Void
         ) {
             self.geometry = geometry
             self.content = content

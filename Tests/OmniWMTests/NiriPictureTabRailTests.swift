@@ -30,7 +30,6 @@ final class NiriPictureTabRailTests: XCTestCase {
         func update(
             geometry _: NiriEdgePictureGeometry,
             content _: NiriPictureContent,
-            isMoving _: Bool,
             activate _: @escaping @MainActor () -> Void
         ) {}
         func setOrderingTarget(_: Int?) {}

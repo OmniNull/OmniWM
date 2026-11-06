@@ -178,6 +178,10 @@ final class BorderSurfaceApplier {
             && desired.frame.approximatelyEqual(to: applied.frame, tolerance: FrameTolerance.frameWrite)
     }
 
+    func ringWindowId(orderedAbove target: UInt32) -> UInt32? {
+        borderWindow?.windowId(orderedAbove: target)
+    }
+
     func cleanup() {
         hide()
         recentCornerSamples.removeAll()

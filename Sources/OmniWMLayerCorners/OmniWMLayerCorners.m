@@ -142,7 +142,7 @@ static id OmniWMIvarValue(id object, const char *name) {
     return ivar == NULL ? nil : object_getIvar(object, ivar);
 }
 
-NSString *omniwm_window_manager_identifier(NSWindow *window) {
+static NSString *OmniWMWindowManagerIdentifier(NSWindow *window) {
     id storage = OmniWMIvarValue(window, "_auxiliaryStorage");
     id record = storage == nil ? nil : OmniWMIvarValue(storage, "_wmWindow");
     return [record respondsToSelector:@selector(windowIdentifier)]
@@ -150,11 +150,12 @@ NSString *omniwm_window_manager_identifier(NSWindow *window) {
         : nil;
 }
 
-BOOL omniwm_window_manager_order(NSString *identifier, NSWindowOrderingMode place, uint32_t otherWindowID) {
+BOOL omniwm_window_manager_order(NSWindow *window, NSWindowOrderingMode place, uint32_t otherWindowID) {
     Class infoClass = NSClassFromString(@"WMWindowOrderingInfo");
     Class actionClass = NSClassFromString(@"WMWindowTransactionAction");
     void *coordinator = atomic_load_explicit(&OmniWMCapturedWindowCoordinator, memory_order_acquire);
-    if (coordinator == NULL ||
+    NSString *identifier = OmniWMWindowManagerIdentifier(window);
+    if (coordinator == NULL || identifier == nil ||
         ![infoClass respondsToSelector:@selector(infoWithWindow:positioned:relativeTo:)] ||
         ![infoClass instancesRespondToSelector:@selector(setCGOtherWindowID:)] ||
         ![actionClass respondsToSelector:@selector(actionForOrderingWindowWithInfo:fences:)]) {

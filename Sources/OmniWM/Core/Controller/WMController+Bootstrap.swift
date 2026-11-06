@@ -64,6 +64,7 @@ extension WMController {
         secureInputIndicator.openHotkeysSettings = { [weak self] in
             self?.statusBarController?.openSettings(section: .hotkeys)
         }
+        tabRailManager.ringOrderedAbove = { [weak self] in self?.surfaceReconciler.ringWindowId(orderedAbove: $0) }
         tabRailManager.onSelect = { [weak self] info, visualIndex, token in
             guard let self else { return }
             switch info.owner {

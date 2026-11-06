@@ -24,7 +24,7 @@ final class SurfaceReconciler {
     private(set) var reconcileScheduled = false
     private(set) var forceOrderingOnNextReconcile = false
     private(set) var pendingReconcileScope: ReconcileScope?
-    private let borderApplier: BorderSurfaceApplier
+    fileprivate let borderApplier: BorderSurfaceApplier
     private let parkingEdgeMaskManager = ParkingEdgeMaskManager()
     private let applyTabRails: TabRailApply
     private let applyNativeFullscreenPlaceholders: NativeFullscreenPlaceholderApply
@@ -354,6 +354,10 @@ extension SurfaceReconciler {
 }
 
 extension SurfaceReconciler {
+    func ringWindowId(orderedAbove target: UInt32) -> UInt32? {
+        borderApplier.ringWindowId(orderedAbove: target)
+    }
+
     func noteInvalidation(_ scope: SessionSurfaceInvalidationScope) {
         switch scope {
         case .full:

@@ -7,9 +7,9 @@ import XCTest
 final class TabRailOrderingRegressionTests: XCTestCase {
     func testStableVisibleRailDoesNotReorder() {
         XCTAssertFalse(
-            TabRailOrderingPolicy.shouldOrderFront(
+            TabRailOrderingPolicy.shouldReorder(
                 forceOrdering: false,
-                wasVisible: true,
+                wasOrderedIn: true,
                 lastActiveWindowId: 41,
                 activeWindowId: 41
             )
@@ -23,8 +23,8 @@ final class TabRailOrderingRegressionTests: XCTestCase {
             ("activeChanged", false, true, 42)
         ]
         for (label, force, visible, active) in cases {
-            XCTAssertTrue(TabRailOrderingPolicy.shouldOrderFront(
-                forceOrdering: force, wasVisible: visible, lastActiveWindowId: 41, activeWindowId: active
+            XCTAssertTrue(TabRailOrderingPolicy.shouldReorder(
+                forceOrdering: force, wasOrderedIn: visible, lastActiveWindowId: 41, activeWindowId: active
             ), label)
         }
     }

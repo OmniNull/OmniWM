@@ -58,6 +58,7 @@ final class BorderWindow {
     private var appliedPresentation: BorderPresentation?
     private var appliedIsMoving = false
     private var appliedOrdersAboveTarget = false
+    private var orderedAboveWindowId: UInt32?
     private var isOrderedOutInWindowServer = false
     private var needsRedraw = true
     private var isVisible = false
@@ -104,6 +105,7 @@ final class BorderWindow {
             wid = 0
         }
         isVisible = false
+        orderedAboveWindowId = nil
         lastOrderedTargetToken = nil
         appliedTargetToken = nil
         appliedPresentation = nil
@@ -213,6 +215,7 @@ final class BorderWindow {
                     isOrderedOutInWindowServer = false
                 }
                 operations.orderPanel(layerPanel, appliedOrdersAboveTarget ? .above : .below, targetWid)
+                orderedAboveWindowId = appliedOrdersAboveTarget ? targetWid : nil
             }
             return
         }
@@ -245,11 +248,16 @@ final class BorderWindow {
         lastOrderedTargetToken = targetToken
     }
 
+    func windowId(orderedAbove target: UInt32) -> UInt32? {
+        orderedAboveWindowId == target ? wid : nil
+    }
+
     func hide() {
         invalidateDeferredLevel(target: nil)
         guard wid != 0 else { return }
         BorderOpMetricsRecorder.shared.noteHide()
         operations.orderWindow(wid, 0, .out)
+        orderedAboveWindowId = nil
         isOrderedOutInWindowServer = true
         isVisible = false
         lastOrderedTargetToken = nil

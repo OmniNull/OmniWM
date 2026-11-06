@@ -11,7 +11,6 @@ class BorderLayerPanel: NSPanel {
     private(set) var placedFrame: CGRect?
     private var placementIsMoving = false
     private var layerContext: NSObject?
-    private var windowManagerIdentifier: String?
     private var appliedColorSpace: CGColorSpace?
     private let containerLayer = CALayer()
     private let effects = BorderEffectLayers()
@@ -69,7 +68,6 @@ class BorderLayerPanel: NSPanel {
             return nil
         }
         self.layerContext = layerContext
-        windowManagerIdentifier = omniwm_window_manager_identifier(self)
     }
 
     override func close() {
@@ -95,7 +93,7 @@ class BorderLayerPanel: NSPanel {
     override func setFrame(_: NSRect, display _: Bool, animate _: Bool) {}
 
     override func sendEvent(_ event: NSEvent) {
-        guard event.type == .appKitDefined, event.subtype == .windowMoved else {
+        guard event.isWindowServerMove else {
             super.sendEvent(event)
             return
         }
@@ -173,15 +171,6 @@ class BorderLayerPanel: NSPanel {
         SkyLight.shared.transactionReshape(
             UInt32(windowNumber), origin: ScreenCoordinateSpace.toWindowServer(rect: target).origin, size: target.size
         )
-    }
-
-    func order(_ place: NSWindow.OrderingMode, directlyRelativeTo otherWindow: UInt32) {
-        guard let windowManagerIdentifier,
-              omniwm_window_manager_order(windowManagerIdentifier, place, otherWindow)
-        else {
-            order(place, relativeTo: Int(otherWindow))
-            return
-        }
     }
 
     func updateBorder(

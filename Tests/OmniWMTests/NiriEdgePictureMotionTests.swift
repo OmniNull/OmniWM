@@ -27,7 +27,6 @@ final class NiriEdgePictureMotionTests: XCTestCase {
         var isVisibleForCapture = false
         var orderingTargets: [Int?] = []
         var activation: (@MainActor () -> Void)?
-        var isMoving = false
         var destroyed = false
 
         func setOrderingTarget(_ windowId: Int?) {
@@ -36,10 +35,9 @@ final class NiriEdgePictureMotionTests: XCTestCase {
 
         func update(
             geometry _: NiriEdgePictureGeometry, content _: NiriPictureContent,
-            isMoving: Bool, activate: @escaping @MainActor () -> Void
+            activate: @escaping @MainActor () -> Void
         ) {
             isVisibleForCapture = true
-            self.isMoving = isMoving
             activation = activate
         }
 
@@ -81,7 +79,7 @@ final class NiriEdgePictureMotionTests: XCTestCase {
         presenter.reconcile(plan(pictured: [tokens[0]: pictureFrame], moving: true))
         let first = try XCTUnwrap(presenter.pictures[tokens[0]]?.surface as? Surface)
         let oldActivation = try XCTUnwrap(first.activation)
-        XCTAssertTrue(first.isMoving)
+        XCTAssertEqual(presenter.pictures[tokens[0]]?.isResting, false)
         XCTAssertEqual(first.orderingTargets, [tokens[0].windowId])
         XCTAssertEqual(created.count, warmedCount)
         presenter.reconcile(plan(moving: true))

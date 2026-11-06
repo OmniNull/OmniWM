@@ -179,7 +179,7 @@ final class TabRailInteractionTests: XCTestCase {
         try showHover(in: window)
 
         manager.applyAnimationGeometry([.init(key: info.key, tileFrame: resizedFrame, visibleTileFrame: .null)])
-        XCTAssertFalse(window.isVisible)
+        XCTAssertFalse(window.isOrderedIn)
         XCTAssertFalse(window.hoverCard.isVisible)
         manager.applyAnimationGeometry([.init(key: info.key, tileFrame: resizedFrame, visibleTileFrame: resizedFrame)])
         XCTAssertFalse(window.hoverCard.isVisible)

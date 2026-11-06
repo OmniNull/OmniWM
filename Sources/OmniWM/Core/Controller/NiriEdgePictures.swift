@@ -56,7 +56,6 @@ protocol NiriEdgePictureSurface: AnyObject {
     func update(
         geometry: NiriEdgePictureGeometry,
         content: NiriPictureContent,
-        isMoving: Bool,
         activate: @escaping @MainActor () -> Void
     )
     func setContent(_ content: NiriPictureContent)
@@ -269,10 +268,7 @@ final class NiriEdgePictures {
                 reconcileLiveStreams()
             }
         }
-        picture.surface?.update(geometry: picture.geometry, content: content, isMoving: !picture.isResting) { [
-            weak self,
-            weak picture
-        ] in
+        picture.surface?.update(geometry: picture.geometry, content: content) { [weak self, weak picture] in
             guard let self, let picture, pictures[token] === picture else { return }
             activate(token, picture.workspaceId)
         }

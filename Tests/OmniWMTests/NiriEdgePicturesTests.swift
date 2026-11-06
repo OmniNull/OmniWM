@@ -21,7 +21,6 @@ final class NiriEdgePicturesTests: XCTestCase {
         func update(
             geometry: NiriEdgePictureGeometry,
             content _: NiriPictureContent,
-            isMoving _: Bool,
             activate: @escaping @MainActor () -> Void
         ) {
             self.geometry = geometry

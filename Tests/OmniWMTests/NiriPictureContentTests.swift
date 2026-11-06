@@ -21,7 +21,7 @@ final class NiriPictureContentTests: XCTestCase {
         let preview = try makeOverviewPreviewFrame(width: Int(size.width), height: Int(size.height), contentRect: crop)
         let frame = CGRect(origin: .zero, size: size)
         let geometry = try XCTUnwrap(NiriEdgePictureGeometry(frame: frame, displayFrame: frame))
-        panel.update(geometry: geometry, content: .preview(preview), isMoving: false, activate: {})
+        panel.update(geometry: geometry, content: .preview(preview), activate: {})
         let layer = try XCTUnwrap(panel.contentView?.layer?.sublayers?.first)
         XCTAssertTrue(layer.contents as AnyObject? === preview.surface)
         XCTAssertEqual(layer.contentsRect, CGRect(

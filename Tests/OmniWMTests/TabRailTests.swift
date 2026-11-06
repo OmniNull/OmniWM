@@ -209,7 +209,7 @@ final class TabRailTests: XCTestCase {
                 $0.kind == .tabRail && $0.id.contains(workspaceId.uuidString)
             }
         )
-        let windowBefore = try XCTUnwrap(manager.existingWindow(for: key))
+        let windowBefore = try XCTUnwrap(manager.existingWindow(for: key) as? TabRailWindow)
         let foreignWindow = try XCTUnwrap(manager.existingWindow(for: foreignKey))
         let windowNumber = windowBefore.windowNumber
         let foreignWindowNumber = foreignWindow.windowNumber
@@ -225,7 +225,7 @@ final class TabRailTests: XCTestCase {
             in: workspaceId
         )
 
-        XCTAssertTrue(windowBefore.isVisible)
+        XCTAssertTrue(windowBefore.isOrderedIn)
         XCTAssertTrue(SurfaceCoordinator.shared.contains(windowNumber: windowNumber))
         XCTAssertTrue(foreignWindow.isVisible)
         XCTAssertTrue(SurfaceCoordinator.shared.contains(windowNumber: foreignWindowNumber))
@@ -238,14 +238,14 @@ final class TabRailTests: XCTestCase {
             )
         ])
 
-        XCTAssertFalse(windowBefore.isVisible)
+        XCTAssertFalse(windowBefore.isOrderedIn)
         XCTAssertFalse(SurfaceCoordinator.shared.contains(windowNumber: windowNumber))
 
         manager.applyAnimationGeometry([
             TabRailGeometryCommand(key: key, tileFrame: tileFrame, visibleTileFrame: tileFrame)
         ])
 
-        XCTAssertTrue(windowBefore.isVisible)
+        XCTAssertTrue(windowBefore.isOrderedIn)
         XCTAssertTrue(SurfaceCoordinator.shared.contains(windowNumber: windowNumber))
 
         manager.applyAnimationGeometry([
@@ -256,7 +256,7 @@ final class TabRailTests: XCTestCase {
             )
         ])
 
-        XCTAssertFalse(windowBefore.isVisible)
+        XCTAssertFalse(windowBefore.isOrderedIn)
         XCTAssertFalse(SurfaceCoordinator.shared.contains(windowNumber: windowNumber))
 
         manager.applyAnimationGeometry([
@@ -267,7 +267,7 @@ final class TabRailTests: XCTestCase {
             TabRailGeometryCommand(key: key, tileFrame: tileFrame, visibleTileFrame: .null)
         ])
 
-        XCTAssertFalse(windowBefore.isVisible)
+        XCTAssertFalse(windowBefore.isOrderedIn)
         XCTAssertFalse(SurfaceCoordinator.shared.contains(windowNumber: windowNumber))
 
         let returnedFrame = tileFrame.offsetBy(dx: 70, dy: 45)
@@ -281,7 +281,7 @@ final class TabRailTests: XCTestCase {
         XCTAssertTrue(manager.existingWindow(for: key) === windowBefore)
         XCTAssertEqual(manager.existingWindow(for: key)?.windowNumber, windowNumber)
         XCTAssertNotNil(surfaceAfter.frame)
-        XCTAssertTrue(windowBefore.isVisible)
+        XCTAssertTrue(windowBefore.isOrderedIn)
         XCTAssertTrue(SurfaceCoordinator.shared.contains(windowNumber: windowNumber))
     }
 

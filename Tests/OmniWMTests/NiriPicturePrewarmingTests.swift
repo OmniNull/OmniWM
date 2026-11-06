@@ -33,7 +33,6 @@ final class NiriPicturePrewarmingTests: XCTestCase {
         func update(
             geometry: NiriEdgePictureGeometry,
             content: NiriPictureContent,
-            isMoving _: Bool,
             activate _: @escaping @MainActor () -> Void
         ) {
             self.geometry = geometry

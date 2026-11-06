@@ -137,9 +137,9 @@ final class TabRailIconTests: XCTestCase {
         view.frame = CGRect(origin: .zero, size: view.frame.size)
         XCTAssertTrue(window.hoverCard.isVisible)
         manager.applyAnimationGeometry([.init(key: info.key, tileFrame: info.tileFrame, visibleTileFrame: .null)])
-        XCTAssertFalse(window.isVisible)
+        XCTAssertFalse(window.isOrderedIn)
         manager.updateRails([info], style: .appIcons)
-        XCTAssertTrue(window.isVisible)
+        XCTAssertTrue(window.isOrderedIn)
         XCTAssertEqual(
             (view.accessibilityChildren() as? [NSAccessibilityElement])?.map(ObjectIdentifier.init),
             children.map(ObjectIdentifier.init)

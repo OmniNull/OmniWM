@@ -9,12 +9,18 @@ import XCTest
 final class NiriFractionalPicturePlacementTests: XCTestCase {
     private let scale: CGFloat = 2
     private let display = CGRect(x: 0, y: 0, width: 2560, height: 1440)
-    private let origin = CGPoint(x: 21, y: 1300)
+    private let origin = CGPoint(x: 21, y: 100)
     private let wholeSize = CGSize(width: 2518, height: 663)
 
     private final class PicturePanel: NiriEdgePictureWindow {
         var frameWrites: [CGRect] = []
         var moves: [CGRect] = []
+        var movesSucceed = true
+        var appKitMoveEvents = 0
+
+        @objc(_windowMoved:) func recordAppKitMoveEvent(_: NSEvent) {
+            appKitMoveEvents += 1
+        }
 
         override func orderIn() {}
 
@@ -24,8 +30,27 @@ final class NiriFractionalPicturePlacementTests: XCTestCase {
         }
 
         override func moveInWindowServer(to target: CGRect) -> Bool {
+            guard movesSucceed else { return false }
             moves.append(target)
             return true
+        }
+    }
+
+    private final class OrderingPanel: NiriEdgePictureWindow {
+        var appKitOrders = 0
+        var windowServerOrders: [UInt32?] = []
+
+        override func orderFrontRegardless() {
+            appKitOrders += 1
+            super.orderFrontRegardless()
+        }
+
+        override func orderInWindowServer(below target: UInt32?) {
+            windowServerOrders.append(target)
+        }
+
+        override func moveInWindowServer(to _: CGRect) -> Bool {
+            true
         }
     }
 
@@ -53,12 +78,12 @@ final class NiriFractionalPicturePlacementTests: XCTestCase {
         }
     }
 
-    func testFractionalPictureMovesWithoutFrameWritesAndLandsAtTheSamePlacement() throws {
+    func testFractionalPictureMovesAndRestsWithoutFrameWrites() throws {
         let panel = PicturePanel()
         defer { panel.destroy() }
         let image = try image()
         let initial = fractionalFrame
-        panel.update(geometry: try geometry(initial), content: .image(image), isMoving: true, activate: {})
+        panel.update(geometry: try geometry(initial), content: .image(image), activate: {})
         let laidOut = panel.frame
         let writes = panel.frameWrites
         let layer = try XCTUnwrap(panel.contentView?.layer?.sublayers?.first)
@@ -66,7 +91,7 @@ final class NiriFractionalPicturePlacementTests: XCTestCase {
         let bounds = panel.contentView?.frame
         XCTAssertEqual(panel.contentView?.subviews.first?.frame.size, initial.size)
         let moved = initial.offsetBy(dx: pixel, dy: pixel)
-        panel.update(geometry: try geometry(moved), content: .image(image), isMoving: true, activate: {})
+        panel.update(geometry: try geometry(moved), content: .image(image), activate: {})
         XCTAssertEqual(
             panel.moves,
             [CGRect(origin: CGPoint(x: origin.x + pixel * scale, y: origin.y + pixel * scale), size: wholeSize)]
@@ -76,21 +101,87 @@ final class NiriFractionalPicturePlacementTests: XCTestCase {
         XCTAssertEqual(layer.frame, layerFrame)
         XCTAssertEqual(panel.contentView?.frame, bounds)
         let placement = try XCTUnwrap(panel.moves.last)
-        panel.update(geometry: try geometry(moved), content: .image(image), isMoving: false, activate: {})
-        XCTAssertEqual(panel.frame, placement)
+        panel.update(geometry: try geometry(moved), content: .image(image), activate: {})
+        XCTAssertEqual(panel.moves, [placement])
+        XCTAssertEqual(panel.frameWrites, writes)
         XCTAssertEqual(layer.frame, layerFrame)
         XCTAssertEqual(panel.convertToScreen(.zero).origin, placement.origin)
+    }
+
+    func testPictureLandingOffItsDisplayGoesThroughAppKit() throws {
+        let panel = PicturePanel()
+        defer { panel.destroy() }
+        let image = try image()
+        panel.update(geometry: try geometry(fractionalFrame), content: .image(image), activate: {})
+        let writes = panel.frameWrites
+        let desktop = NSScreen.screens.reduce(CGRect.null) { $0.union($1.frame) }
+        let away = fractionalFrame.offsetBy(dx: desktop.maxX + wholeSize.width, dy: 0)
+
+        panel.update(
+            geometry: try XCTUnwrap(NiriEdgePictureGeometry(frame: away, displayFrame: away)),
+            content: .image(image),
+            activate: {}
+        )
+
+        XCTAssertEqual(panel.frameWrites, writes + [SurfacePanelGeometry.backingFrame(for: away)])
+    }
+
+    func testRejectedPictureMoveGoesThroughAppKit() throws {
+        let panel = PicturePanel()
+        defer { panel.destroy() }
+        let image = try image()
+        panel.update(geometry: try geometry(fractionalFrame), content: .image(image), activate: {})
+        let writes = panel.frameWrites
+        panel.movesSucceed = false
+        let moved = fractionalFrame.offsetBy(dx: pixel, dy: pixel)
+
+        panel.update(geometry: try geometry(moved), content: .image(image), activate: {})
+
+        XCTAssertEqual(panel.frameWrites, writes + [SurfacePanelGeometry.backingFrame(for: moved)])
+    }
+
+    func testReusedPictureOrdersInWithoutAppKit() throws {
+        let panel = OrderingPanel()
+        defer { panel.destroy() }
+        let image = try image()
+        let focusedWindowId = 41
+        let geometry = try geometry(fractionalFrame)
+        panel.setOrderingTarget(focusedWindowId)
+
+        panel.update(geometry: geometry, content: .image(image), activate: {})
+        XCTAssertEqual(panel.appKitOrders, 1)
+        XCTAssertEqual(panel.windowServerOrders, [UInt32(focusedWindowId)])
+
+        panel.hide()
+        panel.update(geometry: geometry, content: .image(image), activate: {})
+
+        XCTAssertEqual(panel.appKitOrders, 1)
+        XCTAssertEqual(panel.windowServerOrders, [UInt32(focusedWindowId), UInt32(focusedWindowId)])
+    }
+
+    func testPictureIgnoresWindowServerMoveEvents() throws {
+        let panel = PicturePanel()
+        defer { panel.destroy() }
+        panel.update(geometry: try geometry(fractionalFrame), content: .image(try image()), activate: {})
+
+        panel.sendEvent(try XCTUnwrap(NSEvent.otherEvent(
+            with: .appKitDefined, location: .zero, modifierFlags: [], timestamp: 0,
+            windowNumber: panel.windowNumber, context: nil,
+            subtype: NSEvent.EventSubtype.windowMoved.rawValue, data1: 0, data2: 0
+        )))
+
+        XCTAssertEqual(panel.appKitMoveEvents, 0)
     }
 
     func testChangedLogicalSizeReconfiguresEvenWhenRoundedBackingSizeIsUnchanged() throws {
         let panel = PicturePanel()
         defer { panel.destroy() }
         let image = try image()
-        panel.update(geometry: try geometry(fractionalFrame), content: .image(image), isMoving: true, activate: {})
+        panel.update(geometry: try geometry(fractionalFrame), content: .image(image), activate: {})
         let backing = panel.frame.size
         var resized = fractionalFrame
         resized.size.height += pixel
-        panel.update(geometry: try geometry(resized), content: .image(image), isMoving: true, activate: {})
+        panel.update(geometry: try geometry(resized), content: .image(image), activate: {})
         XCTAssertTrue(panel.moves.isEmpty)
         XCTAssertEqual(panel.frame.size, backing)
         XCTAssertEqual(panel.contentView?.layer?.sublayers?.first?.frame.size, resized.size)

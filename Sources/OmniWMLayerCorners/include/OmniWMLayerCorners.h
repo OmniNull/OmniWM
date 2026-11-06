@@ -28,7 +28,6 @@ void omniwm_layer_context_invalidate(NSObject *context) NS_SWIFT_MAIN_ACTOR;
 
 void omniwm_window_manager_begin_coordinator_capture(void) NS_SWIFT_MAIN_ACTOR;
 void omniwm_window_manager_end_coordinator_capture(void) NS_SWIFT_MAIN_ACTOR;
-NSString *_Nullable omniwm_window_manager_identifier(NSWindow *window) NS_SWIFT_MAIN_ACTOR;
-BOOL omniwm_window_manager_order(NSString *identifier, NSWindowOrderingMode place, uint32_t otherWindowID) NS_SWIFT_MAIN_ACTOR;
+BOOL omniwm_window_manager_order(NSWindow *window, NSWindowOrderingMode place, uint32_t otherWindowID) NS_SWIFT_MAIN_ACTOR;
 
 NS_ASSUME_NONNULL_END

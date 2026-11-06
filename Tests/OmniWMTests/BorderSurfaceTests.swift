@@ -220,7 +220,6 @@ final class BorderSurfaceTests: XCTestCase {
         func update(
             geometry _: NiriEdgePictureGeometry,
             content _: NiriPictureContent,
-            isMoving _: Bool,
             activate _: @escaping @MainActor () -> Void
         ) {}
         func setOrderingTarget(_: Int?) {}
@@ -1225,6 +1224,8 @@ final class BorderSurfaceTests: XCTestCase {
         XCTAssertEqual(panel.surfaceFrame, latest.insetBy(dx: -4, dy: -4).integral)
         XCTAssertEqual(panel.renderedCornerRadii, fallbackCorners)
         XCTAssertEqual(recorder.orderCalls.last?.order, .below)
+        let target = UInt32(token().windowId)
+        XCTAssertNil(applier.ringWindowId(orderedAbove: target))
         probe.complete(sample(WindowCornerRadii(uniform: 20)))
         await fulfillment(of: [resolved], timeout: 1)
         _ = applier.apply(desired(configRed, frame: latest), forceOrdering: false)
@@ -1233,6 +1234,10 @@ final class BorderSurfaceTests: XCTestCase {
         XCTAssertEqual(recorder.orderCalls.last?.targetWindowId, 77)
         XCTAssertEqual(recorder.orderCalls.last?.order, .above)
         XCTAssertEqual(probe.requests, [token()])
+        XCTAssertEqual(applier.ringWindowId(orderedAbove: target), recorder.orderCalls.last?.windowId)
+        XCTAssertNil(applier.ringWindowId(orderedAbove: target + 1))
+        _ = applier.apply(nil, forceOrdering: false)
+        XCTAssertNil(applier.ringWindowId(orderedAbove: target))
     }
 
     @MainActor

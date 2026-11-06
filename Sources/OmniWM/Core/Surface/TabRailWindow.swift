@@ -2,15 +2,17 @@
 // Copyright (C) 2026 OmniNull — https://github.com/OmniNull/OmniWM
 
 import AppKit
+import OmniWMLayerCorners
 
 @MainActor
-final class TabRailWindow: NSPanel {
+class TabRailWindow: NSPanel {
     private let railView: TabRailView
     let hoverCard: TabRailHoverCardWindow
     private let surfaceID: String
     private let surfaceCoordinator = SurfaceCoordinator.shared
     private var lastFrame: CGRect?
     private var windowServerPlacement: (appKitFrame: CGRect, frame: CGRect)?
+    private var isOrderedOutInWindowServer = false
     private var lastOrderingWindowId: Int?
     private var currentInfo: TabRailInfo?
     private var style: TabRailStyle = .compact
@@ -19,6 +21,7 @@ final class TabRailWindow: NSPanel {
     private var accessibilityDisplayObserver: NSObjectProtocol?
 
     var onSelect: ((TabRailInfo, Int, WindowToken?) -> Void)?
+    var ringOrderedAbove: (@MainActor (UInt32) -> UInt32?)?
 
     init(
         owner: TabRailOwner, workspaceId: WorkspaceDescriptor.ID, motionPolicy: MotionPolicy,
@@ -28,6 +31,7 @@ final class TabRailWindow: NSPanel {
         railView = TabRailView(frame: .zero, motionPolicy: motionPolicy, appInfoCache: appInfoCache)
         hoverCard = TabRailHoverCardWindow()
 
+        omniwm_window_manager_begin_coordinator_capture()
         super.init(
             contentRect: .zero,
             styleMask: [.borderless, .nonactivatingPanel],
@@ -47,6 +51,7 @@ final class TabRailWindow: NSPanel {
         titlebarAppearsTransparent = true
         isMovableByWindowBackground = false
         isReleasedWhenClosed = false
+        omniwm_window_manager_end_coordinator_capture()
 
         railView.onSelect = { [weak self] visualIndex in
             guard let self, let currentInfo else { return }
@@ -89,6 +94,15 @@ final class TabRailWindow: NSPanel {
         false
     }
 
+    override func sendEvent(_ event: NSEvent) {
+        guard !event.isWindowServerMove else { return }
+        super.sendEvent(event)
+    }
+
+    var isOrderedIn: Bool {
+        isVisible && !isOrderedOutInWindowServer
+    }
+
     var appliedFrame: CGRect {
         guard let windowServerPlacement, windowServerPlacement.appKitFrame == frame else { return frame }
         return windowServerPlacement.frame
@@ -104,7 +118,7 @@ final class TabRailWindow: NSPanel {
             for: info.visibleTileFrame, tabCount: info.tabCount, style: style, displayFrame: info.displayFrame
         )
         let placedFrame = appliedFrame
-        if self.style != style || frame != lastFrame || frame != placedFrame || !isVisible {
+        if self.style != style || frame != lastFrame || frame != placedFrame || !isOrderedIn {
             dismissHover()
         }
         self.style = style
@@ -113,7 +127,7 @@ final class TabRailWindow: NSPanel {
         guard frame.width > 1, frame.height > 1 else {
             railView.update(tabs: info.normalizedTabs, activeVisualIndex: clampedActiveVisualIndex, style: style)
             dismissHover()
-            orderOut(nil)
+            orderOutOfWindowServer()
             lastFrame = nil
             surfaceCoordinator.unregister(id: surfaceID)
             registeredSurfaceWindowNumber = nil
@@ -123,7 +137,7 @@ final class TabRailWindow: NSPanel {
         let accessibilityGeometryChanged = animationGeometryNeedsAccessibilityRefresh || placedFrame != frame
         let settledFrame = Self.appKitPlacement(of: frame)
         if lastFrame != frame || placedFrame != settledFrame {
-            if !canKeepWindowServerPlacement(at: settledFrame) || !moveInWindowServer(to: settledFrame) {
+            if !canKeepWindowServerPlacement(at: settledFrame) || !placeInWindowServer(settledFrame) {
                 setFrameReconcilingWindowServer(frame)
             }
             lastFrame = frame
@@ -135,18 +149,14 @@ final class TabRailWindow: NSPanel {
         }
         animationGeometryNeedsAccessibilityRefresh = false
 
-        let wasVisible = isVisible
         let orderingWindowId = info.orderingWindowId ?? info.activeWindowId
-        if TabRailOrderingPolicy.shouldOrderFront(
+        if TabRailOrderingPolicy.shouldReorder(
             forceOrdering: forceOrdering,
-            wasVisible: wasVisible,
+            wasOrderedIn: isOrderedIn,
             lastActiveWindowId: lastOrderingWindowId,
             activeWindowId: orderingWindowId
         ) {
-            orderFront(nil)
-            if let pictureWindowId = info.orderingWindowId {
-                SkyLight.shared.orderWindow(UInt32(windowNumber), relativeTo: UInt32(pictureWindowId))
-            }
+            orderAbove(orderingWindowId)
         }
         syncSurfaceRegistration()
         lastOrderingWindowId = orderingWindowId
@@ -160,9 +170,7 @@ final class TabRailWindow: NSPanel {
         )
         guard frame.width > 1, frame.height > 1 else {
             dismissHover()
-            if isVisible {
-                orderOut(nil)
-            }
+            orderOutOfWindowServer()
             if registeredSurfaceWindowNumber != nil {
                 surfaceCoordinator.unregister(id: surfaceID)
                 registeredSurfaceWindowNumber = nil
@@ -171,11 +179,11 @@ final class TabRailWindow: NSPanel {
             return
         }
         let orderingWindowId = command.orderingWindowId ?? currentInfo.activeWindowId
-        let needsOrdering = !isVisible || lastOrderingWindowId != orderingWindowId
+        let needsOrdering = !isOrderedIn || lastOrderingWindowId != orderingWindowId
         if frame != lastFrame || frame != appliedFrame {
             dismissHover()
             animationGeometryNeedsAccessibilityRefresh = true
-            if frame.size != self.frame.size || !moveInWindowServer(to: frame) {
+            if frame.size != self.frame.size || !placeInWindowServer(frame) {
                 railView.performWithoutAccessibilityGeometryUpdates {
                     setFrameReconcilingWindowServer(frame)
                     railView.needsDisplay = true
@@ -185,25 +193,54 @@ final class TabRailWindow: NSPanel {
         }
 
         guard needsOrdering else { return }
-        orderFront(nil)
+        orderAbove(orderingWindowId)
         syncSurfaceRegistration()
-        if let targetWid = orderingWindowId {
-            SkyLight.shared.orderWindow(UInt32(windowNumber), relativeTo: UInt32(targetWid))
-        }
         lastOrderingWindowId = orderingWindowId
+    }
+
+    private func orderAbove(_ target: Int?) {
+        let target = target.flatMap(UInt32.init(exactly:))
+        if !isVisible || target == nil { orderFront(nil) }
+        if isOrderedOutInWindowServer {
+            orderInWindowServer(above: target)
+            isOrderedOutInWindowServer = false
+        }
+        if let target { orderDirectly(above: ringOrderedAbove?(target) ?? target) }
+    }
+
+    private func orderOutOfWindowServer() {
+        guard isOrderedIn else { return }
+        hideInWindowServer()
+        isOrderedOutInWindowServer = true
+    }
+
+    func hideInWindowServer() {
+        SkyLight.shared.transactionHide(UInt32(windowNumber))
+    }
+
+    func orderInWindowServer(above target: UInt32?) {
+        SkyLight.shared.orderWindow(UInt32(windowNumber), relativeTo: target ?? 0)
+    }
+
+    func orderDirectly(above target: UInt32) {
+        order(.above, directlyRelativeTo: target)
     }
 
     private func canKeepWindowServerPlacement(at target: CGRect) -> Bool {
         windowServerPlacement?.appKitFrame == frame
             && target.size == frame.size
-            && screen?.frame.contains(target.center) == true
+            && staysOnItsDisplay(at: target)
     }
 
-    private func moveInWindowServer(to target: CGRect) -> Bool {
-        guard SkyLight.shared.transactionMove(
+    func moveInWindowServer(to target: CGRect) -> Bool {
+        SkyLight.shared.transactionMove(
             UInt32(windowNumber),
             origin: ScreenCoordinateSpace.toWindowServer(rect: target).origin
-        ) else { return false }
+        )
+    }
+
+    private func placeInWindowServer(_ target: CGRect) -> Bool {
+        guard moveInWindowServer(to: target) else { return false }
         windowServerPlacement = (frame, target)
         return true
     }
@@ -231,7 +268,7 @@ final class TabRailWindow: NSPanel {
     }
 
     private func updateHoverCard(tab: TabRailTabInfo?, itemRect: CGRect?) {
-        guard let tab, let itemRect, let currentInfo, isVisible else {
+        guard let tab, let itemRect, let currentInfo, isOrderedIn else {
             hoverCard.hide()
             return
         }
@@ -268,7 +305,7 @@ final class TabRailWindow: NSPanel {
                 self?.lastFrame
             },
             visibilityProvider: { [weak self] in
-                self?.isVisible == true && self?.lastFrame != nil
+                self?.isOrderedIn == true && self?.lastFrame != nil
             },
             policy: SurfacePolicy(
                 kind: .tabRail,

@@ -2,6 +2,7 @@
 // Copyright (C) 2026 OmniNull — https://github.com/OmniNull/OmniWM
 
 import AppKit
+import OmniWMLayerCorners
 import QuartzCore
 
 @MainActor
@@ -18,6 +19,7 @@ class NiriEdgePictureWindow: NSPanel, NiriEdgePictureSurface {
     private var hasOrderedIn = false
 
     init() {
+        omniwm_window_manager_begin_coordinator_capture()
         super.init(contentRect: .zero, styleMask: [.borderless, .nonactivatingPanel], backing: .buffered, defer: false)
         isOpaque = false
         backgroundColor = .clear
@@ -27,6 +29,7 @@ class NiriEdgePictureWindow: NSPanel, NiriEdgePictureSurface {
         collectionBehavior = [.transient, .ignoresCycle]
         isReleasedWhenClosed = false
         animationBehavior = .none
+        omniwm_window_manager_end_coordinator_capture()
         let root = NSView(frame: .zero)
         root.wantsLayer = true
         root.layer?.masksToBounds = true
@@ -80,8 +83,17 @@ class NiriEdgePictureWindow: NSPanel, NiriEdgePictureSurface {
         frameRect
     }
 
+    override func sendEvent(_ event: NSEvent) {
+        guard !event.isWindowServerMove else { return }
+        super.sendEvent(event)
+    }
+
+    private var placedFrame: CGRect {
+        windowServerPlacement.flatMap { $0.appKitFrame == frame ? $0.frame : nil } ?? frame
+    }
+
     override func convertToScreen(_ rect: NSRect) -> NSRect {
-        let placed = windowServerPlacement.flatMap { $0.appKitFrame == frame ? $0.frame : nil } ?? frame
+        let placed = placedFrame
         return rect.offsetBy(dx: placed.minX, dy: placed.minY)
     }
 
@@ -92,7 +104,6 @@ class NiriEdgePictureWindow: NSPanel, NiriEdgePictureSurface {
     func update(
         geometry: NiriEdgePictureGeometry,
         content: NiriPictureContent,
-        isMoving: Bool,
         activate: @escaping @MainActor () -> Void
     ) {
         self.activate = activate
@@ -100,22 +111,20 @@ class NiriEdgePictureWindow: NSPanel, NiriEdgePictureSurface {
         let unclipped = !geometry.requiresDisplayClip
         let target = unclipped ? SurfacePanelGeometry.backingFrame(for: geometry.frame) : geometry.panelFrame
         let contentChanged = !content.matches(displayedContent)
-        if hasOrderedIn, isMoving, unclipped, laidOutPictureSize == geometry.frame.size,
-           moveInWindowServer(to: target)
-        {
+        if unclipped, laidOutPictureSize == geometry.frame.size, placeInWindowServer(target) {
             if contentChanged { setContent(content) }
-            return
+        } else {
+            CATransaction.begin()
+            CATransaction.setDisableActions(true)
+            setFrameReconcilingWindowServer(target)
+            laidOutPictureSize = unclipped ? geometry.frame.size : nil
+            let bounds = CGRect(origin: .zero, size: target.size)
+            contentView?.frame = bounds
+            button.frame = unclipped ? CGRect(origin: .zero, size: geometry.frame.size) : bounds
+            pictureLayer.frame = unclipped ? CGRect(origin: .zero, size: geometry.frame.size) : geometry.pictureFrame
+            if contentChanged { applyContent(content) }
+            CATransaction.commit()
         }
-        CATransaction.begin()
-        CATransaction.setDisableActions(true)
-        setFrameReconcilingWindowServer(target)
-        laidOutPictureSize = unclipped ? geometry.frame.size : nil
-        let bounds = CGRect(origin: .zero, size: target.size)
-        contentView?.frame = bounds
-        button.frame = unclipped ? CGRect(origin: .zero, size: geometry.frame.size) : bounds
-        pictureLayer.frame = unclipped ? CGRect(origin: .zero, size: geometry.frame.size) : geometry.pictureFrame
-        if contentChanged { applyContent(content) }
-        CATransaction.commit()
         if !hasOrderedIn {
             hasOrderedIn = true
             orderIn()
@@ -123,19 +132,31 @@ class NiriEdgePictureWindow: NSPanel, NiriEdgePictureSurface {
     }
 
     func orderIn() {
-        orderFrontRegardless()
+        if !isVisible { orderFrontRegardless() }
+        orderInWindowServer(below: orderBelowWindowId.flatMap(UInt32.init(exactly:)))
+    }
+
+    func orderInWindowServer(below target: UInt32?) {
         SkyLight.shared.orderWindow(
-            UInt32(windowNumber), relativeTo: orderBelowWindowId.flatMap(UInt32.init(exactly:)) ?? 0,
-            order: orderBelowWindowId == nil ? .above : .below
+            UInt32(windowNumber),
+            relativeTo: target ?? 0,
+            order: target == nil ? .above : .below
         )
+        if let target { order(.below, directlyRelativeTo: target) }
+    }
+
+    private func placeInWindowServer(_ target: CGRect) -> Bool {
+        guard placedFrame != target else { return true }
+        guard target.size == frame.size, staysOnItsDisplay(at: target), moveInWindowServer(to: target)
+        else { return false }
+        windowServerPlacement = (frame, target)
+        return true
     }
 
     func moveInWindowServer(to target: CGRect) -> Bool {
-        guard SkyLight.shared.transactionMove(
+        SkyLight.shared.transactionMove(
             UInt32(windowNumber), origin: ScreenCoordinateSpace.toWindowServer(rect: target).origin
-        ) else { return false }
-        windowServerPlacement = (frame, target)
-        return true
+        )
     }
 
     private func setFrameReconcilingWindowServer(_ target: CGRect) {

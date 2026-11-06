@@ -63,13 +63,13 @@ enum TabRailPlacement {
 }
 
 enum TabRailOrderingPolicy {
-    static func shouldOrderFront(
+    static func shouldReorder(
         forceOrdering: Bool,
-        wasVisible: Bool,
+        wasOrderedIn: Bool,
         lastActiveWindowId: Int?,
         activeWindowId: Int?
     ) -> Bool {
-        forceOrdering || !wasVisible || lastActiveWindowId != activeWindowId
+        forceOrdering || !wasOrderedIn || lastActiveWindowId != activeWindowId
     }
 }
 
