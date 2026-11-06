@@ -78,12 +78,13 @@ struct ShellConfig: Equatable {
     }
 
     static func widgetFolders(in layer: URL) -> [URL] {
+        let widgets = layer.appendingPathComponent("widgets", isDirectory: true)
         let entries = (try? FileManager.default.contentsOfDirectory(
-            at: layer.appendingPathComponent("widgets", isDirectory: true),
+            at: widgets,
             includingPropertiesForKeys: nil,
             options: [.skipsHiddenFiles]
         )) ?? []
-        return entries.filter { entry in
+        return entries.map { widgets.appendingPathComponent($0.lastPathComponent, isDirectory: true) }.filter { entry in
             var isDirectory: ObjCBool = false
             return FileManager.default.fileExists(atPath: entry.path, isDirectory: &isDirectory) && isDirectory
                 .boolValue

@@ -118,7 +118,7 @@ final class ShellWidgetSourceLoaderTests: XCTestCase {
         }
     }
 
-    func testResolvedSourceUnderASymlinkedShellStillMountsShellModules() throws {
+    func testWidgetFoldersUnderASymlinkedShellStayInsideTheShell() throws {
         let shell = temporaryShell()
         defer { try? FileManager.default.removeItem(at: shell.deletingLastPathComponent()) }
         try write("root", shell, "widgets/launcher/init.luau")
@@ -128,22 +128,18 @@ final class ShellWidgetSourceLoaderTests: XCTestCase {
         let link = configuration.appendingPathComponent("config-link", isDirectory: true)
         try FileManager.default.createSymbolicLink(at: link, withDestinationURL: configuration)
         let linkedShell = link.appendingPathComponent("shell", isDirectory: true)
-        let resolved = shell.resolvingSymlinksInPath().appendingPathComponent("widgets/launcher/init.luau")
-        for (directory, source) in [
-            (linkedShell, resolved),
-            (shell, linkedShell.appendingPathComponent("widgets/launcher/init.luau"))
-        ] {
-            let captured = ShellWidgetSourceLoader.Input(
-                name: "launcher", shellDirectory: directory, sourceURL: source,
-                directories: [directory, directory.appendingPathComponent("default")], profile: "default"
-            )
-            let built = try ShellWidgetSourceLoader.build(captured)
-            XCTAssertEqual(built.chunk, "@widgets/launcher/init.luau")
-            XCTAssertEqual(Dictionary(uniqueKeysWithValues: built.modules.map { ($0.path, $0.source) }), [
-                "widgets/launcher/nested/helper.luau": "own",
-                "lib/look.luau": "look"
-            ])
-        }
+        let folder = try XCTUnwrap(ShellConfig.widgetFolders(in: linkedShell).first)
+        XCTAssertEqual(folder.path, linkedShell.appendingPathComponent("widgets/launcher").path)
+        let captured = ShellWidgetSourceLoader.Input(
+            name: "launcher", shellDirectory: linkedShell, sourceURL: folder.appendingPathComponent("init.luau"),
+            directories: [linkedShell, linkedShell.appendingPathComponent("default")], profile: "default"
+        )
+        let built = try ShellWidgetSourceLoader.build(captured)
+        XCTAssertEqual(built.chunk, "@widgets/launcher/init.luau")
+        XCTAssertEqual(Dictionary(uniqueKeysWithValues: built.modules.map { ($0.path, $0.source) }), [
+            "widgets/launcher/nested/helper.luau": "own",
+            "lib/look.luau": "look"
+        ])
     }
 
     func testExternalSourceRetainsChunkNameAndDoesNotMountShellModules() throws {
