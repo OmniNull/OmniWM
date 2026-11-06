@@ -227,7 +227,13 @@ jobs:
         env:
           FLAG: ${{ matrix.flag }}
           PATTERN: ${{ matrix.pattern }}
-        run: swift test --skip-build --build-system swiftbuild --arch arm64 --scratch-path .build/localization "$FLAG" "$PATTERN"
+        shell: bash
+        run: |
+          swift test --skip-build --build-system swiftbuild --arch arm64 --scratch-path .build/localization "$FLAG" "$PATTERN" 2>&1 | tee "$RUNNER_TEMP/tests.log"
+          if grep -q "No matching test cases were run" "$RUNNER_TEMP/tests.log"; then
+            echo "::error::$FLAG $PATTERN ran no tests."
+            exit 1
+          fi
   tests:
     name: Tests
     needs: [changes, verify, test-group]
