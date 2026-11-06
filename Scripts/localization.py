@@ -432,7 +432,8 @@ def driver_arguments(scratch, module):
     if not stores:
         raise ValueError(f"no Swift Build task store in {scratch}")
     matches = []
-    for task in decode_task_store(stores[-1].read_bytes()):
+    _, _, tasks = decode_task_store(stores[-1].read_bytes())
+    for task in tasks:
         if len(task) != 25 or not isinstance(task[4], list) or task[4][:1] != ["SwiftDriver Compilation"]:
             continue
         arguments = [value.decode() if isinstance(value, bytes) else value for _, value in task[6]]

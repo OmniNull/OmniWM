@@ -43,7 +43,7 @@ def task(rule, arguments, directory="/work"):
 def write_store(scratch, tasks, name="current"):
     store = scratch / f"out/Intermediates.noindex/XCBuildData/{name}.xcbuilddata/task-store.msgpack"
     store.parent.mkdir(parents=True)
-    store.write_bytes(pack(tasks))
+    store.write_bytes(pack([[0, []], [0, []], tasks]))
     return store
 
 
