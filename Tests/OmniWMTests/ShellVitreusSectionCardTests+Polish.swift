@@ -162,10 +162,10 @@ extension ShellVitreusSectionCardTests {
         windows.trigger(fixture, "drawer-controls")
         let grip = try windows.frame(fixture, "window-grip-controls-toggles")
         for key in ["controls-tile-wifi", "controls-tile-caffeine", "controls-tile-notifications"] {
-            XCTAssertLessThanOrEqual(try windows.frame(fixture, key).maxY, grip.minY + 0.01)
+            XCTAssertLessThanOrEqual(try windows.frame(fixture, key).maxY, grip.minY)
         }
         for key in ["controls-tile-bluetooth", "controls-tile-capture", "controls-tile-power"] {
-            XCTAssertGreaterThanOrEqual(try windows.frame(fixture, key).minY, grip.maxY - 0.01)
+            XCTAssertGreaterThanOrEqual(try windows.frame(fixture, key).minY, grip.maxY)
         }
     }
 

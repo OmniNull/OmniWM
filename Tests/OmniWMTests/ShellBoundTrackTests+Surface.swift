@@ -112,7 +112,7 @@ enum ShellBoundSurfaceFixture {
     static func assertRect(
         _ actual: CGRect,
         _ expected: CGRect,
-        accuracy: Double = 1,
+        accuracy: Double,
         file: StaticString = #filePath,
         line: UInt = #line
     ) {
@@ -176,6 +176,6 @@ final class ShellBoundTrackSurfaceTests: XCTestCase {
         fixture.render()
         let base = try ShellLayerScene.engineQueue.sync { try XCTUnwrap(scene.shapeTracks.entries[shape.slot]).base }
         XCTAssertGreaterThan(base.duration, 0)
-        Fixture.assertRect(base.state(at: base.begin).shape.rect, drawn)
+        XCTAssertEqual(base.state(at: base.begin).shape.rect, drawn)
     }
 }

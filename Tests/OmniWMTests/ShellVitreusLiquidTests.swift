@@ -118,11 +118,7 @@ final class ShellVitreusLiquidTests: XCTestCase {
         let regions = surface.glassRegions(
             shape, clippedTo: body, in: surface.presentation, excluding: surface.degenerateRingBodies()
         )
-        ShellBoundSurfaceFixture.assertRect(
-            try XCTUnwrap(regions.first),
-            rendered.rect.intersection(body),
-            accuracy: 0.001
-        )
+        XCTAssertEqual(try XCTUnwrap(regions.first), rendered.rect.intersection(body))
         let centre = CGPoint(x: body.minX + rendered.rect.midX, y: body.minY + rendered.rect.midY)
         XCTAssertTrue(surface.containsShape(at: centre))
         XCTAssertFalse(surface.containsShape(at: CGPoint(x: 960, y: 540)))
@@ -202,11 +198,7 @@ final class ShellVitreusLiquidTests: XCTestCase {
         let home = try frames.frame(fixture, "desk")
         try VitreusFixture.drag(widget, key: "grip", by: CGVector(dx: -400, dy: 0))
         XCTAssertNil(widget.surface.manipulation)
-        ShellBoundSurfaceFixture.assertRect(
-            try frames.frame(fixture, "desk"),
-            home.offsetBy(dx: -400, dy: 0),
-            accuracy: 0.01
-        )
+        XCTAssertEqual(try frames.frame(fixture, "desk"), home.offsetBy(dx: -400, dy: 0))
         for name in [
             "desk-bulge",
             "desk-ripple-break-top",
@@ -271,7 +263,12 @@ final class ShellVitreusLiquidTests: XCTestCase {
         for event in widget.events.dropFirst(eventStart) { widget.invoke(event.action, event: event.event) }
         frames.show(fixture)
         let after = try frames.frame(fixture, "desk")
-        ShellBoundSurfaceFixture.assertRect(after, proposed, accuracy: 0.001)
+        for (value, target) in [
+            (after.minX, proposed.minX), (after.minY, proposed.minY), (after.width, proposed.width),
+            (after.height, proposed.height)
+        ] {
+            XCTAssertEqual(value, floatStored(target))
+        }
         let factor = after.width / before.width
         XCTAssertLessThan(factor, 1)
         let source = try XCTUnwrap(morph(widget, "desk-shape").source)

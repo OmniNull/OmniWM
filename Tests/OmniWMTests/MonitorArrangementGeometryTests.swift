@@ -7,8 +7,6 @@ import Foundation
 import XCTest
 
 final class MonitorArrangementGeometryTests: XCTestCase {
-    private let accuracy: CGFloat = 1e-6
-
     func testEmptyInputReturnsEmpty() {
         let rects = MonitorArrangementGeometry.canvasRects(
             forFramesYUp: [],
@@ -72,10 +70,10 @@ final class MonitorArrangementGeometryTests: XCTestCase {
         let unionMinY = rects.map(\.minY).min() ?? 0
         let unionMaxY = rects.map(\.maxY).max() ?? 0
 
-        XCTAssertGreaterThanOrEqual(unionMinX, padding - accuracy)
-        XCTAssertLessThanOrEqual(unionMaxX, canvas.width - padding + accuracy)
-        XCTAssertGreaterThanOrEqual(unionMinY, padding - accuracy)
-        XCTAssertLessThanOrEqual(unionMaxY, canvas.height - padding + accuracy)
+        XCTAssertGreaterThanOrEqual(unionMinX, padding)
+        XCTAssertLessThanOrEqual(unionMaxX, canvas.width - padding)
+        XCTAssertGreaterThanOrEqual(unionMinY, padding)
+        XCTAssertLessThanOrEqual(unionMaxY, canvas.height - padding)
 
         let leftGap = unionMinX
         let rightGap = canvas.width - unionMaxX
@@ -98,16 +96,17 @@ final class MonitorArrangementGeometryTests: XCTestCase {
             padding: padding
         )
 
+        let scale = (canvas.width - padding * 2) / (frames[0].width + frames[1].width)
         let expected = [
-            CGRect(x: 14, y: 75.3875, width: 199.2, height: 112.05),
-            CGRect(x: 213.2, y: 52.5625, width: 132.8, height: 83)
+            CGRect(x: 14, y: 75.3875, width: frames[0].width * scale, height: frames[0].height * scale),
+            CGRect(x: 213.2, y: 52.5625, width: frames[1].width * scale, height: frames[1].height * scale)
         ]
         XCTAssertEqual(rects.count, 2)
         for (actual, expected) in zip(rects, expected) {
-            XCTAssertEqual(actual.minX, expected.minX, accuracy: accuracy)
-            XCTAssertEqual(actual.minY, expected.minY, accuracy: accuracy)
-            XCTAssertEqual(actual.width, expected.width, accuracy: accuracy)
-            XCTAssertEqual(actual.height, expected.height, accuracy: accuracy)
+            XCTAssertEqual(actual.minX, expected.minX)
+            XCTAssertEqual(actual.minY, expected.minY)
+            XCTAssertEqual(actual.width, expected.width)
+            XCTAssertEqual(actual.height, expected.height)
         }
     }
 

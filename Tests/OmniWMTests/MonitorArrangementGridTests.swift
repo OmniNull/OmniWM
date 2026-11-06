@@ -27,8 +27,8 @@ final class MonitorArrangementGridTests: XCTestCase {
         XCTAssertEqual(fit.cellSize.width, fit.cellSize.height)
         XCTAssertGreaterThan(fit.cellSize.width, 0)
         let last = MonitorArrangementGeometry.cellFrame(column: 1, row: 1, fit: fit, spacing: 6)
-        XCTAssertLessThanOrEqual(last.maxX, canvas.width - 10 + 0.001)
-        XCTAssertLessThanOrEqual(last.maxY, canvas.height - 10 + 0.001)
+        XCTAssertLessThanOrEqual(last.maxX, canvas.width - 10)
+        XCTAssertLessThanOrEqual(last.maxY, canvas.height - 10)
     }
 
     func testNearestCellHandlesDegenerateFit() {

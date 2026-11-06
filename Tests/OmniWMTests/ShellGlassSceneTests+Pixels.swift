@@ -147,6 +147,10 @@ extension ShellGlassSceneTests {
         var gradient = paint()
         gradient.gradient = [from, to]
         let canvas = CGRect(x: 0, y: 0, width: 96, height: 96)
+        let steepest = zip(from.components ?? [], to.components ?? []).map { abs($0 - $1) * 255 }.max() ?? 0
+        let halfTexelRamp = steepest / canvas.height * ShellOffscreenRenderer.pixel / 2
+        let storedLevels: CGFloat = 1
+        let endLevels = Int(storedLevels + halfTexelRamp)
         for (angle, flat, ends) in [
             (90, 1, [(48, 0), (48, 95)]),
             (0, 1, [(0, 48), (95, 48)]),
@@ -166,7 +170,7 @@ extension ShellGlassSceneTests {
                 for shine in body.sdfLayers[2 ... 3] { shine.isHidden = true }
                 let pixels = try Self.pixels(body.layer, width: 96, height: 96, scale: 1)
                 for ((x, y), color) in zip(ends, [from, to]) {
-                    Self.assertColor(pixels, x: x, y: y, equals: color, within: 3)
+                    Self.assertColor(pixels, x: x, y: y, equals: color, within: endLevels)
                 }
                 try Self.save(pixels, width: 96, name: "gradient-\(angle)-\(flat).png")
             }

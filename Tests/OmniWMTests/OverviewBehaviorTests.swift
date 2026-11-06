@@ -3019,7 +3019,12 @@ final class OverviewBehaviorTests: XCTestCase {
             max(0, (viewport.height - target.height) / 2)
         )
         let paddedViewport = viewport.insetBy(dx: 0, dy: padding)
-        XCTAssertGreaterThanOrEqual(target.minY + 0.0001, paddedViewport.minY, message, file: file, line: line)
-        XCTAssertLessThanOrEqual(target.maxY - 0.0001, paddedViewport.maxY, message, file: file, line: line)
+        let rounding = CGFloat.rounding(
+            operations: 8,
+            at: abs(offset) + max(abs(target.minY), abs(target.maxY))
+                + max(abs(paddedViewport.minY), abs(paddedViewport.maxY))
+        )
+        XCTAssertGreaterThanOrEqual(target.minY, paddedViewport.minY - rounding, message, file: file, line: line)
+        XCTAssertLessThanOrEqual(target.maxY, paddedViewport.maxY + rounding, message, file: file, line: line)
     }
 }

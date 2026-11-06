@@ -337,7 +337,7 @@ extension ShellVitreusBarTests {
                 let animation = try XCTUnwrap(path
                     .animation(forKey: ShellLayerScene.pathTrackKey) as? CAKeyframeAnimation)
                 let values = try XCTUnwrap(animation.values as? [CGPath])
-                let index = try XCTUnwrap(entry.samples.firstIndex { abs($0.time - elapsed) < 1e-8 })
+                let index = try XCTUnwrap(entry.samples.firstIndex { $0.time == elapsed })
                 XCTAssertGreaterThan(values[index].boundingBoxOfPath.width, 0)
             }
             CATransaction.begin()

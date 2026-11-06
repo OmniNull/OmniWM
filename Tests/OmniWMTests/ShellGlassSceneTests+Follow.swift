@@ -202,8 +202,8 @@ extension ShellGlassSceneTests {
     ) throws {
         let wrapped = try drawn(reference, at: time, around: around ?? expected)
         let shape = try drawn(followed, at: time, around: around ?? expected)
-        assertRect(shape, wrapped, accuracy: 1, message)
-        assertRect(shape, expected, accuracy: 1, message)
+        assertRect(shape, wrapped, accuracy: ShellOffscreenRenderer.pixel, message)
+        assertRect(shape, expected, accuracy: ShellOffscreenRenderer.pixel / 2, message)
     }
 
     func testFollowedShapeEdgesEqualTheWrapperPresentedContentForTranslationAndScale() throws {
@@ -276,7 +276,10 @@ extension ShellGlassSceneTests {
         let second = try XCTUnwrap(first.retargeted(at: retarget, to: CGRect(x: 30, y: 80, width: 50, height: 50)))
         XCTAssertGreaterThan(abs(second.startVelocity.x) + abs(second.startVelocity.width), 10)
         play(second)
-        assertRect(try drawn(followed, at: retarget, around: composite(second, at: retarget)), before, accuracy: 0.5)
+        assertRect(
+            try drawn(followed, at: retarget, around: composite(second, at: retarget)), before,
+            accuracy: 2 * ShellOffscreenRenderer.pixel / 255
+        )
         try check(second, at: [0.08, 0.12, 0.2, 0.35, 0.6])
     }
 
@@ -299,7 +302,10 @@ extension ShellGlassSceneTests {
         run([.raise(slot: 1, true)], on: stage)
         for elapsed in [0.05, 0.12, 0.2, 0.3] {
             let expected = motion.rect(at: begin + elapsed)
-            assertRect(try drawn(stage, at: begin + elapsed, around: expected), expected, accuracy: 1, "at \(elapsed)")
+            assertRect(
+                try drawn(stage, at: begin + elapsed, around: expected), expected,
+                accuracy: ShellOffscreenRenderer.pixel / 2, "at \(elapsed)"
+            )
         }
     }
 
@@ -335,7 +341,7 @@ extension ShellGlassSceneTests {
                 let expected = motion.rect(at: begin + elapsed)
                 assertRect(
                     try drawn(stage, at: begin + elapsed, around: expected, rows: index == 0 ? 0 ..< 70 : 70 ..< 140),
-                    expected, accuracy: 1, "target \(index) at \(elapsed)"
+                    expected, accuracy: ShellOffscreenRenderer.pixel / 2, "target \(index) at \(elapsed)"
                 )
             }
         }

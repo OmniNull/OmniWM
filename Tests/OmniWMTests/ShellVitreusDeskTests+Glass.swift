@@ -132,13 +132,13 @@ extension ShellVitreusDeskTests {
     private func assertGlass(_ probe: VitreusProbe, envelope rect: CGRect, du: CGFloat) throws {
         let label = "\(probe.scale)x"
         let bounds = probe.bounds()
-        let tolerance = 1 / CGFloat(probe.scale)
+        let backingPixel = 1 / CGFloat(probe.scale)
         for (value, target) in [(bounds.minX, rect.minX), (bounds.minY, rect.minY), (bounds.maxY, rect.maxY)] {
-            XCTAssertEqual(value, target, accuracy: tolerance, label)
+            XCTAssertEqual(value, target, accuracy: backingPixel, label)
         }
         let edge = min(probe.crop.maxX, 1920)
-        XCTAssertGreaterThanOrEqual(bounds.maxX, edge - tolerance, label)
-        let gap = Array(stride(from: rect.maxX + tolerance / 2, to: edge, by: tolerance))
+        XCTAssertGreaterThanOrEqual(bounds.maxX, edge - backingPixel, label)
+        let gap = Array(stride(from: rect.maxX + backingPixel / 2, to: edge, by: backingPixel))
         XCTAssertTrue(gap.allSatisfy { probe.pixel(probe.twin, $0, rect.midY)[3] > 8 }, label)
         let band = 2 * 35.1 + 1920 - rect.maxX + 1
         let neck = gap.filter { $0 > rect.maxX + 1 }.compactMap { probe.span(column: $0) }
@@ -397,7 +397,7 @@ extension ShellVitreusDeskTests {
         }
         let settled = try silhouette(at: plan.end + 0.1)
         let rim = (minX: settled.minX - rect.minX, minY: settled.minY - rect.minY, maxY: settled.maxY - rect.maxY)
-        XCTAssertTrue([rim.minX, rim.minY, rim.maxY].allSatisfy { abs($0) <= 2 }, "\(rim)")
+        XCTAssertTrue([rim.minX, rim.minY, rim.maxY].allSatisfy { abs($0) <= ShellOffscreenRenderer.pixel }, "\(rim)")
         XCTAssertGreaterThanOrEqual(settled.maxX, 1920 - 1, "\(settled)")
         let time = plan.begin + 0.084
         let state = plan.state(at: time)

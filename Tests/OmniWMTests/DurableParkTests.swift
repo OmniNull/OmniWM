@@ -1935,12 +1935,13 @@ final class DurableParkTests: XCTestCase {
     }
 
     func testParkFrameEventsInvalidateOnlyAtOrBeyondFrameWriteTolerance() async throws {
+        let tolerance = FrameTolerance.frameWrite
         for offset in [
             CGPoint.zero,
-            CGPoint(x: -0.5, y: 0),
-            CGPoint(x: 0, y: 0.5),
-            CGPoint(x: -1, y: 0),
-            CGPoint(x: 0, y: 1)
+            CGPoint(x: -tolerance / 2, y: 0),
+            CGPoint(x: 0, y: tolerance / 2),
+            CGPoint(x: -tolerance, y: 0),
+            CGPoint(x: 0, y: tolerance)
         ] {
             let fixture = try Self.parkDriftFixture()
             FrameApplyTrace.shared.beginCapture()
@@ -1949,7 +1950,7 @@ final class DurableParkTests: XCTestCase {
                 fixture,
                 observedFrame: fixture.parkFrame.offsetBy(dx: offset.x, dy: offset.y)
             )
-            if abs(offset.x) >= 1 || abs(offset.y) >= 1 {
+            if abs(offset.x) >= tolerance || abs(offset.y) >= tolerance {
                 XCTAssertNil(fixture.controller.axManager.verifiedParkFrame(for: fixture.token.windowId))
                 XCTAssertTrue(fixture.controller.axManager.pendingParkWindowIds.contains(fixture.token.windowId))
                 XCTAssertTrue(Self.frameTrace(fixture).contains("outcome=ax-park-failed/contextUnavailable"))

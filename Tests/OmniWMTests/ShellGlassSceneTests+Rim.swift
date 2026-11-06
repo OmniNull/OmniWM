@@ -12,6 +12,7 @@ extension ShellGlassSceneTests {
     nonisolated static let rimShape = ShellGlassShape(
         slot: 1, kind: 0, rect: CGRect(x: 16, y: 16, width: 64, height: 64), radius: 12, thickness: 0
     )
+    nonisolated static let channelLevel = 1.0
 
     nonisolated static func smoothstep(_ low: Double, _ high: Double, _ value: Double) -> Double {
         let progress = min(max((value - low) / (high - low), 0), 1)
@@ -78,7 +79,6 @@ extension ShellGlassSceneTests {
         let peak = reference.max() ?? 0
         XCTAssertGreaterThan(peak, 4, file: file, line: line)
         var first: [Double]?
-        let channelLevel = 1.0
         for edge in 0 ..< 4 {
             let outside = edgeIndex(edge, depth: -1, scale: scale)
             XCTAssertEqual(lit[outside + 3], base[outside + 3], "edge \(edge) halo", file: file, line: line)
@@ -87,7 +87,7 @@ extension ShellGlassSceneTests {
                 edgeIndex(edge, depth: $0, scale: scale)
             ) }
             for (depth, (value, expected)) in zip(depths, zip(profile, reference)) {
-                let tolerance = depth >= 3 * scale ? 1 : 0.15 * peak
+                let tolerance = depth >= 3 * scale ? channelLevel : 0.15 * peak
                 XCTAssertEqual(
                     value,
                     expected,
@@ -328,7 +328,7 @@ extension ShellGlassSceneTests {
             let edge = try XCTUnwrap((0 ..< 96).last { pixels[(20 * 96 + $0) * 4 + 3] > 200 })
             XCTAssertGreaterThan(edge, 80)
             XCTAssertGreaterThan(row[edge], row[edge - 6] + 40)
-            XCTAssertLessThan(abs(row[47] - row[edge - 6]), 2)
+            XCTAssertEqual(row[47], row[edge - 6], accuracy: Self.channelLevel)
             try apply(48, rim: 0, nil)
             XCTAssertEqual(body.elements.count, 4)
             XCTAssertEqual(body.layer.sublayers?.count, 5)

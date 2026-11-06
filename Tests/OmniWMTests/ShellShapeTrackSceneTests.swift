@@ -92,7 +92,7 @@ final class ShellShapeTrackSceneTests: XCTestCase {
             for index in [0, 2, 3] { body.sdfLayers[index].isHidden = true }
             return try fixture.renderer.render(paused: clock)
         }
-        assertEqual(try bounds(pixels), shape.shape(at: clock).rect, accuracy: 1)
+        assertEqual(try bounds(pixels), shape.shape(at: clock).rect, accuracy: ShellOffscreenRenderer.pixel)
     }
 
     func testRemovalKeepsAnOrderedDistinctRenderSlotWhileACoreSlotIsReused() throws {
@@ -243,14 +243,17 @@ final class ShellShapeTrackSceneTests: XCTestCase {
         let before = old.shape(at: fixture.clock.time)
         step(1, fixture)
         let first = try entry(fixture, "a")
-        assertEqual(first.shape(at: fixture.clock.time).rect, before.rect, accuracy: 1e-9)
+        let raw = old.base.target.rect
+        let reseeded = CGFloat.rounding(operations: 2, at: 1) * raw.width
+            + CGFloat.rounding(operations: 4, at: raw.midX)
+        assertEqual(first.shape(at: fixture.clock.time).rect, before.rect, accuracy: reseeded)
         fixture.clock.time += 0.04
         let moving = first.base.state(at: fixture.clock.time)
         XCTAssertGreaterThan(abs(moving.velocity[2]), 1)
         let presented = first.shape(at: fixture.clock.time)
         step(2, fixture)
         let second = try entry(fixture, "a")
-        assertEqual(second.shape(at: fixture.clock.time).rect, presented.rect, accuracy: 1e-9)
+        XCTAssertEqual(second.shape(at: fixture.clock.time).rect, presented.rect)
         XCTAssertEqual(second.base.velocity[2], moving.velocity[2])
     }
 

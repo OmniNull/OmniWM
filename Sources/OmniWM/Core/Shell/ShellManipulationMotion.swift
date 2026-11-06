@@ -69,8 +69,8 @@ struct ShellManipulationMotion: Sendable {
         static let zero = Velocity(x: 0, y: 0, width: 0)
     }
 
-    private static let residualLimit = 0.25
-    private static let speedLimit = 1.0
+    static let residualLimit = 0.25
+    static let speedLimit = 1.0
 
     let start: CGRect
     let target: CGRect

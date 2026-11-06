@@ -992,7 +992,7 @@ final class NiriInteractionOrientationTests: NiriInteractionTestCase {
             orientation: .vertical
         )
         let movedFrame = try XCTUnwrap(frames[movedWindow.token])
-        XCTAssertGreaterThanOrEqual(movedFrame.minY, targetFrame.minY - 0.001)
-        XCTAssertLessThanOrEqual(movedFrame.maxY, targetFrame.maxY + 0.001)
+        XCTAssertGreaterThanOrEqual(movedFrame.minY, targetFrame.minY)
+        XCTAssertLessThanOrEqual(movedFrame.maxY, targetFrame.maxY)
     }
 }

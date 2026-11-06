@@ -161,7 +161,7 @@ extension ShellGlassSceneTests {
             let rows = [40, 120]
             let settled = try renderer.render(paused: begin + 10)
             let offsets = rows.map { (Self.crossings(settled, width: 240, row: $0).first ?? .nan) - 120 }
-            XCTAssertTrue(offsets.allSatisfy { abs($0) <= 1.5 }, "\(offsets)")
+            XCTAssertTrue(offsets.allSatisfy { abs($0) <= ShellOffscreenRenderer.pixel / 2 }, "\(offsets)")
             for elapsed in [0.03, 0.08, 0.16, 0.3] {
                 let bytes = try renderer.render(paused: begin + elapsed)
                 let drawn = try rows.map { try XCTUnwrap(Self.crossings(bytes, width: 240, row: $0).first) }

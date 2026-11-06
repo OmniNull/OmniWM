@@ -109,7 +109,7 @@ extension ShellGlassSceneTests {
                 )
                 masks[name] = try Self.mask(pixels(stage, at: begin))
                 if radius == .fixed {
-                    assertRect(try drawn(stage, at: begin, around: presented), presented, accuracy: 1, "scale \(scale)")
+                    XCTAssertEqual(try drawn(stage, at: begin, around: presented), presented, "scale \(scale)")
                 }
             }
             for (name, radius) in [("body", 16), ("content", 16 * scale)] {
@@ -221,14 +221,14 @@ extension ShellGlassSceneTests {
         run(box(1, layout, fill: nil) + body(10, canvas(stage), after: 1, shapes: [follower]), on: stage)
         try requireNative(stage)
         let terminal = layout.offsetBy(dx: 20, dy: 10)
-        assertRect(try drawn(stage, at: begin, around: terminal), terminal, accuracy: 1, "terminal")
+        XCTAssertEqual(try drawn(stage, at: begin, around: terminal), terminal, "terminal")
         present(
             .still(translation: CGPoint(x: 40, y: 10), scale: 0.5, clip: nil), target: 1, layout: layout,
             followers: [follower], on: stage
         )
         XCTAssertEqual(ShellLayerScene.engineQueue.sync { stage.scene.shapeTracks.follows[11]?.mode }, .transform)
         let expected = CGRect(x: 70, y: 35, width: 40, height: 30)
-        assertRect(try drawn(stage, at: begin, around: expected), expected, accuracy: 1, "followed")
+        XCTAssertEqual(try drawn(stage, at: begin, around: expected), expected, "followed")
     }
 
     func testEllipseFollowerTakesTheSampledCompositeAtThePresentedRect() throws {

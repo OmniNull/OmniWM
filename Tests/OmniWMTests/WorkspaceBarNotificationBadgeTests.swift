@@ -57,11 +57,11 @@ final class WorkspaceBarNotificationBadgeTests: XCTestCase {
                 var data = bar(height: height, badge: label)
                 data.badges = "text"
                 widget.render(data)
-                let badgeHeight = max(12 * min(1, height / 32), icon * 0.55)
+                let badgeHeight = CGFloat(floatStored(max(12 * min(1, height / 32), icon * 0.55)))
                 let badgeColor = widget.resources.palette.color(.clear, default: .badge)
                 let badges = widget.layers().filter {
-                    $0.backgroundColor == badgeColor && $0.borderWidth == 0 && abs($0.bounds.height - badgeHeight) < 0.5
-                        && abs($0.cornerRadius - badgeHeight / 2) < 0.5
+                    $0.backgroundColor == badgeColor && $0.borderWidth == 0 && $0.bounds.height == badgeHeight
+                        && $0.cornerRadius == badgeHeight / 2
                 }
                 XCTAssertEqual(badges.count, 1, "\(label) \(height)")
                 for badge in badges {

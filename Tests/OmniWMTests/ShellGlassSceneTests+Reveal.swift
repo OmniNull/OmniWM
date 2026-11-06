@@ -217,7 +217,7 @@ extension ShellGlassSceneTests {
             XCTAssertEqual(radii.last, Self.cardRadius)
             for (index, frame) in frames.enumerated() {
                 XCTAssertEqual(positions[index].pointValue, frame.rect.origin)
-                XCTAssertLessThanOrEqual(radii[index], min(frame.rect.width, frame.rect.height) / 2 + 1e-9)
+                XCTAssertLessThanOrEqual(radii[index], min(frame.rect.width, frame.rect.height) / 2)
             }
         }
         withExtendedLifetime(renderer) {}

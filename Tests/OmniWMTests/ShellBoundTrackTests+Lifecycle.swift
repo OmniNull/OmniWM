@@ -162,12 +162,12 @@ extension ShellBoundTrackTests {
             let retained = try XCTUnwrap(scene.shapeTracks.entries[state.sourceSlot])
             XCTAssertNotNil(retained.carrier)
             XCTAssertEqual(retained.bound?.revision, state.source.bound?.revision)
-            ShellBoundSurfaceFixture.assertRect(retained.shape(at: state.time).rect, expected.rect, accuracy: 1e-9)
+            XCTAssertEqual(retained.shape(at: state.time).rect, expected.rect)
             XCTAssertEqual(retained.shape(at: state.time).radius, expected.radius)
             let closing = try XCTUnwrap(retained.plan)
             let crossing = try XCTUnwrap(closing.crossings(at: 0.7, rising: false).first)
             XCTAssertGreaterThan(crossing, state.time)
-            XCTAssertFalse(retained.impulses.contains { abs($0.begin - crossing) < 1e-9 })
+            XCTAssertFalse(retained.impulses.contains { $0.begin == crossing })
             XCTAssertTrue(retained.impulses.allSatisfy { $0.begin <= state.time })
         }
     }
@@ -184,7 +184,7 @@ extension ShellBoundTrackTests {
             XCTAssertTrue(retained.triggerPlans.allSatisfy { $0.begin <= state.time })
             XCTAssertFalse(retained.triggerPlans.contains { $0.begin == state.futurePulse })
             XCTAssertLessThan(retained.end, state.futurePulse)
-            ShellBoundSurfaceFixture.assertRect(retained.shape(at: state.time).rect, expected.rect, accuracy: 1e-9)
+            XCTAssertEqual(retained.shape(at: state.time).rect, expected.rect)
             XCTAssertEqual(retained.shape(at: state.time).radius, expected.radius)
         }
     }

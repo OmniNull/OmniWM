@@ -35,7 +35,7 @@ final class RuntimeArchitectureTests: XCTestCase {
         for step in 0 ... 40 {
             let time = startTime + config.duration * Double(step) / 40.0
             let value = animation.value(at: time)
-            XCTAssertGreaterThanOrEqual(value + 0.000001, previous)
+            XCTAssertGreaterThanOrEqual(value, previous)
             previous = value
         }
 
@@ -475,11 +475,7 @@ final class RuntimeArchitectureTests: XCTestCase {
             activeRequestId: fixture.requestId
         )
 
-        XCTAssertNotEqual(
-            controller.workspaceManager.niriViewportState(for: workspaceId).viewOffset,
-            300,
-            accuracy: 0.001
-        )
+        XCTAssertLessThanOrEqual(controller.workspaceManager.niriViewportState(for: workspaceId).viewOffset, 0)
     }
 
     @MainActor
@@ -569,11 +565,7 @@ final class RuntimeArchitectureTests: XCTestCase {
             appFullscreen: false
         )
 
-        XCTAssertNotEqual(
-            controller.workspaceManager.niriViewportState(for: workspaceId).viewOffset,
-            300,
-            accuracy: 0.001
-        )
+        XCTAssertLessThanOrEqual(controller.workspaceManager.niriViewportState(for: workspaceId).viewOffset, 0)
     }
 
     @MainActor
@@ -7705,14 +7697,13 @@ final class RuntimeArchitectureTests: XCTestCase {
     private static func assertFrame(
         _ actual: CGRect,
         equals expected: CGRect,
-        accuracy: CGFloat = 0.000001,
         file: StaticString = #filePath,
         line: UInt = #line
     ) {
-        XCTAssertEqual(actual.origin.x, expected.origin.x, accuracy: accuracy, file: file, line: line)
-        XCTAssertEqual(actual.origin.y, expected.origin.y, accuracy: accuracy, file: file, line: line)
-        XCTAssertEqual(actual.width, expected.width, accuracy: accuracy, file: file, line: line)
-        XCTAssertEqual(actual.height, expected.height, accuracy: accuracy, file: file, line: line)
+        XCTAssertEqual(actual.origin.x, expected.origin.x, file: file, line: line)
+        XCTAssertEqual(actual.origin.y, expected.origin.y, file: file, line: line)
+        XCTAssertEqual(actual.width, expected.width, file: file, line: line)
+        XCTAssertEqual(actual.height, expected.height, file: file, line: line)
     }
 
     @MainActor

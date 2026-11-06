@@ -11,8 +11,8 @@ struct ShellReveal: Equatable, Sendable {
     }
 
     static let rate = 120.0
-    private static let residualLimit = 0.002
-    private static let speedLimit = 0.02
+    static let residualLimit = 0.002
+    static let speedLimit = 0.02
 
     let begin: CFTimeInterval
     let commit: CFTimeInterval

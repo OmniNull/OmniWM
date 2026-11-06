@@ -52,7 +52,10 @@ final class ShellManipulationMotionTests: XCTestCase {
         let retargeted = try XCTUnwrap(motion.retargeted(at: time, to: CGRect(x: 40, y: 200, width: 360, height: 270)))
         XCTAssertEqual(retargeted.begin, time)
         XCTAssertNotEqual(retargeted.duration, motion.duration)
-        assertEqual(retargeted.rect(at: time), motion.rect(at: time), accuracy: 1e-9)
+        assertEqual(
+            retargeted.rect(at: time), motion.rect(at: time),
+            accuracy: CGFloat.rounding(operations: 2, at: retargeted.target.minY)
+        )
         let before = motion.velocity(at: time)
         let after = retargeted.velocity(at: time)
         XCTAssertNotEqual(before, .zero)
@@ -91,7 +94,10 @@ final class ShellManipulationMotionTests: XCTestCase {
                     width: layout.width * scale,
                     height: layout.height * scale
                 )
-                assertEqual(rendered, motion.rect(at: time), accuracy: 1e-9, "\(layout) \(time)")
+                assertEqual(
+                    rendered, motion.rect(at: time),
+                    accuracy: CGFloat.rounding(operations: 23, at: motion.start.width), "\(layout) \(time)"
+                )
             }
         }
     }
@@ -127,7 +133,8 @@ final class ShellManipulationMotionTests: XCTestCase {
             rect.minX - target.minX, rect.minY - target.minY, rect.width - target.width, rect.height - target.height
         ]
         let speeds = [velocity.x, velocity.y, velocity.width, velocity.width * target.height / target.width]
-        return residuals.allSatisfy { abs($0) < 0.25 } && speeds.allSatisfy { abs($0) < 1 }
+        return residuals.allSatisfy { abs($0) < ShellManipulationMotion.residualLimit }
+            && speeds.allSatisfy { abs($0) < ShellManipulationMotion.speedLimit }
     }
 
     func testVelocityAwareDurationSettlesAFastReleaseRetargetedHome() throws {
@@ -139,14 +146,18 @@ final class ShellManipulationMotionTests: XCTestCase {
                 let rect = settle.rect(at: end)
                 let label = "\(spring.damping) \(distance)"
                 XCTAssertEqual(settle.velocity(at: settle.begin).x, 800, label)
-                XCTAssertLessThan(abs(rect.minX - home.minX), 0.25, label)
-                XCTAssertLessThan(abs(rect.minY - home.minY), 0.25, label)
-                XCTAssertLessThan(abs(rect.width - home.width), 0.25, label)
-                XCTAssertLessThan(abs(rect.height - home.height), 0.25, label)
+                XCTAssertLessThan(abs(rect.minX - home.minX), ShellManipulationMotion.residualLimit, label)
+                XCTAssertLessThan(abs(rect.minY - home.minY), ShellManipulationMotion.residualLimit, label)
+                XCTAssertLessThan(abs(rect.width - home.width), ShellManipulationMotion.residualLimit, label)
+                XCTAssertLessThan(abs(rect.height - home.height), ShellManipulationMotion.residualLimit, label)
                 let velocity = settle.velocity(at: end)
-                XCTAssertLessThan(abs(velocity.x), 1, label)
-                XCTAssertLessThan(abs(velocity.y), 1, label)
-                XCTAssertLessThan(abs(velocity.width) * max(1, home.height / home.width), 1, label)
+                XCTAssertLessThan(abs(velocity.x), ShellManipulationMotion.speedLimit, label)
+                XCTAssertLessThan(abs(velocity.y), ShellManipulationMotion.speedLimit, label)
+                XCTAssertLessThan(
+                    abs(velocity.width) * max(1, home.height / home.width),
+                    ShellManipulationMotion.speedLimit,
+                    label
+                )
                 XCTAssertTrue(settle.settled(at: end), label)
                 XCTAssertFalse(settle.settled(at: end - 0.001), label)
                 XCTAssertNil(

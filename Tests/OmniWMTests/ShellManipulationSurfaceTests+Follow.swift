@@ -123,7 +123,14 @@ extension ShellManipulationSurfaceTests {
         }, OMNI_OK)
     }
 
-    func assertEqual(_ actual: CGRect, _ expected: CGRect, accuracy: CGFloat = 1e-4, line: UInt = #line) {
+    static let pairRounding = CGFloat.floatRounding(operations: 3, at: 200 + 300)
+
+    func presentedRounding(_ fixture: Fixture, showing shown: CGRect) throws -> CGFloat {
+        let local = try fixture.surface.layout.core.layoutFrame(of: fixture.target())
+        return .floatRounding(operations: 3, at: CGFloat(local.x) + shown.minX)
+    }
+
+    func assertEqual(_ actual: CGRect, _ expected: CGRect, accuracy: CGFloat = pairRounding, line: UInt = #line) {
         XCTAssertEqual(actual.minX, expected.minX, accuracy: accuracy, line: line)
         XCTAssertEqual(actual.minY, expected.minY, accuracy: accuracy, line: line)
         XCTAssertEqual(actual.width, expected.width, accuracy: accuracy, line: line)
@@ -141,11 +148,15 @@ extension ShellManipulationSurfaceTests {
         let anchor = surface.anchor(of: input).frame
         fixture.beginMove(to: CGPoint(x: 185, y: 75))
         XCTAssertEqual(surface.manipulation?.preview, CGRect(x: 180, y: 70, width: 100, height: 80))
-        try assertEqual(presented(fixture), Self.home)
+        XCTAssertEqual(try presented(fixture), Self.home)
         clock.now += 0.016
         let lag = try ShellSpringDynamics.position(at: 0.016, displacement: -100, initialVelocity: 0, spring: desk)
+        let speed = try ShellSpringDynamics.velocity(at: 0.016, displacement: -100, initialVelocity: 0, spring: desk)
         let shown = try presented(fixture)
-        assertEqual(shown, CGRect(x: 180 + lag, y: 70, width: 100, height: 80))
+        try assertEqual(
+            shown, CGRect(x: 180 + lag, y: 70, width: 100, height: 80),
+            accuracy: presentedRounding(fixture, showing: shown) + abs(speed) * clock.now.ulp
+        )
         XCTAssertLessThan(shown.minX, 90)
         XCTAssertEqual(surface.element(at: CGPoint(x: shown.minX + 5, y: 75)) { $0.acceptsPointer }, move)
         XCTAssertNotEqual(surface.element(at: CGPoint(x: 250, y: 75)) { $0.acceptsPointer }, move)
@@ -167,7 +178,7 @@ extension ShellManipulationSurfaceTests {
         XCTAssertEqual(ended.event.placement?.rect, CGRect(x: 180, y: 70, width: 100, height: 80))
         let after = try XCTUnwrap(record(fixture)?.motion)
         XCTAssertEqual(after.begin, clock.now)
-        assertEqual(after.rect(at: clock.now), before.rect(at: clock.now))
+        XCTAssertEqual(after.rect(at: clock.now), before.rect(at: clock.now))
         XCTAssertEqual(after.startVelocity.x, before.velocity(at: clock.now).x)
         XCTAssertEqual(after.startVelocity.y, 0)
         let released = try presented(fixture).minX
@@ -195,7 +206,7 @@ extension ShellManipulationSurfaceTests {
         XCTAssertNil(surface.manipulation)
         XCTAssertEqual(CGRect(try surface.layout.core.absoluteFrame(of: fixture.target())), Self.home)
         XCTAssertEqual(try record(fixture)?.motion?.target, Self.home)
-        try assertEqual(presented(fixture), held)
+        XCTAssertEqual(try presented(fixture), held)
         XCTAssertFalse(fixture.events.contains { $0.event.phase == .cancelled })
         let state = try wrapper(fixture)
         XCTAssertEqual(state.token, try record(fixture)?.token)
@@ -217,7 +228,7 @@ extension ShellManipulationSurfaceTests {
         surface.press(at: CGPoint(x: 400, y: 300), timestamp: 0.03)
         XCTAssertNil(surface.manipulation)
         XCTAssertEqual(fixture.events.last?.event.reason, "superseded")
-        try assertEqual(presented(fixture), held)
+        XCTAssertEqual(try presented(fixture), held)
         XCTAssertEqual(try record(fixture)?.motion?.target, Self.home)
         let state = try wrapper(fixture)
         XCTAssertEqual(state.token, try record(fixture)?.token)
@@ -236,7 +247,7 @@ extension ShellManipulationSurfaceTests {
         XCTAssertNil(surface.manipulation)
         XCTAssertNil(surface.presentation)
         XCTAssertNil(try record(fixture)?.motion)
-        try assertEqual(presented(fixture), Self.home)
+        XCTAssertEqual(try presented(fixture), Self.home)
         let state = try wrapper(fixture)
         XCTAssertFalse(state.moving)
         XCTAssertFalse(state.active)
@@ -259,7 +270,7 @@ extension ShellManipulationSurfaceTests {
         XCTAssertNotNil(surface.manipulation)
         let moved = CGRect(surface.layout.core.absoluteFrame(of: target))
         XCTAssertEqual(moved.origin, CGPoint(x: layout.minX - 10, y: layout.minY))
-        try assertEqual(presented(fixture), shown)
+        try assertEqual(presented(fixture), shown, accuracy: presentedRounding(fixture, showing: shown))
         XCTAssertEqual(try record(fixture)?.frame, moved)
         XCTAssertEqual(try wrapper(fixture).generation, generation + 1)
         surface.cancelInput()
@@ -272,7 +283,7 @@ extension ShellManipulationSurfaceTests {
         fixture.render()
         let motion = try XCTUnwrap(record(fixture)?.motion)
         XCTAssertEqual(motion.target, CGRect(x: 200, y: 70, width: 100, height: 80))
-        try assertEqual(presented(fixture), Self.home)
+        XCTAssertEqual(try presented(fixture), Self.home)
         XCTAssertTrue(try wrapper(fixture).moving)
 
         let still = try follow(clock: clock)
@@ -280,7 +291,7 @@ extension ShellManipulationSurfaceTests {
         still.render()
         XCTAssertNil(try record(still)?.motion)
         XCTAssertNil(still.surface.presentation)
-        try assertEqual(presented(still), CGRect(x: 200, y: 70, width: 100, height: 80))
+        XCTAssertEqual(try presented(still), CGRect(x: 200, y: 70, width: 100, height: 80))
         still.surface.setRootLimit(CGSize(width: 500, height: 350))
         XCTAssertNil(try record(still)?.motion)
         XCTAssertNil(still.surface.presentation)

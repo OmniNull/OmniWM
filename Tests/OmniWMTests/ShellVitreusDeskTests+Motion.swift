@@ -35,11 +35,11 @@ extension ShellVitreusDeskTests {
         XCTAssertEqual(spring, bounce, line: line)
     }
 
-    private static func assertRect(_ actual: CGRect, _ expected: CGRect, accuracy: CGFloat = 0.01, line: UInt = #line) {
-        XCTAssertEqual(actual.minX, expected.minX, accuracy: accuracy, line: line)
-        XCTAssertEqual(actual.minY, expected.minY, accuracy: accuracy, line: line)
-        XCTAssertEqual(actual.width, expected.width, accuracy: accuracy, line: line)
-        XCTAssertEqual(actual.height, expected.height, accuracy: accuracy, line: line)
+    private static func assertRect(_ actual: CGRect, _ expected: CGRect, line: UInt = #line) {
+        XCTAssertEqual(actual.minX, floatStored(expected.minX), line: line)
+        XCTAssertEqual(actual.minY, floatStored(expected.minY), line: line)
+        XCTAssertEqual(actual.width, floatStored(expected.width), line: line)
+        XCTAssertEqual(actual.height, floatStored(expected.height), line: line)
     }
 
     private func commit(_ widget: ShellRenderedWidget) throws -> String {
@@ -86,7 +86,7 @@ extension ShellVitreusDeskTests {
         XCTAssertEqual(scale.mode, .scale, name)
         XCTAssertEqual(scale.resizeMask, corner.mask, name)
         XCTAssertEqual(Float(scale.inset.width), Float(Self.inset))
-        Self.assertRect(scale.bounds, bounds)
+        XCTAssertEqual(scale.bounds, bounds, name)
         XCTAssertEqual(scale.minimum.width, rect.width / 2, name)
         XCTAssertEqual(scale.minimum.height, rect.height / 2, name)
         XCTAssertEqual(scale.maximum.width, rect.width, name)
@@ -145,7 +145,7 @@ extension ShellVitreusDeskTests {
             for (value, number) in zip(row, target) {
                 XCTAssertEqual(value, number, accuracy: rowBound, "\(index)")
             }
-            XCTAssertLessThanOrEqual(row[4] + row[6] * (1 - Self.inset), row[8] + row[10] + 0.001, "\(index)")
+            XCTAssertLessThanOrEqual(row[4] + row[6] * (1 - Self.inset), row[8] + row[10] + rowBound, "\(index)")
         }
         for (index, value) in [(6, 219.22), (7, 285.66), (3, 17.55), (15, 99.36)] {
             XCTAssertEqual(values[0][index], value, accuracy: 0.01)
@@ -173,9 +173,9 @@ extension ShellVitreusDeskTests {
         XCTAssertEqual(move.target, VitreusFixture.key("desk"))
         XCTAssertEqual(Float(move.inset.width), Float(Self.inset))
         XCTAssertEqual(move.inset.height, 0)
-        Self.assertRect(move.bounds, bounds)
-        Self.assertRect(CGRect(origin: .zero, size: move.minimum), CGRect(origin: .zero, size: rect.size))
-        Self.assertRect(CGRect(origin: .zero, size: move.maximum), CGRect(origin: .zero, size: rect.size))
+        XCTAssertEqual(move.bounds, bounds)
+        XCTAssertEqual(move.minimum, rect.size)
+        XCTAssertEqual(move.maximum, rect.size)
         for corner in Self.corners {
             try assertCorner(widget, corner, rect: rect, du: du, bounds: bounds)
         }

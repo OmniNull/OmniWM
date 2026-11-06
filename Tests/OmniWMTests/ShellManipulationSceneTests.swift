@@ -10,6 +10,7 @@ import XCTest
 final class ShellManipulationSceneTests: XCTestCase {
     private static let width = 256
     private static let height = 96
+    private static let alphaLevel = ShellOffscreenRenderer.pixel / 255
     static let home = CGRect(x: 8, y: 8, width: 40, height: 40)
     static let keys = ["transform.translation.x", "transform.translation.y", "transform.scale"]
 
@@ -142,7 +143,7 @@ final class ShellManipulationSceneTests: XCTestCase {
         scene.submit([.frame(slot: 0, rect: moved, animation: nil)], animated: false)
         gate.signal()
         ShellLayerScene.engineQueue.sync {}
-        assertEqual(try rendered(renderer, at: begin), moved, accuracy: 0.5)
+        XCTAssertEqual(try rendered(renderer, at: begin), moved)
     }
 
     func testMotionAddsOneNativeSpringPerChannelWithTheMotionTiming() throws {
@@ -196,7 +197,10 @@ final class ShellManipulationSceneTests: XCTestCase {
             manipulate(scene, .motion(motion.wrapper(for: Self.home)))
             for offset in [0, 0.05, 0.1, 0.222, 0.4] {
                 let time = begin + offset
-                assertEqual(try rendered(renderer, at: time), motion.rect(at: time), accuracy: 1, "\(target) \(offset)")
+                assertEqual(
+                    try rendered(renderer, at: time), motion.rect(at: time),
+                    accuracy: Self.alphaLevel, "\(target) \(offset)"
+                )
             }
         }
     }
@@ -214,8 +218,9 @@ final class ShellManipulationSceneTests: XCTestCase {
         let end = begin + settle.duration
         let before = try rendered(renderer, at: end - 0.004)
         let after = try rendered(renderer, at: end + 0.004)
-        XCTAssertLessThan(abs(after.minX - before.minX), 0.5)
-        assertEqual(after, Self.home, accuracy: 0.5)
+        let travel = abs(settle.rect(at: end - 0.004).minX - Self.home.minX)
+        XCTAssertEqual(after.minX, before.minX, accuracy: travel + Self.alphaLevel)
+        XCTAssertEqual(after, Self.home)
     }
 
     func testRetargetIsContinuousAtTheRetargetInstant() throws {
@@ -228,7 +233,7 @@ final class ShellManipulationSceneTests: XCTestCase {
         let second = try XCTUnwrap(first.retargeted(at: time, to: CGRect(x: 20, y: 50, width: 40, height: 40)))
         manipulate(scene, .motion(second.wrapper(for: Self.home)))
         let after = try rendered(renderer, at: time)
-        assertEqual(after, before, accuracy: 0.5)
+        assertEqual(after, before, accuracy: 2 * Self.alphaLevel)
         XCTAssertGreaterThan(abs(after.minX - second.target.minX), 10)
     }
 
@@ -268,7 +273,7 @@ final class ShellManipulationSceneTests: XCTestCase {
         assertEqual(
             try rendered(renderer, at: begin + 0.1),
             CGRect(x: 8, y: 8, width: 44 * factor, height: 40 * factor),
-            accuracy: 1
+            accuracy: Self.alphaLevel
         )
     }
 
@@ -286,14 +291,14 @@ final class ShellManipulationSceneTests: XCTestCase {
         XCTAssertEqual(state.0, [true, true, true])
         XCTAssertTrue(CATransform3DIsIdentity(state.1))
         XCTAssertEqual(state.2, 0)
-        assertEqual(try rendered(renderer, at: begin + 0.05), Self.home, accuracy: 0.5)
+        XCTAssertEqual(try rendered(renderer, at: begin + 0.05), Self.home)
     }
 
     func testReducedMotionStillScaleRendersProportionallyAboutTheTopLeft() throws {
         let begin = CACurrentMediaTime()
         let (scene, renderer) = try makeScene(at: begin)
         manipulate(scene, .still(translation: .zero, scale: 0.5, clip: nil))
-        assertEqual(try rendered(renderer, at: begin), CGRect(x: 8, y: 8, width: 20, height: 20), accuracy: 0.5)
+        XCTAssertEqual(try rendered(renderer, at: begin), CGRect(x: 8, y: 8, width: 20, height: 20))
     }
 
     func testDegenerateChannelStillRendersTheVelocityOvershoot() throws {
@@ -308,11 +313,10 @@ final class ShellManipulationSceneTests: XCTestCase {
         XCTAssertEqual(try XCTUnwrap(x.fromValue as? Double), channels.x.to - 1e-3)
         XCTAssertEqual(x.initialVelocity, 300 / (channels.x.to - (channels.x.to - 1e-3)))
         var peak = rest.minX
-        let alphaLevel = ShellOffscreenRenderer.pixel / 255
         for offset in [0, 0.02, 0.0675, 0.12, 0.25] {
             let time = begin + offset
             let edge = try rendered(renderer, at: time).minX
-            XCTAssertEqual(edge, motion.rect(at: time).minX, accuracy: alphaLevel, "\(offset)")
+            XCTAssertEqual(edge, motion.rect(at: time).minX, accuracy: Self.alphaLevel, "\(offset)")
             peak = max(peak, edge)
         }
         XCTAssertGreaterThan(peak, rest.minX + 5)

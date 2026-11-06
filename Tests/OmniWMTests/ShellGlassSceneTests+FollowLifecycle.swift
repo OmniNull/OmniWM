@@ -157,9 +157,9 @@ extension ShellGlassSceneTests {
         )
         XCTAssertEqual(ShellLayerScene.engineQueue.sync { stage.scene.shapeTracks.follows[11]?.mode }, .composite)
         let expected = CGRect(x: 70, y: 50, width: 30, height: 20)
-        assertRect(try drawn(stage, at: begin, around: expected), expected, accuracy: 1, "followed")
+        XCTAssertEqual(try drawn(stage, at: begin, around: expected), expected, "followed")
         run([.frame(slot: 12, rect: CGRect(x: 180, y: 110, width: 30, height: 30), animation: nil)], on: stage)
-        assertRect(try drawn(stage, at: begin, around: expected), expected, accuracy: 1, "after a sibling refresh")
+        XCTAssertEqual(try drawn(stage, at: begin, around: expected), expected, "after a sibling refresh")
     }
 
     func testGlassContentChangeKeepsTheFollowersOwnSpring() throws {
@@ -190,7 +190,10 @@ extension ShellGlassSceneTests {
         let spring = try Self.spring(Self.calm)
         for elapsed in [0.05, 0.12, 0.25] {
             let own = followLifeOwn(layout, moved, spring, at: elapsed)
-            assertRect(try drawn(stage, at: begin + elapsed, around: own), own, accuracy: 1, "own spring at \(elapsed)")
+            assertRect(
+                try drawn(stage, at: begin + elapsed, around: own), own,
+                accuracy: ShellOffscreenRenderer.pixel / 2, "own spring at \(elapsed)"
+            )
         }
     }
 }

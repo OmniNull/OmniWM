@@ -8,7 +8,10 @@ import XCTest
 
 @MainActor
 extension ShellManipulationSurfaceTests {
-    private static let scaled = CGRect(x: 80.0, y: 70.0, width: 100.0 * 13 / 18, height: 80.0 * 13 / 18)
+    private static let scaledGain = 1 - 50 / (home.width + home.height)
+    private static let scaled = CGRect(
+        x: home.minX, y: home.minY, width: home.width * scaledGain, height: home.height * scaledGain
+    )
 
     private func dragScale(_ fixture: Fixture) {
         fixture.surface.press(at: CGPoint(x: 175, y: 145), timestamp: 0)
@@ -29,7 +32,7 @@ extension ShellManipulationSurfaceTests {
         assertEqual(
             CGRect(surface.presentedFrame(of: handle)),
             CGRect(x: Self.scaled.maxX - corner, y: Self.scaled.maxY - corner, width: corner, height: corner),
-            accuracy: 0.05,
+            accuracy: .floatRounding(operations: 3, at: Self.scaled.maxX),
             line: line
         )
     }
@@ -40,7 +43,7 @@ extension ShellManipulationSurfaceTests {
             let fixture = try Fixture(Self.followBody, animations: animations) { clock.now }
             let surface = fixture.surface
             dragScale(fixture)
-            assertEqual(try XCTUnwrap(surface.manipulation?.preview), Self.scaled)
+            XCTAssertEqual(try XCTUnwrap(surface.manipulation?.preview), Self.scaled)
             if animations {
                 clock.now += 0.02
                 let moving = try presented(fixture)
@@ -57,7 +60,9 @@ extension ShellManipulationSurfaceTests {
             }
             let presentation = try XCTUnwrap(surface.presentation)
             XCTAssertEqual(try XCTUnwrap(presentation.targets[fixture.target()]).scale, 13 / 18)
-            assertEqual(try presented(fixture), Self.scaled, accuracy: 0.05)
+            assertEqual(
+                try presented(fixture), Self.scaled, accuracy: .floatRounding(operations: 1, at: Self.scaled.width)
+            )
             try assertScaledHits(fixture)
             surface.cancelInput()
         }
@@ -78,9 +83,12 @@ extension ShellManipulationSurfaceTests {
         try fixture.invokeRelease()
         fixture.render(acknowledgement: invocation)
         let layout = CGRect(try surface.layout.core.absoluteFrame(of: fixture.target()))
-        assertEqual(layout, Self.scaled)
+        XCTAssertEqual(layout, CGRect(
+            x: Self.scaled.minX, y: Self.scaled.minY,
+            width: floatStored(Self.scaled.width), height: floatStored(Self.scaled.height)
+        ))
         XCTAssertEqual(try record(fixture)?.motion?.target, layout)
-        try assertEqual(presented(fixture), held)
+        try assertEqual(presented(fixture), held, accuracy: .floatRounding(operations: 4, at: held.height))
         XCTAssertEqual(
             try surface.presentation?.targets[fixture.target()]?.scale ?? 0,
             Float(held.width / layout.width)
@@ -111,8 +119,11 @@ extension ShellManipulationSurfaceTests {
             surface.drag(to: CGPoint(x: grab.x + 8, y: grab.y + 8), screen: .zero, timestamp: 1.01)
             let current = try XCTUnwrap(surface.manipulation)
             XCTAssertEqual(current.recipe.mode, scale ? .scale : .move)
-            assertEqual(current.start, scale ? CGRect(origin: shown.origin, size: layout.size) : layout, accuracy: 1e-3)
-            try assertEqual(presented(fixture), shown)
+            try assertEqual(
+                current.start, scale ? CGRect(origin: shown.origin, size: layout.size) : layout,
+                accuracy: presentedRounding(fixture, showing: shown)
+            )
+            XCTAssertEqual(try presented(fixture), shown)
             surface.cancelInput()
         }
     }
@@ -160,7 +171,7 @@ extension ShellManipulationSurfaceTests {
         XCTAssertEqual(layout.minX, 170)
         XCTAssertEqual(try record(fixture)?.motion?.target, layout)
         XCTAssertNotEqual(try record(fixture)?.token, superseded)
-        try assertEqual(presented(fixture), shown)
+        try assertEqual(presented(fixture), shown, accuracy: presentedRounding(fixture, showing: shown))
         XCTAssertEqual(try wrapper(fixture).layer.transform.m41, 0)
         surface.manipulationSettled(target.slot, token: superseded)
         XCTAssertNotNil(try record(fixture)?.motion)

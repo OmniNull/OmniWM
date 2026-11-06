@@ -8,7 +8,6 @@ import XCTest
 final class MonitorSetupModelTests: XCTestCase {
     private let displayUUIDA = "AAAAAAAA-AAAA-4AAA-8AAA-AAAAAAAAAAAA"
     private let displayUUIDB = "BBBBBBBB-BBBB-4BBB-8BBB-BBBBBBBBBBBB"
-    private let accuracy: CGFloat = 1e-6
 
     func testCompleteActiveCustomLayoutSeedsDraftAndPreservesMouseWarpChoice() {
         let monitors = sideBySideMonitors()
@@ -310,8 +309,8 @@ final class MonitorSetupModelTests: XCTestCase {
         for index in frames.indices.dropFirst() {
             XCTAssertLessThan(frames[index].width, frames[index - 1].width)
             XCTAssertLessThan(frames[index].height, frames[index - 1].height)
-            XCTAssertEqual(frames[index].minX, frames[index - 1].maxX, accuracy: accuracy)
-            XCTAssertEqual(frames[index].minY, frames[index - 1].maxY, accuracy: accuracy)
+            XCTAssertEqual(frames[index].minX, frames[index - 1].maxX)
+            XCTAssertEqual(frames[index].minY, frames[index - 1].maxY)
         }
     }
 
@@ -327,19 +326,20 @@ final class MonitorSetupModelTests: XCTestCase {
             )
 
             XCTAssertEqual(rects.count, count)
-            XCTAssertGreaterThanOrEqual(rects.map(\.minX).min() ?? 0, padding - accuracy)
-            XCTAssertLessThanOrEqual(rects.map(\.maxX).max() ?? 0, canvas.width - padding + accuracy)
-            XCTAssertGreaterThanOrEqual(rects.map(\.minY).min() ?? 0, padding - accuracy)
-            XCTAssertLessThanOrEqual(rects.map(\.maxY).max() ?? 0, canvas.height - padding + accuracy)
+            XCTAssertGreaterThanOrEqual(rects.map(\.minX).min() ?? 0, padding)
+            XCTAssertLessThanOrEqual(rects.map(\.maxX).max() ?? 0, canvas.width - padding)
+            XCTAssertGreaterThanOrEqual(rects.map(\.minY).min() ?? 0, padding)
+            XCTAssertLessThanOrEqual(rects.map(\.maxY).max() ?? 0, canvas.height - padding)
             XCTAssertGreaterThan(rects[0].width, rects[count - 1].width)
             XCTAssertGreaterThan(rects[0].minY, rects[count - 1].minY)
         }
     }
 
     func testTransitionUsesOneStableFitForBothArrangements() {
+        let canvas = CGSize(width: 400, height: 240)
         let transition = MonitorSetupStaircaseGeometry.transition(
             displayCount: 4,
-            in: CGSize(width: 400, height: 240),
+            in: canvas,
             padding: 10
         )
 
@@ -352,13 +352,12 @@ final class MonitorSetupModelTests: XCTestCase {
             )
             XCTAssertEqual(
                 transition.sideBySide[index].minX,
-                transition.staircase[index].minX,
-                accuracy: accuracy
+                transition.staircase[index].minX
             )
         }
         let sideBySideBottom = transition.sideBySide[0].maxY
         for rect in transition.sideBySide {
-            XCTAssertEqual(rect.maxY, sideBySideBottom, accuracy: accuracy)
+            XCTAssertEqual(rect.maxY, sideBySideBottom, accuracy: .rounding(operations: 12, at: canvas.height))
         }
         XCTAssertTrue(
             zip(transition.staircase, transition.staircase.dropFirst()).allSatisfy {

@@ -52,7 +52,6 @@ private struct PlacedRow {
     }
 }
 
-private let accuracy = 1e-6
 private let inked: Set<ElementKind> = [.label, .symbol, .image, .bitmap, .path, .shape, .progress, .shader, .slider]
 private let defaultWorkspaces = 3
 private let splitTray = 14
@@ -588,12 +587,12 @@ extension ShellVitreusBarTests {
         for row in rows {
             let items = stride(from: 4, to: row.count - 1, by: 2).map { (x: row[$0], w: row[$0 + 1]) }
             let first = try XCTUnwrap(items.first), last = try XCTUnwrap(items.last)
-            XCTAssertEqual(row[3], row[0], accuracy: accuracy)
-            XCTAssertEqual(first.x, row[1], accuracy: accuracy)
-            XCTAssertEqual(last.x + last.w, row[2], accuracy: accuracy)
+            XCTAssertEqual(row[3], row[0])
+            XCTAssertEqual(first.x, row[1])
+            XCTAssertEqual(last.x + last.w, row[2])
             let gaps = zip(items, items.dropFirst()).map { $1.x - ($0.x + $0.w) }
             for gap in gaps {
-                XCTAssertEqual(gap, try XCTUnwrap(gaps.first), accuracy: accuracy)
+                XCTAssertEqual(gap, try XCTUnwrap(gaps.first), accuracy: .rounding(operations: 8, at: row[2]))
             }
         }
     }
@@ -647,23 +646,24 @@ extension ShellVitreusBarTests {
     func testPlaceWidensAroundTheBandAndFullWidthMovesATightTitleRight() throws {
         let rows = try bandRows()
         XCTAssertEqual(rows.count, 10)
+        let titleWidthBound = Double.rounding(operations: 19, at: Self.fourteenInch().frame.width)
         for start in stride(from: 0, to: rows.count, by: 5) {
             let natural = rows[start], banded = rows[start + 1]
-            XCTAssertEqual(banded.x + banded.width / 2, (banded.x0 + banded.x1) / 2, accuracy: accuracy)
-            XCTAssertEqual(banded.titleWidth, natural.titleWidth, accuracy: accuracy)
-            XCTAssertLessThanOrEqual(max(banded.lead, banded.titleEnd) - banded.x0, accuracy)
-            XCTAssertGreaterThanOrEqual(banded.trail - banded.x1, -accuracy)
-            XCTAssertEqual(min(banded.x0 - banded.titleEnd, banded.trail - banded.x1), 0, accuracy: accuracy)
+            XCTAssertEqual(banded.x + banded.width / 2, (banded.x0 + banded.x1) / 2)
+            XCTAssertEqual(banded.titleWidth, natural.titleWidth, accuracy: titleWidthBound)
+            XCTAssertLessThanOrEqual(max(banded.lead, banded.titleEnd) - banded.x0, 0)
+            XCTAssertGreaterThanOrEqual(banded.trail - banded.x1, 0)
+            XCTAssertEqual(min(banded.x0 - banded.titleEnd, banded.trail - banded.x1), 0)
             let wide = rows[start + 2], full = rows[start + 3], tight = rows[start + 4]
-            XCTAssertEqual(full.x, wide.x, accuracy: accuracy)
-            XCTAssertEqual(full.width, wide.width, accuracy: accuracy)
-            XCTAssertEqual(full.titleX, wide.titleX, accuracy: accuracy)
-            XCTAssertEqual(full.titleEnd, full.x0, accuracy: accuracy)
+            XCTAssertEqual(full.x, wide.x)
+            XCTAssertEqual(full.width, wide.width)
+            XCTAssertEqual(full.titleX, wide.titleX)
+            XCTAssertEqual(full.titleEnd, full.x0)
             XCTAssertLessThan(full.lead, full.x0)
             XCTAssertGreaterThan(full.trail, full.x1)
             XCTAssertLessThan(tight.x0 - wide.titleX, tight.least)
-            XCTAssertEqual(tight.titleX, tight.x1, accuracy: accuracy)
-            XCTAssertEqual(tight.titleEnd, wide.titleEnd, accuracy: accuracy)
+            XCTAssertEqual(tight.titleX, tight.x1)
+            XCTAssertEqual(tight.titleEnd, wide.titleEnd)
         }
     }
 
@@ -711,7 +711,7 @@ extension ShellVitreusBarTests {
                 if compact {
                     XCTAssertTrue(label.text.hasPrefix("Safari · "), run.label)
                     XCTAssertFalse(Self.has(widget, "title-app"), run.label)
-                    XCTAssertEqual(button.midX, notch.midX, accuracy: accuracy, run.label)
+                    XCTAssertEqual(button.midX, notch.midX, run.label)
                     XCTAssertTrue(button.contains(text), run.label)
                     XCTAssertLessThanOrEqual(button.maxY, pill.maxY - unit * size, run.label)
                 } else {

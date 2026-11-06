@@ -45,10 +45,7 @@ final class WindowNativeWithdrawalModelTests: XCTestCase {
             XCTAssertFalse(plan.diff.frameChanges.contains { $0.token == withdrawn })
             XCTAssertFalse(plan.diff.restoreChanges.contains { $0.token == withdrawn })
             let visibleFrame = try XCTUnwrap(engine.findNode(for: survivor, in: workspaceId)?.frame)
-            XCTAssertTrue(visibleFrame.approximatelyEqual(
-                to: controller.borderSafeFillFrame(for: monitor),
-                tolerance: 1
-            ))
+            XCTAssertEqual(visibleFrame, controller.borderSafeFillFrame(for: monitor))
             XCTAssertTrue(manager.handle(for: withdrawn) === handle)
             XCTAssertEqual(engine.findNode(for: withdrawn, in: workspaceId)?.id, nodeId)
             XCTAssertEqual(try XCTUnwrap(manager.entry(for: withdrawn)).axRef, axRef)
