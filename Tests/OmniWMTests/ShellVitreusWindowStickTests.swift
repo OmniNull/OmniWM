@@ -189,10 +189,11 @@ extension ShellVitreusWindowStickTests {
         try checkHeldAndStuckWindows(renderBudget: ShellRenderTestBudget.unlimited)
     }
 
-    func testRenderSpeedHeldAndStuckWindowsStayWithinProductionBudget() throws {
-        try ShellRenderTestBudget.requireBenchmark()
-        try checkHeldAndStuckWindows(renderBudget: ShellWidgetPackage.renderBudget)
-    }
+    #if OMNIWM_LIVE_CHECKS
+        func testRenderSpeedHeldAndStuckWindowsStayWithinProductionBudget() throws {
+            try checkHeldAndStuckWindows(renderBudget: ShellWidgetPackage.renderBudget)
+        }
+    #endif
 
     private func checkHeldAndStuckWindows(renderBudget: UInt64) throws {
         let widget = try windows.docks.island([

@@ -176,10 +176,11 @@ final class ShellLakeProfileTests: XCTestCase {
         try checkExpandedMediaRetainedWork(renderBudget: ShellRenderTestBudget.unlimited)
     }
 
-    func testRenderSpeedExpandedMediaUpdatesStayWithinProductionBudget() throws {
-        try ShellRenderTestBudget.requireBenchmark()
-        try checkExpandedMediaRetainedWork(renderBudget: ShellWidgetPackage.renderBudget)
-    }
+    #if OMNIWM_LIVE_CHECKS
+        func testRenderSpeedExpandedMediaUpdatesStayWithinProductionBudget() throws {
+            try checkExpandedMediaRetainedWork(renderBudget: ShellWidgetPackage.renderBudget)
+        }
+    #endif
 
     private func checkExpandedMediaRetainedWork(renderBudget: UInt64) throws {
         let root = FileManager.default.temporaryDirectory.appendingPathComponent(UUID().uuidString)
@@ -468,10 +469,11 @@ final class ShellLakeProfileTests: XCTestCase {
         try checkLakeWidgetsSettings(renderBudget: ShellRenderTestBudget.unlimited)
     }
 
-    func testRenderSpeedLakeWidgetsSettingsStayWithinProductionBudget() throws {
-        try ShellRenderTestBudget.requireBenchmark()
-        try checkLakeWidgetsSettings(renderBudget: ShellWidgetPackage.renderBudget, snapshotSuffix: "-speed")
-    }
+    #if OMNIWM_LIVE_CHECKS
+        func testRenderSpeedLakeWidgetsSettingsStayWithinProductionBudget() throws {
+            try checkLakeWidgetsSettings(renderBudget: ShellWidgetPackage.renderBudget, snapshotSuffix: "-speed")
+        }
+    #endif
 
     private func checkLakeWidgetsSettings(renderBudget: UInt64, snapshotSuffix: String = "") throws {
         let root = FileManager.default.temporaryDirectory.appendingPathComponent(UUID().uuidString)

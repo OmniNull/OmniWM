@@ -228,10 +228,14 @@ extension ShellVitreusDeskTests {
         try await checkSettingsIslandPreview(renderBudget: ShellRenderTestBudget.unlimited)
     }
 
-    func testRenderSpeedSettingsIslandPreviewStaysWithinProductionBudget() async throws {
-        try ShellRenderTestBudget.requireBenchmark()
-        try await checkSettingsIslandPreview(renderBudget: ShellWidgetPackage.renderBudget, snapshotSuffix: "-speed")
-    }
+    #if OMNIWM_LIVE_CHECKS
+        func testRenderSpeedSettingsIslandPreviewStaysWithinProductionBudget() async throws {
+            try await checkSettingsIslandPreview(
+                renderBudget: ShellWidgetPackage.renderBudget,
+                snapshotSuffix: "-speed"
+            )
+        }
+    #endif
 
     private func checkSettingsIslandPreview(renderBudget: UInt64, snapshotSuffix: String = "") async throws {
         let shell = try shell()

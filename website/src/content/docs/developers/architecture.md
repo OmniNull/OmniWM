@@ -159,21 +159,15 @@ rule also inserts and enforces the two-line SPDX/GPL-2.0-only header that every 
 `Sources/` and `Tests/` must carry; `Package.swift` is the exception, because its `swift-tools-version` directive
 must stay on line one.
 
-Live/private integration and measurement cases skip unless their explicit environment gate is set:
+Live, private API and measurement tests compile only when `OMNIWM_LIVE_CHECKS` is set, so the default suite never skips them. CI compiles them without running them. Run the ones you need with a filter:
 
-| Environment gate | Cases enabled |
-| --- | --- |
-| `OMNIWM_RUN_SKYLIGHT_LIVE_TESTS=1` | Private SkyLight integration and native border compositor checks |
-| `OMNIWM_RUN_FINDER_QUICK_LOOK_TESTS=1` | Finder Quick Look placement, with a Quick Look window open |
-| `OMNIWM_RUN_SURFACE_MEASUREMENTS=1` | Surface presentation measurements |
-| `OMNIWM_RUN_OVERVIEW_PREVIEW_LIVE_TESTS=1` | Live Overview previews and layer compositor checks |
-| `OMNIWM_RUN_METADATA_READ_LIVE_TESTS=1` | Read-only WindowServer metadata checks |
-| `OMNIWM_RUN_AX_WRITE_METRICS_BENCHMARK=1` | AX write metrics recorder latency distributions |
-| `OMNIWM_RUN_LAUNCHER_LIVE_TESTS=1` | Installed application and shell integration checks; the Nix app case also needs `OMNIWM_TEST_NIX_APP` |
-| `OMNIWM_RUN_LAUNCHER_TERMINAL_TESTS=1` | Native Terminal and iTerm2 Launcher sessions |
-| `OMNIWM_RUN_SETTINGS_UI_RENDER_TESTS=1` | Rendered Settings UI captures and probes |
+```sh
+OMNIWM_LIVE_CHECKS=1 swift test --arch arm64 --filter TabRailWindowServerLiveTests
+```
 
-The three slowest glass renderer sweeps (composition, premultiplication and rim band) render a reduced grid that still covers every case, opacity, scale and rim value, and the frame coverage probe renders its 1920-wide frames at 1x only. This is the default everywhere, including a plain `swift test`; `OMNIWM_GLASS_EVIDENCE` or `OMNI_F1_FRAME_PROBE_OUT` enable the whole grid. `ShellGlassProbeTests` skip unless `OMNI_PROBE_OUT` is set.
+They cover private SkyLight integration, the native border compositor, Finder Quick Look placement (with a Quick Look window open), surface presentation measurements, live Overview previews, read-only WindowServer metadata, AX write metric latency, shell render speed, installed applications and shells, native Terminal and iTerm2 Launcher sessions, and rendered Settings captures. A few need an input and fail without it: `OMNIWM_TEST_NIX_APP` for the Nix app case, `OMNI_PROBE_OUT` for `ShellGlassProbeTests`, and `OMNIWM_STEP_RENDERS` or `OMNIWM_STEP_DASHBOARD_RENDERS` for the render exports.
+
+The three slowest glass renderer sweeps (composition, premultiplication and rim band) render a reduced grid that still covers every case, opacity, scale and rim value, and the frame coverage probe renders its 1920-wide frames at 1x only. This is the default everywhere, including a plain `swift test`; `OMNIWM_GLASS_EVIDENCE` or `OMNI_F1_FRAME_PROBE_OUT` enable the whole grid.
 
 `make test-skylight-live` runs the focused SkyLight transaction test.
 

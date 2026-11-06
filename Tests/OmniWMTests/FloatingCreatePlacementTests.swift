@@ -515,38 +515,37 @@ final class FloatingCreatePlacementTests: XCTestCase {
         XCTAssertFalse(controller.allowsFloatingSpawnPlacement(for: otherAppQuickLook, mode: .floating))
     }
 
-    func testLiveFinderQuickLookUsesObservedAXSubrole() throws {
-        guard ProcessInfo.processInfo.environment["OMNIWM_RUN_FINDER_QUICK_LOOK_TESTS"] == "1" else {
-            throw XCTSkip("Set OMNIWM_RUN_FINDER_QUICK_LOOK_TESTS=1 with a Finder Quick Look window open")
-        }
-        let finder = try XCTUnwrap(
-            NSWorkspace.shared.runningApplications.first {
-                $0.bundleIdentifier == "com.apple.finder"
-            }
-        )
-        let windows = try AXWindowEnumerationInspector.enumerateApplication(
-            pid: finder.processIdentifier,
-            timeout: failureBound,
-            context: .init(
-                appPolicy: finder.activationPolicy,
-                bundleId: finder.bundleIdentifier,
-                includeTitle: false
+    #if OMNIWM_LIVE_CHECKS
+        func testLiveFinderQuickLookUsesObservedAXSubrole() throws {
+            let finder = try XCTUnwrap(
+                NSWorkspace.shared.runningApplications.first {
+                    $0.bundleIdentifier == "com.apple.finder"
+                }
             )
-        )
-        let quickLook = try XCTUnwrap(
-            windows.first {
-                $0.role == kAXWindowRole as String && $0.subrole == "Quick Look"
-            },
-            "Open Finder Quick Look before running this integration test"
-        )
-        let controller = makeController()
-        let evaluation = placementEvaluation(
-            bundleId: finder.bundleIdentifier,
-            subrole: quickLook.subrole
-        )
+            let windows = try AXWindowEnumerationInspector.enumerateApplication(
+                pid: finder.processIdentifier,
+                timeout: failureBound,
+                context: .init(
+                    appPolicy: finder.activationPolicy,
+                    bundleId: finder.bundleIdentifier,
+                    includeTitle: false
+                )
+            )
+            let quickLook = try XCTUnwrap(
+                windows.first {
+                    $0.role == kAXWindowRole as String && $0.subrole == "Quick Look"
+                },
+                "Open Finder Quick Look before running this integration test"
+            )
+            let controller = makeController()
+            let evaluation = placementEvaluation(
+                bundleId: finder.bundleIdentifier,
+                subrole: quickLook.subrole
+            )
 
-        XCTAssertTrue(controller.allowsFloatingSpawnPlacement(for: evaluation, mode: .floating))
-    }
+            XCTAssertTrue(controller.allowsFloatingSpawnPlacement(for: evaluation, mode: .floating))
+        }
+    #endif
 
     func testResolveLiveStandaloneFloatingPrefersCapturedInteractionWorkspace() throws {
         let fixture = try makeTwoMonitorFixture()

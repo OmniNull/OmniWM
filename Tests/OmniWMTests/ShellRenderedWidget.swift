@@ -10,12 +10,6 @@ import XCTest
 enum ShellRenderTestBudget {
     static let ordinaryRender: UInt64 = 100_000_000
     static let unlimited: UInt64 = 0
-
-    static func requireBenchmark() throws {
-        guard ProcessInfo.processInfo.environment["OMNIWM_RUN_SHELL_BENCHMARKS"] == "1" else {
-            throw XCTSkip("Set OMNIWM_RUN_SHELL_BENCHMARKS=1 to run shell render benchmarks")
-        }
-    }
 }
 
 @MainActor

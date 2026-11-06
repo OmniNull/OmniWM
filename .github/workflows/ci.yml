@@ -182,6 +182,9 @@ jobs:
           compression-level: 1
           retention-days: 1
           overwrite: true
+      - name: Compile the live checks
+        if: needs.changes.outputs.tests == 'true'
+        run: OMNIWM_LIVE_CHECKS=1 LIBRARY_PATH="$(./Scripts/ghostty-preflight.sh print-library-dir)${LIBRARY_PATH:+:$LIBRARY_PATH}" swift build --build-tests --build-system swiftbuild --arch arm64 --scratch-path .build/localization
   test-group:
     name: Tests (${{ matrix.name }})
     needs: [changes, verify]

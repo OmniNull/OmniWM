@@ -349,10 +349,11 @@ extension ShellVitreusWindowShelfTests {
         try checkOpenShelfAndLooseWindows(renderBudget: ShellRenderTestBudget.unlimited)
     }
 
-    func testRenderSpeedOpenShelfAndLooseWindowsStayWithinProductionBudget() throws {
-        try ShellRenderTestBudget.requireBenchmark()
-        try checkOpenShelfAndLooseWindows(renderBudget: ShellWidgetPackage.renderBudget)
-    }
+    #if OMNIWM_LIVE_CHECKS
+        func testRenderSpeedOpenShelfAndLooseWindowsStayWithinProductionBudget() throws {
+            try checkOpenShelfAndLooseWindows(renderBudget: ShellWidgetPackage.renderBudget)
+        }
+    #endif
 
     private func checkOpenShelfAndLooseWindows(renderBudget: UInt64) throws {
         let widget = try docks.island(

@@ -4,6 +4,9 @@ import PackageDescription
 
 let packageDirectory = URL(fileURLWithPath: #filePath).deletingLastPathComponent().path
 let ghosttyMacOSLibraryDirectory = "\(packageDirectory)/Frameworks/GhosttyKit.xcframework/macos-arm64"
+let liveCheckSettings: [SwiftSetting] = ProcessInfo.processInfo.environment["OMNIWM_LIVE_CHECKS"] == nil
+    ? []
+    : [.define("OMNIWM_LIVE_CHECKS")]
 
 let package = Package(
     name: "OmniWM",
@@ -197,7 +200,7 @@ let package = Package(
             swiftSettings: [
                 .swiftLanguageMode(.v6),
                 .treatAllWarnings(as: .error)
-            ]
+            ] + liveCheckSettings
         )
     ],
     cxxLanguageStandard: .cxx17

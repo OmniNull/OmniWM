@@ -232,49 +232,51 @@ final class LauncherExecutionTests: XCTestCase {
         XCTAssertFalse(FileManager.default.fileExists(atPath: helper.deletingLastPathComponent().path))
     }
 
-    func testRealNushellFishZshAndBothBashVersions() async throws {
-        guard ProcessInfo.processInfo.environment["OMNIWM_RUN_LAUNCHER_LIVE_TESTS"] == "1" else {
-            throw XCTSkip("Set OMNIWM_RUN_LAUNCHER_LIVE_TESTS=1 for installed-shell checks")
+    #if OMNIWM_LIVE_CHECKS
+        func testRealNushellFishZshAndBothBashVersions() async throws {
+            let root = URL(fileURLWithPath: #filePath).deletingLastPathComponent().deletingLastPathComponent()
+                .deletingLastPathComponent()
+            let shells: [(LauncherShell, String, String)] = [
+                (
+                    .nushell,
+                    root.appendingPathComponent(".cache/flake-tools/bin/nu").path,
+                    "let omniwm_value = 'nushell'; /usr/bin/printf '%s' $omniwm_value"
+                ),
+                (
+                    .fish,
+                    root.appendingPathComponent(".cache/flake-tools/bin/fish").path,
+                    "set omniwm_value fish; /usr/bin/printf '%s' $omniwm_value"
+                ),
+                (.zsh, "/bin/zsh", "omniwm_value=zsh; /usr/bin/printf '%s' \"$omniwm_value\""),
+                (.bash, "/bin/bash", "omniwm_value=bash; /usr/bin/printf '%s' \"$omniwm_value\""),
+                (.bash, "/opt/homebrew/bin/bash", "omniwm_value=bash; /usr/bin/printf '%s' \"$omniwm_value\"")
+            ]
+            for (shell, executable, command) in shells {
+                XCTAssertTrue(FileManager.default.isExecutableFile(atPath: executable), executable)
+                var configuration = LauncherConfiguration()
+                configuration.shell = shell
+                configuration.shellExecutable = executable
+                configuration.terminal = .background
+                let environment = try await LauncherEnvironmentCache.shared.environment(
+                    for: configuration,
+                    refresh: true
+                )
+                XCTAssertFalse(environment.values["PATH", default: ""].isEmpty)
+                let catalog = await LauncherExecutableCatalog.scan(environment: environment.values)
+                XCTAssertTrue(catalog.contains { $0.name == "printf" }, executable)
+                XCTAssertTrue(catalog.contains { $0.name == "nix" }, executable)
+                XCTAssertTrue(catalog.contains { $0.name == "brew" }, executable)
+                var entry = LauncherEntry()
+                entry.name = shell.rawValue
+                entry.command = command
+                let request = try await LauncherLaunchRequest.prepare(entry: entry, configuration: configuration)
+                let result = try await LauncherProcess.run(
+                    executable: request.executable, arguments: request.arguments,
+                    environment: request.environment, directory: request.directory
+                )
+                XCTAssertEqual(result.status, 0, executable)
+                XCTAssertEqual(String(decoding: result.output, as: UTF8.self), shell.rawValue, executable)
+            }
         }
-        let root = URL(fileURLWithPath: #filePath).deletingLastPathComponent().deletingLastPathComponent()
-            .deletingLastPathComponent()
-        let shells: [(LauncherShell, String, String)] = [
-            (
-                .nushell,
-                root.appendingPathComponent(".cache/flake-tools/bin/nu").path,
-                "let omniwm_value = 'nushell'; /usr/bin/printf '%s' $omniwm_value"
-            ),
-            (
-                .fish,
-                root.appendingPathComponent(".cache/flake-tools/bin/fish").path,
-                "set omniwm_value fish; /usr/bin/printf '%s' $omniwm_value"
-            ),
-            (.zsh, "/bin/zsh", "omniwm_value=zsh; /usr/bin/printf '%s' \"$omniwm_value\""),
-            (.bash, "/bin/bash", "omniwm_value=bash; /usr/bin/printf '%s' \"$omniwm_value\""),
-            (.bash, "/opt/homebrew/bin/bash", "omniwm_value=bash; /usr/bin/printf '%s' \"$omniwm_value\"")
-        ]
-        for (shell, executable, command) in shells {
-            XCTAssertTrue(FileManager.default.isExecutableFile(atPath: executable), executable)
-            var configuration = LauncherConfiguration()
-            configuration.shell = shell
-            configuration.shellExecutable = executable
-            configuration.terminal = .background
-            let environment = try await LauncherEnvironmentCache.shared.environment(for: configuration, refresh: true)
-            XCTAssertFalse(environment.values["PATH", default: ""].isEmpty)
-            let catalog = await LauncherExecutableCatalog.scan(environment: environment.values)
-            XCTAssertTrue(catalog.contains { $0.name == "printf" }, executable)
-            XCTAssertTrue(catalog.contains { $0.name == "nix" }, executable)
-            XCTAssertTrue(catalog.contains { $0.name == "brew" }, executable)
-            var entry = LauncherEntry()
-            entry.name = shell.rawValue
-            entry.command = command
-            let request = try await LauncherLaunchRequest.prepare(entry: entry, configuration: configuration)
-            let result = try await LauncherProcess.run(
-                executable: request.executable, arguments: request.arguments,
-                environment: request.environment, directory: request.directory
-            )
-            XCTAssertEqual(result.status, 0, executable)
-            XCTAssertEqual(String(decoding: result.output, as: UTF8.self), shell.rawValue, executable)
-        }
-    }
+    #endif
 }

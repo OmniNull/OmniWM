@@ -164,10 +164,11 @@ final class ShellVitreusCalendarWindowTests: XCTestCase {
         try checkDetachedCalendarAndDropdown(renderBudget: ShellRenderTestBudget.unlimited)
     }
 
-    func testRenderSpeedDetachedCalendarAndDropdownStayWithinProductionBudget() throws {
-        try ShellRenderTestBudget.requireBenchmark()
-        try checkDetachedCalendarAndDropdown(renderBudget: ShellWidgetPackage.renderBudget)
-    }
+    #if OMNIWM_LIVE_CHECKS
+        func testRenderSpeedDetachedCalendarAndDropdownStayWithinProductionBudget() throws {
+            try checkDetachedCalendarAndDropdown(renderBudget: ShellWidgetPackage.renderBudget)
+        }
+    #endif
 
     private func checkDetachedCalendarAndDropdown(renderBudget: UInt64) throws {
         let fixture = try fixture(renderBudget: ShellRenderTestBudget.unlimited)

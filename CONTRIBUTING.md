@@ -153,13 +153,13 @@ Localization checks and synchronization generate compiler metadata with the sele
 
 Every Swift source and test file starts with the two-line GPL-2.0 header enforced by SwiftFormat. Preserve that header. `Package.swift` keeps its `swift-tools-version` directive on line one. Keep contributions in Swift, and avoid additional source comments; use clear names and structure.
 
-Use focused regression tests for changed behavior. Runtime changes require the full serial `swift test` suite, and changes affecting concurrency also require `swift test --parallel`. Environment-dependent live tests remain opt-in. For motion, focus, layout, and other visible behavior, also describe the manual checks you performed.
+Use focused regression tests for changed behavior. Runtime changes require the full serial `swift test` suite, and changes affecting concurrency also require `swift test --parallel`. Live tests that depend on the machine compile only when `OMNIWM_LIVE_CHECKS` is set, so the default suite never skips them. For motion, focus, layout, and other visible behavior, also describe the manual checks you performed.
 
 Shell render speed benchmarks are opt-in because their production CPU-budget verdict depends on the machine and its load. Run them with the pinned toolchain:
 
 ```sh
 LIBRARY_PATH="$(./Scripts/ghostty-preflight.sh print-library-dir)${LIBRARY_PATH:+:$LIBRARY_PATH}" \
-OMNIWM_RUN_SHELL_BENCHMARKS=1 "$HOME/.swiftly/bin/swift" test --arch arm64 --filter testRenderSpeed
+OMNIWM_LIVE_CHECKS=1 "$HOME/.swiftly/bin/swift" test --arch arm64 --filter testRenderSpeed
 ```
 
 The default suite keeps the corresponding functional assertions without a render CPU limit and still checks runaway-script containment. The app's production CPU budget is unchanged.

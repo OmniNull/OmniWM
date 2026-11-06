@@ -84,7 +84,7 @@ arc-audit:
 	./Scripts/arc-audit.sh
 
 test-skylight-live:
-	OMNIWM_RUN_SKYLIGHT_LIVE_TESTS=1 "$(SWIFT)" test --filter SkyLightNativeSpaceInventoryLiveTests/testLiveTransactionMoveIsObservedThroughWindowServerBounds
+	OMNIWM_LIVE_CHECKS=1 "$(SWIFT)" test --filter SkyLightNativeSpaceInventoryLiveTests/testLiveTransactionMoveIsObservedThroughWindowServerBounds
 
 release-check: localization-check
 

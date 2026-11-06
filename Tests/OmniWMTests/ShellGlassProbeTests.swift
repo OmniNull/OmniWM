@@ -170,7 +170,7 @@ final class ShellGlassProbeTests: XCTestCase {
 
     func requireProbeOutput() throws {
         guard ProcessInfo.processInfo.environment["OMNI_PROBE_OUT"] != nil else {
-            throw XCTSkip("Investigation probe; set OMNI_PROBE_OUT to run it")
+            throw MissingTestPrerequisite("Set OMNI_PROBE_OUT to the probe report file")
         }
     }
 
@@ -244,33 +244,35 @@ final class ShellGlassProbeTests: XCTestCase {
 }
 
 extension ShellGlassProbeTests {
-    func testSmoothnessAnimationProbe() throws {
-        let probe = "a.smoothnessAnimation"
-        try requireNative(probe)
-        let circles = try [30, 110].map { try element(CGRect(x: $0, y: 20, width: 60, height: 60), radius: 30) }
-        let (canvas, layer) = try sdfCanvas(fill(), size: CGSize(width: 200, height: 100), elements: circles)
-        let key = ShellGlassCapability.BodyProperty.smoothness.rawValue
-        let bridge = CGRect(x: 90, y: 0, width: 20, height: 100)
-        var statics: [String: Double] = [:]
-        for value in [0.0, 40, 80] {
-            Self.still { layer.setValue(value, forKey: key) }
-            statics["\(Int(value))"] = Self.rounded(try canvas.render().coverage(bridge))
+    #if OMNIWM_LIVE_CHECKS
+        func testSmoothnessAnimationProbe() throws {
+            let probe = "a.smoothnessAnimation"
+            try requireNative(probe)
+            let circles = try [30, 110].map { try element(CGRect(x: $0, y: 20, width: 60, height: 60), radius: 30) }
+            let (canvas, layer) = try sdfCanvas(fill(), size: CGSize(width: 200, height: 100), elements: circles)
+            let key = ShellGlassCapability.BodyProperty.smoothness.rawValue
+            let bridge = CGRect(x: 90, y: 0, width: 20, height: 100)
+            var statics: [String: Double] = [:]
+            for value in [0.0, 40, 80] {
+                Self.still { layer.setValue(value, forKey: key) }
+                statics["\(Int(value))"] = Self.rounded(try canvas.render().coverage(bridge))
+            }
+            canvas.animate(layer, linear(key, from: 0, to: 80))
+            let times = [0, 0.25, 0.5, 0.75, 1]
+            let sampled = try times.map { Self.rounded(try canvas.render($0).coverage(bridge)) }
+            let interpolates = abs(sampled[2] - sampled[0]) > 1 && abs(sampled[2] - sampled[4]) > 1
+            let monotonic = zip(sampled, sampled.dropFirst()).allSatisfy { $1 >= $0 - 0.5 }
+            try record(probe, [
+                "outcome": interpolates && monotonic ? "animates" : "steps",
+                "setup": "two r=30 circles 20 pt apart in a 200x100 CASDFLayer, smoothness 0 -> 80 over 1 s",
+                "bridgeCoverageStatic": statics,
+                "bridgeCoverageAnimated": Dictionary(uniqueKeysWithValues: zip(times.map { "\($0)" }, sampled)),
+                "midMinusStatic40": Self.rounded(sampled[2] - (statics["40"] ?? 0)),
+                "monotonic": monotonic
+            ])
+            XCTAssertTrue(sampled.allSatisfy(\.isFinite))
         }
-        canvas.animate(layer, linear(key, from: 0, to: 80))
-        let times = [0, 0.25, 0.5, 0.75, 1]
-        let sampled = try times.map { Self.rounded(try canvas.render($0).coverage(bridge)) }
-        let interpolates = abs(sampled[2] - sampled[0]) > 1 && abs(sampled[2] - sampled[4]) > 1
-        let monotonic = zip(sampled, sampled.dropFirst()).allSatisfy { $1 >= $0 - 0.5 }
-        try record(probe, [
-            "outcome": interpolates && monotonic ? "animates" : "steps",
-            "setup": "two r=30 circles 20 pt apart in a 200x100 CASDFLayer, smoothness 0 -> 80 over 1 s",
-            "bridgeCoverageStatic": statics,
-            "bridgeCoverageAnimated": Dictionary(uniqueKeysWithValues: zip(times.map { "\($0)" }, sampled)),
-            "midMinusStatic40": Self.rounded(sampled[2] - (statics["40"] ?? 0)),
-            "monotonic": monotonic
-        ])
-        XCTAssertTrue(sampled.allSatisfy(\.isFinite))
-    }
+    #endif
 
     private static func costShapes(_ count: Int, shift: CGFloat, widen: CGFloat) -> [ShellGlassShape] {
         let spacing = 1728 / CGFloat(count)
@@ -344,58 +346,62 @@ extension ShellGlassProbeTests {
         return measured
     }
 
-    func testApplyCostPerShapeCountProbe() throws {
-        let probe = "h.applyCost"
-        try requireNative(probe)
-        let canvas = try GlassProbeCanvas(width: 1728, height: 76)
-        var counts: [String: Any] = [:]
-        for count in [12, 24, 47, 64] {
-            counts["\(count)"] = try applyCost(count: count, canvas: canvas)
+    #if OMNIWM_LIVE_CHECKS
+        func testApplyCostPerShapeCountProbe() throws {
+            let probe = "h.applyCost"
+            try requireNative(probe)
+            let canvas = try GlassProbeCanvas(width: 1728, height: 76)
+            var counts: [String: Any] = [:]
+            for count in [12, 24, 47, 64] {
+                counts["\(count)"] = try applyCost(count: count, canvas: canvas)
+            }
+            try record(probe, [
+                "outcome": "measured app-side apply cost only; WindowServer cost is not established",
+                "scope": "App-side ShellGlassBody.apply on the test thread, including its CATransaction commit into a "
+                    + "CARenderer-attached tree and excluding rendering. This does not establish WindowServer cost.",
+                "setup": "1728x76 body, every fifth shape an ellipse, 80 applies per variant",
+                "shapes": counts
+            ])
         }
-        try record(probe, [
-            "outcome": "measured app-side apply cost only; WindowServer cost is not established",
-            "scope": "App-side ShellGlassBody.apply on the test thread, including its CATransaction commit into a "
-                + "CARenderer-attached tree and excluding rendering. This does not establish WindowServer cost.",
-            "setup": "1728x76 body, every fifth shape an ellipse, 80 applies per variant",
-            "shapes": counts
-        ])
-    }
+    #endif
 
-    func testComponentShapeInsideGlassProbe() throws {
-        try requireProbeOutput()
-        let probe = "j.componentShapeInGlass"
-        let widget = try ShellRenderedWidget(
-            name: "root",
-            source: """
-            function render(ctx)
-                return ui.glass{w=160,h=100,ui.shape{key='own',w=60,h=40},ui.component{id='probe'}}
-            end
-            """,
-            modules: [.init(
-                path: "profile/widgets/probe/component.luau",
-                source: "return { views = { compact = function(ctx) return ui.shape{w=40,h=30,dx=80,dy=20} end } }"
-            )],
-            chunk: "@profile/widgets/root/init.luau"
-        )
-        widget.configure(ShellComponentCatalog.configurationBytes(
-            instances: [ShellComponentInstance(id: "probe", widget: "probe")], descriptors: []
-        ))
-        var stats = omni_render_stats()
-        var error = [CChar](repeating: 0, count: 512)
-        let status = omni_instance_render(widget.instance, OMNI_VIEW_BAR, 100_000_000, &stats, &error, error.count)
-        let message = String(decoding: error.prefix { $0 != 0 }.map { UInt8(bitPattern: $0) }, as: UTF8.self)
-        var result: [String: Any] = ["status": Int(status.rawValue), "message": message]
-        if status == OMNI_OK {
-            let output = widget.output()
-            widget.text.ingest(wire: output)
-            result["applied"] = widget.surface.apply(output, text: widget.text)
-            let scene = widget.surface.scene
-            let shapes = ShellLayerScene.engineQueue.sync { scene.glassBodies.values.map(\.maskElements.count) }
-            result["shapesInBody"] = shapes.first ?? 0
-            result["outcome"] = shapes.first == 2 ? "component shape melts into the body" : "not in the body"
-        } else {
-            result["outcome"] = "rejected by validation"
+    #if OMNIWM_LIVE_CHECKS
+        func testComponentShapeInsideGlassProbe() throws {
+            try requireProbeOutput()
+            let probe = "j.componentShapeInGlass"
+            let widget = try ShellRenderedWidget(
+                name: "root",
+                source: """
+                function render(ctx)
+                    return ui.glass{w=160,h=100,ui.shape{key='own',w=60,h=40},ui.component{id='probe'}}
+                end
+                """,
+                modules: [.init(
+                    path: "profile/widgets/probe/component.luau",
+                    source: "return { views = { compact = function(ctx) return ui.shape{w=40,h=30,dx=80,dy=20} end } }"
+                )],
+                chunk: "@profile/widgets/root/init.luau"
+            )
+            widget.configure(ShellComponentCatalog.configurationBytes(
+                instances: [ShellComponentInstance(id: "probe", widget: "probe")], descriptors: []
+            ))
+            var stats = omni_render_stats()
+            var error = [CChar](repeating: 0, count: 512)
+            let status = omni_instance_render(widget.instance, OMNI_VIEW_BAR, 100_000_000, &stats, &error, error.count)
+            let message = String(decoding: error.prefix { $0 != 0 }.map { UInt8(bitPattern: $0) }, as: UTF8.self)
+            var result: [String: Any] = ["status": Int(status.rawValue), "message": message]
+            if status == OMNI_OK {
+                let output = widget.output()
+                widget.text.ingest(wire: output)
+                result["applied"] = widget.surface.apply(output, text: widget.text)
+                let scene = widget.surface.scene
+                let shapes = ShellLayerScene.engineQueue.sync { scene.glassBodies.values.map(\.maskElements.count) }
+                result["shapesInBody"] = shapes.first ?? 0
+                result["outcome"] = shapes.first == 2 ? "component shape melts into the body" : "not in the body"
+            } else {
+                result["outcome"] = "rejected by validation"
+            }
+            try record(probe, result)
         }
-        try record(probe, result)
-    }
+    #endif
 }

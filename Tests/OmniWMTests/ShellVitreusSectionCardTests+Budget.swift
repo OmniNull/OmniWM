@@ -158,10 +158,11 @@ extension ShellVitreusSectionCardTests {
         try checkEverySectionAndAnExtraPage(renderBudget: ShellRenderTestBudget.unlimited)
     }
 
-    func testRenderSpeedEverySectionAndAnExtraPageStayWithinProductionBudget() throws {
-        try ShellRenderTestBudget.requireBenchmark()
-        try checkEverySectionAndAnExtraPage(renderBudget: ShellWidgetPackage.renderBudget)
-    }
+    #if OMNIWM_LIVE_CHECKS
+        func testRenderSpeedEverySectionAndAnExtraPageStayWithinProductionBudget() throws {
+            try checkEverySectionAndAnExtraPage(renderBudget: ShellWidgetPackage.renderBudget)
+        }
+    #endif
 
     private func checkEverySectionAndAnExtraPage(renderBudget: UInt64) throws {
         let pages = budgetPageIDs(Self.budgetComponents)
@@ -227,10 +228,11 @@ extension ShellVitreusSectionCardTests {
         try checkStoredPanelsAndPageCards(renderBudget: ShellRenderTestBudget.unlimited)
     }
 
-    func testRenderSpeedStoredPanelsAndPageCardsStayWithinProductionBudget() throws {
-        try ShellRenderTestBudget.requireBenchmark()
-        try checkStoredPanelsAndPageCards(renderBudget: ShellWidgetPackage.renderBudget)
-    }
+    #if OMNIWM_LIVE_CHECKS
+        func testRenderSpeedStoredPanelsAndPageCardsStayWithinProductionBudget() throws {
+            try checkStoredPanelsAndPageCards(renderBudget: ShellWidgetPackage.renderBudget)
+        }
+    #endif
 
     private func checkStoredPanelsAndPageCards(renderBudget: UInt64) throws {
         let shell = try windows.docks.shell()
@@ -260,10 +262,11 @@ extension ShellVitreusSectionCardTests {
         try checkOverflowPages(renderBudget: ShellRenderTestBudget.unlimited)
     }
 
-    func testRenderSpeedOverflowPagesStayWithinProductionBudget() throws {
-        try ShellRenderTestBudget.requireBenchmark()
-        try checkOverflowPages(renderBudget: ShellWidgetPackage.renderBudget)
-    }
+    #if OMNIWM_LIVE_CHECKS
+        func testRenderSpeedOverflowPagesStayWithinProductionBudget() throws {
+            try checkOverflowPages(renderBudget: ShellWidgetPackage.renderBudget)
+        }
+    #endif
 
     private func checkOverflowPages(renderBudget: UInt64) throws {
         let shell = try windows.docks.shell()
