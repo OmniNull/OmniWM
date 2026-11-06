@@ -26,7 +26,7 @@ final class LauncherApplicationTests: XCTestCase {
         let first = expectation(description: "Nix symlink catalog published")
         service.onCatalogChanged = { first.fulfill() }
         service.refreshIfNeeded(refreshMetadata: true, extraFolders: [applications.path])
-        await fulfillment(of: [first], timeout: 30)
+        await fulfillment(of: [first], timeout: failureBound)
         let result = try XCTUnwrap(service.browse(chip: nil).flatMap(\.items)
             .first { $0.bundleIdentifier == identifier })
         XCTAssertEqual(result.id, installed.path)
@@ -44,7 +44,7 @@ final class LauncherApplicationTests: XCTestCase {
         let second = expectation(description: "Alias refreshed independently of LS fingerprint")
         service.onCatalogChanged = { second.fulfill() }
         service.refreshIfNeeded(refreshMetadata: true, extraFolders: [applications.path])
-        await fulfillment(of: [second], timeout: 30)
+        await fulfillment(of: [second], timeout: failureBound)
         let aliasResult = try XCTUnwrap(service.browse(chip: nil).flatMap(\.items)
             .first { $0.bundleIdentifier == identifier })
         XCTAssertEqual(aliasResult.id, alias.path)

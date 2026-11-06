@@ -23,7 +23,7 @@ final class StopApplicationRevealTests: XCTestCase {
             }
         )
         let task = Task { await reveal.reveal(deadline: ProcessInfo.processInfo.systemUptime + 10) }
-        await fulfillment(of: [requested], timeout: 2)
+        await fulfillment(of: [requested], timeout: failureBound)
         changed?()
         XCTAssertEqual(removals, 0)
         hidden = false
@@ -59,7 +59,7 @@ final class StopApplicationRevealTests: XCTestCase {
                 observe: { _ in { removals += 1 } }
             )
             let task = Task { await reveal.reveal(deadline: ProcessInfo.processInfo.systemUptime + 10) }
-            await fulfillment(of: [requested], timeout: 2)
+            await fulfillment(of: [requested], timeout: failureBound)
             if !refusal { task.cancel() }
             let success = await task.value
             XCTAssertFalse(success)

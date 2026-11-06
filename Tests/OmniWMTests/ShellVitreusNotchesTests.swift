@@ -448,7 +448,7 @@ extension ShellVitreusNotchesTests {
         let fixture = try fixture()
         let body = try VitreusFixture.body(fixture.widget, key: "bar")
         guard ShellLayerScene.engineQueue.sync(execute: { body.nativeAvailable }) else {
-            throw XCTSkip("Native glass is unavailable")
+            throw MissingTestPrerequisite("Native glass is unavailable")
         }
         let crop = CGRect(x: 0, y: 0, width: 1920, height: 1080)
         let full = try VitreusFixture.pixels(fixture.widget, crop: crop, scale: 1)

@@ -76,7 +76,7 @@ final class KeyboardModeTests: XCTestCase {
         center.start()
         if center.hyperTriggerTap == nil {
             center.stop()
-            throw XCTSkip("Needs a keyboard event tap (Input Monitoring)")
+            throw MissingTestPrerequisite("Needs a keyboard event tap (Input Monitoring)")
         }
         return center
     }
@@ -254,7 +254,7 @@ final class KeyboardModeTests: XCTestCase {
         XCTAssertEqual(sleeper.requestedDurations, [.seconds(5)])
         sleeper.resumeNext()
 
-        await fulfillment(of: [resumed], timeout: 5)
+        await fulfillment(of: [resumed], timeout: failureBound)
         XCTAssertEqual(center.keyboardModeKind, .normal)
     }
 

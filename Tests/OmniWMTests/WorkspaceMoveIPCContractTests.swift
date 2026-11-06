@@ -234,7 +234,7 @@ final class WorkspaceMoveIPCContractTests: XCTestCase {
 
     func testFishWorkspaceMoveCompletionsTrackNonFlagPositionals() throws {
         guard fishExecutablePath() != nil else {
-            throw XCTSkip("Fish is not installed")
+            throw MissingTestPrerequisite("Fish is not installed")
         }
 
         try assertWorkspaceMoveCompletions(shell: .fish)
@@ -255,7 +255,7 @@ final class WorkspaceMoveIPCContractTests: XCTestCase {
 
     func testFishScratchpadCompletionsSeparateActionsFromSlots() throws {
         guard fishExecutablePath() != nil else {
-            throw XCTSkip("Fish is not installed")
+            throw MissingTestPrerequisite("Fish is not installed")
         }
 
         let slots = Set((1 ... 10).map(String.init))
@@ -395,7 +395,7 @@ final class WorkspaceMoveIPCContractTests: XCTestCase {
             return ("/bin/bash", "\(generatedScript)\n\(invocations.joined(separator: "\n"))")
         case .fish:
             guard let fishExecutable = fishExecutablePath() else {
-                throw XCTSkip("Fish is not installed")
+                throw MissingTestPrerequisite("Fish is not installed")
             }
             let invocations = arguments.map { "echo \(marker)\ncomplete -C \"omniwmctl \($0) \"" }
             return (fishExecutable, "\(generatedScript)\n\(invocations.joined(separator: "\n"))")

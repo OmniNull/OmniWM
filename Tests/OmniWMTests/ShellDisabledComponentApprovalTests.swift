@@ -117,7 +117,7 @@ final class ShellDisabledComponentApprovalTests: XCTestCase {
         let source = try fixture.host.widgetSource(of: fixture.state)
         let failure = await fixture.package.load(source)
         XCTAssertNil(failure)
-        await fulfillment(of: [presented], timeout: 3)
+        await fulfillment(of: [presented], timeout: failureBound)
         fixture.presenter.onPresent = nil
     }
 
@@ -147,7 +147,7 @@ final class ShellDisabledComponentApprovalTests: XCTestCase {
         fixture.presenter.onPresent = { presented.fulfill() }
         instance.enabled = true
         try await fixture.update([instance])
-        await fulfillment(of: [presented], timeout: 3)
+        await fulfillment(of: [presented], timeout: failureBound)
         fixture.presenter.onPresent = nil
         XCTAssertEqual(fixture.prompts.active, .network(approval))
         XCTAssertEqual(fixture.presenter.answers.count, 2)

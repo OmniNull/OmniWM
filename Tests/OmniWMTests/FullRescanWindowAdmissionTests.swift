@@ -838,7 +838,7 @@ final class FullRescanWindowAdmissionTests: XCTestCase {
                 )
             )
         }
-        await fulfillment(of: [acknowledgementEntered], timeout: 2)
+        await fulfillment(of: [acknowledgementEntered], timeout: failureBound)
 
         let resolution = controller.axEventHandler.resolveFullRescanIdentity(
             axRef: restoredAXRef,

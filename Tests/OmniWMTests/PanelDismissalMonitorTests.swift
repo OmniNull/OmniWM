@@ -40,7 +40,7 @@ final class PanelDismissalMonitorTests: XCTestCase {
 
         PanelDismissalMonitor.screenFrames = { docked }
         NotificationCenter.default.post(name: NSApplication.didChangeScreenParametersNotification, object: nil)
-        await fulfillment(of: [ordinaryDismissed, retainedChecked], timeout: 5)
+        await fulfillment(of: [ordinaryDismissed, retainedChecked], timeout: failureBound)
         XCTAssertEqual(retainedDismissals, 0)
 
         let restartedDismissed = expectation(description: "restarted panel dismissed")
@@ -51,7 +51,7 @@ final class PanelDismissalMonitorTests: XCTestCase {
         )
         PanelDismissalMonitor.screenFrames = { builtIn }
         NotificationCenter.default.post(name: NSApplication.didChangeScreenParametersNotification, object: nil)
-        await fulfillment(of: [restartedDismissed], timeout: 5)
+        await fulfillment(of: [restartedDismissed], timeout: failureBound)
     }
 
     func testAWorkAreaChangeWithoutADisplayChangeKeepsThePanel() async {
@@ -69,7 +69,7 @@ final class PanelDismissalMonitorTests: XCTestCase {
         }
 
         NotificationCenter.default.post(name: NSApplication.didChangeScreenParametersNotification, object: nil)
-        await fulfillment(of: [compared], timeout: 5)
+        await fulfillment(of: [compared], timeout: failureBound)
 
         XCTAssertEqual(dismissals, 0)
     }

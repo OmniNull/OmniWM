@@ -200,7 +200,7 @@ final class InputTapThreadTests: XCTestCase {
 
         let drained = expectation(description: "main drained")
         DispatchQueue.main.async { drained.fulfill() }
-        wait(for: [drained], timeout: 5)
+        wait(for: [drained], timeout: failureBound)
         XCTAssertEqual(handler.performanceSnapshot()?.cgEvents, 1)
     }
 
@@ -321,7 +321,7 @@ final class InputTapThreadTests: XCTestCase {
             }
             done.fulfill()
         }
-        wait(for: [done], timeout: 5)
+        wait(for: [done], timeout: failureBound)
         XCTAssertEqual(returned.withLock { $0 }, [true, true, true])
     }
 

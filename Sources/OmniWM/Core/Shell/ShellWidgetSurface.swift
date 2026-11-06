@@ -9,6 +9,11 @@ import QuartzCore
 
 @MainActor
 final class ShellWidgetSurface {
+    static var reducesTransparencyOverride: Bool?
+    static var reducesTransparency: Bool {
+        reducesTransparencyOverride ?? NSWorkspace.shared.accessibilityDisplayShouldReduceTransparency
+    }
+
     let sourceID = ShellInvocation.next()
     let view: ShellSurfaceView
     var scale: CGFloat

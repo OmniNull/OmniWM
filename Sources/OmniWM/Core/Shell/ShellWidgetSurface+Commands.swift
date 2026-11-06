@@ -327,7 +327,7 @@ extension ShellWidgetSurface {
         {
             paint.material = 0
         }
-        let opaque = paint.material > 0 && NSWorkspace.shared.accessibilityDisplayShouldReduceTransparency
+        let opaque = paint.material > 0 && Self.reducesTransparency
         let glass = layout.core.kind(of: handle) == .glass
         return ShellLayerPaint(
             fill: opaque ? palette.color(paint.fill, default: .surface) : palette.color(paint.fill)

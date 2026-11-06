@@ -463,7 +463,7 @@ extension ShellVitreusMediaCardTests {
         try float(fixture, by: CGVector(dx: 300, dy: 400))
         let body = try VitreusFixture.body(fixture.widget, key: "desk-glass")
         guard ShellLayerScene.engineQueue.sync(execute: { body.nativeAvailable }) else {
-            throw XCTSkip("Native glass is unavailable")
+            throw MissingTestPrerequisite("Native glass is unavailable")
         }
         let card = try frame(fixture, "media-card")
         let crop = card.insetBy(dx: -40, dy: -40).integral

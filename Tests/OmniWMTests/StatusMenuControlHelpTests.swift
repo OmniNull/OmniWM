@@ -337,7 +337,7 @@ final class StatusMenuControlHelpTests: XCTestCase {
 
         XCTAssertFalse(tile.isOn.wrappedValue)
         tile.isOn.wrappedValue = true
-        await fulfillment(of: [enabledSaved], timeout: 1)
+        await fulfillment(of: [enabledSaved], timeout: failureBound)
         await configuration.flush()
 
         XCTAssertTrue(tile.isOn.wrappedValue)
@@ -349,7 +349,7 @@ final class StatusMenuControlHelpTests: XCTestCase {
             disabledSaved.fulfill()
         }
         tile.isOn.wrappedValue = false
-        await fulfillment(of: [disabledSaved], timeout: 1)
+        await fulfillment(of: [disabledSaved], timeout: failureBound)
         await configuration.flush()
 
         XCTAssertFalse(tile.isOn.wrappedValue)
@@ -376,7 +376,7 @@ final class StatusMenuControlHelpTests: XCTestCase {
         let tile = try XCTUnwrap(fixture.model.toggleTiles.first { $0.control == .hiddenBarEnabled })
 
         tile.isOn.wrappedValue = true
-        await fulfillment(of: [errorPresented], timeout: 1)
+        await fulfillment(of: [errorPresented], timeout: failureBound)
         await fixture.controller.workspaceBarManager.shellConfiguration.flush()
 
         XCTAssertFalse(tile.isOn.wrappedValue)

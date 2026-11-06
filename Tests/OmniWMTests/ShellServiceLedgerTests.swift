@@ -102,7 +102,7 @@ final class ShellServiceLedgerTests: XCTestCase {
         let queue = DispatchSerialQueue(label: "shell.timer.test")
         ledger.attachWake { fired.fulfill() }
         XCTAssertTrue(ledger.startTimer(id(1), seconds: 0.01, queue: queue))
-        await fulfillment(of: [fired], timeout: 2)
+        await fulfillment(of: [fired], timeout: failureBound)
         let batch = ledger.takeBatch()
         XCTAssertEqual(batch.map(\.id.request), [1])
         XCTAssertEqual(batch.first?.payload, [0])

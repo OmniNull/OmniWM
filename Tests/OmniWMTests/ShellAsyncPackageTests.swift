@@ -44,7 +44,7 @@ final class ShellAsyncPackageTests: XCTestCase {
         XCTAssertNil(failure)
         package.services.attachWake { Task { await package.receive(.services) } }
         await package.receive(.bars([Self.bar: ShellBarData()]))
-        await fulfillment(of: [changed, command], timeout: 10)
+        await fulfillment(of: [changed, command], timeout: failureBound)
         XCTAssertEqual(commands, 1)
         XCTAssertEqual(widths.last, 20)
         XCTAssertEqual(package.services.activeCount, 0)
@@ -74,7 +74,7 @@ final class ShellAsyncPackageTests: XCTestCase {
         let secondFailure = await second.load(source)
         XCTAssertNil(secondFailure)
         await second.receive(.bars([Self.bar: ShellBarData()]))
-        await fulfillment(of: [rendered], timeout: 10)
+        await fulfillment(of: [rendered], timeout: failureBound)
         await second.close()
 
         source = ShellWidgetSource(chunk: "=other", main: """
@@ -133,7 +133,7 @@ final class ShellAsyncPackageTests: XCTestCase {
         await first.receive(.trigger(name: "update", value: nil))
         let failures = await store.flush()
         XCTAssertEqual(failures.count, 1)
-        await fulfillment(of: [failed], timeout: 10)
+        await fulfillment(of: [failed], timeout: failureBound)
         await first.close()
 
         let second = ShellWidgetPackage(name: "test", generation: 2, outbox: ShellWidgetOutbox { _ in }, store: store)

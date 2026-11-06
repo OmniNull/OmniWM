@@ -53,7 +53,7 @@ final class ManualMultitouchSleeper {
         let requested = XCTestExpectation(description: "Multitouch sleep request \(count)")
         requestWaiters.append((count, requested))
         defer { requestWaiters.removeAll { $0.expectation === requested } }
-        guard await XCTWaiter.fulfillment(of: [requested], timeout: 2) == .completed,
+        guard await XCTWaiter.fulfillment(of: [requested], timeout: failureBound) == .completed,
               requestedDurations.count >= count
         else {
             throw WaitFailure.missingRequest(expected: count, actual: requestedDurations.count)
@@ -87,7 +87,7 @@ final class ManualMultitouchSleeper {
         wakeWaiters[waiter.id] = woke
         defer { wakeWaiters.removeValue(forKey: waiter.id) }
         waiter.continuation.resume()
-        guard await XCTWaiter.fulfillment(of: [woke], timeout: 2) == .completed else {
+        guard await XCTWaiter.fulfillment(of: [woke], timeout: failureBound) == .completed else {
             throw WaitFailure.wakeDidNotComplete(waiter.id)
         }
     }

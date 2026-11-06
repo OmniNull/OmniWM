@@ -10,7 +10,7 @@ final class BorderEffectsTests: XCTestCase {
 
     private func makePanel() throws -> BorderLayerPanel {
         guard let panel = BorderLayerPanel(frame: CGRect(x: 0, y: 0, width: 164, height: 144)) else {
-            throw XCTSkip("Native rim bridge is unavailable in this environment")
+            throw MissingTestPrerequisite("Native rim bridge is unavailable in this environment")
         }
         return panel
     }

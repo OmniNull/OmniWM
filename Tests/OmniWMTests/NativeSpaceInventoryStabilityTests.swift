@@ -44,10 +44,10 @@ final class NativeSpaceInventoryStabilityTests: XCTestCase {
 
             manager.handleActiveSpaceDidChange()
             for entry in sleepEntries {
-                await fulfillment(of: [entry], timeout: 2)
+                await fulfillment(of: [entry], timeout: failureBound)
                 try probe.resumeNext()
             }
-            await fulfillment(of: [terminalSample], timeout: 2)
+            await fulfillment(of: [terminalSample], timeout: failureBound)
 
             let terminalSnapshot = try XCTUnwrap(manager.topologyInventory.performanceSnapshot())
             XCTAssertEqual(
@@ -107,7 +107,7 @@ final class NativeSpaceInventoryStabilityTests: XCTestCase {
 
         controller.isLockScreenActive = false
         manager.handleUnlockDetected()
-        await fulfillment(of: [sleepEntries[0]], timeout: 2)
+        await fulfillment(of: [sleepEntries[0]], timeout: failureBound)
 
         XCTAssertFalse(probe.isEmpty)
         XCTAssertTrue(refreshController.layoutState.isRefreshSuspendedForLockScreen)
@@ -116,7 +116,7 @@ final class NativeSpaceInventoryStabilityTests: XCTestCase {
 
         probe.sample = usableSample
         try probe.resumeNext()
-        await fulfillment(of: [sleepEntries[1]], timeout: 2)
+        await fulfillment(of: [sleepEntries[1]], timeout: failureBound)
         await WindowAdmissionTestSupport.drainLayoutRefreshes(controller)
 
         let snapshot = try XCTUnwrap(refreshController.performanceSnapshot())
@@ -127,7 +127,7 @@ final class NativeSpaceInventoryStabilityTests: XCTestCase {
 
         controller.isLockScreenActive = true
         try probe.resumeNext()
-        await fulfillment(of: [terminalSample], timeout: 2)
+        await fulfillment(of: [terminalSample], timeout: failureBound)
         XCTAssertEqual(manager.topologyInventory.performanceSnapshot()?.authoritativeTerminations, 1)
     }
 

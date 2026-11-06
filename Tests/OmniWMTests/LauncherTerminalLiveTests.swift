@@ -39,7 +39,7 @@ final class LauncherTerminalLiveTests: XCTestCase {
                 if let pid = reusedPIDs[terminal] { XCTAssertEqual(app.processIdentifier, pid) }
                 reusedPIDs[terminal] = app.processIdentifier
             }
-            await fulfillment(of: [done], timeout: 30)
+            await fulfillment(of: [done], timeout: failureBound)
             try verifyShellMarkers(in: directory)
             if terminal == .terminal || terminal == .iterm {
                 let pidText = try String(contentsOf: directory.appendingPathComponent("helper-pid"), encoding: .utf8)
@@ -54,7 +54,7 @@ final class LauncherTerminalLiveTests: XCTestCase {
             source.resume()
             defer { source.cancel() }
             try await session.sendReturn()
-            await fulfillment(of: [exited], timeout: 10)
+            await fulfillment(of: [exited], timeout: failureBound)
             try await session.close()
         }
     }
@@ -79,7 +79,7 @@ final class LauncherTerminalLiveTests: XCTestCase {
         let view = try XCTUnwrap(controller.launcherSurfaces.first)
         view.onCommandExit = { exit.fulfill() }
         controller.ghosttyRuntime.reloadConfiguration(for: controller)
-        await fulfillment(of: [exit], timeout: 30)
+        await fulfillment(of: [exit], timeout: failureBound)
         try verifyShellMarkers(in: directory)
         let surface = try XCTUnwrap(view.ghosttySurface)
         XCTAssertTrue(ghostty_surface_process_exited(surface))

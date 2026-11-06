@@ -116,7 +116,7 @@ final class OverviewDragPreviewTests: XCTestCase {
         CATransaction.commit()
         CATransaction.flush()
 
-        await fulfillment(of: [committed], timeout: 2)
+        await fulfillment(of: [committed], timeout: failureBound)
         XCTAssertNil(firstLifetime)
         XCTAssertTrue(ghost.preview === replacement)
     }

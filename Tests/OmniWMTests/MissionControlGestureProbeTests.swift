@@ -199,7 +199,7 @@ final class MissionControlGestureProbeTests: XCTestCase {
         )
         window.contentView = hostingView
         hostingView.layoutSubtreeIfNeeded()
-        await fulfillment(of: [appeared], timeout: 5)
+        await fulfillment(of: [appeared], timeout: failureBound)
 
         XCTAssertEqual(probe.status, .disabled)
 
@@ -209,7 +209,7 @@ final class MissionControlGestureProbeTests: XCTestCase {
         }
         fixture.set(NSNumber(value: true), key: authoritativeKey, domain: dockDomain)
         NotificationCenter.default.post(name: NSApplication.didBecomeActiveNotification, object: NSApp)
-        await fulfillment(of: [reactivated], timeout: 5)
+        await fulfillment(of: [reactivated], timeout: failureBound)
 
         XCTAssertEqual(probe.status, .enabled)
         withExtendedLifetime(window) {}

@@ -44,7 +44,7 @@ final class ShellGlassTrackTests: XCTestCase {
             )
             if native {
                 guard ShellGlassCapability.shared.available else {
-                    throw XCTSkip(body.failure ?? "Native glass is unavailable")
+                    throw MissingTestPrerequisite(body.failure ?? "Native glass is unavailable")
                 }
                 XCTAssertTrue(body.nativeAvailable, body.failure ?? "Native fixture geometry was rejected")
                 guard body.nativeAvailable else {

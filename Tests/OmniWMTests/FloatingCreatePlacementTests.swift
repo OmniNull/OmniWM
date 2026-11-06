@@ -526,7 +526,7 @@ final class FloatingCreatePlacementTests: XCTestCase {
         )
         let windows = try AXWindowEnumerationInspector.enumerateApplication(
             pid: finder.processIdentifier,
-            timeout: 1,
+            timeout: failureBound,
             context: .init(
                 appPolicy: finder.activationPolicy,
                 bundleId: finder.bundleIdentifier,
@@ -1194,7 +1194,7 @@ final class FloatingCreatePlacementTests: XCTestCase {
         let requiresEarlyReturn = handler.retryAdmissionAfterFrameChangeRequiresEarlyReturn(windowId: windowId)
         let task = try XCTUnwrap(handler.lifecycleQueries.task)
         XCTAssertNil(controller.workspaceManager.entry(for: token))
-        await fulfillment(of: [started], timeout: 2)
+        await fulfillment(of: [started], timeout: failureBound)
         controller.workspaceManager.addWindow(
             axRef, pid: token.pid, windowId: token.windowId,
             to: destinationWorkspace, mode: .floating

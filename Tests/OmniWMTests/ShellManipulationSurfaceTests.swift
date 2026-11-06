@@ -337,7 +337,7 @@ final class ShellManipulationSurfaceTests: XCTestCase {
             CGRect(surface.layout.core.absoluteFrame(of: target)),
             CGRect(x: 120, y: 100, width: 100, height: 80)
         )
-        await fulfillment(of: [applied], timeout: 2)
+        await fulfillment(of: [applied], timeout: failureBound)
         XCTAssertEqual(fixture.events.last?.event.transaction, transaction)
         XCTAssertEqual(fixture.events.last?.event.phase, .applied)
         XCTAssertEqual(fixture.events.last?.event.placement?.rect, CGRect(x: 120, y: 100, width: 100, height: 80))

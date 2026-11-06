@@ -83,7 +83,7 @@ final class ShellGlassCapabilityTests: XCTestCase {
 
     func testMissingBackdropFallsBackOnlyForBackdropBodies() throws {
         guard ShellGlassCapability.shared.available
-        else { throw XCTSkip("Native glass contract unavailable on this runtime") }
+        else { throw MissingTestPrerequisite("Native glass contract unavailable on this runtime") }
         let missing = "CABackdropLayer.windowServerAware"
         let capability = ShellGlassCapability(denying: missing)
         XCTAssertEqual(capability.missing, missing)
@@ -104,7 +104,7 @@ final class ShellGlassCapabilityTests: XCTestCase {
 
     func testMissingBandCapabilityFallsBackToPlainFillAndReports() throws {
         guard ShellGlassCapability.shared.available
-        else { throw XCTSkip("Native glass contract unavailable on this runtime") }
+        else { throw MissingTestPrerequisite("Native glass contract unavailable on this runtime") }
         XCTAssertNotNil(ShellGlassCapability(denying: "CABackdropLayer.windowServerAware").compositing(.add))
         let missing = "CASDFGradientEffect.distances"
         let capability = ShellGlassCapability(denying: missing)
@@ -126,7 +126,7 @@ final class ShellGlassCapabilityTests: XCTestCase {
 
     func testMissingSDFCapabilityFallsBackToPlainFillAndReports() throws {
         guard ShellGlassCapability.shared.available
-        else { throw XCTSkip("Native glass contract unavailable on this runtime") }
+        else { throw MissingTestPrerequisite("Native glass contract unavailable on this runtime") }
         let missing = "CASDFKeyFillHighlightEffect.keyAmount"
         let capability = ShellGlassCapability(denying: missing)
         XCTAssertEqual(capability.flatMissing, missing)
@@ -191,7 +191,7 @@ final class ShellGlassCapabilityTests: XCTestCase {
 
     func testDeniedEffectKeySelectsActualBodyFallback() throws {
         guard ShellGlassCapability.shared.available
-        else { throw XCTSkip("Native glass contract unavailable on this runtime") }
+        else { throw MissingTestPrerequisite("Native glass contract unavailable on this runtime") }
         let missing = "CASDFKeyFillHighlightEffect.diffuseHeightScale"
         let state = try ShellLayerScene.engineQueue.sync {
             let capability = ShellGlassCapability(denying: missing)

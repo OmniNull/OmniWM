@@ -160,7 +160,7 @@ Every Swift source and test file starts with the two-line GPL-2.0 header enforce
 
 Use focused regression tests for changed behavior. Runtime changes require the full serial `swift test` suite, and changes affecting concurrency also require `swift test --parallel`. Environment-dependent live tests remain opt-in. For motion, focus, layout, and other visible behavior, also describe the manual checks you performed.
 
-CI takes Fish and Nushell from the flake to run the native CLI completion tests. For the same coverage locally, run `swift test` inside `nix develop`; tests for a missing shell are skipped.
+CI takes Fish and Nushell from the flake to run the native CLI completion tests. For the same coverage locally, run `swift test` inside `nix develop`; tests fail with a message if a shell is missing.
 
 For changes to setup, packaging, development installation, or related tooling, also run `make test-dev-tools`. This runs the Python development-tooling tests and is included in CI's **Tooling** job.
 

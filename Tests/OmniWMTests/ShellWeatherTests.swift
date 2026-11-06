@@ -147,7 +147,7 @@ final class ShellWeatherTests: XCTestCase {
         XCTAssertTrue(loads.all.isEmpty)
 
         feed.setDemand(ShellDataKey.weather.bit, cadence: .of([(ShellDataKey.weather.bit, nil)]))
-        await fulfillment(of: [firstReading], timeout: 5)
+        await fulfillment(of: [firstReading], timeout: failureBound)
         XCTAssertEqual(loads.all, [ShellWeatherLocation(place: .city("Toronto"))])
 
         feed.setDemand(
@@ -163,7 +163,7 @@ final class ShellWeatherTests: XCTestCase {
         feed.setWeatherLocation(paris)
         XCTAssertNil(feed.current.weather)
         let resetIndex = try XCTUnwrap(publications[replacementStart...].firstIndex { $0.weather == nil })
-        await fulfillment(of: [replacementReading], timeout: 5)
+        await fulfillment(of: [replacementReading], timeout: failureBound)
         let readingIndex = try XCTUnwrap(publications[replacementStart...].firstIndex { $0.weather == weather })
         XCTAssertLessThan(resetIndex, readingIndex)
         XCTAssertEqual(loads.all.last, paris)
@@ -198,7 +198,7 @@ final class ShellWeatherTests: XCTestCase {
         defer { feed.stop() }
         feed.setWeatherLocation(ShellWeatherLocation(place: .city("Toronto"), refresh: .zero))
         feed.setDemand(ShellDataKey.weather.bit, cadence: .of([(ShellDataKey.weather.bit, nil)]))
-        await fulfillment(of: [firstReading], timeout: 5)
+        await fulfillment(of: [firstReading], timeout: failureBound)
 
         let refreshStart = publications.count
         let staleReading = expectation(description: "Stale weather published")
@@ -208,7 +208,7 @@ final class ShellWeatherTests: XCTestCase {
             ShellDataKey.weather.bit | ShellDataKey.cpu.bit,
             cadence: .of([(ShellDataKey.weather.bit | ShellDataKey.cpu.bit, nil)])
         )
-        await fulfillment(of: [staleReading], timeout: 5)
+        await fulfillment(of: [staleReading], timeout: failureBound)
         let stale = try XCTUnwrap(publications[refreshStart...].first { $0.weather?.stale == true }?.weather)
         XCTAssertEqual(stale.temp, weather.temp)
         XCTAssertEqual(stale.place, "Toronto")

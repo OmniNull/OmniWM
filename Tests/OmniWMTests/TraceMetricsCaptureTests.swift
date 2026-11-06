@@ -56,7 +56,7 @@ final class TraceMetricsCaptureTests: XCTestCase {
             acknowledged = true
             return result
         }
-        await fulfillment(of: [began], timeout: 2)
+        await fulfillment(of: [began], timeout: failureBound)
         XCTAssertFalse(acknowledged)
         XCTAssertTrue(recorder.isActive)
         XCTAssertEqual(coordinator.status.phase, .starting)
@@ -107,7 +107,7 @@ final class TraceMetricsCaptureTests: XCTestCase {
             returned = true
             return result
         }
-        await fulfillment(of: [ending], timeout: 2)
+        await fulfillment(of: [ending], timeout: failureBound)
         XCTAssertFalse(returned)
         XCTAssertTrue(recorder.isActive)
         XCTAssertTrue(recorder.isStoragePrepared)
@@ -159,7 +159,7 @@ final class TraceMetricsCaptureTests: XCTestCase {
                 }
             )
         }
-        await fulfillment(of: [ending], timeout: 2)
+        await fulfillment(of: [ending], timeout: failureBound)
         XCTAssertEqual(coordinator.status.phase, .finalizing)
         XCTAssertTrue(recorder.isActive)
         guard case .noChange = await coordinator.toggle(desiredState: .inactive, reportProvider: { "unused" }) else {
@@ -205,14 +205,14 @@ final class TraceMetricsCaptureTests: XCTestCase {
                 recorder.record("automatic-metrics-end")
             }
         ) else { return XCTFail("Expected start") }
-        await fulfillment(of: [ending], timeout: 5)
+        await fulfillment(of: [ending], timeout: failureBound)
         XCTAssertEqual(coordinator.status.phase, .finalizing)
         XCTAssertNil(coordinator.lastArtifact)
         guard case .noChange = await coordinator.toggle(desiredState: .inactive, reportProvider: { "unused" }) else {
             return XCTFail("Automatic finalization must retain the stop transition")
         }
         gate.release()
-        await fulfillment(of: [finalized], timeout: 2)
+        await fulfillment(of: [finalized], timeout: failureBound)
         XCTAssertEqual(ended, 1)
         let artifact = try XCTUnwrap(coordinator.lastArtifact)
         XCTAssertTrue(try String(contentsOf: artifact.url, encoding: .utf8).contains("automatic-metrics-end"))

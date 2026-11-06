@@ -229,7 +229,7 @@ final class ShellStoreTests: XCTestCase {
         let second = namespace(instance: "second")
         store.submit(write(first, revision: 1)) { _ in }
         let flushing = Task { await store.flush([first]) }
-        await fulfillment(of: [started], timeout: 2)
+        await fulfillment(of: [started], timeout: failureBound)
         store.submit(write(second, revision: 2)) { _ in }
         store.submit(write(second, revision: 3)) { _ in }
         release.signal()
@@ -260,7 +260,7 @@ final class ShellStoreTests: XCTestCase {
         let target = namespace(instance: "replacement")
         store.submit(write(blocked, revision: 1)) { _ in }
         let flushing = Task { await store.flush([blocked]) }
-        await fulfillment(of: [started], timeout: 2)
+        await fulfillment(of: [started], timeout: failureBound)
         store.submit(write(target, revision: 2), final: true) { _ in XCTFail("retired callback") }
         let replacement = ShellServiceOwner(generation: 2, owner: 0, epoch: 1)
         let next = ShellStore.Write(
@@ -276,7 +276,7 @@ final class ShellStoreTests: XCTestCase {
         }
         release.signal()
         _ = await flushing.value
-        await fulfillment(of: [replaced], timeout: 2)
+        await fulfillment(of: [replaced], timeout: failureBound)
         XCTAssertEqual(written.withLock { $0 }, [firstBytes, Data(bytes(3))])
         _ = await store.close([blocked: owner(), target: replacement])
     }

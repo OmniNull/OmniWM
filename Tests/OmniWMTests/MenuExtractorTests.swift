@@ -337,11 +337,12 @@ final class MenuExtractorTests: XCTestCase {
         let element = AXUIElementCreateApplication(91_590)
         var elements: [AXUIElement] = []
         var timeouts: [Float] = []
+        let messagingTimeout: Float = 0.25
 
         XCTAssertThrowsError(
             try MenuAXReader.withMessagingTimeout(
                 on: element,
-                timeout: 0.25,
+                timeout: messagingTimeout,
                 setter: { configuredElement, timeout in
                     elements.append(configuredElement)
                     timeouts.append(timeout)
@@ -352,7 +353,7 @@ final class MenuExtractorTests: XCTestCase {
             }
         )
 
-        XCTAssertEqual(timeouts, [0.25, 0])
+        XCTAssertEqual(timeouts, [messagingTimeout, 0])
         XCTAssertEqual(elements.count, 2)
         XCTAssertTrue(elements.allSatisfy { CFEqual($0, element) })
     }

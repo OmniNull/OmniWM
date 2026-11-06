@@ -223,7 +223,7 @@ final class SettingsFileObservationTests: XCTestCase {
             if outcome.export?.gaps.size == externalSize { reloaded.fulfill() }
         }
         try writeSettings(externalSize, in: config)
-        await fulfillment(of: [reloaded], timeout: 3)
+        await fulfillment(of: [reloaded], timeout: failureBound)
         XCTAssertEqual(reloads, [externalSize])
     }
 
@@ -271,7 +271,7 @@ final class SettingsFileObservationTests: XCTestCase {
         }
         defer { persistence.observation.onEventProcessed = nil }
         try edit()
-        await fulfillment(of: [processed], timeout: 3)
+        await fulfillment(of: [processed], timeout: failureBound)
     }
 
     private func expectReload(
@@ -292,6 +292,6 @@ final class SettingsFileObservationTests: XCTestCase {
             XCTFail("Failed to edit settings: \(error)", file: file, line: line)
             return
         }
-        await fulfillment(of: [changed], timeout: 3)
+        await fulfillment(of: [changed], timeout: failureBound)
     }
 }

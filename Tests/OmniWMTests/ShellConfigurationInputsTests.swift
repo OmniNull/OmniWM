@@ -183,14 +183,14 @@ final class ShellConfigurationInputsTests: XCTestCase {
         let metadata = expectation(description: "Linked widget settings refresh")
         withObservationTracking { _ = coordinator.revision } onChange: { metadata.fulfill() }
         try write("[options.value]\ntype = 'number'\ndefault = 5", to: "settings.toml", in: target)
-        await fulfillment(of: [metadata], timeout: 5)
+        await fulfillment(of: [metadata], timeout: failureBound)
         await coordinator.flush()
         XCTAssertEqual(coordinator.widgetSchemas["my-widget"]?.options["value"]?.kind, .number)
         let generation = coordinator.sourceGeneration
         let source = expectation(description: "Linked widget source invalidates preview generation")
         withObservationTracking { _ = coordinator.sourceGeneration } onChange: { source.fulfill() }
         try write("function render(ctx) return ui.text{ text = 'updated' } end", to: "init.luau", in: target)
-        await fulfillment(of: [source], timeout: 5)
+        await fulfillment(of: [source], timeout: failureBound)
         await coordinator.flush()
         XCTAssertGreaterThan(coordinator.sourceGeneration, generation)
         XCTAssertNil(coordinator.metadataError)

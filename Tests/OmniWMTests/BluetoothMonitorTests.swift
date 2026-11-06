@@ -15,6 +15,6 @@ final class BluetoothMonitorTests: XCTestCase {
             monitor.perform(NSSelectorFromString("disconnected:device:"), with: nil, with: nil)
             DispatchQueue.main.async { handled.fulfill() }
         }
-        await fulfillment(of: [handled], timeout: 5)
+        await fulfillment(of: [handled], timeout: failureBound)
     }
 }

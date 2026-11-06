@@ -82,7 +82,7 @@ final class DisplayConfigurationTransientSampleTests: XCTestCase {
             let notified = expectation(description: "Resampled after safe aperture change")
             resampled = notified
             NotificationCenter.default.post(name: .screenSafeApertureDidChange, object: nil)
-            await fulfillment(of: [notified], timeout: 5)
+            await fulfillment(of: [notified], timeout: failureBound)
         }
         observer.sampleNow()
 

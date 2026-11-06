@@ -405,7 +405,7 @@ final class CGSPhantomEventGuardTests: XCTestCase {
         }
         handler.processCreatedWindow(windowId: 949_303)
         let task = try XCTUnwrap(handler.lifecycleQueries.task)
-        await fulfillment(of: [queryStarted], timeout: 2)
+        await fulfillment(of: [queryStarted], timeout: failureBound)
         handler.flushManagedReplacementBurst(for: key)
         XCTAssertNil(controller.workspaceManager.entry(for: oldToken))
         XCTAssertNil(engine.findNode(for: oldToken, in: workspaceId))

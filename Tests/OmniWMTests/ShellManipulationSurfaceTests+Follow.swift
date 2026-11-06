@@ -201,7 +201,7 @@ extension ShellManipulationSurfaceTests {
         XCTAssertEqual(state.token, try record(fixture)?.token)
         XCTAssertTrue(state.moving)
         XCTAssertFalse(state.active)
-        await fulfillment(of: [applied], timeout: 2)
+        await fulfillment(of: [applied], timeout: failureBound)
         XCTAssertEqual(fixture.events.last?.event.placement?.rect, Self.home)
     }
 

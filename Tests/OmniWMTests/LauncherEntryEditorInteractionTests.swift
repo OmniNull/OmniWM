@@ -18,7 +18,7 @@ final class LauncherEntryEditorInteractionTests: XCTestCase {
         let fixture = Fixture(entry: entry, runOnly: false)
         defer { fixture.close() }
         await fixture.present()
-        await fulfillment(of: [fixture.appeared, fixture.beganSheet], timeout: 5)
+        await fulfillment(of: [fixture.appeared, fixture.beganSheet], timeout: failureBound)
         let sheet = try XCTUnwrap(fixture.window.attachedSheet)
         try await fixture.enter("Edited command", replacing: "Original command", in: sheet)
         try await fixture.enter("printf edited", replacing: "printf original", in: sheet)
@@ -26,7 +26,7 @@ final class LauncherEntryEditorInteractionTests: XCTestCase {
         await fixture.display()
 
         try await fixture.click("Run Now", in: sheet)
-        await fulfillment(of: [fixture.ran], timeout: 5)
+        await fulfillment(of: [fixture.ran], timeout: failureBound)
         await fixture.display()
         XCTAssertTrue(fixture.window.attachedSheet === sheet)
         XCTAssertEqual(fixture.dismissals, 0)
@@ -37,7 +37,7 @@ final class LauncherEntryEditorInteractionTests: XCTestCase {
         XCTAssertEqual(ran.command, "printf edited")
 
         try await fixture.click("Save", in: sheet)
-        await fulfillment(of: [fixture.didSave, fixture.dismissed], timeout: 5)
+        await fulfillment(of: [fixture.didSave, fixture.dismissed], timeout: failureBound)
         XCTAssertEqual(fixture.executed, [ran])
         XCTAssertEqual(fixture.saved, [ran])
         XCTAssertEqual(fixture.dismissals, 1)
@@ -53,11 +53,11 @@ final class LauncherEntryEditorInteractionTests: XCTestCase {
         let fixture = Fixture(entry: entry, runOnly: true)
         defer { fixture.close() }
         await fixture.present()
-        await fulfillment(of: [fixture.appeared, fixture.beganSheet], timeout: 5)
+        await fulfillment(of: [fixture.appeared, fixture.beganSheet], timeout: failureBound)
         let sheet = try XCTUnwrap(fixture.window.attachedSheet)
 
         try await fixture.click("Run", in: sheet)
-        await fulfillment(of: [fixture.ran, fixture.dismissed], timeout: 5)
+        await fulfillment(of: [fixture.ran, fixture.dismissed], timeout: failureBound)
         XCTAssertEqual(fixture.executed, [entry])
         XCTAssertTrue(fixture.saved.isEmpty)
         XCTAssertEqual(fixture.dismissals, 1)

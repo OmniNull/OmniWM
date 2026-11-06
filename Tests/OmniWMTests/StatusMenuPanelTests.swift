@@ -22,7 +22,7 @@ final class StatusMenuPanelTests: XCTestCase {
             menuActionReturned = true
         }
 
-        await fulfillment(of: [terminated], timeout: 2)
+        await fulfillment(of: [terminated], timeout: failureBound)
     }
 
     func testContentIsCappedToScreenAndAnchoredAtEdges() {
@@ -358,7 +358,7 @@ final class StatusMenuPanelTests: XCTestCase {
             completed.fulfill()
         }
 
-        await fulfillment(of: [completed], timeout: 1)
+        await fulfillment(of: [completed], timeout: failureBound)
     }
 
     private func makeFixture() -> StatusMenuPanelFixture {

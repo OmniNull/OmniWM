@@ -165,7 +165,7 @@ final class OverviewPreviewRetentionTests: XCTestCase {
             if handle === stream.request.handle, preview === frame { published.fulfill() }
         }
         stream.output.offer(frame)
-        guard await XCTWaiter.fulfillment(of: [published], timeout: 1) == .completed else {
+        guard await XCTWaiter.fulfillment(of: [published], timeout: failureBound) == .completed else {
             XCTFail("Expected preview publication")
             throw OverviewPreviewTestWaitError.publication
         }

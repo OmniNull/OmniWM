@@ -128,7 +128,7 @@ final class ShellComponentAssetTests: XCTestCase {
         library.onLoad = { loaded.fulfill() }
         library.onAssetChange = { [weak surface = widget.surface] url in surface?.refreshAssets(at: url) }
         widget.render(ShellBarData())
-        await fulfillment(of: [loaded], timeout: 10)
+        await fulfillment(of: [loaded], timeout: failureBound)
         let before = try XCTUnwrap(widget.surface.assetImages.values.first { $0.source.contains(":custom/") }?.frames)
         XCTAssertEqual(before.frames.first?.width, 3)
 
@@ -142,7 +142,7 @@ final class ShellComponentAssetTests: XCTestCase {
         }
         try png(stockImage, width: 4)
         XCTAssertFalse(library.refresh())
-        await fulfillment(of: [refreshed], timeout: 10)
+        await fulfillment(of: [refreshed], timeout: failureBound)
         XCTAssertEqual(changed, [stockImage])
         XCTAssertEqual(
             widget.surface.assetImages.values.first { $0.source.contains(":stock/") }?.frames?.frames.first?.width,
@@ -156,7 +156,7 @@ final class ShellComponentAssetTests: XCTestCase {
         let preparation = ShellShaderPreparation()
         let onMain = await preparation.usesMainThread()
         XCTAssertFalse(onMain)
-        guard ShellShaderGPU.device != nil else { throw XCTSkip("Metal is not available") }
+        guard ShellShaderGPU.device != nil else { throw MissingTestPrerequisite("Metal is not available") }
         let stock = try folder("stock")
         let custom = try folder("custom")
         let stockShader = stock.appendingPathComponent("bars.metal")
@@ -180,7 +180,7 @@ final class ShellComponentAssetTests: XCTestCase {
     }
 
     func testShaderTexturesLoadAndReloadAtZeroFPSForBothPathForms() async throws {
-        guard ShellShaderGPU.device != nil else { throw XCTSkip("Metal is not available") }
+        guard ShellShaderGPU.device != nil else { throw MissingTestPrerequisite("Metal is not available") }
         for qualified in [false, true] {
             let stock = try folder(qualified ? "qualified-texture" : "plain-texture")
             let file = stock.appendingPathComponent("icon.png")

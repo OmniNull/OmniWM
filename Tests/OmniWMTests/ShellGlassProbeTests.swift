@@ -180,7 +180,7 @@ final class ShellGlassProbeTests: XCTestCase {
             + classes.filter { NSClassFromString($0) == nil }.map { "\($0).class" }
         guard !missing.isEmpty else { return }
         try record(probe, ["outcome": "skipped", "missing": missing])
-        throw XCTSkip("Missing private glass API: \(missing.joined(separator: ", "))")
+        throw MissingTestPrerequisite("Missing private glass API: \(missing.joined(separator: ", "))")
     }
 
     func fill() throws -> NSObject {

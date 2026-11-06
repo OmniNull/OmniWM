@@ -37,7 +37,7 @@ final class ShellConfigurationCoordinatorTests: XCTestCase {
             default:
                 try FileManager.default.removeItem(at: file.deletingLastPathComponent())
             }
-            await fulfillment(of: [changed], timeout: 5)
+            await fulfillment(of: [changed], timeout: failureBound)
             await coordinator.flush()
             XCTAssertNil(coordinator.metadataError)
         }
@@ -77,7 +77,7 @@ final class ShellConfigurationCoordinatorTests: XCTestCase {
             let changed = expectation(description: "External symlink target edit, atomic=\(atomic)")
             withObservationTracking { _ = coordinator.revision } onChange: { changed.fulfill() }
             try Data("after-\(atomic)".utf8).write(to: target, options: atomic ? .atomic : [])
-            await fulfillment(of: [changed], timeout: 5)
+            await fulfillment(of: [changed], timeout: failureBound)
             await coordinator.flush()
             XCTAssertNil(coordinator.metadataError)
             XCTAssertEqual(try FileManager.default.destinationOfSymbolicLink(atPath: link.path), target.path)
@@ -99,12 +99,12 @@ final class ShellConfigurationCoordinatorTests: XCTestCase {
         }
         defer { observation.cancel() }
         observation.sync(paths: [file], recursivePaths: [file])
-        await fulfillment(of: [try XCTUnwrap(changed)], timeout: 5)
+        await fulfillment(of: [try XCTUnwrap(changed)], timeout: failureBound)
         XCTAssertGreaterThanOrEqual(attempts, 2)
 
         changed = expectation(description: "Native file event after stream recovery")
         try Data("profile = 'default'\n".utf8).write(to: file, options: .atomic)
-        await fulfillment(of: [try XCTUnwrap(changed)], timeout: 5)
+        await fulfillment(of: [try XCTUnwrap(changed)], timeout: failureBound)
     }
 
     func testNativeIslandEditsPersistWithoutEnablingAnyShellSurface() async throws {
@@ -213,7 +213,7 @@ final class ShellConfigurationCoordinatorTests: XCTestCase {
         }, reloadReady: {})
         let initialCount = coordinator.config.island?.components.count
         let island = Task { try await coordinator.island(.add(widget: "world-clock", options: [:])) }
-        await fulfillment(of: [entered], timeout: 5)
+        await fulfillment(of: [entered], timeout: failureBound)
         XCTAssertTrue(coordinator.isSaving)
         XCTAssertEqual(coordinator.config.island?.components.count, initialCount)
         let switched = Task { try await coordinator.selectProfile("default") }
@@ -276,7 +276,7 @@ final class ShellConfigurationCoordinatorTests: XCTestCase {
                     return false
                 }
             }
-            await fulfillment(of: [entered], timeout: 5)
+            await fulfillment(of: [entered], timeout: failureBound)
             _ = try ShellProfiles.setValue(
                 48,
                 at: ShellProfiles.key("workspaceBar", of: "lake") + ["height"],
@@ -296,7 +296,7 @@ final class ShellConfigurationCoordinatorTests: XCTestCase {
             XCTAssertEqual(coordinator.config.barOverride?.settings.height, 48)
             XCTAssertFalse(coordinator.isSaving)
             XCTAssertEqual(publications, 1)
-            await fulfillment(of: [observed], timeout: 5)
+            await fulfillment(of: [observed], timeout: failureBound)
         }
     }
 
@@ -412,7 +412,7 @@ final class ShellConfigurationCoordinatorTests: XCTestCase {
             release.wait()
         }, reloadReady: {})
         let edit = Task { try await coordinator.island(.rootSetting(key: "width", value: .number(540))) }
-        await fulfillment(of: [written], timeout: 5)
+        await fulfillment(of: [written], timeout: failureBound)
         coordinator.adopt(try load(shell))
         XCTAssertEqual(publications, 0)
         release.signal()
@@ -441,7 +441,7 @@ final class ShellConfigurationCoordinatorTests: XCTestCase {
             let changed = expectation(description: "Source content revision published for " + path)
             withObservationTracking { _ = coordinator.revision } onChange: { changed.fulfill() }
             try Data("after-content".utf8).write(to: file)
-            await fulfillment(of: [changed], timeout: 5)
+            await fulfillment(of: [changed], timeout: failureBound)
             await coordinator.flush()
             XCTAssertEqual(coordinator.revision, revision + 1)
             XCTAssertNil(coordinator.metadataError)
@@ -535,7 +535,7 @@ final class ShellConfigurationCoordinatorTests: XCTestCase {
             failed.assertForOverFulfill = false
             withObservationTracking { _ = coordinator.metadataError } onChange: { failed.fulfill() }
             try replaceDirectoryLink(link, destination: second.path)
-            await fulfillment(of: [failed], timeout: 3)
+            await fulfillment(of: [failed], timeout: failureBound)
             await coordinator.flush()
             XCTAssertNotNil(coordinator.metadataError)
             XCTAssertEqual(coordinator.config.barOverride?.settings.height, 41)
@@ -577,7 +577,7 @@ final class ShellConfigurationCoordinatorTests: XCTestCase {
         failed.assertForOverFulfill = false
         withObservationTracking { _ = coordinator.metadataError } onChange: { failed.fulfill() }
         _ = try ShellProfiles.select("alternate", in: shell)
-        await fulfillment(of: [failed], timeout: 3)
+        await fulfillment(of: [failed], timeout: failureBound)
         await coordinator.flush()
         XCTAssertNotNil(coordinator.metadataError)
         XCTAssertEqual(coordinator.config.profile, "lake")
@@ -641,7 +641,7 @@ final class ShellConfigurationCoordinatorTests: XCTestCase {
         withObservationTracking { _ = coordinator.revision } onChange: { changed.fulfill() }
         try Data("[options.date]\ntype = 'number'\ndefault = 5\n".utf8)
             .write(to: clock.folder.appendingPathComponent("settings.toml"))
-        await fulfillment(of: [changed], timeout: 5)
+        await fulfillment(of: [changed], timeout: failureBound)
         await coordinator.flush()
         XCTAssertEqual(coordinator.widgetSchemas["clock"]?.options["date"]?.kind, .number)
         let published = expectation(description: "External configuration applied")
@@ -650,7 +650,7 @@ final class ShellConfigurationCoordinatorTests: XCTestCase {
             published.fulfill()
         }
         _ = try ShellProfiles.setValue(47, at: ShellProfiles.key("workspaceBar", of: "lake") + ["height"], in: shell)
-        await fulfillment(of: [published], timeout: 5)
+        await fulfillment(of: [published], timeout: failureBound)
         await coordinator.flush()
         XCTAssertEqual(coordinator.config.barOverride?.settings.height, 47)
     }
@@ -892,7 +892,7 @@ final class ShellConfigurationCoordinatorTests: XCTestCase {
             if config.barOverride?.settings.height == height { published.fulfill() }
         }
         try edit()
-        await fulfillment(of: [published], timeout: 3)
+        await fulfillment(of: [published], timeout: failureBound)
         await coordinator.flush()
         XCTAssertEqual(coordinator.config.barOverride?.settings.height, height)
         XCTAssertNil(coordinator.metadataError)

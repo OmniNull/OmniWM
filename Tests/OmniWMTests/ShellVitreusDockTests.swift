@@ -370,7 +370,7 @@ extension ShellVitreusDockTests {
         _ = try press(widget, key: "addon-pin-notes")
         let body = try VitreusFixture.body(widget, key: "corner-glass")
         guard ShellLayerScene.engineQueue.sync(execute: { body.nativeAvailable }) else {
-            throw XCTSkip("Native glass is unavailable")
+            throw MissingTestPrerequisite("Native glass is unavailable")
         }
         let crop = CGRect(x: 0, y: 540, width: 1920, height: 540)
         let pixels = try VitreusFixture.pixels(widget, crop: crop, scale: 1, shadowless: true)

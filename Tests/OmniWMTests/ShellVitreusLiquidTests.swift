@@ -222,7 +222,8 @@ final class ShellVitreusLiquidTests: XCTestCase {
         }
         let body = try VitreusFixture.body(widget)
         try ShellLayerScene.engineQueue.sync {
-            guard body.nativeAvailable else { throw XCTSkip(body.failure ?? "Native glass is unavailable") }
+            guard body.nativeAvailable
+            else { throw MissingTestPrerequisite(body.failure ?? "Native glass is unavailable") }
         }
         let pixels = try VitreusFixture.pixels(widget, crop: CGRect(x: 1856, y: 360, width: 64, height: 360), scale: 2)
         let alpha = stride(from: 3, to: pixels.count, by: 4).map { pixels[$0] }.max() ?? 0

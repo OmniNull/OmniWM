@@ -9,6 +9,14 @@ import XCTest
 
 let failureBound: TimeInterval = 30
 
+struct MissingTestPrerequisite: Error, CustomStringConvertible {
+    let description: String
+
+    init(_ description: String) {
+        self.description = description
+    }
+}
+
 func boundedChanges() -> (changes: AsyncStream<Void>, changed: AsyncStream<Void>.Continuation) {
     let (changes, changed) = AsyncStream.makeStream(of: Void.self)
     DispatchQueue.main.asyncAfter(deadline: .now() + failureBound) { changed.finish() }

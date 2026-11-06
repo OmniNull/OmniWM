@@ -15,7 +15,7 @@ final class NativeBorderCompositorLiveTests: XCTestCase {
             throw XCTSkip("Live compositor checks require OMNIWM_RUN_SKYLIGHT_LIVE_TESTS=1")
         }
         guard CGPreflightScreenCaptureAccess() else {
-            throw XCTSkip("Screen Recording permission is required")
+            throw MissingTestPrerequisite("Screen Recording permission is required")
         }
         _ = NSApplication.shared
         let screen = try XCTUnwrap(NSScreen.main)
@@ -63,11 +63,11 @@ final class NativeBorderCompositorLiveTests: XCTestCase {
             throw XCTSkip("Live compositor checks require OMNIWM_RUN_SKYLIGHT_LIVE_TESTS=1")
         }
         guard CGPreflightScreenCaptureAccess() else {
-            throw XCTSkip("Screen Recording permission is required")
+            throw MissingTestPrerequisite("Screen Recording permission is required")
         }
         let app = NSApplication.shared
         guard let screen = NSScreen.screens.first(where: { $0.backingScaleFactor == 2 }) else {
-            throw XCTSkip("The gradient/glow compositor check requires a 2× display")
+            throw MissingTestPrerequisite("The gradient/glow compositor check requires a 2× display")
         }
         let previousAppearance = app.appearance
         let controller = WindowAdmissionTestSupport.controller(prefix: "NativeBorderCompositorLiveTests")

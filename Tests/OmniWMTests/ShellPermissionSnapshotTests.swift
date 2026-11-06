@@ -146,7 +146,7 @@ final class ShellPermissionSnapshotTests: XCTestCase {
         outbox.providerApproval(name: "test", generation: 1, approval: approval())
         outbox.providerApproval(name: "test", generation: 1, approval: approval())
         outbox.providerApproval(name: "test", generation: 1, approval: approval("changed"))
-        await fulfillment(of: [delivered], timeout: 10)
+        await fulfillment(of: [delivered], timeout: failureBound)
         XCTAssertEqual(approvals, [approval(), approval("changed")])
     }
 }

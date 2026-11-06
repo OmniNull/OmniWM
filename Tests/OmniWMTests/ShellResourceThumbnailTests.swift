@@ -225,7 +225,7 @@ final class ShellResourceThumbnailTests: XCTestCase {
         let count = await decoder.count()
         XCTAssertEqual(count, 1)
         await decoder.finish(0, image: try Self.image())
-        await fulfillment(of: [complete], timeout: 5)
+        await fulfillment(of: [complete], timeout: failureBound)
         XCTAssertEqual(Set(delivered.withLock { $0 }), Set([first, second]))
         XCTAssertNotNil(service.cache.bitmap(first))
         XCTAssertNotNil(service.cache.bitmap(second))
@@ -253,7 +253,7 @@ final class ShellResourceThumbnailTests: XCTestCase {
         await decoder.finish(0, image: try Self.image())
         await decoder.waitForCalls(2)
         await decoder.finish(1, image: try Self.image())
-        await fulfillment(of: [complete], timeout: 5)
+        await fulfillment(of: [complete], timeout: failureBound)
         XCTAssertEqual(delivered.withLock { $0 }, [second])
         XCTAssertNil(service.cache.bitmap(first))
         XCTAssertNotNil(service.cache.bitmap(second))
@@ -301,7 +301,7 @@ final class ShellResourceThumbnailTests: XCTestCase {
             complete.fulfill()
         }
         let binding = try await acquire(service, resource: items[0].id, owner: owner, points: 8, scale: 1)
-        await fulfillment(of: [complete], timeout: 5)
+        await fulfillment(of: [complete], timeout: failureBound)
         guard case .failed = service.cache.status(binding) else { return XCTFail("missing failed status") }
         XCTAssertEqual(decodes.withLock { $0 }, 0)
         await service.close()
@@ -364,7 +364,7 @@ final class ShellResourceThumbnailTests: XCTestCase {
             complete.fulfill()
         })
         let binding = try await acquire(service, resource: item.id, owner: owner, points: 16, scale: 2)
-        await fulfillment(of: [complete], timeout: 5)
+        await fulfillment(of: [complete], timeout: failureBound)
         XCTAssertEqual(service.cache.bitmap(binding)?.width, 32)
         await service.close()
     }

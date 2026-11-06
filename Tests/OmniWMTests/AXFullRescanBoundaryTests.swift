@@ -1706,16 +1706,16 @@ final class AXFullRescanBoundaryTests: XCTestCase {
             probe.releaseAll()
         }
 
-        await fulfillment(of: Array(entries.prefix(4)), timeout: 2)
+        await fulfillment(of: Array(entries.prefix(4)), timeout: failureBound)
         let completionOrder = [3, 2, 1, 0, 7, 6, 5, 4, 11, 10, 9, 8]
         for (index, input) in completionOrder.enumerated() {
             try probe.complete(input)
-            await fulfillment(of: [completions[input]], timeout: 2)
+            await fulfillment(of: [completions[input]], timeout: failureBound)
             if index < inputs.count - 4 {
-                await fulfillment(of: [entries[index + 4]], timeout: 2)
+                await fulfillment(of: [entries[index + 4]], timeout: failureBound)
             }
         }
-        await fulfillment(of: [finished], timeout: 2)
+        await fulfillment(of: [finished], timeout: failureBound)
         XCTAssertNil(failure)
         XCTAssertEqual(try XCTUnwrap(output), inputs)
         XCTAssertEqual(probe.maximum, 4)
@@ -2208,7 +2208,7 @@ final class AXFullRescanBoundaryTests: XCTestCase {
         }
 
         manager.bindManagedWindows([entry])
-        await fulfillment(of: [retries], timeout: 1)
+        await fulfillment(of: [retries], timeout: failureBound)
         XCTAssertEqual(retryCount, 3)
         XCTAssertEqual(observedPIDs, [pid, pid, pid])
     }
@@ -2250,7 +2250,7 @@ final class AXFullRescanBoundaryTests: XCTestCase {
 
         manager.bindManagedWindows(controller.workspaceManager.allEntries())
 
-        await fulfillment(of: [retries], timeout: 2)
+        await fulfillment(of: [retries], timeout: failureBound)
         await WindowAdmissionTestSupport.drainLayoutRefreshes(controller)
         XCTAssertEqual(observedPIDs, [pid, pid])
         XCTAssertNotNil(controller.workspaceManager.entry(for: token))
@@ -2297,7 +2297,7 @@ final class AXFullRescanBoundaryTests: XCTestCase {
                 return [77: WindowServerInfo(id: 77, pid: 1234, level: 8, frame: .zero)]
             }
         }
-        await fulfillment(of: [started], timeout: 1)
+        await fulfillment(of: [started], timeout: failureBound)
         XCTAssertTrue(Thread.isMainThread)
         gate.signal()
         let result = try await read.value
@@ -2314,7 +2314,7 @@ final class AXFullRescanBoundaryTests: XCTestCase {
                 return [77: WindowServerInfo(id: 77, pid: 1234, level: 8, frame: .zero)]
             }
         }
-        await fulfillment(of: [started], timeout: 1)
+        await fulfillment(of: [started], timeout: failureBound)
         read.cancel()
         gate.signal()
         do {
@@ -2344,7 +2344,7 @@ final class AXFullRescanBoundaryTests: XCTestCase {
                 preservingPIDsByWindowId: [77: 1234]
             )
         }
-        await fulfillment(of: [entered], timeout: 1)
+        await fulfillment(of: [entered], timeout: failureBound)
         scan.cancel()
         await gate.releaseAll()
         do {
@@ -2394,7 +2394,7 @@ final class AXFullRescanBoundaryTests: XCTestCase {
                 rescanScope: .targeted(appPIDs: [token.pid], nativeSpaceIds: [])
             )
             refresh.startNextRefreshIfNeeded()
-            await fulfillment(of: [entered], timeout: 1)
+            await fulfillment(of: [entered], timeout: failureBound)
             let active = try XCTUnwrap(refresh.layoutState.activeRefreshTask)
             refresh.layoutState.inventoryStabilityHoldFullRescans = true
             if row.minimize {

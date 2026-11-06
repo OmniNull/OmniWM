@@ -35,7 +35,7 @@ final class InputSourceControllerTests: XCTestCase {
             XCTAssertEqual(controller.value, previous)
             reader.current = next
 
-            await fulfillment(of: [changed], timeout: 2)
+            await fulfillment(of: [changed], timeout: failureBound)
             XCTAssertEqual(controller.value, next)
             XCTAssertEqual(reader.reads, 2)
         }

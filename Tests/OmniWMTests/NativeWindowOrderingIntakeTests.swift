@@ -79,7 +79,7 @@ final class NativeWindowOrderingIntakeTests: XCTestCase {
         }
         handler.handleCGSEvent(.orderChanged(windowId: UInt32(token.windowId)))
         let task = try XCTUnwrap(handler.lifecycleQueries.task)
-        await fulfillment(of: [started], timeout: 2)
+        await fulfillment(of: [started], timeout: failureBound)
         let workspace = try XCTUnwrap(controller.workspaceManager.entry(for: token)?.workspaceId)
         _ = controller.workspaceManager.removeWindow(pid: token.pid, windowId: token.windowId)
         _ = WindowAdmissionTestSupport.track(token, in: workspace, controller: controller)
@@ -102,7 +102,7 @@ final class NativeWindowOrderingIntakeTests: XCTestCase {
             }
             handler.handleCGSEvent(.orderChanged(windowId: UInt32(token.windowId)))
             let task = try XCTUnwrap(handler.lifecycleQueries.task)
-            await fulfillment(of: [started], timeout: 2)
+            await fulfillment(of: [started], timeout: failureBound)
             for hidden in [true, false] {
                 if minimize {
                     handler.updateWindowMinimizedState(hidden, token: token, requestRefresh: false)
@@ -248,7 +248,7 @@ final class NativeWindowOrderingIntakeTests: XCTestCase {
         }
         handler.handleActivationFactsResolved(try facts(controller: controller))
         let task = try XCTUnwrap(handler.lifecycleQueries.task)
-        await fulfillment(of: [started], timeout: 2)
+        await fulfillment(of: [started], timeout: failureBound)
         _ = handler.beginActivationObservation(
             pid: token.pid + 1, source: .workspaceDidActivateApplication,
             causalGeneration: nil, controller: controller
@@ -304,7 +304,7 @@ final class NativeWindowOrderingIntakeTests: XCTestCase {
         }
         handler.handleCGSEvent(.visibilityChanged(windowId: UInt32(token.windowId), orderedIn: false))
         let task = try XCTUnwrap(handler.lifecycleQueries.task)
-        await fulfillment(of: [started], timeout: 2)
+        await fulfillment(of: [started], timeout: failureBound)
         handler.handleCGSEvent(.visibilityChanged(windowId: UInt32(token.windowId), orderedIn: true))
         gate.resume(info(orderedIn: false))
         await task.value
@@ -407,7 +407,7 @@ final class NativeWindowOrderingIntakeTests: XCTestCase {
         }
         handler.handleCGSEvent(.visibilityChanged(windowId: UInt32(token.windowId), orderedIn: false))
         let task = try XCTUnwrap(handler.lifecycleQueries.task)
-        await fulfillment(of: [started], timeout: 2)
+        await fulfillment(of: [started], timeout: failureBound)
         handler.handleCGSEvent(.closed(windowId: UInt32(token.windowId)))
         gate.resume(hidden)
         await task.value
@@ -474,7 +474,7 @@ final class NativeWindowOrderingIntakeTests: XCTestCase {
         }
         handler.handleCGSEvent(.visibilityChanged(windowId: UInt32(token.windowId), orderedIn: false))
         let task = try XCTUnwrap(handler.lifecycleQueries.task)
-        await fulfillment(of: [started], timeout: 2)
+        await fulfillment(of: [started], timeout: failureBound)
         controller.workspaceManager.setHiddenState(
             HiddenState(proportionalPosition: .zero, referenceMonitorId: nil, reason: .workspaceInactive),
             for: token

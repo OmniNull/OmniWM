@@ -87,7 +87,8 @@ final class ShellShapeTrackSceneTests: XCTestCase {
         let clock = shape.begin + 0.084
         let pixels = try ShellLayerScene.engineQueue.sync {
             let body = try XCTUnwrap(fixture.scene.glassBodies[shape.body])
-            guard body.nativeAvailable else { throw XCTSkip(body.failure ?? "Native glass is unavailable") }
+            guard body.nativeAvailable
+            else { throw MissingTestPrerequisite(body.failure ?? "Native glass is unavailable") }
             for index in [0, 2, 3] { body.sdfLayers[index].isHidden = true }
             return try fixture.renderer.render(paused: clock)
         }

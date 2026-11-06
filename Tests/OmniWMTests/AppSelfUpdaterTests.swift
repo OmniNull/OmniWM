@@ -147,7 +147,7 @@ final class AppSelfUpdaterTests: XCTestCase {
     }
 
     func testInstallIsNotOfferedWhenTheBundleOrItsFolderIsReadOnly() throws {
-        try XCTSkipIf(getuid() == 0, "root writes through read-only permissions")
+        guard getuid() != 0 else { throw MissingTestPrerequisite("root writes through read-only permissions") }
         let installed = try makeApp(in: "installed", tag: newTag)
         let ours = "identifier \"\(identifier)\""
         XCTAssertTrue(AppSelfUpdater(bundleURL: installed) { ours }.canInstall)
@@ -187,7 +187,7 @@ final class AppSelfUpdaterTests: XCTestCase {
                 }
                 stopped.fulfill()
             }
-            await fulfillment(of: [stopped], timeout: 5)
+            await fulfillment(of: [stopped], timeout: failureBound)
         }
     }
 
@@ -234,14 +234,14 @@ final class AppSelfUpdaterTests: XCTestCase {
 
             if confirmed {
                 updater.confirmRelaunch()
-                await fulfillment(of: [quitReturned], timeout: 5)
+                await fulfillment(of: [quitReturned], timeout: failureBound)
                 XCTAssertFalse(FileManager.default.fileExists(atPath: opened.path))
                 target.terminate()
                 target.waitUntilExit()
             } else {
-                await fulfillment(of: [quitReturned], timeout: 5)
+                await fulfillment(of: [quitReturned], timeout: failureBound)
             }
-            await fulfillment(of: [exited], timeout: 5)
+            await fulfillment(of: [exited], timeout: failureBound)
             XCTAssertNil(updater.relaunchHelper)
             XCTAssertNil(updater.relaunchSignal)
             XCTAssertEqual(FileManager.default.fileExists(atPath: opened.path), confirmed)

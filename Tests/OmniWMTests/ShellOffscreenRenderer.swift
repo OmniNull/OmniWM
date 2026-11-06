@@ -10,7 +10,7 @@ final class ShellOffscreenRenderer {
     private let raster: ShellLayerRaster
 
     init(root: CALayer, width: Int, height: Int) throws {
-        guard ShellShaderGPU.device != nil else { throw XCTSkip("Metal is not available") }
+        guard ShellShaderGPU.device != nil else { throw MissingTestPrerequisite("Metal is not available") }
         raster = try ShellLayerRaster(root: root, width: width, height: height)
     }
 

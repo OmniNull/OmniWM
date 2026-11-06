@@ -95,7 +95,7 @@ final class NativeFocusAdmissionTests: XCTestCase {
         XCTAssertTrue(operations.values.isEmpty)
 
         gate.release()
-        await fulfillment(of: [readFinished], timeout: 2)
+        await fulfillment(of: [readFinished], timeout: failureBound)
         controller.eventIntake.drainNow()
         await WindowAdmissionTestSupport.drainLayoutRefreshes(controller)
 

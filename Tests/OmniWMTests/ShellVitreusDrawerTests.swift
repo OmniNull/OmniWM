@@ -429,7 +429,8 @@ extension ShellVitreusDrawerTests {
             CATransaction.begin()
             CATransaction.setDisableActions(true)
             defer { CATransaction.commit() }
-            guard body.nativeAvailable else { throw XCTSkip(body.failure ?? "Native glass is unavailable") }
+            guard body.nativeAvailable
+            else { throw MissingTestPrerequisite(body.failure ?? "Native glass is unavailable") }
             for index in [0, 2, 3] { body.sdfLayers[index].isHidden = only }
             for slot in slots { fixture.scene.layers[slot]?.isHidden = only }
         }

@@ -132,7 +132,7 @@ final class ShellDirectoryObservationTests: XCTestCase {
         try FileManager.default.removeItem(at: link)
         try FileManager.default.createSymbolicLink(atPath: link.path, withDestinationPath: "second")
         observation.sync(paths: paths, recursivePaths: [link])
-        await fulfillment(of: [rearmed], timeout: 5)
+        await fulfillment(of: [rearmed], timeout: failureBound)
 
         XCTAssertEqual(attempts, [[first.path], [second.path]])
         XCTAssertTrue(observation.isUsingNativeObservation)
@@ -252,7 +252,7 @@ final class ShellDirectoryObservationTests: XCTestCase {
         XCTAssertFalse(observation.isUsingNativeObservation)
 
         try FileManager.default.createDirectory(at: missing, withIntermediateDirectories: false)
-        await fulfillment(of: [changed], timeout: 5)
+        await fulfillment(of: [changed], timeout: failureBound)
 
         XCTAssertEqual(attempts, [[missing.path]])
         XCTAssertTrue(observation.isUsingNativeObservation)

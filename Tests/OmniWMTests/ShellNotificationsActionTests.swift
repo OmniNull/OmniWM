@@ -71,7 +71,7 @@ final class ShellNotificationsActionTests: XCTestCase {
             }
         }
         controller.setListening(true)
-        await fulfillment(of: [ready], timeout: 5)
+        await fulfillment(of: [ready], timeout: failureBound)
         controller.onChange = nil
     }
 
@@ -160,7 +160,7 @@ final class ShellNotificationsActionTests: XCTestCase {
         XCTAssertEqual(controller.current.action?.fields?["state"]?.string, "pending")
         XCTAssertFalse(controller.perform(.dismiss(bundle: bundle, id: sibling)))
         XCTAssertEqual(controller.current.action?.fields?["id"]?.string, id.uuidString.lowercased())
-        await fulfillment(of: [entered], timeout: 5)
+        await fulfillment(of: [entered], timeout: failureBound)
         let requests = await gate.requests
         XCTAssertEqual(requests, [.init(bundle: bundle, id: id, peers: [id, sibling], operation: .dismiss)])
 
@@ -175,7 +175,7 @@ final class ShellNotificationsActionTests: XCTestCase {
             }
         }
         controller.refresh()
-        await fulfillment(of: [loaded], timeout: 5)
+        await fulfillment(of: [loaded], timeout: failureBound)
         let finished = await gate.finish(0, with: .dispatched)
         XCTAssertTrue(finished)
         await task.value
@@ -203,7 +203,7 @@ final class ShellNotificationsActionTests: XCTestCase {
             let text = "Reply with \n exact Unicode ✓ 中文"
             XCTAssertTrue(controller.perform(.reply(bundle: bundle, id: id, text: text)))
             let task = try XCTUnwrap(controller.actionTask)
-            await fulfillment(of: [entered], timeout: 5)
+            await fulfillment(of: [entered], timeout: failureBound)
             let requests = await gate.requests
             XCTAssertEqual(requests, [.init(
                 bundle: bundle, id: id, peers: [id],
@@ -240,7 +240,7 @@ final class ShellNotificationsActionTests: XCTestCase {
         defer { controller.setListening(false) }
         XCTAssertTrue(controller.perform(.dismiss(bundle: bundle, id: id)))
         let task = try XCTUnwrap(controller.actionTask)
-        await fulfillment(of: [entered], timeout: 5)
+        await fulfillment(of: [entered], timeout: failureBound)
         let finished = await gate.finish(0, with: .dispatchedPanelOpen)
         XCTAssertTrue(finished)
         await task.value
@@ -329,7 +329,7 @@ final class ShellNotificationsActionTests: XCTestCase {
         defer { controller.setListening(false) }
         XCTAssertTrue(controller.perform(.dismiss(bundle: bundle, id: oldID)))
         let oldTask = try XCTUnwrap(controller.actionTask)
-        await fulfillment(of: [firstEntered], timeout: 5)
+        await fulfillment(of: [firstEntered], timeout: failureBound)
         controller.setListening(false)
         XCTAssertEqual(controller.current, ShellNotificationsData(state: "loading"))
         XCTAssertFalse(controller.perform(.dismiss(bundle: bundle, id: oldID)))
@@ -337,7 +337,7 @@ final class ShellNotificationsActionTests: XCTestCase {
         await listen(controller, expected: fresh)
         XCTAssertTrue(controller.perform(.dismiss(bundle: bundle, id: newID)))
         let newTask = try XCTUnwrap(controller.actionTask)
-        await fulfillment(of: [secondEntered], timeout: 5)
+        await fulfillment(of: [secondEntered], timeout: failureBound)
         let oldFinished = await gate.finish(0, with: .dispatched)
         XCTAssertTrue(oldFinished)
         await oldTask.value

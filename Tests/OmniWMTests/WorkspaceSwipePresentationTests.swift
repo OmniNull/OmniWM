@@ -1051,7 +1051,7 @@ final class WorkspaceSwipePresentationTests: XCTestCase {
         let readback = try XCTUnwrap(handoff.readback)
         let deadline = try XCTUnwrap(handoff.deadline)
         await readback.value
-        await fulfillment(of: [waiting], timeout: 2)
+        await fulfillment(of: [waiting], timeout: failureBound)
         guard sleeper.pendingCount == 1 else {
             XCTFail("Handoff deadline did not enter the controlled sleep")
             return
@@ -1164,7 +1164,7 @@ final class WorkspaceSwipePresentationTests: XCTestCase {
             let published = expectation(description: "swipe frame published")
             capture.onPreview = { _, image in if image === frame { published.fulfill() } }
             driver.streams[0].output.offer(frame)
-            guard await XCTWaiter.fulfillment(of: [published], timeout: 1) == .completed else {
+            guard await XCTWaiter.fulfillment(of: [published], timeout: failureBound) == .completed else {
                 XCTFail("Expected preview publication")
                 throw OverviewPreviewTestWaitError.publication
             }
@@ -1326,7 +1326,7 @@ final class WorkspaceSwipePresentationTests: XCTestCase {
         let published = expectation(description: "swipe preview frame published")
         capture.onPreview = { _, preview in if preview === frame { published.fulfill() } }
         stream.output.offer(frame)
-        guard await XCTWaiter.fulfillment(of: [published], timeout: 1) == .completed else {
+        guard await XCTWaiter.fulfillment(of: [published], timeout: failureBound) == .completed else {
             XCTFail("Expected preview publication")
             throw OverviewPreviewTestWaitError.publication
         }

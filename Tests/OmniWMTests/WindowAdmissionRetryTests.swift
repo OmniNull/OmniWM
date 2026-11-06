@@ -1227,7 +1227,7 @@ final class WindowAdmissionRetryTests: XCTestCase {
         controller.factResolver.stop()
         controller.eventIntake.close()
         gate.release()
-        await fulfillment(of: [readFinished], timeout: 2)
+        await fulfillment(of: [readFinished], timeout: failureBound)
         controller.factResolver.deferredFactProvider = nil
         controller.axEventHandler.cancelCreatedWindowRetry(windowId: unrelatedWindowId)
     }
@@ -1254,14 +1254,14 @@ final class WindowAdmissionRetryTests: XCTestCase {
             )
         )
         let staleResolution = try XCTUnwrap(controller.factResolver.deferredFactTask)
-        await fulfillment(of: [readStarted], timeout: 2)
+        await fulfillment(of: [readStarted], timeout: failureBound)
 
         controller.factResolver.stop()
         controller.eventIntake.close()
         controller.eventIntake.open(sink: controller.eventInterpreter)
         let reopenedSeq = controller.eventIntake.lastSeq
         gate.release()
-        await fulfillment(of: [readFinished], timeout: 2)
+        await fulfillment(of: [readFinished], timeout: failureBound)
         await staleResolution.value
         controller.eventIntake.drainNow()
 

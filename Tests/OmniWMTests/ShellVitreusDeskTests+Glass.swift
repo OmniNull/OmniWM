@@ -168,7 +168,8 @@ extension ShellVitreusDeskTests {
         let container = widget.surface.scene.container
         let body = try VitreusFixture.body(widget)
         let probes = try ShellLayerScene.engineQueue.sync {
-            guard body.nativeAvailable else { throw XCTSkip(body.failure ?? "Native glass is unavailable") }
+            guard body.nativeAvailable
+            else { throw MissingTestPrerequisite(body.failure ?? "Native glass is unavailable") }
             container.frame = CGRect(x: 0, y: 0, width: 1920, height: 1080)
             return try [(CGRect(x: 0, y: 80, width: 1920, height: 1000), 1), (rect.insetBy(dx: -40, dy: -40), 2)]
                 .map { crop, scale in
@@ -276,7 +277,8 @@ extension ShellVitreusDeskTests {
         func measure() throws -> VitreusProbe {
             let body = try VitreusFixture.body(widget)
             return try ShellLayerScene.engineQueue.sync {
-                guard body.nativeAvailable else { throw XCTSkip(body.failure ?? "Native glass is unavailable") }
+                guard body.nativeAvailable
+                else { throw MissingTestPrerequisite(body.failure ?? "Native glass is unavailable") }
                 container.frame = CGRect(x: 0, y: 0, width: 1920, height: 1080)
                 let full = try Self.offscreen(container, crop: crop, scale: 1)
                 body.sdfLayers[0].isHidden = true
@@ -346,7 +348,7 @@ extension ShellVitreusDeskTests {
         crop: CGRect,
         at time: CFTimeInterval
     ) throws -> CGRect {
-        guard body.nativeAvailable else { throw XCTSkip(body.failure ?? "Native glass is unavailable") }
+        guard body.nativeAvailable else { throw MissingTestPrerequisite(body.failure ?? "Native glass is unavailable") }
         CATransaction.begin()
         CATransaction.setDisableActions(true)
         body.sdfLayers[0].isHidden = true

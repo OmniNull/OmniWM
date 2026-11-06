@@ -34,12 +34,12 @@ final class ShellInvocationTests: XCTestCase {
         }
         let mainTurn = expectation(description: "main queue passed the publication boundary")
         DispatchQueue.main.async { mainTurn.fulfill() }
-        await fulfillment(of: [mainTurn], timeout: 10)
+        await fulfillment(of: [mainTurn], timeout: failureBound)
         XCTAssertTrue(sink.deliveries.isEmpty)
         let delivered = expectation(description: "tree and acknowledgement delivered")
         sink.onDelivery = { _ in delivered.fulfill() }
         outbox.finishInvoke(name: "test", generation: 1, key: key, invocationID: 10, failed: false)
-        await fulfillment(of: [delivered], timeout: 10)
+        await fulfillment(of: [delivered], timeout: failureBound)
         XCTAssertEqual(sink.deliveries.count, 1)
         let delivery = try XCTUnwrap(sink.deliveries.first)
         XCTAssertEqual(delivery.trees[key]?.sequence, 2)
@@ -63,7 +63,7 @@ final class ShellInvocationTests: XCTestCase {
         }
         outbox.beginInvoke(name: "test", generation: 1)
         outbox.finishInvoke(name: "test", generation: 1, key: key, invocationID: 999, failed: true)
-        await fulfillment(of: [delivered], timeout: 10)
+        await fulfillment(of: [delivered], timeout: failureBound)
         XCTAssertEqual(sink.deliveries.count, 1)
         let delivery = try XCTUnwrap(sink.deliveries.first)
         XCTAssertEqual(delivery.generation, 2)
@@ -88,7 +88,7 @@ final class ShellInvocationTests: XCTestCase {
         let initial = expectation(description: "initial tree")
         sink.onDelivery = { delivery in if delivery.trees[self.key] != nil { initial.fulfill() } }
         await package.receive(.bars([bar: ShellBarData()]))
-        await fulfillment(of: [initial], timeout: 10)
+        await fulfillment(of: [initial], timeout: failureBound)
         var tree = try XCTUnwrap(sink.deliveries.last?.trees[key])
         for (id, operation) in [
             (UInt64(1), "noop"), (2, "change"), (3, "fail"), (4, "old"), (5, "stale"), (6, "future"), (7, "closed")
@@ -104,7 +104,7 @@ final class ShellInvocationTests: XCTestCase {
             let sequence = operation == "old" ? 0 : tree.sequence + (operation == "future" ? 1 : 0)
             let action = operation == "stale" ? UInt32.max : node(tree).action
             await package.receive(.invoke(bar, .bar, action: action, sequence: sequence, event: event))
-            await fulfillment(of: [acknowledged], timeout: 10)
+            await fulfillment(of: [acknowledged], timeout: failureBound)
             let delivery = try XCTUnwrap(sink.deliveries.last)
             let ack = try XCTUnwrap(delivery.acknowledgements[key])
             XCTAssertEqual(ack.invocationID, id)
@@ -132,7 +132,7 @@ final class ShellInvocationTests: XCTestCase {
         let initial = expectation(description: "initial tree")
         sink.onDelivery = { delivery in if delivery.trees[self.key] != nil { initial.fulfill() } }
         await package.receive(.bars([bar: ShellBarData()]))
-        await fulfillment(of: [initial], timeout: 10)
+        await fulfillment(of: [initial], timeout: failureBound)
         let tree = try XCTUnwrap(sink.deliveries.last?.trees[key])
         for (id, target) in [(UInt64(1), bar), (2, ShellBarKey(monitor: .init(displayId: 95602)))] {
             let done = expectation(description: "failed completion \(id)")
@@ -149,7 +149,7 @@ final class ShellInvocationTests: XCTestCase {
                 sequence: tree.sequence,
                 event: event
             ))
-            await fulfillment(of: [done], timeout: 10)
+            await fulfillment(of: [done], timeout: failureBound)
             let delivery = try XCTUnwrap(sink.deliveries.last)
             XCTAssertEqual(delivery.acknowledgements[source], .init(invocationID: id, failed: true, changed: false))
             XCTAssertTrue(delivery.trees.isEmpty)

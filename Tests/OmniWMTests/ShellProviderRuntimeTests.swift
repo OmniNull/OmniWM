@@ -166,7 +166,7 @@ final class ShellProviderRuntimeTests: XCTestCase {
             { ready.fulfill() }
         }
         await harness.provider.reconcile(try harness.configuration(tag: tag, mode: mode))
-        await fulfillment(of: [ready], timeout: 10)
+        await fulfillment(of: [ready], timeout: failureBound)
         harness.onDelivery = nil
         return try XCTUnwrap(harness.inbox.identity(for: harness.owner))
     }
@@ -181,7 +181,7 @@ final class ShellProviderRuntimeTests: XCTestCase {
             let requested = expectation(description: "actual program digest needs approval")
             harness.onApproval = { _ in requested.fulfill() }
             await harness.provider.reconcile(unknown)
-            await fulfillment(of: [requested], timeout: 10)
+            await fulfillment(of: [requested], timeout: failureBound)
             harness.onApproval = nil
             let firstApproval = try XCTUnwrap(harness.approvals.last)
             XCTAssertEqual(firstApproval.sha256, known.sha256)
@@ -197,7 +197,7 @@ final class ShellProviderRuntimeTests: XCTestCase {
             let executable = harness.directory.appendingPathComponent("provider.pl")
             let bytes = try Data(contentsOf: executable) + Data("\n\n".utf8)
             try bytes.write(to: executable)
-            await fulfillment(of: [changed], timeout: 10)
+            await fulfillment(of: [changed], timeout: failureBound)
             harness.onApproval = nil
             XCTAssertEqual(try harness.marker("launches"), "A\n")
             XCTAssertNotEqual(harness.approvals.last?.sha256, firstApproval.sha256)
@@ -215,7 +215,7 @@ final class ShellProviderRuntimeTests: XCTestCase {
             let first = expectation(description: "first trust request")
             harness.onApproval = { _ in first.fulfill() }
             await harness.provider.reconcile(configuration)
-            await fulfillment(of: [first], timeout: 10)
+            await fulfillment(of: [first], timeout: failureBound)
             harness.onApproval = nil
             let approval = try XCTUnwrap(harness.approvals.last)
             var denied = ShellPermissionDecisions()
@@ -227,7 +227,7 @@ final class ShellProviderRuntimeTests: XCTestCase {
             let again = expectation(description: "reset requests trust for the unchanged program")
             harness.onApproval = { _ in again.fulfill() }
             harness.provider.permissionsChanged()
-            await fulfillment(of: [again], timeout: 10)
+            await fulfillment(of: [again], timeout: failureBound)
             harness.onApproval = nil
             XCTAssertEqual(harness.approvals, [approval, approval])
             XCTAssertFalse(FileManager.default
@@ -251,7 +251,7 @@ final class ShellProviderRuntimeTests: XCTestCase {
                 if delivery.identity == first, delivery.snapshot?.status == .notApproved { revoked.fulfill() }
             }
             harness.provider.permissionsChanged()
-            await fulfillment(of: [revoked], timeout: 10)
+            await fulfillment(of: [revoked], timeout: failureBound)
             harness.onDelivery = nil
             let second = try await launch(harness, tag: "B")
             XCTAssertGreaterThan(second.incarnation, first.incarnation)
@@ -263,7 +263,7 @@ final class ShellProviderRuntimeTests: XCTestCase {
                 if delivery.identity == second, delivery.snapshot?.status == .notApproved { blocked.fulfill() }
             }
             harness.provider.permissionsChanged()
-            await fulfillment(of: [blocked], timeout: 10)
+            await fulfillment(of: [blocked], timeout: failureBound)
             harness.onDelivery = nil
             await harness.provider.close()
             XCTAssertEqual(try harness.marker("launches"), "A\nB\n")
@@ -286,7 +286,7 @@ final class ShellProviderRuntimeTests: XCTestCase {
                 }
             }
             await harness.provider.reconcile(configuration)
-            await fulfillment(of: [unavailable], timeout: 10)
+            await fulfillment(of: [unavailable], timeout: failureBound)
             XCTAssertFalse(FileManager.default
                 .fileExists(atPath: harness.directory.appendingPathComponent("launches").path))
             let ready = expectation(description: "restored already-approved bytes launch")
@@ -296,7 +296,7 @@ final class ShellProviderRuntimeTests: XCTestCase {
             XCTAssertTrue(FileManager.default.createFile(
                 atPath: executable.path, contents: original, attributes: [.posixPermissions: 0o755]
             ))
-            await fulfillment(of: [ready], timeout: 10)
+            await fulfillment(of: [ready], timeout: failureBound)
             harness.onDelivery = nil
             XCTAssertEqual(try harness.marker("launches"), "A\n")
         }
@@ -317,7 +317,7 @@ final class ShellProviderRuntimeTests: XCTestCase {
                 contents: original + Data("\n\n\n".utf8),
                 attributes: [.posixPermissions: 0o755]
             ))
-            await fulfillment(of: [recreated], timeout: 10)
+            await fulfillment(of: [recreated], timeout: failureBound)
             harness.onApproval = nil
             XCTAssertNotEqual(harness.approvals.last?.sha256, configuration.sha256)
             XCTAssertEqual(try harness.marker("launches"), "A\n")
@@ -343,7 +343,7 @@ final class ShellProviderRuntimeTests: XCTestCase {
                 }
             }
             let id = try harness.send("echo", arguments: Data("{\"value\":42}".utf8))
-            await fulfillment(of: [done], timeout: 10)
+            await fulfillment(of: [done], timeout: failureBound)
             let controls = harness.deliveries.dropFirst(first).compactMap(\.control)
             XCTAssertEqual(controls.count, 2)
             if case let .result(resultID, _)? = controls.last { XCTAssertEqual(resultID, id) }
@@ -382,7 +382,7 @@ final class ShellProviderRuntimeTests: XCTestCase {
                 }
             }
             _ = try harness.send("crash")
-            await fulfillment(of: [reply, exited], timeout: 10)
+            await fulfillment(of: [reply, exited], timeout: failureBound)
             harness.onDelivery = nil
             await harness.provider.reconcile(try harness.configuration())
             let binding = try XCTUnwrap(harness.inbox.binding(for: harness.owner))
@@ -419,7 +419,7 @@ final class ShellProviderRuntimeTests: XCTestCase {
                         if case .result? = delivery.control { alive.fulfill() }
                     }
                     _ = try responsive.send("echo")
-                    await fulfillment(of: [overloaded, alive], timeout: 10)
+                    await fulfillment(of: [overloaded, alive], timeout: failureBound)
                     XCTAssertTrue(sawOverload)
                     XCTAssertEqual(responsive.services.activeCount, 0)
                     stalled.onDelivery = nil
@@ -439,7 +439,7 @@ final class ShellProviderRuntimeTests: XCTestCase {
                 if case .result? = delivery.control { done.fulfill() }
             }
             _ = try harness.send("flood_state")
-            await fulfillment(of: [done], timeout: 10)
+            await fulfillment(of: [done], timeout: failureBound)
             let data = try XCTUnwrap(harness.states[identity]?["latest"])
             let value = try XCTUnwrap(JSONSerialization.jsonObject(with: data) as? [String: Any])
             XCTAssertEqual(value["index"] as? Int, 8192)
@@ -455,9 +455,9 @@ final class ShellProviderRuntimeTests: XCTestCase {
             if line == "fixture:closed:A" { terminated.fulfill() }
         }) { harness in
             await harness.provider.reconcile(try harness.configuration())
-            await fulfillment(of: [ready], timeout: 10)
+            await fulfillment(of: [ready], timeout: failureBound)
             let id = try harness.send("flood_events")
-            await fulfillment(of: [terminated], timeout: 10)
+            await fulfillment(of: [terminated], timeout: failureBound)
             await harness.provider.close()
             harness.drain()
             let binding = try XCTUnwrap(harness.inbox.binding(for: harness.owner))

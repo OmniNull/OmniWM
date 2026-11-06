@@ -91,7 +91,7 @@ final class ShellComponentPackageTests: XCTestCase {
             modules: original.modules, moduleLimit: original.moduleLimit, components: original.components
         )
         await package.receive(.components(edited))
-        await fulfillment(of: [reloaded], timeout: 5)
+        await fulfillment(of: [reloaded], timeout: failureBound)
         await package.receive(.components(edited))
         XCTAssertEqual(reloads, 1)
         let requested = await package.reloadRequested

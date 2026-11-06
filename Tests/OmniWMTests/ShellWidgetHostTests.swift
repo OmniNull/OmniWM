@@ -46,7 +46,7 @@ final class ShellWidgetOutboxTests: XCTestCase {
             outbox.publish(name: "widget", generation: 1, key: key, sequence: 1, output: $0)
         }
         outbox.fail(name: "widget", generation: 1, failure: ShellScriptFailure(kind: .runtime, message: "stale"))
-        await fulfillment(of: [delivered], timeout: 10)
+        await fulfillment(of: [delivered], timeout: failureBound)
         XCTAssertEqual(sink.batches.count, 1)
         XCTAssertEqual(sink.batches.first?["widget"]?.generation, 2)
         XCTAssertEqual(sink.batches.first?["widget"]?.stringCount, 1)
@@ -67,7 +67,7 @@ final class ShellWidgetOutboxTests: XCTestCase {
             failure: ShellScriptFailure(kind: .runtime, message: "render"),
             deps: ShellDataKey.vars.bit
         )
-        await fulfillment(of: [delivered], timeout: 10)
+        await fulfillment(of: [delivered], timeout: failureBound)
         XCTAssertEqual(sink.batches.first?["widget"]?.failure?.message, "handler")
         XCTAssertEqual(sink.batches.first?["widget"]?.failedDeps, ShellDataKey.vars.bit)
     }
@@ -86,14 +86,14 @@ final class ShellWidgetOutboxTests: XCTestCase {
             outbox.publish(name: "widget", generation: 1, key: key, sequence: 1, output: $0)
         }
         outbox.request(name: "widget", generation: 1, requests: [.init(bar: key.bar, text: "first")])
-        await fulfillment(of: [first], timeout: 10)
+        await fulfillment(of: [first], timeout: failureBound)
         for sequence in 2 ... 4 {
             wire(stringCount: 1, epoch: 2).withUnsafeBytes {
                 outbox.publish(name: "widget", generation: 1, key: key, sequence: sequence, output: $0)
             }
             outbox.request(name: "widget", generation: 1, requests: [.init(bar: key.bar, text: "later")])
         }
-        await fulfillment(of: [second], timeout: 10)
+        await fulfillment(of: [second], timeout: failureBound)
         XCTAssertEqual(sink.batches.count, 2)
         let retained = try XCTUnwrap(sink.batches[0]["widget"])
         let current = try XCTUnwrap(sink.batches[1]["widget"])
@@ -128,7 +128,7 @@ final class ShellWidgetOutboxTests: XCTestCase {
         wire(stringCount: 1, epoch: 2).withUnsafeBytes {
             outbox.publish(name: "widget", generation: 1, key: secondKey, sequence: 2, output: $0)
         }
-        await fulfillment(of: [delivered], timeout: 10)
+        await fulfillment(of: [delivered], timeout: failureBound)
         XCTAssertEqual(sink.batches.count, 1)
         let delivery = try XCTUnwrap(sink.batches.first?["widget"])
         XCTAssertEqual(delivery.epoch, 2)
@@ -383,7 +383,7 @@ final class ShellWidgetBarLifecycleTests: XCTestCase {
     func testShellPopoutKeepsAnAutoHideBarRevealed() async throws {
         executionTimeAllowance = 60
         guard let screen = NSScreen.screens.first(where: { $0.displayId == CGMainDisplayID() }) else {
-            throw XCTSkip("popouts need the main display")
+            throw MissingTestPrerequisite("popouts need the main display")
         }
         let display = Monitor(
             id: .init(displayId: CGMainDisplayID()),
@@ -438,7 +438,7 @@ final class ShellWidgetBarLifecycleTests: XCTestCase {
     func testTheShellHiddenBarDrawerJoinsAndFollowsTheBarPanel() async throws {
         executionTimeAllowance = 60
         guard let screen = NSScreen.screens.first(where: { $0.displayId == CGMainDisplayID() }) else {
-            throw XCTSkip("drawers need the main display")
+            throw MissingTestPrerequisite("drawers need the main display")
         }
         let display = Monitor(
             id: .init(displayId: CGMainDisplayID()),
@@ -521,7 +521,7 @@ final class ShellWidgetBarLifecycleTests: XCTestCase {
 
     func testMenuAcquisitionKeepsDrawerPlacementUntilCloseAndEndsWhenItsBarDisappears() async throws {
         guard let screen = NSScreen.screens.first(where: { $0.displayId == CGMainDisplayID() }) else {
-            throw XCTSkip("drawers need the main display")
+            throw MissingTestPrerequisite("drawers need the main display")
         }
         let display = Monitor(
             id: .init(displayId: CGMainDisplayID()),
@@ -587,7 +587,7 @@ final class ShellWidgetBarLifecycleTests: XCTestCase {
                 },
                 onOpen: { _ in XCTFail("Closed acquisition must not publish") }
             )
-            await fulfillment(of: [started], timeout: 5)
+            await fulfillment(of: [started], timeout: failureBound)
             let screenChangeHandled = expectation(description: "screen change handled")
             let ordinaryPanel = PanelDismissalMonitor()
             ordinaryPanel.start(
@@ -596,7 +596,7 @@ final class ShellWidgetBarLifecycleTests: XCTestCase {
             )
             PanelDismissalMonitor.screenFrames = { besideAnother }
             NotificationCenter.default.post(name: NSApplication.didChangeScreenParametersNotification, object: nil)
-            await fulfillment(of: [screenChangeHandled], timeout: 5)
+            await fulfillment(of: [screenChangeHandled], timeout: failureBound)
             ordinaryPanel.stop()
             let changed = Monitor(
                 id: display.id, displayId: display.displayId,
@@ -635,14 +635,14 @@ final class ShellWidgetBarLifecycleTests: XCTestCase {
             XCTAssertNil(session.bundleID)
             XCTAssertEqual(releases, 1)
             ready.continuation.finish()
-            await fulfillment(of: [returned], timeout: 5)
+            await fulfillment(of: [returned], timeout: failureBound)
         }
     }
 
     func testTheHiddenBarDrawerOpensOnTheFirstPressWhenNoBarIsShown() async throws {
         executionTimeAllowance = 60
         guard let screen = NSScreen.screens.first(where: { $0.displayId == CGMainDisplayID() }) else {
-            throw XCTSkip("drawers need the main display")
+            throw MissingTestPrerequisite("drawers need the main display")
         }
         let main = Monitor.ID(displayId: CGMainDisplayID())
         let shell = controller.settings.settingsFileURL.deletingLastPathComponent().appendingPathComponent("shell")
@@ -702,12 +702,12 @@ final class ShellWidgetBarLifecycleTests: XCTestCase {
         executionTimeAllowance = 60
         let monitors = controller.workspaceManager.monitors
         guard let main = monitors.first(where: { $0.displayId == CGMainDisplayID() }) else {
-            throw XCTSkip("drawers need the main display")
+            throw MissingTestPrerequisite("drawers need the main display")
         }
         let point = CGPoint(x: main.frame.maxX - 0.5, y: main.frame.midY)
         let edge = ShellDrawerConfig(id: "probe", edge: .right, widgets: [], hover: true)
         guard ShellEdgeHover.touches(point, edge, main.frame, monitors.map(\.frame)) else {
-            throw XCTSkip("the main display's right edge adjoins another display")
+            throw MissingTestPrerequisite("the main display's right edge adjoins another display")
         }
         let shell = controller.settings.settingsFileURL.deletingLastPathComponent().appendingPathComponent("shell")
         let widget = shell.appendingPathComponent("widgets/test", isDirectory: true)
@@ -740,7 +740,7 @@ final class ShellWidgetBarLifecycleTests: XCTestCase {
         executionTimeAllowance = 60
         let monitors = controller.workspaceManager.monitors
         guard let main = monitors.first(where: { $0.displayId == CGMainDisplayID() }) else {
-            throw XCTSkip("drawers need the main display")
+            throw MissingTestPrerequisite("drawers need the main display")
         }
         let shell = controller.settings.settingsFileURL.deletingLastPathComponent().appendingPathComponent("shell")
         let widget = shell.appendingPathComponent("widgets/test", isDirectory: true)
@@ -786,7 +786,7 @@ final class ShellWidgetBarLifecycleTests: XCTestCase {
     func testSystemStatsTogglesTheConfiguredWidgetWhereItIsShown() async throws {
         executionTimeAllowance = 60
         guard let screen = NSScreen.screens.first(where: { $0.displayId == CGMainDisplayID() }) else {
-            throw XCTSkip("popouts need the main display")
+            throw MissingTestPrerequisite("popouts need the main display")
         }
         let display = Monitor(
             id: .init(displayId: CGMainDisplayID()),
@@ -1169,7 +1169,7 @@ final class ShellWidgetClickTests: XCTestCase {
     func testFinishedNotificationBatchSurvivesHostPopoutAndDrawerReopening() async throws {
         executionTimeAllowance = 60
         guard let screen = NSScreen.screens.first(where: { $0.displayId == CGMainDisplayID() }) else {
-            throw XCTSkip("notification popouts and drawers need the main display")
+            throw MissingTestPrerequisite("notification popouts and drawers need the main display")
         }
         let main = Monitor.ID(displayId: try XCTUnwrap(screen.displayId))
         let id = UUID()
@@ -1231,7 +1231,7 @@ final class ShellWidgetClickTests: XCTestCase {
         XCTAssertTrue(notifications.perform(.dismissAll))
         let actionTask = try XCTUnwrap(notifications.actionTask)
         await actionTask.value
-        await fulfillment(of: [batchEntered], timeout: 10)
+        await fulfillment(of: [batchEntered], timeout: failureBound)
         await notifications.task?.value
         let finished = try XCTUnwrap(notifications.current.dismissAll)
         XCTAssertEqual(finished.fields?["state"]?.string, "completed")
@@ -1555,9 +1555,8 @@ final class ShellWidgetClickTests: XCTestCase {
 
     func testMaterialsDrawABlurredBackdropUnderTheirTint() async throws {
         executionTimeAllowance = 60
-        guard !NSWorkspace.shared.accessibilityDisplayShouldReduceTransparency else {
-            throw XCTSkip("Reduce Transparency replaces materials with solid fills")
-        }
+        ShellWidgetSurface.reducesTransparencyOverride = false
+        defer { ShellWidgetSurface.reducesTransparencyOverride = nil }
         let harness = try harness(
             "function render(ctx) return ui.box{ w = 20, h = 10, material = \"regular\", fill = \"#FF000080\" } end"
         )
@@ -1574,6 +1573,23 @@ final class ShellWidgetClickTests: XCTestCase {
         XCTAssertEqual(backdrop.filters?.count, 2)
         XCTAssertEqual(backdrop.bounds.size, CGSize(width: 20, height: 10))
         XCTAssertEqual(tint.backgroundColor?.components?.first, 1)
+    }
+
+    func testReducedTransparencyPaintsMaterialsAsSolidFills() async throws {
+        executionTimeAllowance = 60
+        ShellWidgetSurface.reducesTransparencyOverride = true
+        defer { ShellWidgetSurface.reducesTransparencyOverride = nil }
+        let harness = try harness(
+            "function render(ctx) return ui.box{ w = 20, h = 10, material = \"regular\", fill = \"#FF000080\" } end"
+        )
+        defer { harness.close() }
+        var layoutChanges = harness.layoutChanges.makeAsyncIterator()
+        try await layoutChanges.change()
+        let surface = try harness.barSurface()
+        ShellLayerScene.engineQueue.sync {}
+        let pill = try XCTUnwrap(surface.view.layer?.sublayers?.first?.sublayers?.first)
+        XCTAssertNotNil(pill.backgroundColor)
+        XCTAssertNil(pill.sublayers?.first { $0.zPosition == -2 })
     }
 
     func testEditingAHelperModuleReloadsTheWidget() async throws {
@@ -1640,7 +1656,7 @@ final class ShellWidgetClickTests: XCTestCase {
             completed.fulfill()
             return true
         }
-        await fulfillment(of: [completed], timeout: 10)
+        await fulfillment(of: [completed], timeout: failureBound)
         waiter.cancel()
         guard await waiter.value else { throw LayoutChangeMissing() }
     }
@@ -1831,7 +1847,7 @@ final class ShellWidgetClickTests: XCTestCase {
 
     func testPopoutFlagRunsTheHandlerBeforeOpening() async throws {
         executionTimeAllowance = 60
-        guard let screen = NSScreen.screens.first else { throw XCTSkip("popouts need a screen") }
+        guard let screen = NSScreen.screens.first else { throw MissingTestPrerequisite("popouts need a screen") }
         let harness = try harness("""
         function render(ctx)
             return ui.row{
@@ -1864,7 +1880,7 @@ final class ShellWidgetClickTests: XCTestCase {
 
     func testPopoutHandlerRunsWhenBarDataChangesJustBeforeTheClick() async throws {
         executionTimeAllowance = 60
-        guard let screen = NSScreen.screens.first else { throw XCTSkip("popouts need a screen") }
+        guard let screen = NSScreen.screens.first else { throw MissingTestPrerequisite("popouts need a screen") }
         let harness = try harness("""
         function render(ctx)
             return ui.row{
@@ -2255,7 +2271,7 @@ final class ShellWidgetClickTests: XCTestCase {
 
     func testShaderCompileFailureShowsABadgeUntilTheShaderFileIsSaved() async throws {
         executionTimeAllowance = 60
-        guard ShellShaderGPU.device != nil else { throw XCTSkip("Metal is not available") }
+        guard ShellShaderGPU.device != nil else { throw MissingTestPrerequisite("Metal is not available") }
         let harness = try harness("""
         function render(ctx)
             return ui.shader{ source = "glow.metal", w = 10, h = 10 }
@@ -2830,7 +2846,7 @@ final class ShellWidgetClickTests: XCTestCase {
 
     func testShiftClicksMoveTheFocusedWindowAndModifiedClicksSkipThePopout() async throws {
         executionTimeAllowance = 60
-        guard let screen = NSScreen.screens.first else { throw XCTSkip("popouts need a screen") }
+        guard let screen = NSScreen.screens.first else { throw MissingTestPrerequisite("popouts need a screen") }
         let harness = try harness("""
         function render(ctx)
             return ui.row{
@@ -2903,7 +2919,7 @@ final class ShellWidgetClickTests: XCTestCase {
     func testHiddenBarItemsReachWidgetsAndActivationPreservesTheIconAnchor() async throws {
         executionTimeAllowance = 60
         guard NSScreen.screens.contains(where: { $0.displayId == CGMainDisplayID() }) else {
-            throw XCTSkip("edge popouts need the main display")
+            throw MissingTestPrerequisite("edge popouts need the main display")
         }
         let main = Monitor.ID(displayId: CGMainDisplayID())
         let harness = try harness("""
@@ -3216,7 +3232,7 @@ final class ShellWidgetClickTests: XCTestCase {
     func testPopoutsWithAnimateMorphToTheirNewSize() async throws {
         executionTimeAllowance = 60
         guard NSScreen.screens.contains(where: { $0.displayId == CGMainDisplayID() }) else {
-            throw XCTSkip("edge popouts need the main display")
+            throw MissingTestPrerequisite("edge popouts need the main display")
         }
         let main = Monitor.ID(displayId: CGMainDisplayID())
         let harness = try harness("""
@@ -3253,7 +3269,7 @@ final class ShellWidgetClickTests: XCTestCase {
     func testPopoutsDemandTheDataTheyRead() async throws {
         executionTimeAllowance = 60
         guard NSScreen.screens.contains(where: { $0.displayId == CGMainDisplayID() }) else {
-            throw XCTSkip("edge popouts need the main display")
+            throw MissingTestPrerequisite("edge popouts need the main display")
         }
         let main = Monitor.ID(displayId: CGMainDisplayID())
         let harness = try harness("""
@@ -3386,7 +3402,7 @@ final class ShellWidgetClickTests: XCTestCase {
     func testToggleOpensAWidgetPopoutAtTheScreenEdgeWithoutABarSlot() async throws {
         executionTimeAllowance = 60
         guard let screen = NSScreen.screens.first(where: { $0.displayId == CGMainDisplayID() }) else {
-            throw XCTSkip("edge popouts need the main display")
+            throw MissingTestPrerequisite("edge popouts need the main display")
         }
         let main = Monitor.ID(displayId: CGMainDisplayID())
         let harness = try harness("""
@@ -3420,7 +3436,7 @@ final class ShellWidgetClickTests: XCTestCase {
     func testDrawersStackTheirWidgetsPopoutsAtTheScreenEdgeAsTheOnlyOpenSurface() async throws {
         executionTimeAllowance = 60
         guard let screen = NSScreen.screens.first(where: { $0.displayId == CGMainDisplayID() }) else {
-            throw XCTSkip("drawers need the main display")
+            throw MissingTestPrerequisite("drawers need the main display")
         }
         let main = Monitor.ID(displayId: CGMainDisplayID())
         let harness = try harness("""
@@ -3475,7 +3491,7 @@ final class ShellWidgetClickTests: XCTestCase {
     func testPopoutsFollowTheElementThatOpenedThem() async throws {
         executionTimeAllowance = 60
         guard let screen = NSScreen.screens.first(where: { $0.displayId == CGMainDisplayID() }) else {
-            throw XCTSkip("popouts need the main display")
+            throw MissingTestPrerequisite("popouts need the main display")
         }
         let harness = try harness("""
         function render(ctx)
@@ -3516,7 +3532,7 @@ final class ShellWidgetClickTests: XCTestCase {
     func testATallPopoutLaysItsContentOutAtThePanelSize() async throws {
         executionTimeAllowance = 60
         guard let screen = NSScreen.screens.first(where: { $0.displayId == CGMainDisplayID() }) else {
-            throw XCTSkip("popouts need the main display")
+            throw MissingTestPrerequisite("popouts need the main display")
         }
         let harness = try harness("""
         function render(ctx) return ui.box{ w = 10, h = 10, onClick = ui.popout } end
@@ -3547,7 +3563,7 @@ final class ShellWidgetClickTests: XCTestCase {
     func testAPopoutThatRendersNothingCloses() async throws {
         executionTimeAllowance = 60
         guard let screen = NSScreen.screens.first(where: { $0.displayId == CGMainDisplayID() }) else {
-            throw XCTSkip("popouts need the main display")
+            throw MissingTestPrerequisite("popouts need the main display")
         }
         let harness = try harness("""
         function render(ctx)
@@ -3738,7 +3754,7 @@ final class ShellWidgetClickTests: XCTestCase {
     func testTheIslandRootIsListedAndTogglesThroughATriggerWithItsDisplay() async throws {
         executionTimeAllowance = 60
         guard let screen = NSScreen.screens.first(where: { $0.displayId == CGMainDisplayID() }) else {
-            throw XCTSkip("island toggles need the main display")
+            throw MissingTestPrerequisite("island toggles need the main display")
         }
         let main = Monitor.ID(displayId: CGMainDisplayID())
         let harness = try harness("""
@@ -3807,7 +3823,7 @@ final class ShellWidgetClickTests: XCTestCase {
     func testToggleOpensAHeadlessPopoutOnAMonitorWithoutABar() async throws {
         executionTimeAllowance = 60
         guard NSScreen.screens.contains(where: { $0.displayId == CGMainDisplayID() }) else {
-            throw XCTSkip("edge popouts need the main display")
+            throw MissingTestPrerequisite("edge popouts need the main display")
         }
         let main = Monitor.ID(displayId: CGMainDisplayID())
         let harness = try harness("""
@@ -3903,7 +3919,7 @@ final class ShellWidgetClickTests: XCTestCase {
     func testBundledHiddenBarWrapsItemsLikeTheNativeDrawer() async throws {
         executionTimeAllowance = 60
         guard NSScreen.screens.contains(where: { $0.displayId == CGMainDisplayID() }) else {
-            throw XCTSkip("popouts need the main display")
+            throw MissingTestPrerequisite("popouts need the main display")
         }
         let main = Monitor.ID(displayId: CGMainDisplayID())
         let source = try String(
@@ -3978,7 +3994,7 @@ final class ShellWidgetClickTests: XCTestCase {
     func testPopoutRootsChooseThePanelChrome() async throws {
         executionTimeAllowance = 60
         guard NSScreen.screens.contains(where: { $0.displayId == CGMainDisplayID() }) else {
-            throw XCTSkip("popouts need the main display")
+            throw MissingTestPrerequisite("popouts need the main display")
         }
         let main = Monitor.ID(displayId: CGMainDisplayID())
         let harness = try harness("""
@@ -4059,7 +4075,7 @@ final class ShellWidgetClickTests: XCTestCase {
         )
 
         guard let main = NSScreen.screens.first(where: { $0.displayId == CGMainDisplayID() }) else {
-            throw XCTSkip("popouts need the main display")
+            throw MissingTestPrerequisite("popouts need the main display")
         }
         let monitor = Monitor.ID(displayId: CGMainDisplayID())
         let visible = main.visibleFrame
@@ -4095,7 +4111,7 @@ final class ShellWidgetClickTests: XCTestCase {
     func testDrawerPopoutsJoinTheBarFollowItAndUnjoinOnClose() async throws {
         executionTimeAllowance = 60
         guard let screen = NSScreen.screens.first(where: { $0.displayId == CGMainDisplayID() }) else {
-            throw XCTSkip("drawers need the main display")
+            throw MissingTestPrerequisite("drawers need the main display")
         }
         let main = Monitor.ID(displayId: CGMainDisplayID())
         let harness = try harness("""
@@ -4168,7 +4184,7 @@ final class ShellWidgetClickTests: XCTestCase {
     func testDrawerKeysMoveTheFocusRingAndActivateTheFocusedItem() async throws {
         executionTimeAllowance = 60
         guard let screen = NSScreen.screens.first(where: { $0.displayId == CGMainDisplayID() }) else {
-            throw XCTSkip("drawers need the main display")
+            throw MissingTestPrerequisite("drawers need the main display")
         }
         let main = Monitor.ID(displayId: CGMainDisplayID())
         let harness = try harness("""
@@ -4252,7 +4268,7 @@ final class ShellWidgetClickTests: XCTestCase {
 
     func testADrawerReopenedWhileTheLastOneClosesStaysRegistered() async throws {
         guard let screen = NSScreen.screens.first(where: { $0.displayId == CGMainDisplayID() }) else {
-            throw XCTSkip("drawers need the main display")
+            throw MissingTestPrerequisite("drawers need the main display")
         }
         let placement = HiddenBarPanelPlacement(
             attachment: PopupAttachment(anchor: CGPoint(x: screen.visibleFrame.midX, y: screen.visibleFrame.maxY)),
@@ -4271,7 +4287,7 @@ final class ShellWidgetClickTests: XCTestCase {
             predicate: NSPredicate { _, _ in !closing.panel.isVisible },
             object: nil
         )
-        await fulfillment(of: [hidden], timeout: 10)
+        await fulfillment(of: [hidden], timeout: failureBound)
         XCTAssertTrue(reopened.panel.isVisible)
         XCTAssertTrue(OwnedWindowRegistry.shared.contains(window: reopened.panel))
         XCTAssertFalse(OwnedWindowRegistry.shared.contains(window: closing.panel))
@@ -4279,7 +4295,7 @@ final class ShellWidgetClickTests: XCTestCase {
 
     func testAnAnimatedPopoutStaysAliveUntilItsCloseFinishes() async throws {
         executionTimeAllowance = 60
-        guard !NSScreen.screens.isEmpty else { throw XCTSkip("popouts need a screen") }
+        guard !NSScreen.screens.isEmpty else { throw MissingTestPrerequisite("popouts need a screen") }
         let harness = try harness("""
         function render(ctx)
             return ui.row{
@@ -4340,7 +4356,7 @@ final class ShellWidgetClickTests: XCTestCase {
 
     func testABridgedPopoutCoversItsBarItemButLetsItsClicksThrough() async throws {
         executionTimeAllowance = 60
-        guard !NSScreen.screens.isEmpty else { throw XCTSkip("popouts need a screen") }
+        guard !NSScreen.screens.isEmpty else { throw MissingTestPrerequisite("popouts need a screen") }
         let harness = try harness("""
         function render(ctx)
             return ui.row{
@@ -4386,7 +4402,7 @@ final class ShellWidgetClickTests: XCTestCase {
 
     func testAnAttachedPopoutMeetsTheBarEdge() async throws {
         executionTimeAllowance = 60
-        guard !NSScreen.screens.isEmpty else { throw XCTSkip("popouts need a screen") }
+        guard !NSScreen.screens.isEmpty else { throw MissingTestPrerequisite("popouts need a screen") }
         let harness = try harness("""
         function render(ctx)
             return ui.row{
@@ -4424,7 +4440,7 @@ final class ShellWidgetClickTests: XCTestCase {
 
     func testPopoutOpensFromBarAndClosesAfterCommand() async throws {
         executionTimeAllowance = 60
-        guard !NSScreen.screens.isEmpty else { throw XCTSkip("popouts need a screen") }
+        guard !NSScreen.screens.isEmpty else { throw MissingTestPrerequisite("popouts need a screen") }
         let harness = try harness("""
         function render(ctx)
             return ui.row{
@@ -4478,7 +4494,7 @@ final class ShellWidgetClickTests: XCTestCase {
 extension ShellWidgetClickTests {
     func testAPopoutsOwnOpenAndCloseSecondsRunExactlyEvenWithAnimationsOff() async throws {
         executionTimeAllowance = 60
-        guard let screen = NSScreen.screens.first else { throw XCTSkip("popouts need a screen") }
+        guard let screen = NSScreen.screens.first else { throw MissingTestPrerequisite("popouts need a screen") }
         let harness = try harness("""
         function render(ctx)
             return ui.row{
@@ -4541,7 +4557,7 @@ extension ShellWidgetClickTests {
     func testEdgeDrawerSectionsOpenAndCloseOnTheirWidgetsSeconds() async throws {
         executionTimeAllowance = 60
         guard NSScreen.screens.contains(where: { $0.displayId == CGMainDisplayID() }) else {
-            throw XCTSkip("drawers need the main display")
+            throw MissingTestPrerequisite("drawers need the main display")
         }
         let main = Monitor.ID(displayId: CGMainDisplayID())
         let harness = try harness("""
@@ -4586,7 +4602,7 @@ extension ShellWidgetClickTests {
     func testHiddenBarStyleDrawerPopoutsKeepTheirSurfaceUntilTheirOwnCloseEnds() async throws {
         executionTimeAllowance = 60
         guard let screen = NSScreen.screens.first(where: { $0.displayId == CGMainDisplayID() }) else {
-            throw XCTSkip("drawers need the main display")
+            throw MissingTestPrerequisite("drawers need the main display")
         }
         let main = Monitor.ID(displayId: CGMainDisplayID())
         let harness = try harness("""

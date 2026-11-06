@@ -62,7 +62,7 @@ final class AppAXContextIdentityTests: XCTestCase {
             XCTAssertEqual(applicationPID, pid)
             workerObserved.fulfill()
         }
-        await fulfillment(of: [workerObserved], timeout: 2)
+        await fulfillment(of: [workerObserved], timeout: failureBound)
         XCTAssertEqual(workerPID.withLock { $0 }, pid)
 
         let window = AXWindowRef(element: AXUIElementCreateApplication(pid), windowId: 999_701)
@@ -80,7 +80,7 @@ final class AppAXContextIdentityTests: XCTestCase {
                 frame: CGRect(x: 10, y: 20, width: 640, height: 480)
             )
         ])
-        await fulfillment(of: [completed], timeout: 2)
+        await fulfillment(of: [completed], timeout: failureBound)
     }
 
     func testInvalidDiscoveryPIDCannotCreateContext() async throws {

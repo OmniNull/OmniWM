@@ -82,7 +82,7 @@ extension ShellVitreusFrameTests {
         let observation = output.observe(\.contents, options: [.initial, .new]) { layer, _ in
             if layer.contents != nil { published.fulfill() }
         }
-        await fulfillment(of: [published], timeout: 5)
+        await fulfillment(of: [published], timeout: failureBound)
         withExtendedLifetime(observation) {}
     }
 

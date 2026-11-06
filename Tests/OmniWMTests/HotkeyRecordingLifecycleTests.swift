@@ -28,7 +28,7 @@ final class HotkeyRecordingLifecycleTests: XCTestCase {
         })
         window.contentView = host
         host.layoutSubtreeIfNeeded()
-        await fulfillment(of: [focused], timeout: 3)
+        await fulfillment(of: [focused], timeout: failureBound)
 
         let recorder = try XCTUnwrap(window.firstResponder as? KeyRecorderNSView)
         let scroll = try XCTUnwrap(recorder.enclosingScrollView)
@@ -40,7 +40,7 @@ final class HotkeyRecordingLifecycleTests: XCTestCase {
         ))
         scroll.reflectScrolledClipView(scroll.contentView)
         host.layoutSubtreeIfNeeded()
-        await fulfillment(of: [cancelled], timeout: 3)
+        await fulfillment(of: [cancelled], timeout: failureBound)
 
         XCTAssertNil(state.target)
         XCTAssertFalse(window.firstResponder === recorder)

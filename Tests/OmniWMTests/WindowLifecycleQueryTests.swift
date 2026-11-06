@@ -108,7 +108,7 @@ final class WindowLifecycleQueryTests: XCTestCase {
         }
         handler.handleCGSEvent(.created(windowId: windowId, spaceId: 0))
         let task = try XCTUnwrap(handler.lifecycleQueries.task)
-        await fulfillment(of: [started], timeout: 2)
+        await fulfillment(of: [started], timeout: failureBound)
         handler.handleCGSEvent(.destroyed(windowId: windowId, spaceId: 0))
         gate.resume()
         await task.value
@@ -168,7 +168,7 @@ final class WindowLifecycleQueryTests: XCTestCase {
             }
             handler.handleCGSEvent(.created(windowId: windowId, spaceId: 0))
             await handler.lifecycleQueries.task?.value
-            await fulfillment(of: [lookupStarted], timeout: 2)
+            await fulfillment(of: [lookupStarted], timeout: failureBound)
             let lookupTask = try XCTUnwrap(handler.admissionRetryStateByWindowId[windowId]?.task)
             let generation = try XCTUnwrap(handler.admissionRetryStateByWindowId[windowId]?.generation)
             if destructionIsActive {
@@ -177,7 +177,7 @@ final class WindowLifecycleQueryTests: XCTestCase {
                 handler.handleCGSEvent(.orderChanged(windowId: windowId + 1))
             }
             let lifecycleTask = try XCTUnwrap(handler.lifecycleQueries.task)
-            await fulfillment(of: [queryStarted], timeout: 2)
+            await fulfillment(of: [queryStarted], timeout: failureBound)
             if !destructionIsActive {
                 handler.handleCGSEvent(.destroyed(windowId: windowId, spaceId: 0))
             }
@@ -211,7 +211,7 @@ final class WindowLifecycleQueryTests: XCTestCase {
         }
         handler.handleCGSEvent(.created(windowId: windowId, spaceId: 0))
         let task = try XCTUnwrap(handler.lifecycleQueries.task)
-        await fulfillment(of: [started], timeout: 2)
+        await fulfillment(of: [started], timeout: failureBound)
         handler.handleCGSEvent(.destroyed(windowId: windowId, spaceId: 0))
         handler.handleCGSEvent(.created(windowId: windowId, spaceId: 0))
         handler.handleCGSEvent(.destroyed(windowId: windowId, spaceId: 0))
@@ -248,10 +248,10 @@ final class WindowLifecycleQueryTests: XCTestCase {
         }
         handler.handleCGSEvent(.created(windowId: windowId, spaceId: 0))
         let task = try XCTUnwrap(handler.lifecycleQueries.task)
-        await fulfillment(of: [createStarted], timeout: 2)
+        await fulfillment(of: [createStarted], timeout: failureBound)
         handler.handleCGSEvent(.destroyed(windowId: windowId, spaceId: 0))
         createGate.resume()
-        await fulfillment(of: [destroyStarted], timeout: 2)
+        await fulfillment(of: [destroyStarted], timeout: failureBound)
         let predecessor = try XCTUnwrap(handler.admissionRetryStateByWindowId[windowId]?.generation)
         handler.cancelCreatedWindowRetry(windowId: windowId)
         XCTAssertTrue(handler.scheduleAdmissionRetry(
@@ -293,7 +293,7 @@ final class WindowLifecycleQueryTests: XCTestCase {
         handler.handleCGSEvent(.created(windowId: windowId, spaceId: 0))
         let task = try XCTUnwrap(handler.lifecycleQueries.task)
         XCTAssertEqual(queries, 0)
-        await fulfillment(of: [started], timeout: 2)
+        await fulfillment(of: [started], timeout: failureBound)
         for _ in 0 ..< 20 { handler.handleCGSEvent(.created(windowId: windowId, spaceId: 0)) }
         XCTAssertTrue(handler.lifecycleQueries.pending.isEmpty)
         handler.handleCGSEvent(.closed(windowId: windowId))
@@ -342,7 +342,7 @@ final class WindowLifecycleQueryTests: XCTestCase {
         }
         handler.handleCGSEvent(.orderChanged(windowId: 490_999))
         let task = try XCTUnwrap(handler.lifecycleQueries.task)
-        await fulfillment(of: [started], timeout: 2)
+        await fulfillment(of: [started], timeout: failureBound)
         handler.handleCGSEvent(.closed(windowId: UInt32(token.windowId)))
         _ = controller.workspaceManager.removeWindow(pid: token.pid, windowId: token.windowId)
         _ = WindowAdmissionTestSupport.track(token, in: workspace, controller: controller)
@@ -366,7 +366,7 @@ final class WindowLifecycleQueryTests: XCTestCase {
         }
         handler.handleCGSEvent(.closed(windowId: UInt32(token.windowId)))
         let task = try XCTUnwrap(handler.lifecycleQueries.task)
-        await fulfillment(of: [started], timeout: 2)
+        await fulfillment(of: [started], timeout: failureBound)
         _ = controller.workspaceManager.removeWindow(pid: token.pid, windowId: token.windowId)
         let replacement = WindowToken(pid: token.pid + 1, windowId: token.windowId)
         _ = WindowAdmissionTestSupport.track(replacement, in: workspace, controller: controller)
@@ -408,7 +408,7 @@ final class WindowLifecycleQueryTests: XCTestCase {
         }
         handler.handleCGSEvent(.closed(windowId: windowId))
         let task = try XCTUnwrap(handler.lifecycleQueries.task)
-        await fulfillment(of: [started], timeout: 2)
+        await fulfillment(of: [started], timeout: failureBound)
         _ = controller.workspaceManager.focusWorkspace(named: "2")
         handler.handleCGSEvent(.created(windowId: windowId, spaceId: 0))
         let context = try XCTUnwrap(handler.pendingCreatePlacementContext(for: Int(windowId)))
@@ -416,7 +416,7 @@ final class WindowLifecycleQueryTests: XCTestCase {
         _ = controller.workspaceManager.focusWorkspace(named: "1")
         gate.resume()
         await task.value
-        await fulfillment(of: [lookup], timeout: 2)
+        await fulfillment(of: [lookup], timeout: failureBound)
         let lookupTask = try XCTUnwrap(handler.admissionRetryStateByWindowId[windowId]?.task)
         lookupGate.resume()
         await lookupTask.value
@@ -438,7 +438,7 @@ final class WindowLifecycleQueryTests: XCTestCase {
         }
         handler.handleCGSEvent(.closed(windowId: UInt32(token.windowId)))
         let task = try XCTUnwrap(handler.lifecycleQueries.task)
-        await fulfillment(of: [started], timeout: 2)
+        await fulfillment(of: [started], timeout: failureBound)
         handler.handleCGSEvent(.created(windowId: 490_999, spaceId: 0))
         handler.cleanup()
         gate.resume()
@@ -470,7 +470,7 @@ final class WindowLifecycleQueryTests: XCTestCase {
         }
         handler.handleCGSEvent(.orderChanged(windowId: UInt32(token.windowId)))
         let task = try XCTUnwrap(handler.lifecycleQueries.task)
-        await fulfillment(of: [started], timeout: 2)
+        await fulfillment(of: [started], timeout: failureBound)
         for _ in 0 ..< 100 { handler.handleCGSEvent(.orderChanged(windowId: UInt32(token.windowId))) }
         XCTAssertEqual(handler.lifecycleQueries.pending.count, 1)
         gate.resume(windowInfo)
@@ -507,7 +507,7 @@ final class WindowLifecycleQueryTests: XCTestCase {
         }
         handler.handleCGSEvent(.destroyed(windowId: UInt32(token.windowId), spaceId: 0))
         let task = try XCTUnwrap(handler.lifecycleQueries.task)
-        await fulfillment(of: [started], timeout: 2)
+        await fulfillment(of: [started], timeout: failureBound)
         controller.workspaceManager.setHiddenState(nil, for: token)
         gate.resume()
         await task.value
@@ -578,7 +578,7 @@ final class WindowLifecycleQueryTests: XCTestCase {
                 axRef, on: worker, setTimeout: setTimeout, readRole: readRole
             )
         }
-        await fulfillment(of: [firstReading], timeout: 2)
+        await fulfillment(of: [firstReading], timeout: failureBound)
         first.cancel()
         let firstResult = await first.value
         let second = Task {
@@ -587,7 +587,7 @@ final class WindowLifecycleQueryTests: XCTestCase {
                 axRef, on: worker, setTimeout: setTimeout, readRole: readRole
             )
         }
-        await fulfillment(of: [secondQueued], timeout: 2)
+        await fulfillment(of: [secondQueued], timeout: failureBound)
         releaseFirstRead.signal()
         let secondResult = await second.value
         XCTAssertFalse(firstResult)
@@ -608,7 +608,7 @@ final class WindowLifecycleQueryTests: XCTestCase {
             started.fulfill()
             _ = releaseWorker.wait(timeout: .now() + 5)
         }
-        await fulfillment(of: [started], timeout: 2)
+        await fulfillment(of: [started], timeout: failureBound)
         let timeouts = LifecycleProbeTimeouts()
         let result = await AXEventHandler.LifecycleQueries.probeAXElement(
             WindowAdmissionTestSupport.axRef(for: token), on: worker,
@@ -625,7 +625,7 @@ final class WindowLifecycleQueryTests: XCTestCase {
         releaseWorker.signal()
         let drained = expectation(description: "AX worker drained")
         worker.runInLoopAsync { _ in drained.fulfill() }
-        await fulfillment(of: [drained], timeout: 2)
+        await fulfillment(of: [drained], timeout: failureBound)
         XCTAssertTrue(timeouts.observed.isEmpty)
     }
 
@@ -653,9 +653,9 @@ final class WindowLifecycleQueryTests: XCTestCase {
         handler.lifecycleQueries.probe = stall.probe
         handler.handleCGSEvent(.destroyed(windowId: UInt32(token.windowId), spaceId: 0))
         let task = try XCTUnwrap(handler.lifecycleQueries.task)
-        await fulfillment(of: [stall.reading], timeout: 2)
+        await fulfillment(of: [stall.reading], timeout: failureBound)
         handler.handleCGSEvent(.closed(windowId: UInt32(other.windowId)))
-        await fulfillment(of: [otherQueried], timeout: 2)
+        await fulfillment(of: [otherQueried], timeout: failureBound)
         XCTAssertNotNil(controller.workspaceManager.entry(for: token))
         await stall.release()
         await task.value
@@ -680,13 +680,13 @@ final class WindowLifecycleQueryTests: XCTestCase {
         handler.lifecycleQueries.probe = stall.probe
         handler.handleCGSEvent(.destroyed(windowId: UInt32(token.windowId), spaceId: 0))
         let task = try XCTUnwrap(handler.lifecycleQueries.task)
-        await fulfillment(of: [stall.reading], timeout: 2)
+        await fulfillment(of: [stall.reading], timeout: failureBound)
         handler.cleanup()
         let completion = Task {
             await task.value
             finished.fulfill()
         }
-        await fulfillment(of: [finished], timeout: 2)
+        await fulfillment(of: [finished], timeout: failureBound)
         await stall.release()
         await completion.value
         XCTAssertNotNil(controller.workspaceManager.entry(for: token))
@@ -707,7 +707,7 @@ final class WindowLifecycleQueryTests: XCTestCase {
         handler.lifecycleQueries.probe = stall.probe
         handler.handleCGSEvent(.destroyed(windowId: UInt32(token.windowId), spaceId: 0))
         let task = try XCTUnwrap(handler.lifecycleQueries.task)
-        await fulfillment(of: [stall.reading], timeout: 2)
+        await fulfillment(of: [stall.reading], timeout: failureBound)
         handler.cleanup()
         await stall.release()
         await task.value

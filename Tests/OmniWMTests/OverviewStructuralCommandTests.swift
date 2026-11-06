@@ -146,7 +146,7 @@ final class OverviewStructuralCommandTests: XCTestCase {
         fixture.controller.windowActionHandler.dismissOverview()
 
         XCTAssertFalse(fixture.controller.isOverviewOpen())
-        await fulfillment(of: [focused], timeout: 1)
+        await fulfillment(of: [focused], timeout: failureBound)
         XCTAssertEqual(fixture.focusRecorder.activatedPIDs, [])
         XCTAssertEqual(fixture.focusRecorder.focusedTokens, [fullscreen.id])
         XCTAssertEqual(fixture.focusRecorder.raisedCount, 1)

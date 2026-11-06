@@ -238,7 +238,7 @@ final class ShellHTTPPackageTests: XCTestCase {
         package.services.attachWake { Task { await package.receive(.services) } }
         source.components = component
         await package.receive(.components(source))
-        await fulfillment(of: [commands], timeout: 10)
+        await fulfillment(of: [commands], timeout: failureBound)
         let accepted = await package.configuredComponents["child"]
         XCTAssertEqual(accepted?.capabilities?.network, ["user." + suffix])
         XCTAssertEqual(package.services.activeCount, 0)
@@ -289,7 +289,7 @@ final class ShellHTTPPackageTests: XCTestCase {
         """, rootHosts: [host.uppercased() + "."])
         let failure = await package.load(source)
         XCTAssertNil(failure)
-        await fulfillment(of: [callbacks], timeout: 10)
+        await fulfillment(of: [callbacks], timeout: failureBound)
         XCTAssertEqual(Set(sink.commands), ["switch-workspace 2", "switch-workspace 3", "switch-workspace 4"])
         XCTAssertEqual(starts.withLock { $0 }, 1)
         XCTAssertEqual(package.services.activeCount, 0)
@@ -336,7 +336,7 @@ final class ShellHTTPPackageTests: XCTestCase {
             visible.fulfill()
         } }
         await package.receive(.bars([bar: ShellBarData()]))
-        await fulfillment(of: [visible], timeout: 10)
+        await fulfillment(of: [visible], timeout: failureBound)
         let invalid = await package.invalidateHTTPConfiguration(source)
         XCTAssertNotNil(invalid)
         let retained = await package.configuredComponents["child"]
@@ -346,7 +346,7 @@ final class ShellHTTPPackageTests: XCTestCase {
             denied.fulfill()
         } }
         await package.receive(.invoke(bar, .bar, action: sink.action, sequence: sink.sequence, event: ShellEvent()))
-        await fulfillment(of: [denied], timeout: 10)
+        await fulfillment(of: [denied], timeout: failureBound)
         let invalidState = await package.httpState()
         XCTAssertFalse(invalidState.authorized)
         XCTAssertEqual(invalidState.active, 0)
@@ -354,10 +354,10 @@ final class ShellHTTPPackageTests: XCTestCase {
         let recovered = await package.httpState()
         XCTAssertTrue(recovered.authorized)
         await package.receive(.invoke(bar, .bar, action: sink.action, sequence: sink.sequence, event: ShellEvent()))
-        await fulfillment(of: [started], timeout: 10)
+        await fulfillment(of: [started], timeout: failureBound)
         source.components = []
         await package.receive(.components(source))
-        await fulfillment(of: [stopped], timeout: 10)
+        await fulfillment(of: [stopped], timeout: failureBound)
         XCTAssertEqual(package.services.activeCount, 0)
         await package.receive(.services)
         let removed = await package.httpState()
@@ -409,7 +409,7 @@ final class ShellHTTPPackageTests: XCTestCase {
         end, views={compact=function() return ui.box{w=10,h=10} end} }
         """, hosts: ["allowed." + suffix, "pending." + suffix], userHosts: ["extra." + suffix], purpose: "Build status"))
         XCTAssertNil(failure)
-        await fulfillment(of: [commands], timeout: 10)
+        await fulfillment(of: [commands], timeout: failureBound)
         XCTAssertEqual(Set(sink.commands), ["switch-workspace 5", "switch-workspace 6"])
         XCTAssertEqual(pendingStarts.withLock { $0 }, 0)
         XCTAssertEqual(sink.approvals, [ShellNetworkApproval(
@@ -462,12 +462,12 @@ final class ShellHTTPPackageTests: XCTestCase {
             rootHosts: [host]
         ))
         XCTAssertNil(failure)
-        await fulfillment(of: [started], timeout: 10)
+        await fulfillment(of: [started], timeout: failureBound)
         var denied = ShellPermissionDecisions()
         denied.setNetwork(.denied, hosts: [host], for: rootPrincipal)
         XCTAssertTrue(permissions.update(decisions: denied))
         await package.receive(.permissions)
-        await fulfillment(of: [stopped, revoked], timeout: 10)
+        await fulfillment(of: [stopped, revoked], timeout: failureBound)
         XCTAssertEqual(sink.commands, ["switch-workspace 7"])
         XCTAssertEqual(package.services.activeCount, 0)
         let state = await package.httpState()
@@ -557,7 +557,7 @@ final class ShellHTTPPackageTests: XCTestCase {
             rootHosts: ["first." + suffix, "second." + suffix]
         ))
         XCTAssertNil(failure)
-        await fulfillment(of: [callbacks], timeout: 10)
+        await fulfillment(of: [callbacks], timeout: failureBound)
         XCTAssertEqual(sink.approvals.map(\.key), [.init(principal: rootPrincipal, hosts: ["second." + suffix])])
         var granted = ShellPermissionDecisions()
         granted.setNetwork(.allowed, hosts: ["first." + suffix, "second." + suffix], for: rootPrincipal)
@@ -603,7 +603,7 @@ final class ShellHTTPPackageTests: XCTestCase {
             rootHosts: [host]
         ))
         XCTAssertNil(failure)
-        await fulfillment(of: [queued], timeout: 10)
+        await fulfillment(of: [queued], timeout: failureBound)
         XCTAssertEqual(package.services.pendingCount, 1)
         let reserved = await package.reservedServices
         XCTAssertEqual(reserved, 1)
@@ -612,7 +612,7 @@ final class ShellHTTPPackageTests: XCTestCase {
         XCTAssertTrue(permissions.update(decisions: denied))
         await package.receive(.permissions)
         await package.receive(.services)
-        await fulfillment(of: [delivered], timeout: 10)
+        await fulfillment(of: [delivered], timeout: failureBound)
         XCTAssertEqual(sink.commands, ["done network_denied nil"])
         XCTAssertEqual(package.services.activeCount, 0)
         XCTAssertEqual(package.services.pendingCount, 0)
@@ -663,7 +663,7 @@ final class ShellHTTPPackageTests: XCTestCase {
             rootHosts: hosts
         ))
         XCTAssertNil(failure)
-        await fulfillment(of: [decoded], timeout: 10)
+        await fulfillment(of: [decoded], timeout: failureBound)
         await package.awaitHTTPQueue()
         XCTAssertEqual(package.services.pendingCount, 2)
         let batch = order.withLock { $0 }
@@ -672,7 +672,7 @@ final class ShellHTTPPackageTests: XCTestCase {
         revocation.setNetwork(.denied, hosts: [batch[1]], for: rootPrincipal)
         let decisions = revocation
         await package.deliverServices(revokingAfterFirst: { _ = permissions.update(decisions: decisions) })
-        await fulfillment(of: [delivered], timeout: 10)
+        await fulfillment(of: [delivered], timeout: failureBound)
         XCTAssertEqual(sink.commands, ["\(batch[0]) nil \(batch[0])", "\(batch[1]) network_denied nil"])
         XCTAssertEqual(package.services.activeCount, 0)
         let released = await package.reservedServices
@@ -718,7 +718,7 @@ final class ShellHTTPPackageTests: XCTestCase {
         package.services.attachWake { queued.fulfill() }
         let failure = await package.load(source)
         XCTAssertNil(failure)
-        await fulfillment(of: [holdStarted, stayStarted, queued], timeout: 10)
+        await fulfillment(of: [holdStarted, stayStarted, queued], timeout: failureBound)
         let policy = ShellHTTPPolicy.declared(package.httpDeclarations, owner: "child")
         let owner = ShellServiceOwner(generation: package.services.generation, owner: 0, epoch: 1)
         let goneBody = ShellServiceID(owner: owner, request: 101)
@@ -736,9 +736,9 @@ final class ShellHTTPPackageTests: XCTestCase {
         let queuedWork = await package.queuedResourceWork
         XCTAssertEqual(queuedWork, 1)
         XCTAssertTrue(package.services.contains(keepBody))
-        await fulfillment(of: [holdStopped], timeout: 10)
+        await fulfillment(of: [holdStopped], timeout: failureBound)
         await package.receive(.services)
-        await fulfillment(of: [delivered], timeout: 10)
+        await fulfillment(of: [delivered], timeout: failureBound)
         XCTAssertEqual(Set(sink.commands), ["hold network_denied nil", "done network_denied nil"])
         XCTAssertFalse(package.services.contains(goneBody))
         await package.close()
@@ -784,11 +784,11 @@ final class ShellHTTPPackageTests: XCTestCase {
         package.services.attachWake { Task { await package.receive(.services) } }
         let failure = await package.load(source)
         XCTAssertNil(failure)
-        await fulfillment(of: [started], timeout: 10)
+        await fulfillment(of: [started], timeout: failureBound)
         try writeChild(module, hosts: [keep], in: shell)
         await package.receive(.components(try islandSource(shell)))
         release.signal()
-        await fulfillment(of: [delivered], timeout: 10)
+        await fulfillment(of: [delivered], timeout: failureBound)
         XCTAssertEqual(sink.commands, ["redirect network_denied nil"])
         XCTAssertEqual(targetStarts.withLock { $0 }, 0)
         XCTAssertEqual(package.services.activeCount, 0)
@@ -837,7 +837,7 @@ final class ShellHTTPPackageTests: XCTestCase {
         package.services.attachWake { queued.fulfill() }
         let failure = await package.load(source)
         XCTAssertNil(failure)
-        await fulfillment(of: [holdStarted, queued], timeout: 10)
+        await fulfillment(of: [holdStarted, queued], timeout: failureBound)
 
         try FileManager.default.removeItem(at: link)
         try FileManager.default.createSymbolicLink(
@@ -850,9 +850,9 @@ final class ShellHTTPPackageTests: XCTestCase {
         XCTAssertEqual(retargeted.modules.map(\.source), source.modules.map(\.source))
         await package.receive(.components(retargeted))
         await package.awaitHTTPQueue()
-        await fulfillment(of: [holdStopped], timeout: 10)
+        await fulfillment(of: [holdStopped], timeout: failureBound)
         await package.receive(.services)
-        await fulfillment(of: [delivered], timeout: 10)
+        await fulfillment(of: [delivered], timeout: failureBound)
         XCTAssertEqual(Set(sink.commands), ["hold network_not_approved nil", "done network_not_approved nil"])
         XCTAssertEqual(package.services.activeCount, 0)
         await package.close()
@@ -881,7 +881,7 @@ final class ShellHTTPPackageTests: XCTestCase {
         )
         let failure = await package.load(source)
         XCTAssertNil(failure)
-        await fulfillment(of: [started], timeout: 10)
+        await fulfillment(of: [started], timeout: failureBound)
         source.components = []
         await package.receive(.components(source))
         await package.awaitHTTPQueue()
@@ -915,7 +915,7 @@ final class ShellHTTPPackageTests: XCTestCase {
         """, hosts: [host])
         let failure = await package.load(source)
         XCTAssertNil(failure)
-        await fulfillment(of: [first], timeout: 10)
+        await fulfillment(of: [first], timeout: failureBound)
         let approval = ShellNetworkApproval(key: .init(principal: childPrincipal, hosts: [host]), purpose: nil)
         XCTAssertEqual(sink.approvals, [approval])
 
@@ -926,7 +926,7 @@ final class ShellHTTPPackageTests: XCTestCase {
             network: source.network, principal: source.principal
         )))
         await package.receive(.components(source))
-        await fulfillment(of: [second], timeout: 10)
+        await fulfillment(of: [second], timeout: failureBound)
         XCTAssertEqual(sink.approvals, [approval, approval])
         XCTAssertEqual(sink.commands, ["network_not_approved", "network_not_approved"])
         await package.close()
@@ -957,7 +957,7 @@ final class ShellHTTPPackageTests: XCTestCase {
         let source = componentSource(script, hosts: hosts)
         let failure = await package.load(source)
         XCTAssertNil(failure)
-        await fulfillment(of: [refused], timeout: 10)
+        await fulfillment(of: [refused], timeout: failureBound)
         let key = ShellNetworkApproval.Key(principal: childPrincipal, hosts: Set(hosts))
         XCTAssertEqual(sink.approvals.map(\.key), [key])
         var reported = await package.networkApprovals
@@ -1061,7 +1061,7 @@ final class ShellHTTPPackageTests: XCTestCase {
         XCTAssertTrue(holdMainActor(until: stopped))
         XCTAssertNil(state.mailbox)
         XCTAssertTrue(state.loadingPackage === package)
-        await fulfillment(of: [delivered], timeout: 10)
+        await fulfillment(of: [delivered], timeout: failureBound)
         XCTAssertEqual(commands, [try XCTUnwrap(ShellRequest(words: ["switch-workspace", "7"]))])
         XCTAssertTrue(state.package === package)
     }

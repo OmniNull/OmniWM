@@ -161,10 +161,11 @@ final class ShellHTTPService: Sendable {
         ledger: ShellServiceLedger,
         captureID: UInt64 = 0,
         protocolClasses: [AnyClass]? = nil,
+        deadlineDelay: @escaping @Sendable (Double) -> Double = { $0 },
         decodeJSON: @escaping @Sendable (Data) throws -> [UInt8] = ShellHTTPResponse.json
     ) {
         self.ledger = ledger
-        let driver = Driver(ledger: ledger, decodeJSON: decodeJSON)
+        let driver = Driver(ledger: ledger, deadlineDelay: deadlineDelay, decodeJSON: decodeJSON)
         driver.captureBegin(captureID)
         self.driver = driver
         let configuration = URLSessionConfiguration.ephemeral
@@ -250,15 +251,23 @@ final class ShellHTTPService: Sendable {
         var tasks: [Int: ShellServiceID] = [:]
         var capture = Capture()
     }
+}
 
-    private final class Driver: NSObject, URLSessionDataDelegate, Sendable {
+extension ShellHTTPService {
+    fileprivate final class Driver: NSObject, URLSessionDataDelegate, Sendable {
         let queue = DispatchSerialQueue(label: "com.barut.OmniWM.shell.http", qos: .utility)
         private let state = Mutex(DriverState())
         private let ledger: ShellServiceLedger
+        private let deadlineDelay: @Sendable (Double) -> Double
         private let decodeJSON: @Sendable (Data) throws -> [UInt8]
 
-        init(ledger: ShellServiceLedger, decodeJSON: @escaping @Sendable (Data) throws -> [UInt8]) {
+        init(
+            ledger: ShellServiceLedger,
+            deadlineDelay: @escaping @Sendable (Double) -> Double,
+            decodeJSON: @escaping @Sendable (Data) throws -> [UInt8]
+        ) {
             self.ledger = ledger
+            self.deadlineDelay = deadlineDelay
             self.decodeJSON = decodeJSON
         }
 
@@ -305,7 +314,7 @@ final class ShellHTTPService: Sendable {
                 if let failure = transfer.policy.failure(request.url) { throw failure }
                 let task = session.dataTask(with: request)
                 let deadline = DispatchSource.makeTimerSource(queue: queue)
-                deadline.schedule(deadline: .now() + transfer.request.timeout)
+                deadline.schedule(deadline: .now() + deadlineDelay(transfer.request.timeout))
                 deadline.setEventHandler { [weak self] in self?.finish(id, error: "timeout") }
                 let started = state.withLock { state in
                     guard state.transfers[id] === transfer else { return false }

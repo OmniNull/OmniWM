@@ -53,7 +53,7 @@ final class ShellIconTests: XCTestCase {
         let deps = bytes.withUnsafeBytes { $0.loadUnaligned(as: omni_wire_header.self).deps }
         XCTAssertNotEqual(deps & ShellDataKey.muted.bit, 0)
         guard let device = ShellAudio.defaultOutput(), let volume = ShellAudio.volume(of: device) else {
-            throw XCTSkip("no default output with a main volume")
+            throw MissingTestPrerequisite("no default output with a main volume")
         }
         XCTAssertTrue((0 ... 100).contains(volume))
     }

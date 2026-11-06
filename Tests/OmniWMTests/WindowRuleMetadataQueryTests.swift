@@ -49,7 +49,7 @@ final class WindowRuleMetadataQueryTests: XCTestCase {
             return [:]
         }
         let task = Task { await controller.reevaluateWindowRules(for: Set(tokens.map { .window($0) })) }
-        await fulfillment(of: [started], timeout: 2)
+        await fulfillment(of: [started], timeout: failureBound)
         XCTAssertEqual(queries, 1)
         XCTAssertNotNil(controller.workspaceManager.entry(for: tokens[0]))
         task.cancel()
@@ -75,7 +75,7 @@ final class WindowRuleMetadataQueryTests: XCTestCase {
             return [:]
         }
         let task = Task { await controller.reevaluateWindowRules(for: [.window(tokens[0])]) }
-        await fulfillment(of: [started], timeout: 2)
+        await fulfillment(of: [started], timeout: failureBound)
         XCTAssertEqual(queries, 1)
         XCTAssertNotNil(controller.workspaceManager.entry(for: tokens[0]))
         task.cancel()
@@ -121,7 +121,7 @@ final class WindowRuleMetadataQueryTests: XCTestCase {
             return [:]
         }
         let task = Task { await controller.reevaluateWindowRules(for: Set(tokens.map { .window($0) })) }
-        await fulfillment(of: [started], timeout: 2)
+        await fulfillment(of: [started], timeout: failureBound)
         manager.removeWindow(pid: tokens[0].pid, windowId: tokens[0].windowId)
         manager.addWindow(
             WindowAdmissionTestSupport.axRef(for: tokens[0]), pid: tokens[0].pid, windowId: tokens[0].windowId,

@@ -133,7 +133,7 @@ final class WorkspaceBarHoverPreviewTests: XCTestCase {
             if preview === frame { published.fulfill() }
         }
         driver.streams[0].output.offer(frame)
-        await fulfillment(of: [published], timeout: 1)
+        await fulfillment(of: [published], timeout: failureBound)
 
         controller.hoverBegan(second)
         try await driver.waitForStarts(2)

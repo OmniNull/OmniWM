@@ -978,7 +978,7 @@ final class DiagnosticsTraceRecorderTests: XCTestCase {
         let stopTask = Task { @MainActor in
             await coordinator.toggle(desiredState: .inactive, reportProvider: { "end report" })
         }
-        await fulfillment(of: [evidenceStarted], timeout: 2)
+        await fulfillment(of: [evidenceStarted], timeout: failureBound)
 
         XCTAssertEqual(coordinator.status.phase, .finalizing)
         XCTAssertFalse(recorder.isActive)

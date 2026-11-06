@@ -63,7 +63,7 @@ enum NuCompletionTestSupport {
             .map({ URL(fileURLWithPath: String($0)).appendingPathComponent("nu").path })
             .first(where: { FileManager.default.isExecutableFile(atPath: $0) })
         else {
-            throw XCTSkip("Nushell is not installed")
+            throw MissingTestPrerequisite("Nushell is not installed")
         }
         return executable
     }

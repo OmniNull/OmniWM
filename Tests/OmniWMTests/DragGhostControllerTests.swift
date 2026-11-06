@@ -98,7 +98,7 @@ final class DragGhostControllerTests: XCTestCase {
         let published = expectation(description: "shared frame published")
         capture.onPreview = { _, preview in if preview === frame { published.fulfill() } }
         driver.streams[0].output.offer(frame)
-        await fulfillment(of: [published], timeout: 1)
+        await fulfillment(of: [published], timeout: failureBound)
         capture.clear()
         try await driver.waitForStops(1)
         addTeardownBlock { withExtendedLifetime(capture) {} }

@@ -36,7 +36,7 @@ final class OverviewPreviewLiveTests: XCTestCase {
             throw XCTSkip("Live preview checks require OMNIWM_RUN_OVERVIEW_PREVIEW_LIVE_TESTS=1")
         }
         guard CGPreflightScreenCaptureAccess() else {
-            throw XCTSkip("Screen Recording permission is required")
+            throw MissingTestPrerequisite("Screen Recording permission is required")
         }
         _ = NSApplication.shared
         let screen = try XCTUnwrap(NSScreen.main)
@@ -73,7 +73,7 @@ final class OverviewPreviewLiveTests: XCTestCase {
             control.stop()
         }
         try await control.start()
-        await fulfillment(of: [firstReady], timeout: 5)
+        await fulfillment(of: [firstReady], timeout: failureBound)
         let first = try XCTUnwrap(output.take())
         XCTAssertEqual(first.contentsRect.width, 1, accuracy: 0.01)
         XCTAssertEqual(first.contentsRect.height, 0.5, accuracy: 0.01)
@@ -90,7 +90,7 @@ final class OverviewPreviewLiveTests: XCTestCase {
             quadrants.needsDisplay = true
             panel.displayIfNeeded()
             CATransaction.flush()
-            await fulfillment(of: [nextReady], timeout: 5)
+            await fulfillment(of: [nextReady], timeout: failureBound)
             let latest = try XCTUnwrap(output.take())
             XCTAssertEqual(try dominantColor(latest, x: 0.25, y: 0.25), quadrants.swapped ? .blue : .red)
             XCTAssertEqual(try dominantColor(first, x: 0.25, y: 0.25), .red)
@@ -106,7 +106,7 @@ final class OverviewPreviewLiveTests: XCTestCase {
             throw XCTSkip("Live preview checks require OMNIWM_RUN_OVERVIEW_PREVIEW_LIVE_TESTS=1")
         }
         guard CGPreflightScreenCaptureAccess() else {
-            throw XCTSkip("Screen Recording permission is required")
+            throw MissingTestPrerequisite("Screen Recording permission is required")
         }
         _ = NSApplication.shared
         let screen = try XCTUnwrap(NSScreen.main)
@@ -143,7 +143,7 @@ final class OverviewPreviewLiveTests: XCTestCase {
             frame.assertForOverFulfill = false
             capture.onPreview = { _, preview in if preview != nil { frame.fulfill() } }
             capture.reconcile(represented: [handle], visible: [request])
-            await fulfillment(of: [frame], timeout: 5)
+            await fulfillment(of: [frame], timeout: failureBound)
             capture.clear()
             let discoveries = trace.dump().split(separator: "\n").filter { $0.hasPrefix("event=previewDiscovery ") }
             XCTAssertEqual(discoveries.count, 1, "Reopening must reuse the retained window table")
@@ -183,7 +183,7 @@ final class OverviewPreviewLiveTests: XCTestCase {
                 stream.stop()
             }
             try await stream.start()
-            await fulfillment(of: [ready], timeout: 5)
+            await fulfillment(of: [ready], timeout: failureBound)
             return try XCTUnwrap(output.take())
         }
 

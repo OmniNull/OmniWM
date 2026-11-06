@@ -15,7 +15,8 @@ final class OverviewLayerCompositorLiveTests: XCTestCase {
         guard ProcessInfo.processInfo.environment["OMNIWM_RUN_OVERVIEW_PREVIEW_LIVE_TESTS"] == "1" else {
             throw XCTSkip("Live preview checks require OMNIWM_RUN_OVERVIEW_PREVIEW_LIVE_TESTS=1")
         }
-        guard CGPreflightScreenCaptureAccess() else { throw XCTSkip("Screen Recording permission is required") }
+        guard CGPreflightScreenCaptureAccess()
+        else { throw MissingTestPrerequisite("Screen Recording permission is required") }
         _ = NSApplication.shared
         let screen = try XCTUnwrap(NSScreen.main)
         let panel = NSPanel(
@@ -90,7 +91,8 @@ final class OverviewLayerCompositorLiveTests: XCTestCase {
         guard ProcessInfo.processInfo.environment["OMNIWM_RUN_OVERVIEW_PREVIEW_LIVE_TESTS"] == "1" else {
             throw XCTSkip("Live preview checks require OMNIWM_RUN_OVERVIEW_PREVIEW_LIVE_TESTS=1")
         }
-        guard CGPreflightScreenCaptureAccess() else { throw XCTSkip("Screen Recording permission is required") }
+        guard CGPreflightScreenCaptureAccess()
+        else { throw MissingTestPrerequisite("Screen Recording permission is required") }
         _ = NSApplication.shared
         let screen = try XCTUnwrap(NSScreen.main)
         let panel = NSPanel(
@@ -176,7 +178,8 @@ final class OverviewLayerCompositorLiveTests: XCTestCase {
         guard ProcessInfo.processInfo.environment["OMNIWM_RUN_OVERVIEW_PREVIEW_LIVE_TESTS"] == "1" else {
             throw XCTSkip("Live preview checks require OMNIWM_RUN_OVERVIEW_PREVIEW_LIVE_TESTS=1")
         }
-        guard CGPreflightScreenCaptureAccess() else { throw XCTSkip("Screen Recording permission is required") }
+        guard CGPreflightScreenCaptureAccess()
+        else { throw MissingTestPrerequisite("Screen Recording permission is required") }
         _ = NSApplication.shared
         let screen = try XCTUnwrap(NSScreen.main)
         let panel = NSPanel(

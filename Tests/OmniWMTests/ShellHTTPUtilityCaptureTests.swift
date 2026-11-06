@@ -42,7 +42,7 @@ final class ShellHTTPUtilityCaptureTests: XCTestCase {
                 request: ShellHTTPRequest(url: "https://capture.example/\(kind)/\(UUID().uuidString)", response: .json),
                 policy: .approved(kind == "denied" ? [] : ["capture.example"])
             ))
-            await fulfillment(of: [completion], timeout: 5)
+            await fulfillment(of: [completion], timeout: failureBound)
             XCTAssertEqual(ledger.takeBatch().count, 1)
             XCTAssertFalse(ledger.finishBatch())
         }

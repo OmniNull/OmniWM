@@ -302,7 +302,7 @@ final class ManagedWindowIdentityTests: XCTestCase {
                 admissionHints: nil
             )
         }
-        await fulfillment(of: [acknowledgementEntered], timeout: 2)
+        await fulfillment(of: [acknowledgementEntered], timeout: failureBound)
 
         controller.axEventHandler.handleRemoved(
             pid: pending.newWindow.token.pid,
@@ -792,7 +792,7 @@ final class ManagedWindowIdentityTests: XCTestCase {
                 admissionHints: nil
             )
         }
-        await fulfillment(of: [acknowledgementEntered], timeout: 2)
+        await fulfillment(of: [acknowledgementEntered], timeout: failureBound)
 
         XCTAssertTrue(acknowledgementObserved)
         let entryBeforeCommit = try XCTUnwrap(
@@ -811,7 +811,7 @@ final class ManagedWindowIdentityTests: XCTestCase {
         )
 
         acknowledgementGate.release()
-        await fulfillment(of: [finalizationEntered], timeout: 2)
+        await fulfillment(of: [finalizationEntered], timeout: failureBound)
 
         let committedEntry = try XCTUnwrap(
             controller.workspaceManager.entry(for: pending.newWindow.token)
@@ -1234,7 +1234,7 @@ final class ManagedWindowIdentityTests: XCTestCase {
                 admissionHints: nil
             )
         }
-        await fulfillment(of: [acknowledgementEntered], timeout: 2)
+        await fulfillment(of: [acknowledgementEntered], timeout: failureBound)
         let collisionToken = controller.workspaceManager.addWindow(
             AXWindowRef(
                 element: AXUIElementCreateApplication(pending.newWindow.token.pid + 1),
@@ -1282,7 +1282,7 @@ final class ManagedWindowIdentityTests: XCTestCase {
                 admissionHints: nil
             )
         }
-        await fulfillment(of: [acknowledgementEntered], timeout: 2)
+        await fulfillment(of: [acknowledgementEntered], timeout: failureBound)
         liveness.isAlive = false
 
         gate.release()
@@ -1315,7 +1315,7 @@ final class ManagedWindowIdentityTests: XCTestCase {
                 admissionHints: nil
             )
         }
-        await fulfillment(of: [acknowledgementEntered], timeout: 2)
+        await fulfillment(of: [acknowledgementEntered], timeout: failureBound)
         var newerState = try XCTUnwrap(
             controller.axEventHandler.admissionRetryStateByWindowId[pending.windowId]
         )
@@ -1360,7 +1360,7 @@ final class ManagedWindowIdentityTests: XCTestCase {
                 admissionHints: nil
             )
         }
-        await fulfillment(of: [finalizationEntered], timeout: 2)
+        await fulfillment(of: [finalizationEntered], timeout: failureBound)
         XCTAssertNil(controller.workspaceManager.entry(for: pending.oldWindow.token))
         XCTAssertNotNil(controller.workspaceManager.entry(for: pending.newWindow.token))
 
@@ -1493,7 +1493,7 @@ final class ManagedWindowIdentityTests: XCTestCase {
                 admissionHints: nil
             )
         }
-        await fulfillment(of: [finalizationEntered], timeout: 2)
+        await fulfillment(of: [finalizationEntered], timeout: failureBound)
 
         XCTAssertNil(controller.axManager.lastAppliedFrame(for: pending.oldWindow.token.windowId))
         controller.axManager.confirmFrameWrite(

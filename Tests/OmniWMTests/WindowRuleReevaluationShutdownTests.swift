@@ -49,13 +49,13 @@ final class WindowRuleReevaluationShutdownTests: XCTestCase {
         }
         defer { scheduler.reset() }
         scheduler.schedule(targets: firstTargets)
-        await fulfillment(of: [firstStarted], timeout: 2)
+        await fulfillment(of: [firstStarted], timeout: failureBound)
         scheduler.schedule(targets: [nextTarget])
-        await fulfillment(of: [successorFinished], timeout: 2)
+        await fulfillment(of: [successorFinished], timeout: failureBound)
         gate.resume()
-        await fulfillment(of: [firstFinished], timeout: 2)
+        await fulfillment(of: [firstFinished], timeout: failureBound)
         scheduler.schedule(targets: [finalTarget])
-        await fulfillment(of: [finalFinished], timeout: 2)
+        await fulfillment(of: [finalFinished], timeout: failureBound)
         XCTAssertEqual(runs, 3)
     }
 
@@ -89,13 +89,13 @@ final class WindowRuleReevaluationShutdownTests: XCTestCase {
             )
         }
         scheduler.schedule(targets: [.pid(696_301)])
-        await fulfillment(of: [started], timeout: 2)
+        await fulfillment(of: [started], timeout: failureBound)
         scheduler.reset()
         release?.resume()
-        await fulfillment(of: [finished], timeout: 2)
+        await fulfillment(of: [finished], timeout: failureBound)
         XCTAssertTrue(cancelled)
         scheduler.schedule(targets: [.pid(696_302)])
-        await fulfillment(of: [replacementFinished], timeout: 2)
+        await fulfillment(of: [replacementFinished], timeout: failureBound)
         scheduler.reset()
     }
 }

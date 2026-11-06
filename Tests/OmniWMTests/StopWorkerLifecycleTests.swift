@@ -24,7 +24,7 @@ final class StopWorkerLifecycleTests: XCTestCase {
         XCTAssertEqual(first, .terminateLater)
         XCTAssertEqual(second, .terminateLater)
         XCTAssertEqual(replies, 0)
-        await fulfillment(of: [requested], timeout: 2)
+        await fulfillment(of: [requested], timeout: failureBound)
         completion?()
         XCTAssertEqual(replies, 1)
     }
@@ -40,20 +40,20 @@ final class StopWorkerLifecycleTests: XCTestCase {
         worker.runInLoopAsync { _ in started.fulfill()
             release.wait()
         }
-        await fulfillment(of: [started], timeout: 2)
+        await fulfillment(of: [started], timeout: failureBound)
         let quit = expectation(description: "Quit deadline")
         var replies = 0
         controller.setEnabled(false)
         controller.serviceLifecycleManager.stopRestoringWindows(forQuit: true) { replies += 1
             quit.fulfill()
         }
-        await fulfillment(of: [quit], timeout: 3)
+        await fulfillment(of: [quit], timeout: failureBound)
         XCTAssertEqual(controller.serviceLifecycleManager.userStopPhase, .tearingDown)
         XCTAssertFalse(controller.hasStartedServices)
         let exited = expectation(description: "Old worker exits")
         AppAXContextRegistry.workerLifetime.whenFinished { exited.fulfill() }
         release.signal()
-        await fulfillment(of: [exited], timeout: 3)
+        await fulfillment(of: [exited], timeout: failureBound)
         XCTAssertEqual(controller.serviceLifecycleManager.userStopPhase, .idle)
         XCTAssertEqual(replies, 1)
     }
@@ -84,7 +84,7 @@ final class StopWorkerLifecycleTests: XCTestCase {
         worker.runInLoopAsync { _ in started.fulfill()
             release.wait()
         }
-        await fulfillment(of: [started], timeout: 2)
+        await fulfillment(of: [started], timeout: failureBound)
         context.destroy()
         XCTAssertNil(AppAXContextRegistry.contexts[context.pid])
         var finished = false
@@ -94,7 +94,7 @@ final class StopWorkerLifecycleTests: XCTestCase {
         }
         XCTAssertFalse(finished)
         release.signal()
-        await fulfillment(of: [teardown], timeout: 3)
+        await fulfillment(of: [teardown], timeout: failureBound)
         XCTAssertTrue(finished)
     }
 
@@ -113,7 +113,7 @@ final class StopWorkerLifecycleTests: XCTestCase {
             events.withLock { $0.append("in-flight-finished") }
         }
         context.frameDelivery.trackFrameJob(inFlight, batchId: UUID())
-        await fulfillment(of: [started], timeout: 2)
+        await fulfillment(of: [started], timeout: failureBound)
         let parked = worker.runInLoopAsync { _ in events.withLock { $0.append("stale-park") } }
         let closing = worker.runInLoopAsync { _ in events.withLock { $0.append("stale-close") } }
         context.frameDelivery.trackParkFrameJob(parked)
@@ -163,7 +163,7 @@ final class StopWorkerLifecycleTests: XCTestCase {
         worker.runInLoopAsync { _ in started.fulfill()
             release.wait()
         }
-        await fulfillment(of: [started], timeout: 2)
+        await fulfillment(of: [started], timeout: failureBound)
         controller.setEnabled(false)
         XCTAssertFalse(controller.desiredEnabled)
         controller.setEnabled(true)
@@ -179,7 +179,7 @@ final class StopWorkerLifecycleTests: XCTestCase {
         lifecycle.stopRestoringWindows(forQuit: true)
         XCTAssertEqual(completions, 0)
         release.signal()
-        await fulfillment(of: [quit], timeout: 3)
+        await fulfillment(of: [quit], timeout: failureBound)
         XCTAssertEqual(completions, 1)
         XCTAssertEqual(lifecycle.userStopPhase, .idle)
         XCTAssertFalse(controller.hasStartedServices)

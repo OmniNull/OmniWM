@@ -175,7 +175,7 @@ final class ShellProviderPackageTests: XCTestCase {
             ShellBarKey(monitor: .init(displayId: 98113)): ShellBarData()
         ]))
         let (mailbox, consumer) = connect(package)
-        await fulfillment(of: [delivered], timeout: 10)
+        await fulfillment(of: [delivered], timeout: failureBound)
         XCTAssertEqual(sink.commands.map(\.text), ["switch-workspace 1", "switch-workspace 2"])
         let checkpoint = await package.providerCheckpoint()
         XCTAssertEqual(checkpoint.incarnation, 1)
@@ -243,13 +243,13 @@ final class ShellProviderPackageTests: XCTestCase {
         let failure = await package.load(first)
         XCTAssertNil(failure)
         let (mailbox, consumer) = connect(package)
-        await fulfillment(of: [initial], timeout: 10)
+        await fulfillment(of: [initial], timeout: failureBound)
         let before = await package.providerCheckpoint()
         let failures = await package.configureProviderBurst([
             source(folder: folder, component: component, tag: "B"), first
         ])
         XCTAssertTrue(failures.isEmpty)
-        await fulfillment(of: [replacement], timeout: 10)
+        await fulfillment(of: [replacement], timeout: failureBound)
         XCTAssertEqual(sink.commands.map(\.text), ["switch-workspace 1", "switch-workspace 2", "switch-workspace 3"])
         let after = await package.providerCheckpoint()
         XCTAssertEqual(after.owner, before.owner)
@@ -340,7 +340,7 @@ final class ShellProviderPackageTests: XCTestCase {
         let failure = await package.load(first)
         XCTAssertNil(failure)
         let (mailbox, consumer) = connect(package)
-        await fulfillment(of: [initial], timeout: 10)
+        await fulfillment(of: [initial], timeout: failureBound)
         let before = await package.providerCheckpoint()
         let loaded = await package.loadedModules
         var second = first
@@ -348,7 +348,7 @@ final class ShellProviderPackageTests: XCTestCase {
         child.options = ["tag": .string("b")]
         second.components[2] = child
         await package.receive(.components(second))
-        await fulfillment(of: [replacement], timeout: 10)
+        await fulfillment(of: [replacement], timeout: failureBound)
         let after = await package.providerCheckpoint()
         XCTAssertNotEqual(after.owner, before.owner)
         XCTAssertEqual(after.incarnation, 1)

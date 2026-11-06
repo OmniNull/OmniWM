@@ -73,7 +73,8 @@ final class ShellGlassSurfaceTests: XCTestCase {
         widget.layoutPopout()
         try ShellLayerScene.engineQueue.sync {
             let body = try XCTUnwrap(widget.surface.scene.glassBodies.values.first)
-            guard body.nativeAvailable else { throw XCTSkip(body.failure ?? "Native glass is unavailable") }
+            guard body.nativeAvailable
+            else { throw MissingTestPrerequisite(body.failure ?? "Native glass is unavailable") }
             let targets = [body.layer] + (body.layer.sublayers ?? []) + (body.layer.sublayers ?? []).compactMap(\.mask)
             for target in targets {
                 for channel in ShellGlassBody.Channel.geometry {

@@ -171,7 +171,7 @@ final class ShellComponentLoadingTests: XCTestCase {
         host.config.island?.components[0].options["width"] = .number(47)
         host.config.island?.components[1].enabled = false
         host.finishLoad(state: state, package: package, source: original, failure: failure, declaration: declaration)
-        await fulfillment(of: [firstTree], timeout: 10)
+        await fulfillment(of: [firstTree], timeout: failureBound)
         XCTAssertTrue(state.package === package)
         XCTAssertEqual(state.generation, 7)
         host.stop()
@@ -198,7 +198,7 @@ final class ShellComponentLoadingTests: XCTestCase {
             bar: ShellBarKey(monitor: Monitor.ID(displayId: 93401)), text: "switch-workspace 2"
         )])
         outbox.reload(name: "lake", generation: 7)
-        await fulfillment(of: [delivered], timeout: 10)
+        await fulfillment(of: [delivered], timeout: failureBound)
         XCTAssertEqual(commands, [.command(.workspace(.switchTo(workspaceNumber: 2)))])
     }
 

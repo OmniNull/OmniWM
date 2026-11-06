@@ -99,7 +99,7 @@ final class OverviewDragCaptureIntegrationTests: XCTestCase {
             if preview === live { published.fulfill() }
         }
         fixture.driver.streams[1].output.offer(live)
-        guard await XCTWaiter.fulfillment(of: [published], timeout: 1) == .completed else {
+        guard await XCTWaiter.fulfillment(of: [published], timeout: failureBound) == .completed else {
             XCTFail("Expected preview publication")
             throw OverviewPreviewTestWaitError.publication
         }
@@ -125,7 +125,7 @@ final class OverviewDragCaptureIntegrationTests: XCTestCase {
         }
         defer { fixture.capture.onPreview = previous }
         fixture.driver.streams[0].output.offer(frame)
-        guard await XCTWaiter.fulfillment(of: [published], timeout: 1) == .completed else {
+        guard await XCTWaiter.fulfillment(of: [published], timeout: failureBound) == .completed else {
             XCTFail("Expected preview publication")
             throw OverviewPreviewTestWaitError.publication
         }

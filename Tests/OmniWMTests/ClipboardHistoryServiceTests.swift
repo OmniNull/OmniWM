@@ -59,10 +59,10 @@ final class ClipboardHistoryServiceTests: XCTestCase {
         service.start()
         changeCount.value = 1
         timer.fire()
-        await fulfillment(of: [readStarted], timeout: 2)
+        await fulfillment(of: [readStarted], timeout: failureBound)
         try FileManager.default.createDirectory(at: configuration.storageURL, withIntermediateDirectories: false)
         let clear = Task { @MainActor in try await service.clearHistory() }
-        await fulfillment(of: [clearPausedPolling], timeout: 2)
+        await fulfillment(of: [clearPausedPolling], timeout: failureBound)
         readerGate.signal()
         do {
             _ = try await clear.value
@@ -123,15 +123,15 @@ final class ClipboardHistoryServiceTests: XCTestCase {
         service.start()
         changeCount.value = 1
         timer.fire()
-        await fulfillment(of: [readStarted], timeout: 2)
+        await fulfillment(of: [readStarted], timeout: failureBound)
         let quit = Task { @MainActor in
             defer { quitState.didFinish = true }
             try await service.flushForQuit()
         }
-        await fulfillment(of: [timerInvalidated], timeout: 2)
+        await fulfillment(of: [timerInvalidated], timeout: failureBound)
         XCTAssertFalse(quitState.didFinish)
         readerGate.signal()
-        await fulfillment(of: [recognitionStarted], timeout: 2)
+        await fulfillment(of: [recognitionStarted], timeout: failureBound)
         XCTAssertFalse(quitState.didFinish)
         recognitionGate.signal()
         try await quit.value
@@ -179,14 +179,14 @@ final class ClipboardHistoryServiceTests: XCTestCase {
         service.start()
         changeCount.value = 1
         timer.fire()
-        await fulfillment(of: [captured], timeout: 2)
+        await fulfillment(of: [captured], timeout: failureBound)
         service.onPaletteItemsChanged = nil
         let id = try XCTUnwrap(service.paletteItems.first?.id)
 
         let didCopy = await service.copyItemToPasteboard(id: id)
         XCTAssertTrue(didCopy)
         XCTAssertTrue(service.paletteItems.isEmpty)
-        await fulfillment(of: [disabledStoreSettled], timeout: 2)
+        await fulfillment(of: [disabledStoreSettled], timeout: failureBound)
     }
 
     private func assertFullPlainTextCopy(data: Data, kind: ClipboardContentKind, tail: String) async throws {

@@ -164,7 +164,7 @@ OMNIWM_RUN_SHELL_BENCHMARKS=1 "$HOME/.swiftly/bin/swift" test --arch arm64 --fil
 
 The default suite keeps the corresponding functional assertions without a render CPU limit and still checks runaway-script containment. The app's production CPU budget is unchanged.
 
-CI takes Fish and Nushell from the flake to run the native CLI completion tests. For the same coverage locally, run `swift test` inside `nix develop`; tests for a missing shell are skipped.
+CI takes Fish and Nushell from the flake to run the native CLI completion tests. For the same coverage locally, run `swift test` inside `nix develop`; tests fail with a message if a shell is missing.
 
 For changes to setup, packaging, development installation, or related tooling, also run `make test-dev-tools`. This runs the Python development-tooling tests and is included in CI's **Tooling** job.
 

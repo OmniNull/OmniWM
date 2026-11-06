@@ -143,7 +143,7 @@ final class DiagnosticsTraceCaptureTests: XCTestCase {
         let finalization = Task { @MainActor in
             await coordinator.toggle(desiredState: .inactive, reportProvider: { "unused" })
         }
-        await fulfillment(of: [evidenceStarted], timeout: 2)
+        await fulfillment(of: [evidenceStarted], timeout: failureBound)
 
         XCTAssertEqual(try Data(contentsOf: partial), partialData)
         XCTAssertFalse(
@@ -190,7 +190,7 @@ final class DiagnosticsTraceCaptureTests: XCTestCase {
         let finalization = Task { @MainActor in
             await coordinator.toggle(desiredState: .inactive, reportProvider: { "unused" })
         }
-        await fulfillment(of: [evidenceStarted], timeout: 2)
+        await fulfillment(of: [evidenceStarted], timeout: failureBound)
         XCTAssertEqual(coordinator.status.phase, .finalizing)
 
         finalization.cancel()
@@ -230,7 +230,7 @@ final class DiagnosticsTraceCaptureTests: XCTestCase {
         ) else {
             return XCTFail("expected capture to start")
         }
-        await fulfillment(of: [evidenceStarted], timeout: 5)
+        await fulfillment(of: [evidenceStarted], timeout: failureBound)
         XCTAssertEqual(coordinator.status.phase, .finalizing)
 
         guard case .noChange = await coordinator.toggle(
@@ -246,7 +246,7 @@ final class DiagnosticsTraceCaptureTests: XCTestCase {
             }
         }
         gate.release()
-        await fulfillment(of: [finalized], timeout: 2)
+        await fulfillment(of: [finalized], timeout: failureBound)
 
         XCTAssertEqual(coordinator.status.phase, .idle)
         let artifact = try XCTUnwrap(coordinator.status.lastArtifact)

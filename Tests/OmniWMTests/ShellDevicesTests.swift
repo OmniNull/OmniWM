@@ -121,8 +121,7 @@ final class ShellDevicesTests: XCTestCase {
     }
 
     func testWiFiIsReadOffTheMainThreadOnlyWhileAWidgetReadsIt() async throws {
-        guard CWWiFiClient.shared().interface() != nil else { throw XCTSkip("this Mac has no Wi-Fi") }
-        let devices = ShellDevices()
+        let devices = ShellDevices(wifi: WiFiMonitor(read: { ShellWiFi(power: true, location: $0) }))
         let (changes, changed) = boundedChanges()
         let feed = ShellDataFeed(devices: devices, deliver: { _ in changed.yield() })
         defer { feed.stop() }

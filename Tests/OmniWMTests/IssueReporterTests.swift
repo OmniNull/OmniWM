@@ -339,7 +339,7 @@ final class IssueReporterTests: XCTestCase {
         model.actual = "Body"
 
         let firstSubmission = Task { @MainActor in await model.submit() }
-        await fulfillment(of: [started], timeout: 2)
+        await fulfillment(of: [started], timeout: failureBound)
         XCTAssertEqual(model.phase, .submitting)
 
         let duplicateSubmission = Task { @MainActor in await model.submit() }
@@ -371,7 +371,7 @@ final class IssueReporterTests: XCTestCase {
         model.actual = "Original behavior"
 
         let submission = Task { @MainActor in await model.submit() }
-        await fulfillment(of: [started], timeout: 2)
+        await fulfillment(of: [started], timeout: failureBound)
         model.title = ""
         model.actual = "Edited during submission"
         gate.release()

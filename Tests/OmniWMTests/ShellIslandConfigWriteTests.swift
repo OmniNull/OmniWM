@@ -128,7 +128,7 @@ final class ShellIslandConfigWriteTests: XCTestCase {
             XCTAssertNil(commit.error)
             commits.withLock { $0.append(commit.revision) }
         }
-        await fulfillment(of: [entered], timeout: 2)
+        await fulfillment(of: [entered], timeout: failureBound)
         writer.submit(write(2, change: .components(second))) { commit in
             XCTAssertNil(commit.error)
             commits.withLock { $0.append(commit.revision) }
@@ -137,7 +137,7 @@ final class ShellIslandConfigWriteTests: XCTestCase {
         XCTAssertTrue(writer.deferReloadIfWriting())
         release.signal()
         await writer.flush()
-        await fulfillment(of: [reload], timeout: 2)
+        await fulfillment(of: [reload], timeout: failureBound)
         XCTAssertFalse(writer.deferReloadIfWriting())
         XCTAssertEqual(commits.withLock { $0 }, [1, 2])
         let tree = try parsed(String(contentsOf: file, encoding: .utf8))

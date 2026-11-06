@@ -165,7 +165,7 @@ final class UpdateCoordinatorTests: XCTestCase {
             installer.canInstall = writable
             let (coordinator, _) = makeCoordinator(window: window, canary: true, archive: archive, installer: installer)
             coordinator.checkForUpdatesManually()
-            await fulfillment(of: [shown], timeout: 2)
+            await fulfillment(of: [shown], timeout: failureBound)
             XCTAssertEqual(window.configuration?.installUpdate != nil, name == "archive and writable", name)
         }
     }
@@ -192,7 +192,7 @@ final class UpdateCoordinatorTests: XCTestCase {
                 installer.onRelaunch = { finished.fulfill() }
                 install()
                 install()
-                await fulfillment(of: [finished], timeout: 2)
+                await fulfillment(of: [finished], timeout: failureBound)
                 XCTAssertEqual(installer.events, expectedEvents, mode)
                 XCTAssertEqual(window.alertTitle, mode == "quit cancelled" ? nil : "Could Not Install Update", mode)
             }
@@ -210,7 +210,7 @@ final class UpdateCoordinatorTests: XCTestCase {
             let started = expectation(description: "\(action) started")
             installer.onInstall = { started.fulfill() }
             install()
-            await fulfillment(of: [started], timeout: 2)
+            await fulfillment(of: [started], timeout: failureBound)
             switch action {
             case "not now": configuration.notNow()
             case "skip": configuration.skipThisVersion()
@@ -222,7 +222,7 @@ final class UpdateCoordinatorTests: XCTestCase {
             installer.onFinish = { finished.fulfill() }
             window.onEvent = nil
             installer.gates.removeFirst().resume()
-            await fulfillment(of: [finished], timeout: 2)
+            await fulfillment(of: [finished], timeout: failureBound)
             installer.onFinish = nil
             XCTAssertEqual(installer.events, ["install"], action)
             XCTAssertNil(window.alertTitle, action)
@@ -233,7 +233,7 @@ final class UpdateCoordinatorTests: XCTestCase {
             installer.onInstall = nil
             window.onEvent = nil
             install()
-            await fulfillment(of: [relaunched], timeout: 2)
+            await fulfillment(of: [relaunched], timeout: failureBound)
             XCTAssertEqual(installer.events, ["install", "install", "relaunch"], action)
         }
     }
@@ -248,14 +248,14 @@ final class UpdateCoordinatorTests: XCTestCase {
         let started = expectation(description: "started")
         installer.onInstall = { started.fulfill() }
         install()
-        await fulfillment(of: [started], timeout: 2)
+        await fulfillment(of: [started], timeout: failureBound)
         configuration.notNow()
 
         let finished = expectation(description: "finished")
         installer.onFinish = { finished.fulfill() }
         window.onEvent = nil
         installer.gates.removeFirst().resume()
-        await fulfillment(of: [finished], timeout: 2)
+        await fulfillment(of: [finished], timeout: failureBound)
         XCTAssertTrue(installer.installed)
         XCTAssertEqual(installer.events, ["install"])
         XCTAssertNil(window.alertTitle)
@@ -273,7 +273,7 @@ final class UpdateCoordinatorTests: XCTestCase {
             let started = expectation(description: "\(name) started")
             installer.onInstall = { started.fulfill() }
             install()
-            await fulfillment(of: [started], timeout: 2)
+            await fulfillment(of: [started], timeout: failureBound)
             if name == "declined" { configuration.notNow() }
         }
         installer.onInstall = nil
@@ -281,7 +281,7 @@ final class UpdateCoordinatorTests: XCTestCase {
         let declinedFinished = expectation(description: "declined finished")
         installer.onFinish = { declinedFinished.fulfill() }
         installer.gates.removeFirst().resume()
-        await fulfillment(of: [declinedFinished], timeout: 2)
+        await fulfillment(of: [declinedFinished], timeout: failureBound)
         installer.onFinish = nil
         install()
         XCTAssertEqual(installer.events, ["install", "install"])
@@ -289,7 +289,7 @@ final class UpdateCoordinatorTests: XCTestCase {
         let relaunched = expectation(description: "relaunched")
         installer.onRelaunch = { relaunched.fulfill() }
         installer.gates.removeFirst().resume()
-        await fulfillment(of: [relaunched], timeout: 2)
+        await fulfillment(of: [relaunched], timeout: failureBound)
         XCTAssertEqual(installer.events, ["install", "install", "relaunch"])
         XCTAssertNil(window.alertTitle)
     }
@@ -301,7 +301,7 @@ final class UpdateCoordinatorTests: XCTestCase {
             window: window, canary: true, archive: canaryArchive(), installer: installer
         )
         coordinator.checkForUpdatesManually()
-        await fulfillment(of: [shown], timeout: 2)
+        await fulfillment(of: [shown], timeout: failureBound)
         retainedCoordinators.append(coordinator)
         return try XCTUnwrap(window.configuration?.installUpdate)
     }
@@ -314,7 +314,7 @@ final class UpdateCoordinatorTests: XCTestCase {
         let (coordinator, runtime) = makeCoordinator(window: window, canary: true, copiedCommand: { command = $0 })
 
         coordinator.checkForUpdatesManually()
-        await fulfillment(of: [shown], timeout: 2)
+        await fulfillment(of: [shown], timeout: failureBound)
 
         let configuration = try XCTUnwrap(window.configuration)
         XCTAssertEqual(configuration.currentVersion, installedCanaryTag)
@@ -337,7 +337,7 @@ final class UpdateCoordinatorTests: XCTestCase {
         let (coordinator, _) = makeCoordinator(window: window, canary: false)
 
         coordinator.checkForUpdatesManually()
-        await fulfillment(of: [shown], timeout: 2)
+        await fulfillment(of: [shown], timeout: failureBound)
 
         XCTAssertEqual(window.configuration?.latestVersion, "0.7.7")
         XCTAssertEqual(window.configuration?.homebrewUpdateCommand, "brew upgrade omniwm")
@@ -350,7 +350,7 @@ final class UpdateCoordinatorTests: XCTestCase {
         let (coordinator, _) = makeCoordinator(window: window, canary: true, noRelease: true)
 
         coordinator.checkForUpdatesManually()
-        await fulfillment(of: [checked], timeout: 2)
+        await fulfillment(of: [checked], timeout: failureBound)
 
         XCTAssertEqual(window.alertTitle, "You're Up to Date")
         XCTAssertNil(window.configuration)
@@ -365,14 +365,14 @@ final class UpdateCoordinatorTests: XCTestCase {
             window: window, canary: true, currentVersion: { installedVersion }
         )
         coordinator.checkForUpdatesManually()
-        await fulfillment(of: [shown], timeout: 2)
+        await fulfillment(of: [shown], timeout: failureBound)
 
         installedVersion = nextCanaryTag
         window.configuration = nil
         let checked = expectation(description: "Installed Canary is up to date")
         window.onEvent = { checked.fulfill() }
         coordinator.checkForUpdatesManually()
-        await fulfillment(of: [checked], timeout: 2)
+        await fulfillment(of: [checked], timeout: failureBound)
 
         XCTAssertEqual(window.alertTitle, "You're Up to Date")
         XCTAssertNil(window.configuration)

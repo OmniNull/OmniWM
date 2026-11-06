@@ -30,7 +30,7 @@ final class ShellBadgesTests: XCTestCase {
         service.onLabelsChange = { [weak manager] in manager?.publishShellBadges() }
 
         manager.setShellBadgeDemand(true)
-        await fulfillment(of: [published], timeout: 2)
+        await fulfillment(of: [published], timeout: failureBound)
 
         XCTAssertFalse(controller.settings.workspaceBar.enabled)
         XCTAssertTrue(manager.barsByMonitor.isEmpty)
@@ -139,7 +139,7 @@ final class ShellBadgesTests: XCTestCase {
         await package.receive(.update(data))
         let key = ShellBarKey(monitor: .init(displayId: 85_002))
         await package.receive(.bars([key: ShellBarData()]))
-        await fulfillment(of: [rendered], timeout: 2)
+        await fulfillment(of: [rendered], timeout: failureBound)
         XCTAssertTrue(renderedStrings.contains("99+:●"))
         await package.close()
     }

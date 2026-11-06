@@ -8,6 +8,7 @@ import XCTest
 
 @MainActor
 final class WorkspaceBarManagerTests: XCTestCase {
+    private let menuBarStripHeight: CGFloat = 24
     private var controller: WMController!
 
     override func setUp() async throws {
@@ -148,17 +149,14 @@ final class WorkspaceBarManagerTests: XCTestCase {
     }
 
     func testSavingBelowWithVisibleMenusRepairsActualPanelDriftInBothWidthModes() async throws {
-        guard let screen = NSScreen.screens.first else {
-            throw XCTSkip("Requires an NSScreen to check the actual panel frame")
-        }
+        let screen = try XCTUnwrap(NSScreen.screens.first)
+        var visibleFrame = screen.frame
+        visibleFrame.size.height -= menuBarStripHeight
         let monitor = Monitor(
             id: .init(displayId: 92_200), displayId: 92_200,
-            frame: screen.frame, visibleFrame: screen.visibleFrame,
+            frame: screen.frame, visibleFrame: visibleFrame,
             hasNotch: false, name: "Test"
         )
-        guard screen.frame.maxY > screen.visibleFrame.maxY + 1 else {
-            throw XCTSkip("Requires a screen with a visible menu bar strip")
-        }
         for fullWidth in [false, true] {
             let manager = makeManager()
             manager.screenProvider = { _ in screen }
@@ -179,7 +177,7 @@ final class WorkspaceBarManagerTests: XCTestCase {
             manager.apply([bar])
             let below = panel.frame
             XCTAssertLessThan(below.minY, overlapping.minY)
-            XCTAssertEqual(below.maxY, screen.visibleFrame.maxY)
+            XCTAssertEqual(below.maxY, visibleFrame.maxY)
 
             panel.setFrame(overlapping, display: false)
             XCTAssertEqual(controller.settings.workspaceBar.resolved(for: monitor).position, .belowMenuBar)
@@ -689,7 +687,7 @@ final class WorkspaceBarManagerTests: XCTestCase {
 
         pointer = Self.edgePoint
         manager.handleAutoHideMouseMoved(at: pointer)
-        await fulfillment(of: [sleepEntries[0]], timeout: 2)
+        await fulfillment(of: [sleepEntries[0]], timeout: failureBound)
         XCTAssertEqual(sleeps.requestedDurations.last, .milliseconds(300))
         manager.handleAutoHideMouseMoved(at: pointer)
 
@@ -714,7 +712,7 @@ final class WorkspaceBarManagerTests: XCTestCase {
         controller.settings.workspaceBar.autoHideRevealDelayMilliseconds = 300
         pointer = Self.edgePoint
         manager.handleAutoHideMouseMoved(at: pointer)
-        await fulfillment(of: [sleepEntries[0]], timeout: 2)
+        await fulfillment(of: [sleepEntries[0]], timeout: failureBound)
         XCTAssertEqual(sleeps.requestedDurations.last, .milliseconds(300))
         let cancelledReveal = try pendingDelay(on: manager)
 
@@ -755,7 +753,7 @@ final class WorkspaceBarManagerTests: XCTestCase {
 
         pointer = monitor.frame.center
         manager.handleAutoHideMouseMoved(at: pointer)
-        await fulfillment(of: [sleepEntries[0]], timeout: 2)
+        await fulfillment(of: [sleepEntries[0]], timeout: failureBound)
         XCTAssertEqual(sleeps.requestedDurations.last, .milliseconds(300))
         XCTAssertTrue(manager.isPointerRevealed(on: monitor.id))
         let cancelledHide = try pendingDelay(on: manager)
@@ -767,7 +765,7 @@ final class WorkspaceBarManagerTests: XCTestCase {
 
         pointer = monitor.frame.center
         manager.handleAutoHideMouseMoved(at: pointer)
-        await fulfillment(of: [sleepEntries[1]], timeout: 2)
+        await fulfillment(of: [sleepEntries[1]], timeout: failureBound)
         XCTAssertEqual(sleeps.requestedDurations.last, .milliseconds(300))
         let hide = try pendingDelay(on: manager)
         try sleeps.resumeNext()
@@ -788,7 +786,7 @@ final class WorkspaceBarManagerTests: XCTestCase {
         controller.settings.workspaceBar.autoHideRevealDelayMilliseconds = 300
         pointer = Self.edgePoint
         manager.handleAutoHideMouseMoved(at: pointer)
-        await fulfillment(of: [sleepEntries[0]], timeout: 2)
+        await fulfillment(of: [sleepEntries[0]], timeout: failureBound)
         XCTAssertEqual(sleeps.requestedDurations.last, .milliseconds(300))
         let cancelledReveal = try pendingDelay(on: manager)
         let hiddenBar = DesiredBarSurface(
@@ -804,7 +802,7 @@ final class WorkspaceBarManagerTests: XCTestCase {
 
         controller.settings.workspaceBar.autoHide = true
         manager.apply([hiddenBar])
-        await fulfillment(of: [sleepEntries[1]], timeout: 2)
+        await fulfillment(of: [sleepEntries[1]], timeout: failureBound)
         XCTAssertEqual(sleeps.requestedDurations.last, .milliseconds(300))
         XCTAssertEqual(sleeps.count, 2)
         let reveal = try pendingDelay(on: manager)

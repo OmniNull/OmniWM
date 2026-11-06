@@ -137,7 +137,7 @@ final class IPCConnectionConcurrencyTests: XCTestCase {
 
         try await floodRequests(count: 600, to: peer.peerDescriptor)
 
-        let evicted = await waitForClose(peer.signal, timeout: 5.0)
+        let evicted = await waitForClose(peer.signal)
         XCTAssertTrue(evicted, "a client that never reads should be evicted once its outbox passes the bound")
 
         try await writeRequest(id: "healthy", to: healthy.peerDescriptor)
@@ -156,12 +156,12 @@ final class IPCConnectionConcurrencyTests: XCTestCase {
 
         try await floodRequests(count: 600, to: peer.peerDescriptor)
 
-        let evicted = await waitForClose(peer.signal, timeout: 5.0)
+        let evicted = await waitForClose(peer.signal)
         XCTAssertTrue(evicted, "a backlogged outbox should be evicted once the stall timeout elapses")
     }
 
-    private func waitForClose(_ signal: CloseSignal, timeout: Double) async -> Bool {
-        await XCTWaiter.fulfillment(of: [signal.closed], timeout: timeout) == .completed
+    private func waitForClose(_ signal: CloseSignal) async -> Bool {
+        await XCTWaiter.fulfillment(of: [signal.closed], timeout: failureBound) == .completed
     }
 
     private func makePeer(

@@ -139,7 +139,7 @@ final class LockScreenObserverTests: XCTestCase {
 
         observer.screenLockedProvider = { true }
         observer.enqueueLockEventForTests()
-        await fulfillment(of: [lockHandled], timeout: 1)
+        await fulfillment(of: [lockHandled], timeout: failureBound)
         let sessionChecked = expectation(description: "activation checks session")
         sessionChecked.assertForOverFulfill = false
         observer.screenLockedProvider = {
@@ -147,7 +147,7 @@ final class LockScreenObserverTests: XCTestCase {
             return true
         }
         postActivation()
-        await fulfillment(of: [sessionChecked], timeout: 1)
+        await fulfillment(of: [sessionChecked], timeout: failureBound)
 
         XCTAssertEqual(unlockDetections, 0)
         guard case .locked = observer.state else {
@@ -168,10 +168,10 @@ final class LockScreenObserverTests: XCTestCase {
 
         observer.screenLockedProvider = { true }
         observer.enqueueLockEventForTests()
-        await fulfillment(of: [lockHandled], timeout: 1)
+        await fulfillment(of: [lockHandled], timeout: failureBound)
         observer.screenLockedProvider = { false }
         postActivation()
-        await fulfillment(of: [unlockHandled], timeout: 1)
+        await fulfillment(of: [unlockHandled], timeout: failureBound)
 
         XCTAssertFalse(observer.isFrontmostAppLockScreen())
     }

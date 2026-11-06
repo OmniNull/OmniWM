@@ -29,7 +29,7 @@ final class ShellGlassSceneTests: XCTestCase {
 
     nonisolated static func native(_ body: ShellGlassBody?) throws -> ShellGlassBody {
         let body = try XCTUnwrap(body)
-        guard body.nativeAvailable else { throw XCTSkip(body.failure ?? "Native glass is unavailable") }
+        guard body.nativeAvailable else { throw MissingTestPrerequisite(body.failure ?? "Native glass is unavailable") }
         return body
     }
 

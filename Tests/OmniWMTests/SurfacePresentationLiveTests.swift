@@ -125,14 +125,14 @@ final class SurfacePresentationLiveTests: XCTestCase {
     func testLiveBorderPresentsConfiguredColorsAcrossResize() async throws {
         try requireLiveMeasurementsEnabled()
         guard CGPreflightScreenCaptureAccess() else {
-            throw XCTSkip("Screen Recording permission is required")
+            throw MissingTestPrerequisite("Screen Recording permission is required")
         }
         guard let screen = NSScreen.screens.max(by: {
                   $0.maximumFramesPerSecond < $1.maximumFramesPerSecond
               }) ?? NSScreen.main,
               let displayId = screen.displayId
         else {
-            throw XCTSkip("No measurable display is available")
+            throw MissingTestPrerequisite("No measurable display is available")
         }
 
         let largeFrame = borderPresentationFrame(on: screen)
@@ -356,14 +356,14 @@ final class SurfacePresentationLiveTests: XCTestCase {
     func testLiveTabRailPresentationAlignsWithSLSClientFrames() async throws {
         try requireLiveMeasurementsEnabled()
         guard CGPreflightScreenCaptureAccess() else {
-            throw XCTSkip("Screen Recording permission is required")
+            throw MissingTestPrerequisite("Screen Recording permission is required")
         }
         guard let screen = NSScreen.screens.max(by: {
                   $0.maximumFramesPerSecond < $1.maximumFramesPerSecond
               }) ?? NSScreen.main,
               let displayId = screen.displayId
         else {
-            throw XCTSkip("No measurable display is available")
+            throw MissingTestPrerequisite("No measurable display is available")
         }
 
         let requestedFrames = max(240, environmentInteger("OMNIWM_RAIL_MEASUREMENT_FRAMES", default: 900))

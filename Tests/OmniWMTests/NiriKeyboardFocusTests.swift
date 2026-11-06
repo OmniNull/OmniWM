@@ -437,7 +437,7 @@ final class NiriKeyboardFocusTests: XCTestCase {
             XCTAssertEqual(held.count, 1)
             fixture.recorder.heldFocusCompletions = nil
             held.forEach { $0() }
-            wait(for: [probed], timeout: 2)
+            wait(for: [probed], timeout: failureBound)
         }
     }
 

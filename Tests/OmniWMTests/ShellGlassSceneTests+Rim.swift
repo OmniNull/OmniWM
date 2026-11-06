@@ -233,7 +233,8 @@ extension ShellGlassSceneTests {
 
     func testBandLayerSitsAboveFillOnlyWhileRimAddsLight() throws {
         try ShellLayerScene.engineQueue.sync {
-            guard ShellGlassCapability.shared.available else { throw XCTSkip("Native glass is unavailable") }
+            guard ShellGlassCapability.shared.available
+            else { throw MissingTestPrerequisite("Native glass is unavailable") }
             let fitted = try Self.rimBody("0.1:0:90")
             XCTAssertEqual(fitted.layer.sublayers?.count, 6)
             let glass = try Self.rimBody("0.3:0:90")
@@ -286,7 +287,8 @@ extension ShellGlassSceneTests {
 
     func testBandJoinsRunningMotionWhenRimTurnsOnAndLeavesWhenItTurnsOff() throws {
         try ShellLayerScene.engineQueue.sync {
-            guard ShellGlassCapability.shared.available else { throw XCTSkip("Native glass is unavailable") }
+            guard ShellGlassCapability.shared.available
+            else { throw MissingTestPrerequisite("Native glass is unavailable") }
             let body = ShellGlassBody()
             let root = CALayer()
             root.frame = CGRect(x: 0, y: 0, width: 96, height: 96)

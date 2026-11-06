@@ -315,7 +315,7 @@ final class PerformanceCaptureTests: XCTestCase {
             return XCTFail("expected first capture to start")
         }
         let cancelledAutoStop = try XCTUnwrap(coordinator.captureTask)
-        await fulfillment(of: [sleepEntries[0]], timeout: 2)
+        await fulfillment(of: [sleepEntries[0]], timeout: failureBound)
         _ = await coordinator.toggle(
             desiredState: .inactive,
             profile: .performance,
@@ -330,7 +330,7 @@ final class PerformanceCaptureTests: XCTestCase {
             return XCTFail("expected replacement capture to start")
         }
         let replacementStartedAt = try XCTUnwrap(coordinator.status.startedAt)
-        await fulfillment(of: [sleepEntries[1]], timeout: 2)
+        await fulfillment(of: [sleepEntries[1]], timeout: failureBound)
 
         try await sleepGate.resumeFirst()
         await cancelledAutoStop.value
@@ -382,10 +382,10 @@ final class PerformanceCaptureTests: XCTestCase {
         ) else {
             return XCTFail("expected performance capture to start")
         }
-        await fulfillment(of: [sleepEntries[0]], timeout: 2)
+        await fulfillment(of: [sleepEntries[0]], timeout: failureBound)
 
         try await sleepGate.resumeFirst()
-        await fulfillment(of: [finalized], timeout: 2)
+        await fulfillment(of: [finalized], timeout: failureBound)
         let requestedDurations = await sleepGate.requestedDurations
         XCTAssertEqual(requestedDurations, [.seconds(600)])
 

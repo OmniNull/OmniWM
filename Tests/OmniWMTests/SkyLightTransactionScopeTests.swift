@@ -41,6 +41,6 @@ final class SkyLightTransactionScopeTests: XCTestCase {
             XCTAssertTrue(skyLight.scopedTransaction === first)
         }
         XCTAssertNil(skyLight.scopedTransaction)
-        try XCTSkipUnless(created, "WindowServer transactions unavailable")
+        guard created else { throw MissingTestPrerequisite("WindowServer transactions unavailable") }
     }
 }

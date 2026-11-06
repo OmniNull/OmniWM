@@ -156,7 +156,7 @@ final class IPCSessionEventPublicationTests: XCTestCase {
             received.fulfill()
         }
         defer { consumer.cancel() }
-        await fulfillment(of: [received], timeout: 2)
+        await fulfillment(of: [received], timeout: failureBound)
         return try XCTUnwrap(delivered, "Expected an IPC envelope before the deadline")
     }
 

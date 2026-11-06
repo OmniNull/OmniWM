@@ -108,7 +108,7 @@ final class ShellPermissionComponentOrderTests: XCTestCase {
         try await package.bindComponentForOrderRetirement("3")
         let next = source(width: 20)
         let reload = Task { await package.receive(.components(next)) }
-        await fulfillment(of: [entered], timeout: 10)
+        await fulfillment(of: [entered], timeout: failureBound)
         await package.receive(.permissions)
         let retiring = await package.configuredComponentInstances
         XCTAssertEqual(retiring.map(\.id), ["1"])

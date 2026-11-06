@@ -25,7 +25,7 @@ final class ParkingEdgeRepeatTests: XCTestCase {
         fixture.dwell.onStart = { started.fulfill() }
         action()
         let task = try XCTUnwrap(try fixture.window().dwellTask)
-        await fulfillment(of: [started], timeout: 5)
+        await fulfillment(of: [started], timeout: failureBound)
         fixture.dwell.onStart = nil
         return task
     }
@@ -120,7 +120,7 @@ final class ParkingEdgeRepeatTests: XCTestCase {
             if let unexpected = window.dwellTask {
                 let started = expectation(description: "Unexpected hidden dwell armed")
                 fixture.dwell.onStart = { started.fulfill() }
-                await fulfillment(of: [started], timeout: 5)
+                await fulfillment(of: [started], timeout: failureBound)
                 fixture.dwell.onStart = nil
                 fixture.dwell.complete()
                 await unexpected.value
@@ -247,7 +247,7 @@ final class ParkingEdgeRepeatTests: XCTestCase {
         fixture.dwell.complete()
         await first.value
         let second = try XCTUnwrap(window.dwellTask)
-        await fulfillment(of: [repeated], timeout: 5)
+        await fulfillment(of: [repeated], timeout: failureBound)
         fixture.dwell.onStart = nil
         XCTAssertEqual(fixture.activations, 1)
         XCTAssertEqual(fixture.dwell.durations, [.milliseconds(1500), .milliseconds(1500)])

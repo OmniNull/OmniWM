@@ -116,7 +116,7 @@ final class ShellNotificationsDismissAllTests: XCTestCase {
             }
         }
         controller.setListening(true)
-        await fulfillment(of: [loaded], timeout: 5)
+        await fulfillment(of: [loaded], timeout: failureBound)
         controller.onChange = nil
     }
 
@@ -189,7 +189,7 @@ final class ShellNotificationsDismissAllTests: XCTestCase {
         XCTAssertEqual(state(controller), "pending")
         XCTAssertEqual(number(controller, "total"), 3)
         XCTAssertEqual(controller.current.items, initial.items)
-        await fulfillment(of: [entered], timeout: 5)
+        await fulfillment(of: [entered], timeout: failureBound)
         XCTAssertEqual(gate.batches, [[
             .init(bundle: firstBundle, id: first, peers: [first, sibling], operation: .dismiss),
             .init(bundle: secondBundle, id: other, peers: [other], operation: .dismiss),
@@ -211,7 +211,7 @@ final class ShellNotificationsDismissAllTests: XCTestCase {
             }
         }
         controller.refresh()
-        await fulfillment(of: [loaded], timeout: 5)
+        await fulfillment(of: [loaded], timeout: failureBound)
         controller.onChange = nil
         XCTAssertEqual(gate.batches.count, 1)
         XCTAssertFalse(gate.batches[0].contains { $0.id == arrived })
@@ -237,7 +237,7 @@ final class ShellNotificationsDismissAllTests: XCTestCase {
         defer { controller.setListening(false) }
         XCTAssertTrue(controller.perform(.dismissAll))
         let task = try XCTUnwrap(controller.actionTask)
-        await fulfillment(of: [entered], timeout: 5)
+        await fulfillment(of: [entered], timeout: failureBound)
         gate.emit(0, .dispatched)
         XCTAssertEqual(controller.current.dispatched, [first.uuidString.lowercased()])
         XCTAssertEqual(controller.current.items, initial.items)
@@ -282,7 +282,7 @@ final class ShellNotificationsDismissAllTests: XCTestCase {
         XCTAssertFalse(controller.perform(.dismissAll))
         XCTAssertFalse(controller.perform(.dismiss(bundle: firstBundle, id: id)))
         XCTAssertFalse(controller.perform(.reply(bundle: firstBundle, id: id, text: "Reply")))
-        await fulfillment(of: [entered], timeout: 5)
+        await fulfillment(of: [entered], timeout: failureBound)
         XCTAssertEqual(gate.batches.count, 1)
         XCTAssertTrue(gate.actions.isEmpty)
         gate.emit(0, .dispatched)
@@ -300,7 +300,7 @@ final class ShellNotificationsDismissAllTests: XCTestCase {
         let actionTask = try XCTUnwrap(controller.actionTask)
         XCTAssertFalse(controller.perform(.dismissAll))
         XCTAssertFalse(controller.perform(.cancelDismissAll))
-        await fulfillment(of: [actionEntered], timeout: 5)
+        await fulfillment(of: [actionEntered], timeout: failureBound)
         XCTAssertEqual(gate.batches.count, 1)
         XCTAssertEqual(gate.actions.count, 1)
         XCTAssertTrue(gate.finishAction(.dispatched))
@@ -316,7 +316,7 @@ final class ShellNotificationsDismissAllTests: XCTestCase {
         defer { controller.setListening(false) }
         XCTAssertTrue(controller.perform(.dismissAll))
         let task = try XCTUnwrap(controller.actionTask)
-        await fulfillment(of: [entered], timeout: 5)
+        await fulfillment(of: [entered], timeout: failureBound)
         XCTAssertTrue(gate.finish(0, .denied))
         await task.value
         XCTAssertEqual(state(controller), "failed")
@@ -336,7 +336,7 @@ final class ShellNotificationsDismissAllTests: XCTestCase {
             let controller = await controller(gate)
             XCTAssertTrue(controller.perform(.dismissAll))
             let task = try XCTUnwrap(controller.actionTask)
-            await fulfillment(of: [entered], timeout: 5)
+            await fulfillment(of: [entered], timeout: failureBound)
             gate.emit(0, .dispatched)
             gate.emit(0, hasFailedItem ? .notFound : .dispatched)
             XCTAssertTrue(gate.finish(0, .dispatchedPanelOpen))
@@ -362,7 +362,7 @@ final class ShellNotificationsDismissAllTests: XCTestCase {
         defer { controller.setListening(false) }
         XCTAssertTrue(controller.perform(.dismissAll))
         let task = try XCTUnwrap(controller.actionTask)
-        await fulfillment(of: [entered], timeout: 5)
+        await fulfillment(of: [entered], timeout: failureBound)
         gate.emit(0, .dispatched)
         XCTAssertTrue(controller.perform(.cancelDismissAll))
         XCTAssertEqual(state(controller), "cancelling")
@@ -410,7 +410,7 @@ final class ShellNotificationsDismissAllTests: XCTestCase {
         defer { controller.setListening(false) }
         XCTAssertTrue(controller.perform(.dismissAll))
         let task = try XCTUnwrap(controller.actionTask)
-        await fulfillment(of: [entered], timeout: 5)
+        await fulfillment(of: [entered], timeout: failureBound)
         XCTAssertTrue(controller.perform(.cancelDismissAll))
         XCTAssertTrue(task.isCancelled)
         XCTAssertEqual(state(controller), "cancelling")
@@ -436,7 +436,7 @@ final class ShellNotificationsDismissAllTests: XCTestCase {
         defer { controller.setListening(false) }
         XCTAssertTrue(controller.perform(.dismissAll))
         let task = try XCTUnwrap(controller.actionTask)
-        await fulfillment(of: [entered], timeout: 5)
+        await fulfillment(of: [entered], timeout: failureBound)
         gate.emit(0, .dispatched)
         XCTAssertTrue(gate.finish(0, .dispatched))
         await task.value
@@ -471,7 +471,7 @@ final class ShellNotificationsDismissAllTests: XCTestCase {
         defer { controller.setListening(false) }
         XCTAssertTrue(controller.perform(.dismissAll))
         let task = try XCTUnwrap(controller.actionTask)
-        await fulfillment(of: [entered], timeout: 5)
+        await fulfillment(of: [entered], timeout: failureBound)
         gate.emit(0, .dispatched)
         XCTAssertTrue(gate.finish(0, .dispatched))
         await task.value
@@ -500,7 +500,7 @@ final class ShellNotificationsDismissAllTests: XCTestCase {
             let controller = await controller(gate)
             XCTAssertTrue(controller.perform(.dismissAll))
             let task = try XCTUnwrap(controller.actionTask)
-            await fulfillment(of: [entered], timeout: 5)
+            await fulfillment(of: [entered], timeout: failureBound)
             if outcome == .cancelled { XCTAssertTrue(controller.perform(.cancelDismissAll)) }
             XCTAssertTrue(gate.finish(0, outcome))
             await task.value
@@ -540,7 +540,7 @@ final class ShellNotificationsDismissAllTests: XCTestCase {
         defer { controller.setListening(false) }
         XCTAssertTrue(controller.perform(.dismissAll))
         let task = try XCTUnwrap(controller.actionTask)
-        await fulfillment(of: [entered], timeout: 5)
+        await fulfillment(of: [entered], timeout: failureBound)
         gate.emit(0, .dispatched)
         gate.storageRevision = Gate.revision(1)
         controller.refresh(.filesystem)
@@ -591,7 +591,7 @@ final class ShellNotificationsDismissAllTests: XCTestCase {
         defer { controller.setListening(false) }
         XCTAssertTrue(controller.perform(.dismissAll))
         let firstTask = try XCTUnwrap(controller.actionTask)
-        await fulfillment(of: [firstEntered], timeout: 5)
+        await fulfillment(of: [firstEntered], timeout: failureBound)
         gate.emit(0, .dispatched)
         gate.emit(0, .notFound)
         XCTAssertTrue(gate.finish(0, .dispatched))
@@ -606,7 +606,7 @@ final class ShellNotificationsDismissAllTests: XCTestCase {
         XCTAssertEqual(number(controller, "total"), 1)
         XCTAssertEqual(number(controller, "completed"), 0)
         XCTAssertEqual(number(controller, "failed"), 0)
-        await fulfillment(of: [secondEntered], timeout: 5)
+        await fulfillment(of: [secondEntered], timeout: failureBound)
         XCTAssertEqual(gate.batches[1].map(\.id), [second])
         gate.emit(1, .dispatchedPanelOpen)
         XCTAssertTrue(gate.finish(1, .dispatchedPanelOpen))
@@ -639,7 +639,7 @@ final class ShellNotificationsDismissAllTests: XCTestCase {
         defer { controller.setListening(false) }
         XCTAssertTrue(controller.perform(.dismissAll))
         let firstTask = try XCTUnwrap(controller.actionTask)
-        await fulfillment(of: [firstEntered], timeout: 5)
+        await fulfillment(of: [firstEntered], timeout: failureBound)
         gate.emit(0, .dispatched)
         gate.emit(0, .notFound)
         XCTAssertTrue(controller.perform(.cancelDismissAll))
@@ -654,7 +654,7 @@ final class ShellNotificationsDismissAllTests: XCTestCase {
 
         XCTAssertTrue(controller.perform(.dismissAll))
         let secondTask = try XCTUnwrap(controller.actionTask)
-        await fulfillment(of: [secondEntered], timeout: 5)
+        await fulfillment(of: [secondEntered], timeout: failureBound)
         XCTAssertEqual(gate.batches[1].map(\.id), [second, third])
         XCTAssertTrue(controller.perform(.cancelDismissAll))
         XCTAssertTrue(gate.finish(1, .cancelled))
@@ -673,7 +673,7 @@ final class ShellNotificationsDismissAllTests: XCTestCase {
         defer { controller.setListening(false) }
         XCTAssertTrue(controller.perform(.dismissAll))
         let task = try XCTUnwrap(controller.actionTask)
-        await fulfillment(of: [entered], timeout: 5)
+        await fulfillment(of: [entered], timeout: failureBound)
         gate.emit(0, .dispatched)
         XCTAssertTrue(gate.finish(0, .dispatched))
         await task.value
@@ -706,7 +706,7 @@ final class ShellNotificationsDismissAllTests: XCTestCase {
         XCTAssertTrue(controller.perform(.dismiss(bundle: firstBundle, id: id)))
         let actionTask = try XCTUnwrap(controller.actionTask)
         XCTAssertEqual(controller.current.kept, 0)
-        await fulfillment(of: [actionEntered], timeout: 5)
+        await fulfillment(of: [actionEntered], timeout: failureBound)
         XCTAssertTrue(gate.finishAction(.dispatched))
         await actionTask.value
         XCTAssertEqual(controller.current.dispatched, [id.uuidString.lowercased()])
@@ -723,7 +723,7 @@ final class ShellNotificationsDismissAllTests: XCTestCase {
         defer { controller.setListening(false) }
         XCTAssertTrue(controller.perform(.dismissAll))
         let task = try XCTUnwrap(controller.actionTask)
-        await fulfillment(of: [entered], timeout: 5)
+        await fulfillment(of: [entered], timeout: failureBound)
         gate.emit(0, .dispatched)
         XCTAssertTrue(gate.finish(0, .dispatched))
         await task.value
@@ -743,7 +743,7 @@ final class ShellNotificationsDismissAllTests: XCTestCase {
         gate.readEntered = { _ in readEntered.fulfill() }
         controller.refresh(.filesystem)
         let readTask = try XCTUnwrap(controller.task)
-        await fulfillment(of: [readEntered], timeout: 5)
+        await fulfillment(of: [readEntered], timeout: failureBound)
         gate.storageRevision = Gate.revision(2)
         XCTAssertTrue(gate.finishRead(index, with: initial))
         await readTask.value
@@ -781,7 +781,7 @@ final class ShellNotificationsDismissAllTests: XCTestCase {
         defer { controller.setListening(false) }
         XCTAssertTrue(controller.perform(.dismissAll))
         let task = try XCTUnwrap(controller.actionTask)
-        await fulfillment(of: [entered], timeout: 5)
+        await fulfillment(of: [entered], timeout: failureBound)
         gate.emit(0, .dispatched)
         XCTAssertTrue(gate.finish(0, .dispatched))
         await task.value
@@ -799,12 +799,12 @@ final class ShellNotificationsDismissAllTests: XCTestCase {
         }
         controller.refresh()
         let firstReadTask = try XCTUnwrap(controller.task)
-        await fulfillment(of: [firstReadEntered], timeout: 5)
+        await fulfillment(of: [firstReadEntered], timeout: failureBound)
         controller.refresh(.filesystem)
         gate.holdNextRead = true
         XCTAssertTrue(gate.finishRead(index, with: initial))
         await firstReadTask.value
-        await fulfillment(of: [coalescedReadEntered], timeout: 5)
+        await fulfillment(of: [coalescedReadEntered], timeout: failureBound)
         XCTAssertEqual(controller.current.dispatched, [id.uuidString.lowercased()])
         XCTAssertEqual(controller.current.kept, 0)
         let coalescedReadTask = try XCTUnwrap(controller.task)
@@ -830,11 +830,11 @@ final class ShellNotificationsDismissAllTests: XCTestCase {
         gate.readEntered = { _ in readEntered.fulfill() }
         controller.refresh(.filesystem)
         let readTask = try XCTUnwrap(controller.task)
-        await fulfillment(of: [readEntered], timeout: 5)
+        await fulfillment(of: [readEntered], timeout: failureBound)
         gate.entered = { _ in actionEntered.fulfill() }
         XCTAssertTrue(controller.perform(.dismissAll))
         let actionTask = try XCTUnwrap(controller.actionTask)
-        await fulfillment(of: [actionEntered], timeout: 5)
+        await fulfillment(of: [actionEntered], timeout: failureBound)
         gate.emit(0, .dispatched)
         XCTAssertTrue(gate.finish(0, .dispatched))
         await actionTask.value
@@ -860,7 +860,7 @@ final class ShellNotificationsDismissAllTests: XCTestCase {
         defer { controller.setListening(false) }
         XCTAssertTrue(controller.perform(.dismissAll))
         let task = try XCTUnwrap(controller.actionTask)
-        await fulfillment(of: [entered], timeout: 5)
+        await fulfillment(of: [entered], timeout: failureBound)
         gate.emit(0, .dispatched)
         gate.emit(0, .historyClosed)
         XCTAssertTrue(gate.finish(0, .historyClosed))
@@ -915,14 +915,14 @@ final class ShellNotificationsDismissAllTests: XCTestCase {
         defer { controller.setListening(false) }
         XCTAssertTrue(controller.perform(.dismissAll))
         let oldTask = try XCTUnwrap(controller.actionTask)
-        await fulfillment(of: [oldEntered], timeout: 5)
+        await fulfillment(of: [oldEntered], timeout: failureBound)
         controller.setListening(false)
         XCTAssertFalse(controller.perform(.dismissAll))
         gate.snapshot = .init(state: "ready", items: [item(newID)])
         await listen(controller, expected: gate.snapshot)
         XCTAssertTrue(controller.perform(.dismissAll))
         let newTask = try XCTUnwrap(controller.actionTask)
-        await fulfillment(of: [newEntered], timeout: 5)
+        await fulfillment(of: [newEntered], timeout: failureBound)
 
         gate.emit(0, .failed)
         XCTAssertEqual(number(controller, "completed"), 0)

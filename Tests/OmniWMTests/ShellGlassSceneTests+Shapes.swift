@@ -304,7 +304,7 @@ extension ShellGlassSceneTests {
 
     func testShapeSpringsGiveWayToRevealOwnedKeys() throws {
         let body = ShellGlassBody()
-        guard body.nativeAvailable else { throw XCTSkip(body.failure ?? "Native glass is unavailable") }
+        guard body.nativeAvailable else { throw MissingTestPrerequisite(body.failure ?? "Native glass is unavailable") }
         let recipe = try XCTUnwrap(ShellGlassRecipe(Self.thin))
         let look = paint()
         func place(_ rect: CGRect, _ animation: ShellAnimation?) {

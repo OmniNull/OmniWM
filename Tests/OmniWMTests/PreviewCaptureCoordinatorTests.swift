@@ -231,7 +231,7 @@ final class PreviewCaptureCoordinatorTests: XCTestCase {
             if candidate === handle, preview === frame { published.fulfill() }
         }
         stream.output.offer(frame)
-        await fulfillment(of: [published], timeout: 1)
+        await fulfillment(of: [published], timeout: failureBound)
         capture.onPreview = forward
     }
 }

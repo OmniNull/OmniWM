@@ -10,9 +10,8 @@ import XCTest
 @MainActor
 final class ShellBlurTests: XCTestCase {
     func testBlurDefaultsAndExplicitZeroPassThroughToNativeFilters() throws {
-        guard !NSWorkspace.shared.accessibilityDisplayShouldReduceTransparency else {
-            throw XCTSkip("Reduce Transparency replaces materials with solid fills")
-        }
+        ShellWidgetSurface.reducesTransparencyOverride = false
+        defer { ShellWidgetSurface.reducesTransparencyOverride = nil }
         let widget = try ShellRenderedWidget(name: "blur", source: """
         function render(ctx)
             return ui.stack{ w = 100, h = 80, material = 'regular',
@@ -49,9 +48,8 @@ final class ShellBlurTests: XCTestCase {
     }
 
     func testFillOnlyRepaintKeepsBackdropFilters() throws {
-        guard !NSWorkspace.shared.accessibilityDisplayShouldReduceTransparency else {
-            throw XCTSkip("Reduce Transparency replaces materials with solid fills")
-        }
+        ShellWidgetSurface.reducesTransparencyOverride = false
+        defer { ShellWidgetSurface.reducesTransparencyOverride = nil }
         let widget = try ShellRenderedWidget(name: "blurfill", source: """
         function render(ctx)
             return ui.stack{ w = 100, h = 80, material = 'regular',

@@ -146,7 +146,7 @@ final class WorkspaceBarIconOverridesSettingsTests: XCTestCase {
         ]
 
         try SettingsTOMLCodec.encode(external).write(to: persistence.fileURL, options: .atomic)
-        await fulfillment(of: [reloaded], timeout: 2)
+        await fulfillment(of: [reloaded], timeout: failureBound)
 
         XCTAssertEqual(externalReloadCount, 1)
         XCTAssertEqual(settings.workspaceBar.excludedBundleIDs, ["com.example.After"])

@@ -104,7 +104,7 @@ final class EventTapTeardownTests: XCTestCase {
                 return Thread.isMainThread
             }
         }.value
-        await fulfillment(of: [destruction.completed], timeout: 5)
+        await fulfillment(of: [destruction.completed], timeout: failureBound)
 
         XCTAssertFalse(releasedOnMainThread)
         XCTAssertTrue(destruction.wasOnMainThread.withLock { $0 })
@@ -131,7 +131,7 @@ final class EventTapTeardownTests: XCTestCase {
                 return Thread.isMainThread
             }
         }.value
-        await fulfillment(of: [destruction.completed], timeout: 5)
+        await fulfillment(of: [destruction.completed], timeout: failureBound)
 
         XCTAssertFalse(releasedOnMainThread)
         XCTAssertTrue(destruction.wasOnMainThread.withLock { $0 })

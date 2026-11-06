@@ -52,7 +52,7 @@ final class ShellFrameEndpointTests: XCTestCase {
         }
         time.withLock { $0 = submitted.nextUp }
         gate.signal()
-        wait(for: [stamped], timeout: 5)
+        wait(for: [stamped], timeout: failureBound)
         XCTAssertEqual(during.withLock { $0 }, submitted)
         XCTAssertNil(ShellLayerScene.engineQueue.sync { scene.submitTime })
     }

@@ -121,6 +121,11 @@ final class WiFiMonitor: NSObject, ShellDeviceSource, CLLocationManagerDelegate 
     private var delegate: WiFiEvents?
     private var generation = 0
     private lazy var location = CLLocationManager()
+    private let read: @Sendable (String) -> ShellWiFi?
+
+    init(read: @escaping @Sendable (String) -> ShellWiFi? = WiFiMonitor.readInterface) {
+        self.read = read
+    }
 
     var isListening: Bool {
         client != nil
@@ -187,8 +192,9 @@ final class WiFiMonitor: NSObject, ShellDeviceSource, CLLocationManagerDelegate 
         guard isListening else { return }
         let generation = generation
         let location = ShellWiFi.location(location.authorizationStatus)
+        let read = read
         Self.reader.async { [weak self] in
-            let wifi = Self.read(location: location)
+            let wifi = read(location)
             DispatchQueue.main.async {
                 MainActor.assumeIsolated {
                     self?.publish(wifi, generation: generation)
@@ -203,7 +209,7 @@ final class WiFiMonitor: NSObject, ShellDeviceSource, CLLocationManagerDelegate 
         onChange?(wifi)
     }
 
-    private nonisolated static func read(location: String) -> ShellWiFi? {
+    private nonisolated static func readInterface(location: String) -> ShellWiFi? {
         guard let interface = CWWiFiClient.shared().interface() else { return nil }
         var wifi = ShellWiFi(power: interface.powerOn(), location: location)
         let rssi = interface.rssiValue()

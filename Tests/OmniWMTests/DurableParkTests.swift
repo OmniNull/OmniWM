@@ -1750,7 +1750,7 @@ final class DurableParkTests: XCTestCase {
             }
         }
         defer { queries.onRequest = nil }
-        guard await XCTWaiter.fulfillment(of: [requested], timeout: 1) == .completed,
+        guard await XCTWaiter.fulfillment(of: [requested], timeout: failureBound) == .completed,
               queries.requestedWindowIds.count >= count
         else {
             XCTFail("Expected \(count) deferred window-info queries; received \(queries.requestedWindowIds.count)")

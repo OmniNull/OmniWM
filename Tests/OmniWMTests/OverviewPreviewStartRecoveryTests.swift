@@ -53,7 +53,7 @@ final class OverviewPreviewStartRecoveryTests: XCTestCase {
         discovering.assertForOverFulfill = false
         probe.onDiscover = { discovering.fulfill() }
         let lookup = lookUp(on: coordinator, released: released)
-        await fulfillment(of: [discovering], timeout: 1)
+        await fulfillment(of: [discovering], timeout: failureBound)
         return lookup
     }
 
@@ -63,7 +63,7 @@ final class OverviewPreviewStartRecoveryTests: XCTestCase {
     ) async -> Task<Int?, Never> {
         let joining = expectation(description: "second caller running")
         let lookup = lookUp(on: coordinator, willCall: { joining.fulfill() }, released: released)
-        await fulfillment(of: [joining], timeout: 1)
+        await fulfillment(of: [joining], timeout: failureBound)
         return lookup
     }
 
@@ -110,7 +110,7 @@ final class OverviewPreviewStartRecoveryTests: XCTestCase {
         }
         replacement.completeStart()
         replacement.output.offer(frame)
-        await fulfillment(of: [published], timeout: 1)
+        await fulfillment(of: [published], timeout: failureBound)
         XCTAssertTrue(capture.preview(for: replacement.request.handle) === frame)
         try await driver.waitForStarts(handles.count * 2)
     }
@@ -129,7 +129,7 @@ final class OverviewPreviewStartRecoveryTests: XCTestCase {
         let second = await joinDiscovery(on: coordinator, released: released)
 
         sleeper.resumeNext()
-        await fulfillment(of: [released], timeout: 1)
+        await fulfillment(of: [released], timeout: failureBound)
         probe.answerAll()
         let firstCount = await first.value
         let secondCount = await second.value

@@ -375,7 +375,7 @@ final class WorkspaceSwipePreviewWarmupTests: XCTestCase {
         let published = expectation(description: "warmup frame published")
         capture.onPreview = { _, preview in if preview === frame { published.fulfill() } }
         stream.output.offer(frame)
-        guard await XCTWaiter.fulfillment(of: [published], timeout: 1) == .completed else {
+        guard await XCTWaiter.fulfillment(of: [published], timeout: failureBound) == .completed else {
             XCTFail("Expected preview publication")
             throw OverviewPreviewTestWaitError.publication
         }

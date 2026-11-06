@@ -61,7 +61,7 @@ final class ShellProviderObservationTests: XCTestCase {
             ))
             XCTAssertEqual(inbox.binding(for: owner)?.status, .notApproved)
         }
-        await fulfillment(of: [approved], timeout: 10)
+        await fulfillment(of: [approved], timeout: failureBound)
         let expectedCount = watchPaths(for: configuration).count
         XCTAssertEqual(watchDescriptorCount(under: directory), expectedCount)
         for provider in providers.dropLast() { await provider.close() }
@@ -80,7 +80,7 @@ final class ShellProviderObservationTests: XCTestCase {
             trustNeeded: { _ in approved.fulfill() }
         )
         await provider.reconcile(configuration)
-        await fulfillment(of: [approved], timeout: 10)
+        await fulfillment(of: [approved], timeout: failureBound)
         XCTAssertEqual(watchDescriptorCount(under: directory), watchPaths(for: configuration).count)
         await provider.reconcile(nil)
         await provider.close()
@@ -109,7 +109,7 @@ final class ShellProviderObservationTests: XCTestCase {
             providers.append(provider)
             await provider.reconcile(configuration)
         }
-        await fulfillment(of: [approved], timeout: 10)
+        await fulfillment(of: [approved], timeout: failureBound)
         let expectedPaths = configurations.reduce(into: Set<String>()) { $0.formUnion(watchPaths(for: $1)) }
         XCTAssertEqual(watchDescriptorCount(under: directory), expectedPaths.count)
         await providers[0].close()
@@ -147,13 +147,13 @@ final class ShellProviderObservationTests: XCTestCase {
             providers.append(provider)
             await provider.reconcile(configuration.unapproved)
         }
-        await fulfillment(of: [initial], timeout: 10)
+        await fulfillment(of: [initial], timeout: failureBound)
         await providers[0].close()
         let executable = configuration.folder.appendingPathComponent(configuration.command[0])
         for revision in revisions {
             try revision.bytes.write(to: executable, options: .atomic)
             try FileManager.default.setAttributes([.posixPermissions: 0o755], ofItemAtPath: executable.path)
-            await fulfillment(of: [revision.event], timeout: 10)
+            await fulfillment(of: [revision.event], timeout: failureBound)
             XCTAssertEqual(approvals.withLock { $0[revision.digest] }, Set(providers.indices.dropFirst()))
         }
         for provider in providers { await provider.close() }
@@ -175,7 +175,7 @@ final class ShellProviderObservationTests: XCTestCase {
         await withTaskGroup(of: Void.self) { group in
             for provider in providers { group.addTask { await provider.reconcile(configuration) } }
         }
-        await fulfillment(of: [approved], timeout: 10)
+        await fulfillment(of: [approved], timeout: failureBound)
         XCTAssertEqual(watchDescriptorCount(under: directory), watchPaths(for: configuration).count)
         await withTaskGroup(of: Void.self) { group in
             for provider in providers { group.addTask { await provider.close() } }
@@ -214,15 +214,15 @@ final class ShellProviderObservationTests: XCTestCase {
             diagnostics: { _, _ in missing.fulfill() }
         )
         await provider.reconcile(configuration)
-        await fulfillment(of: [initial], timeout: 10)
+        await fulfillment(of: [initial], timeout: failureBound)
         XCTAssertEqual(watchDescriptorCount(under: directory), watchPaths(for: configuration).count)
         try FileManager.default.removeItem(at: link)
         try FileManager.default.createSymbolicLink(at: link, withDestinationURL: second)
-        await fulfillment(of: [missing], timeout: 10)
+        await fulfillment(of: [missing], timeout: failureBound)
         let executable = second.appendingPathComponent("bin/provider")
         try bytes.write(to: executable)
         try FileManager.default.setAttributes([.posixPermissions: 0o755], ofItemAtPath: executable.path)
-        await fulfillment(of: [recovered], timeout: 10)
+        await fulfillment(of: [recovered], timeout: failureBound)
         await provider.close()
         XCTAssertEqual(watchDescriptorCount(under: directory), 0)
     }

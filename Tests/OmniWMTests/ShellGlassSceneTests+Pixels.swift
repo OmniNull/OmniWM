@@ -177,7 +177,8 @@ extension ShellGlassSceneTests {
         let red = CGColor(srgbRed: 1, green: 0, blue: 0, alpha: 1)
         let blue = CGColor(srgbRed: 0, green: 0, blue: 1, alpha: 1)
         try ShellLayerScene.engineQueue.sync {
-            guard ShellGlassCapability.shared.available else { throw XCTSkip("Native glass is unavailable") }
+            guard ShellGlassCapability.shared.available
+            else { throw MissingTestPrerequisite("Native glass is unavailable") }
             let optics = try XCTUnwrap(ShellGlassRecipe("\(recipe)|optics:0.3:0:90"))
             for staged in [false, true] {
                 let body = ShellGlassBody()

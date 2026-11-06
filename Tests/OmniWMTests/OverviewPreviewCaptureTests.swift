@@ -104,7 +104,7 @@ final class OverviewPreviewCaptureTests: XCTestCase {
             if handle === first, preview != nil { published.fulfill() }
         }
         driver.streams[0].output.offer(frame)
-        guard await XCTWaiter.fulfillment(of: [published], timeout: 1) == .completed else {
+        guard await XCTWaiter.fulfillment(of: [published], timeout: failureBound) == .completed else {
             XCTFail("Expected preview publication")
             throw OverviewPreviewTestWaitError.publication
         }
@@ -135,7 +135,7 @@ final class OverviewPreviewCaptureTests: XCTestCase {
         let running = expectation(description: "preview stream is running")
         capture.onReadinessChange = { running.fulfill() }
         driver.completeAllStarts()
-        guard await XCTWaiter.fulfillment(of: [running], timeout: 1) == .completed else {
+        guard await XCTWaiter.fulfillment(of: [running], timeout: failureBound) == .completed else {
             XCTFail("Expected the preview stream to finish starting")
             throw OverviewPreviewTestWaitError.publication
         }
@@ -200,7 +200,7 @@ final class OverviewPreviewCaptureTests: XCTestCase {
         let published = expectation(description: "first complete frame")
         capture.onPreview = { _, image in if image != nil { published.fulfill() } }
         driver.streams[0].output.offer(frame)
-        guard await XCTWaiter.fulfillment(of: [published], timeout: 1) == .completed else {
+        guard await XCTWaiter.fulfillment(of: [published], timeout: failureBound) == .completed else {
             XCTFail("Expected preview publication")
             throw OverviewPreviewTestWaitError.publication
         }
@@ -232,7 +232,7 @@ final class OverviewPreviewCaptureTests: XCTestCase {
             if preview == nil { clearedHandles.append(handle) }
         }
         driver.streams[0].output.offer(frame)
-        guard await XCTWaiter.fulfillment(of: [published], timeout: 1) == .completed else {
+        guard await XCTWaiter.fulfillment(of: [published], timeout: failureBound) == .completed else {
             XCTFail("Expected preview publication")
             throw OverviewPreviewTestWaitError.publication
         }
@@ -262,7 +262,7 @@ final class OverviewPreviewCaptureTests: XCTestCase {
             if preview == nil { clearedHandles.append(handle) }
         }
         try XCTUnwrap(driver.streams.last).output.offer(second)
-        await fulfillment(of: [republished], timeout: 1)
+        await fulfillment(of: [republished], timeout: failureBound)
         capture.clear()
         capture.releaseCache()
         XCTAssertEqual(capture.cachedByteCount, 0)
@@ -294,7 +294,7 @@ final class OverviewPreviewCaptureTests: XCTestCase {
             let published = expectation(description: "frame published")
             capture.onPreview = { _, preview in if preview === frame { published.fulfill() } }
             driver.streams[0].output.offer(frame)
-            guard await XCTWaiter.fulfillment(of: [published], timeout: 1) == .completed else {
+            guard await XCTWaiter.fulfillment(of: [published], timeout: failureBound) == .completed else {
                 XCTFail("Expected preview publication")
                 throw OverviewPreviewTestWaitError.publication
             }

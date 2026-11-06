@@ -400,12 +400,12 @@ final class HiddenBarMenuSessionTests: XCTestCase {
             release: { _ in releases += 1 },
             onOpen: { _ in XCTFail("closed acquisition must not publish") }
         )
-        await fulfillment(of: [started], timeout: 5)
+        await fulfillment(of: [started], timeout: failureBound)
         session.close()
         XCTAssertEqual(releases, 1)
         XCTAssertNil(session.bundleID)
         continuation?.resume(returning: [fixture.target()])
-        await fulfillment(of: [returned], timeout: 5)
+        await fulfillment(of: [returned], timeout: failureBound)
         XCTAssertNil(session.page)
         XCTAssertTrue(fixture.reads.isEmpty)
         XCTAssertEqual(releases, 1)

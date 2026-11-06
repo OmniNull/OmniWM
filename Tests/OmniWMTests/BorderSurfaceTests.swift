@@ -345,7 +345,7 @@ final class BorderSurfaceTests: XCTestCase {
             reconciler.noteBorderChanged()
             reconciler.reconcileNow()
 
-            await fulfillment(of: [resolved], timeout: 1)
+            await fulfillment(of: [resolved], timeout: failureBound)
             reconciler.reconcileNow()
             XCTAssertEqual(queries, 1)
             XCTAssertNotNil(recorder.layerPanels.first?.borderLayer.rimColor)
@@ -389,7 +389,7 @@ final class BorderSurfaceTests: XCTestCase {
         reconciler.handleVerifiedFrameApplySuccess(result)
         reconciler.reconcileNow()
 
-        await fulfillment(of: [resolved], timeout: 1)
+        await fulfillment(of: [resolved], timeout: failureBound)
         reconciler.reconcileNow()
         XCTAssertEqual(queries, 1)
         XCTAssertEqual(reconciler.appliedScene.border?.token, entry.token)
@@ -418,7 +418,7 @@ final class BorderSurfaceTests: XCTestCase {
         reconciler.noteBorderChanged()
         reconciler.reconcileNow()
 
-        await fulfillment(of: [resolved], timeout: 1)
+        await fulfillment(of: [resolved], timeout: failureBound)
         reconciler.reconcileNow()
         XCTAssertEqual(queries, 1)
         XCTAssertEqual(reconciler.appliedScene.border?.token, entry.token)
@@ -667,13 +667,13 @@ final class BorderSurfaceTests: XCTestCase {
         let resolved = expectation(description: "level query resolved")
         window.onWindowLevelResolved = { resolved.fulfill() }
         XCTAssertTrue(window.update(frame: frame, targetToken: token()))
-        await fulfillment(of: [started], timeout: 1)
+        await fulfillment(of: [started], timeout: failureBound)
         let panel = try XCTUnwrap(recorder.layerPanels.first)
         let latestFrame = frame.offsetBy(dx: 120, dy: 0)
         XCTAssertTrue(window.update(frame: latestFrame, targetToken: token()))
         XCTAssertEqual(recorder.orderCalls.map(\.level), [0])
         probe.complete(WindowServerInfo(id: 77, pid: 1234, level: 8, frame: .zero))
-        await fulfillment(of: [resolved], timeout: 1)
+        await fulfillment(of: [resolved], timeout: failureBound)
         XCTAssertTrue(window.update(frame: latestFrame, targetToken: token()))
         XCTAssertEqual(recorder.orderCalls.map(\.level), [0, 8])
         XCTAssertEqual(panel.shows, 1)
@@ -1113,11 +1113,11 @@ final class BorderSurfaceTests: XCTestCase {
             let requested = expectation(description: "corners requested for \(windowId)")
             probe.onRequest = { requested.fulfill() }
             _ = applier.apply(desired(configRed, token: token(windowId: windowId)), forceOrdering: false)
-            await fulfillment(of: [requested], timeout: 1)
+            await fulfillment(of: [requested], timeout: failureBound)
             let resolved = expectation(description: "corners resolved for \(windowId)")
             applier.onCornerSampleResolved = { resolved.fulfill() }
             probe.complete(sample(WindowCornerRadii(uniform: radius)))
-            await fulfillment(of: [resolved], timeout: 1)
+            await fulfillment(of: [resolved], timeout: failureBound)
         }
         let panel = try XCTUnwrap(recorder.layerPanels.first)
         for (windowId, radius) in [(77, 24.0), (78, 12.0), (77, 26.0)] {
@@ -1127,11 +1127,11 @@ final class BorderSurfaceTests: XCTestCase {
             XCTAssertEqual(panel.renderedCornerRadii, WindowCornerRadii(uniform: radius))
             XCTAssertEqual(panel.borderLayer.rimOpacity, 1)
             XCTAssertTrue(panel.gradientStrokeLayer.isHidden)
-            await fulfillment(of: [requested], timeout: 1)
+            await fulfillment(of: [requested], timeout: failureBound)
             let resolved = expectation(description: "updated corners for \(windowId)")
             applier.onCornerSampleResolved = { resolved.fulfill() }
             probe.complete(sample(WindowCornerRadii(uniform: radius + 2)))
-            await fulfillment(of: [resolved], timeout: 1)
+            await fulfillment(of: [resolved], timeout: failureBound)
             _ = applier.apply(desired(configRed, token: token(windowId: windowId)), forceOrdering: false)
             XCTAssertEqual(panel.renderedCornerRadii, WindowCornerRadii(uniform: radius + 2))
         }
@@ -1147,13 +1147,13 @@ final class BorderSurfaceTests: XCTestCase {
         let started = expectation(description: "first target query")
         probe.onRequest = { started.fulfill() }
         _ = applier.apply(desired(configRed), forceOrdering: false)
-        await fulfillment(of: [started], timeout: 1)
+        await fulfillment(of: [started], timeout: failureBound)
         let panel = try XCTUnwrap(recorder.layerPanels.first)
         let fallback = panel.renderedCornerRadii
         let resolved = expectation(description: "first target cache")
         applier.onCornerSampleResolved = { resolved.fulfill() }
         probe.complete(sample(WindowCornerRadii(uniform: 20)))
-        await fulfillment(of: [resolved], timeout: 1)
+        await fulfillment(of: [resolved], timeout: failureBound)
         _ = applier.apply(desired(configRed), forceOrdering: false)
         XCTAssertNotEqual(panel.renderedCornerRadii, fallback)
         _ = applier.apply(
@@ -1177,7 +1177,7 @@ final class BorderSurfaceTests: XCTestCase {
                 var resolvedCount = 0
                 applier.onCornerSampleResolved = { resolvedCount += 1 }
                 _ = applier.apply(desired(configRed), forceOrdering: false)
-                await fulfillment(of: [started], timeout: 1)
+                await fulfillment(of: [started], timeout: failureBound)
                 let query = try XCTUnwrap(applier.cornerQueryTask)
                 probe.complete(nil)
                 await query.value
@@ -1188,11 +1188,11 @@ final class BorderSurfaceTests: XCTestCase {
             let started = expectation(description: "new geometry rearms query")
             probe.onRequest = { started.fulfill() }
             _ = applier.apply(desired(configRed, frame: newFrame), forceOrdering: false)
-            await fulfillment(of: [started], timeout: 1)
+            await fulfillment(of: [started], timeout: failureBound)
             let resolved = expectation(description: "new geometry accepted")
             applier.onCornerSampleResolved = { resolved.fulfill() }
             probe.complete(sample(WindowCornerRadii(uniform: 12), size: newFrame.size))
-            await fulfillment(of: [resolved], timeout: 1)
+            await fulfillment(of: [resolved], timeout: failureBound)
             _ = applier.apply(desired(configRed, frame: newFrame), forceOrdering: false)
             XCTAssertEqual(probe.requests.count, 3)
         }
@@ -1209,7 +1209,7 @@ final class BorderSurfaceTests: XCTestCase {
         let resolved = expectation(description: "corners resolved")
         applier.onCornerSampleResolved = { resolved.fulfill() }
         XCTAssertTrue(applier.apply(desired(configRed), forceOrdering: false).didApply)
-        await fulfillment(of: [started], timeout: 1)
+        await fulfillment(of: [started], timeout: failureBound)
         let panel = try XCTUnwrap(recorder.layerPanels.first)
         let fallbackCorners = panel.renderedCornerRadii
         var latest = frame
@@ -1227,7 +1227,7 @@ final class BorderSurfaceTests: XCTestCase {
         let target = UInt32(token().windowId)
         XCTAssertNil(applier.ringWindowId(orderedAbove: target))
         probe.complete(sample(WindowCornerRadii(uniform: 20)))
-        await fulfillment(of: [resolved], timeout: 1)
+        await fulfillment(of: [resolved], timeout: failureBound)
         _ = applier.apply(desired(configRed, frame: latest), forceOrdering: false)
         XCTAssertNotEqual(panel.renderedCornerRadii, fallbackCorners)
         XCTAssertEqual(panel.surfaceFrame, latest.insetBy(dx: -4, dy: -4).integral)
@@ -1250,7 +1250,7 @@ final class BorderSurfaceTests: XCTestCase {
             let first = expectation(description: "first query")
             probe.onRequest = { first.fulfill() }
             _ = applier.apply(desired(configRed), forceOrdering: false)
-            await fulfillment(of: [first], timeout: 1)
+            await fulfillment(of: [first], timeout: failureBound)
             let panel = try XCTUnwrap(recorder.layerPanels.first)
             _ = applier.apply(desired(
                 configRed,
@@ -1264,14 +1264,14 @@ final class BorderSurfaceTests: XCTestCase {
             var resolvedCount = 0
             applier.onCornerSampleResolved = { resolvedCount += 1 }
             probe.complete(sample(WindowCornerRadii(uniform: 30)))
-            await fulfillment(of: [newest], timeout: 1)
+            await fulfillment(of: [newest], timeout: failureBound)
             XCTAssertEqual(resolvedCount, 0)
             XCTAssertEqual(panel.renderedCornerRadii, fallbackCorners)
             XCTAssertEqual(probe.requests, [token(), token()])
             let resolved = expectation(description: "current sample")
             applier.onCornerSampleResolved = { resolved.fulfill() }
             probe.complete(sample(WindowCornerRadii(uniform: 15)))
-            await fulfillment(of: [resolved], timeout: 1)
+            await fulfillment(of: [resolved], timeout: failureBound)
             _ = applier.apply(desired(configRed), forceOrdering: false)
             XCTAssertNotEqual(panel.renderedCornerRadii, fallbackCorners)
         }
@@ -1287,7 +1287,7 @@ final class BorderSurfaceTests: XCTestCase {
             let first = expectation(description: "old lifetime")
             probe.onRequest = { first.fulfill() }
             _ = applier.apply(desired(configRed), forceOrdering: false)
-            await fulfillment(of: [first], timeout: 1)
+            await fulfillment(of: [first], timeout: failureBound)
             switch invalidation {
             case 0: _ = applier.apply(nil, forceOrdering: false)
             case 1: applier.cleanup()
@@ -1299,13 +1299,13 @@ final class BorderSurfaceTests: XCTestCase {
             var notifications = 0
             applier.onCornerSampleResolved = { notifications += 1 }
             probe.complete(sample(WindowCornerRadii(uniform: 30)))
-            await fulfillment(of: [latest], timeout: 1)
+            await fulfillment(of: [latest], timeout: failureBound)
             XCTAssertEqual(notifications, 0)
             XCTAssertEqual(probe.requests, [token(), token()])
             let resolved = expectation(description: "current lifetime")
             applier.onCornerSampleResolved = { resolved.fulfill() }
             probe.complete(sample(WindowCornerRadii(uniform: 15)))
-            await fulfillment(of: [resolved], timeout: 1)
+            await fulfillment(of: [resolved], timeout: failureBound)
             _ = applier.apply(desired(configRed), forceOrdering: false)
             XCTAssertEqual(recorder.layerPanels.count, invalidation == 1 ? 2 : 1)
         }
@@ -1321,7 +1321,7 @@ final class BorderSurfaceTests: XCTestCase {
             let first = expectation(description: "entered read")
             probe.onRequest = { first.fulfill() }
             _ = applier.apply(desired(configRed), forceOrdering: false)
-            await fulfillment(of: [first], timeout: 1)
+            await fulfillment(of: [first], timeout: failureBound)
             let query = try XCTUnwrap(applier.cornerQueryTask)
             if hide {
                 _ = applier.apply(nil, forceOrdering: false)
@@ -1342,11 +1342,11 @@ final class BorderSurfaceTests: XCTestCase {
             let settled = expectation(description: "settled query")
             probe.onRequest = { settled.fulfill() }
             _ = applier.apply(desired(configRed), forceOrdering: false)
-            await fulfillment(of: [settled], timeout: 1)
+            await fulfillment(of: [settled], timeout: failureBound)
             let accepted = expectation(description: "stale failure did not spend current retry")
             applier.onCornerSampleResolved = { accepted.fulfill() }
             probe.complete(nil)
-            await fulfillment(of: [accepted], timeout: 1)
+            await fulfillment(of: [accepted], timeout: failureBound)
         }
     }
 
@@ -1367,7 +1367,7 @@ final class BorderSurfaceTests: XCTestCase {
                 var resolvedCount = 0
                 applier.onCornerSampleResolved = { resolvedCount += 1 }
                 _ = applier.apply(desired(configRed), forceOrdering: false)
-                await fulfillment(of: [started], timeout: 1)
+                await fulfillment(of: [started], timeout: failureBound)
                 for _ in 0 ..< 50 {
                     XCTAssertTrue(applier.apply(desired(configRed), forceOrdering: false).didApply)
                 }
@@ -1401,11 +1401,11 @@ final class BorderSurfaceTests: XCTestCase {
         let first = expectation(description: "initial query")
         probe.onRequest = { first.fulfill() }
         _ = applier.apply(desired(configRed), forceOrdering: false)
-        await fulfillment(of: [first], timeout: 1)
+        await fulfillment(of: [first], timeout: failureBound)
         let resolved = expectation(description: "initial corners")
         applier.onCornerSampleResolved = { resolved.fulfill() }
         probe.complete(sample(WindowCornerRadii(uniform: 20)))
-        await fulfillment(of: [resolved], timeout: 1)
+        await fulfillment(of: [resolved], timeout: failureBound)
         _ = applier.apply(desired(configRed), forceOrdering: false)
         let panel = try XCTUnwrap(recorder.layerPanels.first)
         let resized = frame.insetBy(dx: -20, dy: 0)
@@ -1414,21 +1414,21 @@ final class BorderSurfaceTests: XCTestCase {
         let refresh = expectation(description: "size refresh")
         probe.onRequest = { refresh.fulfill() }
         _ = applier.apply(desired(configRed, frame: resized), forceOrdering: false)
-        await fulfillment(of: [refresh], timeout: 1)
+        await fulfillment(of: [refresh], timeout: failureBound)
         XCTAssertEqual(panel.renderedCornerRadii, cachedCorners)
         let retry = expectation(description: "old size rejected")
         applier.onCornerSampleResolved = { retry.fulfill() }
         probe.complete(sample(WindowCornerRadii(uniform: 30)))
-        await fulfillment(of: [retry], timeout: 1)
+        await fulfillment(of: [retry], timeout: failureBound)
         let retryStarted = expectation(description: "retry")
         probe.onRequest = { retryStarted.fulfill() }
         _ = applier.apply(desired(configRed, frame: resized), forceOrdering: false)
-        await fulfillment(of: [retryStarted], timeout: 1)
+        await fulfillment(of: [retryStarted], timeout: failureBound)
         XCTAssertEqual(panel.renderedCornerRadii, cachedCorners)
         let accepted = expectation(description: "current size accepted")
         applier.onCornerSampleResolved = { accepted.fulfill() }
         probe.complete(sample(WindowCornerRadii(uniform: 12), size: resized.size))
-        await fulfillment(of: [accepted], timeout: 1)
+        await fulfillment(of: [accepted], timeout: failureBound)
         _ = applier.apply(desired(configRed, frame: resized), forceOrdering: false)
         XCTAssertNotEqual(panel.renderedCornerRadii, cachedCorners)
         XCTAssertEqual(probe.requests.count, 3)
@@ -1448,7 +1448,7 @@ final class BorderSurfaceTests: XCTestCase {
         let resolved = expectation(description: "level resolved")
         applier.onWindowLevelResolved = { resolved.fulfill() }
         _ = applier.apply(desired(configRed), forceOrdering: false)
-        await fulfillment(of: [started], timeout: 1)
+        await fulfillment(of: [started], timeout: failureBound)
         var latestFrame = frame
         for offset in 1 ... 500 {
             latestFrame = frame.offsetBy(dx: CGFloat(offset), dy: 0)
@@ -1459,7 +1459,7 @@ final class BorderSurfaceTests: XCTestCase {
         XCTAssertEqual(recorder.windowInfoQueryCount, 0)
         XCTAssertEqual(recorder.orderCalls.first?.level, 0)
         probe.complete(WindowServerInfo(id: 77, pid: 1234, level: 8, frame: .zero))
-        await fulfillment(of: [resolved], timeout: 1)
+        await fulfillment(of: [resolved], timeout: failureBound)
         _ = applier.apply(desired(configRed, frame: latestFrame), forceOrdering: false)
         XCTAssertEqual(recorder.orderCalls.last?.level, 8)
         XCTAssertEqual(
@@ -1478,7 +1478,7 @@ final class BorderSurfaceTests: XCTestCase {
         let first = expectation(description: "first A read")
         probe.onRequest = { first.fulfill() }
         _ = window.update(frame: frame, targetToken: token())
-        await fulfillment(of: [first], timeout: 1)
+        await fulfillment(of: [first], timeout: failureBound)
         _ = window.update(frame: frame, targetToken: token(windowId: 78))
         _ = window.update(frame: frame, targetToken: token())
         let newest = expectation(description: "new A read")
@@ -1486,12 +1486,12 @@ final class BorderSurfaceTests: XCTestCase {
         let resolved = expectation(description: "only current A accepted")
         window.onWindowLevelResolved = { resolved.fulfill() }
         probe.complete(WindowServerInfo(id: 77, pid: 1234, level: 99, frame: .zero))
-        await fulfillment(of: [newest], timeout: 1)
+        await fulfillment(of: [newest], timeout: failureBound)
         XCTAssertFalse(window.hasDeferredLevelUpdate)
         XCTAssertEqual(window.appliedTargetLevel, 0)
         XCTAssertEqual(probe.requests, [77, 77])
         probe.complete(WindowServerInfo(id: 77, pid: 1234, level: 7, frame: .zero))
-        await fulfillment(of: [resolved], timeout: 1)
+        await fulfillment(of: [resolved], timeout: failureBound)
         _ = window.update(frame: frame, targetToken: token())
         XCTAssertEqual(window.appliedTargetLevel, 7)
         XCTAssertEqual(probe.requests.count, 2)
@@ -1514,7 +1514,7 @@ final class BorderSurfaceTests: XCTestCase {
                 probe.onRequest = { started.fulfill() }
                 window.onWindowLevelResolved = { resolved.fulfill() }
                 _ = window.update(frame: frame, targetToken: token())
-                await fulfillment(of: [started], timeout: 1)
+                await fulfillment(of: [started], timeout: failureBound)
                 let orderCount = recorder.orderCalls.count
                 for offset in 1 ... 50 {
                     _ = window.update(
@@ -1524,7 +1524,7 @@ final class BorderSurfaceTests: XCTestCase {
                 }
                 XCTAssertEqual(recorder.orderCalls.count, orderCount)
                 probe.complete(info)
-                await fulfillment(of: [resolved], timeout: 1)
+                await fulfillment(of: [resolved], timeout: failureBound)
                 XCTAssertEqual(window.needsWindowLevelRetry, attempt == 0)
             }
             _ = window.update(frame: frame, targetToken: token())
@@ -1546,19 +1546,19 @@ final class BorderSurfaceTests: XCTestCase {
             let first = expectation(description: "old instance read")
             probe.onRequest = { first.fulfill() }
             _ = window.update(frame: frame, targetToken: token())
-            await fulfillment(of: [first], timeout: 1)
+            await fulfillment(of: [first], timeout: failureBound)
             if destroy { window.destroy() } else { window.hide() }
             _ = window.update(frame: frame, targetToken: token())
             let next = expectation(description: "new lifetime read")
             probe.onRequest = { next.fulfill() }
             probe.complete(WindowServerInfo(id: 77, pid: 1234, level: 99, frame: .zero))
-            await fulfillment(of: [next], timeout: 1)
+            await fulfillment(of: [next], timeout: failureBound)
             XCTAssertFalse(window.hasDeferredLevelUpdate)
             XCTAssertEqual(window.appliedTargetLevel, 0)
             let resolved = expectation(description: "current lifetime accepted")
             window.onWindowLevelResolved = { resolved.fulfill() }
             probe.complete(WindowServerInfo(id: 77, pid: 1234, level: 8, frame: .zero))
-            await fulfillment(of: [resolved], timeout: 1)
+            await fulfillment(of: [resolved], timeout: failureBound)
             _ = window.update(frame: frame, targetToken: token())
             XCTAssertEqual(window.appliedTargetLevel, 8)
             XCTAssertEqual(recorder.layerPanels.count, destroy ? 2 : 1)
@@ -1573,27 +1573,27 @@ final class BorderSurfaceTests: XCTestCase {
         let first = expectation(description: "first query")
         probe.onRequest = { first.fulfill() }
         _ = window.update(frame: frame, targetToken: token())
-        await fulfillment(of: [first], timeout: 1)
+        await fulfillment(of: [first], timeout: failureBound)
         let resolved = expectation(description: "first level")
         window.onWindowLevelResolved = { resolved.fulfill() }
         probe.complete(WindowServerInfo(id: 77, pid: 1234, level: 8, frame: .zero))
-        await fulfillment(of: [resolved], timeout: 1)
+        await fulfillment(of: [resolved], timeout: failureBound)
         _ = window.update(frame: frame, targetToken: token())
         let refresh = expectation(description: "same target refresh")
         probe.onRequest = { refresh.fulfill() }
         window.reorder(relativeTo: token())
         XCTAssertEqual(window.appliedTargetLevel, 8)
-        await fulfillment(of: [refresh], timeout: 1)
+        await fulfillment(of: [refresh], timeout: failureBound)
         _ = window.update(frame: frame, targetToken: token(windowId: 78))
         XCTAssertEqual(window.appliedTargetLevel, 0)
         let second = expectation(description: "new target query")
         probe.onRequest = { second.fulfill() }
         probe.complete(WindowServerInfo(id: 77, pid: 1234, level: 99, frame: .zero))
-        await fulfillment(of: [second], timeout: 1)
+        await fulfillment(of: [second], timeout: failureBound)
         let secondResolved = expectation(description: "second target level")
         window.onWindowLevelResolved = { secondResolved.fulfill() }
         probe.complete(WindowServerInfo(id: 78, pid: 1234, level: 7, frame: .zero))
-        await fulfillment(of: [secondResolved], timeout: 1)
+        await fulfillment(of: [secondResolved], timeout: failureBound)
         _ = window.update(frame: frame, targetToken: token(windowId: 78))
         XCTAssertEqual(window.appliedTargetLevel, 7)
         XCTAssertEqual(probe.requests, [77, 77, 78])

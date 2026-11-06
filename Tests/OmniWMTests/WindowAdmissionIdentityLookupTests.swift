@@ -55,7 +55,7 @@ final class WindowAdmissionIdentityLookupTests: XCTestCase {
         let original = try XCTUnwrap(handler.admissionRetryStateByWindowId[windowId])
         let task = try XCTUnwrap(original.task)
         XCTAssertEqual(original.attempt, 0)
-        await fulfillment(of: [started], timeout: 2)
+        await fulfillment(of: [started], timeout: failureBound)
         handler.processCreatedWindow(windowId: windowId)
         await handler.lifecycleQueries.task?.value
         XCTAssertTrue(handler.retryAdmissionAfterFrameChange(windowId: windowId))
@@ -90,7 +90,7 @@ final class WindowAdmissionIdentityLookupTests: XCTestCase {
         await handler.lifecycleQueries.task?.value
         let original = try XCTUnwrap(handler.admissionRetryStateByWindowId[windowId])
         let task = try XCTUnwrap(original.task)
-        await fulfillment(of: [started], timeout: 2)
+        await fulfillment(of: [started], timeout: failureBound)
 
         handler.handleCGSEvent(.closed(windowId: windowId))
         XCTAssertNil(handler.admissionRetryStateByWindowId[windowId])
@@ -103,7 +103,7 @@ final class WindowAdmissionIdentityLookupTests: XCTestCase {
         }
         handler.processCreatedWindow(windowId: windowId)
         await handler.lifecycleQueries.task?.value
-        await fulfillment(of: [replacementStarted], timeout: 2)
+        await fulfillment(of: [replacementStarted], timeout: failureBound)
         let replacement = try XCTUnwrap(handler.admissionRetryStateByWindowId[windowId])
         let replacementTask = try XCTUnwrap(replacement.task)
         XCTAssertNotEqual(replacement.generation, original.generation)
@@ -133,7 +133,7 @@ final class WindowAdmissionIdentityLookupTests: XCTestCase {
         handler.processCreatedWindow(windowId: windowId)
         await handler.lifecycleQueries.task?.value
         let task = try XCTUnwrap(handler.admissionRetryStateByWindowId[windowId]?.task)
-        await fulfillment(of: [started], timeout: 2)
+        await fulfillment(of: [started], timeout: failureBound)
         XCTAssertTrue(handler.scheduleAdmissionRetry(
             windowId: windowId, expectedToken: token, reason: .factsDeferred,
             trigger: .focused(
@@ -168,7 +168,7 @@ final class WindowAdmissionIdentityLookupTests: XCTestCase {
         handler.processCreatedWindow(windowId: windowId)
         await handler.lifecycleQueries.task?.value
         let task = try XCTUnwrap(handler.admissionRetryStateByWindowId[windowId]?.task)
-        await fulfillment(of: [started], timeout: 2)
+        await fulfillment(of: [started], timeout: failureBound)
 
         info = windowInfo(for: WindowToken(pid: token.pid + 1, windowId: token.windowId))
         gate.resume(WindowAdmissionTestSupport.axRef(for: token))
@@ -209,7 +209,7 @@ final class WindowAdmissionIdentityLookupTests: XCTestCase {
         handler.processCreatedWindow(windowId: windowId)
         await handler.lifecycleQueries.task?.value
         let task = try XCTUnwrap(handler.admissionRetryStateByWindowId[windowId]?.task)
-        await fulfillment(of: [started], timeout: 2)
+        await fulfillment(of: [started], timeout: failureBound)
 
         controller.layoutRefreshController.layoutState.activeFullEnumerationCount = 1
         gate.resume()
@@ -226,7 +226,7 @@ final class WindowAdmissionIdentityLookupTests: XCTestCase {
         }
         handler.drainDeferredCreatedWindows(spaceIdsForWindow: { _ in [] })
         await handler.lifecycleQueries.task?.value
-        await fulfillment(of: [resumed], timeout: 2)
+        await fulfillment(of: [resumed], timeout: failureBound)
         let resumedTask = try XCTUnwrap(handler.admissionRetryStateByWindowId[windowId]?.task)
         gate.resume()
         await resumedTask.value
@@ -255,7 +255,7 @@ final class WindowAdmissionIdentityLookupTests: XCTestCase {
 
         XCTAssertTrue(handler.retryAdmissionAfterFrameChange(windowId: windowId))
         await handler.lifecycleQueries.task?.value
-        await fulfillment(of: [frameStarted], timeout: 2)
+        await fulfillment(of: [frameStarted], timeout: failureBound)
         let frameLookup = try XCTUnwrap(handler.admissionRetryStateByWindowId[windowId]?.task)
         gate.resume()
         await frameLookup.value
@@ -266,7 +266,7 @@ final class WindowAdmissionIdentityLookupTests: XCTestCase {
 
         handler.processCreatedWindow(windowId: windowId)
         await handler.lifecycleQueries.task?.value
-        await fulfillment(of: [createStarted], timeout: 2)
+        await fulfillment(of: [createStarted], timeout: failureBound)
         let createLookup = try XCTUnwrap(handler.admissionRetryStateByWindowId[windowId]?.task)
         gate.resume()
         await createLookup.value
@@ -302,7 +302,7 @@ final class WindowAdmissionIdentityLookupTests: XCTestCase {
         windowServerInfo = info
         XCTAssertTrue(handler.dispatchAdmissionRetry(windowId: windowId))
         await handler.lifecycleQueries.task?.value
-        await fulfillment(of: [started], timeout: 2)
+        await fulfillment(of: [started], timeout: failureBound)
         let lookup = try XCTUnwrap(handler.admissionRetryStateByWindowId[windowId]?.task)
         gate.resume()
         await lookup.value
@@ -311,12 +311,12 @@ final class WindowAdmissionIdentityLookupTests: XCTestCase {
 
     func testDefaultLookupCreatesNoAXContextForPolicyExcludedApp() async throws {
         guard AXIsProcessTrusted() else {
-            throw XCTSkip("Observing AX context creation requires Accessibility trust")
+            throw MissingTestPrerequisite("Observing AX context creation requires Accessibility trust")
         }
         guard let app = NSWorkspace.shared.runningApplications.first(where: {
             $0.bundleIdentifier == "com.apple.controlcenter" || $0.bundleIdentifier == "com.apple.notificationcenterui"
         }) else {
-            throw XCTSkip("No policy-excluded system UI process is running")
+            throw MissingTestPrerequisite("No policy-excluded system UI process is running")
         }
         let pid = app.processIdentifier
         XCTAssertFalse(AXManager.shouldTrack(app, pid: pid))
@@ -373,7 +373,7 @@ final class WindowAdmissionIdentityLookupTests: XCTestCase {
         controller.layoutRefreshController.layoutState.activeFullEnumerationCount = 0
         handler.drainDeferredCreatedWindows(spaceIdsForWindow: { _ in [] })
         await handler.lifecycleQueries.task?.value
-        await fulfillment(of: [started], timeout: 2)
+        await fulfillment(of: [started], timeout: failureBound)
         let task = try XCTUnwrap(handler.admissionRetryStateByWindowId[windowId]?.task)
         gate.resume()
         await task.value

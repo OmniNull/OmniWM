@@ -226,7 +226,7 @@ final class HiddenBarDrawerTests: XCTestCase {
         XCTAssertEqual(log.joins.last, joined)
         XCTAssertTrue(chrome.panel.isVisible)
         let closed = XCTNSPredicateExpectation(predicate: NSPredicate { _, _ in !chrome.panel.isVisible }, object: nil)
-        await fulfillment(of: [closed], timeout: 10)
+        await fulfillment(of: [closed], timeout: failureBound)
         XCTAssertEqual(log.joins.last, .some(nil))
     }
 

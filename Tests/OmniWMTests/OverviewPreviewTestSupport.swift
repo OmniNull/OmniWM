@@ -140,7 +140,7 @@ final class OverviewPreviewTestDriver {
         let started = XCTestExpectation(description: "Preview start count \(count)")
         startWaiters.append((count, started))
         defer { startWaiters.removeAll { $0.1 === started } }
-        guard await XCTWaiter.fulfillment(of: [started], timeout: 1) == .completed,
+        guard await XCTWaiter.fulfillment(of: [started], timeout: failureBound) == .completed,
               startedCount >= count
         else {
             XCTFail("Expected \(count) preview starts; received \(startedCount)", file: file, line: line)
@@ -157,7 +157,7 @@ final class OverviewPreviewTestDriver {
         let stopped = XCTestExpectation(description: "Preview stop count \(count)")
         stopWaiters.append((count, stopped))
         defer { stopWaiters.removeAll { $0.1 === stopped } }
-        guard await XCTWaiter.fulfillment(of: [stopped], timeout: 1) == .completed,
+        guard await XCTWaiter.fulfillment(of: [stopped], timeout: failureBound) == .completed,
               stoppedCount >= count
         else {
             XCTFail("Expected \(count) preview stops; received \(stoppedCount)", file: file, line: line)

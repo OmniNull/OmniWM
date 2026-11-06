@@ -126,23 +126,26 @@ final class ShellHTTPServiceTests: XCTestCase {
 
     private func run(
         _ plan: ProtocolStub.Plan, response: ShellHTTPRequest.Response = .text, maxBytes: Int = 1 << 20,
-        timeout: Double = 30, policy: ShellHTTPPolicy = .approved(["api.example"]),
-        decodeJSON: @escaping @Sendable (Data) throws -> [UInt8] = ShellHTTPResponse.json
+        policy: ShellHTTPPolicy = .approved(["api.example"]),
+        decodeJSON: @escaping @Sendable (Data) throws -> [UInt8] = ShellHTTPResponse.json,
+        deadlineDelay: @escaping @Sendable (Double) -> Double = { $0 }
     ) async throws -> Value {
         let url = url()
         ProtocolStub.plans.withLock { $0[url] = plan }
         defer { _ = ProtocolStub.plans.withLock { $0.removeValue(forKey: url) } }
         let ledger = ShellServiceLedger(generation: 42)
-        let service = ShellHTTPService(ledger: ledger, protocolClasses: [ProtocolStub.self], decodeJSON: decodeJSON)
+        let service = ShellHTTPService(
+            ledger: ledger, protocolClasses: [ProtocolStub.self], deadlineDelay: deadlineDelay, decodeJSON: decodeJSON
+        )
         defer { ledger.close() }
         let completed = expectation(description: "HTTP completion")
         ledger.attachWake { completed.fulfill() }
         XCTAssertTrue(service.start(
             id(),
-            request: ShellHTTPRequest(url: url, response: response, maxBytes: maxBytes, timeout: timeout),
+            request: ShellHTTPRequest(url: url, response: response, maxBytes: maxBytes),
             policy: policy
         ))
-        await fulfillment(of: [completed], timeout: 5)
+        await fulfillment(of: [completed], timeout: failureBound)
         let batch = ledger.takeBatch()
         XCTAssertEqual(batch.count, 1)
         XCTAssertEqual(service.activeCount, 0)
@@ -206,7 +209,7 @@ final class ShellHTTPServiceTests: XCTestCase {
     }
 
     func testExternalDeadlineAndURLSessionTimeoutHaveSameExplicitResult() async throws {
-        let deadline = try await run(.init(stall: true), timeout: 0.02)
+        let deadline = try await run(.init(stall: true), deadlineDelay: { _ in 0 })
         XCTAssertEqual(deadline["error"], .text("timeout"))
         let session = try await run(.init(error: .timedOut))
         XCTAssertEqual(session["error"], .text("timeout"))
@@ -313,12 +316,12 @@ final class ShellHTTPServiceTests: XCTestCase {
             request: .init(url: stalled),
             policy: .widget(principal, hosts: ["api.example"], permissions: permissions)
         ))
-        await fulfillment(of: [started], timeout: 5)
+        await fulfillment(of: [started], timeout: failureBound)
         let completed = expectation(description: "revoked transfer reports its denial")
         ledger.attachWake { completed.fulfill() }
         XCTAssertTrue(permissions.update(decisions: revocation))
         service.revalidate()
-        await fulfillment(of: [completed, stopped], timeout: 5)
+        await fulfillment(of: [completed, stopped], timeout: failureBound)
         let batch = ledger.takeBatch()
         XCTAssertEqual(batch.count, 1)
         var reader = Reader(bytes: try XCTUnwrap(batch.first?.payload))
@@ -378,11 +381,12 @@ final class ShellHTTPServiceTests: XCTestCase {
         }
         XCTAssertTrue(service.start(id(1, owner: 1), request: .init(url: urls[0]), policy: .approved(["api.example"])))
         XCTAssertTrue(service.start(id(2, owner: 2), request: .init(url: urls[1]), policy: .approved(["api.example"])))
-        await fulfillment(of: [started], timeout: 5)
+        await fulfillment(of: [started], timeout: failureBound)
         ledger.cancel(id(1, owner: 1))
         XCTAssertEqual(ledger.activeCount, 1)
         ledger.cancel(owner: id(2, owner: 2).owner)
-        await fulfillment(of: [stopped], timeout: 5)
+        XCTAssertEqual(service.activeCount, 0)
+        await fulfillment(of: [stopped], timeout: failureBound)
         XCTAssertEqual(service.activeCount, 0)
         XCTAssertEqual(ledger.activeCount, 0)
         XCTAssertEqual(ledger.pendingCount, 0)
@@ -414,7 +418,7 @@ final class ShellHTTPServiceTests: XCTestCase {
                 policy: .approved(["api.example"])
             ))
         }
-        await fulfillment(of: [started, overloaded], timeout: 5)
+        await fulfillment(of: [started, overloaded], timeout: failureBound)
         XCTAssertEqual(service.activeCount, 6)
         XCTAssertEqual(ledger.activeCount, 6)
         for bytes in results.withLock({ $0 }) { var reader = Reader(bytes: bytes)

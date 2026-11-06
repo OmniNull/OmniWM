@@ -117,7 +117,7 @@ final class WorkspaceBarInstanceTests: XCTestCase {
 
     func testRepeatedFrameRepairsAnExternallyMovedPanel() throws {
         guard let screen = NSScreen.screens.first else {
-            throw XCTSkip("Requires an NSScreen to check the actual panel frame")
+            throw MissingTestPrerequisite("Requires an NSScreen to check the actual panel frame")
         }
         for width in [CGFloat(200), screen.frame.width] {
             let fixture = makeFixture()
@@ -152,7 +152,7 @@ final class WorkspaceBarInstanceTests: XCTestCase {
 
     func testRepeatedFrameDoesNotReapplyAnUnchangedScreenConstraint() throws {
         guard let screen = NSScreen.screens.first else {
-            throw XCTSkip("Requires an NSScreen to check the actual panel frame")
+            throw MissingTestPrerequisite("Requires an NSScreen to check the actual panel frame")
         }
         let fixture = makeFixture()
         let island = fixture.instance.primary

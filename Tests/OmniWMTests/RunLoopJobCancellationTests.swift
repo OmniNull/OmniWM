@@ -50,7 +50,7 @@ final class RunLoopJobCancellationTests: XCTestCase {
         thread.runInLoopAsync { _ in
             marker.fulfill()
         }
-        wait(for: [marker], timeout: 5)
+        wait(for: [marker], timeout: failureBound)
     }
 
     func testCancelBeforeRunLoopProcessesJobSkipsBody() {
@@ -79,7 +79,7 @@ final class RunLoopJobCancellationTests: XCTestCase {
             bodyRan.fulfill()
         }
 
-        wait(for: [bodyRan], timeout: 5)
+        wait(for: [bodyRan], timeout: failureBound)
         waitForMarker()
         XCTAssertEqual(counter.value, 1)
         XCTAssertFalse(job.isCancelled)
@@ -110,7 +110,7 @@ final class RunLoopJobCancellationTests: XCTestCase {
             bodyRan.fulfill()
         }
 
-        wait(for: [bodyRan], timeout: 5)
+        wait(for: [bodyRan], timeout: failureBound)
         XCTAssertEqual(counter.value, 1)
     }
 

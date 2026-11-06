@@ -16,9 +16,9 @@ final class NuCompletionTests: XCTestCase {
         XCTAssertEqual(script, CLICompletionGenerator.script(for: .nu))
     }
 
-    func testMissingNushellIsAnExplicitSkip() {
+    func testMissingNushellIsAnExplicitFailure() {
         XCTAssertThrowsError(try NuCompletionTestSupport.nuExecutable(path: "")) { error in
-            XCTAssertTrue(error is XCTSkip)
+            XCTAssertTrue(error is MissingTestPrerequisite)
         }
     }
 
@@ -27,10 +27,10 @@ final class NuCompletionTests: XCTestCase {
             do {
                 _ = try NuCompletionTestSupport.run(body)
                 XCTFail("Expected Nushell to fail: \(body)")
-            } catch let skip as XCTSkip {
-                throw skip
+            } catch let missing as MissingTestPrerequisite {
+                throw missing
             } catch {
-                XCTAssertFalse(error is XCTSkip)
+                XCTAssertFalse(error is MissingTestPrerequisite)
             }
         }
     }

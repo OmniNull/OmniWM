@@ -47,7 +47,7 @@ final class WindowInfoConnectionTests: XCTestCase {
             XCTAssertEqual(result?[77]?.level, 8)
         }
         connection = nil
-        await fulfillment(of: [released], timeout: 1)
+        await fulfillment(of: [released], timeout: failureBound)
         XCTAssertEqual(probe.recorded, ["create", "read 42", "read 42", "release 42"])
     }
 
@@ -115,7 +115,7 @@ final class WindowInfoConnectionTests: XCTestCase {
                 return [77: WindowServerInfo(id: 77, pid: 1234, level: 8, frame: .zero)]
             }
         }
-        await fulfillment(of: [entered], timeout: 1)
+        await fulfillment(of: [entered], timeout: failureBound)
         connection = nil
         task.cancel()
         XCTAssertEqual(probe.recorded, ["create", "read 42"])
@@ -125,7 +125,7 @@ final class WindowInfoConnectionTests: XCTestCase {
             XCTFail("Cancelled evidence must not be published")
         } catch is CancellationError {
         }
-        await fulfillment(of: [released], timeout: 1)
+        await fulfillment(of: [released], timeout: failureBound)
         XCTAssertEqual(probe.recorded, ["create", "read 42", "read finished", "release 42"])
     }
 
@@ -139,7 +139,7 @@ final class WindowInfoConnectionTests: XCTestCase {
                 return [UInt32: WindowServerInfo]()
             }
         }
-        await fulfillment(of: [entered], timeout: 1)
+        await fulfillment(of: [entered], timeout: failureBound)
         let probe = WindowInfoConnectionProbe()
         let connection = SkyLight.WindowInfoConnection(
             mainConnectionId: 1,
@@ -157,7 +157,7 @@ final class WindowInfoConnectionTests: XCTestCase {
                 return [UInt32: WindowServerInfo]()
             }
         }
-        await fulfillment(of: [scheduled], timeout: 1)
+        await fulfillment(of: [scheduled], timeout: failureBound)
         task.cancel()
         gate.signal()
         _ = try await blocker.value
@@ -179,7 +179,7 @@ final class WindowInfoConnectionTests: XCTestCase {
             $0.pid != getpid() && $0.pid > 0 && $0.level == 0 && $0.frame.width > 0 && $0.frame.height > 0
         }.prefix(8)
         let ids = Set(windows.map(\.id))
-        guard !ids.isEmpty else { throw XCTSkip("No visible foreign application windows") }
+        guard !ids.isEmpty else { throw MissingTestPrerequisite("No visible foreign application windows") }
         let expected = try XCTUnwrap(sky.queryWindowInfo(windowIds: ids))
         let result = try await sky.queryWindowInfoDeferred(windowIds: ids)
         let actual = try XCTUnwrap(result)

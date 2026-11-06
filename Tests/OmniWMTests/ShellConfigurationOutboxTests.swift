@@ -20,7 +20,7 @@ final class ShellConfigurationOutboxTests: XCTestCase {
                 for request in requests { outbox.cancelConfiguration(name: "root", generation: 1, id: request.id) }
             }
         }
-        await fulfillment(of: [delivered], timeout: 2)
+        await fulfillment(of: [delivered], timeout: failureBound)
     }
 
     func testCancelledInvocationRequestsDoNotReappearWhenInvocationCommits() async throws {
@@ -41,7 +41,7 @@ final class ShellConfigurationOutboxTests: XCTestCase {
             invocationID: 1,
             failed: false
         )
-        await fulfillment(of: [delivered], timeout: 2)
+        await fulfillment(of: [delivered], timeout: failureBound)
     }
 
     private func request(_ id: UInt64) throws -> ShellConfigurationRequest {

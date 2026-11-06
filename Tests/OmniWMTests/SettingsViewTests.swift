@@ -73,7 +73,7 @@ final class SettingsViewTests: XCTestCase {
         )
         window.contentView = hostingView
         hostingView.layoutSubtreeIfNeeded()
-        await fulfillment(of: [initialRefresh], timeout: 5)
+        await fulfillment(of: [initialRefresh], timeout: failureBound)
         XCTAssertTrue(controller.diagnosticsIssues.contains { $0.id == initialIssueID })
 
         let issueID = "hotkey-sided-hyper:settings-reactivation"
@@ -93,7 +93,7 @@ final class SettingsViewTests: XCTestCase {
             reactivationRefresh.fulfill()
         }
         NotificationCenter.default.post(name: NSApplication.didBecomeActiveNotification, object: NSApp)
-        await fulfillment(of: [reactivationRefresh], timeout: 5)
+        await fulfillment(of: [reactivationRefresh], timeout: failureBound)
 
         XCTAssertTrue(controller.diagnosticsIssues.contains { $0.id == issueID })
         withExtendedLifetime(window) {}

@@ -573,7 +573,7 @@ final class WindowAdmissionFrameLifecycleTests: XCTestCase {
         ])
         XCTAssertTrue(genericFailures.isEmpty)
 
-        await fulfillment(of: [terminated], timeout: 2)
+        await fulfillment(of: [terminated], timeout: failureBound)
 
         let genericFailure = try XCTUnwrap(genericFailures.first)
         XCTAssertEqual(genericFailures.count, 1)

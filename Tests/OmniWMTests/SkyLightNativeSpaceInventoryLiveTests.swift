@@ -78,7 +78,7 @@ final class SkyLightNativeSpaceInventoryLiveTests: XCTestCase {
         let sky = SkyLight.shared
         let wid = sky.createBorderWindow(frame: CGRect(x: 0, y: 0, width: 10, height: 10))
         guard wid != 0 else {
-            throw XCTSkip("Unable to create an owned SkyLight test window")
+            throw MissingTestPrerequisite("Unable to create an owned SkyLight test window")
         }
         defer {
             sky.releaseBorderWindow(wid)
@@ -111,7 +111,7 @@ final class SkyLightNativeSpaceInventoryLiveTests: XCTestCase {
         let sky = SkyLight.shared
         let wid = sky.createBorderWindow(frame: CGRect(x: -9000, y: -9000, width: 10, height: 10))
         guard wid != 0 else {
-            throw XCTSkip("Unable to create an owned SkyLight test window")
+            throw MissingTestPrerequisite("Unable to create an owned SkyLight test window")
         }
         defer { sky.releaseBorderWindow(wid) }
 
@@ -129,7 +129,7 @@ final class SkyLightNativeSpaceInventoryLiveTests: XCTestCase {
         let sky = SkyLight.shared
         let wid = sky.createBorderWindow(frame: CGRect(x: -9000, y: -9000, width: 10, height: 10))
         guard wid != 0 else {
-            throw XCTSkip("Unable to create an owned SkyLight test window")
+            throw MissingTestPrerequisite("Unable to create an owned SkyLight test window")
         }
         defer { sky.releaseBorderWindow(wid) }
         _ = sky.configureWindow(wid, resolution: 1, opaque: false)
@@ -162,7 +162,7 @@ final class SkyLightNativeSpaceInventoryLiveTests: XCTestCase {
 
         let orderedWid = sky.createBorderWindow(frame: CGRect(x: -8960, y: -9000, width: 10, height: 10))
         guard orderedWid != 0 else {
-            throw XCTSkip("Unable to create a second owned SkyLight test window")
+            throw MissingTestPrerequisite("Unable to create a second owned SkyLight test window")
         }
         defer { sky.releaseBorderWindow(orderedWid) }
         _ = sky.configureWindow(orderedWid, resolution: 1, opaque: false)
@@ -229,7 +229,7 @@ final class SkyLightNativeSpaceInventoryLiveTests: XCTestCase {
             case .queryFailed:
                 continue
             case .unavailable:
-                throw XCTSkip("SLSCopyWindowsWithOptionsAndTags is unavailable")
+                throw MissingTestPrerequisite("SLSCopyWindowsWithOptionsAndTags is unavailable")
             }
         }
 
@@ -240,7 +240,7 @@ final class SkyLightNativeSpaceInventoryLiveTests: XCTestCase {
         try requireLiveTestsEnabled()
         let spaceIds = Set(SkyLight.shared.managedSpaces().map(\.currentSpaceId))
         guard !spaceIds.isEmpty, !spaceIds.contains(0) else {
-            throw XCTSkip("No usable native Space inventory is available")
+            throw MissingTestPrerequisite("No usable native Space inventory is available")
         }
         return spaceIds
     }
@@ -252,9 +252,9 @@ final class SkyLightNativeSpaceInventoryLiveTests: XCTestCase {
         case let .authoritative(inventory):
             inventory
         case .queryFailed:
-            throw XCTSkip("The live native Space inventory changed during the query")
+            throw MissingTestPrerequisite("The live native Space inventory changed during the query")
         case .unavailable:
-            throw XCTSkip("SLSCopyWindowsWithOptionsAndTags is unavailable")
+            throw MissingTestPrerequisite("SLSCopyWindowsWithOptionsAndTags is unavailable")
         }
     }
 

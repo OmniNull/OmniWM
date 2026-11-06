@@ -80,7 +80,7 @@ final class ShellBuiltInPermissionTests: XCTestCase {
         defer { feed.stop() }
         feed.setWeatherLocation(.init(place: .city("Toronto")))
         feed.setDemand(ShellDataKey.weather.bit, cadence: .of([(ShellDataKey.weather.bit, nil)]))
-        await fulfillment(of: [started], timeout: 5)
+        await fulfillment(of: [started], timeout: failureBound)
         let oldTask = try XCTUnwrap(feed.weatherTask)
 
         var decisions = ShellPermissionDecisions()
@@ -104,7 +104,7 @@ final class ShellBuiltInPermissionTests: XCTestCase {
         decisions.services.weather = true
         XCTAssertTrue(permissions.update(decisions: decisions))
         feed.permissionsChanged()
-        await fulfillment(of: [restarted], timeout: 5)
+        await fulfillment(of: [restarted], timeout: failureBound)
         let restartedTask = try XCTUnwrap(feed.weatherTask)
         held.finish(.init(weather: weather, latitude: 1, longitude: 2))
         await restartedTask.value
@@ -162,7 +162,7 @@ final class ShellBuiltInPermissionTests: XCTestCase {
         let song = ShellLyricsTrack(title: "Song", artist: "Artist")
         let value = ShellLyrics(lrc: "[00:01]A line")
         controller.show(song)
-        await fulfillment(of: [first], timeout: 5)
+        await fulfillment(of: [first], timeout: failureBound)
         let old = try XCTUnwrap(controller.task)
         var decisions = ShellPermissionDecisions()
         decisions.services.lyrics = false
@@ -177,7 +177,7 @@ final class ShellBuiltInPermissionTests: XCTestCase {
         decisions.services.lyrics = true
         permissions.update(decisions: decisions)
         controller.show(song)
-        await fulfillment(of: [second], timeout: 5)
+        await fulfillment(of: [second], timeout: failureBound)
         let current = try XCTUnwrap(controller.task)
         held.finish(value)
         await current.value
@@ -190,7 +190,7 @@ final class ShellBuiltInPermissionTests: XCTestCase {
         permissions.update(decisions: decisions)
         controller.show(song)
         let final = try XCTUnwrap(controller.task)
-        await fulfillment(of: [third], timeout: 5)
+        await fulfillment(of: [third], timeout: failureBound)
         controller.show(nil)
         held.finish(value)
         await final.value

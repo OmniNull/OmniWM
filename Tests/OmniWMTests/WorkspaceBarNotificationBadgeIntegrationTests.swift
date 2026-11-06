@@ -52,7 +52,7 @@ final class WorkspaceBarNotificationBadgeIntegrationTests: XCTestCase {
                 )
             ]
         )])
-        await fulfillment(of: [published], timeout: 2)
+        await fulfillment(of: [published], timeout: failureBound)
 
         XCTAssertEqual(service.bundleIDs, expected)
         XCTAssertEqual(service.label(for: "com.example.mail"), "7")
@@ -114,7 +114,7 @@ final class WorkspaceBarNotificationBadgeIntegrationTests: XCTestCase {
             manager.cleanup()
         }
         manager.apply([surface(tiled: [window("com.example.mail", id: 1)])])
-        await fulfillment(of: [published], timeout: 2)
+        await fulfillment(of: [published], timeout: failureBound)
         XCTAssertEqual(service.label(for: "com.example.mail"), "!")
 
         manager.apply([])

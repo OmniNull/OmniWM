@@ -260,7 +260,7 @@ final class WorkspaceBarEdgePositionTests: XCTestCase {
 
     func testOverlappingReservationMatchesPanelFrame() throws {
         guard let screen = NSScreen.screens.first else {
-            throw XCTSkip("Requires an NSScreen to check the panel's frame constraint")
+            throw MissingTestPrerequisite("Requires an NSScreen to check the panel's frame constraint")
         }
         let monitor = Monitor(
             id: .init(displayId: 7), displayId: 7,

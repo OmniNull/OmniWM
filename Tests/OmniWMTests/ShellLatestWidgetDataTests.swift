@@ -325,7 +325,7 @@ final class ShellLatestWidgetDataTests: XCTestCase {
         let ready = expectation(description: "one-shot callback completion admitted")
         package.services.attachWake { ready.fulfill() }
         await package.receive(.trigger(name: "arm", value: nil))
-        await fulfillment(of: [ready], timeout: 5)
+        await fulfillment(of: [ready], timeout: failureBound)
         await package.receive(.services)
         let hidden = await package.latestDataOutput(key)
         XCTAssertEqual(hidden?.sequence, before?.sequence)

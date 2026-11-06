@@ -713,7 +713,7 @@ final class NativeTitleBarDragTests: NiriInteractionTestCase {
                 frame: fixture.frame
             )
         ])
-        await fulfillment(of: [terminated], timeout: 2)
+        await fulfillment(of: [terminated], timeout: failureBound)
 
         XCTAssertNotNil(fixture.handler.state.nativeTitleBarDrag?.terminalFailureRetryRequestId)
         let pending = try XCTUnwrap(fixture.controller.layoutRefreshController.layoutState.pendingRefresh)

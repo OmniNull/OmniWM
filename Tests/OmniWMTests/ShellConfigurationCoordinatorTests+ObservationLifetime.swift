@@ -155,7 +155,7 @@ extension ShellConfigurationCoordinatorTests {
         withObservationTracking { _ = coordinator.isSaving } onChange: { refreshQueued.fulfill() }
         coordinator.startObserving()
         defer { coordinator.stopObserving() }
-        await fulfillment(of: [refreshQueued], timeout: 5)
+        await fulfillment(of: [refreshQueued], timeout: failureBound)
         await coordinator.flush()
         XCTAssertFalse(coordinator.isSaving)
         XCTAssertTrue(try XCTUnwrap(observation).isUsingNativeObservation)
@@ -171,7 +171,7 @@ extension ShellConfigurationCoordinatorTests {
         XCTAssertNil(coordinator.metadataError)
         coordinator.stopObserving()
         await coordinator.flush()
-        await fulfillment(of: [released], timeout: 5)
+        await fulfillment(of: [released], timeout: failureBound)
         for task in streams.tasks { await task.value }
         XCTAssertEqual(Set(streams.releases.keys), Set(streams.roots.indices))
         XCTAssertTrue(streams.releases.values.allSatisfy { $0 == 1 })
@@ -199,7 +199,7 @@ extension ShellConfigurationCoordinatorTests {
         observation.sync(paths: [shell], recursivePaths: [shell])
         let initialAttempts = attempts
         XCTAssertGreaterThan(initialAttempts, 0)
-        await fulfillment(of: [completion], timeout: 5)
+        await fulfillment(of: [completion], timeout: failureBound)
         XCTAssertGreaterThan(attempts, initialAttempts)
         XCTAssertTrue(try observationDescriptors(under: shell).isEmpty)
         let stopped = changes
@@ -232,7 +232,7 @@ extension ShellConfigurationCoordinatorTests {
         }
         defer { observation.cancel() }
         observation.sync(paths: directories, recursivePaths: directories)
-        await fulfillment(of: [fallback], timeout: 5)
+        await fulfillment(of: [fallback], timeout: failureBound)
         XCTAssertEqual(attempts, 0)
         XCTAssertTrue(try observationDescriptors(under: root).isEmpty)
         let stopped = changes
@@ -247,7 +247,7 @@ extension ShellConfigurationCoordinatorTests {
         timer.setCancelHandler { cancelled.fulfill() }
         defer { timer.cancel() }
         observation.cancel()
-        await fulfillment(of: [cancelled], timeout: 5)
+        await fulfillment(of: [cancelled], timeout: failureBound)
         XCTAssertTrue(timer.isCancelled)
     }
 
@@ -282,7 +282,7 @@ extension ShellConfigurationCoordinatorTests {
         let initialBytes = Data("initial change".utf8)
         expectedChange = (initialFile, initialBytes, firstChange)
         try initialBytes.write(to: initialFile)
-        await fulfillment(of: [firstChange], timeout: 5)
+        await fulfillment(of: [firstChange], timeout: failureBound)
         let active = try observationDescriptors(under: root)
         let reference = Dictionary(grouping: try observationDescriptors(), by: \.path).mapValues(\.count)
         let watchedPaths = Set(reference.keys.filter { reference[$0, default: 0] > before[$0, default: 0] })
@@ -305,7 +305,7 @@ extension ShellConfigurationCoordinatorTests {
         let gapBytes = Data("change during retirement".utf8)
         expectedChange = (gapFile, gapBytes, gapChange)
         try gapBytes.write(to: gapFile)
-        await fulfillment(of: [rearmed, gapChange], timeout: 5)
+        await fulfillment(of: [rearmed, gapChange], timeout: failureBound)
         XCTAssertTrue(observation.isUsingNativeObservation)
         XCTAssertEqual(streams.roots, [[first.path], [latest.path]])
         let current = try observationDescriptors(under: root)
@@ -317,13 +317,13 @@ extension ShellConfigurationCoordinatorTests {
         let latestBytes = Data("latest change".utf8)
         expectedChange = (latestFile, latestBytes, latestChange)
         try latestBytes.write(to: latestFile)
-        await fulfillment(of: [latestChange], timeout: 5)
+        await fulfillment(of: [latestChange], timeout: failureBound)
 
         let finalRelease = expectation(description: "Cancelled native stream releases its context")
         let finalID = try XCTUnwrap(streams.roots.indices.last)
         streams.released { if $0 == finalID { finalRelease.fulfill() } }
         observation.cancel()
-        await fulfillment(of: [finalRelease], timeout: 5)
+        await fulfillment(of: [finalRelease], timeout: failureBound)
         for task in streams.tasks { await task.value }
         XCTAssertEqual(Set(streams.releases.keys), Set(streams.roots.indices))
         XCTAssertTrue(streams.releases.values.allSatisfy { $0 == 1 })
@@ -356,7 +356,7 @@ extension ShellConfigurationCoordinatorTests {
         await pending.value
         await late.value
         XCTAssertEqual(changes, events.count)
-        await fulfillment(of: [released], timeout: 5)
+        await fulfillment(of: [released], timeout: failureBound)
         for task in streams.tasks { await task.value }
         XCTAssertEqual(Set(streams.releases.keys), Set(streams.roots.indices))
         XCTAssertTrue(streams.releases.values.allSatisfy { $0 == 1 })

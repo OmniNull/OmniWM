@@ -45,7 +45,7 @@ extension ShellVitreusBarTests {
         let crop = CGRect(x: 0, y: 0, width: width, height: 120)
         let body = try VitreusFixture.body(widget, key: "bar")
         guard ShellLayerScene.engineQueue.sync(execute: { body.nativeAvailable }) else {
-            throw XCTSkip("Native glass is unavailable")
+            throw MissingTestPrerequisite("Native glass is unavailable")
         }
         let full = try VitreusBarImage(
             bytes: VitreusFixture.pixels(widget, crop: crop, scale: scale), crop: crop, scale: scale

@@ -334,7 +334,7 @@ extension ShellVitreusBarTests {
                 )
                 let body = try VitreusFixture.body(widget, key: "battery-track")
                 guard ShellLayerScene.engineQueue.sync(execute: { body.nativeAvailable }) else {
-                    throw XCTSkip("Native glass is unavailable")
+                    throw MissingTestPrerequisite("Native glass is unavailable")
                 }
                 let (masked, unmasked) = try notchGaugePixels(
                     widget,
@@ -417,7 +417,7 @@ extension ShellVitreusBarTests {
             for entry in cases where scale == 1 || entry.retina {
                 guard let lit = try pieceBand(entry, rim: entry.rim, scale: scale),
                       let unlit = try pieceBand(entry, rim: 0, scale: scale)
-                else { throw XCTSkip("Native glass is unavailable") }
+                else { throw MissingTestPrerequisite("Native glass is unavailable") }
                 let band = zip(lit, unlit).map { $0 - $1 }
                 let pleamar = (0 ..< band.count).map { depth -> Double in
                     let ramp = min(max((-(Double(depth) + 0.5) / Double(scale) + 2.2) / 1.8, 0), 1)
@@ -448,7 +448,7 @@ extension ShellVitreusBarTests {
         }
         let body = try VitreusFixture.body(widget, key: "bar")
         guard ShellLayerScene.engineQueue.sync(execute: { body.nativeAvailable }) else {
-            throw XCTSkip("Native glass is unavailable")
+            throw MissingTestPrerequisite("Native glass is unavailable")
         }
         return widget
     }

@@ -138,7 +138,7 @@ final class AutomaticAXSnapshotTests: XCTestCase {
         )
 
         let capture = Task { await collector.capture(request) }
-        await fulfillment(of: [started], timeout: 2)
+        await fulfillment(of: [started], timeout: failureBound)
         let snapshot = await capture.value
         watchdog.cancel()
         let watchdogFired = await watchdog.value

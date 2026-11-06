@@ -464,7 +464,8 @@ extension ShellVitreusBarTests {
         let scene = widget.surface.scene
         return try ShellLayerScene.engineQueue.sync {
             let body = try XCTUnwrap(scene.glassBodies[slot])
-            guard body.nativeAvailable else { throw XCTSkip(body.failure ?? "Native glass is unavailable") }
+            guard body.nativeAvailable
+            else { throw MissingTestPrerequisite(body.failure ?? "Native glass is unavailable") }
             let owner = try XCTUnwrap(scene.layers[slot])
             let geometry = try XCTUnwrap(scene.glassShapes[sampleSlot])
             let band = try XCTUnwrap(body.canvasLayers.first { $0.compositingFilter != nil })

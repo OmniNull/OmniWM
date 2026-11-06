@@ -2679,7 +2679,7 @@ final class OverviewBehaviorTests: XCTestCase {
         let published = expectation(description: "preview published independently")
         capture.onPreview = { _, frame in if frame != nil { published.fulfill() } }
         driver.streams[0].output.offer(frame)
-        await fulfillment(of: [published], timeout: 1)
+        await fulfillment(of: [published], timeout: failureBound)
         XCTAssertTrue(capture.preview(for: handle) === frame)
 
         overview.dismiss(animated: false)
@@ -2724,7 +2724,7 @@ final class OverviewBehaviorTests: XCTestCase {
         capture.onPreview = { _, frame in if frame != nil { published.fulfill() } }
         driver.streams[1].output.offer(newFrame)
         driver.streams[0].output.offer(oldFrame)
-        await fulfillment(of: [published], timeout: 1)
+        await fulfillment(of: [published], timeout: failureBound)
         XCTAssertTrue(capture.preview(for: handle) === newFrame)
         XCTAssertNil(driver.streams[0].output.take())
         driver.completeAllStarts()

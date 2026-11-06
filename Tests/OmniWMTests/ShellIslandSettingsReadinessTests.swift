@@ -85,14 +85,14 @@ final class ShellIslandSettingsReadinessTests: XCTestCase {
             if recordReadiness() { initial.fulfill() }
         }
         host.load(state)
-        await fulfillment(of: [initial], timeout: 10)
+        await fulfillment(of: [initial], timeout: failureBound)
         let previous = try XCTUnwrap(state.package)
         XCTAssertTrue(state.declaration.hasTrigger)
         host.onWidgetsChange = {
             if recordReadiness() { replacement.fulfill() }
         }
         host.load(state)
-        await fulfillment(of: [replacement], timeout: 10)
+        await fulfillment(of: [replacement], timeout: failureBound)
         XCTAssertEqual(readiness, [true, false, true])
         XCTAssertEqual(reportedStates, ["loaded", "loading", "loaded"])
         XCTAssertTrue(state.declaration.hasTrigger)

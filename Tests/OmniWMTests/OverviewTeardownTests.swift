@@ -34,7 +34,7 @@ final class OverviewTeardownTests: XCTestCase {
                     return Thread.isMainThread
                 }
             }.value
-            await fulfillment(of: [record.completed], timeout: 5)
+            await fulfillment(of: [record.completed], timeout: failureBound)
 
             XCTAssertFalse(releasedOnMainThread)
             XCTAssertEqual(record.events.withLock { $0 }, row.expected)
