@@ -50,6 +50,19 @@ extension WMController {
         return request
     }
 
+    func focusWindowAfterLayout(
+        _ token: WindowToken,
+        in workspaceId: WorkspaceDescriptor.ID
+    ) -> LayoutRefreshController.PostLayoutAction {
+        { [weak self] in
+            guard let self,
+                  activeWorkspace()?.id == workspaceId,
+                  workspaceManager.entry(for: token)?.workspaceId == workspaceId
+            else { return }
+            focusWindow(token)
+        }
+    }
+
     private func deferInactiveDwindleGroupFocus(
         _ entry: WindowState,
         origin: ManagedFocusOrigin

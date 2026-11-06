@@ -7,7 +7,7 @@ import QuartzCore
 
 extension NiriLayoutHandler {
     func toggleFullscreen() {
-        performWindowSizing(on: .focused) { engine, windowNode, context, state in
+        performWindowSizing(on: .focused, focusesWindowAfterLayout: true) { engine, windowNode, context, state in
             engine.toggleFullscreen(windowNode, motion: context.motion, state: &state)
             if windowNode.sizingMode == .normal {
                 engine.recoverSettledCoverage(context: context, state: &state)
@@ -214,19 +214,26 @@ extension NiriLayoutHandler {
     @discardableResult
     private func performWindowSizing(
         on target: WindowTarget,
+        focusesWindowAfterLayout: Bool = false,
         _ operation: (NiriLayoutEngine, NiriWindow, NiriInteractionContext, inout ViewportState) -> LayoutOperation?
     ) -> Bool {
-        var performed = false
+        var sized: (workspaceId: WorkspaceDescriptor.ID, token: WindowToken)?
         withNiriWindowContext(target) { engine, windowNode, context, state in
             guard let layoutOperation = operation(engine, windowNode, context, &state) else { return }
             let workspaceId = context.workspaceId
             recordLayoutOperation(layoutOperation, in: workspaceId)
-            requestLayoutCommandRelayout(in: workspaceId)
             startScrollAnimationIfNeeded(for: workspaceId, state: state, engine: engine)
             beginResizePreview(in: workspaceId)
-            performed = true
+            sized = (workspaceId, windowNode.token)
         }
-        return performed
+        guard let sized else { return false }
+        requestLayoutCommandRelayout(
+            in: sized.workspaceId,
+            postLayout: focusesWindowAfterLayout
+                ? controller?.focusWindowAfterLayout(sized.token, in: sized.workspaceId)
+                : nil
+        )
+        return true
     }
 
     private func beginResizePreview(in workspaceId: WorkspaceDescriptor.ID) {

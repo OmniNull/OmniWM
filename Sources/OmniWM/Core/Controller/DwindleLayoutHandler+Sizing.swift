@@ -34,7 +34,9 @@ extension DwindleLayoutHandler {
                     )
                 )
                 controller.layoutRefreshController.requestLayoutCommandRelayout(
-                    affectedWorkspaceIds: [wsId]
+                    affectedWorkspaceIds: [wsId],
+                    postLayout: controller.focusWindowAfterLayout(token, in: wsId),
+                    postLayoutDomains: .layoutCommit
                 )
             }
         }
