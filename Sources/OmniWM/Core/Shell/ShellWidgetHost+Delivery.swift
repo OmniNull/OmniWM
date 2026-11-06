@@ -52,13 +52,21 @@ extension ShellWidgetHost {
     }
 
     func dropTargets(on monitor: Monitor.ID) -> [ShellDropTarget] {
-        widgets.values.flatMap { state in
-            state.instances.compactMap { $0.key.monitor == monitor ? $0.value.surface : nil }.flatMap { surface in
-                surface.targetFrames().map {
-                    ShellDropTarget(target: state.text.string($0.target), frame: $0.frame, drop: $0.drop)
+        var targets: [ShellDropTarget] = []
+        for state in widgets.values {
+            for (key, instance) in state.instances where key.monitor == monitor {
+                guard let surface = instance.surface, surface.visible else { continue }
+                for frame in surface.targetFrames() {
+                    targets.append(ShellDropTarget(
+                        target: state.text.string(frame.target),
+                        frame: frame.frame,
+                        drop: frame.drop,
+                        inIsland: key.placement == .island
+                    ))
                 }
             }
         }
+        return targets
     }
 
     func removeSurfaces(for monitor: Monitor.ID) {

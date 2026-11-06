@@ -71,6 +71,63 @@ extension ShellVitreusBarTests {
         widget.invoke(action, event: event)
     }
 
+    func testIconsDragAndWorkspaceZonesAcceptDrops() throws {
+        let widget = try markWidget(markData())
+        let targets = widget.surface.targetFrames().map { (name: widget.text.string($0.target), drop: $0.drop) }
+        for id in ["1", "2", "3", "4"] {
+            XCTAssertTrue(targets.contains { $0.name == "workspace " + id && $0.drop }, id)
+        }
+        for id in ["1", "2", "4"] {
+            XCTAssertTrue(targets.contains { $0.name == "window app-" + id && !$0.drop }, id)
+        }
+    }
+
+    func testAWorkspacesDropAreaCoversItsIconsAndIgnoresTheGap() throws {
+        var data = markData()
+        let rest = try markWidget(data)
+        let area = try VitreusFixture.frame(rest, key: "workspace-drop-2")
+        let mark = try VitreusFixture.frame(rest, key: "workspace-hit-2")
+        let icon = try VitreusFixture.frame(rest, key: "workspace-icon-2-app-2")
+        XCTAssertLessThanOrEqual(area.minX, mark.minX)
+        XCTAssertGreaterThanOrEqual(area.maxX, icon.maxX)
+        data.drag = ShellBarDrag(sources: ["app-1"], gaps: [.init(workspace: "2", before: 2)])
+        let dragged = try markWidget(data)
+        XCTAssertEqual(try VitreusFixture.frame(dragged, key: "workspace-drop-2"), area)
+        XCTAssertLessThan(try VitreusFixture.frame(dragged, key: "workspace-icon-2-app-2").minX, icon.minX)
+    }
+
+    func testDragDimsItsSourceLightsItsTargetAndOpensAGapBetweenIcons() throws {
+        let unit = 1.35
+        var data = markData()
+        let extra = ShellBarItem(
+            id: "app-4b", bundle: "test.app.4b", name: "App 4b", focused: false,
+            count: 1, hidden: 0, windows: [.init(id: "window-4b", title: "Window 4b", focused: false, hidden: false)]
+        )
+        data.workspaces[3] = ShellBarWorkspace(
+            id: "4", name: "4", focused: false, windows: markWorkspace("4", occupied: true).windows + [extra]
+        )
+        let rest = try markWidget(data)
+        let restSquare = try VitreusFixture.frame(rest, key: "workspace-square-3")
+        let restFirst = try VitreusFixture.frame(rest, key: "workspace-icon-4-app-4")
+        let restSecond = try VitreusFixture.frame(rest, key: "workspace-icon-4-app-4b")
+        data.drag = ShellBarDrag(
+            sources: ["app-2"],
+            workspaces: ["3"],
+            icons: ["app-1"],
+            gaps: [.init(workspace: "4", before: 2)]
+        )
+        let widget = try markWidget(data)
+        XCTAssertEqual(try markPaint(widget, "workspace-glyph-2-app-2").opacity, 0.35)
+        XCTAssertGreaterThan(try VitreusFixture.frame(widget, key: "workspace-square-3").width, restSquare.width)
+        XCTAssertEqual(Double(try markPaint(widget, "workspace-icon-1-app-1").strokeWidth), floatStored(1.5 * unit))
+        let first = try VitreusFixture.frame(widget, key: "workspace-icon-4-app-4")
+        let second = try VitreusFixture.frame(widget, key: "workspace-icon-4-app-4b")
+        let shift = 0.2 * restFirst.width
+        let bound = CGFloat.floatRounding(operations: 8, at: restSecond.maxX)
+        XCTAssertEqual(first.minX, restFirst.minX - shift, accuracy: bound)
+        XCTAssertEqual(second.minX, restSecond.minX + shift, accuracy: bound)
+    }
+
     func testWorkspaceMarkSizesGapsAndRestingPillScaleWithTheBar() throws {
         for size in [1.0, 0.7] {
             let widget = try markWidget(markData(), size: size)

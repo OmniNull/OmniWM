@@ -55,6 +55,7 @@ extension ShellWidgetHost {
                 barEnabled: bar != nil,
                 workspaces: bar?.workspaces ?? [],
                 scratchpads: bar?.scratchpads ?? [],
+                drag: bar?.drag,
                 surface: data
             )
         }

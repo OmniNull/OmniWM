@@ -340,7 +340,7 @@ extension ShellWidgetHost {
             onPreview(ShellPreviewRequest(
                 monitor: monitor,
                 target: event.target == 0 ? nil : state.text.string(event.target),
-                anchor: event.anchor?.frame
+                anchor: event.anchor
             ))
         }
     }

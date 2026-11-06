@@ -2427,6 +2427,51 @@ final class ShellWidgetClickTests: XCTestCase {
         XCTAssertEqual(harness.sink.previews, ["window ow_a", nil])
     }
 
+    func testStartingADragEndsTheHoverItBeganFromSoADropCannotReopenAPreview() async throws {
+        executionTimeAllowance = failureBound
+        let harness = try harness("""
+        function render(ctx)
+            return ui.box{ w = 30, h = 10, target = "window ow_a", preview = true, drag = true }
+        end
+        """)
+        defer { harness.close() }
+        var layoutChanges = harness.layoutChanges.makeAsyncIterator()
+        try await layoutChanges.change()
+        let surface = try harness.barSurface()
+        surface.hover(at: CGPoint(x: 2, y: 5))
+        XCTAssertEqual(harness.sink.previews, ["window ow_a"])
+        surface.press(at: CGPoint(x: 2, y: 5))
+        surface.drag(to: CGPoint(x: 20, y: 5), screen: CGPoint(x: 100, y: 0))
+        XCTAssertEqual(harness.sink.previews, ["window ow_a", nil])
+        XCTAssertTrue(surface.endDrag(at: CGPoint(x: 110, y: 0)))
+        surface.updatePreview()
+        XCTAssertEqual(harness.sink.previews, ["window ow_a", nil])
+    }
+
+    func testHidingASurfaceEndsItsPreviewAndWithdrawsItsDropTargets() async throws {
+        executionTimeAllowance = failureBound
+        let harness = try harness("""
+        function render(ctx)
+            return ui.row{
+                ui.box{ w = 10, h = 10, target = "window ow_a", preview = true, drag = true },
+                ui.box{ w = 10, h = 10, target = "workspace 1", drop = true },
+            }
+        end
+        """)
+        defer { harness.close() }
+        var layoutChanges = harness.layoutChanges.makeAsyncIterator()
+        try await layoutChanges.change()
+        let surface = try harness.barSurface()
+        let monitor = Harness.monitor
+        XCTAssertEqual(harness.host.dropTargets(on: monitor).map(\.target).sorted(), ["window ow_a", "workspace 1"])
+        XCTAssertFalse(harness.host.dropTargets(on: monitor).contains(where: \.inIsland))
+        surface.hover(at: CGPoint(x: 5, y: 5))
+        XCTAssertEqual(harness.sink.previews, ["window ow_a"])
+        surface.setVisible(false)
+        XCTAssertEqual(harness.sink.previews, ["window ow_a", nil])
+        XCTAssertTrue(harness.host.dropTargets(on: monitor).isEmpty)
+    }
+
     func testPreviewFollowsRelayoutUnderAStillPointer() throws {
         let widget = try ShellRenderedWidget(name: "preview", source: """
         function render(ctx)

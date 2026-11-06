@@ -75,6 +75,8 @@ extension ShellWidgetSurface {
                 return
             }
             dragging = true
+            pointer = nil
+            updatePreview()
             pointerGesture = nil
             finishPress(at: point, event: pressCapture?.event ?? ShellEvent(), cancelled: true)
             onDrag?(.began(target: layout.core.content(of: start.handle).target, at: screen))

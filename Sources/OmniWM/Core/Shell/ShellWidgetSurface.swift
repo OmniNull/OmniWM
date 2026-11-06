@@ -375,6 +375,7 @@ extension ShellWidgetSurface {
             onResourceDropInvalidated?()
             cancelResourceDrop()
             pointer = nil
+            updatePreview()
             cancelInput()
             finishSettle()
             finishReveals()

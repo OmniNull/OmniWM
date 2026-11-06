@@ -7,6 +7,7 @@ import AppKit
 final class WorkspaceBarDragGhost: NSPanel {
     private static let iconSize: CGFloat = 24
     private static let padding: CGFloat = 6
+    private static let maximumLabelWidth: CGFloat = 240
 
     private let ownedWindowRegistry: OwnedWindowRegistry
     private let iconView = NSImageView()
@@ -32,6 +33,7 @@ final class WorkspaceBarDragGhost: NSPanel {
         isReleasedWhenClosed = false
         animationBehavior = .none
         configureContent(icon: icon)
+        layoutContent()
 
         let surfaceId = "workspace-bar-drag-ghost-\(ObjectIdentifier(self).hashValue)"
         self.surfaceId = surfaceId
@@ -81,8 +83,13 @@ final class WorkspaceBarDragGhost: NSPanel {
         guard label.stringValue != text || label.textColor != (isValid ? .labelColor : .systemRed) else { return }
         label.stringValue = text
         label.textColor = isValid ? .labelColor : .systemRed
+        layoutContent()
+    }
+
+    private func layoutContent() {
+        let text = label.stringValue
         label.isHidden = text.isEmpty
-        let labelWidth = text.isEmpty ? 0 : min(240, ceil(label.intrinsicContentSize.width))
+        let labelWidth = text.isEmpty ? 0 : min(Self.maximumLabelWidth, ceil(label.cell?.cellSize.width ?? 0))
         let width = Self.iconSize + Self.padding * 2 + (text.isEmpty ? 0 : labelWidth + Self.padding)
         let height = Self.iconSize + Self.padding * 2
         setContentSize(CGSize(width: width, height: height))

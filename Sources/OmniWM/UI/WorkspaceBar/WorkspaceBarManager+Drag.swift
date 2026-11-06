@@ -118,36 +118,71 @@ extension WorkspaceBarManager {
                 iconFrames[token] = target.frame
             }
         }
-        let panels = ([instance.primary] + (instance.secondary.map { [$0] } ?? [])).map(\.panel).filter(\.isVisible)
+        let surroundings = DropSurroundings(
+            iconFrames: iconFrames,
+            panels: ([instance.primary] + (instance.secondary.map { [$0] } ?? [])).map(\.panel).filter(\.isVisible),
+            orientation: snapshot.orientation,
+            controller: controller
+        )
         return targets.compactMap { target in
-            let center = CGPoint(x: target.frame.midX, y: target.frame.midY)
             guard target.drop,
                   case let .workspace(workspaceId)? = resolve(target.target),
-                  let item = snapshot.items.first(where: { $0.id == workspaceId }),
-                  let panel = panels.first(where: { $0.frame.contains(center) })
+                  let item = snapshot.items.first(where: { $0.id == workspaceId })
             else {
                 return nil
             }
-            let layout = controller.workspaceBarDropLayout(for: workspaceId)
-            return WorkspaceBarDropGeometry.Workspace(
-                id: workspaceId,
-                name: item.name,
-                layout: layout.layout,
-                hitFrame: Self.dropHitFrame(target.frame, panelFrame: panel.frame, orientation: snapshot.orientation),
-                icons: item.tiledWindows.compactMap { window in
-                    iconFrames[window.id].map { frame in
-                        WorkspaceBarDropGeometry.Icon(
-                            tokens: window.allWindows.map(\.id),
-                            frame: frame,
-                            appName: window.appName,
-                            placement: window.windowCount == 1 && !window.isAppHidden ? layout
-                                .placements[window.id] : nil
-                        )
-                    }
-                },
-                columnCount: layout.columnCount,
-                orientation: snapshot.orientation
-            )
+            return dropWorkspace(item, target: target, surroundings: surroundings)
+        }
+    }
+
+    private struct DropSurroundings {
+        let iconFrames: [WindowToken: CGRect]
+        let panels: [WorkspaceBarPanel]
+        let orientation: WorkspaceBarOrientation
+        let controller: WMController
+    }
+
+    private func dropWorkspace(
+        _ item: WorkspaceBarItem,
+        target: ShellDropTarget,
+        surroundings: DropSurroundings
+    ) -> WorkspaceBarDropGeometry.Workspace? {
+        let center = CGPoint(x: target.frame.midX, y: target.frame.midY)
+        let panel = surroundings.panels.first { $0.frame.contains(center) }
+        guard panel != nil || target.inIsland else { return nil }
+        let layout = surroundings.controller.workspaceBarDropLayout(for: item.id)
+        let orientation = surroundings.orientation
+        let icons = item.tiledWindows.compactMap { window in
+            surroundings.iconFrames[window.id].map { frame in
+                WorkspaceBarDropGeometry.Icon(
+                    tokens: window.allWindows.map(\.id),
+                    frame: frame,
+                    appName: window.appName,
+                    placement: window.windowCount == 1 && !window.isAppHidden ? layout.placements[window.id] : nil
+                )
+            }
+        }
+        return WorkspaceBarDropGeometry.Workspace(
+            id: item.id,
+            name: item.name,
+            layout: layout.layout,
+            hitFrame: panel.map {
+                Self.dropHitFrame(target.frame, panelFrame: $0.frame, orientation: orientation)
+            } ?? icons.reduce(target.frame) { $0.union($1.frame) },
+            icons: icons,
+            columnCount: layout.columnCount,
+            orientation: panel == nil
+                ? Self.islandOrientation(mark: target.frame, icons: icons) ?? orientation
+                : orientation
+        )
+    }
+
+    static func islandOrientation(
+        mark: CGRect,
+        icons: [WorkspaceBarDropGeometry.Icon]
+    ) -> WorkspaceBarOrientation? {
+        icons.first.map {
+            abs($0.frame.midY - mark.midY) > abs($0.frame.midX - mark.midX) ? .vertical : .horizontal
         }
     }
 

@@ -7,7 +7,13 @@ extension WorkspaceBarManager {
     struct ShellPreview {
         let key: WorkspaceBarHitTarget
         let monitor: Monitor.ID
-        let anchor: CGRect
+        let anchor: ShellAnchor
+    }
+
+    struct HoverPlacement {
+        let attachment: PopupAttachment
+        let visibleFrame: CGRect
+        let level: NSWindow.Level
     }
 }
 
@@ -80,36 +86,8 @@ extension WorkspaceBarManager {
         guard let shellPreview, shellPreview.key == key,
               let instance = barsByMonitor[shellPreview.monitor],
               case let .window(workspaceId, token) = key,
-              let window = instance.model.snapshot.windowItem(workspaceId: workspaceId, token: token)
-        else {
-            return nil
-        }
-        let center = CGPoint(x: shellPreview.anchor.midX, y: shellPreview.anchor.midY)
-        return ([instance.primary] + (instance.secondary.map { [$0] } ?? []))
-            .lazy
-            .filter { $0.panel.frame.contains(center) }
-            .compactMap { self.hoverTarget(
-                key: key,
-                window: window,
-                instance: instance,
-                island: $0,
-                anchor: shellPreview.anchor
-            ) }
-            .first
-    }
-
-    private func hoverTarget(
-        key: WorkspaceBarHitTarget,
-        window: WorkspaceBarWindowItem,
-        instance: WorkspaceBarInstance,
-        island: WorkspaceBarIslandPanel,
-        anchor: CGRect
-    ) -> WorkspaceBarHoverTarget? {
-        guard let settings = controller?.settings,
-              island.panel.isVisible,
-              island.panel.attachedSheet == nil,
-              let screen = island.panel.screen,
-              island.panel.frame.intersects(anchor)
+              let window = instance.model.snapshot.windowItem(workspaceId: workspaceId, token: token),
+              let placement = hoverPlacement(for: shellPreview.anchor, instance: instance)
         else {
             return nil
         }
@@ -123,13 +101,38 @@ extension WorkspaceBarManager {
                     icon: window.icon
                 )
             },
+            attachment: placement.attachment,
+            visibleFrame: placement.visibleFrame,
+            level: placement.level
+        )
+    }
+
+    func hoverPlacement(for anchor: ShellAnchor, instance: WorkspaceBarInstance) -> HoverPlacement? {
+        let frame = anchor.frame
+        let center = CGPoint(x: frame.midX, y: frame.midY)
+        let panels = ([instance.primary] + (instance.secondary.map { [$0] } ?? [])).map(\.panel)
+        guard let panel = panels.first(where: { $0.isVisible && $0.frame.contains(center) }) else {
+            return HoverPlacement(
+                attachment: PopupAttachment(
+                    sourceFrame: frame,
+                    edge: .away(from: frame, in: instance.monitor.frame),
+                    alignment: center
+                ),
+                visibleFrame: instance.monitor.visibleFrame,
+                level: anchor.level
+            )
+        }
+        guard let settings = controller?.settings, panel.attachedSheet == nil, let screen = panel.screen else {
+            return nil
+        }
+        return HoverPlacement(
             attachment: PopupAttachment(
-                sourceFrame: island.panel.frame,
+                sourceFrame: panel.frame,
                 edge: settings.workspaceBar.resolved(for: instance.monitor).position.popupEdge,
-                alignment: CGPoint(x: anchor.midX, y: anchor.midY)
+                alignment: center
             ),
             visibleFrame: screen.visibleFrame,
-            level: island.panel.level
+            level: panel.level
         )
     }
 }

@@ -238,6 +238,16 @@ final class IslandNavigationSnapshotTests: XCTestCase {
         )
     }
 
+    func testIslandBarDataCarriesTheBarsDragState() throws {
+        let fixture = try makeFixture()
+        let drag = ShellBarDrag(sources: ["window"], workspaces: ["1"])
+        fixture.host.bars[ShellBarKey(monitor: fixture.main.id)] = ShellBarData(drag: drag)
+        let placements = fixture.host.islandPlacements([
+            DesiredIslandSurface(monitor: fixture.main, fullscreen: false)
+        ])
+        XCTAssertEqual(placements[ShellBarKey(monitor: fixture.main.id, placement: .island)]?.drag, drag)
+    }
+
     private func addWindow(
         _ index: Int,
         to workspace: WorkspaceDescriptor.ID,

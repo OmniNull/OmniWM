@@ -167,6 +167,34 @@ local function zone(ctx, g, key: string, x: number, w: number, command: string)
         cursor = "pointer", onClick = command, onHover = hovered(ctx, key) })
 end
 
+local function dropArea(g, row, x: number, u: number)
+    local vertical = g.frame and g.frame.vertical
+    local across = if vertical then 40 * g.k.bu else g.pill.h
+    local mark = row.w + 9 * u
+    local along = mark + row.run
+    return ui.box({ key = "workspace-drop-" .. row.workspace.id, align = "topLeading",
+        target = "workspace " .. row.workspace.id, drop = true,
+        w = if vertical then across else along, h = if vertical then along else across,
+        dx = if vertical then g.pill.cx - across / 2 else x - mark / 2,
+        dy = if vertical then x - mark / 2 else g.pill.cy - across / 2 })
+end
+
+local function listed(list, value): boolean
+    return list ~= nil and table.find(list, value) ~= nil
+end
+
+local function dropTarget(ctx, id: string): boolean
+    local drag = ctx.data.bar.drag
+    return drag ~= nil and listed(drag.workspaces, id)
+end
+
+local function gapBefore(drag, id: string): number?
+    for _, gap in drag.gaps do
+        if gap.workspace == id then return gap.before end
+    end
+    return nil
+end
+
 local function append(list, items)
     for _, item in items do list[#list + 1] = item end
 end
@@ -199,7 +227,7 @@ end
 local function mark(ctx, g, row, cx: number)
     local vertical = g.frame and g.frame.vertical
     local id, u = row.workspace.id, if vertical then g.k.bcu else g.k.bu
-    local hot = if state(ctx).hover == "workspace-hit-" .. id then 1 else 0
+    local hot = if state(ctx).hover == "workspace-hit-" .. id or dropTarget(ctx, id) then 1 else 0
     local grow = 1 + 0.35 * hot
     local least = (if row.busy or ctx.data.bar.style.labels then 12.5 else 8) * u
     local w, h = grow * fitted(ctx, row.workspace, least, u, vertical), grow * least
@@ -226,7 +254,7 @@ local function name(ctx, g, row, cx: number)
     local vertical = g.frame and g.frame.vertical
     local id, u = row.workspace.id, if vertical then g.k.bcu else g.k.bu
     local focused = row.workspace.focused
-    local hot = if state(ctx).hover == "workspace-hit-" .. id then 1 else 0
+    local hot = if state(ctx).hover == "workspace-hit-" .. id or dropTarget(ctx, id) then 1 else 0
     local w, h = if vertical then (if focused then 15 else 12.5) * u else row.w, 15 * u
     return ui.stack({ key = "workspace-name-" .. id, w = w, h = h, align = "topLeading", decorative = true,
         dx = (if vertical then g.pill.cx else cx) - w / 2, dy = (if vertical then cx else g.pill.cy) - h / 2,
@@ -255,13 +283,16 @@ local function icons(ctx, g, row, centre: number)
     local vertical = g.frame and g.frame.vertical
     local u = if vertical then g.k.bcu else g.k.bu
     local side, items = iconSide * u, {}
-    local workspace, badges = row.workspace, ctx.data.bar.badges
+    local workspace, badges, drag = row.workspace, ctx.data.bar.badges, ctx.data.bar.drag
     local at = centre + row.w / 2 + iconLead * u
     local metrics = { icon = side, slot = side, margin = 0, scale = u }
-    local function located(props)
+    local gap = drag and gapBefore(drag, workspace.id)
+    local function located(props, index: number)
+        local along = at + (if gap then (if index < gap then -0.2 else 0.2) * side else 0)
         props.align = "topLeading"
-        props.dx = if vertical then g.pill.cx - side / 2 else at
-        props.dy = if vertical then at else g.pill.cy - side / 2
+        props.dx = if vertical then g.pill.cx - side / 2 else along
+        props.dy = if vertical then along else g.pill.cy - side / 2
+        if drag then props.animate = quick end
         at += iconStep * u
         return props
     end
@@ -271,19 +302,26 @@ local function icons(ctx, g, row, centre: number)
             items[#items + 1] = ui.stack(located({ key = "workspace-more-" .. workspace.id, w = side, h = side,
                 decorative = true,
                 ui.text({ text = "+" .. tostring(#workspace.windows - row.cap), font = kit.font, size = 11 * u,
-                    weight = "semibold", color = palette.roles.ink }) }))
+                    weight = "semibold", color = palette.roles.ink }) }, index))
             break
         end
         local node = { key = "workspace-icon-" .. workspace.id .. "-" .. item.id, w = side, h = side,
             cursor = "pointer", help = item.name, onClick = "window focus " .. item.id,
-            target = "window " .. item.id, menu = true, preview = true, hoverScale = 1.1, hoverAnimate = 0.1,
-            ui.icon({ window = item.id, placeholder = "app.dashed", w = side, h = side,
-                opacity = iconOpacity(item, workspace) }) }
+            target = "window " .. item.id, menu = true, preview = true, drag = true, hoverScale = 1.1,
+            hoverAnimate = 0.1,
+            ui.icon({ key = "workspace-glyph-" .. workspace.id .. "-" .. item.id, window = item.id,
+                placeholder = "app.dashed", w = side, h = side,
+                opacity = if drag and listed(drag.sources, item.id) then 0.35 else iconOpacity(item, workspace) }) }
+        if drag and listed(drag.icons, item.id) then
+            node.border = palette.roles.mint
+            node.borderWidth = 1.5 * u
+            node.radius = 0.3 * side
+        end
         if item.count > 1 then node[#node + 1] = countBadge(item.count, u) end
         if badges ~= "off" and item.badge ~= "" then
             node[#node + 1] = look.notificationBadge(item, badges, metrics)
         end
-        items[#items + 1] = ui.stack(located(node))
+        items[#items + 1] = ui.stack(located(node, index))
     end
     return items
 end
@@ -388,12 +426,14 @@ local function content(ctx, g, slot)
         items[#items + 1] = mark(ctx, g, row, centre)
         if row.workspace.focused then
             items[#items + 1] = pill(ctx, g, row.w, centre)
-            local hoveredAny = if s.hover and string.sub(s.hover, 1, 14) == "workspace-hit-" then 1 else 0
+            local hoveredAny = if (s.hover and string.sub(s.hover, 1, 14) == "workspace-hit-")
+                or dropTarget(ctx, row.workspace.id) then 1 else 0
             items[#items + 1] = outline(ctx, g, "workspace-pill-outline", centre, row.w, 15 * u, hoveredAny, true, 1)
         end
         items[#items + 1] = name(ctx, g, row, centre)
         items[#items + 1] = zone(ctx, g, "workspace-hit-" .. row.workspace.id, centre, row.w + 9 * u,
             "switch-workspace " .. row.workspace.id)
+        items[#items + 1] = dropArea(g, row, centre, u)
         append(items, icons(ctx, g, row, centre))
     end
     return items

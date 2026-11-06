@@ -162,7 +162,7 @@ struct ShellWidgetMenuRequest {
 struct ShellPreviewRequest {
     let monitor: Monitor.ID
     let target: String?
-    let anchor: CGRect?
+    let anchor: ShellAnchor?
 }
 
 enum ShellDragRequest {
@@ -175,6 +175,7 @@ struct ShellDropTarget: Equatable {
     let target: String
     let frame: CGRect
     let drop: Bool
+    var inIsland = false
 }
 
 @MainActor
