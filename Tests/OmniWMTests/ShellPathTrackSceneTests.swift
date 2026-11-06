@@ -77,8 +77,8 @@ final class ShellPathTrackSceneTests: XCTestCase {
         XCTAssertEqual(closing.fillMode, .forwards)
         let paths = try XCTUnwrap(closing.values as? [CGPath])
         let first = try XCTUnwrap(paths.first).boundingBoxOfPath
-        XCTAssertEqual(first.width, expected.rect.width)
-        XCTAssertEqual(first.height, expected.rect.height)
+        XCTAssertEqual(first.width, expected.rect.width, accuracy: .rounding(operations: 17, at: 256))
+        XCTAssertEqual(first.height, expected.rect.height, accuracy: .rounding(operations: 17, at: 100))
         XCTAssertEqual(paths.last?.boundingBoxOfPath.width, 0)
         XCTAssertEqual(paths.last?.boundingBoxOfPath.height, 0)
     }

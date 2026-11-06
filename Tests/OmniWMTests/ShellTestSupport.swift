@@ -13,6 +13,12 @@ func floatStored<T: BinaryFloatingPoint>(_ value: T) -> T {
     T(Float(value))
 }
 
+extension BinaryFloatingPoint {
+    static func rounding(operations: Int, at magnitude: Self) -> Self {
+        Self(operations) * abs(magnitude).ulp
+    }
+}
+
 struct MissingTestPrerequisite: Error, CustomStringConvertible {
     let description: String
 

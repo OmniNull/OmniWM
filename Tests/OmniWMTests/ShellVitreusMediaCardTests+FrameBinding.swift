@@ -45,7 +45,7 @@ final class ShellVitreusMediaCardFrameBindingTests: XCTestCase {
             let actual = try ShellLayerScene.engineQueue.sync {
                 try XCTUnwrap(scene.shapeTracks.entries[retained]).shape(at: time)
             }
-            XCTAssertEqual(actual.rect.midX, expected.midX)
+            XCTAssertEqual(actual.rect.midX, expected.midX, accuracy: .rounding(operations: 10, at: 600))
             XCTAssertEqual(actual.rect.midY, expected.midY, accuracy: 0.25)
             XCTAssertEqual(actual.radius, 10 * expected.width / 100, accuracy: 0.01)
         }

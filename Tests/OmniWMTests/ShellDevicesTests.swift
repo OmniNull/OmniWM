@@ -121,7 +121,7 @@ final class ShellDevicesTests: XCTestCase {
     }
 
     func testWiFiIsReadOffTheMainThreadOnlyWhileAWidgetReadsIt() async throws {
-        let devices = ShellDevices(wifi: WiFiMonitor(read: { ShellWiFi(power: true, location: $0) }))
+        let devices = ShellDevices(wifi: WiFiMonitor(read: { _ in ShellWiFi(power: true, location: "denied") }))
         let (changes, changed) = boundedChanges()
         let feed = ShellDataFeed(devices: devices, deliver: { _ in changed.yield() })
         defer { feed.stop() }
@@ -131,7 +131,7 @@ final class ShellDevicesTests: XCTestCase {
         XCTAssertTrue(devices.wifi.isListening)
         await changes.wait { feed.current.wifi != nil }
         XCTAssertEqual(feed.current.wifi, devices.wifi.value)
-        XCTAssertEqual(feed.current.wifi?.location, ShellWiFi.location(CLLocationManager().authorizationStatus))
+        XCTAssertEqual(feed.current.wifi?.location, "denied")
         let other = read([.clock])
         feed.setDemand(other.deps, cadence: other.cadence)
         XCTAssertFalse(devices.wifi.isListening)
