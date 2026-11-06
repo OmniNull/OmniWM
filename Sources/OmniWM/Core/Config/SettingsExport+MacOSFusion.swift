@@ -6,7 +6,6 @@ extension SettingsExport.Niri {
         var niri = self
         niri.macOSFusion = macOSFusion ?? false
         niri.macOSFusionModifier = macOSFusionModifier ?? .option
-        niri.edgePeek = edgePeek ?? false
         niri.edgePeekPercent = self.edgePeekPercent ?? edgePeekPercent
         return niri
     }

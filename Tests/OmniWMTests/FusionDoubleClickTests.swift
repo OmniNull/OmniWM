@@ -1149,6 +1149,7 @@ final class FusionDoubleClickTests: NiriInteractionTestCase {
             name: "Fusion Double Click"
         )
         controller.settings.niri.macOSFusion = true
+        controller.settings.niri.edgePeekPercent = 0
         controller.settings.workspaces.configurations = [
             WorkspaceConfiguration(
                 name: "1",

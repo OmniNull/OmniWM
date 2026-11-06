@@ -218,25 +218,16 @@ private struct GlobalNiriSettingsSection: View {
                 windowTilingNote
             }
 
-            Toggle("Peek at Neighboring Windows", isOn: Bindable(settings.niri).edgePeek)
-                .id("Peek at Neighboring Windows")
-                .disabled(!settings.niri.macOSFusion)
-                .onChange(of: settings.niri.edgePeek) {
-                    if settings.niri.macOSFusion {
-                        controller.applyMacOSFusionSettings()
-                    }
-                }
-
             SettingsSliderRow(
-                label: String(localized: "Peek Width"),
+                label: String(localized: "Peripheral Vision"),
                 value: Bindable(settings.niri).edgePeekPercent,
-                range: 1 ... 10,
+                range: 0 ... 10,
                 step: 0.5,
                 valueText: settings.niri.edgePeekPercent.formatted(.number.precision(.fractionLength(0 ... 1))) + "%",
                 valueWidth: 56
             )
-            .id("Peek Width")
-            .disabled(!settings.niri.macOSFusion || !settings.niri.edgePeek)
+            .id("Peripheral Vision")
+            .disabled(!settings.niri.macOSFusion)
             .onChange(of: settings.niri.edgePeekPercent) {
                 if settings.niri.macOSFusion {
                     controller.applyMacOSFusionSettings()
@@ -244,18 +235,18 @@ private struct GlobalNiriSettingsSection: View {
             }
 
             SettingsCaption(
-                localized: "Keeps part of the next window in view at each screen edge that has more windows, so columns and resizing never cover it. Peek Width is a share of each display’s width."
+                localized: "Keeps part of the next window in view at each screen edge that has more windows, so columns and resizing never cover it. A share of each display’s width; at 0%, peeking is off."
             )
 
             Picker(
-                "Left Mouse macOS Fusion Modifier",
+                "Drop Modifier",
                 selection: Bindable(settings.niri).macOSFusionModifier
             ) {
                 ForEach(MouseMoveModifierKey.allCases, id: \.self) { key in
                     Text(key.localizedDisplayName).tag(key)
                 }
             }
-            .id("Left Mouse macOS Fusion Modifier")
+            .id("Drop Modifier")
             .disabled(!settings.niri.macOSFusion)
             .onChange(of: settings.niri.macOSFusionModifier) {
                 if settings.niri.macOSFusion {
@@ -506,29 +497,20 @@ private struct MonitorNiriSettingsSection: View {
         .id("Niri Layout")
 
         Section("macOS Fusion") {
-            OverridableToggle(
-                label: String(localized: "Peek at Neighboring Windows"),
-                value: ms.edgePeek,
-                globalValue: settings.niri.edgePeek,
-                onChange: { newValue in updateSetting { $0.edgePeek = newValue } },
-                onReset: { updateSetting { $0.edgePeek = nil } }
-            )
-            .disabled(!settings.niri.macOSFusion)
-
             OverridableSlider(
-                label: String(localized: "Peek Width"),
+                label: String(localized: "Peripheral Vision"),
                 value: ms.edgePeekPercent,
                 globalValue: settings.niri.edgePeekPercent,
-                range: 1 ... 10,
+                range: 0 ... 10,
                 step: 0.5,
                 formatter: { $0.formatted(.number.precision(.fractionLength(0 ... 1))) + "%" },
                 onChange: { newValue in updateSetting { $0.edgePeekPercent = newValue } },
                 onReset: { updateSetting { $0.edgePeekPercent = nil } }
             )
-            .disabled(!settings.niri.macOSFusion || !(ms.edgePeek ?? settings.niri.edgePeek))
+            .disabled(!settings.niri.macOSFusion)
 
             SettingsCaption(
-                localized: "Keeps part of the next window in view at each screen edge that has more windows, so columns and resizing never cover it. Peek Width is a share of each display’s width."
+                localized: "Keeps part of the next window in view at each screen edge that has more windows, so columns and resizing never cover it. A share of each display’s width; at 0%, peeking is off."
             )
         }
         .id("macOS Fusion")

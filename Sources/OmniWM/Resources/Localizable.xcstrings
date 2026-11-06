@@ -788,250 +788,126 @@
         }
       }
     },
-    "Peek at Neighboring Windows" : {
+    "Peripheral Vision" : {
       "localizations" : {
         "ar" : {
           "stringUnit" : {
             "state" : "translated",
-            "value" : "إلقاء نظرة على النوافذ المجاورة"
+            "value" : "الرؤية المحيطية"
           }
         },
         "da" : {
           "stringUnit" : {
             "state" : "translated",
-            "value" : "Kig ind på nabovinduer"
+            "value" : "Perifert syn"
           }
         },
         "de" : {
           "stringUnit" : {
             "state" : "translated",
-            "value" : "Benachbarte Fenster anzeigen"
+            "value" : "Peripheres Sehen"
           }
         },
         "el" : {
           "stringUnit" : {
             "state" : "translated",
-            "value" : "Προεπισκόπηση γειτονικών παραθύρων"
+            "value" : "Περιφερειακή όραση"
           }
         },
         "es" : {
           "stringUnit" : {
             "state" : "translated",
-            "value" : "Asomar las ventanas vecinas"
+            "value" : "Visión periférica"
           }
         },
         "fi" : {
           "stringUnit" : {
             "state" : "translated",
-            "value" : "Kurkista viereisiin ikkunoihin"
+            "value" : "Ääreisnäkö"
           }
         },
         "fr" : {
           "stringUnit" : {
             "state" : "translated",
-            "value" : "Aperçu des fenêtres voisines"
+            "value" : "Vision périphérique"
           }
         },
         "he" : {
           "stringUnit" : {
             "state" : "translated",
-            "value" : "הצצה לחלונות הסמוכים"
+            "value" : "ראייה היקפית"
           }
         },
         "hi" : {
           "stringUnit" : {
             "state" : "translated",
-            "value" : "पड़ोसी विंडो की झलक"
+            "value" : "परिधीय दृष्टि"
           }
         },
         "it" : {
           "stringUnit" : {
             "state" : "translated",
-            "value" : "Mostra uno scorcio delle finestre vicine"
+            "value" : "Visione periferica"
           }
         },
         "ja" : {
           "stringUnit" : {
             "state" : "translated",
-            "value" : "隣のウィンドウをのぞかせる"
+            "value" : "周辺視野"
           }
         },
         "ko" : {
           "stringUnit" : {
             "state" : "translated",
-            "value" : "이웃 창 살짝 보기"
+            "value" : "주변 시야"
           }
         },
         "nb" : {
           "stringUnit" : {
             "state" : "translated",
-            "value" : "Kikk inn på nabovinduer"
+            "value" : "Perifert syn"
           }
         },
         "nl" : {
           "stringUnit" : {
             "state" : "translated",
-            "value" : "Aangrenzende vensters laten doorkijken"
+            "value" : "Perifeer zicht"
           }
         },
         "pl" : {
           "stringUnit" : {
             "state" : "translated",
-            "value" : "Podgląd sąsiednich okien"
+            "value" : "Widzenie peryferyjne"
           }
         },
         "ru" : {
           "stringUnit" : {
             "state" : "translated",
-            "value" : "Выглядывание соседних окон"
+            "value" : "Периферическое зрение"
           }
         },
         "sr-Latn" : {
           "stringUnit" : {
             "state" : "translated",
-            "value" : "Proviri susedne prozore"
+            "value" : "Periferni vid"
           }
         },
         "sv" : {
           "stringUnit" : {
             "state" : "translated",
-            "value" : "Kika in på närliggande fönster"
+            "value" : "Perifert seende"
           }
         },
         "uk" : {
           "stringUnit" : {
             "state" : "translated",
-            "value" : "Визирання сусідніх вікон"
+            "value" : "Периферійний зір"
           }
         },
         "zh-Hans" : {
           "stringUnit" : {
             "state" : "translated",
-            "value" : "露出相邻窗口"
-          }
-        }
-      }
-    },
-    "Peek Width" : {
-      "localizations" : {
-        "ar" : {
-          "stringUnit" : {
-            "state" : "translated",
-            "value" : "عرض النظرة"
-          }
-        },
-        "da" : {
-          "stringUnit" : {
-            "state" : "translated",
-            "value" : "Kigbredde"
-          }
-        },
-        "de" : {
-          "stringUnit" : {
-            "state" : "translated",
-            "value" : "Breite des Ausschnitts"
-          }
-        },
-        "el" : {
-          "stringUnit" : {
-            "state" : "translated",
-            "value" : "Πλάτος προεπισκόπησης"
-          }
-        },
-        "es" : {
-          "stringUnit" : {
-            "state" : "translated",
-            "value" : "Ancho visible"
-          }
-        },
-        "fi" : {
-          "stringUnit" : {
-            "state" : "translated",
-            "value" : "Kurkistuksen leveys"
-          }
-        },
-        "fr" : {
-          "stringUnit" : {
-            "state" : "translated",
-            "value" : "Largeur de l’aperçu"
-          }
-        },
-        "he" : {
-          "stringUnit" : {
-            "state" : "translated",
-            "value" : "רוחב ההצצה"
-          }
-        },
-        "hi" : {
-          "stringUnit" : {
-            "state" : "translated",
-            "value" : "झलक की चौड़ाई"
-          }
-        },
-        "it" : {
-          "stringUnit" : {
-            "state" : "translated",
-            "value" : "Larghezza dello scorcio"
-          }
-        },
-        "ja" : {
-          "stringUnit" : {
-            "state" : "translated",
-            "value" : "のぞかせる幅"
-          }
-        },
-        "ko" : {
-          "stringUnit" : {
-            "state" : "translated",
-            "value" : "보이는 너비"
-          }
-        },
-        "nb" : {
-          "stringUnit" : {
-            "state" : "translated",
-            "value" : "Kikkbredde"
-          }
-        },
-        "nl" : {
-          "stringUnit" : {
-            "state" : "translated",
-            "value" : "Doorkijkbreedte"
-          }
-        },
-        "pl" : {
-          "stringUnit" : {
-            "state" : "translated",
-            "value" : "Szerokość podglądu"
-          }
-        },
-        "ru" : {
-          "stringUnit" : {
-            "state" : "translated",
-            "value" : "Ширина выглядывания"
-          }
-        },
-        "sr-Latn" : {
-          "stringUnit" : {
-            "state" : "translated",
-            "value" : "Širina provirivanja"
-          }
-        },
-        "sv" : {
-          "stringUnit" : {
-            "state" : "translated",
-            "value" : "Kikbredd"
-          }
-        },
-        "uk" : {
-          "stringUnit" : {
-            "state" : "translated",
-            "value" : "Ширина визирання"
-          }
-        },
-        "zh-Hans" : {
-          "stringUnit" : {
-            "state" : "translated",
-            "value" : "露出宽度"
+            "value" : "余光"
           }
         }
       }
@@ -1411,126 +1287,126 @@
     "macOS Fusion keeps each window’s own width, so Visible Containers applies only with macOS Fusion off." : {
 
     },
-    "Keeps part of the next window in view at each screen edge that has more windows, so columns and resizing never cover it. Peek Width is a share of each display’s width." : {
+    "Keeps part of the next window in view at each screen edge that has more windows, so columns and resizing never cover it. A share of each display’s width; at 0%, peeking is off." : {
       "localizations" : {
         "ar" : {
           "stringUnit" : {
             "state" : "translated",
-            "value" : "يُبقي جزءًا من النافذة التالية ظاهرًا عند كل حافة شاشة توجد خلفها نوافذ أخرى، فلا تغطيه الأعمدة ولا تغيير الحجم. عرض النظرة نسبة من عرض كل شاشة."
+            "value" : "يُبقي جزءًا من النافذة التالية ظاهرًا عند كل حافة شاشة توجد خلفها نوافذ أخرى، فلا تغطيه الأعمدة ولا تغيير الحجم. نسبة من عرض كل شاشة؛ القيمة 0% تُوقفه."
           }
         },
         "da" : {
           "stringUnit" : {
             "state" : "translated",
-            "value" : "Holder en del af det næste vindue synlig ved hver skærmkant, der har flere vinduer, så kolonner og størrelsesændringer aldrig dækker den. Kigbredden er en andel af hver skærms bredde."
+            "value" : "Holder en del af det næste vindue synlig ved hver skærmkant, der har flere vinduer, så kolonner og størrelsesændringer aldrig dækker den. En andel af hver skærms bredde; slået fra ved 0 %."
           }
         },
         "de" : {
           "stringUnit" : {
             "state" : "translated",
-            "value" : "Hält an jedem Bildschirmrand, hinter dem weitere Fenster liegen, einen Teil des nächsten Fensters sichtbar, sodass Spalten und Größenänderungen ihn nie verdecken. Die Breite ist ein Anteil an der Breite des jeweiligen Displays."
+            "value" : "Hält an jedem Bildschirmrand, hinter dem weitere Fenster liegen, einen Teil des nächsten Fensters sichtbar, sodass Spalten und Größenänderungen ihn nie verdecken. Ein Anteil an der Breite des jeweiligen Displays; ausgeschaltet bei 0 %."
           }
         },
         "el" : {
           "stringUnit" : {
             "state" : "translated",
-            "value" : "Διατηρεί ορατό ένα μέρος του επόμενου παραθύρου σε κάθε άκρη της οθόνης που έχει κι άλλα παράθυρα, ώστε οι στήλες και οι αλλαγές μεγέθους να μην το καλύπτουν ποτέ. Το πλάτος είναι ποσοστό του πλάτους κάθε οθόνης."
+            "value" : "Διατηρεί ορατό ένα μέρος του επόμενου παραθύρου σε κάθε άκρη της οθόνης που έχει κι άλλα παράθυρα, ώστε οι στήλες και οι αλλαγές μεγέθους να μην το καλύπτουν ποτέ. Ποσοστό του πλάτους κάθε οθόνης· το 0% το απενεργοποιεί."
           }
         },
         "es" : {
           "stringUnit" : {
             "state" : "translated",
-            "value" : "Mantiene visible parte de la siguiente ventana en cada borde de la pantalla que tenga más ventanas, para que las columnas y los cambios de tamaño nunca la tapen. El ancho visible es una proporción del ancho de cada pantalla."
+            "value" : "Mantiene visible parte de la siguiente ventana en cada borde de la pantalla que tenga más ventanas, para que las columnas y los cambios de tamaño nunca la tapen. Una proporción del ancho de cada pantalla; desactivado con 0 %."
           }
         },
         "fi" : {
           "stringUnit" : {
             "state" : "translated",
-            "value" : "Pitää osan seuraavasta ikkunasta näkyvissä jokaisella näytön reunalla, jonka takana on lisää ikkunoita, jotta sarakkeet ja koon muutokset eivät koskaan peitä sitä. Leveys on osuus kunkin näytön leveydestä."
+            "value" : "Pitää osan seuraavasta ikkunasta näkyvissä jokaisella näytön reunalla, jonka takana on lisää ikkunoita, jotta sarakkeet ja koon muutokset eivät koskaan peitä sitä. Osuus kunkin näytön leveydestä; pois käytöstä arvolla 0 %."
           }
         },
         "fr" : {
           "stringUnit" : {
             "state" : "translated",
-            "value" : "Garde une partie de la fenêtre suivante visible à chaque bord de l’écran qui a d’autres fenêtres, pour que les colonnes et les redimensionnements ne la couvrent jamais. La largeur est une part de la largeur de chaque écran."
+            "value" : "Garde une partie de la fenêtre suivante visible à chaque bord de l’écran qui a d’autres fenêtres, pour que les colonnes et les redimensionnements ne la couvrent jamais. Une part de la largeur de chaque écran ; désactivé à 0 %."
           }
         },
         "he" : {
           "stringUnit" : {
             "state" : "translated",
-            "value" : "שומר חלק מהחלון הבא גלוי בכל קצה מסך שיש מעבר לו חלונות נוספים, כך שעמודות ושינויי גודל לעולם לא יכסו אותו. רוחב ההצצה הוא חלק מרוחב כל מסך."
+            "value" : "שומר חלק מהחלון הבא גלוי בכל קצה מסך שיש מעבר לו חלונות נוספים, כך שעמודות ושינויי גודל לעולם לא יכסו אותו. חלק מרוחב כל מסך; 0% מכבה אותו."
           }
         },
         "hi" : {
           "stringUnit" : {
             "state" : "translated",
-            "value" : "जिस स्क्रीन किनारे के आगे और विंडो हैं, वहाँ अगली विंडो का एक हिस्सा दिखाई देता रहता है, ताकि कॉलम और आकार बदलना उसे कभी न ढकें। झलक की चौड़ाई हर डिस्प्ले की चौड़ाई का हिस्सा है।"
+            "value" : "जिस स्क्रीन किनारे के आगे और विंडो हैं, वहाँ अगली विंडो का एक हिस्सा दिखाई देता रहता है, ताकि कॉलम और आकार बदलना उसे कभी न ढकें। हर डिस्प्ले की चौड़ाई का हिस्सा; 0% इसे बंद कर देता है।"
           }
         },
         "it" : {
           "stringUnit" : {
             "state" : "translated",
-            "value" : "Mantiene visibile una parte della finestra successiva su ogni bordo dello schermo oltre il quale ci sono altre finestre, così colonne e ridimensionamenti non la coprono mai. La larghezza è una quota della larghezza di ciascuno schermo."
+            "value" : "Mantiene visibile una parte della finestra successiva su ogni bordo dello schermo oltre il quale ci sono altre finestre, così colonne e ridimensionamenti non la coprono mai. Una quota della larghezza di ciascuno schermo; disattivato allo 0%."
           }
         },
         "ja" : {
           "stringUnit" : {
             "state" : "translated",
-            "value" : "ほかのウィンドウが続く画面の端では、次のウィンドウの一部を常に表示し、列やサイズ変更で隠れないようにします。幅は各ディスプレイの幅に対する割合です。"
+            "value" : "ほかのウィンドウが続く画面の端では、次のウィンドウの一部を常に表示し、列やサイズ変更で隠れないようにします。各ディスプレイの幅に対する割合で、0% にするとオフになります。"
           }
         },
         "ko" : {
           "stringUnit" : {
             "state" : "translated",
-            "value" : "창이 더 있는 화면 가장자리마다 다음 창의 일부를 계속 표시하여 열이나 크기 조정이 이를 가리지 않도록 합니다. 너비는 각 디스플레이 너비에 대한 비율입니다."
+            "value" : "창이 더 있는 화면 가장자리마다 다음 창의 일부를 계속 표시하여 열이나 크기 조정이 이를 가리지 않도록 합니다. 각 디스플레이 너비에 대한 비율이며, 0% 설정 시 꺼집니다."
           }
         },
         "nb" : {
           "stringUnit" : {
             "state" : "translated",
-            "value" : "Holder en del av neste vindu synlig ved hver skjermkant som har flere vinduer, slik at kolonner og størrelsesendringer aldri dekker den. Kikkbredden er en andel av hver skjerms bredde."
+            "value" : "Holder en del av neste vindu synlig ved hver skjermkant som har flere vinduer, slik at kolonner og størrelsesendringer aldri dekker den. En andel av hver skjerms bredde; slått av ved 0 %."
           }
         },
         "nl" : {
           "stringUnit" : {
             "state" : "translated",
-            "value" : "Houdt aan elke schermrand met meer vensters een deel van het volgende venster zichtbaar, zodat kolommen en formaatwijzigingen het nooit bedekken. De breedte is een deel van de breedte van elk scherm."
+            "value" : "Houdt aan elke schermrand met meer vensters een deel van het volgende venster zichtbaar, zodat kolommen en formaatwijzigingen het nooit bedekken. Een deel van de breedte van elk scherm; uit bij 0%."
           }
         },
         "pl" : {
           "stringUnit" : {
             "state" : "translated",
-            "value" : "Pozostawia widoczną część następnego okna przy każdej krawędzi ekranu, za którą są kolejne okna, aby kolumny i zmiany rozmiaru nigdy jej nie zasłaniały. Szerokość to część szerokości każdego ekranu."
+            "value" : "Pozostawia widoczną część następnego okna przy każdej krawędzi ekranu, za którą są kolejne okna, aby kolumny i zmiany rozmiaru nigdy jej nie zasłaniały. Część szerokości każdego ekranu; 0% wyłącza tę funkcję."
           }
         },
         "ru" : {
           "stringUnit" : {
             "state" : "translated",
-            "value" : "Оставляет видимой часть следующего окна у каждого края экрана, за которым есть другие окна, чтобы столбцы и изменение размера никогда её не закрывали. Ширина — доля ширины каждого дисплея."
+            "value" : "Оставляет видимой часть следующего окна у каждого края экрана, за которым есть другие окна, чтобы столбцы и изменение размера никогда её не закрывали. Доля ширины каждого дисплея; 0% отключает."
           }
         },
         "sr-Latn" : {
           "stringUnit" : {
             "state" : "translated",
-            "value" : "Drži vidljiv deo sledećeg prozora na svakoj ivici ekrana iza koje ima još prozora, tako da ga kolone i promena veličine nikada ne prekrivaju. Širina je deo širine svakog ekrana."
+            "value" : "Drži vidljiv deo sledećeg prozora na svakoj ivici ekrana iza koje ima još prozora, tako da ga kolone i promena veličine nikada ne prekrivaju. Deo širine svakog ekrana; isključeno na 0%."
           }
         },
         "sv" : {
           "stringUnit" : {
             "state" : "translated",
-            "value" : "Håller en del av nästa fönster synlig vid varje skärmkant som har fler fönster, så att kolumner och storleksändringar aldrig täcker den. Bredden är en andel av varje skärms bredd."
+            "value" : "Håller en del av nästa fönster synlig vid varje skärmkant som har fler fönster, så att kolumner och storleksändringar aldrig täcker den. En andel av varje skärms bredd; avstängt vid 0 %."
           }
         },
         "uk" : {
           "stringUnit" : {
             "state" : "translated",
-            "value" : "Залишає видимою частину наступного вікна біля кожного краю екрана, за яким є інші вікна, щоб стовпці та зміна розміру ніколи її не закривали. Ширина — частка ширини кожного дисплея."
+            "value" : "Залишає видимою частину наступного вікна біля кожного краю екрана, за яким є інші вікна, щоб стовпці та зміна розміру ніколи її не закривали. Частка ширини кожного дисплея; 0% вимикає."
           }
         },
         "zh-Hans" : {
           "stringUnit" : {
             "state" : "translated",
-            "value" : "在后面还有窗口的每个屏幕边缘保留下一个窗口的一部分可见，列和调整大小都不会遮住它。宽度是每个显示器宽度的一定比例。"
+            "value" : "在后面还有窗口的每个屏幕边缘保留下一个窗口的一部分可见，列和调整大小都不会遮住它。占每个显示器宽度的比例；设为 0% 即关闭。"
           }
         }
       }
@@ -2031,126 +1907,126 @@
         }
       }
     },
-    "Left Mouse macOS Fusion Modifier" : {
+    "Drop Modifier" : {
       "localizations" : {
         "ar" : {
           "stringUnit" : {
             "state" : "translated",
-            "value" : "مفتاح التعديل لـ macOS Fusion بزر الماوس الأيسر"
+            "value" : "مفتاح التعديل للإفلات"
           }
         },
         "da" : {
           "stringUnit" : {
             "state" : "translated",
-            "value" : "Modifikatortast til macOS Fusion med venstre museknap"
+            "value" : "Slip-modifikatortast"
           }
         },
         "de" : {
           "stringUnit" : {
             "state" : "translated",
-            "value" : "Modifikator für macOS Fusion mit linker Maustaste"
+            "value" : "Ablege-Modifikator"
           }
         },
         "el" : {
           "stringUnit" : {
             "state" : "translated",
-            "value" : "Τροποποιητής macOS Fusion με αριστερό κλικ"
+            "value" : "Τροποποιητής απόθεσης"
           }
         },
         "es" : {
           "stringUnit" : {
             "state" : "translated",
-            "value" : "Modificador de macOS Fusion con el botón izquierdo"
+            "value" : "Modificador de soltar"
           }
         },
         "fi" : {
           "stringUnit" : {
             "state" : "translated",
-            "value" : "Vasemman painikkeen macOS Fusion -muokkain"
+            "value" : "Pudotusmuokkain"
           }
         },
         "fr" : {
           "stringUnit" : {
             "state" : "translated",
-            "value" : "Modificateur macOS Fusion avec le bouton gauche"
+            "value" : "Modificateur de dépôt"
           }
         },
         "he" : {
           "stringUnit" : {
             "state" : "translated",
-            "value" : "מקש שינוי ל-macOS Fusion בלחצן העכבר השמאלי"
+            "value" : "מקש שינוי לשחרור"
           }
         },
         "hi" : {
           "stringUnit" : {
             "state" : "translated",
-            "value" : "बाएं माउस macOS Fusion मॉडिफायर"
+            "value" : "ड्रॉप मॉडिफायर"
           }
         },
         "it" : {
           "stringUnit" : {
             "state" : "translated",
-            "value" : "Modificatore macOS Fusion con il tasto sinistro del mouse"
+            "value" : "Modificatore di rilascio"
           }
         },
         "ja" : {
           "stringUnit" : {
             "state" : "translated",
-            "value" : "左マウスの macOS Fusion 修飾子"
+            "value" : "ドロップ修飾子"
           }
         },
         "ko" : {
           "stringUnit" : {
             "state" : "translated",
-            "value" : "왼쪽 마우스 macOS Fusion 보조 키"
+            "value" : "놓기 보조 키"
           }
         },
         "nb" : {
           "stringUnit" : {
             "state" : "translated",
-            "value" : "Modifikator for macOS Fusion med venstre museknapp"
+            "value" : "Slipp-modifikator"
           }
         },
         "nl" : {
           "stringUnit" : {
             "state" : "translated",
-            "value" : "Modifier voor macOS Fusion met linkermuisknop"
+            "value" : "Neerzet-modifier"
           }
         },
         "pl" : {
           "stringUnit" : {
             "state" : "translated",
-            "value" : "Modyfikator macOS Fusion lewym przyciskiem myszy"
+            "value" : "Modyfikator upuszczania"
           }
         },
         "ru" : {
           "stringUnit" : {
             "state" : "translated",
-            "value" : "Модификатор macOS Fusion для левой кнопки мыши"
+            "value" : "Модификатор отпускания"
           }
         },
         "sr-Latn" : {
           "stringUnit" : {
             "state" : "translated",
-            "value" : "Modifikator za macOS Fusion levim tasterom miša"
+            "value" : "Modifikator za spuštanje"
           }
         },
         "sv" : {
           "stringUnit" : {
             "state" : "translated",
-            "value" : "Modifierare för macOS Fusion med vänster musknapp"
+            "value" : "Släpp-modifierare"
           }
         },
         "uk" : {
           "stringUnit" : {
             "state" : "translated",
-            "value" : "Клавіша-модифікатор macOS Fusion для лівої кнопки миші"
+            "value" : "Клавіша-модифікатор відпускання"
           }
         },
         "zh-Hans" : {
           "stringUnit" : {
             "state" : "translated",
-            "value" : "左键 macOS Fusion 修饰键"
+            "value" : "放下修饰键"
           }
         }
       }

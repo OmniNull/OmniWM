@@ -116,13 +116,12 @@ enum SettingsSearchIndex {
             anchor: "macOS Fusion"
         ),
         setting(
-            "Left Mouse macOS Fusion Modifier",
+            "Drop Modifier",
             section: .layouts,
             tab: "niri",
-            anchor: "Left Mouse macOS Fusion Modifier"
+            anchor: "Drop Modifier"
         ),
-        setting("Peek at Neighboring Windows", section: .layouts, tab: "niri", anchor: "Peek at Neighboring Windows"),
-        setting("Peek Width", section: .layouts, tab: "niri", anchor: "Peek Width"),
+        setting("Peripheral Vision", section: .layouts, tab: "niri", anchor: "Peripheral Vision"),
         setting("Undo", section: .layouts, tab: "niri", anchor: "Undo"),
         setting("Redo", section: .layouts, tab: "niri", anchor: "Redo"),
         setting(

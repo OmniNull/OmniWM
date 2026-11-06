@@ -135,7 +135,7 @@ extension WMController {
     }
 
     var edgePeekShare: CGFloat? {
-        guard settings.niri.macOSFusion, settings.niri.edgePeek else { return nil }
+        guard settings.niri.macOSFusion, settings.niri.edgePeekPercent > 0 else { return nil }
         return CGFloat(settings.niri.edgePeekPercent / 100)
     }
 

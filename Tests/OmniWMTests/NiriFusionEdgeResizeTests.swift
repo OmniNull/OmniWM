@@ -615,7 +615,7 @@ final class NiriFusionEdgeResizeTests: NiriInteractionTestCase {
 
     func testAnEdgeDragReleasedPastThePeekStopsAtIt() throws {
         let fixture = try makeFixture(pid: 871_190)
-        fixture.controller.settings.niri.edgePeek = true
+        fixture.controller.settings.niri.edgePeekPercent = 3
         fixture.controller.applyMacOSFusionSettings()
         let blocker = blockRefreshes(fixture)
         defer { unblockRefreshes(fixture, blocker: blocker) }
@@ -1138,6 +1138,7 @@ final class NiriFusionEdgeResizeTests: NiriInteractionTestCase {
         )
         controller.settings.niri.macOSFusion = true
         controller.mouseEventHandler.nativeResizeSettleQuietTime = 0
+        controller.settings.niri.edgePeekPercent = 0
         controller.settings.gestures.adoptNativeResize = false
         controller.settings.workspaces.configurations = [
             WorkspaceConfiguration(

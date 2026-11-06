@@ -123,7 +123,6 @@ struct SettingsExport: Equatable {
         var shrinkToFit: Bool?
         var macOSFusion: Bool?
         var macOSFusionModifier: MouseMoveModifierKey?
-        var edgePeek: Bool?
         var edgePeekPercent: Double?
     }
 
