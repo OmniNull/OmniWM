@@ -317,6 +317,7 @@ final class CommandHandler {
 
         configs[index] = configs[index].with(layoutType: newLayout)
         controller.settings.workspaces.configurations = configs
+        controller.refreshStatusBar()
         controller.layoutRefreshController.requestRelayout(reason: .workspaceLayoutToggled)
         if let ipcApplicationBridge = controller.ipcApplicationBridge {
             Task {

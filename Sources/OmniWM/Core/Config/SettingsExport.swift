@@ -201,6 +201,7 @@ struct SettingsExport: Equatable {
         var showAppNames: Bool
         var useWorkspaceId: Bool
         var showIcon: Bool? = true
+        var showLayout: Bool? = false
     }
 
     struct StatusMenu: Codable, Equatable {
