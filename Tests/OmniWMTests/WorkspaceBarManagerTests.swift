@@ -252,23 +252,39 @@ final class WorkspaceBarManagerTests: XCTestCase {
     }
 
     func testIconsOutsideTheBarPanelPreviewUnderTheIconAtTheirOwnWindowLevel() throws {
+        let screen = try XCTUnwrap(NSScreen.screens.first)
+        let display = Monitor(
+            id: .init(displayId: 92_200), displayId: 92_200,
+            frame: screen.frame, visibleFrame: screen.visibleFrame,
+            hasNotch: false, name: "Test"
+        )
         let settings = controller.settings
         settings.workspaceBar.enabled = true
         let controller = WMController(settings: settings)
-        controller.workspaceManager.applyMonitorConfigurationChange([monitor])
+        controller.workspaceManager.applyMonitorConfigurationChange([display])
         let manager = controller.workspaceBarManager
         manager.setup(controller: controller, settings: settings)
         manager.panelFactory = { WorkspaceBarPanel.defaultPanel() }
         manager.frameApplier = { _, _ in }
         defer { manager.cleanup() }
-        manager.apply([barSurface(itemCount: 1)])
-        let instance = try XCTUnwrap(manager.barsByMonitor[monitor.id])
+        manager.apply([DesiredBarSurface(monitor: display, visible: true, snapshot: snapshot(itemCount: 1))])
+        let instance = try XCTUnwrap(manager.barsByMonitor[display.id])
         let panel = instance.primary.panel
-        panel.setFrame(CGRect(x: 0, y: 1060, width: 1920, height: 20), display: false)
+        let iconSide: CGFloat = 16
+        let barHeight = 2 * iconSide
+        panel.setFrame(
+            CGRect(
+                x: screen.frame.minX,
+                y: screen.frame.maxY - barHeight,
+                width: screen.frame.width,
+                height: barHeight
+            ),
+            display: false
+        )
         panel.orderFront(nil)
         defer { panel.orderOut(nil) }
 
-        let below = CGRect(x: 400, y: 1030, width: 22, height: 22)
+        let below = CGRect(x: screen.frame.midX, y: panel.frame.minY - 2 * iconSide, width: iconSide, height: iconSide)
         let island = try XCTUnwrap(manager.hoverPlacement(
             for: ShellAnchor(frame: below, level: .floating),
             instance: instance
@@ -279,23 +295,23 @@ final class WorkspaceBarManagerTests: XCTestCase {
             alignment: CGPoint(x: below.midX, y: below.midY)
         ))
         XCTAssertEqual(island.level, .floating)
-        XCTAssertEqual(island.visibleFrame, monitor.visibleFrame)
+        XCTAssertEqual(island.visibleFrame, display.visibleFrame)
 
-        let side = CGRect(x: 4, y: 500, width: 22, height: 22)
+        let side = CGRect(x: screen.frame.minX, y: screen.frame.midY, width: iconSide, height: iconSide)
         let strip = try XCTUnwrap(manager.hoverPlacement(
             for: ShellAnchor(frame: side, level: .floating),
             instance: instance
         ))
         XCTAssertEqual(strip.attachment.edge, .right)
 
-        let inside = CGRect(x: 400, y: 1062, width: 16, height: 16)
+        let inside = CGRect(x: screen.frame.midX, y: panel.frame.minY, width: iconSide, height: iconSide)
         let bar = try XCTUnwrap(manager.hoverPlacement(
             for: ShellAnchor(frame: inside, level: .floating),
             instance: instance
         ))
         XCTAssertEqual(bar.attachment, PopupAttachment(
             sourceFrame: panel.frame,
-            edge: settings.workspaceBar.resolved(for: monitor).position.popupEdge,
+            edge: settings.workspaceBar.resolved(for: display).position.popupEdge,
             alignment: CGPoint(x: inside.midX, y: inside.midY)
         ))
         XCTAssertEqual(bar.level, panel.level)
