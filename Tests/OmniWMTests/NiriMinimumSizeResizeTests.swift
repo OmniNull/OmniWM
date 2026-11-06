@@ -55,7 +55,7 @@ final class NiriMinimumSizeResizeTests: XCTestCase {
                 engine.setWindowPrimarySpan(window, change: .adjustProportion(-10), context: context, state: &state)
                 _ = shownSpan()
             }
-            XCTAssertEqual(shownSpan(), 500, accuracy: 0.000001)
+            XCTAssertEqual(shownSpan(), 500)
 
             engine.setWindowPrimarySpan(window, change: .adjustProportion(10), context: context, state: &state)
 

@@ -251,7 +251,7 @@ final class NiriWorkspaceMonitorMoveTests: XCTestCase {
             displayId: source.displayId
         )
 
-        XCTAssertEqual(manager.niriViewportState(for: workspaceId).viewOffset, 60, accuracy: 0.001)
+        XCTAssertEqual(manager.niriViewportState(for: workspaceId).viewOffset, 60)
         XCTAssertFalse(manager.animationDriver.hasMotion(in: workspaceId))
         XCTAssertNil(controller.niriLayoutHandler.scrollAnimationByDisplay[source.displayId])
     }
@@ -305,10 +305,10 @@ final class NiriWorkspaceMonitorMoveTests: XCTestCase {
             gaps: (horizontal: 0, vertical: 0),
             orientation: .vertical
         )
-        XCTAssertEqual(firstColumn.cachedWidth, 300, accuracy: 0.001)
-        XCTAssertEqual(firstColumn.cachedHeight, 200, accuracy: 0.001)
-        XCTAssertEqual(secondColumn.cachedWidth, 240, accuracy: 0.001)
-        XCTAssertEqual(secondColumn.cachedHeight, 240, accuracy: 0.001)
+        XCTAssertEqual(firstColumn.cachedWidth, 300)
+        XCTAssertEqual(firstColumn.cachedHeight, 200)
+        XCTAssertEqual(secondColumn.cachedWidth, 240)
+        XCTAssertEqual(secondColumn.cachedHeight, 240)
         XCTAssertTrue(
             firstColumn.animateWidthTo(
                 newWidth: 450,
@@ -348,10 +348,10 @@ final class NiriWorkspaceMonitorMoveTests: XCTestCase {
             orientation: .horizontal
         )
 
-        XCTAssertEqual(try XCTUnwrap(destinationFrames[firstToken]).width, 500, accuracy: 0.001)
-        XCTAssertEqual(try XCTUnwrap(destinationFrames[secondToken]).width, 240, accuracy: 0.001)
-        XCTAssertEqual(firstColumn.cachedWidth, 500, accuracy: 0.001)
-        XCTAssertEqual(secondColumn.cachedWidth, 240, accuracy: 0.001)
+        XCTAssertEqual(try XCTUnwrap(destinationFrames[firstToken]).width, 500)
+        XCTAssertEqual(try XCTUnwrap(destinationFrames[secondToken]).width, 240)
+        XCTAssertEqual(firstColumn.cachedWidth, 500)
+        XCTAssertEqual(secondColumn.cachedWidth, 240)
     }
 
     func testSameOwnerMoveAndSyncPreserveCachesAndSizingAnimation() throws {
@@ -450,8 +450,8 @@ final class NiriWorkspaceMonitorMoveTests: XCTestCase {
             gaps: (horizontal: 0, vertical: 0),
             orientation: .vertical
         )
-        XCTAssertEqual(firstColumn.cachedWidth, 300, accuracy: 0.001)
-        XCTAssertEqual(firstColumn.cachedHeight, 200, accuracy: 0.001)
+        XCTAssertEqual(firstColumn.cachedWidth, 300)
+        XCTAssertEqual(firstColumn.cachedHeight, 200)
 
         let root = try XCTUnwrap(engine.root(for: workspaceId))
         engine.updateMonitors([destination], orientations: [destination.id: .vertical])
@@ -478,10 +478,10 @@ final class NiriWorkspaceMonitorMoveTests: XCTestCase {
             orientation: .vertical
         )
 
-        XCTAssertEqual(try XCTUnwrap(destinationFrames[firstToken]).height, 500, accuracy: 0.001)
-        XCTAssertEqual(try XCTUnwrap(destinationFrames[secondToken]).height, 240, accuracy: 0.001)
-        XCTAssertEqual(firstColumn.cachedHeight, 500, accuracy: 0.001)
-        XCTAssertEqual(secondColumn.cachedHeight, 240, accuracy: 0.001)
+        XCTAssertEqual(try XCTUnwrap(destinationFrames[firstToken]).height, 500)
+        XCTAssertEqual(try XCTUnwrap(destinationFrames[secondToken]).height, 240)
+        XCTAssertEqual(firstColumn.cachedHeight, 500)
+        XCTAssertEqual(secondColumn.cachedHeight, 240)
     }
 
     func testExplicitAndReturnHomeMovesCancelMotionWithoutResettingViewport() throws {

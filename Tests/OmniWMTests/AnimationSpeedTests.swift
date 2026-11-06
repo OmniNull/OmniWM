@@ -22,11 +22,10 @@ final class AnimationSpeedTests: XCTestCase {
             XCTAssertEqual(scaled.dampingRatio, config.dampingRatio)
             let animation = SpringAnimation(from: 0, to: 300, startTime: 0, config: scaled)
             for elapsed in [0.01, 0.05, 0.1, 0.3, 0.6] {
-                XCTAssertEqual(animation.value(at: elapsed / speed), baseline.value(at: elapsed), accuracy: 0.000001)
+                XCTAssertEqual(animation.value(at: elapsed / speed), baseline.value(at: elapsed))
                 XCTAssertEqual(
                     animation.velocity(at: elapsed / speed),
-                    baseline.velocity(at: elapsed) * speed,
-                    accuracy: 0.000001
+                    baseline.velocity(at: elapsed) * speed
                 )
                 XCTAssertEqual(animation.isComplete(at: elapsed / speed), baseline.isComplete(at: elapsed))
             }
@@ -102,8 +101,8 @@ final class AnimationSpeedTests: XCTestCase {
             let node = try XCTUnwrap(engine.findNode(for: token, in: workspace))
             let frame = try XCTUnwrap(node.presentedFrame(at: 0.1 / speed))
             let progress = baseline.value(at: 0.1)
-            XCTAssertEqual(frame.minX, oldFrame.minX + 100 * progress, accuracy: 0.000001)
-            XCTAssertEqual(frame.width, oldFrame.width + 200 * progress, accuracy: 0.000001)
+            XCTAssertEqual(frame.minX, oldFrame.minX + 100 * progress)
+            XCTAssertEqual(frame.width, oldFrame.width + 200 * progress)
             XCTAssertFalse(node.hasActiveAnimations(at: 0.2 / speed))
         }
     }
@@ -118,14 +117,14 @@ final class AnimationSpeedTests: XCTestCase {
         baseline.release(timestamp: 1.3, allowFlick: true, animationTime: 0)
         for speed in [0.25, 2, 4] {
             let motion = makeMotion()
-            XCTAssertEqual(motion.progress(at: 1.1), 0.6, accuracy: 0.000001)
+            XCTAssertEqual(motion.progress(at: 1.1), 0.6)
             motion.release(
                 timestamp: 1.3, allowFlick: true, animationTime: 0,
                 motion: .init(animationsEnabled: true, animationSpeed: speed)
             )
             XCTAssertEqual(motion.target, baseline.target)
             for elapsed in [0.01, 0.1, 0.3, 0.6] {
-                XCTAssertEqual(motion.progress(at: elapsed / speed), baseline.progress(at: elapsed), accuracy: 0.000001)
+                XCTAssertEqual(motion.progress(at: elapsed / speed), baseline.progress(at: elapsed))
                 XCTAssertEqual(motion.isComplete(at: elapsed / speed), baseline.isComplete(at: elapsed))
             }
         }

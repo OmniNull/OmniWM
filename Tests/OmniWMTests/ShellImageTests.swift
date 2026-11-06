@@ -87,9 +87,9 @@ final class ShellImageTests: XCTestCase {
         library.onLoad = { loads += 1 }
         let frames = try XCTUnwrap(library.image("cat.gif", folders: [folder]))
         XCTAssertEqual(frames.frames.count, 3)
-        XCTAssertEqual(frames.ends[0], 0.1, accuracy: 0.001)
+        XCTAssertEqual(frames.ends[0], 0.1)
         XCTAssertEqual(frames.ends[1], 0.3, accuracy: 0.001)
-        XCTAssertEqual(frames.ends[2], 0.4, accuracy: 0.001)
+        XCTAssertEqual(frames.ends[2], 0.4)
         XCTAssertTrue(frames.animated)
         XCTAssertTrue(frames.frame(at: 0.15) === frames.frames[1])
         XCTAssertTrue(frames.frame(at: 0.45) === frames.frames[0])
@@ -122,7 +122,7 @@ final class ShellImageTests: XCTestCase {
         let frames = try XCTUnwrap(library.image("cat.gif", folders: [folder]))
         let playing = ShellPlayback(speed: 2, paused: false)
         let running = ShellPlaybackState(frames: frames, phase: 0.5, start: 10, playback: playing)
-        XCTAssertEqual(running.phase(at: 11), 2.5, accuracy: 0.001)
+        XCTAssertEqual(running.phase(at: 11), 2.5)
         let held = ShellPlaybackState(
             frames: frames,
             phase: 0.5,

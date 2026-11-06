@@ -163,7 +163,7 @@ extension ShellBoundTrackTests {
             XCTAssertNotNil(retained.carrier)
             XCTAssertEqual(retained.bound?.revision, state.source.bound?.revision)
             ShellBoundSurfaceFixture.assertRect(retained.shape(at: state.time).rect, expected.rect, accuracy: 1e-9)
-            XCTAssertEqual(retained.shape(at: state.time).radius, expected.radius, accuracy: 1e-9)
+            XCTAssertEqual(retained.shape(at: state.time).radius, expected.radius)
             let closing = try XCTUnwrap(retained.plan)
             let crossing = try XCTUnwrap(closing.crossings(at: 0.7, rising: false).first)
             XCTAssertGreaterThan(crossing, state.time)
@@ -185,7 +185,7 @@ extension ShellBoundTrackTests {
             XCTAssertFalse(retained.triggerPlans.contains { $0.begin == state.futurePulse })
             XCTAssertLessThan(retained.end, state.futurePulse)
             ShellBoundSurfaceFixture.assertRect(retained.shape(at: state.time).rect, expected.rect, accuracy: 1e-9)
-            XCTAssertEqual(retained.shape(at: state.time).radius, expected.radius, accuracy: 1e-9)
+            XCTAssertEqual(retained.shape(at: state.time).radius, expected.radius)
         }
     }
 }

@@ -262,7 +262,7 @@ extension ShellManipulationSurfaceTests {
         both.fixture.render()
         let record = try XCTUnwrap(both.fixture.surface.follows[both.left])
         let motion = try XCTUnwrap(record.motion)
-        XCTAssertEqual(motion.start.width / record.frame.width, 2, accuracy: 1e-9)
+        XCTAssertEqual(motion.start.width / record.frame.width, 2)
         return (record, motion)
     }
 
@@ -330,9 +330,9 @@ extension ShellManipulationSurfaceTests {
               case let .motion(stale) = surface.currentPresentation(of: both.left).following(CGPoint(x: -5, y: -45))
         else { return XCTFail("the moved follower lost its motion") }
         XCTAssertGreaterThan(abs(stale.y.from - wanted.y.from), 1)
-        XCTAssertEqual(sent.y.from, wanted.y.from, accuracy: 1e-9)
-        XCTAssertEqual(sent.y.to, wanted.y.to, accuracy: 1e-9)
-        XCTAssertEqual(sent.x.velocity, wanted.x.velocity, accuracy: 1e-9)
+        XCTAssertEqual(sent.y.from, wanted.y.from)
+        XCTAssertEqual(sent.y.to, wanted.y.to)
+        XCTAssertEqual(sent.x.velocity, wanted.x.velocity)
         surface.cancelInput()
     }
 

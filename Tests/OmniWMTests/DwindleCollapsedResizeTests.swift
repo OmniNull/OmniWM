@@ -40,7 +40,7 @@ final class DwindleCollapsedResizeTests: XCTestCase {
                 engine.setExcludedTokens([hidden], in: workspaceId)
                 let before = engine.calculateLayout(for: workspaceId, screen: screen)
                 let firstFrame = try XCTUnwrap(before[first])
-                XCTAssertEqual(horizontal ? firstFrame.width : firstFrame.height, 600, accuracy: 0.001)
+                XCTAssertEqual(horizontal ? firstFrame.width : firstFrame.height, 600)
                 XCTAssertNil(before[hidden])
 
                 if interactive {
@@ -61,8 +61,8 @@ final class DwindleCollapsedResizeTests: XCTestCase {
                 let after = engine.calculateLayout(for: workspaceId, screen: screen)
                 let resizedFirst = try XCTUnwrap(after[first])
                 let resizedSecond = try XCTUnwrap(after[second])
-                XCTAssertEqual(horizontal ? resizedFirst.width : resizedFirst.height, 602, accuracy: 0.001)
-                XCTAssertEqual(horizontal ? resizedSecond.width : resizedSecond.height, 390, accuracy: 0.001)
+                XCTAssertEqual(horizontal ? resizedFirst.width : resizedFirst.height, 602)
+                XCTAssertEqual(horizontal ? resizedSecond.width : resizedSecond.height, 390)
             }
         }
     }

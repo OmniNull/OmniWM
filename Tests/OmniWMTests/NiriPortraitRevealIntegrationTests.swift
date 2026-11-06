@@ -48,7 +48,7 @@ final class NiriPortraitRevealIntegrationTests: XCTestCase {
             )
 
             XCTAssertEqual(state.activeColumnIndex, 2)
-            XCTAssertEqual(state.viewOffset, scenario.expectedOffset, accuracy: 0.001)
+            XCTAssertEqual(state.viewOffset, scenario.expectedOffset)
         }
     }
 

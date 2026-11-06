@@ -31,19 +31,19 @@ final class DwindleSplitRatioPresetTests: XCTestCase {
 
         XCTAssertTrue(engine.cycleSplitRatio(forward: true, in: ws))
         var frames = engine.calculateLayout(for: ws, screen: screen)
-        XCTAssertEqual(frames[first]?.width ?? 0, 700, accuracy: 0.5)
-        XCTAssertEqual(frames[second]?.minX ?? 0, 700, accuracy: 0.5)
-        XCTAssertEqual(frames[second]?.width ?? 0, 300, accuracy: 0.5)
+        XCTAssertEqual(frames[first]?.width ?? 0, 700)
+        XCTAssertEqual(frames[second]?.minX ?? 0, 700)
+        XCTAssertEqual(frames[second]?.width ?? 0, 300)
 
         XCTAssertTrue(engine.cycleSplitRatio(forward: true, in: ws))
         frames = engine.calculateLayout(for: ws, screen: screen)
-        XCTAssertEqual(frames[first]?.width ?? 0, 300, accuracy: 0.5)
-        XCTAssertEqual(frames[second]?.width ?? 0, 700, accuracy: 0.5)
+        XCTAssertEqual(frames[first]?.width ?? 0, 300)
+        XCTAssertEqual(frames[second]?.width ?? 0, 700)
 
         XCTAssertTrue(engine.cycleSplitRatio(forward: true, in: ws))
         frames = engine.calculateLayout(for: ws, screen: screen)
-        XCTAssertEqual(frames[first]?.width ?? 0, 500, accuracy: 0.5)
-        XCTAssertEqual(frames[second]?.width ?? 0, 500, accuracy: 0.5)
+        XCTAssertEqual(frames[first]?.width ?? 0, 500)
+        XCTAssertEqual(frames[second]?.width ?? 0, 500)
     }
 
     func testPresetAppliesToFocusedSecondChildShare() {
@@ -53,14 +53,14 @@ final class DwindleSplitRatioPresetTests: XCTestCase {
         XCTAssertTrue(engine.cycleSplitRatio(forward: true, in: ws))
         XCTAssertEqual(engine.root(for: ws)?.splitRatio ?? 0, 0.6, accuracy: 1e-6)
         var frames = engine.calculateLayout(for: ws, screen: screen)
-        XCTAssertEqual(frames[second]?.width ?? 0, 700, accuracy: 0.5)
+        XCTAssertEqual(frames[second]?.width ?? 0, 700)
         XCTAssertEqual(frames[first]?.width ?? 0, 300, accuracy: 0.5)
 
         XCTAssertTrue(engine.cycleSplitRatio(forward: false, in: ws))
         XCTAssertTrue(engine.cycleSplitRatio(forward: false, in: ws))
-        XCTAssertEqual(engine.root(for: ws)?.splitRatio ?? 0, 1.4, accuracy: 1e-6)
+        XCTAssertEqual(engine.root(for: ws)?.splitRatio ?? 0, 1.4)
         frames = engine.calculateLayout(for: ws, screen: screen)
-        XCTAssertEqual(frames[second]?.width ?? 0, 300, accuracy: 0.5)
+        XCTAssertEqual(frames[second]?.width ?? 0, 300)
     }
 
     func testVerticalSplitAppliesPresetToFocusedHeight() {
@@ -74,20 +74,20 @@ final class DwindleSplitRatioPresetTests: XCTestCase {
 
         XCTAssertTrue(engine.cycleSplitRatio(forward: true, in: ws))
         let frames = engine.calculateLayout(for: ws, screen: screen)
-        XCTAssertEqual(frames[third]?.height ?? 0, 560, accuracy: 0.5)
-        XCTAssertEqual(frames[second]?.height ?? 0, 240, accuracy: 0.5)
-        XCTAssertEqual(frames[third]?.width ?? 0, 500, accuracy: 0.5)
+        XCTAssertEqual(frames[third]?.height ?? 0, 560)
+        XCTAssertEqual(frames[second]?.height ?? 0, 240)
+        XCTAssertEqual(frames[third]?.width ?? 0, 500)
     }
 
     func testSeedingUsesNearestPresetInFocusedSpace() {
         let (engine, ws, first, second) = makeEngine(screen: screen)
         engine.setSelectedNode(engine.findNode(for: first, in: ws), in: ws)
         XCTAssertTrue(engine.resizeFocusedWindow(by: 0.25, in: ws))
-        XCTAssertEqual(engine.root(for: ws)?.splitRatio ?? 0, 1.25, accuracy: 1e-6)
+        XCTAssertEqual(engine.root(for: ws)?.splitRatio ?? 0, 1.25)
 
         engine.setSelectedNode(engine.findNode(for: second, in: ws), in: ws)
         XCTAssertTrue(engine.cycleSplitRatio(forward: true, in: ws))
-        XCTAssertEqual(engine.root(for: ws)?.splitRatio ?? 0, 1.0, accuracy: 1e-6)
+        XCTAssertEqual(engine.root(for: ws)?.splitRatio ?? 0, 1.0)
     }
 
     func testInnerGapKeepsPresetSharesOnNodeRects() {
@@ -98,8 +98,8 @@ final class DwindleSplitRatioPresetTests: XCTestCase {
         let frames = engine.calculateLayout(for: ws, screen: screen)
         let firstFrame = frames[first] ?? .zero
         let secondFrame = frames[second] ?? .zero
-        XCTAssertEqual(secondFrame.minX - firstFrame.maxX, 20, accuracy: 0.5)
-        XCTAssertEqual(firstFrame.width + secondFrame.width + 20, 1000, accuracy: 0.5)
+        XCTAssertEqual(secondFrame.minX - firstFrame.maxX, 20)
+        XCTAssertEqual(firstFrame.width + secondFrame.width + 20, 1000)
         XCTAssertGreaterThan(firstFrame.width, 2 * secondFrame.width)
     }
 
@@ -123,9 +123,9 @@ final class DwindleSplitRatioPresetTests: XCTestCase {
             _ = engine.calculateLayout(for: ws, screen: screen)
             engine.setSelectedNode(engine.findNode(for: first, in: ws), in: ws)
             XCTAssertTrue(engine.cycleSplitRatio(forward: forward, in: ws), label)
-            XCTAssertEqual(engine.root(for: ws)?.splitRatio ?? 0, expectedRatio, accuracy: 1e-6, label)
+            XCTAssertEqual(engine.root(for: ws)?.splitRatio ?? 0, expectedRatio, label)
             XCTAssertFalse(engine.cycleSplitRatio(forward: forward, in: ws), label)
-            XCTAssertEqual(engine.root(for: ws)?.splitRatio ?? 0, expectedRatio, accuracy: 1e-6, label)
+            XCTAssertEqual(engine.root(for: ws)?.splitRatio ?? 0, expectedRatio, label)
         }
     }
 }

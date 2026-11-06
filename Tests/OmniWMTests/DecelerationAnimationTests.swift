@@ -12,18 +12,18 @@ final class DecelerationAnimationTests: XCTestCase {
         let animation = DecelerationAnimation(from: 0, velocity: 300, startTime: 0)
         let expected = 0 - 300 / decay
 
-        XCTAssertEqual(animation.restingOffset, expected, accuracy: 0.001)
+        XCTAssertEqual(animation.restingOffset, expected)
         XCTAssertEqual(animation.value(at: 0), 0, accuracy: 0.001)
         XCTAssertEqual(animation.velocity(at: 0), 300, accuracy: 0.001)
-        XCTAssertEqual(animation.value(at: 10), expected, accuracy: 0.01)
+        XCTAssertEqual(animation.value(at: 10), expected)
         XCTAssertTrue(animation.isComplete(at: 10))
     }
 
     func testZeroVelocitySettlesImmediately() {
         let animation = DecelerationAnimation(from: 42, velocity: 0, startTime: 0)
 
-        XCTAssertEqual(animation.restingOffset, 42, accuracy: 0.0001)
-        XCTAssertEqual(animation.value(at: 0), 42, accuracy: 0.0001)
+        XCTAssertEqual(animation.restingOffset, 42)
+        XCTAssertEqual(animation.value(at: 0), 42)
         XCTAssertTrue(animation.isComplete(at: 0))
     }
 
@@ -32,7 +32,7 @@ final class DecelerationAnimationTests: XCTestCase {
         let before = animation.value(at: 1.0)
         animation.offsetBy(25)
 
-        XCTAssertEqual(animation.value(at: 1.0), before + 25, accuracy: 0.001)
+        XCTAssertEqual(animation.value(at: 1.0), before + 25)
     }
 
     func testNonfiniteInputsSettleImmediatelyAtFiniteValue() {

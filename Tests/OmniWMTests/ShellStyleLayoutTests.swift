@@ -843,8 +843,8 @@ final class ShellStyleLayoutTests: XCTestCase {
                                     }.count > 0, context)
                                     if ["nocturne", "celestial"].contains(profile) {
                                         let expected = height * (profile == "celestial" ? 40.0 / 60 : 32.0 / 40)
-                                        XCTAssertEqual(widget.surface.size.width, expected, accuracy: 0.01, context)
-                                        XCTAssertEqual(widget.surface.size.height, expected, accuracy: 0.01, context)
+                                        XCTAssertEqual(widget.surface.size.width, floatStored(expected), context)
+                                        XCTAssertEqual(widget.surface.size.height, floatStored(expected), context)
                                     }
                                 }
                             }
@@ -945,7 +945,7 @@ final class ShellStyleLayoutTests: XCTestCase {
                     return CGRect(small.surface.layout.core.absoluteFrame(of: entry)).minX
                 }
                 for column in columns.dropFirst() {
-                    XCTAssertEqual(column, columns[0], accuracy: 0.01, profile)
+                    XCTAssertEqual(column, columns[0], profile)
                 }
             }
         }
@@ -1226,19 +1226,17 @@ final class ShellStyleLayoutTests: XCTestCase {
                                     context
                                 )
                                 if ["wayline", "nocturne"].contains(profile) {
-                                    XCTAssertEqual(widget.surface.size.width, 32 * height / 40, accuracy: 0.01, context)
+                                    XCTAssertEqual(widget.surface.size.width, floatStored(32 * height / 40), context)
                                     XCTAssertEqual(
                                         widget.surface.size.height,
-                                        32 * height / 40,
-                                        accuracy: 0.01,
+                                        floatStored(32 * height / 40),
                                         context
                                     )
                                 }
                                 if profile == "celestial" {
                                     XCTAssertEqual(
                                         vertical ? widget.surface.size.width : widget.surface.size.height,
-                                        40 * height / 60,
-                                        accuracy: 0.01,
+                                        floatStored(40 * height / 60),
                                         context
                                     )
                                 }
@@ -1604,7 +1602,6 @@ final class ShellStyleLayoutTests: XCTestCase {
                                 XCTAssertEqual(
                                     widget.surface.size.width,
                                     widget.surface.size.height,
-                                    accuracy: 0.01,
                                     context
                                 )
                                 XCTAssertLessThanOrEqual(
@@ -1669,7 +1666,7 @@ final class ShellStyleLayoutTests: XCTestCase {
                             if hooked.contains(profile), !vertical {
                                 let design: Double = profile == "celestial" ? 60 : 40
                                 let expected = (profile == "celestial" ? 40 : 32) * height / design
-                                XCTAssertEqual(widget.surface.size.height, expected, accuracy: 0.01, context)
+                                XCTAssertEqual(widget.surface.size.height, floatStored(expected), context)
                             }
                         }
                     }
@@ -1945,8 +1942,8 @@ final class ShellStyleLayoutTests: XCTestCase {
                     XCTAssertLessThanOrEqual(cross, height, context)
                     for icon in icons {
                         let designSize: Double = profile == "matrix" ? 18 : profile == "nocturne" ? 20 : 24
-                        XCTAssertEqual(Double(icon.layout.width), designSize * scale, accuracy: 0.01, context)
-                        XCTAssertEqual(Double(icon.layout.height), designSize * scale, accuracy: 0.01, context)
+                        XCTAssertEqual(Double(icon.layout.width), floatStored(designSize * scale), context)
+                        XCTAssertEqual(Double(icon.layout.height), floatStored(designSize * scale), context)
                     }
                     for label in labels {
                         let role: ShellRole = profile == "matrix" ? .secondaryForeground : profile == "celestial" ?
@@ -1961,9 +1958,9 @@ final class ShellStyleLayoutTests: XCTestCase {
                         )
                     }
                     if profile == "matrix" {
-                        XCTAssertEqual(cross, height - 4, accuracy: 0.01, context)
+                        XCTAssertEqual(cross, height - 4, context)
                     } else if profile == "wayline" {
-                        XCTAssertEqual(cross, 32 * scale, accuracy: 0.01, context)
+                        XCTAssertEqual(cross, floatStored(32 * scale), context)
                         XCTAssertEqual(root.paint.cornerRadius, Float(floor(32 * scale * 0.24)), context)
                         XCTAssertEqual(
                             root.paint.fill.role & 0xFF,
@@ -1979,14 +1976,14 @@ final class ShellStyleLayoutTests: XCTestCase {
                             XCTAssertEqual(widget.surface.size.width - frame.maxX, 9 * scale, accuracy: 0.01, context)
                         }
                     } else if profile == "nocturne" {
-                        XCTAssertEqual(cross, 32 * scale, accuracy: 0.01, context)
-                        XCTAssertEqual(Double(root.paint.cornerRadius), 16 * scale - 1, accuracy: 0.01, context)
+                        XCTAssertEqual(cross, floatStored(32 * scale), context)
+                        XCTAssertEqual(Double(root.paint.cornerRadius), floatStored(16 * scale - 1), context)
                         XCTAssertEqual(root.paint.fill.role & 0xFF, UInt16(ShellRole.surface.rawValue + 1), context)
                         XCTAssertEqual(root.paint.strokeWidth, 1, context)
                         XCTAssertTrue(root.content.hover.isVisible, context)
                     } else {
-                        XCTAssertEqual(cross, (vertical ? 40 : 32) * scale, accuracy: 0.01, context)
-                        XCTAssertEqual(Double(root.paint.cornerRadius), 16 * scale, accuracy: 0.01, context)
+                        XCTAssertEqual(cross, floatStored((vertical ? 40 : 32) * scale), context)
+                        XCTAssertEqual(Double(root.paint.cornerRadius), floatStored(16 * scale), context)
                         bar.style.textColor = "#123456"
                         widget.render(bar)
                         let overridden = try XCTUnwrap(widget.tree().first { $0.kind == .label }, context)
@@ -2066,11 +2063,10 @@ final class ShellStyleLayoutTests: XCTestCase {
                                 XCTAssertEqual(
                                     widget.surface.size.width,
                                     widget.surface.size.height,
-                                    accuracy: 0.01,
                                     context
                                 )
                             }
-                            XCTAssertEqual(CGFloat(root.paint.cornerRadius), cross / 2, accuracy: 0.01, context)
+                            XCTAssertEqual(CGFloat(root.paint.cornerRadius), cross / 2, context)
                             XCTAssertEqual(root.paint.fill.role & 0xFF, UInt16(ShellRole.surface.rawValue + 1), context)
                             XCTAssertEqual(
                                 root.paint.stroke.role & 0xFF,
@@ -2085,8 +2081,8 @@ final class ShellStyleLayoutTests: XCTestCase {
                                 if name == "omniwm",
                                    widget.text.string(widget.surface.layout.core.content(of: element).text) == "omniwm"
                                 {
-                                    XCTAssertEqual(frame.midX, bounds.midX, accuracy: 0.01, context)
-                                    XCTAssertEqual(frame.midY, bounds.midY, accuracy: 0.01, context)
+                                    XCTAssertEqual(frame.midX, bounds.midX, context)
+                                    XCTAssertEqual(frame.midY, bounds.midY, context)
                                 }
                             }
                         }
@@ -3347,7 +3343,6 @@ final class ShellStyleLayoutTests: XCTestCase {
                     XCTAssertEqual(
                         CGFloat(frame.x + frame.width / 2),
                         widget.surface.size.width / 2,
-                        accuracy: 0.5,
                         context
                     )
                 }
@@ -3779,7 +3774,7 @@ final class ShellStyleLayoutTests: XCTestCase {
                     return try XCTUnwrap(labels.map { widget.surface.layout.core.absoluteFrame(of: $0).y }.min(), title)
                 }
                 for position in positions.dropFirst() {
-                    XCTAssertEqual(position, positions[0], accuracy: 0.001)
+                    XCTAssertEqual(position, positions[0])
                 }
             }
         }
@@ -3817,8 +3812,8 @@ final class ShellStyleLayoutTests: XCTestCase {
                 .first { widget.text.string(widget.surface.layout.core.content(of: $0).text) == "applelogo" })
             let header = widget.surface.layout.core.parent(of: widget.surface.layout.core.parent(of: apple))
             let headerFrame = CGRect(widget.surface.layout.core.absoluteFrame(of: header))
-            XCTAssertEqual(headerFrame.minX - bounds.minX, 12, accuracy: 0.5, position)
-            XCTAssertEqual(headerFrame.minY - bounds.minY, 12, accuracy: 0.5, position)
+            XCTAssertEqual(headerFrame.minX - bounds.minX, 12, position)
+            XCTAssertEqual(headerFrame.minY - bounds.minY, 12, position)
             var footer = try XCTUnwrap(elements.first {
                 widget.text.string(widget.surface.layout.core.content(of: $0).text).hasPrefix("Mac16,9")
             })
@@ -3827,8 +3822,8 @@ final class ShellStyleLayoutTests: XCTestCase {
             }
             XCTAssertGreaterThanOrEqual(footer.slot, 0, position)
             let footerFrame = CGRect(widget.surface.layout.core.absoluteFrame(of: footer))
-            XCTAssertEqual(bounds.maxX - footerFrame.maxX, 12, accuracy: 0.5, position)
-            XCTAssertEqual(bounds.maxY - footerFrame.maxY, 12, accuracy: 0.5, position)
+            XCTAssertEqual(bounds.maxX - footerFrame.maxX, 12, position)
+            XCTAssertEqual(bounds.maxY - footerFrame.maxY, 12, position)
         }
     }
 
@@ -3872,8 +3867,8 @@ final class ShellStyleLayoutTests: XCTestCase {
                 ShellLayerScene.engineQueue.sync {}
                 let scrolled = try XCTUnwrap(widget.layers().first { $0.bounds.origin.y > 0 }, context)
                 let bottom = try XCTUnwrap(scrolled.sublayers?.map(\.frame.maxY).max(), context)
-                XCTAssertEqual(scrolled.bounds.height, viewport.height, accuracy: 0.5, context)
-                XCTAssertEqual(scrolled.bounds.origin.y, bottom + 16 - viewport.height, accuracy: 0.5, context)
+                XCTAssertEqual(scrolled.bounds.height, viewport.height, context)
+                XCTAssertEqual(scrolled.bounds.origin.y, bottom + 16 - viewport.height, context)
             }
         }
     }
@@ -4383,22 +4378,22 @@ final class ShellStyleLayoutTests: XCTestCase {
                         )
                         XCTAssertEqual(logos.first?.content.color, Color(packed: 0xB665_45FF), context)
                         if ["default", "lake", "matrix", "sakura"].contains(profile) {
-                            XCTAssertEqual(frame.width, height - 4, accuracy: 0.001, context)
-                            XCTAssertEqual(frame.height, height - 4, accuracy: 0.001, context)
+                            XCTAssertEqual(frame.width, height - 4, context)
+                            XCTAssertEqual(frame.height, height - 4, context)
                         } else if ["wayline", "nocturne"].contains(profile) {
-                            XCTAssertEqual(frame.width, 32 * height / 40, accuracy: 0.001, context)
-                            XCTAssertEqual(frame.height, 32 * height / 40, accuracy: 0.001, context)
+                            XCTAssertEqual(frame.width, 32 * height / 40, context)
+                            XCTAssertEqual(frame.height, 32 * height / 40, context)
                         }
                         if profile == "wayline" {
                             XCTAssertTrue(widget.surface.layout.core.paint(of: button).fill.isVisible, context)
-                            XCTAssertEqual(content.hoverOpacity, 0.85, accuracy: 0.001, context)
+                            XCTAssertEqual(content.hoverOpacity, 0.85, context)
                         } else if profile == "nocturne" {
                             XCTAssertEqual(
                                 widget.surface.layout.core.paint(of: button).fill.isVisible,
                                 state.backgrounds,
                                 context
                             )
-                            XCTAssertEqual(content.hoverScale, 1.06, accuracy: 0.001, context)
+                            XCTAssertEqual(content.hoverScale, 1.06, context)
                         }
                         let modeLabel: String
                         let modeHelp: String
@@ -4425,7 +4420,6 @@ final class ShellStyleLayoutTests: XCTestCase {
                         XCTAssertEqual(
                             vertical ? chipFrame.minY - frame.maxY : chipFrame.minX - frame.maxX,
                             4,
-                            accuracy: 0.001,
                             context
                         )
                     }
@@ -4790,8 +4784,7 @@ final class ShellStyleLayoutTests: XCTestCase {
                     }).frame
                     XCTAssertEqual(
                         vertical ? line.height : line.width,
-                        vertical ? workspace.height : workspace.width,
-                        accuracy: 0.01
+                        vertical ? workspace.height : workspace.width
                     )
                 }
             }

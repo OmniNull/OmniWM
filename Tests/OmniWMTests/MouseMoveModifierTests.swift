@@ -175,7 +175,7 @@ final class MouseMoveModifierTests: NiriInteractionTestCase {
             let frames = fixture.layout()
             let moved = try XCTUnwrap(frames[fixture.windows[0].token])
             let target = try XCTUnwrap(frames[fixture.windows[2].token])
-            XCTAssertEqual(moved.midX, target.midX, accuracy: 0.5)
+            XCTAssertEqual(moved.midX, target.midX)
             XCTAssertEqual(moved.midY > target.midY, direction == .up)
         }
     }

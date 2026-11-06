@@ -246,7 +246,7 @@ extension ShellGlassSceneTests {
             let effect = try XCTUnwrap(band.value(forKey: "effect") as? NSObject)
             XCTAssertEqual(NSStringFromClass(type(of: effect)), "CASDFGradientEffect")
             let colors = try XCTUnwrap(effect.value(forKey: "colors") as? [CGColor])
-            XCTAssertEqual(try XCTUnwrap(colors.last).alpha, 0.36 * 0.2, accuracy: 1e-6)
+            XCTAssertEqual(try XCTUnwrap(colors.last).alpha, 0.36 * 0.2)
             XCTAssertEqual(glass.elements.count, 5)
             XCTAssertTrue(glass.canvasLayers.contains { $0 === band })
         }

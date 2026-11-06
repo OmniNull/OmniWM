@@ -12,7 +12,7 @@ final class ShellSpringContinuityTests: XCTestCase {
         let motion = try XCTUnwrap(ShellMotion(recipe: "spring:0.31:0.22"))
         XCTAssertEqual(motion, .spring(response: 0.31, bounce: 0.22))
         let animation = try XCTUnwrap(ShellAnimation(motion: motion, speed: 2).make("opacity") as? CASpringAnimation)
-        XCTAssertEqual(animation.perceptualDuration, 0.155, accuracy: 0.000001)
+        XCTAssertEqual(animation.perceptualDuration, 0.155)
         XCTAssertEqual(animation.bounce, 0.22, accuracy: 0.000001)
         for invalid in ["spring:0:0", "spring:3:0", "spring:0.3:1", "spring:nan:0", "spring:0.3:0:x"] {
             XCTAssertNil(ShellMotion(recipe: invalid))
@@ -37,7 +37,7 @@ final class ShellSpringContinuityTests: XCTestCase {
             let clamped = try XCTUnwrap(layer.animation(forKey: "opacity") as? CASpringAnimation)
             return (replacement.initialVelocity, expected, clamped.initialVelocity)
         }
-        XCTAssertEqual(values.0, min(max(values.1, -20), 20), accuracy: 0.000001)
+        XCTAssertEqual(values.0, min(max(values.1, -20), 20))
         XCTAssertNotEqual(values.0, 0)
         XCTAssertEqual(values.2, 20)
     }

@@ -205,11 +205,10 @@ final class AppRuleTests: XCTestCase {
     func testInitialContainerPrimarySpanPercentConversionHandlesFractionsAndExtremeValues() {
         let proportion = 0.5555
         let percent = AppRulePrimarySpanPercent.percent(from: proportion)
-        XCTAssertEqual(percent, 55.55, accuracy: 0.000_000_1)
+        XCTAssertEqual(percent, 55.55)
         XCTAssertEqual(
             AppRulePrimarySpanPercent.proportion(from: percent),
-            proportion,
-            accuracy: 0.000_000_1
+            proportion
         )
         XCTAssertTrue(AppRulePrimarySpanPercent.percent(from: .greatestFiniteMagnitude).isInfinite)
         XCTAssertTrue(AppRulePrimarySpanPercent.percent(from: .nan).isNaN)
@@ -223,7 +222,7 @@ final class AppRuleTests: XCTestCase {
         var invalidDraft = AppRuleDraft(bundleId: "com.test.app")
         invalidDraft.initialContainerPrimarySpanEnabled = true
         invalidDraft.initialContainerPrimarySpan = AppRulePrimarySpanPercent.proportion(from: 4.9)
-        XCTAssertEqual(invalidDraft.initialContainerPrimarySpan, 0.049, accuracy: 0.000_000_1)
+        XCTAssertEqual(invalidDraft.initialContainerPrimarySpan, 0.049)
         XCTAssertNotNil(invalidDraft.initialContainerPrimarySpanError)
     }
 

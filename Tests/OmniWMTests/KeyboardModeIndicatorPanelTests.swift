@@ -48,7 +48,7 @@ final class KeyboardModeIndicatorPanelTests: XCTestCase {
         let rightPanel = try XCTUnwrap(panels.first { right.frame.contains($0.frame) })
         XCTAssertGreaterThan(rightPanel.frame.height, leftPanel.frame.height)
         XCTAssertEqual(leftPanel.frame.minY, left.visibleFrame.minY + KeyboardModeIndicatorController.bottomInset)
-        XCTAssertEqual(leftPanel.frame.midX, left.visibleFrame.midX, accuracy: 0.5)
+        XCTAssertEqual(leftPanel.frame.midX, left.visibleFrame.midX)
         XCTAssertTrue(registry.visibleWindows(kind: .utility).isEmpty)
     }
 

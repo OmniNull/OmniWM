@@ -150,13 +150,13 @@ final class NiriRemovalViewportTests: XCTestCase {
             crossSpan: 800
         )
         focusColumn(at: 1, in: &fixture)
-        XCTAssertEqual(viewOrigin(fixture), 676, accuracy: 0.5)
+        XCTAssertEqual(viewOrigin(fixture), 676)
 
         let result = removeToken(at: 2, from: &fixture)
 
         XCTAssertEqual(result.removedColumnIndicesBefore, [2])
         XCTAssertTrue(result.viewportNeedsRecalc)
-        XCTAssertEqual(viewOrigin(fixture), -8, accuracy: 0.5)
+        XCTAssertEqual(viewOrigin(fixture), -8)
     }
 
     func testRemovalLeftOfActiveColumnClampsReachableTrailingViewport() {
@@ -167,13 +167,13 @@ final class NiriRemovalViewportTests: XCTestCase {
             viewportSpan: 1000,
             crossSpan: 800
         )
-        XCTAssertEqual(viewOrigin(fixture), 500, accuracy: 0.5)
+        XCTAssertEqual(viewOrigin(fixture), 500)
 
         let result = removeToken(at: 0, from: &fixture)
 
         XCTAssertEqual(result.removedColumnIndicesBefore, [0])
         XCTAssertTrue(result.viewportNeedsRecalc)
-        XCTAssertEqual(viewOrigin(fixture), 0, accuracy: 0.5)
+        XCTAssertEqual(viewOrigin(fixture), 0)
     }
 
     func testNearViewportWidthUsesReducedFitPaddingAfterRemoval() {
@@ -186,13 +186,13 @@ final class NiriRemovalViewportTests: XCTestCase {
         )
         focusColumn(at: 0, in: &fixture)
         focusColumn(at: 1, in: &fixture)
-        XCTAssertEqual(viewOrigin(fixture), 505.5, accuracy: 0.5)
+        XCTAssertEqual(viewOrigin(fixture), 505.5)
 
         let result = removeToken(at: 0, from: &fixture)
 
         XCTAssertEqual(result.removedColumnIndicesBefore, [0])
         XCTAssertTrue(result.viewportNeedsRecalc)
-        XCTAssertEqual(viewOrigin(fixture), -2.5, accuracy: 0.5)
+        XCTAssertEqual(viewOrigin(fixture), -2.5)
     }
 
     func testVerticalInRangeViewportIsNotRebasedByHorizontalGeometry() {
@@ -204,13 +204,13 @@ final class NiriRemovalViewportTests: XCTestCase {
             crossSpan: 600
         )
         focusColumn(at: 1, in: &fixture)
-        XCTAssertEqual(viewOrigin(fixture), -100, accuracy: 0.5)
+        XCTAssertEqual(viewOrigin(fixture), -100)
 
         let result = removeToken(at: 2, from: &fixture)
 
         XCTAssertEqual(result.removedColumnIndicesBefore, [2])
         XCTAssertFalse(result.viewportNeedsRecalc)
-        XCTAssertEqual(viewOrigin(fixture), -100, accuracy: 0.5)
+        XCTAssertEqual(viewOrigin(fixture), -100)
     }
 
     func testAlwaysCenteredSelectionStaysCenteredAfterTrailingRemoval() {
@@ -223,13 +223,13 @@ final class NiriRemovalViewportTests: XCTestCase {
             centerMode: .always
         )
         focusColumn(at: 1, in: &fixture)
-        XCTAssertEqual(viewOrigin(fixture), 250, accuracy: 0.5)
+        XCTAssertEqual(viewOrigin(fixture), 250)
 
         let result = removeToken(at: 2, from: &fixture)
 
         XCTAssertEqual(result.removedColumnIndicesBefore, [2])
         XCTAssertFalse(result.viewportNeedsRecalc)
-        XCTAssertEqual(viewOrigin(fixture), 250, accuracy: 0.5)
+        XCTAssertEqual(viewOrigin(fixture), 250)
     }
 
     func testOverflowCenteredSelectionStaysCenteredAfterTrailingRemoval() {
@@ -242,13 +242,13 @@ final class NiriRemovalViewportTests: XCTestCase {
             centerMode: .onOverflow
         )
         focusColumn(at: 1, in: &fixture)
-        XCTAssertEqual(viewOrigin(fixture), 550, accuracy: 0.5)
+        XCTAssertEqual(viewOrigin(fixture), 550)
 
         let result = removeToken(at: 2, from: &fixture)
 
         XCTAssertEqual(result.removedColumnIndicesBefore, [2])
         XCTAssertFalse(result.viewportNeedsRecalc)
-        XCTAssertEqual(viewOrigin(fixture), 550, accuracy: 0.5)
+        XCTAssertEqual(viewOrigin(fixture), 550)
     }
 
     func testOverflowCenteringUsesActivePairWithNarrowEdgeColumns() {
@@ -261,13 +261,13 @@ final class NiriRemovalViewportTests: XCTestCase {
             centerMode: .onOverflow
         )
         focusColumn(at: 1, in: &fixture)
-        XCTAssertEqual(viewOrigin(fixture), -100, accuracy: 0.5)
+        XCTAssertEqual(viewOrigin(fixture), -100)
 
         let result = removeToken(at: 4, from: &fixture)
 
         XCTAssertEqual(result.removedColumnIndicesBefore, [4])
         XCTAssertFalse(result.viewportNeedsRecalc)
-        XCTAssertEqual(viewOrigin(fixture), -100, accuracy: 0.5)
+        XCTAssertEqual(viewOrigin(fixture), -100)
     }
 
     func testOverflowFitStateClampsAfterTrailingRemovalShrinksContent() {
@@ -280,13 +280,13 @@ final class NiriRemovalViewportTests: XCTestCase {
             centerMode: .onOverflow
         )
         focusColumn(at: 2, in: &fixture)
-        XCTAssertEqual(viewOrigin(fixture), 600, accuracy: 0.5)
+        XCTAssertEqual(viewOrigin(fixture), 600)
 
         let result = removeToken(at: 3, from: &fixture)
 
         XCTAssertEqual(result.removedColumnIndicesBefore, [3])
         XCTAssertTrue(result.viewportNeedsRecalc)
-        XCTAssertEqual(viewOrigin(fixture), 200, accuracy: 0.5)
+        XCTAssertEqual(viewOrigin(fixture), 200)
     }
 
     func testTileOnlyRemovalDoesNotMutateViewport() throws {
@@ -334,7 +334,7 @@ final class NiriRemovalViewportTests: XCTestCase {
             ),
             state: &fixture.state
         )
-        XCTAssertEqual(viewOrigin(fixture), -250, accuracy: 0.5)
+        XCTAssertEqual(viewOrigin(fixture), -250)
         let stateBeforeRemoval = fixture.state
 
         let result = removeToken(at: 1, from: &fixture)

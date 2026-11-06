@@ -126,7 +126,7 @@ final class ShellVitreusPadTests: XCTestCase {
         XCTAssertNil(after[2])
         XCTAssertEqual(after[1], before[1])
         XCTAssertEqual(after[3], before[3])
-        XCTAssertEqual(CGRect(layout.core.absoluteFrame(of: try XCTUnwrap(after[3]))).midY, slot, accuracy: 0.01)
+        XCTAssertEqual(CGRect(layout.core.absoluteFrame(of: try XCTUnwrap(after[3]))).midY, slot)
         try VitreusFixture.commit(widget, "Four")
         XCTAssertEqual(items(VitreusFixture.drain(widget)).last?.fields?["id"]?.number, 4)
     }

@@ -141,26 +141,26 @@ extension ShellVitreusMediaCardTests {
         func rise() throws -> ShellPresenceRecipe {
             try XCTUnwrap(ShellPresenceRecipe(fixture.widget.text.string(paint(fixture, "media-card-rise").appear)))
         }
-        XCTAssertEqual(try rise().delay, 0.2, accuracy: 1e-6)
-        XCTAssertEqual(try rise().offset.y, 12 * Self.cu, accuracy: 1e-3)
+        XCTAssertEqual(try rise().delay, 0.2)
+        XCTAssertEqual(try rise().offset.y, 12 * Self.cu)
         XCTAssertEqual(try rise().opacity, 0)
         guard case let .spring(response, bounce)? = try rise().motion else { return XCTFail("the card rises on f3") }
-        XCTAssertEqual(response, 2 * .pi * 0.52 / 6.64, accuracy: 1e-4)
-        XCTAssertEqual(bounce, 0, accuracy: 1e-6)
+        XCTAssertEqual(response, 2 * .pi * 0.52 / 6.64)
+        XCTAssertEqual(bounce, 0)
         try float(fixture, by: CGVector(dx: 300, dy: 400))
         XCTAssertEqual(try rise().delay, 0)
         let bounds = try recipe(fixture, "media-card-grab").bounds
         try drag(fixture, key: "media-card-grab", by: CGVector(dx: 5000, dy: 5000))
         fixture.widget.surface.finishSettle()
         XCTAssertEqual(try frame(fixture, "media-card").maxX, 1920, accuracy: 0.01)
-        XCTAssertEqual(try frame(fixture, "media-card").maxY, 1080, accuracy: 0.01)
+        XCTAssertEqual(try frame(fixture, "media-card").maxY, 1080)
         let small = VitreusFixture.monitor(width: 1440, height: 900)
         fixture.widget.set("island") { VitreusFixture.island(small).write(to: &$0) }
         fixture.widget.render(fixture.bar)
         let desk = try recipe(fixture, "media-card-grab").bounds
         XCTAssertLessThan(desk.maxX, bounds.maxX)
         XCTAssertEqual(try frame(fixture, "media-card").maxX, 1440, accuracy: 0.01)
-        XCTAssertEqual(try frame(fixture, "media-card").maxY, 900, accuracy: 0.01)
+        XCTAssertEqual(try frame(fixture, "media-card").maxY, 900)
     }
 
     func testTheGripBrightensOnlyWhileTheFloatingGrabIsHoveredOrHeld() throws {
@@ -177,13 +177,13 @@ extension ShellVitreusMediaCardTests {
         let plate = try frame(fixture, "media-card-grab")
         let away = CGPoint(x: plate.minX - 120, y: plate.midY)
         hover(away)
-        XCTAssertEqual(try grip(), 0.2, accuracy: 1e-6)
+        XCTAssertEqual(try grip(), 0.2)
         hover(CGPoint(x: plate.midX, y: plate.midY))
-        XCTAssertEqual(try grip(), 0.55, accuracy: 1e-6)
+        XCTAssertEqual(try grip(), 0.55)
         hover(away)
-        XCTAssertEqual(try grip(), 0.2, accuracy: 1e-6)
+        XCTAssertEqual(try grip(), 0.2)
         let held = grab(fixture, at: try cover(fixture), by: CGVector(dx: 40, dy: 0))
-        XCTAssertEqual(try grip(), 0.55, accuracy: 1e-6)
+        XCTAssertEqual(try grip(), 0.55)
         drop(fixture, at: held)
     }
 }

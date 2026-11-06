@@ -136,7 +136,7 @@ final class OverviewDwindleProjectionTests: XCTestCase {
         XCTAssertTrue(overview.selectedWindowHandle === firstHandle)
         XCTAssertEqual(fixture.reads.titles, 2)
         overview.dismiss(reason: .cancel, animated: false)
-        XCTAssertEqual(controller.settings.overview.zoom, originalZoom + 0.05, accuracy: 0.0001)
+        XCTAssertEqual(controller.settings.overview.zoom, originalZoom + 0.05)
     }
 
     @MainActor

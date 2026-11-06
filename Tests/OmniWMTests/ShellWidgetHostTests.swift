@@ -1468,12 +1468,12 @@ final class ShellWidgetClickTests: XCTestCase {
         surface.hover(at: CGPoint(x: 5, y: 5))
         ShellLayerScene.engineQueue.sync {}
         XCTAssertEqual(pill.backgroundColor?.components?.first, 1)
-        XCTAssertEqual(inner.transform.m11, 1.25, accuracy: 0.001)
+        XCTAssertEqual(inner.transform.m11, 1.25)
 
         surface.hover(at: nil)
         ShellLayerScene.engineQueue.sync {}
         XCTAssertNil(pill.backgroundColor)
-        XCTAssertEqual(inner.transform.m11, 1, accuracy: 0.001)
+        XCTAssertEqual(inner.transform.m11, 1)
     }
 
     func testHelpShowsATooltipAfterTheDelay() async throws {
@@ -3425,8 +3425,8 @@ final class ShellWidgetClickTests: XCTestCase {
         try await layoutChanges.change()
         await waitForApply(to: [popout.surface]) { popout.surface.size == CGSize(width: 50, height: 30) }
         XCTAssertEqual(popout.surface.size, CGSize(width: 50, height: 30))
-        XCTAssertEqual(popout.panel.frame.maxX, screen.visibleFrame.maxX - 8, accuracy: 0.5)
-        XCTAssertEqual(popout.panel.frame.maxY, screen.visibleFrame.maxY - 5, accuracy: 0.5)
+        XCTAssertEqual(popout.panel.frame.maxX, screen.visibleFrame.maxX - 8)
+        XCTAssertEqual(popout.panel.frame.maxY, screen.visibleFrame.maxY - 5)
         XCTAssertEqual(popout.panel.level, .popUpMenu)
 
         XCTAssertTrue(harness.host.togglePopout(of: "test", on: main))
@@ -3473,8 +3473,8 @@ final class ShellWidgetClickTests: XCTestCase {
             drawer.panel.isVisible && drawer.sections.allSatisfy { $0.surface.size.height > 0 }
         }
         XCTAssertEqual(drawer.panel.frame.size, CGSize(width: 80 + 24, height: 12 + 20 + 12 + 30 + 12))
-        XCTAssertEqual(drawer.panel.frame.maxX, screen.visibleFrame.maxX - 8, accuracy: 1)
-        XCTAssertEqual(drawer.panel.frame.midY, screen.visibleFrame.midY, accuracy: 1)
+        XCTAssertEqual(drawer.panel.frame.maxX, screen.visibleFrame.maxX - 8)
+        XCTAssertEqual(drawer.panel.frame.midY, screen.visibleFrame.midY)
         XCTAssertEqual(drawer.sections.map(\.surface.view.frame.minY), [12, 44])
         XCTAssertEqual(drawer.sections.map(\.surface.view.frame.minX), [22, 12])
 
@@ -3522,10 +3522,10 @@ final class ShellWidgetClickTests: XCTestCase {
         harness.sink.vars = ["w": "40"]
         harness.host.updateVars()
         try await layoutChanges.change()
-        XCTAssertEqual(popout.panel.frame.midX, opened.midX + 40, accuracy: 0.5)
+        XCTAssertEqual(popout.panel.frame.midX, opened.midX + 40)
 
         bar.setFrameOrigin(CGPoint(x: bar.frame.minX + 30, y: bar.frame.minY))
-        XCTAssertEqual(popout.panel.frame.midX, opened.midX + 70, accuracy: 0.5)
+        XCTAssertEqual(popout.panel.frame.midX, opened.midX + 70)
         XCTAssertTrue(harness.host.popout === popout)
     }
 
@@ -4104,8 +4104,8 @@ final class ShellWidgetClickTests: XCTestCase {
         harness.host.updateVars()
         try await layoutChanges.change()
         await waitForApply(to: [popout.surface]) { popout.panel.isVisible }
-        XCTAssertEqual(popout.panel.frame.minX, side.maxX + 4, accuracy: 0.5)
-        XCTAssertEqual(popout.panel.frame.midY, button.midY, accuracy: 0.5)
+        XCTAssertEqual(popout.panel.frame.minX, side.maxX + 4)
+        XCTAssertEqual(popout.panel.frame.midY, button.midY)
     }
 
     func testDrawerPopoutsJoinTheBarFollowItAndUnjoinOnClose() async throws {
@@ -4166,7 +4166,7 @@ final class ShellWidgetClickTests: XCTestCase {
         XCTAssertGreaterThan(layout.body.width, size.width)
         XCTAssertEqual(popout.surface.view.frame.size, size)
         XCTAssertEqual(popout.surface.view.frame.midX, layout.body.midX, accuracy: 0.5)
-        XCTAssertEqual(popout.surface.view.frame.midY, layout.frame.height - layout.body.midY, accuracy: 0.5)
+        XCTAssertEqual(popout.surface.view.frame.midY, layout.frame.height - layout.body.midY)
         XCTAssertEqual(log.joins, [first.join])
 
         let second = placement(300)
@@ -4430,12 +4430,12 @@ final class ShellWidgetClickTests: XCTestCase {
         click(surface, at: CGPoint(x: 5, y: 5))
         let popout = try XCTUnwrap(harness.host.popout)
         await waitForApply(to: [popout.surface]) { popout.panel.isVisible }
-        XCTAssertEqual(popout.panel.frame.maxY, bar.frame.minY - PopupAttachment.gap, accuracy: 0.5)
+        XCTAssertEqual(popout.panel.frame.maxY, bar.frame.minY - PopupAttachment.gap)
 
         click(surface, at: CGPoint(x: 25, y: 5))
         await waitForApply(to: [popout.surface]) { abs(popout.panel.frame.maxY - bar.frame.minY) < 0.5 }
-        XCTAssertEqual(popout.panel.frame.maxY, bar.frame.minY, accuracy: 0.5)
-        XCTAssertEqual(popout.panel.frame.midX, bar.frame.minX + 10, accuracy: 0.5)
+        XCTAssertEqual(popout.panel.frame.maxY, bar.frame.minY)
+        XCTAssertEqual(popout.panel.frame.midX, bar.frame.minX + 10)
     }
 
     func testPopoutOpensFromBarAndClosesAfterCommand() async throws {
@@ -4531,7 +4531,7 @@ extension ShellWidgetClickTests {
         XCTAssertEqual(popout.surface.timing, ShellTiming(open: 0.8, close: 0.6))
         XCTAssertEqual(popout.surface.transition.from, 0)
         XCTAssertEqual(popout.surface.transition.to, 1)
-        XCTAssertEqual(popout.surface.transition.duration, 0.8, accuracy: 1e-6)
+        XCTAssertEqual(popout.surface.transition.duration, floatStored(0.8))
         XCTAssertTrue(popout.surface.transition.forced)
         ShellLayerScene.engineQueue.sync {}
         let all = try XCTUnwrap(popout.surface.view.layer).flattened
@@ -4583,7 +4583,7 @@ extension ShellWidgetClickTests {
         let drawer = try XCTUnwrap(harness.host.drawer)
         let section = try XCTUnwrap(drawer.sections.first)
         await waitForApply(to: [section.surface]) { drawer.panel.isVisible && section.surface.size.height > 0 }
-        XCTAssertEqual(section.surface.transition.duration, 0.6, accuracy: 1e-6)
+        XCTAssertEqual(section.surface.transition.duration, floatStored(0.6))
         XCTAssertTrue(section.surface.transition.forced)
 
         harness.host.closeDrawer()
@@ -4653,7 +4653,7 @@ extension ShellWidgetClickTests {
         harness.host.updateVars()
         try await layoutChanges.change()
         await waitForApply(to: [popout.surface]) { popout.panel.isVisible }
-        XCTAssertEqual(popout.surface.transition.duration, 0.5, accuracy: 1e-6)
+        XCTAssertEqual(popout.surface.transition.duration, 0.5)
         XCTAssertTrue(popout.surface.transition.forced)
 
         harness.host.closePopout()

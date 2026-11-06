@@ -1329,15 +1329,15 @@ final class OverviewStructuralCommandTests: XCTestCase {
         let stateAfterCommand = controller.workspaceManager.niriViewportState(for: workspaceId)
         let cameraPreservingOffset = cameraBefore - stateAfterCommand.columnX(at: 2, columns: reordered, gap: gap)
         XCTAssertEqual(stateAfterCommand.activeColumnIndex, 2)
-        XCTAssertEqual(stateAfterCommand.viewOffset, cameraPreservingOffset, accuracy: 0.001)
+        XCTAssertEqual(stateAfterCommand.viewOffset, cameraPreservingOffset)
 
         while let task = refresh.layoutState.activeRefreshTask { await task.value }
 
         let stateAfterRelayout = controller.workspaceManager.niriViewportState(for: workspaceId)
         XCTAssertEqual(stateAfterRelayout.activeColumnIndex, 2)
-        XCTAssertEqual(stateAfterRelayout.viewOffset, cameraPreservingOffset, accuracy: 0.001)
+        XCTAssertEqual(stateAfterRelayout.viewOffset, cameraPreservingOffset)
         let stationaryAfter = try XCTUnwrap(engine.captureWindowFrames(in: workspaceId)[stationary.id])
-        XCTAssertEqual(stationaryAfter.minX, stationaryBefore.minX, accuracy: 0.001)
+        XCTAssertEqual(stationaryAfter.minX, stationaryBefore.minX)
     }
 
     func testConsumeAndExpelPreserveOverviewViewportInBothOrientations() async throws {
@@ -1396,7 +1396,6 @@ final class OverviewStructuralCommandTests: XCTestCase {
                 XCTAssertEqual(
                     view.layout.scrollOffset,
                     before.scrollOffset,
-                    accuracy: 0.001,
                     "\(orientation), \(command)"
                 )
                 XCTAssertEqual(
@@ -1415,8 +1414,7 @@ final class OverviewStructuralCommandTests: XCTestCase {
                 overview.refreshCachedOverviewProjection(affectedWorkspaceIds: [workspaceId], revealingSelection: false)
                 XCTAssertEqual(
                     snapshot.viewportPosition - (view.layout.stripPanByWorkspace[workspaceId] ?? 0),
-                    viewportOrigin,
-                    accuracy: 0.001
+                    viewportOrigin
                 )
             }
             XCTAssertNotEqual(view.layout.stripPanRevealing(selected), 0)
@@ -1440,8 +1438,7 @@ final class OverviewStructuralCommandTests: XCTestCase {
                     currentOffset: view.layout.scrollOffset,
                     layout: view.layout,
                     screenFrame: OverviewLayoutCalculator.viewportFrame(for: fixture.monitor.frame)
-                ),
-                accuracy: 0.001
+                )
             )
         }
     }

@@ -79,8 +79,7 @@ final class DwindleSplitInsertionTests: XCTestCase {
             let secondFrame = visibleFrame(second)
             XCTAssertEqual(
                 orientation == .horizontal ? sourceFrame.width : sourceFrame.height,
-                orientation == .horizontal ? secondFrame.width : secondFrame.height,
-                accuracy: 0.001
+                orientation == .horizontal ? secondFrame.width : secondFrame.height
             )
             try assertTree(fixture)
         }

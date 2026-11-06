@@ -162,8 +162,7 @@ final class DwindleInsertionTests: XCTestCase {
             XCTAssertGreaterThanOrEqual(horizontal ? second.width : second.height, horizontal ? 250 : 200)
             XCTAssertEqual(
                 horizontal ? first.width + second.width : first.height + second.height,
-                (horizontal ? screen.width : screen.height) - 8,
-                accuracy: 0.001
+                (horizontal ? screen.width : screen.height) - 8
             )
             assertPosition(first, beside: second, direction: direction)
             try assertTree(fixture)

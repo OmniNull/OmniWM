@@ -56,9 +56,9 @@ final class ShellManipulationMotionTests: XCTestCase {
         let before = motion.velocity(at: time)
         let after = retargeted.velocity(at: time)
         XCTAssertNotEqual(before, .zero)
-        XCTAssertEqual(after.x, before.x, accuracy: 1e-9)
-        XCTAssertEqual(after.y, before.y, accuracy: 1e-9)
-        XCTAssertEqual(after.width, before.width, accuracy: 1e-9)
+        XCTAssertEqual(after.x, before.x)
+        XCTAssertEqual(after.y, before.y)
+        XCTAssertEqual(after.width, before.width)
     }
 
     func testWrapperDescribesTheSameAbsoluteRectForEveryLayout() throws {
@@ -138,7 +138,7 @@ final class ShellManipulationMotionTests: XCTestCase {
                 let end = settle.begin + settle.duration
                 let rect = settle.rect(at: end)
                 let label = "\(spring.damping) \(distance)"
-                XCTAssertEqual(settle.velocity(at: settle.begin).x, 800, accuracy: 1e-9, label)
+                XCTAssertEqual(settle.velocity(at: settle.begin).x, 800, label)
                 XCTAssertLessThan(abs(rect.minX - home.minX), 0.25, label)
                 XCTAssertLessThan(abs(rect.minY - home.minY), 0.25, label)
                 XCTAssertLessThan(abs(rect.width - home.width), 0.25, label)
@@ -207,7 +207,7 @@ final class ShellManipulationMotionTests: XCTestCase {
             for time in samples(segment) where time <= end {
                 let corner = ShellManipulationGeometry.content(of: segment.rect(at: time), recipe: recipe).origin
                 XCTAssertEqual(corner.x, pivot.x, accuracy: 1e-9, "\(time)")
-                XCTAssertEqual(corner.y, pivot.y, accuracy: 1e-9, "\(time)")
+                XCTAssertEqual(corner.y, pivot.y, "\(time)")
             }
         }
     }

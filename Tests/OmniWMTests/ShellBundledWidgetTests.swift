@@ -422,8 +422,8 @@ final class ShellBundledWidgetTests: XCTestCase {
                     XCTAssertFalse(icons.isEmpty)
                     let size = style == "default" ? 18.0 : 24.0
                     for icon in icons {
-                        XCTAssertEqual(Double(icon.width), size * scale, accuracy: 0.01, style)
-                        XCTAssertEqual(Double(icon.height), size * scale, accuracy: 0.01, style)
+                        XCTAssertEqual(Double(icon.width), size * scale, style)
+                        XCTAssertEqual(Double(icon.height), size * scale, style)
                     }
                 })
             }
@@ -456,7 +456,7 @@ final class ShellBundledWidgetTests: XCTestCase {
                             UInt32($0.flags) & OMNI_NODE_ICON_MASK == OMNI_NODE_ICON_WINDOW
                                 && text.string($0.icon_ref) == reference
                         })
-                        XCTAssertEqual(icon.opacity, 0.37, accuracy: 0.001, style)
+                        XCTAssertEqual(icon.opacity, 0.37, style)
                     }
                 })
             }

@@ -128,7 +128,7 @@ final class ShellFrameEndpointTests: XCTestCase {
         }
         XCTAssertEqual(values[0], 4)
         XCTAssertEqual(values[1], 8)
-        XCTAssertEqual(try XCTUnwrap(values[2]), Double(Float(0.3)), accuracy: 0.000001)
+        XCTAssertEqual(try XCTUnwrap(values[2]), Double(Float(0.3)))
     }
 
     func testScaleEndpointUsesFinalSizeInSameTransaction() throws {
@@ -160,8 +160,8 @@ final class ShellFrameEndpointTests: XCTestCase {
                 .last as? NSValue).caTransform3DValue
             return (transform.m41, layer.transform.m41)
         }
-        XCTAssertEqual(result.0, 10, accuracy: 0.000001)
-        XCTAssertEqual(result.0, result.1, accuracy: 0.000001)
+        XCTAssertEqual(result.0, 10)
+        XCTAssertEqual(result.0, result.1)
     }
 
     func testPathAndMaskMorphsEndAtNewPath() throws {

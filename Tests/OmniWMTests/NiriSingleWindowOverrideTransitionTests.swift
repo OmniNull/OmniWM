@@ -64,7 +64,7 @@ final class NiriSingleWindowOverrideTransitionTests: NiriInteractionTestCase {
         XCTAssertTrue(fixture.column.hasManualSingleWindowWidthOverride)
         XCTAssertEqual(fixture.column.width, .fixed(900))
         let frame = try XCTUnwrap(layout(fixture.engine, in: fixture.workspaceId)[fixture.survivor.token])
-        XCTAssertEqual(frame.width, 900, accuracy: 0.001)
+        XCTAssertEqual(frame.width, 900)
     }
 
     func testRemovalUsesMonitorFitInsteadOfGlobalContainerPrimarySpan() throws {
@@ -113,7 +113,7 @@ final class NiriSingleWindowOverrideTransitionTests: NiriInteractionTestCase {
             state: &state
         )
         let resizedFrame = try XCTUnwrap(layout(engine, in: workspaceId)[survivor.token])
-        XCTAssertEqual(resizedFrame.width, 900, accuracy: 0.001)
+        XCTAssertEqual(resizedFrame.width, 900)
         let neighbor = addWindow(engine, pid: 6_812, to: workspaceId, after: survivor)
 
         engine.removeWindow(token: neighbor.token, in: workspaceId)
@@ -127,7 +127,7 @@ final class NiriSingleWindowOverrideTransitionTests: NiriInteractionTestCase {
         fixture.engine.setProjectionExclusions([fixture.neighbor.token], in: fixture.workspaceId)
         resize(fixture.column, in: fixture)
         let before = try XCTUnwrap(layout(fixture.engine, in: fixture.workspaceId)[fixture.survivor.token])
-        XCTAssertEqual(before.width, 900, accuracy: 0.001)
+        XCTAssertEqual(before.width, 900)
 
         fixture.engine.removeWindow(token: fixture.neighbor.token, in: fixture.workspaceId)
 
@@ -161,7 +161,7 @@ final class NiriSingleWindowOverrideTransitionTests: NiriInteractionTestCase {
         XCTAssertEqual(targetColumn.width, .fixed(800))
         XCTAssertTrue(targetColumn.hasManualSingleWindowWidthOverride)
         let targetFrame = try XCTUnwrap(layout(fixture.engine, in: targetWorkspace)[fixture.neighbor.token])
-        XCTAssertEqual(targetFrame.width, 800, accuracy: 0.001)
+        XCTAssertEqual(targetFrame.width, 800)
     }
 
     func testColumnTransferRestoresSourceFitAndPreservesDestinationColumnIdentity() throws {
@@ -190,7 +190,7 @@ final class NiriSingleWindowOverrideTransitionTests: NiriInteractionTestCase {
         XCTAssertEqual(neighborColumn.width, .fixed(800))
         XCTAssertTrue(neighborColumn.hasManualSingleWindowWidthOverride)
         let targetFrame = try XCTUnwrap(layout(fixture.engine, in: targetWorkspace)[fixture.neighbor.token])
-        XCTAssertEqual(targetFrame.width, 800, accuracy: 0.001)
+        XCTAssertEqual(targetFrame.width, 800)
     }
 
     func testCustomFitAfterRemovalHonorsSurvivorMinimumSize() throws {

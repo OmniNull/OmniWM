@@ -68,13 +68,13 @@ extension ShellRevealTests {
         let impulses = ShellShapeImpulse.scheduled(morph.impulses, on: plan, commit: 10)
         let after = try XCTUnwrap(impulses.first { $0.pivot == .centre })
         let at = try XCTUnwrap(impulses.first { $0.pivot == .anchor })
-        XCTAssertEqual(after.begin, 10.031, accuracy: 1e-12)
-        XCTAssertEqual(at.begin, try XCTUnwrap(plan.crossings(at: 0.97, rising: true).first), accuracy: 1e-12)
+        XCTAssertEqual(after.begin, 10.031)
+        XCTAssertEqual(at.begin, try XCTUnwrap(plan.crossings(at: 0.97, rising: true).first))
         XCTAssertEqual(after.state(at: after.begin - 0.001).displacement, 0)
         let time = at.begin + 0.04
         let carrying = try XCTUnwrap(at.carrying(at: time))
-        XCTAssertEqual(carrying.state(at: time).displacement, at.state(at: time).displacement, accuracy: 1e-12)
-        XCTAssertEqual(carrying.state(at: time).velocity, at.state(at: time).velocity, accuracy: 1e-12)
+        XCTAssertEqual(carrying.state(at: time).displacement, at.state(at: time).displacement)
+        XCTAssertEqual(carrying.state(at: time).velocity, at.state(at: time).velocity)
         XCTAssertEqual(
             carrying.state(at: time + 0.02).displacement,
             at.state(at: time + 0.02).displacement,
@@ -137,11 +137,11 @@ extension ShellRevealTests {
         )
         for time in [0.01, 0.035, peak, 0.16, 0.25] {
             let anchored = sag.apply(to: base, anchor: CGPoint(x: 0.5, y: 0), at: time)
-            XCTAssertEqual(anchored.rect.minY, base.rect.minY, accuracy: 1e-12)
+            XCTAssertEqual(anchored.rect.minY, base.rect.minY)
             XCTAssertEqual(anchored.rect.height - base.rect.height, sag.state(at: time).displacement, accuracy: 1e-12)
             let centred = wobble.apply(to: base, anchor: .zero, at: time)
-            XCTAssertEqual(centred.rect.midX, base.rect.midX, accuracy: 1e-12)
-            XCTAssertEqual(centred.rect.midY, base.rect.midY, accuracy: 1e-12)
+            XCTAssertEqual(centred.rect.midX, base.rect.midX)
+            XCTAssertEqual(centred.rect.midY, base.rect.midY)
             XCTAssertEqual(centred.rect.width - base.rect.width, wobble.state(at: time).displacement, accuracy: 1e-12)
         }
     }
@@ -163,8 +163,8 @@ extension ShellRevealTests {
             let shape = edges.rect(at: 5 + elapsed)
             XCTAssertEqual(shape.minX, first, accuracy: 1e-9)
             XCTAssertEqual(shape.maxX, max(first, last), accuracy: 1e-9)
-            XCTAssertEqual(shape.midY, start.midY, accuracy: 1e-9)
-            XCTAssertEqual(shape.height, 15 * (1 - 0.18 * min(1, abs(shape.width - 29) / 29)), accuracy: 1e-9)
+            XCTAssertEqual(shape.midY, start.midY)
+            XCTAssertEqual(shape.height, 15 * (1 - 0.18 * min(1, abs(shape.width - 29) / 29)))
         }
     }
 
@@ -178,11 +178,11 @@ extension ShellRevealTests {
             let time = 0.06
             let next = edges.retargeted(to: start.offsetBy(dx: -20, dy: 15), at: time)
             let before = edges.state(at: time), after = next.state(at: time)
-            XCTAssertEqual(after.rect.minX, before.rect.minX, accuracy: 1e-9)
-            XCTAssertEqual(after.rect.minY, before.rect.minY, accuracy: 1e-9)
-            XCTAssertEqual(after.rect.width, before.rect.width, accuracy: 1e-9)
-            XCTAssertEqual(after.rect.height, before.rect.height, accuracy: 1e-9)
-            for lane in 0 ..< 4 { XCTAssertEqual(after.velocity[lane], before.velocity[lane], accuracy: 1e-7) }
+            XCTAssertEqual(after.rect.minX, before.rect.minX)
+            XCTAssertEqual(after.rect.minY, before.rect.minY)
+            XCTAssertEqual(after.rect.width, before.rect.width)
+            XCTAssertEqual(after.rect.height, before.rect.height)
+            for lane in 0 ..< 4 { XCTAssertEqual(after.velocity[lane], before.velocity[lane]) }
             XCTAssertEqual(next.rect(at: next.end), next.target)
         }
     }

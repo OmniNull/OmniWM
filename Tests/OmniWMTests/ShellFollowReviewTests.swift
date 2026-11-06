@@ -48,7 +48,7 @@ final class ShellFollowReviewTests: XCTestCase {
         fixture.surface.drag(to: CGPoint(x: 125, y: 105), screen: .zero, timestamp: 0.01)
         ShellLayerScene.engineQueue.sync {}
         let current = try XCTUnwrap(fixture.surface.manipulation)
-        XCTAssertEqual(current.preview.width / current.start.width, 0.5, accuracy: 1e-9)
+        XCTAssertEqual(current.preview.width / current.start.width, 0.5)
     }
 
     private func composed(_ fixture: Fixture, shape: ElementHandle, target: ElementHandle) -> CGRect {
@@ -95,7 +95,7 @@ final class ShellFollowReviewTests: XCTestCase {
         XCTAssertEqual(try helper.shape(fixture, "follower"), shape)
         XCTAssertEqual(fixture.surface.layout.core.layoutFrame(of: shape), local)
         let expected = composed(fixture, shape: shape, target: target)
-        XCTAssertEqual(expected.minX, 85, accuracy: 1e-9)
+        XCTAssertEqual(expected.minX, 85)
         try assertDrawn(stage, at: time, equals: expected, "body-only move")
         fixture.surface.cancelInput()
         ShellLayerScene.engineQueue.sync {}

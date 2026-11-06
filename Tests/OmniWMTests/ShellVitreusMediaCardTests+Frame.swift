@@ -29,15 +29,15 @@ extension ShellVitreusMediaCardTests {
             XCTAssertEqual(layout.core.content(of: glass).glassFollow, 0)
             XCTAssertEqual(source.target, VitreusFixture.key("media-card"))
             XCTAssertEqual(source.edge, .right)
-            XCTAssertEqual(source.span, 50 * 1.35, accuracy: 0.001)
+            XCTAssertEqual(source.span, 50 * 1.35)
             XCTAssertNotNil(source.pads)
             XCTAssertNotNil(source.adhere.left)
             XCTAssertNotNil(source.adhere.top)
             XCTAssertNotNil(source.adhere.bottom)
             let bounds = try recipe(fixture, "media-card-grab").bounds
-            XCTAssertEqual(bounds.minX, edge == "left" ? 62.1 : 10.8, accuracy: 0.001)
+            XCTAssertEqual(bounds.minX, edge == "left" ? 62.1 : 10.8)
             XCTAssertEqual(bounds.maxX, 1920 - (edge == "right" ? 62.1 : 10.8), accuracy: 0.001)
-            XCTAssertEqual(try frame(fixture, "drawer-content-player").height, 55.5 * Self.cu, accuracy: 0.01)
+            XCTAssertEqual(try frame(fixture, "drawer-content-player").height, floatStored(55.5 * Self.cu))
             XCTAssertEqual(layout.core.elements { _ in true }.count {
                 layout.core.key(of: $0) == VitreusFixture.key("player-media")
             }, 1)
@@ -52,7 +52,7 @@ extension ShellVitreusMediaCardTests {
             _ = deliver(fixture, from: start)
             XCTAssertFalse(has(fixture, "media-card-glass"))
             Self.assertRect(try frame(fixture, "media-card"), try docked(fixture))
-            XCTAssertEqual(try frame(fixture, "drawer-content-player").height, (55.5 + 156) * Self.cu, accuracy: 0.01)
+            XCTAssertEqual(try frame(fixture, "drawer-content-player").height, floatStored((55.5 + 156) * Self.cu))
         }
     }
 
@@ -74,8 +74,7 @@ extension ShellVitreusMediaCardTests {
             }, 1, edge)
             XCTAssertEqual(
                 try frame(fixture, "drawer-content-player").height,
-                (55.5 + (edge == "island" ? 14 : 0)) * Self.cu,
-                accuracy: 0.01
+                floatStored((55.5 + (edge == "island" ? 14 : 0)) * Self.cu)
             )
             if edge == "island" {
                 XCTAssertEqual(layout.core.content(of: glass).glassFollow, VitreusFixture.key("media-card"))

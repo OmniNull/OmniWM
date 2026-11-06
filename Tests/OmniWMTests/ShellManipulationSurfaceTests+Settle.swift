@@ -53,7 +53,7 @@ extension ShellManipulationSurfaceTests {
                 XCTAssertEqual(state.layer.transform.m41, 0)
             }
             let presentation = try XCTUnwrap(surface.presentation)
-            XCTAssertEqual(try XCTUnwrap(presentation.targets[fixture.target()]).scale, 13 / 18, accuracy: 1e-3)
+            XCTAssertEqual(try XCTUnwrap(presentation.targets[fixture.target()]).scale, 13 / 18)
             assertEqual(try presented(fixture), Self.scaled, accuracy: 0.05)
             try assertScaledHits(fixture)
             surface.cancelInput()
@@ -80,8 +80,7 @@ extension ShellManipulationSurfaceTests {
         try assertEqual(presented(fixture), held)
         XCTAssertEqual(
             try surface.presentation?.targets[fixture.target()]?.scale ?? 0,
-            Float(held.width / layout.width),
-            accuracy: 1e-5
+            Float(held.width / layout.width)
         )
         let scene = surface.scene
         let animations = ShellLayerScene.engineQueue.sync { scene.layers[handle.slot]?.animationKeys() ?? [] }

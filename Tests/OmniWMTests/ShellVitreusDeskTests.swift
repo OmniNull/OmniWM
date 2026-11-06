@@ -78,9 +78,9 @@ final class ShellVitreusDeskTests: XCTestCase {
         for (index, value) in [(0, 0.8), (1, 1.242), (2, 1472.26), (3, 254.34), (4, 438.43), (5, 571.32), (11, 30.29)] {
             XCTAssertEqual(reference[index], value, accuracy: 0.01)
         }
-        XCTAssertEqual(rows[2][0], 0.55, accuracy: 0.0001)
-        XCTAssertEqual(rows[3][0], 1, accuracy: 0.0001)
-        XCTAssertEqual(rows[4][3], 300, accuracy: 0.0001)
+        XCTAssertEqual(rows[2][0], 0.55)
+        XCTAssertEqual(rows[3][0], 1)
+        XCTAssertEqual(rows[4][3], 300)
     }
 
     func testPaletteAlphaClampsToColorsTheThemeResolves() throws {
@@ -107,8 +107,8 @@ final class ShellVitreusDeskTests: XCTestCase {
         let tint = try XCTUnwrap(
             ShellThemeColor("secondaryContainer/0.360", theme: theme)?.dark.usingColorSpace(.sRGB)
         )
-        XCTAssertEqual(tint.alphaComponent, 0.36, accuracy: 0.001)
-        XCTAssertEqual(tint.redComponent, 0x1B / 255, accuracy: 0.002)
+        XCTAssertEqual(tint.alphaComponent, 0.36)
+        XCTAssertEqual(tint.redComponent, 0x1B / 255)
     }
 
     func testRingPathsOpenFromTwelveOClockWithRoundCaps() throws {
@@ -134,9 +134,9 @@ final class ShellVitreusDeskTests: XCTestCase {
                 126
             )
         ] {
-            XCTAssertEqual(try number(index), value, accuracy: 0.001, "\(index)")
+            XCTAssertEqual(try number(index), value, "\(index)")
         }
-        XCTAssertEqual((try number(9) + number(17)) / 2, 170 + 70, accuracy: 0.001)
+        XCTAssertEqual((try number(9) + number(17)) / 2, 170 + 70)
         let full = strings[1].split(separator: "|")
         XCTAssertEqual(full.last, "true")
         XCTAssertEqual(full.first?.split(separator: " ").count { $0 == "M" }, 2)

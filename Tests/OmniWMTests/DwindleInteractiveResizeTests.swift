@@ -50,7 +50,7 @@ final class DwindleInteractiveResizeTests: XCTestCase {
                 ),
                 row.label
             )
-            XCTAssertEqual(engine.root(for: ws)?.splitRatio ?? 0, 1.2, accuracy: 1e-6, row.label)
+            XCTAssertEqual(engine.root(for: ws)?.splitRatio ?? 0, 1.2, row.label)
         }
     }
 
@@ -73,7 +73,7 @@ final class DwindleInteractiveResizeTests: XCTestCase {
         )
         XCTAssertTrue(engine.interactiveResizeUpdate(currentLocation: CGPoint(x: start.x + 5000, y: start.y)))
 
-        XCTAssertEqual(engine.root(for: ws)?.splitRatio ?? 0, 1.9, accuracy: 1e-6)
+        XCTAssertEqual(engine.root(for: ws)?.splitRatio ?? 0, 1.9)
     }
 
     func testCornerDragResizesBothAxes() {
@@ -106,8 +106,8 @@ final class DwindleInteractiveResizeTests: XCTestCase {
             engine.interactiveResizeUpdate(currentLocation: CGPoint(x: start.x + 100, y: start.y + 80))
         )
 
-        XCTAssertEqual(horizontalSplit?.splitRatio ?? 0, 1.2, accuracy: 1e-6)
-        XCTAssertEqual(verticalSplit?.splitRatio ?? 0, 1.2, accuracy: 1e-6)
+        XCTAssertEqual(horizontalSplit?.splitRatio ?? 0, 1.2)
+        XCTAssertEqual(verticalSplit?.splitRatio ?? 0, 1.2)
     }
 
     func testEdgeAtScreenBoundaryIsNotResizable() {
@@ -204,7 +204,7 @@ final class DwindleInteractiveResizeTests: XCTestCase {
         XCTAssertEqual(engine.findNode(for: leaf1, in: ws)?.isFirstChild(of: collapsedRoot!), true)
 
         XCTAssertFalse(engine.interactiveResizeUpdate(currentLocation: CGPoint(x: start.x + 100, y: start.y)))
-        XCTAssertEqual(collapsedRoot?.splitRatio ?? 0, 1.0, accuracy: 1e-6)
+        XCTAssertEqual(collapsedRoot?.splitRatio ?? 0, 1.0)
         XCTAssertNotNil(engine.findNode(for: leaf1, in: ws))
     }
 
@@ -232,7 +232,7 @@ final class DwindleInteractiveResizeTests: XCTestCase {
                 let originalRatio = engine.root(for: workspace)?.splitRatio ?? 0
                 let location = CGPoint(x: start.x + (vertical ? 0 : 100), y: start.y + (vertical ? 80 : 0))
                 XCTAssertTrue(engine.interactiveResizeUpdate(currentLocation: location))
-                XCTAssertEqual(engine.root(for: workspace)?.splitRatio ?? 0, originalRatio + 0.2, accuracy: 1e-6)
+                XCTAssertEqual(engine.root(for: workspace)?.splitRatio ?? 0, originalRatio + 0.2)
                 XCTAssertTrue(engine.interactiveResizeEnd())
             }
         }
@@ -255,8 +255,8 @@ final class DwindleInteractiveResizeTests: XCTestCase {
         ))
         XCTAssertEqual(engine.interactiveResize?.edges, [.right, .top])
         XCTAssertTrue(engine.interactiveResizeUpdate(currentLocation: CGPoint(x: start.x + 100, y: start.y + 80)))
-        XCTAssertEqual(engine.root(for: workspace)?.splitRatio ?? 0, 1.2, accuracy: 1e-6)
-        XCTAssertEqual(engine.findNode(for: target, in: workspace)?.parent?.splitRatio ?? 0, 1.2, accuracy: 1e-6)
+        XCTAssertEqual(engine.root(for: workspace)?.splitRatio ?? 0, 1.2)
+        XCTAssertEqual(engine.findNode(for: target, in: workspace)?.parent?.splitRatio ?? 0, 1.2)
     }
 
     func testNearestMovableKeepsRequestedEdgeWhenItCanMove() {
@@ -299,6 +299,6 @@ final class DwindleInteractiveResizeTests: XCTestCase {
         XCTAssertNotNil(engine.interactiveResize?.horizontal)
         XCTAssertNil(engine.interactiveResize?.vertical)
         XCTAssertFalse(engine.interactiveResizeUpdate(currentLocation: CGPoint(x: start.x, y: start.y + 80)))
-        XCTAssertEqual(engine.root(for: workspace)?.splitRatio ?? 0, 1.0, accuracy: 1e-6)
+        XCTAssertEqual(engine.root(for: workspace)?.splitRatio ?? 0, 1.0)
     }
 }

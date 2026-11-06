@@ -223,7 +223,7 @@ final class NiriFittedResizeTests: XCTestCase {
             fixture.engine.removeWindow(token: third.token, in: fixture.workspaceId)
             fixture.windows.removeLast()
             _ = layout(fixture)
-            XCTAssertEqual(fixture.spans[0], 8400.0 / 11, accuracy: 0.000001)
+            XCTAssertEqual(fixture.spans[0], 8400.0 / 11)
             XCTAssertEqual(fixture.spans[1], 4800.0 / 11, accuracy: 0.000001)
             XCTAssertEqual(fixture.specs, [.fixed(700), .proportion(1.0 / 3)])
         }
@@ -244,7 +244,7 @@ final class NiriFittedResizeTests: XCTestCase {
         fixture.engine.removeWindow(token: third.token, in: fixture.workspaceId)
         _ = layout(fixture)
 
-        XCTAssertEqual(fixture.spans[0], 8400.0 / 11, accuracy: 0.000001)
+        XCTAssertEqual(fixture.spans[0], 8400.0 / 11)
         XCTAssertEqual(fixture.spans[1], 4800.0 / 11, accuracy: 0.000001)
         XCTAssertEqual(fixture.specs, [.fixed(700), .proportion(1.0 / 3)])
     }
@@ -296,7 +296,7 @@ final class NiriFittedResizeTests: XCTestCase {
                     fixture.windows[0], change: .adjustProportion(-1), context: fixture.context, state: &fixture.state
                 )
                 _ = layout(fixture)
-                XCTAssertEqual(fixture.spans[0], 600 - CGFloat(step) * 12, accuracy: 0.000001)
+                XCTAssertEqual(fixture.spans[0], 600 - CGFloat(step) * 12)
                 XCTAssertEqual(fixture.windows[0].packingHints, hints)
             }
 
@@ -329,7 +329,7 @@ final class NiriFittedResizeTests: XCTestCase {
                     )
                     _ = layout(fixture)
                 }
-                XCTAssertEqual(fixture.spans[0], grow ? 700 : 500, accuracy: 0.000001)
+                XCTAssertEqual(fixture.spans[0], grow ? 700 : 500)
                 engine.setWindowPrimarySpan(
                     fixture.windows[0], change: .adjustProportion(grow ? -10 : 10),
                     context: fixture.context, state: &fixture.state

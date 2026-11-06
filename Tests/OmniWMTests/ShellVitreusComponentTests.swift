@@ -96,8 +96,8 @@ final class ShellVitreusComponentTests: XCTestCase {
         let tokens = widget.text.string(ring.content.text).split(separator: " ").map(String.init)
         let radius = String(format: "%.3f", 74 * du)
         XCTAssertEqual(Array(tokens[3 ... 8]), ["A", radius, radius, "0", "0", "1"])
-        XCTAssertEqual(try XCTUnwrap(Double(tokens[9])), 170 * du, accuracy: 0.002)
-        XCTAssertEqual(try XCTUnwrap(Double(tokens[10])), 262 * du, accuracy: 0.002)
+        XCTAssertEqual(try XCTUnwrap(Double(tokens[9])), 170 * du)
+        XCTAssertEqual(try XCTUnwrap(Double(tokens[10])), 262 * du)
 
         let expired = try desk(now: 3000, seed: ["focus": running])
         let requests = VitreusFixture.drain(expired)
@@ -115,7 +115,7 @@ final class ShellVitreusComponentTests: XCTestCase {
         func glow() throws -> Paint {
             try layout.core.paint(of: VitreusFixture.element(widget, key: "start-glass"))
         }
-        XCTAssertEqual(Double(try glow().shadowRadius), 8 * du, accuracy: 0.01)
+        XCTAssertEqual(Double(try glow().shadowRadius), floatStored(8 * du))
         XCTAssertEqual(try layout.core.paint(of: VitreusFixture.element(widget, key: "start")).shadow.role, 0)
         XCTAssertNotEqual(try start().hoverAction, 0)
         XCTAssertEqual(try start().gesture.axis, .none)
@@ -124,7 +124,7 @@ final class ShellVitreusComponentTests: XCTestCase {
             event.phase = phase
             widget.invoke(try start().hoverAction, event: event)
             VitreusFixture.show(widget)
-            XCTAssertEqual(Double(try glow().shadowRadius), radius * du, accuracy: 0.01)
+            XCTAssertEqual(Double(try glow().shadowRadius), floatStored(radius * du))
             XCTAssertEqual(try glow().shadow.role & 0xFF, UInt16(ShellRole.accent.rawValue + 1))
             XCTAssertEqual(Double(try glow().shadow.role >> 8) / 255, alpha, accuracy: 0.003)
         }

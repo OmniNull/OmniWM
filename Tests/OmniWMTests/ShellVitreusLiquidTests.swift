@@ -36,7 +36,7 @@ final class ShellVitreusLiquidTests: XCTestCase {
             XCTAssertFalse(frames.has(fixture, "desk-glass"))
             let target = try frames.frame(fixture, "desk")
             let du = 1.5525 * 0.8
-            XCTAssertEqual(target.width, 340 * du, accuracy: 0.001, edge)
+            XCTAssertEqual(target.width, floatStored(340 * du), edge)
             let source = try XCTUnwrap(morph(widget, "desk-shape").source)
             let thin = 10.8, strip = 62.1
             let right = edge == "right" ? strip : thin
@@ -44,23 +44,21 @@ final class ShellVitreusLiquidTests: XCTestCase {
             XCTAssertEqual(source.target, VitreusFixture.key("desk"))
             XCTAssertEqual(source.edge, .right)
             XCTAssertFalse(source.contact)
-            XCTAssertEqual(source.from, right + 14 * du, accuracy: 0.001)
-            XCTAssertEqual(source.span, 50 * du, accuracy: 0.001)
+            XCTAssertEqual(source.from, right + 14 * du)
+            XCTAssertEqual(source.span, 50 * du)
             XCTAssertEqual(
                 try XCTUnwrap(source.adhere.left),
-                (edge == "left" ? strip : thin) + 14 * du,
-                accuracy: 0.001
+                (edge == "left" ? strip : thin) + 14 * du
             )
-            XCTAssertEqual(try XCTUnwrap(source.adhere.top), (edge == "ftop" ? strip : thin) + 14 * du, accuracy: 0.001)
+            XCTAssertEqual(try XCTUnwrap(source.adhere.top), (edge == "ftop" ? strip : thin) + 14 * du)
             XCTAssertEqual(
                 try XCTUnwrap(source.adhere.bottom),
-                (edge == "fbottom" ? strip : thin) + 14 * du,
-                accuracy: 0.001
+                (edge == "fbottom" ? strip : thin) + 14 * du
             )
             let grip = try frames.content(fixture, "grip")
             let recipe = try XCTUnwrap(ShellManipulationRecipe(widget.text.string(grip.gestureTrack)))
             XCTAssertEqual(recipe.inset.width, 0)
-            XCTAssertEqual(recipe.bounds.minX, edge == "left" ? strip : thin, accuracy: 0.001)
+            XCTAssertEqual(recipe.bounds.minX, edge == "left" ? strip : thin)
             XCTAssertFalse(widget.surface.containsShape(at: CGPoint(x: 960, y: 540)))
             XCTAssertFalse(widget.surface.islandRegions().contains { $0.contains(CGPoint(x: 960, y: 540)) })
         }
@@ -143,16 +141,16 @@ final class ShellVitreusLiquidTests: XCTestCase {
         XCTAssertEqual(layout.core.content(of: plate).glassFollow, VitreusFixture.key("desk"))
         XCTAssertNil(try morph(widget, "desk-shape").source)
         let du = 1.5525 * 0.8
-        XCTAssertEqual(try frames.frame(fixture, "desk").width, 353 * du, accuracy: 0.001)
+        XCTAssertEqual(try frames.frame(fixture, "desk").width, floatStored(353 * du))
         let recipe = try XCTUnwrap(ShellGlassRecipe(widget.text.string(layout.core.content(of: glass).text)))
-        XCTAssertEqual(recipe.blend, 26 * 1.35, accuracy: 1e-6)
+        XCTAssertEqual(recipe.blend, 26 * 1.35)
         let source = try XCTUnwrap(morph(widget, "desk-bulge").source)
         XCTAssertEqual(source.target, VitreusFixture.key("desk"))
         XCTAssertEqual(source.edge, .right)
         XCTAssertTrue(source.contact)
         XCTAssertEqual(source.from, 14 * du, accuracy: 0.001)
-        XCTAssertEqual(source.span, 50 * du, accuracy: 0.001)
-        XCTAssertEqual(try frames.frame(fixture, "desk-bulge").midX, 1920, accuracy: 0.001)
+        XCTAssertEqual(source.span, 50 * du)
+        XCTAssertEqual(try frames.frame(fixture, "desk-bulge").midX, 1920)
         for name in [
             "desk-bulge",
             "desk-ripple-break-top",
@@ -278,7 +276,7 @@ final class ShellVitreusLiquidTests: XCTestCase {
         XCTAssertLessThan(factor, 1)
         let source = try XCTUnwrap(morph(widget, "desk-shape").source)
         XCTAssertEqual(try XCTUnwrap(source.pads?.right), 6.5 * 1.5525 * 0.8 * factor, accuracy: 0.001)
-        XCTAssertEqual(source.from, 62.1 + 14 * 1.5525 * 0.8, accuracy: 0.001)
+        XCTAssertEqual(source.from, 62.1 + 14 * 1.5525 * 0.8)
         let plate = try VitreusFixture.element(widget, key: "desk-shape")
         XCTAssertEqual(
             CGFloat(widget.surface.layout.core.paint(of: plate).cornerRadius),

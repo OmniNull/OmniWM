@@ -72,7 +72,7 @@ final class ShellIconTests: XCTestCase {
         }
         XCTAssertEqual(node(plain).scale, 1)
         XCTAssertEqual(node(plain).shadow_role, 0)
-        XCTAssertEqual(node(styled).scale, 1.1, accuracy: 0.0001)
+        XCTAssertEqual(node(styled).scale, 1.1)
         XCTAssertEqual(node(styled).shadow_radius, 4)
         XCTAssertEqual(node(styled).shadow_role & 0xFF, UInt16(ShellRole.accent.rawValue + 1))
     }

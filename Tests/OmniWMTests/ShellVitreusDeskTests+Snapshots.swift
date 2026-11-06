@@ -118,7 +118,7 @@ extension ShellVitreusDeskTests {
             XCTAssertEqual(composite, Int((0.2 * Double(ink) + 0.8 * 51).rounded()), accuracy: 3, label)
         }
         XCTAssertEqual(grip[3], 51, accuracy: 3, label)
-        XCTAssertEqual(image.rgba(cx + 143 * du, rect.minY + 49 * du)[3], 20, accuracy: 3, label)
+        XCTAssertEqual(image.rgba(cx + 143 * du, rect.minY + 49 * du)[3], 20, label)
         for tab in ["tab-pad", "tab-focus"] {
             let frame = try VitreusFixture.frame(widget, key: tab)
             let base = image.rgba(frame.midX, frame.minY + 3 * du)
@@ -162,7 +162,7 @@ extension ShellVitreusDeskTests {
         if page == "focus" {
             let ring = image.rgba(rect.minX + 176.5 * du, rect.minY + 118 * du)
             for (channel, value) in [0x9E, 0xD6, 0xBD, 0xFF].enumerated() {
-                XCTAssertEqual(ring[channel], value, accuracy: 4, name)
+                XCTAssertEqual(ring[channel], value, name)
             }
             for chip in ["chip-15", "chip-30"] {
                 let frame = try VitreusFixture.frame(widget, key: chip)

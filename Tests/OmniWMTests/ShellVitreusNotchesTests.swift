@@ -143,13 +143,13 @@ extension ShellVitreusNotchesTests {
             let shape = try XCTUnwrap(ShellLayerScene.engineQueue.sync {
                 fixture.widget.surface.scene.glassShapes[handle.slot]
             }, key)
-            XCTAssertEqual(shape.radius, 48 * unit * 0.34, accuracy: 0.001, key)
+            XCTAssertEqual(shape.radius, floatStored(48 * unit * 0.34), key)
         }
         let title = try frame(fixture, "title-button")
-        XCTAssertEqual(title.width, 150 * unit, accuracy: 0.001)
+        XCTAssertEqual(title.width, 150 * unit)
         XCTAssertEqual(title.minX, span.from + 26 * unit + (try clockWidth(fixture)) + 14 * unit, accuracy: 0.001)
         XCTAssertEqual(
-            try frame(fixture, "title-text").minX, (title.minX + 6 * unit + 0.5).rounded(.down), accuracy: 0.001
+            try frame(fixture, "title-text").minX, (title.minX + 6 * unit + 0.5).rounded(.down)
         )
         let controls = try frame(fixture, "bar-controls")
         let logo = try frame(fixture, "bar-omniwm")
@@ -158,14 +158,14 @@ extension ShellVitreusNotchesTests {
         XCTAssertEqual(logo.midX, 1920 - 58.5 * unit, accuracy: 0.001)
         XCTAssertEqual(search.midX, 1920 - (84 + statsRoom) * unit, accuracy: 0.001)
         for key in ["bar-controls", "bar-clock", "title-button"] {
-            XCTAssertEqual(try frame(fixture, key).minY, 0, accuracy: 0.001, key)
-            XCTAssertEqual(try frame(fixture, key).height, 36 * unit, accuracy: 0.001, key)
+            XCTAssertEqual(try frame(fixture, key).minY, 0, key)
+            XCTAssertEqual(try frame(fixture, key).height, floatStored(36 * unit), key)
         }
         let before = try frame(fixture, "notch-middle")
         fixture.title = "A much longer document title that runs past the fixed segment title"
         show(fixture)
         ShellVitreusBarTests.assertRect(try frame(fixture, "notch-middle"), before, "fixed title")
-        XCTAssertEqual(try frame(fixture, "title-button").width, 150 * unit, accuracy: 0.001)
+        XCTAssertEqual(try frame(fixture, "title-button").width, 150 * unit)
     }
 
     func testPieceWidthsSpringAndTheSegBodyKeepsOneBlendAndTheThinFrame() throws {
@@ -179,11 +179,11 @@ extension ShellVitreusNotchesTests {
             guard case let .spring(response, bounce)? = fixture.widget.surface.animation(for: shape)?.motion else {
                 return XCTFail("\(key) needs the calm width spring")
             }
-            XCTAssertEqual(response, 0.513, accuracy: 1e-6, key)
-            XCTAssertEqual(bounce, 0.06, accuracy: 1e-6, key)
+            XCTAssertEqual(response, 0.513, key)
+            XCTAssertEqual(bounce, 0.06, key)
             let reveal =
                 try XCTUnwrap(ShellRevealRecipe(fixture.widget.text.string(layout.core.paint(of: shape).reveal)))
-            XCTAssertEqual(reveal.response, 0.513, accuracy: 1e-6, key)
+            XCTAssertEqual(reveal.response, 0.513, key)
             let morph = try morph(fixture, key)
             XCTAssertEqual(morph.stop(at: 1).height, 1, key)
             XCTAssertEqual(morph.stop(at: 0).height, 20 * unit / (48 * unit), accuracy: 1e-6, key)
@@ -207,8 +207,8 @@ extension ShellVitreusNotchesTests {
         let tray = 42 * unit
         let span = try middle(fixture, tray: tray)
         let after = try frame(fixture, "notch-middle")
-        XCTAssertEqual(after.minX, span.from, accuracy: 0.001)
-        XCTAssertEqual(after.maxX, span.to, accuracy: 0.001)
+        XCTAssertEqual(after.minX, floatStored(span.from))
+        XCTAssertEqual(after.maxX, floatStored(span.to))
         XCTAssertEqual(after.width - before.width, tray + 12 * unit, accuracy: 0.001)
         XCTAssertEqual(try frame(fixture, "tray-item-1").midX - 9 * unit, span.to - 26 * unit - tray, accuracy: 0.5)
     }
@@ -354,16 +354,16 @@ extension ShellVitreusNotchesTests {
         let fixture = try fixture()
         trigger(fixture, "drawer-calendar")
         let calendar = try frame(fixture, "drawer-frame-calendar")
-        XCTAssertEqual(calendar.midX, 960, accuracy: 0.001)
-        XCTAssertEqual(calendar.minY, -12 * unit, accuracy: 0.001)
-        XCTAssertEqual(calendar.width, 463 * cu, accuracy: 0.001)
-        XCTAssertEqual(calendar.height, 28 * unit + 379 * cu + 30 * unit, accuracy: 0.001)
+        XCTAssertEqual(calendar.midX, 960)
+        XCTAssertEqual(calendar.minY, floatStored(-12 * unit))
+        XCTAssertEqual(calendar.width, floatStored(463 * cu))
+        XCTAssertEqual(calendar.height, floatStored(28 * unit + 379 * cu + 30 * unit))
         let content = try frame(fixture, "drawer-content-calendar")
-        XCTAssertEqual(content.midX, 960, accuracy: 0.001)
-        XCTAssertEqual(content.minY, 46 * unit - 0.5 * cu, accuracy: 0.001)
+        XCTAssertEqual(content.midX, 960)
+        XCTAssertEqual(content.minY, floatStored(46 * unit - 0.5 * cu))
         let opening = try morph(fixture, "drawer-frame-calendar")
-        XCTAssertEqual(opening.stop(at: 0).dx, 0, accuracy: 0.001)
-        XCTAssertEqual(opening.anchor.x, 0.5, accuracy: 1e-6)
+        XCTAssertEqual(opening.stop(at: 0).dx, 0)
+        XCTAssertEqual(opening.anchor.x, 0.5)
         XCTAssertEqual(opening.anchor.y, 0)
         trigger(fixture, "drawer-controls")
         trigger(fixture, "drawer-close")
@@ -371,7 +371,7 @@ extension ShellVitreusNotchesTests {
         let controls = try frame(fixture, "drawer-frame-controls")
         let centre = 1920 - 8 * unit - 162.5 * cu
         XCTAssertEqual(controls.midX, centre + 7 * unit, accuracy: 0.001)
-        XCTAssertEqual(controls.minY, -12 * unit, accuracy: 0.001)
+        XCTAssertEqual(controls.minY, floatStored(-12 * unit))
         let slide = try morph(fixture, "drawer-frame-controls").stop(at: 0).dx
         XCTAssertEqual(slide, 1920 - 32.5 * unit - centre, accuracy: 0.001)
         for name in ["controls", "calendar"] {
@@ -431,17 +431,17 @@ extension ShellVitreusNotchesTests {
         for key in ["notch-left", "notch-right", "bar-controls", "workspace-hit-1"] {
             ShellVitreusBarTests.assertRect(try frame(notched, key), try frame(plain, key), key)
         }
-        XCTAssertEqual(try frame(plain, "notch-middle").minY, -12 * unit, accuracy: 0.001)
-        XCTAssertEqual(try frame(notched, "bar-clock").minY, top, accuracy: 0.001)
-        XCTAssertEqual(try frame(notched, "clock-hour").midY - top, try frame(plain, "clock-hour").midY, accuracy: 1)
-        XCTAssertEqual(try frame(notched, "bar-hover-middle").minY, top, accuracy: 0.001)
+        XCTAssertEqual(try frame(plain, "notch-middle").minY, floatStored(-12 * unit))
+        XCTAssertEqual(try frame(notched, "bar-clock").minY, top)
+        XCTAssertEqual(try frame(notched, "clock-hour").midY - top, try frame(plain, "clock-hour").midY)
+        XCTAssertEqual(try frame(notched, "bar-hover-middle").minY, top)
         trigger(notched, "drawer-calendar")
-        XCTAssertEqual(try frame(notched, "drawer-frame-calendar").minY, -12 * unit, accuracy: 0.001)
-        XCTAssertEqual(try frame(notched, "drawer-content-calendar").minY, top + 46 * unit - 0.5 * cu, accuracy: 0.001)
+        XCTAssertEqual(try frame(notched, "drawer-frame-calendar").minY, floatStored(-12 * unit))
+        XCTAssertEqual(try frame(notched, "drawer-content-calendar").minY, floatStored(top + 46 * unit - 0.5 * cu))
         trigger(notched, "drawer-controls")
         trigger(notched, "drawer-close")
         trigger(notched, "drawer-controls")
-        XCTAssertEqual(try frame(notched, "drawer-frame-controls").minY, -12 * unit, accuracy: 0.001)
+        XCTAssertEqual(try frame(notched, "drawer-frame-controls").minY, floatStored(-12 * unit))
     }
 
     func testSegBodySnapshotHasGlassOnThePiecesAndClearGaps() throws {

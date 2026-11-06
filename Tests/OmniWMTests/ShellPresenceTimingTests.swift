@@ -26,10 +26,10 @@ final class ShellPresenceTimingTests: XCTestCase {
                 .first { $0.keyPath == "transform" })
             return (try XCTUnwrap(transform.fromValue as? NSValue).caTransform3DValue, layer.transform)
         }
-        XCTAssertEqual(80 * state.0.m11 + 20 * state.0.m21 + state.0.m41, 80, accuracy: 0.0001)
-        XCTAssertEqual(80 * state.0.m12 + 20 * state.0.m22 + state.0.m42, 20, accuracy: 0.0001)
-        XCTAssertEqual(state.0.m11, 0.05, accuracy: 0.0001)
-        XCTAssertEqual(state.0.m41, 76, accuracy: 0.0001)
+        XCTAssertEqual(80 * state.0.m11 + 20 * state.0.m21 + state.0.m41, 80)
+        XCTAssertEqual(80 * state.0.m12 + 20 * state.0.m22 + state.0.m42, 20)
+        XCTAssertEqual(state.0.m11, 0.05)
+        XCTAssertEqual(state.0.m41, 76)
         XCTAssertTrue(CATransform3DIsIdentity(state.1))
     }
 
@@ -44,8 +44,8 @@ final class ShellPresenceTimingTests: XCTestCase {
                 fromTransform: presence.transform(from: CATransform3DIdentity, size: CGSize(width: 80, height: 40)),
                 toTransform: CATransform3DIdentity, at: 100
             ))
-            XCTAssertEqual(group.beginTime, 100 + 0.2 / speed, accuracy: 0.000001)
-            XCTAssertEqual(group.duration, 0.4 / speed, accuracy: 0.000001)
+            XCTAssertEqual(group.beginTime, 100 + 0.2 / speed)
+            XCTAssertEqual(group.duration, 0.4 / speed)
             XCTAssertEqual(group.fillMode, .backwards)
             XCTAssertTrue(group.isRemovedOnCompletion)
             let opacity = try XCTUnwrap(group.animations?.compactMap { $0 as? CABasicAnimation }

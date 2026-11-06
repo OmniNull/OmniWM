@@ -30,8 +30,8 @@ final class ShellPresenceTests: XCTestCase {
         let animations = try XCTUnwrap(group?.animations?.compactMap { $0 as? CABasicAnimation })
         let opacity = try XCTUnwrap(animations.first { $0.keyPath == "opacity" })
         let transform = try XCTUnwrap(animations.first { $0.keyPath == "transform" })
-        XCTAssertEqual((opacity.fromValue as? NSNumber)?.floatValue ?? -1, 0.15, accuracy: 0.0001)
-        XCTAssertEqual((opacity.toValue as? NSNumber)?.floatValue ?? -1, 0.6, accuracy: 0.0001)
+        XCTAssertEqual((opacity.fromValue as? NSNumber)?.floatValue ?? -1, 0.15)
+        XCTAssertEqual((opacity.toValue as? NSNumber)?.floatValue ?? -1, 0.6)
         XCTAssertEqual(modelOpacity, 0.6)
         XCTAssertTrue(CATransform3DEqualToTransform(
             try XCTUnwrap(transform.fromValue as? NSValue).caTransform3DValue, initialTransform
@@ -182,9 +182,9 @@ final class ShellPresenceTests: XCTestCase {
         )?.animations?.first as? CAKeyframeAnimation)
         let values = try XCTUnwrap(animation.values as? [NSNumber])
         XCTAssertEqual(values.count, 3)
-        XCTAssertEqual(values.first?.doubleValue ?? -1, 0.2, accuracy: 0.0001)
+        XCTAssertEqual(values.first?.doubleValue ?? -1, floatStored(0.2))
         XCTAssertEqual(values[1].doubleValue, 0.5, accuracy: 0.0001)
-        XCTAssertEqual(values.last?.doubleValue ?? -1, 0.8, accuracy: 0.0001)
+        XCTAssertEqual(values.last?.doubleValue ?? -1, floatStored(0.8))
     }
 
     func testExplicitResetClearsAllOutgoingOwnershipAndIgnoresLaterCompletion() {

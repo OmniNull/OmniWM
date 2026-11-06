@@ -149,9 +149,9 @@ extension ShellManipulationSurfaceTests {
         XCTAssertLessThan(shown.minX, 90)
         XCTAssertEqual(surface.element(at: CGPoint(x: shown.minX + 5, y: 75)) { $0.acceptsPointer }, move)
         XCTAssertNotEqual(surface.element(at: CGPoint(x: 250, y: 75)) { $0.acceptsPointer }, move)
-        XCTAssertEqual(surface.anchor(of: input).frame.minX - anchor.minX, shown.minX - 80, accuracy: 1e-3)
+        XCTAssertEqual(surface.anchor(of: input).frame.minX - anchor.minX, shown.minX - 80)
         surface.layoutTextInputs()
-        XCTAssertEqual(try XCTUnwrap(surface.textInputs[input]).view.frame.minX, shown.minX, accuracy: 1e-3)
+        XCTAssertEqual(try XCTUnwrap(surface.textInputs[input]).view.frame.minX, shown.minX)
         surface.cancelInput()
     }
 
@@ -168,7 +168,7 @@ extension ShellManipulationSurfaceTests {
         let after = try XCTUnwrap(record(fixture)?.motion)
         XCTAssertEqual(after.begin, clock.now)
         assertEqual(after.rect(at: clock.now), before.rect(at: clock.now))
-        XCTAssertEqual(after.startVelocity.x, before.velocity(at: clock.now).x, accuracy: 1e-9)
+        XCTAssertEqual(after.startVelocity.x, before.velocity(at: clock.now).x)
         XCTAssertEqual(after.startVelocity.y, 0)
         let released = try presented(fixture).minX
         clock.now += 0.1

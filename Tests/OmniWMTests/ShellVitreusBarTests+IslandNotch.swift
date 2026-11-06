@@ -161,12 +161,12 @@ extension ShellVitreusBarTests {
         XCTAssertEqual(layout.core.parent(of: melt), try VitreusFixture.element(widget, key: "bar"), label)
         let radii = ShellLayerScene.engineQueue.sync { [melt, pill].map { scene.glassShapes[$0.slot]?.radius } }
         let radius = try XCTUnwrap(radii[0], label)
-        XCTAssertEqual(radius, try XCTUnwrap(radii[1], label), accuracy: 0.001, label)
+        XCTAssertEqual(radius, try XCTUnwrap(radii[1], label), label)
         let frame = CGRect(layout.core.absoluteFrame(of: melt))
-        XCTAssertEqual(frame.minX, notch.minX, accuracy: 0.001, label)
-        XCTAssertEqual(frame.width, notch.width, accuracy: 0.001, label)
+        XCTAssertEqual(frame.minX, notch.minX, label)
+        XCTAssertEqual(frame.width, notch.width, label)
         XCTAssertEqual(frame.maxY, notch.maxY, accuracy: 0.001, label)
-        XCTAssertEqual(frame.minY, notch.minY - radius, accuracy: 0.001, label)
+        XCTAssertEqual(frame.minY, notch.minY - radius, label)
     }
 
     func testTheIslandBarMeltsIntoTheNotchAndKeepsEveryPieceOutsideIt() throws {
@@ -179,8 +179,8 @@ extension ShellVitreusBarTests {
             let level = try notchWidget(shell, run, on: plain)
             let pill = try VitreusFixture.frame(widget, key: "shell")
             let flat = try VitreusFixture.frame(level, key: "shell")
-            XCTAssertEqual(pill.minY, flat.minY, accuracy: 0.001, run.label)
-            XCTAssertEqual(pill.height, flat.height, accuracy: 0.001, run.label)
+            XCTAssertEqual(pill.minY, flat.minY, run.label)
+            XCTAssertEqual(pill.height, flat.height, run.label)
             let content = try drawnContent(widget)
             XCTAssertFalse(content.isEmpty, run.label)
             for drawn in content {
@@ -202,8 +202,7 @@ extension ShellVitreusBarTests {
                     XCTAssertLessThanOrEqual(title.width, notch.width, run.label)
                 } else {
                     XCTAssertEqual(
-                        title.width, try VitreusFixture.frame(level, key: "title-button").width,
-                        accuracy: 0.001, run.label
+                        title.width, try VitreusFixture.frame(level, key: "title-button").width, run.label
                     )
                 }
             }

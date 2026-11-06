@@ -102,7 +102,7 @@ final class WorkspaceSwipePresentationTests: XCTestCase {
                         )
                     XCTAssertEqual(flight.destination.id, expected?.id)
                     XCTAssertTrue(swipe.update(cumulative: cumulative * 8.5, timestamp: 1.1))
-                    XCTAssertEqual(flight.progress, 0.5, accuracy: 0.000001)
+                    XCTAssertEqual(flight.progress, 0.5)
                     let sourceOffset = flight.offset(destination: false)
                     let destinationOffset = flight.offset(destination: true)
                     switch axis {
@@ -248,7 +248,7 @@ final class WorkspaceSwipePresentationTests: XCTestCase {
         mediaTime = 1.31
         let expected = try XCTUnwrap(swipe.flight).motion.progress(at: mediaTime)
         XCTAssertTrue(swipe.prepare(monitorId: monitor.id, timestamp: 1.31))
-        XCTAssertEqual(try XCTUnwrap(swipe.flight).progress, expected, accuracy: 0.000001)
+        XCTAssertEqual(try XCTUnwrap(swipe.flight).progress, expected)
         XCTAssertNil(swipe.flight?.motion.target)
         mediaTime = 1.6
         swipe.release(timestamp: 1.6, allowFlick: true)
@@ -324,7 +324,7 @@ final class WorkspaceSwipePresentationTests: XCTestCase {
             second.destination.id,
             manager.nextWorkspaceInOrder(on: monitor.id, from: first.destination.id, wrapAround: true)?.id
         )
-        XCTAssertEqual(second.offset(destination: false).dx, residual.dx, accuracy: 0.000001)
+        XCTAssertEqual(second.offset(destination: false).dx, residual.dx)
         XCTAssertTrue(swipe.hasDisplayWork(monitor.displayId))
 
         XCTAssertTrue(swipe.update(cumulative: -260, timestamp: 1.2))

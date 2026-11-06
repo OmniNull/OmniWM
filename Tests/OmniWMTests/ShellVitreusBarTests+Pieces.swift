@@ -126,8 +126,8 @@ extension ShellVitreusBarTests {
         for key in keys {
             let paint = try piecePaint(widget, key)
             XCTAssertEqual(paint.shadow.role & 0xFF, UInt16(ShellRole.shadow.rawValue + 1), key)
-            XCTAssertEqual(Double(paint.shadow.role >> 8) / 255, 1, accuracy: 0.003, key)
-            XCTAssertEqual(Double(paint.shadowRadius), 2.4 * unit, accuracy: 1e-4, key)
+            XCTAssertEqual(Double(paint.shadow.role >> 8) / 255, 1, key)
+            XCTAssertEqual(Double(paint.shadowRadius), floatStored(2.4 * unit), key)
             XCTAssertEqual([paint.shadowOffsetX, paint.shadowOffsetY], [0, 0], key)
         }
     }
@@ -150,7 +150,7 @@ extension ShellVitreusBarTests {
         let column = max(sizes[2].width, sizes[3].width)
         let width = sizes[0].width + sizes[1].width + column
         let pill = try VitreusFixture.frame(widget, key: "shell")
-        XCTAssertEqual(pill.width, 450 * unit, accuracy: 0.001)
+        XCTAssertEqual(pill.width, 450 * unit)
         let right = pill.maxX - 16 * unit
         let zone = try VitreusFixture.frame(widget, key: "bar-clock")
         Self.assertRect(
@@ -160,21 +160,21 @@ extension ShellVitreusBarTests {
         func label(_ key: String) throws -> CGRect {
             try VitreusFixture.frame(widget, key: "clock-" + key)
         }
-        XCTAssertEqual(try label("hour").maxX, rounded(right - column - sizes[1].width), accuracy: 0.001)
-        XCTAssertEqual(try label("hour").width, sizes[0].width, accuracy: 0.001)
-        XCTAssertEqual(try label("tail").maxX, rounded(right - column - 3), accuracy: 0.001)
-        XCTAssertEqual(try label("lead").maxX, try label("tail").minX + 3, accuracy: 0.001)
+        XCTAssertEqual(try label("hour").maxX, rounded(right - column - sizes[1].width))
+        XCTAssertEqual(try label("hour").width, sizes[0].width)
+        XCTAssertEqual(try label("tail").maxX, rounded(right - column - 3))
+        XCTAssertEqual(try label("lead").maxX, try label("tail").minX + 3)
         for (key, y) in [("day", rounded(pill.midY - 8)), ("meridiem", rounded(pill.midY + 7))] {
-            XCTAssertEqual(try label(key).midX, rounded(right - column / 2), accuracy: 0.001, key)
-            XCTAssertEqual(try label(key).midY, y, accuracy: 0.001, key)
+            XCTAssertEqual(try label(key).midX, rounded(right - column / 2), key)
+            XCTAssertEqual(try label(key).midY, y, key)
         }
-        XCTAssertEqual(try label("hour").midY, rounded(pill.midY), accuracy: 0.001)
+        XCTAssertEqual(try label("hour").midY, rounded(pill.midY))
         let texts = Dictionary(uniqueKeysWithValues: VitreusFixture.labels(widget).map { ($0.text, $0.frame) })
         XCTAssertEqual(Set(texts.keys).intersection(["9", ":4", "1", "TUE", "am"]).count, 5)
         for key in ["hour", "lead", "tail", "day", "meridiem"] {
             let paint = try piecePaint(widget, "clock-" + key)
             XCTAssertEqual(paint.shadow.role & 0xFF, UInt16(ShellRole.shadow.rawValue + 1), key)
-            XCTAssertEqual(Double(paint.shadow.role >> 8) / 255, 0.4, accuracy: 0.003, key)
+            XCTAssertEqual(Double(paint.shadow.role >> 8) / 255, 0.4, key)
             XCTAssertEqual(paint.shadowRadius, 3, key)
             XCTAssertEqual([paint.shadowOffsetX, paint.shadowOffsetY], [0, 1], key)
         }
@@ -182,7 +182,7 @@ extension ShellVitreusBarTests {
         XCTAssertEqual(underline.count, 2)
         XCTAssertEqual(try piecePaint(widget, "clock-group").scale, 1)
         try pieceHover(widget, "bar-clock", .began)
-        XCTAssertEqual(try piecePaint(widget, "clock-group").scale, 1.08, accuracy: 1e-6)
+        XCTAssertEqual(try piecePaint(widget, "clock-group").scale, 1.08)
         XCTAssertNotEqual(try pieceStrokes(widget, "clock-group"), underline)
     }
 
@@ -220,14 +220,13 @@ extension ShellVitreusBarTests {
                 "shell trigger vitreus drawer-player \(display)"
             )
             let app = try VitreusFixture.frame(widget, key: "title-app")
-            XCTAssertEqual(app.minX, rounded(x), accuracy: 0.001)
-            XCTAssertEqual(app.midY, rounded(pill.midY - 6.5 * unit), accuracy: 0.001)
+            XCTAssertEqual(app.minX, rounded(x))
+            XCTAssertEqual(app.midY, rounded(pill.midY - 6.5 * unit))
             let content = try widget.surface.layout.core.content(of: VitreusFixture.element(widget, key: "title-app"))
             XCTAssertEqual(Double(content.maxWidth), hw - 12 * unit - control, accuracy: 0.01)
             XCTAssertEqual(
                 try VitreusFixture.frame(widget, key: "title-text").midY,
-                rounded(pill.midY + 8.75 * unit),
-                accuracy: 0.001
+                rounded(pill.midY + 8.75 * unit)
             )
             XCTAssertEqual(Self.has(widget, "title-play"), media)
             guard let playing else { continue }
@@ -246,8 +245,8 @@ extension ShellVitreusBarTests {
             let zone = try VitreusFixture.frame(widget, key: "title-" + key)
             XCTAssertEqual(zone.midX, center.x + side * 17 * unit, accuracy: 0.001, key)
             XCTAssertEqual(zone.midY, center.y, accuracy: 0.001, key)
-            XCTAssertEqual(zone.width, 17 * unit, accuracy: 0.001, key)
-            XCTAssertEqual(zone.height, 18 * unit, accuracy: 0.001, key)
+            XCTAssertEqual(zone.width, floatStored(17 * unit), key)
+            XCTAssertEqual(zone.height, floatStored(18 * unit), key)
             XCTAssertEqual(widget.surface.command(at: CGPoint(x: zone.midX, y: zone.midY)), command, key)
         }
         try pieceAssertHalo(widget, ["title-previous-icon", "title-play-icon", "title-next-icon"])
@@ -267,7 +266,7 @@ extension ShellVitreusBarTests {
                 let dot = try VitreusFixture.frame(widget, key: "title-dot-\(index)")
                 XCTAssertEqual(dot.midX, middle + Double(index - 2) * 8 * unit, accuracy: 0.001)
                 XCTAssertEqual(dot.midY, pill.midY, accuracy: 0.001)
-                XCTAssertEqual(dot.width, 3.8 * unit, accuracy: 0.001)
+                XCTAssertEqual(dot.width, floatStored(3.8 * unit))
             }
             XCTAssertFalse(Self.has(widget, "title-tab"))
             try pieceHover(widget, "title-button", .began)
@@ -293,8 +292,8 @@ extension ShellVitreusBarTests {
     func pieceAssertTabReveal(_ widget: ShellRenderedWidget, _ tab: ElementHandle, animations: Bool) throws {
         let paint = widget.surface.layout.core.paint(of: tab)
         let reveal = try XCTUnwrap(widget.surface.reveal(paint.reveal))
-        XCTAssertEqual(reveal.response, 0.513, accuracy: 1e-6)
-        XCTAssertEqual(reveal.bounce, 0.06, accuracy: 1e-6)
+        XCTAssertEqual(reveal.response, 0.513)
+        XCTAssertEqual(reveal.bounce, 0.06)
         XCTAssertEqual(reveal.delay, holdCrossing(rising: true), accuracy: 1e-4)
         XCTAssertEqual(reveal.hold, holdCrossing(rising: false), accuracy: 1e-4)
         XCTAssertEqual(reveal.delay, 0.046, accuracy: 0.001)
@@ -327,7 +326,7 @@ extension ShellVitreusBarTests {
             widget.set("privacy") { ShellPrivacy(microphone: true, camera: true).write(into: &$0) }
         }
         let pill = try VitreusFixture.frame(widget, key: "shell")
-        XCTAssertEqual(pill.width, (450 + 90 + 12) * unit, accuracy: 0.001)
+        XCTAssertEqual(pill.width, floatStored((450 + 90 + 12) * unit))
         let center = pill.maxX - 16 * unit - (12 + 15 + 13 + 36) * unit - 45 * unit
         let left = center - 45 * unit
         let step = 24 * unit
@@ -338,7 +337,7 @@ extension ShellVitreusBarTests {
         }
         let disc = try piecePaint(widget, "tray-microphone-disc")
         XCTAssertEqual([disc.fill.red, disc.fill.green, disc.fill.blue].map { ($0 * 255).rounded() }, [245, 158, 11])
-        XCTAssertEqual(Double(disc.fill.alpha), 0x45 / 255, accuracy: 0.002)
+        XCTAssertEqual(Double(disc.fill.alpha), floatStored(0x45 / 255))
         for (index, item) in items.enumerated() {
             let zone = try VitreusFixture.frame(widget, key: "tray-" + item.id)
             let x = rounded(left + Double(index + 2) * step) - 3 * unit
@@ -354,11 +353,11 @@ extension ShellVitreusBarTests {
         XCTAssertEqual(try piecePaint(widget, "tray-wifi-plate").opacity, 0)
         try pieceHover(widget, "tray-wifi", .began)
         XCTAssertEqual(try piecePaint(widget, "tray-wifi-plate").opacity, 1)
-        XCTAssertEqual(try piecePaint(widget, "tray-wifi-icon").scale, 1.14, accuracy: 1e-6)
+        XCTAssertEqual(try piecePaint(widget, "tray-wifi-icon").scale, 1.14)
         widget.set("privacy") { ShellPrivacy(microphone: false, camera: false).write(into: &$0) }
         VitreusFixture.show(widget)
         XCTAssertFalse(Self.has(widget, "tray-microphone"))
-        XCTAssertEqual(try VitreusFixture.frame(widget, key: "shell").width, (450 + 42 + 12) * unit, accuracy: 0.001)
+        XCTAssertEqual(try VitreusFixture.frame(widget, key: "shell").width, floatStored((450 + 42 + 12) * unit))
     }
 
     func testButtonsAndClockRunExistingCommandsAndTheControlsIconTurnsMintWhileItsDrawerIsOpen() throws {
@@ -372,8 +371,8 @@ extension ShellVitreusBarTests {
         ]
         for (key, command, width) in expected {
             let zone = try VitreusFixture.frame(widget, key: key)
-            XCTAssertEqual(zone.width, width * unit, accuracy: 0.001, key)
-            XCTAssertEqual(zone.height, pill.height, accuracy: 0.001, key)
+            XCTAssertEqual(zone.width, floatStored(width * unit), key)
+            XCTAssertEqual(zone.height, pill.height, key)
             XCTAssertEqual(widget.surface.command(at: CGPoint(x: zone.midX, y: zone.midY)), command, key)
         }
         let clock = try VitreusFixture.element(widget, key: "bar-clock")
@@ -381,12 +380,12 @@ extension ShellVitreusBarTests {
         XCTAssertEqual(widget.text.string(content.action), "shell trigger vitreus drawer-calendar \(display)")
         XCTAssertEqual(widget.text.string(content.secondaryAction), "shell trigger vitreus drawer-close \(display)")
         let rest = try piecePaint(widget, "bar-controls-icon")
-        XCTAssertEqual(rest.opacity, 0.65, accuracy: 1e-6)
+        XCTAssertEqual(rest.opacity, 0.65)
         XCTAssertEqual(rest.scale, 1)
         try pieceAssertHalo(widget, ["bar-search-icon", "bar-omniwm-icon", "bar-controls-icon"])
         VitreusFixture.trigger(widget.instance, "drawer-controls", display)
         VitreusFixture.show(widget)
-        XCTAssertEqual(try piecePaint(widget, "bar-controls-icon").opacity, 1, accuracy: 1e-6)
+        XCTAssertEqual(try piecePaint(widget, "bar-controls-icon").opacity, 1)
         let layout = widget.surface.layout
         let icon = try VitreusFixture.element(widget, key: "bar-controls-icon")
         let strokes = layout.core.elements { _ in true }.filter { layout.core.parent(of: $0) == icon }
@@ -396,7 +395,7 @@ extension ShellVitreusBarTests {
             let color = paint.stroke.role != 0 ? paint.stroke : paint.fill
             XCTAssertEqual(color.role & 0xFF, UInt16(ShellRole.accent.rawValue + 1))
         }
-        XCTAssertEqual(try piecePaint(widget, "bar-omniwm-icon").opacity, 1, accuracy: 1e-6)
+        XCTAssertEqual(try piecePaint(widget, "bar-omniwm-icon").opacity, 1)
     }
 
     func testTheOmniWMLogoOpensTheStatusMenuShowsTheSecureInputLockAndAlwaysStays() throws {
@@ -421,7 +420,7 @@ extension ShellVitreusBarTests {
         XCTAssertTrue(pieceTimers(widget).isEmpty)
         try pieceHover(widget, "bar-omniwm", .began)
         XCTAssertTrue(pieceTimers(widget).isEmpty)
-        XCTAssertEqual(try piecePaint(widget, "bar-omniwm-icon").scale, 1.14, accuracy: 1e-6)
+        XCTAssertEqual(try piecePaint(widget, "bar-omniwm-icon").scale, 1.14)
     }
 
     func testPencilRedrawsAtFiveHertzOnlyWhileHoveredAndCancelsOnLeave() throws {
@@ -440,7 +439,7 @@ extension ShellVitreusBarTests {
             try pieceHover(widget, zone, .began)
             let first = pieceTimers(widget)
             XCTAssertEqual(first.count, 1, zone)
-            XCTAssertEqual(try XCTUnwrap(first.first).request.seconds, 0.2, accuracy: 1e-9, zone)
+            XCTAssertEqual(try XCTUnwrap(first.first).request.seconds, 0.2, zone)
             XCTAssertFalse(try XCTUnwrap(first.first).cancelled, zone)
             let hovered = try pieceStrokes(widget, icon)
             XCTAssertNotEqual(hovered, rest, zone)
@@ -482,7 +481,7 @@ extension ShellVitreusBarTests {
             widget.surface.pointer = point
             widget.surface.updateHoverIntent(at: point)
             VitreusFixture.deliver(widget, from: began)
-            XCTAssertEqual(try piecePaint(widget, "battery-track").opacity, 0.1, accuracy: 1e-6, key)
+            XCTAssertEqual(try piecePaint(widget, "battery-track").opacity, 0.1, key)
             let armed = pieceTimers(widget)
             XCTAssertEqual(armed.map(\.cancelled), key == "tray-wifi" ? [] : [false], key)
             remove(widget)

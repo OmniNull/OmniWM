@@ -25,7 +25,7 @@ final class CommandPaletteFocusTests: XCTestCase {
             .sink { _ in revealed.fulfill() }
         await fulfillment(of: [revealed], timeout: failureBound)
         revealObservation.cancel()
-        XCTAssertEqual(panel.frame.height, compactFrame.height, accuracy: 0.5)
+        XCTAssertEqual(panel.frame.height, compactFrame.height)
 
         let expanded = expectation(description: "Animated panel reaches expanded height")
         let resizeEvents = NotificationCenter.default.publisher(for: NSWindow.didResizeNotification, object: panel)
@@ -37,12 +37,12 @@ final class CommandPaletteFocusTests: XCTestCase {
 
         try fixture.insertText("first")
         XCTAssertTrue(fixture.palette.isExpanded)
-        XCTAssertEqual(panel.frame.height, compactFrame.height, accuracy: 0.5)
+        XCTAssertEqual(panel.frame.height, compactFrame.height)
         await fulfillment(of: [expanded], timeout: failureBound)
         expandedObservation.cancel()
         fixture.layout()
         XCTAssertTrue(fixture.palette.isExpanded)
-        XCTAssertEqual(panel.frame.height, CommandPalettePanel.expandedHeight, accuracy: 0.5)
+        XCTAssertEqual(panel.frame.height, CommandPalettePanel.expandedHeight)
         XCTAssertTrue(panel.firstResponder is NSTextView)
         try fixture.insertText(" second")
         XCTAssertEqual(fixture.palette.searchText, "first second")
@@ -53,7 +53,7 @@ final class CommandPaletteFocusTests: XCTestCase {
             .sink { _ in closing.fulfill() }
         fixture.palette.toggle(wmController: fixture.controller)
         XCTAssertFalse(fixture.palette.isVisible)
-        XCTAssertEqual(panel.frame.height, CommandPalettePanel.expandedHeight, accuracy: 0.5)
+        XCTAssertEqual(panel.frame.height, CommandPalettePanel.expandedHeight)
         XCTAssertEqual(fixture.palette.searchText, "first second")
         await fulfillment(of: [closing], timeout: failureBound)
         closingObservation.cancel()
@@ -122,7 +122,7 @@ final class CommandPaletteFocusTests: XCTestCase {
 
         XCTAssertTrue(fixture.palette.isExpanded)
         XCTAssertGreaterThan(panel.frame.height, compactFrame.height + 200)
-        XCTAssertEqual(panel.frame.maxY, compactFrame.maxY, accuracy: 0.5)
+        XCTAssertEqual(panel.frame.maxY, compactFrame.maxY)
         try fixture.insertText(" second")
         XCTAssertEqual(fixture.palette.searchText, "first second")
     }
@@ -139,7 +139,7 @@ final class CommandPaletteFocusTests: XCTestCase {
         XCTAssertEqual(fixture.palette.selectedMode, .clipboard)
         XCTAssertTrue(fixture.palette.isExpanded)
         XCTAssertGreaterThan(panel.frame.height, compactFrame.height + 200)
-        XCTAssertEqual(panel.frame.maxY, compactFrame.maxY, accuracy: 0.5)
+        XCTAssertEqual(panel.frame.maxY, compactFrame.maxY)
         try fixture.insertText("clipboard")
         XCTAssertEqual(fixture.palette.searchText, "clipboard")
     }
@@ -167,8 +167,8 @@ final class CommandPaletteFocusTests: XCTestCase {
 
         XCTAssertGreaterThan(resizedFrame.width, initialFrame.width + 20)
         XCTAssertGreaterThan(resizedFrame.height, initialFrame.height + 16)
-        XCTAssertEqual(resizedFrame.minX, requestedFrame.minX, accuracy: 0.5)
-        XCTAssertEqual(resizedFrame.minY, requestedFrame.minY, accuracy: 0.5)
+        XCTAssertEqual(resizedFrame.minX, requestedFrame.minX)
+        XCTAssertEqual(resizedFrame.minY, requestedFrame.minY)
 
         fixture.palette.toggle(wmController: fixture.controller)
         XCTAssertFalse(panel.isVisible)
@@ -176,17 +176,17 @@ final class CommandPaletteFocusTests: XCTestCase {
         let reopenedPanel = try await showAndWaitForEditing(fixture)
         XCTAssertTrue(reopenedPanel === panel)
         XCTAssertFalse(fixture.palette.isExpanded)
-        XCTAssertEqual(reopenedPanel.frame.minX, resizedFrame.minX, accuracy: 0.5)
-        XCTAssertEqual(reopenedPanel.frame.width, resizedFrame.width, accuracy: 0.5)
-        XCTAssertEqual(reopenedPanel.frame.maxY, resizedFrame.maxY, accuracy: 0.5)
+        XCTAssertEqual(reopenedPanel.frame.minX, resizedFrame.minX)
+        XCTAssertEqual(reopenedPanel.frame.width, resizedFrame.width)
+        XCTAssertEqual(reopenedPanel.frame.maxY, resizedFrame.maxY)
 
         fixture.palette.selectMode(.clipboard)
         fixture.layout()
         XCTAssertTrue(fixture.palette.isExpanded)
-        XCTAssertEqual(reopenedPanel.frame.minX, resizedFrame.minX, accuracy: 0.5)
-        XCTAssertEqual(reopenedPanel.frame.width, resizedFrame.width, accuracy: 0.5)
-        XCTAssertEqual(reopenedPanel.frame.height, resizedFrame.height, accuracy: 0.5)
-        XCTAssertEqual(reopenedPanel.frame.maxY, resizedFrame.maxY, accuracy: 0.5)
+        XCTAssertEqual(reopenedPanel.frame.minX, resizedFrame.minX)
+        XCTAssertEqual(reopenedPanel.frame.width, resizedFrame.width)
+        XCTAssertEqual(reopenedPanel.frame.height, resizedFrame.height)
+        XCTAssertEqual(reopenedPanel.frame.maxY, resizedFrame.maxY)
     }
 
     func testOpeningAndReopeningFocusSearchWithoutClicking() async throws {

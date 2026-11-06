@@ -187,8 +187,8 @@ extension ShellVitreusDeskTests {
 
     private nonisolated static func assertSpring(_ motion: ShellMotion?, _ response: Double, _ bounce: Double) {
         guard case let .spring(actual, spring)? = motion else { return XCTFail("\(String(describing: motion))") }
-        XCTAssertEqual(actual, response, accuracy: 0.0001)
-        XCTAssertEqual(spring, bounce, accuracy: 0.0001)
+        XCTAssertEqual(actual, response)
+        XCTAssertEqual(spring, bounce)
     }
 
     func testOpeningTheDeskRevealsTheGlassAndDelaysOnlyTheTabBandAndSections() throws {
@@ -210,7 +210,7 @@ extension ShellVitreusDeskTests {
             for (value, target) in [
                 (drawn.minX, rect.minX), (drawn.minY, rect.minY), (drawn.width, rect.width), (drawn.height, rect.height)
             ] {
-                XCTAssertEqual(value, target, accuracy: 0.01)
+                XCTAssertEqual(value, floatStored(target))
             }
             XCTAssertNotNil(scene.presence.reveals[shape.slot])
             XCTAssertEqual(scene.shapeTracks.follows[shape.slot]?.radius, .scaled)
@@ -220,11 +220,11 @@ extension ShellVitreusDeskTests {
             for (slot, response) in zip(slots[0 ... 3], [0.360, 0.530, 0.643, 0.738]) {
                 let rise = try XCTUnwrap(scene.presence.appearances[slot])
                 XCTAssertEqual(rise.opacity, 0)
-                XCTAssertEqual(rise.offset.y, 12 * du, accuracy: 0.01)
-                XCTAssertEqual(rise.delay, 0.2, accuracy: 1e-6)
+                XCTAssertEqual(rise.offset.y, 12 * du)
+                XCTAssertEqual(rise.delay, 0.2)
                 Self.assertSpring(rise.animation?.motion, response, 0)
                 let fall = try XCTUnwrap(scene.presence.departures[slot])
-                XCTAssertEqual(fall.offset.y, 12 * du, accuracy: 0.01)
+                XCTAssertEqual(fall.offset.y, 12 * du)
                 Self.assertSpring(fall.animation?.motion, 0.076, 0)
             }
             XCTAssertNil(scene.presence.appearances[slots[4]])
@@ -306,7 +306,7 @@ extension ShellVitreusDeskTests {
             (drag.card.minX, rest.card.minX), (drag.card.maxX, rest.card.maxX), (drag.card.minY, rest.card.minY),
             (drag.card.maxY, rest.card.maxY)
         ] {
-            XCTAssertEqual(before, after, accuracy: 1)
+            XCTAssertEqual(before, after)
         }
         XCTAssertEqual(rest.card.minX, rect.minX, accuracy: 1.5)
         XCTAssertGreaterThanOrEqual(rest.card.maxX, 1920 - 1)
@@ -316,7 +316,7 @@ extension ShellVitreusDeskTests {
             (drag.below, rest.below), (drag.above, rest.above), (drag.left, rest.left), (drag.right, rest.right),
             (drag.rim, rest.rim)
         ] {
-            XCTAssertEqual(before, after, accuracy: 1)
+            XCTAssertEqual(before, after)
         }
         XCTAssertGreaterThan(rest.below, rest.above)
         print("Vitreus scale-commit probe at s 0.5, dragging: \(drag.summary)")

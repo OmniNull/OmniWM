@@ -80,7 +80,7 @@ final class AnimationDriverTests: XCTestCase {
 
         _ = commit(driver, previous: 100) { $0.rebaseOffset(by: 30) }
         let after = driver.liveViewOffset(in: workspaceId, semanticOffset: 130, at: time)!
-        XCTAssertEqual(after - before, 30, accuracy: 0.001)
+        XCTAssertEqual(after - before, 30)
         XCTAssertTrue(driver.hasMotion(in: workspaceId))
     }
 
@@ -105,11 +105,11 @@ final class AnimationDriverTests: XCTestCase {
             isTrackpad: true,
             viewportWidth: AnimationDriver.gestureWorkingAreaMovement
         )
-        XCTAssertEqual(driver.liveViewOffset(in: workspaceId, semanticOffset: 0)!, 60, accuracy: 0.001)
+        XCTAssertEqual(driver.liveViewOffset(in: workspaceId, semanticOffset: 0)!, 60)
 
         _ = commit(driver, previous: 0) { $0.rebaseOffset(by: -20) }
         XCTAssertTrue(driver.hasGesture(in: workspaceId))
-        XCTAssertEqual(driver.liveViewOffset(in: workspaceId, semanticOffset: -20)!, 40, accuracy: 0.001)
+        XCTAssertEqual(driver.liveViewOffset(in: workspaceId, semanticOffset: -20)!, 40)
     }
 
     func testSpringCommitConvertsGestureWithPositionContinuity() {
@@ -128,7 +128,7 @@ final class AnimationDriverTests: XCTestCase {
             viewportWidth: AnimationDriver.gestureWorkingAreaMovement,
             timestamp: 1.1
         )
-        XCTAssertEqual(sample!.relativeOffset, 60, accuracy: 0.001)
+        XCTAssertEqual(sample!.relativeOffset, 60)
         XCTAssertTrue(driver.hasGesture(in: workspaceId))
 
         _ = commit(driver, previous: 0) { state in
@@ -166,8 +166,8 @@ final class AnimationDriverTests: XCTestCase {
             timestamp: 1.09
         )!
 
-        XCTAssertEqual(sample.relativeOffset, 120, accuracy: 0.001)
-        XCTAssertEqual(sample.relativeProjectedOffset, sample.relativeOffset, accuracy: 0.001)
+        XCTAssertEqual(sample.relativeOffset, 120)
+        XCTAssertEqual(sample.relativeProjectedOffset, sample.relativeOffset)
     }
 
     func testBelowFloorGestureEndCommitsCompletedDeceleration() {
@@ -188,7 +188,7 @@ final class AnimationDriverTests: XCTestCase {
             timestamp: 1.05
         )!
 
-        XCTAssertEqual(sample.relativeProjectedOffset, sample.relativeOffset, accuracy: 0.001)
+        XCTAssertEqual(sample.relativeProjectedOffset, sample.relativeOffset)
 
         _ = commit(driver, previous: 0) { state in
             state.decelerateOffset(to: CGFloat(sample.relativeProjectedOffset))

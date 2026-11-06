@@ -41,6 +41,6 @@ final class NiriScrollTrackerTests: XCTestCase {
         var tracker = NiriScrollTracker(tick: 120)
 
         XCTAssertEqual(tracker.accumulate(20_000), 127)
-        XCTAssertEqual(tracker.accumulator, 80, accuracy: 0.001)
+        XCTAssertEqual(tracker.accumulator, 80)
     }
 }

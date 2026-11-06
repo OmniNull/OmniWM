@@ -113,7 +113,7 @@ final class NiriResizeIncrementTests: XCTestCase {
             guard case let .proportion(value) = fixture.column.width else {
                 return XCTFail("Expected proportional container span")
             }
-            XCTAssertEqual(value, expected, accuracy: 0.000001)
+            XCTAssertEqual(value, expected)
         } else {
             guard case let .fixed(value) = fixture.window.height else {
                 return XCTFail("Expected fixed window span")

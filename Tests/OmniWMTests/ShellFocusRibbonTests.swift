@@ -204,8 +204,8 @@ final class ShellFocusRibbonTests: XCTestCase {
                 XCTAssertEqual(curve.count, 3)
                 XCTAssertEqual(curve.first, "spring")
                 if curve.count == 3 {
-                    XCTAssertEqual(try XCTUnwrap(Double(curve[1])), 0.38, accuracy: 0.000001)
-                    XCTAssertEqual(try XCTUnwrap(Double(curve[2])), 0.14, accuracy: 0.000001)
+                    XCTAssertEqual(try XCTUnwrap(Double(curve[1])), 0.38)
+                    XCTAssertEqual(try XCTUnwrap(Double(curve[2])), 0.14)
                 }
             }
             XCTAssertTrue(fixture.tree.allSatisfy {

@@ -77,8 +77,8 @@ final class MultitouchGestureSourceTests: XCTestCase {
 
         XCTAssertEqual(result.activeCount, 20)
         XCTAssertEqual(snapshot.touches.count, 20)
-        XCTAssertEqual(lastPosition.x, 0.95, accuracy: 0.0001)
-        XCTAssertEqual(lastPosition.y, 0.05, accuracy: 0.0001)
+        XCTAssertEqual(lastPosition.x, floatStored(0.95))
+        XCTAssertEqual(lastPosition.y, floatStored(0.05))
     }
 
     func testTimestampIsPropagated() throws {

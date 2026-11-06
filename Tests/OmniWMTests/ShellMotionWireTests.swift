@@ -35,7 +35,7 @@ final class ShellMotionWireTests: XCTestCase {
         """)
         XCTAssertEqual(script.render().status, OMNI_OK, script.message)
         let (node, strings) = try first(script)
-        XCTAssertEqual(node.enter_opacity, 0.2, accuracy: 0.0001)
+        XCTAssertEqual(node.enter_opacity, 0.2)
         XCTAssertEqual(strings.string(node.appear), "life:0:0.88:0:-8:0.5:0.5:0:1:255:spring:0.31:0.22")
         XCTAssertEqual(strings.string(node.exit), "life:0:1:0:0:0.5:0.5:0:0:0:")
         let inherited = try ShellScriptHostTests.Script("function render(ctx) return ui.box{ appear = {} } end")

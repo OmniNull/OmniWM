@@ -224,7 +224,7 @@ final class NiriInteractionOwnershipTests: NiriInteractionTestCase {
         )
 
         let expectedWidth = frame.width - 120
-        XCTAssertEqual(column.cachedWidth, expectedWidth, accuracy: 0.001)
+        XCTAssertEqual(column.cachedWidth, expectedWidth)
         XCTAssertEqual(column.width, .fixed(expectedWidth))
         XCTAssertTrue(column.hasManualSingleWindowWidthOverride)
     }
@@ -290,7 +290,7 @@ final class NiriInteractionOwnershipTests: NiriInteractionTestCase {
         )
 
         let resizedWidth = sourceColumn.cachedWidth
-        XCTAssertEqual(resizedWidth, sourceFrame.width - 120, accuracy: 0.001)
+        XCTAssertEqual(resizedWidth, sourceFrame.width - 120)
         XCTAssertEqual(sourceColumn.width, .fixed(resizedWidth))
         XCTAssertNil(sourceColumn.presetWidthIdx)
         XCTAssertFalse(sourceColumn.isFullWidth)
@@ -326,7 +326,7 @@ final class NiriInteractionOwnershipTests: NiriInteractionTestCase {
         XCTAssertNil(targetColumn.widthAnimation)
         XCTAssertNil(targetColumn.targetWidth)
         let targetFrame = try XCTUnwrap(layout(engine, in: targetWorkspace)[source.token])
-        XCTAssertEqual(targetFrame.width, resizedWidth, accuracy: 0.001)
+        XCTAssertEqual(targetFrame.width, resizedWidth)
         XCTAssertTrue(engine.findColumn(containing: sibling, in: sourceWorkspace) === sourceColumn)
         XCTAssertEqual(sourceColumn.width, .fixed(resizedWidth))
         XCTAssertEqual(sourceColumn.cachedWidth, resizedWidth)
@@ -559,8 +559,8 @@ final class NiriInteractionOrientationTests: NiriInteractionTestCase {
             )
         )
 
-        XCTAssertEqual(column.cachedWidth, frame.width - 100, accuracy: 0.001)
-        XCTAssertEqual(state.viewOffset, -25, accuracy: 0.001)
+        XCTAssertEqual(column.cachedWidth, frame.width - 100)
+        XCTAssertEqual(state.viewOffset, -25)
     }
 
     func testPortraitInteractiveInsertKeepsBeginOrientationWhenMonitorChanges() throws {
@@ -837,9 +837,9 @@ final class NiriInteractionOrientationTests: NiriInteractionTestCase {
         )
 
         XCTAssertEqual(window.windowWidth, .fixed(frame.width - 100))
-        XCTAssertEqual(column.cachedWidth, 0, accuracy: 0.001)
+        XCTAssertEqual(column.cachedWidth, 0)
         XCTAssertFalse(column.hasManualSingleWindowWidthOverride)
-        XCTAssertEqual(state.viewOffset, -140, accuracy: 0.001)
+        XCTAssertEqual(state.viewOffset, -140)
         let resizedFrames = engine.calculateLayout(
             state: state,
             workspaceId: workspaceId,
@@ -849,8 +849,7 @@ final class NiriInteractionOrientationTests: NiriInteractionTestCase {
         )
         XCTAssertEqual(
             try XCTUnwrap(resizedFrames[window.token]).width,
-            frame.width - 100,
-            accuracy: 0.001
+            frame.width - 100
         )
     }
 
@@ -870,7 +869,7 @@ final class NiriInteractionOrientationTests: NiriInteractionTestCase {
         )
         let columns = engine.columns(in: workspaceId)
         let targetColumn = try XCTUnwrap(columns.last)
-        XCTAssertEqual(targetColumn.cachedHeight, 800, accuracy: 0.001)
+        XCTAssertEqual(targetColumn.cachedHeight, 800)
         XCTAssertFalse(targetColumn.isFullHeight)
         for column in columns {
             column.cachedWidth = 300
@@ -897,16 +896,16 @@ final class NiriInteractionOrientationTests: NiriInteractionTestCase {
             state: &state
         )
 
-        XCTAssertEqual(targetColumn.cachedHeight, 1600, accuracy: 0.001)
+        XCTAssertEqual(targetColumn.cachedHeight, 1600)
         XCTAssertTrue(targetColumn.isFullHeight)
-        XCTAssertEqual(state.viewOffset, -100, accuracy: 0.001)
+        XCTAssertEqual(state.viewOffset, -100)
         let viewOriginAfter = state.containerPosition(
             at: state.activeColumnIndex,
             containers: columns,
             gap: 0,
             sizeKeyPath: \.cachedHeight
         ) + state.viewOffset
-        XCTAssertEqual(viewOriginAfter, viewOriginBefore, accuracy: 0.001)
+        XCTAssertEqual(viewOriginAfter, viewOriginBefore)
     }
 
     func testPortraitFullSpanHonorsAlwaysCenterPolicy() throws {
@@ -941,8 +940,8 @@ final class NiriInteractionOrientationTests: NiriInteractionTestCase {
             state: &state
         )
 
-        XCTAssertEqual(targetContainer.cachedHeight, 1600, accuracy: 0.001)
-        XCTAssertEqual(state.viewOffset, 0, accuracy: 0.001)
+        XCTAssertEqual(targetContainer.cachedHeight, 1600)
+        XCTAssertEqual(state.viewOffset, 0)
     }
 
     func testPortraitColumnTransferReresolvesHeightForShorterTarget() throws {
@@ -956,7 +955,7 @@ final class NiriInteractionOrientationTests: NiriInteractionTestCase {
         )
         movedColumn.height = .proportion(1)
         movedColumn.resolveAndCacheHeight(workingAreaHeight: 1_600, gaps: 0)
-        XCTAssertEqual(movedColumn.cachedHeight, 1_600, accuracy: 0.001)
+        XCTAssertEqual(movedColumn.cachedHeight, 1_600)
 
         var sourceState = ViewportState()
         var targetState = ViewportState()
@@ -969,7 +968,7 @@ final class NiriInteractionOrientationTests: NiriInteractionTestCase {
                 targetState: &targetState
             )
         )
-        XCTAssertEqual(movedColumn.cachedHeight, 0, accuracy: 0.001)
+        XCTAssertEqual(movedColumn.cachedHeight, 0)
 
         let targetFrame = CGRect(x: 0, y: 0, width: 900, height: 900)
         engine.ensureSelectionVisible(
@@ -984,7 +983,7 @@ final class NiriInteractionOrientationTests: NiriInteractionTestCase {
             state: &targetState
         )
 
-        XCTAssertEqual(movedColumn.cachedHeight, targetFrame.height, accuracy: 0.001)
+        XCTAssertEqual(movedColumn.cachedHeight, targetFrame.height)
         let frames = engine.calculateLayout(
             state: targetState,
             workspaceId: targetWorkspaceId,

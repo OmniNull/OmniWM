@@ -83,9 +83,9 @@ final class NiriInitialContainerPrimarySpanTests: XCTestCase {
             orientation: .vertical
         )
 
-        XCTAssertEqual(try XCTUnwrap(horizontalFrames[firstToken]).width, 500, accuracy: 0.001)
-        XCTAssertEqual(try XCTUnwrap(verticalFrames[firstToken]).height, 400, accuracy: 0.001)
-        XCTAssertEqual(try XCTUnwrap(verticalFrames[secondToken]).height, 400, accuracy: 0.001)
+        XCTAssertEqual(try XCTUnwrap(horizontalFrames[firstToken]).width, 500)
+        XCTAssertEqual(try XCTUnwrap(verticalFrames[firstToken]).height, 400)
+        XCTAssertEqual(try XCTUnwrap(verticalFrames[secondToken]).height, 400)
     }
 
     func testInitialFullWidthProportionUsesNormalWidthStateAndMatchingPreset() {

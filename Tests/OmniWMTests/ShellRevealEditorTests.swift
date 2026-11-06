@@ -61,7 +61,7 @@ final class ShellRevealEditorTests: XCTestCase {
         XCTAssertLessThan(input.view.frame.width, 80)
         try settle(fixture)
         XCTAssertEqual(input.view.alphaValue, 1)
-        XCTAssertEqual(input.view.frame.width, 80, accuracy: 1e-3)
+        XCTAssertEqual(input.view.frame.width, 80)
         XCTAssertEqual(input.text, "note")
     }
 
@@ -102,7 +102,7 @@ final class ShellRevealEditorTests: XCTestCase {
         XCTAssertFalse(input.presentsTransiently)
         XCTAssertEqual(input.view.alphaValue, 1)
         XCTAssertEqual(input.view.frame, CGRect(surface.presentedFrame(of: input.handle)))
-        XCTAssertEqual(input.view.frame.width, 80, accuracy: 1e-3)
+        XCTAssertEqual(input.view.frame.width, 80)
         XCTAssertEqual(input.text, "unsaved note")
         XCTAssertEqual(input.editor?.selectedRange(), NSRange(location: 2, length: 4))
         XCTAssertTrue(input.editing)
@@ -133,6 +133,6 @@ final class ShellRevealEditorTests: XCTestCase {
         XCTAssertNil(fixture.surface.presentation)
         XCTAssertFalse(input.presentsTransiently)
         XCTAssertEqual(input.view.alphaValue, 1)
-        XCTAssertEqual(input.view.frame.width, 80, accuracy: 1e-3)
+        XCTAssertEqual(input.view.frame.width, 80)
     }
 }

@@ -86,7 +86,7 @@ final class ShellVitreusPanelReflowTests: XCTestCase {
             for (index, id) in ids.enumerated() {
                 try sections.moveCard(fixture, id: id, to: CGPoint(x: 50 + 600 * index, y: 650))
             }
-            XCTAssertEqual(try windows.frame(fixture, "drawer-content-" + owner).height, 36 * 1.5525, accuracy: 0.01)
+            XCTAssertEqual(try windows.frame(fixture, "drawer-content-" + owner).height, floatStored(36 * 1.5525))
             windows.trigger(fixture, "drawer-" + owner)
             XCTAssertEqual(try windows.frame(fixture, "drawer-content-" + owner).height, before.height)
         }

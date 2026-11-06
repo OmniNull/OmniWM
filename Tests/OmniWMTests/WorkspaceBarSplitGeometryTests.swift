@@ -218,13 +218,13 @@ final class WorkspaceBarSplitGeometryTests: XCTestCase {
 
         for fittingLength: CGFloat in [40, 60, 221, 288, 355, 700] {
             let frame = geometry.frame(fittingLength: fittingLength, monitor: monitor, resolved: resolved)
-            XCTAssertEqual(frame.width, fittingLength, accuracy: 0.01, "fitting \(fittingLength)")
-            XCTAssertEqual(frame.midX, monitor.frame.midX, accuracy: 0.01, "fitting \(fittingLength)")
+            XCTAssertEqual(frame.width, fittingLength, "fitting \(fittingLength)")
+            XCTAssertEqual(frame.midX, monitor.frame.midX, "fitting \(fittingLength)")
         }
 
         let degenerate = geometry.frame(fittingLength: 4, monitor: monitor, resolved: resolved)
         XCTAssertEqual(degenerate.width, WorkspaceBarGeometry.minimumIslandWidth)
-        XCTAssertEqual(degenerate.midX, monitor.frame.midX, accuracy: 0.01)
+        XCTAssertEqual(degenerate.midX, monitor.frame.midX)
     }
 
     func testSplitReturnsNilForNonSplitModes() {

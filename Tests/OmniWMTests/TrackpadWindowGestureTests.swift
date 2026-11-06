@@ -191,7 +191,7 @@ final class TrackpadWindowGestureTests: XCTestCase {
             XCTAssertNil(fixture.engine.interactiveResize)
             XCTAssertEqual(handler.state.gesturePhase, .idle)
             let widthAfter = try XCTUnwrap(fixture.frames()[fixture.first.token]).width
-            XCTAssertEqual(widthAfter, widthBefore + delta, accuracy: 2)
+            XCTAssertEqual(widthAfter, widthBefore + delta)
         }
     }
 
@@ -308,7 +308,7 @@ final class TrackpadWindowGestureTests: XCTestCase {
         gesture.end()
 
         let widthAfter = try XCTUnwrap(fixture.frames()[fixture.first.token]).width
-        XCTAssertEqual(widthAfter, widthBefore + 160, accuracy: 2, "the full travel must land despite the dip")
+        XCTAssertEqual(widthAfter, widthBefore + 160, "the full travel must land despite the dip")
     }
 
     func testTransientExtraFingerDoesNotAbortMove() throws {

@@ -308,8 +308,8 @@ final class ShellLakeProfileTests: XCTestCase {
             XCTAssertEqual(fields.count, 3)
             XCTAssertEqual(fields.first, "spring")
             guard fields.count == 3 else { return }
-            XCTAssertEqual(try XCTUnwrap(Double(fields[1])), response, accuracy: 0.000001)
-            XCTAssertEqual(try XCTUnwrap(Double(fields[2])), bounce, accuracy: 0.000001)
+            XCTAssertEqual(try XCTUnwrap(Double(fields[1])), response)
+            XCTAssertEqual(try XCTUnwrap(Double(fields[2])), bounce)
         }
         let compact = try primary()
         try spring(compact, response: 0.30, bounce: 0.04)
@@ -328,8 +328,8 @@ final class ShellLakeProfileTests: XCTestCase {
         XCTAssertEqual(expanded.input_flags & UInt8(OMNI_INPUT_GESTURE_ALL), 0)
         let track = try XCTUnwrap(ShellGestureTrack(fixture.text.string(expanded.gesture_track)))
         XCTAssertEqual(track.dy.to, -40)
-        XCTAssertEqual(track.dy.rubber, 0.4, accuracy: 0.000001)
-        XCTAssertEqual(track.scale.to, 0.94, accuracy: 0.000001)
+        XCTAssertEqual(track.dy.rubber, 0.4)
+        XCTAssertEqual(track.scale.to, 0.94)
         fixture.invoke(expanded.key_action, event: intentEvent("down", key: "right"))
         try fixture.render()
         try spring(try primary(), response: 0.34, bounce: 0.16)

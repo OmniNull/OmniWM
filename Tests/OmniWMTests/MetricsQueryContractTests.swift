@@ -105,7 +105,7 @@ final class MetricsQueryContractTests: XCTestCase {
         XCTAssertEqual(appleSilicon.nanoseconds(fromMachTicks: 3), 125)
         XCTAssertEqual(appleSilicon.nanoseconds(fromMachTicks: 7), 291)
         XCTAssertEqual(appleSilicon.nanoseconds(fromMachTicks: .max), .max)
-        XCTAssertEqual(appleSilicon.seconds(fromMachTicks: 24_000_000), 1, accuracy: 0.000_001)
+        XCTAssertEqual(appleSilicon.seconds(fromMachTicks: 24_000_000), 1)
 
         let identity = MachTimebase(numerator: 1, denominator: 1)
         XCTAssertEqual(identity.nanoseconds(fromMachTicks: 41), 41)
@@ -234,7 +234,7 @@ final class MetricsQueryContractTests: XCTestCase {
         XCTAssertEqual(metrics.longTimestampGapCount, 1)
         XCTAssertEqual(metrics.workExceededNominalPeriodCount, 1)
         XCTAssertEqual(metrics.completionPastTargetCount, 2)
-        XCTAssertEqual(metrics.timingAnomalyFraction, 0.2, accuracy: 0.0001)
+        XCTAssertEqual(metrics.timingAnomalyFraction, 0.2)
         XCTAssertEqual(metrics.meanWorkMicros, 2_900)
         XCTAssertEqual(metrics.maxWorkMicros, 20_000)
         XCTAssertEqual(metrics.maxIntervalMicros, 25_000)

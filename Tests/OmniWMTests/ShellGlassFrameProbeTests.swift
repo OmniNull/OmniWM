@@ -102,7 +102,7 @@ final class ShellGlassFrameProbeTests: XCTestCase {
         XCTAssertTrue(body.nativeAvailable, body.failure ?? "Native frame was rejected")
         let part = try XCTUnwrap(body.elements[1][.init(slot: 1, part: 1)])
         XCTAssertEqual(part.frame, frame.shape.rect.insetBy(dx: frame.shape.thickness, dy: frame.shape.thickness))
-        XCTAssertEqual(part.cornerRadius, frame.shape.radius - frame.shape.thickness, accuracy: 1e-9)
+        XCTAssertEqual(part.cornerRadius, frame.shape.radius - frame.shape.thickness)
         XCTAssertEqual(part.value(forKey: "operation") as? String, "subtraction")
         return body
     }

@@ -60,11 +60,11 @@ final class ShellThemeTests: XCTestCase {
 
         palette.refresh(theme: theme, appearance: try XCTUnwrap(NSAppearance(named: .darkAqua)))
         let dark = try XCTUnwrap(palette.color(accent))
-        XCTAssertEqual(dark.components?[0] ?? 0, 1, accuracy: 0.001)
-        XCTAssertEqual(dark.alpha, 128.0 / 255, accuracy: 0.001)
+        XCTAssertEqual(dark.components?[0] ?? 0, 1)
+        XCTAssertEqual(dark.alpha, 128.0 / 255)
 
         palette.refresh(theme: theme, appearance: try XCTUnwrap(NSAppearance(named: .aqua)))
-        XCTAssertEqual(palette.color(accent)?.components?[2] ?? 0, 1, accuracy: 0.001)
+        XCTAssertEqual(palette.color(accent)?.components?[2] ?? 0, 1)
         XCTAssertNil(palette.color(.clear))
     }
 
@@ -107,7 +107,7 @@ final class ShellThemeTests: XCTestCase {
         XCTAssertEqual(font.pointSize, 15)
         XCTAssertTrue(font.fontName.contains("Rounded"), font.fontName)
         let width = { (text: String) in NSAttributedString(string: text, attributes: [.font: font]).size().width }
-        XCTAssertEqual(width("1111"), width("0000"), accuracy: 0.01)
+        XCTAssertEqual(width("1111"), width("0000"))
         XCTAssertFalse((ShellTextStyle.font(for: 2) as NSFont).fontName.contains("Rounded"))
     }
 
@@ -224,7 +224,7 @@ final class ShellThemeTests: XCTestCase {
             packed: 0,
             role: UInt16(ShellRole.secondaryAccent.rawValue + 1) | (255 << 8)
         )))
-        XCTAssertEqual(ShellRGBA(derived.cgColor).red, ShellRGBA(painted).red, accuracy: 0.002)
+        XCTAssertEqual(ShellRGBA(derived.cgColor).red, ShellRGBA(painted).red)
     }
 
     func testRepositoryThemesLoadUnlessAUserThemeSharesTheirName() throws {

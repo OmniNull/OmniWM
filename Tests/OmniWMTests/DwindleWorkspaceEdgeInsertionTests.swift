@@ -151,7 +151,7 @@ final class DwindleWorkspaceEdgeInsertionTests: XCTestCase {
             XCTAssertGreaterThanOrEqual(horizontal ? peer.width : peer.height, horizontal ? 250 : 200)
             XCTAssertEqual(
                 horizontal ? source.width + peer.width : source.height + peer.height,
-                (horizontal ? screen.width : screen.height) - 8, accuracy: 0.001
+                (horizontal ? screen.width : screen.height) - 8
             )
             try assertTree(fixture)
         }

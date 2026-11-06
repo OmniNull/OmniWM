@@ -25,8 +25,8 @@ final class ShellShapeContourTests: XCTestCase {
         ]
         XCTAssertEqual(actual.count, expected.count)
         for (actual, expected) in zip(actual, expected) {
-            XCTAssertEqual(actual.x, expected.x, accuracy: 1e-9)
-            XCTAssertEqual(actual.y, expected.y, accuracy: 1e-9)
+            XCTAssertEqual(actual.x, expected.x)
+            XCTAssertEqual(actual.y, expected.y)
         }
     }
 
@@ -37,10 +37,10 @@ final class ShellShapeContourTests: XCTestCase {
         let contour = ShellShapeContour(path: path, base: base, toBody: CGAffineTransform(scaleX: 2, y: 2))
         let target = shape(CGRect(x: 40, y: 20, width: 40, height: 20), radius: 6, rotation: .pi / 2)
         let actual = points(contour.path(at: target))
-        XCTAssertEqual(actual[0].x, 35, accuracy: 1e-9)
-        XCTAssertEqual(actual[0].y, 11, accuracy: 1e-9)
-        XCTAssertEqual(actual[1].x, 35, accuracy: 1e-9)
-        XCTAssertEqual(actual[1].y, 19, accuracy: 1e-9)
+        XCTAssertEqual(actual[0].x, 35)
+        XCTAssertEqual(actual[0].y, 11)
+        XCTAssertEqual(actual[1].x, 35)
+        XCTAssertEqual(actual[1].y, 19)
     }
 
     private func points(_ path: CGPath) -> [CGPoint] {

@@ -65,7 +65,7 @@ final class ShellBoundContactTests: XCTestCase {
         let actual = try ShellLayerScene.engineQueue.sync {
             try XCTUnwrap(fixture.surface.scene.shapeTracks.entries[shape.slot]).shape(at: time).rect
         }
-        XCTAssertEqual(actual.midY, 200, accuracy: 0.01)
+        XCTAssertEqual(actual.midY, 200)
     }
 
     func testRippleCanCaptureTheDesksHeightAtTheBreakCrossing() throws {
@@ -74,7 +74,7 @@ final class ShellBoundContactTests: XCTestCase {
         try ShellLayerScene.engineQueue.sync {
             let entry = try XCTUnwrap(fixture.surface.scene.shapeTracks.entries[shape.slot])
             XCTAssertEqual(entry.triggerPlans.first?.begin, time)
-            XCTAssertEqual(entry.shape(at: time + 0.03).rect.midY, 200, accuracy: 0.01)
+            XCTAssertEqual(entry.shape(at: time + 0.03).rect.midY, 200)
         }
     }
 
@@ -90,7 +90,7 @@ final class ShellBoundContactTests: XCTestCase {
         try ShellLayerScene.engineQueue.sync {
             let entry = try XCTUnwrap(fixture.surface.scene.shapeTracks.entries[shape.slot])
             XCTAssertEqual(entry.triggerPlans.first?.contact?.position, 200)
-            XCTAssertEqual(entry.shape(at: time + 0.03).rect.midY, 200, accuracy: 0.01)
+            XCTAssertEqual(entry.shape(at: time + 0.03).rect.midY, 200)
         }
     }
 
@@ -101,13 +101,13 @@ final class ShellBoundContactTests: XCTestCase {
         let crest = try helper.shape(fixture, "crest")
         try ShellLayerScene.engineQueue.sync {
             let placed = try XCTUnwrap(fixture.surface.scene.shapeTracks.entries[bulge.slot]).shape(at: time).rect
-            XCTAssertEqual(placed.midY, presented.midY, accuracy: 0.01)
-            XCTAssertEqual(placed.midX, 596, accuracy: 0.01)
-            XCTAssertEqual(placed.height, 60, accuracy: 0.01)
+            XCTAssertEqual(placed.midY, presented.midY)
+            XCTAssertEqual(placed.midX, 596)
+            XCTAssertEqual(placed.height, 60)
             let entry = try XCTUnwrap(fixture.surface.scene.shapeTracks.entries[crest.slot])
             XCTAssertEqual(entry.triggerPlans.first?.begin, time)
             XCTAssertEqual(entry.triggerPlans.first?.contact?.position, presented.midY)
-            XCTAssertEqual(entry.shape(at: time + 0.03).rect.midY, presented.midY, accuracy: 0.01)
+            XCTAssertEqual(entry.shape(at: time + 0.03).rect.midY, presented.midY)
         }
     }
 
@@ -123,7 +123,7 @@ final class ShellBoundContactTests: XCTestCase {
         try ShellLayerScene.engineQueue.sync {
             let entry = try XCTUnwrap(fixture.surface.scene.shapeTracks.entries[crest.slot])
             XCTAssertEqual(entry.triggerPlans.first?.contact?.position, 200)
-            XCTAssertEqual(entry.shape(at: time + 0.03).rect.midY, 200, accuracy: 0.01)
+            XCTAssertEqual(entry.shape(at: time + 0.03).rect.midY, 200)
         }
     }
 

@@ -12,7 +12,7 @@ final class MouseWarpGeometryTests: XCTestCase {
         let crossing = MouseWarpGeometry.crossing(location: CGPoint(x: 999, y: 700), frame: frame, margin: 2)
         XCTAssertEqual(crossing?.direction, .right)
         XCTAssertEqual(crossing?.entryEdge, .left)
-        XCTAssertEqual(crossing?.ratio ?? -1, 0.3, accuracy: 0.0001)
+        XCTAssertEqual(crossing?.ratio ?? -1, 0.3)
     }
 
     func testLeftEdgeCrossingMapsToLeftDirectionAndRightEntry() {
@@ -44,15 +44,15 @@ final class MouseWarpGeometryTests: XCTestCase {
             ratio: crossing?.ratio ?? 0,
             margin: 2
         )
-        XCTAssertEqual(destination.x, 5003, accuracy: 0.5)
-        XCTAssertEqual(destination.y, 700, accuracy: 0.5)
+        XCTAssertEqual(destination.x, 5003)
+        XCTAssertEqual(destination.y, 700)
     }
 
     func testProportionalPlacementPreservedWhenNeighborIsPhysicallyBelow() {
         let target = CGRect(x: 0, y: -1000, width: 1000, height: 1000)
         let destination = MouseWarpGeometry.destinationPoint(on: target, entryEdge: .left, ratio: 0.3, margin: 2)
-        XCTAssertEqual(destination.x, 3, accuracy: 0.5)
-        XCTAssertEqual(destination.y, -300, accuracy: 0.5)
+        XCTAssertEqual(destination.x, 3)
+        XCTAssertEqual(destination.y, -300)
     }
 
     func testEndpointAndOutOfRangeRatiosStayClearOfEveryCrossingBand() {

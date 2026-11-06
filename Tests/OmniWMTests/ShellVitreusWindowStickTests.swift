@@ -37,9 +37,9 @@ final class ShellVitreusWindowStickTests: XCTestCase {
 
     func assertFlush(_ rect: CGRect, side: String) {
         switch side {
-        case "left": XCTAssertEqual(rect.minX, 0, accuracy: 0.001)
+        case "left": XCTAssertEqual(rect.minX, 0)
         case "right": XCTAssertEqual(rect.maxX, 1920, accuracy: 0.001)
-        case "top": XCTAssertEqual(rect.minY, 32, accuracy: 0.001)
+        case "top": XCTAssertEqual(rect.minY, 32)
         default: XCTAssertEqual(rect.maxY, 1080, accuracy: 0.001)
         }
     }
@@ -130,7 +130,7 @@ final class ShellVitreusWindowStickTests: XCTestCase {
             XCTAssertNotEqual(fixture.widget.surface.manipulation?.preview, previous)
             XCTAssertEqual(fixture.widget.output(), output)
             let lip = try rendered(fixture, key("calendar", side, "lip"))
-            XCTAssertEqual(side == "left" || side == "right" ? lip.height : lip.width, 0, accuracy: 0.001)
+            XCTAssertEqual(side == "left" || side == "right" ? lip.height : lip.width, 0)
             windows.drop(fixture, at: pointer)
             for (other, _) in sides { XCTAssertFalse(windows.has(fixture, key("calendar", other, "lip"))) }
         }

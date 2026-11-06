@@ -25,7 +25,7 @@ final class OverviewDragSessionRegressionTests: XCTestCase {
             autoScroll.update(monitorId: monitorId, pointer: CGPoint(x: 100, y: 10), velocity: -720)
             autoScroll.advance(by: 1.0 / 60)
             XCTAssertEqual(ticks.values.last?.0, monitorId)
-            XCTAssertEqual(try XCTUnwrap(ticks.values.last?.1), -12, accuracy: 0.0001)
+            XCTAssertEqual(try XCTUnwrap(ticks.values.last?.1), -12)
         }
         XCTAssertEqual(ticks.values.count, screens.count)
 
@@ -35,7 +35,7 @@ final class OverviewDragSessionRegressionTests: XCTestCase {
         let monitorId = Monitor.ID(displayId: try XCTUnwrap(screens.first?.displayId))
         autoScroll.update(monitorId: monitorId, pointer: CGPoint(x: 100, y: 790), velocity: 360)
         autoScroll.advance(by: 1.0 / 60)
-        XCTAssertEqual(try XCTUnwrap(ticks.values.last?.1), 6, accuracy: 0.0001)
+        XCTAssertEqual(try XCTUnwrap(ticks.values.last?.1), 6)
         autoScroll.update(monitorId: monitorId, pointer: CGPoint(x: 100, y: 400), velocity: 0)
         autoScroll.advance(by: 1.0 / 60)
         XCTAssertEqual(ticks.values.count, screens.count + 1)

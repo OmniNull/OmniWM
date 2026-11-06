@@ -141,12 +141,12 @@ final class NiriResizeViewportTests: XCTestCase {
             state: &fixture.state
         )
 
-        XCTAssertEqual(trailing.settledWidth, fixture.fullSpan, accuracy: 0.001)
-        XCTAssertEqual(trailing.cachedWidth, fixture.columnSpan, accuracy: 0.001)
-        XCTAssertEqual(fixture.state.viewOffset, -fixture.gap, accuracy: 0.001)
+        XCTAssertEqual(trailing.settledWidth, fixture.fullSpan)
+        XCTAssertEqual(trailing.cachedWidth, fixture.columnSpan)
+        XCTAssertEqual(fixture.state.viewOffset, -fixture.gap)
 
         XCTAssertFalse(applyRelayoutViewportPasses(&fixture))
-        XCTAssertEqual(fixture.state.viewOffset, -fixture.gap, accuracy: 0.001)
+        XCTAssertEqual(fixture.state.viewOffset, -fixture.gap)
     }
 
     func testIncreasingTrailingColumnPrimarySpanSurvivesRelayoutViewportPasses() throws {
@@ -168,11 +168,11 @@ final class NiriResizeViewportTests: XCTestCase {
 
         let grownSpan = (fixture.workingFrame.width - fixture.gap) * 0.6 - fixture.gap
         let expectedOffset = -(fixture.workingFrame.width - fixture.gap - grownSpan)
-        XCTAssertEqual(trailing.settledWidth, grownSpan, accuracy: 0.001)
-        XCTAssertEqual(fixture.state.viewOffset, expectedOffset, accuracy: 0.001)
+        XCTAssertEqual(trailing.settledWidth, grownSpan)
+        XCTAssertEqual(fixture.state.viewOffset, expectedOffset)
 
         XCTAssertFalse(applyRelayoutViewportPasses(&fixture))
-        XCTAssertEqual(fixture.state.viewOffset, expectedOffset, accuracy: 0.001)
+        XCTAssertEqual(fixture.state.viewOffset, expectedOffset)
     }
 
     func testCyclingTrailingColumnPrimarySpanSurvivesRelayoutViewportPasses() throws {
@@ -202,12 +202,11 @@ final class NiriResizeViewportTests: XCTestCase {
                 containers: fixture.columns,
                 gap: fixture.gap,
                 sizeKeyPath: \.settledWidth
-            ) + grownSpan,
-            accuracy: 0.001
+            ) + grownSpan
         )
 
         XCTAssertFalse(applyRelayoutViewportPasses(&fixture))
-        XCTAssertEqual(fixture.state.viewOffset, offsetAfterResize, accuracy: 0.001)
+        XCTAssertEqual(fixture.state.viewOffset, offsetAfterResize)
     }
 
     func testUntogglingFullPrimarySpanKeepsTrailingColumnRightAligned() throws {
@@ -225,7 +224,7 @@ final class NiriResizeViewportTests: XCTestCase {
             ),
             state: &fixture.state
         )
-        XCTAssertEqual(trailing.cachedWidth, fixture.fullSpan, accuracy: 0.001)
+        XCTAssertEqual(trailing.cachedWidth, fixture.fullSpan)
 
         fixture.engine.toggleContainerFullPrimarySpan(
             trailing,
@@ -239,12 +238,12 @@ final class NiriResizeViewportTests: XCTestCase {
             state: &fixture.state
         )
 
-        XCTAssertEqual(trailing.settledWidth, fixture.columnSpan, accuracy: 0.001)
-        XCTAssertEqual(trailing.cachedWidth, fixture.fullSpan, accuracy: 0.001)
-        XCTAssertEqual(fixture.state.viewOffset, fixture.rightAlignedOffset, accuracy: 0.001)
+        XCTAssertEqual(trailing.settledWidth, fixture.columnSpan)
+        XCTAssertEqual(trailing.cachedWidth, fixture.fullSpan)
+        XCTAssertEqual(fixture.state.viewOffset, fixture.rightAlignedOffset)
 
         XCTAssertFalse(applyRelayoutViewportPasses(&fixture))
-        XCTAssertEqual(fixture.state.viewOffset, fixture.rightAlignedOffset, accuracy: 0.001)
+        XCTAssertEqual(fixture.state.viewOffset, fixture.rightAlignedOffset)
     }
 
     func testViewportClampStillCorrectsOffsetScrolledPastContent() throws {
@@ -263,7 +262,7 @@ final class NiriResizeViewportTests: XCTestCase {
                 state: &fixture.state
             )
         )
-        XCTAssertEqual(fixture.state.viewOffset, fixture.rightAlignedOffset, accuracy: 0.001)
+        XCTAssertEqual(fixture.state.viewOffset, fixture.rightAlignedOffset)
     }
 
     func testCenteredFirstAndLastColumnsSurviveRelayoutViewportPasses() throws {
@@ -281,10 +280,10 @@ final class NiriResizeViewportTests: XCTestCase {
             fixture.state.activeColumnIndex = index
             fixture.state.selectedNodeId = fixture.columns[index].windowNodes.first?.id
             XCTAssertTrue(fixture.engine.centerColumn(context: context, state: &fixture.state))
-            XCTAssertEqual(fixture.state.viewOffset, centeredOffset, accuracy: 0.001)
+            XCTAssertEqual(fixture.state.viewOffset, centeredOffset)
 
             XCTAssertFalse(applyRelayoutViewportPasses(&fixture))
-            XCTAssertEqual(fixture.state.viewOffset, centeredOffset, accuracy: 0.001)
+            XCTAssertEqual(fixture.state.viewOffset, centeredOffset)
         }
     }
 
@@ -310,6 +309,6 @@ final class NiriResizeViewportTests: XCTestCase {
                 state: &fixture.state
             )
         )
-        XCTAssertEqual(fixture.viewStart(sizeKeyPath: \.settledWidth), 0, accuracy: 0.001)
+        XCTAssertEqual(fixture.viewStart(sizeKeyPath: \.settledWidth), 0)
     }
 }

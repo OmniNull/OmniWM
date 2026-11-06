@@ -227,8 +227,8 @@ extension ShellVitreusBarTests {
                 let layer = try XCTUnwrap(scene.layers[slot] as? CAShapeLayer)
                 let animation = try XCTUnwrap(layer
                     .animation(forKey: ShellLayerScene.pathTrackKey) as? CAKeyframeAnimation)
-                XCTAssertEqual(animation.beginTime, position.beginTime, accuracy: 1e-9)
-                XCTAssertEqual(animation.duration, position.duration, accuracy: 1e-9)
+                XCTAssertEqual(animation.beginTime, position.beginTime)
+                XCTAssertEqual(animation.duration, position.duration)
                 XCTAssertEqual(animation.keyTimes, position.keyTimes)
                 let values = try XCTUnwrap(animation.values as? [CGPath])
                 XCTAssertEqual(values.count, entry.samples.count)
@@ -259,7 +259,7 @@ extension ShellVitreusBarTests {
             let body = try XCTUnwrap(scene.layers[entry.body])
             let native = try XCTUnwrap(scene.glassBodies[entry.body]?.lockstepLayers(slot).first)
             let nativeBegin = try XCTUnwrap(native.animation(forKey: "omni.glass.position")).beginTime
-            XCTAssertEqual(native.convertTime(CACurrentMediaTime(), from: nil), nativeBegin, accuracy: 1e-9)
+            XCTAssertEqual(native.convertTime(CACurrentMediaTime(), from: nil), nativeBegin)
             let sketch = try XCTUnwrap(scene.layers[outline])
             let paths = sketch.sublayers?.compactMap { $0 as? CAShapeLayer } ?? []
             XCTAssertEqual(paths.count, 2)

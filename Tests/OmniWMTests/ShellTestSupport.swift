@@ -9,6 +9,10 @@ import XCTest
 
 let failureBound: TimeInterval = 30
 
+func floatStored<T: BinaryFloatingPoint>(_ value: T) -> T {
+    T(Float(value))
+}
+
 struct MissingTestPrerequisite: Error, CustomStringConvertible {
     let description: String
 

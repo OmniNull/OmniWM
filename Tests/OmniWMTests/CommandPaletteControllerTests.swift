@@ -677,7 +677,7 @@ final class CommandPaletteControllerTests: XCTestCase {
         let visibleHeight = commandPaletteWindowRowHeight(isAppHidden: false)
         let hiddenHeight = commandPaletteWindowRowHeight(isAppHidden: true)
 
-        XCTAssertEqual(hiddenHeight, visibleHeight, accuracy: 0.5)
+        XCTAssertEqual(hiddenHeight, visibleHeight)
     }
 
     func testClipboardSearchFindsFullContentAndKeepsPinnedResultsFirst() {

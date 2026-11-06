@@ -70,15 +70,15 @@ final class ShellPathTrackSceneTests: XCTestCase {
     ) throws {
         let closing = try XCTUnwrap(path.animation(forKey: ShellLayerScene.pathTrackKey) as? CAKeyframeAnimation)
         let fill = try XCTUnwrap(native.animation(forKey: "omni.glass.position") as? CAKeyframeAnimation)
-        XCTAssertEqual(closing.beginTime, fill.beginTime, accuracy: 1e-9)
-        XCTAssertEqual(closing.duration, fill.duration, accuracy: 1e-9)
+        XCTAssertEqual(closing.beginTime, fill.beginTime)
+        XCTAssertEqual(closing.duration, fill.duration)
         XCTAssertEqual(closing.keyTimes, fill.keyTimes)
         XCTAssertFalse(closing.isRemovedOnCompletion)
         XCTAssertEqual(closing.fillMode, .forwards)
         let paths = try XCTUnwrap(closing.values as? [CGPath])
         let first = try XCTUnwrap(paths.first).boundingBoxOfPath
-        XCTAssertEqual(first.width, expected.rect.width, accuracy: 1e-9)
-        XCTAssertEqual(first.height, expected.rect.height, accuracy: 1e-9)
+        XCTAssertEqual(first.width, expected.rect.width)
+        XCTAssertEqual(first.height, expected.rect.height)
         XCTAssertEqual(paths.last?.boundingBoxOfPath.width, 0)
         XCTAssertEqual(paths.last?.boundingBoxOfPath.height, 0)
     }

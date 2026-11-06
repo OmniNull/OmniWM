@@ -48,8 +48,7 @@ final class LaunchOverlayTests: XCTestCase {
         XCTAssertGreaterThan(OmniWMBrandMark.launchLockupAspect, 0)
         XCTAssertEqual(
             OmniWMBrandMark.launchLockupAspect,
-            image.size.width / image.size.height,
-            accuracy: 0.001
+            image.size.width / image.size.height
         )
     }
 
@@ -82,11 +81,10 @@ final class LaunchOverlayTests: XCTestCase {
             XCTAssertEqual(track.opacities.count, count)
             XCTAssertEqual(track.timings.count, count - 1)
             XCTAssertEqual(track.times, track.times.sorted())
-            XCTAssertEqual(track.times.first ?? -1, 0, accuracy: 1e-9)
+            XCTAssertEqual(track.times.first ?? -1, 0)
             XCTAssertEqual(
                 track.times.last ?? -1,
-                LaunchTextChoreography.exitWindow.lowerBound,
-                accuracy: 1e-9
+                LaunchTextChoreography.exitWindow.lowerBound
             )
         }
     }
@@ -116,14 +114,14 @@ final class LaunchOverlayTests: XCTestCase {
         ]
         for bounds in boundsCases {
             let layout = LaunchOverlayLayout(bounds: bounds)
-            XCTAssertEqual(layout.taglineRect.midX, bounds.midX, accuracy: 0.001)
+            XCTAssertEqual(layout.taglineRect.midX, bounds.midX)
             XCTAssertLessThan(layout.taglineRect.maxY, layout.lockupRect.minY)
             XCTAssertTrue(bounds.contains(layout.taglineRect))
             XCTAssertTrue(bounds.contains(layout.tickerClipRect))
             XCTAssertTrue(layout.tickerClipRect.contains(layout.tickerRect))
-            XCTAssertEqual(layout.prefixRect.minX, layout.taglineRect.minX, accuracy: 0.001)
+            XCTAssertEqual(layout.prefixRect.minX, layout.taglineRect.minX)
             XCTAssertGreaterThan(layout.tickerRect.minX, layout.prefixRect.maxX)
-            XCTAssertEqual(layout.tickerRect.maxX, layout.taglineRect.maxX, accuracy: 0.001)
+            XCTAssertEqual(layout.tickerRect.maxX, layout.taglineRect.maxX)
         }
     }
 

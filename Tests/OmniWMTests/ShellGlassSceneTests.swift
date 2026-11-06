@@ -250,7 +250,7 @@ final class ShellGlassSceneTests: XCTestCase {
             let mask = try XCTUnwrap(tint.mask)
             XCTAssertEqual(mask.sublayers?.count, 1)
             XCTAssertEqual(mask.sublayers?.first?.frame, CGRect(x: 16, y: 16, width: 64, height: 64))
-            XCTAssertEqual(tint.backgroundColor?.alpha ?? 0, 0.36, accuracy: 0.001)
+            XCTAssertEqual(tint.backgroundColor?.alpha ?? 0, 0.36)
         }
     }
 

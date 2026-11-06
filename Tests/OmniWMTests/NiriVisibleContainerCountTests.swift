@@ -29,7 +29,7 @@ final class NiriVisibleContainerCountTests: XCTestCase {
         let (engine, workspaceId) = makeEngineWithColumns(3)
         XCTAssertEqual(engine.columns(in: workspaceId).count, 3)
         for column in engine.columns(in: workspaceId) {
-            XCTAssertEqual(try XCTUnwrap(proportion(of: column)), 0.5, accuracy: 0.0001)
+            XCTAssertEqual(try XCTUnwrap(proportion(of: column)), 0.5)
         }
 
         engine.visibleContainerCount = 3
@@ -45,7 +45,7 @@ final class NiriVisibleContainerCountTests: XCTestCase {
 
         XCTAssertTrue(didChange)
         for column in engine.columns(in: workspaceId) {
-            XCTAssertEqual(try XCTUnwrap(proportion(of: column)), 1.0 / 3.0, accuracy: 0.0001)
+            XCTAssertEqual(try XCTUnwrap(proportion(of: column)), 1.0 / 3.0)
         }
     }
 
@@ -72,8 +72,7 @@ final class NiriVisibleContainerCountTests: XCTestCase {
 
         XCTAssertEqual(
             engine.resolvedContainerResetPrimarySpan(in: workspaceId).proportion,
-            1.0 / 3.0,
-            accuracy: 0.0001
+            1.0 / 3.0
         )
     }
 
@@ -85,8 +84,7 @@ final class NiriVisibleContainerCountTests: XCTestCase {
 
         XCTAssertEqual(
             engine.resolvedContainerResetPrimarySpan(in: workspaceId).proportion,
-            0.5,
-            accuracy: 0.0001
+            0.5
         )
     }
 }

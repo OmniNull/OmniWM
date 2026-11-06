@@ -117,7 +117,7 @@ extension ShellGlassSceneTests {
         let completion = try ShellLayerScene.engineQueue.sync {
             let entry = try XCTUnwrap(scene.shapeTracks.entries[state.slot])
             let plan = scene.trackPlan(entry, slot: state.slot)
-            XCTAssertEqual(plan.begin + plan.duration, entry.end, accuracy: 1e-9)
+            XCTAssertEqual(plan.begin + plan.duration, entry.end)
             XCTAssertLessThan(entry.end, motion.begin + motion.duration)
             let animation = try XCTUnwrap(entry.animations.first?.animation)
             return try (XCTUnwrap(animation.delegate as? ShellManipulationCompletion), animation)

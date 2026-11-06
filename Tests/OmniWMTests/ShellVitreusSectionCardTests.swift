@@ -22,8 +22,8 @@ final class ShellVitreusSectionCardTests: XCTestCase {
         XCTAssertEqual(fixture.widget.surface.layout.core.parent(of: card), parent)
         windows.drop(fixture, at: point)
         let detached = try windows.frame(fixture, "drawer-content-calendar-month")
-        XCTAssertEqual(detached.minX, 150, accuracy: 0.01)
-        XCTAssertEqual(detached.minY, 650, accuracy: 0.01)
+        XCTAssertEqual(detached.minX, 150)
+        XCTAssertEqual(detached.minY, 650)
         XCTAssertTrue(windows.has(fixture, "calendar-day-2026-10-28"))
         XCTAssertFalse(windows.has(fixture, "card-slot-calendar-month"))
         try windows.move(fixture, id: "calendar", to: CGPoint(x: 800, y: 400))
@@ -60,10 +60,10 @@ extension ShellVitreusSectionCardTests {
             try dragCard(fixture, id, to: CGPoint(x: 100, y: 400))
             XCTAssertFalse(windows.has(fixture, "card-slot-" + id))
             let floating = try windows.frame(fixture, target)
-            XCTAssertEqual(floating.minX, 100, accuracy: 0.01, id)
+            XCTAssertEqual(floating.minX, 100, id)
             let parentAfter = try windows.frame(fixture, "drawer-content-" + owner)
             XCTAssertEqual(parentAfter.width, parent.width, id)
-            XCTAssertEqual(parentAfter.height, retractedHeight(id) * 1.5525, accuracy: 0.01, id)
+            XCTAssertEqual(parentAfter.height, floatStored(retractedHeight(id) * 1.5525), id)
             windows.shelfOpen = true
             windows.show(fixture)
             let shelf = try windows.frame(fixture, "window-shelf")
@@ -91,7 +91,7 @@ extension ShellVitreusSectionCardTests {
             XCTAssertEqual(fixture.widget.surface.layout.core.parent(of: handle), try VitreusFixture.element(
                 fixture.widget, key: "drawer-content-" + owner
             ), id)
-            XCTAssertEqual(try windows.frame(fixture, target).minX, slot.x, accuracy: 0.01, id)
+            XCTAssertEqual(try windows.frame(fixture, target).minX, slot.x, id)
         }
     }
 
@@ -367,7 +367,7 @@ extension ShellVitreusSectionCardTests {
         XCTAssertTrue(windows.has(fixture, "media-card-glass"))
         XCTAssertEqual(omni_instance_render(other, OMNI_VIEW_BAR, 100_000_000, &stats, &error, error.count), OMNI_OK)
         windows.drop(fixture, at: end)
-        XCTAssertEqual(try windows.frame(fixture, "media-card").width, card.width, accuracy: 0.01)
+        XCTAssertEqual(try windows.frame(fixture, "media-card").width, card.width)
     }
 }
 

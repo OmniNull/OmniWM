@@ -278,9 +278,9 @@ extension ShellGlassSceneTests {
             XCTAssertEqual(transforms.count, samples.count)
             for (index, sample) in samples.enumerated() {
                 let transform = transforms[index].caTransform3DValue
-                XCTAssertEqual(transform.m11, recipe.stop(at: sample.progress).scale, accuracy: 1e-9)
-                XCTAssertEqual(160 * transform.m11 + 50 * transform.m21 + transform.m41, 160, accuracy: 1e-6)
-                XCTAssertEqual(160 * transform.m12 + 50 * transform.m22 + transform.m42, 50, accuracy: 1e-6)
+                XCTAssertEqual(transform.m11, recipe.stop(at: sample.progress).scale)
+                XCTAssertEqual(160 * transform.m11 + 50 * transform.m21 + transform.m41, 160)
+                XCTAssertEqual(160 * transform.m12 + 50 * transform.m22 + transform.m42, 50)
                 if sample.progress <= 0.02 { XCTAssertEqual(opacities[index], 0) }
                 if sample.progress >= 0.0201 { XCTAssertEqual(opacities[index], 1) }
             }
@@ -324,15 +324,14 @@ extension ShellGlassSceneTests {
             XCTAssertFalse(position.isRemovedOnCompletion)
             let positions = try XCTUnwrap(position.values as? [NSValue])
             let start = try Self.sampled(plan, at: time).offsetBy(dx: -Self.card.minX, dy: -Self.card.minY)
-            XCTAssertEqual(positions.first?.pointValue.x ?? 0, start.minX, accuracy: 1e-9)
-            XCTAssertEqual(positions.first?.pointValue.y ?? 0, start.minY, accuracy: 1e-9)
+            XCTAssertEqual(positions.first?.pointValue.x ?? 0, start.minX)
+            XCTAssertEqual(positions.first?.pointValue.y ?? 0, start.minY)
             XCTAssertEqual(positions.last?.pointValue, CGPoint(x: 160, y: 50))
             let scales = try XCTUnwrap(Self.keyframes(content, ShellLayerScene.revealTransformKey).values as? [NSValue])
             let recipe = try XCTUnwrap(ShellMorphRecipe(ShellRevealTests.contentMorph))
             XCTAssertEqual(
                 scales.first?.caTransform3DValue.m11 ?? 0,
-                recipe.stop(at: plan.state(at: time).progress).scale,
-                accuracy: 1e-9
+                recipe.stop(at: plan.state(at: time).progress).scale
             )
             XCTAssertEqual(scales.last?.caTransform3DValue.m11, 0.05)
             let pending = try XCTUnwrap(retained.pending.first)
@@ -392,8 +391,8 @@ extension ShellGlassSceneTests {
             XCTAssertTrue(scene.presence.retained.isEmpty)
             let body = try Self.native(scene.glassBodies[1])
             let after = try Self.silhouette(body, renderer, container: scene.container, at: time)
-            XCTAssertEqual(after.width, before.width, accuracy: 1)
-            XCTAssertEqual(after.minX, before.minX, accuracy: 1)
+            XCTAssertEqual(after.width, before.width)
+            XCTAssertEqual(after.minX, before.minX)
             XCTAssertGreaterThan(before.width, Self.card.width / 2)
         }
         withExtendedLifetime(renderer) {}

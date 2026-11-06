@@ -141,14 +141,14 @@ extension ShellVitreusControlsTests {
     func testSixTileAndSliderGeometryAndProviderState() throws {
         let widget = try fixture()
         let panel = try VitreusFixture.frame(widget, key: "drawer-content-controls")
-        XCTAssertEqual(panel.width, 312 * cu, accuracy: 0.001)
-        XCTAssertEqual(panel.height, 322 * cu, accuracy: 0.001)
+        XCTAssertEqual(panel.width, floatStored(312 * cu))
+        XCTAssertEqual(panel.height, floatStored(322 * cu))
         for (index, name) in ["wifi", "caffeine", "notifications", "bluetooth", "capture", "power"].enumerated() {
             let frame = try VitreusFixture.frame(widget, key: "controls-tile-" + name)
-            XCTAssertEqual(frame.width, 94 * cu, accuracy: 0.001)
-            XCTAssertEqual(frame.height, 72 * cu, accuracy: 0.001)
+            XCTAssertEqual(frame.width, floatStored(94 * cu))
+            XCTAssertEqual(frame.height, floatStored(72 * cu))
             XCTAssertEqual(frame.minX - panel.minX, Double(12 + index % 3 * 97) * cu, accuracy: 0.001)
-            XCTAssertEqual(frame.minY - panel.minY, Double(index < 3 ? 22 : 98) * cu, accuracy: 0.001)
+            XCTAssertEqual(frame.minY - panel.minY, floatStored(Double(index < 3 ? 22 : 98) * cu))
         }
         for (name, center) in [("brightness", 186.0), ("microphone", 226), ("volume", 266)] {
             let frame = try VitreusFixture.frame(widget, key: "controls-" + name)
@@ -184,7 +184,7 @@ extension ShellVitreusControlsTests {
         let slot = try VitreusFixture.element(widget, key: "controls-icon-wifi").slot
         try ShellLayerScene.engineQueue.sync {
             let layer = try XCTUnwrap(widget.surface.scene.layers[slot])
-            XCTAssertEqual(layer.shadowRadius, 2.4 * cu, accuracy: 0.001)
+            XCTAssertEqual(layer.shadowRadius, floatStored(2.4 * cu))
             XCTAssertEqual(layer.shadowOffset, .zero)
         }
     }
@@ -197,7 +197,7 @@ extension ShellVitreusControlsTests {
         XCTAssertFalse(has(widget, "controls-brightness"))
         XCTAssertEqual(try invoke(widget, "controls-display-settings"), ["brightness settings"])
         let panel = try VitreusFixture.frame(widget, key: "drawer-content-controls")
-        XCTAssertEqual(panel.height, 282 * cu, accuracy: 0.001)
+        XCTAssertEqual(panel.height, floatStored(282 * cu))
         XCTAssertEqual(
             try VitreusFixture.frame(widget, key: "controls-microphone").midY - panel.minY,
             200 * cu,
@@ -222,10 +222,10 @@ extension ShellVitreusControlsTests {
         XCTAssertEqual(try invoke(widget, "controls-mixer-toggle"), [])
         XCTAssertNotEqual(dependencies(widget) & ShellDataKey.audioApps.bit, 0)
         let panel = try VitreusFixture.frame(widget, key: "drawer-content-controls")
-        XCTAssertEqual(panel.height, 394 * cu, accuracy: 0.001)
+        XCTAssertEqual(panel.height, floatStored(394 * cu))
         let first = try VitreusFixture.frame(widget, key: "controls-app-test.music")
         let second = try VitreusFixture.frame(widget, key: "controls-app-test.browser")
-        XCTAssertEqual(first.width, 288 * cu, accuracy: 0.001)
+        XCTAssertEqual(first.width, floatStored(288 * cu))
         XCTAssertEqual(second.minY - first.minY, 32 * cu, accuracy: 0.001)
         XCTAssertEqual(try invoke(widget, "controls-app-mute-test.browser"), ["volume app test.browser mute"])
         let element = try VitreusFixture.element(widget, key: "controls-slider-veil-shape")

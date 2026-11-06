@@ -438,7 +438,7 @@ final class SettingsTOMLCodecTests: XCTestCase {
         let actualValue = try XCTUnwrap(tomlValue(for: "futureOffset", in: rewritten))
         let actual = try XCTUnwrap(parseOffsetDateTime(actualValue))
         let expected = try XCTUnwrap(parseOffsetDateTime("2026-06-15T12:30:00-04:00"))
-        XCTAssertEqual(actual.timeIntervalSince1970, expected.timeIntervalSince1970, accuracy: 0.001)
+        XCTAssertEqual(actual.timeIntervalSince1970, expected.timeIntervalSince1970)
     }
 
     func testPreservingEncodeDoesNotResurrectClearedKnownOptionals() throws {

@@ -32,10 +32,10 @@ final class OverviewNativeAnimationTests: XCTestCase {
         let animation = transition.makeAnimation(keyPath: "position")
         XCTAssertEqual(transition.response, 0.25)
         XCTAssertEqual(animation.mass, 1)
-        XCTAssertEqual(animation.stiffness, 64 * Double.pi * Double.pi, accuracy: 0.000000001)
-        XCTAssertEqual(animation.damping, 16 * Double.pi, accuracy: 0.000000001)
+        XCTAssertEqual(animation.stiffness, 64 * Double.pi * Double.pi)
+        XCTAssertEqual(animation.damping, 16 * Double.pi)
         XCTAssertEqual(animation.beginTime, 100)
-        XCTAssertEqual(animation.settlingDuration, 0.4, accuracy: 0.000000001)
+        XCTAssertEqual(animation.settlingDuration, 0.4)
         XCTAssertEqual(animation.duration, transition.duration)
         XCTAssertEqual(transition.duration, animation.settlingDuration)
     }
@@ -46,10 +46,10 @@ final class OverviewNativeAnimationTests: XCTestCase {
         XCTAssertNil(OverviewNativeTransition(generation: 1, startTime: 100, from: 0, to: 1).chromeExitResponse)
 
         let animation = transition.makeAnimation(keyPath: "opacity", response: transition.chromeExitResponse)
-        XCTAssertEqual(animation.stiffness, 256 * Double.pi * Double.pi, accuracy: 0.000000001)
-        XCTAssertEqual(animation.damping, 32 * Double.pi, accuracy: 0.000000001)
+        XCTAssertEqual(animation.stiffness, 256 * Double.pi * Double.pi)
+        XCTAssertEqual(animation.damping, 32 * Double.pi)
         XCTAssertEqual(animation.duration, animation.settlingDuration)
-        XCTAssertEqual(animation.duration, 0.2, accuracy: 0.000000001)
+        XCTAssertEqual(animation.duration, 0.2)
         XCTAssertEqual(animation.beginTime, 100)
         XCTAssertEqual(animation.initialVelocity, transition.makeAnimation(keyPath: "opacity").initialVelocity)
     }
@@ -74,7 +74,7 @@ final class OverviewNativeAnimationTests: XCTestCase {
             }
         }
         let normalized = OverviewNativeTransition(generation: 1, startTime: 0, from: 0.4, to: 1, initialVelocity: 1.2)
-        XCTAssertEqual(normalized.makeAnimation(keyPath: "opacity").initialVelocity, 2, accuracy: 0.000000001)
+        XCTAssertEqual(normalized.makeAnimation(keyPath: "opacity").initialVelocity, 2)
         for (startTime, initialVelocity) in [(100.0, 0.0), (0.0, 5.0)] {
             let settled = OverviewNativeTransition(
                 generation: 1, startTime: startTime, from: 1, to: 1, initialVelocity: initialVelocity
@@ -91,7 +91,7 @@ final class OverviewNativeAnimationTests: XCTestCase {
             XCTAssertEqual(OverviewNativeTransition.rubberBand(progress), progress)
             XCTAssertEqual(OverviewNativeTransition.rubberBandInverse(progress), progress)
         }
-        XCTAssertEqual(OverviewNativeTransition.rubberBand(1.1), 1.0464788732394366, accuracy: 0.000000000001)
+        XCTAssertEqual(OverviewNativeTransition.rubberBand(1.1), 1.0464788732394366)
         XCTAssertEqual(
             OverviewNativeTransition.rubberBand(-0.1),
             1 - OverviewNativeTransition.rubberBand(1.1),
@@ -149,13 +149,11 @@ final class OverviewNativeAnimationTests: XCTestCase {
         XCTAssertEqual(OverviewNativeTransition.compressedResponse(forReleaseVelocity: 0), 0.25)
         XCTAssertEqual(
             OverviewNativeTransition.compressedResponse(forReleaseVelocity: 0.5),
-            0.25 * (1 - 0.25 * tanh(1)),
-            accuracy: 0.000000000001
+            0.25 * (1 - 0.25 * tanh(1))
         )
         XCTAssertEqual(
             OverviewNativeTransition.compressedResponse(forReleaseVelocity: -50),
-            0.1875,
-            accuracy: 0.000001
+            0.1875
         )
         let transition = OverviewNativeTransition(
             generation: 1,
@@ -240,7 +238,7 @@ final class OverviewNativeAnimationTests: XCTestCase {
         XCTAssertEqual((position.fromValue as? NSValue)?.pointValue, current)
         XCTAssertEqual((position.toValue as? NSValue)?.pointValue, destination)
         XCTAssertEqual(position.beginTime, eventTime)
-        XCTAssertEqual(position.beginTime + position.duration, deadline, accuracy: 0.000000001)
+        XCTAssertEqual(position.beginTime + position.duration, deadline)
         XCTAssertGreaterThan(position.stiffness, transition.makeAnimation(keyPath: "position").stiffness)
         XCTAssertTrue(position.stiffness.isFinite)
         XCTAssertTrue(position.damping.isFinite)

@@ -132,7 +132,7 @@ final class CrossDisplayDragTests: XCTestCase {
             XCTAssertEqual(fixture.manager.workspace(for: moved), fixture.target)
             let movedFrame = try XCTUnwrap(fixture.frame(moved))
             let targetFrame = try XCTUnwrap(fixture.frame(target))
-            XCTAssertEqual(movedFrame.midX, targetFrame.midX, accuracy: 0.5)
+            XCTAssertEqual(movedFrame.midX, targetFrame.midX)
             XCTAssertEqual(movedFrame.midY > targetFrame.midY, direction == .up)
         }
     }
@@ -281,7 +281,7 @@ final class CrossDisplayDragTests: XCTestCase {
         for resident in [first, second] {
             XCTAssertGreaterThan(movedFrame.minY, try XCTUnwrap(fixture.frame(resident)).maxY - 1)
         }
-        XCTAssertEqual(movedFrame.width, workingFrame.width, accuracy: 1)
+        XCTAssertEqual(movedFrame.width, workingFrame.width)
     }
 
     func testDwindleDividerInsertsBetweenTheTargetSubtrees() throws {
@@ -311,12 +311,12 @@ final class CrossDisplayDragTests: XCTestCase {
             XCTAssertEqual(fixture.manager.workspace(for: moved), fixture.target, "\(sourceLayout)")
             XCTAssertEqual(fixture.frame(left), leftFrame, "\(sourceLayout)")
             XCTAssertGreaterThan(movedFrame.minX, leftFrame.maxX, "\(sourceLayout)")
-            XCTAssertEqual(movedFrame.minY, right.minY, accuracy: 1, "\(sourceLayout)")
-            XCTAssertEqual(movedFrame.height, right.height, accuracy: 1, "\(sourceLayout)")
+            XCTAssertEqual(movedFrame.minY, right.minY, "\(sourceLayout)")
+            XCTAssertEqual(movedFrame.height, right.height, "\(sourceLayout)")
             for (token, before) in zip(stacked, stackedFrames) {
                 let frame = try XCTUnwrap(fixture.frame(token))
                 XCTAssertGreaterThan(frame.minX, movedFrame.maxX, "\(sourceLayout)")
-                XCTAssertEqual(frame.height, before.height, accuracy: 1, "\(sourceLayout)")
+                XCTAssertEqual(frame.height, before.height, "\(sourceLayout)")
             }
         }
     }
@@ -430,7 +430,7 @@ final class CrossDisplayDragTests: XCTestCase {
             )
             let node = try XCTUnwrap(fixture.niriNode(moved))
             let workArea = fixture.controller.insetWorkingFrame(for: fixture.monitors[1])
-            XCTAssertEqual(node.constraints.minSize.width, workArea.width, accuracy: 1)
+            XCTAssertEqual(node.constraints.minSize.width, workArea.width)
             XCTAssertEqual(node.constraints.minSize.height, 200)
             XCTAssertNil(fixture.dwindle.tile(containing: moved, in: fixture.source))
         }
@@ -602,7 +602,7 @@ final class CrossDisplayDragTests: XCTestCase {
         XCTAssertTrue(column.isTabbed)
         XCTAssertEqual(column.activeWindow?.token, second)
         let workArea = fixture.controller.insetWorkingFrame(for: fixture.monitors[1])
-        XCTAssertEqual(try XCTUnwrap(fixture.niriNode(first)).constraints.minSize.width, workArea.width, accuracy: 1)
+        XCTAssertEqual(try XCTUnwrap(fixture.niriNode(first)).constraints.minSize.width, workArea.width)
         XCTAssertEqual(try XCTUnwrap(fixture.niriNode(first)).constraints.minSize.height, 100)
         XCTAssertNil(fixture.dwindle.tile(containing: first, in: fixture.source))
         for token in [first, second, third] {

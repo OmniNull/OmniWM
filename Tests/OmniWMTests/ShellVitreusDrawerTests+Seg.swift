@@ -22,9 +22,9 @@ extension ShellVitreusDrawerTests {
                 let shrink = tail ? min(1, max(0, 16 * stop.at - 0.1)) : 1
                 let settled = min(1, stop.at)
                 XCTAssertEqual(stop.width, (1 - 0.28 * settled * (1 - settled)) * shrink, accuracy: 1e-5, label)
-                XCTAssertEqual(stop.height, shrink, accuracy: 1e-5, label)
+                XCTAssertEqual(stop.height, shrink, label)
             }
-            XCTAssertEqual(recipe.stop(at: 0.0625).height, tail ? 0.9 : 1, accuracy: 1e-5, label)
+            XCTAssertEqual(recipe.stop(at: 0.0625).height, tail ? 0.9 : 1, label)
         }
     }
 }

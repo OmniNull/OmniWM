@@ -120,7 +120,7 @@ extension ShellBundledWidgetTests {
                 XCTAssertGreaterThan(try XCTUnwrap(widths.first), 0)
                 let total = widths.reduce(0, +)
                 forecastWidth = total
-                if let stripWidth { XCTAssertEqual(total, stripWidth, accuracy: 12) }
+                if let stripWidth { XCTAssertEqual(total, stripWidth) }
                 else { stripWidth = total }
             })
             XCTAssertTrue(inspectedPopout, "Weather must render a popout")

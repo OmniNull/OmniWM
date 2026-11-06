@@ -33,8 +33,7 @@ extension ShellVitreusVisualiserTests {
                         XCTAssertEqual(
                             column.base.x,
                             placement == "left" ? (layout == "island" ? 0 : physicalLeft)
-                                : (layout == "island" ? 1512 : physicalRight),
-                            accuracy: 0.0001
+                                : (layout == "island" ? 1512 : physicalRight)
                         )
                         XCTAssertEqual(
                             column.base.y,
@@ -46,7 +45,7 @@ extension ShellVitreusVisualiserTests {
                     } else {
                         let x = canonicalLeft + fraction * length
                         XCTAssertEqual(column.base.x, layout == "right" ? 1512 - x : x, accuracy: 0.0001)
-                        XCTAssertEqual(column.base.y, placement == "top" ? top : bottom, accuracy: 0.0001)
+                        XCTAssertEqual(column.base.y, placement == "top" ? top : bottom)
                         XCTAssertEqual(column.direction, CGVector(dx: 0, dy: placement == "top" ? 1 : -1))
                     }
                 }
@@ -66,8 +65,8 @@ extension ShellVitreusVisualiserTests {
                 let fraction = (quartet + 0.5) / Double(expected / 4)
                 let angle = fraction * .pi / 2
                 XCTAssertEqual(column.width, 17 * 1.35 * 1.9, accuracy: 0.0001)
-                XCTAssertEqual(column.base.x, corner % 2 == 0 ? 10.8 : 1501.2, accuracy: 0.0001)
-                XCTAssertEqual(column.base.y, corner < 2 ? 982 : 0, accuracy: 0.0001)
+                XCTAssertEqual(column.base.x, corner % 2 == 0 ? 10.8 : 1501.2)
+                XCTAssertEqual(column.base.y, corner < 2 ? 982 : 0)
                 XCTAssertEqual(column.direction.dx, (corner % 2 == 0 ? 1 : -1) * cos(angle), accuracy: 0.0001)
                 XCTAssertEqual(column.direction.dy, (corner < 2 ? -1 : 1) * sin(angle), accuracy: 0.0001)
                 XCTAssertEqual(column.band, fraction * 23, accuracy: 0.0001)

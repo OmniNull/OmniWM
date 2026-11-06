@@ -94,16 +94,16 @@ extension ShellVitreusFrameDrawerTests {
                 let line = edge == "left" ? 31.05 : 1888.95
                 XCTAssertEqual(edge == "left" ? panel[4] : panel[4] + panel[6], line, accuracy: 0.001)
                 XCTAssertEqual(edge == "left" ? panel[0] : 1920 - panel[0] - panel[2], 62.1 + 6.5 * cu, accuracy: 0.001)
-                XCTAssertEqual(panel[8], line, accuracy: 0.001)
+                XCTAssertEqual(panel[8], line)
                 XCTAssertEqual(panel[10], 0)
                 if name == "controls" {
                     XCTAssertGreaterThan(panel[11], 0)
-                    XCTAssertEqual(panel[9] + panel[11], 930, accuracy: 0.001)
+                    XCTAssertEqual(panel[9] + panel[11], 930)
                 } else { XCTAssertEqual(panel[11], 0) }
                 let morph = try recipe(widget, "drawer-frame-" + name)
                 XCTAssertEqual(morph.anchor.x, edge == "left" ? 0 : 1)
-                XCTAssertEqual(morph.stop(at: 0).dy, panel[11], accuracy: 0.001)
-                XCTAssertEqual(morph.stop(at: 1).dy, 0, accuracy: 0.001)
+                XCTAssertEqual(morph.stop(at: 0).dy, panel[11])
+                XCTAssertEqual(morph.stop(at: 1).dy, 0)
             }
         }
     }
@@ -114,19 +114,19 @@ extension ShellVitreusFrameDrawerTests {
                 let widget = try fixture(edge)
                 open(widget, name)
                 let panel = try values(widget)
-                if name == "player" { XCTAssertEqual(panel[0] + panel[2] / 2, 960, accuracy: 0.001) }
+                if name == "player" { XCTAssertEqual(panel[0] + panel[2] / 2, 960) }
                 else { XCTAssertEqual(panel[0] + panel[2], 1920 - 10.8 - 6.5 * cu, accuracy: 0.001) }
                 XCTAssertEqual(panel[11], 0)
                 if name == "controls" {
-                    XCTAssertEqual(panel[8] + panel[10], 1800, accuracy: 0.001)
+                    XCTAssertEqual(panel[8] + panel[10], 1800)
                     XCTAssertNotEqual(panel[10], 0)
                 } else { XCTAssertEqual(panel[10], 0) }
                 let line = edge == "ftop" ? 31.05 : 1048.95
-                XCTAssertEqual(edge == "ftop" ? panel[5] : panel[5] + panel[7], line, accuracy: 0.001)
+                XCTAssertEqual(edge == "ftop" ? panel[5] : panel[5] + panel[7], line)
                 let morph = try recipe(widget, "drawer-frame-" + name)
                 XCTAssertEqual(morph.anchor.y, edge == "ftop" ? 0 : 1)
-                XCTAssertEqual(morph.stop(at: 0).dx, panel[10], accuracy: 0.001)
-                XCTAssertEqual(morph.stop(at: 1).dx, 0, accuracy: 0.001)
+                XCTAssertEqual(morph.stop(at: 0).dx, panel[10])
+                XCTAssertEqual(morph.stop(at: 1).dx, 0)
             }
         }
     }
@@ -141,7 +141,7 @@ extension ShellVitreusFrameDrawerTests {
         XCTAssertTrue(recipe.impulses.allSatisfy { $0.kind == .after })
         XCTAssertEqual(recipe.impulses[0].pivot, .anchor)
         XCTAssertTrue(recipe.impulses.dropFirst().allSatisfy { $0.pivot == .centre })
-        XCTAssertEqual(recipe.impulses[0].time, recipe.impulses[1].time, accuracy: 0.0001)
+        XCTAssertEqual(recipe.impulses[0].time, recipe.impulses[1].time)
     }
 
     func testFrameSwitchDelayIsTheAnalyticDriplHalfwayCrossingWithOnlyALaterSettleTimer() throws {

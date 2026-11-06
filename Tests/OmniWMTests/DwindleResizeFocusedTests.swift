@@ -30,7 +30,7 @@ final class DwindleResizeFocusedTests: XCTestCase {
             let (engine, ws, first, second) = makeTwoWindowEngine()
             engine.setSelectedNode(engine.findNode(for: focusFirst ? first : second, in: ws), in: ws)
             XCTAssertTrue(engine.resizeFocusedWindow(by: delta, in: ws), label)
-            XCTAssertEqual(engine.root(for: ws)?.splitRatio ?? 0, expected, accuracy: 1e-6, label)
+            XCTAssertEqual(engine.root(for: ws)?.splitRatio ?? 0, expected, label)
         }
     }
 
@@ -41,7 +41,7 @@ final class DwindleResizeFocusedTests: XCTestCase {
         for _ in 0 ..< 100 where changed {
             changed = engine.resizeFocusedWindow(by: 0.1, in: ws)
         }
-        XCTAssertEqual(engine.root(for: ws)?.splitRatio ?? 0, 1.9, accuracy: 1e-6)
+        XCTAssertEqual(engine.root(for: ws)?.splitRatio ?? 0, 1.9)
         XCTAssertFalse(engine.resizeFocusedWindow(by: 0.1, in: ws))
     }
 

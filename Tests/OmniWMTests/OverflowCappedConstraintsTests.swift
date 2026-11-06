@@ -179,8 +179,8 @@ final class ObservedMinSizeCapTests: XCTestCase {
         )
         let snapshot = try XCTUnwrap(input.windows.first { $0.token == token })
 
-        XCTAssertEqual(snapshot.constraints.minSize.width, input.monitor.workingFrame.width, accuracy: 0.5)
-        XCTAssertEqual(snapshot.constraints.minSize.height, 500, accuracy: 0.5)
+        XCTAssertEqual(snapshot.constraints.minSize.width, input.monitor.workingFrame.width)
+        XCTAssertEqual(snapshot.constraints.minSize.height, 500)
 
         controller.workspaceManager.setCachedConstraints(.unconstrained, for: token)
         let hints = ObservedPackingHints(height: ObservedAxisHint(requested: 300, observed: 306))

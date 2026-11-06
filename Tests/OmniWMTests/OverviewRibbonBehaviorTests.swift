@@ -44,8 +44,8 @@ final class OverviewRibbonBehaviorTests: XCTestCase {
 
         XCTAssertTrue(layout.panStrip(fixture.workspaceId, by: 60))
         updateRenderer(renderer, layout: layout)
-        XCTAssertEqual(wallpaper.frame.minX - initialFrame.minX, 60, accuracy: 0.0001)
-        XCTAssertEqual(wallpaper.frame.maxX - initialFrame.maxX, 60, accuracy: 0.0001)
+        XCTAssertEqual(wallpaper.frame.minX - initialFrame.minX, 60)
+        XCTAssertEqual(wallpaper.frame.maxX - initialFrame.maxX, 60)
         try assertBackgroundCoversVisibleContent(layout, renderer: renderer)
 
         let remaining = Fixture(
@@ -220,7 +220,7 @@ final class OverviewRibbonBehaviorTests: XCTestCase {
         let section = try XCTUnwrap(original.workspaceSections.first)
         let desktopPan: CGFloat = 80
         XCTAssertTrue(original.panStrip(fixture.workspaceId, by: desktopPan * section.contentScale))
-        XCTAssertEqual(try XCTUnwrap(original.stripPanByWorkspace[fixture.workspaceId]), desktopPan, accuracy: 0.0001)
+        XCTAssertEqual(try XCTUnwrap(original.stripPanByWorkspace[fixture.workspaceId]), desktopPan)
         let baseline = makeLayout(fixture, zoom: 1.4)
         let rebuilt = makeLayout(fixture, zoom: 1.4, pans: original.stripPanByWorkspace)
         let newScale = try XCTUnwrap(rebuilt.workspaceSections.first).contentScale
@@ -229,12 +229,11 @@ final class OverviewRibbonBehaviorTests: XCTestCase {
             let after = try XCTUnwrap(rebuilt.window(for: handle))
             XCTAssertEqual(
                 after.overviewFrame.minX - before.overviewFrame.minX,
-                desktopPan * newScale,
-                accuracy: 0.0001
+                desktopPan * newScale
             )
             XCTAssertEqual(after.overviewFrame.size, before.overviewFrame.size)
         }
-        XCTAssertEqual(try XCTUnwrap(rebuilt.stripPanByWorkspace[fixture.workspaceId]), desktopPan, accuracy: 0.0001)
+        XCTAssertEqual(try XCTUnwrap(rebuilt.stripPanByWorkspace[fixture.workspaceId]), desktopPan)
     }
 
     func testFloatingPreviewUsesUnparkedFrameWithoutChangingOriginalAnimationFrame() throws {
@@ -287,7 +286,7 @@ final class OverviewRibbonBehaviorTests: XCTestCase {
         XCTAssertTrue(layout.panStrip(fixture.workspaceId, by: delta))
         let after = try XCTUnwrap(layout.window(for: fixture.handles[1])).overviewFrame
         XCTAssertEqual(after.minX, before.minX)
-        XCTAssertEqual(after.minY - before.minY, delta, accuracy: 0.0001)
+        XCTAssertEqual(after.minY - before.minY, delta)
 
         let renderer = makeRenderer(layout)
         let columns = descendants(of: renderer.root).filter {

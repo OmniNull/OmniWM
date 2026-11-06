@@ -241,8 +241,8 @@ final class MediaControllerTests: XCTestCase {
             widget.surface.layout.core.kind(of: $0) == .slider
         })
         let slider = widget.surface.layout.core.absoluteFrame(of: handle)
-        XCTAssertEqual(elapsed.x, slider.x, accuracy: 0.5)
-        XCTAssertEqual(duration.x + duration.width, slider.x + slider.width, accuracy: 0.5)
+        XCTAssertEqual(elapsed.x, slider.x)
+        XCTAssertEqual(duration.x + duration.width, slider.x + slider.width)
         XCTAssertGreaterThan(slider.width, duration.x - elapsed.x)
     }
 }

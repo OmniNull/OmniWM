@@ -24,7 +24,7 @@ final class SwipeTrackerTests: XCTestCase {
         tracker.push(delta: 0, timestamp: 1.04)
         tracker.push(delta: 0, timestamp: 1.08)
 
-        XCTAssertEqual(tracker.velocity(), 0, accuracy: 0.001)
+        XCTAssertEqual(tracker.velocity(), 0)
     }
 
     func testPartialStillTailDilutesVelocity() {

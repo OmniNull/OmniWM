@@ -100,7 +100,7 @@ final class MaterialColorTests: XCTestCase {
         let mixed = [UInt32](repeating: blue, count: 600) + [UInt32](repeating: 0xFF777777, count: 400)
         let seed = omni_material_seed(mixed, mixed.count, fallback)
         for shift: UInt32 in [16, 8, 0] {
-            XCTAssertEqual(Double((seed >> shift) & 0xFF), Double((blue >> shift) & 0xFF), accuracy: 3)
+            XCTAssertEqual(Double((seed >> shift) & 0xFF), Double((blue >> shift) & 0xFF))
         }
         let grey = [UInt32](repeating: 0xFF777777, count: 1000)
         XCTAssertEqual(omni_material_seed(grey, grey.count, fallback), fallback)

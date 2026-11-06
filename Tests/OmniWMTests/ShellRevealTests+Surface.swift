@@ -72,8 +72,8 @@ extension ShellRevealTests {
         clock.now += 0.055
         let sampled = expectedButton(at: clock.now, plan: plan)
         XCTAssertFalse(sampled.contains(layoutCenter))
-        XCTAssertEqual(CGRect(surface.presentedFrame(of: button)).minX, sampled.minX, accuracy: 1e-3)
-        XCTAssertEqual(CGRect(surface.presentedFrame(of: button)).width, sampled.width, accuracy: 1e-3)
+        XCTAssertEqual(CGRect(surface.presentedFrame(of: button)).minX, floatStored(sampled.minX))
+        XCTAssertEqual(CGRect(surface.presentedFrame(of: button)).width, floatStored(sampled.width))
         XCTAssertEqual(surface.element(at: CGPoint(x: sampled.midX, y: sampled.midY)) { $0.acceptsPointer }, button)
         XCTAssertNotEqual(surface.element(at: layoutCenter) { $0.acceptsPointer }, button)
         XCTAssertEqual(surface.islandRegions().filter { $0 == CGRect(x: 240, y: 130, width: 40, height: 40) }.count, 1)
@@ -81,9 +81,9 @@ extension ShellRevealTests {
         surface.layoutTextInputs()
         let editor = CGRect(surface.presentedFrame(of: field.handle))
         XCTAssertLessThan(editor.width, 80)
-        XCTAssertEqual(field.view.frame.minX, editor.minX, accuracy: 1e-3)
-        XCTAssertEqual(field.view.frame.minY, editor.minY, accuracy: 1e-3)
-        XCTAssertEqual(field.view.frame.width, editor.width, accuracy: 1e-3)
+        XCTAssertEqual(field.view.frame.minX, editor.minX)
+        XCTAssertEqual(field.view.frame.minY, editor.minY)
+        XCTAssertEqual(field.view.frame.width, editor.width)
         let point = CGPoint(x: sampled.minX + sampled.width * 0.75, y: sampled.minY + sampled.height * 0.25)
         surface.press(at: point, timestamp: 0)
         surface.release(at: point, timestamp: 0.01)
@@ -100,7 +100,7 @@ extension ShellRevealTests {
         XCTAssertEqual(moves, 1)
         XCTAssertNil(surface.presentation)
         XCTAssertEqual(surface.element(at: layoutCenter) { $0.acceptsPointer }, button)
-        XCTAssertEqual(field.view.frame.width, 80, accuracy: 1e-3)
+        XCTAssertEqual(field.view.frame.width, 80)
     }
 
     func testRetiringDeskTakesNoHitsAndReopeningSeedsFromItsCloseState() throws {
@@ -358,10 +358,10 @@ extension ShellRevealTests {
             content: .init(frame: Rect(x: 120, y: 60, width: 100, height: 100), scale: 0.5, visible: true)
         ])
         let placement = try XCTUnwrap(surface.revealPresentation(over: base)?.placement(of: content))
-        XCTAssertEqual(CGFloat(placement.frame.x), 120 + (local.minX - layout.minX) * 0.5, accuracy: 1e-3)
-        XCTAssertEqual(CGFloat(placement.frame.y), 60 + (local.minY - layout.minY) * 0.5, accuracy: 1e-3)
-        XCTAssertEqual(CGFloat(placement.frame.width), local.width * 0.5, accuracy: 1e-3)
-        XCTAssertEqual(CGFloat(placement.scale), CGFloat(stop.scale) * 0.5, accuracy: 1e-5)
+        XCTAssertEqual(CGFloat(placement.frame.x), floatStored(120 + (local.minX - layout.minX) * 0.5))
+        XCTAssertEqual(CGFloat(placement.frame.y), floatStored(60 + (local.minY - layout.minY) * 0.5))
+        XCTAssertEqual(CGFloat(placement.frame.width), floatStored(local.width * 0.5))
+        XCTAssertEqual(CGFloat(placement.scale), floatStored(CGFloat(stop.scale) * 0.5))
         XCTAssertEqual(placement.visible, stop.opacity > 0)
     }
 }

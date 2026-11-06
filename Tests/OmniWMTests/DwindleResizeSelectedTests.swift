@@ -99,7 +99,7 @@ final class DwindleResizeSelectedTests: XCTestCase {
                 in: fixture.workspaceId
             )
         )
-        XCTAssertEqual(fixture.engine.root(for: fixture.workspaceId)?.splitRatio ?? 0, 1.0, accuracy: 1e-6)
+        XCTAssertEqual(fixture.engine.root(for: fixture.workspaceId)?.splitRatio ?? 0, 1.0)
     }
 
     func testSingleWindowReturnsFalse() {
@@ -131,11 +131,11 @@ final class DwindleResizeSelectedTests: XCTestCase {
         XCTAssertEqual(nearerSplit.splitOrientation, .vertical)
 
         XCTAssertTrue(engine.resizeSelected(by: 0.1, orientation: .horizontal, in: workspaceId))
-        XCTAssertEqual(root.splitRatio ?? 0, 1.1, accuracy: 1e-6)
-        XCTAssertEqual(nearerSplit.splitRatio ?? 0, 1.0, accuracy: 1e-6)
+        XCTAssertEqual(root.splitRatio ?? 0, 1.1)
+        XCTAssertEqual(nearerSplit.splitRatio ?? 0, 1.0)
 
         XCTAssertTrue(engine.resizeFocusedWindow(by: 0.1, in: workspaceId))
-        XCTAssertEqual(root.splitRatio ?? 0, 1.1, accuracy: 1e-6)
-        XCTAssertEqual(nearerSplit.splitRatio ?? 0, 1.1, accuracy: 1e-6)
+        XCTAssertEqual(root.splitRatio ?? 0, 1.1)
+        XCTAssertEqual(nearerSplit.splitRatio ?? 0, 1.1)
     }
 }

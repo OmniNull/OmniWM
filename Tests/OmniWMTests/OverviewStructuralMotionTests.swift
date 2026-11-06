@@ -335,7 +335,7 @@ final class OverviewStructuralMotionTests: XCTestCase {
             XCTAssertNil(card.root.animation(forKey: "overview.opacity"))
             let spring = try XCTUnwrap(column.animation(forKey: "overview.position") as? CASpringAnimation)
             XCTAssertEqual(spring.stiffness, pow(2 * .pi / 0.25, 2), accuracy: 0.0001)
-            XCTAssertEqual(spring.damping, 2 * sqrt(spring.stiffness * spring.mass), accuracy: 0.0001)
+            XCTAssertEqual(spring.damping, 2 * sqrt(spring.stiffness * spring.mass))
             fixture.renderer.cancelReflow()
             XCTAssertNil(column.animation(forKey: "overview.position"))
         }

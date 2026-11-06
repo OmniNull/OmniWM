@@ -47,8 +47,8 @@ final class SpotlightRankingTests: XCTestCase {
     }
 
     func testAvailabilityMatchesOracle() {
-        XCTAssertEqual(SpotlightRanking.availability(present: 61.5), 1, accuracy: 0.000001)
-        XCTAssertEqual(SpotlightRanking.availability(present: 9), 0.7644785, accuracy: 0.000001)
+        XCTAssertEqual(SpotlightRanking.availability(present: 61.5), 1)
+        XCTAssertEqual(SpotlightRanking.availability(present: 9), 0.7644785)
     }
 
     func testEngagementMatchesOracle() {
@@ -88,7 +88,7 @@ final class SpotlightRankingTests: XCTestCase {
                     adjacentInOrder: false
                 )
             }
-            XCTAssertEqual(result?.score.engagement ?? 0, expected, accuracy: 0.000001)
+            XCTAssertEqual(result?.score.engagement ?? 0, expected)
         }
     }
 
@@ -126,20 +126,17 @@ final class SpotlightRankingTests: XCTestCase {
         )
         XCTAssertEqual(
             SpotlightRanking.launchStringScore("calculator", query: "calc", termCount: 1, match: partial),
-            0.98,
-            accuracy: 0.000001
+            0.98
         )
         partial.fraction = 0.3
         XCTAssertEqual(
             SpotlightRanking.launchStringScore("calculator", query: "cal", termCount: 1, match: partial),
-            0.65,
-            accuracy: 0.000001
+            0.65
         )
         partial.fraction = 0.2
         XCTAssertEqual(
             SpotlightRanking.launchStringScore("calculator", query: "ca", termCount: 1, match: partial),
-            0.2,
-            accuracy: 0.000001
+            0.2
         )
     }
 
@@ -155,14 +152,12 @@ final class SpotlightRankingTests: XCTestCase {
         )
         XCTAssertEqual(
             SpotlightRanking.launchStringScore("Studio Code", query: "studio code", termCount: 2, match: partial),
-            1,
-            accuracy: 0.000001
+            1
         )
         partial.fraction = 1.4
         XCTAssertEqual(
             SpotlightRanking.launchStringScore("My Calculator", query: "my calc", termCount: 2, match: partial),
-            0.99,
-            accuracy: 0.000001
+            0.99
         )
         partial.firstTokenMatched = false
         partial.textTokenCount = 3
@@ -174,8 +169,7 @@ final class SpotlightRankingTests: XCTestCase {
                 termCount: 2,
                 match: partial
             ),
-            0,
-            accuracy: 0.000001
+            0
         )
     }
 

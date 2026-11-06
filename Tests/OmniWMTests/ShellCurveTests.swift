@@ -30,14 +30,14 @@ final class ShellCurveTests: XCTestCase {
     func testTwoSegmentCurvesBecomeKeyframesAndReverse() throws {
         let emphasized = try XCTUnwrap(ShellCurve(wire: 9, custom: nil))
         let frames = try XCTUnwrap(emphasized.keyframes)
-        XCTAssertEqual(frames.times.map(\.doubleValue), [0, 1.0 / 6.0, 1], accuracy: 0.0001)
+        XCTAssertEqual(frames.times.map(\.doubleValue), [0, 1.0 / 6.0, 1])
         XCTAssertEqual(frames.progress, [0, 0.4, 1])
         assertPoints(frames.timings[0], [0.3, 0, 0.8, 0.15])
         assertPoints(frames.timings[1], [0.05, 0.7, 0.1, 1])
 
         let reversed = try XCTUnwrap(emphasized.reversed.keyframes)
-        XCTAssertEqual(reversed.times.map(\.doubleValue), [0, 5.0 / 6.0, 1], accuracy: 0.0001)
-        XCTAssertEqual(reversed.progress.map { Double($0) }, [0, 0.6, 1], accuracy: 0.0001)
+        XCTAssertEqual(reversed.times.map(\.doubleValue), [0, 5.0 / 6.0, 1])
+        XCTAssertEqual(reversed.progress.map { Double($0) }, [0, 0.6, 1])
 
         let spatial = try XCTUnwrap(ShellCurve(wire: 13, custom: nil))
         XCTAssertNil(spatial.keyframes)
@@ -63,7 +63,7 @@ final class ShellCurveTests: XCTestCase {
         ))
         let frames = try XCTUnwrap(opening.curve.keyframes)
         XCTAssertEqual(frames.progress, [0, 0.4, 1])
-        XCTAssertEqual(opening.sample(0.4).opacity, 0.4, accuracy: 0.0001)
+        XCTAssertEqual(opening.sample(0.4).opacity, 0.4)
         XCTAssertEqual(opening.sample(0.4).transform.m42, -6, accuracy: 0.0001)
 
         let closing = try XCTUnwrap(enter.plan(
@@ -85,12 +85,12 @@ final class ShellCurveTests: XCTestCase {
         let linear = try XCTUnwrap(ShellCurve(wire: 1, custom: nil))
         XCTAssertEqual(linear.value(at: 0.3), 0.3, accuracy: 0.0001)
         let spatial = try XCTUnwrap(ShellCurve(wire: 13, custom: nil))
-        XCTAssertEqual(spatial.value(at: 0), 0, accuracy: 0.0001)
-        XCTAssertEqual(spatial.value(at: 1), 1, accuracy: 0.0001)
+        XCTAssertEqual(spatial.value(at: 0), 0)
+        XCTAssertEqual(spatial.value(at: 1), 1)
         XCTAssertGreaterThan((0 ... 100).map { spatial.value(at: CGFloat($0) / 100) }.max() ?? 0, 1.01)
         let emphasized = try XCTUnwrap(ShellCurve(wire: 9, custom: nil))
-        XCTAssertEqual(emphasized.value(at: 1.0 / 6.0), 0.4, accuracy: 0.0001)
-        XCTAssertEqual(emphasized.reversed.value(at: 5.0 / 6.0), 0.6, accuracy: 0.0001)
+        XCTAssertEqual(emphasized.value(at: 1.0 / 6.0), 0.4)
+        XCTAssertEqual(emphasized.reversed.value(at: 5.0 / 6.0), 0.6)
     }
 
     func testFastMovesStretchAlongTheirDirectionAndSettle() {
@@ -103,7 +103,7 @@ final class ShellCurveTests: XCTestCase {
         let peak = deforms.map(\.d).max() ?? 1
         XCTAssertEqual(peak, 1.02, accuracy: 0.004)
         XCTAssertEqual(deforms[steps / 2].a, 1 / deforms[steps / 2].d, accuracy: 0.004)
-        XCTAssertEqual(deforms[steps / 2].b, 0, accuracy: 0.0001)
+        XCTAssertEqual(deforms[steps / 2].b, 0)
         XCTAssertEqual(deforms.last, .identity)
 
         let flung = (0 ... 30).map { CGPoint(x: CGFloat($0) * 100_000, y: 0) }
@@ -137,19 +137,19 @@ final class ShellCurveTests: XCTestCase {
         let old = CGRect(x: 0, y: 0, width: 20, height: 10)
         let new = CGRect(x: 100, y: 0, width: 20, height: 10)
         let trail = try XCTUnwrap(animation.trail(from: old, to: new))
-        XCTAssertEqual(trail.position.duration, 0.75, accuracy: 0.0001)
+        XCTAssertEqual(trail.position.duration, 0.75)
         let sizes = try XCTUnwrap(trail.bounds.values as? [NSValue]).map(\.rectValue.size)
         let positions = try XCTUnwrap(trail.position.values as? [NSValue]).map(\.pointValue)
         XCTAssertEqual(positions.first, old.origin)
-        XCTAssertEqual(positions.last?.x ?? 0, 100, accuracy: 0.0001)
-        XCTAssertEqual(sizes.last?.width ?? 0, 20, accuracy: 0.0001)
+        XCTAssertEqual(positions.last?.x ?? 0, 100)
+        XCTAssertEqual(sizes.last?.width ?? 0, 20)
         let atLead = sizes.count * 2 / 3
         XCTAssertGreaterThan(sizes.map(\.width).max() ?? 0, 40)
-        XCTAssertEqual(positions[atLead].x + sizes[atLead].width, 120, accuracy: 2)
+        XCTAssertEqual(positions[atLead].x + sizes[atLead].width, 120)
 
         let back = try XCTUnwrap(animation.trail(from: new, to: old))
         let backPositions = try XCTUnwrap(back.position.values as? [NSValue]).map(\.pointValue)
-        XCTAssertEqual(backPositions[backPositions.count * 2 / 3].x, 0, accuracy: 2)
+        XCTAssertEqual(backPositions[backPositions.count * 2 / 3].x, 0)
 
         XCTAssertNil(ShellAnimation(motion: .spring, speed: 1).trail(from: old, to: new))
         XCTAssertNil(animation.trail(from: old, to: old))
@@ -177,8 +177,7 @@ final class ShellCurveTests: XCTestCase {
         ))
         XCTAssertEqual(
             unsafeDowncast(color as AnyObject, to: CGColor.self).components?.map { Double($0) } ?? [],
-            [0.4, 0.2, 0, 1],
-            accuracy: 0.0001
+            [0.4, 0.2, 0, 1]
         )
 
         XCTAssertNil(ShellAnimation(motion: .spring, speed: 1, curve: emphasized).keyframes(

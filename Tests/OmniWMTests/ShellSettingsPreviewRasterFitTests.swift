@@ -59,7 +59,7 @@ final class ShellSettingsPreviewRasterFitTests: XCTestCase {
         }
         XCTAssertEqual(images.count, 3)
         for (index, image) in images.enumerated() {
-            XCTAssertEqual(image.scale, expectedScale, accuracy: 0.000_000_001)
+            XCTAssertEqual(image.scale, expectedScale)
             XCTAssertEqual(image.size, CGSize(width: widths[index], height: heights[index]))
             XCTAssertEqual(image.image.width, Int(floor(widths[index] * expectedScale)))
             XCTAssertEqual(image.image.height, Int(floor(heights[index] * expectedScale)))

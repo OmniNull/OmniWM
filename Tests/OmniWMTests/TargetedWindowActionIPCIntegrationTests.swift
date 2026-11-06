@@ -258,7 +258,7 @@ final class TargetedWindowActionIPCIntegrationTests: XCTestCase {
         XCTAssertEqual(manager.entry(for: token)?.mode, .tiling)
         try assertOwnColumnRightAfterFocus(token, fixture)
         assertFocusUnchanged(fixture)
-        XCTAssertEqual(fixture.viewport.viewOffset, viewOffset, accuracy: 0.5)
+        XCTAssertEqual(fixture.viewport.viewOffset, viewOffset)
         XCTAssertEqual(fixture.frame(of: fixture.focused), before)
     }
 
@@ -293,7 +293,7 @@ final class TargetedWindowActionIPCIntegrationTests: XCTestCase {
         XCTAssertEqual(manager.entry(for: member.id)?.mode, .tiling)
         try assertOwnColumnRightAfterFocus(member.id, fixture)
         assertFocusUnchanged(fixture)
-        XCTAssertEqual(fixture.viewport.viewOffset, viewOffset, accuracy: 0.5)
+        XCTAssertEqual(fixture.viewport.viewOffset, viewOffset)
         XCTAssertEqual(fixture.frame(of: fixture.focused), before)
     }
 
@@ -332,7 +332,7 @@ final class TargetedWindowActionIPCIntegrationTests: XCTestCase {
         XCTAssertEqual(manager.entry(for: hidden.id)?.mode, .tiling)
         try assertOwnColumnRightAfterFocus(hidden.id, fixture)
         assertFocusUnchanged(fixture)
-        XCTAssertEqual(fixture.viewport.viewOffset, viewOffset, accuracy: 0.5)
+        XCTAssertEqual(fixture.viewport.viewOffset, viewOffset)
         XCTAssertEqual(fixture.frame(of: fixture.focused), before)
     }
 
@@ -363,7 +363,7 @@ final class TargetedWindowActionIPCIntegrationTests: XCTestCase {
         XCTAssertEqual(manager.entry(for: member)?.mode, .tiling)
         try assertOwnColumnRightAfterFocus(member, fixture)
         assertFocusUnchanged(fixture)
-        XCTAssertEqual(fixture.viewport.viewOffset, viewOffset, accuracy: 0.5)
+        XCTAssertEqual(fixture.viewport.viewOffset, viewOffset)
         XCTAssertEqual(fixture.frame(of: fixture.focused), before)
     }
 
@@ -820,7 +820,7 @@ final class TargetedWindowActionIPCIntegrationTests: XCTestCase {
         XCTAssertNotNil(result)
         XCTAssertNil(fixture.engine.findNode(for: fixture.windows[0], in: fixture.niriWorkspaceId))
         try assertActiveColumnHoldsTheFocus(fixture)
-        XCTAssertEqual(fixture.viewport.viewOffset, viewOffset, accuracy: 0.5)
+        XCTAssertEqual(fixture.viewport.viewOffset, viewOffset)
     }
 
     func testClosingAColumnBeforeTheFocusKeepsTheFocusedFrame() async throws {
@@ -864,7 +864,7 @@ final class TargetedWindowActionIPCIntegrationTests: XCTestCase {
         )
         await WindowAdmissionTestSupport.drainLayoutRefreshes(fixture.controller)
         fixture.focusRecorder.focusedTokens.removeAll()
-        XCTAssertEqual(fixture.viewport.viewOffset, centeredOffset, accuracy: 0.5)
+        XCTAssertEqual(fixture.viewport.viewOffset, centeredOffset)
         XCTAssertEqual(fixture.engine.columns(in: fixture.niriWorkspaceId).count, 6)
         XCTAssertEqual(
             fixture.engine.columns(in: fixture.niriWorkspaceId)[0].windowNodes.map(\.token),
@@ -1091,7 +1091,7 @@ final class TargetedWindowActionIPCIntegrationTests: XCTestCase {
         await WindowAdmissionTestSupport.drainLayoutRefreshes(fixture.controller)
 
         XCTAssertNotEqual(fixture.frame(of: fixture.focused), before)
-        XCTAssertEqual(fixture.viewport.viewOffset, expected.viewOffset, accuracy: 0.5)
+        XCTAssertEqual(fixture.viewport.viewOffset, expected.viewOffset)
         assertFocusUnchanged(fixture)
     }
 
@@ -1288,7 +1288,7 @@ final class TargetedWindowActionIPCIntegrationTests: XCTestCase {
 
         let gap = fixture.controller.innerGap(for: fixture.monitor)
         let focusedFrame = try XCTUnwrap(fixture.frame(of: fixture.focused))
-        XCTAssertEqual(fixture.viewport.viewOffset, centeredOffset, accuracy: 0.5)
+        XCTAssertEqual(fixture.viewport.viewOffset, centeredOffset)
         XCTAssertGreaterThan(focusedFrame.minX, fixture.monitor.frame.minX + gap * 4)
         XCTAssertLessThan(focusedFrame.maxX, fixture.monitor.frame.maxX - gap * 4)
         return fixture

@@ -84,8 +84,8 @@ enum ShellBoundSurfaceFixture {
         )
         ShellLayerScene.engineQueue.sync {}
         let preview = try XCTUnwrap(surface.manipulation?.preview)
-        XCTAssertEqual(preview.width, targetFrame.width * factor, accuracy: 1e-9)
-        XCTAssertEqual(preview.height, targetFrame.height * factor, accuracy: 1e-9)
+        XCTAssertEqual(preview.width, targetFrame.width * factor)
+        XCTAssertEqual(preview.height, targetFrame.height * factor)
     }
 
     static func renderCount(_ fixture: Fixture) throws -> String {

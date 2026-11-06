@@ -419,9 +419,9 @@ final class DwindleGroupingEngineTests: XCTestCase {
 
         let frame = engine.calculateLayout(for: workspace, screen: screen)[second]
         let tileFrame = engine.tileFrame(for: second, in: workspace)
-        XCTAssertEqual(frame?.width ?? 0, 600, accuracy: 0.5)
-        XCTAssertEqual(frame?.height ?? 0, 650, accuracy: 0.5)
-        XCTAssertEqual(tileFrame?.width ?? 0, 612, accuracy: 0.5)
+        XCTAssertEqual(frame?.width ?? 0, 600)
+        XCTAssertEqual(frame?.height ?? 0, 650)
+        XCTAssertEqual(tileFrame?.width ?? 0, 612)
 
         XCTAssertEqual(engine.activateWindowOutcome(first, in: workspace), .activated)
         let switchedFrame = engine.calculateLayout(for: workspace, screen: screen)[first]

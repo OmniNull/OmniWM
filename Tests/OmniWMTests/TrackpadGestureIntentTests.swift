@@ -127,7 +127,7 @@ final class TrackpadGestureIntentTests: XCTestCase {
         XCTAssertEqual(TrackpadGestureIntent.overviewTravelUnits, 300)
         XCTAssertEqual(TrackpadGestureIntent.overviewProgress(units: 150), 0.5)
         XCTAssertEqual(TrackpadGestureIntent.overviewProgress(units: 300), 1)
-        XCTAssertEqual(TrackpadGestureIntent.overviewProgress(units: -30), -0.1, accuracy: 0.000000000001)
+        XCTAssertEqual(TrackpadGestureIntent.overviewProgress(units: -30), -0.1)
     }
 
     private func makeConfig(
@@ -484,8 +484,8 @@ final class TrackpadGestureIntentTests: XCTestCase {
             monitorFrame: monitor,
             sensitivity: 1
         )
-        XCTAssertEqual(moved.x, 900, accuracy: 0.001)
-        XCTAssertEqual(moved.y, 560, accuracy: 0.001)
+        XCTAssertEqual(moved.x, 900)
+        XCTAssertEqual(moved.y, 560)
 
         let scaled = TrackpadGestureIntent.windowGestureLocation(
             start: start,
@@ -494,7 +494,7 @@ final class TrackpadGestureIntentTests: XCTestCase {
             monitorFrame: monitor,
             sensitivity: 2
         )
-        XCTAssertEqual(scaled.x, 820, accuracy: 0.001)
+        XCTAssertEqual(scaled.x, 820)
 
         let clamped = TrackpadGestureIntent.windowGestureLocation(
             start: start,
@@ -513,8 +513,8 @@ final class TrackpadGestureIntentTests: XCTestCase {
             sensitivity: 3,
             clampToMonitor: false
         )
-        XCTAssertEqual(unclamped.x, start.x - 0.9 * 1600 * 3, accuracy: 0.001)
-        XCTAssertEqual(unclamped.y, start.y - 0.9 * 900 * 3, accuracy: 0.001)
+        XCTAssertEqual(unclamped.x, start.x - 0.9 * 1600 * 3)
+        XCTAssertEqual(unclamped.y, start.y - 0.9 * 900 * 3)
     }
 
     func testFingerCountGraceOnlyAppliesToWindowGestures() {

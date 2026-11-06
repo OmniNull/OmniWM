@@ -54,11 +54,11 @@ final class NiriUnderfilledViewportTests: XCTestCase {
         let first = try XCTUnwrap(frames[fixture.windows[0].token])
         let second = try XCTUnwrap(frames[fixture.windows[1].token])
 
-        XCTAssertEqual(first.width, 582, accuracy: 0.001)
-        XCTAssertEqual(second.width, 582, accuracy: 0.001)
-        XCTAssertEqual(first.minX, 12, accuracy: 0.001)
-        XCTAssertEqual(second.minX - first.maxX, 12, accuracy: 0.001)
-        XCTAssertEqual(second.maxX, frame.maxX - 12, accuracy: 0.001)
+        XCTAssertEqual(first.width, 582)
+        XCTAssertEqual(second.width, 582)
+        XCTAssertEqual(first.minX, 12)
+        XCTAssertEqual(second.minX - first.maxX, 12)
+        XCTAssertEqual(second.maxX, frame.maxX - 12)
         XCTAssertEqual(fixture.columns.map(\.width), [.proportion(1.0 / 3), .proportion(1.0 / 3)])
     }
 
@@ -70,13 +70,13 @@ final class NiriUnderfilledViewportTests: XCTestCase {
         )
         let threeFrames = layout(fixture)
         for window in fixture.windows + [third] {
-            XCTAssertEqual(try XCTUnwrap(threeFrames[window.token]).width, 400, accuracy: 0.001)
+            XCTAssertEqual(try XCTUnwrap(threeFrames[window.token]).width, 400)
         }
 
         fixture.engine.removeWindow(token: third.token, in: fixture.workspaceId)
         let twoFrames = layout(fixture)
         for window in fixture.windows {
-            XCTAssertEqual(try XCTUnwrap(twoFrames[window.token]).width, 600, accuracy: 0.001)
+            XCTAssertEqual(try XCTUnwrap(twoFrames[window.token]).width, 600)
         }
     }
 
@@ -86,8 +86,8 @@ final class NiriUnderfilledViewportTests: XCTestCase {
         fixture.columns[1].width = .fixed(400)
         let frames = layout(fixture)
 
-        XCTAssertEqual(try XCTUnwrap(frames[fixture.windows[0].token]).width, 400, accuracy: 0.001)
-        XCTAssertEqual(try XCTUnwrap(frames[fixture.windows[1].token]).width, 800, accuracy: 0.001)
+        XCTAssertEqual(try XCTUnwrap(frames[fixture.windows[0].token]).width, 400)
+        XCTAssertEqual(try XCTUnwrap(frames[fixture.windows[1].token]).width, 800)
         XCTAssertEqual(fixture.columns.map(\.width), [.fixed(200), .fixed(400)])
     }
 
@@ -96,7 +96,7 @@ final class NiriUnderfilledViewportTests: XCTestCase {
             let fixture = fixture(count: count)
             let frames = layout(fixture)
             XCTAssertEqual(fixture.columns.map(\.cachedWidth), Array(repeating: 400, count: count))
-            XCTAssertEqual(try XCTUnwrap(frames[fixture.windows[0].token]).width, 400, accuracy: 0.001)
+            XCTAssertEqual(try XCTUnwrap(frames[fixture.windows[0].token]).width, 400)
         }
     }
 
@@ -108,7 +108,7 @@ final class NiriUnderfilledViewportTests: XCTestCase {
         let frames = layout(fixture)
 
         XCTAssertEqual(fixture.columns.map(\.cachedWidth), [840, 840])
-        XCTAssertEqual(try XCTUnwrap(frames[fixture.windows[0].token]).width, 840, accuracy: 0.001)
+        XCTAssertEqual(try XCTUnwrap(frames[fixture.windows[0].token]).width, 840)
     }
 
     func testVerticalContainersFillHeight() throws {
@@ -117,9 +117,9 @@ final class NiriUnderfilledViewportTests: XCTestCase {
         let first = try XCTUnwrap(frames[fixture.windows[0].token])
         let second = try XCTUnwrap(frames[fixture.windows[1].token])
 
-        XCTAssertEqual(first.height, 450, accuracy: 0.001)
-        XCTAssertEqual(second.height, 450, accuracy: 0.001)
-        XCTAssertEqual(first.maxY, second.minY, accuracy: 0.001)
+        XCTAssertEqual(first.height, 450)
+        XCTAssertEqual(second.height, 450)
+        XCTAssertEqual(first.maxY, second.minY)
         XCTAssertEqual(fixture.columns.map(\.height), [.proportion(1.0 / 3), .proportion(1.0 / 3)])
     }
 
@@ -131,11 +131,11 @@ final class NiriUnderfilledViewportTests: XCTestCase {
 
         XCTAssertNil(frames[excluded])
         for window in fixture.windows.prefix(2) {
-            XCTAssertEqual(try XCTUnwrap(frames[window.token]).width, 600, accuracy: 0.001)
+            XCTAssertEqual(try XCTUnwrap(frames[window.token]).width, 600)
         }
         let restored = layout(fixture)
         for window in fixture.windows {
-            XCTAssertEqual(try XCTUnwrap(restored[window.token]).width, 400, accuracy: 0.001)
+            XCTAssertEqual(try XCTUnwrap(restored[window.token]).width, 400)
         }
     }
 
@@ -153,8 +153,8 @@ final class NiriUnderfilledViewportTests: XCTestCase {
         )
         let frames = layout(fixture)
 
-        XCTAssertEqual(try XCTUnwrap(frames[fixture.windows[0].token]).width, 300, accuracy: 0.001)
-        XCTAssertEqual(try XCTUnwrap(frames[fixture.windows[1].token]).width, 900, accuracy: 0.001)
+        XCTAssertEqual(try XCTUnwrap(frames[fixture.windows[0].token]).width, 300)
+        XCTAssertEqual(try XCTUnwrap(frames[fixture.windows[1].token]).width, 900)
     }
 
     func testSingleWindowFitRemainsAuthoritative() throws {
@@ -162,7 +162,7 @@ final class NiriUnderfilledViewportTests: XCTestCase {
         fixture.engine.singleWindowFit = SingleWindowFit(mode: .containerPrimarySpan)
         let frames = layout(fixture)
 
-        XCTAssertEqual(try XCTUnwrap(frames[fixture.windows[0].token]).width, 400, accuracy: 0.001)
+        XCTAssertEqual(try XCTUnwrap(frames[fixture.windows[0].token]).width, 400)
     }
 
     func testSingleContainerWithMultipleWindowsFillsPrimarySpan() throws {
@@ -187,7 +187,7 @@ final class NiriUnderfilledViewportTests: XCTestCase {
             let frames = layout(fixture)
 
             XCTAssertEqual(fixture.columns.count, 1)
-            XCTAssertEqual(try XCTUnwrap(frames[fixture.windows[0].token]).width, 1200, accuracy: 0.001)
+            XCTAssertEqual(try XCTUnwrap(frames[fixture.windows[0].token]).width, 1200)
             XCTAssertEqual(column.width, .proportion(1.0 / 3))
         }
     }
@@ -235,8 +235,8 @@ final class NiriUnderfilledViewportTests: XCTestCase {
         let first = fixture.columns[0]
         let spring = try XCTUnwrap(first.widthAnimation)
 
-        XCTAssertEqual(first.cachedWidth, 400, accuracy: 0.001)
-        XCTAssertEqual(first.settledWidth, 600, accuracy: 0.001)
+        XCTAssertEqual(first.cachedWidth, 400)
+        XCTAssertEqual(first.settledWidth, 600)
         fixture.engine.resolvePrimaryContainerSpans(
             in: fixture.workspaceId, workingFrame: frame, gaps: 0, orientation: .horizontal, motion: .enabled
         )
@@ -245,10 +245,10 @@ final class NiriUnderfilledViewportTests: XCTestCase {
             state: ViewportState(), workspaceId: fixture.workspaceId, monitorFrame: frame,
             gaps: (0, 0), orientation: .horizontal, animationTime: sampleTime
         )
-        XCTAssertEqual(try XCTUnwrap(running.frames[fixture.windows[0].token]).width, 400, accuracy: 0.001)
+        XCTAssertEqual(try XCTUnwrap(running.frames[fixture.windows[0].token]).width, 400)
         XCTAssertTrue(spring.isComplete(at: sampleTime + 10))
         _ = first.tickWidthAnimation(at: sampleTime + 10)
-        XCTAssertEqual(first.cachedWidth, 600, accuracy: 0.001)
+        XCTAssertEqual(first.cachedWidth, 600)
         XCTAssertNil(first.widthAnimation)
     }
 
@@ -261,7 +261,7 @@ final class NiriUnderfilledViewportTests: XCTestCase {
         fixture.engine.resolvePrimaryContainerSpans(
             in: fixture.workspaceId, workingFrame: frame, gaps: 0, orientation: .horizontal, motion: .enabled
         )
-        XCTAssertEqual(fixture.columns[0].settledWidth, 600, accuracy: 0.001)
+        XCTAssertEqual(fixture.columns[0].settledWidth, 600)
         XCTAssertTrue(fixture.engine.cancelAnimations(in: fixture.workspaceId))
         let start = CGPoint(x: 600, y: 450)
         XCTAssertTrue(fixture.engine.interactiveResizeBegin(

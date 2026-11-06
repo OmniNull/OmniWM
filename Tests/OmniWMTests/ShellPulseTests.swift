@@ -74,7 +74,7 @@ final class ShellPulseTests: XCTestCase {
         XCTAssertEqual(atan2(turn.m12, turn.m11) * 180 / .pi, 30, accuracy: 1e-9)
         let scale = try animation(scene, "scale")
         let enlarged = try XCTUnwrap(scale.values?[1] as? NSValue).caTransform3DValue
-        XCTAssertEqual(enlarged.m11, 1.2, accuracy: 1e-9)
+        XCTAssertEqual(enlarged.m11, 1.2)
         XCTAssertTrue(CATransform3DIsIdentity(try XCTUnwrap(rotation.values?.last as? NSValue).caTransform3DValue))
         let model = ShellLayerScene.engineQueue.sync { scene.layers[0]?.transform }
         XCTAssertTrue(CATransform3DIsIdentity(try XCTUnwrap(model)))
@@ -195,8 +195,8 @@ final class ShellPulseTests: XCTestCase {
         for channel in ["rotate", "scale"] {
             let track = try animation(scene, channel)
             let value = try XCTUnwrap(track.values?[1] as? NSValue).caTransform3DValue
-            XCTAssertEqual(value.m11 * 50 + value.m21 * 10 + value.m41, 50, accuracy: 1e-9)
-            XCTAssertEqual(value.m12 * 50 + value.m22 * 10 + value.m42, 10, accuracy: 1e-9)
+            XCTAssertEqual(value.m11 * 50 + value.m21 * 10 + value.m41, 50)
+            XCTAssertEqual(value.m12 * 50 + value.m22 * 10 + value.m42, 10)
         }
     }
 

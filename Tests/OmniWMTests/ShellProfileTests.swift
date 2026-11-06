@@ -712,8 +712,8 @@ final class ShellProfileTests: XCTestCase {
             ["[workspaceBar] barBorder must be a palette role such as \"surface\" or \"surface/0.8\""]
         )
         let fill = try XCTUnwrap(override.barFill).dark.usingColorSpace(.sRGB)
-        XCTAssertEqual(fill?.blueComponent ?? 0, 0x30 / 255, accuracy: 0.001)
-        XCTAssertEqual(fill?.alphaComponent ?? 0, 0.5, accuracy: 0.001)
+        XCTAssertEqual(fill?.blueComponent ?? 0, 0x30 / 255)
+        XCTAssertEqual(fill?.alphaComponent ?? 0, 0.5)
         XCTAssertNil(ShellThemeColor("surface/2", theme: config.theme))
 
         try write(

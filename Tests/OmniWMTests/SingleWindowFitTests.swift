@@ -511,8 +511,8 @@ final class NiriSingleWindowMinimumSizeTests: XCTestCase {
 
         let frame = try XCTUnwrap(layoutFrame(fixture))
 
-        XCTAssertEqual(frame.width, 1300, accuracy: 0.5)
-        XCTAssertEqual(frame.height, 900, accuracy: 0.5)
+        XCTAssertEqual(frame.width, 1300)
+        XCTAssertEqual(frame.height, 900)
     }
 
     func testCustomFitIsFlooredToMin() throws {
@@ -521,8 +521,8 @@ final class NiriSingleWindowMinimumSizeTests: XCTestCase {
 
         let frame = try XCTUnwrap(layoutFrame(fixture))
 
-        XCTAssertEqual(frame.width, 600, accuracy: 0.5)
-        XCTAssertEqual(frame.height, 500, accuracy: 0.5)
+        XCTAssertEqual(frame.width, 600)
+        XCTAssertEqual(frame.height, 500)
     }
 
     func testManualWidthOverrideIsFlooredToMin() throws {
@@ -533,6 +533,6 @@ final class NiriSingleWindowMinimumSizeTests: XCTestCase {
 
         let frame = try XCTUnwrap(layoutFrame(fixture))
 
-        XCTAssertEqual(frame.width, 1000, accuracy: 0.5)
+        XCTAssertEqual(frame.width, 1000)
     }
 }

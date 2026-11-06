@@ -158,8 +158,8 @@ final class DwindleWindowCloseFocusRecoveryTests: XCTestCase {
         let closingFrame = try XCTUnwrap(frames[closing])
         let topFrame = try XCTUnwrap(frames[top])
         let bottomLeftFrame = try XCTUnwrap(frames[bottomLeft])
-        XCTAssertEqual(bottomLeftFrame.minY, closingFrame.minY, accuracy: 0.5)
-        XCTAssertEqual(topFrame.maxY, closingFrame.maxY, accuracy: 0.5)
+        XCTAssertEqual(bottomLeftFrame.minY, closingFrame.minY)
+        XCTAssertEqual(topFrame.maxY, closingFrame.maxY)
         XCTAssertGreaterThan(bottomLeftFrame.height, topFrame.height)
         XCTAssertEqual(engine.findGeometricNeighbor(from: closing, direction: .right, in: workspaceId), bottomLeft)
 
@@ -222,7 +222,7 @@ final class DwindleWindowCloseFocusRecoveryTests: XCTestCase {
         XCTAssertGreaterThan(topRightFrame.minY, bottomRightFrame.minY)
         XCTAssertGreaterThan(topRightFrame.minX, rootFrame.maxX)
         XCTAssertGreaterThan(bottomRightFrame.minX, rootFrame.maxX)
-        XCTAssertEqual(topRightFrame.height, bottomRightFrame.height, accuracy: 0.5)
+        XCTAssertEqual(topRightFrame.height, bottomRightFrame.height)
 
         XCTAssertEqual(engine.findGeometricNeighbor(from: root, direction: .right, in: workspaceId), bottomRight)
         XCTAssertTrue(controller.dwindleLayoutHandler.focusNeighbor(direction: .right))

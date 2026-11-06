@@ -41,7 +41,7 @@ extension ShellVitreusSectionCardTests {
             _ = try windows.invoke(fixture, "controls-mixer-toggle")
             XCTAssertEqual(
                 try windows.frame(fixture, "drawer-content-controls-mixer").height,
-                28 * 1.5525, accuracy: 0.01
+                floatStored(28 * 1.5525)
             )
             fixture.widget.set("audioApps") {
                 ShellAudioApps(access: .granted, apps: (0 ..< 3).map {
@@ -51,7 +51,7 @@ extension ShellVitreusSectionCardTests {
             windows.show(fixture)
             let sliders = try windows.frame(fixture, "drawer-content-controls-sliders")
             let mixer = try windows.frame(fixture, "drawer-content-controls-mixer")
-            XCTAssertEqual(mixer.height, 92 * 1.5525, accuracy: 0.01)
+            XCTAssertEqual(mixer.height, floatStored(92 * 1.5525))
             XCTAssertEqual(mixer.maxY, sliders.minY - 12 * 1.35, accuracy: 0.01)
             XCTAssertFalse(mixer.intersects(sliders))
         }

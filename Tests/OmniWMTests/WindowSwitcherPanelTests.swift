@@ -30,7 +30,7 @@ final class WindowSwitcherPanelTests: XCTestCase {
                     CGFloat(windowCount) * card.frame.width + CGFloat(windowCount - 1) * 12 + 32
                 )
                 XCTAssertEqual(panel.frame.height, card.frame.height + 32 + (showsFooter ? 28 : 0))
-                XCTAssertEqual(panel.frame.midX, screenFrame.midX, accuracy: 0.5)
+                XCTAssertEqual(panel.frame.midX, screenFrame.midX)
                 XCTAssertEqual(panel.frame.midY, screenFrame.midY, accuracy: 0.5)
                 if showsFooter {
                     let button = try XCTUnwrap(content.subviews.compactMap { $0 as? NSButton }.first)

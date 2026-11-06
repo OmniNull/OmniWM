@@ -116,7 +116,7 @@ extension ShellVitreusBarTests {
         data.style.statsButton = false
         VitreusFixture.show(widget, bar: data)
         XCTAssertFalse(Self.has(widget, "bar-stats"))
-        XCTAssertEqual(try VitreusFixture.frame(widget, key: "shell").width, shown.width, accuracy: 0.001)
+        XCTAssertEqual(try VitreusFixture.frame(widget, key: "shell").width, shown.width)
     }
 
     func testTheNewPiecesStayApartAndOnScreenInEveryLayout() throws {

@@ -102,21 +102,21 @@ extension ShellVitreusDeskTests {
         let frame = try VitreusFixture.frame(widget, key: name)
         XCTAssertEqual(frame.midX, x, accuracy: 0.01, name)
         XCTAssertEqual(frame.midY, y, accuracy: 0.01, name)
-        XCTAssertEqual(frame.width, size.width, accuracy: 0.01, name)
-        XCTAssertEqual(frame.height, size.height, accuracy: 0.01, name)
+        XCTAssertEqual(frame.width, floatStored(size.width), name)
+        XCTAssertEqual(frame.height, floatStored(size.height), name)
     }
 
     func testHitTargetsFollowTheVitreusGeometry() throws {
         let widget = try VitreusFixture.desk(shell())
         let (du, cx, top) = (Self.du, Self.cx, Self.envelope.minY)
-        XCTAssertEqual(try VitreusFixture.frame(widget, key: "desk").origin.x, Self.envelope.minX, accuracy: 0.01)
-        XCTAssertEqual(try VitreusFixture.frame(widget, key: "desk").origin.y, top, accuracy: 0.01)
+        XCTAssertEqual(try VitreusFixture.frame(widget, key: "desk").origin.x, floatStored(Self.envelope.minX))
+        XCTAssertEqual(try VitreusFixture.frame(widget, key: "desk").origin.y, floatStored(top))
         try assertFrame(widget, "grip", x: cx, y: top + 11 * du, size: CGSize(width: 294 * du, height: 22 * du))
         let grip = try VitreusFixture.element(widget, key: "grip")
         let layout = widget.surface.layout
         XCTAssertEqual(layout.core.content(of: grip).hoverOpacity, 1)
         XCTAssertEqual(layout.core.content(of: grip).gesture.axis, .free)
-        XCTAssertEqual(Double(layout.core.paint(of: grip).opacity), 0.2 / 0.55, accuracy: 0.001)
+        XCTAssertEqual(Double(layout.core.paint(of: grip).opacity), floatStored(0.2 / 0.55))
         let tab = CGSize(width: 134 * du, height: 34 * du)
         try assertFrame(
             widget,

@@ -13,18 +13,18 @@ final class NiriEdgeGapsTests: XCTestCase {
     func testEdgeGapsSurroundColumnsByDefault() throws {
         let frames = try layoutTwoColumns(edgeGaps: nil)
 
-        XCTAssertEqual(frames[1].maxX - frames[0].minX, workingFrame.width - 20, accuracy: 0.5)
-        XCTAssertEqual(frames[0].minY, workingFrame.minY + 10, accuracy: 0.5)
-        XCTAssertEqual(frames[0].maxY, workingFrame.maxY - 10, accuracy: 0.5)
+        XCTAssertEqual(frames[1].maxX - frames[0].minX, workingFrame.width - 20)
+        XCTAssertEqual(frames[0].minY, workingFrame.minY + 10)
+        XCTAssertEqual(frames[0].maxY, workingFrame.maxY - 10)
     }
 
     func testDisabledEdgeGapsKeepInnerGapOnlyBetweenColumns() throws {
         let frames = try layoutTwoColumns(edgeGaps: false)
 
-        XCTAssertEqual(frames[1].maxX - frames[0].minX, workingFrame.width, accuracy: 0.5)
-        XCTAssertEqual(frames[0].minY, workingFrame.minY, accuracy: 0.5)
-        XCTAssertEqual(frames[0].maxY, workingFrame.maxY, accuracy: 0.5)
-        XCTAssertEqual(frames[1].minX - frames[0].maxX, 10, accuracy: 0.5)
+        XCTAssertEqual(frames[1].maxX - frames[0].minX, workingFrame.width)
+        XCTAssertEqual(frames[0].minY, workingFrame.minY)
+        XCTAssertEqual(frames[0].maxY, workingFrame.maxY)
+        XCTAssertEqual(frames[1].minX - frames[0].maxX, 10)
     }
 
     func testDisabledEdgeGapsKeepInnerGapOnlyBetweenStackedWindows() throws {
@@ -59,9 +59,9 @@ final class NiriEdgeGapsTests: XCTestCase {
         let top = try XCTUnwrap(frames.max { $0.maxY < $1.maxY })
         let bottom = try XCTUnwrap(frames.min { $0.minY < $1.minY })
 
-        XCTAssertEqual(top.maxY, workingFrame.maxY, accuracy: 0.5)
-        XCTAssertEqual(bottom.minY, workingFrame.minY, accuracy: 0.5)
-        XCTAssertEqual(top.minY - bottom.maxY, 10, accuracy: 0.5)
+        XCTAssertEqual(top.maxY, workingFrame.maxY)
+        XCTAssertEqual(bottom.minY, workingFrame.minY)
+        XCTAssertEqual(top.minY - bottom.maxY, 10)
     }
 
     func testTogglingEdgeGapsResizesLaidOutColumns() throws {
@@ -77,8 +77,8 @@ final class NiriEdgeGapsTests: XCTestCase {
         controller.updateMonitorGapSettings()
         let frames = try layout(workspaceId, controller: controller, tokens: tokens).sorted { $0.minX < $1.minX }
 
-        XCTAssertEqual(frames[1].maxX - frames[0].minX, workingFrame.width, accuracy: 0.5)
-        XCTAssertEqual(frames[1].minX - frames[0].maxX, 10, accuracy: 0.5)
+        XCTAssertEqual(frames[1].maxX - frames[0].minX, workingFrame.width)
+        XCTAssertEqual(frames[1].minX - frames[0].maxX, 10)
     }
 
     func testChangingGlobalInnerGapResizesLaidOutColumns() throws {
@@ -94,8 +94,8 @@ final class NiriEdgeGapsTests: XCTestCase {
         controller.setGapSize(20)
         let frames = try layout(workspaceId, controller: controller, tokens: tokens).sorted { $0.minX < $1.minX }
 
-        XCTAssertEqual(frames[1].maxX - frames[0].minX, workingFrame.width, accuracy: 0.5)
-        XCTAssertEqual(frames[1].minX - frames[0].maxX, 20, accuracy: 0.5)
+        XCTAssertEqual(frames[1].maxX - frames[0].minX, workingFrame.width)
+        XCTAssertEqual(frames[1].minX - frames[0].maxX, 20)
     }
 
     func testDisabledEdgeGapsKeepCustomSingleWindowInsideWorkingFrame() throws {

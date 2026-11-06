@@ -45,7 +45,7 @@ final class NiriColumnMinWidthTests: XCTestCase {
                 orientation: .horizontal
             )
         )
-        XCTAssertEqual(column.cachedWidth, 800, accuracy: 0.001)
+        XCTAssertEqual(column.cachedWidth, 800)
     }
 
     func testSetContainerPrimarySpanBelowMinSettlesAtMin() {
@@ -71,7 +71,7 @@ final class NiriColumnMinWidthTests: XCTestCase {
             state: &state
         )
 
-        XCTAssertEqual(column.cachedWidth, 800, accuracy: 0.001)
+        XCTAssertEqual(column.cachedWidth, 800)
     }
 
     func testTabbedFixedPrimarySpanUsesOuterContainerPixels() throws {
@@ -125,8 +125,8 @@ final class NiriColumnMinWidthTests: XCTestCase {
         )
 
         XCTAssertEqual(column.width, .fixed(500))
-        XCTAssertEqual(column.cachedWidth, 500, accuracy: 0.001)
-        XCTAssertEqual(frame.width, 470, accuracy: 0.001)
+        XCTAssertEqual(column.cachedWidth, 500)
+        XCTAssertEqual(frame.width, 470)
     }
 
     func testTabbedFixedPrimarySpanPresetsCycleByOuterContainerPixels() {
@@ -154,7 +154,7 @@ final class NiriColumnMinWidthTests: XCTestCase {
         )
 
         XCTAssertEqual(column.width, .fixed(520))
-        XCTAssertEqual(column.cachedWidth, 520, accuracy: 0.001)
+        XCTAssertEqual(column.cachedWidth, 520)
         XCTAssertEqual(column.presetWidthIdx, 1)
     }
 
@@ -197,8 +197,8 @@ final class NiriColumnMinWidthTests: XCTestCase {
             )[token]
         )
 
-        XCTAssertEqual(column.cachedWidth, 430, accuracy: 0.001)
-        XCTAssertEqual(frame.width, 400, accuracy: 0.001)
+        XCTAssertEqual(column.cachedWidth, 430)
+        XCTAssertEqual(frame.width, 400)
 
         engine.setContainerPrimarySpan(
             column,
@@ -222,8 +222,8 @@ final class NiriColumnMinWidthTests: XCTestCase {
             )[token]
         )
 
-        XCTAssertEqual(column.cachedWidth, 630, accuracy: 0.001)
-        XCTAssertEqual(frame.width, 600, accuracy: 0.001)
+        XCTAssertEqual(column.cachedWidth, 630)
+        XCTAssertEqual(frame.width, 600)
     }
 
     func testEnteringTabbedModeReclampsCachedOuterWidth() {
@@ -248,7 +248,7 @@ final class NiriColumnMinWidthTests: XCTestCase {
             )
         )
 
-        XCTAssertEqual(column.cachedWidth, 430, accuracy: 0.001)
+        XCTAssertEqual(column.cachedWidth, 430)
     }
 
     func testTabbedConstraintArrivalReclampsOuterWidth() {
@@ -264,7 +264,7 @@ final class NiriColumnMinWidthTests: XCTestCase {
             motion: .enabled
         )
 
-        XCTAssertEqual(column.cachedWidth, 630, accuracy: 0.001)
+        XCTAssertEqual(column.cachedWidth, 630)
     }
 
     func testOversizedMinWidthIsKeptBeyondWorkArea() {
@@ -278,7 +278,7 @@ final class NiriColumnMinWidthTests: XCTestCase {
 
         column.resolveAndCacheWidth(workingAreaWidth: workingFrame.width, gaps: gaps)
 
-        XCTAssertEqual(column.cachedWidth, 2000, accuracy: 0.001)
+        XCTAssertEqual(column.cachedWidth, 2000)
     }
 
     func testToggleFullWidthRestoreRespectsMin() {
@@ -315,7 +315,7 @@ final class NiriColumnMinWidthTests: XCTestCase {
             ),
             state: &state
         )
-        XCTAssertEqual(column.cachedWidth, 800, accuracy: 0.001)
+        XCTAssertEqual(column.cachedWidth, 800)
     }
 
     func testConstraintArrivalRetargetsActiveAnimationWithoutSnapping() {
@@ -340,10 +340,10 @@ final class NiriColumnMinWidthTests: XCTestCase {
         )
 
         XCTAssertEqual(column.targetWidth, 800)
-        XCTAssertEqual(column.cachedWidth, widthBeforeConstraint, accuracy: 0.001)
+        XCTAssertEqual(column.cachedWidth, widthBeforeConstraint)
 
         _ = column.tickWidthAnimation(at: CACurrentMediaTime() + 30)
-        XCTAssertEqual(column.cachedWidth, 800, accuracy: 0.001)
+        XCTAssertEqual(column.cachedWidth, 800)
     }
 
     func testConstraintArrivalWithoutAnimationReclampsImmediately() {
@@ -359,7 +359,7 @@ final class NiriColumnMinWidthTests: XCTestCase {
         )
 
         XCTAssertNil(column.targetWidth)
-        XCTAssertEqual(column.cachedWidth, 800, accuracy: 0.001)
+        XCTAssertEqual(column.cachedWidth, 800)
     }
 
     func testConstraintArrivalWithAnimationsDisabledSnapsActiveAnimation() {
@@ -383,7 +383,7 @@ final class NiriColumnMinWidthTests: XCTestCase {
 
         XCTAssertNil(column.targetWidth)
         XCTAssertNil(column.widthAnimation)
-        XCTAssertEqual(column.cachedWidth, 800, accuracy: 0.001)
+        XCTAssertEqual(column.cachedWidth, 800)
     }
 
     func testTickFloorPreventsUndershootBelowMinClampedTarget() {
@@ -427,6 +427,6 @@ final class NiriColumnMinWidthTests: XCTestCase {
             motion: .enabled
         )
 
-        XCTAssertEqual(column.cachedHeight, 700, accuracy: 0.001)
+        XCTAssertEqual(column.cachedHeight, 700)
     }
 }

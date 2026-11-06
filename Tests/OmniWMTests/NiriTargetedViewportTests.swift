@@ -271,8 +271,8 @@ final class NiriTargetedViewportTests: XCTestCase {
 
         for offset in [0.016, 0.05, 0.1, 0.2] {
             let frame = try XCTUnwrap(fixture.focusedFrame(animationTime: start + offset))
-            XCTAssertEqual(frame.minX, before.minX, accuracy: 0.5, "t+\(offset)")
-            XCTAssertEqual(frame.width, before.width, accuracy: 0.5, "t+\(offset)")
+            XCTAssertEqual(frame.minX, before.minX, "t+\(offset)")
+            XCTAssertEqual(frame.width, before.width, "t+\(offset)")
         }
         XCTAssertEqual(try XCTUnwrap(fixture.focusedFrame(animationTime: start + 5)), before)
     }

@@ -79,7 +79,7 @@ final class ShellBoundTrackMathTests: XCTestCase {
             case .bottom: -velocity.y - velocity.width * layout.height / layout.width
             }
             XCTAssertEqual(prior.state(at: time).velocity, derivative / recipe.span, accuracy: 1e-11)
-            XCTAssertEqual(next.progress, prior.state(at: time).progress, accuracy: 1e-11)
+            XCTAssertEqual(next.progress, prior.state(at: time).progress)
             XCTAssertEqual(next.velocity, prior.state(at: time).velocity, accuracy: 1e-11)
             XCTAssertEqual(next.begin, time)
             XCTAssertEqual(next.duration, reversed.duration)
@@ -171,10 +171,10 @@ final class ShellBoundTrackMathTests: XCTestCase {
             slot: 1, kind: 0, rect: CGRect(x: -46, y: -56, width: 652, height: 452), radius: 10, thickness: 0
         )
         let placed = bound.place(raw, progress: bound.state(at: 0).progress, at: 0)
-        XCTAssertEqual(bound.state(at: 0).progress, 0.08, accuracy: 1e-12)
+        XCTAssertEqual(bound.state(at: 0).progress, 0.08)
         XCTAssertEqual(placed.rect.minX, -40.88, accuracy: 1e-12)
-        XCTAssertEqual(placed.rect.maxX, 565.232, accuracy: 1e-12)
-        XCTAssertEqual(placed.rect.minY, -54.976, accuracy: 1e-12)
+        XCTAssertEqual(placed.rect.maxX, 565.232)
+        XCTAssertEqual(placed.rect.minY, -54.976)
         XCTAssertEqual(placed.rect.maxY, 374.9568, accuracy: 1e-12)
         XCTAssertEqual(placed.radius, 8)
     }

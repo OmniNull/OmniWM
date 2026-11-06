@@ -77,10 +77,10 @@ final class OverviewCanonicalGeometryTests: XCTestCase {
             let last = try XCTUnwrap(stack.tiles.last?.stripFrame)
             switch orientation {
             case .horizontal:
-                XCTAssertEqual(first.minY - last.maxY, 12, accuracy: 0.001)
+                XCTAssertEqual(first.minY - last.maxY, 12)
                 XCTAssertEqual(first.width, last.width)
             case .vertical:
-                XCTAssertEqual(first.minX - last.maxX, 12, accuracy: 0.001)
+                XCTAssertEqual(first.minX - last.maxX, 12)
                 XCTAssertEqual(first.height, last.height)
             }
         }
@@ -129,8 +129,7 @@ final class OverviewCanonicalGeometryTests: XCTestCase {
             let tileFrame = try XCTUnwrap(tabbed.tiles.first?.stripFrame)
             XCTAssertEqual(
                 tileFrame.minX - columnFrame.minX,
-                fixture.engine.renderStyle.tabIndicatorWidth + (orientation == .vertical ? 12 : 0),
-                accuracy: 0.001
+                fixture.engine.renderStyle.tabIndicatorWidth + (orientation == .vertical ? 12 : 0)
             )
             try assertMatchesCanonicalSolver(snapshot, fixture: fixture)
         }

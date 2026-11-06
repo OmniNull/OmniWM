@@ -95,9 +95,9 @@ extension ShellGlassSceneTests {
         for layer in layers {
             let spring = try XCTUnwrap(layer.animation(forKey: channel.key) as? CASpringAnimation, channel.key)
             XCTAssertEqual(spring.keyPath, channel.keyPath)
-            XCTAssertEqual(spring.stiffness, expected.stiffness, accuracy: 1e-9)
-            XCTAssertEqual(spring.damping, expected.damping, accuracy: 1e-9)
-            XCTAssertEqual(spring.mass, expected.mass, accuracy: 1e-9)
+            XCTAssertEqual(spring.stiffness, expected.stiffness)
+            XCTAssertEqual(spring.damping, expected.damping)
+            XCTAssertEqual(spring.mass, expected.mass)
             begins.insert(spring.beginTime)
         }
         return begins
@@ -217,7 +217,7 @@ extension ShellGlassSceneTests {
             for (edge, expected) in zip(samples[0][0] + samples[6][0], [16.0, 80, 6, 90]) {
                 XCTAssertEqual(edge, expected, accuracy: 0.5)
             }
-            XCTAssertEqual(samples[3][0][0], samples[2][0][0], accuracy: 0.5)
+            XCTAssertEqual(samples[3][0][0], samples[2][0][0])
             XCTAssertTrue((16.5 ... 25.5).contains(samples[2][0][0]), "\(samples[2])")
         }
     }

@@ -190,8 +190,8 @@ final class ShellVitreusVisualiserTests: XCTestCase {
         try ShellLayerScene.engineQueue.sync {
             let scene = widget.surface.scene
             let binding = try XCTUnwrap(scene.spectrum.bindings[element.slot])
-            XCTAssertEqual(binding.recipe.spring.response, 0.276, accuracy: 0.0001)
-            XCTAssertEqual(binding.recipe.spring.bounce, 0.43, accuracy: 0.0001)
+            XCTAssertEqual(binding.recipe.spring.response, 0.276)
+            XCTAssertEqual(binding.recipe.spring.bounce, 0.43)
             let body = try XCTUnwrap(scene.glassBodies[binding.body ?? -1])
             let native = try XCTUnwrap(body.elements[1][.init(slot: element.slot, part: 0)])
             let animation = try XCTUnwrap(native

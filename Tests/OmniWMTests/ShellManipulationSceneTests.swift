@@ -162,13 +162,13 @@ final class ShellManipulationSceneTests: XCTestCase {
             (layer.transform, layer.convertTime(begin, from: nil), layer.position, layer.bounds)
         }
         for (animation, channel) in zip(animations, [channels.x, channels.y, channels.scale]) {
-            XCTAssertEqual(animation.mass, 1, accuracy: 1e-9)
+            XCTAssertEqual(animation.mass, 1)
             XCTAssertEqual(animation.stiffness, 300, accuracy: 1.5)
             XCTAssertEqual(animation.damping, 20, accuracy: 0.2)
             XCTAssertEqual(try XCTUnwrap(animation.fromValue as? Double), channel.from)
             XCTAssertEqual(try XCTUnwrap(animation.toValue as? Double), channel.to)
             XCTAssertNotEqual(channel.velocity, 0)
-            XCTAssertEqual(animation.initialVelocity, channel.velocity / (channel.to - channel.from), accuracy: 1e-9)
+            XCTAssertEqual(animation.initialVelocity, channel.velocity / (channel.to - channel.from))
             XCTAssertEqual(animation.beginTime, model.1)
             XCTAssertEqual(animation.duration, motion.duration)
             XCTAssertNil(animation.delegate)
@@ -327,7 +327,7 @@ extension ShellManipulationSceneTests {
         func assertPixel(_ expected: [Int], at time: CFTimeInterval) throws {
             let bytes = try ShellLayerScene.engineQueue.sync { try renderer.render(paused: time) }
             for (channel, value) in expected.enumerated() {
-                XCTAssertEqual(Int(bytes[pixel + channel]), value, accuracy: 2)
+                XCTAssertEqual(Int(bytes[pixel + channel]), value)
             }
             XCTAssertEqual(bytes[pixel + 3], 255)
         }

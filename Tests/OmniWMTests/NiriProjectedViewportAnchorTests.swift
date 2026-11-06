@@ -75,11 +75,10 @@ final class NiriProjectedViewportAnchorTests: XCTestCase {
         )
 
         XCTAssertEqual(state.activeColumnIndex, 0)
-        XCTAssertEqual(state.viewOffset, -gap, accuracy: 0.001)
+        XCTAssertEqual(state.viewOffset, -gap)
         XCTAssertEqual(
             viewOrigin(engine: engine, workspaceId: workspaceId, state: state, gap: gap),
-            settledOrigin,
-            accuracy: 0.001
+            settledOrigin
         )
         let focusedFrames = frames(engine: engine, workspaceId: workspaceId, state: state, gap: gap)
         XCTAssertEqual(focusedFrames[tokens[0]], settledFrames[tokens[0]])

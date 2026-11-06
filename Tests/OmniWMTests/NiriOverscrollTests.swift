@@ -38,7 +38,7 @@ final class NiriOverscrollTests: XCTestCase {
                         let expected = projected < 0
                             ? CGFloat(percent) + 10 - 300
                             : 420 - CGFloat(percent) * 2 - 10
-                        XCTAssertEqual(position, expected, accuracy: 0.001)
+                        XCTAssertEqual(position, expected)
                         XCTAssertEqual(state.activeColumnIndex, projected < 0 ? 0 : 2)
                     }
                 }
@@ -60,7 +60,7 @@ final class NiriOverscrollTests: XCTestCase {
                         ),
                         motion: .disabled, centerMode: centerMode, alwaysCenterSingleColumn: true
                     )
-                    XCTAssertEqual(state.viewOffset, projected < 0 ? -285 : 85, accuracy: 0.001)
+                    XCTAssertEqual(state.viewOffset, projected < 0 ? -285 : 85)
                 }
             }
         }

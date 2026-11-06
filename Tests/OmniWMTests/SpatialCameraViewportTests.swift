@@ -26,8 +26,8 @@ final class SpatialCameraViewportTests: XCTestCase {
         viewport.updateMagnify(delta: -0.5)
 
         let projectedAnchor = viewport.current.project(point: anchor)
-        XCTAssertEqual(projectedAnchor.x, anchor.x, accuracy: 0.001)
-        XCTAssertEqual(projectedAnchor.y, anchor.y, accuracy: 0.001)
+        XCTAssertEqual(projectedAnchor.x, anchor.x)
+        XCTAssertEqual(projectedAnchor.y, anchor.y)
     }
 
     func testPanTranslatesProjectedPoints() {
@@ -37,8 +37,8 @@ final class SpatialCameraViewportTests: XCTestCase {
 
         let point = CGPoint(x: 100, y: 100)
         let projected = viewport.current.project(point: point)
-        XCTAssertEqual(projected.x, 150, accuracy: 0.001)
-        XCTAssertEqual(projected.y, 70, accuracy: 0.001)
+        XCTAssertEqual(projected.x, 150)
+        XCTAssertEqual(projected.y, 70)
     }
 
     func testUnprojectInvertsProjectedPoint() {
@@ -51,7 +51,7 @@ final class SpatialCameraViewportTests: XCTestCase {
         let projected = viewport.current.project(point: original)
         let unprojected = viewport.current.unproject(point: projected)
 
-        XCTAssertEqual(unprojected.x, original.x, accuracy: 0.001)
+        XCTAssertEqual(unprojected.x, original.x)
         XCTAssertEqual(unprojected.y, original.y, accuracy: 0.001)
     }
 
@@ -61,7 +61,7 @@ final class SpatialCameraViewportTests: XCTestCase {
         viewport.updateTouchSpan(distance: 200, center: CGPoint(x: 200, y: 200))
         viewport.updateTouchSpan(distance: 100, center: CGPoint(x: 200, y: 200))
 
-        XCTAssertEqual(viewport.current.scale, 0.5, accuracy: 0.01)
+        XCTAssertEqual(viewport.current.scale, 0.5)
     }
 
     func testRubberBandingBelowMinScale() {
@@ -115,13 +115,13 @@ final class SpatialCameraViewportTests: XCTestCase {
 
         viewport.updateMagnify(delta: 0, anchor: CGPoint(x: 400, y: 300))
         let afterMagnify = viewport.current.project(point: point)
-        XCTAssertEqual(afterMagnify.x, before.x, accuracy: 0.001)
-        XCTAssertEqual(afterMagnify.y, before.y, accuracy: 0.001)
+        XCTAssertEqual(afterMagnify.x, before.x)
+        XCTAssertEqual(afterMagnify.y, before.y)
 
         viewport.updateTouchSpan(distance: 120, center: CGPoint(x: 900, y: 100))
         let afterSpan = viewport.current.project(point: point)
-        XCTAssertEqual(afterSpan.x, before.x, accuracy: 0.001)
-        XCTAssertEqual(afterSpan.y, before.y, accuracy: 0.001)
+        XCTAssertEqual(afterSpan.x, before.x)
+        XCTAssertEqual(afterSpan.y, before.y)
     }
 
     func testZeroMagnifyKeepsRubberBandedScale() {
@@ -131,7 +131,7 @@ final class SpatialCameraViewportTests: XCTestCase {
         let banded = viewport.current.scale
 
         viewport.updateMagnify(delta: 0)
-        XCTAssertEqual(viewport.current.scale, banded, accuracy: 0.0001)
+        XCTAssertEqual(viewport.current.scale, banded)
 
         viewport.updateMagnify(delta: 19)
         XCTAssertEqual(viewport.current.scale, 1.0, accuracy: 0.0001)
@@ -147,7 +147,7 @@ final class SpatialCameraViewportTests: XCTestCase {
         XCTAssertTrue(viewport.current.scale.isFinite)
 
         viewport.updateMagnify(delta: 99)
-        XCTAssertEqual(viewport.current.scale, 1.0, accuracy: 0.0001)
+        XCTAssertEqual(viewport.current.scale, 1.0)
     }
 
     func testNegativeTouchSpanKeepsScalePositive() {

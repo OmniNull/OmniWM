@@ -110,7 +110,7 @@ final class ShellTextMeasureTests: XCTestCase {
         let store = measurement.store
         XCTAssertEqual(node.content.style & OMNI_STYLE_FONT_MASK, 0)
         XCTAssertEqual(result, store.measureMiss(node.content.text, style: node.content.style))
-        XCTAssertEqual(CTFontGetSize(store.font(node.content.style)), 13.13, accuracy: 0.0001)
+        XCTAssertEqual(CTFontGetSize(store.font(node.content.style)), floatStored(13.13))
     }
 
     func testEmptyTextMatchesLayout() throws {

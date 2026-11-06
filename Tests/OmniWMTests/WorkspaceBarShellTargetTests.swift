@@ -90,15 +90,15 @@ final class WorkspaceBarShellTargetTests: XCTestCase {
             border: ShellThemeColor("border", theme: theme),
             transparent: true
         )
-        XCTAssertEqual(plain.center.alphaComponent, 0, accuracy: 0.02)
-        XCTAssertEqual(plain.edge.alphaComponent, 0, accuracy: 0.02)
+        XCTAssertEqual(plain.center.alphaComponent, 0)
+        XCTAssertEqual(plain.edge.alphaComponent, 0)
 
         let faded = try renderedBar(
             fill: ShellThemeColor("surface/0.5", theme: theme),
             border: nil,
             opacity: 0.4
         )
-        XCTAssertEqual(faded.center.alphaComponent, 0.2, accuracy: 0.02)
+        XCTAssertEqual(faded.center.alphaComponent, 0.2)
         XCTAssertGreaterThan(faded.center.redComponent - faded.center.blueComponent, 0.7)
 
         let black = try renderedBar(
@@ -109,10 +109,10 @@ final class WorkspaceBarShellTargetTests: XCTestCase {
             solidBlack: true
         )
         for color in [black.center, black.edge] {
-            XCTAssertEqual(color.redComponent, 0, accuracy: 0.02)
-            XCTAssertEqual(color.greenComponent, 0, accuracy: 0.02)
-            XCTAssertEqual(color.blueComponent, 0, accuracy: 0.02)
-            XCTAssertEqual(color.alphaComponent, 1, accuracy: 0.02)
+            XCTAssertEqual(color.redComponent, 0)
+            XCTAssertEqual(color.greenComponent, 0)
+            XCTAssertEqual(color.blueComponent, 0)
+            XCTAssertEqual(color.alphaComponent, 1)
         }
     }
 

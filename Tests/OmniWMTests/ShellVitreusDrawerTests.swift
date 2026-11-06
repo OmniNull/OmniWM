@@ -152,8 +152,8 @@ extension ShellVitreusDrawerTests {
             XCTAssertEqual(stop.width, 1 - 0.07 * 4 * clamped * (1 - clamped), accuracy: 0.00001)
             XCTAssertEqual(stop.round, min(1, max(0, 1.6 * progress - 0.1)), accuracy: 0.00001)
         }
-        XCTAssertEqual(frame.width, 450 * 1.5525, accuracy: 0.001)
-        XCTAssertEqual(frame.height, 20 * 1.35 + 373 * 1.5525, accuracy: 0.001)
+        XCTAssertEqual(frame.width, 450 * 1.5525)
+        XCTAssertEqual(frame.height, floatStored(20 * 1.35 + 373 * 1.5525))
         let landing = recipe.impulses.filter(\.rising)
         XCTAssertEqual(landing.count, 2)
         XCTAssertTrue(landing.allSatisfy { $0.time == 0.97 && $0.kind == .at })
@@ -176,7 +176,7 @@ extension ShellVitreusDrawerTests {
         let fixture = try fixture()
         trigger(fixture, "drawer-calendar")
         let recipe = try morph(fixture, "drawer-clip")
-        XCTAssertEqual(recipe.stops.first?.dy ?? 0, -125 * 1.5525, accuracy: 0.001)
+        XCTAssertEqual(recipe.stops.first?.dy ?? 0, -125 * 1.5525)
         XCTAssertEqual(recipe.stops.first?.scale, 0.05)
         XCTAssertEqual(recipe.stop(at: 1).dy, 0)
         let names = [
@@ -199,8 +199,8 @@ extension ShellVitreusDrawerTests {
             )
             XCTAssertEqual(actual.minX, rect.minX * 1.5525, accuracy: 0.001)
             XCTAssertEqual(actual.minY, rect.minY * 1.5525, accuracy: 0.001)
-            XCTAssertEqual(actual.width, rect.width * 1.5525, accuracy: 0.001)
-            XCTAssertEqual(actual.height, rect.height * 1.5525, accuracy: 0.001)
+            XCTAssertEqual(actual.width, floatStored(rect.width * 1.5525))
+            XCTAssertEqual(actual.height, floatStored(rect.height * 1.5525))
         }
         XCTAssertTrue(fixture.widget.strings().contains("October 2026"))
         XCTAssertTrue(fixture.widget.strings().contains("Call mom"))
@@ -211,7 +211,7 @@ extension ShellVitreusDrawerTests {
             let paint = fixture.widget.surface.layout.core.paint(of: try handle(fixture, name))
             let presence = try XCTUnwrap(ShellPresenceRecipe(fixture.widget.text.string(paint.appear)))
             XCTAssertEqual(presence.delay, delay)
-            XCTAssertEqual(presence.offset.y, 12 * 1.5525, accuracy: 0.001)
+            XCTAssertEqual(presence.offset.y, 12 * 1.5525)
             XCTAssertNotEqual(paint.exit, 0)
         }
     }
@@ -261,7 +261,7 @@ extension ShellVitreusDrawerTests {
         XCTAssertFalse(try morph(fixture, "drawer").impulses.contains(where: \.rising))
         XCTAssertTrue(try morph(fixture, "drawer-clip").stops.allSatisfy { $0.dy == 0 })
         let entry = try track(fixture)
-        XCTAssertEqual(entry.plan?.progress ?? -1, 1, accuracy: 0.002)
+        XCTAssertEqual(entry.plan?.progress ?? -1, 1)
         XCTAssertFalse(entry.impulses.contains { $0.velocity == 90 })
         trigger(fixture, "drawer-close")
         let retired = try ShellLayerScene.engineQueue.sync {
@@ -401,8 +401,8 @@ extension ShellVitreusDrawerTests {
         let pixels = try ShellLayerScene.engineQueue.sync {
             let part = try XCTUnwrap(body.lockstepLayers(entry.base.target.slot).first)
             let animation = try XCTUnwrap(part.animation(forKey: "omni.glass.bounds"))
-            XCTAssertEqual(animation.beginTime, entry.begin, accuracy: 1e-9)
-            XCTAssertEqual(animation.duration, entry.duration, accuracy: 1e-9)
+            XCTAssertEqual(animation.beginTime, entry.begin)
+            XCTAssertEqual(animation.duration, entry.duration)
             return try renderer.render(paused: fixture.clock.time)
         }
         let cropped = crop(pixels, width: Int(size.width))
@@ -410,7 +410,7 @@ extension ShellVitreusDrawerTests {
         let actual = try bounds(cropped, width: 800).offsetBy(dx: 560, dy: 0)
         let expected = pill.union(entry.shape(at: entry.begin + 0.084).rect)
         XCTAssertEqual(actual.minX, expected.minX, accuracy: 1)
-        XCTAssertEqual(actual.minY, expected.minY, accuracy: 1)
+        XCTAssertEqual(actual.minY, expected.minY)
         XCTAssertEqual(actual.maxX, expected.maxX, accuracy: 1)
         XCTAssertEqual(actual.maxY, expected.maxY, accuracy: 1)
         advance(fixture, by: 2)

@@ -393,8 +393,8 @@ final class GapSettingsTests: XCTestCase {
             try XCTUnwrap(rightPlan.diff.frameChanges.first { $0.token == token }?.frame)
         }
 
-        XCTAssertEqual(separation(between: leftFrames[0], and: leftFrames[1]), 4, accuracy: 0.5)
-        XCTAssertEqual(separation(between: rightFrames[0], and: rightFrames[1]), 24, accuracy: 0.5)
+        XCTAssertEqual(separation(between: leftFrames[0], and: leftFrames[1]), 4)
+        XCTAssertEqual(separation(between: rightFrames[0], and: rightFrames[1]), 24)
     }
 
     @MainActor

@@ -80,7 +80,7 @@ extension ShellVitreusSectionCardTests {
         windows.shelfOpen = false
         windows.show(fixture)
         XCTAssertTrue(windows.has(fixture, "media-card-glass"))
-        XCTAssertEqual(try windows.frame(fixture, "media-card").width, home.width, accuracy: 0.01)
+        XCTAssertEqual(try windows.frame(fixture, "media-card").width, home.width)
         windows.trigger(fixture, "drawer-player")
         ShellVitreusMediaCardTests.assertRect(try windows.frame(fixture, "media-card"), home)
     }
@@ -113,8 +113,8 @@ extension ShellVitreusSectionCardTests {
         XCTAssertTrue(widget.strings().contains("Do not lose this when the shelf closes"))
         let target = try VitreusFixture.element(widget, key: "drawer-content-page-pad")
         try moveCard(fixture, id: "page-pad", to: CGPoint(x: 50, y: 650))
-        XCTAssertEqual(try windows.frame(fixture, "drawer-content-page-pad").width, 340 * 1.5525, accuracy: 0.01)
-        XCTAssertEqual(try windows.frame(fixture, "drawer-content-page-pad").height, 360 * 1.5525, accuracy: 0.01)
+        XCTAssertEqual(try windows.frame(fixture, "drawer-content-page-pad").width, floatStored(340 * 1.5525))
+        XCTAssertEqual(try windows.frame(fixture, "drawer-content-page-pad").height, floatStored(360 * 1.5525))
         XCTAssertEqual(try VitreusFixture.element(widget, key: "drawer-content-page-pad"), target)
         XCTAssertTrue(widget.strings().contains("Do not lose this when the shelf closes"))
     }

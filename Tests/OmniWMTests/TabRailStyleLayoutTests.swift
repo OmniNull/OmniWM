@@ -132,9 +132,9 @@ final class TabRailStyleLayoutTests: XCTestCase {
             let iconColumnFrame = try XCTUnwrap(column.frame)
 
             XCTAssertEqual(iconColumnFrame, compactColumnFrame)
-            XCTAssertEqual(iconFrame.minX - compactFrame.minX, 18, accuracy: 0.001)
-            XCTAssertEqual(compactFrame.width - iconFrame.width, 18, accuracy: 0.001)
-            XCTAssertEqual(iconFrame.height, compactFrame.height, accuracy: 0.001)
+            XCTAssertEqual(iconFrame.minX - compactFrame.minX, 18)
+            XCTAssertEqual(compactFrame.width - iconFrame.width, 18)
+            XCTAssertEqual(iconFrame.height, compactFrame.height)
 
             engine.setProjectionExclusions([otherWindow.token], in: workspace)
             let singletonFrame =

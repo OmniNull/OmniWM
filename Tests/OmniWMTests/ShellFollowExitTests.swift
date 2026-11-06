@@ -224,11 +224,11 @@ final class ShellFollowExitTests: XCTestCase {
             )
         )
         let fixed = follow.shape(shape, origin: shape.rect.origin, at: .infinity)
-        XCTAssertEqual(fixed.rect.width, 160, accuracy: 1e-9)
-        XCTAssertEqual(fixed.radius, 10, accuracy: 1e-9)
+        XCTAssertEqual(fixed.rect.width, 160)
+        XCTAssertEqual(fixed.radius, 10)
         follow.radius = .scaled
         let scaled = follow.shape(shape, origin: shape.rect.origin, at: .infinity)
         XCTAssertEqual(scaled.rect, fixed.rect)
-        XCTAssertEqual(scaled.radius, 16, accuracy: 1e-9)
+        XCTAssertEqual(scaled.radius, 16)
     }
 }

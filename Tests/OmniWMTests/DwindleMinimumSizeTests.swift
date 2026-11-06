@@ -39,8 +39,8 @@ final class DwindleMinimumSizeTests: XCTestCase {
         let (engine, ws, first, second) = makeTwoWindowEngine(firstMinWidth: 600)
         let frames = engine.calculateLayout(for: ws, screen: screen)
 
-        XCTAssertEqual(frames[first]?.width ?? 0, 600, accuracy: 0.5)
-        XCTAssertEqual(frames[second]?.width ?? 0, 392, accuracy: 0.5)
+        XCTAssertEqual(frames[first]?.width ?? 0, 600)
+        XCTAssertEqual(frames[second]?.width ?? 0, 392)
     }
 
     func testResizeCommandStopsAtMinFeasibleBoundary() {
@@ -52,11 +52,11 @@ final class DwindleMinimumSizeTests: XCTestCase {
             changed = engine.resizeFocusedWindow(by: 0.1, in: ws)
         }
 
-        XCTAssertEqual(engine.root(for: ws)?.splitRatio ?? 0, 1.392, accuracy: 1e-6)
+        XCTAssertEqual(engine.root(for: ws)?.splitRatio ?? 0, 1.392)
         XCTAssertFalse(engine.resizeFocusedWindow(by: 0.1, in: ws))
 
         let frames = engine.calculateLayout(for: ws, screen: screen)
-        XCTAssertEqual(frames[second]?.width ?? 0, 300, accuracy: 0.5)
+        XCTAssertEqual(frames[second]?.width ?? 0, 300)
     }
 
     func testInteractiveDragStopsAtMinWithoutPhantomTravel() {
@@ -73,13 +73,13 @@ final class DwindleMinimumSizeTests: XCTestCase {
             )
         )
         XCTAssertTrue(engine.interactiveResizeUpdate(currentLocation: CGPoint(x: start.x + 5000, y: start.y)))
-        XCTAssertEqual(engine.root(for: ws)?.splitRatio ?? 0, 1.392, accuracy: 1e-6)
+        XCTAssertEqual(engine.root(for: ws)?.splitRatio ?? 0, 1.392)
 
         let frames = engine.calculateLayout(for: ws, screen: screen)
-        XCTAssertEqual(frames[second]?.width ?? 0, 300, accuracy: 0.5)
+        XCTAssertEqual(frames[second]?.width ?? 0, 300)
 
         XCTAssertTrue(engine.interactiveResizeUpdate(currentLocation: CGPoint(x: start.x + 100, y: start.y)))
-        XCTAssertEqual(engine.root(for: ws)?.splitRatio ?? 0, 1.2, accuracy: 1e-6)
+        XCTAssertEqual(engine.root(for: ws)?.splitRatio ?? 0, 1.2)
         XCTAssertTrue(engine.interactiveResizeEnd())
     }
 
@@ -99,7 +99,7 @@ final class DwindleMinimumSizeTests: XCTestCase {
         engine.settings.innerGap = 24
 
         XCTAssertTrue(engine.interactiveResizeUpdate(currentLocation: CGPoint(x: start.x + 5000, y: start.y)))
-        XCTAssertEqual(engine.root(for: ws)?.splitRatio ?? 0, 1.396, accuracy: 1e-6)
+        XCTAssertEqual(engine.root(for: ws)?.splitRatio ?? 0, 1.396)
     }
 
     func testInfeasibleMinsDegradeProportionallyAndResizeStops() {
@@ -107,13 +107,13 @@ final class DwindleMinimumSizeTests: XCTestCase {
         engine.setSelectedNode(engine.findNode(for: first, in: ws), in: ws)
 
         XCTAssertFalse(engine.resizeFocusedWindow(by: 0.1, in: ws))
-        XCTAssertEqual(engine.root(for: ws)?.splitRatio ?? 0, 1.0, accuracy: 1e-6)
+        XCTAssertEqual(engine.root(for: ws)?.splitRatio ?? 0, 1.0)
 
         let frames = engine.calculateLayout(for: ws, screen: screen)
         let firstWidth = frames[first]?.width ?? 0
         let secondWidth = frames[second]?.width ?? 0
-        XCTAssertEqual(firstWidth, 1000 * 704 / 1308 - 4, accuracy: 0.5)
-        XCTAssertEqual(secondWidth, 1000 * 604 / 1308 - 4, accuracy: 0.5)
+        XCTAssertEqual(firstWidth, 1000 * 704 / 1308 - 4)
+        XCTAssertEqual(secondWidth, 1000 * 604 / 1308 - 4)
         XCTAssertLessThan(firstWidth, 700)
         XCTAssertLessThan(secondWidth, 600)
     }
@@ -131,7 +131,7 @@ final class DwindleMinimumSizeTests: XCTestCase {
 
         let frames = engine.calculateLayout(for: ws, screen: screen)
 
-        XCTAssertEqual(frames[tokenA]?.width ?? 0, 500, accuracy: 0.5)
+        XCTAssertEqual(frames[tokenA]?.width ?? 0, 500)
     }
 
     func testBalanceSizesClampsToMinFeasibleRatio() {
@@ -139,13 +139,13 @@ final class DwindleMinimumSizeTests: XCTestCase {
         engine.setSelectedNode(engine.findNode(for: first, in: ws), in: ws)
         XCTAssertTrue(engine.resizeFocusedWindow(by: 0.1, in: ws))
         XCTAssertTrue(engine.resizeFocusedWindow(by: 0.1, in: ws))
-        XCTAssertEqual(engine.root(for: ws)?.splitRatio ?? 0, 1.508, accuracy: 1e-6)
+        XCTAssertEqual(engine.root(for: ws)?.splitRatio ?? 0, 1.508)
 
         XCTAssertTrue(engine.balanceSizes(in: ws))
-        XCTAssertEqual(engine.root(for: ws)?.splitRatio ?? 0, 1.408, accuracy: 1e-6)
+        XCTAssertEqual(engine.root(for: ws)?.splitRatio ?? 0, 1.408)
 
         let frames = engine.calculateLayout(for: ws, screen: screen)
-        XCTAssertEqual(frames[first]?.width ?? 0, 700, accuracy: 0.5)
+        XCTAssertEqual(frames[first]?.width ?? 0, 700)
 
         XCTAssertFalse(engine.balanceSizes(in: ws))
     }
@@ -156,8 +156,8 @@ final class DwindleMinimumSizeTests: XCTestCase {
 
         let frames = engine.calculateLayout(for: ws, screen: screen)
 
-        XCTAssertEqual(frames[first]?.width ?? 0, 600, accuracy: 0.5)
-        XCTAssertEqual(engine.root(for: ws)?.splitRatio ?? 0, 1.0, accuracy: 1e-6)
+        XCTAssertEqual(frames[first]?.width ?? 0, 600)
+        XCTAssertEqual(engine.root(for: ws)?.splitRatio ?? 0, 1.0)
     }
 
     private func makeSingleWindowEngine(
@@ -181,8 +181,8 @@ final class DwindleMinimumSizeTests: XCTestCase {
 
         let frame = engine.calculateLayout(for: ws, screen: screen)[token]
 
-        XCTAssertEqual(frame?.width ?? 0, 600, accuracy: 0.5)
-        XCTAssertEqual(frame?.height ?? 0, 500, accuracy: 0.5)
+        XCTAssertEqual(frame?.width ?? 0, 600)
+        XCTAssertEqual(frame?.height ?? 0, 500)
         XCTAssertEqual(screen.contains(frame ?? .zero), true)
     }
 

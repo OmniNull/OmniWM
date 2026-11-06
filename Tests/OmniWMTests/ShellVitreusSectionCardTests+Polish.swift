@@ -64,16 +64,16 @@ extension ShellVitreusSectionCardTests {
         let fixture = try windows.fixture()
         windows.trigger(fixture, "drawer-calendar")
         try dragCard(fixture, "calendar-month", to: CGPoint(x: 100, y: 650))
-        XCTAssertEqual(try windows.frame(fixture, "drawer-content-calendar").height, 295 * 1.5525, accuracy: 0.01)
+        XCTAssertEqual(try windows.frame(fixture, "drawer-content-calendar").height, floatStored(295 * 1.5525))
         try dragCard(fixture, "calendar-events", to: CGPoint(x: 650, y: 650))
         let panel = try windows.frame(fixture, "drawer-content-calendar")
-        XCTAssertEqual(panel.height, 213 * 1.5525, accuracy: 0.01)
+        XCTAssertEqual(panel.height, floatStored(213 * 1.5525))
         for key in ["calendar-clock", "calendar-weather-plate", "calendar-add"] {
             let frame = try windows.frame(fixture, key)
             XCTAssertTrue(panel.insetBy(dx: -0.01, dy: -0.01).contains(frame), key)
         }
         windows.trigger(fixture, "drawer-calendar")
-        XCTAssertEqual(try windows.frame(fixture, "drawer-content-calendar").height, 373 * 1.5525, accuracy: 0.01)
+        XCTAssertEqual(try windows.frame(fixture, "drawer-content-calendar").height, floatStored(373 * 1.5525))
     }
 
     func testDropdownAndCapturedSectionsStayAboveShelfPagesAndFloatingCards() throws {
@@ -106,7 +106,7 @@ extension ShellVitreusSectionCardTests {
         try moveCard(fixture, id: "player-album", to: CGPoint(x: 1500, y: 450))
         XCTAssertTrue(windows.has(fixture, "desk"))
         try moveCard(fixture, id: "player-album", to: CGPoint(x: 1450, y: 500))
-        XCTAssertEqual(try windows.frame(fixture, "media-card").minY, 500, accuracy: 0.01)
+        XCTAssertEqual(try windows.frame(fixture, "media-card").minY, 500)
     }
 
     func testASectionLeavingAShelvedPanelRestoresItsNaturalScale() throws {
@@ -120,7 +120,7 @@ extension ShellVitreusSectionCardTests {
         try windows.store(fixture, id: "controls")
         XCTAssertLessThan(try windows.frame(fixture, "drawer-content-calendar-month").width, natural)
         try dragCard(fixture, "calendar-month", to: CGPoint(x: 100, y: 650))
-        XCTAssertEqual(try windows.frame(fixture, "drawer-content-calendar-month").width, natural, accuracy: 0.01)
+        XCTAssertEqual(try windows.frame(fixture, "drawer-content-calendar-month").width, natural)
     }
 
     func testPinningAnAlbumBringsItsStoredPlayerOutOfAClosedShelf() throws {
@@ -137,7 +137,7 @@ extension ShellVitreusSectionCardTests {
         let parent = try VitreusFixture.element(fixture.widget, key: "drawer-content-player")
         let album = try VitreusFixture.element(fixture.widget, key: "media-card")
         XCTAssertEqual(fixture.widget.surface.layout.core.parent(of: album), parent)
-        XCTAssertEqual(try windows.frame(fixture, "drawer-content-player").minY, 62, accuracy: 0.01)
+        XCTAssertEqual(try windows.frame(fixture, "drawer-content-player").minY, 62)
         windows.trigger(fixture, "drawer-player")
         XCTAssertFalse(windows.has(fixture, "drawer-content-player"))
     }

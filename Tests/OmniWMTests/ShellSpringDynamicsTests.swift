@@ -88,8 +88,8 @@ final class ShellSpringDynamicsTests: XCTestCase {
         let scaled = ShellSpringDynamics.velocity(
             at: 0.25, displacement: -40, initialVelocity: 20, spring: .init(mass: 3, stiffness: 300, damping: 30)
         )
-        XCTAssertEqual(reversed, -forward, accuracy: 1e-12)
-        XCTAssertEqual(scaled, forward, accuracy: 1e-12)
+        XCTAssertEqual(reversed, -forward)
+        XCTAssertEqual(scaled, forward)
     }
 
     func testInvalidInputsReturnNoVelocity() {
@@ -153,7 +153,7 @@ final class ShellSpringDynamicsTests: XCTestCase {
             if value > peak.value { peak = (time, value) }
         }
         XCTAssertEqual(peak.value, 1.04993, accuracy: 0.0002)
-        XCTAssertEqual(peak.time, 0.3330, accuracy: 0.0005)
+        XCTAssertEqual(peak.time, 0.3330)
     }
 
     func testPositionDerivativeMatchesVelocityInEveryDampingRegime() {
@@ -182,15 +182,15 @@ final class ShellSpringDynamicsTests: XCTestCase {
             ))
         }
         let desk = try native(0.363, 0.42)
-        XCTAssertEqual(desk.mass, 1, accuracy: 1e-12)
+        XCTAssertEqual(desk.mass, 1)
         XCTAssertEqual(desk.stiffness, 300, accuracy: 1.5)
         XCTAssertEqual(desk.damping, 20, accuracy: 0.2)
         let drip = try native(0.482, 0.31)
-        XCTAssertEqual(drip.mass, 1, accuracy: 1e-12)
+        XCTAssertEqual(drip.mass, 1)
         XCTAssertEqual(drip.stiffness, 170, accuracy: 1.5)
         XCTAssertEqual(drip.damping, 18, accuracy: 0.2)
         let follow = try native(0.360, 0)
-        XCTAssertEqual(follow.mass, 1, accuracy: 1e-12)
+        XCTAssertEqual(follow.mass, 1)
         XCTAssertEqual(follow.stiffness, 305, accuracy: 3)
         XCTAssertEqual(follow.damping, 34.9, accuracy: 0.4)
         XCTAssertNil(ShellSpringDynamics.Parameters(ShellAnimation(motion: .ease, speed: 1)))

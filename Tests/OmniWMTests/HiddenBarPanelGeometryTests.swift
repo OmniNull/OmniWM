@@ -105,9 +105,9 @@ final class HiddenBarPanelGeometryTests: XCTestCase {
             let body = screenRect(layout.body, in: layout)
             XCTAssertTrue(layout.squaresBar)
             XCTAssertEqual(body.width, expected, accuracy: 0.001)
-            XCTAssertEqual(body.midX, bar.midX, accuracy: 0.001)
-            XCTAssertEqual(screenRect(try XCTUnwrap(layout.seam), in: layout).minX, bar.minX, accuracy: 0.001)
-            XCTAssertEqual(screenRect(try XCTUnwrap(layout.seam), in: layout).maxX, bar.maxX, accuracy: 0.001)
+            XCTAssertEqual(body.midX, bar.midX)
+            XCTAssertEqual(screenRect(try XCTUnwrap(layout.seam), in: layout).minX, bar.minX)
+            XCTAssertEqual(screenRect(try XCTUnwrap(layout.seam), in: layout).maxX, bar.maxX)
         }
     }
 
@@ -177,7 +177,7 @@ final class HiddenBarPanelGeometryTests: XCTestCase {
         let narrow = CGRect(x: 100, y: 0, width: 150, height: 900)
         let frame = PopupAttachment(anchor: CGPoint(x: 175, y: 900))
             .frame(size: CGSize(width: 200, height: 60), visibleFrame: narrow)
-        XCTAssertEqual(frame.minX, narrow.minX + 8, accuracy: 0.5)
+        XCTAssertEqual(frame.minX, narrow.minX + 8)
     }
 
     func testBarSizeEmptyIsCompact() throws {

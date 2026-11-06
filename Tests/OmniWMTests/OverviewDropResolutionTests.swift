@@ -39,9 +39,9 @@ final class OverviewDropResolutionTests: XCTestCase {
             XCTAssertEqual(frame.minX, -980, accuracy: 0.000000001)
             XCTAssertEqual(frame.minY, 50, accuracy: 0.000000001)
             XCTAssertEqual(frame.size, size)
-            XCTAssertEqual(preview.width, size.width * section.contentScale, accuracy: 0.0001)
-            XCTAssertEqual(preview.midX, point.x, accuracy: 0.0001)
-            XCTAssertEqual(preview.midY, point.y + layout.scrollOffset, accuracy: 0.0001)
+            XCTAssertEqual(preview.width, size.width * section.contentScale)
+            XCTAssertEqual(preview.midX, point.x)
+            XCTAssertEqual(preview.midY, point.y + layout.scrollOffset)
             XCTAssertEqual(result.label, "Place floating window")
         }
     }

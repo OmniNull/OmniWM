@@ -28,8 +28,7 @@ final class SkyLightPositionConversionTests: XCTestCase {
         assertPoint(position.origin, convertedFrame.origin)
         XCTAssertEqual(
             pointConvertedOrigin.y - position.origin.y,
-            convertedFrame.height,
-            accuracy: 0.001
+            convertedFrame.height
         )
         XCTAssertNotEqual(position.origin.y, pointConvertedOrigin.y)
     }

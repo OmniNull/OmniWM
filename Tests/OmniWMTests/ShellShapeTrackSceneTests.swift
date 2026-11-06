@@ -82,7 +82,7 @@ final class ShellShapeTrackSceneTests: XCTestCase {
         let content = try handle(fixture, "content")
         let root = try XCTUnwrap(fixture.widget.surface.reveals[content]?.plan)
         XCTAssertEqual(shape.begin, root.begin)
-        XCTAssertEqual(shape.plan?.begin ?? 0, shape.begin + 0.03, accuracy: 1e-9)
+        XCTAssertEqual(shape.plan?.begin ?? 0, shape.begin + 0.03)
         XCTAssertEqual(shape.shape(at: shape.begin + 0.02).rect.size, .zero)
         let clock = shape.begin + 0.084
         let pixels = try ShellLayerScene.engineQueue.sync {
@@ -105,7 +105,7 @@ final class ShellShapeTrackSceneTests: XCTestCase {
         }
         XCTAssertNotEqual(retained.key, original)
         XCTAssertNotEqual(retained.key, replacement)
-        XCTAssertEqual(retained.value.plan?.begin ?? 0, fixture.clock.time + 0.05, accuracy: 1e-9)
+        XCTAssertEqual(retained.value.plan?.begin ?? 0, fixture.clock.time + 0.05)
         ShellLayerScene.engineQueue.sync {
             let scene = fixture.scene
             XCTAssertNotNil(scene.glassShapes[replacement])
@@ -133,8 +133,8 @@ final class ShellShapeTrackSceneTests: XCTestCase {
         let seed = try XCTUnwrap(old.value.plan?.state(at: fixture.clock.time))
         step(2, fixture)
         let reopened = try entry(fixture, "a")
-        XCTAssertEqual(reopened.plan?.progress ?? -1, seed.progress, accuracy: 1e-9)
-        XCTAssertEqual(reopened.plan?.velocity ?? -1, seed.velocity, accuracy: 1e-9)
+        XCTAssertEqual(reopened.plan?.progress ?? -1, seed.progress)
+        XCTAssertEqual(reopened.plan?.velocity ?? -1, seed.velocity)
         XCTAssertEqual(reopened.plan?.begin, fixture.clock.time)
         ShellLayerScene.engineQueue.sync {
             XCTAssertTrue(fixture.scene.shapeTracks.retired.isEmpty)
@@ -178,7 +178,7 @@ final class ShellShapeTrackSceneTests: XCTestCase {
         fixture.widget.surface.setVisible(true)
         step(5, fixture, after: 0.08)
         let resized = try entry(fixture, "a")
-        XCTAssertEqual(resized.shape(at: fixture.clock.time).rect.width, 100, accuracy: 1e-9)
+        XCTAssertEqual(resized.shape(at: fixture.clock.time).rect.width, 100)
         step(1, fixture)
         let body = try handle(fixture, "body").slot
         fixture.scene.submit([.remove(slot: body)], animated: false)
@@ -209,9 +209,9 @@ final class ShellShapeTrackSceneTests: XCTestCase {
         let pulse = try entry(chained, "pulse")
         let tail = try entry(chained, "chained")
         let first = try XCTUnwrap(source.plan?.crossings(at: 0.97, rising: true).first)
-        XCTAssertEqual(pulse.plan?.begin ?? 0, first, accuracy: 0.001)
+        XCTAssertEqual(pulse.plan?.begin ?? 0, first)
         let second = try XCTUnwrap(pulse.plan?.crossings(at: 0.5, rising: true).first)
-        XCTAssertEqual(tail.plan?.begin ?? 0, second, accuracy: 0.001)
+        XCTAssertEqual(tail.plan?.begin ?? 0, second)
         XCTAssertGreaterThan(second, first)
         XCTAssertEqual(pulse.shape(at: first - 0.001).rect.size, .zero)
     }
@@ -251,7 +251,7 @@ final class ShellShapeTrackSceneTests: XCTestCase {
         step(2, fixture)
         let second = try entry(fixture, "a")
         assertEqual(second.shape(at: fixture.clock.time).rect, presented.rect, accuracy: 1e-9)
-        XCTAssertEqual(second.base.velocity[2], moving.velocity[2], accuracy: 1e-9)
+        XCTAssertEqual(second.base.velocity[2], moving.velocity[2])
     }
 
     func testReduceMotionFinishesTracksWithoutReplayingThemOnTheNextCommit() throws {
@@ -260,12 +260,12 @@ final class ShellShapeTrackSceneTests: XCTestCase {
         step(0, fixture, after: 0.08)
         let final = try entry(fixture, "a")
         XCTAssertNil(final.plan)
-        XCTAssertEqual(final.terminal.rect.width, 80, accuracy: 1e-9)
+        XCTAssertEqual(final.terminal.rect.width, 80)
         fixture.widget.resources.motion.userAnimationsEnabled = true
         step(5, fixture, after: 0.01)
         let resized = try entry(fixture, "a")
         XCTAssertNil(resized.plan)
-        XCTAssertEqual(resized.shape(at: fixture.clock.time).rect.width, 100, accuracy: 1e-9)
+        XCTAssertEqual(resized.shape(at: fixture.clock.time).rect.width, 100)
     }
 
     func testRemovingOwnRevealAdoptsTheSettledAncestorInsteadOfTheObsoletePlan() throws {
@@ -280,7 +280,7 @@ final class ShellShapeTrackSceneTests: XCTestCase {
         let changed = try entry(fixture, "a")
         XCTAssertEqual(changed.root, root.slot)
         XCTAssertNil(changed.plan)
-        XCTAssertEqual(changed.terminal.rect.width, 80, accuracy: 1e-9)
+        XCTAssertEqual(changed.terminal.rect.width, 80)
     }
 
     private func bounds(_ pixels: [UInt8]) throws -> CGRect {

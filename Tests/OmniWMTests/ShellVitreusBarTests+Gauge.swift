@@ -84,24 +84,24 @@ extension ShellVitreusBarTests {
         let x = pill.minX + 7 * unit
         let full = pill.width - 14 * unit - 6.6 * unit
         let tall = pill.height - 14 * unit
-        XCTAssertEqual(try VitreusFixture.frame(calm, key: "battery-track-shape").height, 0.7 * tall, accuracy: 0.001)
+        XCTAssertEqual(try VitreusFixture.frame(calm, key: "battery-track-shape").height, floatStored(0.7 * tall))
         try pieceHover(calm, "title-region", .began)
         for (value, target) in zip(try pieceOpacities(calm), [0.1, 0.19, 0.19]) {
-            XCTAssertEqual(value, target, accuracy: 1e-6)
+            XCTAssertEqual(value, floatStored(target))
         }
         Self.assertRect(try VitreusFixture.frame(calm, key: "battery-track-shape"), CGRect(
             x: x, y: pill.midY - tall / 2, width: full, height: tall
         ))
         let nub = try VitreusFixture.frame(calm, key: "battery-track-nub")
         XCTAssertEqual(nub.midX, x + full + 3.1 * unit, accuracy: 0.001)
-        XCTAssertEqual(nub.width, 7 * unit, accuracy: 0.001)
-        XCTAssertEqual(nub.height, 0.56 * tall, accuracy: 0.001)
+        XCTAssertEqual(nub.width, floatStored(7 * unit))
+        XCTAssertEqual(nub.height, floatStored(0.56 * tall))
         Self.assertRect(try VitreusFixture.frame(calm, key: "battery-fill-shape"), CGRect(
             x: x, y: pill.midY - tall / 2, width: full / 2, height: tall
         ))
         let fillBody = try VitreusFixture.frame(calm, key: "battery-fill")
-        XCTAssertEqual(fillBody.minX, x - full / 2 * 0.28 / 0.72, accuracy: 0.001)
-        XCTAssertEqual(fillBody.maxX, x + full / 2, accuracy: 0.001)
+        XCTAssertEqual(fillBody.minX, floatStored(x - full / 2 * 0.28 / 0.72))
+        XCTAssertEqual(fillBody.maxX, floatStored(x + full / 2))
         Self.assertRect(try VitreusFixture.frame(calm, key: "battery-nub-shape"), CGRect(
             x: x + full, y: pill.midY - 0.28 * tall, width: 6.6 * unit, height: 0.56 * tall
         ))
@@ -118,7 +118,7 @@ extension ShellVitreusBarTests {
         XCTAssertFalse(Self.has(calm, "battery-glint"))
         let low = try pieceGauge(shell, 15)
         for (value, target) in zip(try pieceOpacities(low), [0.1, 0.28, 0.28]) {
-            XCTAssertEqual(value, target, accuracy: 1e-6)
+            XCTAssertEqual(value, floatStored(target))
         }
         let red = try piecePaint(low, "battery-fill").gradientTo
         XCTAssertEqual([red.red, red.green, red.blue].map { ($0 * 255).rounded() }, [224, 101, 90])
@@ -136,7 +136,7 @@ extension ShellVitreusBarTests {
         XCTAssertEqual(try pieceOpacities(widget), [0, 0, 0])
         try pieceHover(widget, "workspace-hit-1", .began, bar: data)
         for (value, target) in zip(try pieceOpacities(widget), [0.1, 0.19, 0.19]) {
-            XCTAssertEqual(value, target, accuracy: 1e-6)
+            XCTAssertEqual(value, floatStored(target))
         }
         let logo = try VitreusFixture.frame(widget, key: "bar-omniwm")
         let point = CGPoint(x: logo.midX, y: logo.midY)
@@ -151,7 +151,7 @@ extension ShellVitreusBarTests {
         for animations in [false, true] {
             let widget = try pieceGauge(shell, 15, charging: true, animations: animations)
             for (value, target) in zip(try pieceOpacities(widget), [0.1, 0.19, 0.19]) {
-                XCTAssertEqual(value, target, accuracy: 1e-6)
+                XCTAssertEqual(value, floatStored(target))
             }
             let pill = try VitreusFixture.frame(widget, key: "shell")
             Self.assertRect(try VitreusFixture.frame(widget, key: "battery-glint"), pill)
@@ -159,9 +159,9 @@ extension ShellVitreusBarTests {
             let paint = widget.surface.layout.core.paint(of: band)
             let loop = try XCTUnwrap(ShellLoop(widget.text.string(paint.loop)))
             XCTAssertEqual(loop.channels.map(\.name), ["dx"])
-            XCTAssertEqual(Double(loop.channels[0].to), (pill.width + 130 * unit) * 5 / 0.6, accuracy: 0.01)
+            XCTAssertEqual(Double(loop.channels[0].to), (pill.width + 130 * unit) * 5 / 0.6)
             XCTAssertEqual(loop.channels[0].duration, 5)
-            XCTAssertEqual(try VitreusFixture.frame(widget, key: "battery-glint-band").maxX, pill.minX, accuracy: 0.001)
+            XCTAssertEqual(try VitreusFixture.frame(widget, key: "battery-glint-band").maxX, pill.minX)
             let running = ShellLayerScene.engineQueue.sync { widget.surface.scene.loops[band.slot] != nil }
             XCTAssertEqual(running, animations)
         }
@@ -510,7 +510,7 @@ extension ShellVitreusBarTests {
         }
         let label = "vitreus-bar-pieces-1920x1080-\(scale)x-title-tab"
         print("vitreus-title-tab-reach \(label) without \(reach(flat)) with \(reach(tabbed)) vitreus \(vitreus)")
-        XCTAssertEqual(reach(flat), 0, accuracy: 1, label)
+        XCTAssertEqual(reach(flat), 0, label)
         XCTAssertEqual(reach(tabbed), vitreus, accuracy: 1, label)
         try ShellVitreusDeskTests.write(XCTUnwrap(tabbed.image()), name: label)
     }

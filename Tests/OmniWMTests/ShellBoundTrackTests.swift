@@ -94,7 +94,7 @@ final class ShellBoundTrackTests: XCTestCase {
             begin: 0
         )
         entry.bound = bound
-        XCTAssertEqual(bound.state(at: 0).progress, 0.42, accuracy: 1e-12)
+        XCTAssertEqual(bound.state(at: 0).progress, 0.42)
         XCTAssertEqual(entry.shape(at: 0).rect.width, 18.5, accuracy: 0.2)
     }
 }

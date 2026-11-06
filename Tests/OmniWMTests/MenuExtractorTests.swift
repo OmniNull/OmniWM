@@ -297,8 +297,8 @@ final class MenuExtractorTests: XCTestCase {
 
         XCTAssertEqual(items.count, 1)
         XCTAssertEqual(timeouts.count, 2)
-        XCTAssertEqual(timeouts[0], 0.25, accuracy: 0.001)
-        XCTAssertEqual(timeouts[1], 0.15, accuracy: 0.001)
+        XCTAssertEqual(timeouts[0], 0.25)
+        XCTAssertEqual(timeouts[1], 0.15)
     }
 
     func testExpiredDeadlineSkipsNextAXRead() {

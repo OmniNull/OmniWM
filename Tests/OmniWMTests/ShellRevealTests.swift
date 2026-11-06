@@ -63,13 +63,13 @@ final class ShellRevealTests: XCTestCase {
         let stop = recipe.stop(at: state.progress)
         let base = recipe.scaled(layout, by: stop.scale)
         XCTAssertEqual(stop.scale, 0.577, accuracy: 0.02)
-        XCTAssertEqual(base.maxX, layout.maxX, accuracy: 1e-9)
-        XCTAssertEqual(base.midY, layout.midY, accuracy: 1e-9)
+        XCTAssertEqual(base.maxX, layout.maxX)
+        XCTAssertEqual(base.midY, layout.midY)
         let shape = recipe.shape(layout, radius: 32, progress: state.progress, velocity: state.velocity)
         XCTAssertEqual(shape.rect.width / base.width, 1.359, accuracy: 0.005)
         XCTAssertEqual(shape.rect.height / base.height, 0.788, accuracy: 0.005)
-        XCTAssertEqual(shape.rect.midX, base.midX, accuracy: 1e-9)
-        XCTAssertEqual(shape.rect.midY, base.midY, accuracy: 1e-9)
+        XCTAssertEqual(shape.rect.midX, base.midX)
+        XCTAssertEqual(shape.rect.midY, base.midY)
         XCTAssertGreaterThan(shape.rect.maxX, layout.maxX)
         let closing = ShellReveal(begin: 0, progress: 1, target: 0, spring: spring)
         XCTAssertEqual(try XCTUnwrap(first(closing) { progress, _ in progress <= 0.02 }), 0.234, accuracy: 0.005)
@@ -81,7 +81,7 @@ final class ShellRevealTests: XCTestCase {
         let samples = plan.samples
         XCTAssertEqual(samples.count, Int((plan.duration * ShellReveal.rate).rounded(.up)) + 1)
         for (index, sample) in samples.dropLast().enumerated() {
-            XCTAssertEqual(sample.time, Double(index) / 120, accuracy: 1e-12)
+            XCTAssertEqual(sample.time, Double(index) / 120)
         }
         XCTAssertEqual(samples.first?.progress, 0)
         XCTAssertEqual(samples.last?.time, plan.duration)
@@ -102,8 +102,8 @@ final class ShellRevealTests: XCTestCase {
         XCTAssertEqual(recipe.stop(at: -0.3).opacity, 0)
         XCTAssertEqual(recipe.stop(at: 0.02).opacity, 0)
         XCTAssertEqual(recipe.stop(at: 0.0201).opacity, 1)
-        XCTAssertEqual(recipe.stop(at: (0.03125 + 0.625) / 2).scale, 0.525, accuracy: 1e-12)
-        XCTAssertEqual(recipe.stop(at: 1.125).scale, 1.075, accuracy: 1e-12)
+        XCTAssertEqual(recipe.stop(at: (0.03125 + 0.625) / 2).scale, 0.525)
+        XCTAssertEqual(recipe.stop(at: 1.125).scale, 1.075)
         XCTAssertEqual(recipe.stop(at: 3).scale, 1.15)
     }
 

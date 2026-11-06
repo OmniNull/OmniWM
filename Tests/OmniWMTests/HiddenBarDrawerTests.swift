@@ -29,8 +29,8 @@ final class HiddenBarDrawerTests: XCTestCase {
         drawer.setVisible(true, edge: .below, motion: policy.snapshot())
         let opening = drawer.generation
         let animation = try XCTUnwrap(drawer.layer?.mask?.animation(forKey: "hiddenBar.reveal"))
-        XCTAssertEqual(animation.duration, 0.11, accuracy: 1e-9)
-        XCTAssertEqual(try XCTUnwrap(drawer.layer?.animation(forKey: "hiddenBar.fade")).duration, 0.06, accuracy: 1e-9)
+        XCTAssertEqual(animation.duration, 0.11)
+        XCTAssertEqual(try XCTUnwrap(drawer.layer?.animation(forKey: "hiddenBar.fade")).duration, 0.06)
         XCTAssertEqual(drawer.layer?.mask?.position, .zero)
 
         policy.systemReducesMotion = true
@@ -202,8 +202,8 @@ final class HiddenBarDrawerTests: XCTestCase {
 
         let movedBar = CGRect(x: -7450, y: 680, width: 200, height: 24)
         chrome.move(to: attachedPlacement(bar: movedBar))
-        XCTAssertEqual(chrome.panel.frame.minX, firstFrame.minX + 150, accuracy: 1)
-        XCTAssertEqual(chrome.panel.frame.maxY, movedBar.minY, accuracy: 1)
+        XCTAssertEqual(chrome.panel.frame.minX, firstFrame.minX + 150)
+        XCTAssertEqual(chrome.panel.frame.maxY, movedBar.minY)
         XCTAssertTrue(chrome.panel.isVisible)
 
         chrome.move(to: placement)

@@ -37,8 +37,8 @@ final class NiriAxisSolverTests: XCTestCase {
             availableSpace: 1000,
             gapSize: 0
         )
-        XCTAssertEqual(outputs[0].value, 600, accuracy: 0.001)
-        XCTAssertEqual(outputs[1].value, 400, accuracy: 0.001)
+        XCTAssertEqual(outputs[0].value, 600)
+        XCTAssertEqual(outputs[1].value, 400)
     }
 
     func testInfeasibleInputsPreserveMinimumRatiosAndBackstop() {
@@ -53,7 +53,7 @@ final class NiriAxisSolverTests: XCTestCase {
             XCTAssertEqual(outputs.count, 2, label)
             guard outputs.count == 2 else { continue }
             for (output, value) in zip(outputs, expected) {
-                XCTAssertEqual(output.value, value, accuracy: 0.001, label)
+                XCTAssertEqual(output.value, value, label)
                 XCTAssertTrue(output.wasConstrained, label)
             }
         }
@@ -67,7 +67,7 @@ final class NiriAxisSolverTests: XCTestCase {
         )
         XCTAssertGreaterThanOrEqual(outputs[0].value, 100)
         XCTAssertGreaterThanOrEqual(outputs[1].value, 290)
-        XCTAssertEqual(outputs[0].value + outputs[1].value, 1000, accuracy: 0.01)
+        XCTAssertEqual(outputs[0].value + outputs[1].value, 1000)
     }
 
     func testTabbedOversizedMinOverflows() {
@@ -77,14 +77,14 @@ final class NiriAxisSolverTests: XCTestCase {
             gapSize: 0,
             isTabbed: true
         )
-        XCTAssertEqual(outputs[0].value, 2000, accuracy: 0.001)
-        XCTAssertEqual(outputs[1].value, 2000, accuracy: 0.001)
+        XCTAssertEqual(outputs[0].value, 2000)
+        XCTAssertEqual(outputs[1].value, 2000)
     }
 
     func testLayoutCacheInvalidatesWhenWindowConstraintsChange() throws {
         let fixture = try makeStackedEngine()
         let initialFrames = layout(fixture)
-        XCTAssertEqual(try XCTUnwrap(initialFrames[fixture.first.token]).height, 400, accuracy: 0.001)
+        XCTAssertEqual(try XCTUnwrap(initialFrames[fixture.first.token]).height, 400)
 
         fixture.engine.updateWindowConstraints(
             for: fixture.first.token,
@@ -98,8 +98,8 @@ final class NiriAxisSolverTests: XCTestCase {
         )
 
         let constrainedFrames = layout(fixture)
-        XCTAssertEqual(try XCTUnwrap(constrainedFrames[fixture.first.token]).height, 600, accuracy: 0.001)
-        XCTAssertEqual(try XCTUnwrap(constrainedFrames[fixture.second.token]).height, 200, accuracy: 0.001)
+        XCTAssertEqual(try XCTUnwrap(constrainedFrames[fixture.first.token]).height, 600)
+        XCTAssertEqual(try XCTUnwrap(constrainedFrames[fixture.second.token]).height, 200)
     }
 
     func testLayoutCacheInvalidatesWhenSecondaryPresetsChange() throws {
@@ -108,13 +108,13 @@ final class NiriAxisSolverTests: XCTestCase {
         fixture.engine.presetWindowSecondarySpans = [.proportion(0.25)]
 
         let proportionalFrames = layout(fixture)
-        XCTAssertEqual(try XCTUnwrap(proportionalFrames[fixture.first.token]).height, 200, accuracy: 0.001)
+        XCTAssertEqual(try XCTUnwrap(proportionalFrames[fixture.first.token]).height, 200)
 
         fixture.engine.presetWindowSecondarySpans = [.fixed(500)]
 
         let fixedFrames = layout(fixture)
-        XCTAssertEqual(try XCTUnwrap(fixedFrames[fixture.first.token]).height, 500, accuracy: 0.001)
-        XCTAssertEqual(try XCTUnwrap(fixedFrames[fixture.second.token]).height, 300, accuracy: 0.001)
+        XCTAssertEqual(try XCTUnwrap(fixedFrames[fixture.first.token]).height, 500)
+        XCTAssertEqual(try XCTUnwrap(fixedFrames[fixture.second.token]).height, 300)
     }
 
     func testLayoutCacheInvalidatesWhenProjectionMembershipChanges() throws {
@@ -131,7 +131,7 @@ final class NiriAxisSolverTests: XCTestCase {
         )
 
         XCTAssertNil(excludedFrames[fixture.first.token])
-        XCTAssertEqual(try XCTUnwrap(excludedFrames[fixture.second.token]).height, 800, accuracy: 0.001)
+        XCTAssertEqual(try XCTUnwrap(excludedFrames[fixture.second.token]).height, 800)
     }
 
     func testLayoutCacheSeparatesOrientations() throws {
@@ -148,8 +148,8 @@ final class NiriAxisSolverTests: XCTestCase {
             orientation: .vertical
         )
 
-        XCTAssertEqual(try XCTUnwrap(horizontalFrames[fixture.first.token]).height, 200, accuracy: 0.001)
-        XCTAssertEqual(try XCTUnwrap(verticalFrames[fixture.first.token]).width, 500, accuracy: 0.001)
+        XCTAssertEqual(try XCTUnwrap(horizontalFrames[fixture.first.token]).height, 200)
+        XCTAssertEqual(try XCTUnwrap(verticalFrames[fixture.first.token]).width, 500)
     }
 
     func testLayoutCacheTracksAvailableSpaceAndGaps() throws {
@@ -163,12 +163,12 @@ final class NiriAxisSolverTests: XCTestCase {
             gaps: (horizontal: 20, vertical: 20),
             orientation: .horizontal
         )
-        XCTAssertEqual(try XCTUnwrap(resizedFrames[fixture.first.token]).height, 270, accuracy: 0.001)
-        XCTAssertEqual(try XCTUnwrap(resizedFrames[fixture.second.token]).height, 270, accuracy: 0.001)
+        XCTAssertEqual(try XCTUnwrap(resizedFrames[fixture.first.token]).height, 270)
+        XCTAssertEqual(try XCTUnwrap(resizedFrames[fixture.second.token]).height, 270)
 
         let restoredFrames = layout(fixture)
-        XCTAssertEqual(try XCTUnwrap(restoredFrames[fixture.first.token]).height, 400, accuracy: 0.001)
-        XCTAssertEqual(try XCTUnwrap(restoredFrames[fixture.second.token]).height, 400, accuracy: 0.001)
+        XCTAssertEqual(try XCTUnwrap(restoredFrames[fixture.first.token]).height, 400)
+        XCTAssertEqual(try XCTUnwrap(restoredFrames[fixture.second.token]).height, 400)
     }
 
     func testLayoutCacheInvalidatesWhenChildIsRemoved() throws {
@@ -177,14 +177,14 @@ final class NiriAxisSolverTests: XCTestCase {
         let third = NiriWindow(token: WindowToken(pid: 71_003, windowId: 3))
         column.insertChild(third, at: column.children.count)
         let initialFrames = layout(fixture)
-        XCTAssertEqual(try XCTUnwrap(initialFrames[fixture.first.token]).height, 266.5, accuracy: 0.001)
+        XCTAssertEqual(try XCTUnwrap(initialFrames[fixture.first.token]).height, 266.5)
 
         third.detach()
 
         let remainingFrames = layout(fixture)
         XCTAssertNil(remainingFrames[third.token])
-        XCTAssertEqual(try XCTUnwrap(remainingFrames[fixture.first.token]).height, 400, accuracy: 0.001)
-        XCTAssertEqual(try XCTUnwrap(remainingFrames[fixture.second.token]).height, 400, accuracy: 0.001)
+        XCTAssertEqual(try XCTUnwrap(remainingFrames[fixture.first.token]).height, 400)
+        XCTAssertEqual(try XCTUnwrap(remainingFrames[fixture.second.token]).height, 400)
     }
 
     func testInvalidSecondaryPresetsKeepWeightedFallbackInBothOrientations() throws {
@@ -204,10 +204,10 @@ final class NiriAxisSolverTests: XCTestCase {
             orientation: .vertical
         )
 
-        XCTAssertEqual(try XCTUnwrap(horizontalFrames[fixture.first.token]).height, 400, accuracy: 0.001)
-        XCTAssertEqual(try XCTUnwrap(horizontalFrames[fixture.second.token]).height, 400, accuracy: 0.001)
-        XCTAssertEqual(try XCTUnwrap(verticalFrames[fixture.first.token]).width, 500, accuracy: 0.001)
-        XCTAssertEqual(try XCTUnwrap(verticalFrames[fixture.second.token]).width, 500, accuracy: 0.001)
+        XCTAssertEqual(try XCTUnwrap(horizontalFrames[fixture.first.token]).height, 400)
+        XCTAssertEqual(try XCTUnwrap(horizontalFrames[fixture.second.token]).height, 400)
+        XCTAssertEqual(try XCTUnwrap(verticalFrames[fixture.first.token]).width, 500)
+        XCTAssertEqual(try XCTUnwrap(verticalFrames[fixture.second.token]).width, 500)
     }
 
     private func makeStackedEngine() throws -> (

@@ -357,7 +357,7 @@ final class WorkspaceBarViewLayoutTests: XCTestCase {
             ShellLayerScene.engineQueue.sync {}
             let scrolled = try XCTUnwrap(widget.layers().first { $0.bounds.origin.y > 0 })
             let bottom = try XCTUnwrap(scrolled.sublayers?.map(\.frame.maxY).max())
-            XCTAssertEqual(scrolled.bounds.origin.y, bottom + 16 - fitted.height, accuracy: 0.5)
+            XCTAssertEqual(scrolled.bounds.origin.y, bottom + 16 - fitted.height)
             widget.surface.setRootLimit(nil)
             XCTAssertTrue(widget.surface.scroll(
                 at: CGPoint(x: 20, y: 20),
@@ -426,8 +426,8 @@ final class WorkspaceBarViewLayoutTests: XCTestCase {
             )
         }
         let custom = sizes(28)
-        XCTAssertEqual(custom.text, 11.38, accuracy: 0.0001)
-        XCTAssertEqual(custom.symbol, 10.08, accuracy: 0.0001)
+        XCTAssertEqual(custom.text, 11.38)
+        XCTAssertEqual(custom.symbol, 10.08)
         let standard = sizes(24)
         XCTAssertEqual(standard.text, 9.75)
         XCTAssertEqual(standard.symbol, 10)
@@ -475,8 +475,8 @@ final class WorkspaceBarViewLayoutTests: XCTestCase {
             })
             measurement.layoutSubtreeIfNeeded()
             narrow.layoutSubtreeIfNeeded()
-            XCTAssertEqual(measurement.fittingSize.width, expectedWidth, accuracy: 0.5)
-            XCTAssertEqual(narrow.fittingSize.width, measurement.fittingSize.width, accuracy: 0.5)
+            XCTAssertEqual(measurement.fittingSize.width, expectedWidth)
+            XCTAssertEqual(narrow.fittingSize.width, measurement.fittingSize.width)
             XCTAssertEqual(narrow.fittingSize.height, 24)
         }
     }

@@ -220,14 +220,14 @@ extension ShellManipulationGeometryTests {
         ))
         let factor = shrunk.width / start.width
         XCTAssertEqual(factor, 0.7987, accuracy: 0.0001)
-        XCTAssertEqual(shrunk.height / start.height, factor, accuracy: 1e-12)
-        XCTAssertEqual(content(shrunk, recipe).minX, content(start, recipe).minX, accuracy: 1e-9)
-        XCTAssertEqual(content(shrunk, recipe).minY, content(start, recipe).minY, accuracy: 1e-9)
+        XCTAssertEqual(shrunk.height / start.height, factor)
+        XCTAssertEqual(content(shrunk, recipe).minX, content(start, recipe).minX)
+        XCTAssertEqual(content(shrunk, recipe).minY, content(start, recipe).minY)
         let proposal = try XCTUnwrap(ShellManipulationGeometry.proposal(rect: shrunk, recipe: recipe)).rect
-        XCTAssertEqual(proposal.minX, shrunk.minX, accuracy: 1e-9)
-        XCTAssertEqual(proposal.minY, shrunk.minY, accuracy: 1e-9)
-        XCTAssertEqual(proposal.width, shrunk.width, accuracy: 1e-9)
-        XCTAssertEqual(proposal.height, shrunk.height, accuracy: 1e-9)
+        XCTAssertEqual(proposal.minX, shrunk.minX)
+        XCTAssertEqual(proposal.minY, shrunk.minY)
+        XCTAssertEqual(proposal.width, shrunk.width)
+        XCTAssertEqual(proposal.height, shrunk.height)
 
         let envelopeBasis = try XCTUnwrap(ShellManipulationGeometry.scaled(
             start: start, translation: CGPoint(x: -100, y: -100), recipe: try XCTUnwrap(scaleRecipe(
@@ -241,9 +241,9 @@ extension ShellManipulationGeometryTests {
         let pulled = try XCTUnwrap(ShellManipulationGeometry.scaled(
             start: start, translation: CGPoint(x: 100, y: 100), recipe: opposite
         ))
-        XCTAssertEqual(pulled.width / start.width, factor, accuracy: 1e-12)
-        XCTAssertEqual(content(pulled, opposite).maxX, content(start, opposite).maxX, accuracy: 1e-9)
-        XCTAssertEqual(content(pulled, opposite).maxY, content(start, opposite).maxY, accuracy: 1e-9)
+        XCTAssertEqual(pulled.width / start.width, factor)
+        XCTAssertEqual(content(pulled, opposite).maxX, content(start, opposite).maxX)
+        XCTAssertEqual(content(pulled, opposite).maxY, content(start, opposite).maxY)
     }
 
     func testScaleFactorClampsToHalfAndFullSize() throws {
@@ -252,14 +252,14 @@ extension ShellManipulationGeometryTests {
         let smallest = try XCTUnwrap(ShellManipulationGeometry.scaled(
             start: start, translation: CGPoint(x: -1000, y: -1000), recipe: recipe
         ))
-        XCTAssertEqual(smallest.width, envelope.width / 2, accuracy: 1e-9)
-        XCTAssertEqual(smallest.height, envelope.height / 2, accuracy: 1e-9)
-        XCTAssertEqual(content(smallest, recipe).minX, content(start, recipe).minX, accuracy: 1e-9)
+        XCTAssertEqual(smallest.width, envelope.width / 2)
+        XCTAssertEqual(smallest.height, envelope.height / 2)
+        XCTAssertEqual(content(smallest, recipe).minX, content(start, recipe).minX)
         let largest = try XCTUnwrap(ShellManipulationGeometry.scaled(
             start: start, translation: CGPoint(x: 300, y: 300), recipe: recipe
         ))
-        XCTAssertEqual(largest.width, envelope.width, accuracy: 1e-9)
-        XCTAssertEqual(largest.height, envelope.height, accuracy: 1e-9)
+        XCTAssertEqual(largest.width, envelope.width)
+        XCTAssertEqual(largest.height, envelope.height)
     }
 
     func testScaleUpperClampNeverFallsBelowTheMinimumWhenRoomIsSmall() throws {
@@ -268,14 +268,14 @@ extension ShellManipulationGeometryTests {
             origin: CGPoint(x: 1820 - envelope.width * deskInset.width, y: 60),
             size: envelope
         )
-        XCTAssertEqual(content(start, recipe).minX, 1820, accuracy: 1e-9)
+        XCTAssertEqual(content(start, recipe).minX, 1820)
         for translation in [CGPoint(x: 50, y: 50), .zero, CGPoint(x: -50, y: -50)] {
             let result = try XCTUnwrap(ShellManipulationGeometry.scaled(
                 start: start, translation: translation, recipe: recipe
             ))
-            XCTAssertEqual(result.width / start.width, 0.5, accuracy: 1e-12, "\(translation)")
+            XCTAssertEqual(result.width / start.width, 0.5, "\(translation)")
             XCTAssertEqual(content(result, recipe).minX, 1820, accuracy: 1e-9)
-            XCTAssertEqual(content(result, recipe).minY, content(start, recipe).minY, accuracy: 1e-9)
+            XCTAssertEqual(content(result, recipe).minY, content(start, recipe).minY)
         }
     }
 
@@ -289,10 +289,10 @@ extension ShellManipulationGeometryTests {
         let result = try XCTUnwrap(ShellManipulationGeometry.scaled(
             start: start, translation: CGPoint(x: 300, y: -300), recipe: recipe
         ))
-        XCTAssertEqual(result.width / start.width, 1.2, accuracy: 1e-9)
-        XCTAssertEqual(content(result, recipe).minY, recipe.bounds.minY, accuracy: 1e-9)
-        XCTAssertEqual(content(result, recipe).minX, content(start, recipe).minX, accuracy: 1e-9)
-        XCTAssertEqual(content(result, recipe).maxY, content(start, recipe).maxY, accuracy: 1e-9)
+        XCTAssertEqual(result.width / start.width, 1.2)
+        XCTAssertEqual(content(result, recipe).minY, recipe.bounds.minY)
+        XCTAssertEqual(content(result, recipe).minX, content(start, recipe).minX)
+        XCTAssertEqual(content(result, recipe).maxY, content(start, recipe).maxY)
     }
 
     func testScaleAcceptsOnlyCornersAndInsetIsRejectedForResize() throws {

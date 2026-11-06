@@ -164,7 +164,7 @@ final class NiriHiddenVisibilityIntegrationTests: XCTestCase {
         let actualState = controller.workspaceManager.niriViewportState(for: workspaceId)
         XCTAssertEqual(actualState.selectedNodeId, targetNode.id)
         XCTAssertEqual(actualState.activeColumnIndex, expectedState.activeColumnIndex)
-        XCTAssertEqual(actualState.viewOffset, expectedState.viewOffset, accuracy: 0.001)
+        XCTAssertEqual(actualState.viewOffset, expectedState.viewOffset)
     }
 
     func testNativeFullscreenCommandRejectsPreservedHiddenFocus() throws {

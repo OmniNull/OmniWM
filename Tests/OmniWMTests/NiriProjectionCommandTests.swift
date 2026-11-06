@@ -45,7 +45,7 @@ final class NiriProjectionCommandTests: XCTestCase {
                 state: &baselineState
             )
         )
-        XCTAssertEqual(projectedState.viewOffset, baselineState.viewOffset, accuracy: 0.001)
+        XCTAssertEqual(projectedState.viewOffset, baselineState.viewOffset)
         XCTAssertEqual(projectedState.activeColumnIndex, 2)
 
         projectedState.jumpOffset(to: -50)
@@ -72,7 +72,7 @@ final class NiriProjectionCommandTests: XCTestCase {
                 state: &baselineState
             )
         )
-        XCTAssertEqual(projectedState.viewOffset, baselineState.viewOffset, accuracy: 0.001)
+        XCTAssertEqual(projectedState.viewOffset, baselineState.viewOffset)
 
         projectedState.jumpOffset(to: 300)
         baselineState.jumpOffset(to: 300)
@@ -98,7 +98,7 @@ final class NiriProjectionCommandTests: XCTestCase {
                 state: &baselineState
             )
         )
-        XCTAssertEqual(projectedState.viewOffset, baselineState.viewOffset, accuracy: 0.001)
+        XCTAssertEqual(projectedState.viewOffset, baselineState.viewOffset)
     }
 
     func testExpandAvailableSpanMatchesEquivalentVisibleTree() throws {
@@ -139,8 +139,8 @@ final class NiriProjectionCommandTests: XCTestCase {
             state: &baselineState
         )
 
-        XCTAssertEqual(projectedColumn.cachedWidth, baselineColumn.cachedWidth, accuracy: 0.001)
-        XCTAssertEqual(projectedState.viewOffset, baselineState.viewOffset, accuracy: 0.001)
+        XCTAssertEqual(projectedColumn.cachedWidth, baselineColumn.cachedWidth)
+        XCTAssertEqual(projectedState.viewOffset, baselineState.viewOffset)
     }
 
     func testStructuralCommandsSkipHiddenColumnsAndMembers() throws {
@@ -279,12 +279,11 @@ final class NiriProjectionCommandTests: XCTestCase {
             )
         )
 
-        XCTAssertEqual(projectedState.viewOffset, baselineState.viewOffset, accuracy: 0.001)
+        XCTAssertEqual(projectedState.viewOffset, baselineState.viewOffset)
         XCTAssertEqual(projectedState.activeColumnIndex, baselineState.activeColumnIndex)
         XCTAssertEqual(
             try XCTUnwrap(projected.b.moveXAnimation).fromOffset,
-            try XCTUnwrap(baseline.b.moveXAnimation).fromOffset,
-            accuracy: 0.001
+            try XCTUnwrap(baseline.b.moveXAnimation).fromOffset
         )
         XCTAssertEqual(
             projected.engine.columns(in: projected.workspaceId).map { $0.windowNodes.map(\.token) },
@@ -351,17 +350,15 @@ final class NiriProjectionCommandTests: XCTestCase {
             )
         )
 
-        XCTAssertEqual(projectedState.viewOffset, baselineState.viewOffset, accuracy: 0.001)
+        XCTAssertEqual(projectedState.viewOffset, baselineState.viewOffset)
         XCTAssertEqual(projectedState.activeColumnIndex, baselineState.activeColumnIndex)
         XCTAssertEqual(
             try XCTUnwrap(projectedBColumn.moveAnimation).fromOffset,
-            try XCTUnwrap(baselineBColumn.moveAnimation).fromOffset,
-            accuracy: 0.001
+            try XCTUnwrap(baselineBColumn.moveAnimation).fromOffset
         )
         XCTAssertEqual(
             try XCTUnwrap(projectedAColumn.moveAnimation).fromOffset,
-            try XCTUnwrap(baselineAColumn.moveAnimation).fromOffset,
-            accuracy: 0.001
+            try XCTUnwrap(baselineAColumn.moveAnimation).fromOffset
         )
         XCTAssertNil(hiddenColumn.moveAnimation)
     }
@@ -457,8 +454,8 @@ final class NiriProjectionCommandTests: XCTestCase {
         )
         let singleFrame = try XCTUnwrap(oneVisible.frames[a.token])
         let columnFrame = try XCTUnwrap(column.frame)
-        XCTAssertEqual(singleFrame.minX, columnFrame.minX + gap, accuracy: 0.001)
-        XCTAssertEqual(singleFrame.width, columnFrame.width, accuracy: 0.001)
+        XCTAssertEqual(singleFrame.minX, columnFrame.minX + gap)
+        XCTAssertEqual(singleFrame.width, columnFrame.width)
         XCTAssertEqual(column.displayMode, .tabbed)
     }
 
@@ -501,8 +498,8 @@ final class NiriProjectionCommandTests: XCTestCase {
             return XCTFail("Expected a chosen pixel width after resizing")
         }
         XCTAssertLessThan(chosenWidth, 1100)
-        XCTAssertEqual(constrained.column.cachedWidth, originalWidth - 400, accuracy: 0.001)
-        XCTAssertEqual(peerColumn.cachedWidth, try XCTUnwrap(before[peer.token]).width, accuracy: 0.001)
+        XCTAssertEqual(constrained.column.cachedWidth, originalWidth - 400)
+        XCTAssertEqual(peerColumn.cachedWidth, try XCTUnwrap(before[peer.token]).width)
         XCTAssertEqual(peerColumn.width, .fixed(400))
         XCTAssertEqual(
             constrained.engine.projectedWidthBounds(
@@ -545,7 +542,7 @@ final class NiriProjectionCommandTests: XCTestCase {
             workspaceId: baseline.workspaceId,
             window: baseline.a
         )
-        XCTAssertEqual(projected.a.widthWeight, baseline.a.widthWeight, accuracy: 0.001)
+        XCTAssertEqual(projected.a.widthWeight, baseline.a.widthWeight)
     }
 
     func testDiscreteSecondarySizingMatchesEquivalentVisibleTree() throws {
@@ -598,8 +595,7 @@ final class NiriProjectionCommandTests: XCTestCase {
             let baselineFrame = try XCTUnwrap(baselineFrames[baseline.a.token])
             XCTAssertEqual(
                 secondarySpan(of: projectedFrame, orientation: orientation),
-                secondarySpan(of: baselineFrame, orientation: orientation),
-                accuracy: 0.001
+                secondarySpan(of: baselineFrame, orientation: orientation)
             )
             XCTAssertEqual(secondarySize(of: projected.hidden, orientation: orientation), hiddenSizing)
         }
@@ -633,7 +629,7 @@ final class NiriProjectionCommandTests: XCTestCase {
                 orientation: orientation
             )[projected.a.token])
             let expectedSpan: CGFloat = orientation == .horizontal ? 382 : 582
-            XCTAssertEqual(secondarySpan(of: frame, orientation: orientation), expectedSpan, accuracy: 0.001)
+            XCTAssertEqual(secondarySpan(of: frame, orientation: orientation), expectedSpan)
         }
     }
 
@@ -667,7 +663,7 @@ final class NiriProjectionCommandTests: XCTestCase {
             selectedWindow: fixture.a,
             orientation: .vertical
         )[fixture.a.token])
-        XCTAssertEqual(frame.width, 582, accuracy: 0.001)
+        XCTAssertEqual(frame.width, 582)
     }
 
     func testTabbedSecondaryResetPreservesExcludedMembers() throws {
@@ -781,10 +777,10 @@ final class NiriProjectionCommandTests: XCTestCase {
             switch orientation {
             case .horizontal:
                 XCTAssertNotEqual(fixture.column.width, .fixed(333))
-                XCTAssertEqual(fixture.column.cachedWidth, 582, accuracy: 0.001)
+                XCTAssertEqual(fixture.column.cachedWidth, 582)
             case .vertical:
                 XCTAssertNotEqual(fixture.column.height, .fixed(222))
-                XCTAssertEqual(fixture.column.cachedHeight, 382, accuracy: 0.001)
+                XCTAssertEqual(fixture.column.cachedHeight, 382)
             }
         }
     }

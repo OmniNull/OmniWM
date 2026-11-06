@@ -616,7 +616,7 @@ final class ShellNotificationWidgetTests: XCTestCase {
     private func assertButton(_ title: String, enabled: Bool, in widget: ShellRenderedWidget) throws {
         let target = try control(title, in: widget)
         let content = widget.surface.layout.core.content(of: target)
-        XCTAssertEqual(widget.surface.layout.core.paint(of: target).opacity, enabled ? 1 : 0.4, accuracy: 0.001, title)
+        XCTAssertEqual(widget.surface.layout.core.paint(of: target).opacity, enabled ? 1 : 0.4, title)
         XCTAssertEqual(content.hasHoverEffect, enabled, title)
         if !enabled {
             XCTAssertNotEqual(content.action & OMNI_ACTION_HANDLER, 0, title)

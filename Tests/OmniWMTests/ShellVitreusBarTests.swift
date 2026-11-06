@@ -176,10 +176,10 @@ final class ShellVitreusBarTests: XCTestCase {
         let rows = try XCTUnwrap(lines.first).split(separator: ";").map { Self.numbers(String($0)) }
         for (row, bz) in zip(rows, [1, 0.7, 0.85, 0.85, 0.86, 0.7, 1, 1]) {
             for (value, target) in zip(row, [bz, 1.35 * bz, 1.5525 * bz, 1.35, 1.5525]) {
-                XCTAssertEqual(value, target, accuracy: 1e-9, "\(row)")
+                XCTAssertEqual(value, target, "\(row)")
             }
         }
-        XCTAssertEqual(rows[1][1], 0.945, accuracy: 1e-9)
+        XCTAssertEqual(rows[1][1], 0.945)
         XCTAssertEqual(Array(lines.dropFirst()), [
             "workspaces,clock,omniwm", "omniwm,title", "omniwm",
             "apple,app,workspaces,scratchpads,title,tray,search,stats,omniwm,controls,clock"
@@ -221,9 +221,9 @@ final class ShellVitreusBarTests: XCTestCase {
             XCTAssertEqual(value, target, accuracy: 1e-6)
         }
         XCTAssertEqual(rows[0][8] + rows[0][9] + 16.2, rows[0][12], accuracy: 1e-6)
-        XCTAssertEqual(rows[1][2], 450 * 1.35 + 54 * 1.35, accuracy: 1e-6)
-        XCTAssertEqual(rows[1][10], 1043.35 + 72.9 / 2 - 56.7, accuracy: 1e-6)
-        XCTAssertEqual(rows[1][11], 56.7, accuracy: 1e-6)
+        XCTAssertEqual(rows[1][2], 450 * 1.35 + 54 * 1.35)
+        XCTAssertEqual(rows[1][10], 1043.35 + 72.9 / 2 - 56.7)
+        XCTAssertEqual(rows[1][11], 56.7)
         for (value, target) in zip(rows[2].prefix(6), [747.375, 8, 425.25, 37.8, 13.23, 26.9]) {
             XCTAssertEqual(value, target, accuracy: 1e-6)
         }
@@ -249,8 +249,8 @@ extension ShellVitreusBarTests {
         guard case let .spring(response, bounce)? = widget.surface.animation(for: shape)?.motion else {
             return XCTFail("the pill needs the calm spring")
         }
-        XCTAssertEqual(response, 0.513, accuracy: 1e-6)
-        XCTAssertEqual(bounce, 0.06, accuracy: 1e-6)
+        XCTAssertEqual(response, 0.513)
+        XCTAssertEqual(bounce, 0.06)
         let paint = layout.core.paint(of: glass)
         for (color, role, alpha) in [(paint.fill, ShellRole.secondaryContainer, 0.36), (paint.shadow, .shadow, 0.08)] {
             XCTAssertEqual(color.role & 0xFF, UInt16(role.rawValue + 1), "\(role)")
@@ -258,8 +258,8 @@ extension ShellVitreusBarTests {
         }
         XCTAssertEqual(paint.shadowRadius, 6)
         let recipe = try XCTUnwrap(ShellGlassRecipe(widget.text.string(layout.core.content(of: glass).text)))
-        XCTAssertEqual(recipe.blend, 26 * 1.35, accuracy: 1e-6)
-        XCTAssertEqual(recipe.rim, 0.1, accuracy: 1e-6)
+        XCTAssertEqual(recipe.blend, 26 * 1.35)
+        XCTAssertEqual(recipe.rim, 0.1)
         XCTAssertEqual(recipe.shadowOffset, CGPoint(x: 0, y: 1))
         XCTAssertEqual(recipe.light, CGPoint(x: -1, y: 0))
         XCTAssertFalse(recipe.flat)
@@ -302,9 +302,9 @@ extension ShellVitreusBarTests {
             let opener = try VitreusFixture.frame(widget, key: "desk-opener")
             let size = 32 * 1.5525
             XCTAssertEqual(opener.midX, monitor.frame.width - 41 * 1.5525, accuracy: 0.001)
-            XCTAssertEqual(opener.midY, 35, accuracy: 0.001)
-            XCTAssertEqual(opener.width, size, accuracy: 0.001)
-            XCTAssertEqual(opener.height, size, accuracy: 0.001)
+            XCTAssertEqual(opener.midY, 35)
+            XCTAssertEqual(opener.width, floatStored(size))
+            XCTAssertEqual(opener.height, floatStored(size))
             let center = CGPoint(x: opener.midX, y: opener.midY)
             let display = VitreusFixture.bar(monitor).monitorId
             XCTAssertEqual(widget.surface.command(at: center), "shell trigger vitreus desk-open \(display)")
@@ -323,13 +323,13 @@ extension ShellVitreusBarTests {
             let widget = try island(shell, bar: data, monitor: monitor)
             let pill = try VitreusFixture.frame(widget, key: "shell")
             let opener = try VitreusFixture.frame(widget, key: "desk-opener")
-            XCTAssertEqual(pill.minX, 8, accuracy: 0.001)
-            XCTAssertEqual(pill.minY, 8, accuracy: 0.001)
-            XCTAssertEqual(pill.height, 54, accuracy: 0.001)
-            XCTAssertEqual(monitor.frame.width - pill.maxX, pill.minX, accuracy: 0.001)
+            XCTAssertEqual(pill.minX, 8)
+            XCTAssertEqual(pill.minY, 8)
+            XCTAssertEqual(pill.height, 54)
+            XCTAssertEqual(monitor.frame.width - pill.maxX, pill.minX)
             XCTAssertGreaterThanOrEqual(opener.minX, try VitreusFixture.frame(widget, key: "bar-controls").maxX)
             XCTAssertLessThanOrEqual(opener.maxX, pill.maxX)
-            XCTAssertEqual(opener.midY, pill.midY, accuracy: 0.001)
+            XCTAssertEqual(opener.midY, pill.midY)
             XCTAssertTrue(widget.surface.containsShape(at: CGPoint(x: opener.midX, y: pill.midY)))
         }
     }
@@ -346,8 +346,8 @@ extension ShellVitreusBarTests {
             let pill = try VitreusFixture.frame(widget, key: "shell")
             let drawer = try VitreusFixture.frame(widget, key: "drawer")
             let width = fullWidth ? monitor.frame.width - 2 * pill.minX : 607.5
-            XCTAssertEqual(pill.width, width, accuracy: 0.001, "full width \(fullWidth)")
-            XCTAssertEqual(drawer.midX, pill.midX, accuracy: 0.001, "full width \(fullWidth)")
+            XCTAssertEqual(pill.width, width, "full width \(fullWidth)")
+            XCTAssertEqual(drawer.midX, pill.midX, "full width \(fullWidth)")
         }
     }
 
@@ -388,19 +388,18 @@ extension ShellVitreusBarTests {
         let pill = try VitreusFixture.frame(melted, key: "shell")
         let flat = try VitreusFixture.frame(level, key: "shell")
         Self.assertRect(flat, CGRect(x: 656.25, y: 8, width: 607.5, height: 54))
-        XCTAssertEqual(pill.minY, flat.minY, accuracy: 0.001)
-        XCTAssertEqual(pill.height, flat.height, accuracy: 0.001)
-        XCTAssertEqual(pill.midX, try Self.notch(of: notched).midX, accuracy: 0.001)
+        XCTAssertEqual(pill.minY, flat.minY)
+        XCTAssertEqual(pill.height, flat.height)
+        XCTAssertEqual(pill.midX, try Self.notch(of: notched).midX)
         let opener = try VitreusFixture.frame(melted, key: "desk-opener")
         XCTAssertGreaterThanOrEqual(opener.minX, try VitreusFixture.frame(melted, key: "bar-controls").maxX)
         XCTAssertLessThanOrEqual(opener.maxX, pill.maxX)
-        XCTAssertEqual(opener.midY, pill.midY, accuracy: 0.001)
+        XCTAssertEqual(opener.midY, pill.midY)
         VitreusFixture.trigger(melted.instance, "drawer-calendar", VitreusFixture.bar(notched).monitorId)
         VitreusFixture.show(melted, on: notched)
         XCTAssertEqual(
             try VitreusFixture.frame(melted, key: "drawer-content-calendar").minY,
-            pill.maxY,
-            accuracy: 0.001
+            pill.maxY
         )
         let selected = try String(contentsOf: shell.appendingPathComponent("shell.toml"), encoding: .utf8)
         let rooms: [(String, CGFloat)] = [("island", 62), ("seg", 59)]
@@ -434,7 +433,7 @@ extension ShellVitreusBarTests {
         var data = VitreusFixture.bar(monitor)
         data.style.hidesMenuBar = true
         let widget = try island(shell, bar: data, monitor: monitor)
-        XCTAssertEqual(try VitreusFixture.frame(widget, key: "shell").minY, 8, accuracy: 0.001)
+        XCTAssertEqual(try VitreusFixture.frame(widget, key: "shell").minY, 8)
         XCTAssertFalse(Self.has(widget, "bar-app"))
         widget.set("menuApp") { ShellMenuApp(pid: 1, name: "Safari", bundle: "com.apple.Safari").write(into: &$0) }
         VitreusFixture.show(widget, on: monitor, bar: data)

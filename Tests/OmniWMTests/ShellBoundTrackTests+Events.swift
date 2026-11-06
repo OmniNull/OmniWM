@@ -30,7 +30,7 @@ extension ShellBoundTrackTests {
                 let pulse = try XCTUnwrap(scene.shapeTracks.entries[slot])
                 XCTAssertEqual(pulse.triggerPlans.map(\.begin), starts)
                 let start = try XCTUnwrap(starts.first)
-                XCTAssertEqual(pulse.shape(at: start - 0.001).rect.width, 0, accuracy: 1e-9)
+                XCTAssertEqual(pulse.shape(at: start - 0.001).rect.width, 0)
                 XCTAssertGreaterThan(pulse.shape(at: start + 0.03).rect.width, 1)
                 XCTAssertTrue(pulse.animations
                     .contains { ($0.animation as? CAKeyframeAnimation)?.values?.isEmpty == false })

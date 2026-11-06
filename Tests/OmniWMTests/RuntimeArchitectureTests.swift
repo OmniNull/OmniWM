@@ -16,8 +16,8 @@ final class RuntimeArchitectureTests: XCTestCase {
             config: config
         )
 
-        XCTAssertEqual(animation.value(at: startTime), 0.0, accuracy: 0.000001)
-        XCTAssertEqual(animation.value(at: startTime + config.duration), 1.0, accuracy: 0.000001)
+        XCTAssertEqual(animation.value(at: startTime), 0.0)
+        XCTAssertEqual(animation.value(at: startTime + config.duration), 1.0)
         XCTAssertTrue(animation.isComplete(at: startTime + config.duration))
     }
 
@@ -540,8 +540,7 @@ final class RuntimeArchitectureTests: XCTestCase {
 
         XCTAssertEqual(
             controller.workspaceManager.niriViewportState(for: workspaceId).viewOffset,
-            300,
-            accuracy: 0.001
+            300
         )
         XCTAssertFalse(controller.workspaceManager.animationDriver.hasMotion(in: workspaceId))
 
@@ -556,8 +555,7 @@ final class RuntimeArchitectureTests: XCTestCase {
 
         XCTAssertEqual(
             controller.workspaceManager.niriViewportState(for: workspaceId).viewOffset,
-            300,
-            accuracy: 0.001
+            300
         )
         XCTAssertFalse(controller.workspaceManager.animationDriver.hasMotion(in: workspaceId))
 
@@ -4488,7 +4486,7 @@ final class RuntimeArchitectureTests: XCTestCase {
 
         XCTAssertEqual(state.selectedNodeId, secondNode.id)
         XCTAssertEqual(state.activeColumnIndex, 0)
-        XCTAssertEqual(state.viewOffset, -16.0, accuracy: 0.001)
+        XCTAssertEqual(state.viewOffset, -16.0)
         XCTAssertFalse(state.hasPendingOffsetAnimation)
     }
 
@@ -4986,7 +4984,7 @@ final class RuntimeArchitectureTests: XCTestCase {
         XCTAssertFalse(engine.hasAnyColumnAnimationsRunning(in: workspaceId))
         XCTAssertFalse(engine.hasAnyWindowAnimationsRunning(in: workspaceId))
         XCTAssertFalse(patchedState.hasPendingOffsetAnimation)
-        XCTAssertEqual(patchedViewOrigin, viewOrigin, accuracy: 0.001)
+        XCTAssertEqual(patchedViewOrigin, viewOrigin)
         XCTAssertEqual(patchedState.selectedNodeId, newNode.id)
     }
 
@@ -5610,7 +5608,7 @@ final class RuntimeArchitectureTests: XCTestCase {
         XCTAssertEqual(finalColumns[1].windowNodes.map(\.token), [tokens[1]])
         XCTAssertEqual(finalState.selectedNodeId, stateBeforeRemoval.selectedNodeId)
         XCTAssertEqual(finalState.activeColumnIndex, stateBeforeRemoval.activeColumnIndex)
-        XCTAssertEqual(finalState.viewOffset, stateBeforeRemoval.viewOffset, accuracy: 0.001)
+        XCTAssertEqual(finalState.viewOffset, stateBeforeRemoval.viewOffset)
         XCTAssertFalse(finalState.hasPendingOffsetAnimation)
     }
 
@@ -7086,14 +7084,14 @@ final class RuntimeArchitectureTests: XCTestCase {
         XCTAssertEqual(existingColumn.width, .fixed(targetColumnWidth))
         let geometry = controller.niriInteractionGeometry(for: rightMonitor)
         let fittedWidth = geometry.workingFrame.width - geometry.innerGap * 2
-        XCTAssertEqual(existingColumn.cachedWidth, fittedWidth, accuracy: 0.001)
+        XCTAssertEqual(existingColumn.cachedWidth, fittedWidth)
         XCTAssertTrue(existingColumn.hasManualSingleWindowWidthOverride)
 
         let plans = controller.workspaceManager.withEngineMutationScope {
             controller.niriLayoutHandler.layoutWithNiriEngine(activeWorkspaces: [rightWs])
         }
         XCTAssertFalse(plans.isEmpty)
-        XCTAssertEqual(try XCTUnwrap(movedNode.renderedFrame?.width), fittedWidth, accuracy: 0.001)
+        XCTAssertEqual(try XCTUnwrap(movedNode.renderedFrame?.width), fittedWidth)
     }
 
     @MainActor
@@ -7145,7 +7143,7 @@ final class RuntimeArchitectureTests: XCTestCase {
         let gap = CGFloat(controller.workspaceManager.gaps)
         let expectedTargetWidth = (targetWorkingFrame.width - gap) * 0.5 - gap
         XCTAssertFalse(plans.isEmpty)
-        XCTAssertEqual(try XCTUnwrap(movedNode.renderedFrame?.width), expectedTargetWidth, accuracy: 0.001)
+        XCTAssertEqual(try XCTUnwrap(movedNode.renderedFrame?.width), expectedTargetWidth)
     }
 
     @MainActor
@@ -7216,7 +7214,7 @@ final class RuntimeArchitectureTests: XCTestCase {
         let gap = CGFloat(controller.workspaceManager.gaps)
         let expectedTargetWidth = (targetWorkingFrame.width - gap) * 0.5 - gap
         XCTAssertFalse(plans.isEmpty)
-        XCTAssertEqual(try XCTUnwrap(movedNode.renderedFrame?.width), expectedTargetWidth, accuracy: 0.001)
+        XCTAssertEqual(try XCTUnwrap(movedNode.renderedFrame?.width), expectedTargetWidth)
     }
 
     @MainActor

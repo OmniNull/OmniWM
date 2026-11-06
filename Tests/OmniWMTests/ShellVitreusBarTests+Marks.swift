@@ -90,10 +90,10 @@ extension ShellVitreusBarTests {
             let next = try VitreusFixture.frame(widget, key: "workspace-square-4")
             XCTAssertEqual(next.minX - empty.maxX, 9 * unit, accuracy: 0.001)
             let radius = try markPaint(widget, "workspace-square-2").cornerRadius
-            XCTAssertEqual(Double(radius), 3.75 * unit, accuracy: 0.001)
+            XCTAssertEqual(Double(radius), floatStored(3.75 * unit))
             let hit = try VitreusFixture.frame(widget, key: "workspace-hit-2")
-            XCTAssertEqual(hit.width, 21.5 * unit, accuracy: 0.001)
-            XCTAssertEqual(hit.height, shell.height, accuracy: 0.001)
+            XCTAssertEqual(hit.width, floatStored(21.5 * unit))
+            XCTAssertEqual(hit.height, shell.height)
             let activeHit = try VitreusFixture.frame(widget, key: "workspace-hit-1")
             XCTAssertEqual(activeHit.maxX + Self.oneIconRun * unit, hit.minX, accuracy: 0.001)
         }
@@ -105,7 +105,7 @@ extension ShellVitreusBarTests {
         let widget = try markWidget(data)
         let pill = try VitreusFixture.frame(widget, key: "shell")
         let row = 29 + 9 + 8 * (12.5 + 9) + 9 * Self.oneIconRun
-        XCTAssertEqual(pill.width, (450 + row - 128) * 1.35, accuracy: 0.001)
+        XCTAssertEqual(pill.width, floatStored((450 + row - 128) * 1.35))
         let last = try VitreusFixture.frame(widget, key: "workspace-hit-9")
         XCTAssertLessThan(last.maxX, pill.maxX - 16 * 1.35)
     }
@@ -123,17 +123,17 @@ extension ShellVitreusBarTests {
         for (id, square) in [("1", "workspace-pill-shape"), ("2", "workspace-square-2"), ("3", "workspace-square-3")] {
             let text = try VitreusFixture.frame(widget, key: "workspace-name-text-" + id)
             let tile = try VitreusFixture.frame(widget, key: square)
-            XCTAssertEqual(text.midX, tile.midX, accuracy: 0.001, id)
-            XCTAssertEqual(text.midY, tile.midY, accuracy: 0.001, id)
+            XCTAssertEqual(text.midX, floatStored(tile.midX), id)
+            XCTAssertEqual(text.midY, tile.midY, id)
             XCTAssertLessThanOrEqual(text.width, tile.width, id)
             let hit = try VitreusFixture.frame(widget, key: "workspace-hit-" + id)
-            XCTAssertEqual(hit.width, tile.width + 9 * unit, accuracy: 0.001, id)
+            XCTAssertEqual(hit.width, floatStored(tile.width + 9 * unit), id)
         }
         let pill = try VitreusFixture.frame(widget, key: "workspace-pill-shape")
         let browser = try VitreusFixture.frame(widget, key: "workspace-name-text-1")
         XCTAssertGreaterThan(pill.width, 29 * unit)
-        XCTAssertEqual(pill.width, browser.width + 6 * unit, accuracy: 0.001)
-        XCTAssertEqual(try VitreusFixture.frame(widget, key: "workspace-square-3").width, 12.5 * unit, accuracy: 0.001)
+        XCTAssertEqual(pill.width, floatStored(browser.width + 6 * unit))
+        XCTAssertEqual(try VitreusFixture.frame(widget, key: "workspace-square-3").width, 12.5 * unit)
     }
 
     func testTurningWorkspaceLabelsOffLeavesBlankMarksAtTheirOwnSizes() throws {
@@ -148,9 +148,9 @@ extension ShellVitreusBarTests {
         let unit = 1.35
         XCTAssertFalse(widget.strings().contains("Browser"))
         XCTAssertFalse(Self.has(widget, "workspace-name-1"))
-        XCTAssertEqual(try VitreusFixture.frame(widget, key: "workspace-pill-shape").width, 29 * unit, accuracy: 0.001)
-        XCTAssertEqual(try VitreusFixture.frame(widget, key: "workspace-square-2").width, 12.5 * unit, accuracy: 0.001)
-        XCTAssertEqual(try VitreusFixture.frame(widget, key: "workspace-square-3").width, 8 * unit, accuracy: 0.001)
+        XCTAssertEqual(try VitreusFixture.frame(widget, key: "workspace-pill-shape").width, floatStored(29 * unit))
+        XCTAssertEqual(try VitreusFixture.frame(widget, key: "workspace-square-2").width, 12.5 * unit)
+        XCTAssertEqual(try VitreusFixture.frame(widget, key: "workspace-square-3").width, floatStored(8 * unit))
     }
 
     func testWorkspaceFlatBodiesDeclareReferenceOpacityRimsGradientAndGlow() throws {
@@ -159,18 +159,18 @@ extension ShellVitreusBarTests {
         let pill = try markRecipe(widget, "workspace-pill")
         XCTAssertTrue(square.flat)
         XCTAssertTrue(pill.flat)
-        XCTAssertEqual(square.rim, 0.4, accuracy: 0.0001)
-        XCTAssertEqual(pill.rim, 0.55, accuracy: 0.0001)
+        XCTAssertEqual(square.rim, 0.4)
+        XCTAssertEqual(pill.rim, 0.55)
         XCTAssertEqual(pill.gradientAngle, 90)
         let squarePaint = try markPaint(widget, "workspace-mark-2")
-        XCTAssertEqual(squarePaint.opacity, 0.4675, accuracy: 0.0001)
+        XCTAssertEqual(squarePaint.opacity, 0.4675)
         XCTAssertEqual(squarePaint.fill.role & 0xFF, UInt16(ShellRole.foreground.rawValue + 1))
         let pillPaint = try markPaint(widget, "workspace-pill")
-        XCTAssertEqual(pillPaint.opacity, 0.55, accuracy: 0.0001)
+        XCTAssertEqual(pillPaint.opacity, 0.55)
         XCTAssertTrue(pillPaint.gradientSpecified)
         XCTAssertEqual(pillPaint.gradientFrom.role & 0xFF, UInt16(ShellRole.secondaryContainerForeground.rawValue + 1))
         XCTAssertEqual(pillPaint.gradientTo.role & 0xFF, UInt16(ShellRole.accent.rawValue + 1))
-        XCTAssertEqual(pillPaint.shadowRadius, 7 * 1.35, accuracy: 0.001)
+        XCTAssertEqual(pillPaint.shadowRadius, 7 * 1.35)
         XCTAssertEqual(pillPaint.shadow.role & 0xFF, UInt16(ShellRole.accent.rawValue + 1))
         XCTAssertEqual(Double(pillPaint.shadow.role >> 8) / 255, 0.3, accuracy: 0.003)
         XCTAssertEqual(pill.shadowOffset, .zero)
@@ -184,12 +184,12 @@ extension ShellVitreusBarTests {
         let paint = widget.surface.layout.core.paint(of: shape)
         let morph = try XCTUnwrap(ShellMorphRecipe(widget.text.string(paint.morph)))
         let edges = try XCTUnwrap(morph.edges)
-        XCTAssertEqual(edges.lead.response, 0.142, accuracy: 0.0001)
+        XCTAssertEqual(edges.lead.response, 0.142)
         XCTAssertEqual(edges.lead.bounce, 0)
-        XCTAssertEqual(edges.trail.response, 0.378, accuracy: 0.0001)
+        XCTAssertEqual(edges.trail.response, 0.378)
         XCTAssertEqual(edges.trail.bounce, 0)
-        XCTAssertEqual(edges.thin, 0.18, accuracy: 0.0001)
-        XCTAssertEqual(edges.unit, 29.75 * 1.35, accuracy: 0.001)
+        XCTAssertEqual(edges.thin, 0.18)
+        XCTAssertEqual(edges.unit, 29.75 * 1.35)
         clock.time += 0.01
         VitreusFixture.show(widget, bar: markData(active: "2"))
         let scene = widget.surface.scene
@@ -243,7 +243,7 @@ extension ShellVitreusBarTests {
         try markHover(widget, "workspace-hit-2", .began)
         VitreusFixture.show(widget, bar: data)
         let pending = try XCTUnwrap(VitreusFixture.drain(widget).first { $0.kind == OMNI_SERVICE_TIMER })
-        XCTAssertEqual(pending.seconds, 0.2, accuracy: 0.0001)
+        XCTAssertEqual(pending.seconds, 0.2)
         let before = widget.tree().filter { $0.kind == .path }.map { widget.text.string($0.content.text) }
         VitreusFixture.complete(widget, pending)
         VitreusFixture.show(widget, bar: data)
@@ -309,7 +309,7 @@ extension ShellVitreusBarTests {
             XCTAssertFalse(Self.has(widget, "workspace-hit-1"), name)
             XCTAssertFalse(Self.has(widget, "workspace-pill"), name)
             let pending = try XCTUnwrap(VitreusFixture.drain(widget).first { $0.kind == OMNI_SERVICE_TIMER })
-            XCTAssertEqual(pending.seconds, 0.2, accuracy: 0.0001)
+            XCTAssertEqual(pending.seconds, 0.2)
             let frame = try VitreusFixture.frame(widget, key: "workspace-special")
             XCTAssertEqual(widget.surface.command(at: CGPoint(x: frame.midX, y: frame.midY)), "scratchpad toggle 7")
             data.scratchpads[0] = .init(id: 7, name: name, focused: false, revealed: true, visible: false, windows: [])
@@ -334,8 +334,8 @@ extension ShellVitreusBarTests {
         }
         let target = try VitreusFixture.frame(widget, key: "workspace-hit-2")
         XCTAssertEqual(frame.midX, target.midX, accuracy: 0.001)
-        XCTAssertEqual(frame.width, 29 * 1.35, accuracy: 0.001)
-        XCTAssertEqual(frame.height, 15 * 1.35, accuracy: 0.001)
+        XCTAssertEqual(frame.width, floatStored(29 * 1.35))
+        XCTAssertEqual(frame.height, 15 * 1.35)
     }
 }
 
@@ -366,7 +366,7 @@ extension ShellVitreusBarTests {
             try markHover(widget, "workspace-hit-2", .began)
             VitreusFixture.show(widget, bar: data)
             let square = try VitreusFixture.frame(widget, key: "workspace-square-2")
-            XCTAssertEqual(square.width, 12.5 * 1.35 * size * 1.35, accuracy: 0.001)
+            XCTAssertEqual(square.width, floatStored(12.5 * 1.35 * size * 1.35))
             try markSnapshot(widget, name: "vitreus-marks-hover-\(size)")
             try markHover(widget, "workspace-hit-2", .ended)
             VitreusFixture.show(widget, bar: data)

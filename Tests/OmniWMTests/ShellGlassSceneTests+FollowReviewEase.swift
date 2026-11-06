@@ -95,8 +95,8 @@ extension ShellGlassSceneTests {
                     as? CABasicAnimation
             )
             XCTAssertFalse(animation is CASpringAnimation)
-            XCTAssertEqual(animation.duration, 0.2, accuracy: 1e-9)
-            XCTAssertEqual(animation.beginTime, begin, accuracy: 1e-9)
+            XCTAssertEqual(animation.duration, 0.2)
+            XCTAssertEqual(animation.beginTime, begin)
         }
     }
 
@@ -138,18 +138,18 @@ extension ShellGlassSceneTests {
             curve: try XCTUnwrap(ShellCurve(wire: 1, custom: nil))
         )
         let base = ShellShapeBaseMotion(from: from, to: to, begin: 1, ease: animation)
-        XCTAssertEqual(base.duration, 0.2, accuracy: 1e-12)
+        XCTAssertEqual(base.duration, 0.2)
         for elapsed in [0.025, 0.05, 0.1, 0.15] {
             let state = base.state(at: 1 + elapsed)
             XCTAssertEqual(state.shape.rect.minX, 30 + 300 * elapsed, accuracy: 1e-7)
-            XCTAssertEqual(state.velocity[0], 300, accuracy: 1e-7)
+            XCTAssertEqual(state.velocity[0], 300)
         }
         let seed = base.state(at: 1.1)
         let retarget = ShellShapeBaseMotion(
             from: seed.shape, velocity: seed.velocity, to: from, begin: 1.1, spring: try Self.spring(Self.calm)
         )
         XCTAssertEqual(retarget.state(at: 1.1).shape.rect.minX, 60, accuracy: 1e-7)
-        XCTAssertEqual(retarget.state(at: 1.1).velocity[0], 300, accuracy: 1e-7)
+        XCTAssertEqual(retarget.state(at: 1.1).velocity[0], 300)
         XCTAssertEqual(base.rekeyed(to: 12).state(at: 1.1).shape.slot, 12)
         XCTAssertEqual(base.rekeyed(to: 12).state(at: 1.1).shape.rect.minX, 60, accuracy: 1e-7)
     }

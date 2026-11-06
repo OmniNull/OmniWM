@@ -150,7 +150,7 @@ extension ShellGlassSceneTests {
             .manipulation(slot: 11, token: 1, presentation: .identity, active: false)
         ], on: followed)
         let settled = try shadowReach(followed, at: begin, column: 90, bottom: committed.maxY)
-        XCTAssertEqual(Double(held), Double(settled), accuracy: 1)
+        XCTAssertEqual(Double(held), Double(settled))
         XCTAssertGreaterThan(held, 20)
         let wrapped = try followStage(width: 320, height: 240, at: begin)
         let inner = FollowShape(

@@ -81,8 +81,8 @@ final class MonitorArrangementGeometryTests: XCTestCase {
         let rightGap = canvas.width - unionMaxX
         let topGap = unionMinY
         let bottomGap = canvas.height - unionMaxY
-        XCTAssertEqual(leftGap, rightGap, accuracy: 1e-4)
-        XCTAssertEqual(topGap, bottomGap, accuracy: 1e-4)
+        XCTAssertEqual(leftGap, rightGap)
+        XCTAssertEqual(topGap, bottomGap)
     }
 
     func testForwardRectsThroughNegativeAndPositiveOrigins() {
@@ -118,13 +118,13 @@ final class MonitorArrangementGeometryTests: XCTestCase {
             let rect = rects[index]
             let inputRatio = frame.width / frame.height
             let outputRatio = rect.width / rect.height
-            XCTAssertEqual(outputRatio, inputRatio, accuracy: 1e-4)
+            XCTAssertEqual(outputRatio, inputRatio)
 
             let scaleX = rect.width / frame.width
             let scaleY = rect.height / frame.height
-            XCTAssertEqual(scaleX, scaleY, accuracy: 1e-4)
-            XCTAssertEqual(scaleX, commonScale, accuracy: 1e-4)
-            XCTAssertEqual(scaleY, commonScale, accuracy: 1e-4)
+            XCTAssertEqual(scaleX, scaleY)
+            XCTAssertEqual(scaleX, commonScale)
+            XCTAssertEqual(scaleY, commonScale)
         }
     }
 }

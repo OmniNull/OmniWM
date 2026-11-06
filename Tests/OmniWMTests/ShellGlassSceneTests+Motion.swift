@@ -182,7 +182,7 @@ extension ShellGlassSceneTests {
             let layers = body.lockstepLayers(1)
             let begins = try Self.assertSprings(layers, .x, like: Self.calm)
             XCTAssertEqual(begins.count, 1)
-            XCTAssertEqual(begins.first ?? 0, begin + elapsed, accuracy: 1e-9)
+            XCTAssertEqual(begins.first ?? 0, begin + elapsed)
             let retargets = layers
                 .compactMap { $0.animation(forKey: ShellGlassBody.Channel.x.key) as? CASpringAnimation }
             XCTAssertEqual(Set(retargets.map(\.initialVelocity)).count, 1)
@@ -191,7 +191,7 @@ extension ShellGlassSceneTests {
                 XCTAssertEqual(from, position, accuracy: 1e-6)
                 XCTAssertEqual(retarget.initialVelocity * (40 - from), velocity, accuracy: 0.5)
             }
-            XCTAssertEqual(try edge(begin + elapsed), before, accuracy: 0.5)
+            XCTAssertEqual(try edge(begin + elapsed), before)
             let offset = try edge(begin + 10) - 40
             let step = 1.0 / 60
             let carried = 40 + offset + ShellSpringDynamics.position(

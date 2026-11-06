@@ -259,13 +259,13 @@ final class WindowCloseFocusRecoveryTests: XCTestCase {
         XCTAssertEqual(focusThenDestroy.preferredWindowId, control.preferredWindowId)
         XCTAssertEqual(focusThenDestroy.selectedWindowId, control.selectedWindowId)
         XCTAssertEqual(focusThenDestroy.activeColumnIndex, control.activeColumnIndex)
-        XCTAssertEqual(focusThenDestroy.viewOffset, control.viewOffset, accuracy: 0.5)
+        XCTAssertEqual(focusThenDestroy.viewOffset, control.viewOffset)
         XCTAssertEqual(destroyThenFocus.activeWorkspaceIsLocal, control.activeWorkspaceIsLocal)
         XCTAssertEqual(destroyThenFocus.focusedWindowId, control.focusedWindowId)
         XCTAssertEqual(destroyThenFocus.preferredWindowId, control.preferredWindowId)
         XCTAssertEqual(destroyThenFocus.selectedWindowId, control.selectedWindowId)
         XCTAssertEqual(destroyThenFocus.activeColumnIndex, control.activeColumnIndex)
-        XCTAssertEqual(destroyThenFocus.viewOffset, control.viewOffset, accuracy: 0.5)
+        XCTAssertEqual(destroyThenFocus.viewOffset, control.viewOffset)
         XCTAssertTrue(control.closingWindowWasRemoved)
         XCTAssertTrue(focusThenDestroy.closingWindowWasRemoved)
         XCTAssertTrue(destroyThenFocus.closingWindowWasRemoved)
@@ -670,7 +670,7 @@ final class WindowCloseFocusRecoveryTests: XCTestCase {
         XCTAssertNil(controller.intentLedger.openSameAppCloseProbe())
         XCTAssertEqual(viewport.selectedNodeId, settledViewport.selectedNodeId)
         XCTAssertEqual(viewport.activeColumnIndex, settledViewport.activeColumnIndex)
-        XCTAssertEqual(viewport.viewOffset, settledViewport.viewOffset, accuracy: 0.5)
+        XCTAssertEqual(viewport.viewOffset, settledViewport.viewOffset)
     }
 
     private static func makeFixture() throws -> Fixture {

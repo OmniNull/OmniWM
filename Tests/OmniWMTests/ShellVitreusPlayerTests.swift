@@ -98,19 +98,19 @@ extension ShellVitreusPlayerTests {
         XCTAssertFalse(has(fixture, "player-media"))
         XCTAssertTrue(has(fixture, "player-empty"))
         let empty = try VitreusFixture.frame(fixture.widget, key: "drawer-content-player")
-        XCTAssertEqual(empty.width, 328 * 1.5525, accuracy: 0.001)
-        XCTAssertEqual(empty.height, (55.5 + 14 + 156) * 1.5525, accuracy: 0.001)
+        XCTAssertEqual(empty.width, floatStored(328 * 1.5525))
+        XCTAssertEqual(empty.height, floatStored((55.5 + 14 + 156) * 1.5525))
         setMedia(fixture.widget)
         show(fixture)
         let media = try VitreusFixture.frame(fixture.widget, key: "player-media")
         let full = try VitreusFixture.frame(fixture.widget, key: "drawer-content-player")
-        XCTAssertEqual(media.width, 288 * 1.5525, accuracy: 0.001)
-        XCTAssertEqual(media.height, 148 * 1.5525, accuracy: 0.001)
+        XCTAssertEqual(media.width, floatStored(288 * 1.5525))
+        XCTAssertEqual(media.height, floatStored(148 * 1.5525))
         XCTAssertEqual(media.minX - full.minX, 20 * 1.5525, accuracy: 0.001)
-        XCTAssertEqual(media.minY - full.minY, 22 * 1.5525, accuracy: 0.001)
-        XCTAssertEqual(full.height, (55.5 + 14 + 156) * 1.5525, accuracy: 0.001)
+        XCTAssertEqual(media.minY - full.minY, floatStored(22 * 1.5525))
+        XCTAssertEqual(full.height, floatStored((55.5 + 14 + 156) * 1.5525))
         let cover = try VitreusFixture.frame(fixture.widget, key: "player-media-cover-fallback")
-        XCTAssertEqual(cover.width, 72 * 1.5525, accuracy: 0.001)
+        XCTAssertEqual(cover.width, floatStored(72 * 1.5525))
         XCTAssertEqual(cover.minX - media.minX, 12 * 1.5525, accuracy: 0.001)
         fixture.widget.set("media") { $0.null() }
         fixture.bar.workspaces = [workspace("4", windows: [row("only-this-display", "Here")])]
@@ -134,8 +134,8 @@ extension ShellVitreusPlayerTests {
         let expected = ["active"] + (0 ..< 8).map { "b\($0)" } + ["z0", "z1", "z2"]
         let frames = try expected.map { try VitreusFixture.frame(fixture.widget, key: "player-task-" + $0) }
         for (index, frame) in frames.enumerated() {
-            XCTAssertEqual(frame.width, 288 * 1.5525, accuracy: 0.001)
-            XCTAssertEqual(frame.height, 36 * 1.5525, accuracy: 0.001)
+            XCTAssertEqual(frame.width, floatStored(288 * 1.5525))
+            XCTAssertEqual(frame.height, floatStored(36 * 1.5525))
             XCTAssertEqual(frame.minY - frames[0].minY, Double(index) * 40 * 1.5525, accuracy: 0.001)
         }
         let badge = try VitreusFixture.frame(fixture.widget, key: "player-task-badge-active")
@@ -144,7 +144,7 @@ extension ShellVitreusPlayerTests {
         XCTAssertEqual(number.midY, badge.midY, accuracy: 0.001)
         XCTAssertFalse(has(fixture, "player-task-z3"))
         let scroll = try VitreusFixture.frame(fixture.widget, key: "player-tasks")
-        XCTAssertEqual(scroll.height, 236 * 1.5525, accuracy: 0.001)
+        XCTAssertEqual(scroll.height, floatStored(236 * 1.5525))
         let text = try content(fixture, "player-task-title-active")
         XCTAssertEqual(ShellTextStyle.symbolWeight(for: text.style), .bold)
         let slot = try handle(fixture, "player-task-title-active").slot
@@ -200,7 +200,7 @@ extension ShellVitreusPlayerTests {
         }
         XCTAssertFalse(has(fixture, "player-background-tray3"))
         let frame = try VitreusFixture.frame(fixture.widget, key: "drawer-content-player")
-        XCTAssertEqual(frame.height, (55.5 + 14 + 156 + 8 + 26 + 116) * 1.5525, accuracy: 0.001)
+        XCTAssertEqual(frame.height, floatStored((55.5 + 14 + 156 + 8 + 26 + 116) * 1.5525))
     }
 
     func testSpectrumIsDemandGatedAndSixtyBandsResampleDeterministicallyToTwentyFour() throws {
@@ -213,8 +213,7 @@ extension ShellVitreusPlayerTests {
         for index in 1 ... 24 {
             XCTAssertEqual(
                 try VitreusFixture.frame(fixture.widget, key: "player-media-band-\(index)").height,
-                1.5 * 1.5525,
-                accuracy: 0.001
+                floatStored(1.5 * 1.5525)
             )
         }
         VitreusFixture.settings(fixture.widget, ["visualiser": .bool(true)])
@@ -232,8 +231,7 @@ extension ShellVitreusPlayerTests {
             let height = (1.5 + 31 * min(1, average * gain)) * 1.5525
             XCTAssertEqual(
                 try VitreusFixture.frame(fixture.widget, key: "player-media-band-\(index + 1)").height,
-                height,
-                accuracy: 0.001
+                floatStored(height)
             )
         }
         VitreusFixture.settings(fixture.widget, ["visualiser": .bool(false)])
@@ -295,10 +293,10 @@ extension ShellVitreusPlayerTests {
         let presence = try XCTUnwrap(fixture.widget.surface.presence(paint.appear, for: target))
         XCTAssertEqual(presence.delay, 0.2)
         XCTAssertEqual(presence.opacity, 0)
-        XCTAssertEqual(presence.offset.y, 12 * 1.5525, accuracy: 0.001)
+        XCTAssertEqual(presence.offset.y, 12 * 1.5525)
         guard case let .spring(response, bounce) = presence.animation?.motion
         else { return XCTFail("Missing f3 spring") }
-        XCTAssertEqual(response, 2 * .pi * 0.52 / 6.64, accuracy: 0.0001)
+        XCTAssertEqual(response, 2 * .pi * 0.52 / 6.64)
         XCTAssertEqual(bounce, 0)
         fixture.widget.resources.motion.userAnimationsEnabled = false
         show(fixture)
@@ -307,7 +305,7 @@ extension ShellVitreusPlayerTests {
             let slot = try handle(fixture, key).slot
             try ShellLayerScene.engineQueue.sync {
                 let layer = try XCTUnwrap(fixture.widget.surface.scene.layers[slot])
-                XCTAssertEqual(layer.shadowRadius, 2.4 * 1.35, accuracy: 0.001)
+                XCTAssertEqual(layer.shadowRadius, floatStored(2.4 * 1.35))
                 XCTAssertEqual(layer.shadowOpacity, 1)
                 XCTAssertEqual(layer.shadowOffset, .zero)
             }
@@ -326,7 +324,7 @@ extension ShellVitreusPlayerTests {
         let slot = try handle(fixture, "player-media-band-1").slot
         try ShellLayerScene.engineQueue.sync {
             let layer = try XCTUnwrap(fixture.widget.surface.scene.layers[slot])
-            XCTAssertEqual(layer.bounds.height, (1.5 + 31 * 0.8) * 1.5525, accuracy: 0.001)
+            XCTAssertEqual(layer.bounds.height, floatStored((1.5 + 31 * 0.8) * 1.5525))
             for key in ["bounds", "bounds.size.height", "position", "position.y"] {
                 XCTAssertNil(layer.animation(forKey: key), key)
             }

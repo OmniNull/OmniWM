@@ -116,7 +116,7 @@ final class ObservedSizePackingHintTests: XCTestCase {
                 let node = try XCTUnwrap(engine.findNode(for: token, in: fixture.workspaceId))
                 XCTAssertEqual(node.constraints.minSize.height, 100)
                 XCTAssertEqual(node.packingHints, evidence.hints)
-                XCTAssertEqual(try XCTUnwrap(frames[token]).height, columnHeight, accuracy: 0.01)
+                XCTAssertEqual(try XCTUnwrap(frames[token]).height, columnHeight)
                 let window = try XCTUnwrap(controller.workspaceManager.entry(for: token)?.axRef)
                 XCTAssertNil(WindowAdmissionTestSupport.frameRequest(
                     controller.axManager.frameLedger,
@@ -133,7 +133,7 @@ final class ObservedSizePackingHintTests: XCTestCase {
             let stacked = try rebuild(fixture)
             let first = try XCTUnwrap(stacked[fixture.tokens[0]])
             let second = try XCTUnwrap(stacked[fixture.tokens[1]])
-            XCTAssertEqual(first.height + second.height + 3 * 3, workingHeight, accuracy: 0.01)
+            XCTAssertEqual(first.height + second.height + 3 * 3, workingHeight)
             XCTAssertFalse(first.intersects(second))
         }
     }
@@ -212,23 +212,23 @@ final class ObservedSizePackingHintTests: XCTestCase {
         let usable = workingHeight - 3 * 3
 
         var frames = try rebuild(fixture)
-        XCTAssertEqual(try XCTUnwrap(frames[hinted]).height, usable / 2, accuracy: 0.01)
+        XCTAssertEqual(try XCTUnwrap(frames[hinted]).height, usable / 2)
 
         XCTAssertTrue(controller.workspaceManager.setObservedSizeEvidence(
             ObservedSizeEvidence(hints: ObservedPackingHints(height: ObservedAxisHint(requested: 770, observed: 780))),
             for: hinted
         ))
         frames = try rebuild(fixture)
-        XCTAssertEqual(try XCTUnwrap(frames[hinted]).height, 780, accuracy: 0.01)
-        XCTAssertEqual(try XCTUnwrap(frames[other]).height, usable - 780, accuracy: 0.01)
+        XCTAssertEqual(try XCTUnwrap(frames[hinted]).height, 780)
+        XCTAssertEqual(try XCTUnwrap(frames[other]).height, usable - 780)
 
         XCTAssertTrue(controller.workspaceManager.setObservedSizeEvidence(
             ObservedSizeEvidence(hints: ObservedPackingHints(height: ObservedAxisHint(requested: 800, observed: 810))),
             for: hinted
         ))
         frames = try rebuild(fixture)
-        XCTAssertEqual(try XCTUnwrap(frames[hinted]).height, usable / 2, accuracy: 0.01)
-        XCTAssertEqual(try XCTUnwrap(frames[other]).height, usable / 2, accuracy: 0.01)
+        XCTAssertEqual(try XCTUnwrap(frames[hinted]).height, usable / 2)
+        XCTAssertEqual(try XCTUnwrap(frames[other]).height, usable / 2)
     }
 
     func testDiscardedWidthHintResetsCachedColumnWidth() throws {
@@ -246,11 +246,11 @@ final class ObservedSizePackingHintTests: XCTestCase {
             for: token
         ))
         var frames = try rebuild(fixture)
-        XCTAssertEqual(try XCTUnwrap(frames[token]).width, initialWidth + 8, accuracy: 0.01)
+        XCTAssertEqual(try XCTUnwrap(frames[token]).width, initialWidth + 8)
 
         XCTAssertTrue(controller.workspaceManager.setObservedSizeEvidence(ObservedSizeEvidence(), for: token))
         frames = try rebuild(fixture)
-        XCTAssertEqual(try XCTUnwrap(frames[token]).width, initialWidth, accuracy: 0.01)
+        XCTAssertEqual(try XCTUnwrap(frames[token]).width, initialWidth)
     }
 
     func testDiagnosticsReportListsObservedSizing() throws {

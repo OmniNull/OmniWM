@@ -213,19 +213,18 @@ final class ObservedMinimumSizeClampTests: XCTestCase {
         let frames = Dictionary(uniqueKeysWithValues: plan.diff.frameChanges.map { ($0.token, $0.frame) })
         XCTAssertEqual(frames.count, 3)
         let first = try XCTUnwrap(frames[fixture.token])
-        XCTAssertEqual(first.width, accepted.width, accuracy: 0.5)
+        XCTAssertEqual(first.width, accepted.width)
         let orderedFrames = frames.values.sorted { $0.minX < $1.minX }
         XCTAssertGreaterThan(
             try XCTUnwrap(orderedFrames.last).maxX - XCTUnwrap(orderedFrames.first).minX,
             monitor.visibleFrame.width
         )
         for index in 1 ..< orderedFrames.count {
-            XCTAssertEqual(orderedFrames[index].minX - orderedFrames[index - 1].maxX, 12, accuracy: 0.5)
+            XCTAssertEqual(orderedFrames[index].minX - orderedFrames[index - 1].maxX, 12)
         }
         XCTAssertEqual(
             try XCTUnwrap(engine.findNode(for: fixture.token, in: fixture.workspaceId)).constraints.minSize.width,
-            accepted.width,
-            accuracy: 0.5
+            accepted.width
         )
 
         controller.axManager.confirmFrameWrite(for: fixture.token.windowId, frame: first)

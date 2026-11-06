@@ -55,7 +55,7 @@ final class ShellPresenceSubtreeTests: XCTestCase {
             }
             XCTAssertEqual(root.value.layer.opacity, 0)
             XCTAssertEqual(section.value.layer.opacity, 0)
-            XCTAssertEqual(section.value.layer.transform.m42, 12, accuracy: 0.0001)
+            XCTAssertEqual(section.value.layer.transform.m42, 12)
             XCTAssertEqual(section.value.layer.sublayers?.first?.opacity, 1)
             XCTAssertTrue(retained.subtree.superlayer === scene.container)
             scene.completePresenceAnimation(token, identifier: root.key)

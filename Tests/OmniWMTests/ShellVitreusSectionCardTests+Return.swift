@@ -137,14 +137,14 @@ extension ShellVitreusSectionCardTests {
         windows.deliver(fixture, from: index)
         windows.drop(fixture, at: CGPoint(x: begin.x - 600, y: begin.y - 600))
         let width = try windows.frame(fixture, "media-card").width
-        XCTAssertEqual(width, 154 * 1.5525, accuracy: 0.01)
+        XCTAssertEqual(width, floatStored(154 * 1.5525))
         windows.shelfOpen = true
         windows.show(fixture)
         try windows.store(fixture, id: "player")
         windows.shelfOpen = false
         windows.show(fixture)
         try moveCard(fixture, id: "player-album", to: CGPoint(x: 200, y: 500))
-        XCTAssertEqual(try windows.frame(fixture, "media-card").width, width, accuracy: 0.01)
+        XCTAssertEqual(try windows.frame(fixture, "media-card").width, width)
     }
 
     func testMixerOpensAboveBottomSlidersAndDetailsClosesItConsistently() throws {

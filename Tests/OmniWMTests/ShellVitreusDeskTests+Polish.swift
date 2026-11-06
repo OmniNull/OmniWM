@@ -141,7 +141,7 @@ extension ShellVitreusDeskTests {
         XCTAssertEqual(paint.shadowRadius, 20)
         let recipe = try XCTUnwrap(ShellGlassRecipe(widget.text.string(layout.core.content(of: glass).text)))
         XCTAssertEqual(recipe.shadowOffset, CGPoint(x: 0, y: 7))
-        XCTAssertEqual(recipe.rim, 0.1, accuracy: 1e-6)
+        XCTAssertEqual(recipe.rim, 0.1)
         XCTAssertFalse(recipe.flat)
         XCTAssertEqual(recipe.light, CGPoint(x: -1, y: 0))
     }
@@ -162,9 +162,9 @@ extension ShellVitreusDeskTests {
             )
             Self.assertMotion(surface.animation(for: label)?.motion, Self.slide, name)
             XCTAssertEqual(layout.core.content(of: label).color.role & 0xFF, chosen ? border : ink, name)
-            XCTAssertEqual(Double(layout.core.paint(of: label).opacity), chosen ? 1 : 0.92, accuracy: 0.001, name)
+            XCTAssertEqual(Double(layout.core.paint(of: label).opacity), floatStored(chosen ? 1 : 0.92), name)
             XCTAssertEqual(
-                Double(layout.core.paint(of: zone).opacity), chosen ? 1 : 0.62 / 0.92, accuracy: 0.001, name
+                Double(layout.core.paint(of: zone).opacity), floatStored(chosen ? 1 : 0.62 / 0.92), name
             )
         }
         for (name, chosen) in [("tab-focus", true), ("tab-pad", false), ("chip-30", true), ("chip-15", false)] {
@@ -209,7 +209,7 @@ extension ShellVitreusDeskTests {
         let busy = try reset()
         XCTAssertNotEqual(busy.content.action, 0)
         for state in [idle, busy] {
-            XCTAssertEqual(state.content.pressScale, 0.92, accuracy: 1e-6)
+            XCTAssertEqual(state.content.pressScale, 0.92)
             Self.assertMotion(
                 surface.animation(for: state.handle, press: true)?.motion,
                 .spring(response: 0.363, bounce: 0.65),

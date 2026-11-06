@@ -275,11 +275,11 @@ final class TrackpadWorkspaceGestureTests: XCTestCase {
         guard case .opening = actions.overviewState
         else { return XCTFail("Expected the commit frame to begin tracking") }
         XCTAssertTrue(actions.isOverviewGestureActive)
-        XCTAssertEqual(actions.overviewTransitionProgress, 0, accuracy: 0.000000000001)
+        XCTAssertEqual(actions.overviewTransitionProgress, 0)
         sendFrame(fixture, phase: .changed, fingers: 4, x: 0.5, y: 0.54, at: 100.2)
-        XCTAssertEqual(actions.overviewTransitionProgress, 0.5, accuracy: 0.000000001)
+        XCTAssertEqual(actions.overviewTransitionProgress, 0.5)
         sendFrame(fixture, phase: .changed, fingers: 4, x: 0.5, y: 0.64, at: 100.3)
-        XCTAssertEqual(actions.overviewTransitionProgress, 2.0 / 3.0, accuracy: 0.000000001)
+        XCTAssertEqual(actions.overviewTransitionProgress, 2.0 / 3.0)
         XCTAssertEqual(handler.state.gesturePhase, .committed)
 
         sendFrame(fixture, phase: .ended, fingers: 0, x: 0, y: 0, at: 100.4)
@@ -300,7 +300,7 @@ final class TrackpadWorkspaceGestureTests: XCTestCase {
         sendFrame(fixture, phase: .began, fingers: 4, x: 0.5, y: 0.2, at: 100)
         sendFrame(fixture, phase: .changed, fingers: 4, x: 0.5, y: 0.24, at: 100.1)
         sendFrame(fixture, phase: .changed, fingers: 4, x: 0.5, y: 0.42, at: 100.2)
-        XCTAssertEqual(actions.overviewTransitionProgress, 0.3, accuracy: 0.000000001)
+        XCTAssertEqual(actions.overviewTransitionProgress, 0.3)
 
         sendFrame(fixture, phase: .ended, fingers: 0, x: 0, y: 0, at: 100.5)
 
@@ -448,7 +448,7 @@ final class TrackpadWorkspaceGestureTests: XCTestCase {
 
         sendFrame(fixture, phase: .changed, fingers: 4, x: 0.5, y: 0.24, at: 100.1)
         XCTAssertEqual(handler.state.gesturePhase, .committed)
-        XCTAssertEqual(actions.overviewTransitionProgress, caught, accuracy: 0.000000000001)
+        XCTAssertEqual(actions.overviewTransitionProgress, caught)
         sendFrame(fixture, phase: .changed, fingers: 4, x: 0.5, y: 0.9, at: 100.2)
         XCTAssertGreaterThan(actions.overviewTransitionProgress, 1)
         XCTAssertLessThanOrEqual(actions.overviewTransitionProgress, 1.3)
@@ -500,7 +500,7 @@ final class TrackpadWorkspaceGestureTests: XCTestCase {
         sendFrame(fixture, phase: .changed, fingers: 4, x: 0.5, y: 0.76, at: 100.1)
         guard case .opening = actions.overviewState
         else { return XCTFail("Expected a close-track to live in .opening") }
-        XCTAssertEqual(actions.overviewTransitionProgress, 1, accuracy: 0.000000000001)
+        XCTAssertEqual(actions.overviewTransitionProgress, 1)
         sendFrame(fixture, phase: .changed, fingers: 4, x: 0.5, y: 0.4, at: 100.2)
         XCTAssertEqual(actions.overviewTransitionProgress, 0.4, accuracy: 0.000000001)
         XCTAssertTrue(scrollVerdict(fixture, momentumPhase: 0, phase: CGScrollPhase.changed.rawValue))
@@ -1618,8 +1618,7 @@ final class TrackpadWorkspaceGestureTests: XCTestCase {
 
         XCTAssertEqual(
             manager.niriViewportState(for: fixture.ws1).viewOffset,
-            expectedOffset,
-            accuracy: 0.001
+            expectedOffset
         )
         XCTAssertEqual(handler.state.gesturePhase, .idle)
         XCTAssertFalse(handler.isTrackpadSwipeSessionActive)
@@ -1703,8 +1702,7 @@ final class TrackpadWorkspaceGestureTests: XCTestCase {
         XCTAssertEqual(activeWorkspace(fixture), fixture.ws2)
         XCTAssertEqual(
             manager.niriViewportState(for: fixture.ws1).viewOffset,
-            expectedOffset,
-            accuracy: 0.001
+            expectedOffset
         )
         XCTAssertEqual(handler.state.gesturePhase, .idle)
         XCTAssertFalse(manager.animationDriver.hasMotion(in: fixture.ws1))
@@ -1738,7 +1736,7 @@ final class TrackpadWorkspaceGestureTests: XCTestCase {
             migrateAnimations: false
         )
 
-        XCTAssertEqual(manager.niriViewportState(for: fixture.ws1).viewOffset, expectedOffset, accuracy: 0.001)
+        XCTAssertEqual(manager.niriViewportState(for: fixture.ws1).viewOffset, expectedOffset)
         XCTAssertEqual(fixture.controller.mouseEventHandler.state.gesturePhase, .idle)
         XCTAssertFalse(manager.animationDriver.hasMotion(in: fixture.ws1))
         XCTAssertFalse(fixture.controller.niriLayoutHandler.hasScrollAnimation(for: fixture.ws1))
@@ -1769,7 +1767,7 @@ final class TrackpadWorkspaceGestureTests: XCTestCase {
 
         fixture.controller.layoutRefreshController.resetState()
 
-        XCTAssertEqual(manager.niriViewportState(for: fixture.ws1).viewOffset, expectedOffset, accuracy: 0.001)
+        XCTAssertEqual(manager.niriViewportState(for: fixture.ws1).viewOffset, expectedOffset)
         XCTAssertEqual(fixture.controller.mouseEventHandler.state.gesturePhase, .idle)
         XCTAssertFalse(manager.animationDriver.hasMotion(in: fixture.ws1))
         XCTAssertFalse(fixture.controller.niriLayoutHandler.hasScrollAnimation(for: fixture.ws1))
@@ -1798,7 +1796,7 @@ final class TrackpadWorkspaceGestureTests: XCTestCase {
 
         XCTAssertNotNil(outcome)
         XCTAssertEqual(manager.monitorForWorkspace(fixture.ws1)?.id, target.monitor.id)
-        XCTAssertEqual(manager.niriViewportState(for: fixture.ws1).viewOffset, expectedOffset, accuracy: 0.001)
+        XCTAssertEqual(manager.niriViewportState(for: fixture.ws1).viewOffset, expectedOffset)
         XCTAssertEqual(fixture.controller.mouseEventHandler.state.gesturePhase, .idle)
         XCTAssertFalse(manager.animationDriver.hasMotion(in: fixture.ws1))
         XCTAssertFalse(fixture.controller.niriLayoutHandler.hasScrollAnimation(for: fixture.ws1))
@@ -1826,7 +1824,7 @@ final class TrackpadWorkspaceGestureTests: XCTestCase {
         fixture.controller.updateWorkspaceConfig()
 
         XCTAssertEqual(manager.monitorForWorkspace(fixture.ws1)?.id, fixture.monitor.id)
-        XCTAssertEqual(manager.niriViewportState(for: fixture.ws1).viewOffset, expectedOffset, accuracy: 0.001)
+        XCTAssertEqual(manager.niriViewportState(for: fixture.ws1).viewOffset, expectedOffset)
         XCTAssertEqual(fixture.controller.mouseEventHandler.state.gesturePhase, .idle)
         XCTAssertFalse(manager.animationDriver.hasMotion(in: fixture.ws1))
         XCTAssertFalse(fixture.controller.niriLayoutHandler.hasScrollAnimation(for: fixture.ws1))

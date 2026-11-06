@@ -49,11 +49,11 @@ final class ShellAnimationTests: XCTestCase {
     func testPresetsBuildTheirTimingCurves() {
         let ease = ShellAnimation(motion: .ease, speed: 2).make("opacity")
         XCTAssertFalse(ease is CASpringAnimation)
-        XCTAssertEqual(ease.duration, 0.1, accuracy: 0.0001)
+        XCTAssertEqual(ease.duration, 0.1)
         let bouncy = ShellAnimation(motion: .bouncy, speed: 1).make("bounds")
         let smooth = ShellAnimation(motion: .smooth, speed: 1).make("bounds")
         XCTAssertTrue(bouncy is CASpringAnimation)
-        XCTAssertEqual(bouncy.duration, (bouncy as? CASpringAnimation)?.settlingDuration ?? 0, accuracy: 0.0001)
+        XCTAssertEqual(bouncy.duration, (bouncy as? CASpringAnimation)?.settlingDuration ?? 0)
         XCTAssertTrue(smooth is CASpringAnimation)
         XCTAssertEqual((smooth as? CASpringAnimation)?.bounce ?? -1, 0, accuracy: 0.001)
     }
@@ -117,8 +117,8 @@ final class ShellAnimationTests: XCTestCase {
             return (layer?.frame, layer?.shadowColor, layer?.shadowRadius, layer?.shadowOpacity)
         }
         let frame = try XCTUnwrap(state.0)
-        XCTAssertEqual(frame.midX, 20, accuracy: 0.001)
-        XCTAssertEqual(frame.width, 22, accuracy: 0.001)
+        XCTAssertEqual(frame.midX, 20)
+        XCTAssertEqual(frame.width, 22)
         XCTAssertEqual(state.1, shadow)
         XCTAssertEqual(state.2, 4)
         XCTAssertEqual(state.3, 1)
@@ -183,10 +183,10 @@ final class ShellAnimationTests: XCTestCase {
         }
         XCTAssertEqual(bounds, CGSize(width: 60, height: 20))
         let turned = try XCTUnwrap(frame)
-        XCTAssertEqual(turned.minX, 10, accuracy: 0.001)
-        XCTAssertEqual(turned.minY, 0, accuracy: 0.001)
-        XCTAssertEqual(turned.width, 20, accuracy: 0.001)
-        XCTAssertEqual(turned.height, 60, accuracy: 0.001)
+        XCTAssertEqual(turned.minX, 10)
+        XCTAssertEqual(turned.minY, 0)
+        XCTAssertEqual(turned.width, 20)
+        XCTAssertEqual(turned.height, 60)
     }
 
     func testLoopsKeepRunningThroughRepaintsUntilTheyChange() throws {
@@ -218,7 +218,7 @@ final class ShellAnimationTests: XCTestCase {
         XCTAssertEqual(rotate.duration, 20)
         XCTAssertEqual(rotate.values?.count, 73)
         let half = try XCTUnwrap(rotate.values?[36] as? NSValue).caTransform3DValue
-        XCTAssertEqual(CGPoint.zero.applying(CATransform3DGetAffineTransform(half)).x, 40, accuracy: 0.001)
+        XCTAssertEqual(CGPoint.zero.applying(CATransform3DGetAffineTransform(half)).x, 40)
         let drift = try XCTUnwrap(state.1)
         XCTAssertEqual(drift.keyPath, "position.x")
         XCTAssertEqual(drift.fromValue as? CGFloat, -4)

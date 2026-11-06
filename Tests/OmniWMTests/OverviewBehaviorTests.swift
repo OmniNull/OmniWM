@@ -130,7 +130,7 @@ final class OverviewBehaviorTests: XCTestCase {
             screenFrame: screenFrame
         )
 
-        XCTAssertEqual(offset, -26.25, accuracy: 0.0001)
+        XCTAssertEqual(offset, -26.25)
     }
 
     func testRevealAtEverySupportedZoomStepRemainsBoundedAndVisible() {
@@ -371,8 +371,7 @@ final class OverviewBehaviorTests: XCTestCase {
         XCTAssertNotEqual(zoomedFirst.scrollOffset, zoomedSecond.scrollOffset)
         XCTAssertEqual(
             zoomedWindow.overviewFrame.midY - zoomedFirst.scrollOffset,
-            firstMidpoint,
-            accuracy: 0.0001
+            firstMidpoint
         )
         let bounds = OverviewLayoutCalculator.scrollOffsetBounds(
             layout: zoomedSecond,
@@ -532,25 +531,25 @@ final class OverviewBehaviorTests: XCTestCase {
         XCTAssertEqual(settings.overview.zoom, 1)
         XCTAssertEqual(saves, 0)
         overview.dismiss(animated: false)
-        XCTAssertEqual(settings.overview.zoom, 1.05, accuracy: 0.0001)
+        XCTAssertEqual(settings.overview.zoom, 1.05)
         XCTAssertEqual(saves, 1)
         overview.prepareOpenState()
         overview.onAnimationComplete(state: .open)
         overview.input.handleScroll(zoom, on: monitorId)
         overview.invalidateDeferredActionsForServiceStop()
-        XCTAssertEqual(settings.overview.zoom, 1.1, accuracy: 0.0001)
+        XCTAssertEqual(settings.overview.zoom, 1.1)
         XCTAssertEqual(saves, 2)
         overview.invalidateDeferredActionsForServiceStop()
         XCTAssertEqual(saves, 2)
         settings.flushNow()
         let persisted = try SettingsTOMLCodec.decode(Data(contentsOf: settings.settingsFileURL))
-        XCTAssertEqual(persisted.overview.zoom, 1.1, accuracy: 0.0001)
+        XCTAssertEqual(persisted.overview.zoom, 1.1)
         settings.applyExport(persisted)
         saves = 0
         overview.prepareOpenState()
         overview.onAnimationComplete(state: .open)
         overview.dismiss(animated: false)
-        XCTAssertEqual(settings.overview.zoom, 1.1, accuracy: 0.0001)
+        XCTAssertEqual(settings.overview.zoom, 1.1)
         XCTAssertEqual(saves, 0)
     }
 
@@ -583,7 +582,7 @@ final class OverviewBehaviorTests: XCTestCase {
         overview.onAnimationComplete(state: .open)
         overview.input.handleScroll(zoom, on: monitorId)
         overview.dismiss(animated: false)
-        XCTAssertEqual(fixture.controller.settings.overview.zoom, 1.1, accuracy: 0.0001)
+        XCTAssertEqual(fixture.controller.settings.overview.zoom, 1.1)
     }
 
     func testCommandWClosesSelectionByTypedLetterOnNonQwertyLayouts() {
@@ -1494,7 +1493,7 @@ final class OverviewBehaviorTests: XCTestCase {
         let openingGeneration = animator.generation
 
         XCTAssertGreaterThan(openingGeneration, closingGeneration)
-        XCTAssertEqual(animator.currentProgress, closingProgress, accuracy: 0.000_000_1)
+        XCTAssertEqual(animator.currentProgress, closingProgress)
         XCTAssertEqual(animator.currentVelocity, closingVelocity, accuracy: 0.000_000_1)
         XCTAssertEqual(animator.activeDisplayIds, [firstDisplayId, secondDisplayId])
         XCTAssertEqual(startedSessions.count, 4)
@@ -1679,9 +1678,9 @@ final class OverviewBehaviorTests: XCTestCase {
         XCTAssertTrue(harness.installed.isEmpty)
 
         overview.updateInteractiveTransition(cumulativeUnits: 20, timestamp: 100)
-        XCTAssertEqual(overview.transitionProgress, 0, accuracy: 0.000000000001)
+        XCTAssertEqual(overview.transitionProgress, 0)
         overview.updateInteractiveTransition(cumulativeUnits: 170, timestamp: 100.1)
-        XCTAssertEqual(overview.transitionProgress, 0.5, accuracy: 0.000000000001)
+        XCTAssertEqual(overview.transitionProgress, 0.5)
         XCTAssertTrue(harness.installed.isEmpty)
         XCTAssertEqual(harness.activations, 0)
 
@@ -1692,13 +1691,12 @@ final class OverviewBehaviorTests: XCTestCase {
         XCTAssertEqual(harness.activations, 1)
         XCTAssertEqual(harness.installed.count, 1)
         let transition = try XCTUnwrap(harness.installed.last)
-        XCTAssertEqual(transition.from, 0.5, accuracy: 0.000000000001)
+        XCTAssertEqual(transition.from, 0.5)
         XCTAssertEqual(transition.target, 1)
         XCTAssertEqual(transition.initialVelocity, 5, accuracy: 0.000000001)
         XCTAssertEqual(
             transition.response,
-            OverviewNativeTransition.compressedResponse(forReleaseVelocity: 5),
-            accuracy: 0.000000000001
+            OverviewNativeTransition.compressedResponse(forReleaseVelocity: 5)
         )
         XCTAssertEqual(transition.startTime, 100.1)
         XCTAssertEqual(overview.transitionProgress, 0.5, accuracy: 0.000000000001)
@@ -1773,7 +1771,7 @@ final class OverviewBehaviorTests: XCTestCase {
         XCTAssertTrue(overview.beginInteractiveTransition())
         overview.updateInteractiveTransition(cumulativeUnits: 20, timestamp: 100)
         overview.updateInteractiveTransition(cumulativeUnits: 110, timestamp: 100.5)
-        XCTAssertEqual(overview.transitionProgress, 0.3, accuracy: 0.000000000001)
+        XCTAssertEqual(overview.transitionProgress, 0.3)
 
         harness.clock.time = 100.9
         overview.endInteractiveTransition(timestamp: 100.9)
@@ -1784,7 +1782,7 @@ final class OverviewBehaviorTests: XCTestCase {
         XCTAssertEqual(harness.activations, 0)
         let transition = try XCTUnwrap(harness.installed.last)
         XCTAssertEqual(harness.installed.count, 1)
-        XCTAssertEqual(transition.from, 0.3, accuracy: 0.000000000001)
+        XCTAssertEqual(transition.from, 0.3)
         XCTAssertEqual(transition.target, 0)
         XCTAssertEqual(transition.initialVelocity, 0)
         XCTAssertEqual(transition.response, 0.25)
@@ -1845,7 +1843,7 @@ final class OverviewBehaviorTests: XCTestCase {
         overview.updateInteractiveTransition(cumulativeUnits: 0, timestamp: 10)
         overview.updateInteractiveTransition(cumulativeUnits: -150, timestamp: 10.1)
         overview.updateInteractiveTransition(cumulativeUnits: -120, timestamp: 10.3)
-        XCTAssertEqual(overview.transitionProgress, 0.6, accuracy: 0.000000000001)
+        XCTAssertEqual(overview.transitionProgress, 0.6)
         harness.clock.time = 10.32
         overview.endInteractiveTransition(timestamp: 10.32)
 
@@ -1854,7 +1852,7 @@ final class OverviewBehaviorTests: XCTestCase {
         let transition = try XCTUnwrap(harness.installed.last)
         XCTAssertEqual(harness.installed.count, 2)
         XCTAssertEqual(transition.target, 1)
-        XCTAssertEqual(transition.from, 0.6, accuracy: 0.000000000001)
+        XCTAssertEqual(transition.from, 0.6)
         XCTAssertEqual(transition.initialVelocity, 5, accuracy: 0.000000001)
 
         try harness.completeLastTransition()
@@ -1877,7 +1875,7 @@ final class OverviewBehaviorTests: XCTestCase {
 
         XCTAssertEqual(harness.installed.count, 1)
         XCTAssertTrue(overview.isInteractiveTransitionActive)
-        XCTAssertEqual(overview.transitionProgress, caught, accuracy: 0.000000000001)
+        XCTAssertEqual(overview.transitionProgress, caught)
         guard case .opening = overview.state else { return XCTFail("Expected the caught flight to stay in .opening") }
         try XCTUnwrap(harness.completions.first).complete()
         XCTAssertTrue(overview.isInteractiveTransitionActive)
@@ -1919,7 +1917,7 @@ final class OverviewBehaviorTests: XCTestCase {
             XCTAssertFalse(overview.isInteractiveTransitionActive)
             XCTAssertEqual(harness.installed.count, 2)
             let transition = try XCTUnwrap(harness.installed.last)
-            XCTAssertEqual(transition.from, caught, accuracy: 0.000000000001)
+            XCTAssertEqual(transition.from, caught)
             XCTAssertEqual(transition.initialVelocity, 0)
             if late {
                 guard case .opening = overview.state else { return XCTFail("Expected a late tap to resume opening") }
@@ -1987,7 +1985,7 @@ final class OverviewBehaviorTests: XCTestCase {
         XCTAssertLessThan(caught, 0.5)
 
         XCTAssertTrue(overview.beginInteractiveTransition())
-        XCTAssertEqual(overview.transitionProgress, caught, accuracy: 0.000000000001)
+        XCTAssertEqual(overview.transitionProgress, caught)
         overview.endInteractiveTransition(timestamp: nil)
 
         guard case let .closing(target) = overview.state else { return XCTFail("Expected the lift to close again") }
@@ -2048,7 +2046,7 @@ final class OverviewBehaviorTests: XCTestCase {
         guard case .closing = overview.state else { return XCTFail("Expected external deactivation to close") }
         let transition = try XCTUnwrap(harness.installed.last)
         XCTAssertEqual(harness.installed.count, 1)
-        XCTAssertEqual(transition.from, 0.3, accuracy: 0.000000000001)
+        XCTAssertEqual(transition.from, 0.3)
         XCTAssertEqual(transition.target, 0)
         overview.updateInteractiveTransition(cumulativeUnits: 300, timestamp: 100.6)
         XCTAssertEqual(overview.transitionProgress, 0.3, accuracy: 0.000000000001)
@@ -2084,7 +2082,7 @@ final class OverviewBehaviorTests: XCTestCase {
         XCTAssertTrue(overview.beginInteractiveTransition())
         overview.updateInteractiveTransition(cumulativeUnits: 0, timestamp: 100)
         overview.updateInteractiveTransition(cumulativeUnits: 330, timestamp: 100.1)
-        XCTAssertEqual(overview.transitionProgress, 1.0464788732394366, accuracy: 0.000000000001)
+        XCTAssertEqual(overview.transitionProgress, 1.0464788732394366)
         harness.clock.time = 100.1
 
         overview.endInteractiveTransition(timestamp: 100.1)
@@ -2092,7 +2090,7 @@ final class OverviewBehaviorTests: XCTestCase {
         guard case .opening = overview.state else { return XCTFail("Expected an overscroll release to open") }
         let transition = try XCTUnwrap(harness.installed.last)
         XCTAssertEqual(harness.installed.count, 1)
-        XCTAssertEqual(transition.from, 1.0464788732394366, accuracy: 0.000000000001)
+        XCTAssertEqual(transition.from, 1.0464788732394366)
         XCTAssertEqual(transition.target, 1)
         XCTAssertEqual(harness.activations, 1)
         try harness.completeLastTransition()

@@ -61,7 +61,7 @@ final class NiriOverscrollLayoutTests: XCTestCase {
                         let visible = rendered.intersection(frame)
                         let actualSpan = orientation == .horizontal ? original.width : original.height
                         let visibleSpan = orientation == .horizontal ? visible.width : visible.height
-                        XCTAssertEqual(visibleSpan, actualSpan * 0.05 + 10, accuracy: 0.5)
+                        XCTAssertEqual(visibleSpan, actualSpan * 0.05 + 10)
                         XCTAssertEqual(rendered.size, original.size)
                         XCTAssertEqual(column.cachedWidth, cachedWidth)
                         XCTAssertTrue(state.preservesGestureOffset)
@@ -89,7 +89,7 @@ final class NiriOverscrollLayoutTests: XCTestCase {
         XCTAssertEqual(state.viewOffset, overscrolled)
         state.jumpOffset(to: -20_000)
         XCTAssertTrue(engine.correctViewportAfterColumnRemoval(context: context, state: &state))
-        XCTAssertEqual(state.viewOffset, overscrolled, accuracy: 0.5)
+        XCTAssertEqual(state.viewOffset, overscrolled)
     }
 
     func testIncreasingVisibleStripReboundsPreservedLoneWindowOnBothAxes() throws {
@@ -175,7 +175,7 @@ final class NiriOverscrollLayoutTests: XCTestCase {
             let visibleSpan = orientation == .horizontal ? visible.width : visible.height
             // Trailing boundary keeps only the strip visible: 5% of the 100-point
             // span plus the gap padding.
-            XCTAssertEqual(visibleSpan, 15, accuracy: 0.5)
+            XCTAssertEqual(visibleSpan, 15)
         }
     }
 
@@ -205,7 +205,7 @@ final class NiriOverscrollLayoutTests: XCTestCase {
                 XCTAssertTrue(engine.correctSingleWindowGestureOffset(
                     context: context, state: &state, workingArea: workingArea
                 ))
-                XCTAssertEqual(state.viewOffset, 0, accuracy: 0.5)
+                XCTAssertEqual(state.viewOffset, 0)
                 XCTAssertTrue(state.preservesGestureOffset)
                 let rendered = try XCTUnwrap(engine.calculateLayout(
                     state: state, workspaceId: workspaceId, monitorFrame: frame,
@@ -248,7 +248,7 @@ final class NiriOverscrollLayoutTests: XCTestCase {
                 let visible = rendered.intersection(interactionFrame)
                 let actualSpan = orientation == .horizontal ? original.width : original.height
                 let visibleSpan = orientation == .horizontal ? visible.width : visible.height
-                XCTAssertEqual(visibleSpan, actualSpan * 0.05 + 10, accuracy: 0.5)
+                XCTAssertEqual(visibleSpan, actualSpan * 0.05 + 10)
             }
         }
     }
@@ -330,7 +330,7 @@ final class NiriOverscrollLayoutTests: XCTestCase {
                     containerIndex: state.activeColumnIndex, containers: engine.columns(in: workspaceId),
                     context: context, viewFrame: frame
                 )
-                XCTAssertEqual(state.viewOffset, expected, accuracy: 0.5)
+                XCTAssertEqual(state.viewOffset, expected)
             }
         }
     }

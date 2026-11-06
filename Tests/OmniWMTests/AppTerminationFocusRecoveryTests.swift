@@ -77,7 +77,7 @@ final class AppTerminationFocusRecoveryTests: XCTestCase {
         )
         XCTAssertEqual(recoveredViewport.selectedNodeId, settledViewport.selectedNodeId)
         XCTAssertEqual(recoveredViewport.activeColumnIndex, settledViewport.activeColumnIndex)
-        XCTAssertEqual(recoveredViewport.viewOffset, settledViewport.viewOffset, accuracy: 0.5)
+        XCTAssertEqual(recoveredViewport.viewOffset, settledViewport.viewOffset)
 
         let retiring = try XCTUnwrap(
             fixture.controller.intentLedger.openAppTerminationFocusRecovery()

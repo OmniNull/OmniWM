@@ -339,7 +339,7 @@ final class DwindleCommandRoutingTests: XCTestCase {
 
         let after = try XCTUnwrap(fixture.engine.root(for: fixture.sourceWorkspaceId)?.splitRatio)
         XCTAssertNotEqual(after, before)
-        XCTAssertEqual(after, 1.4, accuracy: 0.000_001)
+        XCTAssertEqual(after, 1.4)
         XCTAssertEqual(
             fixture.controller.layoutRefreshController.layoutState.pendingRefresh?.reason,
             .layoutCommand
@@ -375,10 +375,10 @@ final class DwindleCommandRoutingTests: XCTestCase {
         let root = try XCTUnwrap(fixture.engine.root(for: fixture.sourceWorkspaceId))
 
         XCTAssertEqual(router.handle(.dwindle(.resize(axis: .horizontal, operation: .grow))), .executed)
-        XCTAssertEqual(root.splitRatio ?? 0, 1.1, accuracy: 0.000_001)
+        XCTAssertEqual(root.splitRatio ?? 0, 1.1)
 
         XCTAssertEqual(router.handle(.dwindle(.resize(axis: .horizontal, operation: .shrink))), .executed)
-        XCTAssertEqual(root.splitRatio ?? 0, 1.0, accuracy: 0.000_001)
+        XCTAssertEqual(root.splitRatio ?? 0, 1.0)
     }
 
     func testExplicitConsumeOrExpelCommandsRejectDwindleLayout() throws {

@@ -132,6 +132,6 @@ final class WorkspaceBarDragControllerTests: XCTestCase {
         )
         let dragging = try layout()
         XCTAssertEqual(dragging.targets, resting.targets)
-        XCTAssertEqual(dragging.size.width, resting.size.width, accuracy: 0.5)
+        XCTAssertEqual(dragging.size.width, resting.size.width)
     }
 }

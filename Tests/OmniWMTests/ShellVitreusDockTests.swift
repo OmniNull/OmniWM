@@ -154,7 +154,7 @@ final class ShellVitreusDockTests: XCTestCase {
         XCTAssertEqual(layout.core.kind(of: glass), .shape)
         XCTAssertEqual(layout.core.parent(of: glass), try VitreusFixture.element(widget, key: "corner-glass"))
         XCTAssertEqual(layout.core.content(of: glass).glassFollow, VitreusFixture.key("dock-pill"))
-        XCTAssertEqual(Double(layout.core.paint(of: glass).cornerRadius), 17 * Self.unit, accuracy: 1e-4)
+        XCTAssertEqual(Double(layout.core.paint(of: glass).cornerRadius), floatStored(17 * Self.unit))
         Self.assertRect(CGRect(layout.core.absoluteFrame(of: glass)), CGRect(
             x: -reach, y: 1080 - thick, width: long + reach, height: thick + reach
         ))
@@ -171,7 +171,7 @@ final class ShellVitreusDockTests: XCTestCase {
         }
         XCTAssertFalse(ShellVitreusBarTests.has(widget, "dock-pin-not a bundle"))
         let full = try island(["pins": .strings((1 ... 10).map { "com.example.app\($0)" })])
-        XCTAssertEqual(try VitreusFixture.frame(full, key: "dock-pill").width, Self.long(8), accuracy: 0.001)
+        XCTAssertEqual(try VitreusFixture.frame(full, key: "dock-pill").width, floatStored(Self.long(8)))
         XCTAssertFalse(ShellVitreusBarTests.has(full, "dock-pin-com.example.app9"))
     }
 
@@ -188,7 +188,7 @@ final class ShellVitreusDockTests: XCTestCase {
         XCTAssertEqual(fields["value"]?.values?.compactMap(\.string), [Self.notes, "not a bundle", Self.mail])
         try move(widget, key: "dock-pin-" + Self.notes, by: CGVector(dx: 5, dy: 0))
         XCTAssertEqual(widget.clicks.last?.action, "notifications open " + Self.notes)
-        XCTAssertEqual(try VitreusFixture.frame(widget, key: "dock-pill").minX, 0, accuracy: 0.001)
+        XCTAssertEqual(try VitreusFixture.frame(widget, key: "dock-pill").minX, 0)
         XCTAssertEqual(try content(widget, "dock-pill").manipulationCommit, 0)
     }
 
@@ -217,24 +217,24 @@ final class ShellVitreusDockTests: XCTestCase {
         XCTAssertEqual(requests, ["shell trigger vitreus dock-corner 1"])
         XCTAssertTrue(try commit(widget, "dock-pill").hasPrefix("placement-"))
         XCTAssertEqual(try commit(widget, "addon-pill"), "dock-swap-1")
-        XCTAssertEqual(try VitreusFixture.frame(widget, key: "dock-pill").minX, 1920 - dock, accuracy: 0.001)
-        XCTAssertEqual(try VitreusFixture.frame(widget, key: "addon-pill").minX, 0, accuracy: 0.001)
+        XCTAssertEqual(try VitreusFixture.frame(widget, key: "dock-pill").minX, floatStored(1920 - dock))
+        XCTAssertEqual(try VitreusFixture.frame(widget, key: "addon-pill").minX, 0)
         let glass = try VitreusFixture.frame(widget, key: "dock-pill-glass")
         Self.assertRect(glass, CGRect(
             x: 1920 - dock, y: 1080 - Self.thick, width: dock + Self.reach, height: Self.thick + Self.reach
         ))
         XCTAssertEqual(try move(widget, key: "dock-pill", by: CGVector(dx: -200, dy: -100)), [])
-        XCTAssertEqual(try VitreusFixture.frame(widget, key: "dock-pill").minX, 1920 - dock, accuracy: 0.001)
+        XCTAssertEqual(try VitreusFixture.frame(widget, key: "dock-pill").minX, floatStored(1920 - dock))
         XCTAssertEqual(
             try move(widget, key: "addon-pill", by: CGVector(dx: 1400, dy: 0)), ["shell trigger vitreus dock-corner 0"]
         )
-        XCTAssertEqual(try VitreusFixture.frame(widget, key: "dock-pill").minX, 0, accuracy: 0.001)
-        XCTAssertEqual(try VitreusFixture.frame(widget, key: "addon-pill").minX, 1920 - addon, accuracy: 0.001)
+        XCTAssertEqual(try VitreusFixture.frame(widget, key: "dock-pill").minX, 0)
+        XCTAssertEqual(try VitreusFixture.frame(widget, key: "addon-pill").minX, floatStored(1920 - addon))
         XCTAssertTrue(try commit(widget, "addon-pill").hasPrefix("placement-"))
         XCTAssertEqual(try commit(widget, "dock-pill"), "dock-swap-2")
         VitreusFixture.trigger(widget.instance, "dock-corner", "1")
         VitreusFixture.show(widget)
-        XCTAssertEqual(try VitreusFixture.frame(widget, key: "dock-pill").minX, 1920 - dock, accuracy: 0.001)
+        XCTAssertEqual(try VitreusFixture.frame(widget, key: "dock-pill").minX, floatStored(1920 - dock))
         XCTAssertEqual(try commit(widget, "dock-pill"), "dock-swap-3")
     }
 
@@ -284,7 +284,7 @@ extension ShellVitreusDockTests {
         XCTAssertTrue(ShellVitreusBarTests.has(closed, "addon-pin-notes"))
         XCTAssertFalse(ShellVitreusBarTests.has(closed, "addon-pin-pad"))
         XCTAssertFalse(ShellVitreusBarTests.has(closed, "addon-drawer"))
-        XCTAssertEqual(try VitreusFixture.frame(closed, key: "addon-pill").width, Self.long(1), accuracy: 0.001)
+        XCTAssertEqual(try VitreusFixture.frame(closed, key: "addon-pill").width, floatStored(Self.long(1)))
         let widget = try opened(["notes", "pad"])
         let home = Self.home
         Self.assertRect(try VitreusFixture.frame(widget, key: "addon-drawer"), home)
@@ -293,7 +293,7 @@ extension ShellVitreusDockTests {
         let glass = try VitreusFixture.element(widget, key: "addon-drawer-glass")
         XCTAssertEqual(layout.core.parent(of: glass), try VitreusFixture.element(widget, key: "corner-glass"))
         XCTAssertEqual(layout.core.content(of: glass).glassFollow, VitreusFixture.key("addon-drawer"))
-        XCTAssertEqual(Double(layout.core.paint(of: glass).cornerRadius), 26 * Self.unit, accuracy: 1e-4)
+        XCTAssertEqual(Double(layout.core.paint(of: glass).cornerRadius), floatStored(26 * Self.unit))
         let edge = 26 * Self.panel
         Self.assertRect(CGRect(layout.core.absoluteFrame(of: glass)), CGRect(
             x: home.minX, y: home.minY, width: home.width + edge, height: home.height + edge

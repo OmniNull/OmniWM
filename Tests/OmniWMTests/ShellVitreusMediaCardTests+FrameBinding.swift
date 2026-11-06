@@ -45,7 +45,7 @@ final class ShellVitreusMediaCardFrameBindingTests: XCTestCase {
             let actual = try ShellLayerScene.engineQueue.sync {
                 try XCTUnwrap(scene.shapeTracks.entries[retained]).shape(at: time)
             }
-            XCTAssertEqual(actual.rect.midX, expected.midX, accuracy: 0.25)
+            XCTAssertEqual(actual.rect.midX, expected.midX)
             XCTAssertEqual(actual.rect.midY, expected.midY, accuracy: 0.25)
             XCTAssertEqual(actual.radius, 10 * expected.width / 100, accuracy: 0.01)
         }
@@ -61,7 +61,7 @@ final class ShellVitreusMediaCardFrameBindingTests: XCTestCase {
         try check(clock.now + 0.06)
         try ShellLayerScene.engineQueue.sync {
             let entry = try XCTUnwrap(scene.shapeTracks.entries[retained])
-            XCTAssertEqual(entry.end, end, accuracy: 1e-9)
+            XCTAssertEqual(entry.end, end)
             scene.completeShapeTrack(retained, generation: entry.generation)
             XCTAssertNil(scene.shapeTracks.entries[retained])
             XCTAssertNil(scene.glassShapes[retained])

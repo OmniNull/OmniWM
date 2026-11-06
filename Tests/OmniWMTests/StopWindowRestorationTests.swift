@@ -104,7 +104,7 @@ final class StopWindowRestorationTests: XCTestCase {
             target(), deadline: 1, operations: fixture.operations, checkCancellation: {}, now: { 0.8 }
         )
         XCTAssertTrue(fixture.timeouts.allSatisfy { $0 <= 0.2 })
-        XCTAssertEqual(fixture.timeouts.dropLast().last!, 0.1, accuracy: 0.001)
+        XCTAssertEqual(fixture.timeouts.dropLast().last!, 0.1)
     }
 
     func testDeadlineAfterNativeWriteDoesNotCountAsSuccess() {
