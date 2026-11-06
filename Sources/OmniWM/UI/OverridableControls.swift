@@ -195,6 +195,8 @@ struct OverridableToggle: View {
                 .font(.caption)
                 .foregroundStyle(.secondary)
                 .frame(minWidth: 45)
+                .accessibilityElement(children: .ignore)
+                .accessibilityAddTraits(.isStaticText)
                 .accessibilityLabel(String(localized: "\(label) uses global default"))
         }
     }
@@ -245,6 +247,8 @@ struct OverridablePicker<T: Hashable & Identifiable>: View {
                 .font(.caption)
                 .foregroundStyle(.secondary)
                 .frame(minWidth: 45)
+                .accessibilityElement(children: .ignore)
+                .accessibilityAddTraits(.isStaticText)
                 .accessibilityLabel(String(localized: "\(label) uses global default"))
         }
     }
@@ -297,6 +301,8 @@ struct OverridableSlider: View {
                 .font(.caption)
                 .foregroundStyle(.secondary)
                 .frame(minWidth: 45)
+                .accessibilityElement(children: .ignore)
+                .accessibilityAddTraits(.isStaticText)
                 .accessibilityLabel(String(localized: "\(label) uses global default"))
         }
     }
