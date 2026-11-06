@@ -62,6 +62,15 @@ extension ShellVitreusDeskTests {
         )
     }
 
+    private func raster(_ widget: ShellRenderedWidget, hiding key: String, scale: CGFloat) throws -> VitreusRaster {
+        let slot = try VitreusFixture.element(widget, key: key).slot
+        let scene = widget.surface.scene
+        let layer = try ShellLayerScene.engineQueue.sync { try XCTUnwrap(scene.layers[slot]) }
+        ShellLayerScene.engineQueue.sync { layer.isHidden = true }
+        defer { ShellLayerScene.engineQueue.sync { layer.isHidden = false } }
+        return try raster(widget, scale: scale)
+    }
+
     nonisolated static func write(_ image: CGImage, name: String) throws {
         guard let directory = ProcessInfo.processInfo.environment["OMNIWM_SHELL_SNAPSHOTS"] else { return }
         let folder = URL(fileURLWithPath: directory)
@@ -112,12 +121,14 @@ extension ShellVitreusDeskTests {
         label: String
     ) throws {
         let cx = rect.minX + 176.5 * du
-        let grip = image.rgba(cx, rect.minY + 11 * du)
-        for (channel, ink) in [0xF5, 0xF7, 0xF5].enumerated() {
-            let composite = grip[channel] + 51 * (255 - grip[3]) / 255
-            XCTAssertEqual(composite, Int((0.2 * Double(ink) + 0.8 * 51).rounded()), accuracy: 3, label)
+        let gripY = rect.minY + 11 * du
+        let grip = image.rgba(cx, gripY)
+        let behind = try raster(widget, hiding: "grip", scale: image.scale).rgba(cx, gripY)
+        let twoEightBitBlends = 2.0
+        for (channel, ink) in [0xF5, 0xF7, 0xF5, 0xFF].enumerated() {
+            let expected = Double(behind[channel]) + 0.2 * Double(ink - behind[channel])
+            XCTAssertEqual(Double(grip[channel]), expected, accuracy: twoEightBitBlends, label)
         }
-        XCTAssertEqual(grip[3], 51, accuracy: 3, label)
         XCTAssertEqual(image.rgba(cx + 143 * du, rect.minY + 49 * du)[3], 20, label)
         for tab in ["tab-pad", "tab-focus"] {
             let frame = try VitreusFixture.frame(widget, key: tab)

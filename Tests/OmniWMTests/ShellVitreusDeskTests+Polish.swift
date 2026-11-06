@@ -17,6 +17,8 @@ extension ShellVitreusDeskTests {
 
     private static let slide = ShellMotion.spring(response: 0.424, bounce: 0.19)
     private static let glance = ShellMotion.ease(seconds: 0.14)
+    private static let darkContainerTone = 30.0
+    private static let acceptedTintCeiling = 32.0
 
     private func vitreusRoles() throws -> [String: String] {
         let names = Self.stock.map { "\"\($0.name)\"" }.joined(separator: ", ")
@@ -61,6 +63,15 @@ extension ShellVitreusDeskTests {
     private static func tone(_ color: ShellRGBA) -> Double {
         let luminance = color.luminance
         return luminance > 216 / 24389 ? 116 * cbrt(luminance) - 16 : luminance * 24389 / 27
+    }
+
+    private static func halfLevelToneChange(_ color: ShellRGBA) -> Double {
+        func shifted(_ levels: Double) -> Double {
+            tone(ShellRGBA(
+                red: color.red + levels / 255, green: color.green + levels / 255, blue: color.blue + levels / 255
+            ))
+        }
+        return max(shifted(0.5) - shifted(0), shifted(0) - shifted(-0.5))
     }
 
     private static func assertMotion(
@@ -112,7 +123,15 @@ extension ShellVitreusDeskTests {
                     XCTAssertGreaterThanOrEqual(try color(name).contrast(glass), floor, "\(label) \(name)")
                 }
                 XCTAssertGreaterThanOrEqual(try color("onmint").contrast(color("mint")), 4.5, label)
-                XCTAssertEqual(Self.tone(tint), 30.5, accuracy: 1.5, label)
+                let tone = Self.tone(tint)
+                let rounding = Self.halfLevelToneChange(tint)
+                if scheme == .content || scheme == .fidelity {
+                    XCTAssertGreaterThanOrEqual(tone, Self.darkContainerTone - rounding, label)
+                    XCTAssertEqual(tone, tone.rounded(), accuracy: rounding, label)
+                    XCTAssertLessThanOrEqual(tone, Self.acceptedTintCeiling, label)
+                } else {
+                    XCTAssertEqual(tone, Self.darkContainerTone, accuracy: rounding, label)
+                }
                 XCTAssertLessThan(try color("panel").luminance, tint.luminance, label)
                 XCTAssertLessThan(try color("deep").luminance, tint.luminance, label)
                 guard scheme == .tonalSpot else { continue }

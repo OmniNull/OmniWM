@@ -163,7 +163,13 @@ final class AudioSpectrumTests: XCTestCase {
                 analyzer.analyze(clicks)
             }
             analyzer.estimateTempo()
-            XCTAssertEqual(try XCTUnwrap(analyzer.bpm), bpm, accuracy: 2, "\(bpm) BPM")
+            let estimate = try XCTUnwrap(analyzer.bpm)
+            let lag = analyzer.onsetRate * 60 / bpm
+            let bestWholeLagError = min(
+                abs(analyzer.onsetRate * 60 / lag.rounded(.down) - bpm),
+                abs(analyzer.onsetRate * 60 / lag.rounded(.up) - bpm)
+            )
+            XCTAssertLessThan(abs(estimate - bpm), bestWholeLagError, "\(bpm) BPM")
         }
         let steady = try XCTUnwrap(ShellSpectrumAnalyzer(sampleRate: 48000))
         let tone = Signal(sample: Self.sine(440))

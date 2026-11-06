@@ -51,7 +51,7 @@ final class ShellSpringDynamicsTests: XCTestCase {
             let actual = ShellSpringDynamics.velocity(
                 at: 0.75, displacement: 3, initialVelocity: -7, spring: .init(mass: 2, stiffness: 8, damping: damping)
             )
-            XCTAssertEqual(actual, expected, accuracy: 1e-8)
+            XCTAssertEqual(actual, expected.velocity, accuracy: expected.velocityBound)
         }
     }
 
@@ -163,21 +163,21 @@ final class ShellSpringDynamicsTests: XCTestCase {
         XCTAssertEqual(peak.time, 0.3330)
     }
 
-    func testPositionDerivativeMatchesVelocityInEveryDampingRegime() {
-        let delta = 1e-6
+    func testPositionAndVelocityMatchIndependentIntegrationInEveryDampingRegime() {
         for (stiffness, damping) in [(300.0, 20.0), (304.6, 34.9), (100.0, 20.0), (100.0, 50.0)] {
             let spring = ShellSpringDynamics.Parameters(mass: 1, stiffness: stiffness, damping: damping)
             for time in [0.01, 0.05, 0.12, 0.3, 0.7] {
-                let ahead = ShellSpringDynamics.position(
-                    at: time + delta, displacement: -1, initialVelocity: 3, spring: spring
+                let expected = integrate(
+                    duration: time, displacement: -1, velocity: 3, mass: 1, stiffness: stiffness, damping: damping
                 )
-                let behind = ShellSpringDynamics.position(
-                    at: time - delta, displacement: -1, initialVelocity: 3, spring: spring
+                let position = ShellSpringDynamics.position(
+                    at: time, displacement: -1, initialVelocity: 3, spring: spring
                 )
                 let velocity = ShellSpringDynamics.velocity(
                     at: time, displacement: -1, initialVelocity: 3, spring: spring
                 )
-                XCTAssertEqual((ahead - behind) / (2 * delta), velocity, accuracy: 1e-6, "\(stiffness):\(damping)")
+                XCTAssertEqual(position, expected.position, accuracy: expected.positionBound, "\(stiffness):\(damping)")
+                XCTAssertEqual(velocity, expected.velocity, accuracy: expected.velocityBound, "\(stiffness):\(damping)")
             }
         }
     }
@@ -188,25 +188,35 @@ final class ShellSpringDynamicsTests: XCTestCase {
                 ShellAnimation(motion: .spring(response: response, bounce: bounce), speed: 1)
             ))
         }
-        func reach(_ response: Double, _ bounce: Double, bounceDigit: Double) -> (stiffness: Double, damping: Double) {
-            let stated = ShellMorphRecipe.Spring(response: response, bounce: bounce).parameters
-            let edge = ShellMorphRecipe.Spring(response: response - 0.001 / 2, bounce: bounce - bounceDigit / 2)
-                .parameters
-            return (edge.stiffness - stated.stiffness, edge.damping - stated.damping)
+        func stated(stiffness: Double, damping: Double) -> (response: Double, bounce: Double) {
+            let frequency = stiffness.squareRoot()
+            return (
+                (2 * Double.pi / frequency * 1000).rounded() / 1000,
+                ((1 - damping / (2 * frequency)) * 100).rounded() / 100
+            )
         }
-        let desk = try native(0.363, 0.42)
-        XCTAssertEqual(desk.mass, 1)
-        XCTAssertEqual(desk.stiffness, 300, accuracy: reach(0.363, 0.42, bounceDigit: 0.01).stiffness)
-        XCTAssertEqual(desk.damping, 20, accuracy: 0.2)
-        let drip = try native(0.482, 0.31)
-        XCTAssertEqual(drip.mass, 1)
-        XCTAssertEqual(drip.stiffness, 170, accuracy: reach(0.482, 0.31, bounceDigit: 0.01).stiffness)
-        XCTAssertEqual(drip.damping, 18, accuracy: reach(0.482, 0.31, bounceDigit: 0.01).damping)
-        let follow = try native(0.360, 0)
-        XCTAssertEqual(follow.mass, 1)
-        XCTAssertEqual(follow.stiffness, 305, accuracy: reach(0.360, 0, bounceDigit: 0).stiffness)
-        XCTAssertEqual(follow.damping, 34.9, accuracy: reach(0.360, 0, bounceDigit: 0).damping)
+        for (stiffness, damping, response, bounce) in [
+            (300.0, 20.0, 0.363, 0.42),
+            (170.0, 18.0, 0.482, 0.31),
+            (305.0, 34.9, 0.360, 0.0)
+        ] {
+            let design = stated(stiffness: stiffness, damping: damping)
+            XCTAssertEqual(design.response, response)
+            XCTAssertEqual(design.bounce, bounce)
+            let spring = try native(response, bounce)
+            XCTAssertEqual(spring.mass, 1)
+            let played = stated(stiffness: spring.stiffness, damping: spring.damping)
+            XCTAssertEqual(played.response, response)
+            XCTAssertEqual(played.bounce, bounce)
+        }
         XCTAssertNil(ShellSpringDynamics.Parameters(ShellAnimation(motion: .ease, speed: 1)))
+    }
+
+    private struct Integration {
+        let position: Double
+        let velocity: Double
+        let positionBound: Double
+        let velocityBound: Double
     }
 
     private func integrate(
@@ -216,7 +226,7 @@ final class ShellSpringDynamicsTests: XCTestCase {
         mass: Double,
         stiffness: Double,
         damping: Double
-    ) -> Double {
+    ) -> Integration {
         var position = displacement
         var speed = velocity
         let steps = 7500
@@ -236,6 +246,31 @@ final class ShellSpringDynamicsTests: XCTestCase {
             position += step * (firstPosition + 2 * secondPosition + 2 * thirdPosition + fourthPosition) / 6
             speed += step * (firstSpeed + 2 * secondSpeed + 2 * thirdSpeed + fourthSpeed) / 6
         }
-        return speed
+        let frequency = (stiffness / mass).squareRoot()
+        let reach = step * (frequency + damping / mass)
+        let truncation = pow(reach, 5) / 120 * exp(reach)
+        let rounding = Double.ulpOfOne / 2 * ((1 + 2 * reach) * stepRounding(reach: reach) + reach)
+        let energy = hypot(frequency * displacement, velocity)
+        let bound = energy * expm1(Double(steps) * (truncation + rounding))
+        return Integration(position: position, velocity: speed, positionBound: bound / frequency, velocityBound: bound)
+    }
+
+    private func stepRounding(reach: Double) -> Double {
+        let accelerationOperations = 3.0
+        let partialSums = 3.0 + 5 + 6
+        let scalingOperations = 2.0
+        var speedErrors = [0.0]
+        var slopeErrors = [accelerationOperations]
+        for weight in [reach / 2, reach / 2, reach] {
+            let speedError = 1 + weight * (slopeErrors[slopeErrors.count - 1] + 1)
+            let positionError = 1 + weight * (speedErrors[speedErrors.count - 1] + 1)
+            speedErrors.append(speedError)
+            slopeErrors.append(max(speedError, positionError) + accelerationOperations)
+        }
+        func update(_ stages: [Double]) -> Double {
+            let sum = stages[0] + 2 * stages[1] + 2 * stages[2] + stages[3] + partialSums
+            return 1 + reach * (sum / 6 + scalingOperations)
+        }
+        return hypot(update(speedErrors), update(slopeErrors))
     }
 }

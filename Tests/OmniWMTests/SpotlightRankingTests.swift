@@ -95,12 +95,13 @@ final class SpotlightRankingTests: XCTestCase {
 
     func testFreshnessMatchesOracle() {
         let now = Date(timeIntervalSince1970: 1_700_000_000)
+        let halfStatedDigit = 0.0000001 / 2
         for (days, expected): (Int, Double) in [(10, 0.6429527), (120, 0.5), (3000, 0.3549744)] {
             let date = now.addingTimeInterval(-Double(days) * 86400)
             XCTAssertEqual(
                 SpotlightRanking.freshnessScore(date: date, now: now),
                 expected,
-                accuracy: 0.000001
+                accuracy: halfStatedDigit
             )
         }
         XCTAssertEqual(SpotlightRanking.freshnessScore(date: nil, now: now), 0.5)

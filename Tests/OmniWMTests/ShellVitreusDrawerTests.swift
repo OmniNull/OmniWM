@@ -173,7 +173,11 @@ extension ShellVitreusDrawerTests {
         XCTAssertEqual(recipe.impulses.filter { $0.phase == .close }.map(\.velocity), [90])
         let entry = try track(fixture)
         let first = try XCTUnwrap(entry.plan?.crossings(at: 0.97, rising: true).first)
-        XCTAssertEqual(first - entry.begin, 0.230, accuracy: 0.005)
+        XCTAssertEqual(
+            first - entry.begin,
+            ShellRevealTests.vitreusLanding,
+            accuracy: ShellRevealTests.acceptedTimingGap
+        )
         XCTAssertFalse(entry.impulses.contains { $0.velocity == 90 })
     }
 

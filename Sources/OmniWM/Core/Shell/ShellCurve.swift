@@ -222,9 +222,9 @@ extension ShellCurve {
 
 enum ShellStretch {
     static let rate: CGFloat = 120
-    private static let limit: CGFloat = 0.35
-    private static let stiffness: CGFloat = 200
-    private static let damping: CGFloat = 16
+    static let limit: CGFloat = 0.35
+    static let stiffness: CGFloat = 200
+    static let damping: CGFloat = 16
 
     static func deforms(positions: [CGPoint], amount: CGFloat) -> [CGAffineTransform] {
         let scale = amount / 10000

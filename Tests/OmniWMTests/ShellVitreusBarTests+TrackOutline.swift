@@ -39,7 +39,10 @@ extension ShellVitreusBarTests {
         let root: CALayer
         let crop: CGRect
         let nativeBegin: CFTimeInterval
+        let settledOutline: CGRect
     }
+
+    private nonisolated static let contourScale: CGFloat = 2
 
     private func trackBar(active: String) -> ShellBarData {
         var bar = VitreusFixture.bar()
@@ -103,12 +106,13 @@ extension ShellVitreusBarTests {
     private func contourRoot(_ widget: ShellRenderedWidget, crop: CGRect) throws -> ContourFixture {
         let scene = widget.surface.scene
         return try ShellLayerScene.engineQueue.sync {
+            let scale = Self.contourScale
             let root = CALayer()
-            root.frame = CGRect(x: 0, y: 0, width: crop.width * 2, height: crop.height * 2)
+            root.frame = CGRect(x: 0, y: 0, width: crop.width * scale, height: crop.height * scale)
             root.isGeometryFlipped = true
             let holder = CALayer()
             holder.anchorPoint = .zero
-            holder.setAffineTransform(CGAffineTransform(scaleX: 2, y: 2)
+            holder.setAffineTransform(CGAffineTransform(scaleX: scale, y: scale)
                 .translatedBy(x: -crop.minX, y: -crop.minY))
             let owner = ContourOwner(
                 layer: scene.container,
@@ -172,31 +176,39 @@ extension ShellVitreusBarTests {
         }
     }
 
+    private func authoredPencil(around pill: CGRect) throws -> [(path: CGPath, width: CGFloat)] {
+        let unit = 1.35
+        let margin = 18.5 * unit
+        let lines = try probe("""
+        local pencil=require('../lib/vitreus/pencil')
+        function render(ctx)
+            local paths=pencil.outline(\(margin),\(margin),\(29 * unit),\(15 * unit),\(unit),0,0)
+            return ui.column{ui.text{text=paths[1].d},ui.text{text=paths[2].d},
+                ui.text{text=paths[1].width .. " " .. paths[2].width}}
+        end
+        """)
+        XCTAssertEqual(lines.count, 3)
+        var transform = CGAffineTransform(translationX: pill.midX - margin, y: pill.midY - margin)
+        return try zip(lines, Self.numbers(lines.last ?? "")).map { line, width in
+            let local = try XCTUnwrap(ShellPath.parse(line)).path(fitting: nil, into: .zero)
+            return try (path: XCTUnwrap(local.copy(using: &transform)), width: CGFloat(width))
+        }
+    }
+
     func testWorkspacePencilRestContourKeepsTheTwoAuthoredPencilPasses() throws {
         let fixture = try trackWidget()
         defer { withExtendedLifetime(fixture) {} }
         let widget = fixture.widget
         let pill = try VitreusFixture.frame(widget, key: "workspace-pill-shape")
-        let unit = 1.35
-        let margin = 18.5 * unit
-        let reference = try probe("""
-        local pencil=require('../lib/vitreus/pencil')
-        function render(ctx)
-            local paths=pencil.outline(\(margin),\(margin),\(29 * unit),\(15 * unit),\(unit),0,0)
-            return ui.column{ui.text{text=paths[1].d},ui.text{text=paths[2].d}}
-        end
-        """)
+        let reference = try authoredPencil(around: pill)
         XCTAssertEqual(reference.count, 2)
         let scene = widget.surface.scene
         let slots = try [1, 2].map { try VitreusFixture.element(widget, key: "workspace-pill-outline-\($0)").slot }
         try ShellLayerScene.engineQueue.sync {
             for (index, slot) in slots.enumerated() {
                 let authored = try XCTUnwrap(scene.paths[slot]?.fitted(to: scene.layers[slot]?.bounds.size ?? .zero))
-                let local = try XCTUnwrap(ShellPath.parse(reference[index])).path(fitting: nil, into: .zero)
-                var transform = CGAffineTransform(translationX: pill.midX - margin, y: pill.midY - margin)
-                let old = try XCTUnwrap(local.copy(using: &transform))
                 let actual = Self.contourPoints(authored)
-                let expected = Self.contourPoints(old)
+                let expected = Self.contourPoints(reference[index].path)
                 XCTAssertEqual(actual.count, expected.count)
                 for (actual, expected) in zip(actual, expected) {
                     XCTAssertEqual(actual.x, expected.x, accuracy: .floatRounding(operations: 4, at: pill.maxX))
@@ -258,6 +270,12 @@ extension ShellVitreusBarTests {
         let scene = widget.surface.scene
         let slot = try VitreusFixture.element(widget, key: "workspace-pill-shape").slot
         let outline = try VitreusFixture.element(widget, key: "workspace-pill-outline").slot
+        let pill = try VitreusFixture.frame(widget, key: "workspace-pill-shape")
+        let settledOutline = try authoredPencil(around: pill).reduce(CGRect.null) { box, pass in
+            box.union(pass.path.copy(
+                strokingWithWidth: pass.width, lineCap: .butt, lineJoin: .miter, miterLimit: 10
+            ).boundingBoxOfPath)
+        }.offsetBy(dx: -fixture.crop.minX, dy: -fixture.crop.minY)
         try ShellLayerScene.engineQueue.sync {
             let entry = try XCTUnwrap(scene.shapeTracks.entries[slot])
             let body = try XCTUnwrap(scene.layers[entry.body])
@@ -273,7 +291,8 @@ extension ShellVitreusBarTests {
                     body: body,
                     root: fixture.root,
                     crop: fixture.crop,
-                    nativeBegin: nativeBegin
+                    nativeBegin: nativeBegin,
+                    settledOutline: settledOutline
                 ),
                 paths: paths, renderer: fixture.renderer
             )
@@ -308,13 +327,25 @@ extension ShellVitreusBarTests {
         paths: [CAShapeLayer], renderer: ShellOffscreenRenderer
     ) throws {
         let entry = probe.entry, body = probe.body, root = probe.root, crop = probe.crop
+        let scale = Self.contourScale
+        func hideBody(_ hidden: Bool) {
+            CATransaction.begin()
+            CATransaction.setDisableActions(true)
+            body.isHidden = hidden
+            CATransaction.commit()
+        }
+        func edges(_ rect: CGRect) -> [CGFloat] {
+            [rect.minX, rect.maxX, rect.minY, rect.maxY]
+        }
+        func overhang(_ drawn: CGRect, around shape: ShellGlassShape) -> [CGFloat] {
+            let target = shape.rect.offsetBy(dx: body.position.x - crop.minX, dy: body.position.y - crop.minY)
+            return zip(edges(drawn), edges(target)).map { $0 / scale - $1 }
+        }
+        var overhangs: [(elapsed: CFTimeInterval, edges: [CGFloat])] = []
         for elapsed in [0.0, 0.05, 0.10, 0.20, 0.60] {
             let time = probe.nativeBegin + elapsed
             let sample = entry.shape(at: entry.begin + elapsed)
-            CATransaction.begin()
-            CATransaction.setDisableActions(true)
-            body.isHidden = true
-            CATransaction.commit()
+            hideBody(true)
             let outlinePixels = try renderer.render(paused: time)
             if [0.0, 0.05, 0.20].contains(elapsed) {
                 try Self.writeContour(
@@ -324,15 +355,7 @@ extension ShellVitreusBarTests {
                 )
             }
             let drawn = try Self.contourBounds(outlinePixels, width: Int(root.frame.width))
-            let target = sample.rect.offsetBy(dx: body.position.x - crop.minX, dy: body.position.y - crop.minY)
-            for (actual, expected) in [
-                (drawn.minX / 2, target.minX),
-                (drawn.maxX / 2, target.maxX),
-                (drawn.minY / 2, target.minY),
-                (drawn.maxY / 2, target.maxY)
-            ] {
-                XCTAssertEqual(actual, expected, accuracy: 1.75, "time \(elapsed)")
-            }
+            overhangs.append((elapsed, overhang(drawn, around: sample)))
             for path in paths {
                 let animation = try XCTUnwrap(path
                     .animation(forKey: ShellLayerScene.pathTrackKey) as? CAKeyframeAnimation)
@@ -340,16 +363,29 @@ extension ShellVitreusBarTests {
                 let index = try XCTUnwrap(entry.samples.firstIndex { $0.time == elapsed })
                 XCTAssertGreaterThan(values[index].boundingBoxOfPath.width, 0)
             }
-            CATransaction.begin()
-            CATransaction.setDisableActions(true)
-            body.isHidden = false
-            CATransaction.commit()
+            hideBody(false)
             let pixels = try renderer.render(paused: time)
             try Self.writeContour(
                 pixels,
                 width: Int(root.frame.width),
                 name: "vitreus-pill-track-\(Int(elapsed * 1000))ms"
             )
+        }
+        hideBody(true)
+        let settled = try Self.contourBounds(
+            renderer.render(paused: probe.nativeBegin + entry.duration),
+            width: Int(root.frame.width)
+        )
+        hideBody(false)
+        let backingPixel = ShellOffscreenRenderer.pixel / scale
+        for (actual, expected) in zip(edges(settled), edges(probe.settledOutline)) {
+            XCTAssertEqual(actual / scale, expected, accuracy: backingPixel, "settled outline")
+        }
+        let rest = overhang(settled, around: entry.terminal)
+        for row in overhangs {
+            for (actual, expected) in zip(row.edges, rest) {
+                XCTAssertEqual(actual, expected, accuracy: backingPixel, "time \(row.elapsed)")
+            }
         }
     }
 

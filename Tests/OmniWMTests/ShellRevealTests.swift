@@ -35,11 +35,54 @@ final class ShellRevealTests: XCTestCase {
         ))
     }
 
+    nonisolated static let vitreusFullScale = 0.130
+    nonisolated static let vitreusFullRound = 0.144
+    nonisolated static let vitreusLanding = 0.230
+    nonisolated static let vitreusClosed = 0.234
+    nonisolated static let acceptedTimingGap = 1 / (2 * ShellReveal.rate)
+
+    private nonisolated static let horizon = 1.5
+    private nonisolated static let dropLayout = CGRect(x: 40, y: 30, width: 438.43, height: 571.32)
+
     private func first(_ plan: ShellReveal, where condition: (Double, Double) -> Bool) -> Double? {
-        stride(from: 0.0, through: 1.5, by: 0.0005).first {
+        stride(from: 0.0, through: Self.horizon, by: 0.0005).first {
             let state = plan.state(at: plan.begin + $0)
             return condition(state.progress, state.velocity)
         }
+    }
+
+    private func pleamarSteps(
+        from start: Double,
+        to target: Double
+    ) -> [(time: Double, progress: Double, velocity: Double)] {
+        let stiffness = 170.0, damping = 18.0, milliseconds = 2.0
+        let step = milliseconds / 1000
+        var progress = start, velocity = 0.0
+        var states = [(time: 0.0, progress: start, velocity: velocity)]
+        for elapsed in stride(from: milliseconds, through: Self.horizon * 1000, by: milliseconds) {
+            velocity += (-stiffness * (progress - target) - damping * velocity) * step
+            progress += velocity * step
+            states.append((time: elapsed / 1000, progress: progress, velocity: velocity))
+        }
+        return states
+    }
+
+    func testPleamarsStepperOnTheDesignSpringReproducesTheVitreusTimeline() throws {
+        let recipe = try XCTUnwrap(ShellMorphRecipe(Self.glassMorph))
+        let opening = pleamarSteps(from: 0, to: 1)
+        XCTAssertEqual(opening.first { recipe.stop(at: $0.progress).scale >= 1 }?.time, Self.vitreusFullScale)
+        XCTAssertEqual(opening.first { recipe.stop(at: $0.progress).round >= 1 }?.time, Self.vitreusFullRound)
+        XCTAssertEqual(opening.first { $0.progress >= 0.97 }?.time, Self.vitreusLanding)
+        XCTAssertEqual(pleamarSteps(from: 1, to: 0).first { $0.progress <= 0.02 }?.time, Self.vitreusClosed)
+        let state = try XCTUnwrap(opening.first { $0.time == 0.084 })
+        XCTAssertEqual(state.velocity, 6.05, accuracy: 0.01 / 2)
+        XCTAssertEqual(recipe.stretching(at: state.velocity), 0.42, accuracy: 0.01 / 2)
+        let stop = recipe.stop(at: state.progress)
+        let base = recipe.scaled(Self.dropLayout, by: stop.scale)
+        XCTAssertEqual(stop.scale, 0.577, accuracy: 0.001 / 2)
+        let shape = recipe.shape(Self.dropLayout, radius: 32, progress: state.progress, velocity: state.velocity)
+        XCTAssertEqual(shape.rect.width / base.width, 1.359, accuracy: 0.001 / 2)
+        XCTAssertEqual(shape.rect.height / base.height, 0.788, accuracy: 0.001 / 2)
     }
 
     func testDripSamplerMatchesTheVitreusOpenAndCloseTimeline() throws {
@@ -48,31 +91,39 @@ final class ShellRevealTests: XCTestCase {
         let opening = ShellReveal(begin: 0, progress: 0, target: 1, spring: spring)
         XCTAssertEqual(
             try XCTUnwrap(first(opening) { progress, _ in recipe.stop(at: progress).scale >= 1 }),
-            0.130,
-            accuracy: 0.005
+            Self.vitreusFullScale,
+            accuracy: Self.acceptedTimingGap
         )
         XCTAssertEqual(
             try XCTUnwrap(first(opening) { progress, _ in recipe.stop(at: progress).round >= 1 }),
-            0.144,
-            accuracy: 0.005
+            Self.vitreusFullRound,
+            accuracy: Self.acceptedTimingGap
         )
-        let state = opening.state(at: 0.084)
-        XCTAssertEqual(state.velocity, 6.05, accuracy: 0.1)
-        XCTAssertEqual(recipe.stretching(at: state.velocity), 0.42, accuracy: 0.01)
-        let layout = CGRect(x: 40, y: 30, width: 438.43, height: 571.32)
+        let time = 0.084
+        let state = opening.state(at: time)
+        let frequencySquared = spring.stiffness / spring.mass
+        let frequency = sqrt(frequencySquared)
+        let decay = spring.damping / spring.mass / 2
+        let oscillation = sqrt((frequency - decay) * (frequency + decay))
+        let envelope = exp(-decay * time)
+        let phase = oscillation * time
+        XCTAssertEqual(state.progress, 1 - envelope * (cos(phase) + decay * sin(phase) / oscillation))
+        XCTAssertEqual(state.velocity, envelope * (frequencySquared * sin(phase) / oscillation))
+        let layout = Self.dropLayout
         let stop = recipe.stop(at: state.progress)
         let base = recipe.scaled(layout, by: stop.scale)
-        XCTAssertEqual(stop.scale, 0.577, accuracy: 0.02)
         XCTAssertEqual(base.maxX, layout.maxX)
         XCTAssertEqual(base.midY, layout.midY)
         let shape = recipe.shape(layout, radius: 32, progress: state.progress, velocity: state.velocity)
-        XCTAssertEqual(shape.rect.width / base.width, 1.359, accuracy: 0.005)
-        XCTAssertEqual(shape.rect.height / base.height, 0.788, accuracy: 0.005)
         XCTAssertEqual(shape.rect.midX, base.midX)
         XCTAssertEqual(shape.rect.midY, base.midY)
         XCTAssertGreaterThan(shape.rect.maxX, layout.maxX)
         let closing = ShellReveal(begin: 0, progress: 1, target: 0, spring: spring)
-        XCTAssertEqual(try XCTUnwrap(first(closing) { progress, _ in progress <= 0.02 }), 0.234, accuracy: 0.005)
+        XCTAssertEqual(
+            try XCTUnwrap(first(closing) { progress, _ in progress <= 0.02 }),
+            Self.vitreusClosed,
+            accuracy: Self.acceptedTimingGap
+        )
         XCTAssertEqual(recipe.stretching(at: closing.state(at: 0.1).velocity), 0)
     }
 

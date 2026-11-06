@@ -15,6 +15,11 @@ private struct FocusTimer {
 
 @MainActor
 private enum Focus {
+    static let lead = 0.378
+    static let trail = 0.472
+    static let slide = 0.424
+    static let bounce = 0.19
+
     static func role(_ color: Color) -> (role: ShellRole?, alpha: Double) {
         (ShellRole(rawValue: Int(color.role & 0xFF) - 1), Double(color.role >> 8) / 255)
     }
@@ -32,9 +37,9 @@ private enum Focus {
         return CGPoint(x: numbers[0], y: numbers[1])
     }
 
-    static func slide(_ time: Double) -> Double {
-        let frequency = 2 * Double.pi / 0.424
-        let decay = (1 - 0.19) * frequency
+    static func spring(_ response: Double, _ time: Double) -> Double {
+        let frequency = 2 * Double.pi / response
+        let decay = (1 - bounce) * frequency
         let damped = (frequency * frequency - decay * decay).squareRoot()
         return 1 - exp(-decay * time) * (cos(damped * time) + decay / damped * sin(damped * time))
     }
@@ -190,10 +195,10 @@ final class ShellVitreusFocusPolishTests: XCTestCase {
         XCTAssertEqual(shape.height, floatStored(24 * du))
         XCTAssertEqual(Double(try paint(widget, "chip-thumb-shape").cornerRadius), floatStored(10 * du))
         let edges = try XCTUnwrap(morph(widget, "chip-thumb-shape").edges)
-        XCTAssertEqual(edges.lead.response, 0.378)
-        XCTAssertEqual(edges.lead.bounce, 0.19)
-        XCTAssertEqual(edges.trail.response, 0.472)
-        XCTAssertEqual(edges.trail.bounce, 0.19)
+        XCTAssertEqual(edges.lead.response, Focus.lead)
+        XCTAssertEqual(edges.lead.bounce, Focus.bounce)
+        XCTAssertEqual(edges.trail.response, Focus.trail)
+        XCTAssertEqual(edges.trail.bounce, Focus.bounce)
         XCTAssertEqual(edges.thin, 3.0 / 24)
         XCTAssertEqual(edges.unit, 8 * du)
         for index in 1 ... 2 {
@@ -205,6 +210,18 @@ final class ShellVitreusFocusPolishTests: XCTestCase {
     }
 
     func testChipThumbStretchesAlongItsTravelAsVitreusDoesAndLandsOnTheChosenChip() throws {
+        let times = (0 ... 160).map { Double($0) * 0.005 }
+        let centreGap = times.reduce(0.0) { gap, time in
+            let edges = (Focus.spring(Focus.lead, time) + Focus.spring(Focus.trail, time)) / 2
+            return max(gap, abs(edges - Focus.spring(Focus.slide, time)))
+        }
+        func edgeSpread(_ lead: Double, _ trail: Double) -> Double {
+            times.reduce(0.0) { max($0, Focus.spring(lead, $1) - Focus.spring(trail, $1)) }
+        }
+        let halfStatedDigit = 0.001 / 2
+        let spreadDigit = edgeSpread(Focus.lead - halfStatedDigit, Focus.trail + halfStatedDigit)
+            - edgeSpread(Focus.lead, Focus.trail)
+        let (stretch, thin) = (8 * du, 3 * du)
         for (target, slots) in [("chip-60", 2.0), ("chip-15", -1.0)] {
             let widget = try desk(scale: 1)
             let renderer = try animate(widget)
@@ -216,31 +233,29 @@ final class ShellVitreusFocusPolishTests: XCTestCase {
             let outline = try VitreusFixture.element(widget, key: "chip-thumb-outline-1").slot
             let scene = widget.surface.scene
             let rest = 52 * du
+            let travel = abs(slots) * pitch * du
+            let frameRounding = Double.floatRounding(operations: 12, at: destination.maxX)
+            let centreBound = travel * centreGap + frameRounding
+            let stretchBound = travel * spreadDigit + frameRounding
             try ShellLayerScene.engineQueue.sync {
                 let entry = try XCTUnwrap(scene.shapeTracks.entries[slot], target)
                 XCTAssertNotNil(entry.edges, target)
                 let origin = entry.terminal.rect.midX - (destination.midX - start.midX)
                 var peak = (excess: 0.0, height: 0.0)
-                for step in 0 ... 160 {
-                    let time = Double(step) * 0.005
+                for time in times {
                     let rect = entry.shape(at: entry.begin + time).rect
-                    let vitreus = origin + slots * pitch * du * Focus.slide(time)
-                    XCTAssertEqual(rect.midX, vitreus, accuracy: 0.3 * abs(slots) * du, "\(target) \(time)")
+                    let vitreus = origin + slots * pitch * du * Focus.spring(Focus.slide, time)
+                    XCTAssertEqual(rect.midX, vitreus, accuracy: centreBound, "\(target) \(time)")
                     if rect.width - rest > peak.excess { peak = (rect.width - rest, rect.height) }
                 }
-                XCTAssertEqual(peak.excess, 8 * abs(slots) * du, accuracy: 0.25 * abs(slots) * du, target)
-                XCTAssertEqual(peak.height, 21 * du, accuracy: 0.2 * du, target)
+                XCTAssertEqual(peak.excess, abs(slots) * stretch, accuracy: stretchBound, target)
+                XCTAssertEqual(peak.height, 24 * du - thin, accuracy: stretchBound * thin / stretch, target)
                 XCTAssertEqual(entry.terminal.rect.width, floatStored(rest), target)
                 XCTAssertEqual(entry.terminal.rect.height, floatStored(24 * du), target)
                 XCTAssertNotNil(scene.layers[outline]?.animation(forKey: ShellLayerScene.pathTrackKey), target)
             }
             let landed = try VitreusFixture.frame(widget, key: "chip-thumb-shape")
-            XCTAssertEqual(
-                landed.midX,
-                destination.midX,
-                accuracy: CGFloat.floatRounding(operations: 12, at: destination.maxX),
-                target
-            )
+            XCTAssertEqual(landed.midX, destination.midX, accuracy: frameRounding, target)
         }
     }
 

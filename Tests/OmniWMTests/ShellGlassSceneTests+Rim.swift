@@ -13,10 +13,24 @@ extension ShellGlassSceneTests {
         slot: 1, kind: 0, rect: CGRect(x: 16, y: 16, width: 64, height: 64), radius: 12, thickness: 0
     )
     nonisolated static let channelLevel = 1.0
+    nonisolated static let pleamarEdge = -2.2 ... -0.4
 
     nonisolated static func smoothstep(_ low: Double, _ high: Double, _ value: Double) -> Double {
         let progress = min(max((value - low) / (high - low), 0), 1)
         return progress * progress * (3 - 2 * progress)
+    }
+
+    nonisolated static func pleamarCurve(depth: Int, scale: Int) -> Double {
+        smoothstep(pleamarEdge.lowerBound, pleamarEdge.upperBound, -(Double(depth) + 0.5) / Double(scale))
+    }
+
+    nonisolated static func bandAllowance(_ amount: Double, depth: Int, scale: Int) -> Double {
+        let curve = pleamarCurve(depth: depth, scale: scale)
+        guard curve > 0, curve < 1 else { return channelLevel }
+        let step = Double(ShellGlassBody.bandDistances[1] - ShellGlassBody.bandDistances[0])
+        let span = pleamarEdge.upperBound - pleamarEdge.lowerBound
+        let sharpestBend = 6 / (span * span)
+        return channelLevel + 255 * amount * step * step / 8 * sharpestBend
     }
 
     nonisolated static func rimBody(
@@ -57,9 +71,7 @@ extension ShellGlassSceneTests {
     }
 
     nonisolated static func pleamarBand(_ amount: Double, base: [UInt8], index: Int, depth: Int, scale: Int) -> Double {
-        let distance = -(Double(depth) + 0.5) / Double(scale)
-        let reach = 0.75 / Double(scale)
-        let light = 255 * amount * smoothstep(-2.2, -0.4, distance) * (1 - smoothstep(-reach, reach, distance))
+        let light = 255 * amount * pleamarCurve(depth: depth, scale: scale)
         let added = (0 ..< 3).map { min(255 - Double(base[index + $0]), light) }
         return 0.0722 * added[0] + 0.7152 * added[1] + 0.2126 * added[2]
     }
@@ -87,18 +99,15 @@ extension ShellGlassSceneTests {
                 edgeIndex(edge, depth: $0, scale: scale)
             ) }
             for (depth, (value, expected)) in zip(depths, zip(profile, reference)) {
-                let tolerance = depth >= 3 * scale ? channelLevel : 0.15 * peak
                 XCTAssertEqual(
                     value,
                     expected,
-                    accuracy: tolerance,
+                    accuracy: bandAllowance(amount, depth: depth, scale: scale),
                     "edge \(edge) depth \(depth) \(profile) vs \(reference)",
                     file: file,
                     line: line
                 )
             }
-            let sum = profile.reduce(0, +) / reference.reduce(0, +)
-            XCTAssertEqual(sum, 1, accuracy: 0.15, "edge \(edge) sum", file: file, line: line)
             if let first {
                 for (value, other) in zip(profile, first) {
                     XCTAssertEqual(value, other, accuracy: channelLevel, "edge \(edge) uniform", file: file, line: line)

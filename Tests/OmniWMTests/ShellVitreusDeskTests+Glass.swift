@@ -400,18 +400,20 @@ extension ShellVitreusDeskTests {
         XCTAssertTrue([rim.minX, rim.minY, rim.maxY].allSatisfy { abs($0) <= ShellOffscreenRenderer.pixel }, "\(rim)")
         XCTAssertGreaterThanOrEqual(settled.maxX, 1920 - 1, "\(settled)")
         let time = plan.begin + 0.084
-        let state = plan.state(at: time)
-        let expected = morph.shape(
-            CGRect(origin: .zero, size: rect.size), radius: 35.1, progress: state.progress, velocity: state.velocity
-        ).rect.offsetBy(dx: rect.minX, dy: rect.minY)
+        let expected = plan.keyframed(at: time) { keyframe in
+            let state = plan.state(at: keyframe)
+            return morph.shape(
+                CGRect(origin: .zero, size: rect.size), radius: 35.1, progress: state.progress, velocity: state.velocity
+            ).rect.offsetBy(dx: rect.minX, dy: rect.minY)
+        }
         let drawn = try silhouette(at: time)
         let right = scene.container.masksToBounds ? min(expected.maxX - rim.minX, 1920) : expected.maxX - rim.minX
-        XCTAssertEqual(drawn.minX, expected.minX + rim.minX, accuracy: 1)
-        XCTAssertEqual(drawn.maxX, right, accuracy: 1)
-        XCTAssertEqual(drawn.minY, expected.minY + rim.minY, accuracy: 1)
-        XCTAssertEqual(drawn.maxY, expected.maxY + rim.maxY, accuracy: 1)
+        XCTAssertEqual(drawn.minX, expected.minX + rim.minX, accuracy: ShellOffscreenRenderer.pixel)
+        XCTAssertEqual(drawn.maxX, right, accuracy: ShellOffscreenRenderer.pixel)
+        XCTAssertEqual(drawn.minY, expected.minY + rim.minY, accuracy: ShellOffscreenRenderer.pixel)
+        XCTAssertEqual(drawn.maxY, expected.maxY + rim.maxY, accuracy: ShellOffscreenRenderer.pixel)
         XCTAssertGreaterThan(expected.maxX, rect.maxX + 4)
-        print("Vitreus reveal probe at 84 ms: p \(state.progress) drawn \(drawn) sampler \(expected)")
+        print("Vitreus reveal probe at 84 ms: p \(plan.state(at: time).progress) drawn \(drawn) keyframes \(expected)")
         withExtendedLifetime(host.renderer) {}
     }
 }

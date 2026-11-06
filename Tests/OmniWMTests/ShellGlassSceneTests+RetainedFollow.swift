@@ -35,6 +35,25 @@ extension ShellGlassSceneTests {
         let begin: CFTimeInterval
     }
 
+    private struct SpringEnvelope {
+        let reach: Double
+        let speed: Double
+        let bend: Double
+
+        init(displacement: Double, velocity: Double, spring: ShellSpringDynamics.Parameters, after elapsed: Double) {
+            let frequencySquared = spring.stiffness / spring.mass
+            let decay = spring.damping / spring.mass / 2
+            let oscillation = sqrt(frequencySquared - decay * decay)
+            reach = hypot(displacement, (velocity + decay * displacement) / oscillation)
+                * exp(-decay * max(0, elapsed))
+            speed = reach * sqrt(frequencySquared)
+            bend = reach * frequencySquared
+        }
+    }
+
+    private nonisolated static let acceptedExitDrift = ShellOffscreenRenderer.pixel / 2
+    private nonisolated static let shownValueOperations = 48
+
     private func retiringFollower() throws -> RetainedFollower {
         let helper = ShellManipulationSurfaceTests()
         let clock = ShellManipulationSurfaceTests.Clock()
@@ -94,17 +113,67 @@ extension ShellGlassSceneTests {
         let surface = state.fixture.surface
         let motion = surface.follows[state.target]?.motion
         let expected = motion?.rect(at: time) ?? CGRect(surface.layout.core.absoluteFrame(of: state.target))
-        let progress = try ShellLayerScene.engineQueue.sync {
-            try XCTUnwrap(surface.scene.shapeTracks.entries[state.slot]?.plan).state(at: time).progress
+        let exit = try ShellLayerScene.engineQueue.sync {
+            try XCTUnwrap(surface.scene.shapeTracks.entries[state.slot]?.plan)
         }
+        let progress = exit.state(at: time).progress
         XCTAssertGreaterThan(progress, 0.1, line: line)
         let rect = try retainedRect(state, at: time)
         print("RETAINED-FOLLOW", time - state.begin, "glass", rect, "target", expected, "progress", progress)
         let scale = surface.scene.scale
-        XCTAssertEqual(rect.midX * scale, expected.midX * scale, accuracy: 0.5, line: line)
-        XCTAssertEqual(rect.midY * scale, expected.midY * scale, accuracy: 0.5, line: line)
-        XCTAssertEqual(rect.width * scale, expected.width * progress * scale, accuracy: 0.5, line: line)
-        XCTAssertEqual(rect.height * scale, expected.height * progress * scale, accuracy: 0.5, line: line)
+        let drift = Self.keyframeDrift(motion, exit: exit, shown: expected, at: time)
+        XCTAssertEqual(rect.midX * scale, expected.midX * scale, accuracy: drift.midX * scale, line: line)
+        XCTAssertEqual(rect.midY * scale, expected.midY * scale, accuracy: drift.midY * scale, line: line)
+        XCTAssertEqual(rect.width * scale, expected.width * progress * scale, accuracy: drift.width * scale, line: line)
+        XCTAssertEqual(
+            rect.height * scale, expected.height * progress * scale, accuracy: drift.height * scale, line: line
+        )
+    }
+
+    private nonisolated static func keyframeDrift(
+        _ motion: ShellManipulationMotion?, exit: ShellReveal, shown: CGRect, at time: CFTimeInterval
+    ) -> (midX: Double, midY: Double, width: Double, height: Double) {
+        let elapsed = time - exit.commit
+        let segment = (elapsed * ShellReveal.rate).rounded(.down) / ShellReveal.rate
+        let sag = abs((elapsed - segment) * (segment + 1 / ShellReveal.rate - elapsed)) / 2
+        let segmentStart = exit.commit + segment
+        let start = motion?.start ?? shown
+        let target = motion?.target ?? shown
+        let velocity = motion?.startVelocity ?? .zero
+        func placement(_ displacement: Double, _ speed: Double) -> SpringEnvelope {
+            SpringEnvelope(
+                displacement: displacement, velocity: speed, spring: motion?.spring ?? exit.spring,
+                after: segmentStart - (motion?.begin ?? segmentStart)
+            )
+        }
+        let aspect = target.height / target.width
+        let midX = placement(
+            start.minX - target.minX + (start.width - target.width) / 2, velocity.x + velocity.width / 2
+        )
+        let midY = placement(
+            start.minY - target.minY + (start.height - target.height) / 2, velocity.y + velocity.width * aspect / 2
+        )
+        let width = placement(start.width - target.width, velocity.width)
+        let own = SpringEnvelope(
+            displacement: exit.progress - exit.target, velocity: exit.velocity, spring: exit.spring,
+            after: segmentStart - exit.begin
+        )
+        let progress = abs(exit.target) + own.reach
+        let size = target.width + width.reach
+        let sizeBend = width.bend * progress + 2 * width.speed * own.speed + size * own.bend
+        let sizeSpeed = width.speed * progress + size * own.speed
+        func limit(bend: Double, speed: Double, at value: Double) -> Double {
+            sag * bend + speed * Double.rounding(operations: 1, at: time) + Double.rounding(
+                operations: Self.shownValueOperations,
+                at: value
+            )
+        }
+        return (
+            limit(bend: midX.bend, speed: midX.speed, at: shown.midX),
+            limit(bend: midY.bend, speed: midY.speed, at: shown.midY),
+            limit(bend: sizeBend, speed: sizeSpeed, at: shown.width),
+            limit(bend: sizeBend * aspect, speed: sizeSpeed * aspect, at: shown.height)
+        )
     }
 
     func testRetainedFollowerKeepsTheLiveTargetsPlacementSpringUntilItsOwnExitCompletes() throws {
@@ -222,10 +291,18 @@ extension ShellGlassSceneTests {
             let rect = try retainedRect(state, at: time)
             print("RETAINED-TARGET-EXIT", elapsed, "glass", rect, "expected", expectedCentre)
             let pixelScale = surface.scene.scale
-            XCTAssertEqual(rect.midX * pixelScale, expectedCentre.x * pixelScale, accuracy: 0.5)
-            XCTAssertEqual(rect.midY * pixelScale, expectedCentre.y * pixelScale, accuracy: 0.5)
-            XCTAssertEqual(rect.width * pixelScale, shown.width * exitScale * ownProgress * pixelScale, accuracy: 0.5)
-            XCTAssertEqual(rect.height * pixelScale, shown.height * exitScale * ownProgress * pixelScale, accuracy: 0.5)
+            XCTAssertEqual(rect.midX * pixelScale, expectedCentre.x * pixelScale, accuracy: Self.acceptedExitDrift)
+            XCTAssertEqual(rect.midY * pixelScale, expectedCentre.y * pixelScale, accuracy: Self.acceptedExitDrift)
+            XCTAssertEqual(
+                rect.width * pixelScale,
+                shown.width * exitScale * ownProgress * pixelScale,
+                accuracy: Self.acceptedExitDrift
+            )
+            XCTAssertEqual(
+                rect.height * pixelScale,
+                shown.height * exitScale * ownProgress * pixelScale,
+                accuracy: Self.acceptedExitDrift
+            )
         }
     }
 }

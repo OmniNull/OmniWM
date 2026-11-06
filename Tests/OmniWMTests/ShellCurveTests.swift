@@ -94,6 +94,18 @@ final class ShellCurveTests: XCTestCase {
         XCTAssertEqual(emphasized.reversed.value(at: 5.0 / 6.0), 0.6)
     }
 
+    private var stretchOvershootCeiling: CGFloat {
+        let step = 1 / ShellStretch.rate
+        let retained = 1 / (1 + ShellStretch.damping * step)
+        let pull = retained * ShellStretch.stiffness * step * step
+        let decay = retained.squareRoot()
+        let turn = acos((1 + retained - pull) / (2 * decay))
+        let lean = (cos(turn) - (1 - pull) / decay) / sin(turn)
+        let crest = atan(-log(decay) / turn)
+        let crestStep = (2 * .pi - crest + atan2(lean, -1)) / turn
+        return hypot(1, lean) * pow(decay, crestStep) * cos(crest)
+    }
+
     func testFastMovesStretchAlongTheirDirectionAndSettle() {
         let still = ShellStretch.deforms(positions: Array(repeating: .zero, count: 30), amount: 0.1)
         XCTAssertTrue(still.allSatisfy { $0 == .identity })
@@ -102,8 +114,9 @@ final class ShellCurveTests: XCTestCase {
         let moving = (0 ... steps).map { CGPoint(x: 0, y: CGFloat($0) * 2000 / ShellStretch.rate) }
         let deforms = ShellStretch.deforms(positions: moving, amount: 0.1)
         let peak = deforms.map(\.d).max() ?? 1
-        XCTAssertEqual(peak, 1.02, accuracy: 0.004)
         let stretch: CGFloat = 2000 * 0.1 / 10000
+        XCTAssertGreaterThan(peak, 1 + stretch)
+        XCTAssertLessThanOrEqual(peak, 1 + stretch * (1 + stretchOvershootCeiling))
         XCTAssertEqual(
             deforms[steps / 2].a,
             1 / deforms[steps / 2].d,
@@ -113,7 +126,10 @@ final class ShellCurveTests: XCTestCase {
         XCTAssertEqual(deforms.last, .identity)
 
         let flung = (0 ... 30).map { CGPoint(x: CGFloat($0) * 100_000, y: 0) }
-        XCTAssertLessThanOrEqual(ShellStretch.deforms(positions: flung, amount: 0.1).map(\.a).max() ?? 0, 1.35 * 1.2)
+        XCTAssertLessThanOrEqual(
+            ShellStretch.deforms(positions: flung, amount: 0.1).map(\.a).max() ?? 0,
+            1 + ShellStretch.limit * (1 + stretchOvershootCeiling)
+        )
     }
 
     func testEntersWithStretchSampleTheirSlide() throws {

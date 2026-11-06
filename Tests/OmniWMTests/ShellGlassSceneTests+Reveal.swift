@@ -25,6 +25,26 @@ private struct RevealRim {
     var bottom: CGFloat = 0
 }
 
+extension ShellReveal {
+    func keyframed(at time: CFTimeInterval, _ shape: (CFTimeInterval) throws -> CGRect) rethrows -> CGRect {
+        let samples = self.samples
+        let elapsed = time - begin
+        guard let upper = samples.firstIndex(where: { $0.time >= elapsed }), upper > 0 else {
+            return try shape(time)
+        }
+        let from = try shape(begin + samples[upper - 1].time)
+        let to = try shape(begin + samples[upper].time)
+        let fraction = (elapsed - samples[upper - 1].time) / (samples[upper].time - samples[upper - 1].time)
+        func mix(_ lower: CGFloat, _ upper: CGFloat) -> CGFloat {
+            lower + (upper - lower) * fraction
+        }
+        return CGRect(
+            x: mix(from.minX, to.minX), y: mix(from.minY, to.minY),
+            width: mix(from.width, to.width), height: mix(from.height, to.height)
+        )
+    }
+}
+
 @MainActor
 extension ShellGlassSceneTests {
     private nonisolated static let card = CGRect(x: 80, y: 50, width: 160, height: 100)
@@ -91,21 +111,7 @@ extension ShellGlassSceneTests {
     }
 
     private nonisolated static func keyframed(_ plan: ShellReveal, at time: CFTimeInterval) throws -> CGRect {
-        let samples = plan.samples
-        let elapsed = time - plan.begin
-        guard let upper = samples.firstIndex(where: { $0.time >= elapsed }), upper > 0 else {
-            return try sampled(plan, at: time)
-        }
-        let from = try sampled(plan, at: plan.begin + samples[upper - 1].time)
-        let to = try sampled(plan, at: plan.begin + samples[upper].time)
-        let fraction = (elapsed - samples[upper - 1].time) / (samples[upper].time - samples[upper - 1].time)
-        func mix(_ lower: CGFloat, _ upper: CGFloat) -> CGFloat {
-            lower + (upper - lower) * fraction
-        }
-        return CGRect(
-            x: mix(from.minX, to.minX), y: mix(from.minY, to.minY),
-            width: mix(from.width, to.width), height: mix(from.height, to.height)
-        )
+        try plan.keyframed(at: time) { try sampled(plan, at: $0) }
     }
 
     private nonisolated static func silhouette(
@@ -136,6 +142,8 @@ extension ShellGlassSceneTests {
         return CGRect(x: minX, y: minY, width: maxX + 1 - minX, height: maxY + 1 - minY)
     }
 
+    private nonisolated static let acceptedKeyframeGap = 2 * ShellOffscreenRenderer.pixel
+
     private nonisolated static func assertClose(
         _ actual: CGRect,
         _ expected: CGRect,
@@ -161,7 +169,7 @@ extension ShellGlassSceneTests {
             left: drawn.minX - card.minX, right: drawn.maxX - card.maxX,
             top: drawn.minY - card.minY, bottom: drawn.maxY - card.maxY
         )
-        XCTAssertTrue([rim.left, rim.right, rim.top, rim.bottom].allSatisfy { abs($0) <= 2 })
+        XCTAssertTrue([rim.left, rim.right, rim.top, rim.bottom].allSatisfy { abs($0) <= ShellOffscreenRenderer.pixel })
         return rim
     }
 
@@ -250,7 +258,11 @@ extension ShellGlassSceneTests {
             let late = plan.begin + 0.130
             let stretched = try Self.silhouette(body, renderer, container: scene.container, at: late)
             Self.assertClose(stretched, try Self.keyframed(plan, at: late), rim: rim)
-            XCTAssertEqual(try Self.keyframed(plan, at: late).minX, try Self.sampled(plan, at: late).minX, accuracy: 2)
+            XCTAssertEqual(
+                try Self.keyframed(plan, at: late).minX,
+                try Self.sampled(plan, at: late).minX,
+                accuracy: Self.acceptedKeyframeGap
+            )
             XCTAssertLessThan(stretched.minX, Self.card.minX - 4)
         }
         withExtendedLifetime(renderer) {}

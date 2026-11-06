@@ -147,8 +147,9 @@ extension ShellVitreusDeskTests {
             }
             XCTAssertLessThanOrEqual(row[4] + row[6] * (1 - Self.inset), row[8] + row[10] + rowBound, "\(index)")
         }
-        for (index, value) in [(6, 219.22), (7, 285.66), (3, 17.55), (15, 99.36)] {
-            XCTAssertEqual(values[0][index], value, accuracy: 0.01)
+        let halfStatedDigit = 0.01 / 2
+        for (index, value) in [(6, 219.21), (7, 285.66), (3, 17.55), (15, 99.36)] {
+            XCTAssertEqual(values[0][index], value, accuracy: halfStatedDigit)
         }
         XCTAssertEqual(values[12][10] + values[12][8], 1840 - 14 * 1.242, accuracy: .rounding(operations: 9, at: 1840))
     }

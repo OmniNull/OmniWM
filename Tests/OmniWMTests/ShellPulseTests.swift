@@ -9,6 +9,8 @@ import XCTest
 
 @MainActor
 final class ShellPulseTests: XCTestCase {
+    private static let bar = CGRect(x: 88, y: 122, width: 80, height: 12)
+
     private var renderers: [ShellOffscreenRenderer] = []
 
     private func recipe(_ fields: String = "0,30,0:0,0.2,0:0,6,0:0,-4,0", key: UInt64 = 1) throws -> ShellPulseRecipe {
@@ -204,30 +206,37 @@ final class ShellPulseTests: XCTestCase {
     func testPulseRemainsAdditiveDuringPresenceAndLaterPaintAnimation() throws {
         let scene = try scene()
         let renderer = try XCTUnwrap(renderers.first)
+        let presenceScale = 0.5
         var paint = try paint(recipe("0,30,0:::"))
+        paint.frameSize = Self.bar.size
         paint.appear = ShellPresence(
-            opacity: 1, scale: 0.5, offset: .zero,
+            opacity: 1, scale: presenceScale, offset: .zero,
             animation: ShellAnimation(motion: .ease(seconds: 1), speed: 1)
         )
         submit([
             .remove(slot: 0),
             .insert(slot: 0, parent: -1, kind: .box, after: -1),
             .paint(slot: 0, paint, animation: nil),
-            .frame(slot: 0, rect: CGRect(x: 88, y: 122, width: 80, height: 12), animation: nil)
+            .frame(slot: 0, rect: Self.bar, animation: nil)
         ], to: scene)
+        let halfway = (presenceScale + 1) / 2
+        let reference = try plainRender(
+            model: pivoted(CATransform3DMakeScale(halfway, halfway, 1)), share: 1, rotate: 30
+        )
         let duringPresence = try ShellLayerScene.engineQueue.sync { try renderer.render(paused: 1000.5) }
-        XCTAssertEqual(moments(duringPresence).angle, 30, accuracy: 0.5)
+        XCTAssertEqual(duringPresence, reference)
         paint = try self.paint(recipe("0,30,0:::"), scale: 1.1)
+        paint.frameSize = Self.bar.size
         submit([
             .paint(slot: 0, paint, animation: ShellAnimation(motion: .ease(seconds: 1), speed: 1))
         ], to: scene)
         let duringPaint = try ShellLayerScene.engineQueue.sync { try renderer.render(paused: 1000.5) }
-        XCTAssertEqual(moments(duringPaint).angle, 30, accuracy: 0.5)
+        XCTAssertEqual(duringPaint, reference)
     }
 
     func testRenderedPulseComposesRotationScaleAndOffsetsAndReturnsToTheModel() throws {
         let root = CALayer()
-        let begin = CACurrentMediaTime()
+        let begin = 1000.0
         root.frame = CGRect(x: 0, y: 0, width: 256, height: 256)
         root.isGeometryFlipped = true
         root.speed = 0
@@ -236,47 +245,62 @@ final class ShellPulseTests: XCTestCase {
         let renderer = try ShellLayerScene.engineQueue.sync {
             try ShellOffscreenRenderer(root: root, width: 256, height: 256)
         }
-        var paint = try paint(recipe(), scale: 1.2)
-        paint.rotation = 20 * .pi / 180
-        paint.frameSize = CGSize(width: 80, height: 12)
+        let scale = 1.2
+        let rotation = 20 * Double.pi / 180
+        var paint = try paint(recipe(), scale: scale)
+        paint.rotation = rotation
+        paint.frameSize = Self.bar.size
         submit([
             .insert(slot: 0, parent: -1, kind: .box, after: -1),
             .paint(slot: 0, paint, animation: nil),
-            .frame(slot: 0, rect: CGRect(x: 88, y: 122, width: 80, height: 12), animation: nil)
+            .frame(slot: 0, rect: Self.bar, animation: nil)
         ], to: scene)
-        for (elapsed, angle, factor, center) in [
-            (0.0, 20.0, 1.2, CGPoint(x: 128, y: 128)),
-            (0.5, 50.0, 1.44, CGPoint(x: 134, y: 124)),
-            (0.9999, 20.006, 1.200048, CGPoint(x: 128.0012, y: 127.9992)),
-            (1.001, 20.0, 1.2, CGPoint(x: 128, y: 128))
-        ] {
+        let model = pivoted(
+            CATransform3DConcat(CATransform3DMakeScale(scale, scale, 1), CATransform3DMakeRotation(rotation, 0, 0, 1))
+        )
+        let duration = 1.0
+        for elapsed in [0.0, 0.5, 0.9999, 1.001] {
             let bytes = try ShellLayerScene.engineQueue.sync { try renderer.render(paused: begin + elapsed) }
-            let moments = moments(bytes)
-            XCTAssertEqual(moments.angle, angle, accuracy: 0.5, "\(elapsed)")
-            XCTAssertEqual(moments.center.x, center.x, accuracy: 0.5, "\(elapsed)")
-            XCTAssertEqual(moments.center.y, center.y, accuracy: 0.5, "\(elapsed)")
-            XCTAssertEqual(moments.area, 80 * 12 * factor * factor, accuracy: 12, "\(elapsed)")
+            let reference = try plainRender(
+                model: model, share: max(0, 1 - abs(elapsed - duration / 2) / (duration / 2)),
+                rotate: 30, grow: 0.2, offset: CGPoint(x: 6, y: -4)
+            )
+            XCTAssertEqual(bytes, reference, "\(elapsed)")
         }
     }
 
-    private func moments(_ bytes: [UInt8]) -> (angle: Double, center: CGPoint, area: Double) {
-        var area = 0.0, x = 0.0, y = 0.0, xx = 0.0, yy = 0.0, xy = 0.0
-        for row in 0 ..< 256 {
-            for column in 0 ..< 256 {
-                let alpha = Double(bytes[(row * 256 + column) * 4 + 3]) / 255
-                let px = Double(column) + 0.5, py = Double(row) + 0.5
-                area += alpha
-                x += alpha * px
-                y += alpha * py
-                xx += alpha * px * px
-                yy += alpha * py * py
-                xy += alpha * px * py
-            }
+    private func pivoted(_ delta: CATransform3D) -> CATransform3D {
+        let center = CATransform3DMakeTranslation(Self.bar.width / 2, Self.bar.height / 2, 0)
+        return CATransform3DConcat(CATransform3DConcat(CATransform3DInvert(center), delta), center)
+    }
+
+    private func keyframed(_ value: (Double) -> CATransform3D, share: Double) -> CATransform3D {
+        let peak = pivoted(value(1))
+        var term = value(share)
+        term.m41 = peak.m41 * share
+        term.m42 = peak.m42 * share
+        return term
+    }
+
+    private func plainRender(
+        model: CATransform3D, share: Double, rotate: Double, grow: Double = 0, offset: CGPoint = .zero
+    ) throws -> [UInt8] {
+        let rotation = keyframed({ CATransform3DMakeRotation(rotate * $0 * .pi / 180, 0, 0, 1) }, share: share)
+        let growth = keyframed({ CATransform3DMakeScale(1 + grow * $0, 1 + grow * $0, 1) }, share: share)
+        let root = CALayer()
+        root.frame = CGRect(x: 0, y: 0, width: 256, height: 256)
+        root.isGeometryFlipped = true
+        let layer = CALayer()
+        layer.anchorPoint = .zero
+        layer.backgroundColor = CGColor(gray: 1, alpha: 1)
+        layer.position = CGPoint(x: Self.bar.minX + offset.x * share, y: Self.bar.minY + offset.y * share)
+        layer.bounds = CGRect(origin: .zero, size: Self.bar.size)
+        layer.transform = CATransform3DConcat(CATransform3DConcat(model, rotation), growth)
+        root.addSublayer(layer)
+        let bytes = try ShellLayerScene.engineQueue.sync {
+            try ShellOffscreenRenderer(root: root, width: 256, height: 256).render()
         }
-        XCTAssertGreaterThan(area, 0)
-        let center = CGPoint(x: x / max(area, 1), y: y / max(area, 1))
-        let covariance = xy / max(area, 1) - center.x * center.y
-        let variance = (xx - yy) / max(area, 1) - center.x * center.x + center.y * center.y
-        return (atan2(2 * covariance, variance) * 90 / .pi, center, area)
+        XCTAssertTrue(bytes.contains { $0 > 0 })
+        return bytes
     }
 }

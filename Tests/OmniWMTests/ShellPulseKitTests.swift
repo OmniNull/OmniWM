@@ -33,7 +33,7 @@ final class ShellPulseKitTests: XCTestCase {
         let widget = try widget("""
         local values = {}
         \(body)
-        for index, value in ipairs(values) do values[index] = string.format('%.15g', value) end
+        for index, value in ipairs(values) do values[index] = string.format('%.17g', value) end
         return ui.text{text=table.concat(values, ',')}
         """)
         let text = try XCTUnwrap(widget.strings().first)
@@ -73,10 +73,10 @@ final class ShellPulseKitTests: XCTestCase {
         XCTAssertEqual(zonePulse.scale, [0, 0.1, 0])
     }
 
-    func testSpringStatesAndImpulseResponsesMatchNativeDynamics() throws {
+    func testSpringStatesAndImpulseResponsesMatchTheRecipeDynamics() throws {
         let times = [0.0, 0.01, 0.083, 0.333, 1, 2]
         for (response, bounce) in springs {
-            let spring = try native(response, bounce)
+            let spring = ShellMorphRecipe.Spring(response: response, bounce: bounce).parameters
             for (from, velocity, target) in [(0.0, 0.0, 1.0), (0.4, -3, 0), (1.2, 4, 0.7)] {
                 let result = try values("""
                 local spring = {response=\(response), bounce=\(bounce)}
@@ -92,15 +92,38 @@ final class ShellPulseKitTests: XCTestCase {
                 for (index, time) in times.enumerated() {
                     XCTAssertEqual(result[index * 3], target + ShellSpringDynamics.position(
                         at: time, displacement: from - target, initialVelocity: velocity, spring: spring
-                    ), accuracy: 1e-3)
+                    ))
                     XCTAssertEqual(result[index * 3 + 1], ShellSpringDynamics.velocity(
                         at: time, displacement: from - target, initialVelocity: velocity, spring: spring
-                    ), accuracy: 1e-3)
+                    ))
                     XCTAssertEqual(result[index * 3 + 2], ShellSpringDynamics.position(
                         at: time, displacement: 0, initialVelocity: 7, spring: spring
-                    ), accuracy: 1e-3)
+                    ))
                 }
             }
+        }
+    }
+
+    private static let dampingRoundedOperations = 4
+
+    func testNativeSpringsMatchTheRecipeDynamicsForEveryKitSpring() throws {
+        let fields = try values("""
+        for _, spring in kit.springs do
+            table.insert(values, spring.response)
+            table.insert(values, spring.bounce)
+        end
+        """)
+        XCTAssertFalse(fields.isEmpty)
+        for index in stride(from: 0, to: fields.count, by: 2) {
+            let played = try native(fields[index], fields[index + 1])
+            let recipe = ShellMorphRecipe.Spring(response: fields[index], bounce: fields[index + 1]).parameters
+            XCTAssertEqual(played.mass, recipe.mass)
+            XCTAssertEqual(played.stiffness, recipe.stiffness)
+            XCTAssertEqual(
+                played.damping,
+                recipe.damping,
+                accuracy: .rounding(operations: Self.dampingRoundedOperations, at: recipe.damping)
+            )
         }
     }
 
@@ -113,7 +136,7 @@ final class ShellPulseKitTests: XCTestCase {
             (0.482, 0.31, 0.7, -4.0, 1.0, 0.84, true, 0.0),
             (0.36, 0.0, 0.0, 0.0, 1.0, 0.3, true, 0.0)
         ] {
-            let spring = try native(response, bounce)
+            let spring = ShellMorphRecipe.Spring(response: response, bounce: bounce).parameters
             let crossing = try XCTUnwrap(referenceCrossing(
                 spring, from: from, velocity: velocity, target: target,
                 threshold: threshold, rising: rising, after: after
@@ -123,7 +146,11 @@ final class ShellPulseKitTests: XCTestCase {
             table.insert(values, kit.springCrossing(spring, \(from), \(velocity), \(target),
                 \(threshold), \(rising), \(after)) or -1)
             """)
-            XCTAssertEqual(try XCTUnwrap(result.first), crossing, accuracy: 1e-3)
+            XCTAssertEqual(
+                try XCTUnwrap(result.first),
+                crossing,
+                accuracy: Self.crossingStep / Double(1 << Self.crossingBisections)
+            )
         }
         let absent = try values("""
         table.insert(values, kit.springCrossing(kit.springs.drip, 0, 0, 1, 4, true) or -1)
@@ -131,6 +158,9 @@ final class ShellPulseKitTests: XCTestCase {
         """)
         XCTAssertEqual(absent, [-1, -1])
     }
+
+    private static let crossingStep = 0.0005
+    private static let crossingBisections = 32
 
     private func referenceCrossing(
         _ spring: ShellSpringDynamics.Parameters, from: Double, velocity: Double, target: Double,
@@ -141,14 +171,13 @@ final class ShellPulseKitTests: XCTestCase {
                 at: time, displacement: from - target, initialVelocity: velocity, spring: spring
             ) - threshold
         }
-        let step = 0.0005
         var low = after
         for _ in 0 ..< 10_000 {
-            var high = low + step
+            var high = low + Self.crossingStep
             if (rising && value(low) < 0 && value(high) >= 0)
                 || (!rising && value(low) > 0 && value(high) <= 0)
             {
-                for _ in 0 ..< 32 {
+                for _ in 0 ..< Self.crossingBisections {
                     let middle = (low + high) / 2
                     if (value(middle) > 0) == rising { high = middle } else { low = middle }
                 }
@@ -161,7 +190,7 @@ final class ShellPulseKitTests: XCTestCase {
 
     func testSettleMatchesTheSharedDynamicsDuration() throws {
         for (response, bounce) in springs {
-            let spring = try native(response, bounce)
+            let spring = ShellMorphRecipe.Spring(response: response, bounce: bounce).parameters
             let result = try values("""
             table.insert(values, kit.springSettle({response=\(response), bounce=\(bounce)}, 0, 3, 1))
             """)
@@ -169,7 +198,7 @@ final class ShellPulseKitTests: XCTestCase {
                 displacement: SIMD4(-1, 0, 0, 0), velocity: SIMD4(3, 0, 0, 0), spring: spring,
                 residual: 0.001, speed: 0.001
             )
-            XCTAssertEqual(try XCTUnwrap(result.first), expected, accuracy: 1e-3)
+            XCTAssertEqual(try XCTUnwrap(result.first), expected)
         }
     }
 
@@ -179,21 +208,25 @@ final class ShellPulseKitTests: XCTestCase {
         guard samples.count == 256 else { return }
         XCTAssertEqual(samples.first, 0)
         XCTAssertEqual(samples.last, 0)
+        let amplitude = 24.0, duration = 2.4, rate = 6.64 / duration, swing = 2000 * Double.pi / 180
         func bell(_ time: Double) -> Double {
-            let phase = time * 6.64 / 2.4
+            let phase = time * rate
             let progress = 1 - exp(-phase) * (1 + phase)
-            return 24 * (1 - progress) * sin(progress * 2000 * .pi / 180)
+            return amplitude * (1 - progress) * sin(progress * swing)
         }
-        let dense = (0 ... 4096).map { bell(2.4 * Double($0) / 4096) }
+        let dense = (0 ... 4096).map { bell(duration * Double($0) / 4096) }
         let peak = try XCTUnwrap(dense.map { abs($0) }.max())
         XCTAssertGreaterThan(peak, 20)
-        XCTAssertEqual(try XCTUnwrap(samples.map { abs($0) }.max()), peak, accuracy: peak * 0.02)
+        let spacing = duration / Double(samples.count - 1)
+        let sharpestBend = amplitude * rate * rate * (1 + swing + (2 * swing + swing * swing) * exp(-2.0))
+        let chordGap = spacing * spacing / 8 * sharpestBend
+        XCTAssertEqual(try XCTUnwrap(samples.map { abs($0) }.max()), peak, accuracy: chordGap)
         for (index, expected) in dense.enumerated() {
             let phase = Double(index) / 4096 * 255
             let low = min(Int(phase), 254)
             let fraction = phase - Double(low)
             let actual = samples[low] + (samples[low + 1] - samples[low]) * fraction
-            XCTAssertEqual(actual, expected, accuracy: peak * 0.02)
+            XCTAssertEqual(actual, expected, accuracy: chordGap + abs(bell(duration)))
         }
     }
 
@@ -204,12 +237,12 @@ final class ShellPulseKitTests: XCTestCase {
         guard samples.count == 256 else { return }
         XCTAssertEqual(samples.first, 0)
         XCTAssertEqual(samples.last, 0)
-        let spring = try native(0.307, 0.68)
+        let spring = ShellMorphRecipe.Spring(response: 0.307, bounce: 0.68).parameters
         for index in 0 ..< 255 {
             let time = duration * Double(index) / 255
             XCTAssertEqual(samples[index], ShellSpringDynamics.position(
                 at: time, displacement: 0, initialVelocity: -12, spring: spring
-            ), accuracy: 1e-3)
+            ))
         }
     }
 }

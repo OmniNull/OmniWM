@@ -60,7 +60,11 @@ extension ShellRevealTests {
         }
         XCTAssertTrue(plan.crossings(at: 4, rising: true).isEmpty)
         let drip = try ShellReveal(begin: 0, progress: 0, target: 1, spring: Self.drip())
-        XCTAssertEqual(try XCTUnwrap(drip.crossings(at: 0.97, rising: true).first), 0.230, accuracy: 0.005)
+        XCTAssertEqual(
+            try XCTUnwrap(drip.crossings(at: 0.97, rising: true).first),
+            Self.vitreusLanding,
+            accuracy: Self.acceptedTimingGap
+        )
     }
 
     func testImpulsesUseExactCrossingAndCommitTimesAndPreserveBothStateChannels() throws {
@@ -77,13 +81,14 @@ extension ShellRevealTests {
         XCTAssertEqual(after.state(at: after.begin - 0.001).displacement, 0)
         let time = at.begin + 0.04
         let carrying = try XCTUnwrap(at.carrying(at: time))
+        XCTAssertEqual(carrying.begin, time)
+        XCTAssertEqual(carrying.spring, at.spring)
+        XCTAssertEqual(carrying.width, at.width)
+        XCTAssertEqual(carrying.height, at.height)
+        XCTAssertEqual(carrying.pivot, at.pivot)
         XCTAssertEqual(carrying.state(at: time).displacement, at.state(at: time).displacement)
         XCTAssertEqual(carrying.state(at: time).velocity, at.state(at: time).velocity)
-        XCTAssertEqual(
-            carrying.state(at: time + 0.02).displacement,
-            at.state(at: time + 0.02).displacement,
-            accuracy: 1e-10
-        )
+        XCTAssertGreaterThan(carrying.end, time)
         XCTAssertNil(at.carrying(at: at.begin - 0.001))
         XCTAssertNil(at.carrying(at: at.end))
     }

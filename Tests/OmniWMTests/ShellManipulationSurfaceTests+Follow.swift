@@ -130,7 +130,7 @@ extension ShellManipulationSurfaceTests {
         return .floatRounding(operations: 3, at: CGFloat(local.x) + shown.minX)
     }
 
-    func assertEqual(_ actual: CGRect, _ expected: CGRect, accuracy: CGFloat = pairRounding, line: UInt = #line) {
+    func assertEqual(_ actual: CGRect, _ expected: CGRect, accuracy: CGFloat, line: UInt = #line) {
         XCTAssertEqual(actual.minX, expected.minX, accuracy: accuracy, line: line)
         XCTAssertEqual(actual.minY, expected.minY, accuracy: accuracy, line: line)
         XCTAssertEqual(actual.width, expected.width, accuracy: accuracy, line: line)

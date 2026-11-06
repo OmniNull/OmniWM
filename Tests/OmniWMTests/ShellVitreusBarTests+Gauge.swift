@@ -423,18 +423,22 @@ extension ShellVitreusBarTests {
                       let unlit = try pieceBand(entry, rim: 0, scale: scale)
                 else { throw MissingTestPrerequisite("Native glass is unavailable") }
                 let band = zip(lit, unlit).map { $0 - $1 }
-                let pleamar = (0 ..< band.count).map { depth -> Double in
-                    let ramp = min(max((-(Double(depth) + 0.5) / Double(scale) + 2.2) / 1.8, 0), 1)
-                    return entry.share * entry.rim * 253 * ramp * ramp * (3 - 2 * ramp)
+                let amount = entry.share * entry.rim
+                let pleamar = (0 ..< band.count).map { depth in
+                    255 * amount * ShellGlassSceneTests.pleamarCurve(depth: depth, scale: scale)
                 }
                 let label = "\(entry.name) \(scale)x"
                 let reference = pleamar.map { ($0 * 10).rounded() / 10 }
                 print("vitreus-battery-band \(label) measured \(band) pleamar \(reference)")
                 XCTAssertTrue(band.allSatisfy { $0 >= 0 }, "\(label) \(band)")
                 guard entry.alpha == "ff" else { continue }
-                let tolerance = max(1.5, 0.1 * (pleamar.first ?? 0))
-                for (value, target) in zip(band, pleamar) {
-                    XCTAssertEqual(Double(value), target, accuracy: tolerance, "\(label) \(band)")
+                for (depth, (value, target)) in zip(band, pleamar).enumerated() {
+                    XCTAssertEqual(
+                        Double(value),
+                        target,
+                        accuracy: ShellGlassSceneTests.bandAllowance(amount, depth: depth, scale: scale),
+                        "\(label) \(band)"
+                    )
                 }
             }
         }

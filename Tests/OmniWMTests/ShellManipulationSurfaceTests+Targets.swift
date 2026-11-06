@@ -122,7 +122,7 @@ extension ShellManipulationSurfaceTests {
             XCTAssertEqual(try Set(XCTUnwrap(surface.presentation).targets.keys), [left, right])
             for (target, motion) in [(left, first), (right, second)] {
                 let shown = CGRect(surface.presentedFrame(of: target))
-                assertEqual(shown, motion.rect(at: clock.now))
+                assertEqual(shown, motion.rect(at: clock.now), accuracy: Self.pairRounding)
                 let hit = surface.element(at: CGPoint(x: shown.minX + 5, y: shown.minY + 5)) { $0.acceptsPointer }
                 XCTAssertEqual(surface.manipulationOwner(of: hit), target)
             }
