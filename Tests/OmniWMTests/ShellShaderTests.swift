@@ -91,7 +91,7 @@ final class ShellShaderTests: XCTestCase {
     }
 
     func testShaderRendersIntoTheLayer() async throws {
-        executionTimeAllowance = 60
+        executionTimeAllowance = failureBound
         let program = try await compiled("solid.metal", """
         float4 shade(float2 uv, constant OmniShader& shader) {
             return float4(shader.values.x, 0, 0, 1);
@@ -120,7 +120,7 @@ final class ShellShaderTests: XCTestCase {
     }
 
     func testAMaskShadersFramesShapeItsStackAndAFailureUnmasksIt() async throws {
-        executionTimeAllowance = 60
+        executionTimeAllowance = failureBound
         let program = try await compiled("half.metal", """
         float4 shade(float2 uv, constant OmniShader& shader) {
             return float4(1, 1, 1, uv.x < 0.5 ? 1 : 0);
@@ -245,7 +245,7 @@ final class ShellShaderTests: XCTestCase {
     }
 
     func testShadersReadProgressAfterThePalette() async throws {
-        executionTimeAllowance = 60
+        executionTimeAllowance = failureBound
         let program = try await compiled("progress.metal", """
         float4 shade(float2 uv, constant OmniShader& shader) {
             return float4(shader.progress, shader.values.w, shader.colors[15].z, 1);
@@ -266,7 +266,7 @@ final class ShellShaderTests: XCTestCase {
     }
 
     func testShadersReadTheirAnchorAndContentAfterProgress() async throws {
-        executionTimeAllowance = 60
+        executionTimeAllowance = failureBound
         let program = try await compiled("stage.metal", """
         float4 shade(float2 uv, constant OmniShader& shader) {
             return float4(shader.anchor.x / 10.0, shader.anchor.y / 10.0, shader.content.z / 10.0, 1);
@@ -285,7 +285,7 @@ final class ShellShaderTests: XCTestCase {
     }
 
     func testAudioShadersReadTheSpectrumBarsAfterTheContent() async throws {
-        executionTimeAllowance = 60
+        executionTimeAllowance = failureBound
         XCTAssertEqual(MemoryLayout<ShellShaderUniforms>.offset(of: \ShellShaderUniforms.audio), 704)
         XCTAssertEqual(MemoryLayout<ShellShaderUniforms>.stride, 944)
         let program = try await compiled("bars.metal", """
@@ -318,7 +318,7 @@ final class ShellShaderTests: XCTestCase {
     }
 
     func testTheBundledLiquidShaderGrowsFromItsAnchorIntoTheContent() async throws {
-        executionTimeAllowance = 60
+        executionTimeAllowance = failureBound
         let bundled = try XCTUnwrap(ShellDefaults.bundledFile("shaders/liquid.metal"))
         let program = try await compiled("liquid.metal", String(contentsOf: bundled, encoding: .utf8))
         let pipeline = try XCTUnwrap(program.pipeline, program.failure ?? "")
@@ -474,7 +474,7 @@ final class ShellShaderTests: XCTestCase {
     }
 
     func testCelestialsVisualizerDrawsEachBarOutFromTheCoverAsLongAsItsLevel() async throws {
-        executionTimeAllowance = 60
+        executionTimeAllowance = failureBound
         let styles = ShellStyleFixture.directory
         let source = try String(
             contentsOf: styles.appendingPathComponent("celestial/shaders/visualizer.metal"),
@@ -503,7 +503,7 @@ final class ShellShaderTests: XCTestCase {
     }
 
     func testLakeWaveformUsesActualAudioBandsForBarCoverage() async throws {
-        executionTimeAllowance = 60
+        executionTimeAllowance = failureBound
         let styles = ShellStyleFixture.directory
         let source = try String(
             contentsOf: styles.appendingPathComponent("lake/widgets/media/waveform.metal"),
@@ -544,7 +544,7 @@ final class ShellShaderTests: XCTestCase {
     }
 
     func testCompileErrorsNameTheFileAndLine() async throws {
-        executionTimeAllowance = 60
+        executionTimeAllowance = failureBound
         let program = try await compiled("broken.metal", """
         float4 shade(float2 uv, constant OmniShader& shader) {
             return undefined_value;

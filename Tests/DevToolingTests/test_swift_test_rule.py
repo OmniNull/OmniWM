@@ -5,7 +5,7 @@ import unittest
 
 TESTS = Path(__file__).resolve().parents[1] / "OmniWMTests"
 SKIP = re.compile(r"\bXCTSkip")
-LITERAL_TIMEOUT = re.compile(r"\btimeout:\s*\.?[0-9]")
+LITERAL_TIMEOUT = re.compile(r"\b(?:timeout:|executionTimeAllowance\s*=)\s*\.?[0-9]")
 
 
 class SwiftTestRuleTests(unittest.TestCase):

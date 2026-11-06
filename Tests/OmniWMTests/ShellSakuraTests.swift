@@ -151,7 +151,7 @@ final class ShellSakuraTests: XCTestCase {
     }
 
     func testPetalsAnimateOnBarsAndPanelsAndHonorStaticControls() async throws {
-        executionTimeAllowance = 60
+        executionTimeAllowance = failureBound
         let resources = try resources()
         let shader = try XCTUnwrap(config.barShader)
         let program = resources.shaders.program(

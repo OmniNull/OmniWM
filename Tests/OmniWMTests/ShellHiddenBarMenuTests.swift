@@ -93,7 +93,7 @@ final class ShellHiddenBarMenuTests: XCTestCase {
     }
 
     func testChildMenuKeepsParentRegisteredAndRejectsOldPageActions() async throws {
-        executionTimeAllowance = 60
+        executionTimeAllowance = failureBound
         guard let screen = NSScreen.screens.first else { throw MissingTestPrerequisite("menu panels need a screen") }
         let resources = ShellResources(motion: MotionPolicy(animationsEnabled: false))
         let widget = try ShellRenderedWidget(name: "icons", source: """
@@ -156,7 +156,7 @@ final class ShellHiddenBarMenuTests: XCTestCase {
     }
 
     func testFailedScriptClosesOnlyItsChildPresentation() async throws {
-        executionTimeAllowance = 60
+        executionTimeAllowance = failureBound
         guard let screen = NSScreen.screens.first else { throw MissingTestPrerequisite("menu panels need a screen") }
         let resources = ShellResources(motion: MotionPolicy(animationsEnabled: false))
         let parent = makeParent(screen: screen, resources: resources)

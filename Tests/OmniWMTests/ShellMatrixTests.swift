@@ -230,7 +230,7 @@ final class ShellMatrixTests: XCTestCase {
     }
 
     func testRainRendersGreenAnimatedFramesAndHonorsStaticControls() async throws {
-        executionTimeAllowance = 60
+        executionTimeAllowance = failureBound
         let resources = ShellResources(motion: MotionPolicy(animationsEnabled: true))
         resources.palette.refresh(theme: config.theme, appearance: try XCTUnwrap(NSAppearance(named: .darkAqua)))
         let shader = try XCTUnwrap(config.barShader)

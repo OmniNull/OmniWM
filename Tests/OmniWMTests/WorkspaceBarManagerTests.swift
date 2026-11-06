@@ -40,7 +40,7 @@ final class WorkspaceBarManagerTests: XCTestCase {
     }
 
     func testPrimaryBarFrameChangesWithContent() async throws {
-        executionTimeAllowance = 60
+        executionTimeAllowance = failureBound
         let widget = controller.settings.settingsFileURL.deletingLastPathComponent()
             .appendingPathComponent("shell/widgets/count", isDirectory: true)
         try FileManager.default.createDirectory(at: widget, withIntermediateDirectories: true)

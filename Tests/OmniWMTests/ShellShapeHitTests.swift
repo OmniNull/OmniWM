@@ -119,7 +119,7 @@ final class ShellShapeHitTests: XCTestCase {
     }
 
     func testClearPopoutsLetClicksThroughAShadersTransparentPixels() async throws {
-        executionTimeAllowance = 60
+        executionTimeAllowance = failureBound
         guard ShellShaderGPU.device != nil else { throw MissingTestPrerequisite("Metal is not available") }
         let directory = FileManager.default.temporaryDirectory.appendingPathComponent(UUID().uuidString)
         try FileManager.default.createDirectory(at: directory, withIntermediateDirectories: true)
