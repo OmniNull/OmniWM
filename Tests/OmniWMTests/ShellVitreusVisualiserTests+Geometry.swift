@@ -6,6 +6,10 @@ import AppKit
 import OmniWMShellCore
 import XCTest
 
+private func printed(_ value: Double) -> Double {
+    Double(String(format: "%.9g", value)) ?? .nan
+}
+
 extension ShellVitreusVisualiserTests {
     func testAllEdgePlacementsUseThePhysicalInnerEdgeAt1512Points() throws {
         let thin = 10.8
@@ -26,9 +30,10 @@ extension ShellVitreusVisualiserTests {
                 for column in columns {
                     let fraction = (Double(column.index) + 0.5) / 24
                     let side = placement == "left" || placement == "right"
-                    XCTAssertEqual(column.width, (side ? bottom - top : length) / 24 * 1.9, accuracy: 0.0001)
-                    XCTAssertEqual(column.radius, column.width * 0.45, accuracy: 0.0001)
-                    XCTAssertEqual(column.band, abs(2 * fraction - 1) * 23, accuracy: 0.0001)
+                    let wide = (side ? bottom - top : length) / 24 * 1.9
+                    XCTAssertEqual(column.width, printed(wide))
+                    XCTAssertEqual(column.radius, printed(wide * 0.45))
+                    XCTAssertEqual(column.band, printed(abs(2 * fraction - 1) * 23))
                     if side {
                         XCTAssertEqual(
                             column.base.x,
@@ -37,14 +42,13 @@ extension ShellVitreusVisualiserTests {
                         )
                         XCTAssertEqual(
                             column.base.y,
-                            layout == "fbottom" ? bottom - fraction * (bottom - top)
-                                : top + fraction * (bottom - top),
-                            accuracy: 0.0001
+                            printed(layout == "fbottom" ? bottom - fraction * (bottom - top) : top + fraction *
+                                (bottom - top))
                         )
                         XCTAssertEqual(column.direction, CGVector(dx: placement == "left" ? 1 : -1, dy: 0))
                     } else {
                         let x = canonicalLeft + fraction * length
-                        XCTAssertEqual(column.base.x, layout == "right" ? 1512 - x : x, accuracy: 0.0001)
+                        XCTAssertEqual(column.base.x, printed(layout == "right" ? 1512 - x : x))
                         XCTAssertEqual(column.base.y, placement == "top" ? top : bottom)
                         XCTAssertEqual(column.direction, CGVector(dx: 0, dy: placement == "top" ? 1 : -1))
                     }
@@ -64,18 +68,15 @@ extension ShellVitreusVisualiserTests {
                 let quartet = Double(column.index / 4), corner = column.index % 4
                 let fraction = (quartet + 0.5) / Double(expected / 4)
                 let angle = fraction * .pi / 2
-                XCTAssertEqual(column.width, 17 * 1.35 * 1.9, accuracy: 0.0001)
+                XCTAssertEqual(column.width, printed(17 * 1.35 * 1.9))
                 XCTAssertEqual(column.base.x, corner % 2 == 0 ? 10.8 : 1501.2)
                 XCTAssertEqual(column.base.y, corner < 2 ? 982 : 0)
-                XCTAssertEqual(column.direction.dx, (corner % 2 == 0 ? 1 : -1) * cos(angle), accuracy: 0.0001)
-                XCTAssertEqual(column.direction.dy, (corner < 2 ? -1 : 1) * sin(angle), accuracy: 0.0001)
-                XCTAssertEqual(column.band, fraction * 23, accuracy: 0.0001)
+                let dx = (corner % 2 == 0 ? 1 : -1) * cos(angle), dy = (corner < 2 ? -1 : 1) * sin(angle)
+                XCTAssertEqual(column.direction.dx, printed(dx))
+                XCTAssertEqual(column.direction.dy, printed(dy))
+                XCTAssertEqual(column.band, printed(fraction * 23))
                 XCTAssertEqual(column.taper, 1)
-                XCTAssertEqual(
-                    column.rotation,
-                    atan2(column.direction.dx, -column.direction.dy) * 180 / .pi,
-                    accuracy: 0.0001
-                )
+                XCTAssertEqual(column.rotation, printed(atan2(dx, -dy) * 180 / .pi))
             }
         }
     }
@@ -116,14 +117,25 @@ extension ShellVitreusVisualiserTests {
                         2.5
                 }
             }
-            let low = min(22, Int(floor(band)))
-            let level = average(low) + (average(low + 1) - average(low)) * (band - Double(low))
-            let taper = min(1, min(Double(index) + 0.5, 23.5 - Double(index)) / 1.2)
-            let height = pow(level, 1.4) * taper * 202.5
-            XCTAssertEqual(shape.rect.height, height + 4.05, accuracy: 0.001)
-            XCTAssertEqual(shape.rect.midY + (height - 4.05) / 2, 982, accuracy: 0.001)
-            XCTAssertEqual(shape.rect.maxY, 986.05, accuracy: 0.001)
-            XCTAssertEqual(shape.rect.midX, 10.8 + fraction * 1490.4, accuracy: 0.001)
+            let position = recipeStored(band / 23) * 23
+            let low = min(22, Int(position))
+            let first = Float(average(low)), rise = Float(average(low + 1)) - first
+            let level = Double(first) + Double(rise) * (position - Double(low))
+            let taper = recipeStored(min(1, min(Double(index) + 0.5, 23.5 - Double(index)) / 1.2))
+            let stored = floatStored(206.55), top = floatStored(982 - (202.5 - 4.05) / 2 - 206.55 / 2)
+            let height = pow(level, 1.4) * taper * (stored - 4.05)
+            XCTAssertEqual(shape.rect.height, height + 4.05)
+            XCTAssertEqual(
+                shape.rect.midY + (height - 4.05) / 2,
+                top + stored - 4.05,
+                accuracy: .rounding(operations: 8, at: top + stored)
+            )
+            XCTAssertEqual(shape.rect.maxY, top + stored, accuracy: .rounding(operations: 4, at: top + stored))
+            let stripe = 1490.4 / 24 * 1.9
+            XCTAssertEqual(
+                shape.rect.midX,
+                floatStored(10.8 + fraction * 1490.4 - stripe / 2) + floatStored(stripe) / 2
+            )
         }
         XCTAssertTrue(fixture.widget.surface.islandRegions().isEmpty)
         setBands(fixture.widget, [], access: .denied)

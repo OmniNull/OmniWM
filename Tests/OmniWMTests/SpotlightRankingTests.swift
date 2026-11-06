@@ -40,7 +40,7 @@ final class SpotlightRankingTests: XCTestCase {
             XCTAssertEqual(
                 result?.score.text ?? 0,
                 fixture.expected,
-                accuracy: 0.000001,
+                accuracy: Float(0.00000005) + Float.floatRounding(operations: 13, at: Float(1).nextDown),
                 "\(fixture.query)/\(fixture.name)"
             )
         }
@@ -54,20 +54,21 @@ final class SpotlightRankingTests: XCTestCase {
     func testEngagementMatchesOracle() {
         let now = Date(timeIntervalSince1970: 1_700_000_000)
         let past = now.addingTimeInterval(-86400)
+        let oracleBound = Float(0.0000005) + Float.floatRounding(operations: 5, at: Float(1).nextDown)
         XCTAssertEqual(
             SpotlightRanking.timeDecayedEngagement(dates: [past], now: now),
             0.7581708,
-            accuracy: 0.000001
+            accuracy: oracleBound
         )
         XCTAssertEqual(
             SpotlightRanking.timeDecayedEngagement(dates: Array(repeating: past, count: 3), now: now),
             0.8186281,
-            accuracy: 0.000001
+            accuracy: oracleBound
         )
         XCTAssertEqual(
             SpotlightRanking.timeDecayedEngagement(dates: Array(repeating: past, count: 10), now: now),
             0.90326846,
-            accuracy: 0.000001
+            accuracy: oracleBound
         )
 
         for (useCount, expected): (Int, Float) in [(4, 0.04114081), (49, 0.1)] {
@@ -108,8 +109,7 @@ final class SpotlightRankingTests: XCTestCase {
     func testCompositeMatchesOracle() {
         XCTAssertEqual(
             SpotlightRanking.composite(text: 0.8, engagement: 0.7, freshness: 0.6, context: 0.5, resultType: 1),
-            0.72,
-            accuracy: 0.000001
+            Float(Double(Float(0.8) + Float(0.7)) + 0.6 + 0.5 + 1) / 5
         )
     }
 

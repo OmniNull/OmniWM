@@ -70,7 +70,7 @@ final class ShellLakeSettingsTests: XCTestCase {
         for (pane, control, number, flag) in [
             ("Appearance settings", "Increase Expanded width", 540.0, false),
             ("Interaction settings", "Hover preview", 0.0, false),
-            ("Motion settings", "Increase Expansion bounce", 0.2, false)
+            ("Motion settings", "Increase Expansion bounce", 0.18 + 0.02, false)
         ] {
             let widget = try fixture()
             widget.render(ShellBarData())
@@ -78,7 +78,7 @@ final class ShellLakeSettingsTests: XCTestCase {
             widget.render(ShellBarData())
             widget.invoke(try action(control, in: widget))
             XCTAssertEqual(globalNumber("lastOperation", widget), 6)
-            XCTAssertEqual(globalNumber("lastNumber", widget), number, accuracy: 0.000001)
+            XCTAssertEqual(globalNumber("lastNumber", widget), number)
             XCTAssertEqual(globalBool("lastValueMatches", widget), flag)
         }
         let absent = try fixture(schema: false)

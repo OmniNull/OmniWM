@@ -165,7 +165,7 @@ extension ShellVitreusBarTests {
         let frame = CGRect(layout.core.absoluteFrame(of: melt))
         XCTAssertEqual(frame.minX, notch.minX, label)
         XCTAssertEqual(frame.width, notch.width, label)
-        XCTAssertEqual(frame.maxY, notch.maxY, accuracy: 0.001, label)
+        XCTAssertEqual(frame.maxY, notch.maxY, accuracy: .floatRounding(operations: 2, at: notch.maxY + radius), label)
         XCTAssertEqual(frame.minY, notch.minY - radius, label)
     }
 
@@ -196,7 +196,12 @@ extension ShellVitreusBarTests {
             if run.fullWidth {
                 Self.assertRect(pill, flat, run.label)
             } else {
-                XCTAssertEqual(pill.midX, notch.midX, accuracy: 0.001, run.label)
+                XCTAssertEqual(
+                    pill.midX,
+                    notch.midX,
+                    accuracy: .floatRounding(operations: 2, at: notch.midX),
+                    run.label
+                )
                 let title = try VitreusFixture.frame(widget, key: "title-button")
                 if title.minY >= notch.maxY {
                     XCTAssertLessThanOrEqual(title.width, notch.width, run.label)
@@ -216,7 +221,12 @@ extension ShellVitreusBarTests {
                     run.label
                 )
                 XCTAssertLessThanOrEqual(opener.maxX, pill.maxX, run.label)
-                XCTAssertEqual(opener.midY, pill.midY, accuracy: 0.001, run.label)
+                XCTAssertEqual(
+                    opener.midY,
+                    pill.midY,
+                    accuracy: .floatRounding(operations: 3, at: pill.midY),
+                    run.label
+                )
             }
         }
     }
@@ -392,7 +402,7 @@ extension ShellVitreusBarTests {
         }
         let hit = try VitreusFixture.frame(widget, key: "workspace-hit-" + id)
         let pill = try VitreusFixture.frame(widget, key: "workspace-pill-shape")
-        XCTAssertEqual(pill.midX, hit.midX, accuracy: 0.001, label)
+        XCTAssertEqual(pill.midX, hit.midX, accuracy: .floatRounding(operations: 8, at: hit.maxX), label)
         XCTAssertEqual(
             widget.surface.command(at: CGPoint(x: hit.midX, y: hit.midY)), "switch-workspace " + id, label
         )

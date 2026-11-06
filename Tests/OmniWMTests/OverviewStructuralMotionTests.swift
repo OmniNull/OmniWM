@@ -334,7 +334,8 @@ final class OverviewStructuralMotionTests: XCTestCase {
             XCTAssertEqual(column.superlayer?.frame, fixture.ribbon)
             XCTAssertNil(card.root.animation(forKey: "overview.opacity"))
             let spring = try XCTUnwrap(column.animation(forKey: "overview.position") as? CASpringAnimation)
-            XCTAssertEqual(spring.stiffness, pow(2 * .pi / 0.25, 2), accuracy: 0.0001)
+            let frequency = CGFloat(2 * Double.pi / OverviewNativeTransition.response)
+            XCTAssertEqual(spring.stiffness, frequency * frequency)
             XCTAssertEqual(spring.damping, 2 * sqrt(spring.stiffness * spring.mass))
             fixture.renderer.cancelReflow()
             XCTAssertNil(column.animation(forKey: "overview.position"))
@@ -412,7 +413,8 @@ final class OverviewStructuralMotionTests: XCTestCase {
                 XCTAssertEqual(layer.frame, destination.backgroundFrame(for: destination.workspaceSections[0]))
                 let spring = try XCTUnwrap(layer.animation(forKey: "overview.bounds") as? CASpringAnimation)
                 XCTAssertEqual((spring.fromValue as? NSValue)?.rectValue.size, base.size)
-                XCTAssertEqual(spring.stiffness, pow(2 * .pi / 0.25, 2), accuracy: 0.0001)
+                let frequency = CGFloat(2 * Double.pi / OverviewNativeTransition.response)
+                XCTAssertEqual(spring.stiffness, frequency * frequency)
             }
         }
         fixture.renderer.cancelReflow()

@@ -68,7 +68,6 @@ final class DwindleResizeSelectedTests: XCTestCase {
         XCTAssertEqual(
             fixture.engine.root(for: fixture.workspaceId)?.splitRatio ?? 0,
             expectedRatio,
-            accuracy: 1e-6,
             file: file,
             line: line
         )

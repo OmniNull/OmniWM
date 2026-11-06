@@ -6717,7 +6717,7 @@ final class RuntimeArchitectureTests: XCTestCase {
         XCTAssertEqual(finalColumns.count, 2, file: file, line: line)
         XCTAssertNil(engine.findNode(for: tokens[2], in: workspaceId), file: file, line: line)
         XCTAssertEqual(finalState.selectedNodeId, neighborNode.id, file: file, line: line)
-        XCTAssertEqual(finalOrigin, -gap, accuracy: 0.001, file: file, line: line)
+        XCTAssertEqual(finalOrigin, -gap, file: file, line: line)
         XCTAssertFalse(finalState.hasPendingOffsetAnimation, file: file, line: line)
         XCTAssertEqual(
             controller.workspaceManager.invariantViolationCountsDump(),
@@ -6861,7 +6861,7 @@ final class RuntimeArchitectureTests: XCTestCase {
         let newTabNode = try XCTUnwrap(engine.findNode(for: newTabToken, in: workspaceId), file: file, line: line)
         let patchedViewOrigin = patchedState.viewPosPixels(columns: finalColumns, gap: gap)
 
-        XCTAssertEqual(patchedViewOrigin, viewOrigin, accuracy: 0.001, file: file, line: line)
+        XCTAssertEqual(patchedViewOrigin, viewOrigin, file: file, line: line)
         XCTAssertFalse(patchedState.hasPendingOffsetAnimation, file: file, line: line)
         XCTAssertEqual(patchedState.selectedNodeId, newTabNode.id, file: file, line: line)
         XCTAssertEqual(

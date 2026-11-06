@@ -141,11 +141,35 @@ extension ShellVitreusBarTests {
                 let badge = try VitreusFixture.frame(widget, key: "bar-omniwm-mode")
                 let glyph = try modeGlyph(widget)
                 XCTAssertEqual(badge.height, 20 * unit, label)
-                XCTAssertEqual(badge.minX - glyph.maxX, 4 * unit, accuracy: 0.001, label)
-                XCTAssertEqual(badge.midY, glyph.midY, accuracy: 0.001, label)
+                XCTAssertEqual(
+                    badge.minX - glyph.maxX,
+                    4 * unit,
+                    accuracy: CGFloat.floatRounding(operations: 7, at: badge.maxX) + .floatRounding(
+                        operations: 6,
+                        at: 30 * unit
+                    ),
+                    label
+                )
+                XCTAssertEqual(
+                    badge.midY,
+                    glyph.midY,
+                    accuracy: CGFloat.floatRounding(operations: 7, at: badge.maxY) + .floatRounding(
+                        operations: 7,
+                        at: base.pill.height
+                    ),
+                    label
+                )
                 XCTAssertLessThanOrEqual(badge.maxX, pieces.controls.minX, label)
                 let span = pieces.controls.midX - pieces.search.midX
-                XCTAssertEqual(span, base.controls.midX - base.search.midX + grow, accuracy: 0.001, label)
+                XCTAssertEqual(
+                    span,
+                    base.controls.midX - base.search.midX + grow,
+                    accuracy: CGFloat.floatRounding(operations: 4, at: pieces.controls.maxX) + .floatRounding(
+                        operations: 4,
+                        at: 30 * unit
+                    ),
+                    label
+                )
                 XCTAssertEqual(pieces.pill.width, floatStored(base.pill.width + (natural ? grow : 0)), label)
                 if !natural { Self.assertRect(pieces.pill, base.pill, label) }
                 XCTAssertEqual(pieces.logo.size, base.logo.size, label)
@@ -175,8 +199,24 @@ extension ShellVitreusBarTests {
                 let badge = try VitreusFixture.frame(widget, key: "bar-omniwm-mode")
                 let glyph = try modeGlyph(widget)
                 XCTAssertEqual(badge.height, floatStored(12 * unit), label)
-                XCTAssertEqual(badge.midX, glyph.maxX, accuracy: 0.001, label)
-                XCTAssertEqual(badge.midY, glyph.maxY, accuracy: 0.001, label)
+                XCTAssertEqual(
+                    badge.midX,
+                    glyph.maxX,
+                    accuracy: CGFloat.floatRounding(operations: 7, at: base.logo.maxX) + .floatRounding(
+                        operations: 7,
+                        at: base.logo.width
+                    ),
+                    label
+                )
+                XCTAssertEqual(
+                    badge.midY,
+                    glyph.maxY,
+                    accuracy: CGFloat.floatRounding(operations: 7, at: base.logo.maxY) + .floatRounding(
+                        operations: 7,
+                        at: base.logo.width
+                    ),
+                    label
+                )
                 XCTAssertTrue(base.logo.contains(badge), label)
                 XCTAssertLessThanOrEqual(badge.maxY, base.controls.minY, label)
                 try assertModeZone(widget, zone, at: CGPoint(x: badge.midX, y: badge.midY), label)

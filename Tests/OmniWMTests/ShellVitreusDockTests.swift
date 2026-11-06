@@ -31,7 +31,7 @@ final class ShellVitreusDockTests: XCTestCase {
             (actual.minX, expected.minX), (actual.minY, expected.minY),
             (actual.width, expected.width), (actual.height, expected.height)
         ] {
-            XCTAssertEqual(value, target, accuracy: 0.001, label, line: line)
+            XCTAssertEqual(value, target, accuracy: CGFloat.floatRounding(operations: 3, at: target), label, line: line)
         }
     }
 
@@ -39,8 +39,8 @@ final class ShellVitreusDockTests: XCTestCase {
         guard case let .spring(response, bounce)? = motion else {
             return XCTFail("\(String(describing: motion))", line: line)
         }
-        XCTAssertEqual(response, 2 * .pi / stiffness.squareRoot(), accuracy: 1e-4, line: line)
-        XCTAssertEqual(bounce, 1 - damping / (2 * stiffness.squareRoot()), accuracy: 1e-4, line: line)
+        XCTAssertEqual(Float(response), Float(2 * Double.pi / stiffness.squareRoot()), line: line)
+        XCTAssertEqual(Float(bounce), Float(1 - damping / (2 * stiffness.squareRoot())), line: line)
     }
 
     static func assertSize(_ actual: CGSize, _ expected: CGSize, _ label: String = "", line: UInt = #line) {
@@ -310,8 +310,16 @@ extension ShellVitreusDockTests {
         Self.assertSize(move.minimum, home.size)
         Self.assertSize(move.maximum, home.size)
         let close = try VitreusFixture.frame(widget, key: "addon-close")
-        XCTAssertEqual(close.midX, home.maxX - 28 * Self.panel, accuracy: 0.001)
-        XCTAssertEqual(close.midY, home.minY + 24 * Self.panel, accuracy: 0.001)
+        XCTAssertEqual(
+            close.midX,
+            home.maxX - 28 * Self.panel,
+            accuracy: CGFloat.floatRounding(operations: 6, at: close.maxX)
+        )
+        XCTAssertEqual(
+            close.midY,
+            home.minY + 24 * Self.panel,
+            accuracy: CGFloat.floatRounding(operations: 6, at: close.maxY)
+        )
         XCTAssertEqual(try press(widget, key: "addon-pin-notes"), [])
         XCTAssertFalse(ShellVitreusBarTests.has(widget, "addon-drawer"))
         XCTAssertFalse(ShellVitreusBarTests.has(widget, "addon-drawer-glass"))

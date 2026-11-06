@@ -107,8 +107,8 @@ extension ShellVitreusMediaCardTests {
         XCTAssertGreaterThan(pixel(lit, 30, 30)[2], 240)
         XCTAssertLessThan(pixel(lit, 30, 30)[1], 40)
         let luma = 0.2126 + 0.7874 * 26 / 255
-        XCTAssertEqual(Double(pixel(grey, 30, 30)[2]), (luma + 0.3 * (1 - luma)) * 255, accuracy: 3)
-        XCTAssertEqual(Double(pixel(grey, 30, 30)[1]), (luma + 0.3 * (26 / 255 - luma)) * 255, accuracy: 3)
+        XCTAssertEqual(Double(pixel(grey, 30, 30)[2]), ((luma + 0.3 * (1 - luma)) * 255).rounded())
+        XCTAssertEqual(Double(pixel(grey, 30, 30)[1]), ((luma + 0.3 * (26 / 255 - luma)) * 255).rounded())
         XCTAssertGreaterThan(pixel(lit, 11, 30)[3], 0)
         XCTAssertEqual(pixel(plain, 11, 30)[3], 0)
         XCTAssertGreaterThan(pixel(lit, 11, 30)[2], pixel(lit, 11, 30)[1])

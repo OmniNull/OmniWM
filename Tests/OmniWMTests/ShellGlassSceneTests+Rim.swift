@@ -78,6 +78,7 @@ extension ShellGlassSceneTests {
         let peak = reference.max() ?? 0
         XCTAssertGreaterThan(peak, 4, file: file, line: line)
         var first: [Double]?
+        let channelLevel = 1.0
         for edge in 0 ..< 4 {
             let outside = edgeIndex(edge, depth: -1, scale: scale)
             XCTAssertEqual(lit[outside + 3], base[outside + 3], "edge \(edge) halo", file: file, line: line)
@@ -99,14 +100,9 @@ extension ShellGlassSceneTests {
             let sum = profile.reduce(0, +) / reference.reduce(0, +)
             XCTAssertEqual(sum, 1, accuracy: 0.15, "edge \(edge) sum", file: file, line: line)
             if let first {
-                for (value, other) in zip(profile, first) { XCTAssertEqual(
-                    value,
-                    other,
-                    accuracy: 1,
-                    "edge \(edge) uniform",
-                    file: file,
-                    line: line
-                ) }
+                for (value, other) in zip(profile, first) {
+                    XCTAssertEqual(value, other, accuracy: channelLevel, "edge \(edge) uniform", file: file, line: line)
+                }
             } else {
                 first = profile
             }

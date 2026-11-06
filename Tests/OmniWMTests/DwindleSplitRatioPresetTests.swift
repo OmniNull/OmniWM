@@ -51,10 +51,10 @@ final class DwindleSplitRatioPresetTests: XCTestCase {
         engine.setSelectedNode(engine.findNode(for: second, in: ws), in: ws)
 
         XCTAssertTrue(engine.cycleSplitRatio(forward: true, in: ws))
-        XCTAssertEqual(engine.root(for: ws)?.splitRatio ?? 0, 0.6, accuracy: 1e-6)
+        XCTAssertEqual(engine.root(for: ws)?.splitRatio ?? 0, 2 - DwindleSettings.splitRatioPresets[2])
         var frames = engine.calculateLayout(for: ws, screen: screen)
         XCTAssertEqual(frames[second]?.width ?? 0, 700)
-        XCTAssertEqual(frames[first]?.width ?? 0, 300, accuracy: 0.5)
+        XCTAssertEqual(frames[first]?.width ?? 0, screen.width * ((2 - DwindleSettings.splitRatioPresets[2]) / 2))
 
         XCTAssertTrue(engine.cycleSplitRatio(forward: false, in: ws))
         XCTAssertTrue(engine.cycleSplitRatio(forward: false, in: ws))

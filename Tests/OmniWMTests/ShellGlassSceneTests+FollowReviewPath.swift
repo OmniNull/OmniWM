@@ -85,10 +85,10 @@ extension ShellGlassSceneTests {
     private func assertFollowReviewPathRect(
         _ actual: CGRect, _ expected: CGRect, _ message: String, line: UInt = #line
     ) {
-        XCTAssertEqual(actual.minX, expected.minX, accuracy: 1, message, line: line)
-        XCTAssertEqual(actual.minY, expected.minY, accuracy: 1, message, line: line)
-        XCTAssertEqual(actual.maxX, expected.maxX, accuracy: 1, message, line: line)
-        XCTAssertEqual(actual.maxY, expected.maxY, accuracy: 1, message, line: line)
+        XCTAssertEqual(actual.minX, expected.minX, accuracy: ShellOffscreenRenderer.pixel, message, line: line)
+        XCTAssertEqual(actual.minY, expected.minY, accuracy: ShellOffscreenRenderer.pixel, message, line: line)
+        XCTAssertEqual(actual.maxX, expected.maxX, accuracy: ShellOffscreenRenderer.pixel, message, line: line)
+        XCTAssertEqual(actual.maxY, expected.maxY, accuracy: ShellOffscreenRenderer.pixel, message, line: line)
     }
 
     func testFollowReviewTrackedPencilEdgesFollowAStillFixedRadiusHalfScaleInCARenderer() async throws {

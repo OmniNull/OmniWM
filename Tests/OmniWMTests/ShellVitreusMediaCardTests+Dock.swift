@@ -22,6 +22,10 @@ extension ShellVitreusMediaCardTests {
     }
 
     func testTheDockedCardScalesAndDropsWithThePlayerDrawerContent() throws {
+        let dockBound = CGFloat.floatRounding(operations: 10, at: 1920) + 1920 * CGFloat.floatRounding(
+            operations: 4,
+            at: 1
+        )
         for edge in ["island", "left", "right", "ftop", "fbottom", "seg"] {
             let fixture = try fixture()
             VitreusFixture.settings(
@@ -50,7 +54,7 @@ extension ShellVitreusMediaCardTests {
                 let card = try placed("media-card-dock", at: progress)
                 let drawer = try placed("drawer-clip", at: progress)
                 for (value, target) in zip(card, drawer) {
-                    XCTAssertEqual(value, target, accuracy: 0.01, "progress \(progress)")
+                    XCTAssertEqual(value, target, accuracy: dockBound, "progress \(progress)")
                 }
             }
         }
@@ -152,14 +156,20 @@ extension ShellVitreusMediaCardTests {
         let bounds = try recipe(fixture, "media-card-grab").bounds
         try drag(fixture, key: "media-card-grab", by: CGVector(dx: 5000, dy: 5000))
         fixture.widget.surface.finishSettle()
-        XCTAssertEqual(try frame(fixture, "media-card").maxX, 1920, accuracy: 0.01)
+        XCTAssertEqual(
+            try frame(fixture, "media-card").maxX,
+            floatStored(1920 - 308 * Self.cu) + floatStored(308 * Self.cu)
+        )
         XCTAssertEqual(try frame(fixture, "media-card").maxY, 1080)
         let small = VitreusFixture.monitor(width: 1440, height: 900)
         fixture.widget.set("island") { VitreusFixture.island(small).write(to: &$0) }
         fixture.widget.render(fixture.bar)
         let desk = try recipe(fixture, "media-card-grab").bounds
         XCTAssertLessThan(desk.maxX, bounds.maxX)
-        XCTAssertEqual(try frame(fixture, "media-card").maxX, 1440, accuracy: 0.01)
+        XCTAssertEqual(
+            try frame(fixture, "media-card").maxX,
+            floatStored(1440 - 308 * Self.cu) + floatStored(308 * Self.cu)
+        )
         XCTAssertEqual(try frame(fixture, "media-card").maxY, 900)
     }
 

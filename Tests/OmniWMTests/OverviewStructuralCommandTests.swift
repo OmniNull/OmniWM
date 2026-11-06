@@ -1401,7 +1401,10 @@ final class OverviewStructuralCommandTests: XCTestCase {
                 XCTAssertEqual(
                     axis.minimum(afterFrame),
                     axis.minimum(beforeFrame),
-                    accuracy: 0.001,
+                    accuracy: CGFloat.rounding(
+                        operations: 10,
+                        at: fixture.monitor.frame.width * CGFloat(handles.count)
+                    ),
                     "\(orientation), \(command)"
                 )
                 XCTAssertEqual(
@@ -1419,7 +1422,11 @@ final class OverviewStructuralCommandTests: XCTestCase {
             }
             XCTAssertNotEqual(view.layout.stripPanRevealing(selected), 0)
             overview.input.selectTab(selected, on: fixture.monitor.id)
-            XCTAssertEqual(view.layout.stripPanRevealing(selected), 0, accuracy: 0.001)
+            XCTAssertEqual(
+                view.layout.stripPanRevealing(selected),
+                0,
+                accuracy: CGFloat.rounding(operations: 4, at: fixture.monitor.frame.width * CGFloat(handles.count))
+            )
             let sourceScrollOffset = view.layout.scrollOffset
 
             XCTAssertTrue(overview.executeStructuralHotkey(.workspace(.moveTo(2)), selectedHandle: selected)?

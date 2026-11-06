@@ -48,7 +48,7 @@ extension ShellVitreusBarTests {
         XCTAssertGreaterThanOrEqual(first.minX, pill.maxX)
         XCTAssertGreaterThanOrEqual(second.minX, first.maxX)
         XCTAssertGreaterThanOrEqual(nextMark.minX, second.maxX)
-        XCTAssertEqual(first.midY, pill.midY, accuracy: 0.001)
+        XCTAssertEqual(first.midY, pill.midY, accuracy: .floatRounding(operations: 8, at: pill.maxY))
         for (key, command) in [
             ("workspace-icon-2-2-0", "window focus 2-0"), ("workspace-hit-2", "switch-workspace 2")
         ] {

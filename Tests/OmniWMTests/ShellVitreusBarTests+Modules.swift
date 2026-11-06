@@ -13,8 +13,9 @@ private func sine(_ degrees: Double) -> Double {
 
 private func expect(_ numbers: [Double], _ values: [Double], _ label: String) {
     XCTAssertEqual(numbers.count, values.count, label)
+    let thousandths = 1000.0
     for (value, target) in zip(numbers, values) {
-        XCTAssertEqual(value, target, accuracy: 0.0011, label)
+        XCTAssertEqual((value * thousandths).rounded(), (target * thousandths).rounded(), label)
     }
 }
 

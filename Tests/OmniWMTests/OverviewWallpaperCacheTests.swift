@@ -213,9 +213,10 @@ final class OverviewWallpaperCacheTests: XCTestCase {
     ) throws {
         let bitmap = try NSBitmapImageRep(cgImage: XCTUnwrap(image, file: file, line: line))
         let color = try XCTUnwrap(bitmap.colorAt(x: 0, y: 0)?.usingColorSpace(.deviceRGB), file: file, line: line)
-        XCTAssertEqual(color.redComponent, gray, accuracy: 0.001, file: file, line: line)
-        XCTAssertEqual(color.greenComponent, gray, accuracy: 0.001, file: file, line: line)
-        XCTAssertEqual(color.blueComponent, gray, accuracy: 0.001, file: file, line: line)
+        let channelMax = CGFloat(UInt8.max)
+        XCTAssertEqual((color.redComponent * channelMax).rounded(), gray * channelMax, file: file, line: line)
+        XCTAssertEqual((color.greenComponent * channelMax).rounded(), gray * channelMax, file: file, line: line)
+        XCTAssertEqual((color.blueComponent * channelMax).rounded(), gray * channelMax, file: file, line: line)
         XCTAssertEqual(color.alphaComponent, 1, file: file, line: line)
     }
 

@@ -122,10 +122,38 @@ extension ShellGlassSceneTests {
     private func followReviewEaseAssertRect(
         _ actual: CGRect, _ expected: CGRect, _ message: String, file: StaticString = #filePath, line: UInt = #line
     ) {
-        XCTAssertEqual(actual.minX, expected.minX, accuracy: 1, message, file: file, line: line)
-        XCTAssertEqual(actual.minY, expected.minY, accuracy: 1, message, file: file, line: line)
-        XCTAssertEqual(actual.maxX, expected.maxX, accuracy: 1, message, file: file, line: line)
-        XCTAssertEqual(actual.maxY, expected.maxY, accuracy: 1, message, file: file, line: line)
+        XCTAssertEqual(
+            actual.minX,
+            expected.minX,
+            accuracy: ShellOffscreenRenderer.pixel,
+            message,
+            file: file,
+            line: line
+        )
+        XCTAssertEqual(
+            actual.minY,
+            expected.minY,
+            accuracy: ShellOffscreenRenderer.pixel,
+            message,
+            file: file,
+            line: line
+        )
+        XCTAssertEqual(
+            actual.maxX,
+            expected.maxX,
+            accuracy: ShellOffscreenRenderer.pixel,
+            message,
+            file: file,
+            line: line
+        )
+        XCTAssertEqual(
+            actual.maxY,
+            expected.maxY,
+            accuracy: ShellOffscreenRenderer.pixel,
+            message,
+            file: file,
+            line: line
+        )
     }
 
     func testFollowReviewEaseBaseUsesTheDeclaredSpeedCurveAndRetargetVelocity() throws {
@@ -139,18 +167,20 @@ extension ShellGlassSceneTests {
         )
         let base = ShellShapeBaseMotion(from: from, to: to, begin: 1, ease: animation)
         XCTAssertEqual(base.duration, 0.2)
+        let bound = (to.rect.minX - from.rect.minX) * ShellCurve.solverResidual
+            + Double.rounding(operations: 6, at: to.rect.minX)
         for elapsed in [0.025, 0.05, 0.1, 0.15] {
             let state = base.state(at: 1 + elapsed)
-            XCTAssertEqual(state.shape.rect.minX, 30 + 300 * elapsed, accuracy: 1e-7)
+            XCTAssertEqual(state.shape.rect.minX, 30 + 300 * elapsed, accuracy: bound)
             XCTAssertEqual(state.velocity[0], 300)
         }
         let seed = base.state(at: 1.1)
         let retarget = ShellShapeBaseMotion(
             from: seed.shape, velocity: seed.velocity, to: from, begin: 1.1, spring: try Self.spring(Self.calm)
         )
-        XCTAssertEqual(retarget.state(at: 1.1).shape.rect.minX, 60, accuracy: 1e-7)
+        XCTAssertEqual(retarget.state(at: 1.1).shape.rect.minX, seed.shape.rect.minX)
         XCTAssertEqual(retarget.state(at: 1.1).velocity[0], 300)
         XCTAssertEqual(base.rekeyed(to: 12).state(at: 1.1).shape.slot, 12)
-        XCTAssertEqual(base.rekeyed(to: 12).state(at: 1.1).shape.rect.minX, 60, accuracy: 1e-7)
+        XCTAssertEqual(base.rekeyed(to: 12).state(at: 1.1).shape.rect.minX, seed.shape.rect.minX)
     }
 }

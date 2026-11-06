@@ -263,7 +263,7 @@ extension ShellVitreusDeskTests {
             let fall = try XCTUnwrap(departures
                 .first { $0.slot == section.slot && $0.key == ShellLayerScene.departureKey })
             XCTAssertEqual(fall.layer.opacity, 0)
-            XCTAssertEqual(fall.layer.transform.m42, 12 * du, accuracy: 0.01)
+            XCTAssertEqual(fall.layer.transform.m42, 12 * du, accuracy: .floatRounding(operations: 2, at: 12 * du))
             XCTAssertNotNil(fall.layer.animation(forKey: ShellLayerScene.departureKey))
         }
         withExtendedLifetime(host.renderer) {}
@@ -300,7 +300,7 @@ extension ShellVitreusDeskTests {
         VitreusFixture.drop(widget, at: end)
         XCTAssertNil(widget.surface.manipulation)
         let rect = try VitreusFixture.frame(widget, key: "desk")
-        XCTAssertEqual(rect.width / home.width, 0.5, accuracy: 1e-6)
+        XCTAssertEqual(rect.width / home.width, 0.5, accuracy: .floatRounding(operations: 5, at: 0.5))
         let rest = try measure().edges()
         for (before, after) in [
             (drag.card.minX, rest.card.minX), (drag.card.maxX, rest.card.maxX), (drag.card.minY, rest.card.minY),
@@ -308,10 +308,11 @@ extension ShellVitreusDeskTests {
         ] {
             XCTAssertEqual(before, after)
         }
-        XCTAssertEqual(rest.card.minX, rect.minX, accuracy: 1.5)
+        let backingPixel = 1 / widget.surface.scale
+        XCTAssertEqual(rest.card.minX, rect.minX, accuracy: backingPixel)
         XCTAssertGreaterThanOrEqual(rest.card.maxX, 1920 - 1)
-        XCTAssertEqual(rest.card.midY, rect.midY, accuracy: 1.5)
-        XCTAssertEqual(rest.card.height, rect.height, accuracy: 3)
+        XCTAssertEqual(rest.card.midY, rect.midY, accuracy: backingPixel)
+        XCTAssertEqual(rest.card.height, rect.height, accuracy: 2 * backingPixel)
         for (before, after) in [
             (drag.below, rest.below), (drag.above, rest.above), (drag.left, rest.left), (drag.right, rest.right),
             (drag.rim, rest.rim)

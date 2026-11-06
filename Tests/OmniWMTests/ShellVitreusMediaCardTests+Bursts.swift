@@ -78,7 +78,10 @@ extension ShellVitreusMediaCardTests {
             XCTAssertTrue(mask.host.mask === mask.layer)
             return try XCTUnwrap((mask.layer as? CAShapeLayer)?.path).boundingBox
         }
-        Self.assertRect(outline, CGRect(x: 2, y: 2, width: drawer.width - 4, height: drawer.height - 4))
+        Self.assertRect(
+            outline,
+            CGRect(x: 2, y: 2, width: pathNumber(drawer.width - 2) - 2, height: pathNumber(drawer.height - 2) - 2)
+        )
         try float(fixture, by: CGVector(dx: 300, dy: 400))
         play(fixture, "Third song")
         show(fixture)

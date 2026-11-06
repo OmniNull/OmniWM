@@ -163,8 +163,8 @@ final class ShellManipulationSceneTests: XCTestCase {
         }
         for (animation, channel) in zip(animations, [channels.x, channels.y, channels.scale]) {
             XCTAssertEqual(animation.mass, 1)
-            XCTAssertEqual(animation.stiffness, 300, accuracy: 1.5)
-            XCTAssertEqual(animation.damping, 20, accuracy: 0.2)
+            XCTAssertEqual(animation.stiffness, channel.spring.stiffness)
+            XCTAssertEqual(animation.damping, channel.spring.damping)
             XCTAssertEqual(try XCTUnwrap(animation.fromValue as? Double), channel.from)
             XCTAssertEqual(try XCTUnwrap(animation.toValue as? Double), channel.to)
             XCTAssertNotEqual(channel.velocity, 0)
@@ -306,12 +306,13 @@ final class ShellManipulationSceneTests: XCTestCase {
         manipulate(scene, .motion(channels))
         let x = try springs(scene)[0]
         XCTAssertEqual(try XCTUnwrap(x.fromValue as? Double), channels.x.to - 1e-3)
-        XCTAssertEqual(x.initialVelocity, 300 / 1e-3, accuracy: 0.01)
+        XCTAssertEqual(x.initialVelocity, 300 / (channels.x.to - (channels.x.to - 1e-3)))
         var peak = rest.minX
+        let alphaLevel = ShellOffscreenRenderer.pixel / 255
         for offset in [0, 0.02, 0.0675, 0.12, 0.25] {
             let time = begin + offset
             let edge = try rendered(renderer, at: time).minX
-            XCTAssertEqual(edge, motion.rect(at: time).minX, accuracy: 1, "\(offset)")
+            XCTAssertEqual(edge, motion.rect(at: time).minX, accuracy: alphaLevel, "\(offset)")
             peak = max(peak, edge)
         }
         XCTAssertGreaterThan(peak, rest.minX + 5)

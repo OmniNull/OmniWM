@@ -219,7 +219,8 @@ extension ShellManipulationGeometryTests {
             start: start, translation: CGPoint(x: -100, y: -100), recipe: recipe
         ))
         let factor = shrunk.width / start.width
-        XCTAssertEqual(factor, 0.7987, accuracy: 0.0001)
+        let basis = start.insetBy(dx: start.width * deskInset.width, dy: 0)
+        XCTAssertEqual(factor, start.width * (1 - 200 / (basis.width + basis.height)) / start.width)
         XCTAssertEqual(shrunk.height / start.height, factor)
         XCTAssertEqual(content(shrunk, recipe).minX, content(start, recipe).minX)
         XCTAssertEqual(content(shrunk, recipe).minY, content(start, recipe).minY)
@@ -235,7 +236,10 @@ extension ShellManipulationGeometryTests {
                 inset: .zero
             ))
         ))
-        XCTAssertEqual(envelopeBasis.width / start.width, 0.8019, accuracy: 0.0001)
+        XCTAssertEqual(
+            envelopeBasis.width / start.width,
+            start.width * (1 - 200 / (start.width + start.height)) / start.width
+        )
 
         let opposite = try XCTUnwrap(scaleRecipe(northwest))
         let pulled = try XCTUnwrap(ShellManipulationGeometry.scaled(
@@ -274,7 +278,7 @@ extension ShellManipulationGeometryTests {
                 start: start, translation: translation, recipe: recipe
             ))
             XCTAssertEqual(result.width / start.width, 0.5, "\(translation)")
-            XCTAssertEqual(content(result, recipe).minX, 1820, accuracy: 1e-9)
+            XCTAssertEqual(content(result, recipe).minX, 1820, accuracy: CGFloat.rounding(operations: 4, at: 1820))
             XCTAssertEqual(content(result, recipe).minY, content(start, recipe).minY)
         }
     }

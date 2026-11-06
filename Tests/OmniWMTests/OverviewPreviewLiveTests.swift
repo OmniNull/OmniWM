@@ -74,8 +74,8 @@ import XCTest
             try await control.start()
             await fulfillment(of: [firstReady], timeout: failureBound)
             let first = try XCTUnwrap(output.take())
-            XCTAssertEqual(first.contentsRect.width, 1, accuracy: 0.01)
-            XCTAssertEqual(first.contentsRect.height, 0.5, accuracy: 0.01)
+            XCTAssertEqual(first.contentsRect.width, 1, accuracy: 1 / CGFloat(first.surface.width))
+            XCTAssertEqual(first.contentsRect.height, 0.5, accuracy: 1 / CGFloat(first.surface.height))
             XCTAssertEqual(try dominantColor(first, x: 0.25, y: 0.25), .red)
             XCTAssertEqual(try dominantColor(first, x: 0.75, y: 0.25), .green)
             XCTAssertEqual(try dominantColor(first, x: 0.25, y: 0.75), .blue)
@@ -181,7 +181,7 @@ import XCTest
             }
 
             let original = try await captureFirstFrame(originalWindow)
-            XCTAssertEqual(original.contentsRect.height, 1, accuracy: 0.01)
+            XCTAssertEqual(original.contentsRect.height, 1, accuracy: 1 / CGFloat(original.surface.height))
             panel.setContentSize(CGSize(width: 640, height: 320))
             quadrants.needsDisplay = true
             panel.displayIfNeeded()
@@ -192,8 +192,8 @@ import XCTest
             let freshWindow = try XCTUnwrap(refreshed.windows.first { Int($0.windowID) == panel.windowNumber })
             let fresh = try await captureFirstFrame(freshWindow)
             for frame in [reused, fresh] {
-                XCTAssertEqual(frame.contentsRect.width, 1, accuracy: 0.01)
-                XCTAssertEqual(frame.contentsRect.height, 0.5, accuracy: 0.01)
+                XCTAssertEqual(frame.contentsRect.width, 1, accuracy: 1 / CGFloat(frame.surface.width))
+                XCTAssertEqual(frame.contentsRect.height, 0.5, accuracy: 1 / CGFloat(frame.surface.height))
                 XCTAssertEqual(try dominantColor(frame, x: 0.25, y: 0.25), .red)
                 XCTAssertEqual(try dominantColor(frame, x: 0.75, y: 0.25), .green)
                 XCTAssertEqual(try dominantColor(frame, x: 0.25, y: 0.75), .blue)

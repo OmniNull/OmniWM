@@ -533,7 +533,8 @@ final class OverviewSelectionUXTests: XCTestCase {
                     $0.root.animation(forKey: "overview.position") != nil
                 })
                 let spring = try XCTUnwrap(card.root.animation(forKey: "overview.position") as? CASpringAnimation)
-                XCTAssertEqual(spring.stiffness, pow(2 * .pi / 0.25, 2), accuracy: 0.0001)
+                let frequency = CGFloat(2 * Double.pi / OverviewNativeTransition.response)
+                XCTAssertEqual(spring.stiffness, frequency * frequency)
                 XCTAssertEqual(spring.damping, 2 * sqrt(spring.stiffness * spring.mass))
                 fixture.input.cycleSelection(forward: true, on: monitorId)
                 XCTAssertEqual(card.root.animation(forKey: "overview.position")?.beginTime, spring.beginTime)

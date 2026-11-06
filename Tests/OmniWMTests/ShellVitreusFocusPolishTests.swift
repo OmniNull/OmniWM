@@ -23,6 +23,10 @@ private enum Focus {
         sin((frame * frequency + seed) * .pi / 180)
     }
 
+    static func number(_ value: Double) -> Double {
+        (value * 1000).rounded() / 1000
+    }
+
     static func head(_ path: String) -> CGPoint {
         let numbers = path.split(separator: " ").dropFirst().prefix(2).compactMap { Double($0) }
         return CGPoint(x: numbers[0], y: numbers[1])
@@ -175,13 +179,13 @@ final class ShellVitreusFocusPolishTests: XCTestCase {
         XCTAssertEqual(Focus.role(body.fill).role, .accent)
         XCTAssertEqual(Focus.role(body.fill).alpha, 1)
         XCTAssertEqual(Focus.role(body.shadow).role, .accent)
-        XCTAssertEqual(Focus.role(body.shadow).alpha, 0.42, accuracy: 0.003)
+        XCTAssertEqual(Focus.role(body.shadow).alpha, (0.42 * 255).rounded() / 255)
         XCTAssertEqual(Double(body.shadowRadius), floatStored(9 * du))
         XCTAssertFalse(body.gradientSpecified)
         let chip = try VitreusFixture.frame(widget, key: "chip-30")
         let shape = try VitreusFixture.frame(widget, key: "chip-thumb-shape")
-        XCTAssertEqual(shape.midX, chip.midX, accuracy: 0.01)
-        XCTAssertEqual(shape.midY, chip.midY, accuracy: 0.01)
+        XCTAssertEqual(shape.midX, chip.midX, accuracy: CGFloat.floatRounding(operations: 12, at: chip.maxX))
+        XCTAssertEqual(shape.midY, chip.midY, accuracy: CGFloat.floatRounding(operations: 6, at: chip.maxY))
         XCTAssertEqual(shape.width, floatStored(52 * du))
         XCTAssertEqual(shape.height, floatStored(24 * du))
         XCTAssertEqual(Double(try paint(widget, "chip-thumb-shape").cornerRadius), floatStored(10 * du))
@@ -231,7 +235,12 @@ final class ShellVitreusFocusPolishTests: XCTestCase {
                 XCTAssertNotNil(scene.layers[outline]?.animation(forKey: ShellLayerScene.pathTrackKey), target)
             }
             let landed = try VitreusFixture.frame(widget, key: "chip-thumb-shape")
-            XCTAssertEqual(landed.midX, destination.midX, accuracy: 0.01, target)
+            XCTAssertEqual(
+                landed.midX,
+                destination.midX,
+                accuracy: CGFloat.floatRounding(operations: 12, at: destination.maxX),
+                target
+            )
         }
     }
 
@@ -239,11 +248,11 @@ final class ShellVitreusFocusPolishTests: XCTestCase {
         let widget = try desk()
         let chips = try strokes(widget, "chips-outline")
         let first = Focus.head(chips[0])
-        XCTAssertEqual(first.x, 16 * du + 0.18 * du * Focus.wave(0, 57, 71000), accuracy: 0.002)
-        XCTAssertEqual(first.y, 0.18 * du * Focus.wave(0, 62, 71060), accuracy: 0.002)
+        XCTAssertEqual(first.x, Focus.number(16 * du + 0.18 * du * Focus.wave(0, 57, 71000)))
+        XCTAssertEqual(first.y, Focus.number(0.18 * du * Focus.wave(0, 62, 71060)))
         let shifted = Focus.head(chips[1])
-        XCTAssertEqual(shifted.x, 16.35 * du + 0.18 * du * Focus.wave(0, 72, 72300), accuracy: 0.002)
-        XCTAssertEqual(shifted.y, 0.28 * du + 0.18 * du * Focus.wave(0, 77, 72360), accuracy: 0.002)
+        XCTAssertEqual(shifted.x, Focus.number(16.35 * du + 0.18 * du * Focus.wave(0, 72, 72300)))
+        XCTAssertEqual(shifted.y, Focus.number(0.28 * du + 0.18 * du * Focus.wave(0, 77, 72360)))
         for (index, width, alpha) in [(1, 1.3, 0.6), (2, 0.9, 0.2)] {
             let stroke = try paint(widget, "chips-outline-\(index)")
             XCTAssertEqual(Double(stroke.strokeWidth), floatStored(width * du))
@@ -251,7 +260,7 @@ final class ShellVitreusFocusPolishTests: XCTestCase {
             XCTAssertEqual(Focus.role(stroke.stroke).alpha, alpha)
         }
         let rest = try ["start", "reset"].map { try strokes(widget, "\($0)-outline") }
-        XCTAssertEqual(Focus.head(rest[0][0]).x, 14 * du + 0.18 * du * Focus.wave(0, 57, 71000), accuracy: 0.002)
+        XCTAssertEqual(Focus.head(rest[0][0]).x, Focus.number(14 * du + 0.18 * du * Focus.wave(0, 57, 71000)))
         XCTAssertTrue(timers(widget).isEmpty)
         let idle = omni_vm_service_stats(widget.vm).reserved
         for (key, resting) in zip(["start", "reset"], rest) {
@@ -260,14 +269,14 @@ final class ShellVitreusFocusPolishTests: XCTestCase {
             XCTAssertEqual(armed.map(\.request.seconds), [0.2], key)
             XCTAssertEqual(armed.map(\.cancelled), [false], key)
             let hovered = try strokes(widget, "\(key)-outline")
-            XCTAssertEqual(Focus.head(hovered[0]).x, 14 * du + 0.43 * du * Focus.wave(1, 57, 71000), accuracy: 0.002)
-            XCTAssertEqual(Focus.head(hovered[0]).y, 0.43 * du * Focus.wave(1, 62, 71060), accuracy: 0.002)
+            XCTAssertEqual(Focus.head(hovered[0]).x, Focus.number(14 * du + 0.43 * du * Focus.wave(1, 57, 71000)))
+            XCTAssertEqual(Focus.head(hovered[0]).y, Focus.number(0.43 * du * Focus.wave(1, 62, 71060)))
             XCTAssertEqual(try strokes(widget, "chips-outline"), chips, key)
             VitreusFixture.complete(widget, try XCTUnwrap(armed.first).request)
             VitreusFixture.show(widget)
             XCTAssertEqual(timers(widget).map(\.cancelled), [false], key)
             let boiled = try strokes(widget, "\(key)-outline")
-            XCTAssertEqual(Focus.head(boiled[0]).x, 14 * du + 0.43 * du * Focus.wave(2, 57, 71000), accuracy: 0.002)
+            XCTAssertEqual(Focus.head(boiled[0]).x, Focus.number(14 * du + 0.43 * du * Focus.wave(2, 57, 71000)))
             XCTAssertNotEqual(boiled, hovered, key)
             XCTAssertEqual(omni_vm_service_stats(widget.vm).reserved, idle + 1, key)
             try hover(widget, key, .ended)
@@ -346,8 +355,13 @@ final class ShellVitreusFocusPolishTests: XCTestCase {
         let glow = try XCTUnwrap(radius, "the Start glow radius does not ease")
         XCTAssertEqual(try XCTUnwrap(glow.fromValue as? NSNumber).doubleValue, floatStored(8 * du))
         XCTAssertEqual(try XCTUnwrap(glow.toValue as? NSNumber).doubleValue, floatStored(14 * du))
-        XCTAssertEqual(glow.stiffness, pow(6.64 / 0.14, 2), accuracy: 1)
-        XCTAssertEqual(glow.damping, 2 * 6.64 / 0.14, accuracy: 0.1)
+        let frequency: CGFloat = 6.64 / 0.14
+        XCTAssertEqual(
+            glow.stiffness,
+            frequency * frequency,
+            accuracy: CGFloat.rounding(operations: 18, at: frequency * frequency)
+        )
+        XCTAssertEqual(glow.damping, 2 * frequency, accuracy: CGFloat.rounding(operations: 8, at: 2 * frequency))
     }
 
     func testFocusButtonsAndThumbRenderTheirVitreusColoursAndGlowAtTwoX() throws {
@@ -370,8 +384,9 @@ final class ShellVitreusFocusPolishTests: XCTestCase {
             ))
             for channel in 0 ..< 3 {
                 let span = Double(to[channel] - from[channel])
-                XCTAssertEqual(Double(top[channel]), Double(from[channel]) + fraction * span, accuracy: 3)
-                XCTAssertEqual(Double(bottom[channel]), Double(to[channel]) - fraction * span, accuracy: 3)
+                let gradientBound = 0.5 + abs(span) / Double(button.height) / Double(scale) / 2
+                XCTAssertEqual(Double(top[channel]), Double(from[channel]) + fraction * span, accuracy: gradientBound)
+                XCTAssertEqual(Double(bottom[channel]), Double(to[channel]) - fraction * span, accuracy: gradientBound)
             }
             XCTAssertEqual(top[3], 255)
         }
@@ -402,7 +417,7 @@ extension ShellVitreusFocusPolishTests {
             VitreusFixture.show(widget)
         }
         let boiled = try strokes(widget, "reset-outline")
-        XCTAssertEqual(Focus.head(boiled[0]).x, 14 * du + 0.43 * du * Focus.wave(15, 57, 71000), accuracy: 0.002)
+        XCTAssertEqual(Focus.head(boiled[0]).x, Focus.number(14 * du + 0.43 * du * Focus.wave(15, 57, 71000)))
         let scene = widget.surface.scene
         for (index, stroke) in boiled.enumerated() {
             let key = "reset-outline-\(index + 1)"

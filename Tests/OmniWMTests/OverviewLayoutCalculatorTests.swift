@@ -237,7 +237,7 @@ final class OverviewLayoutCalculatorTests: XCTestCase {
 
         XCTAssertEqual(layout.workspaceSections.count, 3)
         XCTAssertEqual(layout.scale, 1.25)
-        XCTAssertEqual(layout.totalContentHeight, 1515, accuracy: 1e-10)
+        XCTAssertEqual(layout.totalContentHeight, 1515, accuracy: CGFloat.rounding(operations: 19, at: 1515))
         XCTAssertEqual(layout.allWindows.map(\.matchesSearch), [false, true, true, false, false])
         for (window, handle) in zip(layout.allWindows, handles) {
             XCTAssertTrue(window.handle === handle)
@@ -246,7 +246,7 @@ final class OverviewLayoutCalculatorTests: XCTestCase {
             layout: layout,
             screenFrame: CGRect(x: -200, y: -100, width: 1000, height: 800)
         )
-        XCTAssertEqual(bounds.lowerBound, -820, accuracy: 1e-10)
+        XCTAssertEqual(bounds.lowerBound, -820, accuracy: CGFloat.rounding(operations: 21, at: 1515))
         XCTAssertEqual(bounds.upperBound, 0)
     }
 
@@ -279,8 +279,12 @@ final class OverviewLayoutCalculatorTests: XCTestCase {
             assertFrame(window.interpolatedFrame(progress: 1), window.overviewFrame)
             XCTAssertEqual(
                 window.interpolatedFrame(progress: 0.5).midY,
-                (expected.midY + window.overviewFrame.midY) / 2,
-                accuracy: 0.001
+                CGRect(
+                    x: 0,
+                    y: expected.minY + (window.overviewFrame.minY - expected.minY) * 0.5,
+                    width: 0,
+                    height: expected.height + (window.overviewFrame.height - expected.height) * 0.5
+                ).midY
             )
             if window.workspaceId == section.workspaceId {
                 XCTAssertNil(window.restFrame)
@@ -334,10 +338,11 @@ final class OverviewLayoutCalculatorTests: XCTestCase {
 
 extension OverviewLayoutCalculatorTests {
     private func assertFrame(_ actual: CGRect, _ expected: CGRect, file: StaticString = #filePath, line: UInt = #line) {
-        XCTAssertEqual(actual.minX, expected.minX, accuracy: 0.001, file: file, line: line)
-        XCTAssertEqual(actual.minY, expected.minY, accuracy: 0.001, file: file, line: line)
-        XCTAssertEqual(actual.width, expected.width, accuracy: 0.001, file: file, line: line)
-        XCTAssertEqual(actual.height, expected.height, accuracy: 0.001, file: file, line: line)
+        let frameBound = CGFloat.rounding(operations: 15, at: 1000)
+        XCTAssertEqual(actual.minX, expected.minX, accuracy: frameBound, file: file, line: line)
+        XCTAssertEqual(actual.minY, expected.minY, accuracy: frameBound, file: file, line: line)
+        XCTAssertEqual(actual.width, expected.width, accuracy: frameBound, file: file, line: line)
+        XCTAssertEqual(actual.height, expected.height, accuracy: frameBound, file: file, line: line)
     }
 
     private func assertFrames(

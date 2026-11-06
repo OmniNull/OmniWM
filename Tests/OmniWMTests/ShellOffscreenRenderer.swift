@@ -7,6 +7,8 @@ import QuartzCore
 import XCTest
 
 final class ShellOffscreenRenderer {
+    static let pixel = 1.0
+
     private let raster: ShellLayerRaster
 
     init(root: CALayer, width: Int, height: Int) throws {

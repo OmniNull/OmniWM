@@ -88,8 +88,8 @@ extension ShellRevealTests {
         surface.press(at: point, timestamp: 0)
         surface.release(at: point, timestamp: 0.01)
         let click = try XCTUnwrap(fixture.events.last)
-        XCTAssertEqual(click.event.x, 30, accuracy: 1e-3)
-        XCTAssertEqual(click.event.y, 10, accuracy: 1e-3)
+        XCTAssertEqual(click.event.x, Double((point.x - floatStored(sampled.minX)) / floatStored(sampled.width / 40)))
+        XCTAssertEqual(click.event.y, Double((point.y - floatStored(sampled.minY)) / floatStored(sampled.height / 40)))
         var moves = 0
         surface.onMove = { moves += 1 }
         let token = try XCTUnwrap(surface.reveals[desk]?.token)

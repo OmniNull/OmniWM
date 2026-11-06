@@ -16,10 +16,12 @@ final class ShellPathTests: XCTestCase {
     }
 
     private func assertRect(_ rect: CGRect, _ expected: CGRect, line: UInt = #line) {
-        XCTAssertEqual(rect.minX, expected.minX, accuracy: 0.01, line: line)
-        XCTAssertEqual(rect.minY, expected.minY, accuracy: 0.01, line: line)
-        XCTAssertEqual(rect.width, expected.width, accuracy: 0.01, line: line)
-        XCTAssertEqual(rect.height, expected.height, accuracy: 0.01, line: line)
+        let handleAngle = CGFloat.pi / 8
+        let arcBound = expected.width / 27 * pow(sin(handleAngle), 6) / pow(cos(handleAngle), 2)
+        XCTAssertEqual(rect.minX, expected.minX, accuracy: arcBound, line: line)
+        XCTAssertEqual(rect.minY, expected.minY, accuracy: arcBound, line: line)
+        XCTAssertEqual(rect.width, expected.width, accuracy: 2 * arcBound, line: line)
+        XCTAssertEqual(rect.height, expected.height, accuracy: 2 * arcBound, line: line)
     }
 
     func testPathDataParsesEveryCommandAbsoluteAndRelative() throws {
@@ -104,7 +106,7 @@ final class ShellPathTests: XCTestCase {
         ShellLayerScene.engineQueue.sync {}
         let shape = try XCTUnwrap(widget.layers().compactMap { $0 as? CAShapeLayer }.first)
         let path = try XCTUnwrap(shape.path)
-        assertRect(path.boundingBoxOfPath, CGRect(x: 0, y: 0, width: 48, height: 24))
+        XCTAssertEqual(path.boundingBoxOfPath, CGRect(x: 0, y: 0, width: 48, height: 24))
         XCTAssertNotNil(shape.fillColor)
         XCTAssertNotNil(shape.strokeColor)
         XCTAssertEqual(shape.lineWidth, 2)
@@ -126,7 +128,7 @@ final class ShellPathTests: XCTestCase {
         ShellLayerScene.engineQueue.sync {}
         let host = try XCTUnwrap(widget.layers().first { $0.mask != nil })
         let mask = try XCTUnwrap(host.mask as? CAShapeLayer)
-        assertRect(try XCTUnwrap(mask.path).boundingBoxOfPath, CGRect(x: 0, y: 0, width: 40, height: 20))
+        XCTAssertEqual(try XCTUnwrap(mask.path).boundingBoxOfPath, CGRect(x: 0, y: 0, width: 40, height: 20))
         let shape = try XCTUnwrap(host.sublayers?.compactMap { $0 as? CAShapeLayer }.first)
         XCTAssertTrue(shape.isHidden)
     }

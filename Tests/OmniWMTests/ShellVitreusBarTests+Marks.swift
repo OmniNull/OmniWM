@@ -85,17 +85,25 @@ extension ShellVitreusBarTests {
                 width: 12.5 * unit, height: 12.5 * unit
             ))
             let empty = try VitreusFixture.frame(widget, key: "workspace-square-3")
-            XCTAssertEqual(empty.minX - occupied.maxX, (9 + Self.oneIconRun) * unit, accuracy: 0.001)
+            XCTAssertEqual(
+                empty.minX - occupied.maxX,
+                (9 + Self.oneIconRun) * unit,
+                accuracy: .floatRounding(operations: 11, at: empty.maxX)
+            )
             XCTAssertEqual(empty.size, occupied.size)
             let next = try VitreusFixture.frame(widget, key: "workspace-square-4")
-            XCTAssertEqual(next.minX - empty.maxX, 9 * unit, accuracy: 0.001)
+            XCTAssertEqual(next.minX - empty.maxX, 9 * unit, accuracy: .floatRounding(operations: 11, at: next.maxX))
             let radius = try markPaint(widget, "workspace-square-2").cornerRadius
             XCTAssertEqual(Double(radius), floatStored(3.75 * unit))
             let hit = try VitreusFixture.frame(widget, key: "workspace-hit-2")
             XCTAssertEqual(hit.width, floatStored(21.5 * unit))
             XCTAssertEqual(hit.height, shell.height)
             let activeHit = try VitreusFixture.frame(widget, key: "workspace-hit-1")
-            XCTAssertEqual(activeHit.maxX + Self.oneIconRun * unit, hit.minX, accuracy: 0.001)
+            XCTAssertEqual(
+                activeHit.maxX + Self.oneIconRun * unit,
+                hit.minX,
+                accuracy: .floatRounding(operations: 7, at: hit.maxX)
+            )
         }
     }
 
@@ -172,7 +180,7 @@ extension ShellVitreusBarTests {
         XCTAssertEqual(pillPaint.gradientTo.role & 0xFF, UInt16(ShellRole.accent.rawValue + 1))
         XCTAssertEqual(pillPaint.shadowRadius, 7 * 1.35)
         XCTAssertEqual(pillPaint.shadow.role & 0xFF, UInt16(ShellRole.accent.rawValue + 1))
-        XCTAssertEqual(Double(pillPaint.shadow.role >> 8) / 255, 0.3, accuracy: 0.003)
+        XCTAssertEqual(Double(pillPaint.shadow.role >> 8) / 255, (0.3 * 255).rounded() / 255)
         XCTAssertEqual(pill.shadowOffset, .zero)
     }
 
@@ -333,7 +341,7 @@ extension ShellVitreusBarTests {
             }
         }
         let target = try VitreusFixture.frame(widget, key: "workspace-hit-2")
-        XCTAssertEqual(frame.midX, target.midX, accuracy: 0.001)
+        XCTAssertEqual(frame.midX, target.midX, accuracy: .floatRounding(operations: 8, at: target.maxX))
         XCTAssertEqual(frame.width, floatStored(29 * 1.35))
         XCTAssertEqual(frame.height, 15 * 1.35)
     }

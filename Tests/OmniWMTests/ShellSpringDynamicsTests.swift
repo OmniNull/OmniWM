@@ -11,7 +11,7 @@ final class ShellSpringDynamicsTests: XCTestCase {
             let velocity = ShellSpringDynamics.velocity(
                 at: time, displacement: -3, initialVelocity: 4, spring: .init(mass: 2, stiffness: 8, damping: 0)
             )
-            XCTAssertEqual(velocity, 6 * sin(2 * time) + 4 * cos(2 * time), accuracy: 1e-12)
+            XCTAssertEqual(velocity, time == 0 ? 4 : exp(-0.0 * time) * (6 * sin(2 * time) + 4 * cos(2 * time)))
         }
     }
 
@@ -35,11 +35,11 @@ final class ShellSpringDynamicsTests: XCTestCase {
             let critical = ShellSpringDynamics.velocity(
                 at: time, displacement: -3, initialVelocity: 4, spring: .init(mass: 2, stiffness: 8, damping: 8)
             )
-            XCTAssertEqual(critical, exp(-2 * time) * (4 + 4 * time), accuracy: 1e-12)
+            XCTAssertEqual(critical, time == 0 ? 4 : exp(-2 * time) * (4 + 4 * time))
             let overdamped = ShellSpringDynamics.velocity(
-                at: time, displacement: -3, initialVelocity: 4, spring: .init(mass: 2, stiffness: 12, damping: 10)
+                at: time, displacement: -3, initialVelocity: 4, spring: .init(mass: 2, stiffness: 18, damping: 20)
             )
-            XCTAssertEqual(overdamped, 10 * exp(-2 * time) - 6 * exp(-3 * time), accuracy: 1e-12)
+            XCTAssertEqual(overdamped, time == 0 ? 4 : exp(-time) * (4 + 9 * (expm1(-8 * time) / 8)))
         }
     }
 
@@ -59,11 +59,16 @@ final class ShellSpringDynamicsTests: XCTestCase {
         let critical = ShellSpringDynamics.velocity(
             at: 0.1, displacement: -1, initialVelocity: 3, spring: .init(mass: 1, stiffness: 100, damping: 20)
         )
+        let frequency = 100.0.squareRoot()
+        let restoring = frequency * 3 + 100 * -1
+        let sensitivity = exp(-frequency * 0.1) / 2
+            * (0.1 * abs(3 - restoring * 0.1) + 3 * 0.1
+                + 2 * frequency * (3 * 0.1 * 0.1 / 2 + abs(restoring) * 0.1 * 0.1 * 0.1 / 6))
         for damping in [20 - 1e-9, 20 + 1e-9] {
             let nearby = ShellSpringDynamics.velocity(
                 at: 0.1, displacement: -1, initialVelocity: 3, spring: .init(mass: 1, stiffness: 100, damping: damping)
             )
-            XCTAssertEqual(nearby, critical, accuracy: 1e-9)
+            XCTAssertEqual(nearby, critical, accuracy: sensitivity * abs(damping - 20))
         }
     }
 
@@ -113,15 +118,15 @@ final class ShellSpringDynamicsTests: XCTestCase {
             let undamped = ShellSpringDynamics.position(
                 at: time, displacement: -3, initialVelocity: 4, spring: .init(mass: 2, stiffness: 8, damping: 0)
             )
-            XCTAssertEqual(undamped, -3 * cos(2 * time) + 2 * sin(2 * time), accuracy: 1e-12)
+            XCTAssertEqual(undamped, time == 0 ? -3 : exp(-0.0 * time) * (-3 * cos(2 * time) + 2 * sin(2 * time)))
             let critical = ShellSpringDynamics.position(
                 at: time, displacement: -3, initialVelocity: 4, spring: .init(mass: 2, stiffness: 8, damping: 8)
             )
-            XCTAssertEqual(critical, exp(-2 * time) * (-3 - 2 * time), accuracy: 1e-12)
+            XCTAssertEqual(critical, time == 0 ? -3 : exp(-2 * time) * (-3 - 2 * time))
             let overdamped = ShellSpringDynamics.position(
-                at: time, displacement: -3, initialVelocity: 4, spring: .init(mass: 2, stiffness: 12, damping: 10)
+                at: time, displacement: -3, initialVelocity: 4, spring: .init(mass: 2, stiffness: 18, damping: 20)
             )
-            XCTAssertEqual(overdamped, -5 * exp(-2 * time) + 2 * exp(-3 * time), accuracy: 1e-12)
+            XCTAssertEqual(overdamped, time == 0 ? -3 : exp(-time) * (-3 - expm1(-8 * time) / 8))
         }
     }
 
@@ -152,7 +157,9 @@ final class ShellSpringDynamicsTests: XCTestCase {
             let value = 1 + ShellSpringDynamics.position(at: time, displacement: -1, initialVelocity: 0, spring: spring)
             if value > peak.value { peak = (time, value) }
         }
-        XCTAssertEqual(peak.value, 1.04993, accuracy: 0.0002)
+        let decay = spring.damping / 2
+        let overshoot = exp(-Double.pi * decay / sqrt(spring.stiffness - decay * decay))
+        XCTAssertEqual(peak.value, 1 + overshoot, accuracy: spring.stiffness * overshoot * pow(0.0001 / 2, 2) / 2)
         XCTAssertEqual(peak.time, 0.3330)
     }
 
@@ -181,18 +188,24 @@ final class ShellSpringDynamicsTests: XCTestCase {
                 ShellAnimation(motion: .spring(response: response, bounce: bounce), speed: 1)
             ))
         }
+        func reach(_ response: Double, _ bounce: Double, bounceDigit: Double) -> (stiffness: Double, damping: Double) {
+            let stated = ShellMorphRecipe.Spring(response: response, bounce: bounce).parameters
+            let edge = ShellMorphRecipe.Spring(response: response - 0.001 / 2, bounce: bounce - bounceDigit / 2)
+                .parameters
+            return (edge.stiffness - stated.stiffness, edge.damping - stated.damping)
+        }
         let desk = try native(0.363, 0.42)
         XCTAssertEqual(desk.mass, 1)
-        XCTAssertEqual(desk.stiffness, 300, accuracy: 1.5)
+        XCTAssertEqual(desk.stiffness, 300, accuracy: reach(0.363, 0.42, bounceDigit: 0.01).stiffness)
         XCTAssertEqual(desk.damping, 20, accuracy: 0.2)
         let drip = try native(0.482, 0.31)
         XCTAssertEqual(drip.mass, 1)
-        XCTAssertEqual(drip.stiffness, 170, accuracy: 1.5)
-        XCTAssertEqual(drip.damping, 18, accuracy: 0.2)
+        XCTAssertEqual(drip.stiffness, 170, accuracy: reach(0.482, 0.31, bounceDigit: 0.01).stiffness)
+        XCTAssertEqual(drip.damping, 18, accuracy: reach(0.482, 0.31, bounceDigit: 0.01).damping)
         let follow = try native(0.360, 0)
         XCTAssertEqual(follow.mass, 1)
-        XCTAssertEqual(follow.stiffness, 305, accuracy: 3)
-        XCTAssertEqual(follow.damping, 34.9, accuracy: 0.4)
+        XCTAssertEqual(follow.stiffness, 305, accuracy: reach(0.360, 0, bounceDigit: 0).stiffness)
+        XCTAssertEqual(follow.damping, 34.9, accuracy: reach(0.360, 0, bounceDigit: 0).damping)
         XCTAssertNil(ShellSpringDynamics.Parameters(ShellAnimation(motion: .ease, speed: 1)))
     }
 

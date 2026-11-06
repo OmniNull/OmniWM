@@ -191,8 +191,9 @@ extension ShellVitreusDeskTests {
         let time = try VitreusFixture.frame(widget, key: "time")
         try VitreusFixture.drag(widget, key: "resize-sw", by: CGVector(dx: 200 * du, dy: -200 * du))
         let rect = try VitreusFixture.frame(widget, key: "desk")
-        XCTAssertEqual(rect.width / home.width, 0.5, accuracy: 1e-6)
-        XCTAssertEqual(try VitreusFixture.frame(widget, key: "time").height, time.height / 2, accuracy: 1)
+        XCTAssertEqual(rect.width, floatStored(home.width / 2))
+        let textHeightGrid: CGFloat = 1
+        XCTAssertEqual(try VitreusFixture.frame(widget, key: "time").height, time.height / 2, accuracy: textHeightGrid)
         let slots = try ["desk", "time"].map { try VitreusFixture.element(widget, key: $0).slot }
         let scene = widget.surface.scene
         let (wrapper, text) = ShellLayerScene.engineQueue.sync {

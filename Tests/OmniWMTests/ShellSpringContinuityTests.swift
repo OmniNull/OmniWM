@@ -13,7 +13,7 @@ final class ShellSpringContinuityTests: XCTestCase {
         XCTAssertEqual(motion, .spring(response: 0.31, bounce: 0.22))
         let animation = try XCTUnwrap(ShellAnimation(motion: motion, speed: 2).make("opacity") as? CASpringAnimation)
         XCTAssertEqual(animation.perceptualDuration, 0.155)
-        XCTAssertEqual(animation.bounce, 0.22, accuracy: 0.000001)
+        XCTAssertEqual(animation.bounce, CASpringAnimation(perceptualDuration: 0.31 / 2, bounce: 0.22).bounce)
         for invalid in ["spring:0:0", "spring:3:0", "spring:0.3:1", "spring:nan:0", "spring:0.3:0:x"] {
             XCTAssertNil(ShellMotion(recipe: invalid))
         }

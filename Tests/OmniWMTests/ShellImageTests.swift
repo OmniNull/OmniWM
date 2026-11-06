@@ -88,20 +88,22 @@ final class ShellImageTests: XCTestCase {
         let frames = try XCTUnwrap(library.image("cat.gif", folders: [folder]))
         XCTAssertEqual(frames.frames.count, 3)
         XCTAssertEqual(frames.ends[0], 0.1)
-        XCTAssertEqual(frames.ends[1], 0.3, accuracy: 0.001)
+        XCTAssertEqual(frames.ends[1], 0.1 + 0.2)
         XCTAssertEqual(frames.ends[2], 0.4)
         XCTAssertTrue(frames.animated)
         XCTAssertTrue(frames.frame(at: 0.15) === frames.frames[1])
         XCTAssertTrue(frames.frame(at: 0.45) === frames.frames[0])
         let animation = frames.animation(ShellPlayback(speed: 2, paused: false), phase: 0.5)
         XCTAssertEqual(animation.values?.count, 3)
-        for (time, expected) in zip(animation.keyTimes?.map(\.doubleValue) ?? [], [0, 0.25, 0.75, 1.0]) {
-            XCTAssertEqual(time, expected, accuracy: 0.001)
+        let duration = 0.1 + 0.2 + 0.1
+        let keyTimes = [0, 0.1, 0.1 + 0.2, duration].map { $0 / duration }
+        for (time, expected) in zip(animation.keyTimes?.map(\.doubleValue) ?? [], keyTimes) {
+            XCTAssertEqual(time, expected)
         }
         XCTAssertEqual(animation.keyTimes?.count, 4)
         XCTAssertEqual(animation.calculationMode, .discrete)
         XCTAssertEqual(animation.speed, 2)
-        XCTAssertEqual(animation.timeOffset, 0.1, accuracy: 0.001)
+        XCTAssertEqual(animation.timeOffset, 0.5.truncatingRemainder(dividingBy: duration))
 
         XCTAssertTrue(library.image("cat.gif", folders: [folder]) === frames)
         XCTAssertNil(library.image("cat.txt", folders: [folder]))

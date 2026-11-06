@@ -68,10 +68,10 @@ extension ShellVitreusDeskTests {
     ) {
         switch (motion, expected) {
         case let (.spring(response, bounce)?, .spring(target, spring)):
-            XCTAssertEqual(response, target, accuracy: 0.0001, label, line: line)
-            XCTAssertEqual(bounce, spring, accuracy: 0.0001, label, line: line)
+            XCTAssertEqual(response, target, label, line: line)
+            XCTAssertEqual(bounce, spring, label, line: line)
         case let (.ease(seconds)?, .ease(target)):
-            XCTAssertEqual(seconds, target, accuracy: 0.0001, label, line: line)
+            XCTAssertEqual(seconds, target, label, line: line)
         default:
             XCTFail("\(label): \(String(describing: motion)) is not \(expected)", line: line)
         }
@@ -136,7 +136,7 @@ extension ShellVitreusDeskTests {
         let paint = layout.core.paint(of: glass)
         for (color, role, alpha) in [(paint.fill, ShellRole.secondaryContainer, 0.36), (paint.shadow, .shadow, 0.24)] {
             XCTAssertEqual(color.role & 0xFF, UInt16(role.rawValue + 1), "\(role)")
-            XCTAssertEqual(Double(color.role >> 8) / 255, alpha, accuracy: 0.003, "\(role)")
+            XCTAssertEqual(Double(color.role >> 8) / 255, (alpha * 255).rounded() / 255, "\(role)")
         }
         XCTAssertEqual(paint.shadowRadius, 20)
         let recipe = try XCTUnwrap(ShellGlassRecipe(widget.text.string(layout.core.content(of: glass).text)))
@@ -191,8 +191,8 @@ extension ShellVitreusDeskTests {
         XCTAssertEqual(idle.content.action, 0)
         let button = try VitreusFixture.frame(widget, key: "reset")
         let arc = try VitreusFixture.frame(widget, key: "reset-arc")
-        XCTAssertEqual(arc.midX, button.midX - 18 * du, accuracy: 0.01)
-        XCTAssertEqual(arc.midY, button.midY + du, accuracy: 0.01)
+        XCTAssertEqual(arc.midX, button.midX - 18 * du, accuracy: CGFloat.floatRounding(operations: 8, at: button.midX))
+        XCTAssertEqual(arc.midY, button.midY + du, accuracy: CGFloat.floatRounding(operations: 6, at: arc.midY))
         let spin = try VitreusFixture.element(widget, key: "reset-arc")
         Self.assertMotion(surface.animation(for: spin)?.motion, Self.glance, "arc")
         Self.assertMotion(ShellWidgetSurface.motion(of: idle.content, hover: true), Self.glance, "hover")

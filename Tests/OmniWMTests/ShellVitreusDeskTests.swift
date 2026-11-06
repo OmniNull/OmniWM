@@ -42,7 +42,9 @@ final class ShellVitreusDeskTests: XCTestCase {
         let width = 353 * du
         let height = 460 * du
         return [
-            scale, du, size.width - 7.5 * du - width, max(size.top, size.height / 2 - height / 2), width, height, 35.1,
+            scale, du, size.width - 7.5 * du - 346.5 * du - 6.5 * du, max(size.top, size.height / 2 - height / 2),
+            width,
+            height, 35.1,
             2, 2, width - 4, height - 4, 26 * du - 2, 6.5 * du, 340 * du, 460 * du
         ]
     }
@@ -71,12 +73,13 @@ final class ShellVitreusDeskTests: XCTestCase {
             let expected = Self.expectedDesk(size)
             XCTAssertEqual(row.count, expected.count)
             for (value, target) in zip(row, expected) {
-                XCTAssertEqual(value, target, accuracy: 0.01, "\(size)")
+                XCTAssertEqual(value, target, "\(size)")
             }
         }
         let reference = rows[0]
+        let halfStatedDigit = 0.01 / 2
         for (index, value) in [(0, 0.8), (1, 1.242), (2, 1472.26), (3, 254.34), (4, 438.43), (5, 571.32), (11, 30.29)] {
-            XCTAssertEqual(reference[index], value, accuracy: 0.01)
+            XCTAssertEqual(reference[index], value, accuracy: halfStatedDigit)
         }
         XCTAssertEqual(rows[2][0], 0.55)
         XCTAssertEqual(rows[3][0], 1)
@@ -141,7 +144,10 @@ final class ShellVitreusDeskTests: XCTestCase {
         XCTAssertEqual(full.last, "true")
         XCTAssertEqual(full.first?.split(separator: " ").count { $0 == "M" }, 2)
         let empty = strings[2].split(separator: " ").map(String.init)
-        XCTAssertEqual(try XCTUnwrap(Double(empty[9])), 170 + 78 * sin(0.002 * 2 * .pi), accuracy: 0.001)
+        XCTAssertEqual(
+            try XCTUnwrap(Double(empty[9])),
+            ((170 + 78 * sin(0.002 * 2 * Double.pi)) * 1000).rounded() / 1000
+        )
     }
 
     func testTheDeskShowsOnlyWorkingPagesWithFocusSelectedByDefault() throws {

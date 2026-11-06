@@ -56,8 +56,10 @@ final class ShellEnterTests: XCTestCase {
             transform: CATransform3DIdentity,
             size: size
         ))
-        XCTAssertEqual(opening.begin, 100.25, accuracy: 0.01)
-        XCTAssertEqual(opening.duration, 0.5, accuracy: 0.01)
+        let from = Float((0.25 * 255).rounded()) / 255
+        let to = Float((0.75 * 255).rounded()) / 255
+        XCTAssertEqual(opening.begin, 100 + CFTimeInterval(from))
+        XCTAssertEqual(opening.duration, CFTimeInterval(to) - CFTimeInterval(from))
         XCTAssertEqual(opening.opacity.from, 0)
         XCTAssertEqual(opening.opacity.to, 0.8)
         XCTAssertEqual(opening.transform.from.m11, 0.5)
@@ -74,7 +76,7 @@ final class ShellEnterTests: XCTestCase {
             size: size
         ))
         XCTAssertEqual(midway.begin, 100.5)
-        XCTAssertEqual(midway.opacity.from, 0.5, accuracy: 0.01)
+        XCTAssertEqual(midway.opacity.from, (0.5 - from) / (to - from))
 
         let closing = try XCTUnwrap(enter.plan(
             ShellShaderTransition(from: 1, to: 0, start: 200, duration: 1, forced: true),
@@ -83,7 +85,7 @@ final class ShellEnterTests: XCTestCase {
             transform: CATransform3DIdentity,
             size: size
         ))
-        XCTAssertEqual(closing.begin, 200.25, accuracy: 0.01)
+        XCTAssertEqual(closing.begin, 200 + CFTimeInterval(1 - to))
         XCTAssertEqual(closing.opacity.from, 1)
         XCTAssertEqual(closing.opacity.to, 0)
         XCTAssertFalse(closing.settles)

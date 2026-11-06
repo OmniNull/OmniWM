@@ -31,8 +31,8 @@ extension ShellVitreusDeskTests {
         guard case let .spring(actual, spring)? = motion else {
             return XCTFail("\(String(describing: motion))", line: line)
         }
-        XCTAssertEqual(actual, response, accuracy: 0.0001, line: line)
-        XCTAssertEqual(spring, bounce, accuracy: 0.0001, line: line)
+        XCTAssertEqual(actual, response, line: line)
+        XCTAssertEqual(spring, bounce, line: line)
     }
 
     private static func assertRect(_ actual: CGRect, _ expected: CGRect, accuracy: CGFloat = 0.01, line: UInt = #line) {
@@ -85,14 +85,24 @@ extension ShellVitreusDeskTests {
         let scale = try recipe(widget, name)
         XCTAssertEqual(scale.mode, .scale, name)
         XCTAssertEqual(scale.resizeMask, corner.mask, name)
-        XCTAssertEqual(scale.inset.width, Self.inset, accuracy: 1e-6)
+        XCTAssertEqual(Float(scale.inset.width), Float(Self.inset))
         Self.assertRect(scale.bounds, bounds)
         XCTAssertEqual(scale.minimum.width, rect.width / 2, name)
         XCTAssertEqual(scale.minimum.height, rect.height / 2, name)
         XCTAssertEqual(scale.maximum.width, rect.width, name)
         let frame = try VitreusFixture.frame(widget, key: name)
-        XCTAssertEqual(frame.midX, rect.minX + (corner.mask & 2 != 0 ? 339 : 14) * du, accuracy: 0.01, name)
-        XCTAssertEqual(frame.midY, rect.minY + (corner.mask & 8 != 0 ? 446 : 14) * du, accuracy: 0.01, name)
+        XCTAssertEqual(
+            frame.midX,
+            rect.minX + (corner.mask & 2 != 0 ? 339 : 14) * du,
+            accuracy: .floatRounding(operations: 7, at: rect.maxX),
+            name
+        )
+        XCTAssertEqual(
+            frame.midY,
+            rect.minY + (corner.mask & 8 != 0 ? 446 : 14) * du,
+            accuracy: .floatRounding(operations: 7, at: rect.maxY),
+            name
+        )
         XCTAssertEqual(frame.width, floatStored(28 * du), name)
     }
 
@@ -129,17 +139,18 @@ extension ShellVitreusDeskTests {
         let values = text.split(separator: ";").map { $0.split(separator: " ").compactMap { Double($0) } }
         let expected = screens.flatMap(Self.expectedRows)
         XCTAssertEqual(values.count, expected.count)
+        let rowBound = Double.rounding(operations: 16, at: screens.map(\.width).reduce(0, max))
         for (index, (row, target)) in zip(values, expected).enumerated() {
             XCTAssertEqual(row.count, target.count, "\(index)")
             for (value, number) in zip(row, target) {
-                XCTAssertEqual(value, number, accuracy: 0.001, "\(index)")
+                XCTAssertEqual(value, number, accuracy: rowBound, "\(index)")
             }
             XCTAssertLessThanOrEqual(row[4] + row[6] * (1 - Self.inset), row[8] + row[10] + 0.001, "\(index)")
         }
         for (index, value) in [(6, 219.22), (7, 285.66), (3, 17.55), (15, 99.36)] {
             XCTAssertEqual(values[0][index], value, accuracy: 0.01)
         }
-        XCTAssertEqual(values[12][10] + values[12][8], 1840 - 14 * 1.242, accuracy: 0.001)
+        XCTAssertEqual(values[12][10] + values[12][8], 1840 - 14 * 1.242, accuracy: .rounding(operations: 9, at: 1840))
     }
 
     func testTheDeskDeclaresFollowGripHandlesCursorsAndCloseAboveTheCorner() throws {
@@ -160,7 +171,7 @@ extension ShellVitreusDeskTests {
         let move = try recipe(widget, "grip")
         XCTAssertEqual(move.mode, .move)
         XCTAssertEqual(move.target, VitreusFixture.key("desk"))
-        XCTAssertEqual(move.inset.width, Self.inset, accuracy: 1e-6)
+        XCTAssertEqual(Float(move.inset.width), Float(Self.inset))
         XCTAssertEqual(move.inset.height, 0)
         Self.assertRect(move.bounds, bounds)
         Self.assertRect(CGRect(origin: .zero, size: move.minimum), CGRect(origin: .zero, size: rect.size))
@@ -212,26 +223,45 @@ extension ShellVitreusDeskTests {
         let corner = CGPoint(x: home.maxX - home.width * Self.inset, y: home.minY)
         try VitreusFixture.drag(widget, key: "resize-sw", by: CGVector(dx: 160 * du, dy: -160 * du))
         let rect = try VitreusFixture.frame(widget, key: "desk")
-        XCTAssertEqual(rect.width / home.width, 0.6, accuracy: 1e-6)
-        XCTAssertEqual(rect.height / home.height, 0.6, accuracy: 1e-6)
-        XCTAssertEqual(rect.maxX - rect.width * Self.inset, corner.x, accuracy: 0.01)
+        XCTAssertEqual(rect.width / home.width, 0.6, accuracy: .floatRounding(operations: 3, at: 0.6))
+        XCTAssertEqual(rect.height / home.height, 0.6, accuracy: .floatRounding(operations: 3, at: 0.6))
+        XCTAssertEqual(
+            rect.maxX - rect.width * Self.inset,
+            corner.x,
+            accuracy: .floatRounding(operations: 5, at: corner.x)
+        )
         XCTAssertEqual(rect.minY, floatStored(corner.y))
-        XCTAssertEqual(try VitreusFixture.frame(widget, key: "grip").width, 294 * du * 0.6, accuracy: 0.01)
+        XCTAssertEqual(
+            try VitreusFixture.frame(widget, key: "grip").width,
+            294 * du * 0.6,
+            accuracy: .floatRounding(operations: 3, at: 294 * du * 0.6)
+        )
         XCTAssertEqual(try VitreusFixture.frame(widget, key: "chip-15").height, floatStored(32 * du * 0.6))
         let exit = try presence(
             widget,
             widget.surface.layout.core.paint(of: VitreusFixture.element(widget, key: "desk")).exit
         )
-        XCTAssertEqual(exit.scale, 1 / 0.6, accuracy: 1e-4)
-        XCTAssertEqual(exit.offset.x, home.minX - rect.minX, accuracy: 0.01)
-        XCTAssertEqual(exit.offset.y, home.minY - rect.minY, accuracy: 0.01)
+        XCTAssertEqual(exit.scale, 1 / 0.6, accuracy: .floatRounding(operations: 4, at: 1 / 0.6))
+        XCTAssertEqual(exit.offset.x, home.minX - rect.minX, accuracy: .floatRounding(operations: 3, at: rect.minX))
+        XCTAssertEqual(
+            exit.offset.y,
+            home.minY - rect.minY,
+            accuracy: CGFloat.floatRounding(operations: 2, at: home.minY - rect.minY) + .rounding(
+                operations: 1,
+                at: home.minY
+            )
+        )
         XCTAssertEqual(exit.anchor, .zero)
         XCTAssertEqual(exit.opacity, 1)
         Self.assertSpring(exit.motion, 0.363, 0.42)
         try VitreusFixture.drag(widget, key: "resize-ne", by: CGVector(dx: -60 * du, dy: 60 * du))
         let smaller = try VitreusFixture.frame(widget, key: "desk")
-        XCTAssertEqual(smaller.width / home.width, 0.5, accuracy: 1e-6)
-        XCTAssertEqual(smaller.minX + smaller.width * Self.inset, rect.minX + rect.width * Self.inset, accuracy: 0.01)
+        XCTAssertEqual(smaller.width / home.width, 0.5, accuracy: .floatRounding(operations: 5, at: 0.5))
+        XCTAssertEqual(
+            smaller.minX + smaller.width * Self.inset,
+            rect.minX + rect.width * Self.inset,
+            accuracy: .floatRounding(operations: 3, at: rect.maxX)
+        )
         XCTAssertEqual(smaller.maxY, rect.maxY)
         try VitreusFixture.drag(widget, key: "grip", by: CGVector(dx: -150 * du, dy: 100 * du))
         let far = try VitreusFixture.frame(widget, key: "desk")
@@ -277,7 +307,11 @@ extension ShellVitreusDeskTests {
         let widget = try VitreusFixture.desk(shell())
         let (home, du) = Self.envelope(width: 1920, height: 1080)
         try VitreusFixture.drag(widget, key: "resize-sw", by: CGVector(dx: 120 * du, dy: -120 * du))
-        XCTAssertEqual(try VitreusFixture.frame(widget, key: "desk").width / home.width, 0.7, accuracy: 1e-6)
+        XCTAssertEqual(
+            try VitreusFixture.frame(widget, key: "desk").width / home.width,
+            0.7,
+            accuracy: .floatRounding(operations: 3, at: 0.7)
+        )
         let placed = try commit(widget)
         try VitreusFixture.click(widget, key: "grip")
         Self.assertRect(try VitreusFixture.frame(widget, key: "desk"), home)
@@ -328,10 +362,10 @@ extension ShellVitreusDeskTests {
         XCTAssertEqual(shape.stops.count, times.count)
         for (stop, at) in zip(shape.stops, times) {
             XCTAssertEqual(stop.at, at)
-            XCTAssertEqual(stop.scale, Self.lift(at), accuracy: 1e-6, "\(at)")
-            XCTAssertEqual(stop.width, 1 - 0.07 * Self.bell(at), accuracy: 1e-6, "\(at)")
+            XCTAssertEqual(Float(stop.scale), Float(Self.lift(at)), "\(at)")
+            XCTAssertEqual(Float(stop.width), Float(1 - 0.07 * Self.bell(at)), "\(at)")
             XCTAssertEqual(stop.height, 1)
-            XCTAssertEqual(stop.round, min(max(1.6 * at - 0.1, 0), 1), accuracy: 1e-6, "\(at)")
+            XCTAssertEqual(Float(stop.round), Float(min(max(1.6 * at - 0.1, 0), 1)), "\(at)")
         }
         let content = try XCTUnwrap(surface.morph(
             layout.core.paint(of: VitreusFixture.element(widget, key: "desk-clip")).morph
@@ -374,7 +408,7 @@ extension ShellVitreusDeskTests {
         let root = try presence(widget, layout.core.paint(of: VitreusFixture.element(widget, key: "desk")).exit)
         XCTAssertEqual(root.opacity, 1)
         XCTAssertEqual(root.scale, 1)
-        XCTAssertEqual(root.offset.x, 0, accuracy: 1e-6)
+        XCTAssertEqual(root.offset.x, 0, accuracy: .rounding(operations: 7, at: VitreusFixture.monitor().frame.maxX))
         XCTAssertEqual(root.offset.y, 0)
         let clip = try VitreusFixture.element(widget, key: "desk-clip")
         for name in ["grip", "close", "resize-nw", "resize-se"] {
@@ -414,11 +448,11 @@ extension ShellVitreusDeskTests {
         VitreusFixture.trigger(widget.instance, "desk-open", first)
         let lit = try plate(on: monitors[0])
         XCTAssertEqual(lit.role, accent)
-        XCTAssertEqual(lit.alpha, 0.19, accuracy: 0.003)
+        XCTAssertEqual(lit.alpha, (0.19 * 255).rounded() / 255)
         VitreusFixture.trigger(widget.instance, "desk-open", second)
         let dark = try plate(on: monitors[0])
         XCTAssertEqual(dark.role, ink)
-        XCTAssertEqual(dark.alpha, 0.07, accuracy: 0.003)
+        XCTAssertEqual(dark.alpha, (0.07 * 255).rounded() / 255)
     }
 
     func testGripDragShowsTheClosedHandAndReleaseRestoresTheHoveredCursor() throws {

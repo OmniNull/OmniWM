@@ -112,11 +112,16 @@ extension ShellVitreusFrameTests {
                 .sync { fixture.widget.surface.scene.glassShapes[handle.slot] })
             XCTAssertEqual(shape.kind, 2)
             let hole = shape.rect.insetBy(dx: shape.thickness, dy: shape.thickness)
-            XCTAssertEqual(shape.radius - shape.thickness, 25.27, accuracy: 0.001)
+            XCTAssertEqual(
+                shape.radius - shape.thickness,
+                25.27,
+                accuracy: CGFloat.floatRounding(operations: 2, at: shape.radius)
+            )
             let edges = [hole.minX, 1920 - hole.maxX, hole.minY, 1080 - hole.maxY]
             let selected = ["left": 0, "right": 1, "ftop": 2, "fbottom": 3][edge]!
+            let holeBound = CGFloat.floatRounding(operations: 3, at: shape.rect.width)
             for (index, value) in edges.enumerated() {
-                XCTAssertEqual(value, index == selected ? 62.1 : 10.8, accuracy: 0.001, edge)
+                XCTAssertEqual(value, index == selected ? 62.1 : 10.8, accuracy: holeBound, edge)
             }
             XCTAssertFalse(fixture.widget.surface.containsShape(at: CGPoint(x: 960, y: 540)))
             XCTAssertTrue(fixture.widget.surface.containsShape(at: CGPoint(x: 5, y: 540)))
@@ -168,17 +173,26 @@ extension ShellVitreusFrameTests {
     }
 
     func testVerticalPiecesAreStackedAndTheTitleReadsUpTheStrip() throws {
+        let half: CGFloat = 40 * 1.35 / 2
         for edge in ["left", "right"] {
             let fixture = try fixture(edge)
             let first = try frame(fixture, "workspace-hit-1")
             let second = try frame(fixture, "workspace-hit-2")
-            XCTAssertEqual(first.midX, edge == "left" ? 31.05 : 1888.95, accuracy: 0.001)
+            XCTAssertEqual(first.midX, floatStored((edge == "left" ? 31.05 : 1888.95) - half) + half)
             XCTAssertGreaterThan(second.midY, first.midY)
             let controls = try frame(fixture, "bar-controls")
             let logo = try frame(fixture, "bar-omniwm")
             let search = try frame(fixture, "bar-search")
-            XCTAssertEqual(controls.midY - logo.midY, 32 * 1.35, accuracy: 0.001)
-            XCTAssertEqual(logo.midY - search.midY, 32 * 1.35, accuracy: 0.001)
+            XCTAssertEqual(
+                controls.midY - logo.midY,
+                32 * 1.35,
+                accuracy: CGFloat.floatRounding(operations: 2, at: controls.midY)
+            )
+            XCTAssertEqual(
+                logo.midY - search.midY,
+                32 * 1.35,
+                accuracy: CGFloat.floatRounding(operations: 2, at: logo.midY)
+            )
             XCTAssertTrue(has(fixture, "clock-hour"))
             XCTAssertTrue(fixture.widget.strings().contains("A document in a vertical strip"))
         }
@@ -216,10 +230,10 @@ extension ShellVitreusFrameTests {
         let spring = ShellMorphRecipe.Spring(response: 2 * .pi * 0.28 / 6.64, bounce: 0).parameters
         let opening = ShellReveal(begin: 0, progress: 0, target: 1, spring: spring)
         let closing = ShellReveal(begin: 0, progress: 1, target: 0, spring: spring)
-        XCTAssertEqual(reveal.delay, try XCTUnwrap(opening.crossings(at: 0.3, rising: true).first), accuracy: 0.00001)
-        XCTAssertEqual(reveal.hold, try XCTUnwrap(closing.crossings(at: 0.3, rising: false).first), accuracy: 0.00001)
-        XCTAssertEqual(reveal.delay, 0.046, accuracy: 0.001)
-        XCTAssertEqual(reveal.hold, 0.103, accuracy: 0.001)
+        XCTAssertEqual(Float(reveal.delay), Float(try XCTUnwrap(opening.crossings(at: 0.3, rising: true).first)))
+        XCTAssertEqual(Float(reveal.hold), Float(try XCTUnwrap(closing.crossings(at: 0.3, rising: false).first)))
+        XCTAssertEqual(reveal.delay, 0.046, accuracy: 0.001 / 2)
+        XCTAssertEqual(reveal.hold, 0.103, accuracy: 0.001 / 2)
         XCTAssertEqual(try click(fixture, "frame-hit-top"), ["open-command-palette"])
         hover(fixture, at: nil)
         XCTAssertFalse(has(fixture, "frame-tab-top"))
@@ -236,10 +250,10 @@ extension ShellVitreusFrameTests {
         let shape = try XCTUnwrap(ShellLayerScene.engineQueue
             .sync { fixture.widget.surface.scene.glassShapes[handle.slot] })
         let hole = shape.rect.insetBy(dx: shape.thickness, dy: shape.thickness)
-        XCTAssertEqual(hole.minX, 10.8, accuracy: 0.001)
-        XCTAssertEqual(hole.minY, 10.8, accuracy: 0.001)
-        XCTAssertEqual(hole.width, 1898.4, accuracy: 0.001)
-        XCTAssertEqual(hole.height, 1058.4, accuracy: 0.001)
+        XCTAssertEqual(hole.minX, 10.8, accuracy: CGFloat.floatRounding(operations: 2, at: shape.thickness))
+        XCTAssertEqual(hole.minY, 10.8, accuracy: CGFloat.floatRounding(operations: 2, at: shape.thickness))
+        XCTAssertEqual(hole.width, 1898.4, accuracy: CGFloat.floatRounding(operations: 2, at: shape.rect.width))
+        XCTAssertEqual(hole.height, 1058.4, accuracy: CGFloat.floatRounding(operations: 2, at: shape.rect.height))
         XCTAssertFalse(has(fixture, "bar-hover"))
         XCTAssertFalse(has(fixture, "frame-hover-top"))
         XCTAssertFalse(has(fixture, "bar-clock"))

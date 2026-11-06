@@ -14,7 +14,7 @@ extension ShellGlassSceneTests {
         let width = stage.width
         let edge = try XCTUnwrap(Self.columnCrossings(bytes, width: width, column: column, rows: 0 ..< stage.height)
             .last)
-        XCTAssertEqual(edge, Double(bottom), accuracy: 1)
+        XCTAssertEqual(edge, Double(bottom), accuracy: ShellOffscreenRenderer.pixel / 2)
         let start = Int(edge.rounded(.up)) + 1
         let end = try XCTUnwrap((start ..< stage.height).first { bytes[($0 * width + column) * 4 + 3] <= 2 })
         return end - Int(edge.rounded())

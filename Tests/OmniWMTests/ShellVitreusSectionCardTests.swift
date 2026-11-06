@@ -396,7 +396,7 @@ extension ShellVitreusSectionCardTests {
         XCTAssertEqual(
             try windows.frame(fixture, "drawer-content-calendar-month").width,
             home.width * (try windows.frame(fixture, "drawer-content-calendar").width / parent.width),
-            accuracy: 0.01
+            accuracy: .floatRounding(operations: 4, at: home.width)
         )
     }
 }

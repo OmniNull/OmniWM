@@ -52,10 +52,11 @@ final class ShellBoundTrackMathTests: XCTestCase {
             XCTAssertEqual(plan.spring.mass, spring.mass)
             XCTAssertEqual(plan.spring.stiffness, spring.stiffness)
             XCTAssertEqual(plan.spring.damping, spring.damping)
+            let bound = Double.rounding(operations: 23, at: canvas.width) / recipe.span
             for elapsed in [0, 0.01, 0.11, 0.2, 0.5, motion.duration, motion.duration + 1] {
                 let time = motion.begin + elapsed
                 let expected = (gap(rect(wrapper, at: time), edge: edge) - recipe.from) / recipe.span
-                XCTAssertEqual(plan.state(at: time).progress, expected, accuracy: 1e-11, "\(edge) at \(elapsed)")
+                XCTAssertEqual(plan.state(at: time).progress, expected, accuracy: bound, "\(edge) at \(elapsed)")
             }
             XCTAssertGreaterThan(plan.progress, 1)
         }
@@ -67,8 +68,14 @@ final class ShellBoundTrackMathTests: XCTestCase {
         let reversed = try XCTUnwrap(original.retargeted(
             at: time, to: CGRect(x: 60, y: 110, width: 150, height: 120)
         ))
+        let decay = spring.damping / 2
+        let gain = spring.stiffness / (spring.stiffness - decay * decay).squareRoot()
+        let reach: Double = gain * (original.start.width - original.target.width)
         for edge in [ShellMorphRecipe.SourceEdge.top, .left, .right, .bottom] {
             let recipe = source(edge)
+            let bound = (
+                Double.rounding(operations: 12, at: canvas.width) * gain + Double.rounding(operations: 21, at: reach)
+            ) / recipe.span
             let prior = original.wrapper(for: layout).progress(in: layout, canvas: canvas, source: recipe)
             let next = reversed.wrapper(for: layout).progress(in: layout, canvas: canvas, source: recipe)
             let velocity = original.velocity(at: time)
@@ -78,9 +85,9 @@ final class ShellBoundTrackMathTests: XCTestCase {
             case .right: -velocity.x - velocity.width
             case .bottom: -velocity.y - velocity.width * layout.height / layout.width
             }
-            XCTAssertEqual(prior.state(at: time).velocity, derivative / recipe.span, accuracy: 1e-11)
+            XCTAssertEqual(prior.state(at: time).velocity, derivative / recipe.span, accuracy: bound)
             XCTAssertEqual(next.progress, prior.state(at: time).progress)
-            XCTAssertEqual(next.velocity, prior.state(at: time).velocity, accuracy: 1e-11)
+            XCTAssertEqual(next.velocity, prior.state(at: time).velocity, accuracy: bound)
             XCTAssertEqual(next.begin, time)
             XCTAssertEqual(next.duration, reversed.duration)
         }
@@ -101,7 +108,12 @@ final class ShellBoundTrackMathTests: XCTestCase {
         let first = try XCTUnwrap(rising.first), second = try XCTUnwrap(falling.first)
         XCTAssertLessThan(first, second)
         for (crossing, direction) in [(first, 1.0), (second, -1.0)] {
-            XCTAssertEqual(plan.state(at: crossing).progress, 0.7, accuracy: 1e-11)
+            let state = plan.state(at: crossing)
+            XCTAssertEqual(
+                state.progress,
+                0.7,
+                accuracy: abs(state.velocity) * crossing.ulp + Double.rounding(operations: 14, at: 0.7)
+            )
             XCTAssertGreaterThan(plan.state(at: crossing).velocity * direction, 0)
             XCTAssertLessThan(plan.state(at: crossing - 1e-6).progress * direction, 0.7 * direction)
             XCTAssertGreaterThan(plan.state(at: crossing + 1e-6).progress * direction, 0.7 * direction)
@@ -125,7 +137,12 @@ final class ShellBoundTrackMathTests: XCTestCase {
         for crossing in crossings {
             XCTAssertGreaterThanOrEqual(crossing, plan.begin)
             XCTAssertLessThanOrEqual(crossing, plan.end)
-            XCTAssertEqual(plan.state(at: crossing).progress, expected, accuracy: 1e-11)
+            let state = plan.state(at: crossing)
+            XCTAssertEqual(
+                state.progress,
+                expected,
+                accuracy: abs(state.velocity) * crossing.ulp + Double.rounding(operations: 14, at: expected)
+            )
         }
         XCTAssertEqual(plan.state(at: plan.end).progress, plan.target)
         XCTAssertEqual(plan.state(at: plan.end).velocity, 0)
@@ -171,11 +188,20 @@ final class ShellBoundTrackMathTests: XCTestCase {
             slot: 1, kind: 0, rect: CGRect(x: -46, y: -56, width: 652, height: 452), radius: 10, thickness: 0
         )
         let placed = bound.place(raw, progress: bound.state(at: 0).progress, at: 0)
+        let presented = CGRect(
+            x: layout.minX - 100, y: layout.minY - 90, width: layout.width * 0.8, height: layout.height * 0.8
+        )
+        let pad: CGFloat = 13 * 0.8
+        func attached(_ edge: CGFloat, _ shown: CGFloat, _ gap: CGFloat) -> CGFloat {
+            edge + (shown - edge) * (gap / source.span)
+        }
+        let top = attached(raw.rect.minY, presented.minY - pad, presented.minY - canvas.minY - 8)
+        let bottom = attached(raw.rect.maxY, presented.maxY + pad, canvas.maxY - presented.maxY - 310)
         XCTAssertEqual(bound.state(at: 0).progress, 0.08)
-        XCTAssertEqual(placed.rect.minX, -40.88, accuracy: 1e-12)
+        XCTAssertEqual(placed.rect.minX, attached(raw.rect.minX, presented.minX - pad, presented.minX - canvas.minX))
         XCTAssertEqual(placed.rect.maxX, 565.232)
         XCTAssertEqual(placed.rect.minY, -54.976)
-        XCTAssertEqual(placed.rect.maxY, 374.9568, accuracy: 1e-12)
+        XCTAssertEqual(placed.rect.maxY, top + (bottom - top))
         XCTAssertEqual(placed.radius, 8)
     }
 

@@ -26,8 +26,8 @@ extension ShellVitreusSectionCardTests {
         let rect = try windows.frame(fixture, "drawer-content-calendar-month")
         let paint = fixture.widget.surface.layout.core.paint(of: card)
         let appear = try XCTUnwrap(fixture.widget.surface.presence(paint.appear, for: card))
-        XCTAssertEqual(appear.offset.x, release.x - rect.minX, accuracy: 0.01)
-        XCTAssertEqual(appear.offset.y, release.y - rect.minY, accuracy: 0.01)
+        XCTAssertEqual(appear.offset.x, release.x - rect.minX, accuracy: .floatRounding(operations: 5, at: rect.minX))
+        XCTAssertEqual(appear.offset.y, release.y - rect.minY, accuracy: .floatRounding(operations: 5, at: release.y))
     }
 
     func testMixerChoosesItsSideWhenDemandedAudioAppsArrive() throws {
@@ -52,7 +52,11 @@ extension ShellVitreusSectionCardTests {
             let sliders = try windows.frame(fixture, "drawer-content-controls-sliders")
             let mixer = try windows.frame(fixture, "drawer-content-controls-mixer")
             XCTAssertEqual(mixer.height, floatStored(92 * 1.5525))
-            XCTAssertEqual(mixer.maxY, sliders.minY - 12 * 1.35, accuracy: 0.01)
+            XCTAssertEqual(
+                mixer.maxY,
+                sliders.minY - 12 * 1.35,
+                accuracy: .floatRounding(operations: 3, at: sliders.minY)
+            )
             XCTAssertFalse(mixer.intersects(sliders))
         }
     }

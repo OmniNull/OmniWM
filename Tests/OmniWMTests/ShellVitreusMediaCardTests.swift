@@ -150,17 +150,18 @@ final class ShellVitreusMediaCardTests: XCTestCase {
     }
 
     static func assertRect(_ actual: CGRect, _ expected: CGRect, line: UInt = #line) {
+        let bound = CGFloat.floatRounding(operations: 6, at: VitreusFixture.monitor().frame.width)
         for (value, target) in [
             (actual.minX, expected.minX), (actual.minY, expected.minY),
             (actual.width, expected.width), (actual.height, expected.height)
         ] {
-            XCTAssertEqual(value, target, accuracy: 0.01, line: line)
+            XCTAssertEqual(value, target, accuracy: bound, line: line)
         }
     }
 
     static func assertValues(_ actual: SIMD4<Float>, _ expected: SIMD4<Float>, line: UInt = #line) {
         for index in 0 ..< 4 {
-            XCTAssertEqual(actual[index], expected[index], accuracy: 1e-4, "value \(index)", line: line)
+            XCTAssertEqual(actual[index], expected[index], "value \(index)", line: line)
         }
     }
 }
@@ -197,7 +198,7 @@ extension ShellVitreusMediaCardTests {
         drag(fixture, at: start, by: pull)
         Self.assertRect(try frame(fixture, "media-card"), home.offsetBy(dx: pull.dx, dy: pull.dy))
         XCTAssertTrue(try commit(fixture).hasPrefix("placement-"))
-        XCTAssertEqual(try frame(fixture, "drawer-content-player").height, drawer.height - 156 * cu, accuracy: 0.01)
+        XCTAssertEqual(try frame(fixture, "drawer-content-player").height, floatStored((55.5 + 14) * cu))
         XCTAssertEqual(try content(fixture, "media-card-grab").gesture.threshold, 4)
         XCTAssertEqual(try paint(fixture, "player-media-plate").opacity, 0)
         for key in ["media-card-pin", "media-card-grip", "media-card-resize-nw", "media-card-resize-se"] {
@@ -256,17 +257,17 @@ extension ShellVitreusMediaCardTests {
         XCTAssertEqual(corner.maximum.height, 268.8 * cu)
         try drag(fixture, key: "media-card-resize-se", by: CGVector(dx: -600, dy: -600))
         let small = try frame(fixture, "media-card")
-        XCTAssertEqual(small.width / (308 * cu), 0.5, accuracy: 1e-6)
-        XCTAssertEqual(small.height / (168 * cu), 0.5, accuracy: 1e-6)
+        XCTAssertEqual(small.width, floatStored(308 * cu * 0.5))
+        XCTAssertEqual(small.height, floatStored(168 * cu * 0.5))
         XCTAssertEqual(small.minX, card.minX)
         XCTAssertEqual(small.minY, card.minY)
         fixture.widget.surface.finishSettle()
         try drag(fixture, key: "media-card-resize-nw", by: CGVector(dx: -1200, dy: -1200))
         let large = try frame(fixture, "media-card")
-        XCTAssertEqual(large.width / (308 * cu), 1.6, accuracy: 1e-6)
-        XCTAssertEqual(large.height / (168 * cu), 1.6, accuracy: 1e-6)
-        XCTAssertEqual(large.maxX, small.maxX, accuracy: 0.01)
-        XCTAssertEqual(large.maxY, small.maxY, accuracy: 0.01)
+        XCTAssertEqual(large.width, floatStored(308 * cu * 1.6))
+        XCTAssertEqual(large.height, floatStored(168 * cu * 1.6))
+        XCTAssertEqual(large.maxX, small.maxX, accuracy: .floatRounding(operations: 2, at: large.maxX))
+        XCTAssertEqual(large.maxY, small.maxY, accuracy: .floatRounding(operations: 2, at: large.maxY))
         XCTAssertEqual(try frame(fixture, "player-media").width, floatStored(288 * cu * 1.6))
         Self.assertRect(try frame(fixture, "media-card-glass"), large)
         XCTAssertEqual(Double(try paint(fixture, "media-card-glass").cornerRadius), floatStored(26 * cu))
@@ -307,7 +308,7 @@ extension ShellVitreusMediaCardTests {
             fixture.widget.surface.finishSettle()
         }
         try float(fixture, by: CGVector(dx: 300, dy: 400))
-        XCTAssertEqual(try frame(fixture, "drawer-content-player").height, fullHeight - 156 * Self.cu, accuracy: 0.01)
+        XCTAssertEqual(try frame(fixture, "drawer-content-player").height, floatStored((55.5 + 14) * Self.cu))
         VitreusFixture.trigger(fixture.widget.instance, "drawer-close", fixture.bar.monitorId)
         show(fixture)
         try place(home.origin)
@@ -388,14 +389,24 @@ extension ShellVitreusMediaCardTests {
         XCTAssertEqual(first.rotate.count, 96)
         XCTAssertEqual(first.rotate.first, 0)
         XCTAssertEqual(first.rotate.last, 0)
-        XCTAssertEqual(first.rotate.min() ?? 0, -12, accuracy: 0.05)
-        XCTAssertEqual(first.scale.min() ?? 0, -0.3, accuracy: 0.002)
-        XCTAssertEqual(first.rotate[90] / -12, first.scale[90] / -0.3, accuracy: 1e-4)
+        let flick = 6.64 / 0.016, settle = 6.64 / 0.7
+        let fall = exp(-flick * 0.03)
+        let low = fall * (1 + flick * 0.03) - 1
+        let speed = -fall * flick * flick * 0.03
+        let late = 0.73 * 4 / 95 - 0.03
+        let swing = -exp(-settle * late) * (low + (speed + settle * low) * late)
+        XCTAssertEqual(first.rotate.min() ?? 0, recipeStored(-12 * swing))
+        XCTAssertEqual(first.scale.min() ?? 0, recipeStored(-0.3 * swing))
+        XCTAssertEqual(
+            first.rotate[90] / -12,
+            first.scale[90] / -0.3,
+            accuracy: .floatRounding(operations: 4, at: first.rotate[90] / -12)
+        )
         XCTAssertGreaterThan(first.rotate[90], -0.2)
         let sparks = try content(fixture, "media-card-sparks-1")
         let burst = try frame(fixture, "media-card-sparks-1"), centre = try cover(fixture)
         XCTAssertEqual(burst.midX, floatStored(centre.x))
-        XCTAssertEqual(burst.midY, centre.y, accuracy: 0.01)
+        XCTAssertEqual(burst.midY, centre.y, accuracy: .floatRounding(operations: 7, at: 168 * Self.cu))
         XCTAssertEqual(fixture.widget.text.string(sparks.text), "vitreus-sparks.metal")
         XCTAssertEqual(sparks.rate, 60)
         Self.assertValues(sparks.params, SIMD4(1, 1, 0, 0))
@@ -430,8 +441,8 @@ extension ShellVitreusMediaCardTests {
         }
         XCTAssertEqual(try effect().source, "vitreus-cover.metal")
         XCTAssertEqual(try effect().rate, 0)
-        XCTAssertEqual(Float(try effect().bleed), 12 * cu, accuracy: 1e-3)
-        Self.assertValues(try effect().values, SIMD4(1, 12 * cu, 0.6, 0))
+        XCTAssertEqual(Float(try effect().bleed), Float(12 * Self.cu))
+        Self.assertValues(try effect().values, SIMD4(1, Float(12 * Self.cu), 0.6, 0))
         var wave = try content(fixture, "player-media-seek-wave")
         XCTAssertEqual(fixture.widget.text.string(wave.text), "vitreus-seek.metal")
         XCTAssertEqual(wave.rate, 60)

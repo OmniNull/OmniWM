@@ -100,7 +100,7 @@ final class ShellVitreusPanesTests: XCTestCase {
             (actual.minX, expected.minX), (actual.minY, expected.minY), (actual.width, expected.width),
             (actual.height, expected.height)
         ] {
-            XCTAssertEqual(value, target, accuracy: 0.01, line: line)
+            XCTAssertEqual(value, floatStored(target), line: line)
         }
     }
 

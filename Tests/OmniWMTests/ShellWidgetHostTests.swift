@@ -3869,10 +3869,10 @@ final class ShellWidgetClickTests: XCTestCase {
     }
 
     private func assertFrame(_ frame: CGRect, _ expected: CGRect, line: UInt = #line) {
-        XCTAssertEqual(frame.minX, expected.minX, accuracy: 1, line: line)
-        XCTAssertEqual(frame.minY, expected.minY, accuracy: 1, line: line)
-        XCTAssertEqual(frame.maxX, expected.maxX, accuracy: 1, line: line)
-        XCTAssertEqual(frame.maxY, expected.maxY, accuracy: 1, line: line)
+        XCTAssertEqual(frame.minX, expected.minX.rounded(.down), line: line)
+        XCTAssertEqual(frame.minY, expected.minY.rounded(.down), line: line)
+        XCTAssertEqual(frame.maxX, expected.minX.rounded(.down) + expected.width.rounded(.up), line: line)
+        XCTAssertEqual(frame.maxY, expected.minY.rounded(.down) + expected.height.rounded(.up), line: line)
     }
 
     func testTextWrapsUpToItsLineLimit() async throws {
@@ -4165,7 +4165,7 @@ final class ShellWidgetClickTests: XCTestCase {
         XCTAssertEqual(popout.panel.level, .popUpMenu)
         XCTAssertGreaterThan(layout.body.width, size.width)
         XCTAssertEqual(popout.surface.view.frame.size, size)
-        XCTAssertEqual(popout.surface.view.frame.midX, layout.body.midX, accuracy: 0.5)
+        XCTAssertEqual(popout.surface.view.frame.midX, (layout.body.midX - size.width / 2).rounded() + size.width / 2)
         XCTAssertEqual(popout.surface.view.frame.midY, layout.frame.height - layout.body.midY)
         XCTAssertEqual(log.joins, [first.join])
 

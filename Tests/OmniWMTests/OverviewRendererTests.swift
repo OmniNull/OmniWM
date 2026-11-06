@@ -777,7 +777,7 @@ final class OverviewRendererTests: XCTestCase {
 
         XCTAssertEqual(components.count, expected.count, file: file, line: line)
         for (actual, expected) in zip(components, expected) {
-            XCTAssertEqual(actual, expected, accuracy: 0.0001, file: file, line: line)
+            XCTAssertEqual(actual, expected, file: file, line: line)
         }
     }
 }

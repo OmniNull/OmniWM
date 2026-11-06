@@ -173,7 +173,7 @@ final class MouseContainmentTests: XCTestCase {
             XCTFail("Expected wall", file: file, line: line)
             return
         }
-        XCTAssertEqual(clamped.x, expected.x, accuracy: 0.0001, file: file, line: line)
-        XCTAssertEqual(clamped.y, expected.y, accuracy: 0.0001, file: file, line: line)
+        XCTAssertEqual(clamped.x, expected.x, file: file, line: line)
+        XCTAssertEqual(clamped.y, expected.y, file: file, line: line)
     }
 }

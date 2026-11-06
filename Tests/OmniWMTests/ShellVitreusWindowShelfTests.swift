@@ -265,13 +265,17 @@ extension ShellVitreusWindowShelfTests {
         XCTAssertEqual(try VitreusFixture.element(fixture.widget, key: "media-card"), album)
         let preview = try XCTUnwrap(fixture.widget.surface.manipulation?.preview)
         let presented = CGRect(fixture.widget.surface.presentedFrame(of: album))
-        XCTAssertEqual(presented.midX, preview.midX, accuracy: 0.01)
+        XCTAssertEqual(
+            presented.midX,
+            preview.midX,
+            accuracy: .floatRounding(operations: 9, at: fixture.monitor.frame.width)
+        )
         XCTAssertEqual(presented.minY, floatStored(preview.minY + 12 * 1.5525))
         drop(fixture, at: moved)
         let player = try frame(fixture, "drawer-content-player")
         let card = try frame(fixture, "media-card")
         XCTAssertLessThan(try frame(fixture, "window-grip-player").maxY, card.minY)
-        XCTAssertEqual(card.midX, player.midX, accuracy: 0.01)
+        XCTAssertEqual(card.midX, player.midX, accuracy: .floatRounding(operations: 4, at: player.width))
         XCTAssertEqual(card.minY, floatStored(player.minY + 12 * 1.5525))
         let handle = try VitreusFixture.element(fixture.widget, key: "media-card")
         let parent = fixture.widget.surface.layout.core.parent(of: handle)
@@ -303,7 +307,11 @@ extension ShellVitreusWindowShelfTests {
             trigger(fixture, "drawer-" + id)
             let home = try frame(fixture, "drawer-content-" + id)
             try move(fixture, id: id, to: CGPoint(x: 1920 - home.width - 20, y: 300))
-            XCTAssertEqual(try frame(fixture, "drawer-content-" + id).maxX, 1920, accuracy: 0.01)
+            XCTAssertEqual(
+                try frame(fixture, "drawer-content-" + id).maxX,
+                1920,
+                accuracy: .floatRounding(operations: 2, at: 1920)
+            )
             let bulge = try drawers.morph(fixture, id + "-window-bulge")
             XCTAssertEqual(bulge.source?.target, VitreusFixture.key("drawer-content-" + id))
             trigger(fixture, "drawer-" + id)
@@ -337,7 +345,11 @@ extension ShellVitreusWindowShelfTests {
         shelfOpen = false
         show(fixture)
         XCTAssertTrue(has(fixture, "drawer-content-calendar"))
-        XCTAssertEqual(try frame(fixture, "drawer-content-calendar").maxY, 800, accuracy: 0.001)
+        XCTAssertEqual(
+            try frame(fixture, "drawer-content-calendar").maxY,
+            800,
+            accuracy: .floatRounding(operations: 2, at: 800)
+        )
         XCTAssertFalse(has(fixture, "drawer-content-controls"))
         XCTAssertFalse(has(fixture, "drawer-content-player"))
     }

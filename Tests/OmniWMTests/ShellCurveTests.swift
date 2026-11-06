@@ -23,7 +23,7 @@ final class ShellCurveTests: XCTestCase {
         line: UInt = #line
     ) {
         for (value, target) in zip(points(timing), [0, 0] + expected + [1, 1]) {
-            XCTAssertEqual(value, target, accuracy: 0.0001, file: file, line: line)
+            XCTAssertEqual(value, target, file: file, line: line)
         }
     }
 
@@ -64,7 +64,7 @@ final class ShellCurveTests: XCTestCase {
         let frames = try XCTUnwrap(opening.curve.keyframes)
         XCTAssertEqual(frames.progress, [0, 0.4, 1])
         XCTAssertEqual(opening.sample(0.4).opacity, 0.4)
-        XCTAssertEqual(opening.sample(0.4).transform.m42, -6, accuracy: 0.0001)
+        XCTAssertEqual(opening.sample(0.4).transform.m42, -10 * CGFloat(1 - Float(0.4)))
 
         let closing = try XCTUnwrap(enter.plan(
             ShellShaderTransition(from: 1, to: 0, start: 0, duration: 1, forced: true),
@@ -74,7 +74,7 @@ final class ShellCurveTests: XCTestCase {
             size: size
         ))
         XCTAssertEqual(closing.curve, try XCTUnwrap(ShellCurve(wire: 9, custom: nil)).reversed)
-        XCTAssertEqual(closing.sample(0.6).opacity, 0.4, accuracy: 0.0001)
+        XCTAssertEqual(closing.sample(0.6).opacity, 1 - Float(0.6))
 
         let custom = try XCTUnwrap(ShellEnter(Enter(curve: UInt8(OMNI_CURVE_CUSTOM)), curve: "0.1,0.2,0.3,0.4"))
         XCTAssertEqual(custom.curve, ShellCurve(points: [0.1, 0.2, 0.3, 0.4]))
@@ -83,7 +83,8 @@ final class ShellCurveTests: XCTestCase {
 
     func testCurvesGiveTheirValueAtAnyTime() throws {
         let linear = try XCTUnwrap(ShellCurve(wire: 1, custom: nil))
-        XCTAssertEqual(linear.value(at: 0.3), 0.3, accuracy: 0.0001)
+        let xResidual = ShellCurve.solverResidual
+        XCTAssertEqual(linear.value(at: 0.3), 0.3, accuracy: xResidual)
         let spatial = try XCTUnwrap(ShellCurve(wire: 13, custom: nil))
         XCTAssertEqual(spatial.value(at: 0), 0)
         XCTAssertEqual(spatial.value(at: 1), 1)
@@ -102,7 +103,12 @@ final class ShellCurveTests: XCTestCase {
         let deforms = ShellStretch.deforms(positions: moving, amount: 0.1)
         let peak = deforms.map(\.d).max() ?? 1
         XCTAssertEqual(peak, 1.02, accuracy: 0.004)
-        XCTAssertEqual(deforms[steps / 2].a, 1 / deforms[steps / 2].d, accuracy: 0.004)
+        let stretch: CGFloat = 2000 * 0.1 / 10000
+        XCTAssertEqual(
+            deforms[steps / 2].a,
+            1 / deforms[steps / 2].d,
+            accuracy: stretch * stretch / (4 * (1 + stretch))
+        )
         XCTAssertEqual(deforms[steps / 2].b, 0)
         XCTAssertEqual(deforms.last, .identity)
 

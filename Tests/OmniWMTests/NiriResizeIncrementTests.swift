@@ -118,7 +118,7 @@ final class NiriResizeIncrementTests: XCTestCase {
             guard case let .fixed(value) = fixture.window.height else {
                 return XCTFail("Expected fixed window span")
             }
-            XCTAssertEqual(value, expected, accuracy: 0.000001)
+            XCTAssertEqual(value, expected, accuracy: CGFloat.rounding(operations: 20, at: fixture.secondarySpan))
         }
     }
 

@@ -10,23 +10,23 @@ import XCTest
 final class OverviewNativeAnimationTests: XCTestCase {
     func testNativeTransitionMatchesMissionControlCriticalSpring() {
         let transition = OverviewNativeTransition(generation: 1, startTime: 100, from: 0, to: 1)
+        let frequency = 2 * Double.pi / OverviewNativeTransition.response
         let reference = SpringAnimation(
             from: 0,
             to: 1,
             startTime: 100,
-            config: SpringConfig(dampingRatio: 1, stiffness: pow(2 * Double.pi / 0.25, 2), epsilon: 0.001)
+            config: SpringConfig(dampingRatio: 1, stiffness: frequency * frequency, epsilon: 0.001)
         )
 
         for elapsed in [0.0, 0.01, 0.04, 0.1, 0.2] {
             XCTAssertEqual(
                 transition.value(at: 100 + elapsed),
-                reference.value(at: 100 + elapsed),
-                accuracy: 0.000000001
+                reference.value(at: 100 + elapsed)
             )
             XCTAssertEqual(
                 transition.velocity(at: 100 + elapsed),
                 reference.velocity(at: 100 + elapsed),
-                accuracy: 0.000000001
+                accuracy: Double.rounding(operations: 8, at: frequency * (1 + frequency * elapsed))
             )
         }
         let animation = transition.makeAnimation(keyPath: "position")
@@ -65,8 +65,8 @@ final class OverviewNativeAnimationTests: XCTestCase {
                         to: target,
                         initialVelocity: velocity
                     )
-                    XCTAssertEqual(transition.value(at: 100), progress, accuracy: 0.000000000001)
-                    XCTAssertEqual(transition.velocity(at: 100), velocity, accuracy: 0.000000000001)
+                    XCTAssertEqual(transition.value(at: 100), target + (progress - target))
+                    XCTAssertEqual(transition.velocity(at: 100), velocity)
                     XCTAssertLessThanOrEqual(transition.duration, 0.6)
                     XCTAssertEqual(transition.value(at: 101 + transition.duration), target)
                     XCTAssertEqual(transition.velocity(at: 101 + transition.duration), 0)
@@ -93,28 +93,50 @@ final class OverviewNativeAnimationTests: XCTestCase {
         }
         XCTAssertEqual(OverviewNativeTransition.rubberBand(1.1), 1.0464788732394366)
         XCTAssertEqual(
-            OverviewNativeTransition.rubberBand(-0.1),
-            1 - OverviewNativeTransition.rubberBand(1.1),
-            accuracy: 0.000000000001
+            OverviewNativeTransition.rubberBand(1.1),
+            1 - OverviewNativeTransition.rubberBand(-(1.1 - 1))
         )
-        XCTAssertEqual((OverviewNativeTransition.rubberBand(1 + 0.000001) - 1) / 0.000001, 0.55, accuracy: 0.0001)
-        XCTAssertEqual(OverviewNativeTransition.rubberBand(1_000_000), 1.3, accuracy: 0.0001)
-        XCTAssertEqual(OverviewNativeTransition.rubberBand(-1_000_000), -0.3, accuracy: 0.0001)
+        let coefficient = 0.55
+        let dimension = 0.30
+        let step = 0.000001
+        XCTAssertEqual(
+            (OverviewNativeTransition.rubberBand(1 + step) - 1) / step,
+            coefficient,
+            accuracy: coefficient * coefficient * step / dimension + Double.rounding(operations: 2, at: 1 + step) / step
+        )
+        XCTAssertEqual(
+            OverviewNativeTransition.rubberBand(1_000_000),
+            1 + dimension,
+            accuracy: dimension * dimension / (coefficient * 999_999)
+        )
+        XCTAssertEqual(
+            OverviewNativeTransition.rubberBand(-1_000_000),
+            -dimension,
+            accuracy: dimension * dimension / (coefficient * 1_000_000)
+        )
         for raw in [-1_000_000_000.0, -5, -1, -0.5, 1.5, 2, 5, 1_000_000_000] {
             let progress = OverviewNativeTransition.rubberBand(raw)
             XCTAssertGreaterThanOrEqual(progress, -0.3)
             XCTAssertLessThanOrEqual(progress, 1.3)
         }
         for excess in [0.01, 0.05, 0.1, 0.25, 0.8, 2.0] {
+            let slope = (dimension + coefficient * excess) * (dimension + coefficient * excess) /
+                (coefficient * dimension * dimension)
             XCTAssertEqual(
                 OverviewNativeTransition.rubberBandInverse(OverviewNativeTransition.rubberBand(1 + excess)),
                 1 + excess,
-                accuracy: 0.000000001
+                accuracy: slope * Double.rounding(operations: 2, at: 1 + dimension) + Double.rounding(
+                    operations: 5,
+                    at: 1 + excess
+                )
             )
             XCTAssertEqual(
                 OverviewNativeTransition.rubberBandInverse(OverviewNativeTransition.rubberBand(-excess)),
                 -excess,
-                accuracy: 0.000000001
+                accuracy: slope * Double.rounding(operations: 5, at: dimension) + Double.rounding(
+                    operations: 4,
+                    at: excess
+                )
             )
         }
         XCTAssertTrue(OverviewNativeTransition.rubberBandInverse(1.35).isFinite)
@@ -163,13 +185,10 @@ final class OverviewNativeAnimationTests: XCTestCase {
             initialVelocity: 3,
             response: 0.2
         )
-        XCTAssertEqual(
-            transition.makeAnimation(keyPath: "opacity").stiffness,
-            pow(2 * Double.pi / 0.2, 2),
-            accuracy: 0.000000001
-        )
-        XCTAssertEqual(transition.value(at: 0), 0.3, accuracy: 0.000000000001)
-        XCTAssertEqual(transition.velocity(at: 0), 3, accuracy: 0.000000000001)
+        let frequency = CGFloat(2 * Double.pi / 0.2)
+        XCTAssertEqual(transition.makeAnimation(keyPath: "opacity").stiffness, frequency * frequency)
+        XCTAssertEqual(transition.value(at: 0), 1 + (0.3 - 1))
+        XCTAssertEqual(transition.velocity(at: 0), 3)
     }
 
     func testNativeReversalPreservesCurrentProgressAndVelocity() {
@@ -183,8 +202,8 @@ final class OverviewNativeAnimationTests: XCTestCase {
             initialVelocity: opening.velocity(at: reversedAt)
         )
 
-        XCTAssertEqual(closing.value(at: reversedAt), opening.value(at: reversedAt), accuracy: 0.000000001)
-        XCTAssertEqual(closing.velocity(at: reversedAt), opening.velocity(at: reversedAt), accuracy: 0.000000001)
+        XCTAssertEqual(closing.value(at: reversedAt), opening.value(at: reversedAt))
+        XCTAssertEqual(closing.velocity(at: reversedAt), opening.velocity(at: reversedAt))
         XCTAssertLessThan(closing.makeAnimation(keyPath: "opacity").initialVelocity, 0)
         XCTAssertEqual(closing.value(at: reversedAt + closing.duration + 1), 0)
         XCTAssertEqual(closing.velocity(at: reversedAt + closing.duration + 1), 0)

@@ -656,7 +656,7 @@ final class NiriWorkspaceMonitorMoveTests: XCTestCase {
     ) {
         XCTAssertEqual(state.selectedNodeId, selectedNodeId, file: file, line: line)
         XCTAssertEqual(state.activeColumnIndex, activeColumnIndex, file: file, line: line)
-        XCTAssertEqual(state.viewOffset, viewOffset, accuracy: 0.001, file: file, line: line)
+        XCTAssertEqual(state.viewOffset, viewOffset, file: file, line: line)
     }
 
     private func makeManager(source: Monitor, destination: Monitor) -> WorkspaceManager {

@@ -196,7 +196,7 @@ final class ShellManipulationWireTests: XCTestCase {
             XCTAssertEqual(recipe.mode, .scale)
             XCTAssertEqual(recipe.resizeMask, UInt8(mask))
             XCTAssertEqual(recipe.target, nodes[0].key)
-            XCTAssertEqual(recipe.inset.width, 6.5 / 353, accuracy: 0.000001)
+            XCTAssertEqual(Double(recipe.inset.width), try XCTUnwrap(Double("\(Float(6.5 / 353))")))
             XCTAssertEqual(recipe.inset.height, 0)
             XCTAssertEqual(source.input_flags & UInt8(OMNI_INPUT_GESTURE_ALL), 0)
         }

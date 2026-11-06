@@ -1456,7 +1456,7 @@ final class OverviewBehaviorTests: XCTestCase {
 
         animator.startCloseAnimation(targetWindow: nil, displayIds: [displayId])
 
-        XCTAssertEqual(animator.currentProgress, openingProgress, accuracy: 0.000_000_1)
+        XCTAssertEqual(animator.currentProgress, openingProgress)
         XCTAssertEqual(animator.activeDisplayIds, [displayId])
     }
 
@@ -1494,7 +1494,7 @@ final class OverviewBehaviorTests: XCTestCase {
 
         XCTAssertGreaterThan(openingGeneration, closingGeneration)
         XCTAssertEqual(animator.currentProgress, closingProgress)
-        XCTAssertEqual(animator.currentVelocity, closingVelocity, accuracy: 0.000_000_1)
+        XCTAssertEqual(animator.currentVelocity, closingVelocity)
         XCTAssertEqual(animator.activeDisplayIds, [firstDisplayId, secondDisplayId])
         XCTAssertEqual(startedSessions.count, 4)
         XCTAssertEqual(Set(startedSessions.suffix(2).map(\.1)), [openingGeneration])
@@ -1693,13 +1693,13 @@ final class OverviewBehaviorTests: XCTestCase {
         let transition = try XCTUnwrap(harness.installed.last)
         XCTAssertEqual(transition.from, 0.5)
         XCTAssertEqual(transition.target, 1)
-        XCTAssertEqual(transition.initialVelocity, 5, accuracy: 0.000000001)
+        XCTAssertEqual(transition.initialVelocity, 0.5 / (100.1 - 100))
         XCTAssertEqual(
             transition.response,
             OverviewNativeTransition.compressedResponse(forReleaseVelocity: 5)
         )
         XCTAssertEqual(transition.startTime, 100.1)
-        XCTAssertEqual(overview.transitionProgress, 0.5, accuracy: 0.000000000001)
+        XCTAssertEqual(overview.transitionProgress, 0.5)
 
         try harness.completeLastTransition()
         guard case .open = overview.state else { return XCTFail("Expected the committed spring to open") }
@@ -1811,7 +1811,7 @@ final class OverviewBehaviorTests: XCTestCase {
         XCTAssertEqual(harness.installed.count, 1)
         overview.updateInteractiveTransition(cumulativeUnits: 0, timestamp: 10)
         overview.updateInteractiveTransition(cumulativeUnits: -240, timestamp: 10.1)
-        XCTAssertEqual(overview.transitionProgress, 0.2, accuracy: 0.000000000001)
+        XCTAssertEqual(overview.transitionProgress, 1 + TrackpadGestureIntent.overviewProgress(units: -240))
 
         harness.clock.time = 10.6
         overview.endInteractiveTransition(timestamp: 10.6)
@@ -1820,7 +1820,7 @@ final class OverviewBehaviorTests: XCTestCase {
         XCTAssertEqual(target, selectedHandle)
         XCTAssertEqual(harness.installed.count, 2)
         let transition = try XCTUnwrap(harness.installed.last)
-        XCTAssertEqual(transition.from, 0.2, accuracy: 0.000000000001)
+        XCTAssertEqual(transition.from, 1 + TrackpadGestureIntent.overviewProgress(units: -240))
         XCTAssertEqual(transition.target, 0)
         XCTAssertEqual(transition.initialVelocity, 0)
         XCTAssertEqual(harness.activations, 1)
@@ -1853,7 +1853,7 @@ final class OverviewBehaviorTests: XCTestCase {
         XCTAssertEqual(harness.installed.count, 2)
         XCTAssertEqual(transition.target, 1)
         XCTAssertEqual(transition.from, 0.6)
-        XCTAssertEqual(transition.initialVelocity, 5, accuracy: 0.000000001)
+        XCTAssertEqual(transition.initialVelocity, (0.6 - 0.5) / (10.32 - 10.3))
 
         try harness.completeLastTransition()
         guard case .open = overview.state else { return XCTFail("Expected the reopened spring to settle open") }
@@ -1881,19 +1881,22 @@ final class OverviewBehaviorTests: XCTestCase {
         XCTAssertTrue(overview.isInteractiveTransitionActive)
         guard case .opening = overview.state else { return XCTFail("Expected a stale completion to be ignored") }
 
+        let anchor = TrackpadGestureIntent.overviewProgress(units: 100)
+        let anchored = caught + anchor - anchor
+        let tracked = caught + TrackpadGestureIntent.overviewProgress(units: 130) - anchor
         overview.updateInteractiveTransition(cumulativeUnits: 100, timestamp: 0.05)
-        XCTAssertEqual(overview.transitionProgress, caught, accuracy: 0.000000000001)
+        XCTAssertEqual(overview.transitionProgress, anchored)
         overview.updateInteractiveTransition(cumulativeUnits: 130, timestamp: 0.1)
-        XCTAssertEqual(overview.transitionProgress, caught + 0.1, accuracy: 0.000000000001)
+        XCTAssertEqual(overview.transitionProgress, tracked)
 
         harness.clock.time = 0.1
         overview.endInteractiveTransition(timestamp: 0.1)
 
         XCTAssertEqual(harness.installed.count, 2)
         let transition = try XCTUnwrap(harness.installed.last)
-        XCTAssertEqual(transition.from, caught + 0.1, accuracy: 0.000000000001)
+        XCTAssertEqual(transition.from, tracked)
         XCTAssertEqual(transition.target, 1)
-        XCTAssertEqual(transition.initialVelocity, 2, accuracy: 0.000000001)
+        XCTAssertEqual(transition.initialVelocity, ((anchored - caught) + (tracked - anchored)) / (0.1 - 0.05))
         try harness.completeLastTransition()
         guard case .open = overview.state else { return XCTFail("Expected the resumed flight to open") }
         overview.completeCloseTransition(targetWindow: nil)
@@ -2011,9 +2014,13 @@ final class OverviewBehaviorTests: XCTestCase {
             XCTAssertFalse(overview.isInteractiveTransitionActive)
             XCTAssertEqual(harness.installed.count, 1)
             let transition = try XCTUnwrap(harness.installed.last)
-            XCTAssertEqual(transition.from, aboveHalf ? 0.7 : 0.1, accuracy: 0.000000000001)
+            XCTAssertEqual(
+                transition.from,
+                TrackpadGestureIntent.overviewProgress(units: aboveHalf ? 230 : 50)
+                    - TrackpadGestureIntent.overviewProgress(units: 20)
+            )
             overview.updateInteractiveTransition(cumulativeUnits: 300, timestamp: 100.2)
-            XCTAssertEqual(overview.transitionProgress, transition.from, accuracy: 0.000000000001)
+            XCTAssertEqual(overview.transitionProgress, transition.target + (transition.from - transition.target))
             if aboveHalf {
                 guard case let .closing(target) = overview.state else {
                     return XCTFail("Expected the hotkey above half to close")
@@ -2049,7 +2056,7 @@ final class OverviewBehaviorTests: XCTestCase {
         XCTAssertEqual(transition.from, 0.3)
         XCTAssertEqual(transition.target, 0)
         overview.updateInteractiveTransition(cumulativeUnits: 300, timestamp: 100.6)
-        XCTAssertEqual(overview.transitionProgress, 0.3, accuracy: 0.000000000001)
+        XCTAssertEqual(overview.transitionProgress, 0.3)
         try harness.completeLastTransition()
         XCTAssertFalse(overview.state.isOpen)
     }
@@ -2302,7 +2309,7 @@ final class OverviewBehaviorTests: XCTestCase {
         XCTAssertEqual(selected, target)
         XCTAssertEqual(manager.activeWorkspace(on: monitor.id)?.id, destination)
         XCTAssertEqual(view.layout.anchorWorkspaceId, destination)
-        XCTAssertEqual(harness.installed.last?.from ?? -1, 0.2, accuracy: 0.000000001)
+        XCTAssertEqual(harness.installed.last?.from ?? -1, 1 + TrackpadGestureIntent.overviewProgress(units: -240))
         XCTAssertEqual(harness.installed.last?.target, 0)
         while let task = fixture.controller.layoutRefreshController.layoutState.activeRefreshTask { await task.value }
         try harness.completeLastTransition()

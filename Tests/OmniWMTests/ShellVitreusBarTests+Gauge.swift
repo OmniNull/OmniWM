@@ -93,7 +93,11 @@ extension ShellVitreusBarTests {
             x: x, y: pill.midY - tall / 2, width: full, height: tall
         ))
         let nub = try VitreusFixture.frame(calm, key: "battery-track-nub")
-        XCTAssertEqual(nub.midX, x + full + 3.1 * unit, accuracy: 0.001)
+        XCTAssertEqual(
+            nub.midX,
+            x + full + 3.1 * unit,
+            accuracy: .floatRounding(operations: 8, at: x + full + 3.1 * unit)
+        )
         XCTAssertEqual(nub.width, floatStored(7 * unit))
         XCTAssertEqual(nub.height, floatStored(0.56 * tall))
         Self.assertRect(try VitreusFixture.frame(calm, key: "battery-fill-shape"), CGRect(
@@ -511,7 +515,7 @@ extension ShellVitreusBarTests {
         let label = "vitreus-bar-pieces-1920x1080-\(scale)x-title-tab"
         print("vitreus-title-tab-reach \(label) without \(reach(flat)) with \(reach(tabbed)) vitreus \(vitreus)")
         XCTAssertEqual(reach(flat), 0, label)
-        XCTAssertEqual(reach(tabbed), vitreus, accuracy: 1, label)
+        XCTAssertEqual(reach(tabbed), vitreus, accuracy: 1 / CGFloat(scale), label)
         try ShellVitreusDeskTests.write(XCTUnwrap(tabbed.image()), name: label)
     }
 }

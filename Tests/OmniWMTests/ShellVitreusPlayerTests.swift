@@ -106,12 +106,12 @@ extension ShellVitreusPlayerTests {
         let full = try VitreusFixture.frame(fixture.widget, key: "drawer-content-player")
         XCTAssertEqual(media.width, floatStored(288 * 1.5525))
         XCTAssertEqual(media.height, floatStored(148 * 1.5525))
-        XCTAssertEqual(media.minX - full.minX, 20 * 1.5525, accuracy: 0.001)
+        XCTAssertEqual(media.minX - full.minX, 20 * 1.5525, accuracy: .floatRounding(operations: 6, at: media.minX))
         XCTAssertEqual(media.minY - full.minY, floatStored(22 * 1.5525))
         XCTAssertEqual(full.height, floatStored((55.5 + 14 + 156) * 1.5525))
         let cover = try VitreusFixture.frame(fixture.widget, key: "player-media-cover-fallback")
         XCTAssertEqual(cover.width, floatStored(72 * 1.5525))
-        XCTAssertEqual(cover.minX - media.minX, 12 * 1.5525, accuracy: 0.001)
+        XCTAssertEqual(cover.minX - media.minX, 12 * 1.5525, accuracy: .floatRounding(operations: 6, at: cover.minX))
         fixture.widget.set("media") { $0.null() }
         fixture.bar.workspaces = [workspace("4", windows: [row("only-this-display", "Here")])]
         show(fixture)
@@ -136,12 +136,17 @@ extension ShellVitreusPlayerTests {
         for (index, frame) in frames.enumerated() {
             XCTAssertEqual(frame.width, floatStored(288 * 1.5525))
             XCTAssertEqual(frame.height, floatStored(36 * 1.5525))
-            XCTAssertEqual(frame.minY - frames[0].minY, Double(index) * 40 * 1.5525, accuracy: 0.001)
+            let rows = (0 ..< index).reduce(Float(0)) { sum, _ in sum + (Float(36 * 1.5525) + Float(4 * 1.5525)) }
+            XCTAssertEqual(
+                frame.minY - frames[0].minY,
+                Double(rows),
+                accuracy: .floatRounding(operations: 5, at: frame.minY)
+            )
         }
         let badge = try VitreusFixture.frame(fixture.widget, key: "player-task-badge-active")
         let number = try VitreusFixture.frame(fixture.widget, key: "player-task-workspace-active")
-        XCTAssertEqual(number.midX, badge.midX, accuracy: 0.001)
-        XCTAssertEqual(number.midY, badge.midY, accuracy: 0.001)
+        XCTAssertEqual(number.midX, badge.midX, accuracy: .floatRounding(operations: 6, at: number.midX))
+        XCTAssertEqual(number.midY, badge.midY, accuracy: .floatRounding(operations: 10, at: number.midY))
         XCTAssertFalse(has(fixture, "player-task-z3"))
         let scroll = try VitreusFixture.frame(fixture.widget, key: "player-tasks")
         XCTAssertEqual(scroll.height, floatStored(236 * 1.5525))
@@ -247,7 +252,11 @@ extension ShellVitreusPlayerTests {
         }
         let knob = try VitreusFixture.frame(fixture.widget, key: "player-media-seek-knob")
         let plate = try VitreusFixture.frame(fixture.widget, key: "player-media")
-        XCTAssertEqual(knob.midX - plate.minX, (48 + 192 * 35 / 240) * 1.5525, accuracy: 0.001)
+        XCTAssertEqual(
+            knob.midX - plate.minX,
+            (48 + 192 * 35 / 240) * 1.5525,
+            accuracy: .floatRounding(operations: 9, at: knob.midX)
+        )
         let input = try content(fixture, "player-media-seek")
         var down = ShellEvent(button: .left)
         down.phase = .down

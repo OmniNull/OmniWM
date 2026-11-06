@@ -199,8 +199,8 @@ extension ShellVitreusBarTests {
                 let expected = Self.contourPoints(old)
                 XCTAssertEqual(actual.count, expected.count)
                 for (actual, expected) in zip(actual, expected) {
-                    XCTAssertEqual(actual.x, expected.x, accuracy: 0.0011)
-                    XCTAssertEqual(actual.y, expected.y, accuracy: 0.0011)
+                    XCTAssertEqual(actual.x, expected.x, accuracy: .floatRounding(operations: 4, at: pill.maxX))
+                    XCTAssertEqual(actual.y, expected.y, accuracy: .floatRounding(operations: 4, at: pill.maxY))
                 }
             }
         }
@@ -239,7 +239,11 @@ extension ShellVitreusBarTests {
             }
             for elapsed in [0.0, 0.05, 0.10, 0.20, 0.60] {
                 let sample = entry.shape(at: entry.begin + elapsed)
-                XCTAssertEqual(sample.radius, min(sample.rect.width, sample.rect.height) * baseRadius, accuracy: 1e-9)
+                XCTAssertEqual(
+                    sample.radius,
+                    min(sample.rect.width, sample.rect.height) * baseRadius,
+                    accuracy: .rounding(operations: 4, at: sample.radius)
+                )
             }
             let stretched = entry.shape(at: entry.begin + 0.05)
             XCTAssertGreaterThan(stretched.rect.width, entry.base.target.rect.width + 5)

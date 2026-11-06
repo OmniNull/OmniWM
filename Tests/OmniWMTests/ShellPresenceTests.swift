@@ -183,7 +183,7 @@ final class ShellPresenceTests: XCTestCase {
         let values = try XCTUnwrap(animation.values as? [NSNumber])
         XCTAssertEqual(values.count, 3)
         XCTAssertEqual(values.first?.doubleValue ?? -1, floatStored(0.2))
-        XCTAssertEqual(values[1].doubleValue, 0.5, accuracy: 0.0001)
+        XCTAssertEqual(values[1].doubleValue, floatStored(0.2) + (floatStored(0.8) - floatStored(0.2)) * 0.5)
         XCTAssertEqual(values.last?.doubleValue ?? -1, floatStored(0.8))
     }
 

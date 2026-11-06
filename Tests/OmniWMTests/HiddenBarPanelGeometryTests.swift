@@ -104,7 +104,8 @@ final class HiddenBarPanelGeometryTests: XCTestCase {
             let layout = attachedPlacement(bar: bar, edge: .below).layout(size: CGSize(width: width, height: 24))
             let body = screenRect(layout.body, in: layout)
             XCTAssertTrue(layout.squaresBar)
-            XCTAssertEqual(body.width, expected, accuracy: 0.001)
+            let origin = (bar.minX + bar.maxX - expected) / 2
+            XCTAssertEqual(body.width, origin + expected - origin)
             XCTAssertEqual(body.midX, bar.midX)
             XCTAssertEqual(screenRect(try XCTUnwrap(layout.seam), in: layout).minX, bar.minX)
             XCTAssertEqual(screenRect(try XCTUnwrap(layout.seam), in: layout).maxX, bar.maxX)

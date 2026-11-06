@@ -49,7 +49,10 @@ extension ShellManipulationSurfaceTests {
                 clock.now += 2
             } else {
                 let state = try wrapper(fixture)
-                XCTAssertEqual(state.layer.transform.m11, 13 / 18, accuracy: 1e-6)
+                XCTAssertEqual(
+                    state.layer.transform.m11,
+                    Self.home.width * (1 - 50 / (Self.home.width + Self.home.height)) / Self.home.width
+                )
                 XCTAssertEqual(state.layer.transform.m41, 0)
             }
             let presentation = try XCTUnwrap(surface.presentation)

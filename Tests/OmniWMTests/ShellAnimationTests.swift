@@ -55,7 +55,10 @@ final class ShellAnimationTests: XCTestCase {
         XCTAssertTrue(bouncy is CASpringAnimation)
         XCTAssertEqual(bouncy.duration, (bouncy as? CASpringAnimation)?.settlingDuration ?? 0)
         XCTAssertTrue(smooth is CASpringAnimation)
-        XCTAssertEqual((smooth as? CASpringAnimation)?.bounce ?? -1, 0, accuracy: 0.001)
+        XCTAssertEqual(
+            (smooth as? CASpringAnimation)?.bounce ?? -1,
+            CASpringAnimation(perceptualDuration: 0.4, bounce: 0).bounce
+        )
     }
 
     func testHoverPaintsTheHoverMaterialFillScaleAndOpacity() {

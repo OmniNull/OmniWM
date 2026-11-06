@@ -36,8 +36,16 @@ final class OverviewDropResolutionTests: XCTestCase {
                 return XCTFail("Expected floating placement at scale \(scale)")
             }
             XCTAssertEqual(destination, .workspace(workspaceId))
-            XCTAssertEqual(frame.minX, -980, accuracy: 0.000000001)
-            XCTAssertEqual(frame.minY, 50, accuracy: 0.000000001)
+            let desktopScale = section.visibleFrame.width / monitor.frame.width
+            XCTAssertEqual(
+                frame.minX,
+                monitor.frame.minX + (point.x - section.visibleFrame.minX) / desktopScale - size.width / 2
+            )
+            XCTAssertEqual(
+                frame.minY,
+                monitor.frame.minY + (point.y + layout.scrollOffset - section.visibleFrame.minY) / desktopScale - size
+                    .height / 2
+            )
             XCTAssertEqual(frame.size, size)
             XCTAssertEqual(preview.width, size.width * section.contentScale)
             XCTAssertEqual(preview.midX, point.x)

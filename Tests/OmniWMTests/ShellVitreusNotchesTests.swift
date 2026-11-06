@@ -120,7 +120,11 @@ final class ShellVitreusNotchesTests: XCTestCase {
 extension ShellVitreusNotchesTests {
     func testThreePiecesTakeTheVitreusSegmentGeometryAndTheTitleSlotStaysFixed() throws {
         var fixture = try fixture()
-        XCTAssertEqual(try frame(fixture, "bar-clock").midX, 960 - 164 * unit / 2, accuracy: 0.001)
+        XCTAssertEqual(
+            try frame(fixture, "bar-clock").midX,
+            960 - 164 * unit / 2,
+            accuracy: .floatRounding(operations: 4, at: 960)
+        )
         let span = try middle(fixture)
         let expected = [
             ("notch-left", CGRect(x: -12 * unit, y: -12 * unit, width: (136 + markIcons) * unit, height: 48 * unit)),
@@ -147,16 +151,20 @@ extension ShellVitreusNotchesTests {
         }
         let title = try frame(fixture, "title-button")
         XCTAssertEqual(title.width, 150 * unit)
-        XCTAssertEqual(title.minX, span.from + 26 * unit + (try clockWidth(fixture)) + 14 * unit, accuracy: 0.001)
+        XCTAssertEqual(
+            title.minX,
+            span.from + 26 * unit + (try clockWidth(fixture)) + 14 * unit,
+            accuracy: .floatRounding(operations: 6, at: 960)
+        )
         XCTAssertEqual(
             try frame(fixture, "title-text").minX, (title.minX + 6 * unit + 0.5).rounded(.down)
         )
         let controls = try frame(fixture, "bar-controls")
         let logo = try frame(fixture, "bar-omniwm")
         let search = try frame(fixture, "bar-search")
-        XCTAssertEqual(controls.midX, 1920 - 32.5 * unit, accuracy: 0.001)
-        XCTAssertEqual(logo.midX, 1920 - 58.5 * unit, accuracy: 0.001)
-        XCTAssertEqual(search.midX, 1920 - (84 + statsRoom) * unit, accuracy: 0.001)
+        XCTAssertEqual(controls.midX, 1920 - 32.5 * unit, accuracy: .floatRounding(operations: 4, at: 1920))
+        XCTAssertEqual(logo.midX, 1920 - 58.5 * unit, accuracy: .floatRounding(operations: 4, at: 1920))
+        XCTAssertEqual(search.midX, 1920 - (84 + statsRoom) * unit, accuracy: .floatRounding(operations: 4, at: 1920))
         for key in ["bar-controls", "bar-clock", "title-button"] {
             XCTAssertEqual(try frame(fixture, key).minY, 0, key)
             XCTAssertEqual(try frame(fixture, key).height, floatStored(36 * unit), key)
@@ -173,7 +181,7 @@ extension ShellVitreusNotchesTests {
         let glass = try VitreusFixture.element(fixture.widget, key: "bar")
         let layout = fixture.widget.surface.layout
         let recipe = try XCTUnwrap(ShellGlassRecipe(fixture.widget.text.string(layout.core.content(of: glass).text)))
-        XCTAssertEqual(recipe.blend, 28 * unit, accuracy: 1e-6)
+        XCTAssertEqual(recipe.blend, recipeStored(28 * unit))
         for key in ["notch-left", "notch-middle", "notch-right"] {
             let shape = try VitreusFixture.element(fixture.widget, key: key)
             guard case let .spring(response, bounce)? = fixture.widget.surface.animation(for: shape)?.motion else {
@@ -186,8 +194,8 @@ extension ShellVitreusNotchesTests {
             XCTAssertEqual(reveal.response, 0.513, key)
             let morph = try morph(fixture, key)
             XCTAssertEqual(morph.stop(at: 1).height, 1, key)
-            XCTAssertEqual(morph.stop(at: 0).height, 20 * unit / (48 * unit), accuracy: 1e-6, key)
-            XCTAssertEqual(morph.stop(at: 0).dy, -(28 * unit) / 2, accuracy: 1e-6, key)
+            XCTAssertEqual(morph.stop(at: 0).height, recipeStored(20 * unit / (48 * unit)), key)
+            XCTAssertEqual(morph.stop(at: 0).dy, recipeStored(-(28 * unit) / 2), key)
         }
         let handle = try VitreusFixture.element(fixture.widget, key: "frame")
         let ring = try XCTUnwrap(ShellLayerScene.engineQueue.sync {
@@ -195,7 +203,7 @@ extension ShellVitreusNotchesTests {
         })
         let hole = ring.rect.insetBy(dx: ring.thickness, dy: ring.thickness)
         for value in [hole.minX, 1920 - hole.maxX, hole.minY, 1080 - hole.maxY] {
-            XCTAssertEqual(value, 8 * unit, accuracy: 0.001)
+            XCTAssertEqual(value, 8 * unit, accuracy: .floatRounding(operations: 3, at: ring.rect.width))
         }
         XCTAssertGreaterThanOrEqual(-ring.rect.minX, 2 * 28 * unit)
         let before = try frame(fixture, "notch-middle")
@@ -209,8 +217,16 @@ extension ShellVitreusNotchesTests {
         let after = try frame(fixture, "notch-middle")
         XCTAssertEqual(after.minX, floatStored(span.from))
         XCTAssertEqual(after.maxX, floatStored(span.to))
-        XCTAssertEqual(after.width - before.width, tray + 12 * unit, accuracy: 0.001)
-        XCTAssertEqual(try frame(fixture, "tray-item-1").midX - 9 * unit, span.to - 26 * unit - tray, accuracy: 0.5)
+        XCTAssertEqual(
+            after.width - before.width,
+            tray + 12 * unit,
+            accuracy: .floatRounding(operations: 2, at: after.width)
+        )
+        XCTAssertEqual(
+            try frame(fixture, "tray-item-1").midX - 9 * unit,
+            (span.to - 26 * unit - tray + 0.5).rounded(.down),
+            accuracy: .floatRounding(operations: 4, at: span.to)
+        )
     }
 
     func testRightTabOpensTheDeskWhileTheOpenerAndTitleTabStayHidden() throws {
@@ -218,14 +234,19 @@ extension ShellVitreusNotchesTests {
         XCTAssertFalse(has(fixture, "desk-opener"))
         XCTAssertFalse(has(fixture, "shell"))
         XCTAssertFalse(has(fixture, "frame-hover-top"))
+        let centre = (46 * unit + 1080 - 8 * unit) / 2
         for name in ["left", "right"] {
             XCTAssertEqual(
                 try frame(fixture, "frame-hover-" + name).midY,
-                (46 * unit + 1080 - 8 * unit) / 2,
-                accuracy: 0.001
+                centre,
+                accuracy: .floatRounding(operations: 2, at: centre)
             )
         }
-        XCTAssertEqual(try frame(fixture, "frame-hover-bottom").midX, 960, accuracy: 0.001)
+        XCTAssertEqual(
+            try frame(fixture, "frame-hover-bottom").midX,
+            960,
+            accuracy: .floatRounding(operations: 2, at: 960)
+        )
         let hot = try frame(fixture, "frame-hover-right")
         hover(fixture, at: CGPoint(x: hot.midX, y: hot.midY))
         XCTAssertTrue(has(fixture, "frame-tab-right"))
@@ -370,10 +391,10 @@ extension ShellVitreusNotchesTests {
         trigger(fixture, "drawer-controls")
         let controls = try frame(fixture, "drawer-frame-controls")
         let centre = 1920 - 8 * unit - 162.5 * cu
-        XCTAssertEqual(controls.midX, centre + 7 * unit, accuracy: 0.001)
+        XCTAssertEqual(controls.midX, centre + 7 * unit, accuracy: .floatRounding(operations: 2, at: controls.midX))
         XCTAssertEqual(controls.minY, floatStored(-12 * unit))
         let slide = try morph(fixture, "drawer-frame-controls").stop(at: 0).dx
-        XCTAssertEqual(slide, 1920 - 32.5 * unit - centre, accuracy: 0.001)
+        XCTAssertEqual(slide, recipeStored(1920 - 32.5 * unit - centre))
         for name in ["controls", "calendar"] {
             for phase in ["open", "close"] {
                 for sign in ["-1", "1"] {
@@ -411,9 +432,21 @@ extension ShellVitreusNotchesTests {
         let numbers = ShellVitreusBarTests.numbers(fixture.widget.text.string(layout.core.content(of: main).text)
             .replacingOccurrences(of: "M", with: " ").replacingOccurrences(of: "Q", with: " "))
         XCTAssertEqual(numbers.count, 10)
-        XCTAssertEqual(zone.minX + numbers[4], right - column / 2, accuracy: 0.25)
-        XCTAssertEqual(numbers[5], 18 * unit - 0.5, accuracy: 0.25)
-        XCTAssertEqual(numbers[8] - numbers[0], 0.6 * column, accuracy: 0.5)
+        func jitter(_ seed: Double) -> Double {
+            0.15 * unit * sin(seed * (.pi / 180))
+        }
+        let halfDecimal = 0.0005
+        XCTAssertEqual(
+            zone.minX + numbers[4],
+            right - column / 2 + jitter(42400 + 97),
+            accuracy: halfDecimal + .floatRounding(operations: 1, at: zone.width)
+        )
+        XCTAssertEqual(numbers[5], pathNumber(18 * unit - 0.5 + jitter(42400 + 97 + 60)))
+        XCTAssertEqual(
+            numbers[8] - numbers[0],
+            0.6 * column + jitter(42400 + 2 * 97) - jitter(42400),
+            accuracy: 2 * halfDecimal
+        )
         XCTAssertLessThan(day.midY, numbers[5])
         XCTAssertGreaterThan(meridiem.midY, numbers[5])
     }

@@ -49,8 +49,21 @@ final class SkyLightPositionConversionTests: XCTestCase {
         file: StaticString = #filePath,
         line: UInt = #line
     ) {
-        XCTAssertEqual(actual.x, expected.x, accuracy: 0.001, file: file, line: line)
-        XCTAssertEqual(actual.y, expected.y, accuracy: 0.001, file: file, line: line)
+        let span = max(ScreenCoordinateSpace.globalFrame.maxX, ScreenCoordinateSpace.globalFrame.maxY)
+        XCTAssertEqual(
+            actual.x,
+            expected.x,
+            accuracy: CGFloat.rounding(operations: 10, at: span),
+            file: file,
+            line: line
+        )
+        XCTAssertEqual(
+            actual.y,
+            expected.y,
+            accuracy: CGFloat.rounding(operations: 10, at: span),
+            file: file,
+            line: line
+        )
     }
 
     private func assertRect(
@@ -60,7 +73,19 @@ final class SkyLightPositionConversionTests: XCTestCase {
         line: UInt = #line
     ) {
         assertPoint(actual.origin, expected.origin, file: file, line: line)
-        XCTAssertEqual(actual.width, expected.width, accuracy: 0.001, file: file, line: line)
-        XCTAssertEqual(actual.height, expected.height, accuracy: 0.001, file: file, line: line)
+        XCTAssertEqual(
+            actual.width,
+            expected.width,
+            accuracy: CGFloat.rounding(operations: 2, at: expected.width),
+            file: file,
+            line: line
+        )
+        XCTAssertEqual(
+            actual.height,
+            expected.height,
+            accuracy: CGFloat.rounding(operations: 2, at: expected.height),
+            file: file,
+            line: line
+        )
     }
 }

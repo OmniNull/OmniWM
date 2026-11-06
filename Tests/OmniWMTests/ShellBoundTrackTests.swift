@@ -73,9 +73,10 @@ final class ShellBoundTrackTests: XCTestCase {
             time: 0
         )
         let bound = ShellBoundTrack(input: input, source: source, previous: nil, revision: 1)
+        let bell = { (progress: Double) in max(0.3 / 24, 4 * progress * (1 - progress) * (1 - 0.5 * progress)) }
         let stops = (0 ... 15).map { index in
             let progress = Double(index) / 15
-            let width = max(0.3 / 24, 4 * progress * (1 - progress) * (1 - 0.5 * progress))
+            let width = bell(progress)
             return "\(progress),1,1,\(width),1,1"
         }.joined(separator: ";")
         let morph = try XCTUnwrap(ShellMorphRecipe("morph:0.5:0.5:0:0:0:0:" + stops))
@@ -95,6 +96,11 @@ final class ShellBoundTrackTests: XCTestCase {
         )
         entry.bound = bound
         XCTAssertEqual(bound.state(at: 0).progress, 0.42)
-        XCTAssertEqual(entry.shape(at: 0).rect.width, 18.5, accuracy: 0.2)
+        let (lower, upper) = (6.0 / 15, 7.0 / 15)
+        let fraction = (0.42 - lower) / (upper - lower)
+        XCTAssertEqual(
+            entry.shape(at: 0).rect.width,
+            raw.rect.width * (bell(lower) + (bell(upper) - bell(lower)) * fraction)
+        )
     }
 }

@@ -414,7 +414,7 @@ final class ShellBundledWidgetTests: XCTestCase {
                     guard view == OMNI_VIEW_BAR else { return }
                     let clock = try XCTUnwrap(nodes.first { text.string($0.text) == "9:41 AM" })
                     let pointSize = style == "celestial" ? 17.6 : style == "default" ? 13.0 : 14.0
-                    XCTAssertEqual(Double(clock.text_size) / 100, pointSize * scale, accuracy: 0.02, style)
+                    XCTAssertEqual(Double(clock.text_size) / 100, (pointSize * scale * 100).rounded() / 100, style)
                 })
                 try renderStyle(style, widget: "workspaces", data: data, inspect: { view, nodes, _ in
                     guard view == OMNI_VIEW_BAR else { return }

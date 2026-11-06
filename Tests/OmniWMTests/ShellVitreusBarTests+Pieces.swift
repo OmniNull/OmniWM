@@ -223,7 +223,7 @@ extension ShellVitreusBarTests {
             XCTAssertEqual(app.minX, rounded(x))
             XCTAssertEqual(app.midY, rounded(pill.midY - 6.5 * unit))
             let content = try widget.surface.layout.core.content(of: VitreusFixture.element(widget, key: "title-app"))
-            XCTAssertEqual(Double(content.maxWidth), hw - 12 * unit - control, accuracy: 0.01)
+            XCTAssertEqual(Double(content.maxWidth), floatStored(hw - 12 * unit - control))
             XCTAssertEqual(
                 try VitreusFixture.frame(widget, key: "title-text").midY,
                 rounded(pill.midY + 8.75 * unit)
@@ -243,8 +243,13 @@ extension ShellVitreusBarTests {
             ("previous", -1.0, "media previous"), ("play", 0, "media toggle"), ("next", 1, "media next")
         ] {
             let zone = try VitreusFixture.frame(widget, key: "title-" + key)
-            XCTAssertEqual(zone.midX, center.x + side * 17 * unit, accuracy: 0.001, key)
-            XCTAssertEqual(zone.midY, center.y, accuracy: 0.001, key)
+            XCTAssertEqual(
+                zone.midX,
+                center.x + side * 17 * unit,
+                accuracy: .floatRounding(operations: 7, at: center.x + side * 17 * unit),
+                key
+            )
+            XCTAssertEqual(zone.midY, center.y, accuracy: .floatRounding(operations: 8, at: center.y + 9 * unit), key)
             XCTAssertEqual(zone.width, floatStored(17 * unit), key)
             XCTAssertEqual(zone.height, floatStored(18 * unit), key)
             XCTAssertEqual(widget.surface.command(at: CGPoint(x: zone.midX, y: zone.midY)), command, key)
@@ -264,8 +269,12 @@ extension ShellVitreusBarTests {
             let middle = pill.minX + 16 * unit + stretch / 2
             for index in 1 ... 3 {
                 let dot = try VitreusFixture.frame(widget, key: "title-dot-\(index)")
-                XCTAssertEqual(dot.midX, middle + Double(index - 2) * 8 * unit, accuracy: 0.001)
-                XCTAssertEqual(dot.midY, pill.midY, accuracy: 0.001)
+                XCTAssertEqual(
+                    dot.midX,
+                    middle + Double(index - 2) * 8 * unit,
+                    accuracy: .floatRounding(operations: 8, at: middle + 8 * unit)
+                )
+                XCTAssertEqual(dot.midY, pill.midY, accuracy: .floatRounding(operations: 8, at: pill.midY))
                 XCTAssertEqual(dot.width, floatStored(3.8 * unit))
             }
             XCTAssertFalse(Self.has(widget, "title-tab"))
@@ -294,10 +303,11 @@ extension ShellVitreusBarTests {
         let reveal = try XCTUnwrap(widget.surface.reveal(paint.reveal))
         XCTAssertEqual(reveal.response, 0.513)
         XCTAssertEqual(reveal.bounce, 0.06)
-        XCTAssertEqual(reveal.delay, holdCrossing(rising: true), accuracy: 1e-4)
-        XCTAssertEqual(reveal.hold, holdCrossing(rising: false), accuracy: 1e-4)
-        XCTAssertEqual(reveal.delay, 0.046, accuracy: 0.001)
-        XCTAssertEqual(reveal.hold, 0.103, accuracy: 0.001)
+        XCTAssertEqual(Float(reveal.delay), Float(holdCrossing(rising: true)))
+        XCTAssertEqual(Float(reveal.hold), Float(holdCrossing(rising: false)))
+        let statedDigit = 0.001
+        XCTAssertEqual(reveal.delay, 0.046, accuracy: statedDigit / 2)
+        XCTAssertEqual(reveal.hold, 0.103, accuracy: statedDigit / 2)
         let morph = try XCTUnwrap(widget.surface.morph(paint.morph))
         XCTAssertEqual(morph.anchor, CGPoint(x: 0.5, y: 0))
         XCTAssertEqual(morph.stops.map(\.height), [0, 1])
@@ -306,7 +316,7 @@ extension ShellVitreusBarTests {
         let longest = entry.animations.map(\.animation.duration).max() ?? 0
         if animations {
             let plan = try XCTUnwrap(entry.plan)
-            XCTAssertEqual(plan.begin - plan.commit, reveal.delay, accuracy: 1e-6)
+            XCTAssertEqual(plan.begin - plan.commit, reveal.delay, accuracy: .rounding(operations: 2, at: plan.begin))
             XCTAssertGreaterThan(longest, reveal.delay)
         } else {
             XCTAssertNil(entry.plan)

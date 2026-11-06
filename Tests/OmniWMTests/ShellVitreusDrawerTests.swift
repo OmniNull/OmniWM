@@ -148,9 +148,9 @@ extension ShellVitreusDrawerTests {
         let frame = try VitreusFixture.frame(fixture.widget, key: "drawer")
         for stop in recipe.stops {
             let progress = stop.at, clamped = min(1, progress)
-            XCTAssertEqual(stop.scale, min(1, 1.6 * progress) + 0.6 * max(0, progress - 1), accuracy: 0.00001)
-            XCTAssertEqual(stop.width, 1 - 0.07 * 4 * clamped * (1 - clamped), accuracy: 0.00001)
-            XCTAssertEqual(stop.round, min(1, max(0, 1.6 * progress - 0.1)), accuracy: 0.00001)
+            XCTAssertEqual(Float(stop.scale), Float(min(1, 1.6 * progress) + 0.6 * max(0, progress - 1)))
+            XCTAssertEqual(Float(stop.width), Float(1 - 0.07 * 4 * clamped * (1 - clamped)))
+            XCTAssertEqual(Float(stop.round), Float(min(1, max(0, 1.6 * progress - 0.1))))
         }
         XCTAssertEqual(frame.width, 450 * 1.5525)
         XCTAssertEqual(frame.height, floatStored(20 * 1.35 + 373 * 1.5525))
@@ -159,9 +159,14 @@ extension ShellVitreusDrawerTests {
         XCTAssertTrue(landing.allSatisfy { $0.time == 0.97 && $0.kind == .at })
         XCTAssertEqual(landing.map(\.velocity), [220, -260])
         XCTAssertEqual(landing.map(\.pivot), [.anchor, .centre])
-        XCTAssertEqual(landing[0].spring.parameters.stiffness, 260, accuracy: 0.01)
-        XCTAssertEqual(landing[0].spring.parameters.damping, 32, accuracy: 0.01)
-        XCTAssertEqual(landing[1].spring.parameters.stiffness, 420, accuracy: 0.01)
+        let hang = 2 * Double.pi / recipeStored(2 * Double.pi / 260.0.squareRoot())
+        let splash = 2 * Double.pi / recipeStored(2 * Double.pi / 420.0.squareRoot())
+        XCTAssertEqual(landing[0].spring.parameters.stiffness, hang * hang)
+        XCTAssertEqual(
+            landing[0].spring.parameters.damping,
+            2 * (1 - recipeStored(1 - 32 / (2 * 260.0.squareRoot()))) * hang
+        )
+        XCTAssertEqual(landing[1].spring.parameters.stiffness, splash * splash)
         let close = try XCTUnwrap(recipe.impulses.first { !$0.rising })
         XCTAssertEqual(close.time, 0.08)
         XCTAssertEqual(close.velocity, 90)
@@ -197,8 +202,16 @@ extension ShellVitreusDrawerTests {
                 dx: -content.minX,
                 dy: -content.minY
             )
-            XCTAssertEqual(actual.minX, rect.minX * 1.5525, accuracy: 0.001)
-            XCTAssertEqual(actual.minY, rect.minY * 1.5525, accuracy: 0.001)
+            XCTAssertEqual(
+                actual.minX,
+                rect.minX * 1.5525,
+                accuracy: CGFloat.floatRounding(operations: 10, at: actual.minX + content.minX)
+            )
+            XCTAssertEqual(
+                actual.minY,
+                rect.minY * 1.5525,
+                accuracy: CGFloat.floatRounding(operations: 10, at: actual.minY + content.minY)
+            )
             XCTAssertEqual(actual.width, floatStored(rect.width * 1.5525))
             XCTAssertEqual(actual.height, floatStored(rect.height * 1.5525))
         }
@@ -409,10 +422,11 @@ extension ShellVitreusDrawerTests {
         try export(cropped, name: "vitreus-calendar-84ms")
         let actual = try bounds(cropped, width: 800).offsetBy(dx: 560, dy: 0)
         let expected = pill.union(entry.shape(at: entry.begin + 0.084).rect)
-        XCTAssertEqual(actual.minX, expected.minX, accuracy: 1)
+        let backingPixel: CGFloat = 1
+        XCTAssertEqual(actual.minX, expected.minX, accuracy: backingPixel)
         XCTAssertEqual(actual.minY, expected.minY)
-        XCTAssertEqual(actual.maxX, expected.maxX, accuracy: 1)
-        XCTAssertEqual(actual.maxY, expected.maxY, accuracy: 1)
+        XCTAssertEqual(actual.maxX, expected.maxX, accuracy: backingPixel)
+        XCTAssertEqual(actual.maxY, expected.maxY, accuracy: backingPixel)
         advance(fixture, by: 2)
         try silhouette(fixture, body: body, slots: [content, opener], only: false)
         let open = try ShellLayerScene.engineQueue.sync { try renderer.render(paused: fixture.clock.time) }

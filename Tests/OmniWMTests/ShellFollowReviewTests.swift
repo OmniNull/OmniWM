@@ -74,10 +74,10 @@ final class ShellFollowReviewTests: XCTestCase {
     ) throws {
         let actual = try pixels.drawn(stage, at: time, around: CGRect(x: 104, y: 89, width: 2, height: 2))
         print("FOLLOW-REVIEW", message, "drawn", actual, "expected", expected)
-        XCTAssertEqual(actual.minX, expected.minX, accuracy: 1, message, line: line)
-        XCTAssertEqual(actual.minY, expected.minY, accuracy: 1, message, line: line)
-        XCTAssertEqual(actual.maxX, expected.maxX, accuracy: 1, message, line: line)
-        XCTAssertEqual(actual.maxY, expected.maxY, accuracy: 1, message, line: line)
+        XCTAssertEqual(actual.minX, expected.minX, accuracy: ShellOffscreenRenderer.pixel / 2, message, line: line)
+        XCTAssertEqual(actual.minY, expected.minY, accuracy: ShellOffscreenRenderer.pixel / 2, message, line: line)
+        XCTAssertEqual(actual.maxX, expected.maxX, accuracy: ShellOffscreenRenderer.pixel / 2, message, line: line)
+        XCTAssertEqual(actual.maxY, expected.maxY, accuracy: ShellOffscreenRenderer.pixel / 2, message, line: line)
     }
 
     func testFollowReviewBodyOnlyMoveRecomposesTheRetainedFollowerAndIdentityClearsIt() throws {

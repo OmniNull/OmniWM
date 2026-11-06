@@ -36,7 +36,11 @@ extension ShellVitreusMediaCardTests {
             XCTAssertNotNil(source.adhere.bottom)
             let bounds = try recipe(fixture, "media-card-grab").bounds
             XCTAssertEqual(bounds.minX, edge == "left" ? 62.1 : 10.8)
-            XCTAssertEqual(bounds.maxX, 1920 - (edge == "right" ? 62.1 : 10.8), accuracy: 0.001)
+            XCTAssertEqual(
+                bounds.maxX,
+                1920 - (edge == "right" ? 62.1 : 10.8),
+                accuracy: CGFloat.rounding(operations: 5, at: 1920)
+            )
             XCTAssertEqual(try frame(fixture, "drawer-content-player").height, floatStored(55.5 * Self.cu))
             XCTAssertEqual(layout.core.elements { _ in true }.count {
                 layout.core.key(of: $0) == VitreusFixture.key("player-media")

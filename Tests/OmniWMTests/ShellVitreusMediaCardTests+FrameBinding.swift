@@ -46,8 +46,16 @@ final class ShellVitreusMediaCardFrameBindingTests: XCTestCase {
                 try XCTUnwrap(scene.shapeTracks.entries[retained]).shape(at: time)
             }
             XCTAssertEqual(actual.rect.midX, expected.midX, accuracy: .rounding(operations: 10, at: 600))
-            XCTAssertEqual(actual.rect.midY, expected.midY, accuracy: 0.25)
-            XCTAssertEqual(actual.radius, 10 * expected.width / 100, accuracy: 0.01)
+            XCTAssertEqual(
+                actual.rect.midY,
+                expected.midY,
+                accuracy: CGFloat.rounding(operations: 27, at: expected.maxY)
+            )
+            XCTAssertEqual(
+                actual.radius,
+                10 * expected.width / 100,
+                accuracy: CGFloat.rounding(operations: 25, at: 10 * max(motion.start.width, motion.target.width) / 100)
+            )
         }
         try check(clock.now + 0.08)
         clock.now += 0.04

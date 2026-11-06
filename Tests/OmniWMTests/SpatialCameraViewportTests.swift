@@ -52,7 +52,7 @@ final class SpatialCameraViewportTests: XCTestCase {
         let unprojected = viewport.current.unproject(point: projected)
 
         XCTAssertEqual(unprojected.x, original.x)
-        XCTAssertEqual(unprojected.y, original.y, accuracy: 0.001)
+        XCTAssertEqual(unprojected.y, original.y, accuracy: CGFloat.rounding(operations: 8, at: original.x))
     }
 
     func testTouchSpanRatioDrivesScale() {
@@ -134,7 +134,11 @@ final class SpatialCameraViewportTests: XCTestCase {
         XCTAssertEqual(viewport.current.scale, banded)
 
         viewport.updateMagnify(delta: 19)
-        XCTAssertEqual(viewport.current.scale, 1.0, accuracy: 0.0001)
+        let overflow = (1 + CGFloat(-0.95)) * (1 + 19) - viewport.config.maxScale
+        XCTAssertEqual(
+            viewport.current.scale,
+            viewport.config.maxScale + overflow * viewport.config.rubberBandResistance / (1 + overflow)
+        )
     }
 
     func testFullInwardMagnifyCanZoomBackIn() {

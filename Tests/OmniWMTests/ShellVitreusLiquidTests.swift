@@ -40,7 +40,7 @@ final class ShellVitreusLiquidTests: XCTestCase {
             let source = try XCTUnwrap(morph(widget, "desk-shape").source)
             let thin = 10.8, strip = 62.1
             let right = edge == "right" ? strip : thin
-            XCTAssertEqual(target.maxX, 1920 - right, accuracy: 0.001, edge)
+            XCTAssertEqual(target.maxX, floatStored(1920 - right - 340 * du) + floatStored(340 * du), edge)
             XCTAssertEqual(source.target, VitreusFixture.key("desk"))
             XCTAssertEqual(source.edge, .right)
             XCTAssertFalse(source.contact)
@@ -148,7 +148,7 @@ final class ShellVitreusLiquidTests: XCTestCase {
         XCTAssertEqual(source.target, VitreusFixture.key("desk"))
         XCTAssertEqual(source.edge, .right)
         XCTAssertTrue(source.contact)
-        XCTAssertEqual(source.from, 14 * du, accuracy: 0.001)
+        XCTAssertEqual(Float(source.from), Float(14 * du))
         XCTAssertEqual(source.span, 50 * du)
         XCTAssertEqual(try frames.frame(fixture, "desk-bulge").midX, 1920)
         for name in [
@@ -198,7 +198,7 @@ final class ShellVitreusLiquidTests: XCTestCase {
                 try XCTUnwrap(scene.shapeTracks.entries[slot], name).shape(at: .infinity)
             }.rect
         }
-        XCTAssertEqual(try settled("desk-bulge").width, 0.6, accuracy: 0.001)
+        XCTAssertEqual(try settled("desk-bulge").width, floatStored(60 * 1.35) * recipeStored(0.3 / 1.35 / 30))
         let home = try frames.frame(fixture, "desk")
         try VitreusFixture.drag(widget, key: "grip", by: CGVector(dx: -400, dy: 0))
         XCTAssertNil(widget.surface.manipulation)
@@ -275,13 +275,14 @@ final class ShellVitreusLiquidTests: XCTestCase {
         let factor = after.width / before.width
         XCTAssertLessThan(factor, 1)
         let source = try XCTUnwrap(morph(widget, "desk-shape").source)
-        XCTAssertEqual(try XCTUnwrap(source.pads?.right), 6.5 * 1.5525 * 0.8 * factor, accuracy: 0.001)
+        let pad = Double(6.5 * 1.5525 * 0.8 * factor)
+        XCTAssertEqual(try XCTUnwrap(source.pads?.right), pad, accuracy: Double.floatRounding(operations: 4, at: pad))
         XCTAssertEqual(source.from, 62.1 + 14 * 1.5525 * 0.8)
         let plate = try VitreusFixture.element(widget, key: "desk-shape")
         XCTAssertEqual(
             CGFloat(widget.surface.layout.core.paint(of: plate).cornerRadius),
             35.1 * factor,
-            accuracy: 0.001
+            accuracy: CGFloat.floatRounding(operations: 3, at: 35.1 * factor)
         )
     }
 

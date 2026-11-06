@@ -169,7 +169,12 @@ extension ShellGlassSceneTests {
                     let analytic = try 120 + ShellSpringDynamics.position(
                         at: elapsed, displacement: -100, initialVelocity: 0, spring: Self.spring(motion)
                     )
-                    XCTAssertEqual(drawn[index], analytic + offsets[index], accuracy: 1, "t=\(elapsed) shape \(index)")
+                    XCTAssertEqual(
+                        drawn[index],
+                        analytic + offsets[index],
+                        accuracy: ShellOffscreenRenderer.pixel,
+                        "t=\(elapsed) shape \(index)"
+                    )
                 }
                 if elapsed == 0.08 { XCTAssertGreaterThan(abs(drawn[1] - drawn[0]), 10) }
             }
@@ -211,11 +216,11 @@ extension ShellGlassSceneTests {
             for (index, sample) in samples.enumerated() {
                 XCTAssertEqual(sample.map(\.count), [2, 2], "sample \(index)")
                 for (hole, strip) in zip(sample[0], sample[1]) {
-                    XCTAssertEqual(strip, hole, accuracy: 1, "sample \(index): \(sample)")
+                    XCTAssertEqual(strip, hole, accuracy: ShellOffscreenRenderer.pixel, "sample \(index): \(sample)")
                 }
             }
             for (edge, expected) in zip(samples[0][0] + samples[6][0], [16.0, 80, 6, 90]) {
-                XCTAssertEqual(edge, expected, accuracy: 0.5)
+                XCTAssertEqual(edge, expected, accuracy: ShellOffscreenRenderer.pixel / 2)
             }
             XCTAssertEqual(samples[3][0][0], samples[2][0][0])
             XCTAssertTrue((16.5 ... 25.5).contains(samples[2][0][0]), "\(samples[2])")

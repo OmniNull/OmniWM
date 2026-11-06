@@ -92,8 +92,16 @@ extension ShellVitreusFrameDrawerTests {
                 open(widget, name)
                 let panel = try values(widget)
                 let line = edge == "left" ? 31.05 : 1888.95
-                XCTAssertEqual(edge == "left" ? panel[4] : panel[4] + panel[6], line, accuracy: 0.001)
-                XCTAssertEqual(edge == "left" ? panel[0] : 1920 - panel[0] - panel[2], 62.1 + 6.5 * cu, accuracy: 0.001)
+                XCTAssertEqual(
+                    edge == "left" ? panel[4] : panel[4] + panel[6],
+                    line,
+                    accuracy: Double.rounding(operations: 4, at: line)
+                )
+                XCTAssertEqual(
+                    edge == "left" ? panel[0] : 1920 - panel[0] - panel[2],
+                    62.1 + 6.5 * cu,
+                    accuracy: Double.rounding(operations: 8, at: 1920)
+                )
                 XCTAssertEqual(panel[8], line)
                 XCTAssertEqual(panel[10], 0)
                 if name == "controls" {
@@ -115,7 +123,11 @@ extension ShellVitreusFrameDrawerTests {
                 open(widget, name)
                 let panel = try values(widget)
                 if name == "player" { XCTAssertEqual(panel[0] + panel[2] / 2, 960) }
-                else { XCTAssertEqual(panel[0] + panel[2], 1920 - 10.8 - 6.5 * cu, accuracy: 0.001) }
+                else { XCTAssertEqual(
+                    panel[0] + panel[2],
+                    1920 - 10.8 - 6.5 * cu,
+                    accuracy: Double.rounding(operations: 8, at: 1920)
+                ) }
                 XCTAssertEqual(panel[11], 0)
                 if name == "controls" {
                     XCTAssertEqual(panel[8] + panel[10], 1800)
@@ -158,11 +170,11 @@ extension ShellVitreusFrameDrawerTests {
         )
         let plan = ShellReveal(begin: 0, progress: 1, target: 0, spring: spring)
         let expected = try XCTUnwrap(plan.crossings(at: 0.5, rising: false).first)
-        XCTAssertEqual(panel[12], expected, accuracy: 0.00001)
+        XCTAssertEqual(panel[12], (expected * 1e9).rounded() / 1e9)
         let element = try VitreusFixture.element(widget, key: "drawer-frame-calendar")
         let reveal =
             try XCTUnwrap(ShellRevealRecipe(widget.text.string(widget.surface.layout.core.paint(of: element).reveal)))
-        XCTAssertEqual(reveal.delay, expected, accuracy: 0.00001)
+        XCTAssertEqual(Float(reveal.delay), Float(expected))
         var service = omni_service_request()
         var timers: [Double] = []
         while omni_vm_next_service(widget.vm, &service) {

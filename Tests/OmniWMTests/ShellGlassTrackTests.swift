@@ -131,7 +131,7 @@ final class ShellGlassTrackTests: XCTestCase {
                     (actual.minX, shape.rect.midX - extentX), (actual.maxX, shape.rect.midX + extentX),
                     (actual.minY, shape.rect.midY - extentY), (actual.maxY, shape.rect.midY + extentY)
                 ] {
-                    XCTAssertEqual(value, expected, accuracy: 1, "\(time)")
+                    XCTAssertEqual(value, expected, accuracy: ShellOffscreenRenderer.pixel, "\(time)")
                 }
             }
         }
@@ -170,10 +170,20 @@ final class ShellGlassTrackTests: XCTestCase {
                     let sdfEdge = (0 ..< 48).first { sdf[(y * 96 + $0) * 4 + 3] < 128 }
                     let maskEdge = (0 ..< 48).first { mask[(y * 96 + $0) * 4 + 3] < 128 }
                     let actual = try XCTUnwrap(sdfEdge)
-                    XCTAssertEqual(Double(actual), Double(try XCTUnwrap(maskEdge)), accuracy: 1, "\(time), y=\(y)")
+                    XCTAssertEqual(
+                        Double(actual),
+                        Double(try XCTUnwrap(maskEdge)),
+                        accuracy: ShellOffscreenRenderer.pixel,
+                        "\(time), y=\(y)"
+                    )
                     let dy = max(0, abs(Double(y) + 0.5 - hole.midY) - hole.height / 2 + radius)
                     let inset = radius - sqrt(max(0, radius * radius - dy * dy))
-                    XCTAssertEqual(Double(actual), hole.minX + inset, accuracy: 1, "\(time), y=\(y)")
+                    XCTAssertEqual(
+                        Double(actual),
+                        hole.minX + inset,
+                        accuracy: ShellOffscreenRenderer.pixel,
+                        "\(time), y=\(y)"
+                    )
                 }
             }
         }

@@ -109,8 +109,16 @@ extension ShellVitreusSectionCardTests {
         let rect = try windows.frame(fixture, "drawer-content-calendar-month")
         let paint = fixture.widget.surface.layout.core.paint(of: card)
         let appear = try XCTUnwrap(fixture.widget.surface.presence(paint.appear, for: card))
-        XCTAssertEqual(appear.offset.x, oldCard.minX - rect.minX - (oldParent.minX - parent.minX), accuracy: 0.01)
-        XCTAssertEqual(appear.offset.y, oldCard.minY - rect.minY - (oldParent.minY - parent.minY), accuracy: 0.01)
+        XCTAssertEqual(
+            appear.offset.x,
+            oldCard.minX - rect.minX - (oldParent.minX - parent.minX),
+            accuracy: .floatRounding(operations: 6, at: oldCard.minX)
+        )
+        XCTAssertEqual(
+            appear.offset.y,
+            oldCard.minY - rect.minY - (oldParent.minY - parent.minY),
+            accuracy: .floatRounding(operations: 6, at: oldCard.minY)
+        )
     }
 
     func testTheOutAlbumAndItsStickyPiecesShareTheDeskGlassBody() throws {

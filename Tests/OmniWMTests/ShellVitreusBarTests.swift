@@ -48,7 +48,12 @@ final class ShellVitreusBarTests: XCTestCase {
         for (value, expected) in [
             (rect.minX, target.minX), (rect.minY, target.minY), (rect.width, target.width), (rect.height, target.height)
         ] {
-            XCTAssertEqual(value, expected, accuracy: 0.001, label)
+            XCTAssertEqual(
+                value,
+                expected,
+                accuracy: .floatRounding(operations: 6, at: max(target.maxX, target.maxY)),
+                label
+            )
         }
     }
 
@@ -218,14 +223,18 @@ final class ShellVitreusBarTests: XCTestCase {
         ]
         XCTAssertEqual(rows[0].count, rest.count)
         for (value, target) in zip(rows[0], rest) {
-            XCTAssertEqual(value, target, accuracy: 1e-6)
+            XCTAssertEqual(value, target, accuracy: .rounding(operations: 22, at: rest[0] + rest[2]))
         }
-        XCTAssertEqual(rows[0][8] + rows[0][9] + 16.2, rows[0][12], accuracy: 1e-6)
+        XCTAssertEqual(
+            rows[0][8] + rows[0][9] + 16.2,
+            rows[0][12],
+            accuracy: .rounding(operations: 32, at: rest[0] + rest[2])
+        )
         XCTAssertEqual(rows[1][2], 450 * 1.35 + 54 * 1.35)
         XCTAssertEqual(rows[1][10], 1043.35 + 72.9 / 2 - 56.7)
         XCTAssertEqual(rows[1][11], 56.7)
         for (value, target) in zip(rows[2].prefix(6), [747.375, 8, 425.25, 37.8, 13.23, 26.9]) {
-            XCTAssertEqual(value, target, accuracy: 1e-6)
+            XCTAssertEqual(value, target, accuracy: .rounding(operations: 6, at: target))
         }
     }
 }
@@ -254,7 +263,7 @@ extension ShellVitreusBarTests {
         let paint = layout.core.paint(of: glass)
         for (color, role, alpha) in [(paint.fill, ShellRole.secondaryContainer, 0.36), (paint.shadow, .shadow, 0.08)] {
             XCTAssertEqual(color.role & 0xFF, UInt16(role.rawValue + 1), "\(role)")
-            XCTAssertEqual(Double(color.role >> 8) / 255, alpha, accuracy: 0.003, "\(role)")
+            XCTAssertEqual(Double(color.role >> 8) / 255, (alpha * 255).rounded() / 255, "\(role)")
         }
         XCTAssertEqual(paint.shadowRadius, 6)
         let recipe = try XCTUnwrap(ShellGlassRecipe(widget.text.string(layout.core.content(of: glass).text)))
@@ -301,7 +310,11 @@ extension ShellVitreusBarTests {
             let widget = try island(shell, settings: ["size": .number(0.7)], monitor: monitor)
             let opener = try VitreusFixture.frame(widget, key: "desk-opener")
             let size = 32 * 1.5525
-            XCTAssertEqual(opener.midX, monitor.frame.width - 41 * 1.5525, accuracy: 0.001)
+            XCTAssertEqual(
+                opener.midX,
+                monitor.frame.width - 41 * 1.5525,
+                accuracy: .floatRounding(operations: 2, at: monitor.frame.width)
+            )
             XCTAssertEqual(opener.midY, 35)
             XCTAssertEqual(opener.width, floatStored(size))
             XCTAssertEqual(opener.height, floatStored(size))
@@ -416,7 +429,12 @@ extension ShellVitreusBarTests {
                 XCTAssertEqual(top, room + (layout == "seg" && monitor.hasNotch ? monitor.notchHeight : 0), label)
                 let widget = try island(shell, settings: ["layout": .string(layout)], monitor: monitor)
                 let bottom = try VitreusFixture.frame(widget, key: piece).maxY
-                XCTAssertEqual(top - bottom, layout == "seg" ? 10.4 : 0, accuracy: 0.001, label)
+                XCTAssertEqual(
+                    top - bottom,
+                    layout == "seg" ? 10.4 : 0,
+                    accuracy: .floatRounding(operations: 2, at: 2 * top),
+                    label
+                )
             }
         }
     }

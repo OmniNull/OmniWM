@@ -147,12 +147,20 @@ extension ShellVitreusControlsTests {
             let frame = try VitreusFixture.frame(widget, key: "controls-tile-" + name)
             XCTAssertEqual(frame.width, floatStored(94 * cu))
             XCTAssertEqual(frame.height, floatStored(72 * cu))
-            XCTAssertEqual(frame.minX - panel.minX, Double(12 + index % 3 * 97) * cu, accuracy: 0.001)
+            XCTAssertEqual(
+                frame.minX - panel.minX,
+                Double(12 + index % 3 * 97) * cu,
+                accuracy: .floatRounding(operations: 2, at: panel.maxX)
+            )
             XCTAssertEqual(frame.minY - panel.minY, floatStored(Double(index < 3 ? 22 : 98) * cu))
         }
         for (name, center) in [("brightness", 186.0), ("microphone", 226), ("volume", 266)] {
             let frame = try VitreusFixture.frame(widget, key: "controls-" + name)
-            XCTAssertEqual(frame.midY - panel.minY, (center + 14) * cu, accuracy: 0.001)
+            XCTAssertEqual(
+                frame.midY - panel.minY,
+                (center + 14) * cu,
+                accuracy: .floatRounding(operations: 8, at: panel.maxY)
+            )
         }
         XCTAssertTrue(widget.strings().contains("Test Network"))
         XCTAssertTrue(widget.strings().contains("Test Headphones"))
@@ -201,7 +209,7 @@ extension ShellVitreusControlsTests {
         XCTAssertEqual(
             try VitreusFixture.frame(widget, key: "controls-microphone").midY - panel.minY,
             200 * cu,
-            accuracy: 0.001
+            accuracy: .floatRounding(operations: 8, at: panel.maxY)
         )
         let input = try content(widget, "controls-microphone")
         XCTAssertEqual(input.pressAction, 0)
@@ -226,7 +234,7 @@ extension ShellVitreusControlsTests {
         let first = try VitreusFixture.frame(widget, key: "controls-app-test.music")
         let second = try VitreusFixture.frame(widget, key: "controls-app-test.browser")
         XCTAssertEqual(first.width, floatStored(288 * cu))
-        XCTAssertEqual(second.minY - first.minY, 32 * cu, accuracy: 0.001)
+        XCTAssertEqual(second.minY - first.minY, 32 * cu, accuracy: .floatRounding(operations: 6, at: panel.maxY))
         XCTAssertEqual(try invoke(widget, "controls-app-mute-test.browser"), ["volume app test.browser mute"])
         let element = try VitreusFixture.element(widget, key: "controls-slider-veil-shape")
         XCTAssertNotEqual(widget.surface.layout.core.content(of: element).motion, 0)
@@ -315,7 +323,7 @@ extension ShellVitreusControlsTests {
         XCTAssertEqual(
             try VitreusFixture.frame(widget, key: "controls-awake-thumb").midY - panel.minY,
             248 * cu,
-            accuracy: 0.001
+            accuracy: .floatRounding(operations: 8, at: panel.maxY)
         )
         widget.set("awake") { ShellAwake(on: false, until: nil).write(into: &$0) }
         show(widget)

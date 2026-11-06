@@ -17,6 +17,18 @@ extension BinaryFloatingPoint {
     static func rounding(operations: Int, at magnitude: Self) -> Self {
         Self(operations) * abs(magnitude).ulp
     }
+
+    static func floatRounding(operations: Int, at magnitude: Self) -> Self {
+        Self(operations) * Self(abs(Float(magnitude)).ulp)
+    }
+}
+
+func recipeStored<T: BinaryFloatingPoint>(_ value: T) -> T {
+    T(Double(Float(value).description) ?? .nan)
+}
+
+func pathNumber(_ value: Double) -> Double {
+    Double(String(format: "%.3f", value)) ?? .nan
 }
 
 struct MissingTestPrerequisite: Error, CustomStringConvertible {

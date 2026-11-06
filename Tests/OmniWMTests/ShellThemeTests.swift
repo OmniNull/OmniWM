@@ -216,9 +216,8 @@ final class ShellThemeTests: XCTestCase {
             role: UInt16(ShellRole.tertiaryAccent.rawValue + 1) | (255 << 8)
         )))
         let kept = ShellRGBA(tertiary)
-        for (value, expected) in [(kept.red, 0x12), (kept.green, 0x34), (kept.blue, 0x56)] {
-            XCTAssertEqual(value, Double(expected) / 255, accuracy: 0.0001)
-        }
+        let declared = NSColor(srgbRed: 0x12 / 255, green: 0x34 / 255, blue: 0x56 / 255, alpha: 1)
+        XCTAssertEqual(kept, ShellRGBA(declared.cgColor))
         let derived = try XCTUnwrap(ShellThemeColor("secondaryAccent", theme: theme)).color(dark: true)
         let painted = try XCTUnwrap(palette.color(Color(
             packed: 0,

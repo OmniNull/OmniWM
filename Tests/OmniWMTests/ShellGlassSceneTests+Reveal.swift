@@ -146,7 +146,7 @@ extension ShellGlassSceneTests {
             (actual.minX, expected.minX + rim.left), (actual.maxX, expected.maxX + rim.right),
             (actual.minY, expected.minY + rim.top), (actual.maxY, expected.maxY + rim.bottom)
         ] {
-            XCTAssertEqual(value, target, accuracy: 1, line: line)
+            XCTAssertEqual(value, target, accuracy: ShellOffscreenRenderer.pixel, line: line)
         }
     }
 

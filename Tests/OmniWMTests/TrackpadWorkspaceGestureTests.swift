@@ -318,7 +318,12 @@ final class TrackpadWorkspaceGestureTests: XCTestCase {
         sendFrame(fixture, phase: .began, fingers: 4, x: 0.5, y: 0.2, at: 100)
         sendFrame(fixture, phase: .changed, fingers: 4, x: 0.5, y: 0.24, at: 100.1)
         sendFrame(fixture, phase: .changed, fingers: 4, x: 0.5, y: 0.3, at: 100.12)
-        XCTAssertEqual(actions.overviewTransitionProgress, 0.1, accuracy: 0.000000001)
+        let toUnits = MouseEventHandler.GestureEventSnapshot.normalizedPositionToGestureUnits
+        XCTAssertEqual(
+            actions.overviewTransitionProgress,
+            TrackpadGestureIntent.overviewProgress(units: (0.3 - 0.2) * toUnits)
+                - TrackpadGestureIntent.overviewProgress(units: (0.24 - 0.2) * toUnits)
+        )
 
         sendFrame(fixture, phase: .ended, fingers: 0, x: 0, y: 0, at: 100.12)
 
@@ -502,7 +507,12 @@ final class TrackpadWorkspaceGestureTests: XCTestCase {
         else { return XCTFail("Expected a close-track to live in .opening") }
         XCTAssertEqual(actions.overviewTransitionProgress, 1)
         sendFrame(fixture, phase: .changed, fingers: 4, x: 0.5, y: 0.4, at: 100.2)
-        XCTAssertEqual(actions.overviewTransitionProgress, 0.4, accuracy: 0.000000001)
+        let toUnits = MouseEventHandler.GestureEventSnapshot.normalizedPositionToGestureUnits
+        XCTAssertEqual(
+            actions.overviewTransitionProgress,
+            1 + TrackpadGestureIntent.overviewProgress(units: (0.4 - 0.8) * toUnits)
+                - TrackpadGestureIntent.overviewProgress(units: (0.76 - 0.8) * toUnits)
+        )
         XCTAssertTrue(scrollVerdict(fixture, momentumPhase: 0, phase: CGScrollPhase.changed.rawValue))
         XCTAssertTrue(scrollVerdict(fixture, momentumPhase: 2, phase: 0))
         XCTAssertTrue(scrollVerdict(fixture, momentumPhase: 0, phase: 0))
@@ -1436,7 +1446,13 @@ final class TrackpadWorkspaceGestureTests: XCTestCase {
         XCTAssertEqual(finalIndexes[.snap], 2)
         XCTAssertEqual(finalIndexes[.momentum], 0)
         XCTAssertLessThan(snapOffset, 0)
-        XCTAssertEqual(momentumOffset, 300 * (try XCTUnwrap(momentumViewportScale)), accuracy: 0.001)
+        let expectedOffset = try 300 * XCTUnwrap(momentumViewportScale)
+        XCTAssertEqual(
+            momentumOffset,
+            expectedOffset,
+            accuracy: CGFloat.rounding(operations: 6, at: 0.8) / (3 * 0.03) * expectedOffset
+                + CGFloat.rounding(operations: 16, at: expectedOffset)
+        )
         XCTAssertNotEqual(snapOffset, momentumOffset)
     }
 

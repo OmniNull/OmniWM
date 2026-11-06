@@ -205,7 +205,7 @@ extension ShellVitreusMenusTests {
         let hidden = try widget(shell, hides: false)
         let pill = try frame(shown, "shell")
         XCTAssertEqual(pill.width, floatStored(try frame(hidden, "shell").width + 52 * unit))
-        XCTAssertEqual(pill.midX, 960, accuracy: 0.001)
+        XCTAssertEqual(pill.midX, 960, accuracy: .floatRounding(operations: 2, at: 960))
         try assertLead(shown, x: pill.minX + 16 * unit, top: pill.minY, height: pill.height, "island")
         try assertMoved(shown, hidden, Self.buttons + ["workspace-hit-1", "title-button"], dx: 26 * unit, "island")
         for layout in ["ftop", "fbottom"] {
@@ -261,13 +261,20 @@ extension ShellVitreusMenusTests {
             let kept = Self.buttons + ["workspace-hit-1", "workspace-hit-2"]
             try assertMoved(shown, hidden, kept, layout)
             XCTAssertEqual(
-                try frame(shown, "tray-wifi").midY, try frame(hidden, "tray-wifi").midY - 64 * unit, accuracy: 1,
+                try frame(shown, "tray-wifi").midY,
+                (search.midY - (64 + 22 + 18) * unit + 0.5).rounded(.down) + 9 * unit,
+                accuracy: .floatRounding(operations: 2, at: search.midY),
                 layout
             )
             let text = try frame(shown, "title-button")
             let before = try frame(hidden, "title-button")
             XCTAssertEqual(text.minY, before.minY, layout)
-            XCTAssertEqual(text.maxY, before.maxY - 64 * unit, accuracy: 0.001, layout)
+            XCTAssertEqual(
+                text.maxY,
+                before.maxY - 64 * unit,
+                accuracy: .floatRounding(operations: 2, at: before.maxY),
+                layout
+            )
             XCTAssertLessThan(text.maxY, try frame(shown, "tray-wifi").minY, layout)
         }
     }

@@ -40,18 +40,22 @@ extension ShellRevealTests {
             XCTAssertGreaterThanOrEqual(times.count, 2)
             for time in times {
                 let state = plan.state(at: time)
-                XCTAssertEqual(state.progress, 1, accuracy: 1e-10)
+                XCTAssertLessThanOrEqual(
+                    (plan.state(at: time.nextDown).progress - 1) * (plan.state(at: time.nextUp).progress - 1),
+                    0
+                )
                 XCTAssertEqual(state.velocity > 0, rising)
                 XCTAssertLessThan(time, plan.end)
             }
-            let dense = stride(from: 0.0001, through: plan.duration, by: 0.0001).filter { elapsed in
-                let before = plan.state(at: plan.begin + elapsed - 0.0001).progress - 1
+            let gridStep = 0.0001
+            let dense = stride(from: gridStep, through: plan.duration, by: gridStep).filter { elapsed in
+                let before = plan.state(at: plan.begin + elapsed - gridStep).progress - 1
                 let after = plan.state(at: plan.begin + elapsed).progress - 1
                 return rising ? before < 0 && after >= 0 : before > 0 && after <= 0
             }
             XCTAssertEqual(times.count, dense.count)
             for (time, elapsed) in zip(times, dense) {
-                XCTAssertEqual(time - plan.begin, elapsed, accuracy: 0.0001)
+                XCTAssertEqual(time - plan.begin, elapsed - gridStep / 2, accuracy: gridStep / 2)
             }
         }
         XCTAssertTrue(plan.crossings(at: 4, rising: true).isEmpty)
@@ -123,26 +127,30 @@ extension ShellRevealTests {
         let decay = (1 - spring.bounce) * frequency
         let oscillation = sqrt(frequency * frequency - decay * decay)
         let peak = atan(oscillation / decay) / oscillation
-        let expectedSag = 220 / oscillation * exp(-decay * peak) * sin(oscillation * peak)
+        let expectedSag = exp(-decay * peak) * (220 * sin(oscillation * peak) / oscillation)
         XCTAssertEqual(
             sag.apply(to: base, anchor: CGPoint(x: 0.5, y: 0), at: peak).rect.height - base.rect.height,
-            expectedSag,
-            accuracy: 0.2
+            base.rect.height + expectedSag - base.rect.height
         )
-        let expectedWobble = -260 / oscillation * exp(-decay * peak) * sin(oscillation * peak)
+        let expectedWobble = exp(-decay * peak) * (-260 * sin(oscillation * peak) / oscillation)
         XCTAssertEqual(
             wobble.apply(to: base, anchor: .zero, at: peak).rect.width - base.rect.width,
-            expectedWobble,
-            accuracy: 0.2
+            base.rect.width + expectedWobble - base.rect.width
         )
         for time in [0.01, 0.035, peak, 0.16, 0.25] {
             let anchored = sag.apply(to: base, anchor: CGPoint(x: 0.5, y: 0), at: time)
             XCTAssertEqual(anchored.rect.minY, base.rect.minY)
-            XCTAssertEqual(anchored.rect.height - base.rect.height, sag.state(at: time).displacement, accuracy: 1e-12)
+            XCTAssertEqual(
+                anchored.rect.height - base.rect.height,
+                base.rect.height + sag.state(at: time).displacement - base.rect.height
+            )
             let centred = wobble.apply(to: base, anchor: .zero, at: time)
             XCTAssertEqual(centred.rect.midX, base.rect.midX)
             XCTAssertEqual(centred.rect.midY, base.rect.midY)
-            XCTAssertEqual(centred.rect.width - base.rect.width, wobble.state(at: time).displacement, accuracy: 1e-12)
+            XCTAssertEqual(
+                centred.rect.width - base.rect.width,
+                base.rect.width + wobble.state(at: time).displacement - base.rect.width
+            )
         }
     }
 
@@ -155,14 +163,14 @@ extension ShellRevealTests {
         let edges = ShellShapeEdges(from: start, to: target, recipe: recipe, begin: 5)
         for elapsed in [0, 0.02, 0.06, 0.13, 0.3] {
             let first = target.minX + ShellSpringDynamics.position(
-                at: elapsed, displacement: -80, initialVelocity: 0, spring: recipe.trail.parameters
+                at: 5 + elapsed - 5, displacement: -80, initialVelocity: 0, spring: recipe.trail.parameters
             )
             let last = target.maxX + ShellSpringDynamics.position(
-                at: elapsed, displacement: -80, initialVelocity: 0, spring: recipe.lead.parameters
+                at: 5 + elapsed - 5, displacement: -80, initialVelocity: 0, spring: recipe.lead.parameters
             )
             let shape = edges.rect(at: 5 + elapsed)
-            XCTAssertEqual(shape.minX, first, accuracy: 1e-9)
-            XCTAssertEqual(shape.maxX, max(first, last), accuracy: 1e-9)
+            XCTAssertEqual(shape.minX, first)
+            XCTAssertEqual(shape.maxX, first + max(0, last - first))
             XCTAssertEqual(shape.midY, start.midY)
             XCTAssertEqual(shape.height, 15 * (1 - 0.18 * min(1, abs(shape.width - 29) / 29)))
         }

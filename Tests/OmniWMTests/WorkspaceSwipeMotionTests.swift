@@ -7,15 +7,15 @@ import XCTest
 final class WorkspaceSwipeMotionTests: XCTestCase {
     func testRecognitionMovementCommitsSingleFrameFlickWithoutProgressJump() {
         let motion = WorkspaceSwipeMotion(
-            cumulativeUnits: 180, timestamp: 1.03,
-            recognitionMovement: SwipeEvent(delta: 180, timestamp: 1)
+            cumulativeUnits: 150, timestamp: 1.03125,
+            recognitionMovement: SwipeEvent(delta: 150, timestamp: 1)
         )
 
-        XCTAssertEqual(motion.progress(at: 1.03), 0)
-        XCTAssertEqual(motion.velocity(at: 1.03), 20, accuracy: 0.000001)
-        XCTAssertTrue(motion.release(timestamp: 1.04, allowFlick: true, animationTime: 100))
+        XCTAssertEqual(motion.progress(at: 1.03125), 0)
+        XCTAssertEqual(motion.velocity(at: 1.03125), 150 / WorkspaceSwipeMotion.travelUnits / (1.03125 - 1))
+        XCTAssertTrue(motion.release(timestamp: 1.0625, allowFlick: true, animationTime: 100))
         XCTAssertEqual(motion.target, 1)
-        XCTAssertEqual(motion.velocity(at: 100), 15, accuracy: 0.000001)
+        XCTAssertEqual(motion.velocity(at: 100), 150 / WorkspaceSwipeMotion.travelUnits / (1.0625 - 1))
     }
 
     func testSlowRecognitionUsesRecentMovementInsteadOfWholeContactDisplacement() {
@@ -24,7 +24,7 @@ final class WorkspaceSwipeMotionTests: XCTestCase {
             recognitionMovement: SwipeEvent(delta: 2, timestamp: 1.95)
         )
 
-        XCTAssertEqual(motion.velocity(at: 2), 2.0 / 15, accuracy: 0.000001)
+        XCTAssertEqual(motion.velocity(at: 2), 2 / WorkspaceSwipeMotion.travelUnits / (2 - 1.95))
         XCTAssertTrue(motion.release(timestamp: 2.01, allowFlick: true, animationTime: 100))
         XCTAssertEqual(motion.target, 0)
         XCTAssertTrue(motion.isComplete(at: 100))
@@ -75,7 +75,7 @@ final class WorkspaceSwipeMotionTests: XCTestCase {
 
         XCTAssertTrue(motion.release(timestamp: 1.26, allowFlick: true, animationTime: 1.26))
         XCTAssertEqual(motion.target, 0)
-        XCTAssertEqual(motion.progress(at: 1.26), 0.4, accuracy: 0.000001)
+        XCTAssertEqual(motion.progress(at: 1.26), 120 / WorkspaceSwipeMotion.travelUnits)
         XCTAssertEqual(motion.progress(at: 5), 0)
         XCTAssertTrue(motion.isComplete(at: 5))
     }
@@ -95,7 +95,7 @@ final class WorkspaceSwipeMotionTests: XCTestCase {
 
         XCTAssertTrue(motion.release(timestamp: 1.05, allowFlick: true, animationTime: 1.05))
         XCTAssertEqual(motion.target, 1)
-        XCTAssertEqual(motion.progress(at: 1.05), 0.2, accuracy: 0.000001)
+        XCTAssertEqual(motion.progress(at: 1.05), 1 + (60 / WorkspaceSwipeMotion.travelUnits - 1))
         XCTAssertGreaterThan(motion.progress(at: 1.10), 0.2)
         XCTAssertEqual(motion.progress(at: 5), 1)
     }
@@ -151,7 +151,7 @@ final class WorkspaceSwipeMotionTests: XCTestCase {
                 timestamp: gestureStart + 0.05, allowFlick: true, animationTime: animationStart
             ))
             XCTAssertEqual(motion.target, 1)
-            XCTAssertEqual(motion.progress(at: animationStart), 0.2, accuracy: 0.000001)
+            XCTAssertEqual(motion.progress(at: animationStart), 1 + (60 / WorkspaceSwipeMotion.travelUnits - 1))
             XCTAssertFalse(motion.isComplete(at: animationStart + 0.01))
             let caught = motion.progress(at: animationStart + 0.05)
             XCTAssertGreaterThan(caught, 0.2)
@@ -184,7 +184,7 @@ final class WorkspaceSwipeMotionTests: XCTestCase {
         let upper = motion.progress(at: 1.2)
         XCTAssertGreaterThan(upper, 1)
         XCTAssertLessThan(upper, 1.3)
-        XCTAssertEqual(upper - 1, -lower, accuracy: 0.000001)
+        XCTAssertEqual(upper, 1 - lower)
         motion.update(cumulativeUnits: .greatestFiniteMagnitude, timestamp: 1.3)
         XCTAssertEqual(motion.progress(at: 1.3), 1.3)
         motion.release(timestamp: 1.31, allowFlick: true, animationTime: 1.31)
@@ -228,7 +228,7 @@ final class WorkspaceSwipeMotionTests: XCTestCase {
         XCTAssertFalse(motion.release(timestamp: 1.2, allowFlick: false, animationTime: 1.2))
         XCTAssertEqual(motion.target, 1)
         XCTAssertEqual(motion.progress(at: .nan), 0.3)
-        XCTAssertEqual(motion.progress(at: 0), 0.3, accuracy: 0.000001)
+        XCTAssertEqual(motion.progress(at: 0), 1 + (90 / WorkspaceSwipeMotion.travelUnits - 1))
         XCTAssertTrue(motion.velocity(at: .infinity).isFinite)
         XCTAssertFalse(motion.isComplete(at: .nan))
     }

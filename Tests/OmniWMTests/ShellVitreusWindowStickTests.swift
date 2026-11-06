@@ -38,9 +38,9 @@ final class ShellVitreusWindowStickTests: XCTestCase {
     func assertFlush(_ rect: CGRect, side: String) {
         switch side {
         case "left": XCTAssertEqual(rect.minX, 0)
-        case "right": XCTAssertEqual(rect.maxX, 1920, accuracy: 0.001)
+        case "right": XCTAssertEqual(rect.maxX, 1920, accuracy: .floatRounding(operations: 2, at: 1920))
         case "top": XCTAssertEqual(rect.minY, 32)
-        default: XCTAssertEqual(rect.maxY, 1080, accuracy: 0.001)
+        default: XCTAssertEqual(rect.maxY, 1080, accuracy: .floatRounding(operations: 2, at: 1080))
         }
     }
 

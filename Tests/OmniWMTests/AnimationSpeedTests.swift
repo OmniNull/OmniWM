@@ -40,8 +40,11 @@ final class AnimationSpeedTests: XCTestCase {
             from: position, to: 800, initialVelocity: velocity, startTime: 0.08,
             config: MotionSnapshot(animationsEnabled: true, animationSpeed: 4).scaled(.default)
         )
-        XCTAssertEqual(retarget.value(at: 0.08), position, accuracy: 0.000001)
-        XCTAssertEqual(retarget.velocity(at: 0.08), velocity, accuracy: 0.000001)
+        let beta = MotionSnapshot(animationsEnabled: true, animationSpeed: 4).scaled(SpringConfig.default).stiffness
+            .squareRoot()
+        let restoring = beta * (position - (position + (800 - position)))
+        XCTAssertEqual(retarget.value(at: 0.08), 800 + (position - 800))
+        XCTAssertEqual(retarget.velocity(at: 0.08), restoring + velocity - restoring)
         XCTAssertEqual(retarget.value(at: 1), 800)
         XCTAssertTrue(retarget.isComplete(at: 1))
     }

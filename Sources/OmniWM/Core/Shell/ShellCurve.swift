@@ -11,6 +11,7 @@ struct ShellCurve: Equatable, Sendable {
     }
 
     static let custom: UInt8 = 255
+    static let solverResidual: CGFloat = 1e-9
 
     private static let presets: [[CGFloat]] = [
         [0, 0, 1, 1, 1, 1],
@@ -194,7 +195,7 @@ extension ShellCurve {
             var parameter = target
             for _ in 0 ..< 12 {
                 let x = Self.cubic(parameter, 0, x1, x2, 1) - target
-                guard abs(x) > 1e-9 else { break }
+                guard abs(x) > Self.solverResidual else { break }
                 if x > 0 { high = parameter } else { low = parameter }
                 let slope = Self.slope(parameter, 0, x1, x2, 1)
                 let next = parameter - x / slope

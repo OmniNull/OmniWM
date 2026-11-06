@@ -115,7 +115,8 @@ extension ShellGlassSceneTests {
             scene.flushGlass(animated: true)
             let key = ShellGlassBody.Channel.x.key
             let retarget = try XCTUnwrap(element.animation(forKey: key) as? CASpringAnimation)
-            XCTAssertEqual(try XCTUnwrap(retarget.fromValue as? NSNumber).doubleValue, presented.x, accuracy: 0.05)
+            let from = try XCTUnwrap(retarget.fromValue as? NSNumber).doubleValue
+            XCTAssertEqual(16 + 24 * Double(Float((from - 16) / 24)), Double(presented.x))
             XCTAssertEqual((retarget.toValue as? NSNumber)?.doubleValue, 8)
             XCTAssertNotEqual(retarget.initialVelocity, 0)
             CATransaction.commit()
@@ -177,6 +178,7 @@ extension ShellGlassSceneTests {
                 $0(elapsed, -100, 0, spring)
             }
             let (position, velocity) = (120 + state[0], state[1])
+            let acceleration = spring.stiffness * state[0] + spring.damping * velocity
             let before = try edge(begin + elapsed)
             Self.move(scene, [1: rect.offsetBy(dx: 20, dy: 0)], [1: Self.calm])
             let layers = body.lockstepLayers(1)
@@ -188,8 +190,16 @@ extension ShellGlassSceneTests {
             XCTAssertEqual(Set(retargets.map(\.initialVelocity)).count, 1)
             for retarget in retargets {
                 let from = try XCTUnwrap(retarget.fromValue as? NSNumber).doubleValue
-                XCTAssertEqual(from, position, accuracy: 1e-6)
-                XCTAssertEqual(retarget.initialVelocity * (40 - from), velocity, accuracy: 0.5)
+                XCTAssertEqual(
+                    from,
+                    position,
+                    accuracy: abs(velocity) * (begin + elapsed).ulp + Double.rounding(operations: 14, at: 120)
+                )
+                XCTAssertEqual(
+                    retarget.initialVelocity * (40 - from),
+                    velocity,
+                    accuracy: abs(acceleration) * (begin + elapsed).ulp + Double.rounding(operations: 12, at: velocity)
+                )
             }
             XCTAssertEqual(try edge(begin + elapsed), before)
             let offset = try edge(begin + 10) - 40
@@ -201,7 +211,7 @@ extension ShellGlassSceneTests {
                 at: step, displacement: position - 40, initialVelocity: 0, spring: spring
             )
             let drawn = try edge(begin + elapsed + step)
-            XCTAssertEqual(drawn, carried, accuracy: 1)
+            XCTAssertEqual(drawn, carried, accuracy: ShellOffscreenRenderer.pixel)
             XCTAssertGreaterThan(abs(drawn - restarted), 2)
         }
     }

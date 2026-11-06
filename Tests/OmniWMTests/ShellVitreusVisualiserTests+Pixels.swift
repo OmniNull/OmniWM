@@ -67,12 +67,12 @@ extension ShellVitreusVisualiserTests {
                 XCTAssertEqual(
                     try sample(x, elapsed) - direction.x * sample(height, elapsed) / 2,
                     base.x,
-                    accuracy: 0.001
+                    accuracy: .rounding(operations: 25, at: 1512)
                 )
                 XCTAssertEqual(
                     try sample(y, elapsed) - direction.y * sample(height, elapsed) / 2,
                     base.y,
-                    accuracy: 0.001
+                    accuracy: .rounding(operations: 25, at: 982)
                 )
             }
             _ = try renderer.render(paused: start)

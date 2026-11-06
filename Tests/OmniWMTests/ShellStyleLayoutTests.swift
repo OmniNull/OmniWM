@@ -727,8 +727,9 @@ final class ShellStyleLayoutTests: XCTestCase {
                                         widget.text.string($0.text) == text
                                     }.first, context)
                                     let glyphFrame = CGRect(widget.surface.layout.core.absoluteFrame(of: glyph))
-                                    XCTAssertEqual(glyphFrame.midX, frame.midX, accuracy: 0.01, context)
-                                    XCTAssertEqual(glyphFrame.midY, frame.midY, accuracy: 0.01, context)
+                                    let centering = CGFloat.floatRounding(operations: 6, at: height)
+                                    XCTAssertEqual(glyphFrame.midX, frame.midX, accuracy: centering, context)
+                                    XCTAssertEqual(glyphFrame.midY, frame.midY, accuracy: centering, context)
                                 }
                                 let point = CGPoint(x: frame.midX, y: frame.midY)
                                 let count = widget.actions.count
@@ -1952,8 +1953,7 @@ final class ShellStyleLayoutTests: XCTestCase {
                         XCTAssertEqual(label.content.color.role & 0xFF, UInt16(role.rawValue + 1), context)
                         XCTAssertEqual(
                             CTFontGetSize(ShellTextStyle.font(for: label.content.style)),
-                            designSize * scale,
-                            accuracy: 0.01,
+                            CGFloat(Float((designSize * scale * 100).rounded()) / 100),
                             context
                         )
                     }
@@ -1973,7 +1973,12 @@ final class ShellStyleLayoutTests: XCTestCase {
                                 widget.text.string($0.text) == "A quiet afternoon"
                             }.first, context)
                             let frame = CGRect(widget.surface.layout.core.absoluteFrame(of: label))
-                            XCTAssertEqual(widget.surface.size.width - frame.maxX, 9 * scale, accuracy: 0.01, context)
+                            XCTAssertEqual(
+                                widget.surface.size.width - frame.maxX,
+                                9 * scale,
+                                accuracy: CGFloat.floatRounding(operations: 8, at: widget.surface.size.width),
+                                context
+                            )
                         }
                     } else if profile == "nocturne" {
                         XCTAssertEqual(cross, floatStored(32 * scale), context)
@@ -2984,7 +2989,7 @@ final class ShellStyleLayoutTests: XCTestCase {
                         XCTAssertEqual(
                             (firstFrame.minX + lastFrame.maxX) / 2,
                             widget.surface.size.width / 2,
-                            accuracy: 0.01,
+                            accuracy: CGFloat.floatRounding(operations: 15, at: widget.surface.size.width) / 2,
                             profile
                         )
                     }
@@ -3720,12 +3725,13 @@ final class ShellStyleLayoutTests: XCTestCase {
             source: shell.appendingPathComponent("default/widgets/system-stats/init.luau")
         )
         for height in [32.0, 60] {
+            let pillBound = CGFloat.floatRounding(operations: 10, at: height)
             for vertical in [false, true] {
                 let bar = fixture(config, height: height, vertical: vertical)
                 widget.render(bar)
                 reference.render(bar)
-                XCTAssertEqual(widget.surface.size.width, reference.surface.size.width, accuracy: 0.001)
-                XCTAssertEqual(widget.surface.size.height, reference.surface.size.height, accuracy: 0.001)
+                XCTAssertEqual(widget.surface.size.width, reference.surface.size.width, accuracy: pillBound)
+                XCTAssertEqual(widget.surface.size.height, reference.surface.size.height, accuracy: pillBound)
             }
         }
     }

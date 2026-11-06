@@ -71,7 +71,8 @@ final class ShellPulseTests: XCTestCase {
         XCTAssertEqual(translation.values as? [Double], [0, 6, 0])
         let rotation = try animation(scene, "rotate")
         let turn = try XCTUnwrap(rotation.values?[1] as? NSValue).caTransform3DValue
-        XCTAssertEqual(atan2(turn.m12, turn.m11) * 180 / .pi, 30, accuracy: 1e-9)
+        let rotated = CATransform3DMakeRotation(30 * .pi / 180, 0, 0, 1)
+        XCTAssertEqual(atan2(turn.m12, turn.m11) * 180 / .pi, atan2(rotated.m12, rotated.m11) * 180 / .pi)
         let scale = try animation(scene, "scale")
         let enlarged = try XCTUnwrap(scale.values?[1] as? NSValue).caTransform3DValue
         XCTAssertEqual(enlarged.m11, 1.2)

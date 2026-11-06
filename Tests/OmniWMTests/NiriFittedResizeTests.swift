@@ -122,11 +122,11 @@ final class NiriFittedResizeTests: XCTestCase {
         )
     }
 
-    private func assertShownSpans(_ fixture: Fixture, _ expected: [CGFloat]) throws {
+    private func assertShownSpans(_ fixture: Fixture, _ expected: [CGFloat], cachedSpans: [CGFloat]? = nil) throws {
         let frames = layout(fixture)
         XCTAssertEqual(fixture.spans.count, expected.count)
         for index in fixture.windows.indices {
-            XCTAssertEqual(fixture.spans[index], expected[index], accuracy: 0.000001)
+            XCTAssertEqual(fixture.spans[index], (cachedSpans ?? expected)[index])
             let frame = try XCTUnwrap(frames[fixture.windows[index].token])
             XCTAssertEqual(fixture.orientation == .horizontal ? frame.width : frame.height, expected[index])
         }
@@ -224,7 +224,7 @@ final class NiriFittedResizeTests: XCTestCase {
             fixture.windows.removeLast()
             _ = layout(fixture)
             XCTAssertEqual(fixture.spans[0], 8400.0 / 11)
-            XCTAssertEqual(fixture.spans[1], 4800.0 / 11, accuracy: 0.000001)
+            XCTAssertEqual(fixture.spans[1], 400 * (1200.0 / (700 + 400)))
             XCTAssertEqual(fixture.specs, [.fixed(700), .proportion(1.0 / 3)])
         }
     }
@@ -245,7 +245,7 @@ final class NiriFittedResizeTests: XCTestCase {
         _ = layout(fixture)
 
         XCTAssertEqual(fixture.spans[0], 8400.0 / 11)
-        XCTAssertEqual(fixture.spans[1], 4800.0 / 11, accuracy: 0.000001)
+        XCTAssertEqual(fixture.spans[1], 400 * (1200.0 / (700 + 400)))
         XCTAssertEqual(fixture.specs, [.fixed(700), .proportion(1.0 / 3)])
     }
 
@@ -335,7 +335,8 @@ final class NiriFittedResizeTests: XCTestCase {
                     context: fixture.context, state: &fixture.state
                 )
                 _ = layout(fixture)
-                XCTAssertEqual(fixture.spans[0], grow ? 580 : 620, accuracy: 0.000001)
+                let (shownBound, step): (CGFloat, CGFloat) = grow ? (700, -10) : (500, 10)
+                XCTAssertEqual(fixture.spans[0], fixture.frame.width * (shownBound / fixture.frame.width + step / 100))
             }
         }
     }
@@ -350,10 +351,10 @@ final class NiriFittedResizeTests: XCTestCase {
                 fixture.columns[0], forwards: true, context: fixture.context, state: &fixture.state
             )
 
-            try assertShownSpans(fixture, [800, 600])
-            try assertShownSpans(fixture, [800, 600])
+            try assertShownSpans(fixture, [800, 600], cachedSpans: [fixture.frame.width * (2.0 / 3 * 100 / 100), 600])
+            try assertShownSpans(fixture, [800, 600], cachedSpans: [fixture.frame.width * (2.0 / 3 * 100 / 100), 600])
             XCTAssertFalse(fixture.specs[0].isFixed)
-            XCTAssertEqual(fixture.specs[0].value, 2.0 / 3, accuracy: 0.000000000001)
+            XCTAssertEqual(fixture.specs[0].value, 2.0 / 3 * 100 / 100)
             XCTAssertEqual(fixture.specs[1], .proportion(1.0 / 3))
             engine.toggleContainerPrimarySpan(
                 fixture.columns[0], forwards: false, context: fixture.context, state: &fixture.state

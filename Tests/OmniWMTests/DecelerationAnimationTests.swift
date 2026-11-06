@@ -13,8 +13,8 @@ final class DecelerationAnimationTests: XCTestCase {
         let expected = 0 - 300 / decay
 
         XCTAssertEqual(animation.restingOffset, expected)
-        XCTAssertEqual(animation.value(at: 0), 0, accuracy: 0.001)
-        XCTAssertEqual(animation.velocity(at: 0), 300, accuracy: 0.001)
+        XCTAssertEqual(animation.value(at: 0), 0)
+        XCTAssertEqual(animation.velocity(at: 0), 300)
         XCTAssertEqual(animation.value(at: 10), expected)
         XCTAssertTrue(animation.isComplete(at: 10))
     }

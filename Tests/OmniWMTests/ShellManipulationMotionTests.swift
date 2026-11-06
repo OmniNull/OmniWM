@@ -175,9 +175,15 @@ final class ShellManipulationMotionTests: XCTestCase {
             }
         }
         let settle = try releasedHome(by: -99, spring: desk())
-        let presented = (0 ... 8000).map { settle.rect(at: settle.begin + Double($0) * 0.0001) }
-        XCTAssertEqual(presented.map(\.minX).min() ?? 0, settle.trajectoryBounds.minX, accuracy: 0.001)
-        XCTAssertEqual(presented.map(\.maxX).max() ?? 0, settle.trajectoryBounds.maxX, accuracy: 0.001)
+        let step = 0.0001
+        let presented = (0 ... 8000).map { settle.rect(at: settle.begin + Double($0) * step) }
+        let sagitta = { (reach: Double) in
+            settle.spring.stiffness * abs(reach) * (1 + settle.spring.damping * step) * step * step / 8
+        }
+        let low = presented.map(\.minX).min() ?? 0
+        let high = presented.map(\.maxX).max() ?? 0
+        XCTAssertEqual(low, settle.trajectoryBounds.minX, accuracy: sagitta(low - settle.target.minX))
+        XCTAssertEqual(high, settle.trajectoryBounds.maxX, accuracy: sagitta(high - settle.target.maxX))
         XCTAssertLessThan(settle.trajectoryBounds.minX, settle.target.minX - 1)
         XCTAssertGreaterThan(settle.trajectoryBounds.maxX, settle.start.maxX + 1)
     }
@@ -206,7 +212,7 @@ final class ShellManipulationMotionTests: XCTestCase {
         for (segment, end) in [(motion, 2.05), (retargeted, retargeted.begin + retargeted.duration)] {
             for time in samples(segment) where time <= end {
                 let corner = ShellManipulationGeometry.content(of: segment.rect(at: time), recipe: recipe).origin
-                XCTAssertEqual(corner.x, pivot.x, accuracy: 1e-9, "\(time)")
+                XCTAssertEqual(corner.x, pivot.x, accuracy: CGFloat.rounding(operations: 6, at: pivot.x), "\(time)")
                 XCTAssertEqual(corner.y, pivot.y, "\(time)")
             }
         }

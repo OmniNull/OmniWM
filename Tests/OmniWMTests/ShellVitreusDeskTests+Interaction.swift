@@ -100,8 +100,8 @@ extension ShellVitreusDeskTests {
         _ widget: ShellRenderedWidget, _ name: String, x: Double, y: Double, size: CGSize
     ) throws {
         let frame = try VitreusFixture.frame(widget, key: name)
-        XCTAssertEqual(frame.midX, x, accuracy: 0.01, name)
-        XCTAssertEqual(frame.midY, y, accuracy: 0.01, name)
+        XCTAssertEqual(frame.midX, x, accuracy: .floatRounding(operations: 12, at: Self.envelope.maxX), name)
+        XCTAssertEqual(frame.midY, y, accuracy: .floatRounding(operations: 12, at: Self.envelope.maxY), name)
         XCTAssertEqual(frame.width, floatStored(size.width), name)
         XCTAssertEqual(frame.height, floatStored(size.height), name)
     }

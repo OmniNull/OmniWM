@@ -126,7 +126,7 @@ final class ShellVitreusComponentTests: XCTestCase {
             VitreusFixture.show(widget)
             XCTAssertEqual(Double(try glow().shadowRadius), floatStored(radius * du))
             XCTAssertEqual(try glow().shadow.role & 0xFF, UInt16(ShellRole.accent.rawValue + 1))
-            XCTAssertEqual(Double(try glow().shadow.role >> 8) / 255, alpha, accuracy: 0.003)
+            XCTAssertEqual(Double(try glow().shadow.role >> 8) / 255, (alpha * 255).rounded() / 255)
         }
     }
 }

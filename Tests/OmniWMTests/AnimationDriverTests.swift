@@ -17,6 +17,7 @@ final class AnimationDriverTests: XCTestCase {
     private func commit(
         _ driver: AnimationDriver,
         previous: CGFloat?,
+        at time: TimeInterval = CACurrentMediaTime(),
         mutate: (inout ViewportState) -> Void
     ) -> ViewportState {
         var next = state(viewOffset: previous ?? 0)
@@ -25,7 +26,8 @@ final class AnimationDriverTests: XCTestCase {
             workspaceId: workspaceId,
             previous: previous.map(state(viewOffset:)),
             next: next,
-            transition: next.offsetTransition
+            transition: next.offsetTransition,
+            at: time
         )
         return next
     }
@@ -66,10 +68,11 @@ final class AnimationDriverTests: XCTestCase {
 
     func testSpringCommitFromIdleStartsAtPreviousSemanticOffset() {
         let driver = AnimationDriver()
-        _ = commit(driver, previous: 10) { $0.springOffset(to: 110) }
+        let time: TimeInterval = 100
+        _ = commit(driver, previous: 10, at: time) { $0.springOffset(to: 110) }
 
-        let live = driver.liveViewOffset(in: workspaceId, semanticOffset: 110, at: CACurrentMediaTime())!
-        XCTAssertEqual(live, 10, accuracy: 1.0)
+        let live = driver.liveViewOffset(in: workspaceId, semanticOffset: 110, at: time)!
+        XCTAssertEqual(live, 10)
     }
 
     func testRebaseCommitShiftsLiveSpring() {
@@ -86,12 +89,13 @@ final class AnimationDriverTests: XCTestCase {
 
     func testSpringCommitRetargetsLiveSpringContinuously() {
         let driver = AnimationDriver()
-        _ = commit(driver, previous: 0) { $0.springOffset(to: 100) }
-        let liveBefore = driver.liveViewOffset(in: workspaceId, semanticOffset: 100)!
+        _ = commit(driver, previous: 0, at: 100) { $0.springOffset(to: 100) }
+        let retargetTime: TimeInterval = 100.05
+        let liveBefore = driver.liveViewOffset(in: workspaceId, semanticOffset: 100, at: retargetTime)!
 
-        _ = commit(driver, previous: 100) { $0.springOffset(to: 300) }
-        let liveAfter = driver.liveViewOffset(in: workspaceId, semanticOffset: 300)!
-        XCTAssertEqual(liveAfter, liveBefore, accuracy: 1.0)
+        _ = commit(driver, previous: 100, at: retargetTime) { $0.springOffset(to: 300) }
+        let liveAfter = driver.liveViewOffset(in: workspaceId, semanticOffset: 300, at: retargetTime)!
+        XCTAssertEqual(liveAfter, 300 + (liveBefore - 300))
         XCTAssertTrue(driver.hasMotion(in: workspaceId))
     }
 
@@ -131,14 +135,15 @@ final class AnimationDriverTests: XCTestCase {
         XCTAssertEqual(sample!.relativeOffset, 60)
         XCTAssertTrue(driver.hasGesture(in: workspaceId))
 
-        _ = commit(driver, previous: 0) { state in
+        let time: TimeInterval = 100
+        _ = commit(driver, previous: 0, at: time) { state in
             state.rebaseOffset(by: -10)
             state.springOffset(to: 120)
         }
         XCTAssertTrue(driver.hasMotion(in: workspaceId))
         XCTAssertFalse(driver.hasGesture(in: workspaceId))
-        let live = driver.liveViewOffset(in: workspaceId, semanticOffset: 110)!
-        XCTAssertEqual(live, 50, accuracy: 1.0)
+        let live = driver.liveViewOffset(in: workspaceId, semanticOffset: 110, at: time)!
+        XCTAssertEqual(live, 50)
     }
 
     func testGestureEndAfterStillTailProjectsCurrentOffset() {
@@ -215,12 +220,11 @@ final class AnimationDriverTests: XCTestCase {
             viewportWidth: AnimationDriver.gestureWorkingAreaMovement,
             timestamp: 1.04
         )!
-        let expectedVelocity = 120.0 / 0.04
+        let expectedVelocity = 120.0 / (1.04 - 1.00)
 
         XCTAssertEqual(
             sample.relativeProjectedOffset - sample.relativeOffset,
-            -expectedVelocity / DecelerationAnimation.decayRate,
-            accuracy: 0.001
+            120.0 - expectedVelocity / DecelerationAnimation.decayRate - 120.0
         )
 
         _ = commit(driver, previous: 0) { state in
@@ -232,12 +236,13 @@ final class AnimationDriverTests: XCTestCase {
 
     func testJumpThenSpringCommitStartsAtJumpedOffset() {
         let driver = AnimationDriver()
-        _ = commit(driver, previous: 0) { state in
+        let time: TimeInterval = 100
+        _ = commit(driver, previous: 0, at: time) { state in
             state.jumpOffset(to: 80)
             state.springOffset(to: 200)
         }
-        let live = driver.liveViewOffset(in: workspaceId, semanticOffset: 200)!
-        XCTAssertEqual(live, 80, accuracy: 1.0)
+        let live = driver.liveViewOffset(in: workspaceId, semanticOffset: 200, at: time)!
+        XCTAssertEqual(live, 80)
     }
 
     func testJumpCommitClearsActiveGesture() {

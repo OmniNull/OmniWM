@@ -266,16 +266,17 @@ final class ShellSpectrumShapeContractTests: XCTestCase {
             damping: first.damping
         )
         let elapsed = 0.04
-        let value = to + ShellSpringDynamics.position(
-            at: elapsed,
-            displacement: from - to,
-            initialVelocity: first.initialVelocity * (to - from),
+        let shown = start + elapsed - first.beginTime
+        let value = from + (to - from) * (1 + ShellSpringDynamics.position(
+            at: shown,
+            displacement: -1,
+            initialVelocity: first.initialVelocity,
             spring: spring
-        )
-        let velocity = ShellSpringDynamics.velocity(
-            at: elapsed,
-            displacement: from - to,
-            initialVelocity: first.initialVelocity * (to - from),
+        ))
+        let velocity = (to - from) * ShellSpringDynamics.velocity(
+            at: shown,
+            displacement: -1,
+            initialVelocity: first.initialVelocity,
             spring: spring
         )
         try ShellLayerScene.engineQueue.sync { _ = try renderer.render(paused: start + elapsed) }
@@ -283,8 +284,9 @@ final class ShellSpectrumShapeContractTests: XCTestCase {
         let next = try XCTUnwrap(layer.animation(forKey: ShellGlassBody.Channel.height.key) as? CASpringAnimation)
         let nextFrom = try XCTUnwrap(next.fromValue as? NSNumber).doubleValue
         let nextTo = try XCTUnwrap(next.toValue as? NSNumber).doubleValue
-        XCTAssertEqual(nextFrom, value, accuracy: 0.0001)
-        XCTAssertEqual(next.initialVelocity * (nextTo - nextFrom), velocity, accuracy: 0.001)
+        XCTAssertEqual(nextFrom, value)
+        let remaining = nextTo - nextFrom
+        XCTAssertEqual(next.initialVelocity * remaining, velocity * remaining / (remaining * remaining) * remaining)
         let count = body.elements[1].count
         let slot = try VitreusFixture.element(widget, key: "body").slot
         let style = try ShellLayerScene.engineQueue.sync { try XCTUnwrap(widget.surface.scene.glassStyles[slot]) }
