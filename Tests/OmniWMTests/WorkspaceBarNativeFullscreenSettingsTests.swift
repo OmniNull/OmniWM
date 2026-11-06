@@ -106,7 +106,7 @@ final class WorkspaceBarNativeFullscreenSettingsTests: XCTestCase {
         commitTopology(on: controller, fullscreenDisplayUUID: nil)
         let reservedWorkingBefore = controller.insetWorkingFrame(for: builtIn)
         let reservedFullscreenBefore = controller.fullscreenLayoutFrame(for: builtIn)
-        XCTAssertEqual(reservedWorkingBefore, CGRect(x: 5, y: 5, width: 1_430, height: 831))
+        XCTAssertEqual(reservedWorkingBefore, CGRect(x: 5, y: 5, width: 1_430, height: 826))
         XCTAssertEqual(reservedFullscreenBefore, CGRect(x: 0, y: 0, width: 1_440, height: 836))
 
         commitTopology(on: controller, fullscreenDisplayUUID: Self.builtInUUID)

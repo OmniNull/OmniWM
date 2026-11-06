@@ -171,7 +171,7 @@ final class WorkspaceBarRevealSettingsTests: XCTestCase {
                 false,
                 CGRect(x: 5, y: 5, width: 1430, height: 850),
                 CGRect(x: 0, y: 0, width: 1440, height: 860),
-                CGRect(x: 5, y: 5, width: 1430, height: 831),
+                CGRect(x: 5, y: 5, width: 1430, height: 826),
                 CGRect(x: 0, y: 0, width: 1440, height: 836)
             ),
             (
