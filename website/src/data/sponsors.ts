@@ -35,5 +35,8 @@ export const sponsors: Sponsor[] = [
   { name: 'Petar Shomov', handle: 'pshomov', avatar: '/credits/sponsors/pshomov.jpg' },
   { name: 'Michael Künneke', handle: 'mkuennek', avatar: '/credits/sponsors/mkuennek.jpg' },
   { name: 'Nick Nisi', handle: 'nicknisi', avatar: '/credits/sponsors/nicknisi.png' },
-  { name: 'Private Sponsor', note: 'Contact Barut for public credit' },
+  { name: 'Maciej', handle: 'c0desurfer', avatar: '/credits/sponsors/c0desurfer.jpg' },
+  { name: 'Josh Taylor', handle: 'joshbtay', avatar: '/credits/sponsors/joshbtay.jpg' },
+  { name: 'Matheus Gomes', handle: 'matgomes', avatar: '/credits/sponsors/matgomes.jpg' },
+  { name: 'stevenshrago', handle: 'stevenshrago', avatar: '/credits/sponsors/stevenshrago.png' },
 ];

@@ -63,6 +63,23 @@ OmniWM is a free, open-source, Developer ID-signed and Apple-notarized tiling wi
 <table align="center">
   <tr>
     <td align="center" valign="top">
+      <a href="https://github.com/atlassian">
+        <img src="https://avatars.githubusercontent.com/u/168166?v=4" width="72" alt="Atlassian">
+      </a>
+      <br>
+      <a href="https://github.com/atlassian"><strong>Atlassian</strong></a>
+      <br>
+      <sub>━━━━━━━━</sub>
+      <br>
+      <a href="https://github.com/joshbtay" title="Josh Taylor">
+        <img src="https://github.com/joshbtay.png?size=96" width="72" alt="Josh Taylor">
+      </a>
+      <br>
+      <a href="https://github.com/joshbtay"><strong>Josh Taylor</strong></a>
+      <br>
+      <sub>@joshbtay</sub>
+    </td>
+    <td align="center" valign="top">
       <a href="https://github.com/bitkey-oss">
         <img src="https://avatars.githubusercontent.com/u/143800766?v=4" width="72" alt="Bitkey">
       </a>
@@ -95,6 +112,23 @@ OmniWM is a free, open-source, Developer ID-signed and Apple-notarized tiling wi
       <a href="https://github.com/crbelaus"><strong>Cristian Álvarez Belaustegui</strong></a>
       <br>
       <sub>@crbelaus</sub>
+    </td>
+    <td align="center" valign="top">
+      <a href="https://github.com/edgelesssys">
+        <img src="https://avatars.githubusercontent.com/u/58512657?v=4" width="72" alt="Edgeless Systems">
+      </a>
+      <br>
+      <a href="https://github.com/edgelesssys"><strong>Edgeless Systems</strong></a>
+      <br>
+      <sub>━━━━━━━━</sub>
+      <br>
+      <a href="https://github.com/msanft" title="Moritz Sanft">
+        <img src="https://github.com/msanft.png?size=96" width="72" alt="Moritz Sanft">
+      </a>
+      <br>
+      <a href="https://github.com/msanft"><strong>Moritz Sanft</strong></a>
+      <br>
+      <sub>@msanft</sub>
     </td>
     <td align="center" valign="top">
       <a href="https://github.com/epam">
@@ -180,6 +214,23 @@ OmniWM is a free, open-source, Developer ID-signed and Apple-notarized tiling wi
       <a href="https://github.com/dappermint"><strong>millia ampora</strong></a>
       <br>
       <sub>@dappermint</sub>
+    </td>
+    <td align="center" valign="top">
+      <a href="https://www.learninghubz.com">
+        <img src="https://cdn.prod.website-files.com/65afad4fd2b69e7d2937bc74/6673526a663f8924dfeb4cae_lh-webclip.png" width="72" alt="Learninghubz">
+      </a>
+      <br>
+      <a href="https://www.learninghubz.com"><strong>Learninghubz</strong></a>
+      <br>
+      <sub>━━━━━━━━</sub>
+      <br>
+      <a href="https://github.com/nblopes" title="Nuno Lopes">
+        <img src="https://github.com/nblopes.png?size=96" width="72" alt="Nuno Lopes">
+      </a>
+      <br>
+      <a href="https://github.com/nblopes"><strong>Nuno Lopes</strong></a>
+      <br>
+      <sub>@nblopes</sub>
     </td>
     <td align="center" valign="top">
       <a href="https://github.com/liip">
@@ -483,8 +534,20 @@ OmniWM is a free, open-source, Developer ID-signed and Apple-notarized tiling wi
       <a href="https://github.com/binghan1227" title="binghan1227">
         <img src="https://github.com/binghan1227.png?size=96" width="72" alt="binghan1227">
       </a>
+      <a href="https://github.com/brdoney" title="Brendan Doney">
+        <img src="https://github.com/brdoney.png?size=96" width="72" alt="Brendan Doney">
+      </a>
       <a href="https://github.com/bps" title="Brian Smyth">
         <img src="https://github.com/bps.png?size=96" width="72" alt="Brian Smyth">
+      </a>
+      <a href="https://github.com/CallMeLaNN" title="CallMeLaNN">
+        <img src="https://github.com/CallMeLaNN.png?size=96" width="72" alt="CallMeLaNN">
+      </a>
+      <a href="https://github.com/CarlitoGrey" title="CarlitoGrey">
+        <img src="https://github.com/CarlitoGrey.png?size=96" width="72" alt="CarlitoGrey">
+      </a>
+      <a href="https://github.com/chanatundev" title="Chanatun Kohsuwan">
+        <img src="https://github.com/chanatundev.png?size=96" width="72" alt="Chanatun Kohsuwan">
       </a>
       <a href="https://github.com/chen259456754" title="chen259456754">
         <img src="https://github.com/chen259456754.png?size=96" width="72" alt="chen259456754">
@@ -497,6 +560,9 @@ OmniWM is a free, open-source, Developer ID-signed and Apple-notarized tiling wi
       </a>
       <a href="https://github.com/DereckAn" title="Dereck Angeles">
         <img src="https://github.com/DereckAn.png?size=96" width="72" alt="Dereck Angeles">
+      </a>
+      <a href="https://github.com/fakhrishirinov-ai" title="Fakhri Shirinov">
+        <img src="https://github.com/fakhrishirinov-ai.png?size=96" width="72" alt="Fakhri Shirinov">
       </a>
       <a href="https://github.com/nekonora" title="Filippo Zaffoni">
         <img src="https://github.com/nekonora.png?size=96" width="72" alt="Filippo Zaffoni">
@@ -528,6 +594,12 @@ OmniWM is a free, open-source, Developer ID-signed and Apple-notarized tiling wi
       <a href="https://github.com/jcardama" title="Jose Cardama">
         <img src="https://github.com/jcardama.png?size=96" width="72" alt="Jose Cardama">
       </a>
+      <a href="https://github.com/joshbtay" title="Josh Taylor">
+        <img src="https://github.com/joshbtay.png?size=96" width="72" alt="Josh Taylor">
+      </a>
+      <a href="https://github.com/kieled" title="Kiel Ed">
+        <img src="https://github.com/kieled.png?size=96" width="72" alt="Kiel Ed">
+      </a>
       <a href="https://github.com/komarov-dc" title="KomarovD">
         <img src="https://github.com/komarov-dc.png?size=96" width="72" alt="KomarovD">
       </a>
@@ -536,6 +608,9 @@ OmniWM is a free, open-source, Developer ID-signed and Apple-notarized tiling wi
       </a>
       <a href="https://github.com/imprisonedmind" title="Luke Stephens">
         <img src="https://github.com/imprisonedmind.png?size=96" width="72" alt="Luke Stephens">
+      </a>
+      <a href="https://github.com/maoxor" title="mao">
+        <img src="https://github.com/maoxor.png?size=96" width="72" alt="mao">
       </a>
       <a href="https://github.com/zucram" title="Marcus Harlid Davin">
         <img src="https://github.com/zucram.png?size=96" width="72" alt="Marcus Harlid Davin">
@@ -549,6 +624,9 @@ OmniWM is a free, open-source, Developer ID-signed and Apple-notarized tiling wi
       <a href="https://github.com/wicksipedia" title="Matt Wicks">
         <img src="https://github.com/wicksipedia.png?size=96" width="72" alt="Matt Wicks">
       </a>
+      <a href="https://github.com/dappermint" title="millia ampora">
+        <img src="https://github.com/dappermint.png?size=96" width="72" alt="millia ampora">
+      </a>
       <a href="https://github.com/mkdir700" title="mkdir700">
         <img src="https://github.com/mkdir700.png?size=96" width="72" alt="mkdir700">
       </a>
@@ -557,6 +635,9 @@ OmniWM is a free, open-source, Developer ID-signed and Apple-notarized tiling wi
       </a>
       <a href="https://github.com/Mokhtar25" title="Mokhtar">
         <img src="https://github.com/Mokhtar25.png?size=96" width="72" alt="Mokhtar">
+      </a>
+      <a href="https://github.com/msanft" title="Moritz Sanft">
+        <img src="https://github.com/msanft.png?size=96" width="72" alt="Moritz Sanft">
       </a>
       <a href="https://github.com/MuhammadKh" title="muhammadkh">
         <img src="https://github.com/MuhammadKh.png?size=96" width="72" alt="muhammadkh">
@@ -569,6 +650,9 @@ OmniWM is a free, open-source, Developer ID-signed and Apple-notarized tiling wi
       </a>
       <a href="https://github.com/NgoQuocViet2001" title="Ngo Quoc Viet">
         <img src="https://github.com/NgoQuocViet2001.png?size=96" width="72" alt="Ngo Quoc Viet">
+      </a>
+      <a href="https://github.com/nblopes" title="Nuno Lopes">
+        <img src="https://github.com/nblopes.png?size=96" width="72" alt="Nuno Lopes">
       </a>
       <a href="https://github.com/t1dotdev" title="Panuphong Burakitphachai">
         <img src="https://github.com/t1dotdev.png?size=96" width="72" alt="Panuphong Burakitphachai">
