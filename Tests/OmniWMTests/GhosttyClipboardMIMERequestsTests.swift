@@ -7,7 +7,7 @@ import XCTest
 
 @MainActor
 final class GhosttyClipboardMIMERequestsTests: XCTestCase {
-    func testRequestedMIMEsPreserveOrderAndSkipNilDuplicateAndUnavailableEntries() throws {
+    func testRequestedMIMEsPreserveOrderAndSkipDuplicateAndUnavailableEntries() throws {
         let pasteboard = makePasteboard()
         defer { pasteboard.clearContents() }
         let firstMIME = "application/x-omniwm-first"
@@ -23,7 +23,7 @@ final class GhosttyClipboardMIMERequestsTests: XCTestCase {
         let payload = secondMIME.withCString { second in
             firstMIME.withCString { first in
                 "application/x-omniwm-absent".withCString { absent in
-                    let mimes: [UnsafePointer<CChar>?] = [second, nil, first, second, absent]
+                    let mimes: [UnsafePointer<CChar>] = [second, first, second, absent]
                     return mimes.withUnsafeBufferPointer {
                         pasteboard.ghosttyReadPayload(forMIMEs: $0, list: false)
                     }
@@ -53,7 +53,7 @@ final class GhosttyClipboardMIMERequestsTests: XCTestCase {
     func testEmptyMIMEListMatchesMissingList() throws {
         let pasteboard = makePasteboard()
         defer { pasteboard.clearContents() }
-        let mimes: [UnsafePointer<CChar>?] = []
+        let mimes: [UnsafePointer<CChar>] = []
 
         try mimes.withUnsafeBufferPointer { buffer in
             XCTAssertNil(pasteboard.ghosttyReadPayload(forMIMEs: buffer, list: false))
@@ -68,7 +68,7 @@ final class GhosttyClipboardMIMERequestsTests: XCTestCase {
         defer { pasteboard.clearContents() }
 
         "application/x-omniwm-absent".withCString { absent in
-            let mimes: [UnsafePointer<CChar>?] = [nil, absent, absent]
+            let mimes: [UnsafePointer<CChar>] = [absent, absent]
             mimes.withUnsafeBufferPointer { buffer in
                 XCTAssertNil(pasteboard.ghosttyReadPayload(forMIMEs: buffer, list: false))
                 XCTAssertEqual(
@@ -86,7 +86,7 @@ final class GhosttyClipboardMIMERequestsTests: XCTestCase {
         XCTAssertTrue(pasteboard.setString("first\nsecond", forType: .string))
 
         try "text/plain".withCString { text in
-            let mimes: [UnsafePointer<CChar>?] = [text, text]
+            let mimes: [UnsafePointer<CChar>] = [text, text]
             try mimes.withUnsafeBufferPointer { buffer in
                 for list in [false, true] {
                     let payload = try XCTUnwrap(pasteboard.ghosttyReadPayload(forMIMEs: buffer, list: list))

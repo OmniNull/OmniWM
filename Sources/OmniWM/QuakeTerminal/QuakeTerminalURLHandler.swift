@@ -11,9 +11,8 @@ enum QuakeTerminalURLHandler {
         open: (URL) -> Bool = { NSWorkspace.shared.open($0) }
     ) -> Bool {
         guard action.kind == GHOSTTY_ACTION_OPEN_URL_KIND_OSC8 else { return false }
-        guard let bytes = action.url,
-              let count = Int(exactly: action.len), count > 0,
-              let string = String(data: Data(bytes: bytes, count: count), encoding: .utf8),
+        guard let count = Int(exactly: action.len), count > 0,
+              let string = String(data: Data(bytes: action.url, count: count), encoding: .utf8),
               let url = hyperlinkURL(string)
         else {
             Log.terminal.notice("Blocked an unsupported or malformed terminal hyperlink")

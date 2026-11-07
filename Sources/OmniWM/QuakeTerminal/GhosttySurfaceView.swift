@@ -14,8 +14,8 @@ final class GhosttySurfaceCallbackContext {
         self.controller = controller
     }
 
-    static func installCloseCallback(in runtimeConfig: inout ghostty_runtime_config_s) {
-        runtimeConfig.close_surface_cb = { userdata, processAlive in
+    static var closeCallback: ghostty_runtime_close_surface_cb {
+        { userdata, processAlive in
             guard let userdata else { return }
             let context = Unmanaged<GhosttySurfaceCallbackContext>.fromOpaque(userdata).takeUnretainedValue()
             DispatchQueue.main.async {

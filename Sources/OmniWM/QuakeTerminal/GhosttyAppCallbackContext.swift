@@ -12,8 +12,8 @@ final class GhosttyAppCallbackContext {
         self.controller = controller
     }
 
-    static func installWakeupCallback(in runtimeConfig: inout ghostty_runtime_config_s) {
-        runtimeConfig.wakeup_cb = { userdata in
+    static var wakeupCallback: ghostty_runtime_wakeup_cb {
+        { userdata in
             guard let userdata else { return }
             let context = Unmanaged<GhosttyAppCallbackContext>.fromOpaque(userdata).takeUnretainedValue()
             DispatchQueue.main.async {
@@ -23,9 +23,9 @@ final class GhosttyAppCallbackContext {
         }
     }
 
-    static func installActionCallback(in runtimeConfig: inout ghostty_runtime_config_s) {
-        runtimeConfig.action_cb = { app, target, action in
-            guard let app, let userdata = ghostty_app_userdata(app) else { return false }
+    static var actionCallback: ghostty_runtime_action_cb {
+        { app, target, action in
+            guard let userdata = ghostty_app_userdata(app) else { return false }
             switch action.tag {
             case GHOSTTY_ACTION_SHOW_CHILD_EXITED:
                 guard target.tag == GHOSTTY_TARGET_SURFACE,
@@ -50,9 +50,8 @@ final class GhosttyAppCallbackContext {
                     QuakeTerminalURLHandler.handle(action.action.open_url)
                 }
             case GHOSTTY_ACTION_CONFIG_CHANGE:
-                guard target.tag == GHOSTTY_TARGET_APP,
-                      let config = action.action.config_change.config else { return false }
-                let appearance = QuakeGhosttyAppearance(config: config)
+                guard target.tag == GHOSTTY_TARGET_APP else { return false }
+                let appearance = QuakeGhosttyAppearance(config: action.action.config_change.config)
                 return MainActor.assumeIsolated {
                     let context = Unmanaged<GhosttyAppCallbackContext>.fromOpaque(userdata).takeUnretainedValue()
                     guard let controller = context.controller else { return false }

@@ -196,21 +196,18 @@ final class QuakeClipboardPromptTests: XCTestCase {
         XCTAssertEqual(secondResolutions, [])
     }
 
-    func testClipboardContentUsesExplicitLength() {
+    func testClipboardContentUsesExplicitLength() throws {
         let bytes: [UInt8] = [65, 0, 66]
-        let content = bytes.withUnsafeBytes { buffer in
-            "text/plain".withCString { mime in
-                GhosttyClipboardContent(ghostty_clipboard_content_s(
-                    mime: mime,
-                    data: buffer.baseAddress?.assumingMemoryBound(to: CChar.self),
-                    len: buffer.count
-                ))
+        let content = try bytes.withUnsafeBytes { buffer in
+            let data = try XCTUnwrap(buffer.baseAddress).assumingMemoryBound(to: CChar.self)
+            return "text/plain".withCString { mime in
+                GhosttyClipboardContent(ghostty_clipboard_content_s(mime: mime, data: data, len: buffer.count))
             }
         }
 
-        XCTAssertEqual(content?.mime, "text/plain")
-        XCTAssertEqual(content?.data, Data(bytes))
-        XCTAssertEqual(content?.string?.utf8.map(\.self), bytes)
+        XCTAssertEqual(content.mime, "text/plain")
+        XCTAssertEqual(content.data, Data(bytes))
+        XCTAssertEqual(content.string?.utf8.map(\.self), bytes)
     }
 
     func testClipboardPayloadPreviewPrefersTextAndSummarizesBinaryContent() {

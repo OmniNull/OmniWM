@@ -57,16 +57,16 @@ final class QuakeGhosttyRuntime {
     }
 
     private func makeRuntimeConfiguration(userdata: UnsafeMutableRawPointer) -> ghostty_runtime_config_s {
-        var runtimeConfig = ghostty_runtime_config_s()
-        runtimeConfig.userdata = userdata
-        runtimeConfig.supports_selection_clipboard = true
-        GhosttyAppCallbackContext.installWakeupCallback(in: &runtimeConfig)
-        GhosttyAppCallbackContext.installActionCallback(in: &runtimeConfig)
-        QuakeClipboardPromptCoordinator.installReadCallback(in: &runtimeConfig)
-        QuakeClipboardPromptCoordinator.installConfirmationCallback(in: &runtimeConfig)
-        QuakeClipboardPromptCoordinator.installWriteCallback(in: &runtimeConfig)
-        GhosttySurfaceCallbackContext.installCloseCallback(in: &runtimeConfig)
-        return runtimeConfig
+        ghostty_runtime_config_s(
+            userdata: userdata,
+            supports_selection_clipboard: true,
+            wakeup_cb: GhosttyAppCallbackContext.wakeupCallback,
+            action_cb: GhosttyAppCallbackContext.actionCallback,
+            read_clipboard_cb: QuakeClipboardPromptCoordinator.readCallback,
+            confirm_read_clipboard_cb: QuakeClipboardPromptCoordinator.confirmationCallback,
+            write_clipboard_cb: QuakeClipboardPromptCoordinator.writeCallback,
+            close_surface_cb: GhosttySurfaceCallbackContext.closeCallback
+        )
     }
 
     func releaseAppAndConfiguration() {
@@ -86,7 +86,8 @@ final class QuakeGhosttyRuntime {
 
     private func initializeGhosttyIfNeeded() {
         guard !Self.ghosttyInitialized else { return }
-        let result = ghostty_init(0, nil)
+        var arguments: UnsafeMutablePointer<CChar>?
+        let result = ghostty_init(0, &arguments)
         Self.restoreCNumericLocale()
         if result == GHOSTTY_SUCCESS {
             Self.ghosttyInitialized = true

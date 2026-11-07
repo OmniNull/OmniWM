@@ -82,8 +82,8 @@ final class QuakeClipboardPromptCoordinator {
     func readClipboard(
         for view: GhosttySurfaceView,
         location: ghostty_clipboard_e,
-        state: UnsafeMutableRawPointer?,
-        mimes: UnsafeBufferPointer<UnsafePointer<CChar>?>?,
+        state: UnsafeMutableRawPointer,
+        mimes: UnsafeBufferPointer<UnsafePointer<CChar>>?,
         list: Bool
     ) -> ghostty_clipboard_read_result_e {
         guard let surface = view.ghosttySurface,
@@ -102,7 +102,7 @@ final class QuakeClipboardPromptCoordinator {
     func promptForProtectedClipboardRead(
         on view: GhosttySurfaceView,
         payload: GhosttyClipboardPayload,
-        state: UnsafeMutableRawPointer?,
+        state: UnsafeMutableRawPointer,
         kind: QuakeClipboardAlert.Kind
     ) {
         let request = GhosttyProtectedClipboardRequest(payload: payload, state: state)
@@ -194,8 +194,8 @@ final class QuakeClipboardPromptCoordinator {
         return view.ghosttySurface != nil && view.window === window && controller.isActiveSurface(view)
     }
 
-    static func installReadCallback(in runtimeConfig: inout ghostty_runtime_config_s) {
-        runtimeConfig.read_clipboard_cb = { userdata, location, state, mimes, mimesLength, list in
+    static var readCallback: ghostty_runtime_read_clipboard_cb {
+        { userdata, location, state, mimes, mimesLength, list in
             guard let userdata else { return GHOSTTY_CLIPBOARD_READ_UNSUPPORTED }
             return MainActor.assumeIsolated {
                 let context = Unmanaged<GhosttySurfaceCallbackContext>.fromOpaque(userdata).takeUnretainedValue()
@@ -206,21 +206,20 @@ final class QuakeClipboardPromptCoordinator {
                     for: view,
                     location: location,
                     state: state,
-                    mimes: mimes.map { UnsafeBufferPointer(start: $0, count: mimesLength) },
+                    mimes: UnsafeBufferPointer(start: mimes, count: mimesLength),
                     list: list
                 )
             }
         }
     }
 
-    static func installConfirmationCallback(in runtimeConfig: inout ghostty_runtime_config_s) {
-        runtimeConfig.confirm_read_clipboard_cb = { userdata, confirmation, state, kind in
+    static var confirmationCallback: ghostty_runtime_confirm_read_clipboard_cb {
+        { userdata, confirmation, state, kind in
             guard let userdata else { return }
             MainActor.assumeIsolated {
                 let context = Unmanaged<GhosttySurfaceCallbackContext>.fromOpaque(userdata).takeUnretainedValue()
                 guard let view = context.view, let surface = view.ghosttySurface else { return }
                 guard let controller = context.controller,
-                      let confirmation,
                       let promptKind = QuakeClipboardAlert.Kind(kind)
                 else {
                     ghostty_surface_deny_clipboard_request(surface, state)
@@ -236,10 +235,10 @@ final class QuakeClipboardPromptCoordinator {
         }
     }
 
-    static func installWriteCallback(in runtimeConfig: inout ghostty_runtime_config_s) {
-        runtimeConfig.write_clipboard_cb = { userdata, location, content, len, confirm in
-            guard let userdata, let content, len > 0 else { return }
-            let contents = (0 ..< len).compactMap { GhosttyClipboardContent(content[$0]) }
+    static var writeCallback: ghostty_runtime_write_clipboard_cb {
+        { userdata, location, content, len, confirm in
+            guard let userdata, len > 0 else { return }
+            let contents = (0 ..< len).map { GhosttyClipboardContent(content[$0]) }
             guard !contents.isEmpty else { return }
             MainActor.assumeIsolated {
                 let context = Unmanaged<GhosttySurfaceCallbackContext>.fromOpaque(userdata).takeUnretainedValue()

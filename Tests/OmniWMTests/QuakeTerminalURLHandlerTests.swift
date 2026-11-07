@@ -41,14 +41,14 @@ final class QuakeTerminalURLHandlerTests: XCTestCase {
         }
     }
 
-    func testDecodesOnlyExplicitLengthWithoutNullTerminator() {
+    func testDecodesOnlyExplicitLengthWithoutNullTerminator() throws {
         let target = "https://example.com/path"
         let bytes = Array((target + "ignored").utf8)
         var opened: URL?
-        let handled = bytes.withUnsafeBytes { buffer in
-            QuakeTerminalURLHandler.handle(ghostty_action_open_url_s(
+        let handled = try bytes.withUnsafeBytes { buffer in
+            try QuakeTerminalURLHandler.handle(ghostty_action_open_url_s(
                 kind: GHOSTTY_ACTION_OPEN_URL_KIND_OSC8,
-                url: buffer.baseAddress?.assumingMemoryBound(to: CChar.self),
+                url: XCTUnwrap(buffer.baseAddress).assumingMemoryBound(to: CChar.self),
                 len: UInt(target.utf8.count)
             )) {
                 opened = $0
@@ -59,12 +59,12 @@ final class QuakeTerminalURLHandlerTests: XCTestCase {
         XCTAssertEqual(opened?.absoluteString, target)
     }
 
-    func testRejectsInvalidUTF8WithoutOpeningOrFallingBack() {
+    func testRejectsInvalidUTF8WithoutOpeningOrFallingBack() throws {
         let bytes: [UInt8] = Array("https://example.com/".utf8) + [0xFF]
-        let handled = bytes.withUnsafeBytes { buffer in
-            QuakeTerminalURLHandler.handle(ghostty_action_open_url_s(
+        let handled = try bytes.withUnsafeBytes { buffer in
+            try QuakeTerminalURLHandler.handle(ghostty_action_open_url_s(
                 kind: GHOSTTY_ACTION_OPEN_URL_KIND_OSC8,
-                url: buffer.baseAddress?.assumingMemoryBound(to: CChar.self),
+                url: XCTUnwrap(buffer.baseAddress).assumingMemoryBound(to: CChar.self),
                 len: UInt(bytes.count)
             )) { _ in
                 XCTFail("Opened invalid UTF-8")
@@ -74,15 +74,17 @@ final class QuakeTerminalURLHandlerTests: XCTestCase {
         XCTAssertTrue(handled)
     }
 
-    func testMissingBufferIsHandledWithoutOpening() {
-        XCTAssertTrue(QuakeTerminalURLHandler.handle(ghostty_action_open_url_s(
-            kind: GHOSTTY_ACTION_OPEN_URL_KIND_OSC8,
-            url: nil,
-            len: 0
-        )) { _ in
-            XCTFail("Opened a missing target")
-            return true
-        })
+    func testEmptyTargetIsHandledWithoutOpening() {
+        "https://example.com".withCString { url in
+            XCTAssertTrue(QuakeTerminalURLHandler.handle(ghostty_action_open_url_s(
+                kind: GHOSTTY_ACTION_OPEN_URL_KIND_OSC8,
+                url: url,
+                len: 0
+            )) { _ in
+                XCTFail("Opened an empty target")
+                return true
+            })
+        }
     }
 
     func testFailedOpenDoesNotFallBackToGhostty() {

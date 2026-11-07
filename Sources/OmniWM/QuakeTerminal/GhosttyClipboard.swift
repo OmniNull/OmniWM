@@ -23,10 +23,9 @@ struct GhosttyClipboardContent: Equatable {
         self.data = data
     }
 
-    init?(_ content: ghostty_clipboard_content_s) {
-        guard let mime = content.mime, let bytes = content.data else { return nil }
-        self.mime = String(cString: mime)
-        data = content.len > 0 ? Data(bytes: bytes, count: content.len) : Data()
+    init(_ content: ghostty_clipboard_content_s) {
+        mime = String(cString: content.mime)
+        data = content.len > 0 ? Data(bytes: content.data, count: content.len) : Data()
     }
 }
 
@@ -53,9 +52,7 @@ struct GhosttyClipboardPayload: Equatable {
         if let contents = confirmation.contents {
             copiedContents.reserveCapacity(confirmation.contents_len)
             for index in 0 ..< confirmation.contents_len {
-                if let content = GhosttyClipboardContent(contents[index]) {
-                    copiedContents.append(content)
-                }
+                copiedContents.append(GhosttyClipboardContent(contents[index]))
             }
         }
         contents = copiedContents
@@ -64,9 +61,7 @@ struct GhosttyClipboardPayload: Equatable {
         if let available = confirmation.available {
             copiedAvailable.reserveCapacity(confirmation.available_len)
             for index in 0 ..< confirmation.available_len {
-                if let mime = available[index] {
-                    copiedAvailable.append(String(cString: mime))
-                }
+                copiedAvailable.append(String(cString: available[index]))
             }
         }
         available = copiedAvailable
@@ -90,7 +85,7 @@ struct GhosttyClipboardPayload: Equatable {
 
     func complete(
         on surface: ghostty_surface_t,
-        state: UnsafeMutableRawPointer?,
+        state: UnsafeMutableRawPointer,
         confirmed: Bool,
         remember: Bool = false
     ) {
@@ -120,7 +115,7 @@ struct GhosttyClipboardPayload: Equatable {
             ))
         }
 
-        var copiedAvailable: [UnsafePointer<CChar>?] = []
+        var copiedAvailable: [UnsafePointer<CChar>] = []
         copiedAvailable.reserveCapacity(available.count)
         for availableMime in available {
             guard let mime = strdup(availableMime) else { continue }
@@ -149,7 +144,7 @@ final class GhosttyProtectedClipboardRequest {
     let payload: GhosttyClipboardPayload
     private var state: UnsafeMutableRawPointer?
 
-    init(payload: GhosttyClipboardPayload, state: UnsafeMutableRawPointer?) {
+    init(payload: GhosttyClipboardPayload, state: UnsafeMutableRawPointer) {
         self.payload = payload
         self.state = state
     }
@@ -196,7 +191,7 @@ extension NSPasteboard {
     }
 
     func ghosttyReadPayload(
-        forMIMEs mimes: UnsafeBufferPointer<UnsafePointer<CChar>?>?,
+        forMIMEs mimes: UnsafeBufferPointer<UnsafePointer<CChar>>?,
         list: Bool
     ) -> GhosttyClipboardPayload? {
         let contents = ghosttyContents(forMIMEs: mimes)
@@ -205,14 +200,13 @@ extension NSPasteboard {
         return GhosttyClipboardPayload(contents: contents, available: available)
     }
 
-    private func ghosttyContents(forMIMEs mimes: UnsafeBufferPointer<UnsafePointer<CChar>?>?)
+    private func ghosttyContents(forMIMEs mimes: UnsafeBufferPointer<UnsafePointer<CChar>>?)
         -> [GhosttyClipboardContent]
     {
         var contents: [GhosttyClipboardContent] = []
         var seen: Set<String> = []
         if let mimes {
             for mimePointer in mimes {
-                guard let mimePointer else { continue }
                 let mime = String(cString: mimePointer)
                 guard seen.insert(mime).inserted,
                       let data = ghosttyData(forMIME: mime) else { continue }
