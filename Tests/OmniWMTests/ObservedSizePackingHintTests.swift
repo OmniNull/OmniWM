@@ -50,6 +50,23 @@ final class ObservedSizePackingHintTests: XCTestCase {
         XCTAssertEqual(fixture.controller.niriLayoutHandler.moveWindow(direction: .left), .atWorkspaceEdge)
     }
 
+    func testDirectionalMoveJoinsTabbedNeighborWhenStackingDisabled() throws {
+        let fixture = try makeFixture()
+        defer { cleanup(fixture) }
+        fixture.controller.settings.niri.moveWindowStacksIntoColumn = false
+        let engine = try XCTUnwrap(fixture.controller.niriEngine)
+        let tabbedColumn = try XCTUnwrap(engine.columns(in: fixture.workspaceId).first)
+        fixture.controller.workspaceManager.withEngineMutationScope(in: fixture.workspaceId) {
+            tabbedColumn.displayMode = .tabbed
+        }
+
+        XCTAssertEqual(fixture.controller.niriLayoutHandler.moveWindow(direction: .left), .movedWithinWorkspace)
+        XCTAssertEqual(engine.columns(in: fixture.workspaceId).count, 1)
+        XCTAssertTrue(engine.columns(in: fixture.workspaceId).first === tabbedColumn)
+        XCTAssertEqual(Set(tabbedColumn.windowNodes.map(\.token)), Set(fixture.tokens))
+        XCTAssertTrue(tabbedColumn.isTabbed)
+    }
+
     func testDirectionalMoveKeepsHiddenSiblingInMovedColumnWhenStackingDisabled() throws {
         let fixture = try makeFixture()
         defer { cleanup(fixture) }

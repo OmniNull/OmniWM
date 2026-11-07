@@ -288,6 +288,39 @@ final class NiriAdmissionRestoreStateTests: XCTestCase {
         XCTAssertEqual(restoredSecond.windowWidth, expectedSecondWindowState.windowWidth)
     }
 
+    func testFloatingRoundTripOfLoneColumnWindowDoesNotStackIntoShiftedNeighbor() throws {
+        let controller = Self.controller()
+        let workspaceId = try XCTUnwrap(
+            controller.workspaceManager.workspaceId(for: "1", createIfMissing: true)
+        )
+        controller.niriLayoutHandler.enableNiriLayout()
+        for index in 0 ..< 3 {
+            _ = controller.workspaceManager.addWindow(
+                AXWindowRef(element: AXUIElementCreateApplication(812), windowId: 120 + index),
+                pid: 812,
+                windowId: 120 + index,
+                to: workspaceId
+            )
+        }
+        let engine = try XCTUnwrap(controller.niriEngine)
+        func layout() {
+            let placements = controller.workspaceManager.withBatchedLayoutBuild {
+                controller.niriLayoutHandler.layoutWithNiriEngine(activeWorkspaces: [workspaceId])
+            }.first?.niriRestorePlacements ?? [:]
+            controller.workspaceManager.setNiriRestorePlacements(placements)
+        }
+        layout()
+        XCTAssertEqual(engine.columns(in: workspaceId).map(\.windowNodes.count), [1, 1, 1])
+        let middleToken = try XCTUnwrap(engine.columns(in: workspaceId)[1].windowNodes.first?.token)
+
+        XCTAssertTrue(controller.workspaceManager.setWindowMode(.floating, for: middleToken))
+        layout()
+        XCTAssertTrue(controller.workspaceManager.setWindowMode(.tiling, for: middleToken))
+        layout()
+
+        XCTAssertEqual(engine.columns(in: workspaceId).map(\.windowNodes.count), [1, 1, 1])
+    }
+
     func testEngineReplacementRefreshesWindowSizingWithoutInterveningLayout() throws {
         let controller = Self.controller()
         let workspaceId = try XCTUnwrap(

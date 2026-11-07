@@ -470,7 +470,7 @@ final class TargetedWindowActionIPCIntegrationTests: XCTestCase {
         XCTAssertEqual(fixture.router.handle(request), .executed)
         await WindowAdmissionTestSupport.drainLayoutRefreshes(fixture.controller)
         XCTAssertEqual(manager.hiddenState(for: released.id)?.isScratchpad, true)
-        XCTAssertEqual(manager.restoreIntent(for: released.id)?.niriPlacement?.columnIndex, focusedColumnIndex)
+        XCTAssertEqual(manager.restoreIntent(for: released.id)?.niriPlacement?.hasColumnPosition, false)
 
         XCTAssertEqual(fixture.router.handle(request), .executed)
         try completeReveal(released.id, fixture)
