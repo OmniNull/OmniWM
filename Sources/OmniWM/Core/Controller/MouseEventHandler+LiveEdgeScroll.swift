@@ -80,7 +80,12 @@ extension MouseEventHandler {
 
         guard !controller.workspaceManager.animationDriver.hasEdgeScroll(in: workspaceId)
             || !move.stackMode
-            && liveEdgeScrollReachesColumn(at: location, time: time, engine: engine, workspaceId: workspaceId)
+            && liveEdgeScrollReachesColumn(
+                at: liveDragReference(location),
+                time: time,
+                engine: engine,
+                workspaceId: workspaceId
+            )
         else { return }
         stopLiveEdgeScroll(at: time)
         updateLiveColumnDrag(at: location, immediate: true)

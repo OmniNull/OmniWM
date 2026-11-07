@@ -141,6 +141,7 @@ struct MouseInputState {
     var isResizing: Bool = false
     var isMoving: Bool = false
     var liveDragLocation: CGPoint?
+    var liveDragReferenceOffset: CGFloat?
     var liveDragModifiers: CGEventFlags?
     var liveDragTracedView: String?
     var liveDragTracedDecline: String?

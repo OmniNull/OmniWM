@@ -373,6 +373,79 @@ final class LiveTitleBarDragTests: NiriInteractionTestCase {
         XCTAssertEqual(fixture.engine.liveColumnMove?.swapCount, 1)
     }
 
+    func testTheDraggedWindowsCentreNotThePointerOpensTheHint() throws {
+        let fixture = try makeFixture(pid: 938_090)
+        let clock = DragClock()
+        fixture.handler.liveDragClock = { clock.now }
+        fixture.engine.stacksOnWindowCentres = true
+        let (dragged, target) = (fixture.tokens[1], fixture.tokens[2])
+        fixture.handler.retireNativeTitleBarDragAtInputBoundary()
+        fixture.handler.pressedMouseButtonsProvider = { MouseEventHandler.MouseButton.left.pressedMask }
+        let start = try fixture.frame(dragged)
+        fixture.reported.frame = start
+        fixture.handler.nativeWindowFrameProvider = { [reported = fixture.reported] _ in reported.frame }
+        let grab = CGPoint(x: start.minX + 20, y: start.maxY - 10)
+        XCTAssertFalse(fixture.handler.dispatchMouseDown(
+            at: grab,
+            modifiers: [],
+            windowIdUnderPointer: dragged.windowId
+        ))
+        fixture.drag(to: CGPoint(x: grab.x + 5, y: grab.y))
+        try fixture.macOSMoves(dragged, to: start.offsetBy(dx: 5, dy: 0))
+        XCTAssertTrue(fixture.handler.isLiveColumnDragActive)
+        let offset = start.midX - grab.x
+
+        let targetFrame = try fixture.frame(target)
+        let pointer = CGPoint(x: targetFrame.midX - offset, y: targetFrame.maxY - targetFrame.height / 4)
+        XCTAssertLessThan(pointer.x, targetFrame.minX + targetFrame.width / 3)
+        XCTAssertEqual(fixture.handler.liveDragReference(pointer).x, targetFrame.midX, accuracy: 0.5)
+        fixture.drag(to: pointer)
+        clock.now += 0.2
+        fixture.handler.state.liveHoverTimer?.fire()
+
+        XCTAssertEqual(fixture.engine.liveColumnMove?.landingIsHint, true)
+    }
+
+    func testNearAScreenEdgeTheReferenceEasesIntoThePointer() throws {
+        let fixture = try makeFixture(pid: 938_092)
+        let display = fixture.monitor.frame
+        fixture.handler.state.liveDragReferenceOffset = -300
+
+        XCTAssertEqual(
+            fixture.handler.liveDragReference(CGPoint(x: display.midX, y: 300)).x,
+            display.midX - 300,
+            accuracy: 0.5
+        )
+        XCTAssertEqual(
+            fixture.handler.liveDragReference(CGPoint(x: display.maxX - 150, y: 300)).x,
+            display.maxX - 300,
+            accuracy: 0.5
+        )
+        XCTAssertEqual(
+            fixture.handler.liveDragReference(CGPoint(x: display.maxX - 1, y: 300)).x,
+            display.maxX - 2,
+            accuracy: 0.5
+        )
+        let samples = stride(from: display.maxX - 400, to: display.maxX, by: 10).map {
+            fixture.handler.liveDragReference(CGPoint(x: $0, y: 300)).x
+        }
+        for (earlier, later) in zip(samples, samples.dropFirst()) {
+            XCTAssertGreaterThanOrEqual(later, earlier - 0.5)
+            XCTAssertLessThanOrEqual(later - earlier, 20.5)
+        }
+    }
+
+    func testATabPullKeepsThePointerAsTheReference() throws {
+        let fixture = try makeFixture(pid: 938_091)
+        fixture.handler.state.liveDragReferenceOffset = 300
+        let point = CGPoint(x: 400, y: 300)
+
+        fixture.handler.state.liveTabPull = nil
+        XCTAssertEqual(fixture.handler.liveDragReference(point), CGPoint(x: 700, y: 300))
+        fixture.handler.state.liveDragReferenceOffset = nil
+        XCTAssertEqual(fixture.handler.liveDragReference(point), point)
+    }
+
     func testResizesAndDragsWithoutAFrameChangeStartNoLiveDrag() throws {
         let fixture = try makeFixture(pid: 938_003)
         let dragged = fixture.tokens[1]
