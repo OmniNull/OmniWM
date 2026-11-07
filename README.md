@@ -29,7 +29,7 @@ OmniWM is a free, open-source, Developer ID-signed and Apple-notarized tiling wi
   <tr>
     <td align="center">
       <a href="https://www.blacksmith.sh/">
-        <img src="Sources/OmniWM/Resources/blacksmith.png" width="72" alt="Blacksmith logo">
+        <img src="Sources/OmniWM/Resources/blacksmith.png" width="200" alt="Blacksmith logo">
         <br>
         <strong>Blacksmith.sh</strong>
       </a>
