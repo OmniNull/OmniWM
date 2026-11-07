@@ -24,6 +24,7 @@ class NiriContainer: NiriNode {
     var isLiveDropSpace = false
     var liveSlotWidth: CGFloat?
     var isLiveHomeSpot = false
+    var growsTowardLeadingEdge = false
     var centreCycle: ColumnCentreCycle?
     var widthBeforeFull: ColumnWidthBeforeFull?
     var edgePeekCap: CGFloat?
@@ -157,7 +158,9 @@ class NiriContainer: NiriNode {
 
         for window in windowNodes {
             let constraints = window.constraints.normalized()
-            minWidth = max(minWidth, constraints.minSize.width)
+            if !window.defersMinimumWidth {
+                minWidth = max(minWidth, constraints.minSize.width)
+            }
             if constraints.hasMaxWidth {
                 let candidateMax = constraints.maxSize.width
                 maxWidth = min(maxWidth ?? candidateMax, candidateMax)

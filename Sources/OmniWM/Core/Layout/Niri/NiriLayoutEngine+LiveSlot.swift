@@ -178,7 +178,6 @@ extension NiriLayoutEngine {
         state: inout ViewportState
     ) -> Bool {
         guard let move = liveColumnMove,
-              move.stackMode,
               let landing = move.landing,
               let target = liveColumn(withId: landing.columnId, in: context.workspaceId),
               let homeIndex = columnIndex(of: liveDraggedColumn(for: move) ?? target, in: context.workspaceId),

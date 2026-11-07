@@ -40,13 +40,28 @@ extension NiriLayoutEngine {
         move.stackMode = held
         move.hover = nil
         move.stackSuppressPoint = nil
+        move.centreWait = nil
         if held {
             move.awaitsPointerMoveFrom = nil
+            if move.landingIsHint, let landing = move.landing {
+                move.landingIsHint = false
+                guard placeLiveLanding(landing, move: &move, context: context, state: &state) else { return .unchanged }
+                move.phase = .settling
+                return .changed
+            }
             guard !duringEdgeScroll else { return .unchanged }
             let strip = liveColumnStrip(context: context, state: state)
             return liveStackUpdate(cursor: cursor, strip: strip, move: &move, context: context, state: &state)
         }
         move.awaitsPointerMoveFrom = duringEdgeScroll ? nil : cursor
+        if !duringEdgeScroll, let hint = liveLandingHintOnRelease(
+            cursor: cursor,
+            move: move,
+            context: context,
+            state: state
+        ) {
+            return showLiveLandingHint(hint, move: &move, context: context, state: &state) ? .changed : .unchanged
+        }
         guard move.landing != nil, placeLiveLanding(nil, move: &move, context: context, state: &state) else {
             return .unchanged
         }
@@ -54,15 +69,35 @@ extension NiriLayoutEngine {
         return .changed
     }
 
+    private func liveLandingHintOnRelease(
+        cursor: CGPoint,
+        move: LiveColumnMove,
+        context: NiriInteractionContext,
+        state: ViewportState
+    ) -> LiveColumnMove.Landing? {
+        guard move.landing != nil else { return nil }
+        let strip = liveColumnStrip(context: context, state: state)
+        switch liveCentreChoice(cursor: cursor, strip: strip, move: move, context: context) {
+        case .keep:
+            return move.landing
+        case let .land(landing):
+            return landing
+        case .home:
+            return nil
+        }
+    }
+
     func liveColumnMoveCloseLandingForEdgeScroll(context: NiriInteractionContext, state: inout ViewportState) -> Bool {
         assertSanctionedMutation()
         guard var move = liveColumnMove,
               move.workspaceId == context.workspaceId,
-              move.stackMode,
+              move.stackMode || move.landingIsHint,
               move.landing != nil
         else { return false }
         defer { liveColumnMove = move }
         move.stackSuppressPoint = nil
+        move.landingIsHint = false
+        move.centreWait = nil
         return placeLiveLanding(nil, move: &move, context: context, state: &state)
     }
 
@@ -171,11 +206,16 @@ extension NiriLayoutEngine {
         context: NiriInteractionContext,
         state: inout ViewportState
     ) -> Bool {
+        let dropped = findNode(by: move.windowId, in: move.workspaceId) as? NiriWindow
         guard let landing = move.landing,
-              let window = findNode(by: move.windowId, in: move.workspaceId) as? NiriWindow,
+              let window = dropped,
               let column = liveColumn(withId: landing.columnId, in: move.workspaceId),
               window.parent === column
         else {
+            dropped?.defersMinimumWidth = false
+            if let parent = dropped?.parent as? NiriContainer {
+                clearLiveSpanOverrides(in: [parent])
+            }
             liveColumnMove = nil
             return false
         }
@@ -187,6 +227,18 @@ extension NiriLayoutEngine {
             targetColumnId: column.id
         )
         liveColumnMove = nil
+        if move.landingIsHint {
+            slideLiveWindows(in: [column], skipping: window, context: context) {
+                clearLiveSpanOverrides(in: [column])
+            }
+        }
+        widenLiveStackForDrop(
+            column,
+            for: window,
+            home: liveColumn(withId: move.homeColumnId, in: move.workspaceId),
+            context: context,
+            state: &state
+        )
         settleLiveWindow(window, in: column, releasedAt: release, context: context, state: &state)
         return true
     }
@@ -296,17 +348,31 @@ extension NiriLayoutEngine {
         let affected = [source, target ?? home]
         retargetActiveColumn(to: home, context: context, state: &state)
         let columnsBefore = primaryPositions(context: context, state: state)
+        let hint = move.landingIsHint
+        let wasDeferred = window.defersMinimumWidth
         let placed = slideLiveWindows(in: affected, skipping: window, context: context) {
+            clearLiveSpanOverrides(in: affected)
+            window.defersMinimumWidth = target != nil && target !== home
+            let hintBase = hint ? target.map { liveHintBaseSpans(in: $0, without: window, context: context) } : nil
             restoreLiveMateHeight(&move)
             guard relocateLiveWindow(window, to: landing, from: source, move: move, context: context) else {
                 return false
             }
             shareLiveColumn(target, with: window, move: &move)
             keepLiveColumnWidths(landing: landing != nil, move: &move)
+            if let hintBase, let target {
+                applyLiveLandingHint(window, in: target, base: hintBase, context: context)
+            }
             return true
         }
-        guard placed else { return false }
+        guard placed else {
+            window.defersMinimumWidth = wasDeferred
+            return false
+        }
         move.landing = landing
+        if landing == nil {
+            move.landingIsHint = false
+        }
         animateLiveColumnChange(from: columnsBefore, anchoredOn: home, context: context, state: &state)
         return true
     }
@@ -440,7 +506,7 @@ extension NiriLayoutEngine {
         restoreLiveSizing(move.ownSizing, to: home)
     }
 
-    private func liveStackChoice(
+    func liveStackChoice(
         cursor: CGPoint,
         strip: [LiveColumnMove.StripColumn],
         move: LiveColumnMove,
@@ -450,7 +516,6 @@ extension NiriLayoutEngine {
         guard let column = liveColumn(in: strip, at: cursor, ignoring: liveDropSpace(for: move)),
               column.id != move.homeColumnId || move.inStack,
               projectedWindows(in: column, workspaceId: move.workspaceId).contains(where: { $0 !== window }),
-              liveColumn(column, fitsWidthOf: window, strip: strip),
               columnCanAcceptTransfer(
                   column,
                   adding: window,
@@ -626,5 +691,7 @@ extension NiriLayoutEngine {
         clipsOverflowToDisplay = configuration.enabled
         keepsWindowWidths = configuration.enabled
         edgePeekShare = configuration.edgePeekShare
+        stacksOnWindowCentres = configuration.enabled
+        animatesLearnedMinimumWidths = configuration.enabled
     }
 }

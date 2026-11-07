@@ -5,16 +5,6 @@ import CoreGraphics
 import Foundation
 
 extension NiriLayoutEngine {
-    func liveColumn(
-        _ column: NiriContainer,
-        fitsWidthOf window: NiriWindow,
-        strip: [LiveColumnMove.StripColumn]
-    ) -> Bool {
-        guard let placed = strip.first(where: { $0.column === column }) else { return false }
-        let needed = window.constraints.normalized().minSize.width + tabContentInset(for: column)
-        return needed <= placed.maxX - placed.minX + FrameTolerance.screenMatch
-    }
-
     func liveColumnOrStripEnd(
         in strip: [LiveColumnMove.StripColumn],
         at cursor: CGPoint,

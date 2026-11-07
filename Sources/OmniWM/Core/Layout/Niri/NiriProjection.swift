@@ -256,7 +256,9 @@ extension NiriLayoutEngine {
             let constraints = window.constraints.normalized()
             switch orientation {
             case .horizontal:
-                minimum = max(minimum, constraints.minSize.width)
+                if !window.defersMinimumWidth {
+                    minimum = max(minimum, constraints.minSize.width)
+                }
                 if constraints.hasMaxWidth {
                     maximum = min(maximum ?? constraints.maxSize.width, constraints.maxSize.width)
                 }

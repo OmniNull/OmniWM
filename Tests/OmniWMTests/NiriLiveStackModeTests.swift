@@ -872,22 +872,40 @@ final class NiriLiveStackModeTests: XCTestCase {
         XCTAssertEqual(fixture.window(2).height, .fixed(300))
     }
 
-    func testAColumnNarrowerThanTheWindowOpensNoGapWithTheStackModifier() throws {
+    func testAColumnNarrowerThanTheWindowOpensAGapAndWidensOnTheDrop() {
         var fixture = makeFixture()
-        let narrow = try XCTUnwrap(fixture.frames()[fixture.tokens[2]])
+        let narrow = fixture.stripColumn(fixture.column(2)).width
         fixture.window(1).constraints = WindowSizeConstraints(
-            minSize: CGSize(width: narrow.width + 150, height: 1),
+            minSize: CGSize(width: narrow + 150, height: 1),
             maxSize: .zero,
             isFixed: false
         )
         XCTAssertTrue(fixture.begin(1))
 
-        XCTAssertEqual(fixture.setStackMode(true, at: fixture.lowerHalf(of: 2)), .unchanged)
-        XCTAssertTrue(fixture.window(1).parent === fixture.column(1))
+        XCTAssertEqual(fixture.setStackMode(true, at: fixture.lowerHalf(of: 2)), .changed)
+        XCTAssertTrue(fixture.window(1).parent === fixture.column(2))
+        XCTAssertEqual(fixture.stripColumn(fixture.column(2)).width, narrow, accuracy: 0.5)
 
         XCTAssertTrue(fixture.endStacking())
-        XCTAssertFalse(fixture.engine.isLiveStackDropPending(in: fixture.workspaceId))
-        XCTAssertEqual(fixture.columnOrder(), (0 ..< 5).map { [fixture.tokens[$0]] })
+        XCTAssertTrue(fixture.engine.isLiveStackDropPending(in: fixture.workspaceId))
+        XCTAssertEqual(fixture.stripColumn(fixture.column(2)).width, narrow + 150, accuracy: 0.5)
+    }
+
+    func testCancellingANarrowStackLandingLeavesItsWidth() {
+        var fixture = makeFixture()
+        let narrow = fixture.stripColumn(fixture.column(2)).width
+        fixture.window(1).constraints = WindowSizeConstraints(
+            minSize: CGSize(width: narrow + 150, height: 1),
+            maxSize: .zero,
+            isFixed: false
+        )
+        XCTAssertTrue(fixture.begin(1))
+        XCTAssertEqual(fixture.setStackMode(true, at: fixture.lowerHalf(of: 2)), .changed)
+
+        XCTAssertTrue(fixture.engine.liveColumnMoveCancel(context: fixture.context, state: &fixture.state))
+
+        XCTAssertFalse(fixture.window(1).defersMinimumWidth)
+        XCTAssertEqual(fixture.stripColumn(fixture.column(2)).width, narrow, accuracy: 0.5)
     }
 
     func testALoneWindowGetsItsHeightBackWhenTheDragIsCutOff() {

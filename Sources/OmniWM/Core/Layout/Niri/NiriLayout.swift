@@ -261,7 +261,7 @@ extension NiriLayoutEngine {
                 within: containerFrames,
                 at: context.time
             )
-            result[window.token] = renderedFrame
+            result[window.token] = anchoredToTrailingEdge(renderedFrame, of: window, in: container)
 
             if !isTabbed {
                 pos += span
@@ -405,6 +405,9 @@ extension NiriLayoutEngine {
     ) -> NiriAxisSolver.Input {
         if axis.isTabbed, tabbedColumnsFillHeight {
             return window.axisSolverInput(orientation: axis.orientation, hasFixedValue: false, fixedValue: nil)
+        }
+        if axis.orientation == .horizontal, let override = window.liveSpanOverride {
+            return liveSpanOverrideInput(override, for: window)
         }
         let specification = switch axis.orientation {
         case .horizontal: window.height

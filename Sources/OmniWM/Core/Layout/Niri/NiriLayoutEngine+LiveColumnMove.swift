@@ -114,7 +114,7 @@ extension NiriLayoutEngine {
 
         let dropSpace = liveDropSpace(for: move)
         if let step = liveSpecialModeUpdate(
-            cursor: cursor,
+            pointer: (cursor, time),
             strip: strip,
             move: &move,
             context: context,
@@ -278,18 +278,21 @@ extension NiriLayoutEngine {
     }
 
     private func liveSpecialModeUpdate(
-        cursor: CGPoint,
+        pointer: (cursor: CGPoint, time: TimeInterval?),
         strip: [LiveColumnMove.StripColumn],
         move: inout LiveColumnMove,
         context: NiriInteractionContext,
         state: inout ViewportState
     ) -> LiveColumnMove.Step? {
+        let cursor = pointer.cursor
         if move.stackMode {
             return liveStackUpdate(cursor: cursor, strip: strip, move: &move, context: context, state: &state)
         }
         guard !waitsForPointerMove(&move, at: cursor) else { return .unchanged }
-        guard move.inStack else { return nil }
-        return liveInStackUpdate(cursor: cursor, strip: strip, move: &move, context: context, state: &state)
+        if move.inStack {
+            return liveInStackUpdate(cursor: cursor, strip: strip, move: &move, context: context, state: &state)
+        }
+        return liveCentreUpdate(pointer: pointer, strip: strip, move: &move, context: context, state: &state)
     }
 
     func liveDropSpaceWidth(context: NiriInteractionContext) -> CGFloat {
@@ -344,6 +347,9 @@ extension NiriLayoutEngine {
         }
         if move.inStack {
             return liveInStackWouldChange(cursor: cursor, strip: strip, move: move, context: context)
+        }
+        if let centre = liveCentreWouldChange(cursor: cursor, strip: strip, move: move, context: context) {
+            return centre
         }
         let dropSpace = liveDropSpace(for: move)
         guard let underPointer = liveColumnOrStripEnd(in: strip, at: cursor, ignoring: dropSpace, context: context)
@@ -422,7 +428,7 @@ extension NiriLayoutEngine {
         {
             liveColumnMoveToStripEnd(at: cursor, move: &move, context: context, state: &state)
         }
-        if stacking, move.landing != nil {
+        if stacking || move.landingIsHint, move.landing != nil {
             return liveStackDropBegin(
                 releasedAt: releasedFrame,
                 move: move,

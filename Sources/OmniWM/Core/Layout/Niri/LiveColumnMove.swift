@@ -132,6 +132,11 @@ struct LiveColumnMove {
         case land(Landing)
     }
 
+    struct CentreWait: Equatable {
+        let columnId: NodeId
+        let since: TimeInterval
+    }
+
     struct StackProbe: Equatable {
         let columnId: NodeId?
         let cursor: CGPoint
@@ -199,6 +204,8 @@ struct LiveColumnMove {
     var edgeScrollSide: Side?
     var stackMode = false
     var landing: Landing?
+    var landingIsHint = false
+    var centreWait: CentreWait?
     var mateHeight: MateHeight?
     var keptWidths: KeptWidths?
     var stackSuppressPoint: CGPoint?

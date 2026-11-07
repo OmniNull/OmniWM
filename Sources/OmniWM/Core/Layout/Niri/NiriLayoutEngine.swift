@@ -89,8 +89,9 @@ final class NiriLayoutEngine {
         if interactiveResize?.workspaceId == workspaceId {
             clearInteractiveResize()
         }
-        if liveColumnMove?.workspaceId == workspaceId {
-            restoreWidenedLiveColumn(liveColumnMove?.carry?.widenedColumn)
+        if let live = liveColumnMove, live.workspaceId == workspaceId {
+            restoreWidenedLiveColumn(live.carry?.widenedColumn)
+            releaseLiveLandingState(of: live)
             liveColumnMove = nil
         }
         if liveStackDrop?.workspaceId == workspaceId {
@@ -116,6 +117,7 @@ final class NiriLayoutEngine {
            windowIds.contains(live.windowId)
         {
             restoreWidenedLiveColumn(live.carry?.widenedColumn)
+            releaseLiveLandingState(of: live)
             liveColumnMove = nil
         }
         if let drop = liveStackDrop,
@@ -158,6 +160,8 @@ final class NiriLayoutEngine {
     var clipsOverflowToDisplay = false
 
     var keepsWindowWidths = false
+    var stacksOnWindowCentres = false
+    var animatesLearnedMinimumWidths = false
 
     var hasSetEdgePeekCaps = false
 

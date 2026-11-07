@@ -40,6 +40,11 @@ struct MoveConfiguration {
     var liveEdgeScrollDelay: TimeInterval = 0.3
     var liveEdgeScrollSpeed: CGFloat = 1000.0
     var liveStackSuppressDistance: CGFloat = 30.0
+    var liveCentreMinimumWidth: CGFloat = 300.0
+    var liveCentreStackDelay: TimeInterval = 0.2
+    var liveCentreExitMargin: CGFloat = 20.0
+    var liveLandingHintShare: CGFloat = 0.05
+    var liveLandingHintMinimumHeight: CGFloat = 40.0
 
     static let `default` = MoveConfiguration()
 

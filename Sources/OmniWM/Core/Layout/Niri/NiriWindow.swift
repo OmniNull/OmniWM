@@ -47,6 +47,16 @@ class NiriWindow: NiriNode {
         }
     }
 
+    var liveSpanOverride: LiveSpanOverride? {
+        didSet {
+            if oldValue != liveSpanOverride {
+                invalidateAxisSolveInputs()
+            }
+        }
+    }
+
+    var defersMinimumWidth = false
+
     var resolvedHeight: CGFloat?
 
     var resolvedWidth: CGFloat?

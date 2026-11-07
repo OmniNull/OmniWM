@@ -362,6 +362,8 @@ extension LiveColumnMove {
         dropSpaceId = nil
         hover = nil
         landing = nil
+        landingIsHint = false
+        centreWait = nil
         mateHeight = nil
         stackMode = false
         stackSuppressPoint = nil

@@ -37,27 +37,31 @@ extension NiriLayoutEngine {
         } else if column.cachedHeight > 0 {
             column.cachedHeight = column.clampedToHeightBounds(column.cachedHeight)
         }
+        clampColumnWidthToBounds(column, in: workspaceId, motion: motion)
+    }
+
+    func clampColumnWidthToBounds(
+        _ column: NiriContainer,
+        in workspaceId: WorkspaceDescriptor.ID,
+        motion: MotionSnapshot
+    ) {
         let contentInset = tabContentInset(for: column)
-        if let target = column.targetWidth {
-            let clampedTarget = column.clampedToWidthBounds(
-                target,
-                contentInset: contentInset
-            )
-            if clampedTarget != target {
-                column.animateWidthTo(
-                    newWidth: clampedTarget,
-                    clock: animationClock,
-                    config: motion.scaled(windowMovementAnimationConfig),
-                    displayRefreshRate: displayRefreshRate(in: workspaceId),
-                    animated: motion.animationsEnabled
-                )
-            }
-        } else if column.cachedWidth > 0 {
-            column.cachedWidth = column.clampedToWidthBounds(
-                column.cachedWidth,
-                contentInset: contentInset
-            )
+        let current = column.targetWidth ?? column.cachedWidth
+        guard current > 0 else { return }
+        let clamped = column.clampedToWidthBounds(current, contentInset: contentInset)
+        let springs = column.targetWidth != nil || animatesLearnedMinimumWidths && clamped > current + 0.5
+        guard springs else {
+            column.cachedWidth = clamped
+            return
         }
+        guard clamped != current else { return }
+        column.animateWidthTo(
+            newWidth: clamped,
+            clock: animationClock,
+            config: motion.scaled(windowMovementAnimationConfig),
+            displayRefreshRate: displayRefreshRate(in: workspaceId),
+            animated: motion.animationsEnabled
+        )
     }
 
     func addWindow(
