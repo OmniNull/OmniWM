@@ -45,11 +45,17 @@ OmniWM is a free, open-source, Developer ID-signed and Apple-notarized tiling wi
       <a href="https://github.com/Guria" title="Aleksei Gurianov">
         <img src="https://github.com/Guria.png?size=96" width="72" alt="Aleksei Gurianov">
       </a>
+      <a href="https://github.com/komarov-dc" title="KomarovD">
+        <img src="https://github.com/komarov-dc.png?size=96" width="72" alt="KomarovD">
+      </a>
       <a href="https://github.com/dappermint" title="millia ampora">
         <img src="https://github.com/dappermint.png?size=96" width="72" alt="millia ampora">
       </a>
       <a href="https://github.com/rickythefox" title="Richard G">
         <img src="https://github.com/rickythefox.png?size=96" width="72" alt="Richard G">
+      </a>
+      <a href="https://github.com/ryoppippi" title="ryoppippi">
+        <img src="https://github.com/ryoppippi.png?size=96" width="72" alt="ryoppippi">
       </a>
       <a href="https://github.com/hezhizhen" title="Zhizhen He">
         <img src="https://github.com/hezhizhen.png?size=96" width="72" alt="Zhizhen He">
