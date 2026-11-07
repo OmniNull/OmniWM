@@ -128,7 +128,7 @@ struct SponsorsView: View {
         VStack(spacing: 16) {
             headerSection
 
-            ReservedSlotsRow(motionPolicy: motionPolicy)
+            CompanySponsorsRow(motionPolicy: motionPolicy)
                 .padding(.horizontal, 28)
 
             SupporterScroll(motionPolicy: motionPolicy)
@@ -193,8 +193,11 @@ struct SponsorsView: View {
     }
 }
 
-struct ReservedSlotsRow: View {
+private struct CompanySponsorsRow: View {
     @Bindable var motionPolicy: MotionPolicy
+
+    private static let blacksmithLogo = Bundle.module.url(forResource: "blacksmith", withExtension: "png")
+        .flatMap(NSImage.init(contentsOf:))
 
     var body: some View {
         if motionPolicy.animationsEnabled {
@@ -208,9 +211,25 @@ struct ReservedSlotsRow: View {
 
     private func row(time: Double) -> some View {
         HStack(spacing: 16) {
-            ForEach(0 ..< 3, id: \.self) { _ in
-                ReservedSlotCard(motionPolicy: motionPolicy, time: time)
-                    .frame(maxWidth: .infinity)
+            CompanySponsorCard(
+                motionPolicy: motionPolicy,
+                time: time,
+                title: Text(verbatim: "Blacksmith"),
+                actionLabel: Text(verbatim: "blacksmith.sh"),
+                accessibilityName: Text(verbatim: "Blacksmith.sh"),
+                url: "https://www.blacksmith.sh/",
+                logo: Self.blacksmithLogo
+            )
+
+            ForEach(0 ..< 2, id: \.self) { _ in
+                CompanySponsorCard(
+                    motionPolicy: motionPolicy,
+                    time: time,
+                    title: Text("Reserved for company sponsors"),
+                    actionLabel: Text("Become a sponsor"),
+                    accessibilityName: Text("Reserved for company sponsors — become a sponsor"),
+                    url: "https://github.com/sponsors/BarutSRB"
+                )
             }
         }
         .frame(maxWidth: sponsorColumnWidth)
@@ -218,40 +237,58 @@ struct ReservedSlotsRow: View {
     }
 }
 
-struct ReservedSlotCard: View {
+private struct CompanySponsorCard: View {
     @Bindable var motionPolicy: MotionPolicy
     let time: Double
+    let title: Text
+    let actionLabel: Text
+    let accessibilityName: Text
+    let url: String
+    var logo: NSImage?
 
-    private let borderColors: [Color] = [
+    private static let borderColors: [Color] = [
         Color(white: 0.85),
         Color(white: 0.5),
         Color(white: 0.85)
     ]
 
     var body: some View {
-        Button(action: { openURL("https://github.com/sponsors/BarutSRB") }, label: {
+        Button(action: { openURL(url) }, label: {
             cardContent
         })
         .buttonStyle(.plain)
-        .accessibilityLabel("Reserved for company sponsors — become a sponsor")
+        .accessibilityLabel(accessibilityName)
     }
 
-    private var cardContent: some View {
-        VStack(spacing: 10) {
+    @ViewBuilder private var cardIcon: some View {
+        if let logo {
+            Image(nsImage: logo)
+                .resizable()
+                .scaledToFit()
+                .frame(width: 42)
+                .clipShape(.rect(cornerRadius: 8))
+        } else {
             Image(systemName: "building.2.crop.circle")
                 .font(.system(size: 42))
                 .symbolRenderingMode(.hierarchical)
                 .foregroundStyle(.secondary)
+        }
+    }
 
-            Text("Reserved for company sponsors")
+    private var cardContent: some View {
+        VStack(spacing: 10) {
+            cardIcon
+                .frame(height: 42)
+
+            title
                 .font(.system(size: 14, weight: .semibold))
                 .foregroundStyle(.primary)
                 .multilineTextAlignment(.center)
-                .lineLimit(2)
+                .lineLimit(2, reservesSpace: true)
                 .minimumScaleFactor(0.8)
 
             HStack(spacing: 4) {
-                Text("Become a sponsor")
+                actionLabel
                 Image(systemName: "arrow.up.right")
             }
             .font(.system(size: 12, weight: .medium))
@@ -261,7 +298,7 @@ struct ReservedSlotCard: View {
         .padding(.vertical, 22)
         .padding(.horizontal, 16)
         .omniGlassEffect(in: RoundedRectangle(cornerRadius: 22))
-        .overlay(AnimatedBorder(motionPolicy: motionPolicy, colors: borderColors, time: time))
+        .overlay(AnimatedBorder(motionPolicy: motionPolicy, colors: Self.borderColors, time: time))
     }
 }
 
