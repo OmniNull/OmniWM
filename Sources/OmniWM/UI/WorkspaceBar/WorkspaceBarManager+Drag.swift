@@ -73,6 +73,8 @@ extension WorkspaceBarManager {
             dragController.update(at: point)
         case let .ended(point):
             _ = dragController.end(at: point)
+        case .cancelled:
+            dragController.cancel()
         }
         refreshShellDrag()
     }

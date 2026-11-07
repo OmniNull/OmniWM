@@ -92,7 +92,7 @@ extension ShellWidgetSurface {
         finishGesture(at: gesturePosition, timestamp: CACurrentMediaTime(), cancelled: true)
         cancelHeldGestureTrack()
         dragStart = nil
-        if dragging { onDrag?(.ended(view.window?.convertPoint(toScreen: view.convert(point, to: nil)) ?? point)) }
+        if dragging { onDrag?(.cancelled) }
         dragging = false
         if hover { cancelHoverIntent(deliver: true) }
     }

@@ -203,6 +203,7 @@ final class ShellPointerEventTests: XCTestCase {
             case .began: drags.append("began")
             case .moved: drags.append("moved")
             case .ended: drags.append("ended")
+            case .cancelled: drags.append("cancelled")
             }
         }
         window.surface.press(at: CGPoint(x: 3, y: 2), timestamp: 0)

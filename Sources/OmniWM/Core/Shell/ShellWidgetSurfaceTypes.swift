@@ -144,6 +144,7 @@ enum ShellDragEvent {
     case began(target: UInt32, at: CGPoint)
     case moved(CGPoint)
     case ended(CGPoint)
+    case cancelled
 }
 
 struct ShellTargetFrame {

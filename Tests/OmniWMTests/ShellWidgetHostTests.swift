@@ -2542,6 +2542,35 @@ final class ShellWidgetClickTests: XCTestCase {
         XCTAssertEqual(targets.first { $0.target == "window ow_a" }?.drop, false)
     }
 
+    func testCancellingInputMidDragCancelsInsteadOfDropping() async throws {
+        executionTimeAllowance = failureBound
+        let icon = CGSize(width: 30, height: 10)
+        let harness = try harness("""
+        function render(ctx)
+            return ui.row{ ui.box{ w = \(Int(icon.width)), h = \(Int(icon.height)), target = "window ow_a", drag = true } }
+        end
+        """)
+        defer { harness.close() }
+        var layoutChanges = harness.layoutChanges.makeAsyncIterator()
+        try await layoutChanges.change()
+        let surface = try harness.barSurface()
+        let start = CGPoint(x: icon.width / 2, y: icon.height / 2)
+        let past = CGPoint(x: start.x + ShellWidgetSurface.dragThreshold, y: start.y)
+
+        surface.press(at: start)
+        surface.drag(to: past, screen: past)
+        guard case .began = harness.sink.drags.first else {
+            return XCTFail("the drag did not begin")
+        }
+        surface.cancelInput()
+
+        XCTAssertFalse(harness.sink.drags.contains { if case .ended = $0 { true } else { false } })
+        guard case .cancelled = harness.sink.drags.last else {
+            return XCTFail("the drag was not cancelled")
+        }
+        XCTAssertFalse(surface.endDrag(at: past))
+    }
+
     func testLuauWorkspacesModeRunsTheBundledWorkspacesWidget() async throws {
         executionTimeAllowance = failureBound
         let window = ShellBarWindow(id: "ow_b", title: "Inbox", focused: false, hidden: false)

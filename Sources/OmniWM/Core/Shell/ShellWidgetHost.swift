@@ -169,6 +169,7 @@ enum ShellDragRequest {
     case began(monitor: Monitor.ID, target: String, at: CGPoint)
     case moved(CGPoint)
     case ended(CGPoint)
+    case cancelled
 }
 
 struct ShellDropTarget: Equatable {
