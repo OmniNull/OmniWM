@@ -263,24 +263,26 @@ final class WorkspaceBarManager {
         instance: WorkspaceBarInstance
     ) {
         let geometry = WorkspaceBarGeometry.resolve(monitor: monitor, resolved: resolved, isVisible: true)
-        var zones: WorkspaceBarZones?
         if let split = instance.splitLayout(
             geometry: geometry,
             snapshot: snapshot,
             monitor: monitor,
             resolved: resolved
         ) {
+            if instance.model.zones != nil {
+                instance.model.zones = nil
+            }
             applySplitLayout(split, resolved: resolved, instance: instance)
         } else {
             updateIslandView(instance.primary, model: instance.model, slice: .all, monitorId: instance.monitorId)
             removeSecondaryPanel(from: instance)
             let length = resolved.fullWidth ? 0 : instance.measuredLength(for: snapshot, slice: .all)
             let frame = geometry.frame(fittingLength: length, monitor: monitor, resolved: resolved)
+            let zones = geometry.zones(frame: frame, monitor: monitor, resolved: resolved)
+            if instance.model.zones != zones {
+                instance.model.zones = zones
+            }
             instance.primary.applyFrame(frame, using: frameApplier)
-            zones = geometry.zones(frame: frame, monitor: monitor, resolved: resolved)
-        }
-        if instance.model.zones != zones {
-            instance.model.zones = zones
         }
         if !resolved.systemStatsButton {
             closeShellSystemStats(on: instance.monitorId)

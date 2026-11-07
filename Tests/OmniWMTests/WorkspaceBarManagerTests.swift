@@ -223,6 +223,31 @@ final class WorkspaceBarManagerTests: XCTestCase {
         XCTAssertEqual(panel.frame.height, contentHeight)
     }
 
+    func testFullWidthBarShownAgainHasItsZonesBeforeItsFrameIsWritten() async throws {
+        let manager = makeManager()
+        defer { manager.cleanup() }
+        var zonesAtWrite: [WorkspaceBarZones?] = []
+        manager.frameApplier = { panel, frame in
+            zonesAtWrite.append((panel.contentView as? NSHostingView<WorkspaceBarView>)?.rootView.model.zones)
+            panel.setFrame(frame, display: false)
+        }
+        try await manager.shellConfiguration.set(true, key: "fullWidth")
+        let resolved = controller.settings.workspaceBar.resolved(for: monitor)
+        XCTAssertTrue(resolved.fullWidth)
+        let geometry = WorkspaceBarGeometry.resolve(monitor: monitor, resolved: resolved, isVisible: true)
+        let frame = geometry.frame(fittingLength: 0, monitor: monitor, resolved: resolved)
+        let zones = try XCTUnwrap(geometry.zones(frame: frame, monitor: monitor, resolved: resolved))
+        let shown = barSurface(itemCount: 1)
+        manager.apply([shown])
+        XCTAssertEqual(zonesAtWrite, [zones])
+
+        manager.apply([DesiredBarSurface(monitor: monitor, visible: false, snapshot: shown.snapshot)])
+        XCTAssertNil(manager.barsByMonitor[monitor.id])
+        zonesAtWrite.removeAll()
+        manager.apply([shown])
+        XCTAssertEqual(zonesAtWrite, [zones])
+    }
+
     func testEmptySceneRemovesPrimaryBar() {
         let manager = makeManager()
 
