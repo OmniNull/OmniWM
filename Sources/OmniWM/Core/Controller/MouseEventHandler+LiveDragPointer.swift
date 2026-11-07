@@ -18,6 +18,11 @@ extension MouseEventHandler {
         return CGPoint(x: min(max(x, display.minX), display.maxX - 1), y: location.y)
     }
 
+    func liveDragWindowMidX(_ location: CGPoint) -> CGFloat? {
+        guard state.liveTabPull == nil, let offset = state.liveDragReferenceOffset else { return nil }
+        return location.x + offset
+    }
+
     func clearLiveDragReference() {
         state.liveDragReferenceOffset = nil
     }

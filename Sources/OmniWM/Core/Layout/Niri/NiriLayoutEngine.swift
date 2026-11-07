@@ -162,6 +162,7 @@ final class NiriLayoutEngine {
     var keepsWindowWidths = false
     var stacksOnWindowCentres = false
     var animatesLearnedMinimumWidths = false
+    var closesOriginGap = false
 
     var hasSetEdgePeekCaps = false
 

@@ -73,8 +73,18 @@ final class NiriFreeStyleStackTests: XCTestCase {
             )
         }
 
-        mutating func move(to cursor: CGPoint, at time: TimeInterval) -> LiveColumnMove.Step {
-            let step = engine.liveColumnMoveUpdate(cursor: cursor, at: time, context: context, state: &state)
+        mutating func move(
+            to cursor: CGPoint,
+            windowMidX: CGFloat? = nil,
+            at time: TimeInterval
+        ) -> LiveColumnMove.Step {
+            let step = engine.liveColumnMoveUpdate(
+                cursor: cursor,
+                windowMidX: windowMidX,
+                at: time,
+                context: context,
+                state: &state
+            )
             if step == .changed {
                 engine.liveColumnMoveSettled()
             }
@@ -174,6 +184,7 @@ final class NiriFreeStyleStackTests: XCTestCase {
             var fixture = makeFixture()
             XCTAssertTrue(fixture.begin(1))
             let target = fixture.centre(of: 3, upper: upper)
+            _ = fixture.move(to: target, at: 1)
 
             XCTAssertEqual(fixture.move(to: target, at: 1), .hovering(until: 1 + 0.2))
             XCTAssertNil(fixture.move?.landing)
@@ -195,6 +206,7 @@ final class NiriFreeStyleStackTests: XCTestCase {
         var fixture = makeFixture()
         XCTAssertTrue(fixture.begin(1))
         let target = fixture.centre(of: 3, upper: true)
+        _ = fixture.move(to: target, at: 1)
         XCTAssertEqual(fixture.move(to: target, at: 1), .hovering(until: 1 + 0.2))
         let nudged = CGPoint(x: target.x + 10, y: target.y)
         XCTAssertEqual(fixture.move(to: nudged, at: 1.1), .hovering(until: 1 + 0.2))
@@ -399,6 +411,7 @@ final class NiriFreeStyleStackTests: XCTestCase {
         fixture.engine.moveConfiguration.liveHoverDelay = 0.12
         XCTAssertTrue(fixture.begin(1))
         let side = fixture.side(of: 3, leading: false)
+        _ = fixture.move(to: side, at: 1)
         XCTAssertEqual(fixture.move(to: side, at: 1), .hovering(until: 1.12))
         _ = fixture.move(to: fixture.centre(of: 3, upper: true), at: 1.05)
 
@@ -436,11 +449,178 @@ final class NiriFreeStyleStackTests: XCTestCase {
         XCTAssertNil(fixture.move?.landing)
     }
 
+    func testTheGapLeftBehindClosesWithTheWindowAndOpensAgainOnTheWayBack() {
+        var fixture = makeFixture()
+        fixture.engine.moveConfiguration.liveHoverDelay = 10
+        fixture.engine.moveConfiguration.liveCentreStackDelay = 10
+        let home = fixture.column(1)
+        let full = fixture.stripColumn(home).width
+        let start = fixture.stripColumn(home).midX
+        let y = fixture.frame.midY
+        XCTAssertTrue(fixture.begin(1))
+        _ = fixture.move(to: CGPoint(x: start, y: y), at: 1)
+
+        var widths: [CGFloat] = []
+        for step in 1 ... 14 {
+            _ = fixture.move(to: CGPoint(x: start + CGFloat(step) * 40, y: y), at: 1)
+            widths.append(fixture.stripColumn(home).width)
+        }
+
+        XCTAssertEqual(widths, widths.sorted(by: >))
+        XCTAssertEqual(widths.last ?? .nan, -fixture.gap, accuracy: 0.5)
+        let left = fixture.stripColumn(fixture.column(0))
+        let right = fixture.stripColumn(fixture.column(2))
+        XCTAssertEqual(right.minX - left.maxX, fixture.gap, accuracy: 0.5)
+        XCTAssertTrue(zip(widths, widths.dropFirst()).allSatisfy { $0 - $1 <= 40.5 })
+
+        _ = fixture.move(to: CGPoint(x: start + 200, y: y), at: 1)
+        XCTAssertGreaterThan(fixture.stripColumn(home).width, 0)
+        _ = fixture.move(to: CGPoint(x: start, y: y), at: 1)
+        XCTAssertEqual(fixture.stripColumn(home).width, full, accuracy: 0.5)
+    }
+
+    func testEveryLandingIsADropSpaceAndTheHomeSpotStaysPut() {
+        var fixture = makeFixture()
+        XCTAssertTrue(fixture.begin(1))
+        let order = fixture.engine.columns(in: fixture.workspaceId).map(\.id)
+
+        _ = fixture.move(to: fixture.side(of: 3, leading: false), at: 1)
+
+        XCTAssertNotNil(fixture.move?.dropSpaceId)
+        let columns = fixture.engine.columns(in: fixture.workspaceId).filter { !$0.isLiveDropSpace }.map(\.id)
+        XCTAssertEqual(columns, order)
+    }
+
+    func testLettingGoWithNoLandingPutsTheWindowBackAtItsFullWidth() {
+        var fixture = makeFixture()
+        fixture.engine.moveConfiguration.liveHoverDelay = 10
+        fixture.engine.moveConfiguration.liveCentreStackDelay = 10
+        let home = fixture.column(1)
+        let full = fixture.stripColumn(home).width
+        let start = fixture.stripColumn(home).midX
+        XCTAssertTrue(fixture.begin(1))
+        _ = fixture.move(to: CGPoint(x: start, y: fixture.frame.midY), at: 1)
+        _ = fixture.move(to: CGPoint(x: start + full + 60, y: fixture.frame.midY), at: 1)
+        XCTAssertLessThan(fixture.stripColumn(home).width, 0)
+
+        XCTAssertTrue(fixture.end())
+
+        XCTAssertEqual(fixture.stripColumn(fixture.column(1)).width, full, accuracy: 0.5)
+        XCTAssertEqual(fixture.column(1).windowNodes.map(\.token), [fixture.tokens[1]])
+    }
+
+    func testAQuickFlickClosesTheGapOnTheFirstUpdate() {
+        var fixture = makeFixture()
+        fixture.engine.moveConfiguration.liveHoverDelay = 10
+        fixture.engine.moveConfiguration.liveCentreStackDelay = 10
+        let home = fixture.column(1)
+        let placed = fixture.stripColumn(home)
+        XCTAssertTrue(fixture.begin(1))
+
+        _ = fixture.move(to: CGPoint(x: placed.midX + placed.width + fixture.gap + 60, y: fixture.frame.midY), at: 1)
+
+        XCTAssertEqual(fixture.stripColumn(home).width, -fixture.gap, accuracy: 0.5)
+    }
+
+    func testTheGapFollowsTheWindowItselfNotTheReferencePoint() {
+        var fixture = makeFixture()
+        fixture.engine.moveConfiguration.liveHoverDelay = 10
+        fixture.engine.moveConfiguration.liveCentreStackDelay = 10
+        let home = fixture.column(1)
+        let placed = fixture.stripColumn(home)
+        let overHome = CGPoint(x: placed.midX, y: fixture.frame.midY)
+        XCTAssertTrue(fixture.begin(1))
+
+        _ = fixture.move(to: overHome, windowMidX: placed.midX + placed.width / 2, at: 1)
+        XCTAssertEqual(fixture.stripColumn(home).width, placed.width / 2, accuracy: 0.5)
+
+        _ = fixture.move(to: overHome, windowMidX: placed.midX + placed.width + fixture.gap, at: 1)
+        XCTAssertEqual(fixture.stripColumn(home).width, -fixture.gap, accuracy: 0.5)
+    }
+
+    func testThePlaceStaysAsWideAsTheWindowCoversItWhenScrolledOffScreen() {
+        var fixture = makeFixture()
+        fixture.engine.moveConfiguration.liveHoverDelay = 10
+        fixture.engine.moveConfiguration.liveCentreStackDelay = 10
+        let home = fixture.column(1)
+        XCTAssertTrue(fixture.begin(1))
+        fixture.state.jumpOffset(to: fixture.state.viewOffset + fixture.stripColumn(home).maxX + 40)
+        let placed = fixture.stripColumn(home)
+        XCTAssertLessThanOrEqual(placed.maxX, fixture.frame.minX)
+
+        _ = fixture.move(
+            to: CGPoint(x: fixture.frame.minX + 20, y: fixture.frame.midY),
+            windowMidX: placed.midX + placed.width / 4,
+            at: 1
+        )
+
+        XCTAssertEqual(fixture.stripColumn(home).width, placed.width * 3 / 4, accuracy: 0.5)
+    }
+
+    func testOnlyTheWindowsOwnPlaceClosesThatWay() throws {
+        var fixture = makeFixture()
+        XCTAssertTrue(fixture.begin(1))
+        let move = try XCTUnwrap(fixture.move)
+        XCTAssertTrue(fixture.engine.isClosingOrigin(move))
+        fixture.engine.closesOriginGap = false
+        XCTAssertFalse(fixture.engine.isClosingOrigin(move))
+    }
+
+    func testAWindowLeavingAStackKeepsItsNarrowLandingGap() throws {
+        var fixture = makeFixture()
+        fixture.engine.moveConfiguration.liveHoverDelay = 10
+        fixture.engine.moveConfiguration.liveCentreStackDelay = 10
+        fixture.stack(3, onto: 2)
+        let stack = fixture.column(2)
+        let y = fixture.frame.midY
+        XCTAssertTrue(fixture.begin(3))
+        XCTAssertFalse(try fixture.engine.isClosingOrigin(XCTUnwrap(fixture.move)))
+
+        _ = fixture.move(to: CGPoint(x: fixture.stripColumn(stack).maxX + 20, y: y), at: 1)
+        let left = try XCTUnwrap(fixture.move)
+        XCTAssertFalse(left.inStack)
+        XCTAssertFalse(fixture.engine.isClosingOrigin(left))
+        let home = try XCTUnwrap(fixture.engine.liveDraggedColumn(for: left))
+        XCTAssertFalse(home === stack)
+
+        _ = fixture.move(to: CGPoint(x: fixture.stripColumn(stack).maxX + 400, y: y), at: 1)
+        XCTAssertGreaterThan(fixture.stripColumn(home).width, 0)
+    }
+
+    func testATabPulledOutKeepsItsNarrowLandingGap() throws {
+        var fixture = makeFixture()
+        fixture.engine.moveConfiguration.liveHoverDelay = 10
+        fixture.engine.moveConfiguration.liveCentreStackDelay = 10
+        fixture.stack(3, onto: 2)
+        let tabs = fixture.column(2)
+        tabs.displayMode = .tabbed
+        fixture.engine.updateTabbedColumnVisibility(column: tabs)
+        let pulled = fixture.window(3)
+        let y = fixture.frame.midY
+        XCTAssertTrue(fixture.engine.liveColumnMoveBegin(
+            windowId: pulled.id,
+            windowToken: pulled.token,
+            pullsTab: true,
+            context: fixture.context,
+            state: &fixture.state
+        ))
+        XCTAssertFalse(try fixture.engine.isClosingOrigin(XCTUnwrap(fixture.move)))
+
+        _ = fixture.move(to: CGPoint(x: fixture.stripColumn(tabs).maxX + 20, y: y), at: 1)
+        let pulledOut = try XCTUnwrap(fixture.move)
+        XCTAssertFalse(fixture.engine.isClosingOrigin(pulledOut))
+        let home = try XCTUnwrap(fixture.engine.liveDraggedColumn(for: pulledOut))
+
+        _ = fixture.move(to: CGPoint(x: fixture.stripColumn(tabs).maxX + 400, y: y), at: 1)
+        XCTAssertGreaterThan(fixture.stripColumn(home).width, 0)
+    }
+
     func testMacOSFusionTurnsCentreStackingOnAndOff() {
         let engine = NiriLayoutEngine()
         engine.applyMacOSFusion(.init(enabled: true, edgePeekShare: nil))
         XCTAssertTrue(engine.stacksOnWindowCentres)
         XCTAssertTrue(engine.animatesLearnedMinimumWidths)
+        XCTAssertTrue(engine.closesOriginGap)
         engine.applyMacOSFusion(.init(enabled: false, edgePeekShare: nil))
         XCTAssertFalse(engine.stacksOnWindowCentres)
         XCTAssertFalse(engine.animatesLearnedMinimumWidths)

@@ -225,6 +225,7 @@ extension MouseEventHandler {
                     )
                     : engine.liveColumnMoveUpdate(
                         cursor: reference,
+                        windowMidX: liveDragWindowMidX(location),
                         at: now,
                         immediate: immediate,
                         context: context,

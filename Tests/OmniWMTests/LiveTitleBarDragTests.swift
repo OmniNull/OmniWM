@@ -426,6 +426,11 @@ final class LiveTitleBarDragTests: NiriInteractionTestCase {
             display.maxX - 2,
             accuracy: 0.5
         )
+        XCTAssertEqual(
+            fixture.handler.liveDragWindowMidX(CGPoint(x: display.maxX - 1, y: 300)) ?? .nan,
+            display.maxX - 301,
+            accuracy: 0.5
+        )
         let samples = stride(from: display.maxX - 400, to: display.maxX, by: 10).map {
             fixture.handler.liveDragReference(CGPoint(x: $0, y: 300)).x
         }
@@ -442,8 +447,10 @@ final class LiveTitleBarDragTests: NiriInteractionTestCase {
 
         fixture.handler.state.liveTabPull = nil
         XCTAssertEqual(fixture.handler.liveDragReference(point), CGPoint(x: 700, y: 300))
+        XCTAssertEqual(fixture.handler.liveDragWindowMidX(point), 700)
         fixture.handler.state.liveDragReferenceOffset = nil
         XCTAssertEqual(fixture.handler.liveDragReference(point), point)
+        XCTAssertNil(fixture.handler.liveDragWindowMidX(point))
     }
 
     func testResizesAndDragsWithoutAFrameChangeStartNoLiveDrag() throws {

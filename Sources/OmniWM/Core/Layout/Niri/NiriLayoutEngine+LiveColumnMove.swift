@@ -74,6 +74,7 @@ extension NiriLayoutEngine {
 
     func liveColumnMoveUpdate(
         cursor: CGPoint,
+        windowMidX: CGFloat? = nil,
         at time: TimeInterval,
         immediate: Bool = false,
         context: NiriInteractionContext,
@@ -84,7 +85,13 @@ extension NiriLayoutEngine {
               liveDraggedColumn(for: move) != nil
         else { return .unchanged }
         let strip = liveColumnStrip(context: context, state: state)
-        let closed = closeLiveSlotAroundPointer(cursor: cursor, strip: strip, context: context, state: &state)
+        let closed = closeLiveSlotAroundPointer(
+            cursor: cursor,
+            windowMidX: windowMidX ?? cursor.x,
+            strip: strip,
+            context: context,
+            state: &state
+        )
         let current = closed ?? strip
         let step = liveColumnMoveStep(
             cursor: cursor,
@@ -190,6 +197,7 @@ extension NiriLayoutEngine {
         }
         if !immediate,
            !sideBySide,
+           !isClosingOrigin(move),
            moveLiveHomeSpot(dragged, beside: target, side: side, removing: dropSpace, context: context, state: &state)
         {
             move.dropSpaceId = nil

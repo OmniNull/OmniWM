@@ -33,6 +33,7 @@ extension NiriLayoutEngine {
 
     func closeLiveSlotAroundPointer(
         cursor: CGPoint,
+        windowMidX: CGFloat,
         strip: [LiveColumnMove.StripColumn],
         context: NiriInteractionContext,
         state: inout ViewportState
@@ -40,6 +41,12 @@ extension NiriLayoutEngine {
         guard let placement = liveHomePlacement(in: strip, context: context) else { return nil }
         var move = placement.move
         let placed = placement.placed
+        if isClosingOrigin(move) {
+            move.slotClosing = .trailing
+            liveColumnMove = move
+            let span = originLiveSlotSpan(placed, slot: move.narrowedSlot, windowMidX: windowMidX, context: context)
+            return placeLiveSlot(placement, in: strip, to: span, allowsGrowth: true, context: context, state: &state)
+        }
         guard let closing = move.slotClosing else {
             let picksHome = placed.minX <= cursor.x && cursor.x <= placed.maxX
             move.slotClosing = picksHome ? .pickup(x: cursor.x) : .trailing
@@ -62,7 +69,24 @@ extension NiriLayoutEngine {
         let maxX = min(placed.maxX, bounds.maxX)
         move.slotClosing = maxX - minX > liveDropSpaceWidth(context: context) + 0.5 ? bounds.next : .trailing
         liveColumnMove = move
-        return placeLiveSlot(placement, in: strip, to: minX ... maxX, context: context, state: &state)
+        return placeLiveSlot(placement, in: strip, to: (minX, maxX - minX), context: context, state: &state)
+    }
+
+    func isClosingOrigin(_ move: LiveColumnMove) -> Bool {
+        closesOriginGap && move.carry == nil && !move.inStack && move.homeColumnId == move.originalSlot.columnId
+    }
+
+    private func originLiveSlotSpan(
+        _ placed: LiveColumnMove.StripColumn,
+        slot: LiveColumnMove.NarrowedSlot?,
+        windowMidX: CGFloat,
+        context: NiriInteractionContext
+    ) -> (minX: CGFloat, width: CGFloat) {
+        let fullWidth = slot?.fullWidth ?? placed.width
+        let originMinX = placed.minX - (slot?.leftCut ?? 0)
+        let shift = windowMidX - (originMinX + fullWidth / 2)
+        let cut = min(abs(shift), max(0, fullWidth + context.gaps))
+        return (shift > 0 ? originMinX + cut : originMinX, fullWidth - cut)
     }
 
     private func firstLiveSlotClosing(
@@ -159,7 +183,9 @@ extension NiriLayoutEngine {
         state: inout ViewportState
     ) -> Bool {
         let strip = strip ?? liveColumnStrip(context: context, state: state)
-        guard let placement = liveHomePlacement(in: strip, context: context) else { return false }
+        guard let placement = liveHomePlacement(in: strip, context: context),
+              !isClosingOrigin(placement.move)
+        else { return false }
         let placed = placement.placed
         let width = liveDropSpaceWidth(context: context)
         let bounds: ClosedRange<CGFloat>
@@ -170,7 +196,13 @@ extension NiriLayoutEngine {
         } else {
             return false
         }
-        return placeLiveSlot(placement, in: strip, to: bounds, context: context, state: &state) != nil
+        return placeLiveSlot(
+            placement,
+            in: strip,
+            to: (bounds.lowerBound, bounds.upperBound - bounds.lowerBound),
+            context: context,
+            state: &state
+        ) != nil
     }
 
     func collapseLiveHomeSlotBesideLanding(
@@ -194,21 +226,29 @@ extension NiriLayoutEngine {
         let bounds = targetIndex < homeIndex
             ? placed.minX ... placed.minX + width
             : placed.maxX - width ... placed.maxX
-        return placeLiveSlot(placement, in: strip, to: bounds, context: context, state: &state) != nil
+        return placeLiveSlot(
+            placement,
+            in: strip,
+            to: (bounds.lowerBound, bounds.upperBound - bounds.lowerBound),
+            context: context,
+            state: &state
+        ) != nil
     }
 
     private func placeLiveSlot(
         _ placement: LiveHomePlacement,
         in stripBefore: [LiveColumnMove.StripColumn],
-        to bounds: ClosedRange<CGFloat>,
+        to span: (minX: CGFloat, width: CGFloat),
+        allowsGrowth: Bool = false,
         context: NiriInteractionContext,
         state: inout ViewportState
     ) -> [LiveColumnMove.StripColumn]? {
         let home = placement.home
-        guard var move = liveColumnMove, bounds.upperBound - bounds.lowerBound < placement.placed.width - 0.5
-        else { return nil }
+        let placedWidth = placement.placed.width
+        let changes = allowsGrowth ? abs(span.width - placedWidth) > 0.5 : span.width < placedWidth - 0.5
+        guard var move = liveColumnMove, changes else { return nil }
         let unchanged = (move: move, slotWidth: home.liveSlotWidth, cachedWidth: home.cachedWidth, state: state)
-        let leftCut = bounds.lowerBound - placement.placed.minX
+        let leftCut = span.minX - placement.placed.minX
         var slot = move.narrowedSlot ?? .init(columnId: home.id, fullWidth: home.cachedWidth, leftCut: 0)
         slot.leftCut += leftCut
         move.narrowedSlot = slot
@@ -218,13 +258,13 @@ extension NiriLayoutEngine {
         let columns = columns(in: context.workspaceId)
         let active = columns.indices.contains(state.activeColumnIndex) ? columns[state.activeColumnIndex] : home
         let before = primaryPositions(context: context, state: state)
-        home.liveSlotWidth = bounds.upperBound - bounds.lowerBound
-        home.cachedWidth = bounds.upperBound - bounds.lowerBound
+        home.liveSlotWidth = span.width
+        home.cachedWidth = span.width
         let after = primaryPositions(context: context, state: state)
         state.rebaseOffset(by: -((after[active.id] ?? 0) - (before[active.id] ?? 0)) - leftCut)
         let stripAfter = liveColumnStrip(context: context, state: state)
         guard let placedHome = stripAfter.first(where: { $0.column === home }),
-              placedHome.width < placement.placed.width - 0.5
+              allowsGrowth || placedHome.width < placedWidth - 0.5
         else {
             liveColumnMove = unchanged.move
             home.liveSlotWidth = unchanged.slotWidth

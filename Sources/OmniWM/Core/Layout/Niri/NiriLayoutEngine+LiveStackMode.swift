@@ -693,5 +693,6 @@ extension NiriLayoutEngine {
         edgePeekShare = configuration.edgePeekShare
         stacksOnWindowCentres = configuration.enabled
         animatesLearnedMinimumWidths = configuration.enabled
+        closesOriginGap = configuration.enabled
     }
 }
