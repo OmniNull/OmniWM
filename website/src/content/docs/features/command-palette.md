@@ -44,10 +44,6 @@ Select a compatible command and press `Enter` to run it. Commands that require a
 
 ## Launcher
 
-:::note[Unreleased]
-Saved commands, scripts and CLI tool discovery are available when building from `main`. In v0.7.6, this mode is named Applications and searches applications.
-:::
-
 Launcher combines applications and saved commands or scripts. Its filters are **All**, **Apps**, **Saved**, and **CLI Tools**. All searches apps and saved entries together; automatically discovered CLI tools appear only in CLI Tools. Apps has the existing grid/list view and category filters.
 
 Use the **Add** menu to add an Application, Command, or Script, or open **Settings > Launcher** to manage entries. Give an entry a name, then choose its working folder, terminal, and shell. **Advanced Options** contains search keywords, entry type, and a custom shell executable. Commands support Nushell, fish, zsh, and Bash; command text uses the selected shell's syntax. Scripts can use their shebang or an explicit interpreter. Add arguments individually to preserve spaces and quotation marks, and choose a working directory when needed.

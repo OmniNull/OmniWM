@@ -783,7 +783,7 @@ OmniWM is built for high responsiveness and smooth, crisp animations.
 - **SIP stays enabled** — Official OmniWM releases do not require disabling System Integrity Protection.
 - **Signed and notarized releases** — Official release builds are Developer ID signed and Apple-notarized.
 - **Free and open source** — OmniWM has no subscriptions, feature paywalls, trial limits, or usage caps and is licensed GPL-2.0-only.
-- **OmniShell network consent (Unreleased: available when building from `main`)** — Widgets need declared hosts and user consent or organization preapproval; native programs need trust tied to their executable and command. **Settings > Network & Permissions** manages those decisions and the built-in Weather and Lyrics switches, both on by default. Organization policies can block them. See [network permissions](https://omniwm.app/omnishell/reference/services/#consent-and-policy) and [managed preferences](https://omniwm.app/config/managed-preferences/).
+- **OmniShell network consent** — Widgets need declared hosts and user consent or organization preapproval; native programs need trust tied to their executable and command. **Settings > Network & Permissions** manages those decisions and the built-in Weather and Lyrics switches, both on by default. Organization policies can block them. See [network permissions](https://omniwm.app/omnishell/reference/services/#consent-and-policy) and [managed preferences](https://omniwm.app/config/managed-preferences/).
 
 ## Requirements
 
@@ -863,7 +863,7 @@ After either installation, complete the macOS setup in steps 3-7 below.
 4. Log out of macOS and log back in for that change to take effect unless you had it on already
 5. Launch OmniWM and grant Accessibility and Input Monitoring when prompted
 6. Optionally grant Screen Recording for capture-derived visuals
-7. Return to OmniWM’s permissions window and click **Start OmniWM** or **Continue Without Screen Recording**. If a required permission still appears missing, click **Check Again**. To skip the window on later launches without Screen Recording, tick **Don't ask about Screen Recording again** first; it still appears if a required permission goes missing (**Unreleased:** available when building from `main`)
+7. Return to OmniWM’s permissions window and click **Start OmniWM** or **Continue Without Screen Recording**. If a required permission still appears missing, click **Check Again**. To skip the window on later launches without Screen Recording, tick **Don't ask about Screen Recording again** first; it still appears if a required permission goes missing.
 
 ### Canary builds
 
@@ -875,7 +875,7 @@ To try one with a Homebrew or GitHub Releases install:
 2. Quit OmniWM, then download the newest [canary build](https://github.com/OmniNull/OmniWM/releases?q=canary) and replace `OmniWM.app` in `/Applications` with the app from its ZIP
 3. Relaunch OmniWM. It uses your existing settings
 
-Canary builds check only for newer published Canary releases. Stable builds continue to check only stable releases. Use `Install and Relaunch` in the update popup (**Unreleased:** available when building from `main`), download from the release page, or use `brew upgrade --cask omniwm@canary` if you installed that Homebrew cask and its new version is available. Older Canary builds need one manual update to gain Canary update checks.
+Canary builds check only for newer published Canary releases. Stable builds continue to check only stable releases. Use `Install and Relaunch` in the update popup, download from the release page, or use `brew upgrade --cask omniwm@canary` if you installed that Homebrew cask and its new version is available. Older Canary builds need one manual update to gain Canary update checks.
 
 To return to stable, quit OmniWM. If you installed `omniwm@canary`, run `brew uninstall --cask omniwm@canary` followed by `brew install --cask omniwm`. For an existing `omniwm` Homebrew install, run `brew reinstall --cask omniwm`; for a direct download, replace the app with the [latest release](https://github.com/OmniNull/OmniWM/releases/latest). If stable cannot read settings saved by a canary, quit OmniWM and restore your copy. When reporting a canary bug, include its release link.
 
@@ -884,7 +884,7 @@ To return to stable, quit OmniWM. If you installed `omniwm@canary`, run `brew un
 OmniWM checks for updates by default.
 
 - On launch, OmniWM polls the latest GitHub release at most once per day.
-- OmniWM never installs anything on its own. `Install and Relaunch` (**Unreleased:** available when building from `main`) downloads the release's app zip from GitHub, checks it against the SHA-256 digest GitHub publishes for it, checks that the new app carries the release's version and is signed and notarized by the same Developer ID as the running copy, swaps the bundle in place and relaunches. If you cancel the quit, the new version starts on the next launch. The button only appears when the release has an app zip and OmniWM can write to its own bundle, so Nix store and other read-only installs keep the manual actions.
+- OmniWM never installs anything on its own. `Install and Relaunch` downloads the release's app zip from GitHub, checks it against the SHA-256 digest GitHub publishes for it, checks that the new app carries the release's version and is signed and notarized by the same Developer ID as the running copy, swaps the bundle in place and relaunches. If you cancel the quit, the new version starts on the next launch. The button only appears when the release has an app zip and OmniWM can write to its own bundle, so Nix store and other read-only installs keep the manual actions.
 - When a newer release is available, OmniWM shows a centered popup with release notes and actions for `Install and Relaunch` (when available), `Open Release Page`, `Copy brew upgrade omniwm`, `Skip This Version`, and `Not Now`.
 - You can control this from `Settings > General > Updates` or trigger a manual check from the status bar menu with `Check for Updates...`.
 
@@ -1166,7 +1166,7 @@ Quake Terminal loads Ghostty's normal configuration files and their included fil
 
 Select **Kitty** under **Settings → Quake Terminal → Terminal** to use Kitty's quick-access terminal. Install Kitty separately. It uses `quick-access-terminal.conf`, with optional placement, auto-hide, and opacity overrides in OmniWM. The Ghostty settings and shortcuts above apply to the embedded provider. See the [Kitty provider guide](https://omniwm.app/features/quake-terminal/#kitty-provider).
 
-**Unreleased: available when building from `main`.** Select **foot** to use the Quake terminal of [foot for macOS](https://github.com/gobijan/foot-macos) 1.28.0-macos.8 or newer, installed separately. OmniWM runs a dedicated foot server that it keeps for reuse. It uses `foot.ini`, with optional placement, auto-hide, opacity and dim overrides that apply the next time the panel is shown; dimming is off by default. foot has no tabs or splits, and the regular foot app's own `` Option + ` `` hotkey can clash with OmniWM's shortcut. See the [foot provider guide](https://omniwm.app/features/quake-terminal/#foot-provider).
+Select **foot** to use the Quake terminal of [foot for macOS](https://github.com/gobijan/foot-macos) 1.28.0-macos.8 or newer, installed separately. OmniWM runs a dedicated foot server that it keeps for reuse. It uses `foot.ini`, with optional placement, auto-hide, opacity and dim overrides that apply the next time the panel is shown; dimming is off by default. foot has no tabs or splits, and the regular foot app's own `` Option + ` `` hotkey can clash with OmniWM's shortcut. See the [foot provider guide](https://omniwm.app/features/quake-terminal/#foot-provider).
 
 #### Command Palette
 
@@ -1189,7 +1189,7 @@ Quickly search windows, app menus, clipboard history, OmniWM commands, applicati
 - Files shows recent documents before typing, supports type filters, and can reveal a selection in Finder with `Cmd + Enter`
 - `Escape` dismisses the palette
 
-**Unreleased: available when building from `main`.** Launcher adds saved commands, scripts and CLI tool discovery to the former Applications mode. Configure entries in **Settings > Launcher**; see the [Launcher guide](https://omniwm.app/features/command-palette/#launcher) and [TOML reference](https://omniwm.app/config/settings-reference/#launcher).
+Launcher adds saved commands, scripts and CLI tool discovery to the former Applications mode. Configure entries in **Settings > Launcher**; see the [Launcher guide](https://omniwm.app/features/command-palette/#launcher) and [TOML reference](https://omniwm.app/config/settings-reference/#launcher).
 
 Clipboard history starts disabled. Open Clipboard mode (`Cmd + 3`) and click **Enable**, or set `clipboard.historyEnabled = true` in `settings.toml`. History retains text, rich text, HTML, images, file references, and safe native formats within the configured limits; concealed, transient, and recognized password-manager content is skipped. A selected item has a preview, each row can be pasted or pinned, and Clear removes unpinned history. See the [command palette guide](https://omniwm.app/features/command-palette/#clipboard-history) for storage details.
 
@@ -1231,7 +1231,7 @@ A visual indicator showing your workspaces:
 - Optionally hide the bar on a monitor while that monitor shows a macOS native fullscreen window, and bring it back on exit (`Hide in Native Fullscreen`); reserved tiled layout space is left untouched so windows do not shuffle around the fullscreen session
 - Exclude individual apps or choose alternate app icons across all monitors in Settings
 - The bar is drawn by Luau widgets in `~/.config/omniwm/shell/` that you can restyle or replace, with optional styles in `styles/` and bundled colour themes; see [OmniShell](https://omniwm.app/features/luau-shell/)
-- **Notifications (Unreleased: available when building from `main`)** browses retained macOS notifications. If absent from your bar, add it under **Settings → Styles & Widgets → Bar → Add Widget…**. It needs Full Disk Access to read Notification Center's database; native persistence can delay updates by several seconds. Dismiss, Clear All and supported replies use Notification Center through Accessibility. A submitted reply confirms the native action was dispatched, not delivery to its recipient. Details and `ctx.data.notifications` expose participants, attachments, action definitions and native metadata. See [Notifications](https://omniwm.app/features/workspace-bar/#notifications) for setup and action limits.
+- **Notifications** browses retained macOS notifications. If absent from your bar, add it under **Settings → Styles & Widgets → Bar → Add Widget…**. It needs Full Disk Access to read Notification Center's database; native persistence can delay updates by several seconds. Dismiss, Clear All and supported replies use Notification Center through Accessibility. A submitted reply confirms the native action was dispatched, not delivery to its recipient. Details and `ctx.data.notifications` expose participants, attachments, action definitions and native metadata. See [Notifications](https://omniwm.app/features/workspace-bar/#notifications) for setup and action limits.
 - The editable effects library includes native motion presets, Metal lighting and reveal masks. Add `effects-lab` to a bar lane in `shell.toml` to explore them with blur and glass materials; see [Effects library](https://omniwm.app/omnishell/reference/effects-shaders/).
 
 Workspace-bar appearance controls are optional and also support per-monitor overrides:
