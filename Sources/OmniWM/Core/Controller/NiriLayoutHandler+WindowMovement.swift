@@ -65,7 +65,8 @@ extension NiriLayoutHandler {
         let usesPredictedAnimation = ctx.orientation == .vertical || !movesAcrossContainers
         if !stacksIntoColumn, movesAcrossContainers,
            let column = ctx.engine.findColumn(containing: ctx.windowNode, in: ctx.wsId),
-           ctx.engine.projectedWindows(in: column, workspaceId: ctx.wsId).count == 1
+           ctx.engine.projectedWindows(in: column, workspaceId: ctx.wsId).count == 1,
+           !adjacentColumnIsTabbed(to: column, direction: direction, in: ctx)
         {
             guard ctx.engine.moveColumn(
                 column,
@@ -107,6 +108,19 @@ extension NiriLayoutHandler {
                 ? .windowConsumedOrExpelled(token: ctx.windowNode.token)
                 : .windowMovedInColumn(token: ctx.windowNode.token)
         )
+    }
+
+    private func adjacentColumnIsTabbed(
+        to column: NiriContainer,
+        direction: Direction,
+        in ctx: NiriOperationContext
+    ) -> Bool {
+        guard let step = direction.primaryStep(for: ctx.orientation) else { return false }
+        let columns = ctx.engine.projectedColumns(in: ctx.wsId)
+        guard let index = columns.firstIndex(where: { $0.column === column }),
+              columns.indices.contains(index + step)
+        else { return false }
+        return columns[index + step].column.isTabbed
     }
 
     @discardableResult
