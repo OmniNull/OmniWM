@@ -55,6 +55,7 @@ final class HotkeyCenter {
     var sideSpecificDispatch: [CommandHotkeyTapMatcher.Entry] = []
     var mouseButtonDispatch: [MouseButtonBinding: HotkeyCommand] = [:]
     var suppressedHotkeyKeyCodes: Set<UInt32> = []
+    var paletteShortcutChords: [KeyBinding] = []
     var hyperTriggerTap: CFMachPort?
     var hyperTriggerRunLoopSource: CFRunLoopSource?
     var hyperTrigger = HyperTriggerStateMachine(trigger: .none, capsLockRemapped: false)
@@ -221,6 +222,7 @@ final class HotkeyCenter {
             sideSpecificDispatch = []
         }
         applyRegistrationFilters()
+        applyPaletteShortcutYield()
         DiagnosticsEventRecorder.shared.recordLifecycle(
             name: "hotkeys.registered registered=\(carbonRegistrations.count) "
                 + "failures=\(registrationFailures.count) sided=\(sideSpecificDispatch.count) "

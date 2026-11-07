@@ -252,6 +252,7 @@ enum SettingsSearchIndex {
         setting("System Hyper Trigger", section: .hotkeys, anchor: "System Hyper Trigger"),
         setting("Request Permission", section: .hotkeys, anchor: "Request Permission"),
         setting("Reset to Defaults", section: .hotkeys, anchor: "Reset to Defaults"),
+        setting("Palette Modifier", section: .hotkeys, anchor: "Palette Modifier"),
         setting("Shortcuts", section: .hotkeys, anchor: "Shortcuts"),
         setting("Command, shortcut, or scope", section: .hotkeys, anchor: "Command, shortcut, or scope"),
         setting("OK", section: .hotkeys, anchor: "OK"),

@@ -42,6 +42,7 @@ extension SettingsStore {
             animationSpeed: animationSpeed,
             language: language,
             launcher: launcher,
+            commandPalette: SettingsExport.CommandPalette(modifier: commandPaletteModifier),
             clipboard: clipboard.export(),
             quakeTerminal: quakeTerminal.export(),
             appearanceMode: appearanceMode,

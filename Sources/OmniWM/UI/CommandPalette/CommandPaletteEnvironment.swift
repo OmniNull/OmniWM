@@ -28,48 +28,6 @@ enum CommandPaletteKeyboardLanguage {
     }
 }
 
-private enum CommandPalettePasteKeyCode {
-    static func current() -> UInt16? {
-        guard let source = TISCopyCurrentKeyboardLayoutInputSource()?.takeRetainedValue(),
-              let property = TISGetInputSourceProperty(source, kTISPropertyUnicodeKeyLayoutData)
-        else {
-            return nil
-        }
-        return withExtendedLifetime(source) {
-            let data = Unmanaged<CFData>.fromOpaque(property).takeUnretainedValue()
-            guard let bytes = CFDataGetBytePtr(data) else { return nil }
-            return bytes.withMemoryRebound(to: UCKeyboardLayout.self, capacity: 1) { layout in
-                for keyCode in UInt16(0) ..< 128 {
-                    var deadKeyState: UInt32 = 0
-                    var length = 0
-                    var characters = [UniChar](repeating: 0, count: 4)
-                    let status = characters.withUnsafeMutableBufferPointer { buffer in
-                        guard let baseAddress = buffer.baseAddress else { return OSStatus(paramErr) }
-                        return UCKeyTranslate(
-                            layout,
-                            keyCode,
-                            UInt16(kUCKeyActionDown),
-                            UInt32(cmdKey >> 8),
-                            UInt32(LMGetKbdType()),
-                            OptionBits(kUCKeyTranslateNoDeadKeysBit),
-                            &deadKeyState,
-                            buffer.count,
-                            &length,
-                            baseAddress
-                        )
-                    }
-                    if status == noErr,
-                       String(decoding: characters.prefix(Int(length)), as: UTF16.self).lowercased() == "v"
-                    {
-                        return keyCode
-                    }
-                }
-                return nil
-            }
-        }
-    }
-}
-
 @MainActor
 struct CommandPaletteEnvironment {
     var confirmLauncherEntryRemoval: (LauncherEntry, NSWindow?, @escaping @MainActor (Bool) -> Void) -> Void = {
@@ -316,7 +274,9 @@ struct CommandPaletteEnvironment {
     }
 
     var postPasteShortcut: () -> Bool = {
-        guard let keyCode = CommandPalettePasteKeyCode.current() else { return false }
+        guard let keyCode = KeyboardLayoutKeyCode.current(commandHeld: true)("v").map(CGKeyCode.init) else {
+            return false
+        }
         let source = CGEventSource(stateID: .combinedSessionState)
         guard let keyDown = CGEvent(keyboardEventSource: source, virtualKey: keyCode, keyDown: true),
               let keyUp = CGEvent(keyboardEventSource: source, virtualKey: keyCode, keyDown: false)

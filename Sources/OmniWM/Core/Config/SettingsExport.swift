@@ -54,6 +54,7 @@ struct SettingsExport: Equatable {
     var language: String?
 
     var launcher = LauncherConfiguration()
+    var commandPalette = CommandPalette()
 
     var clipboard: Clipboard
 
@@ -62,6 +63,19 @@ struct SettingsExport: Equatable {
     var appearanceMode: AppearanceMode
     var tabRailAppIcons: Bool
     var shellPermissions = ShellPermissionDecisions()
+
+    struct CommandPalette: Codable, Equatable {
+        var modifier: PaletteModifier = .default
+
+        init(modifier: PaletteModifier = .default) {
+            self.modifier = modifier
+        }
+
+        init(from decoder: Decoder) throws {
+            let container = try decoder.container(keyedBy: CodingKeys.self)
+            modifier = try container.decodeIfPresent(PaletteModifier.self, forKey: .modifier) ?? .default
+        }
+    }
 
     struct Island: Codable, Equatable {
         var enabled: Bool

@@ -16,6 +16,7 @@ struct HotkeyBindingRow: View {
     let modeKeyFailure: KeyboardModeKeyFailure?
     let showsModeKey: Bool
     let pausedDuringSecureInput: Bool
+    var paletteShortcutNote: String?
     let isHyperActive: () -> Bool
     let onStartChordRecording: (String) -> Void
     let onChordCaptured: (String, HotkeyTrigger) -> Void
@@ -106,6 +107,13 @@ struct HotkeyBindingRow: View {
                             .fixedSize(horizontal: false, vertical: true)
                     }
                 }
+
+                if let paletteShortcutNote {
+                    Label(paletteShortcutNote, systemImage: "info.circle")
+                        .font(.caption)
+                        .foregroundStyle(.secondary)
+                        .fixedSize(horizontal: false, vertical: true)
+                }
             }
         }
         .accessibilityValue(accessibilityValue)
@@ -125,6 +133,9 @@ struct HotkeyBindingRow: View {
         }
         if let failureReason {
             parts.append(failureMessage(for: failureReason))
+        }
+        if let paletteShortcutNote {
+            parts.append(paletteShortcutNote)
         }
         return parts.joined(separator: ", ")
     }

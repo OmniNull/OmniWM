@@ -89,6 +89,7 @@ final class CommandPaletteController: NSObject, NSWindowDelegate {
     var launcherRequestGeneration = 0
     var launcherPublishedGeneration = -1
     var pendingLauncherSelection: (generation: Int, trigger: CommandPaletteSelectionTrigger)?
+    private(set) var paletteModifier = PaletteModifier.default
 
     let environment: CommandPaletteEnvironment
     let presentation: CommandPalettePanel
@@ -183,7 +184,7 @@ final class CommandPaletteController: NSObject, NSWindowDelegate {
         installEventMonitor()
 
         isVisible = true
-        wmController.focusPolicyEngine.beginLease(owner: .commandPalette, reason: "command_palette", duration: nil)
+        claimPaletteInput(wmController)
         environment.observeClipboardItems(wmController) { [weak self] items in
             guard let self, self.isVisible else { return }
             self.isClipboardHistoryEnabled = self.environment.isClipboardHistoryEnabled(wmController)
@@ -389,7 +390,7 @@ extension CommandPaletteController {
         menuSession.invalidate()
         if let wmController {
             environment.observeClipboardItems(wmController, nil)
-            wmController.focusPolicyEngine.endLease(owner: .commandPalette)
+            releasePaletteInput(wmController)
         }
 
         var defersContentClear = false
@@ -422,6 +423,19 @@ extension CommandPaletteController {
         if let restoreTarget {
             _ = focusSession.focus(target: restoreTarget)
         }
+    }
+
+    private func claimPaletteInput(_ wmController: WMController) {
+        paletteModifier = wmController.settings.commandPaletteModifier
+        wmController.focusPolicyEngine.beginLease(owner: .commandPalette, reason: "command_palette", duration: nil)
+        wmController.hotkeys.setPaletteShortcutChords(
+            PaletteShortcuts.current(modifier: paletteModifier).chords.map(\.binding)
+        )
+    }
+
+    private func releasePaletteInput(_ wmController: WMController) {
+        wmController.focusPolicyEngine.endLease(owner: .commandPalette)
+        wmController.hotkeys.setPaletteShortcutChords([])
     }
 
     private func clearPresentedContent() {

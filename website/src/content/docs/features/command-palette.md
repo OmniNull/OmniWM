@@ -20,6 +20,12 @@ The palette has six modes:
 
 `Tab` / `Shift + Tab` cycle forward or backward through the available modes.
 
+## Palette shortcuts
+
+Palette shortcuts act only while the palette is open: the mode keys above, reveal and preview in Launcher and Files, and the window mark chords. While the palette is open, each one takes precedence over a global shortcut on the same chord; once the palette closes, that global shortcut works again. Other global shortcuts, including the one that opens the palette, keep working while it is open.
+
+`Cmd` in palette shortcuts is the **palette modifier**. Change it under **Command Palette** in [Settings > Keyboard Shortcuts](/guides/keyboard-shortcuts/#command-palette) or with [`commandPalette.modifier`](/config/settings-reference/#commandpalette) to any combination of `Control`, `Option`, `Shift`, and `Command` other than `Shift` alone. Palette shortcuts need exactly that combination, and holding it shows file paths in Launcher and Files. The palette's hints show the configured modifier.
+
 ## Navigating results
 
 - `Up` / `Down` move the selection. In Launcher and Files grids they move between rows; once results are focused, `Left` / `Right` move within a row.
@@ -34,7 +40,7 @@ Windows from macOS-hidden apps remain searchable and carry a **Hidden** badge; s
 
 ## Window marks
 
-In Windows mode, **Mark selected window** (`Control + Option + Shift + M`) names the selected result, and **Remove mark** (`Control + Option + Shift + R`) removes one of its marks. The buttons remain available if an enabled global shortcut uses either chord. Marks appear beside windows and match searches by name. Names are unique across windows and last until the window closes or OmniWM quits. Separate global set/remove actions default to **Unassigned** in [Settings > Keyboard Shortcuts](/guides/keyboard-shortcuts/#focus).
+In Windows mode, **Mark selected window** (`Control + Option + Shift + M`) names the selected result, and **Remove mark** (`Control + Option + Shift + R`) removes one of its marks. Marks appear beside windows and match searches by name. Names are unique across windows and last until the window closes or OmniWM quits. Separate global set/remove actions default to **Unassigned** in [Settings > Keyboard Shortcuts](/guides/keyboard-shortcuts/#focus).
 
 ## OmniWM commands
 

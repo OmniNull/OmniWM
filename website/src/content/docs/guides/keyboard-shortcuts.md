@@ -102,7 +102,13 @@ These shortcuts are available while the Command Palette is open in **Windows** m
 | Mark selected window | `Control + Option + Shift + M` |
 | Remove a mark from the selected window | `Control + Option + Shift + R` |
 
-These shortcuts are local to the open Palette and yield to conflicting enabled global shortcuts; the affected Palette action remains available as a button. **Set Mark on Focused Window** and **Remove Mark from Focused Window** are also available as separate, unassigned actions in **Settings > Keyboard Shortcuts** for configurable global shortcuts. Outside the Palette, key combinations retain their configured global behavior.
+These shortcuts act only while the Palette is open. There they take precedence over an enabled global shortcut on the same chord, and outside the Palette that global shortcut keeps its configured behavior. **Set Mark on Focused Window** and **Remove Mark from Focused Window** are also available as separate, unassigned actions in **Settings > Keyboard Shortcuts** for configurable global shortcuts.
+
+### Command Palette
+
+The Palette's mode, reveal, and preview shortcuts use the **palette modifier**, `Command` by default. Choose a different combination under **Command Palette** in **Settings > Keyboard Shortcuts**; `Shift` alone is not allowed, and `Option` alone can stop some layouts from typing characters such as `@` in the Palette search.
+
+While the Palette is open, its shortcuts take precedence over global shortcuts on the same chord. A global shortcut that collides with one shows a note in Settings naming the Palette shortcut that replaces it while the Palette is open. See [Command Palette](/features/command-palette/#palette-shortcuts) for the full list.
 
 ## Move Window
 
