@@ -98,8 +98,10 @@ extension WorldStore {
                     continue
                 }
             }
+            // A lone detached window has no column to rejoin; its index goes stale once neighbors shift into it.
+            let isLoneDetached = token == detachedToken && placements.count == 1
             changed = storeNiriPlacement(
-                placement,
+                isLoneDetached ? placement.withoutColumnPosition : placement,
                 detached: token == detachedToken,
                 for: token,
                 monitors: monitors
