@@ -83,32 +83,30 @@ final class PaletteShortcutsTests: XCTestCase {
     }
 
     func testLayoutLookupReadsLettersWithOnlyThePaletteModifiersShift() throws {
-        var requested: [UInt32] = []
-        let lookup: (UInt32) -> (Character) -> UInt32? = { modifiers in
-            requested.append(modifiers)
-            return { letter in
-                switch letter {
-                case "y": UInt32(kVK_ANSI_Z)
-                case "r": UInt32(kVK_ANSI_X)
-                default: nil
+        let cases: [(modifier: UInt32, lookupModifiers: UInt32)] = [
+            (command, 0),
+            (UInt32(shiftKey) | command, UInt32(shiftKey)),
+            (controlOptionShift, UInt32(shiftKey))
+        ]
+        for (mask, lookupModifiers) in cases {
+            var requested: [UInt32] = []
+            let shortcuts = PaletteShortcuts.current(modifier: try XCTUnwrap(PaletteModifier(carbonMask: mask))) {
+                requested.append($0)
+                return { letter in
+                    switch letter {
+                    case "y": UInt32(kVK_ANSI_Z)
+                    case "r": UInt32(kVK_ANSI_X)
+                    default: nil
+                    }
                 }
             }
+
+            XCTAssertEqual(requested, [lookupModifiers], "\(mask)")
+            XCTAssertEqual(hits(shortcuts, chord(kVK_ANSI_Z, mask)), [.togglePreview], "\(mask)")
+            XCTAssertEqual(hits(shortcuts, chord(kVK_ANSI_X, mask)), [.reveal], "\(mask)")
+            XCTAssertFalse(hits(shortcuts, chord(kVK_ANSI_Y, mask)).contains(.togglePreview), "\(mask)")
+            XCTAssertFalse(hits(shortcuts, chord(kVK_ANSI_R, mask)).contains(.reveal), "\(mask)")
         }
-
-        let shortcuts = PaletteShortcuts.current(modifier: .default, layoutLookup: lookup)
-        _ = PaletteShortcuts.current(
-            modifier: try XCTUnwrap(PaletteModifier(carbonMask: UInt32(shiftKey | cmdKey))),
-            layoutLookup: lookup
-        )
-        _ = PaletteShortcuts.current(
-            modifier: try XCTUnwrap(PaletteModifier(carbonMask: controlOptionShift)),
-            layoutLookup: lookup
-        )
-
-        XCTAssertEqual(requested, [0, UInt32(shiftKey), UInt32(shiftKey)])
-        XCTAssertEqual(hits(shortcuts, chord(kVK_ANSI_Z, command)), [.togglePreview])
-        XCTAssertEqual(hits(shortcuts, chord(kVK_ANSI_X, command)), [.reveal])
-        XCTAssertEqual(hits(shortcuts, chord(kVK_ANSI_Y, command)), [])
     }
 
     func testCollisionNoteNamesThePaletteShortcutThatTakesOver() {
