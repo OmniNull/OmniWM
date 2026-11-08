@@ -216,9 +216,11 @@ final class ShellPulseKitTests: XCTestCase {
         }
         let dense = (0 ... 4096).map { bell(duration * Double($0) / 4096) }
         let peak = try XCTUnwrap(dense.map { abs($0) }.max())
-        XCTAssertGreaterThan(peak, 20)
-        let spacing = duration / Double(samples.count - 1)
         let sharpestBend = amplitude * rate * rate * (1 + swing + (2 * swing + swing * swing) * exp(-2.0))
+        let denseSpacing = duration / Double(dense.count - 1)
+        let firstSineCrest = amplitude * (1 - .pi / 2 / swing)
+        XCTAssertGreaterThanOrEqual(peak, firstSineCrest - denseSpacing * denseSpacing / 8 * sharpestBend)
+        let spacing = duration / Double(samples.count - 1)
         let chordGap = spacing * spacing / 8 * sharpestBend
         XCTAssertEqual(try XCTUnwrap(samples.map { abs($0) }.max()), peak, accuracy: chordGap)
         for (index, expected) in dense.enumerated() {

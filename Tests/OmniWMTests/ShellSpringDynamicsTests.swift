@@ -73,13 +73,15 @@ final class ShellSpringDynamicsTests: XCTestCase {
     }
 
     func testStrongOverdampingDoesNotOverflowAtLongElapsedTimes() {
+        let (slow, fast) = (-1.0 / 16, -2500.0)
+        let spring = ShellSpringDynamics.Parameters(mass: 1, stiffness: slow * fast, damping: -(slow + fast))
         let velocity = ShellSpringDynamics.velocity(
-            at: 50, displacement: -1, initialVelocity: 0, spring: .init(mass: 1, stiffness: 100, damping: 2000)
+            at: 50, displacement: -1, initialVelocity: 0, spring: spring
         )
-        XCTAssertGreaterThan(velocity, 0.004)
-        XCTAssertLessThan(velocity, 0.0042)
+        let interval = slow - fast
+        XCTAssertEqual(velocity, exp(slow * 50) * (fast * (expm1(-interval * 50) / interval) * -slow))
         XCTAssertEqual(ShellSpringDynamics.velocity(
-            at: 1e9, displacement: -1, initialVelocity: 0, spring: .init(mass: 1, stiffness: 100, damping: 2000)
+            at: 1e9, displacement: -1, initialVelocity: 0, spring: spring
         ), 0)
     }
 
@@ -132,20 +134,54 @@ final class ShellSpringDynamicsTests: XCTestCase {
 
     func testPositionMatchesPleamarSemiImplicitEulerForDeskDripAndFollowSprings() {
         let step = 0.0005
+        let steps = 3000
+        let horizon = Double(steps) * step
+        let steppedSpringRoundings = 30
+        let closedFormRoundings = 25
+        let sampleRoundings = 2
         for (stiffness, damping) in [(300.0, 20.0), (170.0, 18.0), (304.6, 34.9)] {
-            let spring = ShellSpringDynamics.Parameters(mass: 1, stiffness: stiffness, damping: damping)
+            let drag = damping + stiffness * step
+            let center = 1 - step * drag / 2
+            let discriminant = stiffness - drag * drag / 4
+            let spread = step * abs(discriminant).squareRoot() / center
+            let warp = (discriminant < 0 ? atanh(spread) : atan(spread)) / spread / center
+            let decay = -log1p(-damping * step) / step / 2
+            let stepped = ShellSpringDynamics.Parameters(
+                mass: 1, stiffness: decay * decay + discriminant * warp * warp, damping: 2 * decay
+            )
+            let launch = decay - (damping - stiffness * step) * warp / 2
+            let radius = discriminant < 0
+                ? center + step * (-discriminant).squareRoot()
+                : (1 - damping * step).squareRoot()
+            let frequency = stepped.stiffness.squareRoot()
+            let rate = stepped.damping + frequency
+            let sensitivity = (1 + (abs(launch) + rate) * horizon) * (1 + rate * horizon)
+                * (frequency + decay) / abs(frequency - decay)
             var value = 0.0
             var speed = 0.0
+            var largestValue = 1.0
+            var largestSpeed = 0.0
             var worst = 0.0
-            for index in 1 ... 3000 {
-                speed += (-stiffness * (value - 1) - damping * speed) * step
+            for index in 1 ... steps {
+                let force = -stiffness * (value - 1) - damping * speed
+                speed += force * step
                 value += speed * step
+                largestValue = max(largestValue, abs(value))
+                largestSpeed = max(largestSpeed, abs(speed), abs(force) * step)
                 let exact = 1 + ShellSpringDynamics.position(
-                    at: Double(index) * step, displacement: -1, initialVelocity: 0, spring: spring
+                    at: Double(index) * step, displacement: -1, initialVelocity: launch, spring: stepped
                 )
                 worst = max(worst, abs(exact - value))
             }
-            XCTAssertLessThan(worst, 0.005, "\(stiffness):\(damping)")
+            let carried = 1 + (2 + radius) / ((1 - radius) * (1 - radius))
+            let perStepRounding = Double.rounding(operations: 2, at: max(largestValue, largestSpeed * step))
+                + step * Double.rounding(operations: 6, at: max(largestSpeed, stiffness * step * largestValue))
+            let closedFormRounding = Double.rounding(
+                operations: steppedSpringRoundings + closedFormRoundings + sampleRoundings, at: sensitivity
+            )
+            XCTAssertLessThanOrEqual(
+                worst, carried * perStepRounding + closedFormRounding, "\(stiffness):\(damping)"
+            )
         }
     }
 
