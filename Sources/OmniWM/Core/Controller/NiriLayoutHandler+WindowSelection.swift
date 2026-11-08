@@ -353,6 +353,7 @@ extension NiriLayoutHandler {
         let rebaseDeltaBefore = state.offsetTransition.rebaseDelta
         var viewportNeedsRecalc = removal.removalResult.viewportNeedsRecalc
 
+        let controller = controller
         let isGestureOrAnimation = controller?.workspaceManager.animationDriver.hasMotion(in: pass.wsId) == true
 
         resolvePrimaryContainerSpansIfNeeded(pass: pass)
