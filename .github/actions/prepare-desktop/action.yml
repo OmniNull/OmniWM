@@ -27,14 +27,19 @@ runs:
       run: |
         set -euo pipefail
         locked() {
-          ioreg -n Root -d1 -a | plutil -extract IOConsoleUsers.0.CGSSessionScreenIsLocked raw -o - - 2>/dev/null || true
+          local session
+          session="$(ioreg -n Root -d1 -a | plutil -extract IOConsoleUsers.0 json -o - -)" || {
+            echo "::error::Could not read the console session."
+            exit 1
+          }
+          [[ "$session" == *'"CGSSessionScreenIsLocked":true'* ]]
         }
         defaults -currentHost write com.apple.screensaver idleTime -int 0
-        [[ "$(locked)" == true ]] || exit 0
+        locked || exit 0
         xcrun swiftc -O "$GITHUB_ACTION_PATH/unlock.swift" -o "$RUNNER_TEMP/unlock"
         sudo cat /etc/kcpassword | "$RUNNER_TEMP/unlock"
         for _ in {1..20}; do
-          [[ "$(locked)" == true ]] || exit 0
+          locked || exit 0
           sleep 0.5
         done
         echo "::error::The console is still locked after typing the auto-login password."
