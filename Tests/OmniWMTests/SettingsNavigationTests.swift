@@ -45,6 +45,12 @@ final class SettingsNavigationTests: XCTestCase {
         XCTAssertTrue(SettingsSearchIndex.results(for: "  ").isEmpty)
     }
 
+    func testCommandPaletteSearchFindsThePaletteModifier() {
+        XCTAssertTrue(SettingsSearchIndex.results(for: "command palette").contains {
+            $0.route == SettingsRoute(section: .hotkeys, anchor: "Palette Modifier")
+        })
+    }
+
     func testNetworkPermissionsSearchFindsThePageAndItsServices() throws {
         XCTAssertTrue(SettingsSearchIndex.results(for: "permissions").contains {
             $0.route == SettingsRoute(section: .network)

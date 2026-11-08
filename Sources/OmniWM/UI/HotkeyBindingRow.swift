@@ -16,7 +16,7 @@ struct HotkeyBindingRow: View {
     let modeKeyFailure: KeyboardModeKeyFailure?
     let showsModeKey: Bool
     let pausedDuringSecureInput: Bool
-    var paletteShortcutNote: String?
+    var paletteShortcutNotes: [String] = []
     let isHyperActive: () -> Bool
     let onStartChordRecording: (String) -> Void
     let onChordCaptured: (String, HotkeyTrigger) -> Void
@@ -108,8 +108,8 @@ struct HotkeyBindingRow: View {
                     }
                 }
 
-                if let paletteShortcutNote {
-                    Label(paletteShortcutNote, systemImage: "info.circle")
+                ForEach(paletteShortcutNotes, id: \.self) { note in
+                    Label(note, systemImage: "info.circle")
                         .font(.caption)
                         .foregroundStyle(.secondary)
                         .fixedSize(horizontal: false, vertical: true)
@@ -134,9 +134,7 @@ struct HotkeyBindingRow: View {
         if let failureReason {
             parts.append(failureMessage(for: failureReason))
         }
-        if let paletteShortcutNote {
-            parts.append(paletteShortcutNote)
-        }
+        parts += paletteShortcutNotes
         return parts.joined(separator: ", ")
     }
 

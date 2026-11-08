@@ -5,14 +5,14 @@ import Carbon
 import Foundation
 
 enum KeyboardLayoutKeyCode {
-    static func current(commandHeld: Bool) -> (Character) -> UInt32? {
+    static func current(modifiers: UInt32) -> (Character) -> UInt32? {
         guard let source = TISCopyCurrentKeyboardLayoutInputSource()?.takeRetainedValue(),
               let property = TISGetInputSourceProperty(source, kTISPropertyUnicodeKeyLayoutData)
         else { return { _ in nil } }
         let layoutData = withExtendedLifetime(source) {
             Unmanaged<CFData>.fromOpaque(property).takeUnretainedValue() as Data
         }
-        let modifierState = commandHeld ? UInt32(cmdKey >> 8) : 0
+        let modifierState = (modifiers & UInt32(cmdKey | shiftKey)) >> 8
         let keyboardType = UInt32(LMGetKbdType())
         var keyCodes: [Character: UInt32] = [:]
         layoutData.withUnsafeBytes { bytes in

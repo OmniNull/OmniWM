@@ -74,12 +74,12 @@ struct PaletteShortcuts {
     static func current(modifier: PaletteModifier) -> PaletteShortcuts {
         PaletteShortcuts(
             modifier: modifier,
-            keyCodeForLetter: KeyboardLayoutKeyCode.current(commandHeld: modifier.contains(UInt32(cmdKey)))
+            keyCodeForLetter: KeyboardLayoutKeyCode.current(modifiers: modifier.carbonMask)
         )
     }
 
-    func collision(with trigger: HotkeyTrigger) -> PaletteShortcutChord? {
-        guard let binding = trigger.chordBinding else { return nil }
-        return chords.first { $0.binding.conflicts(with: binding) }
+    func collisions(with trigger: HotkeyTrigger) -> [PaletteShortcutChord] {
+        guard let binding = trigger.chordBinding else { return [] }
+        return chords.filter { $0.binding.conflicts(with: binding) }
     }
 }

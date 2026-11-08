@@ -29,17 +29,23 @@ final class HotkeyPaletteYieldTests: XCTestCase {
         return center
     }
 
+    private func registered(_ center: HotkeyCenter) -> Set<HotkeyCommand> {
+        center.carbonRegistrations.registeredCommands
+    }
+
+    private let both: Set<HotkeyCommand> = [.focus(.left), .focus(.right)]
+
     func testCollidingGlobalShortcutYieldsOnlyWhilePaletteShortcutsAreActive() {
         let center = makeCenter()
         center.start()
         defer { center.stop() }
-        XCTAssertEqual(center.carbonRegistrations.count, 2)
+        XCTAssertEqual(registered(center), both)
 
         center.setPaletteShortcutChords([commandOne])
-        XCTAssertEqual(center.carbonRegistrations.count, 1)
+        XCTAssertEqual(registered(center), [.focus(.right)])
 
         center.setPaletteShortcutChords([])
-        XCTAssertEqual(center.carbonRegistrations.count, 2)
+        XCTAssertEqual(registered(center), both)
     }
 
     func testYieldPersistsWhenBindingsReloadWhilePaletteIsOpen() {
@@ -49,10 +55,10 @@ final class HotkeyPaletteYieldTests: XCTestCase {
 
         center.setPaletteShortcutChords([commandOne])
         center.updateBindings(center.configuration.bindings, systemHyperTrigger: .none, force: true)
-        XCTAssertEqual(center.carbonRegistrations.count, 1)
+        XCTAssertEqual(registered(center), [.focus(.right)])
 
         center.setPaletteShortcutChords([])
-        XCTAssertEqual(center.carbonRegistrations.count, 2)
+        XCTAssertEqual(registered(center), both)
     }
 
     func testClosingPaletteDuringPauseLeavesShortcutsPausedUntilResume() throws {
@@ -67,17 +73,17 @@ final class HotkeyPaletteYieldTests: XCTestCase {
         defer { center.stop() }
 
         XCTAssertTrue(center.dispatchMouseButton(3, flags: []))
-        XCTAssertEqual(center.carbonRegistrations.count, 0)
+        XCTAssertEqual(registered(center), [])
         center.setPaletteShortcutChords([commandOne])
         center.setPaletteShortcutChords([])
-        XCTAssertEqual(center.carbonRegistrations.count, 0)
+        XCTAssertEqual(registered(center), [])
 
         center.setPaletteShortcutChords([commandOne])
         XCTAssertTrue(center.dispatchMouseButton(3, flags: []))
-        XCTAssertEqual(center.carbonRegistrations.count, 1)
+        XCTAssertEqual(registered(center), [.focus(.right)])
 
         center.setPaletteShortcutChords([])
-        XCTAssertEqual(center.carbonRegistrations.count, 2)
+        XCTAssertEqual(registered(center), both)
     }
 
     func testSuspendedHotkeysStayUnregisteredWhenPaletteCloses() {
@@ -88,9 +94,9 @@ final class HotkeyPaletteYieldTests: XCTestCase {
         center.setPaletteShortcutChords([commandOne])
         center.setCommandHotkeysSuspended(true)
         center.setPaletteShortcutChords([])
-        XCTAssertEqual(center.carbonRegistrations.count, 0)
+        XCTAssertEqual(registered(center), [])
 
         center.setCommandHotkeysSuspended(false)
-        XCTAssertEqual(center.carbonRegistrations.count, 2)
+        XCTAssertEqual(registered(center), both)
     }
 }

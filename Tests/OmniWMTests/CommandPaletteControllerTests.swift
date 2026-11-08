@@ -328,13 +328,16 @@ final class CommandPaletteControllerTests: XCTestCase {
     func testMarkChordsWorkInPaletteEvenWhenBoundGlobally() throws {
         let fixture = CommandPaletteFocusFixture()
         defer { fixture.cleanup() }
-        let markChord = UInt32(controlKey | optionKey | shiftKey)
-        fixture.controller.settings.updateTrigger(
-            for: "openMenuAnywhere",
-            newTrigger: .chord(KeyBinding(keyCode: UInt32(kVK_ANSI_M), modifiers: markChord))
-        )
-        XCTAssertTrue(fixture.controller.hotkeysEnabled)
+        let markChord = KeyBinding(keyCode: UInt32(kVK_ANSI_M), modifiers: UInt32(controlKey | optionKey | shiftKey))
+        fixture.controller.settings.updateTrigger(for: "openMenuAnywhere", newTrigger: .chord(markChord))
+        let hotkeys = fixture.controller.hotkeys
+        hotkeys.updateBindings(fixture.controller.settings.hotkeyBindings, systemHyperTrigger: .none)
+        hotkeys.start()
+        defer { hotkeys.stop() }
+        XCTAssertTrue(hotkeys.carbonRegistrations.registeredCommands.contains(.openMenuAnywhere))
+
         _ = try fixture.show()
+        XCTAssertFalse(hotkeys.carbonRegistrations.registeredCommands.contains(.openMenuAnywhere))
         let event = try XCTUnwrap(NSEvent.keyEvent(
             with: .keyDown,
             location: .zero,
@@ -349,6 +352,9 @@ final class CommandPaletteControllerTests: XCTestCase {
         ))
         XCTAssertTrue(fixture.palette.handleKeyDown(event))
         XCTAssertEqual(fixture.palette.actionFeedbackText, "Select a window row before changing its marks.")
+
+        fixture.palette.dismiss(reason: .selection)
+        XCTAssertTrue(hotkeys.carbonRegistrations.registeredCommands.contains(.openMenuAnywhere))
     }
 
     func testKeyboardLayoutChangeWhilePaletteIsOpenMovesReservedLetterChords() throws {

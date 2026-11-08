@@ -21,41 +21,45 @@ final class PaletteShortcutsTests: XCTestCase {
         .chord(KeyBinding(keyCode: UInt32(keyCode), modifiers: modifiers))
     }
 
+    private func hits(_ shortcuts: PaletteShortcuts, _ trigger: HotkeyTrigger) -> [PaletteShortcut] {
+        shortcuts.collisions(with: trigger).map(\.shortcut)
+    }
+
     func testDigitChordsUnderThePaletteModifierCollideWithModeShortcuts() {
         let shortcuts = shortcuts()
 
-        XCTAssertEqual(shortcuts.collision(with: chord(kVK_ANSI_1, command))?.shortcut, .mode(.windows))
-        XCTAssertEqual(shortcuts.collision(with: chord(kVK_ANSI_2, command))?.shortcut, .mode(.menu))
-        XCTAssertEqual(shortcuts.collision(with: chord(kVK_ANSI_Keypad6, command))?.shortcut, .mode(.files))
-        XCTAssertNil(shortcuts.collision(with: chord(kVK_ANSI_7, command)))
-        XCTAssertNil(shortcuts.collision(with: chord(kVK_ANSI_1, UInt32(optionKey))))
-        XCTAssertNil(shortcuts.collision(with: chord(kVK_ANSI_1, command | UInt32(shiftKey))))
+        XCTAssertEqual(hits(shortcuts, chord(kVK_ANSI_1, command)), [.mode(.windows)])
+        XCTAssertEqual(hits(shortcuts, chord(kVK_ANSI_2, command)), [.mode(.menu)])
+        XCTAssertEqual(hits(shortcuts, chord(kVK_ANSI_Keypad6, command)), [.mode(.files)])
+        XCTAssertEqual(hits(shortcuts, chord(kVK_ANSI_7, command)), [])
+        XCTAssertEqual(hits(shortcuts, chord(kVK_ANSI_1, UInt32(optionKey))), [])
+        XCTAssertEqual(hits(shortcuts, chord(kVK_ANSI_1, command | UInt32(shiftKey))), [])
     }
 
     func testCollisionsFollowTheConfiguredPaletteModifier() throws {
         let shortcuts = shortcuts(try XCTUnwrap(PaletteModifier(carbonMask: controlOption)))
 
-        XCTAssertEqual(shortcuts.collision(with: chord(kVK_ANSI_4, controlOption))?.shortcut, .mode(.commands))
-        XCTAssertEqual(shortcuts.collision(with: chord(kVK_ANSI_Y, controlOption))?.shortcut, .togglePreview)
-        XCTAssertEqual(shortcuts.collision(with: chord(kVK_ANSI_R, controlOption))?.shortcut, .reveal)
-        XCTAssertEqual(shortcuts.collision(with: chord(kVK_Return, controlOption))?.shortcut, .reveal)
-        XCTAssertEqual(shortcuts.collision(with: chord(kVK_ANSI_KeypadEnter, controlOption))?.shortcut, .reveal)
-        XCTAssertNil(shortcuts.collision(with: chord(kVK_ANSI_4, command)))
-        XCTAssertNil(shortcuts.collision(with: chord(kVK_ANSI_R, command)))
+        XCTAssertEqual(hits(shortcuts, chord(kVK_ANSI_4, controlOption)), [.mode(.commands)])
+        XCTAssertEqual(hits(shortcuts, chord(kVK_ANSI_Y, controlOption)), [.togglePreview])
+        XCTAssertEqual(hits(shortcuts, chord(kVK_ANSI_R, controlOption)), [.reveal])
+        XCTAssertEqual(hits(shortcuts, chord(kVK_Return, controlOption)), [.reveal])
+        XCTAssertEqual(hits(shortcuts, chord(kVK_ANSI_KeypadEnter, controlOption)), [.reveal])
+        XCTAssertEqual(hits(shortcuts, chord(kVK_ANSI_4, command)), [])
+        XCTAssertEqual(hits(shortcuts, chord(kVK_ANSI_R, command)), [])
     }
 
     func testMarkChordsCollideWhateverThePaletteModifier() {
         let shortcuts = shortcuts()
 
-        XCTAssertEqual(shortcuts.collision(with: chord(kVK_ANSI_M, controlOptionShift))?.shortcut, .setMark)
-        XCTAssertEqual(shortcuts.collision(with: chord(kVK_ANSI_R, controlOptionShift))?.shortcut, .removeMark)
-        XCTAssertNil(shortcuts.collision(with: chord(kVK_ANSI_M, controlOption)))
+        XCTAssertEqual(hits(shortcuts, chord(kVK_ANSI_M, controlOptionShift)), [.setMark])
+        XCTAssertEqual(hits(shortcuts, chord(kVK_ANSI_R, controlOptionShift)), [.removeMark])
+        XCTAssertEqual(hits(shortcuts, chord(kVK_ANSI_M, controlOption)), [])
     }
 
     func testSideSpecificGlobalShortcutsCollide() {
         let rightCommandOne = KeyBinding(keyCode: UInt32(kVK_ANSI_1), modifiers: command).settingSide(.right)
 
-        XCTAssertEqual(shortcuts().collision(with: .chord(rightCommandOne))?.shortcut, .mode(.windows))
+        XCTAssertEqual(hits(shortcuts(), .chord(rightCommandOne)), [.mode(.windows)])
     }
 
     func testLetterShortcutsUseTheKeyThatTypesTheLetter() {
@@ -67,27 +71,36 @@ final class PaletteShortcutsTests: XCTestCase {
             }
         }
 
-        XCTAssertEqual(qwertz.collision(with: chord(kVK_ANSI_Z, command))?.shortcut, .togglePreview)
-        XCTAssertNil(qwertz.collision(with: chord(kVK_ANSI_Y, command)))
+        XCTAssertEqual(hits(qwertz, chord(kVK_ANSI_Z, command)), [.togglePreview])
+        XCTAssertEqual(hits(qwertz, chord(kVK_ANSI_Y, command)), [])
     }
 
     func testMouseButtonsAndUnassignedShortcutsNeverCollide() throws {
         let button = try XCTUnwrap(MouseButtonBinding(button: 3, modifiers: command))
 
-        XCTAssertNil(shortcuts().collision(with: .mouseButton(button)))
-        XCTAssertNil(shortcuts().collision(with: .unassigned))
+        XCTAssertEqual(hits(shortcuts(), .mouseButton(button)), [])
+        XCTAssertEqual(hits(shortcuts(), .unassigned), [])
     }
 
-    func testCollisionNoteNamesThePaletteShortcutThatTakesOver() throws {
+    func testCollisionNoteNamesThePaletteShortcutThatTakesOver() {
         let shortcuts = shortcuts()
 
         XCTAssertEqual(
-            try XCTUnwrap(shortcuts.collision(with: chord(kVK_ANSI_1, command))).note,
-            "While the command palette is open, ⌘1 switches to Windows mode instead."
+            shortcuts.collisions(with: chord(kVK_ANSI_1, command)).map(\.note),
+            ["While the command palette is open, ⌘1 switches to Windows mode instead."]
         )
         XCTAssertEqual(
-            try XCTUnwrap(shortcuts.collision(with: chord(kVK_ANSI_M, controlOptionShift))).note,
-            "While the command palette is open, ⌃⌥⇧M marks the selected window instead."
+            shortcuts.collisions(with: chord(kVK_ANSI_M, controlOptionShift)).map(\.note),
+            ["While the command palette is open, ⌃⌥⇧M marks the selected window instead."]
+        )
+    }
+
+    func testChordUsedByTwoPaletteShortcutsReportsBoth() throws {
+        let shortcuts = shortcuts(try XCTUnwrap(PaletteModifier(carbonMask: controlOptionShift)))
+
+        XCTAssertEqual(
+            shortcuts.collisions(with: chord(kVK_ANSI_R, controlOptionShift)).map(\.shortcut),
+            [.reveal, .removeMark]
         )
     }
 }

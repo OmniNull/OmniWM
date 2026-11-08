@@ -276,7 +276,7 @@ struct CommandPaletteEnvironment {
     }
 
     var postPasteShortcut: () -> Bool = {
-        guard let keyCode = KeyboardLayoutKeyCode.current(commandHeld: true)("v").map(CGKeyCode.init) else {
+        guard let keyCode = KeyboardLayoutKeyCode.current(modifiers: UInt32(cmdKey))("v").map(CGKeyCode.init) else {
             return false
         }
         let source = CGEventSource(stateID: .combinedSessionState)

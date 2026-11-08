@@ -153,7 +153,7 @@ struct HotkeySettingsView: View {
                                 hyperModifiers: settings.hyperKeyModifiers.carbonMask,
                                 shiftedCharacters: shiftedCharacters
                             ),
-                            paletteShortcutNote: paletteShortcuts.collision(with: binding.binding)?.note,
+                            paletteShortcutNotes: paletteShortcuts.collisions(with: binding.binding).map(\.note),
                             isHyperActive: {
                                 controller.isHyperTriggerActive
                             },
