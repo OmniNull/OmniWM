@@ -82,6 +82,26 @@ final class PaletteShortcutsTests: XCTestCase {
         XCTAssertEqual(hits(shortcuts(), .unassigned), [])
     }
 
+    func testLayoutLookupReadsLettersWithOnlyThePaletteModifiersShift() throws {
+        var requested: [UInt32] = []
+        let lookup: (UInt32) -> (Character) -> UInt32? = { modifiers in
+            requested.append(modifiers)
+            return { _ in nil }
+        }
+
+        _ = PaletteShortcuts.current(modifier: .default, layoutLookup: lookup)
+        _ = PaletteShortcuts.current(
+            modifier: try XCTUnwrap(PaletteModifier(carbonMask: UInt32(shiftKey | cmdKey))),
+            layoutLookup: lookup
+        )
+        _ = PaletteShortcuts.current(
+            modifier: try XCTUnwrap(PaletteModifier(carbonMask: controlOptionShift)),
+            layoutLookup: lookup
+        )
+
+        XCTAssertEqual(requested, [0, UInt32(shiftKey), UInt32(shiftKey)])
+    }
+
     func testCollisionNoteNamesThePaletteShortcutThatTakesOver() {
         let shortcuts = shortcuts()
 

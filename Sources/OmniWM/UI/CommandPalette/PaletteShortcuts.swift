@@ -71,11 +71,11 @@ struct PaletteShortcuts {
         ]
     }
 
-    static func current(modifier: PaletteModifier) -> PaletteShortcuts {
-        PaletteShortcuts(
-            modifier: modifier,
-            keyCodeForLetter: KeyboardLayoutKeyCode.current(modifiers: modifier.carbonMask & UInt32(shiftKey))
-        )
+    static func current(
+        modifier: PaletteModifier,
+        layoutLookup: (UInt32) -> (Character) -> UInt32? = KeyboardLayoutKeyCode.current(modifiers:)
+    ) -> PaletteShortcuts {
+        PaletteShortcuts(modifier: modifier, keyCodeForLetter: layoutLookup(modifier.carbonMask & UInt32(shiftKey)))
     }
 
     func collisions(with trigger: HotkeyTrigger) -> [PaletteShortcutChord] {
