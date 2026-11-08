@@ -38,6 +38,8 @@ SUITES = {
     "ThetaTests.swift": "internal final class ThetaTests: XCTestCase {}\nfinal class IotaTests: XCTestCase {}\n",
     "CounterSupport.swift": "struct CounterFixture {}\nprivate(set) var counter = 0\n",
     "CounterTests.swift": "final class CounterTests: XCTestCase {\n    let fixture = CounterFixture()\n}\n",
+    "LiveTests.swift": "#if OMNIWM_LIVE_CHECKS\nfinal class LiveTests: XCTestCase {}\n#endif\n",
+    "KappaTests.swift": "final class KappaTests: XCTestCase {\n    #if OMNIWM_LIVE_CHECKS\n    func testLive() {}\n    #endif\n}\n",
 }
 
 
@@ -79,6 +81,10 @@ class CITestPlanTests(unittest.TestCase):
 
     def test_extension_conformances_keep_the_test_case_superclass(self):
         self.assertEqual(self.selected("Tests/OmniWMTests/ZetaTests.swift"), r"OmniWMTests\.(ZetaTests)/")
+
+    def test_files_compiled_only_with_live_checks_run_every_group(self):
+        self.assertEqual(self.plan("Tests/OmniWMTests/LiveTests.swift"), plan_module.full(self.root))
+        self.assertEqual(self.selected("Tests/OmniWMTests/KappaTests.swift"), r"OmniWMTests\.(KappaTests)/")
 
     def test_members_reached_without_a_type_name_run_every_group(self):
         self.assertEqual(self.plan("Tests/OmniWMTests/PreviewSupport.swift"), plan_module.full(self.root))
