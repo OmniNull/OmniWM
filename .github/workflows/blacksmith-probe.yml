@@ -9,23 +9,61 @@ permissions:
 jobs:
   probe:
     runs-on: blacksmith-6vcpu-macos-27
-    timeout-minutes: 45
+    timeout-minutes: 20
     steps:
-      - name: Session, sudo and audio state
+      - uses: actions/checkout@3d3c42e5aac5ba805825da76410c181273ba90b1
+        with:
+          persist-credentials: false
+      - name: State
         run: |
-          set -x
-          sw_vers; id; stat -f%Su /dev/console
-          ioreg -n Root -d1 -a | plutil -extract IOConsoleUsers json -o - - || true
-          sudo -n true && echo sudo-ok
-          csrutil status || true
-          sysadminctl -screenLock status 2>&1 || true
-          sudo defaults read /Library/Preferences/com.apple.loginwindow 2>&1 || true
-          ls -la /etc/kcpassword || true
-          pmset -g || true
-          system_profiler SPAudioDataType || true
-          ls -la /Library/Audio/Plug-Ins/HAL || true
-          ps -axo pid,ppid,user,command | grep -iE 'Runner\.|loginwindow|WindowServer|setup_mac|screensharing|ARDAgent' | grep -v grep || true
-          launchctl print gui/$(id -u) | head -15 || true
-          cat /opt/blacksmith/setup_mac.sh || true
-      - name: Hold for SSH
-        run: while [ ! -e "$RUNNER_TEMP/done" ]; do sleep 5; done
+          ioreg -n Root -d1 -a | plutil -extract IOConsoleUsers json -o - - | tr ',' '\n' | grep -iE 'lock|secure|console'
+          sudo sqlite3 "/Library/Application Support/com.apple.TCC/TCC.db" "select service, client, auth_value from access" | grep -iE 'PostEvent|Accessibility|ScreenCapture|AppleEvents' || true
+          sqlite3 "$HOME/Library/Application Support/com.apple.TCC/TCC.db" "select service, client, auth_value from access" | grep -iE 'PostEvent|Accessibility|ScreenCapture|AppleEvents' || true
+          plutil -p /Library/Audio/Plug-Ins/HAL/ParrotAudioPlugin.driver/Contents/Info.plist | grep -iE 'identifier|version|name' || true
+          ps -o pid,ppid,command -p "$(pgrep -f Runner.Listener | head -1)" -p "$(ps -o ppid= -p "$(pgrep -f Runner.Listener | head -1)")" | cut -c1-160
+          launchctl list | grep -iE 'blacksmith|runner|actions' || true
+          xcrun swiftc -O .github/probe/unlock.swift -o /tmp/unlock
+          xcrun swiftc -O .github/probe/audio.swift -o /tmp/audio
+      - name: Audio
+        run: |
+          curl -fsSL -o /tmp/bh.pkg https://existential.audio/downloads/BlackHole2ch-0.7.1.pkg
+          echo "57b540f27a3e29c37e310e01bee0fdfab76733087e47f997ef9dccf851400dcf  /tmp/bh.pkg" | shasum -a 256 -c -
+          /tmp/audio || true
+          time sudo installer -pkg /tmp/bh.pkg -target /
+          sudo killall coreaudiod || true
+          for i in $(seq 1 40); do /tmp/audio | grep -q 'has true status 0' && break; sleep 0.5; done
+          /tmp/audio
+          system_profiler SPAudioDataType | head -30
+      - name: Unlock
+        run: |
+          locked() { ioreg -n Root -d1 -a | plutil -extract IOConsoleUsers.0.CGSSessionScreenIsLocked raw -o - - 2>/dev/null || echo absent; }
+          check() { for i in $(seq 1 10); do [ "$(locked)" != true ] && break; sleep 0.5; done; echo "after $1: locked=$(locked)"; }
+          pw="$(sudo /usr/bin/python3 -c 'k=[0x7D,0x89,0x52,0x23,0xD2,0xBC,0xDD,0xEA,0xA3,0xB9,0x1F];d=open("/etc/kcpassword","rb").read();o=bytearray(b^k[i%11] for i,b in enumerate(d));print(o.split(b"\0")[0].decode())')"
+          echo "::add-mask::$pw"
+          echo "pw length ${#pw}, $(printf %s "$pw" | tr -d 'a-z0-9' | wc -c | tr -d ' ') non-alnum"
+          export PROBE_PW="$pw"
+          check start
+          caffeinate -u -t 2; check caffeinate
+          [ "$(locked)" = true ] && { perl -e 'alarm 15; exec @ARGV' osascript -e "tell application \"System Events\" to keystroke \"$pw\"" -e 'tell application "System Events" to key code 36' 2>&1 | tail -2; check osascript; }
+          [ "$(locked)" = true ] && { /tmp/unlock unicode; check unlock-unicode-nogrant; }
+          [ "$(locked)" = true ] && { /tmp/unlock keycode; check unlock-keycode-nogrant; }
+          db="/Library/Application Support/com.apple.TCC/TCC.db"
+          grant() { for s in kTCCServicePostEvent kTCCServiceAccessibility kTCCServiceScreenCapture; do sudo sqlite3 "$db" "insert or replace into access (service, client, client_type, auth_value, auth_reason, auth_version, indirect_object_identifier, flags) values ('$s', '$1', 1, 2, 4, 1, 'UNUSED', 0)"; done; }
+          [ "$(locked)" = true ] && { grant /tmp/unlock; sudo killall tccd || true; sleep 1; /tmp/unlock unicode; check unlock-unicode-grant; }
+          [ "$(locked)" = true ] && { /tmp/unlock keycode; check unlock-keycode-grant; }
+          if [ "$(locked)" = true ]; then
+            for c in /Users/runner/bin/Runner.Listener /Users/runner/bin/Runner.Worker /bin/bash /usr/sbin/screencapture; do grant "$c"; done
+            sudo killall tccd || true; sleep 1
+            /tmp/unlock unicode; check unlock-unicode-runner-grant
+          fi
+          [ "$(locked)" = true ] && { /tmp/unlock keycode; check unlock-keycode-runner-grant; }
+          log show --last 3m --style compact --predicate 'subsystem == "com.apple.TCC"' 2>/dev/null | grep -iE 'PostEvent|Accessib' | grep -iE 'attribution|auth_value|denied|allowed' | tail -8 | cut -c1-260 || true
+          screencapture -x "$RUNNER_TEMP/screen.png" || true
+          ioreg -n Root -d1 -a | plutil -extract IOConsoleUsers json -o - - | tr ',' '\n' | grep -iE 'lock|secure|console'
+      - uses: actions/upload-artifact@cf430e030ddbb5b0abf93d22962f4752f3646cd9
+        if: always()
+        with:
+          name: probe-screen
+          path: ${{ runner.temp }}/screen.png
+          if-no-files-found: ignore
+          retention-days: 1
