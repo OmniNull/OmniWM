@@ -1,0 +1,41 @@
+name: Prepare the desktop session
+description: Give Blacksmith's macOS runners the default audio output and unlocked console that GitHub's macOS images start with.
+runs:
+  using: composite
+  steps:
+    - name: Install a virtual audio output
+      shell: bash
+      env:
+        BLACKHOLE_VERSION: 0.7.1
+        BLACKHOLE_SHA256: 57b540f27a3e29c37e310e01bee0fdfab76733087e47f997ef9dccf851400dcf
+      run: |
+        set -euo pipefail
+        package="$RUNNER_TEMP/blackhole.pkg"
+        curl --fail --silent --show-error --location --output "$package" \
+          "https://existential.audio/downloads/BlackHole2ch-$BLACKHOLE_VERSION.pkg"
+        echo "$BLACKHOLE_SHA256  $package" | shasum -a 256 -c -
+        sudo installer -pkg "$package" -target /
+        sudo killall coreaudiod
+        for _ in {1..40}; do
+          system_profiler SPAudioDataType | grep -q 'Default Output Device: Yes' && exit 0
+          sleep 0.5
+        done
+        echo "::error::No default audio output appeared after installing BlackHole."
+        exit 1
+    - name: Unlock the console
+      shell: bash
+      run: |
+        set -euo pipefail
+        locked() {
+          ioreg -n Root -d1 -a | plutil -extract IOConsoleUsers.0.CGSSessionScreenIsLocked raw -o - - 2>/dev/null || true
+        }
+        defaults -currentHost write com.apple.screensaver idleTime -int 0
+        [[ "$(locked)" == true ]] || exit 0
+        xcrun swiftc -O "$GITHUB_ACTION_PATH/unlock.swift" -o "$RUNNER_TEMP/unlock"
+        sudo cat /etc/kcpassword | "$RUNNER_TEMP/unlock"
+        for _ in {1..20}; do
+          [[ "$(locked)" == true ]] || exit 0
+          sleep 0.5
+        done
+        echo "::error::The console is still locked after typing the auto-login password."
+        exit 1
