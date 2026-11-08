@@ -43,6 +43,8 @@ struct CommandPaletteEnvironment {
     var runningApplication: (pid_t) -> NSRunningApplication? = { NSRunningApplication(processIdentifier: $0) }
     var ownBundleIdentifier: () -> String? = { Bundle.main.bundleIdentifier }
     var ownProcessIdentifier: () -> pid_t = { NSRunningApplication.current.processIdentifier }
+    var paletteShortcuts: (PaletteModifier) -> PaletteShortcuts = { PaletteShortcuts.current(modifier: $0) }
+    var observeKeyboardLayout: ((@MainActor () -> Void)?) -> Void = { KeyboardLayoutObserver.shared.observe($0) }
     var fetchMenuItems: (pid_t) -> [MenuItemModel] = { MenuAnywhereFetcher().fetchMenuItemsSync(for: $0) }
     var applicationActivationNotifications: NotificationCenter = NSWorkspace.shared.notificationCenter
     var performCommand: (WMController, HotkeyCommand) -> ExternalCommandResult = { controller, command in

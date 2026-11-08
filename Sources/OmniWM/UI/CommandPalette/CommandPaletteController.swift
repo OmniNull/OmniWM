@@ -428,12 +428,21 @@ extension CommandPaletteController {
     private func claimPaletteInput(_ wmController: WMController) {
         paletteModifier = wmController.settings.commandPaletteModifier
         wmController.focusPolicyEngine.beginLease(owner: .commandPalette, reason: "command_palette", duration: nil)
+        reservePaletteShortcuts(wmController)
+        environment.observeKeyboardLayout { [weak self] in
+            guard let self, self.isVisible, let wmController = self.wmController else { return }
+            self.reservePaletteShortcuts(wmController)
+        }
+    }
+
+    private func reservePaletteShortcuts(_ wmController: WMController) {
         wmController.hotkeys.setPaletteShortcutChords(
-            PaletteShortcuts.current(modifier: paletteModifier).chords.map(\.binding)
+            environment.paletteShortcuts(paletteModifier).chords.map(\.binding)
         )
     }
 
     private func releasePaletteInput(_ wmController: WMController) {
+        environment.observeKeyboardLayout(nil)
         wmController.focusPolicyEngine.endLease(owner: .commandPalette)
         wmController.hotkeys.setPaletteShortcutChords([])
     }

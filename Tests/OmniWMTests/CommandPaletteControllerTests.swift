@@ -351,6 +351,34 @@ final class CommandPaletteControllerTests: XCTestCase {
         XCTAssertEqual(fixture.palette.actionFeedbackText, "Select a window row before changing its marks.")
     }
 
+    func testKeyboardLayoutChangeWhilePaletteIsOpenMovesReservedLetterChords() throws {
+        var previewKey = UInt32(kVK_ANSI_Y)
+        var onLayoutChange: (@MainActor () -> Void)?
+        let fixture = CommandPaletteFocusFixture { environment in
+            environment.paletteShortcuts = { modifier in
+                PaletteShortcuts(modifier: modifier) { $0 == "y" ? previewKey : nil }
+            }
+            environment.observeKeyboardLayout = { onLayoutChange = $0 }
+        }
+        defer { fixture.cleanup() }
+        let commandY = KeyBinding(keyCode: UInt32(kVK_ANSI_Y), modifiers: UInt32(cmdKey))
+        let commandZ = KeyBinding(keyCode: UInt32(kVK_ANSI_Z), modifiers: UInt32(cmdKey))
+        _ = try fixture.show()
+        let hotkeys = fixture.controller.hotkeys
+        XCTAssertTrue(hotkeys.yieldsToPalette(commandY))
+        XCTAssertFalse(hotkeys.yieldsToPalette(commandZ))
+
+        previewKey = UInt32(kVK_ANSI_Z)
+        try XCTUnwrap(onLayoutChange)()
+
+        XCTAssertFalse(hotkeys.yieldsToPalette(commandY))
+        XCTAssertTrue(hotkeys.yieldsToPalette(commandZ))
+
+        fixture.palette.dismiss(reason: .selection)
+        XCTAssertNil(onLayoutChange)
+        XCTAssertFalse(hotkeys.yieldsToPalette(commandZ))
+    }
+
     func testCompactModePickerLeaves326PointSearchField() {
         XCTAssertEqual(CommandPaletteModePicker.compactWidth, 304)
         XCTAssertEqual(CommandPalettePanel.width - CommandPaletteModePicker.compactWidth - 10, 326)
