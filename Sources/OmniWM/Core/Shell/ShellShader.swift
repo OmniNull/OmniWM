@@ -315,13 +315,14 @@ final class ShellShaderLibrary {
         return try device.makeRenderPipelineState(descriptor: descriptor)
     }
 
-    private nonisolated static func message(_ error: (any Error)?) -> String {
+    nonisolated static func message(_ error: (any Error)?) -> String {
         guard let error else { return "the shader did not compile" }
         let lines = error.localizedDescription
             .split(whereSeparator: \.isNewline)
             .map { $0.trimmingCharacters(in: .whitespaces) }
             .filter { !$0.isEmpty && $0 != "Compilation failed:" }
-        return lines.prefix(3).joined(separator: " ")
+        let start = lines.firstIndex { $0.contains(" error: ") } ?? 0
+        return lines[start...].prefix(3).joined(separator: " ")
     }
 
     private nonisolated static let shaderFunctions = """
