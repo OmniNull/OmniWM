@@ -60,7 +60,7 @@ jobs:
           key: swift-build-v2-${{ runner.os }}-${{ runner.arch }}-${{ hashFiles('.swift-version', 'Package.resolved', 'Scripts/build-metadata.env') }}-${{ github.sha }}
   changes:
     name: Changes
-    runs-on: ubuntu-latest
+    runs-on: blacksmith-2vcpu-ubuntu-2604
     timeout-minutes: 5
     outputs:
       tests: ${{ steps.plan.outputs.tests }}
@@ -244,7 +244,7 @@ jobs:
     name: Tests
     needs: [changes, verify, test-group]
     if: ${{ !cancelled() }}
-    runs-on: ubuntu-latest
+    runs-on: blacksmith-2vcpu-ubuntu-2604
     timeout-minutes: 5
     steps:
       - name: Require every test group to pass
