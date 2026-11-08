@@ -89,6 +89,10 @@ enum SettingsSearchIndex {
         setting("Infinite Loop Navigation", section: .layouts, tab: "niri", anchor: "Infinite Loop Navigation"),
         setting("Center Focused Column", section: .layouts, tab: "niri", anchor: "Center Focused Column"),
         setting("Always Center Single Column", section: .layouts, tab: "niri", anchor: "Always Center Single Column"),
+        setting(
+            "Focus Clicked Windows Without Scrolling", section: .layouts, tab: "niri",
+            anchor: "Focus Clicked Windows Without Scrolling"
+        ),
         setting("Allow Overscroll", section: .layouts, tab: "niri", anchor: "Allow Overscroll"),
         setting("Overscroll Visible Strip", section: .layouts, tab: "niri", anchor: "Overscroll Visible Strip"),
         setting("Gaps at Screen Edges", section: .layouts, tab: "niri", anchor: "Gaps at Screen Edges"),

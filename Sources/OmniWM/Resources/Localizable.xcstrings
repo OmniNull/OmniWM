@@ -4,6 +4,12 @@
     "Dialog open" : {
 
     },
+    "A left click on a partially visible window focuses it without moving the viewport. Keyboard navigation, gestures, Cmd-Tab, and the Dock still scroll windows into view. Has no effect when Center Focused Column is Always." : {
+
+    },
+    "Focus Clicked Windows Without Scrolling" : {
+
+    },
     "Could Not Install Update" : {
 
     },
