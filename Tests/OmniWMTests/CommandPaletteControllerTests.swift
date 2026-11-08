@@ -170,15 +170,62 @@ final class CommandPaletteControllerTests: XCTestCase {
     }
 
     func testNumberRowWithoutCommandDoesNotSwitchModes() {
-        XCTAssertNil(
-            CommandPalettePresentation.modeNavigationTarget(
-                currentMode: .windows,
-                isMenuModeAvailable: true,
-                keyCode: UInt16(kVK_ANSI_1),
-                relevantModifiers: [],
-                charactersIgnoringModifiers: "&"
-            )
+        XCTAssertNil(directModeTarget(keyCode: UInt16(kVK_ANSI_1), characters: "&", modifiers: []))
+    }
+
+    func testConfiguredPaletteModifierSwitchesModesOnlyWhenHeldExactly() throws {
+        let controlOption = try XCTUnwrap(PaletteModifier(carbonMask: UInt32(controlKey | optionKey)))
+
+        XCTAssertEqual(
+            directModeTarget(
+                keyCode: UInt16(kVK_ANSI_3),
+                characters: "3",
+                modifiers: [.control, .option],
+                paletteModifier: controlOption
+            ),
+            .clipboard
         )
+        XCTAssertNil(directModeTarget(
+            keyCode: UInt16(kVK_ANSI_3),
+            characters: "3",
+            modifiers: .command,
+            paletteModifier: controlOption
+        ))
+        XCTAssertNil(directModeTarget(
+            keyCode: UInt16(kVK_ANSI_3),
+            characters: "3",
+            modifiers: [.control, .option, .shift],
+            paletteModifier: controlOption
+        ))
+        XCTAssertNil(directModeTarget(
+            keyCode: UInt16(kVK_ANSI_3),
+            characters: "3",
+            modifiers: .control,
+            paletteModifier: controlOption
+        ))
+    }
+
+    func testShiftedPaletteModifierMatchesNumberRowByPosition() throws {
+        let shiftCommand = try XCTUnwrap(PaletteModifier(carbonMask: UInt32(shiftKey | cmdKey)))
+        XCTAssertEqual(
+            directModeTarget(
+                keyCode: UInt16(kVK_ANSI_6),
+                characters: "^",
+                modifiers: [.shift, .command],
+                paletteModifier: shiftCommand
+            ),
+            .files
+        )
+    }
+
+    func testLauncherPathsShowOnlyWhileEveryPaletteModifierKeyIsHeld() throws {
+        let controlOption = try XCTUnwrap(PaletteModifier(carbonMask: UInt32(controlKey | optionKey)))
+
+        XCTAssertTrue(controlOption.isHeld(in: [.control, .option]))
+        XCTAssertTrue(controlOption.isHeld(in: [.control, .option, .shift]))
+        XCTAssertFalse(controlOption.isHeld(in: [.control]))
+        XCTAssertFalse(controlOption.isHeld(in: [.command]))
+        XCTAssertTrue(PaletteModifier.default.isHeld(in: [.command]))
     }
 
     func testLetterKeyEquivalentsFollowTypedLetterAndFallBackToPositionOnNonLatinLayouts() {
@@ -215,29 +262,27 @@ final class CommandPaletteControllerTests: XCTestCase {
     }
 
     func testModeHintsKeepDirectShortcutsVisible() {
+        let expected: [(CommandPaletteMode, String, String)] = [
+            (.windows, "Windows", "⌘1"),
+            (.menu, "Menu", "⌘2"),
+            (.clipboard, "Clipboard", "⌘3"),
+            (.commands, "Commands", "⌘4"),
+            (.applications, "Launcher", "⌘5"),
+            (.files, "Files", "⌘6")
+        ]
+        for (mode, title, shortcut) in expected {
+            XCTAssertEqual(
+                CommandPalettePresentation.modeHint(for: mode, modifier: .default),
+                .init(title: title, shortcut: shortcut)
+            )
+        }
+    }
+
+    func testModeHintsShowTheConfiguredPaletteModifier() throws {
+        let controlOption = try XCTUnwrap(PaletteModifier(carbonMask: UInt32(controlKey | optionKey)))
         XCTAssertEqual(
-            CommandPalettePresentation.modeHint(for: .windows),
-            .init(title: "Windows", shortcut: "⌘1")
-        )
-        XCTAssertEqual(
-            CommandPalettePresentation.modeHint(for: .menu),
-            .init(title: "Menu", shortcut: "⌘2")
-        )
-        XCTAssertEqual(
-            CommandPalettePresentation.modeHint(for: .clipboard),
-            .init(title: "Clipboard", shortcut: "⌘3")
-        )
-        XCTAssertEqual(
-            CommandPalettePresentation.modeHint(for: .commands),
-            .init(title: "Commands", shortcut: "⌘4")
-        )
-        XCTAssertEqual(
-            CommandPalettePresentation.modeHint(for: .applications),
-            .init(title: "Launcher", shortcut: "⌘5")
-        )
-        XCTAssertEqual(
-            CommandPalettePresentation.modeHint(for: .files),
-            .init(title: "Files", shortcut: "⌘6")
+            CommandPalettePresentation.modeHint(for: .clipboard, modifier: controlOption),
+            .init(title: "Clipboard", shortcut: "⌃⌥3")
         )
     }
 
@@ -246,20 +291,6 @@ final class CommandPaletteControllerTests: XCTestCase {
 
         XCTAssertEqual(CommandPalettePresentation.setMarkShortcut, "⌃⌥⇧M")
         XCTAssertEqual(CommandPalettePresentation.removeMarkShortcut, "⌃⌥⇧R")
-        XCTAssertEqual(
-            CommandPalettePresentation.availableMarkShortcut(
-                for: .set,
-                configuredBindings: DefaultHotkeyBindings.all()
-            ),
-            CommandPalettePresentation.setMarkShortcut
-        )
-        XCTAssertEqual(
-            CommandPalettePresentation.availableMarkShortcut(
-                for: .remove,
-                configuredBindings: DefaultHotkeyBindings.all()
-            ),
-            CommandPalettePresentation.removeMarkShortcut
-        )
         XCTAssertEqual(
             CommandPalettePresentation.markAction(
                 forKeyCode: UInt16(kVK_ANSI_M),
@@ -294,33 +325,64 @@ final class CommandPaletteControllerTests: XCTestCase {
         )
     }
 
-    func testConfiguredGlobalMarkChordTakesPriorityOverPaletteShortcut() {
-        let setBinding = HotkeyBinding(
-            id: "openMenuAnywhere",
-            command: .openMenuAnywhere,
-            binding: KeyBinding(
-                keyCode: UInt32(kVK_ANSI_M),
-                modifiers: UInt32(controlKey | optionKey | shiftKey)
-            )
-        )
-        let removeBinding = HotkeyBinding(
-            id: "openMenuAnywhere",
-            command: .openMenuAnywhere,
-            binding: KeyBinding(
-                keyCode: UInt32(kVK_ANSI_R),
-                modifiers: UInt32(controlKey | optionKey | shiftKey)
-            ).settingSide(.right)
-        )
+    func testMarkChordsWorkInPaletteEvenWhenBoundGlobally() throws {
+        let fixture = CommandPaletteFocusFixture()
+        defer { fixture.cleanup() }
+        let markChord = KeyBinding(keyCode: UInt32(kVK_ANSI_M), modifiers: UInt32(controlKey | optionKey | shiftKey))
+        fixture.controller.settings.updateTrigger(for: "openMenuAnywhere", newTrigger: .chord(markChord))
+        let hotkeys = fixture.controller.hotkeys
+        hotkeys.updateBindings(fixture.controller.settings.hotkeyBindings, systemHyperTrigger: .none)
+        hotkeys.start()
+        defer { hotkeys.stop() }
+        XCTAssertTrue(hotkeys.carbonRegistrations.registeredCommands.contains(.openMenuAnywhere))
 
-        XCTAssertNil(CommandPalettePresentation.availableMarkShortcut(for: .set, configuredBindings: [setBinding]))
-        XCTAssertNotNil(CommandPalettePresentation.availableMarkShortcut(
-            for: .remove,
-            configuredBindings: [setBinding]
+        _ = try fixture.show()
+        XCTAssertFalse(hotkeys.carbonRegistrations.registeredCommands.contains(.openMenuAnywhere))
+        let event = try XCTUnwrap(NSEvent.keyEvent(
+            with: .keyDown,
+            location: .zero,
+            modifierFlags: [.control, .option, .shift],
+            timestamp: 0,
+            windowNumber: 0,
+            context: nil,
+            characters: "M",
+            charactersIgnoringModifiers: "M",
+            isARepeat: false,
+            keyCode: UInt16(kVK_ANSI_M)
         ))
-        XCTAssertNil(CommandPalettePresentation.availableMarkShortcut(
-            for: .remove,
-            configuredBindings: [removeBinding]
-        ))
+        XCTAssertTrue(fixture.palette.handleKeyDown(event))
+        XCTAssertEqual(fixture.palette.actionFeedbackText, "Select a window row before changing its marks.")
+
+        fixture.palette.dismiss(reason: .selection)
+        XCTAssertTrue(hotkeys.carbonRegistrations.registeredCommands.contains(.openMenuAnywhere))
+    }
+
+    func testKeyboardLayoutChangeWhilePaletteIsOpenMovesReservedLetterChords() throws {
+        var previewKey = UInt32(kVK_ANSI_Y)
+        var onLayoutChange: (@MainActor () -> Void)?
+        let fixture = CommandPaletteFocusFixture { environment in
+            environment.paletteShortcuts = { modifier in
+                PaletteShortcuts(modifier: modifier) { $0 == "y" ? previewKey : nil }
+            }
+            environment.observeKeyboardLayout = { onLayoutChange = $0 }
+        }
+        defer { fixture.cleanup() }
+        let commandY = KeyBinding(keyCode: UInt32(kVK_ANSI_Y), modifiers: UInt32(cmdKey))
+        let commandZ = KeyBinding(keyCode: UInt32(kVK_ANSI_Z), modifiers: UInt32(cmdKey))
+        _ = try fixture.show()
+        let hotkeys = fixture.controller.hotkeys
+        XCTAssertTrue(hotkeys.yieldsToPalette(commandY))
+        XCTAssertFalse(hotkeys.yieldsToPalette(commandZ))
+
+        previewKey = UInt32(kVK_ANSI_Z)
+        try XCTUnwrap(onLayoutChange)()
+
+        XCTAssertFalse(hotkeys.yieldsToPalette(commandY))
+        XCTAssertTrue(hotkeys.yieldsToPalette(commandZ))
+
+        fixture.palette.dismiss(reason: .selection)
+        XCTAssertNil(onLayoutChange)
+        XCTAssertFalse(hotkeys.yieldsToPalette(commandZ))
     }
 
     func testCompactModePickerLeaves326PointSearchField() {
@@ -703,26 +765,27 @@ final class CommandPaletteControllerTests: XCTestCase {
         isMenuModeAvailable: Bool = true,
         modifiers: NSEvent.ModifierFlags = []
     ) -> CommandPaletteMode? {
-        CommandPalettePresentation.modeNavigationTarget(
+        CommandPalettePresentation.cycledModeTarget(
             currentMode: currentMode,
             isMenuModeAvailable: isMenuModeAvailable,
             keyCode: UInt16(kVK_Tab),
-            relevantModifiers: modifiers,
-            charactersIgnoringModifiers: "\t"
+            relevantModifiers: modifiers
         )
     }
 
     private func directModeTarget(
         keyCode: UInt16,
         characters: String,
-        isMenuModeAvailable: Bool = true
+        isMenuModeAvailable: Bool = true,
+        modifiers: NSEvent.ModifierFlags = .command,
+        paletteModifier: PaletteModifier = .default
     ) -> CommandPaletteMode? {
-        CommandPalettePresentation.modeNavigationTarget(
-            currentMode: .windows,
+        CommandPalettePresentation.directModeTarget(
             isMenuModeAvailable: isMenuModeAvailable,
             keyCode: keyCode,
-            relevantModifiers: .command,
-            charactersIgnoringModifiers: characters
+            relevantModifiers: modifiers,
+            charactersIgnoringModifiers: characters,
+            paletteModifier: paletteModifier
         )
     }
 

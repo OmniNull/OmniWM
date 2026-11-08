@@ -35,7 +35,7 @@ struct CommandPaletteView: View {
             }
         }
         .onModifierKeysChanged { _, modifiers in
-            controller.launcherShowsPaths = modifiers.contains(.command)
+            controller.launcherShowsPaths = controller.paletteModifier.isHeld(in: modifiers)
         }
     }
 
@@ -53,6 +53,7 @@ struct CommandPaletteView: View {
                     CommandPaletteModePicker(
                         selectedMode: controller.selectedMode,
                         isMenuModeAvailable: controller.isMenuModeAvailable,
+                        paletteModifier: controller.paletteModifier,
                         onSelect: { controller.selectMode($0) }
                     )
                 }
@@ -195,7 +196,7 @@ struct CommandPaletteView: View {
                     ForEach(CommandPaletteMode.allCases, id: \.self) { mode in
                         Button(
                             String(
-                                localized: "\(mode.localizedDisplayName)  \(CommandPalettePresentation.modeHint(for: mode).shortcut)"
+                                localized: "\(mode.localizedDisplayName)  \(CommandPalettePresentation.modeHint(for: mode, modifier: controller.paletteModifier).shortcut)"
                             )
                         ) {
                             controller.selectMode(mode)
@@ -325,6 +326,7 @@ struct CommandPaletteModePicker: View {
 
     let selectedMode: CommandPaletteMode
     let isMenuModeAvailable: Bool
+    let paletteModifier: PaletteModifier
     let onSelect: (CommandPaletteMode) -> Void
 
     var body: some View {
@@ -336,7 +338,7 @@ struct CommandPaletteModePicker: View {
     }
 
     private func modeButton(_ mode: CommandPaletteMode, enabled: Bool) -> some View {
-        let hint = CommandPalettePresentation.modeHint(for: mode)
+        let hint = CommandPalettePresentation.modeHint(for: mode, modifier: paletteModifier)
         let isSelected = selectedMode == mode
         return Button(action: { onSelect(mode) }, label: {
             CommandPaletteModeIcon(mode: mode, pointSize: 20)

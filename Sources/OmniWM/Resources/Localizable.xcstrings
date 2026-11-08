@@ -160193,17 +160193,13 @@
     "Shift-Enter moves here (empty workspace)." : {},
     "Shift-Enter summons right." : {},
     "Shift-Enter unavailable without an anchor." : {},
-    "Choose a mark to remove from the selected window." : {},
-    "Choose a mark to remove from the selected window" : {},
     "Remove a window mark" : {},
     "This window is no longer in the current results. Search again before focusing it." : {},
     "Mark the selected window (Control-Option-Shift-M)" : {},
-    "Mark the selected window" : {},
     "That mark changed while the chooser was open. Choose a current mark and try again." : {},
     "No mark was changed." : {},
     "Set Mark" : {},
     "Window summoned right." : {},
-    "Marks the selected window row." : {},
     "The selected window has no marks to remove. Select a marked window." : {},
     "‘%@’ is already used by another window. Choose a different mark name." : {},
     "Could not summon this window right now. Press Enter to focus it instead." : {},
@@ -173421,6 +173417,40 @@
 
     },
     "Mouse wheel sensitivity" : {
+
+    },
+    "Palette Modifier" : {
+
+    },
+    "Palette modifier includes %@" : {
+
+    },
+    "Palette shortcuts, such as %@1 to switch modes, work only while the command palette is open. There they take precedence over global shortcuts on the same keys." : {
+
+    },
+    "While the command palette is open, %@ marks the selected window instead." : {
+
+    },
+    "While the command palette is open, %@ removes a mark from the selected window instead." : {
+
+    },
+    "While the command palette is open, %@ reveals the selected item in Finder instead." : {
+
+    },
+    "While the command palette is open, %@ switches to %@ mode instead." : {
+      "localizations" : {
+        "en" : {
+          "stringUnit" : {
+            "state" : "new",
+            "value" : "While the command palette is open, %1$@ switches to %2$@ mode instead."
+          }
+        }
+      }
+    },
+    "While the command palette is open, %@ toggles the file preview instead." : {
+
+    },
+    "With Option alone, some keyboard layouts can't type characters such as @ in the palette search." : {
 
     }
   },

@@ -24,21 +24,6 @@ enum CommandPalettePresentation {
     static let setMarkShortcut = "⌃⌥⇧M"
     static let removeMarkShortcut = "⌃⌥⇧R"
 
-    static func availableMarkShortcut(
-        for action: MarkAction,
-        configuredBindings: [HotkeyBinding]
-    ) -> String? {
-        let keyCode = action == .set ? kVK_ANSI_M : kVK_ANSI_R
-        let localBinding = KeyBinding(
-            keyCode: UInt32(keyCode),
-            modifiers: UInt32(controlKey | optionKey | shiftKey)
-        )
-        guard !configuredBindings.contains(where: {
-            $0.binding.chordBinding?.conflicts(with: localBinding) == true
-        }) else { return nil }
-        return action == .set ? setMarkShortcut : removeMarkShortcut
-    }
-
     static func markAction(
         forKeyCode keyCode: UInt16,
         relevantModifiers: NSEvent.ModifierFlags
@@ -73,21 +58,8 @@ enum CommandPalettePresentation {
         String(localized: "Searching menus in \(appName ?? String(localized: "Current App"))")
     }
 
-    static func modeHint(for mode: CommandPaletteMode) -> InlineHint {
-        switch mode {
-        case .windows:
-            InlineHint(title: mode.localizedDisplayName, shortcut: "⌘1")
-        case .menu:
-            InlineHint(title: mode.localizedDisplayName, shortcut: "⌘2")
-        case .clipboard:
-            InlineHint(title: mode.localizedDisplayName, shortcut: "⌘3")
-        case .commands:
-            InlineHint(title: mode.localizedDisplayName, shortcut: "⌘4")
-        case .applications:
-            InlineHint(title: mode.localizedDisplayName, shortcut: "⌘5")
-        case .files:
-            InlineHint(title: mode.localizedDisplayName, shortcut: "⌘6")
-        }
+    static func modeHint(for mode: CommandPaletteMode, modifier: PaletteModifier) -> InlineHint {
+        InlineHint(title: mode.localizedDisplayName, shortcut: modifier.symbolsString + mode.shortcutDigit)
     }
 
     private static let modeDigitByKeyCode: [UInt16: String] = [
@@ -99,32 +71,38 @@ enum CommandPalettePresentation {
         UInt16(kVK_ANSI_6): "6", UInt16(kVK_ANSI_Keypad6): "6"
     ]
 
-    static func modeNavigationTarget(
-        currentMode: CommandPaletteMode,
+    static func directModeTarget(
         isMenuModeAvailable: Bool,
         keyCode: UInt16,
         relevantModifiers: NSEvent.ModifierFlags,
-        charactersIgnoringModifiers: String?
+        charactersIgnoringModifiers: String?,
+        paletteModifier: PaletteModifier
     ) -> CommandPaletteMode? {
-        if relevantModifiers == .command {
-            switch modeDigitByKeyCode[keyCode] ?? charactersIgnoringModifiers {
-            case "1":
-                return .windows
-            case "2":
-                return isMenuModeAvailable ? .menu : nil
-            case "3":
-                return .clipboard
-            case "4":
-                return .commands
-            case "5":
-                return .applications
-            case "6":
-                return .files
-            default:
-                return nil
-            }
+        guard relevantModifiers == paletteModifier.eventFlags else { return nil }
+        switch modeDigitByKeyCode[keyCode] ?? charactersIgnoringModifiers {
+        case "1":
+            return .windows
+        case "2":
+            return isMenuModeAvailable ? .menu : nil
+        case "3":
+            return .clipboard
+        case "4":
+            return .commands
+        case "5":
+            return .applications
+        case "6":
+            return .files
+        default:
+            return nil
         }
+    }
 
+    static func cycledModeTarget(
+        currentMode: CommandPaletteMode,
+        isMenuModeAvailable: Bool,
+        keyCode: UInt16,
+        relevantModifiers: NSEvent.ModifierFlags
+    ) -> CommandPaletteMode? {
         guard keyCode == UInt16(kVK_Tab),
               relevantModifiers.isEmpty || relevantModifiers == .shift
         else {
@@ -189,5 +167,27 @@ extension CommandPaletteMode {
         case .applications: String(localized: "Launcher")
         case .files: String(localized: "Files")
         }
+    }
+
+    var shortcutDigit: String {
+        switch self {
+        case .windows: "1"
+        case .menu: "2"
+        case .clipboard: "3"
+        case .commands: "4"
+        case .applications: "5"
+        case .files: "6"
+        }
+    }
+}
+
+extension PaletteModifier {
+    func isHeld(in modifiers: SwiftUI.EventModifiers) -> Bool {
+        var held: UInt32 = 0
+        if modifiers.contains(.control) { held |= UInt32(controlKey) }
+        if modifiers.contains(.option) { held |= UInt32(optionKey) }
+        if modifiers.contains(.shift) { held |= UInt32(shiftKey) }
+        if modifiers.contains(.command) { held |= UInt32(cmdKey) }
+        return held & carbonMask == carbonMask
     }
 }

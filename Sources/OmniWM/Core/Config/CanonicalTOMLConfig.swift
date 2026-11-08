@@ -24,6 +24,7 @@ struct CanonicalTOMLConfig: Codable, Equatable {
     var statusMenu: SettingsExport.StatusMenu
     var hiddenBar: SettingsExport.HiddenBar
     var launcher: LauncherConfiguration
+    var commandPalette: SettingsExport.CommandPalette
     var clipboard: SettingsExport.Clipboard
     var quakeTerminal: SettingsExport.QuakeTerminal
     var scratchpads: SettingsExport.Scratchpads
@@ -100,6 +101,7 @@ extension CanonicalTOMLConfig {
         statusMenu = try Self.decodeStatusMenu(from: container)
         hiddenBar = try container.decode(SettingsExport.HiddenBar.self, forKey: .hiddenBar)
         launcher = try container.decodeIfPresent(LauncherConfiguration.self, forKey: .launcher) ?? .init()
+        commandPalette = try Self.decodeOptional(.commandPalette, from: container, default: .init())
         clipboard = try container.decode(SettingsExport.Clipboard.self, forKey: .clipboard)
         quakeTerminal = try container.decode(SettingsExport.QuakeTerminal.self, forKey: .quakeTerminal)
         scratchpads = try container.decode(SettingsExport.Scratchpads.self, forKey: .scratchpads)
@@ -115,10 +117,7 @@ extension CanonicalTOMLConfig {
         ) ?? []
         monitorNiriOverrides = try container
             .decodeIfPresent([MonitorNiriSettings].self, forKey: .monitorNiriOverrides) ?? []
-        monitorDwindleOverrides = try container.decodeIfPresent(
-            [MonitorDwindleSettings].self,
-            forKey: .monitorDwindleOverrides
-        ) ?? []
+        monitorDwindleOverrides = try Self.decodeOptional(.monitorDwindleOverrides, from: container, default: [])
         monitorGapOverrides = try container
             .decodeIfPresent([MonitorGapSettings].self, forKey: .monitorGapOverrides) ?? []
         shellPermissions = try container
@@ -161,6 +160,7 @@ extension CanonicalTOMLConfig {
         statusMenu = export.statusMenu
         hiddenBar = export.hiddenBar
         launcher = export.launcher
+        commandPalette = export.commandPalette
         clipboard = export.clipboard
         quakeTerminal = export.quakeTerminal
         scratchpads = export.scratchpads
@@ -216,6 +216,7 @@ extension CanonicalTOMLConfig {
             animationSpeed: AnimationSpeed.normalized(general.animationSpeed ?? 1),
             language: general.language,
             launcher: launcher,
+            commandPalette: commandPalette,
             clipboard: clipboard,
             quakeTerminal: quakeTerminal,
             appearanceMode: appearance.mode,
@@ -244,6 +245,14 @@ extension CanonicalTOMLConfig {
         from container: KeyedDecodingContainer<CodingKeys>
     ) throws -> SettingsExport.StatusMenu {
         try container.decodeIfPresent(SettingsExport.StatusMenu.self, forKey: .statusMenu) ?? .defaults()
+    }
+
+    private static func decodeOptional<Value: Decodable>(
+        _ key: CodingKeys,
+        from container: KeyedDecodingContainer<CodingKeys>,
+        default defaultValue: Value
+    ) throws -> Value {
+        try container.decodeIfPresent(Value.self, forKey: key) ?? defaultValue
     }
 
     private func statusMenuForExport() -> SettingsExport.StatusMenu {

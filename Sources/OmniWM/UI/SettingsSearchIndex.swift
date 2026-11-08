@@ -312,7 +312,7 @@ extension SettingsSearchIndex {
             route: SettingsRoute(section: section),
             keywords: aliases(for: section)
         )
-    } + settings + styleSettings + advancedSettings + networkSettings
+    } + settings + styleSettings + advancedSettings + networkSettings + commandPaletteSettings
 
     private static func setting(
         _ title: LocalizedStringResource,
@@ -366,6 +366,11 @@ extension SettingsSearchIndex {
         setting("Programs", section: .network, anchor: NetworkPermissionsPage.programsAnchor),
         setting("Built-in Services", section: .network, anchor: NetworkPermissionsPage.servicesAnchor),
         setting("Lyrics", section: .network, anchor: NetworkPermissionsPage.servicesAnchor)
+    ]
+
+    private static let commandPaletteSettings: [SettingsSearchEntry] = [
+        setting("Command Palette", section: .hotkeys, anchor: "Palette Modifier"),
+        setting("Palette Modifier", section: .hotkeys, anchor: "Palette Modifier")
     ]
 
     static func tabTitle(_ tab: String) -> String {

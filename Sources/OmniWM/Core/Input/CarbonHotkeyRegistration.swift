@@ -18,6 +18,10 @@ final class CarbonHotkeyRegistration {
         refsById.count
     }
 
+    var registeredCommands: Set<HotkeyCommand> {
+        Set(idToRegistration.values.map(\.command))
+    }
+
     func installEventHandler(center: HotkeyCenter) {
         var eventSpecs = [
             EventTypeSpec(eventClass: OSType(kEventClassKeyboard), eventKind: UInt32(kEventHotKeyPressed)),

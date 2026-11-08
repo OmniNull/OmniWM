@@ -20,13 +20,7 @@ extension CommandPaletteController {
             return true
         }
 
-        if let targetMode = CommandPalettePresentation.modeNavigationTarget(
-            currentMode: selectedMode,
-            isMenuModeAvailable: isMenuModeAvailable,
-            keyCode: event.keyCode,
-            relevantModifiers: relevantModifiers,
-            charactersIgnoringModifiers: event.charactersIgnoringModifiers
-        ) {
+        if let targetMode = modeTarget(for: event, relevantModifiers: relevantModifiers) {
             selectedMode = targetMode
             return true
         }
@@ -55,13 +49,27 @@ extension CommandPaletteController {
         }
     }
 
+    private func modeTarget(for event: NSEvent, relevantModifiers: NSEvent.ModifierFlags) -> CommandPaletteMode? {
+        CommandPalettePresentation.directModeTarget(
+            isMenuModeAvailable: isMenuModeAvailable,
+            keyCode: event.keyCode,
+            relevantModifiers: relevantModifiers,
+            charactersIgnoringModifiers: event.charactersIgnoringModifiers,
+            paletteModifier: paletteModifier
+        ) ?? CommandPalettePresentation.cycledModeTarget(
+            currentMode: selectedMode,
+            isMenuModeAvailable: isMenuModeAvailable,
+            keyCode: event.keyCode,
+            relevantModifiers: relevantModifiers
+        )
+    }
+
     private func handleMarkKeyDown(_ event: NSEvent, relevantModifiers: NSEvent.ModifierFlags) -> Bool {
         guard selectedMode == .windows,
               let markAction = CommandPalettePresentation.markAction(
                   forKeyCode: event.keyCode,
                   relevantModifiers: relevantModifiers
-              ),
-              markShortcut(for: markAction) != nil
+              )
         else { return false }
         guard isExpanded else {
             expandResults()
