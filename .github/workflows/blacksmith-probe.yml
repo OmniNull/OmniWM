@@ -1,0 +1,31 @@
+name: Blacksmith probe
+
+on:
+  pull_request:
+
+permissions:
+  contents: read
+
+jobs:
+  probe:
+    runs-on: blacksmith-6vcpu-macos-27
+    timeout-minutes: 45
+    steps:
+      - name: Session, sudo and audio state
+        run: |
+          set -x
+          sw_vers; id; stat -f%Su /dev/console
+          ioreg -n Root -d1 -a | plutil -extract IOConsoleUsers json -o - - || true
+          sudo -n true && echo sudo-ok
+          csrutil status || true
+          sysadminctl -screenLock status 2>&1 || true
+          sudo defaults read /Library/Preferences/com.apple.loginwindow 2>&1 || true
+          ls -la /etc/kcpassword || true
+          pmset -g || true
+          system_profiler SPAudioDataType || true
+          ls -la /Library/Audio/Plug-Ins/HAL || true
+          ps -axo pid,ppid,user,command | grep -iE 'Runner\.|loginwindow|WindowServer|setup_mac|screensharing|ARDAgent' | grep -v grep || true
+          launchctl print gui/$(id -u) | head -15 || true
+          cat /opt/blacksmith/setup_mac.sh || true
+      - name: Hold for SSH
+        run: while [ ! -e "$RUNNER_TEMP/done" ]; do sleep 5; done
