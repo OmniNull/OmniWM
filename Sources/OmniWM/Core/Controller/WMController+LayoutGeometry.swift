@@ -64,6 +64,10 @@ extension WMController {
         let bar = workspaceBarBaseReservedInsets(for: monitor)
         let room = workspaceBarRoom(for: monitor)
         let reserved = room.map { roomReservedInsets($0, bar: bar, monitor: monitor) } ?? bar
+        var borderReservation = bar
+        for (edge, reservation) in room?.edges ?? [:] where reservation.mode == .total {
+            borderReservation[keyPath: edge.strut] = 0
+        }
         let gaps = settings.gaps.resolved(for: monitor)
         let menuBarInset = max(0, monitor.frame.maxY - monitor.visibleFrame.maxY)
         let normalizedTop = normalizedTopStrut(
@@ -81,10 +85,10 @@ extension WMController {
         let roomed = room.map { roomLayoutStruts($0, base: rawStruts, bar: bar, monitor: monitor, scale: scale) }
         if let roomed { rawStruts = roomed.struts }
         let effectiveStruts = Struts(
-            left: max(rawStruts.left, clearance),
-            right: max(rawStruts.right, clearance),
-            top: max(rawStruts.top, clearance),
-            bottom: max(rawStruts.bottom, clearance)
+            left: max(rawStruts.left, borderReservation.left + clearance),
+            right: max(rawStruts.right, borderReservation.right + clearance),
+            top: max(rawStruts.top, borderReservation.top + clearance),
+            bottom: max(rawStruts.bottom, borderReservation.bottom + clearance)
         )
         let rawWorkingFrame = computeWorkingArea(parentArea: monitor.visibleFrame, scale: scale, struts: rawStruts)
         let workingFrame = computeWorkingArea(parentArea: monitor.visibleFrame, scale: scale, struts: effectiveStruts)
@@ -95,7 +99,8 @@ extension WMController {
             borderSafeFillFrame = workingFrame
         } else {
             (fullscreenLayoutFrame, borderSafeFillFrame) = ungappedFullscreenFrames(
-                for: monitor, scale: scale, reserved: reserved, clearance: clearance
+                for: monitor, scale: scale, reserved: reserved, borderReservation: borderReservation,
+                clearance: clearance
             )
         }
         return MonitorLayoutFrames(
@@ -282,6 +287,7 @@ extension WMController {
         for monitor: Monitor,
         scale: CGFloat,
         reserved: Struts,
+        borderReservation: Struts,
         clearance: CGFloat
     ) -> (layout: CGRect, borderSafe: CGRect) {
         let layout = computeWorkingArea(
@@ -293,10 +299,10 @@ extension WMController {
             parentArea: monitor.visibleFrame,
             scale: scale,
             struts: Struts(
-                left: max(reserved.left, clearance),
-                right: max(reserved.right, clearance),
-                top: max(reserved.top, clearance),
-                bottom: max(reserved.bottom, clearance)
+                left: max(reserved.left, borderReservation.left + clearance),
+                right: max(reserved.right, borderReservation.right + clearance),
+                top: max(reserved.top, borderReservation.top + clearance),
+                bottom: max(reserved.bottom, borderReservation.bottom + clearance)
             )
         )
         return (layout, borderSafe)
