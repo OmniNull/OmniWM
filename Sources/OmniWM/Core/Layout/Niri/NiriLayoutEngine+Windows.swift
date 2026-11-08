@@ -206,7 +206,7 @@ extension NiriLayoutEngine {
         selectedNodeId: NodeId?,
         focusedToken: WindowToken? = nil,
         containerSizingStates: [WindowToken: NiriContainerSizingState]? = nil,
-        windowSizingStates: [WindowToken: PersistedNiriWindowState]? = nil
+        unpositionedPlacements: [WindowToken: PersistedNiriPlacement]? = nil
     ) -> Set<WindowToken> {
         assertSanctionedMutation()
         let state = ensureState(for: workspaceId)
@@ -228,8 +228,12 @@ extension NiriLayoutEngine {
                 focusedToken: focusedToken,
                 containerSizingState: containerSizingStates?[token]
             )
-            if let windowSizingState = windowSizingStates?[token] {
-                applyPersistedWindowState(windowSizingState, to: window)
+            if let placement = unpositionedPlacements?[token] {
+                applyPersistedWindowState(placement.window, to: window)
+                if let column = window.parent as? NiriContainer {
+                    column.displayMode = placement.column.displayMode
+                    updateTabbedColumnVisibility(column: column)
+                }
             }
         }
 

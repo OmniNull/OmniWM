@@ -289,36 +289,55 @@ final class NiriAdmissionRestoreStateTests: XCTestCase {
     }
 
     func testFloatingRoundTripOfLoneColumnWindowDoesNotStackIntoShiftedNeighbor() throws {
-        let controller = Self.controller()
-        let workspaceId = try XCTUnwrap(
-            controller.workspaceManager.workspaceId(for: "1", createIfMissing: true)
-        )
-        controller.niriLayoutHandler.enableNiriLayout()
-        for index in 0 ..< 3 {
-            _ = controller.workspaceManager.addWindow(
-                AXWindowRef(element: AXUIElementCreateApplication(812), windowId: 120 + index),
-                pid: 812,
-                windowId: 120 + index,
-                to: workspaceId
+        for displayMode in [ColumnDisplay.normal, .tabbed] {
+            let controller = Self.controller()
+            let workspaceId = try XCTUnwrap(
+                controller.workspaceManager.workspaceId(for: "1", createIfMissing: true)
+            )
+            controller.niriLayoutHandler.enableNiriLayout()
+            let tokens = (0 ..< 3).map { index in
+                controller.workspaceManager.addWindow(
+                    AXWindowRef(element: AXUIElementCreateApplication(812), windowId: 120 + index),
+                    pid: 812,
+                    windowId: 120 + index,
+                    to: workspaceId
+                )
+            }
+            let engine = try XCTUnwrap(controller.niriEngine)
+            func layout() {
+                let placements = controller.workspaceManager.withBatchedLayoutBuild {
+                    controller.niriLayoutHandler.layoutWithNiriEngine(activeWorkspaces: [workspaceId])
+                }.first?.niriRestorePlacements ?? [:]
+                controller.workspaceManager.setNiriRestorePlacements(placements)
+            }
+            func columns() -> [[WindowToken]] {
+                engine.columns(in: workspaceId).map { $0.windowNodes.map(\.token) }
+            }
+            layout()
+            let initial = columns()
+            XCTAssertEqual(initial.count, tokens.count)
+            XCTAssertEqual(Set(initial.joined()), Set(tokens))
+            let (left, middle, right) = (initial[0][0], initial[1][0], initial[2][0])
+            let middleColumn = try XCTUnwrap(engine.findNode(for: middle, in: workspaceId)?.parent as? NiriContainer)
+            controller.workspaceManager.withEngineMutationScope {
+                engine.setColumnDisplay(
+                    displayMode, for: middleColumn, in: workspaceId, motion: .disabled, orientation: .horizontal
+                )
+            }
+            layout()
+
+            XCTAssertTrue(controller.workspaceManager.setWindowMode(.floating, for: middle))
+            layout()
+            XCTAssertEqual(columns(), [[left], [right]])
+            XCTAssertTrue(controller.workspaceManager.rememberFocus(right, in: workspaceId))
+            XCTAssertTrue(controller.workspaceManager.setWindowMode(.tiling, for: middle))
+            layout()
+
+            XCTAssertEqual(columns(), [[left], [right], [middle]], "\(displayMode)")
+            XCTAssertEqual(
+                (engine.findNode(for: middle, in: workspaceId)?.parent as? NiriContainer)?.displayMode, displayMode
             )
         }
-        let engine = try XCTUnwrap(controller.niriEngine)
-        func layout() {
-            let placements = controller.workspaceManager.withBatchedLayoutBuild {
-                controller.niriLayoutHandler.layoutWithNiriEngine(activeWorkspaces: [workspaceId])
-            }.first?.niriRestorePlacements ?? [:]
-            controller.workspaceManager.setNiriRestorePlacements(placements)
-        }
-        layout()
-        XCTAssertEqual(engine.columns(in: workspaceId).map(\.windowNodes.count), [1, 1, 1])
-        let middleToken = try XCTUnwrap(engine.columns(in: workspaceId)[1].windowNodes.first?.token)
-
-        XCTAssertTrue(controller.workspaceManager.setWindowMode(.floating, for: middleToken))
-        layout()
-        XCTAssertTrue(controller.workspaceManager.setWindowMode(.tiling, for: middleToken))
-        layout()
-
-        XCTAssertEqual(engine.columns(in: workspaceId).map(\.windowNodes.count), [1, 1, 1])
     }
 
     func testEngineReplacementRefreshesWindowSizingWithoutInterveningLayout() throws {
