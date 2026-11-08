@@ -55,6 +55,7 @@ enum SettingsSearchIndex {
         setting("Customize", section: .appearance, tab: "borders", anchor: "Customize"),
         setting("Status Bar", section: .menuBar, tab: "status", anchor: "Status Bar"),
         setting("Show Workspace", section: .menuBar, tab: "status", anchor: "Show Workspace"),
+        setting("Show Layout", section: .menuBar, tab: "status", anchor: "Show Layout"),
         setting("Use Workspace Number", section: .menuBar, tab: "status", anchor: "Use Workspace Number"),
         setting("Show Focused App", section: .menuBar, tab: "status", anchor: "Show Focused App"),
         setting("Show Menu Bar Icon", section: .menuBar, tab: "status", anchor: "Show Menu Bar Icon"),

@@ -45,6 +45,7 @@ extension WMController {
 
     func updateWorkspaceConfig() {
         workspaceManager.applySettings()
+        refreshStatusBar()
         syncMonitorsToNiriEngine()
         layoutRefreshController.requestRelayout(reason: .workspaceConfigChanged)
     }

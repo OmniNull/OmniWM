@@ -260,6 +260,7 @@ extension CanonicalTOMLConfig {
     private func statusBarForExport() -> SettingsExport.StatusBar {
         var statusBar = statusBar
         statusBar.showIcon = statusBar.showIcon ?? true
+        statusBar.showLayout = statusBar.showLayout ?? false
         return statusBar
     }
 
