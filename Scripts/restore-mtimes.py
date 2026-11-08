@@ -2,7 +2,12 @@ import os
 import subprocess
 
 tracked = set(subprocess.run(["git", "ls-files"], capture_output=True, text=True, check=True).stdout.splitlines())
-log = subprocess.run(["git", "log", "--format=@%ct", "--name-only"], capture_output=True, text=True, check=True).stdout
+log = subprocess.run(
+    ["git", "log", "--first-parent", "--diff-merges=first-parent", "--format=@%ct", "--name-only"],
+    capture_output=True,
+    text=True,
+    check=True,
+).stdout
 stamp = None
 for line in log.splitlines():
     if line.startswith("@"):
