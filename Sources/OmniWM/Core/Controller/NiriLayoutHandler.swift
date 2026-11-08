@@ -120,8 +120,7 @@ enum StructuralMutationOutcome: Equatable {
     ) {
         controller?.layoutRefreshController.requestLayoutCommandRelayout(
             affectedWorkspaceIds: [workspaceId],
-            postLayout: postLayout,
-            postLayoutDomains: .layoutCommit
+            postLayout: postLayout
         )
     }
 

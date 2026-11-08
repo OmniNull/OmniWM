@@ -17,7 +17,83 @@ final class FullscreenToggleRaiseTests: XCTestCase {
         var operations: [FocusOperation] = []
     }
 
+    private struct Fixture {
+        let controller: WMController
+        let recorder: FocusRecorder
+        let workspaceId: WorkspaceDescriptor.ID
+        let toggled: WindowToken
+        let other: WindowToken
+    }
+
     func testNiriFullscreenToggleFrontsAndRaisesTheWindowAfterLayout() throws {
+        let fixture = try makeNiriFixture()
+        let node = try XCTUnwrap(fixture.controller.niriEngine?.findNode(for: fixture.toggled, in: fixture.workspaceId))
+
+        for expectedFullscreen in [true, false] {
+            fixture.recorder.operations.removeAll()
+            let blocker = try LayoutRefreshTestSupport.block(
+                fixture.controller, in: fixture.workspaceId, reason: .layoutCommand
+            )
+            defer { LayoutRefreshTestSupport.unblock(fixture.controller, blocker: blocker) }
+
+            let postLayout = try toggleFullscreen(fixture)
+            XCTAssertEqual(node.isFullscreen, expectedFullscreen)
+            XCTAssertTrue(postLayout.isCurrent(using: fixture.controller.workspaceManager))
+            postLayout.runIfCurrent(using: fixture.controller.workspaceManager)
+            XCTAssertEqual(fixture.recorder.operations, [.focus(fixture.toggled), .raise])
+        }
+    }
+
+    func testDwindleFullscreenToggleFrontsAndRaisesTheWindowAfterLayout() throws {
+        let fixture = try makeDwindleFixture()
+        let blocker = try LayoutRefreshTestSupport.block(
+            fixture.controller, in: fixture.workspaceId, reason: .layoutCommand
+        )
+        defer { LayoutRefreshTestSupport.unblock(fixture.controller, blocker: blocker) }
+
+        let postLayout = try toggleFullscreen(fixture)
+        XCTAssertTrue(postLayout.isCurrent(using: fixture.controller.workspaceManager))
+        postLayout.runIfCurrent(using: fixture.controller.workspaceManager)
+        XCTAssertEqual(fixture.recorder.operations, [.focus(fixture.toggled), .raise])
+    }
+
+    func testFullscreenToggleLeavesFocusThatMovedBeforeItsLayout() throws {
+        for usesDwindle in [false, true] {
+            for nativeFocusChange in [false, true] {
+                let fixture = try usesDwindle ? makeDwindleFixture() : makeNiriFixture()
+                let blocker = try LayoutRefreshTestSupport.block(
+                    fixture.controller, in: fixture.workspaceId, reason: .layoutCommand
+                )
+                defer { LayoutRefreshTestSupport.unblock(fixture.controller, blocker: blocker) }
+
+                let postLayout = try toggleFullscreen(fixture)
+                if nativeFocusChange {
+                    XCTAssertTrue(fixture.controller.workspaceManager.setManagedFocus(
+                        fixture.other, in: fixture.workspaceId
+                    ))
+                } else {
+                    XCTAssertNotNil(fixture.controller.focusWindow(fixture.other))
+                }
+                let operationsBeforeAction = fixture.recorder.operations
+                XCTAssertFalse(
+                    postLayout.isCurrent(using: fixture.controller.workspaceManager),
+                    "dwindle=\(usesDwindle), native=\(nativeFocusChange)"
+                )
+                postLayout.runIfCurrent(using: fixture.controller.workspaceManager)
+                XCTAssertEqual(fixture.recorder.operations, operationsBeforeAction)
+            }
+        }
+    }
+
+    private func toggleFullscreen(_ fixture: Fixture) throws -> RefreshPostLayoutAction {
+        XCTAssertEqual(fixture.controller.commandHandler.performCommand(.fullscreen(.managed)), .executed)
+        XCTAssertTrue(fixture.recorder.operations.isEmpty)
+        return try XCTUnwrap(
+            fixture.controller.layoutRefreshController.layoutState.pendingRefresh?.postLayoutActions.first
+        )
+    }
+
+    private func makeNiriFixture() throws -> Fixture {
         let recorder = FocusRecorder()
         let controller = makeController(recorder: recorder)
         let workspaceId = try XCTUnwrap(controller.workspaceManager.workspaceId(for: "1", createIfMissing: true))
@@ -36,26 +112,12 @@ final class FullscreenToggleRaiseTests: XCTestCase {
             onMonitor: controller.workspaceManager.monitorId(for: workspaceId)
         )
         _ = controller.workspaceManager.setManagedFocus(second, in: workspaceId)
-
-        for expectedFullscreen in [true, false] {
-            recorder.operations.removeAll()
-            let blocker = try LayoutRefreshTestSupport.block(controller, in: workspaceId, reason: .layoutCommand)
-            defer { LayoutRefreshTestSupport.unblock(controller, blocker: blocker) }
-
-            XCTAssertEqual(controller.commandHandler.performCommand(.fullscreen(.managed)), .executed)
-            XCTAssertEqual(secondNode.isFullscreen, expectedFullscreen)
-            XCTAssertTrue(recorder.operations.isEmpty)
-
-            let postLayout = try XCTUnwrap(
-                controller.layoutRefreshController.layoutState.pendingRefresh?.postLayoutActions.first
-            )
-            XCTAssertTrue(postLayout.isCurrent(using: controller.workspaceManager))
-            postLayout.runIfCurrent(using: controller.workspaceManager)
-            XCTAssertEqual(recorder.operations, [.focus(second), .raise])
-        }
+        return Fixture(
+            controller: controller, recorder: recorder, workspaceId: workspaceId, toggled: second, other: first
+        )
     }
 
-    func testDwindleFullscreenToggleFrontsAndRaisesTheWindowAfterLayout() throws {
+    private func makeDwindleFixture() throws -> Fixture {
         let recorder = FocusRecorder()
         let controller = makeController(recorder: recorder)
         let workspaceName = "96"
@@ -70,8 +132,7 @@ final class FullscreenToggleRaiseTests: XCTestCase {
         controller.layoutRefreshController.resetState()
         let first = addWindow(pid: 830_002, windowId: 830_201, to: workspaceId, controller: controller)
         let second = addWindow(pid: 830_002, windowId: 830_202, to: workspaceId, controller: controller)
-        let screen = controller.workspaceManager.monitor(for: workspaceId)?.visibleFrame
-            ?? CGRect(x: 0, y: 0, width: 1200, height: 800)
+        let screen = try XCTUnwrap(controller.workspaceManager.monitor(for: workspaceId)).visibleFrame
         controller.workspaceManager.withEngineMutationScope {
             _ = engine.addWindow(token: first, to: workspaceId, activeWindowFrame: nil)
             _ = engine.addWindow(token: second, to: workspaceId, activeWindowFrame: nil)
@@ -80,19 +141,10 @@ final class FullscreenToggleRaiseTests: XCTestCase {
         controller.layoutRefreshController.resetState()
         let selected = try XCTUnwrap(engine.activeToken(in: workspaceId))
         _ = controller.workspaceManager.setManagedFocus(selected, in: workspaceId)
-
-        let blocker = try LayoutRefreshTestSupport.block(controller, in: workspaceId, reason: .layoutCommand)
-        defer { LayoutRefreshTestSupport.unblock(controller, blocker: blocker) }
-
-        XCTAssertEqual(controller.commandHandler.performCommand(.fullscreen(.managed)), .executed)
-        XCTAssertTrue(recorder.operations.isEmpty)
-
-        let postLayout = try XCTUnwrap(
-            controller.layoutRefreshController.layoutState.pendingRefresh?.postLayoutActions.first
+        return Fixture(
+            controller: controller, recorder: recorder, workspaceId: workspaceId,
+            toggled: selected, other: selected == first ? second : first
         )
-        XCTAssertTrue(postLayout.isCurrent(using: controller.workspaceManager))
-        postLayout.runIfCurrent(using: controller.workspaceManager)
-        XCTAssertEqual(recorder.operations, [.focus(selected), .raise])
     }
 
     private func makeController(recorder: FocusRecorder) -> WMController {
