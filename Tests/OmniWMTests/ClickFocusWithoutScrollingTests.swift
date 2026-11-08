@@ -14,8 +14,12 @@ final class ClickFocusWithoutScrollingTests: XCTestCase {
         let monitor: Monitor
         let nodes: [NiriWindow]
 
+        var targetIndex: Int {
+            nodes.count - 1
+        }
+
         var target: NiriWindow {
-            nodes[2]
+            nodes[targetIndex]
         }
 
         var state: ViewportState {
@@ -41,7 +45,8 @@ final class ClickFocusWithoutScrollingTests: XCTestCase {
                 at: index, containers: columns, gap: controller.innerGap(for: monitor), sizeKeyPath: \.cachedWidth
             )
             let origin = try viewOrigin(of: state)
-            return start >= origin - 0.5 && start + columns[index].cachedWidth <= origin + monitor.frame.width + 0.5
+            let visibleWidth = controller.niriWorkingFrame(for: monitor).width
+            return start >= origin && start + columns[index].cachedWidth <= origin + visibleWidth
         }
 
         func activateTarget(afterClick: Bool) throws {
@@ -76,7 +81,8 @@ final class ClickFocusWithoutScrollingTests: XCTestCase {
 
         func scrollWheelOneColumnBack() {
             controller.mouseEventHandler.handleScrollWheelFromTap(MouseScrollIntake(
-                location: monitor.frame.center, deltaX: -120, deltaY: 0, momentumPhase: 0, phase: 0,
+                location: monitor.frame.center, deltaX: -niriWheelScrollTickAmount, deltaY: 0, momentumPhase: 0,
+                phase: 0,
                 modifiersRawValue: controller.settings.gestures.scrollModifierKey.cgEventFlag.rawValue
             ))
         }
@@ -148,7 +154,7 @@ final class ClickFocusWithoutScrollingTests: XCTestCase {
             try fixture.activateTarget(afterClick: true)
             _ = try fixture.relayout()
             fixture.scrollWheelOneColumnBack()
-            XCTAssertEqual(fixture.state.selectedNodeId, fixture.nodes[1].id)
+            XCTAssertEqual(fixture.state.selectedNodeId, fixture.nodes[fixture.targetIndex - 1].id)
         }
     }
 
