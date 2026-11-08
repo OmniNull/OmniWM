@@ -30,7 +30,7 @@ jobs:
     name: Cache dependencies
     if: github.event_name == 'push' && github.ref == 'refs/heads/main'
     cache-mode: write
-    runs-on: xcode-27
+    runs-on: blacksmith-6vcpu-macos-27
     timeout-minutes: 60
     steps:
       - uses: actions/checkout@3d3c42e5aac5ba805825da76410c181273ba90b1
@@ -83,7 +83,7 @@ jobs:
           fi | python3 Scripts/ci_test_plan.py "$EVENT" >> "$GITHUB_OUTPUT"
   tooling:
     name: Tooling
-    runs-on: xcode-27
+    runs-on: blacksmith-6vcpu-macos-27
     timeout-minutes: 30
     steps:
       - name: Validate requested pull request
@@ -120,7 +120,7 @@ jobs:
   verify:
     name: Verify
     needs: changes
-    runs-on: xcode-27
+    runs-on: blacksmith-6vcpu-macos-27
     timeout-minutes: 60
     steps:
       - name: Validate requested pull request
@@ -195,7 +195,7 @@ jobs:
     name: Tests (${{ matrix.name }})
     needs: [changes, verify]
     if: ${{ !cancelled() && needs.changes.outputs.tests == 'true' && needs.verify.result == 'success' }}
-    runs-on: xcode-27
+    runs-on: blacksmith-6vcpu-macos-27
     timeout-minutes: 30
     strategy:
       fail-fast: false
