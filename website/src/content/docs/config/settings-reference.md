@@ -361,7 +361,7 @@ Extra readouts beside the menu bar icon.
 | `useWorkspaceId` | boolean | `false` | Shows the workspace number instead of its name. |
 | `showIcon` | boolean | `true` | Shows the OmniWM icon beside the workspace or layout. When off, state icons still appear for diagnostics, Secure Input, and keyboard modes. Has no effect while both `showWorkspaceName` and `showLayout` are off. |
 
-While workspace information is unavailable, a layout-only item with the OmniWM icon hidden shows `…` so its controls remain accessible.
+If workspace information is unavailable, the item falls back to the OmniWM icon; state icons retain precedence.
 
 ## statusMenu
 

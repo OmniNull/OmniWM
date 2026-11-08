@@ -4,6 +4,19 @@
 import AppKit
 
 extension StatusBarController {
+    static let statusIconPointSize: CGFloat = 18
+    static let layoutSymbolPointSize: CGFloat = 14
+    static let layoutIconSpacing: CGFloat = 5
+
+    private static let niriLayoutGlyph = layoutGlyph(systemSymbolName: "rectangle.split.3x1")
+    private static let dwindleLayoutGlyph = layoutGlyph(systemSymbolName: "rectangle.split.2x2")
+    private static let brandedNiriLayoutImage = statusButtonImage(
+        icon: OmniWMBrandMark.statusItemImage(pointSize: statusIconPointSize), layout: .niri
+    )
+    private static let brandedDwindleLayoutImage = statusButtonImage(
+        icon: OmniWMBrandMark.statusItemImage(pointSize: statusIconPointSize), layout: .dwindle
+    )
+
     static func statusButtonTitle(
         workspaceLabel: String?,
         focusedAppName: String?,
@@ -21,8 +34,8 @@ extension StatusBarController {
 
     nonisolated static func layoutDisplayName(_ layout: ActiveLayoutKind) -> String {
         switch layout {
-        case .niri: String(localized: "Niri (Scrolling)")
-        case .dwindle: String(localized: "Dwindle (BSP)")
+        case .niri: LayoutType.niri.localizedDisplayName
+        case .dwindle: LayoutType.dwindle.localizedDisplayName
         }
     }
 
@@ -53,47 +66,46 @@ extension StatusBarController {
             .joined(separator: String(localized: ", "))
     }
 
-    static func statusButtonImage(icon: NSImage?, layout: ActiveLayoutKind?) -> NSImage? {
-        guard let layout else { return icon }
-        let symbol = switch layout {
-        case .niri: "rectangle.split.3x1"
-        case .dwindle: "rectangle.split.2x2"
+    static func layoutGlyph(_ layout: ActiveLayoutKind) -> NSImage? {
+        switch layout {
+        case .niri: niriLayoutGlyph
+        case .dwindle: dwindleLayoutGlyph
         }
-        guard let layoutImage = NSImage(systemSymbolName: symbol, accessibilityDescription: nil)?
-            .withSymbolConfiguration(.init(pointSize: 14, weight: .regular))
-        else { return icon }
-        let iconWidth = icon?.size.width ?? 0
-        let spacing: CGFloat = icon == nil ? 0 : 5
-        let height = max(icon?.size.height ?? 0, layoutImage.size.height)
-        let isTemplate = icon?.isTemplate ?? true
-        let image = NSImage(
-            size: NSSize(width: iconWidth + spacing + layoutImage.size.width, height: height),
-            flipped: false
-        ) { _ in
-            if let icon {
-                icon.draw(in: NSRect(
-                    x: 0,
-                    y: (height - icon.size.height) / 2,
-                    width: iconWidth,
-                    height: icon.size.height
-                ))
-            }
-            let layoutRect = NSRect(
-                x: iconWidth + spacing,
-                y: (height - layoutImage.size.height) / 2,
-                width: layoutImage.size.width,
-                height: layoutImage.size.height
-            )
-            if isTemplate {
-                layoutImage.draw(in: layoutRect)
-            } else {
-                let coloredLayout = layoutImage.withSymbolConfiguration(.init(paletteColors: [.labelColor]))
-                    ?? layoutImage
-                coloredLayout.draw(in: layoutRect)
-            }
+    }
+
+    static func brandedLayoutImage(_ layout: ActiveLayoutKind) -> NSImage? {
+        switch layout {
+        case .niri: brandedNiriLayoutImage
+        case .dwindle: brandedDwindleLayoutImage
+        }
+    }
+
+    static func statusButtonImage(icon: NSImage?, layout: ActiveLayoutKind?) -> NSImage? {
+        guard let layout, let glyph = layoutGlyph(layout) else { return icon }
+        guard let icon else { return glyph }
+        let height = max(icon.size.height, glyph.size.height)
+        let iconRect = NSRect(
+            x: 0, y: (height - icon.size.height) / 2, width: icon.size.width, height: icon.size.height
+        )
+        let glyphRect = NSRect(
+            x: icon.size.width + layoutIconSpacing, y: (height - glyph.size.height) / 2,
+            width: glyph.size.width, height: glyph.size.height
+        )
+        let isTemplate = icon.isTemplate
+        let drawnGlyph = isTemplate
+            ? glyph
+            : glyph.withSymbolConfiguration(.init(paletteColors: [.labelColor])) ?? glyph
+        let image = NSImage(size: NSSize(width: glyphRect.maxX, height: height), flipped: false) { _ in
+            icon.draw(in: iconRect)
+            drawnGlyph.draw(in: glyphRect)
             return true
         }
         image.isTemplate = isTemplate
         return image
+    }
+
+    private static func layoutGlyph(systemSymbolName: String) -> NSImage? {
+        NSImage(systemSymbolName: systemSymbolName, accessibilityDescription: nil)?
+            .withSymbolConfiguration(.init(pointSize: layoutSymbolPointSize, weight: .regular))
     }
 }

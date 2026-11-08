@@ -65,7 +65,7 @@ final class StatusBarController: NSObject {
         statusItem = ownedStatusItem
 
         guard let button = statusButton else { return }
-        button.image = OmniWMBrandMark.statusItemImage(pointSize: 18)
+        button.image = OmniWMBrandMark.statusItemImage(pointSize: Self.statusIconPointSize)
         button.target = self
         button.action = #selector(handleClick(_:))
         button.sendAction(on: [.leftMouseUp, .rightMouseUp])
@@ -169,70 +169,61 @@ final class StatusBarController: NSObject {
         refreshWorkspaces()
     }
 
-    func updateButtonAppearance() {
-        guard let button = statusButton else { return }
+    private func updateButtonAppearance(
+        _ button: NSStatusBarButton,
+        controller: WMController?,
+        summary: WMController.StatusBarWorkspaceSummary?,
+        hasStateIcon: Bool
+    ) {
         button.wantsLayer = true
-        if controller?.traceCaptureStatus.profile == .problem {
-            let config = NSImage.SymbolConfiguration(paletteColors: [.systemRed])
-            button.image = NSImage(
-                systemSymbolName: "record.circle.fill",
-                accessibilityDescription: String(localized: "OmniWM, recording diagnostics")
-            )?.withSymbolConfiguration(config)
-            button.image?.isTemplate = false
-            button.contentTintColor = nil
-            button.toolTip = String(localized: "OmniWM — recording diagnostics (auto-stops in 10 min)")
-            applyRecordingPulse(to: button)
-        } else if controller?.traceCaptureStatus.profile == .performance {
-            button.layer?.removeAnimation(forKey: recordingPulseKey)
-            button.layer?.opacity = 1
-            let config = NSImage.SymbolConfiguration(paletteColors: [.systemBlue])
-            button.image = NSImage(
-                systemSymbolName: "gauge.with.dots.needle.67percent",
-                accessibilityDescription: String(localized: "OmniWM, measuring performance")
-            )?.withSymbolConfiguration(config)
-            button.image?.isTemplate = false
-            button.contentTintColor = nil
-            button.toolTip = String(localized: "OmniWM — measuring performance (auto-stops in 10 min)")
-        } else if controller?.isSecureInputIndicated == true {
-            button.layer?.removeAnimation(forKey: recordingPulseKey)
-            button.layer?.opacity = 1
-            button.image = OmniWMBrandMark.secureInputStatusImage(pointSize: 18, tint: .labelColor)
-            button.image?.accessibilityDescription = String(localized: "OmniWM, Secure Input is on")
-            button.contentTintColor = nil
-            button.toolTip = String(localized: "Secure Input is on: Option shortcuts are paused")
-        } else if let kind = controller?.keyboardModeKind, kind != .normal {
-            button.layer?.removeAnimation(forKey: recordingPulseKey)
-            button.layer?.opacity = 1
-            button.image = Self.keyboardModeStatusImage(kind)
-            button.contentTintColor = nil
-            button.toolTip = Self.keyboardModeToolTip(kind)
+        button.contentTintColor = nil
+        let profile = controller?.traceCaptureStatus.profile
+        if profile == .problem {
+            applyRecordingPulse(to: button, animationsEnabled: controller?.motionPolicy.animationsEnabled != false)
         } else {
             button.layer?.removeAnimation(forKey: recordingPulseKey)
             button.layer?.opacity = 1
-            button.image = OmniWMBrandMark.statusItemImage(pointSize: 18)
-            button.contentTintColor = nil
-            button.toolTip = settings.statusBar.showLayout
-                ? controller?.activeStatusBarWorkspaceSummary().map { Self.layoutDisplayName($0.layout) }
-                : nil
         }
-        updateButtonLayoutImage(button)
-        updateButtonAccessibility(button)
+        let layout = settings.statusBar.showLayout ? summary?.layout : nil
+        if profile == .problem {
+            button.image = NSImage(
+                systemSymbolName: "record.circle.fill",
+                accessibilityDescription: String(localized: "OmniWM, recording diagnostics")
+            )?.withSymbolConfiguration(NSImage.SymbolConfiguration(paletteColors: [.systemRed]))
+            button.image?.isTemplate = false
+            button.toolTip = String(localized: "OmniWM — recording diagnostics (auto-stops in 10 min)")
+        } else if profile == .performance {
+            button.image = NSImage(
+                systemSymbolName: "gauge.with.dots.needle.67percent",
+                accessibilityDescription: String(localized: "OmniWM, measuring performance")
+            )?.withSymbolConfiguration(NSImage.SymbolConfiguration(paletteColors: [.systemBlue]))
+            button.image?.isTemplate = false
+            button.toolTip = String(localized: "OmniWM — measuring performance (auto-stops in 10 min)")
+        } else if controller?.isSecureInputIndicated == true {
+            button.image = OmniWMBrandMark.secureInputStatusImage(
+                pointSize: Self.statusIconPointSize,
+                tint: .labelColor
+            )
+            button.image?.accessibilityDescription = String(localized: "OmniWM, Secure Input is on")
+            button.toolTip = String(localized: "Secure Input is on: Option shortcuts are paused")
+        } else if let kind = controller?.keyboardModeKind, kind != .normal {
+            button.image = Self.keyboardModeStatusImage(kind)
+            button.toolTip = Self.keyboardModeToolTip(kind)
+        } else if let layout {
+            button.image = settings.statusBar.showIcon ? Self.brandedLayoutImage(layout) : Self.layoutGlyph(layout)
+            button.toolTip = Self.layoutDisplayName(layout)
+        } else {
+            button.image = OmniWMBrandMark.statusItemImage(pointSize: Self.statusIconPointSize)
+            button.toolTip = nil
+        }
+        if hasStateIcon, let layout {
+            button.image = Self.statusButtonImage(icon: button.image, layout: layout)
+        }
+        updateButtonAccessibility(button, controller: controller, summary: summary)
     }
 
-    private func updateButtonLayoutImage(_ button: NSStatusBarButton) {
-        guard settings.statusBar.showLayout,
-              let summary = controller?.activeStatusBarWorkspaceSummary()
-        else { return }
-        let hasStateIcon = controller?.traceCaptureStatus.profile != nil || controller?.isSecureInputIndicated == true
-            || (controller?.keyboardModeKind ?? .normal) != .normal
-        button.image = Self.statusButtonImage(
-            icon: settings.statusBar.showIcon || hasStateIcon ? button.image : nil,
-            layout: summary.layout
-        )
-    }
-
-    private func applyRecordingPulse(to button: NSStatusBarButton) {
-        guard controller?.motionPolicy.animationsEnabled != false else {
+    private func applyRecordingPulse(to button: NSStatusBarButton, animationsEnabled: Bool) {
+        guard animationsEnabled else {
             button.layer?.removeAnimation(forKey: recordingPulseKey)
             button.layer?.opacity = 1
             return
@@ -253,10 +244,11 @@ final class StatusBarController: NSObject {
         return String(appName.prefix(maxStatusBarAppNameLength)) + "\u{2026}"
     }
 
-    private func updateButtonAccessibility(_ button: NSStatusBarButton) {
-        let summary = settings.statusBar.showWorkspaceName || settings.statusBar.showLayout
-            ? controller?.activeStatusBarWorkspaceSummary()
-            : nil
+    private func updateButtonAccessibility(
+        _ button: NSStatusBarButton,
+        controller: WMController?,
+        summary: WMController.StatusBarWorkspaceSummary?
+    ) {
         let workspaceLabel = settings.statusBar.showWorkspaceName ? summary.map {
             settings.statusBar.useWorkspaceId ? $0.workspaceRawName : $0.workspaceLabel
         } : nil
@@ -278,22 +270,18 @@ final class StatusBarController: NSObject {
     func refreshWorkspaces() {
         guard let button = statusButton else { return }
 
-        updateButtonAppearance()
+        let controller = controller
+        let summary = settings.statusBar.showWorkspaceName || settings.statusBar.showLayout
+            ? controller?.activeStatusBarWorkspaceSummary()
+            : nil
         let modeTitle = Self.keyboardModeTitle(controller?.keyboardModeKind ?? .normal)
         let hasStateIcon = controller?.traceCaptureStatus.profile != nil || controller?.isSecureInputIndicated == true
             || modeTitle != nil
+        updateButtonAppearance(button, controller: controller, summary: summary, hasStateIcon: hasStateIcon)
 
-        guard settings.statusBar.showWorkspaceName || settings.statusBar.showLayout,
-              let summary = controller?.activeStatusBarWorkspaceSummary()
-        else {
-            if settings.statusBar.showLayout, !settings.statusBar.showIcon, !hasStateIcon {
-                button.image = nil
-                button.title = " \u{2026}"
-                button.imagePosition = .noImage
-            } else {
-                button.title = modeTitle.map { " \($0)" } ?? ""
-                button.imagePosition = modeTitle == nil ? .imageOnly : .imageLeft
-            }
+        guard let summary else {
+            button.title = modeTitle.map { " \($0)" } ?? ""
+            button.imagePosition = modeTitle == nil ? .imageOnly : .imageLeft
             return
         }
 

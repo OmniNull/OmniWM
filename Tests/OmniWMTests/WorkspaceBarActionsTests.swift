@@ -443,14 +443,16 @@ final class WorkspaceBarActionsTests: XCTestCase {
 
         controller.settings.workspaces.defaultLayoutType = .dwindle
         XCTAssertEqual(controller.activeStatusBarWorkspaceSummary()?.layout, .dwindle)
-        XCTAssertTrue(controller.commandHandler.setWorkspaceLayout(.niri, forWorkspaceNamed: "2"))
+        let mainWorkspaceName = try XCTUnwrap(manager.descriptor(for: fixture.ws2)).name
+        XCTAssertTrue(controller.commandHandler.setWorkspaceLayout(.niri, forWorkspaceNamed: mainWorkspaceName))
         XCTAssertTrue(manager.setActiveWorkspace(fixture.ws2, on: fixture.mainMonitor.id))
         XCTAssertEqual(controller.activeStatusBarWorkspaceSummary()?.layout, .niri)
 
         XCTAssertTrue(manager.setInteractionMonitor(fixture.sideMonitor.id))
         XCTAssertEqual(controller.activeStatusBarWorkspaceSummary()?.monitorId, fixture.sideMonitor.id)
         XCTAssertEqual(controller.activeStatusBarWorkspaceSummary()?.layout, .dwindle)
-        XCTAssertTrue(controller.commandHandler.setWorkspaceLayout(.niri, forWorkspaceNamed: "3"))
+        let sideWorkspaceName = try XCTUnwrap(manager.descriptor(for: fixture.ws3)).name
+        XCTAssertTrue(controller.commandHandler.setWorkspaceLayout(.niri, forWorkspaceNamed: sideWorkspaceName))
         XCTAssertEqual(controller.activeStatusBarWorkspaceSummary()?.layout, .niri)
     }
 
@@ -479,16 +481,16 @@ final class WorkspaceBarActionsTests: XCTestCase {
         }
         statusBar.setup()
         let button = try XCTUnwrap(statusBar.statusButton)
-        XCTAssertEqual(button.accessibilityValue() as? String, "Niri (Scrolling)")
+        XCTAssertEqual(button.accessibilityValue() as? String, LayoutType.niri.localizedDisplayName)
 
         XCTAssertTrue(controller.commandHandler.setWorkspaceLayout(.dwindle))
-        XCTAssertEqual(button.accessibilityValue() as? String, "Dwindle (BSP)")
+        XCTAssertEqual(button.accessibilityValue() as? String, LayoutType.dwindle.localizedDisplayName)
         XCTAssertTrue(controller.commandHandler.setWorkspaceLayout(.defaultLayout))
-        XCTAssertEqual(button.accessibilityValue() as? String, "Niri (Scrolling)")
+        XCTAssertEqual(button.accessibilityValue() as? String, LayoutType.niri.localizedDisplayName)
 
         controller.settings.workspaces.defaultLayoutType = .dwindle
         controller.updateWorkspaceConfig()
-        XCTAssertEqual(button.accessibilityValue() as? String, "Dwindle (BSP)")
+        XCTAssertEqual(button.accessibilityValue() as? String, LayoutType.dwindle.localizedDisplayName)
         await WindowAdmissionTestSupport.drainLayoutRefreshes(controller)
     }
 
