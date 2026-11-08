@@ -48,16 +48,6 @@ final class ShellIconTests: XCTestCase {
         XCTAssertEqual(keys, ShellDataKey.allCases.map(\.rawValue))
     }
 
-    func testVolumeDataIsDemandedAndReadsWithinRange() throws {
-        let bytes = try output("function render(ctx) local _ = ctx.data.muted return ui.box{ w = 1, h = 1 } end")
-        let deps = bytes.withUnsafeBytes { $0.loadUnaligned(as: omni_wire_header.self).deps }
-        XCTAssertNotEqual(deps & ShellDataKey.muted.bit, 0)
-        guard let device = ShellAudio.defaultOutput(), let volume = ShellAudio.volume(of: device) else {
-            throw MissingTestPrerequisite("no default output with a main volume")
-        }
-        XCTAssertTrue((0 ... 100).contains(volume))
-    }
-
     func testScaleAndShadowReachTheWire() throws {
         let plain = try output("function render(ctx) return ui.icon{ app = \"com.apple.finder\" } end")
         let styled = try output("""

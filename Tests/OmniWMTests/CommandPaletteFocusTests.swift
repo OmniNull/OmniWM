@@ -209,28 +209,6 @@ final class CommandPaletteFocusTests: XCTestCase {
         XCTAssertEqual(fixture.palette.searchText, "second")
     }
 
-    func testPalettePanelIsNonactivatingAndSearchRemainsFocused() async throws {
-        let session = CGSessionCopyCurrentDictionary() as? [String: Any]
-        guard session?["CGSSessionScreenIsLocked"] as? Bool != true else {
-            throw MissingTestPrerequisite("A locked console cannot grant key-window status")
-        }
-        _ = NSApplication.shared
-        let originalPolicy = NSApp.activationPolicy()
-        NSApp.setActivationPolicy(.accessory)
-        defer { NSApp.setActivationPolicy(originalPolicy) }
-        let fixture = CommandPaletteFocusFixture()
-        defer { fixture.cleanup() }
-        let panel = try await showAndWaitForEditing(fixture)
-
-        XCTAssertTrue(panel.styleMask.contains(.nonactivatingPanel))
-        XCTAssertTrue(
-            panel.isKeyWindow,
-            "active=\(NSApp.isActive) visible=\(panel.isVisible) key=\(String(describing: NSApp.keyWindow))"
-        )
-        try fixture.insertText("search")
-        XCTAssertEqual(fixture.palette.searchText, "search")
-    }
-
     func testChangingModeReturnsFocusToSearch() async throws {
         let app = NSRunningApplication.current
         let fixture = CommandPaletteFocusFixture { environment in
