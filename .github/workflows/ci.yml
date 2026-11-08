@@ -42,13 +42,16 @@ jobs:
       - uses: ./.github/actions/setup-lix
         with:
           make-target: setup
-      - name: Date sources by their last commit
-        run: python3 Scripts/restore-mtimes.py
       - uses: actions/cache/restore@55cc8345863c7cc4c66a329aec7e433d2d1c52a9
+        id: build-cache
         with:
           path: .build/localization
           key: swift-build-v2-${{ runner.os }}-${{ runner.arch }}-${{ hashFiles('.swift-version', 'Package.resolved', 'Scripts/build-metadata.env') }}-${{ github.sha }}
           restore-keys: swift-build-v2-${{ runner.os }}-${{ runner.arch }}-${{ hashFiles('.swift-version', 'Package.resolved', 'Scripts/build-metadata.env') }}-
+      - name: Date sources by their last commit
+        env:
+          CACHED_BUILD_KEY: ${{ steps.build-cache.outputs.cache-matched-key }}
+        run: python3 Scripts/restore-mtimes.py "$CACHED_BUILD_KEY"
       - name: Build the app and test bundle
         run: LIBRARY_PATH="$(./Scripts/ghostty-preflight.sh print-library-dir)${LIBRARY_PATH:+:$LIBRARY_PATH}" swift build --build-tests --build-system swiftbuild --arch arm64 --scratch-path .build/localization
       - uses: actions/cache/save@55cc8345863c7cc4c66a329aec7e433d2d1c52a9
@@ -138,15 +141,18 @@ jobs:
       - uses: ./.github/actions/setup-lix
         with:
           make-target: setup
-      - name: Date sources by their last commit
-        if: needs.changes.outputs.tests == 'true'
-        run: python3 Scripts/restore-mtimes.py
       - uses: actions/cache/restore@55cc8345863c7cc4c66a329aec7e433d2d1c52a9
         if: needs.changes.outputs.tests == 'true'
+        id: build-cache
         with:
           path: .build/localization
           key: swift-build-v2-${{ runner.os }}-${{ runner.arch }}-${{ hashFiles('.swift-version', 'Package.resolved', 'Scripts/build-metadata.env') }}-${{ github.sha }}
           restore-keys: swift-build-v2-${{ runner.os }}-${{ runner.arch }}-${{ hashFiles('.swift-version', 'Package.resolved', 'Scripts/build-metadata.env') }}-
+      - name: Date sources by their last commit
+        if: needs.changes.outputs.tests == 'true'
+        env:
+          CACHED_BUILD_KEY: ${{ steps.build-cache.outputs.cache-matched-key }}
+        run: python3 Scripts/restore-mtimes.py "$CACHED_BUILD_KEY"
       - name: Put flake tools on PATH
         run: echo "$PWD/.cache/flake-tools/bin" >> "$GITHUB_PATH"
       - name: Verify package toolchain
