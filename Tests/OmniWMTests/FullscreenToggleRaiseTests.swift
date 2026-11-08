@@ -11,6 +11,7 @@ final class FullscreenToggleRaiseTests: XCTestCase {
     private enum FocusOperation: Equatable {
         case focus(WindowToken)
         case raise
+        case workerRaise(WindowToken)
     }
 
     private final class FocusRecorder {
@@ -40,7 +41,7 @@ final class FullscreenToggleRaiseTests: XCTestCase {
             XCTAssertEqual(node.isFullscreen, expectedFullscreen)
             XCTAssertTrue(postLayout.isCurrent(using: fixture.controller.workspaceManager))
             postLayout.runIfCurrent(using: fixture.controller.workspaceManager)
-            XCTAssertEqual(fixture.recorder.operations, [.focus(fixture.toggled), .raise])
+            XCTAssertEqual(fixture.recorder.operations, [.focus(fixture.toggled), .workerRaise(fixture.toggled)])
         }
     }
 
@@ -54,7 +55,7 @@ final class FullscreenToggleRaiseTests: XCTestCase {
         let postLayout = try toggleFullscreen(fixture)
         XCTAssertTrue(postLayout.isCurrent(using: fixture.controller.workspaceManager))
         postLayout.runIfCurrent(using: fixture.controller.workspaceManager)
-        XCTAssertEqual(fixture.recorder.operations, [.focus(fixture.toggled), .raise])
+        XCTAssertEqual(fixture.recorder.operations, [.focus(fixture.toggled), .workerRaise(fixture.toggled)])
     }
 
     func testFullscreenToggleLeavesFocusThatMovedBeforeItsLayout() throws {
@@ -169,7 +170,11 @@ final class FullscreenToggleRaiseTests: XCTestCase {
                 focusSpecificWindow: { pid, windowId, _ in
                     recorder.operations.append(.focus(WindowToken(pid: pid, windowId: Int(windowId))))
                 },
-                raiseWindow: { _ in recorder.operations.append(.raise) }
+                raiseWindow: { _ in recorder.operations.append(.raise) },
+                enqueueRetryRaise: { pid, window, _, _, _ in
+                    recorder.operations.append(.workerRaise(WindowToken(pid: pid, windowId: window.windowId)))
+                    return true
+                }
             )
         )
     }

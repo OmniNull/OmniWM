@@ -59,7 +59,7 @@ extension WMController {
                   activeWorkspace()?.id == workspaceId,
                   workspaceManager.entry(for: token)?.workspaceId == workspaceId
             else { return }
-            focusWindow(token)
+            focusWindow(token, raisesWindow: false, requiresWorkerRaise: true)
         }
     }
 
