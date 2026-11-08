@@ -31,6 +31,25 @@ final class WorkspaceSwitchParkOrderingTests: XCTestCase {
         XCTAssertNotNil(staged.controller.axManager.pendingParkFrameRequest(for: staged.outgoing.windowId))
     }
 
+    func testTitleChangePreservesPendingIncomingFrameWrite() throws {
+        let staged = try stageWorkspaceSwitch()
+        let controller = staged.controller
+        let write = staged.incomingWrite
+        let incoming = WindowToken(pid: write.pid, windowId: write.windowId)
+        controller.axEventHandler.windowTitleProvider = { _ in "New title" }
+
+        controller.axEventHandler.handleWindowTitleChanged(windowId: UInt32(write.windowId), pid: write.pid)
+
+        XCTAssertEqual(controller.workspaceManager.managedReplacementMetadata(for: incoming)?.title, "New title")
+        XCTAssertEqual(controller.axManager.pendingFrameWrite(for: write.windowId), write.frame)
+        XCTAssertNotNil(controller.axManager.pendingParkFrameRequest(for: staged.outgoing.windowId))
+
+        controller.axManager.handleFrameApplyResults([WindowAdmissionTestSupport.successfulFrameResult(request: write)])
+
+        XCTAssertEqual(controller.axManager.lastAppliedFrame(for: write.windowId), write.frame)
+        XCTAssertNil(controller.axManager.pendingParkFrameRequest(for: staged.outgoing.windowId))
+    }
+
     private struct StagedSwitch {
         let controller: WMController
         let outgoing: WindowToken
@@ -57,7 +76,10 @@ final class WorkspaceSwitchParkOrderingTests: XCTestCase {
             outgoingRef, pid: 818_001, windowId: 818_101, to: outgoingWorkspace
         )
         let incomingRef = AXWindowRef(element: AXUIElementCreateApplication(818_002), windowId: 818_102)
-        _ = controller.workspaceManager.addWindow(incomingRef, pid: 818_002, windowId: 818_102, to: incomingWorkspace)
+        _ = controller.workspaceManager.addWindow(
+            incomingRef, pid: 818_002, windowId: 818_102, to: incomingWorkspace,
+            managedReplacementMetadata: .init(workspaceId: incomingWorkspace, mode: .tiling, title: "Original title")
+        )
         let onscreenFrame = CGRect(x: 100, y: 16, width: 1200, height: 900)
         controller.layoutRefreshController.fastFrameProvider = { _, _ in onscreenFrame }
 

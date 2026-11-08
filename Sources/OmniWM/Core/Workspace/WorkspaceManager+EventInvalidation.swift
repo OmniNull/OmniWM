@@ -38,9 +38,11 @@ extension WorkspaceManager {
         case let .windowAdmitted(_, workspaceId, _, _, _, _, _, _, _, _, _, _),
              let .windowModeChanged(_, workspaceId, _, _, _),
              let .windowMinimizedChanged(_, workspaceId, _, _),
-             let .windowNativeWithdrawalChanged(_, workspaceId, _, _),
-             let .managedReplacementMetadataChanged(_, workspaceId, _, _, _):
+             let .windowNativeWithdrawalChanged(_, workspaceId, _, _):
             noteInvalidation(workspaceId: workspaceId, domains: [.workspace, .layout, .focus])
+
+        case let .managedReplacementMetadataChanged(_, workspaceId, _, _, _):
+            noteInvalidation(workspaceId: workspaceId, domains: [.layout, .focus])
 
         case let .hiddenStateChanged(token, workspaceId, _, hiddenState, _):
             noteHiddenStateInvalidation(hiddenState, of: token, in: workspaceId)
@@ -59,10 +61,8 @@ extension WorkspaceManager {
             noteInvalidation(workspaceId: workspaceId, domains: .layout)
 
         case .niriPlacementsResolved,
-             .dwindlePlacementsResolved:
-            break
-
-        case .topLevelInventoryObserved:
+             .dwindlePlacementsResolved,
+             .topLevelInventoryObserved:
             break
 
         case let .hiddenApplicationsChanged(_, affectedWorkspaceIds, _):
