@@ -74,7 +74,7 @@ struct PaletteShortcuts {
     static func current(modifier: PaletteModifier) -> PaletteShortcuts {
         PaletteShortcuts(
             modifier: modifier,
-            keyCodeForLetter: KeyboardLayoutKeyCode.current(modifiers: modifier.carbonMask)
+            keyCodeForLetter: KeyboardLayoutKeyCode.current(modifiers: modifier.carbonMask & UInt32(shiftKey))
         )
     }
 
