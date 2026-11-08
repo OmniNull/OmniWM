@@ -73,6 +73,7 @@ Settings live in `~/.config/omniwm/settings.toml` and reload when you save it. M
 
 ## Documentation
 
+<a name="keyboard-shortcuts"></a><a name="configuration"></a>
 Everything lives at [omniwm.app](https://omniwm.app) and follows current `main`.
 
 - [Layout Modes](https://omniwm.app/guides/layouts/) · [Keyboard Shortcuts](https://omniwm.app/guides/keyboard-shortcuts/) · [Multi-Monitor](https://omniwm.app/guides/multi-monitor/) · [Tips](https://omniwm.app/guides/tips/)
